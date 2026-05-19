@@ -18,6 +18,7 @@ import {
   type HeapSnapshotSummary,
 } from '../../tools/heap-snapshot-summary';
 import { WorkerPoolMetricsService } from '../../concurrency/worker-pool-metrics.service';
+import { FlushDiagnosticsService } from '../../persistence/flush-diagnostics.service';
 
 const EMPTY_CPU_BREAKDOWN = [];
 
@@ -114,6 +115,8 @@ export class RuntimeGmStateService {
     runtimeEventBusService;
     /** Worker Pool 指标服务（可选，WorkerPoolModule 未加载时为 null）。 */
     workerPoolMetricsService: WorkerPoolMetricsService | null;
+    /** 刷盘诊断采集器（可选）。 */
+    flushDiagnosticsService: FlushDiagnosticsService | null;
     /** 网络上行事件累计桶。 */
     networkInBucketByKey = new Map();
     /** 网络下行事件累计桶。 */
@@ -152,6 +155,7 @@ export class RuntimeGmStateService {
         worldSessionService: WorldSessionService,
         runtimeEventBusService: RuntimeEventBusService,
         @Optional() @Inject(WorkerPoolMetricsService) workerPoolMetricsService?: WorkerPoolMetricsService,
+        @Optional() @Inject(FlushDiagnosticsService) flushDiagnosticsService?: FlushDiagnosticsService,
     ) {
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -159,6 +163,7 @@ export class RuntimeGmStateService {
         this.worldSessionService = worldSessionService;
         this.runtimeEventBusService = runtimeEventBusService;
         this.workerPoolMetricsService = workerPoolMetricsService ?? null;
+        this.flushDiagnosticsService = flushDiagnosticsService ?? null;
     }
     /** 立即向单个客户端下发 GM 状态快照。 */
     emitState(client) {
@@ -827,6 +832,11 @@ export class RuntimeGmStateService {
             networkInBuckets: networkInBuckets.length > 0 ? networkInBuckets : EMPTY_NETWORK_BUCKETS,
             networkOutBuckets: networkOutBuckets.length > 0 ? networkOutBuckets : EMPTY_NETWORK_BUCKETS,
             workerPool: this.workerPoolMetricsService?.getAllMetrics() ?? null,
+            flushDiagnostics: this.flushDiagnosticsService?.getSnapshot() ?? null,
+            flushStats: this.flushDiagnosticsService ? {
+                player: this.flushDiagnosticsService.getPlayerStats(),
+                map: this.flushDiagnosticsService.getMapStats(),
+            } : null,
         };
     }    
     /**

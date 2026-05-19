@@ -306,6 +306,14 @@ class MapInstanceRuntime {
 
     dirtyMonsterRuntimeIds = new Set();
     /**
+     * dirtyDomainFirstMarkedAt：每个 domain 首次变脏的时间戳（毫秒），用于合并窗口判断。
+     */
+    dirtyDomainFirstMarkedAt = new Map();
+    /**
+     * dirtyDomainHighPriority：玩家主动操作标记的高优先级脏域，绕过合并窗口。
+     */
+    dirtyDomainHighPriority = new Set();
+    /**
      * dynamicTileBlocker：运行时动态阻挡判断，例如阵法边界。
      */
 
@@ -693,7 +701,7 @@ class MapInstanceRuntime {
             this.runtimePortals.sort((left, right) => left.y - right.y || left.x - right.x);
         }
         this.worldRevision += 1;
-        this.markPersistenceDirtyDomains(['overlay']);
+        this.markPersistenceDirtyDomainsHighPriority(['overlay']);
         this.persistentRevision += 1;
         return true;
     }
@@ -758,7 +766,7 @@ class MapInstanceRuntime {
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains(['overlay', 'tile_damage']);
+        this.markPersistenceDirtyDomainsHighPriority(['overlay', 'tile_damage']);
         return true;
     }
     /** activateRuntimeTile：按坐标激活一个运行时地块，已存在坐标不会被覆盖。 */
@@ -783,10 +791,10 @@ class MapInstanceRuntime {
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains(['tile_cell']);
+        this.markPersistenceDirtyDomainsHighPriority(['tile_cell']);
         if (this.shouldRecalculateRoomsForTileMutation(tileIndex, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType, tileType)) {
             this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'runtime_tile_activated', dirtyCellCount: 1 });
-            this.markPersistenceDirtyDomains(['room', 'fengshui']);
+            this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
         }
         return { created: true, tileIndex };
     }
@@ -909,7 +917,7 @@ class MapInstanceRuntime {
                 continue;
             }
             if (this.tileDamageByTile.delete(cellIndex)) {
-                this.markTileDamagePersistenceDirty(cellIndex);
+                this.markTileDamagePersistenceDirtyHighPriority(cellIndex);
                 changed = true;
             }
         }
@@ -1047,7 +1055,7 @@ class MapInstanceRuntime {
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains(Array.from(new Set(dirtyDomains)));
+        this.markPersistenceDirtyDomainsHighPriority(Array.from(new Set(dirtyDomains)));
         return { ok: true, building };
     }
     /** startBuildingConstruction：把半成品建筑切到持续施工状态。 */
@@ -1095,7 +1103,7 @@ class MapInstanceRuntime {
         if (changed) {
             this.worldRevision += 1;
             this.persistentRevision += 1;
-            this.markPersistenceDirtyDomains(['building']);
+            this.markPersistenceDirtyDomainsHighPriority(['building']);
         }
         return { ok: true, building, changed };
     }
@@ -1122,7 +1130,7 @@ class MapInstanceRuntime {
         building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains(['building']);
+        this.markPersistenceDirtyDomainsHighPriority(['building']);
         return { ok: true, building, changed: true };
     }
     /** deconstructBuildingInstance：服务端权威拆除建筑，调用方负责返还和审计。 */
@@ -1161,7 +1169,7 @@ class MapInstanceRuntime {
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains([
+        this.markPersistenceDirtyDomainsHighPriority([
             'building',
             ...(shouldRecalculateRooms ? ['room', 'fengshui'] : []),
             ...(!shouldRecalculateRooms && compiled && compiledBuildingAffectsFengShui(compiled) && wasInRoomInfluence ? ['fengshui'] : []),
@@ -1534,7 +1542,7 @@ class MapInstanceRuntime {
         };
         const result = this.rebuildBuildingRoomFengShuiState({ reason: 'gm_repair' });
         const orphanFengShuiCount = Array.from(this.fengShuiByRoomId.keys()).filter((roomId) => !this.roomsById.has(roomId)).length;
-        this.markPersistenceDirtyDomains(['room', 'fengshui']);
+        this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
         return {
             ok: true,
             before,
@@ -1756,7 +1764,7 @@ class MapInstanceRuntime {
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains(['room', 'fengshui']);
+        this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
         return { ok: true, room: { ...room }, fengShui: this.fengShuiByRoomId.get(room.id) ?? null };
     }
     getFengShuiSnapshotAt(x, y) {
@@ -1998,7 +2006,7 @@ class MapInstanceRuntime {
             building.activeBuilderPlayerId = null;
             const completionDomains = this.activatePlacedBuildingTopologyAndVisual(building);
             if (completionDomains.length > 0) {
-                this.markPersistenceDirtyDomains(completionDomains);
+                this.markPersistenceDirtyDomainsHighPriority(completionDomains);
             }
             completedBuildings.push(building);
         }
@@ -2007,7 +2015,7 @@ class MapInstanceRuntime {
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomains(['building']);
+        this.markPersistenceDirtyDomainsHighPriority(['building']);
         return completedBuildings;
     }
     activatePlacedBuildingTopologyAndVisual(building) {
@@ -2467,11 +2475,11 @@ class MapInstanceRuntime {
                     respawnLeft: 0,
                     modifiedAt: Date.now(),
                 });
-                this.markTileDamagePersistenceDirty(tileIndex);
+                this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
             } else {
                 this.applyDefaultTileLayerFallback(tileIndex);
                 this.tileDamageByTile.delete(tileIndex);
-                this.markTileDamagePersistenceDirty(tileIndex);
+                this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
             }
             this.worldRevision += 1;
             this.persistentRevision += 1;
@@ -2502,10 +2510,10 @@ class MapInstanceRuntime {
                 });
             }
             this.worldRevision += 1;
-            this.markPersistenceDirtyDomains(['temporary_tile']);
+            this.markPersistenceDirtyDomainsHighPriority(['temporary_tile']);
             if (affectsRoomTopology) {
                 this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'temporary_tile_destroyed', dirtyCellCount: 1 });
-                this.markPersistenceDirtyDomains(['room', 'fengshui']);
+                this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
             }
             this.persistentRevision += 1;
             return {
@@ -2540,10 +2548,10 @@ class MapInstanceRuntime {
                 this.markStaticTileSyncDirtyByIndex(tileIndex);
                 this.worldRevision += 1;
                 this.persistentRevision += 1;
-                this.markPersistenceDirtyDomains(['building']);
+                this.markPersistenceDirtyDomainsHighPriority(['building']);
                 if (this.isCellInRoomInfluence(tileIndex)) {
                     this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'building_integrity_damaged');
-                    this.markPersistenceDirtyDomains(['fengshui']);
+                    this.markPersistenceDirtyDomainsHighPriority(['fengshui']);
                 }
             }
             return {
@@ -2571,10 +2579,10 @@ class MapInstanceRuntime {
             this.applyDefaultTileLayerFallback(tileIndex);
             this.tileDamageByTile.delete(tileIndex);
             this.worldRevision += 1;
-            this.markTileDamagePersistenceDirty(tileIndex);
+            this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
             if (this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType)) {
                 this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'sect_boundary_opened', dirtyCellCount: 1 });
-                this.markPersistenceDirtyDomains(['room', 'fengshui']);
+                this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
             }
             this.persistentRevision += 1;
             return {
@@ -2597,13 +2605,14 @@ class MapInstanceRuntime {
         });
         this.markStaticTileSyncDirtyByIndex(tileIndex);
         this.worldRevision += 1;
-        this.markTileDamagePersistenceDirty(tileIndex);
+        this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
         if (affectsRoomTopology) {
             this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'tile_destroyed', dirtyCellCount: 1 });
-            this.markPersistenceDirtyDomains(['room', 'fengshui']);
+            this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
         }
         else if (affectsRoomIntegrity) {
             this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'tile_integrity_damaged');
+            this.markPersistenceDirtyDomainsHighPriority(['fengshui']);
         }
         this.persistentRevision += 1;
         return {
@@ -2646,10 +2655,10 @@ class MapInstanceRuntime {
         });
         this.markStaticTileSyncDirtyByIndex(tileIndex);
         this.worldRevision += 1;
-        this.markPersistenceDirtyDomains(['temporary_tile']);
+        this.markPersistenceDirtyDomainsHighPriority(['temporary_tile']);
         if (this.shouldRecalculateRoomsForTileMutation(tileIndex, previousEffectiveTileType, this.getEffectiveTileTypeByCellIndex(tileIndex))) {
             this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'temporary_tile_created', dirtyCellCount: 1 });
-            this.markPersistenceDirtyDomains(['room', 'fengshui']);
+            this.markPersistenceDirtyDomainsHighPriority(['room', 'fengshui']);
         }
         this.persistentRevision += 1;
         return { created: true, refreshed: Boolean(existingTemporary), tileIndex };
@@ -4228,15 +4237,38 @@ class MapInstanceRuntime {
         markMapInstanceDirtyDomains(this, domains);
         markMapInstancePersistenceFullReplaceDomains(this, domains);
     }
+    /** markPersistenceDirtyDomainsHighPriority：玩家主动操作标记高优先级脏域，绕过合并窗口。 */
+    markPersistenceDirtyDomainsHighPriority(domains) {
+        markMapInstanceDirtyDomains(this, domains);
+        markMapInstancePersistenceFullReplaceDomains(this, domains);
+        markMapInstanceDirtyDomainHighPriority(this, domains);
+    }
     /** markTileResourcePersistenceDirty：记录地块资源行级脏键。 */
     markTileResourcePersistenceDirty(resourceKey, tileIndex) {
         markMapInstanceDirtyDomains(this, ['tile_resource']);
         addTileResourceDirtyKey(this, resourceKey, tileIndex);
         this.markStaticTileSyncDirtyByIndex(tileIndex);
     }
+    /** markTileResourcePersistenceDirtyHighPriority：玩家主动操作触发的地块资源脏标记（高优先级）。 */
+    markTileResourcePersistenceDirtyHighPriority(resourceKey, tileIndex) {
+        markMapInstanceDirtyDomains(this, ['tile_resource']);
+        markMapInstanceDirtyDomainHighPriority(this, ['tile_resource']);
+        addTileResourceDirtyKey(this, resourceKey, tileIndex);
+        this.markStaticTileSyncDirtyByIndex(tileIndex);
+    }
     /** markTileDamagePersistenceDirty：记录地块损坏行级脏键。 */
     markTileDamagePersistenceDirty(tileIndex) {
         markMapInstanceDirtyDomains(this, ['tile_damage']);
+        if (!(this.dirtyTileDamageIndices instanceof Set)) {
+            this.dirtyTileDamageIndices = new Set();
+        }
+        addNumericDirtyKey(this.dirtyTileDamageIndices, tileIndex);
+        this.markStaticTileSyncDirtyByIndex(tileIndex);
+    }
+    /** markTileDamagePersistenceDirtyHighPriority：玩家主动破坏触发的地块损坏脏标记（高优先级）。 */
+    markTileDamagePersistenceDirtyHighPriority(tileIndex) {
+        markMapInstanceDirtyDomains(this, ['tile_damage']);
+        markMapInstanceDirtyDomainHighPriority(this, ['tile_damage']);
         if (!(this.dirtyTileDamageIndices instanceof Set)) {
             this.dirtyTileDamageIndices = new Set();
         }
@@ -4305,6 +4337,13 @@ class MapInstanceRuntime {
                 const normalizedDomain = domain.trim();
                 dirtyDomains.delete(normalizedDomain);
                 clearMapInstancePersistenceDeltaDomain(this, normalizedDomain);
+                // 清除合并窗口追踪状态
+                if (this.dirtyDomainFirstMarkedAt instanceof Map) {
+                    this.dirtyDomainFirstMarkedAt.delete(normalizedDomain);
+                }
+                if (this.dirtyDomainHighPriority instanceof Set) {
+                    this.dirtyDomainHighPriority.delete(normalizedDomain);
+                }
             }
         }
         if (dirtyDomains.size === 0) {
@@ -4314,6 +4353,20 @@ class MapInstanceRuntime {
     /** clearDirtyDomains：清空实例脏域集合。 */
     clearDirtyDomains() {
         clearMapInstanceDirtyDomains(this);
+    }
+    /** getDirtyDomainFirstMarkedAt：获取 domain 首次变脏时间戳。 */
+    getDirtyDomainFirstMarkedAt(domain) {
+        if (!(this.dirtyDomainFirstMarkedAt instanceof Map)) {
+            return undefined;
+        }
+        return this.dirtyDomainFirstMarkedAt.get(domain);
+    }
+    /** isDirtyDomainHighPriority：判断 domain 是否为高优先级（玩家主动操作）。 */
+    isDirtyDomainHighPriority(domain) {
+        if (!(this.dirtyDomainHighPriority instanceof Set)) {
+            return false;
+        }
+        return this.dirtyDomainHighPriority.has(domain);
     }
     /** markAuraPersisted：标记灵气状态已完成持久化。 */
     markAuraPersisted() {
@@ -6192,9 +6245,32 @@ function markMapInstanceDirtyDomains(instance, domains) {
     if (!(instance.dirtyDomains instanceof Set)) {
         instance.dirtyDomains = createMapInstanceDirtyDomainSet();
     }
+    if (!(instance.dirtyDomainFirstMarkedAt instanceof Map)) {
+        instance.dirtyDomainFirstMarkedAt = new Map();
+    }
+    const now = Date.now();
     for (const domain of Array.isArray(domains) ? domains : []) {
         if (typeof domain === 'string' && domain.trim()) {
-            instance.dirtyDomains.add(domain.trim());
+            const normalizedDomain = domain.trim();
+            instance.dirtyDomains.add(normalizedDomain);
+            // 仅在首次标脏时记录时间戳
+            if (!instance.dirtyDomainFirstMarkedAt.has(normalizedDomain)) {
+                instance.dirtyDomainFirstMarkedAt.set(normalizedDomain, now);
+            }
+        }
+    }
+}
+/** markMapInstanceDirtyDomainHighPriority：标记脏域为高优先级（玩家主动操作），绕过合并窗口。 */
+function markMapInstanceDirtyDomainHighPriority(instance, domains) {
+    if (!instance) {
+        return;
+    }
+    if (!(instance.dirtyDomainHighPriority instanceof Set)) {
+        instance.dirtyDomainHighPriority = new Set();
+    }
+    for (const domain of Array.isArray(domains) ? domains : []) {
+        if (typeof domain === 'string' && domain.trim()) {
+            instance.dirtyDomainHighPriority.add(domain.trim());
         }
     }
 }
@@ -6285,6 +6361,12 @@ function clearMapInstancePersistenceDeltas(instance) {
 function clearMapInstanceDirtyDomains(instance) {
     if (instance?.dirtyDomains instanceof Set) {
         instance.dirtyDomains.clear();
+    }
+    if (instance?.dirtyDomainFirstMarkedAt instanceof Map) {
+        instance.dirtyDomainFirstMarkedAt.clear();
+    }
+    if (instance?.dirtyDomainHighPriority instanceof Set) {
+        instance.dirtyDomainHighPriority.clear();
     }
     clearMapInstancePersistenceDeltas(instance);
 }

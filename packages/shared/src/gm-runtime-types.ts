@@ -729,6 +729,63 @@ export interface GmTickSnapshot {
   windowBusyPercent: number;
 }
 
+/** 单轮 flush 诊断快照。 */
+export interface GmFlushDiagnosticsSnapshot {
+  player: GmPlayerFlushDiagnostics | null;
+  map: GmMapFlushDiagnostics | null;
+  pgPool: GmPgPoolStats | null;
+  pgPools?: GmPgPoolsSnapshot | null;
+  pgLockWait: GmPgLockWaitSummary | null;
+}
+
+export interface GmPlayerFlushDiagnostics {
+  dirtyPlayerCount: number;
+  domainCounts: Record<string, number>;
+  buildSnapshotMs: number;
+  workerSubmitMs: number;
+  dbWriteMs: number;
+  markPersistedMs: number;
+  totalMs: number;
+  timestamp: number;
+}
+
+export interface GmMapFlushDiagnostics {
+  dirtyInstanceCount: number;
+  persistedInstanceCount: number;
+  domainCounts: Record<string, number>;
+  coalescedDomainCount?: number;
+  deltaConstructMs: number;
+  dbWriteMs: number;
+  watermarkMs: number;
+  totalMs: number;
+  timestamp: number;
+}
+
+export interface GmPgPoolStats {
+  totalCount: number;
+  idleCount: number;
+  waitingCount: number;
+}
+
+export interface GmPgPoolsSnapshot {
+  runtimeCritical: GmPgPoolStats | null;
+  flush: GmPgPoolStats | null;
+  outbox: GmPgPoolStats | null;
+  gmDiagnostics: GmPgPoolStats | null;
+}
+
+export interface GmPgLockWaitSummary {
+  waitingCount: number;
+  samples: Array<{ pid: number; waitEventType: string | null; waitEvent: string | null; state: string | null; ageMs: number; query: string }>;
+  checkedAt: number;
+  error?: string;
+}
+
+export interface GmFlushStatsSummary {
+  player: { p50Ms: number; p95Ms: number; maxMs: number; count: number };
+  map: { p50Ms: number; p95Ms: number; maxMs: number; count: number };
+}
+
 /** GM 总性能快照。 */
 export interface GmPerformanceSnapshot {
 /**
@@ -808,6 +865,10 @@ export interface GmPerformanceSnapshot {
   networkOutBuckets: GmNetworkBucket[];
   /** Worker Pool 多线程指标（Phase 0-5） */
   workerPool?: GmWorkerPoolAllMetrics | null;
+  /** 玩家/地图刷盘与 PG 诊断指标。 */
+  flushDiagnostics?: GmFlushDiagnosticsSnapshot | null;
+  /** 玩家/地图刷盘滚动统计。 */
+  flushStats?: GmFlushStatsSummary | null;
 }
 
 /** Worker Pool 全量指标（三个池） */

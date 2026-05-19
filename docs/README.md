@@ -6,17 +6,16 @@
 
 ## 目录结构
 
-| 目录 | 说明 | 文档数 |
-|------|------|--------|
-| [architecture/](./architecture/) | 架构决策记录（ADR） | 12 |
-| [chains/](./chains/) | 链路文档（数据流与职责边界） | 6 |
-| [design/](./design/) | 游戏设计（玩法、数值） | 20+ |
-| [plans/](./plans/) | 开发计划（进行中/待开始） | 17 |
-| [runbook/](./runbook/) | 运维手册（部署、故障、验证） | 9 |
-| [config/](./config/) | 配置文档（配置文件说明） | 5 |
-| [content/](./content/) | 内容生产指南（怎么加内容） | 10 |
-| [story/](./story/) | 剧情与世界观 | 20+ |
-| [archive/](./archive/) | 已完成文档归档 | 10 |
+| 目录 | 说明 |
+|------|------|
+| [architecture/](./architecture/) | 架构决策记录（ADR） |
+| [chains/](./chains/) | 链路总览（数据流与职责边界） |
+| [design/](./design/) | 游戏设计（玩法、数值） |
+| [plans/](./plans/) | 开发计划 + 问题清单 |
+| [runbook/](./runbook/) | 运维手册（部署、故障、验证） |
+| [config/](./config/) | 配置文档 |
+| [content/](./content/) | 内容生产指南 |
+| [story/](./story/) | 剧情与世界观 |
 
 ---
 
@@ -37,8 +36,7 @@
 
 ### 链路文档
 
-- [链路总览](./chains/链路总览.md) — 核心链路概述
-- [战斗链路](./chains/战斗链路.md) — 战斗系统数据流
+- [链路总览](./chains/链路总览.md) — 全系统数据流概述
 
 ### 内容生产
 
@@ -52,49 +50,3 @@
 - [部署手册](./runbook/deployment.md) — 部署、更新、回滚
 - [故障排查](./runbook/incident-response.md) — 常见故障处理
 - [战斗链路运维](./runbook/战斗链路运维手册.md) — 战斗系统诊断
-
----
-
-## 验证命令速查
-
-```bash
-# 日常开发
-pnpm verify:quick              # 1 分钟快速反馈
-
-# 提交前
-pnpm verify:standard           # 本地标准门禁
-
-# 发布前
-pnpm verify:release            # 完整发布验证
-pnpm verify:release:doctor     # 环境检查
-pnpm verify:release:with-db    # 带数据库验证
-pnpm verify:release:full       # 最严格验证
-
-# 专项验证
-pnpm verify:client             # 客户端专项
-pnpm verify:building           # 房间/风水专项
-pnpm audit:protocol            # 协议审计
-pnpm audit:boundaries          # 边界审计
-```
-
----
-
-## 文档类型说明
-
-| 类型 | 回答什么问题 | 示例 |
-|------|-------------|------|
-| ADR | 为什么这样实现？ | 为什么用 PostgreSQL 而非 MongoDB |
-| 链路文档 | 数据怎么流动？ | 战斗伤害从输入到结算的完整路径 |
-| 设计文档 | 这个系统怎么玩？ | 炼丹系统的玩法规则 |
-| 运维手册 | 出问题怎么办？ | 数据库连接失败的排查步骤 |
-| 配置文档 | 怎么改配置？ | 服务端环境变量说明 |
-| 内容指南 | 怎么加内容？ | 如何添加新怪物 |
-
----
-
-## 文档维护规则
-
-1. **已完成的计划**：移至 `archive/`
-2. **进行中的计划**：保留在 `plans/`，更新进度
-3. **长期维护的设计**：保留在 `design/` 或 `architecture/`
-4. **模板文件**：各目录下的 `template.md`，新建文档时复制使用

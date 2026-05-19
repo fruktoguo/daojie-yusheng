@@ -1537,6 +1537,231 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  /**
+   * 批量写入多个实例的 tile_damage delta。
+   * 单事务内按 instanceId 有序获取 advisory lock，避免死锁。
+   */
+  async saveTileDamageDeltaBatch(
+    batch: Array<{
+      instanceId: string;
+      upserts: Array<{
+        tileIndex: number;
+        x?: number | null;
+        y?: number | null;
+        hp: number;
+        maxHp: number;
+        destroyed: boolean;
+        respawnLeft?: number | null;
+        modifiedAt?: number | null;
+      }>;
+      deletes: number[];
+    }>,
+  ): Promise<void> {
+    if (!this.pool || !this.enabled || !Array.isArray(batch) || batch.length === 0) {
+      return;
+    }
+    // 归一化并过滤空条目
+    const entries = batch
+      .map((item) => {
+        const instanceId = normalizeRequiredString(item.instanceId);
+        if (!instanceId) return null;
+        const upserts = (Array.isArray(item.upserts) ? item.upserts : [])
+          .filter((e) => Boolean(e) && Number.isFinite(Number(e.tileIndex)))
+          .map((e) => ({
+            tileIndex: Math.max(0, Math.trunc(Number(e.tileIndex))),
+            x: Number.isFinite(Number(e.x)) ? Math.trunc(Number(e.x)) : null,
+            y: Number.isFinite(Number(e.y)) ? Math.trunc(Number(e.y)) : null,
+            hp: Math.max(0, normalizeNumberWithFallback(e.hp, 0)),
+            maxHp: Math.max(1, normalizeNumberWithFallback(e.maxHp, 1)),
+            destroyed: e.destroyed === true,
+            respawnLeft: Math.max(0, Math.trunc(Number(e.respawnLeft) || 0)),
+            modifiedAt: Number.isFinite(Number(e.modifiedAt)) ? Math.max(0, Math.trunc(Number(e.modifiedAt))) : Date.now(),
+          }));
+        const deletes = (Array.isArray(item.deletes) ? item.deletes : [])
+          .filter((t) => Number.isFinite(Number(t)))
+          .map((t) => Math.max(0, Math.trunc(Number(t))));
+        if (upserts.length === 0 && deletes.length === 0) return null;
+        return { instanceId, upserts, deletes };
+      })
+      .filter(Boolean) as Array<{ instanceId: string; upserts: any[]; deletes: number[] }>;
+    if (entries.length === 0) return;
+    // 按 instanceId 排序获取锁，避免死锁
+    entries.sort((a, b) => a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const entry of entries) {
+        await acquireInstanceDomainLock(client, entry.instanceId);
+      }
+      for (const entry of entries) {
+        if (entry.deletes.length > 0) {
+          await client.query(
+            `DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1 AND tile_index = ANY($2::bigint[])`,
+            [entry.instanceId, entry.deletes],
+          );
+        }
+        if (entry.upserts.length > 0) {
+          await client.query(
+            `
+            WITH incoming AS (
+              SELECT tile_index, x, y, hp, max_hp, destroyed, respawn_left_ticks, modified_at_ms
+              FROM jsonb_to_recordset($2::jsonb) AS e(
+                tile_index bigint, x bigint, y bigint, hp double precision,
+                max_hp double precision, destroyed boolean, respawn_left_ticks bigint, modified_at_ms bigint
+              )
+            )
+            INSERT INTO ${INSTANCE_TILE_DAMAGE_STATE_TABLE}(
+              instance_id, tile_index, x, y, hp, max_hp, destroyed, respawn_left_ticks, modified_at_ms, updated_at
+            )
+            SELECT $1, tile_index, x, y, hp, max_hp, destroyed, respawn_left_ticks, modified_at_ms, now()
+            FROM incoming
+            ON CONFLICT (instance_id, tile_index)
+            DO UPDATE SET x=EXCLUDED.x, y=EXCLUDED.y, hp=EXCLUDED.hp, max_hp=EXCLUDED.max_hp,
+              destroyed=EXCLUDED.destroyed, respawn_left_ticks=EXCLUDED.respawn_left_ticks,
+              modified_at_ms=EXCLUDED.modified_at_ms, updated_at=now()
+            `,
+            [entry.instanceId, JSON.stringify(entry.upserts.map((u) => ({
+              tile_index: u.tileIndex, x: u.x, y: u.y, hp: u.hp,
+              max_hp: u.maxHp, destroyed: u.destroyed,
+              respawn_left_ticks: u.respawnLeft, modified_at_ms: u.modifiedAt,
+            })))],
+          );
+        }
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 批量写入多个实例的 tile_resource delta。
+   * 单事务内按 instanceId 有序获取 advisory lock，避免死锁。
+   */
+  async saveTileResourceDeltaBatch(
+    batch: Array<{
+      instanceId: string;
+      upserts: Array<{ resourceKey: string; tileIndex: number; value: number }>;
+      deletes: Array<{ resourceKey: string; tileIndex: number }>;
+    }>,
+  ): Promise<void> {
+    if (!this.pool || !this.enabled || !Array.isArray(batch) || batch.length === 0) {
+      return;
+    }
+    const entries = batch
+      .map((item) => {
+        const instanceId = normalizeRequiredString(item.instanceId);
+        if (!instanceId) return null;
+        const upserts = (Array.isArray(item.upserts) ? item.upserts : [])
+          .filter((e) => Boolean(e) && typeof e.resourceKey === 'string' && e.resourceKey.trim().length > 0
+            && Number.isFinite(Number(e.tileIndex)) && Number.isFinite(Number(e.value)))
+          .map((e) => ({
+            resourceKey: e.resourceKey.trim(),
+            tileIndex: Math.max(0, Math.trunc(Number(e.tileIndex))),
+            value: Math.max(0, normalizeNumberWithFallback(e.value, 0)),
+          }));
+        const deletes = (Array.isArray(item.deletes) ? item.deletes : [])
+          .filter((e) => Boolean(e) && typeof e.resourceKey === 'string' && e.resourceKey.trim().length > 0
+            && Number.isFinite(Number(e.tileIndex)))
+          .map((e) => ({ resourceKey: e.resourceKey.trim(), tileIndex: Math.max(0, Math.trunc(Number(e.tileIndex))) }));
+        if (upserts.length === 0 && deletes.length === 0) return null;
+        return { instanceId, upserts, deletes };
+      })
+      .filter(Boolean) as Array<{ instanceId: string; upserts: any[]; deletes: any[] }>;
+    if (entries.length === 0) return;
+    entries.sort((a, b) => a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const entry of entries) {
+        await acquireInstanceDomainLock(client, entry.instanceId);
+      }
+      for (const entry of entries) {
+        if (entry.deletes.length > 0) {
+          await client.query(
+            `WITH incoming AS (
+              SELECT resource_key, tile_index
+              FROM jsonb_to_recordset($2::jsonb) AS e(resource_key varchar(100), tile_index bigint)
+            )
+            DELETE FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} target
+            USING incoming
+            WHERE target.instance_id = $1 AND target.resource_key = incoming.resource_key
+              AND target.tile_index = incoming.tile_index`,
+            [entry.instanceId, JSON.stringify(entry.deletes.map((d) => ({
+              resource_key: d.resourceKey, tile_index: d.tileIndex,
+            })))],
+          );
+        }
+        if (entry.upserts.length > 0) {
+          await client.query(
+            `WITH incoming AS (
+              SELECT resource_key, tile_index, value
+              FROM jsonb_to_recordset($2::jsonb) AS e(resource_key varchar(100), tile_index bigint, value double precision)
+            )
+            INSERT INTO ${INSTANCE_TILE_RESOURCE_STATE_TABLE}(instance_id, resource_key, tile_index, value, updated_at)
+            SELECT $1, resource_key, tile_index, value, now() FROM incoming
+            ON CONFLICT (instance_id, resource_key, tile_index)
+            DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+            [entry.instanceId, JSON.stringify(entry.upserts.map((u) => ({
+              resource_key: u.resourceKey, tile_index: u.tileIndex, value: u.value,
+            })))],
+          );
+        }
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 批量写入多个实例的 recovery watermark。
+   * 单事务内按 instanceId 有序获取 advisory lock，避免死锁。
+   */
+  async saveInstanceRecoveryWatermarkBatch(
+    batch: Array<{ instanceId: string; payload: unknown }>,
+  ): Promise<void> {
+    if (!this.pool || !this.enabled || !Array.isArray(batch) || batch.length === 0) {
+      return;
+    }
+    const entries = batch
+      .map((item) => {
+        const instanceId = normalizeRequiredString(item.instanceId);
+        if (!instanceId) return null;
+        return { instanceId, payload: item.payload };
+      })
+      .filter(Boolean) as Array<{ instanceId: string; payload: unknown }>;
+    if (entries.length === 0) return;
+    entries.sort((a, b) => a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const entry of entries) {
+        await acquireInstanceDomainLock(client, entry.instanceId);
+      }
+      for (const entry of entries) {
+        await client.query(
+          `INSERT INTO ${INSTANCE_RECOVERY_WATERMARK_TABLE}(instance_id, watermark_payload, updated_at)
+           VALUES ($1, $2::jsonb, now())
+           ON CONFLICT (instance_id) DO UPDATE SET watermark_payload = EXCLUDED.watermark_payload, updated_at = now()`,
+          [entry.instanceId, JSON.stringify(entry.payload ?? {})],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   /** 加载实例恢复水位标记 */
   async loadInstanceRecoveryWatermark(instanceId: string): Promise<unknown | null> {
     if (!this.pool || !this.enabled) {

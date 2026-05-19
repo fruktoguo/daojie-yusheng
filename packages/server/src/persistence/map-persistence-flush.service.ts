@@ -3,10 +3,12 @@
  * 按周期收集脏实例列表，通过分域持久化落库，支持 time checkpoint 降频、
  * 妖兽运行态降频、慢刷盘退避和进程关闭前强刷。
  */
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { performance } from 'node:perf_hooks';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { readTrimmedEnv } from '../config/env-alias';
+import { DatabasePoolProvider } from './database-pool.provider';
+import { FlushDiagnosticsService } from './flush-diagnostics.service';
 
 /**
  * 地图分域刷盘周期。
@@ -25,6 +27,12 @@ const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = normalizePositiveInteger(
 const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
 const MAP_PERSISTENCE_FLUSH_PARALLELISM = 3;
 const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
+const MAP_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD = normalizePositiveInteger(
+    readTrimmedEnv('SERVER_MAP_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD', 'MAP_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD'),
+    2,
+    0,
+    100,
+);
 const PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS = 100;
 const MAP_PERSISTENCE_TIME_DOMAIN = 'time';
 const MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN = 'monster_runtime';
@@ -34,6 +42,21 @@ const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger(rea
 const MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE', 'MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE'), 16, 1, 256);
 const MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS'), 60_000, 10_000, 600_000);
 const MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS', 'MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS'), 1_000, MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, 60_000);
+
+/**
+ * 高频 dirty 合并窗口（毫秒）。
+ * - tile_damage / tile_resource 等高频自动变脏的域，在首次标脏后等待合并窗口到期才上报给 flush cycle。
+ * - 玩家主动操作标记为 highPriority 的域不受此限制。
+ * - 默认 3000ms：在 1.5s flush 周期下，最多延迟 2 个周期落库，换取大幅减少 PG 写入频次。
+ */
+const MAP_PERSISTENCE_COALESCE_WINDOW_MS = normalizePositiveInteger(
+    readTrimmedEnv('SERVER_MAP_PERSISTENCE_COALESCE_WINDOW_MS', 'MAP_PERSISTENCE_COALESCE_WINDOW_MS'),
+    3_000,
+    0,
+    30_000,
+);
+/** 受合并窗口约束的域集合。其他域（container_state, building, room 等）始终立即上报。 */
+const MAP_PERSISTENCE_COALESCE_DOMAINS = new Set(['tile_damage', 'tile_resource', 'fengshui']);
 
 /**
  * normalizePositiveInteger：执行normalize正整数相关逻辑。
@@ -100,6 +123,10 @@ export class MapPersistenceFlushService {
      */
 
     nextMonsterRuntimeFlushAt = Date.now() + MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS;
+    /** 数据库连接池提供者。 */
+    databasePoolProvider: any = null;
+    /** 刷盘诊断采集器。 */
+    flushDiagnostics: any = null;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
@@ -109,8 +136,12 @@ export class MapPersistenceFlushService {
 
     constructor(
         @Inject(WorldRuntimeService) worldRuntimeService: any,
+        @Optional() @Inject(DatabasePoolProvider) databasePoolProvider?: any,
+        @Optional() @Inject(FlushDiagnosticsService) flushDiagnostics?: any,
     ) {
         this.worldRuntimeService = worldRuntimeService;
+        this.databasePoolProvider = databasePoolProvider ?? null;
+        this.flushDiagnostics = flushDiagnostics ?? null;
     }
     /**
  * onModuleInit：执行on模块Init相关逻辑。
@@ -185,13 +216,16 @@ export class MapPersistenceFlushService {
             || this.isFlushThrottleActive()) {
             return;
         }
+        if (this.isFlushPoolBackpressureActive()) {
+            this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
+            this.logger.warn(`地图 flush 因 flush pool 等待排队而退避：waiting>=${MAP_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD}`);
+            return;
+        }
         await this.runFlushCycle('interval');
     }
 
     /** 采集 dirty map 并持久化，失败仅记录错误不中断主循环。 */
     async runFlushCycle(reason) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
         const domainPersistenceEnabled = this.isDomainPersistenceEnabled();
         if (!domainPersistenceEnabled) {
             return;
@@ -200,6 +234,7 @@ export class MapPersistenceFlushService {
         let dirtyInstanceCount = 0;
         let persistedInstanceCount = 0;
         let skippedInstanceCount = 0;
+        let coalescedDomainCount = 0;
         const persistedDomainCounts = new Map();
 
         const promise = (async () => {
@@ -211,34 +246,110 @@ export class MapPersistenceFlushService {
             const timeCheckpointDue = reason !== 'interval' || now >= this.nextTimeCheckpointFlushAt;
             const monsterRuntimeDue = reason !== 'interval' || now >= this.nextMonsterRuntimeFlushAt;
             const dirtyDomainSelection = selectFlushDomainEntries(rawDirtyDomainEntries, reason, timeCheckpointDue, monsterRuntimeDue, MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE);
+            coalescedDomainCount = dirtyDomainSelection.coalescedDomainCount ?? 0;
             const dirtyDomainEntries = dirtyDomainSelection.entries;
             const dirtyInstanceIds = dirtyDomainEntries.map((entry) => entry.instanceId);
             dirtyInstanceCount = dirtyInstanceIds.length;
             if (dirtyInstanceIds.length === 0) {
                 return;
             }
-            const prioritizedInstanceIds = prioritizeMapFlushTargets(dirtyInstanceIds);
-            const dirtyDomainEntryByInstanceId = new Map(dirtyDomainEntries.map((entry) => [entry.instanceId, entry]));
-            const batches = chunkValues(prioritizedInstanceIds, MAP_PERSISTENCE_FLUSH_BATCH_SIZE);
-            for (const batch of batches) {
-                await runConcurrent(batch, MAP_PERSISTENCE_FLUSH_PARALLELISM, async (instanceId) => {
-                    const domainEntry = dirtyDomainEntryByInstanceId.get(instanceId);
-                    if (domainPersistenceEnabled && typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
-                        const result = await this.worldRuntimeService.flushInstanceDomains(instanceId, domainEntry?.domains ?? null);
-                        if (result?.skipped === true) {
-                            skippedInstanceCount += 1;
-                            return;
+
+            // ─── Phase 2: 按 domain 分组批量写入 tile_damage / tile_resource ───
+            const batchableDomains = new Set(['tile_damage', 'tile_resource']);
+            const persistence = this.worldRuntimeService?.instanceDomainPersistenceService;
+            const hasBatchApi = persistence
+                && typeof persistence.saveTileDamageDeltaBatch === 'function'
+                && typeof persistence.saveTileResourceDeltaBatch === 'function'
+                && typeof persistence.saveInstanceRecoveryWatermarkBatch === 'function'
+                && typeof this.worldRuntimeService.buildDomainDeltaBatch === 'function';
+
+            // 收集可批量写入的 domain→instanceIds 映射，并从 per-instance entries 中剥离
+            const batchDomainInstanceIds: Map<string, string[]> = new Map();
+            const remainingDomainEntries: Array<{ instanceId: string; domains: string[] }> = [];
+
+            if (hasBatchApi) {
+                for (const entry of dirtyDomainEntries) {
+                    const batchDomains: string[] = [];
+                    const remainDomains: string[] = [];
+                    for (const domain of entry.domains) {
+                        if (batchableDomains.has(domain)) {
+                            batchDomains.push(domain);
+                        } else {
+                            remainDomains.push(domain);
                         }
-                        const persistedDomains = Array.isArray(result?.persistedDomains)
-                            ? result.persistedDomains
-                            : (Array.isArray(domainEntry?.domains) ? domainEntry.domains : ['domain']);
-                        recordPersistedDomains(persistedDomainCounts, persistedDomains);
                     }
-                    persistedInstanceCount += 1;
-                }, (instanceId, error) => {
-                    this.logger.error(`地图持久化刷新失败（${reason}） instanceId=${instanceId}`, error instanceof Error ? error.stack : String(error));
-                });
+                    for (const domain of batchDomains) {
+                        let ids = batchDomainInstanceIds.get(domain);
+                        if (!ids) { ids = []; batchDomainInstanceIds.set(domain, ids); }
+                        ids.push(entry.instanceId);
+                    }
+                    if (remainDomains.length > 0) {
+                        remainingDomainEntries.push({ instanceId: entry.instanceId, domains: remainDomains });
+                    }
+                }
+            } else {
+                // 无 batch API 时全部走 per-instance 路径
+                remainingDomainEntries.push(...dirtyDomainEntries);
             }
+
+            // 执行批量写入
+            const deltaConstructStart = performance.now();
+            for (const [domain, instanceIds] of batchDomainInstanceIds) {
+                try {
+                    const deltas = this.worldRuntimeService.buildDomainDeltaBatch(domain, instanceIds);
+                    if (!Array.isArray(deltas) || deltas.length === 0) continue;
+                    if (domain === 'tile_damage') {
+                        await persistence.saveTileDamageDeltaBatch(deltas.map((d) => ({
+                            instanceId: d.instanceId, upserts: d.upserts, deletes: d.deletes,
+                        })));
+                    } else if (domain === 'tile_resource') {
+                        await persistence.saveTileResourceDeltaBatch(deltas.map((d) => ({
+                            instanceId: d.instanceId, upserts: d.upserts, deletes: d.deletes,
+                        })));
+                    }
+                    // 批量写 watermark
+                    const watermarkBatch = deltas
+                        .filter((d) => d.watermarkPayload)
+                        .map((d) => ({ instanceId: d.instanceId, payload: d.watermarkPayload }));
+                    if (watermarkBatch.length > 0) {
+                        await persistence.saveInstanceRecoveryWatermarkBatch(watermarkBatch);
+                    }
+                    // 标记已持久化
+                    this.worldRuntimeService.markDomainBatchPersisted(domain, deltas.map((d) => d.instanceId));
+                    recordPersistedDomains(persistedDomainCounts, deltas.map(() => domain));
+                    persistedInstanceCount += deltas.length;
+                } catch (error) {
+                    this.logger.error(`地图批量持久化失败（${reason}） domain=${domain}`, error instanceof Error ? error.stack : String(error));
+                }
+            }
+            const deltaConstructMs = performance.now() - deltaConstructStart;
+
+            // ─── 剩余 domain 走原有 per-instance 路径 ───
+            if (remainingDomainEntries.length > 0) {
+                const prioritizedInstanceIds = prioritizeMapFlushTargets(remainingDomainEntries.map((e) => e.instanceId));
+                const remainingEntryByInstanceId = new Map(remainingDomainEntries.map((entry) => [entry.instanceId, entry]));
+                const batches = chunkValues(prioritizedInstanceIds, MAP_PERSISTENCE_FLUSH_BATCH_SIZE);
+                for (const batch of batches) {
+                    await runConcurrent(batch, MAP_PERSISTENCE_FLUSH_PARALLELISM, async (instanceId) => {
+                        const domainEntry = remainingEntryByInstanceId.get(instanceId);
+                        if (typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
+                            const result = await this.worldRuntimeService.flushInstanceDomains(instanceId, domainEntry?.domains ?? null);
+                            if (result?.skipped === true) {
+                                skippedInstanceCount += 1;
+                                return;
+                            }
+                            const persistedDomains = Array.isArray(result?.persistedDomains)
+                                ? result.persistedDomains
+                                : (Array.isArray(domainEntry?.domains) ? domainEntry.domains : ['domain']);
+                            recordPersistedDomains(persistedDomainCounts, persistedDomains);
+                        }
+                        persistedInstanceCount += 1;
+                    }, (instanceId, error) => {
+                        this.logger.error(`地图持久化刷新失败（${reason}） instanceId=${instanceId}`, error instanceof Error ? error.stack : String(error));
+                    });
+                }
+            }
+
             if (reason === 'interval' && dirtyDomainSelection.includesTimeCheckpoint === true) {
                 this.nextTimeCheckpointFlushAt = Date.now() + (dirtyDomainSelection.hasDeferredTimeCheckpoint === true
                     ? MAP_PERSISTENCE_FLUSH_INTERVAL_MS
@@ -259,12 +370,35 @@ export class MapPersistenceFlushService {
             if (reason === 'interval') {
                 const durationMs = performance.now() - startedAt;
                 this.updateFlushThrottle(durationMs, dirtyInstanceCount, persistedInstanceCount, skippedInstanceCount, persistedDomainCounts);
+                // 上报诊断
+                if (dirtyInstanceCount > 0 && this.flushDiagnostics) {
+                    const domainCountsObj: Record<string, number> = {};
+                    for (const [k, v] of persistedDomainCounts) {
+                        domainCountsObj[k] = v;
+                    }
+                    this.flushDiagnostics.reportMapFlush({
+                        dirtyInstanceCount,
+                        persistedInstanceCount,
+                        domainCounts: domainCountsObj,
+                        coalescedDomainCount,
+                        deltaConstructMs: 0,
+                        dbWriteMs: Math.round(durationMs),
+                        watermarkMs: 0,
+                        totalMs: Math.round(durationMs),
+                        timestamp: Date.now(),
+                    });
+                }
             }
         }
     }
 
     isFlushThrottleActive() {
         return Date.now() < this.flushThrottleUntilAt;
+    }
+
+    isFlushPoolBackpressureActive() {
+        const stats = this.databasePoolProvider?.getPoolStats?.('flush');
+        return Boolean(stats && stats.waitingCount >= MAP_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD);
     }
 
     isDomainPersistenceEnabled() {
@@ -316,6 +450,7 @@ function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRun
             includesTimeCheckpoint: hasTimeCheckpointDomain(entries),
             includesMonsterRuntime: hasMonsterRuntimeDomain(entries),
             hasDeferredTimeCheckpoint: false,
+            coalescedDomainCount: 0,
         };
     }
     const selected = [];
@@ -323,9 +458,13 @@ function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRun
     let includesMonsterRuntime = false;
     let selectedTimeCheckpointCount = 0;
     let hasDeferredTimeCheckpoint = false;
+    let coalescedDomainCount = 0;
+    const now = Date.now();
+    const coalesceWindowMs = MAP_PERSISTENCE_COALESCE_WINDOW_MS;
     const normalizedTimeCheckpointBatchSize = Math.max(1, Math.trunc(Number(timeCheckpointBatchSize) || MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE));
     for (const entry of entries) {
         const instanceId = typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '';
+        const domainMeta = entry?.domainMeta ?? {};
         const domains = Array.isArray(entry?.domains)
             ? entry.domains.filter((domain) => {
                 if (typeof domain !== 'string' || !domain.trim()) {
@@ -350,6 +489,19 @@ function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRun
                     }
                     return false;
                 }
+                // ─── 合并窗口过滤 ───
+                if (coalesceWindowMs > 0 && MAP_PERSISTENCE_COALESCE_DOMAINS.has(normalizedDomain)) {
+                    const meta = domainMeta[normalizedDomain];
+                    const isHighPriority = meta?.highPriority === true;
+                    if (!isHighPriority) {
+                        const firstMarkedAt = typeof meta?.firstMarkedAt === 'number' ? meta.firstMarkedAt : 0;
+                        const elapsed = firstMarkedAt > 0 ? now - firstMarkedAt : coalesceWindowMs;
+                        if (elapsed < coalesceWindowMs) {
+                            coalescedDomainCount += 1;
+                            return false;
+                        }
+                    }
+                }
                 return true;
             })
             : [];
@@ -357,7 +509,7 @@ function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRun
             selected.push({ instanceId, domains });
         }
     }
-    return { entries: selected, includesTimeCheckpoint, includesMonsterRuntime, hasDeferredTimeCheckpoint };
+    return { entries: selected, includesTimeCheckpoint, includesMonsterRuntime, hasDeferredTimeCheckpoint, coalescedDomainCount };
 }
 function hasTimeCheckpointDomain(entries) {
     return Array.isArray(entries)

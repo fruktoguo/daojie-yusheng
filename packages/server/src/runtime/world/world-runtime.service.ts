@@ -826,6 +826,14 @@ export class WorldRuntimeService {
         async flushInstanceDomains(instanceId, domains = null) {
         return this.worldRuntimeStateFacadeService.flushInstanceDomains(instanceId, domains, this);
     }
+        /** 批量收集指定 domain 的 delta，不写库。 */
+        buildDomainDeltaBatch(domain, instanceIds) {
+        return this.worldRuntimeStateFacadeService.buildDomainDeltaBatch(domain, instanceIds, this);
+    }
+        /** 批量标记多个实例的指定 domain 为已持久化。 */
+        markDomainBatchPersisted(domain, instanceIds) {
+        this.worldRuntimeStateFacadeService.markDomainBatchPersisted(domain, instanceIds, this);
+    }
         async tickAll() {
         return this.worldRuntimeStateFacadeService.tickAll(this);
     }

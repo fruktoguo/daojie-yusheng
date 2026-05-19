@@ -54,7 +54,28 @@ export class WorldRuntimePersistenceStateService {
                 domains.add('container_state');
             }
             if (domains.size > 0) {
-                entries.push({ instanceId, domains: Array.from(domains).sort(resolveStableStringComparer(deps)) });
+                // 附带合并窗口元数据
+                const domainMeta: Record<string, { firstMarkedAt?: number; highPriority?: boolean }> = {};
+                for (const domain of domains) {
+                    const normalizedDomain = typeof domain === 'string' ? domain.trim() : String(domain ?? '').trim();
+                    if (!normalizedDomain) {
+                        continue;
+                    }
+                    const firstMarkedAt = typeof instance.getDirtyDomainFirstMarkedAt === 'function'
+                        ? instance.getDirtyDomainFirstMarkedAt(normalizedDomain)
+                        : undefined;
+                    const highPriority = typeof instance.isDirtyDomainHighPriority === 'function'
+                        ? instance.isDirtyDomainHighPriority(normalizedDomain)
+                        : false;
+                    if (firstMarkedAt !== undefined || highPriority) {
+                        domainMeta[normalizedDomain] = { firstMarkedAt, highPriority };
+                    }
+                }
+                entries.push({
+                    instanceId,
+                    domains: Array.from(domains).sort(resolveStableStringComparer(deps)),
+                    domainMeta: Object.keys(domainMeta).length > 0 ? domainMeta : undefined,
+                });
             }
         }
         entries.sort((left, right) => resolveStableStringComparer(deps)(left.instanceId, right.instanceId));
@@ -278,6 +299,56 @@ export class WorldRuntimePersistenceStateService {
         }
         this.markMapDomainsPersisted(instanceId, persistedDomains, deps);
         return { persistedDomains, skipped: false };
+    }
+
+    /**
+     * 批量收集指定 domain 的 delta 并返回，不直接写库。
+     * 供 MapPersistenceFlushService 按 domain 分组后调用 batch API 写入。
+     */
+    buildDomainDeltaBatch(domain, instanceIds, deps) {
+        const results = [];
+        for (const instanceId of instanceIds) {
+            const instance = deps.getInstanceRuntime(instanceId);
+            if (!instance || !instance.meta.persistent) continue;
+            if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) continue;
+            const persistence = deps.instanceDomainPersistenceService;
+            if (!persistence?.isEnabled?.()) continue;
+            if (domain === 'tile_damage') {
+                const delta = typeof instance.buildTileDamagePersistenceDelta === 'function'
+                    ? instance.buildTileDamagePersistenceDelta() : null;
+                if (delta && delta.fullReplace !== true) {
+                    results.push({
+                        instanceId,
+                        domain: 'tile_damage',
+                        upserts: delta.upserts ?? [],
+                        deletes: delta.deletes ?? [],
+                        watermarkPayload: buildInstanceDomainRecoveryWatermark(instance, ['tile_damage']),
+                    });
+                }
+            } else if (domain === 'tile_resource') {
+                const delta = typeof instance.buildTileResourcePersistenceDelta === 'function'
+                    ? instance.buildTileResourcePersistenceDelta() : null;
+                if (delta && delta.fullReplace !== true) {
+                    results.push({
+                        instanceId,
+                        domain: 'tile_resource',
+                        upserts: delta.upserts ?? [],
+                        deletes: delta.deletes ?? [],
+                        watermarkPayload: buildInstanceDomainRecoveryWatermark(instance, ['tile_resource']),
+                    });
+                }
+            }
+        }
+        return results;
+    }
+
+    /**
+     * 批量标记多个实例的指定 domain 为已持久化。
+     */
+    markDomainBatchPersisted(domain, instanceIds, deps) {
+        for (const instanceId of instanceIds) {
+            this.markMapDomainsPersisted(instanceId, [domain], deps);
+        }
     }
 };
 

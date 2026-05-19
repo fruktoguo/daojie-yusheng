@@ -27,6 +27,7 @@ interface PendingPersistenceTask {
 @Injectable()
 export class PersistenceWorkerPoolService {
   private readonly logger = new Logger(PersistenceWorkerPoolService.name);
+  private readonly forceSyncMode = isForceSyncMode();
   private readonly config: WorkerPoolConfig;
   private readonly pendingTasks = new Map<string, PendingPersistenceTask>();
   private workers: Array<Worker | null> = [];

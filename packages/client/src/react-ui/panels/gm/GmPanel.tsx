@@ -175,11 +175,34 @@ export function GmPanel() {
 
 // ─── 性能区 ──────────────────────────────────────────────────────────────────
 
+function formatDomainCounts(counts: Record<string, number> | undefined): string {
+  if (!counts || Object.keys(counts).length === 0) {
+    return '无 domain';
+  }
+  return Object.entries(counts)
+    .sort(([left], [right]) => left.localeCompare(right, 'zh-Hans-CN'))
+    .map(([domain, count]) => `${domain}:${count}`)
+    .join(', ');
+}
+
+function formatPoolStats(stats: { totalCount: number; idleCount: number; waitingCount: number } | null | undefined): string {
+  if (!stats) {
+    return '无数据';
+  }
+  return `total ${stats.totalCount} / idle ${stats.idleCount} / waiting ${stats.waitingCount}`;
+}
+
 const GmPerfSection = memo(function GmPerfSection({ perf }: { perf: S2C_GmState['perf'] }) {
   const tickPerf = perf.tick ?? { lastMapId: null, lastMs: perf.tickMs };
   const tickLabel = tickPerf.lastMapId
     ? `${Math.round(tickPerf.lastMs)} ms · ${tickPerf.lastMapId}`
     : `${Math.round(tickPerf.lastMs)} ms`;
+  const flushDiagnostics = perf.flushDiagnostics ?? null;
+  const playerFlush = flushDiagnostics?.player ?? null;
+  const mapFlush = flushDiagnostics?.map ?? null;
+  const pgPool = flushDiagnostics?.pgPool ?? null;
+  const pgPools = flushDiagnostics?.pgPools ?? null;
+  const pgLockWait = flushDiagnostics?.pgLockWait ?? null;
 
   return (
     <div className="panel-section ui-surface-pane ui-surface-pane--stack">
@@ -187,6 +210,25 @@ const GmPerfSection = memo(function GmPerfSection({ perf }: { perf: S2C_GmState[
       <div className="panel-row"><span className="panel-label">CPU 压力</span><span className="panel-value">{Math.round(perf.cpuPercent)}%</span></div>
       <div className="panel-row"><span className="panel-label">内存占用</span><span className="panel-value">{Math.round(perf.memoryMb)} MB</span></div>
       <div className="panel-row"><span className="panel-label">最近单图 tick</span><span className="panel-value">{tickLabel}</span></div>
+      {pgPools ? (
+        <>
+          <div className="panel-row"><span className="panel-label">PG runtime-critical</span><span className="panel-value">{formatPoolStats(pgPools.runtimeCritical)}</span></div>
+          <div className="panel-row"><span className="panel-label">PG flush</span><span className="panel-value">{formatPoolStats(pgPools.flush)}</span></div>
+          <div className="panel-row"><span className="panel-label">PG outbox</span><span className="panel-value">{formatPoolStats(pgPools.outbox)}</span></div>
+          <div className="panel-row"><span className="panel-label">PG gm-diagnostics</span><span className="panel-value">{formatPoolStats(pgPools.gmDiagnostics)}</span></div>
+        </>
+      ) : pgPool && (
+        <div className="panel-row"><span className="panel-label">PG pool</span><span className="panel-value">{formatPoolStats(pgPool)}</span></div>
+      )}
+      {pgLockWait && (
+        <div className="panel-row"><span className="panel-label">PG 锁等待</span><span className="panel-value">{pgLockWait.waitingCount}{pgLockWait.error ? ` · ${pgLockWait.error}` : ''}</span></div>
+      )}
+      {playerFlush && (
+        <div className="panel-row"><span className="panel-label">玩家刷盘</span><span className="panel-value">{playerFlush.totalMs}ms · dirty {playerFlush.dirtyPlayerCount} · DB {playerFlush.dbWriteMs}ms · build {playerFlush.buildSnapshotMs}ms</span></div>
+      )}
+      {mapFlush && (
+        <div className="panel-row"><span className="panel-label">地图刷盘</span><span className="panel-value">{mapFlush.totalMs}ms · dirty {mapFlush.dirtyInstanceCount} · DB {mapFlush.dbWriteMs}ms · coalesced {mapFlush.coalescedDomainCount ?? 0} · {formatDomainCounts(mapFlush.domainCounts)}</span></div>
+      )}
     </div>
   );
 });

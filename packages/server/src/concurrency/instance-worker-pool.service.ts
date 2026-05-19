@@ -27,6 +27,7 @@ interface PendingInstanceTask {
 @Injectable()
 export class InstanceWorkerPoolService {
   private readonly logger = new Logger(InstanceWorkerPoolService.name);
+  private readonly forceSyncMode = isForceSyncMode();
   private readonly config: WorkerPoolConfig;
   private readonly pendingTasks = new Map<string, PendingInstanceTask>();
   private workers: Array<Worker | null> = [];

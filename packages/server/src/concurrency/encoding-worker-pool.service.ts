@@ -25,6 +25,7 @@ export type SyncFallback<TPayload, TResult> = (payload: TPayload) => TResult;
 @Injectable()
 export class EncodingWorkerPoolService {
   private readonly logger = new Logger(EncodingWorkerPoolService.name);
+  private readonly forceSyncMode = isForceSyncMode();
   private workers: Worker[] = [];
   private shuttingDown = false;
   private roundRobinIndex = 0;
@@ -42,26 +43,24 @@ export class EncodingWorkerPoolService {
     private readonly metricsService: WorkerPoolMetricsService,
   ) {
     this.config = {
-      enabled: false,
+      enabled: true,
       poolSize: Math.max(1, Math.min(cpus().length - 2, 6)),
       defaultDeadlineMs: 500,
     };
   }
 
   /**
-   * 运行时开关：由 WorkerPoolToggleService 在 GM flag 变更时调用。
-   * 打开时延迟启动 worker，关闭时终止 worker。
+   * 运行时同步：always-on 模式下仅允许确保 worker 启动，关闭请求会被忽略。
    */
   setEnabled(value: boolean): void {
-    if (this.config.enabled === value) return;
-    this.config.enabled = value;
-    if (value) {
-      this.logger.log('EncodingWorkerPool 运行时启用');
-      this.ensureWorkersStarted();
-    } else {
-      this.logger.log('EncodingWorkerPool 运行时禁用');
-      this.shutdownWorkers();
+    if (this.forceSyncMode) {
+      return;
     }
+    if (!value) {
+      this.logger.debug('EncodingWorkerPool disable request ignored; worker pools are always-on');
+      return;
+    }
+    this.ensureWorkersStarted();
   }
 
   /** 提交任务到 worker pool，返回结果 Promise */
@@ -76,17 +75,14 @@ export class EncodingWorkerPoolService {
 
     this.metricsService.recordSubmit('encoding');
 
-    // 热路径只读 config.enabled
-    if (!this.config.enabled) {
+    if (this.forceSyncMode) {
       return this.executeFallback(taskId, kind, payload, fallback);
     }
 
-    // 延迟启动：toggle 刚打开但 worker 还没启动
     if (!this.workers.some((w) => w !== null)) {
       this.ensureWorkersStarted();
     }
 
-    // worker 仍然没启动成功，走 fallback
     if (!this.workers.some((w) => w !== null)) {
       return this.executeFallback(taskId, kind, payload, fallback);
     }
@@ -96,8 +92,8 @@ export class EncodingWorkerPoolService {
 
   /** 初始化 worker pool（由 WorkerPoolModule onModuleInit 调用） */
   initialize(): void {
-    if (!this.config.enabled) {
-      this.logger.log('EncodingWorkerPool 已禁用（等待 GM toggle 启用）');
+    if (this.forceSyncMode) {
+      this.logger.log('EncodingWorkerPool 处于强制同步模式，跳过 worker 启动');
       return;
     }
     this.ensureWorkersStarted();
@@ -106,10 +102,10 @@ export class EncodingWorkerPoolService {
     );
   }
 
-  /** 延迟启动 worker（GM toggle 运行时打开时调用） */
+  /** 延迟启动 worker。 */
   private ensureWorkersStarted(): void {
-    if (this.shuttingDown) return;
-    if (this.workers.some((w) => w !== null)) return; // 已有活跃 worker
+    if (this.forceSyncMode || this.shuttingDown) return;
+    if (this.workers.some((w) => w !== null)) return;
     this.spawnWorkers();
     const activeCount = this.workers.filter((w) => w !== null).length;
     if (activeCount > 0) {
@@ -124,7 +120,7 @@ export class EncodingWorkerPoolService {
     this.shutdownWorkers();
   }
 
-  /** 关闭 worker 线程（运行时禁用 / 进程退出） */
+  /** 关闭 worker 线程（进程退出或显式重启时调用） */
   private shutdownWorkers(): void {
     for (const worker of this.workers) {
       worker.terminate();
@@ -145,7 +141,7 @@ export class EncodingWorkerPoolService {
 
   /** 是否启用 */
   isEnabled(): boolean {
-    return this.config.enabled;
+    return !this.forceSyncMode && this.workers.some((worker) => worker !== null);
   }
 
   /** 获取指标 */
@@ -365,21 +361,12 @@ export class EncodingWorkerPoolService {
       }
     }, 1000);
   }
+}
 
-  private handleWorkerResult(msg: WorkerTaskResult): void {
-    const pending = this.pendingTasks.get(msg.taskId);
-    if (!pending) return;
-
-    clearTimeout(pending.timer);
-    this.pendingTasks.delete(msg.taskId);
-
-    const durationMs = performance.now() - pending.submittedAt;
-    if (msg.ok) {
-      this.metricsService.recordComplete('encoding', durationMs);
-    } else {
-      this.metricsService.recordFailed('encoding');
-    }
-
-    pending.resolve({ ...msg, durationMs });
+function isForceSyncMode(): boolean {
+  const raw = process.env.SERVER_WORKER_POOL_FORCE_SYNC;
+  if (typeof raw !== 'string') {
+    return false;
   }
+  return /^(1|true|yes|on)$/iu.test(raw.trim());
 }

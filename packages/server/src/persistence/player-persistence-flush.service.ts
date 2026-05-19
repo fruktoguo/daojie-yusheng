@@ -15,6 +15,8 @@ import {
 } from './player-domain-persistence.service';
 import { type PersistedPlayerSnapshot } from './player-persistence.service';
 import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
+import { DatabasePoolProvider } from './database-pool.provider';
+import { FlushDiagnosticsService, type PlayerFlushDiagnostics } from './flush-diagnostics.service';
 
 /**
  * 玩家分域刷盘周期。
@@ -33,6 +35,12 @@ const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = normalizePositiveInteger(
 const PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE = 24;
 const PLAYER_PERSISTENCE_FLUSH_PARALLELISM = 4;
 const PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
+const PLAYER_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD = normalizePositiveInteger(
+  readTrimmedEnv('SERVER_PLAYER_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD', 'PLAYER_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD'),
+  2,
+  0,
+  100,
+);
 const PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS = 100;
 const PLAYER_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger(
   readTrimmedEnv('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'),
@@ -127,6 +135,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     private readonly playerDomainPersistenceService: PlayerDomainPersistenceService,
     @Optional() @Inject(PersistenceWorkerPoolService)
     private readonly persistenceWorkerPool?: PersistenceWorkerPoolService,
+    @Optional() @Inject(DatabasePoolProvider)
+    private readonly databasePoolProvider?: DatabasePoolProvider,
+    @Optional() @Inject(FlushDiagnosticsService)
+    private readonly flushDiagnostics?: FlushDiagnosticsService,
   ) {}
 
   setLeaseGuard(leaseGuard: LeaseGuardPort | null): void {
@@ -229,8 +241,14 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   }
 
   async flushDirtyPlayers(): Promise<void> {
-    const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if (!domainEnabled || this.flushPromise || isRestoreFreezeActive() || this.isFlushThrottleActive()) {
+    if (!this.playerDomainPersistenceService.isEnabled()
+      || this.flushPromise
+      || this.isFlushThrottleActive()) {
+      return;
+    }
+    if (this.isFlushPoolBackpressureActive()) {
+      this.flushThrottleUntilAt = Date.now() + PLAYER_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
+      this.logger.warn(`玩家 flush 因 flush pool 等待排队而退避：waiting>=${PLAYER_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD}`);
       return;
     }
     await this.runFlushCycle('interval');
@@ -242,12 +260,26 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       return;
     }
     const startedAt = performance.now();
+    // 诊断累计器
+    let diagDirtyCount = 0;
+    const diagDomainCounts: Record<string, number> = {};
+    let diagBuildMs = 0;
+    let diagWorkerMs = 0;
+    let diagDbWriteMs = 0;
+    let diagMarkMs = 0;
 
     const promise = (async () => {
       const dirtyPlayerDomains = this.resolveDirtyPlayerDomains();
       const dirtyPlayerIds = Array.from(dirtyPlayerDomains.keys());
       if (dirtyPlayerIds.length === 0) {
         return;
+      }
+      diagDirtyCount = dirtyPlayerIds.length;
+      // 统计 domain counts
+      for (const domains of dirtyPlayerDomains.values()) {
+        for (const d of domains) {
+          diagDomainCounts[d] = (diagDomainCounts[d] ?? 0) + 1;
+        }
       }
 
       const batches = chunkValues(dirtyPlayerIds, PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE);
@@ -278,7 +310,9 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
               return;
             }
             const snapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
+            const buildStart = performance.now();
             const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId, dirtyDomains);
+            diagBuildMs += performance.now() - buildStart;
             if (!snapshot) {
               return;
             }
@@ -300,6 +334,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
             // retryFlush 内部把"真正写出去的 domain 集合"通过返回值传出来，
             // lease 失效或抛错的情况都不会 markPersisted，dirty 保留等下一轮重试。
             let lastResult: FlushDirtyDomainsResult | null = null;
+            const dbStart = performance.now();
             await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
               lastResult = await this.flushPlayerDirtyDomains(
                 playerId,
@@ -309,8 +344,11 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
                 domainEnabled,
               );
             });
+            diagDbWriteMs += performance.now() - dbStart;
             if (lastResult && !lastResult.leaseInvalidated && lastResult.persistedDomains.size > 0) {
+              const markStart = performance.now();
               this.playerRuntimeService.markPersisted(playerId, lastResult.persistedDomains, snapshotRevision);
+              diagMarkMs += performance.now() - markStart;
             }
           },
           (playerId, error) => {
@@ -335,6 +373,19 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       if (reason === 'interval') {
         const durationMs = performance.now() - startedAt;
         this.updateFlushThrottle(durationMs);
+        // 上报诊断
+        if (diagDirtyCount > 0) {
+          this.flushDiagnostics?.reportPlayerFlush({
+            dirtyPlayerCount: diagDirtyCount,
+            domainCounts: diagDomainCounts,
+            buildSnapshotMs: Math.round(diagBuildMs),
+            workerSubmitMs: Math.round(diagWorkerMs),
+            dbWriteMs: Math.round(diagDbWriteMs),
+            markPersistedMs: Math.round(diagMarkMs),
+            totalMs: Math.round(durationMs),
+            timestamp: Date.now(),
+          });
+        }
       }
     }
   }
@@ -374,14 +425,9 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         // 关键：lease 失效时显式上报，外层据此跳过 markPersisted，dirty 留给下一轮重试。
         return { persistedDomains, leaseInvalidated: true };
       }
-      // Phase 5: 当 worker pool 启用时，预序列化 snapshot 以卸载主线程 CPU
-      if (this.persistenceWorkerPool?.isEnabled()) {
-        await this.persistenceWorkerPool.submit(
-          'persistence-build',
-          { snapshots: [snapshot] },
-          (payload: any) => ({ jsonPayloads: [JSON.stringify(payload.snapshots[0])] }),
-        );
-      }
+      // 注：原 Phase 5 worker pool submit 已移除——其输出未接入写库路径，
+      // 只是额外的结构化克隆 + JSON.stringify + 等待 worker 响应，属于无效工作。
+      // 未来如需 worker 卸载 CPU，应让 worker 输出 write plan 直接作为写库输入。
       await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
         playerId,
         snapshot,
@@ -419,6 +465,11 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
 
   private isFlushThrottleActive(): boolean {
     return Date.now() < this.flushThrottleUntilAt;
+  }
+
+  private isFlushPoolBackpressureActive(): boolean {
+    const stats = this.databasePoolProvider?.getPoolStats('flush');
+    return Boolean(stats && stats.waitingCount >= PLAYER_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD);
   }
 
   private updateFlushThrottle(durationMs: number): void {

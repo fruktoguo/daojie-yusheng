@@ -144,6 +144,7 @@ import { MapPersistenceFlushService } from './persistence/map-persistence-flush.
 import { DurableOperationService } from './persistence/durable-operation.service';
 import { MapPersistenceService } from './persistence/map-persistence.service';
 import { DatabasePoolProvider } from './persistence/database-pool.provider';
+import { FlushDiagnosticsService } from './persistence/flush-diagnostics.service';
 import { CombatAuditOutboxService } from './persistence/combat-audit-outbox.service';
 import { FlushWakeupService } from './persistence/flush-wakeup.service';
 import { InstanceCatalogService } from './persistence/instance-catalog.service';
@@ -303,6 +304,7 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     PlayerCombatService,
     MapPersistenceService,
     DatabasePoolProvider,
+    FlushDiagnosticsService,
     CombatAuditOutboxService,
     FlushWakeupService,
     InstanceCatalogService,

@@ -192,6 +192,17 @@ export class WorldRuntimeStateFacadeService {
     async flushInstanceDomains(instanceId, domains, deps) {
         return deps.worldRuntimePersistenceStateService.flushInstanceDomains(instanceId, domains, deps);
     }
+
+    /** 批量收集指定 domain 的 delta，不写库。 */
+    buildDomainDeltaBatch(domain, instanceIds, deps) {
+        return deps.worldRuntimePersistenceStateService.buildDomainDeltaBatch(domain, instanceIds, deps);
+    }
+
+    /** 批量标记多个实例的指定 domain 为已持久化。 */
+    markDomainBatchPersisted(domain, instanceIds, deps) {
+        deps.worldRuntimePersistenceStateService.markDomainBatchPersisted(domain, instanceIds, deps);
+    }
+
     /**
  * tickAll：执行tickAll相关逻辑。
  * @param deps 运行时依赖。

@@ -9,6 +9,7 @@ import { OutboxDispatcherService } from './outbox-dispatcher.service';
 import { OutboxEventConsumerRegistryService } from './outbox-event-consumer-registry.service';
 
 const DEFAULT_OUTBOX_DISPATCH_INTERVAL_MS = 250;
+const DEFAULT_OUTBOX_DISPATCH_IDLE_MAX_MS = 5_000;
 const DEFAULT_OUTBOX_DISPATCH_BATCH_SIZE = 128;
 const DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS = 30_000;
 const DEFAULT_OUTBOX_RETRY_DELAY_MS = 5_000;
@@ -19,8 +20,9 @@ const DEFAULT_OUTBOX_LOCAL_DEDUPE_LIMIT = 10_000;
 @Injectable()
 export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxDispatcherRuntimeService.name);
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
+  private nextDelayMs = DEFAULT_OUTBOX_DISPATCH_INTERVAL_MS;
   private readonly processedEventIds = new Set<string>();
   private readonly processedOperationIds = new Set<string>();
   private readonly processedEventIdOrder: string[] = [];
@@ -46,17 +48,14 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       return;
     }
 
-    const intervalMs = resolveOutboxDispatchIntervalMs();
-    this.timer = setInterval(() => {
-      void this.dispatchPendingEvents();
-    }, intervalMs);
-    this.timer.unref();
-    this.logger.log(`outbox dispatcher runtime 已启动，轮询间隔 ${intervalMs}ms`);
+    this.nextDelayMs = resolveOutboxDispatchIntervalMs();
+    this.scheduleNextDispatch(0);
+    this.logger.log(`outbox dispatcher runtime 已启动，自适应起始间隔 ${this.nextDelayMs}ms`);
   }
 
   async onModuleDestroy(): Promise<void> {
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = null;
     }
   }
@@ -93,6 +92,30 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       this.running = false;
     }
     return processedCount;
+  }
+
+  private scheduleNextDispatch(delayMs: number): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+    }
+    this.timer = setTimeout(() => {
+      void this.runScheduledDispatch();
+    }, delayMs);
+    this.timer.unref();
+  }
+
+  private async runScheduledDispatch(): Promise<void> {
+    if (!this.outboxDispatcherService.isEnabled() || !isOutboxRuntimeEnabled()) {
+      return;
+    }
+    const processedCount = await this.dispatchPendingEvents().catch((error: unknown) => {
+      this.logger.error('outbox dispatcher runtime 调度失败', error instanceof Error ? error.stack : String(error));
+      return 0;
+    });
+    this.nextDelayMs = processedCount > 0
+      ? resolveOutboxDispatchIntervalMs()
+      : Math.min(Math.max(resolveOutboxDispatchIntervalMs(), this.nextDelayMs * 2), DEFAULT_OUTBOX_DISPATCH_IDLE_MAX_MS);
+    this.scheduleNextDispatch(this.nextDelayMs);
   }
 
   async consumeEvent(

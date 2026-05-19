@@ -99,6 +99,7 @@ function createHarness() {
   }> = [];
   const presenceCalls: string[] = [];
   const markedPersisted: string[] = [];
+  const workerSubmitCalls: string[] = [];
   let leaseWritable = true;
 
   const playerRuntimeService = {
@@ -163,9 +164,20 @@ function createHarness() {
     },
   };
 
+  const persistenceWorkerPool = {
+    isEnabled() {
+      return true;
+    },
+    async submit(taskName: string) {
+      workerSubmitCalls.push(taskName);
+      return null;
+    },
+  };
+
   const service = new PlayerPersistenceFlushService(
     playerRuntimeService as never,
     playerDomainPersistenceService as never,
+    persistenceWorkerPool as never,
   );
   service.setLeaseGuard({
     isPlayerPersistenceWritable() {
@@ -180,6 +192,7 @@ function createHarness() {
     selectiveProjectionCalls,
     presenceCalls,
     markedPersisted,
+    workerSubmitCalls,
     setLeaseWritable(value: boolean) {
       leaseWritable = value;
     },
@@ -316,6 +329,26 @@ async function testSnapshotFallbackDomainRejected(): Promise<void> {
   assert.deepEqual(harness.markedPersisted, []);
 }
 
+async function testWorkerPoolSubmitIsNotUsed(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:worker-submit-removed';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory', 'presence']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(260_000));
+
+  await harness.service.flushDirtyPlayers();
+
+  assert.deepEqual(harness.workerSubmitCalls, []);
+  assert.deepEqual(harness.selectiveProjectionCalls, [
+    {
+      playerId,
+      domains: ['inventory'],
+      allowInventoryEmptyOverwrite: true,
+      allowEquipmentEmptyOverwrite: false,
+      allowBuffEmptyOverwrite: false,
+    },
+  ]);
+}
+
 async function main(): Promise<void> {
   await testPresenceOnlyFlush();
   await testSelectiveProjectionFlush();
@@ -324,6 +357,7 @@ async function main(): Promise<void> {
   await testEquipmentSelectiveProjectionAllowsEmptyOverwrite();
   await testLeaseGuardBlocksFlush();
   await testSnapshotFallbackDomainRejected();
+  await testWorkerPoolSubmitIsNotUsed();
 
   console.log(
     JSON.stringify(
