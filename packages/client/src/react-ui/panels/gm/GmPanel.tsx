@@ -5,6 +5,7 @@
 import { memo, useCallback, useMemo, useState, useRef } from 'react';
 import type { C2S_GmUpdatePlayer, GmPlayerSummary, GmWorkerPoolAllMetrics, GmWorkerPoolMetrics, S2C_GmState, Suggestion } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
+import { getCachedMapMeta } from '../../../map-static-cache';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -102,8 +103,12 @@ function getPlayerAccountLabel(player: GmPlayerSummary): string {
   return player.accountName ?? (player.isBot ? '机器人' : '无');
 }
 
+function getMapLabel(mapId: string): string {
+  return getCachedMapMeta(mapId)?.name ? `${getCachedMapMeta(mapId)?.name} (${mapId})` : mapId;
+}
+
 function getPlayerMapLabel(player: GmPlayerSummary): string {
-  return player.mapName || player.mapId;
+  return player.mapName ? `${player.mapName} (${player.mapId})` : getMapLabel(player.mapId);
 }
 
 // ─── 组件 ────────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@
  * 当前作为 GM 工具面板继续保留，由独立 GM 入口驱动，不并入玩家主线 main.ts。
  */
 import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
+import { getCachedMapMeta } from '../../map-static-cache';
 import {
   mountReactGmPanel,
   setReactGmPanelCallbacks,
@@ -72,8 +73,12 @@ function getPlayerAccountLabel(player: GmPlayerSummary): string {
 }
 
 /** 生成玩家所在地图的展示文本。 */
+function getMapLabel(mapId: string): string {
+  return getCachedMapMeta(mapId)?.name ? `${getCachedMapMeta(mapId)?.name} (${mapId})` : mapId;
+}
+
 function getPlayerMapLabel(player: GmPlayerSummary): string {
-  return player.mapName || player.mapId;
+  return player.mapName ? `${player.mapName} (${player.mapId})` : getMapLabel(player.mapId);
 }
 
 /** 构建一份空的 GM 状态快照，作为首屏和清空时的基线。 */
@@ -594,14 +599,14 @@ export class GmPanel {
       for (const mapId of this.state.mapIds) {
         const option = document.createElement('option');
         option.value = mapId;
-        option.textContent = mapId;
+        option.textContent = getMapLabel(mapId);
         options.push(option);
       }
       const includesSelected = this.state.mapIds.includes(selected.mapId);
       if (!includesSelected) {
         const option = document.createElement('option');
         option.value = selected.mapId;
-        option.textContent = selected.mapId;
+        option.textContent = getMapLabel(selected.mapId);
         options.push(option);
       }
       this.mapSelect.replaceChildren(...options);
