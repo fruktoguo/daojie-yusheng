@@ -2370,10 +2370,10 @@
           </div>
           <div id="memory-estimate-meta" class="note-card" data-i18n="gm.memory-estimate-meta">运行态内存画像尚未生成。</div>
           <div class="panel-actions">
-            <button id="trigger-manual-gc" class="small-btn danger" type="button" title="触发一次 V8 GC，并显示执行前后内存差值；仅用于诊断">手动 GC</button>
+            <button id="trigger-manual-gc" class="small-btn danger" type="button" aria-label="触发一次 V8 GC，并显示执行前后内存差值；仅用于诊断">手动 GC</button>
             <button id="write-heap-snapshot" class="small-btn danger" type="button">生成 Heap Snapshot</button>
-            <button id="copy-heap-snapshot-summary" class="small-btn primary" type="button" title="生成 Heap Snapshot 后自动把 ~50 KB 摘要 JSON 复制到剪贴板，无需下载 GB 级文件">生成并复制摘要</button>
-            <button id="copy-latest-heap-snapshot-summary" class="small-btn" type="button" title="读取服务器上最近一份摘要 JSON 并复制到剪贴板">复制最近摘要</button>
+            <button id="copy-heap-snapshot-summary" class="small-btn primary" type="button" aria-label="生成 Heap Snapshot 后自动把 ~50 KB 摘要 JSON 复制到剪贴板，无需下载 GB 级文件">生成并复制摘要</button>
+            <button id="copy-latest-heap-snapshot-summary" class="small-btn" type="button" aria-label="读取服务器上最近一份摘要 JSON 并复制到剪贴板">复制最近摘要</button>
             <div id="heap-snapshot-meta" class="inline-status">会短暂停顿服务端进程，仅用于运维诊断。</div>
           </div>
           <div class="network-breakdown">

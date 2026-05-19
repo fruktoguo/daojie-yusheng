@@ -527,6 +527,8 @@ export class MarketPanel {
   updateListings(data: S2C_MarketListings): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const marketModalOpen = detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER);
+    const previousSelectedItemKey = this.selectedItemKey;
     this.marketListings = data;
     this.currentPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
     this.activeCategory = data.category;
@@ -534,8 +536,12 @@ export class MarketPanel {
     this.activeTechniqueCategory = data.category === 'skill_book' ? data.techniqueCategory : 'all';
     this.marketUpdate = this.mergeListingsIntoMarketUpdate(this.marketUpdate, data);
     this.syncPageSelection();
+    const canPatchMarketModal = marketModalOpen && this.canPatchCurrentMarketListInPlace();
     this.renderPane();
-    if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+    if (marketModalOpen) {
+      if (this.patchMarketModalLiveState({ patchBook: previousSelectedItemKey !== this.selectedItemKey, requireStableList: canPatchMarketModal })) {
+        return;
+      }
       this.renderModal();
     }
   }
@@ -1727,6 +1733,19 @@ export class MarketPanel {
       return true;
     }
     return renderedSignature === this.getExpectedMarketListSignature(next);
+  }
+
+  /** 判断当前列表回包是否仍对应现有 DOM 结构。 */
+  private canPatchCurrentMarketListInPlace(): boolean {
+    if (this.modalTab !== 'market') {
+      return false;
+    }
+    const body = this.getOpenModalBody();
+    if (!body?.querySelector('.market-market-tab')) {
+      return false;
+    }
+    const renderedSignature = this.getRenderedMarketListSignature(body);
+    return Boolean(this.marketUpdate && renderedSignature && renderedSignature === this.getExpectedMarketListSignature(this.marketUpdate));
   }
 
   /** 同步普通坊市弹层的可变数据，避免每秒重建 hover 中的物品节点。 */

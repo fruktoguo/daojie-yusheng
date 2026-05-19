@@ -49,9 +49,6 @@ export function applyStaticI18n(root: ParentNode): void {
       node.textContent = t(key);
     }
   });
-  root.querySelectorAll('[data-i18n-title]').forEach((node) => {
-    applyI18nAttribute(node, 'data-i18n-title', 'title');
-  });
   root.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
     applyI18nAttribute(node, 'data-i18n-placeholder', 'placeholder');
   });

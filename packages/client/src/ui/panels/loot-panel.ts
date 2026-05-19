@@ -507,7 +507,7 @@ export class LootPanel {
         createElement('span', 'inventory-cell-count', formatDisplayCountBadge(entry.item.count)),
       );
       const name = createElement('div', 'inventory-cell-name', isHerb ? t('loot.herb.start-hint', undefined) : entry.item.name);
-      name.title = isHerb ? t('loot.herb.start-title', undefined) : entry.item.name;
+      name.setAttribute('aria-label', isHerb ? t('loot.herb.start-title', undefined) : entry.item.name);
       const actions = createElement('div', 'inventory-cell-actions');
       const button = createElement('button', 'small-btn', isHerb ? (harvesting ? t('loot.action.gathering', undefined) : t('loot.action.start-gather', undefined)) : t('loot.action.take', undefined));
       button.type = 'button';

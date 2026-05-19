@@ -637,7 +637,7 @@ export class SettingsPanel {
               type="button"
               data-ui-color-mode="${option.value}"
               aria-pressed="${config.colorMode === option.value ? 'true' : 'false'}"
-              title="${escapeHtml(option.description)}"
+              aria-label="${escapeHtml(option.description)}"
             >${option.label}</button>
           `).join('')}
         </div>

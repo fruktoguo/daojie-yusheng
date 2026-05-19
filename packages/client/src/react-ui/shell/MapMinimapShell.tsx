@@ -55,7 +55,7 @@ const MapMinimapOverlayShell = memo(function MapMinimapOverlayShell() {
           id="map-minimap-toggle"
           className="map-minimap-btn"
           type="button"
-          title={t('shell.map-minimap-toggle.title', undefined)}
+          aria-label={t('shell.map-minimap-toggle.title', undefined)}
         >
           {t('shell.map-minimap-toggle', undefined)}
         </button>
@@ -63,7 +63,7 @@ const MapMinimapOverlayShell = memo(function MapMinimapOverlayShell() {
           id="map-minimap-open"
           className="map-minimap-btn"
           type="button"
-          title={t('shell.map-minimap-open.title', undefined)}
+          aria-label={t('shell.map-minimap-open.title', undefined)}
         >
           {t('shell.map-minimap-open', undefined)}
         </button>

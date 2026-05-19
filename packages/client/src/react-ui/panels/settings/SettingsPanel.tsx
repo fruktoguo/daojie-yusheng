@@ -453,7 +453,7 @@ const UiTab = memo(function UiTab() {
               className={`small-btn ghost${colorMode === option.value ? ' active' : ''}`}
               type="button"
               aria-pressed={colorMode === option.value ? 'true' : 'false'}
-              title={option.description}
+              aria-label={option.description}
               onClick={() => handleColorMode(option.value as UiColorMode)}
             >
               {option.label}

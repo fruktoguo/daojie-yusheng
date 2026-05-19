@@ -483,7 +483,7 @@ export class NpcShopModal {
     button.classList.toggle('market-item-cell--status', status !== null);
     button.classList.toggle('market-item-cell--status-learned', status?.kind === 'learned');
     button.classList.toggle('market-item-cell--status-unlocked', status?.kind === 'unlocked');
-    nameWrap.title = item.item.name;
+    nameWrap.setAttribute('aria-label', item.item.name);
     nameText.textContent = item.item.name;
     nameText.dataset.npcShopItemTooltip = item.itemId;
     ownedNode.textContent = ownedCount > 0 ? formatDisplayCountBadge(ownedCount) : '';

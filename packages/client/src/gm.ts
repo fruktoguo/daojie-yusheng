@@ -2925,7 +2925,11 @@ function updateUndoButton(): void {
   const btn = getDiagUndoBtn();
   if (btn) {
     btn.disabled = !lastExecCommand;
-    btn.title = lastExecCommand ? `撤回: ${lastExecCommand.slice(0, 80)}` : '';
+    if (lastExecCommand) {
+      btn.setAttribute('aria-label', `撤回: ${lastExecCommand.slice(0, 80)}`);
+    } else {
+      btn.removeAttribute('aria-label');
+    }
   }
 }
 
@@ -2987,11 +2991,11 @@ function renderTableCell(value: unknown, col: string): string {
   if (typeof value === 'object') {
     const json = JSON.stringify(value);
     const display = json.length > 120 ? `${json.slice(0, 120)}…` : json;
-    return `<td class="diag-cell-editable" ${colAttr} title="${escapeHtml(json)}" data-raw-value="${escapeHtml(json)}">${escapeHtml(display)}</td>`;
+    return `<td class="diag-cell-editable" ${colAttr} aria-label="${escapeHtml(json)}" data-raw-value="${escapeHtml(json)}">${escapeHtml(display)}</td>`;
   }
   const str = String(value);
   const display = str.length > 80 ? `${str.slice(0, 80)}…` : str;
-  return `<td class="diag-cell-editable" ${colAttr} title="${escapeHtml(str)}" data-raw-value="${escapeHtml(str)}">${escapeHtml(display)}</td>`;
+  return `<td class="diag-cell-editable" ${colAttr} aria-label="${escapeHtml(str)}" data-raw-value="${escapeHtml(str)}">${escapeHtml(display)}</td>`;
 }
 
 const DIAG_PLAYER_HISTORY_KEY = 'gm_diag_player_history';
@@ -3495,7 +3499,7 @@ function renderRuntimeFlagsPanel(): void {
       const canDelete = !flag.isPreset && flag.key !== NETWORK_PAYLOAD_CAPTURE_FLAG_KEY
         && !PRESET_FLAGS.some((p) => p.key === flag.key);
       const deleteBtn = canDelete
-        ? `<button class="flag-delete-btn" data-flag-delete="${flag.key}" type="button" title="删除此开关">删除</button>`
+        ? `<button class="flag-delete-btn" data-flag-delete="${flag.key}" type="button" aria-label="删除此开关">删除</button>`
         : '';
       return `<div class="flag-row" data-flag-row="${flag.key}">
         <label class="flag-toggle" onclick="event.stopPropagation()">
@@ -3879,7 +3883,7 @@ function renderTableStatsContent(): string {
         <div class="network-row-meta">行数(估) ${escapeHtml(String(t.rowEstimate))} · 总大小 ${escapeHtml(t.totalSize)} · 数据 ${escapeHtml(t.tableSize)} · 索引 ${escapeHtml(t.indexSize)} · ${escapeHtml(cleanupMeta)}</div>
         ${cleanupAllowed ? `
           <div class="button-row" style="margin-top:4px;">
-            <button class="small-btn danger" ${cleanupOlderThanAllowed ? `data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="older_than"` : 'title="缺少可按时间清理的列"'} type="button" ${cleanupBusy || !cleanupOlderThanAllowed ? 'disabled' : ''}>清理 7 天前数据</button>
+            <button class="small-btn danger" ${cleanupOlderThanAllowed ? `data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="older_than"` : 'aria-label="缺少可按时间清理的列"'} type="button" ${cleanupBusy || !cleanupOlderThanAllowed ? 'disabled' : ''}>清理 7 天前数据</button>
             <button class="small-btn danger" data-cleanup-target="${escapeHtml(t.tableName)}" data-cleanup-mode="all" type="button" ${cleanupBusy ? 'disabled' : ''}>直接清空</button>
           </div>
         ` : ''}

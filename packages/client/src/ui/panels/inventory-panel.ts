@@ -1138,7 +1138,7 @@ export class InventoryPanel {
         cell.append(affinityNode);
       }
       affinityNode.textContent = itemMeta.affinityBadge.label;
-      affinityNode.title = itemMeta.affinityBadge.title;
+      affinityNode.setAttribute('aria-label', itemMeta.affinityBadge.title);
       affinityNode.className = `item-card-chip item-card-chip--affinity item-card-chip--${itemMeta.affinityBadge.tone} item-card-chip--element-${itemMeta.affinityBadge.element}`;
     } else {
       affinityNode?.remove();
@@ -1172,17 +1172,17 @@ export class InventoryPanel {
     refs.type.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
     refs.count.textContent = formatDisplayCountBadge(item.count);
     refs.name.textContent = displayName;
-    refs.name.title = displayName;
+    refs.name.setAttribute('aria-label', displayName);
     refs.name.className = `inventory-cell-name ${this.getNameClass(displayName)}`.trim();
     refs.dropButton.dataset.inlineDrop = String(slotIndex);
 
     refs.cooldown.hidden = cooldownState === null;
     if (cooldownState) {
-      refs.cooldown.title = this.getItemCooldownTitle(cooldownState, cooldownRemaining);
+      refs.cooldown.setAttribute('aria-label', this.getItemCooldownTitle(cooldownState, cooldownRemaining));
       refs.cooldownPie.style.setProperty('--inventory-cooldown-progress', this.getItemCooldownRatio(cooldownState, cooldownRemaining).toFixed(4));
       refs.cooldownLabel.textContent = formatDisplayInteger(cooldownRemaining);
     } else {
-      refs.cooldown.removeAttribute('title');
+      refs.cooldown.removeAttribute('aria-label');
       refs.cooldownPie.style.setProperty('--inventory-cooldown-progress', '0');
       refs.cooldownLabel.textContent = '';
     }
@@ -1449,13 +1449,13 @@ export class InventoryPanel {
     if (stoneCostOutput) {
       stoneCostOutput.value = formatDisplayInteger(spiritStoneCount);
       stoneCostOutput.textContent = formatDisplayInteger(spiritStoneCount);
-      stoneCostOutput.title = `当前 ${formatDisplayInteger(this.getCurrentSpiritStoneCount())}，需要 ${formatDisplayInteger(spiritStoneCount)}`;
+      stoneCostOutput.setAttribute('aria-label', `当前 ${formatDisplayInteger(this.getCurrentSpiritStoneCount())}，需要 ${formatDisplayInteger(spiritStoneCount)}`);
     }
     const qiCostOutput = body.querySelector<HTMLOutputElement>('[data-formation-qi-cost]');
     if (qiCostOutput) {
       qiCostOutput.value = formatDisplayInteger(qiCost);
       qiCostOutput.textContent = formatDisplayInteger(qiCost);
-      qiCostOutput.title = `当前 ${formatDisplayInteger(this.playerQi)}，需要 ${formatDisplayInteger(qiCost)}`;
+      qiCostOutput.setAttribute('aria-label', `当前 ${formatDisplayInteger(this.playerQi)}，需要 ${formatDisplayInteger(qiCost)}`);
     }
     const currentQiOutput = body.querySelector<HTMLOutputElement>('[data-formation-current-qi]');
     if (currentQiOutput) {
@@ -1485,11 +1485,13 @@ export class InventoryPanel {
     const confirmButton = body.querySelector<HTMLButtonElement>('[data-formation-confirm]');
     if (confirmButton) {
       confirmButton.disabled = !hasEnoughQi || !hasEnoughStones;
-      confirmButton.title = hasEnoughStones && hasEnoughQi
-        ? ''
-        : !hasEnoughStones
+      if (hasEnoughStones && hasEnoughQi) {
+        confirmButton.removeAttribute('aria-label');
+      } else {
+        confirmButton.setAttribute('aria-label', !hasEnoughStones
           ? `灵石不足：当前 ${formatDisplayInteger(this.getCurrentSpiritStoneCount())}，需要 ${formatDisplayInteger(spiritStoneCount)}`
-          : `灵力不足：当前 ${formatDisplayInteger(this.playerQi)}，需要 ${formatDisplayInteger(qiCost)}`;
+          : `灵力不足：当前 ${formatDisplayInteger(this.playerQi)}，需要 ${formatDisplayInteger(qiCost)}`);
+      }
       confirmButton.textContent = hasEnoughStones && hasEnoughQi
         ? '确认布阵'
         : !hasEnoughStones ? '灵石不足' : '灵力不足';

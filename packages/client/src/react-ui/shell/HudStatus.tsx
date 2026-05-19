@@ -242,7 +242,6 @@ const HudLinkActions = memo(function HudLinkActions() {
         role="link"
         tabIndex={0}
         aria-label={t('shell.hud-corner-btn-ifdian.aria-label', undefined)}
-        title={t('shell.hud-corner-btn-ifdian.title', undefined)}
       >
         <span className="hud-link-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
@@ -258,7 +257,6 @@ const HudLinkActions = memo(function HudLinkActions() {
         href="#"
         data-qq-group-link="true"
         aria-label={t('shell.join-qq-group.aria-label', undefined)}
-        title={t('shell.join-qq-group.title.attr', undefined)}
       >
         <span className="hud-link-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
@@ -275,7 +273,6 @@ const HudLinkActions = memo(function HudLinkActions() {
         role="link"
         tabIndex={0}
         aria-label="GitHub"
-        title="GitHub"
       >
         <span className="hud-link-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
@@ -288,7 +285,6 @@ const HudLinkActions = memo(function HudLinkActions() {
         className="hud-corner-btn hud-link-btn hud-link-btn--tutorial"
         type="button"
         aria-label={t('shell.open-tutorial.aria-label', undefined)}
-        title={t('shell.open-tutorial.title', undefined)}
       >
         <span className="hud-link-btn-text">{t('shell.hud-link-btn-text-simple-tutorial', undefined)}</span>
       </button>

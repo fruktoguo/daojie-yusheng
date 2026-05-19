@@ -3377,12 +3377,12 @@ export class CraftWorkbenchModal {
                     <span class="inventory-cell-type">${escapeHtml(getItemAffixTypeLabel(itemMeta.displayItem, itemTypeLabel))}</span>
                     <span class="inventory-cell-count">x${formatDisplayInteger(entry.item.count ?? 1)}</span>
                   </div>
-                  <div class="inventory-cell-name ${nameClass}" title="${escapeHtml(entry.item.name ?? entry.item.itemId)}">${escapeHtml(entry.item.name ?? entry.item.itemId)}</div>
+                  <div class="inventory-cell-name ${nameClass}">${escapeHtml(entry.item.name ?? entry.item.itemId)}</div>
                   <div class="enhancement-picker-cell-meta">
                     <span>${escapeHtml(sourceLabel)}</span>
                     <span>+${formatDisplayInteger(entry.currentLevel)} → +${formatDisplayInteger(entry.nextLevel)} · ${formatDisplayInteger(entry.durationTicks)} 息</span>
                   </div>
-                  ${itemMeta.affinityBadge ? `<span class="item-card-chip item-card-chip--affinity item-card-chip--${escapeHtml(itemMeta.affinityBadge.tone ?? 'neutral')} item-card-chip--element-${escapeHtml(itemMeta.affinityBadge.element ?? 'neutral')}" title="${escapeHtml(itemMeta.affinityBadge.title ?? '')}">${escapeHtml(itemMeta.affinityBadge.label ?? '')}</span>` : ''}
+                  ${itemMeta.affinityBadge ? `<span class="item-card-chip item-card-chip--affinity item-card-chip--${escapeHtml(itemMeta.affinityBadge.tone ?? 'neutral')} item-card-chip--element-${escapeHtml(itemMeta.affinityBadge.element ?? 'neutral')}" aria-label="${escapeHtml(itemMeta.affinityBadge.title ?? '')}">${escapeHtml(itemMeta.affinityBadge.label ?? '')}</span>` : ''}
                   ${itemMeta.levelLabel ? `<span class="item-card-chip item-card-chip--level">${escapeHtml(String(itemMeta.levelLabel))}</span>` : ''}
                 </button>
               `;

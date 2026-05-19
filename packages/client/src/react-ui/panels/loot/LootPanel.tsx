@@ -254,7 +254,7 @@ const LootItemCell = memo(function LootItemCell({ entry, sourceId, sourceKind, i
         </span>
         <span className="inventory-cell-count">{formatDisplayCountBadge(entry.item.count)}</span>
       </div>
-      <div className="inventory-cell-name" title={isHerb ? t('loot.herb.start-title') : entry.item.name}>
+      <div className="inventory-cell-name" aria-label={isHerb ? t('loot.herb.start-title') : entry.item.name}>
         {isHerb ? t('loot.herb.start-hint') : entry.item.name}
       </div>
       <div className="inventory-cell-actions">

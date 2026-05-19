@@ -266,8 +266,10 @@ export class MarketTradeDialog {
       delete root.dataset.marketDialogItemKey;
       delete root.dataset.marketDialogKind;
       delete root.dataset.marketDialogSource;
-      p.tooltipNode = null;
-      p.tooltip.hide(true);
+      if (p.tooltipNode && root.contains(p.tooltipNode)) {
+        p.tooltipNode = null;
+        p.tooltip.hide(true);
+      }
       return;
     }
     root.classList.remove('hidden');

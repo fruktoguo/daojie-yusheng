@@ -1867,7 +1867,7 @@ export class ActionPanel {
     const badge = getSkillAffinityBadge(skill);
     const elementClass = badge.element === 'neutral' ? '' : ` item-card-chip--element-${badge.element}`;
     const title = escapeHtml(badge.title);
-    return `<span class="item-card-chip item-card-chip--affinity item-card-chip--${badge.tone}${elementClass} action-skill-affinity-chip" title="${title}" aria-label="${title}">${escapeHtml(badge.label)}</span>`;
+    return `<span class="item-card-chip item-card-chip--affinity item-card-chip--${badge.tone}${elementClass} action-skill-affinity-chip" aria-label="${title}">${escapeHtml(badge.label)}</span>`;
   }
 
   /** 切换某个自动战斗技能的启用状态。 */

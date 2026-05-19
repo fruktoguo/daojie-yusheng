@@ -536,7 +536,7 @@ export function createMainRuntimeMonitorSource(
     if (elements.currentTimeMinBEl) elements.currentTimeMinBEl.textContent = minutes[1] ?? '-';
     if (elements.currentTimePhaseEl) elements.currentTimePhaseEl.textContent = phaseLabel;
     if (elements.currentTimeEl) {
-      elements.currentTimeEl.setAttribute('title', state ? `${phaseLabel} ${hours}:${minutes}` : '时辰未定');
+      elements.currentTimeEl.setAttribute('aria-label', state ? `${phaseLabel} ${hours}:${minutes}` : '时辰未定');
     }
   }  
   /**
@@ -615,7 +615,7 @@ export function createMainRuntimeMonitorSource(
       const title = latencyMs === null
         ? `当前域名 ${options.locationHost} 的服务器延迟${status === '离线' ? '不可用' : `状态：${status}`}`
         : `当前域名 ${options.locationHost} 上游戏连接往返约 ${Math.round(latencyMs)}ms`;
-      elements.pingLatencyEl.setAttribute('title', title);
+      elements.pingLatencyEl.setAttribute('aria-label', title);
     }
   }  
   /**

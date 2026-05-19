@@ -995,7 +995,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
             type="button"
             data-observe-loot-id="${escapeHtml(entity.id)}"
             aria-disabled="${entity.observation?.clarity === 'complete' ? 'false' : 'true'}"
-            title="${escapeHtml(entity.observation?.clarity === 'complete' ? t('observe.loot.action.title-ready', undefined) : t('observe.loot.action.title-locked', undefined))}"
+            aria-label="${escapeHtml(entity.observation?.clarity === 'complete' ? t('observe.loot.action.title-ready', undefined) : t('observe.loot.action.title-locked', undefined))}"
           >${t('observe.loot.action', undefined)}</button>
         </div>`
       : '';

@@ -98,7 +98,7 @@ export class MarketBrowseView {
     return `
       <button class="market-item-cell ui-surface-card ui-surface-card--compact ${entry.itemKey === activeItemKey ? 'active' : ''}${statusClass}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" ${groupItemId ? `data-market-select-item-group="${escapeHtmlAttr(groupItemId)}"` : ''} data-market-item-tooltip="${escapeHtmlAttr(entry.itemKey)}" type="button">
         ${statusRibbon}
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(itemName)}">
+        <div class="market-item-cell-name">
           <span class="market-item-cell-name-text">${escapeHtml(itemName)}</span>
           ${ownedLabel}
         </div>
@@ -124,7 +124,7 @@ export class MarketBrowseView {
     return `
       <button class="market-item-cell ui-surface-card ui-surface-card--compact ${entry.itemId === activeItemId ? 'active' : ''}${statusClass}" data-market-select-group="${escapeHtmlAttr(entry.itemId)}" ${referenceEntry ? `data-market-item-tooltip="${escapeHtmlAttr(referenceEntry.itemKey)}"` : ''} type="button">
         ${statusRibbon}
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(itemName)}">
+        <div class="market-item-cell-name">
           <span class="market-item-cell-name-text">${escapeHtml(itemName)}</span>
           ${ownedLabel}
         </div>

@@ -535,7 +535,7 @@ export class MarketAuctionView {
     const itemName = `${this.panel.getMarketDisplayName(item)}${suffix}`;
     return `
       <button class="auction-consign-item ${active ? 'active' : ''}" data-auction-consign-slot="${slotIndex}" data-market-item-tooltip="auction-consign-slot:${slotIndex}" type="button">
-        <span title="${escapeHtmlAttr(itemName)}">${escapeHtml(itemName)}</span>
+        <span>${escapeHtml(itemName)}</span>
         <strong>${formatDisplayCountBadge(item.count)}</strong>
       </button>
     `;

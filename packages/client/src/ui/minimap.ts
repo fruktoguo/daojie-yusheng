@@ -1033,9 +1033,9 @@ export class Minimap {
       this.modalCatalogToggleBtn.textContent = catalogVisible
         ? t('minimap.catalog.toggle.collapse', undefined)
         : t('minimap.catalog.toggle.open', undefined);
-      this.modalCatalogToggleBtn.title = catalogVisible
+      this.modalCatalogToggleBtn.setAttribute('aria-label', catalogVisible
         ? t('minimap.catalog.toggle.collapse-title', undefined)
-        : t('minimap.catalog.toggle.open-title', undefined);
+        : t('minimap.catalog.toggle.open-title', undefined));
     }
   }
 
@@ -1155,17 +1155,17 @@ export class Minimap {
       this.toggleBtn.textContent = this.overlayVisible
         ? t('minimap.overlay.toggle.hide-short', undefined)
         : t('minimap.overlay.toggle.show-short', undefined);
-      this.toggleBtn.title = this.overlayVisible
+      this.toggleBtn.setAttribute('aria-label', this.overlayVisible
         ? t('minimap.overlay.toggle.hide-title', undefined)
-        : t('minimap.overlay.toggle.show-title', undefined);
+        : t('minimap.overlay.toggle.show-title', undefined));
     }
     if (this.openBtn) {
       this.openBtn.textContent = this.modalOpen
         ? t('minimap.modal.toggle.collapse-short', undefined)
         : t('minimap.modal.toggle.open-short', undefined);
-      this.openBtn.title = this.modalOpen
+      this.openBtn.setAttribute('aria-label', this.modalOpen
         ? t('minimap.modal.toggle.collapse-title', undefined)
-        : t('minimap.modal.toggle.open-title', undefined);
+        : t('minimap.modal.toggle.open-title', undefined));
     }
   }
 
@@ -1318,16 +1318,16 @@ export class Minimap {
     if (this.deleteMemoryBtn) {
       const selectedEntry = allEntries.find((entry) => entry.mapId === this.selectedMapId) ?? null;
       this.deleteMemoryBtn.disabled = !selectedEntry?.hasMemory;
-      this.deleteMemoryBtn.title = selectedEntry?.hasMemory
+      this.deleteMemoryBtn.setAttribute('aria-label', selectedEntry?.hasMemory
         ? t('minimap.memory.delete-selected-title', { mapName: selectedEntry.mapMeta?.name ?? selectedEntry.mapId })
-        : t('minimap.memory.delete-selected-disabled-title', undefined);
+        : t('minimap.memory.delete-selected-disabled-title', undefined));
     }
     if (this.deleteAllMemoryBtn) {
       const hasAnyMemory = listRememberedMapIds().length > 0;
       this.deleteAllMemoryBtn.disabled = !hasAnyMemory;
-      this.deleteAllMemoryBtn.title = hasAnyMemory
+      this.deleteAllMemoryBtn.setAttribute('aria-label', hasAnyMemory
         ? t('minimap.memory.delete-all-title', undefined)
-        : t('minimap.memory.delete-all-disabled-title', undefined);
+        : t('minimap.memory.delete-all-disabled-title', undefined));
     }
 
     const catalogContainer = this.modalList;
@@ -1589,9 +1589,9 @@ export class Minimap {
       this.modalSourceMemoryBtn.disabled = !availability.hasMemory;
       this.modalSourceMemoryBtn.classList.toggle('active', active);
       this.modalSourceMemoryBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      this.modalSourceMemoryBtn.title = availability.hasUnlock
+      this.modalSourceMemoryBtn.setAttribute('aria-label', availability.hasUnlock
         ? t('minimap.source.memory-title', undefined)
-        : t('minimap.source.memory-only-title', undefined);
+        : t('minimap.source.memory-only-title', undefined));
     }
     if (this.modalSourceUnlockBtn) {
       const active = nextMode === 'unlock';
@@ -1599,9 +1599,9 @@ export class Minimap {
       this.modalSourceUnlockBtn.disabled = !availability.hasUnlock;
       this.modalSourceUnlockBtn.classList.toggle('active', active);
       this.modalSourceUnlockBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      this.modalSourceUnlockBtn.title = availability.hasMemory
+      this.modalSourceUnlockBtn.setAttribute('aria-label', availability.hasMemory
         ? t('minimap.source.unlock-title', undefined)
-        : t('minimap.source.unlock-only-title', undefined);
+        : t('minimap.source.unlock-only-title', undefined));
     }
   }
 

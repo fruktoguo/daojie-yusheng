@@ -209,7 +209,6 @@ const SidePanelToggle = memo(function SidePanelToggle({
   const [dragState, setDragState] = useState<LayoutDragState | null>(null);
 
   useEffect(() => {
-    button.title = state.title;
     button.setAttribute('aria-label', state.title);
     button.setAttribute('aria-expanded', state.expanded ? 'true' : 'false');
   }, [button, state.expanded, state.title]);

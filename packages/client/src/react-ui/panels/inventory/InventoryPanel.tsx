@@ -139,7 +139,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
       <div
         className="inventory-cell-cooldown"
         data-item-cooldown="true"
-        title={item.cooldown?.title}
+        aria-label={item.cooldown?.title}
         hidden={!item.cooldown}
       >
         <span
@@ -155,7 +155,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
         <span className="inventory-cell-type" data-item-type="true">{item.typeLabel}</span>
         <span className="inventory-cell-count" data-item-count="true">{item.countLabel}</span>
       </div>
-      <div className={item.nameClassName} data-item-name="true" title={item.name}>
+      <div className={item.nameClassName} data-item-name="true" aria-label={item.name}>
         {item.name}
       </div>
       <div className="inventory-cell-actions" data-item-actions="true">
@@ -178,7 +178,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
         <span
           className={item.affinityBadge.className}
           data-item-affinity="true"
-          title={item.affinityBadge.title}
+          aria-label={item.affinityBadge.title}
         >
           {item.affinityBadge.label}
         </span>
