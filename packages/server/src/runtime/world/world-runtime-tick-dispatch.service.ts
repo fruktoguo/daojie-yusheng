@@ -2,7 +2,7 @@
  * 世界级 tick 调度门面服务
  * 统一编排 tick 内的寻路、怪物行动、技能路由和传送执行
  */
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
 const { isHostileSkill } = world_runtime_normalization_helpers_1;
@@ -10,6 +10,7 @@ const { isHostileSkill } = world_runtime_normalization_helpers_1;
 /** world-runtime tick-dispatch facade：承接世界级 tick、路由与 monster-action facade。 */
 @Injectable()
 export class WorldRuntimeTickDispatchService {
+    private readonly logger = new Logger(WorldRuntimeTickDispatchService.name);
 /**
  * getLegacyNavigationPath：读取Legacy导航路径。
  * @param playerId 玩家 ID。
@@ -270,8 +271,11 @@ export class WorldRuntimeTickDispatchService {
         try {
             deps.playerRuntimeService.enqueueNotice(playerId, { text, kind, castId, combat, structured });
         }
-        catch {
+        catch (error) {
             // 玩家已经不在线时忽略通知，避免影响主流程。
+            if (error instanceof TypeError || error instanceof ReferenceError) {
+                this.logger.error(`queuePlayerNotice 编程错误 playerId=${playerId}`, (error as Error).stack);
+            }
         }
     }
     /**
@@ -297,8 +301,11 @@ export class WorldRuntimeTickDispatchService {
     queuePlayerFeedback(playerId, kind, action, message, deps) {
         try {
             deps.playerRuntimeService?.runtimeEventBusService?.queuePlayerFeedback(playerId, { type: kind, action, message });
-        } catch {
+        } catch (error) {
             // 玩家不在线时忽略
+            if (error instanceof TypeError || error instanceof ReferenceError) {
+                this.logger.error(`queuePlayerFeedback 编程错误 playerId=${playerId}`, (error as Error).stack);
+            }
         }
     }
     /**

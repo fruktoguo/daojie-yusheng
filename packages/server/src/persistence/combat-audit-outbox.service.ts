@@ -39,6 +39,8 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
   private flushScheduled = false;
   private flushing = false;
   private sequence = 0;
+  private droppedCount = 0;
+  private lastDropWarnAt = 0;
 
   constructor(
     @Inject(DatabasePoolProvider) private readonly databasePoolProvider: DatabasePoolProvider | null = null,
@@ -85,6 +87,12 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
     }
     if (this.queue.length >= MAX_QUEUE_SIZE) {
       this.queue.shift();
+      this.droppedCount += 1;
+      const now = Date.now();
+      if (now - this.lastDropWarnAt >= 10_000) {
+        this.logger.warn(`combat audit outbox 队列溢出，已丢弃 ${this.droppedCount} 条事件`);
+        this.lastDropWarnAt = now;
+      }
     }
     this.sequence += 1;
     this.queue.push({

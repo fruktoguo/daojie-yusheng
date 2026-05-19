@@ -276,12 +276,15 @@ export class NativePlayerAuthService {
       throw new UnauthorizedException('用户不存在');
     }
 
-    const matchedUsers: NativePlayerAuthUser[] = [];
-    for (const user of candidates.values()) {
-      if (await verifyPassword(password, user.passwordHash)) {
-        matchedUsers.push(user);
-      }
-    }
+    const matchResults = await Promise.all(
+      [...candidates.values()].map(async (user) => ({
+        user,
+        matched: await verifyPassword(password, user.passwordHash),
+      })),
+    );
+    const matchedUsers: NativePlayerAuthUser[] = matchResults
+      .filter((entry) => entry.matched)
+      .map((entry) => entry.user);
 
     if (matchedUsers.length === 0) {
       throw new UnauthorizedException('密码错误');
