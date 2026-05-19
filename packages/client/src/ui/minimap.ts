@@ -464,7 +464,7 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
   }
   return {
     id: mapId,
-    name: mapId,
+    name: t('minimap.catalog.unknown-region', undefined),
     width,
     height,
   };
@@ -1319,7 +1319,7 @@ export class Minimap {
       const selectedEntry = allEntries.find((entry) => entry.mapId === this.selectedMapId) ?? null;
       this.deleteMemoryBtn.disabled = !selectedEntry?.hasMemory;
       this.deleteMemoryBtn.setAttribute('aria-label', selectedEntry?.hasMemory
-        ? t('minimap.memory.delete-selected-title', { mapName: selectedEntry.mapMeta?.name ?? selectedEntry.mapId })
+        ? t('minimap.memory.delete-selected-title', { mapName: selectedEntry.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined) })
         : t('minimap.memory.delete-selected-disabled-title', undefined));
     }
     if (this.deleteAllMemoryBtn) {
@@ -1887,7 +1887,7 @@ export class Minimap {
     }
     const mapName = scope === 'all'
       ? t('minimap.memory.delete-all.subtitle', { count: formatDisplayInteger(rememberedMapIds.length) })
-      : (selectedEntry?.mapMeta?.name ?? selectedMapId ?? t('minimap.current-map', undefined));
+      : (selectedEntry?.mapMeta?.name ?? t('minimap.catalog.unknown-region', undefined));
     const title = scope === 'all'
       ? t('minimap.memory.delete-all.confirm-title', undefined)
       : t('minimap.memory.delete-selected.confirm-title', undefined);
