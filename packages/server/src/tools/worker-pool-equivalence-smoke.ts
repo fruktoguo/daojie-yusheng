@@ -12,6 +12,9 @@
 
 import { encodeServerEventPayload, decodeServerEventPayload, findBoundedPath } from '@mud/shared';
 import type { PathfindingStaticGrid } from '@mud/shared';
+import { WorkerPoolMetricsService } from '../concurrency/worker-pool-metrics.service';
+import { InstanceWorkerPoolService } from '../concurrency/instance-worker-pool.service';
+import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
 
 const PASS = '\x1b[32mPASS\x1b[0m';
 const FAIL = '\x1b[31mFAIL\x1b[0m';
@@ -24,6 +27,11 @@ function assert(condition: boolean, label: string): void {
     console.log(`  ${FAIL} ${label}`);
     failures += 1;
   }
+}
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
 }
 
 // ─── Phase 1: AOI envelope encode/decode 等价性 ────────────────
@@ -124,6 +132,52 @@ function testPhase2PathfindingEquivalence(): void {
   );
 }
 
+// ─── Phase 4: 实例 worker pool 真线程等价性 ───────────────────
+
+async function testPhase4InstanceWorkerPoolEquivalence(): Promise<void> {
+  console.log('\n[Phase 4] Instance worker pool thread equivalence');
+  const previousPool = process.env.SERVER_WORKER_POOL_ENABLED;
+  const previousInstance = process.env.SERVER_INSTANCE_WORKER_ENABLED;
+  process.env.SERVER_WORKER_POOL_ENABLED = 'true';
+  process.env.SERVER_INSTANCE_WORKER_ENABLED = 'true';
+  const metrics = new WorkerPoolMetricsService();
+  const pool = new InstanceWorkerPoolService(metrics);
+  pool.initialize();
+  const payload = {
+    instanceId: 'smoke-instance',
+    tick: 7,
+    mirror: {
+      instanceId: 'smoke-instance',
+      tick: 7,
+      monsters: [
+        { monsterId: 'm1', x: 1, y: 1, hp: 10, maxHp: 10, alive: true, aggroTargetId: 'p1', cooldownReadyTickBySkillId: {} },
+        { monsterId: 'm2', x: 2, y: 2, hp: 10, maxHp: 10, alive: true, aggroTargetId: null, cooldownReadyTickBySkillId: {} },
+      ],
+      resourceState: null,
+      buildings: [],
+    },
+  };
+  const expected = {
+    instanceId: 'smoke-instance',
+    monsterIntents: [
+      { monsterId: 'm1', action: 'attack', targetId: 'p1' },
+      { monsterId: 'm2', action: 'idle' },
+    ],
+    resourceMutations: [],
+    buildingMutations: [],
+  };
+  try {
+    const result = await pool.submit('instance-advance', payload, () => expected, 1000);
+    assert(metrics.getMetrics('instance').activeWorkers > 0, 'instance pool spawned worker threads');
+    assert(result.ok === true, 'instance worker task ok');
+    assert(JSON.stringify(result.result) === JSON.stringify(expected), 'instance worker output equals fallback intent proposal');
+  } finally {
+    pool.shutdown();
+    restoreEnv('SERVER_WORKER_POOL_ENABLED', previousPool);
+    restoreEnv('SERVER_INSTANCE_WORKER_ENABLED', previousInstance);
+  }
+}
+
 // ─── Phase 5: 持久化序列化等价性 ──────────────────────────────
 
 function testPhase5PersistenceEquivalence(): void {
@@ -158,14 +212,46 @@ function testPhase5PersistenceEquivalence(): void {
   }
 }
 
+async function testPhase5PersistenceWorkerPoolEquivalence(): Promise<void> {
+  console.log('\n[Phase 5] Persistence worker pool thread equivalence');
+  const previousPool = process.env.SERVER_WORKER_POOL_ENABLED;
+  const previousPersistence = process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED;
+  process.env.SERVER_WORKER_POOL_ENABLED = 'true';
+  process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED = 'true';
+  const metrics = new WorkerPoolMetricsService();
+  const pool = new PersistenceWorkerPoolService(metrics);
+  pool.initialize();
+  const payload = { snapshots: [{ playerId: 'p1', amount: BigInt('9007199254740993') }] };
+  const expected = { jsonPayloads: [JSON.stringify(payload.snapshots[0], (_key, value) => typeof value === 'bigint' ? value.toString() : value)] };
+  try {
+    const result = await pool.submit('persistence-build', payload, () => expected, 1000);
+    assert(metrics.getMetrics('persistence').activeWorkers > 0, 'persistence pool spawned worker threads');
+    assert(result.ok === true, 'persistence worker task ok');
+    assert(JSON.stringify(result.result) === JSON.stringify(expected), 'persistence worker output equals fallback serialization');
+  } finally {
+    pool.shutdown();
+    restoreEnv('SERVER_WORKER_POOL_ENABLED', previousPool);
+    restoreEnv('SERVER_PERSISTENCE_BUILD_WORKER_ENABLED', previousPersistence);
+  }
+}
+
 // ─── 运行 ──────────────────────────────────────────────────────
 
-console.log('=== Worker Pool Equivalence Smoke ===');
-testPhase1EnvelopeEquivalence();
-testPhase2PathfindingEquivalence();
-testPhase5PersistenceEquivalence();
+async function main(): Promise<void> {
+  console.log('=== Worker Pool Equivalence Smoke ===');
+  testPhase1EnvelopeEquivalence();
+  testPhase2PathfindingEquivalence();
+  await testPhase4InstanceWorkerPoolEquivalence();
+  testPhase5PersistenceEquivalence();
+  await testPhase5PersistenceWorkerPoolEquivalence();
 
-console.log(`\n=== Summary: ${failures === 0 ? PASS : FAIL} (${failures} failures) ===`);
-if (failures > 0) {
-  process.exit(1);
+  console.log(`\n=== Summary: ${failures === 0 ? PASS : FAIL} (${failures} failures) ===`);
+  if (failures > 0) {
+    process.exit(1);
+  }
 }
+
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.stack : String(error));
+  process.exit(1);
+});

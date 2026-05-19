@@ -112,7 +112,7 @@ function handleInstanceAdvance(payload: unknown): InstanceAdvanceOutput {
   };
 }
 
-/** 简化的怪物 AI 决策（骨架）。真实实现需要接入完整的怪物行为树。 */
+/** 基于只读镜像生成确定性的怪物意图预案；权威应用仍在主线程完成。 */
 function computeMonsterIntents(monsters: MonsterMirror[], _tick: number): MonsterIntent[] {
   const intents: MonsterIntent[] = [];
   for (const monster of monsters) {

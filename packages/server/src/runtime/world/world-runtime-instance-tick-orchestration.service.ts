@@ -22,6 +22,42 @@ export class WorldRuntimeInstanceTickOrchestrationService {
     return process.env.SERVER_INSTANCE_WORKER_ENABLED === 'true'
       && Boolean(this.instanceWorkerPool?.isEnabled());
   }
+
+  /** Phase 4：仅把 POJO 镜像快照送入 worker 做确定性预计算；权威状态仍由主线程 tickOnce 修改。 */
+  private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick) {
+    if (!this.isInstanceWorkerEnabled()) return;
+    await Promise.all(instanceStepPlans.map(({ instance }) => this.instanceWorkerPool.submit(
+      'instance-advance',
+      {
+        instanceId: instance.meta.instanceId,
+        tick: worldTick,
+        mirror: this.buildInstanceWorkerMirror(instance, worldTick),
+      },
+      (payload) => computeFallbackInstanceIntentProposal(payload),
+      800,
+    )));
+  }
+
+  /** 构造 worker 可结构化克隆的只读镜像，禁止传 MapInstanceRuntime class 实例。 */
+  private buildInstanceWorkerMirror(instance, worldTick) {
+    const monsters = typeof instance.listMonsters === 'function' ? instance.listMonsters() : [];
+    return {
+      instanceId: instance.meta.instanceId,
+      tick: worldTick,
+      monsters: monsters.map((monster) => ({
+        monsterId: String(monster.runtimeId ?? monster.monsterId ?? ''),
+        x: Math.trunc(Number(monster.x) || 0),
+        y: Math.trunc(Number(monster.y) || 0),
+        hp: Math.trunc(Number(monster.hp) || 0),
+        maxHp: Math.trunc(Number(monster.maxHp) || 0),
+        alive: monster.alive !== false,
+        aggroTargetId: typeof monster.aggroTargetPlayerId === 'string' ? monster.aggroTargetPlayerId : null,
+        cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
+      })),
+      resourceState: null,
+      buildings: [],
+    };
+  }
 /**
  * advanceFrame：执行advance帧相关逻辑。
  * @param deps 运行时依赖。
@@ -82,6 +118,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const systemCommandsStartedAt = performance.now();
         deps.dispatchPendingSystemCommands();
         const systemCommandsMs = performance.now() - systemCommandsStartedAt;
+        await this.precomputeInstanceWorkerIntents(instanceStepPlans, deps.tick);
         const steppedPlayerIds = new Set();
         let totalLogicalTicks = 0;
         const instanceTicksStartedAt = performance.now();
@@ -187,6 +224,21 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         return totalLogicalTicks;
     }
 };
+
+function computeFallbackInstanceIntentProposal(payload) {
+    const mirror = payload?.mirror ?? {};
+    const monsters = Array.isArray(mirror.monsters) ? mirror.monsters : [];
+    return {
+        instanceId: payload?.instanceId,
+        monsterIntents: monsters
+            .filter((monster) => monster?.alive !== false)
+            .map((monster) => (monster.aggroTargetId
+                ? { monsterId: monster.monsterId, action: 'attack', targetId: monster.aggroTargetId }
+                : { monsterId: monster.monsterId, action: 'idle' })),
+        resourceMutations: [],
+        buildingMutations: [],
+    };
+}
 
 function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntimeService, tickSpeed = 1) {
     if (!playerRuntimeService || typeof playerRuntimeService.getPlayer !== 'function') {
