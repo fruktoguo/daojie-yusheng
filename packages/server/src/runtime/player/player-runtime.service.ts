@@ -88,6 +88,8 @@ export class PlayerRuntimeService {
     pendingPlayerStatisticDayTotalsByPlayerId = new Map();
     /** 正在调度异步总账落盘的玩家。 */
     scheduledPlayerStatisticLedgerFlushes = new Set();
+    /** 统计总账落盘重试计数，防止无限重试。 */
+    private playerStatisticLedgerRetryCount = new Map<string, number>();
     /** 待单播给客户端刷新显示的总账玩家。 */
     pendingPlayerStatisticTotalsEmitPlayerIds = new Set();
     /** 数据库禁用时等待客户端归档的离线收益报告。 */
@@ -3188,7 +3190,16 @@ export class PlayerRuntimeService {
             }
         }
         if (shouldRetry) {
-            this.schedulePlayerStatisticLedgerFlush(normalizedPlayerId);
+            const retries = (this.playerStatisticLedgerRetryCount.get(normalizedPlayerId) ?? 0) + 1;
+            if (retries <= 5) {
+                this.playerStatisticLedgerRetryCount.set(normalizedPlayerId, retries);
+                this.schedulePlayerStatisticLedgerFlush(normalizedPlayerId);
+            } else {
+                this.playerStatisticLedgerRetryCount.delete(normalizedPlayerId);
+                this.logger.warn(`统计总账落盘重试超限 playerId=${normalizedPlayerId}，放弃本轮重试`);
+            }
+        } else {
+            this.playerStatisticLedgerRetryCount.delete(normalizedPlayerId);
         }
     }
     /**

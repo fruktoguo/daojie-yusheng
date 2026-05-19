@@ -1098,6 +1098,12 @@ class WorldRuntimeFormationService {
     }
 
     async closePersistencePool() {
+        // 清理所有 pending persist timers，避免 pool 释放后 timer 触发错误。
+        for (const [instanceId, timer] of this._formationPersistTimers) {
+            clearTimeout(timer);
+        }
+        this._formationPersistTimers.clear();
+
         if (this.persistenceReady && this.persistencePool) {
             const instanceIds = Array.from(this.formationsByInstanceId.keys());
             for (const instanceId of instanceIds) {

@@ -3,7 +3,7 @@
  * 按运行态与持久化玩家快照聚合各类榜单（境界、战力、属性、击杀等）
  * 和世界摘要，结果做短缓存避免高频重算。
  */
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { calculateMarketTradeTotalCost } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
@@ -37,7 +37,7 @@ const SUPREME_ATTR_LABELS = {
 };
 
 @Injectable()
-export class LeaderboardRuntimeService {
+export class LeaderboardRuntimeService implements OnModuleDestroy {
     private readonly logger = new Logger(LeaderboardRuntimeService.name);
 /**
  * playerRuntimeService：玩家运行态服务引用。
@@ -135,6 +135,10 @@ export class LeaderboardRuntimeService {
             clearInterval(this._refreshTimer);
             this._refreshTimer = null;
         }
+    }
+    /** NestJS 模块销毁时自动停止后台刷新。 */
+    onModuleDestroy() {
+        this.stopBackgroundRefresh();
     }
     /** 执行一次排行榜全量刷新（后台调用，不阻塞请求）。 */
     private async refreshLeaderboardCache() {
