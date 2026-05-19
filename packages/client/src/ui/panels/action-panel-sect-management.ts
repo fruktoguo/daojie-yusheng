@@ -677,7 +677,7 @@ export class SectManagementSubpanel {
     const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-status', undefined);
     const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? t('action.sect.manage.fallback.guardian-aura', undefined);
     const sectIdLabel = this.p.previewPlayer?.sectId ? t('action.sect.manage.summary.sect-id', { sectId: this.p.previewPlayer.sectId }) : t('action.sect.manage.summary.bound', undefined);
-    const leaderName = data.members.find((member) => member.leader)?.name || this.p.previewPlayer?.name || this.p.previewPlayer?.displayName || this.p.previewPlayer?.id || t('action.sect.manage.fallback.leader', undefined);
+    const leaderName = data.members.find((member) => member.leader)?.name || this.p.previewPlayer?.name || this.p.previewPlayer?.displayName || t('action.sect.manage.fallback.leader', undefined);
     const realmLabel = this.p.previewPlayer?.realm?.displayName || this.p.previewPlayer?.realmName || this.p.previewPlayer?.realm?.name || t('action.sect.manage.fallback.realm', undefined);
     const memberCountLabel = String(data.members.length || 1);
     const notice = t('action.sect.manage.notice', { name });

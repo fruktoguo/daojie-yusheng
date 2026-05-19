@@ -514,7 +514,7 @@ export class CombatSettingsSubpanel {
     }
     if ((entry.consumeBuffs?.length ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.buffs', {
-        buffs: entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || t('action.combat-settings.auto-pills.effect.buff-fallback', undefined)).join('、') ?? '',
+        buffs: entry.consumeBuffs?.map((buff) => buff.name?.trim() || t('action.combat-settings.auto-pills.effect.buff-fallback', undefined)).join('、') ?? '',
       }));
     }
     return parts.join('；') || t('action.combat-settings.auto-pills.effect.fallback', undefined);
