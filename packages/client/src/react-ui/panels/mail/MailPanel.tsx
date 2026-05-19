@@ -67,6 +67,11 @@ export function setMailPanelCallbacks(cbs: Partial<MailPanelCallbacks>): void {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
+const UNKNOWN_MAIL_ATTACHMENT_ITEM_NAME = '未知物品';
+
+function resolveMailAttachmentItemName(itemId: string): string {
+  return getLocalItemTemplate(itemId)?.name ?? UNKNOWN_MAIL_ATTACHMENT_ITEM_NAME;
+}
 
 const MAIL_FILTER_OPTIONS: Array<{ id: MailFilter; label: string }> = [
   { id: 'all', label: t('mail.filter.all', undefined) },
@@ -356,7 +361,7 @@ const MailDetailSection = memo(function MailDetailSection({ detail, attachmentPa
             <div className="mail-attachment-list">
               {visibleAttachments.map((attachment, idx) => (
                 <div key={`${attachment.itemId}-${idx}`} className="mail-attachment-item">
-                  <span className="mail-attachment-item-name">{getLocalItemTemplate(attachment.itemId)?.name ?? attachment.itemId}</span>
+                  <span className="mail-attachment-item-name" title={attachment.itemId}>{resolveMailAttachmentItemName(attachment.itemId)}</span>
                   <strong>x{attachment.count}</strong>
                 </div>
               ))}

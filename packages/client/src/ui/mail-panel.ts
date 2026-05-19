@@ -83,6 +83,11 @@ const MAIL_DETAIL_EMPTY_TEXT = t('mail.empty.detail', undefined);
 const MAIL_BODY_EMPTY_TEXT = t('mail.empty.body', undefined);
 /** 邮件附件空态文案。 */
 const MAIL_ATTACHMENT_EMPTY_TEXT = t('mail.empty.attachments', undefined);
+const UNKNOWN_MAIL_ATTACHMENT_ITEM_NAME = '未知物品';
+
+function resolveMailAttachmentItemName(itemId: string): string {
+  return getLocalItemTemplate(itemId)?.name ?? UNKNOWN_MAIL_ATTACHMENT_ITEM_NAME;
+}
 
 /** 邮件面板渲染时需要保留的本地状态。 */
 type MailRenderState = {
@@ -1044,7 +1049,8 @@ export class MailPanel {
       item.className = 'mail-attachment-item';
       const name = document.createElement('span');
       name.className = 'mail-attachment-item-name';
-      name.textContent = getLocalItemTemplate(attachment.itemId)?.name ?? attachment.itemId;
+      name.textContent = resolveMailAttachmentItemName(attachment.itemId);
+      name.title = attachment.itemId;
       const count = document.createElement('strong');
       count.textContent = `x${attachment.count}`;
       item.append(name, count);
@@ -1164,7 +1170,7 @@ export class MailPanel {
         ${detail.attachments.length > 0
           ? `<div class="mail-attachment-list">${visibleAttachments.map((attachment) => `
               <div class="mail-attachment-item">
-                <span class="mail-attachment-item-name">${escapeHtml(getLocalItemTemplate(attachment.itemId)?.name ?? attachment.itemId)}</span>
+                <span class="mail-attachment-item-name" title="${escapeHtmlAttr(attachment.itemId)}">${escapeHtml(resolveMailAttachmentItemName(attachment.itemId))}</span>
                 <strong>x${attachment.count}</strong>
               </div>
             `).join('')}</div>`
