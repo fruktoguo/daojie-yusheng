@@ -8,7 +8,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
+import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -3683,6 +3683,15 @@ async function replacePlayerInventoryItems(
     const existingRow = rowsByInstanceId.get(itemInstanceId);
     if (existingRow) {
       if (
+        existingRow.locked_by == null
+        && lockedBy == null
+        && createPersistedInventoryRowSignature(existingRow.item_id, existingRow.raw_payload)
+          === createPersistedInventoryRowSignature(itemId, persistedPayload)
+      ) {
+        existingRow.count += count;
+        continue;
+      }
+      if (
         existingRow.slot_index !== slotIndex
         || existingRow.item_id !== itemId
         || existingRow.locked_by !== lockedBy
@@ -3792,6 +3801,13 @@ async function replacePlayerInventoryItems(
     `,
     [playerId, JSON.stringify(rows.map(({ item_instance_id }) => ({ item_instance_id })))],
   );
+}
+
+function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {
+  return createItemStackSignature({
+    itemId,
+    ...rawPayload,
+  });
 }
 
 async function replacePlayerWalletRows(

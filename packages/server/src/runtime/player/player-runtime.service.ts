@@ -3404,7 +3404,9 @@ export class PlayerRuntimeService {
         if (!player || !player.templateId || isNativeGmBotPlayerId(playerId)) {
             return null;
         }
-        if (repairDuplicateInventoryItemInstanceIds(player.inventory?.items)) {
+        const inventoryCoalesced = coalesceInventoryItems(player.inventory?.items);
+        const inventoryRepaired = repairDuplicateInventoryItemInstanceIds(player.inventory?.items);
+        if (inventoryCoalesced || inventoryRepaired) {
             markPlayerDirtyDomains(player, ['inventory']);
             this.bumpPersistentRevision(player);
         }
@@ -3832,7 +3834,10 @@ export class PlayerRuntimeService {
         }
         // 水合期合并：把旧版拆分开的同 (itemId, enhanceLevel) 签名堆叠重新合到同一 slot。
         // 这解决 itemInstanceId 引入时 canMergeItemStack 过于严格导致的碎片化。
-        coalesceInventoryItems(player.inventory.items);
+        if (coalesceInventoryItems(player.inventory.items)) {
+            markPlayerDirtyDomains(player, ['inventory']);
+            this.bumpPersistentRevision(player);
+        }
 
         // 水合期 lazy 升级：如果 inventory / equipment 里的装备携带迁移期 fallback
         // itemInstanceId（含":"，如 inv:p_xxx:0），就在此分配新 UUID 替换。
@@ -6551,11 +6556,16 @@ function compareInventoryItems(left, right) {
  * 的同签名物品重新合到同一 slot（count 相加，后续 slot 被移除）。
  * 合并后保留首个遇到的 slot 的 itemInstanceId（现有堆叠胜出）。
  */
-function coalesceInventoryItems(items: any[]): void {
+function coalesceInventoryItems(items: any[] | null | undefined): boolean {
+    if (!Array.isArray(items) || items.length === 0) {
+        return false;
+    }
+    let changed = false;
     // 先过滤 null/undefined 脏条目，防止后续签名计算崩溃
     for (let i = items.length - 1; i >= 0; i -= 1) {
         if (!items[i]) {
             items.splice(i, 1);
+            changed = true;
         }
     }
     // 正向遍历：首次遇到的签名保留原位，后续同签名合并进首个并移除
@@ -6571,14 +6581,24 @@ function coalesceInventoryItems(items: any[]): void {
         const sig = createItemStackSignature(item);
         const existingIdx = signatureIndex.get(sig);
         if (existingIdx !== undefined) {
-            items[existingIdx].count += Math.max(1, Math.trunc(Number(item.count) || 1));
+            const existing = items[existingIdx];
+            existing.count = Math.max(1, Math.trunc(Number(existing.count) || 1))
+                + Math.max(1, Math.trunc(Number(item.count) || 1));
+            changed = true;
         } else {
             signatureIndex.set(sig, writeIndex);
             items[writeIndex] = item;
+            if (writeIndex !== i) {
+                changed = true;
+            }
             writeIndex += 1;
         }
     }
+    if (items.length !== writeIndex) {
+        changed = true;
+    }
     items.length = writeIndex;
+    return changed;
 }
 
 function repairDuplicateInventoryItemInstanceIds(items: any[]): boolean {

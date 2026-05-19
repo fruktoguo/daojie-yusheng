@@ -5,7 +5,7 @@
  * 同时维护 player_presence、player_wallet、player_inventory_item、player_equipment_slot 等分域表。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';
+import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';
 import { hostname } from 'node:os';
 import { Pool } from 'pg';
 
@@ -3403,6 +3403,13 @@ async function replacePlayerInventoryItems(
     const existingRow = rowsByInstanceId.get(itemInstanceId);
     if (existingRow) {
       if (
+        createPersistedInventoryRowSignature(existingRow.item_id, existingRow.raw_payload)
+          === createPersistedInventoryRowSignature(itemId, rawPayload)
+      ) {
+        existingRow.count += count;
+        continue;
+      }
+      if (
         existingRow.slot_index !== index
         || existingRow.item_id !== itemId
         || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(rawPayload)
@@ -3493,6 +3500,13 @@ async function replacePlayerInventoryItems(
     `,
     [playerId, JSON.stringify(rows.map(({ item_instance_id }) => ({ item_instance_id })))],
   );
+}
+
+function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {
+  return createItemStackSignature({
+    itemId,
+    ...rawPayload,
+  });
 }
 
 async function replacePlayerMarketStorageItems(

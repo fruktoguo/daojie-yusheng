@@ -1496,17 +1496,22 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
       throw new Error(`player snapshot missing stale-key delete guard for ${tableName}`);
     }
   }
-  const duplicateRepairPayload = inventoryInsertPayloads.find((payload) => payload.length === 2);
-  const repairedInventoryRows = Array.isArray(duplicateRepairPayload)
-    ? duplicateRepairPayload as Array<Record<string, unknown>>
+  const duplicateCoalescePayload = inventoryInsertPayloads.find((payload) =>
+    payload.length === 1
+    && (payload[0] as Record<string, unknown> | undefined)?.item_instance_id === '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112'
+    && (payload[0] as Record<string, unknown> | undefined)?.count === 2,
+  );
+  const coalescedInventoryRows = Array.isArray(duplicateCoalescePayload)
+    ? duplicateCoalescePayload as Array<Record<string, unknown>>
     : [];
   if (
-    repairedInventoryRows.length !== 2
-    || repairedInventoryRows[0]?.item_instance_id !== '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112'
-    || typeof repairedInventoryRows[1]?.item_instance_id !== 'string'
-    || repairedInventoryRows[1]?.item_instance_id === '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112'
+    coalescedInventoryRows.length !== 1
+    || coalescedInventoryRows[0]?.item_instance_id !== '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112'
+    || coalescedInventoryRows[0]?.slot_index !== 81
+    || coalescedInventoryRows[0]?.item_id !== 'equip.mount_guard_helm'
+    || coalescedInventoryRows[0]?.count !== 2
   ) {
-    throw new Error(`duplicate inventory itemInstanceId repair did not allocate a fresh row id: ${JSON.stringify(repairedInventoryRows)}`);
+    throw new Error(`duplicate inventory itemInstanceId coalesce did not merge same-signature rows: ${JSON.stringify(coalescedInventoryRows)}`);
   }
 }
 

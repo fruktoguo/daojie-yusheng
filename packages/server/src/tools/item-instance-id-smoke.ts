@@ -260,32 +260,40 @@ function testStackSplitGetsFreshInstanceId(): void {
     console.log('[smoke] stack-split-fresh-instance-id passed');
 }
 
-function testDuplicateVisibleInventoryRepair(): void {
+function testDuplicateVisibleInventoryCoalesce(): void {
     const duplicateId = '1ca4ad01-d4cd-4cb8-9e55-b6ced695b112';
     const inventory = [
         makeItem({ itemInstanceId: duplicateId, count: 1, slotIndex: 81 }),
         makeItem({ itemInstanceId: duplicateId, count: 1, slotIndex: 170 }),
     ];
-    const seen = new Set<string>();
-    let repaired = false;
+    const bySignature = new Map<string, any>();
+    const coalesced: any[] = [];
     for (const item of inventory) {
-        const itemInstanceId = typeof item.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
-        if (!itemInstanceId || !seen.has(itemInstanceId)) {
-            if (itemInstanceId) {
-                seen.add(itemInstanceId);
-            }
-            continue;
+        const signature = createItemStackSignature(item);
+        const existing = bySignature.get(signature);
+        if (existing) {
+            existing.count += Math.max(1, Math.trunc(Number(item.count) || 1));
+        } else {
+            bySignature.set(signature, item);
+            coalesced.push(item);
         }
-        item.itemInstanceId = 'aaaaaaaa-4444-4444-8444-444444444444';
-        seen.add(item.itemInstanceId);
-        repaired = true;
     }
 
-    assert.equal(repaired, true);
-    assert.equal(inventory[0].itemInstanceId, duplicateId);
-    assert.notEqual(inventory[1].itemInstanceId, duplicateId);
+    assert.equal(coalesced.length, 1);
+    assert.equal(coalesced[0].itemInstanceId, duplicateId);
+    assert.equal(coalesced[0].count, 2);
 
-    console.log('[smoke] duplicate-visible-inventory-repair passed');
+    const differentEnhanceLevel = [
+        makeItem({ itemInstanceId: duplicateId, count: 1, enhanceLevel: 0 }),
+        makeItem({ itemInstanceId: duplicateId, count: 1, enhanceLevel: 5 }),
+    ];
+    assert.notEqual(
+        createItemStackSignature(differentEnhanceLevel[0]),
+        createItemStackSignature(differentEnhanceLevel[1]),
+        'different enhanceLevel must not coalesce through duplicate instanceId repair',
+    );
+
+    console.log('[smoke] duplicate-visible-inventory-coalesce passed');
 }
 
 function testMarketShed(): void {
@@ -359,7 +367,7 @@ async function main(): Promise<void> {
     testEnhancementInheritance();
     testEquipCanMergeBySignature();
     testStackSplitGetsFreshInstanceId();
-    testDuplicateVisibleInventoryRepair();
+    testDuplicateVisibleInventoryCoalesce();
     testMarketShed();
     testGrantPassthrough();
     testCompareItemInstanceId();
