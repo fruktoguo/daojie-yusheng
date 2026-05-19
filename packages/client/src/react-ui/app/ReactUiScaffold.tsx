@@ -94,7 +94,6 @@ export function ReactUiScaffold() {
             variants={['ghost']}
             onClick={() => {
               window.__toggleMudReactUi__?.(false);
-              window.location.reload();
             }}
           >
             {t('react.prototype.action.close-scaffold', undefined)}
