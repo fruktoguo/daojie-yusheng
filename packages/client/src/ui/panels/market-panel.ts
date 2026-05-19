@@ -2585,8 +2585,8 @@ export class MarketPanel {
   /** 把装备条目显示成带强化等级前缀的名字。 */
   private getMarketDisplayName(item: ItemStack): string {
     const baseName = typeof item.name === 'string' && item.name.trim()
-      ? item.name
-      : item.itemId;
+      ? item.name.trim()
+      : '未知物品';
     const enhanceLevel = this.getMarketEnhanceLevel(item);
     const cleanName = baseName.replace(/^\+\d+\s+/, '');
     return enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)} ${cleanName}` : cleanName;
