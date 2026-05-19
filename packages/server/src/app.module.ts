@@ -195,6 +195,7 @@ import { WorkerPoolToggleService } from './concurrency/worker-pool-toggle.servic
 import { AsyncPathfindingService } from './runtime/world/async-pathfinding.service';
 import { AsyncFovService } from './runtime/world/async-fov.service';
 import { WorldSyncWorkerEncodeService } from './network/world-sync-worker-encode.service';
+import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.service';
 
 /** 服务端主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
 @Module({
@@ -391,6 +392,7 @@ import { WorldSyncWorkerEncodeService } from './network/world-sync-worker-encode
     WorldRuntimeService,
     AsyncPathfindingService,
     AsyncFovService,
+    AoiEnvelopeEncoderService,
     WorldSyncWorkerEncodeService,
     WorkerPoolToggleService,
     RuntimeEventBusMetricsService,

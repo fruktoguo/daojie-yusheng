@@ -37,7 +37,7 @@ interface WorldRuntimePort {
 
 /** 同步端口：把当前帧的变化推送给已连接玩家。 */
 interface WorldSyncPort {
-  flushConnectedPlayers(): void;
+  flushConnectedPlayers(): Promise<void> | void;
 }
 
 /** 世界 Tick 性能指标：跳过帧数、上一帧耗时、最近一次实际间隔。 */
@@ -116,7 +116,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
       );
 
       const syncStartedAt = performance.now();
-      this.worldSyncService.flushConnectedPlayers();
+      await this.worldSyncService.flushConnectedPlayers();
       this.worldRuntimeService.recordSyncFlushDuration(performance.now() - syncStartedAt);
       this.runtimeEventBusService.flushTick();
       this.consecutiveTickFailures = 0;

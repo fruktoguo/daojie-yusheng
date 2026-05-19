@@ -8,6 +8,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 import { WorkerPoolToggleService } from '../concurrency/worker-pool-toggle.service';
+import type { EncodedEnvelope } from './aoi-envelope-encoder.service';
 
 /** 同步协议下发服务：统一封装 socket emit 出口 */
 @Injectable()
@@ -36,7 +37,25 @@ export class WorldSyncProtocolService {
         }
     }
 
-    /** 如果启用 binary 模式，将 payload 编码为 Buffer；否则原样返回 */
+    /** 按 envelope 结构发送已预编码的 binary payload，未编码字段回退到普通发送路径。 */
+    sendEncodedEnvelope(socket, envelope, encoded: EncodedEnvelope) {
+        if (envelope?.initSession) {
+            socket.emit(S2C.InitSession, envelope.initSession);
+        }
+        if (envelope?.mapEnter) {
+            socket.emit(S2C.MapEnter, encoded.mapEnter ?? this.maybeEncodeBinary(envelope.mapEnter));
+        }
+        if (envelope?.worldDelta) {
+            socket.emit(S2C.WorldDelta, encoded.worldDelta ?? this.maybeEncodeBinary(envelope.worldDelta));
+        }
+        if (envelope?.selfDelta) {
+            socket.emit(S2C.SelfDelta, encoded.selfDelta ?? this.maybeEncodeBinary(envelope.selfDelta));
+        }
+        if (envelope?.panelDelta) {
+            socket.emit(S2C.PanelDelta, encoded.panelDelta ?? this.maybeEncodeBinary(envelope.panelDelta));
+        }
+    }
+
     /** 如果启用 binary 模式，将 payload 编码为 Buffer；否则原样返回 */
     private maybeEncodeBinary(payload: unknown): unknown {
         if (!payload || !this.toggleService?.isAoiEnvelopeEnabled()) {

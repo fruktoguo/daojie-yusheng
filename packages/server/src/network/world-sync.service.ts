@@ -56,7 +56,7 @@ export class WorldSyncService {
         this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view);
     }
 
-    flushConnectedPlayers() {
+    async flushConnectedPlayers() {
         const breakdown = createSyncFlushBreakdownSample();
         try {
             const clearCachesStartedAt = performance.now();
@@ -108,9 +108,9 @@ export class WorldSyncService {
                 }
             }
 
-            // 异步路径：批量提交 worker 编码
+            // 异步路径：批量提交 worker 编码，等待编码完成后按原顺序 emit。
             if (useWorkerEncode && pendingEmits.length > 0) {
-                this.workerEncodeService!.flushPendingEmitsViaWorker(pendingEmits);
+                await this.workerEncodeService!.flushPendingEmitsViaWorker(pendingEmits);
             }
         } finally {
             this.runtimeGmStateService?.recordSyncFlushBreakdown?.(breakdown);
