@@ -7,7 +7,7 @@ import { inspect } from 'node:util';
 
 import type { GmServerLogEntry, GmServerLogsRes } from '@mud/shared';
 
-type ConsoleCaptureLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
+export type ConsoleCaptureLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
 
 const DEFAULT_MAX_LINES = 5000;
 const MIN_MAX_LINES = 100;
@@ -20,6 +20,24 @@ const CONSOLE_CAPTURE_LEVELS: ConsoleCaptureLevel[] = ['log', 'info', 'warn', 'e
 let installed = false;
 let nextSeq = 1;
 const entries: GmServerLogEntry[] = [];
+
+// ─── 全局日志级别开关 ─────────────────────────────────────────────────────────
+// 默认只启用 log / warn / error / fatal，与原先行为一致。
+// GmRuntimeFlagPersistenceService 初始化后会根据数据库值调用 setEnabledLogLevels 更新。
+const enabledLevels: Set<ConsoleCaptureLevel> = new Set(['log', 'warn', 'error', 'fatal']);
+
+/** 动态更新启用的日志级别集合。由 runtime flag 变更时调用。 */
+export function setEnabledLogLevels(levels: ConsoleCaptureLevel[]): void {
+  enabledLevels.clear();
+  for (const l of levels) enabledLevels.add(l);
+  // fatal 始终保留
+  enabledLevels.add('fatal');
+}
+
+/** 检查指定级别当前是否启用。供 DateConsoleLogger 使用。 */
+export function isLogLevelEnabled(level: string): boolean {
+  return enabledLevels.has(level as ConsoleCaptureLevel);
+}
 
 function readMaxLines(): number {
   const raw = Number(process.env.SERVER_CONSOLE_LOG_BUFFER_LINES ?? DEFAULT_MAX_LINES);
@@ -81,6 +99,7 @@ function appendConsoleEntry(level: ConsoleCaptureLevel, line: string, at: string
 }
 
 function captureConsoleCall(level: ConsoleCaptureLevel, args: unknown[], maxLines: number): void {
+  if (!enabledLevels.has(level)) return;
   const at = new Date().toISOString();
   const text = args.length > 0 ? args.map(formatConsoleArg).join(' ') : '';
   const lines = text.split(/\r?\n/);
@@ -90,6 +109,7 @@ function captureConsoleCall(level: ConsoleCaptureLevel, args: unknown[], maxLine
 }
 
 export function captureServerLogLine(level: ConsoleCaptureLevel, line: string): void {
+  if (!enabledLevels.has(level as ConsoleCaptureLevel)) return;
   const at = new Date().toISOString();
   const maxLines = readMaxLines();
   for (const textLine of stripAnsi(line).replace(/\n$/, '').split(/\r?\n/)) {
@@ -108,6 +128,7 @@ export function installConsoleLogCapture(): void {
   for (const level of CONSOLE_CAPTURE_LEVELS) {
     const original = consoleRecord[level].bind(console);
     consoleRecord[level] = (...args: unknown[]) => {
+      if (!enabledLevels.has(level)) return;
       captureConsoleCall(level, args, maxLines);
       original(...args);
     };

@@ -15,7 +15,6 @@ import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmDiagnosticsService } from './native-gm-diagnostics.service';
 import { NativeGmWorkerService } from './native-gm-worker.service';
 import { readConsoleLogEntries } from '../../logging/console-log-buffer';
-import { GmRuntimeFlagPersistenceService } from '../../persistence/gm-runtime-flag-persistence.service';
 /** 数据库恢复请求体。 */
 interface DatabaseRestoreBody {
   backupId?: string;
@@ -50,7 +49,6 @@ export class NativeGmAdminController {
     private readonly nextGmAdminService: NativeGmAdminService,
     private readonly nativeGmWorkerService: NativeGmWorkerService,
     private readonly nativeGmDiagnosticsService: NativeGmDiagnosticsService,
-    private readonly gmRuntimeFlagPersistence: GmRuntimeFlagPersistenceService,
   ) {}
 
   /** 查询数据库连接状态和备份列表。 */
@@ -59,36 +57,10 @@ export class NativeGmAdminController {
     return this.nextGmAdminService.getDatabaseState();
   }
 
-  /** 读取服务端控制台日志缓冲，支持分页。根据运行时开关过滤日志级别。 */
+  /** 读取服务端控制台日志缓冲，支持分页。日志级别由运行时开关在写入时控制。 */
   @Get('logs')
   getServerLogs(@Query('limit') limit = '100', @Query('before') beforeSeq = '') {
-    const levels = this.getEnabledLogLevels();
-    return readConsoleLogEntries({ beforeSeq, limit, levels });
-  }
-
-  /** 根据 runtime flag 获取当前启用的日志级别列表。 */
-  private getEnabledLogLevels(): Array<'log' | 'info' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal'> {
-    type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
-    const levelFlagMap: Array<{ level: LogLevel; key: string; defaultValue: boolean }> = [
-      { level: 'debug', key: 'console_log_trace_enabled', defaultValue: false },
-      { level: 'verbose', key: 'console_log_debug_enabled', defaultValue: false },
-      { level: 'info', key: 'console_log_info_enabled', defaultValue: false },
-      { level: 'log', key: 'console_log_log_enabled', defaultValue: true },
-      { level: 'warn', key: 'console_log_warn_enabled', defaultValue: true },
-      { level: 'error', key: 'console_log_error_enabled', defaultValue: true },
-    ];
-    const enabled: LogLevel[] = [];
-    for (const { level, key, defaultValue } of levelFlagMap) {
-      const value = this.gmRuntimeFlagPersistence.hasFlag(key)
-        ? this.gmRuntimeFlagPersistence.getFlag(key)
-        : defaultValue;
-      if (value) {
-        enabled.push(level);
-      }
-    }
-    // fatal 始终显示
-    enabled.push('fatal');
-    return enabled;
+    return readConsoleLogEntries({ beforeSeq, limit });
   }
 
   /** 读取 worker 刷盘、outbox 和备份心跳的低频状态汇总。 */

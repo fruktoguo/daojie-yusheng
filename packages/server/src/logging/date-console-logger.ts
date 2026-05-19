@@ -1,10 +1,11 @@
 /**
  * 自定义日志器：继承 NestJS ConsoleLogger，统一时间格式为 yyyy-MM-dd HH:mm:ss，
  * 并将所有日志输出同步捕获到内存环形缓冲区，供 GM 日志页实时查看。
+ * 受 GM 运行时开关控制：关闭的级别不写 stdout、不进缓冲区。
  */
 import { ConsoleLogger, type LogLevel } from '@nestjs/common';
 
-import { captureServerLogLine } from './console-log-buffer';
+import { captureServerLogLine, isLogLevelEnabled } from './console-log-buffer';
 
 /** 日期片段补零 */
 function padDatePart(value: number): string {
@@ -35,6 +36,7 @@ export class DateConsoleLogger extends ConsoleLogger {
     logLevel: LogLevel = 'log',
     writeStreamType?: 'stdout' | 'stderr',
   ): void {
+    if (!isLogLevelEnabled(logLevel)) return;
     messages.forEach((message) => {
       const pidMessage = this.formatPid(process.pid);
       const contextMessage = this.formatContext(context);
@@ -58,6 +60,7 @@ export class DateConsoleLogger extends ConsoleLogger {
     if (!stack) {
       return;
     }
+    if (!isLogLevelEnabled('error')) return;
     captureServerLogLine('error', stack);
     process.stderr.write(`${stack}\n`);
   }

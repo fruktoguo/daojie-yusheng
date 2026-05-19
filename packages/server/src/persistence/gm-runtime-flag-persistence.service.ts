@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } f
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
+import { type ConsoleCaptureLevel, setEnabledLogLevels } from '../logging/console-log-buffer';
 
 const GM_RUNTIME_FLAG_TABLE = 'server_gm_runtime_flag';
 const GM_RUNTIME_FLAG_LOCK_NAMESPACE = 42873;
@@ -52,6 +53,7 @@ export class GmRuntimeFlagPersistenceService implements OnModuleInit, OnModuleDe
     try {
       await ensureGmRuntimeFlagTable(this.pool);
       await this.loadAllFlags();
+      this.syncConsoleLogLevels();
       this.enabled = true;
       this.logger.log('GM runtime flag 持久化已启用');
     } catch (error: unknown) {
@@ -80,6 +82,9 @@ export class GmRuntimeFlagPersistenceService implements OnModuleInit, OnModuleDe
       [normalizedKey, value],
     );
     this.cache.set(normalizedKey, value);
+    if (normalizedKey.startsWith('console_log_')) {
+      this.syncConsoleLogLevels();
+    }
   }
 
   async deleteFlag(key: string): Promise<void> {
@@ -88,6 +93,9 @@ export class GmRuntimeFlagPersistenceService implements OnModuleInit, OnModuleDe
     if (!normalizedKey) return;
     await this.pool.query(`DELETE FROM ${GM_RUNTIME_FLAG_TABLE} WHERE key = $1`, [normalizedKey]);
     this.cache.delete(normalizedKey);
+    if (normalizedKey.startsWith('console_log_')) {
+      this.syncConsoleLogLevels();
+    }
   }
 
   async listFlags(): Promise<Array<{ key: string; value: boolean }>> {
@@ -105,6 +113,24 @@ export class GmRuntimeFlagPersistenceService implements OnModuleInit, OnModuleDe
         this.cache.set(row.key, row.value === true);
       }
     }
+  }
+
+  /** 根据当前 cache 中的 console_log_* 开关同步全局日志级别过滤。 */
+  private syncConsoleLogLevels(): void {
+    const LEVEL_FLAG_MAP: Array<{ level: ConsoleCaptureLevel; key: string; defaultValue: boolean }> = [
+      { level: 'debug', key: 'console_log_trace_enabled', defaultValue: false },
+      { level: 'verbose', key: 'console_log_debug_enabled', defaultValue: false },
+      { level: 'info', key: 'console_log_info_enabled', defaultValue: false },
+      { level: 'log', key: 'console_log_log_enabled', defaultValue: true },
+      { level: 'warn', key: 'console_log_warn_enabled', defaultValue: true },
+      { level: 'error', key: 'console_log_error_enabled', defaultValue: true },
+    ];
+    const enabled: ConsoleCaptureLevel[] = [];
+    for (const { level, key, defaultValue } of LEVEL_FLAG_MAP) {
+      const value = this.cache.has(key) ? (this.cache.get(key) === true) : defaultValue;
+      if (value) enabled.push(level);
+    }
+    setEnabledLogLevels(enabled);
   }
 }
 
