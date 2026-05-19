@@ -244,7 +244,7 @@ export class HUD {
       name: player.displayName ?? player.name,
       title: meta?.titleLabel ?? t('hud.title.default', undefined),
       position: `(${player.x}, ${player.y})`,
-      map: meta?.mapDanger ? `${meta.mapName ?? player.mapId} · ${meta.mapDanger}` : (meta?.mapName ?? player.mapId),
+      map: meta?.mapDanger ? `${meta.mapName ?? '未知地域'} · ${meta.mapDanger}` : (meta?.mapName ?? '未知地域'),
       objective: meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player),
       threat: meta?.lifespanLabel ?? this.buildLifespanLabel(player),
       realmLabel,

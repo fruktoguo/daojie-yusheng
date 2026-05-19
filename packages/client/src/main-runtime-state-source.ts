@@ -401,7 +401,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     if (player && data.mapId === player.mapId) {
       options.setPanelRuntime({
         mapId: player.mapId,
-        mapName: data.mapMeta?.name ?? player.mapId,
+        mapName: data.mapMeta?.name ?? '未知地域',
       });
       options.refreshUiChrome();
     }
@@ -656,7 +656,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         connected: true,
         playerId: latestInitSession?.pid ?? player.id,
         mapId: player.mapId,
-        mapName: data.mapMeta?.name ?? latestMapEnter?.n ?? player.mapId,
+        mapName: data.mapMeta?.name ?? latestMapEnter?.n ?? '未知地域',
         shellVisible: true,
       });
       options.initAttrPanel(player);

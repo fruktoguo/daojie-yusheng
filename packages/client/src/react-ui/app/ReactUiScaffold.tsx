@@ -24,7 +24,7 @@ export function ReactUiScaffold() {
   const shellState = useExternalStoreSnapshot(shellStore);
   const panelState = useExternalStoreSnapshot(panelDataStore);
   const player = panelState.player;
-  const mapLabel = shellState.runtime.mapName ?? shellState.runtime.mapId ?? t('react.prototype.value.unknown', undefined);
+  const mapLabel = shellState.runtime.mapName ?? t('react.prototype.value.unknown', undefined);
 
   return (
     <div className="react-ui-scaffold">
