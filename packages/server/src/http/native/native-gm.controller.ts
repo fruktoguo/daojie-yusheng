@@ -1165,13 +1165,34 @@ export class NativeGmController {
 
   @Get('worker-pool/toggles')
   getWorkerPoolToggles() {
-    return this.workerPoolToggleService?.getAllToggleStates() ?? {
+    const toggles = this.workerPoolToggleService?.getAllToggleStates() ?? {
       poolEnabled: false,
       aoiEnvelope: false,
       pathfinding: false,
       fov: false,
       instance: false,
       persistence: false,
+    };
+    // 诊断信息：帮助排查为什么开关不生效
+    const flagServiceEnabled = this.runtimeFlagService.isEnabled();
+    const rawFlags: Record<string, { has: boolean; value: boolean }> = {};
+    for (const key of Object.values(WORKER_POOL_FLAG_KEYS)) {
+      rawFlags[key] = {
+        has: this.runtimeFlagService.hasFlag(key),
+        value: this.runtimeFlagService.getFlag(key),
+      };
+    }
+    return {
+      toggles,
+      diagnostics: {
+        flagServiceEnabled,
+        rawFlags,
+        envVars: {
+          SERVER_WORKER_POOL_ENABLED: process.env.SERVER_WORKER_POOL_ENABLED ?? 'unset',
+          SERVER_AOI_ENVELOPE_WORKER_ENABLED: process.env.SERVER_AOI_ENVELOPE_WORKER_ENABLED ?? 'unset',
+        },
+        toggleServiceInjected: Boolean(this.workerPoolToggleService),
+      },
     };
   }
 
