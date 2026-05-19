@@ -20,8 +20,17 @@ import type {
 /** 单玩家单 tick 通知上限。 */
 export const MAX_NOTICES_PER_PLAYER = 32;
 
-/** 单实例单 tick 战斗表现上限。 */
-export const MAX_COMBAT_EFFECTS_PER_INSTANCE = 64;
+/** 单实例单 tick 战斗表现上限。高密度战斗在全地图都可能发生，默认不能按 64 条硬裁剪。 */
+export const MAX_COMBAT_EFFECTS_PER_INSTANCE = readPositiveIntegerEnv(
+  'SERVER_EVENT_BUS_COMBAT_EFFECT_LIMIT',
+  512,
+  16,
+  8192,
+);
+
+export function resolveCombatEffectsLimit(_instanceId: string): number {
+  return MAX_COMBAT_EFFECTS_PER_INSTANCE;
+}
 
 /** 单实例单 tick AOI 表现上限。 */
 export const MAX_AOI_EFFECTS_PER_INSTANCE = 128;
@@ -71,6 +80,25 @@ export function findLowestPriorityNoticeIndex(notices: Array<{ kind?: NoticeKind
     }
   }
   return index;
+}
+
+function readPositiveIntegerEnv(name: string, defaultValue: number, min: number, max: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) {
+    return defaultValue;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return defaultValue;
+  }
+  const normalized = Math.trunc(parsed);
+  if (normalized < min) {
+    return min;
+  }
+  if (normalized > max) {
+    return max;
+  }
+  return normalized;
 }
 
 // ─── 玩家维度队列 ───

@@ -13,6 +13,7 @@ import {
   MAX_COMBAT_EFFECTS_PER_INSTANCE,
   MAX_FEEDBACK_PER_PLAYER,
   MAX_NOTICES_PER_PLAYER,
+  resolveCombatEffectsLimit,
 } from '../runtime/event-bus/runtime-event-bus.types';
 
 function createService(): RuntimeEventBusService {
@@ -181,6 +182,24 @@ function testQueueCombatEffectExceedsLimit(): void {
   }
 }
 
+function testQueueCombatEffectLimitAppliesToAllInstances(): void {
+  const svc = createService();
+  const instanceId = 'inst1';
+  assert.equal(resolveCombatEffectsLimit(instanceId), MAX_COMBAT_EFFECTS_PER_INSTANCE);
+  assert.ok(MAX_COMBAT_EFFECTS_PER_INSTANCE >= 512);
+
+  for (let i = 0; i < 84; i += 1) {
+    svc.queueCombatEffect(instanceId, { type: 'float', x: i, y: 0, text: `effect-${i}` });
+  }
+
+  const effects = svc.getCombatEffects(instanceId);
+  assert.equal(effects.length, 84);
+  assert.equal(effects[0]?.type, 'float');
+  if (effects[0]?.type === 'float') {
+    assert.equal(effects[0].text, 'effect-0');
+  }
+}
+
 function testQueueAoiPresentationMergesEntityType(): void {
   const svc = createService();
   svc.queueAoiPresentation('inst1', { type: 'statusChange', entityId: 'm1', entityType: 'monster', x: 1, y: 1, data: { hp: 50 } });
@@ -342,6 +361,7 @@ async function main(): Promise<void> {
     testQueueGmStatePushDedup,
     testQueueCombatEffectAppendMode,
     testQueueCombatEffectExceedsLimit,
+    testQueueCombatEffectLimitAppliesToAllInstances,
     testQueueAoiPresentationMergesEntityType,
     testQueueAoiPresentationExceedsLimit,
     testFlushTickClearsInstanceQueuesAndReportsTotals,

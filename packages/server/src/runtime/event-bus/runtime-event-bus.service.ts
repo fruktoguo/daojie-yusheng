@@ -31,12 +31,12 @@ import type {
 } from './runtime-event-bus.types';
 import {
   MAX_NOTICES_PER_PLAYER,
-  MAX_COMBAT_EFFECTS_PER_INSTANCE,
   MAX_AOI_EFFECTS_PER_INSTANCE,
   MAX_PANEL_PATCHES_PER_PLAYER,
   MAX_FEEDBACK_PER_PLAYER,
   NOTICE_KIND_PRIORITY,
   findLowestPriorityNoticeIndex,
+  resolveCombatEffectsLimit,
 } from './runtime-event-bus.types';
 import { RuntimeEventBusMetricsService } from './runtime-event-bus-metrics.service';
 
@@ -261,7 +261,8 @@ export class RuntimeEventBusService {
    */
   queueCombatEffect(instanceId: string, effect: CombatEffect): void {
     const queue = this.getOrCreateInstanceQueue(instanceId);
-    if (queue.combatEffects.length >= MAX_COMBAT_EFFECTS_PER_INSTANCE) {
+    const limit = resolveCombatEffectsLimit(instanceId);
+    if (queue.combatEffects.length >= limit) {
       queue.combatEffects.shift();
       this.metrics?.recordDropped('combatEffect');
     }
