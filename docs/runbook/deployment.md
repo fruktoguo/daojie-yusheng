@@ -1,88 +1,47 @@
 # 部署手册
 
-## 概述
-
-本文档描述生产环境部署流程，包括首次部署、更新和回滚。
+解决首次部署、版本更新、回滚和自动更新器问题。
 
 ## 部署架构
 
 ```
-┌─────────────┐     ┌─────────────┐
-│   Client    │────▶│   Nginx     │ :11921
-│  (静态站点)  │     │  (反向代理)  │
-└─────────────┘     └──────┬──────┘
-                          │
-                          ▼
-┌─────────────┐     ┌─────────────┐
-│   Server    │◀────│  Socket.IO  │ :11922
-│  (NestJS)   │     │   /api/*    │
-└──────┬──────┘     └─────────────┘
-       │
-       ▼
-┌─────────────┐     ┌─────────────┐
-│ PostgreSQL  │     │    Redis    │
-│   :5432     │     │    :6379    │
-└─────────────┘     └─────────────┘
+Client ──▶ Nginx(:11921) ──▶ Server(NestJS, :11922) ──▶ PostgreSQL / Redis
 ```
 
-## 前置条件
+## 一键部署
 
-一键部署只要求：
-
-- [ ] Ubuntu/Debian 系服务器
-- [ ] 使用 root 或 sudo 执行脚本
-- [ ] 服务器可以访问 Docker 安装源和镜像仓库
-- [ ] `11921` 和 `11922` 端口未被其他服务占用，或提前在 `/opt/daojie-yusheng/prod.env` 配置 `CLIENT_PUBLISHED_PORT` / `SERVER_PUBLISHED_PORT`
-- [ ] 如果镜像仓库是私有的，已执行 `sudo docker login <registry>`
-
-Docker、Swarm、外部数据卷、部署配置和 CCR 自动更新器由一键脚本创建或补齐。脚本使用 `docker stack deploy --prune`，重复运行会清理 stack 中已移除的旧服务。下面的手动步骤才需要自行准备 Docker、Swarm、环境变量和数据卷。
-
-## 首次部署
-
-服务器可以直接执行对应环境的一键脚本。脚本会把配置和生成的 stack 文件保存在 `/opt/daojie-yusheng`。
-
-latest：
+前置条件：Ubuntu/Debian、root 权限、11921/11922 端口可用。
 
 ```bash
-scp deploy-latest.sh root@你的服务器:/tmp/deploy-latest.sh
-ssh root@你的服务器 'bash /tmp/deploy-latest.sh'
+# latest 环境
+scp deploy-latest.sh root@服务器:/tmp/deploy-latest.sh
+ssh root@服务器 'bash /tmp/deploy-latest.sh'
+
+# prod 环境
+scp deploy-prod.sh root@服务器:/tmp/deploy-prod.sh
+ssh root@服务器 'bash /tmp/deploy-prod.sh'
 ```
 
-prod：
+脚本自动处理：Docker/Swarm 初始化、数据卷、密钥生成、CCR 自动更新器安装。
+
+私有镜像仓库需先 `sudo docker login <registry>`。
+
+## 手动部署（排障或自定义场景）
 
 ```bash
-scp deploy-prod.sh root@你的服务器:/tmp/deploy-prod.sh
-ssh root@你的服务器 'bash /tmp/deploy-prod.sh'
-```
-
-公开镜像仓库不需要登录。私有镜像仓库需要先执行 `sudo docker login <registry>`。一键脚本会为已有 `prod.env` 自动补齐缺失的数据库密码、玩家 token、GM token 签名密钥和密钥管理加密密钥；首次交互部署时 GM 管理密码也可以回车自动生成。脚本会安装 `daojie-ccr-auto-update.timer` 定时拉取 CCR 镜像并比较运行态镜像 ID。
-
-下面的手动步骤用于排障、自定义部署或不用一键脚本的场景。
-
-### 1. 初始化 Swarm
-
-```bash
+# 1. 初始化 Swarm
 docker swarm init
-```
 
-### 2. 登录镜像仓库
-
-```bash
+# 2. 登录镜像仓库
 docker login ccr.ccs.tencentyun.com
-```
 
-### 3. 创建数据卷
-
-```bash
+# 3. 创建数据卷
 bash scripts/tencent-swarm-volumes.sh
-```
 
-### 4. 配置环境变量
-
-```bash
+# 4. 配置环境变量（见 docs/config/server-env.md）
 export TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间
-export CLIENT_IMAGE_TAG=latest # prod 环境改成 prod
-export SERVER_IMAGE_TAG=latest # prod 环境改成 prod
+export CLIENT_IMAGE_TAG=latest
+export SERVER_IMAGE_TAG=latest
 export DB_USERNAME=mud
 export DB_PASSWORD='强密码'
 export DB_DATABASE=daojie_yusheng
@@ -91,150 +50,60 @@ export SERVER_GM_AUTH_SECRET='长随机密钥'
 export SERVER_SECRET_ENCRYPTION_KEY='长随机密钥'
 export GM_PASSWORD='GM强密码'
 export SERVER_CORS_ORIGINS='https://你的域名'
-```
 
-### 5. 部署 Stack
-
-```bash
+# 5. 部署
 docker stack deploy --with-registry-auth --prune -c docker-stack.tencent.yml daojie-yusheng
+
+# 6. 验证
+docker stack services daojie-yusheng   # 所有服务 1/1
+curl http://127.0.0.1:11922/health     # 返回 200
 ```
-
-### 6. 验证部署
-
-```bash
-# 检查服务状态
-docker stack services daojie-yusheng
-
-# 健康检查
-curl http://127.0.0.1:11922/health
-curl http://127.0.0.1:11921/
-```
-
-**预期输出**：
-- 所有服务 REPLICAS 显示 1/1
-- health 接口返回 200
 
 ## 更新部署
 
 ### 构建并推送镜像
 
 ```bash
-# 完整构建
-TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-latest.sh
-
-TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-prod.sh
-
-# 只构建服务端
-TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-latest.sh --server-only
-
-TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
-  ./docker-build-prod.sh --server-only
+TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 ./docker-build-latest.sh
+TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 ./docker-build-prod.sh
+# 只构建服务端加 --server-only
 ```
 
-### 更新 Stack
+### 自动更新器
 
-一键部署环境默认安装 CCR 自动更新器。推送新镜像后，服务器每 60 秒拉取 CCR 镜像并比较运行态镜像 ID；如果镜像变化，会自动更新 `daojie-yusheng_server`、`daojie-yusheng_backup-worker` 和 `daojie-yusheng_client`。
-
-检查自动更新器：
+一键部署默认安装 CCR 自动更新器，每 60 秒检查镜像变化并自动更新服务。
 
 ```bash
+# 检查状态
 systemctl status daojie-ccr-auto-update.timer
 journalctl -u daojie-ccr-auto-update.service -n 80 --no-pager
 cat /opt/daojie-yusheng/ccr-auto-update.state
 ```
 
-也可以手动重新部署 stack：
+### 手动更新单个服务
 
 ```bash
-docker stack deploy --with-registry-auth --prune -c docker-stack.tencent.yml daojie-yusheng
-```
-
-### 只更新单个服务
-
-```bash
-# 更新服务端
 docker service update --with-registry-auth \
   --image "$TENCENT_IMAGE_PREFIX/daojie-yusheng-server:$SERVER_IMAGE_TAG" \
   daojie-yusheng_server
-
-# 更新客户端
-docker service update --with-registry-auth \
-  --image "$TENCENT_IMAGE_PREFIX/daojie-yusheng-client:$CLIENT_IMAGE_TAG" \
-  daojie-yusheng_client
 ```
 
 ## 回滚
 
-### 服务回滚
-
 ```bash
-# 回滚服务端
 docker service rollback daojie-yusheng_server
-
-# 回滚客户端
 docker service rollback daojie-yusheng_client
-```
 
-### 验证回滚
-
-```bash
-# 检查服务状态
+# 验证
 docker stack services daojie-yusheng
-
-# 查看日志确认版本
 docker service logs daojie-yusheng_server -f --tail 50
 ```
 
-## 查看日志
+## 故障排查
 
-```bash
-# 服务端日志
-docker service logs daojie-yusheng_server -f
-
-# 客户端日志
-docker service logs daojie-yusheng_client -f
-
-# 数据库日志
-docker service logs daojie-yusheng_postgres -f
-```
-
-## 常见问题
-
-### Q: 服务启动失败？
-
-```bash
-# 查看详细状态
-docker service ps daojie-yusheng_server --no-trunc
-
-# 检查容器日志
-docker service logs daojie-yusheng_server --tail 100
-```
-
-常见原因：
-- 环境变量未设置
-- 数据库连接失败
-- 镜像拉取失败
-- CCR 自动更新器未启用或无法读取远端 digest
-
-### Q: 数据库连接失败？
-
-检查：
-- `DB_USERNAME`、`DB_PASSWORD`、`DB_DATABASE` 是否正确
-- PostgreSQL 服务是否运行
-- 网络是否连通
-
-### Q: 健康检查失败？
-
-```bash
-# 进入容器检查
-docker exec -it $(docker ps -q -f name=daojie-yusheng_server) sh
-curl localhost:13001/health
-```
-
-## 相关文档
-
-- [腾讯云部署详细说明](../deploy-tencent-ccr.md)
-- [服务端环境变量](../config/server-env.md)
+| 症状 | 检查 |
+|------|------|
+| 服务启动失败 | `docker service ps daojie-yusheng_server --no-trunc` |
+| 数据库连接失败 | 检查 DB_USERNAME/DB_PASSWORD/DB_DATABASE 和 PG 服务状态 |
+| 健康检查失败 | `docker exec -it $(docker ps -q -f name=daojie-yusheng_server) sh` 后 `curl localhost:13001/health` |
+| 自动更新器不工作 | 检查 timer 状态和 journal 日志 |
