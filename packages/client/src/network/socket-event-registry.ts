@@ -98,5 +98,11 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
         bindServerEvent(event);
       }
     },
+    /** 清空所有已注册的回调，用于重连或销毁时防止累积。 */
+    reset(): void {
+      for (const key of Object.keys(callbacks) as BoundServerEventName[]) {
+        delete callbacks[key];
+      }
+    },
   };
 }

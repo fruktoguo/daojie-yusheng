@@ -274,6 +274,20 @@ export class SidePanel {
     window.addEventListener('resize', refresh);
     window.addEventListener('orientationchange', refresh);
     window.visualViewport?.addEventListener('resize', refresh);
+    this.responsiveCleanup = () => {
+      window.removeEventListener('resize', refresh);
+      window.removeEventListener('orientationchange', refresh);
+      window.visualViewport?.removeEventListener('resize', refresh);
+    };
+  }
+
+  /** 清理 responsive 布局监听器。 */
+  private responsiveCleanup: (() => void) | null = null;
+
+  /** 销毁面板，释放事件监听器。 */
+  destroy(): void {
+    this.responsiveCleanup?.();
+    this.responsiveCleanup = null;
   }
 
   /** bindLayoutTransitionSync：绑定布局Transition同步。 */

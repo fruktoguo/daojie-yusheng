@@ -83,6 +83,10 @@ export class MouseInput {
   private onHover: ((target: ClickTarget | null) => void) | null = null;
   /** 当前监听事件的画布。 */
   private canvas: HTMLCanvasElement | null = null;
+  /** 保存的事件处理器引用，用于 destroy 时移除。 */
+  private handleClick: ((e: MouseEvent) => void) | null = null;
+  private handleMove: ((e: MouseEvent) => void) | null = null;
+  private handleLeave: (() => void) | null = null;
 
   /** 初始化鼠标监听，绑定画布事件和坐标转换所需的依赖 */
   init(
@@ -110,6 +114,7 @@ export class MouseInput {
     onTarget: (target: ClickTarget) => void,
     onHover?: (target: ClickTarget | null) => void,
   ) {
+    this.destroy();
     this.canvas = canvas;
     this.getCamera = getCamera;
     this.getTileAt = getTileAt;
@@ -117,9 +122,28 @@ export class MouseInput {
     this.getMapMeta = getMapMeta;
     this.onTarget = onTarget;
     this.onHover = onHover ?? null;
-    canvas.addEventListener('click', (e) => this.onClick(e));
-    canvas.addEventListener('mousemove', (e) => this.onMove(e));
-    canvas.addEventListener('mouseleave', () => this.onHover?.(null));
+    this.handleClick = (e: MouseEvent) => this.onClick(e);
+    this.handleMove = (e: MouseEvent) => this.onMove(e);
+    this.handleLeave = () => this.onHover?.(null);
+    canvas.addEventListener('click', this.handleClick);
+    canvas.addEventListener('mousemove', this.handleMove);
+    canvas.addEventListener('mouseleave', this.handleLeave);
+  }
+
+  /** 移除事件监听器，释放资源。 */
+  destroy(): void {
+    if (this.canvas && this.handleClick) {
+      this.canvas.removeEventListener('click', this.handleClick);
+    }
+    if (this.canvas && this.handleMove) {
+      this.canvas.removeEventListener('mousemove', this.handleMove);
+    }
+    if (this.canvas && this.handleLeave) {
+      this.canvas.removeEventListener('mouseleave', this.handleLeave);
+    }
+    this.handleClick = null;
+    this.handleMove = null;
+    this.handleLeave = null;
   }
 
   /** 把点击位置解析为目标并触发回调。 */

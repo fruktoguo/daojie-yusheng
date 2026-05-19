@@ -2,7 +2,7 @@
  * React 版设置面板
  * 5 tab 模态：账号、兑换码、界面、性能、收支统计
  */
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { AccountRedeemCodesRes, OfflineGainReportView, PlayerStatisticTotalsView } from '@mud/shared';
 import { ROLE_NAME_MAX_LENGTH, ROLE_NAME_MAX_ASCII_LENGTH } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
@@ -166,6 +166,13 @@ const AccountTab = memo(function AccountTab({ state }: { state: SettingsPanelSta
   const [submitting, setSubmitting] = useState(false);
   const checkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
 
   const handleDisplayNameInput = useCallback((value: string) => {
     setDisplayNameInput(value);
