@@ -45,8 +45,49 @@ export class WorldRuntimeRespawnService {
             if (!player || player.hp > 0) {
                 continue;
             }
+            // 离线挂机玩家被击杀后不 respawn，直接移出世界标记为彻底离线
+            const isOffline = !player.sessionId || (typeof player.sessionId === 'string' && !player.sessionId.trim());
+            if (isOffline) {
+                this.removeOfflineDefeatedPlayer(playerId, deps);
+                continue;
+            }
             this.respawnPlayer(playerId, deps);
         }
+    }
+
+    /** 离线玩家被击杀后移出世界，标记为彻底离线。 */
+    private removeOfflineDefeatedPlayer(playerId: string, deps) {
+        const previous = deps.getPlayerLocation(playerId);
+        if (previous) {
+            const previousInstance = deps.getInstanceRuntime(previous.instanceId);
+            previousInstance?.disconnectPlayer(playerId);
+        }
+        deps.worldRuntimePlayerLocationService?.clearPlayerLocation?.(playerId);
+        deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
+        if (typeof deps.clearPendingCommand === 'function') {
+            deps.clearPendingCommand(playerId);
+        }
+        // 结算离线收益并移除运行时
+        if (typeof this.playerRuntimeService.finalizeOfflineGainSessionForPlayer === 'function') {
+            const player = this.playerRuntimeService.getPlayer(playerId);
+            if (player) {
+                void this.playerRuntimeService.finalizeOfflineGainSessionForPlayer(player);
+            }
+        }
+        // 持久化 presence 标记为彻底离线
+        if (this.playerRuntimeService.playerDomainPersistenceService?.isEnabled?.()) {
+            const presence = this.playerRuntimeService.describePersistencePresence?.(playerId);
+            if (presence) {
+                void this.playerRuntimeService.playerDomainPersistenceService.savePlayerPresence(playerId, {
+                    ...presence,
+                    online: false,
+                    inWorld: false,
+                    offlineSinceAt: presence.offlineSinceAt ?? Date.now(),
+                    versionSeed: Date.now(),
+                });
+            }
+        }
+        this.playerRuntimeService.removePlayerRuntime(playerId);
     }
     /**
  * respawnPlayer：执行重生玩家相关逻辑。
