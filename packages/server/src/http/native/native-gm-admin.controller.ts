@@ -15,6 +15,7 @@ import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmDiagnosticsService } from './native-gm-diagnostics.service';
 import { NativeGmWorkerService } from './native-gm-worker.service';
 import { readConsoleLogEntries } from '../../logging/console-log-buffer';
+import { runGmEnvCheck } from '../../runtime/gm/gm-env-check.service';
 /** 数据库恢复请求体。 */
 interface DatabaseRestoreBody {
   backupId?: string;
@@ -67,6 +68,12 @@ export class NativeGmAdminController {
   @Get('workers')
   getWorkerState() {
     return this.nativeGmWorkerService.getWorkerState();
+  }
+
+  /** 运行环境检测：检查运行时、关键 env 与项目依赖是否可用。 */
+  @Get('environment/check')
+  getEnvironmentCheck() {
+    return runGmEnvCheck();
   }
 
   /** 执行 GM 只读诊断指令。 */

@@ -76,6 +76,7 @@ import {
   type GmStateRes,
   type GmWorkerRow,
   type GmWorkerStateRes,
+  type GmEnvCheckResult,
   type GmTriggerDatabaseBackupRes,
   type GmUpdateManagedPlayerAccountReq,
   type GmUpdateManagedPlayerPasswordReq,
@@ -293,6 +294,8 @@ const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database'
 const serverSubtabLogsBtn = document.getElementById('server-subtab-logs') as HTMLButtonElement;
 /** serverSubtabWorkersBtn：服务端Subtab Workers Btn。 */
 const serverSubtabWorkersBtn = document.getElementById('server-subtab-workers') as HTMLButtonElement;
+/** serverSubtabEnvCheckBtn：服务端环境检测子标签按钮。 */
+const serverSubtabEnvCheckBtn = document.getElementById('server-subtab-env-check') as HTMLButtonElement;
 /** serverPanelOverviewEl：服务端面板Overview El。 */
 const serverPanelOverviewEl = document.getElementById('server-panel-overview') as HTMLElement;
 /** serverPanelTrafficEl：服务端面板Traffic El。 */
@@ -307,6 +310,10 @@ const serverPanelDatabaseEl = document.getElementById('server-panel-database') a
 const serverPanelLogsEl = document.getElementById('server-panel-logs') as HTMLElement;
 /** serverPanelWorkersEl：服务端面板Workers El。 */
 const serverPanelWorkersEl = document.getElementById('server-panel-workers') as HTMLElement;
+const serverPanelEnvCheckEl = document.getElementById('server-panel-env-check') as HTMLElement;
+const serverEnvCheckRefreshBtn = document.getElementById('server-env-check-refresh') as HTMLButtonElement;
+const serverEnvCheckMetaEl = document.getElementById('server-env-check-meta') as HTMLDivElement;
+const serverEnvCheckContentEl = document.getElementById('server-env-check-content') as HTMLDivElement;
 const serverSubtabFlagsBtn = document.getElementById('server-subtab-flags') as HTMLButtonElement;
 const serverPanelFlagsEl = document.getElementById('server-panel-flags') as HTMLElement;
 const serverSubtabObjectsBtn = document.getElementById('server-subtab-objects') as HTMLButtonElement;
@@ -537,7 +544,7 @@ const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivE
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmServerTab：服务器监察子标签页 ID。 */
-type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'flags' | 'objects';
+type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'envCheck' | 'flags' | 'objects';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
@@ -768,6 +775,10 @@ function buildGmWorkersApiPath(): string {
   return `${GM_API_BASE_PATH}/workers`;
 }
 
+function buildGmEnvironmentCheckApiPath(): string {
+  return `${GM_API_BASE_PATH}/environment/check`;
+}
+
 function buildGmDiagnosticsQueryApiPath(): string {
   return `${GM_API_BASE_PATH}/diagnostics/query`;
 }
@@ -840,6 +851,8 @@ let lastExecPreviousCommand: string | null = null;
 let workerState: GmWorkerStateRes | null = null;
 /** workerStateLoading：Worker状态读取中。 */
 let workerStateLoading = false;
+let envCheckResult: GmEnvCheckResult | null = null;
+let envCheckLoading = false;
 let runtimeFlags: Array<{ key: string; value: boolean }> = [];
 let runtimeFlagsLoading = false;
 const NETWORK_PAYLOAD_CAPTURE_FLAG_KEY = 'gm_network_payload_capture_enabled';
@@ -2734,6 +2747,7 @@ function applyServerTabVisibility(tab: GmServerTab): void {
   serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
   serverSubtabLogsBtn.classList.toggle('active', tab === 'logs');
   serverSubtabWorkersBtn.classList.toggle('active', tab === 'workers');
+  serverSubtabEnvCheckBtn.classList.toggle('active', tab === 'envCheck');
   serverSubtabFlagsBtn.classList.toggle('active', tab === 'flags');
   serverSubtabObjectsBtn.classList.toggle('active', tab === 'objects');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
@@ -2743,6 +2757,7 @@ function applyServerTabVisibility(tab: GmServerTab): void {
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
   serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
   serverPanelWorkersEl.classList.toggle('hidden', tab !== 'workers');
+  serverPanelEnvCheckEl.classList.toggle('hidden', tab !== 'envCheck');
   serverPanelFlagsEl.classList.toggle('hidden', tab !== 'flags');
   serverPanelObjectsEl.classList.toggle('hidden', tab !== 'objects');
 }
@@ -2767,6 +2782,11 @@ function switchServerTab(tab: GmServerTab): void {
   if (tab === 'workers' && !workerState && !workerStateLoading) {
     loadWorkerState(false).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载 worker 状态失败', true);
+    });
+  }
+  if (tab === 'envCheck' && !envCheckResult && !envCheckLoading) {
+    loadEnvCheck(false).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '环境检测失败', true);
     });
   }
   if (tab === 'traffic') {
@@ -3383,6 +3403,73 @@ async function loadWorkerState(silent = false): Promise<void> {
   } finally {
     workerStateLoading = false;
     renderWorkerPanel();
+  }
+}
+
+function getEnvCheckStatusText(status: GmEnvCheckResult['groups'][number]['items'][number]['status']): string {
+  if (status === 'ok') return '通过';
+  if (status === 'warn') return '警告';
+  return '异常';
+}
+
+function getEnvCheckStatusIcon(status: GmEnvCheckResult['groups'][number]['items'][number]['status']): string {
+  if (status === 'ok') return '✅';
+  if (status === 'warn') return '⚠️';
+  return '❌';
+}
+
+function renderEnvCheckPanel(): void {
+  serverEnvCheckRefreshBtn.disabled = envCheckLoading;
+  serverEnvCheckRefreshBtn.textContent = envCheckLoading ? '检测中…' : '开始检测';
+
+  if (envCheckLoading) {
+    serverEnvCheckMetaEl.textContent = '环境检测执行中…';
+  } else if (envCheckResult) {
+    const { summary } = envCheckResult;
+    serverEnvCheckMetaEl.textContent = `检测时间 ${new Date(envCheckResult.checkedAt).toLocaleString()} · 共 ${summary.total} 项 · 通过 ${summary.ok} · 警告 ${summary.warn} · 异常 ${summary.error}`;
+  } else {
+    serverEnvCheckMetaEl.textContent = '环境检测尚未执行。';
+  }
+
+  if (!envCheckResult) {
+    serverEnvCheckContentEl.innerHTML = '<div class="empty-hint">点击“开始检测”读取环境状态。</div>';
+    return;
+  }
+
+  serverEnvCheckContentEl.innerHTML = envCheckResult.groups.map((group) => `
+    <div class="network-breakdown" style="margin-top: 12px;">
+      <div class="network-breakdown-head">
+        <div class="panel-title">${escapeHtml(group.title)}</div>
+        <div class="network-breakdown-subtitle">${group.items.length} 项检测</div>
+      </div>
+      <div class="network-breakdown-list">
+        ${group.items.map((item) => `
+          <div class="network-row">
+            <div>
+              <div class="network-row-label">${getEnvCheckStatusIcon(item.status)} ${escapeHtml(item.name)}</div>
+              <div class="network-row-meta">${escapeHtml(item.value)}${item.expected ? ` · 期望：${escapeHtml(item.expected)}` : ''}</div>
+            </div>
+            <div class="network-row-value">${getEnvCheckStatusText(item.status)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function loadEnvCheck(silent = false): Promise<void> {
+  if (!token || envCheckLoading) return;
+  envCheckLoading = true;
+  renderEnvCheckPanel();
+  try {
+    envCheckResult = await request<GmEnvCheckResult>(buildGmEnvironmentCheckApiPath());
+    if (!silent) {
+      const { summary } = envCheckResult;
+      setStatus(`环境检测完成：异常 ${summary.error} 项，警告 ${summary.warn} 项`);
+    }
+  } finally {
+    envCheckLoading = false;
+    renderEnvCheckPanel();
   }
 }
 
@@ -9598,6 +9685,7 @@ serverSubtabMemoryBtn.addEventListener('click', () => switchServerTab('memory'))
 serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
 serverSubtabLogsBtn.addEventListener('click', () => switchServerTab('logs'));
 serverSubtabWorkersBtn.addEventListener('click', () => switchServerTab('workers'));
+serverSubtabEnvCheckBtn.addEventListener('click', () => switchServerTab('envCheck'));
 serverSubtabFlagsBtn.addEventListener('click', () => switchServerTab('flags'));
 serverSubtabObjectsBtn.addEventListener('click', () => switchServerTab('objects'));
 // 诊断面板事件委托（动态渲染，通过 database panel 委托）
@@ -10017,6 +10105,11 @@ serverLogsRefreshBtn.addEventListener('click', () => {
 serverWorkersRefreshBtn.addEventListener('click', () => {
   loadWorkerState(false).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : '刷新 worker 状态失败', true);
+  });
+});
+serverEnvCheckRefreshBtn.addEventListener('click', () => {
+  loadEnvCheck(false).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '环境检测失败', true);
   });
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {

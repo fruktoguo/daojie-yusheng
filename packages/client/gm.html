@@ -2190,6 +2190,7 @@
           <button class="workspace-tab" id="server-subtab-database" type="button" data-i18n="gm.server-subtab-database">数据库</button>
           <button class="workspace-tab" id="server-subtab-logs" type="button" data-i18n="gm.server-subtab-logs">日志</button>
           <button class="workspace-tab" id="server-subtab-workers" type="button">Worker</button>
+          <button class="workspace-tab" id="server-subtab-env-check" type="button">环境检测</button>
           <button class="workspace-tab" id="server-subtab-flags" type="button">运行时开关</button>
           <button class="workspace-tab" id="server-subtab-objects" type="button">对象信息</button>
         </div>
@@ -2424,6 +2425,21 @@
           </div>
           <div id="server-workers-content">
             <div class="empty-hint">当前还没有 worker 状态。</div>
+          </div>
+        </div>
+        <div id="server-panel-env-check" class="server-tab-panel hidden">
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title">环境检测</div>
+              <div class="network-breakdown-subtitle">检查服务端运行环境、关键环境变量和项目依赖是否可用。</div>
+            </div>
+            <div class="server-log-toolbar">
+              <button id="server-env-check-refresh" class="small-btn primary" type="button">开始检测</button>
+              <div id="server-env-check-meta" class="server-log-meta">环境检测尚未执行。</div>
+            </div>
+            <div id="server-env-check-content" class="network-breakdown-list">
+              <div class="empty-hint">点击“开始检测”读取环境状态。</div>
+            </div>
           </div>
         </div>
         <div id="server-panel-flags" class="server-tab-panel hidden">
