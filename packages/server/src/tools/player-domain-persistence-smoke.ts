@@ -44,6 +44,7 @@ async function main(): Promise<void> {
   const buffClearPlayerId = `${playerId}_buff_clear`;
   const inventoryClearPlayerId = `${playerId}_inventory_clear`;
   const equipmentClearPlayerId = `${playerId}_equipment_clear`;
+  const marketConflictOwnerId = `${playerId}_market_conflict_owner`;
   const now = Date.now();
   const databasePoolProvider = new DatabasePoolProvider();
   const service = new PlayerDomainPersistenceService(null, databasePoolProvider);
@@ -62,6 +63,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, buffClearPlayerId);
     await cleanupPlayer(pool, inventoryClearPlayerId);
     await cleanupPlayer(pool, equipmentClearPlayerId);
+    await cleanupPlayer(pool, marketConflictOwnerId);
 
     await service.savePlayerPresence(playerId, {
       online: true,
@@ -833,6 +835,41 @@ async function main(): Promise<void> {
       ],
       { versionSeed: directBaseVersion + 19 },
     );
+    await service.savePlayerMarketStorageItems(
+      marketConflictOwnerId,
+      [
+        {
+          storageItemId: `market-shared-${playerId}`,
+          slotIndex: 0,
+          itemId: 'foreign_storage_item',
+          count: 1,
+          rawPayload: { itemId: 'foreign_storage_item', count: 1 },
+        },
+      ],
+      { versionSeed: directBaseVersion + 20 },
+    );
+    let marketStorageCrossOwnerConflictRejected = false;
+    try {
+      await service.savePlayerMarketStorageItems(
+        directPlayerId,
+        [
+          {
+            storageItemId: `market-shared-${playerId}`,
+            slotIndex: 9,
+            itemId: 'foreign_storage_item',
+            count: 1,
+            rawPayload: { itemId: 'foreign_storage_item', count: 1 },
+          },
+        ],
+        { versionSeed: directBaseVersion + 21 },
+      );
+    } catch (error) {
+      marketStorageCrossOwnerConflictRejected = error instanceof Error
+        && error.message.includes('replacePlayerMarketStorageItems: storage_item_id conflict outside player scope');
+    }
+    if (!marketStorageCrossOwnerConflictRejected) {
+      throw new Error('expected market storage cross-owner storage_item_id conflict rejection');
+    }
     await service.savePlayerCombatPreferences(directPlayerId, null, {
       versionSeed: directBaseVersion + 15,
     });
@@ -1215,6 +1252,7 @@ async function main(): Promise<void> {
           inventoryEmptyProjectionExplicitOptionSafe: true,
           equipmentEmptyProjectionExplicitOptionSafe: true,
           buffEmptyProjectionExplicitOptionSafe: true,
+          marketStorageCrossOwnerConflictRejected,
         },
         null,
         2,
@@ -1228,6 +1266,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, buffClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, inventoryClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, equipmentClearPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, marketConflictOwnerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
@@ -1243,6 +1282,7 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
         return { rows: [{ row_count: 1 }], rowCount: 1 };
       }
       const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
+        || sql.includes('INSERT INTO player_market_storage_item')
         || sql.includes('INSERT INTO player_equipment_slot')
         || sql.includes('INSERT INTO player_enhancement_record')
         || sql.includes('INSERT INTO player_logbook_message');
@@ -1283,6 +1323,19 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
         balance: 1,
         frozenBalance: 0,
         version: 1,
+      },
+    ],
+    { versionSeed: 1 },
+  );
+  await service.savePlayerMarketStorageItems(
+    'player:fake',
+    [
+      {
+        storageItemId: 'market-storage:fake:0',
+        slotIndex: 0,
+        itemId: 'fake_ore',
+        count: 1,
+        rawPayload: { itemId: 'fake_ore', count: 1 },
       },
     ],
     { versionSeed: 1 },
@@ -1376,6 +1429,7 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
   const forbiddenDeletes = [
     'DELETE FROM player_inventory_item WHERE player_id = $1',
     'DELETE FROM player_wallet WHERE player_id = $1',
+    'DELETE FROM player_market_storage_item WHERE player_id = $1',
     'DELETE FROM player_equipment_slot WHERE player_id = $1',
     'DELETE FROM player_map_unlock WHERE player_id = $1',
     'DELETE FROM player_technique_state WHERE player_id = $1',
@@ -1396,6 +1450,7 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
   for (const tableName of [
     'player_inventory_item',
     'player_wallet',
+    'player_market_storage_item',
     'player_equipment_slot',
     'player_map_unlock',
     'player_technique_state',
@@ -1423,6 +1478,7 @@ async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void>
         return { rows: [{ row_count: 1 }], rowCount: 1 };
       }
       const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
+        || sql.includes('INSERT INTO player_market_storage_item')
         || sql.includes('INSERT INTO player_equipment_slot')
         || sql.includes('INSERT INTO player_enhancement_record')
         || sql.includes('INSERT INTO player_logbook_message');
@@ -1460,6 +1516,30 @@ async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void>
         { versionSeed: 1 },
       ),
       expected: 'replacePlayerMarketStorageItems: 非法 market_storage entry',
+    },
+    {
+      name: 'market_storage_duplicate_slot',
+      run: () => service.savePlayerMarketStorageItems(
+        'player:duplicate-market-storage-slot',
+        [
+          { storageItemId: 'market-storage-duplicate-slot-a', slotIndex: 0, itemId: 'ore_a', count: 1 },
+          { storageItemId: 'market-storage-duplicate-slot-b', slotIndex: 0, itemId: 'ore_b', count: 1 },
+        ] as never,
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerMarketStorageItems: duplicate slot_index with conflicting payload',
+    },
+    {
+      name: 'market_storage_duplicate_storage_item',
+      run: () => service.savePlayerMarketStorageItems(
+        'player:duplicate-market-storage-id',
+        [
+          { storageItemId: 'market-storage-duplicate-id', slotIndex: 0, itemId: 'ore_a', count: 1 },
+          { storageItemId: 'market-storage-duplicate-id', slotIndex: 1, itemId: 'ore_b', count: 1 },
+        ] as never,
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerMarketStorageItems: duplicate storage_item_id with conflicting slot',
     },
     {
       name: 'equipment_slot',

@@ -3936,10 +3936,16 @@ async function replacePlayerMarketStorageItems(
     return;
   }
 
-  const values: unknown[] = [];
-  const placeholders: string[] = [];
-  const writtenEntries: Array<{ storageItemId: string; slotIndex: number }> = [];
-  let parameterIndex = 1;
+  type MarketStoragePersistenceRow = {
+    storage_item_id: string;
+    slot_index: number;
+    item_id: string;
+    count: number;
+    enhance_level: number | null;
+    raw_payload: Record<string, unknown>;
+  };
+  const rowsByStorageItemId = new Map<string, MarketStoragePersistenceRow>();
+  const rowsBySlotIndex = new Map<number, MarketStoragePersistenceRow>();
   for (let index = 0; index < items.length; index += 1) {
     const entry = items[index];
     const itemId = normalizeRequiredString(entry?.itemId);
@@ -3961,31 +3967,64 @@ async function replacePlayerMarketStorageItems(
       enhanceLevel,
       rawPayload,
     });
-    placeholders.push(
-      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}, $${parameterIndex + 6}::jsonb, now())`,
-    );
-    values.push(
-      storageItemId,
-      playerId,
-      slotIndex,
-      itemId,
+    const row = {
+      storage_item_id: storageItemId,
+      slot_index: slotIndex,
+      item_id: itemId,
       count,
-      enhanceLevel,
-      JSON.stringify(persistedPayload),
-    );
-    writtenEntries.push({ storageItemId, slotIndex });
-    parameterIndex += 7;
+      enhance_level: enhanceLevel,
+      raw_payload: persistedPayload,
+    };
+    const existingSlotRow = rowsBySlotIndex.get(slotIndex);
+    if (existingSlotRow) {
+      if (
+        existingSlotRow.storage_item_id !== storageItemId
+        || existingSlotRow.item_id !== itemId
+        || existingSlotRow.count !== count
+        || existingSlotRow.enhance_level !== enhanceLevel
+        || !isSamePersistedPayload(existingSlotRow.raw_payload, persistedPayload)
+      ) {
+        throw new Error(
+          `replacePlayerMarketStorageItems: duplicate slot_index with conflicting payload playerId=${playerId} slotIndex=${slotIndex}`,
+        );
+      }
+      continue;
+    }
+    const existingStorageRow = rowsByStorageItemId.get(storageItemId);
+    if (existingStorageRow) {
+      throw new Error(
+        `replacePlayerMarketStorageItems: duplicate storage_item_id with conflicting slot playerId=${playerId} storageItemId=${storageItemId} slots=${existingStorageRow.slot_index},${slotIndex}`,
+      );
+    }
+    rowsBySlotIndex.set(slotIndex, row);
+    rowsByStorageItemId.set(storageItemId, row);
   }
+  const rows = Array.from(rowsBySlotIndex.values());
 
-  if (placeholders.length === 0) {
+  if (rows.length === 0) {
     await prunePlayerMarketStorageStaleSlots(client, playerId, []);
     return;
   }
 
-  await prunePlayerMarketStorageConflictingSlotRows(client, playerId, writtenEntries);
+  await prunePlayerMarketStorageConflictingSlotRows(
+    client,
+    playerId,
+    rows.map((row) => ({ storageItemId: row.storage_item_id, slotIndex: row.slot_index })),
+  );
 
-  await client.query(
+  const result = await client.query(
     `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          storage_item_id varchar(160),
+          slot_index bigint,
+          item_id varchar(160),
+          count bigint,
+          enhance_level bigint,
+          raw_payload jsonb
+        )
+      )
       INSERT INTO ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(
         storage_item_id,
         player_id,
@@ -3996,7 +4035,8 @@ async function replacePlayerMarketStorageItems(
         raw_payload,
         updated_at
       )
-      VALUES ${placeholders.join(',\n')}
+      SELECT storage_item_id, $1, slot_index, item_id, count, enhance_level, COALESCE(raw_payload, '{}'::jsonb), now()
+      FROM incoming
       ON CONFLICT (storage_item_id)
       DO UPDATE SET
         player_id = EXCLUDED.player_id,
@@ -4006,10 +4046,14 @@ async function replacePlayerMarketStorageItems(
         enhance_level = EXCLUDED.enhance_level,
         raw_payload = EXCLUDED.raw_payload,
         updated_at = now()
+      WHERE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}.player_id = EXCLUDED.player_id
     `,
-    values,
+    [playerId, JSON.stringify(rows)],
   );
-  await prunePlayerMarketStorageStaleSlots(client, playerId, writtenEntries.map((entry) => entry.slotIndex));
+  if ((result.rowCount ?? 0) !== rows.length) {
+    throw new Error(`replacePlayerMarketStorageItems: storage_item_id conflict outside player scope playerId=${playerId}`);
+  }
+  await prunePlayerMarketStorageStaleSlots(client, playerId, rows.map((entry) => entry.slot_index));
 }
 
 async function prunePlayerMarketStorageConflictingSlotRows(

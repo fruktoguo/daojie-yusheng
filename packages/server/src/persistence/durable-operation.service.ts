@@ -3501,14 +3501,16 @@ async function replacePlayerMarketStorageItems(
   items: readonly DurableMarketStorageItemSnapshot[],
   options: DurableReplaceOptions = {},
 ): Promise<void> {
-  const rows: Array<{
+  type MarketStoragePersistenceRow = {
     storage_item_id: string;
     slot_index: number;
     item_id: string;
     count: number;
     enhance_level: number | null;
     raw_payload: Record<string, unknown>;
-  }> = [];
+  };
+  const rowsByStorageItemId = new Map<string, MarketStoragePersistenceRow>();
+  const rowsBySlotIndex = new Map<number, MarketStoragePersistenceRow>();
   for (let index = 0; index < (Array.isArray(items) ? items.length : 0); index += 1) {
     const entry = items[index];
     const itemId = normalizeRequiredString(entry?.itemId);
@@ -3525,11 +3527,11 @@ async function replacePlayerMarketStorageItems(
       entry?.rawPayload && typeof entry.rawPayload === 'object'
         ? entry.rawPayload
         : {
-            itemId,
-            count,
-            ...(enhanceLevel == null ? {} : { enhanceLevel }),
-          };
-    rows.push({
+        itemId,
+        count,
+        ...(enhanceLevel == null ? {} : { enhanceLevel }),
+      };
+    const row = {
       storage_item_id: storageItemId,
       slot_index: slotIndex,
       item_id: itemId,
@@ -3541,8 +3543,32 @@ async function replacePlayerMarketStorageItems(
         count,
         ...(enhanceLevel == null ? {} : { enhanceLevel }),
       },
-    });
+    };
+    const existingSlotRow = rowsBySlotIndex.get(slotIndex);
+    if (existingSlotRow) {
+      if (
+        existingSlotRow.storage_item_id !== storageItemId
+        || existingSlotRow.item_id !== itemId
+        || existingSlotRow.count !== count
+        || existingSlotRow.enhance_level !== enhanceLevel
+        || JSON.stringify(existingSlotRow.raw_payload) !== JSON.stringify(row.raw_payload)
+      ) {
+        throw new Error(
+          `replacePlayerMarketStorageItems: duplicate slot_index with conflicting payload playerId=${playerId} slotIndex=${slotIndex}`,
+        );
+      }
+      continue;
+    }
+    const existingStorageRow = rowsByStorageItemId.get(storageItemId);
+    if (existingStorageRow) {
+      throw new Error(
+        `replacePlayerMarketStorageItems: duplicate storage_item_id with conflicting slot playerId=${playerId} storageItemId=${storageItemId} slots=${existingStorageRow.slot_index},${slotIndex}`,
+      );
+    }
+    rowsBySlotIndex.set(slotIndex, row);
+    rowsByStorageItemId.set(storageItemId, row);
   }
+  const rows = Array.from(rowsBySlotIndex.values());
 
   if (rows.length > 0) {
     await client.query(

@@ -638,6 +638,42 @@ const CHECKS = [
     forbidden: false,
   },
   {
+    id: "persistence.asset_identity.player_domain_market_storage_owner_guard",
+    category: "目标差距: 性能/扩展",
+    description: "玩家分域 market_storage 行级 upsert 必须防止 storage_item_id 跨玩家挪用",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "WHERE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}.player_id = EXCLUDED.player_id",
+    forbidden: false,
+    required: true,
+  },
+  {
+    id: "persistence.asset_identity.durable_market_storage_owner_guard",
+    category: "目标差距: 性能/扩展",
+    description: "durable market_storage 行级 upsert 必须防止 storage_item_id 跨玩家挪用",
+    file: "packages/server/src/persistence/durable-operation.service.ts",
+    pattern: "WHERE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}.player_id = EXCLUDED.player_id",
+    forbidden: false,
+    required: true,
+  },
+  {
+    id: "persistence.asset_identity.player_domain_equipment_owner_guard",
+    category: "目标差距: 性能/扩展",
+    description: "玩家分域 equipment 行级 upsert 必须防止 item_instance_id 跨玩家挪用",
+    file: "packages/server/src/persistence/player-domain-persistence.service.ts",
+    pattern: "WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id",
+    forbidden: false,
+    required: true,
+  },
+  {
+    id: "persistence.asset_identity.durable_equipment_owner_guard",
+    category: "目标差距: 性能/扩展",
+    description: "durable equipment 行级 upsert 必须防止 item_instance_id 跨玩家挪用",
+    file: "packages/server/src/persistence/durable-operation.service.ts",
+    pattern: "WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id",
+    forbidden: false,
+    required: true,
+  },
+  {
     id: "persistence.snapshot_rewrite.durable_market_storage",
     category: "目标差距: 性能/扩展",
     description: "禁止 durable 快照回退为 player_market_storage_item 整玩家 DELETE 后全量重插",
@@ -863,16 +899,21 @@ function main() {
  * 记录汇总。
  */
   const summary = buildSummary(results);
+  const missingRequiredChecks = results.filter((entry) => entry.required === true && entry.hits.length === 0 && !entry.skippedReason);
 /**
  * 记录markdown。
  */
-  const markdown = renderMarkdown(summary, results);
+  const markdown = renderMarkdown(summary, results, missingRequiredChecks);
   fs.mkdirSync(path.dirname(docOutput), { recursive: true });
   fs.writeFileSync(docOutput, markdown, "utf8");
   process.stdout.write(`[production boundary audit] report written to ${docOutput}\n`);
   process.stdout.write(`[production boundary audit] matched ${summary.matchedChecks}/${summary.totalChecks} checks, ${summary.totalHits} code hits across ${summary.categories.length} categories\n`);
   if (summary.forbiddenHits > 0) {
     process.stderr.write(`[production boundary audit] forbidden patterns matched ${summary.forbiddenHits} code hits\n`);
+    process.exitCode = 1;
+  }
+  if (missingRequiredChecks.length > 0) {
+    process.stderr.write(`[production boundary audit] required patterns missing ${missingRequiredChecks.length} checks\n`);
     process.exitCode = 1;
   }
 }
@@ -992,7 +1033,7 @@ function buildSummary(results) {
 /**
  * 处理rendermarkdown。
  */
-function renderMarkdown(summary, results) {
+function renderMarkdown(summary, results, missingRequiredChecks = []) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
@@ -1011,6 +1052,9 @@ function renderMarkdown(summary, results) {
     lines.push(`- 禁止模式命中 ${summary.forbiddenHits} 处；本次审计应视为失败。`);
   } else {
     lines.push("- 禁止模式命中 0 处。");
+  }
+  if (missingRequiredChecks.length > 0) {
+    lines.push(`- 必须存在的保护模式缺失 ${missingRequiredChecks.length} 项；本次审计应视为失败。`);
   }
   if (summary.skippedChecks > 0) {
     lines.push(`- 另有 ${summary.skippedChecks} 个检查项因 inventory 文件路径漂移被 fail-soft 跳过，不影响其余检查继续产出。`);
@@ -1061,6 +1105,16 @@ function renderMarkdown(summary, results) {
       lines.push(`- ${entry.description}`);
       lines.push(`  - 文件：\`${entry.file}\``);
       lines.push(`  - 原因：${entry.skippedReason}`);
+    }
+  }
+  if (missingRequiredChecks.length > 0) {
+    lines.push("");
+    lines.push("## 缺失保护项");
+    lines.push("");
+    for (const entry of missingRequiredChecks) {
+      lines.push(`- ${entry.description}`);
+      lines.push(`  - 文件：\`${entry.file}\``);
+      lines.push(`  - 期望模式：\`${escapeBackticks(entry.pattern)}\``);
     }
   }
   lines.push("");
