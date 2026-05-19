@@ -170,7 +170,7 @@ export class WorldPanel {
       resources: [],
       threats: [],
     } : {
-      title: input.mapMeta?.name ?? input.player.mapId,
+      title: input.mapMeta?.name ?? '未知地域',
       route: '继续探索当前区域',
       mood: '未知地域',
       desc: '该区域暂无卷宗记载，建议稳步试探。',

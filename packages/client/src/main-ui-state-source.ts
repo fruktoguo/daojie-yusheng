@@ -283,7 +283,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       if (!player) return;
       const heavenGateAction = getHeavenGateHudAction(player);
       options.hud.update(player, {
-        mapName: options.mapRuntime.getMapMeta()?.name ?? player.mapId,
+        mapName: options.mapRuntime.getMapMeta()?.name ?? '未知地域',
         mapDanger: this.resolveMapDanger(),
         realmLabel: player.realm?.displayName ?? resolveRealmLabel(player),
         realmReviewLabel: player.realm?.review ?? player.realmReview,

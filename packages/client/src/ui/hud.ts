@@ -161,7 +161,7 @@ export class HUD {
     this.setText(
       this.mapDiv,
       'map',
-      meta?.mapDanger ? `${meta.mapName ?? player.mapId} · ${meta.mapDanger}` : (meta?.mapName ?? player.mapId),
+      meta?.mapDanger ? `${meta.mapName ?? '未知地域'} · ${meta.mapDanger}` : (meta?.mapName ?? '未知地域'),
     );
     this.setText(this.objectiveDiv, 'objective', meta?.boneAgeLabel ?? this.buildBoneAgeLabel(player));
     this.setText(this.threatDiv, 'threat', meta?.lifespanLabel ?? this.buildLifespanLabel(player));
