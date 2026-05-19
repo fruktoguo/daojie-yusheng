@@ -3557,6 +3557,13 @@ function safeStringifyInventoryEntry(value: unknown): string {
     : serialized;
 }
 
+function isSamePersistedPayload(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function isExplicitEquipmentSlotProjection(slots: readonly unknown[]): boolean {
   if (!Array.isArray(slots) || slots.length < EQUIP_SLOTS.length) {
     return false;
@@ -3681,7 +3688,7 @@ async function replacePlayerInventoryItems(
         || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(persistedPayload)
       ) {
         throw new Error(
-          `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId}`,
+          `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId} existingSlot=${existingRow.slot_index} incomingSlot=${slotIndex} existingLockedBy=${existingRow.locked_by ?? 'null'} incomingLockedBy=${lockedBy ?? 'null'} existingItemId=${existingRow.item_id} incomingItemId=${itemId}`,
         );
       }
       existingRow.count += count;
@@ -4106,12 +4113,14 @@ async function replacePlayerEquipmentSlots(
   slots: unknown[],
   options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
-  const rows: Array<{
+  type EquipmentSlotPersistenceRow = {
     slot_type: string;
     item_instance_id: string;
     item_id: string;
     raw_payload: Record<string, unknown>;
-  }> = [];
+  };
+  const rowsBySlotType = new Map<string, EquipmentSlotPersistenceRow>();
+  const rowsByInstanceId = new Map<string, EquipmentSlotPersistenceRow>();
   for (const slotEntry of Array.isArray(slots) ? slots : []) {
     const entry = asRecord(slotEntry);
     const slotType = normalizeRequiredString(entry?.slot);
@@ -4140,15 +4149,54 @@ async function replacePlayerEquipmentSlots(
       enhanceLevel: item?.enhanceLevel,
       rawPayload: item,
     });
-    rows.push({
+    const row = {
       slot_type: slotType,
       item_instance_id: itemInstanceId,
       item_id: itemId,
       raw_payload: persistedPayload,
-    });
+    };
+    const existingSlotRow = rowsBySlotType.get(slotType);
+    if (existingSlotRow) {
+      if (
+        existingSlotRow.item_instance_id !== itemInstanceId
+        || existingSlotRow.item_id !== itemId
+        || !isSamePersistedPayload(existingSlotRow.raw_payload, persistedPayload)
+      ) {
+        throw new Error(
+          `replacePlayerEquipmentSlots: duplicate slot with conflicting payload playerId=${playerId} slot=${slotType}`,
+        );
+      }
+      continue;
+    }
+    const existingInstanceRow = rowsByInstanceId.get(itemInstanceId);
+    if (existingInstanceRow) {
+      throw new Error(
+        `replacePlayerEquipmentSlots: duplicate item_instance_id with conflicting slot playerId=${playerId} itemInstanceId=${itemInstanceId} slots=${existingInstanceRow.slot_type},${slotType}`,
+      );
+    }
+    rowsBySlotType.set(slotType, row);
+    rowsByInstanceId.set(itemInstanceId, row);
   }
+  const rows = Array.from(rowsBySlotType.values());
 
   if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT slot_type, item_instance_id
+          FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
+        )
+        DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
+        WHERE target.player_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.slot_type = target.slot_type
+              OR incoming.item_instance_id = target.item_instance_id
+          )
+      `,
+      [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
+    );
     await client.query(
       `
         WITH incoming AS (
@@ -4170,15 +4218,25 @@ async function replacePlayerEquipmentSlots(
         )
         SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
         FROM incoming
-        ON CONFLICT (player_id, slot_type)
+        ON CONFLICT (item_instance_id)
         DO UPDATE SET
-          item_instance_id = EXCLUDED.item_instance_id,
+          player_id = EXCLUDED.player_id,
+          slot_type = EXCLUDED.slot_type,
           item_id = EXCLUDED.item_id,
           raw_payload = EXCLUDED.raw_payload,
           updated_at = now()
+        WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
       `,
       [playerId, JSON.stringify(rows)],
     );
+    const result = await client.query(
+      `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])`,
+      [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
+    );
+    const persistedCount = normalizeOptionalInteger(result.rows[0]?.row_count) ?? 0;
+    if (persistedCount !== rows.length) {
+      throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
+    }
   }
   if (options.allowEmptyOverwrite !== true) {
     await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment');

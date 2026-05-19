@@ -1486,7 +1486,9 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         slot: normalizedSlot,
       }),
       onMutate: async (client, now) => {
-        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
+        await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems, {
+          allowEmptyOverwrite: action === 'equip',
+        });
         await replacePlayerEquipmentSlots(client, normalizedPlayerId, normalizedEquipmentSlots, {
           allowEmptyOverwrite: action === 'unequip',
         });
@@ -3359,6 +3361,7 @@ async function replacePlayerInventoryItems(
   client: import('pg').PoolClient,
   playerId: string,
   items: DurableInventoryItemSnapshot[],
+  options: DurableReplaceOptions = {},
 ): Promise<void> {
   const sourceItems = Array.isArray(items) ? items : [];
   const rowsByInstanceId = new Map<string, {
@@ -3405,7 +3408,7 @@ async function replacePlayerInventoryItems(
         || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(rawPayload)
       ) {
         throw new Error(
-          `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId}`,
+          `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId} existingSlot=${existingRow.slot_index} incomingSlot=${index} existingItemId=${existingRow.item_id} incomingItemId=${itemId}`,
         );
       }
       existingRow.count += count;
@@ -3472,7 +3475,7 @@ async function replacePlayerInventoryItems(
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
     }
   }
-  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory');
+  await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory', options);
   await client.query(
     `
       WITH incoming AS (
@@ -3626,12 +3629,14 @@ async function replacePlayerEquipmentSlots(
   slots: readonly DurableEquipmentSlotSnapshot[],
   options: DurableReplaceOptions = {},
 ): Promise<void> {
-  const rows: Array<{
+  type EquipmentSlotPersistenceRow = {
     slot_type: string;
     item_instance_id: string;
     item_id: string;
     raw_payload: Record<string, unknown>;
-  }> = [];
+  };
+  const rowsBySlotType = new Map<string, EquipmentSlotPersistenceRow>();
+  const rowsByInstanceId = new Map<string, EquipmentSlotPersistenceRow>();
   for (const slotEntry of Array.isArray(slots) ? slots : []) {
     const slotType = normalizeRequiredString(slotEntry?.slot);
     if (!EQUIP_SLOTS.includes(slotType as (typeof EQUIP_SLOTS)[number])) {
@@ -3642,6 +3647,9 @@ async function replacePlayerEquipmentSlots(
     const item = slotEntry?.item && typeof slotEntry.item === 'object'
       ? slotEntry.item as Record<string, unknown>
       : null;
+    if (!item) {
+      continue;
+    }
     const itemId = normalizeRequiredString(item?.itemId);
     if (!itemId) {
       throw new Error(
@@ -3658,15 +3666,54 @@ async function replacePlayerEquipmentSlots(
       enhanceLevel: item?.enhanceLevel,
       rawPayload: item,
     });
-    rows.push({
+    const row = {
       slot_type: slotType,
       item_instance_id: itemInstanceId,
       item_id: itemId,
       raw_payload: rawPayload,
-    });
+    };
+    const existingSlotRow = rowsBySlotType.get(slotType);
+    if (existingSlotRow) {
+      if (
+        existingSlotRow.item_instance_id !== itemInstanceId
+        || existingSlotRow.item_id !== itemId
+        || JSON.stringify(existingSlotRow.raw_payload) !== JSON.stringify(rawPayload)
+      ) {
+        throw new Error(
+          `replacePlayerEquipmentSlots: duplicate slot with conflicting payload playerId=${playerId} slot=${slotType}`,
+        );
+      }
+      continue;
+    }
+    const existingInstanceRow = rowsByInstanceId.get(itemInstanceId);
+    if (existingInstanceRow) {
+      throw new Error(
+        `replacePlayerEquipmentSlots: duplicate item_instance_id with conflicting slot playerId=${playerId} itemInstanceId=${itemInstanceId} slots=${existingInstanceRow.slot_type},${slotType}`,
+      );
+    }
+    rowsBySlotType.set(slotType, row);
+    rowsByInstanceId.set(itemInstanceId, row);
   }
+  const rows = Array.from(rowsBySlotType.values());
 
   if (rows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT slot_type, item_instance_id
+          FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
+        )
+        DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
+        WHERE target.player_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.slot_type = target.slot_type
+              OR incoming.item_instance_id = target.item_instance_id
+          )
+      `,
+      [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
+    );
     await client.query(
       `
         WITH incoming AS (
@@ -3688,15 +3735,25 @@ async function replacePlayerEquipmentSlots(
         )
         SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
         FROM incoming
-        ON CONFLICT (player_id, slot_type)
+        ON CONFLICT (item_instance_id)
         DO UPDATE SET
-          item_instance_id = EXCLUDED.item_instance_id,
+          player_id = EXCLUDED.player_id,
+          slot_type = EXCLUDED.slot_type,
           item_id = EXCLUDED.item_id,
           raw_payload = EXCLUDED.raw_payload,
           updated_at = now()
+        WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
       `,
       [playerId, JSON.stringify(rows)],
     );
+    const result = await client.query(
+      `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])`,
+      [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
+    );
+    const persistedCount = normalizeOptionalInteger((result as { rows?: Array<{ row_count?: unknown }> }).rows?.[0]?.row_count) ?? 0;
+    if (persistedCount !== rows.length) {
+      throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
+    }
   }
   await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment', options);
   await client.query(

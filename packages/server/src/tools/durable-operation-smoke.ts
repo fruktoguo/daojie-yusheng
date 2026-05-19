@@ -4102,7 +4102,7 @@ function buildActiveJobCancelEquipmentSlots() {
       },
     },
     {
-      slot: 'armor',
+      slot: 'body',
       item: null,
     },
   ];

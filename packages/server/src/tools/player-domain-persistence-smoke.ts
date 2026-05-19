@@ -528,7 +528,7 @@ async function main(): Promise<void> {
           count: 2,
           enhanceLevel: 3,
           slotIndex: 5,
-          itemInstanceId: `inv:${directPlayerId}:ore`,
+          itemInstanceId: `direct-inv-${directPlayerId}-ore`,
           rawPayload: {
             itemId: 'direct_ore',
             count: 2,
@@ -546,7 +546,7 @@ async function main(): Promise<void> {
           count: 3,
           enhanceLevel: 3,
           slotIndex: 5,
-          itemInstanceId: `inv:${directPlayerId}:ore`,
+          itemInstanceId: `direct-inv-${directPlayerId}-ore`,
           rawPayload: {
             itemId: 'direct_ore',
             count: 3,
@@ -557,7 +557,7 @@ async function main(): Promise<void> {
           itemId: 'direct_stale_relic',
           count: 1,
           slotIndex: 6,
-          itemInstanceId: `inv:${directPlayerId}:stale_relic`,
+          itemInstanceId: `direct-inv-${directPlayerId}-stale-relic`,
           rawPayload: {
             itemId: 'direct_stale_relic',
             count: 1,
@@ -574,7 +574,7 @@ async function main(): Promise<void> {
           count: 2,
           enhanceLevel: 3,
           slotIndex: 5,
-          itemInstanceId: `inv:${directPlayerId}:ore`,
+          itemInstanceId: `direct-inv-${directPlayerId}-ore`,
           rawPayload: {
             itemId: 'direct_ore',
             count: 2,
@@ -1081,7 +1081,7 @@ async function main(): Promise<void> {
     }
     if (
       directInventoryRows.length !== 1
-      || directInventoryRows[0]?.item_instance_id !== `inv:${directPlayerId}:ore`
+      || directInventoryRows[0]?.item_instance_id !== `direct-inv-${directPlayerId}-ore`
       || Number(directInventoryRows[0]?.slot_index ?? 0) !== 5
       || directInventoryRows[0]?.item_id !== 'direct_ore'
       || Number((directInventoryRows[0]?.raw_payload as { enhanceLevel?: unknown } | null | undefined)?.enhanceLevel ?? 0) !== 3
@@ -1239,7 +1239,11 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
   const fakeClient = {
     async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
       queries.push(sql);
+      if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
+        return { rows: [{ row_count: 1 }], rowCount: 1 };
+      }
       const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
+        || sql.includes('INSERT INTO player_equipment_slot')
         || sql.includes('INSERT INTO player_enhancement_record')
         || sql.includes('INSERT INTO player_logbook_message');
       return { rows: [], rowCount: isCheckedInsert ? 1 : 0 };
@@ -1415,7 +1419,11 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
 async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void> {
   const fakeClient = {
     async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+      if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
+        return { rows: [{ row_count: 1 }], rowCount: 1 };
+      }
       const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
+        || sql.includes('INSERT INTO player_equipment_slot')
         || sql.includes('INSERT INTO player_enhancement_record')
         || sql.includes('INSERT INTO player_logbook_message');
       return { rows: [], rowCount: isCheckedInsert ? 1 : 0 };
@@ -1470,6 +1478,30 @@ async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void>
         { versionSeed: 1 },
       ),
       expected: 'replacePlayerEquipmentSlots: 非法 equipment item',
+    },
+    {
+      name: 'equipment_duplicate_slot',
+      run: () => service.savePlayerEquipmentSlots(
+        'player:duplicate-equipment-slot',
+        [
+          { slot: 'weapon', itemInstanceId: 'equip-duplicate-slot-a', item: { itemId: 'weapon.a', count: 1 } },
+          { slot: 'weapon', itemInstanceId: 'equip-duplicate-slot-b', item: { itemId: 'weapon.b', count: 1 } },
+        ] as never,
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerEquipmentSlots: duplicate slot with conflicting payload',
+    },
+    {
+      name: 'equipment_duplicate_item_instance',
+      run: () => service.savePlayerEquipmentSlots(
+        'player:duplicate-equipment-instance',
+        [
+          { slot: 'weapon', itemInstanceId: 'equip-duplicate-instance', item: { itemId: 'weapon.a', count: 1 } },
+          { slot: 'body', itemInstanceId: 'equip-duplicate-instance', item: { itemId: 'armor.a', count: 1 } },
+        ] as never,
+        { versionSeed: 1 },
+      ),
+      expected: 'replacePlayerEquipmentSlots: duplicate item_instance_id with conflicting slot',
     },
   ];
 
