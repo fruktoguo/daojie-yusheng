@@ -3,7 +3,7 @@
  * 提供服务端性能监控、在线玩家列表、玩家编辑、机器人控制与意见管理
  */
 import { memo, useCallback, useMemo, useState, useRef } from 'react';
-import type { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
+import type { C2S_GmUpdatePlayer, GmPlayerSummary, GmWorkerPoolAllMetrics, GmWorkerPoolMetrics, S2C_GmState, Suggestion } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -108,9 +108,12 @@ function getPlayerMapLabel(player: GmPlayerSummary): string {
 
 // ─── 组件 ────────────────────────────────────────────────────────────────────
 
+type GmTab = 'overview' | 'workers';
+
 export function GmPanel() {
   const { gmState, suggestions } = useGmPanelStore();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<GmTab>('overview');
 
   const state = gmState ?? createEmptyGmState();
 
@@ -133,20 +136,39 @@ export function GmPanel() {
 
   return (
     <div className="gm-panel-content">
-      <GmPerfSection perf={state.perf} />
-      <GmOverviewSection playerCount={state.players.length} botCount={state.botCount} />
-      <GmDebugSection />
-      <GmBotSection />
-      <GmPlayerListSection
-        players={state.players}
-        selectedId={effectiveSelectedId}
-        onSelect={setSelectedPlayerId}
-      />
-      <GmPlayerDetailSection
-        player={selectedPlayer}
-        mapIds={state.mapIds}
-      />
-      <GmSuggestionSection suggestions={suggestions} />
+      <div className="gm-tab-bar">
+        <button
+          className={`gm-tab-btn${activeTab === 'overview' ? ' is-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('overview')}
+        >总览</button>
+        <button
+          className={`gm-tab-btn${activeTab === 'workers' ? ' is-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('workers')}
+        >多线程</button>
+      </div>
+      {activeTab === 'overview' && (
+        <>
+          <GmPerfSection perf={state.perf} />
+          <GmOverviewSection playerCount={state.players.length} botCount={state.botCount} />
+          <GmDebugSection />
+          <GmBotSection />
+          <GmPlayerListSection
+            players={state.players}
+            selectedId={effectiveSelectedId}
+            onSelect={setSelectedPlayerId}
+          />
+          <GmPlayerDetailSection
+            player={selectedPlayer}
+            mapIds={state.mapIds}
+          />
+          <GmSuggestionSection suggestions={suggestions} />
+        </>
+      )}
+      {activeTab === 'workers' && (
+        <GmWorkerPoolSection workerPool={state.perf.workerPool ?? null} />
+      )}
     </div>
   );
 }
@@ -460,6 +482,58 @@ const GmSuggestionCard = memo(function GmSuggestionCard({ suggestion }: { sugges
           <button className="gm-suggestion-action" type="button" onClick={handleComplete}>标记完成</button>
         )}
         <button className="gm-suggestion-action gm-suggestion-action--danger" type="button" onClick={handleRemove}>移除</button>
+      </div>
+    </div>
+  );
+});
+
+// ─── 多线程 Worker Pool 区 ──────────────────────────────────────────────────
+
+const POOL_LABELS: Record<string, string> = {
+  encoding: 'AOI 编码池',
+  instance: '实例分片池',
+  persistence: '持久化序列化池',
+};
+
+const GmWorkerPoolSection = memo(function GmWorkerPoolSection({ workerPool }: { workerPool: GmWorkerPoolAllMetrics | null }) {
+  if (!workerPool) {
+    return (
+      <div className="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div className="panel-section-title">Worker Pool 多线程</div>
+        <div className="empty-hint ui-empty-hint">Worker Pool 未启用或数据未就绪</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel-section ui-surface-pane ui-surface-pane--stack">
+      <div className="panel-section-title">Worker Pool 多线程</div>
+      {(['encoding', 'instance', 'persistence'] as const).map((poolKey) => (
+        <GmWorkerPoolCard key={poolKey} label={POOL_LABELS[poolKey]} metrics={workerPool[poolKey]} />
+      ))}
+    </div>
+  );
+});
+
+const GmWorkerPoolCard = memo(function GmWorkerPoolCard({ label, metrics }: { label: string; metrics: GmWorkerPoolMetrics }) {
+  const isActive = metrics.activeWorkers > 0;
+  return (
+    <div className="gm-worker-pool-card ui-surface-card ui-surface-card--compact">
+      <div className="gm-worker-pool-header">
+        <span className="gm-worker-pool-name">{label}</span>
+        <span className={`gm-worker-pool-status${isActive ? ' is-active' : ' is-idle'}`}>
+          {isActive ? `${metrics.activeWorkers} worker` : '未启用'}
+        </span>
+      </div>
+      <div className="gm-worker-pool-grid">
+        <div className="panel-row"><span className="panel-label">提交</span><span className="panel-value">{metrics.totalSubmitted}</span></div>
+        <div className="panel-row"><span className="panel-label">完成</span><span className="panel-value">{metrics.totalCompleted}</span></div>
+        <div className="panel-row"><span className="panel-label">超时</span><span className="panel-value">{metrics.totalTimedOut}</span></div>
+        <div className="panel-row"><span className="panel-label">失败</span><span className="panel-value">{metrics.totalFailed}</span></div>
+        <div className="panel-row"><span className="panel-label">Fallback</span><span className="panel-value">{metrics.totalFallback}</span></div>
+        <div className="panel-row"><span className="panel-label">进行中</span><span className="panel-value">{metrics.inFlight}</span></div>
+        <div className="panel-row"><span className="panel-label">P50</span><span className="panel-value">{metrics.p50Ms.toFixed(1)} ms</span></div>
+        <div className="panel-row"><span className="panel-label">P95</span><span className="panel-value">{metrics.p95Ms.toFixed(1)} ms</span></div>
       </div>
     </div>
   );

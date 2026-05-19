@@ -8075,6 +8075,64 @@
     .gm-suggestion-action--danger {
       color: #c53c3c;
     }
+    /* ─── GM Tab Bar ─── */
+    .gm-tab-bar {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.08));
+      padding-bottom: 4px;
+    }
+    .gm-tab-btn {
+      padding: 4px 12px;
+      font-size: var(--font-size-12, 12px);
+      border: none;
+      background: transparent;
+      color: var(--ink-grey, #888);
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .gm-tab-btn:hover {
+      background: rgba(0,0,0,0.04);
+    }
+    .gm-tab-btn.is-active {
+      color: var(--ink-black, #222);
+      background: rgba(0,0,0,0.06);
+      font-weight: 600;
+    }
+    /* ─── GM Worker Pool Card ─── */
+    .gm-worker-pool-card {
+      margin-bottom: 6px;
+    }
+    .gm-worker-pool-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .gm-worker-pool-name {
+      font-weight: 600;
+      font-size: var(--font-size-role-body-14, 14px);
+    }
+    .gm-worker-pool-status {
+      font-size: var(--font-size-12, 12px);
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+    .gm-worker-pool-status.is-active {
+      background: rgba(34, 197, 94, 0.12);
+      color: #16a34a;
+    }
+    .gm-worker-pool-status.is-idle {
+      background: rgba(0,0,0,0.05);
+      color: var(--ink-grey, #888);
+    }
+    .gm-worker-pool-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 12px;
+    }
     .detail-modal-card.detail-modal--mail {
       width: min(1180px, 96vw);
       height: min(78dvh, 820px);

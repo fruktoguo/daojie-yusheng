@@ -806,6 +806,28 @@ export interface GmPerformanceSnapshot {
  */
 
   networkOutBuckets: GmNetworkBucket[];
+  /** Worker Pool 多线程指标（Phase 0-5） */
+  workerPool?: GmWorkerPoolAllMetrics | null;
+}
+
+/** Worker Pool 全量指标（三个池） */
+export interface GmWorkerPoolAllMetrics {
+  encoding: GmWorkerPoolMetrics;
+  instance: GmWorkerPoolMetrics;
+  persistence: GmWorkerPoolMetrics;
+}
+
+/** 单个 Worker Pool 的指标快照 */
+export interface GmWorkerPoolMetrics {
+  totalSubmitted: number;
+  totalCompleted: number;
+  totalTimedOut: number;
+  totalFailed: number;
+  totalFallback: number;
+  p50Ms: number;
+  p95Ms: number;
+  inFlight: number;
+  activeWorkers: number;
 }
 
 /** GM 状态推送视图。 */
