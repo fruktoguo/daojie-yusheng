@@ -702,7 +702,9 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId
     return;
   }
   if (typeof instance.hydrateTime === 'function') {
-    instance.hydrateTime(snapshot.tick);
+    const tickSpeed = snapshot.tickSpeed;
+    const paused = snapshot.paused;
+    instance.hydrateTime(snapshot.tick, { tickSpeed, paused });
   }
   void runtime;
   void instanceId;
