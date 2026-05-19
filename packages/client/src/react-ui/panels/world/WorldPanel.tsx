@@ -91,7 +91,7 @@ function buildSnapshot(player: PlayerState, mapMeta: MapMeta | null): WorldPanel
     resources: [],
     threats: [],
   } : {
-    title: mapMeta?.name ?? player.mapId,
+    title: mapMeta?.name ?? '未知地域',
     route: '继续探索当前区域',
     mood: '未知地域',
     desc: '该区域暂无卷宗记载，建议稳步试探。',
