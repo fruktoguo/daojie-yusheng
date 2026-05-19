@@ -26,6 +26,7 @@ export type SyncFallback<TPayload, TResult> = (payload: TPayload) => TResult;
 export class EncodingWorkerPoolService {
   private readonly logger = new Logger(EncodingWorkerPoolService.name);
   private workers: Worker[] = [];
+  private shuttingDown = false;
   private roundRobinIndex = 0;
   private config: WorkerPoolConfig;
   private pendingTasks = new Map<string, {
@@ -97,6 +98,7 @@ export class EncodingWorkerPoolService {
 
   /** 延迟启动 worker（GM toggle 运行时打开时调用） */
   private ensureWorkersStarted(): void {
+    if (this.shuttingDown) return;
     if (this.workers.some((w) => w !== null)) return; // 已有活跃 worker
     this.spawnWorkers();
     const activeCount = this.workers.filter((w) => w !== null).length;
@@ -108,6 +110,7 @@ export class EncodingWorkerPoolService {
 
   /** 关闭所有 worker */
   shutdown(): void {
+    this.shuttingDown = true;
     for (const worker of this.workers) {
       worker.terminate();
     }
@@ -123,6 +126,7 @@ export class EncodingWorkerPoolService {
       });
     }
     this.pendingTasks.clear();
+    this.metricsService.setActiveWorkers('encoding', 0);
   }
 
   /** 是否启用 */
@@ -300,7 +304,7 @@ export class EncodingWorkerPoolService {
         this.handleWorkerDeath(worker, index, workerPath);
       });
       worker.on('exit', (code) => {
-        if (code !== 0) {
+        if (!this.shuttingDown && code !== 0) {
           this.logger.warn(`Encoding worker ${index} exited with code ${code}, restarting...`);
           this.handleWorkerDeath(worker, index, workerPath);
         }
@@ -315,6 +319,7 @@ export class EncodingWorkerPoolService {
 
   /** 处理 worker 死亡：清理该 worker 的 pending 任务 + 重启 */
   private handleWorkerDeath(deadWorker: Worker, index: number, workerPath: string): void {
+    if (this.shuttingDown) return;
     // 防止 error + exit 重复触发
     if (this.workers[index] !== deadWorker && this.workers[index] !== null) {
       return; // 已经被处理过（重启了新 worker）

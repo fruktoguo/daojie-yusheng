@@ -1,149 +1,117 @@
-/**
- * Worker Pool 性能基准测试。
- * 对比开关关/开两种模式下的耗时差异。
- *
- * 覆盖：
- * - Phase 1: AOI envelope encode 吞吐量
- * - Phase 2: A* 寻路吞吐量
- * - Phase 3: FOV 计算吞吐量
- * - Phase 5: 持久化序列化吞吐量
- * - Phase 7: 验证编排并行 vs 串行总时长
- *
- * 用法：node dist/tools/worker-pool-perf-bench.js
- * 环境要求：SERVER_WORKER_POOL_ENABLED=true 时对比 worker 路径
- */
-
+/** Worker Pool 性能基准：同步路径 vs 真实 worker_threads 路径。 */
 import { encodeServerEventPayload, findBoundedPath, type PathfindingStaticGrid } from '@mud/shared';
+import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
+import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
+import { WorkerPoolMetricsService } from '../concurrency/worker-pool-metrics.service';
 
-interface BenchResult {
-  label: string;
-  syncMs: number;
-  workerMs: number;
-  speedup: number;
-  passed: boolean;
-}
-
+interface BenchResult { label: string; syncMs: number; workerMs: number; speedup: number; passed: boolean }
 const results: BenchResult[] = [];
 
-function bench(label: string, iterations: number, fn: () => void): number {
-  // warmup
-  for (let i = 0; i < Math.min(10, iterations); i++) fn();
+function bench(iterations: number, fn: () => void): number {
+  for (let i = 0; i < Math.min(10, iterations); i += 1) fn();
   const start = performance.now();
-  for (let i = 0; i < iterations; i++) fn();
+  for (let i = 0; i < iterations; i += 1) fn();
   return performance.now() - start;
 }
+async function benchAsync(iterations: number, concurrency: number, fn: () => Promise<unknown>): Promise<number> {
+  const start = performance.now();
+  for (let i = 0; i < iterations; i += concurrency) {
+    await Promise.all(Array.from({ length: Math.min(concurrency, iterations - i) }, () => fn()));
+  }
+  return performance.now() - start;
+}
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[key]; else process.env[key] = value;
+}
+function push(label: string, syncMs: number, workerMs: number): void {
+  results.push({ label, syncMs, workerMs, speedup: syncMs / Math.max(1, workerMs), passed: true });
+}
+function withEncodingPool(): { pool: EncodingWorkerPoolService; restore: () => void } {
+  const prevPool = process.env.SERVER_WORKER_POOL_ENABLED;
+  process.env.SERVER_WORKER_POOL_ENABLED = 'true';
+  const pool = new EncodingWorkerPoolService(new WorkerPoolMetricsService());
+  pool.initialize();
+  return { pool, restore: () => { pool.shutdown(); restoreEnv('SERVER_WORKER_POOL_ENABLED', prevPool); } };
+}
+function withPersistencePool(): { pool: PersistenceWorkerPoolService; restore: () => void } {
+  const prevPool = process.env.SERVER_WORKER_POOL_ENABLED;
+  const prevPersistence = process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED;
+  process.env.SERVER_WORKER_POOL_ENABLED = 'true';
+  process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED = 'true';
+  const pool = new PersistenceWorkerPoolService(new WorkerPoolMetricsService());
+  pool.initialize();
+  return {
+    pool,
+    restore: () => {
+      pool.shutdown();
+      restoreEnv('SERVER_WORKER_POOL_ENABLED', prevPool);
+      restoreEnv('SERVER_PERSISTENCE_BUILD_WORKER_ENABLED', prevPersistence);
+    },
+  };
+}
 
-// ─── Phase 1: AOI envelope encode ─────────────────────────────
-
-function benchPhase1(): void {
-  const iterations = 5000;
+async function benchPhase1(): Promise<void> {
+  const iterations = 1000;
   const payload = {
     t: 42, wr: 100, sr: 5,
     p: Array.from({ length: 20 }, (_, i) => ({ id: `p${i}`, x: i * 3, y: i * 2, name: `玩家${i}`, facing: 1 })),
     m: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, x: i, y: i, hp: 100, maxHp: 200, name: `怪物${i}` })),
   };
-
-  // 同步路径：JSON.stringify（模拟 Socket.IO 内部序列化）
-  const syncMs = bench('Phase1-sync', iterations, () => {
-    JSON.stringify(payload);
-  });
-
-  // Worker 路径：encodeServerEventPayload（JSON → Uint8Array）
-  const workerMs = bench('Phase1-worker', iterations, () => {
-    encodeServerEventPayload('n:s:worldDelta', payload);
-  });
-
-  const speedup = syncMs / Math.max(1, workerMs);
-  results.push({
-    label: 'Phase 1: AOI envelope encode (5000 iterations)',
-    syncMs,
-    workerMs,
-    speedup,
-    passed: true, // 编码本身在同一线程，真正收益在 worker 外移后
-  });
+  const syncMs = bench(iterations, () => { encodeServerEventPayload('n:s:worldDelta', payload); });
+  const { pool, restore } = withEncodingPool();
+  try {
+    const workerMs = await benchAsync(iterations, 64, () => pool.submit('envelope-encode', payload, (p) => Buffer.from(JSON.stringify(p), 'utf-8'), 1000));
+    push(`Phase 1: AOI envelope encode (${iterations} iterations, real worker)`, syncMs, workerMs);
+  } finally { restore(); }
 }
 
-// ─── Phase 2: A* 寻路 ─────────────────────────────────────────
-
-function benchPhase2(): void {
-  const width = 64;
-  const height = 64;
-  const total = width * height;
-  const walkable = new Uint8Array(total);
-  const traversalCost = new Uint16Array(total);
-  walkable.fill(1);
-  traversalCost.fill(1);
-
-  // 加障碍
-  for (let y = 5; y < 55; y++) {
-    walkable[y * width + 32] = 0;
-  }
-
+async function benchPhase2(): Promise<void> {
+  const width = 64, height = 64, total = width * height, iterations = 300;
+  const walkable = new Uint8Array(total), traversalCost = new Uint16Array(total), blocked = new Uint8Array(total);
+  walkable.fill(1); traversalCost.fill(1);
+  for (let y = 5; y < 55; y += 1) walkable[y * width + 32] = 0;
   const grid: PathfindingStaticGrid = { mapId: 'bench', mapRevision: 1, width, height, walkable, traversalCost };
-  const blocked = new Uint8Array(total);
-  const iterations = 1000;
-
-  const syncMs = bench('Phase2-pathfind', iterations, () => {
-    findBoundedPath(grid, blocked, 10, 32, [{ x: 50, y: 32 }], { maxExpandedNodes: total, maxPathLength: total });
-  });
-
-  results.push({
-    label: `Phase 2: A* pathfinding 64x64 (${iterations} iterations)`,
-    syncMs,
-    workerMs: syncMs, // 同线程基准，worker 收益在并行时体现
-    speedup: 1,
-    passed: true,
-  });
+  const input = { mapId: grid.mapId, mapRevision: grid.mapRevision, width, height, walkable, traversalCost, blocked, startX: 10, startY: 32, goals: [{ x: 50, y: 32 }], maxExpandedNodes: total, maxPathLength: total };
+  const syncMs = bench(iterations, () => { findBoundedPath(grid, blocked, 10, 32, [{ x: 50, y: 32 }], { maxExpandedNodes: total, maxPathLength: total }); });
+  const { pool, restore } = withEncodingPool();
+  try {
+    const workerMs = await benchAsync(iterations, 32, () => pool.submit('pathfind', input, () => findBoundedPath(grid, blocked, 10, 32, [{ x: 50, y: 32 }], { maxExpandedNodes: total, maxPathLength: total }), 1000));
+    push(`Phase 2: A* pathfinding 64x64 (${iterations} iterations, real worker)`, syncMs, workerMs);
+  } finally { restore(); }
 }
 
-// ─── Phase 5: 持久化序列化 ────────────────────────────────────
-
-function benchPhase5(): void {
-  const iterations = 5000;
+async function benchPhase5(): Promise<void> {
+  const iterations = 1000;
   const snapshots = Array.from({ length: 10 }, (_, i) => ({
-    playerId: `player_${i}`,
-    hp: 100 + i,
-    qi: 50 + i,
+    playerId: `player_${i}`, hp: 100 + i, qi: 50 + i,
     inventory: Array.from({ length: 20 }, (_, j) => ({ itemId: `item_${j}`, count: j + 1, attrs: { str: j, dex: j * 2 } })),
     buffs: Array.from({ length: 5 }, (_, j) => ({ buffId: `buff_${j}`, stacks: j + 1, remaining: 10 - j })),
   }));
-
-  const syncMs = bench('Phase5-serialize', iterations, () => {
-    for (const snapshot of snapshots) {
-      JSON.stringify(snapshot);
-    }
-  });
-
-  results.push({
-    label: `Phase 5: Persistence serialize 10 players × 5000 iterations`,
-    syncMs,
-    workerMs: syncMs,
-    speedup: 1,
-    passed: true,
-  });
+  const syncMs = bench(iterations, () => { for (const snapshot of snapshots) JSON.stringify(snapshot); });
+  const { pool, restore } = withPersistencePool();
+  try {
+    const workerMs = await benchAsync(iterations, 32, () => pool.submit('persistence-build', { snapshots }, (payload: any) => ({ jsonPayloads: payload.snapshots.map((s: unknown) => JSON.stringify(s)) }), 1000));
+    push(`Phase 5: Persistence serialize 10 players × ${iterations} iterations (real worker)`, syncMs, workerMs);
+  } finally { restore(); }
 }
 
-// ─── 运行 ──────────────────────────────────────────────────────
-
-console.log('=== Worker Pool Performance Bench ===\n');
-benchPhase1();
-benchPhase2();
-benchPhase5();
-
-console.log('Results:');
-console.log('─'.repeat(80));
-for (const r of results) {
-  console.log(`  ${r.label}`);
-  console.log(`    sync: ${r.syncMs.toFixed(1)}ms | worker: ${r.workerMs.toFixed(1)}ms | speedup: ${r.speedup.toFixed(2)}x`);
+async function main(): Promise<void> {
+  console.log('=== Worker Pool Performance Bench ===\n');
+  await benchPhase1();
+  await benchPhase2();
+  await benchPhase5();
+  console.log('Results:');
+  console.log('─'.repeat(80));
+  for (const r of results) {
+    console.log(`  ${r.label}`);
+    console.log(`    sync: ${r.syncMs.toFixed(1)}ms | worker: ${r.workerMs.toFixed(1)}ms | speedup: ${r.speedup.toFixed(2)}x`);
+  }
+  console.log('─'.repeat(80));
+  console.log('\nNote: 单机基准包含 worker 消息传递成本；真实收益依赖多核、并发负载和主线程让渡。\n');
+  console.log(JSON.stringify({ timestamp: new Date().toISOString(), results: results.map((r) => ({ label: r.label, syncMs: r.syncMs, workerMs: r.workerMs, speedup: r.speedup })) }, null, 2));
 }
-console.log('─'.repeat(80));
-console.log('\nNote: True worker speedup requires SERVER_WORKER_POOL_ENABLED=true');
-console.log('      and concurrent load (multiple players/instances in parallel).');
-console.log('      Single-threaded bench shows baseline throughput only.\n');
 
-// 输出 JSON 供 CI 消费
-const output = {
-  timestamp: new Date().toISOString(),
-  results: results.map((r) => ({ label: r.label, syncMs: r.syncMs, workerMs: r.workerMs, speedup: r.speedup })),
-};
-console.log(JSON.stringify(output, null, 2));
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.stack : String(error));
+  process.exit(1);
+});
