@@ -302,6 +302,11 @@ export class WorldRuntimePlayerCombatService {
             return;
         }
         const deathSite = resolvePlayerDeathSite(victim, deps);
+        // 玩家死亡时立即清除所有以该玩家为仇恨目标的妖兽仇恨，
+        // 避免下一个 tick 产生无效攻击 intent。
+        if (deathSite.instance && typeof deathSite.instance.clearMonsterAggroForPlayer === 'function') {
+            deathSite.instance.clearMonsterAggroForPlayer(playerId);
+        }
         const deathPenalty = this.playerRuntimeService.applyShaInfusionDeathPenalty(playerId);
         pushShaDeathPenaltyMessages(deps, playerId, deathPenalty);
         const killer = typeof killerPlayerId === 'string' && killerPlayerId.trim()

@@ -5983,6 +5983,14 @@ class MapInstanceRuntime {
         monster.lastSeenTargetY = undefined;
         monster.lastSeenTargetTick = undefined;
     }
+    /** clearMonsterAggroForPlayer：清除所有以指定玩家为仇恨目标的妖兽仇恨。 */
+    clearMonsterAggroForPlayer(playerId: string) {
+        for (const monster of this.monstersByRuntimeId.values()) {
+            if (monster.aggroTargetPlayerId === playerId) {
+                this.clearMonsterTargetPursuit(monster);
+            }
+        }
+    }
     /** resolveMonsterLostSightChaseTarget：解析妖兽丢视野后的短暂追击落点。 */
     resolveMonsterLostSightChaseTarget(monster) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
