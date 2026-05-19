@@ -110,3 +110,23 @@ export function incrementSyncFlushCount(
     }
     breakdown[key] += 1;
 }
+
+export function runMeasuredSyncFlushStep<T>(
+    breakdown: SyncFlushBreakdownSample | undefined,
+    durationKey: SyncFlushDurationKey,
+    countKey: SyncFlushCountKey,
+    step: () => T,
+): T {
+    const startedAt = performance.now();
+    const result = step();
+    addSyncFlushDuration(breakdown, durationKey, startedAt);
+    incrementSyncFlushCount(breakdown, countKey);
+    return result;
+}
+
+export function runMeasuredAuxSync<T>(
+    breakdown: SyncFlushBreakdownSample | undefined,
+    step: () => T,
+): T {
+    return runMeasuredSyncFlushStep(breakdown, 'auxSyncMs', 'auxSyncCount', step);
+}

@@ -14,6 +14,7 @@ import {
     createSyncFlushBreakdownSample,
     addSyncFlushDuration,
     incrementSyncFlushCount,
+    runMeasuredAuxSync,
 } from './world-sync-flush-breakdown';
 
 @Injectable()
@@ -67,7 +68,6 @@ export class WorldSyncService {
             const bindings = this.worldSessionService.listBindings();
             breakdown.playerCount = Array.isArray(bindings) ? bindings.length : 0;
 
-            // 当 worker pool 启用且 AOI envelope worker 开关打开时，收集 envelope 批量异步编码
             const useWorkerEncode = this.workerEncodeService?.shouldUseWorkerEncode() === true;
             const pendingEmits: PendingEnvelopeEmit[] = [];
 
@@ -89,13 +89,15 @@ export class WorldSyncService {
                 breakdown.processedPlayerCount += 1;
 
                 if (useWorkerEncode) {
-                    // 异步路径：收集 envelope，稍后批量编码
-                    const { envelope, player } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
+                    const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
                     if (envelope) {
                         const playerId = binding.playerId;
                         pendingEmits.push({
                             socket, envelope, playerId, player,
                             postEmitFn: () => {
+                                if (auxDeferred) {
+                                    runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player));
+                                }
                                 this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
                                 this.emitPendingRuntimeEvents(playerId, socket, envelope);
                                 this.emitPendingPlayerStatisticRecords(playerId, socket);
@@ -103,12 +105,10 @@ export class WorldSyncService {
                         });
                     }
                 } else {
-                    // 同步路径：原有逻辑
                     this.syncDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
                 }
             }
 
-            // 异步路径：批量提交 worker 编码，等待编码完成后按原顺序 emit。
             if (useWorkerEncode && pendingEmits.length > 0) {
                 await this.workerEncodeService!.flushPendingEmitsViaWorker(pendingEmits);
             }
@@ -127,8 +127,8 @@ export class WorldSyncService {
         incrementSyncFlushCount(breakdown, 'playerStateCount');
         const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(playerId, view, player);
         incrementSyncFlushCount(breakdown, 'envelopeCount');
-        this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true });
-        return { envelope, player };
+        const auxSynced = runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player, { deferMapChanged: true }));
+        return { envelope, player, auxDeferred: auxSynced === false };
     }
 
     emitEnvelope(socket: any, envelope: any) {
@@ -169,9 +169,12 @@ export class WorldSyncService {
     }
 
     private syncDeltaForPlayer(playerId: string, sessionId: string, socket: any, view: any, breakdown?: SyncFlushBreakdownSample) {
-        const { envelope, player } = this.prepareDeltaForPlayer(playerId, sessionId, socket, view, breakdown);
+        const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(playerId, sessionId, socket, view, breakdown);
         this.emitEnvelope(socket, envelope);
         incrementSyncFlushCount(breakdown, 'emitEnvelopeCount');
+        if (auxDeferred) {
+            runMeasuredAuxSync(breakdown, () => this.emitAuxDeltaSync(playerId, socket, view, player));
+        }
         this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
         incrementSyncFlushCount(breakdown, 'questSyncCount');
         this.emitPendingRuntimeEvents(playerId, socket, envelope);
