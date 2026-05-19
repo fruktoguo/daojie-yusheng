@@ -18,6 +18,7 @@ import { describePreviewBonuses } from './stat-preview';
 import { t } from './i18n';
 
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
+const UNKNOWN_PORTAL_TARGET_MAP_NAME = '未知地域';
 type LeaderboardTrackedLocation = S2C_LeaderboardPlayerLocations['entries'][number];
 
 let trackedLeaderboardLocations = new Map<string, LeaderboardTrackedLocation>();
@@ -249,17 +250,23 @@ export class EntityDetailModal {
   private resolveTitle(detail: S2C_Detail, fallbackTitle?: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (detail.player && fallbackTitle && fallbackTitle.trim() && fallbackTitle !== detail.player.id) {
-      return fallbackTitle;
+    if (detail.player) {
+      const playerTitle = fallbackTitle?.trim();
+      return playerTitle && playerTitle !== detail.player.id
+        ? playerTitle
+        : t('entity-detail.player.subtitle', undefined);
+    }
+    if (detail.ground) {
+      return t('entity-detail.ground.title', undefined);
+    }
+    if (detail.portal) {
+      return detail.portal.targetMapName?.trim() || UNKNOWN_PORTAL_TARGET_MAP_NAME;
     }
     return detail.npc?.name
       ?? detail.monster?.name
       ?? fallbackTitle
-      ?? detail.player?.id
-      ?? detail.portal?.targetMapName
       ?? detail.container?.name
-      ?? detail.ground?.sourceId
-      ?? detail.id;
+      ?? t('entity-detail.title.default', undefined);
   }
 
   /** renderNpc：渲染NPC。 */
@@ -320,17 +327,19 @@ export class EntityDetailModal {
       return `<div class="empty-hint">${t('entity-detail.player.empty', undefined)}</div>`;
     }
     const pendingTitle = this.pending?.kind === 'player' && this.pending.id === player.id ? this.pending.title : '';
-    const titleRow = pendingTitle && pendingTitle !== player.id
+    const defaultPlayerTitle = t('entity-detail.player.subtitle', undefined);
+    const hasPlayerDisplayTitle = pendingTitle && pendingTitle !== player.id && pendingTitle !== defaultPlayerTitle;
+    const titleRow = hasPlayerDisplayTitle
       ? `<div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.field.display-name', undefined)}</strong><span>${escapeHtml(pendingTitle)}</span></div>`
       : '';
     return `
       <div class="ui-title-block">
-        <div class="ui-title-block-title">${escapeHtml(pendingTitle && pendingTitle !== player.id ? pendingTitle : player.id)}</div>
+        <div class="ui-title-block-title">${escapeHtml(hasPlayerDisplayTitle ? pendingTitle : defaultPlayerTitle)}</div>
         <div class="ui-title-block-subtitle">${t('entity-detail.player.subtitle', undefined)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
         ${titleRow}
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.field.id', undefined)}</strong><span>${escapeHtml(player.id)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.category', undefined)}</strong><span>${t('entity-detail.player.subtitle', undefined)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${player.x}, ${player.y})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${player.hp}/${player.maxHp}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${player.qi}/${player.maxQi}</span></div>
@@ -379,15 +388,16 @@ export class EntityDetailModal {
     const destination = typeof portal.targetX === 'number' && typeof portal.targetY === 'number'
       ? `(${portal.targetX}, ${portal.targetY})`
       : t('entity-detail.value.unknown', undefined);
+    const targetMapName = portal.targetMapName?.trim() || UNKNOWN_PORTAL_TARGET_MAP_NAME;
     return `
       <div class="ui-title-block">
-        <div class="ui-title-block-title">${escapeHtml(portal.targetMapName ?? portal.targetMapId)}</div>
+        <div class="ui-title-block-title">${escapeHtml(targetMapName)}</div>
         <div class="ui-title-block-subtitle">${escapeHtml(portalKind)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${portal.x}, ${portal.y})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.type', undefined)}</strong><span>${escapeHtml(portalKind)}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.target-map', undefined)}</strong><span>${escapeHtml(portal.targetMapName ?? portal.targetMapId)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.target-map', undefined)}</strong><span>${escapeHtml(targetMapName)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.target-coordinate', undefined)}</strong><span>${escapeHtml(destination)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.portal.field.trigger', undefined)}</strong><span>${escapeHtml(formatPortalTrigger(portal.trigger))}</span></div>
       </div>
@@ -408,11 +418,11 @@ export class EntityDetailModal {
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${t('entity-detail.ground.title', undefined)}</div>
-        <div class="ui-title-block-subtitle">${escapeHtml(ground.sourceId)}</div>
+        <div class="ui-title-block-subtitle">${escapeHtml(t('entity-detail.count.items', { count: ground.items.length }))}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${ground.x}, ${ground.y})</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.ground.field.source', undefined)}</strong><span>${escapeHtml(ground.sourceId)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.category', undefined)}</strong><span>${t('entity-detail.ground.title', undefined)}</span></div>
       </div>
       <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.ground.field.items', undefined)}</strong><div>${items}</div></div>
     `;

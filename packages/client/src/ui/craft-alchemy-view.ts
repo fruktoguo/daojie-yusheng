@@ -28,6 +28,8 @@ import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tool
 type AlchemyTab = 'full' | 'simple';
 type AlchemyRealmTab = 'mortal' | 'qi' | 'foundation';
 
+const UNKNOWN_ITEM_NAME = '未知物品';
+
 type AlchemyViewState = {
   recipeListTop: number;
   detailTop: number;
@@ -637,7 +639,8 @@ export class CraftAlchemyView {
     tone: 'reward' | 'material',
     count?: number,
   ): string {
-    return renderInlineItemChip(itemId, { label, tone, count });
+    const displayLabel = label.trim() && label !== itemId ? label : UNKNOWN_ITEM_NAME;
+    return renderInlineItemChip(itemId, { label: displayLabel, tone, count });
   }
 
 

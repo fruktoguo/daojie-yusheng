@@ -32,6 +32,9 @@ import {
   resolvePreviewTechnique,
 } from './content/local-templates';
 import { getStaticClientActionDef } from './constants/ui/action';
+
+const UNKNOWN_ITEM_NAME = '未知物品';
+const UNKNOWN_TECHNIQUE_NAME = '未知功法';
 /**
  * MainPanelDeltaStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -263,6 +266,26 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
 
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
+}
+
+function resolveSyncedItemName(itemId: string, ...candidates: Array<string | undefined>): string {
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (trimmed && trimmed !== itemId) {
+      return trimmed;
+    }
+  }
+  return UNKNOWN_ITEM_NAME;
+}
+
+function resolveSyncedTechniqueName(techId: string, ...candidates: Array<string | undefined>): string {
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (trimmed && trimmed !== techId) {
+      return trimmed;
+    }
+  }
+  return UNKNOWN_TECHNIQUE_NAME;
 }
 
 function mergeAttrValuePatch(base: Partial<Attributes> | undefined, patch: Partial<Attributes> | undefined, fallback: Attributes): Attributes {
@@ -565,7 +588,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       expToNext: patch.expToNext ?? previousSameTechnique?.expToNext ?? 0,
       realmLv: template?.realmLv ?? patch.realmLv ?? previousSameTechnique?.realmLv ?? 1,
       realm: patch.realm ?? previousSameTechnique?.realm ?? TechniqueRealm.Entry,
-      name: applyNullablePatch(patch.name, previousSameTechnique?.name) ?? template?.name ?? patch.techId,
+      name: resolveSyncedTechniqueName(patch.techId, applyNullablePatch(patch.name, previousSameTechnique?.name), template?.name),
       skills: mergedSkills
         ? cloneJson(mergedSkills)
         : cloneJson(template?.skills ?? []),
@@ -595,7 +618,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     return {
       itemId: item.itemId,
       count: item.count,
-      name: item.name ?? previousSameItem?.name ?? template?.name ?? item.itemId,
+      name: resolveSyncedItemName(item.itemId, item.name, previousSameItem?.name, template?.name),
       type: item.type ?? previousSameItem?.type ?? template?.type ?? 'material',
       desc: item.desc ?? previousSameItem?.desc ?? template?.desc ?? '',
       groundLabel: item.groundLabel ?? previousSameItem?.groundLabel ?? template?.groundLabel,

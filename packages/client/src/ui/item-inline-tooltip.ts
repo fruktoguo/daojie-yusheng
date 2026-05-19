@@ -43,6 +43,8 @@ interface RenderInlineItemChipOptions {
 }
 
 const INLINE_REFERENCE_SELECTOR = '[data-inline-item-id], [data-inline-monster-id]';
+const UNKNOWN_INLINE_ITEM_NAME = '未知物品';
+const UNKNOWN_INLINE_MONSTER_NAME = '未知妖兽';
 /** inlineItemTooltip：内嵌物品提示浮层实例。 */
 const inlineItemTooltip = new FloatingTooltip('floating-tooltip inline-item-tooltip');
 /** boundRoots：bound Roots。 */
@@ -110,6 +112,30 @@ function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
   };
 }
 
+function resolveInlineItemLabel(itemId: string, label?: string, templateName?: string): string {
+  const trimmedLabel = label?.trim();
+  if (trimmedLabel && trimmedLabel !== itemId) {
+    return trimmedLabel;
+  }
+  const trimmedTemplateName = templateName?.trim();
+  if (trimmedTemplateName && trimmedTemplateName !== itemId) {
+    return trimmedTemplateName;
+  }
+  return UNKNOWN_INLINE_ITEM_NAME;
+}
+
+function resolveInlineMonsterLabel(monsterId: string, label?: string, templateName?: string): string {
+  const trimmedLabel = label?.trim();
+  if (trimmedLabel && trimmedLabel !== monsterId) {
+    return trimmedLabel;
+  }
+  const trimmedTemplateName = templateName?.trim();
+  if (trimmedTemplateName && trimmedTemplateName !== monsterId) {
+    return trimmedTemplateName;
+  }
+  return UNKNOWN_INLINE_MONSTER_NAME;
+}
+
 /** resolveTooltipPayload：解析提示载荷。 */
 async function resolveTooltipPayload(node: HTMLElement) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -117,8 +143,8 @@ async function resolveTooltipPayload(node: HTMLElement) {
   const itemId = node.dataset.inlineItemId;
   if (itemId) {
     const itemCount = normalizeCount(Number.parseInt(node.dataset.inlineItemCount ?? '1', 10));
-    const fallbackName = node.dataset.inlineItemName?.trim() || itemId;
     const stack = buildLocalItemStack(itemId, itemCount);
+    const fallbackName = resolveInlineItemLabel(itemId, node.dataset.inlineItemName, stack?.name);
     if (!stack) {
       return {
         title: fallbackName,
@@ -133,8 +159,8 @@ async function resolveTooltipPayload(node: HTMLElement) {
   if (!monsterId) {
     return null;
   }
-  const fallbackName = node.dataset.inlineMonsterName?.trim() || monsterId;
   const location = await loadMonsterLocationEntry(monsterId);
+  const fallbackName = resolveInlineMonsterLabel(monsterId, node.dataset.inlineMonsterName, location?.monsterName);
   if (!location) {
     return {
       title: fallbackName,
@@ -177,7 +203,7 @@ async function showTooltip(node: HTMLElement, clientX: number, clientY: number):
 /** renderInlineItemChip：渲染Inline物品Chip。 */
 export function renderInlineItemChip(itemId: string, options?: RenderInlineItemChipOptions): string {
   const template = getLocalItemTemplate(itemId);
-  const label = options?.label?.trim() || template?.name || itemId;
+  const label = resolveInlineItemLabel(itemId, options?.label, template?.name);
   const count = options?.count;
   const countText = Number.isFinite(count) ? ` x${normalizeCount(count)}` : '';
   const tone = options?.tone ?? 'default';
@@ -191,7 +217,7 @@ export function renderInlineMonsterChip(monsterId: string, options?: {
  */
  label?: string }): string {
   const location = getMonsterLocationEntry(monsterId);
-  const label = options?.label?.trim() || location?.monsterName || monsterId;
+  const label = resolveInlineMonsterLabel(monsterId, options?.label, location?.monsterName);
   return `<span class="inline-item-chip inline-item-chip--monster" data-inline-monster-id="${escapeHtmlAttr(monsterId)}" data-inline-monster-name="${escapeHtmlAttr(label)}">${escapeHtml(label)}</span>`;
 }
 

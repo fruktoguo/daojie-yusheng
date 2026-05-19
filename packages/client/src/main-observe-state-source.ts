@@ -27,6 +27,8 @@ import { describePreviewBonuses } from './ui/stat-preview';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger, formatDisplayPercent } from './utils/number';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 import { t } from './ui/i18n';
+
+const UNKNOWN_PORTAL_TARGET_MAP_NAME = '未知地域';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -1192,7 +1194,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const observedTile = mergeObservedTileWithDetail(tile, observedTileDetail);
     const groundPile = options.getVisibleGroundPileAt(targetX, targetY);
     const groundItems = observedTileDetail?.ground?.items ?? groundPile?.items ?? [];
-    const groundSourceId = observedTileDetail?.ground?.sourceId ?? null;
+    const hasGroundDetail = Boolean(observedTileDetail?.ground);
     const portalDetail = observedTileDetail?.portal ?? null;
     const safeZone = observedTileDetail?.safeZone ?? null;
     const sortedEntities = [...resolveObserveEntities(targetX, targetY)].sort((left, right) => {
@@ -1265,11 +1267,15 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         });
       }
     }
-    if (groundSourceId) {
-      terrainRows.push({ label: t('observe.ground.source', undefined), value: groundSourceId });
+    if (hasGroundDetail) {
+      terrainRows.push({
+        label: t('observe.ground.section.title', undefined),
+        value: t('entity-detail.count.items', { count: formatDisplayInteger(groundItems.length) }),
+      });
     }
+    const portalTargetMapName = portalDetail?.targetMapName?.trim() || UNKNOWN_PORTAL_TARGET_MAP_NAME;
     if (portalDetail) {
-      terrainRows.push({ label: t('observe.portal.destination', undefined), value: portalDetail.targetMapName ?? portalDetail.targetMapId });
+      terrainRows.push({ label: t('observe.portal.destination', undefined), value: portalTargetMapName });
     }
 
     observeModalController.setSubtitle(targetX, targetY);
@@ -1312,7 +1318,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
               </div>
               <div class="observe-modal-row">
                 <span class="observe-modal-label">${t('observe.portal.label.target-map', undefined)}</span>
-                <span class="observe-modal-value">${escapeHtml(portalDetail.targetMapName ?? portalDetail.targetMapId)}</span>
+                <span class="observe-modal-value">${escapeHtml(portalTargetMapName)}</span>
               </div>
               <div class="observe-modal-row">
                 <span class="observe-modal-label">${t('observe.portal.label.target-coordinate', undefined)}</span>
@@ -1330,8 +1336,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           </section>
         `
         : '';
-      const groundMetaHtml = groundSourceId
-        ? `<div class="observe-entity-empty">${t('observe.ground.meta', { source: escapeHtml(groundSourceId), count: formatDisplayInteger(groundItems.length) })}</div>`
+      const groundMetaHtml = hasGroundDetail
+        ? `<div class="observe-entity-empty">${escapeHtml(t('entity-detail.count.items', { count: formatDisplayInteger(groundItems.length) }))}</div>`
         : '';
       const errorHtml = observeError
         ? `<section class="observe-modal-section"><div class="observe-modal-section-title">${t('observe.error.section.title', undefined)}</div><div class="observe-entity-empty">${escapeHtml(observeError)}</div></section>`

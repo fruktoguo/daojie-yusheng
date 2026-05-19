@@ -2866,7 +2866,7 @@ export class ActionPanel {
     return {
       ...template,
       count: 1,
-      name: template.name ?? itemId,
+      name: template.name?.trim() || UNKNOWN_AUTO_USE_PILL_NAME,
       desc: template.desc ?? '',
       type: template.type ?? 'consumable',
     } as ItemStack;

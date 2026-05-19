@@ -2335,8 +2335,9 @@ export class CraftWorkbenchModal {
     tone: 'reward' | 'material',
     count?: number,
   ): string {
+    const displayLabel = label.trim() && label !== itemId ? label : UNKNOWN_ITEM_NAME;
     return renderInlineItemChip(itemId, {
-      label,
+      label: displayLabel,
       tone,
       count,
     });
