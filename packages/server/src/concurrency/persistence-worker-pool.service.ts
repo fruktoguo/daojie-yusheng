@@ -32,6 +32,7 @@ export class PersistenceWorkerPoolService {
   private workers: Array<Worker | null> = [];
   private roundRobinIndex = 0;
   private shuttingDown = false;
+  private activeWorkerCount = 0;
 
   constructor(
     private readonly metricsService: WorkerPoolMetricsService,
@@ -52,7 +53,7 @@ export class PersistenceWorkerPoolService {
     this.metricsService.recordSubmit('persistence');
     if (this.forceSyncMode) return this.executeFallback(taskId, payload, fallback);
     this.ensureWorkersStarted();
-    if (!this.workers.some(Boolean)) return this.executeFallback(taskId, payload, fallback);
+    if (this.activeWorkerCount === 0) return this.executeFallback(taskId, payload, fallback);
     return this.dispatchToWorker(taskId, kind, payload, deadlineMs ?? this.config.defaultDeadlineMs, fallback);
   }
 
@@ -62,7 +63,7 @@ export class PersistenceWorkerPoolService {
       return;
     }
     this.ensureWorkersStarted();
-    this.logger.log(`持久化工作池已启动：${this.workers.filter(Boolean).length} 个工作线程`);
+    this.logger.log(`持久化工作池已启动：${this.activeWorkerCount} 个工作线程`);
   }
 
   shutdown(): void {
@@ -73,6 +74,7 @@ export class PersistenceWorkerPoolService {
   private shutdownWorkers(): void {
     for (const worker of this.workers) worker?.terminate();
     this.workers = [];
+    this.activeWorkerCount = 0;
     for (const [taskId, pending] of this.pendingTasks) {
       clearTimeout(pending.timer);
       pending.resolve({ taskId, ok: false, errorMessage: 'Worker pool shutting down', durationMs: performance.now() - pending.submittedAt });
@@ -82,7 +84,7 @@ export class PersistenceWorkerPoolService {
   }
 
   isEnabled(): boolean {
-    return !this.forceSyncMode && this.workers.some((worker) => worker !== null);
+    return !this.forceSyncMode && this.activeWorkerCount > 0;
   }
 
   getMetrics(): WorkerPoolMetrics {
@@ -90,11 +92,11 @@ export class PersistenceWorkerPoolService {
   }
 
   private ensureWorkersStarted(): void {
-    if (this.forceSyncMode || this.workers.some(Boolean) || this.shuttingDown) return;
+    if (this.forceSyncMode || this.activeWorkerCount > 0 || this.shuttingDown) return;
     const workerPath = resolve(__dirname, 'workers', 'persistence-build.worker.js');
     this.workers = new Array(this.config.poolSize).fill(null);
     for (let i = 0; i < this.config.poolSize; i += 1) this.spawnSingleWorker(workerPath, i);
-    this.metricsService.setActiveWorkers('persistence', this.workers.filter(Boolean).length);
+    this.metricsService.setActiveWorkers('persistence', this.activeWorkerCount);
   }
 
   private spawnSingleWorker(workerPath: string, index: number): void {
@@ -109,6 +111,8 @@ export class PersistenceWorkerPoolService {
         if (!this.shuttingDown && code !== 0) this.handleWorkerDeath(worker, index, workerPath);
       });
       this.workers[index] = worker;
+      this.activeWorkerCount += 1;
+      this.metricsService.setActiveWorkers('persistence', this.activeWorkerCount);
     } catch (err: unknown) {
       this.logger.error(`持久化工作线程 ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
     }
@@ -191,7 +195,8 @@ export class PersistenceWorkerPoolService {
   private handleWorkerDeath(deadWorker: Worker, index: number, workerPath: string): void {
     if (this.workers[index] !== deadWorker) return;
     this.workers[index] = null;
-    this.metricsService.setActiveWorkers('persistence', this.workers.filter(Boolean).length);
+    this.activeWorkerCount = Math.max(0, this.activeWorkerCount - 1);
+    this.metricsService.setActiveWorkers('persistence', this.activeWorkerCount);
     for (const [taskId, pending] of this.pendingTasks) {
       if (pending.workerIndex !== index) continue;
       clearTimeout(pending.timer);
@@ -200,7 +205,6 @@ export class PersistenceWorkerPoolService {
     }
     setTimeout(() => {
       if (!this.shuttingDown && !this.workers[index]) this.spawnSingleWorker(workerPath, index);
-      this.metricsService.setActiveWorkers('persistence', this.workers.filter(Boolean).length);
     }, 1000);
   }
 }
