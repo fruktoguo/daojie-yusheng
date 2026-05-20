@@ -507,6 +507,13 @@ export class WorldRuntimePlayerSkillDispatchService {
             return this.dispatchTemporaryTileSkill(attacker, skill, tile.x, tile.y, currentTick, deps);
         }
         if (targetRef && !targetMonsterId && !targetPlayerId) {
+            if (targetRef === 'self' && skill.requiresTarget === false && !isSelfBuffNoTargetSkill(skill)) {
+                const anchor = { x: attacker.x, y: attacker.y };
+                if (getPlayerSkillWindupTicks(skill) > 0) {
+                    return this.beginPlayerSkillCast(attacker, skill, anchor, null, deps);
+                }
+                return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, null, deps);
+            }
             const tileAnchor = parseTileTargetRef(targetRef);
             const resolvedTarget = this.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps);
             if (!resolvedTarget) {

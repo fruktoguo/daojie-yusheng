@@ -433,17 +433,6 @@ export class WorldRuntimeAutoCombatService {
   // 安全区内允许自动战斗打怪，但不允许自动选择玩家目标。
 
         const inSafeZone = instance.isPointInSafeZone(player.x, player.y);
-        const selfBuffSkillChoice = this.resolveAutoBattleSelfSkillChoice(player, options);
-        if (selfBuffSkillChoice?.skillId) {
-            return {
-                kind: 'castSkill',
-                skillId: selfBuffSkillChoice.skillId,
-                targetPlayerId: null,
-                targetMonsterId: null,
-                targetRef: null,
-                autoCombat: true,
-            };
-        }
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
         const view = instance.buildPlayerView(player.playerId, radius);
         if (!view) {

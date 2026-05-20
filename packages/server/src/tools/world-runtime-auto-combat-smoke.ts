@@ -647,7 +647,7 @@ function testStationaryOutOfRangeSkillSkipsWithoutMove(): void {
   assert.equal(command, null);
 }
 
-function testAutoBattleCastsMissingSelfBuffSkillWithoutTarget(): void {
+function testAutoBattleSkipsSelfBuffSkillWithoutTarget(): void {
   const player = {
     playerId: 'player:1',
     hp: 100,
@@ -707,9 +707,83 @@ function testAutoBattleCastsMissingSelfBuffSkillWithoutTarget(): void {
       return false;
     },
     buildPlayerView() {
-      throw new Error('self buff auto cast should not require target view');
+      return {
+        playerId: 'player:1',
+        self: { x: 1, y: 1 },
+        instance: { width: 4, height: 4 },
+        visiblePlayers: [],
+        localMonsters: [],
+        localNpcs: [],
+        localPortals: [],
+        localGroundPiles: [],
+      };
     },
   } as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 15;
+    },
+    queuePlayerNotice() {},
+  } as never);
+
+  assert.equal(command, null);
+}
+
+function testAutoBattleCastsMissingSelfBuffSkillWithTarget(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 6,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    buffs: {
+      buffs: [],
+    },
+    actions: {
+      actions: [{
+        id: 'skill:guard',
+        type: 'skill',
+        range: 1,
+        cooldownLeft: 0,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill:guard',
+          name: '护体术',
+          cost: 0,
+          requiresTarget: false,
+          range: 1,
+          effects: [{
+            type: 'buff',
+            target: 'self',
+            buffId: 'buff:guard',
+            name: '护体',
+            duration: 10,
+          }],
+        }],
+      }],
+    },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      combatTargetId: null,
+      combatTargetLocked: false,
+      manualEngagePending: false,
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const command = service.buildAutoCombatCommand(createAdjacentMonsterInstance() as never, player as never, {
     resolveCurrentTickForPlayerId() {
       return 15;
     },
@@ -1310,7 +1384,8 @@ testAutoCombatDoesNotEnqueueSpentActionCommand();
 testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown();
 testOutOfRangeSkillMovesToSkillMaxRangeImmediately();
 testStationaryOutOfRangeSkillSkipsWithoutMove();
-testAutoBattleCastsMissingSelfBuffSkillWithoutTarget();
+testAutoBattleSkipsSelfBuffSkillWithoutTarget();
+testAutoBattleCastsMissingSelfBuffSkillWithTarget();
 testAutoBattleSkipsSelfBuffSkillWhenBuffActive();
 testStopDistancePathDoesNotGenerateRangeCandidateGrid();
 testLockedDestroyedTileClearsTarget();
@@ -1328,5 +1403,5 @@ testMaterializeAutoCombatClearsExpiredRetaliatorBeforeEarlyExit();
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-auto-combat',
-  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会在技能超距时同息追近到技能最远射程，原地战斗会跳过超距技能；无需目标的自身 buff 技能会在缺少对应 buff 时按自动技能顺序原地施放，已有 buff 时不会重复刷也不会把 buff 技能当成追击距离；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标，且仇敌 30 分钟未续攻会在 tick 内过期；自动丹药会按资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
+  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会在技能超距时同息追近到技能最远射程，原地战斗会跳过超距技能；无需目标的自身 buff 技能只会在已有自动战斗目标且缺少对应 buff 时按自动技能顺序原地施放，无目标时不会空放，已有 buff 时不会重复刷也不会把 buff 技能当成追击距离；锁定目标失效后只清理当前目标锁，不关闭自动战斗、不发丢失提示；锁定草药、挖矿和阵法会在未清空或未摧毁前继续生成下一次攻击；自动反击会临时抢占非玩家锁定目标并保留原锁定，明确锁定玩家时不擅自切目标，且仇敌 30 分钟未续攻会在 tick 内过期；自动丹药会按资源阈值或缺 Buff 条件在 tick 受控流程内使用，空条件不触发，已有 pending command 时不改动背包槽位。',
 }, null, 2));

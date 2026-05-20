@@ -2164,6 +2164,221 @@ async function run() {
   assert.equal(resolvingSelfOutcomes[0].phase, CombatActionPhase.ChantResolve);
   assert.equal(resolvingSelfOutcomes[0].target.kind, CombatTargetKind.Self);
 
+  const resolvingAoeChantPlayer = {
+    playerId: 'player:aoe-chant',
+    name: '原地吟唱者',
+    instanceId: 'instance:test',
+    x: 0,
+    y: 0,
+    hp: 100,
+    qi: 100,
+    attrs: { numericStats: { maxQiOutputPerTick: 999 }, ratioDivisors: {} },
+    combat: {
+      cooldownReadyTickBySkillId: {},
+      pendingSkillCast: createPlayerPendingCombatCast({
+        playerId: 'player:aoe-chant',
+        instanceId: 'instance:test',
+        skillId: 'skill:center-aoe',
+        anchor: { x: 0, y: 0 },
+        remainingTicks: 1,
+        startedTick: 30,
+        skipProgressThisTick: false,
+      }),
+    },
+    techniques: {
+      techniques: [{
+        level: 1,
+        skills: [{
+          id: 'skill:center-aoe',
+          name: '原地震荡',
+          range: 0,
+          requiresTarget: false,
+          targeting: { shape: 'area', radius: 1, maxTargets: 3 },
+          effects: [{ type: 'damage', formula: 1 }],
+        }],
+      }],
+    },
+  };
+  const aoeMonster = {
+    runtimeId: 'monster:aoe-target',
+    monsterId: 'monster:aoe-target',
+    name: '受击妖兽',
+    instanceId: 'instance:test',
+    x: 1,
+    y: 0,
+    hp: 20,
+    maxHp: 20,
+    alive: true,
+    level: 1,
+    attrs: {},
+    numericStats: {},
+    ratioDivisors: {},
+    buffs: [],
+  };
+  const resolvingAoeCalls = [];
+  const resolvingAoeOutcomes = [];
+  const resolvingAoeDispatch = new WorldRuntimePlayerSkillDispatchService(
+    {
+      getPlayer: (playerId) => (playerId === resolvingAoeChantPlayer.playerId ? resolvingAoeChantPlayer : null),
+      listPlayerSnapshots: () => [],
+    },
+    {
+      castSkillToMonster: (_attacker, target, skillId, currentTick, distance) => {
+        resolvingAoeCalls.push(['castSkillToMonster', target.runtimeId, skillId, currentTick, distance]);
+        return {
+          skillId,
+          qiCost: 0,
+          hitCount: 1,
+          targetCount: 1,
+          totalDamage: 0,
+          totalRawDamage: 0,
+        };
+      },
+    },
+    service,
+  );
+  const resolvedAoePending = await resolvingAoeDispatch.resolvePendingPlayerSkillCast(resolvingAoeChantPlayer.playerId, {
+    combatDiagnostics: [],
+    combatOutcomes: resolvingAoeOutcomes,
+    logger: deps.logger,
+    resolveCurrentTickForPlayerId: () => 31,
+    getInstanceRuntimeOrThrow: () => ({
+      meta: { canDamageTile: false, supportsPvp: false },
+      listMonsters: () => [aoeMonster],
+      getMonster: (runtimeId) => (runtimeId === aoeMonster.runtimeId ? aoeMonster : null),
+      getMonsterAtTile: (x, y) => (x === aoeMonster.x && y === aoeMonster.y ? aoeMonster : null),
+      getTileCombatState: () => null,
+    }),
+    pushActionLabelEffect: () => {},
+  });
+  assert.equal(resolvedAoePending, true);
+  assert.equal(resolvingAoeChantPlayer.combat.pendingSkillCast, undefined);
+  assert.deepEqual(resolvingAoeCalls, [
+    ['castSkillToMonster', 'monster:aoe-target', 'skill:center-aoe', 31, 1],
+  ]);
+  assert.equal(resolvingAoeOutcomes.some((entry) => (
+    entry.phase === CombatActionPhase.ChantResolve
+    && entry.target.kind === CombatTargetKind.Monster
+    && entry.target.id === 'monster:aoe-target'
+  )), true);
+
+  const selfRefAoePlayer = {
+    playerId: 'player:self-ref-aoe',
+    name: '自锚点吟唱者',
+    instanceId: 'instance:test',
+    x: 0,
+    y: 0,
+    hp: 100,
+    qi: 100,
+    attrs: { numericStats: { maxQiOutputPerTick: 999 }, ratioDivisors: {} },
+    combat: {
+      cooldownReadyTickBySkillId: {},
+    },
+    actions: {
+      actions: [{
+        id: 'skill:self-ref-center-aoe',
+        type: 'skill',
+        requiresTarget: false,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        level: 1,
+        skills: [{
+          id: 'skill:self-ref-center-aoe',
+          name: '自锚点震荡',
+          range: 0,
+          requiresTarget: false,
+          targeting: { shape: 'box', width: 5, height: 5, maxTargets: 3 },
+          playerCast: { windupTicks: 1 },
+          effects: [{ type: 'damage', formula: 1 }],
+        }],
+      }],
+    },
+  };
+  const selfRefMonster = {
+    runtimeId: 'monster:self-ref-target',
+    monsterId: 'monster:self-ref-target',
+    name: '自锚点受击妖兽',
+    instanceId: 'instance:test',
+    x: 2,
+    y: 0,
+    hp: 20,
+    maxHp: 20,
+    alive: true,
+    level: 1,
+    attrs: {},
+    numericStats: {},
+    ratioDivisors: {},
+    buffs: [],
+  };
+  const selfRefCalls = [];
+  const selfRefOutcomes = [];
+  const selfRefPlayerRuntime = {
+    getPlayer: (playerId) => (playerId === selfRefAoePlayer.playerId ? selfRefAoePlayer : null),
+    getPlayerOrThrow: (playerId) => {
+      if (playerId === selfRefAoePlayer.playerId) return selfRefAoePlayer;
+      throw new Error(`unexpected player ${playerId}`);
+    },
+    listPlayerSnapshots: () => [],
+    recordActivity: () => {},
+    spendQi: () => {},
+    setSkillCooldownReadyTick: (_playerId, skillId, readyTick) => {
+      selfRefAoePlayer.combat.cooldownReadyTickBySkillId[skillId] = readyTick;
+    },
+  };
+  const selfRefDispatch = new WorldRuntimePlayerSkillDispatchService(
+    selfRefPlayerRuntime,
+    {
+      castSkillToMonster: (_attacker, target, skillId, currentTick, distance) => {
+        selfRefCalls.push(['castSkillToMonster', target.runtimeId, skillId, currentTick, distance]);
+        return {
+          skillId,
+          qiCost: 0,
+          hitCount: 1,
+          targetCount: 1,
+          totalDamage: 0,
+          totalRawDamage: 0,
+        };
+      },
+    },
+    service,
+  );
+  const selfRefInstance = {
+    meta: { canDamageTile: false, supportsPvp: false },
+    listMonsters: () => [selfRefMonster],
+    getMonster: (runtimeId) => (runtimeId === selfRefMonster.runtimeId ? selfRefMonster : null),
+    getMonsterAtTile: (x, y) => (x === selfRefMonster.x && y === selfRefMonster.y ? selfRefMonster : null),
+    getTileCombatState: () => null,
+  };
+  await selfRefDispatch.dispatchCastSkill(selfRefAoePlayer.playerId, 'skill:self-ref-center-aoe', null, null, 'self', {
+    resolveCurrentTickForPlayerId: () => 40,
+    worldRuntimeCraftInterruptService: { interruptCraftForReason: () => {} },
+    ensureAttackAllowed: () => {},
+    getInstanceRuntimeOrThrow: () => selfRefInstance,
+    pushActionLabelEffect: () => {},
+  });
+  assert.equal(selfRefAoePlayer.combat.pendingSkillCast?.targetRef ?? null, null);
+  selfRefAoePlayer.combat.pendingSkillCast.skipProgressThisTick = false;
+  const resolvedSelfRefPending = await selfRefDispatch.resolvePendingPlayerSkillCast(selfRefAoePlayer.playerId, {
+    combatDiagnostics: [],
+    combatOutcomes: selfRefOutcomes,
+    logger: deps.logger,
+    resolveCurrentTickForPlayerId: () => 41,
+    getInstanceRuntimeOrThrow: () => selfRefInstance,
+    pushActionLabelEffect: () => {},
+  });
+  assert.equal(resolvedSelfRefPending, true);
+  assert.deepEqual(selfRefCalls, [
+    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 41, 2],
+  ]);
+  assert.equal(selfRefOutcomes.some((entry) => (
+    entry.phase === CombatActionPhase.ChantResolve
+    && entry.target.kind === CombatTargetKind.Monster
+    && entry.target.id === 'monster:self-ref-target'
+  )), true);
+
   const staleSkillDiagnostics = [];
   const staleSkillOutcomes = [];
   const staleSkillAttacker = {
