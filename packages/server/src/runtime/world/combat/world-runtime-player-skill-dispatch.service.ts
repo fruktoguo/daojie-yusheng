@@ -2172,6 +2172,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     playerId: target.id ?? attacker.playerId,
                     x: target.x ?? attacker.x,
                     y: target.y ?? attacker.y,
+                    source: target.source,
                 });
                 continue;
             }
@@ -2181,6 +2182,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     monsterId: target.id,
                     x: target.x,
                     y: target.y,
+                    source: target.source,
                 });
                 continue;
             }
@@ -2190,6 +2192,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     playerId: target.id,
                     x: target.x,
                     y: target.y,
+                    source: target.source,
                 });
                 continue;
             }
@@ -2199,6 +2202,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     formationId: target.id,
                     x: target.x,
                     y: target.y,
+                    source: target.source,
                 });
                 continue;
             }
@@ -2207,6 +2211,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     kind: 'tile',
                     x: target.x,
                     y: target.y,
+                    source: target.source,
                 });
             }
         }

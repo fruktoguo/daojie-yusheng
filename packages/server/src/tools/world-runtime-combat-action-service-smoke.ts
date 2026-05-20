@@ -2353,6 +2353,9 @@ async function run() {
     getMonster: (runtimeId) => (runtimeId === selfRefMonster.runtimeId ? selfRefMonster : null),
     getMonsterAtTile: (x, y) => (x === selfRefMonster.x && y === selfRefMonster.y ? selfRefMonster : null),
     getPlayersAtTile: () => [],
+    canSeeTileFrom: (fromX, fromY, toX, toY, range) => (
+      Math.max(Math.abs(fromX - toX), Math.abs(fromY - toY)) <= range
+    ),
     getTileCombatState: () => null,
   };
   await selfRefDispatch.dispatchCastSkill(selfRefAoePlayer.playerId, 'skill:self-ref-center-aoe', null, null, 'self', {

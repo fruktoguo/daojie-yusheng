@@ -1594,7 +1594,9 @@ export class WorldRuntimeCombatActionService {
     if (input.actorPosition && Number.isFinite(Number(target.x)) && Number.isFinite(Number(target.y))) {
       const distance = combatChebyshevDistance(input.actorPosition.x, input.actorPosition.y, target.x, target.y);
       const range = Math.max(0, Math.floor(Number(definition?.range) || 0));
-      const skipRangeValidation = input.skipResolvedTargetRangeValidation === true && target.source === 'legacy_targets';
+      const isGeometryCollectedTarget = target.source === 'affected_cell' || target.source === 'warning_cell';
+      const skipRangeValidation = isGeometryCollectedTarget
+        || (input.skipResolvedTargetRangeValidation === true && target.source === 'legacy_targets');
       if (!skipRangeValidation && range > 0 && distance > range) {
         return {
           ok: false,
@@ -1609,19 +1611,22 @@ export class WorldRuntimeCombatActionService {
           ? input.instance.canSeeTileFrom.bind(input.instance)
           : null;
       if (input.requiresLineOfSight !== false && canSeeTileFrom) {
+        const lineOfSightRange = isGeometryCollectedTarget
+          ? Math.max(range, distance)
+          : range;
         const visible = canSeeTileFrom(
           input.actorPosition.x,
           input.actorPosition.y,
           Number(target.x),
           Number(target.y),
-          range,
+          lineOfSightRange,
         );
         if (visible === false) {
           return {
             ok: false,
             reason: CombatRejectReason.LineOfSightBlocked,
             target,
-            details: { distance, range },
+            details: { distance, range, lineOfSightRange },
           };
         }
       }
