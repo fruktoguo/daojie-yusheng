@@ -4054,6 +4054,7 @@ async function replacePlayerWalletRows(
     await refuseEmptyOverwriteIfRowsExist(client, PLAYER_WALLET_TABLE, playerId, 0, 'wallet');
     return;
   }
+  const normalizedRowsJson = JSON.stringify(normalizedRows);
   await client.query(
     `
       WITH incoming AS (
@@ -4082,7 +4083,7 @@ async function replacePlayerWalletRows(
         version = EXCLUDED.version,
         updated_at = now()
     `,
-    [playerId, JSON.stringify(normalizedRows)],
+    [playerId, normalizedRowsJson],
   );
   await refuseEmptyOverwriteIfRowsExist(client, PLAYER_WALLET_TABLE, playerId, normalizedRows.length, 'wallet');
   await client.query(
@@ -4099,7 +4100,7 @@ async function replacePlayerWalletRows(
           WHERE incoming.wallet_type = target.wallet_type
         )
     `,
-    [playerId, JSON.stringify(normalizedRows.map(({ wallet_type }) => ({ wallet_type })))],
+    [playerId, normalizedRowsJson],
   );
 }
 
