@@ -17,9 +17,8 @@ import {
   type GmWorldInstanceSummary,
   type Tile,
   type TileType,
-  ENTITY_KIND_LABELS,
-  TILE_TYPE_LABELS,
 } from '@mud/shared';
+import { getEntityKindLabel, getInteractableKindLabel, getTileTypeLabel } from './domain-labels';
 import { TextRenderer } from './renderer/text';
 import { Camera } from './renderer/camera';
 import { getCellSize, setZoom, updateDisplayMetrics } from './display';
@@ -1569,7 +1568,7 @@ export class GmWorldViewer {
           `<div class="panel-row"><span class="panel-label">地表铺装</span><span class="panel-value">${escapeHtml(String(tile.surfaceType ?? '无'))}</span></div>`,
           `<div class="panel-row"><span class="panel-label">地上结构</span><span class="panel-value">${escapeHtml(String(tile.structureType ?? '无'))}</span></div>`,
           Array.isArray(tile.interactableKinds) && tile.interactableKinds.length > 0
-            ? `<div class="panel-row"><span class="panel-label">交互对象</span><span class="panel-value">${tile.interactableKinds.map((kind) => escapeHtml(String(kind))).join('、')}</span></div>`
+            ? `<div class="panel-row"><span class="panel-label">交互对象</span><span class="panel-value">${tile.interactableKinds.map((kind) => escapeHtml(getInteractableKindLabel(kind))).join('、')}</span></div>`
             : '',
           typeof tile.compositeFlags === 'number'
             ? `<div class="panel-row"><span class="panel-label">合成标志</span><span class="panel-value">${tile.compositeFlags}</span></div>`
@@ -1582,7 +1581,7 @@ export class GmWorldViewer {
           <div class="panel-section-title">选中格 (${this.selectedCell.x}, ${this.selectedCell.y})</div>
           ${tile
             ? `
-              <div class="panel-row"><span class="panel-label">地块</span><span class="panel-value">${TILE_TYPE_LABELS[tile.type] ?? tile.type}</span></div>
+              <div class="panel-row"><span class="panel-label">地块</span><span class="panel-value">${getTileTypeLabel(tile.type)}</span></div>
               ${layerRows}
               <div class="panel-row"><span class="panel-label">可行走</span><span class="panel-value">${tile.walkable ? '是' : '否'}</span></div>
               <div class="panel-row"><span class="panel-label">灵气</span><span class="panel-value">${tile.aura ?? 0}</span></div>
@@ -1600,7 +1599,7 @@ export class GmWorldViewer {
     if (this.selectedEntity) {
       const entity = this.selectedEntity;
       let html = `
-        <div class="panel-section-title">${ENTITY_KIND_LABELS[entity.kind] ?? entity.kind}：${escapeHtml(entity.name)}</div>
+        <div class="panel-section-title">${getEntityKindLabel(entity.kind)}：${escapeHtml(entity.name)}</div>
         <div class="panel-row"><span class="panel-label">坐标</span><span class="panel-value">(${entity.x}, ${entity.y})</span></div>
         <div class="panel-row"><span class="panel-label">字符</span><span class="panel-value">${escapeHtml(entity.char)}</span></div>
       `;
