@@ -119,7 +119,7 @@ function resolveInstanceGroupTitle(instance: GmWorldInstanceSummary): string {
     return instance.templateName || instance.displayName || '宗门';
   }
   const lineLabel = instance.linePreset === 'real' ? '真实' : '和平';
-  return `${instance.mapGroupName || instance.templateName || instance.templateId} · ${lineLabel}`;
+  return `${instance.mapGroupName || instance.templateName || '未知实例组'} · ${lineLabel}`;
 }
 
 function compareWorldInstancesForGmList(left: GmWorldInstanceSummary, right: GmWorldInstanceSummary): number {
@@ -1910,7 +1910,7 @@ export class GmWorldViewer {
       await this.refreshInstanceList(false);
       await this.loadRuntime();
       this.renderAll();
-      this.setStatus(`已迁移玩家 ${playerId} 到当前实例`);
+      this.setStatus('已迁移玩家到当前实例');
     } catch (err) {
       this.setStatus(err instanceof Error ? err.message : '迁移玩家失败', true);
     }
