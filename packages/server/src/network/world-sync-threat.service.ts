@@ -124,7 +124,9 @@ export class WorldSyncThreatService {
             }
             pushArrow(monster.runtimeId, runtimeMonster.aggroTargetPlayerId);
         }
-        arrows.sort(compareThreatArrows);
+        if (arrows.length > 1) {
+            arrows.sort(compareThreatArrows);
+        }
         return arrows;
     }
 };
@@ -147,13 +149,29 @@ function diffThreatArrows(previous, current, forceFull) {
         };
     }
 
-    const previousKeys = new Set(previous.map(([ownerId, targetId]) => buildThreatArrowKey(ownerId, targetId)));
+    const previousByKey = new Map();
+    for (const [ownerId, targetId] of previous) {
+        previousByKey.set(buildThreatArrowKey(ownerId, targetId), [ownerId, targetId]);
+    }
 
-    const currentKeys = new Set(current.map(([ownerId, targetId]) => buildThreatArrowKey(ownerId, targetId)));
+    const currentByKey = new Map();
+    for (const [ownerId, targetId] of current) {
+        currentByKey.set(buildThreatArrowKey(ownerId, targetId), [ownerId, targetId]);
+    }
 
-    const adds = current.filter(([ownerId, targetId]) => !previousKeys.has(buildThreatArrowKey(ownerId, targetId)));
+    const adds = [];
+    for (const [key, arrow] of currentByKey) {
+        if (!previousByKey.has(key)) {
+            adds.push(arrow);
+        }
+    }
 
-    const removes = previous.filter(([ownerId, targetId]) => !currentKeys.has(buildThreatArrowKey(ownerId, targetId)));
+    const removes = [];
+    for (const [key, arrow] of previousByKey) {
+        if (!currentByKey.has(key)) {
+            removes.push(arrow);
+        }
+    }
     return {
         full: null,
         adds,
