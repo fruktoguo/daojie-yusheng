@@ -105,11 +105,11 @@ function getPlayerAccountLabel(player: GmPlayerSummary): string {
 
 function getMapLabel(mapId: string): string {
   const mapMeta = getCachedMapMeta(mapId);
-  return mapMeta?.name ? `${mapMeta.name} (${mapId})` : mapId;
+  return mapMeta?.name?.trim() || '未知地域';
 }
 
 function getPlayerMapLabel(player: GmPlayerSummary): string {
-  return player.mapName ? `${player.mapName} (${player.mapId})` : getMapLabel(player.mapId);
+  return player.mapName?.trim() || getMapLabel(player.mapId);
 }
 
 // ─── 组件 ────────────────────────────────────────────────────────────────────

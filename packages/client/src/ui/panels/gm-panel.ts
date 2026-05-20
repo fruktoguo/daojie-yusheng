@@ -75,11 +75,11 @@ function getPlayerAccountLabel(player: GmPlayerSummary): string {
 /** 生成玩家所在地图的展示文本。 */
 function getMapLabel(mapId: string): string {
   const mapMeta = getCachedMapMeta(mapId);
-  return mapMeta?.name ? `${mapMeta.name} (${mapId})` : mapId;
+  return mapMeta?.name?.trim() || '未知地域';
 }
 
 function getPlayerMapLabel(player: GmPlayerSummary): string {
-  return player.mapName ? `${player.mapName} (${player.mapId})` : getMapLabel(player.mapId);
+  return player.mapName?.trim() || getMapLabel(player.mapId);
 }
 
 /** 构建一份空的 GM 状态快照，作为首屏和清空时的基线。 */
