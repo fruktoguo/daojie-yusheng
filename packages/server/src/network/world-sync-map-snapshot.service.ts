@@ -184,10 +184,6 @@ export class WorldSyncMapSnapshotService {
         if (!tileLookup) {
           continue;
         }
-        if (!this.worldRuntimeService.getInstanceTileState(tileLookup.instanceId, tileLookup.x, tileLookup.y)
-          && !isInTemplateBounds(tileLookup.template, tileLookup.x, tileLookup.y)) {
-          continue;
-        }
         keys.add(coordKey);
       }
     }
