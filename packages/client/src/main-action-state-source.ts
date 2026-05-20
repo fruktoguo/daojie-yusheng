@@ -111,8 +111,9 @@ const TECHNIQUE_ACTIVITY_ACTIONS = {
 export function createMainActionStateSource(options: MainActionStateSourceOptions) {
   options.actionPanel.setCallbacks(
     (actionId, requiresTarget, targetMode, range, actionName) => {
+      const displayActionName = actionName?.trim() || '未知行动';
       if (actionId === 'loot:open') {
-        options.beginTargeting(actionId, actionName ?? actionId, targetMode, range ?? 1);
+        options.beginTargeting(actionId, displayActionName, targetMode, range ?? 1);
         return;
       }
       if (actionId === 'realm:breakthrough') {
@@ -153,7 +154,7 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         return;
       }
       if (requiresTarget) {
-        options.beginTargeting(actionId, actionName ?? actionId, targetMode, actionId === 'client:observe' ? options.getInfoRadius() : (range ?? 1));
+        options.beginTargeting(actionId, displayActionName, targetMode, actionId === 'client:observe' ? options.getInfoRadius() : (range ?? 1));
         return;
       }
       options.cancelTargeting();
