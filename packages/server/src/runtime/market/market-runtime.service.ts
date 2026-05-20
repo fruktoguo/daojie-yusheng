@@ -405,7 +405,7 @@ export class MarketRuntimeService {
             if (sellOrderCompare === 'mismatch') {
                 const sellOrderHardCheck = isItemInstanceIdHardCheckEnabled();
                 console.warn(
-                    `[market-runtime] createSellOrder itemInstanceId mismatch player=${playerId} `
+                    `[坊市] 创建卖单物品实例ID不匹配 player=${playerId} `
                     + `slot=${payload.slotIndex} expected=${payload.expectedItemInstanceId} `
                     + `actual=${item.itemInstanceId} hardCheck=${sellOrderHardCheck}`,
                 );
@@ -821,7 +821,7 @@ export class MarketRuntimeService {
             if (sellNowCompare === 'mismatch') {
                 const sellNowHardCheck = isItemInstanceIdHardCheckEnabled();
                 console.warn(
-                    `[market-runtime] sellNow itemInstanceId mismatch player=${playerId} `
+                    `[坊市] 即时卖出物品实例ID不匹配 player=${playerId} `
                     + `slot=${payload.slotIndex} expected=${payload.expectedItemInstanceId} `
                     + `actual=${item.itemInstanceId} hardCheck=${sellNowHardCheck}`,
                 );
@@ -2596,7 +2596,7 @@ export class MarketRuntimeService {
             this.playerRuntimeService.debitWallet(playerId, MARKET_CURRENCY_ITEM_ID, normalizedAmount);
         }
         catch (error) {
-            this.logger.warn(`market debitWallet failed for player=${playerId} amount=${normalizedAmount}: ${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`坊市扣费失败 player=${playerId} amount=${normalizedAmount}：${error instanceof Error ? error.message : String(error)}`);
             return false;
         }
         return true;

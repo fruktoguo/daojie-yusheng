@@ -315,7 +315,7 @@ export class RuntimeGmStateService {
             catch (error) {
                 // 监控诊断路径异常不影响主线，但记录以便排查
                 if (error instanceof Error) {
-                    console.error('[gm-state] resetNetworkPerfCounters error:', error.message);
+                    console.error('[GM状态] 重置网络性能计数器错误：', error.message);
                 }
             }
         }, intervalMs);

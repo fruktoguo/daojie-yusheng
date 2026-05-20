@@ -2747,7 +2747,7 @@ export class WorldRuntimeCombatActionService {
       damage: Math.max(0, Math.round(Number(result.damage) || 0)),
     };
     if (!assertCombatAoiResultEventBudget(event)) {
-      this.logger.warn(`combat AOI result field budget exceeded: ${Object.keys(event).length} > budget, event degraded [instanceId=${outcome.instanceId}, actorId=${outcome.actor?.id}]`);
+      this.logger.warn(`战斗 AOI 结果字段预算超限：${Object.keys(event).length} > 预算，事件已降级 [instanceId=${outcome.instanceId}, actorId=${outcome.actor?.id}]`);
     }
     return event;
   }

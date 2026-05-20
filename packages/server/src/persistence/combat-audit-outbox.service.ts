@@ -65,12 +65,12 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
     }
     await ensureCombatAuditOutboxTables(this.pool);
     this.enabled = true;
-    this.logger.log('combat audit outbox 已启用');
+    this.logger.log('战斗审计发件箱已启用');
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.flushOnce().catch((error: unknown) => {
-      this.logger.warn(`combat audit outbox 关闭前 flush 失败：${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`战斗审计发件箱关闭前刷盘失败：${error instanceof Error ? error.message : String(error)}`);
     });
     this.queue = [];
     this.enabled = false;
@@ -123,7 +123,7 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
       return batch.length;
     } catch (error: unknown) {
       this.queue = batch.concat(this.queue).slice(0, MAX_QUEUE_SIZE);
-      this.logger.warn(`combat audit outbox flush 失败：${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`战斗审计发件箱刷盘失败：${error instanceof Error ? error.message : String(error)}`);
       return 0;
     } finally {
       this.flushing = false;
@@ -209,7 +209,7 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
     const handle = setImmediate(async () => {
       this.flushScheduled = false;
       await this.flushOnce().catch((error: unknown) => {
-        this.logger.warn(`combat audit outbox 异步 flush 失败：${error instanceof Error ? error.message : String(error)}`);
+        this.logger.warn(`战斗审计发件箱异步刷盘失败：${error instanceof Error ? error.message : String(error)}`);
       });
     });
     if (typeof handle.unref === 'function') {

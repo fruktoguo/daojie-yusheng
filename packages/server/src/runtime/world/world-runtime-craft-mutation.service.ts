@@ -205,7 +205,7 @@ export class WorldRuntimeCraftMutationService {
             }
             catch (error) {
                 if (error instanceof TypeError || error instanceof ReferenceError) {
-                    console.error(`[craft-mutation] spawnGroundItem error for player=${playerId}:`, error);
+                    console.error(`[制作变更] 生成地面物品错误 player=${playerId}：`, error);
                 }
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
                 const n = buildStructuredNotice('warn', 'notice.craft.overflow-inventory', `${formatItemStackLabel(item)} 无法落地，已直接放回背包。`, { vars: { itemLabel: formatItemStackLabel(item) }, pills: [{ key: 'itemLabel', style: 'target' }] });

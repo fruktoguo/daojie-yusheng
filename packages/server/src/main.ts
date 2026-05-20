@@ -244,11 +244,11 @@ function hasErrorCode(error: unknown, code: string): error is { code: string } {
 // ─── 全局未捕获异常兜底 ───
 
 process.on('unhandledRejection', (reason: unknown) => {
-  console.error('[FATAL] unhandledRejection:', reason instanceof Error ? reason.stack : String(reason));
+  console.error('[致命] 未处理的 Promise 拒绝：', reason instanceof Error ? reason.stack : String(reason));
 });
 
 process.on('uncaughtException', (error: Error) => {
-  console.error('[FATAL] uncaughtException:', error.stack ?? error.message);
+  console.error('[致命] 未捕获异常：', error.stack ?? error.message);
   process.exit(1);
 });
 
@@ -266,15 +266,15 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
         const shutdownDrain = bootstrapApp?.get(WorldShutdownDrainService, { strict: false });
         await shutdownDrain?.drain(signal);
       } catch (error) {
-        console.error('[shutdown] 预先执行 shutdown drain 失败:', error instanceof Error ? error.stack : String(error));
+        console.error('[关闭] 预先执行关闭排空失败：', error instanceof Error ? error.stack : String(error));
       }
       await bootstrapApp?.close().catch((error) => {
-        console.error('[shutdown] app.close 失败:', error instanceof Error ? error.stack : String(error));
+        console.error('[关闭] app.close 失败：', error instanceof Error ? error.stack : String(error));
       });
       bootstrapApp = null;
     })();
     const timer = setTimeout(() => {
-      console.error(`[shutdown] graceful shutdown 超时 ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms，强制退出`);
+      console.error(`[关闭] 优雅关闭超时 ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms，强制退出`);
       process.exit(1);
     }, GRACEFUL_SHUTDOWN_TIMEOUT_MS);
     timer.unref();

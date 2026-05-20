@@ -102,7 +102,7 @@ export class InstanceWorkerPoolService {
       const worker = new Worker(workerPath);
       worker.on('message', (msg: WorkerTaskResult) => this.handleWorkerResult(msg));
       worker.on('error', (err) => {
-        this.logger.error(`Instance worker ${index} error: ${err.message}`);
+        this.logger.error(`实例 worker ${index} 错误：${err.message}`);
         this.handleWorkerDeath(worker, index, workerPath);
       });
       worker.on('exit', (code) => {
@@ -110,7 +110,7 @@ export class InstanceWorkerPoolService {
       });
       this.workers[index] = worker;
     } catch (err: unknown) {
-      this.logger.error(`Failed to spawn instance worker ${index}: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.error(`实例 worker ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

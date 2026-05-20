@@ -262,7 +262,7 @@ export class WorldRuntimeNavigationService {
         }
         catch (error) {
             if (error instanceof TypeError || error instanceof RangeError) {
-                console.error(`[navigation] path planning error:`, error);
+                console.error(`[寻路] 路径规划错误：`, error);
             }
             return [];
         }

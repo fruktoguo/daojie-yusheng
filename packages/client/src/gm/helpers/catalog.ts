@@ -202,7 +202,7 @@ export function getResolvedInventoryRowMeta(editorCatalog: EditorCatalog, item: 
   const entry = resolveItemCatalogEntry(editorCatalog, item);
   const itemType = entry?.type ?? item.type;
   const equipSlot = entry?.equipSlot ?? item.equipSlot;
-  const parts = [ITEM_TYPE_LABELS[itemType] ?? '未知物品类型'];
+  const parts = [itemType ? (ITEM_TYPE_LABELS[itemType] ?? '未知物品类型') : '未知物品类型'];
   if (itemType === 'equipment' && equipSlot) {
     parts.push(EQUIP_SLOT_LABELS[equipSlot] ?? '未知部位');
   }
@@ -383,4 +383,3 @@ export function getMailAttachmentRowMeta(editorCatalog: EditorCatalog, itemId: s
   }
   return getItemOptionLabel(entry);
 }
-

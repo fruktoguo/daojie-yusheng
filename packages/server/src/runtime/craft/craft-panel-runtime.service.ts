@@ -956,7 +956,7 @@ export class CraftPanelRuntimeService {
             }
             catch (error) {
                 if (error instanceof TypeError || error instanceof ReferenceError) {
-                    console.error(`[craft] debitWallet unexpected error for player=${player.playerId}:`, error);
+                    console.error(`[制作] 扣费异常 player=${player.playerId}：`, error);
                 }
                 const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'stopped');
                 return buildCraftTickResult(true, [{

@@ -292,19 +292,19 @@ export class EncodingWorkerPoolService {
         this.handleWorkerResult(msg);
       });
       worker.on('error', (err) => {
-        this.logger.error(`Encoding worker ${index} error: ${err.message}`);
+        this.logger.error(`编码 worker ${index} 错误：${err.message}`);
         this.handleWorkerDeath(worker, index, workerPath);
       });
       worker.on('exit', (code) => {
         if (!this.shuttingDown && code !== 0) {
-          this.logger.warn(`Encoding worker ${index} exited with code ${code}, restarting...`);
+          this.logger.warn(`编码 worker ${index} 异常退出（code=${code}），正在重启...`);
           this.handleWorkerDeath(worker, index, workerPath);
         }
       });
       this.workers[index] = worker;
     } catch (err: unknown) {
       this.logger.error(
-        `Failed to spawn encoding worker ${index}: ${err instanceof Error ? err.message : String(err)}`,
+        `编码 worker ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
