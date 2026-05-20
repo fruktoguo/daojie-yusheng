@@ -2,7 +2,7 @@
  * GM 世界状态查询服务。
  * 聚合玩家列表、性能快照、世界摘要等信息，供 GM 面板主页展示。
  */
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   DEFAULT_BASE_ATTRS,
   VIEW_RADIUS,
@@ -25,7 +25,10 @@ import { buildNativeGmPlayerRiskView } from './native-gm-player-risk';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 const GM_PERSISTED_PLAYER_SUMMARY_CACHE_TTL_MS = 60_000;
 const GM_PLAYER_LIST_VIEW_CACHE_TTL_MS = 60_000;
+const GM_PERSISTED_PLAYER_SUMMARY_QUERY_ATTEMPTS = 3;
+const GM_PERSISTED_PLAYER_SUMMARY_QUERY_RETRY_DELAY_MS = 40;
 const GM_PLAYER_RISK_ENRICH_CONCURRENCY = 8;
+const RETRYABLE_GM_SUMMARY_DATABASE_ERROR_CODES = new Set(['40P01', '40001']);
 const GM_PLAYER_RISK_SEARCH_KEYWORDS = [
   '风险',
   '账号完整性',
@@ -255,6 +258,7 @@ const MAX_GM_PAGE_SIZE = 200;
 
 @Injectable()
 export class NativeGmStateQueryService {
+  private readonly logger = new Logger(NativeGmStateQueryService.name);
   private persistedPlayerSummaryCache: GmPersistedPlayerSummaryEntry[] | null = null;
   private persistedPlayerSummaryCacheExpiresAt = 0;
   private persistedPlayerSummaryCachePromise: Promise<GmPersistedPlayerSummaryEntry[]> | null = null;
@@ -457,6 +461,12 @@ export class NativeGmStateQueryService {
         this.persistedPlayerSummaryCacheExpiresAt = Date.now() + GM_PERSISTED_PLAYER_SUMMARY_CACHE_TTL_MS;
       }
       return entries.slice();
+    } catch (error) {
+      if (isRetryableGmSummaryDatabaseError(error) && this.persistedPlayerSummaryCache) {
+        this.logger.warn(`GM 持久玩家摘要读取遇到可重试数据库错误，返回上一份缓存：${formatDatabaseErrorForLog(error)}`);
+        return this.persistedPlayerSummaryCache.slice();
+      }
+      throw error;
     } finally {
       if (this.persistedPlayerSummaryCachePromise === cachePromise) {
         this.persistedPlayerSummaryCachePromise = null;
@@ -470,57 +480,59 @@ export class NativeGmStateQueryService {
       return [];
     }
 
-    const result = await pool.query<GmPersistedPlayerSummaryRow>(`
-      SELECT
-        rw.player_id,
-        COALESCE(auth.player_no, ident.player_no) AS player_no,
-        COALESCE(auth.username, ident.username) AS username,
-        auth.created_at,
-        auth.register_ip,
-        auth.last_login_ip,
-        auth.last_login_at,
-        auth.register_device_id,
-        auth.last_login_device_id,
-        auth.banned_at,
-        COALESCE(auth.pending_role_name, ident.player_name, rw.player_id) AS role_name,
-        COALESCE(auth.display_name, ident.display_name, auth.pending_role_name, ident.player_name, rw.player_id) AS display_name,
-        COALESCE(auth.user_id, ident.user_id) AS user_id,
-        COALESCE(
-          anchor.last_safe_template_id,
+    const result = await queryGmPersistedPlayerSummaryRowsWithRetry(async () => pool.query<GmPersistedPlayerSummaryRow>(`
+        SELECT
+          rw.player_id,
+          COALESCE(auth.player_no, ident.player_no) AS player_no,
+          COALESCE(auth.username, ident.username) AS username,
+          auth.created_at,
+          auth.register_ip,
+          auth.last_login_ip,
+          auth.last_login_at,
+          auth.register_device_id,
+          auth.last_login_device_id,
+          auth.banned_at,
+          COALESCE(auth.pending_role_name, ident.player_name, rw.player_id) AS role_name,
+          COALESCE(auth.display_name, ident.display_name, auth.pending_role_name, ident.player_name, rw.player_id) AS display_name,
+          COALESCE(auth.user_id, ident.user_id) AS user_id,
+          COALESCE(
+            anchor.last_safe_template_id,
+            CASE
+              WHEN position.instance_id LIKE 'public:%' THEN substring(position.instance_id from 8)
+              WHEN position.instance_id LIKE 'real:%' THEN substring(position.instance_id from 6)
+              ELSE NULLIF(position.instance_id, '')
+            END,
+            'yunlai_town'
+          ) AS map_id,
+          COALESCE(position.x, 0) AS x,
+          COALESCE(position.y, 0) AS y,
+          COALESCE(vitals.hp, 1) AS hp,
+          COALESCE(vitals.max_hp, 1) AS max_hp,
+          COALESCE(vitals.qi, 0) AS qi,
           CASE
-            WHEN position.instance_id LIKE 'public:%' THEN substring(position.instance_id from 8)
-            WHEN position.instance_id LIKE 'real:%' THEN substring(position.instance_id from 6)
-            ELSE NULLIF(position.instance_id, '')
-          END,
-          'yunlai_town'
-        ) AS map_id,
-        COALESCE(position.x, 0) AS x,
-        COALESCE(position.y, 0) AS y,
-        COALESCE(vitals.hp, 1) AS hp,
-        COALESCE(vitals.max_hp, 1) AS max_hp,
-        COALESCE(vitals.qi, 0) AS qi,
-        CASE
-          WHEN (attrs.realm_payload #>> '{realmLv}') ~ '^-?[0-9]+$' THEN (attrs.realm_payload #>> '{realmLv}')::bigint
-          ELSE 1
-        END AS realm_lv,
-        COALESCE(attrs.realm_payload #>> '{displayName}', attrs.realm_payload #>> '{name}', '凡胎') AS realm_label,
-        COALESCE(combat.auto_battle, false) AS auto_battle,
-        COALESCE(combat.auto_battle_stationary, false) AS auto_battle_stationary,
-        COALESCE(combat.auto_retaliate, true) AS auto_retaliate,
-        COALESCE(presence.online, false) AS online,
-        COALESCE(presence.in_world, position.player_id IS NOT NULL) AS in_world,
-        (EXTRACT(EPOCH FROM rw.updated_at) * 1000)::bigint AS updated_at_ms
-      FROM player_recovery_watermark rw
-      LEFT JOIN server_player_auth auth ON auth.player_id = rw.player_id
-      LEFT JOIN server_player_identity ident ON ident.player_id = rw.player_id
-      LEFT JOIN player_world_anchor anchor ON anchor.player_id = rw.player_id
-      LEFT JOIN player_position_checkpoint position ON position.player_id = rw.player_id
-      LEFT JOIN player_vitals vitals ON vitals.player_id = rw.player_id
-      LEFT JOIN player_attr_state attrs ON attrs.player_id = rw.player_id
-      LEFT JOIN player_combat_preferences combat ON combat.player_id = rw.player_id
-      LEFT JOIN player_presence presence ON presence.player_id = rw.player_id
-      ORDER BY rw.player_id ASC
-    `);
+            WHEN (attrs.realm_payload #>> '{realmLv}') ~ '^-?[0-9]+$' THEN (attrs.realm_payload #>> '{realmLv}')::bigint
+            ELSE 1
+          END AS realm_lv,
+          COALESCE(attrs.realm_payload #>> '{displayName}', attrs.realm_payload #>> '{name}', '凡胎') AS realm_label,
+          COALESCE(combat.auto_battle, false) AS auto_battle,
+          COALESCE(combat.auto_battle_stationary, false) AS auto_battle_stationary,
+          COALESCE(combat.auto_retaliate, true) AS auto_retaliate,
+          COALESCE(presence.online, false) AS online,
+          COALESCE(presence.in_world, position.player_id IS NOT NULL) AS in_world,
+          (EXTRACT(EPOCH FROM rw.updated_at) * 1000)::bigint AS updated_at_ms
+        FROM player_recovery_watermark rw
+        LEFT JOIN server_player_auth auth ON auth.player_id = rw.player_id
+        LEFT JOIN server_player_identity ident ON ident.player_id = rw.player_id
+        LEFT JOIN player_world_anchor anchor ON anchor.player_id = rw.player_id
+        LEFT JOIN player_position_checkpoint position ON position.player_id = rw.player_id
+        LEFT JOIN player_vitals vitals ON vitals.player_id = rw.player_id
+        LEFT JOIN player_attr_state attrs ON attrs.player_id = rw.player_id
+        LEFT JOIN player_combat_preferences combat ON combat.player_id = rw.player_id
+        LEFT JOIN player_presence presence ON presence.player_id = rw.player_id
+        ORDER BY rw.player_id ASC
+      `), (error, attempt, maxAttempts) => {
+        this.logger.warn(`GM 持久玩家摘要读取遇到可重试数据库错误，准备重试 ${attempt}/${maxAttempts}：${formatDatabaseErrorForLog(error)}`);
+      });
 
     return Promise.all(result.rows.map((row) => this.toManagedPlayerSummaryEntryFromSummaryRow(row)));
   }
@@ -1364,6 +1376,48 @@ function normalizeDateString(value: unknown): string | undefined {
   }
   const text = normalizeDisplayString(value);
   return text.length > 0 ? text : undefined;
+}
+
+async function queryGmPersistedPlayerSummaryRowsWithRetry<T>(
+  query: () => Promise<T>,
+  onRetry: (error: unknown, attempt: number, maxAttempts: number) => void,
+): Promise<T> {
+  for (let attempt = 1; attempt <= GM_PERSISTED_PLAYER_SUMMARY_QUERY_ATTEMPTS; attempt += 1) {
+    try {
+      return await query();
+    } catch (error) {
+      if (!isRetryableGmSummaryDatabaseError(error) || attempt >= GM_PERSISTED_PLAYER_SUMMARY_QUERY_ATTEMPTS) {
+        throw error;
+      }
+      onRetry(error, attempt, GM_PERSISTED_PLAYER_SUMMARY_QUERY_ATTEMPTS);
+      await delayGmPersistedPlayerSummaryRetry(attempt);
+    }
+  }
+  throw new Error('unreachable GM persisted player summary retry state');
+}
+
+function isRetryableGmSummaryDatabaseError(error: unknown): boolean {
+  return RETRYABLE_GM_SUMMARY_DATABASE_ERROR_CODES.has(readDatabaseErrorCode(error));
+}
+
+function readDatabaseErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return '';
+  }
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : '';
+}
+
+function formatDatabaseErrorForLog(error: unknown): string {
+  const code = readDatabaseErrorCode(error);
+  const message = error instanceof Error ? error.message : String(error);
+  return code ? `${code} ${message}` : message;
+}
+
+function delayGmPersistedPlayerSummaryRetry(attempt: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, GM_PERSISTED_PLAYER_SUMMARY_QUERY_RETRY_DELAY_MS * attempt);
+  });
 }
 /**
  * roundMetric：执行roundMetric相关逻辑。
