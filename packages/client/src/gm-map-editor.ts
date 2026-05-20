@@ -1818,7 +1818,7 @@ export class GmMapEditor {
         <div class="map-entity-list">
           ${containers.map(({ landmark, index }) => `
             <button class="map-entity-btn ${this.selectedEntity?.kind === 'container' && this.selectedEntity.index === index ? 'active' : ''}" data-entity-kind="container" data-entity-index="${index}" type="button">
-              ${escapeHtml(`${landmark.name?.trim() || '未命名容器'} @ (${landmark.x},${landmark.y}) · ${landmark.container?.char || '箱'} · ${TECHNIQUE_GRADE_LABELS[landmark.container?.grade ?? 'mortal'] ?? (landmark.container?.grade ?? 'mortal')}`)}
+              ${escapeHtml(`${landmark.name?.trim() || '未命名容器'} @ (${landmark.x},${landmark.y}) · ${landmark.container?.char || '箱'} · ${TECHNIQUE_GRADE_LABELS[landmark.container?.grade ?? 'mortal'] ?? '未知品阶'}`)}
             </button>
           `).join('') || '<div class="editor-note">暂无容器。</div>'}
         </div>
