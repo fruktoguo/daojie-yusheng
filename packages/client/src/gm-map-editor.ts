@@ -340,19 +340,19 @@ const INTERACTABLE_KIND_LABELS: Record<InteractableKind, string> = {
 };
 const TERRAIN_SELECT_OPTIONS = PAINT_TERRAIN_TYPES.map((value) => ({
   value,
-  label: TERRAIN_TYPE_LABELS[value] ?? value,
+  label: TERRAIN_TYPE_LABELS[value] ?? '未知地貌',
 }));
 const SURFACE_SELECT_OPTIONS = PAINT_SURFACE_TYPES.map((value) => ({
   value: value ?? '',
-  label: value ? SURFACE_TYPE_LABELS[value] ?? value : '无',
+  label: value ? SURFACE_TYPE_LABELS[value] ?? '未知地表' : '无',
 }));
 const STRUCTURE_SELECT_OPTIONS = PAINT_STRUCTURE_TYPES.map((value) => ({
   value: value ?? '',
-  label: value ? STRUCTURE_TYPE_LABELS[value] ?? value : '无',
+  label: value ? STRUCTURE_TYPE_LABELS[value] ?? '未知结构' : '无',
 }));
 const INTERACTABLE_SELECT_OPTIONS = PAINT_INTERACTABLE_KINDS.map((value) => ({
   value: value ?? '',
-  label: value ? INTERACTABLE_KIND_LABELS[value] ?? value : '无',
+  label: value ? INTERACTABLE_KIND_LABELS[value] ?? '未知交互物' : '无',
 }));
 
 /** EditorUndoEntry：撤销栈里保存的整份编辑草稿快照。 */
@@ -1015,7 +1015,7 @@ export class GmMapEditor {
         button.type = 'button';
         button.dataset.terrainType = terrainType;
         button.className = `map-tile-btn ${this.paintTerrainType === terrainType ? 'active' : ''}`;
-        button.textContent = TERRAIN_TYPE_LABELS[terrainType] ?? terrainType;
+        button.textContent = TERRAIN_TYPE_LABELS[terrainType] ?? '未知地貌';
         paletteFragment.append(button);
       }
     } else if (this.paintLayer === 'surface') {
@@ -1025,7 +1025,7 @@ export class GmMapEditor {
         button.type = 'button';
         button.dataset.surfaceType = key;
         button.className = `map-tile-btn ${this.paintSurfaceType === surfaceType ? 'active' : ''}`;
-        button.textContent = surfaceType ? SURFACE_TYPE_LABELS[surfaceType] ?? surfaceType : '清除地表';
+        button.textContent = surfaceType ? SURFACE_TYPE_LABELS[surfaceType] ?? '未知地表' : '清除地表';
         paletteFragment.append(button);
       }
     } else if (this.paintLayer === 'structure') {
@@ -1035,7 +1035,7 @@ export class GmMapEditor {
         button.type = 'button';
         button.dataset.structureType = key;
         button.className = `map-tile-btn ${this.paintStructureType === structureType ? 'active' : ''}`;
-        button.textContent = structureType ? STRUCTURE_TYPE_LABELS[structureType] ?? structureType : '清除结构';
+        button.textContent = structureType ? STRUCTURE_TYPE_LABELS[structureType] ?? '未知结构' : '清除结构';
         paletteFragment.append(button);
       }
     } else if (this.paintLayer === 'interactable') {
@@ -1045,7 +1045,7 @@ export class GmMapEditor {
         button.type = 'button';
         button.dataset.interactableKind = key;
         button.className = `map-tile-btn ${this.paintInteractableKind === interactableKind ? 'active' : ''}`;
-        button.textContent = interactableKind ? INTERACTABLE_KIND_LABELS[interactableKind] ?? interactableKind : '清除交互';
+        button.textContent = interactableKind ? INTERACTABLE_KIND_LABELS[interactableKind] ?? '未知交互物' : '清除交互';
         paletteFragment.append(button);
       }
     } else {
