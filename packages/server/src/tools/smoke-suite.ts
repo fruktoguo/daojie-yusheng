@@ -422,6 +422,7 @@ async function startServer(port, extraEnv = {}) {
             SERVER_NODE_ID: extraEnv.SERVER_NODE_ID || 'server-smoke-suite',
             SERVER_PORT: String(port),
             SERVER_RUNTIME_HTTP: '1',
+            SERVER_FORCE_RECLAIM_STALE_LEASES: process.env.SERVER_FORCE_RECLAIM_STALE_LEASES || '1',
             ...(allowUnreadyTraffic
                 ? {
                     SERVER_ALLOW_UNREADY_TRAFFIC: '1',
@@ -585,6 +586,7 @@ const CASE_NODE_ID_INSTANCE_IDS = new Map([
     ['auth-bootstrap-native', ['public:yunlai_town']],
     ['auth-bootstrap-legacy-import', ['public:yunlai_town']],
     ['combat', ['public:yunlai_town']],
+    ['gm', ['public:yunlai_town']],
     ['loot', ['public:yunlai_town']],
     ['progression', ['public:yunlai_town']],
     ['player-recovery', ['public:yunlai_town']],
