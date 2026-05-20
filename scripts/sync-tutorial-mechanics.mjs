@@ -226,7 +226,16 @@ export const TUTORIAL_MECHANIC_TOPICS: SharedTutorialTopic[] = ${JSON.stringify(
 /**
  * 记录markdown。
  */
-const markdown = await fs.readFile(sourcePath, 'utf8');
+let markdown = '';
+try {
+  markdown = await fs.readFile(sourcePath, 'utf8');
+} catch (error) {
+  if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+    console.warn(`[sync-tutorial-mechanics] 源文档缺失，跳过同步：${sourcePath}`);
+    process.exit(0);
+  }
+  throw error;
+}
 /**
  * 记录topics。
  */
