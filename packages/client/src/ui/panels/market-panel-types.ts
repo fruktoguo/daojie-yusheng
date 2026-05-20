@@ -55,6 +55,7 @@ export interface AuctionConsignPanelState {
   quantity: number;
   totalPrice: number;
   buyoutPrice: number;
+  durationHours: number;
   query: string;
 }
 
@@ -130,7 +131,7 @@ export interface MarketPanelCallbacks {
   onRequestItemBook: (itemKey: string) => void;
   onRequestTradeHistory: (page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope) => void;
   onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number, expectedItemInstanceId?: string) => void;
-  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string) => void;
+  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string, auctionDurationHours?: number) => void;
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
   onPlaceAuctionBid: (lotId: string, itemKey: string, unitPrice: number) => void;
   onBuyoutAuctionLot: (lotId: string, itemKey: string) => void;

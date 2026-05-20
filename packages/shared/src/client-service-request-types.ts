@@ -279,6 +279,12 @@ export interface CreateMarketSellOrderView {
  */
 
   listingMode?: 'market' | 'auction';
+  /**
+ * auctionDurationHours：拍卖持续小时数，仅 listingMode 为 auction 时生效。
+ * 服务端按 1-48 小时裁剪；缺省为 12 小时。
+ */
+
+  auctionDurationHours?: number;
 }
 
 /** 创建买单。 */

@@ -5,7 +5,7 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -443,6 +443,9 @@ export class MarketRuntimeService {
             const auctionBuyoutPrice = listingMode === 'auction'
                 ? this.normalizeAuctionBuyoutPrice(payload?.buyoutPrice, unitPrice)
                 : null;
+            const auctionDurationSeconds = listingMode === 'auction'
+                ? this.normalizeAuctionDurationSeconds(payload?.auctionDurationHours)
+                : null;
             const auctionListingFee = listingMode === 'auction'
                 ? this.calculateAuctionListingFee(unitPrice)
                 : 0;
@@ -526,7 +529,7 @@ export class MarketRuntimeService {
                 };
                 this.openOrders.push(order);
                 if (listingMode === 'auction') {
-                    this.initializeAuctionOrderState(order, context, auctionBuyoutPrice);
+                    this.initializeAuctionOrderState(order, context, auctionBuyoutPrice, auctionDurationSeconds);
                 }
                 this.markOrderDirty(order.id, context);
                 const listingText = listingMode === 'auction'
@@ -1673,7 +1676,7 @@ export class MarketRuntimeService {
         }
     }
     /** 初始化新寄拍的拍卖状态，并写回承载订单用于持久化。 */
-    initializeAuctionOrderState(order, context, buyoutPrice = null) {
+    initializeAuctionOrderState(order, context, buyoutPrice = null, durationSeconds = null) {
         if (!order || order.side !== 'sell') {
             return;
         }
@@ -1687,7 +1690,9 @@ export class MarketRuntimeService {
         }
         if (!this.auctionTimingByItemKey.has(itemKey)) {
             const seed = this.buildAuctionStableNumber(this.buildClientAuctionLotKey(itemKey) || itemKey);
-            const base = this.buildAuctionBaseTiming(seed, order.createdAt, false);
+            const base = Number.isFinite(Number(durationSeconds)) && Number(durationSeconds) > 0
+                ? { startAtMs: order.createdAt, durationSeconds: Math.max(1, Math.trunc(Number(durationSeconds))) }
+                : this.buildAuctionBaseTiming(seed, order.createdAt, false);
             const normalEndAtMs = base.startAtMs + base.durationSeconds * 1000;
             this.auctionTimingByItemKey.set(itemKey, {
                 startAtMs: base.startAtMs,
@@ -2004,6 +2009,14 @@ export class MarketRuntimeService {
                 ? Math.max(0, Math.trunc(Number(item.enhanceLevel)))
                 : undefined,
         };
+    }
+    /** 规范化玩家自定义拍卖时长，单位为秒。 */
+    normalizeAuctionDurationSeconds(value) {
+        const numeric = Math.floor(Number(value));
+        const hours = Number.isFinite(numeric)
+            ? Math.max(AUCTION_MIN_DURATION_HOURS, Math.min(AUCTION_MAX_DURATION_HOURS, numeric))
+            : AUCTION_DEFAULT_DURATION_HOURS;
+        return hours * 60 * 60;
     }
     /** 从订单创建时间派生当前拍卖窗口，客户端只按 startAtMs + durationSeconds 本地倒计时。 */
     buildAuctionTiming(itemKey, seed, createdAt) {

@@ -216,6 +216,7 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       listingMode?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['listingMode'],
       buyoutPrice?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['buyoutPrice'],
       expectedItemInstanceId?: string,
+      auctionDurationHours?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['auctionDurationHours'],
     ): void {
       deps.emitEvent(C2S.CreateMarketSellOrder, {
         slotIndex,
@@ -224,6 +225,7 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
         listingMode,
         buyoutPrice,
         ...(expectedItemInstanceId ? { expectedItemInstanceId } : {}),
+        ...(auctionDurationHours !== undefined ? { auctionDurationHours } : {}),
       });
     },
     /**

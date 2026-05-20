@@ -1,5 +1,5 @@
 import type { AuctionHouseTab, ItemStack, MarketListedItemView, MarketTradeHistoryEntryView, S2C_AuctionListings, S2C_MarketUpdate } from '@mud/shared';
-import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES, normalizeEnhanceLevel } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES, normalizeEnhanceLevel } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getItemTypeLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
@@ -472,6 +472,7 @@ export class MarketAuctionView {
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
     const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
     const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
+    const durationHours = this.normalizeAuctionConsignDurationHours(state.durationHours);
     const price = selectedItem ? this.resolveAuctionConsignUnitPrice(totalPrice) : { unitPrice: null, actualTotal: null };
     const listingFee = price.actualTotal === null ? null : this.getAuctionListingFee(price.actualTotal);
     const ownedCurrency = this.panel.findInventoryItemCountByItemId(update.currencyItemId);
@@ -502,10 +503,28 @@ export class MarketAuctionView {
           </div>
           <div class="auction-consign-fields-buyout">
             ${this.renderAuctionConsignPriceField('buyout', t('market.auction.consign.buyout-price', undefined), buyoutPrice, update.currencyItemName, !selectedItem)}
+            <label class="market-trade-dialog-field auction-consign-duration-field">
+              <span>${escapeHtml(t('market.auction.consign.duration-hours', undefined))}</span>
+              <input
+                class="ui-number-input"
+                data-auction-consign-duration-hours
+                type="number"
+                min="${AUCTION_MIN_DURATION_HOURS}"
+                max="${AUCTION_MAX_DURATION_HOURS}"
+                step="1"
+                value="${durationHours}"
+                ${!selectedItem ? 'disabled' : ''}
+              />
+              <small>${escapeHtml(t('market.auction.consign.duration-range', {
+                min: AUCTION_MIN_DURATION_HOURS,
+                max: AUCTION_MAX_DURATION_HOURS,
+                default: AUCTION_DEFAULT_DURATION_HOURS,
+              }))}</small>
+            </label>
           </div>
         </div>
         <div class="auction-consign-preview" data-auction-consign-preview>
-          ${this.renderAuctionConsignPreview(selectedItem, totalPrice, buyoutPrice, price, update.currencyItemName, ownedCurrency)}
+          ${this.renderAuctionConsignPreview(selectedItem, totalPrice, buyoutPrice, durationHours, price, update.currencyItemName, ownedCurrency)}
         </div>
         ${hasFilteredOutSelection && selectedItem ? `<div class="market-action-hint">${escapeHtml(t('market.auction.consign.filtered-selected', undefined))}</div>` : ''}
         <button class="small-btn" data-auction-consign-submit type="button" ${disabled ? 'disabled' : ''}>${escapeHtml(t('market.auction.consign.submit', undefined))}</button>
@@ -576,9 +595,7 @@ export class MarketAuctionView {
   }
 
   renderAuctionConsignItem(slotIndex: number, item: ItemStack, active: boolean): string {
-    const enhanceLevel = this.panel.getMarketEnhanceLevel(item);
-    const suffix = item.type === 'equipment' && enhanceLevel > 0 ? ` +${enhanceLevel}` : '';
-    const itemName = `${this.panel.getMarketDisplayName(item)}${suffix}`;
+    const itemName = this.panel.getMarketDisplayName(item);
     return `
       <button class="auction-consign-item ${active ? 'active' : ''}" data-auction-consign-slot="${slotIndex}" data-market-item-tooltip="auction-consign-slot:${slotIndex}" type="button">
         <span>${escapeHtml(itemName)}</span>
@@ -607,6 +624,7 @@ export class MarketAuctionView {
     item: ItemStack | null,
     totalPrice: number,
     buyoutPrice: number,
+    durationHours: number,
     price: { unitPrice: number | null; actualTotal: number | null },
     currencyName: string,
     ownedCurrency: number,
@@ -630,6 +648,10 @@ export class MarketAuctionView {
         <span>${escapeHtml(t('market.auction.consign.buyout-price', undefined))}</span>
         <strong>${resolvedBuyoutPrice === null ? escapeHtml(t('market.auction.consign.no-buyout', undefined)) : `${formatDisplayInteger(resolvedBuyoutPrice)} ${escapeHtml(currencyName)}`}</strong>
       </div>
+      <div class="market-trade-dialog-total">
+        <span>${escapeHtml(t('market.auction.consign.duration-hours', undefined))}</span>
+        <strong>${formatDisplayInteger(this.normalizeAuctionConsignDurationHours(durationHours))} ${escapeHtml(t('market.auction.consign.hour-unit', undefined))}</strong>
+      </div>
       <div class="market-trade-dialog-total ${insufficientFee ? 'error' : ''}">
         <span>${escapeHtml(t('market.auction.consign.listing-fee', undefined))}</span>
         <strong>${formatDisplayInteger(listingFee)} ${escapeHtml(currencyName)}</strong>
@@ -637,6 +659,7 @@ export class MarketAuctionView {
       <div class="market-action-hint">${escapeHtml(t('market.auction.consign.total-hint', {
         totalPrice: formatDisplayInteger(price.actualTotal),
         buyoutPrice: resolvedBuyoutPrice === null ? t('market.auction.consign.no-buyout', undefined) : formatDisplayInteger(resolvedBuyoutPrice),
+        durationHours: formatDisplayInteger(this.normalizeAuctionConsignDurationHours(durationHours)),
         listingFee: formatDisplayInteger(listingFee),
         currencyName,
       }))}</div>
@@ -799,7 +822,16 @@ export class MarketAuctionView {
 
     body.addEventListener('input', (event) => {
       const input = event.target;
-      if (!(input instanceof HTMLInputElement) || !input.matches('[data-auction-consign-quantity]')) return;
+      if (!(input instanceof HTMLInputElement)) return;
+      if (input.matches('[data-auction-consign-duration-hours]')) {
+        p.auctionConsignPanel = {
+          ...p.auctionConsignPanel,
+          durationHours: this.normalizeAuctionConsignDurationHours(input.value),
+        };
+        this.patchAuctionConsignPreview();
+        return;
+      }
+      if (!input.matches('[data-auction-consign-quantity]')) return;
       const state = p.auctionConsignPanel;
       const item = state.slotIndex === null ? null : p.inventory.items[state.slotIndex] ?? null;
       if (!item) return;
@@ -859,6 +891,7 @@ export class MarketAuctionView {
         quantity: Math.max(1, Math.min(item.count, Math.floor(Number(p.auctionConsignPanel.quantity) || item.count))),
         totalPrice: this.normalizeAuctionConsignTotalPrice(p.auctionConsignPanel.totalPrice, 'up'),
         buyoutPrice: this.normalizeAuctionConsignBuyoutPrice(p.auctionConsignPanel.buyoutPrice),
+        durationHours: this.normalizeAuctionConsignDurationHours(p.auctionConsignPanel.durationHours),
         query: p.auctionConsignPanel.query,
       };
       this.patchAuctionConsignSelectedItem();
@@ -878,12 +911,13 @@ export class MarketAuctionView {
       }
       const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
       const resolvedBuyoutPrice = buyoutPrice >= price.unitPrice ? buyoutPrice : 0;
+      const durationHours = this.normalizeAuctionConsignDurationHours(state.durationHours);
       const auctionMatched = state.slotIndex !== null ? p.inventory.items[state.slotIndex] : null;
       const auctionExpectedInstanceId = auctionMatched && typeof auctionMatched.itemInstanceId === 'string' && auctionMatched.itemInstanceId.length > 0
         ? auctionMatched.itemInstanceId
         : undefined;
-      p.callbacks?.onCreateAuctionSellOrder(state.slotIndex, quantity, price.unitPrice, resolvedBuyoutPrice, auctionExpectedInstanceId);
-      p.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, query: '' };
+      p.callbacks?.onCreateAuctionSellOrder(state.slotIndex, quantity, price.unitPrice, resolvedBuyoutPrice, auctionExpectedInstanceId, durationHours);
+      p.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
       p.requestAuctionListings(1);
       detailModalHost.close('auction-consign-panel');
     }, { signal });
@@ -902,15 +936,17 @@ export class MarketAuctionView {
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
     const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
     const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
+    const durationHours = this.normalizeAuctionConsignDurationHours(state.durationHours);
     const price = item ? this.resolveAuctionConsignUnitPrice(totalPrice) : { unitPrice: null, actualTotal: null };
     this.panel.auctionConsignPanel = {
       ...state,
       quantity,
       totalPrice,
       buyoutPrice,
+      durationHours,
     };
     if (preview) {
-      replaceElementHtml(preview, this.renderAuctionConsignPreview(item, totalPrice, buyoutPrice, price, update.currencyItemName, this.panel.findInventoryItemCountByItemId(update.currencyItemId)));
+      replaceElementHtml(preview, this.renderAuctionConsignPreview(item, totalPrice, buyoutPrice, durationHours, price, update.currencyItemName, this.panel.findInventoryItemCountByItemId(update.currencyItemId)));
     }
     if (submit) {
       const listingFee = price.actualTotal === null ? null : this.getAuctionListingFee(price.actualTotal);
@@ -918,6 +954,7 @@ export class MarketAuctionView {
       submit.disabled = !item || price.unitPrice === null || (listingFee !== null && listingFee > ownedCurrency);
     }
     this.patchAuctionConsignPriceControl();
+    this.patchAuctionConsignDurationControl();
   }
 
   patchAuctionConsignModalState(): void {
@@ -1016,6 +1053,21 @@ export class MarketAuctionView {
     `);
   }
 
+  patchAuctionConsignDurationControl(): void {
+    const body = this.panel.getOpenAuctionConsignModalBody();
+    if (!body) return;
+    const state = this.panel.auctionConsignPanel;
+    const input = body.querySelector<HTMLInputElement>('[data-auction-consign-duration-hours]');
+    const durationHours = this.normalizeAuctionConsignDurationHours(state.durationHours);
+    this.panel.auctionConsignPanel = {
+      ...state,
+      durationHours,
+    };
+    if (input && document.activeElement !== input) {
+      input.value = String(durationHours);
+    }
+  }
+
   getAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ slotIndex: number; item: ItemStack }> {
     const currencyItemId = update?.currencyItemId ?? '';
     return this.panel.inventory.items
@@ -1052,6 +1104,12 @@ export class MarketAuctionView {
     const numeric = Math.floor(Number(value) || 0);
     if (numeric <= 0) return 0;
     return this.panel.normalizeTradeDialogPrice(numeric, 'up');
+  }
+
+  normalizeAuctionConsignDurationHours(value: unknown): number {
+    const numeric = Math.floor(Number(value));
+    if (!Number.isFinite(numeric)) return AUCTION_DEFAULT_DURATION_HOURS;
+    return Math.max(AUCTION_MIN_DURATION_HOURS, Math.min(AUCTION_MAX_DURATION_HOURS, numeric));
   }
 
   getAuctionListingFee(totalPrice: number): number {
@@ -1313,22 +1371,17 @@ export class MarketAuctionView {
     return quantity > 1 ? `${lot.itemName} x${formatDisplayInteger(quantity)}` : lot.itemName;
   }
 
-  formatAuctionEnhanceLabel(lot: AuctionLotView): string | null {
-    const label = lot.enhanceLevelLabel?.trim();
-    return label ? `强化 ${label}` : null;
-  }
-
   formatAuctionRealmLabel(lot: AuctionLotView): string | null {
     const label = lot.realmLevelLabel?.trim();
     return label ? `境界 ${label}` : null;
   }
 
   formatAuctionLotSubtitle(lot: AuctionLotView): string {
-    return [this.formatAuctionEnhanceLabel(lot), this.formatAuctionRealmLabel(lot), lot.typeLabel].filter(Boolean).join(' · ');
+    return [this.formatAuctionRealmLabel(lot), lot.typeLabel, lot.statusLabel].filter(Boolean).join(' · ');
   }
 
   formatAuctionLotDetailSubtitle(lot: AuctionLotView): string {
-    return [lot.qualityLabel, this.formatAuctionEnhanceLabel(lot), this.formatAuctionRealmLabel(lot), lot.typeLabel, lot.statusLabel].filter(Boolean).join(' · ');
+    return [lot.qualityLabel, this.formatAuctionRealmLabel(lot), lot.typeLabel, lot.statusLabel].filter(Boolean).join(' · ');
   }
 
   getAuctionItemInitial(name: string): string {

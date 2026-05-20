@@ -8,6 +8,7 @@ import {
   calculateMarketTradeTotalCost,
   createItemStackSignature,
   EnhancementExpectedCostStrategy,
+  AUCTION_DEFAULT_DURATION_HOURS,
   EQUIP_SLOTS,
   EquipSlot,
   getMarketMinimumTradeQuantity,
@@ -121,7 +122,7 @@ interface MarketPanelCallbacks {
  * onCreateAuctionSellOrder：onCreateAuctionSell订单相关字段。
  */
 
-  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string) => void;
+  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string, auctionDurationHours?: number) => void;
   /**
  * onCreateBuyOrder：onCreateBuy订单相关字段。
  */
@@ -193,6 +194,7 @@ interface AuctionConsignPanelState {
   quantity: number;
   totalPrice: number;
   buyoutPrice: number;
+  durationHours: number;
   query: string;
 }
 
@@ -386,6 +388,7 @@ export class MarketPanel {
     quantity: 1,
     totalPrice: 1,
     buyoutPrice: 0,
+    durationHours: AUCTION_DEFAULT_DURATION_HOURS,
     query: '',
   };
   /** 当前列表页码。 */
@@ -714,7 +717,7 @@ export class MarketPanel {
     this.auctionSearchQuery = '';
     this.selectedAuctionItemKey = null;
     this.auctionPage = 1;
-    this.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, query: '' };
+    this.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
     this.currentPage = 1;
     this.tradeHistoryPage = 1;
     this.itemBookLoading = false;
@@ -1094,6 +1097,7 @@ export class MarketPanel {
       quantity: this.auctionConsignPanel.quantity,
       totalPrice: this.auctionConsignPanel.totalPrice,
       buyoutPrice: this.auctionConsignPanel.buyoutPrice,
+      durationHours: this.auctionConsignPanel.durationHours,
       query: this.auctionConsignPanel.query,
     };
     this.renderAuctionConsignModal();
