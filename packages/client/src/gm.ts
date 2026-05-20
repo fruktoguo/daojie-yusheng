@@ -2272,8 +2272,14 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
     }
   });
   ensureArray(draft.inventory.items).forEach((item, index) => {
-    editorContentEl.querySelector<HTMLElement>(`[data-preview="inventory-title"][data-index="${index}"]`)!.textContent = getInventoryCardTitle(item, index);
-    editorContentEl.querySelector<HTMLElement>(`[data-preview="inventory-meta"][data-index="${index}"]`)!.textContent = getInventoryCardMeta(item);
+    const titleEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="inventory-title"][data-index="${index}"]`);
+    if (titleEl) {
+      titleEl.textContent = getInventoryCardTitle(item, index);
+    }
+    const metaEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="inventory-meta"][data-index="${index}"]`);
+    if (metaEl) {
+      metaEl.textContent = getInventoryCardMeta(item);
+    }
   });
   ensureArray(draft.autoBattleSkills).forEach((entry, index) => {
     editorContentEl.querySelector<HTMLElement>(`[data-preview="auto-skill-title"][data-index="${index}"]`)!.textContent = getAutoSkillCardTitle(entry, index);
@@ -7987,6 +7993,228 @@ function toggleAllGameConfigGroups(open: boolean): void {
   });
 }
 
+// ─── AI 配置中心 ───
+
+const aiProviderListEl = document.getElementById('gm-ai-list') as HTMLElement;
+const aiProviderRefreshBtn = document.getElementById('gm-ai-refresh') as HTMLButtonElement;
+const aiProviderAddTextBtn = document.getElementById('gm-ai-add-text') as HTMLButtonElement;
+const aiProviderAddImageBtn = document.getElementById('gm-ai-add-image') as HTMLButtonElement;
+const aiProviderMetaEl = document.getElementById('gm-ai-meta') as HTMLDivElement;
+let aiProviderConfigs: GmAiProviderConfigItem[] = [];
+let aiProviderConfigsLoading = false;
+let aiSecretStoreAvailable = false;
+
+const AI_TEXT_PROVIDER_OPTIONS: readonly GmAiTextProvider[] = ['openai', 'openai-compatible', 'anthropic'];
+const AI_IMAGE_PROVIDER_OPTIONS: readonly GmAiImageProvider[] = ['openai', 'dashscope'];
+
+async function loadAiProviderConfigs(): Promise<void> {
+  if (!token || aiProviderConfigsLoading) return;
+  aiProviderConfigsLoading = true;
+  renderAiProviderConfigs();
+  try {
+    const res = await request<GmAiProviderConfigListRes>(`${GM_API_BASE_PATH}/ai/providers`);
+    aiProviderConfigs = res.items ?? [];
+    aiSecretStoreAvailable = res.secretStoreAvailable;
+    aiProviderConfigsLoading = false;
+    renderAiProviderConfigs();
+  } catch (error) {
+    aiProviderConfigsLoading = false;
+    aiProviderRefreshBtn.disabled = false;
+    aiProviderAddTextBtn.disabled = false;
+    aiProviderAddImageBtn.disabled = false;
+    const message = error instanceof Error ? error.message : '加载失败';
+    aiProviderMetaEl.textContent = message;
+    if (aiProviderConfigs.length === 0) {
+      aiProviderListEl.innerHTML = `<div class="env-empty" style="color:var(--stamp-red);">${escapeHtml(message)}</div>`;
+    }
+  }
+}
+
+function renderAiProviderConfigs(): void {
+  aiProviderRefreshBtn.disabled = aiProviderConfigsLoading;
+  aiProviderAddTextBtn.disabled = aiProviderConfigsLoading;
+  aiProviderAddImageBtn.disabled = aiProviderConfigsLoading;
+  if (aiProviderConfigsLoading) {
+    aiProviderMetaEl.textContent = 'AI 配置加载中...';
+    return;
+  }
+
+  const secretNote = aiSecretStoreAvailable ? '密钥存储可用' : '密钥存储不可用：需配置 SERVER_SECRET_ENCRYPTION_KEY 和数据库';
+  aiProviderMetaEl.textContent = `共 ${aiProviderConfigs.length} 项配置 · ${secretNote}`;
+
+  const rowsByKind = new Map<GmAiProviderKind, GmAiProviderConfigItem[]>();
+  rowsByKind.set('text', []);
+  rowsByKind.set('image', []);
+  for (const item of aiProviderConfigs) {
+    rowsByKind.get(item.kind)?.push(item);
+  }
+
+  const textRows = rowsByKind.get('text') ?? [];
+  const imageRows = rowsByKind.get('image') ?? [];
+  aiProviderListEl.innerHTML = `
+    ${renderAiProviderGroup('text', '文本模型', textRows)}
+    ${renderAiProviderGroup('image', '图片模型', imageRows)}
+  `;
+
+  aiProviderListEl.querySelectorAll<HTMLElement>('.env-row[data-ai-kind][data-ai-scope]').forEach((rowEl) => {
+    const kind = rowEl.dataset.aiKind as GmAiProviderKind;
+    const scope = rowEl.dataset.aiScope ?? 'default';
+    const saveBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-save]');
+    const deleteBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-delete]');
+    const providerSelect = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]');
+    const imageOnlyEls = rowEl.querySelectorAll<HTMLElement>('[data-ai-image-only]');
+
+    providerSelect?.addEventListener('change', () => {
+      const isImage = kind === 'image';
+      imageOnlyEls.forEach((el) => el.classList.toggle('hidden', !isImage));
+    });
+    saveBtn?.addEventListener('click', () => {
+      saveAiProviderConfig(kind, scope, rowEl).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : '保存 AI 配置失败', true);
+      });
+    });
+    deleteBtn?.addEventListener('click', () => {
+      deleteAiProviderConfig(kind, scope).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : '删除 AI 配置失败', true);
+      });
+    });
+  });
+}
+
+function renderAiProviderGroup(kind: GmAiProviderKind, label: string, items: GmAiProviderConfigItem[]): string {
+  const rows = items.length > 0
+    ? items.map((item) => renderAiProviderConfigRow(item)).join('')
+    : `<div class="env-empty">当前没有${escapeHtml(label)}配置。</div>`;
+  return `
+    <details class="env-group" open>
+      <summary class="env-group-summary">
+        <span>${escapeHtml(label)}</span>
+        <span class="env-group-count">${items.length}</span>
+      </summary>
+      <div class="env-group-body">${rows}</div>
+    </details>
+  `;
+}
+
+function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
+  const providerOptions = (item.kind === 'image' ? AI_IMAGE_PROVIDER_OPTIONS : AI_TEXT_PROVIDER_OPTIONS)
+    .map((provider) => `<option value="${provider}" ${provider === item.provider ? 'selected' : ''}>${provider}</option>`)
+    .join('');
+  const enabledBadge = item.enabled ? '<span class="env-badge source-process_env">已启用</span>' : '<span class="env-badge source-unset">已禁用</span>';
+  const secretBadge = item.secretConfigured ? '<span class="env-badge source-runtime_file">密钥已配置</span>' : '<span class="env-badge meta">密钥未配置</span>';
+  const imageFieldsClass = item.kind === 'image' ? '' : 'hidden';
+  return `
+    <div class="env-row" data-ai-kind="${escapeHtml(item.kind)}" data-ai-scope="${escapeHtml(item.scope)}">
+      <div class="env-row-head">
+        <div class="env-row-title">
+          <span class="env-label">${escapeHtml(item.kind === 'text' ? '文本模型' : '图片模型')} · ${escapeHtml(item.scope)}</span>
+          <code class="env-key">revision ${escapeHtml(String(item.revision))} · ${escapeHtml(item.updatedAt || '未保存')}</code>
+        </div>
+        <div class="env-row-badges">
+          ${enabledBadge}
+          ${secretBadge}
+          <span class="env-badge meta">${escapeHtml(item.provider)}</span>
+        </div>
+      </div>
+      <div class="env-desc">scope 用于区分默认模型和未来细分场景；API Key 留空表示沿用当前密钥引用。</div>
+      <div class="env-edit">
+        <label class="env-persist-label"><input data-ai-enabled type="checkbox" ${item.enabled ? 'checked' : ''} />启用</label>
+        <select data-ai-provider>${providerOptions}</select>
+        <input data-ai-base-url type="text" value="${escapeHtml(item.baseURL)}" placeholder="Base URL，例如 https://api.example.com" />
+        <input data-ai-model-name type="text" value="${escapeHtml(item.modelName)}" placeholder="模型名" />
+        <input data-ai-timeout-ms type="number" min="1000" max="300000" step="1000" value="${escapeHtml(String(item.timeoutMs || (item.kind === 'image' ? 60000 : 30000)))}" placeholder="超时 ms" />
+      </div>
+      <div class="env-edit ${imageFieldsClass}" data-ai-image-only>
+        <input data-ai-image-size type="text" value="${escapeHtml(item.imageSize || '1024x1024')}" placeholder="图片尺寸，例如 1024x1024" />
+        <input data-ai-image-quality type="text" value="${escapeHtml(item.imageQuality || 'medium')}" placeholder="图片质量，例如 medium" />
+      </div>
+      <div class="env-edit">
+        <input data-ai-secret-ref type="text" value="${escapeHtml(item.secretKeyRef)}" placeholder="密钥引用名，例如 ai_default_text" />
+        <input data-ai-api-key type="password" value="" placeholder="${aiSecretStoreAvailable ? '可选：输入新 API Key 覆盖密钥' : '密钥存储不可用'}" ${aiSecretStoreAvailable ? '' : 'disabled'} autocomplete="new-password" />
+        <div class="env-actions">
+          <button class="small-btn primary" type="button" data-ai-save>保存</button>
+          <button class="small-btn danger" type="button" data-ai-delete>删除配置</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function addAiProviderConfig(kind: GmAiProviderKind): void {
+  const existingScopes = new Set(aiProviderConfigs.filter((item) => item.kind === kind).map((item) => item.scope));
+  let scope = 'default';
+  if (existingScopes.has(scope)) {
+    let index = 2;
+    while (existingScopes.has(`${kind}_${index}`)) index += 1;
+    scope = `${kind}_${index}`;
+  }
+  aiProviderConfigs = [
+    ...aiProviderConfigs,
+    createDraftAiProviderConfig(kind, scope),
+  ];
+  renderAiProviderConfigs();
+}
+
+function createDraftAiProviderConfig(kind: GmAiProviderKind, scope: string): GmAiProviderConfigItem {
+  return {
+    scope,
+    kind,
+    provider: kind === 'image' ? 'openai' : 'openai-compatible',
+    baseURL: '',
+    modelName: kind === 'image' ? 'gpt-image-1.5' : 'gpt-5.4-mini',
+    timeoutMs: kind === 'image' ? 60_000 : 30_000,
+    imageSize: kind === 'image' ? '1024x1024' : '',
+    imageQuality: kind === 'image' ? 'medium' : '',
+    secretKeyRef: `ai_${scope}_${kind}`,
+    secretConfigured: false,
+    enabled: true,
+    revision: 0,
+    updatedBy: '',
+    updatedAt: '',
+  };
+}
+
+async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl: HTMLElement): Promise<void> {
+  const provider = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]')?.value ?? '';
+  const baseURL = rowEl.querySelector<HTMLInputElement>('[data-ai-base-url]')?.value ?? '';
+  const modelName = rowEl.querySelector<HTMLInputElement>('[data-ai-model-name]')?.value ?? '';
+  const timeoutMsRaw = rowEl.querySelector<HTMLInputElement>('[data-ai-timeout-ms]')?.value ?? '';
+  const imageSize = rowEl.querySelector<HTMLInputElement>('[data-ai-image-size]')?.value ?? '';
+  const imageQuality = rowEl.querySelector<HTMLInputElement>('[data-ai-image-quality]')?.value ?? '';
+  const secretKeyRef = rowEl.querySelector<HTMLInputElement>('[data-ai-secret-ref]')?.value ?? '';
+  const apiKey = rowEl.querySelector<HTMLInputElement>('[data-ai-api-key]')?.value ?? '';
+  const enabled = rowEl.querySelector<HTMLInputElement>('[data-ai-enabled]')?.checked ?? true;
+  const timeoutMs = Number(timeoutMsRaw);
+
+  const body: GmAiProviderConfigSetReq = {
+    provider: provider as GmAiTextProvider | GmAiImageProvider,
+    baseURL,
+    modelName,
+    timeoutMs: Number.isFinite(timeoutMs) ? Math.trunc(timeoutMs) : undefined,
+    imageSize: kind === 'image' ? imageSize : undefined,
+    imageQuality: kind === 'image' ? imageQuality : undefined,
+    secretKeyRef,
+    apiKey: apiKey.trim() ? apiKey : undefined,
+    enabled,
+  };
+  const res = await request<GmAiProviderConfigSetRes>(
+    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+  setStatus(`AI 配置 ${res.item.kind}/${res.item.scope} 已保存${res.secretWritten ? '，密钥已更新' : ''}`);
+  await loadAiProviderConfigs();
+}
+
+async function deleteAiProviderConfig(kind: GmAiProviderKind, scope: string): Promise<void> {
+  if (!confirm(`确认删除 AI 配置 "${kind}/${scope}"？密钥本身不会删除。`)) return;
+  const res = await request<GmAiProviderConfigDeleteRes>(
+    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}`,
+    { method: 'DELETE' },
+  );
+  setStatus(res.deleted ? `AI 配置 ${kind}/${scope} 已删除` : `AI 配置 ${kind}/${scope} 不存在`);
+  await loadAiProviderConfigs();
+}
+
 // ===== 交易记录 tab =====
 /** tradesQueryState：交易记录 tab 当前查询状态，分页 / 关键字。 */
 let tradesQueryState: { page: number; pageSize: number; playerKeyword: string; itemKeyword: string } = {
@@ -9594,6 +9822,7 @@ playerListEl.addEventListener('click', (event) => {
   draftSourcePlayerId = null;
   /** editorDirty：编辑器Dirty。 */
   editorDirty = false;
+  currentInventorySearchQuery = '';
   render();
   loadSelectedPlayerDetail(playerId, true).catch((error: unknown) => {
     setStatus(error instanceof Error ? error.message : t('gm.player.detail-load-failed'), true);
@@ -9692,6 +9921,11 @@ editorContentEl.addEventListener('input', (event) => {
     || target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
   ) {
+    if (target instanceof HTMLInputElement && target.dataset.inventorySearch !== undefined) {
+      currentInventorySearchQuery = target.value;
+      patchInventoryListFromDraft();
+      return;
+    }
     const binding = target.dataset.mailBind;
     if (!binding) {
       return;
@@ -10070,6 +10304,7 @@ worldTabBtn.addEventListener('click', () => switchTab('world'));
 shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));
 envTabBtn.addEventListener('click', () => switchTab('secrets'));
 gameConfigTabBtn.addEventListener('click', () => switchTab('gameconfig'));
+aiTabBtn.addEventListener('click', () => switchTab('ai'));
 tradesTabBtn.addEventListener('click', () => switchTab('trades'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
@@ -10614,6 +10849,15 @@ gameConfigExpandBtn.addEventListener('click', () => {
 });
 gameConfigCollapseBtn.addEventListener('click', () => {
   toggleAllGameConfigGroups(false);
+});
+aiProviderRefreshBtn.addEventListener('click', () => {
+  loadAiProviderConfigs().catch((e) => console.error('[GM]', e));
+});
+aiProviderAddTextBtn.addEventListener('click', () => {
+  addAiProviderConfig('text');
+});
+aiProviderAddImageBtn.addEventListener('click', () => {
+  addAiProviderConfig('image');
 });
 tradesFormEl.addEventListener('submit', (event) => {
   event.preventDefault();
