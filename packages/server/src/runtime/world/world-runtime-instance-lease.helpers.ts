@@ -554,11 +554,14 @@ export async function claimRecoverableCatalogInstances(runtime) {
   const catalogEntries = await runtime.instanceCatalogService.listInstanceCatalogEntries();
   let claimedCount = 0;
   for (const entry of catalogEntries) {
+    const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
+    const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
+    if (instanceId.startsWith('tower:tongtian:layer:') || templateId.startsWith('tongtian_tower_layer_')) {
+      continue;
+    }
     if (!shouldRestoreCatalogEntry(entry)) {
       continue;
     }
-    const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
-    const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
     if (!instanceId || !templateId || runtime.getInstanceRuntime(instanceId)) {
       continue;
     }

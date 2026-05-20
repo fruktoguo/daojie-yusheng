@@ -3,6 +3,7 @@ import * as fs from 'fs';
 
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { resolveProjectPath } from '../../common/project-path';
+import { MapInstanceRuntime } from '../instance/map-instance.runtime';
 import { TongtianTowerPersistenceService } from '../../persistence/tongtian-tower-persistence.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 
@@ -56,6 +57,7 @@ const TOWER_TEMPLATE_PREFIX = 'tongtian_tower_layer_';
 export class WorldRuntimeTongtianTowerService {
   private readonly logger = new Logger(WorldRuntimeTongtianTowerService.name);
   private readonly config: TongtianTowerConfig;
+  private readonly cachedLayerInstances = new Map<number, any>();
 
   constructor(
     @Inject(ContentTemplateRepository)
@@ -65,6 +67,34 @@ export class WorldRuntimeTongtianTowerService {
     private readonly persistence: TongtianTowerPersistenceService,
   ) {
     this.config = loadTongtianTowerConfig();
+  }
+
+  async primeLayerInstanceCache(entry: { instance_id?: string; template_id?: string }, deps: any): Promise<boolean> {
+    const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
+    const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
+    const layer = parseTowerLayerFromInstanceId(instanceId) || parseTowerLayerFromTemplateId(templateId);
+    if (layer <= 0) {
+      return false;
+    }
+    if (this.cachedLayerInstances.has(layer) || deps.getInstanceRuntime?.(this.getTowerInstanceId(layer))) {
+      return true;
+    }
+    const resolvedTemplateId = this.ensureLayerTemplate(layer);
+    if (templateId && templateId !== resolvedTemplateId) {
+      return false;
+    }
+    const instance = this.createDetachedLayerInstance(layer, instanceId || this.getTowerInstanceId(layer), deps);
+    try {
+      if (typeof deps.hydratePersistentInstanceSnapshot === 'function') {
+        await deps.hydratePersistentInstanceSnapshot(instance.meta.instanceId, instance);
+      }
+    } catch (error) {
+      this.logger.warn(`通天塔实例恢复缓存失败：${instance.meta.instanceId} ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+    this.ensureLayerState(instance, layer, deps.tick ?? instance.tick ?? 0);
+    this.cachedLayerInstances.set(layer, instance);
+    return true;
   }
 
   buildContextActions(view: any, deps: any): any[] {
@@ -152,7 +182,7 @@ export class WorldRuntimeTongtianTowerService {
       }
       return;
     }
-    state.lastActiveTick = deps.tick;
+    this.markLayerActive(state, deps.tick);
     if (state.activeWave) {
       const aliveCount = state.activeWave.monsterRuntimeIds
         .map((runtimeId) => instance.getMonster?.(runtimeId))
@@ -176,7 +206,7 @@ export class WorldRuntimeTongtianTowerService {
       }
       const state = this.ensureLayerState(instance, layer, deps.tick);
       if (listPlayerIds(instance).length > 0) {
-        state.lastActiveTick = deps.tick;
+        this.markLayerActive(state, deps.tick);
         continue;
       }
       this.clearActiveWave(instance, state);
@@ -186,13 +216,16 @@ export class WorldRuntimeTongtianTowerService {
       if (deps.tick - state.lastEmptyTick < this.config.idleDestroyTicks) {
         continue;
       }
+      if (typeof deps.flushInstanceDomains === 'function') {
+        try {
+          await deps.flushInstanceDomains(instanceId);
+        } catch (error) {
+          this.logger.warn(`通天塔空闲实例落盘失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       instance.meta.runtimeStatus = 'stopped';
       instance.meta.status = 'destroyed';
       instance.meta.destroyAt = instance.meta.destroyAt ?? new Date().toISOString();
-      // 清理分域持久化数据
-      if (typeof deps.instanceDomainPersistenceService?.purgeInstanceState === 'function') {
-        await deps.instanceDomainPersistenceService.purgeInstanceState(instanceId);
-      }
       deps.worldRuntimeInstanceStateService?.deleteInstanceRuntime?.(instanceId);
       deps.worldRuntimeTickProgressService?.clearInstance?.(instanceId);
       deps.instanceTickProgressById?.delete?.(instanceId);
@@ -253,7 +286,7 @@ export class WorldRuntimeTongtianTowerService {
       return;
     }
     const state = this.ensureLayerState(instance, layer, deps.tick);
-    state.lastActiveTick = deps.tick;
+    this.markLayerActive(state, deps.tick);
     if (!state.activeWave && state.nextSpawnTick <= instance.tick) {
       this.spawnWave(instance, state);
     }
@@ -318,7 +351,7 @@ export class WorldRuntimeTongtianTowerService {
       preferredY: this.config.spawnY,
     }, deps);
     const state = this.ensureLayerState(instance, layer, deps.tick);
-    state.lastActiveTick = deps.tick;
+    this.markLayerActive(state, deps.tick);
     if (!state.activeWave && state.nextSpawnTick <= instance.tick) {
       this.spawnWave(instance, state);
     }
@@ -331,6 +364,17 @@ export class WorldRuntimeTongtianTowerService {
     const existing = deps.getInstanceRuntime(instanceId);
     if (existing) {
       return existing;
+    }
+    const cached = this.takeCachedLayerInstance(layer);
+    if (cached) {
+      this.prepareRestoredLayerInstance(cached, layer, deps.tick);
+      if (typeof deps.setInstanceRuntime === 'function') {
+        deps.setInstanceRuntime(instanceId, cached);
+      } else if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime === 'function') {
+        deps.worldRuntimeInstanceStateService.setInstanceRuntime(instanceId, cached);
+      }
+      deps.worldRuntimeTickProgressService?.initializeInstance?.(instanceId);
+      return cached;
     }
     const templateId = this.ensureLayerTemplate(layer);
     const instance = deps.createInstance({
@@ -403,6 +447,74 @@ export class WorldRuntimeTongtianTowerService {
     };
     instance.tongtianTowerState = state;
     return state;
+  }
+
+  private markLayerActive(state: TongtianTowerLayerState, worldTick: number): void {
+    state.lastActiveTick = worldTick;
+    state.lastEmptyTick = null;
+  }
+
+  private cacheLayerInstance(layer: number, instance: any): void {
+    this.cachedLayerInstances.set(normalizeLayer(layer), instance);
+  }
+
+  private takeCachedLayerInstance(layer: number): any | null {
+    const normalizedLayer = normalizeLayer(layer);
+    const cached = this.cachedLayerInstances.get(normalizedLayer) ?? null;
+    if (cached) {
+      this.cachedLayerInstances.delete(normalizedLayer);
+    }
+    return cached;
+  }
+
+  private prepareRestoredLayerInstance(instance: any, layer: number, worldTick: number): void {
+    if (!instance || typeof instance !== 'object') {
+      return;
+    }
+    instance.meta = instance.meta ?? {};
+    instance.meta.persistent = true;
+    instance.meta.persistentPolicy = 'persistent';
+    instance.meta.status = 'active';
+    instance.meta.runtimeStatus = 'running';
+    instance.meta.destroyAt = null;
+    instance.meta.assignedNodeId = null;
+    instance.meta.leaseToken = null;
+    instance.meta.leaseExpireAt = null;
+    const state = this.ensureLayerState(instance, layer, worldTick);
+    this.markLayerActive(state, worldTick);
+  }
+
+  private createDetachedLayerInstance(layer: number, instanceId: string, deps: any): any {
+    const templateId = this.ensureLayerTemplate(layer);
+    const template = this.templateRepository.getOrThrow(templateId);
+    const instance = new MapInstanceRuntime({
+      instanceId,
+      template,
+      buffRegistry: this.contentTemplateRepository.buffRegistry,
+      monsterSpawns: this.contentTemplateRepository.createRuntimeMonstersForMap(template.id),
+      kind: 'tower',
+      persistent: true,
+      persistentPolicy: 'persistent',
+      createdAt: Date.now(),
+      displayName: `通天塔 第 ${layer} 层`,
+      linePreset: 'peaceful',
+      lineIndex: layer,
+      instanceOrigin: 'gm_manual',
+      defaultEntry: false,
+      supportsPvp: false,
+      canDamageTile: false,
+      status: 'active',
+      runtimeStatus: 'running',
+      routeDomain: 'system',
+    });
+    if (typeof instance.setDynamicTileBlocker === 'function') {
+      instance.setDynamicTileBlocker((x, y, context = null) => (
+        typeof deps.worldRuntimeFormationService?.isBoundaryBarrierBlocked === 'function'
+          ? deps.worldRuntimeFormationService.isBoundaryBarrierBlocked(instanceId, x, y, context?.playerId) === true
+          : false
+      ));
+    }
+    return instance;
   }
 
   private spawnWave(instance: any, state: TongtianTowerLayerState): void {

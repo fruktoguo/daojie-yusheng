@@ -8,7 +8,6 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 const {
     buildPublicInstanceId,
     buildRealInstanceId,
-    parseRuntimeInstanceDescriptor,
 } = world_runtime_normalization_helpers_1;
 
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -168,11 +167,20 @@ export class WorldRuntimeLifecycleService {
             }
             const catalogEntries = await deps.instanceCatalogService.listInstanceCatalogEntries?.();
             for (const entry of Array.isArray(catalogEntries) ? catalogEntries : []) {
-                if (!shouldRestoreCatalogEntry(entry)) {
-                    continue;
-                }
                 const instanceId = typeof entry.instance_id === 'string' ? entry.instance_id.trim() : '';
                 const templateId = typeof entry.template_id === 'string' ? entry.template_id.trim() : '';
+                const towerRestored = typeof deps.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function'
+                    && deps.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(entry, deps);
+                if (towerRestored) {
+                    if (typeof deps.worldRuntimeTongtianTowerService?.primeLayerInstanceCache === 'function') {
+                        await deps.worldRuntimeTongtianTowerService.primeLayerInstanceCache(entry, deps);
+                    }
+                    continue;
+                }
+                if (!shouldRestoreCatalogEntry(entry)) {
+
+                    continue;
+                }
                 if (!instanceId || !templateId) {
                     continue;
                 }
@@ -183,11 +191,6 @@ export class WorldRuntimeLifecycleService {
                     && !deps.templateRepository.has(templateId)
                     && typeof deps.worldRuntimeSectService?.restoreCatalogSectTemplate === 'function') {
                     deps.worldRuntimeSectService.restoreCatalogSectTemplate(entry, deps);
-                }
-                if (typeof deps.templateRepository?.has === 'function'
-                    && !deps.templateRepository.has(templateId)
-                    && typeof deps.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function') {
-                    deps.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(entry, deps);
                 }
                 if (typeof deps.templateRepository?.has === 'function' && !deps.templateRepository.has(templateId)) {
                     await markMissingTemplateCatalogEntry(deps, entry, instanceId, templateId, '恢复');
@@ -315,11 +318,25 @@ export class WorldRuntimeLifecycleService {
             const batch = positions.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(async (entry) => {
                 try {
-                    const instanceWasMissing = !deps.getInstanceRuntime(entry.instanceId);
-                    let instance = deps.getInstanceRuntime(entry.instanceId);
-                    if (!instance) {
-                        instance = ensureOfflineHangingRestoreInstance(entry, deps);
+                    const player = await deps.playerRuntimeService.restoreOfflineHangingPlayer(
+                        entry.playerId,
+                        persistenceService,
+                    );
+                    if (!player) {
+                        skipped++;
+                        return;
                     }
+                    const requestedMapId = typeof player?.templateId === 'string' && player.templateId.trim()
+                        ? player.templateId.trim()
+                        : undefined;
+                    const instanceWasMissing = !deps.getInstanceRuntime(entry.instanceId);
+                    let instance = typeof deps.worldRuntimePlayerSessionService?.resolveTargetInstance === 'function'
+                        ? deps.worldRuntimePlayerSessionService.resolveTargetInstance({
+                            playerId: entry.playerId,
+                            requestedInstanceId: entry.instanceId,
+                            requestedMapId: requestedMapId ?? '',
+                        }, deps)
+                        : deps.getInstanceRuntime(entry.instanceId);
                     if (!instance) {
                         skipped++;
                         return;
@@ -327,7 +344,7 @@ export class WorldRuntimeLifecycleService {
                     if (instanceWasMissing && typeof deps.syncInstanceLease === 'function') {
                         try {
                             await deps.syncInstanceLease(instance.meta.instanceId, { allowForceReclaim: true });
-                            instance = deps.getInstanceRuntime(entry.instanceId) ?? instance;
+                            instance = deps.getInstanceRuntime(instance.meta.instanceId) ?? instance;
                         } catch (error) {
                             skipped++;
                             deps.logger?.warn?.(`离线挂机实例租约同步失败：${entry.instanceId} ${error instanceof Error ? error.message : String(error)}`);
@@ -339,24 +356,19 @@ export class WorldRuntimeLifecycleService {
                         deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
-                    const player = await deps.playerRuntimeService.restoreOfflineHangingPlayer(
-                        entry.playerId,
-                        persistenceService,
-                    );
-                    if (!player) {
+                    if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {
                         skipped++;
+                        deps.logger?.warn?.(`offline_restore_skipped_session_service_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
-                    const connectedInstance = deps.getInstanceRuntime(entry.instanceId) ?? instance;
-                    connectedInstance.connectPlayer({
+                    deps.worldRuntimePlayerSessionService.connectPlayer({
                         playerId: entry.playerId,
                         sessionId: null,
+                        instanceId: instance.meta.instanceId,
+                        mapId: requestedMapId,
                         preferredX: entry.x,
                         preferredY: entry.y,
-                    });
-                    deps.worldRuntimePlayerLocationService.setPlayerLocation(entry.playerId, {
-                        instanceId: connectedInstance.meta.instanceId,
-                    });
+                    }, deps);
                     restored++;
                 } catch (error) {
                     skipped++;
@@ -371,33 +383,6 @@ export class WorldRuntimeLifecycleService {
         }
     }
 };
-
-function ensureOfflineHangingRestoreInstance(entry, deps) {
-    const instanceId = typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '';
-    if (!instanceId) {
-        return null;
-    }
-    const descriptor = parseRuntimeInstanceDescriptor(instanceId);
-    if (descriptor?.templateId?.startsWith('sect_domain:') && typeof deps.worldRuntimeSectService?.ensureSectRuntimeInstanceByTemplateId === 'function') {
-        const sectInstance = deps.worldRuntimeSectService.ensureSectRuntimeInstanceByTemplateId(descriptor.templateId, deps);
-        if (sectInstance) {
-            return sectInstance;
-        }
-    }
-    if (typeof deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore === 'function') {
-        const towerInstance = deps.worldRuntimeTongtianTowerService.ensureLayerInstanceForRestore({
-            instanceId,
-            templateId: descriptor?.templateId ?? '',
-        }, deps);
-        if (towerInstance) {
-            return towerInstance;
-        }
-    }
-    if (descriptor?.templateId && typeof deps.getOrCreateDefaultLineInstance === 'function' && descriptor.defaultEntry === true) {
-        return deps.getOrCreateDefaultLineInstance(descriptor.templateId, descriptor.linePreset === 'real' ? 'real' : 'peaceful');
-    }
-    return null;
-}
 
 function isLocalLeaseReadyForOfflineRestore(deps, instance) {
     if (!deps.instanceCatalogService?.isEnabled?.()) {

@@ -182,6 +182,33 @@ async function main(): Promise<void> {
   layer2 = deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:2');
   assert.equal(layer2.listMonsters().length, 5, '恢复进入通天塔层后也要立即按当前玩家刷新');
   assertTowerMonsterMix(layer2, 4, 1);
+
+  const cachedTowerLoaded = await tower.primeLayerInstanceCache(
+    { instance_id: 'tower:tongtian:layer:7', template_id: 'tongtian_tower_layer_7' },
+    deps,
+  );
+  assert.equal(cachedTowerLoaded, true, '启动恢复应先把通天塔持久化缓存到内存，不直接重建到 runtime');
+  assert.equal(
+    deps.createInstanceCalls.some((input: any) => input.instanceId === 'tower:tongtian:layer:7'),
+    false,
+    '缓存恢复不应触发通天塔实例重建',
+  );
+  assert.equal(
+    deps.hydrationCalls.includes('tower:tongtian:layer:7'),
+    true,
+    '缓存恢复要从磁盘回填通天塔实例状态',
+  );
+  persistence.updateCurrentLayer('player:cache', 7);
+  persistence.promoteHighestLayer('player:cache', 7);
+  connectToPublicMap(deps, 'player:cache', 31, 15);
+  const cachedLayerView = tower.executeAction('player:cache', 'tower:tongtian:enter', deps);
+  assert.equal(cachedLayerView.instance.instanceId, 'tower:tongtian:layer:7');
+  assert.equal(
+    deps.getInstanceRuntimeOrThrow('tower:tongtian:layer:7').__towerRestoreMarker,
+    'hydrated:tower:tongtian:layer:7',
+    '恢复后的通天塔层应保留磁盘回填标记',
+  );
+
   tower.executeAction('player:1', 'tower:tongtian:previous', deps);
   assert.equal(persistence.rows.get('player:1')?.currentLayer, 1);
 
@@ -240,14 +267,19 @@ async function main(): Promise<void> {
 
   const layer1BeforeDestroy = deps.getInstanceRuntime('tower:tongtian:layer:1');
   assert.ok(layer1BeforeDestroy);
-  deps.tick += 3600;
-  layer1.disconnectPlayer('player:1');
+  layer1BeforeDestroy.disconnectPlayer('player:1');
   deps.playerLocations.delete('player:1');
+  tower.advanceInstance(layer1BeforeDestroy, deps);
   deps.instanceTickProgressById.set('tower:tongtian:layer:1', 0.5);
+  deps.tick += 3599;
+  await tower.cleanupIdleInstances(deps);
+  assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:1'), layer1BeforeDestroy, '不足一小时不能销毁通天塔');
+  deps.tick += 1;
   await tower.cleanupIdleInstances(deps);
   assert.equal(deps.getInstanceRuntime('tower:tongtian:layer:1'), null);
   assert.equal(deps.tickProgressClears.includes('tower:tongtian:layer:1'), true, '空闲销毁要清理 tick progress');
   assert.equal(deps.lootStateClears.includes('tower:tongtian:layer:1'), true, '空闲销毁要清理 loot container 内存态');
+  assert.equal(deps.flushCalls.includes('tower:tongtian:layer:1'), true, '销毁前应先落盘通天塔地图状态');
   assert.equal(
     deps.catalogWrites.some((entry: any) => entry.instanceId === 'tower:tongtian:layer:1' && entry.status === 'destroyed' && entry.runtimeStatus === 'stopped'),
     true,
@@ -272,6 +304,9 @@ function createDeps(
   const tickProgressClears: string[] = [];
   const lootStateClears: string[] = [];
   const catalogWrites: any[] = [];
+  const flushCalls: string[] = [];
+  const hydrationCalls: string[] = [];
+  const createInstanceCalls: any[] = [];
   const deps: any = {
     tick: 0,
     logger: {
@@ -285,11 +320,17 @@ function createDeps(
       deleteInstanceRuntime(instanceId: string) {
         instances.delete(instanceId);
       },
+      setInstanceRuntime(instanceId: string, instance: MapInstanceRuntime) {
+        instances.set(instanceId, instance);
+      },
     },
     worldRuntimeTickProgressService: {
       clearInstance(instanceId: string) {
         tickProgressClears.push(instanceId);
         instanceTickProgressById.delete(instanceId);
+      },
+      initializeInstance(instanceId: string) {
+        instanceTickProgressById.set(instanceId, 0);
       },
     },
     worldRuntimeLootContainerService: {
@@ -305,10 +346,29 @@ function createDeps(
         catalogWrites.push(input);
       },
     },
+    async hydratePersistentInstanceSnapshot(instanceId: string, instance: any) {
+      hydrationCalls.push(instanceId);
+      instance.__towerRestoreMarker = `hydrated:${instanceId}`;
+      instance.tongtianTowerState = instance.tongtianTowerState ?? {
+        layer: Number(instanceId.split(':').pop() ?? 0),
+        nextWaveId: 1,
+        nextSpawnTick: 0,
+        lastEmptyTick: null,
+        lastActiveTick: 0,
+        activeWave: null,
+      };
+    },
+    async flushInstanceDomains(instanceId: string) {
+      flushCalls.push(instanceId);
+      return { skipped: false, persistedDomains: [] };
+    },
     instanceTickProgressById,
     tickProgressClears,
     lootStateClears,
     catalogWrites,
+    flushCalls,
+    hydrationCalls,
+    createInstanceCalls,
     playerLocations,
     notices,
     getInstanceRuntime(instanceId: string) {
@@ -435,6 +495,7 @@ function createDeps(
       return instance;
     },
     createInstance(input: any) {
+      createInstanceCalls.push(input);
       const existing = instances.get(input.instanceId);
       if (existing) return existing;
       const template = templates.getOrThrow(input.templateId);
