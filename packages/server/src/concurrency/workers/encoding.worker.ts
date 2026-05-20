@@ -64,7 +64,6 @@ function handlePathfind(payload: unknown): PathfindingTaskResult {
     !cachedGrid
     || cachedGrid.mapId !== input.mapId
     || cachedGrid.mapRevision !== input.mapRevision
-    || (input.walkable && input.traversalCost)
   ) {
     if (!input.walkable || !input.traversalCost) {
       return { status: 'failed', path: [], expandedNodes: 0, reason: 'missing_grid_data' };
