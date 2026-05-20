@@ -135,7 +135,7 @@ export class WorldPlayerSourceService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (isMigrationAccessExplicit(options) && !isMigrationSourceDisabled()) {
-            this.logger.warn(`旧玩家源 identity_source 已移除：reason=legacy_users_players_removed migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
+            this.logger.warn(`旧玩家源身份来源已移除：原因=旧版用户玩家表已删除 仅迁移=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
         }
         return null;
     }
@@ -150,7 +150,7 @@ export class WorldPlayerSourceService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (isMigrationAccessExplicit(options) && !isMigrationSourceDisabled()) {
-            this.logger.warn(`旧玩家源 snapshot_source 已移除：reason=legacy_users_players_removed migration_only=true playerId=${typeof playerId === 'string' ? playerId : '未知'}`);
+            this.logger.warn(`旧玩家源快照来源已移除：原因=旧版用户玩家表已删除 仅迁移=true playerId=${typeof playerId === 'string' ? playerId : '未知'}`);
         }
         return null;
     }

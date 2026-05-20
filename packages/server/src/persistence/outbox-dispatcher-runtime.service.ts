@@ -129,7 +129,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       return;
     }
     if (this.isDuplicateEvent(eventId, operationId)) {
-      this.logger.debug(`outbox 事件已去重跳过 topic=${topic} eventId=${eventId}`);
+      this.logger.debug(`发件箱事件已去重跳过 topic=${topic} eventId=${eventId}`);
       await this.outboxDispatcherService.markDelivered(eventId);
       return;
     }
@@ -142,7 +142,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       claimTtlMs: DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS,
     });
     if (!claimed) {
-      this.logger.debug(`outbox 事件已被共享去重跳过 topic=${topic} eventId=${eventId}`);
+      this.logger.debug(`发件箱事件已被共享去重跳过 topic=${topic} eventId=${eventId}`);
       this.markProcessedEvent(eventId, operationId);
       await this.outboxDispatcherService.markDelivered(eventId);
       return;
@@ -154,7 +154,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       if (typeof consumer === 'function') {
         await consumer(event);
       }
-      this.logger.debug(`outbox 事件已投递 topic=${topic} eventId=${eventId}`);
+      this.logger.debug(`发件箱事件已投递 topic=${topic} eventId=${eventId}`);
       this.markProcessedEvent(eventId, operationId);
       await this.outboxDispatcherService.markConsumerDedupeDelivered({
         eventId,

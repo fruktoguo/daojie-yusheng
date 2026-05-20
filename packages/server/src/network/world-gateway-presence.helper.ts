@@ -36,7 +36,7 @@ class WorldGatewayPresenceHelper {
             offlineSinceAt: Date.now(),
             versionSeed: Date.now(),
         }).catch((error) => {
-            this.logger.error(`刷新脱机 presence 失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
+            this.logger.error(`刷新脱机在线状态失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
         });
     }
 
@@ -60,7 +60,7 @@ class WorldGatewayPresenceHelper {
             offlineSinceAt: null,
             versionSeed: now,
         }).catch((error) => {
-            this.logger.error(`刷新心跳 presence 失败：${playerId}`, error instanceof Error ? error.stack : String(error));
+            this.logger.error(`刷新心跳在线状态失败：${playerId}`, error instanceof Error ? error.stack : String(error));
         });
         this.presenceHeartbeatPersistedAtByPlayerId.set(playerId, now);
         this.playerRuntimeService.markPersisted?.(playerId, new Set(['presence']), null);

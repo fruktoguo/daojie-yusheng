@@ -60,7 +60,7 @@ export class NativeGmDiagnosticsService {
           return this.buildResponse(command, startedAt, [], 'exec 需要 SQL 语句。例如：exec UPDATE player_wallet SET balance = 1000 WHERE player_id = \'xxx\'', warnings);
         }
         validateExecSql(sql);
-        this.logger.warn(`GM EXEC actor=${formatActor(actor)} sql=${sql.slice(0, 500)}`);
+        this.logger.warn(`GM 执行 actor=${formatActor(actor)} sql=${sql.slice(0, 500)}`);
         const resultSet = await this.queryMutable(pool, 'exec', sql, limit);
         warnings.push(`写操作已执行，statement_timeout=${MUTATE_TIMEOUT_MS}ms。注意：exec 直接操作数据库，不会同步运行时内存，玩家需重连或等待下次加载才能看到变更。`);
         return this.buildResponse(command, startedAt, [resultSet], undefined, warnings);

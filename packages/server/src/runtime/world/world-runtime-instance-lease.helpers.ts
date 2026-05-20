@@ -58,7 +58,7 @@ export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
     }
     await syncInstanceLease(runtime, instanceId);
   })().catch((error) => {
-    runtime.logger.warn(`实例 lease 同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+    runtime.logger.warn(`实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
   });
 }
 
@@ -108,10 +108,10 @@ export function fenceInstanceRuntime(runtime, instanceId, reason = 'lease_lost')
     if (typeof runtime.worldRuntimeFormationService?.releaseInstance === 'function') {
       runtime.worldRuntimeFormationService.releaseInstance(instanceId);
     }
-    runtime.logger.warn(`实例 ${instanceId} 已因 lease fencing 被卸载：${reason}`);
+    runtime.logger.warn(`实例 ${instanceId} 已因租约隔离被卸载：${reason}`);
     return;
   }
-  runtime.logger.error(`实例 ${instanceId} lease fencing 命中但仍有在线玩家，已停止写入：${reason} players=${activePlayers.join(',')}`);
+  runtime.logger.error(`实例 ${instanceId} 租约隔离命中但仍有在线玩家，已停止写入：${reason} players=${activePlayers.join(',')}`);
 }
 
 function shouldMarkLocalLeaseDegraded(runtime, instance, reason) {
@@ -135,7 +135,7 @@ function markLocalLeaseDegraded(runtime, instanceId, instance, reason) {
   instance.meta.runtimeStatus = 'lease_degraded';
   instance.meta.status = 'active';
   if (!wasDegraded) {
-    runtime.logger.warn(`实例 ${instanceId} 本节点 lease 续租降级，暂停写入并等待恢复：${reason}`);
+    runtime.logger.warn(`实例 ${instanceId} 本节点租约续租降级，暂停写入并等待恢复：${reason}`);
   }
 }
 
@@ -328,7 +328,7 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
           : (expectedOwnershipEpoch + 1);
         instance.meta.runtimeStatus = 'leased';
         instance.meta.status = 'active';
-        runtime.logger.log(`启动恢复 force-reclaim 成功：${instanceId} newLeaseToken=${leaseToken}`);
+        runtime.logger.log(`启动恢复强制回收成功：${instanceId} newLeaseToken=${leaseToken}`);
         return;
       }
     }
@@ -532,7 +532,7 @@ export async function syncAllInstanceLeases(runtime) {
     try {
       await syncInstanceLease(runtime, instanceId);
     } catch (error) {
-      runtime.logger.warn(`实例 lease 同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
+      runtime.logger.warn(`实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   try {
@@ -541,7 +541,7 @@ export async function syncAllInstanceLeases(runtime) {
       await runtime.worldRuntimeLifecycleService.restoreOfflineHangingPlayers(runtime);
     }
   } catch (error) {
-    runtime.logger.warn(`可恢复实例 lease 接管失败：${error instanceof Error ? error.message : String(error)}`);
+    runtime.logger.warn(`可恢复实例租约接管失败：${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -611,7 +611,7 @@ export async function claimRecoverableCatalogInstances(runtime) {
     });
     await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
     claimedCount++;
-    runtime.logger.log(`实例 lease 自动接管成功：${instanceId} ownershipEpoch=${claim.ownershipEpoch ?? 0}`);
+    runtime.logger.log(`实例租约自动接管成功：${instanceId} ownershipEpoch=${claim.ownershipEpoch ?? 0}`);
   }
   return claimedCount;
 }
@@ -625,11 +625,11 @@ async function canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeI
   }
   // dev/test 环境下强制回收未过期的 stale lease，避免上一轮 smoke 残留阻塞启动
   if (shouldForceReclaimStaleLease()) {
-    runtime.logger.warn(`启动恢复 force-reclaim 过期 lease：${instanceId} assignedNodeId=${assignedNodeId}`);
+    runtime.logger.warn(`启动恢复强制回收过期租约：${instanceId} assignedNodeId=${assignedNodeId}`);
     return true;
   }
   if (Number.isFinite(leaseExpireAt) && leaseExpireAt > Date.now()) {
-    runtime.logger.warn(`启动恢复过期 lease 未到期：${instanceId} assignedNodeId=${assignedNodeId}`);
+    runtime.logger.warn(`启动恢复过期租约未到期：${instanceId} assignedNodeId=${assignedNodeId}`);
     return false;
   }
   const persistenceService = runtime.playerRuntimeService?.playerDomainPersistenceService;
@@ -637,7 +637,7 @@ async function canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeI
     ? await persistenceService.hasOnlinePlayersInInstance(instanceId)
     : false;
   if (hasOnlinePlayers) {
-    runtime.logger.warn(`启动恢复过期 lease 仍有在线玩家：${instanceId} assignedNodeId=${assignedNodeId}`);
+    runtime.logger.warn(`启动恢复过期租约仍有在线玩家：${instanceId} assignedNodeId=${assignedNodeId}`);
     return false;
   }
   return true;

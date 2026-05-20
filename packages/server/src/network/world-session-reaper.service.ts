@@ -164,7 +164,7 @@ export class WorldSessionReaperService {
             });
         }
         catch (error) {
-            this.logger.warn(`卸载 detached 玩家运行态失败：${playerId}`, error instanceof Error ? error.stack : String(error));
+            this.logger.warn(`卸载已脱离玩家运行态失败：${playerId}`, error instanceof Error ? error.stack : String(error));
         }
     }
 }

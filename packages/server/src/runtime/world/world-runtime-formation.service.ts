@@ -833,7 +833,7 @@ class WorldRuntimeFormationService {
         try {
             template = this.resolveFormationTemplate(formationId);
         } catch (_error) {
-            this.logger.warn(`restoreFormationEntry 模板解析失败 formationId=${formationId}: ${_error instanceof Error ? _error.message : String(_error)}`);
+            this.logger.warn(`恢复阵法条目模板解析失败 formationId=${formationId}: ${_error instanceof Error ? _error.message : String(_error)}`);
             return null;
         }
         const diskTier = normalizeFormationDiskTier(entry.diskTier);
@@ -1085,7 +1085,7 @@ class WorldRuntimeFormationService {
         }
         const sharedPool = this.databasePoolProvider?.getPool?.('formation') ?? null;
         if (!sharedPool) {
-            this.logger.warn('阵法持久化已禁用：DatabasePoolProvider 未提供连接池');
+            this.logger.warn('阵法持久化已禁用：数据库连接池提供者未提供连接池');
             return;
         }
         try {

@@ -61,7 +61,7 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
     }
     const sharedPool = this.databasePoolProvider?.getPool('gm-secret-store') ?? null;
     if (!sharedPool) {
-      this.logger.warn('密钥管理模块不可用：DatabasePoolProvider 未提供连接池');
+      this.logger.warn('密钥管理模块不可用：数据库连接池提供者未提供连接池');
       return;
     }
     this.pool = sharedPool;

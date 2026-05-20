@@ -75,7 +75,7 @@ export class OutboxEventConsumerRegistryService {
     const logOnly = (event: OutboxEventRecord) => {
       const topic = typeof event.topic === 'string' ? event.topic : 'unknown';
       const eventId = typeof event.event_id === 'string' ? event.event_id : 'unknown';
-      this.logger.debug(`outbox 内置消费者确认 topic=${topic} eventId=${eventId}`);
+      this.logger.debug(`发件箱内置消费者确认 topic=${topic} eventId=${eventId}`);
     };
 
     this.registerExact('player.mail.claimed', logOnly);

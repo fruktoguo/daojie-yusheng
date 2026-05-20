@@ -727,7 +727,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
 
     const sharedPool = this.databasePoolProvider?.getPool('player-domain') ?? null;
     if (!sharedPool) {
-      this.logger.warn('玩家分域持久化已禁用：DatabasePoolProvider 未提供连接池');
+      this.logger.warn('玩家分域持久化已禁用：数据库连接池提供者未提供连接池');
       return;
     }
     this.pool = sharedPool;

@@ -841,7 +841,7 @@ export class WorldRuntimeLootContainerService {
                     this.playerRuntimeService.bumpPersistentRevision(player);
                     this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
                     this.markContainerPersistenceDirty(location.instanceId);
-                    this.logger.warn(`采集 durable grant 连续失败 ${grantFailures} 次，已终止采集：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
+                    this.logger.warn(`采集持久化授予连续失败 ${grantFailures} 次，已终止采集：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
                     return buildContainerTickResult(false, [{
                             kind: 'warn',
                             text: '采集入库失败，请稍后重试。',
@@ -855,7 +855,7 @@ export class WorldRuntimeLootContainerService {
                 job.remainingTicks = 1;
                 job.grantFailures = grantFailures;
                 this.markContainerPersistenceDirty(location.instanceId);
-                this.logger.warn(`采集 durable grant 失败 (${grantFailures}/${MAX_GRANT_FAILURES})：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
+                this.logger.warn(`采集持久化授予失败 (${grantFailures}/${MAX_GRANT_FAILURES})：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
                 return buildContainerTickResult(false, [{
                         kind: 'warn',
                         text: '采集失败，草药仍保留在原处。',
@@ -1199,7 +1199,7 @@ export class WorldRuntimeLootContainerService {
                     input.restoreOnFailure();
                 }
                 catch (restoreError) {
-                    this.logger.warn(`容器/地面物品 durable 拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+                    this.logger.warn(`容器/地面物品持久化拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
                 }
             }
             else if (input.instance && input.originalPosition) {
@@ -1208,7 +1208,7 @@ export class WorldRuntimeLootContainerService {
                         input.instance.dropGroundItem(input.originalPosition.x, input.originalPosition.y, item);
                     }
                     catch (restoreError) {
-                        this.logger.warn(`地面物品 durable 拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+                        this.logger.warn(`地面物品持久化拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
                     }
                 }
             }

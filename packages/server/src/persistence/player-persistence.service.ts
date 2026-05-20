@@ -261,7 +261,7 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
 
     const sharedPool = this.databasePoolProvider?.getPool('player-snapshot') ?? null;
     if (!sharedPool) {
-      this.logger.warn('玩家快照持久化已禁用：DatabasePoolProvider 未提供连接池');
+      this.logger.warn('玩家快照持久化已禁用：数据库连接池提供者未提供连接池');
       return;
     }
     this.pool = sharedPool;

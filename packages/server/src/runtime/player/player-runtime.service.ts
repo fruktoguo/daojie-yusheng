@@ -1555,7 +1555,7 @@ export class PlayerRuntimeService {
             return;
         }
         this.noticeFallbackWarned = true;
-        console.warn('PlayerRuntimeService 通知缺失 RuntimeEventBusService，已退回到玩家本地受限队列。生产环境应在启动期 fail-fast。');
+        console.warn('玩家运行时服务通知缺失运行时事件总线服务，已退回到玩家本地受限队列。生产环境应在启动期快速失败。');
     }
     /**
      * 受限缓冲区追加：与 RuntimeEventBusService.queuePlayerNotice 对齐，

@@ -173,7 +173,7 @@ export class WorldSessionBootstrapContractService {
             return undefined;
         }
         if (!this.shouldAllowRequestedDetachedResume(client)) {
-            this.logger.debug(`bootstrap requested sessionId 已忽略：socket=${client?.id ?? '未知'} sessionId=${normalizedSessionId}`);
+            this.logger.debug(`启动引导请求的 sessionId 已忽略：socket=${client?.id ?? '未知'} sessionId=${normalizedSessionId}`);
             return undefined;
         }
         return normalizedSessionId;

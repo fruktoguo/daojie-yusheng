@@ -176,7 +176,7 @@ export class BotTokenService {
   private readSecretOrThrow(): string {
     const secret = readTrimmedEnv(BOT_TOKEN_SECRET_ENV);
     if (!secret) {
-      this.logger.error(`bot token 签发失败：未配置 ${BOT_TOKEN_SECRET_ENV}`);
+      this.logger.error(`机器人令牌签发失败：未配置 ${BOT_TOKEN_SECRET_ENV}`);
       throw new Error(`bot token 签发密钥未配置：请设置 ${BOT_TOKEN_SECRET_ENV}`);
     }
     return secret;

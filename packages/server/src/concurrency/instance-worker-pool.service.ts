@@ -58,11 +58,11 @@ export class InstanceWorkerPoolService {
 
   initialize(): void {
     if (this.forceSyncMode) {
-      this.logger.log('InstanceWorkerPool 处于强制同步模式，跳过 worker 启动');
+      this.logger.log('实例工作池处于强制同步模式，跳过工作线程启动');
       return;
     }
     this.ensureWorkersStarted();
-    this.logger.log(`InstanceWorkerPool 已启动：${this.workers.filter(Boolean).length} 个 worker`);
+    this.logger.log(`实例工作池已启动：${this.workers.filter(Boolean).length} 个工作线程`);
   }
 
   shutdown(): void {
@@ -102,7 +102,7 @@ export class InstanceWorkerPoolService {
       const worker = new Worker(workerPath);
       worker.on('message', (msg: WorkerTaskResult) => this.handleWorkerResult(msg));
       worker.on('error', (err) => {
-        this.logger.error(`实例 worker ${index} 错误：${err.message}`);
+        this.logger.error(`实例工作线程 ${index} 错误：${err.message}`);
         this.handleWorkerDeath(worker, index, workerPath);
       });
       worker.on('exit', (code) => {
@@ -110,7 +110,7 @@ export class InstanceWorkerPoolService {
       });
       this.workers[index] = worker;
     } catch (err: unknown) {
-      this.logger.error(`实例 worker ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
+      this.logger.error(`实例工作线程 ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

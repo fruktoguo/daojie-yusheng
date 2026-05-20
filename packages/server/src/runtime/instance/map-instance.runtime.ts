@@ -5383,7 +5383,7 @@ class MapInstanceRuntime {
             }) === true;
         }
         catch (_error) {
-            console.warn(`[MapInstance] isDynamicallyBlockedTile 异常 x=${x} y=${y}`, _error instanceof Error ? _error.message : _error);
+            console.warn(`[地图实例] isDynamicallyBlockedTile 异常 x=${x} y=${y}`, _error instanceof Error ? _error.message : _error);
             return false;
         }
     }
@@ -5401,7 +5401,7 @@ class MapInstanceRuntime {
             return typeof result === 'boolean' ? result : null;
         }
         catch (_error) {
-            console.warn(`[MapInstance] resolveCompositeSightBlocked 异常 x=${x} y=${y}`, _error instanceof Error ? _error.message : _error);
+            console.warn(`[地图实例] resolveCompositeSightBlocked 异常 x=${x} y=${y}`, _error instanceof Error ? _error.message : _error);
             return null;
         }
     }

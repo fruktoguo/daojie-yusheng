@@ -47,7 +47,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
 
     await this.runStep('release_instance_leases', async () => {
       const result = await this.worldRuntimeService.releaseLocalInstanceLeasesForShutdown();
-      this.logger.log(`实例 lease 释放完成：released=${result?.released ?? 0} skipped=${result?.skipped ?? 0}`);
+      this.logger.log(`实例租约释放完成：released=${result?.released ?? 0} skipped=${result?.skipped ?? 0}`);
     });
 
     await this.runStep('stop_tick', () => this.worldTickService.stopForShutdown());

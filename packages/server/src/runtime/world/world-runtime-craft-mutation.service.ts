@@ -122,7 +122,7 @@ export class WorldRuntimeCraftMutationService {
         }
         if (!options.skipActiveJobPersistence) {
             void this.persistActiveJobIfNeeded(playerId, deps).catch((error) => {
-                this.logger.warn(`活跃任务 durable 记账失败：${error instanceof Error ? error.message : String(error)}`);
+                this.logger.warn(`活跃任务持久化记账失败：${error instanceof Error ? error.message : String(error)}`);
             });
         }
         if (Array.isArray(result.groundDrops) && result.groundDrops.length > 0) {

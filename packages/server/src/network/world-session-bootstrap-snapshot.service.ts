@@ -320,7 +320,7 @@ export class WorldSessionBootstrapSnapshotService {
             });
         }
         catch (error) {
-            this.logger.warn(`玩家身份 token_seed 原生提升失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`玩家身份令牌种子原生提升失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
             return identity;
         }
 

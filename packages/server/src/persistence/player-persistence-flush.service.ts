@@ -192,7 +192,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         return;
       }
       if (!this.isPlayerPersistenceWritable(playerId)) {
-        this.logger.warn(`跳过玩家 presence 刷盘：lease 已失效 playerId=${playerId}`);
+        this.logger.warn(`跳过玩家在线状态刷盘：租约已失效 playerId=${playerId}`);
         return;
       }
       // 在 await IO 之前先拍 revision 快照，避免下面 markPersisted 误推到 IO 期间的新版本。
@@ -212,7 +212,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       return;
     }
     if (!this.isPlayerPersistenceWritable(playerId)) {
-      this.logger.warn(`跳过玩家持久化刷盘：lease 已失效 playerId=${playerId}`);
+      this.logger.warn(`跳过玩家持久化刷盘：租约已失效 playerId=${playerId}`);
       return;
     }
 
@@ -295,7 +295,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
                 return;
               }
               if (!this.isPlayerPersistenceWritable(playerId)) {
-                this.logger.warn(`跳过玩家 presence 刷盘：lease 已失效 playerId=${playerId}`);
+                this.logger.warn(`跳过玩家在线状态刷盘：租约已失效 playerId=${playerId}`);
                 return;
               }
               const presenceSnapshotRevision = this.playerRuntimeService.getPersistenceRevision?.(playerId) ?? null;
@@ -328,7 +328,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
               }
             }
             if (!this.isPlayerPersistenceWritable(playerId)) {
-              this.logger.warn(`跳过玩家快照刷盘：lease 已失效 playerId=${playerId}`);
+              this.logger.warn(`跳过玩家快照刷盘：租约已失效 playerId=${playerId}`);
               return;
             }
             // retryFlush 内部把"真正写出去的 domain 集合"通过返回值传出来，
@@ -421,7 +421,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
 
     if (projectedDomains.size > 0) {
       if (!this.isPlayerPersistenceWritable(playerId)) {
-        this.logger.warn(`跳过玩家分域增量提交：lease 已失效 playerId=${playerId}`);
+        this.logger.warn(`跳过玩家分域增量提交：租约已失效 playerId=${playerId}`);
         // 关键：lease 失效时显式上报，外层据此跳过 markPersisted，dirty 留给下一轮重试。
         return { persistedDomains, leaseInvalidated: true };
       }
@@ -446,7 +446,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       const presence = this.playerRuntimeService.describePersistencePresence(playerId);
       if (presence) {
         if (!this.isPlayerPersistenceWritable(playerId)) {
-          this.logger.warn(`跳过玩家 presence 提交：lease 已失效 playerId=${playerId}`);
+          this.logger.warn(`跳过玩家在线状态提交：租约已失效 playerId=${playerId}`);
           // presence 部分 lease 失效。projectedDomains 已写完的部分允许 markPersisted，
           // 但 presence 留作 dirty 等下一轮；通过 leaseInvalidated 让外层放弃 markPersisted 整体。
           return { persistedDomains, leaseInvalidated: true };
@@ -584,7 +584,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       }
     }
     if (expiredPlayerIds.length > 0) {
-      this.logger.log(`运行时离线挂机超时：${expiredPlayerIds.length} 名玩家已标记为可卸载，等待 reaper 清理`);
+      this.logger.log(`运行时离线挂机超时：${expiredPlayerIds.length} 名玩家已标记为可卸载，等待回收器清理`);
     }
   }
 }

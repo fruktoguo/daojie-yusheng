@@ -97,7 +97,7 @@ export class RuntimeEnvManagementService implements OnModuleInit {
     this.persistedEnv = nextPersistedEnv;
     this.runtimeOverrides.clear();
 
-    this.logger.log(`runtime env 已重载，共 ${this.persistedEnv.size} 个持久化项`);
+    this.logger.log(`运行时环境变量已重载，共 ${this.persistedEnv.size} 个持久化项`);
     return { ok: true, reloadedAt: Date.now(), count: this.persistedEnv.size };
   }
 

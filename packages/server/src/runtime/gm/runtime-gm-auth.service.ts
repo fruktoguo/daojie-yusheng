@@ -78,7 +78,7 @@ export class RuntimeGmAuthService {
         }
         const sharedPool = this.databasePoolProvider?.getPool?.('gm-auth');
         if (!sharedPool) {
-            this.logger.warn('运行时 GM 鉴权持久化已禁用：DatabasePoolProvider 未提供连接池');
+            this.logger.warn('运行时 GM 鉴权持久化已禁用：数据库连接池提供者未提供连接池');
             return;
         }
         this.pool = sharedPool;
@@ -111,11 +111,11 @@ export class RuntimeGmAuthService {
         try {
             const migrated = await buildPasswordRecord(password);
             await this.savePasswordRecordToDb(migrated);
-            this.logger.log('GM 密码记录已从 legacy bcrypt 迁移到 scrypt 格式');
+            this.logger.log('GM 密码记录已从旧版 bcrypt 迁移到 scrypt 格式');
             return migrated;
         }
         catch (error) {
-            this.logger.warn(`GM 密码 legacy 迁移失败，下次登录会重试：${error instanceof Error ? error.message : String(error)}`);
+            this.logger.warn(`GM 密码旧版迁移失败，下次登录会重试：${error instanceof Error ? error.message : String(error)}`);
             return record;
         }
     }

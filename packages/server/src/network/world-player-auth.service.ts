@@ -476,7 +476,7 @@ export class WorldPlayerAuthService {
       const mainlineProtocolBlockedPersistedSource = mainlineProtocolStrict
         && (nextPersistedSource === 'legacy_sync' || nextPersistedSource === 'legacy_backfill');
       if (mainlineProtocolBlockedPersistedSource) {
-        this.logger.warn(`主线协议拒绝 legacy persistedSource 身份：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId} persistedSource=${nextPersistedSource}`);
+        this.logger.warn(`主线协议拒绝旧版持久化来源身份：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId} persistedSource=${nextPersistedSource}`);
         recordAuthTrace({
           type: 'identity',
           source: 'miss',
@@ -615,7 +615,7 @@ export class WorldPlayerAuthService {
         updatedAt: Date.now(),
       }).catch((error: unknown) => {
         persistFailureStage = 'token_seed_save_failed';
-        this.logger.warn(`玩家身份 token seed 保存失败：userId=${tokenIdentity.userId} playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
+        this.logger.warn(`玩家身份令牌种子保存失败：userId=${tokenIdentity.userId} playerId=${tokenIdentity.playerId} error=${error instanceof Error ? error.message : String(error)}`);
         return null;
       });
 
@@ -638,7 +638,7 @@ export class WorldPlayerAuthService {
 
       const persistedTokenSource = normalizePersistedSource(persistedTokenIdentity);
       if (persistedTokenIdentity && persistedTokenSource !== 'token_seed') {
-        this.logger.error(`玩家身份 token seed 保存返回了异常 persistedSource：userId=${tokenIdentity.userId} playerId=${tokenIdentity.playerId} expected=token_seed actual=${persistedTokenSource ?? '未知'}`);
+        this.logger.error(`玩家身份令牌种子保存返回了异常持久化来源：userId=${tokenIdentity.userId} playerId=${tokenIdentity.playerId} expected=token_seed actual=${persistedTokenSource ?? '未知'}`);
         recordAuthTrace({
           type: 'identity',
           source: 'token_persist_blocked',
@@ -723,7 +723,7 @@ export class WorldPlayerAuthService {
     const user = this.nativePlayerAuthStore.getMemoryUserById(payload.sub);
     const identity = normalizeNativeAuthStoreIdentity(user, payload);
     if (!identity && user) {
-      this.logger.warn(`玩家 native auth store 身份与 token 不一致：userId=${payload.sub}`);
+      this.logger.warn(`玩家原生认证存储身份与令牌不一致：userId=${payload.sub}`);
     }
     return identity;
   }

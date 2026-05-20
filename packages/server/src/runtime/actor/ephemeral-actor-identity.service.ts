@@ -243,7 +243,7 @@ export class EphemeralActorIdentityService implements OnModuleDestroy {
       }
     }
     if (removed > 0) {
-      this.logger.log(`GC 清理过期 ephemeral identity ${removed} 个，剩余 ${this.registry.size}`);
+      this.logger.log(`垃圾回收清理过期临时身份 ${removed} 个，剩余 ${this.registry.size}`);
     }
   }
 }

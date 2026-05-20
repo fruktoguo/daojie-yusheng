@@ -113,7 +113,7 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
 
     const sharedPool = this.databasePoolProvider?.getPool('mail') ?? null;
     if (!sharedPool) {
-      this.logger.warn('邮件持久化已禁用：DatabasePoolProvider 未提供连接池');
+      this.logger.warn('邮件持久化已禁用：数据库连接池提供者未提供连接池');
       return;
     }
 

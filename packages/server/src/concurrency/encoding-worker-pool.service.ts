@@ -77,7 +77,7 @@ export class EncodingWorkerPoolService {
   /** 初始化 worker pool（由 WorkerPoolModule onModuleInit 调用） */
   initialize(): void {
     if (this.forceSyncMode) {
-      this.logger.log('EncodingWorkerPool 处于强制同步模式，跳过 worker 启动');
+      this.logger.log('编码工作池处于强制同步模式，跳过工作线程启动');
       return;
     }
     this.ensureWorkersStarted();
@@ -93,7 +93,7 @@ export class EncodingWorkerPoolService {
     this.spawnWorkers();
     const activeCount = this.workers.filter((w) => w !== null).length;
     if (activeCount > 0) {
-      this.logger.log(`EncodingWorkerPool 延迟启动：${activeCount} 个 worker`);
+      this.logger.log(`编码工作池延迟启动：${activeCount} 个工作线程`);
       this.metricsService.setActiveWorkers('encoding', activeCount);
     }
   }
@@ -292,19 +292,19 @@ export class EncodingWorkerPoolService {
         this.handleWorkerResult(msg);
       });
       worker.on('error', (err) => {
-        this.logger.error(`编码 worker ${index} 错误：${err.message}`);
+        this.logger.error(`编码工作线程 ${index} 错误：${err.message}`);
         this.handleWorkerDeath(worker, index, workerPath);
       });
       worker.on('exit', (code) => {
         if (!this.shuttingDown && code !== 0) {
-          this.logger.warn(`编码 worker ${index} 异常退出（code=${code}），正在重启...`);
+          this.logger.warn(`编码工作线程 ${index} 异常退出（code=${code}），正在重启...`);
           this.handleWorkerDeath(worker, index, workerPath);
         }
       });
       this.workers[index] = worker;
     } catch (err: unknown) {
       this.logger.error(
-        `编码 worker ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`,
+        `编码工作线程 ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

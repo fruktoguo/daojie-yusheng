@@ -248,7 +248,7 @@ export class WorldPlayerSnapshotService {
       );
       if (projectedSnapshot) {
         const projectedFallbackReason = appendProjectionFallbackReason(fallbackReason);
-        this.logger.debug(`玩家快照来源=主线 persistedSource=native projection=player-domain playerId=${playerId}`);
+        this.logger.debug(`玩家快照来源=主线 持久化来源=原生 投影=玩家分域 playerId=${playerId}`);
         recordAuthTrace({
           type: 'snapshot',
           playerId,
@@ -307,7 +307,7 @@ function buildPersistedSnapshotMissResult(
   fallbackReason: string | null,
   logger: Logger,
 ): LoadPlayerSnapshotResult {
-  logger.debug(`玩家快照来源=miss playerId=${playerId} mainlineOnly=true fallbackReason=${fallbackReason ?? '无'}`);
+  logger.debug(`玩家快照来源=未命中 playerId=${playerId} 仅主线=true 回退原因=${fallbackReason ?? '无'}`);
   recordAuthTrace({
     type: 'snapshot',
     playerId,

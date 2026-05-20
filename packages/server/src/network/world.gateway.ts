@@ -192,7 +192,7 @@ class WorldGateway implements WorldGatewayHelperContext {
             return;
         }
         await this.drainDetachedBinding(binding);
-        this.logger.debug(`Socket 已脱离：${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
+        this.logger.debug(`套接字已脱离：${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
     }
         @SubscribeMessage(C2S.Hello)
         async handleHello(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {

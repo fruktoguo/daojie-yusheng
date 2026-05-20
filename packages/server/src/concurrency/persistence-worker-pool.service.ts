@@ -58,11 +58,11 @@ export class PersistenceWorkerPoolService {
 
   initialize(): void {
     if (this.forceSyncMode) {
-      this.logger.log('PersistenceWorkerPool 处于强制同步模式，跳过 worker 启动');
+      this.logger.log('持久化工作池处于强制同步模式，跳过工作线程启动');
       return;
     }
     this.ensureWorkersStarted();
-    this.logger.log(`PersistenceWorkerPool 已启动：${this.workers.filter(Boolean).length} 个 worker`);
+    this.logger.log(`持久化工作池已启动：${this.workers.filter(Boolean).length} 个工作线程`);
   }
 
   shutdown(): void {
@@ -102,7 +102,7 @@ export class PersistenceWorkerPoolService {
       const worker = new Worker(workerPath);
       worker.on('message', (msg: WorkerTaskResult) => this.handleWorkerResult(msg));
       worker.on('error', (err) => {
-        this.logger.error(`持久化 worker ${index} 错误：${err.message}`);
+        this.logger.error(`持久化工作线程 ${index} 错误：${err.message}`);
         this.handleWorkerDeath(worker, index, workerPath);
       });
       worker.on('exit', (code) => {
@@ -110,7 +110,7 @@ export class PersistenceWorkerPoolService {
       });
       this.workers[index] = worker;
     } catch (err: unknown) {
-      this.logger.error(`持久化 worker ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
+      this.logger.error(`持久化工作线程 ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

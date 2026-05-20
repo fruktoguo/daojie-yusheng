@@ -52,7 +52,7 @@ export class SuggestionPersistenceService {
         }
         const sharedPool = this.databasePoolProvider?.getPool?.('suggestion');
         if (!sharedPool) {
-            this.logger.warn('建议持久化已禁用：DatabasePoolProvider 未提供连接池');
+            this.logger.warn('建议持久化已禁用：数据库连接池提供者未提供连接池');
             return;
         }
         this.pool = sharedPool;

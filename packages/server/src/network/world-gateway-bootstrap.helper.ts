@@ -269,7 +269,7 @@ class WorldGatewayBootstrapHelper {
  */
 
     rejectUnauthenticatedConnect(client) {
-        this.gateway.logger.warn(`已拒绝未登录 socket 连接：socket=${client.id} protocol=${typeof client?.data?.protocol === 'string' ? client.data.protocol : 'unknown'}`);
+        this.gateway.logger.warn(`已拒绝未登录套接字连接：socket=${client.id} protocol=${typeof client?.data?.protocol === 'string' ? client.data.protocol : '未知'}`);
         return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.unauthenticatedDisabledCode, '未登录连接已禁用，请先登录');
     }    
     /**
@@ -453,7 +453,7 @@ class WorldGatewayBootstrapHelper {
     async handleConnection(client) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        this.gateway.logger.debug(`Socket 已连接：${client.id}`);
+        this.gateway.logger.debug(`套接字已连接：${client.id}`);
         if (!this.ensureConnectionProtocol(client)) {
             return;
         }

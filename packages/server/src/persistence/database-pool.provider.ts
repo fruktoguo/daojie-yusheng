@@ -47,7 +47,7 @@ export class DatabasePoolProvider implements OnModuleDestroy {
     const scopeKey = `${group}:${name}`;
     if (!this.registeredScopes.has(scopeKey)) {
       this.registeredScopes.add(scopeKey);
-      this.logger.debug(`DatabasePoolProvider scope 已挂载到 ${group} 池：${name}`);
+      this.logger.debug(`数据库连接池作用域已挂载到 ${group} 池：${name}`);
     }
     const cached = this.pools.get(group);
     if (cached) {

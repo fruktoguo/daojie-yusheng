@@ -1054,7 +1054,7 @@ export class WorldPlayerTokenService {
 
     const payload = this.worldPlayerTokenCodecService.validateAccessToken(token);
     if (!payload) {
-      this.logger.debug('拒绝玩家令牌：access token 无效');
+      this.logger.debug('拒绝玩家令牌：访问令牌无效');
       recordAuthTrace({ type: 'token', outcome: 'reject', reason: 'invalid_access_token' });
       return null;
     }
@@ -1066,7 +1066,7 @@ export class WorldPlayerTokenService {
       return null;
     }
     if (tokenKind === 'refresh') {
-      this.logger.debug('拒绝玩家令牌：不允许使用 refresh token');
+      this.logger.debug('拒绝玩家令牌：不允许使用刷新令牌');
       recordAuthTrace({ type: 'token', outcome: 'reject', reason: 'refresh_token_not_allowed' });
       return null;
     }
