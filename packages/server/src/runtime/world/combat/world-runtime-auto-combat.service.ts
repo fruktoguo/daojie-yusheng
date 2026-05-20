@@ -626,15 +626,18 @@ export class WorldRuntimeAutoCombatService {
                 return trackedTarget;
             }
         }
+        const monsterRelation = resolveCombatRelation(player, { kind: 'monster' });
+        const monsterHostile = isHostileRelation(monsterRelation);
         const candidates = [];
+        let nearestDistance = Number.POSITIVE_INFINITY;
+        let lowestHpRatio = Number.POSITIVE_INFINITY;
+        let highestHpRatio = Number.NEGATIVE_INFINITY;
         for (const monster of view.localMonsters) {
             const liveMonster = instance.getMonster(monster.runtimeId);
             if (!liveMonster?.alive) {
                 continue;
             }
             const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
-            const monsterRelation = resolveCombatRelation(player, { kind: 'monster' });
-            const monsterHostile = isHostileRelation(monsterRelation);
             if (!player.combat.autoBattle && !retaliating) {
                 continue;
             }
@@ -643,41 +646,61 @@ export class WorldRuntimeAutoCombatService {
             }
             const aggroRank = retaliating ? 1 : 0;
             const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
+            const hpRatio = getAutoTargetHpRatio({ hp: monster.hp, maxHp: liveMonster.maxHp });
             candidates.push({
                 kind: 'monster',
                 target: this.normalizeAutoCombatMonsterTarget(monster),
                 distance,
                 hp: monster.hp,
                 maxHp: liveMonster.maxHp,
-                hpRatio: getAutoTargetHpRatio({ hp: monster.hp, maxHp: liveMonster.maxHp }),
+                hpRatio,
                 aggroRank,
                 priority: aggroRank > 0 ? 2 : 0,
                 isBoss: liveMonster.tier === 'demon_king',
                 tieBreaker: monster.runtimeId,
             });
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+            }
+            if (hpRatio < lowestHpRatio) {
+                lowestHpRatio = hpRatio;
+            }
+            if (hpRatio > highestHpRatio) {
+                highestHpRatio = hpRatio;
+            }
         }
         const bestPlayer = this.selectAutoCombatPlayerTarget(player, view);
         if (bestPlayer) {
+            const hpRatio = getAutoTargetHpRatio({ hp: bestPlayer.hp, maxHp: bestPlayer.maxHp ?? bestPlayer.hp });
             candidates.push({
                 kind: 'player',
                 target: bestPlayer,
                 distance: bestPlayer.distance,
                 hp: bestPlayer.hp,
                 maxHp: bestPlayer.maxHp ?? bestPlayer.hp,
-                hpRatio: getAutoTargetHpRatio({ hp: bestPlayer.hp, maxHp: bestPlayer.maxHp ?? bestPlayer.hp }),
+                hpRatio,
                 aggroRank: bestPlayer.priority >= 3 ? 1 : 0,
                 priority: bestPlayer.priority ?? 0,
                 isBoss: false,
                 tieBreaker: bestPlayer.playerId,
             });
+            if (bestPlayer.distance < nearestDistance) {
+                nearestDistance = bestPlayer.distance;
+            }
+            if (hpRatio < lowestHpRatio) {
+                lowestHpRatio = hpRatio;
+            }
+            if (hpRatio > highestHpRatio) {
+                highestHpRatio = hpRatio;
+            }
         }
         if (candidates.length === 0) {
             return null;
         }
         const metrics = {
-            nearestDistance: candidates.reduce((min, candidate) => Math.min(min, candidate.distance), Number.POSITIVE_INFINITY),
-            lowestHpRatio: candidates.reduce((min, candidate) => Math.min(min, candidate.hpRatio), Number.POSITIVE_INFINITY),
-            highestHpRatio: candidates.reduce((max, candidate) => Math.max(max, candidate.hpRatio), Number.NEGATIVE_INFINITY),
+            nearestDistance,
+            lowestHpRatio,
+            highestHpRatio,
         };
         let bestCandidate = null;
         let bestScore = Number.NEGATIVE_INFINITY;
