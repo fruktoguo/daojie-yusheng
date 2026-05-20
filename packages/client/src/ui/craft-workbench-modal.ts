@@ -23,7 +23,7 @@ import {
   ALCHEMY_PREPARATION_TICKS,
   EQUIP_SLOTS,
   MAX_ENHANCE_LEVEL,
-  applyEnhancementToItemStack,
+  applyEquipmentAttributeEffectivenessToItemStack,
   buildAlchemyIngredientCountMap,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyAdjustedSuccessRate,
@@ -206,6 +206,16 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     miningDamageRate: template?.miningDamageRate ?? source.miningDamageRate,
     enhanceLevel: 0,
   };
+}
+
+function getEffectiveEnhancementToolSuccessRate(weapon: ItemStack | null | undefined, playerRealmLv: number | null): number {
+  if (!weapon) {
+    return 0;
+  }
+  const effectiveWeapon = applyEquipmentAttributeEffectivenessToItemStack(weapon, playerRealmLv);
+  return Number.isFinite(effectiveWeapon.enhancementSuccessRate)
+    ? Number(effectiveWeapon.enhancementSuccessRate)
+    : 0;
 }
 
 function getItemNameClass(name: string): string {
@@ -2463,14 +2473,14 @@ export class CraftWorkbenchModal {
     selectedProtection: { ref: EnhancementTargetRef; item: EnhancementItemView } | null,
   ): string {
     const selectedTargetLevel = this.getSelectedEnhancementTargetLevel(selected) ?? selected.nextLevel;
-    const currentPreview = applyEnhancementToItemStack({
+    const currentPreview: ItemStack = {
       ...buildBaseEnhancementPreviewItem(selected.item),
       enhanceLevel: selected.currentLevel,
-    });
-    const nextPreview = applyEnhancementToItemStack({
+    };
+    const nextPreview: ItemStack = {
       ...buildBaseEnhancementPreviewItem(selected.item),
       enhanceLevel: selectedTargetLevel,
-    });
+    };
     const currentLines = describeEquipmentBonuses(currentPreview, this.playerRealmLv);
     const nextLines = describeEquipmentBonuses(nextPreview, this.playerRealmLv);
     const protectionNote = selected.protectionItemId
@@ -2650,7 +2660,7 @@ export class CraftWorkbenchModal {
   }
 
   private renderEnhancementActiveJob(job: EnhancementJobView, selected: SyncedEnhancementCandidateView | null): string {
-    const currentPreview = applyEnhancementToItemStack({
+    const currentPreview: ItemStack = {
       ...buildBaseEnhancementPreviewItem(job.item ?? {
         itemId: job.targetItemId,
         name: job.targetItemName,
@@ -2658,8 +2668,8 @@ export class CraftWorkbenchModal {
         enhanceLevel: job.currentLevel,
       }),
       enhanceLevel: job.currentLevel,
-    });
-    const resultPreview = applyEnhancementToItemStack({
+    };
+    const resultPreview: ItemStack = {
       ...buildBaseEnhancementPreviewItem(job.item ?? {
         itemId: job.targetItemId,
         name: job.targetItemName,
@@ -2667,7 +2677,7 @@ export class CraftWorkbenchModal {
         enhanceLevel: job.currentLevel,
       }),
       enhanceLevel: job.targetLevel,
-    });
+    };
     const currentLines = describeEquipmentBonuses(currentPreview, this.playerRealmLv);
     const resultLines = describeEquipmentBonuses(resultPreview, this.playerRealmLv);
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
@@ -2774,7 +2784,7 @@ export class CraftWorkbenchModal {
     }
     const displayRecord = currentSessionRecord ?? this.getEnhancementDisplayRecord(referenceItem.itemId, record);
     const roleEnhancementLevel = activeJob?.roleEnhancementLevel ?? Math.max(1, this.getEnhancementPanelState()?.enhancementSkillLevel ?? 1);
-    const hammerSuccessRate = this.equipment.weapon?.enhancementSuccessRate ?? 0;
+    const hammerSuccessRate = getEffectiveEnhancementToolSuccessRate(this.equipment.weapon, this.playerRealmLv);
     const levelRecords = new Map((displayRecord?.levels ?? []).map((entry) => [entry.targetLevel, entry] as const));
     const currentSessionRange = currentSessionRecord
       ? this.getEnhancementSessionHistoryDisplayRange(currentSessionRecord, activeJob?.targetLevel)
@@ -3281,7 +3291,7 @@ export class CraftWorkbenchModal {
     const levelMap = new Map(detailRecord.levels.map((entry) => [entry.targetLevel, entry] as const));
     const sessionRange = this.getEnhancementSessionHistoryDisplayRange(detailRecord);
     const roleEnhancementLevel = Math.max(1, this.getEnhancementPanelState()?.enhancementSkillLevel ?? 1);
-    const hammerSuccessRate = this.equipment.weapon?.enhancementSuccessRate ?? 0;
+    const hammerSuccessRate = getEffectiveEnhancementToolSuccessRate(this.equipment.weapon, this.playerRealmLv);
     const rows: string[] = [];
     for (let level = sessionRange.minLevel; level <= sessionRange.maxLevel; level += 1) {
       const current = levelMap.get(level);
