@@ -3,6 +3,7 @@ import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, ITEM_TYPES, MARKET_
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getItemTypeLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
+import { getItemDisplayMeta } from '../item-display';
 import { detailModalHost } from '../detail-modal-host';
 import { t } from '../i18n';
 import { renderTradePriceStepControl, renderTradeQuantityControl } from '../trade-control-renderers';
@@ -250,6 +251,7 @@ export class MarketAuctionView {
   renderAuctionLotRow(lot: AuctionLotView, activeLotId: string, mine = false): string {
     const buyoutText = lot.buyoutPrice === null ? '--' : this.panel.formatMarketUnitPrice(lot.buyoutPrice);
     const remainingSeconds = this.getAuctionRemainingSeconds(lot);
+    const displayName = this.formatAuctionLotDisplayName(lot);
     const mineRibbon = mine
       ? `<span class="auction-lot-ribbon" aria-hidden="true"><span>${escapeHtml(t('auction.ribbon.mine', undefined))}</span></span>`
       : '';
@@ -262,7 +264,7 @@ export class MarketAuctionView {
       >
         ${mineRibbon}
         <span class="auction-lot-item">
-          <strong>${escapeHtml(lot.itemName)}</strong>
+          <strong>${escapeHtml(displayName)}</strong>
           <small>${escapeHtml(lot.typeLabel)} · ${escapeHtml(lot.lotNo)}</small>
         </span>
         <span class="auction-quality-tag">${escapeHtml(mine ? lot.statusLabel : lot.qualityLabel)}</span>
@@ -282,11 +284,12 @@ export class MarketAuctionView {
     const canBid = tab === 'participate' && Boolean(listedEntry) && !buyConflict;
     const canBuyout = canBid && lot.buyoutPrice !== null;
     const ownedCurrency = this.panel.findInventoryItemCountByItemId(update.currencyItemId);
+    const displayName = this.formatAuctionLotDisplayName(lot);
     return `
       <div class="auction-detail-head">
         <div class="auction-item-icon" aria-hidden="true">${escapeHtml(this.getAuctionItemInitial(lot.itemName))}</div>
         <div class="auction-detail-title">
-          <div class="market-item-title ${listedEntry ? 'market-item-title--interactive' : ''}" ${listedEntry ? `data-market-item-tooltip="${escapeHtmlAttr(lot.itemKey)}"` : ''}>${escapeHtml(lot.itemName)}</div>
+          <div class="market-item-title ${listedEntry ? 'market-item-title--interactive' : ''}" ${listedEntry ? `data-market-item-tooltip="${escapeHtmlAttr(lot.itemKey)}"` : ''}>${escapeHtml(displayName)}</div>
           <div class="market-book-subtitle">${escapeHtml(lot.qualityLabel)} · ${escapeHtml(lot.typeLabel)} · ${escapeHtml(lot.statusLabel)}</div>
         </div>
         <div class="auction-countdown">
@@ -340,9 +343,9 @@ export class MarketAuctionView {
     return `
       <div class="market-book-column-title">${escapeHtml(t('auction.bid-history.title', undefined))}</div>
       ${rows.length > 0
-          ? rows.map((level, index) => `
+          ? rows.map((level) => `
             <div class="auction-bid-row">
-              <span>${escapeHtml(level.bidderLabel || t('auction.bidder.anonymous', { index: formatDisplayInteger(index + 1) }))}</span>
+              <span>${escapeHtml(level.bidderLabel || '未知玩家')}</span>
               <strong>${this.panel.formatMarketUnitPrice(level.unitPrice)} ${escapeHtml(currencyName)}</strong>
               <small>${escapeHtml(this.formatAuctionBidTime(level.createdAtMs))}</small>
             </div>
@@ -379,7 +382,7 @@ export class MarketAuctionView {
       ${records.length > 0
         ? records.slice(0, 6).map((record) => `
           <div class="auction-bid-row">
-            <span>${escapeHtml(record.itemName)}</span>
+            <span>${escapeHtml(record.counterpartyLabel ? `${record.itemName} · ${record.side === 'buy' ? '卖家' : '买家'} ${record.counterpartyLabel}` : record.itemName)}</span>
             <strong>${escapeHtml(record.side === 'buy' ? t('market.history.side.buy', undefined) : t('market.history.side.sell', undefined))} ${formatDisplayInteger(record.quantity)} 件</strong>
             <small>${this.panel.formatMarketUnitPrice(record.unitPrice)} ${escapeHtml(currencyName)}</small>
           </div>
@@ -1216,11 +1219,15 @@ export class MarketAuctionView {
   }
 
   getAuctionQualityLabel(item: import('@mud/shared').ItemStack): string {
-    const grade = typeof item.grade === 'string' && item.grade.trim() ? item.grade.trim() : '';
-    if (grade) return grade;
-    const level = Number(item.level);
-    if (Number.isFinite(level) && level > 0) return `${formatDisplayInteger(Math.floor(level))}阶`;
+    const meta = getItemDisplayMeta(item);
+    if (meta.gradeLabel) return meta.gradeLabel;
+    if (meta.levelLabel) return meta.levelLabel;
     return '凡品';
+  }
+
+  formatAuctionLotDisplayName(lot: AuctionLotView): string {
+    const quantity = Math.max(1, Math.floor(Number(lot.remainingQuantity ?? lot.item.count ?? 1) || 1));
+    return quantity > 1 ? `${lot.itemName} x${formatDisplayInteger(quantity)}` : lot.itemName;
   }
 
   getAuctionItemInitial(name: string): string {

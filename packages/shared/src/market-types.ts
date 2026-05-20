@@ -140,6 +140,11 @@ export interface MarketTradeHistoryEntryView {
 
   itemName: string;
   /**
+ * counterpartyLabel：对手方玩家名。
+ */
+
+  counterpartyLabel?: string;
+  /**
  * quantity：quantity相关字段。
  */
 

@@ -1460,6 +1460,7 @@ export class MarketRuntimeService {
                 : { ...entry });
             bids.push({
                 bidderId: playerId,
+                bidderLabel: this.resolveMarketPlayerLabel(playerId),
                 unitPrice,
                 createdAt: now,
                 reservedCost: totalCost,
@@ -1568,13 +1569,13 @@ export class MarketRuntimeService {
         });
     }
     /** 读取拍卖出价记录，按当前观看者做轻量匿名标签。 */
-    getAuctionBidViews(itemKey, viewerId = '') {
+    getAuctionBidViews(itemKey, _viewerId = '') {
         const normalizedItemKey = this.resolveAuctionLotKey(itemKey);
         const bids = this.getSortedAuctionBids(normalizedItemKey);
         return bids
             .slice(0, 6)
-            .map((bid, index) => ({
-            bidderLabel: bid.bidderId === viewerId ? '我的出价' : `匿名修士 ${index + 1}`,
+            .map((bid) => ({
+            bidderLabel: this.normalizePlayerLabelText(bid.bidderLabel) || this.resolveMarketPlayerLabel(bid.bidderId),
             unitPrice: bid.unitPrice,
             createdAtMs: bid.createdAt,
         }));
@@ -1586,6 +1587,7 @@ export class MarketRuntimeService {
         return bids
             .map((entry) => ({
             bidderId: String(entry?.bidderId ?? ''),
+            bidderLabel: this.normalizePlayerLabelText(entry?.bidderLabel),
             unitPrice: this.normalizeUnitPrice(entry?.unitPrice),
             createdAt: Number.isFinite(Number(entry?.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
             reservedCost: Math.max(0, Math.trunc(Number(entry?.reservedCost ?? 0))),
@@ -1701,6 +1703,7 @@ export class MarketRuntimeService {
         const bids = Array.isArray(raw.bids)
             ? raw.bids.map((entry) => ({
                 bidderId: String(entry?.bidderId ?? '').trim(),
+                bidderLabel: this.normalizePlayerLabelText(entry?.bidderLabel),
                 unitPrice: this.normalizeUnitPrice(entry?.unitPrice),
                 createdAt: Number.isFinite(Number(entry?.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
                 reservedCost: Math.max(0, Math.trunc(Number(entry?.reservedCost ?? 0))),
@@ -2843,6 +2846,8 @@ export class MarketRuntimeService {
             source: this.normalizeTradeSource(payload.source),
             buyerId: payload.buyerId,
             sellerId: payload.sellerId,
+            buyerName: this.resolveMarketPlayerLabel(payload.buyerId),
+            sellerName: this.resolveMarketPlayerLabel(payload.sellerId),
             itemId: payload.itemId,
             quantity: payload.quantity,
             unitPrice: payload.unitPrice,
@@ -2864,10 +2869,25 @@ export class MarketRuntimeService {
             source: this.normalizeTradeSource(record.source),
             itemId: record.itemId,
             itemName: this.contentTemplateRepository.getItemName(record.itemId) ?? record.itemId,
+            counterpartyLabel: record.buyerId === playerId
+                ? (this.normalizePlayerLabelText(record.sellerName) || this.resolveMarketPlayerLabel(record.sellerId))
+                : (this.normalizePlayerLabelText(record.buyerName) || this.resolveMarketPlayerLabel(record.buyerId)),
             quantity: record.quantity,
             unitPrice: record.unitPrice,
             createdAt: record.createdAt,
         };
+    }
+    normalizePlayerLabelText(value) {
+        const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
+        return normalized.length > 0 ? normalized : '';
+    }
+    resolveMarketPlayerLabel(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const player = normalizedPlayerId ? this.playerRuntimeService.getPlayer(normalizedPlayerId) : null;
+        return this.normalizePlayerLabelText(player?.displayName)
+            || this.normalizePlayerLabelText(player?.name)
+            || normalizedPlayerId
+            || '未知玩家';
     }
     /** 规范化成交来源，兼容旧历史记录缺少 source 的情况。 */
     normalizeTradeSource(source) {

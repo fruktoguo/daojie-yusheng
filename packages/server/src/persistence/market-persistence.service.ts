@@ -666,6 +666,7 @@ function normalizeAuctionPayload(raw) {
     const bids = Array.isArray(raw.bids)
         ? raw.bids.map((entry) => ({
             bidderId: typeof entry?.bidderId === 'string' ? entry.bidderId.trim() : '',
+            bidderLabel: normalizePlayerLabelText(entry?.bidderLabel),
             unitPrice: normalizeUnitPrice(entry?.unitPrice),
             createdAt: Number.isFinite(Number(entry?.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
             reservedCost: Math.max(0, Math.trunc(Number(entry?.reservedCost ?? 0))),
@@ -718,11 +719,18 @@ function normalizeTradeRecord(raw) {
         source: candidate.source === 'auction' ? 'auction' : 'market',
         buyerId: candidate.buyerId,
         sellerId: candidate.sellerId,
+        buyerName: normalizePlayerLabelText(candidate.buyerName),
+        sellerName: normalizePlayerLabelText(candidate.sellerName),
         itemId: candidate.itemId,
         quantity: Number.isFinite(candidate.quantity) ? Math.max(1, Math.trunc(Number(candidate.quantity ?? 1))) : 1,
         unitPrice: normalizeUnitPrice(candidate.unitPrice),
         createdAt: Number.isFinite(candidate.createdAt) ? Math.trunc(Number(candidate.createdAt ?? Date.now())) : Date.now(),
     };
+}
+
+function normalizePlayerLabelText(value) {
+    const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
+    return normalized.length > 0 ? normalized : null;
 }
 /**
  * normalizeGmTradeRow：把 server_market_trade_history 的 SQL 行规范化成 GM 控制台条目。
