@@ -98,6 +98,18 @@ function synthesizeResult(sql: string, params: readonly unknown[]): RecorderQuer
   if (normalizedSql.includes('select 1 as exists')) {
     return { rows: [], rowCount: 0 };
   }
+  if (
+    normalizedSql.startsWith('select item_instance_id')
+    && normalizedSql.includes('from player_equipment_slot')
+    && normalizedSql.includes('where player_id = $1')
+    && normalizedSql.includes('item_instance_id = any($2::varchar[])')
+  ) {
+    const itemInstanceIds = Array.isArray(params[1]) ? params[1] : [];
+    const rows = itemInstanceIds
+      .filter((itemInstanceId): itemInstanceId is string => typeof itemInstanceId === 'string' && itemInstanceId.trim().length > 0)
+      .map((item_instance_id) => ({ item_instance_id }));
+    return { rows, rowCount: rows.length };
+  }
 
   const inferredCount = inferCountFromParams(params);
   if (normalizedSql.includes('select count(*)::int as row_count')) {

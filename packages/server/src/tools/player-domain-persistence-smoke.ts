@@ -17,6 +17,7 @@ const databaseUrl = resolveServerDatabaseUrl();
 
 async function main(): Promise<void> {
   await assertInventoryAndWalletSnapshotsUseStaleKeyPruning();
+  await assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts();
   await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
   await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
   await assertAssetDomainInvalidEntriesRefuseSilentPrune();
@@ -1527,6 +1528,63 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
   ) {
     throw new Error(`duplicate inventory itemInstanceId coalesce did not merge same-signature rows: ${JSON.stringify(coalescedInventoryRows)}`);
   }
+}
+
+async function assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts(): Promise<void> {
+  const service = new PlayerDomainPersistenceService(
+    null,
+    null,
+    {
+      async submit(_kind, payload, fallback) {
+        if (!fallback) {
+          return { taskId: 'fake-persistence-build', ok: false, errorMessage: 'missing fallback', durationMs: 0 };
+        }
+        return {
+          taskId: 'fake-persistence-build',
+          ok: true,
+          result: await fallback(payload),
+          durationMs: 0,
+        };
+      },
+    } as unknown as ConstructorParameters<typeof PlayerDomainPersistenceService>[2],
+  );
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        throw new Error('equipment projection write plan recorder smoke must not open a real connection');
+      },
+    },
+    enabled: true,
+  });
+
+  const snapshot = buildSnapshot(Date.now());
+  snapshot.equipment = {
+    revision: 9,
+    slots: [
+      {
+        slot: 'weapon',
+        itemInstanceId: '00000000-0000-4000-8000-00000000feed',
+        item: {
+          itemId: 'weapon.recorder_smoke_blade',
+          count: 1,
+          equipSlot: 'weapon',
+          itemInstanceId: '00000000-0000-4000-8000-00000000feed',
+        },
+      },
+    ],
+  };
+
+  await (service as unknown as {
+    resolvePlayerSnapshotProjectionWritePlan: (
+      playerId: string,
+      snapshot: PersistedPlayerSnapshot,
+      domains: Iterable<string>,
+    ) => Promise<{ steps: Array<{ sql: string }> }>;
+  }).resolvePlayerSnapshotProjectionWritePlan(
+    'player:equipment-projection-recorder',
+    snapshot,
+    ['equipment'],
+  );
 }
 
 async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): Promise<void> {
