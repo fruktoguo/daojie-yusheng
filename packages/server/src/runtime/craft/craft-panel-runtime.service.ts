@@ -722,6 +722,9 @@ export class CraftPanelRuntimeService {
         if (!target) {
             return buildCraftMutationResult('强化目标不存在。');
         }
+        if (target.ref.source === 'equipment') {
+            return buildCraftMutationResult('身上装备不能直接强化，请先卸下放入背包。');
+        }
         if ((target as Record<string, unknown>).mismatched) {
             return buildCraftMutationResult('强化目标已变更，请重新选择。');
         }
@@ -1199,6 +1202,10 @@ export class CraftPanelRuntimeService {
             player.forgingJob = null;
         }
         player.enhancementJob = player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null;
+        if (player.enhancementJob?.target?.source === 'equipment') {
+            player.enhancementJob.target = { source: 'inventory', slotIndex: -1 };
+            this.finishEnhancementJob(player, player.enhancementJob.currentLevel ?? 0, 'cancelled');
+        }
     }
     /**
  * buildAlchemyPanelState：构建并返回目标对象。
@@ -1216,6 +1223,7 @@ export class CraftPanelRuntimeService {
  */
 
     buildEnhancementPanelState(player) {
+        this.ensureCraftSkills(player);
         return this.craftPanelEnhancementQueryService.buildEnhancementPanelState(player, this.enhancementConfigs);
     }
     /**
@@ -1234,16 +1242,6 @@ export class CraftPanelRuntimeService {
                 candidates.push(candidate);
             }
         });
-        for (const slot of EQUIP_SLOTS) {
-            const item = this.getEquippedItem(player, slot);
-            if (!item) {
-                continue;
-            }
-            const candidate = this.buildEnhancementCandidate(player, { source: 'equipment', slot }, item);
-            if (candidate) {
-                candidates.push(candidate);
-            }
-        }
         candidates.sort((left, right) => {
             if (left.item.level !== right.item.level) {
                 return left.item.level - right.item.level;

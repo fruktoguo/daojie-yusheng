@@ -4,8 +4,8 @@
  * 不修改玩家运行态，仅做只读投影。
  */
 import { Injectable } from '@nestjs/common';
-import { EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate } from '@mud/shared';
-import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate } from '@mud/shared';
+import type { ContentTemplateRepository } from '../../content/content-template.repository';
 
 /** 强化面板只读查询服务：负责强化面板状态与候选列表构造。 */
 @Injectable()
@@ -94,16 +94,6 @@ export class CraftPanelEnhancementQueryService {
                 candidates.push(candidate);
             }
         });
-        for (const slot of EQUIP_SLOTS) {
-            const item = getEquippedItem(player, slot);
-            if (!item) {
-                continue;
-            }
-            const candidate = this.buildEnhancementCandidate(player, { source: 'equipment', slot }, item, enhancementConfigs);
-            if (candidate) {
-                candidates.push(candidate);
-            }
-        }
         candidates.sort((left, right) => {
             if (left.item.level !== right.item.level) {
                 return left.item.level - right.item.level;
