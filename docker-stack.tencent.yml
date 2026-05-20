@@ -49,6 +49,7 @@ services:
       SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
       SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR: /var/lib/server
       SERVER_OUTBOX_RUNTIME_ENABLED: "1"
+      SERVER_FLUSH_TASK_RUNTIME_MODE: inline
     ports:
       - target: 13001
         published: ${SERVER_PUBLISHED_PORT:-11922}

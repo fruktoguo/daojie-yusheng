@@ -17,6 +17,7 @@ import { type PersistedPlayerSnapshot } from './player-persistence.service';
 import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { FlushDiagnosticsService, type PlayerFlushDiagnostics } from './flush-diagnostics.service';
+import { shouldRunLegacyFlushIntervals } from './flush-task-runtime-mode';
 
 /**
  * 玩家分域刷盘周期。
@@ -146,11 +147,15 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   }
 
   onModuleInit(): void {
-    this.timer = setInterval(() => {
-      void this.flushDirtyPlayers();
-    }, PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS);
-    this.timer.unref();
-    this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
+    if (shouldRunLegacyFlushIntervals()) {
+      this.timer = setInterval(() => {
+        void this.flushDirtyPlayers();
+      }, PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS);
+      this.timer.unref();
+      this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
+    } else {
+      this.logger.log('玩家持久化直接 interval 已停用，由统一 flush task runtime 调度');
+    }
     // 每 5 分钟检查一次离线挂机超时
     this.offlineExpireTimer = setInterval(() => {
       void this.expireOfflineHangingPlayersRuntime();
@@ -425,9 +430,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
         // 关键：lease 失效时显式上报，外层据此跳过 markPersisted，dirty 留给下一轮重试。
         return { persistedDomains, leaseInvalidated: true };
       }
-      // 注：原 Phase 5 worker pool submit 已移除——其输出未接入写库路径，
-      // 只是额外的结构化克隆 + JSON.stringify + 等待 worker 响应，属于无效工作。
-      // 未来如需 worker 卸载 CPU，应让 worker 输出 write plan 直接作为写库输入。
+      // Phase 9：分域服务内部会优先通过 PersistenceWorkerPool 构建 write plan，
+      // 主线程在通过 lease 校验后只负责执行计划内 SQL 并据结果 markPersisted。
       await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
         playerId,
         snapshot,

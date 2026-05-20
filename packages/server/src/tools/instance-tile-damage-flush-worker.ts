@@ -8,10 +8,12 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
 import { InstanceTileDamageFlushWorker } from '../runtime/world/worker/instance-tile-damage-flush.worker';
+import { assertFullAppFlushWorkerAllowed } from './runtime-flush-worker-guard';
 
 const DEFAULT_IDLE_MS = 2_000;
 
 async function main(): Promise<void> {
+  assertFullAppFlushWorkerAllowed('instance-tile-damage-flush-worker');
   const { once, idleMs } = parseArgs(process.argv.slice(2));
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const worker = app.get(InstanceTileDamageFlushWorker);

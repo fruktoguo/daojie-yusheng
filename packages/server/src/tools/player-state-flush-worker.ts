@@ -8,10 +8,12 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from '../app.module';
 import { PlayerStateFlushWorker } from '../runtime/world/worker/player-state-flush.worker';
+import { assertFullAppFlushWorkerAllowed } from './runtime-flush-worker-guard';
 
 const DEFAULT_IDLE_MS = 2_500;
 
 async function main(): Promise<void> {
+  assertFullAppFlushWorkerAllowed('player-state-flush-worker');
   const { once, idleMs } = parseArgs(process.argv.slice(2));
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const worker = app.get(PlayerStateFlushWorker);

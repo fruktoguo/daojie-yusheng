@@ -23,6 +23,8 @@
     "smoke:map-domain-batch-flush": "pnpm compile && node dist/tools/map-domain-batch-flush-smoke.js",
     "smoke:database-pool-isolation": "pnpm compile && node dist/tools/database-pool-isolation-smoke.js",
     "smoke:flush-pool-backpressure": "pnpm compile && node dist/tools/flush-pool-backpressure-smoke.js",
+    "smoke:outbox-dispatcher-backoff": "pnpm compile && node dist/tools/outbox-dispatcher-backoff-smoke.js",
+    "smoke:flush-task-runtime": "pnpm compile && node dist/tools/flush-task-runtime-smoke.js",
     "smoke:worker-backlog-alert": "pnpm compile && node dist/tools/worker-backlog-alert-smoke.js",
     "smoke:gm-world-instance": "pnpm compile && node dist/tools/gm-world-instance-smoke.js",
     "smoke:gm-world-runtime-query": "pnpm compile && node dist/tools/gm-world-runtime-query-smoke.js",

@@ -9,6 +9,7 @@ import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { readTrimmedEnv } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
+import { shouldRunLegacyFlushIntervals } from './flush-task-runtime-mode';
 
 /**
  * 地图分域刷盘周期。
@@ -149,6 +150,10 @@ export class MapPersistenceFlushService {
  */
 
     onModuleInit() {
+        if (!shouldRunLegacyFlushIntervals()) {
+            this.logger.log('地图持久化直接 interval 已停用，由统一 flush task runtime 调度');
+            return;
+        }
         this.timer = setInterval(() => {
             void this.flushDirtyInstances();
         }, MAP_PERSISTENCE_FLUSH_INTERVAL_MS);
