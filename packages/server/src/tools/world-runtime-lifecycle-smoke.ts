@@ -480,9 +480,107 @@ async function testRestoreAndRebuild() {
     ]);
 }
 
+async function testRestoreOfflineHangingPlayersCanCreateMissingTowerInstance() {
+    const service = new WorldRuntimeLifecycleService();
+    const log = [];
+    const instances = new Map();
+    const towerInstance = {
+        meta: {
+            instanceId: 'tower:tongtian:layer:3',
+            runtimeStatus: 'running',
+            assignedNodeId: null,
+            leaseToken: null,
+            leaseExpireAt: null,
+        },
+        template: { id: 'tongtian_tower_layer_3' },
+        connectPlayer(request) {
+            log.push(['connectPlayer', request]);
+            return { sessionId: request.sessionId };
+        },
+    };
+    await service.restoreOfflineHangingPlayers({
+        playerRuntimeService: {
+            playerDomainPersistenceService: {
+                isEnabled() {
+                    return true;
+                },
+                async expireOfflineHangingPlayers() {
+                    log.push(['expireOfflineHangingPlayers']);
+                    return 0;
+                },
+                async listOfflineHangingPlayerPositions() {
+                    log.push(['listOfflineHangingPlayerPositions']);
+                    return [{ playerId: 'player:offline', instanceId: 'tower:tongtian:layer:3', x: 8, y: 9 }];
+                },
+            },
+            async restoreOfflineHangingPlayer(playerId) {
+                log.push(['restoreOfflineHangingPlayer', playerId]);
+                return {
+                    playerId,
+                    instanceId: 'tower:tongtian:layer:3',
+                    templateId: 'tongtian_tower_layer_3',
+                };
+            },
+        },
+        getInstanceRuntime(instanceId) {
+            return instances.get(instanceId) ?? null;
+        },
+        worldRuntimeTongtianTowerService: {
+            ensureLayerInstanceForRestore(input) {
+                log.push(['ensureLayerInstanceForRestore', input]);
+                instances.set(towerInstance.meta.instanceId, towerInstance);
+                return towerInstance;
+            },
+        },
+        syncInstanceLease(instanceId, options) {
+            log.push(['syncInstanceLease', instanceId, options]);
+            if (instanceId === towerInstance.meta.instanceId) {
+                towerInstance.meta.assignedNodeId = 'node:local';
+                towerInstance.meta.leaseToken = 'lease:local';
+                towerInstance.meta.leaseExpireAt = new Date(Date.now() + 60_000).toISOString();
+            }
+            return Promise.resolve({ ok: true });
+        },
+        worldRuntimePlayerLocationService: {
+            setPlayerLocation(playerId, location) {
+                log.push(['setPlayerLocation', playerId, location]);
+            },
+        },
+        instanceCatalogService: {
+            isEnabled() {
+                return true;
+            },
+        },
+        nodeRegistryService: {
+            getNodeId() {
+                return 'node:local';
+            },
+        },
+        logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+    });
+    assert.ok(instances.has('tower:tongtian:layer:3'));
+    assert.deepEqual(log.slice(0, 5), [
+        ['expireOfflineHangingPlayers'],
+        ['listOfflineHangingPlayerPositions'],
+        ['ensureLayerInstanceForRestore', { instanceId: 'tower:tongtian:layer:3', templateId: '' }],
+        ['syncInstanceLease', 'tower:tongtian:layer:3', { allowForceReclaim: true }],
+        ['restoreOfflineHangingPlayer', 'player:offline'],
+    ]);
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'connectPlayer'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'setPlayerLocation' && entry[1] === 'player:offline' && entry[2]?.instanceId === 'tower:tongtian:layer:3'));
+}
+
 async function main() {
     testBootstrapPublicInstances();
     await testRestoreAndRebuild();
+    await testRestoreOfflineHangingPlayersCanCreateMissingTowerInstance();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-lifecycle' }, null, 2));
 }
 

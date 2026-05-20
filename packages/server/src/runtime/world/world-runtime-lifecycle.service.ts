@@ -8,6 +8,7 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 const {
     buildPublicInstanceId,
     buildRealInstanceId,
+    parseRuntimeInstanceDescriptor,
 } = world_runtime_normalization_helpers_1;
 
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -309,10 +310,24 @@ export class WorldRuntimeLifecycleService {
             const batch = positions.slice(i, i + BATCH_SIZE);
             await Promise.all(batch.map(async (entry) => {
                 try {
-                    const instance = deps.getInstanceRuntime(entry.instanceId);
+                    const instanceWasMissing = !deps.getInstanceRuntime(entry.instanceId);
+                    let instance = deps.getInstanceRuntime(entry.instanceId);
+                    if (!instance) {
+                        instance = ensureOfflineHangingRestoreInstance(entry, deps);
+                    }
                     if (!instance) {
                         skipped++;
                         return;
+                    }
+                    if (instanceWasMissing && typeof deps.syncInstanceLease === 'function') {
+                        try {
+                            await deps.syncInstanceLease(instance.meta.instanceId, { allowForceReclaim: true });
+                            instance = deps.getInstanceRuntime(entry.instanceId) ?? instance;
+                        } catch (error) {
+                            skipped++;
+                            deps.logger?.warn?.(`离线挂机实例租约同步失败：${entry.instanceId} ${error instanceof Error ? error.message : String(error)}`);
+                            return;
+                        }
                     }
                     if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
                         skipped++;
@@ -327,14 +342,15 @@ export class WorldRuntimeLifecycleService {
                         skipped++;
                         return;
                     }
-                    instance.connectPlayer({
+                    const connectedInstance = deps.getInstanceRuntime(entry.instanceId) ?? instance;
+                    connectedInstance.connectPlayer({
                         playerId: entry.playerId,
                         sessionId: null,
                         preferredX: entry.x,
                         preferredY: entry.y,
                     });
                     deps.worldRuntimePlayerLocationService.setPlayerLocation(entry.playerId, {
-                        instanceId: entry.instanceId,
+                        instanceId: connectedInstance.meta.instanceId,
                     });
                     restored++;
                 } catch (error) {
@@ -350,6 +366,33 @@ export class WorldRuntimeLifecycleService {
         }
     }
 };
+
+function ensureOfflineHangingRestoreInstance(entry, deps) {
+    const instanceId = typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '';
+    if (!instanceId) {
+        return null;
+    }
+    const descriptor = parseRuntimeInstanceDescriptor(instanceId);
+    if (descriptor?.templateId?.startsWith('sect_domain:') && typeof deps.worldRuntimeSectService?.ensureSectRuntimeInstanceByTemplateId === 'function') {
+        const sectInstance = deps.worldRuntimeSectService.ensureSectRuntimeInstanceByTemplateId(descriptor.templateId, deps);
+        if (sectInstance) {
+            return sectInstance;
+        }
+    }
+    if (typeof deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore === 'function') {
+        const towerInstance = deps.worldRuntimeTongtianTowerService.ensureLayerInstanceForRestore({
+            instanceId,
+            templateId: descriptor?.templateId ?? '',
+        }, deps);
+        if (towerInstance) {
+            return towerInstance;
+        }
+    }
+    if (descriptor?.templateId && typeof deps.getOrCreateDefaultLineInstance === 'function' && descriptor.defaultEntry === true) {
+        return deps.getOrCreateDefaultLineInstance(descriptor.templateId, descriptor.linePreset === 'real' ? 'real' : 'peaceful');
+    }
+    return null;
+}
 
 function isLocalLeaseReadyForOfflineRestore(deps, instance) {
     if (!deps.instanceCatalogService?.isEnabled?.()) {
