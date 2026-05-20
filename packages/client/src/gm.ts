@@ -5611,7 +5611,7 @@ function getSearchableItemDisplayValue(itemId: string): string {
     return '';
   }
   const entry = gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
-  return entry ? `${entry.name} · ${itemId}` : '未知物品';
+  return entry ? entry.name : '未知物品';
 }
 
 /** getSearchableItemOptions：读取Searchable物品选项。 */
