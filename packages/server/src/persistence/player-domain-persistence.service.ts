@@ -3884,13 +3884,16 @@ async function replacePlayerInventoryItems(
       raw_payload: persistedPayload,
       locked_by: lockedBy,
     };
+    const persistedRowSignature = createPersistedInventoryRowSignature(itemId, persistedPayload);
     const existingRow = rowsByInstanceId.get(itemInstanceId);
+    const existingRowSignature = existingRow
+      ? createPersistedInventoryRowSignature(existingRow.item_id, existingRow.raw_payload)
+      : null;
     if (existingRow) {
       if (
         existingRow.locked_by == null
         && lockedBy == null
-        && createPersistedInventoryRowSignature(existingRow.item_id, existingRow.raw_payload)
-          === createPersistedInventoryRowSignature(itemId, persistedPayload)
+        && existingRowSignature === persistedRowSignature
       ) {
         existingRow.count += count;
         continue;
@@ -3899,7 +3902,7 @@ async function replacePlayerInventoryItems(
         existingRow.slot_index !== slotIndex
         || existingRow.item_id !== itemId
         || existingRow.locked_by !== lockedBy
-        || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(persistedPayload)
+        || existingRowSignature !== persistedRowSignature
       ) {
         if (lockedBy == null) {
           itemInstanceId = randomUUID();
