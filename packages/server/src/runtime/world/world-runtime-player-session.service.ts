@@ -282,6 +282,18 @@ export class WorldRuntimePlayerSessionService {
       }
     }
 
+    const towerTemplateId = resolveTowerTemplateIdFromSessionRequest(input, deps);
+    const towerInstance = deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore?.(
+      {
+        instanceId: input.requestedInstanceId,
+        templateId: towerTemplateId,
+      },
+      deps,
+    );
+    if (towerInstance) {
+      return towerInstance;
+    }
+
     const requestedInstance = input.requestedInstanceId
       ? deps.getInstanceRuntime(input.requestedInstanceId)
       : null;
@@ -294,15 +306,15 @@ export class WorldRuntimePlayerSessionService {
       return requestedInstance;
     }
 
-    const towerInstance = deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore?.(
+    const missingTowerInstance = deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore?.(
       {
         instanceId: input.requestedInstanceId,
         templateId: input.requestedMapId,
       },
       deps,
     );
-    if (towerInstance) {
-      return towerInstance;
+    if (missingTowerInstance) {
+      return missingTowerInstance;
     }
 
     const publicMapIdFromInstance = resolvePublicMapIdFromInstanceId(
@@ -355,6 +367,21 @@ function resolvePublicMapIdFromInstanceId(
     return '';
   }
   return templateId;
+}
+
+function resolveTowerTemplateIdFromSessionRequest(
+  input: ResolveTargetInstanceInput,
+  deps: Pick<WorldRuntimePlayerSessionDeps, 'templateRepository'>,
+): string {
+  if (input.requestedMapId?.startsWith('tongtian_tower_layer_')) {
+    return input.requestedMapId;
+  }
+  const descriptor = parseRuntimeInstanceDescriptor(input.requestedInstanceId);
+  const templateId = descriptor?.templateId;
+  if (templateId?.startsWith('tongtian_tower_layer_') && deps.templateRepository.has(templateId)) {
+    return templateId;
+  }
+  return '';
 }
 
 function resolveSectTemplateIdFromSessionRequest(

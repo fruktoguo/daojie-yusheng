@@ -183,6 +183,29 @@ async function main(): Promise<void> {
   assert.equal(layer2.listMonsters().length, 5, '恢复进入通天塔层后也要立即按当前玩家刷新');
   assertTowerMonsterMix(layer2, 4, 1);
 
+  tower.restoreCatalogTowerTemplate({ instance_id: 'real:tongtian_tower_layer_30', template_id: 'tongtian_tower_layer_30' }, deps);
+  deps.createInstance({
+    instanceId: 'real:tongtian_tower_layer_30',
+    templateId: 'tongtian_tower_layer_30',
+    kind: 'public',
+    persistent: true,
+    linePreset: 'real',
+    lineIndex: 1,
+    displayName: '通天塔 第 30 层·真实',
+  });
+  const wrongRealTowerView = restoreSession.connectPlayer({
+    playerId: 'player:wrong-real-tower',
+    sessionId: 'session:wrong-real-tower',
+    instanceId: 'real:tongtian_tower_layer_30',
+    preferredX: 10,
+    preferredY: 10,
+  }, deps) as any;
+  assert.equal(
+    wrongRealTowerView.instance.instanceId,
+    'tower:tongtian:layer:30',
+    '已有真实线通天塔普通实例时，重连也必须强制回到通天塔专用实例',
+  );
+
   const cachedTowerLoaded = await tower.primeLayerInstanceCache(
     { instance_id: 'tower:tongtian:layer:7', template_id: 'tongtian_tower_layer_7' },
     deps,

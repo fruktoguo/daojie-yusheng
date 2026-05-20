@@ -83,7 +83,7 @@ export class WorldRuntimeTongtianTowerService {
     if (templateId && templateId !== resolvedTemplateId) {
       return false;
     }
-    const instance = this.createDetachedLayerInstance(layer, instanceId || this.getTowerInstanceId(layer), deps);
+    const instance = this.createDetachedLayerInstance(layer, this.getTowerInstanceId(layer), deps);
     try {
       if (typeof deps.hydratePersistentInstanceSnapshot === 'function') {
         await deps.hydratePersistentInstanceSnapshot(instance.meta.instanceId, instance);

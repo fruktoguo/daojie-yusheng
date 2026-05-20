@@ -104,6 +104,10 @@ export class WorldRuntimeWorldAccessService {
     getOrCreatePublicInstance(templateId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const towerInstance = resolveTongtianTowerInstance(templateId, deps);
+        if (towerInstance) {
+            return towerInstance;
+        }
         if (!deps.templateRepository.has(templateId)) {
             throw new NotFoundException(`地图模板不存在：${templateId}`);
         }
@@ -127,6 +131,10 @@ export class WorldRuntimeWorldAccessService {
  */
 
     getOrCreateDefaultLineInstance(templateId, linePreset, deps) {
+        const towerInstance = resolveTongtianTowerInstance(templateId, deps);
+        if (towerInstance) {
+            return towerInstance;
+        }
         const normalizedPreset = normalizeRuntimeInstanceLinePreset(linePreset);
         if (normalizedPreset !== 'real') {
             return this.getOrCreatePublicInstance(templateId, deps);
@@ -264,3 +272,13 @@ export class WorldRuntimeWorldAccessService {
         return view;
     }
 };
+
+function resolveTongtianTowerInstance(templateId, deps) {
+    if (typeof templateId !== 'string' || !templateId.startsWith('tongtian_tower_layer_')) {
+        return null;
+    }
+    if (typeof deps.worldRuntimeTongtianTowerService?.ensureLayerInstanceForRestore !== 'function') {
+        return null;
+    }
+    return deps.worldRuntimeTongtianTowerService.ensureLayerInstanceForRestore({ templateId }, deps);
+}
