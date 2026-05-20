@@ -230,14 +230,14 @@ function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] 
     .map(([entryKey, entryValue]) => {
       const numericKey = entryKey as NumericCardKey;
       const total = entryValue * totalValue;
-      return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatSimplePercent(total)}`;
+      return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? '未知统计'} +${formatSimplePercent(total)}`;
     });
   const flatParts = Object.entries(weights)
     .filter(([entryKey, entryValue]) => entryKey !== 'elementDamageBonus' && entryKey !== 'elementDamageReduce' && typeof entryValue === 'number' && entryValue !== 0)
     .map(([entryKey, entryValue]) => {
       const numericKey = entryKey as NumericCardKey;
       const total = entryValue * totalValue;
-      return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatNumericTooltipValue(numericKey, total)}`;
+      return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? '未知统计'} +${formatNumericTooltipValue(numericKey, total)}`;
     });
   return [...percentParts, ...flatParts];
 }

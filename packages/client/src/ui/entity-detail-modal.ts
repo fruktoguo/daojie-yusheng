@@ -19,6 +19,7 @@ import { t } from './i18n';
 
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
 const UNKNOWN_PORTAL_TARGET_MAP_NAME = '未知地域';
+const UNKNOWN_MONSTER_TIER_LABEL = '未知等阶';
 type LeaderboardTrackedLocation = S2C_LeaderboardPlayerLocations['entries'][number];
 
 let trackedLeaderboardLocations = new Map<string, LeaderboardTrackedLocation>();
@@ -37,6 +38,10 @@ function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
   root.replaceChildren(template.content.cloneNode(true));
+}
+
+function getMonsterTierLabel(tier: S2C_MonsterDetail['tier']): string {
+  return MONSTER_TIER_LABELS[tier] ?? UNKNOWN_MONSTER_TIER_LABEL;
 }
 
 /** formatPortalTrigger：格式化传送点Trigger。 */
@@ -303,14 +308,14 @@ export class EntityDetailModal {
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">${escapeHtml(monster.name)}</div>
-        <div class="ui-title-block-subtitle">${t('entity-detail.monster.subtitle', { tier: escapeHtml(MONSTER_TIER_LABELS[monster.tier] ?? monster.tier), level: monster.level })}</div>
+        <div class="ui-title-block-subtitle">${t('entity-detail.monster.subtitle', { tier: escapeHtml(getMonsterTierLabel(monster.tier)), level: monster.level })}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.position', undefined)}</strong><span>(${monster.x}, ${monster.y})</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.life', undefined)}</strong><span>${monster.hp}/${monster.maxHp}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.label.qi', undefined)}</strong><span>${monster.qi}/${monster.maxQi}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.level', undefined)}</strong><span>${monster.level}</span></div>
-        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.tier', undefined)}</strong><span>${escapeHtml(MONSTER_TIER_LABELS[monster.tier] ?? monster.tier)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.tier', undefined)}</strong><span>${escapeHtml(getMonsterTierLabel(monster.tier))}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.field.state', undefined)}</strong><span>${monster.alive ? t('entity-detail.monster.alive', undefined) : t('entity-detail.monster.respawning', undefined)}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.monster.field.respawn', undefined)}</strong><span>${escapeHtml(monster.alive ? t('entity-detail.respawn.none', undefined) : formatRespawnTicks(monster.respawnTicks))}</span></div>
       </div>
