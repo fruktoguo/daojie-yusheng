@@ -27,6 +27,7 @@ export class EncodingWorkerPoolService {
   private readonly forceSyncMode = isForceSyncMode();
   private workers: Worker[] = [];
   private shuttingDown = false;
+  private activeWorkerCount = 0;
   private roundRobinIndex = 0;
   private config: WorkerPoolConfig;
   private pendingTasks = new Map<string, {
@@ -63,11 +64,11 @@ export class EncodingWorkerPoolService {
       return this.executeFallback(taskId, kind, payload, fallback);
     }
 
-    if (!this.workers.some((w) => w !== null)) {
+    if (this.activeWorkerCount === 0) {
       this.ensureWorkersStarted();
     }
 
-    if (!this.workers.some((w) => w !== null)) {
+    if (this.activeWorkerCount === 0) {
       return this.executeFallback(taskId, kind, payload, fallback);
     }
 
@@ -82,19 +83,18 @@ export class EncodingWorkerPoolService {
     }
     this.ensureWorkersStarted();
     this.logger.log(
-      `EncodingWorkerPool 已启动：${this.workers.filter((w) => w !== null).length} 个 worker`,
+      `EncodingWorkerPool 已启动：${this.activeWorkerCount} 个 worker`,
     );
   }
 
   /** 延迟启动 worker。 */
   private ensureWorkersStarted(): void {
     if (this.forceSyncMode || this.shuttingDown) return;
-    if (this.workers.some((w) => w !== null)) return;
+    if (this.activeWorkerCount > 0) return;
     this.spawnWorkers();
-    const activeCount = this.workers.filter((w) => w !== null).length;
-    if (activeCount > 0) {
-      this.logger.log(`编码工作池延迟启动：${activeCount} 个工作线程`);
-      this.metricsService.setActiveWorkers('encoding', activeCount);
+    if (this.activeWorkerCount > 0) {
+      this.logger.log(`编码工作池延迟启动：${this.activeWorkerCount} 个工作线程`);
+      this.metricsService.setActiveWorkers('encoding', this.activeWorkerCount);
     }
   }
 
@@ -110,6 +110,7 @@ export class EncodingWorkerPoolService {
       worker.terminate();
     }
     this.workers = [];
+    this.activeWorkerCount = 0;
     for (const [taskId, pending] of this.pendingTasks) {
       clearTimeout(pending.timer);
       pending.resolve({
@@ -125,7 +126,7 @@ export class EncodingWorkerPoolService {
 
   /** 是否启用 */
   isEnabled(): boolean {
-    return !this.forceSyncMode && this.workers.some((worker) => worker !== null);
+    return !this.forceSyncMode && this.activeWorkerCount > 0;
   }
 
   /** 获取指标 */
@@ -302,6 +303,8 @@ export class EncodingWorkerPoolService {
         }
       });
       this.workers[index] = worker;
+      this.activeWorkerCount += 1;
+      this.metricsService.setActiveWorkers('encoding', this.activeWorkerCount);
     } catch (err: unknown) {
       this.logger.error(
         `编码工作线程 ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`,
@@ -335,6 +338,8 @@ export class EncodingWorkerPoolService {
     // 标记该 worker 为 null（防止新任务分配到它）
     if (this.workers[index] === deadWorker) {
       this.workers[index] = null as unknown as Worker;
+      this.activeWorkerCount = Math.max(0, this.activeWorkerCount - 1);
+      this.metricsService.setActiveWorkers('encoding', this.activeWorkerCount);
     }
     // 只清理分配到该 worker 的 pending 任务
     for (const [taskId, pending] of this.pendingTasks) {
