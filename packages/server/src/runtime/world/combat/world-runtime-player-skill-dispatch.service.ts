@@ -17,6 +17,9 @@ import * as world_runtime_observation_helpers_1 from '../query/world-runtime.obs
 
 type AnyRecord = Record<string, any>;
 
+const BASE_CHANT_TICK_DURATION_MS = 1000;
+const CHANT_LABEL_EXTRA_DURATION_MS = 240;
+
 const { findPlayerSkill, getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const { createTileCombatAttributes, createTileCombatNumericStats, createTileCombatRatioDivisors } = world_runtime_observation_helpers_1;
@@ -99,6 +102,16 @@ function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
         damageKind: result?.damageKind ?? fallbackDamageKind,
         element: result?.damageElement ?? fallbackElement,
     };
+}
+function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
+    const normalizedTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
+    if (normalizedTicks <= 0) {
+        return 0;
+    }
+    const normalizedSpeed = Number.isFinite(Number(tickSpeed)) && Number(tickSpeed) > 0
+        ? Number(tickSpeed)
+        : 1;
+    return Math.max(1, Math.round((normalizedTicks * BASE_CHANT_TICK_DURATION_MS) / normalizedSpeed));
 }
 function normalizeAppliedDamage(value, fallback = 0) {
     if (Number.isFinite(Number(value))) {
@@ -755,8 +768,8 @@ export class WorldRuntimePlayerSkillDispatchService {
             configRevision: skill.version ?? skill.revision,
             skipProgressThisTick: attacker.combat?.autoBattle !== true,
         });
-        const skipTick = attacker.combat?.autoBattle !== true;
-        const durationMs = (windupTicks + (skipTick ? 1 : 0)) * 1000;
+        const instance = deps.getInstanceRuntime?.(attacker.instanceId) ?? null;
+        const durationMs = resolveTickScaledChantDurationMs(windupTicks, instance?.tickSpeed);
         emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
@@ -766,7 +779,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 text: skill.name,
                 options: {
                     actionStyle: 'chant',
-                    durationMs: durationMs + 240,
+                    durationMs: durationMs + CHANT_LABEL_EXTRA_DURATION_MS,
                 },
             },
             combatEffects: [{

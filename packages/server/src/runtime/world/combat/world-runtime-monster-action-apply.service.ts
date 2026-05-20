@@ -18,6 +18,20 @@ const {
     formatCombatActionClause,
     formatCombatResolutionOutcome,
 } = world_runtime_observation_helpers_1;
+const BASE_CHANT_TICK_DURATION_MS = 1000;
+const CHANT_LABEL_EXTRA_DURATION_MS = 240;
+
+function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
+    const normalizedTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
+    if (normalizedTicks <= 0) {
+        return 0;
+    }
+    const normalizedSpeed = Number.isFinite(Number(tickSpeed)) && Number(tickSpeed) > 0
+        ? Number(tickSpeed)
+        : 1;
+    return Math.max(1, Math.round((normalizedTicks * BASE_CHANT_TICK_DURATION_MS) / normalizedSpeed));
+}
+
 function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
     const firstRoll = Array.isArray(result?.damageRolls)
         ? result.damageRolls.find((entry) => entry && typeof entry === 'object')
@@ -143,7 +157,10 @@ export class WorldRuntimeMonsterActionApplyService {
             this.recordMonsterActionReject(deps, action, actionPlan.reason, actionPlan.details ?? {}, { severity: actionPlan.severity ?? 'warn' });
             return;
         }
-        const durationMs = actionPlan.durationMs;
+        const rawDurationMs = actionPlan.durationMs;
+        const durationMs = Number.isFinite(Number(action.windupTicks))
+            ? resolveTickScaledChantDurationMs(Math.max(0, Math.trunc(Number(action.windupTicks) || 0)), instance?.tickSpeed)
+            : rawDurationMs;
         const warningCells = actionPlan.warningCells;
         emitCombatPresentation({
             deps,
@@ -155,7 +172,7 @@ export class WorldRuntimeMonsterActionApplyService {
                 text: skill.name,
                 options: {
                     actionStyle: 'chant',
-                    durationMs: durationMs + 240,
+                    durationMs: durationMs + CHANT_LABEL_EXTRA_DURATION_MS,
                 },
             },
             combatEffects: warningCells.length > 0 ? [{

@@ -176,9 +176,19 @@ async function run() {
     version: 9,
   }, { x: 1, y: 0 }, 'monster:target', {
     resolveCurrentTickForPlayerId: () => 40,
+    getInstanceRuntime: () => ({ tickSpeed: 2 }),
     worldRuntimeNavigationService: { clearNavigationIntent: () => {} },
-    pushActionLabelEffect: () => {},
-    pushCombatEffect: () => {},
+    pushActionLabelEffect: (instanceId, x, y, text, options) => {
+      assert.equal(instanceId, beginCastAttacker.instanceId);
+      assert.equal(text, '起手吟唱术');
+      assert.equal(options.actionStyle, 'chant');
+      assert.equal(options.durationMs, 1240);
+    },
+    pushCombatEffect: (instanceId, effect) => {
+      assert.equal(instanceId, beginCastAttacker.instanceId);
+      assert.equal(effect.type, 'warning_zone');
+      assert.equal(effect.durationMs, 1000);
+    },
   });
   assert.equal(beginCastAttacker.combat.pendingSkillCast.kind, 'combat_pending_cast');
   assert.equal(beginCastAttacker.combat.pendingSkillCast.actionId, 'skill:begin-chant');
@@ -1981,6 +1991,45 @@ async function run() {
     CombatRejectReason.MissingSkill,
   ]);
   assert.equal(chantDiagnostics.every((entry) => entry.phase === CombatActionPhase.ChantStart), true);
+
+  const acceleratedMonsterEffects = [];
+  monsterApply.applyMonsterSkillChant({
+    kind: 'skill_chant',
+    instanceId: 'instance:test',
+    runtimeId: 'monster:1',
+    skillId: 'monster:chant',
+    durationMs: 1000,
+    windupTicks: 1,
+    warningCells: [{ x: 12, y: 10 }],
+  }, {
+    getInstanceRuntime: () => ({
+      tickSpeed: 2,
+      getMonster: () => ({
+        runtimeId: 'monster:1',
+        alive: true,
+        x: 10,
+        y: 10,
+        skills: [{
+          id: 'monster:chant',
+          name: '妖兽吟唱术',
+          effects: [{ type: 'damage' }],
+        }],
+      }),
+    }),
+    pushActionLabelEffect: (instanceId, x, y, text, options) => {
+      acceleratedMonsterEffects.push({ type: 'label', instanceId, x, y, text, options });
+    },
+    pushCombatEffect: (instanceId, effect) => {
+      acceleratedMonsterEffects.push({ type: 'effect', instanceId, effect });
+    },
+  });
+  assert.equal(acceleratedMonsterEffects.length, 2);
+  assert.equal(acceleratedMonsterEffects[0].type, 'label');
+  assert.equal(acceleratedMonsterEffects[0].options.actionStyle, 'chant');
+  assert.equal(acceleratedMonsterEffects[0].options.durationMs, 740);
+  assert.equal(acceleratedMonsterEffects[1].type, 'effect');
+  assert.equal(acceleratedMonsterEffects[1].effect.type, 'warning_zone');
+  assert.equal(acceleratedMonsterEffects[1].effect.durationMs, 500);
 
   const cancelDiagnostics = [];
   monsterApply.applyMonsterAction({

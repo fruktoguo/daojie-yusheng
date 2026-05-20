@@ -19,6 +19,7 @@ const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DE
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
 const TILE_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(TILE_AURA_HALF_LIFE_RATE_SCALED) || 1));
 const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
+const BASE_CHANT_TICK_DURATION_MS = 1000;
 
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
@@ -38,6 +39,17 @@ const HUANLING_XINGLUO_CANPAN_SKILL_ID = 'skill.huanling_xingluo_canpan';
 const HUANLING_RONGHE_GUANMAI_SKILL_ID = 'skill.huanling_ronghe_guanmai';
 const HUANLING_LIEQI_ZHIXIAN_SKILL_ID = 'skill.huanling_lieqi_zhixian';
 const HUANLING_SUOGONG_NEIHUAN_SKILL_ID = 'skill.huanling_suogong_neihuan';
+
+function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
+    const normalizedTicks = Math.max(0, Math.trunc(Number(ticks) || 0));
+    if (normalizedTicks <= 0) {
+        return 0;
+    }
+    const normalizedSpeed = Number.isFinite(Number(tickSpeed)) && Number(tickSpeed) > 0
+        ? Number(tickSpeed)
+        : 1;
+    return Math.max(1, Math.round((normalizedTicks * BASE_CHANT_TICK_DURATION_MS) / normalizedSpeed));
+}
 const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
 const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
 const HUANLING_CANPO_ZHANG_SKILL_ID = 'skill.huanling_canpo_zhang';
@@ -5240,7 +5252,8 @@ class MapInstanceRuntime {
                             warningColor: monster.pendingCast.warningColor,
                             warningOriginX: warningOrigin.x,
                             warningOriginY: warningOrigin.y,
-                            durationMs: windupTicks * 1000,
+                            windupTicks,
+                            durationMs: resolveTickScaledChantDurationMs(windupTicks, this.tickSpeed),
                         });
                         continue;
                     }
