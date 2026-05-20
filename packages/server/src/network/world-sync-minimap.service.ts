@@ -69,16 +69,16 @@ function buildLegacyTileRows(template) {
     const width = Math.max(0, Math.trunc(Number(template.width) || 0));
     const height = Math.max(0, Math.trunc(Number(template.height) || 0));
     for (let y = 0; y < height; y += 1) {
-        let row = '';
+        const rowChars = [];
         for (let x = 0; x < width; x += 1) {
-            row += getMapCharFromTileType(composeTileTypeFromLayers(
+            rowChars.push(getMapCharFromTileType(composeTileTypeFromLayers(
                 template.terrainRows?.[y]?.[x],
                 template.surfaceRows?.[y]?.[x] ?? null,
                 template.structureRows?.[y]?.[x] ?? null,
                 template.interactableRows?.[y]?.[x] ?? [],
-            ));
+            )));
         }
-        rows.push(row);
+        rows.push(rowChars.join(''));
     }
     return rows;
 }
@@ -138,7 +138,9 @@ function buildMinimapMarkers(template, resolveMapName: (mapId: string) => string
             detail: resolveMapName(portal.targetMapId),
         });
     }
-    markers.sort((left, right) => left.y - right.y || left.x - right.x || compareStableStrings(left.id, right.id));
+    if (markers.length > 1) {
+        markers.sort((left, right) => left.y - right.y || left.x - right.x || compareStableStrings(left.id, right.id));
+    }
     return markers;
 }
 /**
