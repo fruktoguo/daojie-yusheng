@@ -528,9 +528,10 @@ export async function syncAllInstanceLeases(runtime) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
   }
+  const allowForceReclaim = shouldForceReclaimStaleLease();
   for (const [instanceId] of runtime.listInstanceEntries()) {
     try {
-      await syncInstanceLease(runtime, instanceId);
+      await syncInstanceLease(runtime, instanceId, { allowForceReclaim });
     } catch (error) {
       runtime.logger.warn(`实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
     }
