@@ -6,7 +6,7 @@ import * as world_runtime_normalization_helpers_1 from '../world-runtime.normali
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import { buildBasicAttackCommandFromAttackableTarget, resolveAttackableTargetRef } from './world-runtime.attack-target.helpers';
 
-const { findPlayerSkill, resolveAutoBattleSkillQiCost } = world_runtime_normalization_helpers_1;
+const { findPlayerSkill, resolveAutoBattleSkillQiCost, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
 const { chebyshevDistance, findPathToTargetWithinRangeOnMap, directionFromStep, resolveInitialRunLength } = world_runtime_path_planning_helpers_1;
 
 /** 计算原地释放 AOE 技能以玩家为中心时能覆盖到的最大 chebyshev 距离。 */
@@ -48,6 +48,7 @@ function isPlayerTargetRef(targetRef) {
 }
 
 const AUTO_TARGETING_PREFERENCE_MULTIPLIER = 5;
+const AUTO_UNREACHABLE_TARGET_SCORE_MULTIPLIER = 0.2;
 const AUTO_COMBAT_ACTION_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
 const AUTO_USE_PILL_SLOT_LIMIT = 12;
 
@@ -164,6 +165,22 @@ function shouldAutoUsePill(player, item, conditions) {
     return conditions.every((condition) => isAutoUsePillConditionMet(player, item, condition));
 }
 
+function resolveAutoBattleEffectiveSkillRange(player, skill, action) {
+    const baseRange = resolveRuntimeSkillRange(skill);
+    const extraRange = Math.max(0, Math.floor(Number(player?.attrs?.numericStats?.extraRange ?? 0)));
+    const actionRange = Number.isFinite(Number(action?.range))
+        ? Math.max(skill?.requiresTarget === false ? 0 : 1, Math.round(Number(action.range)))
+        : baseRange;
+    return Math.max(actionRange, baseRange + extraRange);
+}
+
+function findAutoBattlePlayerSkill(player, skillId) {
+    if (!Array.isArray(player?.techniques?.techniques)) {
+        return null;
+    }
+    return findPlayerSkill(player, skillId);
+}
+
 function findAutoUsePillInventorySlot(player, itemId) {
     const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
     if (!normalizedItemId || !Array.isArray(player?.inventory?.items)) {
@@ -224,6 +241,7 @@ export class WorldRuntimeAutoCombatService {
  */
 
     playerRuntimeService;
+    unreachableTargetScoreMultiplierByPlayerId = new Map();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -438,7 +456,7 @@ export class WorldRuntimeAutoCombatService {
         if (!view) {
             return null;
         }
-        const target = this.selectAutoCombatTarget(instance, player, view, deps);
+        const target = this.selectAutoCombatTarget(instance, player, view, deps, options);
         if (!target) {
             return null;
         }
@@ -469,9 +487,9 @@ export class WorldRuntimeAutoCombatService {
                 if (player.combat.autoBattleStationary) {
                     return null;
                 }
-                const losPathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, losRange, false);
+                const losPathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, losRange, false, (x, y) => instance.canSeeTileFrom(x, y, target.x, target.y, losRange) !== false);
                 if (!losPathResult || losPathResult.points.length === 0) {
-                    return null;
+                    return this.handleUnreachableAutoCombatTarget(instance, player, target, deps, options);
                 }
                 const losDirection = directionFromStep(player.x, player.y, losPathResult.points[0].x, losPathResult.points[0].y);
                 if (losDirection === null) {
@@ -520,7 +538,7 @@ export class WorldRuntimeAutoCombatService {
         const desiredRange = Math.max(1, Math.round(skillChoice?.range ?? 1));
         const pathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, desiredRange, false);
         if (!pathResult || pathResult.points.length === 0) {
-            return null;
+            return this.handleUnreachableAutoCombatTarget(instance, player, target, deps, options);
         }
         const direction = directionFromStep(player.x, player.y, pathResult.points[0].x, pathResult.points[0].y);
         if (direction === null) {
@@ -535,6 +553,37 @@ export class WorldRuntimeAutoCombatService {
             path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
             autoCombat: true,
         };
+    }
+    /**
+ * handleUnreachableAutoCombatTarget：当前目标不可达时降权并立即重选。
+ * @param instance 地图实例。
+ * @param player 玩家对象。
+ * @param target 当前目标。
+ * @param deps 运行时依赖。
+ * @param options 构建选项。
+ * @returns 返回重选后的命令或空。
+ */
+
+    handleUnreachableAutoCombatTarget(instance, player, target, deps, options = undefined) {
+        if (options?.retargetingAfterUnreachable === true) {
+            return null;
+        }
+        const targetRef = typeof target?.targetRef === 'string' ? target.targetRef.trim() : '';
+        const currentTargetRef = typeof player?.combat?.combatTargetId === 'string'
+            ? player.combat.combatTargetId.trim()
+            : '';
+        if (!targetRef || currentTargetRef !== targetRef) {
+            return null;
+        }
+        this.reduceAutoCombatTargetScoreOnce(player.playerId, targetRef);
+        const currentTick = deps.resolveCurrentTickForPlayerId(player.playerId);
+        this.playerRuntimeService.clearManualEngagePending?.(player.playerId);
+        this.playerRuntimeService.clearCombatTarget(player.playerId, currentTick);
+        const refreshedPlayer = this.playerRuntimeService.getPlayer(player.playerId) ?? player;
+        return this.buildAutoCombatCommand(instance, refreshedPlayer, deps, {
+            ...(options ?? {}),
+            retargetingAfterUnreachable: true,
+        });
     }
     /**
  * normalizeAutoCombatMonsterTarget：把视野怪物条目转换为完整自动战斗目标。
@@ -562,14 +611,16 @@ export class WorldRuntimeAutoCombatService {
  * @returns 无返回值，直接更新selectAuto战斗目标相关状态。
  */
 
-    selectAutoCombatTarget(instance, player, view, deps) {
+    selectAutoCombatTarget(instance, player, view, deps, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const retaliateTarget = this.resolveRetaliatePlayerOverrideTarget(instance, player, deps);
         if (retaliateTarget) {
             return retaliateTarget;
         }
-        if (player.combat.autoBattle || player.combat.manualEngagePending === true) {
+        const shouldPreferTrackedTarget = player.combat.combatTargetLocked === true
+            || player.combat.manualEngagePending === true;
+        if (shouldPreferTrackedTarget && options?.retargetingAfterUnreachable !== true) {
             const trackedTarget = this.resolveTrackedAutoCombatTarget(instance, player, view, deps);
             if (trackedTarget) {
                 return trackedTarget;
@@ -631,7 +682,8 @@ export class WorldRuntimeAutoCombatService {
         let bestCandidate = null;
         let bestScore = Number.NEGATIVE_INFINITY;
         for (const candidate of candidates) {
-            const score = scoreAutoCombatCandidate(player.combat.autoBattleTargetingMode, candidate, metrics);
+            const score = scoreAutoCombatCandidate(player.combat.autoBattleTargetingMode, candidate, metrics)
+                * this.resolveAutoCombatTargetScoreMultiplier(player.playerId, candidate.target.targetRef);
             if (
                 score > bestScore
                 || (score === bestScore && bestCandidate && candidate.distance < bestCandidate.distance)
@@ -648,6 +700,23 @@ export class WorldRuntimeAutoCombatService {
             this.playerRuntimeService.setCombatTarget(player.playerId, bestCandidate.target.targetRef, false, deps.resolveCurrentTickForPlayerId(player.playerId));
         }
         return bestCandidate.target;
+    }
+    resolveAutoCombatTargetScoreMultiplier(playerId, targetRef) {
+        const targetMultipliers = this.unreachableTargetScoreMultiplierByPlayerId.get(playerId);
+        if (!targetMultipliers) {
+            return 1;
+        }
+        return targetMultipliers.get(targetRef) ?? 1;
+    }
+    reduceAutoCombatTargetScoreOnce(playerId, targetRef) {
+        let targetMultipliers = this.unreachableTargetScoreMultiplierByPlayerId.get(playerId);
+        if (!targetMultipliers) {
+            targetMultipliers = new Map();
+            this.unreachableTargetScoreMultiplierByPlayerId.set(playerId, targetMultipliers);
+        }
+        if (!targetMultipliers.has(targetRef)) {
+            targetMultipliers.set(targetRef, AUTO_UNREACHABLE_TARGET_SCORE_MULTIPLIER);
+        }
     }
     /** 被玩家攻击时，临时抢占非玩家锁定目标，但不改写原锁定目标。 */
     resolveRetaliatePlayerOverrideTarget(instance, player, deps) {
@@ -799,7 +868,7 @@ export class WorldRuntimeAutoCombatService {
             if ((action.cooldownLeft ?? 0) > 0) {
                 continue;
             }
-            const skill = findPlayerSkill(player, action.id);
+            const skill = findAutoBattlePlayerSkill(player, action.id);
             if (!skill || !isAutoSelfBuffSkill(skill)) {
                 continue;
             }
@@ -839,7 +908,7 @@ export class WorldRuntimeAutoCombatService {
             if ((action.cooldownLeft ?? 0) > 0) {
                 continue;
             }
-            const skill = findPlayerSkill(player, action.id);
+            const skill = findAutoBattlePlayerSkill(player, action.id);
             if (!skill) {
                 continue;
             }
@@ -864,7 +933,7 @@ export class WorldRuntimeAutoCombatService {
                 chaseRange = Math.max(chaseRange, aoeRadius);
                 continue;
             }
-            const range = Math.max(1, Math.round(action.range ?? 1));
+            const range = Math.max(1, Math.round(resolveAutoBattleEffectiveSkillRange(player, skill, action)));
             if (distance <= range) {
                 return {
                     skillId: skill.id,
@@ -910,8 +979,9 @@ export class WorldRuntimeAutoCombatService {
             if (action.autoBattleEnabled === false || action.skillEnabled === false) {
                 continue;
             }
-            const skill = findPlayerSkill(player, action.id);
+            const skill = findAutoBattlePlayerSkill(player, action.id);
             if (!skill) {
+                desiredRange = Math.max(desiredRange, Math.max(1, Math.round(action.range ?? 1)));
                 continue;
             }
             if (excludedSkillIds?.has(skill.id)) {
@@ -926,7 +996,7 @@ export class WorldRuntimeAutoCombatService {
             if (skill.requiresTarget === false && (action.range ?? 0) === 0) {
                 desiredRange = Math.max(desiredRange, resolveSkillAoeCoverRadius(skill));
             } else {
-                desiredRange = Math.max(desiredRange, Math.max(1, Math.round(action.range ?? 1)));
+                desiredRange = Math.max(desiredRange, Math.max(1, Math.round(resolveAutoBattleEffectiveSkillRange(player, skill, action))));
             }
         }
         return desiredRange;

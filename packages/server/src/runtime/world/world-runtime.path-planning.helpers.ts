@@ -459,7 +459,7 @@ export function findOptimalPathOnMap(instance, playerId, startX, startY, goals, 
     return null;
 }
 /** 寻路到目标停止距离内，不预生成候选目标格。 */
-export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, targetX, targetY, stopDistance, allowOccupiedTarget = false) {
+export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, targetX, targetY, stopDistance, allowOccupiedTarget = false, canStopAt = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (instance.isInBounds?.(targetX, targetY) !== true) {
@@ -470,7 +470,10 @@ export function findPathToTargetWithinRangeOnMap(instance, playerId, startX, sta
         if (normalizedStopDistance > 0 && x === targetX && y === targetY) {
             return false;
         }
-        return chebyshevDistance(x, y, targetX, targetY) <= normalizedStopDistance;
+        if (chebyshevDistance(x, y, targetX, targetY) > normalizedStopDistance) {
+            return false;
+        }
+        return typeof canStopAt === 'function' ? canStopAt(x, y) === true : true;
     };
     if (isStopNode(startX, startY)) {
         return {
