@@ -480,7 +480,7 @@ function appendStructuredCombatLine(
       const color = getDamageTrailColor(damageKind, element);
       const rawAmount = formatCombatLogAmount(String(resolution.rawDamage));
       const actualAmount = formatCombatLogAmount(String(resolution.damage));
-      const elementLabel = element ? `${uiLabels.ELEMENT_KEY_LABELS[element] ?? ''}行` : '';
+      const elementLabel = element ? `${uiLabels.ELEMENT_KEY_LABELS[element] ?? '未知'}行` : '';
       const kindLabel = damageKind === 'physical' ? '物理' : '法术';
       const tooltipTitle = `${elementLabel}${kindLabel}伤害`;
       container.append('，造成 ');
@@ -503,7 +503,7 @@ function appendStructuredCombatLine(
     const color = getDamageTrailColor(damageKind, element);
     const rawAmount = formatCombatLogAmount(String(formationResolution.rawDamage));
     const actualAmount = formatCombatLogAmount(String(formationResolution.damage));
-    const elementLabel = element ? `${uiLabels.ELEMENT_KEY_LABELS[element] ?? ''}行` : '';
+    const elementLabel = element ? `${uiLabels.ELEMENT_KEY_LABELS[element] ?? '未知'}行` : '';
     const kindLabel = damageKind === 'physical' ? '物理' : '法术';
     const tooltipTitle = `${elementLabel}${kindLabel}伤害`;
     container.append('，造成 ');
