@@ -2,6 +2,17 @@
 
 > 本文档基于九州修仙录的实现，详细说明如何在 Node.js/TypeScript 游戏服务端中接入和调用大模型 API。
 > 涵盖 OpenAI、Anthropic、DashScope（通义）三大 Provider 的文本生成和图片生成。
+> 复查日期：2026-05-20。OpenAI 文本生成主线以 Responses API 为准；Chat Completions 仅作为 OpenAI 兼容 API 和旧接口保留。
+
+---
+
+## 官方依据
+
+- OpenAI：[Responses API / Text generation](https://developers.openai.com/api/docs/guides/text-generation)、[Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)、[Image generation](https://platform.openai.com/docs/guides/image-generation)、[Latest model](https://developers.openai.com/api/docs/guides/latest-model)
+- Anthropic：[Messages API](https://docs.anthropic.com/en/api/messages)、[Structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)、[Adaptive thinking](https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking)
+- DashScope：[Model Studio 图像模型](https://www.alibabacloud.com/help/en/model-studio/image-model)、[文生图 API](https://help.aliyun.com/zh/model-studio/text-to-image)
+
+本文档只记录接入模式和工程边界；具体模型名、价格、上下文长度、区域可用性仍以 Provider 官方文档和项目环境变量为准。
 
 ---
 
@@ -11,6 +22,7 @@
 # 文本模型
 pnpm add openai                  # OpenAI SDK（也兼容所有 OpenAI 兼容 API）
 pnpm add @anthropic-ai/sdk       # Anthropic Claude SDK
+pnpm add zod                     # 可选：用于 OpenAI SDK 的结构化输出 helper
 
 # 图片模型（DashScope 用原生 fetch，无需额外依赖）
 # OpenAI 图片生成复用 openai SDK
@@ -20,42 +32,54 @@ pnpm add @anthropic-ai/sdk       # Anthropic Claude SDK
 
 ## 二、OpenAI / OpenAI 兼容 API 调用
 
-### 2.1 基本调用（Chat Completions）
+### 2.1 基本调用（Responses API，OpenAI 主线）
 
 ```typescript
 import OpenAI from 'openai';
 
 const client = new OpenAI({
   apiKey: 'sk-...',
-  baseURL: 'https://api.openai.com/v1',  // 或任何兼容 API 地址
+  baseURL: 'https://api.openai.com/v1',
   timeout: 30_000,  // 超时毫秒数
 });
 
-const completion = await client.chat.completions.create({
-  model: 'gpt-4o-mini',
-  temperature: 0.85,
-  seed: 12345,  // 可选，提高输出稳定性
-  messages: [
-    { role: 'system', content: '你是一个修仙世界的功法设计师...' },
-    { role: 'user', content: '请生成一套火属性攻击功法...' },
-  ],
+const response = await client.responses.create({
+  model: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-5.5',
+  instructions: '你是一个修仙世界的功法设计师...',
+  input: '请生成一套火属性攻击功法...',
 });
 
-const content = completion.choices[0]?.message?.content;
-// content 是字符串，需要自行 JSON.parse
+const content = response.output_text;
 ```
 
-### 2.2 结构化输出（JSON Schema）
+多轮对话优先使用 `previous_response_id` 交给 OpenAI 承接上下文，避免业务层反复拼接全量历史：
+
+```typescript
+const first = await client.responses.create({
+  model: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-5.5',
+  instructions: '你是一个修仙世界的功法设计师...',
+  input: '请生成一套火属性攻击功法...',
+});
+
+const followUp = await client.responses.create({
+  model: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-5.5',
+  previous_response_id: first.id,
+  input: '偏向单体爆发，并给出技能名。',
+});
+```
+
+### 2.2 结构化输出（Responses API JSON Schema）
 
 强制模型返回符合 schema 的 JSON，大幅减少解析失败：
 
 ```typescript
-const completion = await client.chat.completions.create({
-  model: 'gpt-4o-mini',
-  temperature: 0.85,
-  response_format: {
-    type: 'json_schema',
-    json_schema: {
+const response = await client.responses.create({
+  model: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-5.5',
+  instructions: '你是一个修仙世界的功法设计师...',
+  input: '请生成一套火属性攻击功法...',
+  text: {
+    format: {
+      type: 'json_schema',
       name: 'technique_generation',
       strict: true,
       schema: {
@@ -84,19 +108,90 @@ const completion = await client.chat.completions.create({
       },
     },
   },
+});
+
+// output_text 是符合 schema 的 JSON 字符串；业务侧仍需二次校验数值和资产边界。
+const result = JSON.parse(response.output_text);
+```
+
+也可以使用 SDK helper 让解析结果带 TypeScript 类型：
+
+```typescript
+import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
+import { z } from 'zod';
+
+const TechniqueSchema = z.object({
+  name: z.string().min(2).max(8),
+  description: z.string().min(20).max(100),
+  skills: z.array(z.object({
+    name: z.string(),
+    damage: z.number().min(10).max(500),
+    element: z.enum(['fire', 'water', 'earth', 'metal', 'wood']),
+  })).min(1).max(4),
+});
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const response = await client.responses.parse({
+  model: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-5.5',
+  instructions: '你是一个修仙世界的功法设计师...',
+  input: '请生成一套火属性攻击功法...',
+  text: {
+    format: zodTextFormat(TechniqueSchema, 'technique_generation'),
+  },
+});
+
+const result = response.output_parsed;
+```
+
+### 2.3 旧接口和兼容 API（Chat Completions）
+
+很多第三方服务（DeepSeek、Moonshot、智谱、Gemini 等）仍以 OpenAI 兼容的 Chat Completions 为主要入口。项目需要接入兼容 API 时可以保留旧写法：
+
+```typescript
+const completion = await client.chat.completions.create({
+  model: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-4o-mini',
+  temperature: 0.85,
+  seed: 12345,  // 可选；不是所有兼容服务都支持
+  messages: [
+    { role: 'system', content: '你是一个修仙世界的功法设计师...' },
+    { role: 'user', content: '请生成一套火属性攻击功法...' },
+  ],
+});
+
+const content = normalizeCompletionContent(completion.choices[0]?.message?.content);
+```
+
+Chat Completions 的结构化输出仍是 `response_format.json_schema`，但不同兼容服务支持程度不一致：
+
+```typescript
+const completion = await client.chat.completions.create({
+  model: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-4o-mini',
+  response_format: {
+    type: 'json_schema',
+    json_schema: {
+      name: 'technique_generation',
+      strict: true,
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 2, maxLength: 8 },
+        },
+      },
+    },
+  },
   messages: [
     { role: 'system', content: '...' },
     { role: 'user', content: '...' },
   ],
 });
-
-// 模型返回的 content 一定是合法 JSON（符合 schema）
-const result = JSON.parse(completion.choices[0]?.message?.content ?? '{}');
 ```
 
-### 2.3 处理返回值的坑点
+### 2.4 处理兼容 API 返回值的坑点
 
-OpenAI SDK 返回的 `message.content` 可能是字符串，也可能是分段数组：
+Chat Completions 兼容接口返回的 `message.content` 可能是字符串，也可能是分段数组：
 
 ```typescript
 /**
@@ -116,7 +211,7 @@ const normalizeCompletionContent = (rawContent: unknown): string => {
 const content = normalizeCompletionContent(completion.choices[0]?.message?.content);
 ```
 
-### 2.4 兼容 API 注意事项
+### 2.5 兼容 API 注意事项
 
 很多第三方服务（DeepSeek、Moonshot、智谱、Gemini 等）都提供 OpenAI 兼容接口：
 
@@ -194,17 +289,15 @@ messages: [
 
 ### 3.3 启用 Thinking（深度思考）
 
-Claude 支持 extended thinking，适合复杂生成任务：
+Claude 支持 extended thinking，适合复杂生成任务。支持 adaptive thinking 的 Claude 模型优先使用 `type: 'adaptive'`，让模型按任务自动分配思考预算；旧的手动 `budget_tokens` 只作为兼容旧模型的 fallback。
 
 ```typescript
 const message = await client.messages.create({
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-5-20250929',
   max_tokens: 81920,
-  temperature: 0.85,
   system: '...',
   thinking: {
-    type: 'enabled',
-    budget_tokens: 64000,  // 思考预算 token 数
+    type: 'adaptive',
   },
   messages: [
     { role: 'user', content: '...' },
@@ -219,15 +312,29 @@ const textContent = message.content
   .join('');
 ```
 
+旧模型如果不支持 adaptive thinking，可以降级为手动预算：
+
+```typescript
+thinking: {
+  type: 'enabled',
+  budget_tokens: 64000,
+}
+```
+
 ### 3.4 结构化输出（output_config）
 
 Anthropic 的结构化输出格式与 OpenAI 不同：
 
 ```typescript
-// OpenAI 格式
+// OpenAI Responses API 格式
+text: {
+  format: { type: 'json_schema', name: 'xxx', schema: {...}, strict: true }
+}
+
+// OpenAI Chat Completions 兼容格式
 response_format: {
   type: 'json_schema',
-  json_schema: { name: 'xxx', schema: {...}, strict: true }
+  json_schema: { name: 'xxx', schema: {...}, strict: true },
 }
 
 // Anthropic 格式（需要转换）
@@ -284,31 +391,43 @@ const client = new OpenAI({
 });
 
 const response = await client.images.generate({
-  model: 'dall-e-3',
+  model: process.env.AI_IMAGE_MODEL_NAME || 'gpt-image-1.5',
   prompt: '中国仙侠风格技能图标，火焰剑气...',
-  size: '512x512',
-  response_format: 'b64_json',  // 返回 base64 编码图片
+  size: '1024x1024',
+  quality: 'medium',
 });
 
 const base64Image = response.data[0]?.b64_json;
+if (!base64Image) throw new Error('OpenAI 图片生成未返回 b64_json');
 const buffer = Buffer.from(base64Image, 'base64');
 // 后续可用 sharp 压缩、存储
 ```
 
+`dall-e-3` 旧代码可以保留作历史兼容，但新接入优先使用 GPT Image 系列。游戏图标仍建议生成 1024x1024 原图，再用 `sharp` 压缩到运行时需要的尺寸。
+
 ### 4.2 DashScope（通义万相）图片生成
 
-DashScope 使用专有协议，不走 OpenAI SDK：
+DashScope 使用专有协议，不走 OpenAI SDK。通义万相新文生图优先使用 Wan 系列；需要 Qwen-Image 时用当前 Qwen 图像接口的 messages 内容结构：
 
 ```typescript
 const DASHSCOPE_ENDPOINT = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
 
 const payload = {
-  model: 'qwen-image-2.0',
+  model: process.env.AI_IMAGE_MODEL_NAME || 'qwen-image-2.0-pro',
   input: {
-    prompt: '中国仙侠风格技能图标，火焰剑气...',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            text: '中国仙侠风格技能图标，火焰剑气...',
+          },
+        ],
+      },
+    ],
   },
   parameters: {
-    size: '512*512',  // 注意：DashScope 用 * 不是 x
+    size: '1024*1024',  // 注意：DashScope 用 * 不是 x
     n: 1,
   },
 };
@@ -444,7 +563,7 @@ const readTextModelConfig = (scope: TextModelScope): TextModelConfig | null => {
   const provider = (process.env[envKeys.provider]?.trim() === 'anthropic')
     ? 'anthropic' : 'openai';
   const baseURL = process.env[envKeys.url]?.trim() ?? '';
-  const modelName = process.env[envKeys.name]?.trim() || 'gpt-4o-mini';
+  const modelName = process.env[envKeys.name]?.trim() || 'gpt-5.5';
 
   return { provider, apiKey, baseURL, modelName };
 };
@@ -452,7 +571,7 @@ const readTextModelConfig = (scope: TextModelScope): TextModelConfig | null => {
 
 ### 5.3 Gemini 兼容层检测
 
-Gemini 通过 OpenAI 兼容层接入时，某些功能（如 response_format）不支持：
+Gemini 通过 OpenAI 兼容层接入时，某些功能（如 Chat Completions 的 `response_format` 或 Responses API 的 `text.format`）不支持：
 
 ```typescript
 const isGeminiOpenAICompatibleModel = (config: { baseURL: string; modelName: string }): boolean => {
@@ -465,12 +584,12 @@ const isGeminiOpenAICompatibleModel = (config: { baseURL: string; modelName: str
   );
 };
 
-// 使用：Gemini 不支持 json_schema response_format，需要降级
-const resolveResponseFormat = (config, responseFormat) => {
+// 使用：Gemini 不支持 json_schema，需要降级
+const resolveJsonSchemaFormat = (config, jsonSchemaFormat) => {
   if (isGeminiOpenAICompatibleModel(config)) {
     return undefined;  // 降级为纯文本，靠 prompt 约束 JSON
   }
-  return responseFormat;
+  return jsonSchemaFormat;
 };
 ```
 
@@ -496,7 +615,7 @@ const callWithRetry = async <T>(
     } catch (error) {
       // 结构化输出不支持时降级
       if (isUnsupportedSchemaError(error)) {
-        // 下次不传 response_format
+        // 下次不传 text.format / response_format / output_config
         continue;
       }
       throw error;
@@ -577,8 +696,8 @@ const isRateLimitError = (error: unknown): boolean => {
 |------|------|
 | **JSON Schema** | 减少模型输出无关解释文字 |
 | **精简 system prompt** | 避免重复规则，用简洁指令 |
-| **seed 参数** | 相同输入产生相似输出，便于缓存 |
-| **小模型优先** | gpt-4o-mini 成本是 gpt-4o 的 1/10 |
+| **seed 参数** | 仅在目标模型或兼容 API 支持时使用；不要把它当成跨 Provider 的稳定能力 |
+| **按任务选模型** | 复杂生成优先高能力模型；批量低风险生成优先 mini/nano 或兼容小模型 |
 | **预生成模式** | 一次调用生成多个结果（如云游 3 选项） |
 
 ### 7.2 并发控制
@@ -621,7 +740,7 @@ import OpenAI from 'openai';
 const config = {
   apiKey: process.env.AI_TECHNIQUE_MODEL_KEY!,
   baseURL: process.env.AI_TECHNIQUE_MODEL_URL!,
-  modelName: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-4o-mini',
+  modelName: process.env.AI_TECHNIQUE_MODEL_NAME || 'gpt-5.5',
 };
 
 // 2. 构造 prompt
@@ -645,12 +764,13 @@ const client = new OpenAI({
   timeout: 30_000,
 });
 
-const completion = await client.chat.completions.create({
+const response = await client.responses.create({
   model: config.modelName,
-  temperature: 0.85,
-  response_format: {
-    type: 'json_schema',
-    json_schema: {
+  instructions: systemMessage,
+  input: userMessage,
+  text: {
+    format: {
+      type: 'json_schema',
       name: 'technique_generation',
       strict: true,
       schema: {
@@ -682,14 +802,10 @@ const completion = await client.chat.completions.create({
       },
     },
   },
-  messages: [
-    { role: 'system', content: systemMessage },
-    { role: 'user', content: userMessage },
-  ],
 });
 
 // 4. 解析结果
-const content = completion.choices[0]?.message?.content ?? '';
+const content = response.output_text;
 const technique = JSON.parse(content);
 
 // 5. 服务端二次校验（不信任模型输出）
@@ -718,5 +834,3 @@ const auditRecord = {
 | **成本失控** | Worker 并发限制 + 玩家侧冷却/材料消耗 |
 | **API Key 泄露** | Key 只存环境变量，不入代码/日志 |
 | **超时堆积** | 统一超时 + Worker 池限制，防止请求无限排队 |
-
-
