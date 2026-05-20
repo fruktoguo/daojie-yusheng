@@ -257,7 +257,7 @@ function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? strin
     on_time_segment_changed: t('equipment-tooltip.trigger.on-time-segment-changed', undefined),
     on_enter_map: t('equipment-tooltip.trigger.on-enter-map', undefined),
   };
-  return labels[trigger] ?? trigger;
+  return labels[trigger] ?? '未知触发';
 }
 
 /** buildTimedBuffAsideCard：构建Timed Buff Aside卡片。 */
