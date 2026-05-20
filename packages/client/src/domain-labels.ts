@@ -108,32 +108,32 @@ export function getEntityKindLabel(kind: string | null | undefined, fallback = '
 
 /** 读取属性键的本地化标签。 */
 export function getAttrKeyLabel(key: string, fallback?: string): string {
-  return (ATTR_KEY_LABELS as Record<string, string>)[key] ?? fallback ?? key;
+  return (ATTR_KEY_LABELS as Record<string, string>)[key] ?? fallback ?? '未知属性';
 }
 
 /** 读取元素键的本地化标签。 */
 export function getElementKeyLabel(key: string, fallback?: string): string {
-  return (ELEMENT_KEY_LABELS as Record<string, string>)[key] ?? fallback ?? key;
+  return (ELEMENT_KEY_LABELS as Record<string, string>)[key] ?? fallback ?? '未知五行';
 }
 
 /** 读取数值型统计键的本地化标签。 */
 export function getNumericScalarStatKeyLabel(key: string, fallback?: string): string {
-  return (NUMERIC_SCALAR_STAT_LABELS as Record<string, string>)[key] ?? fallback ?? key;
+  return (NUMERIC_SCALAR_STAT_LABELS as Record<string, string>)[key] ?? fallback ?? '未知统计';
 }
 
 /** 读取小地图标记种类的本地化标签。 */
 export function getMinimapMarkerKindLabel(kind: string, fallback?: string): string {
-  return (MAP_MINIMAP_MARKER_KIND_LABELS as Record<string, string>)[kind] ?? fallback ?? kind;
+  return (MAP_MINIMAP_MARKER_KIND_LABELS as Record<string, string>)[kind] ?? fallback ?? '未知标记';
 }
 
 /** 读取物品类型的本地化标签。 */
 export function getItemTypeLabel(type: ItemType | string, fallback?: string): string {
-  return (ITEM_TYPE_LABELS as Record<string, string>)[type] ?? fallback ?? type;
+  return (ITEM_TYPE_LABELS as Record<string, string>)[type] ?? fallback ?? '未知物品类型';
 }
 
 /** 读取装备槽位的本地化标签。 */
 export function getEquipSlotLabel(slot: EquipSlot | string, fallback?: string): string {
-  return (EQUIP_SLOT_LABELS as Record<string, string>)[slot] ?? fallback ?? slot;
+  return (EQUIP_SLOT_LABELS as Record<string, string>)[slot] ?? fallback ?? '未知部位';
 }
 
 /** 读取方向的本地化标签。 */
@@ -218,5 +218,5 @@ export function getTechniqueRealmLabel(realm: TechniqueRealm | string | null | u
 
 /** 读取技能公式基础变量的本地化标签。 */
 export function getSkillFormulaBaseVarLabel(variable: SkillFormulaVar, fallback?: string): string {
-  return (SKILL_FORMULA_BASE_VAR_LABELS as Record<string, string>)[variable] ?? fallback ?? variable;
+  return (SKILL_FORMULA_BASE_VAR_LABELS as Record<string, string>)[variable] ?? fallback ?? '未知变量';
 }
