@@ -5,7 +5,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate } from '@mud/shared';
-import type { ContentTemplateRepository } from '../../content/content-template.repository';
+import { ContentTemplateRepository } from '../../content/content-template.repository';
 
 /** 强化面板只读查询服务：负责强化面板状态与候选列表构造。 */
 @Injectable()
