@@ -43,7 +43,7 @@ export function getItemOptionLabel(option: GmEditorItemOption): string {
 
 /** 显示 Buff 名称并拼接来源技能，便于在筛选与回填表单时识别。 */
 export function getBuffOptionLabel(option: GmEditorBuffOption): string {
-  const source = option.sourceSkillName || option.sourceSkillId;
+  const source = option.sourceSkillName || (option.sourceSkillId ? '未知来源技能' : '');
   return source ? `${option.name} · ${source}` : option.name;
 }
 
@@ -79,7 +79,7 @@ export function getLearnedTechniqueOptions(
  label: string }> {
   const options = techniques.map((technique) => ({
     value: technique.techId,
-    label: technique.name || technique.techId,
+    label: technique.name || '未知功法',
   }));
   return includeEmpty ? [{ value: '', label: '未选择' }, ...options] : options;
 }
@@ -272,7 +272,7 @@ export function createBuffFromCatalog(
 
 /** 生成功法摘要文本，包含名称、品阶、境界与等级。 */
 export function getTechniqueSummary(technique: TechniqueState): string {
-  return `${technique.name || technique.techId} · ${technique.grade ?? 'mortal'} · 境界 Lv.${technique.realmLv} · 等级 ${technique.level}`;
+  return `${technique.name || '未知功法'} · ${technique.grade ?? 'mortal'} · 境界 Lv.${technique.realmLv} · 等级 ${technique.level}`;
 }
 
 /** 解析功法模板或运行时数据中的最高层级，决定成长上限展示。 */
