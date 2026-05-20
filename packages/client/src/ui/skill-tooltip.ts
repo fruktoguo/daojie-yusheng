@@ -526,6 +526,11 @@ function resolvePreviewVar(varName: SkillFormulaVar, context: SkillTooltipPrevie
   return resolved.known ? resolved.value : null;
 }
 
+/** getFormulaVarLabel：读取公式变量展示名。 */
+function getFormulaVarLabel(varName: SkillFormulaVar): string {
+  return FORMULA_VAR_LABELS[varName] ?? '未知变量';
+}
+
 /** renderVariableFormula：渲染Variable Formula。 */
 function renderVariableFormula(varName: SkillFormulaVar, scale: number, context: SkillTooltipPreviewContext): FormulaPreview {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -571,7 +576,7 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
     };
   }
 
-  const label = FORMULA_VAR_LABELS[varName] ?? varName;
+  const label = getFormulaVarLabel(varName);
   if (resolvedValue !== null) {
     const contribution = resolvedValue * scale;
     return {
@@ -716,7 +721,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
       const badge = `<span class="skill-scaling skill-scaling-tech"><span class="skill-scaling-icon">◎</span><span>${escapeHtml(`${formatDisplayNumber(resolved.value)}层`)}</span></span>`;
       return {
         html: renderFormulaTerm(
-          resolved.known ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(FORMULA_VAR_LABELS[formula.var] ?? formula.var)}×${formatPercent(formula.scale ?? 1)}`,
+          resolved.known ? `${formatPercent(resolvedPercent)}（${badge}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(getFormulaVarLabel(formula.var))}×${formatPercent(formula.scale ?? 1)}`,
           'skill-formula-term-percent',
         ),
         resolved: resolvedPercent,
@@ -732,7 +737,7 @@ function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewC
         resolved: resolvedPercent,
       };
     }
-    const label = FORMULA_VAR_LABELS[formula.var] ?? formula.var;
+    const label = getFormulaVarLabel(formula.var);
     return {
       html: renderFormulaTerm(
         resolved.known ? `${formatPercent(resolvedPercent)}（${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}）` : `${escapeHtml(label)}×${formatPercent(formula.scale ?? 1)}`,
