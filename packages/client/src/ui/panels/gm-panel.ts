@@ -525,10 +525,7 @@ export class GmPanel {
       lastMapId: null,
       lastMs: this.state.perf.tickMs,
     };
-    const lastMapId = tickPerf.lastMapId;
-    this.perfTickEl.textContent = lastMapId
-      ? `${Math.round(tickPerf.lastMs)} ms · ${lastMapId}`
-      : `${Math.round(tickPerf.lastMs)} ms`;
+    this.perfTickEl.textContent = `${Math.round(tickPerf.lastMs)} ms`;
   }
 
   /** 刷新在线人数和机器人数量概览。 */

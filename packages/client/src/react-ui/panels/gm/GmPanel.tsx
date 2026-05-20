@@ -200,9 +200,7 @@ function formatPoolStats(stats: { totalCount: number; idleCount: number; waiting
 
 const GmPerfSection = memo(function GmPerfSection({ perf }: { perf: S2C_GmState['perf'] }) {
   const tickPerf = perf.tick ?? { lastMapId: null, lastMs: perf.tickMs };
-  const tickLabel = tickPerf.lastMapId
-    ? `${Math.round(tickPerf.lastMs)} ms · ${tickPerf.lastMapId}`
-    : `${Math.round(tickPerf.lastMs)} ms`;
+  const tickLabel = `${Math.round(tickPerf.lastMs)} ms`;
   const flushDiagnostics = perf.flushDiagnostics ?? null;
   const playerFlush = flushDiagnostics?.player ?? null;
   const mapFlush = flushDiagnostics?.map ?? null;
