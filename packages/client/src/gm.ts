@@ -109,6 +109,14 @@ import {
   type GmEnvironmentVarListRes,
   type GmSetEnvironmentVarReq,
   type GmReloadEnvironmentVarsRes,
+  type GmAiProviderConfigDeleteRes,
+  type GmAiProviderConfigItem,
+  type GmAiProviderConfigListRes,
+  type GmAiProviderConfigSetReq,
+  type GmAiProviderConfigSetRes,
+  type GmAiProviderKind,
+  type GmAiImageProvider,
+  type GmAiTextProvider,
   type GameConfigItem,
   type GameConfigListRes,
   type GameConfigSetRes,
@@ -488,6 +496,8 @@ const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTM
 const envWorkspaceEl = document.getElementById('secrets-workspace') as HTMLElement;
 /** gameConfigWorkspaceEl：游戏配置 workspace El。 */
 const gameConfigWorkspaceEl = document.getElementById('gameconfig-workspace') as HTMLElement;
+/** aiWorkspaceEl：AI 配置 workspace El。 */
+const aiWorkspaceEl = document.getElementById('ai-workspace') as HTMLElement;
 /** tradesWorkspaceEl：交易记录 workspace El。 */
 const tradesWorkspaceEl = document.getElementById('trades-workspace') as HTMLElement;
 /** shortcutMailComposerEl：shortcut邮件Composer El。 */
@@ -508,6 +518,8 @@ const shortcutTabBtn = document.getElementById('gm-tab-shortcuts') as HTMLButton
 const envTabBtn = document.getElementById('gm-tab-secrets') as HTMLButtonElement;
 /** gameConfigTabBtn：游戏配置 Tab Btn。 */
 const gameConfigTabBtn = document.getElementById('gm-tab-gameconfig') as HTMLButtonElement;
+/** aiTabBtn：AI 配置 Tab Btn。 */
+const aiTabBtn = document.getElementById('gm-tab-ai') as HTMLButtonElement;
 /** tradesTabBtn：交易记录 Tab Btn。 */
 const tradesTabBtn = document.getElementById('gm-tab-trades') as HTMLButtonElement;
 /** tradesFormEl：交易记录搜索表单。 */
@@ -703,7 +715,7 @@ let draftSourcePlayerId: string | null = null;
 /** pollTimer：poll Timer。 */
 let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
-let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'trades' = 'server';
+let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'ai' | 'trades' = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
@@ -713,6 +725,7 @@ let currentEditorTab: GmEditorTab = 'basic';
 /** currentDatabaseTable：当前数据库表标签。 */
 let currentDatabaseTable = 'server_player_snapshot';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
+let currentInventorySearchQuery = '';
 /** currentPlayerSort：当前玩家排序。 */
 let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
 /** currentPlayerAccountStatusFilter：当前玩家账号状态筛选。 */
@@ -1347,12 +1360,12 @@ function getEditorBodyChipMarkup(player: GmManagedPlayerRecord, draft: PlayerSta
 
 /** getEquipmentCardTitle：读取Equipment卡片标题。 */
 function getEquipmentCardTitle(item: ItemStack | null): string {
-  return gmMarkupHelpers.getEquipmentCardTitle(item);
+  return item ? gmCatalogHelpers.getResolvedItemDisplayName(editorCatalog, item, '未命名装备') : '';
 }
 
 /** getEquipmentCardMeta：读取Equipment卡片元数据。 */
 function getEquipmentCardMeta(item: ItemStack | null): string {
-  return gmMarkupHelpers.getEquipmentCardMeta(item);
+  return item ? gmCatalogHelpers.getResolvedInventoryRowMeta(editorCatalog, item) : '当前为空';
 }
 
 /** getBonusCardTitle：读取Bonus卡片标题。 */
@@ -1377,12 +1390,12 @@ function getBuffCardMeta(buff: TemporaryBuffState | undefined): string {
 
 /** getInventoryCardTitle：读取背包卡片标题。 */
 function getInventoryCardTitle(item: ItemStack | undefined, index: number): string {
-  return gmMarkupHelpers.getInventoryCardTitle(item, index);
+  return gmCatalogHelpers.getResolvedItemDisplayName(editorCatalog, item, `物品 ${index + 1}`);
 }
 
 /** getInventoryCardMeta：读取背包卡片元数据。 */
 function getInventoryCardMeta(item: ItemStack | undefined): string {
-  return gmMarkupHelpers.getInventoryCardMeta(item);
+  return item ? gmCatalogHelpers.getResolvedInventoryRowMeta(editorCatalog, item) : '';
 }
 
 /** getAutoSkillCardTitle：读取自动技能卡片标题。 */
@@ -1958,7 +1971,7 @@ function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState 
 
 /** getInventoryRowMeta：读取背包Row元数据。 */
 function getInventoryRowMeta(item: ItemStack): string {
-  return gmCatalogHelpers.getInventoryRowMeta(item);
+  return gmCatalogHelpers.getResolvedInventoryRowMeta(editorCatalog, item);
 }
 
 /** getTechniqueEditorControls：读取Technique编辑器Controls。 */
@@ -2043,7 +2056,7 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
         </div>
       </div>
       <div class="editor-note">
-        该物品来自策划模板，等级、品阶、装备属性、数值和特效会在服务端按模板补全；GM 这里仅建议改模板 ID 和数量。
+        该物品来自策划模板，等级、品阶、装备属性、数值和特效会在服务端按模板补全；GM 这里仅建议改模板 ID、数量和强化等级。
       </div>
     `;
   }
@@ -2069,9 +2082,80 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
   `;
 }
 
+function normalizeInventorySearchText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function getInventoryItemSearchText(item: ItemStack, index: number): string {
+  const catalogEntry = findItemCatalogEntry(item.itemId);
+  return normalizeInventorySearchText([
+    getInventoryCardTitle(item, index),
+    getInventoryCardMeta(item),
+    item.itemId,
+    item.name,
+    catalogEntry?.name,
+    catalogEntry?.type,
+    catalogEntry?.equipSlot,
+    item.type,
+    item.equipSlot,
+  ].filter((entry): entry is string => typeof entry === 'string' && entry.length > 0).join(' '));
+}
+
+function getVisibleInventoryItems(items: ItemStack[]): Array<{ item: ItemStack; index: number }> {
+  const query = normalizeInventorySearchText(currentInventorySearchQuery);
+  return items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item, index }) => !query || getInventoryItemSearchText(item, index).includes(query));
+}
+
+function getInventoryListMarkup(items: ItemStack[]): string {
+  const visibleItems = getVisibleInventoryItems(items);
+  if (items.length === 0) {
+    return '<div class="editor-note">背包为空。</div>';
+  }
+  if (visibleItems.length === 0) {
+    return '<div class="editor-note">没有匹配的物品。</div>';
+  }
+  return visibleItems.map(({ item, index }) => getCompactInventoryItemMarkup(item, index)).join('');
+}
+
+function patchInventoryListFromDraft(): void {
+  if (!draftSnapshot) {
+    return;
+  }
+  const listEl = editorContentEl.querySelector<HTMLElement>('[data-inventory-compact-list]');
+  const countEl = editorContentEl.querySelector<HTMLElement>('[data-inventory-search-count]');
+  if (!listEl) {
+    return;
+  }
+  const items = ensureArray(draftSnapshot.inventory.items);
+  listEl.innerHTML = getInventoryListMarkup(items);
+  if (countEl) {
+    const visibleCount = getVisibleInventoryItems(items).length;
+    countEl.textContent = currentInventorySearchQuery.trim()
+      ? `显示 ${visibleCount} / ${items.length} 项`
+      : `共 ${items.length} 项`;
+  }
+}
+
 /** getCompactInventoryItemMarkup：读取Compact背包物品Markup。 */
 function getCompactInventoryItemMarkup(item: ItemStack, index: number): string {
-  return gmMarkupHelpers.getCompactInventoryItemMarkup(item, index, numberField);
+  const searchText = getInventoryItemSearchText(item, index);
+  return `
+    <div class="editor-card inventory-compact-row" data-inventory-item-row data-index="${index}" data-search="${escapeHtml(searchText)}">
+      <div class="editor-card-head">
+        <div>
+          <div class="editor-card-title" data-preview="inventory-title" data-index="${index}">${escapeHtml(getInventoryCardTitle(item, index))}</div>
+          <div class="editor-card-meta" data-preview="inventory-meta" data-index="${index}">${escapeHtml(getInventoryCardMeta(item))}</div>
+        </div>
+        <button class="small-btn danger" type="button" data-action="remove-inventory-item" data-index="${index}">删除</button>
+      </div>
+      <div class="editor-grid compact">
+        ${numberField('数量', `inventory.items.${index}.count`, item.count)}
+        ${numberField('强化等级', `inventory.items.${index}.enhanceLevel`, item.enhanceLevel)}
+      </div>
+    </div>
+  `;
 }
 
 /** getReadonlyPreviewValue：读取Readonly Preview值。 */
@@ -4614,7 +4698,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
 }
 
 /** switchTab：处理switch Tab。 */
-function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'trades'): void {
+function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'ai' | 'trades'): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   // 离开世界管理时停止轮询
@@ -4631,6 +4715,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
   envTabBtn.classList.toggle('active', tab === 'secrets');
   gameConfigTabBtn.classList.toggle('active', tab === 'gameconfig');
+  aiTabBtn.classList.toggle('active', tab === 'ai');
   tradesTabBtn.classList.toggle('active', tab === 'trades');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
   redeemWorkspaceEl.classList.toggle('hidden', tab !== 'redeem');
@@ -4640,6 +4725,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
   envWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
   gameConfigWorkspaceEl.classList.toggle('hidden', tab !== 'gameconfig');
+  aiWorkspaceEl.classList.toggle('hidden', tab !== 'ai');
   tradesWorkspaceEl.classList.toggle('hidden', tab !== 'trades');
   if (tab === 'suggestions') {
     loadSuggestions().catch((e) => console.error('[GM]', e));
@@ -4667,6 +4753,8 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
     loadEnvironmentVars().catch((e) => console.error('[GM]', e));
   } else if (tab === 'gameconfig') {
     loadGameConfig().catch((e) => console.error('[GM]', e));
+  } else if (tab === 'ai') {
+    loadAiProviderConfigs().catch((e) => console.error('[GM]', e));
   } else if (tab === 'trades') {
     // 进入交易记录 tab：默认拉一次最近一页（无条件），让 GM 立刻能看到现状
     loadTrades({ resetPage: true }).catch((error: unknown) => {
@@ -6141,9 +6229,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     `).join('')
     : '<div class="editor-note">当前没有临时效果。</div>';
 
-  const inventoryMarkup = inventoryItems.length > 0
-    ? inventoryItems.map((item, index) => getCompactInventoryItemMarkup(item, index)).join('')
-    : '<div class="editor-note">背包为空。</div>';
+  const inventoryMarkup = getInventoryListMarkup(inventoryItems);
+  const visibleInventoryCount = getVisibleInventoryItems(inventoryItems).length;
 
   const autoBattleMarkup = autoBattleSkills.length > 0
     ? autoBattleSkills.map((entry, index) => `
@@ -6641,10 +6728,25 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-section-head">
         <div>
           <div class="editor-section-title">背包</div>
-          <div class="editor-section-note">容量与物品堆叠。</div>
+          <div class="editor-section-note">容量、物品堆叠与实例态强化等级；名称从物品目录按 ID 解析，存档仍保持只存实例字段。</div>
         </div>
         <div class="button-row">
           ${numberField('容量', 'inventory.capacity', draft.inventory.capacity)}
+          <label class="editor-field" style="min-width: 220px;">
+            <span>搜索当前背包</span>
+            <input
+              type="search"
+              data-inventory-search
+              autocomplete="off"
+              spellcheck="false"
+              value="${escapeHtml(currentInventorySearchQuery)}"
+              placeholder="输入中文名、ID、类型或部位"
+            />
+          </label>
+          <div class="editor-field" style="min-width: 110px;">
+            <span>筛选结果</span>
+            <div class="editor-code" data-inventory-search-count>${escapeHtml(currentInventorySearchQuery.trim() ? `显示 ${visibleInventoryCount} / ${inventoryItems.length} 项` : `共 ${inventoryItems.length} 项`)}</div>
+          </div>
           <label class="editor-field" style="min-width: 220px;">
             <span>物品类别</span>
             <select data-catalog-select="inventory-type"${catalogActionDisabled}>
@@ -6664,7 +6766,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <button class="small-btn" type="button" data-action="add-inventory-item-from-catalog"${catalogActionDisabled}>加入背包</button>
         </div>
       </div>
-      <div class="inventory-compact-list">${inventoryMarkup}</div>
+      <div class="inventory-compact-list" data-inventory-compact-list>${inventoryMarkup}</div>
     </section>
 
     <section class="editor-section">

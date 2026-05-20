@@ -55,7 +55,7 @@ async function main() {
   const packageRoot = resolveToolPackageRoot(__dirname);
   const repoRoot = path.resolve(packageRoot, '..', '..');
   const gmPassword = resolveStableSmokeGmPassword('admin123');
-  const smokeNodeId = resolveSmokeNodeId();
+  const smokeNodeId = await resolveSmokeNodeId();
   const snapshot = createStableDistSnapshot({
     label: 'smoke-suite',
     packageRoot,
