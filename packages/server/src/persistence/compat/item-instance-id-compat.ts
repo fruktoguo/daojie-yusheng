@@ -60,6 +60,7 @@ export async function repairEquipmentSlotItemInstanceIdConflicts(
       FROM player_equipment_slot
       WHERE player_id <> $2
         AND item_instance_id = ANY($1::varchar[])
+      FOR UPDATE
     `,
     [rows.map(({ item_instance_id }) => item_instance_id), playerId],
   );
@@ -71,6 +72,104 @@ export async function repairEquipmentSlotItemInstanceIdConflicts(
   if (conflictedIds.size === 0) {
     return;
   }
+  reassignEquipmentSlotItemInstanceIds(rows, rowSources, conflictedIds);
+}
+
+export async function upsertEquipmentSlotRowsWithItemInstanceIdRepair(
+  client: PoolClient,
+  playerId: string,
+  rows: EquipmentSlotPersistenceRow[],
+  rowSources: Map<EquipmentSlotPersistenceRow, ItemInstanceIdPersistenceRowSource>,
+): Promise<void> {
+  if (rows.length === 0) {
+    return;
+  }
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    await repairEquipmentSlotItemInstanceIdConflicts(client, playerId, rows, rowSources);
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT slot_type, item_instance_id
+          FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
+        )
+        DELETE FROM player_equipment_slot target
+        WHERE target.player_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.slot_type = target.slot_type
+              OR incoming.item_instance_id = target.item_instance_id
+          )
+      `,
+      [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
+    );
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            slot_type varchar(40),
+            item_instance_id varchar(180),
+            item_id varchar(160),
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO player_equipment_slot(
+          player_id,
+          slot_type,
+          item_instance_id,
+          item_id,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (item_instance_id)
+        DO UPDATE SET
+          player_id = EXCLUDED.player_id,
+          slot_type = EXCLUDED.slot_type,
+          item_id = EXCLUDED.item_id,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+        WHERE player_equipment_slot.player_id = EXCLUDED.player_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    const persistedResult = await client.query(
+      `
+        SELECT item_instance_id
+        FROM player_equipment_slot
+        WHERE player_id = $1
+          AND item_instance_id = ANY($2::varchar[])
+      `,
+      [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
+    );
+    const persistedIds = new Set(
+      ((persistedResult as { rows?: Array<Record<string, unknown>> }).rows ?? [])
+        .map((row) => normalizeOptionalString(row?.item_instance_id))
+        .filter((itemInstanceId): itemInstanceId is string => itemInstanceId.length > 0),
+    );
+    if (persistedIds.size === rows.length) {
+      return;
+    }
+    const missingIds = new Set(
+      rows
+        .filter((row) => !persistedIds.has(row.item_instance_id))
+        .map((row) => row.item_instance_id),
+    );
+    if (missingIds.size === 0) {
+      return;
+    }
+    reassignEquipmentSlotItemInstanceIds(rows, rowSources, missingIds);
+  }
+  throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
+}
+
+function reassignEquipmentSlotItemInstanceIds(
+  rows: EquipmentSlotPersistenceRow[],
+  rowSources: Map<EquipmentSlotPersistenceRow, ItemInstanceIdPersistenceRowSource>,
+  conflictedIds: Set<string>,
+): void {
   const usedIds = new Set(rows.map(({ item_instance_id }) => item_instance_id));
   for (const row of rows) {
     if (!conflictedIds.has(row.item_instance_id)) {

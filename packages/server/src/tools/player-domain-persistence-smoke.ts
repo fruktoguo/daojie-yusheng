@@ -1288,8 +1288,16 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
       if (sql.includes('INSERT INTO player_inventory_item') && Array.isArray(params) && typeof params[1] === 'string') {
         inventoryInsertPayloads.push(JSON.parse(params[1]) as unknown[]);
       }
-      if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
-        return { rows: [{ row_count: 1 }], rowCount: 1 };
+      if (
+        sql.includes('SELECT item_instance_id')
+        && sql.includes('FROM player_equipment_slot')
+        && !sql.includes('player_id <> $2')
+      ) {
+        const persistedIds = Array.isArray(params?.[1]) ? params[1] as unknown[] : [];
+        return {
+          rows: persistedIds.map((item_instance_id) => ({ item_instance_id })),
+          rowCount: persistedIds.length,
+        };
       }
       const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
         || sql.includes('INSERT INTO player_market_storage_item')
@@ -1547,14 +1555,22 @@ async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): P
       if (sql.includes('INSERT INTO player_equipment_slot') && Array.isArray(params) && typeof params[1] === 'string') {
         equipmentInsertPayloads.push(JSON.parse(params[1]) as unknown[]);
       }
-      if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
+      if (
+        sql.includes('SELECT item_instance_id')
+        && sql.includes('FROM player_equipment_slot')
+        && !sql.includes('player_id <> $2')
+      ) {
         const persistedIds = Array.isArray(params?.[1]) ? params[1] as unknown[] : [];
         equipmentPersistCountChecks += 1;
         if (equipmentPersistCountChecks === 1 && persistedIds.includes(raceConflictInstanceId)) {
           raceConflictVisible = true;
-          return { rows: [{ row_count: Math.max(0, persistedIds.length - 1) }], rowCount: 1 };
+          const rows = persistedIds
+            .filter((itemInstanceId) => itemInstanceId !== raceConflictInstanceId)
+            .map((item_instance_id) => ({ item_instance_id }));
+          return { rows, rowCount: rows.length };
         }
-        return { rows: [{ row_count: persistedIds.length }], rowCount: 1 };
+        const rows = persistedIds.map((item_instance_id) => ({ item_instance_id }));
+        return { rows, rowCount: rows.length };
       }
       return { rows: [], rowCount: 0 };
     },
@@ -1676,8 +1692,12 @@ async function assertEmptyCollectionSnapshotsDoNotIssueDeletes(): Promise<void> 
 async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void> {
   const fakeClient = {
     async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
-      if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
-        return { rows: [{ row_count: 1 }], rowCount: 1 };
+      if (
+        sql.includes('SELECT item_instance_id')
+        && sql.includes('FROM player_equipment_slot')
+        && !sql.includes('player_id <> $2')
+      ) {
+        return { rows: [{ item_instance_id: 'fake-equipment-instance' }], rowCount: 1 };
       }
       const isCheckedInsert = sql.includes('INSERT INTO player_inventory_item')
         || sql.includes('INSERT INTO player_market_storage_item')
