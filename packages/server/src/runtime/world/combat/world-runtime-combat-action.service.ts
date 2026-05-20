@@ -513,6 +513,7 @@ export class WorldRuntimeCombatActionService {
         || relation?.canAttack === true
         || relation?.relation === 'hostile';
     };
+    const shouldCollectTargetsFromCells = input.collectTargetsFromCells === true || input.collectTargetsFromCells === 'prefer';
 
     if (Array.isArray(input.candidates) && input.candidates.length > 0) {
       for (const candidate of input.candidates) {
@@ -536,7 +537,7 @@ export class WorldRuntimeCombatActionService {
         push(resolved.target);
       }
     }
-    else if (action.warningCells?.length > 0 && typeof instance?.getPlayersAtTile === 'function') {
+    else if (!shouldCollectTargetsFromCells && action.warningCells?.length > 0 && typeof instance?.getPlayersAtTile === 'function') {
       const seen = new Set();
       for (const cell of action.warningCells) {
         if (targets.length >= definition.maxTargets) {
@@ -566,7 +567,7 @@ export class WorldRuntimeCombatActionService {
         }
       }
     }
-    else if (input.collectTargetsFromCells === true || input.collectTargetsFromCells === 'prefer') {
+    else if (shouldCollectTargetsFromCells) {
       const cellsResult = this.computeCombatTargetCells({
         ...input,
         action,
