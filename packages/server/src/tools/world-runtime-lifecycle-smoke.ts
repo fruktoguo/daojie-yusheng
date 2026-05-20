@@ -493,10 +493,6 @@ async function testRestoreOfflineHangingPlayersCanCreateMissingTowerInstance() {
             leaseExpireAt: null,
         },
         template: { id: 'tongtian_tower_layer_3' },
-        connectPlayer(request) {
-            log.push(['connectPlayer', request]);
-            return { sessionId: request.sessionId };
-        },
     };
     await service.restoreOfflineHangingPlayers({
         playerRuntimeService: {
@@ -541,6 +537,17 @@ async function testRestoreOfflineHangingPlayersCanCreateMissingTowerInstance() {
             }
             return Promise.resolve({ ok: true });
         },
+        worldRuntimePlayerSessionService: {
+            resolveTargetInstance(input) {
+                log.push(['resolveTargetInstance', input]);
+                instances.set(towerInstance.meta.instanceId, towerInstance);
+                return towerInstance;
+            },
+            connectPlayer(input) {
+                log.push(['connectPlayer', input]);
+                return { playerId: input.playerId, sessionId: input.sessionId };
+            },
+        },
         worldRuntimePlayerLocationService: {
             setPlayerLocation(playerId, location) {
                 log.push(['setPlayerLocation', playerId, location]);
@@ -569,12 +576,11 @@ async function testRestoreOfflineHangingPlayersCanCreateMissingTowerInstance() {
     assert.deepEqual(log.slice(0, 5), [
         ['expireOfflineHangingPlayers'],
         ['listOfflineHangingPlayerPositions'],
-        ['ensureLayerInstanceForRestore', { instanceId: 'tower:tongtian:layer:3', templateId: '' }],
-        ['syncInstanceLease', 'tower:tongtian:layer:3', { allowForceReclaim: true }],
         ['restoreOfflineHangingPlayer', 'player:offline'],
+        ['resolveTargetInstance', { playerId: 'player:offline', requestedInstanceId: 'tower:tongtian:layer:3', requestedMapId: 'tongtian_tower_layer_3' }],
+        ['syncInstanceLease', 'tower:tongtian:layer:3', { allowForceReclaim: true }],
     ]);
-    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'connectPlayer'));
-    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'setPlayerLocation' && entry[1] === 'player:offline' && entry[2]?.instanceId === 'tower:tongtian:layer:3'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'connectPlayer' && entry[1]?.sessionId === null && entry[1]?.instanceId === 'tower:tongtian:layer:3'));
 }
 
 async function main() {

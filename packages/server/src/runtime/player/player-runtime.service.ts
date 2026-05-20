@@ -239,6 +239,14 @@ export class PlayerRuntimeService {
         const player = this.hydrateFromSnapshot(normalizedPlayerId, null, snapshot);
         (player as any)._hydratedFromPersistence = true;
         player.sessionId = null;
+        player.runtimeOwnerId = null;
+        player.sessionEpoch = 0;
+        player.lastHeartbeatAt = null;
+        (player as any).transferState = null;
+        (player as any).transferTargetNodeId = null;
+        (player as any).transferStartedAt = null;
+        (player as any).transferDeadlineAt = null;
+        (player as any).transferWriteBlocked = false;
         if (!Number.isFinite(player.offlineSinceAt)) {
             player.offlineSinceAt = Date.now();
         }
@@ -995,6 +1003,54 @@ export class PlayerRuntimeService {
 
         const player = this.ensurePlayer(playerId, sessionId);
 
+        let anchorChanged = false;
+        let selfChanged = false;
+        if (player.instanceId !== view.instance.instanceId) {
+            player.instanceId = view.instance.instanceId;
+            anchorChanged = true;
+        }
+        if (player.templateId !== view.instance.templateId) {
+            player.templateId = view.instance.templateId;
+            anchorChanged = true;
+        }
+        if (player.x !== view.self.x) {
+            player.x = view.self.x;
+            anchorChanged = true;
+        }
+        if (player.y !== view.self.y) {
+            player.y = view.self.y;
+            anchorChanged = true;
+        }
+        if (player.facing !== view.self.facing) {
+            player.facing = view.self.facing;
+            anchorChanged = true;
+        }
+        const nextFengShuiLuck = Math.trunc(Number(view.self.fengShuiLuck ?? 0) || 0);
+        if (Math.trunc(Number(player.fengShuiLuck ?? 0) || 0) !== nextFengShuiLuck) {
+            player.fengShuiLuck = nextFengShuiLuck;
+            selfChanged = true;
+            this.playerAttributesService.recalculate(player);
+            markPlayerDirtyDomains(player, ['attr']);
+        }
+        if (anchorChanged) {
+            markPlayerDirtyDomains(player, ['world_anchor', 'position_checkpoint']);
+            this.bumpPersistentRevision(player);
+        }
+        if (anchorChanged || selfChanged) {
+            player.selfRevision += 1;
+        }
+        return player;
+    }
+
+    /** 离线挂机恢复后从世界视图同步位置/上下文，不创建网络会话 fencing。 */
+    syncOfflineFromWorldView(playerId, view) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
+        player.sessionId = null;
+        player.runtimeOwnerId = null;
+        player.lastHeartbeatAt = null;
         let anchorChanged = false;
         let selfChanged = false;
         if (player.instanceId !== view.instance.instanceId) {

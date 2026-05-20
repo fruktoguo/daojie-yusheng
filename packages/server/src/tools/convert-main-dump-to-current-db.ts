@@ -265,14 +265,14 @@ async function initializeTargetServices(targetDatabaseUrl) {
     provider,
     content,
     authStore: new NativePlayerAuthStoreService(),
-    identity: new PlayerIdentityPersistenceService(),
-    playerSnapshots: new PlayerPersistenceService(),
+    identity: new PlayerIdentityPersistenceService(provider),
+    playerSnapshots: new PlayerPersistenceService(provider),
     durable: new DurableOperationService(null),
-    playerDomains: new PlayerDomainPersistenceService(content),
+    playerDomains: new PlayerDomainPersistenceService(content, provider),
     instanceDomains: new InstanceDomainPersistenceService(provider),
-    mail: new MailPersistenceService(),
-    market: new MarketPersistenceService(),
-    suggestions: new SuggestionPersistenceService(),
+    mail: new MailPersistenceService(provider),
+    market: new MarketPersistenceService(provider),
+    suggestions: new SuggestionPersistenceService(provider),
   };
   await services.authStore.onModuleInit();
   await services.identity.onModuleInit();

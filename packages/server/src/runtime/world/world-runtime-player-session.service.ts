@@ -19,11 +19,11 @@ interface ConnectPlayerInput {
 
 interface RuntimePlayerLocation {
   instanceId: string;
-  sessionId?: string;
+  sessionId?: string | null;
 }
 
 interface ConnectedInstancePlayer {
-  sessionId: string;
+  sessionId: string | null;
 }
 
 interface InstanceRuntimeLike {
@@ -35,7 +35,7 @@ interface InstanceRuntimeLike {
   };
   connectPlayer(request: {
     playerId: string;
-    sessionId: string;
+    sessionId: string | null;
     preferredX?: number;
     preferredY?: number;
   }): ConnectedInstancePlayer;
@@ -89,6 +89,7 @@ interface WorldRuntimePlayerSessionDeps {
     getPlayer(playerId: string): unknown;
     removePlayerRuntime(playerId: string): void;
     syncFromWorldView(playerId: string, sessionId: string, view: unknown): unknown;
+    syncOfflineFromWorldView?(playerId: string, view: unknown): unknown;
   };
   getPlayerLocation(playerId: string): RuntimePlayerLocation | null;
   setPlayerLocation(playerId: string, location: RuntimePlayerLocation): void;
@@ -133,7 +134,9 @@ export class WorldRuntimePlayerSessionService {
       throw new BadRequestException('玩家 ID 不能为空');
     }
 
-    const sessionId = input.sessionId?.trim() || `session:${playerId}`;
+    const sessionId = input.sessionId === null
+      ? null
+      : (input.sessionId?.trim() || `session:${playerId}`);
     const requestedInstanceId = normalizeInstanceId(input.instanceId);
     const requestedMapId = normalizeMapId(input.mapId);
     const targetInstance = this.resolveTargetInstance(
@@ -150,7 +153,12 @@ export class WorldRuntimePlayerSessionService {
       deps.getInstanceRuntime(previous.instanceId)?.disconnectPlayer(playerId);
     }
 
-    const playerState = deps.playerRuntimeService.ensurePlayer(playerId, sessionId);
+    const playerState = sessionId === null
+      ? deps.playerRuntimeService.getPlayer(playerId) as PlayerRuntimeLike | null
+      : deps.playerRuntimeService.ensurePlayer(playerId, sessionId);
+    if (!playerState) {
+      throw new NotFoundException(`玩家运行态不存在：${playerId}`);
+    }
     deps.worldRuntimeSectService?.reconcilePlayerSectId?.(playerId);
 
     const runtimePlayer = targetInstance.connectPlayer({
@@ -174,7 +182,9 @@ export class WorldRuntimePlayerSessionService {
     if (typeof deps.refreshPlayerContextActions === 'function') {
       deps.refreshPlayerContextActions(playerId, view);
     }
-    if (typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
+    if (sessionId === null && typeof deps.playerRuntimeService.syncOfflineFromWorldView === 'function') {
+      deps.playerRuntimeService.syncOfflineFromWorldView(playerId, view);
+    } else if (runtimePlayer.sessionId !== null && typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
       deps.playerRuntimeService.syncFromWorldView(playerId, runtimePlayer.sessionId, view);
     }
     return view;
@@ -260,7 +270,7 @@ export class WorldRuntimePlayerSessionService {
    * 这样才能保证“实例创建、接管、落点修正、线路选择”走同一套规则；
    * 真正的差异只应停留在是否有网络会话，以及死亡后是否直接离线。
    */
-  private resolveTargetInstance(
+  resolveTargetInstance(
     input: ResolveTargetInstanceInput,
     deps: WorldRuntimePlayerSessionDeps,
   ): InstanceRuntimeLike {

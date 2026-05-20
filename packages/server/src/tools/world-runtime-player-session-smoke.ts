@@ -151,8 +151,8 @@ function testConnectPlayer() {
     assert.deepEqual(log, [
         ['resolveDefaultRespawnMapId'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
-        ['connectPlayer', { playerId: 'player:1', sessionId: 'session:1', preferredX: undefined, preferredY: undefined }],
         ['ensurePlayer', 'player:1', 'session:1'],
+        ['connectPlayer', { playerId: 'player:1', sessionId: 'session:1', preferredX: undefined, preferredY: undefined }],
         ['setPlayerMoveSpeed', 'player:1', 12],
         ['setPlayerLocation', 'player:1', { instanceId: 'public:yunlai_town', sessionId: 'session:1' }],
         ['clearPendingRespawn', 'player:1'],
@@ -196,11 +196,68 @@ function testConnectPlayerFallsBackToRealDefaultLine() {
     service.connectPlayer({ playerId: 'player:real', sessionId: 'session:real', mapId: 'wildlands' }, deps);
     assert.deepEqual(log.slice(0, 3), [
         ['getOrCreateDefaultLineInstance', 'wildlands', 'real'],
-        ['connectPlayer', { playerId: 'player:real', sessionId: 'session:real', preferredX: undefined, preferredY: undefined }],
         ['ensurePlayer', 'player:real', 'session:real'],
+        ['connectPlayer', { playerId: 'player:real', sessionId: 'session:real', preferredX: undefined, preferredY: undefined }],
     ]);
     assert.deepEqual(log[4], ['setPlayerLocation', 'player:real', { instanceId: 'real:wildlands', sessionId: 'session:real' }]);
 }
+
+function testConnectOfflinePlayerUsesSharedAttachPath() {
+    const log = [];
+    const service = createService(log);
+    const offlinePlayer = {
+        attrs: { numericStats: { moveSpeed: 9 } },
+        instanceId: 'public:yunlai_town',
+        templateId: 'yunlai_town',
+        x: 7,
+        y: 8,
+        facing: 'south',
+        sessionId: null,
+    };
+    const deps = {
+        getPlayerLocation() { return null; },
+        getInstanceRuntime() { return null; },
+        setPlayerLocation(playerId, location) { log.push(['setPlayerLocation', playerId, location]); },
+        worldRuntimeGmQueueService: {
+            clearPendingRespawn(playerId) { log.push(['clearPendingRespawn', playerId]); },
+        },
+        playerRuntimeService: {
+            ensurePlayer() {
+                throw new Error('ensurePlayer should not be called for offline attach');
+            },
+            getPlayer(playerId) {
+                log.push(['getPlayer', playerId]);
+                return offlinePlayer;
+            },
+            syncOfflineFromWorldView(playerId, view) {
+                log.push(['syncOfflineFromWorldView', playerId, view.playerId]);
+                return offlinePlayer;
+            },
+        },
+        logger: {
+            debug(message) { log.push(['debug', message]); },
+            warn(message) { log.push(['warn', message]); },
+        },
+    };
+    const view = service.connectPlayer({ playerId: 'player:offline', sessionId: null }, deps);
+    assert.deepEqual(view, { playerId: 'player:offline' });
+    assert.deepEqual(log.slice(0, 8), [
+        ['resolveDefaultRespawnMapId'],
+        ['getPlayer', 'player:offline'],
+        ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
+        ['getPlayer', 'player:offline'],
+        ['connectPlayer', { playerId: 'player:offline', sessionId: null, preferredX: undefined, preferredY: undefined }],
+        ['setPlayerMoveSpeed', 'player:offline', 9],
+        ['setPlayerLocation', 'player:offline', { instanceId: 'public:yunlai_town', sessionId: null }],
+        ['getPlayer', 'player:offline'],
+    ]);
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'clearPendingRespawn' && entry[1] === 'player:offline'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'debug' && String(entry[1]).includes('player:offline')));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'syncOfflineFromWorldView' && entry[1] === 'player:offline'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'getPlayerViewOrThrow' && entry[1] === 'player:offline'));
+    assert.ok(!log.some((entry) => Array.isArray(entry) && entry[0] === 'ensurePlayer'));
+}
+
 /**
  * testDisconnectAndRemovePlayer：判断testDisconnectAndRemove玩家是否满足条件。
  * @returns 无返回值，直接更新testDisconnectAndRemove玩家相关状态。
@@ -297,8 +354,10 @@ function testDisconnectAndRemovePlayer() {
     assert.equal(service.removePlayer('player:1', 'removed', deps), true);
 }
 
-testConnectPlayer();
-testConnectPlayerFallsBackToRealDefaultLine();
-testDisconnectAndRemovePlayer();
+    testConnectPlayer();
+    testConnectOfflinePlayerUsesSharedAttachPath();
+    testConnectPlayerFallsBackToRealDefaultLine();
+    testDisconnectAndRemovePlayer();
+
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-session' }, null, 2));
