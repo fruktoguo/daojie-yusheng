@@ -3,7 +3,7 @@
  * 按阶段推进每个实例的 tick：资源流动、阵法、建筑、传送、怪物、玩家修炼等
  * Phase 4: 实例级独立子阶段可外移到 InstanceWorkerPool，默认 always-on
  */
-import { Injectable, Optional, Inject } from '@nestjs/common';
+import { Injectable, Optional, Inject, Logger } from '@nestjs/common';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, resolveGameTimeState } from '@mud/shared';
 import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from './world-runtime-qi-projection.helpers';
 import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
@@ -13,10 +13,61 @@ import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-poo
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 @Injectable()
 export class WorldRuntimeInstanceTickOrchestrationService {
+  private readonly logger = new Logger(WorldRuntimeInstanceTickOrchestrationService.name);
+
   constructor(
     @Optional() @Inject(InstanceWorkerPoolService)
     private readonly instanceWorkerPool?: InstanceWorkerPoolService,
   ) {}
+
+  private recordIsolatedOperationFailure(deps, phase, error, details = {}) {
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+    const entry = {
+      ok: false,
+      reason: 'tick_operation_failed',
+      phase,
+      message,
+      details,
+      createdAt: new Date().toISOString(),
+    };
+    if (typeof deps?.recordCombatDiagnostic === 'function') {
+      deps.recordCombatDiagnostic(entry);
+    } else if (Array.isArray(deps?.combatDiagnostics)) {
+      deps.combatDiagnostics.push(entry);
+    }
+    const context = Object.entries(details ?? {})
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => `${key}=${String(value)}`)
+      .join(' ');
+    const line = `tick 操作隔离失败 phase=${phase}${context ? ` ${context}` : ''}：${message}`;
+    const logger = deps?.logger ?? this.logger;
+    if (typeof logger?.warn === 'function') {
+      logger.warn(line, stack);
+    } else {
+      this.logger.warn(line, stack);
+    }
+  }
+
+  private async runIsolatedOperation(deps, phase, details, operation): Promise<boolean> {
+    try {
+      await operation();
+      return true;
+    } catch (error) {
+      this.recordIsolatedOperationFailure(deps, phase, error, details);
+      return false;
+    }
+  }
+
+  private runIsolatedSyncOperation(deps, phase, details, operation): boolean {
+    try {
+      operation();
+      return true;
+    } catch (error) {
+      this.recordIsolatedOperationFailure(deps, phase, error, details);
+      return false;
+    }
+  }
 
   /**
    * 开始实例 tick 前收敛已死亡但仍停留在实例位置表中的玩家。
@@ -56,21 +107,31 @@ export class WorldRuntimeInstanceTickOrchestrationService {
    * Phase 4：把 POJO 镜像快照送入 worker 做确定性预计算，收集 monster intent proposals。
    * 返回 Map<instanceId, MonsterIntentProposal[]>，主线程在 advanceMonsters 中作为 target hints 使用。
    */
-  private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick): Promise<Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>> {
+  private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick, deps = null): Promise<Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>> {
     const proposals = new Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>();
     if (!this.instanceWorkerPool) return proposals;
-    const results = await Promise.all(instanceStepPlans.map(({ instance }) => this.instanceWorkerPool.submit(
-      'instance-advance',
-      {
-        instanceId: instance.meta.instanceId,
-        tick: worldTick,
-        mirror: this.buildInstanceWorkerMirror(instance, worldTick),
-      },
-      (payload) => computeFallbackInstanceIntentProposal(payload),
-      800,
-    )));
+    const results = await Promise.all(instanceStepPlans.map(async ({ instance }) => {
+      try {
+        return await this.instanceWorkerPool.submit(
+          'instance-advance',
+          {
+            instanceId: instance.meta.instanceId,
+            tick: worldTick,
+            mirror: this.buildInstanceWorkerMirror(instance, worldTick),
+          },
+          (payload) => computeFallbackInstanceIntentProposal(payload),
+          800,
+        );
+      } catch (error) {
+        this.recordIsolatedOperationFailure(deps, 'instance_worker_precompute', error, {
+          instanceId: instance.meta?.instanceId,
+          worldTick,
+        });
+        return null;
+      }
+    }));
     for (const result of results) {
-      if (result.ok && result.result) {
+      if (result?.ok && result.result) {
         const output = result.result as { instanceId: string; monsterIntents: Array<{ monsterId: string; action: string; targetId?: string }> };
         if (output.instanceId && Array.isArray(output.monsterIntents)) {
           proposals.set(output.instanceId, output.monsterIntents);
@@ -112,8 +173,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const startedAt = performance.now();
-        deps.worldRuntimeCombatEffectsService.resetFrameEffects();
-        this.reconcileDefeatedPlayersBeforeTick(deps);
+        this.runIsolatedSyncOperation(deps, 'reset_frame_effects', { worldTick: deps.tick }, () => deps.worldRuntimeCombatEffectsService.resetFrameEffects());
+        this.runIsolatedSyncOperation(deps, 'reconcile_defeated_players_before_tick', { worldTick: deps.tick }, () => this.reconcileDefeatedPlayersBeforeTick(deps));
         const instanceStepPlans = [];
         let plannedLogicalTicks = 0;
         for (const instance of deps.listInstanceRuntimes()) {
@@ -137,10 +198,25 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             if (!Number.isFinite(speed) || speed <= 0) {
                 continue;
             }
-            const previousProgress = deps.worldRuntimeTickProgressService.getProgress(instance.meta.instanceId);
+            let previousProgress = 0;
+            const progressReadable = this.runIsolatedSyncOperation(deps, 'instance_tick_progress_read', {
+                instanceId: instance.meta.instanceId,
+                worldTick: deps.tick,
+            }, () => {
+                previousProgress = deps.worldRuntimeTickProgressService.getProgress(instance.meta.instanceId);
+            });
+            if (!progressReadable) {
+                continue;
+            }
             const accumulated = previousProgress + speed * (Math.max(0, frameDurationMs) / 1000);
             const steps = Math.floor(accumulated);
-            deps.worldRuntimeTickProgressService.setProgress(instance.meta.instanceId, accumulated - steps);
+            const progressWritable = this.runIsolatedSyncOperation(deps, 'instance_tick_progress_write', {
+                instanceId: instance.meta.instanceId,
+                worldTick: deps.tick,
+            }, () => deps.worldRuntimeTickProgressService.setProgress(instance.meta.instanceId, accumulated - steps));
+            if (!progressWritable) {
+                continue;
+            }
             if (steps <= 0) {
                 continue;
             }
@@ -148,20 +224,30 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             plannedLogicalTicks += steps;
         }
         if (plannedLogicalTicks <= 0) {
-            deps.worldRuntimeMetricsService.recordIdleFrame(startedAt);
+            this.runIsolatedSyncOperation(deps, 'record_idle_frame', {
+                worldTick: deps.tick,
+            }, () => deps.worldRuntimeMetricsService.recordIdleFrame(startedAt));
             return 0;
         }
-        deps.processPendingRespawns();
-        deps.materializeNavigationCommands();
-        deps.materializeAutoUsePills?.();
-        deps.worldRuntimeAutoCombatService.materializeAutoCombatCommands(deps);
+        this.runIsolatedSyncOperation(deps, 'process_pending_respawns', { worldTick: deps.tick }, () => deps.processPendingRespawns());
+        this.runIsolatedSyncOperation(deps, 'materialize_navigation_commands', { worldTick: deps.tick }, () => deps.materializeNavigationCommands());
+        if (typeof deps.materializeAutoUsePills === 'function') {
+            this.runIsolatedSyncOperation(deps, 'materialize_auto_use_pills', { worldTick: deps.tick }, () => deps.materializeAutoUsePills());
+        }
+        this.runIsolatedSyncOperation(deps, 'materialize_auto_combat_commands', { worldTick: deps.tick }, () => {
+            if (typeof deps.worldRuntimeAutoCombatService?.materializeAutoCombatCommands === 'function') {
+                deps.worldRuntimeAutoCombatService.materializeAutoCombatCommands(deps);
+                return;
+            }
+            deps.materializeAutoCombatCommands?.();
+        });
         const pendingCommandsStartedAt = performance.now();
-        await deps.dispatchPendingCommands();
+        await this.runIsolatedOperation(deps, 'dispatch_pending_commands', { worldTick: deps.tick }, () => deps.dispatchPendingCommands());
         const pendingCommandsMs = performance.now() - pendingCommandsStartedAt;
         const systemCommandsStartedAt = performance.now();
-        deps.dispatchPendingSystemCommands();
+        this.runIsolatedSyncOperation(deps, 'dispatch_pending_system_commands', { worldTick: deps.tick }, () => deps.dispatchPendingSystemCommands());
         const systemCommandsMs = performance.now() - systemCommandsStartedAt;
-        const workerProposals = await this.precomputeInstanceWorkerIntents(instanceStepPlans, deps.tick);
+        const workerProposals = await this.precomputeInstanceWorkerIntents(instanceStepPlans, deps.tick, deps);
         const steppedPlayerIds = new Set();
         let totalLogicalTicks = 0;
         const instanceTicksStartedAt = performance.now();
@@ -169,12 +255,27 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             for (let index = 0; index < steps; index += 1) {
                 // 加速 tick 补偿：对于后续逻辑 tick，为当前实例的玩家重新物化命令
                 if (index > 0) {
-                    deps.worldRuntimeNavigationService.materializeNavigationCommandsForInstance(instance.meta.instanceId, deps);
-                    deps.worldRuntimeAutoCombatService.materializeAutoUsePillsForInstance(instance.meta.instanceId, deps);
-                    deps.worldRuntimeAutoCombatService.materializeAutoCombatCommandsForInstance(instance.meta.instanceId, deps);
-                    await deps.dispatchPendingCommands();
+                    this.runIsolatedSyncOperation(deps, 'materialize_navigation_commands_for_instance', {
+                        instanceId: instance.meta.instanceId,
+                        worldTick: deps.tick,
+                    }, () => deps.worldRuntimeNavigationService.materializeNavigationCommandsForInstance(instance.meta.instanceId, deps));
+                    this.runIsolatedSyncOperation(deps, 'materialize_auto_use_pills_for_instance', {
+                        instanceId: instance.meta.instanceId,
+                        worldTick: deps.tick,
+                    }, () => deps.worldRuntimeAutoCombatService?.materializeAutoUsePillsForInstance?.(instance.meta.instanceId, deps));
+                    this.runIsolatedSyncOperation(deps, 'materialize_auto_combat_commands_for_instance', {
+                        instanceId: instance.meta.instanceId,
+                        worldTick: deps.tick,
+                    }, () => deps.worldRuntimeAutoCombatService?.materializeAutoCombatCommandsForInstance?.(instance.meta.instanceId, deps));
+                    await this.runIsolatedOperation(deps, 'dispatch_pending_commands_for_instance_step', {
+                        instanceId: instance.meta.instanceId,
+                        worldTick: deps.tick,
+                    }, () => deps.dispatchPendingCommands());
                 }
-                const blockedPlayerIds = deps.worldRuntimeNavigationService.getBlockedPlayerIds();
+                let blockedPlayerIds = new Set();
+                this.runIsolatedSyncOperation(deps, 'get_blocked_player_ids', { worldTick: deps.tick }, () => {
+                    blockedPlayerIds = deps.worldRuntimeNavigationService.getBlockedPlayerIds();
+                });
                 deps.tick += 1;
                 totalLogicalTicks += 1;
                 if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
@@ -183,88 +284,202 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     }
                     break;
                 }
-                const isFormationTerrainStabilized = typeof deps.worldRuntimeFormationService?.createTerrainStabilizationChecker === 'function'
-                    ? deps.worldRuntimeFormationService.createTerrainStabilizationChecker(instance.meta.instanceId)
+                let isFormationTerrainStabilized = null;
+                if (typeof deps.worldRuntimeFormationService?.createTerrainStabilizationChecker === 'function') {
+                    this.runIsolatedSyncOperation(deps, 'create_terrain_stabilization_checker', {
+                        instanceId: instance.meta.instanceId,
+                        worldTick: deps.tick,
+                    }, () => {
+                        isFormationTerrainStabilized = deps.worldRuntimeFormationService.createTerrainStabilizationChecker(instance.meta.instanceId);
+                    });
+                }
+                const terrainStabilizationChecker = typeof isFormationTerrainStabilized === 'function'
+                    ? isFormationTerrainStabilized
                     : ((x, y) => deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true);
                 const isTerrainStabilized = (x, y) => (
-                    isFormationTerrainStabilized(x, y) === true
+                    terrainStabilizationChecker(x, y) === true
                     || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
                 );
                 const instanceIntents = workerProposals.get(instance.meta.instanceId) ?? null;
-                const result = instance.tickOnce(instanceIntents);
+                let result = { completedBuildings: [], transfers: [], monsterActions: [] };
+                this.runIsolatedSyncOperation(deps, 'instance_tick_once', {
+                    instanceId: instance.meta.instanceId,
+                    instanceTick: instance.tick,
+                    worldTick: deps.tick,
+                }, () => {
+                    result = instance.tickOnce(instanceIntents) ?? result;
+                });
                 if (typeof instance.advanceTileResourceFlow === 'function') {
-                    instance.advanceTileResourceFlow();
+                    this.runIsolatedSyncOperation(deps, 'instance_tile_resource_flow', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => instance.advanceTileResourceFlow());
                 }
                 if (typeof deps.worldRuntimeFormationService?.advanceInstanceFormations === 'function') {
-                    deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps);
+                    this.runIsolatedSyncOperation(deps, 'instance_formations', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps));
                 }
                 if (typeof instance.advanceTemporaryTiles === 'function') {
-                    instance.advanceTemporaryTiles(instance.tick, isTerrainStabilized);
+                    this.runIsolatedSyncOperation(deps, 'instance_temporary_tiles', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => instance.advanceTemporaryTiles(instance.tick, isTerrainStabilized));
                 }
                 if (typeof instance.advanceTileRecovery === 'function') {
-                    const tileRecoveryProvider = resolveTileRecoveryProvider(instance);
-                    instance.advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider);
+                    this.runIsolatedSyncOperation(deps, 'instance_tile_recovery', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => {
+                        const tileRecoveryProvider = resolveTileRecoveryProvider(instance);
+                        instance.advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider);
+                    });
                 }
                 if (Array.isArray(result.completedBuildings) && result.completedBuildings.length > 0) {
                     for (const building of result.completedBuildings) {
-                        notifyBuildingConstructionCompletion(deps, building);
+                        this.runIsolatedSyncOperation(deps, 'building_completion_notice', {
+                            instanceId: instance.meta.instanceId,
+                            buildingId: building?.id,
+                            playerId: building?.playerId,
+                            worldTick: deps.tick,
+                        }, () => notifyBuildingConstructionCompletion(deps, building));
                     }
                 }
                 for (const transfer of result.transfers) {
-                    deps.applyTransfer(transfer);
+                    this.runIsolatedSyncOperation(deps, 'transfer_apply', {
+                        instanceId: instance.meta.instanceId,
+                        playerId: transfer?.playerId,
+                        targetInstanceId: transfer?.targetInstanceId,
+                        worldTick: deps.tick,
+                    }, () => deps.applyTransfer(transfer));
                 }
                 for (const action of result.monsterActions) {
-                    deps.applyMonsterAction(action);
+                    this.runIsolatedSyncOperation(deps, 'monster_action_apply', {
+                        instanceId: action?.instanceId ?? instance.meta.instanceId,
+                        monsterId: action?.runtimeId ?? action?.monsterId,
+                        actionKind: action?.kind,
+                        targetPlayerId: action?.targetPlayerId,
+                        worldTick: deps.tick,
+                    }, () => deps.applyMonsterAction(action));
                 }
-                const currentPlayerIds = instance.listPlayerIds();
+                let currentPlayerIds = [];
+                this.runIsolatedSyncOperation(deps, 'instance_list_player_ids', {
+                    instanceId: instance.meta.instanceId,
+                    instanceTick: instance.tick,
+                    worldTick: deps.tick,
+                }, () => {
+                    currentPlayerIds = instance.listPlayerIds();
+                });
                 if (currentPlayerIds.length > 0) {
-                    syncWorldTimeVisionForPlayers(instance, currentPlayerIds, deps.playerRuntimeService, speed);
-                    const cultivationAuraMultiplierByPlayerId = buildCultivationAuraMultiplierByPlayerId(instance, currentPlayerIds, deps.playerRuntimeService);
-                    deps.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
-                        idleCultivationBlockedPlayerIds: blockedPlayerIds,
-                        cultivationAuraMultiplierByPlayerId,
-                    });
-                    applyTileQiDrainForPlayers(instance, currentPlayerIds, deps);
+                    for (const playerId of currentPlayerIds) {
+                        this.runIsolatedSyncOperation(deps, 'player_world_time_vision', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => syncWorldTimeVisionForPlayers(instance, [playerId], deps.playerRuntimeService, speed));
+                    }
+                    const cultivationAuraMultiplierByPlayerId = new Map();
+                    for (const playerId of currentPlayerIds) {
+                        this.runIsolatedSyncOperation(deps, 'player_cultivation_aura_projection', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => {
+                            const entry = buildCultivationAuraMultiplierByPlayerId(instance, [playerId], deps.playerRuntimeService);
+                            cultivationAuraMultiplierByPlayerId.set(playerId, entry.get(playerId) ?? 1);
+                        });
+                    }
+                    for (const playerId of currentPlayerIds) {
+                        this.runIsolatedSyncOperation(deps, 'player_tick_advance', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => deps.playerRuntimeService.advanceTickForPlayerIds([playerId], instance.tick, {
+                            idleCultivationBlockedPlayerIds: blockedPlayerIds,
+                            cultivationAuraMultiplierByPlayerId,
+                        }));
+                    }
+                    for (const playerId of currentPlayerIds) {
+                        this.runIsolatedSyncOperation(deps, 'player_tile_qi_drain', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => applyTileQiDrainForPlayers(instance, [playerId], deps));
+                    }
                     if (typeof deps.worldRuntimePlayerSkillDispatchService?.resolvePendingPlayerSkillCast === 'function') {
                         for (const playerId of currentPlayerIds) {
-                            await deps.worldRuntimePlayerSkillDispatchService.resolvePendingPlayerSkillCast(playerId, deps);
+                            await this.runIsolatedOperation(deps, 'player_pending_skill_cast', {
+                                instanceId: instance.meta.instanceId,
+                                playerId,
+                                instanceTick: instance.tick,
+                                worldTick: deps.tick,
+                            }, () => deps.worldRuntimePlayerSkillDispatchService.resolvePendingPlayerSkillCast(playerId, deps));
                         }
                     }
-                    await deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps);
+                    for (const playerId of currentPlayerIds) {
+                        await this.runIsolatedOperation(deps, 'player_craft_jobs', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs([playerId], deps));
+                    }
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);
                     }
                 }
                 if (typeof deps.worldRuntimeTongtianTowerService?.advanceInstance === 'function') {
-                    deps.worldRuntimeTongtianTowerService.advanceInstance(instance, deps);
+                    this.runIsolatedSyncOperation(deps, 'tongtian_tower_instance', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => deps.worldRuntimeTongtianTowerService.advanceInstance(instance, deps));
                 }
             }
         }
         if (typeof deps.worldRuntimeTongtianTowerService?.cleanupIdleInstances === 'function') {
-            await deps.worldRuntimeTongtianTowerService.cleanupIdleInstances(deps);
+            await this.runIsolatedOperation(deps, 'tongtian_tower_cleanup_idle_instances', {
+                worldTick: deps.tick,
+            }, () => deps.worldRuntimeTongtianTowerService.cleanupIdleInstances(deps));
         }
         const instanceTicksMs = performance.now() - instanceTicksStartedAt;
         const transfersMs = 0;
         const monsterActionsMs = 0;
         const playerAdvanceStartedAt = performance.now();
-        deps.worldRuntimeLootContainerService.advanceContainerSearches({
+        this.runIsolatedSyncOperation(deps, 'loot_container_searches', {
+            worldTick: deps.tick,
+        }, () => deps.worldRuntimeLootContainerService.advanceContainerSearches({
             getInstanceRuntime: (instanceId) => deps.getInstanceRuntime(instanceId),
         }, {
             listConnectedPlayerIds: () => deps.listConnectedPlayerIds(),
             getPlayerLocation: (playerId) => deps.getPlayerLocation(playerId),
-        }, deps.tick);
+        }, deps.tick));
         for (const playerId of steppedPlayerIds) {
-            deps.refreshQuestStates(playerId);
+            this.runIsolatedSyncOperation(deps, 'player_quest_refresh', {
+                playerId,
+                worldTick: deps.tick,
+            }, () => deps.refreshQuestStates(playerId));
         }
         const playerAdvanceMs = performance.now() - playerAdvanceStartedAt;
-        deps.worldRuntimeMetricsService.recordFrameResult(startedAt, {
+        this.runIsolatedSyncOperation(deps, 'record_frame_result', {
+            worldTick: deps.tick,
+        }, () => deps.worldRuntimeMetricsService.recordFrameResult(startedAt, {
             pendingCommandsMs,
             systemCommandsMs,
             instanceTicksMs,
             transfersMs,
             monsterActionsMs,
             playerAdvanceMs,
-        });
+        }));
         return totalLogicalTicks;
     }
 };

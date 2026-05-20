@@ -551,6 +551,108 @@ async function verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi() {
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'queuePlayerNotice'));
 }
 
+async function verifyOperationFailuresAreIsolatedWithinTick() {
+    const log = [];
+    const diagnostics = [];
+    const warnings = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    instance.tickOnce = () => {
+        log.push('instance.tickOnce');
+        return {
+            completedBuildings: [],
+            transfers: [{ id: 'transfer:fail', playerId: 'player:bad' }, { id: 'transfer:ok', playerId: 'player:2' }],
+            monsterActions: [{ id: 'action:fail', runtimeId: 'monster:bad' }, { id: 'action:ok', runtimeId: 'monster:ok' }],
+        };
+    };
+    instance.listPlayerIds = () => {
+        log.push('instance.listPlayerIds');
+        return ['player:1', 'player:2'];
+    };
+    deps.recordCombatDiagnostic = (entry) => {
+        diagnostics.push(entry);
+    };
+    deps.logger = {
+        warn: (message) => warnings.push(message),
+    };
+    deps.applyTransfer = (transfer) => {
+        log.push(['applyTransfer', transfer.id]);
+        if (transfer.id === 'transfer:fail') {
+            throw new Error('transfer failed');
+        }
+    };
+    deps.applyMonsterAction = (action) => {
+        log.push(['applyMonsterAction', action.id]);
+        if (action.id === 'action:fail') {
+            throw new Error('monster action failed');
+        }
+    };
+    deps.playerRuntimeService.getPlayer = (playerId) => ({
+        playerId,
+        techniques: { techniques: [] },
+        buffs: { buffs: [] },
+        runtimeBonuses: [],
+        worldTime: null,
+    });
+    deps.playerRuntimeService.advanceTickForPlayerIds = (playerIds) => {
+        log.push(['advanceTickForPlayerIds', playerIds[0]]);
+        if (playerIds[0] === 'player:1') {
+            throw new Error('player tick failed');
+        }
+    };
+    deps.worldRuntimePlayerSkillDispatchService = {
+        resolvePendingPlayerSkillCast: async (playerId) => {
+            log.push(['resolvePendingPlayerSkillCast', playerId]);
+            if (playerId === 'player:1') {
+                throw new Error('pending skill failed');
+            }
+        },
+    };
+    deps.worldRuntimeCraftTickService.advanceCraftJobs = async (playerIds) => {
+        log.push(['advanceCraftJobs', playerIds[0]]);
+        if (playerIds[0] === 'player:1') {
+            throw new Error('craft failed');
+        }
+    };
+    deps.worldRuntimeTongtianTowerService = {};
+    deps.worldRuntimeTongtianTowerService.advanceInstance = () => {
+        log.push('tongtianTower.advanceInstance');
+        throw new Error('tower failed');
+    };
+    deps.worldRuntimeLootContainerService.advanceContainerSearches = () => {
+        log.push('advanceContainerSearches');
+        throw new Error('loot failed');
+    };
+    deps.refreshQuestStates = (playerId) => {
+        log.push(['refreshQuestStates', playerId]);
+        if (playerId === 'player:1') {
+            throw new Error('quest failed');
+        }
+    };
+
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+    const ticks = await service.advanceFrame(deps, 1000, null);
+
+    assert.equal(ticks, 1);
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'applyTransfer' && entry[1] === 'transfer:ok'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'applyMonsterAction' && entry[1] === 'action:ok'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'advanceTickForPlayerIds' && entry[1] === 'player:2'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'resolvePendingPlayerSkillCast' && entry[1] === 'player:2'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'advanceCraftJobs' && entry[1] === 'player:2'));
+    assert.ok(log.includes('tongtianTower.advanceInstance'));
+    assert.ok(log.includes('advanceContainerSearches'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'refreshQuestStates' && entry[1] === 'player:2'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'transfer_apply' && entry.details.playerId === 'player:bad'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'monster_action_apply' && entry.details.monsterId === 'monster:bad'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'player_tick_advance' && entry.details.playerId === 'player:1'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'player_pending_skill_cast' && entry.details.playerId === 'player:1'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'player_craft_jobs' && entry.details.playerId === 'player:1'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'tongtian_tower_instance'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'loot_container_searches'));
+    assert.ok(diagnostics.some((entry) => entry.phase === 'player_quest_refresh' && entry.details.playerId === 'player:1'));
+    assert.ok(warnings.length >= 8);
+}
+
 Promise.resolve()
     .then(() => verifyNormalPath())
     .then(() => verifyZeroTickPath())
@@ -560,6 +662,7 @@ Promise.resolve()
     .then(() => verifyCultivationAuraMultiplierUsesAllAbsorbableQiResources())
     .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
     .then(() => verifyTileQiDrainRelocatesPlayerToSpawnOnEmptyQi())
+    .then(() => verifyOperationFailuresAreIsolatedWithinTick())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
 });
