@@ -11,6 +11,7 @@ import { emitCombatPresentation, nextCastId } from './world-runtime-combat-prese
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../../combat/pending-combat-cast.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
+import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
@@ -469,6 +470,7 @@ export class WorldRuntimePlayerSkillDispatchService {
 
     playerCombatService;    
     worldRuntimeCombatActionService;
+    worldRuntimeThreatService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -480,10 +482,12 @@ export class WorldRuntimePlayerSkillDispatchService {
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
         @Inject(PlayerCombatService) playerCombatService: any,
         @Inject(WorldRuntimeCombatActionService) worldRuntimeCombatActionService: any,
+        @Inject(WorldRuntimeThreatService) worldRuntimeThreatService: any = undefined,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.playerCombatService = playerCombatService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService ?? new WorldRuntimeCombatActionService();
+        this.worldRuntimeThreatService = worldRuntimeThreatService ?? new WorldRuntimeThreatService();
     }    
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -1449,6 +1453,16 @@ export class WorldRuntimePlayerSkillDispatchService {
                     defeated: projectedDefeated,
                     applyDefeat: false,
                 });
+                this.worldRuntimeThreatService.addThreat(
+                    this.worldRuntimeThreatService.buildPlayerOwnerId(targetPlayer.playerId),
+                    this.worldRuntimeThreatService.buildPlayerTargetId(attacker.playerId),
+                    {
+                        baseThreat: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
+                        distance,
+                        extraAggroRate: Number(attacker?.attrs?.numericStats?.extraAggroRate ?? 0) || 0,
+                        now: currentTick,
+                    },
+                );
                 this.playerRuntimeService.recordActivity(targetPlayer.playerId, currentTick, { interruptCultivation: true });
                 const updatedTarget = this.playerRuntimeService.getPlayer(targetPlayer.playerId);
                 if (updatedTarget && updatedTarget.hp <= 0 && appliedOutcome?.adapterResult?.handledDefeat !== true) {

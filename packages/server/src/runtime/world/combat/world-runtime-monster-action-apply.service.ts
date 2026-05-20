@@ -9,6 +9,7 @@ import { WorldRuntimeCombatEffectsService } from './world-runtime-combat-effects
 import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
+import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
 
@@ -88,6 +89,7 @@ export class WorldRuntimeMonsterActionApplyService {
  */
 
     worldRuntimeCombatActionService;
+    worldRuntimeThreatService;
     /**
  * logger：日志器引用。
  */
@@ -106,11 +108,13 @@ export class WorldRuntimeMonsterActionApplyService {
         @Inject(PlayerCombatService) playerCombatService: any,
         @Inject(WorldRuntimeCombatEffectsService) worldRuntimeCombatEffectsService: any,
         @Inject(WorldRuntimeCombatActionService) worldRuntimeCombatActionService: any,
+        @Inject(WorldRuntimeThreatService) worldRuntimeThreatService: any = undefined,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.playerCombatService = playerCombatService;
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
+        this.worldRuntimeThreatService = worldRuntimeThreatService ?? new WorldRuntimeThreatService();
     }
     /**
  * applyMonsterAction：处理怪物Action并更新相关状态。
@@ -396,6 +400,16 @@ export class WorldRuntimeMonsterActionApplyService {
                     defeated: projectDamageDefeated(player, result.totalDamage),
                     applyDefeat: false,
                 });
+                this.worldRuntimeThreatService.addThreat(
+                    this.worldRuntimeThreatService.buildPlayerOwnerId(player.playerId),
+                    action.runtimeId,
+                    {
+                        baseThreat: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
+                        distance: actionPlan.distance,
+                        extraAggroRate: Number(monster?.numericStats?.extraAggroRate ?? 0) || 0,
+                        now: currentTick,
+                    },
+                );
                 emitCombatPresentation({
                     deps,
                     effectsService: this.worldRuntimeCombatEffectsService,

@@ -1,10 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER } from '@mud/shared';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import { buildBasicAttackCommandFromAttackableTarget, resolveAttackableTargetRef } from './world-runtime.attack-target.helpers';
+import { WorldRuntimeThreatService, resolveThreatDistanceMultiplier } from './world-runtime-threat.service';
 
 const { findPlayerSkill, resolveAutoBattleSkillQiCost, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
 const { chebyshevDistance, findPathToTargetWithinRangeOnMap, directionFromStep, resolveInitialRunLength } = world_runtime_path_planning_helpers_1;
@@ -47,8 +49,8 @@ function isPlayerTargetRef(targetRef) {
     return typeof targetRef === 'string' && targetRef.trim().startsWith('player:');
 }
 
-const AUTO_TARGETING_PREFERENCE_MULTIPLIER = 5;
-const AUTO_UNREACHABLE_TARGET_SCORE_MULTIPLIER = 0.2;
+const AUTO_TARGETING_PREFERENCE_MULTIPLIER = PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER;
+const AUTO_UNREACHABLE_TARGET_THREAT_MULTIPLIER = 0.2;
 const AUTO_COMBAT_ACTION_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
 const AUTO_USE_PILL_SLOT_LIMIT = 12;
 
@@ -241,7 +243,8 @@ export class WorldRuntimeAutoCombatService {
  */
 
     playerRuntimeService;
-    unreachableTargetScoreMultiplierByPlayerId = new Map();
+    worldRuntimeThreatService;
+    unreachableThreatReductionByPlayerId = new Map();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -250,8 +253,10 @@ export class WorldRuntimeAutoCombatService {
 
     constructor(
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(WorldRuntimeThreatService) worldRuntimeThreatService: any = undefined,
     ) {
         this.playerRuntimeService = playerRuntimeService;
+        this.worldRuntimeThreatService = worldRuntimeThreatService ?? new WorldRuntimeThreatService();
     }
     /**
  * materializeAutoUsePills：按玩家配置在 tick 受控流程内自动使用一枚丹药。
@@ -456,6 +461,18 @@ export class WorldRuntimeAutoCombatService {
         if (!view) {
             return null;
         }
+        const selfSkillChoice = this.resolveAutoBattleSelfSkillChoice(player, options);
+        if (selfSkillChoice?.skillId) {
+            return {
+                kind: 'castSkill',
+                skillId: selfSkillChoice.skillId,
+                targetPlayerId: null,
+                targetMonsterId: null,
+                targetRef: null,
+                autoCombat: true,
+            };
+        }
+        this.refreshPlayerThreats(instance, player, view, deps);
         const target = this.selectAutoCombatTarget(instance, player, view, deps, options);
         if (!target) {
             return null;
@@ -575,7 +592,19 @@ export class WorldRuntimeAutoCombatService {
         if (!targetRef || currentTargetRef !== targetRef) {
             return null;
         }
-        this.reduceAutoCombatTargetScoreOnce(player.playerId, targetRef);
+        let reducedTargets = this.unreachableThreatReductionByPlayerId.get(player.playerId);
+        if (!reducedTargets) {
+            reducedTargets = new Set();
+            this.unreachableThreatReductionByPlayerId.set(player.playerId, reducedTargets);
+        }
+        if (!reducedTargets.has(targetRef)) {
+            reducedTargets.add(targetRef);
+            this.worldRuntimeThreatService.multiplyThreat(
+                this.worldRuntimeThreatService.buildPlayerOwnerId(player.playerId),
+                targetRef,
+                AUTO_UNREACHABLE_TARGET_THREAT_MULTIPLIER,
+            );
+        }
         const currentTick = deps.resolveCurrentTickForPlayerId(player.playerId);
         this.playerRuntimeService.clearManualEngagePending?.(player.playerId);
         this.playerRuntimeService.clearCombatTarget(player.playerId, currentTick);
@@ -602,6 +631,65 @@ export class WorldRuntimeAutoCombatService {
             hp: monster.hp,
         };
     }
+    /** refreshPlayerThreats：按当前视野刷新玩家仇恨表，失效目标做衰减而不是立即清空。 */
+    refreshPlayerThreats(instance, player, view, deps) {
+        const ownerId = this.worldRuntimeThreatService.buildPlayerOwnerId(player.playerId);
+        const activeTargetIds = new Set();
+        const currentTick = deps.resolveCurrentTickForPlayerId(player.playerId);
+        const extraAggroRate = Number(player?.attrs?.numericStats?.extraAggroRate ?? 0) || 0;
+        const monsterRelation = resolveCombatRelation(player, { kind: 'monster' });
+        const monsterHostile = isHostileRelation(monsterRelation);
+        for (const monster of view.localMonsters ?? []) {
+            const liveMonster = instance.getMonster(monster.runtimeId);
+            if (!liveMonster?.alive) {
+                continue;
+            }
+            const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
+            if (!player.combat.autoBattle && !retaliating) {
+                continue;
+            }
+            if (!monsterHostile && !retaliating) {
+                continue;
+            }
+            const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
+            activeTargetIds.add(monster.runtimeId);
+            this.worldRuntimeThreatService.addThreat(ownerId, monster.runtimeId, {
+                baseThreat: DEFAULT_PASSIVE_THREAT_PER_TICK,
+                distance,
+                extraAggroRate,
+                now: currentTick,
+            });
+        }
+        for (const visible of view.visiblePlayers ?? []) {
+            const target = this.playerRuntimeService.getPlayer(visible.playerId);
+            if (!target || target.instanceId !== player.instanceId || target.hp <= 0) {
+                continue;
+            }
+            if (instance.isPointInSafeZone(player.x, player.y) || instance.isPointInSafeZone(target.x, target.y)) {
+                continue;
+            }
+            const relation = resolveCombatRelation(player, {
+                kind: 'player',
+                target,
+            });
+            if (!isHostileRelation(relation)) {
+                continue;
+            }
+            const retaliating = relation.matchedRules.includes('retaliators');
+            if (!player.combat.autoBattle && !retaliating) {
+                continue;
+            }
+            const targetRef = this.worldRuntimeThreatService.buildPlayerTargetId(target.playerId);
+            activeTargetIds.add(targetRef);
+            this.worldRuntimeThreatService.addThreat(ownerId, targetRef, {
+                baseThreat: DEFAULT_PASSIVE_THREAT_PER_TICK,
+                distance: chebyshevDistance(player.x, player.y, target.x, target.y),
+                extraAggroRate,
+                now: currentTick,
+            });
+        }
+        this.worldRuntimeThreatService.decayMissingTargets(ownerId, activeTargetIds, player.maxHp, currentTick);
+    }
     /**
  * selectAutoCombatTarget：读取selectAuto战斗目标并返回结果。
  * @param instance 地图实例。
@@ -626,89 +714,24 @@ export class WorldRuntimeAutoCombatService {
                 return trackedTarget;
             }
         }
-        const monsterRelation = resolveCombatRelation(player, { kind: 'monster' });
-        const monsterHostile = isHostileRelation(monsterRelation);
-        const candidates = [];
-        let nearestDistance = Number.POSITIVE_INFINITY;
-        let lowestHpRatio = Number.POSITIVE_INFINITY;
-        let highestHpRatio = Number.NEGATIVE_INFINITY;
-        for (const monster of view.localMonsters) {
-            const liveMonster = instance.getMonster(monster.runtimeId);
-            if (!liveMonster?.alive) {
-                continue;
-            }
-            const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
-            if (!player.combat.autoBattle && !retaliating) {
-                continue;
-            }
-            if (!monsterHostile && !retaliating) {
-                continue;
-            }
-            const aggroRank = retaliating ? 1 : 0;
-            const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
-            const hpRatio = getAutoTargetHpRatio({ hp: monster.hp, maxHp: liveMonster.maxHp });
-            candidates.push({
-                kind: 'monster',
-                target: this.normalizeAutoCombatMonsterTarget(monster),
-                distance,
-                hp: monster.hp,
-                maxHp: liveMonster.maxHp,
-                hpRatio,
-                aggroRank,
-                priority: aggroRank > 0 ? 2 : 0,
-                isBoss: liveMonster.tier === 'demon_king',
-                tieBreaker: monster.runtimeId,
-            });
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-            }
-            if (hpRatio < lowestHpRatio) {
-                lowestHpRatio = hpRatio;
-            }
-            if (hpRatio > highestHpRatio) {
-                highestHpRatio = hpRatio;
-            }
-        }
-        const bestPlayer = this.selectAutoCombatPlayerTarget(player, view);
-        if (bestPlayer) {
-            const hpRatio = getAutoTargetHpRatio({ hp: bestPlayer.hp, maxHp: bestPlayer.maxHp ?? bestPlayer.hp });
-            candidates.push({
-                kind: 'player',
-                target: bestPlayer,
-                distance: bestPlayer.distance,
-                hp: bestPlayer.hp,
-                maxHp: bestPlayer.maxHp ?? bestPlayer.hp,
-                hpRatio,
-                aggroRank: bestPlayer.priority >= 3 ? 1 : 0,
-                priority: bestPlayer.priority ?? 0,
-                isBoss: false,
-                tieBreaker: bestPlayer.playerId,
-            });
-            if (bestPlayer.distance < nearestDistance) {
-                nearestDistance = bestPlayer.distance;
-            }
-            if (hpRatio < lowestHpRatio) {
-                lowestHpRatio = hpRatio;
-            }
-            if (hpRatio > highestHpRatio) {
-                highestHpRatio = hpRatio;
-            }
-        }
+        const candidates = this.collectThreatTargetCandidates(instance, player, view);
         if (candidates.length === 0) {
             return null;
         }
         const metrics = {
-            nearestDistance,
-            lowestHpRatio,
-            highestHpRatio,
+            nearestDistance: candidates.reduce((min, candidate) => Math.min(min, candidate.distance), Number.POSITIVE_INFINITY),
+            lowestHpRatio: candidates.reduce((min, candidate) => Math.min(min, candidate.hpRatio), Number.POSITIVE_INFINITY),
+            highestHpRatio: candidates.reduce((max, candidate) => Math.max(max, candidate.hpRatio), Number.NEGATIVE_INFINITY),
         };
         let bestCandidate = null;
         let bestScore = Number.NEGATIVE_INFINITY;
         for (const candidate of candidates) {
-            const score = scoreAutoCombatCandidate(player.combat.autoBattleTargetingMode, candidate, metrics)
-                * this.resolveAutoCombatTargetScoreMultiplier(player.playerId, candidate.target.targetRef);
+            const score = candidate.threatValue
+                * resolveThreatDistanceMultiplier(candidate.distance)
+                * getAutoTargetingPreferenceMultiplier(player.combat.autoBattleTargetingMode, candidate, metrics);
             if (
                 score > bestScore
+                || (score === bestScore && bestCandidate && candidate.threatValue > bestCandidate.threatValue)
                 || (score === bestScore && bestCandidate && candidate.distance < bestCandidate.distance)
                 || (score === bestScore && bestCandidate && candidate.distance === bestCandidate.distance && candidate.tieBreaker < bestCandidate.tieBreaker)
             ) {
@@ -720,26 +743,111 @@ export class WorldRuntimeAutoCombatService {
             return null;
         }
         if (player.combat.autoBattle && player.combat.combatTargetId !== bestCandidate.target.targetRef) {
+            this.unreachableThreatReductionByPlayerId.delete(player.playerId);
             this.playerRuntimeService.setCombatTarget(player.playerId, bestCandidate.target.targetRef, false, deps.resolveCurrentTickForPlayerId(player.playerId));
         }
         return bestCandidate.target;
     }
-    resolveAutoCombatTargetScoreMultiplier(playerId, targetRef) {
-        const targetMultipliers = this.unreachableTargetScoreMultiplierByPlayerId.get(playerId);
-        if (!targetMultipliers) {
-            return 1;
+    collectThreatTargetCandidates(instance, player, view) {
+        const ownerId = this.worldRuntimeThreatService.buildPlayerOwnerId(player.playerId);
+        const entries = this.worldRuntimeThreatService.getThreatEntries(ownerId, DEFAULT_AGGRO_THRESHOLD);
+        if (entries.length === 0) {
+            return [];
         }
-        return targetMultipliers.get(targetRef) ?? 1;
-    }
-    reduceAutoCombatTargetScoreOnce(playerId, targetRef) {
-        let targetMultipliers = this.unreachableTargetScoreMultiplierByPlayerId.get(playerId);
-        if (!targetMultipliers) {
-            targetMultipliers = new Map();
-            this.unreachableTargetScoreMultiplierByPlayerId.set(playerId, targetMultipliers);
+        const visibleMonstersById = new Map();
+        for (const monster of view.localMonsters ?? []) {
+            if (typeof monster?.runtimeId === 'string') {
+                visibleMonstersById.set(monster.runtimeId, monster);
+            }
         }
-        if (!targetMultipliers.has(targetRef)) {
-            targetMultipliers.set(targetRef, AUTO_UNREACHABLE_TARGET_SCORE_MULTIPLIER);
+        const visiblePlayerIds = new Set();
+        for (const visible of view.visiblePlayers ?? []) {
+            if (typeof visible?.playerId === 'string') {
+                visiblePlayerIds.add(visible.playerId);
+            }
         }
+        const candidates = [];
+        const monsterRelation = resolveCombatRelation(player, { kind: 'monster' });
+        const monsterHostile = isHostileRelation(monsterRelation);
+        for (const entry of entries) {
+            if (entry.targetId.startsWith('player:')) {
+                const targetPlayerId = entry.targetId.slice('player:'.length);
+                if (!visiblePlayerIds.has(targetPlayerId)) {
+                    continue;
+                }
+                const target = this.playerRuntimeService.getPlayer(targetPlayerId);
+                if (!target || target.instanceId !== player.instanceId || target.hp <= 0) {
+                    continue;
+                }
+                if (instance.isPointInSafeZone(player.x, player.y) || instance.isPointInSafeZone(target.x, target.y)) {
+                    continue;
+                }
+                const relation = resolveCombatRelation(player, {
+                    kind: 'player',
+                    target,
+                });
+                if (!isHostileRelation(relation)) {
+                    continue;
+                }
+                const priority = resolveAutoCombatPlayerPriority(relation);
+                const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
+                candidates.push({
+                    kind: 'player',
+                    target: {
+                        kind: 'player',
+                        playerId: target.playerId,
+                        targetRef: entry.targetId,
+                        x: target.x,
+                        y: target.y,
+                        hp: target.hp,
+                        maxHp: target.maxHp,
+                        distance,
+                        priority,
+                    },
+                    distance,
+                    hp: target.hp,
+                    maxHp: target.maxHp,
+                    hpRatio: getAutoTargetHpRatio({ hp: target.hp, maxHp: target.maxHp }),
+                    aggroRank: priority >= 3 ? 1 : 0,
+                    priority,
+                    isBoss: false,
+                    tieBreaker: target.playerId,
+                    threatValue: entry.value,
+                });
+                continue;
+            }
+            const monster = visibleMonstersById.get(entry.targetId);
+            if (!monster) {
+                continue;
+            }
+            const liveMonster = instance.getMonster(monster.runtimeId);
+            if (!liveMonster?.alive) {
+                continue;
+            }
+            const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
+            if (!player.combat.autoBattle && !retaliating) {
+                continue;
+            }
+            if (!monsterHostile && !retaliating) {
+                continue;
+            }
+            const distance = chebyshevDistance(player.x, player.y, monster.x, monster.y);
+            const aggroRank = retaliating ? 1 : 0;
+            candidates.push({
+                kind: 'monster',
+                target: this.normalizeAutoCombatMonsterTarget(monster),
+                distance,
+                hp: monster.hp,
+                maxHp: liveMonster.maxHp,
+                hpRatio: getAutoTargetHpRatio({ hp: monster.hp, maxHp: liveMonster.maxHp }),
+                aggroRank,
+                priority: aggroRank > 0 ? 2 : 0,
+                isBoss: liveMonster.tier === 'demon_king',
+                tieBreaker: monster.runtimeId,
+                threatValue: entry.value,
+            });
+        }
+        return candidates;
     }
     /** 被玩家攻击时，临时抢占非玩家锁定目标，但不改写原锁定目标。 */
     resolveRetaliatePlayerOverrideTarget(instance, player, deps) {
@@ -909,18 +1017,11 @@ export class WorldRuntimeAutoCombatService {
         return null;
     }
 
-    /**
- * pickAutoBattleSkill：执行pickAutoBattle技能相关逻辑。
- * @param player 玩家对象。
- * @param distance 参数说明。
- * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
- */
-
-    resolveAutoBattleSkillChoice(player, distance, options = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+    resolveFirstUsableAutoBattleSkill(player, options = undefined) {
+        if (!Array.isArray(player?.actions?.actions)) {
+            return null;
+        }
         const excludedSkillIds = options?.excludedSkillIds;
-        let chaseRange = 1;
         for (const action of player.actions.actions) {
             if (action.type !== 'skill') {
                 continue;
@@ -932,10 +1033,7 @@ export class WorldRuntimeAutoCombatService {
                 continue;
             }
             const skill = findAutoBattlePlayerSkill(player, action.id);
-            if (!skill) {
-                continue;
-            }
-            if (excludedSkillIds?.has(skill.id)) {
+            if (!skill || excludedSkillIds?.has(skill.id)) {
                 continue;
             }
             if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
@@ -943,34 +1041,57 @@ export class WorldRuntimeAutoCombatService {
             }
             if (isAutoSelfBuffSkill(skill)) {
                 if (shouldAutoCastSelfBuffSkill(player, skill)) {
-                    return { skillId: skill.id, range: 0, selfCast: true };
+                    return { skill, action, range: 0, selfCast: true };
                 }
                 continue;
             }
-            // 原地释放技能（requiresTarget:false + range:0）：以玩家为中心，用 AOE 覆盖半径判断能否命中目标
             if (skill.requiresTarget === false && (action.range ?? 0) === 0) {
-                const aoeRadius = resolveSkillAoeCoverRadius(skill);
-                if (distance <= aoeRadius) {
-                    return { skillId: skill.id, range: aoeRadius, selfCast: true };
-                }
-                chaseRange = Math.max(chaseRange, aoeRadius);
-                continue;
-            }
-            const range = Math.max(1, Math.round(resolveAutoBattleEffectiveSkillRange(player, skill, action)));
-            if (distance <= range) {
                 return {
-                    skillId: skill.id,
-                    range,
+                    skill,
+                    action,
+                    range: Math.max(1, resolveSkillAoeCoverRadius(skill)),
+                    selfCast: true,
                 };
             }
-            chaseRange = Math.max(chaseRange, range);
+            return {
+                skill,
+                action,
+                range: Math.max(1, Math.round(resolveAutoBattleEffectiveSkillRange(player, skill, action))),
+                selfCast: false,
+            };
         }
-        return chaseRange > 1
-            ? {
-                skillId: null,
-                range: chaseRange,
-            }
-            : null;
+        return null;
+    }
+
+    /**
+ * pickAutoBattleSkill：执行pickAutoBattle技能相关逻辑。
+ * @param player 玩家对象。
+ * @param distance 参数说明。
+ * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
+ */
+
+    resolveAutoBattleSkillChoice(player, distance, options = undefined) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const choice = this.resolveFirstUsableAutoBattleSkill(player, options);
+        if (!choice) {
+            return null;
+        }
+        if (choice.selfCast && isAutoSelfBuffSkill(choice.skill)) {
+            return { skillId: choice.skill.id, range: 0, selfCast: true };
+        }
+        const range = Math.max(1, Math.round(choice.range));
+        if (distance <= range) {
+            return {
+                skillId: choice.skill.id,
+                range,
+                selfCast: choice.selfCast === true,
+            };
+        }
+        return {
+            skillId: null,
+            range,
+        };
     }
     /**
  * pickAutoBattleSkill：执行pickAutoBattle技能相关逻辑。
@@ -993,35 +1114,10 @@ export class WorldRuntimeAutoCombatService {
     resolveAutoBattleDesiredRange(player, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        let desiredRange = 1;
-        const excludedSkillIds = options?.excludedSkillIds;
-        for (const action of player.actions.actions) {
-            if (action.type !== 'skill') {
-                continue;
-            }
-            if (action.autoBattleEnabled === false || action.skillEnabled === false) {
-                continue;
-            }
-            const skill = findAutoBattlePlayerSkill(player, action.id);
-            if (!skill) {
-                desiredRange = Math.max(desiredRange, Math.max(1, Math.round(action.range ?? 1)));
-                continue;
-            }
-            if (excludedSkillIds?.has(skill.id)) {
-                continue;
-            }
-            if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
-                continue;
-            }
-            if (isAutoSelfBuffSkill(skill)) {
-                continue;
-            }
-            if (skill.requiresTarget === false && (action.range ?? 0) === 0) {
-                desiredRange = Math.max(desiredRange, resolveSkillAoeCoverRadius(skill));
-            } else {
-                desiredRange = Math.max(desiredRange, Math.max(1, Math.round(resolveAutoBattleEffectiveSkillRange(player, skill, action))));
-            }
+        const choice = this.resolveFirstUsableAutoBattleSkill(player, options);
+        if (!choice || isAutoSelfBuffSkill(choice.skill)) {
+            return 1;
         }
-        return desiredRange;
+        return Math.max(1, Math.round(choice.range));
     }
 };

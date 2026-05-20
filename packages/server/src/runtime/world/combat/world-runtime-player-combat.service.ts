@@ -307,6 +307,11 @@ export class WorldRuntimePlayerCombatService {
         if (deathSite.instance && typeof deathSite.instance.clearMonsterAggroForPlayer === 'function') {
             deathSite.instance.clearMonsterAggroForPlayer(playerId);
         }
+        if (typeof deps.worldRuntimeThreatService?.clearOwner === 'function') {
+            const ownerId = deps.worldRuntimeThreatService.buildPlayerOwnerId?.(playerId) ?? `player:${playerId}`;
+            deps.worldRuntimeThreatService.clearOwner(ownerId);
+            deps.worldRuntimeThreatService.clearTargetEverywhere?.(ownerId);
+        }
         const deathPenalty = this.playerRuntimeService.applyShaInfusionDeathPenalty(playerId);
         pushShaDeathPenaltyMessages(deps, playerId, deathPenalty);
         const killer = typeof killerPlayerId === 'string' && killerPlayerId.trim()

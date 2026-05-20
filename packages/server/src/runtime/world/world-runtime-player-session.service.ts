@@ -70,6 +70,11 @@ interface WorldRuntimePlayerSessionDeps {
   worldRuntimeNavigationService: {
     clearNavigationIntent(playerId: string): void;
   };
+  worldRuntimeThreatService?: {
+    buildPlayerOwnerId?(playerId: string): string;
+    clearOwner?(ownerId: string): void;
+    clearTargetEverywhere?(targetId: string): void;
+  };
   worldRuntimeSectService?: {
     ensureSectRuntimeInstanceByTemplateId?(templateId: string, deps: WorldRuntimePlayerSessionDeps): InstanceRuntimeLike | null;
     reconcilePlayerSectId?(playerId: string): string | null;
@@ -252,6 +257,11 @@ export class WorldRuntimePlayerSessionService {
     deps.worldRuntimeNavigationService.clearNavigationIntent(normalizedPlayerId);
     deps.clearPendingCommand(normalizedPlayerId);
     deps.worldRuntimeGmQueueService.clearPendingRespawn(normalizedPlayerId);
+    if (typeof deps.worldRuntimeThreatService?.clearOwner === 'function') {
+      const ownerId = deps.worldRuntimeThreatService.buildPlayerOwnerId?.(normalizedPlayerId) ?? `player:${normalizedPlayerId}`;
+      deps.worldRuntimeThreatService.clearOwner(ownerId);
+      deps.worldRuntimeThreatService.clearTargetEverywhere?.(ownerId);
+    }
 
     const disconnected = this.disconnectPlayer(normalizedPlayerId, deps);
     const runtimePlayer = deps.playerRuntimeService.getPlayer(normalizedPlayerId);

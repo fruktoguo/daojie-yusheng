@@ -19,3 +19,6 @@ export const LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO = 0.01;
 
 /** 单条仇恨记录允许累计的最大值。 */
 export const MAX_THREAT_VALUE = 1e15;
+
+/** 玩家自动战斗目标偏好命中时的仇恨评分倍率。 */
+export const PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER = 5;

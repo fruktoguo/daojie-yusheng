@@ -133,6 +133,7 @@ import { WorldRuntimeRedeemCodeService } from './runtime/world/world-runtime-red
 import { WorldRuntimePlayerSkillDispatchService } from './runtime/world/combat/world-runtime-player-skill-dispatch.service';
 import { WorldRuntimeBattleEngageService } from './runtime/world/combat/world-runtime-battle-engage.service';
 import { WorldRuntimeAutoCombatService } from './runtime/world/combat/world-runtime-auto-combat.service';
+import { WorldRuntimeThreatService } from './runtime/world/combat/world-runtime-threat.service';
 import { WorldRuntimeCombatCommandService } from './runtime/world/combat/world-runtime-combat-command.service';
 import { WorldRuntimeActionExecutionService } from './runtime/world/command/world-runtime-action-execution.service';
 import { WorldRuntimeSystemCommandEnqueueService } from './runtime/world/command/world-runtime-system-command-enqueue.service';
@@ -299,6 +300,7 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     WorldRuntimePlayerSkillDispatchService,
     WorldRuntimeBattleEngageService,
     WorldRuntimeAutoCombatService,
+    WorldRuntimeThreatService,
     WorldRuntimeCombatCommandService,
     WorldRuntimeActionExecutionService,
     WorldRuntimeSystemCommandEnqueueService,

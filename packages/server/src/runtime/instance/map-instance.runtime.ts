@@ -3,7 +3,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -49,6 +49,41 @@ function resolveTickScaledChantDurationMs(ticks, tickSpeed = 1) {
         ? Number(tickSpeed)
         : 1;
     return Math.max(1, Math.round((normalizedTicks * BASE_CHANT_TICK_DURATION_MS) / normalizedSpeed));
+}
+function resolveRuntimeThreatDistanceMultiplier(distance) {
+    const normalizedDistance = Math.max(0, Math.trunc(Number(distance) || 0));
+    if (normalizedDistance <= 1) {
+        return 1;
+    }
+    return THREAT_DISTANCE_FALLOFF_PER_TILE ** (normalizedDistance - 1);
+}
+function resolveRuntimeExtraAggroThreatMultiplier(extraAggroRate) {
+    const rate = Number(extraAggroRate) || 0;
+    if (rate > 0) {
+        return 1 + rate / 100;
+    }
+    if (rate < 0) {
+        return 100 / (100 - rate);
+    }
+    return 1;
+}
+function calculateRuntimeThreatDelta(baseThreat, distance, extraAggroRate) {
+    const normalizedBase = Math.max(0, Number(baseThreat) || 0);
+    if (normalizedBase <= 0) {
+        return 0;
+    }
+    const delta = normalizedBase
+        * resolveRuntimeThreatDistanceMultiplier(distance)
+        * resolveRuntimeExtraAggroThreatMultiplier(extraAggroRate);
+    if (!Number.isFinite(delta) || delta <= 0) {
+        return 0;
+    }
+    return Math.min(MAX_THREAT_VALUE, delta);
+}
+function compareRuntimeThreatEntry(left, right) {
+    return right.value - left.value
+        || right.lastUpdatedAt - left.lastUpdatedAt
+        || left.targetId.localeCompare(right.targetId, 'zh-Hans-CN');
 }
 const HUANLING_DIFU_CHENYIN_SKILL_ID = 'skill.huanling_difu_chenyin';
 const HUANLING_DUANHUN_DING_SKILL_ID = 'skill.huanling_duanhun_ding';
@@ -174,6 +209,8 @@ class MapInstanceRuntime {
  */
 
     monsterRuntimeIdByTile = new Map();    
+    /** 妖兽运行时仇恨表；按实例局部保存，不进入持久化和网络投影。 */
+    monsterThreatByRuntimeId = new Map();
     /**
  * monsterSpawnGroupsByKey：按刷新点聚合的妖兽运行态分组。
  */
@@ -3130,6 +3167,7 @@ class MapInstanceRuntime {
         }
         this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
         this.monstersByRuntimeId.delete(runtimeId);
+        this.monsterThreatByRuntimeId.delete(runtimeId);
         this.monsterSpawnKeyByRuntimeId.delete(runtimeId);
         this.localMonsterViewCacheByRuntimeId.delete(runtimeId);
         this.dirtyMonsterRuntimeIds?.delete?.(runtimeId);
@@ -3172,6 +3210,71 @@ class MapInstanceRuntime {
             damage,
         }));
     }
+    getMonsterThreatTable(runtimeId) {
+        let table = this.monsterThreatByRuntimeId.get(runtimeId);
+        if (!table) {
+            table = new Map();
+            this.monsterThreatByRuntimeId.set(runtimeId, table);
+        }
+        return table;
+    }
+    addMonsterThreat(runtimeId, targetPlayerId, baseThreat, distance, extraAggroRate = 0) {
+        const monster = this.monstersByRuntimeId.get(runtimeId);
+        if (!monster || !monster.alive || !this.playersById.has(targetPlayerId)) {
+            return 0;
+        }
+        const delta = calculateRuntimeThreatDelta(baseThreat, distance, extraAggroRate);
+        if (delta <= 0) {
+            return this.monsterThreatByRuntimeId.get(runtimeId)?.get(targetPlayerId)?.value ?? 0;
+        }
+        const table = this.getMonsterThreatTable(runtimeId);
+        const existing = table.get(targetPlayerId);
+        const nextValue = Math.min(MAX_THREAT_VALUE, (existing?.value ?? 0) + delta);
+        table.set(targetPlayerId, {
+            targetId: targetPlayerId,
+            value: nextValue,
+            lastUpdatedAt: this.tick,
+        });
+        return nextValue;
+    }
+    decayMonsterThreats(monster, activePlayerIds) {
+        const table = this.monsterThreatByRuntimeId.get(monster.runtimeId);
+        if (!table) {
+            return;
+        }
+        const flatDecay = Math.max(0, Number(monster.maxHp) || 0) * LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO;
+        for (const [playerId, entry] of table) {
+            if (activePlayerIds.has(playerId)) {
+                continue;
+            }
+            const next = entry.value - (entry.value * LOST_TARGET_THREAT_DECAY_RATIO + flatDecay);
+            if (!Number.isFinite(next) || next <= 0) {
+                table.delete(playerId);
+                continue;
+            }
+            entry.value = next;
+            entry.lastUpdatedAt = this.tick;
+        }
+        if (table.size === 0) {
+            this.monsterThreatByRuntimeId.delete(monster.runtimeId);
+        }
+    }
+    getHighestMonsterThreatTarget(monster, canTarget) {
+        const table = this.monsterThreatByRuntimeId.get(monster.runtimeId);
+        if (!table) {
+            return null;
+        }
+        let best = null;
+        for (const entry of table.values()) {
+            if (entry.value < DEFAULT_AGGRO_THRESHOLD || !canTarget(entry.targetId)) {
+                continue;
+            }
+            if (!best || compareRuntimeThreatEntry(entry, best) < 0) {
+                best = entry;
+            }
+        }
+        return best;
+    }
     /** getAdjacentNpc：读取玩家相邻的 NPC。 */
     getAdjacentNpc(playerId, npcId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3195,10 +3298,6 @@ class MapInstanceRuntime {
         if (!monster || !monster.alive) {
             return null;
         }
-        if (attackerPlayerId && this.playersById.has(attackerPlayerId)) {
-            monster.aggroTargetPlayerId = attackerPlayerId;
-        }
-
         const appliedDamage = Math.max(0, Math.min(monster.hp, Math.trunc(amount)));
         if (appliedDamage <= 0) {
             return {
@@ -3209,6 +3308,15 @@ class MapInstanceRuntime {
         }
         if (attackerPlayerId && this.playersById.has(attackerPlayerId)) {
             monster.damageContributors[attackerPlayerId] = (monster.damageContributors[attackerPlayerId] ?? 0) + appliedDamage;
+            const attacker = this.playersById.get(attackerPlayerId);
+            this.addMonsterThreat(monster.runtimeId, attackerPlayerId, appliedDamage, attacker ? chebyshevDistance(monster.x, monster.y, attacker.x, attacker.y) : 1, Number(attacker?.attrs?.numericStats?.extraAggroRate ?? 0) || 0);
+            const bestThreatTarget = this.getHighestMonsterThreatTarget(monster, (playerId) => {
+                const player = this.playersById.get(playerId);
+                return !!player && player.hp > 0;
+            });
+            if (bestThreatTarget) {
+                monster.aggroTargetPlayerId = bestThreatTarget.targetId;
+            }
         }
         monster.hp = Math.max(0, monster.hp - appliedDamage);
 
@@ -5926,6 +6034,7 @@ class MapInstanceRuntime {
         monster.attackReadyTick = 0;
         monster.cooldownReadyTickBySkillId = {};
         monster.aggroTargetPlayerId = null;
+        this.monsterThreatByRuntimeId.delete(monster.runtimeId);
         monster.lastSeenTargetX = undefined;
         monster.lastSeenTargetY = undefined;
         monster.lastSeenTargetTick = undefined;
@@ -5947,6 +6056,7 @@ class MapInstanceRuntime {
         monster.attackReadyTick = 0;
         monster.cooldownReadyTickBySkillId = {};
         monster.aggroTargetPlayerId = null;
+        this.monsterThreatByRuntimeId.delete(monster.runtimeId);
         monster.lastSeenTargetX = undefined;
         monster.lastSeenTargetY = undefined;
         monster.lastSeenTargetTick = undefined;
@@ -5966,44 +6076,53 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
-        const visibleTileIndices = this.collectVisibleTileIndices(monster.x, monster.y, aggroRange);
-        if (monster.aggroTargetPlayerId) {
-
-            const current = this.playersById.get(monster.aggroTargetPlayerId);
-            if (current
-                && chebyshevDistance(monster.spawnX, monster.spawnY, current.x, current.y) <= monster.leashRange
-                && chebyshevDistance(monster.x, monster.y, current.x, current.y) <= aggroRange
-                && visibleTileIndices.has(this.toTileIndex(current.x, current.y))) {
-                this.rememberMonsterTargetSight(monster, current);
-                return current;
-            }
-            if (!current || chebyshevDistance(monster.spawnX, monster.spawnY, current.x, current.y) > monster.leashRange) {
-                this.clearMonsterTargetPursuit(monster);
+        let hasNearbyPlayer = !!monster.aggroTargetPlayerId;
+        for (const player of this.playersById.values()) {
+            if (player.hp > 0
+                && chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
+                && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
+                hasNearbyPlayer = true;
+                break;
             }
         }
-
-        let best = null;
-
-        let bestDistance = Number.POSITIVE_INFINITY;
+        if (!hasNearbyPlayer) {
+            this.decayMonsterThreats(monster, new Set());
+            return null;
+        }
+        const visibleTileIndices = this.collectVisibleTileIndices(monster.x, monster.y, aggroRange);
+        const activePlayerIds = new Set();
+        const extraAggroRate = Number(monster?.numericStats?.extraAggroRate ?? 0) || 0;
         for (const player of this.playersById.values()) {
+            if (player.hp <= 0) {
+                continue;
+            }
             if (chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) > monster.leashRange) {
                 continue;
             }
-
             const distance = chebyshevDistance(monster.x, monster.y, player.x, player.y);
-            if (distance > aggroRange || distance >= bestDistance) {
+            if (distance > aggroRange || !visibleTileIndices.has(this.toTileIndex(player.x, player.y))) {
                 continue;
             }
-            if (!visibleTileIndices.has(this.toTileIndex(player.x, player.y))) {
-                continue;
-            }
-            best = player;
-            bestDistance = distance;
+            activePlayerIds.add(player.playerId);
+            this.addMonsterThreat(monster.runtimeId, player.playerId, DEFAULT_PASSIVE_THREAT_PER_TICK, distance, extraAggroRate);
         }
+        this.decayMonsterThreats(monster, activePlayerIds);
+        const bestThreat = this.getHighestMonsterThreatTarget(monster, (playerId) => {
+            const player = this.playersById.get(playerId);
+            return !!player
+                && player.hp > 0
+                && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange
+                && chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
+                && visibleTileIndices.has(this.toTileIndex(player.x, player.y));
+        });
+        if (!bestThreat) {
+            return null;
+        }
+        const best = this.playersById.get(bestThreat.targetId);
         if (best) {
             this.rememberMonsterTargetSight(monster, best);
         }
-        return best;
+        return best ?? null;
     }
     /**
      * Phase 4: 使用 worker 预计算 intent 作为 target hint 加速解析。
@@ -6011,29 +6130,7 @@ class MapInstanceRuntime {
      * 否则 fallback 到完整的 resolveMonsterTarget 扫描。
      */
     resolveMonsterTargetWithHint(monster, preIntent) {
-        if (!preIntent || preIntent.action !== 'attack' || !preIntent.targetId) {
-            return this.resolveMonsterTarget(monster);
-        }
-        // hint 指向一个具体玩家，快速验证其有效性
-        const hintPlayer = this.playersById.get(preIntent.targetId);
-        if (!hintPlayer) {
-            return this.resolveMonsterTarget(monster);
-        }
-        const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
-        if (chebyshevDistance(monster.spawnX, monster.spawnY, hintPlayer.x, hintPlayer.y) > monster.leashRange) {
-            return this.resolveMonsterTarget(monster);
-        }
-        if (chebyshevDistance(monster.x, monster.y, hintPlayer.x, hintPlayer.y) > aggroRange) {
-            return this.resolveMonsterTarget(monster);
-        }
-        // 验证视线（使用 tile index 检查）
-        const visibleTileIndices = this.collectVisibleTileIndices(monster.x, monster.y, aggroRange);
-        if (!visibleTileIndices.has(this.toTileIndex(hintPlayer.x, hintPlayer.y))) {
-            return this.resolveMonsterTarget(monster);
-        }
-        // hint 有效，直接使用
-        this.rememberMonsterTargetSight(monster, hintPlayer);
-        return hintPlayer;
+        return this.resolveMonsterTarget(monster);
     }
     /** rememberMonsterTargetSight：记录妖兽最后一次真正看见目标的位置。 */
     rememberMonsterTargetSight(monster, target) {
@@ -6052,6 +6149,7 @@ class MapInstanceRuntime {
     /** clearMonsterAggroForPlayer：清除所有以指定玩家为仇恨目标的妖兽仇恨。 */
     clearMonsterAggroForPlayer(playerId: string) {
         for (const monster of this.monstersByRuntimeId.values()) {
+            this.monsterThreatByRuntimeId.get(monster.runtimeId)?.delete(playerId);
             if (monster.aggroTargetPlayerId === playerId) {
                 this.clearMonsterTargetPursuit(monster);
             }

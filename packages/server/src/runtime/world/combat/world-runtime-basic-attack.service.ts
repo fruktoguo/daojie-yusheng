@@ -9,6 +9,7 @@ import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.s
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
 import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
+import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
 
@@ -91,6 +92,7 @@ export class WorldRuntimeBasicAttackService {
 
     playerRuntimeService;
     worldRuntimeCombatActionService;
+    worldRuntimeThreatService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -100,9 +102,11 @@ export class WorldRuntimeBasicAttackService {
     constructor(
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
         @Inject(WorldRuntimeCombatActionService) worldRuntimeCombatActionService: any,
+        @Inject(WorldRuntimeThreatService) worldRuntimeThreatService: any = undefined,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
+        this.worldRuntimeThreatService = worldRuntimeThreatService ?? new WorldRuntimeThreatService();
     }
     /**
  * dispatchBasicAttack：判断BasicAttack是否满足条件。
@@ -391,6 +395,16 @@ export class WorldRuntimeBasicAttackService {
             defeated: projectedDefeated,
             applyDefeat: false,
         });
+        this.worldRuntimeThreatService.addThreat(
+            this.worldRuntimeThreatService.buildPlayerOwnerId(target.playerId),
+            this.worldRuntimeThreatService.buildPlayerTargetId(attacker.playerId),
+            {
+                baseThreat: Math.max(0, Math.round(Number(resolvedDamage.damage) || 0)),
+                distance: chebyshevDistance(attacker.x, attacker.y, target.x, target.y),
+                extraAggroRate: Number(attacker?.attrs?.numericStats?.extraAggroRate ?? 0) || 0,
+                now: currentTick,
+            },
+        );
         const updated = typeof this.playerRuntimeService.getPlayer === 'function'
             ? (this.playerRuntimeService.getPlayer(target.playerId) ?? target)
             : this.playerRuntimeService.getPlayerOrThrow(target.playerId);

@@ -69,6 +69,7 @@ import { WorldRuntimeRedeemCodeService } from './world-runtime-redeem-code.servi
 import { WorldRuntimePlayerSkillDispatchService } from './combat/world-runtime-player-skill-dispatch.service';
 import { WorldRuntimeBattleEngageService } from './combat/world-runtime-battle-engage.service';
 import { WorldRuntimeAutoCombatService } from './combat/world-runtime-auto-combat.service';
+import { WorldRuntimeThreatService } from './combat/world-runtime-threat.service';
 import { WorldRuntimeCombatCommandService } from './combat/world-runtime-combat-command.service';
 import { WorldRuntimeActionExecutionService } from './command/world-runtime-action-execution.service';
 import { WorldRuntimeFormationService } from './world-runtime-formation.service';
@@ -322,6 +323,7 @@ export class WorldRuntimeService {
     worldRuntimeBattleEngageService;
 
     worldRuntimeAutoCombatService;
+    worldRuntimeThreatService;
 
     worldRuntimeCombatCommandService;
 
@@ -423,6 +425,7 @@ export class WorldRuntimeService {
         @Inject(WorldRuntimePlayerSkillDispatchService) worldRuntimePlayerSkillDispatchService: WorldRuntimePlayerSkillDispatchService,
         @Inject(WorldRuntimeBattleEngageService) worldRuntimeBattleEngageService: WorldRuntimeBattleEngageService,
         @Inject(WorldRuntimeAutoCombatService) worldRuntimeAutoCombatService: WorldRuntimeAutoCombatService,
+        @Inject(WorldRuntimeThreatService) worldRuntimeThreatService: WorldRuntimeThreatService,
         @Inject(WorldRuntimeCombatCommandService) worldRuntimeCombatCommandService: WorldRuntimeCombatCommandService,
         @Inject(WorldRuntimeActionExecutionService) worldRuntimeActionExecutionService: WorldRuntimeActionExecutionService,
         @Inject(WorldRuntimeSystemCommandEnqueueService) worldRuntimeSystemCommandEnqueueService: WorldRuntimeSystemCommandEnqueueService,
@@ -501,6 +504,7 @@ export class WorldRuntimeService {
         this.worldRuntimePlayerSkillDispatchService = worldRuntimePlayerSkillDispatchService;
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
+        this.worldRuntimeThreatService = worldRuntimeThreatService;
         this.worldRuntimeCombatCommandService = worldRuntimeCombatCommandService;
         this.worldRuntimeActionExecutionService = worldRuntimeActionExecutionService;
         this.worldRuntimeFormationService = new WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService, databasePoolProvider);
