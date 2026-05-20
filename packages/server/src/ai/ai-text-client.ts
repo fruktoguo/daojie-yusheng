@@ -157,6 +157,13 @@ export const callConfiguredTextModel = async (
 ): Promise<AiTextCallResult | null> => {
   const config = readAiTextModelConfig(params.modelScope);
   if (!config) return null;
+  return callTextModelWithConfig(config, params);
+};
+
+export const callTextModelWithConfig = async (
+  config: AiTextModelConfig,
+  params: AiTextCallParams,
+): Promise<AiTextCallResult> => {
   if (config.provider === 'anthropic') return callAnthropicMessages(config, params);
   if (config.provider === 'openai-compatible') return callOpenAICompatibleChat(config, params);
   return callOpenAIResponses(config, params);

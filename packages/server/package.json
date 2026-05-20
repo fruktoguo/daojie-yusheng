@@ -148,6 +148,7 @@
     "bench:worker-pool": "pnpm compile && node dist/tools/worker-pool-perf-bench.js",
     "debug:loot": "pnpm compile && node dist/tools/debug-loot.js",
     "smoke:ai-provider-config": "pnpm compile && node dist/tools/ai-provider-config-smoke.js",
+    "smoke:ai-provider-config:persistence": "pnpm compile && node dist/tools/ai-provider-config-persistence-smoke.js",
     "audit:protocol": "pnpm compile && pnpm audit:protocol:compiled",
     "audit:protocol:compiled": "if [ ! -f dist/tools/run-stable-protocol-audit.js ]; then pnpm compile; fi && node dist/tools/run-stable-protocol-audit.js",
     "audit:content-map-consistency": "pnpm compile && node dist/tools/check-content-map-consistency.js",

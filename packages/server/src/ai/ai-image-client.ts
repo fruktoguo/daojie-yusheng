@@ -206,8 +206,15 @@ export const generateConfiguredImageAsset = async (
 ): Promise<AiImageGenerationResult | null> => {
   const config = readAiImageModelConfig(params.modelScope);
   if (!config) return null;
-  if (config.provider === 'dashscope') return generateDashScopeImage(config, params.prompt);
-  return generateOpenAIImage(config, params.prompt);
+  return generateImageAssetWithConfig(config, params.prompt);
+};
+
+export const generateImageAssetWithConfig = async (
+  config: AiImageModelConfig,
+  prompt: string,
+): Promise<AiImageGenerationResult> => {
+  if (config.provider === 'dashscope') return generateDashScopeImage(config, prompt);
+  return generateOpenAIImage(config, prompt);
 };
 
 export const __aiImageClientInternals = {
