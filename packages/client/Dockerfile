@@ -7,7 +7,6 @@ COPY packages/client/package.json packages/client/
 RUN corepack enable
 RUN pnpm install --frozen-lockfile || pnpm install
 COPY scripts scripts
-COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/client packages/client
 COPY packages/server/data packages/server/data
