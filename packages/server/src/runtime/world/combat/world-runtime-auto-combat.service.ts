@@ -176,7 +176,27 @@ function resolveAutoBattleEffectiveSkillRange(player, skill, action) {
     return Math.max(actionRange, baseRange + extraRange);
 }
 
-function findAutoBattlePlayerSkill(player, skillId) {
+function buildAutoBattleSkillLookup(player) {
+    if (!Array.isArray(player?.techniques?.techniques) || player.techniques.techniques.length === 0) {
+        return null;
+    }
+    const lookup = new Map();
+    for (const technique of player.techniques.techniques) {
+        for (const skill of technique.skills ?? []) {
+            const skillId = skill?.id;
+            if (typeof skillId !== 'string' || skillId.length === 0 || lookup.has(skillId)) {
+                continue;
+            }
+            lookup.set(skillId, skill);
+        }
+    }
+    return lookup;
+}
+
+function findAutoBattlePlayerSkill(player, skillId, skillLookup = null) {
+    if (skillLookup) {
+        return skillLookup.get(skillId) ?? null;
+    }
     if (!Array.isArray(player?.techniques?.techniques)) {
         return null;
     }
@@ -988,6 +1008,7 @@ export class WorldRuntimeAutoCombatService {
         if (!Array.isArray(player?.techniques?.techniques)) {
             return null;
         }
+        const skillLookup = buildAutoBattleSkillLookup(player);
         const excludedSkillIds = options?.excludedSkillIds;
         for (const action of player.actions.actions) {
             if (action.type !== 'skill') {
@@ -999,7 +1020,7 @@ export class WorldRuntimeAutoCombatService {
             if ((action.cooldownLeft ?? 0) > 0) {
                 continue;
             }
-            const skill = findAutoBattlePlayerSkill(player, action.id);
+            const skill = findAutoBattlePlayerSkill(player, action.id, skillLookup);
             if (!skill || !isAutoSelfBuffSkill(skill)) {
                 continue;
             }
@@ -1017,10 +1038,11 @@ export class WorldRuntimeAutoCombatService {
         return null;
     }
 
-    resolveFirstUsableAutoBattleSkill(player, options = undefined) {
+    resolveFirstUsableAutoBattleSkill(player, options = undefined, skillLookup = null) {
         if (!Array.isArray(player?.actions?.actions)) {
             return null;
         }
+        const activeSkillLookup = skillLookup ?? buildAutoBattleSkillLookup(player);
         const excludedSkillIds = options?.excludedSkillIds;
         for (const action of player.actions.actions) {
             if (action.type !== 'skill') {
@@ -1032,7 +1054,7 @@ export class WorldRuntimeAutoCombatService {
             if ((action.cooldownLeft ?? 0) > 0) {
                 continue;
             }
-            const skill = findAutoBattlePlayerSkill(player, action.id);
+            const skill = findAutoBattlePlayerSkill(player, action.id, activeSkillLookup);
             if (!skill || excludedSkillIds?.has(skill.id)) {
                 continue;
             }
@@ -1073,7 +1095,8 @@ export class WorldRuntimeAutoCombatService {
     resolveAutoBattleSkillChoice(player, distance, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const choice = this.resolveFirstUsableAutoBattleSkill(player, options);
+        const skillLookup = buildAutoBattleSkillLookup(player);
+        const choice = this.resolveFirstUsableAutoBattleSkill(player, options, skillLookup);
         if (!choice) {
             return null;
         }
@@ -1114,7 +1137,8 @@ export class WorldRuntimeAutoCombatService {
     resolveAutoBattleDesiredRange(player, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const choice = this.resolveFirstUsableAutoBattleSkill(player, options);
+        const skillLookup = buildAutoBattleSkillLookup(player);
+        const choice = this.resolveFirstUsableAutoBattleSkill(player, options, skillLookup);
         if (!choice || isAutoSelfBuffSkill(choice.skill)) {
             return 1;
         }
