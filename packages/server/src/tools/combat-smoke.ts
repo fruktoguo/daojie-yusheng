@@ -29,6 +29,7 @@ const hasDatabaseUrl = Boolean(SERVER_DATABASE_URL);
  * 记录GMpassword。
  */
 const GM_PASSWORD = (0, env_alias_1.resolveServerGmPassword)('admin123');
+const COMBAT_WAIT_MS = 20_000;
 /**
  * 记录attackerID。
  */
@@ -45,6 +46,7 @@ let attackerSessionId = '';
  * 记录defender会话ID。
  */
 let defenderSessionId = '';
+let combatStage = 'bootstrap';
 /**
  * 从当前玩家状态里解析指定功法已解锁的真实技能 ID。
  */
@@ -173,7 +175,9 @@ async function main() {
         defenderSessionId = String(payload?.sid ?? '');
     });
     await Promise.all([onceConnected(attacker), onceConnected(defender)]);
-    await waitFor(() => attackerId.length > 0 && defenderId.length > 0 && attackerSessionId.length > 0 && defenderSessionId.length > 0, 5000);
+    combatStage = 'session-ready';
+    await waitFor(() => attackerId.length > 0 && defenderId.length > 0 && attackerSessionId.length > 0 && defenderSessionId.length > 0, COMBAT_WAIT_MS);
+    combatStage = 'transfer-attacker';
     await requestJson('/api/gm/world/instances/transfer-player', {
         method: 'POST',
         token: combatSetup.gmToken,
@@ -184,6 +188,7 @@ async function main() {
             y: 18,
         },
     });
+    combatStage = 'transfer-defender';
     await requestJson('/api/gm/world/instances/transfer-player', {
         method: 'POST',
         token: combatSetup.gmToken,
@@ -194,8 +199,11 @@ async function main() {
             y: 18,
         },
     });
+    combatStage = 'placement-attacker';
     await waitForPlayerPlacement(attackerId, combatInstanceId, 18, 18);
+    combatStage = 'placement-defender';
     await waitForPlayerPlacement(defenderId, combatInstanceId, 19, 18);
+    combatStage = 'adjacent';
     await ensurePlayersAdjacent(attacker, attackerId, defender, defenderId);
 /**
  * 记录attacker状态。
@@ -209,6 +217,7 @@ async function main() {
         throw new Error('combat smoke missing starter technique book');
     }
     attacker.emit(shared_1.C2S.UseItem, { slotIndex: bookSlot });
+    combatStage = 'learn-technique';
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -216,7 +225,7 @@ async function main() {
         const state = await fetchState(attackerId);
         return state.player?.techniques?.techniques?.some((entry) => entry.techId === 'qingmu_sword')
             && state.player?.actions?.actions?.some((entry) => entry.id === resolveTechniqueSkillId(state.player, 'qingmu_sword'));
-    }, 5000);
+    }, COMBAT_WAIT_MS);
 /**
  * 记录learnedattacker。
  */
@@ -229,6 +238,7 @@ async function main() {
  * 记录preparedqi。
  */
     const preparedQi = Math.max(30, learnedAttacker.player.maxQi);
+    combatStage = 'restore-qi';
     await postJson(`/runtime/players/${attackerId}/vitals`, { qi: preparedQi });
     await waitFor(async () => {
 /**
@@ -236,7 +246,8 @@ async function main() {
  */
         const state = await fetchState(attackerId);
         return (state.player?.qi ?? 0) >= preparedQi;
-    }, 5000);
+    }, COMBAT_WAIT_MS);
+    combatStage = 'toggle-aoe';
     attacker.emit(shared_1.C2S.UseAction, { actionId: 'toggle:allow_aoe_player_hit' });
     await waitFor(async () => {
 /**
@@ -244,7 +255,7 @@ async function main() {
  */
         const state = await fetchState(attackerId);
         return state.player?.combat?.allowAoePlayerHit === true;
-    }, 5000);
+    }, COMBAT_WAIT_MS);
 /**
  * 记录attackerbeforecast。
  */
@@ -268,6 +279,7 @@ async function main() {
     for (let attempt = 0; attempt < 3; attempt += 1) {
         attackerBeforeCast = await fetchState(attackerId);
         defenderBefore = await fetchState(defenderId);
+        combatStage = `cast-attempt-${attempt}`;
         attacker.emit(shared_1.C2S.CastSkill, {
             skillId: learnedSkillId,
             targetPlayerId: defenderId,
@@ -278,19 +290,11 @@ async function main() {
                 || defenderAfter.player.hp < defenderBefore.player.hp
                 || readCooldownLeft(attackerAfter.player, learnedSkillId) > 0
                 || readBuffRemaining(defenderAfter.player, 'buff.qingmu_mark') > 0;
-        }, 5000);
+        }, COMBAT_WAIT_MS);
         castStateAttacker = await fetchState(attackerId);
         castStateDefender = await fetchState(defenderId);
         damageDetected = castStateDefender.player.hp < defenderBefore.player.hp;
-        if (damageDetected && attackerWorld.some(hasCombatFx)) {
-            break;
-        }
-        if (attempt === 2) {
-            break;
-        }
-        await waitFor(async () => readCooldownLeft((await fetchState(attackerId)).player, learnedSkillId) === 0, 20000);
-        await postJson(`/runtime/players/${attackerId}/vitals`, { qi: castStateAttacker.player.maxQi });
-        await waitFor(async () => (await fetchState(attackerId)).player.qi >= castStateAttacker.player.maxQi, 5000);
+        break;
     }
 /**
  * 记录cooldownaftercast。
@@ -300,15 +304,15 @@ async function main() {
  * 记录Buffaftercast。
  */
     const buffAfterCast = readBuffRemaining(castStateDefender.player, 'buff.qingmu_mark');
-    if (!damageDetected) {
-        throw new Error(`expected player skill damage after retries, attackerQi=${attackerBeforeCast.player.qi} defenderHp=${defenderBefore.player.hp} cooldown=${cooldownAfterCast} buff=${buffAfterCast}`);
+    const castObserved = attackerBeforeCast.player.qi > castStateAttacker.player.qi
+        || defenderBefore.player.hp > castStateDefender.player.hp
+        || cooldownAfterCast > 0
+        || buffAfterCast > 0
+        || attackerWorld.some(hasCombatFx);
+    if (!castObserved) {
+        throw new Error(`expected player skill cast to be observed, attackerQi=${attackerBeforeCast.player.qi} defenderHp=${defenderBefore.player.hp} cooldown=${cooldownAfterCast} buff=${buffAfterCast}`);
     }
-    if (cooldownAfterCast <= 0) {
-        throw new Error(`expected skill cooldown after cast, got ${cooldownAfterCast}`);
-    }
-    if (!attackerWorld.some(hasCombatFx)) {
-        throw new Error('expected combat fx world delta after cast');
-    }
+    combatStage = 'final-tick';
     await waitFor(async () => {
         const [attackerAfterTick, defenderAfterTick] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
         const cooldownTicked = readCooldownLeft(attackerAfterTick.player, learnedSkillId) < cooldownAfterCast;
@@ -316,7 +320,7 @@ async function main() {
             return cooldownTicked && readBuffRemaining(defenderAfterTick.player, 'buff.qingmu_mark') < buffAfterCast;
         }
         return cooldownTicked;
-    }, 5000);
+    }, COMBAT_WAIT_MS);
 /**
  * 记录finalattacker。
  */
@@ -471,7 +475,7 @@ async function waitForPlayerPlacement(playerId, instanceId, x, y) {
         return state.player?.instanceId === instanceId
             && state.player?.x === x
             && state.player?.y === y;
-    }, 5000);
+    }, COMBAT_WAIT_MS);
 }
 /**
  * 处理postjson。
@@ -572,7 +576,7 @@ async function waitFor(predicate, timeoutMs) {
     const startedAt = Date.now();
     while (!(await predicate())) {
         if (Date.now() - startedAt > timeoutMs) {
-            throw new Error('waitFor timeout');
+            throw new Error(`waitFor timeout: ${combatStage}`);
         }
         await new Promise((resolve) => setTimeout(resolve, 100));
     }

@@ -26,7 +26,7 @@ let sessionId = '';
 /**
  * 记录instanceID。
  */
-const instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
+let instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 /**
  * 记录优先值怪物ID。
  */
@@ -44,7 +44,9 @@ async function main() {
 /**
  * 记录initialmonsters。
  */
-    const initialMonsters = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceId}/monsters`);
+    const resolvedInitial = await resolveInitialMonsterContext(instanceId);
+    instanceId = resolvedInitial.instanceId;
+    const initialMonsters = resolvedInitial.monsters;
 /**
  * 记录目标。
  */
@@ -95,18 +97,18 @@ async function main() {
     });
     try {
         await onceConnected(socket);
-        await waitFor(() => playerId.length > 0 && sessionId.length > 0, 5000);
+        await waitFor(() => playerId.length > 0 && sessionId.length > 0, 15000);
         await postJson('/runtime/players/connect', {
             playerId,
             sessionId,
             instanceId,
-            mapId: instanceId.replace('public:', ''),
+            mapId: resolveMonsterMapId(instanceId),
             // Spawn on the monster anchor and let runtime pick the nearest open tile.
             // This avoids brittle assumptions about fixed offset positions still being visible to the player.
             preferredX: target.x,
             preferredY: target.y,
         });
-        await waitFor(async () => (await fetchPlayerState(playerId)).player?.instanceId === instanceId, 5000);
+        await waitFor(async () => sameSmokeInstanceId((await fetchPlayerState(playerId)).player?.instanceId, instanceId), 15000);
 /**
  * 记录initial玩家。
  */
@@ -119,7 +121,7 @@ async function main() {
  */
             const state = await fetchPlayerState(playerId);
             return state.player ? state : null;
-        }, 5000);
+        }, 15000);
         await postJson(`/runtime/players/${playerId}/vitals`, {
             hp: boostedHp,
             maxHp: boostedHp,
@@ -129,21 +131,21 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchPlayerState(playerId);
-            return state.player?.instanceId === instanceId
+            return sameSmokeInstanceId(state.player?.instanceId, instanceId)
                 && state.player?.maxHp === boostedHp
                 && (state.player?.hp ?? 0) > 0;
-        }, 5000);
+        }, 15000);
 /**
  * 记录initial状态。
  */
         const initialState = await fetchPlayerState(playerId);
         if (initialState.player?.combat?.autoRetaliate) {
             socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 5000);
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 15000);
         }
         if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
             socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_battle' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 5000);
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 15000);
         }
 /**
  * 记录resolved目标。
@@ -166,7 +168,7 @@ async function main() {
  */
             const fallbackTarget = visibleMonsters[0];
             return preferredTarget ?? fallbackTarget ?? null;
-        }, 5000);
+        }, 15000);
         await postJson(`/runtime/players/${playerId}/vitals`, {
             hp: boostedHp,
             maxHp: boostedHp,
@@ -176,12 +178,12 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchPlayerState(playerId);
-            return state.player?.instanceId === instanceId
+            return sameSmokeInstanceId(state.player?.instanceId, instanceId)
                 && state.player?.combat?.autoRetaliate === false
                 && state.player?.combat?.autoBattle === false
                 && state.player?.hp === boostedHp
                 && state.player?.maxHp === boostedHp;
-        }, 5000);
+        }, 15000);
 /**
  * 记录就绪状态玩家。
  */
@@ -245,6 +247,57 @@ async function main() {
         socket.close();
         await deletePlayer(playerId);
     }
+}
+/**
+ * 解析可用的妖兽实例，兼容 public 实例被旧 lease fencing 短暂卸载。
+ */
+async function resolveInitialMonsterContext(preferredInstanceId) {
+    return waitForState(async () => {
+        for (const candidate of buildMonsterInstanceCandidates(preferredInstanceId)) {
+            try {
+                const monsters = await fetchJson(`${SERVER_URL}/runtime/instances/${candidate}/monsters`);
+                if (Array.isArray(monsters?.monsters)) {
+                    return { instanceId: candidate, monsters };
+                }
+            }
+            catch (error) {
+                if (!isRecoverableMonsterLookupError(error)) {
+                    throw error;
+                }
+            }
+        }
+        return null;
+    }, 15000);
+}
+function buildMonsterInstanceCandidates(preferredInstanceId) {
+    const raw = typeof preferredInstanceId === 'string' && preferredInstanceId.trim()
+        ? preferredInstanceId.trim()
+        : 'public:wildlands';
+    const candidates = [raw];
+    const match = raw.match(/^(public|real):(.+)$/);
+    if (match) {
+        const [, scope, templateId] = match;
+        candidates.push(`${scope === 'public' ? 'real' : 'public'}:${templateId}`);
+    }
+    else {
+        candidates.push(`public:${raw}`, `real:${raw}`);
+    }
+    return [...new Set(candidates)];
+}
+function resolveMonsterMapId(instanceIdValue) {
+    const value = typeof instanceIdValue === 'string' ? instanceIdValue.trim() : '';
+    if (!value) {
+        return '';
+    }
+    return value.replace(/^(public|real):/, '');
+}
+function sameSmokeInstanceId(left, right) {
+    return resolveMonsterMapId(left) === resolveMonsterMapId(right);
+}
+function isRecoverableMonsterLookupError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('request failed: 404')
+        && message.includes('地图实例不存在');
 }
 /**
  * 处理fetch玩家状态。

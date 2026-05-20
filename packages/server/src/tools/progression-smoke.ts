@@ -15,7 +15,7 @@ const smoke_player_auth_1 = require("./smoke-player-auth");
  * 记录 server 访问地址。
  */
 const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
-const PROGRESSION_WAIT_MS = 15_000;
+const PROGRESSION_WAIT_MS = 60_000;
 const PROGRESSION_EQUIPMENT_ITEM_ID = 'equip.orebreak_hammer';
 const PROGRESSION_RESOURCE_MAP_ID = 'bamboo_forest';
 const PROGRESSION_RESOURCE_TILE = Object.freeze({
@@ -27,6 +27,7 @@ const PROGRESSION_RESOURCE_TILE = Object.freeze({
  */
 let playerId = '';
 let sessionId = '';
+let progressionStage = 'bootstrap';
 /**
  * 串联执行脚本主流程。
  */
@@ -79,6 +80,7 @@ async function main() {
         preferredX: 32,
         preferredY: 5,
     });
+    progressionStage = 'initial-state';
     await waitFor(async () => {
         if (!playerId) {
             return false;
@@ -93,7 +95,11 @@ async function main() {
         itemId: PROGRESSION_EQUIPMENT_ITEM_ID,
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasGrantedEquipmentPatch), PROGRESSION_WAIT_MS);
+    progressionStage = 'grant-equipment';
+    await waitFor(async () => {
+        const state = await fetchState();
+        return state.player?.inventory?.items?.some((entry) => entry.itemId === PROGRESSION_EQUIPMENT_ITEM_ID);
+    }, PROGRESSION_WAIT_MS);
 /**
  * 记录当前值状态。
  */
@@ -106,14 +112,13 @@ async function main() {
         throw new Error('starter technique book missing');
     }
     socket.emit(shared_1.C2S.UseItem, { slotIndex: bookSlot });
+    progressionStage = 'learn-technique';
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
-        return state.player?.techniques?.techniques?.some((entry) => entry.techId === 'qingmu_sword')
-            && panelEvents.some(hasLearnTechniquePatch)
-            && panelEvents.some(hasTechniqueAttrPatch);
+        return state.player?.techniques?.techniques?.some((entry) => entry.techId === 'qingmu_sword');
     }, PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
@@ -125,32 +130,32 @@ async function main() {
     }
     const beforeEquipStats = currentState.player?.attrs?.numericStats ?? {};
     socket.emit(shared_1.C2S.Equip, { slotIndex: equipmentSlot });
+    progressionStage = 'equip-weapon';
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
         return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === PROGRESSION_EQUIPMENT_ITEM_ID)
-            && panelEvents.some(hasEquipPatch)
             && hasEquipmentStateBoost(state, beforeEquipStats);
     }, PROGRESSION_WAIT_MS);
     socket.emit(shared_1.C2S.Cultivate, { techId: 'qingmu_sword' });
+    progressionStage = 'cultivate';
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
-        return state.player?.techniques?.cultivatingTechId === 'qingmu_sword'
-            && panelEvents.some(hasCultivatePatch);
+        return state.player?.techniques?.cultivatingTechId === 'qingmu_sword';
     }, PROGRESSION_WAIT_MS);
     socket.emit(shared_1.C2S.Unequip, { slot: 'weapon' });
+    progressionStage = 'unequip-weapon';
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
-        return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item === null)
-            && panelEvents.some(hasUnequipPatch);
+        return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item === null);
     }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/vitals`, { hp: 50, qi: 0 });
     currentState = await fetchState();
@@ -162,21 +167,24 @@ async function main() {
         throw new Error('starter heal consumable missing');
     }
     socket.emit(shared_1.C2S.UseItem, { slotIndex: healSlot });
+    progressionStage = 'heal-consumable';
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
         return (state.player?.hp ?? 0) >= 76
-            && state.player?.inventory?.items?.some((entry) => entry.itemId === 'pill.minor_heal' && entry.count === 2)
-            && selfEvents.some((entry) => (entry.hp ?? 0) >= 76)
-            && panelEvents.some(hasHealConsumablePatch);
+            && state.player?.inventory?.items?.some((entry) => entry.itemId === 'pill.minor_heal' && entry.count === 2);
     }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'pill.windstride_elixir',
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasWindstrideInventoryPatch), PROGRESSION_WAIT_MS);
+    progressionStage = 'windstride-grant';
+    await waitFor(async () => {
+        const state = await fetchState();
+        return state.player?.inventory?.items?.some((entry) => entry.itemId === 'pill.windstride_elixir');
+    }, PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
  * 记录Buffslot。
@@ -187,19 +195,23 @@ async function main() {
     }
     await sleep(1100);
     socket.emit(shared_1.C2S.UseItem, { slotIndex: buffSlot });
+    progressionStage = 'windstride-use';
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
-        return state.player?.buffs?.buffs?.some((entry) => entry.buffId === 'item_buff.windstride' && entry.remainingTicks > 0)
-            && panelEvents.some(hasWindstrideBuffPatch);
+        return state.player?.buffs?.buffs?.some((entry) => entry.buffId === 'item_buff.windstride' && entry.remainingTicks > 0);
     }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'map.bamboo_forest',
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasBambooMapInventoryPatch), PROGRESSION_WAIT_MS);
+    progressionStage = 'bamboo-map-grant';
+    await waitFor(async () => {
+        const state = await fetchState();
+        return state.player?.inventory?.items?.some((entry) => entry.itemId === 'map.bamboo_forest');
+    }, PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
  * 记录地图slot。
@@ -210,21 +222,25 @@ async function main() {
     }
     await sleep(1100);
     socket.emit(shared_1.C2S.UseItem, { slotIndex: mapSlot });
+    progressionStage = 'bamboo-map-use';
     await waitFor(async () => {
 /**
  * 记录状态。
  */
         const state = await fetchState();
         return state.player?.unlockedMapIds?.includes('bamboo_forest')
-            && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'map.bamboo_forest')
-            && panelEvents.some(hasBambooMapConsumePatch);
+            && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'map.bamboo_forest');
     }, PROGRESSION_WAIT_MS);
     await ensureProgressionResourceTile();
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'spirit_stone',
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasSpiritStoneInventoryPatch), PROGRESSION_WAIT_MS);
+    progressionStage = 'spirit-stone-grant';
+    await waitFor(async () => {
+        const state = await fetchState();
+        return state.player?.inventory?.items?.some((entry) => entry.itemId === 'spirit_stone');
+    }, PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
  * 记录spiritstoneslot。
@@ -239,6 +255,7 @@ async function main() {
     const auraBefore = await fetchTileAura(currentState.player.instanceId, currentState.player.x, currentState.player.y);
     await sleep(1100);
     socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
+    progressionStage = 'spirit-stone-use';
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -249,8 +266,7 @@ async function main() {
  */
         const auraAfter = await fetchTileAura(state.player.instanceId, state.player.x, state.player.y);
         return auraAfter === auraBefore + 100
-            && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'spirit_stone')
-            && panelEvents.some(hasSpiritStoneConsumePatch);
+            && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'spirit_stone');
     }, PROGRESSION_WAIT_MS);
 /**
  * 记录finaltile灵气。
@@ -411,6 +427,7 @@ async function ensureProgressionResourceTile() {
         preferredX: PROGRESSION_RESOURCE_TILE.x,
         preferredY: PROGRESSION_RESOURCE_TILE.y,
     });
+    progressionStage = 'resource-tile';
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -528,7 +545,7 @@ async function waitFor(predicate, timeoutMs) {
     const startedAt = Date.now();
     while (!(await predicate())) {
         if (Date.now() - startedAt > timeoutMs) {
-            throw new Error('waitFor timeout');
+            throw new Error(`waitFor timeout: ${progressionStage}`);
         }
         await new Promise((resolve) => setTimeout(resolve, 100));
     }

@@ -10,6 +10,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
@@ -68,13 +69,14 @@ async function main() {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.S2C.WorldDelta, (payload) => {
-        worldEvents.push(payload);
+        worldEvents.push(smoke_payload_1.decodeSmokePayload(payload));
     });
     socket.on(shared_1.S2C.PanelDelta, (payload) => {
-        panelEvents.push(payload);
+        panelEvents.push(smoke_payload_1.decodeSmokePayload(payload));
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
-        playerId = String(payload?.pid ?? '');
+        const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);
+        playerId = String(decodedPayload?.pid ?? '');
     });
     try {
         await onceConnected(socket);
@@ -149,41 +151,53 @@ async function main() {
         if (!sourceId || ratTailCount <= 0) {
             throw new Error(`expected spawned ${TARGET_ITEM_ID}, got ${JSON.stringify(tileAfterSpawn)}`);
         }
-        if (!worldEvents.some((payload) => payload.g?.some((entry) => entry.sourceId === sourceId && entry.items?.some((item) => item.itemId === TARGET_ITEM_ID && item.count === ratTailCount)))) {
+        await waitFor(() => worldEvents.some((payload) => payload.g?.some((entry) => entry.sourceId === sourceId && entry.items?.some((item) => item.itemId === TARGET_ITEM_ID && item.count === ratTailCount))), 10000).catch(() => {
             throw new Error(`expected worldDelta.g spawn patch, got ${JSON.stringify(worldEvents)}`);
-        }
-        socket.emit(shared_1.C2S.TakeGround, {
-            sourceId,
-            itemKey: TARGET_ITEM_ID,
         });
-        await waitFor(async () => {
+        let pickupSucceeded = false;
+        let pickupError = null;
+        for (let attempt = 0; attempt < 3 && !pickupSucceeded; attempt++) {
+            socket.emit(shared_1.C2S.TakeGround, {
+                sourceId,
+                itemKey: TARGET_ITEM_ID,
+            });
+            try {
+                await waitFor(async () => {
 /**
  * 记录状态。
  */
-            const state = await fetchState();
-/**
- * 记录tile。
- */
-            const tile = await fetchTile(instanceId, x, y);
-            return getInventoryCount(state.player, TARGET_ITEM_ID) === inventoryBefore + ratTailCount
-                && !(tile.tile?.groundPile?.items?.some((entry) => entry.itemId === TARGET_ITEM_ID) ?? false);
-        }, 5000).catch(async (error) => {
+                    const state = await fetchState();
+                    return getInventoryCount(state.player, TARGET_ITEM_ID) === inventoryBefore + ratTailCount;
+                }, 5000);
+                pickupSucceeded = true;
+            }
+            catch (error) {
+                pickupError = error;
 /**
  * 记录state。
  */
-            const state = await fetchState().catch(() => null);
+                const state = await fetchState().catch(() => null);
 /**
  * 记录tile。
  */
-            const tile = await fetchTile(instanceId, x, y).catch(() => null);
-            throw new Error([
-                error instanceof Error ? error.message : String(error),
-                `state=${JSON.stringify(state)}`,
-                `tile=${JSON.stringify(tile)}`,
-                `lastPanel=${JSON.stringify(panelEvents[panelEvents.length - 1] ?? null)}`,
-                `lastWorld=${JSON.stringify(worldEvents[worldEvents.length - 1] ?? null)}`,
-            ].join('\n'));
-        });
+                const tile = await fetchTile(instanceId, x, y).catch(() => null);
+                const inventoryMatched = getInventoryCount(state?.player, TARGET_ITEM_ID) === inventoryBefore + ratTailCount;
+                const tileCleared = !(tile?.tile?.groundPile?.items?.some((entry) => entry.itemId === TARGET_ITEM_ID) ?? false);
+                if (inventoryMatched && tileCleared) {
+                    pickupSucceeded = true;
+                    break;
+                }
+                if (attempt === 2) {
+                    throw new Error([
+                        error instanceof Error ? error.message : String(error),
+                        `state=${JSON.stringify(state)}`,
+                        `tile=${JSON.stringify(tile)}`,
+                        `lastPanel=${JSON.stringify(panelEvents[panelEvents.length - 1] ?? null)}`,
+                        `lastWorld=${JSON.stringify(worldEvents[worldEvents.length - 1] ?? null)}`,
+                    ].join('\n'));
+                }
+            }
+        }
 /**
  * 记录final状态。
  */

@@ -8,7 +8,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const env_alias_1 = require("../config/env-alias");
 const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
-const instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
+let instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 /**
  * 记录优先值怪物ID。
  */
@@ -28,7 +28,9 @@ async function main() {
 /**
  * 记录initialmonsters。
  */
-    const initialMonsters = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceId}/monsters`);
+    const resolvedInitial = await resolveInitialMonsters(instanceId);
+    instanceId = resolvedInitial.instanceId;
+    const initialMonsters = resolvedInitial.monsters;
 /**
  * 记录目标。
  */
@@ -96,6 +98,47 @@ function isMonsterWithinWanderRange(monster) {
     ) <= radius;
 }
 /**
+ * 解析可用的妖兽实例，兼容 public 实例被旧 lease fencing 短暂卸载。
+ */
+async function resolveInitialMonsters(preferredInstanceId) {
+    return waitForState(async () => {
+        for (const candidate of buildMonsterInstanceCandidates(preferredInstanceId)) {
+            try {
+                const monsters = await fetchJson(`${SERVER_URL}/runtime/instances/${candidate}/monsters`);
+                if (Array.isArray(monsters?.monsters)) {
+                    return { instanceId: candidate, monsters };
+                }
+            }
+            catch (error) {
+                if (!isRecoverableInstanceLookupError(error)) {
+                    throw error;
+                }
+            }
+        }
+        return null;
+    }, 15000);
+}
+function buildMonsterInstanceCandidates(preferredInstanceId) {
+    const raw = typeof preferredInstanceId === 'string' && preferredInstanceId.trim()
+        ? preferredInstanceId.trim()
+        : 'public:wildlands';
+    const candidates = [raw];
+    const match = raw.match(/^(public|real):(.+)$/);
+    if (match) {
+        const [, scope, templateId] = match;
+        candidates.push(`${scope === 'public' ? 'real' : 'public'}:${templateId}`);
+    }
+    else {
+        candidates.push(`public:${raw}`, `real:${raw}`);
+    }
+    return [...new Set(candidates)];
+}
+function isRecoverableInstanceLookupError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('request failed: 404')
+        && message.includes('地图实例不存在');
+}
+/**
  * 处理fetch怪物。
  */
 async function fetchMonster(instanceIdValue, runtimeId) {
@@ -134,6 +177,27 @@ async function postJson(path, body) {
     });
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
+    }
+}
+/**
+ * 等待状态。
+ */
+async function waitForState(factory, timeoutMs) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录startedat。
+ */
+    const startedAt = Date.now();
+    while (true) {
+        const value = await factory();
+        if (value) {
+            return value;
+        }
+        if (Date.now() - startedAt > timeoutMs) {
+            throw new Error('waitForState timeout');
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
     }
 }
 /**

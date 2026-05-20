@@ -141,6 +141,9 @@ function createService(log = [], overrides = {}) {
         return { queued: true };
       },
     },
+    getPool() {
+      return null;
+    },
   };
 
   return new NativeGmWorldService(
@@ -185,11 +188,11 @@ function createService(log = [], overrides = {}) {
     { getSuggestions() { return {}; } },
     { listNodes() { return []; }, isEnabled() { return true; }, getNodeId() { return 'node:test'; } },
     { ensureInitialized() {}, isEnabled() { return true; }, mergeMapConfig() {}, pruneMapConfigs() {} },
-    { listRetryQueue() { return []; } },
-    { getOperationReplay() { return {}; } },
-    { flushPlayer() {} },
-    { flushInstance() {} },
-    null,
+    { listRetryQueue() { return []; }, getPool() { return null; }, listInstances() { return []; } },
+    { getOperationReplay() { return {}; }, getPool() { return null; }, listInstances() { return []; } },
+    { flushPlayer() {}, getPool() { return null; }, listInstances() { return []; } },
+    { flushInstance() {}, getPool() { return null; }, listInstances() { return []; } },
+    worldRuntimeService,
     worldRuntimeService,
   );
 }

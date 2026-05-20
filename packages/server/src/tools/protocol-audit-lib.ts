@@ -21,6 +21,25 @@ exports.repoRoot = path.resolve(exports.packageRoot, '..', '..');
  */
 const serverEntry = path.join(exports.distRoot, 'main.js');
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
+function decodeSocketPayload(payload) {
+  if (Buffer.isBuffer(payload)) {
+    try {
+      return JSON.parse(payload.toString('utf8'));
+    }
+    catch {
+      return payload;
+    }
+  }
+  if (payload instanceof Uint8Array) {
+    try {
+      return JSON.parse(Buffer.from(payload).toString('utf8'));
+    }
+    catch {
+      return payload;
+    }
+  }
+  return payload;
+}
 /**
  * 处理delay。
  */
@@ -543,12 +562,13 @@ function createAuditedSocket(options) {
   const byEvent = new Map();
   socket.onAny((event, payload) => {
     options.auditor.record('s2c', event, payload, options.caseName, options.label);
-    history.push({ event, payload, at: Date.now() });
+    const decodedPayload = decodeSocketPayload(payload);
+    history.push({ event, payload: decodedPayload, at: Date.now() });
 /**
  * 记录当前值。
  */
     const current = byEvent.get(event) ?? [];
-    current.push(payload);
+    current.push(decodedPayload);
     byEvent.set(event, current);
   });
 /**

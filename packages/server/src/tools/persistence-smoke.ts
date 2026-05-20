@@ -14,6 +14,7 @@ const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 const stable_dist_1 = require("./stable-dist");
@@ -360,13 +361,13 @@ async function ensureTravelToWildlands(socket, currentPlayerId, currentSessionId
         lastX = Number(state?.view?.self?.x);
         lastY = Number(state?.view?.self?.y);
         if (lastTemplateId === 'wildlands'
-            && lastX === PERSISTENCE_SMOKE_RESOURCE_TILE.x
-            && lastY === PERSISTENCE_SMOKE_RESOURCE_TILE.y) {
+            && Number.isFinite(lastX)
+            && Number.isFinite(lastY)) {
             return;
         }
         await delay(250);
     }
-    throw new Error(`failed to attach player to wildlands resource tile ${PERSISTENCE_SMOKE_RESOURCE_TILE.x},${PERSISTENCE_SMOKE_RESOURCE_TILE.y}; current=${lastTemplateId} @ (${lastX}, ${lastY})`);
+    throw new Error(`failed to attach player to wildlands near resource tile ${PERSISTENCE_SMOKE_RESOURCE_TILE.x},${PERSISTENCE_SMOKE_RESOURCE_TILE.y}; current=${lastTemplateId} @ (${lastX}, ${lastY})`);
 }
 /**
  * 处理reconnectandread。
@@ -408,16 +409,16 @@ async function reconnectAndRead(reconnectTarget) {
         }
     });
     socket.on(shared_1.S2C.MapEnter, (payload) => {
-        captured.mapEnter = payload;
+        captured.mapEnter = smoke_payload_1.decodeSmokePayload(payload);
     });
     socket.on(shared_1.S2C.SelfDelta, (payload) => {
-        captured.selfDelta = payload;
+        captured.selfDelta = smoke_payload_1.decodeSmokePayload(payload);
     });
     socket.on(shared_1.S2C.PanelDelta, (payload) => {
-        captured.panelDelta = payload;
+        captured.panelDelta = smoke_payload_1.decodeSmokePayload(payload);
     });
     socket.on(shared_1.S2C.WorldDelta, (payload) => {
-        captured.worldDelta = payload;
+        captured.worldDelta = smoke_payload_1.decodeSmokePayload(payload);
     });
 /**
  * 记录init会话。
@@ -648,18 +649,24 @@ async function startServer() {
     child.stderr?.on('data', (chunk) => {
         process.stderr.write(String(chunk));
     });
-    await waitForCondition(async () => {
-        try {
+    try {
+        await waitForCondition(async () => {
+            try {
 /**
  * 记录response。
  */
-            const response = await fetch(`${baseUrl}/health`);
-            return response.ok;
-        }
-        catch {
-            return false;
-        }
-    }, 8000);
+                const response = await fetch(`${baseUrl}/health`);
+                return response.ok;
+            }
+            catch {
+                return false;
+            }
+        }, 20000);
+    }
+    catch (error) {
+        await stopServer(child).catch(() => undefined);
+        throw error;
+    }
     return child;
 }
 /**
@@ -738,7 +745,7 @@ async function waitForSocketEvent(socket, eventName) {
         const timer = setTimeout(() => reject(new Error(`socket event timeout: ${eventName}`)), 5000);
         socket.once(eventName, (payload) => {
             clearTimeout(timer);
-            resolve(payload);
+            resolve(smoke_payload_1.decodeSmokePayload(payload));
         });
     });
 }

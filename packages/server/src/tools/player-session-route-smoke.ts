@@ -191,6 +191,7 @@ async function verifyHookWiring(): Promise<{
     {} as never,
     {} as never,
     new WorldGatewayPresenceHelper(playerDomainPersistenceService as never, playerRuntimeService as never) as never,
+    {} as never,
   );
 
   await gateway.handleDisconnect({ id: 'socket:route-smoke' } as never);

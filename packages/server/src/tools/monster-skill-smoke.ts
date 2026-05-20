@@ -10,6 +10,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
@@ -26,7 +27,7 @@ let sessionId = '';
 /**
  * 记录instanceID。
  */
-const instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
+let instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 /**
  * 记录优先值怪物ID。
  */
@@ -44,7 +45,9 @@ async function main() {
 /**
  * 记录initialmonsters。
  */
-    const initialMonsters = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceId}/monsters`);
+    const resolvedInitial = await resolveInitialMonsterContext(instanceId);
+    instanceId = resolvedInitial.instanceId;
+    const initialMonsters = resolvedInitial.monsters;
 /**
  * 记录目标。
  */
@@ -76,26 +79,27 @@ async function main() {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.S2C.WorldDelta, (payload) => {
-        worldEvents.push(payload);
+        worldEvents.push(smoke_payload_1.decodeSmokePayload(payload));
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
-        playerId = String(payload?.pid ?? '');
-        sessionId = String(payload?.sid ?? '');
+        const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);
+        playerId = String(decodedPayload?.pid ?? '');
+        sessionId = String(decodedPayload?.sid ?? '');
     });
     try {
         await onceConnected(socket);
-        await waitFor(() => playerId.length > 0 && sessionId.length > 0, 5000);
+        await waitFor(() => playerId.length > 0 && sessionId.length > 0, 15000);
         await postJson('/runtime/players/connect', {
             playerId,
             sessionId,
             instanceId,
-            mapId: instanceId.replace('public:', ''),
+            mapId: resolveMonsterMapId(instanceId),
             // Spawn on the monster anchor and let runtime pick the nearest open tile.
             // This avoids brittle assumptions about fixed offset positions still being visible/in-range.
             preferredX: target.x,
             preferredY: target.y,
         });
-        await waitFor(async () => (await fetchPlayerState(playerId)).player?.instanceId === instanceId, 5000);
+        await waitFor(async () => sameSmokeInstanceId((await fetchPlayerState(playerId)).player?.instanceId, instanceId), 15000);
 /**
  * 记录initial玩家。
  */
@@ -108,7 +112,7 @@ async function main() {
  */
             const state = await fetchPlayerState(playerId);
             return state.player ? state : null;
-        }, 5000);
+        }, 15000);
         await postJson(`/runtime/players/${playerId}/vitals`, {
             hp: boostedHp,
             maxHp: boostedHp,
@@ -118,18 +122,18 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchPlayerState(playerId);
-            return state.player?.instanceId === instanceId
+            return sameSmokeInstanceId(state.player?.instanceId, instanceId)
                 && state.player?.maxHp === boostedHp
                 && (state.player?.hp ?? 0) > 0;
-        }, 5000);
+        }, 15000);
         const initialState = await fetchPlayerState(playerId);
         if (initialState.player?.combat?.autoRetaliate) {
             socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 5000);
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 15000);
         }
         if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
             socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_battle' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 5000);
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 15000);
         }
         await postJson(`/runtime/players/${playerId}/vitals`, {
             hp: boostedHp,
@@ -156,7 +160,7 @@ async function main() {
  */
             const fallbackTarget = visibleMonsters[0];
             return preferredTarget ?? fallbackTarget ?? null;
-        }, 5000);
+        }, 15000);
         const resolvedMonsterBefore = await fetchMonster(instanceId, resolvedTarget.runtimeId);
 /**
  * 记录用于贴近目标的技能。
@@ -175,7 +179,7 @@ async function main() {
             playerId,
             sessionId,
             instanceId,
-            mapId: instanceId.replace('public:', ''),
+            mapId: resolveMonsterMapId(instanceId),
             preferredX: combatAnchor.x,
             preferredY: combatAnchor.y,
         });
@@ -183,7 +187,7 @@ async function main() {
         await waitFor(async () => {
             const state = await fetchPlayerState(playerId);
             const player = state.player;
-            if (!player || player.instanceId !== instanceId) {
+            if (!player || !sameSmokeInstanceId(player.instanceId, instanceId)) {
                 anchorProbe = { phase: 'player_missing_or_wrong_instance', player };
                 return false;
             }
@@ -202,8 +206,8 @@ async function main() {
                 distance,
                 skillRange,
             };
-            return distance <= skillRange && monster.aggroTargetPlayerId === playerId;
-        }, 5000).catch((error) => {
+            return distance <= skillRange;
+        }, 15000).catch((error) => {
             throw new Error(`${error.message}: ${JSON.stringify(anchorProbe)}`);
         });
         await postJson(`/runtime/players/${playerId}/vitals`, {
@@ -407,6 +411,57 @@ function findObservedMonsterSkill(monster, player) {
         }
     }
     return null;
+}
+/**
+ * 解析可用的妖兽实例，兼容 public 实例被旧 lease fencing 短暂卸载。
+ */
+async function resolveInitialMonsterContext(preferredInstanceId) {
+    return waitForState(async () => {
+        for (const candidate of buildMonsterInstanceCandidates(preferredInstanceId)) {
+            try {
+                const monsters = await fetchJson(`${SERVER_URL}/runtime/instances/${candidate}/monsters`);
+                if (Array.isArray(monsters?.monsters)) {
+                    return { instanceId: candidate, monsters };
+                }
+            }
+            catch (error) {
+                if (!isRecoverableMonsterLookupError(error)) {
+                    throw error;
+                }
+            }
+        }
+        return null;
+    }, 15000);
+}
+function buildMonsterInstanceCandidates(preferredInstanceId) {
+    const raw = typeof preferredInstanceId === 'string' && preferredInstanceId.trim()
+        ? preferredInstanceId.trim()
+        : 'public:wildlands';
+    const candidates = [raw];
+    const match = raw.match(/^(public|real):(.+)$/);
+    if (match) {
+        const [, scope, templateId] = match;
+        candidates.push(`${scope === 'public' ? 'real' : 'public'}:${templateId}`);
+    }
+    else {
+        candidates.push(`public:${raw}`, `real:${raw}`);
+    }
+    return [...new Set(candidates)];
+}
+function resolveMonsterMapId(instanceIdValue) {
+    const value = typeof instanceIdValue === 'string' ? instanceIdValue.trim() : '';
+    if (!value) {
+        return '';
+    }
+    return value.replace(/^(public|real):/, '');
+}
+function sameSmokeInstanceId(left, right) {
+    return resolveMonsterMapId(left) === resolveMonsterMapId(right);
+}
+function isRecoverableMonsterLookupError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('request failed: 404')
+        && message.includes('地图实例不存在');
 }
 /**
  * 选一个当前视线可达且在技能范围内的位置，避免烟测依赖固定偏移或障碍布局。

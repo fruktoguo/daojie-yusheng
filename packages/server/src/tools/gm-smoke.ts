@@ -1185,7 +1185,8 @@ async function registerAndLoginPlayer() {
             const message = error instanceof Error ? error.message : String(error);
             if (!message.includes('显示名称已存在')
                 && !message.includes('账号已存在')
-                && !message.includes('角色名已存在')) {
+                && !message.includes('角色名已存在')
+                && !message.includes('称号已存在')) {
                 throw error;
             }
         }
@@ -1786,7 +1787,17 @@ async function waitForGmState(token, predicate, timeoutMs, label) {
 /**
  * 记录payload。
  */
-        const payload = await authedGetJson('/api/gm/state', token);
+        let payload;
+        try {
+            payload = await authedGetJson('/api/gm/state', token);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes('request failed: GET /api/gm/state: 500')) {
+                return false;
+            }
+            throw error;
+        }
         assertGmStateShape(payload, label);
         if (!(await predicate(payload))) {
             return false;

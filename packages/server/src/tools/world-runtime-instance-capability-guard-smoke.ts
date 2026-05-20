@@ -83,6 +83,9 @@ function createInstance(overrides = {}) {
     damageTile(x, y, amount) {
       return { x, y, appliedDamage: amount };
     },
+    isPointInSafeZone() {
+      return false;
+    },
     getTileCombatState(x, y) {
       return {
         x,
@@ -91,6 +94,9 @@ function createInstance(overrides = {}) {
         maxHp: 100,
         destroyed: false,
       };
+    },
+    isPointInSafeZone(x, y) {
+      return Boolean(overrides.isPointInSafeZone?.(x, y)) || false;
     },
     ...overrides,
   };

@@ -27,6 +27,7 @@ let looterId = '';
  * 记录目标物品ID。
  */
 const TARGET_ITEM_ID = 'rat_tail';
+const LOOT_WAIT_MS = 20_000;
 /**
  * 记录drop数量。
  */
@@ -132,27 +133,27 @@ async function main() {
         }
         const [dropperState, looterState] = await Promise.all([fetchState(dropperId), fetchState(looterId)]);
         return dropperState.player && looterState.player && chebyshevDistance(dropperState.player, looterState.player) <= 1;
-    }, 5000);
+    }, LOOT_WAIT_MS);
     await postJson(`/runtime/players/${dropperId}/grant-item`, {
         itemId: TARGET_ITEM_ID,
         count: DROP_COUNT,
     });
-    await waitFor(() => dropperPanels.some((payload) => hasInventoryCountPatch(payload, TARGET_ITEM_ID, DROP_COUNT)), 5000);
+    await waitFor(async () => {
+        const state = await fetchState(dropperId);
+        return getInventoryCount(state.player, TARGET_ITEM_ID) >= DROP_COUNT;
+    }, LOOT_WAIT_MS);
 /**
  * 记录dropperslot。
  */
-    const dropperSlot = await waitForState(async () => findLatestInventorySlotPatch(dropperPanels, TARGET_ITEM_ID, DROP_COUNT), 5000);
-/**
- * 记录dropperlocation。
- */
-    const dropperLocation = await fetchState(dropperId);
-    if (!dropperSlot) {
+    const dropperStateAfterGrant = await fetchState(dropperId);
+    const slotIndex = dropperStateAfterGrant.player.inventory.items.findIndex((entry) => entry.itemId === TARGET_ITEM_ID);
+    if (slotIndex < 0) {
         throw new Error(`missing ${TARGET_ITEM_ID} before drop`);
     }
 /**
- * 记录slot索引。
+ * 记录dropperlocation。
  */
-    const slotIndex = dropperSlot.slotIndex;
+    const dropperLocation = dropperStateAfterGrant;
 /**
  * 记录dropx。
  */
@@ -164,7 +165,7 @@ async function main() {
 /**
  * 记录dropper数量before。
  */
-    const dropperCountBefore = dropperSlot.count;
+    const dropperCountBefore = getInventoryCount(dropperStateAfterGrant.player, TARGET_ITEM_ID);
 /**
  * 记录looter数量before。
  */
@@ -208,7 +209,7 @@ async function main() {
             return null;
         }
         return groundPile;
-    }, 5000).catch(async (error) => {
+    }, LOOT_WAIT_MS).catch(async (error) => {
 /**
  * 记录tile状态。
  */
@@ -221,7 +222,10 @@ async function main() {
             `looterLastWorld=${JSON.stringify(looterWorld[looterWorld.length - 1] ?? null)}`,
         ].join('\n'));
     });
-    await waitFor(() => (dropperPanels.some((payload) => hasInventoryPatchForCount(payload, TARGET_ITEM_ID, dropperCountBefore - DROP_COUNT))), 5000);
+    await waitFor(async () => {
+        const state = await fetchState(dropperId);
+        return getInventoryCount(state.player, TARGET_ITEM_ID) === Math.max(0, dropperCountBefore - DROP_COUNT);
+    }, LOOT_WAIT_MS);
 /**
  * 记录dropperaftermove。
  */
@@ -244,7 +248,7 @@ async function main() {
  */
         const groundCount = getGroundItemCount(tileState?.tile?.groundPile, TARGET_ITEM_ID);
         return looterCount >= looterCountBefore + DROP_COUNT && groundCount <= groundCountBefore;
-    }, 5000);
+    }, LOOT_WAIT_MS);
 /**
  * 记录finaldropper。
  */

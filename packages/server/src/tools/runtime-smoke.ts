@@ -15,6 +15,17 @@ const smoke_player_auth_1 = require("./smoke-player-auth");
  * 记录 server 访问地址。
  */
 const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
+function decodeSmokePayload(payload) {
+    if (Buffer.isBuffer(payload)) {
+        try {
+            return JSON.parse(payload.toString('utf8'));
+        }
+        catch {
+            return payload;
+        }
+    }
+    return payload;
+}
 /**
  * 串联执行脚本主流程。
  */
@@ -72,19 +83,21 @@ async function main() {
         eventLog.push('worldDelta');
     });
     socket.on(shared_1.S2C.SelfDelta, (payload) => {
+        const decodedPayload = decodeSmokePayload(payload);
         eventLog.push('selfDelta');
-        if ((payload.hp ?? 0) >= 72 && (payload.qi ?? 0) >= 18) {
-            vitalsDelta = payload;
+        if ((decodedPayload.hp ?? 0) >= 72 && (decodedPayload.qi ?? 0) >= 18) {
+            vitalsDelta = decodedPayload;
         }
     });
     socket.on(shared_1.S2C.PanelDelta, (payload) => {
+        const decodedPayload = decodeSmokePayload(payload);
         eventLog.push('panelDelta');
         if (!initialPanel) {
-            initialPanel = payload;
+            initialPanel = decodedPayload;
             return;
         }
-        if (payload.inv?.slots?.some((entry) => entry.item?.itemId === 'rat_tail' && entry.item.count >= 2)) {
-            inventoryDelta = payload;
+        if (decodedPayload.inv?.slots?.some((entry) => entry.item?.itemId === 'rat_tail' && entry.item.count >= 2)) {
+            inventoryDelta = decodedPayload;
         }
     });
     await onceConnected(socket);
@@ -98,6 +111,7 @@ async function main() {
     await delay(1200);
     await postJson(`/runtime/players/${playerId}/vitals`, {
         hp: 72,
+        maxQi: 18,
         qi: 18,
     });
     await postJson(`/runtime/players/${playerId}/grant-item`, {

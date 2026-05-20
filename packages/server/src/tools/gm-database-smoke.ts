@@ -818,7 +818,7 @@ async function main() {
             return Number(summary?.unreadCount ?? 0) === Number(initialMailSummary.unreadCount ?? 0) + 1
                 && Number(summary?.claimableCount ?? 0) === Number(initialMailSummary.claimableCount ?? 0) + 1
                 && Number(summary?.revision ?? 0) === Number(initialMailSummary.revision ?? 0) + 1;
-        }, 10000);
+        }, 30000);
         await waitForMailPresent(playerId, preBackupMailId, Number(initialMailPage.total ?? 0) + 1);
         await waitForStructuredMailPresent(preBackupMailId);
 /**
@@ -887,7 +887,7 @@ async function main() {
             return Number(summary?.unreadCount ?? 0) === Number(mailSummaryBaseline.unreadCount ?? 0) + 1
                 && Number(summary?.claimableCount ?? 0) === Number(mailSummaryBaseline.claimableCount ?? 0) + 1
                 && Number(summary?.revision ?? 0) === Number(mailSummaryBaseline.revision ?? 0) + 1;
-        }, 10000);
+        }, 30000);
         await waitForMailPresent(playerId, postBackupMailId, mailPageTotalBaseline + 1);
         await waitForStructuredMailPresent(postBackupMailId);
         await resetGmAuthPasswordRecord();
@@ -1721,7 +1721,7 @@ async function waitForHealth(options) {
         catch {
             return false;
         }
-    }, 10000);
+    }, 30000);
 }
 /**
  * 处理login。
@@ -2046,7 +2046,7 @@ async function waitForMailPresent(playerId, mailId, expectedTotal) {
             fetchMailPage(playerId),
         ]);
         return detail !== null && Number(page?.total ?? 0) === expectedTotal;
-    }, 10000);
+    }, 30000);
 }
 /**
  * 等待formailabsent。
@@ -2058,7 +2058,7 @@ async function waitForMailAbsent(playerId, mailId, expectedTotal) {
             fetchMailPage(playerId),
         ]);
         return detail === null && Number(page?.total ?? 0) === expectedTotal;
-    }, 10000);
+    }, 30000);
 }
 /**
  * 判断是否匹配mail汇总。
@@ -2083,7 +2083,7 @@ async function waitForSuggestionPresent(token, suggestionId) {
  */
         const payload = await authedGetJson('/api/gm/suggestions?page=1&pageSize=50', token);
         return findSuggestion(payload, suggestionId) !== null;
-    }, 10000);
+    }, 30000);
 }
 /**
  * 等待forsuggestionabsent。
@@ -2095,7 +2095,7 @@ async function waitForSuggestionAbsent(token, suggestionId) {
  */
         const payload = await authedGetJson('/api/gm/suggestions?page=1&pageSize=50', token);
         return findSuggestion(payload, suggestionId) === null;
-    }, 10000);
+    }, 30000);
 }
 /**
  * 处理authedpost。

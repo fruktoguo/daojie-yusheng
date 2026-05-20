@@ -1057,7 +1057,7 @@ async function testGatherCompletionDirtyDomains() {
 
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
-  assert.deepEqual(markedDomains, [['inventory', 'profession']]);
+  assert.deepEqual(markedDomains, [['inventory', 'active_job', 'profession']]);
   assert.equal(player.dirtyDomains.has('inventory'), true);
   assert.equal(player.dirtyDomains.has('profession'), true);
   assert.equal(player.gatherSkill?.exp, 42);

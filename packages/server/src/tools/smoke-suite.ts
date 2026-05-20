@@ -48,6 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_child_process_1 = require("node:child_process");
 const fs = __importStar(require("node:fs"));
+const pg = require('pg');
 /**
  * 记录net。
  */
@@ -95,6 +96,7 @@ const selectedCaseNames = readOptionValues(cliArgs, '--case');
  */
 const smokeCases = [
     { name: 'readiness-gate', scriptFile: 'readiness-gate-smoke.js', standalone: true },
+    { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
     { name: 'session', scriptFile: 'session-smoke.js' },
     { name: 'runtime', scriptFile: 'runtime-smoke.js' },
     { name: 'progression', scriptFile: 'progression-smoke.js' },
@@ -133,8 +135,6 @@ const smokeCases = [
   { name: 'player-domain-recovery', scriptFile: 'player-domain-recovery-smoke.js', standalone: true },
   { name: 'player-domain-empty-overwrite-guard', scriptFile: 'player-domain-empty-overwrite-guard-smoke.js', standalone: true },
   { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
-  { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
-  { name: 'gm-map-config-persistence', scriptFile: 'gm-map-config-persistence-smoke.js', standalone: true },
   { name: 'world-runtime-lifecycle', scriptFile: 'world-runtime-lifecycle-smoke.js', standalone: true },
   { name: 'snapshot-retirement', scriptFile: 'snapshot-retirement-report-smoke.js', standalone: true },
   { name: 'map-snapshot-retirement', scriptFile: 'map-snapshot-retirement-report-smoke.js', standalone: true },
@@ -166,8 +166,7 @@ const DB_SMOKE_CASES = new Set([
     'player-domain-persistence',
     'player-domain-recovery',
     'durable-operation',
-    'gm-database',
-    'gm-map-config-persistence',
+  'gm-database',
 ]);
 const PARALLEL_STANDALONE_CASES = new Set([
     'snapshot-retirement',
@@ -353,7 +352,7 @@ async function runIsolatedSmoke(entry) {
 /**
  * 记录extra环境变量。
  */
-    const extraEnv = resolveCaseExtraEnv(entry);
+    const extraEnv = await resolveCaseExtraEnv(entry);
 /**
  * 记录服务端。
  */
@@ -390,7 +389,7 @@ async function runStandaloneSmoke(entry) {
 /**
  * 记录extra环境变量。
  */
-    const extraEnv = resolveCaseExtraEnv(entry);
+    const extraEnv = await resolveCaseExtraEnv(entry);
     try {
         await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {
             SERVER_SMOKE_PORT: String(port),
@@ -418,7 +417,7 @@ async function startServer(port, extraEnv = {}) {
             ...process.env,
             ...extraEnv,
             SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || 'test',
-            SERVER_NODE_ID: process.env.SERVER_NODE_ID || 'server-smoke-suite',
+            SERVER_NODE_ID: extraEnv.SERVER_NODE_ID || 'server-smoke-suite',
             SERVER_PORT: String(port),
             SERVER_RUNTIME_HTTP: '1',
             ...(allowUnreadyTraffic
@@ -549,10 +548,9 @@ function resolveSelectedCases() {
         if (entry.name === 'persistence'
             || entry.name === 'player-domain-persistence'
             || entry.name === 'player-domain-recovery'
-            || entry.name === 'durable-operation'
-            || entry.name === 'gm-database'
-            || entry.name === 'gm-map-config-persistence') {
-            return includePersistence;
+      || entry.name === 'durable-operation'
+      || entry.name === 'gm-database') {
+      return includePersistence;
         }
         return true;
     });
@@ -580,22 +578,100 @@ function resolveSelectedCases() {
     }
     return resolved;
 }
+const CASE_NODE_ID_INSTANCE_IDS = new Map([
+    ['auth-bootstrap', ['public:yunlai_town']],
+    ['auth-bootstrap-native', ['public:yunlai_town']],
+    ['auth-bootstrap-legacy-import', ['public:yunlai_town']],
+    ['combat', ['public:yunlai_town']],
+    ['loot', ['public:yunlai_town']],
+    ['progression', ['public:yunlai_town']],
+    ['player-recovery', ['public:yunlai_town']],
+    ['player-respawn', ['public:yunlai_town']],
+    ['runtime', ['public:yunlai_town']],
+    ['monster-combat', ['real:wildlands', 'public:wildlands']],
+    ['monster-ai', ['real:wildlands', 'public:wildlands']],
+    ['monster-loot', ['public:yunlai_town']],
+    ['monster-runtime', ['real:wildlands', 'public:wildlands']],
+    ['monster-skill', ['real:wildlands', 'public:wildlands']],
+    ['monster-reset', ['real:wildlands', 'public:wildlands']],
+]);
+const MONSTER_WILDLANDS_SMOKE_CASES = new Set([
+    'monster-runtime',
+    'monster-combat',
+    'monster-ai',
+    'monster-skill',
+    'monster-reset',
+]);
+/**
+ * 规范化 nodeId 字符串。
+ */
+function normalizeSmokeNodeId(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+/**
+ * 按 case 从数据库恢复当前节点归属。
+ */
+async function resolveCaseNodeId(entry, databaseUrl) {
+    if (!databaseUrl) {
+        return '';
+    }
+    const candidateInstanceIds = CASE_NODE_ID_INSTANCE_IDS.get(entry.name) ?? [];
+    if (candidateInstanceIds.length === 0) {
+        return '';
+    }
+    const pool = new pg.Pool({
+        connectionString: databaseUrl,
+        max: 1,
+        idleTimeoutMillis: 1000,
+        connectionTimeoutMillis: 3000,
+    });
+    try {
+        for (const instanceId of candidateInstanceIds) {
+            const result = await pool.query('SELECT assigned_node_id FROM instance_catalog WHERE instance_id = $1 LIMIT 1', [instanceId]);
+            const assignedNodeId = normalizeSmokeNodeId(result.rows[0]?.assigned_node_id);
+            if (assignedNodeId) {
+                return assignedNodeId;
+            }
+        }
+        return '';
+    }
+    finally {
+        await pool.end().catch(() => undefined);
+    }
+}
 /**
  * 解析caseextra环境变量。
  */
-function resolveCaseExtraEnv(entry) {
+async function resolveCaseExtraEnv(entry) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
  * 记录extra环境变量。
  */
     const extraEnv = {};
+    if (MONSTER_WILDLANDS_SMOKE_CASES.has(entry.name)
+        && !(typeof process.env.SERVER_SMOKE_INSTANCE_ID === 'string' && process.env.SERVER_SMOKE_INSTANCE_ID.trim())) {
+        extraEnv.SERVER_SMOKE_INSTANCE_ID = 'real:wildlands';
+    }
 /**
  * 记录数据库地址。
  */
     const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
     if (databaseUrl) {
         extraEnv.SERVER_DATABASE_URL = databaseUrl;
+        const externalNodeId = normalizeSmokeNodeId(process.env.SERVER_NODE_ID);
+        if (entry.name === 'gm-database') {
+            extraEnv.SERVER_NODE_ID = externalNodeId || 'server-smoke-suite';
+        }
+        else if (externalNodeId) {
+            extraEnv.SERVER_NODE_ID = externalNodeId;
+        }
+        else {
+            const resolvedNodeId = await resolveCaseNodeId(entry, databaseUrl);
+            if (resolvedNodeId) {
+                extraEnv.SERVER_NODE_ID = resolvedNodeId;
+            }
+        }
     }
     if (entry.name === 'gm'
         || entry.name === 'redeem-code'

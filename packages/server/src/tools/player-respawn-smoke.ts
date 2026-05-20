@@ -10,6 +10,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
@@ -60,14 +61,15 @@ async function main() {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.S2C.MapEnter, (payload) => {
-        mapEnterEvents.push(payload);
+        mapEnterEvents.push(smoke_payload_1.decodeSmokePayload(payload));
     });
     socket.on(shared_1.S2C.SelfDelta, (payload) => {
-        selfEvents.push(payload);
+        selfEvents.push(smoke_payload_1.decodeSmokePayload(payload));
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
-        playerId = String(payload?.pid ?? '');
-        sessionId = String(payload?.sid ?? '');
+        const decodedPayload = smoke_payload_1.decodeSmokePayload(payload);
+        playerId = String(decodedPayload?.pid ?? '');
+        sessionId = String(decodedPayload?.sid ?? '');
     });
     await onceConnected(socket);
     await waitFor(() => playerId.length > 0 && sessionId.length > 0, 5000);
