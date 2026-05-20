@@ -12,7 +12,6 @@ import {
   GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY,
   GM_RUNTIME_MAINTENANCE_FLAG_KEY,
 } from '../../persistence/gm-runtime-flag-persistence.service';
-import { WorkerPoolToggleService, WORKER_POOL_FLAG_KEYS } from '../../concurrency/worker-pool-toggle.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { extractGmActor } from './native-gm-actor-context';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
@@ -263,7 +262,7 @@ export class NativeGmController {
     @Inject(RedeemCodeRuntimeService) redeemCodeRuntimeService: RedeemCodeRuntimeServicePort,
     @Inject(GmRuntimeFlagPersistenceService) private readonly runtimeFlagService: GmRuntimeFlagPersistenceService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
-    @Optional() @Inject(WorkerPoolToggleService) private readonly workerPoolToggleService?: WorkerPoolToggleService,
+
   ) {
     this.redeemCodeRuntimeService = redeemCodeRuntimeService;
   }
@@ -1146,15 +1145,10 @@ export class NativeGmController {
     if (key.trim() === GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY) {
       this.nextGmWorldService.setNetworkPayloadCaptureEnabled(value);
     }
-    const workerPoolChanged = isWorkerPoolFlagKey(key.trim());
-    if (workerPoolChanged) {
-      this.workerPoolToggleService?.syncToPool();
-    }
     return {
       ok: true,
       key,
       value,
-      workerPool: workerPoolChanged ? this.workerPoolToggleService?.getAllToggleStates() ?? null : undefined,
     };
   }
 
@@ -1170,64 +1164,9 @@ export class NativeGmController {
     }
     const normalizedKey = key.trim();
     await this.runtimeFlagService.deleteFlag(normalizedKey);
-    const workerPoolChanged = isWorkerPoolFlagKey(normalizedKey);
-    if (workerPoolChanged) {
-      this.workerPoolToggleService?.syncToPool();
-    }
     return {
       ok: true,
       key: normalizedKey,
-      workerPool: workerPoolChanged ? this.workerPoolToggleService?.getAllToggleStates() ?? null : undefined,
-    };
-  }
-
-  @Get('worker-pool/toggles')
-  getWorkerPoolToggles() {
-    const toggles = this.workerPoolToggleService?.getAllToggleStates() ?? {
-      poolEnabled: false,
-      aoiEnvelope: false,
-      pathfinding: false,
-      fov: false,
-      instance: false,
-      persistence: false,
-    };
-    // 诊断信息：帮助排查为什么开关不生效
-    const flagServiceEnabled = this.runtimeFlagService.isEnabled();
-    const rawFlags: Record<string, { has: boolean; value: boolean }> = {};
-    for (const key of Object.values(WORKER_POOL_FLAG_KEYS)) {
-      rawFlags[key] = {
-        has: this.runtimeFlagService.hasFlag(key),
-        value: this.runtimeFlagService.getFlag(key),
-      };
-    }
-    return {
-      toggles,
-      diagnostics: {
-        flagServiceEnabled,
-        rawFlags,
-        toggleServiceInjected: Boolean(this.workerPoolToggleService),
-      },
-    };
-  }
-
-  @Post('worker-pool/toggle/:key')
-  async setWorkerPoolToggle(@Param('key') key: string, @Body() body: { value?: boolean }) {
-    if (!key || typeof key !== 'string') {
-      throw new BadRequestException('key is required');
-    }
-    const flagKey = resolveWorkerPoolFlagKey(key.trim());
-    if (!flagKey) {
-      throw new BadRequestException(`unknown worker pool toggle: ${key}`);
-    }
-    const value = body?.value === true;
-    await this.runtimeFlagService.setFlag(flagKey, value);
-    this.workerPoolToggleService?.syncToPool();
-    return {
-      ok: true,
-      key,
-      flagKey,
-      value,
-      allToggles: this.workerPoolToggleService?.getAllToggleStates() ?? null,
     };
   }
 
@@ -1262,23 +1201,4 @@ function mergeRuntimeFlags(
   }
   byKey.set(fixedFlag.key, fixedFlag);
   return Array.from(byKey.values()).sort((left, right) => left.key.localeCompare(right.key));
-}
-
-/** 将 GM toggle key 映射到 runtime flag key */
-function resolveWorkerPoolFlagKey(key: string): string | null {
-  const mapping: Record<string, string> = {
-    enabled: WORKER_POOL_FLAG_KEYS.enabled,
-    pool: WORKER_POOL_FLAG_KEYS.enabled,
-    aoi_envelope: WORKER_POOL_FLAG_KEYS.aoiEnvelope,
-    aoi: WORKER_POOL_FLAG_KEYS.aoiEnvelope,
-    pathfinding: WORKER_POOL_FLAG_KEYS.pathfinding,
-    fov: WORKER_POOL_FLAG_KEYS.fov,
-    instance: WORKER_POOL_FLAG_KEYS.instance,
-    persistence: WORKER_POOL_FLAG_KEYS.persistence,
-  };
-  return mapping[key] ?? null;
-}
-
-function isWorkerPoolFlagKey(key: string): boolean {
-  return (Object.values(WORKER_POOL_FLAG_KEYS) as string[]).includes(key);
 }

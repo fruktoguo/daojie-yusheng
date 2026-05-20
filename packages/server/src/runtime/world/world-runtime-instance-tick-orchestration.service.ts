@@ -1,14 +1,14 @@
 /**
  * 实例级 tick 编排服务
  * 按阶段推进每个实例的 tick：资源流动、阵法、建筑、传送、怪物、玩家修炼等
- * Phase 4: 当 runtime flag 开启时，实例级独立子阶段可外移到 InstanceWorkerPool
+ * Phase 4: 实例级独立子阶段可外移到 InstanceWorkerPool，默认 always-on
  */
 import { Injectable, Optional, Inject } from '@nestjs/common';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, resolveGameTimeState } from '@mud/shared';
 import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from './world-runtime-qi-projection.helpers';
 import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
 import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-pool.service';
-import { WorkerPoolToggleService } from '../../concurrency/worker-pool-toggle.service';
+
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 @Injectable()
@@ -16,15 +16,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   constructor(
     @Optional() @Inject(InstanceWorkerPoolService)
     private readonly instanceWorkerPool?: InstanceWorkerPoolService,
-    @Optional() @Inject(WorkerPoolToggleService)
-    private readonly workerPoolToggleService?: WorkerPoolToggleService,
   ) {}
-
-  /** Phase 4: 是否启用实例 worker 分片 */
-  private isInstanceWorkerEnabled(): boolean {
-    return this.workerPoolToggleService?.isInstanceEnabled() === true
-      && Boolean(this.instanceWorkerPool?.isEnabled());
-  }
 
   /**
    * 开始实例 tick 前收敛已死亡但仍停留在实例位置表中的玩家。
@@ -59,13 +51,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
     }
   }
 
+
   /**
    * Phase 4：把 POJO 镜像快照送入 worker 做确定性预计算，收集 monster intent proposals。
    * 返回 Map<instanceId, MonsterIntentProposal[]>，主线程在 advanceMonsters 中作为 target hints 使用。
    */
   private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick): Promise<Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>> {
     const proposals = new Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>();
-    if (!this.isInstanceWorkerEnabled()) return proposals;
+    if (!this.instanceWorkerPool) return proposals;
     const results = await Promise.all(instanceStepPlans.map(({ instance }) => this.instanceWorkerPool.submit(
       'instance-advance',
       {

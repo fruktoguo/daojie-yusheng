@@ -4,12 +4,10 @@
  * 支持 worker 外移和同步 fallback 两条路径。
  *
  * 编码格式：UTF-8 JSON bytes（后续可替换为 protobuf）。
- * 客户端通过 isBinaryPayload 判断后走 JSON.parse(Buffer) 解码。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
-import { WorkerPoolToggleService } from '../concurrency/worker-pool-toggle.service';
 
 /** 编码后的 envelope 包；仅包含需要以二进制下发的 S2C payload。 */
 export interface EncodedEnvelope {
@@ -26,37 +24,21 @@ interface EnvelopeLike {
   mapEnter?: unknown;
 }
 
-/** 灰度比例（0-100），按 playerId hash 决定是否走 worker 路径 */
-function getAoiEnvelopeWorkerGrayPercent(): number {
-  const raw = Number(process.env.SERVER_AOI_ENVELOPE_WORKER_GRAY_PERCENT);
-  return Number.isFinite(raw) && raw >= 0 && raw <= 100 ? raw : 100;
-}
-
 @Injectable()
 export class AoiEnvelopeEncoderService {
-  private readonly grayPercent: number;
-
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingPool?: EncodingWorkerPoolService,
-    @Optional() @Inject(WorkerPoolToggleService)
-    private readonly workerPoolToggleService?: WorkerPoolToggleService,
-  ) {
-    this.grayPercent = getAoiEnvelopeWorkerGrayPercent();
-  }
+  ) {}
 
   /** 是否启用 */
   isEnabled(): boolean {
-    return this.workerPoolToggleService?.isAoiEnvelopeEnabled() === true
-      && Boolean(this.encodingPool?.isEnabled());
+    return Boolean(this.encodingPool);
   }
 
-  /** 判断指定玩家是否走 worker 编码路径（灰度控制） */
-  shouldUseWorkerForPlayer(playerId: string): boolean {
-    if (!this.isEnabled()) return false;
-    if (this.grayPercent >= 100) return true;
-    if (this.grayPercent <= 0) return false;
-    return (hashPlayerId(playerId) % 100) < this.grayPercent;
+  /** 判断指定玩家是否走 worker 编码路径。 */
+  shouldUseWorkerForPlayer(_playerId: string): boolean {
+    return Boolean(this.encodingPool);
   }
 
   /** 同步编码 envelope 内各 S2C payload。 */
@@ -71,7 +53,7 @@ export class AoiEnvelopeEncoderService {
 
   /** 通过 worker pool 异步编码 envelope 内各 S2C payload。 */
   async encodeEnvelopeAsync(envelope: EnvelopeLike): Promise<EncodedEnvelope> {
-    if (!this.isEnabled()) {
+    if (!this.encodingPool) {
       return this.encodeEnvelopeSync(envelope);
     }
 
@@ -98,7 +80,7 @@ export class AoiEnvelopeEncoderService {
   /** 单 payload worker 编码；失败时回退同步编码。 */
   async encodePayloadAsync(payload: unknown): Promise<Buffer | null> {
     if (!payload) return null;
-    if (!this.isEnabled()) {
+    if (!this.encodingPool) {
       return this.encodePayloadSync(payload);
     }
 
@@ -114,13 +96,4 @@ export class AoiEnvelopeEncoderService {
     }
     return this.encodePayloadSync(payload);
   }
-}
-
-/** 简单的 playerId hash，用于灰度分流 */
-function hashPlayerId(playerId: string): number {
-  let hash = 0;
-  for (let i = 0; i < playerId.length; i += 1) {
-    hash = ((hash << 5) - hash + playerId.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
 }

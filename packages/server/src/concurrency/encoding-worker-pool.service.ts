@@ -2,8 +2,7 @@
  * Encoding Worker Pool 服务。
  * CPU 无状态池：处理 AOI envelope 编码、A* 寻路、FOV 计算。
  *
- * 热路径只读 config.enabled（零开销）。
- * GM toggle 变更时通过 setEnabled() 写入 config.enabled 并按需启动/关闭 worker。
+ * 热路径默认 always-on；任务级故障降级在 pool 内部透明处理。
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { Worker } from 'node:worker_threads';
@@ -43,24 +42,9 @@ export class EncodingWorkerPoolService {
     private readonly metricsService: WorkerPoolMetricsService,
   ) {
     this.config = {
-      enabled: true,
       poolSize: Math.max(1, Math.min(cpus().length - 2, 6)),
       defaultDeadlineMs: 500,
     };
-  }
-
-  /**
-   * 运行时同步：always-on 模式下仅允许确保 worker 启动，关闭请求会被忽略。
-   */
-  setEnabled(value: boolean): void {
-    if (this.forceSyncMode) {
-      return;
-    }
-    if (!value) {
-      this.logger.debug('EncodingWorkerPool disable request ignored; worker pools are always-on');
-      return;
-    }
-    this.ensureWorkersStarted();
   }
 
   /** 提交任务到 worker pool，返回结果 Promise */
@@ -325,6 +309,22 @@ export class EncodingWorkerPoolService {
     }
   }
 
+  private handleWorkerResult(msg: WorkerTaskResult): void {
+    const pending = this.pendingTasks.get(msg.taskId);
+    if (!pending) {
+      return;
+    }
+    clearTimeout(pending.timer);
+    this.pendingTasks.delete(msg.taskId);
+    const durationMs = performance.now() - pending.submittedAt;
+    if (msg.ok) {
+      this.metricsService.recordComplete('encoding', durationMs);
+    } else {
+      this.metricsService.recordFailed('encoding');
+    }
+    pending.resolve({ ...msg, durationMs });
+  }
+
   /** 处理 worker 死亡：清理该 worker 的 pending 任务 + 重启 */
   private handleWorkerDeath(deadWorker: Worker, index: number, workerPath: string): void {
     if (this.shuttingDown) return;
@@ -363,7 +363,7 @@ export class EncodingWorkerPoolService {
   }
 }
 
-function isForceSyncMode(): boolean {
+export function isForceSyncMode(): boolean {
   const raw = process.env.SERVER_WORKER_POOL_FORCE_SYNC;
   if (typeof raw !== 'string') {
     return false;

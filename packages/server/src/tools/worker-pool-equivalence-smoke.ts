@@ -5,7 +5,7 @@
  * 覆盖：
  * - Phase 1: AOI envelope JSON binary encode/decode 等价性
  * - Phase 2: A* 寻路 worker vs 同步路径等价性
- * - Phase 5: 持久化序列化 worker vs 同步路径等价性
+ * - Phase 5: 持久化 write plan worker vs 同步路径等价性
  *
  * 用法：node dist/tools/worker-pool-equivalence-smoke.js
  */
@@ -15,6 +15,10 @@ import type { PathfindingStaticGrid } from '@mud/shared';
 import { WorkerPoolMetricsService } from '../concurrency/worker-pool-metrics.service';
 import { InstanceWorkerPoolService } from '../concurrency/instance-worker-pool.service';
 import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
+import {
+  buildPlayerSnapshotProjectionWritePlan,
+  type PlayerDomainWritePlan,
+} from '../persistence/player-domain-write-plan';
 
 const PASS = '\x1b[32mPASS\x1b[0m';
 const FAIL = '\x1b[31mFAIL\x1b[0m';
@@ -29,10 +33,6 @@ function assert(condition: boolean, label: string): void {
   }
 }
 
-function restoreEnv(key: string, value: string | undefined): void {
-  if (value === undefined) delete process.env[key];
-  else process.env[key] = value;
-}
 
 // ─── Phase 1: AOI envelope encode/decode 等价性 ────────────────
 
@@ -136,10 +136,6 @@ function testPhase2PathfindingEquivalence(): void {
 
 async function testPhase4InstanceWorkerPoolEquivalence(): Promise<void> {
   console.log('\n[Phase 4] Instance worker pool thread equivalence');
-  const previousPool = process.env.SERVER_WORKER_POOL_ENABLED;
-  const previousInstance = process.env.SERVER_INSTANCE_WORKER_ENABLED;
-  process.env.SERVER_WORKER_POOL_ENABLED = 'true';
-  process.env.SERVER_INSTANCE_WORKER_ENABLED = 'true';
   const metrics = new WorkerPoolMetricsService();
   const pool = new InstanceWorkerPoolService(metrics);
   pool.initialize();
@@ -173,8 +169,6 @@ async function testPhase4InstanceWorkerPoolEquivalence(): Promise<void> {
     assert(JSON.stringify(result.result) === JSON.stringify(expected), 'instance worker output equals fallback intent proposal');
   } finally {
     pool.shutdown();
-    restoreEnv('SERVER_WORKER_POOL_ENABLED', previousPool);
-    restoreEnv('SERVER_INSTANCE_WORKER_ENABLED', previousInstance);
   }
 }
 
@@ -213,25 +207,53 @@ function testPhase5PersistenceEquivalence(): void {
 }
 
 async function testPhase5PersistenceWorkerPoolEquivalence(): Promise<void> {
-  console.log('\n[Phase 5] Persistence worker pool thread equivalence');
-  const previousPool = process.env.SERVER_WORKER_POOL_ENABLED;
-  const previousPersistence = process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED;
-  process.env.SERVER_WORKER_POOL_ENABLED = 'true';
-  process.env.SERVER_PERSISTENCE_BUILD_WORKER_ENABLED = 'true';
+  console.log('\n[Phase 5] Persistence worker pool write plan equivalence');
   const metrics = new WorkerPoolMetricsService();
   const pool = new PersistenceWorkerPoolService(metrics);
   pool.initialize();
-  const payload = { snapshots: [{ playerId: 'p1', amount: BigInt('9007199254740993') }] };
-  const expected = { jsonPayloads: [JSON.stringify(payload.snapshots[0], (_key, value) => typeof value === 'bigint' ? value.toString() : value)] };
+  const snapshot = {
+    savedAt: 1_720_000_000_000,
+    placement: {
+      templateId: 'yunlai_town',
+      instanceId: 'public:yunlai_town',
+      x: 12,
+      y: 8,
+      facing: 2,
+    },
+    inventory: {
+      revision: 1,
+      capacity: 24,
+      items: [{ itemId: 'spirit_stone', count: 5 }],
+    },
+    wallet: {
+      balances: [{ walletType: 'coin', balance: 88, frozenBalance: 0, version: 1 }],
+    },
+    unlockedMapIds: ['yunlai_town'],
+  };
+  const domains = ['inventory', 'wallet', 'map_unlock'];
+  const expected = await buildPlayerSnapshotProjectionWritePlan('smoke-player', snapshot as never, domains, {});
   try {
-    const result = await pool.submit('persistence-build', payload, () => expected, 1000);
+    const result = await pool.submit<{
+      playerId: string;
+      snapshot: unknown;
+      domains: string[];
+      options: Record<string, unknown>;
+    }, PlayerDomainWritePlan>(
+      'persistence-build',
+      {
+        playerId: 'smoke-player',
+        snapshot,
+        domains,
+        options: {},
+      },
+      null,
+      1000,
+    );
     assert(metrics.getMetrics('persistence').activeWorkers > 0, 'persistence pool spawned worker threads');
-    assert(result.ok === true, 'persistence worker task ok');
-    assert(JSON.stringify(result.result) === JSON.stringify(expected), 'persistence worker output equals fallback serialization');
+    assert(result.ok === true && result.result !== undefined, 'persistence worker task ok');
+    assert(JSON.stringify(result.result) === JSON.stringify(expected), 'persistence worker output equals fallback write plan');
   } finally {
     pool.shutdown();
-    restoreEnv('SERVER_WORKER_POOL_ENABLED', previousPool);
-    restoreEnv('SERVER_PERSISTENCE_BUILD_WORKER_ENABLED', previousPersistence);
   }
 }
 

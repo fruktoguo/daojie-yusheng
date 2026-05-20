@@ -68,7 +68,6 @@ export class WorldSyncService {
             const bindings = this.worldSessionService.listBindings();
             breakdown.playerCount = Array.isArray(bindings) ? bindings.length : 0;
 
-            const useWorkerEncode = this.workerEncodeService?.shouldUseWorkerEncode() === true;
             const pendingEmits: PendingEnvelopeEmit[] = [];
 
             for (const binding of bindings) {
@@ -88,7 +87,7 @@ export class WorldSyncService {
                 }
                 breakdown.processedPlayerCount += 1;
 
-                if (useWorkerEncode) {
+                if (this.workerEncodeService) {
                     const { envelope, player, auxDeferred } = this.prepareDeltaForPlayer(binding.playerId, binding.sessionId, socket, view, breakdown);
                     if (envelope) {
                         const playerId = binding.playerId;
@@ -109,8 +108,8 @@ export class WorldSyncService {
                 }
             }
 
-            if (useWorkerEncode && pendingEmits.length > 0) {
-                await this.workerEncodeService!.flushPendingEmitsViaWorker(pendingEmits);
+            if (this.workerEncodeService && pendingEmits.length > 0) {
+                await this.workerEncodeService.flushPendingEmitsViaWorker(pendingEmits);
             }
         } finally {
             this.runtimeGmStateService?.recordSyncFlushBreakdown?.(breakdown);

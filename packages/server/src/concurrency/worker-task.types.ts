@@ -129,28 +129,32 @@ export interface InstanceAdvanceResult {
   mutations: unknown[];
 }
 
-/** 持久化序列化任务载荷 */
+/** 持久化写计划任务载荷 */
 export interface PersistenceBuildPayload {
-  /** 域类型 */
-  domain: string;
-  /** 脏数据快照 */
+  /** 玩家 ID */
+  playerId: string;
+  /** 玩家快照（plain object） */
   snapshot: unknown;
+  /** 脏域列表 */
+  domains: string[];
+  /** 分域写入选项 */
+  options: Record<string, unknown>;
 }
 
-/** 持久化序列化结果 */
+/** 持久化写计划结果 */
 export interface PersistenceBuildResult {
-  /** SQL 语句 */
-  sql: string;
-  /** SQL 参数 */
-  params: unknown[];
+  /** 玩家 ID */
+  playerId: string;
+  /** 计划包含的脏域 */
+  domains: string[];
+  /** 可执行 SQL 步骤 */
+  steps: Array<{ sql: string; params: unknown[] }>;
 }
 
 // ─── Worker Pool 通用配置 ──────────────────────────────────────
 
 /** Worker Pool 配置 */
 export interface WorkerPoolConfig {
-  /** 是否启用（false 时所有 submit 走同步 fallback） */
-  enabled: boolean;
   /** worker 线程数量 */
   poolSize: number;
   /** 任务默认超时（ms） */

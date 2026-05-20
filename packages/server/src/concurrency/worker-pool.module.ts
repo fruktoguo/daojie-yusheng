@@ -1,7 +1,7 @@
 /**
  * Worker Pool NestJS 模块。
- * 注册三类 worker pool 服务、指标采集服务和动态开关服务。
- * 启动时由 runtime flag 同步决定是否真正拉起 worker 线程。
+ * 注册三类 worker pool 服务和指标采集服务。
+ * worker pool 默认 always-on，任务级 fallback 在各 pool 内部处理。
  */
 import { Module, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 

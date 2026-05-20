@@ -1,170 +1,106 @@
 /**
  * 同步协议下发服务。
  * 封装所有 S2C 事件的 socket.emit 调用，统一协议出口。
- * 支持 binary 编码模式：当 runtime flag 开启时，
- * 高频 envelope 事件以 JSON binary (Buffer) 形式发送，减少主线程 JSON.stringify 开销。
+ * 支持 binary 编码模式：高频 envelope 事件以 JSON binary (Buffer) 形式发送，减少主线程 JSON.stringify 开销。
  */
 
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
-import { WorkerPoolToggleService } from '../concurrency/worker-pool-toggle.service';
 import type { EncodedEnvelope } from './aoi-envelope-encoder.service';
 
 /** 同步协议下发服务：统一封装 socket emit 出口 */
 @Injectable()
 export class WorldSyncProtocolService {
-    constructor(
-        @Optional() @Inject(WorkerPoolToggleService)
-        private readonly toggleService?: WorkerPoolToggleService,
-    ) {}
-
-    /** 按 envelope 结构分发各类同步事件 */
-    sendEnvelope(socket, envelope) {
-        if (envelope?.initSession) {
-            socket.emit(S2C.InitSession, envelope.initSession);
-        }
-        if (envelope?.mapEnter) {
-            socket.emit(S2C.MapEnter, this.maybeEncodeBinary(envelope.mapEnter));
-        }
-        if (envelope?.worldDelta) {
-            socket.emit(S2C.WorldDelta, this.maybeEncodeBinary(envelope.worldDelta));
-        }
-        if (envelope?.selfDelta) {
-            socket.emit(S2C.SelfDelta, this.maybeEncodeBinary(envelope.selfDelta));
-        }
-        if (envelope?.panelDelta) {
-            socket.emit(S2C.PanelDelta, this.maybeEncodeBinary(envelope.panelDelta));
-        }
+  /** 按 envelope 结构分发各类同步事件 */
+  sendEnvelope(socket: any, envelope: any): void {
+    if (envelope?.initSession) {
+      socket.emit(S2C.InitSession, envelope.initSession);
     }
-
-    /** 按 envelope 结构发送已预编码的 binary payload，未编码字段回退到普通发送路径。 */
-    sendEncodedEnvelope(socket, envelope, encoded: EncodedEnvelope) {
-        if (envelope?.initSession) {
-            socket.emit(S2C.InitSession, envelope.initSession);
-        }
-        if (envelope?.mapEnter) {
-            socket.emit(S2C.MapEnter, encoded.mapEnter ?? this.maybeEncodeBinary(envelope.mapEnter));
-        }
-        if (envelope?.worldDelta) {
-            socket.emit(S2C.WorldDelta, encoded.worldDelta ?? this.maybeEncodeBinary(envelope.worldDelta));
-        }
-        if (envelope?.selfDelta) {
-            socket.emit(S2C.SelfDelta, encoded.selfDelta ?? this.maybeEncodeBinary(envelope.selfDelta));
-        }
-        if (envelope?.panelDelta) {
-            socket.emit(S2C.PanelDelta, encoded.panelDelta ?? this.maybeEncodeBinary(envelope.panelDelta));
-        }
+    if (envelope?.mapEnter) {
+      socket.emit(S2C.MapEnter, this.maybeEncodeBinary(envelope.mapEnter));
     }
-
-    /** 如果启用 binary 模式，将 payload 编码为 Buffer；否则原样返回 */
-    private maybeEncodeBinary(payload: unknown): unknown {
-        if (!payload || !this.toggleService?.isAoiEnvelopeEnabled()) {
-            return payload;
-        }
-        try {
-            return Buffer.from(JSON.stringify(payload), 'utf-8');
-        } catch {
-            return payload;
-        }
+    if (envelope?.worldDelta) {
+      socket.emit(S2C.WorldDelta, this.maybeEncodeBinary(envelope.worldDelta));
     }
-    /**
- * sendBootstrap：执行send引导相关逻辑。
- * @param socket 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新sendBootstrap相关状态。
- */
-
-    sendBootstrap(socket, payload) {
-        socket.emit(S2C.Bootstrap, payload);
+    if (envelope?.selfDelta) {
+      socket.emit(S2C.SelfDelta, this.maybeEncodeBinary(envelope.selfDelta));
     }
-    /**
- * sendWorldDelta：执行send世界Delta相关逻辑。
- * @param socket 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新send世界Delta相关状态。
- */
-    sendWorldDelta(socket, payload) {
-        socket.emit(S2C.WorldDelta, payload);
+    if (envelope?.panelDelta) {
+      socket.emit(S2C.PanelDelta, this.maybeEncodeBinary(envelope.panelDelta));
     }
-    /**
- * resolveEmission：判断Emission是否满足条件。
- * @param socket 参数说明。
- * @returns 无返回值，直接更新Emission相关状态。
- */
+  }
 
-    resolveEmission(socket) {
-        return {
-            protocol: 'mainline',
-
-            emitMainline: true,
-        };
+  /** 按 envelope 结构发送已预编码的 binary payload，未编码字段回退到普通发送路径。 */
+  sendEncodedEnvelope(socket: any, envelope: any, encoded: EncodedEnvelope): void {
+    if (envelope?.initSession) {
+      socket.emit(S2C.InitSession, envelope.initSession);
     }
-    /**
- * getExplicitProtocol：读取ExplicitProtocol。
- * @param socket 参数说明。
- * @returns 无返回值，完成ExplicitProtocol的读取/组装。
- */
-
-    getExplicitProtocol(socket) {
-        return 'mainline';
+    if (envelope?.mapEnter) {
+      socket.emit(S2C.MapEnter, encoded.mapEnter ?? this.maybeEncodeBinary(envelope.mapEnter));
     }
-    /**
- * resolveEffectiveProtocol：规范化或转换EffectiveProtocol。
- * @param socket 参数说明。
- * @returns 无返回值，直接更新EffectiveProtocol相关状态。
- */
-
-    resolveEffectiveProtocol(socket) {
-        return 'mainline';
+    if (envelope?.worldDelta) {
+      socket.emit(S2C.WorldDelta, encoded.worldDelta ?? this.maybeEncodeBinary(envelope.worldDelta));
     }
-    /**
- * sendQuestSync：处理send任务同步并更新相关状态。
- * @param socket 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新send任务Sync相关状态。
- */
-
-    sendQuestSync(socket, payload) {
-        socket.emit(S2C.Quests, payload);
+    if (envelope?.selfDelta) {
+      socket.emit(S2C.SelfDelta, encoded.selfDelta ?? this.maybeEncodeBinary(envelope.selfDelta));
     }
-    /**
- * sendMapStatic：执行send地图Static相关逻辑。
- * @param socket 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新send地图Static相关状态。
- */
-
-    sendMapStatic(socket, payload) {
-        socket.emit(S2C.MapStatic, payload);
+    if (envelope?.panelDelta) {
+      socket.emit(S2C.PanelDelta, encoded.panelDelta ?? this.maybeEncodeBinary(envelope.panelDelta));
     }
-    /**
- * sendRealm：执行sendRealm相关逻辑。
- * @param socket 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新sendRealm相关状态。
- */
+  }
 
-    sendRealm(socket, payload) {
-        socket.emit(S2C.Realm, payload);
+  /** 将 payload 编码为 Buffer；失败时原样返回。 */
+  private maybeEncodeBinary(payload: unknown): unknown {
+    if (!payload) {
+      return payload;
     }
-    /**
- * sendLootWindow：执行send掉落窗口相关逻辑。
- * @param socket 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新send掉落窗口相关状态。
- */
+    try {
+      return Buffer.from(JSON.stringify(payload), 'utf-8');
+    } catch {
+      return payload;
+    }
+  }
 
-    sendLootWindow(socket, payload) {
-        socket.emit(S2C.LootWindowUpdate, payload);
-    }
-    /**
- * sendNotices：执行sendNotice相关逻辑。
- * @param socket 参数说明。
- * @param items 道具列表。
- * @returns 无返回值，直接更新sendNotice相关状态。
- */
+  sendBootstrap(socket: any, payload: any): void {
+    socket.emit(S2C.Bootstrap, payload);
+  }
 
-    sendNotices(socket, items) {
-        socket.emit(S2C.Notice, { items });
-    }
-};
+  sendWorldDelta(socket: any, payload: any): void {
+    socket.emit(S2C.WorldDelta, payload);
+  }
+
+  resolveEmission(_socket: unknown): { protocol: string; emitMainline: boolean } {
+    return {
+      protocol: 'mainline',
+      emitMainline: true,
+    };
+  }
+
+  getExplicitProtocol(_socket: unknown): string {
+    return 'mainline';
+  }
+
+  resolveEffectiveProtocol(_socket: unknown): string {
+    return 'mainline';
+  }
+
+  sendQuestSync(socket: any, payload: any): void {
+    socket.emit(S2C.Quests, payload);
+  }
+
+  sendMapStatic(socket: any, payload: any): void {
+    socket.emit(S2C.MapStatic, payload);
+  }
+
+  sendRealm(socket: any, payload: any): void {
+    socket.emit(S2C.Realm, payload);
+  }
+
+  sendLootWindow(socket: any, payload: any): void {
+    socket.emit(S2C.LootWindowUpdate, payload);
+  }
+
+  sendNotices(socket: any, items: any): void {
+    socket.emit(S2C.Notice, { items });
+  }
+}

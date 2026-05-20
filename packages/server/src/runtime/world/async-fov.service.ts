@@ -2,13 +2,10 @@
  * 异步 FOV 计算服务。
  * 从 MapInstanceRuntime 提取 blocksSightMask，通过 EncodingWorkerPool 异步执行 FOV。
  * 用于批量玩家 FOV 计算的并行化。
- *
- * 特性开关：由 runtime flag 控制（默认关闭）
  */
-import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../../concurrency/encoding-worker-pool.service';
-import { WorkerPoolToggleService } from '../../concurrency/worker-pool-toggle.service';
 import type { FovPayload, FovResult } from '../../concurrency/worker-task.types';
 import { collectVisibleTileIndices } from '../instance/fov.helpers';
 
@@ -21,20 +18,16 @@ interface FovInstancePort {
 
 @Injectable()
 export class AsyncFovService {
-  private readonly logger = new Logger(AsyncFovService.name);
-
   /** 缓存的 blocksSightMask，按 instanceId 复用 */
   private maskCache = new Map<string, { revision: number; mask: Uint8Array }>();
 
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingPool?: EncodingWorkerPoolService,
-    @Optional() @Inject(WorkerPoolToggleService)
-    private readonly workerPoolToggleService?: WorkerPoolToggleService,
   ) {}
 
   /**
-   * 异步 FOV 计算。Worker 启用时通过 pool 执行，否则同步 fallback。
+   * 异步 FOV 计算。Worker 可用时通过 pool 执行，否则同步 fallback。
    */
   async computeFovAsync(
     instance: FovInstancePort,
@@ -46,7 +39,7 @@ export class AsyncFovService {
     const width = instance.template.width;
     const height = instance.template.height;
 
-    if (!this.workerPoolToggleService?.isFovEnabled() || !this.encodingPool?.isEnabled()) {
+    if (!this.encodingPool) {
       return this.computeFovSync(instance, originX, originY, radius);
     }
 
@@ -63,11 +56,7 @@ export class AsyncFovService {
     const result = await this.encodingPool.submit<FovPayload, FovResult>(
       'fov',
       payload,
-      (p) => {
-        // fallback: 同步计算
-        const indices = this.computeFovSync(instance, p.originX, p.originY, p.radius);
-        return { visibleIndices: new Uint32Array(indices) };
-      },
+      (p) => ({ visibleIndices: new Uint32Array(this.computeFovSync(instance, p.originX, p.originY, p.radius)) }),
       200,
     );
 
@@ -75,12 +64,6 @@ export class AsyncFovService {
       return new Set(result.result.visibleIndices);
     }
     return this.computeFovSync(instance, originX, originY, radius);
-  }
-
-  /** 是否启用 */
-  isEnabled(): boolean {
-    return this.workerPoolToggleService?.isFovEnabled() === true
-      && Boolean(this.encodingPool?.isEnabled());
   }
 
   /** 同步 FOV 计算（fallback） */
@@ -93,7 +76,11 @@ export class AsyncFovService {
     const width = instance.template.width;
     const height = instance.template.height;
     return collectVisibleTileIndices(
-      width, height, originX, originY, radius,
+      width,
+      height,
+      originX,
+      originY,
+      radius,
       (index: number) => instance.blocksSight?.(index) ?? false,
     );
   }
@@ -110,18 +97,15 @@ export class AsyncFovService {
     const total = width * height;
     const mask = new Uint8Array(total);
 
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < total; i += 1) {
       mask[i] = instance.blocksSight?.(i) ? 1 : 0;
     }
 
     this.maskCache.set(instanceId, { revision, mask });
-
-    // 限制缓存大小
     if (this.maskCache.size > 50) {
       const firstKey = this.maskCache.keys().next().value;
       if (firstKey) this.maskCache.delete(firstKey);
     }
-
     return mask;
   }
 }

@@ -1,11 +1,10 @@
 /**
  * AOI Envelope Worker 编码委托服务。
- * 当 runtime flag 开启时，通过 EncodingWorkerPool 异步编码 envelope payload 并按原顺序 emit。
+ * 当 encoding pool 可用时，通过 EncodingWorkerPool 异步编码 envelope payload 并按原顺序 emit。
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
-import { WorkerPoolToggleService } from '../concurrency/worker-pool-toggle.service';
 import { AoiEnvelopeEncoderService, type EncodedEnvelope } from './aoi-envelope-encoder.service';
 import { WorldSyncProtocolService } from './world-sync-protocol.service';
 
@@ -29,19 +28,16 @@ export class WorldSyncWorkerEncodeService {
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingWorkerPool?: EncodingWorkerPoolService,
-    @Optional() @Inject(WorkerPoolToggleService)
-    private readonly toggleService?: WorkerPoolToggleService,
     @Optional() @Inject(AoiEnvelopeEncoderService)
     private readonly aoiEnvelopeEncoder?: AoiEnvelopeEncoderService,
     @Inject(WorldSyncProtocolService)
     private readonly worldSyncProtocolService?: WorldSyncProtocolService,
   ) {}
 
-  /** 是否应使用 worker 异步编码路径（通过 GM toggle 动态控制） */
+  /** 是否应使用 worker 异步编码路径。 */
   shouldUseWorkerEncode(): boolean {
-    return this.toggleService?.isAoiEnvelopeEnabled() === true
-      && Boolean(this.encodingWorkerPool?.isEnabled())
-      && Boolean(this.aoiEnvelopeEncoder?.isEnabled());
+    return Boolean(this.encodingWorkerPool)
+      && Boolean(this.aoiEnvelopeEncoder);
   }
 
   /**
@@ -53,16 +49,13 @@ export class WorldSyncWorkerEncodeService {
     const protocol = this.worldSyncProtocolService;
     const encoder = this.aoiEnvelopeEncoder;
 
-    if (!encoder || !this.shouldUseWorkerEncode()) {
+    if (!encoder || !this.encodingWorkerPool) {
       this.flushPendingEmitsSynchronously(protocol, pendingEmits);
       return;
     }
 
     const encodedEmits = await Promise.all(
       pendingEmits.map(async (pending): Promise<EncodedPendingEnvelopeEmit> => {
-        if (!encoder.shouldUseWorkerForPlayer(pending.playerId)) {
-          return { ...pending, encoded: null };
-        }
         try {
           return {
             ...pending,
@@ -81,11 +74,12 @@ export class WorldSyncWorkerEncodeService {
     );
 
     for (const pending of encodedEmits) {
-      if (pending.encoded) {
-        protocol.sendEncodedEnvelope(pending.socket, pending.envelope, pending.encoded);
-      } else {
-        protocol.sendEnvelope(pending.socket, pending.envelope);
-      }
+      protocol.sendEncodedEnvelope(pending.socket, pending.envelope, pending.encoded ?? {
+        mapEnter: null,
+        worldDelta: null,
+        selfDelta: null,
+        panelDelta: null,
+      });
       pending.postEmitFn();
     }
   }

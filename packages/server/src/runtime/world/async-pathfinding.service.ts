@@ -2,14 +2,11 @@
  * 服务端异步寻路入口。
  * 从 MapInstanceRuntime 提取 staticGrid，通过 EncodingWorkerPool 异步执行 A* 寻路。
  * 用于 tick 外的玩家寻路意图解析（enqueueMoveTo），不阻塞 tick。
- *
- * 特性开关：由 runtime flag 控制（默认关闭，走同步 fallback）
  */
-import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { findBoundedPath, type PathPoint, type PathfindingTaskInput, type PathfindingTaskResult } from '@mud/shared';
 
 import { EncodingWorkerPoolService } from '../../concurrency/encoding-worker-pool.service';
-import { WorkerPoolToggleService } from '../../concurrency/worker-pool-toggle.service';
 
 /** 从 instance 提取 staticGrid 所需的最小接口 */
 interface PathfindingInstancePort {
@@ -23,8 +20,6 @@ interface PathfindingInstancePort {
 
 @Injectable()
 export class AsyncPathfindingService {
-  private readonly logger = new Logger(AsyncPathfindingService.name);
-
   /** 缓存的 staticGrid，按 (instanceId, mapRevision) 复用 */
   private gridCache = new Map<string, {
     mapRevision: number;
@@ -35,12 +30,10 @@ export class AsyncPathfindingService {
   constructor(
     @Optional() @Inject(EncodingWorkerPoolService)
     private readonly encodingPool?: EncodingWorkerPoolService,
-    @Optional() @Inject(WorkerPoolToggleService)
-    private readonly workerPoolToggleService?: WorkerPoolToggleService,
   ) {}
 
   /**
-   * 异步寻路。Worker 启用时通过 pool 执行，否则同步 fallback。
+   * 异步寻路。Worker 可用时通过 pool 执行，否则同步 fallback。
    * 适用于 tick 外的玩家寻路意图解析。
    */
   async findPathAsync(
@@ -59,16 +52,12 @@ export class AsyncPathfindingService {
       maxExpandedNodes: maxExpandedNodes ?? total,
       maxPathLength: maxPathLength ?? total,
     };
-
-    // 提取或复用 staticGrid
     const grid = this.getOrBuildGrid(instance);
 
-    if (!this.workerPoolToggleService?.isPathfindingEnabled() || !this.encodingPool?.isEnabled()) {
-      // 同步 fallback：直接调用 shared 的 findBoundedPath
+    if (!this.encodingPool) {
       return this.executeSyncFallback(grid, blocked, startX, startY, goals, limits, width, height);
     }
 
-    // 异步路径：通过 worker pool
     const input: PathfindingTaskInput = {
       mapId: instance.template.id,
       mapRevision: instance.mapRevision ?? 0,
@@ -97,16 +86,13 @@ export class AsyncPathfindingService {
         payload.width,
         payload.height,
       ),
-      500, // 500ms deadline
+      500,
     );
 
-    return result.ok && result.result ? result.result : { status: 'failed', path: [], expandedNodes: 0, reason: 'worker_error' };
-  }
-
-  /** 是否启用 */
-  isEnabled(): boolean {
-    return this.workerPoolToggleService?.isPathfindingEnabled() === true
-      && Boolean(this.encodingPool?.isEnabled());
+    if (result.ok && result.result) {
+      return result.result;
+    }
+    return this.executeSyncFallback(grid, blocked, startX, startY, goals, limits, width, height);
   }
 
   private getOrBuildGrid(instance: PathfindingInstancePort): { walkable: Uint8Array; traversalCost: Uint16Array } {
@@ -124,8 +110,8 @@ export class AsyncPathfindingService {
     const walkable = new Uint8Array(total);
     const traversalCost = new Uint16Array(total);
 
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
         const index = y * width + x;
         walkable[index] = instance.isWalkable?.(x, y) ? 1 : 0;
         traversalCost[index] = instance.getTileTraversalCost?.(x, y) ?? 1;
@@ -134,13 +120,10 @@ export class AsyncPathfindingService {
 
     const entry = { mapRevision: revision, walkable, traversalCost };
     this.gridCache.set(instanceId, entry);
-
-    // 限制缓存大小
     if (this.gridCache.size > 100) {
       const firstKey = this.gridCache.keys().next().value;
       if (firstKey) this.gridCache.delete(firstKey);
     }
-
     return entry;
   }
 
