@@ -2029,6 +2029,9 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const catalogEntry = findItemCatalogEntry(item.itemId);
+  const enhancementField = shouldShowEnhancementLevelField(item)
+    ? numberField('强化等级', `${basePath}.enhanceLevel`, item.enhanceLevel)
+    : '';
   if (catalogEntry) {
     return `
       <div class="editor-grid compact">
@@ -2041,7 +2044,7 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
           mode === 'equipment' ? item.equipSlot : undefined,
         )}
         ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
-        ${numberField('强化等级', `${basePath}.enhanceLevel`, item.enhanceLevel)}
+        ${enhancementField}
         <div class="editor-field">
           <span>模板等级</span>
           <div class="editor-code">${escapeHtml(String(item.level ?? '-'))}</div>
@@ -2072,7 +2075,7 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
         mode === 'equipment' ? item.equipSlot : undefined,
       )}
       ${mode === 'inventory' ? numberField('数量', `${basePath}.count`, item.count) : ''}
-      ${numberField('强化等级', `${basePath}.enhanceLevel`, item.enhanceLevel)}
+      ${enhancementField}
       ${numberField('等级', `${basePath}.level`, item.level)}
       ${nullableTextField('品阶', `${basePath}.grade`, item.grade, 'undefined')}
       ${jsonField('装备属性', `${basePath}.equipAttrs`, item.equipAttrs ?? {}, 'object')}
@@ -2080,6 +2083,15 @@ function getItemEditorControls(basePath: string, item: ItemStack, mode: 'invento
       ${jsonField('特效配置', `${basePath}.effects`, item.effects ?? [], 'array', 'wide')}
     </div>
   `;
+}
+
+function shouldShowEnhancementLevelField(item: ItemStack): boolean {
+  const catalogEntry = findItemCatalogEntry(item.itemId);
+  const resolvedType = catalogEntry?.type ?? item.type;
+  if (resolvedType === 'equipment') {
+    return true;
+  }
+  return !catalogEntry && !resolvedType && Number(item.enhanceLevel ?? 0) > 0;
 }
 
 function normalizeInventorySearchText(value: string): string {
@@ -2152,7 +2164,7 @@ function getCompactInventoryItemMarkup(item: ItemStack, index: number): string {
       </div>
       <div class="editor-grid compact">
         ${numberField('数量', `inventory.items.${index}.count`, item.count)}
-        ${numberField('强化等级', `inventory.items.${index}.enhanceLevel`, item.enhanceLevel)}
+        ${shouldShowEnhancementLevelField(item) ? numberField('强化等级', `inventory.items.${index}.enhanceLevel`, item.enhanceLevel) : ''}
       </div>
     </div>
   `;

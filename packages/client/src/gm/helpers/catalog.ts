@@ -215,7 +215,7 @@ export function getResolvedInventoryRowMeta(editorCatalog: EditorCatalog, item: 
     parts.push(String(grade));
   }
   const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
-  if (enhanceLevel > 0) {
+  if (itemType === 'equipment' && enhanceLevel > 0) {
     parts.push(`+${enhanceLevel}`);
   }
   if (Number.isFinite(item.count)) {
