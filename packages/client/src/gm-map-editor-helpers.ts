@@ -168,8 +168,8 @@ export function rotateComposeCounterClockwise(rotation: ComposeRotation): Compos
 /** createDefaultContainerLootPool：创建默认容器战利品池。 */
 export function createDefaultContainerLootPool(): GmMapContainerLootPoolRecord { return { rolls: 1, chance: 1, minLevel: 1, maxLevel: 1, maxGrade: 'mortal', tagGroups: [['药品'], ['基础药品']], allowDuplicates: false }; }
 /** getQuestCardTitle：读取任务卡片标题。 */
-export function getQuestCardTitle(quest: GmMapQuestRecord, index: number): string { return quest.title?.trim() || quest.id?.trim() || `任务 ${index + 1}`; }
+export function getQuestCardTitle(quest: GmMapQuestRecord, index: number): string { return quest.title?.trim() || `任务 ${index + 1}`; }
 /** getQuestCardMeta：读取任务卡片元数据。 */
-export function getQuestCardMeta(quest: GmMapQuestRecord): string { const lineLabel = QUEST_LINE_LABELS[quest.line ?? 'side'] ?? (quest.line ?? 'side'); const objectiveType = quest.objectiveType ?? 'kill'; const objectiveLabel = QUEST_OBJECTIVE_TYPE_LABELS[objectiveType] ?? objectiveType; const targetLabel = quest.targetName?.trim() || quest.targetNpcName?.trim() || quest.targetNpcId?.trim() || quest.targetMonsterId?.trim() || quest.requiredItemId?.trim() || '未填写目标'; return `${lineLabel} · ${objectiveLabel} · ${targetLabel}`; }
+export function getQuestCardMeta(quest: GmMapQuestRecord): string { const lineLabel = QUEST_LINE_LABELS[quest.line ?? 'side'] ?? '未知任务线'; const objectiveType = quest.objectiveType ?? 'kill'; const objectiveLabel = QUEST_OBJECTIVE_TYPE_LABELS[objectiveType] ?? '未知目标类型'; const targetLabel = quest.targetName?.trim() || quest.targetNpcName?.trim() || '未填写目标'; return `${lineLabel} · ${objectiveLabel} · ${targetLabel}`; }
 /** createDefaultQuestRecord：创建默认任务记录。 */
 export function createDefaultQuestRecord(npc: GmMapNpcRecord, index: number): GmMapQuestRecord { return { id: `quest_${npc.id}_${index + 1}`, title: t('gm-map-editor.default-quest.title'), desc: t('gm-map-editor.default-quest.desc'), line: 'side', objectiveType: 'kill', targetName: '', required: 1, rewardText: t('gm-map-editor.default-quest.reward-none'), reward: [] }; }
