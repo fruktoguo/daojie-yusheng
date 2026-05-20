@@ -265,6 +265,9 @@ export class WorldRuntimeLifecycleService {
             await deps.worldRuntimeSectService.restoreSects(deps);
         }
         await this.restorePublicInstancePersistence(deps);
+        if (typeof deps.claimRecoverableCatalogInstances === 'function') {
+            await deps.claimRecoverableCatalogInstances();
+        }
         if (deps.instanceCatalogService?.isEnabled?.() && typeof deps.syncInstanceLease === 'function') {
             for (const [instanceId] of deps.listInstanceEntries()) {
                 await deps.syncInstanceLease(instanceId, { allowForceReclaim: true });

@@ -407,6 +407,9 @@ async function testRestoreAndRebuild() {
         worldRuntimeCombatEffectsService: {
             resetAll() { resetLog.push('combatEffects'); }
         },
+        claimRecoverableCatalogInstances() {
+            resetLog.push('claimRecoverableCatalogInstances');
+        },
         instanceCatalogService: {
             isEnabled() {
                 return true;
@@ -473,6 +476,7 @@ async function testRestoreAndRebuild() {
         ['createInstance', 'public:yunlai_town'],
         ['createInstance', 'real:yunlai_town'],
         ['log', '已初始化 2 个默认地图实例'],
+        'claimRecoverableCatalogInstances',
     ]);
 }
 
