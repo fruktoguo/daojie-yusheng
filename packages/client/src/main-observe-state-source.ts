@@ -28,7 +28,7 @@ import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger,
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 import { t } from './ui/i18n';
 
-const UNKNOWN_PORTAL_TARGET_MAP_NAME = '未知地域';
+const UNKNOWN_PORTAL_TARGET_MAP_NAME = t('observe.unknown-map');
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */

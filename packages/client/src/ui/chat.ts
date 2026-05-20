@@ -25,7 +25,7 @@ import {
   loadOlderChannelMessages,
   loadRecentChannelMessages,
 } from './chat-storage';
-import { hasI18nKey, tLoose } from './i18n';
+import { hasI18nKey, t, tLoose } from './i18n';
 import { mountReactChatPanel, shouldUseReactChatPanel } from '../react-ui/panels/chat/mount-chat-panel';
 import { getLocalBuffTemplate } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
@@ -298,8 +298,8 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
       suffixText: '伤害',
       tooltipTitle: `${damageTypeLabel}伤害`,
       tooltipLines: [
-        `实际伤害 ${actualAmount}`,
-        `原始伤害 ${rawAmount}`,
+        t('chat.combat.actual-damage', { amount: actualAmount }),
+        t('chat.combat.raw-damage', { amount: rawAmount }),
       ],
       color: getDamageTrailColor(damageKind, element),
     };
@@ -323,8 +323,8 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
       suffixText: '治疗',
       tooltipTitle: '治疗',
       tooltipLines: [
-        `实际治疗 ${actualAmount}`,
-        `原始治疗 ${rawAmount}`,
+        t('chat.combat.actual-heal', { amount: actualAmount }),
+        t('chat.combat.raw-heal', { amount: rawAmount }),
       ],
       color: COMBAT_HEAL_PILL_COLOR,
     };
@@ -471,7 +471,7 @@ function appendStructuredCombatLine(
       const labels = getCombatResolutionLabels(resolution);
       const pill = document.createElement('span');
       pill.className = 'chat-damage-pill';
-      pill.textContent = '闪避';
+      pill.textContent = t('chat.combat.dodge');
       setPillColor(pill, 'var(--chat-pill-dodge)');
       container.appendChild(pill);
       container.append(' 未造成伤害');
@@ -489,7 +489,7 @@ function appendStructuredCombatLine(
       pill.textContent = actualAmount;
       pill.setAttribute('aria-label', `${tooltipTitle}${actualAmount}，原始 ${rawAmount}`);
       pill.dataset.chatDamageTooltipTitle = tooltipTitle;
-      pill.dataset.chatDamageTooltipLines = [`实际伤害 ${actualAmount}`, `原始伤害 ${rawAmount}`].join('\n');
+      pill.dataset.chatDamageTooltipLines = [t('chat.combat.actual-damage', { amount: actualAmount }), t('chat.combat.raw-damage', { amount: rawAmount })].join('\n');
       setPillColor(pill, color);
       container.appendChild(pill);
       container.append(' 伤害');
@@ -512,7 +512,7 @@ function appendStructuredCombatLine(
     pill.textContent = actualAmount;
     pill.setAttribute('aria-label', `${tooltipTitle}${actualAmount}，原始 ${rawAmount}`);
     pill.dataset.chatDamageTooltipTitle = tooltipTitle;
-    pill.dataset.chatDamageTooltipLines = [`实际伤害 ${actualAmount}`, `原始伤害 ${rawAmount}`].join('\n');
+    pill.dataset.chatDamageTooltipLines = [t('chat.combat.actual-damage', { amount: actualAmount }), t('chat.combat.raw-damage', { amount: rawAmount })].join('\n');
     setPillColor(pill, color);
     container.appendChild(pill);
     const auraDamage = formatCombatLogAmount(String(formationResolution.auraDamage));

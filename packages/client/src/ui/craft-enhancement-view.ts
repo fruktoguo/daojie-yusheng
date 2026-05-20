@@ -50,7 +50,7 @@ type StoredEnhancementHistoryState = {
 };
 
 const ENHANCEMENT_HISTORY_STORAGE_KEY = 'mud:enhancement-history:v2';
-const UNKNOWN_ITEM_NAME = '未知物品';
+const UNKNOWN_ITEM_NAME = t('craft.enhancement.unknown-item');
 
 function escapeHtml(value: string): string {
   return value
@@ -434,14 +434,14 @@ export class CraftEnhancementView {
     const materialOwned = workbench.querySelector<HTMLElement>('.enhancement-material-owned');
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
     if (subtitle) {
-      subtitle.textContent = `进行中：+${formatDisplayInteger(job.currentLevel)} → +${formatDisplayInteger(job.targetLevel)}${finalTargetLevel > job.targetLevel ? ` · 最终目标 +${formatDisplayInteger(finalTargetLevel)}` : ''}`;
+      subtitle.textContent = t('craft.enhancement.enhance-progress', { current: formatDisplayInteger(job.currentLevel), target: formatDisplayInteger(job.targetLevel) }) + (finalTargetLevel > job.targetLevel ? t('craft.enhancement.enhance-final-target', { level: formatDisplayInteger(finalTargetLevel) }) : '');
     }
     if (rate) {
       rate.textContent = formatEnhancementPercent(job.successRate);
     }
     if (metrics && metrics.length >= 3) {
       metrics[0].textContent = formatDisplayInteger(job.remainingTicks);
-      metrics[1].textContent = `${formatDisplayInteger(job.totalTicks)} 息`;
+      metrics[1].textContent = t('craft.enhancement.enhance-ticks', { ticks: formatDisplayInteger(job.totalTicks) });
       metrics[2].textContent = formatEnhancementPercent(job.successRate);
     }
     if (sideMetrics.length >= 3) {
@@ -450,7 +450,7 @@ export class CraftEnhancementView {
       sideMetrics[2].textContent = job.protectionUsed ? `+${formatDisplayInteger(job.protectionStartLevel ?? job.targetLevel)} 起` : '未启用';
     }
     if (materialOwned) {
-      materialOwned.textContent = `角色强化等级 Lv.${formatDisplayInteger(job.roleEnhancementLevel)} · 总加速 ${formatEnhancementPercent(job.totalSpeedRate)}`;
+      materialOwned.textContent = t('craft.enhancement.enhance-role-level', { level: formatDisplayInteger(job.roleEnhancementLevel), percent: formatEnhancementPercent(job.totalSpeedRate) });
     }
   }
 
@@ -462,17 +462,17 @@ export class CraftEnhancementView {
     const summaryRate = workbench.querySelector<HTMLElement>('.enhancement-summary-rate');
     const materialRows = workbench.querySelectorAll<HTMLElement>('.enhancement-workbench-main .enhancement-material-row');
     if (summaryRate) {
-      summaryRate.textContent = `首阶 ${formatEnhancementPercent(selected.successRate)}`;
+      summaryRate.textContent = t('craft.enhancement.first-stage-rate', { rate: formatEnhancementPercent(selected.successRate) });
     }
     if (materialRows.length > 0) {
       const spiritOwned = materialRows[0]?.querySelector<HTMLElement>('.enhancement-material-owned');
       if (spiritOwned) {
-        spiritOwned.textContent = `持有 ${formatDisplayInteger(this.getAlchemyInventoryCount('spirit_stone'))}`;
+        spiritOwned.textContent = t('craft.enhancement.owned-count', { count: formatDisplayInteger(this.getAlchemyInventoryCount('spirit_stone')) });
       }
       selected.materials.forEach((entry, index) => {
         const owned = materialRows[index + 1]?.querySelector<HTMLElement>('.enhancement-material-owned');
         if (owned) {
-          owned.textContent = `持有 ${formatDisplayInteger(entry.ownedCount)}`;
+          owned.textContent = t('craft.enhancement.owned-count', { count: formatDisplayInteger(entry.ownedCount) });
         }
       });
     }

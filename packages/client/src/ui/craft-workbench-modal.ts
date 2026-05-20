@@ -113,12 +113,12 @@ type EnhancementViewState = {
 };
 
 const FORGING_INITIAL_RECIPES = [
-  { outputItemId: 'equip.copper_enhancement_hammer', outputName: '铜强化锤', note: '强化入门工具' },
-  { outputItemId: 'equip.copper_pill_furnace', outputName: '铜胎丹炉', note: '炼丹入门工具' },
-  { outputItemId: 'equip.copper_forging_tool', outputName: '铜炼器钳', note: '炼器入门工具' },
-  { outputItemId: 'equip.copper_building_hammer', outputName: '铜营造锤', note: '营造入门工具' },
-  { outputItemId: 'equip.copper_array_plate', outputName: '凡品阵盘', note: '阵法入门器具' },
-] as const;
+  { outputItemId: 'equip.copper_enhancement_hammer', outputName: t('craft.workbench.initial-copper-hammer'), note: t('craft.workbench.initial-copper-hammer-note') },
+  { outputItemId: 'equip.copper_pill_furnace', outputName: t('craft.workbench.initial-copper-furnace'), note: t('craft.workbench.initial-copper-furnace-note') },
+  { outputItemId: 'equip.copper_forging_tool', outputName: t('craft.workbench.initial-copper-forging-tool'), note: t('craft.workbench.initial-copper-forging-tool-note') },
+  { outputItemId: 'equip.copper_building_hammer', outputName: t('craft.workbench.initial-copper-building-hammer'), note: t('craft.workbench.initial-copper-building-hammer-note') },
+  { outputItemId: 'equip.copper_array_plate', outputName: t('craft.workbench.initial-copper-array-plate'), note: t('craft.workbench.initial-copper-array-plate-note') },
+];
 
 function escapeHtml(value: string): string {
   return value
@@ -1962,14 +1962,14 @@ export class CraftWorkbenchModal {
     const materialOwned = workbench.querySelector<HTMLElement>('.enhancement-material-owned');
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
     if (subtitle) {
-      subtitle.textContent = `进行中：+${formatDisplayInteger(job.currentLevel)} → +${formatDisplayInteger(job.targetLevel)}${finalTargetLevel > job.targetLevel ? ` · 最终目标 +${formatDisplayInteger(finalTargetLevel)}` : ''}`;
+      subtitle.textContent = t('craft.workbench.enhance-progress', { current: formatDisplayInteger(job.currentLevel), target: formatDisplayInteger(job.targetLevel) }) + (finalTargetLevel > job.targetLevel ? t('craft.workbench.enhance-final-target', { level: formatDisplayInteger(finalTargetLevel) }) : '');
     }
     if (rate) {
       rate.textContent = formatEnhancementPercent(job.successRate);
     }
     if (metrics && metrics.length >= 3) {
       metrics[0].textContent = formatDisplayInteger(job.remainingTicks);
-      metrics[1].textContent = `${formatDisplayInteger(job.totalTicks)} 息`;
+      metrics[1].textContent = t('craft.workbench.enhance-ticks', { ticks: formatDisplayInteger(job.totalTicks) });
       metrics[2].textContent = formatEnhancementPercent(job.successRate);
     }
     if (sideMetrics.length >= 3) {
@@ -1978,7 +1978,7 @@ export class CraftWorkbenchModal {
       sideMetrics[2].textContent = job.protectionUsed ? `+${formatDisplayInteger(job.protectionStartLevel ?? job.targetLevel)} 起` : '未启用';
     }
     if (materialOwned) {
-      materialOwned.textContent = `角色强化等级 Lv.${formatDisplayInteger(job.roleEnhancementLevel)} · 总加速 ${formatEnhancementPercent(job.totalSpeedRate)}`;
+      materialOwned.textContent = t('craft.workbench.enhance-role-level', { level: formatDisplayInteger(job.roleEnhancementLevel), percent: formatEnhancementPercent(job.totalSpeedRate) });
     }
   }
 
@@ -3540,7 +3540,7 @@ export class CraftWorkbenchModal {
     const unit = this.activeMode === 'forging' ? '件' : '枚';
     const presetLabel = this.activeMode === 'forging' ? '器方' : '简方';
     const presetText = this.activeMode === 'forging' ? presetLabel : `${presetLabel} ${simpleCount}`;
-    return `一炉 ${this.getAlchemyBatchOutputCount(recipe)} ${unit} · 基时 ${recipe.baseBrewTicks} 息 · ${presetText}`;
+    return t('craft.workbench.alchemy-recipe-meta', { count: String(this.getAlchemyBatchOutputCount(recipe)), unit, ticks: String(recipe.baseBrewTicks), presetText });
   }
 
   private buildAlchemyMetricSnapshot(

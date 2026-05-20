@@ -71,19 +71,19 @@ function createWorldMigrationIntro(currentPreset: WorldMigrationLinePreset): HTM
 
   const current = document.createElement('div');
   current.className = 'world-migration-current';
-  current.textContent = currentPreset === 'real' ? '身在现世，往后跨界皆入现世。' : '身在虚境，往后跨界皆入虚境。';
+  current.textContent = currentPreset === 'real' ? t('world.migration.current-real') : t('world.migration.current-peaceful');
   wrapper.append(current);
 
   const intro = document.createElement('p');
   intro.textContent =
     currentPreset === 'real'
-      ? '你当前在现世，欲循虚境则入虚境线。'
-      : '你当前在虚境，欲归现世则循现世线。';
+      ? t('world.migration.intro-real')
+      : t('world.migration.intro-peaceful');
   wrapper.append(intro);
 
   const tip = document.createElement('p');
   tip.className = 'detail-hint';
-  tip.textContent = '虚境禁斗法，现世可争锋。选中后尚需再度确认。';
+  tip.textContent = t('world.migration.tip');
   wrapper.append(tip);
 
   return wrapper;
@@ -113,11 +113,11 @@ function createWorldMigrationButton(
 
   const title = document.createElement('span');
   title.className = 'world-migration-choice-title';
-  title.textContent = targetPreset === 'real' ? '现世' : '虚境';
+  title.textContent = targetPreset === 'real' ? t('world.migration.choice-title.real') : t('world.migration.choice-title.peaceful');
 
   const badge = document.createElement('span');
   badge.className = 'world-migration-choice-badge';
-  badge.textContent = currentPreset === targetPreset ? '当前世界' : '可切换';
+  badge.textContent = currentPreset === targetPreset ? t('world.migration.badge-current') : t('world.migration.badge-available');
 
   const head = document.createElement('span');
   head.className = 'world-migration-choice-head';
@@ -127,12 +127,12 @@ function createWorldMigrationButton(
   desc.className = 'world-migration-choice-desc';
   desc.textContent =
     targetPreset === 'real'
-      ? '现世可争锋破地，切换后入当前地图现世道。'
-      : '虚境禁争伐，切换后入当前地图虚境道。';
+      ? t('world.migration.desc-real')
+      : t('world.migration.desc-peaceful');
 
   const meta = document.createElement('span');
   meta.className = 'world-migration-choice-meta';
-  meta.textContent = targetPreset === 'real' ? '现世 · 可争锋 · 可破地' : '虚境 · 禁争伐 · 禁破地';
+  meta.textContent = targetPreset === 'real' ? t('world.migration.meta-real') : t('world.migration.meta-peaceful');
 
   button.append(head, desc, meta);
   return button;
@@ -150,21 +150,21 @@ function createWorldMigrationConfirmOverlay(
 
   const title = document.createElement('div');
   title.className = 'world-migration-popup-title';
-  title.textContent = `确认切换到${targetPreset === 'real' ? '现世' : '虚境'}`;
+  title.textContent = t('world.migration.confirm-title', { target: targetPreset === 'real' ? t('world.migration.choice-title.real') : t('world.migration.choice-title.peaceful') });
 
   const desc = document.createElement('div');
   desc.className = 'world-migration-popup-desc';
   desc.textContent =
     targetPreset === 'real'
-      ? '确认后入现世，再通过传送点跨界亦循现世。'
-      : '确认后入虚境，再通过传送点跨界亦循虚境。';
+      ? t('world.migration.confirm-desc-real')
+      : t('world.migration.confirm-desc-peaceful');
 
   const warning = document.createElement('div');
   warning.className = 'world-migration-popup-note';
   warning.textContent =
     targetPreset === 'peaceful'
-      ? '若身染煞气入体或反噬，则无法返归虚境。'
-      : '入现世后，此后跨界皆循此道。';
+      ? t('world.migration.warning-peaceful')
+      : t('world.migration.warning-real');
 
   const actions = document.createElement('div');
   actions.className = 'ui-modal-footer-actions world-migration-popup-actions';
@@ -172,13 +172,13 @@ function createWorldMigrationConfirmOverlay(
   const cancelButton = document.createElement('button');
   cancelButton.type = 'button';
   cancelButton.className = 'small-btn ghost';
-  cancelButton.textContent = '取消';
+  cancelButton.textContent = t('world.migration.cancel');
   cancelButton.dataset.worldMigrationAction = 'cancel';
 
   const confirmButton = document.createElement('button');
   confirmButton.type = 'button';
   confirmButton.className = 'small-btn';
-  confirmButton.textContent = `确认切换到${targetPreset === 'real' ? '现世' : '虚境'}`;
+  confirmButton.textContent = t('world.migration.confirm-title', { target: targetPreset === 'real' ? t('world.migration.choice-title.real') : t('world.migration.choice-title.peaceful') });
   confirmButton.dataset.worldMigrationAction = 'confirm';
   confirmButton.dataset.worldMigrationTarget = targetPreset;
 
@@ -243,7 +243,7 @@ function openWorldMigrationConfirm(
   if (livePreset === targetPreset) {
     detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
     options.showToast(
-      targetPreset === 'real' ? '当前已经位于现世。' : '当前已经位于虚境。',
+      targetPreset === 'real' ? t('world.migration.already-real') : t('world.migration.already-peaceful'),
       'travel',
     );
     return;

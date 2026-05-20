@@ -1,5 +1,6 @@
 import { memo, useLayoutEffect } from 'react';
 import { createPanelStore } from '../../stores/create-panel-store';
+import { t } from '../../../ui/i18n';
 
 export interface ReactActionPanelState {
   contentKey: string;
@@ -8,7 +9,7 @@ export interface ReactActionPanelState {
 
 export const { store: actionPanelStore, useStore: useActionPanelStore } = createPanelStore<ReactActionPanelState>({
   contentKey: '',
-  html: '<div class="empty-hint">暂无可用行动</div>',
+  html: `<div class="empty-hint">${t('action.empty-hint')}</div>`,
 });
 
 let afterContentRender: (() => void) | null = null;

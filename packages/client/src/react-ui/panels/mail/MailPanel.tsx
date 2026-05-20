@@ -67,7 +67,7 @@ export function setMailPanelCallbacks(cbs: Partial<MailPanelCallbacks>): void {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
-const UNKNOWN_MAIL_ATTACHMENT_ITEM_NAME = '未知物品';
+const UNKNOWN_MAIL_ATTACHMENT_ITEM_NAME = t('common.unknown-item');
 
 function resolveMailAttachmentItemName(itemId: string): string {
   return getLocalItemTemplate(itemId)?.name ?? UNKNOWN_MAIL_ATTACHMENT_ITEM_NAME;

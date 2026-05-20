@@ -15,7 +15,7 @@ import { createPanelStore } from '../../stores/create-panel-store';
 import { UiInlineReferenceText, type UiInlineReference } from '../../primitives/UiInlineReferenceText';
 import { t } from '../../../ui/i18n';
 
-const UNKNOWN_QUEST_ITEM_NAME = '未知物品';
+const UNKNOWN_QUEST_ITEM_NAME = t('common.unknown-item');
 
 function resolveQuestRequiredItemName(itemId: string): string {
   return getLocalItemTemplate(itemId)?.name?.trim() || UNKNOWN_QUEST_ITEM_NAME;

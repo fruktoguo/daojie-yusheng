@@ -1,6 +1,7 @@
 import { clonePlainValue, type Direction, type PlayerState } from '@mud/shared';
 import type { ObservedMapEntity } from './game-map/types';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
+import { t } from './ui/i18n';
 /**
  * MainRootRuntimeSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -52,7 +53,7 @@ function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: Playe
     buffs,
   };
   const badge = nextEntity.badge ?? (isDemonizedPlayerEntity(nextEntity)
-    ? { text: '魔', tone: 'demonic' as const }
+    ? { text: t('entity.badge.demonic'), tone: 'demonic' as const }
     : undefined);
   const hostile = nextEntity.kind === 'player'
     && player !== null

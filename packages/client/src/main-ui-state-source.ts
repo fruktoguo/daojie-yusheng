@@ -6,6 +6,7 @@ import type { WorldPanel } from './ui/panels/world-panel';
 import { getDisplayRangeX, getDisplayRangeY, getZoom, setZoom } from './display';
 import { formatZoom, refreshZoomChrome as syncZoomChrome } from './main-ui-helpers';
 import { formatMapRecommendedRealmText } from './utils/map-level-display';
+import { t } from './ui/i18n';
 /**
  * MainUiStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -128,14 +129,14 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
     }
     const top = getTopTechniqueByRealm(player);
-    if (!top) return '凡俗武者';
+    if (!top) return t('hud.realm.mortal');
     const labels: Record<TechniqueRealm, string> = {
-      [TechniqueRealm.Entry]: '武学入门',
-      [TechniqueRealm.Minor]: '后天圆熟',
-      [TechniqueRealm.Major]: '先天凝意',
-      [TechniqueRealm.Perfection]: '半步修真',
+      [TechniqueRealm.Entry]: t('hud.title.entry'),
+      [TechniqueRealm.Minor]: t('hud.title.minor'),
+      [TechniqueRealm.Major]: t('hud.title.major'),
+      [TechniqueRealm.Perfection]: t('hud.title.perfection'),
     };
-    return labels[top.realm] ?? '修行中';
+    return labels[top.realm] ?? t('hud.realm.cultivating');
   }
   /**
  * resolveTitleLabel：规范化或转换TitleLabel。
@@ -148,14 +149,14 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (player.realm?.path === 'immortal') {
-      return player.realm.shortName === '筑基' ? '云游真修' : '初登仙门';
+      return player.realm.shortName === '筑基' ? t('hud.title.immortal-path') : t('hud.title.immortal-gate');
     }
     const top = getTopTechniqueByLevel(player);
-    if (!top) return '无名后学';
-    if (top.realm >= TechniqueRealm.Perfection) return '名动一方';
-    if (top.realm >= TechniqueRealm.Major) return '先天气成';
-    if (top.realm >= TechniqueRealm.Minor) return '游历武者';
-    return '见习弟子';
+    if (!top) return t('hud.title.no-technique');
+    if (top.realm >= TechniqueRealm.Perfection) return t('hud.title.perfection');
+    if (top.realm >= TechniqueRealm.Major) return t('hud.title.major');
+    if (top.realm >= TechniqueRealm.Minor) return t('hud.title.minor');
+    return t('hud.title.entry');
   }
   /**
  * hasSelectionWithin：判断SelectionWithin是否满足条件。
@@ -283,7 +284,7 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       if (!player) return;
       const heavenGateAction = getHeavenGateHudAction(player);
       options.hud.update(player, {
-        mapName: options.mapRuntime.getMapMeta()?.name ?? '未知地域',
+        mapName: options.mapRuntime.getMapMeta()?.name ?? t('hud.map-name.unknown'),
         mapDanger: this.resolveMapDanger(),
         realmLabel: player.realm?.displayName ?? resolveRealmLabel(player),
         realmReviewLabel: player.realm?.review ?? player.realmReview,

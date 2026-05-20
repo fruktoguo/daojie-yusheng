@@ -1,5 +1,6 @@
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { closeDetailModal, overlayStore } from './overlay-store';
+import { t } from '../../ui/i18n';
 /**
  * DetailModalLayer：渲染Next详情弹层层组件。
  * @returns 无返回值，直接更新Next详情弹层层相关状态。
@@ -32,7 +33,7 @@ export function DetailModalLayer() {
               <div className="react-ui-modal-subtitle">{detailModal.subtitle}</div>
             ) : null}
           </div>
-          <div className="react-ui-modal-hint">{detailModal.hint ?? '点击空白处关闭'}</div>
+          <div className="react-ui-modal-hint">{detailModal.hint ?? t('detail-modal.hint.close')}</div>
         </div>
         <div className="react-ui-modal-body react-ui-detail-modal-body">
           {detailModal.body}

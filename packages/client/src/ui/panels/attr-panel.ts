@@ -307,16 +307,16 @@ function buildAttributeBreakdownLines(
   const totalMultiplier = bodyTrainingMultiplier * techniqueMaxMultiplier * realmMultiplier * buffMultiplier * pillMultiplier;
   return [
     renderTooltipPrimaryLine('实际：', formatDisplayInteger(finalValue)),
-    renderTooltipSectionLine(`总固定值：${formatDisplayInteger(displayFixedTotalValue)}`, 'fixed'),
-    renderTooltipChildLine('基础值：', formatDisplayInteger(displayFixedBaseValue), 'fixed'),
-    renderTooltipChildLine('额外值：', `${fixedExtraValue >= 0 ? '+' : ''}${formatDisplayInteger(fixedExtraValue)}`, 'fixed'),
-    renderTooltipSectionLine(`总百分比：${formatMultiplierDisplay(totalMultiplier)}`, 'percent'),
-    renderTooltipChildLine('炼体：', formatMultiplierDisplay(bodyTrainingMultiplier), 'percent'),
-    renderTooltipChildLine('万法归元：', formatMultiplierDisplay(techniqueMaxMultiplier), 'percent'),
-    renderTooltipChildLine('根基：', formatMultiplierDisplay(realmMultiplier), 'percent'),
-    renderTooltipChildLine('状态：', formatMultiplierDisplay(buffMultiplier), 'percent'),
-    renderTooltipChildLine('丹药：', formatMultiplierDisplay(pillMultiplier), 'percent'),
-    renderTooltipSectionLine('实际转化：', 'percent'),
+    renderTooltipSectionLine(t('attr.tooltip.total-fixed', { value: formatDisplayInteger(displayFixedTotalValue) }), 'fixed'),
+    renderTooltipChildLine(t('attr.tooltip.base-value'), formatDisplayInteger(displayFixedBaseValue), 'fixed'),
+    renderTooltipChildLine(t('attr.tooltip.extra-value'), `${fixedExtraValue >= 0 ? '+' : ''}${formatDisplayInteger(fixedExtraValue)}`, 'fixed'),
+    renderTooltipSectionLine(t('attr.tooltip.total-percent', { value: formatMultiplierDisplay(totalMultiplier) }), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.body-training'), formatMultiplierDisplay(bodyTrainingMultiplier), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.technique-max'), formatMultiplierDisplay(techniqueMaxMultiplier), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.root-foundation'), formatMultiplierDisplay(realmMultiplier), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.buff-status'), formatMultiplierDisplay(buffMultiplier), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.pill'), formatMultiplierDisplay(pillMultiplier), 'percent'),
+    renderTooltipSectionLine(t('attr.tooltip.actual-conversion'), 'percent'),
     ...buildAttrConversionLines(key, finalValue),
   ];
 }
@@ -354,7 +354,7 @@ function formatMoveSpeedEffect(value: number): string {
   const trailTiles = movePoints / getTileTraversalCost(TileType.Trail);
   const grassTiles = movePoints / getTileTraversalCost(TileType.Grass);
   const swampTiles = movePoints / getTileTraversalCost(TileType.Swamp);
-  return `每息获得 ${formatDisplayNumber(movePoints)} 点移动预算，约等于 ${formatDisplayNumber(roadTiles)} 格大路 / ${formatDisplayNumber(trailTiles)} 格小路 / ${formatDisplayNumber(grassTiles)} 格草地 / ${formatDisplayNumber(swampTiles)} 格沼泽`;
+  return t('attr.tooltip.move-speed-detail', { movePoints: formatDisplayNumber(movePoints), roadTiles: formatDisplayNumber(roadTiles), trailTiles: formatDisplayNumber(trailTiles), grassTiles: formatDisplayNumber(grassTiles), swampTiles: formatDisplayNumber(swampTiles) });
 }
 
 /** formatMoveSpeedDisplay：格式化移动速度显示。 */
@@ -457,20 +457,20 @@ function buildNumericBreakdownLines(
     : breakdown.finalValue;
   const lines = [
     renderTooltipPrimaryLine('实际：', formatBreakdownValue(key, displayFinalValue)),
-    renderTooltipSectionLine(`总固定值：${formatBreakdownValue(key, displayFixedTotalValue)}`, 'fixed'),
-    renderTooltipChildLine('基础值：', formatBreakdownValue(key, displayFixedBaseValue), 'fixed'),
-    renderTooltipChildLine('额外值：', formatSignedBreakdownValue(key, displayExtraValue), 'fixed'),
-    renderTooltipSectionLine(`总百分比：${formatMultiplierDisplay(totalMultiplier)}`, 'percent'),
-    renderTooltipChildLine('六维：', formatMultiplierDisplay(attrMultiplier), 'percent'),
-    renderTooltipChildLine('境界：', formatMultiplierDisplay(breakdown.realmMultiplier), 'percent'),
-    renderTooltipChildLine('状态：', formatMultiplierDisplay(buffMultiplier), 'percent'),
-    renderTooltipChildLine('丹药：', formatMultiplierDisplay(pillMultiplier), 'percent'),
+    renderTooltipSectionLine(t('attr.tooltip.total-fixed', { value: formatBreakdownValue(key, displayFixedTotalValue) }), 'fixed'),
+    renderTooltipChildLine(t('attr.tooltip.base-value'), formatBreakdownValue(key, displayFixedBaseValue), 'fixed'),
+    renderTooltipChildLine(t('attr.tooltip.extra-value'), formatSignedBreakdownValue(key, displayExtraValue), 'fixed'),
+    renderTooltipSectionLine(t('attr.tooltip.total-percent', { value: formatMultiplierDisplay(totalMultiplier) }), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.six-dim'), formatMultiplierDisplay(attrMultiplier), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.realm'), formatMultiplierDisplay(breakdown.realmMultiplier), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.buff-status'), formatMultiplierDisplay(buffMultiplier), 'percent'),
+    renderTooltipChildLine(t('attr.tooltip.pill'), formatMultiplierDisplay(pillMultiplier), 'percent'),
   ];
   if (breakdown.preMultiplierValue <= 1e-6 && breakdown.finalValue > 0) {
-    lines.push('<span class="attr-tooltip-note">基础值为 0 时，实际结果还会受到乘区参考底座撬动</span>');
+    lines.push(`<span class="attr-tooltip-note">${t('attr.tooltip.base-zero-note')}</span>`);
   }
   if (key === 'moveSpeed') {
-    lines.push('<span class="attr-tooltip-note">移动速度面板值已是软衰减后的有效移速，技能公式与移动预算都使用此值</span>');
+    lines.push(`<span class="attr-tooltip-note">${t('attr.tooltip.move-speed-note')}</span>`);
   }
   return lines;
 }
@@ -1631,7 +1631,7 @@ export class AttrPanel {
       tooltipTitle: label,
       tooltipDetail: [
         `当前：${formatDisplayInteger(numericValue)}`,
-        `六维境界乘区：${formatDisplayNumber(100 + numericValue)}%`,
+        t('attr.tooltip.root-foundation-bonus', { percent: formatDisplayNumber(100 + numericValue) }),
       ].join('\n'),
     }];
   }
@@ -2022,7 +2022,7 @@ export class AttrPanel {
       return false;
     }
     titleNode.textContent = snapshot.title;
-    scaleNode.textContent = `刻度 ${snapshot.scaleLabel}`;
+    scaleNode.textContent = t('attr.tooltip.scale', { label: snapshot.scaleLabel });
     areaNode.setAttribute('points', snapshot.areaPoints);
     areaNode.setAttribute('stroke', snapshot.nodes[0]?.color ?? ATTR_COLORS[0]);
     const svgNode = pane.querySelector<SVGSVGElement>('svg.attr-radar');

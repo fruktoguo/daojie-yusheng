@@ -1,4 +1,5 @@
 import type { MonsterTier, RenderEntity } from '@mud/shared';
+import { t } from './ui/i18n';
 
 /** 怪物在界面中的展示信息。 */
 export interface MonsterPresentation {
@@ -23,11 +24,11 @@ export interface MonsterPresentation {
 export function sanitizeMonsterName(name: string | undefined, tier: MonsterTier | undefined): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const fallback = name?.trim() || '未知妖兽';
+  const fallback = name?.trim() || t('entity.monster.unknown');
   if (tier !== 'variant') {
     return fallback;
   }
-  const sanitized = fallback.replaceAll('精英', '').trim();
+  const sanitized = fallback.replaceAll(t('entity.monster.elite-keyword'), '').trim();
   return sanitized.length > 0 ? sanitized : fallback;
 }
 
@@ -42,14 +43,14 @@ export function getMonsterPresentation(
   if (tier === 'variant') {
     return {
       label,
-      badge: { text: '异', tone: 'variant' },
+      badge: { text: t('entity.badge.variant'), tone: 'variant' },
       scale: 1.2,
     };
   }
   if (tier === 'demon_king') {
     return {
       label,
-      badge: { text: '王', tone: 'boss' },
+      badge: { text: t('entity.badge.boss'), tone: 'boss' },
       scale: 1.5,
     };
   }

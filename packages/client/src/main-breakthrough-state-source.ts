@@ -46,8 +46,8 @@ type MainBreakthroughStateSourceOptions = {
 
 function getBreakthroughRequirementStatusLabel(requirement: BreakthroughRequirementView): string {
   return requirement.blocksBreakthrough === false
-    ? (requirement.completed ? '已生效' : '未生效')
-    : (requirement.completed ? '已达成' : '未达成');
+    ? (requirement.completed ? t('breakthrough.condition.active') : t('breakthrough.condition.inactive'))
+    : (requirement.completed ? t('breakthrough.condition.met') : t('breakthrough.condition.unmet'));
 }
 /**
  * getBreakthroughRequirementStatusDetail：读取BreakthroughRequirementStatu详情。
@@ -60,15 +60,15 @@ function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequire
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (requirement.hidden) {
-    return '此关未开，循主线或支线探之。';
+    return t('breakthrough.detail.hidden');
   }
   if ((requirement.increasePct ?? 0) > 0) {
     if (requirement.type === 'item') {
-      return requirement.completed ? '突破成功后会消耗该材料。' : '未达则全属性门槛上提。';
+      return requirement.completed ? t('breakthrough.detail.item.completed') : t('breakthrough.detail.increase.unmet');
     }
-    return requirement.completed ? '该条件当前已生效。' : '未达则全属性门槛上提。';
+    return requirement.completed ? t('breakthrough.detail.increase.completed') : t('breakthrough.detail.increase.unmet');
   }
-  return requirement.detail ?? (requirement.completed ? '当前已满足。' : '尚未达成。');
+  return requirement.detail ?? (requirement.completed ? t('breakthrough.detail.default.completed') : t('breakthrough.detail.default.unmet'));
 }
 /**
  * MainBreakthroughStateSource：统一结构类型，保证协议与运行时一致性。
@@ -114,22 +114,22 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
           ownerId: 'realm:breakthrough',
           size: 'sm',
           variantClass: 'detail-modal--breakthrough',
-          title: '突破',
+          title: t('breakthrough.title'),
           subtitle: currentRealm.displayName,
-          hint: '当前境界修为未满，暂时不能确认突破。',
+          hint: t('breakthrough.hint.progress.not.full'),
           bodyHtml: `
             <div class="panel-section breakthrough-requirements-panel">
-              <div class="panel-section-title">突破要求</div>
+              <div class="panel-section-title">${t('breakthrough.section.requirements')}</div>
               <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
                 <div class="action-copy">
                   <div class="breakthrough-requirement-head ui-requirement-entry-head">
-                    <span class="action-name">境界修为圆满</span>
-                    <span class="action-type breakthrough-requirement-status ui-requirement-status is-unmet">[未达成]</span>
+                    <span class="action-name">${t('breakthrough.requirement.progress.full')}</span>
+                    <span class="action-type breakthrough-requirement-status ui-requirement-status is-unmet">${t('breakthrough.status.unmet.bracket')}</span>
                   </div>
                   <div class="action-desc">当前境界修为 ${formatDisplayInteger(currentRealm.progress)} / ${formatDisplayInteger(currentRealm.progressToNext)}</div>
                 </div>
               </div>
-              <div class="empty-hint ui-empty-hint">突破信息同步后会显示凝练根基与完整条件。</div>
+              <div class="empty-hint ui-empty-hint">${t('breakthrough.hint.sync.pending')}</div>
             </div>
           `,
         });
@@ -149,14 +149,14 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
       const autoRootFoundation = player?.autoRootFoundation === true;
       const rootFoundationReachedCap = rootFoundation ? rootFoundation.current >= rootFoundation.cap : false;
       const rootFoundationStatusLabel = rootFoundation?.canRefine
-        ? '可凝练'
-        : (rootFoundationReachedCap ? '已达上限' : '未满足');
+        ? t('breakthrough.root.status.can.refine')
+        : (rootFoundationReachedCap ? t('breakthrough.root.status.capped') : t('breakthrough.root.status.unmet'));
       const rootFoundationStatusClass = rootFoundation?.canRefine
         ? 'is-completed'
         : (rootFoundationReachedCap ? 'is-capped' : 'is-unmet');
       const rootMaterialRows = rootFoundation?.items.length
         ? rootFoundation.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, tone: 'material' })).join('')
-        : '<span class="empty-hint ui-empty-hint">本级无需额外材料</span>';
+        : `<span class="empty-hint ui-empty-hint">${t('breakthrough.root.no.material')}</span>`;
       const requirementRows = preview.requirements.length > 0
         ? preview.requirements.map((requirement) => `
           <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
@@ -174,43 +174,43 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
             </div>
           </div>
         `).join('')
-        : '<div class="empty-hint ui-empty-hint">当前无额外突破要求。</div>';
+        : `<div class="empty-hint ui-empty-hint">${t('breakthrough.no.extra.requirements')}</div>`;
 
       detailModalHost.open({
         ownerId: 'realm:breakthrough',
         size: 'md',
         variantClass: 'detail-modal--breakthrough',
-        title: `突破至 ${preview.targetDisplayName}`,
-        subtitle: `${currentRealm.displayName} · 核心要求 ${preview.completedBlockingRequirements}/${preview.blockingRequirements}`,
+        title: t('breakthrough.modal.title.target', { targetName: preview.targetDisplayName }),
+        subtitle: t('breakthrough.modal.subtitle', { realmName: currentRealm.displayName, completed: String(preview.completedBlockingRequirements), total: String(preview.blockingRequirements) }),
         hint: preview.blockedReason
           ? preview.blockedReason
           : preview.canBreakthrough
-            ? (hasConsumableRequirements ? '绿色表示已满足；已生效的材料会在突破后消耗。' : '点击空白处关闭')
-              : (hasIncreaseRequirements ? '赤者为未达，+%者将抬全属门槛。' : '赤者为未达，隐关需循任务渐开。'),
+            ? (hasConsumableRequirements ? t('breakthrough.hint.consumable') : '点击空白处关闭')
+              : (hasIncreaseRequirements ? t('breakthrough.hint.increase') : t('breakthrough.hint.hidden')),
         bodyHtml: `
           <div class="breakthrough-modal-grid">
             <div class="panel-section breakthrough-requirements-panel">
-              <div class="panel-section-title">突破要求</div>
+              <div class="panel-section-title">${t('breakthrough.section.requirements')}</div>
               ${requirementRows}
             </div>
             ${rootFoundation ? `<div class="panel-section breakthrough-root-foundation-panel">
-              <div class="panel-section-title">凝练根基</div>
+              <div class="panel-section-title">${t('breakthrough.section.root.foundation')}</div>
                 <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
                   <div class="action-copy">
                     <div class="breakthrough-requirement-head ui-requirement-entry-head">
-                      <span class="action-name">根基 ${formatDisplayInteger(rootFoundation.current)} / ${formatDisplayInteger(rootFoundation.cap)}</span>
+                      <span class="action-name">${t('breakthrough.root.progress', { current: formatDisplayInteger(rootFoundation.current), cap: formatDisplayInteger(rootFoundation.cap) })}</span>
                       <span class="action-type breakthrough-requirement-status ui-requirement-status ${rootFoundationStatusClass}">
                         [${rootFoundationStatusLabel}]
                       </span>
                     </div>
-                    <div class="action-desc">消耗当前境界 100% 修为与一倍突破材料，提升 1 点根基；每点根基提供 1% 六维境界乘区。</div>
-                    <div class="action-desc">修为：${formatDisplayInteger(rootFoundation.progress)} / ${formatDisplayInteger(rootFoundation.costProgress)}</div>
+                    <div class="action-desc">${t('breakthrough.root.desc')}</div>
+                    <div class="action-desc">${t('breakthrough.root.exp.progress', { current: formatDisplayInteger(rootFoundation.progress), cost: formatDisplayInteger(rootFoundation.costProgress) })}</div>
                     <div class="action-desc breakthrough-root-materials">${rootMaterialRows}</div>
                     ${rootFoundation.blockedReason ? `<div class="action-desc">${renderTextWithInlineItemHighlights(rootFoundation.blockedReason)}</div>` : ''}
                     <label class="breakthrough-root-auto-toggle">
                       <input type="checkbox" data-root-foundation-auto-refine ${autoRootFoundation ? 'checked' : ''}>
-                      <span>自动凝练</span>
-                      <span class="breakthrough-root-auto-hint">条件满足时执行</span>
+                      <span>${t('breakthrough.root.auto.refine')}</span>
+                      <span class="breakthrough-root-auto-hint">${t('breakthrough.root.auto.hint')}</span>
                     </label>
                   </div>
                 </div>
@@ -218,10 +218,10 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
           </div>
           <div class="breakthrough-action-grid">
             <div class="breakthrough-action-cell">
-              <button class="small-btn breakthrough-action-btn breakthrough-confirm-btn" type="button" data-breakthrough-confirm ${preview.canBreakthrough ? '' : 'disabled'}>确认突破</button>
+              <button class="small-btn breakthrough-action-btn breakthrough-confirm-btn" type="button" data-breakthrough-confirm ${preview.canBreakthrough ? '' : 'disabled'}>${t('breakthrough.btn.confirm')}</button>
             </div>
             <div class="breakthrough-action-cell">
-              ${rootFoundation ? `<button class="small-btn breakthrough-action-btn" type="button" data-root-foundation-refine ${rootFoundation.canRefine ? '' : 'disabled'}>凝练根基</button>` : ''}
+              ${rootFoundation ? `<button class="small-btn breakthrough-action-btn" type="button" data-root-foundation-refine ${rootFoundation.canRefine ? '' : 'disabled'}>${t('breakthrough.btn.refine')}</button>` : ''}
             </div>
           </div>
         `,
@@ -269,7 +269,7 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
 
 
     formatAuraLevelText(auraValue: number): string {
-      return `灵气等级 ${formatDisplayInteger(getAuraLevel(auraValue, auraLevelBaseValue))}`;
+      return t('breakthrough.aura.level', { level: formatDisplayInteger(getAuraLevel(auraValue, auraLevelBaseValue)) });
     },    
     /**
  * getAuraLevelBaseValue：读取Aura等级Base值。

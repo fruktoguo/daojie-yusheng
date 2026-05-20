@@ -40,6 +40,7 @@ import {
   syncCachedUnlockedMapIds,
 } from '../../map-static-cache';
 import { TILE_HIDDEN_FADE_MS } from '../../constants/visuals/time-atmosphere';
+import { t } from '../../ui/i18n';
 import type {
   MapBootstrapInput,
   MapEntityTransition,
@@ -126,7 +127,7 @@ function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState |
     : entity.buffs;
   const badge = entity.badge ?? (
     entity.kind === 'player' && isDemonizedBuffCarrier(buffs)
-      ? { text: '魔', tone: 'demonic' as const }
+      ? { text: t('entity.badge.demonic'), tone: 'demonic' as const }
       : undefined
   );
   const hostile = entity.kind === 'player'
@@ -230,7 +231,7 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     id: player.id,
     wx: player.x,
     wy: player.y,
-    char: getFirstGrapheme(player.displayName ?? player.name ?? '') || previous?.char || '我',
+    char: getFirstGrapheme(player.displayName ?? player.name ?? '') || previous?.char || t('entity.player.self-char'),
     color: previous?.color ?? '#7ee787',
     badge: previous?.badge,
     hostile: false,
@@ -938,7 +939,7 @@ export class MapStore {
             id: this.player.id,
             x: this.player.x,
             y: this.player.y,
-            char: getFirstGrapheme(this.player.displayName ?? this.player.name ?? '') || '我',
+            char: getFirstGrapheme(this.player.displayName ?? this.player.name ?? '') || t('entity.player.self-char'),
             mapId: this.player.mapId,
             viewRange: this.player.viewRange,
             senseQiActive: this.player.senseQiActive,
