@@ -2352,6 +2352,7 @@ async function run() {
     listMonsters: () => [selfRefMonster],
     getMonster: (runtimeId) => (runtimeId === selfRefMonster.runtimeId ? selfRefMonster : null),
     getMonsterAtTile: (x, y) => (x === selfRefMonster.x && y === selfRefMonster.y ? selfRefMonster : null),
+    getPlayersAtTile: () => [],
     getTileCombatState: () => null,
   };
   await selfRefDispatch.dispatchCastSkill(selfRefAoePlayer.playerId, 'skill:self-ref-center-aoe', null, null, 'self', {
@@ -2380,6 +2381,29 @@ async function run() {
     && entry.target.kind === CombatTargetKind.Monster
     && entry.target.id === 'monster:self-ref-target'
   )), true);
+  await selfRefDispatch.dispatchCastSkill(selfRefAoePlayer.playerId, 'skill:self-ref-center-aoe', null, selfRefMonster.runtimeId, null, {
+    resolveCurrentTickForPlayerId: () => 50,
+    worldRuntimeCraftInterruptService: { interruptCraftForReason: () => {} },
+    ensureAttackAllowed: () => {},
+    getInstanceRuntimeOrThrow: () => selfRefInstance,
+    pushActionLabelEffect: () => {},
+  });
+  assert.deepEqual(selfRefAoePlayer.combat.pendingSkillCast?.anchor, { x: 0, y: 0 });
+  assert.equal(selfRefAoePlayer.combat.pendingSkillCast?.targetRef ?? null, null);
+  selfRefAoePlayer.combat.pendingSkillCast.skipProgressThisTick = false;
+  const resolvedTargetIdSelfAnchorPending = await selfRefDispatch.resolvePendingPlayerSkillCast(selfRefAoePlayer.playerId, {
+    combatDiagnostics: [],
+    combatOutcomes: selfRefOutcomes,
+    logger: deps.logger,
+    resolveCurrentTickForPlayerId: () => 51,
+    getInstanceRuntimeOrThrow: () => selfRefInstance,
+    pushActionLabelEffect: () => {},
+  });
+  assert.equal(resolvedTargetIdSelfAnchorPending, true);
+  assert.deepEqual(selfRefCalls, [
+    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 41, 2],
+    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 51, 2],
+  ]);
 
   const staleSkillDiagnostics = [];
   const staleSkillOutcomes = [];

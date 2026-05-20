@@ -145,6 +145,12 @@ function isSelfBuffNoTargetSkill(skill) {
         && effects.every((effect) => effect?.type === 'buff' && effect.target === 'self');
 }
 
+function isSelfAnchoredNoTargetSkill(skill) {
+    return skill?.requiresTarget === false
+        && !isSelfBuffNoTargetSkill(skill)
+        && resolveRuntimeSkillRange(skill) <= 0;
+}
+
 function hasHealOrAlliesEffect(skill) {
     const effects = Array.isArray(skill?.effects) ? skill.effects : [];
     return effects.some((effect) =>
@@ -505,6 +511,13 @@ export class WorldRuntimePlayerSkillDispatchService {
                 throw new BadRequestException('必须选择地块目标');
             }
             return this.dispatchTemporaryTileSkill(attacker, skill, tile.x, tile.y, currentTick, deps);
+        }
+        if (isSelfAnchoredNoTargetSkill(skill)) {
+            const anchor = { x: attacker.x, y: attacker.y };
+            if (getPlayerSkillWindupTicks(skill) > 0) {
+                return this.beginPlayerSkillCast(attacker, skill, anchor, null, deps);
+            }
+            return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, null, deps);
         }
         if (targetRef && !targetMonsterId && !targetPlayerId) {
             if (targetRef === 'self' && skill.requiresTarget === false && !isSelfBuffNoTargetSkill(skill)) {

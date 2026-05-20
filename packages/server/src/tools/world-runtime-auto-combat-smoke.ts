@@ -800,6 +800,70 @@ function testAutoBattleCastsMissingSelfBuffSkillWithTarget(): void {
   });
 }
 
+function testAutoBattleCastsSelfAnchoredAreaSkillWithTarget(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 6,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: {
+      actions: [{
+        id: 'skill:self-area',
+        type: 'skill',
+        range: 0,
+        cooldownLeft: 0,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill:self-area',
+          name: '原地劫焰',
+          cost: 0,
+          requiresTarget: false,
+          range: 0,
+          targeting: { shape: 'box', width: 5, height: 5, maxTargets: 25 },
+          effects: [{ type: 'damage', formula: 1 }],
+        }],
+      }],
+    },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      combatTargetId: null,
+      combatTargetLocked: false,
+      manualEngagePending: false,
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const command = service.buildAutoCombatCommand(createAdjacentMonsterInstance() as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 17;
+    },
+    queuePlayerNotice() {},
+  } as never);
+
+  assert.deepEqual(command, {
+    kind: 'castSkill',
+    skillId: 'skill:self-area',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetRef: null,
+    autoCombat: true,
+  });
+}
+
 function testAutoBattleSkipsSelfBuffSkillWhenBuffActive(): void {
   const player = {
     playerId: 'player:1',
@@ -1386,6 +1450,7 @@ testOutOfRangeSkillMovesToSkillMaxRangeImmediately();
 testStationaryOutOfRangeSkillSkipsWithoutMove();
 testAutoBattleSkipsSelfBuffSkillWithoutTarget();
 testAutoBattleCastsMissingSelfBuffSkillWithTarget();
+testAutoBattleCastsSelfAnchoredAreaSkillWithTarget();
 testAutoBattleSkipsSelfBuffSkillWhenBuffActive();
 testStopDistancePathDoesNotGenerateRangeCandidateGrid();
 testLockedDestroyedTileClearsTarget();
