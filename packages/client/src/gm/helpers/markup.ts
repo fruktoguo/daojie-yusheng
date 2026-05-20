@@ -115,7 +115,7 @@ export function getBonusCardMeta(bonus: PlayerState['bonuses'][number] | undefin
 
 /** getBuffCardTitle：读取Buff卡片标题。 */
 export function getBuffCardTitle(buff: TemporaryBuffState | undefined, index: number): string {
-  return buff?.name || buff?.buffId || `临时效果 ${index + 1}`;
+  return buff?.name || `临时效果 ${index + 1}`;
 }
 
 /** getBuffCardMeta：读取Buff卡片元数据。 */
@@ -128,7 +128,7 @@ export function getBuffCardMeta(buff: TemporaryBuffState | undefined): string {
 
 /** getInventoryCardTitle：读取背包卡片标题。 */
 export function getInventoryCardTitle(item: ItemStack | undefined, index: number): string {
-  return item?.name || item?.itemId || `物品 ${index + 1}`;
+  return item?.name || `物品 ${index + 1}`;
 }
 
 /** getInventoryCardMeta：读取背包卡片元数据。 */
@@ -141,7 +141,7 @@ export function getInventoryCardMeta(item: ItemStack | undefined): string {
 
 /** getAutoSkillCardTitle：读取自动技能卡片标题。 */
 export function getAutoSkillCardTitle(entry: AutoBattleSkillConfig | undefined, index: number): string {
-  return entry?.skillId || `技能槽 ${index + 1}`;
+  return entry?.skillId ? '未知技能' : `技能槽 ${index + 1}`;
 }
 
 /** getAutoSkillCardMeta：读取自动技能卡片元数据。 */
@@ -151,7 +151,7 @@ export function getAutoSkillCardMeta(entry: AutoBattleSkillConfig | undefined): 
 
 /** getTechniqueCardTitle：读取Technique卡片标题。 */
 export function getTechniqueCardTitle(technique: TechniqueState | undefined, index: number): string {
-  return technique?.name || technique?.techId || `功法 ${index + 1}`;
+  return technique?.name || `功法 ${index + 1}`;
 }
 
 /** getTechniqueCardMeta：读取Technique卡片元数据。 */
@@ -165,7 +165,7 @@ export function getTechniqueCardMeta(technique: TechniqueState | undefined, getR
 
 /** getQuestCardTitle：读取任务卡片标题。 */
 export function getQuestCardTitle(quest: QuestState | undefined, index: number): string {
-  return quest?.title || quest?.id || `任务 ${index + 1}`;
+  return quest?.title || `任务 ${index + 1}`;
 }
 
 /** getQuestCardMeta：读取任务卡片元数据。 */
