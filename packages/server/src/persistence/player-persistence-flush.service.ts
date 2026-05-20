@@ -154,7 +154,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       this.timer.unref();
       this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
     } else {
-      this.logger.log('玩家持久化直接 interval 已停用，由统一 flush task runtime 调度');
+      this.logger.log('玩家持久化直接定时器已停用，由统一刷盘任务运行时调度');
     }
     // 每 5 分钟检查一次离线挂机超时
     this.offlineExpireTimer = setInterval(() => {
@@ -248,7 +248,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
     if (this.isFlushPoolBackpressureActive()) {
       this.flushThrottleUntilAt = Date.now() + PLAYER_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
-      this.logger.warn(`玩家 flush 因 flush pool 等待排队而退避：waiting>=${PLAYER_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD}`);
+      this.logger.warn(`玩家刷盘因刷盘池等待排队而退避：waiting>=${PLAYER_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD}`);
       return;
     }
     await this.runFlushCycle('interval');

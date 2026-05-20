@@ -151,7 +151,7 @@ export class MapPersistenceFlushService {
 
     onModuleInit() {
         if (!shouldRunLegacyFlushIntervals()) {
-            this.logger.log('地图持久化直接 interval 已停用，由统一 flush task runtime 调度');
+            this.logger.log('地图持久化直接定时器已停用，由统一刷盘任务运行时调度');
             return;
         }
         this.timer = setInterval(() => {
@@ -218,7 +218,7 @@ export class MapPersistenceFlushService {
         }
         if (this.isFlushPoolBackpressureActive()) {
             this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
-            this.logger.warn(`地图 flush 因 flush pool 等待排队而退避：waiting>=${MAP_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD}`);
+            this.logger.warn(`地图刷盘因刷盘池等待排队而退避：waiting>=${MAP_PERSISTENCE_FLUSH_POOL_WAITING_THRESHOLD}`);
             return;
         }
         await this.runFlushCycle('interval');

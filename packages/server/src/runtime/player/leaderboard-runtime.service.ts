@@ -398,7 +398,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             return player;
         }
         catch (_error) {
-            this.logger.warn(`排行榜离线玩家快照 hydrate 失败 [playerId=${playerId}]: ${_error instanceof Error ? _error.message : String(_error)}`);
+            this.logger.warn(`排行榜离线玩家快照加载失败 [playerId=${playerId}]: ${_error instanceof Error ? _error.message : String(_error)}`);
             return null;
         }
     }

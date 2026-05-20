@@ -65,12 +65,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     if (!isInlineFlushTaskRuntimeMode()) {
-      this.logger.log('统一 flush task runtime 未启用，保留当前配置模式');
+      this.logger.log('统一刷盘任务运行时未启用，保留当前配置模式');
       return;
     }
     this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
     this.timer.unref();
-    this.logger.log(`统一 flush task runtime 已启动，间隔 ${INTERVAL_MS}ms`);
+    this.logger.log(`统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms`);
   }
 
   onModuleDestroy(): void {
@@ -97,7 +97,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     await this.collectPlayerTasks();
     await this.collectInstanceTasks();
     if (this.isFlushPoolBackpressureActive()) {
-      this.logger.warn(`统一 flush task 因 flush pool 等待排队而暂停认领：waiting>=${FLUSH_WAITING_LIMIT}`);
+      this.logger.warn(`统一刷盘任务因刷盘池等待排队而暂停认领：waiting>=${FLUSH_WAITING_LIMIT}`);
       return 0;
     }
     const playerTasks = await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope: 'player', domain: filter?.playerDomain, limit: CLAIM_LIMIT });
@@ -155,7 +155,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         await Promise.all(group.map((task) => this.flushLedgerService.markFlushTaskFlushed(task)));
         processed += 1;
       } catch (error) {
-        this.logger.warn(`玩家 flush task 失败 playerId=${group[0].id}: ${formatError(error)}`);
+        this.logger.warn(`玩家刷盘任务失败 playerId=${group[0].id}: ${formatError(error)}`);
         await Promise.all(group.map((task) => this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS)));
       }
     }
@@ -177,7 +177,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         await this.flushLedgerService.markFlushTaskFlushed(task);
         processed += 1;
       } catch (error) {
-        this.logger.warn(`实例 flush task 失败 instanceId=${task.id} domain=${task.domain}: ${formatError(error)}`);
+        this.logger.warn(`实例刷盘任务失败 instanceId=${task.id} domain=${task.domain}: ${formatError(error)}`);
         await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
       }
     }
@@ -215,7 +215,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           processed += 1;
         }
       } catch (error) {
-        this.logger.warn(`实例批量 flush task 失败 domain=${domain}: ${formatError(error)}`);
+        this.logger.warn(`实例批量刷盘任务失败 domain=${domain}: ${formatError(error)}`);
         await Promise.all(domainTasks.map((task) => this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS)));
         for (const task of domainTasks) remaining.delete(instanceTaskKey(task));
       }

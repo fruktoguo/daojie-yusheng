@@ -640,6 +640,7 @@ async function startServer() {
             SERVER_RUNTIME_HTTP: '1',
             SERVER_ALLOW_LEGACY_HTTP_COMPAT: '1',
             SERVER_MAP_LEGACY_SNAPSHOT_WRITE: '1',
+            ...(process.env.SERVER_NODE_ID ? { SERVER_NODE_ID: process.env.SERVER_NODE_ID } : {}),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });

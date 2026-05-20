@@ -55,9 +55,9 @@ export class GmRuntimeFlagPersistenceService implements OnModuleInit, OnModuleDe
       await this.loadAllFlags();
       this.syncConsoleLogLevels();
       this.enabled = true;
-      this.logger.log('GM runtime flag 持久化已启用');
+      this.logger.log('GM 运行时标志持久化已启用');
     } catch (error: unknown) {
-      this.logger.warn(`GM runtime flag 初始化失败：${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`GM 运行时标志初始化失败：${error instanceof Error ? error.message : String(error)}`);
     }
     this.initialized = true;
   }

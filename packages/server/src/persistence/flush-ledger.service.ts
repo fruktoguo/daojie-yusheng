@@ -26,16 +26,16 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     this.pool = this.databasePoolProvider?.getPool('flush-ledger') ?? null;
     if (!this.pool) {
-      this.logger.log('刷盘 ledger 已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
+      this.logger.log('刷盘账本已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
       return;
     }
     try {
       await ensurePlayerFlushLedgerTable(this.pool);
       await ensureInstanceFlushLedgerTable(this.pool);
       this.enabled = true;
-      this.logger.log('刷盘 ledger 已启用');
+      this.logger.log('刷盘账本已启用');
     } catch (error: unknown) {
-      this.logger.error('刷盘 ledger 初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
+      this.logger.error('刷盘账本初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
       await this.safeClosePool();
     }
   }

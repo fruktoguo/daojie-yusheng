@@ -3081,7 +3081,7 @@ export class MarketRuntimeService {
                     this.loadedStoragePlayerIds.add(normalized);
                 }
                 catch (error) {
-                    this.logger.error(`坊市仓库 lazy hydrate 失败 (playerId=${normalized}): ${error instanceof Error ? error.message : String(error)}`);
+                    this.logger.error(`坊市仓库延迟加载失败 (playerId=${normalized}): ${error instanceof Error ? error.message : String(error)}`);
                     throw error;
                 }
                 finally {
