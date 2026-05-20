@@ -1258,7 +1258,7 @@ export class MarketAuctionView {
   }
 
   formatAuctionLotSubtitle(lot: AuctionLotView): string {
-    return [this.formatAuctionEnhanceLabel(lot), this.formatAuctionRealmLabel(lot), lot.typeLabel, lot.lotNo].filter(Boolean).join(' · ');
+    return [this.formatAuctionEnhanceLabel(lot), this.formatAuctionRealmLabel(lot), lot.typeLabel].filter(Boolean).join(' · ');
   }
 
   formatAuctionLotDetailSubtitle(lot: AuctionLotView): string {
