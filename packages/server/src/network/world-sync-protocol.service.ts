@@ -49,16 +49,9 @@ export class WorldSyncProtocolService {
     }
   }
 
-  /** 将 payload 编码为 Buffer；失败时原样返回。 */
+  /** 将 payload 编码为 Buffer；当前暂时直接透传 JSON 对象，后续切 protobuf 时启用。 */
   private maybeEncodeBinary(payload: unknown): unknown {
-    if (!payload) {
-      return payload;
-    }
-    try {
-      return Buffer.from(JSON.stringify(payload), 'utf-8');
-    } catch {
-      return payload;
-    }
+    return payload;
   }
 
   sendBootstrap(socket: any, payload: any): void {

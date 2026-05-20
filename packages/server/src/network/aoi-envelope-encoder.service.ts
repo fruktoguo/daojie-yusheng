@@ -67,14 +67,9 @@ export class AoiEnvelopeEncoderService {
     return { mapEnter, worldDelta, selfDelta, panelDelta };
   }
 
-  /** 单 payload 同步编码。 */
+  /** 单 payload 同步编码。当前暂时跳过 Buffer 包装，后续切 protobuf 时启用。 */
   encodePayloadSync(payload: unknown): Buffer | null {
-    if (!payload) return null;
-    try {
-      return Buffer.from(JSON.stringify(payload), 'utf-8');
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   /** 单 payload worker 编码；失败时回退同步编码。 */
