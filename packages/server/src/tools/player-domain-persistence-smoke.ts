@@ -1523,7 +1523,10 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
 
 async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): Promise<void> {
   const conflictedInstanceId = '00000000-0000-4000-8000-000000000123';
+  const raceConflictInstanceId = '00000000-0000-4000-8000-000000000456';
   const equipmentInsertPayloads: unknown[][] = [];
+  let raceConflictVisible = false;
+  let equipmentPersistCountChecks = 0;
   const fakeClient = {
     async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
       if (
@@ -1532,9 +1535,13 @@ async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): P
         && sql.includes('player_id <> $2')
       ) {
         const incomingIds = Array.isArray(params?.[0]) ? params[0] as unknown[] : [];
-        const rows = incomingIds.includes(conflictedInstanceId)
-          ? [{ item_instance_id: conflictedInstanceId }]
-          : [];
+        const rows: Array<{ item_instance_id: string }> = [];
+        if (incomingIds.includes(conflictedInstanceId)) {
+          rows.push({ item_instance_id: conflictedInstanceId });
+        }
+        if (raceConflictVisible && incomingIds.includes(raceConflictInstanceId)) {
+          rows.push({ item_instance_id: raceConflictInstanceId });
+        }
         return { rows, rowCount: rows.length };
       }
       if (sql.includes('INSERT INTO player_equipment_slot') && Array.isArray(params) && typeof params[1] === 'string') {
@@ -1542,6 +1549,11 @@ async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): P
       }
       if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
         const persistedIds = Array.isArray(params?.[1]) ? params[1] as unknown[] : [];
+        equipmentPersistCountChecks += 1;
+        if (equipmentPersistCountChecks === 1 && persistedIds.includes(raceConflictInstanceId)) {
+          raceConflictVisible = true;
+          return { rows: [{ row_count: Math.max(0, persistedIds.length - 1) }], rowCount: 1 };
+        }
         return { rows: [{ row_count: persistedIds.length }], rowCount: 1 };
       }
       return { rows: [], rowCount: 0 };
@@ -1578,18 +1590,29 @@ async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): P
       itemInstanceId: conflictedInstanceId,
     },
   };
+  const raceSlot = {
+    slot: 'head' as const,
+    itemInstanceId: raceConflictInstanceId,
+    item: {
+      itemId: 'helm.race_conflicted_instance',
+      count: 1,
+      itemInstanceId: raceConflictInstanceId,
+    },
+  };
 
   await service.savePlayerEquipmentSlots(
     'player:equipment-instance-repair',
-    [legacySlot, conflictedSlot],
+    [legacySlot, conflictedSlot, raceSlot],
     { versionSeed: 1 },
   );
 
   const rows = equipmentInsertPayloads[equipmentInsertPayloads.length - 1] as Array<Record<string, unknown>> | undefined;
   const weaponRow = rows?.find((row) => row.slot_type === 'weapon');
   const bodyRow = rows?.find((row) => row.slot_type === 'body');
+  const headRow = rows?.find((row) => row.slot_type === 'head');
   const weaponInstanceId = typeof weaponRow?.item_instance_id === 'string' ? weaponRow.item_instance_id : '';
   const bodyInstanceId = typeof bodyRow?.item_instance_id === 'string' ? bodyRow.item_instance_id : '';
+  const headInstanceId = typeof headRow?.item_instance_id === 'string' ? headRow.item_instance_id : '';
   if (
     !weaponInstanceId
     || isLegacyItemInstanceId(weaponInstanceId)
@@ -1607,6 +1630,16 @@ async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): P
     || conflictedSlot.item.itemInstanceId !== bodyInstanceId
   ) {
     throw new Error(`out-of-scope equipment itemInstanceId conflict was not repaired: ${JSON.stringify(rows)}`);
+  }
+  if (
+    equipmentPersistCountChecks < 2
+    || !headInstanceId
+    || isLegacyItemInstanceId(headInstanceId)
+    || headInstanceId === raceConflictInstanceId
+    || raceSlot.itemInstanceId !== headInstanceId
+    || raceSlot.item.itemInstanceId !== headInstanceId
+  ) {
+    throw new Error(`racing equipment itemInstanceId conflict was not repaired after write guard mismatch: ${JSON.stringify(rows)}`);
   }
 }
 

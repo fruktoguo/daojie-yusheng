@@ -4460,64 +4460,69 @@ async function replacePlayerEquipmentSlots(
     return;
   }
 
-  await repairEquipmentSlotItemInstanceIdConflicts(client, playerId, rows, equipmentRowSources);
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT slot_type, item_instance_id
-        FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
-      )
-      DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
-      WHERE target.player_id = $1
-        AND EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.slot_type = target.slot_type
-            OR incoming.item_instance_id = target.item_instance_id
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await repairEquipmentSlotItemInstanceIdConflicts(client, playerId, rows, equipmentRowSources);
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT slot_type, item_instance_id
+          FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
         )
-    `,
-    [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
-  );
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT *
-        FROM jsonb_to_recordset($2::jsonb) AS entry(
-          slot_type varchar(40),
-          item_instance_id varchar(180),
-          item_id varchar(160),
-          raw_payload jsonb
+        DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
+        WHERE target.player_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM incoming
+            WHERE incoming.slot_type = target.slot_type
+              OR incoming.item_instance_id = target.item_instance_id
+          )
+      `,
+      [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
+    );
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            slot_type varchar(40),
+            item_instance_id varchar(180),
+            item_id varchar(160),
+            raw_payload jsonb
+          )
         )
-      )
-      INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
-        player_id,
-        slot_type,
-        item_instance_id,
-        item_id,
-        raw_payload,
-        updated_at
-      )
-      SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
-      FROM incoming
-      ON CONFLICT (item_instance_id)
-      DO UPDATE SET
-        player_id = EXCLUDED.player_id,
-        slot_type = EXCLUDED.slot_type,
-        item_id = EXCLUDED.item_id,
-        raw_payload = EXCLUDED.raw_payload,
-        updated_at = now()
-      WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
-    `,
-    [playerId, JSON.stringify(rows)],
-  );
-  const result = await client.query(
-    `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])
+        INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
+          player_id,
+          slot_type,
+          item_instance_id,
+          item_id,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (item_instance_id)
+        DO UPDATE SET
+          player_id = EXCLUDED.player_id,
+          slot_type = EXCLUDED.slot_type,
+          item_id = EXCLUDED.item_id,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+        WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
+      `,
+      [playerId, JSON.stringify(rows)],
+    );
+    const result = await client.query(
+      `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])
 `,
-    [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
-  );
-  const persistedCount = normalizeOptionalInteger(result.rows[0]?.row_count) ?? 0;
-  if (persistedCount !== rows.length) {
-    throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
+      [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
+    );
+    const persistedCount = normalizeOptionalInteger(result.rows[0]?.row_count) ?? 0;
+    if (persistedCount === rows.length) {
+      break;
+    }
+    if (attempt >= 2) {
+      throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
+    }
   }
   if (options.allowEmptyOverwrite !== true) {
     await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment');
