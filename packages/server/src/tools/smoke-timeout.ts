@@ -40,6 +40,7 @@ const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
   ['shadow-gm-database-proof.js', 240_000],
   ['multi-worker-flush-stability-report.js', 120_000],
   ['multi-worker-flush-stability-report-smoke.js', 120_000],
+  ['map-snapshot-retirement-report-smoke.js', 30_000],
 ]);
 /**
  * 解析是否关闭统一烟测超时。
