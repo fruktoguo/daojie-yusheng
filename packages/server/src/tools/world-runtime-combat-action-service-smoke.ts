@@ -1432,6 +1432,64 @@ async function run() {
   assert.equal(shadowDeps.combatActionPlanShadows[0].ok, true);
   assert.equal(shadowDeps.combatDiagnostics.length, 0);
 
+  const aoeEdgeAttacker = {
+    playerId: 'player:aoe-edge',
+    instanceId: 'instance:test',
+    hp: 100,
+    qi: 100,
+    x: 0,
+    y: 0,
+    attrs: { numericStats: {}, ratioDivisors: {} },
+    combat: { cooldownReadyTickBySkillId: {} },
+  };
+  let aoeEdgeCastOptions = null;
+  const aoeEdgeDispatch = new WorldRuntimePlayerSkillDispatchService(
+    {
+      getPlayer: (playerId) => (playerId === aoeEdgeAttacker.playerId ? aoeEdgeAttacker : null),
+      listPlayerSnapshots: () => [],
+    },
+    {
+      castSkillToMonster: (_attacker, _target, _skillId, _currentTick, distance, _applyTargetBuff, options) => {
+        assert.equal(distance, 6);
+        aoeEdgeCastOptions = options;
+        return {
+          skillId: 'skill:aoe-edge',
+          totalDamage: 0,
+          totalRawDamage: 0,
+          damageRolls: [],
+        };
+      },
+    },
+    service,
+  );
+  const aoeEdgeOutcomes = [];
+  await aoeEdgeDispatch.dispatchSkillTargets(aoeEdgeAttacker, 'skill:aoe-edge', {
+    id: 'skill:aoe-edge',
+    name: '边缘范围术',
+    range: 5,
+    targetMode: 'tile',
+    targeting: { shape: 'box', width: 3, height: 3, maxTargets: 9 },
+    effects: [{ type: 'damage', formula: 1 }],
+  }, [{ kind: 'monster', monsterId: 'monster:aoe-edge', x: 6, y: 0 }], {
+    combatDiagnostics: [],
+    combatOutcomes: aoeEdgeOutcomes,
+    logger: deps.logger,
+    getInstanceRuntimeOrThrow: () => ({
+      meta: { supportsPvp: false, canDamageTile: false },
+      getMonster: (monsterId) => ({ runtimeId: monsterId, monsterId, x: 6, y: 0, hp: 100, maxHp: 100, level: 1, attrs: {}, numericStats: {}, ratioDivisors: {}, buffs: [], alive: true }),
+      canSeeTileFrom: () => true,
+    }),
+    resolveCurrentTickForPlayerId: () => 8,
+    pushActionLabelEffect: () => {},
+  }, {
+    targetX: 5,
+    targetY: 0,
+    showActionLabel: false,
+  });
+  assert.equal(aoeEdgeCastOptions?.skipRangeValidation, true);
+  assert.equal(aoeEdgeCastOptions?.range, 5);
+  assert.equal(aoeEdgeOutcomes.length, 1);
+
   const validationDefinition = service.createSkillDefinition(
     skillAction,
     {

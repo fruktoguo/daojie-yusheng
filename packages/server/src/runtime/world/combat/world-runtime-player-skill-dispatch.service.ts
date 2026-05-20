@@ -1232,6 +1232,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 targetCount: targets.length,
                 skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true || castIndex > 0,
                 skipSelfEffects: castIndex > 0,
+                skipRangeValidation: true,
                 range: effectiveRange,
             };
             if (target.kind === 'self') {

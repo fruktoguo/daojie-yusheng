@@ -189,7 +189,7 @@ export class PlayerCombatService {
 
         // 射程校验
         const range = resolveEffectiveSkillCastRange(resolved.skill, options);
-        if (range > 0 && distance > range) {
+        if (options?.skipRangeValidation !== true && range > 0 && distance > range) {
             throw new BadRequestException(`技能 ${resolved.skill.id} 超出范围`);
         }
         // 冷却校验
