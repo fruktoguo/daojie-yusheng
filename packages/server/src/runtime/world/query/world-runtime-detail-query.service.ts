@@ -146,6 +146,7 @@ export class WorldRuntimeDetailQueryService {
                 id,
                 player: {
                     id: target.playerId,
+                    name: target.name,
                     x: target.x,
                     y: target.y,
                     hp: target.hp,

@@ -298,6 +298,11 @@ export interface PlayerDetailView {
 
   id: string;  
   /**
+ * name：玩家角色名称。
+ */
+
+  name: string;  
+  /**
  * x：x相关字段。
  */
 

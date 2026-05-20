@@ -256,6 +256,10 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (detail.player) {
+      const playerName = detail.player.name?.trim();
+      if (playerName) {
+        return playerName;
+      }
       const playerTitle = fallbackTitle?.trim();
       return playerTitle && playerTitle !== detail.player.id
         ? playerTitle
@@ -331,15 +335,17 @@ export class EntityDetailModal {
     if (!player) {
       return `<div class="empty-hint">${t('entity-detail.player.empty', undefined)}</div>`;
     }
+    const playerName = player.name?.trim();
     const pendingTitle = this.pending?.kind === 'player' && this.pending.id === player.id ? this.pending.title : '';
     const defaultPlayerTitle = t('entity-detail.player.subtitle', undefined);
-    const hasPlayerDisplayTitle = pendingTitle && pendingTitle !== player.id && pendingTitle !== defaultPlayerTitle;
+    const displayTitle = playerName || (pendingTitle && pendingTitle !== player.id && pendingTitle !== defaultPlayerTitle ? pendingTitle : '');
+    const hasPlayerDisplayTitle = !!displayTitle;
     const titleRow = hasPlayerDisplayTitle
-      ? `<div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.field.display-name', undefined)}</strong><span>${escapeHtml(pendingTitle)}</span></div>`
+      ? `<div class="ui-detail-field ui-detail-field--section"><strong>${t('entity-detail.player.field.display-name', undefined)}</strong><span>${escapeHtml(displayTitle)}</span></div>`
       : '';
     return `
       <div class="ui-title-block">
-        <div class="ui-title-block-title">${escapeHtml(hasPlayerDisplayTitle ? pendingTitle : defaultPlayerTitle)}</div>
+        <div class="ui-title-block-title">${escapeHtml(hasPlayerDisplayTitle ? displayTitle : defaultPlayerTitle)}</div>
         <div class="ui-title-block-subtitle">${t('entity-detail.player.subtitle', undefined)}</div>
       </div>
       <div class="ui-detail-grid ui-detail-grid--section">
