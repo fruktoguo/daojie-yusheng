@@ -2820,9 +2820,7 @@ export class CraftWorkbenchModal {
                   ? `本次行动最高：+${formatDisplayInteger(displayRecord?.highestLevel ?? 0)}`
                   : `历史最高：+${formatDisplayInteger(displayRecord?.highestLevel ?? 0)}`}</div>
               </div>`}
-          <button class="small-btn ghost" type="button" ${currentSessionRecord
-            ? 'data-enhancement-open-current-history="1">本次记录'
-            : 'data-enhancement-open-history="1">历史记录'}</button>
+          <button class="small-btn ghost" type="button" data-enhancement-open-history="1">历史记录</button>
         </div>
         ${inlineHistoryExpanded ? `
           <div class="enhancement-history-table">
