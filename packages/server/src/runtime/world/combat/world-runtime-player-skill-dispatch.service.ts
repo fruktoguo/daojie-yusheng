@@ -17,6 +17,9 @@ import * as world_runtime_observation_helpers_1 from '../query/world-runtime.obs
 
 type AnyRecord = Record<string, any>;
 
+const DEBUG_ZHUMING_PLAYER_NAME = '尐妖';
+const DEBUG_ZHUMING_SKILL_ID = 'skill.zhuming_jintian';
+
 const { findPlayerSkill, getSkillEffectColor, resolveRuntimeSkillRange } = world_runtime_normalization_helpers_1;
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const { createTileCombatAttributes, createTileCombatNumericStats, createTileCombatRatioDivisors } = world_runtime_observation_helpers_1;
@@ -105,6 +108,128 @@ function normalizeAppliedDamage(value, fallback = 0) {
         return Math.max(0, Math.round(Number(value)));
     }
     return Math.max(0, Math.round(Number(fallback) || 0));
+}
+
+function shouldLogZhumingDebug(attacker, skill) {
+    return attacker?.name === DEBUG_ZHUMING_PLAYER_NAME && skill?.id === DEBUG_ZHUMING_SKILL_ID;
+}
+
+function shouldLogZhumingPendingDebug(attacker, pendingCast) {
+    return attacker?.name === DEBUG_ZHUMING_PLAYER_NAME && pendingCast?.skillId === DEBUG_ZHUMING_SKILL_ID;
+}
+
+function summarizeDebugCell(cell) {
+    if (!cell || typeof cell !== 'object') {
+        return null;
+    }
+    return { x: cell.x, y: cell.y };
+}
+
+function summarizeDebugCells(cells, limit = 12) {
+    return Array.isArray(cells)
+        ? cells.slice(0, limit).map((cell) => summarizeDebugCell(cell)).filter(Boolean)
+        : [];
+}
+
+function summarizeDebugTarget(target) {
+    if (!target || typeof target !== 'object') {
+        return target ?? null;
+    }
+    return {
+        kind: target.kind,
+        id: target.id ?? target.monsterId ?? target.playerId ?? target.formationId ?? null,
+        x: target.x,
+        y: target.y,
+        source: target.source,
+    };
+}
+
+function summarizeDebugTargets(targets, limit = 12) {
+    return Array.isArray(targets)
+        ? targets.slice(0, limit).map((target) => summarizeDebugTarget(target))
+        : [];
+}
+
+function stringifyDebugPayload(payload) {
+    const seen = new WeakSet();
+    return JSON.stringify(payload, (_key, value) => {
+        if (typeof value === 'function') {
+            return '[function]';
+        }
+        if (value && typeof value === 'object') {
+            if (seen.has(value)) {
+                return '[circular]';
+            }
+            seen.add(value);
+        }
+        return value;
+    });
+}
+
+function logZhumingDebug(deps, attacker, skill, stage, details = {}) {
+    if (!shouldLogZhumingDebug(attacker, skill)) {
+        return;
+    }
+    const pendingCast = attacker?.combat?.pendingSkillCast;
+    const payload = {
+        tag: 'zhuming_jintian_debug',
+        stage,
+        playerId: attacker?.playerId,
+        playerName: attacker?.name,
+        instanceId: attacker?.instanceId,
+        playerPos: { x: attacker?.x, y: attacker?.y },
+        skillId: skill?.id,
+        autoBattle: attacker?.combat?.autoBattle === true,
+        pending: pendingCast ? {
+            remainingTicks: pendingCast.remainingTicks,
+            anchor: summarizeDebugCell(pendingCast.anchor),
+            targetRef: pendingCast.targetRef ?? null,
+            warningCellCount: Array.isArray(pendingCast.warningCells) ? pendingCast.warningCells.length : 0,
+        } : null,
+        details,
+    };
+    const line = `[zhuming_jintian_debug] ${stringifyDebugPayload(payload)}`;
+    if (typeof deps?.logger?.log === 'function') {
+        deps.logger.log(line);
+        return;
+    }
+    console.log(line);
+}
+
+function logZhumingPendingDebug(deps, attacker, pendingCast, stage, details = {}) {
+    if (!shouldLogZhumingPendingDebug(attacker, pendingCast)) {
+        return;
+    }
+    const payload = {
+        tag: 'zhuming_jintian_debug',
+        stage,
+        playerId: attacker?.playerId,
+        playerName: attacker?.name,
+        instanceId: attacker?.instanceId,
+        playerPos: { x: attacker?.x, y: attacker?.y },
+        skillId: pendingCast?.skillId,
+        autoBattle: attacker?.combat?.autoBattle === true,
+        pending: {
+            remainingTicks: pendingCast?.remainingTicks,
+            startedTick: pendingCast?.startedTick,
+            resolveTick: pendingCast?.resolveTick,
+            skipProgressThisTick: pendingCast?.skipProgressThisTick === true,
+            anchor: summarizeDebugCell(pendingCast?.anchor),
+            targetX: pendingCast?.targetX,
+            targetY: pendingCast?.targetY,
+            targetRef: pendingCast?.targetRef ?? null,
+            warningOrigin: summarizeDebugCell(pendingCast?.warningOrigin),
+            warningCellCount: Array.isArray(pendingCast?.warningCells) ? pendingCast.warningCells.length : 0,
+            warningCells: summarizeDebugCells(pendingCast?.warningCells),
+        },
+        details,
+    };
+    const line = `[zhuming_jintian_debug] ${stringifyDebugPayload(payload)}`;
+    if (typeof deps?.logger?.log === 'function') {
+        deps.logger.log(line);
+        return;
+    }
+    console.log(line);
 }
 
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
@@ -502,6 +627,19 @@ export class WorldRuntimePlayerSkillDispatchService {
             throw new NotFoundException(`技能不存在：${skillId}`);
         }
         deps.ensureAttackAllowed(attacker, skill);
+        logZhumingDebug(deps, attacker, skill, 'dispatchCastSkill:entry', {
+            input: {
+                targetPlayerId,
+                targetMonsterId,
+                targetRef,
+            },
+            currentTick,
+            requiresTarget: skill.requiresTarget,
+            range: skill.range,
+            targeting: skill.targeting,
+            windupTicks: getPlayerSkillWindupTicks(skill),
+            isSelfAnchoredNoTargetSkill: isSelfAnchoredNoTargetSkill(skill),
+        });
         if (isTemporaryTileSkill(skill)) {
             if (!targetRef) {
                 throw new BadRequestException('必须选择地块目标');
@@ -514,6 +652,12 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         if (isSelfAnchoredNoTargetSkill(skill)) {
             const anchor = { x: attacker.x, y: attacker.y };
+            logZhumingDebug(deps, attacker, skill, 'dispatchCastSkill:selfAnchoredNoTarget', {
+                anchor,
+                ignoredTargetPlayerId: targetPlayerId ?? null,
+                ignoredTargetMonsterId: targetMonsterId ?? null,
+                ignoredTargetRef: targetRef ?? null,
+            });
             if (getPlayerSkillWindupTicks(skill) > 0) {
                 return this.beginPlayerSkillCast(attacker, skill, anchor, null, deps);
             }
@@ -713,12 +857,28 @@ export class WorldRuntimePlayerSkillDispatchService {
     }
     beginPlayerSkillCast(attacker, skill, anchor, targetRef, deps) {
         const windupTicks = getPlayerSkillWindupTicks(skill);
+        logZhumingDebug(deps, attacker, skill, 'beginPlayerSkillCast:entry', {
+            anchor,
+            targetRef,
+            windupTicks,
+            geometry: buildEffectivePlayerSkillGeometry(attacker, skill),
+        });
         if (windupTicks <= 0) {
             const primaryTarget = targetRef ? this.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps) : null;
             return this.dispatchCastSkillAtAnchor(attacker, skill.id, skill, anchor, primaryTarget, deps);
         }
         const warningCells = buildPlayerSkillAffectedCells(attacker, skill, anchor);
+        logZhumingDebug(deps, attacker, skill, 'beginPlayerSkillCast:warningCells', {
+            anchor,
+            targetRef,
+            warningCellCount: warningCells.length,
+            warningCells: summarizeDebugCells(warningCells),
+        });
         if (warningCells.length === 0) {
+            logZhumingDebug(deps, attacker, skill, 'beginPlayerSkillCast:rejectNoWarningCells', {
+                anchor,
+                targetRef,
+            });
             throw new BadRequestException('目标超出技能范围');
         }
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
@@ -755,6 +915,13 @@ export class WorldRuntimePlayerSkillDispatchService {
             configRevision: skill.version ?? skill.revision,
             skipProgressThisTick: attacker.combat?.autoBattle !== true,
         });
+        logZhumingPendingDebug(deps, attacker, attacker.combat.pendingSkillCast, 'beginPlayerSkillCast:pendingCreated', {
+            currentTick,
+            qiCost,
+            cooldownReadyTick,
+            geometry,
+            durationMs: (windupTicks + (attacker.combat?.autoBattle !== true ? 1 : 0)) * 1000,
+        });
         const skipTick = attacker.combat?.autoBattle !== true;
         const durationMs = (windupTicks + (skipTick ? 1 : 0)) * 1000;
         emitCombatPresentation({
@@ -789,7 +956,14 @@ export class WorldRuntimePlayerSkillDispatchService {
         const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? deps.resolveCurrentTickForPlayerId(attacker.playerId)
             : null;
+        logZhumingPendingDebug(deps, attacker, pendingCast, 'resolvePendingPlayerSkillCast:entry', {
+            currentTick,
+            attackerHp: attacker.hp,
+        });
         if (attacker.hp <= 0) {
+            logZhumingPendingDebug(deps, attacker, pendingCast, 'resolvePendingPlayerSkillCast:cancelActorDead', {
+                currentTick,
+            });
             const cancelled = cancelPendingCombatCast(pendingCast, {
                 reason: CombatPendingCastCancelReason.ActorDead,
                 cancelledTick: currentTick,
@@ -808,6 +982,10 @@ export class WorldRuntimePlayerSkillDispatchService {
             cancelledTick: currentTick,
         });
         if (expiredCancellation) {
+            logZhumingPendingDebug(deps, attacker, pendingCast, 'resolvePendingPlayerSkillCast:cancelExpired', {
+                currentTick,
+                resolveTick: pendingCast.resolveTick,
+            });
             attacker.combat.pendingSkillCast = undefined;
             this.recordPlayerSkillReject(deps, attacker, null, expiredCancellation, CombatRejectReason.PendingCastExpired, {
                 cancelReason: expiredCancellation.cancelReason,
@@ -819,15 +997,24 @@ export class WorldRuntimePlayerSkillDispatchService {
             return true;
         }
         if (pendingCast.skipProgressThisTick) {
+            logZhumingPendingDebug(deps, attacker, pendingCast, 'resolvePendingPlayerSkillCast:skipProgressThisTick', {
+                currentTick,
+            });
             pendingCast.skipProgressThisTick = false;
             return true;
         }
         pendingCast.remainingTicks = Math.max(0, Math.trunc(Number(pendingCast.remainingTicks) || 0) - 1);
+        logZhumingPendingDebug(deps, attacker, pendingCast, 'resolvePendingPlayerSkillCast:afterDecrement', {
+            currentTick,
+        });
         if (pendingCast.remainingTicks > 0) {
             return true;
         }
         const skill = findPlayerSkill(attacker, pendingCast.skillId);
         if (!skill) {
+            logZhumingPendingDebug(deps, attacker, pendingCast, 'resolvePendingPlayerSkillCast:missingSkill', {
+                currentTick,
+            });
             attacker.combat.pendingSkillCast = undefined;
             this.recordPlayerSkillReject(deps, attacker, null, pendingCast, CombatRejectReason.MissingSkill, {
                 targetX: pendingCast.targetX,
@@ -842,6 +1029,11 @@ export class WorldRuntimePlayerSkillDispatchService {
             cancelledTick: currentTick,
         });
         if (revisionCancellation) {
+            logZhumingDebug(deps, attacker, skill, 'resolvePendingPlayerSkillCast:cancelConfigRevisionMismatch', {
+                currentTick,
+                expectedConfigRevision: skill.version ?? skill.revision,
+                pendingConfigRevision: pendingCast.configRevision,
+            });
             attacker.combat.pendingSkillCast = undefined;
             this.recordPlayerSkillReject(deps, attacker, skill, revisionCancellation, CombatRejectReason.PendingCastConfigRevisionMismatch, {
                 cancelReason: revisionCancellation.cancelReason,
@@ -859,6 +1051,12 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (skillQiCost > 0) {
             const effectiveCost = Math.round(calcQiCostWithOutputLimit(skillQiCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
             if (Number.isFinite(effectiveCost) && attacker.qi < effectiveCost) {
+                logZhumingDebug(deps, attacker, skill, 'resolvePendingPlayerSkillCast:rejectInsufficientResource', {
+                    currentTick,
+                    skillQiCost,
+                    effectiveCost,
+                    currentQi: attacker.qi,
+                });
                 this.recordPlayerSkillReject(deps, attacker, skill, pendingCast, CombatRejectReason.InsufficientResource, {
                     phase: 'pending_cast_resolve_resource_check',
                     requiredQi: effectiveCost,
@@ -879,7 +1077,20 @@ export class WorldRuntimePlayerSkillDispatchService {
         const primaryTarget = pendingCast.targetRef
             ? this.resolveLegacySkillTargetRef(attacker, skill, pendingCast.targetRef, deps)
             : null;
+        logZhumingDebug(deps, attacker, skill, 'resolvePendingPlayerSkillCast:beforeCollectTargets', {
+            currentTick,
+            pendingAnchor: anchor,
+            pendingTargetRef: pendingCast.targetRef ?? null,
+            primaryTarget: summarizeDebugTarget(primaryTarget),
+            pendingWarningCellCount: Array.isArray(pendingCast.warningCells) ? pendingCast.warningCells.length : 0,
+            pendingWarningCells: summarizeDebugCells(pendingCast.warningCells),
+        });
         const targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
+        logZhumingDebug(deps, attacker, skill, 'resolvePendingPlayerSkillCast:afterCollectTargets', {
+            currentTick,
+            targetCount: targets.length,
+            targets: summarizeDebugTargets(targets),
+        });
         emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
@@ -890,6 +1101,11 @@ export class WorldRuntimePlayerSkillDispatchService {
             },
         });
         if (targets.length === 0) {
+            logZhumingDebug(deps, attacker, skill, 'resolvePendingPlayerSkillCast:rejectNoTargets', {
+                currentTick,
+                anchor,
+                pendingTargetRef: pendingCast.targetRef ?? null,
+            });
             this.recordPlayerSkillReject(deps, attacker, skill, pendingCast, CombatRejectReason.NoTargets, {
                 targetX: anchor.x,
                 targetY: anchor.y,
@@ -1124,6 +1340,14 @@ export class WorldRuntimePlayerSkillDispatchService {
             ? deps.resolveCurrentTickForPlayerId(attacker.playerId)
             : 0;
         const targetInput = this.toPlayerSkillPlanTargetInput(primaryTarget, anchor);
+        logZhumingDebug(deps, attacker, skill, 'collectSkillTargetsFromAnchor:beforePlan', {
+            currentTick,
+            anchor,
+            primaryTarget: summarizeDebugTarget(primaryTarget),
+            targetInput,
+            geometry: buildEffectivePlayerSkillGeometry(attacker, skill),
+            maxTargets: resolveSkillTargetLimit(skill),
+        });
         const actionPlan = this.resolvePlayerSkillActionPlanForDispatch(attacker, skill, {
             ...targetInput,
             targetX: targetInput.resolvedTargets ? targetInput.targetX : (targetInput.targetX ?? anchor.x),
@@ -1133,12 +1357,36 @@ export class WorldRuntimePlayerSkillDispatchService {
             maxTargets: resolveSkillTargetLimit(skill),
             skipResourceAndCooldown: true,
         }, instance, deps);
+        logZhumingDebug(deps, attacker, skill, 'collectSkillTargetsFromAnchor:afterPlan', {
+            currentTick,
+            ok: actionPlan?.ok === true,
+            reason: actionPlan?.reason ?? null,
+            targetCollection: actionPlan?.targetCollection ? {
+                targetCount: actionPlan.targetCollection.targetCount ?? actionPlan.targetCollection.targets?.length ?? 0,
+                rejectedCount: actionPlan.targetCollection.rejected?.length ?? 0,
+                targets: summarizeDebugTargets(actionPlan.targetCollection.targets),
+                rejected: Array.isArray(actionPlan.targetCollection.rejected)
+                    ? actionPlan.targetCollection.rejected.slice(0, 12).map((entry) => ({
+                        reason: entry?.reason,
+                        target: summarizeDebugTarget(entry?.target),
+                        details: entry?.details,
+                    }))
+                    : [],
+            } : null,
+            selectedTargets: summarizeDebugTargets(actionPlan?.selectedTargets),
+            details: actionPlan?.details ?? null,
+        });
         if (!actionPlan?.ok) {
             this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
             return [];
         }
         this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
-        return this.toLegacyPlayerSkillTargets(actionPlan.selectedTargets ?? [], attacker);
+        const legacyTargets = this.toLegacyPlayerSkillTargets(actionPlan.selectedTargets ?? [], attacker);
+        logZhumingDebug(deps, attacker, skill, 'collectSkillTargetsFromAnchor:legacyTargets', {
+            currentTick,
+            legacyTargets: summarizeDebugTargets(legacyTargets),
+        });
+        return legacyTargets;
     }
     toPlayerSkillPlanTargetInput(primaryTarget, anchor) {
         if (!primaryTarget || typeof primaryTarget !== 'object') {
@@ -1174,6 +1422,22 @@ export class WorldRuntimePlayerSkillDispatchService {
         const damageElement = resolveSkillDamageElement(skill);
         const effectiveGeometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const effectiveRange = effectiveGeometry.range;
+        logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:entry', {
+            castId,
+            skillId,
+            currentTick,
+            incomingTargetCount: targets.length,
+            incomingTargets: summarizeDebugTargets(targets),
+            castOptions: {
+                targetRef: castOptions?.targetRef,
+                targetX: castOptions?.targetX,
+                targetY: castOptions?.targetY,
+                combatActionPhase: castOptions?.combatActionPhase,
+                skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true,
+                showActionLabel: castOptions?.showActionLabel,
+            },
+            effectiveGeometry,
+        });
         const actionPlan = this.resolvePlayerSkillActionPlanForDispatch(attacker, skill, {
             targetRef: castOptions?.targetRef,
             targetX: castOptions?.targetX,
@@ -1186,13 +1450,40 @@ export class WorldRuntimePlayerSkillDispatchService {
             effectiveGeometry,
             maxTargets: resolveSkillTargetLimit(skill),
         }, instance, deps);
+        logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:afterPlan', {
+            castId,
+            ok: actionPlan?.ok === true,
+            reason: actionPlan?.reason ?? null,
+            selectedTargets: summarizeDebugTargets(actionPlan?.selectedTargets),
+            targetCollection: actionPlan?.targetCollection ? {
+                targetCount: actionPlan.targetCollection.targetCount ?? actionPlan.targetCollection.targets?.length ?? 0,
+                rejectedCount: actionPlan.targetCollection.rejected?.length ?? 0,
+                targets: summarizeDebugTargets(actionPlan.targetCollection.targets),
+                rejected: Array.isArray(actionPlan.targetCollection.rejected)
+                    ? actionPlan.targetCollection.rejected.slice(0, 12).map((entry) => ({
+                        reason: entry?.reason,
+                        target: summarizeDebugTarget(entry?.target),
+                        details: entry?.details,
+                    }))
+                    : [],
+            } : null,
+            details: actionPlan?.details ?? null,
+        });
         if (!actionPlan?.ok) {
             this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
             throw this.createPlayerSkillActionRejectException(actionPlan, skill);
         }
         this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
         const plannedTargets = this.toLegacyPlayerSkillTargets(actionPlan.selectedTargets ?? [], attacker);
+        logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:plannedTargets', {
+            castId,
+            plannedTargetCount: plannedTargets.length,
+            plannedTargets: summarizeDebugTargets(plannedTargets),
+        });
         if (plannedTargets.length === 0) {
+            logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:rejectNoPlannedTargets', {
+                castId,
+            });
             throw new BadRequestException('没有可命中的目标');
         }
         targets = plannedTargets;
@@ -1221,8 +1512,30 @@ export class WorldRuntimePlayerSkillDispatchService {
                 skipSelfEffects: castIndex > 0,
                 range: effectiveRange,
             };
+            logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:targetLoop', {
+                castId,
+                castIndex,
+                target: summarizeDebugTarget(target),
+                options,
+            });
             if (target.kind === 'self') {
+                logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:applySelf', {
+                    castId,
+                    target: summarizeDebugTarget(target),
+                    options,
+                });
                 const result = this.playerCombatService.castSelfSkill(attacker, skillId, currentTick, options);
+                logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:selfResult', {
+                    castId,
+                    result: {
+                        hitCount: result?.hitCount,
+                        targetCount: result?.targetCount,
+                        totalDamage: result?.totalDamage,
+                        totalRawDamage: result?.totalRawDamage,
+                        totalHeal: result?.totalHeal,
+                        selfBuffCount: Array.isArray(result?.selfBuffs) ? result.selfBuffs.length : 0,
+                    },
+                });
                 this.recordPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                     kind: CombatTargetKind.Self,
                     id: attacker.playerId,
@@ -1270,7 +1583,28 @@ export class WorldRuntimePlayerSkillDispatchService {
             }
             if (target.kind === 'monster') {
                 const monster = instance.getMonster(target.monsterId);
+                logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:applyMonster', {
+                    castId,
+                    target: summarizeDebugTarget(target),
+                    monster: monster ? {
+                        runtimeId: monster.runtimeId,
+                        monsterId: monster.monsterId,
+                        name: monster.name,
+                        x: monster.x,
+                        y: monster.y,
+                        hp: monster.hp,
+                        maxHp: monster.maxHp,
+                        alive: monster.alive,
+                    } : null,
+                    options,
+                });
                 if (!monster?.alive) {
+                    logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:skipMonsterDeadOrMissing', {
+                        castId,
+                        target: summarizeDebugTarget(target),
+                        hasMonster: Boolean(monster),
+                        alive: monster?.alive,
+                    });
                     this.recordPlayerSkillTargetSkip(deps, attacker, skill, target, monster
                         ? CombatRejectReason.MonsterDead
                         : CombatRejectReason.MissingMonster, {
@@ -1300,6 +1634,22 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }, skillId, currentTick, distance, (buff) => {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, options);
+                logZhumingDebug(deps, attacker, skill, 'dispatchSkillTargets:monsterResult', {
+                    castId,
+                    targetMonsterId: monster.runtimeId,
+                    distance,
+                    result: {
+                        hitCount: result?.hitCount,
+                        targetCount: result?.targetCount,
+                        totalDamage: result?.totalDamage,
+                        totalRawDamage: result?.totalRawDamage,
+                        totalHeal: result?.totalHeal,
+                        damageKind: result?.damageKind,
+                        damageElement: result?.damageElement,
+                        targetBuffCount: Array.isArray(result?.targetBuffs) ? result.targetBuffs.length : 0,
+                        selfBuffCount: Array.isArray(result?.selfBuffs) ? result.selfBuffs.length : 0,
+                    },
+                });
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
