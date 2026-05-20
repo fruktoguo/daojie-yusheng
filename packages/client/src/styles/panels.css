@@ -5604,6 +5604,9 @@
     .auction-house-board--mine {
       grid-template-columns: 220px minmax(380px, 1fr) minmax(360px, 0.9fr);
     }
+    .auction-house-board--history {
+      grid-template-columns: minmax(0, 1fr);
+    }
     .auction-filter-rail,
     .auction-list-panel,
     .auction-detail-panel,
@@ -5664,6 +5667,9 @@
       display: grid;
       grid-template-rows: auto auto minmax(0, 1fr);
       gap: 8px;
+    }
+    .auction-house-board--history .auction-list-panel {
+      grid-template-rows: auto minmax(0, 1fr);
     }
     .auction-list-toolbar {
       padding-bottom: 0;

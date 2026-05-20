@@ -8,7 +8,7 @@ import { createHash, randomUUID } from 'crypto';
 import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
+import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
@@ -368,26 +368,34 @@ export class MarketRuntimeService {
             book,
         };
     }
-    /** 构造玩家自己的成交历史分页。 */
-    async buildTradeHistoryPage(playerId, page, source = 'market') {
+    /** 构造成交历史分页；拍卖行支持全服最近记录和我的记录两种范围。 */
+    async buildTradeHistoryPage(playerId, page, source = 'market', scope = 'mine') {
 
         const normalizedSource = this.normalizeTradeSource(source);
+        const normalizedScope = this.normalizeTradeHistoryScope(normalizedSource, scope);
 
-        const visibleRecords = await this.loadVisibleTradeHistory(playerId, normalizedSource);
+        const visibleRecords = normalizedScope === 'all'
+            ? await this.loadGlobalTradeHistory(normalizedSource, AUCTION_GLOBAL_TRADE_HISTORY_LIMIT)
+            : await this.loadVisibleTradeHistory(playerId, normalizedSource, normalizedSource === 'auction' ? AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT : MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
 
         const totalVisible = visibleRecords.length;
 
-        const totalPages = Math.max(1, Math.ceil(totalVisible / MARKET_TRADE_HISTORY_PAGE_SIZE));
+        const pageSize = normalizedSource === 'auction' ? AUCTION_TRADE_HISTORY_PAGE_SIZE : MARKET_TRADE_HISTORY_PAGE_SIZE;
 
-        const normalizedPage = Math.max(1, Math.min(totalPages, Math.trunc(Number.isFinite(page) ? page : 1)));
+        const totalPages = Math.max(1, Math.ceil(totalVisible / pageSize));
 
-        const start = (normalizedPage - 1) * MARKET_TRADE_HISTORY_PAGE_SIZE;
-        const pageRecords = visibleRecords.slice(start, start + MARKET_TRADE_HISTORY_PAGE_SIZE);
+        const normalizedPage = normalizedScope === 'all'
+            ? 1
+            : Math.max(1, Math.min(totalPages, Math.trunc(Number.isFinite(page) ? page : 1)));
+
+        const start = (normalizedPage - 1) * pageSize;
+        const pageRecords = visibleRecords.slice(start, start + pageSize);
         const identitiesByPlayerId = await this.loadTradeHistoryIdentityMap(pageRecords);
         return {
             source: normalizedSource,
+            scope: normalizedScope,
             page: normalizedPage,
-            pageSize: MARKET_TRADE_HISTORY_PAGE_SIZE,
+            pageSize,
             totalVisible,
             records: pageRecords
                 .map((entry) => this.toTradeHistoryView(playerId, entry, identitiesByPlayerId)),
@@ -2894,6 +2902,14 @@ export class MarketRuntimeService {
             : this.normalizePlayerLabelText(record.buyerName, counterpartyId);
         const identityLabel = this.resolveIdentityPlayerLabel(identitiesByPlayerId.get(counterpartyId));
         const onlineLabel = this.resolveOnlineMarketPlayerLabel(counterpartyId);
+        const buyerLabel = this.normalizePlayerLabelText(record.buyerName, record.buyerId)
+            || this.resolveIdentityPlayerLabel(identitiesByPlayerId.get(record.buyerId))
+            || this.resolveOnlineMarketPlayerLabel(record.buyerId)
+            || '未知玩家';
+        const sellerLabel = this.normalizePlayerLabelText(record.sellerName, record.sellerId)
+            || this.resolveIdentityPlayerLabel(identitiesByPlayerId.get(record.sellerId))
+            || this.resolveOnlineMarketPlayerLabel(record.sellerId)
+            || '未知玩家';
         return {
             id: record.id,
 
@@ -2902,6 +2918,8 @@ export class MarketRuntimeService {
             itemId: record.itemId,
             itemName: this.contentTemplateRepository.getItemName(record.itemId) ?? record.itemId,
             counterpartyLabel: persistedLabel || identityLabel || onlineLabel || '未知玩家',
+            buyerLabel,
+            sellerLabel,
             quantity: record.quantity,
             unitPrice: record.unitPrice,
             createdAt: record.createdAt,
@@ -2946,15 +2964,28 @@ export class MarketRuntimeService {
     normalizeTradeSource(source) {
         return source === 'auction' ? 'auction' : 'market';
     }
+    normalizeTradeHistoryScope(source, scope) {
+        return source === 'auction' && scope === 'all' ? 'all' : 'mine';
+    }
+    /** 读取全服最近成交历史；有数据库真源时按需查询，避免全表历史常驻内存。 */
+    async loadGlobalTradeHistory(source, limit) {
+        if (typeof this.marketPersistenceService.loadTradeHistoryBySource === 'function'
+            && this.marketPersistenceService.isEnabled?.()) {
+            return this.marketPersistenceService.loadTradeHistoryBySource(source, limit);
+        }
+        return this.tradeHistory
+            .filter((entry) => this.normalizeTradeSource(entry.source) === source)
+            .slice(0, limit);
+    }
     /** 读取玩家可见成交历史；有数据库真源时按需查询，避免全表历史常驻内存。 */
-    async loadVisibleTradeHistory(playerId, source) {
+    async loadVisibleTradeHistory(playerId, source, limit = MARKET_TRADE_HISTORY_VISIBLE_LIMIT) {
         if (typeof this.marketPersistenceService.loadTradeHistoryForPlayer === 'function'
             && this.marketPersistenceService.isEnabled?.()) {
-            return this.marketPersistenceService.loadTradeHistoryForPlayer(playerId, source, MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
+            return this.marketPersistenceService.loadTradeHistoryForPlayer(playerId, source, limit);
         }
         return this.tradeHistory
             .filter((entry) => this.normalizeTradeSource(entry.source) === source && (entry.buyerId === playerId || entry.sellerId === playerId))
-            .slice(0, MARKET_TRADE_HISTORY_VISIBLE_LIMIT);
+            .slice(0, limit);
     }
     /**
  * createEmptyResult：构建并返回目标对象。

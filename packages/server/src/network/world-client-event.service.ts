@@ -454,6 +454,7 @@ export class WorldClientEventService {
                 return {
                     page: Number.isFinite(request.page) ? Math.max(1, Math.trunc(request.page)) : 1,
                     source: request.source === 'auction' ? 'auction' : 'market',
+                    scope: request.source === 'auction' && request.scope === 'all' ? 'all' : 'mine',
                 };
             }
             if (Number.isFinite(request)) {
@@ -529,7 +530,21 @@ export class WorldClientEventService {
             if (!request) {
                 continue;
             }
-            this.emitMarketTradeHistory(socket, await this.marketRuntimeService.buildTradeHistoryPage(tradeHistoryPlayerId, request.page, request.source));
+            this.emitMarketTradeHistory(socket, await this.marketRuntimeService.buildTradeHistoryPage(tradeHistoryPlayerId, request.page, request.source, request.scope));
+        }
+        for (const subscriberPlayerId of subscriberPlayerIds) {
+            if (tradeHistoryPlayerIds.includes(subscriberPlayerId)) {
+                continue;
+            }
+            const socket = this.worldSessionService.getSocketByPlayerId(subscriberPlayerId);
+            if (!socket) {
+                continue;
+            }
+            const request = this.resolveMarketTradeHistoryRequest(subscriberPlayerId, options?.marketTradeHistoryRequests);
+            if (!request || request.source !== 'auction' || request.scope !== 'all') {
+                continue;
+            }
+            this.emitMarketTradeHistory(socket, await this.marketRuntimeService.buildTradeHistoryPage(subscriberPlayerId, request.page, request.source, request.scope));
         }
     }
     /**

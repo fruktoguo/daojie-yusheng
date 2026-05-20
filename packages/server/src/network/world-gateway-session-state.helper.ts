@@ -120,8 +120,9 @@ class WorldGatewaySessionStateHelper {
 
     setMarketTradeHistoryRequest(playerId, request) {
         const source = request?.source === 'auction' ? 'auction' : 'market';
+        const scope = source === 'auction' && request?.scope === 'all' ? 'all' : 'mine';
         const page = Number.isFinite(request?.page) ? Math.max(1, Math.trunc(request.page)) : 1;
-        this.marketTradeHistoryRequestsByPlayerId.set(playerId, { page, source });
+        this.marketTradeHistoryRequestsByPlayerId.set(playerId, { page, source, scope });
     }
     /**
  * getMarketSubscribers：读取坊市Subscriber。

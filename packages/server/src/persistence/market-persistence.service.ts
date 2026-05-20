@@ -144,6 +144,26 @@ export class MarketPersistenceService {
             .filter((entry) => Boolean(entry))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
     }
+    /** 按来源读取全服最近成交历史，供拍卖行全服成交榜这类低频面板使用。 */
+    async loadTradeHistoryBySource(source, limit) {
+        const normalizedSource = source === 'auction' ? 'auction' : 'market';
+        const normalizedLimit = Number.isFinite(Number(limit)) ? Math.max(1, Math.min(500, Math.trunc(Number(limit)))) : 20;
+        if (!this.pool || !this.enabled) {
+            return [];
+        }
+        const result = await this.pool.query(`
+          SELECT raw_payload
+          FROM ${MARKET_TRADE_TABLE}
+          WHERE COALESCE(raw_payload->>'source', 'market') = $1
+          ORDER BY created_at_ms DESC, trade_id ASC
+          LIMIT $2
+        `, [normalizedSource, normalizedLimit]);
+        const rows = result.rows ?? [];
+        return rows
+            .map((row) => normalizeTradeRecord(row.raw_payload))
+            .filter((entry) => Boolean(entry))
+            .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
+    }
     /**
  * loadStorages：读取Storage并返回结果。
  * @returns 无返回值，完成Storage的读取/组装。

@@ -22,6 +22,7 @@ import {
   MarketOrderBookView,
   MarketOwnOrderView,
   MarketStorage,
+  MarketTradeHistoryScope,
   PlayerState,
   S2C_AuctionListings,
   S2C_MarketListings,
@@ -110,7 +111,7 @@ interface MarketPanelCallbacks {
  * onRequestTradeHistory：onRequestTradeHistory相关字段。
  */
 
-  onRequestTradeHistory: (page: number, source?: 'market' | 'auction') => void;
+  onRequestTradeHistory: (page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope) => void;
   /**
  * onCreateSellOrder：onCreateSell订单相关字段。
  */
@@ -368,6 +369,8 @@ export class MarketPanel {
   private activeTechniqueCategory: MarketTechniqueFilter = 'all';
   /** 拍卖行当前标签页。 */
   private auctionTab: AuctionHouseTab = 'participate';
+  /** 拍卖行成交记录范围。 */
+  private auctionHistoryScope: MarketTradeHistoryScope = 'all';
   /** 拍卖行物品分类筛选。 */
   private auctionCategory: MarketCategoryFilter = 'all';
   /** 拍卖行搜索关键字。 */
@@ -558,7 +561,9 @@ export class MarketPanel {
     const canPatchOpenModal = detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)
       && this.canPatchAuctionListingsInPlace(previousListings, data);
     this.auctionListings = data;
-    this.auctionTab = data.tab;
+    if (this.auctionTab !== 'history') {
+      this.auctionTab = data.tab;
+    }
     this.auctionCategory = data.category;
     this.auctionSearchQuery = data.query ?? '';
     this.auctionPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
@@ -679,6 +684,9 @@ export class MarketPanel {
     this.tradeHistoryLoading = false;
     this.tradeHistory = data;
     this.tradeHistoryPage = data.page;
+    if (data.source === 'auction') {
+      this.auctionHistoryScope = data.scope;
+    }
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.renderModal();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
@@ -701,6 +709,7 @@ export class MarketPanel {
     this.activeEquipmentCategory = 'all';
     this.activeTechniqueCategory = 'all';
     this.auctionTab = 'participate';
+    this.auctionHistoryScope = 'all';
     this.auctionCategory = 'all';
     this.auctionSearchQuery = '';
     this.selectedAuctionItemKey = null;
@@ -797,7 +806,7 @@ export class MarketPanel {
       }
       const auctionOpen = target.closest<HTMLElement>('[data-auction-open]');
       if (auctionOpen) {
-        const tab = auctionOpen.dataset.auctionOpen === 'mine' ? 'mine' : 'participate';
+        const tab = auctionOpen.dataset.auctionOpen === 'mine' ? 'mine' : auctionOpen.dataset.auctionOpen === 'history' ? 'history' : 'participate';
         this.openAuctionFromPane(tab);
         return;
       }
@@ -1148,8 +1157,18 @@ export class MarketPanel {
     return this.auctionView.patchAuctionDetailLiveState();
   }
 
+  private patchAuctionHistoryPanel(): boolean {
+    return this.auctionView.patchAuctionHistoryPanel();
+  }
+
   /** 拍卖行打开时只同步动态子区域，避免 1Hz 市场摘要回包重建整个弹层。 */
   private patchAuctionModalLiveState(options: { patchDetail?: boolean } = {}): void {
+    if (this.auctionTab === 'history') {
+      if (!this.patchAuctionHistoryPanel()) {
+        this.renderAuctionModal();
+      }
+      return;
+    }
     this.syncAuctionSelection();
     this.patchAuctionActiveSelection();
     const selectedAuctionLot = this.resolveAuctionLotByKey(this.selectedAuctionItemKey, this.marketUpdate, this.auctionTab);
@@ -2238,11 +2257,12 @@ export class MarketPanel {
   }
 
   /** 向外部请求交易历史分页。 */
-  private requestTradeHistory(page: number, source?: 'market' | 'auction'): void {
+  private requestTradeHistory(page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope): void {
     this.tradeHistoryLoading = true;
     this.tradeHistoryPage = Math.max(1, Math.floor(Number.isFinite(page) ? page : 1));
     const requestSource = source ?? (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER) ? 'auction' : 'market');
-    this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage, requestSource);
+    const requestScope = requestSource === 'auction' ? (scope ?? this.auctionHistoryScope) : 'mine';
+    this.callbacks?.onRequestTradeHistory(this.tradeHistoryPage, requestSource, requestScope);
   }
 
   /** 向外部请求当前筛选条件下的列表分页。 */

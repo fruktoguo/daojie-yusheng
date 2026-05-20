@@ -1,6 +1,6 @@
 import type { EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
-import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeSource } from './market-types';
+import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource } from './market-types';
 import type { MailFilter } from './mail-types';
 import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
 
@@ -195,6 +195,11 @@ export interface RequestMarketTradeHistoryView {
  */
 
   source?: MarketTradeSource;
+  /**
+ * scope：成交记录范围。
+ */
+
+  scope?: MarketTradeHistoryScope;
 }
 
 /** 请求属性详情。 */

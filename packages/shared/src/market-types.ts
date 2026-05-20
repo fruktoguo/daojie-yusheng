@@ -10,7 +10,7 @@ export type MarketOrderSide = 'buy' | 'sell';
 /** 坊市订单状态 */
 export type MarketOrderStatus = 'open' | 'filled' | 'cancelled';
 /** 拍卖行分栏 */
-export type AuctionHouseTab = 'participate' | 'mine';
+export type AuctionHouseTab = 'participate' | 'mine' | 'history';
 /** 拍卖行展示状态 */
 export type AuctionLotStatus = 'active' | 'consigning' | 'sold' | 'failed';
 /** 拍卖行道具二级分类。 */
@@ -111,6 +111,8 @@ export interface MarketOrderBookView {
 export type MarketTradeHistorySide = 'buy' | 'sell';
 /** 成交记录来源：普通坊市成交或拍卖行成交。 */
 export type MarketTradeSource = 'market' | 'auction';
+/** 成交记录范围：全服共享最近记录或玩家自己的记录。 */
+export type MarketTradeHistoryScope = 'all' | 'mine';
 
 /** 玩家可见的坊市成交记录 */
 export interface MarketTradeHistoryEntryView {
@@ -144,6 +146,16 @@ export interface MarketTradeHistoryEntryView {
  */
 
   counterpartyLabel?: string;
+  /**
+ * buyerLabel：买家玩家名，全服成交记录使用。
+ */
+
+  buyerLabel?: string;
+  /**
+ * sellerLabel：卖家玩家名，全服成交记录使用。
+ */
+
+  sellerLabel?: string;
   /**
  * quantity：quantity相关字段。
  */

@@ -9,6 +9,7 @@ import {
   S2C_MarketTradeHistory,
   S2C_MarketUpdate,
   SyncedItemStack,
+  MarketTradeHistoryScope,
 } from '@mud/shared';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { MarketPanel } from './ui/panels/market-panel';
@@ -36,7 +37,7 @@ type MainMarketStateSourceOptions = {
     | 'sendCancelMarketOrder'
     | 'sendClaimMarketStorage'
   > & {
-    sendRequestMarketTradeHistory: (page: number, source?: 'market' | 'auction') => void;
+    sendRequestMarketTradeHistory: (page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope) => void;
   };
   /**
  * getPlayer：玩家引用。
@@ -70,7 +71,7 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     onRequestListings: (payload) => options.socket.sendRequestMarketListings(payload),
     onRequestAuctionListings: (payload) => options.socket.sendRequestAuctionListings(payload),
     onRequestItemBook: (itemKey) => options.socket.sendRequestMarketItemBook(itemKey),
-    onRequestTradeHistory: (page, source) => options.socket.sendRequestMarketTradeHistory(page, source),
+    onRequestTradeHistory: (page, source, scope) => options.socket.sendRequestMarketTradeHistory(page, source, scope),
     onCreateSellOrder: (slotIndex, quantity, unitPrice, expectedItemInstanceId) => options.socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice, undefined, undefined, expectedItemInstanceId),
     onCreateAuctionSellOrder: (slotIndex, quantity, unitPrice, buyoutPrice, expectedItemInstanceId) => options.socket.sendCreateMarketSellOrder(slotIndex, quantity, unitPrice, 'auction', buyoutPrice, expectedItemInstanceId),
     onCreateBuyOrder: (itemKey, quantity, unitPrice) => options.socket.sendCreateMarketBuyOrder(itemKey, quantity, unitPrice),

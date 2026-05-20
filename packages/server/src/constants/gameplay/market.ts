@@ -10,6 +10,12 @@ export const MARKET_MAX_ORDER_QUANTITY = 999_900_000_000;
 export const MARKET_TRADE_HISTORY_VISIBLE_LIMIT = 100;
 /** 交易历史每页条数 */
 export const MARKET_TRADE_HISTORY_PAGE_SIZE = 10;
+/** 拍卖行全服成交记录最近展示条数 */
+export const AUCTION_GLOBAL_TRADE_HISTORY_LIMIT = 20;
+/** 拍卖行我的成交记录可见条数上限 */
+export const AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT = 100;
+/** 拍卖行成交记录每页条数 */
+export const AUCTION_TRADE_HISTORY_PAGE_SIZE = 20;
 /** 运行时内存中保留的最近成交记录上限，完整历史以数据库为真源按需查询。 */
 export const MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT = 500;
 /** 运行时内存中保留的玩家坊市仓库 LRU 上限，超过后驱逐离线/无挂单玩家的缓存条目。 */

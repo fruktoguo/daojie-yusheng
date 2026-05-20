@@ -895,7 +895,8 @@
   .market-board,
   .market-my-orders,
   .auction-house-board,
-  .auction-house-board--mine {
+  .auction-house-board--mine,
+  .auction-house-board--history {
     min-height: 0;
   }
   .detail-modal-card.detail-modal--market {
@@ -960,6 +961,12 @@
   .auction-house-board--mine {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) minmax(220px, 0.92fr);
+    gap: 8px;
+    overflow: hidden;
+  }
+  .auction-house-board--history {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 8px;
     overflow: hidden;
   }

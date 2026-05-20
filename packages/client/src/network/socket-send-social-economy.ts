@@ -197,8 +197,8 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
  */
 
 
-    sendRequestMarketTradeHistory(page: number, source: 'market' | 'auction' = 'market'): void {
-      deps.emitEvent(C2S.RequestMarketTradeHistory, { page, source });
+    sendRequestMarketTradeHistory(page: number, source: 'market' | 'auction' = 'market', scope: 'all' | 'mine' = 'mine'): void {
+      deps.emitEvent(C2S.RequestMarketTradeHistory, { page, source, scope });
     },
     /**
  * sendCreateMarketSellOrder：构建sendCreate坊市Sell订单。

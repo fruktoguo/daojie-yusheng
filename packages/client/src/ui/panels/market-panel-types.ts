@@ -15,6 +15,7 @@ import type {
   MarketOrderBookView,
   MarketOwnOrderView,
   MarketStorage,
+  MarketTradeHistoryScope,
   PlayerState,
   S2C_AuctionListings,
   S2C_MarketListings,
@@ -127,7 +128,7 @@ export interface MarketPanelCallbacks {
   onRequestListings: (payload: import('@mud/shared').C2S_RequestMarketListings) => void;
   onRequestAuctionListings: (payload: import('@mud/shared').C2S_RequestAuctionListings) => void;
   onRequestItemBook: (itemKey: string) => void;
-  onRequestTradeHistory: (page: number, source?: 'market' | 'auction') => void;
+  onRequestTradeHistory: (page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope) => void;
   onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number, expectedItemInstanceId?: string) => void;
   onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string) => void;
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
@@ -158,6 +159,7 @@ export interface MarketPanelInternals {
   activeEquipmentCategory: MarketEquipmentFilter;
   activeTechniqueCategory: MarketTechniqueFilter;
   auctionTab: AuctionHouseTab;
+  auctionHistoryScope: MarketTradeHistoryScope;
   auctionCategory: MarketCategoryFilter;
   auctionSearchQuery: string;
   selectedAuctionItemKey: string | null;
@@ -214,7 +216,7 @@ export interface MarketPanelInternals {
   requestItemBook(itemKey: string): void;
   requestListings(page: number): void;
   requestAuctionListings(page: number): void;
-  requestTradeHistory(page: number, source?: 'market' | 'auction'): void;
+  requestTradeHistory(page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope): void;
   syncTradeDialogOverlay(): void;
   syncPageSelection(): void;
   clampPage(page: number, totalItems: number): number;

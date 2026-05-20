@@ -169,8 +169,9 @@ class WorldGatewayMarketHelper {
         }
         try {
             const source = payload?.source === 'auction' ? 'auction' : 'market';
-            this.gateway.gatewaySessionStateHelper.setMarketTradeHistoryRequest(playerId, { page: payload?.page, source });
-            const response = await this.gateway.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page, source);
+            const scope = source === 'auction' && payload?.scope === 'all' ? 'all' : 'mine';
+            this.gateway.gatewaySessionStateHelper.setMarketTradeHistoryRequest(playerId, { page: payload?.page, source, scope });
+            const response = await this.gateway.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page, source, scope);
             this.gateway.gatewayClientEmitHelper.emitMarketTradeHistory(client, response);
         }
         catch (error) {
