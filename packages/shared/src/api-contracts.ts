@@ -3879,13 +3879,26 @@ export type GmAiTextProvider = 'openai' | 'openai-compatible' | 'anthropic';
 /** GM 图像模型 provider。 */
 export type GmAiImageProvider = 'openai' | 'dashscope';
 
+/** GM AI provider 下挂模型来源。 */
+export type GmAiProviderModelSource = 'manual' | 'fetched' | 'legacy';
+
+/** GM AI provider 下挂模型项。 */
+export interface GmAiProviderModelItem {
+  name: string;
+  enabled: boolean;
+  source: GmAiProviderModelSource;
+  addedAt: string;
+}
+
 /** GM AI provider 配置列表项；不包含 API Key 明文。 */
 export interface GmAiProviderConfigItem {
   scope: string;
   kind: GmAiProviderKind;
   provider: GmAiTextProvider | GmAiImageProvider;
   baseURL: string;
+  /** 默认模型名；兼容旧调用路径，通常等于 models 中第一个启用项。 */
   modelName: string;
+  models: GmAiProviderModelItem[];
   timeoutMs: number;
   imageSize: string;
   imageQuality: string;
@@ -3908,7 +3921,8 @@ export interface GmAiProviderConfigListRes {
 export interface GmAiProviderConfigSetReq {
   provider: GmAiTextProvider | GmAiImageProvider;
   baseURL: string;
-  modelName: string;
+  modelName?: string;
+  models?: GmAiProviderModelItem[];
   timeoutMs?: number;
   imageSize?: string;
   imageQuality?: string;
@@ -3928,4 +3942,29 @@ export interface GmAiProviderConfigSetRes {
 export interface GmAiProviderConfigDeleteRes {
   ok: true;
   deleted: boolean;
+}
+
+/** GM AI provider 拉取模型列表响应。 */
+export interface GmAiProviderFetchModelsRes {
+  ok: true;
+  item: GmAiProviderConfigItem;
+  fetchedCount: number;
+  addedCount: number;
+}
+
+/** GM AI provider 单模型删除响应。 */
+export interface GmAiProviderDeleteModelRes {
+  ok: true;
+  item: GmAiProviderConfigItem;
+  deleted: boolean;
+}
+
+/** GM AI provider 单模型测试响应。 */
+export interface GmAiProviderTestModelRes {
+  ok: boolean;
+  scope: string;
+  kind: GmAiProviderKind;
+  modelName: string;
+  latencyMs: number;
+  message: string;
 }

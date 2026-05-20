@@ -56,7 +56,7 @@ export class AiProviderConfigService {
       provider: record.provider as AiTextModelConfig['provider'],
       apiKey,
       baseURL: record.provider === 'anthropic' ? record.baseURL : normalizeOpenAIBaseUrl(record.baseURL),
-      modelName: record.modelName,
+      modelName: resolveDefaultModelName(record),
       timeoutMs: record.timeoutMs,
       anthropicMaxTokens: 8192,
     };
@@ -73,7 +73,7 @@ export class AiProviderConfigService {
       apiKey,
       baseURL,
       endpoint: record.provider === 'dashscope' ? resolveDashScopeImageEndpoint(record.baseURL) : baseURL,
-      modelName: record.modelName,
+      modelName: resolveDefaultModelName(record),
       size: record.imageSize || '1024x1024',
       quality: record.imageQuality || 'medium',
       timeoutMs: record.timeoutMs,
@@ -91,4 +91,8 @@ export class AiProviderConfigService {
     if (!record.secretKeyRef || !this.secretStore?.isAvailable()) return '';
     return await this.secretStore.readSecret(record.secretKeyRef) ?? '';
   }
+}
+
+function resolveDefaultModelName(record: AiProviderConfigRecord): string {
+  return record.models.find((model) => model.enabled)?.name || record.modelName;
 }

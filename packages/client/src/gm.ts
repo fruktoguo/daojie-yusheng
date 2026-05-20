@@ -110,11 +110,15 @@ import {
   type GmSetEnvironmentVarReq,
   type GmReloadEnvironmentVarsRes,
   type GmAiProviderConfigDeleteRes,
+  type GmAiProviderDeleteModelRes,
+  type GmAiProviderFetchModelsRes,
   type GmAiProviderConfigItem,
   type GmAiProviderConfigListRes,
   type GmAiProviderConfigSetReq,
   type GmAiProviderConfigSetRes,
   type GmAiProviderKind,
+  type GmAiProviderModelItem,
+  type GmAiProviderTestModelRes,
   type GmAiImageProvider,
   type GmAiTextProvider,
   type GameConfigItem,
@@ -8073,6 +8077,8 @@ function renderAiProviderConfigs(): void {
     const scope = rowEl.dataset.aiScope ?? 'default';
     const saveBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-save]');
     const deleteBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-delete]');
+    const fetchModelsBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-fetch-models]');
+    const addModelBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-add-model]');
     const providerSelect = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]');
     const imageOnlyEls = rowEl.querySelectorAll<HTMLElement>('[data-ai-image-only]');
 
@@ -8085,9 +8091,37 @@ function renderAiProviderConfigs(): void {
         setStatus(error instanceof Error ? error.message : '保存 AI 配置失败', true);
       });
     });
+    fetchModelsBtn?.addEventListener('click', () => {
+      fetchAiProviderModels(kind, scope).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : '获取模型列表失败', true);
+      });
+    });
+    addModelBtn?.addEventListener('click', () => {
+      addAiProviderModel(rowEl);
+    });
     deleteBtn?.addEventListener('click', () => {
       deleteAiProviderConfig(kind, scope).catch((error: unknown) => {
         setStatus(error instanceof Error ? error.message : '删除 AI 配置失败', true);
+      });
+    });
+    rowEl.querySelectorAll<HTMLButtonElement>('[data-ai-test-model]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const modelName = button.dataset.aiTestModel ?? '';
+        testAiProviderModel(kind, scope, modelName).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : '测试模型失败', true);
+        });
+      });
+    });
+    rowEl.querySelectorAll<HTMLButtonElement>('[data-ai-delete-model]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const modelName = button.dataset.aiDeleteModel ?? '';
+        if (rowEl.dataset.aiDraft === 'true') {
+          removeAiProviderModelLocally(rowEl, modelName);
+          return;
+        }
+        deleteAiProviderModel(kind, scope, modelName).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : '删除模型失败', true);
+        });
       });
     });
   });
@@ -8115,8 +8149,14 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
   const enabledBadge = item.enabled ? '<span class="env-badge source-process_env">已启用</span>' : '<span class="env-badge source-unset">已禁用</span>';
   const secretBadge = item.secretConfigured ? '<span class="env-badge source-runtime_file">密钥已配置</span>' : '<span class="env-badge meta">密钥未配置</span>';
   const imageFieldsClass = item.kind === 'image' ? '' : 'hidden';
+  const models = item.models.length > 0 ? item.models : [{
+    name: item.modelName,
+    enabled: true,
+    source: 'legacy',
+    addedAt: item.updatedAt,
+  } satisfies GmAiProviderModelItem];
   return `
-    <div class="env-row" data-ai-kind="${escapeHtml(item.kind)}" data-ai-scope="${escapeHtml(item.scope)}">
+    <div class="env-row" data-ai-kind="${escapeHtml(item.kind)}" data-ai-scope="${escapeHtml(item.scope)}" data-ai-draft="${item.revision <= 0 ? 'true' : 'false'}">
       <div class="env-row-head">
         <div class="env-row-title">
           <span class="env-label">${escapeHtml(item.kind === 'text' ? '文本模型' : '图片模型')} · ${escapeHtml(item.scope)}</span>
@@ -8133,7 +8173,6 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
         <label class="env-persist-label"><input data-ai-enabled type="checkbox" ${item.enabled ? 'checked' : ''} />启用</label>
         <select data-ai-provider>${providerOptions}</select>
         <input data-ai-base-url type="text" value="${escapeHtml(item.baseURL)}" placeholder="Base URL，例如 https://api.example.com" />
-        <input data-ai-model-name type="text" value="${escapeHtml(item.modelName)}" placeholder="模型名" />
         <input data-ai-timeout-ms type="number" min="1000" max="300000" step="1000" value="${escapeHtml(String(item.timeoutMs || (item.kind === 'image' ? 60000 : 30000)))}" placeholder="超时 ms" />
       </div>
       <div class="env-edit ${imageFieldsClass}" data-ai-image-only>
@@ -8145,8 +8184,27 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
         <input data-ai-api-key type="password" value="" placeholder="${aiSecretStoreAvailable ? '可选：输入新 API Key 覆盖密钥' : '密钥存储不可用'}" ${aiSecretStoreAvailable ? '' : 'disabled'} autocomplete="new-password" />
         <div class="env-actions">
           <button class="small-btn primary" type="button" data-ai-save>保存</button>
+          <button class="small-btn" type="button" data-ai-fetch-models ${item.secretConfigured ? '' : 'disabled'}>获取模型列表</button>
+          <button class="small-btn" type="button" data-ai-add-model>手动添加模型</button>
           <button class="small-btn danger" type="button" data-ai-delete>删除配置</button>
         </div>
+      </div>
+      <div class="env-edit" style="align-items:stretch;" data-ai-models>
+        ${models.map((model) => renderAiProviderModelRow(item, model)).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderAiProviderModelRow(item: GmAiProviderConfigItem, model: GmAiProviderModelItem): string {
+  const sourceLabel = model.source === 'fetched' ? '接口获取' : model.source === 'legacy' ? '旧配置' : '手动';
+  return `
+    <div class="network-row" data-ai-model-row data-ai-model-name="${escapeHtml(model.name)}" data-ai-model-source="${escapeHtml(model.source)}" data-ai-model-added-at="${escapeHtml(model.addedAt)}" style="flex:1 1 320px; min-width:280px;">
+      <div class="network-row-label">${escapeHtml(model.name)}</div>
+      <div class="network-row-meta">${escapeHtml(sourceLabel)}${model.enabled ? ' · 启用' : ' · 禁用'}</div>
+      <div class="button-row" style="margin-top:8px;">
+        <button class="small-btn" type="button" data-ai-test-model="${escapeHtml(model.name)}" ${item.secretConfigured ? '' : 'disabled'}>测试</button>
+        <button class="small-btn danger" type="button" data-ai-delete-model="${escapeHtml(model.name)}">删除模型</button>
       </div>
     </div>
   `;
@@ -8174,6 +8232,12 @@ function createDraftAiProviderConfig(kind: GmAiProviderKind, scope: string): GmA
     provider: kind === 'image' ? 'openai' : 'openai-compatible',
     baseURL: '',
     modelName: kind === 'image' ? 'gpt-image-1.5' : 'gpt-5.4-mini',
+    models: [{
+      name: kind === 'image' ? 'gpt-image-1.5' : 'gpt-5.4-mini',
+      enabled: true,
+      source: 'manual',
+      addedAt: new Date().toISOString(),
+    }],
     timeoutMs: kind === 'image' ? 60_000 : 30_000,
     imageSize: kind === 'image' ? '1024x1024' : '',
     imageQuality: kind === 'image' ? 'medium' : '',
@@ -8189,7 +8253,7 @@ function createDraftAiProviderConfig(kind: GmAiProviderKind, scope: string): GmA
 async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl: HTMLElement): Promise<void> {
   const provider = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]')?.value ?? '';
   const baseURL = rowEl.querySelector<HTMLInputElement>('[data-ai-base-url]')?.value ?? '';
-  const modelName = rowEl.querySelector<HTMLInputElement>('[data-ai-model-name]')?.value ?? '';
+  const models = readAiProviderModelsFromRow(rowEl);
   const timeoutMsRaw = rowEl.querySelector<HTMLInputElement>('[data-ai-timeout-ms]')?.value ?? '';
   const imageSize = rowEl.querySelector<HTMLInputElement>('[data-ai-image-size]')?.value ?? '';
   const imageQuality = rowEl.querySelector<HTMLInputElement>('[data-ai-image-quality]')?.value ?? '';
@@ -8201,7 +8265,8 @@ async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl
   const body: GmAiProviderConfigSetReq = {
     provider: provider as GmAiTextProvider | GmAiImageProvider,
     baseURL,
-    modelName,
+    modelName: models.find((model) => model.enabled)?.name ?? models[0]?.name ?? '',
+    models,
     timeoutMs: Number.isFinite(timeoutMs) ? Math.trunc(timeoutMs) : undefined,
     imageSize: kind === 'image' ? imageSize : undefined,
     imageQuality: kind === 'image' ? imageQuality : undefined,
@@ -8217,6 +8282,64 @@ async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl
   await loadAiProviderConfigs();
 }
 
+function readAiProviderModelsFromRow(rowEl: HTMLElement): GmAiProviderModelItem[] {
+  const models: GmAiProviderModelItem[] = [];
+  rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]').forEach((modelEl) => {
+    const name = modelEl.dataset.aiModelName?.trim() || modelEl.querySelector<HTMLElement>('.network-row-label')?.textContent?.trim() || '';
+    if (!name || models.some((model) => model.name === name)) return;
+    const source = modelEl.dataset.aiModelSource === 'fetched' || modelEl.dataset.aiModelSource === 'legacy'
+      ? modelEl.dataset.aiModelSource
+      : 'manual';
+    models.push({
+      name,
+      enabled: true,
+      source,
+      addedAt: modelEl.dataset.aiModelAddedAt || new Date().toISOString(),
+    });
+  });
+  return models;
+}
+
+function addAiProviderModel(rowEl: HTMLElement): void {
+  const modelName = prompt('输入模型名');
+  if (!modelName?.trim()) return;
+  const host = rowEl.querySelector<HTMLElement>('[data-ai-models]');
+  if (!host) return;
+  if ([...host.querySelectorAll<HTMLElement>('[data-ai-model-row] .network-row-label')]
+    .some((el) => el.textContent?.trim() === modelName.trim())) {
+    setStatus(`模型 ${modelName.trim()} 已存在`, true);
+    return;
+  }
+  const kind = rowEl.dataset.aiKind as GmAiProviderKind;
+  const scope = rowEl.dataset.aiScope ?? 'default';
+  const item = aiProviderConfigs.find((entry) => entry.kind === kind && entry.scope === scope) ?? createDraftAiProviderConfig(kind, scope);
+  host.insertAdjacentHTML('beforeend', renderAiProviderModelRow(item, {
+    name: modelName.trim(),
+    enabled: true,
+    source: 'manual',
+    addedAt: new Date().toISOString(),
+  }));
+  renderAiProviderConfigsFromDom(rowEl);
+}
+
+function renderAiProviderConfigsFromDom(rowEl: HTMLElement): void {
+  const kind = rowEl.dataset.aiKind as GmAiProviderKind;
+  const scope = rowEl.dataset.aiScope ?? 'default';
+  const index = aiProviderConfigs.findIndex((item) => item.kind === kind && item.scope === scope);
+  const models = readAiProviderModelsFromRow(rowEl);
+  if (index >= 0) {
+    aiProviderConfigs[index] = { ...aiProviderConfigs[index], models, modelName: models[0]?.name ?? aiProviderConfigs[index].modelName };
+  }
+  renderAiProviderConfigs();
+}
+
+function removeAiProviderModelLocally(rowEl: HTMLElement, modelName: string): void {
+  const modelEl = [...rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]')]
+    .find((el) => el.dataset.aiModelName === modelName);
+  modelEl?.remove();
+  renderAiProviderConfigsFromDom(rowEl);
+}
+
 async function deleteAiProviderConfig(kind: GmAiProviderKind, scope: string): Promise<void> {
   if (!confirm(`确认删除 AI 配置 "${kind}/${scope}"？密钥本身不会删除。`)) return;
   const res = await request<GmAiProviderConfigDeleteRes>(
@@ -8225,6 +8348,37 @@ async function deleteAiProviderConfig(kind: GmAiProviderKind, scope: string): Pr
   );
   setStatus(res.deleted ? `AI 配置 ${kind}/${scope} 已删除` : `AI 配置 ${kind}/${scope} 不存在`);
   await loadAiProviderConfigs();
+}
+
+async function fetchAiProviderModels(kind: GmAiProviderKind, scope: string): Promise<void> {
+  const res = await request<GmAiProviderFetchModelsRes>(
+    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}/models/fetch`,
+    { method: 'POST' },
+    45_000,
+  );
+  setStatus(`已获取 ${res.fetchedCount} 个模型，新增 ${res.addedCount} 个`);
+  await loadAiProviderConfigs();
+}
+
+async function deleteAiProviderModel(kind: GmAiProviderKind, scope: string, modelName: string): Promise<void> {
+  if (!modelName.trim()) return;
+  if (!confirm(`确认从 "${kind}/${scope}" 删除模型 "${modelName}"？`)) return;
+  const res = await request<GmAiProviderDeleteModelRes>(
+    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}/models/${encodeURIComponent(modelName)}`,
+    { method: 'DELETE' },
+  );
+  setStatus(res.deleted ? `模型 ${modelName} 已删除` : `模型 ${modelName} 不存在`);
+  await loadAiProviderConfigs();
+}
+
+async function testAiProviderModel(kind: GmAiProviderKind, scope: string, modelName: string): Promise<void> {
+  if (!modelName.trim()) return;
+  const res = await request<GmAiProviderTestModelRes>(
+    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}/models/${encodeURIComponent(modelName)}/test`,
+    { method: 'POST' },
+    kind === 'image' ? 45_000 : 30_000,
+  );
+  setStatus(`${modelName}：${res.message}（${res.latencyMs}ms）`, !res.ok);
 }
 
 // ===== 交易记录 tab =====

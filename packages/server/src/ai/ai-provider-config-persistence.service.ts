@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import type {
   AiProviderConfigRecord,
+  AiProviderModelRecord,
   AiProviderConfigUpsertInput,
   AiProviderKind,
 } from './ai-provider-config.types';
@@ -28,12 +29,45 @@ const normalizeTimeoutMs = (value: number | undefined): number => {
   return normalized > 0 ? normalized : 30_000;
 };
 
+const normalizeModelName = (value: unknown): string => String(value ?? '').trim();
+
+export const normalizeAiProviderModels = (value: unknown, legacyModelName = ''): AiProviderModelRecord[] => {
+  const seen = new Set<string>();
+  const result: AiProviderModelRecord[] = [];
+  const now = new Date().toISOString();
+  const sourceRows = Array.isArray(value) ? value : [];
+  for (const entry of sourceRows) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const row = entry as Partial<AiProviderModelRecord>;
+    const name = normalizeModelName(row.name);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    result.push({
+      name,
+      enabled: row.enabled !== false,
+      source: row.source === 'fetched' || row.source === 'legacy' ? row.source : 'manual',
+      addedAt: normalizeModelName(row.addedAt) || now,
+    });
+  }
+  const legacyName = normalizeModelName(legacyModelName);
+  if (legacyName && !seen.has(legacyName)) {
+    result.unshift({
+      name: legacyName,
+      enabled: true,
+      source: 'legacy',
+      addedAt: now,
+    });
+  }
+  return result;
+};
+
 const toRecord = (row: any): AiProviderConfigRecord => ({
   scope: String(row.scope ?? ''),
   kind: normalizeKind(row.kind),
   provider: String(row.provider ?? '') as AiProviderConfigRecord['provider'],
   baseURL: String(row.base_url ?? ''),
   modelName: String(row.model_name ?? ''),
+  models: normalizeAiProviderModels(row.models, row.model_name),
   timeoutMs: Math.max(0, Math.trunc(Number(row.timeout_ms) || 0)),
   imageSize: String(row.image_size ?? ''),
   imageQuality: String(row.image_quality ?? ''),
@@ -84,7 +118,7 @@ export class AiProviderConfigPersistenceService implements OnModuleInit, OnModul
     if (!this.pool || !this.enabled) return [];
     const result = await this.pool.query(
       `SELECT scope, kind, provider, base_url, model_name, timeout_ms,
-              image_size, image_quality, secret_key_ref, enabled, revision,
+              image_size, image_quality, secret_key_ref, models, enabled, revision,
               updated_by, updated_at
          FROM ${AI_PROVIDER_CONFIG_TABLE}
         ORDER BY kind ASC, scope ASC`,
@@ -97,7 +131,7 @@ export class AiProviderConfigPersistenceService implements OnModuleInit, OnModul
     if (!this.pool || !this.enabled) return null;
     const result = await this.pool.query(
       `SELECT scope, kind, provider, base_url, model_name, timeout_ms,
-              image_size, image_quality, secret_key_ref, enabled, revision,
+              image_size, image_quality, secret_key_ref, models, enabled, revision,
               updated_by, updated_at
          FROM ${AI_PROVIDER_CONFIG_TABLE}
         WHERE scope = $1 AND kind = $2
@@ -116,6 +150,7 @@ export class AiProviderConfigPersistenceService implements OnModuleInit, OnModul
     const provider = normalizeText(input.provider);
     const baseURL = normalizeText(input.baseURL);
     const modelName = normalizeText(input.modelName);
+    const models = normalizeAiProviderModels(input.models, modelName);
     const timeoutMs = normalizeTimeoutMs(input.timeoutMs);
     const imageSize = kind === 'image' ? normalizeText(input.imageSize, '1024x1024') : '';
     const imageQuality = kind === 'image' ? normalizeText(input.imageQuality, 'medium') : '';
@@ -126,8 +161,8 @@ export class AiProviderConfigPersistenceService implements OnModuleInit, OnModul
     const result = await this.pool.query(
       `INSERT INTO ${AI_PROVIDER_CONFIG_TABLE}
         (scope, kind, provider, base_url, model_name, timeout_ms,
-         image_size, image_quality, secret_key_ref, enabled, revision, updated_by, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1, $11, now())
+         image_size, image_quality, secret_key_ref, models, enabled, revision, updated_by, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, 1, $12, now())
        ON CONFLICT (scope, kind)
        DO UPDATE SET provider = EXCLUDED.provider,
                      base_url = EXCLUDED.base_url,
@@ -136,12 +171,13 @@ export class AiProviderConfigPersistenceService implements OnModuleInit, OnModul
                      image_size = EXCLUDED.image_size,
                      image_quality = EXCLUDED.image_quality,
                      secret_key_ref = EXCLUDED.secret_key_ref,
+                     models = EXCLUDED.models,
                      enabled = EXCLUDED.enabled,
                      revision = ${AI_PROVIDER_CONFIG_TABLE}.revision + 1,
                      updated_by = EXCLUDED.updated_by,
                      updated_at = now()
        RETURNING scope, kind, provider, base_url, model_name, timeout_ms,
-                 image_size, image_quality, secret_key_ref, enabled, revision,
+                 image_size, image_quality, secret_key_ref, models, enabled, revision,
                  updated_by, updated_at`,
       [
         scope,
@@ -153,6 +189,7 @@ export class AiProviderConfigPersistenceService implements OnModuleInit, OnModul
         imageSize,
         imageQuality,
         secretKeyRef,
+        JSON.stringify(models),
         enabled,
         updatedBy,
       ],
@@ -179,9 +216,9 @@ export class AiProviderConfigPersistenceService implements OnModuleInit, OnModul
     try {
       await ensureAiProviderConfigTable(this.pool);
       this.enabled = true;
-      this.logger.log('AI provider 配置持久化已启用');
+      this.logger.log('AI 提供者配置持久化已启用');
     } catch (error: unknown) {
-      this.logger.warn(`AI provider 配置初始化失败：${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`AI 提供者配置初始化失败：${error instanceof Error ? error.message : String(error)}`);
     }
     this.initialized = true;
   }
@@ -203,12 +240,28 @@ async function ensureAiProviderConfigTable(pool: Pool): Promise<void> {
         image_size varchar(32) NOT NULL DEFAULT '',
         image_quality varchar(32) NOT NULL DEFAULT '',
         secret_key_ref varchar(80) NOT NULL DEFAULT '',
+        models jsonb NOT NULL DEFAULT '[]'::jsonb,
         enabled boolean NOT NULL DEFAULT true,
         revision bigint NOT NULL DEFAULT 1,
         updated_by varchar(120) NOT NULL DEFAULT 'system',
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (scope, kind)
       )
+    `);
+    await client.query(`
+      ALTER TABLE ${AI_PROVIDER_CONFIG_TABLE}
+      ADD COLUMN IF NOT EXISTS models jsonb NOT NULL DEFAULT '[]'::jsonb
+    `);
+    await client.query(`
+      UPDATE ${AI_PROVIDER_CONFIG_TABLE}
+         SET models = jsonb_build_array(jsonb_build_object(
+               'name', model_name,
+               'enabled', true,
+               'source', 'legacy',
+               'addedAt', COALESCE(updated_at, now())::text
+             ))
+       WHERE model_name <> ''
+         AND (models IS NULL OR jsonb_array_length(models) = 0)
     `);
     await client.query('COMMIT');
   } catch (error: unknown) {

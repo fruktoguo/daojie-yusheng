@@ -5,12 +5,22 @@ import type {
 
 export type AiProviderKind = 'text' | 'image';
 
+export type AiProviderModelSource = 'manual' | 'fetched' | 'legacy';
+
+export type AiProviderModelRecord = {
+  name: string;
+  enabled: boolean;
+  source: AiProviderModelSource;
+  addedAt: string;
+};
+
 export type AiProviderConfigRecord = {
   scope: string;
   kind: AiProviderKind;
   provider: AiTextProvider | AiImageProvider;
   baseURL: string;
   modelName: string;
+  models: AiProviderModelRecord[];
   timeoutMs: number;
   imageSize: string;
   imageQuality: string;
@@ -27,6 +37,7 @@ export type AiProviderConfigUpsertInput = {
   provider: AiTextProvider | AiImageProvider;
   baseURL: string;
   modelName: string;
+  models?: AiProviderModelRecord[];
   timeoutMs?: number;
   imageSize?: string;
   imageQuality?: string;
