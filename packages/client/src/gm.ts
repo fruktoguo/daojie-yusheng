@@ -8022,6 +8022,7 @@ let aiSecretStoreAvailable = false;
 
 const AI_TEXT_PROVIDER_OPTIONS: readonly GmAiTextProvider[] = ['openai', 'openai-compatible', 'anthropic'];
 const AI_IMAGE_PROVIDER_OPTIONS: readonly GmAiImageProvider[] = ['openai', 'dashscope'];
+const aiModelTestStateByKey = new Map<string, { kind: 'pending' | 'success' | 'error'; text: string }>();
 
 async function loadAiProviderConfigs(): Promise<void> {
   if (!token || aiProviderConfigsLoading) return;
@@ -8079,6 +8080,7 @@ function renderAiProviderConfigs(): void {
     const deleteBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-delete]');
     const fetchModelsBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-fetch-models]');
     const addModelBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-add-model]');
+    const deleteAllModelsBtn = rowEl.querySelector<HTMLButtonElement>('[data-ai-delete-all-models]');
     const providerSelect = rowEl.querySelector<HTMLSelectElement>('[data-ai-provider]');
     const imageOnlyEls = rowEl.querySelectorAll<HTMLElement>('[data-ai-image-only]');
 
@@ -8098,6 +8100,15 @@ function renderAiProviderConfigs(): void {
     });
     addModelBtn?.addEventListener('click', () => {
       addAiProviderModel(rowEl);
+    });
+    deleteAllModelsBtn?.addEventListener('click', () => {
+      if (rowEl.dataset.aiDraft === 'true') {
+        deleteAllAiProviderModelsLocally(rowEl);
+        return;
+      }
+      deleteAllAiProviderModels(kind, scope).catch((error: unknown) => {
+        setStatus(error instanceof Error ? error.message : '删除全部模型失败', true);
+      });
     });
     deleteBtn?.addEventListener('click', () => {
       deleteAiProviderConfig(kind, scope).catch((error: unknown) => {
@@ -8149,12 +8160,10 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
   const enabledBadge = item.enabled ? '<span class="env-badge source-process_env">已启用</span>' : '<span class="env-badge source-unset">已禁用</span>';
   const secretBadge = item.secretConfigured ? '<span class="env-badge source-runtime_file">密钥已配置</span>' : '<span class="env-badge meta">密钥未配置</span>';
   const imageFieldsClass = item.kind === 'image' ? '' : 'hidden';
-  const models = item.models.length > 0 ? item.models : [{
-    name: item.modelName,
-    enabled: true,
-    source: 'legacy',
-    addedAt: item.updatedAt,
-  } satisfies GmAiProviderModelItem];
+  const models = item.models;
+  const modelRowsHtml = models.length > 0
+    ? models.map((model) => renderAiProviderModelRow(item, model)).join('')
+    : '<div class="ai-model-row"><div class="ai-model-name">当前没有模型</div><div class="ai-model-meta">请手动添加或获取模型列表</div><div class="ai-model-actions"></div></div>';
   return `
     <div class="env-row" data-ai-kind="${escapeHtml(item.kind)}" data-ai-scope="${escapeHtml(item.scope)}" data-ai-draft="${item.revision <= 0 ? 'true' : 'false'}">
       <div class="env-row-head">
@@ -8186,11 +8195,12 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
           <button class="small-btn primary" type="button" data-ai-save>保存</button>
           <button class="small-btn" type="button" data-ai-fetch-models ${item.secretConfigured ? '' : 'disabled'}>获取模型列表</button>
           <button class="small-btn" type="button" data-ai-add-model>手动添加模型</button>
+          <button class="small-btn danger" type="button" data-ai-delete-all-models ${models.length > 0 ? '' : 'disabled'}>删除全部模型</button>
           <button class="small-btn danger" type="button" data-ai-delete>删除配置</button>
         </div>
       </div>
-      <div class="env-edit" style="align-items:stretch;" data-ai-models>
-        ${models.map((model) => renderAiProviderModelRow(item, model)).join('')}
+      <div class="ai-model-table" data-ai-models>
+        ${modelRowsHtml}
       </div>
     </div>
   `;
@@ -8198,16 +8208,29 @@ function renderAiProviderConfigRow(item: GmAiProviderConfigItem): string {
 
 function renderAiProviderModelRow(item: GmAiProviderConfigItem, model: GmAiProviderModelItem): string {
   const sourceLabel = model.source === 'fetched' ? '接口获取' : model.source === 'legacy' ? '旧配置' : '手动';
+  const stateKey = getAiModelStateKey(item.kind, item.scope, model.name);
+  const testState = aiModelTestStateByKey.get(stateKey);
+  const testStateHtml = testState
+    ? `<span class="ai-model-test-state" data-kind="${testState.kind}" title="${escapeHtml(testState.text)}">${escapeHtml(testState.text)}</span>`
+    : '<span class="ai-model-test-state" data-kind="idle">未测试</span>';
   return `
-    <div class="network-row" data-ai-model-row data-ai-model-name="${escapeHtml(model.name)}" data-ai-model-source="${escapeHtml(model.source)}" data-ai-model-added-at="${escapeHtml(model.addedAt)}" style="flex:1 1 320px; min-width:280px;">
-      <div class="network-row-label">${escapeHtml(model.name)}</div>
-      <div class="network-row-meta">${escapeHtml(sourceLabel)}${model.enabled ? ' · 启用' : ' · 禁用'}</div>
-      <div class="button-row" style="margin-top:8px;">
+    <div class="ai-model-row" data-ai-model-row data-ai-model-name="${escapeHtml(model.name)}" data-ai-model-source="${escapeHtml(model.source)}" data-ai-model-added-at="${escapeHtml(model.addedAt)}">
+      <div class="ai-model-name" title="${escapeHtml(model.name)}">${escapeHtml(model.name)}</div>
+      <div class="ai-model-meta">
+        <span>${escapeHtml(sourceLabel)}</span>
+        <span>${model.enabled ? '启用' : '禁用'}</span>
+        ${testStateHtml}
+      </div>
+      <div class="ai-model-actions">
         <button class="small-btn" type="button" data-ai-test-model="${escapeHtml(model.name)}" ${item.secretConfigured ? '' : 'disabled'}>测试</button>
         <button class="small-btn danger" type="button" data-ai-delete-model="${escapeHtml(model.name)}">删除模型</button>
       </div>
     </div>
   `;
+}
+
+function getAiModelStateKey(kind: GmAiProviderKind, scope: string, modelName: string): string {
+  return `${kind}:${scope}:${modelName}`;
 }
 
 function addAiProviderConfig(kind: GmAiProviderKind): void {
@@ -8285,7 +8308,7 @@ async function saveAiProviderConfig(kind: GmAiProviderKind, scope: string, rowEl
 function readAiProviderModelsFromRow(rowEl: HTMLElement): GmAiProviderModelItem[] {
   const models: GmAiProviderModelItem[] = [];
   rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]').forEach((modelEl) => {
-    const name = modelEl.dataset.aiModelName?.trim() || modelEl.querySelector<HTMLElement>('.network-row-label')?.textContent?.trim() || '';
+    const name = modelEl.dataset.aiModelName?.trim() || modelEl.querySelector<HTMLElement>('.ai-model-name')?.textContent?.trim() || '';
     if (!name || models.some((model) => model.name === name)) return;
     const source = modelEl.dataset.aiModelSource === 'fetched' || modelEl.dataset.aiModelSource === 'legacy'
       ? modelEl.dataset.aiModelSource
@@ -8305,7 +8328,7 @@ function addAiProviderModel(rowEl: HTMLElement): void {
   if (!modelName?.trim()) return;
   const host = rowEl.querySelector<HTMLElement>('[data-ai-models]');
   if (!host) return;
-  if ([...host.querySelectorAll<HTMLElement>('[data-ai-model-row] .network-row-label')]
+  if ([...host.querySelectorAll<HTMLElement>('[data-ai-model-row] .ai-model-name')]
     .some((el) => el.textContent?.trim() === modelName.trim())) {
     setStatus(`模型 ${modelName.trim()} 已存在`, true);
     return;
@@ -8340,6 +8363,13 @@ function removeAiProviderModelLocally(rowEl: HTMLElement, modelName: string): vo
   renderAiProviderConfigsFromDom(rowEl);
 }
 
+function deleteAllAiProviderModelsLocally(rowEl: HTMLElement): void {
+  if (!confirm('确认删除该 provider 下的全部模型？')) return;
+  rowEl.querySelectorAll<HTMLElement>('[data-ai-model-row]').forEach((modelEl) => modelEl.remove());
+  renderAiProviderConfigsFromDom(rowEl);
+  setStatus('已清空本地模型列表');
+}
+
 async function deleteAiProviderConfig(kind: GmAiProviderKind, scope: string): Promise<void> {
   if (!confirm(`确认删除 AI 配置 "${kind}/${scope}"？密钥本身不会删除。`)) return;
   const res = await request<GmAiProviderConfigDeleteRes>(
@@ -8356,8 +8386,23 @@ async function fetchAiProviderModels(kind: GmAiProviderKind, scope: string): Pro
     { method: 'POST' },
     45_000,
   );
-  setStatus(`已获取 ${res.fetchedCount} 个模型，新增 ${res.addedCount} 个`);
-  await loadAiProviderConfigs();
+  const item = aiProviderConfigs.find((entry) => entry.kind === kind && entry.scope === scope);
+  if (!item) {
+    throw new Error('AI provider 配置不存在');
+  }
+  const existingNames = new Set(item.models.map((model) => model.name));
+  const candidates = res.models.filter((model) => !existingNames.has(model.name));
+  if (candidates.length === 0) {
+    setStatus(`已获取 ${res.fetchedCount} 个模型，没有新的可添加模型`);
+    return;
+  }
+  const selected = await openAiModelPicker(candidates);
+  if (selected.length === 0) {
+    setStatus('未选择新模型');
+    return;
+  }
+  await saveAiProviderModels(kind, scope, [...item.models, ...selected]);
+  setStatus(`已添加 ${selected.length} 个模型`);
 }
 
 async function deleteAiProviderModel(kind: GmAiProviderKind, scope: string, modelName: string): Promise<void> {
@@ -8371,14 +8416,110 @@ async function deleteAiProviderModel(kind: GmAiProviderKind, scope: string, mode
   await loadAiProviderConfigs();
 }
 
+async function deleteAllAiProviderModels(kind: GmAiProviderKind, scope: string): Promise<void> {
+  if (!confirm(`确认删除 "${kind}/${scope}" 下的全部模型？`)) return;
+  await saveAiProviderModels(kind, scope, []);
+  setStatus(`已删除 ${kind}/${scope} 的全部模型`);
+}
+
 async function testAiProviderModel(kind: GmAiProviderKind, scope: string, modelName: string): Promise<void> {
   if (!modelName.trim()) return;
+  const stateKey = getAiModelStateKey(kind, scope, modelName);
+  aiModelTestStateByKey.set(stateKey, { kind: 'pending', text: '测试中...' });
+  renderAiProviderConfigs();
   const res = await request<GmAiProviderTestModelRes>(
     `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}/models/${encodeURIComponent(modelName)}/test`,
     { method: 'POST' },
     kind === 'image' ? 45_000 : 30_000,
   );
+  aiModelTestStateByKey.set(stateKey, {
+    kind: res.ok ? 'success' : 'error',
+    text: `${res.ok ? '成功' : '失败'} ${res.latencyMs}ms`,
+  });
+  renderAiProviderConfigs();
   setStatus(`${modelName}：${res.message}（${res.latencyMs}ms）`, !res.ok);
+}
+
+async function saveAiProviderModels(kind: GmAiProviderKind, scope: string, models: GmAiProviderModelItem[]): Promise<void> {
+  const item = aiProviderConfigs.find((entry) => entry.kind === kind && entry.scope === scope);
+  if (!item) throw new Error('AI provider 配置不存在');
+  const body: GmAiProviderConfigSetReq = {
+    provider: item.provider,
+    baseURL: item.baseURL,
+    modelName: models.find((model) => model.enabled)?.name ?? models[0]?.name ?? item.modelName,
+    models,
+    timeoutMs: item.timeoutMs,
+    imageSize: kind === 'image' ? item.imageSize : undefined,
+    imageQuality: kind === 'image' ? item.imageQuality : undefined,
+    secretKeyRef: item.secretKeyRef,
+    enabled: item.enabled,
+  };
+  await request<GmAiProviderConfigSetRes>(
+    `${GM_API_BASE_PATH}/ai/providers/${kind}/${encodeURIComponent(scope)}`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+  await loadAiProviderConfigs();
+}
+
+function openAiModelPicker(models: GmAiProviderModelItem[]): Promise<GmAiProviderModelItem[]> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'network-payload-modal';
+    overlay.innerHTML = `
+      <div class="network-payload-dialog" role="dialog" aria-modal="true" aria-label="选择模型">
+        <div class="network-payload-dialog-head">
+          <div>
+            <div class="section-title">选择要加入的模型</div>
+            <div class="network-breakdown-subtitle">仅展示当前 provider 里还没有的模型。</div>
+          </div>
+          <button class="small-btn" type="button" data-ai-picker-close>关闭</button>
+        </div>
+        <div class="button-row">
+          <button class="small-btn" type="button" data-ai-picker-all>全选</button>
+          <button class="small-btn" type="button" data-ai-picker-none>全不选</button>
+          <button class="small-btn" type="button" data-ai-picker-invert>反选</button>
+          <button class="small-btn primary" type="button" data-ai-picker-confirm>加入选中</button>
+        </div>
+        <div class="ai-model-picker-list">
+          ${models.map((model) => `
+            <label class="ai-model-picker-item" title="${escapeHtml(model.name)}">
+              <input type="checkbox" data-ai-picker-model="${escapeHtml(model.name)}" />
+              <span class="ai-model-picker-name">${escapeHtml(model.name)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    const close = (result: GmAiProviderModelItem[]) => {
+      overlay.remove();
+      resolve(result);
+    };
+    const getInputs = () => [...overlay.querySelectorAll<HTMLInputElement>('[data-ai-picker-model]')];
+    overlay.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (target === overlay || target?.closest('[data-ai-picker-close]')) {
+        close([]);
+        return;
+      }
+      if (target?.closest('[data-ai-picker-all]')) {
+        getInputs().forEach((input) => { input.checked = true; });
+        return;
+      }
+      if (target?.closest('[data-ai-picker-none]')) {
+        getInputs().forEach((input) => { input.checked = false; });
+        return;
+      }
+      if (target?.closest('[data-ai-picker-invert]')) {
+        getInputs().forEach((input) => { input.checked = !input.checked; });
+        return;
+      }
+      if (target?.closest('[data-ai-picker-confirm]')) {
+        const selectedNames = new Set(getInputs().filter((input) => input.checked).map((input) => input.dataset.aiPickerModel ?? ''));
+        close(models.filter((model) => selectedNames.has(model.name)));
+      }
+    });
+    document.body.appendChild(overlay);
+  });
 }
 
 // ===== 交易记录 tab =====

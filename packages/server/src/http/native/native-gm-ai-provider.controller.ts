@@ -154,27 +154,16 @@ export class NativeGmAiProviderController {
     const record = await this.getRecordOrThrow(scope, kind);
     const apiKey = await this.readApiKeyOrThrow(record);
     const fetchedNames = await fetchProviderModelNames(record, apiKey);
-    const beforeNames = new Set(record.models.map((model) => model.name));
-    const fetchedModels: AiProviderModelRecord[] = fetchedNames.map((name) => ({
+    const fetchedModels: GmAiProviderModelItem[] = fetchedNames.map((name) => ({
       name,
       enabled: true,
       source: 'fetched',
       addedAt: new Date().toISOString(),
     }));
-    const mergedModels = normalizeAiProviderModels([...record.models, ...fetchedModels], record.modelName);
-    const item = await this.aiProviderConfigService.upsert({
-      ...record,
-      models: mergedModels,
-      modelName: mergedModels.find((model) => model.enabled)?.name ?? record.modelName,
-      updatedBy: actor.tokenRev ?? 'gm',
-    });
-    if (!item) throw new BadRequestException('AI provider 模型列表保存失败');
-    const addedCount = mergedModels.filter((model) => !beforeNames.has(model.name)).length;
     await this.recordAudit('gm.ai-provider.models.fetch', actor, `${kind}:${scope}`, undefined, {
       fetchedCount: fetchedNames.length,
-      addedCount,
     }, true, null);
-    return { ok: true, item: toApiItem(item), fetchedCount: fetchedNames.length, addedCount };
+    return { ok: true, models: fetchedModels, fetchedCount: fetchedNames.length };
   }
 
   @Delete('ai/providers/:kind/:scope/models/:modelName')

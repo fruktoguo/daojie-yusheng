@@ -3947,9 +3947,8 @@ export interface GmAiProviderConfigDeleteRes {
 /** GM AI provider 拉取模型列表响应。 */
 export interface GmAiProviderFetchModelsRes {
   ok: true;
-  item: GmAiProviderConfigItem;
+  models: GmAiProviderModelItem[];
   fetchedCount: number;
-  addedCount: number;
 }
 
 /** GM AI provider 单模型删除响应。 */
