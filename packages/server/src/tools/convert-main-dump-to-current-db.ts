@@ -6,7 +6,7 @@ const { existsSync } = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 
-const DEFAULT_DUMP_PATH = '参考/Test/20260428-060004-067__hourly.dump';
+const DEFAULT_DUMP_PATH = '参考/Test/上个版本.dump';
 const DEFAULT_TARGET_DB_PREFIX = 'mud_mmo_next_converted_main';
 const GM_AUTH_RECORD_KEY = 'gm_auth';
 const LEGACY_BCRYPT_SENTINEL_SALT = '__legacy_bcrypt__';
@@ -377,6 +377,17 @@ async function convertPlayers(pool, services, limit) {
         currentOnlineStartedAt: normalizeDateString(entry.user?.currentOnlineStartedAt),
         createdAt: normalizeDateString(entry.user?.createdAt) || new Date(0).toISOString(),
         updatedAt: resolveUpdatedAtMs(entry.user, entry.player, entry.collections, entry.settings),
+        // 封禁信息
+        bannedAt: normalizeDateString(entry.user?.bannedAt),
+        banReason: normalizeString(entry.user?.banReason) || null,
+        bannedBy: normalizeString(entry.user?.bannedBy) || null,
+        // 登录追踪信息
+        registerIp: normalizeString(entry.user?.registerIp) || null,
+        lastLoginIp: normalizeString(entry.user?.lastLoginIp) || null,
+        lastLoginAt: normalizeDateString(entry.user?.lastLoginAt),
+        registerDeviceId: normalizeString(entry.user?.registerDeviceId) || null,
+        lastLoginDeviceId: normalizeString(entry.user?.lastLoginDeviceId) || null,
+        lastUserAgent: normalizeString(entry.user?.lastUserAgent) || null,
       });
       await services.identity.savePlayerIdentity({
         userId,
