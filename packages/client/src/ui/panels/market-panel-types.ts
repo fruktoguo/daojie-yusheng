@@ -103,6 +103,8 @@ export interface AuctionLotView {
   itemName: string;
   typeLabel: string;
   qualityLabel: string;
+  enhanceLevelLabel: string | null;
+  realmLevelLabel: string | null;
   currentPrice: number;
   buyoutPrice: number | null;
   bidCount: number;

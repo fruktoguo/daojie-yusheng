@@ -1,8 +1,8 @@
 import type { AuctionHouseTab, ItemStack, MarketListedItemView, S2C_AuctionListings, S2C_MarketUpdate } from '@mud/shared';
-import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES } from '@mud/shared';
+import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES, normalizeEnhanceLevel } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 import { getItemTypeLabel } from '../../domain-labels';
-import { resolvePreviewItem } from '../../content/local-templates';
+import { getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
 import { getItemDisplayMeta } from '../item-display';
 import { detailModalHost } from '../detail-modal-host';
 import { t } from '../i18n';
@@ -265,7 +265,7 @@ export class MarketAuctionView {
         ${mineRibbon}
         <span class="auction-lot-item">
           <strong>${escapeHtml(displayName)}</strong>
-          <small>${escapeHtml(lot.typeLabel)} · ${escapeHtml(lot.lotNo)}</small>
+          <small>${escapeHtml(this.formatAuctionLotSubtitle(lot))}</small>
         </span>
         <span class="auction-quality-tag">${escapeHtml(mine ? lot.statusLabel : lot.qualityLabel)}</span>
         <span>${this.panel.formatMarketUnitPrice(lot.currentPrice)}</span>
@@ -290,7 +290,7 @@ export class MarketAuctionView {
         <div class="auction-item-icon" aria-hidden="true">${escapeHtml(this.getAuctionItemInitial(lot.itemName))}</div>
         <div class="auction-detail-title">
           <div class="market-item-title ${listedEntry ? 'market-item-title--interactive' : ''}" ${listedEntry ? `data-market-item-tooltip="${escapeHtmlAttr(lot.itemKey)}"` : ''}>${escapeHtml(displayName)}</div>
-          <div class="market-book-subtitle">${escapeHtml(lot.qualityLabel)} · ${escapeHtml(lot.typeLabel)} · ${escapeHtml(lot.statusLabel)}</div>
+          <div class="market-book-subtitle">${escapeHtml(this.formatAuctionLotDetailSubtitle(lot))}</div>
         </div>
         <div class="auction-countdown">
           <span>${escapeHtml(t('auction.countdown', undefined))}</span>
@@ -1159,6 +1159,8 @@ export class MarketAuctionView {
       itemName: this.panel.getMarketDisplayName(item),
       typeLabel: getItemTypeLabel(item.type),
       qualityLabel: this.getAuctionQualityLabel(item),
+      enhanceLevelLabel: this.getAuctionEnhanceLevelLabel(item),
+      realmLevelLabel: this.getAuctionRealmLevelLabel(item),
       currentPrice: Math.max(1, Math.floor(Number(entry.currentPrice) || 1)),
       buyoutPrice: entry.buyoutPrice === null || entry.buyoutPrice === undefined ? null : Math.max(1, Math.floor(Number(entry.buyoutPrice) || 1)),
       bidCount: Math.max(0, Math.floor(Number(entry.bidCount) || 0)),
@@ -1221,13 +1223,46 @@ export class MarketAuctionView {
   getAuctionQualityLabel(item: import('@mud/shared').ItemStack): string {
     const meta = getItemDisplayMeta(item);
     if (meta.gradeLabel) return meta.gradeLabel;
-    if (meta.levelLabel) return meta.levelLabel;
-    return '凡品';
+    return '凡阶';
+  }
+
+  getAuctionEnhanceLevelLabel(item: import('@mud/shared').ItemStack): string | null {
+    if (item.type !== 'equipment') return null;
+    const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
+    return enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)}` : null;
+  }
+
+  getAuctionRealmLevelLabel(item: import('@mud/shared').ItemStack): string | null {
+    if (item.type === 'skill_book') {
+      return getItemDisplayMeta(item).levelLabel;
+    }
+    const level = Number(item.level);
+    if (!Number.isFinite(level) || level <= 0) return null;
+    const realmLv = Math.floor(level);
+    return getLocalRealmLevelEntry(realmLv)?.displayName ?? `${formatDisplayInteger(realmLv)}阶`;
   }
 
   formatAuctionLotDisplayName(lot: AuctionLotView): string {
     const quantity = Math.max(1, Math.floor(Number(lot.remainingQuantity ?? lot.item.count ?? 1) || 1));
     return quantity > 1 ? `${lot.itemName} x${formatDisplayInteger(quantity)}` : lot.itemName;
+  }
+
+  formatAuctionEnhanceLabel(lot: AuctionLotView): string | null {
+    const label = lot.enhanceLevelLabel?.trim();
+    return label ? `强化 ${label}` : null;
+  }
+
+  formatAuctionRealmLabel(lot: AuctionLotView): string | null {
+    const label = lot.realmLevelLabel?.trim();
+    return label ? `境界 ${label}` : null;
+  }
+
+  formatAuctionLotSubtitle(lot: AuctionLotView): string {
+    return [this.formatAuctionEnhanceLabel(lot), this.formatAuctionRealmLabel(lot), lot.typeLabel, lot.lotNo].filter(Boolean).join(' · ');
+  }
+
+  formatAuctionLotDetailSubtitle(lot: AuctionLotView): string {
+    return [lot.qualityLabel, this.formatAuctionEnhanceLabel(lot), this.formatAuctionRealmLabel(lot), lot.typeLabel, lot.statusLabel].filter(Boolean).join(' · ');
   }
 
   getAuctionItemInitial(name: string): string {
