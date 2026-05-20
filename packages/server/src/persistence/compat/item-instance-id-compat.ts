@@ -86,6 +86,7 @@ export async function upsertEquipmentSlotRowsWithItemInstanceIdRepair(
   }
   for (let attempt = 1; attempt <= 4; attempt += 1) {
     await repairEquipmentSlotItemInstanceIdConflicts(client, playerId, rows, rowSources);
+    const rowsJson = JSON.stringify(rows);
     await client.query(
       `
         WITH incoming AS (
@@ -101,7 +102,7 @@ export async function upsertEquipmentSlotRowsWithItemInstanceIdRepair(
               OR incoming.item_instance_id = target.item_instance_id
           )
       `,
-      [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
+      [playerId, rowsJson],
     );
     await client.query(
       `
@@ -133,7 +134,7 @@ export async function upsertEquipmentSlotRowsWithItemInstanceIdRepair(
           updated_at = now()
         WHERE player_equipment_slot.player_id = EXCLUDED.player_id
       `,
-      [playerId, JSON.stringify(rows)],
+      [playerId, rowsJson],
     );
     const persistedResult = await client.query(
       `
