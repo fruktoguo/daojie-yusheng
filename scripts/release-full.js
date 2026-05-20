@@ -9,7 +9,7 @@ require('./load-local-runtime-env');
 
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
-const { runVerificationSteps } = require('./verification-timing');
+const { runReleaseVerificationSteps } = require('./release-verification-mode');
 
 const repoRoot = path.resolve(__dirname, '..');
 const nodeBin = process.execPath;
@@ -79,14 +79,16 @@ const steps = [
     args: ['--filter', '@mud/server', 'smoke:gm-database:backup-persistence'],
   },
   { label: 'shadow', kind: 'node', args: ['scripts/release-shadow.js'] },
-  {
+    {
     label: 'gm',
     kind: 'pnpm',
     args: ['--filter', '@mud/server', 'smoke:gm'],
     extraEnv: {
       SERVER_URL: shadowUrl,
     },
+    serial: true,
   },
+
 ];
 /**
  * 汇总子进程环境变量。
@@ -113,7 +115,7 @@ async function main() {
   process.stdout.write(`[release:full] steps=${steps.map((step) => step.label).join(' -> ')}\n`);
   process.stdout.write('[release:full] gate=full\n');
 
-  const status = runVerificationSteps({
+  const status = await runReleaseVerificationSteps({
     command: 'pnpm verify:release:full',
     gate: 'release:full',
     cwd: repoRoot,
@@ -126,6 +128,7 @@ async function main() {
       args: step.args,
       shell: step.kind === 'pnpm' ? process.platform === 'win32' : false,
       env: step.extraEnv ?? null,
+      serial: step.serial === true,
     })),
   });
 

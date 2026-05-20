@@ -7,9 +7,8 @@ require('./load-local-runtime-env');
  * 用途：执行 release 主链的带数据库验证流程。
  */
 
-const { spawnSync } = require('node:child_process');
 const path = require('node:path');
-const { runVerificationSteps } = require('./verification-timing');
+const { runReleaseVerificationSteps } = require('./release-verification-mode');
 
 const repoRoot = path.resolve(__dirname, '..');
 const {
@@ -42,7 +41,7 @@ const childEnv = {
   ...(databaseEnvSource === 'SERVER_DATABASE_URL' ? null : { SERVER_DATABASE_URL: databaseUrl }),
 };
 /**
- * 汇总需要串行执行的步骤。
+ * 汇总需要执行的步骤。
  */
 const steps = [
   { label: 'build:client', args: ['build:client'] },
@@ -50,24 +49,31 @@ const steps = [
   { label: 'audit:protocol', args: ['audit:protocol'] },
 ];
 
-process.stdout.write('[release:with-db] steps=build:client -> verify:release:with-db -> audit:protocol\n');
-process.stdout.write('[release:with-db] gate=with-db\n');
+async function main() {
+  process.stdout.write('[release:with-db] steps=build:client -> verify:release:with-db -> audit:protocol\n');
+  process.stdout.write('[release:with-db] gate=with-db\n');
 
-const status = runVerificationSteps({
-  command: 'pnpm verify:release:with-db',
-  gate: 'release:with-db',
-  cwd: repoRoot,
-  env: childEnv,
-  dbEnabled: true,
-  shadowEnabled: Boolean(process.env.SERVER_SHADOW_URL || process.env.SERVER_URL),
-  steps,
-});
+  const status = await runReleaseVerificationSteps({
+    command: 'pnpm verify:release:with-db',
+    gate: 'release:with-db',
+    cwd: repoRoot,
+    env: childEnv,
+    dbEnabled: true,
+    shadowEnabled: Boolean(process.env.SERVER_SHADOW_URL || process.env.SERVER_URL),
+    steps,
+  });
 
-if (status !== 0) {
-  process.exit(status);
+  if (status !== 0) {
+    process.exit(status);
+  }
+
+  process.stdout.write('[release:with-db] completed\n');
+  process.stdout.write('[release:with-db] boundary=with-db automated proof only; this includes local destructive gm-database restore proof, but still does not include shadow or acceptance/full environment proof\n');
+  process.stdout.write('[release:with-db] next=run pnpm verify:release:acceptance or pnpm verify:release:full when shadow + GM env are ready\n');
+  process.exit(0);
 }
 
-process.stdout.write('[release:with-db] completed\n');
-process.stdout.write('[release:with-db] boundary=with-db automated proof only; this includes local destructive gm-database restore proof, but still does not include shadow or acceptance/full environment proof\n');
-process.stdout.write('[release:with-db] next=run pnpm verify:release:acceptance or pnpm verify:release:full when shadow + GM env are ready\n');
-process.exit(0);
+main().catch((error) => {
+  process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  process.exit(1);
+});

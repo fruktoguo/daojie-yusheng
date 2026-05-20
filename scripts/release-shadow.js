@@ -9,7 +9,7 @@ require('./load-local-runtime-env');
 
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
-const { runVerificationSteps } = require('./verification-timing');
+const { runReleaseVerificationSteps } = require('./release-verification-mode');
 
 const repoRoot = path.resolve(__dirname, '..');
 const {
@@ -57,7 +57,7 @@ async function main() {
 
   process.stdout.write('[release:shadow] steps=smoke:shadow\n');
   process.stdout.write('[release:shadow] gate=shadow\n');
-  const status = runVerificationSteps({
+  const status = await runReleaseVerificationSteps({
     command: 'pnpm verify:release:shadow',
     gate: 'release:shadow',
     cwd: repoRoot,

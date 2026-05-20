@@ -7,9 +7,8 @@ require('./load-local-runtime-env');
  * 用途：执行 server 替换链路的破坏性 shadow流程。
  */
 
-const { spawnSync } = require('node:child_process');
 const path = require('node:path');
-const { runVerificationSteps } = require('./verification-timing');
+const { runReleaseVerificationSteps } = require('./release-verification-mode');
 
 const repoRoot = path.resolve(__dirname, '..');
 const {
@@ -59,33 +58,41 @@ if (!allowDestructive) {
   process.exit(1);
 }
 
-process.stdout.write('[release:shadow:destructive] steps=preflight -> smoke:shadow:gm-database\n');
-process.stdout.write('[release:shadow:destructive] gate=shadow-destructive\n');
-const status = runVerificationSteps({
-  command: 'pnpm verify:release:shadow:destructive',
-  gate: 'release:shadow:destructive',
-  cwd: repoRoot,
-  dbEnabled: false,
-  shadowEnabled: true,
-  destructiveEnabled: true,
-  env: {
-    ...process.env,
-    ...(shadowUrlEnvSource === 'SERVER_SHADOW_URL' ? null : { SERVER_SHADOW_URL: shadowUrl }),
-    ...(gmPasswordEnvSource === 'SERVER_GM_PASSWORD' ? null : { SERVER_GM_PASSWORD: gmPassword }),
-    SERVER_SHADOW_ALLOW_DESTRUCTIVE: '1',
-  },
-  steps: [
-    { label: 'preflight', command: process.execPath, args: [path.join(repoRoot, 'scripts/release-shadow-destructive-preflight.js')], shell: false },
-    { label: 'smoke:shadow:gm-database', args: ['--filter', '@mud/server', 'smoke:shadow:gm-database'] },
-  ],
-});
+async function main() {
+  process.stdout.write('[release:shadow:destructive] steps=preflight -> smoke:shadow:gm-database\n');
+  process.stdout.write('[release:shadow:destructive] gate=shadow-destructive\n');
 
-if (status !== 0) {
-  process.exit(status);
+  const status = await runReleaseVerificationSteps({
+    command: 'pnpm verify:release:shadow:destructive',
+    gate: 'release:shadow:destructive',
+    cwd: repoRoot,
+    dbEnabled: false,
+    shadowEnabled: true,
+    destructiveEnabled: true,
+    env: {
+      ...process.env,
+      ...(shadowUrlEnvSource === 'SERVER_SHADOW_URL' ? null : { SERVER_SHADOW_URL: shadowUrl }),
+      ...(gmPasswordEnvSource === 'SERVER_GM_PASSWORD' ? null : { SERVER_GM_PASSWORD: gmPassword }),
+      SERVER_SHADOW_ALLOW_DESTRUCTIVE: '1',
+    },
+    steps: [
+      { label: 'preflight', command: process.execPath, args: [path.join(repoRoot, 'scripts/release-shadow-destructive-preflight.js')], shell: false, serial: true },
+      { label: 'smoke:shadow:gm-database', args: ['--filter', '@mud/server', 'smoke:shadow:gm-database'] },
+    ],
+  });
+
+  if (status !== 0) {
+    process.exit(status);
+  }
+
+  process.stdout.write('[release:shadow:destructive] done step=smoke:shadow:gm-database\n');
+  process.stdout.write('[release:shadow:destructive] completed\n');
+  process.stdout.write('[release:shadow:destructive] boundary=maintenance-window destructive proof only; this does not imply daily release gates or complete replacement completion\n');
+  process.stdout.write('[release:shadow:destructive] next=write the real maintenance-window evidence back into ops/runbook records after execution\n');
+  process.exit(0);
 }
 
-process.stdout.write('[release:shadow:destructive] done step=smoke:shadow:gm-database\n');
-process.stdout.write('[release:shadow:destructive] completed\n');
-process.stdout.write('[release:shadow:destructive] boundary=maintenance-window destructive proof only; this does not imply daily release gates or complete replacement completion\n');
-process.stdout.write('[release:shadow:destructive] next=write the real maintenance-window evidence back into ops/runbook records after execution\n');
-process.exit(0);
+main().catch((error) => {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.exit(1);
+});
