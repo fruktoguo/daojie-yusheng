@@ -253,6 +253,13 @@ export class WorldRuntimePlayerSessionService {
     return true;
   }
 
+  /**
+   * 解析玩家要进入的目标实例。
+   *
+   * 在线登录、离线挂机恢复、宗门/通天塔等入口都应尽量复用这里，
+   * 这样才能保证“实例创建、接管、落点修正、线路选择”走同一套规则；
+   * 真正的差异只应停留在是否有网络会话，以及死亡后是否直接离线。
+   */
   private resolveTargetInstance(
     input: ResolveTargetInstanceInput,
     deps: WorldRuntimePlayerSessionDeps,

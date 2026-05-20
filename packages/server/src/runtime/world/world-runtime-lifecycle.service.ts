@@ -277,7 +277,12 @@ export class WorldRuntimeLifecycleService {
         await this.restoreOfflineHangingPlayers(deps);
     }
 
-    /** 启动时恢复离线挂机玩家到对应实例，使其继续参与 tick。 */
+    /**
+     * 启动时恢复离线挂机玩家到对应实例。
+     *
+     * 约束：这条链路必须尽量复用在线玩家的实例接管/创建逻辑，
+     * 仅保留两处差异：离线时不走网络通讯；玩家死亡后直接离线。
+     */
     async restoreOfflineHangingPlayers(deps) {
         const persistenceService = deps.playerRuntimeService?.playerDomainPersistenceService;
         if (!persistenceService?.isEnabled?.() || typeof persistenceService.listOfflineHangingPlayerPositions !== 'function') {
