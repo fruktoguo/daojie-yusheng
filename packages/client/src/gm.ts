@@ -333,18 +333,18 @@ const serverPanelEnvCheckEl = document.getElementById('server-panel-env-check') 
 const serverEnvCheckRefreshBtn = document.getElementById('server-env-check-refresh') as HTMLButtonElement;
 const serverEnvCheckMetaEl = document.getElementById('server-env-check-meta') as HTMLDivElement;
 const serverEnvCheckContentEl = document.getElementById('server-env-check-content') as HTMLDivElement;
-const serverSubtabFlagsBtn = document.getElementById('server-subtab-flags') as HTMLButtonElement;
-const serverPanelFlagsEl = document.getElementById('server-panel-flags') as HTMLElement;
+const serverSubtabFlagsBtn = document.getElementById('server-subtab-flags') as HTMLButtonElement | null;
+const serverPanelFlagsEl = document.getElementById('server-panel-flags') as HTMLElement | null;
 const serverSubtabObjectsBtn = document.getElementById('server-subtab-objects') as HTMLButtonElement;
 const serverPanelObjectsEl = document.getElementById('server-panel-objects') as HTMLElement;
 const serverObjectsRefreshBtn = document.getElementById('server-objects-refresh') as HTMLButtonElement;
 const serverObjectsMetaEl = document.getElementById('server-objects-meta') as HTMLDivElement;
 const serverObjectsContentEl = document.getElementById('server-objects-content') as HTMLDivElement;
-const serverFlagsRefreshBtn = document.getElementById('server-flags-refresh') as HTMLButtonElement;
-const serverFlagsMetaEl = document.getElementById('server-flags-meta') as HTMLDivElement;
-const serverFlagsContentEl = document.getElementById('server-flags-content') as HTMLDivElement;
-const serverFlagsNewKeyInput = document.getElementById('server-flags-new-key') as HTMLInputElement;
-const serverFlagsAddBtn = document.getElementById('server-flags-add') as HTMLButtonElement;
+const serverFlagsRefreshBtn = document.getElementById('server-flags-refresh') as HTMLButtonElement | null;
+const serverFlagsMetaEl = document.getElementById('server-flags-meta') as HTMLDivElement | null;
+const serverFlagsContentEl = document.getElementById('server-flags-content') as HTMLDivElement | null;
+const serverFlagsNewKeyInput = document.getElementById('server-flags-new-key') as HTMLInputElement | null;
+const serverFlagsAddBtn = document.getElementById('server-flags-add') as HTMLButtonElement | null;
 /** serverWorkersRefreshBtn：服务端Workers刷新Btn。 */
 const serverWorkersRefreshBtn = document.getElementById('server-workers-refresh') as HTMLButtonElement;
 /** serverWorkersMetaEl：服务端Workers元信息El。 */
@@ -571,7 +571,7 @@ const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivE
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmServerTab：服务器监察子标签页 ID。 */
-type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'envCheck' | 'flags' | 'objects';
+type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs' | 'workers' | 'envCheck' | 'objects';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
@@ -2873,7 +2873,6 @@ function applyServerTabVisibility(tab: GmServerTab): void {
   serverSubtabLogsBtn.classList.toggle('active', tab === 'logs');
   serverSubtabWorkersBtn.classList.toggle('active', tab === 'workers');
   serverSubtabEnvCheckBtn.classList.toggle('active', tab === 'envCheck');
-  serverSubtabFlagsBtn.classList.toggle('active', tab === 'flags');
   serverSubtabObjectsBtn.classList.toggle('active', tab === 'objects');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
   serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
@@ -2883,7 +2882,6 @@ function applyServerTabVisibility(tab: GmServerTab): void {
   serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
   serverPanelWorkersEl.classList.toggle('hidden', tab !== 'workers');
   serverPanelEnvCheckEl.classList.toggle('hidden', tab !== 'envCheck');
-  serverPanelFlagsEl.classList.toggle('hidden', tab !== 'flags');
   serverPanelObjectsEl.classList.toggle('hidden', tab !== 'objects');
 }
 
@@ -2922,11 +2920,6 @@ function switchServerTab(tab: GmServerTab): void {
   if (tab === 'memory') {
     loadState(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载内存画像失败', true);
-    });
-  }
-  if (tab === 'flags' && !runtimeFlagsLoading) {
-    loadRuntimeFlags().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载运行时开关失败', true);
     });
   }
   if (tab === 'objects' && !objectsLoading) {
@@ -3686,23 +3679,22 @@ async function restartServer(): Promise<void> {
 }
 
 function renderRuntimeFlagsPanel(): void {
-  serverFlagsRefreshBtn.disabled = runtimeFlagsLoading;
-  if (runtimeFlagsLoading) {
-    serverFlagsMetaEl.textContent = '加载中...';
-    return;
-  }
+  // 运行时开关现在渲染到游戏配置页，直接触发游戏配置页重新渲染
+  renderGameConfig();
+}
 
+/** 生成运行时开关区块的 HTML，供游戏配置页使用 */
+function buildRuntimeFlagsHtml(): string {
+  if (runtimeFlagsLoading) {
+    return '<div class="flag-empty">运行时开关加载中...</div>';
+  }
   const merged = mergeRuntimeFlags(runtimeFlags);
   const grouped = groupRuntimeFlags(merged);
-  const totalCount = merged.length;
-
-  serverFlagsMetaEl.textContent = `共 ${totalCount} 个开关`;
-  if (totalCount === 0) {
-    serverFlagsContentEl.innerHTML = '<div class="flag-empty">当前没有运行时开关。</div>';
-    return;
+  if (merged.length === 0) {
+    return '<div class="flag-empty">当前没有运行时开关。</div>';
   }
 
-  const html = grouped.map(({ group, flags }) => {
+  const groupsHtml = grouped.map(({ group, flags }) => {
     const rows = flags.map((flag) => {
       const checked = flag.value ? 'checked' : '';
       const badgeClass = flag.value ? 'on' : 'off';
@@ -3732,12 +3724,19 @@ function renderRuntimeFlagsPanel(): void {
     </div>`;
   });
 
-  serverFlagsContentEl.innerHTML = html.join('');
+  const addRowHtml = `<div class="flag-add-row">
+    <input id="gameconfig-flags-new-key" type="text" placeholder="输入新开关 key（如 my_feature_enabled）" />
+    <button id="gameconfig-flags-add" class="small-btn" type="button">添加开关</button>
+  </div>`;
 
+  return groupsHtml.join('') + addRowHtml;
+}
+
+/** 绑定运行时开关区块内的事件 */
+function bindRuntimeFlagsEvents(container: HTMLElement): void {
   // 整行点击切换（排除删除按钮区域）
-  serverFlagsContentEl.querySelectorAll<HTMLElement>('[data-flag-row]').forEach((row) => {
+  container.querySelectorAll<HTMLElement>('[data-flag-row]').forEach((row) => {
     row.addEventListener('click', (e) => {
-      // 如果点击的是删除按钮，不触发切换
       if ((e.target as HTMLElement).closest('[data-flag-delete]')) return;
       const input = row.querySelector<HTMLInputElement>('input[data-flag-key]');
       if (!input) return;
@@ -3747,7 +3746,7 @@ function renderRuntimeFlagsPanel(): void {
   });
 
   // 绑定 toggle 事件
-  serverFlagsContentEl.querySelectorAll<HTMLInputElement>('input[data-flag-key]').forEach((input) => {
+  container.querySelectorAll<HTMLInputElement>('input[data-flag-key]').forEach((input) => {
     input.addEventListener('change', () => {
       const key = input.dataset.flagKey!;
       toggleRuntimeFlag(key, input.checked).catch((err: unknown) => {
@@ -3757,7 +3756,7 @@ function renderRuntimeFlagsPanel(): void {
   });
 
   // 绑定删除事件
-  serverFlagsContentEl.querySelectorAll<HTMLButtonElement>('[data-flag-delete]').forEach((btn) => {
+  container.querySelectorAll<HTMLButtonElement>('[data-flag-delete]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const key = btn.dataset.flagDelete!;
@@ -3767,6 +3766,21 @@ function renderRuntimeFlagsPanel(): void {
       });
     });
   });
+
+  // 绑定添加开关事件
+  const addInput = container.querySelector<HTMLInputElement>('#gameconfig-flags-new-key');
+  const addBtn = container.querySelector<HTMLButtonElement>('#gameconfig-flags-add');
+  if (addInput && addBtn) {
+    addBtn.addEventListener('click', () => {
+      const key = addInput.value.trim();
+      if (!key) return;
+      addRuntimeFlag(key).then(() => {
+        addInput.value = '';
+      }).catch((err: unknown) => {
+        setStatus(err instanceof Error ? err.message : '添加开关失败', true);
+      });
+    });
+  }
 }
 
 
@@ -7860,8 +7874,11 @@ async function loadGameConfig(): Promise<void> {
   gameConfigLoading = true;
   renderGameConfig();
   try {
-    const res = await request<GameConfigListRes>(`${GM_API_BASE_PATH}/game-config`);
-    gameConfigItems = res.items ?? [];
+    const [configRes] = await Promise.all([
+      request<GameConfigListRes>(`${GM_API_BASE_PATH}/game-config`),
+      loadRuntimeFlags(),
+    ]);
+    gameConfigItems = configRes.items ?? [];
     gameConfigLoading = false;
     renderGameConfig();
   } catch (error) {
@@ -7879,38 +7896,55 @@ function renderGameConfig(): void {
   gameConfigRefreshBtn.disabled = gameConfigLoading;
   gameConfigExpandBtn.disabled = gameConfigLoading;
   gameConfigCollapseBtn.disabled = gameConfigLoading;
-  if (gameConfigLoading) {
+  if (gameConfigLoading && runtimeFlagsLoading) {
     gameConfigMetaEl.textContent = '配置加载中...';
     return;
   }
 
-  gameConfigMetaEl.textContent = `共 ${gameConfigItems.length} 项配置`;
-  if (gameConfigItems.length === 0) {
-    gameConfigListEl.innerHTML = '<div class="env-empty">当前没有已注册的游戏配置。</div>';
-    return;
-  }
+  const totalConfigCount = gameConfigItems.length;
+  const flagCount = mergeRuntimeFlags(runtimeFlags).length;
+  gameConfigMetaEl.textContent = `${flagCount} 个运行时开关 · ${totalConfigCount} 项配置`;
 
-  const groups = new Map<string, GameConfigItem[]>();
-  for (const item of gameConfigItems) {
-    if (!groups.has(item.category)) {
-      groups.set(item.category, []);
+  // 运行时开关区块（热生效）
+  const flagsSectionHtml = `<details class="env-group" open>
+    <summary class="env-group-title">运行时开关（热生效） <span class="env-group-count">(${flagCount})</span></summary>
+    <div class="env-group-body" id="gameconfig-flags-container">
+      ${buildRuntimeFlagsHtml()}
+    </div>
+  </details>`;
+
+  // 游戏配置区块（重启生效）
+  let configHtml = '';
+  if (totalConfigCount > 0) {
+    const groups = new Map<string, GameConfigItem[]>();
+    for (const item of gameConfigItems) {
+      if (!groups.has(item.category)) {
+        groups.set(item.category, []);
+      }
+      groups.get(item.category)!.push(item);
     }
-    groups.get(item.category)!.push(item);
-  }
-
-  let html = '';
-  for (const [category, items] of groups) {
-    html += `<details class="env-group" open>
-      <summary class="env-group-title">${escapeHtml(category)} <span class="env-group-count">(${items.length})</span></summary>
-      <div class="env-group-body">`;
-    for (const item of items) {
-      html += renderGameConfigRow(item);
+    for (const [category, items] of groups) {
+      configHtml += `<details class="env-group" open>
+        <summary class="env-group-title">${escapeHtml(category)} <span class="env-group-count">(${items.length})</span></summary>
+        <div class="env-group-body">`;
+      for (const item of items) {
+        configHtml += renderGameConfigRow(item);
+      }
+      configHtml += '</div></details>';
     }
-    html += '</div></details>';
+  } else if (!gameConfigLoading) {
+    configHtml = '<div class="env-empty">当前没有已注册的游戏配置。</div>';
   }
-  gameConfigListEl.innerHTML = html;
 
-  // 绑定事件
+  gameConfigListEl.innerHTML = flagsSectionHtml + configHtml;
+
+  // 绑定运行时开关事件
+  const flagsContainer = gameConfigListEl.querySelector<HTMLElement>('#gameconfig-flags-container');
+  if (flagsContainer) {
+    bindRuntimeFlagsEvents(flagsContainer);
+  }
+
+  // 绑定游戏配置事件
   gameConfigListEl.querySelectorAll<HTMLElement>('.env-row[data-config-key]').forEach((rowEl) => {
     const key = rowEl.dataset.configKey!;
     const saveBtn = rowEl.querySelector<HTMLButtonElement>('[data-config-save]');
@@ -9737,9 +9771,7 @@ async function toggleNetworkPayloadCapture(): Promise<void> {
       body: JSON.stringify({ enabled }),
     });
     await loadState(true);
-    if (currentServerTab === 'flags') {
-      await loadRuntimeFlags();
-    }
+    await loadRuntimeFlags();
     setStatus(enabled ? '已开启大包采样。' : '已关闭大包采样。');
   } catch (error) {
     setStatus(error instanceof Error ? error.message : '切换大包采样失败。', true);
@@ -10621,7 +10653,6 @@ serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('databas
 serverSubtabLogsBtn.addEventListener('click', () => switchServerTab('logs'));
 serverSubtabWorkersBtn.addEventListener('click', () => switchServerTab('workers'));
 serverSubtabEnvCheckBtn.addEventListener('click', () => switchServerTab('envCheck'));
-serverSubtabFlagsBtn.addEventListener('click', () => switchServerTab('flags'));
 serverSubtabObjectsBtn.addEventListener('click', () => switchServerTab('objects'));
 // 诊断面板事件委托（动态渲染，通过 database panel 委托）
 serverPanelDatabaseEl.addEventListener('click', (event) => {
@@ -10699,7 +10730,7 @@ serverPanelDatabaseEl.addEventListener('keydown', (event) => {
     if (next !== null) { event.preventDefault(); cmdEl.value = next; }
   }
 });
-serverFlagsRefreshBtn.addEventListener('click', () => {
+serverFlagsRefreshBtn?.addEventListener('click', () => {
   loadRuntimeFlags().catch((err: unknown) => {
     setStatus(err instanceof Error ? err.message : '加载运行时开关失败', true);
   });
@@ -10709,11 +10740,11 @@ serverObjectsRefreshBtn.addEventListener('click', () => {
     setStatus(err instanceof Error ? err.message : '加载对象信息失败', true);
   });
 });
-serverFlagsAddBtn.addEventListener('click', () => {
-  const key = serverFlagsNewKeyInput.value.trim();
+serverFlagsAddBtn?.addEventListener('click', () => {
+  const key = serverFlagsNewKeyInput?.value.trim();
   if (!key) return;
   addRuntimeFlag(key).then(() => {
-    serverFlagsNewKeyInput.value = '';
+    if (serverFlagsNewKeyInput) serverFlagsNewKeyInput.value = '';
   }).catch((err: unknown) => {
     setStatus(err instanceof Error ? err.message : '添加开关失败', true);
   });

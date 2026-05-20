@@ -2469,7 +2469,7 @@
           <button class="workspace-tab" id="server-subtab-logs" type="button" data-i18n="gm.server-subtab-logs">日志</button>
           <button class="workspace-tab" id="server-subtab-workers" type="button">Worker</button>
           <button class="workspace-tab" id="server-subtab-env-check" type="button">环境检测</button>
-          <button class="workspace-tab" id="server-subtab-flags" type="button">运行时开关</button>
+
           <button class="workspace-tab" id="server-subtab-objects" type="button">对象信息</button>
         </div>
         <div id="server-panel-overview" class="server-tab-panel">
@@ -2720,19 +2720,7 @@
             </div>
           </div>
         </div>
-        <div id="server-panel-flags" class="server-tab-panel hidden">
-          <div class="server-log-toolbar">
-            <button id="server-flags-refresh" class="small-btn" type="button">刷新</button>
-            <div id="server-flags-meta" class="server-log-meta">运行时开关尚未加载。</div>
-          </div>
-          <div id="server-flags-content">
-            <div class="empty-hint">当前没有运行时开关。</div>
-          </div>
-          <div class="flag-add-row">
-            <input id="server-flags-new-key" type="text" placeholder="输入新开关 key（如 my_feature_enabled）" />
-            <button id="server-flags-add" class="small-btn" type="button">添加开关</button>
-          </div>
-        </div>
+
         <div id="server-panel-objects" class="server-tab-panel hidden">
           <div class="server-log-toolbar">
             <button id="server-objects-refresh" class="small-btn" type="button">刷新</button>
@@ -3025,7 +3013,7 @@
       <div class="panel-stamp">配</div>
       <div style="padding: 24px; border-bottom: 1.5px solid var(--ink-black); background: var(--paper-bg);">
         <div class="shell-title" style="font-size: 32px; margin-bottom: 4px;">游戏配置</div>
-        <div class="shell-subtitle" style="font-size: 14px;">管理服务端运行参数。修改后需重启服务端生效。与运行时开关（runtime flag）不同，这些配置影响启动行为。</div>
+        <div class="shell-subtitle" style="font-size: 14px;">管理运行时开关（热生效）和服务端配置参数（重启生效）。</div>
       </div>
       <div style="padding: 16px 24px; border-bottom: 1px solid var(--wash-ink); background: var(--paper-light);">
         <div class="server-log-toolbar" style="padding:0; border:none; background:transparent;">
