@@ -7,6 +7,7 @@ import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards
 import { createReadStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { stat } from 'fs/promises';
+import { createGzip } from 'zlib';
 
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAdminService } from './native-gm-admin.service';
@@ -105,16 +106,24 @@ export class NativeGmAdminController {
     });
   }
 
-  /** 下载指定备份文件（原始 pg_dump custom format）。 */
+  /** 下载指定备份文件；PostgreSQL custom dump 以 gzip 包形式下发，恢复真源仍保留原始 .dump。 */
   @Get('database/backups/:backupId/download')
   async downloadDatabaseBackup(@Param('backupId') backupId: string, @Res() response: DownloadResponseLike) {
     const record = await this.nextGmAdminService.getBackupDownloadRecord(backupId);
     // 确认文件存在
     const fileStat = await stat(record.filePath).catch(() => { throw new NotFoundException('备份文件不存在'); });
-    response.setHeader('Content-Disposition', `attachment; filename="${record.fileName}"`);
+    const shouldGzipDownload = record.format === 'postgres_custom_dump';
+    const downloadFileName = shouldGzipDownload && !record.fileName.toLowerCase().endsWith('.gz')
+      ? `${record.fileName}.gz`
+      : record.fileName;
+    response.setHeader('Content-Disposition', `attachment; filename="${downloadFileName}"`);
     response.setHeader('Content-Type', 'application/octet-stream');
-    response.setHeader('Content-Length', String(fileStat.size));
     const source = createReadStream(record.filePath);
+    if (shouldGzipDownload) {
+      await pipeline(source, createGzip(), response as unknown as NodeJS.WritableStream);
+      return;
+    }
+    response.setHeader('Content-Length', String(fileStat.size));
     await pipeline(source, response as unknown as NodeJS.WritableStream);
   }
 

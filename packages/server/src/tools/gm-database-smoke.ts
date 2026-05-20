@@ -12,6 +12,7 @@ const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");
 const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
+const node_zlib_1 = require("node:zlib");
 const socket_io_client_1 = require("socket.io-client");
 const shared_next_1 = require("@mud/shared");
 const pg_1 = require("pg");
@@ -74,6 +75,7 @@ const GM_AUTH_TABLE = 'server_gm_auth';
 const GM_DATABASE_JOB_STATE_TABLE = 'server_db_job_state';
 
 const POSTGRES_DUMP_MAGIC = Buffer.from('PGDMP');
+const GZIP_MAGIC = Buffer.from([0x1f, 0x8b]);
 
 const backupFileSnapshots = new Map();
 /**
@@ -2286,6 +2288,9 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
  */
     const expectedFileName = String(expectedRecord?.fileName ?? `server-database-backup-${backupId}.dump`).trim();
     const expectedFormat = normalizeBackupFormat(expectedRecord?.format, expectedFileName);
+    const expectedDownloadFileName = expectedFormat === 'postgres_custom_dump' && !expectedFileName.toLowerCase().endsWith('.gz')
+        ? `${expectedFileName}.gz`
+        : expectedFileName;
 /**
  * 记录response。
  */
@@ -2301,18 +2306,22 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
  * 记录contentdisposition。
  */
     const contentDisposition = response.headers.get('content-disposition') ?? '';
-    if (!contentDisposition.includes(expectedFileName)) {
-        throw new Error(`expected content-disposition to include ${expectedFileName}, got ${contentDisposition || '<empty>'}`);
+    if (!contentDisposition.includes(expectedDownloadFileName)) {
+        throw new Error(`expected content-disposition to include ${expectedDownloadFileName}, got ${contentDisposition || '<empty>'}`);
     }
     const downloadedBytes = Buffer.from(await response.arrayBuffer());
     if (expectedFormat === 'postgres_custom_dump') {
-        if (!isPostgresCustomDumpBuffer(downloadedBytes)) {
-            throw new Error(`expected downloaded backup to be PostgreSQL custom dump, got ${downloadedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
+        if (!isGzipBuffer(downloadedBytes)) {
+            throw new Error(`expected downloaded PostgreSQL backup to be gzip archive, got ${downloadedBytes.subarray(0, GZIP_MAGIC.length).toString('hex') || '<empty>'}`);
         }
-        const downloadedChecksum = computeBufferSha256(downloadedBytes);
+        const decompressedBytes = (0, node_zlib_1.gunzipSync)(downloadedBytes);
+        if (!isPostgresCustomDumpBuffer(decompressedBytes)) {
+            throw new Error(`expected downloaded gzip archive to contain PostgreSQL custom dump, got ${decompressedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
+        }
+        const downloadedChecksum = computeBufferSha256(decompressedBytes);
         const diskBytes = await node_fs_1.promises.readFile(resolveBackupFilePath(expectedRecord ?? backupId));
         if (computeBufferSha256(diskBytes) !== downloadedChecksum) {
-            throw new Error(`expected downloaded PostgreSQL backup checksum to match on-disk backup for ${backupId}`);
+            throw new Error(`expected downloaded PostgreSQL gzip payload checksum to match on-disk backup for ${backupId}`);
         }
         if (expectedRecord) {
             const expectedChecksum = String(expectedRecord?.checksumSha256 ?? '').trim();
@@ -2324,7 +2333,8 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
             backupId,
             format: 'postgres_custom_dump',
             checksumSha256: downloadedChecksum,
-            sizeBytes: downloadedBytes.length,
+            sizeBytes: decompressedBytes.length,
+            compressedSizeBytes: downloadedBytes.length,
         };
     }
 /**
@@ -2871,6 +2881,12 @@ function isPostgresCustomDumpBuffer(buffer) {
     return Buffer.isBuffer(buffer)
         && buffer.length >= POSTGRES_DUMP_MAGIC.length
         && buffer.subarray(0, POSTGRES_DUMP_MAGIC.length).equals(POSTGRES_DUMP_MAGIC);
+}
+
+function isGzipBuffer(buffer) {
+    return Buffer.isBuffer(buffer)
+        && buffer.length >= GZIP_MAGIC.length
+        && buffer.subarray(0, GZIP_MAGIC.length).equals(GZIP_MAGIC);
 }
 
 function computeBufferSha256(buffer) {

@@ -9,7 +9,9 @@ exports.buildBackupFilePath = exports.requireBackupRecord = exports.assertBackup
 const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
+const node_zlib_1 = require("node:zlib");
 const POSTGRES_DUMP_MAGIC = Buffer.from('PGDMP');
+const GZIP_MAGIC = Buffer.from([0x1f, 0x8b]);
 /**
  * 规范化boolean环境变量。
  */
@@ -322,6 +324,9 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
  */
     const expectedFileName = String(expectedRecord?.fileName ?? `server-database-backup-${backupId}.dump`).trim();
     const expectedFormat = normalizeBackupFormat(expectedRecord?.format, expectedFileName);
+    const expectedDownloadFileName = expectedFormat === 'postgres_custom_dump' && !expectedFileName.toLowerCase().endsWith('.gz')
+        ? `${expectedFileName}.gz`
+        : expectedFileName;
 /**
  * 记录response。
  */
@@ -337,19 +342,23 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
  * 记录contentdisposition。
  */
     const contentDisposition = response.headers.get('content-disposition') ?? '';
-    if (!contentDisposition.includes(expectedFileName)) {
-        throw new Error(`expected content-disposition to include ${expectedFileName}, got ${contentDisposition || '<empty>'}`);
+    if (!contentDisposition.includes(expectedDownloadFileName)) {
+        throw new Error(`expected content-disposition to include ${expectedDownloadFileName}, got ${contentDisposition || '<empty>'}`);
     }
     const downloadedBytes = Buffer.from(await response.arrayBuffer());
     if (expectedFormat === 'postgres_custom_dump') {
-        if (!isPostgresCustomDumpBuffer(downloadedBytes)) {
-            throw new Error(`expected downloaded backup to be PostgreSQL custom dump, got ${downloadedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
+        if (!isGzipBuffer(downloadedBytes)) {
+            throw new Error(`expected downloaded PostgreSQL backup to be gzip archive, got ${downloadedBytes.subarray(0, GZIP_MAGIC.length).toString('hex') || '<empty>'}`);
         }
-        const downloadedChecksum = computeBufferSha256(downloadedBytes);
+        const decompressedBytes = (0, node_zlib_1.gunzipSync)(downloadedBytes);
+        if (!isPostgresCustomDumpBuffer(decompressedBytes)) {
+            throw new Error(`expected downloaded gzip archive to contain PostgreSQL custom dump, got ${decompressedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
+        }
+        const downloadedChecksum = computeBufferSha256(decompressedBytes);
         if (options.expectedFilePath) {
             const diskBytes = await node_fs_1.promises.readFile(options.expectedFilePath);
             if (computeBufferSha256(diskBytes) !== downloadedChecksum) {
-                throw new Error(`expected downloaded PostgreSQL backup checksum to match on-disk backup for ${backupId}`);
+                throw new Error(`expected downloaded PostgreSQL gzip payload checksum to match on-disk backup for ${backupId}`);
             }
         }
         if (expectedRecord) {
@@ -362,7 +371,8 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
             backupId,
             format: 'postgres_custom_dump',
             checksumSha256: downloadedChecksum,
-            sizeBytes: downloadedBytes.length,
+            sizeBytes: decompressedBytes.length,
+            compressedSizeBytes: downloadedBytes.length,
         };
     }
 /**
@@ -491,6 +501,12 @@ function isPostgresCustomDumpBuffer(buffer) {
     return Buffer.isBuffer(buffer)
         && buffer.length >= POSTGRES_DUMP_MAGIC.length
         && buffer.subarray(0, POSTGRES_DUMP_MAGIC.length).equals(POSTGRES_DUMP_MAGIC);
+}
+
+function isGzipBuffer(buffer) {
+    return Buffer.isBuffer(buffer)
+        && buffer.length >= GZIP_MAGIC.length
+        && buffer.subarray(0, GZIP_MAGIC.length).equals(GZIP_MAGIC);
 }
 
 function computeBufferSha256(buffer) {

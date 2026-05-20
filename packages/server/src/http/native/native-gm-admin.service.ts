@@ -480,6 +480,7 @@ export class NativeGmAdminService {
         return {
             filePath: record.filePath,
             fileName: record.fileName,
+            format: await resolveBackupRecordFormat(record),
         };
     }
     /**
