@@ -3928,6 +3928,7 @@ async function replacePlayerInventoryItems(
     rowsByInstanceId.set(itemInstanceId, row);
   }
   const rows = Array.from(rowsByInstanceId.values());
+  const rowsJson = JSON.stringify(rows);
 
   if (rows.length > 0) {
     await client.query(
@@ -3945,7 +3946,7 @@ async function replacePlayerInventoryItems(
               AND incoming.item_instance_id <> target.item_instance_id
           )
       `,
-      [playerId, JSON.stringify(rows.map(({ item_instance_id, slot_index }) => ({ item_instance_id, slot_index })))],
+      [playerId, rowsJson],
     );
     const result = await client.query(
       `
@@ -3983,7 +3984,7 @@ async function replacePlayerInventoryItems(
           updated_at = now()
         WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
       `,
-      [playerId, JSON.stringify(rows)],
+      [playerId, rowsJson],
     );
     if ((result.rowCount ?? 0) !== rows.length) {
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
@@ -4006,7 +4007,7 @@ async function replacePlayerInventoryItems(
           WHERE incoming.item_instance_id = target.item_instance_id
         )
     `,
-    [playerId, JSON.stringify(rows.map(({ item_instance_id }) => ({ item_instance_id })))],
+    [playerId, rowsJson],
   );
 }
 
