@@ -35,7 +35,7 @@ export class NativeGmDiagnosticsService {
     if (!command) {
       return this.buildResponse(command, startedAt, [], '请输入诊断指令。', warnings);
     }
-    this.logger.log(`GM diagnostics query actor=${formatActor(actor)} command=${command.slice(0, 240)}`);
+    this.logger.log(`GM 诊断查询 actor=${formatActor(actor)} command=${command.slice(0, 240)}`);
     const [rawVerb, ...restParts] = command.split(/\s+/u);
     const verb = (rawVerb ?? '').toLowerCase();
     const rest = restParts.join(' ').trim();

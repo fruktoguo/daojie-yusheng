@@ -49,16 +49,16 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     this.pool = this.databasePoolProvider?.getPool('player-flush-ledger') ?? null;
     if (!this.pool) {
-      this.logger.log('player flush ledger 已禁用：未提供数据库连接');
+      this.logger.log('玩家刷盘账本已禁用：未提供数据库连接');
       return;
     }
     try {
       await ensurePlayerFlushLedgerTable(this.pool);
       this.enabled = true;
-      this.logger.log('player flush ledger 已启用');
+      this.logger.log('玩家刷盘账本已启用');
     } catch (error: unknown) {
       this.logger.error(
-        `初始化 player flush ledger 失败：${error instanceof Error ? error.stack || error.message : String(error)}`,
+        `初始化玩家刷盘账本失败：${error instanceof Error ? error.stack || error.message : String(error)}`,
       );
       this.pool = null;
     }

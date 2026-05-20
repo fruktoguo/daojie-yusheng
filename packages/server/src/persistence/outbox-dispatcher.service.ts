@@ -27,11 +27,11 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     this.pool = this.databasePoolProvider?.getPool('outbox-dispatcher') ?? null;
     if (!this.pool) {
-      this.logger.log('outbox dispatcher 已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
+      this.logger.log('发件箱调度器已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
       return;
     }
     this.enabled = true;
-    this.logger.log('outbox dispatcher 已启用');
+    this.logger.log('发件箱调度器已启用');
     await ensureDeadLetterEventTable(this.pool);
     await ensureOutboxConsumerDedupeTable(this.pool);
   }

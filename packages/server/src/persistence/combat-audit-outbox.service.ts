@@ -51,16 +51,16 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
     if (this.flagService) {
       await this.flagService.ensureInitialized();
       if (!this.flagService.getFlag('combat_audit_enabled')) {
-        this.logger.log('combat audit outbox 已禁用：runtime flag combat_audit_enabled = false');
+        this.logger.log('战斗审计发件箱已禁用：运行时标志 combat_audit_enabled = false');
         return;
       }
     } else if (process.env.SERVER_COMBAT_AUDIT_ENABLED !== 'true') {
-      this.logger.log('combat audit outbox 已禁用：SERVER_COMBAT_AUDIT_ENABLED !== true');
+      this.logger.log('战斗审计发件箱已禁用：SERVER_COMBAT_AUDIT_ENABLED !== true');
       return;
     }
     this.pool = this.databasePoolProvider?.getPool('combat-audit-outbox') ?? null;
     if (!this.pool) {
-      this.logger.log('combat audit outbox 已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
+      this.logger.log('战斗审计发件箱已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
       return;
     }
     await ensureCombatAuditOutboxTables(this.pool);
@@ -90,7 +90,7 @@ export class CombatAuditOutboxService implements OnModuleInit, OnModuleDestroy {
       this.droppedCount += 1;
       const now = Date.now();
       if (now - this.lastDropWarnAt >= 10_000) {
-        this.logger.warn(`combat audit outbox 队列溢出，已丢弃 ${this.droppedCount} 条事件`);
+        this.logger.warn(`战斗审计发件箱队列溢出，已丢弃 ${this.droppedCount} 条事件`);
         this.lastDropWarnAt = now;
       }
     }

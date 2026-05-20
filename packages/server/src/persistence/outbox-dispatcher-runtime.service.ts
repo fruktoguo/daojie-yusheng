@@ -40,17 +40,17 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       this.eventConsumer = (event) => this.outboxEventConsumerRegistryService!.consume(event);
     }
     if (!this.outboxDispatcherService.isEnabled()) {
-      this.logger.log('outbox dispatcher runtime 已跳过：dispatcher 未启用');
+      this.logger.log('发件箱调度运行时已跳过：调度器未启用');
       return;
     }
     if (!isOutboxRuntimeEnabled()) {
-      this.logger.log('outbox dispatcher runtime 已跳过：未开启 SERVER_OUTBOX_RUNTIME_ENABLED/DATABASE_OUTBOX_RUNTIME_ENABLED');
+      this.logger.log('发件箱调度运行时已跳过：未开启 SERVER_OUTBOX_RUNTIME_ENABLED/DATABASE_OUTBOX_RUNTIME_ENABLED');
       return;
     }
 
     this.nextDelayMs = resolveOutboxDispatchIntervalMs();
     this.scheduleNextDispatch(0);
-    this.logger.log(`outbox dispatcher runtime 已启动，自适应起始间隔 ${this.nextDelayMs}ms`);
+    this.logger.log(`发件箱调度运行时已启动，自适应起始间隔 ${this.nextDelayMs}ms`);
   }
 
   async onModuleDestroy(): Promise<void> {

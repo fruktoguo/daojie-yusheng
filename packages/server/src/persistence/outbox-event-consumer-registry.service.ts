@@ -44,7 +44,7 @@ export class OutboxEventConsumerRegistryService {
     const topic = typeof event.topic === 'string' ? event.topic.trim() : '';
     const consumer = this.resolveConsumer(topic);
     if (!consumer) {
-      this.logger.debug(`outbox topic 未命中 consumer，按 no-op 处理：${topic || 'unknown'}`);
+      this.logger.debug(`发件箱 topic 未命中消费者，按空操作处理：${topic || 'unknown'}`);
       return;
     }
     await consumer(event);
