@@ -1612,6 +1612,14 @@ function updateMailAttachmentItemPage(scope: 'direct' | 'shortcut', attachmentIn
   getMailAttachmentPageStore(scope).set(attachmentIndex, page);
 }
 
+/** getMailAttachmentTitle：读取邮件Attachment标题。 */
+function getMailAttachmentTitle(itemId: string, fallbackLabel: string): string {
+  if (!itemId) {
+    return fallbackLabel;
+  }
+  return gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId)?.name?.trim() || '未知物品';
+}
+
 /** getMailAttachmentRowMeta：读取邮件Attachment Row元数据。 */
 function getMailAttachmentRowMeta(itemId: string): string {
   return gmCatalogHelpers.getMailAttachmentRowMeta(editorCatalog, itemId);
@@ -1736,7 +1744,7 @@ function getMailComposerMarkup(
         <div class="editor-card">
           <div class="editor-card-head">
             <div>
-              <div class="editor-card-title">${escapeHtml(entry.itemId || `附件 ${index + 1}`)}</div>
+              <div class="editor-card-title">${escapeHtml(getMailAttachmentTitle(entry.itemId, `附件 ${index + 1}`))}</div>
               <div class="editor-card-meta">${escapeHtml(getMailAttachmentRowMeta(entry.itemId))}</div>
             </div>
             <button class="small-btn danger" type="button" data-action="${options.scope === 'direct' ? 'remove-direct-mail-attachment' : 'remove-shortcut-mail-attachment'}" data-mail-attachment-index="${index}">删除附件</button>
@@ -4066,7 +4074,7 @@ function renderRedeemPanel(): void {
       <div class="editor-card">
         <div class="editor-card-head">
           <div>
-            <div class="editor-card-title">${escapeHtml(reward.itemId || `奖励 ${index + 1}`)}</div>
+            <div class="editor-card-title">${escapeHtml(getMailAttachmentTitle(reward.itemId, `奖励 ${index + 1}`))}</div>
             <div class="editor-card-meta">${escapeHtml(getMailAttachmentRowMeta(reward.itemId))}</div>
           </div>
           <button class="small-btn danger" type="button" data-action="remove-redeem-reward" data-reward-index="${index}">删除</button>
@@ -5603,7 +5611,7 @@ function getSearchableItemDisplayValue(itemId: string): string {
     return '';
   }
   const entry = gmCatalogHelpers.findItemCatalogEntry(editorCatalog, itemId);
-  return entry ? `${entry.name} · ${itemId}` : itemId;
+  return entry ? `${entry.name} · ${itemId}` : '未知物品';
 }
 
 /** getSearchableItemOptions：读取Searchable物品选项。 */

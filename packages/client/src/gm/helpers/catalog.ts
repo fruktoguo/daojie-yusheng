@@ -326,7 +326,7 @@ export function getMailAttachmentRowMeta(editorCatalog: EditorCatalog, itemId: s
 
   const entry = findItemCatalogEntry(editorCatalog, itemId);
   if (!entry) {
-    return itemId ? `未找到物品模板：${itemId}` : '请选择物品模板';
+    return itemId ? '未找到物品模板' : '请选择物品模板';
   }
   return getItemOptionLabel(entry);
 }
