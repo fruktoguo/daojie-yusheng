@@ -25,7 +25,7 @@ export function getTechniqueOptionLabel(
   editorCatalog: EditorCatalog,
 ): string {
   const realmLevelLabel = editorCatalog?.realmLevels.find((entry) => entry.realmLv === option.realmLv)?.displayName;
-  return `${option.name}${option.grade ? ` · ${TECHNIQUE_GRADE_LABELS[option.grade] ?? option.grade}` : ''}${realmLevelLabel ? ` · ${realmLevelLabel}` : ''}`;
+  return `${option.name}${option.grade ? ` · ${TECHNIQUE_GRADE_LABELS[option.grade] ?? '未知品阶'}` : ''}${realmLevelLabel ? ` · ${realmLevelLabel}` : ''}`;
 }
 
 /** 组合物品名称与类型（装备位或物品类型）作为展示文本。 */
@@ -34,9 +34,9 @@ export function getItemOptionLabel(option: GmEditorItemOption): string {
 
   const parts = [option.name];
   if (option.type === 'equipment' && option.equipSlot) {
-    parts.push(EQUIP_SLOT_LABELS[option.equipSlot]);
+    parts.push(EQUIP_SLOT_LABELS[option.equipSlot] ?? '未知部位');
   } else {
-    parts.push(ITEM_TYPE_LABELS[option.type] ?? option.type);
+    parts.push(ITEM_TYPE_LABELS[option.type] ?? '未知物品类型');
   }
   return parts.join(' · ');
 }
@@ -293,9 +293,9 @@ export function getTechniqueTemplateMaxLevel(technique: TechniqueState, editorCa
 export function getInventoryRowMeta(item: ItemStack): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const parts = [ITEM_TYPE_LABELS[item.type] ?? item.type];
+  const parts = [ITEM_TYPE_LABELS[item.type] ?? '未知物品类型'];
   if (item.type === 'equipment' && item.equipSlot) {
-    parts.push(EQUIP_SLOT_LABELS[item.equipSlot] ?? item.equipSlot);
+    parts.push(EQUIP_SLOT_LABELS[item.equipSlot] ?? '未知部位');
   }
   return parts.join(' · ');
 }
