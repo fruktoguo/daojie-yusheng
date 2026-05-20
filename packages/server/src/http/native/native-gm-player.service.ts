@@ -153,6 +153,16 @@ function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown
 interface PlayerDomainPersistenceServiceLike {
   loadProjectedSnapshot(playerId: string, buildStarterSnapshot: (playerId: string) => any | null): Promise<any | null>;
   savePlayerSnapshotProjection(playerId: string, snapshot: any): Promise<void>;
+  savePlayerSnapshotProjectionDomains?(
+    playerId: string,
+    snapshot: any,
+    domains: Iterable<string>,
+    options?: {
+      allowInventoryEmptyOverwrite?: boolean;
+      allowEquipmentEmptyOverwrite?: boolean;
+      allowBuffEmptyOverwrite?: boolean;
+    },
+  ): Promise<void>;
   listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PersistedPlayerEntryLike[]>;
 }
 /**
@@ -432,7 +442,7 @@ export class NativeGmPlayerService {
       this.applyPlayerSnapshotMutationToPersistence(persisted, snapshot, section);
     }
 
-    await this.savePlayerPersistenceSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshotForGmUpdate(playerId, persisted, section, snapshot);
     if (!runtime || section === NATIVE_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
       await this.recordGmAuditEntry({
         op: 'gm.player.update',
@@ -1524,6 +1534,76 @@ export class NativeGmPlayerService {
 
   private async savePlayerPersistenceSnapshot(playerId: string, snapshot: any): Promise<void> {
     await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
+  }
+
+  private async savePlayerPersistenceSnapshotForGmUpdate(
+    playerId: string,
+    snapshot: any,
+    section: unknown,
+    submittedSnapshot: any,
+  ): Promise<void> {
+    const domains = this.getGmUpdateProjectionDomains(section, submittedSnapshot);
+    if (
+      domains.length > 0
+      && typeof this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains === 'function'
+    ) {
+      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+        playerId,
+        snapshot,
+        domains,
+        {
+          allowInventoryEmptyOverwrite: domains.includes('inventory') && Array.isArray(submittedSnapshot?.inventory?.items),
+          allowEquipmentEmptyOverwrite: domains.includes('equipment') && submittedSnapshot?.equipment && typeof submittedSnapshot.equipment === 'object',
+          allowBuffEmptyOverwrite: domains.includes('buff') && Array.isArray(submittedSnapshot?.temporaryBuffs),
+        },
+      );
+      return;
+    }
+    await this.savePlayerPersistenceSnapshot(playerId, snapshot);
+  }
+
+  private getGmUpdateProjectionDomains(section: unknown, snapshot: any): string[] {
+    const domains = new Set<string>();
+    const addBasicDomains = () => {
+      domains.add('vitals');
+      domains.add('combat_pref');
+      if (Array.isArray(snapshot?.autoBattleSkills)) {
+        domains.add('auto_battle_skill');
+      }
+      if (Array.isArray(snapshot?.temporaryBuffs)) {
+        domains.add('buff');
+      }
+    };
+
+    if (section === null || section === undefined || section === 'basic') {
+      addBasicDomains();
+    } else if (section === NATIVE_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
+      domains.add('world_anchor');
+      domains.add('position_checkpoint');
+      domains.add('vitals');
+      domains.add('combat_pref');
+    } else if (section === 'realm') {
+      domains.add('progression');
+      domains.add('attr');
+      if (snapshot?.bodyTraining && typeof snapshot.bodyTraining === 'object') {
+        domains.add('body_training');
+      }
+    } else if (section === 'buffs') {
+      domains.add('buff');
+    } else if (section === 'techniques') {
+      domains.add('technique');
+      domains.add('combat_pref');
+      if (Array.isArray(snapshot?.autoBattleSkills)) {
+        domains.add('auto_battle_skill');
+      }
+    } else if (section === 'items') {
+      domains.add('inventory');
+      domains.add('equipment');
+    } else if (section === 'quests') {
+      domains.add('quest');
+    }
+
+    return Array.from(domains);
   }
 
   private async listPlayerPersistenceSnapshots(): Promise<PersistedPlayerEntryLike[]> {

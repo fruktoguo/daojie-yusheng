@@ -19,6 +19,9 @@ async function main(): Promise<void> {
   let initializeCalled = false;
   let rebuildActionCalled = false;
   let savedSnapshot: any = null;
+  let savedDomains: string[] = [];
+  let savedOptions: any = null;
+  let fullProjectionSaveCalled = false;
   let runtimeSnapshot: any = createRuntimeSnapshot(playerId);
 
   const contentTemplateRepository = {
@@ -91,14 +94,21 @@ async function main(): Promise<void> {
     contentTemplateRepository as never,
     { getOrThrow() { return { width: 100, height: 100 }; } } as never,
     {
-      async loadPlayerSnapshot() {
+      async loadProjectedSnapshot() {
         return createPersistedSnapshot();
       },
-      async savePlayerSnapshot(id: string, snapshot: any) {
+      async savePlayerSnapshotProjection(id: string, snapshot: any) {
+        fullProjectionSaveCalled = true;
         assert.equal(id, playerId);
         savedSnapshot = clone(snapshot);
       },
-      async listPlayerSnapshots() {
+      async savePlayerSnapshotProjectionDomains(id: string, snapshot: any, domains: Iterable<string>, options: any) {
+        assert.equal(id, playerId);
+        savedSnapshot = clone(snapshot);
+        savedDomains = Array.from(domains);
+        savedOptions = options;
+      },
+      async listProjectedSnapshots() {
         return [];
       },
     } as never,
@@ -137,6 +147,25 @@ async function main(): Promise<void> {
   assert.equal(runtimeSnapshot.maxHp, 112);
   assert.equal(runtimeSnapshot.selfRevision, 2);
   assert.equal(runtimeSnapshot.persistentRevision, 2);
+  assert.equal(fullProjectionSaveCalled, false);
+  assert.deepEqual(savedDomains, ['technique', 'combat_pref']);
+
+  await service.updatePlayer(playerId, {
+    section: 'items',
+    snapshot: {
+      inventory: {
+        capacity: 20,
+        items: [{ itemId: 'spirit_stone', count: 1 }],
+      },
+      equipment: {},
+    },
+  });
+
+  assert.deepEqual(savedDomains, ['inventory', 'equipment']);
+  assert.equal(savedDomains.includes('market_storage'), false);
+  assert.equal(savedOptions.allowInventoryEmptyOverwrite, true);
+  assert.equal(savedOptions.allowEquipmentEmptyOverwrite, true);
+  assert.equal(fullProjectionSaveCalled, false);
 
   console.log(JSON.stringify({ ok: true, case: 'native-gm-player-technique-refresh' }));
 }
@@ -155,6 +184,8 @@ function createRuntimeSnapshot(playerId: string): any {
     qi: 100,
     realm: { realmLv: 1, progress: 0, stage: '炼气', name: '炼气', shortName: '炼气' },
     techniques: { revision: 1, cultivatingTechId: null, techniques: [] },
+    inventory: { revision: 1, capacity: 20, items: [] },
+    equipment: { revision: 1, slots: [] },
     attrs: {
       revision: 1,
       stage: '炼气',
