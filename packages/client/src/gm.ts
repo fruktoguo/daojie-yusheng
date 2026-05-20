@@ -1964,7 +1964,7 @@ function getTechniqueEditorControls(index: number, technique: TechniqueState): s
         ${numberField('经验', `techniques.${index}.exp`, technique.exp)}
         <div class="editor-field">
           <span>功法境界</span>
-          <div class="editor-code">${escapeHtml(TECHNIQUE_REALM_LABELS[technique.realm] ?? String(technique.realm))}</div>
+          <div class="editor-code">${escapeHtml(TECHNIQUE_REALM_LABELS[technique.realm] ?? '未知境界')}</div>
         </div>
         <div class="editor-field">
           <span>境界等级</span>
@@ -7714,7 +7714,7 @@ function renderTradeRow(row: GmMarketTradeItem): string {
   `;
 }
 
-function formatTradePartyLabel(playerNo: number | null | undefined, playerName: string | null | undefined, playerId: string): string {
+function formatTradePartyLabel(playerNo: number | null | undefined, playerName: string | null | undefined, _playerId: string): string {
   const parts: string[] = [];
   const noText = typeof playerNo === 'number' && Number.isFinite(playerNo) ? `#${playerNo}` : null;
   const trimmedName = typeof playerName === 'string' ? playerName.trim() : '';
@@ -7724,7 +7724,9 @@ function formatTradePartyLabel(playerNo: number | null | undefined, playerName: 
   if (trimmedName) {
     parts.push(`<span>${escapeHtml(trimmedName)}</span>`);
   }
-  parts.push(`<span style="color:var(--light-ink); font-family:monospace; font-size:12px;">${escapeHtml(playerId)}</span>`);
+  if (!noText && !trimmedName) {
+    parts.push('<span>未知玩家</span>');
+  }
   return `<div style="display:flex; flex-direction:column; gap:2px;">${parts.join('')}</div>`;
 }
 
