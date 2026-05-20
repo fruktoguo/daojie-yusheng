@@ -1,6 +1,7 @@
 // @ts-nocheck
 import assert from 'node:assert/strict';
 
+import { MARKET_MAX_ENHANCE_LEVEL } from '@mud/shared';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 
 async function main(): Promise<void> {
@@ -64,7 +65,7 @@ async function main(): Promise<void> {
     } as never,
     {
       peekInventoryItem(requestedPlayerId: string, slotIndex: number) {
-        return requestedPlayerId === sellerId && slotIndex === 0 ? { itemId: 'rat_tail', count: 4, name: '鼠尾' } : null;
+        return runtimePlayers.get(requestedPlayerId)?.inventory?.items?.[slotIndex] ?? null;
       },
       snapshot(requestedPlayerId: string) {
         return runtimePlayers.has(requestedPlayerId) ? structuredClone(runtimePlayers.get(requestedPlayerId)) : null;
@@ -86,6 +87,18 @@ async function main(): Promise<void> {
         }
         player.inventory.items = items.map((entry) => ({ ...entry }));
         return player;
+      },
+      splitInventoryItem(requestedPlayerId: string, slotIndex: number, quantity: number) {
+        const player = runtimePlayers.get(requestedPlayerId);
+        const item = player?.inventory?.items?.[slotIndex];
+        if (!player || !item || Number(item.count ?? 0) < quantity) {
+          throw new Error(`unexpected splitInventoryItem args: ${JSON.stringify({ requestedPlayerId, slotIndex, quantity })}`);
+        }
+        item.count = Number(item.count ?? 0) - quantity;
+        if (Number(item.count ?? 0) <= 0) {
+          player.inventory.items.splice(slotIndex, 1);
+        }
+        return { ...item, count: quantity };
       },
       canAffordWallet() {
         return true;
@@ -266,6 +279,16 @@ async function main(): Promise<void> {
     && Number((order.item as Record<string, unknown> | undefined)?.enhanceLevel ?? 0) === 5
   );
   assert.equal(enhancedBuyOrders.length, 1);
+
+  const overCapLevel = MARKET_MAX_ENHANCE_LEVEL + 1;
+  const overCapBuyOrderResult = await service.createBuyOrder(buyerId, { itemKey: `iron_sword#${overCapLevel}`, quantity: 1, unitPrice: 8 });
+  assert.equal(overCapBuyOrderResult.notices.some((entry) => String(entry.text ?? '').includes(`+${MARKET_MAX_ENHANCE_LEVEL} 及以下装备求购`)), true);
+
+  sellerPlayer.inventory.items = [{ itemId: 'iron_sword', count: 1, name: '铁剑', type: 'equipment', enhanceLevel: overCapLevel }];
+  const overCapMarketSellOrderResult = await service.createSellOrder(sellerId, { slotIndex: 0, quantity: 1, unitPrice: 8, listingMode: 'market' });
+  assert.equal(overCapMarketSellOrderResult.notices.some((entry) => String(entry.text ?? '').includes(`普通坊市只支持 +${MARKET_MAX_ENHANCE_LEVEL}`)), true);
+  const overCapAuctionSellOrderResult = await service.createSellOrder(sellerId, { slotIndex: 0, quantity: 1, unitPrice: 8, listingMode: 'auction' });
+  assert.equal(overCapAuctionSellOrderResult.notices.some((entry) => String(entry.text ?? '').includes('已寄拍')), true);
 
   console.log(JSON.stringify({ ok: true, case: 'market-runtime-buy-now' }, null, 2));
 }

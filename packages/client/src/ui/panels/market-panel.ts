@@ -15,6 +15,7 @@ import {
   ITEM_TYPES,
   ItemStack,
   ItemType,
+  MARKET_MAX_ENHANCE_LEVEL,
   MARKET_MAX_UNIT_PRICE,
   MARKET_PRICE_PRESET_VALUES,
   MarketListedItemView,
@@ -2682,17 +2683,25 @@ export class MarketPanel {
     if (targetLevel <= 0) {
       return null;
     }
+    if (targetLevel > MARKET_MAX_ENHANCE_LEVEL) {
+      return null;
+    }
     const itemLevel = Math.max(1, Math.floor(Number(item.level) || 1));
     const localBaseUnitPrice = this.getLocalZeroEnhancementLowestSellPrice(item.itemId);
     const baseUnitPrice = localBaseUnitPrice;
     const basePricePending = false;
-    const analysis = computeBestEnhancementExpectedCost({
-      targetLevel,
-      itemLevel,
-      protectionUnitPrice: baseUnitPrice,
-      targetItemUnitPrice: baseUnitPrice,
-      selfProtection: true,
-    });
+    let analysis: ReturnType<typeof computeBestEnhancementExpectedCost>;
+    try {
+      analysis = computeBestEnhancementExpectedCost({
+        targetLevel,
+        itemLevel,
+        protectionUnitPrice: baseUnitPrice,
+        targetItemUnitPrice: baseUnitPrice,
+        selfProtection: true,
+      });
+    } catch {
+      return null;
+    }
     const strategy = analysis.bestStrategy ?? analysis.strategies[0] ?? null;
     if (!strategy) {
       return null;

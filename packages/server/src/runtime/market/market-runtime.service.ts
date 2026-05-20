@@ -5,7 +5,7 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -438,6 +438,9 @@ export class MarketRuntimeService {
             if (!this.canTradeItemOnMarket(item)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能挂售。`);
             }
+            if (listingMode !== 'auction' && this.isOrdinaryMarketEnhancementLevelRestricted(item)) {
+                return this.singleMessage(playerId, `普通坊市只支持 +${MARKET_MAX_ENHANCE_LEVEL} 及以下装备，+${MARKET_MAX_ENHANCE_LEVEL + 1} 以上请走拍卖行寄拍。`);
+            }
             if (auctionListingFee > 0 && !this.canAffordMarketCurrency(playerId, auctionListingFee)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
             }
@@ -546,6 +549,9 @@ export class MarketRuntimeService {
             }
             if (!this.canTradeItemOnMarket(item)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能求购。`);
+            }
+            if (this.isOrdinaryMarketEnhancementLevelRestricted(item)) {
+                return this.singleMessage(playerId, `普通坊市只支持 +${MARKET_MAX_ENHANCE_LEVEL} 及以下装备求购，+${MARKET_MAX_ENHANCE_LEVEL + 1} 以上请走拍卖行。`);
             }
 
             const quantity = this.normalizeQuantity(payload.quantity);
@@ -658,7 +664,10 @@ export class MarketRuntimeService {
             if (this.buildAuctionListedItems().some((entry) => entry.orderItemKey === itemKey && this.getSortedAuctionBids(entry.itemKey).some((bid) => bid.reservedCost > 0))) {
                 return this.singleMessage(playerId, '该物品已有拍卖出价，请从拍卖行一口价或等待结算。');
             }
-            const sells = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId);
+            const sells = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId
+                && !this.isAuctionOrder(order)
+                && this.canTradeItemOnMarket(order.item)
+                && !this.isOrdinaryMarketEnhancementLevelRestricted(order.item));
             if (sells.length === 0) {
                 return this.singleMessage(playerId, '当前没有可买入的挂售。');
             }
@@ -840,10 +849,16 @@ export class MarketRuntimeService {
             if (!this.canTradeItemOnMarket(item)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}是坊市货币，不能出售给求购盘。`);
             }
+            if (this.isOrdinaryMarketEnhancementLevelRestricted(item)) {
+                return this.singleMessage(playerId, `+${MARKET_MAX_ENHANCE_LEVEL + 1} 以上装备不能出售给普通求购盘，请走拍卖行寄拍。`);
+            }
 
             const orderItem = this.toOrderItem(item);
 
-            const buys = this.getSortedOrders(this.buildItemKey(orderItem), 'buy').filter((order) => order.ownerId !== playerId);
+            const buys = this.getSortedOrders(this.buildItemKey(orderItem), 'buy').filter((order) => order.ownerId !== playerId
+                && !this.isAuctionOrder(order)
+                && this.canTradeItemOnMarket(order.item)
+                && !this.isOrdinaryMarketEnhancementLevelRestricted(order.item));
             if (buys.length === 0) {
                 return this.singleMessage(playerId, '当前没有可直接成交的求购。');
             }
@@ -2666,6 +2681,11 @@ export class MarketRuntimeService {
 
     canTradeItemOnMarket(item) {
         return item.itemId !== MARKET_CURRENCY_ITEM_ID;
+    }
+    /** 普通坊市强化等级上限；拍卖行寄拍允许更高强化。 */
+    isOrdinaryMarketEnhancementLevelRestricted(item) {
+        const enhanceLevel = Number(item?.enhanceLevel ?? 0);
+        return Number.isFinite(enhanceLevel) && Math.trunc(enhanceLevel) > MARKET_MAX_ENHANCE_LEVEL;
     }
     /**
  * normalizeQuantity：规范化或转换Quantity。
