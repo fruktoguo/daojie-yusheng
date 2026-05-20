@@ -16,10 +16,10 @@ SERVER_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-$MAINLINE_COMPOSE_PROJECT}"
 
 # 在脚本结束时回收主线 server、client 和 shared 监听进程。
 cleanup() {
-  kill_process_tree_if_running "${SERVER_PID:-}"
-  kill_process_tree_if_running "${CLIENT_PID:-}"
-  kill_process_tree_if_running "${SHARED_WATCH_PID:-}"
-  kill_process_tree_if_running "${BACKUP_WORKER_PID:-}"
+  kill_process_tree_if_running "${SERVER_PID:-}" "${SERVER_GRACEFUL_STOP_TIMEOUT_SECONDS:-20}"
+  kill_process_tree_if_running "${CLIENT_PID:-}" "${DEV_PROCESS_GRACEFUL_STOP_TIMEOUT_SECONDS:-5}"
+  kill_process_tree_if_running "${SHARED_WATCH_PID:-}" "${DEV_PROCESS_GRACEFUL_STOP_TIMEOUT_SECONDS:-5}"
+  kill_process_tree_if_running "${BACKUP_WORKER_PID:-}" "${DEV_PROCESS_GRACEFUL_STOP_TIMEOUT_SECONDS:-5}"
 }
 
 # 终止pidifrunning。
@@ -65,6 +65,11 @@ collect_descendant_pids() {
 kill_process_tree_if_running() {
 # 记录根pid。
   local root_pid="$1"
+# 记录SIGTERM后等待优雅退出的秒数。
+  local graceful_wait_seconds="${2:-1}"
+  if ! [[ "$graceful_wait_seconds" =~ ^[0-9]+$ ]]; then
+    graceful_wait_seconds=1
+  fi
   if [[ -z "$root_pid" ]] || ! kill -0 "$root_pid" 2>/dev/null; then
     return 0
   fi
@@ -90,7 +95,25 @@ kill_process_tree_if_running() {
   fi
   kill_pid_if_running "$root_pid"
 
-  sleep 1
+# 给被管理进程保留退出时间；server 可借此完成 NestJS shutdown hook、flush 和连接释放。
+  local waited_seconds=0
+  while (( waited_seconds < graceful_wait_seconds )); do
+    local still_running=0
+    if kill -0 "$root_pid" 2>/dev/null; then
+      still_running=1
+    fi
+    for (( index=${#descendants[@]}-1; index>=0; index-=1 )); do
+      if kill -0 "${descendants[$index]}" 2>/dev/null; then
+        still_running=1
+        break
+      fi
+    done
+    if (( still_running == 0 )); then
+      break
+    fi
+    sleep 1
+    waited_seconds=$((waited_seconds + 1))
+  done
 
   for (( index=${#descendants[@]}-1; index>=0; index-=1 )); do
     if kill -0 "${descendants[$index]}" 2>/dev/null; then

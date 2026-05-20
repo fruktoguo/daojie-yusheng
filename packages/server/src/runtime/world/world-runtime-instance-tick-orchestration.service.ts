@@ -27,6 +27,39 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   }
 
   /**
+   * 开始实例 tick 前收敛已死亡但仍停留在实例位置表中的玩家。
+   * 这类状态常见于重启恢复或死亡结算中断；如果不先清理，妖兽 AI 只看位置会反复锁定尸体目标。
+   */
+  private reconcileDefeatedPlayersBeforeTick(deps): void {
+    const playerRuntimeService = deps?.playerRuntimeService;
+    if (typeof playerRuntimeService?.getPlayer !== 'function') {
+      return;
+    }
+    for (const instance of deps.listInstanceRuntimes?.() ?? []) {
+      if (typeof instance?.listPlayerIds !== 'function') {
+        continue;
+      }
+      for (const playerId of instance.listPlayerIds()) {
+        const player = playerRuntimeService.getPlayer(playerId);
+        if (!player || player.hp > 0) {
+          continue;
+        }
+        if (typeof instance.clearMonsterAggroForPlayer === 'function') {
+          instance.clearMonsterAggroForPlayer(playerId);
+        }
+        if (typeof instance.cancelPendingCommand === 'function') {
+          instance.cancelPendingCommand(playerId);
+        }
+        deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
+        deps.clearPendingCommand?.(playerId);
+        if (!deps.worldRuntimeGmQueueService?.hasPendingRespawn?.(playerId)) {
+          deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+        }
+      }
+    }
+  }
+
+  /**
    * Phase 4：把 POJO 镜像快照送入 worker 做确定性预计算，收集 monster intent proposals。
    * 返回 Map<instanceId, MonsterIntentProposal[]>，主线程在 advanceMonsters 中作为 target hints 使用。
    */
@@ -87,6 +120,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
 
         const startedAt = performance.now();
         deps.worldRuntimeCombatEffectsService.resetFrameEffects();
+        this.reconcileDefeatedPlayersBeforeTick(deps);
         const instanceStepPlans = [];
         let plannedLogicalTicks = 0;
         for (const instance of deps.listInstanceRuntimes()) {

@@ -30,6 +30,10 @@ const serverDevMaxOldSpaceMb = parseNonNegativeInteger(
   process.env.SERVER_DEV_MAX_OLD_SPACE_MB,
   0,
 );
+const serverGracefulStopTimeoutMs = parseNonNegativeInteger(
+  process.env.SERVER_DEV_STOP_TIMEOUT_MS,
+  20_000,
+);
 
 function parseNonNegativeInteger(value: string | undefined, fallback: number) {
   if (value === undefined || value.trim() === "") {
@@ -203,10 +207,11 @@ function stopServer(onStopped?: () => void, reason = "计划停止") {
   child.kill("SIGTERM");
 
   const forceKillTimer = setTimeout(() => {
-    if (child.exitCode === null) {
+    if (!finished) {
+      log(`server 进程未在 ${serverGracefulStopTimeoutMs}ms 内完成优雅退出，改为强制结束`);
       child.kill("SIGKILL");
     }
-  }, 3000);
+  }, serverGracefulStopTimeoutMs);
   forceKillTimer.unref();
 }
 /**
