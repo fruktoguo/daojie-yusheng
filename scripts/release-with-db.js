@@ -46,7 +46,7 @@ const childEnv = {
 const steps = [
   { label: 'build:client', args: ['build:client'] },
   { label: 'verify:release:with-db', args: ['--filter', '@mud/server', 'verify:release:with-db'] },
-  { label: 'audit:protocol', args: ['audit:protocol'] },
+  { label: 'audit:protocol', args: ['--filter', '@mud/server', 'audit:protocol:compiled'], serial: true },
 ];
 
 async function main() {

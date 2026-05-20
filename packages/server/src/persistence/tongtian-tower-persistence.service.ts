@@ -3,7 +3,7 @@
  * 管理玩家通天塔当前层和历史最高层的内存缓存与数据库落库，
  * 支持异步写入队列和进程关闭前强刷。
  */
-import { Injectable, Logger, type BeforeApplicationShutdown, type OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import type { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -20,7 +20,7 @@ const TONGTIAN_TOWER_PROGRESS_TABLE = 'player_tongtian_tower_progress';
 
 /** 通天塔持久化服务：内存缓存 + 异步落库 */
 @Injectable()
-export class TongtianTowerPersistenceService implements OnModuleInit, BeforeApplicationShutdown {
+export class TongtianTowerPersistenceService implements OnModuleInit {
   private readonly logger = new Logger(TongtianTowerPersistenceService.name);
   private readonly progressByPlayerId = new Map<string, TongtianTowerProgress>();
   private readonly pendingWritesByPlayerId = new Map<string, Promise<void>>();
@@ -46,10 +46,6 @@ export class TongtianTowerPersistenceService implements OnModuleInit, BeforeAppl
       this.enabled = false;
       this.logger.error('通天塔持久化初始化失败，已回退为内存模式', error instanceof Error ? error.stack : String(error));
     }
-  }
-
-  async beforeApplicationShutdown(): Promise<void> {
-    await this.flushAllProgress();
   }
 
   getOrCreateProgress(playerIdInput: string): TongtianTowerProgress {

@@ -302,6 +302,31 @@ export class WorldSessionService {
     return Array.from(this.bindingByPlayerId.values()).filter((binding) => binding.connected);
   }
 
+  listConnectedBindings(): WorldSessionBinding[] {
+    return this.listBindings().map((binding) => ({ ...binding }));
+  }
+
+  detachConnectedBindingsForShutdown(reason = 'server_shutdown'): WorldSessionBinding[] {
+    const connectedBindings = this.listConnectedBindings();
+    const detachedBindings: WorldSessionBinding[] = [];
+    for (const binding of connectedBindings) {
+      const socketId = typeof binding.socketId === 'string' ? binding.socketId : '';
+      if (!socketId) {
+        continue;
+      }
+      const socket = this.socketsById.get(socketId) ?? null;
+      const detached = this.unregisterSocket(socketId);
+      if (socket) {
+        socket.emit(S2C.Kick, { reason });
+        socket.disconnect(true);
+      }
+      if (detached && !detached.connected) {
+        detachedBindings.push(detached);
+      }
+    }
+    return detachedBindings;
+  }
+
   attachSocketServer(server: SocketServerPort | null | undefined): void {
     if (!server || typeof server.to !== 'function') {
       return;

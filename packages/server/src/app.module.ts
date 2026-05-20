@@ -23,6 +23,7 @@ import { WorldSessionBootstrapSessionBindService } from './network/world-session
 import { WorldSessionBootstrapSnapshotService } from './network/world-session-bootstrap-snapshot.service';
 import { WorldSessionBootstrapService } from './network/world-session-bootstrap.service';
 import { WorldSessionReaperService } from './network/world-session-reaper.service';
+import { WorldShutdownDrainService } from './network/world-shutdown-drain.service';
 import { WorldSessionService } from './network/world-session.service';
 import { WorldSyncProtocolService } from './network/world-sync-protocol.service';
 import { WorldSyncQuestLootService } from './network/world-sync-quest-loot.service';
@@ -160,6 +161,7 @@ import { PlayerIdentityPersistenceService } from './persistence/player-identity-
 import { PlayerPersistenceFlushService } from './persistence/player-persistence-flush.service';
 import { NodeRegistryService } from './persistence/node-registry.service';
 import { GmRuntimeFlagPersistenceService } from './persistence/gm-runtime-flag-persistence.service';
+import { GmConfigPersistenceService } from './persistence/gm-config-persistence.service';
 import { GmAuditLogPersistenceService } from './persistence/gm-audit-log-persistence.service';
 import { NodeRegistryRuntimeService } from './persistence/node-registry-runtime.service';
 import { PlayerSessionRouteService } from './persistence/player-session-route.service';
@@ -314,6 +316,7 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     DurableOperationService,
     NodeRegistryService,
     GmRuntimeFlagPersistenceService,
+    GmConfigPersistenceService,
     GmAuditLogPersistenceService,
     NodeRegistryRuntimeService,
     PlayerSessionRouteService,
@@ -366,6 +369,7 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     WorldSessionBootstrapSnapshotService,
     WorldSessionBootstrapService,
     WorldSessionReaperService,
+    WorldShutdownDrainService,
     WorldClientEventService,
     WorldGmSocketService,
     WorldProtocolProjectionService,

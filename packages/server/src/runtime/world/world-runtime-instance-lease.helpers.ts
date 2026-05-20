@@ -209,7 +209,42 @@ export function unfreezeInstanceWriting(runtime, instanceId) {
   return { ok: true };
 }
 
-export async function syncInstanceLease(runtime, instanceId) {
+export async function releaseLocalInstanceLeasesForShutdown(runtime) {
+  if (!runtime.instanceCatalogService?.isEnabled?.()) {
+    return { released: 0, skipped: 0 };
+  }
+  const nodeId = runtime.nodeRegistryService.getNodeId();
+  let released = 0;
+  let skipped = 0;
+  for (const [instanceId, instance] of runtime.listInstanceEntries()) {
+    const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
+    const leaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+    if (assignedNodeId !== nodeId || !leaseToken || instance?.meta?.runtimeStatus === 'fenced' || instance?.meta?.status === 'destroyed') {
+      continue;
+    }
+    const connectedPlayers = typeof runtime.worldSessionService?.listInstancePlayerIds === 'function'
+      ? runtime.worldSessionService.listInstancePlayerIds(instanceId)
+      : [];
+    if (Array.isArray(connectedPlayers) && connectedPlayers.length > 0) {
+      skipped++;
+      runtime.logger.warn(`关闭释放跳过（仍有连接玩家）：${instanceId} players=${connectedPlayers.join(',')}`);      continue;
+    }
+    const ok = await runtime.instanceCatalogService.releaseInstanceLease({ instanceId, nodeId, leaseToken });
+    if (!ok) {
+      skipped++;
+      runtime.logger.warn(`关闭释放失败：${instanceId}`);
+      continue;
+    }
+    instance.meta.assignedNodeId = null;
+    instance.meta.leaseToken = null;
+    instance.meta.leaseExpireAt = null;
+    instance.meta.runtimeStatus = 'running';
+    released++;
+  }
+  return { released, skipped };
+}
+
+export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim = false } = {}) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
   }
@@ -277,6 +312,25 @@ export async function syncInstanceLease(runtime, instanceId) {
     const adopted = await adoptLocalCatalogLeaseAndRenew(runtime, instance, instanceId, nodeId, leaseExpireAt);
     if (adopted) {
       return;
+    }
+    // dev/test 环境下启动恢复阶段尝试 force-reclaim，避免旧 lease 未过期导致 fencing
+    if (allowForceReclaim && shouldForceReclaimStaleLease()
+      && typeof runtime.instanceCatalogService.forceClaimInstanceLease === 'function') {
+      const forceClaim = await runtime.instanceCatalogService.forceClaimInstanceLease({
+        instanceId, nodeId, leaseToken, leaseExpireAt,
+      });
+      if (forceClaim?.ok) {
+        instance.meta.assignedNodeId = nodeId;
+        instance.meta.leaseToken = leaseToken;
+        instance.meta.leaseExpireAt = leaseExpireAt.toISOString();
+        instance.meta.ownershipEpoch = Number.isFinite(Number(forceClaim.ownershipEpoch))
+          ? Math.trunc(Number(forceClaim.ownershipEpoch))
+          : (expectedOwnershipEpoch + 1);
+        instance.meta.runtimeStatus = 'leased';
+        instance.meta.status = 'active';
+        runtime.logger.log(`启动恢复 force-reclaim 成功：${instanceId} newLeaseToken=${leaseToken}`);
+        return;
+      }
     }
     fenceInstanceRuntime(runtime, instanceId, 'lease_sync_failed');
     return;
@@ -482,7 +536,10 @@ export async function syncAllInstanceLeases(runtime) {
     }
   }
   try {
-    await claimRecoverableCatalogInstances(runtime);
+    const claimedCount = await claimRecoverableCatalogInstances(runtime);
+    if (claimedCount > 0 && typeof runtime.worldRuntimeLifecycleService?.restoreOfflineHangingPlayers === 'function') {
+      await runtime.worldRuntimeLifecycleService.restoreOfflineHangingPlayers(runtime);
+    }
   } catch (error) {
     runtime.logger.warn(`可恢复实例 lease 接管失败：${error instanceof Error ? error.message : String(error)}`);
   }
@@ -490,10 +547,11 @@ export async function syncAllInstanceLeases(runtime) {
 
 export async function claimRecoverableCatalogInstances(runtime) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
-    return;
+    return 0;
   }
   const nodeId = runtime.nodeRegistryService.getNodeId();
   const catalogEntries = await runtime.instanceCatalogService.listInstanceCatalogEntries();
+  let claimedCount = 0;
   for (const entry of catalogEntries) {
     if (!shouldRestoreCatalogEntry(entry)) {
       continue;
@@ -501,6 +559,9 @@ export async function claimRecoverableCatalogInstances(runtime) {
     const instanceId = typeof entry?.instance_id === 'string' ? entry.instance_id.trim() : '';
     const templateId = typeof entry?.template_id === 'string' ? entry.template_id.trim() : '';
     if (!instanceId || !templateId || runtime.getInstanceRuntime(instanceId)) {
+      continue;
+    }
+    if (!(await canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeId))) {
       continue;
     }
     if (typeof runtime.templateRepository?.has === 'function'
@@ -514,12 +575,11 @@ export async function claimRecoverableCatalogInstances(runtime) {
     }
     const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${randomBytes(6).toString('base64url')}`;
     const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
-    const claim = await runtime.instanceCatalogService.claimInstanceLease({
-      instanceId,
-      nodeId,
-      leaseToken,
-      leaseExpireAt,
-    });
+    const useForce = shouldForceReclaimStaleLease()
+      && typeof runtime.instanceCatalogService.forceClaimInstanceLease === 'function';
+    const claim = useForce
+      ? await runtime.instanceCatalogService.forceClaimInstanceLease({ instanceId, nodeId, leaseToken, leaseExpireAt })
+      : await runtime.instanceCatalogService.claimInstanceLease({ instanceId, nodeId, leaseToken, leaseExpireAt });
     if (!claim.ok) {
       continue;
     }
@@ -550,8 +610,46 @@ export async function claimRecoverableCatalogInstances(runtime) {
       lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
     });
     await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
+    claimedCount++;
     runtime.logger.log(`实例 lease 自动接管成功：${instanceId} ownershipEpoch=${claim.ownershipEpoch ?? 0}`);
   }
+  return claimedCount;
+}
+
+async function canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeId) {
+  const assignedNodeId = typeof entry?.assigned_node_id === 'string' ? entry.assigned_node_id.trim() : '';
+  const leaseToken = typeof entry?.lease_token === 'string' ? entry.lease_token.trim() : '';
+  const leaseExpireAt = entry?.lease_expire_at ? new Date(entry.lease_expire_at).getTime() : 0;
+  if (!assignedNodeId || assignedNodeId === nodeId || !leaseToken) {
+    return true;
+  }
+  // dev/test 环境下强制回收未过期的 stale lease，避免上一轮 smoke 残留阻塞启动
+  if (shouldForceReclaimStaleLease()) {
+    runtime.logger.warn(`启动恢复 force-reclaim 过期 lease：${instanceId} assignedNodeId=${assignedNodeId}`);
+    return true;
+  }
+  if (Number.isFinite(leaseExpireAt) && leaseExpireAt > Date.now()) {
+    runtime.logger.warn(`启动恢复过期 lease 未到期：${instanceId} assignedNodeId=${assignedNodeId}`);
+    return false;
+  }
+  const persistenceService = runtime.playerRuntimeService?.playerDomainPersistenceService;
+  const hasOnlinePlayers = typeof persistenceService?.hasOnlinePlayersInInstance === 'function'
+    ? await persistenceService.hasOnlinePlayersInInstance(instanceId)
+    : false;
+  if (hasOnlinePlayers) {
+    runtime.logger.warn(`启动恢复过期 lease 仍有在线玩家：${instanceId} assignedNodeId=${assignedNodeId}`);
+    return false;
+  }
+  return true;
+}
+
+/** dev/test 环境或显式环境变量下允许强制回收 stale lease。 */
+function shouldForceReclaimStaleLease(): boolean {
+  const explicit = String(process.env.SERVER_FORCE_RECLAIM_STALE_LEASES ?? '').trim();
+  if (explicit === '1') return true;
+  if (explicit === '0') return false;
+  const env = String(process.env.SERVER_RUNTIME_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
+  return env === 'development' || env === 'dev' || env === 'local' || env === 'test' || env === '';
 }
 
 export async function hydratePersistentInstanceSnapshot(runtime, instanceId, instance) {

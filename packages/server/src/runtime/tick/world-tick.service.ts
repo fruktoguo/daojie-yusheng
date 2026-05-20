@@ -3,7 +3,7 @@
  * 按固定间隔驱动世界运行时推进帧、同步玩家状态和事件总线收尾。
  * 保证同一时刻只有一个 tick 在执行，关闭时等待当前 tick 完成。
  */
-import { Inject, Injectable, Logger, type BeforeApplicationShutdown, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { gameplayConstants } from '@mud/shared';
 
 import { WorldSyncService } from '../../network/world-sync.service';
@@ -54,7 +54,7 @@ export interface WorldTickMetrics {
 
 /** 世界 Tick 调度器：以固定间隔循环驱动世界帧推进、同步和事件总线 flush。 */
 @Injectable()
-export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeApplicationShutdown {
+export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WorldTickService.name);
   private timer: ReturnType<typeof setTimeout> | null = null;
   private tickInFlight = false;
@@ -182,7 +182,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy, BeforeAp
     this.stopTimer();
   }
 
-  async beforeApplicationShutdown(): Promise<void> {
+  async stopForShutdown(): Promise<void> {
     this.shuttingDown = true;
     this.stopTimer();
     const deadline = Date.now() + 5000;

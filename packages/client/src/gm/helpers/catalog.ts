@@ -13,6 +13,8 @@ import {
   TechniqueRealm,
   EQUIP_SLOT_LABELS,
   GM_MAIL_TEMPLATE_OPTIONS,
+  formatEnhancedItemName,
+  normalizeEnhanceLevel,
   ITEM_TYPE_LABELS,
 } from '@mud/shared';
 
@@ -174,6 +176,57 @@ export function findItemCatalogEntry(editorCatalog: EditorCatalog, itemId: strin
   return editorCatalog?.items.find((entry) => entry.itemId === itemId) ?? null;
 }
 
+/** 按物品实例的 itemId 解析目录模板，存档保持只存 ID，显示层统一从目录补信息。 */
+export function resolveItemCatalogEntry(editorCatalog: EditorCatalog, item: Pick<ItemStack, 'itemId'> | undefined): GmEditorItemOption | null {
+  return findItemCatalogEntry(editorCatalog, item?.itemId);
+}
+
+/** 解析物品展示名，优先目录中文名，再回退实例名和 itemId。 */
+export function getResolvedItemDisplayName(
+  editorCatalog: EditorCatalog,
+  item: Partial<ItemStack> | undefined,
+  fallback: string,
+): string {
+  const entry = item ? resolveItemCatalogEntry(editorCatalog, item as Pick<ItemStack, 'itemId'>) : null;
+  const baseName = entry?.name?.trim()
+    || item?.name?.trim()
+    || item?.itemId?.trim()
+    || fallback;
+  const itemType = entry?.type ?? item?.type;
+  const enhanceLevel = normalizeEnhanceLevel(item?.enhanceLevel);
+  return itemType === 'equipment' ? formatEnhancedItemName(baseName, enhanceLevel) : baseName;
+}
+
+/** 解析物品列表元信息，优先目录类型、部位、等级和品阶，再补实例数量与强化等级。 */
+export function getResolvedInventoryRowMeta(editorCatalog: EditorCatalog, item: ItemStack): string {
+  const entry = resolveItemCatalogEntry(editorCatalog, item);
+  const itemType = entry?.type ?? item.type;
+  const equipSlot = entry?.equipSlot ?? item.equipSlot;
+  const parts = [ITEM_TYPE_LABELS[itemType] ?? '未知物品类型'];
+  if (itemType === 'equipment' && equipSlot) {
+    parts.push(EQUIP_SLOT_LABELS[equipSlot] ?? '未知部位');
+  }
+  const level = entry?.level ?? item.level;
+  if (Number.isFinite(level)) {
+    parts.push(`等级 ${level}`);
+  }
+  const grade = entry?.grade ?? item.grade;
+  if (grade) {
+    parts.push(String(grade));
+  }
+  const enhanceLevel = normalizeEnhanceLevel(item.enhanceLevel);
+  if (enhanceLevel > 0) {
+    parts.push(`+${enhanceLevel}`);
+  }
+  if (Number.isFinite(item.count)) {
+    parts.push(`数量 ${Math.max(0, Math.floor(item.count))}`);
+  }
+  if (!entry && item.itemId) {
+    parts.push(item.itemId);
+  }
+  return parts.join(' · ');
+}
+
 /** 按 Buff ID 查目录条目，供编辑器回写和显示文本。 */
 export function findBuffCatalogEntry(editorCatalog: EditorCatalog, buffId: string | undefined): GmEditorBuffOption | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -330,5 +383,4 @@ export function getMailAttachmentRowMeta(editorCatalog: EditorCatalog, itemId: s
   }
   return getItemOptionLabel(entry);
 }
-
 

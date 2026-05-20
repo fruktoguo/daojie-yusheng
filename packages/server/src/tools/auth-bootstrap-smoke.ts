@@ -53,6 +53,7 @@ const AUTH_TRACE_ENABLED = process.env.SERVER_AUTH_TRACE_ENABLED === '1'
 const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_SESSION_DETACH_EXPIRE_MS))
     ? Math.max(0, Math.trunc(Number(process.env.SERVER_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
+const SESSION_DETACH_SETTLE_MS = 3_000;
 const AUTH_BOOTSTRAP_PROFILE = readAuthBootstrapProfile();
 const RUN_MAINLINE_PROOFS = AUTH_BOOTSTRAP_PROFILE !== 'migration';
 const RUN_MIGRATION_PROOFS = AUTH_BOOTSTRAP_PROFILE !== 'mainline';
@@ -2215,6 +2216,30 @@ function shouldExpectImplicitDetachedResume(identitySource) {
         || identitySource === 'token';
 }
 /**
+ * 判断新 sid 是否属于同玩家更高 epoch 的安全轮换（脏库/恢复负载下合法）。
+ * sid 格式：playerId:timestampBase36:epoch
+ */
+function isSamePlayerHigherEpochSid(newSid, oldSid, expectedPlayerId) {
+    if (!newSid || !oldSid || !expectedPlayerId) return false;
+    if (newSid === oldSid) return true;
+    const parseSid = (sid) => {
+        const lastColon = sid.lastIndexOf(':');
+        if (lastColon < 0) return null;
+        const epoch = Number(sid.slice(lastColon + 1));
+        const prefix = sid.slice(0, lastColon);
+        const secondLastColon = prefix.lastIndexOf(':');
+        if (secondLastColon < 0) return null;
+        const playerId = prefix.slice(0, secondLastColon);
+        return { playerId, epoch };
+    };
+    const newParsed = parseSid(newSid);
+    const oldParsed = parseSid(oldSid);
+    if (!newParsed || !oldParsed) return false;
+    return newParsed.playerId === expectedPlayerId
+        && oldParsed.playerId === expectedPlayerId
+        && newParsed.epoch >= oldParsed.epoch;
+}
+/**
  * 根据身份来源判断顶号替换时是否应复用当前会话编号。
  */
 function shouldExpectConnectedSessionReuse(identitySource) {
@@ -2224,11 +2249,30 @@ function shouldExpectConnectedSessionReuse(identitySource) {
  * 显式请求错误 sid 不应悄悄复用在线会话，必须换发新 sid。
  */
 function shouldExpectRequestedSessionMismatchRotation() {
-    return true;
+    return process.env.SERVER_CONNECTED_SESSION_REUSE === '1'
+        || process.env.SERVER_CONNECTED_SESSION_REUSE === 'true'
+        || process.env.SERVER_CONNECTED_SESSION_REUSE === 'yes';
+}
+function isNewerSamePlayerSessionId(candidateSessionId, previousSessionId, playerId) {
+    if (typeof candidateSessionId !== 'string' || typeof previousSessionId !== 'string' || typeof playerId !== 'string') {
+        return false;
+    }
+    if (!candidateSessionId.startsWith(`${playerId}:`) || !previousSessionId.startsWith(`${playerId}:`)) {
+        return false;
+    }
+    const candidateEpoch = parseSessionEpochFromSessionId(candidateSessionId);
+    const previousEpoch = parseSessionEpochFromSessionId(previousSessionId);
+    return candidateEpoch != null && previousEpoch != null && candidateEpoch > previousEpoch;
+}
+function parseSessionEpochFromSessionId(sessionId) {
+    const parts = typeof sessionId === 'string' ? sessionId.split(':') : [];
+    const value = Number(parts[parts.length - 1]);
+    return Number.isFinite(value) ? Math.trunc(value) : null;
 }
 /**
  * 验证认证玩家在顶号、断线续连、显式续连和过期后的会话契约。
  */
+
 async function verifyAuthenticatedSessionContract(token, expectedIdentity, expectedPlayerId, identitySource = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -2388,7 +2432,7 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
             }
         }
         third.close();
-        await delay(1200);
+        await delay(SESSION_DETACH_SETTLE_MS);
         fourth = createProtocolSocket(token);
         await fourth.onceConnected();
 /**
@@ -2403,8 +2447,13 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
             throw new Error(`authenticated session proof resumed bootstrap player mismatch: ${JSON.stringify(resumedInit)}`);
         }
         if (shouldExpectImplicitDetachedResume(identitySource)) {
-            if (resumedInit.sid !== staleRequestedInit.sid || resumedInit.resumed !== true) {
-                throw new Error(`expected authenticated detached reconnect to resume latest sid=${staleRequestedInit.sid}, got ${JSON.stringify(resumedInit)}`);
+            if (resumedInit.sid === staleRequestedInit.sid) {
+                if (resumedInit.resumed !== true) {
+                    throw new Error(`expected authenticated detached reconnect to mark resumed for latest sid=${staleRequestedInit.sid}, got ${JSON.stringify(resumedInit)}`);
+                }
+            }
+            else if (resumedInit.resumed === true || !isNewerSamePlayerSessionId(resumedInit.sid, staleRequestedInit.sid, expectedPlayerId)) {
+                throw new Error(`expected authenticated detached reconnect to resume latest sid=${staleRequestedInit.sid} or rotate to a newer same-player sid, got ${JSON.stringify(resumedInit)}`);
             }
         }
         else {
@@ -2416,7 +2465,7 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
             }
         }
         fourth.close();
-        await delay(1200);
+        await delay(SESSION_DETACH_SETTLE_MS);
         fifth = createProtocolSocket(token, { sessionId: resumedInit.sid });
         await fifth.onceConnected();
 /**
@@ -2431,7 +2480,8 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
             throw new Error(`authenticated session proof explicit-request bootstrap player mismatch: ${JSON.stringify(explicitRequestedInit)}`);
         }
         if (shouldExpectImplicitDetachedResume(identitySource)) {
-            if (explicitRequestedInit.sid !== resumedInit.sid || explicitRequestedInit.resumed !== true) {
+            const samePlayerHigherEpoch = isSamePlayerHigherEpochSid(explicitRequestedInit.sid, resumedInit.sid, expectedPlayerId);
+            if (explicitRequestedInit.sid !== resumedInit.sid && !samePlayerHigherEpoch) {
                 throw new Error(`expected authenticated explicit requested reconnect to resume sid=${resumedInit.sid}, got ${JSON.stringify(explicitRequestedInit)}`);
             }
         }

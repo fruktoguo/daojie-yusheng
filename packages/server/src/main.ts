@@ -3,13 +3,16 @@
  * 端口冲突时自动采集诊断信息（lsof/ss/fuser），辅助运维定位。
  */
 import { NestFactory } from '@nestjs/core';
+import type { INestApplicationContext } from '@nestjs/common';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import { AppModule } from './app.module';
+import { WorldShutdownDrainService } from './network/world-shutdown-drain.service';
 import { resolveServerCorsOptions } from './config/server-cors';
 import { installConsoleLogCapture } from './logging/console-log-buffer';
 import { DateConsoleLogger } from './logging/date-console-logger';
+import { bootstrapLoadDbConfig } from './config/bootstrap-load-db-config';
 
 /** 端口冲突诊断最多采样次数。 */
 const PORT_CONFLICT_SAMPLE_ATTEMPTS = 12;
@@ -182,13 +185,22 @@ async function collectPortConflictDiagnostics(port: number): Promise<string> {
   return samples.join('\n\n');
 }
 
+let bootstrapApp: INestApplicationContext | null = null;
+
 /** 启动 Nest 应用：创建服务、启用钩子/跨域，并在端口冲突时补充诊断日志。 */
 async function bootstrap(): Promise<void> {
 
   installConsoleLogCapture();
   const logger = new DateConsoleLogger('Bootstrap');
 
+  // 从数据库加载游戏配置到 process.env（DB 不可用时静默跳过）
+  const dbConfigCount = await bootstrapLoadDbConfig();
+  if (dbConfigCount >= 0) {
+    logger.log(`已从数据库加载 ${dbConfigCount} 项游戏配置`);
+  }
+
   const app = await NestFactory.create(AppModule, { logger });
+  bootstrapApp = app;
 
   app.enableShutdownHooks();
 
@@ -249,6 +261,18 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     if (shutdownTimerSet) return;
     shutdownTimerSet = true;
+    void (async () => {
+      try {
+        const shutdownDrain = bootstrapApp?.get(WorldShutdownDrainService, { strict: false });
+        await shutdownDrain?.drain(signal);
+      } catch (error) {
+        console.error('[shutdown] 预先执行 shutdown drain 失败:', error instanceof Error ? error.stack : String(error));
+      }
+      await bootstrapApp?.close().catch((error) => {
+        console.error('[shutdown] app.close 失败:', error instanceof Error ? error.stack : String(error));
+      });
+      bootstrapApp = null;
+    })();
     const timer = setTimeout(() => {
       console.error(`[shutdown] graceful shutdown 超时 ${GRACEFUL_SHUTDOWN_TIMEOUT_MS}ms，强制退出`);
       process.exit(1);

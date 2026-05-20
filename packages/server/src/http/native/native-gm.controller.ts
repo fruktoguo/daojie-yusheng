@@ -12,6 +12,8 @@ import {
   GM_NETWORK_PAYLOAD_CAPTURE_FLAG_KEY,
   GM_RUNTIME_MAINTENANCE_FLAG_KEY,
 } from '../../persistence/gm-runtime-flag-persistence.service';
+import { GmConfigPersistenceService } from '../../persistence/gm-config-persistence.service';
+import { listGameConfigDescriptors, getGameConfigDescriptor } from '../../config/game-config-registry';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { extractGmActor } from './native-gm-actor-context';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
@@ -261,6 +263,7 @@ export class NativeGmController {
     private readonly nextGmMailService: NativeGmMailService,
     @Inject(RedeemCodeRuntimeService) redeemCodeRuntimeService: RedeemCodeRuntimeServicePort,
     @Inject(GmRuntimeFlagPersistenceService) private readonly runtimeFlagService: GmRuntimeFlagPersistenceService,
+    @Inject(GmConfigPersistenceService) private readonly gmConfigService: GmConfigPersistenceService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
 
   ) {
@@ -1168,6 +1171,74 @@ export class NativeGmController {
       ok: true,
       key: normalizedKey,
     };
+  }
+
+  // ─── 游戏配置中心 ───
+
+  @Get('game-config')
+  async listGameConfig() {
+    const descriptors = listGameConfigDescriptors();
+    const dbEntries = this.gmConfigService.listEntries();
+    const dbMap = new Map(dbEntries.map((e) => [e.key, e]));
+
+    const items = descriptors.map((desc) => {
+      const dbEntry = dbMap.get(desc.key);
+      const currentValue = process.env[desc.key] ?? desc.defaultValue;
+      const pendingValue = dbEntry?.value ?? null;
+      const pendingRestart = pendingValue !== null && pendingValue !== currentValue;
+      return {
+        key: desc.key,
+        label: desc.label,
+        description: desc.description,
+        category: desc.category,
+        valueType: desc.valueType,
+        currentValue,
+        pendingValue,
+        defaultValue: desc.defaultValue,
+        pendingRestart,
+        ...(desc.min !== undefined ? { min: desc.min } : {}),
+        ...(desc.max !== undefined ? { max: desc.max } : {}),
+      };
+    });
+
+    return { items, checkedAt: Date.now() };
+  }
+
+  @Post('game-config/:key')
+  async setGameConfig(@Param('key') key: string, @Body() body: { value?: string }) {
+    if (!key || typeof key !== 'string') {
+      throw new BadRequestException('key is required');
+    }
+    const descriptor = getGameConfigDescriptor(key.trim());
+    if (!descriptor) {
+      throw new BadRequestException(`Unknown config key: ${key}`);
+    }
+    const value = typeof body?.value === 'string' ? body.value : String(body?.value ?? '');
+    // 基本校验
+    if (descriptor.valueType === 'number') {
+      const num = Number(value);
+      if (Number.isNaN(num)) throw new BadRequestException('value must be a valid number');
+      if (descriptor.min !== undefined && num < descriptor.min) throw new BadRequestException(`value must be >= ${descriptor.min}`);
+      if (descriptor.max !== undefined && num > descriptor.max) throw new BadRequestException(`value must be <= ${descriptor.max}`);
+    }
+    if (descriptor.valueType === 'boolean') {
+      if (value !== 'true' && value !== 'false') throw new BadRequestException('value must be "true" or "false"');
+    }
+    await this.gmConfigService.setValue(descriptor.key, value);
+    return { ok: true, key: descriptor.key, value, pendingRestart: true };
+  }
+
+  @Delete('game-config/:key')
+  async deleteGameConfig(@Param('key') key: string) {
+    if (!key || typeof key !== 'string') {
+      throw new BadRequestException('key is required');
+    }
+    const descriptor = getGameConfigDescriptor(key.trim());
+    if (!descriptor) {
+      throw new BadRequestException(`Unknown config key: ${key}`);
+    }
+    await this.gmConfigService.deleteValue(descriptor.key);
+    return { ok: true, key: descriptor.key, restoredDefault: descriptor.defaultValue };
   }
 
   /**

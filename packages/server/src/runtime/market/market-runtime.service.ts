@@ -3,7 +3,7 @@
  * 维护挂单、撮合成交、仓库存取和交易历史，
  * 所有写操作串行化执行并持久化到数据库。
  */
-import { Inject, Injectable, Logger, Optional, type BeforeApplicationShutdown } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
@@ -21,7 +21,7 @@ const AUCTION_MAX_EXTENSION_MS = 60 * 60 * 1000;
 
 /** 坊市运行时：维护挂单、成交、仓库与交易历史。 */
 @Injectable()
-export class MarketRuntimeService implements BeforeApplicationShutdown {
+export class MarketRuntimeService {
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -99,30 +99,14 @@ export class MarketRuntimeService implements BeforeApplicationShutdown {
     async onApplicationBootstrap() {
         await this.reloadFromPersistence();
     }
-    /**
-     * 关停前：先等当前 marketOperationQueue 串行链跑完，把还在跑的市场 mutation 抽干，
-     * 再让玩家持久化服务做一次全量 flush；保证关停时 mutation 改动的玩家 inventory/wallet
-     * 不会因为 NestJS shutdown hook 并行调度而被遗漏。
-     */
-    async beforeApplicationShutdown(): Promise<void> {
+    /** 关停前等待当前 marketOperationQueue 串行链跑完。 */
+    async drainForShutdown(): Promise<void> {
         try {
             await this.marketOperationQueue;
         }
         catch (error) {
             this.logger.error(
                 `等待坊市 mutation 队列收尾失败：${error instanceof Error ? error.stack : String(error)}`,
-            );
-        }
-        const flushAllNow = this.playerPersistenceFlushService?.flushAllNow;
-        if (typeof flushAllNow !== 'function') {
-            return;
-        }
-        try {
-            await flushAllNow.call(this.playerPersistenceFlushService);
-        }
-        catch (error) {
-            this.logger.error(
-                `关停前坊市玩家二次 flush 失败：${error instanceof Error ? error.stack : String(error)}`,
             );
         }
     }

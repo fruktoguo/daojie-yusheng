@@ -174,11 +174,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
   }
 
-  /** 应用关闭前 flush 全量脏玩家，保证关键状态落库。 */
-  async beforeApplicationShutdown(): Promise<void> {
-    await this.flushAllNow();
-  }
-
   /** 立即刷单个玩家快照与分域投影。 */
   async flushPlayer(playerId: string): Promise<void> {
     const domainEnabled = this.playerDomainPersistenceService.isEnabled();

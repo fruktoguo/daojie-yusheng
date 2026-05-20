@@ -32,10 +32,14 @@ const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
   ['world-runtime-player-migrate-route-db-smoke.js', 30_000],
   ['world-runtime-player-migrate-handoff-db-smoke.js', 30_000],
   ['world-runtime-player-migrate-gateway-redirect-smoke.js', 30_000],
-  ['gm-database-smoke.js', 900_000],
-  ['gm-database-backup-persistence-smoke.js', 60_000],
+  ['readiness-gate-smoke.js', 45_000],
+  ['monster-skill-smoke.js', 60_000],
+    ['gm-database-smoke.js', 900_000],
+    ['shutdown-drain-smoke.js', 180_000],
+    ['gm-database-backup-persistence-smoke.js', 60_000],
   ['shadow-gm-database-proof.js', 240_000],
   ['multi-worker-flush-stability-report.js', 120_000],
+  ['multi-worker-flush-stability-report-smoke.js', 120_000],
 ]);
 /**
  * 解析是否关闭统一烟测超时。

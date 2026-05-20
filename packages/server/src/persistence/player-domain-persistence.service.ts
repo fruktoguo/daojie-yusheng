@@ -1148,6 +1148,25 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       .filter((entry) => entry.playerId.length > 0 && entry.instanceId.length > 0);
   }
 
+  async hasOnlinePlayersInInstance(instanceId: string): Promise<boolean> {
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!this.pool || !this.enabled || !normalizedInstanceId) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `
+        SELECT 1
+        FROM ${PLAYER_PRESENCE_TABLE} p
+        JOIN ${PLAYER_POSITION_CHECKPOINT_TABLE} pc ON pc.player_id = p.player_id
+        WHERE p.online = true
+          AND pc.instance_id = $1
+        LIMIT 1
+      `,
+      [normalizedInstanceId],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   /** 将超时离线玩家标记为彻底离线（in_world=false） */
   async expireOfflineHangingPlayers(offlineTimeoutMs: number = 48 * 60 * 60 * 1000): Promise<number> {
     if (!this.pool || !this.enabled) {

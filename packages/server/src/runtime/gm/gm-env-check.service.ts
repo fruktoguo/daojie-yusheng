@@ -10,7 +10,6 @@ const ENV_VAR_CHECKS: Array<{ name: string; aliases: string[]; required: boolean
   { name: 'DATABASE_URL', aliases: ['SERVER_DATABASE_URL', 'DATABASE_URL'], required: true, description: '数据库连接地址' },
   { name: 'DATABASE_POOLER_URL', aliases: ['SERVER_DATABASE_POOLER_URL', 'DATABASE_POOLER_URL'], required: false, description: '数据库连接池地址' },
   { name: 'REDIS_URL', aliases: ['SERVER_REDIS_URL', 'REDIS_URL'], required: false, description: 'Redis 连接地址' },
-  { name: 'GM_PASSWORD', aliases: ['SERVER_GM_PASSWORD', 'GM_PASSWORD'], required: true, description: 'GM 管理密码' },
   { name: 'SERVER_PORT', aliases: ['SERVER_PORT'], required: false, description: '服务端监听端口' },
   { name: 'SERVER_HOST', aliases: ['SERVER_HOST'], required: false, description: '服务端监听地址' },
   { name: 'SERVER_CORS_ORIGINS', aliases: ['SERVER_CORS_ORIGINS', 'CORS_ORIGINS'], required: false, description: 'CORS 允许来源' },

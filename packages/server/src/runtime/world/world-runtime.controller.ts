@@ -172,6 +172,7 @@ export class WorldRuntimeController {
         const view = this.worldRuntimeService.worldRuntimePlayerSessionService.connectPlayer({
             playerId: body.playerId ?? '',
             sessionId: body.sessionId,
+            instanceId: body.instanceId,
             mapId: body.mapId,
             preferredX: body.preferredX,
             preferredY: body.preferredY,

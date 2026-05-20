@@ -4,8 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
+const runtimeEnvFile = path.join(repoRoot, '.runtime', 'server.local.env');
 const candidateFiles = [
-  '.runtime/server.local.env',
   '.env',
   '.env.local',
   'packages/server/.env',
@@ -22,11 +22,11 @@ function normalizeBooleanEnv(rawValue) {
 
 function normalizeValue(rawValue) {
   const trimmed = rawValue.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"'))
-    || (trimmed.startsWith('\'') && trimmed.endsWith('\''))
-  ) {
-    return trimmed.slice(1, -1);
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    return trimmed.slice(1, -1).replace(/\\"/gu, '"').replace(/\\\\/gu, '\\');
+  }
+  if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    return trimmed.slice(1, -1).replace(/\\'/gu, "'").replace(/\\\\/gu, '\\');
   }
   return trimmed;
 }
@@ -53,22 +53,32 @@ function parseEnvFile(content) {
   return entries;
 }
 
+function loadEntriesFromFile(absolutePath, overwrite) {
+  if (!fs.existsSync(absolutePath)) {
+    return;
+  }
+  const entries = parseEnvFile(fs.readFileSync(absolutePath, 'utf8'));
+  for (const [key, value] of entries) {
+    if (overwrite) {
+      process.env[key] = value;
+      continue;
+    }
+    if (typeof process.env[key] !== 'string' || process.env[key].trim() === '') {
+      process.env[key] = value;
+    }
+  }
+}
+
 function loadLocalRuntimeEnv() {
   if (normalizeBooleanEnv(process.env.SERVER_SKIP_LOCAL_ENV_AUTOLOAD)) {
     return;
   }
+
   for (const relativePath of candidateFiles) {
-    const absolutePath = path.join(repoRoot, relativePath);
-    if (!fs.existsSync(absolutePath)) {
-      continue;
-    }
-    const entries = parseEnvFile(fs.readFileSync(absolutePath, 'utf8'));
-    for (const [key, value] of entries) {
-      if (typeof process.env[key] !== 'string' || process.env[key].trim() === '') {
-        process.env[key] = value;
-      }
-    }
+    loadEntriesFromFile(path.join(repoRoot, relativePath), false);
   }
+
+  loadEntriesFromFile(runtimeEnvFile, true);
 }
 
 loadLocalRuntimeEnv();

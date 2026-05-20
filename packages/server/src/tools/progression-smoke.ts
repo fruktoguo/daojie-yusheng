@@ -22,11 +22,13 @@ const PROGRESSION_RESOURCE_TILE = Object.freeze({
     x: 12,
     y: 8,
 });
+const GM_PASSWORD = (0, env_alias_1.resolveServerGmPassword)('admin123');
 /**
  * 记录玩家ID。
  */
 let playerId = '';
 let sessionId = '';
+let progressionResourceInstanceId = '';
 let progressionStage = 'bootstrap';
 /**
  * 串联执行脚本主流程。
@@ -40,7 +42,7 @@ async function main() {
     const auth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
         accountPrefix: 'pg',
         rolePrefix: '进',
-        seed: 'progression',
+        seed: `progression-${Date.now().toString(36)}`,
     });
 /**
  * 记录socket。
@@ -231,6 +233,7 @@ async function main() {
         return state.player?.unlockedMapIds?.includes('bamboo_forest')
             && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'map.bamboo_forest');
     }, PROGRESSION_WAIT_MS);
+    progressionResourceInstanceId = await ensureProgressionResourceInstance();
     await ensureProgressionResourceTile();
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'spirit_stone',
@@ -417,12 +420,33 @@ function hasSpiritStoneConsumePatch(payload) {
 /**
  * 确保地块资源道具在非保护地块上验证。
  */
+async function ensureProgressionResourceInstance() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const gmToken = await loginGm();
+    const payload = await requestJson('/api/gm/world/instances', {
+        method: 'POST',
+        token: gmToken,
+        body: {
+            templateId: PROGRESSION_RESOURCE_MAP_ID,
+            linePreset: 'real',
+            persistentPolicy: 'ephemeral',
+            displayName: `进阶资源_${Date.now().toString(36)}`,
+        },
+    });
+    const instanceId = String(payload?.instance?.instanceId ?? '').trim();
+    if (!instanceId) {
+        throw new Error(`unexpected progression resource instance payload: ${JSON.stringify(payload)}`);
+    }
+    return instanceId;
+}
 async function ensureProgressionResourceTile() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     await postJson('/runtime/players/connect', {
         playerId,
         sessionId: sessionId || undefined,
+        instanceId: progressionResourceInstanceId || undefined,
         mapId: PROGRESSION_RESOURCE_MAP_ID,
         preferredX: PROGRESSION_RESOURCE_TILE.x,
         preferredY: PROGRESSION_RESOURCE_TILE.y,
@@ -434,7 +458,7 @@ async function ensureProgressionResourceTile() {
  */
         const state = await fetchState();
         const instanceId = String(state.player?.instanceId ?? '');
-        return instanceId.endsWith(`:${PROGRESSION_RESOURCE_MAP_ID}`)
+        return (instanceId === progressionResourceInstanceId || instanceId.endsWith(`:${PROGRESSION_RESOURCE_MAP_ID}`))
             && state.player?.x === PROGRESSION_RESOURCE_TILE.x
             && state.player?.y === PROGRESSION_RESOURCE_TILE.y;
     }, PROGRESSION_WAIT_MS);
@@ -473,6 +497,34 @@ async function postJson(path, body) {
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
+}
+async function loginGm() {
+    const payload = await requestJson('/api/auth/gm/login', {
+        method: 'POST',
+        body: {
+            password: GM_PASSWORD,
+        },
+    });
+    const token = typeof payload?.accessToken === 'string' ? payload.accessToken.trim() : '';
+    if (!token) {
+        throw new Error(`gm login did not return accessToken: ${JSON.stringify(payload)}`);
+    }
+    return token;
+}
+async function requestJson(path, options = {}) {
+    const response = await fetch(`${SERVER_URL}${path}`, {
+        method: options.method ?? 'GET',
+        headers: {
+            'content-type': 'application/json',
+            ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+    const text = await response.text();
+    if (!response.ok) {
+        throw new Error(`request failed: ${response.status} ${text}`);
+    }
+    return text ? JSON.parse(text) : null;
 }
 /**
  * 处理delete玩家。

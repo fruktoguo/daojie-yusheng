@@ -364,6 +364,66 @@ export class InstanceCatalogService implements OnModuleInit {
     );
     return (result.rowCount ?? 0) > 0;
   }
+
+  /** 强制接管实例 lease，无视当前 lease 是否过期（仅 dev/test 启动恢复使用）。 */
+  async forceClaimInstanceLease(input: {
+    instanceId: string;
+    nodeId: string;
+    leaseToken: string;
+    leaseExpireAt: Date;
+  }): Promise<{ ok: boolean; ownershipEpoch: number | null }> {
+    if (!this.pool || !this.enabled) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    const result = await this.pool.query(
+      `
+        UPDATE ${INSTANCE_CATALOG_TABLE}
+        SET assigned_node_id = $2,
+            lease_token = $3,
+            lease_expire_at = $4,
+            ownership_epoch = ownership_epoch + 1,
+            status = 'active',
+            runtime_status = 'leased',
+            last_active_at = now()
+        WHERE instance_id = $1
+        RETURNING ownership_epoch
+      `,
+      [input.instanceId.trim(), input.nodeId.trim(), input.leaseToken.trim(), input.leaseExpireAt],
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      return { ok: false, ownershipEpoch: null };
+    }
+    return { ok: true, ownershipEpoch: Number(result.rows[0]?.ownership_epoch ?? null) || null };
+  }
+
+  async releaseInstanceLease(input: {
+    instanceId: string;
+    nodeId: string;
+    leaseToken: string;
+  }): Promise<boolean> {
+    if (!this.pool || !this.enabled) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `
+        UPDATE ${INSTANCE_CATALOG_TABLE}
+        SET assigned_node_id = NULL,
+            lease_token = NULL,
+            lease_expire_at = NULL,
+            runtime_status = 'running',
+            last_active_at = now()
+        WHERE instance_id = $1
+          AND assigned_node_id = $2
+          AND lease_token = $3
+      `,
+      [
+        input.instanceId.trim(),
+        input.nodeId.trim(),
+        input.leaseToken.trim(),
+      ],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
 }
 
 async function ensureInstanceCatalogTable(pool: Pool): Promise<void> {

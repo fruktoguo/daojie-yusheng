@@ -217,7 +217,7 @@ async function testShutdownWaitsForInFlightTickAndBlocksNewTicks(): Promise<void
 
   const tickPromise = runTickOnce(service);
   await new Promise((resolve) => setImmediate(resolve));
-  const shutdownPromise = service.beforeApplicationShutdown();
+  const shutdownPromise = service.stopForShutdown();
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(log, ['advanceFrame:start']);
 

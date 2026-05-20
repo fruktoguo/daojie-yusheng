@@ -155,7 +155,7 @@
     "audit:content-reference-consistency": "pnpm compile && node dist/tools/check-content-reference-consistency.js",
     "proof:content-map-sources": "pnpm compile && node dist/tools/prove-content-map-sources.js",
     "proof:runtime-network-source": "pnpm compile && node dist/tools/prove-runtime-network-source.js",
-    "proof:production-boundaries": "node dist/tools/check-production-boundaries.js",
+    "proof:production-boundaries": "if [ ! -f dist/tools/check-production-boundaries.js ]; then pnpm compile; fi && node dist/tools/check-production-boundaries.js",
     "proof:realm-exp-boundary": "node ../../scripts/check-runtime-realm-exp-boundary.cjs",
     "audit:boundaries": "pnpm compile && node dist/tools/audit/production-boundary-audit.js && node dist/tools/audit-runtime-template-spread.js && node dist/tools/audit-registry-frozen.js"
   },

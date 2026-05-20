@@ -11,6 +11,7 @@ const {
 } = world_runtime_normalization_helpers_1;
 
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
+const INSTANCE_LEASE_RESTORE_SKEW_MS = 5_000;
 
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
 @Injectable()
@@ -264,11 +265,16 @@ export class WorldRuntimeLifecycleService {
             await deps.worldRuntimeSectService.restoreSects(deps);
         }
         await this.restorePublicInstancePersistence(deps);
+        if (deps.instanceCatalogService?.isEnabled?.() && typeof deps.syncInstanceLease === 'function') {
+            for (const [instanceId] of deps.listInstanceEntries()) {
+                await deps.syncInstanceLease(instanceId, { allowForceReclaim: true });
+            }
+        }
         await this.restoreOfflineHangingPlayers(deps);
     }
 
     /** 启动时恢复离线挂机玩家到对应实例，使其继续参与 tick。 */
-    private async restoreOfflineHangingPlayers(deps) {
+    async restoreOfflineHangingPlayers(deps) {
         const persistenceService = deps.playerRuntimeService?.playerDomainPersistenceService;
         if (!persistenceService?.isEnabled?.() || typeof persistenceService.listOfflineHangingPlayerPositions !== 'function') {
             return;
@@ -305,6 +311,11 @@ export class WorldRuntimeLifecycleService {
                         skipped++;
                         return;
                     }
+                    if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
+                        skipped++;
+                        deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
+                        return;
+                    }
                     const player = await deps.playerRuntimeService.restoreOfflineHangingPlayer(
                         entry.playerId,
                         persistenceService,
@@ -336,6 +347,26 @@ export class WorldRuntimeLifecycleService {
         }
     }
 };
+
+function isLocalLeaseReadyForOfflineRestore(deps, instance) {
+    if (!deps.instanceCatalogService?.isEnabled?.()) {
+        return true;
+    }
+    if (!instance || instance?.meta?.runtimeStatus === 'fenced') {
+        return false;
+    }
+    const nodeId = typeof deps.nodeRegistryService?.getNodeId === 'function'
+        ? deps.nodeRegistryService.getNodeId()
+        : '';
+    const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
+    const leaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+    const leaseExpireAt = instance?.meta?.leaseExpireAt ? new Date(instance.meta.leaseExpireAt).getTime() : 0;
+    return Boolean(nodeId)
+        && assignedNodeId === nodeId
+        && Boolean(leaseToken)
+        && Number.isFinite(leaseExpireAt)
+        && leaseExpireAt > Date.now() - INSTANCE_LEASE_RESTORE_SKEW_MS;
+}
 
 function shouldRestoreCatalogEntry(entry) {
     if (entry?.status === 'destroyed' || entry?.runtime_status === 'stopped') {

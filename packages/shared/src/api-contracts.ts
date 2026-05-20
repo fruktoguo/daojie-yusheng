@@ -3764,3 +3764,168 @@ export interface GmSecretDetailRes {
   description?: string;
   updatedAt?: string;
 }
+
+// ─── GM 环境变量管理 ───
+
+/** GM 环境变量来源。 */
+export type GmEnvironmentVarSource = 'process_env' | 'runtime_override' | 'runtime_file' | 'unset';
+
+/** GM 环境变量列表项。 */
+export interface GmEnvironmentVarItem {
+  key: string;
+  /** 展示名称；未配置注册表时回退为 key。 */
+  label: string;
+  /** 变量说明。 */
+  description: string;
+  /** 归属分类。 */
+  category: string;
+  /** 当前显示值；敏感值可由服务端返回脱敏文本。 */
+  value: string;
+  /** 当前值来源。 */
+  source: GmEnvironmentVarSource;
+  /** 是否可编辑。 */
+  editable: boolean;
+  /** 是否支持持久化写入本地 runtime env 文件。 */
+  persistable: boolean;
+  /** 是否建议重启后才稳定生效。 */
+  restartRequired: boolean;
+  /** 是否敏感。 */
+  sensitive: boolean;
+  /** 是否来自注册表。 */
+  managed: boolean;
+  /** 是否已写入 runtime env 文件。 */
+  persistent: boolean;
+}
+
+/** GM 环境变量列表响应。 */
+export interface GmEnvironmentVarListRes {
+  items: GmEnvironmentVarItem[];
+  checkedAt: number;
+}
+
+/** GM 设置环境变量请求。 */
+export interface GmSetEnvironmentVarReq {
+  value: string;
+  persist?: boolean;
+}
+
+/** GM 环境变量重载响应。 */
+export interface GmReloadEnvironmentVarsRes {
+  ok: true;
+  reloadedAt: number;
+  count: number;
+}
+
+// ─── GM 游戏配置中心 ───
+
+/** 游戏配置值类型。 */
+export type GameConfigValueType = 'boolean' | 'number' | 'string';
+
+/** 游戏配置列表项。 */
+export interface GameConfigItem {
+  key: string;
+  label: string;
+  description: string;
+  category: string;
+  valueType: GameConfigValueType;
+  /** 当前生效值（来自 process.env）。 */
+  currentValue: string;
+  /** 数据库中保存的值（下次重启生效）；null 表示未设置。 */
+  pendingValue: string | null;
+  /** 注册表默认值。 */
+  defaultValue: string;
+  /** 是否有待重启生效的变更。 */
+  pendingRestart: boolean;
+  /** 最小值（仅 number 类型）。 */
+  min?: number;
+  /** 最大值（仅 number 类型）。 */
+  max?: number;
+}
+
+/** 游戏配置列表响应。 */
+export interface GameConfigListRes {
+  items: GameConfigItem[];
+  checkedAt: number;
+}
+
+/** 设置游戏配置请求。 */
+export interface GameConfigSetReq {
+  value: string;
+}
+
+/** 设置游戏配置响应。 */
+export interface GameConfigSetRes {
+  ok: true;
+  key: string;
+  value: string;
+  pendingRestart: true;
+}
+
+/** 删除游戏配置响应（恢复默认）。 */
+export interface GameConfigDeleteRes {
+  ok: true;
+  key: string;
+  restoredDefault: string;
+}
+
+// ─── GM AI Provider 配置 ───
+
+/** GM AI 配置用途。 */
+export type GmAiProviderKind = 'text' | 'image';
+
+/** GM 文本模型 provider。 */
+export type GmAiTextProvider = 'openai' | 'openai-compatible' | 'anthropic';
+
+/** GM 图像模型 provider。 */
+export type GmAiImageProvider = 'openai' | 'dashscope';
+
+/** GM AI provider 配置列表项；不包含 API Key 明文。 */
+export interface GmAiProviderConfigItem {
+  scope: string;
+  kind: GmAiProviderKind;
+  provider: GmAiTextProvider | GmAiImageProvider;
+  baseURL: string;
+  modelName: string;
+  timeoutMs: number;
+  imageSize: string;
+  imageQuality: string;
+  secretKeyRef: string;
+  secretConfigured: boolean;
+  enabled: boolean;
+  revision: number;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+/** GM AI provider 配置列表响应。 */
+export interface GmAiProviderConfigListRes {
+  items: GmAiProviderConfigItem[];
+  checkedAt: number;
+  secretStoreAvailable: boolean;
+}
+
+/** GM AI provider 配置保存请求。apiKey 只写入 GM 密钥表，不进入普通配置表。 */
+export interface GmAiProviderConfigSetReq {
+  provider: GmAiTextProvider | GmAiImageProvider;
+  baseURL: string;
+  modelName: string;
+  timeoutMs?: number;
+  imageSize?: string;
+  imageQuality?: string;
+  secretKeyRef: string;
+  apiKey?: string;
+  enabled?: boolean;
+}
+
+/** GM AI provider 配置保存响应。 */
+export interface GmAiProviderConfigSetRes {
+  ok: true;
+  item: GmAiProviderConfigItem;
+  secretWritten: boolean;
+}
+
+/** GM AI provider 配置删除响应。 */
+export interface GmAiProviderConfigDeleteRes {
+  ok: true;
+  deleted: boolean;
+}

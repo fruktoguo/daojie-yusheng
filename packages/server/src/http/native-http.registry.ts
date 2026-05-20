@@ -28,8 +28,10 @@ import { NativeAccountController } from './native/native-account.controller';
 import { NativeGmAuthController } from './native/native-gm-auth.controller';
 import { NativeGmController } from './native/native-gm.controller';
 import { NativeGmAdminController } from './native/native-gm-admin.controller';
+import { NativeGmAiProviderController, NATIVE_GM_AI_PROVIDER_CONTROLLER_PROVIDERS } from './native/native-gm-ai-provider.controller';
+import { NativeGmEnvironmentController } from './native/native-gm-environment.controller';
 import { NativeGmSecretController } from './native/native-gm-secret.controller';
-import { NativeGmSecretStoreService } from './native/native-gm-secret-store.service';
+import { RuntimeEnvManagementService } from '../runtime/gm/runtime-env-management.service';
 import { GM_HTTP_CONTRACT } from './native/native-gm-contract';
 
 /** 原生主线 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
@@ -48,6 +50,8 @@ export const NATIVE_HTTP_CONTROLLERS = [
   NativeGmController,
   NativeGmAdminController,
   NativeGmSecretController,
+  NativeGmEnvironmentController,
+  NativeGmAiProviderController,
   NativeBotController,
 ];
 
@@ -71,7 +75,8 @@ export const NATIVE_HTTP_PROVIDERS = [
   NativeGmPlayerService,
   NativeGmWorkerService,
   NativeGmWorldService,
-  NativeGmSecretStoreService,
+  ...NATIVE_GM_AI_PROVIDER_CONTROLLER_PROVIDERS,
+  RuntimeEnvManagementService,
   BotTokenService,
   NativeBotService,
 ];

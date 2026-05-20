@@ -2,9 +2,10 @@
  * 健康检查 HTTP 控制器：提供 /live 和 /health 端点。
  * /live 仅回答进程存活；/health 汇总数据库、持久化、运行时的就绪状态。
  */
-import { Controller, Get, HttpStatus, Optional, Res } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Optional, Post, Res } from '@nestjs/common';
 
 import { HealthReadinessService } from './health/health-readiness.service';
+import { WorldShutdownDrainService } from './network/world-shutdown-drain.service';
 interface ResponseLike {
   status: (code: number) => unknown;
 }
@@ -14,6 +15,7 @@ interface ResponseLike {
 export class HealthController {
   constructor(
     @Optional() private readonly healthReadinessService: HealthReadinessService,
+    @Optional() private readonly worldShutdownDrainService: WorldShutdownDrainService,
   ) {}
 
   /** live：只回答进程是否仍能响应，用于容器 liveness。 */
@@ -32,7 +34,6 @@ export class HealthController {
   /** health：返回完整 readiness 状态；非开发环境只返回精简摘要。 */
   @Get('health')
   health(@Res({ passthrough: true }) response: ResponseLike) {
-
     const health = this.healthReadinessService?.build() ?? {
       ok: false,
       service: 'server',
@@ -83,5 +84,16 @@ export class HealthController {
       return { ok: health.ok ?? (health.readiness?.ok ?? false), service: 'server' };
     }
     return health;
+  }
+
+  /** 本地 smoke 专用：显式触发关机 drain。 */
+  @Post('shutdown-drain')
+  async shutdownDrain() {
+    const enabled = String(process.env.SERVER_ALLOW_LOCAL_SHUTDOWN_DRAIN ?? '').trim();
+    if (enabled !== '1') {
+      return { ok: false, reason: 'disabled' };
+    }
+    await this.worldShutdownDrainService?.drain('http');
+    return { ok: true };
   }
 }

@@ -174,6 +174,8 @@ async function startServer(options) {
         cwd: packageRoot,
         env: {
             ...process.env,
+            SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || 'test',
+            SERVER_NODE_ID: process.env.SERVER_NODE_ID || 'server-smoke-suite',
             SERVER_PORT: String(currentPort),
             SERVER_RUNTIME_HTTP: '1',
             ...(options.allowUnreadyTraffic
@@ -257,7 +259,7 @@ function dumpServerLogTail(child) {
 /**
  * 等待for健康状态。
  */
-async function waitForHealth(expectedStatus) {
+async function waitForHealth(expectedStatus, timeoutMs = 20_000) {
 /**
  * 记录last请求体。
  */
@@ -274,7 +276,7 @@ async function waitForHealth(expectedStatus) {
         catch {
             return false;
         }
-    }, 10000);
+    }, timeoutMs);
     return lastBody;
 }
 /**

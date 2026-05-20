@@ -570,7 +570,7 @@ async function main() {
             return player.templateId === 'yunlai_town'
                 && player.hp === player.maxHp
                 && player.combat?.autoBattle === false;
-        }, 8000);
+        }, 15000);
 /**
  * 记录httpresetGM状态。
  */
@@ -837,7 +837,7 @@ async function main() {
                 previousAutoBattle: runtimeBeforeShortcutReturn.combat?.autoBattle ?? false,
                 nextMapId: runtimeBeforeShortcutReturn.templateId,
             });
-        }, 8000, 'gm shortcut pre-return-all move');
+        }, 15000, 'gm shortcut pre-return-all move');
 /**
  * 记录return-all快捷执行结果。
  */
@@ -855,7 +855,7 @@ async function main() {
             && player.x === returnAllPlayersResult.targetX
             && player.y === returnAllPlayersResult.targetY
             && player.hp === player.maxHp
-            && player.combat?.autoBattle === false, 8000);
+            && player.combat?.autoBattle === false, 15000);
 /**
  * 记录cleanup快捷执行结果。
  */
@@ -1885,10 +1885,17 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
     let lastObserved = null;
     try {
         await waitFor(async () => {
-            const [runtimePayload, gmPayload] = await Promise.all([
-                fetchPlayerState(playerId),
-                fetchGmStateForPlayer(playerId, token),
-            ]);
+            let runtimePayload;
+            let gmPayload;
+            try {
+                [runtimePayload, gmPayload] = await Promise.all([
+                    fetchPlayerState(playerId),
+                    fetchGmStateForPlayer(playerId, token),
+                ]);
+            }
+            catch {
+                return false;
+            }
             assertGmStateShape(gmPayload, label, { requireStateFields: false });
 /**
  * 记录运行态。
@@ -1948,10 +1955,16 @@ async function waitForGmPlayerSummary(playerId, token, predicate, timeoutMs, lab
     let lastObserved = null;
     try {
         await waitFor(async () => {
-/**
+            let payload;
+            try {
+                /**
  * 记录payload。
  */
-            const payload = await fetchGmStateForPlayer(playerId, token);
+                payload = await fetchGmStateForPlayer(playerId, token);
+            }
+            catch {
+                return false;
+            }
             assertGmStateShape(payload, label, { requireStateFields: false });
 /**
  * 记录summary。

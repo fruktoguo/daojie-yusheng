@@ -82,6 +82,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         gatewayClientEmitHelper: WorldGatewayClientEmitHelper; gatewayGuardHelper: WorldGatewayGuardHelper; gatewaySessionStateHelper: WorldGatewaySessionStateHelper; gatewayPresenceHelper: WorldGatewayPresenceHelper;
         @WebSocketServer()
         server!: Server; logger: Logger = new Logger(WorldGateway.name);
+        private draining = false;
     constructor(worldGmSocketService: WorldGmSocketService, worldProtocolProjectionService: WorldProtocolProjectionService, sessionBootstrapService: WorldSessionBootstrapService, healthReadinessService: HealthReadinessService, playerDomainPersistenceService: PlayerDomainPersistenceService, playerPersistenceFlushService: PlayerPersistenceFlushService, playerRuntimeService: PlayerRuntimeService, mailRuntimeService: MailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService: MarketRuntimeService, craftPanelRuntimeService: CraftPanelRuntimeService, suggestionRuntimeService: SuggestionRuntimeService, leaderboardRuntimeService: LeaderboardRuntimeService, runtimeGmStateService: RuntimeGmStateService, @Inject(WorldRuntimeService) worldRuntimeService: WorldRuntimeService, worldClientEventService: WorldClientEventService, worldSessionService: WorldSessionService, playerSessionRouteService: PlayerSessionRouteService, worldSyncService: WorldSyncService, gatewayGuardHelper: WorldGatewayGuardHelper, gatewayClientEmitHelper: WorldGatewayClientEmitHelper, gatewaySessionStateHelper: WorldGatewaySessionStateHelper, gatewayBuildingHelper: WorldGatewayBuildingHelper, gatewayMovementHelper: WorldGatewayMovementHelper, gatewayNpcHelper: WorldGatewayNpcHelper, gatewayCraftHelper: WorldGatewayCraftHelper, gatewaySuggestionHelper: WorldGatewaySuggestionHelper, gatewayGmSuggestionHelper: WorldGatewayGmSuggestionHelper, gatewayReadModelHelper: WorldGatewayReadModelHelper, gatewayPresenceHelper: WorldGatewayPresenceHelper, private readonly gatewayContentHelper: WorldGatewayContentHelper) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
@@ -120,12 +121,36 @@ class WorldGateway implements WorldGatewayHelperContext {
         this.gatewaySessionStateHelper = gatewaySessionStateHelper;
         this.gatewayPresenceHelper = gatewayPresenceHelper;
     }
+    setDraining(draining: boolean): void {
+        this.draining = draining;
+    }
+
     /** 新 socket 连接建立：挂载性能观测、频率限制，然后委托 bootstrap helper 处理鉴权。 */
     async handleConnection(client: Socket) {
         this.worldSessionService.attachSocketServer(this.server);
+        if (this.draining) {
+            this.worldClientEventService.emitError(client, 'SERVER_SHUTTING_DOWN', '服务器正在关停，请稍后重连');
+            client.disconnect(true);
+            return;
+        }
         this.attachPerfObservers(client);
         this.attachRateLimitGuard(client);
         return this.gatewayBootstrapHelper.handleConnection(client);
+    }
+
+    disconnectAllForShutdown(reason = 'server_shutdown') {
+        return this.worldSessionService.detachConnectedBindingsForShutdown(reason);
+    }
+
+    async drainDetachedBinding(binding) {
+        await this.gatewaySessionStateHelper.clearDisconnectedPlayerState(binding);
+        if (binding.connected) {
+            return;
+        }
+        await this.gatewayPresenceHelper.persistOfflinePresence(binding);
+        await this.playerPersistenceFlushService.flushPlayer(binding.playerId).catch((error) => {
+            this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
+        });
     }
     /** 为 socket 挂载每事件频率限制中间件，超限时拒绝后续包。 */
     attachRateLimitGuard(client: Socket) {
@@ -166,14 +191,7 @@ class WorldGateway implements WorldGatewayHelperContext {
         if (!binding) {
             return;
         }
-        await this.gatewaySessionStateHelper.clearDisconnectedPlayerState(binding);
-        if (binding.connected) {
-            return;
-        }
-        void this.gatewayPresenceHelper.persistOfflinePresence(binding);
-        await this.playerPersistenceFlushService.flushPlayer(binding.playerId).catch((error) => {
-            this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
-        });
+        await this.drainDetachedBinding(binding);
         this.logger.debug(`Socket 已脱离：${client.id} -> ${binding.playerId}, expiresAt=${binding.expireAt}`);
     }
         @SubscribeMessage(C2S.Hello)

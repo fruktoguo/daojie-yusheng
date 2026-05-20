@@ -172,11 +172,6 @@ export class MapPersistenceFlushService {
         }
     }
 
-    /** 应用关闭前强制刷盘一次，避免脏快照丢失。 */
-    async beforeApplicationShutdown() {
-        await this.flushAllNow();
-    }
-
     /** 执行一次全量脏实例刷盘。 */
     async flushAllNow() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

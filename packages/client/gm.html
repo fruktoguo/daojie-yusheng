@@ -2130,7 +2130,178 @@
       border-color: var(--ink-dark);
       box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
     }
-    .flag-empty {
+    .env-group {
+      margin-bottom: 16px;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.5);
+    }
+    .env-group > summary {
+      list-style: none;
+    }
+    .env-group > summary::-webkit-details-marker {
+      display: none;
+    }
+    .env-group-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--ink-grey);
+      background: rgba(255,255,255,0.72);
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .env-group-summary::after {
+      content: '▾';
+      margin-left: auto;
+      color: var(--light-ink);
+      transform: rotate(0deg);
+      transition: transform 0.15s ease;
+    }
+    .env-group:not([open]) .env-group-summary::after {
+      transform: rotate(-90deg);
+    }
+    .env-group-count {
+      font-size: 11px;
+      color: var(--light-ink);
+      font-weight: 500;
+    }
+    .env-group-body {
+      padding: 12px 12px 2px;
+    }
+    .env-row {
+      background: var(--paper-white, #f8f8f5);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .env-row-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .env-row-title {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .env-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink-dark);
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    .env-key {
+      font-size: 11px;
+      color: var(--light-ink);
+      font-family: monospace;
+      word-break: break-all;
+    }
+    .env-row-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .env-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      letter-spacing: 0.3px;
+      line-height: 1.4;
+    }
+    .env-badge.source-process_env { color: #1b5e20; background: rgba(67, 160, 71, 0.14); }
+    .env-badge.source-runtime_override { color: #6a1b9a; background: rgba(156, 39, 176, 0.12); }
+    .env-badge.source-runtime_file { color: #01579b; background: rgba(3, 169, 244, 0.12); }
+    .env-badge.source-unset { color: var(--ink-grey); background: rgba(0,0,0,0.05); }
+    .env-badge.meta { color: var(--ink-grey); background: rgba(0,0,0,0.05); }
+    .env-desc {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.5;
+    }
+    .env-current {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      line-height: 1.5;
+    }
+    .env-current code {
+      font-family: monospace;
+      color: var(--ink-dark);
+      word-break: break-all;
+    }
+    .env-edit {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .env-edit input[type="text"],
+    .env-edit input[type="password"],
+    .env-edit input[type="number"],
+    .env-edit select {
+      flex: 1;
+      min-width: 220px;
+      padding: 6px 12px;
+      border: 1px solid var(--ink-light);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: monospace;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .env-edit input[type="text"]:focus,
+    .env-edit input[type="password"]:focus,
+    .env-edit input[type="number"]:focus,
+    .env-edit select:focus {
+      outline: none;
+      border-color: var(--ink-dark);
+      box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+    }
+    .env-edit input[type="text"]:disabled,
+    .env-edit input[type="password"]:disabled,
+    .env-edit input[type="number"]:disabled,
+    .env-edit select:disabled {
+      background: rgba(0,0,0,0.03);
+      color: var(--light-ink);
+      cursor: not-allowed;
+    }
+    .env-persist-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--ink-grey);
+      white-space: nowrap;
+    }
+    .env-persist-label input {
+      accent-color: var(--stamp-red);
+    }
+    .env-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .env-empty {
       text-align: center;
       padding: 24px 12px;
       color: var(--light-ink);
@@ -2167,7 +2338,9 @@
         <button class="shell-tab" id="gm-tab-players" data-gm-tab="players" type="button" data-i18n="gm.tab-players">玩家管理</button>
         <button class="shell-tab" id="gm-tab-world" data-gm-tab="world" type="button" data-i18n="gm.tab-world">世界管理</button>
         <button class="shell-tab" id="gm-tab-shortcuts" data-gm-tab="shortcuts" type="button" data-i18n="gm.tab-shortcuts">快捷指令</button>
-        <button class="shell-tab" id="gm-tab-secrets" data-gm-tab="secrets" type="button">密钥管理</button>
+        <button class="shell-tab" id="gm-tab-secrets" data-gm-tab="secrets" type="button">环境变量管理</button>
+        <button class="shell-tab" id="gm-tab-gameconfig" data-gm-tab="gameconfig" type="button">游戏配置</button>
+        <button class="shell-tab" id="gm-tab-ai" data-gm-tab="ai" type="button">AI 配置</button>
         <button class="shell-tab" id="gm-tab-trades" data-gm-tab="trades" type="button">交易记录</button>
         <span style="border-left:1px solid var(--ink-light); margin:0 4px;"></span>
         <button class="shell-tab shell-tab-minor" id="gm-tab-suggestions" data-gm-tab="suggestions" type="button" data-i18n="gm.tab-suggestions">建议反馈</button>
@@ -2724,30 +2897,41 @@
     </section>
 
     <section id="secrets-workspace" class="layout-section hidden" style="flex:1; min-height:0; display:flex; flex-direction:column;">
-      <div class="panel-stamp">钥</div>
+      <div class="panel-stamp">环</div>
       <div style="padding: 24px; border-bottom: 1.5px solid var(--ink-black); background: var(--paper-bg);">
-        <div class="shell-title" style="font-size: 32px; margin-bottom: 4px;">密钥管理</div>
-        <div class="shell-subtitle" style="font-size: 14px;">管理服务端 API 密钥，AES-256-GCM 加密存储。需要服务端配置 SERVER_SECRET_ENCRYPTION_KEY 环境变量。</div>
+        <div class="shell-title" style="font-size: 32px; margin-bottom: 4px;">环境变量管理</div>
+        <div class="shell-subtitle" style="font-size: 14px;">仅展示游戏运行相关环境变量，支持运行时覆盖与持久化到 .runtime/server.local.env。GM 密码不会在这里显示或修改。</div>
       </div>
       <div style="padding: 16px 24px; border-bottom: 1px solid var(--wash-ink); background: var(--paper-light);">
-        <form id="gm-secret-form" style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
-          <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
-            密钥名
-            <input id="gm-secret-key" class="search-input" type="text" maxlength="64" placeholder="如 OPENAI_API_KEY" style="width:180px;" />
-          </label>
-          <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
-            密钥值
-            <input id="gm-secret-value" class="search-input" type="password" maxlength="512" placeholder="密钥明文" style="width:220px;" />
-          </label>
-          <label style="display:flex; flex-direction:column; gap:4px; font-size:13px;">
-            备注
-            <input id="gm-secret-desc" class="search-input" type="text" maxlength="256" placeholder="可选描述" style="width:180px;" />
-          </label>
-          <button id="gm-secret-save" class="small-btn primary" type="submit">保存</button>
-        </form>
+        <div class="server-log-toolbar" style="padding:0; border:none; background:transparent;">
+          <button id="gm-env-refresh" class="small-btn primary" type="button">刷新</button>
+          <button id="gm-env-reload" class="small-btn" type="button">重载本地覆盖</button>
+          <button id="gm-env-expand" class="small-btn" type="button">全部展开</button>
+          <button id="gm-env-collapse" class="small-btn" type="button">全部收起</button>
+          <div id="gm-env-meta" class="server-log-meta">环境变量尚未加载。</div>
+        </div>
       </div>
-      <div id="gm-secret-list" style="flex:1; overflow-y:auto; padding:24px; background:var(--paper-light);">
-        <div class="empty-hint">正在加载密钥列表…</div>
+      <div id="gm-env-list" style="flex:1; overflow-y:auto; padding:24px; background:var(--paper-light);">
+        <div class="empty-hint">正在加载环境变量…</div>
+      </div>
+    </section>
+
+    <section id="gameconfig-workspace" class="layout-section hidden" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <div class="panel-stamp">配</div>
+      <div style="padding: 24px; border-bottom: 1.5px solid var(--ink-black); background: var(--paper-bg);">
+        <div class="shell-title" style="font-size: 32px; margin-bottom: 4px;">游戏配置</div>
+        <div class="shell-subtitle" style="font-size: 14px;">管理服务端运行参数。修改后需重启服务端生效。与运行时开关（runtime flag）不同，这些配置影响启动行为。</div>
+      </div>
+      <div style="padding: 16px 24px; border-bottom: 1px solid var(--wash-ink); background: var(--paper-light);">
+        <div class="server-log-toolbar" style="padding:0; border:none; background:transparent;">
+          <button id="gm-gameconfig-refresh" class="small-btn primary" type="button">刷新</button>
+          <button id="gm-gameconfig-expand" class="small-btn" type="button">全部展开</button>
+          <button id="gm-gameconfig-collapse" class="small-btn" type="button">全部收起</button>
+          <div id="gm-gameconfig-meta" class="server-log-meta">配置尚未加载。</div>
+        </div>
+      </div>
+      <div id="gm-gameconfig-list" style="flex:1; overflow-y:auto; padding:24px; background:var(--paper-light);">
+        <div class="empty-hint">正在加载游戏配置…</div>
       </div>
     </section>
 

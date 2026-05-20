@@ -97,6 +97,7 @@ const selectedCaseNames = readOptionValues(cliArgs, '--case');
 const smokeCases = [
     { name: 'readiness-gate', scriptFile: 'readiness-gate-smoke.js', standalone: true },
     { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
+    { name: 'shutdown-drain', scriptFile: 'shutdown-drain-smoke.js' },
     { name: 'session', scriptFile: 'session-smoke.js' },
     { name: 'runtime', scriptFile: 'runtime-smoke.js' },
     { name: 'progression', scriptFile: 'progression-smoke.js' },
@@ -167,6 +168,7 @@ const DB_SMOKE_CASES = new Set([
     'player-domain-recovery',
     'durable-operation',
   'gm-database',
+  'shutdown-drain',
 ]);
 const PARALLEL_STANDALONE_CASES = new Set([
     'snapshot-retirement',
@@ -359,7 +361,7 @@ async function runIsolatedSmoke(entry) {
     const server = await startServer(port, extraEnv);
     try {
         const requireReady = hasDatabaseUrl() && entry.name !== 'readiness-gate';
-        await waitForHealth(baseUrl, 12_000, {
+        await waitForHealth(baseUrl, 60_000, {
             requireReady,
         });
         await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {

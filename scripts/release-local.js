@@ -53,8 +53,8 @@ const childEnv = {
  */
 const steps = [
   { label: 'build:client', args: ['build:client'] },
-  { label: verifyDisplayScriptName, args: ['--filter', '@mud/server', verifyPackageScriptName] },
-  { label: 'audit:protocol', args: ['--filter', '@mud/server', 'audit:protocol:compiled'] },
+  { label: verifyDisplayScriptName, args: ['--filter', '@mud/server', verifyPackageScriptName], serial: true },
+  { label: 'audit:protocol', args: ['--filter', '@mud/server', 'audit:protocol:compiled'], serial: true },
 ];
 
 async function main() {

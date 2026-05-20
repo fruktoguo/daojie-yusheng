@@ -87,7 +87,7 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 import * as world_runtime_observation_helpers_1 from './query/world-runtime.observation.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
-import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, rebuildPersistentInstance, syncAllInstanceLeases, syncInstanceLease, syncManagedInstanceRegistration, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
+import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, syncManagedInstanceRegistration, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
 
 
 const {
@@ -619,8 +619,12 @@ export class WorldRuntimeService {
         return unfreezeInstanceWriting(this, instanceId);
     }
 
-    async syncInstanceLease(instanceId) {
-        return syncInstanceLease(this, instanceId);
+    async syncInstanceLease(instanceId, opts?) {
+        return syncInstanceLease(this, instanceId, opts);
+    }
+
+    async releaseLocalInstanceLeasesForShutdown() {
+        return releaseLocalInstanceLeasesForShutdown(this);
     }
 
     async rebuildPersistentInstance(instanceId) {

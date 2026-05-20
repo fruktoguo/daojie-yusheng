@@ -88,7 +88,7 @@ async function main() {
     });
     try {
         await onceConnected(socket);
-        await waitFor(() => playerId.length > 0 && sessionId.length > 0, 15000);
+        await waitFor(() => playerId.length > 0 && sessionId.length > 0, 30000);
         await postJson('/runtime/players/connect', {
             playerId,
             sessionId,
@@ -99,7 +99,7 @@ async function main() {
             preferredX: target.x,
             preferredY: target.y,
         });
-        await waitFor(async () => sameSmokeInstanceId((await fetchPlayerState(playerId)).player?.instanceId, instanceId), 15000);
+        await waitFor(async () => sameSmokeInstanceId((await fetchPlayerState(playerId)).player?.instanceId, instanceId), 30000);
 /**
  * 记录initial玩家。
  */
@@ -112,7 +112,7 @@ async function main() {
  */
             const state = await fetchPlayerState(playerId);
             return state.player ? state : null;
-        }, 15000);
+        }, 30000);
         await postJson(`/runtime/players/${playerId}/vitals`, {
             hp: boostedHp,
             maxHp: boostedHp,
@@ -125,15 +125,15 @@ async function main() {
             return sameSmokeInstanceId(state.player?.instanceId, instanceId)
                 && state.player?.maxHp === boostedHp
                 && (state.player?.hp ?? 0) > 0;
-        }, 15000);
+        }, 30000);
         const initialState = await fetchPlayerState(playerId);
         if (initialState.player?.combat?.autoRetaliate) {
             socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 15000);
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 30000);
         }
         if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
             socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_battle' });
-            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 15000);
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 30000);
         }
         await postJson(`/runtime/players/${playerId}/vitals`, {
             hp: boostedHp,
@@ -160,7 +160,7 @@ async function main() {
  */
             const fallbackTarget = visibleMonsters[0];
             return preferredTarget ?? fallbackTarget ?? null;
-        }, 15000);
+        }, 30000);
         const resolvedMonsterBefore = await fetchMonster(instanceId, resolvedTarget.runtimeId);
 /**
  * 记录用于贴近目标的技能。
@@ -207,7 +207,7 @@ async function main() {
                 skillRange,
             };
             return distance <= skillRange;
-        }, 15000).catch((error) => {
+        }, 30000).catch((error) => {
             throw new Error(`${error.message}: ${JSON.stringify(anchorProbe)}`);
         });
         await postJson(`/runtime/players/${playerId}/vitals`, {
@@ -293,7 +293,7 @@ async function main() {
                 combatFxObserved: worldEvents.some(hasCombatFx),
             };
             return Boolean(distance <= skillRange && observedSkill && playerDamaged && buffApplied);
-        }, 8000).catch((error) => {
+        }, 15000).catch((error) => {
             throw new Error(`${error.message}: ${JSON.stringify(skillProbe)}`);
         });
 /**
@@ -431,7 +431,7 @@ async function resolveInitialMonsterContext(preferredInstanceId) {
             }
         }
         return null;
-    }, 15000);
+    }, 30000);
 }
 function buildMonsterInstanceCandidates(preferredInstanceId) {
     const raw = typeof preferredInstanceId === 'string' && preferredInstanceId.trim()

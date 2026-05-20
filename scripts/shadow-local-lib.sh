@@ -11,7 +11,13 @@ SHADOW_LOG_FILE="${SHADOW_RUNTIME_DIR}/server-shadow.log"
 SHADOW_DIST_ROOT_FILE="${SHADOW_RUNTIME_DIR}/server-shadow.dist-root"
 SHADOW_PORT="${SERVER_SHADOW_PORT:-11923}"
 SHADOW_URL_DEFAULT="http://127.0.0.1:${SHADOW_PORT}"
-SHADOW_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-docker-compose.shadow.yml}"
+if [[ -n "${SERVER_COMPOSE_FILE:-}" ]]; then
+  SHADOW_COMPOSE_FILE="${SERVER_COMPOSE_FILE}"
+elif [[ -f "${SHADOW_REPO_ROOT}/docker-compose.shadow.yml" ]]; then
+  SHADOW_COMPOSE_FILE="docker-compose.shadow.yml"
+else
+  SHADOW_COMPOSE_FILE="docker-compose.yml"
+fi
 SHADOW_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-daojie-local}"
 
 shadow_repo_root() {

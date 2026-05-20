@@ -105,8 +105,14 @@ import {
   type RedeemCodeCodeView,
   type RedeemCodeGroupRewardItem,
   type RedeemCodeGroupView,
-  type GmSecretListItem,
-  type GmSetSecretReq,
+  type GmEnvironmentVarItem,
+  type GmEnvironmentVarListRes,
+  type GmSetEnvironmentVarReq,
+  type GmReloadEnvironmentVarsRes,
+  type GameConfigItem,
+  type GameConfigListRes,
+  type GameConfigSetRes,
+  type GameConfigDeleteRes,
   type GmMarketTradeItem,
   type GmMarketTradeListQuery,
   type GmMarketTradeListRes,
@@ -478,8 +484,10 @@ const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLEle
 const worldWorkspaceEl = document.getElementById('world-workspace') as HTMLElement;
 /** shortcutWorkspaceEl：shortcut Workspace El。 */
 const shortcutWorkspaceEl = document.getElementById('shortcut-workspace') as HTMLElement;
-/** secretsWorkspaceEl：密钥管理 workspace El。 */
-const secretsWorkspaceEl = document.getElementById('secrets-workspace') as HTMLElement;
+/** envWorkspaceEl：密钥管理 workspace El。 */
+const envWorkspaceEl = document.getElementById('secrets-workspace') as HTMLElement;
+/** gameConfigWorkspaceEl：游戏配置 workspace El。 */
+const gameConfigWorkspaceEl = document.getElementById('gameconfig-workspace') as HTMLElement;
 /** tradesWorkspaceEl：交易记录 workspace El。 */
 const tradesWorkspaceEl = document.getElementById('trades-workspace') as HTMLElement;
 /** shortcutMailComposerEl：shortcut邮件Composer El。 */
@@ -496,8 +504,10 @@ const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLBu
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
 /** shortcutTabBtn：shortcut Tab Btn。 */
 const shortcutTabBtn = document.getElementById('gm-tab-shortcuts') as HTMLButtonElement;
-/** secretsTabBtn：密钥管理 Tab Btn。 */
-const secretsTabBtn = document.getElementById('gm-tab-secrets') as HTMLButtonElement;
+/** envTabBtn：密钥管理 Tab Btn。 */
+const envTabBtn = document.getElementById('gm-tab-secrets') as HTMLButtonElement;
+/** gameConfigTabBtn：游戏配置 Tab Btn。 */
+const gameConfigTabBtn = document.getElementById('gm-tab-gameconfig') as HTMLButtonElement;
 /** tradesTabBtn：交易记录 Tab Btn。 */
 const tradesTabBtn = document.getElementById('gm-tab-trades') as HTMLButtonElement;
 /** tradesFormEl：交易记录搜索表单。 */
@@ -693,7 +703,7 @@ let draftSourcePlayerId: string | null = null;
 /** pollTimer：poll Timer。 */
 let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
-let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'trades' = 'server';
+let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'trades' = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
@@ -4604,7 +4614,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
 }
 
 /** switchTab：处理switch Tab。 */
-function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'trades'): void {
+function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'trades'): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   // 离开世界管理时停止轮询
@@ -4619,7 +4629,8 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   worldTabBtn.classList.toggle('active', tab === 'world');
   shortcutTabBtn.classList.toggle('active', tab === 'shortcuts');
   suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
-  secretsTabBtn.classList.toggle('active', tab === 'secrets');
+  envTabBtn.classList.toggle('active', tab === 'secrets');
+  gameConfigTabBtn.classList.toggle('active', tab === 'gameconfig');
   tradesTabBtn.classList.toggle('active', tab === 'trades');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
   redeemWorkspaceEl.classList.toggle('hidden', tab !== 'redeem');
@@ -4627,7 +4638,8 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   worldWorkspaceEl.classList.toggle('hidden', tab !== 'world');
   shortcutWorkspaceEl.classList.toggle('hidden', tab !== 'shortcuts');
   suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
-  secretsWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
+  envWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
+  gameConfigWorkspaceEl.classList.toggle('hidden', tab !== 'gameconfig');
   tradesWorkspaceEl.classList.toggle('hidden', tab !== 'trades');
   if (tab === 'suggestions') {
     loadSuggestions().catch((e) => console.error('[GM]', e));
@@ -4652,7 +4664,9 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
       setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
     });
   } else if (tab === 'secrets') {
-    loadSecrets().catch((e) => console.error('[GM]', e));
+    loadEnvironmentVars().catch((e) => console.error('[GM]', e));
+  } else if (tab === 'gameconfig') {
+    loadGameConfig().catch((e) => console.error('[GM]', e));
   } else if (tab === 'trades') {
     // 进入交易记录 tab：默认拉一次最近一页（无条件），让 GM 立刻能看到现状
     loadTrades({ resetPage: true }).catch((error: unknown) => {
@@ -7528,82 +7542,347 @@ async function login(): Promise<void> {
   }
 }
 
-// ─── 密钥管理 ───
+// ─── 环境变量管理 ───
 
-const secretListEl = document.getElementById('gm-secret-list') as HTMLElement;
-const secretForm = document.getElementById('gm-secret-form') as HTMLFormElement;
-const secretKeyInput = document.getElementById('gm-secret-key') as HTMLInputElement;
-const secretValueInput = document.getElementById('gm-secret-value') as HTMLInputElement;
-const secretDescInput = document.getElementById('gm-secret-desc') as HTMLInputElement;
-const secretSaveBtn = document.getElementById('gm-secret-save') as HTMLButtonElement;
+const envListEl = document.getElementById('gm-env-list') as HTMLElement;
+const envRefreshBtn = document.getElementById('gm-env-refresh') as HTMLButtonElement;
+const envReloadBtn = document.getElementById('gm-env-reload') as HTMLButtonElement;
+const envExpandBtn = document.getElementById('gm-env-expand') as HTMLButtonElement;
+const envCollapseBtn = document.getElementById('gm-env-collapse') as HTMLButtonElement;
+const envMetaEl = document.getElementById('gm-env-meta') as HTMLDivElement;
+let envVars: GmEnvironmentVarItem[] = [];
+let envVarsLoading = false;
 
-async function loadSecrets(): Promise<void> {
+async function loadEnvironmentVars(): Promise<void> {
+  if (!token || envVarsLoading) return;
+  envVarsLoading = true;
+  renderEnvironmentVars();
   try {
-    const list = await request<GmSecretListItem[]>(`${GM_API_BASE_PATH}/secrets`);
-    renderSecretList(list);
+    const res = await request<GmEnvironmentVarListRes>(`${GM_API_BASE_PATH}/environment/vars`);
+    envVars = res.items ?? [];
+    envVarsLoading = false;
+    renderEnvironmentVars();
   } catch (error) {
-    secretListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
+    envVarsLoading = false;
+    envRefreshBtn.disabled = false;
+    envReloadBtn.disabled = false;
+    const message = error instanceof Error ? error.message : '加载失败';
+    envMetaEl.textContent = message;
+    if (envVars.length === 0) {
+      envListEl.innerHTML = `<div class="env-empty" style="color:var(--stamp-red);">${escapeHtml(message)}</div>`;
+    }
   }
 }
 
-function renderSecretList(list: GmSecretListItem[]): void {
-  if (list.length === 0) {
-    secretListEl.innerHTML = '<div class="empty-hint">暂无密钥，使用上方表单添加。</div>';
+function renderEnvironmentVars(): void {
+  envRefreshBtn.disabled = envVarsLoading;
+  envReloadBtn.disabled = envVarsLoading;
+  envExpandBtn.disabled = envVarsLoading;
+  envCollapseBtn.disabled = envVarsLoading;
+  if (envVarsLoading) {
+    envMetaEl.textContent = '环境变量加载中...';
     return;
   }
-  secretListEl.innerHTML = list.map((item) => `
-    <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-bottom:1px solid var(--wash-ink);">
-      <code style="font-weight:600; min-width:160px;">${escapeHtml(item.key)}</code>
-      <span style="color:var(--ink-grey); font-family:monospace;">长度 ${item.valueLength}</span>
-      <span style="flex:1; color:var(--ink-grey); font-size:13px;">${escapeHtml(item.description)}</span>
-      <span style="font-size:12px; color:var(--light-ink);">${escapeHtml(item.updatedAt.slice(0, 19).replace('T', ' '))}</span>
-      <button class="small-btn danger" type="button" data-secret-delete="${escapeHtml(item.key)}">删除</button>
-    </div>
-  `).join('');
 
-  secretListEl.querySelectorAll('[data-secret-delete]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const key = (btn as HTMLElement).dataset.secretDelete!;
-      deleteSecret(key).catch((e) => console.error('[GM]', e));
-    });
+  envMetaEl.textContent = `共 ${envVars.length} 个环境变量`;
+  if (envVars.length === 0) {
+    envListEl.innerHTML = '<div class="env-empty">当前没有可展示的环境变量。</div>';
+    return;
+  }
+
+  const groups = new Map<string, GmEnvironmentVarItem[]>();
+  for (const item of envVars) {
+    if (!groups.has(item.category)) {
+      groups.set(item.category, []);
+    }
+    groups.get(item.category)!.push(item);
+  }
+
+  envListEl.innerHTML = [...groups.entries()].map(([category, items]) => {
+    const rows = items.map((item) => renderEnvironmentVarRow(item)).join('');
+    return `
+      <details class="env-group" open data-env-group="${escapeHtml(category)}">
+        <summary class="env-group-summary">
+          <span>${escapeHtml(category)}</span>
+          <span class="env-group-count">${items.length}</span>
+        </summary>
+        <div class="env-group-body">
+          ${rows}
+        </div>
+      </details>
+    `;
+  }).join('');
+
+  envListEl.querySelectorAll<HTMLElement>('[data-env-key]').forEach((row) => {
+    const key = row.dataset.envKey!;
+    const valueInput = row.querySelector<HTMLInputElement>('input[data-env-value]');
+    const persistInput = row.querySelector<HTMLInputElement>('input[data-env-persist]');
+    const saveBtn = row.querySelector<HTMLButtonElement>('[data-env-save]');
+    const deleteBtn = row.querySelector<HTMLButtonElement>('[data-env-delete]');
+    if (saveBtn && valueInput && persistInput) {
+      saveBtn.addEventListener('click', () => {
+        saveEnvironmentVar(key, valueInput.value, persistInput.checked).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : '保存环境变量失败', true);
+        });
+      });
+    }
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => {
+        deleteEnvironmentVar(key).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : '删除环境变量失败', true);
+        });
+      });
+    }
   });
 }
 
-async function saveSecret(): Promise<void> {
-  const key = secretKeyInput.value.trim();
-  const value = secretValueInput.value.trim();
-  const description = secretDescInput.value.trim();
-  if (!key || !value) {
-    setStatus('密钥名和密钥值不能为空', true);
-    return;
+function renderEnvironmentVarRow(item: GmEnvironmentVarItem): string {
+  const sourceLabelMap: Record<GmEnvironmentVarItem['source'], string> = {
+    process_env: '进程环境',
+    runtime_override: '运行时覆盖',
+    runtime_file: '本地覆盖',
+    unset: '未设置',
+  };
+  const currentValue = item.value || '（未设置）';
+  const inputValue = item.sensitive ? '' : item.value;
+  const editable = item.editable;
+  const persistChecked = item.persistent ? 'checked' : '';
+  const persistDisabled = item.persistable ? '' : 'disabled';
+  const saveDisabled = editable ? '' : 'disabled';
+  const deleteDisabled = editable ? '' : 'disabled';
+  const restartBadge = item.restartRequired ? '<span class="env-badge meta">需重启</span>' : '';
+  const managedBadge = item.managed ? '<span class="env-badge meta">已注册</span>' : '<span class="env-badge meta">未注册</span>';
+  const persistBadge = item.persistent ? '<span class="env-badge meta">已持久化</span>' : '';
+  const sourceBadge = `<span class="env-badge source-${item.source}">${sourceLabelMap[item.source]}</span>`;
+  const sensitiveHint = item.sensitive ? '<span class="env-badge meta">敏感值已脱敏</span>' : '';
+
+  return `
+    <div class="env-row" data-env-key="${escapeHtml(item.key)}">
+      <div class="env-row-head">
+        <div class="env-row-title">
+          <span class="env-label">${escapeHtml(item.label)}</span>
+          <code class="env-key">${escapeHtml(item.key)}</code>
+        </div>
+        <div class="env-row-badges">
+          ${sourceBadge}
+          ${managedBadge}
+          ${restartBadge}
+          ${persistBadge}
+          ${sensitiveHint}
+        </div>
+      </div>
+      <div class="env-desc">${escapeHtml(item.description)}</div>
+      <div class="env-current">当前值：<code>${escapeHtml(currentValue)}</code></div>
+      <div class="env-edit">
+        <input data-env-value type="text" ${editable ? '' : 'disabled'} placeholder="${item.sensitive ? '输入新值覆盖当前值' : '输入新的环境变量值'}" value="${escapeHtml(inputValue)}" />
+        <label class="env-persist-label">
+          <input data-env-persist type="checkbox" ${persistChecked} ${persistDisabled} />
+          持久化
+        </label>
+        <div class="env-actions">
+          <button class="small-btn primary" type="button" data-env-save ${saveDisabled}>保存</button>
+          <button class="small-btn" type="button" data-env-delete ${deleteDisabled}>删除覆盖</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function saveEnvironmentVar(key: string, value: string, persist: boolean): Promise<void> {
+  if (!value.trim()) {
+    throw new Error('环境变量值不能为空');
   }
-  secretSaveBtn.disabled = true;
+  await request(`${GM_API_BASE_PATH}/environment/vars/${encodeURIComponent(key)}`, {
+    method: 'POST',
+    body: JSON.stringify({ value, persist } satisfies GmSetEnvironmentVarReq),
+  });
+  setStatus(`环境变量 ${key} 已保存${persist ? '并持久化' : ''}`);
+  await loadEnvironmentVars();
+}
+
+async function deleteEnvironmentVar(key: string): Promise<void> {
+  if (!confirm(`确认删除环境变量覆盖 "${key}"？`)) return;
+  await request(`${GM_API_BASE_PATH}/environment/vars/${encodeURIComponent(key)}`, { method: 'DELETE' });
+  setStatus(`环境变量 ${key} 已回滚`);
+  await loadEnvironmentVars();
+}
+
+async function reloadEnvironmentVars(): Promise<void> {
+  const res = await request<GmReloadEnvironmentVarsRes>(`${GM_API_BASE_PATH}/environment/reload`, {
+    method: 'POST',
+  });
+  setStatus(`本地覆盖已重载：${res.count} 个持久化项`);
+  await loadEnvironmentVars();
+}
+
+function toggleAllEnvironmentGroups(open: boolean): void {
+  envListEl.querySelectorAll<HTMLDetailsElement>('details.env-group').forEach((group) => {
+    group.open = open;
+  });
+}
+
+// ─── 游戏配置中心 ───
+
+const gameConfigListEl = document.getElementById('gm-gameconfig-list') as HTMLElement;
+const gameConfigRefreshBtn = document.getElementById('gm-gameconfig-refresh') as HTMLButtonElement;
+const gameConfigExpandBtn = document.getElementById('gm-gameconfig-expand') as HTMLButtonElement;
+const gameConfigCollapseBtn = document.getElementById('gm-gameconfig-collapse') as HTMLButtonElement;
+const gameConfigMetaEl = document.getElementById('gm-gameconfig-meta') as HTMLDivElement;
+let gameConfigItems: GameConfigItem[] = [];
+let gameConfigLoading = false;
+
+async function loadGameConfig(): Promise<void> {
+  if (!token || gameConfigLoading) return;
+  gameConfigLoading = true;
+  renderGameConfig();
   try {
-    await request<BasicOkRes>(`${GM_API_BASE_PATH}/secrets`, {
-      method: 'POST',
-      body: JSON.stringify({ key, value, description } satisfies GmSetSecretReq),
-    });
-    secretKeyInput.value = '';
-    secretValueInput.value = '';
-    secretDescInput.value = '';
-    setStatus('密钥已保存');
-    await loadSecrets();
+    const res = await request<GameConfigListRes>(`${GM_API_BASE_PATH}/game-config`);
+    gameConfigItems = res.items ?? [];
+    gameConfigLoading = false;
+    renderGameConfig();
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : '保存失败', true);
-  } finally {
-    secretSaveBtn.disabled = false;
+    gameConfigLoading = false;
+    gameConfigRefreshBtn.disabled = false;
+    const message = error instanceof Error ? error.message : '加载失败';
+    gameConfigMetaEl.textContent = message;
+    if (gameConfigItems.length === 0) {
+      gameConfigListEl.innerHTML = `<div class="env-empty" style="color:var(--stamp-red);">${escapeHtml(message)}</div>`;
+    }
   }
 }
 
-async function deleteSecret(key: string): Promise<void> {
-  if (!confirm(`确认删除密钥 "${key}"？`)) return;
-  try {
-    await request<BasicOkRes>(`${GM_API_BASE_PATH}/secrets/${encodeURIComponent(key)}`, { method: 'DELETE' });
-    setStatus(`密钥 ${key} 已删除`);
-    await loadSecrets();
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '删除失败', true);
+function renderGameConfig(): void {
+  gameConfigRefreshBtn.disabled = gameConfigLoading;
+  gameConfigExpandBtn.disabled = gameConfigLoading;
+  gameConfigCollapseBtn.disabled = gameConfigLoading;
+  if (gameConfigLoading) {
+    gameConfigMetaEl.textContent = '配置加载中...';
+    return;
   }
+
+  gameConfigMetaEl.textContent = `共 ${gameConfigItems.length} 项配置`;
+  if (gameConfigItems.length === 0) {
+    gameConfigListEl.innerHTML = '<div class="env-empty">当前没有已注册的游戏配置。</div>';
+    return;
+  }
+
+  const groups = new Map<string, GameConfigItem[]>();
+  for (const item of gameConfigItems) {
+    if (!groups.has(item.category)) {
+      groups.set(item.category, []);
+    }
+    groups.get(item.category)!.push(item);
+  }
+
+  let html = '';
+  for (const [category, items] of groups) {
+    html += `<details class="env-group" open>
+      <summary class="env-group-title">${escapeHtml(category)} <span class="env-group-count">(${items.length})</span></summary>
+      <div class="env-group-body">`;
+    for (const item of items) {
+      html += renderGameConfigRow(item);
+    }
+    html += '</div></details>';
+  }
+  gameConfigListEl.innerHTML = html;
+
+  // 绑定事件
+  gameConfigListEl.querySelectorAll<HTMLElement>('.env-row[data-config-key]').forEach((rowEl) => {
+    const key = rowEl.dataset.configKey!;
+    const saveBtn = rowEl.querySelector<HTMLButtonElement>('[data-config-save]');
+    const resetBtn = rowEl.querySelector<HTMLButtonElement>('[data-config-reset]');
+    const toggleInput = rowEl.querySelector<HTMLInputElement>('[data-config-toggle]');
+    const valueInput = rowEl.querySelector<HTMLInputElement>('[data-config-value]');
+
+    if (toggleInput) {
+      toggleInput.addEventListener('change', () => {
+        saveGameConfig(key, String(toggleInput.checked)).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : '保存配置失败', true);
+        });
+      });
+    }
+    if (saveBtn && valueInput) {
+      saveBtn.addEventListener('click', () => {
+        saveGameConfig(key, valueInput.value).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : '保存配置失败', true);
+        });
+      });
+    }
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        resetGameConfig(key).catch((error: unknown) => {
+          setStatus(error instanceof Error ? error.message : '重置配置失败', true);
+        });
+      });
+    }
+  });
+}
+
+function renderGameConfigRow(item: GameConfigItem): string {
+  const pendingBadge = item.pendingRestart ? '<span class="env-badge meta" style="background:var(--stamp-orange);color:#fff;">待重启</span>' : '';
+  const defaultBadge = `<span class="env-badge meta">默认: ${escapeHtml(item.defaultValue)}</span>`;
+
+  let controlHtml = '';
+  if (item.valueType === 'boolean') {
+    const checked = item.currentValue === 'true' ? 'checked' : '';
+    controlHtml = `
+      <label class="env-persist-label" style="cursor:pointer;">
+        <input data-config-toggle type="checkbox" ${checked} />
+        ${item.currentValue === 'true' ? '已开启' : '已关闭'}
+      </label>`;
+  } else if (item.valueType === 'number') {
+    const minAttr = item.min !== undefined ? `min="${item.min}"` : '';
+    const maxAttr = item.max !== undefined ? `max="${item.max}"` : '';
+    controlHtml = `
+      <input data-config-value type="number" value="${escapeHtml(item.pendingValue ?? item.currentValue)}" ${minAttr} ${maxAttr} style="width:120px;" />
+      <button class="small-btn primary" type="button" data-config-save>保存</button>`;
+  } else {
+    controlHtml = `
+      <input data-config-value type="text" value="${escapeHtml(item.pendingValue ?? item.currentValue)}" style="flex:1;" />
+      <button class="small-btn primary" type="button" data-config-save>保存</button>`;
+  }
+
+  return `
+    <div class="env-row" data-config-key="${escapeHtml(item.key)}">
+      <div class="env-row-head">
+        <div class="env-row-title">
+          <span class="env-label">${escapeHtml(item.label)}</span>
+          <code class="env-key">${escapeHtml(item.key)}</code>
+        </div>
+        <div class="env-row-badges">
+          ${defaultBadge}
+          ${pendingBadge}
+        </div>
+      </div>
+      <div class="env-desc">${escapeHtml(item.description)}</div>
+      <div class="env-edit">
+        ${controlHtml}
+        <button class="small-btn" type="button" data-config-reset>恢复默认</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveGameConfig(key: string, value: string): Promise<void> {
+  await request<GameConfigSetRes>(`${GM_API_BASE_PATH}/game-config/${encodeURIComponent(key)}`, {
+    method: 'POST',
+    body: JSON.stringify({ value }),
+  });
+  setStatus(`配置 ${key} 已保存，重启后生效`);
+  await loadGameConfig();
+}
+
+async function resetGameConfig(key: string): Promise<void> {
+  if (!confirm(`确认将 "${key}" 恢复为默认值？`)) return;
+  await request<GameConfigDeleteRes>(`${GM_API_BASE_PATH}/game-config/${encodeURIComponent(key)}`, { method: 'DELETE' });
+  setStatus(`配置 ${key} 已恢复默认`);
+  await loadGameConfig();
+}
+
+function toggleAllGameConfigGroups(open: boolean): void {
+  gameConfigListEl.querySelectorAll<HTMLDetailsElement>('details.env-group').forEach((group) => {
+    group.open = open;
+  });
 }
 
 // ===== 交易记录 tab =====
@@ -9687,7 +9966,8 @@ suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
 worldTabBtn.addEventListener('click', () => switchTab('world'));
 shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));
-secretsTabBtn.addEventListener('click', () => switchTab('secrets'));
+envTabBtn.addEventListener('click', () => switchTab('secrets'));
+gameConfigTabBtn.addEventListener('click', () => switchTab('gameconfig'));
 tradesTabBtn.addEventListener('click', () => switchTab('trades'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
@@ -10212,9 +10492,26 @@ gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();
   changeGmPassword().catch((e) => console.error('[GM]', e));
 });
-secretForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  saveSecret().catch((e) => console.error('[GM]', e));
+envRefreshBtn.addEventListener('click', () => {
+  loadEnvironmentVars().catch((e) => console.error('[GM]', e));
+});
+envReloadBtn.addEventListener('click', () => {
+  reloadEnvironmentVars().catch((e) => console.error('[GM]', e));
+});
+envExpandBtn.addEventListener('click', () => {
+  toggleAllEnvironmentGroups(true);
+});
+envCollapseBtn.addEventListener('click', () => {
+  toggleAllEnvironmentGroups(false);
+});
+gameConfigRefreshBtn.addEventListener('click', () => {
+  loadGameConfig().catch((e) => console.error('[GM]', e));
+});
+gameConfigExpandBtn.addEventListener('click', () => {
+  toggleAllGameConfigGroups(true);
+});
+gameConfigCollapseBtn.addEventListener('click', () => {
+  toggleAllGameConfigGroups(false);
 });
 tradesFormEl.addEventListener('submit', (event) => {
   event.preventDefault();
