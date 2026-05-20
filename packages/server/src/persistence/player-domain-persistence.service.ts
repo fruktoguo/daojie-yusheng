@@ -17,6 +17,14 @@ import { Pool } from 'pg';
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
+import { buildPlayerSnapshotProjectionWritePlan, executePlayerDomainWritePlan, type PlayerDomainWritePlan, type PlayerDomainWritePlanPayload } from './player-domain-write-plan';
+import {
+  assignStableItemInstanceId,
+  repairEquipmentSlotItemInstanceIdConflicts,
+  type EquipmentSlotPersistenceRow,
+  type ItemInstanceIdPersistenceRowSource,
+} from './compat/item-instance-id-compat';
 import {
   buildPersistedEquipmentItemRawPayload,
   buildPersistedInventoryItemRawPayload,
@@ -705,6 +713,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     private readonly contentTemplateRepository: InventoryItemTemplateRepository | null = null,
     @Inject(DatabasePoolProvider)
     private readonly databasePoolProvider: DatabasePoolProvider | null = null,
+    @Optional()
+    @Inject(PersistenceWorkerPoolService)
+    private readonly persistenceWorkerPool: PersistenceWorkerPoolService | null = null,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -1648,10 +1659,77 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       return;
     }
 
+    const normalizedDomains = normalizeProjectedDirtyDomains(domains);
+    if (normalizedDomains.size === 0) {
+      return;
+    }
+
+    const writePlan = await this.resolvePlayerSnapshotProjectionWritePlan(
+      normalizedPlayerId,
+      snapshot,
+      normalizedDomains,
+      options,
+    );
+
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
-      await savePlayerSnapshotProjectionDomainsWithClient(client, normalizedPlayerId, snapshot, domains, options);
+      // 仅做 live-client SELECT 级验证，避免空覆盖保护失效；真正写入仍使用 worker 产出的 plan。
+      await buildPlayerSnapshotProjectionWritePlan(
+        normalizedPlayerId,
+        snapshot,
+        normalizedDomains,
+        options,
+        client,
+      );
+      await executePlayerDomainWritePlan(client, writePlan);
     });
+  }
+
+  private async resolvePlayerSnapshotProjectionWritePlan(
+    playerId: string,
+    snapshot: PersistedPlayerSnapshot,
+    domains: Iterable<string>,
+    options: PlayerSnapshotProjectionDomainWriteOptions = {},
+  ): Promise<PlayerDomainWritePlan> {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    const normalizedDomains = Array.from(normalizeProjectedDirtyDomains(domains));
+    if (!normalizedPlayerId || !snapshot?.placement?.templateId || normalizedDomains.length === 0) {
+      return { playerId: normalizedPlayerId, domains: [], steps: [] };
+    }
+
+    const payload: PlayerDomainWritePlanPayload = {
+      playerId: normalizedPlayerId,
+      snapshot,
+      domains: normalizedDomains,
+      options,
+    };
+
+    if (!this.persistenceWorkerPool) {
+      return buildPlayerSnapshotProjectionWritePlan(
+        payload.playerId,
+        payload.snapshot,
+        payload.domains,
+        payload.options,
+      );
+    }
+
+    const result = await this.persistenceWorkerPool.submit<PlayerDomainWritePlanPayload, PlayerDomainWritePlan | Promise<PlayerDomainWritePlan>>(
+      'persistence-build',
+      payload,
+      async (input) => buildPlayerSnapshotProjectionWritePlan(
+        input.playerId,
+        input.snapshot,
+        input.domains,
+        input.options,
+      ),
+      1000,
+    );
+
+    if (!result.ok || !result.result) {
+      throw new Error(result.errorMessage ?? `player snapshot projection write plan build failed:${normalizedPlayerId}`);
+    }
+
+    return await result.result;
   }
 
   /**
@@ -2600,7 +2678,8 @@ export async function savePlayerSnapshotProjectionWithClient(
     normalizedPlayerId,
     marketStorageItems as readonly PlayerMarketStorageItemUpsertInput[],
   );
-  await replacePlayerMapUnlocks(client, normalizedPlayerId, mapUnlockIds, versionSeed);
+    await replacePlayerMapUnlockRows(client, normalizedPlayerId, mapUnlockIds, versionSeed);
+
   await replacePlayerEquipmentSlots(client, normalizedPlayerId, equipmentSlots);
   await replacePlayerTechniqueStates(client, normalizedPlayerId, techniqueStates);
   await replacePlayerPersistentBuffStates(client, normalizedPlayerId, persistentBuffStates);
@@ -2769,7 +2848,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   }
 
   if (rawDomains.has('map_unlock')) {
-    await replacePlayerMapUnlocks(
+    await replacePlayerMapUnlockRows(
       client,
       normalizedPlayerId,
       Array.isArray(snapshot.unlockedMapIds) ? snapshot.unlockedMapIds : [],
@@ -3909,6 +3988,7 @@ async function replacePlayerInventoryItems(
   );
 }
 
+
 function createPersistedInventoryRowSignature(itemId: string, rawPayload: Record<string, unknown>): string {
   return createItemStackSignature({
     itemId,
@@ -3947,38 +4027,40 @@ async function replacePlayerWalletRows(
     });
   }
 
-  if (normalizedRows.length > 0) {
-    await client.query(
-      `
-        WITH incoming AS (
-          SELECT *
-          FROM jsonb_to_recordset($2::jsonb) AS entry(
-            wallet_type varchar(64),
-            balance bigint,
-            frozen_balance bigint,
-            version bigint
-          )
-        )
-        INSERT INTO ${PLAYER_WALLET_TABLE}(
-          player_id,
-          wallet_type,
-          balance,
-          frozen_balance,
-          version,
-          updated_at
-        )
-        SELECT $1, wallet_type, balance, frozen_balance, version, now()
-        FROM incoming
-        ON CONFLICT (player_id, wallet_type)
-        DO UPDATE SET
-          balance = EXCLUDED.balance,
-          frozen_balance = EXCLUDED.frozen_balance,
-          version = EXCLUDED.version,
-          updated_at = now()
-      `,
-      [playerId, JSON.stringify(normalizedRows)],
-    );
+  if (normalizedRows.length === 0) {
+    await refuseEmptyOverwriteIfRowsExist(client, PLAYER_WALLET_TABLE, playerId, 0, 'wallet');
+    return;
   }
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          wallet_type varchar(64),
+          balance bigint,
+          frozen_balance bigint,
+          version bigint
+        )
+      )
+      INSERT INTO ${PLAYER_WALLET_TABLE}(
+        player_id,
+        wallet_type,
+        balance,
+        frozen_balance,
+        version,
+        updated_at
+      )
+      SELECT $1, wallet_type, balance, frozen_balance, version, now()
+      FROM incoming
+      ON CONFLICT (player_id, wallet_type)
+      DO UPDATE SET
+        balance = EXCLUDED.balance,
+        frozen_balance = EXCLUDED.frozen_balance,
+        version = EXCLUDED.version,
+        updated_at = now()
+    `,
+    [playerId, JSON.stringify(normalizedRows)],
+  );
   await refuseEmptyOverwriteIfRowsExist(client, PLAYER_WALLET_TABLE, playerId, normalizedRows.length, 'wallet');
   await client.query(
     `
@@ -3996,15 +4078,6 @@ async function replacePlayerWalletRows(
     `,
     [playerId, JSON.stringify(normalizedRows.map(({ wallet_type }) => ({ wallet_type })))],
   );
-}
-
-async function replacePlayerMapUnlocks(
-  client: PoolClient,
-  playerId: string,
-  mapUnlockIds: unknown[],
-  unlockedAtSeed: number,
-): Promise<void> {
-  await replacePlayerMapUnlockRows(client, playerId, mapUnlockIds, unlockedAtSeed);
 }
 
 async function replacePlayerMapUnlockRows(
@@ -4069,7 +4142,7 @@ async function replacePlayerMarketStorageItems(
   items: readonly PlayerMarketStorageItemUpsertInput[],
 ): Promise<void> {
   if (!Array.isArray(items) || items.length === 0) {
-    await prunePlayerMarketStorageStaleSlots(client, playerId, []);
+    await refuseEmptyOverwriteIfRowsExist(client, PLAYER_MARKET_STORAGE_ITEM_TABLE, playerId, 0, 'market_storage');
     return;
   }
 
@@ -4225,6 +4298,9 @@ async function prunePlayerMarketStorageStaleSlots(
   playerId: string,
   slotIndices: readonly number[],
 ): Promise<void> {
+  if (slotIndices.length === 0) {
+    return;
+  }
   await refuseEmptyOverwriteIfRowsExist(
     client,
     PLAYER_MARKET_STORAGE_ITEM_TABLE,
@@ -4294,14 +4370,9 @@ async function replacePlayerEquipmentSlots(
   slots: unknown[],
   options: PlayerDomainPruneOptions = {},
 ): Promise<void> {
-  type EquipmentSlotPersistenceRow = {
-    slot_type: string;
-    item_instance_id: string;
-    item_id: string;
-    raw_payload: Record<string, unknown>;
-  };
   const rowsBySlotType = new Map<string, EquipmentSlotPersistenceRow>();
   const rowsByInstanceId = new Map<string, EquipmentSlotPersistenceRow>();
+  const equipmentRowSources = new Map<EquipmentSlotPersistenceRow, ItemInstanceIdPersistenceRowSource>();
   for (const slotEntry of Array.isArray(slots) ? slots : []) {
     const entry = asRecord(slotEntry);
     const slotType = normalizeRequiredString(entry?.slot);
@@ -4320,10 +4391,10 @@ async function replacePlayerEquipmentSlots(
         `replacePlayerEquipmentSlots: 非法 equipment item 拒绝写入 playerId=${playerId} slot=${slotType} entry=${safeStringifyInventoryEntry(slotEntry)}`,
       );
     }
-    const itemInstanceId =
-      normalizeOptionalString(entry?.itemInstanceId)
-      ?? normalizeOptionalString(item?.itemInstanceId)
-      ?? `equip:${playerId}:${slotType}`;
+    const itemInstanceId = assignStableItemInstanceId(
+      normalizeOptionalString(entry?.itemInstanceId) || normalizeOptionalString(item?.itemInstanceId),
+      { entry, item },
+    );
     const persistedPayload = buildPersistedEquipmentItemRawPayload({
       itemId,
       slot: slotType,
@@ -4357,67 +4428,77 @@ async function replacePlayerEquipmentSlots(
     }
     rowsBySlotType.set(slotType, row);
     rowsByInstanceId.set(itemInstanceId, row);
+    equipmentRowSources.set(row, { entry, item });
   }
   const rows = Array.from(rowsBySlotType.values());
 
-  if (rows.length > 0) {
-    await client.query(
-      `
-        WITH incoming AS (
-          SELECT slot_type, item_instance_id
-          FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
-        )
-        DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
-        WHERE target.player_id = $1
-          AND EXISTS (
-            SELECT 1
-            FROM incoming
-            WHERE incoming.slot_type = target.slot_type
-              OR incoming.item_instance_id = target.item_instance_id
-          )
-      `,
-      [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
-    );
-    await client.query(
-      `
-        WITH incoming AS (
-          SELECT *
-          FROM jsonb_to_recordset($2::jsonb) AS entry(
-            slot_type varchar(40),
-            item_instance_id varchar(180),
-            item_id varchar(160),
-            raw_payload jsonb
-          )
-        )
-        INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
-          player_id,
-          slot_type,
-          item_instance_id,
-          item_id,
-          raw_payload,
-          updated_at
-        )
-        SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
-        FROM incoming
-        ON CONFLICT (item_instance_id)
-        DO UPDATE SET
-          player_id = EXCLUDED.player_id,
-          slot_type = EXCLUDED.slot_type,
-          item_id = EXCLUDED.item_id,
-          raw_payload = EXCLUDED.raw_payload,
-          updated_at = now()
-        WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
-      `,
-      [playerId, JSON.stringify(rows)],
-    );
-    const result = await client.query(
-      `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])`,
-      [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
-    );
-    const persistedCount = normalizeOptionalInteger(result.rows[0]?.row_count) ?? 0;
-    if (persistedCount !== rows.length) {
-      throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
+    if (rows.length === 0) {
+    if (options.allowEmptyOverwrite === true) {
+      await client.query(`DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1`, [playerId]);
+    } else {
+      await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, 0, 'equipment');
     }
+    return;
+  }
+
+  await repairEquipmentSlotItemInstanceIdConflicts(client, playerId, rows, equipmentRowSources);
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT slot_type, item_instance_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
+      )
+      DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
+      WHERE target.player_id = $1
+        AND EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.slot_type = target.slot_type
+            OR incoming.item_instance_id = target.item_instance_id
+        )
+    `,
+    [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
+  );
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          slot_type varchar(40),
+          item_instance_id varchar(180),
+          item_id varchar(160),
+          raw_payload jsonb
+        )
+      )
+      INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
+        player_id,
+        slot_type,
+        item_instance_id,
+        item_id,
+        raw_payload,
+        updated_at
+      )
+      SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
+      FROM incoming
+      ON CONFLICT (item_instance_id)
+      DO UPDATE SET
+        player_id = EXCLUDED.player_id,
+        slot_type = EXCLUDED.slot_type,
+        item_id = EXCLUDED.item_id,
+        raw_payload = EXCLUDED.raw_payload,
+        updated_at = now()
+      WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
+    `,
+    [playerId, JSON.stringify(rows)],
+  );
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])
+`,
+    [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
+  );
+  const persistedCount = normalizeOptionalInteger(result.rows[0]?.row_count) ?? 0;
+  if (persistedCount !== rows.length) {
+    throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
   }
   if (options.allowEmptyOverwrite !== true) {
     await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment');
@@ -5240,9 +5321,10 @@ async function upsertRecoveryWatermark(
   }
 
   const insertColumns = ['player_id', ...entries.map(([column]) => column), 'updated_at'];
+  const watermarkVersionSeed = Math.max(...entries.map(([, value]) => Math.max(0, Math.trunc(value))));
   const insertValues: unknown[] = [playerId, ...entries.map(([, value]) => Math.max(0, Math.trunc(value))),];
   const updatedAtPlaceholder = `$${insertValues.length + 1}`;
-  insertValues.push(new Date().toISOString());
+  insertValues.push(new Date(Math.max(1, watermarkVersionSeed)).toISOString());
 
   const valuePlaceholders = insertColumns.map((_, index) => `$${index + 1}`);
   valuePlaceholders[valuePlaceholders.length - 1] = updatedAtPlaceholder;

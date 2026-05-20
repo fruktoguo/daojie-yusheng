@@ -6,7 +6,14 @@
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';
+import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
+import {
+  assignStableItemInstanceId,
+  repairEquipmentSlotItemInstanceIdConflicts,
+  type EquipmentSlotPersistenceRow,
+  type ItemInstanceIdPersistenceRowSource,
+} from './compat/item-instance-id-compat';
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
@@ -3669,14 +3676,9 @@ async function replacePlayerEquipmentSlots(
   slots: readonly DurableEquipmentSlotSnapshot[],
   options: DurableReplaceOptions = {},
 ): Promise<void> {
-  type EquipmentSlotPersistenceRow = {
-    slot_type: string;
-    item_instance_id: string;
-    item_id: string;
-    raw_payload: Record<string, unknown>;
-  };
   const rowsBySlotType = new Map<string, EquipmentSlotPersistenceRow>();
   const rowsByInstanceId = new Map<string, EquipmentSlotPersistenceRow>();
+  const rowSources = new Map<EquipmentSlotPersistenceRow, ItemInstanceIdPersistenceRowSource>();
   for (const slotEntry of Array.isArray(slots) ? slots : []) {
     const slotType = normalizeRequiredString(slotEntry?.slot);
     if (!EQUIP_SLOTS.includes(slotType as (typeof EQUIP_SLOTS)[number])) {
@@ -3696,10 +3698,13 @@ async function replacePlayerEquipmentSlots(
         `replacePlayerEquipmentSlots: invalid equipment item playerId=${playerId} slot=${slotType} entry=${safeStringifyDurableEntry(slotEntry)}`,
       );
     }
-    const itemInstanceId =
-      normalizeRequiredString(slotEntry?.itemInstanceId)
-      || normalizeRequiredString(item?.itemInstanceId)
-      || `equip:${playerId}:${slotType}`;
+    const itemInstanceId = assignStableItemInstanceId(
+      normalizeOptionalString((slotEntry as Record<string, unknown> | null)?.itemInstanceId) || normalizeOptionalString(item?.itemInstanceId),
+      {
+        entry: slotEntry && typeof slotEntry === 'object' ? slotEntry as Record<string, unknown> : null,
+        item,
+      },
+    );
     const rawPayload = buildPersistedEquipmentItemRawPayload({
       itemId,
       slot: slotType,
@@ -3733,67 +3738,74 @@ async function replacePlayerEquipmentSlots(
     }
     rowsBySlotType.set(slotType, row);
     rowsByInstanceId.set(itemInstanceId, row);
+    rowSources.set(row, {
+      entry: slotEntry && typeof slotEntry === 'object' ? slotEntry as Record<string, unknown> : null,
+      item,
+    });
   }
   const rows = Array.from(rowsBySlotType.values());
 
-  if (rows.length > 0) {
-    await client.query(
-      `
-        WITH incoming AS (
-          SELECT slot_type, item_instance_id
-          FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
+  if (rows.length === 0) {
+    return;
+  }
+
+  await repairEquipmentSlotItemInstanceIdConflicts(client, playerId, rows, rowSources);
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT slot_type, item_instance_id
+        FROM jsonb_to_recordset($2::jsonb) AS entry(slot_type varchar(40), item_instance_id varchar(180))
+      )
+      DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
+      WHERE target.player_id = $1
+        AND EXISTS (
+          SELECT 1
+          FROM incoming
+          WHERE incoming.slot_type = target.slot_type
+            OR incoming.item_instance_id = target.item_instance_id
         )
-        DELETE FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} target
-        WHERE target.player_id = $1
-          AND EXISTS (
-            SELECT 1
-            FROM incoming
-            WHERE incoming.slot_type = target.slot_type
-              OR incoming.item_instance_id = target.item_instance_id
-          )
-      `,
-      [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
-    );
-    await client.query(
-      `
-        WITH incoming AS (
-          SELECT *
-          FROM jsonb_to_recordset($2::jsonb) AS entry(
-            slot_type varchar(40),
-            item_instance_id varchar(180),
-            item_id varchar(120),
-            raw_payload jsonb
-          )
+    `,
+    [playerId, JSON.stringify(rows.map(({ slot_type, item_instance_id }) => ({ slot_type, item_instance_id })))],
+  );
+  await client.query(
+    `
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($2::jsonb) AS entry(
+          slot_type varchar(40),
+          item_instance_id varchar(180),
+          item_id varchar(120),
+          raw_payload jsonb
         )
-        INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
-          player_id,
-          slot_type,
-          item_instance_id,
-          item_id,
-          raw_payload,
-          updated_at
-        )
-        SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
-        FROM incoming
-        ON CONFLICT (item_instance_id)
-        DO UPDATE SET
-          player_id = EXCLUDED.player_id,
-          slot_type = EXCLUDED.slot_type,
-          item_id = EXCLUDED.item_id,
-          raw_payload = EXCLUDED.raw_payload,
-          updated_at = now()
-        WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
-      `,
-      [playerId, JSON.stringify(rows)],
-    );
-    const result = await client.query(
-      `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])`,
-      [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
-    );
-    const persistedCount = normalizeOptionalInteger((result as { rows?: Array<{ row_count?: unknown }> }).rows?.[0]?.row_count) ?? 0;
-    if (persistedCount !== rows.length) {
-      throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
-    }
+      )
+      INSERT INTO ${PLAYER_EQUIPMENT_SLOT_TABLE}(
+        player_id,
+        slot_type,
+        item_instance_id,
+        item_id,
+        raw_payload,
+        updated_at
+      )
+      SELECT $1, slot_type, item_instance_id, item_id, COALESCE(raw_payload, '{}'::jsonb), now()
+      FROM incoming
+      ON CONFLICT (item_instance_id)
+      DO UPDATE SET
+        player_id = EXCLUDED.player_id,
+        slot_type = EXCLUDED.slot_type,
+        item_id = EXCLUDED.item_id,
+        raw_payload = EXCLUDED.raw_payload,
+        updated_at = now()
+      WHERE ${PLAYER_EQUIPMENT_SLOT_TABLE}.player_id = EXCLUDED.player_id
+    `,
+    [playerId, JSON.stringify(rows)],
+  );
+  const result = await client.query(
+    `SELECT COUNT(*)::int AS row_count FROM ${PLAYER_EQUIPMENT_SLOT_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])`,
+    [playerId, rows.map(({ item_instance_id }) => item_instance_id)],
+  );
+  const persistedCount = normalizeOptionalInteger((result as { rows?: Array<{ row_count?: unknown }> }).rows?.[0]?.row_count) ?? 0;
+  if (persistedCount !== rows.length) {
+    throw new Error(`replacePlayerEquipmentSlots: item_instance_id conflict outside player scope playerId=${playerId}`);
   }
   await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, rows.length, 'equipment', options);
   await client.query(

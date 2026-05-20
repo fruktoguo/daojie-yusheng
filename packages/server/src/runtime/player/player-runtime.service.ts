@@ -3446,8 +3446,24 @@ export class PlayerRuntimeService {
         }
         const inventoryCoalesced = coalesceInventoryItems(player.inventory?.items);
         const inventoryRepaired = repairDuplicateInventoryItemInstanceIds(player.inventory?.items);
-        if (inventoryCoalesced || inventoryRepaired) {
+        let inventoryInstanceIdRepaired = false;
+        for (const entry of player.inventory?.items ?? []) {
+            if (assignItemInstanceIdIfNeeded(entry)) {
+                inventoryInstanceIdRepaired = true;
+            }
+        }
+        let equipmentInstanceIdRepaired = false;
+        for (const slotEntry of player.equipment?.slots ?? []) {
+            if (slotEntry?.item && assignItemInstanceIdIfNeeded(slotEntry.item)) {
+                equipmentInstanceIdRepaired = true;
+            }
+        }
+        if (inventoryCoalesced || inventoryRepaired || inventoryInstanceIdRepaired) {
             markPlayerDirtyDomains(player, ['inventory']);
+            this.bumpPersistentRevision(player);
+        }
+        if (equipmentInstanceIdRepaired) {
+            markPlayerDirtyDomains(player, ['equipment']);
             this.bumpPersistentRevision(player);
         }
         return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository, dirtyDomains);

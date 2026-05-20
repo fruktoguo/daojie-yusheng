@@ -3,7 +3,7 @@ import { installSmokeTimeout } from './smoke-timeout';
 installSmokeTimeout(__filename);
 
 import { Pool } from 'pg';
-import { EQUIP_SLOTS } from '@mud/shared';
+import { EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
@@ -17,6 +17,8 @@ const databaseUrl = resolveServerDatabaseUrl();
 
 async function main(): Promise<void> {
   await assertInventoryAndWalletSnapshotsUseStaleKeyPruning();
+  await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
+  await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
   await assertAssetDomainInvalidEntriesRefuseSilentPrune();
 
   if (!databaseUrl.trim()) {
@@ -1131,10 +1133,14 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected direct player_map_unlock rows: ${JSON.stringify(directMapUnlockRows)}`);
     }
+    const directEquipmentInstanceId = typeof directEquipmentRows[0]?.item_instance_id === 'string'
+      ? directEquipmentRows[0].item_instance_id
+      : '';
     if (
       directEquipmentRows.length !== 1
       || directEquipmentRows[0]?.slot_type !== 'weapon'
-      || directEquipmentRows[0]?.item_instance_id !== `equip:${directPlayerId}:weapon`
+      || !directEquipmentInstanceId
+      || isLegacyItemInstanceId(directEquipmentInstanceId)
       || directEquipmentRows[0]?.item_id !== 'weapon.direct_blade'
       || Number((directEquipmentRows[0]?.raw_payload as { enhanceLevel?: unknown } | null | undefined)?.enhanceLevel ?? 0) !== 4
       || Object.prototype.hasOwnProperty.call(directEquipmentRows[0]?.raw_payload ?? {}, 'equipStats')
@@ -1512,6 +1518,125 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
     || coalescedInventoryRows[0]?.count !== 2
   ) {
     throw new Error(`duplicate inventory itemInstanceId coalesce did not merge same-signature rows: ${JSON.stringify(coalescedInventoryRows)}`);
+  }
+}
+
+async function assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts(): Promise<void> {
+  const conflictedInstanceId = '00000000-0000-4000-8000-000000000123';
+  const equipmentInsertPayloads: unknown[][] = [];
+  const fakeClient = {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
+      if (
+        sql.includes('SELECT item_instance_id')
+        && sql.includes('FROM player_equipment_slot')
+        && sql.includes('player_id <> $2')
+      ) {
+        const incomingIds = Array.isArray(params?.[0]) ? params[0] as unknown[] : [];
+        const rows = incomingIds.includes(conflictedInstanceId)
+          ? [{ item_instance_id: conflictedInstanceId }]
+          : [];
+        return { rows, rowCount: rows.length };
+      }
+      if (sql.includes('INSERT INTO player_equipment_slot') && Array.isArray(params) && typeof params[1] === 'string') {
+        equipmentInsertPayloads.push(JSON.parse(params[1]) as unknown[]);
+      }
+      if (sql.includes('COUNT(*)::int AS row_count FROM player_equipment_slot')) {
+        const persistedIds = Array.isArray(params?.[1]) ? params[1] as unknown[] : [];
+        return { rows: [{ row_count: persistedIds.length }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  const legacySlot = {
+    slot: 'weapon' as const,
+    itemInstanceId: 'equip:other-player:weapon',
+    item: {
+      itemId: 'weapon.legacy_instance',
+      count: 1,
+      itemInstanceId: 'equip:other-player:weapon',
+    },
+  };
+  const conflictedSlot = {
+    slot: 'body' as const,
+    itemInstanceId: conflictedInstanceId,
+    item: {
+      itemId: 'armor.conflicted_instance',
+      count: 1,
+      itemInstanceId: conflictedInstanceId,
+    },
+  };
+
+  await service.savePlayerEquipmentSlots(
+    'player:equipment-instance-repair',
+    [legacySlot, conflictedSlot],
+    { versionSeed: 1 },
+  );
+
+  const rows = equipmentInsertPayloads[equipmentInsertPayloads.length - 1] as Array<Record<string, unknown>> | undefined;
+  const weaponRow = rows?.find((row) => row.slot_type === 'weapon');
+  const bodyRow = rows?.find((row) => row.slot_type === 'body');
+  const weaponInstanceId = typeof weaponRow?.item_instance_id === 'string' ? weaponRow.item_instance_id : '';
+  const bodyInstanceId = typeof bodyRow?.item_instance_id === 'string' ? bodyRow.item_instance_id : '';
+  if (
+    !weaponInstanceId
+    || isLegacyItemInstanceId(weaponInstanceId)
+    || weaponInstanceId === 'equip:other-player:weapon'
+    || legacySlot.itemInstanceId !== weaponInstanceId
+    || legacySlot.item.itemInstanceId !== weaponInstanceId
+  ) {
+    throw new Error(`legacy equipment itemInstanceId was not repaired before persistence: ${JSON.stringify(rows)}`);
+  }
+  if (
+    !bodyInstanceId
+    || isLegacyItemInstanceId(bodyInstanceId)
+    || bodyInstanceId === conflictedInstanceId
+    || conflictedSlot.itemInstanceId !== bodyInstanceId
+    || conflictedSlot.item.itemInstanceId !== bodyInstanceId
+  ) {
+    throw new Error(`out-of-scope equipment itemInstanceId conflict was not repaired: ${JSON.stringify(rows)}`);
+  }
+}
+
+async function assertEmptyCollectionSnapshotsDoNotIssueDeletes(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+      queries.push(sql);
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.savePlayerWallet('player:empty-wallet', [], { versionSeed: 1 });
+  await service.savePlayerMarketStorageItems('player:empty-market', [], { versionSeed: 1 });
+  await service.savePlayerEquipmentSlots('player:empty-equipment', [], { versionSeed: 1 });
+
+  if (queries.some((sql) => sql.includes('DELETE FROM player_wallet') || sql.includes('DELETE FROM player_market_storage_item') || sql.includes('DELETE FROM player_equipment_slot'))) {
+    throw new Error(`empty collection writes should not emit destructive deletes: ${queries.join('\n---\n')}`);
   }
 }
 
