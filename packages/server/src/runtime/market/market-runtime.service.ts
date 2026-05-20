@@ -12,6 +12,7 @@ import { MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNT
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
+import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
 import { buildStructuredNotice } from '../world/structured-notice.helpers';
@@ -53,6 +54,8 @@ export class MarketRuntimeService {
  */
 
     playerPersistenceFlushService: any = null;
+    /** 玩家身份持久化服务，用于低频面板历史补齐角色名，避免向玩家暴露内部 playerId。 */
+    playerIdentityPersistenceService: any = null;
     /** 运行时日志器，记录加载、撮合与持久化异常。 */
     logger = new Logger(MarketRuntimeService.name);
     /** 当前仍然有效的求购/出售挂单。 */
@@ -87,6 +90,7 @@ export class MarketRuntimeService {
         @Inject(DurableOperationService) durableOperationService: any,
         @Inject(InstanceCatalogService) instanceCatalogService: any,
         @Optional() @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: any = null,
+        @Optional() @Inject(PlayerIdentityPersistenceService) playerIdentityPersistenceService: any = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -94,6 +98,7 @@ export class MarketRuntimeService {
         this.durableOperationService = durableOperationService;
         this.instanceCatalogService = instanceCatalogService;
         this.playerPersistenceFlushService = playerPersistenceFlushService ?? null;
+        this.playerIdentityPersistenceService = playerIdentityPersistenceService ?? null;
     }
     /** 应用完成启动后再回填坊市快照，避免早于持久化服务初始化导致空装载。 */
     async onApplicationBootstrap() {
@@ -377,14 +382,15 @@ export class MarketRuntimeService {
         const normalizedPage = Math.max(1, Math.min(totalPages, Math.trunc(Number.isFinite(page) ? page : 1)));
 
         const start = (normalizedPage - 1) * MARKET_TRADE_HISTORY_PAGE_SIZE;
+        const pageRecords = visibleRecords.slice(start, start + MARKET_TRADE_HISTORY_PAGE_SIZE);
+        const identitiesByPlayerId = await this.loadTradeHistoryIdentityMap(pageRecords);
         return {
             source: normalizedSource,
             page: normalizedPage,
             pageSize: MARKET_TRADE_HISTORY_PAGE_SIZE,
             totalVisible,
-            records: visibleRecords
-                .slice(start, start + MARKET_TRADE_HISTORY_PAGE_SIZE)
-                .map((entry) => this.toTradeHistoryView(playerId, entry)),
+            records: pageRecords
+                .map((entry) => this.toTradeHistoryView(playerId, entry, identitiesByPlayerId)),
         };
     }
     /** 发起出售挂单，必要时直接撮合买单。 */
@@ -1475,7 +1481,7 @@ export class MarketRuntimeService {
                 : { ...entry });
             bids.push({
                 bidderId: playerId,
-                bidderLabel: this.resolveMarketPlayerLabel(playerId),
+                bidderLabel: this.resolveOnlineMarketPlayerLabel(playerId) || '未知玩家',
                 unitPrice,
                 createdAt: now,
                 reservedCost: totalCost,
@@ -1590,7 +1596,7 @@ export class MarketRuntimeService {
         return bids
             .slice(0, 6)
             .map((bid) => ({
-            bidderLabel: this.normalizePlayerLabelText(bid.bidderLabel) || this.resolveMarketPlayerLabel(bid.bidderId),
+            bidderLabel: this.normalizePlayerLabelText(bid.bidderLabel, bid.bidderId) || this.resolveOnlineMarketPlayerLabel(bid.bidderId) || '未知玩家',
             unitPrice: bid.unitPrice,
             createdAtMs: bid.createdAt,
         }));
@@ -1602,7 +1608,7 @@ export class MarketRuntimeService {
         return bids
             .map((entry) => ({
             bidderId: String(entry?.bidderId ?? ''),
-            bidderLabel: this.normalizePlayerLabelText(entry?.bidderLabel),
+            bidderLabel: this.normalizePlayerLabelText(entry?.bidderLabel, entry?.bidderId),
             unitPrice: this.normalizeUnitPrice(entry?.unitPrice),
             createdAt: Number.isFinite(Number(entry?.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
             reservedCost: Math.max(0, Math.trunc(Number(entry?.reservedCost ?? 0))),
@@ -1718,7 +1724,7 @@ export class MarketRuntimeService {
         const bids = Array.isArray(raw.bids)
             ? raw.bids.map((entry) => ({
                 bidderId: String(entry?.bidderId ?? '').trim(),
-                bidderLabel: this.normalizePlayerLabelText(entry?.bidderLabel),
+                bidderLabel: this.normalizePlayerLabelText(entry?.bidderLabel, entry?.bidderId),
                 unitPrice: this.normalizeUnitPrice(entry?.unitPrice),
                 createdAt: Number.isFinite(Number(entry?.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
                 reservedCost: Math.max(0, Math.trunc(Number(entry?.reservedCost ?? 0))),
@@ -2866,8 +2872,8 @@ export class MarketRuntimeService {
             source: this.normalizeTradeSource(payload.source),
             buyerId: payload.buyerId,
             sellerId: payload.sellerId,
-            buyerName: this.resolveMarketPlayerLabel(payload.buyerId),
-            sellerName: this.resolveMarketPlayerLabel(payload.sellerId),
+            buyerName: this.resolveOnlineMarketPlayerLabel(payload.buyerId),
+            sellerName: this.resolveOnlineMarketPlayerLabel(payload.sellerId),
             itemId: payload.itemId,
             quantity: payload.quantity,
             unitPrice: payload.unitPrice,
@@ -2881,7 +2887,13 @@ export class MarketRuntimeService {
  * @returns 无返回值，直接更新toTradeHistory视图相关状态。
  */
 
-    toTradeHistoryView(playerId, record) {
+    toTradeHistoryView(playerId, record, identitiesByPlayerId = new Map()) {
+        const counterpartyId = record.buyerId === playerId ? record.sellerId : record.buyerId;
+        const persistedLabel = record.buyerId === playerId
+            ? this.normalizePlayerLabelText(record.sellerName, counterpartyId)
+            : this.normalizePlayerLabelText(record.buyerName, counterpartyId);
+        const identityLabel = this.resolveIdentityPlayerLabel(identitiesByPlayerId.get(counterpartyId));
+        const onlineLabel = this.resolveOnlineMarketPlayerLabel(counterpartyId);
         return {
             id: record.id,
 
@@ -2889,25 +2901,46 @@ export class MarketRuntimeService {
             source: this.normalizeTradeSource(record.source),
             itemId: record.itemId,
             itemName: this.contentTemplateRepository.getItemName(record.itemId) ?? record.itemId,
-            counterpartyLabel: record.buyerId === playerId
-                ? (this.normalizePlayerLabelText(record.sellerName) || this.resolveMarketPlayerLabel(record.sellerId))
-                : (this.normalizePlayerLabelText(record.buyerName) || this.resolveMarketPlayerLabel(record.buyerId)),
+            counterpartyLabel: persistedLabel || identityLabel || onlineLabel || '未知玩家',
             quantity: record.quantity,
             unitPrice: record.unitPrice,
             createdAt: record.createdAt,
         };
     }
-    normalizePlayerLabelText(value) {
+    async loadTradeHistoryIdentityMap(records) {
+        const playerIds = Array.from(new Set((records ?? [])
+            .flatMap((record) => [record?.buyerId, record?.sellerId])
+            .map((playerId) => typeof playerId === 'string' ? playerId.trim() : '')
+            .filter((playerId) => playerId.length > 0)));
+        if (playerIds.length === 0 || typeof this.playerIdentityPersistenceService?.listPlayerIdentitiesByPlayerIds !== 'function') {
+            return new Map();
+        }
+        try {
+            return await this.playerIdentityPersistenceService.listPlayerIdentitiesByPlayerIds(playerIds);
+        }
+        catch (error) {
+            this.logger.warn(`补齐坊市成交记录玩家名失败：${error instanceof Error ? error.message : String(error)}`);
+            return new Map();
+        }
+    }
+    normalizePlayerLabelText(value, rejectedPlayerId = '') {
         const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
+        const rejected = typeof rejectedPlayerId === 'string' ? rejectedPlayerId.trim() : '';
+        if (rejected && normalized === rejected) {
+            return '';
+        }
         return normalized.length > 0 ? normalized : '';
     }
-    resolveMarketPlayerLabel(playerId) {
+    resolveIdentityPlayerLabel(identity) {
+        return this.normalizePlayerLabelText(identity?.playerName, identity?.playerId)
+            || this.normalizePlayerLabelText(identity?.displayName, identity?.playerId)
+            || this.normalizePlayerLabelText(identity?.username, identity?.playerId);
+    }
+    resolveOnlineMarketPlayerLabel(playerId) {
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
         const player = normalizedPlayerId ? this.playerRuntimeService.getPlayer(normalizedPlayerId) : null;
-        return this.normalizePlayerLabelText(player?.displayName)
-            || this.normalizePlayerLabelText(player?.name)
-            || normalizedPlayerId
-            || '未知玩家';
+        return this.normalizePlayerLabelText(player?.displayName, normalizedPlayerId)
+            || this.normalizePlayerLabelText(player?.name, normalizedPlayerId);
     }
     /** 规范化成交来源，兼容旧历史记录缺少 source 的情况。 */
     normalizeTradeSource(source) {
