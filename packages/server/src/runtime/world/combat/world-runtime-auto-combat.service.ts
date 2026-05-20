@@ -108,6 +108,30 @@ function isBuffActive(player, buffId) {
             && Math.max(0, Math.round(Number(buff?.stacks ?? 0))) > 0);
 }
 
+function getAutoSelfBuffEffects(skill) {
+    if (skill?.requiresTarget !== false) {
+        return [];
+    }
+    const effects = Array.isArray(skill?.effects) ? skill.effects : [];
+    if (effects.length === 0) {
+        return [];
+    }
+    const selfBuffEffects = effects.filter((effect) => effect?.type === 'buff'
+        && (effect.target === 'self' || effect.target === 'allies')
+        && typeof effect.buffId === 'string'
+        && effect.buffId.trim().length > 0);
+    return selfBuffEffects.length === effects.length ? selfBuffEffects : [];
+}
+
+function isAutoSelfBuffSkill(skill) {
+    return getAutoSelfBuffEffects(skill).length > 0;
+}
+
+function shouldAutoCastSelfBuffSkill(player, skill) {
+    const effects = getAutoSelfBuffEffects(skill);
+    return effects.length > 0 && effects.some((effect) => !isBuffActive(player, effect.buffId));
+}
+
 function hasMissingConsumableBuff(player, item) {
     const buffs = Array.isArray(item?.consumeBuffs) ? item.consumeBuffs : [];
     if (buffs.length === 0) {
@@ -409,6 +433,17 @@ export class WorldRuntimeAutoCombatService {
   // 安全区内允许自动战斗打怪，但不允许自动选择玩家目标。
 
         const inSafeZone = instance.isPointInSafeZone(player.x, player.y);
+        const selfBuffSkillChoice = this.resolveAutoBattleSelfSkillChoice(player, options);
+        if (selfBuffSkillChoice?.skillId) {
+            return {
+                kind: 'castSkill',
+                skillId: selfBuffSkillChoice.skillId,
+                targetPlayerId: null,
+                targetMonsterId: null,
+                targetRef: null,
+                autoCombat: true,
+            };
+        }
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
         const view = instance.buildPlayerView(player.playerId, radius);
         if (!view) {
@@ -758,6 +793,48 @@ export class WorldRuntimeAutoCombatService {
  * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
  */
 
+    resolveAutoBattleSelfSkillChoice(player, options = undefined) {
+  // 自身/友方 buff 技能不依赖敌对目标；缺少对应 buff 时按自动技能顺序原地施放。
+
+        if (!Array.isArray(player?.techniques?.techniques)) {
+            return null;
+        }
+        const excludedSkillIds = options?.excludedSkillIds;
+        for (const action of player.actions.actions) {
+            if (action.type !== 'skill') {
+                continue;
+            }
+            if (action.autoBattleEnabled === false || action.skillEnabled === false) {
+                continue;
+            }
+            if ((action.cooldownLeft ?? 0) > 0) {
+                continue;
+            }
+            const skill = findPlayerSkill(player, action.id);
+            if (!skill || !isAutoSelfBuffSkill(skill)) {
+                continue;
+            }
+            if (excludedSkillIds?.has(skill.id)) {
+                continue;
+            }
+            if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
+                continue;
+            }
+            if (!shouldAutoCastSelfBuffSkill(player, skill)) {
+                continue;
+            }
+            return { skillId: skill.id, range: 0, selfCast: true };
+        }
+        return null;
+    }
+
+    /**
+ * pickAutoBattleSkill：执行pickAutoBattle技能相关逻辑。
+ * @param player 玩家对象。
+ * @param distance 参数说明。
+ * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
+ */
+
     resolveAutoBattleSkillChoice(player, distance, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -781,6 +858,12 @@ export class WorldRuntimeAutoCombatService {
                 continue;
             }
             if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
+                continue;
+            }
+            if (isAutoSelfBuffSkill(skill)) {
+                if (shouldAutoCastSelfBuffSkill(player, skill)) {
+                    return { skillId: skill.id, range: 0, selfCast: true };
+                }
                 continue;
             }
             // 原地释放技能（requiresTarget:false + range:0）：以玩家为中心，用 AOE 覆盖半径判断能否命中目标
@@ -846,6 +929,9 @@ export class WorldRuntimeAutoCombatService {
                 continue;
             }
             if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
+                continue;
+            }
+            if (isAutoSelfBuffSkill(skill)) {
                 continue;
             }
             if (skill.requiresTarget === false && (action.range ?? 0) === 0) {
