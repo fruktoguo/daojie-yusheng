@@ -72,23 +72,8 @@ export class AoiEnvelopeEncoderService {
     return null;
   }
 
-  /** 单 payload worker 编码；失败时回退同步编码。 */
+  /** 单 payload worker 编码；当前暂时跳过，后续切 protobuf 时启用。 */
   async encodePayloadAsync(payload: unknown): Promise<Buffer | null> {
-    if (!payload) return null;
-    if (!this.encodingPool) {
-      return this.encodePayloadSync(payload);
-    }
-
-    const result = await this.encodingPool.submit<unknown, Buffer>(
-      'envelope-encode',
-      payload,
-      (fallbackPayload) => Buffer.from(JSON.stringify(fallbackPayload), 'utf-8'),
-      200,
-    );
-
-    if (result.ok && result.result) {
-      return Buffer.isBuffer(result.result) ? result.result : Buffer.from(result.result);
-    }
-    return this.encodePayloadSync(payload);
+    return null;
   }
 }
