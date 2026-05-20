@@ -13,7 +13,7 @@ import {
   getBodyTrainingExpToNext,
   normalizeBodyTrainingState,
 } from '@mud/shared';
-import { assignItemInstanceIdIfNeeded } from '../../runtime/world/item-instance-id.helpers';
+import { isLegacyItemInstanceId, reassignItemInstanceId } from '../../runtime/world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
@@ -30,6 +30,37 @@ import { isNativeGmBotPlayerId } from './native-gm.constants';
 import { buildNativeGmPlayerRiskView } from './native-gm-player-risk';
 import type { GmActorContext } from './native-gm-actor-context';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
+
+function asGmItemRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function normalizeGmItemString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeStableGmItemInstanceId(value: unknown): string | null {
+  const normalized = normalizeGmItemString(value);
+  if (!normalized || isLegacyItemInstanceId(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+function writeGmItemOwnProperty(item: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(item, key, {
+    value,
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
+}
 /**
  * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -1072,6 +1103,76 @@ export class NativeGmPlayerService {
       totalFoundationGranted,
     };
   }  
+
+  private normalizeGmInventoryItemForSave(currentItem: unknown, submittedItem: unknown): Record<string, unknown> | null {
+    const submitted = asGmItemRecord(submittedItem);
+    const itemId = normalizeGmItemString(submitted?.itemId);
+    if (!submitted || !itemId) {
+      return null;
+    }
+    const count = Number.isFinite(submitted.count)
+      ? Math.max(1, Math.trunc(submitted.count as number))
+      : 1;
+    const normalized = asGmItemRecord(this.contentTemplateRepository.normalizeItem({
+      ...submitted,
+      itemId,
+      count,
+    })) ?? {
+      ...submitted,
+      itemId,
+      count,
+    };
+    writeGmItemOwnProperty(normalized, 'itemId', itemId);
+    writeGmItemOwnProperty(normalized, 'count', count);
+    this.normalizeGmEditedItemInstanceId(normalized, submitted, currentItem, itemId);
+    return normalized;
+  }
+
+  private normalizeGmEquipmentItemForSave(currentItem: unknown, submittedItem: unknown): Record<string, unknown> | null {
+    const submitted = asGmItemRecord(submittedItem);
+    const itemId = normalizeGmItemString(submitted?.itemId);
+    if (!submitted || !itemId) {
+      return null;
+    }
+    const normalized = asGmItemRecord(this.contentTemplateRepository.normalizeItem({
+      ...submitted,
+      itemId,
+      count: 1,
+    })) ?? {
+      ...submitted,
+      itemId,
+      count: 1,
+    };
+    writeGmItemOwnProperty(normalized, 'itemId', itemId);
+    writeGmItemOwnProperty(normalized, 'count', 1);
+    this.normalizeGmEditedItemInstanceId(normalized, submitted, currentItem, itemId);
+    return normalized;
+  }
+
+  private normalizeGmEditedItemInstanceId(
+    normalized: Record<string, unknown>,
+    submitted: Record<string, unknown>,
+    currentItem: unknown,
+    itemId: string,
+  ): void {
+    const current = asGmItemRecord(currentItem);
+    const currentItemId = normalizeGmItemString(current?.itemId);
+    const currentInstanceId = normalizeStableGmItemInstanceId(current?.itemInstanceId);
+    const submittedInstanceId = normalizeStableGmItemInstanceId(submitted.itemInstanceId);
+    const normalizedInstanceId = normalizeStableGmItemInstanceId(normalized.itemInstanceId);
+    const incomingInstanceId = submittedInstanceId ?? normalizedInstanceId;
+
+    if (
+      currentInstanceId
+      && currentItemId === itemId
+      && (!incomingInstanceId || incomingInstanceId === currentInstanceId)
+    ) {
+      writeGmItemOwnProperty(normalized, 'itemInstanceId', currentInstanceId);
+      return;
+    }
+
+    reassignItemInstanceId(normalized as any);
+  }
   /**
  * applyPlayerSnapshotMutation：处理玩家快照Mutation并更新相关状态。
  * @param next 参数说明。
@@ -1210,16 +1311,8 @@ export class NativeGmPlayerService {
         if (Array.isArray(snapshot.inventory.items)) {
           next.inventory.items = snapshot.inventory.items
             .filter((entry) => Boolean(entry && typeof entry.itemId === 'string' && entry.itemId.trim()))
-            .map((entry) => {
-              const normalized = this.contentTemplateRepository.normalizeItem({
-                ...entry,
-                itemId: entry.itemId.trim(),
-                count: Number.isFinite(entry.count) ? Math.max(1, Math.trunc(entry.count)) : 1,
-              }) as { itemId?: string; type?: string; itemInstanceId?: string };
-              // GM 提交快照若不带 itemInstanceId（典型场景），装备类此处分配新 UUID
-              assignItemInstanceIdIfNeeded(normalized as any);
-              return normalized;
-            });
+            .map((entry, index) => this.normalizeGmInventoryItemForSave(next.inventory.items[index], entry))
+            .filter((entry): entry is Record<string, unknown> => entry !== null);
           next.inventory.revision += 1;
         }
       }
@@ -1236,12 +1329,7 @@ export class NativeGmPlayerService {
 
           const item = snapshot.equipment[slot];
           if (item && typeof item.itemId === 'string' && item.itemId.trim()) {
-            const normalized = this.contentTemplateRepository.normalizeItem({
-              ...item,
-              itemId: item.itemId.trim(),
-              count: 1,
-            }) as { itemId?: string; type?: string; itemInstanceId?: string };
-            assignItemInstanceIdIfNeeded(normalized as any);
+            const normalized = this.normalizeGmEquipmentItemForSave(record.item, item);
             record.item = normalized;
           } else {
             record.item = null;
@@ -1434,27 +1522,25 @@ export class NativeGmPlayerService {
         if (Array.isArray(snapshot.inventory.items)) {
           persisted.inventory.items = snapshot.inventory.items
             .filter((entry) => Boolean(entry && typeof entry.itemId === 'string' && entry.itemId.trim()))
-            .map((entry) => ({
-              ...entry,
-              itemId: entry.itemId.trim(),
-              count: Number.isFinite(entry.count) ? Math.max(1, Math.trunc(entry.count)) : 1,
-            }));
+            .map((entry, index) => this.normalizeGmInventoryItemForSave(persisted.inventory.items[index], entry))
+            .filter((entry): entry is Record<string, unknown> => entry !== null);
           persisted.inventory.revision = Math.max(1, (persisted.inventory.revision ?? 1) + 1);
         }
       }
       if (snapshot.equipment && typeof snapshot.equipment === 'object') {
+        const currentSlotsByType = new Map(
+          (Array.isArray(persisted.equipment.slots) ? persisted.equipment.slots : [])
+            .map((entry) => [entry?.slot, entry?.item]),
+        );
         const nextSlots = [];
         for (const slot of EQUIP_SLOTS) {
           const item = snapshot.equipment[slot];
+          const currentItem = currentSlotsByType.get(slot);
           nextSlots.push({
             slot,
             item:
               item && typeof item.itemId === 'string' && item.itemId.trim()
-                ? {
-                    ...item,
-                    itemId: item.itemId.trim(),
-                    count: 1,
-                  }
+                ? this.normalizeGmEquipmentItemForSave(currentItem, item)
                 : null,
           });
         }

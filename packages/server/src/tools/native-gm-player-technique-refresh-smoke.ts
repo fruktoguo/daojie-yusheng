@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     },
     buildPersistenceSnapshot(id: string) {
       assert.equal(id, playerId);
-      return createPersistedSnapshot();
+      return createPersistedSnapshot(runtimeSnapshot);
     },
     restoreSnapshot(snapshot: any) {
       runtimeSnapshot = clone(snapshot);
@@ -167,6 +167,87 @@ async function main(): Promise<void> {
   assert.equal(savedOptions.allowEquipmentEmptyOverwrite, true);
   assert.equal(fullProjectionSaveCalled, false);
 
+  const currentInventoryItemInstanceId = '11111111-1111-4111-8111-111111111111';
+  const foreignInventoryItemInstanceId = '33333333-3333-4333-8333-333333333333';
+  const currentWeaponItemInstanceId = '22222222-2222-4222-8222-222222222222';
+  const foreignBodyItemInstanceId = '44444444-4444-4444-8444-444444444444';
+  runtimeSnapshot.inventory.items = [{
+    itemId: 'spirit_stone',
+    count: 1,
+    itemInstanceId: currentInventoryItemInstanceId,
+  }];
+  runtimeSnapshot.equipment.slots = [{
+    slot: 'weapon',
+    item: {
+      itemId: 'iron_sword',
+      count: 1,
+      enhanceLevel: 1,
+      itemInstanceId: currentWeaponItemInstanceId,
+    },
+  }];
+
+  await service.updatePlayer(playerId, {
+    section: 'items',
+    snapshot: {
+      inventory: {
+        capacity: 20,
+        items: [
+          { itemId: 'spirit_stone', count: 2 },
+          { itemId: 'spirit_stone', count: 1, itemInstanceId: foreignInventoryItemInstanceId },
+        ],
+      },
+      equipment: {
+        weapon: { itemId: 'iron_sword', enhanceLevel: 5 },
+        head: null,
+        body: { itemId: 'cloth_robe', itemInstanceId: foreignBodyItemInstanceId },
+        legs: null,
+        accessory: null,
+      },
+    },
+  });
+
+  assert.equal(savedSnapshot.inventory.items[0].itemInstanceId, currentInventoryItemInstanceId);
+  assert.notEqual(savedSnapshot.inventory.items[1].itemInstanceId, foreignInventoryItemInstanceId);
+  assert.ok(savedSnapshot.inventory.items[1].itemInstanceId);
+  const savedWeapon = savedSnapshot.equipment.slots.find((entry: any) => entry.slot === 'weapon')?.item;
+  const savedBody = savedSnapshot.equipment.slots.find((entry: any) => entry.slot === 'body')?.item;
+  assert.equal(savedWeapon.itemInstanceId, currentWeaponItemInstanceId);
+  assert.equal(savedWeapon.enhanceLevel, 5);
+  assert.notEqual(savedBody.itemInstanceId, foreignBodyItemInstanceId);
+  assert.ok(savedBody.itemInstanceId);
+
+  runtimeSnapshot.equipment.slots = [{
+    slot: 'weapon',
+    item: {
+      itemId: 'iron_sword',
+      count: 1,
+      enhanceLevel: 5,
+      itemInstanceId: currentWeaponItemInstanceId,
+    },
+  }];
+
+  await service.updatePlayer(playerId, {
+    section: 'items',
+    snapshot: {
+      inventory: {
+        capacity: 20,
+        items: [],
+      },
+      equipment: {
+        weapon: { itemId: 'copper_sword', itemInstanceId: currentWeaponItemInstanceId },
+        head: null,
+        body: null,
+        legs: null,
+        accessory: null,
+      },
+    },
+  });
+
+  const changedWeapon = savedSnapshot.equipment.slots.find((entry: any) => entry.slot === 'weapon')?.item;
+  assert.equal(changedWeapon.itemId, 'copper_sword');
+  assert.notEqual(changedWeapon.itemInstanceId, currentWeaponItemInstanceId);
+  assert.ok(changedWeapon.itemInstanceId);
+
   console.log(JSON.stringify({ ok: true, case: 'native-gm-player-technique-refresh' }));
 }
 
@@ -197,15 +278,22 @@ function createRuntimeSnapshot(playerId: string): any {
   };
 }
 
-function createPersistedSnapshot(): any {
+function createPersistedSnapshot(runtimeSnapshot?: any): any {
   return {
     vitals: { maxHp: 100, maxQi: 100, hp: 100, qi: 100 },
     combat: { autoBattleSkills: [] },
     buffs: { revision: 1, buffs: [] },
     progression: { foundation: 0, combatExp: 0, realm: { realmLv: 1, progress: 0 } },
     techniques: { revision: 1, cultivatingTechId: null, techniques: [] },
-    inventory: { revision: 1, capacity: 20, items: [] },
-    equipment: { revision: 1, slots: [] },
+    inventory: {
+      revision: 1,
+      capacity: 20,
+      items: clone(runtimeSnapshot?.inventory?.items ?? []),
+    },
+    equipment: {
+      revision: 1,
+      slots: clone(runtimeSnapshot?.equipment?.slots ?? []),
+    },
     quests: { revision: 1, entries: [] },
   };
 }
