@@ -7,8 +7,8 @@ import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { FlushLedgerService } from './flush-ledger.service';
 import { FlushWakeupService } from './flush-wakeup.service';
-import { isInlineFlushTaskRuntimeMode } from './flush-task-runtime-mode';
-import type { FlushTask } from './flush-task.types';
+import { isFlushTaskConsumerMode, isInlineFlushTaskRuntimeMode } from './flush-task-runtime-mode';
+import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
 import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { PlayerPersistenceFlushService } from './player-persistence-flush.service';
@@ -17,6 +17,12 @@ const INTERVAL_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_INTERVAL_MS', 'FLUSH_TASK
 const CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 64, 1, 256);
 const PLAYER_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_PLAYER_CLAIM_LIMIT', Math.max(256, CLAIM_LIMIT), 1, 5_000);
 const INSTANCE_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_INSTANCE_CLAIM_LIMIT', Math.max(256, CLAIM_LIMIT), 1, 5_000);
+const PLAYER_HIGH_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_HIGH_LIMIT', 'FLUSH_TASK_RUNTIME_PLAYER_HIGH_LIMIT', Math.max(1, Math.floor(PLAYER_CLAIM_LIMIT * 0.4)), 1, 5_000);
+const PLAYER_NORMAL_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_NORMAL_LIMIT', 'FLUSH_TASK_RUNTIME_PLAYER_NORMAL_LIMIT', Math.max(1, Math.floor(PLAYER_CLAIM_LIMIT * 0.45)), 1, 5_000);
+const PLAYER_LOW_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_LOW_LIMIT', 'FLUSH_TASK_RUNTIME_PLAYER_LOW_LIMIT', Math.max(1, PLAYER_CLAIM_LIMIT - PLAYER_HIGH_CLAIM_LIMIT - PLAYER_NORMAL_CLAIM_LIMIT), 1, 5_000);
+const INSTANCE_HIGH_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_HIGH_LIMIT', 'FLUSH_TASK_RUNTIME_INSTANCE_HIGH_LIMIT', Math.max(1, Math.floor(INSTANCE_CLAIM_LIMIT * 0.25)), 1, 5_000);
+const INSTANCE_NORMAL_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_NORMAL_LIMIT', 'FLUSH_TASK_RUNTIME_INSTANCE_NORMAL_LIMIT', Math.max(1, Math.floor(INSTANCE_CLAIM_LIMIT * 0.45)), 1, 5_000);
+const INSTANCE_LOW_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_LOW_LIMIT', 'FLUSH_TASK_RUNTIME_INSTANCE_LOW_LIMIT', Math.max(1, INSTANCE_CLAIM_LIMIT - INSTANCE_HIGH_CLAIM_LIMIT - INSTANCE_NORMAL_CLAIM_LIMIT), 1, 5_000);
 const PLAYER_PARALLELISM = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_PARALLELISM', 'FLUSH_TASK_RUNTIME_PLAYER_PARALLELISM', 8, 1, 64);
 const INSTANCE_PARALLELISM = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_PARALLELISM', 'FLUSH_TASK_RUNTIME_INSTANCE_PARALLELISM', 8, 1, 64);
 const RETRY_DELAY_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_RETRY_DELAY_MS', 'FLUSH_TASK_RUNTIME_RETRY_DELAY_MS', 5_000, 250, 300_000);
@@ -25,11 +31,18 @@ const TIME_CHECKPOINT_MS = readInt('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MA
 const MONSTER_RUNTIME_MS = readInt('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 60_000, 10_000, 600_000);
 const FLUSH_WAITING_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 'FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 2, 0, 100);
 const INSTANCE_COALESCE_DOMAINS = new Set(['tile_damage', 'tile_resource', 'fengshui']);
+const PLAYER_HIGH_PRIORITY_DOMAINS = new Set(['presence', 'position_checkpoint', 'world_anchor', 'inventory', 'equipment', 'market', 'mail', 'gm_edit', 'gm']);
+const INSTANCE_LOW_PRIORITY_DOMAINS = new Set(['time', 'monster_runtime', 'tile_resource', 'tile_damage', 'fengshui']);
+const INSTANCE_NORMAL_PRIORITY_DOMAINS = new Set(['container_state', 'ground_item', 'overlay', 'room', 'building', 'temporary_tile', 'tile_cell']);
 
 interface PlayerRuntimeFlushTaskPort {
   listDirtyPlayerDomains?(): Map<string, Set<string>>;
   listDirtyPlayers?(): string[];
   getPersistenceRevision?(playerId: string): number | null;
+}
+
+interface PlayerPersistenceFlushPort {
+  flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<boolean | void>;
 }
 
 interface InstanceRuntimeView {
@@ -65,7 +78,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeFlushTaskPort,
     @Inject(WorldRuntimeService) private readonly worldRuntimeService: WorldRuntimeFlushTaskPort,
-    private readonly playerPersistenceFlushService: PlayerPersistenceFlushService,
+    @Inject(PlayerPersistenceFlushService) private readonly playerPersistenceFlushService: PlayerPersistenceFlushPort,
     private readonly flushLedgerService: FlushLedgerService,
     private readonly flushWakeupService: FlushWakeupService,
     @Optional() @Inject(DatabasePoolProvider) private readonly databasePoolProvider?: DatabasePoolProvider,
@@ -80,7 +93,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
     this.timer.unref();
     this.logger.log(
-      `统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms playerLimit=${PLAYER_CLAIM_LIMIT} instanceLimit=${INSTANCE_CLAIM_LIMIT} playerParallelism=${PLAYER_PARALLELISM} instanceParallelism=${INSTANCE_PARALLELISM}`,
+      `统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms playerLimit=${PLAYER_CLAIM_LIMIT}(high=${PLAYER_HIGH_CLAIM_LIMIT},normal=${PLAYER_NORMAL_CLAIM_LIMIT},low=${PLAYER_LOW_CLAIM_LIMIT}) instanceLimit=${INSTANCE_CLAIM_LIMIT}(high=${INSTANCE_HIGH_CLAIM_LIMIT},normal=${INSTANCE_NORMAL_CLAIM_LIMIT},low=${INSTANCE_LOW_CLAIM_LIMIT}) playerParallelism=${PLAYER_PARALLELISM} instanceParallelism=${INSTANCE_PARALLELISM}`,
     );
   }
 
@@ -92,7 +105,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   async runOnce(workerId = this.workerId, filter?: { playerDomain?: string; instanceDomain?: string }): Promise<number> {
-    if (!isInlineFlushTaskRuntimeMode() || !this.flushLedgerService.isEnabled()) {
+    if (!isFlushTaskConsumerMode() || !this.flushLedgerService.isEnabled()) {
       return 0;
     }
     if (this.running) {
@@ -114,9 +127,34 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`统一刷盘任务因刷盘池等待排队而暂停认领：waiting>=${FLUSH_WAITING_LIMIT}`);
       return 0;
     }
-    const playerTasks = await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope: 'player', domain: filter?.playerDomain, limit: PLAYER_CLAIM_LIMIT });
-    const instanceTasks = await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope: 'instance', domain: filter?.instanceDomain, limit: INSTANCE_CLAIM_LIMIT });
+    const playerTasks = await this.claimReadyTasksByPriority(workerId, 'player', filter?.playerDomain, {
+      high: PLAYER_HIGH_CLAIM_LIMIT,
+      normal: PLAYER_NORMAL_CLAIM_LIMIT,
+      low: PLAYER_LOW_CLAIM_LIMIT,
+    });
+    const instanceTasks = await this.claimReadyTasksByPriority(workerId, 'instance', filter?.instanceDomain, {
+      high: INSTANCE_HIGH_CLAIM_LIMIT,
+      normal: INSTANCE_NORMAL_CLAIM_LIMIT,
+      low: INSTANCE_LOW_CLAIM_LIMIT,
+    });
     return (await this.processPlayerTasks(playerTasks)) + (await this.processInstanceTasks(instanceTasks));
+  }
+
+  private async claimReadyTasksByPriority(
+    workerId: string,
+    scope: FlushTaskScope,
+    domain: string | null | undefined,
+    limits: Record<FlushTaskPriority, number>,
+  ): Promise<FlushTask[]> {
+    const result: FlushTask[] = [];
+    for (const priority of ['high', 'normal', 'low'] satisfies FlushTaskPriority[]) {
+      const limit = limits[priority];
+      if (limit <= 0) {
+        continue;
+      }
+      result.push(...await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope, domain, priority, limit }));
+    }
+    return result;
   }
 
   private async collectPlayerTasks(): Promise<void> {
@@ -130,7 +168,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       for (const domain of taskDomains) {
         await this.flushLedgerService.upsertFlushTask({
           scope: 'player', id: playerId, domain,
-          priority: domain === 'presence' || domain === 'position_checkpoint' ? 'high' : 'normal',
+          priority: resolveFlushTaskPriority('player', domain),
           latestRevision: resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId)),
           nextAttemptAt: new Date().toISOString(),
         });
@@ -151,7 +189,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       for (const domain of normalizeDomains(entry.domains)) {
         await this.flushLedgerService.upsertFlushTask({
           scope: 'instance', id: instanceId, domain,
-          priority: INSTANCE_COALESCE_DOMAINS.has(domain) || domain === 'monster_runtime' ? 'low' : 'normal',
+          priority: resolveFlushTaskPriority('instance', domain),
           ownershipEpoch,
           latestRevision: resolveRevision(runtime.getPersistenceRevision?.()),
           nextAttemptAt: new Date(now + resolveInstanceDelayMs(domain)).toISOString(),
@@ -178,7 +216,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         const domains = Array.from(new Set(group.map((task) => task.domain)));
         const attemptKey = playerGroupKey(group);
         try {
-          await this.playerPersistenceFlushService.flushPlayerDomains(playerId, domains);
+          const flushed = await this.playerPersistenceFlushService.flushPlayerDomains(playerId, domains);
+          if (flushed === false) {
+            await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+            return;
+          }
           await this.flushLedgerService.markFlushTasksFlushed(group);
           this.failureAttempts.delete(attemptKey);
           processed += group.length;
@@ -212,7 +254,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       const attemptKey = playerTaskKey(task);
       try {
-        await this.playerPersistenceFlushService.flushPlayerDomains(task.id, [task.domain]);
+        const flushed = await this.playerPersistenceFlushService.flushPlayerDomains(task.id, [task.domain]);
+        if (flushed === false) {
+          await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+          continue;
+        }
         await this.flushLedgerService.markFlushTaskFlushed(task);
         this.failureAttempts.delete(attemptKey);
         processed += 1;
@@ -240,7 +286,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     const domains = Array.from(new Set(group.map((task) => task.domain)));
     const attemptKey = instanceGroupKey(group);
     try {
-      await this.worldRuntimeService.flushInstanceDomains?.(first.id, domains);
+      const result = await this.worldRuntimeService.flushInstanceDomains?.(first.id, domains);
+      if (result?.skipped === true) {
+        await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+        return 0;
+      }
       await this.flushLedgerService.markFlushTasksFlushed(group);
       this.failureAttempts.delete(attemptKey);
       return group.length;
@@ -265,7 +315,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       const attemptKey = instanceTaskKey(task);
       try {
-        await this.worldRuntimeService.flushInstanceDomains?.(task.id, [task.domain]);
+        const result = await this.worldRuntimeService.flushInstanceDomains?.(task.id, [task.domain]);
+        if (result?.skipped === true) {
+          await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+          continue;
+        }
         await this.flushLedgerService.markFlushTaskFlushed(task);
         this.failureAttempts.delete(attemptKey);
         processed += 1;
@@ -399,6 +453,19 @@ function resolveInstanceDelayMs(domain: string): number {
   if (domain === 'time') return TIME_CHECKPOINT_MS;
   if (domain === 'monster_runtime') return MONSTER_RUNTIME_MS;
   return 0;
+}
+
+function resolveFlushTaskPriority(scope: FlushTaskScope, domain: string): FlushTaskPriority {
+  if (scope === 'player') {
+    return PLAYER_HIGH_PRIORITY_DOMAINS.has(domain) ? 'high' : 'normal';
+  }
+  if (INSTANCE_LOW_PRIORITY_DOMAINS.has(domain)) {
+    return 'low';
+  }
+  if (INSTANCE_NORMAL_PRIORITY_DOMAINS.has(domain)) {
+    return 'normal';
+  }
+  return 'normal';
 }
 
 function playerTaskKey(task: FlushTask): string {

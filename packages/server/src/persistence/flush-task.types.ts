@@ -24,5 +24,6 @@ export interface ClaimFlushTaskInput {
   scope: FlushTaskScope;
   domain?: string | null;
   ownershipEpoch?: number | null;
+  priority?: FlushTaskPriority | null;
   limit?: number;
 }

@@ -49,7 +49,7 @@ services:
       SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
       SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR: /var/lib/server
       SERVER_OUTBOX_RUNTIME_ENABLED: "1"
-      SERVER_FLUSH_TASK_RUNTIME_MODE: inline
+      SERVER_FLUSH_TASK_RUNTIME_MODE: ${SERVER_FLUSH_TASK_RUNTIME_MODE:-inline}
     ports:
       - target: 13001
         published: ${SERVER_PUBLISHED_PORT:-11922}
@@ -106,6 +106,39 @@ services:
     stop_grace_period: 30s
     deploy:
       replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: any
+        delay: 10s
+
+  flush-worker:
+    image: ${TENCENT_IMAGE_PREFIX:-ccr.ccs.tencentyun.com/tcb-100001011660-qtgo}/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
+    command: ["node", "dist/tools/flush-task-worker.js"]
+    environment:
+      SERVER_RUNTIME_ENV: production
+      SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET:?SERVER_PLAYER_TOKEN_SECRET is required}
+      SERVER_GM_AUTH_SECRET: ${SERVER_GM_AUTH_SECRET:?SERVER_GM_AUTH_SECRET is required}
+      SERVER_SECRET_ENCRYPTION_KEY: ${SERVER_SECRET_ENCRYPTION_KEY:?SERVER_SECRET_ENCRYPTION_KEY is required}
+      SERVER_GM_PASSWORD: ${GM_PASSWORD:?GM_PASSWORD is required}
+      GM_PASSWORD: ${GM_PASSWORD:?GM_PASSWORD is required}
+      SERVER_OUTBOX_RUNTIME_ENABLED: "1"
+      SERVER_FLUSH_TASK_RUNTIME_MODE: worker
+    volumes:
+      - server_backup_data:/var/lib/server
+    networks:
+      - daojie_net
+    stop_grace_period: 30s
+    deploy:
+      replicas: ${FLUSH_WORKER_REPLICAS:-0}
       update_config:
         parallelism: 1
         delay: 10s

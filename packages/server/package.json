@@ -55,6 +55,8 @@
     "smoke:gm-database:backup-persistence": "pnpm compile && node dist/tools/gm-database-backup-persistence-smoke.js",
     "database:backup-worker": "pnpm compile && node dist/tools/database-backup-worker.js",
     "database:backup-worker:once": "pnpm compile && node dist/tools/database-backup-worker.js --once",
+    "flush:worker": "pnpm compile && node dist/tools/flush-task-worker.js",
+    "flush:worker:once": "pnpm compile && node dist/tools/flush-task-worker.js --once",
     "migrate:drop-gm-map-config": "pnpm compile && node dist/tools/migrate-drop-gm-map-config.js",
     "smoke:native-database-restore-sect-cleanup": "pnpm compile && node dist/tools/native-database-restore-sect-cleanup-smoke.js",
     "smoke:afdian-persistence": "pnpm compile && node dist/tools/afdian-persistence-smoke.js",

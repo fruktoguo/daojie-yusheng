@@ -1,11 +1,14 @@
 import { readTrimmedEnv } from '../config/env-alias';
 
-export type FlushTaskRuntimeMode = 'inline' | 'direct' | 'off';
+export type FlushTaskRuntimeMode = 'inline' | 'worker' | 'direct' | 'off';
 
 export function resolveFlushTaskRuntimeMode(): FlushTaskRuntimeMode {
   const raw = readTrimmedEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', 'FLUSH_TASK_RUNTIME_MODE')?.toLowerCase();
   if (raw === 'direct' || raw === 'legacy') {
     return 'direct';
+  }
+  if (raw === 'worker' || raw === 'consumer') {
+    return 'worker';
   }
   if (raw === 'off' || raw === 'disabled' || raw === '0' || raw === 'false') {
     return 'off';
@@ -19,6 +22,11 @@ export function resolveFlushTaskRuntimeMode(): FlushTaskRuntimeMode {
 
 export function isInlineFlushTaskRuntimeMode(): boolean {
   return resolveFlushTaskRuntimeMode() === 'inline';
+}
+
+export function isFlushTaskConsumerMode(): boolean {
+  const mode = resolveFlushTaskRuntimeMode();
+  return mode === 'inline' || mode === 'worker';
 }
 
 export function shouldRunLegacyFlushIntervals(): boolean {

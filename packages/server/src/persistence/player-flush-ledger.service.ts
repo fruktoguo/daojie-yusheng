@@ -22,6 +22,7 @@ const CREATE_PLAYER_FLUSH_LEDGER_TABLE_SQL = `
     next_attempt_at timestamptz,
     claimed_by varchar(120),
     claim_until timestamptz,
+    priority varchar(16) NOT NULL DEFAULT 'normal',
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (player_id, domain)
   )
@@ -264,6 +265,7 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
       `
         SELECT
           domain,
+          MAX(priority) AS priority,
           COUNT(*)::bigint AS backlog_count,
           COUNT(*) FILTER (WHERE latest_version > flushed_version)::bigint AS dirty_count,
           COUNT(*) FILTER (WHERE claimed_by IS NOT NULL AND claim_until >= now())::bigint AS claimed_count,
@@ -306,6 +308,10 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_lock($1, $2)', [FLUSH_LEDGER_LOCK_NAMESPACE, FLUSH_LEDGER_LOCK_KEY]);
     await client.query(CREATE_PLAYER_FLUSH_LEDGER_TABLE_SQL);
+    await client.query(`
+      ALTER TABLE ${PLAYER_FLUSH_LEDGER_TABLE}
+      ADD COLUMN IF NOT EXISTS priority varchar(16) NOT NULL DEFAULT 'normal'
+    `);
     await client.query(`
       DO $$
       BEGIN

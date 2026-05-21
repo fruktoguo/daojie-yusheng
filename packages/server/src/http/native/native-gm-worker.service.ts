@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { GmWorkerAlert, GmWorkerRow, GmWorkerStateRes, GmWorkerStatus } from '@mud/shared';
 
 import { FlushLedgerService } from '../../persistence/flush-ledger.service';
+import { FlushDiagnosticsService } from '../../persistence/flush-diagnostics.service';
 import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.service';
 import { PlayerFlushLedgerService } from '../../persistence/player-flush-ledger.service';
 import { NativeGmAdminService } from './native-gm-admin.service';
@@ -26,6 +27,7 @@ const INSTANCE_WORKER_DOMAINS = [
 export class NativeGmWorkerService {
   constructor(
     @Inject(FlushLedgerService) private readonly flushLedgerService: FlushLedgerService,
+    @Inject(FlushDiagnosticsService) private readonly flushDiagnosticsService: FlushDiagnosticsService,
     @Inject(PlayerFlushLedgerService) private readonly playerFlushLedgerService: PlayerFlushLedgerService,
     @Inject(OutboxDispatcherService) private readonly outboxDispatcherService: OutboxDispatcherService,
     @Inject(NativeGmAdminService) private readonly nativeGmAdminService: NativeGmAdminService,
@@ -40,6 +42,7 @@ export class NativeGmWorkerService {
       outboxSummary,
       retryRows,
       databaseState,
+      flushDiagnostics,
     ] = await Promise.all([
       this.playerFlushLedgerService.listBacklogSummary(),
       this.flushLedgerService.listInstanceBacklogSummary(),
@@ -48,6 +51,7 @@ export class NativeGmWorkerService {
       this.outboxDispatcherService.listRecentThroughputSummary({ windowSeconds: WORKER_WINDOW_SECONDS }),
       this.outboxDispatcherService.listRetryQueue({ limit: 100 }),
       this.nativeGmAdminService.getDatabaseState(),
+      Promise.resolve(this.flushDiagnosticsService.getSnapshot()),
     ]);
 
     const rows: GmWorkerRow[] = [
@@ -66,6 +70,38 @@ export class NativeGmWorkerService {
         flushLedgerEnabled: this.flushLedgerService.isEnabled() || this.playerFlushLedgerService.isEnabled(),
         outboxEnabled: this.outboxDispatcherService.isEnabled(),
         backupWorkerHeartbeatActive: Boolean(databaseState.automation?.schedulesActive),
+      },
+      capacity: {
+        pgPools: flushDiagnostics.pgPools,
+        pgLockWait: flushDiagnostics.pgLockWait
+          ? {
+              waitingCount: flushDiagnostics.pgLockWait.waitingCount,
+              checkedAt: flushDiagnostics.pgLockWait.checkedAt,
+              error: flushDiagnostics.pgLockWait.error,
+            }
+          : null,
+        player: flushDiagnostics.player
+          ? {
+              totalMs: flushDiagnostics.player.totalMs,
+              dbWriteMs: flushDiagnostics.player.dbWriteMs,
+              entityCount: flushDiagnostics.player.dirtyPlayerCount,
+              domainCounts: flushDiagnostics.player.domainCounts,
+            }
+          : null,
+        map: flushDiagnostics.map
+          ? {
+              totalMs: flushDiagnostics.map.totalMs,
+              dbWriteMs: flushDiagnostics.map.dbWriteMs,
+              entityCount: flushDiagnostics.map.dirtyInstanceCount,
+              domainCounts: flushDiagnostics.map.domainCounts,
+              coalescedDomainCount: flushDiagnostics.map.coalescedDomainCount,
+            }
+          : null,
+        failures: {
+          total: flushDiagnostics.failures.total,
+          byCategory: flushDiagnostics.failures.byCategory,
+          byDomain: flushDiagnostics.failures.byDomain,
+        },
       },
       note: 'GM worker 面板读取 flush ledger、outbox 与数据库备份 worker 心跳的低频汇总；它不启动、不停止 worker，也不替代进程级监控。',
     };
@@ -197,11 +233,25 @@ function buildWorkerAlerts(rows: GmWorkerRow[]): GmWorkerAlert[] {
     if (row.pendingCount >= BACKLOG_WARN_THRESHOLD) {
       alerts.push({ workerId: row.id, level: 'warn', reason: 'backlog_high', count: row.pendingCount });
     }
-    if (row.status === 'warn') {
+    if (shouldReportInactive(row)) {
       alerts.push({ workerId: row.id, level: 'warn', reason: 'worker_inactive' });
     }
   }
   return alerts;
+}
+
+function shouldReportInactive(row: GmWorkerRow): boolean {
+  if (row.kind !== 'player_flush' && row.kind !== 'instance_flush') {
+    return row.status === 'warn' && row.pendingCount > 0 && row.writeCount === 0;
+  }
+  if (row.pendingCount <= 0 || row.claimedCount > 0 || row.writeCount > 0) {
+    return false;
+  }
+  const latestUpdatedAt = Date.parse(row.latestUpdatedAt ?? '');
+  if (!Number.isFinite(latestUpdatedAt)) {
+    return true;
+  }
+  return Date.now() - latestUpdatedAt > WORKER_WINDOW_SECONDS * 2_000;
 }
 
 function resolveWorkerStatus(input: {

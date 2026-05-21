@@ -1195,6 +1195,126 @@ export interface GmWorkerAlert {
   count?: number;
 }
 
+/** GM worker 容量诊断：数据库连接池快照。 */
+export interface GmWorkerPoolStats {
+/**
+ * totalCount：池中连接总数。
+ */
+
+  totalCount: number;
+  /**
+ * idleCount：空闲连接数。
+ */
+
+  idleCount: number;
+  /**
+ * waitingCount：等待连接数。
+ */
+
+  waitingCount: number;
+}
+
+/** GM worker 容量诊断：PostgreSQL 锁等待摘要。 */
+export interface GmWorkerLockWaitSummary {
+/**
+ * waitingCount：当前锁等待数量。
+ */
+
+  waitingCount: number;
+  /**
+ * checkedAt：采样时间戳。
+ */
+
+  checkedAt: number;
+  /**
+ * error：锁等待采样错误。
+ */
+
+  error?: string;
+}
+
+/** GM worker 容量诊断：最近 flush 耗时。 */
+export interface GmWorkerFlushCapacity {
+/**
+ * totalMs：最近一轮总耗时。
+ */
+
+  totalMs: number;
+  /**
+ * dbWriteMs：最近一轮 DB 写入耗时。
+ */
+
+  dbWriteMs: number;
+  /**
+ * entityCount：玩家数或实例数。
+ */
+
+  entityCount: number;
+  /**
+ * domainCounts：domain 写入计数。
+ */
+
+  domainCounts: Record<string, number>;
+  /**
+ * coalescedDomainCount：被合并窗口延迟的 domain 数。
+ */
+
+  coalescedDomainCount?: number;
+}
+
+/** GM worker 容量诊断：失败摘要。 */
+export interface GmWorkerFailureCapacity {
+/**
+ * total：内存窗口内失败总数。
+ */
+
+  total: number;
+  /**
+ * byCategory：按失败分类统计。
+ */
+
+  byCategory: Record<string, number>;
+  /**
+ * byDomain：按 scope/domain 统计。
+ */
+
+  byDomain: Record<string, number>;
+}
+
+/** GM worker 容量诊断。 */
+export interface GmWorkerCapacity {
+/**
+ * pgPools：按用途拆分的数据库连接池状态。
+ */
+
+  pgPools?: {
+    runtimeCritical?: GmWorkerPoolStats | null;
+    flush?: GmWorkerPoolStats | null;
+    outbox?: GmWorkerPoolStats | null;
+    gmDiagnostics?: GmWorkerPoolStats | null;
+  } | null;
+  /**
+ * pgLockWait：PostgreSQL 锁等待摘要。
+ */
+
+  pgLockWait?: GmWorkerLockWaitSummary | null;
+  /**
+ * player：最近玩家 flush 容量指标。
+ */
+
+  player?: GmWorkerFlushCapacity | null;
+  /**
+ * map：最近地图 flush 容量指标。
+ */
+
+  map?: GmWorkerFlushCapacity | null;
+  /**
+ * failures：flush 失败窗口摘要。
+ */
+
+  failures?: GmWorkerFailureCapacity | null;
+}
+
 /** GM worker 监控响应。 */
 export interface GmWorkerStateRes {
 /**
@@ -1226,6 +1346,11 @@ export interface GmWorkerStateRes {
     outboxEnabled: boolean;
     backupWorkerHeartbeatActive: boolean;
   };
+  /**
+ * capacity：flush worker 容量和反压诊断。
+ */
+
+  capacity?: GmWorkerCapacity;
   /**
  * note：补充说明。
  */

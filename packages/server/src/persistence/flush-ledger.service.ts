@@ -7,7 +7,7 @@ import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } f
 import { Pool } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
-import type { ClaimFlushTaskInput, FlushTask } from './flush-task.types';
+import type { ClaimFlushTaskInput, FlushTask, FlushTaskPriority } from './flush-task.types';
 
 const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
@@ -53,6 +53,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       await this.upsertPlayerFlushLedger({
         playerId: task.id,
         domain: task.domain,
+        priority: task.priority,
         latestVersion: task.latestRevision,
         dirtySinceAt: task.dirtySinceAt ?? new Date().toISOString(),
         nextAttemptAt: task.nextAttemptAt ?? new Date().toISOString(),
@@ -62,6 +63,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     await this.upsertInstanceFlushLedger({
       instanceId: task.id,
       domain: task.domain,
+      priority: task.priority,
       ownershipEpoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
       latestVersion: task.latestRevision,
       dirtySinceAt: task.dirtySinceAt ?? new Date().toISOString(),
@@ -86,7 +88,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           scope: input.scope,
           id,
           domain,
-          priority: 'normal',
+          priority: normalizePriority(row.priority),
           latestRevision: normalizePositiveInteger(row.latest_version, 0, 0, Number.MAX_SAFE_INTEGER),
           ownershipEpoch: input.scope === 'instance'
             ? normalizePositiveInteger(row.ownership_epoch, 0, 0, Number.MAX_SAFE_INTEGER)
@@ -265,6 +267,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     playerId: string;
     domain: string;
     latestVersion: number;
+    priority?: FlushTaskPriority | null;
     flushedVersion?: number;
     dirtySinceAt?: string | null;
     nextAttemptAt?: string | null;
@@ -282,11 +285,12 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     await this.pool.query(
       `
         INSERT INTO ${PLAYER_FLUSH_LEDGER_TABLE}(
-          player_id, domain, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
         ON CONFLICT (player_id, domain)
         DO UPDATE SET
+          priority = EXCLUDED.priority,
           latest_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
           flushed_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
           dirty_since_at = COALESCE(EXCLUDED.dirty_since_at, ${PLAYER_FLUSH_LEDGER_TABLE}.dirty_since_at),
@@ -298,6 +302,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       [
         playerId,
         domain,
+        normalizePriority(input.priority),
         Math.max(0, Math.trunc(Number(input.latestVersion ?? 0))),
         Math.max(0, Math.trunc(Number(input.flushedVersion ?? 0))),
         input.dirtySinceAt ?? null,
@@ -313,6 +318,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     domain: string;
     ownershipEpoch: number;
     latestVersion: number;
+    priority?: FlushTaskPriority | null;
     flushedVersion?: number;
     dirtySinceAt?: string | null;
     nextAttemptAt?: string | null;
@@ -330,11 +336,12 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     await this.pool.query(
       `
         INSERT INTO ${INSTANCE_FLUSH_LEDGER_TABLE}(
-          instance_id, domain, ownership_epoch, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
         ON CONFLICT (instance_id, domain, ownership_epoch)
         DO UPDATE SET
+          priority = EXCLUDED.priority,
           latest_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
           flushed_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
           dirty_since_at = COALESCE(EXCLUDED.dirty_since_at, ${INSTANCE_FLUSH_LEDGER_TABLE}.dirty_since_at),
@@ -347,6 +354,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         instanceId,
         domain,
         Math.max(0, Math.trunc(Number(input.ownershipEpoch ?? 0))),
+        normalizePriority(input.priority),
         Math.max(0, Math.trunc(Number(input.latestVersion ?? 0))),
         Math.max(0, Math.trunc(Number(input.flushedVersion ?? 0))),
         input.dirtySinceAt ?? null,
@@ -360,6 +368,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   async claimPlayerFlushLedger(input: {
     workerId: string;
     domain?: string | null;
+    priority?: FlushTaskPriority | null;
     limit?: number;
   }): Promise<Array<Record<string, unknown>>> {
     if (!this.pool || !this.enabled) {
@@ -381,6 +390,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       queryParams.push(domain);
       filters.push(`domain = $${queryParams.length}`);
     }
+    const priority = normalizeOptionalPriority(input.priority);
+    if (priority) {
+      queryParams.push(priority);
+      filters.push(`priority = $${queryParams.length}`);
+    }
     queryParams.push(limit);
     const limitParam = `$${queryParams.length}`;
     const result = await this.pool.query(
@@ -393,11 +407,14 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             SELECT player_id, domain
             FROM ${PLAYER_FLUSH_LEDGER_TABLE}
             WHERE ${filters.join(' AND ')}
-            ORDER BY dirty_since_at ASC NULLS LAST, updated_at ASC, player_id ASC
+            ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 WHEN 'low' THEN 2 ELSE 1 END ASC,
+                     dirty_since_at ASC NULLS LAST,
+                     updated_at ASC,
+                     player_id ASC
             LIMIT ${limitParam}
             FOR UPDATE SKIP LOCKED
           )
-          RETURNING player_id, domain, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          RETURNING player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
         )
         SELECT * FROM claimed
       `,
@@ -409,6 +426,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   async claimInstanceFlushLedger(input: {
     workerId: string;
     domain?: string | null;
+    priority?: FlushTaskPriority | null;
     ownershipEpoch?: number | null;
     limit?: number;
   }): Promise<Array<Record<string, unknown>>> {
@@ -431,6 +449,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       queryParams.push(domain);
       filters.push(`domain = $${queryParams.length}`);
     }
+    const priority = normalizeOptionalPriority(input.priority);
+    if (priority) {
+      queryParams.push(priority);
+      filters.push(`priority = $${queryParams.length}`);
+    }
     const parsedOwnershipEpoch = Number(input.ownershipEpoch);
     if (Number.isFinite(parsedOwnershipEpoch) && parsedOwnershipEpoch >= 0) {
       queryParams.push(Math.trunc(parsedOwnershipEpoch));
@@ -448,11 +471,14 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             SELECT instance_id, domain, ownership_epoch
             FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
             WHERE ${filters.join(' AND ')}
-            ORDER BY dirty_since_at ASC NULLS LAST, updated_at ASC, instance_id ASC
+            ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 WHEN 'low' THEN 2 ELSE 1 END ASC,
+                     dirty_since_at ASC NULLS LAST,
+                     updated_at ASC,
+                     instance_id ASC
             LIMIT ${limitParam}
             FOR UPDATE SKIP LOCKED
           )
-          RETURNING instance_id, domain, ownership_epoch, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          RETURNING instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
         )
         SELECT * FROM claimed
       `,
@@ -567,6 +593,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       `
         SELECT
           domain,
+          MAX(priority) AS priority,
           COUNT(*)::bigint AS backlog_count,
           COUNT(*) FILTER (WHERE latest_version > flushed_version)::bigint AS dirty_count,
           COUNT(*) FILTER (WHERE claimed_by IS NOT NULL AND claim_until >= now())::bigint AS claimed_count,
@@ -589,6 +616,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         SELECT
           domain,
           ownership_epoch,
+          MAX(priority) AS priority,
           COUNT(*)::bigint AS backlog_count,
           COUNT(*) FILTER (WHERE latest_version > flushed_version)::bigint AS dirty_count,
           COUNT(*) FILTER (WHERE claimed_by IS NOT NULL AND claim_until >= now())::bigint AS claimed_count,
@@ -669,9 +697,14 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
         next_attempt_at timestamptz NULL,
         claimed_by varchar(120) NULL,
         claim_until timestamptz NULL,
+        priority varchar(16) NOT NULL DEFAULT 'normal',
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (player_id, domain)
       )
+    `);
+    await client.query(`
+      ALTER TABLE ${PLAYER_FLUSH_LEDGER_TABLE}
+      ADD COLUMN IF NOT EXISTS priority varchar(16) NOT NULL DEFAULT 'normal'
     `);
     await client.query(`
       DO $$
@@ -693,8 +726,12 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
       END $$;
     `);
     await client.query(`
+      CREATE INDEX IF NOT EXISTS player_flush_ledger_priority_pending_idx
+      ON ${PLAYER_FLUSH_LEDGER_TABLE}(priority, domain, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
+    `);
+    await client.query(`
       CREATE INDEX IF NOT EXISTS player_flush_ledger_domain_pending_idx
-      ON ${PLAYER_FLUSH_LEDGER_TABLE}(domain, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
+      ON ${PLAYER_FLUSH_LEDGER_TABLE}(priority, domain, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS player_flush_ledger_claim_idx
@@ -726,13 +763,22 @@ async function ensureInstanceFlushLedgerTable(pool: Pool): Promise<void> {
         next_attempt_at timestamptz NULL,
         claimed_by varchar(120) NULL,
         claim_until timestamptz NULL,
+        priority varchar(16) NOT NULL DEFAULT 'normal',
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, domain, ownership_epoch)
       )
     `);
     await client.query(`
+      ALTER TABLE ${INSTANCE_FLUSH_LEDGER_TABLE}
+      ADD COLUMN IF NOT EXISTS priority varchar(16) NOT NULL DEFAULT 'normal'
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS instance_flush_ledger_priority_pending_idx
+      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(priority, domain, ownership_epoch, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
+    `);
+    await client.query(`
       CREATE INDEX IF NOT EXISTS instance_flush_ledger_domain_pending_idx
-      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(domain, ownership_epoch, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
+      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(priority, domain, ownership_epoch, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_flush_ledger_claim_idx
@@ -758,6 +804,17 @@ function normalizeOptionalTimestamp(value: unknown): string | null {
     return value.toISOString();
   }
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizePriority(value: unknown): FlushTaskPriority {
+  return value === 'high' || value === 'low' || value === 'normal' ? value : 'normal';
+}
+
+function normalizeOptionalPriority(value: unknown): FlushTaskPriority | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  return normalizePriority(value);
 }
 
 function normalizePositiveInteger(value: unknown, defaultValue: number, min: number, max: number): number {

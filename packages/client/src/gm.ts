@@ -3486,6 +3486,7 @@ function renderWorkerPanel(): void {
   const rows = workerState.rows.length > 0
     ? workerState.rows.map(getWorkerRowMarkup).join('')
     : '<div class="empty-hint">当前还没有 worker 记录。</div>';
+  const capacityCards = getWorkerCapacityMarkup(workerState);
 
   serverWorkersContentEl.innerHTML = `
     <div class="summary-grid">
@@ -3493,6 +3494,7 @@ function renderWorkerPanel(): void {
       <div class="summary-card"><div class="panel-title">活跃/待处理</div><div class="panel-value">${countWorkerRows(workerState.rows, ['active', 'pending'])}</div></div>
       <div class="summary-card"><div class="panel-title">积压总数</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'pendingCount')}</div></div>
       <div class="summary-card"><div class="panel-title">死信</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'deadLetterCount')}</div></div>
+      ${capacityCards}
     </div>
     <div class="note-card">${escapeHtml(workerState.note ?? 'Worker 面板读取低频诊断快照，不改变 worker 运行。')}</div>
     ${alerts}
@@ -3893,6 +3895,77 @@ function getWorkerAlertLabel(reason: string): string {
     default:
       return reason;
   }
+}
+
+function getWorkerCapacityMarkup(state: GmWorkerStateRes): string {
+  const capacity = state.capacity;
+  if (!capacity) {
+    return '';
+  }
+  const flushPool = capacity.pgPools?.flush;
+  const lockWait = capacity.pgLockWait;
+  const player = capacity.player;
+  const map = capacity.map;
+  const failures = capacity.failures;
+  const cards = [
+    {
+      title: 'Flush Pool 等待',
+      value: `${formatCompactNumber(flushPool?.waitingCount ?? 0)}`,
+      note: flushPool ? `连接 ${flushPool.totalCount} · 空闲 ${flushPool.idleCount}` : '暂无连接池采样',
+    },
+    {
+      title: 'PG 锁等待',
+      value: `${formatCompactNumber(lockWait?.waitingCount ?? 0)}`,
+      note: lockWait?.error ? `采样失败：${lockWait.error}` : (lockWait ? `检查 ${formatDateTime(new Date(lockWait.checkedAt).toISOString())}` : '暂无锁等待采样'),
+    },
+    {
+      title: '玩家 Flush',
+      value: player ? `${formatMs(player.totalMs)}` : '无采样',
+      note: player ? `DB ${formatMs(player.dbWriteMs)} · 玩家 ${player.entityCount}` : '等待下一轮玩家刷盘',
+    },
+    {
+      title: '地图 Flush',
+      value: map ? `${formatMs(map.totalMs)}` : '无采样',
+      note: map ? `DB ${formatMs(map.dbWriteMs)} · 实例 ${map.entityCount}${map.coalescedDomainCount ? ` · 合并 ${map.coalescedDomainCount}` : ''}` : '等待下一轮地图刷盘',
+    },
+    {
+      title: '失败窗口',
+      value: `${formatCompactNumber(failures?.total ?? 0)}`,
+      note: failures ? formatWorkerFailureBreakdown(failures.byCategory) : '暂无失败采样',
+    },
+  ];
+  return cards.map((card) => `
+    <div class="summary-card">
+      <div class="panel-title">${escapeHtml(card.title)}</div>
+      <div class="panel-value">${escapeHtml(card.value)}</div>
+      <div class="stats-card-note">${escapeHtml(card.note)}</div>
+    </div>
+  `).join('');
+}
+
+function formatWorkerFailureBreakdown(byCategory: Record<string, number>): string {
+  const entries = Object.entries(byCategory)
+    .filter(([, count]) => Number(count) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, 3);
+  return entries.length > 0
+    ? entries.map(([key, count]) => `${key} ${count}`).join(' · ')
+    : '暂无失败分类';
+}
+
+function formatMs(value: number): string {
+  return `${Math.max(0, Number(value) || 0).toFixed(1)} ms`;
+}
+
+function formatCompactNumber(value: number): string {
+  const normalized = Math.max(0, Number(value) || 0);
+  if (normalized >= 1_000_000) {
+    return `${(normalized / 1_000_000).toFixed(1)}M`;
+  }
+  if (normalized >= 1_000) {
+    return `${(normalized / 1_000).toFixed(1)}K`;
+  }
+  return `${Math.trunc(normalized)}`;
 }
 
 function formatWorkerRate(value: number): string {

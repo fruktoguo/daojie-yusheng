@@ -102,12 +102,44 @@ async function main(): Promise<void> {
     const readyExtraInstances = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe-extra', scope: 'instance', domain: extraInstanceDomain, limit: 10 });
     assert.equal(readyExtraPlayers.length, 0);
     assert.equal(readyExtraInstances.length, 0);
+    const priorityPlayerId = `${playerId}_priority`;
+    await ledger.upsertFlushTask({
+      scope: 'player',
+      id: priorityPlayerId,
+      domain: 'inventory',
+      priority: 'high',
+      latestRevision: 21,
+      nextAttemptAt: new Date().toISOString(),
+    });
+    await ledger.upsertFlushTask({
+      scope: 'player',
+      id: priorityPlayerId,
+      domain: 'progression',
+      priority: 'normal',
+      latestRevision: 22,
+      nextAttemptAt: new Date().toISOString(),
+    });
+    await ledger.upsertFlushTask({
+      scope: 'player',
+      id: priorityPlayerId,
+      domain: 'body_training',
+      priority: 'low',
+      latestRevision: 23,
+      nextAttemptAt: new Date().toISOString(),
+    });
+    const highPriority = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:priority-high', scope: 'player', priority: 'high', limit: 10 });
+    const normalPriority = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:priority-normal', scope: 'player', priority: 'normal', limit: 10 });
+    const lowPriority = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:priority-low', scope: 'player', priority: 'low', limit: 10 });
+    assert.equal(highPriority.some((task) => task.id === priorityPlayerId && task.domain === 'inventory' && task.priority === 'high'), true);
+    assert.equal(normalPriority.some((task) => task.id === priorityPlayerId && task.domain === 'progression' && task.priority === 'normal'), true);
+    assert.equal(lowPriority.some((task) => task.id === priorityPlayerId && task.domain === 'body_training' && task.priority === 'low'), true);
+    await cleanupRows(pool, priorityPlayerId, instanceId);
     console.log(JSON.stringify({
       ok: true,
       processed,
       playerFlushCalls,
       instanceFlushCalls,
-      answers: '统一 flush task runtime 已完成 dirty 采集、ledger claim、执行 flush action 与 mark flushed 闭环。',
+      answers: '统一 flush task runtime 已完成 dirty 采集、ledger priority claim、执行 flush action 与 mark flushed 闭环。',
       excludes: '不证明真实生产压测或跨节点故障注入。',
       completionMapping: 'release:proof:stage4.flush-task-runtime',
     }, null, 2));
