@@ -20,14 +20,25 @@ function createDetailService(targetPlayer: Record<string, unknown>): WorldRuntim
         return playerId === targetPlayer.playerId ? targetPlayer : null;
       },
     } as never,
+    {
+      getMemoryUserByPlayerId(playerId: string) {
+        return playerId === targetPlayer.playerId
+          ? {
+              pendingRoleName: '云渡',
+              playerName: '云渡',
+              displayName: '云',
+            }
+          : null;
+      },
+    } as never,
   );
 }
 
 function createObservedPlayer(): Record<string, unknown> {
   return {
     playerId: 'p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803',
-    name: 'p_28be0b16-0f11-4583-a397-bb7741016e75_1773932128803',
-    displayName: '云渡',
+    name: '修士',
+    displayName: '@',
     instanceId: 'instance:observe-name',
     x: 1,
     y: 0,
@@ -117,7 +128,7 @@ function createDetailContext(targetPlayer: Record<string, unknown>) {
   };
 }
 
-function assertObservePlayerNameUsesDisplayNameFallback(): void {
+function assertObservePlayerNameUsesAccountIdentity(): void {
   const targetPlayer = createObservedPlayer();
   const detailService = createDetailService(targetPlayer);
   const context = createDetailContext(targetPlayer);
@@ -131,6 +142,6 @@ function assertObservePlayerNameUsesDisplayNameFallback(): void {
   assert.equal(playerDetail.player?.name, '云渡');
 }
 
-assertObservePlayerNameUsesDisplayNameFallback();
+assertObservePlayerNameUsesAccountIdentity();
 
 console.log('world-runtime-observe-player-name-smoke ok');

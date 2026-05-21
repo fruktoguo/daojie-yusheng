@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, parseQiResourceKey } from '@mud/shared';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
+import { NativePlayerAuthStoreService } from '../../../http/native/native-player-auth-store.service';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import * as world_runtime_observation_helpers_1 from './world-runtime.observation.helpers';
@@ -43,10 +44,16 @@ export class WorldRuntimeDetailQueryService {
 
     playerRuntimeService;    
     /**
+ * playerAuthStore：账号身份存储引用。
+ */
+
+    playerAuthStore;    
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
  * @param templateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
+ * @param playerAuthStore 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
@@ -54,10 +61,12 @@ export class WorldRuntimeDetailQueryService {
         contentTemplateRepository: ContentTemplateRepository,
         templateRepository: MapTemplateRepository,
         playerRuntimeService: PlayerRuntimeService,
+        playerAuthStore: NativePlayerAuthStoreService,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
+        this.playerAuthStore = playerAuthStore;
     }    
     /**
  * buildDetail：构建并返回目标对象。
@@ -146,7 +155,7 @@ export class WorldRuntimeDetailQueryService {
                 id,
                 player: {
                     id: target.playerId,
-                    name: resolveObservedPlayerName(target),
+                    name: resolveObservedPlayerName(target, this.playerAuthStore),
                     x: target.x,
                     y: target.y,
                     hp: target.hp,
@@ -298,7 +307,7 @@ export class WorldRuntimeDetailQueryService {
             }
             entities.push({
                 id: target.playerId,
-                name: resolveObservedPlayerName(target),
+                name: resolveObservedPlayerName(target, this.playerAuthStore),
                 kind: 'player',
                 hp: target.hp,
                 maxHp: target.maxHp,
@@ -401,10 +410,31 @@ export class WorldRuntimeDetailQueryService {
     }
 };
 
-function resolveObservedPlayerName(player) {
-    return normalizeObservedPlayerName(player?.name, player?.playerId)
+function resolveObservedPlayerName(player, authStore) {
+    const accountName = resolveObservedAccountPlayerName(player, authStore);
+    return accountName
+        || normalizeObservedPlayerName(player?.name, player?.playerId)
         || normalizeObservedPlayerName(player?.displayName, player?.playerId)
         || '修士';
+}
+
+function resolveObservedAccountPlayerName(player, authStore) {
+    if (!player || typeof player !== 'object') {
+        return '';
+    }
+    const playerId = normalizeObservedPlayerIdentity(player?.playerId);
+    if (!playerId) {
+        return '';
+    }
+    const account = typeof authStore?.getMemoryUserByPlayerId === 'function'
+        ? authStore.getMemoryUserByPlayerId(playerId)
+        : null;
+    if (!account) {
+        return '';
+    }
+    return normalizeObservedPlayerName(account.pendingRoleName, playerId)
+        || normalizeObservedPlayerName(account.playerName, playerId)
+        || normalizeObservedPlayerName(account.displayName, playerId);
 }
 
 function normalizeObservedPlayerName(value, playerId) {
