@@ -392,6 +392,7 @@ export class WorldSessionBootstrapService {
         mapId?: string | null;
         preferredX?: number;
         preferredY?: number;
+        allowCreateFallback?: boolean;
     }) {
         return this.runtimeBootstrapService.connectBootstrapRuntimePlayer(this.worldRuntimeService, input);
     }
@@ -433,13 +434,22 @@ export class WorldSessionBootstrapService {
         if (Number.isFinite(bindingSessionEpoch) && bindingSessionEpoch > 0) {
             this.worldSessionService.rememberSessionEpoch(binding.playerId, bindingSessionEpoch);
         }
+        const explicitInstanceId = normalizeBootstrapId(input.instanceId);
+        const bootstrapInstanceId = explicitInstanceId || normalizeBootstrapId(player.instanceId) || undefined;
+        const bootstrapSnapshotSource = this.resolveBootstrapSnapshotSource(client);
+        const bootstrapSnapshotPersistedSource = this.resolveBootstrapSnapshotPersistedSource(client);
+        const snapshotTargetsPersistentInstance = Boolean(
+            bootstrapInstanceId
+            && (bootstrapSnapshotSource || bootstrapSnapshotPersistedSource),
+        );
         this.connectBootstrapRuntimePlayer({
             playerId: binding.playerId,
             sessionId: binding.sessionId,
-            instanceId: input.instanceId ?? (player.instanceId || undefined),
+            instanceId: bootstrapInstanceId,
             mapId: input.mapId ?? (player.templateId || undefined),
             preferredX: input.preferredX ?? (player.templateId ? player.x : undefined),
             preferredY: input.preferredY ?? (player.templateId ? player.y : undefined),
+            allowCreateFallback: !explicitInstanceId && !snapshotTargetsPersistentInstance,
         });
         await this.deferInitialSyncEmission();
         this.worldSyncService.emitInitialSync(binding.playerId, client);
@@ -452,9 +462,6 @@ export class WorldSessionBootstrapService {
 
         const bootstrapIdentityPersistedSource = this.resolveBootstrapIdentityPersistedSource(client);
 
-        const bootstrapSnapshotSource = this.resolveBootstrapSnapshotSource(client);
-
-        const bootstrapSnapshotPersistedSource = this.resolveBootstrapSnapshotPersistedSource(client);
         this.finalizeBootstrap({
             playerId: binding.playerId,
             sessionId: binding.sessionId,
@@ -498,4 +505,8 @@ export class WorldSessionBootstrapService {
     async loadAuthenticatedPlayerSnapshot(identity: BootstrapIdentityLike, client: BootstrapClientLike | undefined = undefined): Promise<PersistedPlayerSnapshot | null> {
         return this.snapshotBootstrapService.loadAuthenticatedPlayerSnapshot(identity, client);
     }
+}
+
+function normalizeBootstrapId(value: string | null | undefined): string {
+    return typeof value === 'string' ? value.trim() : '';
 }

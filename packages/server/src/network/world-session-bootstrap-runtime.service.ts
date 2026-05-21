@@ -20,6 +20,7 @@ interface WorldRuntimeBootstrapSessionPort {
         mapId?: string | null;
         preferredX?: number;
         preferredY?: number;
+        allowCreateFallback?: boolean;
     }, deps: unknown): unknown;
     removePlayer(playerId: string, reason: string, deps: unknown): unknown;
 }
@@ -64,6 +65,7 @@ export class WorldSessionBootstrapRuntimeService {
             mapId?: string | null;
             preferredX?: number;
             preferredY?: number;
+            allowCreateFallback?: boolean;
         },
     ) {
         const port = this.resolveWorldRuntimeBootstrapSessionPort(worldRuntimeService);
