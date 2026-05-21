@@ -773,22 +773,25 @@ function normalizeRuntimeBonuses(value) {
     if (!Array.isArray(value)) {
         return [];
     }
-    return value
-        .filter((entry) => entry && typeof entry === 'object')
-        .map((entry) => ({
-
-        source: canonicalizeRuntimeBonusSource(typeof entry.source === 'string' ? entry.source : ''),
-
-        label: typeof entry.label === 'string' ? entry.label : undefined,
-
-        attrs: entry.attrs && typeof entry.attrs === 'object' ? { ...entry.attrs } : undefined,
-
-        stats: entry.stats && typeof entry.stats === 'object' ? { ...entry.stats } : undefined,
-        qiProjection: Array.isArray(entry.qiProjection) ? entry.qiProjection.map((item) => ({ ...item })) : undefined,
-
-        meta: entry.meta && typeof entry.meta === 'object' ? { ...entry.meta } : undefined,
-    }))
-        .filter((entry) => entry.source.length > 0 && !isDerivedPersistentRuntimeBonusSource(entry.source));
+    const normalized = [];
+    for (const entry of value) {
+        if (!entry || typeof entry !== 'object') {
+            continue;
+        }
+        const source = canonicalizeRuntimeBonusSource(typeof entry.source === 'string' ? entry.source : '');
+        if (!source || isDerivedPersistentRuntimeBonusSource(source)) {
+            continue;
+        }
+        normalized.push({
+            source,
+            label: typeof entry.label === 'string' ? entry.label : undefined,
+            attrs: entry.attrs && typeof entry.attrs === 'object' ? { ...entry.attrs } : undefined,
+            stats: entry.stats && typeof entry.stats === 'object' ? { ...entry.stats } : undefined,
+            qiProjection: Array.isArray(entry.qiProjection) ? entry.qiProjection.map((item) => ({ ...item })) : undefined,
+            meta: entry.meta && typeof entry.meta === 'object' ? { ...entry.meta } : undefined,
+        });
+    }
+    return normalized;
 }
 /**
  * canonicalizeRuntimeBonusSource：判断canonicalize运行态Bonu来源是否满足条件。
