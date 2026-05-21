@@ -164,6 +164,8 @@ export class RedeemCodePersistenceService {
                 [REDEEM_CODE_STATE_KEY, normalized.revision],
             );
             for (const group of normalized.groups) {
+                const rewardsJson = JSON.stringify(group.rewards);
+                const groupJson = JSON.stringify(group);
                 await client.query(
                     `
                       INSERT INTO ${REDEEM_CODE_GROUP_TABLE}(
@@ -185,14 +187,15 @@ export class RedeemCodePersistenceService {
                     [
                         group.id,
                         group.name,
-                        JSON.stringify(group.rewards),
+                        rewardsJson,
                         group.createdAt,
                         group.updatedAt,
-                        JSON.stringify(group),
+                        groupJson,
                     ],
                 );
             }
             for (const code of normalized.codes) {
+                const codeJson = JSON.stringify(code);
                 await client.query(
                     `
                       INSERT INTO ${REDEEM_CODE_TABLE}(
@@ -230,7 +233,7 @@ export class RedeemCodePersistenceService {
                         code.destroyedAt,
                         code.createdAt,
                         code.updatedAt,
-                        JSON.stringify(code),
+                        codeJson,
                     ],
                 );
             }
