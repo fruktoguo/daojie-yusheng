@@ -4275,6 +4275,7 @@ async function replacePlayerWalletRows(
     });
   }
 
+  const rowsJson = JSON.stringify(rows);
   if (rows.length > 0) {
     await client.query(
       `
@@ -4304,7 +4305,7 @@ async function replacePlayerWalletRows(
           version = EXCLUDED.version,
           updated_at = now()
       `,
-      [playerId, JSON.stringify(rows)],
+      [playerId, rowsJson],
     );
   }
   await client.query(
@@ -4321,7 +4322,7 @@ async function replacePlayerWalletRows(
           WHERE incoming.wallet_type = target.wallet_type
         )
     `,
-    [playerId, JSON.stringify(rows.map(({ wallet_type }) => ({ wallet_type })))],
+    [playerId, rowsJson],
   );
 }
 
