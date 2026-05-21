@@ -371,7 +371,7 @@ function compareStableStrings(left, right) {
     return 0;
 }
 
-function buildTimeCheckpointSnapshot(instance) {
+export function buildTimeCheckpointSnapshot(instance) {
     // 构建 dungeonDescriptor（通天塔）
     let dungeonDescriptor = undefined;
     if (instance?.tongtianTowerState && instance?.meta?.kind === 'tower') {

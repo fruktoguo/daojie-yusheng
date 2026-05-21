@@ -30,6 +30,9 @@ async function main(): Promise<void> {
     saveBuildingRoomFengShuiState: async (instanceId: string) => {
       flushed.push(`building:${instanceId}`);
     },
+    saveInstanceCheckpoint: async (instanceId: string) => {
+      flushed.push(`time:${instanceId}`);
+    },
   };
 
   const scenarios: Array<{
@@ -43,6 +46,7 @@ async function main(): Promise<void> {
     { id: 'instance-monster', domain: 'monster_runtime', payloadJson: { kind: 'instance_domain_state', domain: 'monster_runtime', payload: { fullReplace: false, upserts: [{ monsterId: 'm1' }], deletes: [] } }, expected: 'monster_runtime:instance-monster:1:0' },
     { id: 'instance-container', domain: 'container_state', payloadJson: { kind: 'instance_domain_state', domain: 'container_state', payload: [{ containerId: 'c1', sourceId: 's1', items: [] }] }, expected: 'container_state:instance-container:c1' },
     { id: 'instance-building', domain: 'building', payloadJson: { kind: 'instance_domain_state', domain: 'building', payload: { buildings: [{ id: 'b1' }], rooms: [], fengShui: [] } }, expected: 'building:instance-building' },
+    { id: 'instance-time', domain: 'time', payloadJson: { kind: 'instance_domain_state', domain: 'time', payload: { version: 2, savedAt: 1, templateId: 't1', tick: 3, tickSpeed: 1, paused: false } }, expected: 'time:instance-time' },
   ];
 
   try {
@@ -91,8 +95,8 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 ground_item/overlay/monster_runtime/building-room-fengshui 可从 staging state payload 写入持久化 API，并 mark flushed。',
-    excludes: '不证明 container_state/time，也不证明真实 DB with-db 竞争。',
+    answers: '实例 ground_item/overlay/monster_runtime/container_state/building-room-fengshui/time 可从 staging state payload 写入持久化 API，并 mark flushed。',
+    excludes: '不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-instance-state-payload',
   }, null, 2));
 }

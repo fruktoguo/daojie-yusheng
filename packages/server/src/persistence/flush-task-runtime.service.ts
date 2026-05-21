@@ -19,6 +19,7 @@ import {
 } from './player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from './player-persistence-flush.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
+import { buildTimeCheckpointSnapshot } from '../runtime/world/world-runtime-persistence-state.service';
 
 const INTERVAL_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_INTERVAL_MS', 'FLUSH_TASK_RUNTIME_INTERVAL_MS', 1_500, 250, 60_000);
 const CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 64, 1, 256);
@@ -96,6 +97,7 @@ interface BatchPersistencePort {
   saveTileResourceDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
   saveInstanceRecoveryWatermarkBatch?(rows: Array<{ instanceId: string; payload: unknown }>): Promise<void>;
   saveInstanceRecoveryWatermark?(instanceId: string, payload: unknown): Promise<void>;
+  saveInstanceCheckpoint?(instanceId: string, payload: unknown): Promise<void>;
   replaceGroundItemTiles?(instanceId: string, tileIndices: unknown[], entries: unknown[]): Promise<void>;
   saveContainerState?(input: { instanceId: string; containerId?: unknown; sourceId?: unknown; statePayload: unknown }): Promise<void>;
   saveOverlayChunk?(input: { instanceId: string; patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown }): Promise<void>;
@@ -316,6 +318,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (domain === 'container_state') {
       const states = this.worldRuntimeService.worldRuntimeLootContainerService?.buildContainerPersistenceStates?.(instanceId) ?? [];
       return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: states };
+    }
+    if (domain === 'time') {
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: buildTimeCheckpointSnapshot(runtime) };
     }
     const state = runtime.buildBuildingRoomFengShuiPersistenceState?.();
     return state ? { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: state } : null;
@@ -591,6 +596,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       case 'room':
       case 'fengshui': {
         await persistence.saveBuildingRoomFengShuiState?.(instanceId, payload.payload);
+        return;
+      }
+      case 'time': {
+        await persistence.saveInstanceCheckpoint?.(instanceId, payload.payload);
         return;
       }
       default:
