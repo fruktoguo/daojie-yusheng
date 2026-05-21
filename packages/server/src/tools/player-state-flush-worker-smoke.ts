@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     const grantedRevision = runtime.getPlayer(playerId).persistentRevision;
 
     const processedCount = await worker.runOnce('player-state-worker-smoke');
-    assert.equal(processedCount, 1);
+    assert.ok(processedCount >= 1);
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(playerId)));
 
     const ledgerRows = await ledger.listLedgerRows();

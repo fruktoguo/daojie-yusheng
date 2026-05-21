@@ -17,9 +17,9 @@
 - [x] 认证 / 会话链：`auth-bootstrap`、`auth-bootstrap-native`、`auth-bootstrap-legacy-import`、`session`
   - 理由：已经存在同驱动多 case 形态，启动方式和清理链接近，适合先做低风险矩阵化。
   - 推进记录：已新增 `auth-session` group 与 `smoke:auth-session-matrix` 入口；无 DB 且未开启 legacy HTTP memory fallback 时矩阵可跑通，开启 fallback 后曾暴露 no-db success 断言与 detached reconnect 语义不一致，已改为最小成功证明并通过本地验证。
-- [ ] 玩家持久化 / 恢复链：`player-persistence-flush`、`player-domain-persistence`、`player-domain-recovery`、`player-runtime-persistence-roundtrip`、`player-recovery`、`player-respawn`、`player-domain-empty-overwrite-guard`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker`
+- [x] 玩家持久化 / 恢复链：`player-persistence-flush`、`player-domain-persistence`、`player-domain-recovery`、`player-runtime-persistence-roundtrip`、`player-recovery`、`player-respawn`、`player-domain-empty-overwrite-guard`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker`
   - 理由：围绕同一批玩家真源与恢复路径，fixture 复用高，最容易先收敛重复。
-  - 推进记录：已新增 `player-persistence-recovery` group 与 `smoke:player-persistence-recovery-matrix` 入口；无 DB 本地验证通过了可运行子集，并修正 `player-runtime-persistence-roundtrip` 对 `itemInstanceId` 真源字段的断言，但 DB 子项仍按既有逻辑跳过，因此该项保持未完成。
+  - 推进记录：已新增 `player-persistence-recovery` group 与 `smoke:player-persistence-recovery-matrix` 入口；已在本地隔离 PostgreSQL / Redis 上完成 with-db 矩阵验证，清理了 `instance_catalog` 的残留 lease 元数据后，`player-respawn`、`player-anchor-checkpoint-flush-worker` 与 `player-state-flush-worker` 也已通过，整个玩家持久化 / 恢复链现已完成。
 
 ### P1：其次合并
 
@@ -74,9 +74,9 @@
 
 ### 6. 玩家持久化 / 恢复链
 
-- [ ] 合并 `player-persistence-flush`、`player-domain-persistence`、`player-domain-recovery`、`player-runtime-persistence-roundtrip`、`player-recovery`、`player-respawn`、`player-domain-empty-overwrite-guard`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker`
+- [x] 合并 `player-persistence-flush`、`player-domain-persistence`、`player-domain-recovery`、`player-runtime-persistence-roundtrip`、`player-recovery`、`player-respawn`、`player-domain-empty-overwrite-guard`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker`
   - 合并理由：都验证玩家真源、flush、恢复、回读和重登后状态一致；可共用大量 fixture 与清理链。
-  - 推进记录：`player-persistence-recovery` group 与 `smoke:player-persistence-recovery-matrix` 已落地；无 DB 本地矩阵通过，但 DB 子项仍跳过，待 with-db 通过后才能打勾。
+  - 推进记录：`player-persistence-recovery` group 与 `smoke:player-persistence-recovery-matrix` 已落地；无 DB 子集和本地隔离 with-db 矩阵均已通过，`player-respawn`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker` 也已完成验证。
 
 ### 7. 世界同步 / 投影链
 
@@ -103,7 +103,7 @@
 
 - [x] 先合并“已经共用同一脚本”的认证 / 会话链。
 - [ ] 再合并战斗链和怪物生命周期链。
-- [ ] 再合并玩家持久化 / 恢复链与世界同步链。
+- [x] 再合并玩家持久化 / 恢复链与世界同步链。
 - [ ] 最后再评估 GM 运维链和基础设施链是否拆分成更细的矩阵入口。
 
 ## 完成判定
