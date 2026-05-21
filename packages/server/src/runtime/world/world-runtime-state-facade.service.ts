@@ -257,7 +257,7 @@ export class WorldRuntimeStateFacadeService {
  * @returns 无返回值，直接更新rebuildPersistent运行态AfterRestore相关状态。
  */
 
-    async rebuildPersistentRuntimeAfterRestore(deps) {
-        await deps.worldRuntimeLifecycleService.rebuildPersistentRuntimeAfterRestore(deps);
+    async rebuildPersistentRuntimeAfterRestore(deps, options = {}) {
+        await deps.worldRuntimeLifecycleService.rebuildPersistentRuntimeAfterRestore(deps, options);
     }
 };

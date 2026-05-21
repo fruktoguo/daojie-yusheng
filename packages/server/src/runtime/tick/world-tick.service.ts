@@ -4,10 +4,11 @@
  * 当存在加速实例时，调度频率随最大 tickSpeed 缩放，确保移动/技能/怪物表现平滑。
  * 保证同一时刻只有一个 tick 在执行，关闭时等待当前 tick 完成。
  */
-import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { gameplayConstants } from '@mud/shared';
 
 import { shouldStartAuthoritativeRuntime } from '../../config/runtime-role';
+import { StartupBarrierService } from '../../lifecycle/startup-barrier.service';
 import { WorldSyncService } from '../../network/world-sync.service';
 import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
@@ -91,6 +92,8 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     private readonly worldRuntimeService: WorldRuntimePort,
     @Inject(WorldSyncService)
     private readonly worldSyncService: WorldSyncPort,
+    @Optional() @Inject(StartupBarrierService)
+    private readonly startupBarrierService?: StartupBarrierService,
   ) {}
 
   private getMapTickSpeed(mapId: string): number {
@@ -123,6 +126,9 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   /** 执行一次完整 tick：推进世界帧 → 同步玩家 → 事件总线 flush 收尾。 */
   private async runTickOnce(): Promise<void> {
     if (this.shuttingDown) {
+      return;
+    }
+    if (this.startupBarrierService && !this.startupBarrierService.isTickOpen()) {
       return;
     }
     if (this.tickInFlight) {
@@ -209,6 +215,17 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   onModuleInit(): void {
     if (!shouldStartAuthoritativeRuntime()) {
       this.logger.log('世界 Tick 已跳过：当前 role 不持有权威运行态');
+      return;
+    }
+    this.logger.log('世界 Tick 已注册，等待启动链路编排器开闸');
+  }
+
+  startForLifecycleCoordinator(): void {
+    if (!shouldStartAuthoritativeRuntime()) {
+      this.logger.log('世界 Tick 已跳过：当前 role 不持有权威运行态');
+      return;
+    }
+    if (this.timer) {
       return;
     }
     this.shuttingDown = false;

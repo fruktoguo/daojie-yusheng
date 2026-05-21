@@ -102,7 +102,7 @@ export class MarketRuntimeService {
     }
     /** 应用完成启动后再回填坊市快照，避免早于持久化服务初始化导致空装载。 */
     async onApplicationBootstrap() {
-        await this.reloadFromPersistence();
+        this.logger.log('坊市运行态恢复已交由启动链路编排器执行');
     }
     /** 关停前等待当前 marketOperationQueue 串行链跑完。 */
     async drainForShutdown(): Promise<void> {

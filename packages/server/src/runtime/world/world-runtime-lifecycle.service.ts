@@ -156,7 +156,7 @@ export class WorldRuntimeLifecycleService {
  * @returns 无返回值，直接更新rebuildPersistent运行态AfterRestore相关状态。
  */
 
-    async rebuildPersistentRuntimeAfterRestore(deps) {
+    async rebuildPersistentRuntimeAfterRestore(deps, options: { restoreOfflinePlayers?: boolean } = {}) {
         if (deps.instanceCatalogService?.isEnabled?.()) {
             if (typeof deps.worldRuntimeSectService?.restoreSectTemplates === 'function') {
                 await deps.worldRuntimeSectService.restoreSectTemplates(deps);
@@ -273,7 +273,9 @@ export class WorldRuntimeLifecycleService {
                 await deps.syncInstanceLease(instanceId, { allowForceReclaim: true });
             }
         }
-        await this.restoreOfflineHangingPlayers(deps);
+        if (options.restoreOfflinePlayers !== false) {
+            await this.restoreOfflineHangingPlayers(deps);
+        }
     }
 
     /**
@@ -350,6 +352,12 @@ export class WorldRuntimeLifecycleService {
                     if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
                         skipped++;
                         deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
+                        return;
+                    }
+                    if (typeof deps.startupBarrierService?.isInstanceAttachAllowed === 'function'
+                        && !deps.startupBarrierService.isInstanceAttachAllowed(instance.meta.instanceId)) {
+                        skipped++;
+                        deps.logger?.warn?.(`offline_restore_skipped_startup_attach_gate instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {

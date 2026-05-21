@@ -41,6 +41,20 @@ export interface HealthReadinessDependencies {
   maintenanceStateService?: MaintenanceStateServiceLike | null;
   worldRuntimeService?: RuntimeServiceLike | null;
 }
+
+interface StartupReadiness {
+  startupRunId: string;
+  phase: string;
+  ready: boolean;
+  degraded: boolean;
+  failed: boolean;
+  blocking: boolean;
+  reason: string;
+  startedAt: string;
+  updatedAt: string;
+  phases: unknown[];
+  barrier?: unknown;
+}
 /** 单个持久化服务的就绪状态 */
 interface PersistenceReadiness {
   enabled: boolean;
@@ -91,6 +105,7 @@ interface HealthResponse {
       reason: 'native_auth_only';
     };
     runtime: RuntimeReadiness;
+    startup?: StartupReadiness;
   };
 }
 

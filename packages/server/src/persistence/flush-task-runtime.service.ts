@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 
 import { readTrimmedEnv } from '../config/env-alias';
 import { shouldStartAuthoritativeRuntime, shouldStartInlineFlushConsumer } from '../config/runtime-role';
+import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -136,10 +137,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     @Optional() @Inject(DatabasePoolProvider) private readonly databasePoolProvider?: DatabasePoolProvider,
     @Optional() @Inject(FlushDiagnosticsService) private readonly flushDiagnostics?: FlushDiagnosticsService,
     @Optional() @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService?: PlayerDomainPersistenceService,
+    @Optional() @Inject(StartupBarrierService) private readonly startupBarrierService?: StartupBarrierService,
   ) {}
 
   onModuleInit(): void {
+    this.logger.log('统一刷盘任务运行时已注册，等待启动链路编排器开闸');
+  }
+
+  startForLifecycleCoordinator(): void {
     if (isInlineFlushTaskRuntimeMode() && shouldStartInlineFlushConsumer()) {
+      if (this.timer) {
+        return;
+      }
       this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
       this.timer.unref();
       this.logger.log(
@@ -148,6 +157,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     if (shouldStartAuthoritativeRuntime()) {
+      if (this.stagingTimer) {
+        return;
+      }
       this.stagingTimer = setInterval(() => void this.stageDirtyTasksOnce(), INTERVAL_MS);
       this.stagingTimer.unref();
       this.logger.log(`统一刷盘 staging collector 已启动，间隔 ${INTERVAL_MS}ms，不在当前 role 消费 flush tasks`);
@@ -168,6 +180,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   async stageDirtyTasksOnce(): Promise<void> {
+    if (this.startupBarrierService && !this.startupBarrierService.isFlushOpen()) {
+      return;
+    }
     if (!this.flushLedgerService.isEnabled() || !shouldStartAuthoritativeRuntime()) {
       return;
     }
@@ -176,6 +191,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   async runOnce(workerId = this.workerId, filter?: { playerDomain?: string; instanceDomain?: string }): Promise<number> {
+    if (this.startupBarrierService && !this.startupBarrierService.isFlushOpen() && !this.startupBarrierService.isWorkerOpen()) {
+      return 0;
+    }
     if (!isFlushTaskConsumerMode() || !this.flushLedgerService.isEnabled()) {
       return 0;
     }

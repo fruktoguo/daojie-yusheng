@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModu
 
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { shouldStartBackgroundWorkers, shouldStartBackupWorker } from '../../config/runtime-role';
+import { StartupBarrierService } from '../../lifecycle/startup-barrier.service';
 import { FlushTaskRuntimeService } from '../../persistence/flush-task-runtime.service';
 import { resolveFlushTaskRuntimeMode } from '../../persistence/flush-task-runtime-mode';
 import { OutboxDispatcherRuntimeService } from '../../persistence/outbox-dispatcher-runtime.service';
@@ -59,11 +60,20 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     private readonly marketTradeHistoryRetentionWorker?: MarketTradeHistoryRetentionWorker,
     @Optional() @Inject(InstanceStatePurgeWorker)
     private readonly instanceStatePurgeWorker?: InstanceStatePurgeWorker,
+    @Optional() @Inject(StartupBarrierService)
+    private readonly startupBarrierService?: StartupBarrierService,
   ) {}
 
   onModuleInit(): void {
+    this.logger.log('后台 worker orchestrator 已注册，等待启动链路编排器开闸');
+  }
+
+  startForLifecycleCoordinator(): void {
     if (!shouldStartBackgroundWorkers()) {
       this.logger.log('后台 worker orchestrator 已跳过：当前 role 不承载后台 worker');
+      return;
+    }
+    if (this.timers.size > 0) {
       return;
     }
     for (const task of this.buildTasks()) {
@@ -169,6 +179,9 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
   private async runTask(task: BackgroundWorkerTask): Promise<void> {
     const state = this.states.get(task.id);
     if (!state || state.running || this.stopping || !task.enabled) {
+      return;
+    }
+    if (this.startupBarrierService && !this.startupBarrierService.isWorkerOpen()) {
       return;
     }
     state.running = true;

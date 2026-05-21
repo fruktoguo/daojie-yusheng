@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common';
 import '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import '../../debug/movement-debug';
@@ -80,6 +80,7 @@ import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { PlayerCombatService } from '../combat/player-combat.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
+import { StartupBarrierService } from '../../lifecycle/startup-barrier.service';
 import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import '../instance/map-instance.runtime';
 import { MapTemplateRepository } from '../map/map-template.repository';
@@ -347,6 +348,7 @@ export class WorldRuntimeService {
     runtimeEventBusService;
 
     databasePoolProvider;
+    startupBarrierService;
 
     instanceLeaseSyncTimer = null;
 
@@ -436,6 +438,7 @@ export class WorldRuntimeService {
         @Inject(DurableOperationService) durableOperationService: DurableOperationService,
         @Inject(RuntimeEventBusService) runtimeEventBusService: RuntimeEventBusService = undefined,
         @Inject(DatabasePoolProvider) databasePoolProvider: DatabasePoolProvider = undefined,
+        @Optional() @Inject(StartupBarrierService) startupBarrierService?: StartupBarrierService,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
@@ -517,6 +520,7 @@ export class WorldRuntimeService {
         this.durableOperationService = durableOperationService;
         this.runtimeEventBusService = runtimeEventBusService;
         this.databasePoolProvider = databasePoolProvider;
+        this.startupBarrierService = startupBarrierService ?? null;
     }
 
     get lastTickDurationMs() {
@@ -703,10 +707,12 @@ export class WorldRuntimeService {
         return this.combatDiagnostics.slice(-safeLimit);
     }
         async onModuleInit() {
-        this.bootstrapPublicInstances();
+        this.logger.log('世界运行时已注册，等待启动链路编排器恢复实例');
     }
     async onApplicationBootstrap() {
-        await this.rebuildPersistentRuntimeAfterRestore();
+        this.logger.log('世界运行时恢复已交由启动链路编排器执行');
+    }
+    startInstanceLeaseSyncForLifecycleCoordinator() {
         if (this.instanceLeaseSyncTimer) {
             clearInterval(this.instanceLeaseSyncTimer);
         }
@@ -857,8 +863,12 @@ export class WorldRuntimeService {
         async restorePublicInstancePersistence() {
         await this.worldRuntimeStateFacadeService.restorePublicInstancePersistence(this);
     }
-        async rebuildPersistentRuntimeAfterRestore() {
-        await this.worldRuntimeStateFacadeService.rebuildPersistentRuntimeAfterRestore(this);
+        async rebuildPersistentRuntimeAfterRestore(options = {}) {
+        await this.worldRuntimeStateFacadeService.rebuildPersistentRuntimeAfterRestore(this, options);
+        this.startInstanceLeaseSyncForLifecycleCoordinator();
+    }
+    async restoreOfflineHangingPlayersForStartup() {
+        await this.worldRuntimeLifecycleService.restoreOfflineHangingPlayers(this);
     }
     async syncAllInstanceLeases() {
         return syncAllInstanceLeases(this);

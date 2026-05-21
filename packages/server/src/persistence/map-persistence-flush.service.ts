@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { performance } from 'node:perf_hooks';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { readTrimmedEnv } from '../config/env-alias';
+import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { DatabasePoolProvider } from './database-pool.provider';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { shouldRunLegacyFlushIntervals } from './flush-task-runtime-mode';
@@ -128,6 +129,7 @@ export class MapPersistenceFlushService {
     databasePoolProvider: any = null;
     /** 刷盘诊断采集器。 */
     flushDiagnostics: any = null;
+    startupBarrierService: StartupBarrierService | null = null;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
@@ -139,10 +141,12 @@ export class MapPersistenceFlushService {
         @Inject(WorldRuntimeService) worldRuntimeService: any,
         @Optional() @Inject(DatabasePoolProvider) databasePoolProvider?: any,
         @Optional() @Inject(FlushDiagnosticsService) flushDiagnostics?: any,
+        @Optional() @Inject(StartupBarrierService) startupBarrierService?: StartupBarrierService,
     ) {
         this.worldRuntimeService = worldRuntimeService;
         this.databasePoolProvider = databasePoolProvider ?? null;
         this.flushDiagnostics = flushDiagnostics ?? null;
+        this.startupBarrierService = startupBarrierService ?? null;
     }
     /**
  * onModuleInit：执行on模块Init相关逻辑。
@@ -150,8 +154,15 @@ export class MapPersistenceFlushService {
  */
 
     onModuleInit() {
+        this.logger.log('地图持久化刷新服务已注册，等待启动链路编排器开闸');
+    }
+
+    startForLifecycleCoordinator() {
         if (!shouldRunLegacyFlushIntervals()) {
             this.logger.log('地图持久化直接定时器已停用，由统一刷盘任务运行时调度');
+            return;
+        }
+        if (this.timer) {
             return;
         }
         this.timer = setInterval(() => {
@@ -212,6 +223,7 @@ export class MapPersistenceFlushService {
 
         if (!this.isDomainPersistenceEnabled()
             || this.flushPromise
+            || (this.startupBarrierService && !this.startupBarrierService.isFlushOpen())
             || isRestoreFreezeActive()
             || this.isFlushThrottleActive()) {
             return;

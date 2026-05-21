@@ -8,6 +8,9 @@ import { MailPersistenceService } from '../persistence/mail-persistence.service'
 import { MarketPersistenceService } from '../persistence/market-persistence.service';
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 import { SuggestionPersistenceService } from '../persistence/suggestion-persistence.service';
+import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
+import { StartupStatusService } from '../lifecycle/startup-status.service';
+import { shouldStartHttpServer } from '../config/runtime-role';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { buildHealthResponse } from './health-readiness';
 import { ServerReadinessDependenciesService } from './server-readiness-dependencies.service';
@@ -45,11 +48,17 @@ export class HealthReadinessService {
     @Optional()
     @Inject(WorldRuntimeService)
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
+    @Optional()
+    @Inject(StartupStatusService)
+    private readonly startupStatusService?: StartupStatusService,
+    @Optional()
+    @Inject(StartupBarrierService)
+    private readonly startupBarrierService?: StartupBarrierService,
   ) {}
 
   /** 构建完整 readiness 响应体 */
   build() {
-    return buildHealthResponse({
+    const response = buildHealthResponse({
       playerPersistenceService: this.playerPersistenceService,
       mailPersistenceService: this.mailPersistenceService,
       marketPersistenceService: this.marketPersistenceService,
@@ -57,10 +66,29 @@ export class HealthReadinessService {
       ...(this.serverReadinessDependenciesService?.build() ?? {}),
       worldRuntimeService: this.worldRuntimeService,
     });
+    const startup = this.startupStatusService?.getSnapshot() ?? null;
+    const barrier = this.startupBarrierService?.getSnapshot() ?? null;
+    if (startup) {
+      response.readiness.startup = {
+        ...startup,
+        barrier,
+      };
+      if (!startup.ready || (shouldStartHttpServer() && barrier?.trafficOpen !== true)) {
+        response.ok = false;
+        response.readiness.ok = false;
+      }
+    }
+    return response;
   }
 
   /** 公开给网关/控制器：玩家请求前置依赖是否完成。 */
   isReadyForPlayerTraffic(): boolean {
+    if (this.startupBarrierService && !this.startupBarrierService.isTrafficOpen()) {
+      if (!shouldStartHttpServer()) {
+        return this.build().readiness.ok;
+      }
+      return false;
+    }
     return this.build().readiness.ok;
   }
 }

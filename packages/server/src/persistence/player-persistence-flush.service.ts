@@ -8,6 +8,7 @@ import { performance } from 'node:perf_hooks';
 
 import { readTrimmedEnv } from '../config/env-alias';
 import { shouldStartAuthoritativeRuntime } from '../config/runtime-role';
+import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC } from '@mud/shared';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import {
@@ -141,6 +142,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     private readonly databasePoolProvider?: DatabasePoolProvider,
     @Optional() @Inject(FlushDiagnosticsService)
     private readonly flushDiagnostics?: FlushDiagnosticsService,
+    @Optional() @Inject(StartupBarrierService)
+    private readonly startupBarrierService?: StartupBarrierService,
   ) {}
 
   setLeaseGuard(leaseGuard: LeaseGuardPort | null): void {
@@ -148,7 +151,14 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   }
 
   onModuleInit(): void {
+    this.logger.log('玩家持久化刷新服务已注册，等待启动链路编排器开闸');
+  }
+
+  startForLifecycleCoordinator(): void {
     if (shouldRunLegacyFlushIntervals()) {
+      if (this.timer) {
+        return;
+      }
       this.timer = setInterval(() => {
         void this.flushDirtyPlayers();
       }, PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS);
@@ -159,6 +169,9 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
     if (!shouldStartAuthoritativeRuntime()) {
       this.logger.log('离线挂机超时检查已跳过：当前 role 不持有玩家运行态');
+      return;
+    }
+    if (this.offlineExpireTimer) {
       return;
     }
     // 每 5 分钟检查一次离线挂机超时
@@ -267,6 +280,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   async flushDirtyPlayers(): Promise<void> {
     if (!this.playerDomainPersistenceService.isEnabled()
       || this.flushPromise
+      || (this.startupBarrierService && !this.startupBarrierService.isFlushOpen())
       || this.isFlushThrottleActive()) {
       return;
     }
