@@ -6,10 +6,12 @@ import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 async function main(): Promise<void> {
   const playerId = 'player:market-cancel-seller';
   const durableCalls: Array<Record<string, unknown>> = [];
+  const presenceSaves: Array<Record<string, unknown>> = [];
   const runtimePlayer = {
     playerId,
-    runtimeOwnerId: 'runtime:cancel',
+    runtimeOwnerId: 'runtime:cancel:14',
     sessionEpoch: 14,
+    sessionId: 'session:market-cancel',
     instanceId: 'instance:market-cancel',
     inventory: { items: [] as Array<Record<string, unknown>> },
     wallet: { balances: [{ walletType: 'spirit_stone', balance: 5, frozenBalance: 0, version: 1 }] },
@@ -30,6 +32,34 @@ async function main(): Promise<void> {
     {
       snapshot(requestedPlayerId: string) {
         return runtimePlayers.has(requestedPlayerId) ? structuredClone(runtimePlayers.get(requestedPlayerId)) : null;
+      },
+      describePersistencePresence(requestedPlayerId: string) {
+        const player = runtimePlayers.get(requestedPlayerId);
+        if (!player) {
+          return null;
+        }
+        return {
+          online: true,
+          inWorld: true,
+          lastHeartbeatAt: 1000,
+          offlineSinceAt: null,
+          runtimeOwnerId: player.runtimeOwnerId,
+          sessionEpoch: player.sessionEpoch,
+          transferState: null,
+          transferTargetNodeId: null,
+        };
+      },
+      ensureRuntimeSessionFenceAtLeast(requestedPlayerId: string, sessionEpochFloor: number) {
+        const player = runtimePlayers.get(requestedPlayerId);
+        if (!player) {
+          return null;
+        }
+        player.sessionEpoch = Math.max(Number(player.sessionEpoch ?? 0), Math.trunc(Number(sessionEpochFloor))) + 1;
+        player.runtimeOwnerId = `runtime:cancel:${player.sessionEpoch}`;
+        return {
+          runtimeOwnerId: player.runtimeOwnerId,
+          sessionEpoch: player.sessionEpoch,
+        };
       },
       replaceInventoryItems(requestedPlayerId: string, items: Array<Record<string, unknown>>) {
         if (requestedPlayerId !== playerId) {
@@ -72,6 +102,32 @@ async function main(): Promise<void> {
         return { assigned_node_id: 'node:market-cancel', ownership_epoch: 19 };
       },
     } as never,
+    null,
+    null,
+    {
+      isEnabled() {
+        return true;
+      },
+      async loadPlayerPresence(requestedPlayerId: string) {
+        if (requestedPlayerId !== playerId) {
+          return null;
+        }
+        return {
+          playerId,
+          online: true,
+          inWorld: true,
+          lastHeartbeatAt: 900,
+          offlineSinceAt: null,
+          runtimeOwnerId: null,
+          sessionEpoch: 461,
+          transferState: null,
+          transferTargetNodeId: null,
+        };
+      },
+      async savePlayerPresence(requestedPlayerId: string, presence: Record<string, unknown>) {
+        presenceSaves.push({ playerId: requestedPlayerId, ...presence });
+      },
+    } as never,
   );
 
   const orderItem = (service as unknown as { toFullItem(item: Record<string, unknown>): Record<string, unknown> }).toFullItem({ itemId: 'rat_tail', count: 2, name: '鼠尾' });
@@ -93,9 +149,12 @@ async function main(): Promise<void> {
   ];
 
   const result = await service.cancelOrder(playerId, { orderId: 'order:sell:cancel:1' });
+  assert.equal(presenceSaves.length, 1);
+  assert.equal(presenceSaves[0]?.runtimeOwnerId, 'runtime:cancel:462');
+  assert.equal(presenceSaves[0]?.sessionEpoch, 462);
   assert.equal(durableCalls.length, 1);
-  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:cancel');
-  assert.equal(durableCalls[0]?.expectedSessionEpoch, 14);
+  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:cancel:462');
+  assert.equal(durableCalls[0]?.expectedSessionEpoch, 462);
   assert.equal(durableCalls[0]?.expectedInstanceId, 'instance:market-cancel');
   assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:market-cancel');
   assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 19);
