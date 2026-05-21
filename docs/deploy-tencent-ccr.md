@@ -99,7 +99,7 @@ ssh root@你的服务器 'bash /tmp/deploy-prod.sh'
 docker login ccr.ccs.tencentyun.com
 ```
 
-一键脚本还会安装 `daojie-ccr-auto-update.timer`。后续只要把新镜像推送到 CCR，服务器会定时拉取镜像并更新 `server`、`backup-worker` 和 `client`，不需要再次手工更新服务。
+一键脚本还会安装 `daojie-ccr-auto-update.timer`。后续只要把新镜像推送到 CCR，服务器会定时拉取镜像并更新 `server`、`server_worker` 和 `client`，不需要再次手工更新服务。
 
 ## 手动服务器初始化
 
@@ -171,7 +171,7 @@ TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
   ./docker-build-prod.sh
 ```
 
-如果使用一键部署脚本，服务器上会安装 `daojie-ccr-auto-update.timer`。推送新镜像后，服务器每 60 秒拉取 CCR 镜像并比较本地运行态镜像 ID；发现变化时自动执行 Swarm service update，更新 `server`、`backup-worker` 和 `client`。
+如果使用一键部署脚本，服务器上会安装 `daojie-ccr-auto-update.timer`。推送新镜像后，服务器每 60 秒拉取 CCR 镜像并比较本地运行态镜像 ID；发现变化时自动执行 Swarm service update，更新 `server`、`server_worker` 和 `client`。
 
 也可以手动重新部署 stack：
 

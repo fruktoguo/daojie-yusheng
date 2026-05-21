@@ -111,9 +111,10 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 - [ ] `worker` 角色：
   - 已完成：不监听 HTTP 端口；不启动需要主进程内存态的权威 tick。
   - 未完成：后台 worker orchestrator 尚未接入；Socket.IO 网关还需在 orchestrator/模块拆分阶段继续确认不注册或不启动玩家入口，故本项保持未勾选。
-- [ ] `all` 角色：
-  - 已完成：代码默认 `all` 保留本地兼容和单进程回滚语义。
-  - 未完成：生产发布门禁禁止 stack 默认 `all` 尚未接入，故本项保持未勾选。
+- [x] `all` 角色：
+  - 仅用于开发、单机、紧急回滚。
+  - 生产发布门禁不得把 `all` 作为默认 stack 配置。
+  - 验证：`pnpm run proof:release-gates` 已覆盖生产 stack 显式 `api/worker` 与本地 compose 默认 `all` 的差异。
 
 ### Phase 4：后台 Worker Orchestrator
 
@@ -134,29 +135,30 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 ### Phase 5：部署拓扑改造
 
-- [ ] `docker-stack.tencent.yml` 引入公共 server 配置 anchor：
+- [x] `docker-stack.tencent.yml` 引入公共 server 配置 anchor：
   - image。
   - environment base。
   - networks。
   - volumes。
   - stop_grace_period。
   - restart_policy。
-- [ ] `server` 服务：
+- [x] `server` 服务：
   - `SERVER_RUNTIME_ROLE=api`。
   - `SERVER_FLUSH_TASK_RUNTIME_MODE=off`，除非应急回滚。
   - 暴露端口。
   - 保留 HTTP healthcheck。
-- [ ] `server_worker` 服务：
+- [x] `server_worker` 服务：
   - 同一个 server 镜像。
   - `SERVER_RUNTIME_ROLE=worker`。
   - `SERVER_FLUSH_TASK_RUNTIME_MODE=worker`。
   - 不暴露端口。
   - 不使用依赖 HTTP 的 healthcheck。
   - 副本数由 `SERVER_WORKER_REPLICAS` 控制，生产目标默认至少 `1`。
-- [ ] `docker-compose.yml` 同步本地 profile：
+- [x] `docker-compose.yml` 同步本地 profile：
   - 本地默认可用 `all`。
   - `--profile worker` 启动 `server_worker`。
-- [ ] 现有专用 worker command 仅作为诊断/一次性运维入口，不作为正式生产主路径。
+- [x] 现有专用 worker command 仅作为诊断/一次性运维入口，不作为正式生产主路径。
+  - 验证：`pnpm run proof:release-gates` 已覆盖生产 stack、compose、`deploy-latest.sh` 和 `deploy-prod.sh` 服务名/角色策略。
 
 ### Phase 6：正式 Worker 能力接管
 
@@ -194,10 +196,11 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - `api` 会启动 HTTP，不启动 worker-only 消费者。
   - `worker` 不监听 HTTP，只启动 worker-only 消费者。
   - 验证：`pnpm --filter @mud/server smoke:runtime-role-policy` 通过。
-- [ ] 新增 docker stack policy smoke：
+- [x] 新增 docker stack policy smoke：
   - `server` 有端口和 HTTP healthcheck。
   - `server_worker` 无端口、无 HTTP healthcheck。
   - 二者使用同一镜像和公共环境。
+  - 验证：`pnpm run proof:release-gates` 通过。
 - [ ] flush worker with-db proof：
   - 多 worker `FOR UPDATE SKIP LOCKED` 不重复认领。
   - no-op 不 mark flushed。

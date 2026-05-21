@@ -20,6 +20,11 @@ function assertIncludes(content, pattern, message) {
   assert(pattern.test(content), message);
 }
 
+function extractYamlServiceBlock(content, serviceName) {
+  const match = content.match(new RegExp(`\\n  ${serviceName}:[\\s\\S]*?(?=\\n  [A-Za-z0-9_-]+:|\\nvolumes:|\\nnetworks:|$)`));
+  return match ? match[0] : '';
+}
+
 function main() {
   const rootPackage = JSON.parse(read('package.json'));
   const localEnvLoader = read('scripts/load-local-runtime-env.js');
@@ -37,6 +42,10 @@ function main() {
   const serverTesting = read('packages/server/TESTING.md');
   const serverRunbook = read('packages/server/RUNBOOK.md');
   const runtimeEnvManagementService = read('packages/server/src/runtime/gm/runtime-env-management.service.ts');
+  const dockerStackTencent = read('docker-stack.tencent.yml');
+  const dockerCompose = read('docker-compose.yml');
+  const deployLatest = read('deploy-latest.sh');
+  const deployProd = read('deploy-prod.sh');
 
   const requiredRootScripts = [
     'verify:quick',
@@ -281,6 +290,35 @@ function main() {
     /旧阶段自动切换入口已移除/,
     'RUNBOOK 必须继续说明旧阶段自动切换入口已移除',
   );
+
+  assertIncludes(
+    dockerStackTencent,
+    /server:[\s\S]*SERVER_RUNTIME_ROLE: api[\s\S]*SERVER_FLUSH_TASK_RUNTIME_MODE: off[\s\S]*ports:[\s\S]*healthcheck:/,
+    '生产 stack 的 server 必须显式为 api role，关闭 flush consumer，并保留端口/HTTP healthcheck',
+  );
+  const stackServerWorker = extractYamlServiceBlock(dockerStackTencent, 'server_worker');
+  assertIncludes(
+    stackServerWorker,
+    /server_worker:[\s\S]*SERVER_RUNTIME_ROLE: worker[\s\S]*SERVER_FLUSH_TASK_RUNTIME_MODE: worker[\s\S]*replicas: \$\{SERVER_WORKER_REPLICAS:-1\}/,
+    '生产 stack 必须提供 server_worker 且默认至少 1 副本',
+  );
+  assert(!/\n\s+ports:/.test(stackServerWorker), '生产 stack 的 server_worker 不得暴露 ports');
+  assert(!/\n\s+healthcheck:/.test(stackServerWorker), '生产 stack 的 server_worker 不得使用 HTTP healthcheck');
+  assertIncludes(
+    dockerCompose,
+    /server:[\s\S]*SERVER_RUNTIME_ROLE: \$\{SERVER_RUNTIME_ROLE:-all\}[\s\S]*SERVER_FLUSH_TASK_RUNTIME_MODE: \$\{SERVER_FLUSH_TASK_RUNTIME_MODE:-inline\}/,
+    '本地 docker-compose 默认 server 必须保留 all/inline 兼容启动',
+  );
+  assertIncludes(
+    dockerCompose,
+    /server_worker:[\s\S]*profiles: \["worker"\][\s\S]*SERVER_RUNTIME_ROLE: worker[\s\S]*SERVER_FLUSH_TASK_RUNTIME_MODE: worker/,
+    '本地 docker-compose 必须提供 --profile worker 的 server_worker',
+  );
+  for (const [name, content] of [['deploy-latest.sh', deployLatest], ['deploy-prod.sh', deployProd]]) {
+    assertIncludes(content, /update_service "\$\{STACK_NAME\}_server_worker"/, `${name} 必须更新 server_worker 镜像`);
+    assertIncludes(content, /wait_for_service "server_worker"/, `${name} 必须等待 server_worker 就绪`);
+    assert(!/update_service "\$\{STACK_NAME\}_backup-worker"/.test(content), `${name} 不得继续自动更新旧 backup-worker 服务`);
+  }
 
   process.stdout.write(
     [

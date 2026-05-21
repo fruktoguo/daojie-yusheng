@@ -334,11 +334,11 @@ if [ -z "$client_pulled_id" ]; then
 fi
 
 updated_server=0
-updated_backup_worker=0
+updated_server_worker=0
 updated_client=0
 
 update_service "${STACK_NAME}_server" "$server_image" "$server_pulled_id" updated_server
-update_service "${STACK_NAME}_backup-worker" "$server_image" "$server_pulled_id" updated_backup_worker
+update_service "${STACK_NAME}_server_worker" "$server_image" "$server_pulled_id" updated_server_worker
 update_service "${STACK_NAME}_client" "$client_image" "$client_pulled_id" updated_client
 
 if [ "$updated_server" -eq 1 ]; then
@@ -353,7 +353,7 @@ else
   log "${STACK_NAME}_client 无需更新"
 fi
 
-if [ "$updated_server" -eq 1 ] || [ "$updated_backup_worker" -eq 1 ] || [ "$updated_client" -eq 1 ]; then
+if [ "$updated_server" -eq 1 ] || [ "$updated_server_worker" -eq 1 ] || [ "$updated_client" -eq 1 ]; then
   log "清理旧镜像（保留最近 3 个版本）..."
   # 清理 dangling 镜像（无标签的中间层）
   docker image prune -f >/dev/null 2>&1 || true
@@ -669,12 +669,11 @@ services:
         max_attempts: 5
         window: 120s
 
-  server:
+  x-server-base: &server_base
     image: ${TENCENT_IMAGE_PREFIX}/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
-    environment:
+    environment: &server_env_base
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
-      SERVER_NODE_ID: daojie-yusheng-server:13001
       SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:-*}
       SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET}
@@ -686,16 +685,24 @@ services:
       SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
       SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR: /var/lib/server
       SERVER_OUTBOX_RUNTIME_ENABLED: "1"
-    ports:
-      - target: 13001
-        published: ${SERVER_PUBLISHED_PORT:-11922}
-        protocol: tcp
-        mode: ingress
     volumes:
       - server_backup_data:/var/lib/server
     networks:
       - daojie_net
     stop_grace_period: 30s
+
+  server:
+    <<: *server_base
+    environment:
+      <<: *server_env_base
+      SERVER_NODE_ID: daojie-yusheng-server:13001
+      SERVER_RUNTIME_ROLE: api
+      SERVER_FLUSH_TASK_RUNTIME_MODE: off
+    ports:
+      - target: 13001
+        published: ${SERVER_PUBLISHED_PORT:-11922}
+        protocol: tcp
+        mode: ingress
     healthcheck:
       test:
         - CMD
@@ -727,21 +734,15 @@ services:
         max_attempts: 5
         window: 120s
 
-  backup-worker:
-    image: ${TENCENT_IMAGE_PREFIX}/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
-    command: ["node", "dist/tools/database-backup-worker.js"]
+  server_worker:
+    <<: *server_base
     environment:
-      SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
-      SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR: /var/lib/server
-    volumes:
-      - server_backup_data:/var/lib/server
-    networks:
-      - daojie_net
-    stop_grace_period: 30s
+      <<: *server_env_base
+      SERVER_NODE_ID: daojie-yusheng-server-worker
+      SERVER_RUNTIME_ROLE: worker
+      SERVER_FLUSH_TASK_RUNTIME_MODE: worker
     deploy:
-      replicas: 1
+      replicas: ${SERVER_WORKER_REPLICAS:-1}
       update_config:
         parallelism: 1
         delay: 10s
@@ -834,9 +835,13 @@ wait_for_service() {
   local replicas
   while [ "$attempt" -le 60 ]; do
     replicas="$(docker service ls --filter "name=${STACK_NAME}_${service}" --format '{{.Replicas}}' 2>/dev/null | head -n 1)"
-    if [ "$replicas" = "1/1" ]; then
-      log_info "${service} 就绪"
-      return 0
+    if [ -n "$replicas" ]; then
+      ready_replicas="${replicas%%/*}"
+      desired_replicas="${replicas##*/}"
+      if [ "$ready_replicas" = "$desired_replicas" ] && [ "$desired_replicas" != "0" ]; then
+        log_info "${service} 就绪 (${replicas})"
+        return 0
+      fi
     fi
     printf '.'
     sleep 2
@@ -850,7 +855,7 @@ wait_failed=0
 wait_for_service "postgres" || wait_failed=1
 wait_for_service "redis" || wait_failed=1
 wait_for_service "server" || wait_failed=1
-wait_for_service "backup-worker" || wait_failed=1
+wait_for_service "server_worker" || wait_failed=1
 wait_for_service "client" || wait_failed=1
 
 if [ "$wait_failed" -eq 1 ]; then

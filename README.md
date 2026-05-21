@@ -84,12 +84,12 @@ ssh root@你的服务器 'bash /tmp/deploy-prod.sh'
 部署内容：
 
 - `client`：Nginx 托管前端静态资源，并反代 `/api/*`、`/socket.io`
-- `server`：Node.js 后端，容器内监听 `13001`
+- `server`：Node.js 后端 api 角色，容器内监听 `13001`
+- `server_worker`：同一 server 镜像的 worker 角色，承载后台 outbox、备份、清理与后续刷盘消费者，不暴露 HTTP 端口
 - `postgres`：PostgreSQL 16
 - `redis`：Redis 7
-- `backup-worker`：数据库定时备份
 
-一键脚本额外安装 `daojie-ccr-auto-update.timer`：每 60 秒读取 CCR 远端 digest，变更时用 `docker service update` 更新 `server`、`backup-worker` 和 `client`。
+一键脚本额外安装 `daojie-ccr-auto-update.timer`：每 60 秒读取 CCR 远端 digest，变更时用 `docker service update` 更新 `server`、`server_worker` 和 `client`。
 
 默认端口：
 
