@@ -559,22 +559,32 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       return;
     }
 
-    const normalizedEntries = (Array.isArray(entries) ? entries : [])
-      .filter((entry) => Boolean(entry)
-        && typeof entry.resourceKey === 'string'
-        && entry.resourceKey.trim().length > 0
-        && Number.isFinite(entry.tileIndex)
-        && Number.isFinite(entry.value))
-      .map((entry) => ({
-        resourceKey: entry.resourceKey.trim(),
-        tileIndex: Math.trunc(entry.tileIndex),
+    const resourceRows: Array<{ resource_key: string; tile_index: number; value: number }> = [];
+    const resourceKeyRows: Array<{ resource_key: string; tile_index: number }> = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      if (!entry
+        || typeof entry.resourceKey !== 'string'
+        || entry.resourceKey.trim().length === 0
+        || !Number.isFinite(entry.tileIndex)
+        || !Number.isFinite(entry.value)) {
+        continue;
+      }
+      const resourceKey = entry.resourceKey.trim();
+      const tileIndex = Math.trunc(entry.tileIndex);
+      resourceRows.push({
+        resource_key: resourceKey,
+        tile_index: tileIndex,
         value: Math.max(0, entry.value),
-      }));
+      });
+      resourceKeyRows.push({ resource_key: resourceKey, tile_index: tileIndex });
+    }
+    const resourceRowsJson = JSON.stringify(resourceRows);
+    const resourceKeyRowsJson = JSON.stringify(resourceKeyRows);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      if (normalizedEntries.length > 0) {
+      if (resourceRows.length > 0) {
         await client.query(
           `
             WITH incoming AS (
@@ -595,14 +605,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               value = EXCLUDED.value,
               updated_at = now()
           `,
-          [
-            normalizedInstanceId,
-            JSON.stringify(normalizedEntries.map((entry) => ({
-              resource_key: entry.resourceKey,
-              tile_index: entry.tileIndex,
-              value: entry.value,
-            }))),
-          ],
+          [normalizedInstanceId, resourceRowsJson],
         );
       }
       await client.query(
@@ -620,13 +623,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 AND incoming.tile_index = target.tile_index
             )
         `,
-        [
-          normalizedInstanceId,
-          JSON.stringify(normalizedEntries.map((entry) => ({
-            resource_key: entry.resourceKey,
-            tile_index: entry.tileIndex,
-          }))),
-        ],
+        [normalizedInstanceId, resourceKeyRowsJson],
       );
       await client.query('COMMIT');
     } catch (error: unknown) {
