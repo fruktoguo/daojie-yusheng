@@ -23,6 +23,8 @@ export class WorldRuntimeSummaryQueryService {
             instanceCount: input.instances.length,
             leaseDegradedInstanceCount: countInstancesByRuntimeStatus(input.instances, 'lease_degraded'),
             fencedInstanceCount: countInstancesByRuntimeStatus(input.instances, 'fenced'),
+            quarantineInstanceCount: countQuarantineInstances(input.instances),
+            quarantineInstances: buildQuarantineInstances(input.instances),
             playerCount: input.playerCount,
             pendingCommandCount: input.pendingCommandCount,
             pendingSystemCommandCount: input.pendingSystemCommandCount,
@@ -104,6 +106,42 @@ function countInstancesByRuntimeStatus(instances, runtimeStatus) {
         }
     }
     return count;
+}
+
+function countQuarantineInstances(instances) {
+    return buildQuarantineInstances(instances, Number.POSITIVE_INFINITY).length;
+}
+
+function buildQuarantineInstances(instances, limit = 25) {
+    if (!Array.isArray(instances)) {
+        return [];
+    }
+    const items = [];
+    for (const instance of instances) {
+        const runtimeStatus = typeof instance?.runtimeStatus === 'string' ? instance.runtimeStatus.trim() : '';
+        if (!isQuarantineRuntimeStatus(runtimeStatus)) {
+            continue;
+        }
+        items.push({
+            instanceId: typeof instance?.instanceId === 'string' ? instance.instanceId : '',
+            templateId: typeof instance?.templateId === 'string' ? instance.templateId : null,
+            kind: typeof instance?.kind === 'string' ? instance.kind : null,
+            status: typeof instance?.status === 'string' ? instance.status : null,
+            runtimeStatus,
+            reason: runtimeStatus === 'lease_degraded' ? 'lease_degraded' : runtimeStatus === 'fenced' ? 'lease_fenced' : runtimeStatus,
+            playerCount: normalizeCount(instance?.playerCount),
+        });
+        if (items.length >= limit) {
+            break;
+        }
+    }
+    return items;
+}
+
+function isQuarantineRuntimeStatus(runtimeStatus) {
+    return runtimeStatus === 'fenced'
+        || runtimeStatus === 'lease_degraded'
+        || runtimeStatus === 'template_missing';
 }
 
 function normalizeSummaryObject(input) {

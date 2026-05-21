@@ -18,8 +18,20 @@ interface RuntimeSummaryLike {
   instanceCount?: number;
   leaseDegradedInstanceCount?: number;
   fencedInstanceCount?: number;
+  quarantineInstanceCount?: number;
+  quarantineInstances?: RuntimeQuarantineInstance[];
   playerCount?: number;
   pendingCommandCount?: number;
+}
+
+interface RuntimeQuarantineInstance {
+  instanceId: string;
+  templateId?: string | null;
+  kind?: string | null;
+  status?: string | null;
+  runtimeStatus: string;
+  reason: string;
+  playerCount?: number;
 }
 
 /** 世界运行时服务最小接口 */
@@ -69,6 +81,8 @@ interface RuntimeReadiness {
   instanceCount: number;
   leaseDegradedInstanceCount: number;
   fencedInstanceCount: number;
+  quarantineInstanceCount: number;
+  quarantineInstances: RuntimeQuarantineInstance[];
   playerCount: number;
   pendingCommandCount: number;
 }
@@ -233,6 +247,8 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
       instanceCount: 0,
       leaseDegradedInstanceCount: 0,
       fencedInstanceCount: 0,
+      quarantineInstanceCount: 0,
+      quarantineInstances: [],
       playerCount: 0,
       pendingCommandCount: 0,
     };
@@ -247,6 +263,8 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
       instanceCount: 0,
       leaseDegradedInstanceCount: 0,
       fencedInstanceCount: 0,
+      quarantineInstanceCount: 0,
+      quarantineInstances: [],
       playerCount: 0,
       pendingCommandCount: 0,
     };
@@ -258,6 +276,8 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
     const instanceCount = readNonNegativeInt(summary.instanceCount);
     const leaseDegradedInstanceCount = readNonNegativeInt(summary.leaseDegradedInstanceCount);
     const fencedInstanceCount = readNonNegativeInt(summary.fencedInstanceCount);
+    const quarantineInstanceCount = readNonNegativeInt(summary.quarantineInstanceCount);
+    const quarantineInstances = normalizeQuarantineInstances(summary.quarantineInstances);
     const playerCount = readNonNegativeInt(summary.playerCount);
     const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
     const ready = instanceCount > 0 && leaseDegradedInstanceCount === 0 && fencedInstanceCount === 0;
@@ -269,6 +289,8 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
       instanceCount,
       leaseDegradedInstanceCount,
       fencedInstanceCount,
+      quarantineInstanceCount,
+      quarantineInstances,
       playerCount,
       pendingCommandCount,
     };
@@ -280,10 +302,27 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
       instanceCount: 0,
       leaseDegradedInstanceCount: 0,
       fencedInstanceCount: 0,
+      quarantineInstanceCount: 0,
+      quarantineInstances: [],
       playerCount: 0,
       pendingCommandCount: 0,
     };
   }
+}
+
+function normalizeQuarantineInstances(value: RuntimeQuarantineInstance[] | undefined): RuntimeQuarantineInstance[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.slice(0, 25).filter((entry) => typeof entry?.instanceId === 'string' && entry.instanceId.trim()).map((entry) => ({
+    instanceId: entry.instanceId.trim(),
+    templateId: typeof entry.templateId === 'string' && entry.templateId.trim() ? entry.templateId.trim() : null,
+    kind: typeof entry.kind === 'string' && entry.kind.trim() ? entry.kind.trim() : null,
+    status: typeof entry.status === 'string' && entry.status.trim() ? entry.status.trim() : null,
+    runtimeStatus: typeof entry.runtimeStatus === 'string' && entry.runtimeStatus.trim() ? entry.runtimeStatus.trim() : 'unknown',
+    reason: typeof entry.reason === 'string' && entry.reason.trim() ? entry.reason.trim() : 'unknown',
+    playerCount: readNonNegativeInt(entry.playerCount),
+  }));
 }
 
 /** 将运行时上报值转为非负整数，避免 NaN/负数污染 readiness。 */
