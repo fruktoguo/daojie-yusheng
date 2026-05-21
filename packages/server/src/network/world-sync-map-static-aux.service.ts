@@ -382,7 +382,15 @@ function cloneTilePatch(source) {
         tile.structureType = typeof source.structureType === 'string' && source.structureType.length > 0 ? source.structureType : null;
     }
     if (Array.isArray(source.interactableKinds) && source.interactableKinds.length > 0) {
-        tile.interactableKinds = source.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0);
+        const interactableKinds = [];
+        for (const kind of source.interactableKinds) {
+            if (typeof kind === 'string' && kind.length > 0) {
+                interactableKinds.push(kind);
+            }
+        }
+        if (interactableKinds.length > 0) {
+            tile.interactableKinds = interactableKinds;
+        }
     }
     return tile;
 }
