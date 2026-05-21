@@ -6,6 +6,7 @@ const TEST_REALM_EXP_TO_NEXT = 10000;
 
 async function main(): Promise<void> {
   await testGroundTakeDurableGrant();
+  await testGroundTakeDurableGrantSyncsPresenceFence();
   await testGroundTakeAllDurableGrant();
   await testContainerTakeDurableGrant();
   await testContainerTakeAllDurableGrant();
@@ -24,6 +25,101 @@ async function main(): Promise<void> {
     answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药刷新会积攒库存，地块攻击草药会扣 1 朵并在空库存时显示回生倒计时',
     excludes: '不证明草药采集的 profession 变更已经并入同一资产事务，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+async function testGroundTakeDurableGrantSyncsPresenceFence() {
+  const log: Array<unknown[]> = [];
+  const durableCalls: Array<Record<string, unknown>> = [];
+  const player = buildPlayer('player:ground:fenced', 'instance:ground:fenced', 'runtime:ground:1', 1);
+  player.x = 3;
+  player.y = 4;
+  const playerRuntimeService = buildPlayerRuntimeService(player, {
+    onEnsureRuntimeSessionFenceAtLeast(playerId, sessionEpochFloor) {
+      log.push(['ensureRuntimeSessionFenceAtLeast', playerId, sessionEpochFloor]);
+    },
+  });
+  const service = new WorldRuntimeLootContainerService({} as never, playerRuntimeService as never, {
+    isEnabled() {
+      return true;
+    },
+    async loadPlayerPresence(playerId: string) {
+      log.push(['loadPlayerPresence', playerId]);
+      return {
+        runtimeOwnerId: null,
+        sessionEpoch: 446,
+      };
+    },
+    async savePlayerPresence(playerId: string, presence: Record<string, unknown>) {
+      log.push(['savePlayerPresence', playerId, presence.runtimeOwnerId, presence.sessionEpoch]);
+    },
+  } as never);
+  const instance = {
+    getGroundPileBySourceId(sourceId: string) {
+      assert.equal(sourceId, 'ground:fenced');
+      return {
+        x: 3,
+        y: 4,
+        items: [
+          { itemKey: 'pile:item:fenced', item: { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' } },
+        ],
+      };
+    },
+    takeGroundItem(sourceId: string, itemKey: string) {
+      assert.equal(sourceId, 'ground:fenced');
+      assert.equal(itemKey, 'pile:item:fenced');
+      return { itemId: 'rat_tail', name: '鼠尾', count: 1, type: 'material' };
+    },
+    dropGroundItem() {
+      throw new Error('ground item should not be restored after synced durable success');
+    },
+  };
+  const deps = {
+    tick: 101,
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'instance:ground:fenced' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return instance;
+    },
+    refreshQuestStates(playerId: string) {
+      log.push(['refreshQuestStates', playerId]);
+    },
+    queuePlayerNotice(playerId: string, message: string, tone: string) {
+      log.push(['queuePlayerNotice', playerId, message, tone]);
+    },
+    durableOperationService: {
+      isEnabled() {
+        return true;
+      },
+      async grantInventoryItems(input: Record<string, unknown>) {
+        durableCalls.push(input);
+      },
+    },
+    instanceCatalogService: {
+      isEnabled() {
+        return true;
+      },
+      async loadInstanceCatalog(instanceId: string) {
+        assert.equal(instanceId, 'instance:ground:fenced');
+        return {
+          assigned_node_id: 'node:ground',
+          ownership_epoch: 33,
+        };
+      },
+    },
+  };
+
+  await service.dispatchTakeGround(player.playerId, 'ground:fenced', 'pile:item:fenced', deps as never);
+  assert.equal(durableCalls.length, 1);
+  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:player:ground:fenced:447');
+  assert.equal(durableCalls[0]?.expectedSessionEpoch, 447);
+  assert.deepEqual(log, [
+    ['loadPlayerPresence', 'player:ground:fenced'],
+    ['ensureRuntimeSessionFenceAtLeast', 'player:ground:fenced', 446],
+    ['savePlayerPresence', 'player:ground:fenced', 'runtime:player:ground:fenced:447', 447],
+    ['refreshQuestStates', 'player:ground:fenced'],
+    ['queuePlayerNotice', 'player:ground:fenced', '获得 鼠尾', 'loot'],
+  ]);
 }
 
 async function testGroundTakeDurableGrant() {
@@ -115,6 +211,9 @@ async function testGroundTakeDurableGrant() {
   assert.equal(durableCalls[0]?.sourceType, 'ground_take');
   assert.equal(durableCalls[0]?.sourceRefId, 'ground:1:pile:item:1');
   assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[0]?.itemId, 'rat_tail');
+  const grantedPayload = (durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.[0]?.rawPayload as Record<string, unknown> | undefined;
+  assert.equal(typeof grantedPayload?.itemInstanceId, 'string');
+  assert.match(String(durableCalls[0]?.operationId ?? ''), /rat_tail:x2:[0-9a-f-]{36}/);
   resolveDurable();
   await pendingTakeGround;
   assert.deepEqual(restoredItems, []);
@@ -1094,6 +1193,7 @@ function buildPlayerRuntimeService(
   options: {
     lootWindowTarget?: { tileX: number; tileY: number } | null;
     onMarkPersistenceDirtyDomains?: (player: ReturnType<typeof buildPlayer>, domains: string[]) => void;
+    onEnsureRuntimeSessionFenceAtLeast?: (playerId: string, sessionEpochFloor: number) => void;
   } = {},
 ) {
   return {
@@ -1107,6 +1207,27 @@ function buildPlayerRuntimeService(
     },
     getLootWindowTarget() {
       return options.lootWindowTarget ?? null;
+    },
+    describePersistencePresence(playerId: string) {
+      assert.equal(playerId, player.playerId);
+      return {
+        online: true,
+        inWorld: true,
+        runtimeOwnerId: player.runtimeOwnerId,
+        sessionEpoch: player.sessionEpoch,
+        lastHeartbeatAt: 1,
+        offlineSinceAt: null,
+      };
+    },
+    ensureRuntimeSessionFenceAtLeast(playerId: string, sessionEpochFloor: number) {
+      assert.equal(playerId, player.playerId);
+      options.onEnsureRuntimeSessionFenceAtLeast?.(playerId, sessionEpochFloor);
+      player.sessionEpoch = Math.max(player.sessionEpoch, sessionEpochFloor) + 1;
+      player.runtimeOwnerId = `runtime:${playerId}:${player.sessionEpoch}`;
+      return {
+        runtimeOwnerId: player.runtimeOwnerId,
+        sessionEpoch: player.sessionEpoch,
+      };
     },
     clearLootWindow() {},
     receiveInventoryItem(playerId: string, item: { itemId: string; count: number }) {

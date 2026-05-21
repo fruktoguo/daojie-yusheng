@@ -1,8 +1,10 @@
-import { Inject, Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { computeAdjustedCraftTicks, computeCraftSkillExpGain, resolveAlchemyGradeValue } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
+import { reassignItemInstanceId } from './item-instance-id.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 
@@ -56,6 +58,24 @@ function computeEffectiveHerbGatherTicks(player, container, row) {
     return computeAdjustedCraftTicks(nativeGatherTicks, gatherLevel * GATHER_SPEED_PER_LEVEL);
 }
 
+function prepareLootGrantItemsForReceiver(sourceType, items) {
+    if (!Array.isArray(items)) {
+        return;
+    }
+    const normalizedSourceType = typeof sourceType === 'string' ? sourceType.trim() : '';
+    if (!normalizedSourceType) {
+        return;
+    }
+    for (const item of items) {
+        reassignItemInstanceId(item);
+    }
+}
+
+function shouldRetryLootSessionFence(error) {
+    const message = String(error instanceof Error ? error.message : error);
+    return message.startsWith('player_session_fencing_conflict');
+}
+
 /** loot/container 状态域服务：承接容器状态、翻找推进、持久化与容器拿取。 */
 @Injectable()
 export class WorldRuntimeLootContainerService {
@@ -70,6 +90,7 @@ export class WorldRuntimeLootContainerService {
  */
 
     playerRuntimeService;    
+    playerDomainPersistenceService;
     /**
  * containerStatesByInstanceId：container状态ByInstanceID标识。
  */
@@ -90,9 +111,12 @@ export class WorldRuntimeLootContainerService {
     constructor(
         @Inject(ContentTemplateRepository) contentTemplateRepository: any,
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Optional()
+        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: PlayerDomainPersistenceService | null = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
     }
     /**
  * getDirtyInstanceIds：读取DirtyInstanceID。
@@ -1171,29 +1195,45 @@ export class WorldRuntimeLootContainerService {
     }
 
     async grantLootItemsDurably(input) {
-        const rollbackState = captureInventoryGrantRollbackState(input.player);
-        input.player.suppressImmediateDomainPersistence = true;
-        try {
-            for (const item of input.items) {
-                this.playerRuntimeService.receiveInventoryItem(input.playerId, item);
+        prepareLootGrantItemsForReceiver(input.sourceType, input.items);
+        await this.syncCurrentPresenceFence(input.playerId);
+        let finalError = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            const rollbackState = captureInventoryGrantRollbackState(input.player);
+            input.player.suppressImmediateDomainPersistence = true;
+            try {
+                for (const item of input.items) {
+                    this.playerRuntimeService.receiveInventoryItem(input.playerId, item);
+                }
+                const leaseContext = await resolveLootInstanceLeaseContext(input.player.instanceId, input.deps);
+                await input.deps.durableOperationService.grantInventoryItems({
+                    operationId: buildLootInventoryGrantOperationId(input.playerId, input.sourceType, input.sourceRefId, input.items),
+                    playerId: input.playerId,
+                    expectedRuntimeOwnerId: input.player.runtimeOwnerId,
+                    expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
+                    expectedInstanceId: input.player.instanceId ?? null,
+                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                    sourceType: input.sourceType,
+                    sourceRefId: input.sourceRefId,
+                    grantedItems: buildGrantedInventorySnapshots(input.items),
+                    nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
+                });
+                finalError = null;
+                input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+                break;
             }
-            const leaseContext = await resolveLootInstanceLeaseContext(input.player.instanceId, input.deps);
-            await input.deps.durableOperationService.grantInventoryItems({
-                operationId: buildLootInventoryGrantOperationId(input.playerId, input.sourceType, input.sourceRefId, input.items),
-                playerId: input.playerId,
-                expectedRuntimeOwnerId: input.player.runtimeOwnerId,
-                expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
-                expectedInstanceId: input.player.instanceId ?? null,
-                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                sourceType: input.sourceType,
-                sourceRefId: input.sourceRefId,
-                grantedItems: buildGrantedInventorySnapshots(input.items),
-                nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
-            });
+            catch (error) {
+                finalError = error;
+                restoreInventoryGrantRollbackState(input.player, rollbackState, this.playerRuntimeService);
+                input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+                if (attempt === 0 && shouldRetryLootSessionFence(error) && await this.syncCurrentPresenceFence(input.playerId)) {
+                    continue;
+                }
+                break;
+            }
         }
-        catch (error) {
-            restoreInventoryGrantRollbackState(input.player, rollbackState, this.playerRuntimeService);
+        if (finalError) {
             if (typeof input.restoreOnFailure === 'function') {
                 try {
                     input.restoreOnFailure();
@@ -1212,17 +1252,55 @@ export class WorldRuntimeLootContainerService {
                     }
                 }
             }
+            this.logger.warn(`地面/容器物品持久化拿取失败：playerId=${input.playerId} sourceType=${input.sourceType} sourceRefId=${input.sourceRefId} error=${finalError instanceof Error ? finalError.message : String(finalError)}`);
             input.deps.queuePlayerNotice(input.playerId, input.failureNotice ?? '拿取失败，物品已留在原地。', 'warn');
             return;
-        }
-        finally {
-            input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
         }
         input.deps.refreshQuestStates(input.playerId);
         input.deps.queuePlayerNotice(input.playerId, input.successNotice, 'loot');
         if (input.partialNotice) {
             input.deps.queuePlayerNotice(input.playerId, input.partialNotice, 'info');
         }
+    }
+
+    async syncCurrentPresenceFence(playerId) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return false;
+        }
+        const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
+            ? await this.playerDomainPersistenceService.loadPlayerPresence(playerId)
+            : null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        const persistedSessionEpoch = Number.isFinite(persistedPresence?.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
+        const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
+            ? persistedPresence.runtimeOwnerId.trim()
+            : '';
+        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+        const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
+        if (
+            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+            && persistedSessionEpoch > 0
+            && (
+                runtimeSessionEpoch <= persistedSessionEpoch
+                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+            )
+        ) {
+            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+            ...presence,
+            versionSeed: Date.now(),
+        });
+        return true;
     }
 
     /**
@@ -1495,7 +1573,10 @@ function buildLootInventoryGrantOperationId(playerId, sourceType, sourceRefId, i
         ? items.map((item) => {
             const itemId = typeof item?.itemId === 'string' && item.itemId.trim() ? item.itemId.trim() : 'item';
             const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
-            return `${itemId}:x${count}`;
+            const itemInstanceId = typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim()
+                ? item.itemInstanceId.trim()
+                : 'no-instance';
+            return `${itemId}:x${count}:${itemInstanceId}`;
         }).join('|')
         : 'items';
     return `op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemSignature}`;
