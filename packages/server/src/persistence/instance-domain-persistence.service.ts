@@ -1657,22 +1657,48 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       .map((item) => {
         const instanceId = normalizeRequiredString(item.instanceId);
         if (!instanceId) return null;
-        const upserts = (Array.isArray(item.upserts) ? item.upserts : [])
-          .filter((e) => Boolean(e) && typeof e.resourceKey === 'string' && e.resourceKey.trim().length > 0
-            && Number.isFinite(Number(e.tileIndex)) && Number.isFinite(Number(e.value)))
-          .map((e) => ({
-            resourceKey: e.resourceKey.trim(),
-            tileIndex: Math.max(0, Math.trunc(Number(e.tileIndex))),
-            value: Math.max(0, normalizeNumberWithFallback(e.value, 0)),
-          }));
-        const deletes = (Array.isArray(item.deletes) ? item.deletes : [])
-          .filter((e) => Boolean(e) && typeof e.resourceKey === 'string' && e.resourceKey.trim().length > 0
-            && Number.isFinite(Number(e.tileIndex)))
-          .map((e) => ({ resourceKey: e.resourceKey.trim(), tileIndex: Math.max(0, Math.trunc(Number(e.tileIndex))) }));
-        if (upserts.length === 0 && deletes.length === 0) return null;
-        return { instanceId, upserts, deletes };
+        const upsertRows: Array<{ resource_key: string; tile_index: number; value: number }> = [];
+        for (const entry of Array.isArray(item.upserts) ? item.upserts : []) {
+          if (!entry
+            || typeof entry.resourceKey !== 'string'
+            || !Number.isFinite(Number(entry.tileIndex))
+            || !Number.isFinite(Number(entry.value))) {
+            continue;
+          }
+          const resourceKey = entry.resourceKey.trim();
+          if (!resourceKey) {
+            continue;
+          }
+          upsertRows.push({
+            resource_key: resourceKey,
+            tile_index: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+            value: Math.max(0, normalizeNumberWithFallback(entry.value, 0)),
+          });
+        }
+        const deleteRows: Array<{ resource_key: string; tile_index: number }> = [];
+        for (const entry of Array.isArray(item.deletes) ? item.deletes : []) {
+          if (!entry
+            || typeof entry.resourceKey !== 'string'
+            || !Number.isFinite(Number(entry.tileIndex))) {
+            continue;
+          }
+          const resourceKey = entry.resourceKey.trim();
+          if (!resourceKey) {
+            continue;
+          }
+          deleteRows.push({
+            resource_key: resourceKey,
+            tile_index: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+          });
+        }
+        if (upsertRows.length === 0 && deleteRows.length === 0) return null;
+        return {
+          instanceId,
+          upsertsJson: JSON.stringify(upsertRows),
+          deletesJson: JSON.stringify(deleteRows),
+        };
       })
-      .filter(Boolean) as Array<{ instanceId: string; upserts: any[]; deletes: any[] }>;
+      .filter(Boolean) as Array<{ instanceId: string; upsertsJson: string; deletesJson: string }>;
     if (entries.length === 0) return;
     entries.sort((a, b) => a.instanceId < b.instanceId ? -1 : a.instanceId > b.instanceId ? 1 : 0);
     const client = await this.pool.connect();
@@ -1682,7 +1708,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         await acquireInstanceDomainLock(client, entry.instanceId);
       }
       for (const entry of entries) {
-        if (entry.deletes.length > 0) {
+        if (entry.deletesJson !== '[]') {
           await client.query(
             `WITH incoming AS (
               SELECT resource_key, tile_index
@@ -1692,12 +1718,10 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             USING incoming
             WHERE target.instance_id = $1 AND target.resource_key = incoming.resource_key
               AND target.tile_index = incoming.tile_index`,
-            [entry.instanceId, JSON.stringify(entry.deletes.map((d) => ({
-              resource_key: d.resourceKey, tile_index: d.tileIndex,
-            })))],
+            [entry.instanceId, entry.deletesJson],
           );
         }
-        if (entry.upserts.length > 0) {
+        if (entry.upsertsJson !== '[]') {
           await client.query(
             `WITH incoming AS (
               SELECT resource_key, tile_index, value
@@ -1707,9 +1731,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             SELECT $1, resource_key, tile_index, value, now() FROM incoming
             ON CONFLICT (instance_id, resource_key, tile_index)
             DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-            [entry.instanceId, JSON.stringify(entry.upserts.map((u) => ({
-              resource_key: u.resourceKey, tile_index: u.tileIndex, value: u.value,
-            })))],
+            [entry.instanceId, entry.upsertsJson],
           );
         }
       }
