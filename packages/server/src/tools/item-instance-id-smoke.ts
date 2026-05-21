@@ -24,11 +24,16 @@ import {
     isItemInstanceIdHardCheckEnabled,
     reassignItemInstanceId,
 } from '../runtime/world/item-instance-id.helpers';
+import { Pool } from 'pg';
 import {
     buildGrantedInventorySnapshots,
     buildNextInventorySnapshots,
 } from '../runtime/world/world-runtime-inventory-grant.helpers';
 import { buildPlayerSnapshotProjectionWritePlan } from '../persistence/player-domain-write-plan';
+import { FlushLedgerService } from '../persistence/flush-ledger.service';
+import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
+import { FlushWakeupService } from '../persistence/flush-wakeup.service';
+import { resolveServerDatabaseUrl } from '../config/env-alias';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -391,6 +396,96 @@ async function testEquipmentWritePlanConflictRepairWithProbe(): Promise<void> {
     console.log('[smoke] equipment-write-plan-conflict-repair-with-probe passed');
 }
 
+async function testFlushTaskDomainIsolation(): Promise<void> {
+    const databaseUrl = resolveServerDatabaseUrl();
+    if (!databaseUrl.trim()) {
+        console.log('[smoke] flush-task-domain-isolation skipped: database url missing');
+        return;
+    }
+    process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'inline';
+    const pool = new Pool({ connectionString: databaseUrl });
+    const ledger = new FlushLedgerService({ getPool: () => pool } as never);
+    const wakeup = new FlushWakeupService();
+    const playerId = `flush_task_smoke_${Date.now().toString(36)}`;
+    const failDomain = 'alpha_fail_domain';
+    const successDomain = 'omega_success_domain';
+    let successCalls = 0;
+    const playerRuntime = {
+        listDirtyPlayerDomains() {
+            return new Map([[playerId, new Set([failDomain, successDomain])]]);
+        },
+        getPersistenceRevision() {
+            return 31;
+        },
+    };
+    const playerFlush = {
+        async flushPlayerDomains(_playerId: string, domains: Iterable<string>) {
+            const domainList = Array.from(domains);
+            if (domainList.includes(failDomain)) {
+                throw new Error('synthetic flush failure for domain isolation');
+            }
+            if (domainList.includes(successDomain)) {
+                successCalls += 1;
+                return;
+            }
+            throw new Error(`unexpected domains: ${domainList.join(',')}`);
+        },
+    };
+    const worldRuntime = {
+        listDirtyPersistentInstanceDomains() {
+            return [];
+        },
+        listDirtyPersistentInstances() {
+            return [];
+        },
+    };
+    const runtime = new FlushTaskRuntimeService(
+        playerRuntime as never,
+        worldRuntime as never,
+        playerFlush as never,
+        ledger,
+        wakeup,
+    );
+
+    try {
+        await ledger.onModuleInit();
+        await cleanupRows(pool, playerId, 'flush_task_instance_unused');
+        await runtime.runOnce('flush-task-runtime-smoke', { playerDomain: failDomain });
+        const failRows = await pool.query<{
+            domain: string;
+            flushed_version: string | number;
+            latest_version: string | number;
+            next_attempt_at: string | null;
+        }>('SELECT domain, flushed_version, latest_version, next_attempt_at FROM player_flush_ledger WHERE player_id = $1 AND domain = $2', [playerId, failDomain]);
+        assert.equal(failRows.rowCount, 1);
+        assert.equal(Number(failRows.rows[0]?.flushed_version ?? 0), 0);
+        assert.equal(Number(failRows.rows[0]?.latest_version ?? 0), 31);
+        assert.ok(Number(failRows.rows[0]?.latest_version ?? 0) > Number(failRows.rows[0]?.flushed_version ?? 0));
+        await runtime.runOnce('flush-task-runtime-smoke', { playerDomain: successDomain });
+        assert.equal(successCalls, 1);
+        const successRows = await pool.query<{
+            domain: string;
+            flushed_version: string | number;
+            latest_version: string | number;
+            next_attempt_at: string | null;
+        }>('SELECT domain, flushed_version, latest_version, next_attempt_at FROM player_flush_ledger WHERE player_id = $1 AND domain = $2', [playerId, successDomain]);
+        assert.equal(successRows.rowCount, 1);
+        assert.equal(Number(successRows.rows[0]?.flushed_version ?? 0), 31);
+        assert.equal(Number(successRows.rows[0]?.latest_version ?? 0), 31);
+        assert.equal(successRows.rows[0]?.next_attempt_at, null);
+        console.log('[smoke] flush-task-domain-isolation passed');
+    } finally {
+        await cleanupRows(pool, playerId, 'flush_task_instance_unused').catch(() => undefined);
+        await ledger.onModuleDestroy().catch(() => undefined);
+        await pool.end().catch(() => undefined);
+    }
+}
+
+async function cleanupRows(pool: Pool, playerId: string, instanceId: string): Promise<void> {
+    await pool.query('DELETE FROM player_flush_ledger WHERE player_id = $1', [playerId]);
+    await pool.query('DELETE FROM instance_flush_ledger WHERE instance_id = $1', [instanceId]);
+}
+
 function testCompareItemInstanceId(): void {
     // 一致 → match
     const id = '12345678-1234-4234-8234-123456789012';
@@ -427,6 +522,7 @@ async function main(): Promise<void> {
     testMarketShed();
     testGrantPassthrough();
     await testEquipmentWritePlanConflictRepairWithProbe();
+    await testFlushTaskDomainIsolation();
     testCompareItemInstanceId();
     console.log('[smoke] item-instance-id-smoke OK');
 }

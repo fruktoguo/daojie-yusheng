@@ -176,17 +176,34 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
 
   /** 立即刷单个玩家快照与分域投影。 */
   async flushPlayer(playerId: string): Promise<void> {
-    const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if (!domainEnabled) {
-      return;
-    }
-
     const dirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
-    if (dirtyDomains.size === 0) {
+    await this.flushResolvedPlayerDomains(playerId, dirtyDomains, 'manual');
+  }
+
+  /** 立即刷单个玩家的指定 dirty domain，用于统一刷盘任务按 domain 隔离失败。 */
+  async flushPlayerDomains(playerId: string, domains: Iterable<string>): Promise<void> {
+    const requestedDomains = normalizeDirtyDomains(domains);
+    if (requestedDomains.size === 0) {
+      return;
+    }
+    const currentDirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
+    const targetDomains = new Set(
+      Array.from(currentDirtyDomains).filter((domain) => requestedDomains.has(domain)),
+    );
+    await this.flushResolvedPlayerDomains(playerId, targetDomains, 'task-domain');
+  }
+
+  private async flushResolvedPlayerDomains(
+    playerId: string,
+    dirtyDomains: ReadonlySet<string>,
+    reason: string,
+  ): Promise<void> {
+    const domainEnabled = this.playerDomainPersistenceService.isEnabled();
+    if (!domainEnabled || dirtyDomains.size === 0) {
       return;
     }
 
-    if (domainEnabled && dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
+    if (dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
       const presence = this.playerRuntimeService.describePersistencePresence(playerId);
       if (!presence) {
         return;
@@ -220,7 +237,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       playerId,
       snapshot,
       dirtyDomains,
-      'manual',
+      reason,
       domainEnabled,
     );
     // lease 失效或没有 domain 真正落库时，不能 markPersisted，dirty 保留等下一轮重试。

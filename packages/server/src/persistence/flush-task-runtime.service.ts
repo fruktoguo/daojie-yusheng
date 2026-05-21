@@ -9,10 +9,16 @@ import { FlushLedgerService } from './flush-ledger.service';
 import { FlushWakeupService } from './flush-wakeup.service';
 import { isInlineFlushTaskRuntimeMode } from './flush-task-runtime-mode';
 import type { FlushTask } from './flush-task.types';
+import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
+import { FlushDiagnosticsService } from './flush-diagnostics.service';
 import { PlayerPersistenceFlushService } from './player-persistence-flush.service';
 
 const INTERVAL_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_INTERVAL_MS', 'FLUSH_TASK_RUNTIME_INTERVAL_MS', 1_500, 250, 60_000);
 const CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 64, 1, 256);
+const PLAYER_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_PLAYER_CLAIM_LIMIT', Math.max(256, CLAIM_LIMIT), 1, 5_000);
+const INSTANCE_CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_INSTANCE_CLAIM_LIMIT', Math.max(256, CLAIM_LIMIT), 1, 5_000);
+const PLAYER_PARALLELISM = readInt('SERVER_FLUSH_TASK_RUNTIME_PLAYER_PARALLELISM', 'FLUSH_TASK_RUNTIME_PLAYER_PARALLELISM', 8, 1, 64);
+const INSTANCE_PARALLELISM = readInt('SERVER_FLUSH_TASK_RUNTIME_INSTANCE_PARALLELISM', 'FLUSH_TASK_RUNTIME_INSTANCE_PARALLELISM', 8, 1, 64);
 const RETRY_DELAY_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_RETRY_DELAY_MS', 'FLUSH_TASK_RUNTIME_RETRY_DELAY_MS', 5_000, 250, 300_000);
 const COALESCE_MS = readInt('SERVER_MAP_PERSISTENCE_COALESCE_WINDOW_MS', 'MAP_PERSISTENCE_COALESCE_WINDOW_MS', 3_000, 0, 30_000);
 const TIME_CHECKPOINT_MS = readInt('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS', 300_000, 60_000, 3_600_000);
@@ -53,6 +59,8 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly workerId = `flush-task-runtime:${process.pid}:${randomUUID()}`;
   private timer: NodeJS.Timeout | null = null;
   private running: Promise<number> | null = null;
+  private globalBackoffUntilAt = 0;
+  private readonly failureAttempts = new Map<string, number>();
 
   constructor(
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeFlushTaskPort,
@@ -61,6 +69,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     private readonly flushLedgerService: FlushLedgerService,
     private readonly flushWakeupService: FlushWakeupService,
     @Optional() @Inject(DatabasePoolProvider) private readonly databasePoolProvider?: DatabasePoolProvider,
+    @Optional() @Inject(FlushDiagnosticsService) private readonly flushDiagnostics?: FlushDiagnosticsService,
   ) {}
 
   onModuleInit(): void {
@@ -70,7 +79,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
     this.timer.unref();
-    this.logger.log(`统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms`);
+    this.logger.log(
+      `统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms playerLimit=${PLAYER_CLAIM_LIMIT} instanceLimit=${INSTANCE_CLAIM_LIMIT} playerParallelism=${PLAYER_PARALLELISM} instanceParallelism=${INSTANCE_PARALLELISM}`,
+    );
   }
 
   onModuleDestroy(): void {
@@ -94,14 +105,17 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async runCycle(workerId: string, filter?: { playerDomain?: string; instanceDomain?: string }): Promise<number> {
+    if (this.isGlobalBackoffActive()) {
+      return 0;
+    }
     await this.collectPlayerTasks();
     await this.collectInstanceTasks();
     if (this.isFlushPoolBackpressureActive()) {
       this.logger.warn(`统一刷盘任务因刷盘池等待排队而暂停认领：waiting>=${FLUSH_WAITING_LIMIT}`);
       return 0;
     }
-    const playerTasks = await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope: 'player', domain: filter?.playerDomain, limit: CLAIM_LIMIT });
-    const instanceTasks = await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope: 'instance', domain: filter?.instanceDomain, limit: CLAIM_LIMIT });
+    const playerTasks = await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope: 'player', domain: filter?.playerDomain, limit: PLAYER_CLAIM_LIMIT });
+    const instanceTasks = await this.flushLedgerService.claimReadyFlushTasks({ workerId, scope: 'instance', domain: filter?.instanceDomain, limit: INSTANCE_CLAIM_LIMIT });
     return (await this.processPlayerTasks(playerTasks)) + (await this.processInstanceTasks(instanceTasks));
   }
 
@@ -149,36 +163,114 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async processPlayerTasks(tasks: FlushTask[]): Promise<number> {
     let processed = 0;
-    for (const group of groupTasksById(tasks).values()) {
-      try {
-        await this.playerPersistenceFlushService.flushPlayer(group[0].id);
-        await Promise.all(group.map((task) => this.flushLedgerService.markFlushTaskFlushed(task)));
-        processed += 1;
-      } catch (error) {
-        this.logger.warn(`玩家刷盘任务失败 playerId=${group[0].id}: ${formatError(error)}`);
-        await Promise.all(group.map((task) => this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS)));
-      }
-    }
+    const groups = Array.from(groupTasksById(tasks).values());
+    await runConcurrent(
+      groups,
+      PLAYER_PARALLELISM,
+      async (group) => {
+        if (this.isGlobalBackoffActive()) {
+          return;
+        }
+        const playerId = group[0]?.id;
+        if (!playerId) {
+          return;
+        }
+        const domains = Array.from(new Set(group.map((task) => task.domain)));
+        const attemptKey = playerGroupKey(group);
+        try {
+          await this.playerPersistenceFlushService.flushPlayerDomains(playerId, domains);
+          await this.flushLedgerService.markFlushTasksFlushed(group);
+          this.failureAttempts.delete(attemptKey);
+          processed += group.length;
+        } catch (error) {
+          processed += await this.retryPlayerTasksIndividually(group, error);
+        }
+      },
+    );
     return processed;
   }
 
   private async processInstanceTasks(tasks: FlushTask[]): Promise<number> {
     const remaining = new Map(tasks.map((task) => [instanceTaskKey(task), task]));
     let processed = await this.processBatchableInstanceTasks(tasks, remaining);
-    for (const task of remaining.values()) {
+    await runConcurrent(
+      Array.from(groupInstanceTasksByRuntime(remaining.values()).values()),
+      INSTANCE_PARALLELISM,
+      async (group) => {
+        processed += await this.processInstanceTaskGroup(group);
+      },
+    );
+    return processed;
+  }
+
+  private async retryPlayerTasksIndividually(tasks: FlushTask[], groupError: unknown): Promise<number> {
+    let processed = 0;
+    this.logger.warn(`玩家聚合刷盘失败，降级为逐 domain 隔离 playerId=${tasks[0]?.id ?? 'unknown'}: ${formatError(groupError)}`);
+    for (const task of tasks) {
+      if (this.isGlobalBackoffActive()) {
+        return processed;
+      }
+      const attemptKey = playerTaskKey(task);
+      try {
+        await this.playerPersistenceFlushService.flushPlayerDomains(task.id, [task.domain]);
+        await this.flushLedgerService.markFlushTaskFlushed(task);
+        this.failureAttempts.delete(attemptKey);
+        processed += 1;
+      } catch (error) {
+        await this.markTaskRetryWithDiagnostics(task, error);
+      }
+    }
+    return processed;
+  }
+
+  private async processInstanceTaskGroup(group: FlushTask[]): Promise<number> {
+    if (this.isGlobalBackoffActive()) {
+      return 0;
+    }
+    const first = group[0];
+    if (!first) {
+      return 0;
+    }
+    const runtime = this.worldRuntimeService.getInstanceRuntime?.(first.id);
+    const epoch = normalizeInt(runtime?.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    if (!runtime?.meta?.persistent || epoch !== normalizeInt(first.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)) {
+      await this.flushLedgerService.markFlushTasksFlushed(group);
+      return group.length;
+    }
+    const domains = Array.from(new Set(group.map((task) => task.domain)));
+    const attemptKey = instanceGroupKey(group);
+    try {
+      await this.worldRuntimeService.flushInstanceDomains?.(first.id, domains);
+      await this.flushLedgerService.markFlushTasksFlushed(group);
+      this.failureAttempts.delete(attemptKey);
+      return group.length;
+    } catch (error) {
+      return this.retryInstanceTasksIndividually(group, error);
+    }
+  }
+
+  private async retryInstanceTasksIndividually(tasks: FlushTask[], groupError: unknown): Promise<number> {
+    let processed = 0;
+    this.logger.warn(`实例聚合刷盘失败，降级为逐 domain 隔离 instanceId=${tasks[0]?.id ?? 'unknown'}: ${formatError(groupError)}`);
+    for (const task of tasks) {
+      if (this.isGlobalBackoffActive()) {
+        return processed;
+      }
       const runtime = this.worldRuntimeService.getInstanceRuntime?.(task.id);
       const epoch = normalizeInt(runtime?.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
       if (!runtime?.meta?.persistent || epoch !== normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)) {
         await this.flushLedgerService.markFlushTaskFlushed(task);
+        processed += 1;
         continue;
       }
+      const attemptKey = instanceTaskKey(task);
       try {
         await this.worldRuntimeService.flushInstanceDomains?.(task.id, [task.domain]);
         await this.flushLedgerService.markFlushTaskFlushed(task);
+        this.failureAttempts.delete(attemptKey);
         processed += 1;
       } catch (error) {
-        this.logger.warn(`实例刷盘任务失败 instanceId=${task.id} domain=${task.domain}: ${formatError(error)}`);
-        await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+        await this.markTaskRetryWithDiagnostics(task, error);
       }
     }
     return processed;
@@ -195,6 +287,9 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (!hasBatchApi) return 0;
     let processed = 0;
     for (const domain of ['tile_damage', 'tile_resource']) {
+      if (this.isGlobalBackoffActive()) {
+        return processed;
+      }
       const domainTasks = tasks.filter((task) => task.domain === domain);
       if (domainTasks.length === 0) continue;
       try {
@@ -211,13 +306,22 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         this.worldRuntimeService.markDomainBatchPersisted?.(domain, persistedIds);
         for (const task of domainTasks.filter((task) => persistedIds.includes(task.id))) {
           await this.flushLedgerService.markFlushTaskFlushed(task);
+          this.failureAttempts.delete(instanceTaskKey(task));
           remaining.delete(instanceTaskKey(task));
           processed += 1;
         }
       } catch (error) {
-        this.logger.warn(`实例批量刷盘任务失败 domain=${domain}: ${formatError(error)}`);
-        await Promise.all(domainTasks.map((task) => this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS)));
-        for (const task of domainTasks) remaining.delete(instanceTaskKey(task));
+        const failure = classifyFlushFailure(error);
+        const retryDelayMs = resolveFlushRetryDelayMs(failure, 1);
+        this.recordFlushFailure('instance', `batch:${domain}`, domain, failure, 1, retryDelayMs);
+        if (failure.globalBackoffMs > 0) {
+          this.applyGlobalBackoff(failure.globalBackoffMs);
+        }
+        this.logger.warn(`实例批量刷盘任务失败 domain=${domain} category=${failure.category}: ${formatError(error)}`);
+        await this.flushLedgerService.markFlushTasksRetry(domainTasks, retryDelayMs);
+        for (const task of domainTasks) {
+          remaining.delete(instanceTaskKey(task));
+        }
       }
     }
     return processed;
@@ -226,6 +330,63 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private isFlushPoolBackpressureActive(): boolean {
     const stats = this.databasePoolProvider?.getPoolStats('flush');
     return Boolean(stats && stats.waitingCount >= FLUSH_WAITING_LIMIT);
+  }
+
+  private async markTaskRetryWithDiagnostics(task: FlushTask, error: unknown): Promise<void> {
+    const failure = classifyFlushFailure(error);
+    const attemptKey = task.scope === 'player' ? playerTaskKey(task) : instanceTaskKey(task);
+    const attempt = this.bumpFailureAttempt(attemptKey);
+    const retryDelayMs = resolveFlushRetryDelayMs(failure, attempt);
+    this.recordFlushFailure(task.scope, task.id, task.domain, failure, attempt, retryDelayMs);
+    if (failure.globalBackoffMs > 0) {
+      this.applyGlobalBackoff(failure.globalBackoffMs);
+    }
+    this.logger.warn(`${task.scope === 'player' ? '玩家' : '实例'}刷盘任务失败 id=${task.id} domain=${task.domain} category=${failure.category}: ${formatError(error)}`);
+    await this.flushLedgerService.markFlushTaskRetry(task, retryDelayMs);
+  }
+
+  private isGlobalBackoffActive(): boolean {
+    return Date.now() < this.globalBackoffUntilAt;
+  }
+
+  private applyGlobalBackoff(backoffMs: number): void {
+    const normalizedBackoffMs = Math.max(0, Math.trunc(Number(backoffMs) || 0));
+    if (normalizedBackoffMs <= 0) {
+      return;
+    }
+    const nextUntil = Date.now() + normalizedBackoffMs;
+    if (nextUntil <= this.globalBackoffUntilAt) {
+      return;
+    }
+    this.globalBackoffUntilAt = nextUntil;
+    this.logger.warn(`统一刷盘因失败分类触发全局退避：backoffMs=${normalizedBackoffMs}`);
+  }
+
+  private bumpFailureAttempt(key: string): number {
+    const next = (this.failureAttempts.get(key) ?? 0) + 1;
+    this.failureAttempts.set(key, next);
+    return next;
+  }
+
+  private recordFlushFailure(
+    scope: 'player' | 'instance',
+    id: string,
+    domain: string,
+    failure: ReturnType<typeof classifyFlushFailure>,
+    attempt: number,
+    retryDelayMs: number,
+  ): void {
+    this.flushDiagnostics?.reportFlushFailure({
+      scope,
+      id,
+      domain,
+      category: failure.category,
+      message: failure.message,
+      attempt,
+      retryDelayMs,
+      timestamp: Date.now(),
+      invariantViolation: failure.invariantViolation,
+    });
   }
 }
 
@@ -240,13 +401,42 @@ function resolveInstanceDelayMs(domain: string): number {
   return 0;
 }
 
+function playerTaskKey(task: FlushTask): string {
+  return `${task.id}\u0000${task.domain}`;
+}
+
+function playerGroupKey(tasks: FlushTask[]): string {
+  const first = tasks[0];
+  if (!first) {
+    return 'player-group:empty';
+  }
+  return `${first.id}\u0000${tasks.map((task) => task.domain).sort().join('\u0001')}`;
+}
+
 function instanceTaskKey(task: FlushTask): string {
   return `${task.id}\u0000${task.domain}\u0000${task.ownershipEpoch ?? 0}`;
+}
+
+function instanceGroupKey(tasks: FlushTask[]): string {
+  const first = tasks[0];
+  if (!first) {
+    return 'instance-group:empty';
+  }
+  return `${first.id}\u0000${first.ownershipEpoch ?? 0}\u0000${tasks.map((task) => task.domain).sort().join('\u0001')}`;
 }
 
 function groupTasksById(tasks: FlushTask[]): Map<string, FlushTask[]> {
   const grouped = new Map<string, FlushTask[]>();
   for (const task of tasks) grouped.set(task.id, [...(grouped.get(task.id) ?? []), task]);
+  return grouped;
+}
+
+function groupInstanceTasksByRuntime(tasks: Iterable<FlushTask>): Map<string, FlushTask[]> {
+  const grouped = new Map<string, FlushTask[]>();
+  for (const task of tasks) {
+    const key = `${task.id}\u0000${task.ownershipEpoch ?? 0}`;
+    grouped.set(key, [...(grouped.get(key) ?? []), task]);
+  }
   return grouped;
 }
 
@@ -274,6 +464,18 @@ function normalizeInt(value: unknown, fallback: number, min: number, max: number
 
 function readInt(primary: string, fallbackKey: string, fallback: number, min: number, max: number): number {
   return normalizeInt(readTrimmedEnv(primary, fallbackKey), fallback, min, max);
+}
+
+async function runConcurrent<T>(
+  values: T[],
+  parallelism: number,
+  worker: (value: T) => Promise<void>,
+): Promise<void> {
+  const normalizedParallelism = Math.max(1, Math.trunc(Number(parallelism) || 1));
+  for (let index = 0; index < values.length; index += normalizedParallelism) {
+    const slice = values.slice(index, index + normalizedParallelism);
+    await Promise.all(slice.map((value) => worker(value)));
+  }
 }
 
 function formatError(error: unknown): string {

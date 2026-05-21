@@ -32,26 +32,31 @@ async function main(): Promise<void> {
   const playerId = `flush_task_player_${Date.now().toString(36)}`;
   const instanceId = `public:flush_task_instance_${Date.now().toString(36)}`;
   const smokeDomain = `flush_task_smoke_${Date.now().toString(36)}`;
+  const extraPlayerDomain = `${smokeDomain}_extra_player`;
+  const extraInstanceDomain = `${smokeDomain}_extra_instance`;
   let playerFlushCalls = 0;
   let instanceFlushCalls = 0;
+  const playerFlushDomains: string[][] = [];
+  const instanceFlushDomains: string[][] = [];
 
   const playerRuntime = {
     listDirtyPlayerDomains() {
-      return new Map([[playerId, new Set([smokeDomain])]]);
+      return new Map([[playerId, new Set([smokeDomain, extraPlayerDomain])]]);
     },
     getPersistenceRevision() {
       return 11;
     },
   };
   const playerFlush = {
-    async flushPlayer(targetPlayerId: string) {
+    async flushPlayerDomains(targetPlayerId: string, domains: Iterable<string>) {
       assert.equal(targetPlayerId, playerId);
       playerFlushCalls += 1;
+      playerFlushDomains.push(Array.from(domains).sort());
     },
   };
   const worldRuntime = {
     listDirtyPersistentInstanceDomains() {
-      return [{ instanceId, domains: [smokeDomain] }];
+      return [{ instanceId, domains: [smokeDomain, extraInstanceDomain] }];
     },
     getInstanceRuntime(targetInstanceId: string) {
       assert.equal(targetInstanceId, instanceId);
@@ -64,7 +69,7 @@ async function main(): Promise<void> {
     },
     async flushInstanceDomains(targetInstanceId: string, domains?: string[] | null) {
       assert.equal(targetInstanceId, instanceId);
-      assert.deepEqual(domains, [smokeDomain]);
+      instanceFlushDomains.push([...(domains ?? [])].sort());
       instanceFlushCalls += 1;
       return { skipped: false };
     },
@@ -81,16 +86,22 @@ async function main(): Promise<void> {
   try {
     await ledger.onModuleInit();
     await cleanupRows(pool, playerId, instanceId);
-    const processed = await runtime.runOnce('flush-task-runtime-smoke', { playerDomain: smokeDomain, instanceDomain: smokeDomain });
-    assert.equal(processed, 2);
+    const processed = await runtime.runOnce('flush-task-runtime-smoke');
+    assert.equal(processed, 4);
     assert.equal(playerFlushCalls, 1);
     assert.equal(instanceFlushCalls, 1);
+    assert.deepEqual(playerFlushDomains, [[extraPlayerDomain, smokeDomain].sort()]);
+    assert.deepEqual(instanceFlushDomains, [[extraInstanceDomain, smokeDomain].sort()]);
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(playerId)));
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(instanceId)));
     const readyPlayers = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe', scope: 'player', domain: smokeDomain, limit: 10 });
     const readyInstances = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe', scope: 'instance', domain: smokeDomain, limit: 10 });
     assert.equal(readyPlayers.length, 0);
     assert.equal(readyInstances.length, 0);
+    const readyExtraPlayers = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe-extra', scope: 'player', domain: extraPlayerDomain, limit: 10 });
+    const readyExtraInstances = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe-extra', scope: 'instance', domain: extraInstanceDomain, limit: 10 });
+    assert.equal(readyExtraPlayers.length, 0);
+    assert.equal(readyExtraInstances.length, 0);
     console.log(JSON.stringify({
       ok: true,
       processed,

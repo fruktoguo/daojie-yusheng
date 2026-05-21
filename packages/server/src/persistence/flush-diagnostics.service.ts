@@ -5,6 +5,7 @@
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { DatabasePoolProvider, type DatabasePoolStatsByGroup, type DatabasePoolStatsSnapshot } from './database-pool.provider';
+import type { FlushFailureCategory } from './flush-failure-policy';
 
 /** 玩家 flush 单轮诊断。 */
 export interface PlayerFlushDiagnostics {
@@ -47,6 +48,25 @@ export interface MapFlushDiagnostics {
   /** 时间戳。 */
   timestamp: number;
 }
+export interface FlushFailureDiagnostics {
+  scope: 'player' | 'instance';
+  id: string;
+  domain: string;
+  category: FlushFailureCategory;
+  message: string;
+  attempt: number;
+  retryDelayMs: number;
+  timestamp: number;
+  invariantViolation?: boolean;
+}
+
+export interface FlushFailureSummary {
+  recent: FlushFailureDiagnostics[];
+  byCategory: Record<string, number>;
+  byDomain: Record<string, number>;
+  total: number;
+}
+
 /** PG pool 状态快照。 */
 export interface PgPoolStats {
   /** 池中总连接数。 */
@@ -76,6 +96,7 @@ export interface PgLockWaitSummary {
 export interface FlushDiagnosticsSnapshot {
   player: PlayerFlushDiagnostics | null;
   map: MapFlushDiagnostics | null;
+  failures: FlushFailureSummary;
   pgPool: PgPoolStats | null;
   pgPools: DatabasePoolStatsByGroup | null;
   pgLockWait: PgLockWaitSummary | null;
@@ -90,6 +111,7 @@ export class FlushDiagnosticsService {
   private mapHistory: MapFlushDiagnostics[] = [];
   private latestPlayer: PlayerFlushDiagnostics | null = null;
   private latestMap: MapFlushDiagnostics | null = null;
+  private failureHistory: FlushFailureDiagnostics[] = [];
   private latestPgLockWait: PgLockWaitSummary | null = null;
   private lockWaitRefreshInFlight = false;
   private lastLockWaitRefreshAt = 0;
@@ -119,12 +141,21 @@ export class FlushDiagnosticsService {
     this.refreshPgLockWaitSummary();
   }
 
+  /** 刷盘失败样本上报。 */
+  reportFlushFailure(diag: FlushFailureDiagnostics): void {
+    this.failureHistory.push(diag);
+    if (this.failureHistory.length > HISTORY_SIZE) {
+      this.failureHistory.shift();
+    }
+  }
+
   /** 获取当前诊断快照。 */
   getSnapshot(): FlushDiagnosticsSnapshot {
     this.refreshPgLockWaitSummary();
     return {
       player: this.latestPlayer,
       map: this.latestMap,
+      failures: this.getFailureSummary(),
       pgPool: this.databasePoolProvider?.getPoolStats('runtimeCritical') ?? null,
       pgPools: this.databasePoolProvider?.getAllPoolStats() ?? null,
       pgLockWait: this.latestPgLockWait,
@@ -139,6 +170,22 @@ export class FlushDiagnosticsService {
   /** 获取地图 flush 滚动统计。 */
   getMapStats(): { p50Ms: number; p95Ms: number; maxMs: number; count: number } {
     return computePercentiles(this.mapHistory.map((d) => d.totalMs));
+  }
+
+  getFailureSummary(): FlushFailureSummary {
+    const byCategory: Record<string, number> = {};
+    const byDomain: Record<string, number> = {};
+    for (const failure of this.failureHistory) {
+      byCategory[failure.category] = (byCategory[failure.category] ?? 0) + 1;
+      const domainKey = `${failure.scope}:${failure.domain}`;
+      byDomain[domainKey] = (byDomain[domainKey] ?? 0) + 1;
+    }
+    return {
+      recent: [...this.failureHistory].slice(-10).reverse(),
+      byCategory,
+      byDomain,
+      total: this.failureHistory.length,
+    };
   }
 
   private refreshPgLockWaitSummary(): void {

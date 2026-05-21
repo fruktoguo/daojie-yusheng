@@ -111,6 +111,78 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  async markFlushTasksFlushed(tasks: FlushTask[]): Promise<number> {
+    if (!this.pool || !this.enabled || tasks.length === 0) {
+      return 0;
+    }
+    const playerTasks = tasks.filter((task) => task.scope === 'player');
+    const instanceTasks = tasks.filter((task) => task.scope === 'instance');
+    let updated = 0;
+    if (playerTasks.length > 0) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM unnest($1::varchar[], $2::varchar[], $3::bigint[])
+              AS t(player_id, domain, flushed_version)
+          )
+          UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+          SET flushed_version = GREATEST(ledger.flushed_version, input.flushed_version),
+              dirty_since_at = CASE
+                WHEN GREATEST(ledger.flushed_version, input.flushed_version) >= ledger.latest_version THEN NULL
+                ELSE ledger.dirty_since_at
+              END,
+              claimed_by = NULL,
+              claim_until = NULL,
+              next_attempt_at = NULL,
+              updated_at = now()
+          FROM input
+          WHERE ledger.player_id = input.player_id
+            AND ledger.domain = input.domain
+        `,
+        [
+          playerTasks.map((task) => task.id),
+          playerTasks.map((task) => task.domain),
+          playerTasks.map((task) => Math.max(0, Math.trunc(Number(task.latestRevision ?? 0)))),
+        ],
+      );
+      updated += result.rowCount ?? 0;
+    }
+    if (instanceTasks.length > 0) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM unnest($1::varchar[], $2::varchar[], $3::bigint[], $4::bigint[])
+              AS t(instance_id, domain, ownership_epoch, flushed_version)
+          )
+          UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
+          SET flushed_version = GREATEST(ledger.flushed_version, input.flushed_version),
+              dirty_since_at = CASE
+                WHEN GREATEST(ledger.flushed_version, input.flushed_version) >= ledger.latest_version THEN NULL
+                ELSE ledger.dirty_since_at
+              END,
+              claimed_by = NULL,
+              claim_until = NULL,
+              next_attempt_at = NULL,
+              updated_at = now()
+          FROM input
+          WHERE ledger.instance_id = input.instance_id
+            AND ledger.domain = input.domain
+            AND ledger.ownership_epoch = input.ownership_epoch
+        `,
+        [
+          instanceTasks.map((task) => task.id),
+          instanceTasks.map((task) => task.domain),
+          instanceTasks.map((task) => normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)),
+          instanceTasks.map((task) => Math.max(0, Math.trunc(Number(task.latestRevision ?? 0)))),
+        ],
+      );
+      updated += result.rowCount ?? 0;
+    }
+    return updated;
+  }
+
   async markFlushTaskRetry(task: FlushTask, retryDelayMs = 5_000): Promise<boolean> {
     const ledger = this as FlushLedgerService & {
       markPlayerFlushLedgerRetry(input: { playerId: string; domain: string; retryDelayMs?: number }): Promise<boolean>;
@@ -124,6 +196,69 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           ownershipEpoch: normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER),
           retryDelayMs,
         });
+  }
+
+  async markFlushTasksRetry(tasks: FlushTask[], retryDelayMs = 5_000): Promise<number> {
+    if (!this.pool || !this.enabled || tasks.length === 0) {
+      return 0;
+    }
+    const normalizedRetryDelayMs = normalizePositiveInteger(retryDelayMs, 5_000, 250, 300_000);
+    const playerTasks = tasks.filter((task) => task.scope === 'player');
+    const instanceTasks = tasks.filter((task) => task.scope === 'instance');
+    let updated = 0;
+    if (playerTasks.length > 0) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM unnest($1::varchar[], $2::varchar[])
+              AS t(player_id, domain)
+          )
+          UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
+          SET next_attempt_at = now() + ($3::bigint * interval '1 millisecond'),
+              claimed_by = NULL,
+              claim_until = NULL,
+              updated_at = now()
+          FROM input
+          WHERE ledger.player_id = input.player_id
+            AND ledger.domain = input.domain
+        `,
+        [
+          playerTasks.map((task) => task.id),
+          playerTasks.map((task) => task.domain),
+          normalizedRetryDelayMs,
+        ],
+      );
+      updated += result.rowCount ?? 0;
+    }
+    if (instanceTasks.length > 0) {
+      const result = await this.pool.query(
+        `
+          WITH input AS (
+            SELECT *
+            FROM unnest($1::varchar[], $2::varchar[], $3::bigint[])
+              AS t(instance_id, domain, ownership_epoch)
+          )
+          UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
+          SET next_attempt_at = now() + ($4::bigint * interval '1 millisecond'),
+              claimed_by = NULL,
+              claim_until = NULL,
+              updated_at = now()
+          FROM input
+          WHERE ledger.instance_id = input.instance_id
+            AND ledger.domain = input.domain
+            AND ledger.ownership_epoch = input.ownership_epoch
+        `,
+        [
+          instanceTasks.map((task) => task.id),
+          instanceTasks.map((task) => task.domain),
+          instanceTasks.map((task) => normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)),
+          normalizedRetryDelayMs,
+        ],
+      );
+      updated += result.rowCount ?? 0;
+    }
+    return updated;
   }
 
   async upsertPlayerFlushLedger(input: {
@@ -235,7 +370,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
     const domain = normalizeRequiredString(input.domain);
-    const limit = normalizePositiveInteger(input.limit, 32, 1, 200);
+    const limit = normalizePositiveInteger(input.limit, 32, 1, 5_000);
     const queryParams: Array<string | number> = [workerId];
     const filters = [
       'latest_version > flushed_version',
@@ -284,7 +419,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     if (!workerId) {
       return [];
     }
-    const limit = normalizePositiveInteger(input.limit, 32, 1, 200);
+    const limit = normalizePositiveInteger(input.limit, 32, 1, 5_000);
     const queryParams: Array<string | number> = [workerId];
     const filters = [
       'latest_version > flushed_version',
