@@ -118,17 +118,17 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 ### Phase 3：启动管线改造
 
-- [ ] 收敛 `main.ts` / `AppModule` / worker tool 的启动判断。
-  - 已完成：`main.ts` 按 role 在 HTTP app 与 application context 间分流；`WorldTickService`、`FlushTaskRuntimeService`、`OutboxDispatcherRuntimeService`、`MarketTradeHistoryRetentionWorker` 已按 role 守卫自动启动。
-  - 未完成：worker tool 仍需在后续 orchestrator/部署批次统一梳理，故本项保持未勾选。
+- [x] 收敛 `main.ts` / `AppModule` / worker tool 的启动判断。
+  - 已完成：`main.ts` 按 role 在 HTTP app 与 application context 间分流；`WorldTickService`、`FlushTaskRuntimeService`、`OutboxDispatcherRuntimeService`、`MarketTradeHistoryRetentionWorker` 已按 role 守卫自动启动；`AppModule` 仅在 HTTP role 条件注册 `WorldGateway`/gateway helpers/shutdown drain；正式 `flush-task-worker` 与 `outbox-dispatcher-worker` tool 默认强制 `SERVER_RUNTIME_ROLE=worker`。
+  - 验证：`pnpm --filter @mud/server smoke:runtime-role-policy`、`pnpm --filter @mud/server smoke:worker-socket-policy` 通过。
 - [x] `api` 角色：
   - 启动 HTTP / Socket.IO。
   - 启动权威 runtime 和玩家连接相关服务。
   - 默认不启动 worker-only 后台消费者。
   - inline flush 只允许通过显式应急配置开启，并必须在日志中标记为 fallback 角色矩阵。
-- [ ] `worker` 角色：
-  - 已完成：不监听 HTTP 端口；不启动需要主进程内存态的权威 tick；后台 worker orchestrator 已接入。
-  - 未完成：Socket.IO 网关还需在模块拆分阶段继续确认不注册或不启动玩家入口，故本项保持未勾选。
+- [x] `worker` 角色：
+  - 已完成：不监听 HTTP 端口；不启动需要主进程内存态的权威 tick；后台 worker orchestrator 已接入；`AppModule` 在 worker role 不注册 Socket.IO `WorldGateway` 与玩家入口 helpers。
+  - 验证：`pnpm --filter @mud/server smoke:worker-socket-policy` 通过。
 - [x] `all` 角色：
   - 仅用于开发、单机、紧急回滚。
   - 生产发布门禁不得把 `all` 作为默认 stack 配置。

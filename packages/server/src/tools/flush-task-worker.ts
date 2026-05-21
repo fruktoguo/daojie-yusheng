@@ -22,6 +22,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  process.env.SERVER_RUNTIME_ROLE = process.env.SERVER_RUNTIME_ROLE?.trim() || 'worker';
   process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'worker';
   const { once, idleMs } = parseArgs(process.argv.slice(2));
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });

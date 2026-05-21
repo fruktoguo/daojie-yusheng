@@ -30,6 +30,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  process.env.SERVER_RUNTIME_ROLE = process.env.SERVER_RUNTIME_ROLE?.trim() || 'worker';
   const { once, idleMs, topicPrefixes } = parseArgs(process.argv.slice(2));
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const dispatcher = app.get(OutboxDispatcherService);

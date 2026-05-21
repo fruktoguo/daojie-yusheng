@@ -5,6 +5,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
+import { shouldStartHttpServer } from './config/runtime-role';
 import { NATIVE_HTTP_CONTROLLERS, NATIVE_HTTP_PROVIDERS } from './http/native-http.registry';
 import { WorldGateway } from './network/world.gateway';
 import { WORLD_AUTH_PROVIDERS } from './network/world-auth.registry';
@@ -205,6 +206,25 @@ import { AsyncFovService } from './runtime/world/async-fov.service';
 import { WorldSyncWorkerEncodeService } from './network/world-sync-worker-encode.service';
 import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.service';
 
+const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
+  ? [
+    WorldShutdownDrainService,
+    WorldGatewayBuildingHelper,
+    WorldGatewayClientEmitHelper,
+    WorldGatewayCraftHelper,
+    WorldGatewayGmSuggestionHelper,
+    WorldGatewayGuardHelper,
+    WorldGatewayMovementHelper,
+    WorldGatewayNpcHelper,
+    WorldGatewayPresenceHelper,
+    WorldGatewayReadModelHelper,
+    WorldGatewayContentHelper,
+    WorldGatewaySessionStateHelper,
+    WorldGatewaySuggestionHelper,
+    WorldGateway,
+  ]
+  : [];
+
 /** 服务端主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
 @Module({
   imports: [
@@ -376,7 +396,6 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     WorldSessionBootstrapSnapshotService,
     WorldSessionBootstrapService,
     WorldSessionReaperService,
-    WorldShutdownDrainService,
     WorldClientEventService,
     WorldGmSocketService,
     WorldProtocolProjectionService,
@@ -392,18 +411,7 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     WorldSyncPlayerStateService,
     WorldSyncService,
     RuntimeMaintenanceService,
-    WorldGatewayBuildingHelper,
-    WorldGatewayClientEmitHelper,
-    WorldGatewayCraftHelper,
-    WorldGatewayGmSuggestionHelper,
-    WorldGatewayGuardHelper,
-    WorldGatewayMovementHelper,
-    WorldGatewayNpcHelper,
-    WorldGatewayPresenceHelper,
-    WorldGatewayReadModelHelper,
-    WorldGatewayContentHelper,
-    WorldGatewaySessionStateHelper,
-    WorldGatewaySuggestionHelper,
+    ...WORLD_GATEWAY_PROVIDERS,
     { provide: 'WORLD_RUNTIME_SERVICE', useExisting: WorldRuntimeService },
     WorldRuntimeService,
     AsyncPathfindingService,
@@ -413,7 +421,6 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     RuntimeEventBusMetricsService,
     RuntimeEventBusService,
     WorldTickService,
-    WorldGateway,
   ],
 })
 export class AppModule {}
