@@ -400,7 +400,20 @@ export class WorldClientEventService {
         if (!Array.isArray(playerIds)) {
             return [];
         }
-        return Array.from(new Set(playerIds.filter((entry) => typeof entry === 'string' && entry.trim().length > 0).map((entry) => entry.trim())));
+        const normalized = [];
+        const seen = new Set();
+        for (const entry of playerIds) {
+            if (typeof entry !== 'string') {
+                continue;
+            }
+            const trimmed = entry.trim();
+            if (trimmed.length === 0 || seen.has(trimmed)) {
+                continue;
+            }
+            seen.add(trimmed);
+            normalized.push(trimmed);
+        }
+        return normalized;
     }
     /**
  * resolveMarketListingsRequest：读取坊市ListingRequest并返回结果。
