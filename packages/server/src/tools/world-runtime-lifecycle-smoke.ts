@@ -565,6 +565,16 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
         restored: 0,
         skipped: 1,
         skippedByReason: { instance_missing: 1 },
+        skippedPlayers: [
+            {
+                playerId: 'player:offline',
+                targetInstanceId: 'tower:tongtian:layer:3',
+                reason: 'instance_missing',
+                x: 8,
+                y: 9,
+                errorMessage: null,
+            },
+        ],
     });
 }
 

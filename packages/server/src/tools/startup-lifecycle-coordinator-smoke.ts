@@ -38,6 +38,13 @@ async function main(): Promise<void> {
         restored: 2,
         skipped: 1,
         skippedByReason: { lease_not_local: 1 },
+        skippedPlayers: [
+          {
+            playerId: 'player:blocked',
+            targetInstanceId: instanceId,
+            reason: 'lease_not_local',
+          },
+        ],
       };
     },
     startInstanceLeaseSyncForLifecycleCoordinator() {
@@ -120,14 +127,15 @@ async function main(): Promise<void> {
   const snapshot = status.getSnapshot();
   assert.equal(snapshot.ready, true);
   const recoveringPlayers = snapshot.phases.find((phase) => phase.phase === 'recovering_players');
-  assert.deepEqual(recoveringPlayers?.metrics.offlineHangingPlayers, {
-    enabled: true,
-    expired: 1,
-    candidates: 3,
-    restored: 2,
-    skipped: 1,
-    skippedByReason: { lease_not_local: 1 },
-  });
+  const offlineHangingPlayers = recoveringPlayers?.metrics.offlineHangingPlayers as any;
+  assert.equal(offlineHangingPlayers.enabled, true);
+  assert.equal(offlineHangingPlayers.expired, 1);
+  assert.equal(offlineHangingPlayers.candidates, 3);
+  assert.equal(offlineHangingPlayers.restored, 2);
+  assert.equal(offlineHangingPlayers.skipped, 1);
+  assert.deepEqual(offlineHangingPlayers.skippedByReason, { lease_not_local: 1 });
+  assert.equal(offlineHangingPlayers.skippedPlayers[0]?.startupRunId, snapshot.startupRunId);
+  assert.equal(offlineHangingPlayers.skippedPlayers[0]?.targetInstanceId, instanceId);
 
   console.log('[startup-lifecycle-coordinator-smoke] ok');
 }

@@ -292,10 +292,21 @@ export class WorldRuntimeLifecycleService {
             restored: 0,
             skipped: 0,
             skippedByReason: {},
+            skippedPlayers: [],
         };
-        const markSkipped = (reason) => {
+        const markSkipped = (reason, entry = null, error = null) => {
             result.skipped++;
             result.skippedByReason[reason] = (Number(result.skippedByReason[reason]) || 0) + 1;
+            if (entry && result.skippedPlayers.length < 25) {
+                result.skippedPlayers.push({
+                    playerId: typeof entry.playerId === 'string' ? entry.playerId : '',
+                    targetInstanceId: typeof entry.instanceId === 'string' ? entry.instanceId : '',
+                    reason,
+                    x: Number.isFinite(Number(entry.x)) ? Math.trunc(Number(entry.x)) : null,
+                    y: Number.isFinite(Number(entry.y)) ? Math.trunc(Number(entry.y)) : null,
+                    errorMessage: error instanceof Error ? error.message : null,
+                });
+            }
         };
         const persistenceService = deps.playerRuntimeService?.playerDomainPersistenceService;
         if (!persistenceService?.isEnabled?.() || typeof persistenceService.listOfflineHangingPlayerPositions !== 'function') {
@@ -337,28 +348,28 @@ export class WorldRuntimeLifecycleService {
                         persistenceService,
                     );
                     if (!player) {
-                        markSkipped('player_snapshot_missing');
+                        markSkipped('player_snapshot_missing', entry);
                         return;
                     }
                     const instance = deps.getInstanceRuntime(entry.instanceId);
                     if (!instance) {
-                        markSkipped('instance_missing');
+                        markSkipped('instance_missing', entry);
                         deps.logger?.warn?.(`offline_restore_skipped_instance_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (typeof deps.startupBarrierService?.isInstanceAttachAllowed === 'function'
                         && !deps.startupBarrierService.isInstanceAttachAllowed(instance.meta.instanceId)) {
-                        markSkipped('attach_gate_closed');
+                        markSkipped('attach_gate_closed', entry);
                         deps.logger?.warn?.(`offline_restore_skipped_startup_attach_gate instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
-                        markSkipped('lease_not_local');
+                        markSkipped('lease_not_local', entry);
                         deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {
-                        markSkipped('session_service_missing');
+                        markSkipped('session_service_missing', entry);
                         deps.logger?.warn?.(`offline_restore_skipped_session_service_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
@@ -376,7 +387,7 @@ export class WorldRuntimeLifecycleService {
                     }, deps);
                     restored++;
                 } catch (error) {
-                    markSkipped('restore_error');
+                    markSkipped('restore_error', entry, error);
                     deps.logger?.warn?.(
                         `恢复离线挂机玩家失败：${entry.playerId} ${error instanceof Error ? error.message : String(error)}`,
                     );

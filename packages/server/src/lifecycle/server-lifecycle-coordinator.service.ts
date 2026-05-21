@@ -107,10 +107,11 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     this.startupStatusService.beginPhase('recovering_players', 'player_recovery');
     this.startupBarrierService.openInstanceAttach(this.listRuntimeInstanceIds());
     const offlineHangingPlayers = await this.worldRuntimeService.restoreOfflineHangingPlayersForStartup();
+    const startupRunId = this.startupStatusService.getSnapshot().startupRunId;
     this.startupStatusService.completePhase('recovering_players', {
       instanceAttachAllowed: true,
       instanceCount: this.listRuntimeInstanceIds().length,
-      offlineHangingPlayers: offlineHangingPlayers ?? null,
+      offlineHangingPlayers: withStartupRunIdForPlayerRecovery(offlineHangingPlayers, startupRunId),
     });
   }
 
@@ -152,4 +153,22 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       instanceCount: this.listRuntimeInstanceIds().length,
     };
   }
+}
+
+function withStartupRunIdForPlayerRecovery(input: unknown, startupRunId: string): unknown {
+  if (!input || typeof input !== 'object') {
+    return input ?? null;
+  }
+  const record = input as Record<string, unknown>;
+  const skippedPlayers = Array.isArray(record.skippedPlayers)
+    ? record.skippedPlayers.slice(0, 25).map((entry) => (
+      entry && typeof entry === 'object'
+        ? { ...(entry as Record<string, unknown>), startupRunId }
+        : entry
+    ))
+    : [];
+  return {
+    ...record,
+    skippedPlayers,
+  };
 }
