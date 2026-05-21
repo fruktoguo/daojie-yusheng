@@ -57,10 +57,21 @@ export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
       runtime.logger.warn(`实例目录同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
       return;
     }
+    if (shouldDeferManagedLeaseSyncUntilStartupGateOpen(runtime, instanceId)) {
+      return;
+    }
     await syncInstanceLease(runtime, instanceId);
   })().catch((error) => {
     runtime.logger.warn(`实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
   });
+}
+
+function shouldDeferManagedLeaseSyncUntilStartupGateOpen(runtime, instanceId) {
+  const startupBarrierService = runtime.startupBarrierService;
+  if (typeof startupBarrierService?.isInstanceWritable !== 'function') {
+    return false;
+  }
+  return !startupBarrierService.isInstanceWritable(instanceId);
 }
 
 export function isInstanceLeaseWritable(runtime, instance) {
