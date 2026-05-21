@@ -7,7 +7,7 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { buildPostgresDumpFileName, createPostgresCustomDump } from '../http/native/native-postgres-backup';
 
-type BackupKind = 'hourly' | 'daily';
+export type BackupKind = 'hourly' | 'daily';
 
 interface BackupWorkerState {
   runningJob?: BackupWorkerJob;
@@ -26,7 +26,7 @@ interface BackupWorkerJob {
   error?: string;
 }
 
-interface BackupRecord {
+export interface BackupRecord {
   id: string;
   kind: BackupKind;
   fileName: string;
@@ -45,8 +45,7 @@ const DEFAULT_DAILY_RETENTION = 7;
 const DEFAULT_DAILY_HOUR = 4;
 const DEFAULT_DAILY_MINUTE = 0;
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+export async function runDatabaseBackupWorkerOnce(input?: { kind?: BackupKind; force?: boolean }): Promise<BackupRecord | null> {
   const databaseUrl = resolveServerDatabaseUrl();
   if (!databaseUrl.trim()) {
     throw new Error('SERVER_DATABASE_URL/DATABASE_URL 未配置，backup worker 无法生成数据库备份');
@@ -57,54 +56,61 @@ async function main(): Promise<void> {
   const statePath = join(workerRootDirectory, '_meta', 'worker-state.json');
   const heartbeatPath = join(workerRootDirectory, '_meta', 'worker-heartbeat.json');
   const pool = new Pool({ connectionString: databaseUrl });
-
   try {
     await ensureWorkerWorkspace(backupDirectory, workerRootDirectory);
     await waitForDatabase(pool);
     await ensureBackupMetadataTable(pool);
     await recoverInterruptedJob(statePath);
-
-    if (args.once) {
-      const kind = args.kind ?? 'hourly';
+    await writeHeartbeat(heartbeatPath);
+    const now = Date.now();
+    const state = await readWorkerState(statePath);
+    const forcedKind = input?.kind;
+    if (input?.force === true && forcedKind) {
+      const record = await runBackupJob({ kind: forcedKind, databaseUrl, backupDirectory, statePath, pool });
       await writeHeartbeat(heartbeatPath);
-      const record = await runBackupJob({
-        kind,
-        databaseUrl,
-        backupDirectory,
-        statePath,
-        pool,
-      });
+      return record;
+    }
+    if (shouldRunDailyBackup(state, now)) {
+      await markScheduledSlot(statePath, state, 'daily', now);
+      const record = await runBackupJob({ kind: 'daily', databaseUrl, backupDirectory, statePath, pool });
       await writeHeartbeat(heartbeatPath);
-      console.log(JSON.stringify({
-        ok: true,
-        once: true,
-        backupId: record.id,
-        kind: record.kind,
-        fileName: record.fileName,
-        sizeBytes: record.sizeBytes,
-      }, null, 2));
-      return;
+      return record;
     }
-
-    for (;;) {
-      try {
-        await writeHeartbeat(heartbeatPath);
-        const now = Date.now();
-        const state = await readWorkerState(statePath);
-        if (shouldRunDailyBackup(state, now)) {
-          await markScheduledSlot(statePath, state, 'daily', now);
-          await runBackupJob({ kind: 'daily', databaseUrl, backupDirectory, statePath, pool });
-        } else if (shouldRunHourlyBackup(state, now)) {
-          await markScheduledSlot(statePath, state, 'hourly', now);
-          await runBackupJob({ kind: 'hourly', databaseUrl, backupDirectory, statePath, pool });
-        }
-      } catch (error) {
-        console.error('[database-backup-worker] 任务循环失败', error instanceof Error ? error.stack : String(error));
-      }
-      await sleep(args.idleMs);
+    if (shouldRunHourlyBackup(state, now)) {
+      await markScheduledSlot(statePath, state, 'hourly', now);
+      const record = await runBackupJob({ kind: 'hourly', databaseUrl, backupDirectory, statePath, pool });
+      await writeHeartbeat(heartbeatPath);
+      return record;
     }
+    await writeHeartbeat(heartbeatPath);
+    return null;
   } finally {
     await pool.end().catch(() => undefined);
+  }
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.once) {
+    const record = await runDatabaseBackupWorkerOnce({ kind: args.kind ?? 'hourly', force: true });
+    console.log(JSON.stringify({
+      ok: true,
+      once: true,
+      backupId: record?.id ?? null,
+      kind: record?.kind ?? args.kind ?? 'hourly',
+      fileName: record?.fileName ?? null,
+      sizeBytes: record?.sizeBytes ?? 0,
+    }, null, 2));
+    return;
+  }
+
+  for (;;) {
+    try {
+      await runDatabaseBackupWorkerOnce();
+    } catch (error) {
+      console.error('[database-backup-worker] 任务循环失败', error instanceof Error ? error.stack : String(error));
+    }
+    await sleep(args.idleMs);
   }
 }
 
@@ -466,7 +472,9 @@ async function waitForDatabase(pool: Pool): Promise<void> {
   }
 }
 
-void main().catch((error) => {
-  console.error('[database-backup-worker] 启动失败', error instanceof Error ? error.stack : String(error));
-  process.exit(1);
-});
+if (require.main === module) {
+  void main().catch((error) => {
+    console.error('[database-backup-worker] 启动失败', error instanceof Error ? error.stack : String(error));
+    process.exit(1);
+  });
+}

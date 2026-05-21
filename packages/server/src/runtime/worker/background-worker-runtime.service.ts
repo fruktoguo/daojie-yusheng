@@ -1,12 +1,14 @@
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
-import { shouldStartBackgroundWorkers } from '../../config/runtime-role';
+import { resolveServerDatabaseUrl } from '../../config/env-alias';
+import { shouldStartBackgroundWorkers, shouldStartBackupWorker } from '../../config/runtime-role';
 import { FlushTaskRuntimeService } from '../../persistence/flush-task-runtime.service';
 import { OutboxDispatcherRuntimeService } from '../../persistence/outbox-dispatcher-runtime.service';
 import { AssetAuditLogRetentionWorker } from '../world/worker/asset-audit-log-retention.worker';
 import { InstanceStatePurgeWorker } from '../world/worker/instance-state-purge.worker';
 import { MailExpirationCleanupWorker } from '../world/worker/mail-expiration-cleanup.worker';
 import { MailSoftDeletePurgeWorker } from '../world/worker/mail-soft-delete-purge.worker';
+import { runDatabaseBackupWorkerOnce } from '../../tools/database-backup-worker';
 import { MarketTradeHistoryRetentionWorker } from '../world/worker/market-trade-history-retention.worker';
 
 interface BackgroundWorkerTask {
@@ -143,8 +145,8 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         id: 'database-backup',
         label: 'Database backup',
         intervalMs: 60_000,
-        enabled: false,
-        runOnce: async () => 0,
+        enabled: shouldStartBackupWorker() && resolveServerDatabaseUrl().trim().length > 0,
+        runOnce: async () => (await runDatabaseBackupWorkerOnce()) ? 1 : 0,
       },
     ];
   }

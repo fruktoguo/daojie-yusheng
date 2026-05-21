@@ -3,14 +3,20 @@ import { installSmokeTimeout } from './smoke-timeout';
 installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
 
 async function main(): Promise<void> {
   const previousRole = process.env.SERVER_RUNTIME_ROLE;
   const previousOutbox = process.env.SERVER_OUTBOX_RUNTIME_ENABLED;
+  const previousServerDatabaseUrl = process.env.SERVER_DATABASE_URL;
+  const previousDatabaseUrl = process.env.DATABASE_URL;
   process.env.SERVER_RUNTIME_ROLE = 'worker';
   process.env.SERVER_OUTBOX_RUNTIME_ENABLED = '1';
+  delete process.env.SERVER_DATABASE_URL;
+  delete process.env.DATABASE_URL;
 
   let outboxCalls = 0;
   let mailExpirationCalls = 0;
@@ -46,16 +52,24 @@ async function main(): Promise<void> {
     assert.ok((mailExpiration?.processedCount ?? 0) >= 1);
     assert.ok(outboxCalls >= 1);
     assert.ok(mailExpirationCalls >= 1);
+    const serverRoot = process.cwd();
+    const backupTool = fs.readFileSync(path.join(serverRoot, 'src/tools/database-backup-worker.ts'), 'utf8');
+    const orchestratorSource = fs.readFileSync(path.join(serverRoot, 'src/runtime/worker/background-worker-runtime.service.ts'), 'utf8');
+    assert.ok(backupTool.includes('export async function runDatabaseBackupWorkerOnce'));
+    assert.ok(backupTool.includes('if (require.main === module)'));
+    assert.ok(orchestratorSource.includes('runDatabaseBackupWorkerOnce'));
   } finally {
     orchestrator.onModuleDestroy();
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_OUTBOX_RUNTIME_ENABLED', previousOutbox);
+    restoreEnv('SERVER_DATABASE_URL', previousServerDatabaseUrl);
+    restoreEnv('DATABASE_URL', previousDatabaseUrl);
   }
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '后台 worker orchestrator 能在 worker role 下调度已启用任务，记录 heartbeat/status/processedCount，并保持 flush/database backup 未安全接管项禁用。',
-    excludes: '不证明 durable staging payload、真实 database backup service 抽象或 with-db 多副本竞争。',
+    answers: '后台 worker orchestrator 能在 worker role 下调度已启用任务，记录 heartbeat/status/processedCount；database backup 已抽出 runOnce 端口并由 orchestrator 引用。',
+    excludes: '不证明 durable staging payload、真实数据库备份可生成或 with-db 多副本竞争。',
     completionMapping: 'background-worker-orchestrator',
   }, null, 2));
 }
