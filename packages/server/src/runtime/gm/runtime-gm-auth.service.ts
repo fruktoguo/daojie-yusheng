@@ -4,7 +4,14 @@ import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from 'node:util';
 import { Pool } from 'pg';
 import { GM_AUTH_CONTRACT } from '../../http/native/native-gm-contract';
-import { resolveServerAllowInsecureLocalGmPassword, resolveServerDatabaseUrl, resolveServerGmPassword, resolveServerGmPasswordEnvSource } from '../../config/env-alias';
+import {
+    resolveServerAllowInsecureLocalGmPassword,
+    resolveServerDatabaseUrl,
+    resolveServerGmAuthSecret,
+    resolveServerGmAuthSecretEnvSource,
+    resolveServerGmPassword,
+    resolveServerGmPasswordEnvSource,
+} from '../../config/env-alias';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 
 /**
@@ -71,6 +78,7 @@ export class RuntimeGmAuthService {
 
         assertConfiguredGmPassword();
         this.warnIfUsingInsecureLocalPassword();
+        this.warnIfUsingPlayerTokenSecretFallback();
 
         const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
@@ -247,9 +255,7 @@ export class RuntimeGmAuthService {
     getSigningSecret(record = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const configured = process.env.SERVER_GM_AUTH_SECRET?.trim()
-            || process.env.GM_AUTH_SECRET?.trim()
-            || '';
+        const configured = resolveServerGmAuthSecret();
         if (configured) {
             return configured;
         }
@@ -376,6 +382,14 @@ export class RuntimeGmAuthService {
             return;
         }
         this.logger.warn('GM 鉴权当前显式启用了本地不安全降级：使用默认密码 admin123。该模式仅允许 development/dev/local/test，且不得用于 shadow、acceptance、full 或生产环境。');
+    }
+    /** 未单独配置 GM token 密钥时，启动期明确告警并复用玩家 Token 签名密钥。 */
+    warnIfUsingPlayerTokenSecretFallback() {
+        const source = resolveServerGmAuthSecretEnvSource();
+        if (source !== 'SERVER_PLAYER_TOKEN_SECRET' && source !== 'JWT_SECRET') {
+            return;
+        }
+        this.logger.warn(`未配置 SERVER_GM_AUTH_SECRET，已复用 ${source} 作为 GM Token 签名密钥`);
     }
     /**
  * releasePoolReference：释放对共享连接池的引用，由 DatabasePoolProvider 统一关闭真正的连接池。

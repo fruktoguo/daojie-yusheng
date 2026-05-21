@@ -2345,46 +2345,46 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         combatRows,
         activeJobRows,
       ] = await Promise.all([
-        client.query<{ player_id?: unknown } & PlayerWorldAnchorLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerWorldAnchorLoadRow>(
           `SELECT player_id, respawn_template_id, last_safe_template_id, last_safe_instance_id, last_safe_x, last_safe_y, respawn_instance_id, respawn_x, respawn_y FROM ${PLAYER_WORLD_ANCHOR_TABLE}`,
         ),
-        client.query<{ player_id?: unknown } & PlayerPositionCheckpointLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerPositionCheckpointLoadRow>(
           `SELECT player_id, instance_id, x, y, facing FROM ${PLAYER_POSITION_CHECKPOINT_TABLE}`,
         ),
-        client.query<{ player_id?: unknown } & PlayerProgressionCoreLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerProgressionCoreLoadRow>(
           `SELECT player_id, foundation, root_foundation FROM ${PLAYER_PROGRESSION_CORE_TABLE}`,
         ),
-        client.query<{ player_id?: unknown } & PlayerAttrStateLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerAttrStateLoadRow>(
           `SELECT player_id, base_attrs_payload, bonus_entries_payload, realm_payload FROM ${PLAYER_ATTR_STATE_TABLE}`,
         ),
-        client.query<{ player_id?: unknown } & PlayerBodyTrainingLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerBodyTrainingLoadRow>(
           `SELECT player_id, level, exp, exp_to_next FROM ${PLAYER_BODY_TRAINING_STATE_TABLE}`,
         ),
-        client.query<{ player_id?: unknown; wallet_type?: unknown; balance?: unknown }>(
+        this.pool.query<{ player_id?: unknown; wallet_type?: unknown; balance?: unknown }>(
           `SELECT player_id, wallet_type, balance FROM ${PLAYER_WALLET_TABLE} WHERE wallet_type = $1`,
           [currencyItemId],
         ),
-        client.query<{ player_id?: unknown; total_count?: unknown }>(
+        this.pool.query<{ player_id?: unknown; total_count?: unknown }>(
           `SELECT player_id, SUM(count)::bigint AS total_count FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE item_id = $1 AND (locked_by IS NULL OR locked_by = '') GROUP BY player_id`,
           [currencyItemId],
         ),
-        client.query<{ player_id?: unknown; total_count?: unknown }>(
+        this.pool.query<{ player_id?: unknown; total_count?: unknown }>(
           `SELECT player_id, SUM(count)::bigint AS total_count FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE item_id = $1 GROUP BY player_id`,
           [currencyItemId],
         ),
-        client.query<{ player_id?: unknown } & PlayerEquipmentSlotLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerEquipmentSlotLoadRow>(
           `SELECT player_id, slot_type, item_instance_id, item_id, raw_payload FROM ${PLAYER_EQUIPMENT_SLOT_TABLE}`,
         ),
-        client.query<{ player_id?: unknown } & PlayerTechniqueStateLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerTechniqueStateLoadRow>(
           `SELECT player_id, tech_id, level, exp, exp_to_next, realm_lv, skills_enabled, raw_payload FROM ${PLAYER_TECHNIQUE_STATE_TABLE}`,
         ),
-        client.query<{ player_id?: unknown } & PlayerPersistentBuffStateLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerPersistentBuffStateLoadRow>(
           `SELECT player_id, buff_id, source_skill_id, source_caster_id, realm_lv, remaining_ticks, duration, stacks, max_stacks, sustain_ticks_elapsed, raw_payload FROM ${PLAYER_PERSISTENT_BUFF_STATE_TABLE}`,
         ),
-        client.query<{ player_id?: unknown } & PlayerCombatPreferencesLoadRow>(
+        this.pool.query<{ player_id?: unknown } & PlayerCombatPreferencesLoadRow>(
           `SELECT player_id, auto_battle, combat_target_id, cultivating_tech_id FROM ${PLAYER_COMBAT_PREFERENCES_TABLE}`,
         ),
-        client.query<{ player_id?: unknown; job_type?: unknown }>(
+        this.pool.query<{ player_id?: unknown; job_type?: unknown }>(
           `SELECT player_id, job_type FROM ${PLAYER_ACTIVE_JOB_TABLE}`,
         ),
       ]);

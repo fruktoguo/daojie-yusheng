@@ -6,7 +6,7 @@ import type { GmEnvCheckGroup, GmEnvCheckItem, GmEnvCheckResult } from '@mud/sha
 import { readTrimmedEnv } from '../../config/env-alias';
 
 /** 需要检测的环境变量定义。 */
-const ENV_VAR_CHECKS: Array<{ name: string; aliases: string[]; required: boolean; description: string }> = [
+const ENV_VAR_CHECKS: Array<{ name: string; aliases: string[]; required: boolean; description: string; fallbackAliases?: string[]; fallbackDescription?: string }> = [
   { name: 'DATABASE_URL', aliases: ['SERVER_DATABASE_URL', 'DATABASE_URL'], required: true, description: '数据库连接地址' },
   { name: 'DATABASE_POOLER_URL', aliases: ['SERVER_DATABASE_POOLER_URL', 'DATABASE_POOLER_URL'], required: false, description: '数据库连接池地址' },
   { name: 'REDIS_URL', aliases: ['SERVER_REDIS_URL', 'REDIS_URL'], required: false, description: 'Redis 连接地址' },
@@ -15,7 +15,22 @@ const ENV_VAR_CHECKS: Array<{ name: string; aliases: string[]; required: boolean
   { name: 'SERVER_CORS_ORIGINS', aliases: ['SERVER_CORS_ORIGINS', 'CORS_ORIGINS'], required: false, description: 'CORS 允许来源' },
   { name: 'SERVER_RUNTIME_ENV', aliases: ['SERVER_RUNTIME_ENV', 'APP_ENV', 'NODE_ENV'], required: false, description: '运行环境标识' },
   { name: 'SERVER_PLAYER_TOKEN_SECRET', aliases: ['SERVER_PLAYER_TOKEN_SECRET'], required: true, description: '玩家 Token 签名密钥' },
-  { name: 'SERVER_GM_AUTH_SECRET', aliases: ['SERVER_GM_AUTH_SECRET', 'GM_AUTH_SECRET'], required: false, description: 'GM Token 签名密钥' },
+  {
+    name: 'SERVER_GM_AUTH_SECRET',
+    aliases: ['SERVER_GM_AUTH_SECRET', 'GM_AUTH_SECRET'],
+    required: false,
+    description: 'GM Token 签名密钥',
+    fallbackAliases: ['SERVER_PLAYER_TOKEN_SECRET', 'JWT_SECRET'],
+    fallbackDescription: '未配置时复用玩家 Token 签名密钥',
+  },
+  {
+    name: 'SERVER_SECRET_ENCRYPTION_KEY',
+    aliases: ['SERVER_SECRET_ENCRYPTION_KEY', 'SECRET_ENCRYPTION_KEY'],
+    required: false,
+    description: 'GM 密钥管理主密钥',
+    fallbackAliases: ['SERVER_PLAYER_TOKEN_SECRET', 'JWT_SECRET'],
+    fallbackDescription: '未配置时复用玩家 Token 签名密钥',
+  },
   { name: 'SERVER_NODE_ID', aliases: ['SERVER_NODE_ID'], required: false, description: '节点 ID' },
 ];
 
@@ -110,7 +125,10 @@ function buildEnvVarsGroup(): GmEnvCheckGroup {
 
   for (const check of ENV_VAR_CHECKS) {
     const value = readTrimmedEnv(...check.aliases);
-    const hasValue = value.length > 0;
+    const fallbackValue = value.length === 0 && check.fallbackAliases
+      ? readTrimmedEnv(...check.fallbackAliases)
+      : '';
+    const hasValue = value.length > 0 || fallbackValue.length > 0;
 
     let status: GmEnvCheckItem['status'];
     if (hasValue) {
@@ -122,17 +140,31 @@ function buildEnvVarsGroup(): GmEnvCheckGroup {
     }
 
     // 敏感值脱敏显示
-    const displayValue = hasValue ? maskSensitiveValue(check.name, value) : '未配置';
+    const displayValue = value.length > 0
+      ? maskSensitiveValue(check.name, value)
+      : fallbackValue.length > 0
+        ? `复用 ${resolveEnvSource(check.fallbackAliases ?? [])}：${maskSensitiveValue(check.name, fallbackValue)}`
+        : '未配置';
 
     items.push({
       name: `${check.description} (${check.aliases[0]})`,
       status,
       value: displayValue,
-      expected: check.required ? '必填' : '可选',
+      expected: check.required ? '必填' : check.fallbackDescription ?? '可选',
     });
   }
 
   return { title: '环境变量', items };
+}
+
+/** 返回当前生效的环境变量名，用于 GM 环境检测展示。 */
+function resolveEnvSource(names: string[]): string {
+  for (const name of names) {
+    if (readTrimmedEnv(name)) {
+      return name;
+    }
+  }
+  return names[0] ?? 'fallback';
 }
 
 /** 构建依赖包检测分组。 */

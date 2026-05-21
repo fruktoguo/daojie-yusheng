@@ -1,12 +1,16 @@
 /**
  * GM 密钥加密存储服务。
  * 使用 AES-256-GCM 对密钥值进行加密，持久化到 PostgreSQL 专表。
- * 主密钥通过环境变量 SERVER_SECRET_ENCRYPTION_KEY 派生。
+ * 主密钥优先通过环境变量 SERVER_SECRET_ENCRYPTION_KEY 派生；未配置时复用玩家 Token 签名密钥。
  */
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy, BadRequestException, Inject } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { Pool } from 'pg';
-import { resolveServerDatabaseUrl, readTrimmedEnv } from '../../config/env-alias';
+import {
+  resolveServerDatabaseUrl,
+  resolveServerSecretEncryptionKey,
+  resolveServerSecretEncryptionKeyEnvSource,
+} from '../../config/env-alias';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 
 const SECRET_TABLE = 'server_gm_secrets';
@@ -48,10 +52,14 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const masterKey = readTrimmedEnv('SERVER_SECRET_ENCRYPTION_KEY', 'SECRET_ENCRYPTION_KEY');
+    const masterKey = resolveServerSecretEncryptionKey();
     if (!masterKey) {
-      this.logger.warn('未配置 SERVER_SECRET_ENCRYPTION_KEY，密钥管理模块不可用');
+      this.logger.warn('未配置 SERVER_SECRET_ENCRYPTION_KEY，且没有可复用的 SERVER_PLAYER_TOKEN_SECRET，密钥管理模块不可用');
       return;
+    }
+    const source = resolveServerSecretEncryptionKeyEnvSource();
+    if (source === 'SERVER_PLAYER_TOKEN_SECRET' || source === 'JWT_SECRET') {
+      this.logger.warn(`未配置 SERVER_SECRET_ENCRYPTION_KEY，已复用 ${source} 作为 GM 密钥管理主密钥`);
     }
     this.encryptionKey = scryptSync(masterKey, 'gm-secret-store-salt', KEY_LENGTH);
 
