@@ -12,6 +12,8 @@ import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
+import { StartupBarrierService } from '../../lifecycle/startup-barrier.service';
+import { StartupStatusService } from '../../lifecycle/startup-status.service';
 import {
   diffHeapSnapshotSummaries,
   summarizeHeapSnapshotFromStream,
@@ -117,6 +119,10 @@ export class RuntimeGmStateService {
     workerPoolMetricsService: WorkerPoolMetricsService | null;
     /** 刷盘诊断采集器（可选）。 */
     flushDiagnosticsService: FlushDiagnosticsService | null;
+    /** 启动状态服务（可选，供 GM 面板展示 phase 和降级原因）。 */
+    startupStatusService: StartupStatusService | null;
+    /** 启动闸门服务（可选，供 GM 面板展示 traffic/tick/flush 等闸门）。 */
+    startupBarrierService: StartupBarrierService | null;
     /** 网络上行事件累计桶。 */
     networkInBucketByKey = new Map();
     /** 网络下行事件累计桶。 */
@@ -156,6 +162,8 @@ export class RuntimeGmStateService {
         runtimeEventBusService: RuntimeEventBusService,
         @Optional() @Inject(WorkerPoolMetricsService) workerPoolMetricsService?: WorkerPoolMetricsService,
         @Optional() @Inject(FlushDiagnosticsService) flushDiagnosticsService?: FlushDiagnosticsService,
+        @Optional() @Inject(StartupStatusService) startupStatusService?: StartupStatusService,
+        @Optional() @Inject(StartupBarrierService) startupBarrierService?: StartupBarrierService,
     ) {
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
@@ -164,6 +172,8 @@ export class RuntimeGmStateService {
         this.runtimeEventBusService = runtimeEventBusService;
         this.workerPoolMetricsService = workerPoolMetricsService ?? null;
         this.flushDiagnosticsService = flushDiagnosticsService ?? null;
+        this.startupStatusService = startupStatusService ?? null;
+        this.startupBarrierService = startupBarrierService ?? null;
     }
     /** 立即向单个客户端下发 GM 状态快照。 */
     emitState(client) {
@@ -831,6 +841,10 @@ export class RuntimeGmStateService {
             networkOutBytes,
             networkInBuckets: networkInBuckets.length > 0 ? networkInBuckets : EMPTY_NETWORK_BUCKETS,
             networkOutBuckets: networkOutBuckets.length > 0 ? networkOutBuckets : EMPTY_NETWORK_BUCKETS,
+            startup: this.startupStatusService ? {
+                ...this.startupStatusService.getSnapshot(),
+                barrier: this.startupBarrierService?.getSnapshot() ?? null,
+            } : null,
             workerPool: this.workerPoolMetricsService?.getAllMetrics() ?? null,
             flushDiagnostics: this.flushDiagnosticsService?.getSnapshot() ?? null,
             flushStats: this.flushDiagnosticsService ? {
