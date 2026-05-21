@@ -13,8 +13,10 @@
 import { encodeServerEventPayload, decodeServerEventPayload, findBoundedPath } from '@mud/shared';
 import type { PathfindingStaticGrid } from '@mud/shared';
 import { WorkerPoolMetricsService } from '../concurrency/worker-pool-metrics.service';
+import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
 import { InstanceWorkerPoolService } from '../concurrency/instance-worker-pool.service';
 import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-pool.service';
+import { AoiEnvelopeEncoderService } from '../network/aoi-envelope-encoder.service';
 import {
   buildPlayerSnapshotProjectionWritePlan,
   type PlayerDomainWritePlan,
@@ -67,6 +69,30 @@ function testPhase1EnvelopeEquivalence(): void {
   const nonBinaryPayload = { test: true };
   const result = encodeServerEventPayload('n:s:notice', nonBinaryPayload);
   assert(result === nonBinaryPayload, 'non-binary event passthrough');
+}
+
+async function testPhase1AoiEncoderUsesWorkerPool(): Promise<void> {
+  console.log('\n[Phase 1] AOI encoder worker pool metrics');
+  const metrics = new WorkerPoolMetricsService();
+  const pool = new EncodingWorkerPoolService(metrics);
+  const encoder = new AoiEnvelopeEncoderService(pool);
+  pool.initialize();
+  try {
+    const envelope = {
+      worldDelta: { t: 1, wr: 2, p: [{ id: 'p1', x: 3, y: 4 }] },
+      selfDelta: { sr: 5, hp: 99 },
+      panelDelta: null,
+      mapEnter: null,
+    };
+    const encoded = await encoder.encodeEnvelopeAsync(envelope);
+    const snapshot = metrics.getMetrics('encoding');
+    assert(snapshot.activeWorkers > 0, 'encoding pool spawned worker threads');
+    assert(snapshot.totalSubmitted === 2, 'AOI encoder submits one task per non-empty payload');
+    assert(snapshot.totalCompleted === 2, 'AOI encoder completes submitted payload tasks');
+    assert(encoded.worldDelta instanceof Buffer && encoded.selfDelta instanceof Buffer, 'AOI encoder returns binary buffers');
+  } finally {
+    pool.shutdown();
+  }
 }
 
 // ─── Phase 2: A* 寻路等价性 ───────────────────────────────────
@@ -262,6 +288,7 @@ async function testPhase5PersistenceWorkerPoolEquivalence(): Promise<void> {
 async function main(): Promise<void> {
   console.log('=== Worker Pool Equivalence Smoke ===');
   testPhase1EnvelopeEquivalence();
+  await testPhase1AoiEncoderUsesWorkerPool();
   testPhase2PathfindingEquivalence();
   await testPhase4InstanceWorkerPoolEquivalence();
   testPhase5PersistenceEquivalence();

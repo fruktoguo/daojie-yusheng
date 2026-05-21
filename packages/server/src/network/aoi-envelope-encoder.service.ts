@@ -67,13 +67,35 @@ export class AoiEnvelopeEncoderService {
     return { mapEnter, worldDelta, selfDelta, panelDelta };
   }
 
-  /** 单 payload 同步编码。当前暂时跳过 Buffer 包装，后续切 protobuf 时启用。 */
+  /** 单 payload 同步编码。 */
   encodePayloadSync(payload: unknown): Buffer | null {
-    return null;
+    if (payload === null || payload === undefined) {
+      return null;
+    }
+    try {
+      return Buffer.from(JSON.stringify(payload), 'utf-8');
+    } catch {
+      return null;
+    }
   }
 
-  /** 单 payload worker 编码；当前暂时跳过，后续切 protobuf 时启用。 */
+  /** 单 payload worker 编码。 */
   async encodePayloadAsync(payload: unknown): Promise<Buffer | null> {
-    return null;
+    if (payload === null || payload === undefined) {
+      return null;
+    }
+    if (!this.encodingPool) {
+      return this.encodePayloadSync(payload);
+    }
+    const result = await this.encodingPool.submit<unknown, Buffer>(
+      'envelope-encode',
+      payload,
+      (value) => Buffer.from(JSON.stringify(value), 'utf-8'),
+      500,
+    );
+    if (result.ok && result.result) {
+      return Buffer.from(result.result);
+    }
+    return this.encodePayloadSync(payload);
   }
 }
