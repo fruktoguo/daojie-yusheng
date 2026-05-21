@@ -274,6 +274,11 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
           MAX(priority) AS priority,
           COUNT(*)::bigint AS backlog_count,
           COUNT(*) FILTER (WHERE latest_version > flushed_version)::bigint AS dirty_count,
+          COUNT(*) FILTER (
+            WHERE latest_version > flushed_version
+              AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+              AND (claim_until IS NULL OR claim_until < now())
+          )::bigint AS due_count,
           COUNT(*) FILTER (WHERE claimed_by IS NOT NULL AND claim_until >= now())::bigint AS claimed_count,
           COUNT(*) FILTER (WHERE next_attempt_at IS NOT NULL AND next_attempt_at > now())::bigint AS delayed_count,
           COALESCE(MIN(next_attempt_at), MIN(updated_at)) AS oldest_pending_at

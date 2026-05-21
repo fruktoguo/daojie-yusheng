@@ -180,7 +180,7 @@ function buildPlayerWorkerRows(
     const config = PLAYER_WORKER_DOMAINS.find((entry) => entry.domain === domain);
     const backlog = backlogByDomain.get(domain);
     const throughput = throughputByDomain.get(domain);
-    const pendingCount = toCount(backlog?.dirty_count ?? backlog?.backlog_count);
+    const pendingCount = toCount(backlog?.due_count ?? backlog?.dirty_count ?? backlog?.backlog_count);
     const claimedCount = toCount(backlog?.claimed_count);
     const delayedCount = toCount(backlog?.delayed_count);
     const writeCount = toCount(throughput?.write_count);
@@ -216,7 +216,7 @@ function buildInstanceWorkerRows(
     const domain = String(backlog?.domain ?? throughput?.domain ?? key.split(':')[0]);
     const ownershipEpoch = toCount(backlog?.ownership_epoch ?? throughput?.ownership_epoch);
     const config = INSTANCE_WORKER_DOMAINS.find((entry) => entry.domain === domain);
-    const pendingCount = toCount(backlog?.dirty_count ?? backlog?.backlog_count);
+    const pendingCount = toCount(backlog?.due_count ?? backlog?.dirty_count ?? backlog?.backlog_count);
     const claimedCount = toCount(backlog?.claimed_count);
     const delayedCount = toCount(backlog?.delayed_count);
     const writeCount = toCount(throughput?.write_count);
@@ -352,7 +352,8 @@ function shouldReportInactive(row: GmWorkerRow): boolean {
 }
 
 function estimateBacklogGrowthPerSecond(pendingCount: number, delayedCount: number, writeCount: number): number {
-  const backlogPressure = Math.max(0, Math.trunc(Number(pendingCount) || 0) + Math.trunc(Number(delayedCount) || 0));
+  void delayedCount;
+  const backlogPressure = Math.max(0, Math.trunc(Number(pendingCount) || 0));
   const completed = Math.max(0, Math.trunc(Number(writeCount) || 0));
   return Number((Math.max(0, backlogPressure - completed) / WORKER_WINDOW_SECONDS).toFixed(3));
 }
