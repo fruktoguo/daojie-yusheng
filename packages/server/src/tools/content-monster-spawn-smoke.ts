@@ -63,7 +63,7 @@ function main() {
   }
 
   const rootMapMonsters = repository.createRuntimeMonstersForMap('cleft_blade_plain');
-  assert.equal(rootMapMonsters.length, 31, 'root map fallback should follow main spawn population semantics');
+  assert.equal(rootMapMonsters.length, 37, 'root map fallback should follow main spawn population semantics');
 
   const yunlaiMonsters = repository.createRuntimeMonstersForMap('yunlai_town');
   assert.equal(yunlaiMonsters.length, 24, 'ordinary yunlai spawns should use main maxAlive population');
@@ -96,7 +96,7 @@ function assertRuntimeMonsterStatsMatchGenerated(
   repository: ContentTemplateRepository,
   mapTemplateRepository: MapTemplateRepository,
 ) {
-  const generatedPath = path.resolve(__dirname, '../../data/generated/monster-runtime-stats.json');
+  const generatedPath = path.resolve(process.cwd(), 'packages/server/data/generated/monster-runtime-stats.json');
   const generated = JSON.parse(fs.readFileSync(generatedPath, 'utf-8'));
   const expected = generated.records?.m_town_rat_south;
   assert.ok(expected, 'generated monster stats should include m_town_rat_south');

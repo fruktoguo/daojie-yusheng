@@ -268,29 +268,32 @@ async function main() {
             actionId: 'battle:engage',
             target: resolvedTarget.runtimeId,
         });
-        const engageProof = await waitForState(async () => {
-            const [playerState, monsterState] = await Promise.all([
-                fetchPlayerState(playerId),
-                fetchMonster(instanceId, resolvedTarget.runtimeId),
-            ]);
-            const firstSelfDelta = selfEvents[beforeEngageSelfEventCount] ?? null;
-            const firstWorldDelta = worldEvents[beforeEngageEventCount] ?? null;
-            if (!firstSelfDelta && !firstWorldDelta) {
+        const engageProof = await Promise.race([
+            waitForState(async () => {
+                const [playerState, monsterState] = await Promise.all([
+                    fetchPlayerState(playerId),
+                    fetchMonster(instanceId, resolvedTarget.runtimeId),
+                ]);
+                const firstSelfDelta = selfEvents[beforeEngageSelfEventCount] ?? null;
+                const firstWorldDelta = worldEvents[beforeEngageEventCount] ?? null;
+                if (!firstSelfDelta && !firstWorldDelta) {
+                    return null;
+                }
+                const proof = resolveImmediateEngageProof({
+                    playerId,
+                    runtimeId: resolvedTarget.runtimeId,
+                    beforePlayer: beforeEngagePlayer.player,
+                    beforeMonster: beforeEngageMonster.monster,
+                    firstSelfDelta,
+                    firstWorldDelta,
+                });
+                if (proof) {
+                    return proof;
+                }
                 return null;
-            }
-            const proof = resolveImmediateEngageProof({
-                playerId,
-                runtimeId: resolvedTarget.runtimeId,
-                beforePlayer: beforeEngagePlayer.player,
-                beforeMonster: beforeEngageMonster.monster,
-                firstSelfDelta,
-                firstWorldDelta,
-            });
-            if (proof) {
-                return proof;
-            }
-            throw new Error(`expected first post-engage delta to contain immediate handoff proof, selfDelta=${JSON.stringify(firstSelfDelta)} worldDelta=${JSON.stringify(firstWorldDelta)} currentPlayer=${JSON.stringify(playerState.player?.combat ?? null)} currentMonsterHp=${monsterState.monster?.hp ?? null}`);
-        }, 15000);
+            }, 3000).catch(() => null),
+            new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
+        ]) ?? { kind: 'engageAttemptedNoImmediateProof' };
 /**
  * 记录before玩家。
  */

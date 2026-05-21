@@ -92,6 +92,7 @@ const includePersistence = cliArgs.includes('--include-persistence');
  * 记录用户指定的用例名称。
  */
 const selectedCaseNames = readOptionValues(cliArgs, '--case');
+const selectedGroupNames = readOptionValues(cliArgs, '--group');
 /**
  * 汇总可执行的 smoke 用例。
  */
@@ -133,9 +134,13 @@ const smokeCases = [
     { name: 'player-recovery', scriptFile: 'player-recovery-smoke.js' },
     { name: 'player-respawn', scriptFile: 'player-respawn-smoke.js' },
   { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
+  { name: 'player-persistence-flush', scriptFile: 'player-persistence-flush-smoke.js', standalone: true },
   { name: 'player-domain-persistence', scriptFile: 'player-domain-persistence-smoke.js', standalone: true },
   { name: 'player-domain-recovery', scriptFile: 'player-domain-recovery-smoke.js', standalone: true },
+  { name: 'player-runtime-persistence-roundtrip', scriptFile: 'player-runtime-persistence-roundtrip-smoke.js', standalone: true },
   { name: 'player-domain-empty-overwrite-guard', scriptFile: 'player-domain-empty-overwrite-guard-smoke.js', standalone: true },
+  { name: 'player-anchor-checkpoint-flush-worker', scriptFile: 'player-anchor-checkpoint-flush-worker-smoke.js', standalone: true },
+  { name: 'player-state-flush-worker', scriptFile: 'player-state-flush-worker-smoke.js', standalone: true },
   { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
   { name: 'world-runtime-lifecycle', scriptFile: 'world-runtime-lifecycle-smoke.js', standalone: true },
   { name: 'snapshot-retirement', scriptFile: 'snapshot-retirement-report-smoke.js', standalone: true },
@@ -148,7 +153,148 @@ const smokeCases = [
   { name: 'world-runtime-instance-capability-guard', scriptFile: 'world-runtime-instance-capability-guard-smoke.js', standalone: true },
   { name: 'world-runtime-player-session-no-auto-instance', scriptFile: 'world-runtime-player-session-no-auto-instance-smoke.js', standalone: true },
   { name: 'world-runtime-pending-cast-instance-transfer', scriptFile: 'world-runtime-pending-cast-instance-transfer-smoke.js', standalone: true },
+  { name: 'content-monster-spawn', scriptFile: 'content-monster-spawn-smoke.js', standalone: true },
+  { name: 'world-sync-delta-order', scriptFile: 'world-sync-delta-order-smoke.js', standalone: true },
+  { name: 'world-sync-player-state', scriptFile: 'world-sync-player-state-smoke.js', standalone: true },
+  { name: 'world-sync-aux-state', scriptFile: 'world-sync-aux-state-smoke.js', standalone: true },
+  { name: 'world-sync-map-static-aux', scriptFile: 'world-sync-map-static-aux-smoke.js', standalone: true },
+  { name: 'world-sync-map-snapshot-instance-diff', scriptFile: 'world-sync-map-snapshot-instance-diff-smoke.js', standalone: true },
+  { name: 'world-sync-envelope-eventbus-hotpath', scriptFile: 'world-sync-envelope-eventbus-hotpath-smoke.js', standalone: true },
+  { name: 'player-runtime-projection-entry', scriptFile: 'player-runtime-projection-entry-smoke.js', standalone: true },
+  { name: 'instance-resource-flush-worker', scriptFile: 'instance-resource-flush-worker-smoke.js', standalone: true },
+  { name: 'instance-container-flush-worker', scriptFile: 'instance-container-flush-worker-smoke.js', standalone: true },
+  { name: 'instance-ground-item-flush-worker', scriptFile: 'instance-ground-item-flush-worker-smoke.js', standalone: true },
+  { name: 'instance-overlay-flush-worker', scriptFile: 'instance-overlay-flush-worker-smoke.js', standalone: true },
+  { name: 'instance-tile-damage-flush-worker', scriptFile: 'instance-tile-damage-flush-worker-smoke.js', standalone: true },
+  { name: 'instance-monster-runtime-flush-worker', scriptFile: 'instance-monster-runtime-flush-worker-smoke.js', standalone: true },
+  { name: 'instance-state-purge-worker', scriptFile: 'instance-state-purge-worker-smoke.js', standalone: true },
+  { name: 'instance-lease-runtime', scriptFile: 'instance-lease-runtime-smoke.js', standalone: true },
+  { name: 'instance-lease-sync-error', scriptFile: 'instance-lease-sync-error-smoke.js', standalone: true },
+  { name: 'instance-lease-periodic-force-reclaim', scriptFile: 'instance-lease-periodic-force-reclaim-smoke.js', standalone: true },
+  { name: 'gm-world-instance-lease', scriptFile: 'gm-world-instance-lease-smoke.js', standalone: true },
+  { name: 'gm-world-instance-flush', scriptFile: 'gm-world-instance-flush-smoke.js', standalone: true },
+  { name: 'gm-world-instance-freeze', scriptFile: 'gm-world-instance-freeze-smoke.js', standalone: true },
+  { name: 'gm-world-instance-rebuild', scriptFile: 'gm-world-instance-rebuild-smoke.js', standalone: true },
+  { name: 'gm-world-instance-migrate', scriptFile: 'gm-world-instance-migrate-smoke.js', standalone: true },
+  { name: 'gm-world-player-flush', scriptFile: 'gm-world-player-flush-smoke.js', standalone: true },
+  { name: 'gm-world-player-migrate', scriptFile: 'gm-world-player-migrate-smoke.js', standalone: true },
+  { name: 'gm-world-operation-replay', scriptFile: 'gm-world-operation-replay-smoke.js', standalone: true },
+  { name: 'gm-world-outbox-retry-queue', scriptFile: 'gm-world-outbox-retry-queue-smoke.js', standalone: true },
+  { name: 'gm-world-dirty-backlog', scriptFile: 'gm-world-dirty-backlog-smoke.js', standalone: true },
+  { name: 'gm-world-nodes', scriptFile: 'gm-world-nodes-smoke.js', standalone: true },
+  { name: 'mail-expiration-cleanup-worker', scriptFile: 'mail-expiration-cleanup-worker-smoke.js', standalone: true },
+  { name: 'mail-expiration-archive-worker', scriptFile: 'mail-expiration-archive-worker-smoke.js', standalone: true },
+  { name: 'mail-soft-delete-purge-worker', scriptFile: 'mail-soft-delete-purge-worker-smoke.js', standalone: true },
+  { name: 'mail-structured-mutation', scriptFile: 'mail-structured-mutation-smoke.js', standalone: true },
+  { name: 'mail-schema-report', scriptFile: 'mail-schema-report-smoke.js', standalone: true },
+  { name: 'outbox-dispatcher', scriptFile: 'outbox-dispatcher-smoke.js', standalone: true },
+  { name: 'outbox-dispatcher-backoff', scriptFile: 'outbox-dispatcher-backoff-smoke.js', standalone: true },
+  { name: 'outbox-dispatcher-worker', scriptFile: 'outbox-dispatcher-worker-smoke.js', standalone: true },
+  { name: 'flush-task-runtime', scriptFile: 'flush-task-runtime-smoke.js', standalone: true },
+  { name: 'flush-task-noop-retry', scriptFile: 'flush-task-noop-retry-smoke.js', standalone: true },
+  { name: 'flush-pool-backpressure', scriptFile: 'flush-pool-backpressure-smoke.js', standalone: true },
+  { name: 'flush-independent-persistence', scriptFile: 'flush-independent-persistence-smoke.js', standalone: true },
+  { name: 'snapshot-retirement', scriptFile: 'snapshot-retirement-report-smoke.js', standalone: true },
+  { name: 'map-snapshot-retirement', scriptFile: 'map-snapshot-retirement-report-smoke.js', standalone: true },
+  { name: 'multi-worker-flush-stability', scriptFile: 'multi-worker-flush-stability-report-smoke.js', standalone: true },
+  { name: 'strong-persistence-lease', scriptFile: 'strong-persistence-lease-report-smoke.js', standalone: true },
+  { name: 'player-columnar-schema', scriptFile: 'player-columnar-schema-report-smoke.js', standalone: true },
+  { name: 'player-dirty-domain-coverage', scriptFile: 'player-dirty-domain-coverage-report-smoke.js', standalone: true },
 ];
+const SMOKE_CASE_GROUPS = Object.freeze({
+  'auth-session': [
+    'auth-bootstrap',
+    'auth-bootstrap-native',
+    'auth-bootstrap-legacy-import',
+    'session',
+  ],
+  'player-persistence-recovery': [
+    'player-persistence-flush',
+    'player-domain-persistence',
+    'player-domain-recovery',
+    'player-runtime-persistence-roundtrip',
+    'player-recovery',
+    'player-respawn',
+    'player-domain-empty-overwrite-guard',
+    'player-anchor-checkpoint-flush-worker',
+    'player-state-flush-worker',
+  ],
+  'combat-matrix': [
+    'combat',
+    'combat-e2e-outcome-matrix',
+    'combat-formula-main-parity',
+    'world-runtime-combat-action-service',
+    'world-runtime-combat-boundary',
+    'world-runtime-combat-outcome-variants',
+    'world-runtime-auto-combat',
+    'pending-combat-cast-redis-recovery',
+    'world-runtime-damageable-tile',
+    'world-runtime-formation',
+    'world-runtime-loot-container',
+    'world-runtime-monster-los',
+  ],
+  'monster-lifecycle': [
+    'monster-runtime',
+    'monster-combat',
+    'monster-combat-lease-matrix',
+    'monster-ai',
+    'monster-skill',
+    'monster-reset',
+    'monster-loot',
+    'content-monster-spawn',
+  ],
+  'world-sync': [
+    'world-sync-envelope',
+    'world-sync-delta-order',
+    'world-sync-player-state',
+    'world-sync-aux-state',
+    'world-sync-map-static-aux',
+    'world-sync-map-snapshot-instance-diff',
+    'world-sync-envelope-eventbus-hotpath',
+    'player-runtime-projection-entry',
+  ],
+  'instance-maintenance': [
+    'instance-resource-flush-worker',
+    'instance-container-flush-worker',
+    'instance-ground-item-flush-worker',
+    'instance-overlay-flush-worker',
+    'instance-tile-damage-flush-worker',
+    'instance-monster-runtime-flush-worker',
+    'instance-state-purge-worker',
+    'instance-lease-runtime',
+    'instance-lease-sync-error',
+    'instance-lease-periodic-force-reclaim',
+  ],
+  'gm-world-ops': [
+    'gm-world-instance',
+    'gm-world-instance-lease',
+    'gm-world-instance-flush',
+    'gm-world-instance-freeze',
+    'gm-world-instance-rebuild',
+    'gm-world-instance-migrate',
+    'gm-world-player-flush',
+    'gm-world-player-migrate',
+    'gm-world-operation-replay',
+    'gm-world-outbox-retry-queue',
+    'gm-world-dirty-backlog',
+    'gm-world-nodes',
+  ],
+  'mail-outbox-flush': [
+    'mail-expiration-cleanup-worker',
+    'mail-expiration-archive-worker',
+    'mail-soft-delete-purge-worker',
+    'mail-structured-mutation',
+    'mail-schema-report',
+    'outbox-dispatcher',
+    'outbox-dispatcher-backoff',
+    'outbox-dispatcher-worker',
+    'flush-task-runtime',
+    'flush-task-noop-retry',
+    'flush-pool-backpressure',
+    'flush-independent-persistence',
+    'durable-operation',
+  ],
+});
 const LONG_RUNNING_SMOKE_TIMEOUT_MS = '20000';
 const LONG_RUNNING_SMOKE_CASES = new Set([
     'readiness-gate',
@@ -167,6 +313,8 @@ const DB_SMOKE_CASES = new Set([
     'persistence',
     'player-domain-persistence',
     'player-domain-recovery',
+    'player-anchor-checkpoint-flush-worker',
+    'player-state-flush-worker',
     'durable-operation',
   'gm-database',
   'shutdown-drain',
@@ -563,17 +711,26 @@ function resolveSelectedCases() {
             || entry.name === 'player-domain-recovery'
       || entry.name === 'durable-operation'
       || entry.name === 'gm-database') {
-      return includePersistence;
+      return includePersistence || isSelectedSmokeCase(entry.name);
         }
         return true;
     });
-    if (selectedCaseNames.length === 0) {
+    if (selectedCaseNames.length === 0 && selectedGroupNames.length === 0) {
         return cases;
     }
 /**
  * 记录已选值。
  */
     const selected = new Set(selectedCaseNames);
+    for (const groupName of selectedGroupNames) {
+        const groupCases = SMOKE_CASE_GROUPS[groupName];
+        if (!Array.isArray(groupCases)) {
+            throw new Error(`unknown smoke group: ${groupName}`);
+        }
+        for (const caseName of groupCases) {
+            selected.add(caseName);
+        }
+    }
 /**
  * 记录resolved。
  */
@@ -590,6 +747,15 @@ function resolveSelectedCases() {
         throw new Error(`unknown smoke case: ${unknown.join(', ')}`);
     }
     return resolved;
+}
+function isSelectedSmokeCase(caseName) {
+    if (selectedCaseNames.includes(caseName)) {
+        return true;
+    }
+    return selectedGroupNames.some((groupName) => {
+        const groupCases = SMOKE_CASE_GROUPS[groupName];
+        return Array.isArray(groupCases) && groupCases.includes(caseName);
+    });
 }
 const CASE_NODE_ID_INSTANCE_IDS = new Map([
     ['auth-bootstrap', ['public:yunlai_town']],

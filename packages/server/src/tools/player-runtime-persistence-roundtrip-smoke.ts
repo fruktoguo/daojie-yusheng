@@ -381,7 +381,7 @@ function testHydrateInventoryItemsKeepTemplateOnPrototype() {
     const item = player.inventory.items[0];
     assert.equal(item.name, template.name);
     assert.equal(item.effects, template.effects);
-    assert.deepEqual(Object.keys(item).sort(), ['count', 'enhanceLevel', 'itemId']);
+    assert.deepEqual(Object.keys(item).sort(), ['count', 'enhanceLevel', 'itemId', 'itemInstanceId']);
     assert.equal(JSON.parse(JSON.stringify(item)).effects, undefined);
 }
 
@@ -415,7 +415,7 @@ function testSnapshotAndRestoreKeepItemPrototypes() {
 
     const runtimeSnapshot = service.snapshot(player.playerId);
     assert.equal(runtimeSnapshot.inventory.items[0].name, itemTemplate.name);
-    assert.deepEqual(Object.keys(runtimeSnapshot.inventory.items[0]).sort(), ['count', 'itemId']);
+    assert.deepEqual(Object.keys(runtimeSnapshot.inventory.items[0]).sort(), ['count', 'itemId', 'itemInstanceId']);
     const snapshotWeapon = runtimeSnapshot.equipment.slots.find((entry) => entry.slot === 'weapon')?.item;
     assert.equal(snapshotWeapon.name, equipmentTemplate.name);
     assert.equal(snapshotWeapon.equipAttrs, equipmentTemplate.equipAttrs);

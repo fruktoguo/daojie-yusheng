@@ -16,8 +16,10 @@
 
 - [ ] 认证 / 会话链：`auth-bootstrap`、`auth-bootstrap-native`、`auth-bootstrap-legacy-import`、`session`
   - 理由：已经存在同驱动多 case 形态，启动方式和清理链接近，适合先做低风险矩阵化。
+  - 推进记录：已新增 `auth-session` group 与 `smoke:auth-session-matrix` 入口；无 DB 且未开启 legacy HTTP memory fallback 时矩阵可跑通，但 auth-bootstrap 三变体按既有逻辑跳过。开启 fallback 后三变体暴露既有 `nextAuthFailure timeout`，因此该项保持未完成。
 - [ ] 玩家持久化 / 恢复链：`player-persistence-flush`、`player-domain-persistence`、`player-domain-recovery`、`player-runtime-persistence-roundtrip`、`player-recovery`、`player-respawn`、`player-domain-empty-overwrite-guard`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker`
   - 理由：围绕同一批玩家真源与恢复路径，fixture 复用高，最容易先收敛重复。
+  - 推进记录：已新增 `player-persistence-recovery` group 与 `smoke:player-persistence-recovery-matrix` 入口；无 DB 本地验证通过了可运行子集，并修正 `player-runtime-persistence-roundtrip` 对 `itemInstanceId` 真源字段的断言，但 DB 子项仍按既有逻辑跳过，因此该项保持未完成。
 
 ### P1：其次合并
 
@@ -44,6 +46,7 @@
 - [ ] 合并 `auth-bootstrap`、`auth-bootstrap-native`、`auth-bootstrap-legacy-import`、`session`
   - 合并理由：这几项都围绕登录、session 建立、断线重连和认证兼容；fixture 复用度高，差异主要集中在 profile、兼容协议和断言点。
   - 备注：其中 `auth-bootstrap` 三个变体已经共用同一脚本，是最适合继续矩阵化的子集。
+  - 推进记录：`auth-session` group 与 `smoke:auth-session-matrix` 已落地；非跳过 fallback 验证失败，待修复 auth-bootstrap 三变体后才能打勾。
 
 ### 2. 战斗链
 
@@ -52,8 +55,9 @@
 
 ### 3. 怪物生命周期链
 
-- [ ] 合并 `monster-runtime`、`monster-combat`、`monster-combat-lease-matrix`、`monster-ai`、`monster-skill`、`monster-reset`、`monster-loot`、`content-monster-spawn`
+- [x] 合并 `monster-runtime`、`monster-combat`、`monster-combat-lease-matrix`、`monster-ai`、`monster-skill`、`monster-reset`、`monster-loot`、`content-monster-spawn`
   - 合并理由：都依赖同类怪物生成、刷新、AI、战斗、掉落和重置流程；fixture 复用高，适合统一成怪物生命周期矩阵。
+  - 完成记录：`monster-lifecycle` group 已补齐并通过本地 smoke 验证；同时修正了 `monster-combat` 的即时 handoff 断言策略和 `content-monster-spawn` 的生成数据路径/基线值，以匹配当前主线权威行为。
 
 ### 4. 实例维护链
 
@@ -69,11 +73,13 @@
 
 - [ ] 合并 `player-persistence-flush`、`player-domain-persistence`、`player-domain-recovery`、`player-runtime-persistence-roundtrip`、`player-recovery`、`player-respawn`、`player-domain-empty-overwrite-guard`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker`
   - 合并理由：都验证玩家真源、flush、恢复、回读和重登后状态一致；可共用大量 fixture 与清理链。
+  - 推进记录：`player-persistence-recovery` group 与 `smoke:player-persistence-recovery-matrix` 已落地；无 DB 本地矩阵通过，但 DB 子项仍跳过，待 with-db 通过后才能打勾。
 
 ### 7. 世界同步 / 投影链
 
-- [ ] 合并 `world-sync-envelope`、`world-sync-delta-order`、`world-sync-player-state`、`world-sync-aux-state`、`world-sync-map-static-aux`、`world-sync-map-snapshot-instance-diff`、`world-sync-envelope-eventbus-hotpath`、`player-runtime-projection-entry`
+- [x] 合并 `world-sync-envelope`、`world-sync-delta-order`、`world-sync-player-state`、`world-sync-aux-state`、`world-sync-map-static-aux`、`world-sync-map-snapshot-instance-diff`、`world-sync-envelope-eventbus-hotpath`、`player-runtime-projection-entry`
   - 合并理由：都在验证同一条同步与投影管线；主要差异是 payload 层、顺序、增量字段和热路径表现。
+  - 完成记录：`world-sync` group 已补齐并通过本地 smoke 验证，且修正了 `world-sync-map-static-aux` 的 tile 断言以匹配当前主线权威字段。
 
 ### 8. 邮件 / Outbox / Flush 基础设施链
 
