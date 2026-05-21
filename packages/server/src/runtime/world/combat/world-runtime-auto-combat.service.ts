@@ -481,17 +481,6 @@ export class WorldRuntimeAutoCombatService {
         if (!view) {
             return null;
         }
-        const selfSkillChoice = this.resolveAutoBattleSelfSkillChoice(player, options);
-        if (selfSkillChoice?.skillId) {
-            return {
-                kind: 'castSkill',
-                skillId: selfSkillChoice.skillId,
-                targetPlayerId: null,
-                targetMonsterId: null,
-                targetRef: null,
-                autoCombat: true,
-            };
-        }
         this.refreshPlayerThreats(instance, player, view, deps);
         const target = this.selectAutoCombatTarget(instance, player, view, deps, options);
         if (!target) {
@@ -1001,42 +990,6 @@ export class WorldRuntimeAutoCombatService {
  * @param distance 参数说明。
  * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
  */
-
-    resolveAutoBattleSelfSkillChoice(player, options = undefined) {
-  // 自身/友方 buff 技能不依赖敌对目标；缺少对应 buff 时按自动技能顺序原地施放。
-
-        if (!Array.isArray(player?.techniques?.techniques)) {
-            return null;
-        }
-        const skillLookup = buildAutoBattleSkillLookup(player);
-        const excludedSkillIds = options?.excludedSkillIds;
-        for (const action of player.actions.actions) {
-            if (action.type !== 'skill') {
-                continue;
-            }
-            if (action.autoBattleEnabled === false || action.skillEnabled === false) {
-                continue;
-            }
-            if ((action.cooldownLeft ?? 0) > 0) {
-                continue;
-            }
-            const skill = findAutoBattlePlayerSkill(player, action.id, skillLookup);
-            if (!skill || !isAutoSelfBuffSkill(skill)) {
-                continue;
-            }
-            if (excludedSkillIds?.has(skill.id)) {
-                continue;
-            }
-            if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
-                continue;
-            }
-            if (!shouldAutoCastSelfBuffSkill(player, skill)) {
-                continue;
-            }
-            return { skillId: skill.id, range: 0, selfCast: true };
-        }
-        return null;
-    }
 
     resolveFirstUsableAutoBattleSkill(player, options = undefined, skillLookup = null) {
         if (!Array.isArray(player?.actions?.actions)) {
