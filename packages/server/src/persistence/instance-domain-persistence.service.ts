@@ -2271,6 +2271,11 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       created_tick: normalizeNullableInteger(entry?.createdTick),
       visible: entry?.visible === true,
     })));
+    const containerRowsJson = JSON.stringify(containerRows);
+    const containerIdsJson = JSON.stringify(containerRows.map(({ container_id }) => ({ container_id })));
+    const timerRowsJson = JSON.stringify(timerRows);
+    const entryRowsJson = JSON.stringify(entryRows);
+    const entryKeysJson = JSON.stringify(entryRows.map(({ container_id, entry_index }) => ({ container_id, entry_index })));
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -2301,7 +2306,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               state_payload = EXCLUDED.state_payload,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(containerRows)],
+          [normalizedInstanceId, containerRowsJson],
         );
       }
       await client.query(
@@ -2318,7 +2323,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               WHERE incoming.container_id = target.container_id
             )
         `,
-        [normalizedInstanceId, JSON.stringify(containerRows.map(({ container_id }) => ({ container_id })))],
+        [normalizedInstanceId, containerIdsJson],
       );
       if (timerRows.length > 0) {
         await client.query(
@@ -2349,7 +2354,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               active_search_payload = EXCLUDED.active_search_payload,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(timerRows)],
+          [normalizedInstanceId, timerRowsJson],
         );
       }
       await client.query(
@@ -2366,7 +2371,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               WHERE incoming.container_id = target.container_id
             )
         `,
-        [normalizedInstanceId, JSON.stringify(containerRows.map(({ container_id }) => ({ container_id })))],
+        [normalizedInstanceId, containerIdsJson],
       );
       if (entryRows.length > 0) {
         await client.query(
@@ -2399,7 +2404,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               visible = EXCLUDED.visible,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(entryRows)],
+          [normalizedInstanceId, entryRowsJson],
         );
       }
       await client.query(
@@ -2418,7 +2423,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `,
         [
           normalizedInstanceId,
-          JSON.stringify(containerRows.map(({ container_id }) => ({ container_id }))),
+          containerIdsJson,
         ],
       );
       await client.query(
@@ -2447,8 +2452,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
         `,
         [
           normalizedInstanceId,
-          JSON.stringify(containerRows.map(({ container_id }) => ({ container_id }))),
-          JSON.stringify(entryRows.map(({ container_id, entry_index }) => ({ container_id, entry_index }))),
+          containerIdsJson,
+          entryKeysJson,
         ],
       );
       await client.query('COMMIT');
