@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModu
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { shouldStartBackgroundWorkers, shouldStartBackupWorker } from '../../config/runtime-role';
 import { FlushTaskRuntimeService } from '../../persistence/flush-task-runtime.service';
+import { resolveFlushTaskRuntimeMode } from '../../persistence/flush-task-runtime-mode';
 import { OutboxDispatcherRuntimeService } from '../../persistence/outbox-dispatcher-runtime.service';
 import { AssetAuditLogRetentionWorker } from '../world/worker/asset-audit-log-retention.worker';
 import { InstanceStatePurgeWorker } from '../world/worker/instance-state-purge.worker';
@@ -96,7 +97,7 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         id: 'flush-task-consumer',
         label: 'Flush task consumer',
         intervalMs: 2_000,
-        enabled: false,
+        enabled: Boolean(this.flushTaskRuntimeService) && resolveFlushTaskRuntimeMode() === 'worker',
         runOnce: async () => this.flushTaskRuntimeService?.runOnce('background-orchestrator') ?? 0,
       },
       {

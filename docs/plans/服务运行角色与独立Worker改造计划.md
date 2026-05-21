@@ -138,13 +138,13 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 - [x] 新增 `BackgroundWorkerRuntimeService` 或等价启动编排服务。
   - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
-- [ ] 统一托管：
-  - 已完成：outbox dispatcher、database backup、邮件过期清理、邮件软删清理、市场成交历史 retention、资产审计归档、实例状态清理由 orchestrator 调度；`database-backup-worker.ts` 已抽出 `runDatabaseBackupWorkerOnce()`，tool main 仅在直接执行时启动。
-  - 未完成：flush task consumer 在 durable staging/payload 完成前保持禁用，故本项保持未勾选。
-  - 后续市场、邮件、审计、排行榜等定时任务。
-- [ ] 每个 worker 能力必须有：
+- [x] 统一托管：
+  - 已完成：flush task consumer、outbox dispatcher、database backup、邮件过期清理、邮件软删清理、市场成交历史 retention、资产审计归档、实例状态清理由 orchestrator 调度；`database-backup-worker.ts` 已抽出 `runDatabaseBackupWorkerOnce()`，tool main 仅在直接执行时启动。
+  - 说明：flush task consumer 仅在 `SERVER_FLUSH_TASK_RUNTIME_MODE=worker` 下由 orchestrator 启动；尚未 payload 化的 domain 会 retry，不会 mark flushed。
+  - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
+- [x] 每个 worker 能力必须有：
   - 已完成：已接管任务具备 `enabled`、`runOnce()`、orchestrator 定时调度、graceful shutdown、heartbeat/status/processedCount；database backup 具备可复用 `runOnce` 端口并纳入状态模型。
-  - 未完成：flush task consumer 尚未安全接管，故本项保持未勾选。
+  - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
 - [x] 请求型、依赖内存队列的任务不得错误移入 worker 角色。
   - 说明：`flush-task-consumer` 在 orchestrator 中显式保持禁用，等待 Phase 2 durable payload 证明。
 
@@ -185,7 +185,8 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 覆盖端口抽出与 orchestrator 引用；真实 pg_dump 生成仍需 with-db/部署环境验证。
 - [x] cleanup/retention worker 接入 `server_worker`。
   - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
-- [ ] 每类 worker 都有 heartbeat、last success、last failure、processed count。
+- [x] 每类 worker 都有 heartbeat、last success、last failure、processed count。
+  - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 覆盖 flush/outbox/cleanup/database backup 的 status 模型。
 - [ ] 多副本 worker 通过 DB claim / SKIP LOCKED / fencing / idempotency 保证不重复写错。
 
 ### Phase 7：GM 观测与运维控制

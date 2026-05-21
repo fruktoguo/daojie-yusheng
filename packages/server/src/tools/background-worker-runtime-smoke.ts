@@ -18,10 +18,11 @@ async function main(): Promise<void> {
   delete process.env.SERVER_DATABASE_URL;
   delete process.env.DATABASE_URL;
 
+  let flushCalls = 0;
   let outboxCalls = 0;
   let mailExpirationCalls = 0;
   const orchestrator = new BackgroundWorkerRuntimeService(
-    { runOnce: async () => 0 } as never,
+    { runOnce: async () => { flushCalls += 1; return 1; } } as never,
     {
       isRuntimeEnabled: () => true,
       dispatchPendingEvents: async () => {
@@ -46,10 +47,12 @@ async function main(): Promise<void> {
     const backup = states.find((state) => state.id === 'database-backup');
     assert.equal(outbox?.enabled, true);
     assert.equal(mailExpiration?.enabled, true);
-    assert.equal(flush?.enabled, false);
+    assert.equal(flush?.enabled, true);
     assert.equal(backup?.enabled, false);
+    assert.ok((flush?.processedCount ?? 0) >= 1);
     assert.ok((outbox?.processedCount ?? 0) >= 2);
     assert.ok((mailExpiration?.processedCount ?? 0) >= 1);
+    assert.ok(flushCalls >= 1);
     assert.ok(outboxCalls >= 1);
     assert.ok(mailExpirationCalls >= 1);
     const serverRoot = process.cwd();
@@ -68,8 +71,8 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '后台 worker orchestrator 能在 worker role 下调度已启用任务，记录 heartbeat/status/processedCount；database backup 已抽出 runOnce 端口并由 orchestrator 引用。',
-    excludes: '不证明 durable staging payload、真实数据库备份可生成或 with-db 多副本竞争。',
+    answers: '后台 worker orchestrator 能在 worker role 下调度 flush/outbox/cleanup 等已启用任务，记录 heartbeat/status/processedCount；database backup 已抽出 runOnce 端口并由 orchestrator 引用。',
+    excludes: '不证明所有 flush domain 已 payload 化、真实数据库备份可生成或 with-db 多副本竞争。',
     completionMapping: 'background-worker-orchestrator',
   }, null, 2));
 }
