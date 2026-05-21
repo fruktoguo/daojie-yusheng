@@ -100,21 +100,23 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - `idempotency_key`、`created_at`、`claim_until`、`retry_after`、`failure_category`。
   - 已完成：复用并升级 `player_flush_ledger` / `instance_flush_ledger` 为 staging 语义，补齐 `runtime_owner_id`、`fencing_token`、`idempotency_key`、`payload_jsonb`、`failure_category`、`retry_after`、`created_at`，并保持 `FOR UPDATE SKIP LOCKED` claim。
   - 验证：`pnpm --filter @mud/server smoke:flush-staging-schema` 通过；该验证只证明 schema/类型契约，不证明各 domain projector 已完成。
-- [ ] api 角色在权威变更发生后写入 staging，不把完整运行态对象交给 worker。
-  - 已完成部分：`FlushTaskRuntimeService.stageDirtyTasksOnce()` 在权威 role 下可独立写入 staging；玩家 `presence` 域写入结构化 `payload_jsonb` 与 `runtime_owner_id/fencing_token`；玩家 snapshot projectable domains 写入 `player_snapshot_projection` payload；实例 `tile_damage/tile_resource` 写入 `instance_domain_delta` payload；实例 `ground_item/overlay/monster_runtime/container_state/building/room/fengshui/time` 写入可消费 state payload。
-  - 未完成：邮件、GM edit 独立链路尚未完成 payload projector；市场订单已由 `market_storage` snapshot projectable path 覆盖，故本项保持未勾选。
-  - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload` 通过。
-- [ ] worker 角色只从 staging/ledger 读取正式 payload 并写真源。
-  - 已完成部分：玩家 `presence` task 在 worker role 下可从 staging payload 写入 `PlayerDomainPersistenceService.savePlayerPresence()`；玩家 snapshot projectable task 可从 staging payload 写入 `savePlayerSnapshotProjectionDomains()`；实例 `tile_damage/tile_resource` 可从 staging delta payload 写入批量持久化 API；实例 `ground_item/overlay/monster_runtime/container_state/building/room/fengshui/time` 可从 staging state payload 写入持久化 API；unsupported player domain 在 worker role 下只 retry，不调用 runtime flush fallback。
-  - 未完成：邮件、GM edit 与真实 DB proof 仍待完成；市场订单已由 `market_storage` snapshot projectable path 覆盖，故本项保持未勾选。
-  - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload`、`pnpm --filter @mud/server smoke:flush-instance-state-payload`、`pnpm --filter @mud/server smoke:flush-task-noop-retry` 通过。
+- [x] api 角色在权威变更发生后写入 staging，不把完整运行态对象交给 worker。
+  - 已完成：`FlushTaskRuntimeService.stageDirtyTasksOnce()` 在权威 role 下可独立写入 staging；玩家 `presence` 域写入结构化 `payload_jsonb` 与 `runtime_owner_id/fencing_token`；玩家 snapshot projectable domains 写入 `player_snapshot_projection` payload；实例 `tile_damage/tile_resource` 写入 `instance_domain_delta` payload；实例 `ground_item/overlay/monster_runtime/container_state/building/room/fengshui/time` 写入可消费 state payload。
+  - 边界结论：`mail` 由 `MailRuntimeService` -> `MailPersistenceService.saveMailboxMutation()`/`saveMailbox()` 直写结构化真源；`gm_edit` 由 `NativeGmPlayerService.savePlayerPersistenceSnapshotForGmUpdate()`/`savePlayerPersistenceSnapshot()` 直写玩家快照并记录 GM audit；二者不是 flush staging payload domain，worker 侧保持 unsupported player domain retry 边界。
+  - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload`、`pnpm --filter @mud/server smoke:flush-instance-state-payload`、`pnpm --filter @mud/server smoke:flush-independent-persistence` 通过。
+- [x] worker 角色只从 staging/ledger 读取正式 payload 并写真源。
+  - 已完成：玩家 `presence` task 在 worker role 下可从 staging payload 写入 `PlayerDomainPersistenceService.savePlayerPresence()`；玩家 snapshot projectable task 可从 staging payload 写入 `savePlayerSnapshotProjectionDomains()`；实例 `tile_damage/tile_resource` 可从 staging delta payload 写入批量持久化 API；实例 `ground_item/overlay/monster_runtime/container_state/building/room/fengshui/time` 可从 staging state payload 写入持久化 API；unsupported player domain（含 `mail`/`gm_edit` 这类非 staging 链路）在 worker role 下只 retry，不调用 runtime flush fallback。
+  - 边界结论：邮件和 GM 编辑由各自真源服务负责写入与幂等/审计，不伪装为 flush payload；市场订单已由 `market_storage` snapshot projectable path 覆盖。
+  - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload`、`pnpm --filter @mud/server smoke:flush-instance-state-payload`、`pnpm --filter @mud/server smoke:flush-task-noop-retry`、`pnpm --filter @mud/server smoke:flush-independent-persistence` 通过。
 - [ ] payload 写入、worker 写入、mark flushed 必须同一幂等链路，重复消费不重复发奖、不重复扣资产、不覆盖新版本。
-  - 已完成部分：玩家 `presence` payload 使用 session epoch 与 DB upsert 条件保证旧 session 不覆盖新 session；玩家 snapshot projectable payload 复用分域写入的 version/watermark 与空覆盖保护；实例 `tile_damage/tile_resource` delta payload 复用批量 delta 写入和 recovery watermark，并在 worker 写入成功后 mark flushed。
-  - 未完成：市场订单、邮件、GM edit 与实例剩余 domain 尚未完成完整幂等证明；真实 DB 重放/竞争 proof 仍未完成。
+  - 已完成部分：玩家 `presence` payload 使用 session epoch 与 DB upsert 条件保证旧 session 不覆盖新 session；玩家 snapshot projectable payload 复用分域写入的 version/watermark 与空覆盖保护；实例 `tile_damage/tile_resource` delta payload 复用批量 delta 写入和 recovery watermark，并在 worker 写入成功后 mark flushed；邮件和 GM edit 已确认不属于 flush payload 链路，分别由邮件结构化真源和 GM 直写快照/审计链路承担。
+  - 未完成/阻塞（2026-05-21）：真实 DB 重放/竞争 proof 仍未完成；当前环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能用静态/无 DB smoke 证明重复消费、fencing 竞争与多副本场景。
 - [x] no-op flush 必须 retry 或进入诊断，不得 mark flushed。
   - 已完成：玩家 `flushPlayerDomains()` 返回 `false` 时 retry；实例缺少 runtime、缺少 `flushInstanceDomains()` 或返回空结果时 retry，不再 mark flushed。
   - 验证：`pnpm --filter @mud/server smoke:flush-task-noop-retry` 通过。
-- [ ] 完成 staging 后，生产目标配置为 `api` 不消费 flush，`worker` 消费 flush。
+- [x] 完成 staging 后，生产目标配置为 `api` 不消费 flush，`worker` 消费 flush。
+  - 已完成：生产 stack 中 `server` 使用 `SERVER_RUNTIME_ROLE=api`/`SERVER_FLUSH_TASK_RUNTIME_MODE=off`，`server_worker` 使用 `SERVER_RUNTIME_ROLE=worker`/`SERVER_FLUSH_TASK_RUNTIME_MODE=worker`；代码侧 `FlushTaskRuntimeService` 在 api role 仅 stage、不消费，worker role 仅消费 ready task。
+  - 验证：`pnpm --filter @mud/server smoke:runtime-role-policy`、`pnpm --filter @mud/server smoke:background-worker-runtime`、`pnpm run proof:release-gates` 通过。
 
 ### Phase 3：启动管线改造
 
@@ -177,7 +179,9 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 ### Phase 6：正式 Worker 能力接管
 
-- [ ] flush worker 接管玩家/实例 staging payload 消费。
+- [x] flush worker 接管玩家/实例 staging payload 消费。
+  - 已完成：`server_worker` 在 `SERVER_FLUSH_TASK_RUNTIME_MODE=worker` 下由 orchestrator 调用 `FlushTaskRuntimeService.runOnce()`；玩家 presence/snapshot projectable 与实例 delta/state payload 均已有 worker 消费路径；非 staging 玩家 domain 在 worker role 下只 retry。
+  - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload`、`pnpm --filter @mud/server smoke:flush-instance-state-payload`、`pnpm --filter @mud/server smoke:flush-task-noop-retry`、`pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
 - [x] outbox dispatcher 接入 `server_worker`，api 默认不投递。
   - 验证：`pnpm --filter @mud/server smoke:runtime-role-policy` 与 `pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
 - [x] database backup worker 接入 `server_worker` 或同一后台 role。
@@ -188,6 +192,7 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 - [x] 每类 worker 都有 heartbeat、last success、last failure、processed count。
   - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 覆盖 flush/outbox/cleanup/database backup 的 status 模型。
 - [ ] 多副本 worker 通过 DB claim / SKIP LOCKED / fencing / idempotency 保证不重复写错。
+  - 未完成/阻塞（2026-05-21）：当前环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，无法启动真实 PostgreSQL proof 来验证多副本 claim、fencing 与重复消费安全。
 
 ### Phase 7：GM 观测与运维控制
 
@@ -233,21 +238,23 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - retry/backoff 正确。
   - staging payload 重放幂等。
   - ownership epoch / fencing 失效时拒绝写入。
-  - 阻塞：当前执行环境未配置 `SERVER_DATABASE_URL/DATABASE_URL`，不能用 skipped 结果证明该项完成。
+  - 阻塞（2026-05-21）：当前执行环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能用 skipped 结果证明该项完成。
 - [ ] outbox worker proof：
   - 多 worker 不重复 delivered。
   - consumer 失败不丢事件。
-  - 阻塞：当前执行环境未配置 `SERVER_DATABASE_URL/DATABASE_URL`，不能执行真实 outbox with-db proof。
+  - 阻塞（2026-05-21）：当前执行环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能执行真实 outbox with-db proof。
 - [ ] 容量证明：
   - 5000 玩家 dirty 产生模型。
   - 10000 地图实例活跃子集和全活跃 checkpoint。
   - 输出处理率、P95、PG pool waiting、lock wait、WAL 压力、backlog growth rate。
-  - 阻塞：当前执行环境未配置真实数据库，无法测量 PG pool waiting、lock wait、WAL 压力或真实处理率。
+  - 阻塞（2026-05-21）：当前执行环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，无法测量 PG pool waiting、lock wait、WAL 压力或真实处理率。
 - [ ] 发布前执行：
   - `pnpm --filter @mud/server compile`
   - `pnpm verify:quick`
   - `pnpm verify:client`（GM 面板改动时）
   - `pnpm verify:release:with-db`（角色拆分/DB worker 改动时）
+  - 已完成部分（2026-05-21）：`pnpm --filter @mud/server compile` 已随 smoke 多次通过；`pnpm verify:quick`、`pnpm verify:client` 通过。
+  - 未完成/阻塞（2026-05-21）：`SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能执行 `pnpm verify:release:with-db`。
 
 ## 非目标
 
