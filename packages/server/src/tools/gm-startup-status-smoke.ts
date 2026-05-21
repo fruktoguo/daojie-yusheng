@@ -26,6 +26,7 @@ function main(): void {
     undefined,
     undefined,
     startupStatus,
+    undefined,
     startupBarrier,
   );
 
