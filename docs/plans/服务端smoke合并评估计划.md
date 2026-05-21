@@ -50,8 +50,9 @@
 
 ### 2. 战斗链
 
-- [ ] 合并 `combat`、`combat-e2e-outcome-matrix`、`combat-formula-main-parity`、`world-runtime-combat-action-service`、`world-runtime-combat-boundary`、`world-runtime-combat-outcome-variants`、`world-runtime-auto-combat`、`pending-combat-cast-redis-recovery`、`world-runtime-damageable-tile`、`world-runtime-formation`、`world-runtime-loot-container`、`world-runtime-monster-los`
+- [x] 合并 `combat`、`combat-e2e-outcome-matrix`、`combat-formula-main-parity`、`world-runtime-combat-action-service`、`world-runtime-combat-boundary`、`world-runtime-combat-outcome-variants`、`world-runtime-auto-combat`、`pending-combat-cast-redis-recovery`、`world-runtime-damageable-tile`、`world-runtime-formation`、`world-runtime-loot-container`、`world-runtime-monster-los`
   - 合并理由：都依赖同一套战斗地图、玩家、技能、目标和结算链路；差异主要是战斗切面不同，适合统一成战斗矩阵驱动。
+  - 完成记录：`combat-matrix` group 已补齐并通过本地 smoke 验证，覆盖 outcome、auto-combat、formation、loot、pending cast Redis 恢复与 LOS 边界。
 
 ### 3. 怪物生命周期链
 
