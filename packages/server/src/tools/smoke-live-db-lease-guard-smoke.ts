@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import {
   buildLiveDbLeaseRefusalMessage,
@@ -63,8 +65,37 @@ const refusal = buildLiveDbLeaseRefusalMessage('server smoke case runtime', [
     sampleInstanceIds: ['public:ancient_ruins'],
   },
 ]);
-assert.match(refusal, /active instance leases exist/);
+assert.match(refusal, /shared instance lease metadata exists/);
 assert.match(refusal, new RegExp(SERVER_SMOKE_ALLOW_LIVE_DB_SERVER_ENV));
+
+const repoRoot = resolve(__dirname, '..', '..', '..', '..');
+
+function readRepoFile(relativePath: string): string {
+  return readFileSync(resolve(repoRoot, relativePath), 'utf8');
+}
+
+for (const relativePath of [
+  'packages/server/src/tools/smoke-suite.ts',
+  'packages/server/src/tools/readiness-gate-smoke.ts',
+  'packages/server/src/tools/gm-database-smoke.ts',
+  'packages/server/src/tools/persistence-smoke.ts',
+  'packages/server/src/tools/gm-database-backup-persistence-smoke.ts',
+  'packages/server/src/tools/shutdown-drain-smoke.ts',
+]) {
+  const source = readRepoFile(relativePath);
+  assert.match(source, /assertNoActiveInstanceLeasesForSmoke/, `${relativePath} must guard live DB leases before spawning main.js`);
+  assert.match(source, /resolveSmokeForceReclaimEnv/, `${relativePath} must not inherit force reclaim defaults blindly`);
+}
+
+for (const relativePath of [
+  'packages/server/src/tools/protocol-audit-lib.ts',
+  'packages/server/src/tools/run-protocol-audit.ts',
+  'packages/server/src/tools/bench-first-package.ts',
+]) {
+  const source = readRepoFile(relativePath);
+  assert.match(source, /SERVER_SKIP_LOCAL_ENV_AUTOLOAD/, `${relativePath} must skip local env autoload for isolated server startup`);
+  assert.match(source, /SERVER_DATABASE_URL:\s*['"]{2}/, `${relativePath} must clear SERVER_DATABASE_URL for isolated server startup`);
+}
 
 console.log(JSON.stringify({
   ok: true,

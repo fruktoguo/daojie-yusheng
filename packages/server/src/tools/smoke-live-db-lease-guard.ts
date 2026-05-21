@@ -73,9 +73,9 @@ export function buildLiveDbLeaseRefusalMessage(
   context: string,
   owners: ActiveLeaseOwnerSummary[],
 ): string {
-  return `${context} refused to start DB-backed smoke server because active instance leases exist: `
+  return `${context} refused to start DB-backed smoke server because shared instance lease metadata exists: `
     + `${formatActiveLeaseOwnersForSmoke(owners)}. `
-    + 'Stop the running server, use an isolated database, or wait for stale leases to expire. '
+    + 'Use an isolated database or clear smoke-owned instance lease metadata before running this proof. '
     + `Set ${SERVER_SMOKE_ALLOW_LIVE_DB_SERVER_ENV}=1 only for an isolated maintenance proof.`;
 }
 
@@ -125,13 +125,16 @@ export async function loadActiveInstanceLeaseOwnersForSmoke(
   });
   try {
     const result = await pool.query(`
-      WITH active_leases AS (
-        SELECT instance_id, assigned_node_id, lease_expire_at
+      WITH existing_leases AS (
+        SELECT
+          instance_id,
+          COALESCE(NULLIF(btrim(assigned_node_id), ''), '<unassigned>') AS assigned_node_id,
+          lease_expire_at
         FROM instance_catalog
-        WHERE assigned_node_id IS NOT NULL
-          AND btrim(assigned_node_id) <> ''
-          AND lease_expire_at IS NOT NULL
-          AND lease_expire_at > now()
+        WHERE (
+            (assigned_node_id IS NOT NULL AND btrim(assigned_node_id) <> '')
+            OR (lease_token IS NOT NULL AND btrim(lease_token) <> '')
+          )
           AND COALESCE(status, 'active') <> 'destroyed'
       )
       SELECT
@@ -141,12 +144,12 @@ export async function loadActiveInstanceLeaseOwnersForSmoke(
         MAX(owner.lease_expire_at) AS max_lease_expire_at,
         ARRAY(
           SELECT sample.instance_id
-          FROM active_leases sample
+          FROM existing_leases sample
           WHERE sample.assigned_node_id = owner.assigned_node_id
           ORDER BY sample.instance_id
           LIMIT 5
         ) AS sample_instance_ids
-      FROM active_leases owner
+      FROM existing_leases owner
       GROUP BY owner.assigned_node_id
       ORDER BY lease_count DESC, owner.assigned_node_id
       LIMIT 8

@@ -62,6 +62,11 @@ async function startServer() {
     cwd: packageRoot,
     env: {
       ...process.env,
+      DATABASE_URL: "",
+      SERVER_DATABASE_URL: "",
+      DATABASE_POOLER_URL: "",
+      SERVER_DATABASE_POOLER_URL: "",
+      SERVER_SKIP_LOCAL_ENV_AUTOLOAD: "1",
       SERVER_PORT: String(currentPort),
       SERVER_RUNTIME_HTTP: "1",
     },

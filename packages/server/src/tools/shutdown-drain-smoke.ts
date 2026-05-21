@@ -12,6 +12,11 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { installSmokeTimeout } from './smoke-timeout';
 import { decodeSmokePayload } from './smoke-payload';
 import { flushRegisteredSmokePlayers, registerAndLoginSmokePlayer } from './smoke-player-auth';
+import {
+  assertNoActiveInstanceLeasesForSmoke,
+  resolveSmokeForceReclaimEnv,
+  resolveSmokeServerNodeEnv,
+} from './smoke-live-db-lease-guard';
 import { createStableDistSnapshot, resolveToolDistRoot, resolveToolPackageRoot } from './stable-dist';
 
 installSmokeTimeout(__filename);
@@ -71,6 +76,10 @@ async function main(): Promise<void> {
 async function startServer(): Promise<RunningServer> {
   const port = await getFreePort();
   const logs: string[] = [];
+  await assertNoActiveInstanceLeasesForSmoke({
+    databaseUrl,
+    context: 'shutdown drain smoke',
+  });
   const child = spawn(process.execPath, [serverEntry], {
     cwd: repoRoot,
     env: {
@@ -78,7 +87,8 @@ async function startServer(): Promise<RunningServer> {
       PORT: String(port),
       SERVER_PORT: String(port),
       SERVER_DATABASE_URL: databaseUrl,
-      SERVER_NODE_ID: serverNodeId,
+      ...resolveSmokeServerNodeEnv(databaseUrl, serverNodeId),
+      SERVER_FORCE_RECLAIM_STALE_LEASES: resolveSmokeForceReclaimEnv(databaseUrl),
       SERVER_ALLOW_LOCAL_SHUTDOWN_DRAIN: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],

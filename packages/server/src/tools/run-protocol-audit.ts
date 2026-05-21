@@ -139,6 +139,11 @@ function startAuditServer(requestedPort, gmPassword) {
       cwd: lib.repoRoot,
       env: {
         ...process.env,
+        DATABASE_URL: "",
+        SERVER_DATABASE_URL: "",
+        DATABASE_POOLER_URL: "",
+        SERVER_DATABASE_POOLER_URL: "",
+        SERVER_SKIP_LOCAL_ENV_AUTOLOAD: "1",
         SERVER_PORT: String(requestedPort),
         SERVER_RUNTIME_HTTP: "1",
         SERVER_ALLOW_UNREADY_TRAFFIC: "1",

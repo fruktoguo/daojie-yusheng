@@ -16,6 +16,7 @@ const env_alias_1 = require("../config/env-alias");
 const gm_database_proof_lib_1 = require("./gm-database-proof-lib");
 const next_gm_contract_1 = require("../http/native/native-gm-contract");
 const stable_dist_1 = require("./stable-dist");
+const smoke_live_db_lease_guard_1 = require("./smoke-live-db-lease-guard");
 /**
  * 记录包根目录。
  */
@@ -194,6 +195,10 @@ async function main() {
 async function startServer() {
     currentPort = await allocateFreePort();
     baseUrl = `http://127.0.0.1:${currentPort}`;
+    await (0, smoke_live_db_lease_guard_1.assertNoActiveInstanceLeasesForSmoke)({
+        databaseUrl,
+        context: 'gm-database backup persistence smoke',
+    });
 /**
  * 记录子进程。
  */
@@ -207,6 +212,8 @@ async function startServer() {
             SERVER_DATABASE_URL: databaseUrl,
             SERVER_RUNTIME_HTTP: '1',
             SERVER_GM_DATABASE_BACKUP_DIR: backupDirectory,
+            ...(0, smoke_live_db_lease_guard_1.resolveSmokeServerNodeEnv)(databaseUrl, process.env.SERVER_NODE_ID),
+            SERVER_FORCE_RECLAIM_STALE_LEASES: (0, smoke_live_db_lease_guard_1.resolveSmokeForceReclaimEnv)(databaseUrl),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });

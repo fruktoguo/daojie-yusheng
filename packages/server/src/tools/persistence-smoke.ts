@@ -18,6 +18,7 @@ const smoke_payload_1 = require("./smoke-payload");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 const stable_dist_1 = require("./stable-dist");
+const smoke_live_db_lease_guard_1 = require("./smoke-live-db-lease-guard");
 /**
  * 记录包根目录。
  */
@@ -626,6 +627,10 @@ async function registerAndLoginPlayer() {
 async function startServer() {
     currentPort = await allocateFreePort();
     baseUrl = `http://127.0.0.1:${currentPort}`;
+    await (0, smoke_live_db_lease_guard_1.assertNoActiveInstanceLeasesForSmoke)({
+        databaseUrl,
+        context: 'persistence smoke',
+    });
 /**
  * 记录子进程。
  */
@@ -640,7 +645,8 @@ async function startServer() {
             SERVER_RUNTIME_HTTP: '1',
             SERVER_ALLOW_LEGACY_HTTP_COMPAT: '1',
             SERVER_MAP_LEGACY_SNAPSHOT_WRITE: '1',
-            ...(process.env.SERVER_NODE_ID ? { SERVER_NODE_ID: process.env.SERVER_NODE_ID } : {}),
+            ...(0, smoke_live_db_lease_guard_1.resolveSmokeServerNodeEnv)(databaseUrl, process.env.SERVER_NODE_ID),
+            SERVER_FORCE_RECLAIM_STALE_LEASES: (0, smoke_live_db_lease_guard_1.resolveSmokeForceReclaimEnv)(databaseUrl),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
