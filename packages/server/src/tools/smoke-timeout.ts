@@ -36,6 +36,7 @@ const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
   ['monster-skill-smoke.js', 60_000],
     ['gm-database-smoke.js', 900_000],
     ['shutdown-drain-smoke.js', 180_000],
+    ['shutdown-signal-path-smoke.js', 180_000],
     ['gm-database-backup-persistence-smoke.js', 60_000],
   ['shadow-gm-database-proof.js', 240_000],
   ['multi-worker-flush-stability-report.js', 120_000],

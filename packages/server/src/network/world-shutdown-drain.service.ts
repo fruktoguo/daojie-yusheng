@@ -168,6 +168,8 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
       deregistered: this.shutdownStatusService.getSnapshot().node.deregistered,
     });
 
+    await this.worldRuntimeService.closeForShutdown();
+
     const currentSnapshot = this.shutdownStatusService.getSnapshot();
     const hasFailures = currentSnapshot.players.flushFailed.length > 0
       || currentSnapshot.players.presenceFailed.length > 0

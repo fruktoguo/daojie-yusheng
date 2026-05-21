@@ -39,6 +39,7 @@
     "smoke:shutdown-coordinator-order": "pnpm compile && node dist/tools/shutdown-coordinator-order-smoke.js",
     "smoke:shutdown-failed-flush-keeps-lease": "pnpm compile && node dist/tools/shutdown-failed-flush-keeps-lease-smoke.js",
     "smoke:shutdown-readiness-draining": "pnpm compile && node dist/tools/shutdown-readiness-draining-smoke.js",
+    "smoke:shutdown-signal-path": "pnpm compile && node dist/tools/shutdown-signal-path-smoke.js",
     "smoke:worker-backlog-alert": "pnpm compile && node dist/tools/worker-backlog-alert-smoke.js",
     "smoke:gm-world-instance": "pnpm compile && node dist/tools/gm-world-instance-smoke.js",
     "smoke:gm-world-runtime-query": "pnpm compile && node dist/tools/gm-world-runtime-query-smoke.js",

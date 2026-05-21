@@ -351,6 +351,7 @@ export class WorldRuntimeService {
     startupBarrierService;
 
     instanceLeaseSyncTimer = null;
+    shutdownPersistenceClosed = false;
 
     logger = new Logger(WorldRuntimeService.name);
 
@@ -754,7 +755,11 @@ export class WorldRuntimeService {
         }, INSTANCE_LEASE_RENEW_SKEW_MS * 2);
         this.instanceLeaseSyncTimer.unref?.();
     }
-    async onModuleDestroy() {
+    async closeForShutdown() {
+        if (this.shutdownPersistenceClosed) {
+            return;
+        }
+        this.shutdownPersistenceClosed = true;
         if (this.instanceLeaseSyncTimer) {
             clearInterval(this.instanceLeaseSyncTimer);
             this.instanceLeaseSyncTimer = null;
@@ -765,6 +770,9 @@ export class WorldRuntimeService {
         if (typeof this.worldRuntimeSectService?.closePersistencePool === 'function') {
             await this.worldRuntimeSectService.closePersistencePool();
         }
+    }
+    async onModuleDestroy() {
+        await this.closeForShutdown();
     }
         listMapTemplates() {
         return this.worldRuntimeInstanceReadFacadeService.listMapTemplates(this);

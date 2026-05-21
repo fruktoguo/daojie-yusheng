@@ -210,7 +210,6 @@ async function bootstrap(): Promise<void> {
   if (!shouldStartHttpServer(role)) {
     const app = await NestFactory.createApplicationContext(AppModule, { logger });
     bootstrapApp = app;
-    app.enableShutdownHooks();
     logger.log('worker 角色已启动 Nest application context；不监听 HTTP/Socket.IO 端口');
     return;
   }
@@ -218,7 +217,6 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { logger });
   bootstrapApp = app;
 
-  app.enableShutdownHooks();
 
   const corsOptions = resolveServerCorsOptions();
   if (corsOptions) {
@@ -269,7 +267,6 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 // ─── Graceful shutdown 超时兜底 ───
-// NestJS enableShutdownHooks 触发 onModuleDestroy 链，若某 service 阻塞则整体卡住。
 // 此处注册独立超时：SIGTERM/SIGINT 后最多等 15s，超时强制退出。
 const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 15_000;
 let shutdownTimerSet = false;
