@@ -475,10 +475,14 @@ export class WorldSessionService {
 
   /** 暴露死信队列内容，供 GM 面板/监控诊断玩家级 flush 长期失败问题。 */
   listExpiredBindingDeadLetter(): ExpiredBindingDeadLetterEntry[] {
-    return Array.from(this.expiredBindingDeadLetter.values()).map((entry) => ({
-      ...entry,
-      binding: { ...entry.binding },
-    }));
+    const entries: ExpiredBindingDeadLetterEntry[] = [];
+    for (const entry of this.expiredBindingDeadLetter.values()) {
+      entries.push({
+        ...entry,
+        binding: { ...entry.binding },
+      });
+    }
+    return entries;
   }
 
   /** 取出并清空死信队列：运维确认处理后调用。 */
