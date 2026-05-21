@@ -88,6 +88,43 @@ async function main(): Promise<void> {
       assert.equal(flushed.at(-1), scenario.expected);
     }
     assert.equal(flushed.length, scenarios.length);
+
+    process.env.SERVER_RUNTIME_ROLE = 'api';
+    process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'off';
+    const staged: unknown[] = [];
+    const stagingLedger = {
+      isEnabled: () => true,
+      upsertFlushTask: async (task: unknown) => {
+        staged.push(task);
+      },
+    };
+    const stagingRuntime = new FlushTaskRuntimeService(
+      { listDirtyPlayerDomains: () => new Map() } as never,
+      {
+        listDirtyPersistentInstanceDomains: () => [{ instanceId: 'stage-time', domains: ['time'] }],
+        getInstanceRuntime: () => ({
+          meta: { persistent: true, ownershipEpoch: 7 },
+          template: { id: 'stage-template' },
+          tick: 42,
+          tickSpeed: 1,
+          paused: false,
+          getPersistenceRevision: () => 11,
+        }) as never,
+      } as never,
+      { flushPlayerDomains: async () => true } as never,
+      stagingLedger as never,
+      { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+      undefined,
+      persistence as never,
+    );
+    await stagingRuntime.stageDirtyTasksOnce();
+    assert.equal(staged.length, 1);
+    const stagedTask = staged[0] as { domain?: string; payloadJson?: { kind?: string; domain?: string; payload?: { tick?: number; templateId?: string } } | null };
+    assert.equal(stagedTask.domain, 'time');
+    assert.equal(stagedTask.payloadJson?.kind, 'instance_domain_state');
+    assert.equal(stagedTask.payloadJson?.domain, 'time');
+    assert.equal(stagedTask.payloadJson?.payload?.tick, 42);
+    assert.equal(stagedTask.payloadJson?.payload?.templateId, 'stage-template');
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);

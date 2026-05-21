@@ -48,7 +48,7 @@ const PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND = 'player_snapshot_projection';
 const INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND = 'instance_domain_delta';
 const INSTANCE_DOMAIN_STATE_PAYLOAD_KIND = 'instance_domain_state';
 const INSTANCE_PAYLOAD_BATCH_DOMAINS = new Set(['tile_damage', 'tile_resource']);
-const INSTANCE_PAYLOAD_STATE_DOMAINS = new Set(['ground_item', 'overlay', 'monster_runtime', 'container_state', 'building', 'room', 'fengshui']);
+const INSTANCE_PAYLOAD_STATE_DOMAINS = new Set(['ground_item', 'overlay', 'monster_runtime', 'container_state', 'building', 'room', 'fengshui', 'time']);
 
 interface PlayerSnapshotProjectionPayload {
   kind: typeof PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND;
