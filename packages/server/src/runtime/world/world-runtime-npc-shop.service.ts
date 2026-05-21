@@ -2,12 +2,13 @@
  * NPC 商店购买写路径服务
  * 处理玩家购买请求的校验、扣款、物品发放和持久化提交
  */
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeNpcShopQueryService } from './query/world-runtime-npc-shop-query.service';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { assignItemInstanceIdIfNeeded } from './item-instance-id.helpers';
 
@@ -22,6 +23,7 @@ export class WorldRuntimeNpcShopService {
 
     playerRuntimeService;    
     durableOperationService;
+    playerDomainPersistenceService;
     /**
      * worldRuntimeNpcShopQueryService：世界运行态NPCShopQuery服务引用。
      */
@@ -38,10 +40,13 @@ export class WorldRuntimeNpcShopService {
         playerRuntimeService: PlayerRuntimeService,
         worldRuntimeNpcShopQueryService: WorldRuntimeNpcShopQueryService,
         @Inject(DurableOperationService) durableOperationService: DurableOperationService | null = null,
+        @Optional()
+        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: PlayerDomainPersistenceService | null = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
         this.durableOperationService = durableOperationService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
     }    
     /**
  * enqueueBuyNpcShopItem：处理BuyNPCShop道具并更新相关状态。
@@ -83,6 +88,10 @@ export class WorldRuntimeNpcShopService {
     async dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {
         const validated = deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
         const durableOperationService = this.durableOperationService ?? deps?.durableOperationService ?? null;
+        const durableEnabled = durableOperationService?.isEnabled?.() === true;
+        if (durableEnabled) {
+            await this.syncCurrentPresenceFence(playerId);
+        }
         const player = typeof deps?.getPlayerOrThrow === 'function'
             ? deps.getPlayerOrThrow(playerId)
             : this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -92,7 +101,7 @@ export class WorldRuntimeNpcShopService {
         const sessionEpoch = Number.isFinite(player.sessionEpoch)
             ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
             : 0;
-        if (durableOperationService?.isEnabled?.() && runtimeOwnerId && sessionEpoch > 0) {
+        if (durableEnabled && runtimeOwnerId && sessionEpoch > 0) {
             const currencyItemId = this.worldRuntimeNpcShopQueryService.getCurrencyItemId();
             const nextInventoryItems = applyNpcShopPurchaseToInventory(player.inventory?.items ?? [], validated.item, currencyItemId, validated.totalCost);
             const nextWalletBalances = applyNpcShopPurchaseToWallet(player.wallet?.balances ?? [], currencyItemId, nextInventoryItems);
@@ -100,11 +109,11 @@ export class WorldRuntimeNpcShopService {
                 const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
                 const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
                 const operationId = `op:${playerId}:npc-shop:${Date.now().toString(36)}`;
-                return durableOperationService.purchaseNpcShopItem({
+                const runPurchase = async () => durableOperationService.purchaseNpcShopItem({
                     operationId,
                     playerId,
-                    expectedRuntimeOwnerId: runtimeOwnerId,
-                    expectedSessionEpoch: sessionEpoch,
+                    expectedRuntimeOwnerId: this.getCurrentRuntimeOwnerId(playerId, deps) ?? runtimeOwnerId,
+                    expectedSessionEpoch: this.getCurrentSessionEpoch(playerId, deps) ?? sessionEpoch,
                     expectedInstanceId: location?.instanceId ?? null,
                     expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
                     expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
@@ -113,13 +122,21 @@ export class WorldRuntimeNpcShopService {
                     totalCost: validated.totalCost,
                     nextInventoryItems,
                     nextWalletBalances,
-                }).then(() => {
-                    this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
-                    deps.refreshQuestStates(playerId);
-                    const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
-                    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
-                    return deps.getPlayerViewOrThrow(playerId);
                 });
+                try {
+                    await runPurchase();
+                }
+                catch (error) {
+                    if (!shouldRetryNpcShopFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
+                        throw error;
+                    }
+                    await runPurchase();
+                }
+                this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
+                deps.refreshQuestStates(playerId);
+                const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
+                deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+                return deps.getPlayerViewOrThrow(playerId);
             }
         }
         this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
@@ -128,6 +145,64 @@ export class WorldRuntimeNpcShopService {
         const n = buildStructuredNotice('success', 'notice.shop.purchased', `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, { vars: { itemLabel: formatItemStackLabel(validated.item), currency: this.worldRuntimeNpcShopQueryService.getCurrencyItemName(), cost: validated.totalCost }, pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
         return deps.getPlayerViewOrThrow(playerId);
+    }
+
+    async syncCurrentPresenceFence(playerId) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return false;
+        }
+        const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
+            ? await this.playerDomainPersistenceService.loadPlayerPresence(playerId)
+            : null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        const persistedSessionEpoch = Number.isFinite(persistedPresence?.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
+        const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
+            ? persistedPresence.runtimeOwnerId.trim()
+            : '';
+        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+        const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
+        if (
+            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+            && persistedSessionEpoch > 0
+            && (
+                runtimeSessionEpoch <= persistedSessionEpoch
+                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+            )
+        ) {
+            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+            ...presence,
+            versionSeed: Date.now(),
+        });
+        return true;
+    }
+
+    getCurrentRuntimeOwnerId(playerId, deps) {
+        const player = typeof deps?.getPlayerOrThrow === 'function'
+            ? deps.getPlayerOrThrow(playerId)
+            : this.playerRuntimeService.getPlayerOrThrow(playerId);
+        return typeof player?.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
+            ? player.runtimeOwnerId.trim()
+            : null;
+    }
+
+    getCurrentSessionEpoch(playerId, deps) {
+        const player = typeof deps?.getPlayerOrThrow === 'function'
+            ? deps.getPlayerOrThrow(playerId)
+            : this.playerRuntimeService.getPlayerOrThrow(playerId);
+        return Number.isFinite(player?.sessionEpoch)
+            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            : null;
     }
 };
 
@@ -204,6 +279,11 @@ function countInventoryItem(items, itemId) {
         return 0;
     }
     return items.reduce((total, entry) => total + (entry?.itemId === normalizedItemId ? Math.max(0, Math.trunc(Number(entry.count ?? 0))) : 0), 0);
+}
+
+function shouldRetryNpcShopFence(error) {
+    const message = String(error instanceof Error ? error.message : error);
+    return message.startsWith('player_session_fencing_conflict');
 }
 
 function collapseWalletBalances(existingBalances) {

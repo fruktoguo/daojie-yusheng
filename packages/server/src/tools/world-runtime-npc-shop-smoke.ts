@@ -364,6 +364,76 @@ async function testDispatch() {
         ['refreshQuestStates', 'player:2'],
         ['queuePlayerNotice', 'player:2', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);
+
+    const fencedLog = [];
+    const fencedPlayer = {
+        playerId: 'player:fenced',
+        sessionId: 'session:fenced',
+        runtimeOwnerId: 'runtime:fenced:1',
+        sessionEpoch: 1,
+        inventory: { items: [{ itemId: 'spirit_stone', count: 20 }] },
+        wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] },
+    };
+    const fencedPlayerRuntimeService = {
+        getPlayerOrThrow() { return fencedPlayer; },
+        describePersistencePresence() {
+            return {
+                online: true,
+                inWorld: true,
+                runtimeOwnerId: fencedPlayer.runtimeOwnerId,
+                sessionEpoch: fencedPlayer.sessionEpoch,
+                lastHeartbeatAt: 1,
+                offlineSinceAt: null,
+            };
+        },
+        ensureRuntimeSessionFenceAtLeast(playerId, sessionEpochFloor) {
+            fencedLog.push(['ensureRuntimeSessionFenceAtLeast', playerId, sessionEpochFloor]);
+            fencedPlayer.sessionEpoch = Math.max(fencedPlayer.sessionEpoch, sessionEpochFloor) + 1;
+            fencedPlayer.runtimeOwnerId = `runtime:fenced:${fencedPlayer.sessionEpoch}`;
+            return {
+                runtimeOwnerId: fencedPlayer.runtimeOwnerId,
+                sessionEpoch: fencedPlayer.sessionEpoch,
+            };
+        },
+        replaceInventoryItems(playerId, items) { fencedLog.push(['replaceInventoryItems', playerId, items.length]); },
+    };
+    const fencedService = new WorldRuntimeNpcShopService(fencedPlayerRuntimeService, {
+        getCurrencyItemId() { return 'spirit_stone'; },
+        getCurrencyItemName() { return '灵石'; },
+    }, {
+        isEnabled() { return true; },
+        async purchaseNpcShopItem(input) {
+            fencedLog.push(['purchaseNpcShopItem', input.expectedRuntimeOwnerId, input.expectedSessionEpoch]);
+        },
+    }, {
+        isEnabled() { return true; },
+        async loadPlayerPresence(playerId) {
+            fencedLog.push(['loadPlayerPresence', playerId]);
+            return {
+                runtimeOwnerId: null,
+                sessionEpoch: 446,
+            };
+        },
+        async savePlayerPresence(playerId, presence) {
+            fencedLog.push(['savePlayerPresence', playerId, presence.runtimeOwnerId, presence.sessionEpoch]);
+        },
+    });
+    await fencedService.dispatchBuyNpcShopItem('player:fenced', 'npc_a', 'qi_pill', 1, {
+        validateNpcShopPurchase() { return { totalCost: 5, item: { itemId: 'qi_pill', name: '聚气丹', count: 1 } }; },
+        refreshQuestStates(playerId) { fencedLog.push(['refreshQuestStates', playerId]); },
+        queuePlayerNotice(playerId, message, tone) { fencedLog.push(['queuePlayerNotice', playerId, message, tone]); },
+        getPlayerViewOrThrow() { return { tick: 3, playerId: 'player:fenced' }; },
+        getPlayerOrThrow() { return fencedPlayer; },
+    });
+    assert.deepEqual(fencedLog, [
+        ['loadPlayerPresence', 'player:fenced'],
+        ['ensureRuntimeSessionFenceAtLeast', 'player:fenced', 446],
+        ['savePlayerPresence', 'player:fenced', 'runtime:fenced:447', 447],
+        ['purchaseNpcShopItem', 'runtime:fenced:447', 447],
+        ['replaceInventoryItems', 'player:fenced', 2],
+        ['refreshQuestStates', 'player:fenced'],
+        ['queuePlayerNotice', 'player:fenced', '购买 聚气丹，消耗 灵石 x5', 'success'],
+    ]);
 }
 
 testQueryBuildNpcShopView();

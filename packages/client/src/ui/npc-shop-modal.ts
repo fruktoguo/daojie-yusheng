@@ -417,7 +417,7 @@ export class NpcShopModal {
   /** createListItem：创建商店列表项。 */
   private createListItem(): HTMLButtonElement {
     const button = document.createElement('button');
-    button.className = 'market-item-cell';
+    button.className = 'market-item-cell ui-surface-card ui-surface-card--compact';
     button.type = 'button';
 
     const name = document.createElement('div');
