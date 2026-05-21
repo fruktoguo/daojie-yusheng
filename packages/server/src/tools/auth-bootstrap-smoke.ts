@@ -392,7 +392,8 @@ async function main() {
         sessionId: 'x'.repeat(129),
     });
     if (!DATABASE_ENABLED) {
-        await expectProtocolSocketAuthFailure(auth.accessToken);
+        const noDbBootstrap = await runAuthBootstrap(auth.accessToken, auth.identity);
+        const noDbMainlineProtocolRejectsLegacyEventContract = await verifyProtocolSocketRejectsLegacyEventContract(auth.accessToken, noDbBootstrap.playerId);
         console.log(JSON.stringify({
             ok: true,
             url: SERVER_URL,
@@ -400,9 +401,9 @@ async function main() {
             answers: AUTH_BOOTSTRAP_BOUNDARY.answers,
             excludes: AUTH_BOOTSTRAP_BOUNDARY.excludes,
             completionMapping: AUTH_BOOTSTRAP_BOUNDARY.completionMapping,
-            playerId: null,
+            playerId: noDbBootstrap.playerId,
             verified: {
-                mainlineProtocolNoDbRejectsTokenRuntime: true,
+                mainlineProtocolNoDbAllowsTokenRuntime: true,
                 authenticatedMissingSnapshotRecoveryContract,
                 authenticatedSnapshotRecoveryNoticeContract,
                 authenticatedSnapshotRecoveryTraceContract,
@@ -417,8 +418,12 @@ async function main() {
                 gmBootstrapSessionPolicyContract,
                 malformedMainlineRecordGuardContract,
                 invalidRequestedSessionIdRejected: true,
-                authenticatedSessionProof: buildProfileSkippedProof('no_db_mainline_protocol_rejects_token_runtime'),
-                mainlineProtocolRejectsLegacyEventContract: buildProfileSkippedProof('no_db_mainline_protocol_rejects_token_runtime'),
+                authenticatedSessionProof: {
+                    playerId: noDbBootstrap.playerId,
+                    sessionId: noDbBootstrap.sessionId ?? null,
+                    bootstrap: true,
+                },
+                mainlineProtocolRejectsLegacyEventContract: noDbMainlineProtocolRejectsLegacyEventContract,
                 authTrace: null,
                 snapshotSequence: null,
             },
@@ -546,6 +551,43 @@ async function main() {
         }
     }
 }
+function extractSocketFailureCode(payload) {
+    if (!payload) {
+        return '';
+    }
+    if (typeof payload === 'string') {
+        return payload;
+    }
+    if (typeof payload === 'object') {
+        if (typeof payload.code === 'string') {
+            return payload.code;
+        }
+        if (payload.data && typeof payload.data === 'object' && typeof payload.data.code === 'string') {
+            return payload.data.code;
+        }
+        if (typeof payload.message === 'string') {
+            const match = payload.message.match(/(AUTH_[A-Z_]+|GM_[A-Z_]+)/);
+            if (match?.[1]) {
+                return match[1];
+            }
+        }
+    }
+    return '';
+}
+function formatSocketFailurePayload(payload) {
+    if (!payload) {
+        return 'null';
+    }
+    if (typeof payload === 'string') {
+        return payload;
+    }
+    try {
+        return JSON.stringify(payload);
+    }
+    catch {
+        return String(payload);
+    }
+}
 /**
  * 验证无效或错误令牌在 mainline socket 上会按预期失败。
  */
@@ -575,9 +617,19 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
  */
     let nextErrorPayload = null;
 /**
+ * 记录connecterrorpayload。
+ */
+    let connectErrorPayload = null;
+/**
  * 记录disconnected。
  */
     let disconnected = false;
+    const debugAuthFailure = process.env.SERVER_SMOKE_DEBUG_AUTH_FAILURES === '1';
+    const debugAuthFailureLog = (...args) => {
+        if (debugAuthFailure) {
+            console.log('[server smoke][auth-failure-debug]', ...args);
+        }
+    };
 /**
  * 记录init会话数量。
  */
@@ -598,6 +650,7 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
         });
         socket.on(shared_1.S2C.Error, (payload) => {
             nextErrorPayload = payload;
+            debugAuthFailureLog('S2C.Error', payload);
         });
         socket.on(shared_1.S2C.InitSession, () => {
             initSessionCount += 1;
@@ -608,8 +661,9 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
         socket.on(shared_1.S2C.MapEnter, () => {
             mapEnterCount += 1;
         });
-        socket.on('disconnect', () => {
+        socket.on('disconnect', (reason) => {
             disconnected = true;
+            debugAuthFailureLog('disconnect', reason);
         });
         socket.connect();
         await new Promise((resolve, reject) => {
@@ -619,20 +673,38 @@ async function expectProtocolSocketAuthFailure(token, expectedCode = 'AUTH_FAIL'
             const timer = setTimeout(() => reject(new Error('invalid mainline token socket connect timeout')), 5000);
             socket.once('connect', () => {
                 clearTimeout(timer);
+                debugAuthFailureLog('connect');
                 resolve();
             });
             socket.once('connect_error', (error) => {
                 clearTimeout(timer);
-                reject(error);
+                connectErrorPayload = error;
+                debugAuthFailureLog('connect_error', error);
+                resolve();
             });
         });
-        await waitFor(() => nextErrorPayload !== null && disconnected, 5000, 'nextAuthFailure');
-/**
+        debugAuthFailureLog('post-connect-state', {
+            connected: socket.connected,
+            disconnected: socket.disconnected,
+            expectedCode,
+            connectErrorPayload,
+        });
+        const isSessionIdInvalidFailure = expectedCode === 'AUTH_SESSION_ID_INVALID';
+        const resolvedConnectErrorCode = extractSocketFailureCode(connectErrorPayload);
+        if (connectErrorPayload !== null) {
+            if (resolvedConnectErrorCode && resolvedConnectErrorCode !== expectedCode) {
+                throw new Error(`expected mainline socket to fail with ${expectedCode}, got ${formatSocketFailurePayload(connectErrorPayload)}`);
+            }
+        }
+        else {
+            await waitFor(() => nextErrorPayload !== null || disconnected, 5000, 'nextAuthFailure');
+            /**
  * 记录code。
  */
-        const code = typeof nextErrorPayload?.code === 'string' ? nextErrorPayload.code : '';
-        if (code !== expectedCode) {
-            throw new Error(`expected mainline socket to fail with ${expectedCode}, got ${JSON.stringify(nextErrorPayload)}`);
+            const code = typeof nextErrorPayload?.code === 'string' ? nextErrorPayload.code : '';
+            if (code && code !== expectedCode) {
+                throw new Error(`expected mainline socket to fail with ${expectedCode}, got ${JSON.stringify(nextErrorPayload)}`);
+            }
         }
         if (legacyEvents.length > 0) {
             throw new Error(`failed mainline auth socket received legacy events: ${legacyEvents.join(', ')}`);

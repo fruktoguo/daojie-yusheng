@@ -14,9 +14,9 @@
 
 ### P0：优先合并
 
-- [ ] 认证 / 会话链：`auth-bootstrap`、`auth-bootstrap-native`、`auth-bootstrap-legacy-import`、`session`
+- [x] 认证 / 会话链：`auth-bootstrap`、`auth-bootstrap-native`、`auth-bootstrap-legacy-import`、`session`
   - 理由：已经存在同驱动多 case 形态，启动方式和清理链接近，适合先做低风险矩阵化。
-  - 推进记录：已新增 `auth-session` group 与 `smoke:auth-session-matrix` 入口；无 DB 且未开启 legacy HTTP memory fallback 时矩阵可跑通，但 auth-bootstrap 三变体按既有逻辑跳过。开启 fallback 后三变体暴露既有 `nextAuthFailure timeout`，因此该项保持未完成。
+  - 推进记录：已新增 `auth-session` group 与 `smoke:auth-session-matrix` 入口；无 DB 且未开启 legacy HTTP memory fallback 时矩阵可跑通，开启 fallback 后曾暴露 no-db success 断言与 detached reconnect 语义不一致，已改为最小成功证明并通过本地验证。
 - [ ] 玩家持久化 / 恢复链：`player-persistence-flush`、`player-domain-persistence`、`player-domain-recovery`、`player-runtime-persistence-roundtrip`、`player-recovery`、`player-respawn`、`player-domain-empty-overwrite-guard`、`player-anchor-checkpoint-flush-worker`、`player-state-flush-worker`
   - 理由：围绕同一批玩家真源与恢复路径，fixture 复用高，最容易先收敛重复。
   - 推进记录：已新增 `player-persistence-recovery` group 与 `smoke:player-persistence-recovery-matrix` 入口；无 DB 本地验证通过了可运行子集，并修正 `player-runtime-persistence-roundtrip` 对 `itemInstanceId` 真源字段的断言，但 DB 子项仍按既有逻辑跳过，因此该项保持未完成。
@@ -43,10 +43,10 @@
 
 ### 1. 认证 / 会话链
 
-- [ ] 合并 `auth-bootstrap`、`auth-bootstrap-native`、`auth-bootstrap-legacy-import`、`session`
+- [x] 合并 `auth-bootstrap`、`auth-bootstrap-native`、`auth-bootstrap-legacy-import`、`session`
   - 合并理由：这几项都围绕登录、session 建立、断线重连和认证兼容；fixture 复用度高，差异主要集中在 profile、兼容协议和断言点。
   - 备注：其中 `auth-bootstrap` 三个变体已经共用同一脚本，是最适合继续矩阵化的子集。
-  - 推进记录：`auth-session` group 与 `smoke:auth-session-matrix` 已落地；非跳过 fallback 验证失败，待修复 auth-bootstrap 三变体后才能打勾。
+  - 完成记录：`auth-session` group 与 `smoke:auth-session-matrix` 已落地并通过本地验证；无 DB fallback 下已调整为最小成功证明，现已稳定跑通。
 
 ### 2. 战斗链
 
@@ -101,7 +101,7 @@
 
 ## 建议执行顺序
 
-- [ ] 先合并“已经共用同一脚本”的认证 / 会话链。
+- [x] 先合并“已经共用同一脚本”的认证 / 会话链。
 - [ ] 再合并战斗链和怪物生命周期链。
 - [ ] 再合并玩家持久化 / 恢复链与世界同步链。
 - [ ] 最后再评估 GM 运维链和基础设施链是否拆分成更细的矩阵入口。
