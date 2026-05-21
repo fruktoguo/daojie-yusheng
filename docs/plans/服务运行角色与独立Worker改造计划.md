@@ -105,9 +105,9 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - 未完成：邮件、市场订单、GM edit 独立链路与实例 `time/monster_runtime/fengshui/ground_item/container_state/overlay/room/building` 尚未完成 payload projector，故本项保持未勾选。
   - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload` 通过。
 - [ ] worker 角色只从 staging/ledger 读取正式 payload 并写真源。
-  - 已完成部分：玩家 `presence` task 在 worker role 下可从 staging payload 写入 `PlayerDomainPersistenceService.savePlayerPresence()`；玩家 snapshot projectable task 可从 staging payload 写入 `savePlayerSnapshotProjectionDomains()`；实例 `tile_damage/tile_resource` 可从 staging delta payload 写入批量持久化 API，均不调用 runtime flush fallback。
+  - 已完成部分：玩家 `presence` task 在 worker role 下可从 staging payload 写入 `PlayerDomainPersistenceService.savePlayerPresence()`；玩家 snapshot projectable task 可从 staging payload 写入 `savePlayerSnapshotProjectionDomains()`；实例 `tile_damage/tile_resource` 可从 staging delta payload 写入批量持久化 API；unsupported player domain 在 worker role 下只 retry，不调用 runtime flush fallback。
   - 未完成：邮件、市场订单、GM edit 与实例 `time/monster_runtime/fengshui/ground_item/container_state/overlay/room/building` 仍需 payload projector 与 DB proof，故本项保持未勾选。
-  - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload` 通过。
+  - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload`、`pnpm --filter @mud/server smoke:flush-task-noop-retry` 通过。
 - [ ] payload 写入、worker 写入、mark flushed 必须同一幂等链路，重复消费不重复发奖、不重复扣资产、不覆盖新版本。
   - 已完成部分：玩家 `presence` payload 使用 session epoch 与 DB upsert 条件保证旧 session 不覆盖新 session；玩家 snapshot projectable payload 复用分域写入的 version/watermark 与空覆盖保护；实例 `tile_damage/tile_resource` delta payload 复用批量 delta 写入和 recovery watermark，并在 worker 写入成功后 mark flushed。
   - 未完成：市场订单、邮件、GM edit 与实例剩余 domain 尚未完成完整幂等证明；真实 DB 重放/竞争 proof 仍未完成。

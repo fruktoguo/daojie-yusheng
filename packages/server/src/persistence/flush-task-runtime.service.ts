@@ -318,6 +318,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             this.failureAttempts.delete(attemptKey);
             return;
           }
+          if (!shouldStartAuthoritativeRuntime()) {
+            await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+            return;
+          }
           const flushed = await this.playerPersistenceFlushService.flushPlayerDomains(playerId, domains);
           if (flushed === false) {
             await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
