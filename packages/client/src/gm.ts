@@ -3856,6 +3856,7 @@ function getWorkerRowMarkup(row: GmWorkerRow): string {
     `延迟 ${row.delayedCount}`,
     `窗口完成 ${row.writeCount}`,
     `${formatWorkerRate(row.writesPerSecond)}`,
+    row.backlogGrowthPerSecond !== undefined ? `积压增长 ${formatWorkerRate(row.backlogGrowthPerSecond)}` : '',
     row.deadLetterCount ? `死信 ${row.deadLetterCount}` : '',
     row.enabled !== undefined ? `enabled ${row.enabled ? '是' : '否'}` : '',
     row.running !== undefined ? `running ${row.running ? '是' : '否'}` : '',

@@ -194,6 +194,7 @@ function buildPlayerWorkerRows(
       delayedCount,
       writeCount,
       writesPerSecond: toNumber(throughput?.writes_per_second),
+      backlogGrowthPerSecond: estimateBacklogGrowthPerSecond(pendingCount, delayedCount, writeCount),
       oldestPendingAt: toOptionalString(backlog?.oldest_pending_at),
       latestUpdatedAt: toOptionalString(throughput?.latest_updated_at),
     };
@@ -230,6 +231,7 @@ function buildInstanceWorkerRows(
       delayedCount,
       writeCount,
       writesPerSecond: toNumber(throughput?.writes_per_second),
+      backlogGrowthPerSecond: estimateBacklogGrowthPerSecond(pendingCount, delayedCount, writeCount),
       oldestPendingAt: toOptionalString(backlog?.oldest_pending_at),
       latestUpdatedAt: toOptionalString(throughput?.latest_updated_at),
     };
@@ -258,6 +260,7 @@ function buildOutboxWorkerRow(
     delayedCount,
     writeCount,
     writesPerSecond: toNumber(summary.writesPerSecond),
+    backlogGrowthPerSecond: estimateBacklogGrowthPerSecond(pendingCount, delayedCount, writeCount),
     deadLetterCount,
     latestUpdatedAt: summary.latestDeliveredAt,
     note: `重试队列采样 ${retryRows.length} 条`,
@@ -321,6 +324,12 @@ function shouldReportInactive(row: GmWorkerRow): boolean {
     return true;
   }
   return Date.now() - latestUpdatedAt > WORKER_WINDOW_SECONDS * 2_000;
+}
+
+function estimateBacklogGrowthPerSecond(pendingCount: number, delayedCount: number, writeCount: number): number {
+  const backlogPressure = Math.max(0, Math.trunc(Number(pendingCount) || 0) + Math.trunc(Number(delayedCount) || 0));
+  const completed = Math.max(0, Math.trunc(Number(writeCount) || 0));
+  return Number((Math.max(0, backlogPressure - completed) / WORKER_WINDOW_SECONDS).toFixed(3));
 }
 
 function resolveWorkerStatus(input: {

@@ -1170,6 +1170,7 @@ export interface GmWorkerRow {
  */
 
   writesPerSecond: number;
+  backlogGrowthPerSecond?: number;
   /**
  * deadLetterCount：死信数量。
  */

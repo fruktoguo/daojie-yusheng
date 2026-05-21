@@ -197,14 +197,14 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - 每类 worker enabled/running/last heartbeat。
   - 已完成：`GmWorkerStateRes.topology` 暴露当前 role、生产拓扑建议与本地 orchestrator worker 状态；静态 GM 面板展示 role、拓扑建议、enabled/running/heartbeat/success/failure/processedCount。
   - 验证：`pnpm build:shared`、`pnpm --filter @mud/server compile`、`pnpm verify:client` 通过。
-- [ ] worker 容量指标按 role 展示：
-  - 已完成：响应携带 `runtimeRole/topology`，面板展示 flush pool waiting、PG lock wait、oldest pending/dirty age、failure category。
-  - 未完成：尚未实现严格的 backlog growth rate 时间序列计算，故本项保持未勾选。
+- [x] worker 容量指标按 role 展示：
+  - 已完成：响应携带 `runtimeRole/topology`，面板展示 flush pool waiting、PG lock wait、窗口估算 backlog growth rate、oldest pending/dirty age、failure category。
   - flush pool waiting。
   - PG lock wait。
   - backlog growth rate。
   - oldest dirty age。
   - failure category。
+  - 验证：`pnpm build:shared`、`pnpm --filter @mud/server compile`、`pnpm verify:client` 通过。
 - [x] 告警区分：
   - backlog high。
   - worker inactive。
