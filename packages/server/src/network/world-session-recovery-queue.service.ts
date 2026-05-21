@@ -58,15 +58,14 @@ export class WorldSessionRecoveryQueueService {
         reject(new Error('recovery_queue_full'));
         return;
       }
-      this.queue.push({
+      this.insertTaskSorted({
         key,
         priority: input.priority ?? 'normal',
         timeoutMs: normalizePositiveInteger(input.timeoutMs, this.defaultTimeoutMs, 1, 120_000),
         run: input.run,
         resolve,
         reject,
-      });
-      this.sortQueue();
+      } as RecoveryTask<unknown>);
       void this.drain();
     });
   }
@@ -120,14 +119,24 @@ export class WorldSessionRecoveryQueueService {
     }
   }
 
-  private sortQueue(): void {
-    this.queue.sort((left, right) => {
-      const priorityGap = priorityWeight(right.priority) - priorityWeight(left.priority);
-      if (priorityGap !== 0) {
-        return priorityGap;
+  private insertTaskSorted(task: RecoveryTask<unknown>): void {
+    let low = 0;
+    let high = this.queue.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      const existing = this.queue[mid] ?? null;
+      if (!existing) {
+        high = mid;
+        continue;
       }
-      return left.key.localeCompare(right.key);
-    });
+      const priorityGap = priorityWeight(task.priority) - priorityWeight(existing.priority);
+      if (priorityGap > 0 || (priorityGap === 0 && task.key.localeCompare(existing.key) < 0)) {
+        high = mid;
+      } else {
+        low = mid + 1;
+      }
+    }
+    this.queue.splice(low, 0, task);
   }
 
   private rejectQueuedTaskByKey(key: string, reason: Error): void {
