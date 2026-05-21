@@ -281,16 +281,26 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
     const runtime = this.worldRuntimeService.getInstanceRuntime?.(first.id);
-    const epoch = normalizeInt(runtime?.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
-    if (!runtime?.meta?.persistent || epoch !== normalizeInt(first.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)) {
+    if (!runtime) {
+      await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+      this.logger.warn(`实例刷盘任务未找到运行态，保持 retry 防止 no-op mark flushed instanceId=${first.id}`);
+      return 0;
+    }
+    const epoch = normalizeInt(runtime.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    if (!runtime.meta?.persistent || epoch !== normalizeInt(first.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)) {
       await this.flushLedgerService.markFlushTasksFlushed(group);
       return group.length;
+    }
+    if (typeof this.worldRuntimeService.flushInstanceDomains !== 'function') {
+      await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+      this.logger.warn(`实例刷盘任务缺少 flushInstanceDomains，保持 retry 防止 no-op mark flushed instanceId=${first.id}`);
+      return 0;
     }
     const domains = Array.from(new Set(group.map((task) => task.domain)));
     const attemptKey = instanceGroupKey(group);
     try {
-      const result = await this.worldRuntimeService.flushInstanceDomains?.(first.id, domains);
-      if (result?.skipped === true) {
+      const result = await this.worldRuntimeService.flushInstanceDomains(first.id, domains);
+      if (!result || result.skipped === true) {
         await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
         return 0;
       }
@@ -310,16 +320,26 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         return processed;
       }
       const runtime = this.worldRuntimeService.getInstanceRuntime?.(task.id);
-      const epoch = normalizeInt(runtime?.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
-      if (!runtime?.meta?.persistent || epoch !== normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)) {
+      if (!runtime) {
+        await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+        this.logger.warn(`实例刷盘任务未找到运行态，保持 retry 防止 no-op mark flushed instanceId=${task.id} domain=${task.domain}`);
+        continue;
+      }
+      const epoch = normalizeInt(runtime.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+      if (!runtime.meta?.persistent || epoch !== normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER)) {
         await this.flushLedgerService.markFlushTaskFlushed(task);
         processed += 1;
         continue;
       }
+      if (typeof this.worldRuntimeService.flushInstanceDomains !== 'function') {
+        await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+        this.logger.warn(`实例刷盘任务缺少 flushInstanceDomains，保持 retry 防止 no-op mark flushed instanceId=${task.id} domain=${task.domain}`);
+        continue;
+      }
       const attemptKey = instanceTaskKey(task);
       try {
-        const result = await this.worldRuntimeService.flushInstanceDomains?.(task.id, [task.domain]);
-        if (result?.skipped === true) {
+        const result = await this.worldRuntimeService.flushInstanceDomains(task.id, [task.domain]);
+        if (!result || result.skipped === true) {
           await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
           continue;
         }

@@ -101,7 +101,9 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 - [ ] api 角色在权威变更发生后写入 staging，不把完整运行态对象交给 worker。
 - [ ] worker 角色只从 staging/ledger 读取正式 payload 并写真源。
 - [ ] payload 写入、worker 写入、mark flushed 必须同一幂等链路，重复消费不重复发奖、不重复扣资产、不覆盖新版本。
-- [ ] no-op flush 必须 retry 或进入诊断，不得 mark flushed。
+- [x] no-op flush 必须 retry 或进入诊断，不得 mark flushed。
+  - 已完成：玩家 `flushPlayerDomains()` 返回 `false` 时 retry；实例缺少 runtime、缺少 `flushInstanceDomains()` 或返回空结果时 retry，不再 mark flushed。
+  - 验证：`pnpm --filter @mud/server smoke:flush-task-noop-retry` 通过。
 - [ ] 完成 staging 后，生产目标配置为 `api` 不消费 flush，`worker` 消费 flush。
 
 ### Phase 3：启动管线改造
