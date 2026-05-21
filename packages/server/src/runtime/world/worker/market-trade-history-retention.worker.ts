@@ -52,12 +52,8 @@ export class MarketTradeHistoryRetentionWorker implements OnModuleInit, OnModule
       this.logger.log('坊市成交历史 retention 已跳过：MarketPersistenceService 未启用（无数据库）');
       return;
     }
-    this.timer = setInterval(() => {
-      void this.runCycle('interval');
-    }, DEFAULT_INTERVAL_MS);
-    this.timer.unref();
     this.logger.log(
-      `坊市成交历史 retention 已启动：每 ${Math.trunc(DEFAULT_INTERVAL_MS / 1000)}s 扫一次，`
+      `坊市成交历史 retention 已交由后台 worker orchestrator 调度：建议间隔 ${Math.trunc(DEFAULT_INTERVAL_MS / 1000)}s，`
       + `单玩家保留最近 ${DEFAULT_KEEP_PER_PLAYER} 条，保留期 ${DEFAULT_RETENTION_DAYS} 天，`
       + `单批最多 ${DEFAULT_BATCH_LIMIT} 行 × 最多 ${DEFAULT_MAX_BATCHES_PER_CYCLE} 批/周期`,
     );

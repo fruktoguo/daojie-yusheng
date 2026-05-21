@@ -109,8 +109,8 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - 默认不启动 worker-only 后台消费者。
   - inline flush 只允许通过显式应急配置开启，并必须在日志中标记为 fallback 角色矩阵。
 - [ ] `worker` 角色：
-  - 已完成：不监听 HTTP 端口；不启动需要主进程内存态的权威 tick。
-  - 未完成：后台 worker orchestrator 尚未接入；Socket.IO 网关还需在 orchestrator/模块拆分阶段继续确认不注册或不启动玩家入口，故本项保持未勾选。
+  - 已完成：不监听 HTTP 端口；不启动需要主进程内存态的权威 tick；后台 worker orchestrator 已接入。
+  - 未完成：Socket.IO 网关还需在模块拆分阶段继续确认不注册或不启动玩家入口，故本项保持未勾选。
 - [x] `all` 角色：
   - 仅用于开发、单机、紧急回滚。
   - 生产发布门禁不得把 `all` 作为默认 stack 配置。
@@ -118,20 +118,17 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 ### Phase 4：后台 Worker Orchestrator
 
-- [ ] 新增 `BackgroundWorkerRuntimeService` 或等价启动编排服务。
+- [x] 新增 `BackgroundWorkerRuntimeService` 或等价启动编排服务。
+  - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
 - [ ] 统一托管：
-  - flush task consumer。
-  - outbox dispatcher。
-  - database backup worker。
-  - cleanup/retention worker。
+  - 已完成：outbox dispatcher、邮件过期清理、邮件软删清理、市场成交历史 retention、资产审计归档、实例状态清理由 orchestrator 调度。
+  - 未完成：flush task consumer 在 durable staging/payload 完成前保持禁用；database backup 需先抽出可复用 service/port，故本项保持未勾选。
   - 后续市场、邮件、审计、排行榜等定时任务。
 - [ ] 每个 worker 能力必须有：
-  - `enabled` 开关。
-  - `runOnce()`。
-  - `runLoop()` 或由 orchestrator 调度。
-  - graceful shutdown。
-  - GM/日志/metrics 可观测状态。
-- [ ] 请求型、依赖内存队列的任务不得错误移入 worker 角色。
+  - 已完成：已接管任务具备 `enabled`、`runOnce()`、orchestrator 定时调度、graceful shutdown、heartbeat/status/processedCount。
+  - 未完成：database backup 与 flush task consumer 尚未安全接管，故本项保持未勾选。
+- [x] 请求型、依赖内存队列的任务不得错误移入 worker 角色。
+  - 说明：`flush-task-consumer` 在 orchestrator 中显式保持禁用，等待 Phase 2 durable payload 证明。
 
 ### Phase 5：部署拓扑改造
 

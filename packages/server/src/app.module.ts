@@ -176,7 +176,10 @@ import { TongtianTowerPersistenceService } from './persistence/tongtian-tower-pe
 import { MailRuntimeService } from './runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from './runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from './runtime/player/player-runtime.service';
+import { BackgroundWorkerRuntimeService } from './runtime/worker/background-worker-runtime.service';
 import { AssetAuditLogRetentionWorker } from './runtime/world/worker/asset-audit-log-retention.worker';
+import { InstanceStatePurgeWorker } from './runtime/world/worker/instance-state-purge.worker';
+import { MailExpirationCleanupWorker } from './runtime/world/worker/mail-expiration-cleanup.worker';
 import { MailSoftDeletePurgeWorker } from './runtime/world/worker/mail-soft-delete-purge.worker';
 import { MarketTradeHistoryRetentionWorker } from './runtime/world/worker/market-trade-history-retention.worker';
 import { PlayerAnchorCheckpointFlushWorker } from './runtime/world/worker/player-anchor-checkpoint-flush.worker';
@@ -341,12 +344,14 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
     LeaderboardRuntimeService,
     PlayerProgressionService,
     MailRuntimeService,
+    BackgroundWorkerRuntimeService,
     AssetAuditLogRetentionWorker,
+    InstanceStatePurgeWorker,
+    MailExpirationCleanupWorker,
     MailSoftDeletePurgeWorker,
     MarketTradeHistoryRetentionWorker,
     MarketRuntimeService,
     PlayerRuntimeService,
-    AssetAuditLogRetentionWorker,
     PlayerAnchorCheckpointFlushWorker,
     PlayerStateFlushWorker,
     InstanceResourceFlushWorker,

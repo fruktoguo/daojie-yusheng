@@ -40,22 +40,11 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
     if (!this.eventConsumer && this.outboxEventConsumerRegistryService) {
       this.eventConsumer = (event) => this.outboxEventConsumerRegistryService!.consume(event);
     }
-    if (!this.outboxDispatcherService.isEnabled()) {
-      this.logger.log('发件箱调度运行时已跳过：调度器未启用');
+    if (!this.isRuntimeEnabled()) {
+      this.logger.log('发件箱调度运行时已跳过：当前配置或 role 不承载 outbox worker');
       return;
     }
-    if (!shouldStartOutboxDispatcher()) {
-      this.logger.log('发件箱调度运行时已跳过：当前 role 不承载后台 outbox worker');
-      return;
-    }
-    if (!isOutboxRuntimeEnabled()) {
-      this.logger.log('发件箱调度运行时已跳过：未开启 SERVER_OUTBOX_RUNTIME_ENABLED/DATABASE_OUTBOX_RUNTIME_ENABLED');
-      return;
-    }
-
-    this.nextDelayMs = resolveOutboxDispatchIntervalMs();
-    this.scheduleNextDispatch(0);
-    this.logger.log(`发件箱调度运行时已启动，自适应起始间隔 ${this.nextDelayMs}ms`);
+    this.logger.log('发件箱调度运行时已交由后台 worker orchestrator 调度');
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -63,6 +52,10 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       clearTimeout(this.timer);
       this.timer = null;
     }
+  }
+
+  isRuntimeEnabled(): boolean {
+    return this.outboxDispatcherService.isEnabled() && isOutboxRuntimeEnabled() && shouldStartOutboxDispatcher();
   }
 
   async dispatchPendingEvents(input?: {
