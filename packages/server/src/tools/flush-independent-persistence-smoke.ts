@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 function readSource(relativePath: string): string {
-  return readFileSync(join(process.cwd(), relativePath), 'utf8');
+  return readFileSync(join(process.cwd(), 'packages/server', relativePath), 'utf8');
 }
 
 async function main(): Promise<void> {

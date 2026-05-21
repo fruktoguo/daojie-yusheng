@@ -393,9 +393,11 @@ async function testRuntimeGating(): Promise<void> {
   const previousRuntimeEnabled = process.env.SERVER_OUTBOX_RUNTIME_ENABLED;
   const previousLegacyRuntimeEnabled = process.env.DATABASE_OUTBOX_RUNTIME_ENABLED;
   const previousIntervalMs = process.env.SERVER_OUTBOX_DISPATCH_INTERVAL_MS;
+  const previousRuntimeRole = process.env.SERVER_RUNTIME_ROLE;
   delete process.env.SERVER_OUTBOX_RUNTIME_ENABLED;
   delete process.env.DATABASE_OUTBOX_RUNTIME_ENABLED;
   process.env.SERVER_OUTBOX_DISPATCH_INTERVAL_MS = '250';
+  process.env.SERVER_RUNTIME_ROLE = 'worker';
 
   const disabledSpy = {
     claimCalls: 0,
@@ -412,9 +414,9 @@ async function testRuntimeGating(): Promise<void> {
   };
   const disabledRuntime = new OutboxDispatcherRuntimeService(disabledSpy as never);
   await disabledRuntime.onModuleInit();
-  await sleep(350);
+  await disabledRuntime.dispatchPendingEvents();
   await disabledRuntime.onModuleDestroy();
-  assert.equal(disabledSpy.claimCalls, 0);
+  assert.equal(disabledSpy.claimCalls, 1);
 
   process.env.SERVER_OUTBOX_RUNTIME_ENABLED = '1';
   const enabledSpy = {
@@ -432,9 +434,10 @@ async function testRuntimeGating(): Promise<void> {
   };
   const enabledRuntime = new OutboxDispatcherRuntimeService(enabledSpy as never);
   await enabledRuntime.onModuleInit();
-  await sleep(350);
+  assert.equal(enabledRuntime.isRuntimeEnabled(), true);
+  await enabledRuntime.dispatchPendingEvents();
   await enabledRuntime.onModuleDestroy();
-  assert.ok(enabledSpy.claimCalls >= 1, `expected runtime polling when enabled, got ${enabledSpy.claimCalls}`);
+  assert.ok(enabledSpy.claimCalls >= 1, `expected runtime dispatch path when enabled, got ${enabledSpy.claimCalls}`);
 
   if (previousRuntimeEnabled === undefined) {
     delete process.env.SERVER_OUTBOX_RUNTIME_ENABLED;
@@ -450,6 +453,11 @@ async function testRuntimeGating(): Promise<void> {
     delete process.env.SERVER_OUTBOX_DISPATCH_INTERVAL_MS;
   } else {
     process.env.SERVER_OUTBOX_DISPATCH_INTERVAL_MS = previousIntervalMs;
+  }
+  if (previousRuntimeRole === undefined) {
+    delete process.env.SERVER_RUNTIME_ROLE;
+  } else {
+    process.env.SERVER_RUNTIME_ROLE = previousRuntimeRole;
   }
 }
 

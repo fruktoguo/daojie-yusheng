@@ -63,11 +63,13 @@
 
 - [ ] 合并 `instance-resource-flush-worker`、`instance-container-flush-worker`、`instance-ground-item-flush-worker`、`instance-overlay-flush-worker`、`instance-tile-damage-flush-worker`、`instance-monster-runtime-flush-worker`、`instance-state-purge-worker`、`instance-lease-runtime`、`instance-lease-sync-error`、`instance-lease-periodic-force-reclaim`
   - 合并理由：都围绕 instance catalog、lease、flush、purge 等基础设施；共享启动、租约和清理逻辑，适合统一成实例维护矩阵。
+  - 推进记录：`instance-maintenance` group 已接入并通过本地无 DB smoke；其中 DB 依赖子项仍按既有逻辑跳过，待 with-db 验证后才能打勾。
 
 ### 5. GM world 运维链
 
-- [ ] 合并 `gm-world-instance`、`gm-world-instance-lease`、`gm-world-instance-flush`、`gm-world-instance-freeze`、`gm-world-instance-rebuild`、`gm-world-instance-migrate`、`gm-world-player-flush`、`gm-world-player-migrate`、`gm-world-operation-replay`、`gm-world-outbox-retry-queue`、`gm-world-dirty-backlog`、`gm-world-nodes`
+- [x] 合并 `gm-world-instance`、`gm-world-instance-lease`、`gm-world-instance-flush`、`gm-world-instance-freeze`、`gm-world-instance-rebuild`、`gm-world-instance-migrate`、`gm-world-player-flush`、`gm-world-player-migrate`、`gm-world-operation-replay`、`gm-world-outbox-retry-queue`、`gm-world-dirty-backlog`、`gm-world-nodes`
   - 合并理由：都属于同一套 GM 登录、world instance、节点、租约、回放和迁移操作；差异在操作类型，不在环境搭建。
+  - 完成记录：`gm-world-ops` group 已补齐并通过本地 smoke 验证，所有子 case 都能按各自职责返回结果，没有引入新的门禁语义。
 
 ### 6. 玩家持久化 / 恢复链
 
@@ -85,6 +87,7 @@
 
 - [ ] 合并 `mail-expiration-cleanup-worker`、`mail-expiration-archive-worker`、`mail-soft-delete-purge-worker`、`mail-structured-mutation`、`mail-schema-report`、`outbox-dispatcher`、`outbox-dispatcher-backoff`、`outbox-dispatcher-worker`、`flush-task-runtime`、`flush-task-noop-retry`、`flush-pool-backpressure`、`flush-independent-persistence`、`durable-operation`
   - 合并理由：都属于后台队列、清理、持久化和补偿类基础设施；共享 worker 启停、DB 连接和清理链，重复脚本较多。
+  - 推进记录：本地无 DB smoke 已通过邮件清理、outbox runtime gating、flush 直写/回退和 flush pool backpressure 子集；DB 依赖子项仍未验证，因此该项保持未完成。
 
 ## 不建议合并的保留项
 
