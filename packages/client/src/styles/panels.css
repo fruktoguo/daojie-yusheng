@@ -4996,6 +4996,9 @@
     .market-board-list.market-board-list--compact {
       grid-template-rows: repeat(7, minmax(0, 1fr));
     }
+    .npc-shop-board-list {
+      padding-top: 2px;
+    }
     .market-item-cell {
       display: flex;
       flex-direction: column;

@@ -400,6 +400,7 @@ export class NpcShopModal {
 
     const list = document.createElement('div');
     list.className = 'market-board-list ui-scroll-panel';
+    list.classList.add('npc-shop-board-list');
     list.dataset.npcShopList = 'true';
     listWrap.append(toolbar, list);
 
