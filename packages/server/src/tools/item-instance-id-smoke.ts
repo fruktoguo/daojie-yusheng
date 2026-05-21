@@ -28,6 +28,7 @@ import {
     buildGrantedInventorySnapshots,
     buildNextInventorySnapshots,
 } from '../runtime/world/world-runtime-inventory-grant.helpers';
+import { buildPlayerSnapshotProjectionWritePlan } from '../persistence/player-domain-write-plan';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -335,6 +336,61 @@ function testGrantPassthrough(): void {
     console.log('[smoke] grant passthrough passed');
 }
 
+async function testEquipmentWritePlanConflictRepairWithProbe(): Promise<void> {
+    const conflictingId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const snapshot = {
+        placement: { templateId: 'starter_map' },
+        equipment: {
+            slots: [
+                {
+                    slot: 'weapon',
+                    itemInstanceId: conflictingId,
+                    item: makeItem({ itemInstanceId: conflictingId }),
+                },
+            ],
+        },
+    };
+    const probeClient = {
+        async query(sql: string, params: readonly unknown[] = []) {
+            const normalizedSql = sql.trim().toLowerCase();
+            if (
+                normalizedSql.startsWith('select item_instance_id')
+                && normalizedSql.includes('from player_equipment_slot')
+                && normalizedSql.includes('where player_id <> $2')
+            ) {
+                const ids = Array.isArray(params[0]) ? params[0] : [];
+                const rows = ids.includes(conflictingId) ? [{ item_instance_id: conflictingId }] : [];
+                return { rows, rowCount: rows.length };
+            }
+            if (
+                normalizedSql.startsWith('select item_instance_id')
+                && normalizedSql.includes('from player_equipment_slot')
+                && normalizedSql.includes('where player_id = $1')
+            ) {
+                throw new Error('post-upsert persisted probe must be synthetic while recording write plan');
+            }
+            return { rows: [], rowCount: 0 };
+        },
+    };
+
+    const plan = await buildPlayerSnapshotProjectionWritePlan(
+        'player-a',
+        snapshot as any,
+        ['equipment'],
+        {},
+        probeClient as any,
+    );
+    const insertStep = plan.steps.find((step) => step.sql.includes('INSERT INTO player_equipment_slot'));
+    assert.ok(insertStep, 'equipment insert step must exist');
+    const rows = JSON.parse(String(insertStep.params[1])) as Array<{ item_instance_id?: string }>;
+    assert.equal(rows.length, 1);
+    assert.notEqual(rows[0]?.item_instance_id, conflictingId);
+    assert.match(rows[0]?.item_instance_id ?? '', UUID_PATTERN);
+    assert.equal((snapshot.equipment.slots[0].item as any).itemInstanceId, rows[0]?.item_instance_id);
+
+    console.log('[smoke] equipment-write-plan-conflict-repair-with-probe passed');
+}
+
 function testCompareItemInstanceId(): void {
     // 一致 → match
     const id = '12345678-1234-4234-8234-123456789012';
@@ -370,6 +426,7 @@ async function main(): Promise<void> {
     testDuplicateVisibleInventoryCoalesce();
     testMarketShed();
     testGrantPassthrough();
+    await testEquipmentWritePlanConflictRepairWithProbe();
     testCompareItemInstanceId();
     console.log('[smoke] item-instance-id-smoke OK');
 }

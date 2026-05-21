@@ -82,6 +82,9 @@ class PlayerDomainWritePlanRecorder {
   ): Promise<{ rows: T[]; rowCount: number }> {
     const normalizedParams = Array.isArray(params) ? [...params] : [];
     this.steps.push({ sql, params: normalizedParams });
+    if (shouldUseSyntheticResultBeforeProbe(sql)) {
+      return synthesizeResult(sql, normalizedParams) as { rows: T[]; rowCount: number };
+    }
     if (this.probeClient && isReadOnlySelect(sql)) {
       return this.probeClient.query<T>(sql, normalizedParams) as Promise<{ rows: T[]; rowCount: number }>;
     }
@@ -91,6 +94,14 @@ class PlayerDomainWritePlanRecorder {
 
 function createRecorder(probeClient?: Pick<PoolClient, 'query'>): PlayerDomainWritePlanRecorder {
   return new PlayerDomainWritePlanRecorder(probeClient);
+}
+
+function shouldUseSyntheticResultBeforeProbe(sql: string): boolean {
+  const normalizedSql = sql.trim().toLowerCase();
+  return normalizedSql.startsWith('select item_instance_id')
+    && normalizedSql.includes('from player_equipment_slot')
+    && normalizedSql.includes('where player_id = $1')
+    && normalizedSql.includes('item_instance_id = any($2::varchar[])');
 }
 
 function synthesizeResult(sql: string, params: readonly unknown[]): RecorderQueryResult {

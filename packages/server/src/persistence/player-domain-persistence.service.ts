@@ -1683,15 +1683,28 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       return;
     }
 
-    const writePlan = await this.resolvePlayerSnapshotProjectionWritePlan(
-      normalizedPlayerId,
-      snapshot,
-      normalizedDomains,
-      options,
-    );
+    const requiresLiveEquipmentWrite = normalizedDomains.has('equipment');
+    const writePlan = requiresLiveEquipmentWrite
+      ? null
+      : await this.resolvePlayerSnapshotProjectionWritePlan(
+        normalizedPlayerId,
+        snapshot,
+        normalizedDomains,
+        options,
+      );
 
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      if (requiresLiveEquipmentWrite) {
+        await savePlayerSnapshotProjectionDomainsWithClient(
+          client,
+          normalizedPlayerId,
+          snapshot,
+          normalizedDomains,
+          options,
+        );
+        return;
+      }
       // 仅做 live-client SELECT 级验证，避免空覆盖保护失效；真正写入仍使用 worker 产出的 plan。
       await buildPlayerSnapshotProjectionWritePlan(
         normalizedPlayerId,
@@ -1700,6 +1713,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         options,
         client,
       );
+      if (!writePlan) {
+        throw new Error(`player snapshot projection write plan missing:${normalizedPlayerId}`);
+      }
       await executePlayerDomainWritePlan(client, writePlan);
     });
   }
