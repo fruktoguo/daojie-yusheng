@@ -299,11 +299,23 @@ export class WorldSessionService {
   }
 
   listBindings(): WorldSessionBinding[] {
-    return Array.from(this.bindingByPlayerId.values()).filter((binding) => binding.connected);
+    const bindings: WorldSessionBinding[] = [];
+    for (const binding of this.bindingByPlayerId.values()) {
+      if (binding.connected) {
+        bindings.push(binding);
+      }
+    }
+    return bindings;
   }
 
   listConnectedBindings(): WorldSessionBinding[] {
-    return this.listBindings().map((binding) => ({ ...binding }));
+    const bindings: WorldSessionBinding[] = [];
+    for (const binding of this.bindingByPlayerId.values()) {
+      if (binding.connected) {
+        bindings.push({ ...binding });
+      }
+    }
+    return bindings;
   }
 
   detachConnectedBindingsForShutdown(reason = 'server_shutdown'): WorldSessionBinding[] {
