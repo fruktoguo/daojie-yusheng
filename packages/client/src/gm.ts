@@ -3491,8 +3491,8 @@ function renderWorkerPanel(): void {
 
   serverWorkersContentEl.innerHTML = `
     <div class="summary-grid">
-      <div class="summary-card"><div class="panel-title">Worker 总数</div><div class="panel-value">${workerState.rows.length}</div></div>
-      <div class="summary-card"><div class="panel-title">活跃/待处理</div><div class="panel-value">${countWorkerRows(workerState.rows, ['active', 'pending'])}</div></div>
+      <div class="summary-card"><div class="panel-title">监控项</div><div class="panel-value">${workerState.rows.length}</div></div>
+      <div class="summary-card"><div class="panel-title">认领/待处理</div><div class="panel-value">${countWorkerRows(workerState.rows, ['active', 'pending'])}</div></div>
       <div class="summary-card"><div class="panel-title">积压总数</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'pendingCount')}</div></div>
       <div class="summary-card"><div class="panel-title">死信</div><div class="panel-value">${sumWorkerRows(workerState.rows, 'deadLetterCount')}</div></div>
       ${capacityCards}
@@ -3848,13 +3848,14 @@ async function loadObjectCounts(): Promise<void> {
 function getWorkerRowMarkup(row: GmWorkerRow): string {
   const statusLabel = getWorkerStatusLabel(row.status);
   const statusClass = row.status === 'error' || row.status === 'warn' ? ' danger' : '';
+  const windowMetricLabel = getWorkerWindowMetricLabel(row);
   const meta = [
     row.domain ? `域 ${row.domain}` : '',
     row.ownershipEpoch ? `epoch ${row.ownershipEpoch}` : '',
     `待处理 ${row.pendingCount}`,
     `认领 ${row.claimedCount}`,
     `延迟 ${row.delayedCount}`,
-    `窗口完成 ${row.writeCount}`,
+    `${windowMetricLabel} ${row.writeCount}`,
     `${formatWorkerRate(row.writesPerSecond)}`,
     row.backlogGrowthPerSecond !== undefined ? `积压增长 ${formatWorkerRate(row.backlogGrowthPerSecond)}` : '',
     row.deadLetterCount ? `死信 ${row.deadLetterCount}` : '',
@@ -3874,6 +3875,16 @@ function getWorkerRowMarkup(row: GmWorkerRow): string {
       ${row.note ? `<div class="editor-note" style="margin-top: 6px;">${escapeHtml(row.note)}</div>` : ''}
     </div>
   `;
+}
+
+function getWorkerWindowMetricLabel(row: GmWorkerRow): string {
+  if (row.kind === 'player_flush' || row.kind === 'instance_flush') {
+    return '窗口账本更新';
+  }
+  if (row.kind === 'outbox') {
+    return '窗口投递';
+  }
+  return '窗口处理';
 }
 
 function getWorkerStatusLabel(status: GmWorkerRow['status']): string {
@@ -4204,7 +4215,7 @@ function renderTableStatsContent(): string {
     const cleanupAllowed = t.cleanupAllowed === true;
     const cleanupOlderThanAllowed = cleanupAllowed && t.cleanupOlderThanAllowed === true;
     const cleanupMeta = cleanupAllowed
-      ? `可清理${t.cleanupTimeColumn ? ` · 时间列 ${t.cleanupTimeColumn}` : ''}`
+      ? `可清理${t.cleanupTimeColumn ? ` · 时间列 ${t.cleanupTimeColumn}` : ''}${t.cleanupBlockedReason ? ` · ${t.cleanupBlockedReason}` : ''}`
       : (t.cleanupBlockedReason || '真源保护');
     return `
       <div class="network-row">

@@ -29,4 +29,5 @@
 | 技艺活动框架重构 | [technique-activity-pipeline-refactor](technique-activity-pipeline-refactor.md) |
 | 地图实例统一持久化 | [地图实例统一持久化改造计划](地图实例统一持久化改造计划.md) |
 | 运行时事件总线 | [运行时事件总线设计计划](运行时事件总线设计计划.md) |
+| 通知聚合 | [通知聚合计划](通知聚合计划.md) |
 | 配置编辑器 UI 重构 | [配置编辑器UI重构计划](配置编辑器UI重构计划.md) |

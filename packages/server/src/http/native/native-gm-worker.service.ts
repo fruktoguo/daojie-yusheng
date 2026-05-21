@@ -7,6 +7,7 @@ import { FlushDiagnosticsService } from '../../persistence/flush-diagnostics.ser
 import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.service';
 import { PlayerFlushLedgerService } from '../../persistence/player-flush-ledger.service';
 import { BackgroundWorkerRuntimeService } from '../../runtime/worker/background-worker-runtime.service';
+import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
 import { NativeGmAdminService } from './native-gm-admin.service';
 
 const WORKER_WINDOW_SECONDS = 60;
@@ -35,6 +36,8 @@ export class NativeGmWorkerService {
     @Inject(NativeGmAdminService) private readonly nativeGmAdminService: NativeGmAdminService,
     @Optional() @Inject(BackgroundWorkerRuntimeService)
     private readonly backgroundWorkerRuntimeService: BackgroundWorkerRuntimeService | null = null,
+    @Optional() @Inject(SchedulerManagerService)
+    private readonly schedulerManagerService: SchedulerManagerService | null = null,
   ) {}
 
   async getWorkerState(): Promise<GmWorkerStateRes> {
@@ -65,6 +68,7 @@ export class NativeGmWorkerService {
       ...buildPlayerWorkerRows(playerRows, playerThroughputRows),
       ...buildInstanceWorkerRows(instanceRows, instanceThroughputRows),
       buildOutboxWorkerRow(outboxSummary, retryRows),
+      buildFlushLedgerRetentionWorkerRow(),
       buildDatabaseBackupWorkerRow(Boolean(databaseState.automation?.schedulesActive)),
     ], runtimeById, runtimeRole);
     const capacityPgPools = normalizeCapacityPgPools(flushDiagnostics.pgPools);
@@ -126,6 +130,7 @@ export class NativeGmWorkerService {
           byDomain: flushDiagnostics.failures.byDomain,
         },
       },
+      scheduler: this.schedulerManagerService?.getSnapshot() ?? null,
       note: 'GM worker 面板读取 flush ledger、outbox 与数据库备份 worker 心跳的低频汇总；它不启动、不停止 worker，也不替代进程级监控。',
     };
   }
@@ -189,7 +194,7 @@ function buildPlayerWorkerRows(
       label: config?.label ?? `玩家刷盘：${domain}`,
       kind: 'player_flush',
       domain,
-      status: resolveWorkerStatus({ pendingCount, claimedCount, delayedCount, writeCount }),
+      status: resolveFlushLedgerStatus({ pendingCount, claimedCount, delayedCount }),
       pendingCount,
       claimedCount,
       delayedCount,
@@ -206,35 +211,40 @@ function buildInstanceWorkerRows(
   backlogRows: Array<Record<string, unknown>>,
   throughputRows: Array<Record<string, unknown>>,
 ): GmWorkerRow[] {
-  const backlogByKey = indexRows(backlogRows, (row) => buildInstanceKey(row.domain, row.ownership_epoch));
-  const throughputByKey = indexRows(throughputRows, (row) => buildInstanceKey(row.domain, row.ownership_epoch));
-  const configuredKeys = INSTANCE_WORKER_DOMAINS.map((entry) => buildInstanceKey(entry.domain, 0));
-  const keys = new Set([...configuredKeys, ...backlogByKey.keys(), ...throughputByKey.keys()]);
-  return Array.from(keys).sort().map((key) => {
-    const backlog = backlogByKey.get(key);
-    const throughput = throughputByKey.get(key);
-    const domain = String(backlog?.domain ?? throughput?.domain ?? key.split(':')[0]);
-    const ownershipEpoch = toCount(backlog?.ownership_epoch ?? throughput?.ownership_epoch);
+  const backlogByDomain = groupRowsByDomain(backlogRows);
+  const throughputByDomain = groupRowsByDomain(throughputRows);
+  const domains = new Set([
+    ...INSTANCE_WORKER_DOMAINS.map((entry) => entry.domain),
+    ...backlogByDomain.keys(),
+    ...throughputByDomain.keys(),
+  ]);
+  return Array.from(domains).sort().map((domain) => {
+    const backlogForDomain = backlogByDomain.get(domain) ?? [];
+    const throughputForDomain = throughputByDomain.get(domain) ?? [];
     const config = INSTANCE_WORKER_DOMAINS.find((entry) => entry.domain === domain);
-    const pendingCount = toCount(backlog?.due_count ?? backlog?.dirty_count ?? backlog?.backlog_count);
-    const claimedCount = toCount(backlog?.claimed_count);
-    const delayedCount = toCount(backlog?.delayed_count);
-    const writeCount = toCount(throughput?.write_count);
+    const pendingCount = sumCounts(backlogForDomain, (row) => row.due_count ?? row.dirty_count ?? row.backlog_count);
+    const claimedCount = sumCounts(backlogForDomain, (row) => row.claimed_count);
+    const delayedCount = sumCounts(backlogForDomain, (row) => row.delayed_count);
+    const writeCount = sumCounts(throughputForDomain, (row) => row.write_count);
+    const writesPerSecond = sumNumbers(throughputForDomain, (row) => row.writes_per_second);
+    const epochCount = countDistinctEpochs([...backlogForDomain, ...throughputForDomain]);
+    const oldestPendingAt = minTimestampString(backlogForDomain.map((row) => row.oldest_pending_at));
+    const latestUpdatedAt = maxTimestampString(throughputForDomain.map((row) => row.latest_updated_at));
     return {
-      id: `instance:${domain}:${ownershipEpoch}`,
-      label: `${config?.label ?? `实例刷盘：${domain}`}${ownershipEpoch > 0 ? ` #${ownershipEpoch}` : ''}`,
+      id: `instance:${domain}`,
+      label: config?.label ?? `实例刷盘：${domain}`,
       kind: 'instance_flush',
       domain,
-      ownershipEpoch,
-      status: resolveWorkerStatus({ pendingCount, claimedCount, delayedCount, writeCount }),
+      status: resolveFlushLedgerStatus({ pendingCount, claimedCount, delayedCount }),
       pendingCount,
       claimedCount,
       delayedCount,
       writeCount,
-      writesPerSecond: toNumber(throughput?.writes_per_second),
+      writesPerSecond,
       backlogGrowthPerSecond: estimateBacklogGrowthPerSecond(pendingCount, delayedCount, writeCount),
-      oldestPendingAt: toOptionalString(backlog?.oldest_pending_at),
-      latestUpdatedAt: toOptionalString(throughput?.latest_updated_at),
+      oldestPendingAt,
+      latestUpdatedAt,
+      note: epochCount > 1 ? `聚合 ${epochCount} 个 ownership epoch；epoch 是实例租约世代，不是 worker 数量` : undefined,
     };
   });
 }
@@ -283,8 +293,24 @@ function buildDatabaseBackupWorkerRow(active: boolean): GmWorkerRow {
   };
 }
 
+function buildFlushLedgerRetentionWorkerRow(): GmWorkerRow {
+  return {
+    id: 'flush-ledger-retention',
+    label: '刷盘账本 retention',
+    kind: 'cleanup',
+    status: 'idle',
+    pendingCount: 0,
+    claimedCount: 0,
+    delayedCount: 0,
+    writeCount: 0,
+    writesPerSecond: 0,
+    note: '按 latest/flushed version、claim 租约和 retry 时间清理已完成刷盘账本，并先释放 payload_jsonb',
+  };
+}
+
 function buildWorkerAlerts(rows: GmWorkerRow[]): GmWorkerAlert[] {
   const alerts: GmWorkerAlert[] = [];
+  const inactiveAlerts = new Map<string, number>();
   for (const row of rows) {
     if (row.deadLetterCount && row.deadLetterCount > 0) {
       alerts.push({ workerId: row.id, level: 'error', reason: 'dead_letter_present', count: row.deadLetterCount });
@@ -294,10 +320,21 @@ function buildWorkerAlerts(rows: GmWorkerRow[]): GmWorkerAlert[] {
       alerts.push({ workerId: row.id, level: 'warn', reason: 'backlog_high', count: row.pendingCount });
     }
     if (shouldReportInactive(row)) {
-      alerts.push({ workerId: row.id, level: 'warn', reason: 'worker_inactive' });
+      const workerId = buildInactiveAlertWorkerId(row);
+      inactiveAlerts.set(workerId, (inactiveAlerts.get(workerId) ?? 0) + Math.max(1, row.pendingCount));
     }
   }
+  for (const [workerId, count] of inactiveAlerts) {
+    alerts.push({ workerId, level: 'warn', reason: 'worker_inactive', count });
+  }
   return alerts;
+}
+
+function buildInactiveAlertWorkerId(row: GmWorkerRow): string {
+  if ((row.kind === 'instance_flush' || row.kind === 'player_flush') && row.domain) {
+    return `${row.kind === 'instance_flush' ? 'instance' : 'player'}:${row.domain}`;
+  }
+  return row.id;
 }
 
 function buildCapacityAlerts(
@@ -376,6 +413,23 @@ function resolveWorkerStatus(input: {
   return 'idle';
 }
 
+function resolveFlushLedgerStatus(input: {
+  pendingCount: number;
+  claimedCount: number;
+  delayedCount: number;
+}): GmWorkerStatus {
+  if (input.pendingCount >= BACKLOG_WARN_THRESHOLD) {
+    return 'warn';
+  }
+  if (input.claimedCount > 0) {
+    return 'active';
+  }
+  if (input.pendingCount > 0 || input.delayedCount > 0) {
+    return 'pending';
+  }
+  return 'idle';
+}
+
 function indexRows<T>(rows: T[], keyOf: (row: T) => string): Map<string, T> {
   const result = new Map<string, T>();
   for (const row of rows) {
@@ -387,8 +441,62 @@ function indexRows<T>(rows: T[], keyOf: (row: T) => string): Map<string, T> {
   return result;
 }
 
-function buildInstanceKey(domain: unknown, ownershipEpoch: unknown): string {
-  return `${String(domain ?? '')}:${toCount(ownershipEpoch)}`;
+function groupRowsByDomain(rows: Array<Record<string, unknown>>): Map<string, Array<Record<string, unknown>>> {
+  const result = new Map<string, Array<Record<string, unknown>>>();
+  for (const row of rows) {
+    const domain = String(row.domain ?? '').trim();
+    if (!domain) {
+      continue;
+    }
+    const group = result.get(domain) ?? [];
+    group.push(row);
+    result.set(domain, group);
+  }
+  return result;
+}
+
+function sumCounts(rows: Array<Record<string, unknown>>, valueOf: (row: Record<string, unknown>) => unknown): number {
+  return rows.reduce((total, row) => total + toCount(valueOf(row)), 0);
+}
+
+function sumNumbers(rows: Array<Record<string, unknown>>, valueOf: (row: Record<string, unknown>) => unknown): number {
+  return Number(rows.reduce((total, row) => total + toNumber(valueOf(row)), 0).toFixed(6));
+}
+
+function countDistinctEpochs(rows: Array<Record<string, unknown>>): number {
+  const epochs = new Set<number>();
+  for (const row of rows) {
+    epochs.add(toCount(row.ownership_epoch));
+  }
+  return epochs.size;
+}
+
+function minTimestampString(values: unknown[]): string | null {
+  let bestValue: string | null = null;
+  let bestMs = Number.POSITIVE_INFINITY;
+  for (const value of values) {
+    const text = toOptionalString(value);
+    const parsed = Date.parse(text ?? '');
+    if (text && Number.isFinite(parsed) && parsed < bestMs) {
+      bestValue = text;
+      bestMs = parsed;
+    }
+  }
+  return bestValue;
+}
+
+function maxTimestampString(values: unknown[]): string | null {
+  let bestValue: string | null = null;
+  let bestMs = Number.NEGATIVE_INFINITY;
+  for (const value of values) {
+    const text = toOptionalString(value);
+    const parsed = Date.parse(text ?? '');
+    if (text && Number.isFinite(parsed) && parsed > bestMs) {
+      bestValue = text;
+      bestMs = parsed;
+    }
+  }
+  return bestValue;
 }
 
 function toCount(value: unknown): number {

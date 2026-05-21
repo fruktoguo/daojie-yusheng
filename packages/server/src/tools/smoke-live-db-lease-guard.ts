@@ -10,11 +10,21 @@ interface ActiveLeaseOwnerRow {
   sample_instance_ids?: unknown;
 }
 
+interface StaleLeaseReclaimRow {
+  reclaimed_count?: unknown;
+  sample_instance_ids?: unknown;
+}
+
 export interface ActiveLeaseOwnerSummary {
   assignedNodeId: string;
   leaseCount: number;
   minLeaseExpireAt: string;
   maxLeaseExpireAt: string;
+  sampleInstanceIds: string[];
+}
+
+export interface StaleLeaseReclaimSummary {
+  reclaimedCount: number;
   sampleInstanceIds: string[];
 }
 
@@ -60,6 +70,10 @@ export function resolveSmokeForceReclaimEnv(databaseUrl: string): string {
   return databaseUrl.trim() ? '0' : '1';
 }
 
+export function shouldForceReclaimStaleLeasesForSmoke(): boolean {
+  return normalizeBooleanEnv(process.env.SERVER_FORCE_RECLAIM_STALE_LEASES);
+}
+
 export function formatActiveLeaseOwnersForSmoke(owners: ActiveLeaseOwnerSummary[]): string {
   return owners.map((owner) => {
     const samples = owner.sampleInstanceIds.length > 0
@@ -89,6 +103,14 @@ function normalizeDateText(value: unknown): string {
   return '';
 }
 
+function normalizeInstanceIdArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter((entry) => entry.length > 0)
+    : [];
+}
+
 function normalizeActiveLeaseOwnerRow(row: ActiveLeaseOwnerRow): ActiveLeaseOwnerSummary | null {
   const assignedNodeId = normalizeSmokeNodeId(row.assigned_node_id);
   if (!assignedNodeId) {
@@ -97,11 +119,7 @@ function normalizeActiveLeaseOwnerRow(row: ActiveLeaseOwnerRow): ActiveLeaseOwne
   const leaseCount = Number.isFinite(Number(row.lease_count))
     ? Math.max(0, Math.trunc(Number(row.lease_count)))
     : 0;
-  const sampleInstanceIds = Array.isArray(row.sample_instance_ids)
-    ? row.sample_instance_ids
-      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
-      .filter((entry) => entry.length > 0)
-    : [];
+  const sampleInstanceIds = normalizeInstanceIdArray(row.sample_instance_ids);
   return {
     assignedNodeId,
     leaseCount,
@@ -162,12 +180,85 @@ export async function loadActiveInstanceLeaseOwnersForSmoke(
   }
 }
 
+export async function reclaimStaleInstanceLeasesForSmoke(
+  databaseUrl: string,
+): Promise<StaleLeaseReclaimSummary> {
+  if (!databaseUrl.trim()) {
+    return {
+      reclaimedCount: 0,
+      sampleInstanceIds: [],
+    };
+  }
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    idleTimeoutMillis: 1000,
+    connectionTimeoutMillis: 3000,
+  });
+  try {
+    const result = await pool.query(`
+      WITH reclaimed_leases AS (
+        UPDATE instance_catalog
+        SET
+          assigned_node_id = NULL,
+          lease_token = NULL,
+          lease_expire_at = NULL,
+          last_active_at = NOW()
+        WHERE COALESCE(status, 'active') <> 'destroyed'
+          AND lease_expire_at IS NOT NULL
+          AND lease_expire_at <= NOW()
+          AND (
+            (assigned_node_id IS NOT NULL AND btrim(assigned_node_id) <> '')
+            OR (lease_token IS NOT NULL AND btrim(lease_token) <> '')
+          )
+        RETURNING instance_id
+      )
+      SELECT
+        COUNT(*)::int AS reclaimed_count,
+        COALESCE(
+          ARRAY(
+            SELECT instance_id
+            FROM reclaimed_leases
+            ORDER BY instance_id
+            LIMIT 8
+          ),
+          ARRAY[]::text[]
+        ) AS sample_instance_ids
+      FROM reclaimed_leases
+    `);
+    const row = result.rows[0] as StaleLeaseReclaimRow | undefined;
+    return {
+      reclaimedCount: Number.isFinite(Number(row?.reclaimed_count)) ? Math.max(0, Math.trunc(Number(row?.reclaimed_count))) : 0,
+      sampleInstanceIds: normalizeInstanceIdArray(row?.sample_instance_ids),
+    };
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+}
+
 export async function assertNoActiveInstanceLeasesForSmoke(
   input: AssertNoActiveInstanceLeasesForSmokeInput,
 ): Promise<void> {
-  if (!input.databaseUrl.trim() || shouldAllowLiveDbSmokeServer()) {
+  if (!input.databaseUrl.trim()) {
     return;
   }
+
+  if (shouldForceReclaimStaleLeasesForSmoke()) {
+    const reclaimed = await reclaimStaleInstanceLeasesForSmoke(input.databaseUrl);
+    if (reclaimed.reclaimedCount > 0) {
+      console.log(JSON.stringify({
+        ok: true,
+        context: input.context,
+        reclaimedStaleInstanceLeases: reclaimed.reclaimedCount,
+        sampleInstanceIds: reclaimed.sampleInstanceIds,
+      }));
+    }
+  }
+
+  if (shouldAllowLiveDbSmokeServer()) {
+    return;
+  }
+
   const owners = await loadActiveInstanceLeaseOwnersForSmoke(input.databaseUrl);
   if (owners.length === 0) {
     return;

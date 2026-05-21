@@ -10,6 +10,7 @@ import { PlayerPersistenceFlushService } from '../persistence/player-persistence
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import { WorldTickService } from '../runtime/tick/world-tick.service';
 import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
+import { SchedulerManagerService } from '../scheduler/scheduler-manager.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldShutdownDrainService } from '../network/world-shutdown-drain.service';
 
@@ -31,6 +32,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(BackgroundWorkerRuntimeService) private readonly backgroundWorkerRuntimeService?: BackgroundWorkerRuntimeService,
     @Optional() @Inject(MarketRuntimeService) private readonly marketRuntimeService?: MarketRuntimeService,
     @Optional() @Inject(WorldShutdownDrainService) private readonly worldShutdownDrainService?: WorldShutdownDrainService,
+    @Optional() @Inject(SchedulerManagerService) private readonly schedulerManagerService?: SchedulerManagerService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -40,6 +42,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
   async onModuleDestroy(): Promise<void> {
     this.stopped = true;
     this.startupBarrierService.closeForDrain();
+    this.schedulerManagerService?.stop('module_destroy');
     this.startupStatusService.markDraining('module_destroy');
   }
 
@@ -64,6 +67,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       return this.drainPromise;
     }
     this.startupBarrierService.closeTraffic();
+    this.schedulerManagerService?.refreshBarrierSnapshot();
     this.startupStatusService.markDraining(reason);
     this.drainPromise = (async () => {
       if (!this.worldShutdownDrainService) {
@@ -84,6 +88,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     }
 
     this.startupBarrierService.resetForStartup();
+    await this.schedulerManagerService?.initialize({ barrier: this.startupBarrierService.getSnapshot() });
     this.startupStatusService.beginPhase('preparing', 'startup_preparing');
     this.startupStatusService.completePhase('preparing', {
       authoritativeRuntime: shouldStartAuthoritativeRuntime(),
@@ -160,6 +165,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       this.startupBarrierService.openWorker();
       this.backgroundWorkerRuntimeService?.startForLifecycleCoordinator();
     }
+    this.schedulerManagerService?.refreshBarrierSnapshot();
     this.startupStatusService.completePhase('starting_loops', this.startupBarrierService.getSnapshot());
   }
 

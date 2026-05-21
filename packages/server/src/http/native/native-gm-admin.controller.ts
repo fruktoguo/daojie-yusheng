@@ -15,6 +15,7 @@ import { extractGmActor } from './native-gm-actor-context';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
 import { NativeGmDiagnosticsService } from './native-gm-diagnostics.service';
 import { NativeGmWorkerService } from './native-gm-worker.service';
+import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
 import { readConsoleLogEntries } from '../../logging/console-log-buffer';
 import { runGmEnvCheck } from '../../runtime/gm/gm-env-check.service';
 /** 数据库恢复请求体。 */
@@ -51,6 +52,7 @@ export class NativeGmAdminController {
     private readonly nextGmAdminService: NativeGmAdminService,
     private readonly nativeGmWorkerService: NativeGmWorkerService,
     private readonly nativeGmDiagnosticsService: NativeGmDiagnosticsService,
+    private readonly schedulerManagerService: SchedulerManagerService,
   ) {}
 
   /** 查询数据库连接状态和备份列表。 */
@@ -69,6 +71,42 @@ export class NativeGmAdminController {
   @Get('workers')
   getWorkerState() {
     return this.nativeGmWorkerService.getWorkerState();
+  }
+
+  /** 暂停指定 scheduler 任务。 */
+  @Post('workers/scheduler/:taskId/pause')
+  pauseSchedulerTask(@Param('taskId') taskId: string) {
+    return { ok: this.schedulerManagerService.setPaused(taskId, true) };
+  }
+
+  /** 恢复指定 scheduler 任务。 */
+  @Post('workers/scheduler/:taskId/resume')
+  resumeSchedulerTask(@Param('taskId') taskId: string) {
+    return { ok: this.schedulerManagerService.setPaused(taskId, false) };
+  }
+
+  /** 启用指定 scheduler 任务。 */
+  @Post('workers/scheduler/:taskId/enable')
+  enableSchedulerTask(@Param('taskId') taskId: string) {
+    return { ok: this.schedulerManagerService.setEnabled(taskId, true) };
+  }
+
+  /** 禁用指定 scheduler 任务。 */
+  @Post('workers/scheduler/:taskId/disable')
+  disableSchedulerTask(@Param('taskId') taskId: string) {
+    return { ok: this.schedulerManagerService.setEnabled(taskId, false) };
+  }
+
+  /** 手动触发指定 scheduler 任务。 */
+  @Post('workers/scheduler/:taskId/trigger')
+  async triggerSchedulerTask(@Param('taskId') taskId: string) {
+    return { processedCount: await this.schedulerManagerService.triggerTask(taskId) };
+  }
+
+  /** 让 scheduler 进入 drain。 */
+  @Post('workers/scheduler/drain')
+  drainScheduler() {
+    return this.schedulerManagerService.stop('gm_drain');
   }
 
   /** 运行环境检测：检查运行时、关键 env 与项目依赖是否可用。 */

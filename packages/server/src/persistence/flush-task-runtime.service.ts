@@ -513,8 +513,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (shouldStartAuthoritativeRuntime()) {
         return null;
       }
-      await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
-      return 0;
+      await this.flushLedgerService.markFlushTasksRetry(invalidTasks, RETRY_DELAY_MS);
     }
     if (!this.worldRuntimeService.instanceDomainPersistenceService) {
       await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);

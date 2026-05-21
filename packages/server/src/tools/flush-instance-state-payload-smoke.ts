@@ -89,6 +89,71 @@ async function main(): Promise<void> {
     }
     assert.equal(flushed.length, scenarios.length);
 
+    let mixedClaimed = false;
+    const mixedRetriedDomains: string[] = [];
+    const mixedFlushedDomains: string[] = [];
+    const mixedLedger = {
+      isEnabled: () => true,
+      claimReadyFlushTasks: async (input: { scope: string }) => {
+        if (input.scope !== 'instance' || mixedClaimed) return [];
+        mixedClaimed = true;
+        return [
+          {
+            scope: 'instance',
+            id: 'instance-mixed',
+            domain: 'monster_runtime',
+            priority: 'low',
+            latestRevision: 2,
+            ownershipEpoch: 9,
+            payloadJson: {
+              kind: 'instance_domain_state',
+              domain: 'monster_runtime',
+              payload: { fullReplace: false, upserts: [{ monsterId: 'm2' }], deletes: [] },
+            },
+          },
+          {
+            scope: 'instance',
+            id: 'instance-mixed',
+            domain: 'time',
+            priority: 'low',
+            latestRevision: 2,
+            ownershipEpoch: 9,
+            payloadJson: null,
+          },
+        ] satisfies FlushTask[];
+      },
+      markFlushTaskFlushed: async (task: FlushTask) => {
+        mixedFlushedDomains.push(task.domain);
+        return true;
+      },
+      markFlushTasksRetry: async (tasks: FlushTask[]) => {
+        mixedRetriedDomains.push(...tasks.map((task) => task.domain));
+        return tasks.length;
+      },
+      markFlushTaskRetry: async (task: FlushTask) => {
+        mixedRetriedDomains.push(task.domain);
+        return true;
+      },
+    };
+    const mixedRuntime = new FlushTaskRuntimeService(
+      { listDirtyPlayerDomains: () => new Map() } as never,
+      {
+        instanceDomainPersistenceService: persistence,
+        listDirtyPersistentInstanceDomains: () => [],
+        getInstanceRuntime: () => null,
+      } as never,
+      { flushPlayerDomains: async () => true } as never,
+      mixedLedger as never,
+      { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+      undefined,
+      persistence as never,
+    );
+    const mixedProcessed = await mixedRuntime.runOnce('instance-state-payload:mixed');
+    assert.equal(mixedProcessed, 1);
+    assert.deepEqual(mixedFlushedDomains, ['monster_runtime']);
+    assert.deepEqual(mixedRetriedDomains, ['time']);
+    assert.equal(flushed.at(-1), 'monster_runtime:instance-mixed:1:0');
+
     process.env.SERVER_RUNTIME_ROLE = 'api';
     process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'off';
     const staged: unknown[] = [];
@@ -132,7 +197,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 ground_item/overlay/monster_runtime/container_state/building-room-fengshui/time 可从 staging state payload 写入持久化 API，并 mark flushed。',
+    answers: '实例 ground_item/overlay/monster_runtime/container_state/building-room-fengshui/time 可从 staging state payload 写入持久化 API，并 mark flushed；混合分组中缺 payload 的 domain 会单独 retry，不阻塞有效 payload 刷盘。',
     excludes: '不证明真实 DB with-db 竞争。',
     completionMapping: 'flush-instance-state-payload',
   }, null, 2));

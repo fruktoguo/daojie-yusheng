@@ -24,6 +24,13 @@ const INSTANCE_ACTIVE_BACKLOG_FILTER_SQL = `
   OR (COALESCE(next_attempt_at, retry_after) IS NOT NULL AND COALESCE(next_attempt_at, retry_after) > now())
 `;
 
+export interface FlushLedgerRetentionResult {
+  playerPayloadCleared: number;
+  instancePayloadCleared: number;
+  playerDeleted: number;
+  instanceDeleted: number;
+}
+
 /** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
 @Injectable()
 export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
@@ -775,11 +782,126 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }
 
+  async retainCompletedFlushLedger(input?: {
+    payloadRetentionMinutes?: number;
+    rowRetentionDays?: number;
+    limit?: number;
+  }): Promise<FlushLedgerRetentionResult> {
+    if (!this.pool || !this.enabled) {
+      return {
+        playerPayloadCleared: 0,
+        instancePayloadCleared: 0,
+        playerDeleted: 0,
+        instanceDeleted: 0,
+      };
+    }
+    const payloadRetentionMs = normalizePositiveInteger(
+      Number(input?.payloadRetentionMinutes ?? 10) * 60_000,
+      10 * 60_000,
+      60_000,
+      24 * 60 * 60_000,
+    );
+    const rowRetentionMs = normalizePositiveInteger(
+      Number(input?.rowRetentionDays ?? 1) * 24 * 60 * 60_000,
+      24 * 60 * 60_000,
+      60 * 60_000,
+      365 * 24 * 60 * 60_000,
+    );
+    const limit = normalizePositiveInteger(input?.limit, 500, 1, 10_000);
+    const playerPayloadCleared = await clearCompletedFlushLedgerPayload(
+      this.pool,
+      PLAYER_FLUSH_LEDGER_TABLE,
+      payloadRetentionMs,
+      limit,
+    );
+    const instancePayloadCleared = await clearCompletedFlushLedgerPayload(
+      this.pool,
+      INSTANCE_FLUSH_LEDGER_TABLE,
+      payloadRetentionMs,
+      limit,
+    );
+    const playerDeleted = await deleteCompletedFlushLedgerRows(this.pool, PLAYER_FLUSH_LEDGER_TABLE, rowRetentionMs, limit);
+    const instanceDeleted = await deleteCompletedFlushLedgerRows(this.pool, INSTANCE_FLUSH_LEDGER_TABLE, rowRetentionMs, limit);
+    return {
+      playerPayloadCleared,
+      instancePayloadCleared,
+      playerDeleted,
+      instanceDeleted,
+    };
+  }
+
   private async safeClosePool(): Promise<void> {
     // 共享连接池由 DatabasePoolProvider 统一关闭，此处只释放引用。
     this.pool = null;
     this.enabled = false;
   }
+}
+
+async function clearCompletedFlushLedgerPayload(
+  pool: Pool,
+  tableName: string,
+  retentionMs: number,
+  limit: number,
+): Promise<number> {
+  const result = await pool.query<{ updated_count?: unknown }>(
+    `
+      WITH targets AS (
+        SELECT ctid
+        FROM ${tableName}
+        WHERE latest_version <= flushed_version
+          AND (claimed_by IS NULL OR claim_until < now())
+          AND (COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())
+          AND payload_jsonb IS NOT NULL
+          AND updated_at < now() - ($1::bigint * interval '1 millisecond')
+        ORDER BY updated_at ASC
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+      ),
+      updated AS (
+        UPDATE ${tableName} ledger
+        SET payload_jsonb = NULL,
+            updated_at = now()
+        FROM targets
+        WHERE ledger.ctid = targets.ctid
+        RETURNING 1
+      )
+      SELECT COUNT(*)::bigint AS updated_count FROM updated
+    `,
+    [retentionMs, limit],
+  );
+  return Math.max(0, Math.trunc(Number(result.rows[0]?.updated_count ?? 0)));
+}
+
+async function deleteCompletedFlushLedgerRows(
+  pool: Pool,
+  tableName: string,
+  retentionMs: number,
+  limit: number,
+): Promise<number> {
+  const result = await pool.query<{ deleted_count?: unknown }>(
+    `
+      WITH targets AS (
+        SELECT ctid
+        FROM ${tableName}
+        WHERE latest_version <= flushed_version
+          AND (claimed_by IS NULL OR claim_until < now())
+          AND (COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())
+          AND updated_at < now() - ($1::bigint * interval '1 millisecond')
+        ORDER BY updated_at ASC
+        LIMIT $2
+        FOR UPDATE SKIP LOCKED
+      ),
+      deleted AS (
+        DELETE FROM ${tableName} ledger
+        USING targets
+        WHERE ledger.ctid = targets.ctid
+        RETURNING 1
+      )
+      SELECT COUNT(*)::bigint AS deleted_count FROM deleted
+    `,
+    [retentionMs, limit],
+  );
+  return Math.max(0, Math.trunc(Number(result.rows[0]?.deleted_count ?? 0)));
 }
 
 async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {

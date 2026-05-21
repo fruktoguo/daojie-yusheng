@@ -7,6 +7,7 @@ import {
   formatActiveLeaseOwnersForSmoke,
   resolveSmokeForceReclaimEnv,
   resolveSmokeServerNodeEnv,
+  shouldForceReclaimStaleLeasesForSmoke,
   SERVER_SMOKE_ALLOW_LIVE_DB_SERVER_ENV,
 } from './smoke-live-db-lease-guard';
 
@@ -42,6 +43,7 @@ withEnv('SERVER_FORCE_RECLAIM_STALE_LEASES', undefined, () => {
 
 withEnv('SERVER_FORCE_RECLAIM_STALE_LEASES', '1', () => {
   assert.equal(resolveSmokeForceReclaimEnv('postgres://local/db'), '1');
+  assert.equal(shouldForceReclaimStaleLeasesForSmoke(), true);
 });
 
 const formatted = formatActiveLeaseOwnersForSmoke([

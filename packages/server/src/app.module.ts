@@ -183,6 +183,7 @@ import { MarketRuntimeService } from './runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from './runtime/player/player-runtime.service';
 import { BackgroundWorkerRuntimeService } from './runtime/worker/background-worker-runtime.service';
 import { AssetAuditLogRetentionWorker } from './runtime/world/worker/asset-audit-log-retention.worker';
+import { FlushLedgerRetentionWorker } from './runtime/world/worker/flush-ledger-retention.worker';
 import { InstanceStatePurgeWorker } from './runtime/world/worker/instance-state-purge.worker';
 import { MailExpirationCleanupWorker } from './runtime/world/worker/mail-expiration-cleanup.worker';
 import { MailSoftDeletePurgeWorker } from './runtime/world/worker/mail-soft-delete-purge.worker';
@@ -205,6 +206,11 @@ import { WorldRuntimeController } from './runtime/world/world-runtime.controller
 import { RuntimeMaintenanceService } from './runtime/world/runtime-maintenance.service';
 import { WorldRuntimeService } from './runtime/world/world-runtime.service';
 import { WorkerPoolModule } from './concurrency/worker-pool.module';
+import { SchedulerGovernorService } from './scheduler/scheduler-governor.service';
+import { SchedulerManagerService } from './scheduler/scheduler-manager.service';
+import { SchedulerRegistryService } from './scheduler/scheduler-registry.service';
+import { SchedulerStatePersistenceService } from './scheduler/scheduler-state-persistence.service';
+import { SchedulerStateService } from './scheduler/scheduler-state.service';
 import { AsyncPathfindingService } from './runtime/world/async-pathfinding.service';
 import { AsyncFovService } from './runtime/world/async-fov.service';
 import { WorldSyncWorkerEncodeService } from './network/world-sync-worker-encode.service';
@@ -263,6 +269,11 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     StartupStatusService,
     ShutdownStatusService,
     StartupBarrierService,
+    SchedulerGovernorService,
+    SchedulerManagerService,
+    SchedulerRegistryService,
+    SchedulerStatePersistenceService,
+    SchedulerStateService,
     ServerLifecycleCoordinatorService,
     MapTemplateRepository,
     RuntimeGmAuthService,
@@ -374,6 +385,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     MailRuntimeService,
     BackgroundWorkerRuntimeService,
     AssetAuditLogRetentionWorker,
+    FlushLedgerRetentionWorker,
     InstanceStatePurgeWorker,
     MailExpirationCleanupWorker,
     MailSoftDeletePurgeWorker,

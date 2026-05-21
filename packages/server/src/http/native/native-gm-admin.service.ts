@@ -133,6 +133,11 @@ const DATABASE_CLEANUP_OPERATIONAL_TABLES = new Set([
     'server_log',
 ]);
 
+const DATABASE_CLEANUP_SPECIALIZED_TABLES = new Set([
+    'instance_flush_ledger',
+    'player_flush_ledger',
+]);
+
 const DATABASE_CLEANUP_PROTECTED_EXACT_TABLES = new Set([
     ...MAINLINE_BACKUP_TABLES,
     'instance_catalog',
@@ -1320,8 +1325,9 @@ export class NativeGmAdminService {
             totalBytes += tb;
             const tableName = String(row.table_name);
             const columns = columnsByTable.get(tableName) ?? [];
-            const cleanupBlockedReason = getDatabaseCleanupBlockedReason(tableName, columns);
-            const cleanupTimeColumn = cleanupBlockedReason ? null : resolveDatabaseCleanupTimeColumn(columns);
+            const specializedCleanup = DATABASE_CLEANUP_SPECIALIZED_TABLES.has(tableName);
+            const cleanupBlockedReason = specializedCleanup ? null : getDatabaseCleanupBlockedReason(tableName, columns);
+            const cleanupTimeColumn = cleanupBlockedReason || specializedCleanup ? null : resolveDatabaseCleanupTimeColumn(columns);
             return {
                 tableName,
                 rowEstimate: Number(row.row_estimate),
@@ -1333,10 +1339,10 @@ export class NativeGmAdminService {
                 indexSize: formatPgBytes(Number(row.index_bytes)),
                 toastBytes: Number(row.toast_bytes),
                 toastSize: formatPgBytes(Number(row.toast_bytes)),
-                cleanupAllowed: !cleanupBlockedReason,
-                cleanupOlderThanAllowed: !cleanupBlockedReason && Boolean(cleanupTimeColumn),
+                cleanupAllowed: specializedCleanup || !cleanupBlockedReason,
+                cleanupOlderThanAllowed: !specializedCleanup && !cleanupBlockedReason && Boolean(cleanupTimeColumn),
                 cleanupTimeColumn: cleanupTimeColumn?.columnName ?? null,
-                cleanupBlockedReason,
+                cleanupBlockedReason: specializedCleanup ? '刷盘账本仅允许清理已完成行；无未完成任务时会 TRUNCATE 释放物理空间' : cleanupBlockedReason,
             };
         });
         return {
@@ -1356,6 +1362,9 @@ export class NativeGmAdminService {
             throw new BadRequestException('mode 必须是 older_than 或 all');
         }
         const columns = await loadPublicRegularTableColumns(this.pool, tableName);
+        if (DATABASE_CLEANUP_SPECIALIZED_TABLES.has(tableName)) {
+            return cleanupSpecializedFlushLedgerTable(this.pool, tableName, mode);
+        }
         const cleanupBlockedReason = getDatabaseCleanupBlockedReason(tableName, columns);
         if (cleanupBlockedReason) {
             throw new BadRequestException(`${cleanupBlockedReason}: ${tableName}`);
@@ -1396,6 +1405,64 @@ export class NativeGmAdminService {
     }
 }
 
+async function cleanupSpecializedFlushLedgerTable(pool: Pool, tableName: string, mode: 'older_than' | 'all') {
+    if (mode !== 'all') {
+        throw new BadRequestException('刷盘账本只支持“直接清空”：实际只删除 latest_version <= flushed_version 且无有效 claim 的已完成账本');
+    }
+    const quotedTableName = quoteIdentifier(tableName);
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(`LOCK TABLE ${quotedTableName} IN ACCESS EXCLUSIVE MODE`);
+        const countResult = await client.query(
+            `
+            SELECT
+                COUNT(*)::bigint AS total_rows,
+                COUNT(*) FILTER (WHERE latest_version > flushed_version)::bigint AS dirty_rows,
+                COUNT(*) FILTER (WHERE claim_until IS NOT NULL AND claim_until >= now())::bigint AS active_claim_rows
+            FROM ${quotedTableName}
+            `,
+        );
+        const totalRows = Math.max(0, Math.trunc(Number(countResult.rows[0]?.total_rows ?? 0)));
+        const dirtyRows = Math.max(0, Math.trunc(Number(countResult.rows[0]?.dirty_rows ?? 0)));
+        const activeClaimRows = Math.max(0, Math.trunc(Number(countResult.rows[0]?.active_claim_rows ?? 0)));
+        if (activeClaimRows > 0) {
+            throw new BadRequestException(`刷盘账本仍有 ${activeClaimRows} 条有效 claim，拒绝清理: ${tableName}`);
+        }
+        let deletedRows = 0;
+        let compacted = false;
+        if (dirtyRows === 0) {
+            await client.query(`TRUNCATE TABLE ${quotedTableName}`);
+            deletedRows = totalRows;
+            compacted = true;
+        } else {
+            const deleteResult = await client.query(
+                `
+                DELETE FROM ${quotedTableName}
+                WHERE latest_version <= flushed_version
+                  AND (claimed_by IS NULL OR claim_until < now())
+                `,
+            );
+            deletedRows = deleteResult.rowCount ?? 0;
+        }
+        await client.query('COMMIT');
+        await pool.query(`ANALYZE ${quotedTableName}`);
+        return {
+            target: tableName,
+            mode,
+            deletedRows,
+            message: compacted
+                ? `已清空 ${tableName} 的 ${deletedRows} 条已完成刷盘账本，并通过 TRUNCATE 释放物理空间`
+                : `已删除 ${tableName} 的 ${deletedRows} 条已完成刷盘账本；仍有 ${dirtyRows} 条未完成任务，物理空间会由 PostgreSQL 后续复用`,
+        };
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 function formatPgBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -1428,6 +1495,9 @@ function normalizeDatabaseCleanupTableName(target: string): string {
 function getDatabaseCleanupBlockedReason(tableName: string, columns: DatabaseTableColumnInfo[]): string | null {
     if (!columns.length) {
         return '表不存在或不是 public 普通表';
+    }
+    if (DATABASE_CLEANUP_SPECIALIZED_TABLES.has(tableName)) {
+        return '刷盘账本必须通过 flush-ledger-retention 调度器任务按 version/claim/retry 语义清理';
     }
     if (DATABASE_CLEANUP_OPERATIONAL_TABLES.has(tableName)) {
         return null;

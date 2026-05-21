@@ -7,10 +7,13 @@ import { FlushTaskRuntimeService } from '../../persistence/flush-task-runtime.se
 import { resolveFlushTaskRuntimeMode } from '../../persistence/flush-task-runtime-mode';
 import { OutboxDispatcherRuntimeService } from '../../persistence/outbox-dispatcher-runtime.service';
 import { AssetAuditLogRetentionWorker } from '../world/worker/asset-audit-log-retention.worker';
+import { FlushLedgerRetentionWorker } from '../world/worker/flush-ledger-retention.worker';
 import { InstanceStatePurgeWorker } from '../world/worker/instance-state-purge.worker';
 import { MailExpirationCleanupWorker } from '../world/worker/mail-expiration-cleanup.worker';
 import { MailSoftDeletePurgeWorker } from '../world/worker/mail-soft-delete-purge.worker';
 import { runDatabaseBackupWorkerOnce } from '../../tools/database-backup-worker';
+import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
+import type { SchedulerTaskKind, SchedulerTaskPriority, SchedulerTaskScope } from '../../scheduler/scheduler.types';
 import { MarketTradeHistoryRetentionWorker } from '../world/worker/market-trade-history-retention.worker';
 
 interface BackgroundWorkerTask {
@@ -18,6 +21,9 @@ interface BackgroundWorkerTask {
   label: string;
   intervalMs: number;
   enabled: boolean;
+  kind: SchedulerTaskKind;
+  scope: SchedulerTaskScope;
+  priority: SchedulerTaskPriority;
   runOnce: () => Promise<number>;
 }
 
@@ -52,6 +58,8 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     private readonly outboxDispatcherRuntimeService?: OutboxDispatcherRuntimeService,
     @Optional() @Inject(AssetAuditLogRetentionWorker)
     private readonly assetAuditLogRetentionWorker?: AssetAuditLogRetentionWorker,
+    @Optional() @Inject(FlushLedgerRetentionWorker)
+    private readonly flushLedgerRetentionWorker?: FlushLedgerRetentionWorker,
     @Optional() @Inject(MailExpirationCleanupWorker)
     private readonly mailExpirationCleanupWorker?: MailExpirationCleanupWorker,
     @Optional() @Inject(MailSoftDeletePurgeWorker)
@@ -62,6 +70,8 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     private readonly instanceStatePurgeWorker?: InstanceStatePurgeWorker,
     @Optional() @Inject(StartupBarrierService)
     private readonly startupBarrierService?: StartupBarrierService,
+    @Optional() @Inject(SchedulerManagerService)
+    private readonly schedulerManagerService?: SchedulerManagerService,
   ) {}
 
   onModuleInit(): void {
@@ -108,6 +118,9 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         label: 'Flush task consumer',
         intervalMs: 2_000,
         enabled: Boolean(this.flushTaskRuntimeService) && resolveFlushTaskRuntimeMode() === 'worker',
+        kind: 'flush',
+        scope: 'global',
+        priority: 'high',
         runOnce: async () => this.flushTaskRuntimeService?.runOnce('background-orchestrator') ?? 0,
       },
       {
@@ -115,6 +128,9 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         label: 'Outbox dispatcher',
         intervalMs: OUTBOX_INTERVAL_MS,
         enabled: this.outboxDispatcherRuntimeService?.isRuntimeEnabled() === true,
+        kind: 'outbox',
+        scope: 'global',
+        priority: 'high',
         runOnce: async () => this.outboxDispatcherRuntimeService?.dispatchPendingEvents() ?? 0,
       },
       {
@@ -122,6 +138,9 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         label: 'Mail expiration cleanup',
         intervalMs: MAIL_EXPIRATION_INTERVAL_MS,
         enabled: Boolean(this.mailExpirationCleanupWorker),
+        kind: 'maintenance',
+        scope: 'global',
+        priority: 'normal',
         runOnce: async () => this.mailExpirationCleanupWorker?.runOnce() ?? 0,
       },
       {
@@ -129,6 +148,9 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         label: 'Mail soft delete purge',
         intervalMs: CLEANUP_INTERVAL_MS,
         enabled: Boolean(this.mailSoftDeletePurgeWorker),
+        kind: 'maintenance',
+        scope: 'global',
+        priority: 'low',
         runOnce: async () => this.mailSoftDeletePurgeWorker?.runOnce() ?? 0,
       },
       {
@@ -136,13 +158,29 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         label: 'Asset audit log retention',
         intervalMs: CLEANUP_INTERVAL_MS,
         enabled: Boolean(this.assetAuditLogRetentionWorker),
+        kind: 'maintenance',
+        scope: 'global',
+        priority: 'low',
         runOnce: async () => this.assetAuditLogRetentionWorker?.runOnce() ?? 0,
+      },
+      {
+        id: 'flush-ledger-retention',
+        label: 'Flush ledger retention',
+        intervalMs: CLEANUP_INTERVAL_MS,
+        enabled: Boolean(this.flushLedgerRetentionWorker),
+        kind: 'maintenance',
+        scope: 'global',
+        priority: 'low',
+        runOnce: async () => this.flushLedgerRetentionWorker?.runOnce() ?? 0,
       },
       {
         id: 'market-trade-history-retention',
         label: 'Market trade history retention',
         intervalMs: MARKET_RETENTION_INTERVAL_MS,
         enabled: Boolean(this.marketTradeHistoryRetentionWorker),
+        kind: 'maintenance',
+        scope: 'global',
+        priority: 'low',
         runOnce: async () => this.marketTradeHistoryRetentionWorker?.runOnce() ?? 0,
       },
       {
@@ -150,6 +188,9 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         label: 'Instance state purge',
         intervalMs: CLEANUP_INTERVAL_MS,
         enabled: Boolean(this.instanceStatePurgeWorker),
+        kind: 'maintenance',
+        scope: 'instance',
+        priority: 'low',
         runOnce: async () => this.instanceStatePurgeWorker?.runOnce() ?? 0,
       },
       {
@@ -157,12 +198,26 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         label: 'Database backup',
         intervalMs: 60_000,
         enabled: shouldStartBackupWorker() && resolveServerDatabaseUrl().trim().length > 0,
+        kind: 'maintenance',
+        scope: 'node',
+        priority: 'low',
         runOnce: async () => (await runDatabaseBackupWorkerOnce()) ? 1 : 0,
       },
     ];
   }
 
   private registerTask(task: BackgroundWorkerTask): void {
+    this.schedulerManagerService?.registerTask({
+      id: task.id,
+      kind: task.kind,
+      scope: task.scope,
+      enabled: task.enabled,
+      priority: task.priority,
+      intervalMs: task.intervalMs,
+      maxConcurrency: 1,
+      leaderMode: task.id === 'flush-task-consumer' || task.id === 'outbox-dispatcher' ? 'claim' : 'single',
+      description: task.label,
+    }, task.runOnce);
     this.states.set(task.id, {
       id: task.id,
       label: task.label,
@@ -187,7 +242,9 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     state.running = true;
     state.lastHeartbeatAt = new Date().toISOString();
     try {
-      const processed = await task.runOnce();
+      const processed = this.schedulerManagerService
+        ? await this.schedulerManagerService.runTask(task.id, task.runOnce)
+        : await task.runOnce();
       state.processedCount += Math.max(0, Math.trunc(Number(processed) || 0));
       state.lastSuccessAt = new Date().toISOString();
       state.lastFailure = null;

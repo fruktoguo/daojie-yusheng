@@ -9,6 +9,7 @@ import { gameplayConstants } from '@mud/shared';
 
 import { shouldStartAuthoritativeRuntime } from '../../config/runtime-role';
 import { StartupBarrierService } from '../../lifecycle/startup-barrier.service';
+import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
 import { WorldSyncService } from '../../network/world-sync.service';
 import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
@@ -48,6 +49,7 @@ const MIN_TICK_INTERVAL_MS = 100;
 
 /** 调度间隔上限（ms），即正常 1 倍速间隔。 */
 const BASE_TICK_INTERVAL_MS = gameplayConstants.WORLD_TICK_INTERVAL_MS;
+const WORLD_TICK_SCHEDULER_TASK_ID = 'world-tick';
 
 /** 世界 Tick 性能指标：跳过帧数、上一帧耗时、最近一次实际间隔。 */
 export interface WorldTickMetrics {
@@ -94,6 +96,8 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     private readonly worldSyncService: WorldSyncPort,
     @Optional() @Inject(StartupBarrierService)
     private readonly startupBarrierService?: StartupBarrierService,
+    @Optional() @Inject(SchedulerManagerService)
+    private readonly schedulerManagerService?: SchedulerManagerService,
   ) {}
 
   private getMapTickSpeed(mapId: string): number {
@@ -193,8 +197,21 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     // 每次调度前重新计算目标间隔，响应 GM 动态调速
     this.currentTargetIntervalMs = this.resolveEffectiveTickIntervalMs();
     const delay = Math.max(0, this.currentTargetIntervalMs - this.lastTickDurationMs);
-    this.timer = setTimeout(() => void this.runTickOnce(), delay);
+    this.timer = setTimeout(() => void this.runScheduledTick(), delay);
     this.timer.unref();
+  }
+
+  private async runScheduledTick(): Promise<void> {
+    if (!this.schedulerManagerService) {
+      await this.runTickOnce();
+      return;
+    }
+    await this.schedulerManagerService.runTask(WORLD_TICK_SCHEDULER_TASK_ID, async () => {
+      await this.runTickOnce();
+      return 1;
+    }).catch((error: unknown) => {
+      this.logger.error('世界 Tick SchedulerManager 调度失败', error instanceof Error ? error.stack : String(error));
+    });
   }
 
   /** 暴露 tick 性能指标供诊断 / readiness / GM 性能页消费。 */
@@ -231,16 +248,33 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     this.shuttingDown = false;
     this.lastTickStartedAt = 0;
     this.currentTargetIntervalMs = BASE_TICK_INTERVAL_MS;
+    this.schedulerManagerService?.registerTask({
+      id: WORLD_TICK_SCHEDULER_TASK_ID,
+      kind: 'tick',
+      scope: 'global',
+      enabled: true,
+      priority: 'high',
+      intervalMs: BASE_TICK_INTERVAL_MS,
+      maxConcurrency: 1,
+      leaderMode: 'single',
+      description: 'World runtime tick loop',
+    }, async () => {
+      await this.runTickOnce();
+      return 1;
+    });
+    this.schedulerManagerService?.setPaused(WORLD_TICK_SCHEDULER_TASK_ID, false);
     this.scheduleNextTick();
     this.logger.log(`世界 Tick 已启动（动态间隔自调度），基准间隔 ${BASE_TICK_INTERVAL_MS}ms，最小间隔 ${MIN_TICK_INTERVAL_MS}ms`);
   }
 
   onModuleDestroy(): void {
+    this.schedulerManagerService?.setPaused(WORLD_TICK_SCHEDULER_TASK_ID, true);
     this.stopTimer();
   }
 
   async stopForShutdown(): Promise<void> {
     this.shuttingDown = true;
+    this.schedulerManagerService?.setPaused(WORLD_TICK_SCHEDULER_TASK_ID, true);
     this.stopTimer();
     const deadline = Date.now() + 5000;
     while (this.tickInFlight && Date.now() < deadline) {

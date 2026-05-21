@@ -3,14 +3,14 @@
  * 定时轮询 outbox_event 表，认领待处理事件并通过消费者注册表分发，
  * 支持本地去重、共享去重和失败重试。
  */
-import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
 import { shouldStartOutboxDispatcher } from '../config/runtime-role';
 import { OutboxDispatcherService } from './outbox-dispatcher.service';
 import { OutboxEventConsumerRegistryService } from './outbox-event-consumer-registry.service';
+import { SchedulerManagerService } from '../scheduler/scheduler-manager.service';
 
 const DEFAULT_OUTBOX_DISPATCH_INTERVAL_MS = 250;
-const DEFAULT_OUTBOX_DISPATCH_IDLE_MAX_MS = 5_000;
 const DEFAULT_OUTBOX_DISPATCH_BATCH_SIZE = 128;
 const DEFAULT_OUTBOX_CONSUMER_CLAIM_TTL_MS = 30_000;
 const DEFAULT_OUTBOX_RETRY_DELAY_MS = 5_000;
@@ -21,9 +21,7 @@ const DEFAULT_OUTBOX_LOCAL_DEDUPE_LIMIT = 10_000;
 @Injectable()
 export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OutboxDispatcherRuntimeService.name);
-  private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
-  private nextDelayMs = DEFAULT_OUTBOX_DISPATCH_INTERVAL_MS;
   private readonly processedEventIds = new Set<string>();
   private readonly processedOperationIds = new Set<string>();
   private readonly processedEventIdOrder: string[] = [];
@@ -34,24 +32,34 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
     private readonly outboxDispatcherService: OutboxDispatcherService,
     @Inject(OutboxEventConsumerRegistryService)
     private readonly outboxEventConsumerRegistryService: OutboxEventConsumerRegistryService | null = null,
+    @Optional() @Inject(SchedulerManagerService)
+    private readonly schedulerManagerService?: SchedulerManagerService,
   ) {}
 
   async onModuleInit(): Promise<void> {
     if (!this.eventConsumer && this.outboxEventConsumerRegistryService) {
       this.eventConsumer = (event) => this.outboxEventConsumerRegistryService!.consume(event);
     }
+    this.schedulerManagerService?.registerTask({
+      id: 'outbox-dispatcher',
+      kind: 'outbox',
+      scope: 'global',
+      enabled: this.isRuntimeEnabled(),
+      priority: 'high',
+      intervalMs: resolveOutboxDispatchIntervalMs(),
+      maxConcurrency: 1,
+      leaderMode: 'claim',
+      description: 'Outbox dispatcher runtime adapter',
+    });
     if (!this.isRuntimeEnabled()) {
       this.logger.log('发件箱调度运行时已跳过：当前配置或 role 不承载 outbox worker');
       return;
     }
-    this.logger.log('发件箱调度运行时已交由后台 worker orchestrator 调度');
+    this.logger.log('发件箱调度运行时已交由 SchedulerManager 调度');
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
+    // no-op: 调度已转交 SchedulerManager，outbox runtime 仅保留执行器逻辑。
   }
 
   isRuntimeEnabled(): boolean {
@@ -92,29 +100,6 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
     return processedCount;
   }
 
-  private scheduleNextDispatch(delayMs: number): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
-    }
-    this.timer = setTimeout(() => {
-      void this.runScheduledDispatch();
-    }, delayMs);
-    this.timer.unref();
-  }
-
-  private async runScheduledDispatch(): Promise<void> {
-    if (!this.outboxDispatcherService.isEnabled() || !isOutboxRuntimeEnabled() || !shouldStartOutboxDispatcher()) {
-      return;
-    }
-    const processedCount = await this.dispatchPendingEvents().catch((error: unknown) => {
-      this.logger.error('发件箱调度运行时调度失败', error instanceof Error ? error.stack : String(error));
-      return 0;
-    });
-    this.nextDelayMs = processedCount > 0
-      ? resolveOutboxDispatchIntervalMs()
-      : Math.min(Math.max(resolveOutboxDispatchIntervalMs(), this.nextDelayMs * 2), DEFAULT_OUTBOX_DISPATCH_IDLE_MAX_MS);
-    this.scheduleNextDispatch(this.nextDelayMs);
-  }
 
   async consumeEvent(
     event: Record<string, unknown>,
@@ -222,7 +207,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
 function resolveDispatcherId(): string {
   const explicit = process.env.SERVER_OUTBOX_DISPATCHER_ID?.trim();
   if (explicit) {
-    return explicit;
+    return explicit.includes(':') ? explicit : `outbox-dispatcher:${explicit}`;
   }
   return `outbox-dispatcher:${process.pid.toString(36)}`;
 }

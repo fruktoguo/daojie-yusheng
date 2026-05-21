@@ -1383,6 +1383,39 @@ export interface GmWorkerStateRes {
 
   capacity?: GmWorkerCapacity;
   topology?: GmWorkerTopology;
+  scheduler?: {
+    initialized: boolean;
+    stopping: boolean;
+    barrier: Record<string, unknown> | null;
+    tasks: Array<{
+      id: string;
+      kind: string;
+      scope: string;
+      priority: string;
+      enabled: boolean;
+      running: boolean;
+      paused: boolean;
+      status: string;
+      lastHeartbeatAt: string | null;
+      lastSuccessAt: string | null;
+      lastFailureAt: string | null;
+      lastFailure: string | null;
+      processedCount: number;
+      nextRunAt: string | null;
+      backlogCount: number;
+      lastDurationMs: number;
+      runCount: number;
+      failureCount: number;
+    }>;
+    governor?: {
+      availableParallelism: number;
+      cpuReserve: number;
+      flushPoolWaiting: number;
+      lockWaitCount: number;
+      backlogCount: number;
+      backlogPressureLevel: 'low' | 'medium' | 'high' | 'critical';
+    } | null;
+  } | null;
   /**
  * note：补充说明。
  */

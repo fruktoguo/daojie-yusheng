@@ -7,6 +7,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
+import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
+import { SchedulerManagerService } from '../scheduler/scheduler-manager.service';
+import { SchedulerRegistryService } from '../scheduler/scheduler-registry.service';
+import { SchedulerStateService } from '../scheduler/scheduler-state.service';
 
 async function main(): Promise<void> {
   const previousRole = process.env.SERVER_RUNTIME_ROLE;
@@ -20,7 +24,18 @@ async function main(): Promise<void> {
 
   let flushCalls = 0;
   let outboxCalls = 0;
+  let flushLedgerRetentionCalls = 0;
   let mailExpirationCalls = 0;
+  const barrier = new StartupBarrierService();
+  const scheduler = new SchedulerManagerService(
+    new SchedulerRegistryService(),
+    new SchedulerStateService(),
+    undefined,
+    undefined,
+    barrier,
+  );
+  await scheduler.initialize();
+  barrier.openWorker();
   const orchestrator = new BackgroundWorkerRuntimeService(
     { runOnce: async () => { flushCalls += 1; return 1; } } as never,
     {
@@ -31,31 +46,44 @@ async function main(): Promise<void> {
       },
     } as never,
     undefined,
+    { runOnce: async () => { flushLedgerRetentionCalls += 1; return 3; } } as never,
     { runOnce: async () => { mailExpirationCalls += 1; return 1; } } as never,
     undefined,
     undefined,
     undefined,
+    barrier,
+    scheduler,
   );
 
   try {
     orchestrator.onModuleInit();
+    orchestrator.startForLifecycleCoordinator();
     await sleep(20);
     const states = orchestrator.listWorkerStates();
     const outbox = states.find((state) => state.id === 'outbox-dispatcher');
     const mailExpiration = states.find((state) => state.id === 'mail-expiration-cleanup');
+    const flushLedgerRetention = states.find((state) => state.id === 'flush-ledger-retention');
     const flush = states.find((state) => state.id === 'flush-task-consumer');
     const backup = states.find((state) => state.id === 'database-backup');
     assert.equal(outbox?.enabled, true);
     assert.equal(mailExpiration?.enabled, true);
+    assert.equal(flushLedgerRetention?.enabled, true);
     assert.equal(flush?.enabled, true);
     assert.equal(backup?.enabled, false);
     assert.ok((flush?.processedCount ?? 0) >= 1);
     assert.ok((outbox?.processedCount ?? 0) >= 2);
     assert.ok((mailExpiration?.processedCount ?? 0) >= 1);
+    assert.ok((flushLedgerRetention?.processedCount ?? 0) >= 3);
     assert.ok(flushCalls >= 1);
     assert.ok(outboxCalls >= 1);
     assert.ok(mailExpirationCalls >= 1);
-    const serverRoot = process.cwd();
+    assert.ok(flushLedgerRetentionCalls >= 1);
+    const schedulerTasks = scheduler.getSnapshot().tasks;
+    assert.ok(schedulerTasks.some((task) => task.id === 'flush-task-consumer' && task.kind === 'flush'));
+    assert.ok(schedulerTasks.some((task) => task.id === 'outbox-dispatcher' && task.kind === 'outbox'));
+    assert.ok(schedulerTasks.some((task) => task.id === 'flush-ledger-retention' && task.kind === 'maintenance'));
+    assert.ok((schedulerTasks.find((task) => task.id === 'outbox-dispatcher')?.processedCount ?? 0) >= 2);
+    const serverRoot = path.resolve(__dirname, '..', '..');
     const backupTool = fs.readFileSync(path.join(serverRoot, 'src/tools/database-backup-worker.ts'), 'utf8');
     const orchestratorSource = fs.readFileSync(path.join(serverRoot, 'src/runtime/worker/background-worker-runtime.service.ts'), 'utf8');
     assert.ok(backupTool.includes('export async function runDatabaseBackupWorkerOnce'));

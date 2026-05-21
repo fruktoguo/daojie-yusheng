@@ -132,22 +132,26 @@ packages/server/src/scheduler/
 
 ## 9. 修改计划
 ### Phase 1：建立统一骨架
-- [ ] 新增 `packages/server/src/scheduler/` 基础模块。
-- [ ] 定义 `SchedulerTaskDefinition`、`SchedulerTaskRuntimeState`、`RetryPolicy`、`BackoffPolicy`。
-- [ ] 实现 `SchedulerManagerService`、`SchedulerRegistryService`、`SchedulerStateService`。
-- [ ] 接入 `StartupBarrierService`，统一开闸/关闸。
+- [x] 新增 `packages/server/src/scheduler/` 基础模块。
+- [x] 定义 `SchedulerTaskDefinition`、`SchedulerTaskRuntimeState`、`RetryPolicy`、`BackoffPolicy`。
+- [x] 实现 `SchedulerManagerService`、`SchedulerRegistryService`、`SchedulerStateService`。
+- [x] 接入 `StartupBarrierService`，统一开闸/关闸。
+  - 验证（2026-05-22）：`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/scheduler-manager-smoke.js` 通过；当前仅证明 Phase 1 骨架、registry/state、StartupBarrier 快照、pause/失败记录/stop，不证明 Phase 2 迁移。
 ### Phase 2：迁移只读调度
-- [ ] 把 `BackgroundWorkerRuntimeService` 改成 registry 驱动。
-- [ ] 把 `OutboxDispatcherRuntimeService` 改为 scheduler task adapter。
-- [ ] 把 `WorldTickService` 的启动/停止交给 manager 管控。
+- [x] 把 `BackgroundWorkerRuntimeService` 改成 registry 驱动。
+- [x] 把 `OutboxDispatcherRuntimeService` 改为 scheduler task adapter。
+- [x] 把 `WorldTickService` 的启动/停止交给 manager 管控。
+  - 验证（2026-05-22）：`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/background-worker-runtime-smoke.js`、`node packages/server/dist/tools/world-tick-scheduler-smoke.js` 通过；当前仅证明 registry 接入、运行状态记录、pause/stop 控制与 outbox/tick 的 scheduler 注册，不证明后续反压与 GM 快照。
 ### Phase 3：迁移受控反压
-- [ ] 新增 `ExecutionGovernor`，读取 flush pool waiting、lock wait、backlog、CPU。
-- [ ] 为 tick / flush / outbox 配置不同 priority 和 backoff。
-- [ ] 在 GM worker 面板展示统一调度快照。
+- [x] 新增 `ExecutionGovernor`，读取 flush pool waiting、lock wait、backlog、CPU。
+- [x] 为 tick / flush / outbox 配置不同 priority 和 backoff。
+- [x] 在 GM worker 面板展示统一调度快照。
+  - 验证（2026-05-22）：`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/scheduler-governor-smoke.js`、`node packages/server/dist/tools/gm-worker-scheduler-smoke.js` 通过；当前仅证明 governor 读取与低优先级反压、GM worker 可见 scheduler 快照，不证明 Phase 4 恢复控制面。
 ### Phase 4：状态恢复与可控运维
-- [ ] 为关键任务增加 DB/state store 恢复。
-- [ ] 支持 pause / resume / manual trigger / drain / disable。
-- [ ] GM 页面增加任务明细和手动控制。
+- [x] 为关键任务增加 DB/state store 恢复。
+- [x] 支持 pause / resume / manual trigger / drain / disable。
+- [x] GM 页面增加任务明细和手动控制。
+  - 验证（2026-05-22）：`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/scheduler-control-smoke.js`、`node packages/server/dist/tools/gm-worker-scheduler-smoke.js` 通过；当前仅证明 scheduler 快照可从持久化摘要恢复、GM 控制面能操作 scheduler，不证明 Phase 5 清理旧入口已完成。
 ### Phase 5：清理旧入口
 - [ ] 清理重复的 interval/schedule 逻辑。
 - [ ] 保留领域执行器，移除各自手工编排分支。
