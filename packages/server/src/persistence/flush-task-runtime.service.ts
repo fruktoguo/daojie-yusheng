@@ -44,7 +44,9 @@ const INSTANCE_NORMAL_PRIORITY_DOMAINS = new Set(['container_state', 'ground_ite
 const PLAYER_PROJECTABLE_DOMAIN_SET = new Set<string>(PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS);
 const PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND = 'player_snapshot_projection';
 const INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND = 'instance_domain_delta';
+const INSTANCE_DOMAIN_STATE_PAYLOAD_KIND = 'instance_domain_state';
 const INSTANCE_PAYLOAD_BATCH_DOMAINS = new Set(['tile_damage', 'tile_resource']);
+const INSTANCE_PAYLOAD_STATE_DOMAINS = new Set(['ground_item', 'overlay', 'monster_runtime', 'container_state', 'building', 'room', 'fengshui']);
 
 interface PlayerSnapshotProjectionPayload {
   kind: typeof PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND;
@@ -56,6 +58,13 @@ interface InstanceDomainDeltaPayload {
   domain: string;
   upserts: unknown[];
   deletes: unknown[];
+  watermarkPayload?: unknown;
+}
+
+interface InstanceDomainStatePayload {
+  kind: typeof INSTANCE_DOMAIN_STATE_PAYLOAD_KIND;
+  domain: string;
+  payload: unknown;
   watermarkPayload?: unknown;
 }
 
@@ -74,16 +83,30 @@ interface PlayerPersistenceFlushPort {
 interface InstanceRuntimeView {
   meta?: { persistent?: boolean | null; ownershipEpoch?: number | null } | null;
   getPersistenceRevision?: () => number | null;
+  buildGroundPersistenceDelta?: () => { fullReplace?: boolean; tileIndices?: unknown[]; entries?: unknown[] } | null;
+  buildOverlayPersistenceChunks?: () => unknown[];
+  buildMonsterRuntimePersistenceDelta?: () => { fullReplace?: boolean; upserts?: unknown[]; deletes?: unknown[] } | null;
+  buildMonsterRuntimePersistenceEntries?: () => unknown[];
+  buildBuildingRoomFengShuiPersistenceState?: () => unknown;
+  worldRuntimeLootContainerService?: { buildContainerPersistenceStates(instanceId: string): unknown[] } | null;
 }
 
 interface BatchPersistencePort {
   saveTileDamageDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
   saveTileResourceDeltaBatch?(deltas: Array<{ instanceId: string; upserts: unknown[]; deletes: unknown[] }>): Promise<void>;
   saveInstanceRecoveryWatermarkBatch?(rows: Array<{ instanceId: string; payload: unknown }>): Promise<void>;
+  saveInstanceRecoveryWatermark?(instanceId: string, payload: unknown): Promise<void>;
+  replaceGroundItemTiles?(instanceId: string, tileIndices: unknown[], entries: unknown[]): Promise<void>;
+  saveContainerState?(input: { instanceId: string; containerId?: unknown; sourceId?: unknown; statePayload: unknown }): Promise<void>;
+  saveOverlayChunk?(input: { instanceId: string; patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown }): Promise<void>;
+  saveMonsterRuntimeDelta?(instanceId: string, upserts: unknown[], deletes: unknown[]): Promise<void>;
+  replaceMonsterRuntimeStates?(instanceId: string, states: unknown[]): Promise<void>;
+  saveBuildingRoomFengShuiState?(instanceId: string, state: unknown): Promise<void>;
 }
 
 interface WorldRuntimeFlushTaskPort {
   instanceDomainPersistenceService?: BatchPersistencePort | null;
+  worldRuntimeLootContainerService?: { buildContainerPersistenceStates(instanceId: string): unknown[] } | null;
   listDirtyPersistentInstanceDomains?(): Array<{ instanceId: string; domains: string[] }>;
   listDirtyPersistentInstances?(): string[];
   getInstanceRuntime?(instanceId: string): InstanceRuntimeView | null;
@@ -253,21 +276,49 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private buildInstanceTaskPayload(instanceId: string, domain: string): InstanceDomainDeltaPayload | null {
-    if (!INSTANCE_PAYLOAD_BATCH_DOMAINS.has(domain) || typeof this.worldRuntimeService.buildDomainDeltaBatch !== 'function') {
+  private buildInstanceTaskPayload(instanceId: string, domain: string): InstanceDomainDeltaPayload | InstanceDomainStatePayload | null {
+    if (INSTANCE_PAYLOAD_BATCH_DOMAINS.has(domain) && typeof this.worldRuntimeService.buildDomainDeltaBatch === 'function') {
+      const [delta] = this.worldRuntimeService.buildDomainDeltaBatch(domain, [instanceId]);
+      if (!delta || delta.instanceId !== instanceId) {
+        return null;
+      }
+      return {
+        kind: INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND,
+        domain,
+        upserts: delta.upserts ?? [],
+        deletes: delta.deletes ?? [],
+        watermarkPayload: delta.watermarkPayload,
+      };
+    }
+    if (!INSTANCE_PAYLOAD_STATE_DOMAINS.has(domain)) {
       return null;
     }
-    const [delta] = this.worldRuntimeService.buildDomainDeltaBatch(domain, [instanceId]);
-    if (!delta || delta.instanceId !== instanceId) {
+    const runtime = this.worldRuntimeService.getInstanceRuntime?.(instanceId);
+    if (!runtime) {
       return null;
     }
-    return {
-      kind: INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND,
-      domain,
-      upserts: delta.upserts ?? [],
-      deletes: delta.deletes ?? [],
-      watermarkPayload: delta.watermarkPayload,
-    };
+    if (domain === 'ground_item') {
+      const delta = runtime.buildGroundPersistenceDelta?.();
+      return delta && delta.fullReplace !== true
+        ? { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: { tileIndices: delta.tileIndices ?? [], entries: delta.entries ?? [] } }
+        : null;
+    }
+    if (domain === 'overlay') {
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: runtime.buildOverlayPersistenceChunks?.() ?? [] };
+    }
+    if (domain === 'monster_runtime') {
+      const delta = runtime.buildMonsterRuntimePersistenceDelta?.();
+      if (!delta) return null;
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: delta.fullReplace === true
+        ? { fullReplace: true, entries: runtime.buildMonsterRuntimePersistenceEntries?.() ?? [] }
+        : { fullReplace: false, upserts: delta.upserts ?? [], deletes: delta.deletes ?? [] } };
+    }
+    if (domain === 'container_state') {
+      const states = this.worldRuntimeService.worldRuntimeLootContainerService?.buildContainerPersistenceStates?.(instanceId) ?? [];
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: states };
+    }
+    const state = runtime.buildBuildingRoomFengShuiPersistenceState?.();
+    return state ? { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: state } : null;
   }
 
   private async collectInstanceTasks(): Promise<void> {
@@ -424,6 +475,38 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return processed;
   }
 
+  private async processInstanceStatePayloadTaskGroup(group: FlushTask[]): Promise<number | null> {
+    if (group.length === 0) {
+      return null;
+    }
+    const payloadRows = group.map((task) => ({ task, payload: normalizeInstanceDomainStatePayload(task.payloadJson) }));
+    if (payloadRows.every((row) => !row.payload)) {
+      return null;
+    }
+    const invalidTasks = payloadRows.filter((row) => !row.payload).map((row) => row.task);
+    if (invalidTasks.length > 0) {
+      if (shouldStartAuthoritativeRuntime()) {
+        return null;
+      }
+      await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+      return 0;
+    }
+    if (!this.worldRuntimeService.instanceDomainPersistenceService) {
+      await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+      return 0;
+    }
+    let processed = 0;
+    for (const { task, payload } of payloadRows as Array<{ task: FlushTask; payload: InstanceDomainStatePayload }>) {
+      if (!payload) continue;
+      await this.applyInstanceDomainStatePayload(task.id, payload);
+      if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+        processed += 1;
+      }
+      this.failureAttempts.delete(instanceTaskKey(task));
+    }
+    return processed;
+  }
+
   private async processInstanceTaskGroup(group: FlushTask[]): Promise<number> {
     if (this.isGlobalBackoffActive()) {
       return 0;
@@ -431,6 +514,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     const first = group[0];
     if (!first) {
       return 0;
+    }
+    const payloadProcessed = await this.processInstanceStatePayloadTaskGroup(group);
+    if (payloadProcessed !== null) {
+      return payloadProcessed;
     }
     const runtime = this.worldRuntimeService.getInstanceRuntime?.(first.id);
     if (!runtime) {
@@ -461,6 +548,53 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       return group.length;
     } catch (error) {
       return this.retryInstanceTasksIndividually(group, error);
+    }
+  }
+
+  private async applyInstanceDomainStatePayload(instanceId: string, payload: InstanceDomainStatePayload): Promise<void> {
+    const persistence = this.worldRuntimeService.instanceDomainPersistenceService;
+    if (!persistence) {
+      throw new Error(`instance_domain_persistence_missing:${instanceId}:${payload.domain}`);
+    }
+    switch (payload.domain) {
+      case 'ground_item': {
+        const data = payload.payload as { tileIndices?: unknown[]; entries?: unknown[] } | null;
+        await persistence.replaceGroundItemTiles?.(instanceId, data?.tileIndices ?? [], data?.entries ?? []);
+        return;
+      }
+      case 'overlay': {
+        const chunks = Array.isArray(payload.payload) ? payload.payload : [];
+        for (const chunk of chunks) {
+          const record = chunk as { patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown };
+          await persistence.saveOverlayChunk?.({ instanceId, patchKind: record.patchKind, chunkKey: record.chunkKey, patchVersion: record.patchVersion, patchPayload: record.patchPayload });
+        }
+        return;
+      }
+      case 'monster_runtime': {
+        const data = payload.payload as { fullReplace?: boolean; upserts?: unknown[]; deletes?: unknown[]; entries?: unknown[] } | null;
+        if (data?.fullReplace === true) {
+          await persistence.replaceMonsterRuntimeStates?.(instanceId, data.entries ?? []);
+        } else {
+          await persistence.saveMonsterRuntimeDelta?.(instanceId, data?.upserts ?? [], data?.deletes ?? []);
+        }
+        return;
+      }
+      case 'container_state': {
+        const states = Array.isArray(payload.payload) ? payload.payload : [];
+        for (const state of states) {
+          const record = state as { containerId?: unknown; sourceId?: unknown };
+          await persistence.saveContainerState?.({ instanceId, containerId: record.containerId, sourceId: record.sourceId, statePayload: state });
+        }
+        return;
+      }
+      case 'building':
+      case 'room':
+      case 'fengshui': {
+        await persistence.saveBuildingRoomFengShuiState?.(instanceId, payload.payload);
+        return;
+      }
+      default:
+        throw new Error(`unsupported_instance_state_payload:${instanceId}:${payload.domain}`);
     }
   }
 
@@ -669,6 +803,17 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       invariantViolation: failure.invariantViolation,
     });
   }
+}
+
+function normalizeInstanceDomainStatePayload(value: unknown): InstanceDomainStatePayload | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.kind !== INSTANCE_DOMAIN_STATE_PAYLOAD_KIND || typeof record.domain !== 'string') {
+    return null;
+  }
+  return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain: record.domain, payload: record.payload, watermarkPayload: record.watermarkPayload };
 }
 
 function normalizeInstanceDomainDeltaPayload(value: unknown): InstanceDomainDeltaPayload | null {

@@ -30,6 +30,7 @@
     "smoke:flush-presence-payload": "pnpm compile && node dist/tools/flush-presence-payload-smoke.js",
     "smoke:flush-player-payload": "pnpm compile && node dist/tools/flush-presence-payload-smoke.js",
     "smoke:flush-instance-payload": "pnpm compile && node dist/tools/flush-instance-payload-smoke.js",
+    "smoke:flush-instance-state-payload": "pnpm compile && node dist/tools/flush-instance-state-payload-smoke.js",
     "smoke:runtime-role-policy": "pnpm compile && node dist/tools/runtime-role-policy-smoke.js",
     "smoke:worker-socket-policy": "pnpm compile && node dist/tools/worker-socket-policy-smoke.js",
     "smoke:background-worker-runtime": "pnpm compile && node dist/tools/background-worker-runtime-smoke.js",
