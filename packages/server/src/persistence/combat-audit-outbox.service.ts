@@ -236,6 +236,19 @@ async function insertCombatAuditBatch(pool: Pool, batch: QueuedCombatAuditEvent[
         ...event,
         queuedAt: entry.queuedAt,
       };
+      const auditAction = resolveCombatAuditAction(event);
+      const deltaJson = JSON.stringify({
+        action: auditAction,
+        phase: event.phase ?? null,
+        result: event.result ?? {},
+        application: event.application ?? null,
+        tags: Array.isArray(event.tags) ? event.tags : [],
+      });
+      const beforeJson = JSON.stringify({
+        actor: event.actor ?? null,
+        target: event.target ?? null,
+      });
+      const afterJson = JSON.stringify(payload);
       await client.query(
         `
           INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
@@ -258,19 +271,10 @@ async function insertCombatAuditBatch(pool: Pool, batch: QueuedCombatAuditEvent[
           entry.operationId,
           playerId || 'system:combat',
           assetRefId,
-          resolveCombatAuditAction(event),
-          JSON.stringify({
-            action: resolveCombatAuditAction(event),
-            phase: event.phase ?? null,
-            result: event.result ?? {},
-            application: event.application ?? null,
-            tags: Array.isArray(event.tags) ? event.tags : [],
-          }),
-          JSON.stringify({
-            actor: event.actor ?? null,
-            target: event.target ?? null,
-          }),
-          JSON.stringify(payload),
+          auditAction,
+          deltaJson,
+          beforeJson,
+          afterJson,
         ],
       );
     }
