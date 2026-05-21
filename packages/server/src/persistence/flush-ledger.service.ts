@@ -332,8 +332,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           priority = EXCLUDED.priority,
           latest_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
           flushed_version = GREATEST(${PLAYER_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
-          dirty_since_at = COALESCE(EXCLUDED.dirty_since_at, ${PLAYER_FLUSH_LEDGER_TABLE}.dirty_since_at),
-          next_attempt_at = COALESCE(EXCLUDED.next_attempt_at, ${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at),
+          dirty_since_at = COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.dirty_since_at, EXCLUDED.dirty_since_at),
+          next_attempt_at = LEAST(
+            COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at, EXCLUDED.next_attempt_at),
+            COALESCE(EXCLUDED.next_attempt_at, ${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at)
+          ),
           claimed_by = COALESCE(EXCLUDED.claimed_by, ${PLAYER_FLUSH_LEDGER_TABLE}.claimed_by),
           claim_until = COALESCE(EXCLUDED.claim_until, ${PLAYER_FLUSH_LEDGER_TABLE}.claim_until),
           runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${PLAYER_FLUSH_LEDGER_TABLE}.runtime_owner_id),
@@ -341,7 +344,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${PLAYER_FLUSH_LEDGER_TABLE}.idempotency_key),
           payload_jsonb = COALESCE(EXCLUDED.payload_jsonb, ${PLAYER_FLUSH_LEDGER_TABLE}.payload_jsonb),
           failure_category = COALESCE(EXCLUDED.failure_category, ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category),
-          retry_after = COALESCE(EXCLUDED.retry_after, ${PLAYER_FLUSH_LEDGER_TABLE}.retry_after),
+          retry_after = LEAST(
+            COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
+            COALESCE(EXCLUDED.retry_after, ${PLAYER_FLUSH_LEDGER_TABLE}.retry_after)
+          ),
           updated_at = now()
       `,
       [
@@ -401,8 +407,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           priority = EXCLUDED.priority,
           latest_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version, EXCLUDED.latest_version),
           flushed_version = GREATEST(${INSTANCE_FLUSH_LEDGER_TABLE}.flushed_version, EXCLUDED.flushed_version),
-          dirty_since_at = COALESCE(EXCLUDED.dirty_since_at, ${INSTANCE_FLUSH_LEDGER_TABLE}.dirty_since_at),
-          next_attempt_at = COALESCE(EXCLUDED.next_attempt_at, ${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at),
+          dirty_since_at = COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.dirty_since_at, EXCLUDED.dirty_since_at),
+          next_attempt_at = LEAST(
+            COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at, EXCLUDED.next_attempt_at),
+            COALESCE(EXCLUDED.next_attempt_at, ${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at)
+          ),
           claimed_by = COALESCE(EXCLUDED.claimed_by, ${INSTANCE_FLUSH_LEDGER_TABLE}.claimed_by),
           claim_until = COALESCE(EXCLUDED.claim_until, ${INSTANCE_FLUSH_LEDGER_TABLE}.claim_until),
           runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${INSTANCE_FLUSH_LEDGER_TABLE}.runtime_owner_id),
@@ -410,7 +419,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${INSTANCE_FLUSH_LEDGER_TABLE}.idempotency_key),
           payload_jsonb = COALESCE(EXCLUDED.payload_jsonb, ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb),
           failure_category = COALESCE(EXCLUDED.failure_category, ${INSTANCE_FLUSH_LEDGER_TABLE}.failure_category),
-          retry_after = COALESCE(EXCLUDED.retry_after, ${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after),
+          retry_after = LEAST(
+            COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
+            COALESCE(EXCLUDED.retry_after, ${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after)
+          ),
           updated_at = now()
       `,
       [
@@ -576,6 +588,8 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             claimed_by = NULL,
             claim_until = NULL,
             next_attempt_at = NULL,
+            retry_after = NULL,
+            failure_category = NULL,
             updated_at = now()
         WHERE player_id = $1 AND domain = $2
       `,
@@ -601,6 +615,8 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             claimed_by = NULL,
             claim_until = NULL,
             next_attempt_at = NULL,
+            retry_after = NULL,
+            failure_category = NULL,
             updated_at = now()
         WHERE instance_id = $1 AND domain = $2 AND ownership_epoch = $3
       `,
