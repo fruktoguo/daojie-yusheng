@@ -733,21 +733,34 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 function normalizeRuntimeBonuses(value: unknown[]): RuntimeBonusSnapshot[] {
-  return value
-    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
-    .map((entry): RuntimeBonusSnapshot => ({
-      source: canonicalizeRuntimeBonusSource(entry.source),
-      label: typeof entry.label === 'string' ? entry.label : undefined,
-      attrs: asRecordOrUndefined(entry.attrs),
-      stats: asRecordOrUndefined(entry.stats),
-      qiProjection: Array.isArray(entry.qiProjection)
-        ? entry.qiProjection
-            .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
-            .map((item) => ({ ...item }))
-        : undefined,
-      meta: asRecordOrUndefined(entry.meta),
-    }))
-    .filter((entry) => entry.source.length > 0 && !isDerivedPersistentRuntimeBonusSource(entry.source));
+  const bonuses: RuntimeBonusSnapshot[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const normalizedEntry = entry as Record<string, unknown>;
+    const source = canonicalizeRuntimeBonusSource(normalizedEntry.source);
+    if (!source || isDerivedPersistentRuntimeBonusSource(source)) {
+      continue;
+    }
+    const qiProjection = Array.isArray(normalizedEntry.qiProjection)
+      ? normalizedEntry.qiProjection.reduce<Record<string, unknown>[]>((acc, item) => {
+          if (item && typeof item === 'object') {
+            acc.push({ ...(item as Record<string, unknown>) });
+          }
+          return acc;
+        }, [])
+      : undefined;
+    bonuses.push({
+      source,
+      label: typeof normalizedEntry.label === 'string' ? normalizedEntry.label : undefined,
+      attrs: asRecordOrUndefined(normalizedEntry.attrs),
+      stats: asRecordOrUndefined(normalizedEntry.stats),
+      qiProjection: qiProjection && qiProjection.length > 0 ? qiProjection : undefined,
+      meta: asRecordOrUndefined(normalizedEntry.meta),
+    });
+  }
+  return bonuses;
 }
 
 function resolveSnapshotArray(
