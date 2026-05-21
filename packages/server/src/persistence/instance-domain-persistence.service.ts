@@ -174,6 +174,11 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     const buildingCells = rawBuildings.flatMap(normalizeBuildingCellPersistenceRows);
     const roomCells = Array.isArray(state?.roomCells) ? state.roomCells.map(normalizeRoomCellPersistenceRow).filter((row) => normalizeRequiredString(row.room_id)) : [];
     const fengShui = Array.isArray(state?.fengShui) ? state.fengShui.map(normalizeFengShuiPersistenceRow) : [];
+    const buildingsJson = JSON.stringify(buildings);
+    const buildingCellsJson = JSON.stringify(buildingCells);
+    const roomsJson = JSON.stringify(rooms);
+    const roomCellsJson = JSON.stringify(roomCells);
+    const fengShuiJson = JSON.stringify(fengShui);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -225,7 +230,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               payload = EXCLUDED.payload,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(buildings)],
+          [normalizedInstanceId, buildingsJson],
         );
       }
       await client.query(
@@ -242,7 +247,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               WHERE incoming.building_id = target.building_id
             )
         `,
-        [normalizedInstanceId, JSON.stringify(buildings.map(({ building_id }) => ({ building_id })))],
+        [normalizedInstanceId, buildingsJson],
       );
       if (buildingCells.length > 0) {
         await client.query(
@@ -287,7 +292,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               blocks_sight = EXCLUDED.blocks_sight,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(buildingCells)],
+          [normalizedInstanceId, buildingCellsJson],
         );
       }
       await client.query(
@@ -304,7 +309,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               WHERE incoming.tile_index = target.tile_index
             )
         `,
-        [normalizedInstanceId, JSON.stringify(buildingCells.map(({ tile_index }) => ({ tile_index })))],
+        [normalizedInstanceId, buildingCellsJson],
       );
       if (rooms.length > 0) {
         await client.query(
@@ -359,7 +364,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               payload = EXCLUDED.payload,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(rooms)],
+          [normalizedInstanceId, roomsJson],
         );
       }
       await client.query(
@@ -376,7 +381,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               WHERE incoming.room_id = target.room_id
             )
         `,
-        [normalizedInstanceId, JSON.stringify(rooms.map(({ room_id }) => ({ room_id })))],
+        [normalizedInstanceId, roomsJson],
       );
       if (roomCells.length > 0) {
         await client.query(
@@ -403,7 +408,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               edge_flags = EXCLUDED.edge_flags,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(roomCells)],
+          [normalizedInstanceId, roomCellsJson],
         );
       }
       await client.query(
@@ -420,7 +425,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               WHERE incoming.tile_index = target.tile_index
             )
         `,
-        [normalizedInstanceId, JSON.stringify(roomCells.map(({ tile_index }) => ({ tile_index })))],
+        [normalizedInstanceId, roomCellsJson],
       );
       if (fengShui.length > 0) {
         await client.query(
@@ -473,7 +478,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               detail_json = EXCLUDED.detail_json,
               updated_at = now()
           `,
-          [normalizedInstanceId, JSON.stringify(fengShui)],
+          [normalizedInstanceId, fengShuiJson],
         );
       }
       await client.query(
@@ -490,7 +495,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               WHERE incoming.room_id = target.room_id
             )
         `,
-        [normalizedInstanceId, JSON.stringify(fengShui.map(({ room_id }) => ({ room_id })))],
+        [normalizedInstanceId, fengShuiJson],
       );
       await client.query('COMMIT');
     } catch (error: unknown) {
