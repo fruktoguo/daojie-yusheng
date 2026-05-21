@@ -110,6 +110,9 @@ interface WorldRuntimePlayerSessionDeps {
   clearPendingCommand(playerId: string): void;
   getInstanceRuntime(instanceId: string): InstanceRuntimeLike | null;
   refreshPlayerContextActions?(playerId: string, view?: unknown): unknown;
+  worldRuntimeService?: {
+    instanceReadyForPlayerAttach?(instanceId: string): { ok: boolean; reason: string; instance?: InstanceRuntimeLike | null };
+  };
 }
 
 interface ResolveTargetInstanceInput {
@@ -166,12 +169,13 @@ export class WorldRuntimePlayerSessionService {
     if (!targetInstance) {
       throw new NotFoundException('目标实例不可用');
     }
-    const attachBlockedReason = resolveInstanceAttachBlockedReason(targetInstance);
-    if (attachBlockedReason) {
+    const attachReady = deps.worldRuntimeService?.instanceReadyForPlayerAttach?.(targetInstance.meta.instanceId)
+      ?? resolveInstanceAttachReady(targetInstance);
+    if (!attachReady.ok) {
       deps.logger.warn(
-        `玩家 ${playerId} 目标实例暂不可进入：instanceId=${targetInstance.meta.instanceId} reason=${attachBlockedReason}`,
+        `玩家 ${playerId} 目标实例暂不可进入：instanceId=${targetInstance.meta.instanceId} reason=${attachReady.reason}`,
       );
-      throw new ServiceUnavailableException(`目标实例暂不可进入：${attachBlockedReason}`);
+      throw new ServiceUnavailableException(`目标实例暂不可进入：${attachReady.reason}`);
     }
 
     const previous = deps.getPlayerLocation(playerId);
@@ -400,27 +404,6 @@ function isDeadPlayerRuntime(player: PlayerRuntimeLike | null | undefined): bool
   return Number.isFinite(player?.hp) && Number(player?.hp) <= 0;
 }
 
-function resolveInstanceAttachBlockedReason(instance: InstanceRuntimeLike): string {
-  const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string' ? instance.meta.runtimeStatus.trim() : '';
-  if (runtimeStatus === 'fenced') {
-    return 'lease_fenced';
-  }
-  if (runtimeStatus === 'lease_degraded') {
-    return 'lease_degraded';
-  }
-  if (runtimeStatus === 'template_missing') {
-    return 'template_missing';
-  }
-  if (runtimeStatus === 'stopped') {
-    return 'instance_stopped';
-  }
-  const status = typeof instance?.meta?.status === 'string' ? instance.meta.status.trim() : '';
-  if (status === 'destroyed') {
-    return 'instance_destroyed';
-  }
-  return '';
-}
-
 function normalizeInstanceId(value: string | null | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -482,6 +465,27 @@ function resolvePlayerWorldPreferenceLinePreset(
     | { worldPreference?: { linePreset?: unknown } }
     | null;
   return player?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
+}
+
+function resolveInstanceAttachReady(instance: InstanceRuntimeLike): { ok: boolean; reason: string; instance: InstanceRuntimeLike } {
+  const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string' ? instance.meta.runtimeStatus.trim() : '';
+  if (runtimeStatus === 'fenced') {
+    return { ok: false, reason: 'lease_fenced', instance };
+  }
+  if (runtimeStatus === 'lease_degraded') {
+    return { ok: false, reason: 'lease_degraded', instance };
+  }
+  if (runtimeStatus === 'template_missing') {
+    return { ok: false, reason: 'template_missing', instance };
+  }
+  if (runtimeStatus === 'stopped') {
+    return { ok: false, reason: 'instance_stopped', instance };
+  }
+  const status = typeof instance?.meta?.status === 'string' ? instance.meta.status.trim() : '';
+  if (status === 'destroyed') {
+    return { ok: false, reason: 'instance_destroyed', instance };
+  }
+  return { ok: true, reason: 'ready', instance };
 }
 
 function resolveSessionEpoch(player: { sessionEpoch?: number | null } | null | undefined): number | undefined {

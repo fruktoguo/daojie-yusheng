@@ -11,7 +11,6 @@ const {
 } = world_runtime_normalization_helpers_1;
 
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
-const INSTANCE_LEASE_RESTORE_SKEW_MS = 5_000;
 
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
 @Injectable()
@@ -351,21 +350,27 @@ export class WorldRuntimeLifecycleService {
                         markSkipped('player_snapshot_missing', entry);
                         return;
                     }
-                    const instance = deps.getInstanceRuntime(entry.instanceId);
+                    const attachReady = typeof deps.instanceReadyForPlayerAttach === 'function'
+                        ? deps.instanceReadyForPlayerAttach(entry.instanceId)
+                        : { ok: true, reason: 'ready' };
+                    if (!attachReady.ok) {
+                        const reason = typeof attachReady.reason === 'string' && attachReady.reason.trim() ? attachReady.reason.trim() : 'attach_not_ready';
+                        markSkipped(reason, entry);
+                        if (reason === 'instance_missing') {
+                            deps.logger?.warn?.(`offline_restore_skipped_instance_missing instance=${entry.instanceId} player=${entry.playerId}`);
+                        } else if (reason === 'attach_gate_closed') {
+                            deps.logger?.warn?.(`offline_restore_skipped_startup_attach_gate instance=${entry.instanceId} player=${entry.playerId}`);
+                        } else if (reason === 'lease_not_local') {
+                            deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
+                        } else {
+                            deps.logger?.warn?.(`offline_restore_skipped_attach_not_ready instance=${entry.instanceId} player=${entry.playerId} reason=${reason}`);
+                        }
+                        return;
+                    }
+                    const instance = attachReady.instance ?? deps.getInstanceRuntime(entry.instanceId);
                     if (!instance) {
                         markSkipped('instance_missing', entry);
                         deps.logger?.warn?.(`offline_restore_skipped_instance_missing instance=${entry.instanceId} player=${entry.playerId}`);
-                        return;
-                    }
-                    if (typeof deps.startupBarrierService?.isInstanceAttachAllowed === 'function'
-                        && !deps.startupBarrierService.isInstanceAttachAllowed(instance.meta.instanceId)) {
-                        markSkipped('attach_gate_closed', entry);
-                        deps.logger?.warn?.(`offline_restore_skipped_startup_attach_gate instance=${entry.instanceId} player=${entry.playerId}`);
-                        return;
-                    }
-                    if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
-                        markSkipped('lease_not_local', entry);
-                        deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {
@@ -401,26 +406,6 @@ export class WorldRuntimeLifecycleService {
         return result;
     }
 };
-
-function isLocalLeaseReadyForOfflineRestore(deps, instance) {
-    if (!deps.instanceCatalogService?.isEnabled?.()) {
-        return true;
-    }
-    if (!instance || instance?.meta?.runtimeStatus === 'fenced') {
-        return false;
-    }
-    const nodeId = typeof deps.nodeRegistryService?.getNodeId === 'function'
-        ? deps.nodeRegistryService.getNodeId()
-        : '';
-    const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
-    const leaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
-    const leaseExpireAt = instance?.meta?.leaseExpireAt ? new Date(instance.meta.leaseExpireAt).getTime() : 0;
-    return Boolean(nodeId)
-        && assignedNodeId === nodeId
-        && Boolean(leaseToken)
-        && Number.isFinite(leaseExpireAt)
-        && leaseExpireAt > Date.now() - INSTANCE_LEASE_RESTORE_SKEW_MS;
-}
 
 function shouldRestoreCatalogEntry(entry) {
     if (entry?.status === 'destroyed' || entry?.runtime_status === 'stopped') {

@@ -604,6 +604,37 @@ export class WorldRuntimeService {
         return isInstanceLeaseWritable(this, instance);
     }
 
+    instanceReadyForPlayerAttach(instanceId) {
+        const instance = this.getInstanceRuntime(instanceId);
+        if (!instance) {
+            return { ok: false, reason: 'instance_missing', instance: null };
+        }
+        const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string' ? instance.meta.runtimeStatus.trim() : '';
+        if (runtimeStatus === 'fenced') {
+            return { ok: false, reason: 'lease_fenced', instance };
+        }
+        if (runtimeStatus === 'lease_degraded') {
+            return { ok: false, reason: 'lease_degraded', instance };
+        }
+        if (runtimeStatus === 'template_missing') {
+            return { ok: false, reason: 'template_missing', instance };
+        }
+        if (runtimeStatus === 'stopped') {
+            return { ok: false, reason: 'instance_stopped', instance };
+        }
+        const status = typeof instance?.meta?.status === 'string' ? instance.meta.status.trim() : '';
+        if (status === 'destroyed') {
+            return { ok: false, reason: 'instance_destroyed', instance };
+        }
+        if (this.startupBarrierService?.isInstanceAttachAllowed && !this.startupBarrierService.isInstanceAttachAllowed(instanceId)) {
+            return { ok: false, reason: 'attach_gate_closed', instance };
+        }
+        if (!this.isInstanceLeaseWritable(instance)) {
+            return { ok: false, reason: 'lease_not_local', instance };
+        }
+        return { ok: true, reason: 'ready', instance };
+    }
+
     /**
      * 暴露建筑幂等结果与审计日志的当前规模，供监控/GM 面板读取，
      * 配合 SERVER_BUILDING_OPERATION_RESULTS_LIMIT 调优观察。
