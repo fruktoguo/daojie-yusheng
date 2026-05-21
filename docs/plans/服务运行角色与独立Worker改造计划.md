@@ -83,10 +83,16 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 这是目标态前置条件，不允许用“当前 flush 依赖内存态”作为长期妥协。
 
-- [ ] 梳理所有玩家和实例 flush domain：
+- [x] 梳理所有玩家和实例 flush domain：
   - 玩家资产：`inventory / equipment / market / mail / GM edit`。
   - 玩家状态：`presence / position_checkpoint / world_anchor / progression / quest / buff / vitals`。
   - 实例状态：`time / monster_runtime / tile_resource / tile_damage / fengshui / ground_item / container_state / overlay / room / building`。
+  - 审计结论（2026-05-21）：
+    - 玩家已存在分域表与 `PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS`：`world_anchor / position_checkpoint / vitals / progression / attr / wallet / market_storage / inventory / map_unlock / equipment / technique / body_training / buff / quest / combat_pref / auto_battle_skill / auto_use_item_rule / profession / alchemy_preset / active_job / enhancement_record / logbook`。
+    - 但当前 `PlayerPersistenceFlushService.flushPlayerDomains()` 仍先从 `PlayerRuntimeService.buildPersistenceSnapshot()` 构造 runtime snapshot，再投影到分域表；worker 不能在无 api 内存态下消费这些玩家 domain。
+    - 邮件、市场订单、GM 操作已有各自 DB service/outbox/审计路径，不能简单并入 player snapshot flush；需要逐链路定义 idempotency key 与 payload。
+    - 实例已存在 delta/批量 API：`tile_resource / tile_damage / monster_runtime / instance checkpoint / recovery watermark / purgeInstanceState`；但当前 dirty 来源和 `flushInstanceDomains()` 仍依赖 `WorldRuntimeService` 与实例 runtime 对象。
+    - `time / fengshui / ground_item / container_state / overlay / room / building` 仍需确认 payload projector；Phase 2 后续项未完成前不得由 worker mark flushed。
 - [ ] 设计 durable staging 表或 payload 表：
   - `scope`、`entity_id`、`domain`、`priority`。
   - `revision`、`ownership_epoch`、`runtime_owner_id`、`fencing_token`。
