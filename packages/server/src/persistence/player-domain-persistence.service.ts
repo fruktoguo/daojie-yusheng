@@ -4163,10 +4163,11 @@ async function replacePlayerMapUnlockRows(
           unlocked_at = EXCLUDED.unlocked_at,
           updated_at = now()
       `,
-      [playerId, JSON.stringify(rows)],
+      [playerId, normalizedRowsJson],
     );
   }
   await prunePlayerRowsBySnapshotKeys(
+
     client,
     PLAYER_MAP_UNLOCK_TABLE,
     playerId,
@@ -4533,6 +4534,7 @@ async function replacePlayerTechniqueStates(
     skills_enabled: row.skillsEnabled,
     raw_payload: row.rawPayload,
   }));
+  const normalizedRowsJson = JSON.stringify(normalizedRows);
   if (normalizedRows.length > 0) {
     await client.query(
       `
@@ -4571,7 +4573,7 @@ async function replacePlayerTechniqueStates(
           raw_payload = EXCLUDED.raw_payload,
           updated_at = now()
       `,
-      [playerId, JSON.stringify(normalizedRows)],
+      [playerId, normalizedRowsJson],
     );
   }
   await prunePlayerRowsBySnapshotKeys(
@@ -4581,85 +4583,6 @@ async function replacePlayerTechniqueStates(
     normalizedRows.map(({ tech_id }) => ({ tech_id })),
     'tech_id varchar(120)',
     'incoming.tech_id = target.tech_id',
-  );
-}
-
-async function replacePlayerPersistentBuffStates(
-  client: PoolClient,
-  playerId: string,
-  rows: PersistentBuffStateRow[],
-  options: PlayerDomainPruneOptions = {},
-): Promise<void> {
-  const normalizedRows = rows.map((row) => ({
-    buff_id: row.buffId,
-    source_skill_id: row.sourceSkillId,
-    source_caster_id: row.sourceCasterId,
-    realm_lv: row.realmLv,
-    remaining_ticks: row.remainingTicks,
-    duration: row.duration,
-    stacks: row.stacks,
-    max_stacks: row.maxStacks,
-    sustain_ticks_elapsed: row.sustainTicksElapsed,
-    raw_payload: row.rawPayload,
-  }));
-  if (normalizedRows.length > 0) {
-    await client.query(
-      `
-        WITH incoming AS (
-          SELECT *
-          FROM jsonb_to_recordset($2::jsonb) AS entry(
-            buff_id varchar(120),
-            source_skill_id varchar(120),
-            source_caster_id varchar(120),
-            realm_lv bigint,
-            remaining_ticks bigint,
-            duration bigint,
-            stacks bigint,
-            max_stacks bigint,
-            sustain_ticks_elapsed bigint,
-            raw_payload jsonb
-          )
-        )
-        INSERT INTO ${PLAYER_PERSISTENT_BUFF_STATE_TABLE}(
-          player_id,
-          buff_id,
-          source_skill_id,
-          source_caster_id,
-          realm_lv,
-          remaining_ticks,
-          duration,
-          stacks,
-          max_stacks,
-          sustain_ticks_elapsed,
-          raw_payload,
-          updated_at
-        )
-        SELECT $1, buff_id, source_skill_id, source_caster_id, realm_lv, remaining_ticks, duration,
-          stacks, max_stacks, sustain_ticks_elapsed, COALESCE(raw_payload, '{}'::jsonb), now()
-        FROM incoming
-        ON CONFLICT (player_id, buff_id, source_skill_id)
-        DO UPDATE SET
-          source_caster_id = EXCLUDED.source_caster_id,
-          realm_lv = EXCLUDED.realm_lv,
-          remaining_ticks = EXCLUDED.remaining_ticks,
-          duration = EXCLUDED.duration,
-          stacks = EXCLUDED.stacks,
-          max_stacks = EXCLUDED.max_stacks,
-          sustain_ticks_elapsed = EXCLUDED.sustain_ticks_elapsed,
-          raw_payload = EXCLUDED.raw_payload,
-          updated_at = now()
-      `,
-      [playerId, JSON.stringify(normalizedRows)],
-    );
-  }
-  await prunePlayerRowsBySnapshotKeys(
-    client,
-    PLAYER_PERSISTENT_BUFF_STATE_TABLE,
-    playerId,
-    normalizedRows.map(({ buff_id, source_skill_id }) => ({ buff_id, source_skill_id })),
-    'buff_id varchar(120), source_skill_id varchar(120)',
-    'incoming.buff_id = target.buff_id AND incoming.source_skill_id = target.source_skill_id',
-    options,
   );
 }
 
