@@ -484,7 +484,7 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
     const service = new WorldRuntimeLifecycleService();
     const log = [];
     const instances = new Map();
-    await service.restoreOfflineHangingPlayers({
+    const result = await service.restoreOfflineHangingPlayers({
         playerRuntimeService: {
             playerDomainPersistenceService: {
                 isEnabled() {
@@ -558,6 +558,14 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
         ['warn', 'offline_restore_skipped_instance_missing instance=tower:tongtian:layer:3 player=player:offline'],
     ]);
     assert.equal(log.some((entry) => Array.isArray(entry) && entry[0] === 'connectPlayer'), false);
+    assert.deepEqual(result, {
+        enabled: true,
+        expired: 0,
+        candidates: 1,
+        restored: 0,
+        skipped: 1,
+        skippedByReason: { instance_missing: 1 },
+    });
 }
 
 async function main() {

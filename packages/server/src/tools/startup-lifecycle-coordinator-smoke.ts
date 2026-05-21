@@ -31,6 +31,14 @@ async function main(): Promise<void> {
       assert.equal(barrier.isInstanceWritable(instanceId), true);
       assert.equal(barrier.isInstanceAttachAllowed(instanceId), true);
       assert.equal(barrier.isTrafficOpen(), false);
+      return {
+        enabled: true,
+        expired: 1,
+        candidates: 3,
+        restored: 2,
+        skipped: 1,
+        skippedByReason: { lease_not_local: 1 },
+      };
     },
     startInstanceLeaseSyncForLifecycleCoordinator() {
       order.push('lease-sync');
@@ -109,7 +117,17 @@ async function main(): Promise<void> {
     'lease-sync',
   ]);
   assert.equal(barrier.isTrafficOpen(), true);
-  assert.equal(status.getSnapshot().ready, true);
+  const snapshot = status.getSnapshot();
+  assert.equal(snapshot.ready, true);
+  const recoveringPlayers = snapshot.phases.find((phase) => phase.phase === 'recovering_players');
+  assert.deepEqual(recoveringPlayers?.metrics.offlineHangingPlayers, {
+    enabled: true,
+    expired: 1,
+    candidates: 3,
+    restored: 2,
+    skipped: 1,
+    skippedByReason: { lease_not_local: 1 },
+  });
 
   console.log('[startup-lifecycle-coordinator-smoke] ok');
 }

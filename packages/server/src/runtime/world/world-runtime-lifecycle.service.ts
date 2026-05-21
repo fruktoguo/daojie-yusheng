@@ -285,17 +285,32 @@ export class WorldRuntimeLifecycleService {
      * 仅保留两处差异：离线时不走网络通讯；玩家死亡后直接离线。
      */
     async restoreOfflineHangingPlayers(deps) {
+        const result = {
+            enabled: false,
+            expired: 0,
+            candidates: 0,
+            restored: 0,
+            skipped: 0,
+            skippedByReason: {},
+        };
+        const markSkipped = (reason) => {
+            result.skipped++;
+            result.skippedByReason[reason] = (Number(result.skippedByReason[reason]) || 0) + 1;
+        };
         const persistenceService = deps.playerRuntimeService?.playerDomainPersistenceService;
         if (!persistenceService?.isEnabled?.() || typeof persistenceService.listOfflineHangingPlayerPositions !== 'function') {
-            return;
+            return result;
         }
+        result.enabled = true;
         // 先将超过 48 小时的离线玩家标记为彻底离线
         try {
             const expiredCount = await persistenceService.expireOfflineHangingPlayers();
-            if (expiredCount > 0) {
-                deps.logger?.log?.(`离线挂机超时离场：${expiredCount} 名玩家已标记为彻底离线`);
+            result.expired = Number.isFinite(Number(expiredCount)) ? Math.max(0, Math.trunc(Number(expiredCount))) : 0;
+            if (result.expired > 0) {
+                deps.logger?.log?.(`离线挂机超时离场：${result.expired} 名玩家已标记为彻底离线`);
             }
         } catch (error) {
+            markSkipped('expire_failed');
             deps.logger?.warn?.(`清理超时离线玩家失败：${error instanceof Error ? error.message : String(error)}`);
         }
         // 恢复未超时的离线挂机玩家
@@ -303,14 +318,15 @@ export class WorldRuntimeLifecycleService {
         try {
             positions = await persistenceService.listOfflineHangingPlayerPositions();
         } catch (error) {
+            markSkipped('query_failed');
             deps.logger?.warn?.(`查询离线挂机玩家位置失败：${error instanceof Error ? error.message : String(error)}`);
-            return;
+            return result;
         }
+        result.candidates = Array.isArray(positions) ? positions.length : 0;
         if (!positions || positions.length === 0) {
-            return;
+            return result;
         }
         let restored = 0;
-        let skipped = 0;
         const BATCH_SIZE = 50;
         for (let i = 0; i < positions.length; i += BATCH_SIZE) {
             const batch = positions.slice(i, i + BATCH_SIZE);
@@ -321,28 +337,28 @@ export class WorldRuntimeLifecycleService {
                         persistenceService,
                     );
                     if (!player) {
-                        skipped++;
+                        markSkipped('player_snapshot_missing');
                         return;
                     }
                     const instance = deps.getInstanceRuntime(entry.instanceId);
                     if (!instance) {
-                        skipped++;
+                        markSkipped('instance_missing');
                         deps.logger?.warn?.(`offline_restore_skipped_instance_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (typeof deps.startupBarrierService?.isInstanceAttachAllowed === 'function'
                         && !deps.startupBarrierService.isInstanceAttachAllowed(instance.meta.instanceId)) {
-                        skipped++;
+                        markSkipped('attach_gate_closed');
                         deps.logger?.warn?.(`offline_restore_skipped_startup_attach_gate instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
-                        skipped++;
+                        markSkipped('lease_not_local');
                         deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {
-                        skipped++;
+                        markSkipped('session_service_missing');
                         deps.logger?.warn?.(`offline_restore_skipped_session_service_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
@@ -360,16 +376,18 @@ export class WorldRuntimeLifecycleService {
                     }, deps);
                     restored++;
                 } catch (error) {
-                    skipped++;
+                    markSkipped('restore_error');
                     deps.logger?.warn?.(
                         `恢复离线挂机玩家失败：${entry.playerId} ${error instanceof Error ? error.message : String(error)}`,
                     );
                 }
             }));
         }
-        if (restored > 0 || skipped > 0) {
-            deps.logger?.log?.(`离线挂机玩家恢复完成：成功 ${restored}，跳过 ${skipped}，总计 ${positions.length}`);
+        result.restored = restored;
+        if (restored > 0 || result.skipped > 0) {
+            deps.logger?.log?.(`离线挂机玩家恢复完成：成功 ${restored}，跳过 ${result.skipped}，总计 ${positions.length}`);
         }
+        return result;
     }
 };
 

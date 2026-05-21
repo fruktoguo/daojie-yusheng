@@ -106,10 +106,11 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     }
     this.startupStatusService.beginPhase('recovering_players', 'player_recovery');
     this.startupBarrierService.openInstanceAttach(this.listRuntimeInstanceIds());
-    await this.worldRuntimeService.restoreOfflineHangingPlayersForStartup();
+    const offlineHangingPlayers = await this.worldRuntimeService.restoreOfflineHangingPlayersForStartup();
     this.startupStatusService.completePhase('recovering_players', {
       instanceAttachAllowed: true,
       instanceCount: this.listRuntimeInstanceIds().length,
+      offlineHangingPlayers: offlineHangingPlayers ?? null,
     });
   }
 
