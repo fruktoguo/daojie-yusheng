@@ -18,7 +18,7 @@
 | 文档 | 状态 | 说明 |
 |------|------|------|
 | [启动链路](启动链路.md) | 已定义，已开始落地 | 进程启动到 socket 玩家流量开放 |
-| [关闭链路](关闭链路.md) | 待补 | GM restart / SIGTERM 到 drain、flush、release lease、退出 |
+| [关闭链路](关闭链路.md) | 已定义，待落地 | GM restart / SIGTERM 到 drain、flush、release lease、退出 |
 | [玩家连接链路](玩家连接链路.md) | 待补 | socket connect / hello / bootstrap / session fencing |
 | [跨图传送链路](跨图传送链路.md) | 待补 | source detach、target lease、落点、AOI、静态同步 |
 | [实例迁移链路](实例迁移链路.md) | 待补 | GM/自动迁移、lease handoff、玩家隔离 |
