@@ -29,6 +29,7 @@
     "smoke:flush-staging-schema": "pnpm compile && node dist/tools/flush-staging-schema-smoke.js",
     "smoke:flush-presence-payload": "pnpm compile && node dist/tools/flush-presence-payload-smoke.js",
     "smoke:flush-player-payload": "pnpm compile && node dist/tools/flush-presence-payload-smoke.js",
+    "smoke:flush-instance-payload": "pnpm compile && node dist/tools/flush-instance-payload-smoke.js",
     "smoke:runtime-role-policy": "pnpm compile && node dist/tools/runtime-role-policy-smoke.js",
     "smoke:background-worker-runtime": "pnpm compile && node dist/tools/background-worker-runtime-smoke.js",
     "smoke:worker-backlog-alert": "pnpm compile && node dist/tools/worker-backlog-alert-smoke.js",

@@ -43,10 +43,20 @@ const INSTANCE_LOW_PRIORITY_DOMAINS = new Set(['time', 'monster_runtime', 'tile_
 const INSTANCE_NORMAL_PRIORITY_DOMAINS = new Set(['container_state', 'ground_item', 'overlay', 'room', 'building', 'temporary_tile', 'tile_cell']);
 const PLAYER_PROJECTABLE_DOMAIN_SET = new Set<string>(PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS);
 const PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND = 'player_snapshot_projection';
+const INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND = 'instance_domain_delta';
+const INSTANCE_PAYLOAD_BATCH_DOMAINS = new Set(['tile_damage', 'tile_resource']);
 
 interface PlayerSnapshotProjectionPayload {
   kind: typeof PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND;
   snapshot: PersistedPlayerSnapshot;
+}
+
+interface InstanceDomainDeltaPayload {
+  kind: typeof INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND;
+  domain: string;
+  upserts: unknown[];
+  deletes: unknown[];
+  watermarkPayload?: unknown;
 }
 
 interface PlayerRuntimeFlushTaskPort {
@@ -243,6 +253,23 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private buildInstanceTaskPayload(instanceId: string, domain: string): InstanceDomainDeltaPayload | null {
+    if (!INSTANCE_PAYLOAD_BATCH_DOMAINS.has(domain) || typeof this.worldRuntimeService.buildDomainDeltaBatch !== 'function') {
+      return null;
+    }
+    const [delta] = this.worldRuntimeService.buildDomainDeltaBatch(domain, [instanceId]);
+    if (!delta || delta.instanceId !== instanceId) {
+      return null;
+    }
+    return {
+      kind: INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND,
+      domain,
+      upserts: delta.upserts ?? [],
+      deletes: delta.deletes ?? [],
+      watermarkPayload: delta.watermarkPayload,
+    };
+  }
+
   private async collectInstanceTasks(): Promise<void> {
     const entries = this.worldRuntimeService.listDirtyPersistentInstanceDomains?.()
       ?? (this.worldRuntimeService.listDirtyPersistentInstances?.() ?? []).map((instanceId) => ({ instanceId, domains: ['domain'] }));
@@ -253,12 +280,15 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (!instanceId || !runtime?.meta?.persistent) continue;
       const ownershipEpoch = normalizeInt(runtime.meta.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
       for (const domain of normalizeDomains(entry.domains)) {
+        const payload = this.buildInstanceTaskPayload(instanceId, domain);
         await this.flushLedgerService.upsertFlushTask({
           scope: 'instance', id: instanceId, domain,
           priority: resolveFlushTaskPriority('instance', domain),
           ownershipEpoch,
           latestRevision: resolveRevision(runtime.getPersistenceRevision?.()),
           nextAttemptAt: new Date(now + resolveInstanceDelayMs(domain)).toISOString(),
+          payloadJson: payload,
+          fencingToken: payload ? `${payload.kind}:${domain}:${ownershipEpoch}:${runtime.getPersistenceRevision?.() ?? 0}` : null,
         });
       }
       this.flushWakeupService.signalInstanceFlush(instanceId);
@@ -473,13 +503,14 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async processBatchableInstanceTasks(tasks: FlushTask[], remaining: Map<string, FlushTask>): Promise<number> {
     const persistence = this.worldRuntimeService.instanceDomainPersistenceService;
-    const hasBatchApi = persistence
-      && typeof this.worldRuntimeService.buildDomainDeltaBatch === 'function'
-      && typeof this.worldRuntimeService.markDomainBatchPersisted === 'function'
+    const hasPersistenceApi = persistence
       && typeof persistence.saveTileDamageDeltaBatch === 'function'
       && typeof persistence.saveTileResourceDeltaBatch === 'function'
       && typeof persistence.saveInstanceRecoveryWatermarkBatch === 'function';
-    if (!hasBatchApi) return 0;
+    const hasRuntimeBatchApi = hasPersistenceApi
+      && typeof this.worldRuntimeService.buildDomainDeltaBatch === 'function'
+      && typeof this.worldRuntimeService.markDomainBatchPersisted === 'function';
+    if (!hasPersistenceApi) return 0;
     let processed = 0;
     for (const domain of ['tile_damage', 'tile_resource']) {
       if (this.isGlobalBackoffActive()) {
@@ -487,6 +518,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       const domainTasks = tasks.filter((task) => task.domain === domain);
       if (domainTasks.length === 0) continue;
+      const payloadProcessed = await this.processBatchableInstancePayloadTasks(domain, domainTasks, remaining);
+      if (payloadProcessed !== null) {
+        processed += payloadProcessed;
+        continue;
+      }
+      if (!hasRuntimeBatchApi) continue;
       try {
         const deltas = this.worldRuntimeService.buildDomainDeltaBatch?.(domain, domainTasks.map((task) => task.id)) ?? [];
         if (deltas.length === 0) continue;
@@ -518,6 +555,51 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           remaining.delete(instanceTaskKey(task));
         }
       }
+    }
+    return processed;
+  }
+
+  private async processBatchableInstancePayloadTasks(
+    domain: string,
+    domainTasks: FlushTask[],
+    remaining: Map<string, FlushTask>,
+  ): Promise<number | null> {
+    const persistence = this.worldRuntimeService.instanceDomainPersistenceService;
+    const payloadRows = domainTasks.map((task) => ({ task, payload: normalizeInstanceDomainDeltaPayload(task.payloadJson) }));
+    if (payloadRows.every((row) => !row.payload)) {
+      return null;
+    }
+    const invalidTasks = payloadRows.filter((row) => !row.payload).map((row) => row.task);
+    if (invalidTasks.length > 0) {
+      await this.flushLedgerService.markFlushTasksRetry(invalidTasks, RETRY_DELAY_MS);
+      for (const task of invalidTasks) remaining.delete(instanceTaskKey(task));
+    }
+    const validRows = payloadRows.filter((row): row is { task: FlushTask; payload: InstanceDomainDeltaPayload } => row.payload !== null);
+    if (validRows.length === 0) {
+      return 0;
+    }
+    if (domain === 'tile_damage') {
+      await persistence?.saveTileDamageDeltaBatch?.(validRows.map((row) => ({
+        instanceId: row.task.id,
+        upserts: row.payload.upserts,
+        deletes: row.payload.deletes,
+      })));
+    } else if (domain === 'tile_resource') {
+      await persistence?.saveTileResourceDeltaBatch?.(validRows.map((row) => ({
+        instanceId: row.task.id,
+        upserts: row.payload.upserts,
+        deletes: row.payload.deletes,
+      })));
+    }
+    const watermarks = validRows
+      .filter((row) => row.payload.watermarkPayload)
+      .map((row) => ({ instanceId: row.task.id, payload: row.payload.watermarkPayload }));
+    if (watermarks.length > 0) await persistence?.saveInstanceRecoveryWatermarkBatch?.(watermarks);
+    let processed = 0;
+    for (const { task } of validRows) {
+      if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+      this.failureAttempts.delete(instanceTaskKey(task));
+      remaining.delete(instanceTaskKey(task));
     }
     return processed;
   }
@@ -583,6 +665,23 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       invariantViolation: failure.invariantViolation,
     });
   }
+}
+
+function normalizeInstanceDomainDeltaPayload(value: unknown): InstanceDomainDeltaPayload | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.kind !== INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND || typeof record.domain !== 'string') {
+    return null;
+  }
+  return {
+    kind: INSTANCE_DOMAIN_DELTA_PAYLOAD_KIND,
+    domain: record.domain,
+    upserts: Array.isArray(record.upserts) ? record.upserts : [],
+    deletes: Array.isArray(record.deletes) ? record.deletes : [],
+    watermarkPayload: record.watermarkPayload,
+  };
 }
 
 function normalizePlayerPresencePayload(value: unknown): PlayerPresenceUpsertInput | null {
