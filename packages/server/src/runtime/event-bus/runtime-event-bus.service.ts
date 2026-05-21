@@ -1,19 +1,15 @@
 /**
- * 运行时事件总线核心服务。
- * 语义化方法集 + tick 末尾 flush，不落库、不跨进程、不持有 socket。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - tick 内收集各域运行时事件（通知、战斗表现、面板 patch、进度、反馈、GM 推送标记）
- * - 按规则合并/覆盖/限流/丢弃
- * - tick 末尾由 WorldTickService 调用 flushTick()，drain 后交给 WorldSyncService 组包
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import type { CombatEffect } from '@mud/shared';
 import type {
   TickEventBusPayload,
   NoticeQueueEntry,
   NoticeKind,
+  NoticePillConfig,
   PanelKind,
   PanelPatch,
   ActiveJobProgress,
@@ -34,7 +30,11 @@ import {
   MAX_AOI_EFFECTS_PER_INSTANCE,
   MAX_PANEL_PATCHES_PER_PLAYER,
   MAX_FEEDBACK_PER_PLAYER,
+  NOTICE_AGGREGATE_LIST_LIMIT,
+  NON_AGGREGATED_NOTICE_KINDS,
   NOTICE_KIND_PRIORITY,
+  STRUCTURED_NOTICE_AGGREGATION_RULES,
+  type StructuredNoticeAggregationRule,
   findLowestPriorityNoticeIndex,
   resolveCombatEffectsLimit,
 } from './runtime-event-bus.types';
@@ -95,14 +95,22 @@ export class RuntimeEventBusService {
    */
   queuePlayerNotice(playerId: string, notice: Omit<NoticeQueueEntry, 'id'> | NoticeQueueEntry): void {
     const queue = this.getOrCreatePlayerQueue(playerId);
-    const existingIndex = notice.structured
-      ? queue.notices.findIndex((entry) => isSameNotice(entry, notice))
-      : -1;
     const normalizedNotice = {
       ...notice,
       id: typeof (notice as NoticeQueueEntry).id === 'number' ? (notice as NoticeQueueEntry).id : ++this.noticeIdCounter,
     };
     const noticePriority = NOTICE_KIND_PRIORITY[normalizedNotice.kind] ?? 0;
+    const aggregateResult = tryAggregateStructuredNotice(queue.notices, normalizedNotice);
+    if (aggregateResult.merged) {
+      if (noticePriority < queue.minNoticePriority) {
+        queue.minNoticePriority = noticePriority;
+      }
+      this.metrics?.recordMerged('playerNotice');
+      return;
+    }
+    const existingIndex = normalizedNotice.structured
+      ? queue.notices.findIndex((entry) => isSameNotice(entry, normalizedNotice))
+      : -1;
     if (existingIndex >= 0 && queue.notices[existingIndex]) {
       queue.notices[existingIndex] = {
         ...normalizedNotice,
@@ -118,12 +126,12 @@ export class RuntimeEventBusService {
       const dropIndex = findLowestPriorityNoticeIndex(queue.notices);
       const droppedPriority = NOTICE_KIND_PRIORITY[queue.notices[dropIndex]?.kind ?? 'info'] ?? 0;
       if (noticePriority < droppedPriority) {
-        this.metrics?.recordDropped('playerNotice', 1, getNoticeDropDetail(normalizedNotice));
+        this.metrics?.recordDropped('playerNotice', 1, getNoticeDropDetail(normalizedNotice), 'lowPriorityReject');
         return;
       }
       const droppedNotice = queue.notices[dropIndex];
       queue.notices.splice(dropIndex, 1);
-      this.metrics?.recordDropped('playerNotice', 1, getNoticeDropDetail(droppedNotice ?? normalizedNotice));
+      this.metrics?.recordDropped('playerNotice', 1, getNoticeDropDetail(droppedNotice ?? normalizedNotice), 'queueLimitEvict');
       queue.minNoticePriority = findLowestNoticePriority(queue.notices);
     }
     queue.notices.push(normalizedNotice);
@@ -650,6 +658,134 @@ function findLowestNoticePriority(notices: NoticeQueueEntry[]): number {
   return priority;
 }
 
+function tryAggregateStructuredNotice(
+  notices: NoticeQueueEntry[],
+  incoming: NoticeQueueEntry,
+): { merged: boolean } {
+  const rule = resolveAggregationRule(incoming);
+  if (!rule) {
+    return { merged: false };
+  }
+  const existingIndex = notices.findIndex((entry) => canAggregateWithRule(entry, rule));
+  const existing = existingIndex >= 0 ? notices[existingIndex] : undefined;
+  if (!existing) {
+    return { merged: false };
+  }
+  notices[existingIndex] = buildAggregatedNotice(existing, incoming, rule);
+  return { merged: true };
+}
+
+function resolveAggregationRule(notice: NoticeQueueEntry): StructuredNoticeAggregationRule | null {
+  const key = notice.structured?.key;
+  if (!key || NON_AGGREGATED_NOTICE_KINDS.has(notice.kind)) {
+    return null;
+  }
+  return STRUCTURED_NOTICE_AGGREGATION_RULES.find((rule) => canAggregateKey(rule, key)) ?? null;
+}
+
+function canAggregateWithRule(notice: NoticeQueueEntry, rule: StructuredNoticeAggregationRule): boolean {
+  const key = notice.structured?.key;
+  if (!key || NON_AGGREGATED_NOTICE_KINDS.has(notice.kind)) {
+    return false;
+  }
+  return canAggregateKey(rule, key);
+}
+
+function canAggregateKey(rule: StructuredNoticeAggregationRule, key: string): boolean {
+  return key === rule.aggregateKey || rule.sourceKeys.includes(key);
+}
+
+function buildAggregatedNotice(
+  existing: NoticeQueueEntry,
+  incoming: NoticeQueueEntry,
+  rule: StructuredNoticeAggregationRule,
+): NoticeQueueEntry {
+  const existingItems = extractAggregationItems(existing, rule);
+  const incomingItems = extractAggregationItems(incoming, rule);
+  const allItems = [...existingItems.items, ...incomingItems.items];
+  const count = existingItems.count + incomingItems.count;
+  const visibleItems = allItems.slice(0, NOTICE_AGGREGATE_LIST_LIMIT);
+  const list = visibleItems.join('、');
+  const extraCount = Math.max(0, count - visibleItems.length);
+  const badges = mergeNoticeBadges(existing.structured?.badges, incoming.structured?.badges, rule.badge);
+  const pills: NoticePillConfig[] = [{ key: rule.listVarKey, style: rule.pillStyle }];
+  const vars = {
+    [rule.listVarKey]: list,
+    count,
+    extraCount,
+  };
+  return {
+    ...incoming,
+    id: existing.id,
+    kind: existing.kind,
+    text: `${rule.fallbackPrefix} ${count} 项`,
+    castId: existing.castId ?? incoming.castId,
+    structured: {
+      key: rule.aggregateKey,
+      vars,
+      pills,
+      ...(badges.length > 0 ? { badges } : undefined),
+    },
+  };
+}
+
+function extractAggregationItems(
+  notice: NoticeQueueEntry,
+  rule: StructuredNoticeAggregationRule,
+): { items: string[]; count: number } {
+  const vars = notice.structured?.vars ?? {};
+  if (notice.structured?.key === rule.aggregateKey) {
+    const items = splitNoticeListValue(vars[rule.listVarKey]);
+    const count = Math.max(items.length, normalizeNoticeCount(vars.count, items.length));
+    return { items, count };
+  }
+  const items: string[] = [];
+  for (const varKey of rule.itemVarKeys) {
+    items.push(...splitNoticeListValue(vars[varKey]));
+  }
+  if (items.length > 0) {
+    return { items, count: items.length };
+  }
+  const fallback = notice.text.trim();
+  return { items: fallback ? [fallback] : [], count: fallback ? 1 : 0 };
+}
+
+function splitNoticeListValue(value: string | number | undefined): string[] {
+  if (value === undefined) {
+    return [];
+  }
+  return String(value)
+    .split('、')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function normalizeNoticeCount(value: string | number | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.max(0, Math.trunc(parsed));
+}
+
+function mergeNoticeBadges(
+  left: readonly string[] | undefined,
+  right: readonly string[] | undefined,
+  required?: string,
+): string[] {
+  const merged = new Set<string>();
+  for (const badge of left ?? []) {
+    if (badge) merged.add(badge);
+  }
+  for (const badge of right ?? []) {
+    if (badge) merged.add(badge);
+  }
+  if (required) {
+    merged.add(required);
+  }
+  return Array.from(merged);
+}
+
 function isSameNotice(left: NoticeQueueEntry, right: Omit<NoticeQueueEntry, 'id'> | NoticeQueueEntry): boolean {
   if (left.structured || right.structured) {
     return left.structured?.key === right.structured?.key
@@ -663,6 +799,9 @@ function getNoticeDropDetail(notice: Omit<NoticeQueueEntry, 'id'> | NoticeQueueE
   const structuredKey = notice.structured?.key;
   if (typeof structuredKey === 'string' && structuredKey.length > 0) {
     return `${kind}:${structuredKey}`;
+  }
+  if (notice.combat) {
+    return `${kind}:combat`;
   }
   return `${kind}:unstructured`;
 }

@@ -1,14 +1,8 @@
 /**
- * RuntimeEventBus 指标收集与暴露服务。
- * 不落库，仅暴露给 metrics endpoint / GM 面板。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 每 tick 收集 queue/flush/drop/merge 计数
- * - 维护队列水位快照
- * - 维护 flush 耗时滑动窗口（P99）
- * - 聚合丢弃日志（每 10 秒一次 warn）
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Injectable, Logger } from '@nestjs/common';
 
 /** flush 耗时滑动窗口大小（最近 N 次 flush）。 */
@@ -30,6 +24,7 @@ export interface EventBusMetrics {
   queuedByMethod: Record<string, number>;
   droppedByMethod: Record<string, number>;
   droppedByDetail: Record<string, number>;
+  droppedByReason: Record<string, number>;
 
   // 队列水位（flush 前快照）
   maxPlayerQueueSize: number;
@@ -57,6 +52,7 @@ export class RuntimeEventBusMetricsService {
   private _queuedByMethod: Record<string, number> = {};
   private _droppedByMethod: Record<string, number> = {};
   private _droppedByDetail: Record<string, number> = {};
+  private _droppedByReason: Record<string, number> = {};
 
   // ─── 队列水位 ───
   private _maxPlayerQueueSize = 0;
@@ -83,9 +79,10 @@ export class RuntimeEventBusMetricsService {
     this._queuedByMethod[method] = (this._queuedByMethod[method] ?? 0) + count;
   }
 
-  recordDropped(method: string, count = 1, detail?: string): void {
+  recordDropped(method: string, count = 1, detail?: string, reason = 'limit'): void {
     this._tickDroppedTotal += count;
     this._droppedByMethod[method] = (this._droppedByMethod[method] ?? 0) + count;
+    this._droppedByReason[reason] = (this._droppedByReason[reason] ?? 0) + count;
     if (detail) {
       const detailKey = `${method}:${normalizeDropDetail(detail)}`;
       this._droppedByDetail[detailKey] = (this._droppedByDetail[detailKey] ?? 0) + count;
@@ -152,6 +149,7 @@ export class RuntimeEventBusMetricsService {
     this._queuedByMethod = {};
     this._droppedByMethod = {};
     this._droppedByDetail = {};
+    this._droppedByReason = {};
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -167,6 +165,7 @@ export class RuntimeEventBusMetricsService {
       queuedByMethod: { ...this._queuedByMethod },
       droppedByMethod: { ...this._droppedByMethod },
       droppedByDetail: { ...this._droppedByDetail },
+      droppedByReason: { ...this._droppedByReason },
       maxPlayerQueueSize: this._maxPlayerQueueSize,
       maxInstanceQueueSize: this._maxInstanceQueueSize,
       activePlayerQueues: this._activePlayerQueues,

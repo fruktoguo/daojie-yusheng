@@ -1,7 +1,7 @@
 /**
- * 自动生成的前端语言包。
- * 来源：packages/client/src/content/i18n/zh-CN.csv
- * 请使用 pnpm --filter @mud/client i18n:csv 增改文案，不要手写本文件。
+ * 本文件负责承载自动生成的前端语言包常量，来源固定为 packages/client/src/content/i18n/zh-CN.csv。
+ *
+ * 维护时要通过生成脚本更新文案，保持 CSV、类型导出和客户端渲染口径一致，避免手写本文件造成覆盖丢失。
  */
 
 export const CLIENT_I18N_MESSAGES = {
@@ -2250,13 +2250,17 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.combat.chant-expired": "神通吟唱已过期",
   "notice.combat.chant-fail-qi": "{skillName} 吟唱结算失败：元气不足",
   "notice.combat.chant-interrupted": "{skillName} 吟唱被打断：{reason}",
+  "notice.combat.herb-container-empty": "{title} 当前没有可打落的草药，{countdown}",
+  "notice.combat.herb-container-hit": "你攻击 {title}，打落 1 朵，剩余 {remaining} 朵{countdown}",
   "notice.combat.kill-progress": "{action} {target}：{details}",
   "notice.combat.killed": "斩杀 {monsterName}",
+  "notice.combat.killed-batch": "连续斩杀 {count} 个目标：{targetList}",
   "notice.combat.safe-zone-stop": "安全区内无法攻击，自动战斗已停止",
   "notice.combat.sha-backlash-convert": "身死后煞气入体，煞气反噬累计 {total} 层（剩余 {remaining}）",
   "notice.combat.sha-backlash-loss": "煞气反噬，折损修为 {progress}、底蕴 {foundation}",
   "notice.combat.sha-infusion": "杀念入体，煞气加深至 {stacks} 层",
   "notice.combat.soul-injury": "神魂受损",
+  "notice.combat.temporary-tiles-created": "{skillName} 生成了 {count} 处临时石头",
   "notice.craft.overflow-ground": "背包放不下，{itemLabel} 落在脚边",
   "notice.craft.overflow-inventory": "无法落地，{itemLabel} 放回背包",
   "notice.cultivation.cleared": "已取消主修功法",
@@ -2302,6 +2306,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.loot.bag-full": "背包空间不足",
   "notice.loot.bag-full-ground": "背包已满，{itemLabel} 掉落在脚边 ({x}",
   "notice.loot.obtained": "获得 {itemName}",
+  "notice.loot.obtained-batch": "获得 {count} 项物品：{itemList}",
   "notice.loot.obtained-multi": "获得 {itemList}",
   "notice.loot.pvp-bag-full": "背包已满，{victimName} 的 {itemName} x{count} 掉落在地面",
   "notice.loot.tile-drop-inventory": "获得 {itemLabel}",
@@ -5691,13 +5696,17 @@ export const CLIENT_I18N_CATEGORIES = {
   "notice.combat.chant-expired": "通知",
   "notice.combat.chant-fail-qi": "通知",
   "notice.combat.chant-interrupted": "通知",
+  "notice.combat.herb-container-empty": "通知",
+  "notice.combat.herb-container-hit": "通知",
   "notice.combat.kill-progress": "通知",
   "notice.combat.killed": "通知",
+  "notice.combat.killed-batch": "通知",
   "notice.combat.safe-zone-stop": "通知",
   "notice.combat.sha-backlash-convert": "通知",
   "notice.combat.sha-backlash-loss": "通知",
   "notice.combat.sha-infusion": "通知",
   "notice.combat.soul-injury": "通知",
+  "notice.combat.temporary-tiles-created": "通知",
   "notice.craft.overflow-ground": "通知",
   "notice.craft.overflow-inventory": "通知",
   "notice.cultivation.cleared": "通知",
@@ -5743,6 +5752,7 @@ export const CLIENT_I18N_CATEGORIES = {
   "notice.loot.bag-full": "通知",
   "notice.loot.bag-full-ground": "通知",
   "notice.loot.obtained": "通知",
+  "notice.loot.obtained-batch": "通知",
   "notice.loot.obtained-multi": "通知",
   "notice.loot.pvp-bag-full": "通知",
   "notice.loot.tile-drop-inventory": "通知",

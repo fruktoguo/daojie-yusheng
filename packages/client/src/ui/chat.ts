@@ -1,4 +1,9 @@
 /**
+ * 本文件是客户端 DOM UI 的 chat 模块，负责具体面板、弹层或渲染片段。
+ *
+ * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
+ */
+/**
  * 聊天面板 UI
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
@@ -624,6 +629,12 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
     return fragment;
   }
 
+  // 结构化通知优先渲染；combat payload 缺失时也不能退回旧文本解析。
+  if (entry.structured) {
+    appendStructuredNoticeLine(fragment, entry.structured, linePrefix, entry.text);
+    return fragment;
+  }
+
   // 旧文本fallback：多行合并战斗消息
   if (entry.kind === 'combat' && entry.text.includes('\n')) {
     const lines = entry.text.split('\n');
@@ -655,12 +666,6 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
     return fragment;
   }
 
-  // 结构化通知渲染
-  if (entry.structured) {
-    appendStructuredNoticeLine(fragment, entry.structured, linePrefix);
-    return fragment;
-  }
-
   fragment.append(linePrefix + entry.text);
   return fragment;
 }
@@ -669,13 +674,13 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
 const NOTICE_PLACEHOLDER_PATTERN = /\{([a-zA-Z][a-zA-Z0-9_]*)\}/g;
 
 /** 渲染结构化通知消息：按语言包模板内插，pills 字段用胶囊样式。 */
-function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, raw: unknown, prefix: string): void {
+function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, raw: unknown, prefix: string, fallbackText = ''): void {
   const data = raw as StructuredNoticePayload;
   if (!data || !data.key) {
-    container.append(prefix);
+    container.append(prefix + fallbackText);
     return;
   }
-  const template = tLoose(data.key, undefined, data.key);
+  const template = tLoose(data.key, undefined, fallbackText || data.key);
   const vars = data.vars ?? {};
   const pillMap = new Map<string, NoticePillConfig>();
   for (const pill of data.pills ?? []) {

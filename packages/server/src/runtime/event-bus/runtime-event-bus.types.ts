@@ -1,4 +1,9 @@
 /**
+ * 本文件属于服务端权威运行时，负责地图、玩家、世界、市场、邮件或后台运行态逻辑。
+ *
+ * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
+ */
+/**
  * 运行时事件总线服务端内部类型。
  * 队列结构、flush 结果、配置常量。
  */
@@ -58,6 +63,44 @@ export const NOTICE_KIND_PRIORITY: Record<NoticeKind, number> = {
   success: 5,
   warn: 6,
 };
+
+/** 聚合通知列表最多直接携带的条目数，避免高频通知包反向膨胀。 */
+export const NOTICE_AGGREGATE_LIST_LIMIT = 4;
+
+/** 默认不聚合的关键反馈类型，避免 warn/system/success 被折叠。 */
+export const NON_AGGREGATED_NOTICE_KINDS = new Set<NoticeKind>(['warn', 'system', 'success']);
+
+/** 结构化通知聚合策略。 */
+export interface StructuredNoticeAggregationRule {
+  sourceKeys: readonly string[];
+  aggregateKey: string;
+  itemVarKeys: readonly string[];
+  listVarKey: string;
+  fallbackPrefix: string;
+  pillStyle: 'target' | 'skill' | 'damage';
+  badge?: string;
+}
+
+/** 显式聚合规则表，新增业务不得把分支直接堆进 queuePlayerNotice。 */
+export const STRUCTURED_NOTICE_AGGREGATION_RULES: readonly StructuredNoticeAggregationRule[] = [
+  {
+    sourceKeys: ['notice.combat.killed'],
+    aggregateKey: 'notice.combat.killed-batch',
+    itemVarKeys: ['monsterName'],
+    listVarKey: 'targetList',
+    fallbackPrefix: '连续斩杀',
+    pillStyle: 'target',
+    badge: '击杀',
+  },
+  {
+    sourceKeys: ['notice.loot.obtained', 'notice.loot.obtained-multi'],
+    aggregateKey: 'notice.loot.obtained-batch',
+    itemVarKeys: ['itemName', 'itemList'],
+    listVarKey: 'itemList',
+    fallbackPrefix: '获得物品',
+    pillStyle: 'target',
+  },
+];
 
 /** 获取通知优先级，默认 0。 */
 export function resolveNoticePriority(notice: { kind?: NoticeKind | string } | null | undefined): number {

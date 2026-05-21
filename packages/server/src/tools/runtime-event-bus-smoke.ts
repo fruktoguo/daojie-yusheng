@@ -57,6 +57,45 @@ function testQueuePlayerNoticeDedupStructuredPayload(): void {
   assert.equal(result.notices[0]?.text, 'new');
 }
 
+function testQueuePlayerNoticeAggregatesCombatKills(): void {
+  const metrics = new RuntimeEventBusMetricsService();
+  const svc = new RuntimeEventBusService(metrics);
+  svc.queuePlayerNotice('p1', { kind: 'combat', text: '斩杀 狼妖', structured: { key: 'notice.combat.killed', vars: { monsterName: '狼妖' }, pills: [{ key: 'monsterName', style: 'target' }], badges: ['击杀'] } });
+  svc.queuePlayerNotice('p1', { kind: 'combat', text: '斩杀 虎妖', structured: { key: 'notice.combat.killed', vars: { monsterName: '虎妖' }, pills: [{ key: 'monsterName', style: 'target' }], badges: ['击杀'] } });
+
+  const result = svc.drainPlayer('p1');
+  const snapshot = metrics.getMetrics();
+  assert.ok(result);
+  assert.equal(result.notices.length, 1);
+  assert.equal(result.notices[0]?.structured?.key, 'notice.combat.killed-batch');
+  assert.deepEqual(result.notices[0]?.structured?.vars, { targetList: '狼妖、虎妖', count: 2, extraCount: 0 });
+  assert.equal(snapshot.tickMergedTotal, 1);
+}
+
+function testQueuePlayerNoticeAggregatesLootObtained(): void {
+  const svc = createService();
+  svc.queuePlayerNotice('p1', { kind: 'loot', text: '获得 灵草', structured: { key: 'notice.loot.obtained', vars: { itemName: '灵草 x1' }, pills: [{ key: 'itemName', style: 'target' }] } });
+  svc.queuePlayerNotice('p1', { kind: 'loot', text: '获得 灵石、丹药', structured: { key: 'notice.loot.obtained-multi', vars: { itemList: '灵石 x3、丹药 x1' }, pills: [{ key: 'itemList', style: 'target' }] } });
+
+  const result = svc.drainPlayer('p1');
+  assert.ok(result);
+  assert.equal(result.notices.length, 1);
+  assert.equal(result.notices[0]?.structured?.key, 'notice.loot.obtained-batch');
+  assert.deepEqual(result.notices[0]?.structured?.vars, { itemList: '灵草 x1、灵石 x3、丹药 x1', count: 3, extraCount: 0 });
+}
+
+function testQueuePlayerNoticeDoesNotAggregatePinnedKinds(): void {
+  const svc = createService();
+  svc.queuePlayerNotice('p1', { kind: 'success', text: '自动使用 甲', structured: { key: 'notice.combat.auto-use-item', vars: { itemName: '甲' } } });
+  svc.queuePlayerNotice('p1', { kind: 'success', text: '自动使用 乙', structured: { key: 'notice.combat.auto-use-item', vars: { itemName: '乙' } } });
+
+  const result = svc.drainPlayer('p1');
+  assert.ok(result);
+  assert.equal(result.notices.length, 2);
+  assert.equal(result.notices[0]?.text, '自动使用 甲');
+  assert.equal(result.notices[1]?.text, '自动使用 乙');
+}
+
 function testQueuePlayerNoticeLimitDropsLowerPriority(): void {
   const svc = createService();
   for (let i = 0; i < MAX_NOTICES_PER_PLAYER; i += 1) {
@@ -91,6 +130,7 @@ function testQueuePlayerNoticeLimitRejectsLowerPriorityIncoming(): void {
   assert.equal(result.notices.some((notice) => notice.text === 'warn-0'), true);
   assert.equal(snapshot.droppedByMethod.playerNotice, 1);
   assert.equal(snapshot.droppedByDetail['playerNotice:combat:notice.combat.low-priority'], 1);
+  assert.equal(snapshot.droppedByReason.lowPriorityReject, 1);
 }
 
 function testQueuePlayerPanelPatchMergeMode(): void {
@@ -373,6 +413,9 @@ async function main(): Promise<void> {
     testQueuePlayerNoticeAppendMode,
     testQueuePlayerNoticeExceedsLimitDropsOldest,
     testQueuePlayerNoticeDedupStructuredPayload,
+    testQueuePlayerNoticeAggregatesCombatKills,
+    testQueuePlayerNoticeAggregatesLootObtained,
+    testQueuePlayerNoticeDoesNotAggregatePinnedKinds,
     testQueuePlayerNoticeLimitDropsLowerPriority,
     testQueuePlayerNoticeLimitRejectsLowerPriorityIncoming,
     testQueuePlayerPanelPatchMergeMode,
