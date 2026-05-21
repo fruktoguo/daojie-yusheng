@@ -11,7 +11,20 @@ const { WorldGatewayGuardHelper } = require("../network/world-gateway-guard.help
 
 function testGuardHelper() {
     const log = [];
-    const healthReadinessService = {
+    const makeClient = () => ({
+        id: 'socket:1',
+        data: {},        
+        /**
+ * disconnect：判断disconnect是否满足条件。
+ * @param force 参数说明。
+ * @returns 无返回值，直接更新disconnect相关状态。
+ */
+
+        disconnect(force) {
+            log.push(['disconnect', force]);
+        },
+    });
+    const maintenanceHealthReadinessService = {
         /**
  * build：构建并返回目标对象。
  * @returns 无返回值，直接更新结果相关状态。
@@ -62,7 +75,7 @@ function testGuardHelper() {
                 return null;
             },
         };
-    const helper = new WorldGatewayGuardHelper(healthReadinessService, worldClientEventService, worldSessionService);
+    const helper = new WorldGatewayGuardHelper(maintenanceHealthReadinessService, worldClientEventService, worldSessionService);
     const client = {
         id: 'socket:1',
         data: {},        
@@ -90,12 +103,22 @@ function testGuardHelper() {
     client.data.isGm = true;
     assert.equal(helper.requireGm(client), 'player:1');
     assert.equal(helper.rejectWhenNotReady(client), true);
+    const startupNotReadyHealthReadinessService = {
+        build() {
+            return { readiness: { ok: false, maintenance: { active: false } } };
+        },
+    };
+    const startupNotReadyHelper = new WorldGatewayGuardHelper(startupNotReadyHealthReadinessService, worldClientEventService, worldSessionService);
+    const startupClient = makeClient();
+    assert.equal(startupNotReadyHelper.rejectWhenNotReady(startupClient), true);
     assert.deepEqual(log, [
         ['emitNotReady', 'socket:1'],
         ['emitError', 'socket:1', 'SESSION_EXPIRED', '当前会话已失效，请重新连接。'],
         ['disconnect', true],
         ['emitError', 'socket:1', 'GM_FORBIDDEN', 'GM 权限不足'],
         ['emitError', 'socket:1', 'SERVER_BUSY', '数据库维护中，请稍后重连'],
+        ['disconnect', true],
+        ['emitError', 'socket:1', 'SERVER_NOT_READY', '服务未就绪，请稍后重连'],
         ['disconnect', true],
     ]);
 }
