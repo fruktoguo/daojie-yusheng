@@ -67,9 +67,10 @@ export class NativeGmWorkerService {
       buildOutboxWorkerRow(outboxSummary, retryRows),
       buildDatabaseBackupWorkerRow(Boolean(databaseState.automation?.schedulesActive)),
     ], runtimeById, runtimeRole);
+    const capacityPgPools = normalizeCapacityPgPools(flushDiagnostics.pgPools);
     const alerts = [
       ...buildWorkerAlerts(rows),
-      ...buildCapacityAlerts(flushDiagnostics),
+      ...buildCapacityAlerts(capacityPgPools, flushDiagnostics.pgLockWait),
     ];
     return {
       generatedAt: new Date().toISOString(),
@@ -94,7 +95,7 @@ export class NativeGmWorkerService {
           : '当前进程可直接暴露本地 worker orchestrator 状态。',
       },
       capacity: {
-        pgPools: flushDiagnostics.pgPools,
+        pgPools: capacityPgPools,
         pgLockWait: flushDiagnostics.pgLockWait
           ? {
               waitingCount: flushDiagnostics.pgLockWait.waitingCount,
@@ -299,17 +300,41 @@ function buildWorkerAlerts(rows: GmWorkerRow[]): GmWorkerAlert[] {
   return alerts;
 }
 
-function buildCapacityAlerts(flushDiagnostics: ReturnType<FlushDiagnosticsService['getSnapshot']>): GmWorkerAlert[] {
+function buildCapacityAlerts(
+  pgPools: ReturnType<FlushDiagnosticsService['getSnapshot']>['pgPools'],
+  pgLockWait: ReturnType<FlushDiagnosticsService['getSnapshot']>['pgLockWait'],
+): GmWorkerAlert[] {
   const alerts: GmWorkerAlert[] = [];
-  const flushPoolWaiting = toCount(flushDiagnostics.pgPools?.flush?.waitingCount);
+  const flushPoolWaiting = toCount(pgPools?.flush?.waitingCount);
   if (flushPoolWaiting > 0) {
     alerts.push({ workerId: 'capacity:pg-pool:flush', level: 'warn', reason: 'db_backpressure', count: flushPoolWaiting });
   }
-  const lockWaitCount = toCount(flushDiagnostics.pgLockWait?.waitingCount);
+  const lockWaitCount = toCount(pgLockWait?.waitingCount);
   if (lockWaitCount > 0) {
     alerts.push({ workerId: 'capacity:pg-lock-wait', level: 'warn', reason: 'lock_wait', count: lockWaitCount });
   }
   return alerts;
+}
+
+function normalizeCapacityPgPools(
+  pgPools: ReturnType<FlushDiagnosticsService['getSnapshot']>['pgPools'],
+): ReturnType<FlushDiagnosticsService['getSnapshot']>['pgPools'] {
+  if (!pgPools) {
+    return pgPools;
+  }
+  return {
+    runtimeCritical: normalizeCapacityPgPool(pgPools.runtimeCritical),
+    flush: normalizeCapacityPgPool(pgPools.flush),
+    outbox: normalizeCapacityPgPool(pgPools.outbox),
+    gmDiagnostics: normalizeCapacityPgPool(pgPools.gmDiagnostics),
+  };
+}
+
+function normalizeCapacityPgPool<T extends { idleCount: number; waitingCount: number } | null>(pool: T): T {
+  if (!pool || toCount(pool.idleCount) <= 0 || toCount(pool.waitingCount) <= 0) {
+    return pool;
+  }
+  return { ...pool, waitingCount: 0 };
 }
 
 function shouldReportInactive(row: GmWorkerRow): boolean {
