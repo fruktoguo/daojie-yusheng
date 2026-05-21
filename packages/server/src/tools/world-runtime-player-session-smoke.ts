@@ -264,6 +264,50 @@ function testConnectOfflinePlayerUsesSharedAttachPath() {
  */
 
 
+function testConnectPlayerRejectsQuarantinedInstance() {
+    const log = [];
+    const service = createService(log);
+    const deps = {
+        getPlayerLocation() { return null; },
+        getInstanceRuntime(instanceId) {
+            if (instanceId !== 'tower:tongtian:layer:9') {
+                return null;
+            }
+            return {
+                meta: { instanceId, status: 'lease_lost', runtimeStatus: 'fenced' },
+                template: { id: 'tongtian_tower_layer_9' },
+                connectPlayer() {
+                    throw new Error('quarantined instance must not attach player');
+                },
+                setPlayerMoveSpeed() {
+                    throw new Error('quarantined instance must not set move speed');
+                },
+            };
+        },
+        setPlayerLocation() { throw new Error('quarantined instance must not set player location'); },
+        worldRuntimeGmQueueService: { clearPendingRespawn() {} },
+        playerRuntimeService: {
+            ensurePlayer() { throw new Error('quarantined instance must not ensure player'); },
+            getPlayer() { return null; },
+        },
+        logger: {
+            debug(message) { log.push(['debug', message]); },
+            warn(message) { log.push(['warn', message]); },
+        },
+    };
+    assert.throws(
+        () => service.connectPlayer({
+            playerId: 'player:fenced',
+            sessionId: 'session:fenced',
+            instanceId: 'tower:tongtian:layer:9',
+            mapId: 'tongtian_tower_layer_9',
+            allowCreateFallback: false,
+        }, deps),
+        /lease_fenced/,
+    );
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'warn' && String(entry[1]).includes('lease_fenced')));
+}
+
 function testDisconnectAndRemovePlayer() {
     const log = [];
     const service = createService(log);
@@ -357,6 +401,7 @@ function testDisconnectAndRemovePlayer() {
     testConnectPlayer();
     testConnectOfflinePlayerUsesSharedAttachPath();
     testConnectPlayerFallsBackToRealDefaultLine();
+    testConnectPlayerRejectsQuarantinedInstance();
     testDisconnectAndRemovePlayer();
 
 

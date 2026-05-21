@@ -2,7 +2,7 @@
  * 玩家会话管理服务
  * 处理玩家连接/断开/顶号/重连的实例分配和会话路由
  */
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 
 import { PlayerSessionRouteService } from '../../persistence/player-session-route.service';
 import { WorldRuntimeWorldAccessService } from './world-runtime-world-access.service';
@@ -30,6 +30,8 @@ interface ConnectedInstancePlayer {
 interface InstanceRuntimeLike {
   readonly meta: {
     instanceId: string;
+    status?: string | null;
+    runtimeStatus?: string | null;
   };
   readonly template: {
     id: string;
@@ -163,6 +165,13 @@ export class WorldRuntimePlayerSessionService {
     );
     if (!targetInstance) {
       throw new NotFoundException('目标实例不可用');
+    }
+    const attachBlockedReason = resolveInstanceAttachBlockedReason(targetInstance);
+    if (attachBlockedReason) {
+      deps.logger.warn(
+        `玩家 ${playerId} 目标实例暂不可进入：instanceId=${targetInstance.meta.instanceId} reason=${attachBlockedReason}`,
+      );
+      throw new ServiceUnavailableException(`目标实例暂不可进入：${attachBlockedReason}`);
     }
 
     const previous = deps.getPlayerLocation(playerId);
@@ -389,6 +398,27 @@ export class WorldRuntimePlayerSessionService {
 
 function isDeadPlayerRuntime(player: PlayerRuntimeLike | null | undefined): boolean {
   return Number.isFinite(player?.hp) && Number(player?.hp) <= 0;
+}
+
+function resolveInstanceAttachBlockedReason(instance: InstanceRuntimeLike): string {
+  const runtimeStatus = typeof instance?.meta?.runtimeStatus === 'string' ? instance.meta.runtimeStatus.trim() : '';
+  if (runtimeStatus === 'fenced') {
+    return 'lease_fenced';
+  }
+  if (runtimeStatus === 'lease_degraded') {
+    return 'lease_degraded';
+  }
+  if (runtimeStatus === 'template_missing') {
+    return 'template_missing';
+  }
+  if (runtimeStatus === 'stopped') {
+    return 'instance_stopped';
+  }
+  const status = typeof instance?.meta?.status === 'string' ? instance.meta.status.trim() : '';
+  if (status === 'destroyed') {
+    return 'instance_destroyed';
+  }
+  return '';
 }
 
 function normalizeInstanceId(value: string | null | undefined): string {
