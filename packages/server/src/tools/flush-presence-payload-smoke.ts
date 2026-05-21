@@ -14,6 +14,7 @@ async function main(): Promise<void> {
   process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'worker';
 
   const saved: Array<{ playerId: string; payload: unknown }> = [];
+  const savedProjections: Array<{ playerId: string; domains: string[]; snapshot: unknown }> = [];
   const flushed: FlushTask[] = [];
   let claimed = false;
   const task: FlushTask = {
@@ -58,6 +59,9 @@ async function main(): Promise<void> {
       savePlayerPresence: async (playerId: string, payload: unknown) => {
         saved.push({ playerId, payload });
       },
+      savePlayerSnapshotProjectionDomains: async (playerId: string, snapshot: unknown, domains: Iterable<string>) => {
+        savedProjections.push({ playerId, snapshot, domains: Array.from(domains).sort() });
+      },
     } as never,
   );
   try {
@@ -71,15 +75,63 @@ async function main(): Promise<void> {
       transferTargetNodeId: null,
     });
     assert.equal(flushed.length, 1);
+
+    const projectionTask: FlushTask = {
+      scope: 'player',
+      id: 'player-snapshot-1',
+      domain: 'inventory',
+      priority: 'high',
+      latestRevision: 8,
+      payloadJson: {
+        kind: 'player_snapshot_projection',
+        snapshot: { version: 1, savedAt: 88, placement: { templateId: 'map-1', x: 1, y: 2 } },
+      },
+    };
+    let projectionClaimed = false;
+    const projectionRuntime = new FlushTaskRuntimeService(
+      {} as never,
+      {} as never,
+      { flushPlayerDomains: async () => { throw new Error('snapshot payload should not use runtime flush fallback'); } } as never,
+      {
+        isEnabled: () => true,
+        claimReadyFlushTasks: async () => {
+          if (projectionClaimed) return [];
+          projectionClaimed = true;
+          return [projectionTask];
+        },
+        markFlushTaskFlushed: async (flushedTask: FlushTask) => {
+          flushed.push(flushedTask);
+          return true;
+        },
+        markFlushTaskRetry: async () => true,
+        markFlushTasksRetry: async () => 0,
+      } as never,
+      { signalPlayerFlush: () => undefined, signalInstanceFlush: () => undefined } as never,
+      undefined,
+      undefined,
+      {
+        isEnabled: () => true,
+        savePlayerPresence: async () => undefined,
+        savePlayerSnapshotProjectionDomains: async (playerId: string, snapshot: unknown, domains: Iterable<string>) => {
+          savedProjections.push({ playerId, snapshot, domains: Array.from(domains).sort() });
+        },
+      } as never,
+    );
+    const projectionProcessed = await projectionRuntime.runOnce('snapshot-payload-smoke');
+    assert.equal(projectionProcessed, 1);
+    assert.equal(savedProjections.length, 1);
+    assert.equal(savedProjections[0]?.playerId, 'player-snapshot-1');
+    assert.deepEqual(savedProjections[0]?.domains, ['inventory']);
+    assert.equal(flushed.length, 2);
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);
   }
   console.log(JSON.stringify({
     ok: true,
-    answers: 'presence flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed。',
-    excludes: '只覆盖玩家 presence 域；不证明其他玩家/实例 domain，也不证明真实 DB with-db 竞争。',
-    completionMapping: 'flush-presence-payload',
+    answers: '玩家 presence 与 snapshot projectable flush task 可在 worker role 下从 staging payload 写入 PlayerDomainPersistenceService，并 mark flushed。',
+    excludes: '不证明邮件/市场/GM edit 或实例 domain，也不证明真实 DB with-db 竞争。',
+    completionMapping: 'flush-player-payload',
   }, null, 2));
 }
 

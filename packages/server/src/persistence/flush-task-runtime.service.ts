@@ -12,8 +12,13 @@ import { isFlushTaskConsumerMode, isInlineFlushTaskRuntimeMode } from './flush-t
 import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
 import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
-import { PlayerDomainPersistenceService, type PlayerPresenceUpsertInput } from './player-domain-persistence.service';
+import {
+  PlayerDomainPersistenceService,
+  PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
+  type PlayerPresenceUpsertInput,
+} from './player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from './player-persistence-flush.service';
+import type { PersistedPlayerSnapshot } from './player-persistence.service';
 
 const INTERVAL_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_INTERVAL_MS', 'FLUSH_TASK_RUNTIME_INTERVAL_MS', 1_500, 250, 60_000);
 const CLAIM_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 'FLUSH_TASK_RUNTIME_CLAIM_LIMIT', 64, 1, 256);
@@ -36,12 +41,20 @@ const INSTANCE_COALESCE_DOMAINS = new Set(['tile_damage', 'tile_resource', 'feng
 const PLAYER_HIGH_PRIORITY_DOMAINS = new Set(['presence', 'position_checkpoint', 'world_anchor', 'inventory', 'equipment', 'market', 'mail', 'gm_edit', 'gm']);
 const INSTANCE_LOW_PRIORITY_DOMAINS = new Set(['time', 'monster_runtime', 'tile_resource', 'tile_damage', 'fengshui']);
 const INSTANCE_NORMAL_PRIORITY_DOMAINS = new Set(['container_state', 'ground_item', 'overlay', 'room', 'building', 'temporary_tile', 'tile_cell']);
+const PLAYER_PROJECTABLE_DOMAIN_SET = new Set<string>(PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS);
+const PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND = 'player_snapshot_projection';
+
+interface PlayerSnapshotProjectionPayload {
+  kind: typeof PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND;
+  snapshot: PersistedPlayerSnapshot;
+}
 
 interface PlayerRuntimeFlushTaskPort {
   listDirtyPlayerDomains?(): Map<string, Set<string>>;
   listDirtyPlayers?(): string[];
   getPersistenceRevision?(playerId: string): number | null;
   describePersistencePresence?(playerId: string): PlayerPresenceUpsertInput | null;
+  buildPersistenceSnapshot?(playerId: string, dirtyDomains?: ReadonlySet<string>): PersistedPlayerSnapshot | null;
 }
 
 interface PlayerPersistenceFlushPort {
@@ -182,11 +195,27 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
-  private buildPlayerTaskPayload(playerId: string, domain: string): PlayerPresenceUpsertInput | null {
-    if (domain !== 'presence') {
+  private buildPlayerTaskPayload(
+    playerId: string,
+    domain: string,
+    snapshotPayload: PlayerSnapshotProjectionPayload | null,
+  ): PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null {
+    if (domain === 'presence') {
+      return this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+    }
+    return PLAYER_PROJECTABLE_DOMAIN_SET.has(domain) ? snapshotPayload : null;
+  }
+
+  private buildPlayerSnapshotPayload(
+    playerId: string,
+    normalizedDomains: Set<string>,
+    taskDomains: string[],
+  ): PlayerSnapshotProjectionPayload | null {
+    if (!taskDomains.some((domain) => PLAYER_PROJECTABLE_DOMAIN_SET.has(domain))) {
       return null;
     }
-    return this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId, normalizedDomains) ?? null;
+    return snapshot ? { kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND, snapshot } : null;
   }
 
   private async collectPlayerTasks(): Promise<void> {
@@ -197,14 +226,15 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     for (const [playerId, domains] of entries) {
       const normalized = normalizeDomains(domains);
       const taskDomains = resolvePlayerTaskDomains(normalized);
+      const snapshotPayload = this.buildPlayerSnapshotPayload(playerId, normalized, taskDomains);
       for (const domain of taskDomains) {
-        const payload = this.buildPlayerTaskPayload(playerId, domain);
+        const payload = this.buildPlayerTaskPayload(playerId, domain, snapshotPayload);
         await this.flushLedgerService.upsertFlushTask({
           scope: 'player', id: playerId, domain,
           priority: resolveFlushTaskPriority('player', domain),
           latestRevision: resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId)),
           nextAttemptAt: new Date().toISOString(),
-          runtimeOwnerId: payload?.runtimeOwnerId ?? null,
+          runtimeOwnerId: resolvePlayerPayloadRuntimeOwnerId(payload),
           fencingToken: buildPlayerPayloadFencingToken(payload),
           payloadJson: payload,
         });
@@ -275,27 +305,49 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processPlayerPayloadTaskGroup(playerId: string, group: FlushTask[]): Promise<number | null> {
-    if (group.length === 0 || group.some((task) => task.domain !== 'presence')) {
+    if (group.length === 0) {
       return null;
     }
     if (!this.playerDomainPersistenceService?.isEnabled()) {
       await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
       return 0;
     }
+    const presenceTasks = group.filter((task) => task.domain === 'presence');
+    const projectionTasks = group.filter((task) => PLAYER_PROJECTABLE_DOMAIN_SET.has(task.domain));
+    if (presenceTasks.length + projectionTasks.length !== group.length) {
+      return null;
+    }
     let processed = 0;
-    for (const task of group) {
+    for (const task of presenceTasks) {
       const payload = normalizePlayerPresencePayload(task.payloadJson);
       if (!payload) {
-        if (shouldStartAuthoritativeRuntime()) {
-          return null;
-        }
+        if (shouldStartAuthoritativeRuntime()) return null;
         await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
         continue;
       }
       await this.playerDomainPersistenceService.savePlayerPresence(playerId, payload);
-      const flushed = await this.flushLedgerService.markFlushTaskFlushed(task);
-      if (flushed) {
-        processed += 1;
+      if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
+    }
+    if (projectionTasks.length > 0) {
+      const payload = normalizePlayerSnapshotProjectionPayload(projectionTasks[0]?.payloadJson);
+      if (!payload || projectionTasks.some((task) => !normalizePlayerSnapshotProjectionPayload(task.payloadJson))) {
+        if (shouldStartAuthoritativeRuntime()) return null;
+        await this.flushLedgerService.markFlushTasksRetry(projectionTasks, RETRY_DELAY_MS);
+        return processed;
+      }
+      const domains = new Set(projectionTasks.map((task) => task.domain));
+      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+        playerId,
+        payload.snapshot,
+        domains,
+        {
+          allowInventoryEmptyOverwrite: domains.has('inventory'),
+          allowEquipmentEmptyOverwrite: domains.has('equipment'),
+          allowBuffEmptyOverwrite: domains.has('buff'),
+        },
+      );
+      for (const task of projectionTasks) {
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
       }
     }
     return processed;
@@ -551,9 +603,30 @@ function normalizePlayerPresencePayload(value: unknown): PlayerPresenceUpsertInp
   };
 }
 
-function buildPlayerPayloadFencingToken(payload: PlayerPresenceUpsertInput | null): string | null {
+function normalizePlayerSnapshotProjectionPayload(value: unknown): PlayerSnapshotProjectionPayload | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  if (record.kind !== PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND || !record.snapshot || typeof record.snapshot !== 'object') {
+    return null;
+  }
+  return { kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND, snapshot: record.snapshot as PersistedPlayerSnapshot };
+}
+
+function resolvePlayerPayloadRuntimeOwnerId(payload: PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null): string | null {
+  if (!payload || 'snapshot' in payload) {
+    return null;
+  }
+  return payload.runtimeOwnerId ?? null;
+}
+
+function buildPlayerPayloadFencingToken(payload: PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null): string | null {
   if (!payload) {
     return null;
+  }
+  if ('snapshot' in payload) {
+    return `${payload.kind}:${Math.max(0, Math.trunc(Number(payload.snapshot.savedAt ?? 0)))}`;
   }
   return `${payload.runtimeOwnerId ?? 'none'}:${Math.max(0, Math.trunc(Number(payload.sessionEpoch ?? 0)))}`;
 }
