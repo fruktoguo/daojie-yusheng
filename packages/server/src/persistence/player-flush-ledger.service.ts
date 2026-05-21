@@ -38,6 +38,12 @@ const CREATE_PLAYER_FLUSH_LEDGER_DIRTY_INDEX_SQL = `
   ON ${PLAYER_FLUSH_LEDGER_TABLE}(dirty_since_at, next_attempt_at)
 `;
 
+const ACTIVE_BACKLOG_FILTER_SQL = `
+  latest_version > flushed_version
+  OR (claimed_by IS NOT NULL AND claim_until >= now())
+  OR (next_attempt_at IS NOT NULL AND next_attempt_at > now())
+`;
+
 /** 玩家刷盘账本服务：跟踪脏版本、认领和重试调度 */
 @Injectable()
 export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
@@ -272,6 +278,7 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
           COUNT(*) FILTER (WHERE next_attempt_at IS NOT NULL AND next_attempt_at > now())::bigint AS delayed_count,
           COALESCE(MIN(next_attempt_at), MIN(updated_at)) AS oldest_pending_at
         FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+        WHERE ${ACTIVE_BACKLOG_FILTER_SQL}
         GROUP BY domain
         ORDER BY backlog_count DESC, domain ASC
       `,

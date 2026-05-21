@@ -13,6 +13,16 @@ const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
 const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
 const FLUSH_LEDGER_LOCK_NAMESPACE = 42871;
 const FLUSH_LEDGER_LOCK_KEY = 4001;
+const PLAYER_ACTIVE_BACKLOG_FILTER_SQL = `
+  latest_version > flushed_version
+  OR (claimed_by IS NOT NULL AND claim_until >= now())
+  OR (next_attempt_at IS NOT NULL AND next_attempt_at > now())
+`;
+const INSTANCE_ACTIVE_BACKLOG_FILTER_SQL = `
+  latest_version > flushed_version
+  OR (claimed_by IS NOT NULL AND claim_until >= now())
+  OR (COALESCE(next_attempt_at, retry_after) IS NOT NULL AND COALESCE(next_attempt_at, retry_after) > now())
+`;
 
 /** 统一刷盘账本服务：管理玩家和实例的脏版本跟踪与分布式认领 */
 @Injectable()
@@ -662,6 +672,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           COUNT(*) FILTER (WHERE next_attempt_at IS NOT NULL AND next_attempt_at > now())::bigint AS delayed_count,
           COALESCE(MIN(next_attempt_at), MIN(updated_at)) AS oldest_pending_at
         FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+        WHERE ${PLAYER_ACTIVE_BACKLOG_FILTER_SQL}
         GROUP BY domain
         ORDER BY backlog_count DESC, domain ASC
       `,
@@ -682,9 +693,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           COUNT(*)::bigint AS backlog_count,
           COUNT(*) FILTER (WHERE latest_version > flushed_version)::bigint AS dirty_count,
           COUNT(*) FILTER (WHERE claimed_by IS NOT NULL AND claim_until >= now())::bigint AS claimed_count,
-          COUNT(*) FILTER (WHERE next_attempt_at IS NOT NULL AND next_attempt_at > now())::bigint AS delayed_count,
-          COALESCE(MIN(next_attempt_at), MIN(updated_at)) AS oldest_pending_at
+          COUNT(*) FILTER (WHERE COALESCE(next_attempt_at, retry_after) IS NOT NULL AND COALESCE(next_attempt_at, retry_after) > now())::bigint AS delayed_count,
+          COALESCE(MIN(COALESCE(next_attempt_at, retry_after)), MIN(updated_at)) AS oldest_pending_at
         FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
+        WHERE ${INSTANCE_ACTIVE_BACKLOG_FILTER_SQL}
         GROUP BY domain, ownership_epoch
         ORDER BY backlog_count DESC, domain ASC, ownership_epoch ASC
       `,
