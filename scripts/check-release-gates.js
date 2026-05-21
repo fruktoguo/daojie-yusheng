@@ -36,6 +36,7 @@ function main() {
   const plan09 = read('docs/archive/09-verification-and-acceptance.md');
   const serverTesting = read('packages/server/TESTING.md');
   const serverRunbook = read('packages/server/RUNBOOK.md');
+  const runtimeEnvManagementService = read('packages/server/src/runtime/gm/runtime-env-management.service.ts');
 
   const requiredRootScripts = [
     'verify:quick',
@@ -60,13 +61,28 @@ function main() {
 
   assertIncludes(
     localEnvLoader,
-    /candidateFiles = \[[\s\S]*'\.runtime\/server\.local\.env'[\s\S]*'packages\/server\/\.env\.local'/,
+    /runtimeEnvFile = path\.join\(repoRoot, '\.runtime', 'server\.local\.env'\)/,
     'release 本地 env loader 必须继续覆盖 .runtime/.env/packages-server 这套默认文件顺序',
+  );
+  assertIncludes(
+    localEnvLoader,
+    /candidateFiles = \[[\s\S]*'\.env'[\s\S]*'\.env\.local'[\s\S]*'packages\/server\/\.env'[\s\S]*'packages\/server\/\.env\.local'[\s\S]*\]/,
+    'release 本地 env loader 必须继续按 .env/.env.local/packages-server 顺序读取候选文件',
+  );
+  assertIncludes(
+    localEnvLoader,
+    /loadEntriesFromFile\(runtimeEnvFile, true\)/,
+    'release 本地 env loader 必须继续让 .runtime/server.local.env 覆盖候选文件',
   );
   assertIncludes(
     localEnvLoader,
     /SERVER_SKIP_LOCAL_ENV_AUTOLOAD/,
     'release 本地 env loader 必须继续支持显式跳过自动加载',
+  );
+  assertIncludes(
+    runtimeEnvManagementService,
+    /shouldSkipLocalRuntimeEnvAutoload\(\)[\s\S]*return;/,
+    'GM runtime env 管理服务必须尊重 SERVER_SKIP_LOCAL_ENV_AUTOLOAD，避免无库门禁重新套用 .runtime/server.local.env',
   );
   for (const [scriptName, content] of [
     ['release:local', localScript],
@@ -170,8 +186,8 @@ function main() {
   );
   assertIncludes(
     acceptanceScript,
-    /DATABASE_URL: ''[\s\S]*SERVER_DATABASE_URL: ''/,
-    'acceptance 脚本必须继续屏蔽 DB 环境，固定先跑 local gate',
+    /DATABASE_URL: ''[\s\S]*SERVER_DATABASE_URL: ''[\s\S]*DATABASE_POOLER_URL: ''[\s\S]*SERVER_DATABASE_POOLER_URL: ''/,
+    'acceptance 脚本必须继续屏蔽 DB/Pooler 环境，固定先跑 local gate',
   );
   assertIncludes(
     acceptanceScript,
@@ -180,8 +196,8 @@ function main() {
   );
   assertIncludes(
     acceptanceScript,
-    /label: 'gm'[\s\S]*extraEnv: \{[\s\S]*DATABASE_URL: ''[\s\S]*SERVER_DATABASE_URL: ''[\s\S]*SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1'[\s\S]*SERVER_URL: shadowUrl/,
-    'acceptance 的 GM shadow 步骤必须同时屏蔽 DB 并跳过本地 env 自动补齐',
+    /label: 'gm'[\s\S]*extraEnv: \{[\s\S]*DATABASE_URL: ''[\s\S]*SERVER_DATABASE_URL: ''[\s\S]*DATABASE_POOLER_URL: ''[\s\S]*SERVER_DATABASE_POOLER_URL: ''[\s\S]*SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1'[\s\S]*SERVER_URL: shadowUrl/,
+    'acceptance 的 GM shadow 步骤必须同时屏蔽 DB/Pooler 并跳过本地 env 自动补齐',
   );
   assertIncludes(
     acceptanceScript,

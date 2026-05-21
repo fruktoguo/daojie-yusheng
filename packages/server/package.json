@@ -63,6 +63,7 @@
     "smoke:gm-world-dirty-backlog": "pnpm compile && node dist/tools/gm-world-dirty-backlog-smoke.js",
     "smoke:gm-world-nodes": "pnpm compile && node dist/tools/gm-world-nodes-smoke.js",
     "smoke:instance-lease-sync-error": "pnpm compile && node dist/tools/instance-lease-sync-error-smoke.js",
+    "smoke:instance-lease-periodic-force-reclaim": "pnpm compile && node dist/tools/instance-lease-periodic-force-reclaim-smoke.js",
     "smoke:gm-world-instance-lease": "pnpm compile && node dist/tools/gm-world-instance-lease-smoke.js",
     "smoke:gm-world-outbox-retry-queue": "pnpm compile && node dist/tools/gm-world-outbox-retry-queue-smoke.js",
     "smoke:gm-world-instance-freeze": "pnpm compile && node dist/tools/gm-world-instance-freeze-smoke.js",

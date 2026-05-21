@@ -53,9 +53,14 @@ function normalizeBooleanEnv(rawValue: string | undefined): boolean {
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 
+/** 当前进程是否显式跳过本地 runtime env 自动加载。 */
+export function shouldSkipLocalRuntimeEnvAutoload(): boolean {
+  return normalizeBooleanEnv(process.env.SERVER_SKIP_LOCAL_ENV_AUTOLOAD);
+}
+
 /** 遍历候选 .env 文件，将未设置的变量注入 process.env；最后应用 GM runtime 覆盖。 */
 export function loadLocalRuntimeEnv(): void {
-  if (normalizeBooleanEnv(process.env.SERVER_SKIP_LOCAL_ENV_AUTOLOAD)) {
+  if (shouldSkipLocalRuntimeEnvAutoload()) {
     return;
   }
 

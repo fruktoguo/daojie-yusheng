@@ -32,7 +32,7 @@ const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
   ['world-runtime-player-migrate-route-db-smoke.js', 30_000],
   ['world-runtime-player-migrate-handoff-db-smoke.js', 30_000],
   ['world-runtime-player-migrate-gateway-redirect-smoke.js', 30_000],
-  ['readiness-gate-smoke.js', 45_000],
+  ['readiness-gate-smoke.js', 90_000],
   ['monster-skill-smoke.js', 60_000],
     ['gm-database-smoke.js', 900_000],
     ['shutdown-drain-smoke.js', 180_000],

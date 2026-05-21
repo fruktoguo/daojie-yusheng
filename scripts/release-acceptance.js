@@ -56,6 +56,8 @@ const steps = [
     extraEnv: {
       DATABASE_URL: '',
       SERVER_DATABASE_URL: '',
+      DATABASE_POOLER_URL: '',
+      SERVER_DATABASE_POOLER_URL: '',
       SERVER_ALLOW_UNREADY_TRAFFIC: '',
       SERVER_SMOKE_ALLOW_UNREADY: '',
       SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1',
@@ -74,6 +76,8 @@ const steps = [
     extraEnv: {
       DATABASE_URL: '',
       SERVER_DATABASE_URL: '',
+      DATABASE_POOLER_URL: '',
+      SERVER_DATABASE_POOLER_URL: '',
       SERVER_ALLOW_UNREADY_TRAFFIC: '',
       SERVER_SMOKE_ALLOW_UNREADY: '',
       SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1',

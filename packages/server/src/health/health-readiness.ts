@@ -2,7 +2,7 @@
  * 健康就绪检测核心逻辑：汇总数据库、持久化服务、运行时和维护态，
  * 输出统一的 readiness 响应体。供 HealthController 和内部网关使用。
  */
-import { resolveServerDatabaseEnvSource } from '../config/env-alias';
+import { resolveServerDatabaseEnvSource, resolveServerDatabasePoolerEnvSource } from '../config/env-alias';
 
 /** 持久化服务最小接口，用于 readiness 检测 */
 interface PersistenceServiceLike {
@@ -163,7 +163,7 @@ function resolveDatabaseReadiness() {
 
 /** 读取数据库配置来源，统一从 env alias 解析。 */
 function resolveDatabaseSource(): string | null {
-  return resolveServerDatabaseEnvSource();
+  return resolveServerDatabasePoolerEnvSource() ?? resolveServerDatabaseEnvSource();
 }
 
 /** 读取服务级持久化开关，用于 readiness 中快速降级。 */

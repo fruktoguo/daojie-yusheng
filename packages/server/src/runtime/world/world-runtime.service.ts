@@ -863,8 +863,8 @@ export class WorldRuntimeService {
     async syncAllInstanceLeases() {
         return syncAllInstanceLeases(this);
     }
-    async claimRecoverableCatalogInstances() {
-        return claimRecoverableCatalogInstances(this);
+    async claimRecoverableCatalogInstances(opts?) {
+        return claimRecoverableCatalogInstances(this, opts);
     }
     async hydratePersistentInstanceSnapshot(instanceId, instance) {
         return hydratePersistentInstanceSnapshot(this, instanceId, instance);

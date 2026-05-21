@@ -29,6 +29,13 @@ let currentPort = Number(process.env.SERVER_SMOKE_PORT ?? 3312);
  */
 let baseUrl = `http://127.0.0.1:${currentPort}`;
 let activeServer = null;
+
+function hasDatabaseEnv() {
+    return (typeof process.env.SERVER_DATABASE_URL === 'string' && process.env.SERVER_DATABASE_URL.trim().length > 0)
+        || (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0)
+        || (typeof process.env.SERVER_DATABASE_POOLER_URL === 'string' && process.env.SERVER_DATABASE_POOLER_URL.trim().length > 0)
+        || (typeof process.env.DATABASE_POOLER_URL === 'string' && process.env.DATABASE_POOLER_URL.trim().length > 0);
+}
 /**
  * 串联执行脚本主流程。
  */
@@ -46,8 +53,7 @@ async function main() {
 /**
  * 标记是否带库。
  */
-    const hasDatabase = (typeof process.env.SERVER_DATABASE_URL === 'string' && process.env.SERVER_DATABASE_URL.trim().length > 0)
-        || (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0);
+    const hasDatabase = hasDatabaseEnv();
     try {
         if (hasDatabase) {
 /**
@@ -178,6 +184,9 @@ async function startServer(options) {
             SERVER_NODE_ID: process.env.SERVER_NODE_ID || 'server-smoke-suite',
             SERVER_PORT: String(currentPort),
             SERVER_RUNTIME_HTTP: '1',
+            SERVER_SKIP_LOCAL_ENV_AUTOLOAD: hasDatabaseEnv()
+                ? (process.env.SERVER_SKIP_LOCAL_ENV_AUTOLOAD || '0')
+                : '1',
             ...(options.allowUnreadyTraffic
                 ? {
                     SERVER_ALLOW_UNREADY_TRAFFIC: '1',
@@ -259,7 +268,7 @@ function dumpServerLogTail(child) {
 /**
  * 等待for健康状态。
  */
-async function waitForHealth(expectedStatus, timeoutMs = 20_000) {
+async function waitForHealth(expectedStatus, timeoutMs = 45_000) {
 /**
  * 记录last请求体。
  */

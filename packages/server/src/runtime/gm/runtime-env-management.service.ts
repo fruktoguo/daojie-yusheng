@@ -17,7 +17,10 @@ import {
   readRuntimeEnvFile,
   upsertRuntimeEnvFileEntry,
 } from '../../config/runtime-env-file';
-import { getInitialRuntimeEnvSnapshot } from '../../config/load-local-runtime-env';
+import {
+  getInitialRuntimeEnvSnapshot,
+  shouldSkipLocalRuntimeEnvAutoload,
+} from '../../config/load-local-runtime-env';
 import {
   getRuntimeEnvCategoryOrder,
   getRuntimeEnvDescriptor,
@@ -34,6 +37,10 @@ export class RuntimeEnvManagementService implements OnModuleInit {
   private persistedEnv = new Map<string, string>();
 
   async onModuleInit(): Promise<void> {
+    if (shouldSkipLocalRuntimeEnvAutoload()) {
+      this.persistedEnv = new Map();
+      return;
+    }
     this.reloadFromDisk();
   }
 

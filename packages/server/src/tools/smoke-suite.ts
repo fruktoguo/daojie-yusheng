@@ -676,6 +676,12 @@ async function resolveCaseExtraEnv(entry) {
                 extraEnv.SERVER_NODE_ID = resolvedNodeId;
             }
         }
+    } else {
+        extraEnv.DATABASE_URL = '';
+        extraEnv.SERVER_DATABASE_URL = '';
+        extraEnv.DATABASE_POOLER_URL = '';
+        extraEnv.SERVER_DATABASE_POOLER_URL = '';
+        extraEnv.SERVER_SKIP_LOCAL_ENV_AUTOLOAD = '1';
     }
     if (entry.name === 'gm'
         || entry.name === 'redeem-code'
