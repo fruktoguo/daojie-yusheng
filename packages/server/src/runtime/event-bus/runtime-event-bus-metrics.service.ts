@@ -29,6 +29,7 @@ export interface EventBusMetrics {
   // 分类计数
   queuedByMethod: Record<string, number>;
   droppedByMethod: Record<string, number>;
+  droppedByDetail: Record<string, number>;
 
   // 队列水位（flush 前快照）
   maxPlayerQueueSize: number;
@@ -55,6 +56,7 @@ export class RuntimeEventBusMetricsService {
 
   private _queuedByMethod: Record<string, number> = {};
   private _droppedByMethod: Record<string, number> = {};
+  private _droppedByDetail: Record<string, number> = {};
 
   // ─── 队列水位 ───
   private _maxPlayerQueueSize = 0;
@@ -69,6 +71,7 @@ export class RuntimeEventBusMetricsService {
   // ─── 丢弃日志聚合 ───
   private _dropAccumulator = 0;
   private _dropTopSources: Record<string, number> = {};
+  private _dropTopDetails: Record<string, number> = {};
   private _lastDropLogAt = 0;
 
   // ═══════════════════════════════════════════════════════════════
@@ -80,9 +83,14 @@ export class RuntimeEventBusMetricsService {
     this._queuedByMethod[method] = (this._queuedByMethod[method] ?? 0) + count;
   }
 
-  recordDropped(method: string, count = 1): void {
+  recordDropped(method: string, count = 1, detail?: string): void {
     this._tickDroppedTotal += count;
     this._droppedByMethod[method] = (this._droppedByMethod[method] ?? 0) + count;
+    if (detail) {
+      const detailKey = `${method}:${normalizeDropDetail(detail)}`;
+      this._droppedByDetail[detailKey] = (this._droppedByDetail[detailKey] ?? 0) + count;
+      this._dropTopDetails[detailKey] = (this._dropTopDetails[detailKey] ?? 0) + count;
+    }
     this._dropAccumulator += count;
     this._dropTopSources[method] = (this._dropTopSources[method] ?? 0) + count;
   }
@@ -143,6 +151,7 @@ export class RuntimeEventBusMetricsService {
     this._tickMergedTotal = 0;
     this._queuedByMethod = {};
     this._droppedByMethod = {};
+    this._droppedByDetail = {};
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -157,6 +166,7 @@ export class RuntimeEventBusMetricsService {
       tickMergedTotal: this._tickMergedTotal,
       queuedByMethod: { ...this._queuedByMethod },
       droppedByMethod: { ...this._droppedByMethod },
+      droppedByDetail: { ...this._droppedByDetail },
       maxPlayerQueueSize: this._maxPlayerQueueSize,
       maxInstanceQueueSize: this._maxInstanceQueueSize,
       activePlayerQueues: this._activePlayerQueues,
@@ -189,17 +199,29 @@ export class RuntimeEventBusMetricsService {
       .slice(0, 3)
       .map(([method, count]) => `${method}:${count}`)
       .join(', ');
+    const detailText = Object.entries(this._dropTopDetails)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([detail, count]) => `${detail}:${count}`)
+      .join(', ');
 
     this.logger.warn(
-      `Dropped ${this._dropAccumulator} events in last ${Math.round((now - (this._lastDropLogAt || now)) / 1000)}s — top sources: ${top3}`,
+      `Dropped ${this._dropAccumulator} events in last ${Math.round((now - (this._lastDropLogAt || now)) / 1000)}s — top sources: ${top3}${detailText ? ` — top details: ${detailText}` : ''}`,
     );
 
     this._dropAccumulator = 0;
     this._dropTopSources = {};
+    this._dropTopDetails = {};
     this._lastDropLogAt = now;
   }
 }
 
 function roundMs(value: number): number {
   return Math.round(value * 1000) / 1000;
+}
+
+function normalizeDropDetail(detail: string): string {
+  return detail
+    .replace(/[^a-zA-Z0-9_.:-]/g, '_')
+    .slice(0, 96);
 }

@@ -8,6 +8,7 @@
 import assert from 'node:assert/strict';
 
 import { RuntimeEventBusService } from '../runtime/event-bus/runtime-event-bus.service';
+import { RuntimeEventBusMetricsService } from '../runtime/event-bus/runtime-event-bus-metrics.service';
 import {
   MAX_AOI_EFFECTS_PER_INSTANCE,
   MAX_COMBAT_EFFECTS_PER_INSTANCE,
@@ -68,6 +69,28 @@ function testQueuePlayerNoticeLimitDropsLowerPriority(): void {
   assert.equal(result.notices.length, MAX_NOTICES_PER_PLAYER);
   assert.equal(result.notices.some((notice) => notice.text === 'warn-kept'), true);
   assert.equal(result.notices.some((notice) => notice.text === 'info-0'), false);
+}
+
+function testQueuePlayerNoticeLimitRejectsLowerPriorityIncoming(): void {
+  const metrics = new RuntimeEventBusMetricsService();
+  const svc = new RuntimeEventBusService(metrics);
+  for (let i = 0; i < MAX_NOTICES_PER_PLAYER; i += 1) {
+    svc.queuePlayerNotice('p1', { kind: 'warn', text: `warn-${i}` });
+  }
+  svc.queuePlayerNotice('p1', {
+    kind: 'combat',
+    text: 'low-priority',
+    structured: { key: 'notice.combat.low-priority' },
+  });
+
+  const result = svc.drainPlayer('p1');
+  const snapshot = metrics.getMetrics();
+  assert.ok(result);
+  assert.equal(result.notices.length, MAX_NOTICES_PER_PLAYER);
+  assert.equal(result.notices.some((notice) => notice.text === 'low-priority'), false);
+  assert.equal(result.notices.some((notice) => notice.text === 'warn-0'), true);
+  assert.equal(snapshot.droppedByMethod.playerNotice, 1);
+  assert.equal(snapshot.droppedByDetail['playerNotice:combat:notice.combat.low-priority'], 1);
 }
 
 function testQueuePlayerPanelPatchMergeMode(): void {
@@ -351,6 +374,7 @@ async function main(): Promise<void> {
     testQueuePlayerNoticeExceedsLimitDropsOldest,
     testQueuePlayerNoticeDedupStructuredPayload,
     testQueuePlayerNoticeLimitDropsLowerPriority,
+    testQueuePlayerNoticeLimitRejectsLowerPriorityIncoming,
     testQueuePlayerPanelPatchMergeMode,
     testQueueActiveJobProgressOverwriteMode,
     testQueueTechniquePanelRefreshDedup,

@@ -90,7 +90,7 @@ export class RuntimeEventBusService {
   // ═══════════════════════════════════════════════════════════════
 
   /**
-   * 追加玩家通知。超上限时丢弃最早的。
+   * 追加玩家通知。超上限时保留更高优先级通知，低优先级新通知可被直接拒收。
    * 规则：追加模式，上限 MAX_NOTICES_PER_PLAYER。
    */
   queuePlayerNotice(playerId: string, notice: Omit<NoticeQueueEntry, 'id'> | NoticeQueueEntry): void {
@@ -115,12 +115,16 @@ export class RuntimeEventBusService {
       return;
     }
     if (queue.notices.length >= MAX_NOTICES_PER_PLAYER) {
-      const dropIndex = noticePriority <= queue.minNoticePriority ? 0 : findLowestPriorityNoticeIndex(queue.notices);
-      queue.notices.splice(dropIndex, 1);
-      this.metrics?.recordDropped('playerNotice');
-      if (noticePriority > queue.minNoticePriority) {
-        queue.minNoticePriority = findLowestNoticePriority(queue.notices);
+      const dropIndex = findLowestPriorityNoticeIndex(queue.notices);
+      const droppedPriority = NOTICE_KIND_PRIORITY[queue.notices[dropIndex]?.kind ?? 'info'] ?? 0;
+      if (noticePriority < droppedPriority) {
+        this.metrics?.recordDropped('playerNotice', 1, getNoticeDropDetail(normalizedNotice));
+        return;
       }
+      const droppedNotice = queue.notices[dropIndex];
+      queue.notices.splice(dropIndex, 1);
+      this.metrics?.recordDropped('playerNotice', 1, getNoticeDropDetail(droppedNotice ?? normalizedNotice));
+      queue.minNoticePriority = findLowestNoticePriority(queue.notices);
     }
     queue.notices.push(normalizedNotice);
     if (noticePriority < queue.minNoticePriority) {
@@ -652,6 +656,15 @@ function isSameNotice(left: NoticeQueueEntry, right: Omit<NoticeQueueEntry, 'id'
       && shallowEqualNoticeVars(left.structured?.vars, right.structured?.vars);
   }
   return left.kind === right.kind && left.text === right.text && left.castId === right.castId;
+}
+
+function getNoticeDropDetail(notice: Omit<NoticeQueueEntry, 'id'> | NoticeQueueEntry): string {
+  const kind = typeof notice.kind === 'string' && notice.kind.length > 0 ? notice.kind : 'unknown';
+  const structuredKey = notice.structured?.key;
+  if (typeof structuredKey === 'string' && structuredKey.length > 0) {
+    return `${kind}:${structuredKey}`;
+  }
+  return `${kind}:unstructured`;
 }
 
 function shallowEqualNoticeVars(
