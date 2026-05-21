@@ -12,6 +12,7 @@ import { isFlushTaskConsumerMode, isInlineFlushTaskRuntimeMode } from './flush-t
 import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
 import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
+import { PlayerDomainPersistenceService, type PlayerPresenceUpsertInput } from './player-domain-persistence.service';
 import { PlayerPersistenceFlushService } from './player-persistence-flush.service';
 
 const INTERVAL_MS = readInt('SERVER_FLUSH_TASK_RUNTIME_INTERVAL_MS', 'FLUSH_TASK_RUNTIME_INTERVAL_MS', 1_500, 250, 60_000);
@@ -40,6 +41,7 @@ interface PlayerRuntimeFlushTaskPort {
   listDirtyPlayerDomains?(): Map<string, Set<string>>;
   listDirtyPlayers?(): string[];
   getPersistenceRevision?(playerId: string): number | null;
+  describePersistencePresence?(playerId: string): PlayerPresenceUpsertInput | null;
 }
 
 interface PlayerPersistenceFlushPort {
@@ -72,6 +74,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(FlushTaskRuntimeService.name);
   private readonly workerId = `flush-task-runtime:${process.pid}:${randomUUID()}`;
   private timer: NodeJS.Timeout | null = null;
+  private stagingTimer: NodeJS.Timeout | null = null;
   private running: Promise<number> | null = null;
   private globalBackoffUntilAt = 0;
   private readonly failureAttempts = new Map<string, number>();
@@ -84,18 +87,25 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     private readonly flushWakeupService: FlushWakeupService,
     @Optional() @Inject(DatabasePoolProvider) private readonly databasePoolProvider?: DatabasePoolProvider,
     @Optional() @Inject(FlushDiagnosticsService) private readonly flushDiagnostics?: FlushDiagnosticsService,
+    @Optional() @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService?: PlayerDomainPersistenceService,
   ) {}
 
   onModuleInit(): void {
-    if (!isInlineFlushTaskRuntimeMode() || !shouldStartInlineFlushConsumer()) {
-      this.logger.log('统一刷盘任务运行时未启用 inline consumer，保留当前配置模式');
+    if (isInlineFlushTaskRuntimeMode() && shouldStartInlineFlushConsumer()) {
+      this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
+      this.timer.unref();
+      this.logger.log(
+        `统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms playerLimit=${PLAYER_CLAIM_LIMIT}(high=${PLAYER_HIGH_CLAIM_LIMIT},normal=${PLAYER_NORMAL_CLAIM_LIMIT},low=${PLAYER_LOW_CLAIM_LIMIT}) instanceLimit=${INSTANCE_CLAIM_LIMIT}(high=${INSTANCE_HIGH_CLAIM_LIMIT},normal=${INSTANCE_NORMAL_CLAIM_LIMIT},low=${INSTANCE_LOW_CLAIM_LIMIT}) playerParallelism=${PLAYER_PARALLELISM} instanceParallelism=${INSTANCE_PARALLELISM}`,
+      );
       return;
     }
-    this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
-    this.timer.unref();
-    this.logger.log(
-      `统一刷盘任务运行时已启动，间隔 ${INTERVAL_MS}ms playerLimit=${PLAYER_CLAIM_LIMIT}(high=${PLAYER_HIGH_CLAIM_LIMIT},normal=${PLAYER_NORMAL_CLAIM_LIMIT},low=${PLAYER_LOW_CLAIM_LIMIT}) instanceLimit=${INSTANCE_CLAIM_LIMIT}(high=${INSTANCE_HIGH_CLAIM_LIMIT},normal=${INSTANCE_NORMAL_CLAIM_LIMIT},low=${INSTANCE_LOW_CLAIM_LIMIT}) playerParallelism=${PLAYER_PARALLELISM} instanceParallelism=${INSTANCE_PARALLELISM}`,
-    );
+    if (shouldStartAuthoritativeRuntime()) {
+      this.stagingTimer = setInterval(() => void this.stageDirtyTasksOnce(), INTERVAL_MS);
+      this.stagingTimer.unref();
+      this.logger.log(`统一刷盘 staging collector 已启动，间隔 ${INTERVAL_MS}ms，不在当前 role 消费 flush tasks`);
+      return;
+    }
+    this.logger.log('统一刷盘任务运行时未启用 inline consumer，保留当前配置模式');
   }
 
   onModuleDestroy(): void {
@@ -103,6 +113,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       clearInterval(this.timer);
       this.timer = null;
     }
+    if (this.stagingTimer) {
+      clearInterval(this.stagingTimer);
+      this.stagingTimer = null;
+    }
+  }
+
+  async stageDirtyTasksOnce(): Promise<void> {
+    if (!this.flushLedgerService.isEnabled() || !shouldStartAuthoritativeRuntime()) {
+      return;
+    }
+    await this.collectPlayerTasks();
+    await this.collectInstanceTasks();
   }
 
   async runOnce(workerId = this.workerId, filter?: { playerDomain?: string; instanceDomain?: string }): Promise<number> {
@@ -160,6 +182,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     return result;
   }
 
+  private buildPlayerTaskPayload(playerId: string, domain: string): PlayerPresenceUpsertInput | null {
+    if (domain !== 'presence') {
+      return null;
+    }
+    return this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+  }
+
   private async collectPlayerTasks(): Promise<void> {
     const dirty = this.playerRuntimeService.listDirtyPlayerDomains?.() ?? new Map();
     const entries = dirty.size > 0
@@ -169,11 +198,15 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       const normalized = normalizeDomains(domains);
       const taskDomains = resolvePlayerTaskDomains(normalized);
       for (const domain of taskDomains) {
+        const payload = this.buildPlayerTaskPayload(playerId, domain);
         await this.flushLedgerService.upsertFlushTask({
           scope: 'player', id: playerId, domain,
           priority: resolveFlushTaskPriority('player', domain),
           latestRevision: resolveRevision(this.playerRuntimeService.getPersistenceRevision?.(playerId)),
           nextAttemptAt: new Date().toISOString(),
+          runtimeOwnerId: payload?.runtimeOwnerId ?? null,
+          fencingToken: buildPlayerPayloadFencingToken(payload),
+          payloadJson: payload,
         });
       }
       if (taskDomains.length > 0) this.flushWakeupService.signalPlayerFlush(playerId);
@@ -219,6 +252,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         const domains = Array.from(new Set(group.map((task) => task.domain)));
         const attemptKey = playerGroupKey(group);
         try {
+          const payloadProcessed = await this.processPlayerPayloadTaskGroup(playerId, group);
+          if (payloadProcessed !== null) {
+            processed += payloadProcessed;
+            this.failureAttempts.delete(attemptKey);
+            return;
+          }
           const flushed = await this.playerPersistenceFlushService.flushPlayerDomains(playerId, domains);
           if (flushed === false) {
             await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
@@ -232,6 +271,33 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         }
       },
     );
+    return processed;
+  }
+
+  private async processPlayerPayloadTaskGroup(playerId: string, group: FlushTask[]): Promise<number | null> {
+    if (group.length === 0 || group.some((task) => task.domain !== 'presence')) {
+      return null;
+    }
+    if (!this.playerDomainPersistenceService?.isEnabled()) {
+      await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+      return 0;
+    }
+    let processed = 0;
+    for (const task of group) {
+      const payload = normalizePlayerPresencePayload(task.payloadJson);
+      if (!payload) {
+        if (shouldStartAuthoritativeRuntime()) {
+          return null;
+        }
+        await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+        continue;
+      }
+      await this.playerDomainPersistenceService.savePlayerPresence(playerId, payload);
+      const flushed = await this.flushLedgerService.markFlushTaskFlushed(task);
+      if (flushed) {
+        processed += 1;
+      }
+    }
     return processed;
   }
 
@@ -467,6 +533,31 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 }
 
+function normalizePlayerPresencePayload(value: unknown): PlayerPresenceUpsertInput | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    online: record.online === true,
+    inWorld: record.inWorld === true,
+    lastHeartbeatAt: normalizeNullableNumber(record.lastHeartbeatAt),
+    offlineSinceAt: normalizeNullableNumber(record.offlineSinceAt),
+    runtimeOwnerId: normalizeNullableString(record.runtimeOwnerId),
+    sessionEpoch: normalizeNullableNumber(record.sessionEpoch),
+    transferState: normalizeNullableString(record.transferState),
+    transferTargetNodeId: normalizeNullableString(record.transferTargetNodeId),
+    versionSeed: normalizeNullableNumber(record.versionSeed),
+  };
+}
+
+function buildPlayerPayloadFencingToken(payload: PlayerPresenceUpsertInput | null): string | null {
+  if (!payload) {
+    return null;
+  }
+  return `${payload.runtimeOwnerId ?? 'none'}:${Math.max(0, Math.trunc(Number(payload.sessionEpoch ?? 0)))}`;
+}
+
 function resolvePlayerTaskDomains(domains: Set<string>): string[] {
   return Array.from(domains).sort();
 }
@@ -538,6 +629,19 @@ function normalizeDomains(domains: Iterable<string> | null | undefined): Set<str
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeNullableString(value: unknown): string | null {
+  const normalized = normalizeString(value);
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
 }
 
 function resolveRevision(value: unknown): number {
