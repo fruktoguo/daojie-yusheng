@@ -4,7 +4,7 @@ services:
     container_name: daojie-local-postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-mud}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-jiuzhou123}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       POSTGRES_DB: ${DB_DATABASE:-daojie_yusheng}
     volumes:
       - pgdata_server:/var/lib/postgresql/data
@@ -19,11 +19,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: daojie-local-redis
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-changeme_redis_secret}"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
     ports:
       - "${REDIS_PORT:-16379}:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme_redis_secret}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -36,9 +36,9 @@ services:
       SERVER_RUNTIME_ENV: production
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
-      SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      SERVER_REDIS_URL: redis://:${REDIS_PASSWORD:-changeme_redis_secret}@redis:6379
+      SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      SERVER_REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET}
       SERVER_GM_AUTH_SECRET: ${SERVER_GM_AUTH_SECRET}
       SERVER_SECRET_ENCRYPTION_KEY: ${SERVER_SECRET_ENCRYPTION_KEY}
@@ -62,8 +62,8 @@ services:
     <<: *server_base
     environment:
       <<: *server_env_base
-      SERVER_RUNTIME_ROLE: ${SERVER_RUNTIME_ROLE:-all}
-      SERVER_FLUSH_TASK_RUNTIME_MODE: ${SERVER_FLUSH_TASK_RUNTIME_MODE:-inline}
+      SERVER_RUNTIME_ROLE: ${SERVER_RUNTIME_ROLE:-api}
+      SERVER_FLUSH_TASK_RUNTIME_MODE: ${SERVER_FLUSH_TASK_RUNTIME_MODE:-off}
     ports:
       - "11922:13001"
     healthcheck:

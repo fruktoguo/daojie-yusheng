@@ -35,13 +35,22 @@ const RUNTIME_ENV_KEYS = [
 
 function main(): void {
   withRuntimeEnv({}, () => {
+    assert.equal(resolveServerRuntimeRole(), 'api');
+    assert.equal(resolveFlushTaskRuntimeMode(), 'off');
+    assert.equal(shouldStartHttpServer(), true);
+    assert.equal(shouldStartAuthoritativeRuntime(), true);
+    assert.equal(shouldStartInlineFlushConsumer(), false);
+    assert.equal(shouldStartBackgroundWorkers(), false);
+    assert.match(describeServerRuntimeRole(), /role=api/);
+  });
+
+  withRuntimeEnv({ SERVER_RUNTIME_ROLE: 'all' }, () => {
     assert.equal(resolveServerRuntimeRole(), 'all');
     assert.equal(resolveFlushTaskRuntimeMode(), 'inline');
     assert.equal(shouldStartHttpServer(), true);
     assert.equal(shouldStartAuthoritativeRuntime(), true);
     assert.equal(shouldStartInlineFlushConsumer(), true);
     assert.equal(shouldStartBackgroundWorkers(), true);
-    assert.match(describeServerRuntimeRole(), /role=all/);
   });
 
   withRuntimeEnv({ SERVER_RUNTIME_ROLE: 'api' }, () => {
@@ -91,12 +100,13 @@ function main(): void {
   });
 
   withRuntimeEnv({ SERVER_RUNTIME_ROLE: 'invalid-role' }, () => {
-    assert.equal(resolveServerRuntimeRole(), 'all');
+    assert.equal(resolveServerRuntimeRole(), 'api');
+    assert.equal(resolveFlushTaskRuntimeMode(), 'off');
   });
 
   console.log(JSON.stringify({
     ok: true,
-    answers: 'SERVER_RUNTIME_ROLE/DAOJIE_RUNTIME_ROLE 已按 all/api/worker 解析，HTTP、权威 runtime、inline flush、background worker、outbox、backup 守卫矩阵符合预期。',
+    answers: 'SERVER_RUNTIME_ROLE/DAOJIE_RUNTIME_ROLE 已按生产友好默认 api/off 与显式 all/api/worker 解析，HTTP、权威 runtime、inline flush、background worker、outbox、backup 守卫矩阵符合预期。',
     excludes: '不证明 Phase 2 durable staging payload、生产 docker 拓扑或真实 DB 多 worker 竞争。',
     completionMapping: 'runtime-role-policy',
   }, null, 2));

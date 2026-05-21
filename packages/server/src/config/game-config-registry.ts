@@ -32,8 +32,8 @@ export const GAME_CONFIG_CATEGORY_ORDER = [
 
 const descriptors: GameConfigDescriptor[] = [
   // ─── 并发与线程池 ───
-  { key: 'SERVER_INSTANCE_WORKER_COUNT', label: '实例 Worker 数', description: '实例 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '4', min: 1, max: 6 },
-  { key: 'SERVER_PERSISTENCE_WORKER_COUNT', label: '持久化 Worker 数', description: '持久化 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '2', min: 1, max: 4 },
+  { key: 'SERVER_INSTANCE_WORKER_COUNT', label: '实例 Worker 数', description: '实例 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '6', min: 1, max: 8 },
+  { key: 'SERVER_PERSISTENCE_WORKER_COUNT', label: '持久化 Worker 数', description: '持久化 worker 线程数上限。', category: '并发与线程池', valueType: 'number', defaultValue: '4', min: 1, max: 8 },
   { key: 'SERVER_WORKER_POOL_FORCE_SYNC', label: '强制同步 Worker', description: '调试时强制 worker pool 同步执行，禁用多线程。', category: '并发与线程池', valueType: 'boolean', defaultValue: 'false' },
 
   // ─── 会话与缓冲 ───
@@ -42,10 +42,10 @@ const descriptors: GameConfigDescriptor[] = [
   { key: 'SERVER_CONSOLE_LOG_BUFFER_LINES', label: '控制台日志缓存行数', description: '控制台日志缓冲保留行数。', category: '会话与缓冲', valueType: 'number', defaultValue: '2000', min: 100, max: 50000 },
 
   // ─── Outbox 派发 ───
-  { key: 'SERVER_OUTBOX_DISPATCH_INTERVAL_MS', label: 'Outbox 派发间隔', description: 'Outbox 派发间隔（毫秒）。', category: 'Outbox 派发', valueType: 'number', defaultValue: '1000', min: 100, max: 60000 },
-  { key: 'SERVER_OUTBOX_DISPATCH_BATCH_SIZE', label: 'Outbox 批量大小', description: '每次派发的批量大小。', category: 'Outbox 派发', valueType: 'number', defaultValue: '50', min: 1, max: 500 },
+  { key: 'SERVER_OUTBOX_DISPATCH_INTERVAL_MS', label: 'Outbox 派发间隔', description: 'Outbox 派发间隔（毫秒）。', category: 'Outbox 派发', valueType: 'number', defaultValue: '250', min: 100, max: 60000 },
+  { key: 'SERVER_OUTBOX_DISPATCH_BATCH_SIZE', label: 'Outbox 批量大小', description: '每次派发的批量大小。', category: 'Outbox 派发', valueType: 'number', defaultValue: '128', min: 1, max: 500 },
   { key: 'SERVER_OUTBOX_RETRY_DELAY_MS', label: 'Outbox 重试延迟', description: 'Outbox 重试延迟（毫秒）。', category: 'Outbox 派发', valueType: 'number', defaultValue: '5000', min: 500, max: 120000 },
-  { key: 'SERVER_OUTBOX_MAX_ATTEMPTS', label: 'Outbox 最大重试', description: 'Outbox 最大重试次数。', category: 'Outbox 派发', valueType: 'number', defaultValue: '5', min: 1, max: 50 },
+  { key: 'SERVER_OUTBOX_MAX_ATTEMPTS', label: 'Outbox 最大重试', description: 'Outbox 最大重试次数。', category: 'Outbox 派发', valueType: 'number', defaultValue: '8', min: 1, max: 50 },
   { key: 'SERVER_OUTBOX_RUNTIME_ENABLED', label: '启用 Outbox Runtime', description: '是否启用 Outbox 运行时。', category: 'Outbox 派发', valueType: 'boolean', defaultValue: 'true' },
 
   // ─── 节点注册 ───
@@ -59,7 +59,7 @@ const descriptors: GameConfigDescriptor[] = [
   { key: 'SERVER_DEBUG_MOVEMENT', label: '移动调试', description: '开启移动调试日志。', category: '调试与限制', valueType: 'boolean', defaultValue: 'false' },
   { key: 'SERVER_HEAP_SNAPSHOT_TOP_LIMIT', label: 'Heap Snapshot 上限', description: 'Heap snapshot 排名前列保留数量。', category: '调试与限制', valueType: 'number', defaultValue: '20', min: 1, max: 200 },
   { key: 'SERVER_BUILDING_OPERATION_RESULTS_LIMIT', label: '建筑结果上限', description: '建筑操作结果的保留上限。', category: '调试与限制', valueType: 'number', defaultValue: '100', min: 10, max: 5000 },
-  { key: 'SERVER_FLUSH_WAKEUP_KEY_LIMIT', label: 'Flush Wakeup 上限', description: '唤醒刷盘 key 数量上限。', category: '调试与限制', valueType: 'number', defaultValue: '500', min: 10, max: 10000 },
+  { key: 'SERVER_FLUSH_WAKEUP_KEY_LIMIT', label: 'Flush Wakeup 上限', description: '唤醒刷盘 key 数量上限。', category: '调试与限制', valueType: 'number', defaultValue: '20000', min: 128, max: 100000 },
 ];
 
 export const GAME_CONFIG_DESCRIPTOR_MAP = new Map(descriptors.map((d) => [d.key, d]));

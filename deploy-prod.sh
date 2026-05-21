@@ -19,6 +19,7 @@ log_error() { printf '%b[ERROR]%b %s\n' "$RED" "$NC" "$1" >&2; }
 log_step()  { printf '\n%b==> %s%b\n' "$CYAN" "$1" "$NC"; }
 
 DEFAULT_TENCENT_IMAGE_PREFIX="ccr.ccs.tencentyun.com/tcb-100001011660-qtgo"
+DEFAULT_SERVER_CORS_ORIGINS="https://daojie.yuohira.com"
 DEPLOY_DIR="/opt/daojie-yusheng"
 ENV_FILE="${DEPLOY_DIR}/prod.env"
 STACK_FILE="${DEPLOY_DIR}/docker-stack.yml"
@@ -567,7 +568,7 @@ if [ -f "$ENV_FILE" ]; then
   SERVER_IMAGE_TAG="$REQUESTED_SERVER_IMAGE_TAG"
   DB_USERNAME="${DB_USERNAME:-mud}"
   DB_DATABASE="${DB_DATABASE:-daojie_yusheng}"
-  SERVER_CORS_ORIGINS="${SERVER_CORS_ORIGINS:-*}"
+  SERVER_CORS_ORIGINS="${SERVER_CORS_ORIGINS:-$DEFAULT_SERVER_CORS_ORIGINS}"
   CLIENT_PUBLISHED_PORT="${CLIENT_PUBLISHED_PORT:-11921}"
   SERVER_PUBLISHED_PORT="${SERVER_PUBLISHED_PORT:-11922}"
   export CLIENT_IMAGE_TAG SERVER_IMAGE_TAG DB_USERNAME DB_DATABASE SERVER_CORS_ORIGINS CLIENT_PUBLISHED_PORT SERVER_PUBLISHED_PORT
@@ -593,7 +594,7 @@ else
   default_gm_pass="$(generate_secret)"
   read_with_default "  GM 管理密码 [回车自动生成]: " "$default_gm_pass" input_gm_pass
 
-  read_with_default "  前端域名（如 https://example.com）[回车默认不限制]: " "*" input_cors
+  read_with_default "  前端域名（如 https://example.com）[回车默认 ${DEFAULT_SERVER_CORS_ORIGINS}]: " "$DEFAULT_SERVER_CORS_ORIGINS" input_cors
 
   {
     write_env_var "TENCENT_IMAGE_PREFIX" "$input_prefix"
@@ -675,7 +676,7 @@ services:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
       SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:-*}
+      SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:-https://daojie.yuohira.com}
       SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET}
       SERVER_GM_AUTH_SECRET: ${SERVER_GM_AUTH_SECRET}
       SERVER_SECRET_ENCRYPTION_KEY: ${SERVER_SECRET_ENCRYPTION_KEY}

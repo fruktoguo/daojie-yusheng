@@ -306,8 +306,18 @@ function main() {
   assert(!/\n\s+healthcheck:/.test(stackServerWorker), '生产 stack 的 server_worker 不得使用 HTTP healthcheck');
   assertIncludes(
     dockerCompose,
-    /server:[\s\S]*SERVER_RUNTIME_ROLE: \$\{SERVER_RUNTIME_ROLE:-all\}[\s\S]*SERVER_FLUSH_TASK_RUNTIME_MODE: \$\{SERVER_FLUSH_TASK_RUNTIME_MODE:-inline\}/,
-    '本地 docker-compose 默认 server 必须保留 all/inline 兼容启动',
+    /server:[\s\S]*SERVER_RUNTIME_ROLE: \$\{SERVER_RUNTIME_ROLE:-api\}[\s\S]*SERVER_FLUSH_TASK_RUNTIME_MODE: \$\{SERVER_FLUSH_TASK_RUNTIME_MODE:-off\}/,
+    '本地 docker-compose 默认 server 必须使用生产友好的 api/off；all/inline 只能显式开启',
+  );
+  assertIncludes(
+    dockerCompose,
+    /\$\{DB_PASSWORD:\?DB_PASSWORD is required\}/,
+    'docker-compose 不得给数据库密码提供固定弱默认值',
+  );
+  assertIncludes(
+    dockerCompose,
+    /\$\{REDIS_PASSWORD:\?REDIS_PASSWORD is required\}/,
+    'docker-compose 不得给 Redis 密码提供固定弱默认值',
   );
   assertIncludes(
     dockerCompose,
@@ -315,6 +325,9 @@ function main() {
     '本地 docker-compose 必须提供 --profile worker 的 server_worker',
   );
   for (const [name, content] of [['deploy-latest.sh', deployLatest], ['deploy-prod.sh', deployProd]]) {
+    assertIncludes(content, /DEFAULT_SERVER_CORS_ORIGINS="https:\/\/daojie\.yuohira\.com"/, `${name} 的 CORS 默认值必须收敛到生产域名`);
+    assert(!/SERVER_CORS_ORIGINS[:=]\s*\$\{SERVER_CORS_ORIGINS:-\*\}/.test(content), `${name} 不得把 CORS 默认值设为 *`);
+    assertIncludes(content, /SERVER_CORS_ORIGINS:\s+\$\{SERVER_CORS_ORIGINS:-https:\/\/daojie\.yuohira\.com\}/, `${name} 生成的 stack 模板必须使用生产域名作为 CORS 默认值`);
     assertIncludes(content, /update_service "\$\{STACK_NAME\}_server_worker"/, `${name} 必须更新 server_worker 镜像`);
     assertIncludes(content, /wait_for_service "server_worker"/, `${name} 必须等待 server_worker 就绪`);
     assert(!/update_service "\$\{STACK_NAME\}_backup-worker"/.test(content), `${name} 不得继续自动更新旧 backup-worker 服务`);

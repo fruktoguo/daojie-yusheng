@@ -8,16 +8,16 @@ let invalidRuntimeRoleWarned = false;
 export function resolveServerRuntimeRole(): ServerRuntimeRole {
   const raw = readTrimmedEnv('SERVER_RUNTIME_ROLE', 'DAOJIE_RUNTIME_ROLE').toLowerCase();
   if (!raw) {
-    return 'all';
+    return 'api';
   }
   if (VALID_RUNTIME_ROLES.has(raw as ServerRuntimeRole)) {
     return raw as ServerRuntimeRole;
   }
   if (!invalidRuntimeRoleWarned) {
     invalidRuntimeRoleWarned = true;
-    console.warn(`[runtime-role] 非法 SERVER_RUNTIME_ROLE/DAOJIE_RUNTIME_ROLE=${raw}，已回退 all；生产部署必须显式使用 api/worker。`);
+    console.warn(`[runtime-role] 非法 SERVER_RUNTIME_ROLE/DAOJIE_RUNTIME_ROLE=${raw}，已回退 api；如需本地单进程或应急回滚必须显式使用 all。`);
   }
-  return 'all';
+  return 'api';
 }
 
 export function shouldStartHttpServer(role = resolveServerRuntimeRole()): boolean {

@@ -23,9 +23,9 @@ export interface DatabasePoolStatsByGroup {
 }
 
 const DEFAULT_POOL_MAX: Record<DatabasePoolGroup, number> = {
-  runtimeCritical: 12,
-  flush: 8,
-  outbox: 2,
+  runtimeCritical: 16,
+  flush: 16,
+  outbox: 4,
   gmDiagnostics: 2,
 };
 
