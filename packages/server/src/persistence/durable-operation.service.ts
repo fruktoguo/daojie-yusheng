@@ -3592,6 +3592,7 @@ async function replacePlayerMarketStorageItems(
     rowsByStorageItemId.set(storageItemId, row);
   }
   const rows = Array.from(rowsBySlotIndex.values());
+  const rowsJson = JSON.stringify(rows);
 
   if (rows.length > 0) {
     await client.query(
@@ -3609,7 +3610,7 @@ async function replacePlayerMarketStorageItems(
               AND incoming.storage_item_id <> target.storage_item_id
           )
       `,
-      [playerId, JSON.stringify(rows.map(({ storage_item_id, slot_index }) => ({ storage_item_id, slot_index })))],
+      [playerId, rowsJson],
     );
     const result = await client.query(
       `
@@ -3647,7 +3648,7 @@ async function replacePlayerMarketStorageItems(
           updated_at = now()
         WHERE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}.player_id = EXCLUDED.player_id
       `,
-      [playerId, JSON.stringify(rows)],
+      [playerId, rowsJson],
     );
     if (((result as { rowCount?: number }).rowCount ?? 0) !== rows.length) {
       throw new Error(`replacePlayerMarketStorageItems: storage_item_id conflict outside player scope playerId=${playerId}`);
@@ -3668,7 +3669,7 @@ async function replacePlayerMarketStorageItems(
           WHERE incoming.slot_index = target.slot_index
         )
     `,
-    [playerId, JSON.stringify(rows.map(({ slot_index }) => ({ slot_index })))],
+    [playerId, rowsJson],
   );
 }
 
