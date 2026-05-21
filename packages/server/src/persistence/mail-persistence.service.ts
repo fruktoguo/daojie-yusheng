@@ -1162,6 +1162,8 @@ async function pruneStructuredMailboxSnapshot(
   const attachmentIds = mails.flatMap((mail) => mail.attachments
     .map((attachment, index) => (normalizeRequiredString(attachment.itemId) ? buildMailAttachmentId(mail.mailId, index) : ''))
     .filter(Boolean));
+  const mailIdsJson = JSON.stringify(mailIds.map((mailId) => ({ mail_id: mailId })));
+  const attachmentIdsJson = JSON.stringify(attachmentIds.map((attachmentId) => ({ attachment_id: attachmentId })));
 
   await client.query(
     `
@@ -1177,7 +1179,7 @@ async function pruneStructuredMailboxSnapshot(
           WHERE incoming.mail_id = target.mail_id
         )
     `,
-    [playerId, JSON.stringify(mailIds.map((mailId) => ({ mail_id: mailId })))],
+    [playerId, mailIdsJson],
   );
 
   await client.query(
@@ -1194,7 +1196,7 @@ async function pruneStructuredMailboxSnapshot(
           WHERE incoming.attachment_id = target.attachment_id
         )
     `,
-    [playerId, JSON.stringify(attachmentIds.map((attachmentId) => ({ attachment_id: attachmentId })))],
+    [playerId, attachmentIdsJson],
   );
 
   await client.query(
@@ -1211,7 +1213,7 @@ async function pruneStructuredMailboxSnapshot(
           WHERE incoming.mail_id = target.mail_id
         )
     `,
-    [playerId, JSON.stringify(mailIds.map((mailId) => ({ mail_id: mailId })))],
+    [playerId, mailIdsJson],
   );
 }
 
