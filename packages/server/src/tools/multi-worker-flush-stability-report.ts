@@ -276,6 +276,8 @@ async function seedBenchmarkRows(
 async function cleanupBenchmarkRows(pool: Pool, playerIds: string[], instanceIds: string[]): Promise<void> {
   await pool.query('DELETE FROM player_flush_ledger WHERE player_id = ANY($1::varchar[])', [playerIds]).catch(() => undefined);
   await pool.query('DELETE FROM instance_flush_ledger WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query("DELETE FROM player_flush_ledger WHERE domain = 'snapshot'").catch(() => undefined);
+  await pool.query("DELETE FROM instance_flush_ledger WHERE domain = 'tile_resource'").catch(() => undefined);
 }
 
 function trackCall(counter: Map<string, number>, key: string): void {

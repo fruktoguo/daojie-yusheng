@@ -108,9 +108,9 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - 已完成：玩家 `presence` task 在 worker role 下可从 staging payload 写入 `PlayerDomainPersistenceService.savePlayerPresence()`；玩家 snapshot projectable task 可从 staging payload 写入 `savePlayerSnapshotProjectionDomains()`；实例 `tile_damage/tile_resource` 可从 staging delta payload 写入批量持久化 API；实例 `ground_item/overlay/monster_runtime/container_state/building/room/fengshui/time` 可从 staging state payload 写入持久化 API；unsupported player domain（含 `mail`/`gm_edit` 这类非 staging 链路）在 worker role 下只 retry，不调用 runtime flush fallback。
   - 边界结论：邮件和 GM 编辑由各自真源服务负责写入与幂等/审计，不伪装为 flush payload；市场订单已由 `market_storage` snapshot projectable path 覆盖。
   - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload`、`pnpm --filter @mud/server smoke:flush-instance-state-payload`、`pnpm --filter @mud/server smoke:flush-task-noop-retry`、`pnpm --filter @mud/server smoke:flush-independent-persistence` 通过。
-- [ ] payload 写入、worker 写入、mark flushed 必须同一幂等链路，重复消费不重复发奖、不重复扣资产、不覆盖新版本。
-  - 已完成部分：玩家 `presence` payload 使用 session epoch 与 DB upsert 条件保证旧 session 不覆盖新 session；玩家 snapshot projectable payload 复用分域写入的 version/watermark 与空覆盖保护；实例 `tile_damage/tile_resource` delta payload 复用批量 delta 写入和 recovery watermark，并在 worker 写入成功后 mark flushed；邮件和 GM edit 已确认不属于 flush payload 链路，分别由邮件结构化真源和 GM 直写快照/审计链路承担。
-  - 未完成/阻塞（2026-05-21）：真实 DB 重放/竞争 proof 仍未完成；当前环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能用静态/无 DB smoke 证明重复消费、fencing 竞争与多副本场景。
+- [x] payload 写入、worker 写入、mark flushed 必须同一幂等链路，重复消费不重复发奖、不重复扣资产、不覆盖新版本。
+  - 已完成：玩家 `presence` payload 使用 session epoch 与 DB upsert 条件保证旧 session 不覆盖新 session；玩家 snapshot projectable payload 复用分域写入的 version/watermark 与空覆盖保护；实例 `tile_damage/tile_resource` delta payload 复用批量 delta 写入和 recovery watermark，并在 worker 写入成功后 mark flushed；邮件和 GM edit 已确认不属于 flush payload 链路，分别由邮件结构化真源和 GM 直写快照/审计链路承担。
+  - 验证（2026-05-21）：`node packages/server/dist/tools/flush-task-worker-db-smoke.js` 已在真实 DB 上验证 ledger claim、真源写入、retry/backoff、stale fencing 与重复 claim 不再返回已 flushed task；容量 benchmark 同时覆盖 100 次 wallet durable mutation 路径。
 - [x] no-op flush 必须 retry 或进入诊断，不得 mark flushed。
   - 已完成：玩家 `flushPlayerDomains()` 返回 `false` 时 retry；实例缺少 runtime、缺少 `flushInstanceDomains()` 或返回空结果时 retry，不再 mark flushed。
   - 验证：`pnpm --filter @mud/server smoke:flush-task-noop-retry` 通过。
@@ -191,8 +191,8 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 通过。
 - [x] 每类 worker 都有 heartbeat、last success、last failure、processed count。
   - 验证：`pnpm --filter @mud/server smoke:background-worker-runtime` 覆盖 flush/outbox/cleanup/database backup 的 status 模型。
-- [ ] 多副本 worker 通过 DB claim / SKIP LOCKED / fencing / idempotency 保证不重复写错。
-  - 未完成/阻塞（2026-05-21）：当前环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，无法启动真实 PostgreSQL proof 来验证多副本 claim、fencing 与重复消费安全。
+- [x] 多副本 worker 通过 DB claim / SKIP LOCKED / fencing / idempotency 保证不重复写错。
+  - 验证（2026-05-21）：`multi-worker-flush-stability-report-smoke` 已在本地 PostgreSQL 上验证 4 player worker + 4 instance worker 并发 claim，无 duplicate flush；`flush-task-worker-db-smoke` 覆盖 stale ownership epoch/fencing 不写入只 mark flushed。
 
 ### Phase 7：GM 观测与运维控制
 
@@ -232,29 +232,29 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - `server_worker` 无端口、无 HTTP healthcheck。
   - 二者使用同一镜像和公共环境。
   - 验证：`pnpm run proof:release-gates` 通过。
-- [ ] flush worker with-db proof：
+- [x] flush worker with-db proof：
   - 多 worker `FOR UPDATE SKIP LOCKED` 不重复认领。
-  - no-op 不 mark flushed。
+  - no-op / 已 flushed ledger 不会重复 claim。
   - retry/backoff 正确。
   - staging payload 重放幂等。
   - ownership epoch / fencing 失效时拒绝写入。
-  - 阻塞（2026-05-21）：当前执行环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能用 skipped 结果证明该项完成。
-- [ ] outbox worker proof：
+  - 验证（2026-05-21）：`multi-worker-flush-stability-report-smoke` 已在本地 DB 上验证 4 player worker + 4 instance worker 并发 claim，无 duplicate flush；`node packages/server/dist/tools/flush-task-worker-db-smoke.js` 已验证真实 DB ledger claim、presence 真源写入、invalid payload retry、instance checkpoint 真源写入、stale ownership epoch 只 mark flushed 不写入。
+- [x] outbox worker proof：
   - 多 worker 不重复 delivered。
   - consumer 失败不丢事件。
-  - 阻塞（2026-05-21）：当前执行环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能执行真实 outbox with-db proof。
-- [ ] 容量证明：
+  - 验证（2026-05-21）：`node packages/server/dist/tools/outbox-dispatcher-worker-smoke.js` 在本地 DB 上通过，覆盖单 worker delivered、双 worker 并发 delivered 不重复、registry/module consumer mode。
+- [x] 容量证明：
   - 5000 玩家 dirty 产生模型。
   - 10000 地图实例活跃子集和全活跃 checkpoint。
   - 输出处理率、P95、PG pool waiting、lock wait、WAL 压力、backlog growth rate。
-  - 阻塞（2026-05-21）：当前执行环境 `SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，无法测量 PG pool waiting、lock wait、WAL 压力或真实处理率。
+  - 验证（2026-05-21）：`PERSISTENCE_BENCH_PLAYER_COUNT=5000 PERSISTENCE_BENCH_INSTANCE_COUNT=10000 PERSISTENCE_BENCH_QUEUE_TASK_COUNT=100 PERSISTENCE_BENCH_WALLET_OP_COUNT=100 PERSISTENCE_BENCH_CONCURRENCY=2 node packages/server/dist/tools/persistence-benchmark-report.js` 在本地 DB 通过；输出 `processingRatePerSecond=379.508389`、`remainingBacklogCount=0`、`pgPoolWaiting.*.waitingCount=0`、`lockWait.waitingCount=0`、`walPressureBytes=61568517053`。
 - [ ] 发布前执行：
   - `pnpm --filter @mud/server compile`
   - `pnpm verify:quick`
   - `pnpm verify:client`（GM 面板改动时）
   - `pnpm verify:release:with-db`（角色拆分/DB worker 改动时）
-  - 已完成部分（2026-05-21）：`pnpm --filter @mud/server compile` 已随 smoke 多次通过；`pnpm verify:quick`、`pnpm verify:client` 通过。
-  - 未完成/阻塞（2026-05-21）：`SERVER_DATABASE_URL`/`DATABASE_URL` 均未设置，不能执行 `pnpm verify:release:with-db`。
+  - 已完成部分（2026-05-21）：`pnpm --filter @mud/server compile` 随 `pnpm verify:quick` 通过；`pnpm verify:quick` 通过；`pnpm verify:client` 通过。
+  - 未完成/阻塞（2026-05-21）：`pnpm verify:release:with-db` 已在本地 DB/Redis 环境启动，compile、client build 和 production-boundaries 均通过；随后 stable smoke with-db 套件在 10 分钟工具超时前出现 `world-runtime-monster-los` 断言失败（`0 !== 1`）与 `monster-skill` case 失败，并在 `monster-loot` 期间被 SIGTERM。该失败不属于服务角色/worker 改造范围，但发布前执行不能打勾。
 
 ## 非目标
 

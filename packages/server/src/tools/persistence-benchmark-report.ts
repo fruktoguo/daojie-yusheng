@@ -14,7 +14,7 @@ const smoke_player_cleanup_1 = require('./smoke-player-cleanup');
 import { AppModule } from '../app.module';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { MapPersistenceFlushService } from '../persistence/map-persistence-flush.service';
-import { MapPersistenceService } from '../persistence/map-persistence.service';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { DurableOperationService } from '../persistence/durable-operation.service';
 import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
@@ -25,6 +25,10 @@ const DEFAULT_INSTANCE_COUNT = 24;
 const DEFAULT_QUEUE_TASK_COUNT = 24;
 const DEFAULT_WALLET_OP_COUNT = 100;
 const DEFAULT_CONCURRENCY = 8;
+const MAX_PLAYER_COUNT = 5_000;
+const MAX_INSTANCE_COUNT = 10_000;
+const MAX_QUEUE_TASK_COUNT = 10_000;
+const MAX_WALLET_OP_COUNT = 10_000;
 const databaseUrl = resolveServerDatabaseUrl();
 
 async function main(): Promise<void> {
@@ -50,25 +54,25 @@ async function main(): Promise<void> {
     readEnvNumber('PERSISTENCE_BENCH_PLAYER_COUNT'),
     DEFAULT_PLAYER_COUNT,
     1,
-    1000,
+    MAX_PLAYER_COUNT,
   );
   const instanceCount = normalizePositiveInteger(
     readEnvNumber('PERSISTENCE_BENCH_INSTANCE_COUNT'),
     DEFAULT_INSTANCE_COUNT,
     1,
-    1000,
+    MAX_INSTANCE_COUNT,
   );
   const queueTaskCount = normalizePositiveInteger(
     readEnvNumber('PERSISTENCE_BENCH_QUEUE_TASK_COUNT'),
     DEFAULT_QUEUE_TASK_COUNT,
     1,
-    1000,
+    MAX_QUEUE_TASK_COUNT,
   );
   const walletOpCount = normalizePositiveInteger(
     readEnvNumber('PERSISTENCE_BENCH_WALLET_OP_COUNT'),
     DEFAULT_WALLET_OP_COUNT,
     1,
-    1000,
+    MAX_WALLET_OP_COUNT,
   );
   const concurrency = normalizePositiveInteger(
     readEnvNumber('PERSISTENCE_BENCH_CONCURRENCY'),
@@ -79,9 +83,9 @@ async function main(): Promise<void> {
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const pool = new Pool({ connectionString: databaseUrl });
+  const poolProvider = app.get(DatabasePoolProvider);
   const playerRuntime = app.get(PlayerRuntimeService);
   const playerFlush = app.get(PlayerPersistenceFlushService);
-  const mapPersistenceService = app.get(MapPersistenceService);
   const recoveryQueue = app.get(WorldSessionRecoveryQueueService);
   const durableOperation = app.get(DurableOperationService);
 
@@ -91,15 +95,14 @@ async function main(): Promise<void> {
   const walletOperationIds = Array.from({ length: walletOpCount }, (_, index) => `bench_wallet_op_${index.toString(36)}_${Date.now().toString(36)}`);
 
   try {
-    assert(mapPersistenceService.isEnabled(), 'map persistence should be enabled for benchmark');
     assert(durableOperation.isEnabled(), 'durable operation service should be enabled for benchmark');
     await cleanupBenchmarkRows(pool, playerIds, instanceIds, walletOperationIds);
-    await purgePersistenceBenchmarkArtifacts();
 
     const playerFlushDurations: number[] = [];
     const mapFlushDurations: number[] = [];
     const queueDurations: number[] = [];
     const walletMutationDurations: number[] = [];
+    const benchmarkStartedAt = performance.now();
 
     await runBatched(playerIds, concurrency, async (playerId, index) => {
       const sessionId = sessionIds[index];
@@ -195,6 +198,7 @@ async function main(): Promise<void> {
       walletMutationDurations.push(performance.now() - startedAt);
     });
 
+    const capacityMetrics = await collectCapacityMetrics(pool, poolProvider, benchmarkStartedAt, playerIds, instanceIds);
     console.log(
       JSON.stringify(
         {
@@ -207,18 +211,19 @@ async function main(): Promise<void> {
           mapFlush: summarizeDurations(mapFlushDurations),
           recoveryQueue: summarizeDurations(queueDurations),
           walletMutation: summarizeDurations(walletMutationDurations),
+          capacityMetrics,
           budget: {
             playerFlushAvgMs: 50,
             mapFlushAvgMs: 100,
             recoveryQueueAvgMs: 20,
             walletMutationAvgMs: 50,
           },
-          answers: playerCount >= 500 && instanceCount >= 1000 && walletOpCount >= 100
-            ? '已跑通 500/1000 规模的 player flush / map flush / recovery queue / wallet mutation 批量压测入口，可作为阶段 7.4 的压力测试起点报告'
-            : '本地基线已跑通 player flush / map flush / recovery queue / wallet mutation 三条路径，可作为阶段 7.4 的起点报告',
-          excludes: playerCount >= 500 && instanceCount >= 1000 && walletOpCount >= 100
+          answers: playerCount >= 5_000 && instanceCount >= 10_000 && walletOpCount >= 100
+            ? '已跑通 5000 玩家 dirty 与 10000 地图实例活跃子集/ checkpoint 规模的持久化基线，并输出处理率、P95、PG pool waiting、lock wait、WAL 压力与 backlog growth rate'
+            : '本地基线已跑通 player flush / map flush / recovery queue / wallet mutation 三条路径，并输出处理率、P95、PG pool waiting、lock wait、WAL 压力与 backlog growth rate',
+          excludes: playerCount >= 5_000 && instanceCount >= 10_000 && walletOpCount >= 100
             ? '不证明跨节点竞争或故障注入'
-            : '不证明 500/1000 规模真实压测、跨节点竞争或故障注入',
+            : '不证明 5000/10000 规模真实压测、跨节点竞争或故障注入',
           completionMapping: 'release:proof:stage7.persistence-benchmark',
         },
         null,
@@ -298,6 +303,45 @@ function percentile(values: number[], p: number): number {
 
 function round6(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+async function collectCapacityMetrics(
+  pool: Pool,
+  poolProvider: DatabasePoolProvider,
+  startedAt: number,
+  playerIds: string[],
+  instanceIds: string[],
+): Promise<Record<string, unknown>> {
+  const elapsedMs = Math.max(1, performance.now() - startedAt);
+  const [playerBacklogResult, instanceBacklogResult, walResult] = await Promise.all([
+    pool.query(
+      'SELECT count(*)::bigint AS count FROM player_flush_ledger WHERE player_id = ANY($1::varchar[]) AND latest_version > flushed_version',
+      [playerIds],
+    ),
+    pool.query(
+      'SELECT count(*)::bigint AS count FROM instance_flush_ledger WHERE instance_id = ANY($1::varchar[]) AND latest_version > flushed_version',
+      [instanceIds],
+    ),
+    pool.query('SELECT COALESCE(sum(wal_bytes), 0)::bigint AS wal_bytes FROM pg_stat_wal'),
+  ]);
+  const poolStats = poolProvider.getAllPoolStats();
+  const lockWait = await poolProvider.getLockWaitSummary(5);
+  const playerBacklogCount = Number((playerBacklogResult.rows[0] as Record<string, unknown> | undefined)?.count ?? 0);
+  const instanceBacklogCount = Number((instanceBacklogResult.rows[0] as Record<string, unknown> | undefined)?.count ?? 0);
+  const walBytes = Number((walResult.rows[0] as Record<string, unknown> | undefined)?.wal_bytes ?? 0);
+  const totalSeededBacklogCount = playerIds.length + instanceIds.length;
+  const remainingBacklogCount = playerBacklogCount + instanceBacklogCount;
+  return {
+    elapsedMs: round6(elapsedMs),
+    processingRatePerSecond: round6(totalSeededBacklogCount / (elapsedMs / 1_000)),
+    backlogGrowthRatePerSecond: round6((remainingBacklogCount - totalSeededBacklogCount) / (elapsedMs / 1_000)),
+    remainingBacklogCount,
+    playerBacklogCount,
+    instanceBacklogCount,
+    pgPoolWaiting: poolStats,
+    lockWait,
+    walPressureBytes: walBytes,
+  };
 }
 
 function sleep(ms: number): Promise<void> {
