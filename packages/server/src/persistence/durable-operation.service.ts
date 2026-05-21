@@ -3407,19 +3407,20 @@ async function replacePlayerInventoryItems(
       count,
       raw_payload: rawPayload,
     };
+    const rowSignature = createPersistedInventoryRowSignature(itemId, rawPayload);
     const existingRow = rowsByInstanceId.get(itemInstanceId);
+    const existingRowSignature = existingRow
+      ? createPersistedInventoryRowSignature(existingRow.item_id, existingRow.raw_payload)
+      : null;
     if (existingRow) {
-      if (
-        createPersistedInventoryRowSignature(existingRow.item_id, existingRow.raw_payload)
-          === createPersistedInventoryRowSignature(itemId, rawPayload)
-      ) {
+      if (existingRowSignature === rowSignature) {
         existingRow.count += count;
         continue;
       }
       if (
         existingRow.slot_index !== index
         || existingRow.item_id !== itemId
-        || JSON.stringify(existingRow.raw_payload) !== JSON.stringify(rawPayload)
+        || existingRowSignature !== rowSignature
       ) {
         throw new Error(
           `replacePlayerInventoryItems: duplicate item_instance_id with conflicting payload playerId=${playerId} itemInstanceId=${itemInstanceId} existingSlot=${existingRow.slot_index} incomingSlot=${index} existingItemId=${existingRow.item_id} incomingItemId=${itemId}`,
@@ -3431,6 +3432,7 @@ async function replacePlayerInventoryItems(
     rowsByInstanceId.set(itemInstanceId, row);
   }
   const rows = Array.from(rowsByInstanceId.values());
+  const rowsJson = JSON.stringify(rows);
 
   if (rows.length > 0) {
     await client.query(
@@ -3448,7 +3450,7 @@ async function replacePlayerInventoryItems(
               AND incoming.item_instance_id <> target.item_instance_id
           )
       `,
-      [playerId, JSON.stringify(rows.map(({ item_instance_id, slot_index }) => ({ item_instance_id, slot_index })))],
+      [playerId, rowsJson],
     );
     const result = await client.query(
       `
@@ -3483,7 +3485,7 @@ async function replacePlayerInventoryItems(
           updated_at = now()
         WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
       `,
-      [playerId, JSON.stringify(rows)],
+      [playerId, rowsJson],
     );
     if (((result as { rowCount?: number }).rowCount ?? 0) !== rows.length) {
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
@@ -3505,7 +3507,7 @@ async function replacePlayerInventoryItems(
           WHERE incoming.item_instance_id = target.item_instance_id
         )
     `,
-    [playerId, JSON.stringify(rows.map(({ item_instance_id }) => ({ item_instance_id })))],
+    [playerId, rowsJson],
   );
 }
 
