@@ -233,13 +233,16 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - retry/backoff 正确。
   - staging payload 重放幂等。
   - ownership epoch / fencing 失效时拒绝写入。
+  - 阻塞：当前执行环境未配置 `SERVER_DATABASE_URL/DATABASE_URL`，不能用 skipped 结果证明该项完成。
 - [ ] outbox worker proof：
   - 多 worker 不重复 delivered。
   - consumer 失败不丢事件。
+  - 阻塞：当前执行环境未配置 `SERVER_DATABASE_URL/DATABASE_URL`，不能执行真实 outbox with-db proof。
 - [ ] 容量证明：
   - 5000 玩家 dirty 产生模型。
   - 10000 地图实例活跃子集和全活跃 checkpoint。
   - 输出处理率、P95、PG pool waiting、lock wait、WAL 压力、backlog growth rate。
+  - 阻塞：当前执行环境未配置真实数据库，无法测量 PG pool waiting、lock wait、WAL 压力或真实处理率。
 - [ ] 发布前执行：
   - `pnpm --filter @mud/server compile`
   - `pnpm verify:quick`
