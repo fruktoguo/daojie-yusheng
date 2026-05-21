@@ -388,6 +388,7 @@ export class MarketPersistenceService {
  * 记录items。
  */
             const items = normalizeStorage(entry.storage).items;
+            const slotIndicesJson = JSON.stringify(items.map((_, slotIndex) => ({ slot_index: slotIndex })));
             for (let slotIndex = 0; slotIndex < items.length; slotIndex += 1) {
 /**
  * 记录item。
@@ -438,7 +439,7 @@ export class MarketPersistenceService {
                 )
             `, [
                 playerId,
-                JSON.stringify(items.map((_, slotIndex) => ({ slot_index: slotIndex }))),
+                slotIndicesJson,
             ]);
         }
         if (affectedPlayerIds.length > 0) {
