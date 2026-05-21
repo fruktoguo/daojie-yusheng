@@ -25,6 +25,7 @@ interface RuntimeSummaryLike {
 }
 
 interface RuntimeQuarantineInstance {
+  startupRunId?: string | null;
   instanceId: string;
   templateId?: string | null;
   kind?: string | null;
@@ -52,6 +53,7 @@ export interface HealthReadinessDependencies {
   suggestionPersistenceService?: PersistenceServiceLike | null;
   maintenanceStateService?: MaintenanceStateServiceLike | null;
   worldRuntimeService?: RuntimeServiceLike | null;
+  startupRunId?: string | null;
 }
 
 interface StartupReadiness {
@@ -134,7 +136,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     suggestion: resolvePersistenceReadiness(database.configured, dependencies.suggestionPersistenceService),
   };
   const auth = resolveAuthReadiness();
-  const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService);
+  const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService, dependencies.startupRunId);
 
   const readinessOk = !maintenance.active
     && database.configured
@@ -237,7 +239,7 @@ function resolveAuthReadiness() {
 }
 
 /** 读取 world runtime 运行摘要并汇总 readiness 的运行指标。 */
-function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeReadiness {
+function resolveRuntimeReadiness(service?: RuntimeServiceLike | null, startupRunId?: string | null): RuntimeReadiness {
 
   if (!service) {
     return {
@@ -277,7 +279,7 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
     const leaseDegradedInstanceCount = readNonNegativeInt(summary.leaseDegradedInstanceCount);
     const fencedInstanceCount = readNonNegativeInt(summary.fencedInstanceCount);
     const quarantineInstanceCount = readNonNegativeInt(summary.quarantineInstanceCount);
-    const quarantineInstances = normalizeQuarantineInstances(summary.quarantineInstances);
+    const quarantineInstances = normalizeQuarantineInstances(summary.quarantineInstances, startupRunId);
     const playerCount = readNonNegativeInt(summary.playerCount);
     const pendingCommandCount = readNonNegativeInt(summary.pendingCommandCount);
     const ready = instanceCount > 0 && leaseDegradedInstanceCount === 0 && fencedInstanceCount === 0;
@@ -310,11 +312,13 @@ function resolveRuntimeReadiness(service?: RuntimeServiceLike | null): RuntimeRe
   }
 }
 
-function normalizeQuarantineInstances(value: RuntimeQuarantineInstance[] | undefined): RuntimeQuarantineInstance[] {
+function normalizeQuarantineInstances(value: RuntimeQuarantineInstance[] | undefined, startupRunId?: string | null): RuntimeQuarantineInstance[] {
   if (!Array.isArray(value)) {
     return [];
   }
+  const normalizedStartupRunId = typeof startupRunId === 'string' && startupRunId.trim() ? startupRunId.trim() : null;
   return value.slice(0, 25).filter((entry) => typeof entry?.instanceId === 'string' && entry.instanceId.trim()).map((entry) => ({
+    startupRunId: normalizedStartupRunId ?? (typeof entry.startupRunId === 'string' && entry.startupRunId.trim() ? entry.startupRunId.trim() : null),
     instanceId: entry.instanceId.trim(),
     templateId: typeof entry.templateId === 'string' && entry.templateId.trim() ? entry.templateId.trim() : null,
     kind: typeof entry.kind === 'string' && entry.kind.trim() ? entry.kind.trim() : null,

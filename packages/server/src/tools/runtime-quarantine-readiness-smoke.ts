@@ -66,10 +66,12 @@ function main(): void {
       marketPersistenceService: { enabled: true, pool: {} },
       suggestionPersistenceService: { enabled: true, pool: {} },
       worldRuntimeService: { getRuntimeSummary: () => summary },
+      startupRunId: 'startup:smoke:quarantine',
     });
     assert.equal(health.readiness.runtime.ready, false);
     assert.equal(health.readiness.runtime.reason, 'lease_degraded');
     assert.equal(health.readiness.runtime.quarantineInstanceCount, 2);
+    assert.equal(health.readiness.runtime.quarantineInstances[0]?.startupRunId, 'startup:smoke:quarantine');
     assert.equal(health.readiness.runtime.quarantineInstances[0]?.instanceId, 'tower:tongtian:layer:9');
     assert.equal(health.readiness.runtime.quarantineInstances[1]?.reason, 'lease_degraded');
 

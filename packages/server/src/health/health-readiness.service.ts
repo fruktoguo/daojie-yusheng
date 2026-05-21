@@ -58,6 +58,7 @@ export class HealthReadinessService {
 
   /** 构建完整 readiness 响应体 */
   build() {
+    const startup = this.startupStatusService?.getSnapshot() ?? null;
     const response = buildHealthResponse({
       playerPersistenceService: this.playerPersistenceService,
       mailPersistenceService: this.mailPersistenceService,
@@ -65,8 +66,8 @@ export class HealthReadinessService {
       suggestionPersistenceService: this.suggestionPersistenceService,
       ...(this.serverReadinessDependenciesService?.build() ?? {}),
       worldRuntimeService: this.worldRuntimeService,
+      startupRunId: startup?.startupRunId ?? null,
     });
-    const startup = this.startupStatusService?.getSnapshot() ?? null;
     const barrier = this.startupBarrierService?.getSnapshot() ?? null;
     if (startup) {
       response.readiness.startup = {
