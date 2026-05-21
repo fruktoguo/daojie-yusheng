@@ -102,11 +102,11 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
   - 验证：`pnpm --filter @mud/server smoke:flush-staging-schema` 通过；该验证只证明 schema/类型契约，不证明各 domain projector 已完成。
 - [ ] api 角色在权威变更发生后写入 staging，不把完整运行态对象交给 worker。
   - 已完成部分：`FlushTaskRuntimeService.stageDirtyTasksOnce()` 在权威 role 下可独立写入 staging；玩家 `presence` 域写入结构化 `payload_jsonb` 与 `runtime_owner_id/fencing_token`；玩家 snapshot projectable domains 写入 `player_snapshot_projection` payload；实例 `tile_damage/tile_resource` 写入 `instance_domain_delta` payload；实例 `ground_item/overlay/monster_runtime/container_state/building/room/fengshui/time` 写入可消费 state payload。
-  - 未完成：邮件、市场订单、GM edit 独立链路尚未完成 payload projector，故本项保持未勾选。
+  - 未完成：邮件、GM edit 独立链路尚未完成 payload projector；市场订单已由 `market_storage` snapshot projectable path 覆盖，故本项保持未勾选。
   - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload` 通过。
 - [ ] worker 角色只从 staging/ledger 读取正式 payload 并写真源。
   - 已完成部分：玩家 `presence` task 在 worker role 下可从 staging payload 写入 `PlayerDomainPersistenceService.savePlayerPresence()`；玩家 snapshot projectable task 可从 staging payload 写入 `savePlayerSnapshotProjectionDomains()`；实例 `tile_damage/tile_resource` 可从 staging delta payload 写入批量持久化 API；实例 `ground_item/overlay/monster_runtime/container_state/building/room/fengshui/time` 可从 staging state payload 写入持久化 API；unsupported player domain 在 worker role 下只 retry，不调用 runtime flush fallback。
-  - 未完成：邮件、市场订单、GM edit 与实例 `time/monster_runtime/fengshui/ground_item/container_state/overlay/room/building` 仍需 payload projector 与 DB proof，故本项保持未勾选。
+  - 未完成：邮件、GM edit 与真实 DB proof 仍待完成；市场订单已由 `market_storage` snapshot projectable path 覆盖，故本项保持未勾选。
   - 验证：`pnpm --filter @mud/server smoke:flush-player-payload`、`pnpm --filter @mud/server smoke:flush-instance-payload`、`pnpm --filter @mud/server smoke:flush-instance-state-payload`、`pnpm --filter @mud/server smoke:flush-task-noop-retry` 通过。
 - [ ] payload 写入、worker 写入、mark flushed 必须同一幂等链路，重复消费不重复发奖、不重复扣资产、不覆盖新版本。
   - 已完成部分：玩家 `presence` payload 使用 session epoch 与 DB upsert 条件保证旧 session 不覆盖新 session；玩家 snapshot projectable payload 复用分域写入的 version/watermark 与空覆盖保护；实例 `tile_damage/tile_resource` delta payload 复用批量 delta 写入和 recovery watermark，并在 worker 写入成功后 mark flushed。
