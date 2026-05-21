@@ -21,6 +21,7 @@ const next_gm_contract_1 = require("../http/native/native-gm-contract");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 const stable_dist_1 = require("./stable-dist");
+const smoke_live_db_lease_guard_1 = require("./smoke-live-db-lease-guard");
 /**
  * 记录包根目录。
  */
@@ -721,6 +722,10 @@ async function main() {
         }, null, 2));
         return;
     }
+    await (0, smoke_live_db_lease_guard_1.assertNoActiveInstanceLeasesForSmoke)({
+        databaseUrl,
+        context: 'gm-database smoke',
+    });
     await resetGmAuthPasswordRecord();
     await node_fs_1.promises.mkdir(backupDirectory, { recursive: true });
 /**
@@ -1133,6 +1138,8 @@ async function startServer(options) {
             SERVER_RUNTIME_HTTP: '1',
             SERVER_ALLOW_LEGACY_HTTP_COMPAT: '1',
             SERVER_GM_DATABASE_BACKUP_DIR: backupDirectory,
+            ...(0, smoke_live_db_lease_guard_1.resolveSmokeServerNodeEnv)(databaseUrl, process.env.SERVER_NODE_ID),
+            SERVER_FORCE_RECLAIM_STALE_LEASES: (0, smoke_live_db_lease_guard_1.resolveSmokeForceReclaimEnv)(databaseUrl),
             ...(options.maintenance
                 ? { SERVER_RUNTIME_MAINTENANCE: '1' }
                 : {}),

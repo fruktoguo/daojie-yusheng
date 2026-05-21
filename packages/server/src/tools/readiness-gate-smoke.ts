@@ -12,6 +12,7 @@ const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
+const smoke_live_db_lease_guard_1 = require("./smoke-live-db-lease-guard");
 /**
  * 记录包根目录。
  */
@@ -35,6 +36,13 @@ function hasDatabaseEnv() {
         || (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0)
         || (typeof process.env.SERVER_DATABASE_POOLER_URL === 'string' && process.env.SERVER_DATABASE_POOLER_URL.trim().length > 0)
         || (typeof process.env.DATABASE_POOLER_URL === 'string' && process.env.DATABASE_POOLER_URL.trim().length > 0);
+}
+function resolveDatabaseUrl() {
+    return typeof process.env.SERVER_DATABASE_URL === 'string' && process.env.SERVER_DATABASE_URL.trim().length > 0
+        ? process.env.SERVER_DATABASE_URL.trim()
+        : typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0
+            ? process.env.DATABASE_URL.trim()
+            : '';
 }
 /**
  * 串联执行脚本主流程。
@@ -173,6 +181,15 @@ async function main() {
 async function startServer(options) {
     currentPort = await allocateFreePort();
     baseUrl = `http://127.0.0.1:${currentPort}`;
+    const databaseUrl = resolveDatabaseUrl();
+    await (0, smoke_live_db_lease_guard_1.assertNoActiveInstanceLeasesForSmoke)({
+        databaseUrl,
+        context: 'readiness-gate smoke',
+    });
+    const serverNodeEnv = (0, smoke_live_db_lease_guard_1.resolveSmokeServerNodeEnv)(
+        databaseUrl,
+        process.env.SERVER_NODE_ID,
+    );
 /**
  * 记录子进程。
  */
@@ -181,9 +198,10 @@ async function startServer(options) {
         env: {
             ...process.env,
             SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || 'test',
-            SERVER_NODE_ID: process.env.SERVER_NODE_ID || 'server-smoke-suite',
+            ...serverNodeEnv,
             SERVER_PORT: String(currentPort),
             SERVER_RUNTIME_HTTP: '1',
+            SERVER_FORCE_RECLAIM_STALE_LEASES: (0, smoke_live_db_lease_guard_1.resolveSmokeForceReclaimEnv)(databaseUrl),
             SERVER_SKIP_LOCAL_ENV_AUTOLOAD: hasDatabaseEnv()
                 ? (process.env.SERVER_SKIP_LOCAL_ENV_AUTOLOAD || '0')
                 : '1',

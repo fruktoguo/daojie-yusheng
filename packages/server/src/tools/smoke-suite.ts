@@ -60,6 +60,7 @@ const path = __importStar(require("node:path"));
 const env_alias_1 = require("../config/env-alias");
 const stable_dist_1 = require("./stable-dist");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
+const smoke_live_db_lease_guard_1 = require("./smoke-live-db-lease-guard");
 /**
  * 记录包根目录。
  */
@@ -358,7 +359,7 @@ async function runIsolatedSmoke(entry) {
 /**
  * 记录服务端。
  */
-    const server = await startServer(port, extraEnv);
+    const server = await startServer(port, extraEnv, entry.name);
     try {
         const requireReady = hasDatabaseUrl() && entry.name !== 'readiness-gate';
         await waitForHealth(baseUrl, 60_000, {
@@ -405,11 +406,20 @@ async function runStandaloneSmoke(entry) {
 /**
  * 启动服务端。
  */
-async function startServer(port, extraEnv = {}) {
+async function startServer(port, extraEnv = {}, caseName = 'unknown') {
 /**
  * 记录allowunreadytraffic。
  */
     const allowUnreadyTraffic = !hasDatabaseUrl();
+    const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+    await (0, smoke_live_db_lease_guard_1.assertNoActiveInstanceLeasesForSmoke)({
+        databaseUrl,
+        context: `server smoke case ${caseName}`,
+    });
+    const serverNodeEnv = (0, smoke_live_db_lease_guard_1.resolveSmokeServerNodeEnv)(
+        databaseUrl,
+        extraEnv.SERVER_NODE_ID,
+    );
 /**
  * 记录子进程。
  */
@@ -419,10 +429,10 @@ async function startServer(port, extraEnv = {}) {
             ...process.env,
             ...extraEnv,
             SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || 'test',
-            SERVER_NODE_ID: extraEnv.SERVER_NODE_ID || 'server-smoke-suite',
+            ...serverNodeEnv,
             SERVER_PORT: String(port),
             SERVER_RUNTIME_HTTP: '1',
-            SERVER_FORCE_RECLAIM_STALE_LEASES: process.env.SERVER_FORCE_RECLAIM_STALE_LEASES || '1',
+            SERVER_FORCE_RECLAIM_STALE_LEASES: (0, smoke_live_db_lease_guard_1.resolveSmokeForceReclaimEnv)(databaseUrl),
             ...(allowUnreadyTraffic
                 ? {
                     SERVER_ALLOW_UNREADY_TRAFFIC: '1',
@@ -664,10 +674,7 @@ async function resolveCaseExtraEnv(entry) {
     if (databaseUrl) {
         extraEnv.SERVER_DATABASE_URL = databaseUrl;
         const externalNodeId = normalizeSmokeNodeId(process.env.SERVER_NODE_ID);
-        if (entry.name === 'gm-database') {
-            extraEnv.SERVER_NODE_ID = externalNodeId || 'server-smoke-suite';
-        }
-        else if (externalNodeId) {
+        if (externalNodeId) {
             extraEnv.SERVER_NODE_ID = externalNodeId;
         }
         else {
