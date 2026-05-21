@@ -783,28 +783,48 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
-    const normalizedEntries = (Array.isArray(entries) ? entries : [])
-      .filter((entry) => Boolean(entry)
-        && Number.isFinite(Number(entry.x))
-        && Number.isFinite(Number(entry.y))
-        && typeof entry.tileType === 'string'
-        && entry.tileType.trim().length > 0)
-      .map((entry) => ({
-        x: Math.trunc(Number(entry.x)),
-        y: Math.trunc(Number(entry.y)),
-        tileType: entry.tileType.trim(),
-        terrainType: normalizeOptionalString(entry.terrainType),
-        surfaceType: normalizeOptionalString(entry.surfaceType),
-        structureType: normalizeOptionalString(entry.structureType),
-        interactableKinds: Array.isArray(entry.interactableKinds)
-          ? entry.interactableKinds.filter((kind) => typeof kind === 'string' && kind.trim()).map((kind) => kind.trim())
-          : [],
-      }));
+    const tileCellRows: Array<{
+      x: number;
+      y: number;
+      tile_type: string;
+      terrain_type: string | null;
+      surface_type: string | null;
+      structure_type: string | null;
+      interactable_kinds: string[];
+    }> = [];
+    const tileCellKeyRows: Array<{ x: number; y: number }> = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      if (!entry
+        || !Number.isFinite(Number(entry.x))
+        || !Number.isFinite(Number(entry.y))
+        || typeof entry.tileType !== 'string'
+        || entry.tileType.trim().length === 0) {
+        continue;
+      }
+      const x = Math.trunc(Number(entry.x));
+      const y = Math.trunc(Number(entry.y));
+      const tileType = entry.tileType.trim();
+      const interactableKinds = Array.isArray(entry.interactableKinds)
+        ? entry.interactableKinds.filter((kind) => typeof kind === 'string' && kind.trim()).map((kind) => kind.trim())
+        : [];
+      tileCellRows.push({
+        x,
+        y,
+        tile_type: tileType,
+        terrain_type: normalizeOptionalString(entry.terrainType),
+        surface_type: normalizeOptionalString(entry.surfaceType),
+        structure_type: normalizeOptionalString(entry.structureType),
+        interactable_kinds: interactableKinds,
+      });
+      tileCellKeyRows.push({ x, y });
+    }
+    const tileCellRowsJson = JSON.stringify(tileCellRows);
+    const tileCellKeyRowsJson = JSON.stringify(tileCellKeyRows);
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      if (normalizedEntries.length > 0) {
+      if (tileCellRows.length > 0) {
         await client.query(
           `
             WITH incoming AS (
@@ -841,18 +861,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               interactable_kinds = EXCLUDED.interactable_kinds,
               updated_at = now()
           `,
-          [
-            normalizedInstanceId,
-            JSON.stringify(normalizedEntries.map((entry) => ({
-              x: entry.x,
-              y: entry.y,
-              tile_type: entry.tileType,
-              terrain_type: entry.terrainType,
-              surface_type: entry.surfaceType,
-              structure_type: entry.structureType,
-              interactable_kinds: entry.interactableKinds,
-            }))),
-          ],
+          [normalizedInstanceId, tileCellRowsJson],
         );
       }
       await client.query(
@@ -870,7 +879,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
                 AND incoming.y = target.y
             )
         `,
-        [normalizedInstanceId, JSON.stringify(normalizedEntries.map(({ x, y }) => ({ x, y })))],
+        [normalizedInstanceId, tileCellKeyRowsJson],
       );
       await client.query('COMMIT');
     } catch (error: unknown) {
