@@ -865,7 +865,6 @@ export class WorldRuntimeService {
     }
         async rebuildPersistentRuntimeAfterRestore(options = {}) {
         await this.worldRuntimeStateFacadeService.rebuildPersistentRuntimeAfterRestore(this, options);
-        this.startInstanceLeaseSyncForLifecycleCoordinator();
     }
     async restoreOfflineHangingPlayersForStartup() {
         await this.worldRuntimeLifecycleService.restoreOfflineHangingPlayers(this);

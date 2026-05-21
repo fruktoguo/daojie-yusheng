@@ -75,6 +75,9 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
 
     await this.reloadSecondaryDomains();
     await this.startRuntimeLoops();
+    if (shouldStartAuthoritativeRuntime()) {
+      this.worldRuntimeService?.startInstanceLeaseSyncForLifecycleCoordinator?.();
+    }
 
     if (shouldStartHttpServer()) {
       this.startupBarrierService.openTraffic();

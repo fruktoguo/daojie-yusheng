@@ -153,20 +153,29 @@ class WorldRuntimeSectService {
         return sect ? this.ensureSectRuntimeInstance(sect, deps) : null;
     }
 
-    ensureSectRuntimeInstanceByTemplateId(templateId, deps) {
+    ensureSectRuntimeInstanceByTemplateId(templateId, deps, options: { allowCreate?: boolean } = {}) {
         const normalized = normalizeOptionalString(templateId);
         if (!normalized || !normalized.startsWith(SECT_TEMPLATE_PREFIX)) {
             return null;
         }
         const parsed = parseSectTemplateDescriptor(normalized);
         const sect = this.findSectByTemplateId(normalized) || this.findSectById(parsed?.sectId);
-        return sect ? this.ensureSectRuntimeInstance(sect, deps) : null;
+        if (!sect) {
+            return null;
+        }
+        if (options.allowCreate === false) {
+            return deps.getInstanceRuntime?.(sect.sectInstanceId) ?? null;
+        }
+        return this.ensureSectRuntimeInstance(sect, deps);
     }
 
-    ensureSectRuntimeInstance(sect, deps) {
+    ensureSectRuntimeInstance(sect, deps, options: { allowCreate?: boolean } = {}) {
         const existing = deps.getInstanceRuntime(sect.sectInstanceId);
         if (existing) {
             return existing;
+        }
+        if (options.allowCreate === false) {
+            return null;
         }
         this.registerSectTemplate(sect);
         return deps.createInstance({

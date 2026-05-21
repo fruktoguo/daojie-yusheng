@@ -32,6 +32,12 @@ async function main(): Promise<void> {
       assert.equal(barrier.isInstanceAttachAllowed(instanceId), true);
       assert.equal(barrier.isTrafficOpen(), false);
     },
+    startInstanceLeaseSyncForLifecycleCoordinator() {
+      order.push('lease-sync');
+      assert.equal(barrier.isTickOpen(), true);
+      assert.equal(barrier.isFlushOpen(), true);
+      assert.equal(barrier.isTrafficOpen(), false);
+    },
   };
 
   const worldTickService = {
@@ -100,6 +106,7 @@ async function main(): Promise<void> {
     'player-flush',
     'map-flush',
     'worker',
+    'lease-sync',
   ]);
   assert.equal(barrier.isTrafficOpen(), true);
   assert.equal(status.getSnapshot().ready, true);

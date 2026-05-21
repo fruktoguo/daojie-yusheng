@@ -324,34 +324,10 @@ export class WorldRuntimeLifecycleService {
                         skipped++;
                         return;
                     }
-                    const requestedMapId = typeof player?.templateId === 'string' && player.templateId.trim()
-                        ? player.templateId.trim()
-                        : undefined;
-                    const instanceWasMissing = !deps.getInstanceRuntime(entry.instanceId);
-                    let instance = typeof deps.worldRuntimePlayerSessionService?.resolveTargetInstance === 'function'
-                        ? deps.worldRuntimePlayerSessionService.resolveTargetInstance({
-                            playerId: entry.playerId,
-                            requestedInstanceId: entry.instanceId,
-                            requestedMapId: requestedMapId ?? '',
-                        }, deps)
-                        : deps.getInstanceRuntime(entry.instanceId);
+                    const instance = deps.getInstanceRuntime(entry.instanceId);
                     if (!instance) {
                         skipped++;
-                        return;
-                    }
-                    if (instanceWasMissing && typeof deps.syncInstanceLease === 'function') {
-                        try {
-                            await deps.syncInstanceLease(instance.meta.instanceId, { allowForceReclaim: true });
-                            instance = deps.getInstanceRuntime(instance.meta.instanceId) ?? instance;
-                        } catch (error) {
-                            skipped++;
-                            deps.logger?.warn?.(`离线挂机实例租约同步失败：${entry.instanceId} ${error instanceof Error ? error.message : String(error)}`);
-                            return;
-                        }
-                    }
-                    if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
-                        skipped++;
-                        deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
+                        deps.logger?.warn?.(`offline_restore_skipped_instance_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
                     if (typeof deps.startupBarrierService?.isInstanceAttachAllowed === 'function'
@@ -360,11 +336,19 @@ export class WorldRuntimeLifecycleService {
                         deps.logger?.warn?.(`offline_restore_skipped_startup_attach_gate instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
+                    if (!isLocalLeaseReadyForOfflineRestore(deps, instance)) {
+                        skipped++;
+                        deps.logger?.warn?.(`offline_restore_skipped_lease_not_local instance=${entry.instanceId} player=${entry.playerId}`);
+                        return;
+                    }
                     if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {
                         skipped++;
                         deps.logger?.warn?.(`offline_restore_skipped_session_service_missing instance=${entry.instanceId} player=${entry.playerId}`);
                         return;
                     }
+                    const requestedMapId = typeof player?.templateId === 'string' && player.templateId.trim()
+                        ? player.templateId.trim()
+                        : undefined;
                     deps.worldRuntimePlayerSessionService.connectPlayer({
                         playerId: entry.playerId,
                         sessionId: null,
@@ -372,6 +356,7 @@ export class WorldRuntimeLifecycleService {
                         mapId: requestedMapId,
                         preferredX: entry.x,
                         preferredY: entry.y,
+                        allowCreateFallback: false,
                     }, deps);
                     restored++;
                 } catch (error) {

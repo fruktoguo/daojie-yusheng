@@ -15,6 +15,7 @@ interface ConnectPlayerInput {
   mapId?: string | null;
   preferredX?: number;
   preferredY?: number;
+  allowCreateFallback?: boolean;
 }
 
 interface RuntimePlayerLocation {
@@ -76,13 +77,18 @@ interface WorldRuntimePlayerSessionDeps {
     clearTargetEverywhere?(targetId: string): void;
   };
   worldRuntimeSectService?: {
-    ensureSectRuntimeInstanceByTemplateId?(templateId: string, deps: WorldRuntimePlayerSessionDeps): InstanceRuntimeLike | null;
+    ensureSectRuntimeInstanceByTemplateId?(
+      templateId: string,
+      deps: WorldRuntimePlayerSessionDeps,
+      options?: { allowCreate?: boolean },
+    ): InstanceRuntimeLike | null;
     reconcilePlayerSectId?(playerId: string): string | null;
   };
   worldRuntimeTongtianTowerService?: {
     ensureLayerInstanceForRestore?(
       input: { instanceId?: string | null; templateId?: string | null },
       deps: WorldRuntimePlayerSessionDeps,
+      options?: { allowCreate?: boolean },
     ): InstanceRuntimeLike | null;
     onPlayerSessionAttachedToLayer?(instance: InstanceRuntimeLike, deps: WorldRuntimePlayerSessionDeps): void;
   };
@@ -151,7 +157,13 @@ export class WorldRuntimePlayerSessionService {
         requestedMapId,
       },
       deps,
+      {
+        allowCreateFallback: input.allowCreateFallback !== false,
+      },
     );
+    if (!targetInstance) {
+      throw new NotFoundException('目标实例不可用');
+    }
 
     const previous = deps.getPlayerLocation(playerId);
     if (previous && previous.instanceId !== targetInstance.meta.instanceId) {
@@ -283,10 +295,17 @@ export class WorldRuntimePlayerSessionService {
   resolveTargetInstance(
     input: ResolveTargetInstanceInput,
     deps: WorldRuntimePlayerSessionDeps,
-  ): InstanceRuntimeLike {
+    options: { allowCreateFallback?: boolean } = {},
+  ): InstanceRuntimeLike | null {
+    const allowCreateFallback = options.allowCreateFallback !== false;
+
     const requestedSectTemplateId = resolveSectTemplateIdFromSessionRequest(input, deps);
     if (requestedSectTemplateId && typeof deps.worldRuntimeSectService?.ensureSectRuntimeInstanceByTemplateId === 'function') {
-      const sectInstance = deps.worldRuntimeSectService.ensureSectRuntimeInstanceByTemplateId(requestedSectTemplateId, deps);
+      const sectInstance = deps.worldRuntimeSectService.ensureSectRuntimeInstanceByTemplateId(
+        requestedSectTemplateId,
+        deps,
+        { allowCreate: allowCreateFallback },
+      );
       if (sectInstance) {
         return sectInstance;
       }
@@ -299,9 +318,24 @@ export class WorldRuntimePlayerSessionService {
         templateId: towerTemplateId,
       },
       deps,
+      { allowCreate: allowCreateFallback },
     );
     if (towerInstance) {
       return towerInstance;
+    }
+    if (!allowCreateFallback) {
+      const requestedInstance = input.requestedInstanceId
+        ? deps.getInstanceRuntime(input.requestedInstanceId)
+        : null;
+      if (requestedInstance) {
+        if (input.requestedMapId && requestedInstance.template.id !== input.requestedMapId) {
+          deps.logger.warn(
+            `玩家 ${input.playerId} 请求的 instanceId/templateId 不一致，已优先采用 instanceId：instanceId=${input.requestedInstanceId} templateId=${input.requestedMapId} resolvedTemplateId=${requestedInstance.template.id}`,
+          );
+        }
+        return requestedInstance;
+      }
+      return null;
     }
 
     const requestedInstance = input.requestedInstanceId
@@ -322,6 +356,7 @@ export class WorldRuntimePlayerSessionService {
         templateId: input.requestedMapId,
       },
       deps,
+      { allowCreate: allowCreateFallback },
     );
     if (missingTowerInstance) {
       return missingTowerInstance;

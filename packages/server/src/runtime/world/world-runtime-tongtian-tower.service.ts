@@ -254,7 +254,11 @@ export class WorldRuntimeTongtianTowerService {
     return `${TOWER_INSTANCE_PREFIX}${normalizeLayer(layerInput)}`;
   }
 
-  ensureLayerInstanceForRestore(input: { instanceId?: string | null; templateId?: string | null }, deps: any): any | null {
+  ensureLayerInstanceForRestore(
+    input: { instanceId?: string | null; templateId?: string | null },
+    deps: any,
+    options: { allowCreate?: boolean } = {},
+  ): any | null {
     const instanceId = typeof input?.instanceId === 'string' ? input.instanceId.trim() : '';
     const templateId = typeof input?.templateId === 'string' ? input.templateId.trim() : '';
     const layer = parseTowerLayerFromInstanceId(instanceId) || parseTowerLayerFromTemplateId(templateId);
@@ -264,6 +268,24 @@ export class WorldRuntimeTongtianTowerService {
     const expectedTemplateId = `${TOWER_TEMPLATE_PREFIX}${layer}`;
     if (templateId && templateId !== expectedTemplateId) {
       return null;
+    }
+    const existing = deps.getInstanceRuntime?.(this.getTowerInstanceId(layer));
+    if (existing) {
+      return existing;
+    }
+    if (options.allowCreate === false) {
+      return null;
+    }
+    const cached = this.takeCachedLayerInstance(layer);
+    if (cached) {
+      this.prepareRestoredLayerInstance(cached, layer, deps.tick);
+      if (typeof deps.setInstanceRuntime === 'function') {
+        deps.setInstanceRuntime(this.getTowerInstanceId(layer), cached);
+      } else if (typeof deps.worldRuntimeInstanceStateService?.setInstanceRuntime === 'function') {
+        deps.worldRuntimeInstanceStateService.setInstanceRuntime(this.getTowerInstanceId(layer), cached);
+      }
+      deps.worldRuntimeTickProgressService?.initializeInstance?.(this.getTowerInstanceId(layer));
+      return cached;
     }
     return this.ensureLayerInstance(layer, deps);
   }
@@ -475,11 +497,8 @@ export class WorldRuntimeTongtianTowerService {
     instance.meta.persistent = true;
     instance.meta.persistentPolicy = 'persistent';
     instance.meta.status = 'active';
-    instance.meta.runtimeStatus = 'running';
+    instance.meta.runtimeStatus = instance.meta.assignedNodeId && instance.meta.leaseToken ? 'leased' : 'running';
     instance.meta.destroyAt = null;
-    instance.meta.assignedNodeId = null;
-    instance.meta.leaseToken = null;
-    instance.meta.leaseExpireAt = null;
     const state = this.ensureLayerState(instance, layer, worldTick);
     this.markLayerActive(state, worldTick);
   }

@@ -466,6 +466,7 @@ function main() {
     clearPlayerLocation() {},
     clearPendingCommand() {},
   });
+  assert.ok(resolvedSectInstance);
   assert.equal(resolvedSectInstance.meta.instanceId, sectInstance.meta.instanceId);
   instances.delete(badRealSectInstanceId);
 
