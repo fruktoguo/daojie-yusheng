@@ -4471,6 +4471,7 @@ async function replacePlayerEquipmentSlots(
     equipmentRowSources.set(row, { entry, item });
   }
   const rows = Array.from(rowsBySlotType.values());
+  const rowsJson = JSON.stringify(rows);
 
   if (rows.length === 0) {
     if (options.allowEmptyOverwrite === true) {
@@ -4488,7 +4489,7 @@ async function replacePlayerEquipmentSlots(
               WHERE incoming.slot_type = target.slot_type
             )
         `,
-        [playerId, JSON.stringify([])],
+        [playerId, rowsJson],
       );
     } else {
       await refuseEmptyOverwriteIfRowsExist(client, PLAYER_EQUIPMENT_SLOT_TABLE, playerId, 0, 'equipment');
@@ -4514,7 +4515,7 @@ async function replacePlayerEquipmentSlots(
           WHERE incoming.slot_type = target.slot_type
         )
     `,
-    [playerId, JSON.stringify(rows.map(({ slot_type }) => ({ slot_type })))],
+    [playerId, rowsJson],
   );
 }
 
