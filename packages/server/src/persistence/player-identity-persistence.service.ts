@@ -269,9 +269,15 @@ export class PlayerIdentityPersistenceService {
     async listPlayerIdentitiesByPlayerIds(playerIds) {
   // 排行榜等低频读模型需要批量补角色名，避免逐玩家查询。
 
-        const normalizedPlayerIds = Array.from(new Set(Array.from(playerIds ?? [])
-            .map((playerId) => normalizeRequiredString(playerId))
-            .filter((playerId) => playerId.length > 0)));
+        const normalizedPlayerIds: string[] = [];
+        const normalizedPlayerIdSet = new Set<string>();
+        for (const playerId of playerIds ?? []) {
+            const normalizedPlayerId = normalizeRequiredString(playerId);
+            if (normalizedPlayerId && !normalizedPlayerIdSet.has(normalizedPlayerId)) {
+                normalizedPlayerIdSet.add(normalizedPlayerId);
+                normalizedPlayerIds.push(normalizedPlayerId);
+            }
+        }
         if (!this.pool || !this.enabled || normalizedPlayerIds.length === 0) {
             return new Map();
         }
@@ -410,10 +416,16 @@ export class PlayerIdentityPersistenceService {
             [numericPlayerNo],
         );
         const rows = result.rows ?? [];
-        const playerIds = rows
-            .map((row: any) => (typeof row?.player_id === 'string' ? row.player_id.trim() : ''))
-            .filter((entry: string) => entry.length > 0);
-        return Array.from(new Set(playerIds));
+        const playerIds: string[] = [];
+        const seenPlayerIds = new Set<string>();
+        for (const row of rows) {
+            const playerId = typeof row?.player_id === 'string' ? row.player_id.trim() : '';
+            if (playerId.length > 0 && !seenPlayerIds.has(playerId)) {
+                seenPlayerIds.add(playerId);
+                playerIds.push(playerId);
+            }
+        }
+        return playerIds;
     }
     /**
      * 按角色名 / 显示名 / 账号名模糊反查 playerId 列表。
@@ -447,10 +459,16 @@ export class PlayerIdentityPersistenceService {
             [pattern, normalizedLimit],
         );
         const rows = result.rows ?? [];
-        const playerIds = rows
-            .map((row: any) => (typeof row?.player_id === 'string' ? row.player_id.trim() : ''))
-            .filter((entry: string) => entry.length > 0);
-        return Array.from(new Set(playerIds));
+        const playerIds: string[] = [];
+        const seenPlayerIds = new Set<string>();
+        for (const row of rows) {
+            const playerId = typeof row?.player_id === 'string' ? row.player_id.trim() : '';
+            if (playerId.length > 0 && !seenPlayerIds.has(playerId)) {
+                seenPlayerIds.add(playerId);
+                playerIds.push(playerId);
+            }
+        }
+        return playerIds;
     }
 }
 /**
