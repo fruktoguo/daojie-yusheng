@@ -39,14 +39,15 @@ export class WorldRuntimeItemGroundService {
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const item = this.playerRuntimeService.splitInventoryItem(playerId, slotIndex, count);
+        const displayItem = normalizeGroundNoticeItem(this.playerRuntimeService, item);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const pile = instance.dropGroundItem(player.x, player.y, item);
+        const pile = instance.dropGroundItem(player.x, player.y, displayItem);
         if (!pile) {
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
             throw new BadRequestException(`无法在 ${player.x},${player.y} 掉落物品`);
         }
         deps.refreshQuestStates(playerId);
-        const itemLabel = formatItemStackLabel(item);
+        const itemLabel = formatItemStackLabel(displayItem);
         const n = buildStructuredNotice('info', 'notice.item.dropped', `放下 ${itemLabel}`, {
             vars: { itemName: itemLabel },
             pills: [{ key: 'itemName', style: 'target' }],
@@ -94,3 +95,8 @@ export class WorldRuntimeItemGroundService {
         }
     }
 };
+
+function normalizeGroundNoticeItem(playerRuntimeService, item) {
+    const normalized = playerRuntimeService?.contentTemplateRepository?.normalizeItem?.(item);
+    return normalized && typeof normalized === 'object' ? normalized : item;
+}

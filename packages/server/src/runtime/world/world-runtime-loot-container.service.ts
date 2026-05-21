@@ -966,7 +966,7 @@ export class WorldRuntimeLootContainerService {
                     deps,
                     sourceType: 'container_take',
                     sourceRefId: `${sourceId}:${itemKey}`,
-                    successNotice: `获得 ${formatItemStackLabel(item)}`,
+                    successNotice: `获得 ${this.formatLootItemStackLabel(item)}`,
                     failureNotice: '拿取失败，物品已留在容器内。',
                     restoreOnFailure: () => {
                         resolved.state.entries.push(...removedEntries.map(cloneContainerEntryForRestore));
@@ -978,7 +978,8 @@ export class WorldRuntimeLootContainerService {
             const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
             deps.refreshQuestStates(playerId);
-            const n = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${formatItemStackLabel(item)}`, { vars: { itemName: formatItemStackLabel(item) }, pills: [{ key: 'itemName', style: 'target' }] });
+            const itemLabel = this.formatLootItemStackLabel(item);
+            const n = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, { vars: { itemName: itemLabel }, pills: [{ key: 'itemName', style: 'target' }] });
             deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             return;
         }
@@ -1004,7 +1005,7 @@ export class WorldRuntimeLootContainerService {
                 originalPosition: { x: originalX, y: originalY },
                 sourceType: 'ground_take',
                 sourceRefId: `${sourceId}:${itemKey}`,
-                successNotice: `获得 ${formatItemStackLabel(taken)}`,
+                successNotice: `获得 ${this.formatLootItemStackLabel(taken)}`,
             });
             return;
         }
@@ -1014,7 +1015,8 @@ export class WorldRuntimeLootContainerService {
         }
         this.playerRuntimeService.receiveInventoryItem(playerId, item);
         deps.refreshQuestStates(playerId);
-        const n2 = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${formatItemStackLabel(item)}`, { vars: { itemName: formatItemStackLabel(item) }, pills: [{ key: 'itemName', style: 'target' }] });
+        const itemLabel = this.formatLootItemStackLabel(item);
+        const n2 = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, { vars: { itemName: itemLabel }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
     }    
     /**
@@ -1048,7 +1050,7 @@ export class WorldRuntimeLootContainerService {
                     deps,
                     sourceType: 'container_take_all',
                     sourceRefId: sourceId,
-                    successNotice: `获得 ${formatItemListSummary(takenItems)}`,
+                    successNotice: `获得 ${this.formatLootItemListSummary(takenItems)}`,
                     failureNotice: '拿取失败，物品已留在容器内。',
                     restoreOnFailure: () => {
                         resolved.state.entries.push(...removedEntries.map(cloneContainerEntryForRestore));
@@ -1061,7 +1063,8 @@ export class WorldRuntimeLootContainerService {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
             }
             deps.refreshQuestStates(playerId);
-            const n = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${formatItemListSummary(takenItems)}`, { vars: { itemList: formatItemListSummary(takenItems) }, pills: [{ key: 'itemList', style: 'target' }] });
+            const itemList = this.formatLootItemListSummary(takenItems);
+            const n = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${itemList}`, { vars: { itemList }, pills: [{ key: 'itemList', style: 'target' }] });
             deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
             return;
         }
@@ -1099,7 +1102,7 @@ export class WorldRuntimeLootContainerService {
                 originalPosition: { x: originalX, y: originalY },
                 sourceType: 'ground_take_all',
                 sourceRefId: sourceId,
-                successNotice: `获得 ${formatItemListSummary(takenItems)}`,
+                successNotice: `获得 ${this.formatLootItemListSummary(takenItems)}`,
                 partialNotice: takenItems.length < pile.items.length ? '背包空间不足，剩余物品暂时拿不下。' : '',
             });
             return;
@@ -1108,7 +1111,8 @@ export class WorldRuntimeLootContainerService {
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
         }
         deps.refreshQuestStates(playerId);
-        const n3 = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${formatItemListSummary(takenItems)}`, { vars: { itemList: formatItemListSummary(takenItems) }, pills: [{ key: 'itemList', style: 'target' }] });
+        const itemList = this.formatLootItemListSummary(takenItems);
+        const n3 = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${itemList}`, { vars: { itemList }, pills: [{ key: 'itemList', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n3.text, n3.kind, undefined, undefined, n3.structured);
         if (takenItems.length < pile.items.length) {
             const nBagFull = buildStructuredNotice('info', 'notice.loot.bag-full', '背包空间不足，剩余物品暂时拿不下。', {});
@@ -1186,6 +1190,19 @@ export class WorldRuntimeLootContainerService {
         }
         return takenItems;
     }    
+
+    formatLootItemStackLabel(item) {
+        return formatItemStackLabel(this.normalizeLootItemForNotice(item));
+    }
+
+    formatLootItemListSummary(items) {
+        return formatItemListSummary(Array.isArray(items) ? items.map((item) => this.normalizeLootItemForNotice(item)) : []);
+    }
+
+    normalizeLootItemForNotice(item) {
+        const normalized = this.contentTemplateRepository?.normalizeItem?.(item);
+        return normalized && typeof normalized === 'object' ? normalized : item;
+    }
 
     canUseDurableInventoryGrant(player, deps) {
         const durableOperationService = deps?.durableOperationService ?? null;

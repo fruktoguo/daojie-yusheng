@@ -4515,6 +4515,12 @@ class MapInstanceRuntime {
             const existingEntry = existingPile.items.find((entry) => entry.itemKey === itemKey);
             if (existingEntry) {
                 existingEntry.item.count += normalizedCount;
+                if (!existingEntry.item.name && item.name) {
+                    existingEntry.item.name = item.name;
+                }
+                if (!existingEntry.item.groundLabel && item.groundLabel) {
+                    existingEntry.item.groundLabel = item.groundLabel;
+                }
             }
             else {
                 existingPile.items.push({

@@ -27,8 +27,15 @@ function testDropItem() {
 
         splitInventoryItem(playerId, slotIndex, count) {
             log.push(['splitInventoryItem', playerId, slotIndex, count]);
-            return { itemId: 'rat_tail', name: '鼠尾', count: 2 };
+            return { itemId: 'book.changsheng_chanyuan', count: 1 };
         },        
+        contentTemplateRepository: {
+            normalizeItem(item) {
+                return item?.itemId === 'book.changsheng_chanyuan'
+                    ? { ...item, name: '长生禅缘' }
+                    : item;
+            },
+        },
         /**
  * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -61,7 +68,7 @@ function testDropItem() {
  */
 
                 dropGroundItem(x, y, item) {
-                    log.push(['dropGroundItem', x, y, item.itemId, item.count]);
+                    log.push(['dropGroundItem', x, y, item.itemId, item.name, item.count]);
                     return { sourceId: 'ground:1' };
                 },
             };
@@ -86,9 +93,9 @@ function testDropItem() {
     service.dispatchDropItem('player:1', 2, 2, deps);
     assert.deepEqual(log, [
         ['splitInventoryItem', 'player:1', 2, 2],
-        ['dropGroundItem', 5, 7, 'rat_tail', 2],
+        ['dropGroundItem', 5, 7, 'book.changsheng_chanyuan', '长生禅缘', 1],
         ['refreshQuestStates', 'player:1'],
-        ['queuePlayerNotice', 'player:1', '放下 鼠尾 x2', 'info'],
+        ['queuePlayerNotice', 'player:1', '放下 长生禅缘', 'info'],
     ]);
 }
 /**
@@ -174,7 +181,7 @@ function testSpawnGroundItemFailure() {
                 return null;
             },
         }, 8, 9, { itemId: 'rat_tail', count: 1 });
-    }, /Failed to spawn loot at 8,9/);
+    }, /无法在 8,9 生成掉落/);
 }
 
 Promise.resolve()

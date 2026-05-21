@@ -7,6 +7,7 @@ const TEST_REALM_EXP_TO_NEXT = 10000;
 async function main(): Promise<void> {
   await testGroundTakeDurableGrant();
   await testGroundTakeDurableGrantSyncsPresenceFence();
+  await testGroundTakeFormatsTemplateName();
   await testGroundTakeAllDurableGrant();
   await testContainerTakeDurableGrant();
   await testContainerTakeAllDurableGrant();
@@ -25,6 +26,55 @@ async function main(): Promise<void> {
     answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药刷新会积攒库存，地块攻击草药会扣 1 朵并在空库存时显示回生倒计时',
     excludes: '不证明草药采集的 profession 变更已经并入同一资产事务，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+async function testGroundTakeFormatsTemplateName() {
+  const log: Array<unknown[]> = [];
+  const player = buildPlayer('player:ground:book', 'instance:ground:book', 'runtime:ground:book', 3);
+  player.x = 1;
+  player.y = 2;
+  const service = new WorldRuntimeLootContainerService({
+    normalizeItem(item: Record<string, unknown>) {
+      return item?.itemId === 'book.changsheng_chanyuan'
+        ? { ...item, name: '长生禅缘' }
+        : item;
+    },
+  } as never, buildPlayerRuntimeService(player) as never);
+  const instance = {
+    getGroundPileBySourceId(sourceId: string) {
+      assert.equal(sourceId, 'ground:book');
+      return {
+        x: 1,
+        y: 2,
+        items: [
+          { itemKey: 'pile:item:book', item: { itemId: 'book.changsheng_chanyuan', count: 1 } },
+        ],
+      };
+    },
+    takeGroundItem(sourceId: string, itemKey: string) {
+      assert.equal(sourceId, 'ground:book');
+      assert.equal(itemKey, 'pile:item:book');
+      return { itemId: 'book.changsheng_chanyuan', count: 1 };
+    },
+  };
+  await service.dispatchTakeGround(player.playerId, 'ground:book', 'pile:item:book', {
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'instance:ground:book' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return instance;
+    },
+    refreshQuestStates(playerId: string) {
+      log.push(['refreshQuestStates', playerId]);
+    },
+    queuePlayerNotice(playerId: string, message: string, tone: string) {
+      log.push(['queuePlayerNotice', playerId, message, tone]);
+    },
+  } as never);
+  assert.deepEqual(log, [
+    ['refreshQuestStates', 'player:ground:book'],
+    ['queuePlayerNotice', 'player:ground:book', '获得 长生禅缘', 'loot'],
+  ]);
 }
 
 async function testGroundTakeDurableGrantSyncsPresenceFence() {
