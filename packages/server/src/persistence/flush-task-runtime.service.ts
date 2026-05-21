@@ -13,6 +13,7 @@ import { isFlushTaskConsumerMode, isInlineFlushTaskRuntimeMode } from './flush-t
 import type { FlushTask, FlushTaskPriority, FlushTaskScope } from './flush-task.types';
 import { classifyFlushFailure, resolveFlushRetryDelayMs } from './flush-failure-policy';
 import { FlushDiagnosticsService } from './flush-diagnostics.service';
+import { InstanceCatalogService } from './instance-catalog.service';
 import {
   PlayerDomainPersistenceService,
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
@@ -138,6 +139,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     @Optional() @Inject(FlushDiagnosticsService) private readonly flushDiagnostics?: FlushDiagnosticsService,
     @Optional() @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService?: PlayerDomainPersistenceService,
     @Optional() @Inject(StartupBarrierService) private readonly startupBarrierService?: StartupBarrierService,
+    @Optional() @Inject(InstanceCatalogService) private readonly instanceCatalogService?: InstanceCatalogService,
   ) {}
 
   onModuleInit(): void {
@@ -544,6 +546,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     const runtime = this.worldRuntimeService.getInstanceRuntime?.(first.id);
     if (!runtime) {
+      if (await this.shouldMarkMissingRuntimeInstanceTasksFlushed(first)) {
+        await this.flushLedgerService.markFlushTasksFlushed(group);
+        return group.length;
+      }
       await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
       this.logger.warn(`实例刷盘任务未找到运行态，保持 retry 防止 no-op mark flushed instanceId=${first.id}`);
       return 0;
@@ -634,6 +640,11 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       const runtime = this.worldRuntimeService.getInstanceRuntime?.(task.id);
       if (!runtime) {
+        if (await this.shouldMarkMissingRuntimeInstanceTasksFlushed(task)) {
+          await this.flushLedgerService.markFlushTaskFlushed(task);
+          processed += 1;
+          continue;
+        }
         await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
         this.logger.warn(`实例刷盘任务未找到运行态，保持 retry 防止 no-op mark flushed instanceId=${task.id} domain=${task.domain}`);
         continue;
@@ -664,6 +675,24 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return processed;
+  }
+
+  private async shouldMarkMissingRuntimeInstanceTasksFlushed(task: FlushTask): Promise<boolean> {
+    if (task.scope !== 'instance' || !this.instanceCatalogService?.isEnabled()) {
+      return false;
+    }
+    const catalog = await this.instanceCatalogService.loadInstanceCatalog(task.id);
+    if (!catalog) {
+      return false;
+    }
+    const status = normalizeString(catalog.status);
+    const runtimeStatus = normalizeString(catalog.runtime_status);
+    if (status === 'destroyed' || runtimeStatus === 'stopped') {
+      return true;
+    }
+    const catalogEpoch = normalizeInt(catalog.ownership_epoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    const taskEpoch = normalizeInt(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
+    return catalogEpoch !== taskEpoch;
   }
 
   private async processBatchableInstanceTasks(tasks: FlushTask[], remaining: Map<string, FlushTask>): Promise<number> {

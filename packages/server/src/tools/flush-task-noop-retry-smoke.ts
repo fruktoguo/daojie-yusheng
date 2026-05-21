@@ -63,6 +63,44 @@ async function main(): Promise<void> {
     assert.equal(flushedCount, 0);
 
     claimed = false;
+    const destroyedLedger = {
+      ...ledger,
+      async claimReadyFlushTasks(input: { scope: string }) {
+        if (input.scope !== 'instance' || claimed) {
+          return [];
+        }
+        claimed = true;
+        return [{
+          scope: 'instance',
+          id: 'tower:tongtian:layer:destroyed',
+          domain: 'time',
+          priority: 'low',
+          latestRevision: 2,
+          ownershipEpoch: 2,
+        }];
+      },
+    };
+    const destroyedRuntime = new FlushTaskRuntimeService(
+      { listDirtyPlayerDomains: () => new Map() } as never,
+      {
+        listDirtyPersistentInstanceDomains: () => [],
+        getInstanceRuntime: () => null,
+      } as never,
+      { flushPlayerDomains: async () => { playerRuntimeFallbackCount += 1; return true; } } as never,
+      destroyedLedger as never,
+      { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { isEnabled: () => true, loadInstanceCatalog: async () => ({ status: 'destroyed', runtime_status: 'stopped', ownership_epoch: 2 }) } as never,
+    );
+    const destroyedProcessed = await destroyedRuntime.runOnce('flush-task-destroyed-missing-runtime-smoke');
+    assert.equal(destroyedProcessed, 1);
+    assert.equal(retryCount, 1);
+    assert.equal(flushedCount, 1);
+
+    claimed = false;
     const playerLedger = {
       ...ledger,
       async claimReadyFlushTasks(input: { scope: string }) {
@@ -89,7 +127,7 @@ async function main(): Promise<void> {
     const playerProcessed = await playerRuntime.runOnce('flush-task-player-unsupported-retry-smoke');
     assert.equal(playerProcessed, 0);
     assert.equal(retryCount, 2);
-    assert.equal(flushedCount, 0);
+    assert.equal(flushedCount, 1);
     assert.equal(playerRuntimeFallbackCount, 0);
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
@@ -98,7 +136,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '实例 flush task 在 worker 无运行态/no-op 路径下会 retry；unsupported player domain 在 worker role 下不会回退到 runtime flush，也不会 mark flushed。',
+    answers: '实例 flush task 在 worker 无运行态/no-op 路径下会 retry；catalog 已 destroyed/stopped 的旧实例任务会 mark flushed；unsupported player domain 在 worker role 下不会回退到 runtime flush，也不会 mark flushed。',
     excludes: '不证明 durable staging payload 或真实 DB claim 竞争。',
     completionMapping: 'flush-task-noop-retry',
   }, null, 2));
