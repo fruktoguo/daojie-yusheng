@@ -63,8 +63,8 @@ function testMonsterRuntimeThreatSelectsHighestTarget(): void {
     numericStats: { extraAggroRate: 0 },
     aggroTargetPlayerId: null,
   };
-  const playerA = { playerId: 'player:a', hp: 100, x: 1, y: 0 };
-  const playerB = { playerId: 'player:b', hp: 100, x: 2, y: 0 };
+  const playerA = { playerId: 'player:a', x: 1, y: 0 };
+  const playerB = { playerId: 'player:b', x: 2, y: 0 };
   const runtime: Record<string, unknown> = {
     tick: 1,
     monstersByRuntimeId: new Map([[monster.runtimeId, monster]]),
@@ -94,9 +94,50 @@ function testMonsterRuntimeThreatSelectsHighestTarget(): void {
   assert.equal(monster.aggroTargetPlayerId, playerB.playerId);
 }
 
+function testPassiveSightThreatCanAcquirePositionOnlyPlayer(): void {
+  const monster = {
+    runtimeId: 'monster:passive',
+    alive: true,
+    maxHp: 1000,
+    x: 0,
+    y: 0,
+    spawnX: 0,
+    spawnY: 0,
+    aggroRange: 8,
+    leashRange: 8,
+    numericStats: { extraAggroRate: 0 },
+    aggroTargetPlayerId: null,
+  };
+  const player = { playerId: 'player:visible', x: 2, y: 0 };
+  const runtime: Record<string, unknown> = {
+    tick: 1,
+    monstersByRuntimeId: new Map([[monster.runtimeId, monster]]),
+    playersById: new Map([[player.playerId, player]]),
+    monsterThreatByRuntimeId: new Map(),
+    getMonsterThreatTable: MapInstanceRuntime.prototype.getMonsterThreatTable,
+    addMonsterThreat: MapInstanceRuntime.prototype.addMonsterThreat,
+    decayMonsterThreats: MapInstanceRuntime.prototype.decayMonsterThreats,
+    getHighestMonsterThreatTarget: MapInstanceRuntime.prototype.getHighestMonsterThreatTarget,
+    rememberMonsterTargetSight: MapInstanceRuntime.prototype.rememberMonsterTargetSight,
+    toTileIndex(x: number, y: number) {
+      return y * 1000 + x;
+    },
+    collectVisibleTileIndices() {
+      return new Set([0, 1, 2]);
+    },
+  };
+
+  const target = MapInstanceRuntime.prototype.resolveMonsterTarget.call(runtime, monster);
+
+  assert.equal(target?.playerId, player.playerId);
+  assert.equal(monster.aggroTargetPlayerId, player.playerId);
+  assert.equal(MapInstanceRuntime.prototype.getHighestMonsterThreatTarget.call(runtime, monster, () => true)?.value, 1);
+}
+
 testThreatFormulaAndSorting();
 testThreatDecayAndUnreachableReduction();
 testClearTargetEverywhere();
 testMonsterRuntimeThreatSelectsHighestTarget();
+testPassiveSightThreatCanAcquirePositionOnlyPlayer();
 
 console.log('world-runtime-threat-smoke passed');

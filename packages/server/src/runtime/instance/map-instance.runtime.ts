@@ -3312,7 +3312,7 @@ class MapInstanceRuntime {
             this.addMonsterThreat(monster.runtimeId, attackerPlayerId, appliedDamage, attacker ? chebyshevDistance(monster.x, monster.y, attacker.x, attacker.y) : 1, Number(attacker?.attrs?.numericStats?.extraAggroRate ?? 0) || 0);
             const bestThreatTarget = this.getHighestMonsterThreatTarget(monster, (playerId) => {
                 const player = this.playersById.get(playerId);
-                return !!player && player.hp > 0;
+                return !!player;
             });
             if (bestThreatTarget) {
                 monster.aggroTargetPlayerId = bestThreatTarget.targetId;
@@ -6084,8 +6084,7 @@ class MapInstanceRuntime {
         const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
         let hasNearbyPlayer = !!monster.aggroTargetPlayerId;
         for (const player of this.playersById.values()) {
-            if (player.hp > 0
-                && chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
+            if (chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
                 && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
                 hasNearbyPlayer = true;
                 break;
@@ -6099,9 +6098,6 @@ class MapInstanceRuntime {
         const activePlayerIds = new Set();
         const extraAggroRate = Number(monster?.numericStats?.extraAggroRate ?? 0) || 0;
         for (const player of this.playersById.values()) {
-            if (player.hp <= 0) {
-                continue;
-            }
             if (chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) > monster.leashRange) {
                 continue;
             }
@@ -6110,13 +6106,12 @@ class MapInstanceRuntime {
                 continue;
             }
             activePlayerIds.add(player.playerId);
-            this.addMonsterThreat(monster.runtimeId, player.playerId, DEFAULT_PASSIVE_THREAT_PER_TICK, distance, extraAggroRate);
+            this.addMonsterThreat(monster.runtimeId, player.playerId, DEFAULT_PASSIVE_THREAT_PER_TICK, 1, extraAggroRate);
         }
         this.decayMonsterThreats(monster, activePlayerIds);
         const bestThreat = this.getHighestMonsterThreatTarget(monster, (playerId) => {
             const player = this.playersById.get(playerId);
             return !!player
-                && player.hp > 0
                 && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange
                 && chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
                 && visibleTileIndices.has(this.toTileIndex(player.x, player.y));
