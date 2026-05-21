@@ -1092,6 +1092,27 @@ export type GmWorkerStatus = 'active' | 'pending' | 'idle' | 'warn' | 'error' | 
 /** GM worker 监控分类。 */
 export type GmWorkerKind = 'player_flush' | 'instance_flush' | 'outbox' | 'database_backup' | 'cleanup';
 
+export interface GmWorkerRuntimeRow {
+  id: string;
+  label: string;
+  enabled: boolean;
+  running: boolean;
+  lastHeartbeatAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastFailure: string | null;
+  processedCount: number;
+}
+
+export interface GmWorkerTopology {
+  currentRole: string;
+  recommendedTopology: string;
+  apiRoleExpected: boolean;
+  workerRoleExpected: boolean;
+  localWorkers: GmWorkerRuntimeRow[];
+  note?: string;
+}
+
 /** GM worker 单项工作状态。 */
 export interface GmWorkerRow {
 /**
@@ -1169,6 +1190,13 @@ export interface GmWorkerRow {
  */
 
   note?: string;
+  enabled?: boolean;
+  running?: boolean;
+  lastHeartbeatAt?: string | null;
+  lastSuccessAt?: string | null;
+  lastFailureAt?: string | null;
+  processedCount?: number;
+  runtimeRole?: string;
 }
 
 /** GM worker 告警项。 */
@@ -1345,12 +1373,15 @@ export interface GmWorkerStateRes {
     flushLedgerEnabled: boolean;
     outboxEnabled: boolean;
     backupWorkerHeartbeatActive: boolean;
+    runtimeRole?: string;
+    backgroundWorkerCount?: number;
   };
   /**
  * capacity：flush worker 容量和反压诊断。
  */
 
   capacity?: GmWorkerCapacity;
+  topology?: GmWorkerTopology;
   /**
  * note：补充说明。
  */

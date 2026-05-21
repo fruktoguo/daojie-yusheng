@@ -1,10 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
-import type { GmWorkerAlert, GmWorkerRow, GmWorkerStateRes, GmWorkerStatus } from '@mud/shared';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import type { GmWorkerAlert, GmWorkerRow, GmWorkerRuntimeRow, GmWorkerStateRes, GmWorkerStatus } from '@mud/shared';
 
+import { resolveServerRuntimeRole } from '../../config/runtime-role';
 import { FlushLedgerService } from '../../persistence/flush-ledger.service';
 import { FlushDiagnosticsService } from '../../persistence/flush-diagnostics.service';
 import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.service';
 import { PlayerFlushLedgerService } from '../../persistence/player-flush-ledger.service';
+import { BackgroundWorkerRuntimeService } from '../../runtime/worker/background-worker-runtime.service';
 import { NativeGmAdminService } from './native-gm-admin.service';
 
 const WORKER_WINDOW_SECONDS = 60;
@@ -31,6 +33,8 @@ export class NativeGmWorkerService {
     @Inject(PlayerFlushLedgerService) private readonly playerFlushLedgerService: PlayerFlushLedgerService,
     @Inject(OutboxDispatcherService) private readonly outboxDispatcherService: OutboxDispatcherService,
     @Inject(NativeGmAdminService) private readonly nativeGmAdminService: NativeGmAdminService,
+    @Optional() @Inject(BackgroundWorkerRuntimeService)
+    private readonly backgroundWorkerRuntimeService: BackgroundWorkerRuntimeService | null = null,
   ) {}
 
   async getWorkerState(): Promise<GmWorkerStateRes> {
@@ -54,13 +58,19 @@ export class NativeGmWorkerService {
       Promise.resolve(this.flushDiagnosticsService.getSnapshot()),
     ]);
 
-    const rows: GmWorkerRow[] = [
+    const runtimeRole = resolveServerRuntimeRole();
+    const localWorkers = this.backgroundWorkerRuntimeService?.listWorkerStates() ?? [];
+    const runtimeById = indexRows(localWorkers, (row) => row.id);
+    const rows: GmWorkerRow[] = enrichRowsWithRuntimeState([
       ...buildPlayerWorkerRows(playerRows, playerThroughputRows),
       ...buildInstanceWorkerRows(instanceRows, instanceThroughputRows),
       buildOutboxWorkerRow(outboxSummary, retryRows),
       buildDatabaseBackupWorkerRow(Boolean(databaseState.automation?.schedulesActive)),
+    ], runtimeById, runtimeRole);
+    const alerts = [
+      ...buildWorkerAlerts(rows),
+      ...buildCapacityAlerts(flushDiagnostics),
     ];
-    const alerts = buildWorkerAlerts(rows);
     return {
       generatedAt: new Date().toISOString(),
       windowSeconds: WORKER_WINDOW_SECONDS,
@@ -70,6 +80,18 @@ export class NativeGmWorkerService {
         flushLedgerEnabled: this.flushLedgerService.isEnabled() || this.playerFlushLedgerService.isEnabled(),
         outboxEnabled: this.outboxDispatcherService.isEnabled(),
         backupWorkerHeartbeatActive: Boolean(databaseState.automation?.schedulesActive),
+        runtimeRole,
+        backgroundWorkerCount: localWorkers.length,
+      },
+      topology: {
+        currentRole: runtimeRole,
+        recommendedTopology: '生产目标态：server(api) + server_worker(worker)，all 仅用于本地开发或应急回滚。',
+        apiRoleExpected: runtimeRole === 'api' || runtimeRole === 'all',
+        workerRoleExpected: runtimeRole === 'worker' || runtimeRole === 'all',
+        localWorkers: localWorkers.map(toGmRuntimeRow),
+        note: runtimeRole === 'api'
+          ? '当前 GM API 来自 api 进程；server_worker 的跨进程心跳需结合 ledger/outbox/backup heartbeat 与部署监控判断。'
+          : '当前进程可直接暴露本地 worker orchestrator 状态。',
       },
       capacity: {
         pgPools: flushDiagnostics.pgPools,
@@ -106,6 +128,40 @@ export class NativeGmWorkerService {
       note: 'GM worker 面板读取 flush ledger、outbox 与数据库备份 worker 心跳的低频汇总；它不启动、不停止 worker，也不替代进程级监控。',
     };
   }
+}
+
+function toGmRuntimeRow(row: GmWorkerRuntimeRow): GmWorkerRuntimeRow {
+  return { ...row };
+}
+
+function enrichRowsWithRuntimeState(
+  rows: GmWorkerRow[],
+  runtimeById: Map<string, GmWorkerRuntimeRow>,
+  runtimeRole: string,
+): GmWorkerRow[] {
+  return rows.map((row) => {
+    const runtime = runtimeById.get(mapWorkerRowToRuntimeId(row));
+    if (!runtime) {
+      return { ...row, runtimeRole };
+    }
+    return {
+      ...row,
+      enabled: runtime.enabled,
+      running: runtime.running,
+      lastHeartbeatAt: runtime.lastHeartbeatAt,
+      lastSuccessAt: runtime.lastSuccessAt,
+      lastFailureAt: runtime.lastFailureAt,
+      processedCount: runtime.processedCount,
+      runtimeRole,
+    };
+  });
+}
+
+function mapWorkerRowToRuntimeId(row: GmWorkerRow): string {
+  if (row.kind === 'outbox') return 'outbox-dispatcher';
+  if (row.kind === 'database_backup') return 'database-backup';
+  if (row.kind === 'cleanup') return row.id;
+  return 'flush-task-consumer';
 }
 
 function buildPlayerWorkerRows(
@@ -240,6 +296,19 @@ function buildWorkerAlerts(rows: GmWorkerRow[]): GmWorkerAlert[] {
   return alerts;
 }
 
+function buildCapacityAlerts(flushDiagnostics: ReturnType<FlushDiagnosticsService['getSnapshot']>): GmWorkerAlert[] {
+  const alerts: GmWorkerAlert[] = [];
+  const flushPoolWaiting = toCount(flushDiagnostics.pgPools?.flush?.waitingCount);
+  if (flushPoolWaiting > 0) {
+    alerts.push({ workerId: 'capacity:pg-pool:flush', level: 'warn', reason: 'db_backpressure', count: flushPoolWaiting });
+  }
+  const lockWaitCount = toCount(flushDiagnostics.pgLockWait?.waitingCount);
+  if (lockWaitCount > 0) {
+    alerts.push({ workerId: 'capacity:pg-lock-wait', level: 'warn', reason: 'lock_wait', count: lockWaitCount });
+  }
+  return alerts;
+}
+
 function shouldReportInactive(row: GmWorkerRow): boolean {
   if (row.kind !== 'player_flush' && row.kind !== 'instance_flush') {
     return row.status === 'warn' && row.pendingCount > 0 && row.writeCount === 0;
@@ -272,8 +341,8 @@ function resolveWorkerStatus(input: {
   return 'idle';
 }
 
-function indexRows(rows: Array<Record<string, unknown>>, keyOf: (row: Record<string, unknown>) => string): Map<string, Record<string, unknown>> {
-  const result = new Map<string, Record<string, unknown>>();
+function indexRows<T>(rows: T[], keyOf: (row: T) => string): Map<string, T> {
+  const result = new Map<string, T>();
   for (const row of rows) {
     const key = keyOf(row);
     if (key) {

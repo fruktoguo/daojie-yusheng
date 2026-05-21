@@ -3487,6 +3487,7 @@ function renderWorkerPanel(): void {
     ? workerState.rows.map(getWorkerRowMarkup).join('')
     : '<div class="empty-hint">当前还没有 worker 记录。</div>';
   const capacityCards = getWorkerCapacityMarkup(workerState);
+  const topologyMarkup = getWorkerTopologyMarkup(workerState);
 
   serverWorkersContentEl.innerHTML = `
     <div class="summary-grid">
@@ -3497,6 +3498,7 @@ function renderWorkerPanel(): void {
       ${capacityCards}
     </div>
     <div class="note-card">${escapeHtml(workerState.note ?? 'Worker 面板读取低频诊断快照，不改变 worker 运行。')}</div>
+    ${topologyMarkup}
     ${alerts}
     <div class="network-breakdown">
       <div class="network-breakdown-head">
@@ -3855,6 +3857,12 @@ function getWorkerRowMarkup(row: GmWorkerRow): string {
     `窗口完成 ${row.writeCount}`,
     `${formatWorkerRate(row.writesPerSecond)}`,
     row.deadLetterCount ? `死信 ${row.deadLetterCount}` : '',
+    row.enabled !== undefined ? `enabled ${row.enabled ? '是' : '否'}` : '',
+    row.running !== undefined ? `running ${row.running ? '是' : '否'}` : '',
+    row.processedCount !== undefined ? `累计 ${row.processedCount}` : '',
+    row.lastHeartbeatAt ? `心跳 ${formatDateTime(row.lastHeartbeatAt)}` : '',
+    row.lastSuccessAt ? `成功 ${formatDateTime(row.lastSuccessAt)}` : '',
+    row.lastFailureAt ? `失败 ${formatDateTime(row.lastFailureAt)}` : '',
     row.oldestPendingAt ? `最早待处理 ${formatDateTime(row.oldestPendingAt)}` : '',
     row.latestUpdatedAt ? `最近更新 ${formatDateTime(row.latestUpdatedAt)}` : '',
   ].filter(Boolean);
@@ -3884,6 +3892,23 @@ function getWorkerStatusLabel(status: GmWorkerRow['status']): string {
   }
 }
 
+function getWorkerTopologyMarkup(state: GmWorkerStateRes): string {
+  const topology = state.topology;
+  if (!topology) {
+    return '';
+  }
+  const localWorkers = topology.localWorkers.length > 0
+    ? topology.localWorkers.map((worker) => `${worker.label}:${worker.enabled ? 'enabled' : 'disabled'}${worker.running ? '/running' : ''}`).join(' · ')
+    : '当前进程未暴露本地 orchestrator worker；请结合 server_worker 部署与持久化心跳判断。';
+  return `
+    <div class="note-card">
+      <strong>运行拓扑</strong>：当前 role=${escapeHtml(topology.currentRole)} · ${escapeHtml(topology.recommendedTopology)}
+      <br>${escapeHtml(topology.note ?? '')}
+      <br>本地 worker：${escapeHtml(localWorkers)}
+    </div>
+  `;
+}
+
 function getWorkerAlertLabel(reason: string): string {
   switch (reason) {
     case 'dead_letter_present':
@@ -3892,6 +3917,10 @@ function getWorkerAlertLabel(reason: string): string {
       return '积压过高';
     case 'worker_inactive':
       return 'worker 心跳或活跃状态异常';
+    case 'db_backpressure':
+      return '数据库连接池反压';
+    case 'lock_wait':
+      return 'PG 锁等待';
     default:
       return reason;
   }
