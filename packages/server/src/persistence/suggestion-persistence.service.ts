@@ -150,6 +150,10 @@ export class SuggestionPersistenceService {
             );
             await client.query(`DELETE FROM ${SUGGESTION_TABLE}`);
             for (const suggestion of normalized.suggestions) {
+                const upvotesJson = JSON.stringify(suggestion.upvotes);
+                const downvotesJson = JSON.stringify(suggestion.downvotes);
+                const repliesJson = JSON.stringify(suggestion.replies);
+                const suggestionJson = JSON.stringify(suggestion);
                 await client.query(
                     `
                       INSERT INTO ${SUGGESTION_TABLE}(
@@ -176,10 +180,10 @@ export class SuggestionPersistenceService {
                         normalizeInteger(suggestion.createdAt, Date.now()),
                         normalizeInteger(suggestion.updatedAt, suggestion.createdAt ?? Date.now()),
                         normalizeInteger(suggestion.authorLastReadGmReplyAt, 0),
-                        JSON.stringify(suggestion.upvotes),
-                        JSON.stringify(suggestion.downvotes),
-                        JSON.stringify(suggestion.replies),
-                        JSON.stringify(suggestion),
+                        upvotesJson,
+                        downvotesJson,
+                        repliesJson,
+                        suggestionJson,
                     ],
                 );
             }
