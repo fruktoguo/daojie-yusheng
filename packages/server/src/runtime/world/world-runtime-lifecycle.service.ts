@@ -90,11 +90,7 @@ export class WorldRuntimeLifecycleService {
                 }
                 const tileDiffs = await domainPersistenceService.loadTileResourceDiffs(instanceId);
                 if (Array.isArray(tileDiffs) && tileDiffs.length > 0) {
-                    instance.patchTileResources(tileDiffs.map((entry) => ({
-                        resourceKey: entry.resourceKey,
-                        tileIndex: entry.tileIndex,
-                        value: entry.value,
-                    })));
+                    instance.patchTileResources(tileDiffs);
                 }
                 const tileDamageStates = typeof domainPersistenceService.loadTileDamageStates === 'function'
                     ? await domainPersistenceService.loadTileDamageStates(instanceId)
@@ -270,7 +266,7 @@ export class WorldRuntimeLifecycleService {
         }
         await this.restorePublicInstancePersistence(deps);
         if (typeof deps.claimRecoverableCatalogInstances === 'function') {
-            await deps.claimRecoverableCatalogInstances();
+            await deps.claimRecoverableCatalogInstances({ allowForceReclaim: true });
         }
         if (deps.instanceCatalogService?.isEnabled?.() && typeof deps.syncInstanceLease === 'function') {
             for (const [instanceId] of deps.listInstanceEntries()) {

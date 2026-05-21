@@ -528,16 +528,15 @@ export async function syncAllInstanceLeases(runtime) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
   }
-  const allowForceReclaim = shouldForceReclaimStaleLease();
   for (const [instanceId] of runtime.listInstanceEntries()) {
     try {
-      await syncInstanceLease(runtime, instanceId, { allowForceReclaim });
+      await syncInstanceLease(runtime, instanceId, { allowForceReclaim: false });
     } catch (error) {
       runtime.logger.warn(`实例租约同步失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   try {
-    const claimedCount = await claimRecoverableCatalogInstances(runtime);
+    const claimedCount = await claimRecoverableCatalogInstances(runtime, { allowForceReclaim: false });
     if (claimedCount > 0 && typeof runtime.worldRuntimeLifecycleService?.restoreOfflineHangingPlayers === 'function') {
       await runtime.worldRuntimeLifecycleService.restoreOfflineHangingPlayers(runtime);
     }
@@ -546,7 +545,7 @@ export async function syncAllInstanceLeases(runtime) {
   }
 }
 
-export async function claimRecoverableCatalogInstances(runtime) {
+export async function claimRecoverableCatalogInstances(runtime, { allowForceReclaim = false } = {}) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return 0;
   }
@@ -565,7 +564,7 @@ export async function claimRecoverableCatalogInstances(runtime) {
     if (!instanceId || !templateId || runtime.getInstanceRuntime(instanceId)) {
       continue;
     }
-    if (!(await canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeId))) {
+    if (!(await canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeId, { allowForceReclaim }))) {
       continue;
     }
     if (typeof runtime.templateRepository?.has === 'function'
@@ -579,7 +578,8 @@ export async function claimRecoverableCatalogInstances(runtime) {
     }
     const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${randomBytes(6).toString('base64url')}`;
     const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
-    const useForce = shouldForceReclaimStaleLease()
+    const useForce = allowForceReclaim
+      && shouldForceReclaimStaleLease()
       && typeof runtime.instanceCatalogService.forceClaimInstanceLease === 'function';
     const claim = useForce
       ? await runtime.instanceCatalogService.forceClaimInstanceLease({ instanceId, nodeId, leaseToken, leaseExpireAt })
@@ -620,7 +620,7 @@ export async function claimRecoverableCatalogInstances(runtime) {
   return claimedCount;
 }
 
-async function canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeId) {
+async function canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeId, { allowForceReclaim = false } = {}) {
   const assignedNodeId = typeof entry?.assigned_node_id === 'string' ? entry.assigned_node_id.trim() : '';
   const leaseToken = typeof entry?.lease_token === 'string' ? entry.lease_token.trim() : '';
   const leaseExpireAt = entry?.lease_expire_at ? new Date(entry.lease_expire_at).getTime() : 0;
@@ -628,7 +628,7 @@ async function canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeI
     return true;
   }
   // dev/test 环境下强制回收未过期的 stale lease，避免上一轮 smoke 残留阻塞启动
-  if (shouldForceReclaimStaleLease()) {
+  if (allowForceReclaim && shouldForceReclaimStaleLease()) {
     runtime.logger.warn(`启动恢复强制回收过期租约：${instanceId} assignedNodeId=${assignedNodeId}`);
     return true;
   }
@@ -672,11 +672,7 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
   }
   const tileDiffs = await domainPersistenceService.loadTileResourceDiffs(instanceId);
   if (Array.isArray(tileDiffs) && tileDiffs.length > 0) {
-    instance.patchTileResources(tileDiffs.map((entry) => ({
-      resourceKey: entry.resourceKey,
-      tileIndex: entry.tileIndex,
-      value: entry.value,
-    })));
+    instance.patchTileResources(tileDiffs);
   }
   const tileDamageStates = typeof domainPersistenceService.loadTileDamageStates === 'function'
     ? await domainPersistenceService.loadTileDamageStates(instanceId)
