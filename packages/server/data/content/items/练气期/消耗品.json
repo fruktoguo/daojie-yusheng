@@ -280,13 +280,5 @@
     "level": 10,
     "desc": "窟内归窍支路、断脉井与回渡节点都被细细标出。使用后可永久解锁归藏脉窟地图。",
     "mapUnlockId": "guizang_vein_cavern"
-  },
-  {
-    "itemId": "fate_stone.qizhen_crossing",
-    "name": "命石-栖真渡",
-    "type": "consumable",
-    "level": 7,
-    "desc": "以栖真渡回渡阵落脚处为引的命石。使用后会将自己的复活点与遁返落点改为栖真渡。",
-    "respawnBindMapId": "qizhen_crossing"
   }
 ]

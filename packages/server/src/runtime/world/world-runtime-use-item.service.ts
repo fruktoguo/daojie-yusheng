@@ -11,6 +11,12 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
+const CURRENT_RESPAWN_BIND_USE_BEHAVIOR = 'bind_current_respawn';
+const PUBLIC_RESPAWN_BIND_MAP_IDS = new Set(['yunlai_town', 'qizhen_crossing', 'yunxu_terrace']);
+
+function normalizeOptionalStringSafe(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
 
 /** world-runtime use-item orchestration：承接物品使用结算分支。 */
 @Injectable()
@@ -70,6 +76,10 @@ export class WorldRuntimeUseItemService {
         }
         if (item.useBehavior === 'create_sect') {
             deps.worldRuntimeSectService.dispatchCreateSect(playerId, slotIndex, item, deps, payload);
+            return;
+        }
+        if (item.useBehavior === CURRENT_RESPAWN_BIND_USE_BEHAVIOR) {
+            this.handleCurrentRespawnBindItem(playerId, slotIndex, item, deps);
             return;
         }
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
@@ -201,6 +211,55 @@ export class WorldRuntimeUseItemService {
         const targetLabel = this.templateRepository.getOrThrow(normalizedMapId).name;
         const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${targetLabel}`, { vars: { mapName: targetLabel }, pills: [{ key: 'mapName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+    }
+    handleCurrentRespawnBindItem(playerId, slotIndex, item, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const target = this.resolveCurrentRespawnBindTarget(player, instance);
+        if (!target.allowed) {
+            throw new BadRequestException('命石只能在云来镇、栖真渡、云墟台或自己所属宗门使用');
+        }
+        const changed = this.playerRuntimeService.bindRespawnPointToPlacement(playerId, target.placement);
+        if (!changed) {
+            throw new BadRequestException('已经绑定该复活点');
+        }
+        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        deps.refreshQuestStates(playerId);
+        const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${target.mapName}`, { vars: { mapName: target.mapName }, pills: [{ key: 'mapName', style: 'target' }] });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+    }
+    resolveCurrentRespawnBindTarget(player, instance) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const templateId = typeof instance?.template?.id === 'string' ? instance.template.id.trim() : '';
+        const instanceId = typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId.trim() : '';
+        if (!templateId || !instanceId) {
+            return { allowed: false };
+        }
+        const playerSectId = normalizeOptionalStringSafe(player?.sectId);
+        const instanceSectId = normalizeOptionalStringSafe(instance?.meta?.ownerSectId)
+            || normalizeOptionalStringSafe(instance?.template?.source?.sectId)
+            || normalizeOptionalStringSafe(instance?.template?.sectId);
+        const isOwnSectMap = Boolean(playerSectId && instanceSectId && playerSectId === instanceSectId);
+        const isAllowedPublicMap = PUBLIC_RESPAWN_BIND_MAP_IDS.has(templateId);
+        if (!isAllowedPublicMap && !isOwnSectMap) {
+            return { allowed: false };
+        }
+        const spawnX = Number.isFinite(instance?.template?.spawnX) ? Math.trunc(Number(instance.template.spawnX)) : undefined;
+        const spawnY = Number.isFinite(instance?.template?.spawnY) ? Math.trunc(Number(instance.template.spawnY)) : undefined;
+        return {
+            allowed: true,
+            mapName: typeof instance?.template?.name === 'string' && instance.template.name.trim() ? instance.template.name.trim() : templateId,
+            placement: {
+                templateId,
+                instanceId,
+                x: spawnX,
+                y: spawnY,
+            },
+        };
     }
     /**
  * handleTileResourceItem：处理Tile资源道具并更新相关状态。

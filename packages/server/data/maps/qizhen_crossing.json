@@ -702,11 +702,7 @@
       "role": "trader",
       "shopItems": [
         {
-          "itemId": "fate_stone.yunlai_town",
-          "price": 1
-        },
-        {
-          "itemId": "fate_stone.qizhen_crossing",
+          "itemId": "fate_stone",
           "price": 49
         },
         {

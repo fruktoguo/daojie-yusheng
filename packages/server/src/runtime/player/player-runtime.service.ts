@@ -2020,6 +2020,41 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return true;
     }
+    bindRespawnPointToPlacement(playerId, placement) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const normalizedMapId = typeof placement?.templateId === 'string' ? placement.templateId.trim() : '';
+        const normalizedInstanceId = normalizePlayerPlacementInstanceId(placement?.instanceId);
+        if (!normalizedMapId) {
+            throw new BadRequestException('复活绑定地图 ID 不能为空');
+        }
+        if (!normalizedInstanceId) {
+            throw new BadRequestException('复活绑定实例 ID 不能为空');
+        }
+        const template = this.mapTemplateRepository.getOrThrow(normalizedMapId);
+        const player = this.getPlayerOrThrow(playerId);
+        const nextX = Number.isFinite(placement?.x)
+            ? Math.trunc(Number(placement.x))
+            : (Number.isFinite(template.spawnX) ? Math.trunc(template.spawnX) : 0);
+        const nextY = Number.isFinite(placement?.y)
+            ? Math.trunc(Number(placement.y))
+            : (Number.isFinite(template.spawnY) ? Math.trunc(template.spawnY) : 0);
+        const changed = player.respawnTemplateId !== normalizedMapId
+            || player.respawnInstanceId !== normalizedInstanceId
+            || player.respawnX !== nextX
+            || player.respawnY !== nextY;
+        if (!changed) {
+            return false;
+        }
+        player.respawnTemplateId = normalizedMapId;
+        player.respawnInstanceId = normalizedInstanceId;
+        player.respawnX = nextX;
+        player.respawnY = nextY;
+        player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['position_checkpoint']);
+        this.bumpPersistentRevision(player);
+        return true;
+    }
     /**
  * persistMapUnlocks：执行persist地图Unlocks相关逻辑。
  * @param player 玩家对象。

@@ -1824,7 +1824,7 @@
       "role": "trader",
       "shopItems": [
         {
-          "itemId": "fate_stone.yunlai_town",
+          "itemId": "fate_stone",
           "price": 1
         },
         {

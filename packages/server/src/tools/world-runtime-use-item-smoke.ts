@@ -49,8 +49,12 @@ function createDeps(log) {
 
         getInstanceRuntimeOrThrow() {
             return {            
+            meta: {
+                instanceId: 'public:wildlands',
+            },
             template: {
                 id: 'wildlands',
+                name: '荒原',
                 spawnX: 99,
                 spawnY: 99,
                 portals: [],
@@ -113,6 +117,7 @@ function createService(overrides = {}) {
  */
 
         bindRespawnPoint(playerId, mapId) { overrides.log.push(['bindRespawnPoint', playerId, mapId]); return true; },        
+        bindRespawnPointToPlacement(playerId, placement) { overrides.log.push(['bindRespawnPointToPlacement', playerId, placement.templateId, placement.instanceId, placement.x, placement.y]); return true; },
         /**
  * consumeInventoryItem：执行consume背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -135,7 +140,7 @@ function createService(overrides = {}) {
  * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
-        getPlayerOrThrow() { return { x: 3, y: 4 }; },
+        getPlayerOrThrow() { return { x: 3, y: 4, sectId: overrides.playerSectId ?? null }; },
     };
     const contentTemplateRepository = {    
     /**
@@ -294,13 +299,59 @@ function testRespawnBindBranch() {
     const log = [];
     const service = createService({ log });
     service.templateRepository.has = (mapId) => mapId === 'yunlai_town';
-    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone.yunlai_town', name: '命石-云来镇', respawnBindMapId: 'yunlai_town' });
+    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'legacy_respawn_scroll', name: '旧复活符', respawnBindMapId: 'yunlai_town' });
     service.dispatchUseItem('player:1', 4, createDeps(log));
     assert.deepEqual(log, [
         ['bindRespawnPoint', 'player:1', 'yunlai_town'],
         ['consumeInventoryItem', 'player:1', 4, 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '复活点与遁返落点已绑定：云来镇', 'success'],
+    ]);
+}
+function testCurrentRespawnBindBranchUsesCurrentAllowedMap() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone', name: '命石', useBehavior: 'bind_current_respawn' });
+    const deps = createDeps(log);
+    deps.getPlayerLocationOrThrow = () => ({ instanceId: 'public:qizhen_crossing' });
+    deps.getInstanceRuntimeOrThrow = () => ({
+        meta: { instanceId: 'public:qizhen_crossing' },
+        template: { id: 'qizhen_crossing', name: '栖真渡', spawnX: 29, spawnY: 15 },
+    });
+    service.dispatchUseItem('player:1', 5, deps);
+    assert.deepEqual(log, [
+        ['bindRespawnPointToPlacement', 'player:1', 'qizhen_crossing', 'public:qizhen_crossing', 29, 15],
+        ['consumeInventoryItem', 'player:1', 5, 1],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '复活点与遁返落点已绑定：栖真渡', 'success'],
+    ]);
+}
+function testCurrentRespawnBindRejectsDisallowedMapWithoutConsume() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone', name: '命石', useBehavior: 'bind_current_respawn' });
+    assert.throws(
+        () => service.dispatchUseItem('player:1', 5, createDeps(log)),
+        /命石只能在云来镇、栖真渡、云墟台或自己所属宗门使用/,
+    );
+    assert.deepEqual(log, []);
+}
+function testCurrentRespawnBindAllowsOwnSectMap() {
+    const log = [];
+    const service = createService({ log, playerSectId: 'sect:alpha' });
+    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone', name: '命石', useBehavior: 'bind_current_respawn' });
+    const deps = createDeps(log);
+    deps.getPlayerLocationOrThrow = () => ({ instanceId: 'sect:alpha:main' });
+    deps.getInstanceRuntimeOrThrow = () => ({
+        meta: { instanceId: 'sect:alpha:main', ownerSectId: 'sect:alpha' },
+        template: { id: 'sect_domain:sect:alpha:x-1_1:y-1_1', name: '青岚宗', spawnX: 1, spawnY: 1 },
+    });
+    service.dispatchUseItem('player:1', 6, deps);
+    assert.deepEqual(log, [
+        ['bindRespawnPointToPlacement', 'player:1', 'sect_domain:sect:alpha:x-1_1:y-1_1', 'sect:alpha:main', 1, 1],
+        ['consumeInventoryItem', 'player:1', 6, 1],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '复活点与遁返落点已绑定：青岚宗', 'success'],
     ]);
 }
 /**
@@ -345,6 +396,9 @@ testTileAuraBranch();
 testBloodEssenceBatchBranch();
 testTileResourceProtectedTileRejectsUse();
 testRespawnBindBranch();
+testCurrentRespawnBindBranchUsesCurrentAllowedMap();
+testCurrentRespawnBindRejectsDisallowedMapWithoutConsume();
+testCurrentRespawnBindAllowsOwnSectMap();
 testLegacyTileAuraBranch();
 testNormalUseBranch();
 

@@ -176,6 +176,11 @@ export interface SyncedItemStack {
 
   respawnBindMapId?: string;
   /**
+ * useBehavior：特殊使用行为。
+ */
+
+  useBehavior?: ItemStack['useBehavior'];
+  /**
  * tileAuraGainAmount：数量或计量字段。
  */
 

@@ -297,12 +297,12 @@
     "mapUnlockId": "sky_ruins"
   },
   {
-    "itemId": "fate_stone.yunlai_town",
-    "name": "命石-云来镇",
+    "itemId": "fate_stone",
+    "name": "命石",
     "type": "consumable",
     "level": 1,
-    "desc": "以云来镇地脉落脚处为引的命石。使用后会将自己的复活点与遁返落点改为云来镇。",
-    "respawnBindMapId": "yunlai_town"
+    "desc": "以当前地脉落脚处为引的命石。只能在云来镇、栖真渡、云墟台或自己所属宗门使用，使用后会将当前地图设为复活点与遁返落点。",
+    "useBehavior": "bind_current_respawn"
   },
   {
     "itemId": "root_seed.heaven",

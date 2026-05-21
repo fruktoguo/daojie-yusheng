@@ -387,7 +387,7 @@ function validateItemRefs(errors, items, refs) {
 
 function hasConsumableUseRuntimeEffect(item) {
   if (typeof item?.learnTechniqueId === "string" && item.learnTechniqueId.length > 0) return true;
-  if (item?.useBehavior === "create_sect") return true;
+  if (item?.useBehavior === "create_sect" || item?.useBehavior === "bind_current_respawn") return true;
   if (typeof item?.formationDiskTier === "string" && item.formationDiskTier.length > 0) return true;
   if (typeof item?.healAmount === "number" && item.healAmount > 0) return true;
   if (typeof item?.healPercent === "number" && item.healPercent > 0) return true;

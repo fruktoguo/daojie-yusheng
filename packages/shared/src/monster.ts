@@ -412,6 +412,11 @@ export interface MonsterTemplateEditorItem {
 
   respawnBindMapId?: string;  
   /**
+ * useBehavior：特殊使用行为。
+ */
+
+  useBehavior?: ItemStack['useBehavior'];  
+  /**
  * tileAuraGainAmount：数量或计量字段。
  */
 
@@ -1416,6 +1421,7 @@ function createMonsterTemplateEquipmentItem(item: MonsterTemplateEditorItem): It
     respawnBindMapId: item.respawnBindMapId,
     tileAuraGainAmount: item.tileAuraGainAmount,
     tileResourceGains: item.tileResourceGains ? item.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
+    useBehavior: item.useBehavior,
     allowBatchUse: item.allowBatchUse,
   };
 }

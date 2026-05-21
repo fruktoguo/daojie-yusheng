@@ -2138,6 +2138,7 @@ export class MarketPanel {
       mapUnlockId: template.mapUnlockId,
       mapUnlockIds: template.mapUnlockIds,
       respawnBindMapId: template.respawnBindMapId,
+      useBehavior: template.useBehavior,
       tileAuraGainAmount: template.tileAuraGainAmount,
       tileResourceGains: template.tileResourceGains,
       allowBatchUse: template.allowBatchUse,

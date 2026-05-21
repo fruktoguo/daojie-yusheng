@@ -983,16 +983,7 @@
     }
   ],
   "equip.yuetown_mask": [],
-  "fate_stone.qizhen_crossing": [
-    {
-      "kind": "shop",
-      "mapId": "qizhen_crossing",
-      "mapName": "栖真渡",
-      "npcId": "npc_map_seller_qiu_shou",
-      "npcName": "渡图客·仇守"
-    }
-  ],
-  "fate_stone.yunlai_town": [
+  "fate_stone": [
     {
       "kind": "shop",
       "mapId": "qizhen_crossing",

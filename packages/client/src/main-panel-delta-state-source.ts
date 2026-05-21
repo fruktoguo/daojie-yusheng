@@ -678,6 +678,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
       mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
       respawnBindMapId: item.respawnBindMapId ?? previousSameItem?.respawnBindMapId ?? template?.respawnBindMapId,
+      useBehavior: item.useBehavior ?? previousSameItem?.useBehavior ?? template?.useBehavior,
       tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
       tileResourceGains: item.tileResourceGains
         ? cloneJson(item.tileResourceGains)

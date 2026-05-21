@@ -5,6 +5,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
+import { buildPublicInstanceId } from './world-runtime.normalization.helpers';
 
 const PRISON_MAP_ID = 'prison';
 
@@ -115,7 +116,10 @@ export class WorldRuntimeRespawnService {
         const targetMapId = previousMapId === PRISON_MAP_ID
             ? PRISON_MAP_ID
             : boundRespawnMapId || deps.resolveDefaultRespawnMapId();
-        let targetInstance = deps.getOrCreatePublicInstance(targetMapId);
+        const boundRespawnInstanceId = targetMapId === boundRespawnMapId && typeof player.respawnInstanceId === 'string' && player.respawnInstanceId.trim()
+            ? player.respawnInstanceId.trim()
+            : '';
+        let targetInstance = resolveRespawnTargetInstance(deps, targetMapId, boundRespawnInstanceId);
         if (!targetInstance && targetMapId !== deps.resolveDefaultRespawnMapId()) {
             targetInstance = deps.getOrCreatePublicInstance(deps.resolveDefaultRespawnMapId());
         }
@@ -159,6 +163,21 @@ export class WorldRuntimeRespawnService {
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }
 };
+
+function resolveRespawnTargetInstance(deps, targetMapId, boundRespawnInstanceId) {
+    if (boundRespawnInstanceId && boundRespawnInstanceId !== buildPublicInstanceId(targetMapId)) {
+        const existing = deps.getInstanceRuntime?.(boundRespawnInstanceId) ?? null;
+        if (existing) {
+            return existing;
+        }
+        const sectInstance = deps.worldRuntimeSectService?.ensureSectRuntimeInstanceById?.(boundRespawnInstanceId, deps) ?? null;
+        if (sectInstance) {
+            return sectInstance;
+        }
+        return null;
+    }
+    return deps.getOrCreatePublicInstance(targetMapId);
+}
 
 function resolveRespawnPlacement(template, inputX, inputY) {
     const spawnX = Number.isFinite(template?.spawnX) ? Math.trunc(template.spawnX) : 0;

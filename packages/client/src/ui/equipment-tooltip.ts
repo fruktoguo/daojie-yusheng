@@ -566,7 +566,7 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
   if (previewItem.mapUnlockId || (previewItem.mapUnlockIds?.length ?? 0) > 0) {
     lines.push(t('equipment-tooltip.consumable.unlock-map', undefined));
   }
-  if (previewItem.respawnBindMapId) {
+  if (previewItem.respawnBindMapId || previewItem.useBehavior === 'bind_current_respawn') {
     lines.push(t('equipment-tooltip.consumable.bind-respawn', undefined));
   }
 
