@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger, Optional, type OnApplicationBootstrap, type
 import { shouldStartAuthoritativeRuntime, shouldStartBackgroundWorkers, shouldStartHttpServer } from '../config/runtime-role';
 import { StartupBarrierService } from './startup-barrier.service';
 import { StartupStatusService } from './startup-status.service';
+import { type ShutdownResultSnapshot } from './shutdown-status.service';
 import { FlushTaskRuntimeService } from '../persistence/flush-task-runtime.service';
 import { MapPersistenceFlushService } from '../persistence/map-persistence-flush.service';
 import { PlayerPersistenceFlushService } from '../persistence/player-persistence-flush.service';
@@ -10,11 +11,13 @@ import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import { WorldTickService } from '../runtime/tick/world-tick.service';
 import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-worker-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldShutdownDrainService } from '../network/world-shutdown-drain.service';
 
 @Injectable()
 export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(ServerLifecycleCoordinatorService.name);
   private startPromise: Promise<void> | null = null;
+  private drainPromise: Promise<ShutdownResultSnapshot> | null = null;
   private stopped = false;
 
   constructor(
@@ -27,6 +30,7 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(MapPersistenceFlushService) private readonly mapPersistenceFlushService?: MapPersistenceFlushService,
     @Optional() @Inject(BackgroundWorkerRuntimeService) private readonly backgroundWorkerRuntimeService?: BackgroundWorkerRuntimeService,
     @Optional() @Inject(MarketRuntimeService) private readonly marketRuntimeService?: MarketRuntimeService,
+    @Optional() @Inject(WorldShutdownDrainService) private readonly worldShutdownDrainService?: WorldShutdownDrainService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -53,6 +57,25 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
 
   getStatus() {
     return this.startupStatusService.getSnapshot();
+  }
+
+  async drain(reason: string = 'shutdown'): Promise<ShutdownResultSnapshot> {
+    if (this.drainPromise) {
+      return this.drainPromise;
+    }
+    this.startupBarrierService.closeTraffic();
+    this.startupStatusService.markDraining(reason);
+    this.drainPromise = (async () => {
+      if (!this.worldShutdownDrainService) {
+        throw new Error('world_shutdown_drain_service_unavailable');
+      }
+      return await this.worldShutdownDrainService.drain(reason);
+    })().catch((error) => {
+      this.startupStatusService.markFailed(error, 'draining');
+      this.logger.error(`关闭链路执行失败：${reason}`, error instanceof Error ? error.stack : String(error));
+      throw error;
+    });
+    return this.drainPromise;
   }
 
   private async runStartup(): Promise<void> {

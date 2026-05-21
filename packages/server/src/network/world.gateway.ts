@@ -145,12 +145,25 @@ class WorldGateway implements WorldGatewayHelperContext {
     async drainDetachedBinding(binding) {
         await this.gatewaySessionStateHelper.clearDisconnectedPlayerState(binding);
         if (binding.connected) {
-            return;
+            return { playerId: binding.playerId, presencePersisted: false, flushSucceeded: false, skipped: true };
         }
-        await this.gatewayPresenceHelper.persistOfflinePresence(binding);
-        await this.playerPersistenceFlushService.flushPlayer(binding.playerId).catch((error) => {
+        let presencePersisted = false;
+        let flushSucceeded = false;
+        try {
+            await this.gatewayPresenceHelper.persistOfflinePresence(binding);
+            presencePersisted = true;
+        }
+        catch (error) {
+            this.logger.error(`写入离线 presence 失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
+        }
+        try {
+            await this.playerPersistenceFlushService.flushPlayer(binding.playerId);
+            flushSucceeded = true;
+        }
+        catch (error) {
             this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
-        });
+        }
+        return { playerId: binding.playerId, presencePersisted, flushSucceeded, skipped: false };
     }
     /** 为 socket 挂载每事件频率限制中间件，超限时拒绝后续包。 */
     attachRateLimitGuard(client: Socket) {

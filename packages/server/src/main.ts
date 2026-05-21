@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import { AppModule } from './app.module';
-import { WorldShutdownDrainService } from './network/world-shutdown-drain.service';
+import { ServerLifecycleCoordinatorService } from './lifecycle/server-lifecycle-coordinator.service';
 import { resolveServerCorsOptions } from './config/server-cors';
 import { installConsoleLogCapture } from './logging/console-log-buffer';
 import { DateConsoleLogger } from './logging/date-console-logger';
@@ -279,8 +279,8 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     shutdownTimerSet = true;
     void (async () => {
       try {
-        const shutdownDrain = bootstrapApp?.get(WorldShutdownDrainService, { strict: false });
-        await shutdownDrain?.drain(signal);
+        const lifecycleCoordinator = bootstrapApp?.get(ServerLifecycleCoordinatorService, { strict: false });
+        await lifecycleCoordinator?.drain(signal);
       } catch (error) {
         console.error('[关闭] 预先执行关闭排空失败：', error instanceof Error ? error.stack : String(error));
       }

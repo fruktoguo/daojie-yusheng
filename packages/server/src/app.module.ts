@@ -69,6 +69,7 @@ import { HealthReadinessService } from './health/health-readiness.service';
 import { ServerReadinessDependenciesService } from './health/server-readiness-dependencies.service';
 import { ServerLifecycleCoordinatorService } from './lifecycle/server-lifecycle-coordinator.service';
 import { StartupBarrierService } from './lifecycle/startup-barrier.service';
+import { ShutdownStatusService } from './lifecycle/shutdown-status.service';
 import { StartupStatusService } from './lifecycle/startup-status.service';
 import { PlayerCombatService } from './runtime/combat/player-combat.service';
 import { RuntimeGmAuthService } from './runtime/gm/runtime-gm-auth.service';
@@ -260,6 +261,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     ServerReadinessDependenciesService,
     HealthReadinessService,
     StartupStatusService,
+    ShutdownStatusService,
     StartupBarrierService,
     ServerLifecycleCoordinatorService,
     MapTemplateRepository,

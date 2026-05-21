@@ -3,6 +3,7 @@
  * 输出统一的 readiness 响应体。供 HealthController 和内部网关使用。
  */
 import { resolveServerDatabaseEnvSource, resolveServerDatabasePoolerEnvSource } from '../config/env-alias';
+import type { ShutdownResultSnapshot } from '../lifecycle/shutdown-status.service';
 
 /** 持久化服务最小接口，用于 readiness 检测 */
 interface PersistenceServiceLike {
@@ -54,6 +55,7 @@ export interface HealthReadinessDependencies {
   maintenanceStateService?: MaintenanceStateServiceLike | null;
   worldRuntimeService?: RuntimeServiceLike | null;
   startupRunId?: string | null;
+  shutdownStatus?: ShutdownResultSnapshot | null;
 }
 
 interface StartupReadiness {
@@ -122,6 +124,7 @@ interface HealthResponse {
     };
     runtime: RuntimeReadiness;
     startup?: StartupReadiness;
+    shutdown?: ShutdownResultSnapshot | null;
   };
 }
 
@@ -137,6 +140,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
   };
   const auth = resolveAuthReadiness();
   const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService, dependencies.startupRunId);
+  const shutdown = dependencies.shutdownStatus ?? null;
 
   const readinessOk = !maintenance.active
     && database.configured
@@ -144,7 +148,8 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     && persistence.mail.enabled
     && persistence.market.enabled
     && persistence.suggestion.enabled
-    && runtime.ready;
+    && runtime.ready
+    && !(shutdown?.blocking === true);
 
   return {
     ok: readinessOk,
@@ -160,6 +165,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
       persistence,
       auth,
       runtime,
+      shutdown: dependencies.shutdownStatus ?? null,
     },
   };
 }

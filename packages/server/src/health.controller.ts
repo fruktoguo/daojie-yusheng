@@ -5,7 +5,7 @@
 import { Controller, Get, HttpStatus, Optional, Post, Res } from '@nestjs/common';
 
 import { HealthReadinessService } from './health/health-readiness.service';
-import { WorldShutdownDrainService } from './network/world-shutdown-drain.service';
+import { ServerLifecycleCoordinatorService } from './lifecycle/server-lifecycle-coordinator.service';
 interface ResponseLike {
   status: (code: number) => unknown;
 }
@@ -15,7 +15,7 @@ interface ResponseLike {
 export class HealthController {
   constructor(
     @Optional() private readonly healthReadinessService: HealthReadinessService,
-    @Optional() private readonly worldShutdownDrainService: WorldShutdownDrainService,
+    @Optional() private readonly lifecycleCoordinator: ServerLifecycleCoordinatorService,
   ) {}
 
   /** live：只回答进程是否仍能响应，用于容器 liveness。 */
@@ -93,7 +93,7 @@ export class HealthController {
     if (enabled !== '1') {
       return { ok: false, reason: 'disabled' };
     }
-    await this.worldShutdownDrainService?.drain('http');
+    await this.lifecycleCoordinator?.drain('http');
     return { ok: true };
   }
 }

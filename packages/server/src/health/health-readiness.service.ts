@@ -10,6 +10,7 @@ import { PlayerDomainPersistenceService } from '../persistence/player-domain-per
 import { SuggestionPersistenceService } from '../persistence/suggestion-persistence.service';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { StartupStatusService } from '../lifecycle/startup-status.service';
+import { ShutdownStatusService } from '../lifecycle/shutdown-status.service';
 import { shouldStartHttpServer } from '../config/runtime-role';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { buildHealthResponse } from './health-readiness';
@@ -52,6 +53,9 @@ export class HealthReadinessService {
     @Inject(StartupStatusService)
     private readonly startupStatusService?: StartupStatusService,
     @Optional()
+    @Inject(ShutdownStatusService)
+    private readonly shutdownStatusService?: ShutdownStatusService,
+    @Optional()
     @Inject(StartupBarrierService)
     private readonly startupBarrierService?: StartupBarrierService,
   ) {}
@@ -67,6 +71,7 @@ export class HealthReadinessService {
       ...(this.serverReadinessDependenciesService?.build() ?? {}),
       worldRuntimeService: this.worldRuntimeService,
       startupRunId: startup?.startupRunId ?? null,
+      shutdownStatus: this.shutdownStatusService?.getSnapshot() ?? null,
     });
     const barrier = this.startupBarrierService?.getSnapshot() ?? null;
     if (startup) {
@@ -84,6 +89,9 @@ export class HealthReadinessService {
 
   /** 公开给网关/控制器：玩家请求前置依赖是否完成。 */
   isReadyForPlayerTraffic(): boolean {
+    if (this.shutdownStatusService?.getSnapshot().blocking) {
+      return false;
+    }
     if (this.startupBarrierService && !this.startupBarrierService.isTrafficOpen()) {
       if (!shouldStartHttpServer()) {
         return this.build().readiness.ok;

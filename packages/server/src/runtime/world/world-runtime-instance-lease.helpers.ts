@@ -7,6 +7,7 @@ const INSTANCE_LEASE_TTL_MS = 45_000;
 const INSTANCE_LEASE_RENEW_SKEW_MS = 5_000;
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
 const LOCAL_LEASE_DEGRADED_REASONS = new Set([
+  'lease_sync_failed',
   'advance_frame_lease_check_failed',
   'instance_tick_lease_check_failed',
   'action_execution_lease_check_failed',
@@ -126,6 +127,9 @@ function shouldMarkLocalLeaseDegraded(runtime, instance, reason) {
   if (!assignedNodeId || !leaseToken || assignedNodeId !== runtime.nodeRegistryService.getNodeId()) {
     return false;
   }
+  if (reason === 'lease_sync_failed') {
+    return true;
+  }
   const leaseExpireAt = instance?.meta?.leaseExpireAt ? new Date(instance.meta.leaseExpireAt).getTime() : 0;
   return !Number.isFinite(leaseExpireAt) || leaseExpireAt <= Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS;
 }
@@ -211,11 +215,14 @@ export function unfreezeInstanceWriting(runtime, instanceId) {
 
 export async function releaseLocalInstanceLeasesForShutdown(runtime) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
-    return { released: 0, skipped: 0 };
+    return { released: 0, skipped: 0, releasedInstanceIds: [], skippedInstanceIds: [], failedInstanceIds: [] };
   }
   const nodeId = runtime.nodeRegistryService.getNodeId();
   let released = 0;
   let skipped = 0;
+  const releasedInstanceIds: string[] = [];
+  const skippedInstanceIds: string[] = [];
+  const failedInstanceIds: string[] = [];
   for (const [instanceId, instance] of runtime.listInstanceEntries()) {
     const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
     const leaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
@@ -227,11 +234,14 @@ export async function releaseLocalInstanceLeasesForShutdown(runtime) {
       : [];
     if (Array.isArray(connectedPlayers) && connectedPlayers.length > 0) {
       skipped++;
-      runtime.logger.warn(`关闭释放跳过（仍有连接玩家）：${instanceId} players=${connectedPlayers.join(',')}`);      continue;
+      skippedInstanceIds.push(instanceId);
+      runtime.logger.warn(`关闭释放跳过（仍有连接玩家）：${instanceId} players=${connectedPlayers.join(',')}`);
+      continue;
     }
     const ok = await runtime.instanceCatalogService.releaseInstanceLease({ instanceId, nodeId, leaseToken });
     if (!ok) {
       skipped++;
+      failedInstanceIds.push(instanceId);
       runtime.logger.warn(`关闭释放失败：${instanceId}`);
       continue;
     }
@@ -240,8 +250,9 @@ export async function releaseLocalInstanceLeasesForShutdown(runtime) {
     instance.meta.leaseExpireAt = null;
     instance.meta.runtimeStatus = 'running';
     released++;
+    releasedInstanceIds.push(instanceId);
   }
-  return { released, skipped };
+  return { released, skipped, releasedInstanceIds, skippedInstanceIds, failedInstanceIds };
 }
 
 export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim = false } = {}) {
@@ -309,6 +320,18 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
     : null;
   const ok = renewResult === true || claimResult?.ok === true;
   if (!ok) {
+    const reclaimed = await reclaimMissingCatalogLeaseForLocalRuntime(
+      runtime,
+      instance,
+      instanceId,
+      nodeId,
+      leaseToken,
+      leaseExpireAt,
+      expectedOwnershipEpoch,
+    );
+    if (reclaimed) {
+      return;
+    }
     const adopted = await adoptLocalCatalogLeaseAndRenew(runtime, instance, instanceId, nodeId, leaseExpireAt);
     if (adopted) {
       return;
@@ -343,6 +366,51 @@ export async function syncInstanceLease(runtime, instanceId, { allowForceReclaim
     : Number.isFinite(Number(claimResult?.ownershipEpoch)) ? Math.trunc(Number(claimResult.ownershipEpoch)) : expectedOwnershipEpoch + 1;
   instance.meta.runtimeStatus = 'leased';
   instance.meta.status = 'active';
+}
+
+async function reclaimMissingCatalogLeaseForLocalRuntime(
+  runtime,
+  instance,
+  instanceId,
+  nodeId,
+  leaseToken,
+  leaseExpireAt,
+  expectedOwnershipEpoch,
+) {
+  if (!runtime.instanceCatalogService?.isEnabled?.()) {
+    return false;
+  }
+  const assignedNodeId = typeof instance?.meta?.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
+  const currentLeaseToken = typeof instance?.meta?.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+  if (assignedNodeId !== nodeId || !currentLeaseToken) {
+    return false;
+  }
+  const catalog = await runtime.instanceCatalogService.loadInstanceCatalog(instanceId);
+  const catalogAssignedNodeId = typeof catalog?.assigned_node_id === 'string' ? catalog.assigned_node_id.trim() : '';
+  const catalogLeaseToken = typeof catalog?.lease_token === 'string' ? catalog.lease_token.trim() : '';
+  const catalogLeaseExpireAt = catalog?.lease_expire_at ? new Date(catalog.lease_expire_at).getTime() : 0;
+  if (catalogAssignedNodeId && catalogLeaseToken && Number.isFinite(catalogLeaseExpireAt) && catalogLeaseExpireAt > Date.now()) {
+    return false;
+  }
+  const claim = await runtime.instanceCatalogService.claimInstanceLease({
+    instanceId,
+    nodeId,
+    leaseToken,
+    leaseExpireAt,
+  });
+  if (!claim?.ok) {
+    return false;
+  }
+  instance.meta.assignedNodeId = nodeId;
+  instance.meta.leaseToken = leaseToken;
+  instance.meta.leaseExpireAt = leaseExpireAt.toISOString();
+  instance.meta.ownershipEpoch = Number.isFinite(Number(claim.ownershipEpoch))
+    ? Math.trunc(Number(claim.ownershipEpoch))
+    : expectedOwnershipEpoch + 1;
+  instance.meta.runtimeStatus = 'leased';
+  instance.meta.status = 'active';
+  runtime.logger.warn(`实例 ${instanceId} catalog 租约缺失，已由本地运行态重新接管`);
+  return true;
 }
 
 async function adoptLocalCatalogLeaseAndRenew(runtime, instance, instanceId, nodeId, leaseExpireAt) {
@@ -563,6 +631,10 @@ export async function claimRecoverableCatalogInstances(runtime, { allowForceRecl
     }
     if (!(await canClaimRecoverableCatalogEntry(runtime, entry, instanceId, nodeId, { allowForceReclaim }))) {
       continue;
+    }
+    if (typeof runtime.worldRuntimeTongtianTowerService?.restoreCatalogTowerTemplate === 'function'
+      && runtime.worldRuntimeTongtianTowerService.restoreCatalogTowerTemplate(entry, runtime)) {
+      // Dynamic tower templates are runtime-registered, not static content files.
     }
     if (typeof runtime.templateRepository?.has === 'function'
       && !runtime.templateRepository.has(templateId)

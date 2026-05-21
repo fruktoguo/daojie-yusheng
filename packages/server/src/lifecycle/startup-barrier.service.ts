@@ -25,7 +25,43 @@ export class StartupBarrierService {
   }
 
   closeForDrain(): void {
-    this.resetForStartup();
+    this.closeTraffic();
+    this.closeTick();
+    this.closeFlush();
+    this.closeOutbox();
+    this.closeWorker();
+    this.closeInstanceWrites();
+    this.closeInstanceAttach();
+  }
+
+  closeTraffic(): void {
+    this.trafficOpen = false;
+  }
+
+  closeTick(): void {
+    this.tickOpen = false;
+  }
+
+  closeFlush(): void {
+    this.flushOpen = false;
+  }
+
+  closeOutbox(): void {
+    this.outboxOpen = false;
+  }
+
+  closeWorker(): void {
+    this.workerOpen = false;
+  }
+
+  closeInstanceWrites(): void {
+    this.instanceWriteOpen = false;
+    this.writableInstances.clear();
+  }
+
+  closeInstanceAttach(): void {
+    this.instanceAttachOpen = false;
+    this.attachableInstances.clear();
   }
 
   openTraffic(): void {

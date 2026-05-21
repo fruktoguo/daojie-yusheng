@@ -13,6 +13,7 @@ import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { WorldRuntimeService } from '../world/world-runtime.service';
 import { StartupBarrierService } from '../../lifecycle/startup-barrier.service';
+import { ShutdownStatusService } from '../../lifecycle/shutdown-status.service';
 import { StartupStatusService } from '../../lifecycle/startup-status.service';
 import {
   diffHeapSnapshotSummaries,
@@ -121,6 +122,8 @@ export class RuntimeGmStateService {
     flushDiagnosticsService: FlushDiagnosticsService | null;
     /** 启动状态服务（可选，供 GM 面板展示 phase 和降级原因）。 */
     startupStatusService: StartupStatusService | null;
+    /** 关闭状态服务（可选，供 GM 面板展示 draining phase 和关闭结果）。 */
+    shutdownStatusService: ShutdownStatusService | null;
     /** 启动闸门服务（可选，供 GM 面板展示 traffic/tick/flush 等闸门）。 */
     startupBarrierService: StartupBarrierService | null;
     /** 网络上行事件累计桶。 */
@@ -163,6 +166,7 @@ export class RuntimeGmStateService {
         @Optional() @Inject(WorkerPoolMetricsService) workerPoolMetricsService?: WorkerPoolMetricsService,
         @Optional() @Inject(FlushDiagnosticsService) flushDiagnosticsService?: FlushDiagnosticsService,
         @Optional() @Inject(StartupStatusService) startupStatusService?: StartupStatusService,
+        @Optional() @Inject(ShutdownStatusService) shutdownStatusService?: ShutdownStatusService,
         @Optional() @Inject(StartupBarrierService) startupBarrierService?: StartupBarrierService,
     ) {
         this.mapTemplateRepository = mapTemplateRepository;
@@ -173,6 +177,7 @@ export class RuntimeGmStateService {
         this.workerPoolMetricsService = workerPoolMetricsService ?? null;
         this.flushDiagnosticsService = flushDiagnosticsService ?? null;
         this.startupStatusService = startupStatusService ?? null;
+        this.shutdownStatusService = shutdownStatusService ?? null;
         this.startupBarrierService = startupBarrierService ?? null;
     }
     /** 立即向单个客户端下发 GM 状态快照。 */
@@ -845,6 +850,7 @@ export class RuntimeGmStateService {
                 ...this.startupStatusService.getSnapshot(),
                 barrier: this.startupBarrierService?.getSnapshot() ?? null,
             } : null,
+            shutdown: this.shutdownStatusService ? this.shutdownStatusService.getSnapshot() : null,
             workerPool: this.workerPoolMetricsService?.getAllMetrics() ?? null,
             flushDiagnostics: this.flushDiagnosticsService?.getSnapshot() ?? null,
             flushStats: this.flushDiagnosticsService ? {
