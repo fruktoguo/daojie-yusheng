@@ -388,8 +388,9 @@ export class MarketPersistenceService {
  * 记录items。
  */
             const items = normalizeStorage(entry.storage).items;
-            const slotIndicesJson = JSON.stringify(items.map((_, slotIndex) => ({ slot_index: slotIndex })));
+            const slotIndices: Array<{ slot_index: number }> = [];
             for (let slotIndex = 0; slotIndex < items.length; slotIndex += 1) {
+                slotIndices.push({ slot_index: slotIndex });
 /**
  * 记录item。
  */
@@ -425,6 +426,7 @@ export class MarketPersistenceService {
                     JSON.stringify(item),
                 ]);
             }
+            const slotIndicesJson = JSON.stringify(slotIndices);
             await client.query(`
               WITH incoming AS (
                 SELECT slot_index
