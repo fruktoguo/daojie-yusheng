@@ -84,7 +84,18 @@ async function main(): Promise<void> {
       latestRevision: 8,
       payloadJson: {
         kind: 'player_snapshot_projection',
-        snapshot: { version: 1, savedAt: 88, placement: { templateId: 'map-1', x: 1, y: 2 } },
+        snapshot: { version: 1, savedAt: 88, placement: { templateId: 'map-1', x: 1, y: 2 }, inventory: { items: [{ itemId: 'ore' }] } },
+      },
+    };
+    const questProjectionTask: FlushTask = {
+      scope: 'player',
+      id: 'player-snapshot-1',
+      domain: 'quest',
+      priority: 'normal',
+      latestRevision: 9,
+      payloadJson: {
+        kind: 'player_snapshot_projection',
+        snapshot: { version: 1, savedAt: 99, placement: { templateId: 'map-1', x: 1, y: 2 }, quests: { entries: [{ questId: 'quest-1' }] } },
       },
     };
     let projectionClaimed = false;
@@ -97,7 +108,7 @@ async function main(): Promise<void> {
         claimReadyFlushTasks: async () => {
           if (projectionClaimed) return [];
           projectionClaimed = true;
-          return [projectionTask];
+          return [projectionTask, questProjectionTask];
         },
         markFlushTaskFlushed: async (flushedTask: FlushTask) => {
           flushed.push(flushedTask);
@@ -118,11 +129,14 @@ async function main(): Promise<void> {
       } as never,
     );
     const projectionProcessed = await projectionRuntime.runOnce('snapshot-payload-smoke');
-    assert.equal(projectionProcessed, 1);
-    assert.equal(savedProjections.length, 1);
+    assert.equal(projectionProcessed, 2);
+    assert.equal(savedProjections.length, 2);
     assert.equal(savedProjections[0]?.playerId, 'player-snapshot-1');
     assert.deepEqual(savedProjections[0]?.domains, ['inventory']);
-    assert.equal(flushed.length, 2);
+    assert.deepEqual(savedProjections[1]?.domains, ['quest']);
+    assert.deepEqual((savedProjections[0]?.snapshot as { inventory?: unknown })?.inventory, { items: [{ itemId: 'ore' }] });
+    assert.deepEqual((savedProjections[1]?.snapshot as { quests?: unknown })?.quests, { entries: [{ questId: 'quest-1' }] });
+    assert.equal(flushed.length, 3);
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);

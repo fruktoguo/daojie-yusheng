@@ -253,23 +253,14 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   private buildPlayerTaskPayload(
     playerId: string,
     domain: string,
-    snapshotPayload: PlayerSnapshotProjectionPayload | null,
   ): PlayerPresenceUpsertInput | PlayerSnapshotProjectionPayload | null {
     if (domain === 'presence') {
       return this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
     }
-    return PLAYER_PROJECTABLE_DOMAIN_SET.has(domain) ? snapshotPayload : null;
-  }
-
-  private buildPlayerSnapshotPayload(
-    playerId: string,
-    normalizedDomains: Set<string>,
-    taskDomains: string[],
-  ): PlayerSnapshotProjectionPayload | null {
-    if (!taskDomains.some((domain) => PLAYER_PROJECTABLE_DOMAIN_SET.has(domain))) {
+    if (!PLAYER_PROJECTABLE_DOMAIN_SET.has(domain)) {
       return null;
     }
-    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId, normalizedDomains) ?? null;
+    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId, new Set([domain])) ?? null;
     return snapshot ? { kind: PLAYER_SNAPSHOT_PROJECTION_PAYLOAD_KIND, snapshot } : null;
   }
 
@@ -281,9 +272,8 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     for (const [playerId, domains] of entries) {
       const normalized = normalizeDomains(domains);
       const taskDomains = resolvePlayerTaskDomains(normalized);
-      const snapshotPayload = this.buildPlayerSnapshotPayload(playerId, normalized, taskDomains);
       for (const domain of taskDomains) {
-        const payload = this.buildPlayerTaskPayload(playerId, domain, snapshotPayload);
+        const payload = this.buildPlayerTaskPayload(playerId, domain);
         await this.flushLedgerService.upsertFlushTask({
           scope: 'player', id: playerId, domain,
           priority: resolveFlushTaskPriority('player', domain),
@@ -439,24 +429,30 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
     }
     if (projectionTasks.length > 0) {
-      const payload = normalizePlayerSnapshotProjectionPayload(projectionTasks[0]?.payloadJson);
-      if (!payload || projectionTasks.some((task) => !normalizePlayerSnapshotProjectionPayload(task.payloadJson))) {
+      const payloadRows = projectionTasks.map((task) => ({
+        task,
+        payload: normalizePlayerSnapshotProjectionPayload(task.payloadJson),
+      }));
+      const invalidTasks = payloadRows.filter((row) => !row.payload).map((row) => row.task);
+      if (invalidTasks.length > 0) {
         if (shouldStartAuthoritativeRuntime()) return null;
-        await this.flushLedgerService.markFlushTasksRetry(projectionTasks, RETRY_DELAY_MS);
-        return processed;
+        await this.flushLedgerService.markFlushTasksRetry(invalidTasks, RETRY_DELAY_MS);
       }
-      const domains = new Set(projectionTasks.map((task) => task.domain));
-      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
-        playerId,
-        payload.snapshot,
-        domains,
-        {
-          allowInventoryEmptyOverwrite: domains.has('inventory'),
-          allowEquipmentEmptyOverwrite: domains.has('equipment'),
-          allowBuffEmptyOverwrite: domains.has('buff'),
-        },
-      );
-      for (const task of projectionTasks) {
+      for (const { task, payload } of payloadRows) {
+        if (!payload) {
+          continue;
+        }
+        const domains = new Set([task.domain]);
+        await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+          playerId,
+          payload.snapshot,
+          domains,
+          {
+            allowInventoryEmptyOverwrite: task.domain === 'inventory',
+            allowEquipmentEmptyOverwrite: task.domain === 'equipment',
+            allowBuffEmptyOverwrite: task.domain === 'buff',
+          },
+        );
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
       }
     }
