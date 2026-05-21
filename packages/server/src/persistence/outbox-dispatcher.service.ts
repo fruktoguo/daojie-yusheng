@@ -60,12 +60,10 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
     }
     const claimTtlMs = normalizePositiveInteger(input.claimTtlMs, 30_000, 1_000, 300_000);
     const limit = normalizePositiveInteger(input.limit, 128, 1, 1024);
-    const topicPrefixes = Array.isArray(input.topicPrefixes)
-      ? input.topicPrefixes.map((prefix) => normalizeRequiredString(prefix)).filter(Boolean)
-      : [];
-    const topicFilterClause = topicPrefixes.length > 0 ? 'AND topic LIKE ANY($4::text[])' : '';
-    const queryParams = topicPrefixes.length > 0
-      ? [dispatcherId, claimTtlMs, limit, topicPrefixes.map((prefix) => `${prefix}%`)]
+    const topicPrefixLikePatterns = buildTopicPrefixLikePatterns(input.topicPrefixes);
+    const topicFilterClause = topicPrefixLikePatterns.length > 0 ? 'AND topic LIKE ANY($4::text[])' : '';
+    const queryParams = topicPrefixLikePatterns.length > 0
+      ? [dispatcherId, claimTtlMs, limit, topicPrefixLikePatterns]
       : [dispatcherId, claimTtlMs, limit];
     const result = await this.pool.query(
       `
@@ -304,12 +302,10 @@ export class OutboxDispatcherService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
     const limit = normalizePositiveInteger(input?.limit, 100, 1, 500);
-    const topicPrefixes = Array.isArray(input?.topicPrefixes)
-      ? input.topicPrefixes.map((prefix) => normalizeRequiredString(prefix)).filter(Boolean)
-      : [];
-    const topicFilterClause = topicPrefixes.length > 0 ? 'AND topic LIKE ANY($2::text[])' : '';
-    const queryParams = topicPrefixes.length > 0
-      ? [limit, topicPrefixes.map((prefix) => `${prefix}%`)]
+    const topicPrefixLikePatterns = buildTopicPrefixLikePatterns(input?.topicPrefixes);
+    const topicFilterClause = topicPrefixLikePatterns.length > 0 ? 'AND topic LIKE ANY($2::text[])' : '';
+    const queryParams = topicPrefixLikePatterns.length > 0
+      ? [limit, topicPrefixLikePatterns]
       : [limit];
     const result = await this.pool.query(
       `
@@ -470,6 +466,20 @@ function buildConsumerDedupeKey(prefix: string, value: string): string {
     return rawKey;
   }
   return `${normalizedPrefix}:sha256:${createHash('sha256').update(normalizedValue).digest('hex')}`;
+}
+
+function buildTopicPrefixLikePatterns(topicPrefixes?: readonly string[]): string[] {
+  if (!Array.isArray(topicPrefixes) || topicPrefixes.length === 0) {
+    return [];
+  }
+  const patterns: string[] = [];
+  for (const prefix of topicPrefixes) {
+    const normalized = normalizeRequiredString(prefix);
+    if (normalized) {
+      patterns.push(`${normalized}%`);
+    }
+  }
+  return patterns;
 }
 
 async function insertDeadLetterEventWithClient(queryable: { query: Pool['query'] }, row: Record<string, unknown>): Promise<void> {
