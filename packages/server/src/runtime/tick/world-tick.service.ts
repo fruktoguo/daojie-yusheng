@@ -7,6 +7,7 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { gameplayConstants } from '@mud/shared';
 
+import { shouldStartAuthoritativeRuntime } from '../../config/runtime-role';
 import { WorldSyncService } from '../../network/world-sync.service';
 import { RuntimeEventBusService } from '../event-bus/runtime-event-bus.service';
 import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
@@ -206,6 +207,10 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
+    if (!shouldStartAuthoritativeRuntime()) {
+      this.logger.log('世界 Tick 已跳过：当前 role 不持有权威运行态');
+      return;
+    }
     this.shuttingDown = false;
     this.lastTickStartedAt = 0;
     this.currentTargetIntervalMs = BASE_TICK_INTERVAL_MS;

@@ -13,6 +13,11 @@ import { resolveServerCorsOptions } from './config/server-cors';
 import { installConsoleLogCapture } from './logging/console-log-buffer';
 import { DateConsoleLogger } from './logging/date-console-logger';
 import { bootstrapLoadDbConfig } from './config/bootstrap-load-db-config';
+import {
+  describeServerRuntimeRole,
+  resolveServerRuntimeRole,
+  shouldStartHttpServer,
+} from './config/runtime-role';
 
 /** 端口冲突诊断最多采样次数。 */
 const PORT_CONFLICT_SAMPLE_ATTEMPTS = 12;
@@ -197,6 +202,17 @@ async function bootstrap(): Promise<void> {
   const dbConfigCount = await bootstrapLoadDbConfig();
   if (dbConfigCount >= 0) {
     logger.log(`已从数据库加载 ${dbConfigCount} 项游戏配置`);
+  }
+
+  const role = resolveServerRuntimeRole();
+  logger.log(`服务端运行角色：${describeServerRuntimeRole(role)}`);
+
+  if (!shouldStartHttpServer(role)) {
+    const app = await NestFactory.createApplicationContext(AppModule, { logger });
+    bootstrapApp = app;
+    app.enableShutdownHooks();
+    logger.log('worker 角色已启动 Nest application context；不监听 HTTP/Socket.IO 端口');
+    return;
   }
 
   const app = await NestFactory.create(AppModule, { logger });

@@ -66,17 +66,18 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 ### Phase 1：运行角色底座
 
-- [ ] 新增 `packages/server/src/config/runtime-role.ts`。
-- [ ] 提供 `resolveServerRuntimeRole()`。
-- [ ] 提供守卫函数：
+- [x] 新增 `packages/server/src/config/runtime-role.ts`。
+- [x] 提供 `resolveServerRuntimeRole()`。
+- [x] 提供守卫函数：
   - `shouldStartHttpServer(role)`
   - `shouldStartAuthoritativeRuntime(role)`
   - `shouldStartInlineFlushConsumer(role)`
   - `shouldStartBackgroundWorkers(role)`
   - `shouldStartOutboxDispatcher(role)`
   - `shouldStartBackupWorker(role)`
-- [ ] 代码默认 `all` 仅用于本地兼容；生产部署必须显式声明 `api` / `worker`。
-- [ ] 所有角色启动决策只读配置，不直接启动业务逻辑。
+- [x] 代码默认 `all` 仅用于本地兼容；生产部署必须显式声明 `api` / `worker`。
+  - 验证：`pnpm --filter @mud/server smoke:runtime-role-policy` 已覆盖默认 `all`、生产 `api/worker`、非法值回退与显式 api inline fallback。
+- [x] 所有角色启动决策只读配置，不直接启动业务逻辑。
 
 ### Phase 2：Flush Durable Staging / Payload 化
 
@@ -100,19 +101,19 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 ### Phase 3：启动管线改造
 
 - [ ] 收敛 `main.ts` / `AppModule` / worker tool 的启动判断。
-- [ ] `api` 角色：
+  - 已完成：`main.ts` 按 role 在 HTTP app 与 application context 间分流；`WorldTickService`、`FlushTaskRuntimeService`、`OutboxDispatcherRuntimeService`、`MarketTradeHistoryRetentionWorker` 已按 role 守卫自动启动。
+  - 未完成：worker tool 仍需在后续 orchestrator/部署批次统一梳理，故本项保持未勾选。
+- [x] `api` 角色：
   - 启动 HTTP / Socket.IO。
   - 启动权威 runtime 和玩家连接相关服务。
   - 默认不启动 worker-only 后台消费者。
-  - inline flush 只允许通过显式应急配置开启，并必须在 GM/日志中标记为 fallback。
+  - inline flush 只允许通过显式应急配置开启，并必须在日志中标记为 fallback 角色矩阵。
 - [ ] `worker` 角色：
-  - 不监听 HTTP 端口。
-  - 不注册或不启动玩家 Socket.IO 网关。
-  - 启动后台 worker orchestrator。
-  - 不启动需要主进程内存态的权威 tick。
+  - 已完成：不监听 HTTP 端口；不启动需要主进程内存态的权威 tick。
+  - 未完成：后台 worker orchestrator 尚未接入；Socket.IO 网关还需在 orchestrator/模块拆分阶段继续确认不注册或不启动玩家入口，故本项保持未勾选。
 - [ ] `all` 角色：
-  - 仅用于开发、单机、紧急回滚。
-  - 生产发布门禁不得把 `all` 作为默认 stack 配置。
+  - 已完成：代码默认 `all` 保留本地兼容和单进程回滚语义。
+  - 未完成：生产发布门禁禁止 stack 默认 `all` 尚未接入，故本项保持未勾选。
 
 ### Phase 4：后台 Worker Orchestrator
 
@@ -188,10 +189,11 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
 
 ### Phase 8：验证与发布门禁
 
-- [ ] 新增 role policy smoke：
+- [x] 新增 role policy smoke：
   - `all` 会启动 HTTP + 后台。
   - `api` 会启动 HTTP，不启动 worker-only 消费者。
   - `worker` 不监听 HTTP，只启动 worker-only 消费者。
+  - 验证：`pnpm --filter @mud/server smoke:runtime-role-policy` 通过。
 - [ ] 新增 docker stack policy smoke：
   - `server` 有端口和 HTTP healthcheck。
   - `server_worker` 无端口、无 HTTP healthcheck。

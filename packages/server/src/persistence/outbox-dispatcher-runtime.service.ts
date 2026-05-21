@@ -5,6 +5,7 @@
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
+import { shouldStartOutboxDispatcher } from '../config/runtime-role';
 import { OutboxDispatcherService } from './outbox-dispatcher.service';
 import { OutboxEventConsumerRegistryService } from './outbox-event-consumer-registry.service';
 
@@ -41,6 +42,10 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
     }
     if (!this.outboxDispatcherService.isEnabled()) {
       this.logger.log('发件箱调度运行时已跳过：调度器未启用');
+      return;
+    }
+    if (!shouldStartOutboxDispatcher()) {
+      this.logger.log('发件箱调度运行时已跳过：当前 role 不承载后台 outbox worker');
       return;
     }
     if (!isOutboxRuntimeEnabled()) {
@@ -105,7 +110,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
   }
 
   private async runScheduledDispatch(): Promise<void> {
-    if (!this.outboxDispatcherService.isEnabled() || !isOutboxRuntimeEnabled()) {
+    if (!this.outboxDispatcherService.isEnabled() || !isOutboxRuntimeEnabled() || !shouldStartOutboxDispatcher()) {
       return;
     }
     const processedCount = await this.dispatchPendingEvents().catch((error: unknown) => {

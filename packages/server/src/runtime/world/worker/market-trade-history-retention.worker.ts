@@ -7,6 +7,7 @@
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
+import { shouldStartBackgroundWorkers } from '../../../config/runtime-role';
 import { MarketPersistenceService } from '../../../persistence/market-persistence.service';
 
 /** 默认轮询间隔：5 分钟扫一次，单批 500 行，速率温和。 */
@@ -42,6 +43,10 @@ export class MarketTradeHistoryRetentionWorker implements OnModuleInit, OnModule
   ) {}
 
   onModuleInit(): void {
+    if (!shouldStartBackgroundWorkers()) {
+      this.logger.log('坊市成交历史 retention 已跳过：当前 role 不承载后台 worker');
+      return;
+    }
     if (typeof this.marketPersistenceService?.isEnabled === 'function'
       && !this.marketPersistenceService.isEnabled()) {
       this.logger.log('坊市成交历史 retention 已跳过：MarketPersistenceService 未启用（无数据库）');

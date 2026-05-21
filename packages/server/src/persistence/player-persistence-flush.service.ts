@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModu
 import { performance } from 'node:perf_hooks';
 
 import { readTrimmedEnv } from '../config/env-alias';
+import { shouldStartAuthoritativeRuntime } from '../config/runtime-role';
 import { DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC } from '@mud/shared';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import {
@@ -155,6 +156,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
     } else {
       this.logger.log('玩家持久化直接定时器已停用，由统一刷盘任务运行时调度');
+    }
+    if (!shouldStartAuthoritativeRuntime()) {
+      this.logger.log('离线挂机超时检查已跳过：当前 role 不持有玩家运行态');
+      return;
     }
     // 每 5 分钟检查一次离线挂机超时
     this.offlineExpireTimer = setInterval(() => {

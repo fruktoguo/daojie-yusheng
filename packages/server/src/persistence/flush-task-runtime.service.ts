@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModu
 import { randomUUID } from 'node:crypto';
 
 import { readTrimmedEnv } from '../config/env-alias';
+import { shouldStartAuthoritativeRuntime, shouldStartInlineFlushConsumer } from '../config/runtime-role';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { DatabasePoolProvider } from './database-pool.provider';
@@ -86,8 +87,8 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit(): void {
-    if (!isInlineFlushTaskRuntimeMode()) {
-      this.logger.log('统一刷盘任务运行时未启用，保留当前配置模式');
+    if (!isInlineFlushTaskRuntimeMode() || !shouldStartInlineFlushConsumer()) {
+      this.logger.log('统一刷盘任务运行时未启用 inline consumer，保留当前配置模式');
       return;
     }
     this.timer = setInterval(() => void this.runOnce(), INTERVAL_MS);
@@ -121,8 +122,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (this.isGlobalBackoffActive()) {
       return 0;
     }
-    await this.collectPlayerTasks();
-    await this.collectInstanceTasks();
+    if (shouldStartAuthoritativeRuntime()) {
+      await this.collectPlayerTasks();
+      await this.collectInstanceTasks();
+    }
     if (this.isFlushPoolBackpressureActive()) {
       this.logger.warn(`统一刷盘任务因刷盘池等待排队而暂停认领：waiting>=${FLUSH_WAITING_LIMIT}`);
       return 0;
