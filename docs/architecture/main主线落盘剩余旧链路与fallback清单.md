@@ -16,7 +16,7 @@
 
 - 玩家恢复、GM 查询、GM 广播收件人枚举、durable asset 写入不再依赖 `server_player_snapshot`。
 - 地图 runtime 不再读写旧 map snapshot。
-- 兑换码、建议、GM auth、GM 地图配置、宗门、市场订单/成交历史/托管仓、爱发电配置/订单、数据库备份/任务状态已迁到专表。
+- 兑换码、建议、GM auth、GM 地图配置、宗门、市场订单/成交历史/托管仓、数据库备份/任务状态已迁到专表。
 - 兑换码奖励、战斗掉落、PvP 奖励、NPC 任务奖励、GM 钱包/发物缺 durable 条件时返回硬错误，不再 direct fallback。
 
 ## 3. 已删除的 direct fallback 规则

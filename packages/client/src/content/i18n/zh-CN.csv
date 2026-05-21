@@ -877,13 +877,10 @@ shell.display-name,静态HTML-主界面,显示名,静态 HTML：packages/client/
 shell.display-name-status,静态HTML-主界面,注册时必填,静态 HTML：packages/client/index.html
 shell.display-name.placeholder,静态HTML-主界面,注册时必填，仅 1 个字,静态 HTML：packages/client/index.html
 shell.equipment,静态HTML-主界面,装备,静态 HTML：packages/client/index.html
-shell.hud-corner-btn-ifdian.aria-label,静态HTML-主界面,爱发电,静态 HTML：packages/client/index.html
-shell.hud-corner-btn-ifdian.title,静态HTML-主界面,爱发电,静态 HTML：packages/client/index.html
 shell.hud-label-age,静态HTML-主界面,岁,静态 HTML：packages/client/index.html
 shell.hud-label-lifespan,静态HTML-主界面,寿,静态 HTML：packages/client/index.html
 shell.hud-label-map,静态HTML-主界面,地图,静态 HTML：packages/client/index.html
 shell.hud-label-position,静态HTML-主界面,位置,静态 HTML：packages/client/index.html
-shell.hud-link-btn-text-ifdian,静态HTML-主界面,爱发电,静态 HTML：packages/client/index.html
 shell.hud-link-btn-text-simple-tutorial,静态HTML-主界面,简易教程,静态 HTML：packages/client/index.html
 shell.hud-realm-label-realm,静态HTML-主界面,境界,静态 HTML：packages/client/index.html
 shell.hud-resource-label-hp,静态HTML-主界面,生命值,静态 HTML：packages/client/index.html

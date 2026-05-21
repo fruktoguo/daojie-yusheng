@@ -87,7 +87,7 @@ NestJS 原生 controller 注册于 `packages/server/src/http/native-http.registr
 |------------|------|------|
 | `HealthController` | `/health`、`/readiness` | 健康检查与就绪探针 |
 | `NativeGmController`（`http/native/native-gm.controller.ts`） | `/gm/*` | GM 世界查询、玩家管理、地图运行时、建筑/风水审计、redeem code、邮件、建议、节点/lease 操作、数据库 state |
-| `NativeGmAdminService` 支撑的路由 | `/gm/database/*`、`/gm/afdian/*` | 数据库备份/恢复/上传、爱发电 webhook |
+| `NativeGmAdminService` 支撑的路由 | `/gm/database/*` | 数据库备份/恢复/上传 |
 | `WorldRuntimeController`（`runtime/world/world-runtime.controller.ts`） | `/world/*` | GM / 运维级别的运行时读写（玩家状态、实例迁移、flush、operation replay、outbox 查询、监控） |
 | 其他 native controller | 账号注册/登录、数据库 state、GM 认证、玩家概览 | 在 `http/native/` 下按文件组织 |
 

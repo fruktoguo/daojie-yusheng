@@ -52,7 +52,6 @@
 | 宗门 / 通天塔玩法 | 玩法范畴 | `runtime/world/world-runtime-sect.service.ts`、`world-runtime-tongtian-tower.service.ts`、`docs/plans/宗门地图与护宗大阵商业级开发计划.md` |
 | Docker / Swarm 配置字段 | 部署细节 | `docker-stack*.yml`、`docker-build-tencent.sh`、`docs/deploy-tencent-ccr.md`、`docs/runbook/deployment.md` |
 | 本地开发脚本内部细节 | 运维脚本 | `start.sh` |
-| 爱发电集成 | 运维边缘功能 | `http/native/native-gm-admin.service.ts` |
 
 ### 未覆盖（有意）
 
@@ -100,3 +99,4 @@
 - **一致性**：与既有 `docs/`、`AGENTS.md`、`packages/*/package.json` 一致，没有发现冲突描述。
 - **完整性**：覆盖了 AI agent 定位代码所需的主要结构；玩法数值、表字段、protobuf schema 属于细节层，只给出代码定位。
 - **主要风险**：旧版 / 分域持久化并存、DOM UI / React UI 并存、Durable Op 迁移中。这些是项目当前阶段的已知遗留，不是文档缺陷。
+

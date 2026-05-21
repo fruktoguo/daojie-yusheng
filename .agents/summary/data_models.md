@@ -123,7 +123,7 @@ graph LR
 | 兑换码 | `redeem-code-persistence.service.ts` | 兑换码组、单码、使用记录 |
 | GM 地图配置 | `gm-map-config-persistence.service.ts` | GM 编辑器保存的地图配置 |
 | 通天塔 | `tongtian-tower-persistence.service.ts` | 通天塔层级状态 |
-| GM Admin | `native-gm-admin.service.ts` 内部 ensure | GM 密码、数据库备份元数据、爱发电订单、数据库 job state |
+| GM Admin | `native-gm-admin.service.ts` 内部 ensure | GM 密码、数据库备份元数据、数据库 job state |
 | Outbox | `outbox-dispatcher.service.ts` + `combat-audit-outbox.service.ts` | 异步事件分发、战斗审计 |
 | 节点注册 | `node-registry.service.ts` | 多节点 lease |
 

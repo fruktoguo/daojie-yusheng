@@ -158,7 +158,6 @@ graph LR
 |------|------|----------|
 | PostgreSQL | `pg.Pool` | `persistence/database-pool.provider.ts` |
 | Redis | Runtime 在线态 / Session Fence / 缓存 | 配置通过 `SERVER_REDIS_URL`；具体客户端引导在 persistence / runtime 内部 |
-| 爱发电（afdian）回调 | 订单同步 / webhook | `http/native/native-gm-admin.service.ts` |
 | GM 外部备份存储 | 文件系统 / GCS 预留 | `native-gm-admin.service.ts` 中的 backup 相关方法 |
 
 ## 构建时依赖关系（拓扑序）
@@ -181,3 +180,4 @@ graph LR
 
 - 所有工作区包 `version: 0.0.1, private: true`，不发布到 npm。
 - 外部包使用 caret 范围（`^x.y.z`），变更需要走验证门禁后合并；AGENTS.md §18 规定 shared / protocol 改动至少跑 `build:shared + audit:protocol`，持久化改动至少跑 `verify:release:with-db`。
+

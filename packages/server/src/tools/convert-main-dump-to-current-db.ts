@@ -320,7 +320,6 @@ async function inspectSource(pool) {
     'market_orders',
     'market_trade_history',
     'suggestions',
-    'afdian_orders',
     'gm_risk_operation_audits',
   ];
   const tableCounts = {};
