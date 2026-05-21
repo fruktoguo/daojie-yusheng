@@ -146,7 +146,7 @@ export class WorldRuntimeDetailQueryService {
                 id,
                 player: {
                     id: target.playerId,
-                    name: target.name,
+                    name: resolveObservedPlayerName(target),
                     x: target.x,
                     y: target.y,
                     hp: target.hp,
@@ -298,7 +298,7 @@ export class WorldRuntimeDetailQueryService {
             }
             entities.push({
                 id: target.playerId,
-                name: target.name,
+                name: resolveObservedPlayerName(target),
                 kind: 'player',
                 hp: target.hp,
                 maxHp: target.maxHp,
@@ -400,6 +400,28 @@ export class WorldRuntimeDetailQueryService {
         };
     }
 };
+
+function resolveObservedPlayerName(player) {
+    return normalizeObservedPlayerName(player?.name, player?.playerId)
+        || normalizeObservedPlayerName(player?.displayName, player?.playerId)
+        || '修士';
+}
+
+function normalizeObservedPlayerName(value, playerId) {
+    const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
+    if (!normalized || normalized === normalizeObservedPlayerIdentity(playerId) || isRuntimePlayerIdLike(normalized)) {
+        return '';
+    }
+    return normalized;
+}
+
+function normalizeObservedPlayerIdentity(value) {
+    return typeof value === 'string' ? value.trim().normalize('NFC') : '';
+}
+
+function isRuntimePlayerIdLike(value) {
+    return /^p_[0-9a-f-]+(?:_\d+)?$/i.test(value) || /^player[:_-]/i.test(value);
+}
 
 function buildTileRuntimeResources(entries, aura, viewer) {
     const resources = entries
