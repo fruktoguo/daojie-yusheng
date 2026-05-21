@@ -334,12 +334,21 @@ export class WorldSyncMapSnapshotService {
 
   /** 解析玩家已解锁且模板存在的 mapId 列表。 */
   private resolveUnlockedMapIds(player: { unlockedMapIds?: string[] }): string[] {
-    const unlockedMapIds: string[] = Array.isArray(player.unlockedMapIds)
-      ? player.unlockedMapIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
-      : [];
-    return Array.from(new Set<string>(unlockedMapIds))
-      .filter((entry) => this.templateRepository.has(entry))
-      .sort(compareStableStrings);
+    const unlockedMapIds: string[] = [];
+    const seen = new Set<string>();
+    for (const entry of Array.isArray(player.unlockedMapIds) ? player.unlockedMapIds : []) {
+      if (typeof entry !== 'string') {
+        continue;
+      }
+      const mapId = entry.trim();
+      if (!mapId || seen.has(mapId) || !this.templateRepository.has(mapId)) {
+        continue;
+      }
+      seen.add(mapId);
+      unlockedMapIds.push(mapId);
+    }
+    unlockedMapIds.sort(compareStableStrings);
+    return unlockedMapIds;
   }
 
   buildMapMetaSync(template) {
