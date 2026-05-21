@@ -26,6 +26,7 @@
     "smoke:outbox-dispatcher-backoff": "pnpm compile && node dist/tools/outbox-dispatcher-backoff-smoke.js",
     "smoke:flush-task-runtime": "pnpm compile && node dist/tools/flush-task-runtime-smoke.js",
     "smoke:flush-task-noop-retry": "pnpm compile && node dist/tools/flush-task-noop-retry-smoke.js",
+    "smoke:flush-staging-schema": "pnpm compile && node dist/tools/flush-staging-schema-smoke.js",
     "smoke:runtime-role-policy": "pnpm compile && node dist/tools/runtime-role-policy-smoke.js",
     "smoke:background-worker-runtime": "pnpm compile && node dist/tools/background-worker-runtime-smoke.js",
     "smoke:worker-backlog-alert": "pnpm compile && node dist/tools/worker-backlog-alert-smoke.js",

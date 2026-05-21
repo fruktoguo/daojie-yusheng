@@ -57,6 +57,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         latestVersion: task.latestRevision,
         dirtySinceAt: task.dirtySinceAt ?? new Date().toISOString(),
         nextAttemptAt: task.nextAttemptAt ?? new Date().toISOString(),
+        runtimeOwnerId: task.runtimeOwnerId ?? null,
+        fencingToken: task.fencingToken ?? null,
+        idempotencyKey: task.idempotencyKey ?? buildFlushTaskIdempotencyKey(task),
+        payloadJson: task.payloadJson ?? null,
+        failureCategory: task.failureCategory ?? null,
       });
       return;
     }
@@ -68,6 +73,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       latestVersion: task.latestRevision,
       dirtySinceAt: task.dirtySinceAt ?? new Date().toISOString(),
       nextAttemptAt: task.nextAttemptAt ?? new Date().toISOString(),
+      runtimeOwnerId: task.runtimeOwnerId ?? null,
+      fencingToken: task.fencingToken ?? null,
+      idempotencyKey: task.idempotencyKey ?? buildFlushTaskIdempotencyKey(task),
+      payloadJson: task.payloadJson ?? null,
+      failureCategory: task.failureCategory ?? null,
     });
   }
 
@@ -93,8 +103,14 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           ownershipEpoch: input.scope === 'instance'
             ? normalizePositiveInteger(row.ownership_epoch, 0, 0, Number.MAX_SAFE_INTEGER)
             : null,
+          runtimeOwnerId: normalizeOptionalString(row.runtime_owner_id),
+          fencingToken: normalizeOptionalString(row.fencing_token),
+          idempotencyKey: normalizeOptionalString(row.idempotency_key),
+          payloadJson: row.payload_jsonb ?? null,
+          failureCategory: normalizeOptionalString(row.failure_category),
           dirtySinceAt: normalizeOptionalTimestamp(row.dirty_since_at),
-          nextAttemptAt: normalizeOptionalTimestamp(row.next_attempt_at),
+          nextAttemptAt: normalizeOptionalTimestamp(row.next_attempt_at ?? row.retry_after),
+          createdAt: normalizeOptionalTimestamp(row.created_at),
         };
         return task;
       })
@@ -137,6 +153,8 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               claimed_by = NULL,
               claim_until = NULL,
               next_attempt_at = NULL,
+              retry_after = NULL,
+              failure_category = NULL,
               updated_at = now()
           FROM input
           WHERE ledger.player_id = input.player_id
@@ -167,6 +185,8 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
               claimed_by = NULL,
               claim_until = NULL,
               next_attempt_at = NULL,
+              retry_after = NULL,
+              failure_category = NULL,
               updated_at = now()
           FROM input
           WHERE ledger.instance_id = input.instance_id
@@ -218,6 +238,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           )
           UPDATE ${PLAYER_FLUSH_LEDGER_TABLE} ledger
           SET next_attempt_at = now() + ($3::bigint * interval '1 millisecond'),
+              retry_after = now() + ($3::bigint * interval '1 millisecond'),
               claimed_by = NULL,
               claim_until = NULL,
               updated_at = now()
@@ -243,6 +264,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           )
           UPDATE ${INSTANCE_FLUSH_LEDGER_TABLE} ledger
           SET next_attempt_at = now() + ($4::bigint * interval '1 millisecond'),
+              retry_after = now() + ($4::bigint * interval '1 millisecond'),
               claimed_by = NULL,
               claim_until = NULL,
               updated_at = now()
@@ -273,6 +295,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     nextAttemptAt?: string | null;
     claimedBy?: string | null;
     claimUntil?: string | null;
+    runtimeOwnerId?: string | null;
+    fencingToken?: string | null;
+    idempotencyKey?: string | null;
+    payloadJson?: unknown;
+    failureCategory?: string | null;
   }): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
@@ -285,9 +312,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     await this.pool.query(
       `
         INSERT INTO ${PLAYER_FLUSH_LEDGER_TABLE}(
-          player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at,
+          claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key, payload_jsonb,
+          failure_category, retry_after, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $7, now())
         ON CONFLICT (player_id, domain)
         DO UPDATE SET
           priority = EXCLUDED.priority,
@@ -297,6 +326,12 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           next_attempt_at = COALESCE(EXCLUDED.next_attempt_at, ${PLAYER_FLUSH_LEDGER_TABLE}.next_attempt_at),
           claimed_by = COALESCE(EXCLUDED.claimed_by, ${PLAYER_FLUSH_LEDGER_TABLE}.claimed_by),
           claim_until = COALESCE(EXCLUDED.claim_until, ${PLAYER_FLUSH_LEDGER_TABLE}.claim_until),
+          runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${PLAYER_FLUSH_LEDGER_TABLE}.runtime_owner_id),
+          fencing_token = COALESCE(EXCLUDED.fencing_token, ${PLAYER_FLUSH_LEDGER_TABLE}.fencing_token),
+          idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${PLAYER_FLUSH_LEDGER_TABLE}.idempotency_key),
+          payload_jsonb = COALESCE(EXCLUDED.payload_jsonb, ${PLAYER_FLUSH_LEDGER_TABLE}.payload_jsonb),
+          failure_category = COALESCE(EXCLUDED.failure_category, ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category),
+          retry_after = COALESCE(EXCLUDED.retry_after, ${PLAYER_FLUSH_LEDGER_TABLE}.retry_after),
           updated_at = now()
       `,
       [
@@ -309,6 +344,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         input.nextAttemptAt ?? null,
         input.claimedBy ?? null,
         input.claimUntil ?? null,
+        input.runtimeOwnerId ?? null,
+        input.fencingToken ?? null,
+        input.idempotencyKey ?? null,
+        serializePayloadJson(input.payloadJson),
+        input.failureCategory ?? null,
       ],
     );
   }
@@ -324,6 +364,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     nextAttemptAt?: string | null;
     claimedBy?: string | null;
     claimUntil?: string | null;
+    runtimeOwnerId?: string | null;
+    fencingToken?: string | null;
+    idempotencyKey?: string | null;
+    payloadJson?: unknown;
+    failureCategory?: string | null;
   }): Promise<void> {
     if (!this.pool || !this.enabled) {
       return;
@@ -336,9 +381,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     await this.pool.query(
       `
         INSERT INTO ${INSTANCE_FLUSH_LEDGER_TABLE}(
-          instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at,
+          next_attempt_at, claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key,
+          payload_jsonb, failure_category, retry_after, updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $8, now())
         ON CONFLICT (instance_id, domain, ownership_epoch)
         DO UPDATE SET
           priority = EXCLUDED.priority,
@@ -348,6 +395,12 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           next_attempt_at = COALESCE(EXCLUDED.next_attempt_at, ${INSTANCE_FLUSH_LEDGER_TABLE}.next_attempt_at),
           claimed_by = COALESCE(EXCLUDED.claimed_by, ${INSTANCE_FLUSH_LEDGER_TABLE}.claimed_by),
           claim_until = COALESCE(EXCLUDED.claim_until, ${INSTANCE_FLUSH_LEDGER_TABLE}.claim_until),
+          runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${INSTANCE_FLUSH_LEDGER_TABLE}.runtime_owner_id),
+          fencing_token = COALESCE(EXCLUDED.fencing_token, ${INSTANCE_FLUSH_LEDGER_TABLE}.fencing_token),
+          idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${INSTANCE_FLUSH_LEDGER_TABLE}.idempotency_key),
+          payload_jsonb = COALESCE(EXCLUDED.payload_jsonb, ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb),
+          failure_category = COALESCE(EXCLUDED.failure_category, ${INSTANCE_FLUSH_LEDGER_TABLE}.failure_category),
+          retry_after = COALESCE(EXCLUDED.retry_after, ${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after),
           updated_at = now()
       `,
       [
@@ -361,6 +414,11 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
         input.nextAttemptAt ?? null,
         input.claimedBy ?? null,
         input.claimUntil ?? null,
+        input.runtimeOwnerId ?? null,
+        input.fencingToken ?? null,
+        input.idempotencyKey ?? null,
+        serializePayloadJson(input.payloadJson),
+        input.failureCategory ?? null,
       ],
     );
   }
@@ -383,7 +441,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const queryParams: Array<string | number> = [workerId];
     const filters = [
       'latest_version > flushed_version',
-      '(next_attempt_at IS NULL OR next_attempt_at <= now())',
+      '(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())',
       '(claim_until IS NULL OR claim_until < now())',
     ];
     if (domain) {
@@ -414,7 +472,9 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             LIMIT ${limitParam}
             FOR UPDATE SKIP LOCKED
           )
-          RETURNING player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          RETURNING player_id, domain, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at,
+            claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key, payload_jsonb,
+            failure_category, retry_after, created_at, updated_at
         )
         SELECT * FROM claimed
       `,
@@ -441,7 +501,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     const queryParams: Array<string | number> = [workerId];
     const filters = [
       'latest_version > flushed_version',
-      '(next_attempt_at IS NULL OR next_attempt_at <= now())',
+      '(COALESCE(next_attempt_at, retry_after) IS NULL OR COALESCE(next_attempt_at, retry_after) <= now())',
       '(claim_until IS NULL OR claim_until < now())',
     ];
     const domain = normalizeRequiredString(input.domain);
@@ -478,7 +538,9 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             LIMIT ${limitParam}
             FOR UPDATE SKIP LOCKED
           )
-          RETURNING instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
+          RETURNING instance_id, domain, ownership_epoch, priority, latest_version, flushed_version, dirty_since_at,
+            next_attempt_at, claimed_by, claim_until, runtime_owner_id, fencing_token, idempotency_key,
+            payload_jsonb, failure_category, retry_after, created_at, updated_at
         )
         SELECT * FROM claimed
       `,
@@ -698,13 +760,27 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
         claimed_by varchar(120) NULL,
         claim_until timestamptz NULL,
         priority varchar(16) NOT NULL DEFAULT 'normal',
+        runtime_owner_id varchar(120) NULL,
+        fencing_token varchar(120) NULL,
+        idempotency_key varchar(180) NULL,
+        payload_jsonb jsonb NULL,
+        failure_category varchar(64) NULL,
+        retry_after timestamptz NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (player_id, domain)
       )
     `);
     await client.query(`
       ALTER TABLE ${PLAYER_FLUSH_LEDGER_TABLE}
-      ADD COLUMN IF NOT EXISTS priority varchar(16) NOT NULL DEFAULT 'normal'
+      ADD COLUMN IF NOT EXISTS priority varchar(16) NOT NULL DEFAULT 'normal',
+      ADD COLUMN IF NOT EXISTS runtime_owner_id varchar(120) NULL,
+      ADD COLUMN IF NOT EXISTS fencing_token varchar(120) NULL,
+      ADD COLUMN IF NOT EXISTS idempotency_key varchar(180) NULL,
+      ADD COLUMN IF NOT EXISTS payload_jsonb jsonb NULL,
+      ADD COLUMN IF NOT EXISTS failure_category varchar(64) NULL,
+      ADD COLUMN IF NOT EXISTS retry_after timestamptz NULL,
+      ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now()
     `);
     await client.query(`
       DO $$
@@ -737,6 +813,11 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
       CREATE INDEX IF NOT EXISTS player_flush_ledger_claim_idx
       ON ${PLAYER_FLUSH_LEDGER_TABLE}(claimed_by, claim_until)
     `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_flush_ledger_idempotency_idx
+      ON ${PLAYER_FLUSH_LEDGER_TABLE}(idempotency_key)
+      WHERE idempotency_key IS NOT NULL
+    `);
     await client.query('COMMIT');
   } catch (error: unknown) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -764,13 +845,27 @@ async function ensureInstanceFlushLedgerTable(pool: Pool): Promise<void> {
         claimed_by varchar(120) NULL,
         claim_until timestamptz NULL,
         priority varchar(16) NOT NULL DEFAULT 'normal',
+        runtime_owner_id varchar(120) NULL,
+        fencing_token varchar(120) NULL,
+        idempotency_key varchar(180) NULL,
+        payload_jsonb jsonb NULL,
+        failure_category varchar(64) NULL,
+        retry_after timestamptz NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, domain, ownership_epoch)
       )
     `);
     await client.query(`
       ALTER TABLE ${INSTANCE_FLUSH_LEDGER_TABLE}
-      ADD COLUMN IF NOT EXISTS priority varchar(16) NOT NULL DEFAULT 'normal'
+      ADD COLUMN IF NOT EXISTS priority varchar(16) NOT NULL DEFAULT 'normal',
+      ADD COLUMN IF NOT EXISTS runtime_owner_id varchar(120) NULL,
+      ADD COLUMN IF NOT EXISTS fencing_token varchar(120) NULL,
+      ADD COLUMN IF NOT EXISTS idempotency_key varchar(180) NULL,
+      ADD COLUMN IF NOT EXISTS payload_jsonb jsonb NULL,
+      ADD COLUMN IF NOT EXISTS failure_category varchar(64) NULL,
+      ADD COLUMN IF NOT EXISTS retry_after timestamptz NULL,
+      ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now()
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_flush_ledger_priority_pending_idx
@@ -783,6 +878,11 @@ async function ensureInstanceFlushLedgerTable(pool: Pool): Promise<void> {
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_flush_ledger_claim_idx
       ON ${INSTANCE_FLUSH_LEDGER_TABLE}(claimed_by, claim_until)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS instance_flush_ledger_idempotency_idx
+      ON ${INSTANCE_FLUSH_LEDGER_TABLE}(idempotency_key)
+      WHERE idempotency_key IS NOT NULL
     `);
     await client.query('COMMIT');
   } catch (error: unknown) {
@@ -804,6 +904,26 @@ function normalizeOptionalTimestamp(value: unknown): string | null {
     return value.toISOString();
   }
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function serializePayloadJson(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return JSON.stringify(value);
+}
+
+function buildFlushTaskIdempotencyKey(task: FlushTask): string {
+  const epoch = task.scope === 'instance' ? normalizePositiveInteger(task.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER) : 0;
+  return `${task.scope}:${task.id}:${task.domain}:${epoch}:${Math.max(0, Math.trunc(Number(task.latestRevision ?? 0)))}`;
 }
 
 function normalizePriority(value: unknown): FlushTaskPriority {

@@ -93,11 +93,13 @@ export type ServerRuntimeRole = 'all' | 'api' | 'worker';
     - 邮件、市场订单、GM 操作已有各自 DB service/outbox/审计路径，不能简单并入 player snapshot flush；需要逐链路定义 idempotency key 与 payload。
     - 实例已存在 delta/批量 API：`tile_resource / tile_damage / monster_runtime / instance checkpoint / recovery watermark / purgeInstanceState`；但当前 dirty 来源和 `flushInstanceDomains()` 仍依赖 `WorldRuntimeService` 与实例 runtime 对象。
     - `time / fengshui / ground_item / container_state / overlay / room / building` 仍需确认 payload projector；Phase 2 后续项未完成前不得由 worker mark flushed。
-- [ ] 设计 durable staging 表或 payload 表：
+- [x] 设计 durable staging 表或 payload 表：
   - `scope`、`entity_id`、`domain`、`priority`。
   - `revision`、`ownership_epoch`、`runtime_owner_id`、`fencing_token`。
   - `payload_jsonb` 或结构化 delta 表。
   - `idempotency_key`、`created_at`、`claim_until`、`retry_after`、`failure_category`。
+  - 已完成：复用并升级 `player_flush_ledger` / `instance_flush_ledger` 为 staging 语义，补齐 `runtime_owner_id`、`fencing_token`、`idempotency_key`、`payload_jsonb`、`failure_category`、`retry_after`、`created_at`，并保持 `FOR UPDATE SKIP LOCKED` claim。
+  - 验证：`pnpm --filter @mud/server smoke:flush-staging-schema` 通过；该验证只证明 schema/类型契约，不证明各 domain projector 已完成。
 - [ ] api 角色在权威变更发生后写入 staging，不把完整运行态对象交给 worker。
 - [ ] worker 角色只从 staging/ledger 读取正式 payload 并写真源。
 - [ ] payload 写入、worker 写入、mark flushed 必须同一幂等链路，重复消费不重复发奖、不重复扣资产、不覆盖新版本。

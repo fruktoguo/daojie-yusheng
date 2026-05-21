@@ -15,8 +15,13 @@ export interface FlushTask {
   latestRevision: number;
   ownershipEpoch?: number | null;
   runtimeOwnerId?: string | null;
+  fencingToken?: string | null;
+  idempotencyKey?: string | null;
+  payloadJson?: unknown;
+  failureCategory?: string | null;
   dirtySinceAt?: string | null;
   nextAttemptAt?: string | null;
+  createdAt?: string | null;
 }
 
 export interface ClaimFlushTaskInput {
