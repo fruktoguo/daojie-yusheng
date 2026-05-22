@@ -169,11 +169,13 @@ export class WorldRuntimeLifecycleService {
         const restoreCatalogInstances = options.restoreCatalogInstances !== false;
         const restoreInstanceDomains = options.restoreInstanceDomains !== false;
         const rewriteCatalogRuntimeStatus = options.rewriteCatalogRuntimeStatus !== false;
+        const catalogEntries = deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances
+            ? await deps.instanceCatalogService.listInstanceCatalogEntries?.()
+            : [];
         if (deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances) {
             if (typeof deps.worldRuntimeSectService?.restoreSectTemplates === 'function') {
                 await deps.worldRuntimeSectService.restoreSectTemplates(deps);
             }
-            const catalogEntries = await deps.instanceCatalogService.listInstanceCatalogEntries?.();
             for (const entry of Array.isArray(catalogEntries) ? catalogEntries : []) {
                 const instanceId = typeof entry.instance_id === 'string' ? entry.instance_id.trim() : '';
                 const templateId = typeof entry.template_id === 'string' ? entry.template_id.trim() : '';
@@ -275,6 +277,9 @@ export class WorldRuntimeLifecycleService {
         deps.worldRuntimeLootContainerService.reset();
         deps.worldRuntimeCombatEffectsService.resetAll();
         this.bootstrapPublicInstances(deps);
+        if (deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances && restoreInstanceDomains === false) {
+            await restoreCatalogInstanceShellsAfterReset(deps, catalogEntries);
+        }
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
             await deps.worldRuntimeSectService.restoreSects(deps);
         }
@@ -282,7 +287,10 @@ export class WorldRuntimeLifecycleService {
             await this.restorePublicInstancePersistence(deps);
         }
         if (typeof deps.claimRecoverableCatalogInstances === 'function') {
-            await deps.claimRecoverableCatalogInstances({ allowForceReclaim: true });
+            await deps.claimRecoverableCatalogInstances({
+                allowForceReclaim: true,
+                hydratePersistentSnapshot: restoreInstanceDomains,
+            });
         }
         if (deps.instanceCatalogService?.isEnabled?.() && typeof deps.syncInstanceLease === 'function') {
             for (const [instanceId] of deps.listInstanceEntries()) {
@@ -458,6 +466,64 @@ async function markMissingTemplateCatalogEntry(deps, entry, instanceId, template
     if (changed) {
         deps.logger.warn(`实例目录引用的地图模板不存在，已标记为待内容恢复：${instanceId} -> ${templateId}`);
     }
+}
+
+async function restoreCatalogInstanceShellsAfterReset(deps, catalogEntries) {
+    for (const entry of Array.isArray(catalogEntries) ? catalogEntries : []) {
+        const instanceId = typeof entry.instance_id === 'string' ? entry.instance_id.trim() : '';
+        const templateId = typeof entry.template_id === 'string' ? entry.template_id.trim() : '';
+        if (!shouldRestoreCatalogEntry(entry) || !instanceId || !templateId || deps.getInstanceRuntime(instanceId)) {
+            continue;
+        }
+        if (typeof deps.templateRepository?.has === 'function'
+            && !deps.templateRepository.has(templateId)
+            && typeof deps.worldRuntimeSectService?.restoreCatalogSectTemplate === 'function') {
+            deps.worldRuntimeSectService.restoreCatalogSectTemplate(entry, deps);
+        }
+        if (typeof deps.templateRepository?.has === 'function' && !deps.templateRepository.has(templateId)) {
+            await markMissingTemplateCatalogEntry(deps, entry, instanceId, templateId, '轻量启动');
+            continue;
+        }
+        const descriptor = parseRuntimeInstanceDescriptorForStartup(instanceId);
+        deps.createInstance({
+            instanceId,
+            templateId,
+            kind: typeof entry.instance_type === 'string' && entry.instance_type.trim() ? entry.instance_type.trim() : 'public',
+            persistent: true,
+            linePreset: descriptor?.linePreset ?? (entry.route_domain === 'real' ? 'real' : 'peaceful'),
+            lineIndex: descriptor?.lineIndex ?? 1,
+            instanceOrigin: descriptor?.instanceOrigin ?? 'catalog',
+            defaultEntry: descriptor?.defaultEntry !== false,
+            ownerPlayerId: typeof entry.owner_player_id === 'string' ? entry.owner_player_id : null,
+            ownerSectId: typeof entry.owner_sect_id === 'string' ? entry.owner_sect_id : null,
+            partyId: typeof entry.party_id === 'string' ? entry.party_id : null,
+            status: typeof entry.status === 'string' ? entry.status : 'active',
+            runtimeStatus: entry.runtime_status === 'template_missing'
+                ? 'running'
+                : (typeof entry.runtime_status === 'string' ? entry.runtime_status : 'running'),
+            assignedNodeId: typeof entry.assigned_node_id === 'string' ? entry.assigned_node_id : null,
+            leaseToken: typeof entry.lease_token === 'string' ? entry.lease_token : null,
+            leaseExpireAt: entry.lease_expire_at ? new Date(entry.lease_expire_at).toISOString() : null,
+            ownershipEpoch: Number.isFinite(Number(entry.ownership_epoch)) ? Math.trunc(Number(entry.ownership_epoch)) : 0,
+            clusterId: typeof entry.cluster_id === 'string' ? entry.cluster_id : null,
+            shardKey: typeof entry.shard_key === 'string' && entry.shard_key.trim() ? entry.shard_key.trim() : instanceId,
+            routeDomain: typeof entry.route_domain === 'string' ? entry.route_domain : null,
+            destroyAt: entry.destroy_at ? new Date(entry.destroy_at).toISOString() : null,
+            lastActiveAt: entry.last_active_at ? new Date(entry.last_active_at).toISOString() : null,
+            lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
+        });
+    }
+}
+
+function parseRuntimeInstanceDescriptorForStartup(instanceId) {
+    const normalized = typeof instanceId === 'string' ? instanceId.trim() : '';
+    if (normalized.startsWith('real:')) {
+        return { linePreset: 'real', lineIndex: 1, instanceOrigin: 'bootstrap', defaultEntry: true };
+    }
+    if (normalized.startsWith('public:')) {
+        return { linePreset: 'peaceful', lineIndex: 1, instanceOrigin: 'bootstrap', defaultEntry: true };
+    }
+    return null;
 }
 
 function normalizeLoadedContainerStates(rows) {

@@ -629,7 +629,10 @@ export async function syncAllInstanceLeases(runtime) {
   }
 }
 
-export async function claimRecoverableCatalogInstances(runtime, { allowForceReclaim = false } = {}) {
+export async function claimRecoverableCatalogInstances(runtime, {
+  allowForceReclaim = false,
+  hydratePersistentSnapshot = true,
+} = {}) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return 0;
   }
@@ -698,7 +701,9 @@ export async function claimRecoverableCatalogInstances(runtime, { allowForceRecl
       lastActiveAt: entry.last_active_at ? new Date(entry.last_active_at).toISOString() : null,
       lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
     });
-    await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
+    if (hydratePersistentSnapshot !== false) {
+      await hydratePersistentInstanceSnapshot(runtime, instanceId, instance);
+    }
     claimedCount++;
     runtime.logger.log(`实例租约自动接管成功：${instanceId} ownershipEpoch=${claim.ownershipEpoch ?? 0}`);
   }

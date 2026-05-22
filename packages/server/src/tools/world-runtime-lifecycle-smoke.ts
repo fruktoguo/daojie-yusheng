@@ -581,9 +581,13 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
 async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
     const service = new WorldRuntimeLifecycleService();
     const log = [];
+    const runtimeInstances = new Set();
     await service.rebuildPersistentRuntimeAfterRestore({
         worldRuntimeInstanceStateService: {
-            resetState() { log.push('instance'); }
+            resetState() {
+                log.push('instance');
+                runtimeInstances.clear();
+            }
         },
         worldRuntimePlayerLocationService: {
             resetState() { log.push('playerLocation'); }
@@ -645,6 +649,7 @@ async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
         },
         createInstance(input) {
             log.push(['createInstance', input.instanceId]);
+            runtimeInstances.add(input.instanceId);
         },
         getInstanceCount() {
             return 3;
@@ -657,11 +662,11 @@ async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
                 log.push(['warn', message]);
             },
         },
-        getInstanceRuntime() {
-            return null;
+        getInstanceRuntime(instanceId) {
+            return runtimeInstances.has(instanceId) ? { meta: { instanceId } } : null;
         },
         listInstanceEntries() {
-            return [];
+            return Array.from(runtimeInstances, (instanceId) => [instanceId, { meta: { instanceId } }]);
         },
         claimRecoverableCatalogInstances(input) {
             log.push(['claimRecoverableCatalogInstances', input]);
@@ -678,7 +683,11 @@ async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
     assert.equal(log.includes('heavyDomainRestore'), false);
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'createInstance' && entry[1] === 'public:catalog_yunlai'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'createInstance' && entry[1] === 'public:yunlai_town'));
-    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'claimRecoverableCatalogInstances' && entry[1]?.allowForceReclaim === true));
+    assert.equal(runtimeInstances.has('public:catalog_yunlai'), true);
+    assert.ok(log.some((entry) => Array.isArray(entry)
+        && entry[0] === 'claimRecoverableCatalogInstances'
+        && entry[1]?.allowForceReclaim === true
+        && entry[1]?.hydratePersistentSnapshot === false));
 }
 
 async function main() {
