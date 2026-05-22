@@ -80,14 +80,14 @@
 
 ### 第三阶段：架构级优化（扩容到目标规模必须，1-2 周）
 
-- [ ] **T-08** 自动战斗寻路路径缓存 + 限制搜索范围
+- [ ] **T-08** 自动战斗寻路路径缓存（消除每 tick 重复规划）
   - 文件：`packages/server/src/runtime/world/combat/world-runtime-auto-combat.service.ts`
-  - 文件：`packages/server/src/runtime/world/world-runtime.path-planning.helpers.ts`
-  - 改动：首次规划后缓存路径，每 tick 消费一步；目标移动/障碍变化时才重规划
-  - 改动：增加 `maxExpandedNodes` 限制（如 200），避免大地图全图搜索
-  - 注意：不能改为深度限制 BFS — 自动战斗需要绕过障碍物到达攻击范围，单步 BFS 无法绕障
+  - 背景：当前每 tick 对每个需要移动的自动战斗玩家调用完整 A*，结果作为 move 命令的 path 参数传入 applyMove（一个 tick 内沿路径走多格，受 movePoints 和地形代价限制，硬上限 20 格）
+  - 改动：缓存上一次寻路结果（path + targetPosition），下一 tick 检查目标是否移动 + 路径剩余部分是否仍可通行 → 有效则复用剩余路径，无效才重规划
+  - 改动：增加 `maxExpandedNodes` 限制（如 200），超出直接放弃追击
+  - 注意：不能简化为单步 BFS — 需要完整路径支持一个 tick 内多格移动
   - 验证：`pnpm verify:quick` + auto-combat smoke
-  - 预期：自动战斗寻路从每 tick 完整 A* 降为大部分 tick O(1) 路径消费
+  - 预期：大部分 tick 路径复用 O(路径长度验证)，仅目标移动时重规划
 
 - [ ] **T-09** stableShallowSignature 改为 FNV-1a 数值 hash
   - 文件：`packages/server/src/network/world-projector.helpers.ts`（stableShallowSignature）
