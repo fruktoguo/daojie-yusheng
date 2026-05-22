@@ -34,6 +34,19 @@ async function main(): Promise<void> {
       flushed.push(`time:${instanceId}`);
     },
   };
+  const deduped: string[] = [];
+  const dedupePersistence = {
+    saveContainerState: async (input: { instanceId: string; containerId?: unknown; sourceId?: unknown }) => {
+      deduped.push(`container_state:${input.instanceId}:${String(input.containerId ?? '')}:${String(input.sourceId ?? '')}`);
+    },
+    saveOverlayChunk: async (input: { instanceId: string; patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown }) => {
+      deduped.push(`overlay:${input.instanceId}:${String(input.patchKind ?? '')}:${String(input.chunkKey ?? '')}:${String(input.patchVersion ?? '')}`);
+    },
+    saveBuildingRoomFengShuiState: async (instanceId: string, state: unknown) => {
+      const record = state as { buildings?: Array<{ id?: string; cells?: unknown[] }>; rooms?: Array<{ id?: string }>; roomCells?: unknown[]; fengShui?: Array<{ roomId?: string }> };
+      deduped.push(`building:${instanceId}:${record.buildings?.map((entry) => `${entry.id}:${entry.cells?.length ?? 0}`).join(',') ?? ''}:${record.rooms?.map((entry) => entry.id).join(',') ?? ''}:${record.roomCells?.length ?? 0}:${record.fengShui?.map((entry) => entry.roomId).join(',') ?? ''}`);
+    },
+  };
 
   const scenarios: Array<{
     id: string;
@@ -153,6 +166,102 @@ async function main(): Promise<void> {
     assert.deepEqual(mixedFlushedDomains, ['monster_runtime']);
     assert.deepEqual(mixedRetriedDomains, ['time']);
     assert.equal(flushed.at(-1), 'monster_runtime:instance-mixed:1:0');
+
+    const dedupeTasks = [
+      {
+        scope: 'instance',
+        id: 'instance-dedupe-overlay',
+        domain: 'overlay',
+        priority: 'low',
+        latestRevision: 3,
+        ownershipEpoch: 1,
+        payloadJson: {
+          kind: 'instance_domain_state',
+          domain: 'overlay',
+          payload: [
+            { patchKind: 'tile', chunkKey: 'same', patchVersion: 1, patchPayload: { stale: true } },
+            { patchKind: 'tile', chunkKey: 'same', patchVersion: 2, patchPayload: { fresh: true } },
+          ],
+        },
+      },
+      {
+        scope: 'instance',
+        id: 'instance-dedupe-container',
+        domain: 'container_state',
+        priority: 'low',
+        latestRevision: 3,
+        ownershipEpoch: 1,
+        payloadJson: {
+          kind: 'instance_domain_state',
+          domain: 'container_state',
+          payload: [
+            { containerId: 'same', sourceId: 'old', entries: [] },
+            { containerId: 'same', sourceId: 'new', entries: [] },
+          ],
+        },
+      },
+      {
+        scope: 'instance',
+        id: 'instance-dedupe-building',
+        domain: 'building',
+        priority: 'low',
+        latestRevision: 3,
+        ownershipEpoch: 1,
+        payloadJson: {
+          kind: 'instance_domain_state',
+          domain: 'building',
+          payload: {
+            buildings: [
+              { id: 'b1', cells: [{ tileIndex: 1 }, { tileIndex: 1 }, { tileIndex: 2 }] },
+              { id: 'b1', cells: [{ tileIndex: 3 }] },
+            ],
+            rooms: [{ id: 'r1' }, { id: 'r1' }],
+            roomCells: [{ tileIndex: 7 }, { tileIndex: 7 }, { tileIndex: 8 }],
+            fengShui: [{ roomId: 'r1' }, { roomId: 'r1' }],
+          },
+        },
+      },
+    ] satisfies FlushTask[];
+    const dedupeFlushedDomains: string[] = [];
+    let dedupeProcessed = 0;
+    for (const dedupeTask of dedupeTasks) {
+      let claimed = false;
+      const dedupeLedger = {
+        isEnabled: () => true,
+        claimReadyFlushTasks: async (input: { scope: string }) => {
+          if (input.scope !== 'instance' || claimed) return [];
+          claimed = true;
+          return [dedupeTask];
+        },
+        markFlushTaskFlushed: async (task: FlushTask) => {
+          dedupeFlushedDomains.push(task.domain);
+          return true;
+        },
+        markFlushTasksRetry: async () => 0,
+        markFlushTaskRetry: async () => true,
+      };
+      const dedupeRuntime = new FlushTaskRuntimeService(
+        { listDirtyPlayerDomains: () => new Map() } as never,
+        {
+          instanceDomainPersistenceService: dedupePersistence,
+          listDirtyPersistentInstanceDomains: () => [],
+          getInstanceRuntime: () => null,
+        } as never,
+        { flushPlayerDomains: async () => true } as never,
+        dedupeLedger as never,
+        { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+        undefined,
+        dedupePersistence as never,
+      );
+      dedupeProcessed += await dedupeRuntime.runOnce(`instance-state-payload:dedupe:${dedupeTask.domain}`);
+    }
+    assert.equal(dedupeProcessed, 3);
+    assert.deepEqual(dedupeFlushedDomains, ['overlay', 'container_state', 'building']);
+    assert.deepEqual(deduped, [
+      'overlay:instance-dedupe-overlay:tile:same:2',
+      'container_state:instance-dedupe-container:same:new',
+      'building:instance-dedupe-building:b1:1:r1:2:r1',
+    ]);
 
     process.env.SERVER_RUNTIME_ROLE = 'api';
     process.env.SERVER_FLUSH_TASK_RUNTIME_MODE = 'off';

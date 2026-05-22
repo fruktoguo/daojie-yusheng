@@ -174,11 +174,26 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       return;
     }
     const rawBuildings = Array.isArray(state?.buildings) ? state.buildings : [];
-    const buildings = rawBuildings.map(normalizeBuildingPersistenceRow);
-    const rooms = Array.isArray(state?.rooms) ? state.rooms.map(normalizeRoomPersistenceRow) : [];
-    const buildingCells = rawBuildings.flatMap(normalizeBuildingCellPersistenceRows);
-    const roomCells = Array.isArray(state?.roomCells) ? state.roomCells.map(normalizeRoomCellPersistenceRow).filter((row) => normalizeRequiredString(row.room_id)) : [];
-    const fengShui = Array.isArray(state?.fengShui) ? state.fengShui.map(normalizeFengShuiPersistenceRow) : [];
+    const buildings = dedupeRecordRowsByKey(
+      rawBuildings.map(normalizeBuildingPersistenceRow),
+      (row) => normalizeRequiredString(row.building_id),
+    );
+    const rooms = dedupeRecordRowsByKey(
+      Array.isArray(state?.rooms) ? state.rooms.map(normalizeRoomPersistenceRow) : [],
+      (row) => normalizeRequiredString(row.room_id),
+    );
+    const buildingCells = dedupeRecordRowsByKey(
+      rawBuildings.flatMap(normalizeBuildingCellPersistenceRows),
+      (row) => normalizeRecordIntegerKey(row.tile_index),
+    );
+    const roomCells = dedupeRecordRowsByKey(
+      Array.isArray(state?.roomCells) ? state.roomCells.map(normalizeRoomCellPersistenceRow) : [],
+      (row) => normalizeRecordIntegerKey(row.tile_index),
+    ).filter((row) => normalizeRequiredString(row.room_id));
+    const fengShui = dedupeRecordRowsByKey(
+      Array.isArray(state?.fengShui) ? state.fengShui.map(normalizeFengShuiPersistenceRow) : [],
+      (row) => normalizeRequiredString(row.room_id),
+    );
     const buildingsJson = JSON.stringify(buildings);
     const buildingCellsJson = JSON.stringify(buildingCells);
     const roomsJson = JSON.stringify(rooms);
@@ -4468,6 +4483,27 @@ function normalizeNullableNumber(value: unknown): number | null {
 
 function normalizeNumberWithFallback(value: unknown, fallback: unknown): number {
   return normalizeNullableNumber(value) ?? normalizeNullableNumber(fallback) ?? 0;
+}
+
+function dedupeRecordRowsByKey<T extends Record<string, unknown>>(rows: T[], keyOf: (row: T) => string): T[] {
+  const byKey = new Map<string, T>();
+  const keyOrder: string[] = [];
+  for (const row of rows) {
+    const key = keyOf(row);
+    if (!key) {
+      continue;
+    }
+    if (!byKey.has(key)) {
+      keyOrder.push(key);
+    }
+    byKey.set(key, row);
+  }
+  return keyOrder.map((key) => byKey.get(key)).filter((row): row is T => row !== undefined);
+}
+
+function normalizeRecordIntegerKey(value: unknown): string {
+  const parsed = normalizeNullableInteger(value);
+  return parsed === null ? '' : String(parsed);
 }
 
 function normalizeBuildingPersistenceRow(value: unknown): Record<string, unknown> {

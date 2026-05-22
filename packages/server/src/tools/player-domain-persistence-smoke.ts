@@ -17,9 +17,11 @@ const databaseUrl = resolveServerDatabaseUrl();
 
 async function main(): Promise<void> {
   await assertInventoryAndWalletSnapshotsUseStaleKeyPruning();
+  await assertInventoryDuplicateSlotsAreReassigned();
   await assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts();
   await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
   await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
+  await assertAutoPreferenceEmptyOverwriteIsAllowed();
   await assertAssetDomainInvalidEntriesRefuseSilentPrune();
 
   if (!databaseUrl.trim()) {
@@ -29,7 +31,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE，且 wallet/market_storage/equipment 非法 entry 不会被静默跳过后触发 stale cleanup；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表、推进 recovery watermark，并验证运行时显式选项可清空最后一个 inventory/equipment/buff row',
+          answers: '无 DB 时已用 fake pool 验证 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook 快照保存不再发送裸整玩家 DELETE，inventory 重复 slot 会重排保留全部 item_instance_id，wallet/market_storage/equipment 非法 entry 不会被静默跳过后触发 stale cleanup，且 auto_battle_skill/auto_use_item_rule 可合法清空偏好列表；with-db 下 PlayerDomainPersistenceService 能把 presence 与快照投影写进分域表、推进 recovery watermark，并验证运行时显式选项可清空最后一个 inventory/equipment/buff row',
           excludes: '不证明 bootstrap 已切到分域恢复，也不证明域级 dirty/多 worker/真实 with-db release 全链路',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
         },
@@ -47,6 +49,7 @@ async function main(): Promise<void> {
   const buffClearPlayerId = `${playerId}_buff_clear`;
   const inventoryClearPlayerId = `${playerId}_inventory_clear`;
   const equipmentClearPlayerId = `${playerId}_equipment_clear`;
+  const autoPreferenceClearPlayerId = `${playerId}_auto_pref_clear`;
   const marketConflictOwnerId = `${playerId}_market_conflict_owner`;
   const now = Date.now();
   const databasePoolProvider = new DatabasePoolProvider();
@@ -66,6 +69,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, buffClearPlayerId);
     await cleanupPlayer(pool, inventoryClearPlayerId);
     await cleanupPlayer(pool, equipmentClearPlayerId);
+    await cleanupPlayer(pool, autoPreferenceClearPlayerId);
     await cleanupPlayer(pool, marketConflictOwnerId);
 
     await service.savePlayerPresence(playerId, {
@@ -1229,6 +1233,26 @@ async function main(): Promise<void> {
       throw new Error(`unexpected loadPlayerDomains wallet-only result: ${JSON.stringify(walletOnlyDomains)}`);
     }
 
+    await service.savePlayerAutoBattleSkills(
+      autoPreferenceClearPlayerId,
+      [{ skillId: 'skill.auto_pref_seed', enabled: true, skillEnabled: true, autoBattleOrder: 0 }],
+      { versionSeed: now + 500 },
+    );
+    await service.savePlayerAutoUseItemRules(
+      autoPreferenceClearPlayerId,
+      [{ itemId: 'pill.auto_pref_seed', conditionPayload: [{ type: 'hp_below_ratio', value: 0.5 }] }],
+      { versionSeed: now + 501 },
+    );
+    await service.savePlayerAutoBattleSkills(autoPreferenceClearPlayerId, [], { versionSeed: now + 502 });
+    await service.savePlayerAutoUseItemRules(autoPreferenceClearPlayerId, [], { versionSeed: now + 503 });
+    const autoPreferenceRowsAfterClear = await Promise.all([
+      fetchRows(pool, 'SELECT skill_id FROM player_auto_battle_skill WHERE player_id = $1', [autoPreferenceClearPlayerId]),
+      fetchRows(pool, 'SELECT item_id FROM player_auto_use_item_rule WHERE player_id = $1', [autoPreferenceClearPlayerId]),
+    ]);
+    if (autoPreferenceRowsAfterClear[0].length !== 0 || autoPreferenceRowsAfterClear[1].length !== 0) {
+      throw new Error(`auto preference empty overwrite did not clear rows: ${JSON.stringify(autoPreferenceRowsAfterClear)}`);
+    }
+
     console.log(
       JSON.stringify(
         {
@@ -1236,7 +1260,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1259,6 +1283,7 @@ async function main(): Promise<void> {
           inventoryEmptyProjectionExplicitOptionSafe: true,
           equipmentEmptyProjectionExplicitOptionSafe: true,
           buffEmptyProjectionExplicitOptionSafe: true,
+          autoPreferenceEmptyOverwriteSafe: true,
           marketStorageCrossOwnerConflictRejected,
         },
         null,
@@ -1273,6 +1298,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, buffClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, inventoryClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, equipmentClearPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, autoPreferenceClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, marketConflictOwnerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
@@ -1549,6 +1575,58 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
   }
 }
 
+async function assertInventoryDuplicateSlotsAreReassigned(): Promise<void> {
+  let inventoryInsertPayload: Array<Record<string, unknown>> = [];
+  const fakeClient = {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
+      if (
+        sql.includes('SELECT item_instance_id, slot_index, item_id, count, raw_payload, locked_by')
+        && sql.includes('FROM player_inventory_item')
+      ) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (sql.includes('INSERT INTO player_inventory_item') && Array.isArray(params) && typeof params[1] === 'string') {
+        inventoryInsertPayload = JSON.parse(params[1]) as Array<Record<string, unknown>>;
+        return { rows: [], rowCount: inventoryInsertPayload.length };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.savePlayerInventoryItems(
+    'player:duplicate-slot',
+    [
+      { itemId: 'item.slot_a', count: 1, slotIndex: 5, itemInstanceId: 'inv:slot:a', rawPayload: { itemId: 'item.slot_a', count: 1 } },
+      { itemId: 'item.slot_b', count: 1, slotIndex: 5, itemInstanceId: 'inv:slot:b', rawPayload: { itemId: 'item.slot_b', count: 1 } },
+      { itemId: 'item.slot_c', count: 1, slotIndex: 0, itemInstanceId: 'inv:slot:c', rawPayload: { itemId: 'item.slot_c', count: 1 } },
+      { itemId: 'item.slot_d', count: 1, slotIndex: 0, itemInstanceId: 'inv:slot:d', rawPayload: { itemId: 'item.slot_d', count: 1 } },
+    ],
+    { versionSeed: 1 },
+  );
+
+  const slots = inventoryInsertPayload.map((row) => Number(row.slot_index));
+  const itemIds = inventoryInsertPayload.map((row) => String(row.item_id)).sort();
+  if (
+    inventoryInsertPayload.length !== 4
+    || new Set(slots).size !== 4
+    || itemIds.join(',') !== 'item.slot_a,item.slot_b,item.slot_c,item.slot_d'
+  ) {
+    throw new Error(`duplicate inventory slots were not reassigned without dropping items: ${JSON.stringify(inventoryInsertPayload)}`);
+  }
+}
+
 async function assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts(): Promise<void> {
   const service = new PlayerDomainPersistenceService(
     null,
@@ -1763,6 +1841,50 @@ async function assertEmptyCollectionSnapshotsDoNotIssueDeletes(): Promise<void> 
 
   if (queries.some((sql) => sql.includes('DELETE FROM player_wallet') || sql.includes('DELETE FROM player_market_storage_item') || sql.includes('DELETE FROM player_equipment_slot'))) {
     throw new Error(`empty collection writes should not emit destructive deletes: ${queries.join('\n---\n')}`);
+  }
+}
+
+async function assertAutoPreferenceEmptyOverwriteIsAllowed(): Promise<void> {
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string): Promise<{ rows: unknown[]; rowCount: number }> {
+      queries.push(sql);
+      if (
+        sql.includes('SELECT 1 AS exists')
+        && (sql.includes('player_auto_battle_skill') || sql.includes('player_auto_use_item_rule'))
+      ) {
+        return { rows: [{ exists: 1 }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.savePlayerAutoBattleSkills('player:auto-pref-empty', [], { versionSeed: 1 });
+  await service.savePlayerAutoUseItemRules('player:auto-pref-empty', [], { versionSeed: 2 });
+
+  const normalizedQueries = queries.map((query) => query.replace(/\s+/g, ' ').trim());
+  for (const tableName of ['player_auto_battle_skill', 'player_auto_use_item_rule']) {
+    if (normalizedQueries.some((query) => query.includes(`SELECT 1 AS exists FROM ${tableName}`))) {
+      throw new Error(`auto preference empty overwrite should bypass asset empty-overwrite guard: ${tableName}`);
+    }
+    const hasStaleKeyDelete = normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
+      && query.includes('jsonb_to_recordset')
+      && query.includes('NOT EXISTS'));
+    if (!hasStaleKeyDelete) {
+      throw new Error(`auto preference empty overwrite missing stale-key delete: ${tableName}`);
+    }
   }
 }
 

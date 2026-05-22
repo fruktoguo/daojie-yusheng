@@ -20,6 +20,7 @@ function createPrototypePayload<T extends Record<string, unknown>>(
 
 async function main(): Promise<void> {
   await assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning();
+  await assertBuildingRoomFengShuiSnapshotDedupeBySqlKeys();
   await assertContainerAndOverlaySnapshotsUseStaleKeyPruning();
   await assertInstanceStateSnapshotsUseStaleKeyPruning();
 
@@ -30,7 +31,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: '无 DB 时已用 fake pool 验证 building/room/fengshui、container、overlay、tile_resource、tile_damage、runtime_tile、temporary_tile、ground_item 快照保存不再发送裸 DELETE 整实例 SQL，而是 jsonb_to_recordset 当前快照 key 后删除 stale key；with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
+          answers: '无 DB 时已用 fake pool 验证 building/room/fengshui、container、overlay、tile_resource、tile_damage、runtime_tile、temporary_tile、ground_item 快照保存不再发送裸 DELETE 整实例 SQL，而是 jsonb_to_recordset 当前快照 key 后删除 stale key，且 building/room/fengshui 会按最终 SQL 唯一键去重；with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
           excludes: '无 DB 时不证明真实 PostgreSQL 回读、完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'release:proof:with-db.instance-domain-persistence',
         },
@@ -1076,6 +1077,63 @@ async function assertBuildingRoomFengShuiSnapshotUsesStaleKeyPruning(): Promise<
       `building/room/fengshui snapshot missing stale-key delete guard for ${tableName}`,
     );
   }
+}
+
+async function assertBuildingRoomFengShuiSnapshotDedupeBySqlKeys(): Promise<void> {
+  const payloads: Array<{ table: string; rows: Array<Record<string, unknown>> }> = [];
+  const fakeClient = {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[] }> {
+      const table = [
+        'instance_building_state',
+        'instance_building_cell',
+        'instance_room_state',
+        'instance_room_cell',
+        'instance_fengshui_state',
+      ].find((candidate) => sql.includes(`INSERT INTO ${candidate}`));
+      if (table && Array.isArray(params) && typeof params[1] === 'string') {
+        payloads.push({ table, rows: JSON.parse(params[1]) as Array<Record<string, unknown>> });
+      }
+      return { rows: [] };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new InstanceDomainPersistenceService(null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.saveBuildingRoomFengShuiState('instance:dedupe', {
+    buildings: [
+      { id: 'building:a', defId: 'wall', x: 1, y: 1, cells: [{ tileIndex: 10, x: 1, y: 1 }, { tileIndex: 11, x: 2, y: 1 }] },
+      { id: 'building:b', defId: 'wall', x: 2, y: 1, cells: [{ tileIndex: 10, x: 2, y: 1 }] },
+      { id: 'building:a', defId: 'wall.v2', x: 3, y: 1, cells: [{ tileIndex: 12, x: 3, y: 1 }] },
+    ],
+    rooms: [{ id: 'room:a', minX: 0 }, { id: 'room:a', minX: 1 }],
+    roomCells: [{ roomId: 'room:a', tileIndex: 20, x: 1, y: 1 }, { roomId: 'room:b', tileIndex: 20, x: 2, y: 1 }],
+    fengShui: [{ roomId: 'room:a', score: 1 }, { roomId: 'room:a', score: 2 }],
+  });
+
+  assertUniquePayloadKeys(payloads, 'instance_building_state', (row) => String(row.building_id ?? ''));
+  assertUniquePayloadKeys(payloads, 'instance_building_cell', (row) => String(row.tile_index ?? ''));
+  assertUniquePayloadKeys(payloads, 'instance_room_state', (row) => String(row.room_id ?? ''));
+  assertUniquePayloadKeys(payloads, 'instance_room_cell', (row) => String(row.tile_index ?? ''));
+  assertUniquePayloadKeys(payloads, 'instance_fengshui_state', (row) => String(row.room_id ?? ''));
+}
+
+function assertUniquePayloadKeys(
+  payloads: Array<{ table: string; rows: Array<Record<string, unknown>> }>,
+  table: string,
+  keyOf: (row: Record<string, unknown>) => string,
+): void {
+  const rows = payloads.find((payload) => payload.table === table)?.rows ?? [];
+  assert.equal(rows.length, new Set(rows.map(keyOf)).size, `${table} payload still contains duplicate SQL keys: ${JSON.stringify(rows)}`);
 }
 
 async function assertContainerAndOverlaySnapshotsUseStaleKeyPruning(): Promise<void> {

@@ -3959,7 +3959,7 @@ async function replacePlayerInventoryItems(
     }
     rowsByInstanceId.set(itemInstanceId, row);
   }
-  const rows = Array.from(rowsByInstanceId.values());
+  const rows = assignUniqueInventorySlots(Array.from(rowsByInstanceId.values()));
   if (rows.length === 0) {
     if (options.allowEmptyOverwrite !== true) {
       await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, 0, 'inventory');
@@ -4177,6 +4177,39 @@ async function replacePlayerInventoryItems(
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
     }
   }
+}
+
+function assignUniqueInventorySlots(rows: PersistedInventoryRow[]): PersistedInventoryRow[] {
+  const occupiedSlots = new Set<number>();
+  let nextVisibleSlot = 0;
+  let nextLockedSlot = -1;
+  return rows.map((row) => {
+    const visible = row.locked_by == null;
+    const requestedSlot = Number.isFinite(row.slot_index) ? Math.trunc(row.slot_index) : 0;
+    if (
+      (visible ? requestedSlot >= 0 : requestedSlot < 0)
+      && !occupiedSlots.has(requestedSlot)
+    ) {
+      occupiedSlots.add(requestedSlot);
+      return row;
+    }
+    if (visible) {
+      while (occupiedSlots.has(nextVisibleSlot)) {
+        nextVisibleSlot += 1;
+      }
+      const reassigned = { ...row, slot_index: nextVisibleSlot };
+      occupiedSlots.add(nextVisibleSlot);
+      nextVisibleSlot += 1;
+      return reassigned;
+    }
+    while (occupiedSlots.has(nextLockedSlot)) {
+      nextLockedSlot -= 1;
+    }
+    const reassigned = { ...row, slot_index: nextLockedSlot };
+    occupiedSlots.add(nextLockedSlot);
+    nextLockedSlot -= 1;
+    return reassigned;
+  });
 }
 
 
@@ -4992,6 +5025,8 @@ async function replacePlayerAutoBattleSkills(
     normalizedRows.map(({ skill_id }) => ({ skill_id })),
     'skill_id varchar(120)',
     'incoming.skill_id = target.skill_id',
+    // 自动战斗技能列表是玩家偏好，清空列表表示关闭配置，不属于资产/进度空覆盖事故。
+    { allowEmptyOverwrite: true },
   );
 }
 
@@ -5034,6 +5069,8 @@ async function replacePlayerAutoUseItemRules(
     normalizedRows.map(({ item_id }) => ({ item_id })),
     'item_id varchar(120)',
     'incoming.item_id = target.item_id',
+    // 自动用药规则是玩家偏好，清空列表表示关闭配置，不属于资产/进度空覆盖事故。
+    { allowEmptyOverwrite: true },
   );
 }
 

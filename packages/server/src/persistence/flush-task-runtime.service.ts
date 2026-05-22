@@ -486,6 +486,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       const attemptKey = playerTaskKey(task);
       try {
+        const payloadProcessed = await this.processPlayerPayloadTaskGroup(task.id, [task]);
+        if (payloadProcessed !== null) {
+          processed += payloadProcessed;
+          this.failureAttempts.delete(attemptKey);
+          continue;
+        }
         const flushed = await this.playerPersistenceFlushService.flushPlayerDomains(task.id, [task.domain]);
         if (flushed === false) {
           await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
@@ -592,7 +598,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         return;
       }
       case 'overlay': {
-        const chunks = Array.isArray(payload.payload) ? payload.payload : [];
+        const chunks = dedupeByLast(Array.isArray(payload.payload) ? payload.payload : [], (chunk) => {
+          const record = chunk as { patchKind?: unknown; chunkKey?: unknown };
+          return keyedString(record.patchKind, record.chunkKey);
+        });
         for (const chunk of chunks) {
           const record = chunk as { patchKind?: unknown; chunkKey?: unknown; patchVersion?: unknown; patchPayload?: unknown };
           await persistence.saveOverlayChunk?.({ instanceId, patchKind: record.patchKind, chunkKey: record.chunkKey, patchVersion: record.patchVersion, patchPayload: record.patchPayload });
@@ -609,7 +618,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         return;
       }
       case 'container_state': {
-        const states = Array.isArray(payload.payload) ? payload.payload : [];
+        const states = dedupeByLast(Array.isArray(payload.payload) ? payload.payload : [], (state) => {
+          const record = state as { containerId?: unknown };
+          return normalizeString(record.containerId);
+        });
         for (const state of states) {
           const record = state as { containerId?: unknown; sourceId?: unknown };
           await persistence.saveContainerState?.({ instanceId, containerId: record.containerId, sourceId: record.sourceId, statePayload: state });
@@ -619,7 +631,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       case 'building':
       case 'room':
       case 'fengshui': {
-        await persistence.saveBuildingRoomFengShuiState?.(instanceId, payload.payload);
+        await persistence.saveBuildingRoomFengShuiState?.(
+          instanceId,
+          normalizeBuildingRoomFengShuiPayload(payload.payload),
+        );
         return;
       }
       case 'time': {
@@ -1005,7 +1020,13 @@ function normalizeDomains(domains: Iterable<string> | null | undefined): Set<str
 }
 
 function normalizeString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  return '';
 }
 
 function normalizeNullableString(value: unknown): string | null {
@@ -1035,6 +1056,60 @@ function normalizeInt(value: unknown, fallback: number, min: number, max: number
 
 function readInt(primary: string, fallbackKey: string, fallback: number, min: number, max: number): number {
   return normalizeInt(readTrimmedEnv(primary, fallbackKey), fallback, min, max);
+}
+
+function normalizeBuildingRoomFengShuiPayload(payload: unknown): Record<string, unknown> {
+  const source = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  const buildings = dedupeByLast(Array.isArray(source.buildings) ? source.buildings : [], (entry) => {
+    const record = entry as { id?: unknown; buildingId?: unknown; building_id?: unknown };
+    return normalizeString(record.id) || normalizeString(record.buildingId) || normalizeString(record.building_id);
+  });
+  return {
+    ...source,
+    buildings: buildings.map((entry) => {
+      const record = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {};
+      return {
+        ...record,
+        cells: dedupeByLast(Array.isArray(record.cells) ? record.cells : [], (cell) => {
+          const cellRecord = cell as { tileIndex?: unknown; tile_index?: unknown };
+          return normalizeString(cellRecord.tileIndex) || normalizeString(cellRecord.tile_index);
+        }),
+      };
+    }),
+    rooms: dedupeByLast(Array.isArray(source.rooms) ? source.rooms : [], (entry) => {
+      const record = entry as { id?: unknown; roomId?: unknown; room_id?: unknown };
+      return normalizeString(record.id) || normalizeString(record.roomId) || normalizeString(record.room_id);
+    }),
+    roomCells: dedupeByLast(Array.isArray(source.roomCells) ? source.roomCells : [], (entry) => {
+      const record = entry as { tileIndex?: unknown; tile_index?: unknown };
+      return normalizeString(record.tileIndex) || normalizeString(record.tile_index);
+    }),
+    fengShui: dedupeByLast(Array.isArray(source.fengShui) ? source.fengShui : [], (entry) => {
+      const record = entry as { roomId?: unknown; room_id?: unknown };
+      return normalizeString(record.roomId) || normalizeString(record.room_id);
+    }),
+  };
+}
+
+function dedupeByLast<T>(items: T[], keyOf: (item: T) => string): T[] {
+  const byKey = new Map<string, T>();
+  const keyOrder: string[] = [];
+  for (const item of items) {
+    const key = keyOf(item);
+    if (!key) {
+      continue;
+    }
+    if (!byKey.has(key)) {
+      keyOrder.push(key);
+    }
+    byKey.set(key, item);
+  }
+  return keyOrder.map((key) => byKey.get(key)).filter((item): item is T => item !== undefined);
+}
+
+function keyedString(...parts: unknown[]): string {
+  const normalized = parts.map((part) => normalizeString(part));
+  return normalized.every((part) => part.length > 0) ? normalized.join('\u0000') : '';
 }
 
 async function runConcurrent<T>(
