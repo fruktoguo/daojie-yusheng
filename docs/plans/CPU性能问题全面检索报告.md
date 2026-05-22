@@ -8,11 +8,11 @@
 
 ## 一、致命级（扩容硬阻塞）
 
-### 1.1 实例 tick 全串行 + 逐玩家隔离调用（S26）
+### 1.1 实例 tick 主体仍串行 + 逐玩家隔离调用（S26）
 
 - **文件**：`runtime/world/world-runtime-instance-tick-orchestration.service.ts`
-- **现象**：所有 instance 在单 `for` 循环内串行 tick，无并行化
-- **影响**：10000 实例 × 1Hz 串行 tick 总耗时远超 1s，世界推进直接停滞
+- **现象**：Instance Worker Pool 已启用（min(N_cpu-2, 6) 个 worker），但**只卸载了怪物 AI intent 预计算**（`precomputeInstanceWorkerIntents` 通过 `Promise.all` 并行提交）。实例 tick 的主体逻辑（`tickOnce`、玩家推进、建筑、阵法、资源流、临时地块等 80%+ 工作量）仍在主线程的串行 `for` 循环中执行。
+- **影响**：10000 实例 × 1Hz 串行 tick 主体耗时可能超 1s，世界推进停滞
 
 **深度分析 — 每 tick 临时对象分配约 38.5 万个**：
 
@@ -254,7 +254,7 @@ for (const playerId of currentPlayerIds) {
 
 ### 5.2 Worker 剩余问题
 
-- 实例 tick 主循环仍为串行 for 循环（worker 只处理 monster AI intent 预计算）
+- Instance Worker 只卸载了怪物 AI intent 预计算（`precomputeInstanceWorkerIntents`），实例 tick 主体（`tickOnce`、玩家推进、建筑、阵法等）仍在主线程串行 for 循环
 - 主线程仍直接调用 `findOptimalPathOnMap`，未统一走 encoding worker
 - persistence worker 只有 2 个，5000 玩家场景可能不够（建议扩到 4）
 - postMessage 结构化克隆是隐式开销，大型 AOI payload 应考虑 transferable
@@ -320,14 +320,14 @@ for (const playerId of currentPlayerIds) {
 | 系统 | 耗时估算 | 占比 |
 |------|----------|------|
 | 自动战斗寻路（A*） | 900ms | 38% |
-| 怪物 AI tickOnce | 1000ms | 42% |
+| 怪物 AI tickOnce（主线程串行部分） | 1000ms | 42% |
 | 导航寻路 | 300ms | 13% |
 | 自动战斗目标选择 | 150ms | 6% |
 | 网络同步 flushConnectedPlayers | 200-400ms | 12% |
 | 玩家子阶段推进 | 100-200ms | 6% |
 | **合计（无优化）** | **~2650-2950ms** | **远超 1000ms 预算** |
 
-> 注：部分已通过 Worker 卸载（FOV、encoding），实际主线程负载低于上表。但寻路和怪物 AI 仍在主线程。
+> 注：怪物 AI intent 预计算已通过 Instance Worker Pool 并行卸载（`Promise.all`），但 `tickOnce` 内部的怪物行动应用、buff tick、hp/qi 恢复、技能选择仍在主线程串行执行。寻路也部分走 Encoding Worker，但自动战斗和导航的主线程直接调用仍存在。
 
 ### 9.2 GC 压力估算
 
