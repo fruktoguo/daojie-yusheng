@@ -163,14 +163,6 @@ async function assertWorkerRoleStartsFlushConsumer(): Promise<void> {
   const barrier = new StartupBarrierService();
   const order: string[] = [];
 
-  const flushTaskRuntimeService = {
-    startForLifecycleCoordinator() {
-      order.push('flush-task');
-      assert.equal(barrier.isWorkerOpen(), true);
-      assert.equal(barrier.isFlushOpen(), false);
-    },
-  };
-
   const backgroundWorkerRuntimeService = {
     startForLifecycleCoordinator() {
       order.push('worker');
@@ -184,7 +176,7 @@ async function assertWorkerRoleStartsFlushConsumer(): Promise<void> {
     barrier,
     undefined,
     undefined,
-    flushTaskRuntimeService as never,
+    undefined,
     undefined,
     undefined,
     backgroundWorkerRuntimeService as never,
@@ -193,7 +185,9 @@ async function assertWorkerRoleStartsFlushConsumer(): Promise<void> {
 
   await coordinator.start();
 
-  assert.deepEqual(order, ['flush-task', 'worker']);
+  // worker 角色不调用 flushTaskRuntimeService.startForLifecycleCoordinator（它是 no-op），
+  // flush 消费由 BackgroundWorkerRuntimeService 的 timer 通过 schedulerManager.runTask 驱动。
+  assert.deepEqual(order, ['worker']);
   assert.equal(barrier.isTrafficOpen(), false);
   assert.equal(barrier.isWorkerOpen(), true);
   assert.equal(status.getSnapshot().ready, true);
