@@ -658,6 +658,9 @@ services:
       start_period: 10s
     deploy:
       replicas: 1
+      resources:
+        limits:
+          memory: 2G
       update_config:
         parallelism: 1
         delay: 10s
@@ -746,6 +749,9 @@ services:
       SERVER_FLUSH_TASK_RUNTIME_MODE: worker
     deploy:
       replicas: ${SERVER_WORKER_REPLICAS:-1}
+      resources:
+        limits:
+          memory: 2G
       update_config:
         parallelism: 1
         delay: 10s
