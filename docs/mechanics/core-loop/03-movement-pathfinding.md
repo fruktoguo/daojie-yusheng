@@ -24,8 +24,10 @@ getEffectiveMoveSpeed(moveSpeed):
 
 ```ts
 getMovePointsPerTick(moveSpeed):
-  return max(1, round(100 + max(0, effectiveMoveSpeed)))
+  return max(1, round(100 + max(0, moveSpeed)))
 ```
+
+> 注：调用方通常先调用 `getEffectiveMoveSpeed(rawMoveSpeed)` 做软上限衰减，再将结果传入此函数。
 
 ### 最大可存储移动点数
 
@@ -44,7 +46,7 @@ getMaxStoredMovePoints(moveSpeed, requiredMovePoints):
 |------|------|------|------|
 | road | 30 | trail | 50 |
 | grass | 80 | cloud_floor | 90 |
-| veranda | 90 | floor/door/portal/stairs | 100 |
+| veranda | 90 | floor/door/portal/stairs/stone_stairs | 100 |
 | hill | 120 | mud | 200 |
 | swamp | 300 | cold_bog | 360 |
 | wall/window/cliff/water/cloud/void | 400 | tree/bamboo/stone | 400 |

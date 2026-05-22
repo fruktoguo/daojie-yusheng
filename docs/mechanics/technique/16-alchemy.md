@@ -2,14 +2,14 @@
 
 ## 核心常量
 
-源文件: `packages/shared/src/constants/gameplay/craft.ts`
+源文件: `packages/shared/src/constants/gameplay/craft.ts`, `packages/server/src/runtime/craft/craft-panel-runtime.service.ts`
 
-| 常量 | 值 | 说明 |
-|------|-----|------|
-| ALCHEMY_PREPARATION_TICKS | 10 | 准备阶段息数 |
-| ALCHEMY_FURNACE_OUTPUT_COUNT | 6 | 丹炉单次产出数量 |
-| ALCHEMY_MAX_PRESET_COUNT | 24 | 预设最大数量 |
-| ALCHEMY_INTERRUPT_PAUSE_TICKS | 10 | 被打断暂停息数 |
+| 常量 | 值 | 说明 | 源文件 |
+|------|-----|------|--------|
+| ALCHEMY_PREPARATION_TICKS | 10 | 准备阶段息数 | craft.ts |
+| ALCHEMY_FURNACE_OUTPUT_COUNT | 6 | 丹炉单次产出数量 | craft.ts |
+| ALCHEMY_MAX_PRESET_COUNT | 24 | 预设最大数量 | craft-panel-runtime.service.ts |
+| ALCHEMY_INTERRUPT_PAUSE_TICKS | 10 | 被打断暂停息数 | craft-panel-runtime.service.ts |
 
 ## 炼丹成功率公式
 

@@ -25,7 +25,8 @@
 | leader | 宗主 |
 | deputy | 副宗主 |
 | elder | 长老 |
-| member | 弟子 |
+| inner | 内门弟子 |
+| outer | 外门弟子 |
 | labor | 杂役 |
 | supreme_elder | 太上长老 |
 
@@ -40,8 +41,8 @@
 ### 默认权限分配
 
 - leader/deputy: 全部权限
-- elder: 仅 guardian
-- member/labor/supreme_elder: 无权限
+- elder/supreme_elder: 仅 guardian
+- inner/outer/labor: 无权限
 
 ## 宗门状态
 

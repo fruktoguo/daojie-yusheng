@@ -5,10 +5,11 @@
 源文件: `packages/shared/src/numeric.ts`
 
 ```typescript
-ratioValue(value, divisor) = value / (value + divisor)
-// 正值: value / (value + divisor)，收益递减
-// 零值: 返回 0
-// divisor ≤ 0: 返回 1（正值）或 -1（负值）
+ratioValue(value, divisor):
+  if value === 0: return 0
+  if divisor ≤ 0: return value > 0 ? 1 : -1
+  if value > 0: return value / (value + divisor)   // 正值，收益递减
+  if value < 0: return -value / divisor            // 负值，绝对值除以除数
 
 DEFAULT_RATIO_DIVISOR = 100
 ```

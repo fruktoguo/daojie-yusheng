@@ -8,7 +8,7 @@
 | CRAFT_SKILL_LEVEL_DECAY_RATE | 0.95 | 同上 |
 | CRAFT_SKILL_FAILURE_EXP_RATE | 0.25 | 同上 |
 | CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL | 20 | 同上 |
-| DEFAULT_CRAFT_EXP_TO_NEXT | 60 | 同上 |
+| DEFAULT_CRAFT_EXP_TO_NEXT | 60 | `packages/server/src/runtime/craft/craft-skill-exp.helpers.ts` |
 
 源文件：`packages/server/src/runtime/craft/craft-skill-exp.helpers.ts`
 
@@ -28,8 +28,11 @@ referenceLevel = min(skillLevel, targetLevel)
 successGainPerAttempt = computeTimedCraftSkillExp(expToNext(refLevel), refLevel, baseActionTicks, successMultiplier)
 failureGainPerAttempt = computeTimedCraftSkillExp(expToNext(refLevel), refLevel, baseActionTicks, 0.25)
 baseGain = (successGain × successCount + failureGain × failureCount) / totalAttempts
-finalGain = round(baseGain × earlyLevelMultiplier)
+finalGainRaw = baseGain × earlyLevelMultiplier
+finalGain = finalGainRaw > 0 ? max(1, round(finalGainRaw)) : 0  // 正值保底为1
 ```
+
+> 注：前期补偿倍率中的 `level` 使用的是玩家当前技能等级（normalizedSkillLevel），而非 referenceLevel。
 
 ### 前期补偿倍率
 
