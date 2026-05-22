@@ -65,7 +65,7 @@
   - 验证：`pnpm verify:quick` + 新增 smoke（降频/恢复/补偿正确性）
   - 预期：10000 实例中 80% 无玩家 → tick 循环大幅减少
 
-- [ ] **T-05** 接入 AsyncPathfindingService（导航寻路走 Worker）
+- [x] **T-05** 接入 AsyncPathfindingService（导航寻路走 Worker）
   - 文件：`packages/server/src/runtime/world/world-runtime-navigation.service.ts`
   - **关键约束**（链路验证发现）：
     - `materializeNavigationCommands` 当前是同步函数，需改为 async

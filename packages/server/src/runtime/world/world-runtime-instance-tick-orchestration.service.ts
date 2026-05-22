@@ -249,7 +249,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             return 0;
         }
         this.runIsolatedSyncOperation(deps, 'process_pending_respawns', { worldTick: deps.tick }, () => deps.processPendingRespawns());
-        this.runIsolatedSyncOperation(deps, 'materialize_navigation_commands', { worldTick: deps.tick }, () => deps.materializeNavigationCommands());
+        await this.runIsolatedOperation(deps, 'materialize_navigation_commands', { worldTick: deps.tick }, () => deps.materializeNavigationCommands());
         if (typeof deps.materializeAutoUsePills === 'function') {
             this.runIsolatedSyncOperation(deps, 'materialize_auto_use_pills', { worldTick: deps.tick }, () => deps.materializeAutoUsePills());
         }

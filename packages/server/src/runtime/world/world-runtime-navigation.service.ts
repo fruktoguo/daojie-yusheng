@@ -7,10 +7,11 @@
  * 寻路与导航意图服务
  * 管理玩家寻路目标设置、路径规划、跨图导航和导航中断
  */
-import { Inject, Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { isServerNextMovementDebugEnabled, logServerNextMovement } from '../../debug/movement-debug';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
+import { AsyncPathfindingService } from './async-pathfinding.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
@@ -42,6 +43,11 @@ export class WorldRuntimeNavigationService {
 
     playerRuntimeService;
     /**
+ * asyncPathfindingService：异步寻路服务引用（T-05）。
+ */
+
+    asyncPathfindingService;
+    /**
  * logger：日志器引用。
  */
 
@@ -61,9 +67,11 @@ export class WorldRuntimeNavigationService {
     constructor(
         @Inject(MapTemplateRepository) templateRepository: any,
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Optional() @Inject(AsyncPathfindingService) asyncPathfindingService?: AsyncPathfindingService,
     ) {
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
+        this.asyncPathfindingService = asyncPathfindingService ?? null;
     }
     /**
  * clearNavigationIntent：执行clear导航Intent相关逻辑。
@@ -308,7 +316,7 @@ export class WorldRuntimeNavigationService {
  * @returns 无返回值，直接更新materialize导航Command相关状态。
  */
 
-    materializeNavigationCommands(deps) {
+    async materializeNavigationCommands(deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.navigationIntents.size === 0) {
