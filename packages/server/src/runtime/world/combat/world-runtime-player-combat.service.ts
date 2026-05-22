@@ -381,6 +381,11 @@ export class WorldRuntimePlayerCombatService {
             }
             await this.applyPvPKillRewards(killer, victim, deathSite, deps);
         }
+        if (isOfflineRuntimePlayer(victim)
+            && typeof deps.worldRuntimePlayerCombatOutcomeService?.removeOfflineDefeatedPlayer === 'function') {
+            deps.worldRuntimePlayerCombatOutcomeService.removeOfflineDefeatedPlayer(playerId, deps);
+            return;
+        }
         deps.clearPendingCommand(playerId);
         deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);
     }
@@ -514,6 +519,10 @@ function resolvePlayerDeathSite(victim: any, deps: any) {
         x: victim.x,
         y: victim.y,
     };
+}
+
+function isOfflineRuntimePlayer(player: any) {
+    return !player?.sessionId || (typeof player.sessionId === 'string' && !player.sessionId.trim());
 }
 
 function pushShaDeathPenaltyMessages(deps: any, playerId: string, deathPenalty: any) {

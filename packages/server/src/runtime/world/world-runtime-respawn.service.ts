@@ -62,7 +62,7 @@ export class WorldRuntimeRespawnService {
     }
 
     /** 离线玩家被击杀后移出世界，标记为彻底离线。 */
-    private removeOfflineDefeatedPlayer(playerId: string, deps) {
+    removeOfflineDefeatedPlayer(playerId: string, deps) {
         const previous = deps.getPlayerLocation(playerId);
         if (previous) {
             const previousInstance = deps.getInstanceRuntime(previous.instanceId);
@@ -73,6 +73,7 @@ export class WorldRuntimeRespawnService {
         if (typeof deps.clearPendingCommand === 'function') {
             deps.clearPendingCommand(playerId);
         }
+        deps.worldRuntimeGmQueueService?.clearPendingRespawn?.(playerId);
         // 结算离线收益并移除运行时
         if (typeof this.playerRuntimeService.finalizeOfflineGainSessionForPlayer === 'function') {
             const player = this.playerRuntimeService.getPlayer(playerId);

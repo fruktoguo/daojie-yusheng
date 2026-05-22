@@ -77,6 +77,16 @@ export class WorldRuntimePlayerCombatOutcomeService {
         this.worldRuntimeRespawnService.processPendingRespawns(deps);
     }
     /**
+ * removeOfflineDefeatedPlayer：离线玩家死亡后立即移出世界，阻断同帧重复击倒。
+ * @param playerId 玩家 ID。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新离线死亡收敛状态。
+ */
+
+    removeOfflineDefeatedPlayer(playerId, deps) {
+        this.worldRuntimeRespawnService.removeOfflineDefeatedPlayer(playerId, deps);
+    }
+    /**
  * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。

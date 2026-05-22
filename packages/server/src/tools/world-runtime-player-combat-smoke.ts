@@ -13,6 +13,7 @@ async function main(): Promise<void> {
   await testPvPLootDurableGrant();
   await testPvPLootRequiresDurableContext();
   await testPvPKillClearsMatchedRetaliateTarget();
+  await testOfflineDefeatRemovesRuntimeImmediately();
   await testCombatSemanticAuditEvents();
   console.log(JSON.stringify({
     ok: true,
@@ -20,6 +21,81 @@ async function main(): Promise<void> {
     answers: '怪物掉落直入背包与 PvP 血精奖励现在都会走 grantInventoryItems durable 主链；缺少 durable 上下文时 fail closed，不再回退到运行态背包；只有 durable 提交失败或背包满才落地；PvP 击杀时若击杀者当前仇敌正是死者，会立即清掉该仇敌 ID；真实怪物击杀、经验、掉落和玩家死亡副作用点会产出语义化 combat audit action',
     excludes: '不证明地面拾取/容器拿取、库存已满落地拾取物的一致性、也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
+}
+
+async function testOfflineDefeatRemovesRuntimeImmediately() {
+  const log: Array<unknown[]> = [];
+  const victim = {
+    playerId: 'player:combat:offline-victim',
+    name: '离线乙',
+    sessionId: '',
+    hp: 0,
+    x: 6,
+    y: 7,
+    instanceId: 'instance:combat:offline',
+  };
+  const instance = {
+    meta: { instanceId: victim.instanceId },
+    clearMonsterAggroForPlayer(playerId: string) {
+      log.push(['clearMonsterAggroForPlayer', playerId]);
+    },
+  };
+  const playerRuntimeService = {
+    getPlayer(playerId: string) {
+      return playerId === victim.playerId ? victim : null;
+    },
+    applyShaInfusionDeathPenalty(playerId: string) {
+      assert.equal(playerId, victim.playerId);
+      return {
+        consumedProgress: 0,
+        consumedFoundation: 0,
+        backlashAddedStacks: 0,
+        backlashTotalStacks: 0,
+        remainingInfusionStacks: 0,
+      };
+    },
+  };
+  const service = new WorldRuntimePlayerCombatService({} as never, playerRuntimeService as never);
+  const deps = {
+    getInstanceRuntime(instanceId: string) {
+      assert.equal(instanceId, victim.instanceId);
+      return instance;
+    },
+    clearPendingCommand(playerId: string) {
+      log.push(['clearPendingCommand', playerId]);
+    },
+    worldRuntimeThreatService: {
+      buildPlayerOwnerId(playerId: string) {
+        return `player:${playerId}`;
+      },
+      clearOwner(ownerId: string) {
+        log.push(['clearThreatOwner', ownerId]);
+      },
+      clearTargetEverywhere(ownerId: string) {
+        log.push(['clearThreatTargetEverywhere', ownerId]);
+      },
+    },
+    worldRuntimeGmQueueService: {
+      markPendingRespawn(playerId: string) {
+        log.push(['markPendingRespawn', playerId]);
+      },
+    },
+    worldRuntimePlayerCombatOutcomeService: {
+      removeOfflineDefeatedPlayer(playerId: string) {
+        log.push(['removeOfflineDefeatedPlayer', playerId]);
+      },
+    },
+    queuePlayerNotice() {},
+  };
+
+  await service.handlePlayerDefeat(victim.playerId, deps as never, 'monster:offline:killer');
+
+  assert.deepEqual(log, [
+    ['clearMonsterAggroForPlayer', victim.playerId],
+    ['clearThreatOwner', `player:${victim.playerId}`],
+    ['clearThreatTargetEverywhere', `player:${victim.playerId}`],
+    ['removeOfflineDefeatedPlayer', victim.playerId],
+  ]);
 }
 
 async function testMonsterKillCountersUseTierBuckets() {
