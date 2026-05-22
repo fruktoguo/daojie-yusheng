@@ -88,35 +88,62 @@ export class WorldRuntimeInstanceTickOrchestrationService {
    * 这类状态常见于重启恢复或死亡结算中断；如果不先清理，妖兽 AI 只看位置会反复锁定尸体目标。
    */
   private reconcileDefeatedPlayersBeforeTick(deps): void {
-    if (this.defeatedPlayerIds.size === 0) {
+    // T-17: 优先处理增量 Set 中的已知死亡玩家
+    if (this.defeatedPlayerIds.size > 0) {
+      const playerRuntimeService = deps?.playerRuntimeService;
+      if (typeof playerRuntimeService?.getPlayer === 'function') {
+        for (const playerId of this.defeatedPlayerIds) {
+          const player = playerRuntimeService.getPlayer(playerId);
+          if (!player || player.hp > 0) {
+            this.defeatedPlayerIds.delete(playerId);
+            continue;
+          }
+          const instanceId = player.instanceId;
+          const instance = instanceId ? deps.getInstanceRuntime?.(instanceId) : null;
+          if (instance) {
+            if (typeof instance.clearMonsterAggroForPlayer === 'function') {
+              instance.clearMonsterAggroForPlayer(playerId);
+            }
+            if (typeof instance.cancelPendingCommand === 'function') {
+              instance.cancelPendingCommand(playerId);
+            }
+          }
+          deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
+          deps.clearPendingCommand?.(playerId);
+          if (!deps.worldRuntimeGmQueueService?.hasPendingRespawn?.(playerId)) {
+            deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+          }
+          this.defeatedPlayerIds.delete(playerId);
+        }
+      }
       return;
     }
+    // 安全网：增量 Set 为空时仍执行全量扫描（处理重启恢复等边缘情况）
     const playerRuntimeService = deps?.playerRuntimeService;
     if (typeof playerRuntimeService?.getPlayer !== 'function') {
       return;
     }
-    for (const playerId of this.defeatedPlayerIds) {
-      const player = playerRuntimeService.getPlayer(playerId);
-      if (!player || player.hp > 0) {
-        this.defeatedPlayerIds.delete(playerId);
+    for (const instance of deps.listInstanceRuntimes?.() ?? []) {
+      if (typeof instance?.listPlayerIds !== 'function') {
         continue;
       }
-      const instanceId = player.instanceId;
-      const instance = instanceId ? deps.getInstanceRuntime?.(instanceId) : null;
-      if (instance) {
+      for (const playerId of instance.listPlayerIds()) {
+        const player = playerRuntimeService.getPlayer(playerId);
+        if (!player || player.hp > 0) {
+          continue;
+        }
         if (typeof instance.clearMonsterAggroForPlayer === 'function') {
           instance.clearMonsterAggroForPlayer(playerId);
         }
         if (typeof instance.cancelPendingCommand === 'function') {
           instance.cancelPendingCommand(playerId);
         }
+        deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
+        deps.clearPendingCommand?.(playerId);
+        if (!deps.worldRuntimeGmQueueService?.hasPendingRespawn?.(playerId)) {
+          deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+        }
       }
-      deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
-      deps.clearPendingCommand?.(playerId);
-      if (!deps.worldRuntimeGmQueueService?.hasPendingRespawn?.(playerId)) {
-        deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
-      }
-      this.defeatedPlayerIds.delete(playerId);
     }
   }
 

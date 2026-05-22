@@ -136,22 +136,50 @@ function handleInstanceAdvance(payload: unknown): InstanceAdvanceOutput {
   };
 }
 
-/** T-13: 资源流动预计算（灵气收敛等）。 */
+/** T-13: 资源流动预计算（灵气收敛方向预测）。 */
 function computeResourceMutations(resourceState: unknown, _tick: number): unknown[] {
   if (!resourceState || typeof resourceState !== 'object') {
     return [];
   }
-  // 资源流动的权威计算仍在主线程，Worker 只提供预计算建议
-  return [];
+  const state = resourceState as Record<string, unknown>;
+  const mutations: unknown[] = [];
+  // 预计算灵气流动方向：如果当前值与基准值有差异，预测收敛方向
+  const tiles = state.tiles;
+  if (Array.isArray(tiles)) {
+    for (const tile of tiles) {
+      const t = tile as Record<string, unknown>;
+      const current = Number(t.current ?? 0);
+      const base = Number(t.base ?? 0);
+      if (current !== base) {
+        mutations.push({
+          tileIndex: t.index,
+          direction: current > base ? 'decrease' : 'increase',
+          diff: Math.abs(current - base),
+        });
+      }
+    }
+  }
+  return mutations;
 }
 
 /** T-13: 建筑进度预计算。 */
-function computeBuildingMutations(buildings: unknown[], _tick: number): unknown[] {
+function computeBuildingMutations(buildings: unknown[], tick: number): unknown[] {
   if (!Array.isArray(buildings) || buildings.length === 0) {
     return [];
   }
-  // 建筑进度的权威计算仍在主线程，Worker 只提供预计算建议
-  return [];
+  const mutations: unknown[] = [];
+  for (const building of buildings) {
+    const b = building as Record<string, unknown>;
+    const progressLeft = Number(b.progressLeft ?? 0);
+    if (progressLeft > 0) {
+      mutations.push({
+        buildingId: b.id,
+        willComplete: progressLeft <= 1,
+        progressLeft: Math.max(0, progressLeft - 1),
+      });
+    }
+  }
+  return mutations;
 }
 
 /** T-14: 基于只读镜像生成确定性的怪物意图预案；权威应用仍在主线程完成。 */
