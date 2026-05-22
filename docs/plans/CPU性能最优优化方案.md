@@ -98,7 +98,7 @@
 
 ### 第三阶段：架构级优化（1-2 周）
 
-- [ ] **T-08** 自动战斗寻路路径缓存
+- [x] **T-08** 自动战斗寻路路径缓存
   - 文件：`packages/server/src/runtime/world/combat/world-runtime-auto-combat.service.ts`
   - 背景：每 tick 对每个需要移动的自动战斗玩家调用完整 A*，结果作为 path 传入 applyMove（一个 tick 内沿路径走多格，受 movePoints 和地形代价限制，硬上限 20 格）
   - 改动：缓存上一次寻路结果（path + targetPosition），下一 tick 检查目标是否移动 + 路径剩余部分是否仍可通行 → 有效则复用，无效才重规划
@@ -107,7 +107,7 @@
   - 验证：`pnpm verify:quick` + auto-combat smoke
   - 预期：大部分 tick 路径复用，仅目标移动时重规划
 
-- [ ] **T-09** stableShallowSignature 改为 FNV-1a 数值 hash
+- [x] **T-09** stableShallowSignature 改为 FNV-1a 数值 hash
   - 文件：`packages/server/src/network/world-projector.helpers.ts`
   - 改动：递归字符串拼接 → 递归数值 hash，所有 signature 类型 string → number
   - 验证：`pnpm verify:quick` + `pnpm verify:client`

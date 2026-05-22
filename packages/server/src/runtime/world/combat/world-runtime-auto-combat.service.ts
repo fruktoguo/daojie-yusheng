@@ -270,6 +270,13 @@ export class WorldRuntimeAutoCombatService {
     playerRuntimeService;
     worldRuntimeThreatService;
     unreachableThreatReductionByPlayerId = new Map();
+    /** T-08: 自动战斗寻路路径缓存（per-player）。 */
+    pathCacheByPlayerId = new Map<string, {
+        targetX: number;
+        targetY: number;
+        path: { x: number; y: number }[];
+        pathIndex: number;
+    }>();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -567,7 +574,7 @@ export class WorldRuntimeAutoCombatService {
             return null;
         }
         const desiredRange = Math.max(1, Math.round(skillChoice?.range ?? 1));
-        const pathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, desiredRange, false);
+        const pathResult = this.findPathWithCache(instance, player, target.x, target.y, desiredRange);
         if (!pathResult || pathResult.points.length === 0) {
             return this.handleUnreachableAutoCombatTarget(instance, player, target, deps, options);
         }
@@ -1101,5 +1108,44 @@ export class WorldRuntimeAutoCombatService {
             return 1;
         }
         return Math.max(1, Math.round(choice.range));
+    }
+
+    /**
+     * T-08: 自动战斗寻路路径缓存。
+     * 缓存上一次寻路结果，下一 tick 检查目标是否移动 + 路径下一步是否可通行。
+     * 目标移动判定：曼哈顿距离 ≥ 2 格时重规划。
+     */
+    findPathWithCache(instance, player, targetX: number, targetY: number, desiredRange: number) {
+        const playerId = player.playerId;
+        const cached = this.pathCacheByPlayerId.get(playerId);
+        if (cached) {
+            const targetMoved = Math.abs(targetX - cached.targetX) + Math.abs(targetY - cached.targetY) >= 2;
+            if (!targetMoved && cached.pathIndex < cached.path.length) {
+                const nextStep = cached.path[cached.pathIndex];
+                const nextStepFree = instance.isWalkable?.(nextStep.x, nextStep.y) !== false
+                    && instance.getOccupancy?.(nextStep.x, nextStep.y) == null;
+                if (nextStepFree) {
+                    // 复用缓存路径
+                    const remainingPath = cached.path.slice(cached.pathIndex);
+                    cached.pathIndex += 1;
+                    return { points: remainingPath, cost: remainingPath.length };
+                }
+            }
+        }
+        // 重新规划
+        const pathResult = findPathToTargetWithinRangeOnMap(
+            instance, player.playerId, player.x, player.y, targetX, targetY, desiredRange, false,
+        );
+        if (pathResult && pathResult.points.length > 0) {
+            this.pathCacheByPlayerId.set(playerId, {
+                targetX,
+                targetY,
+                path: pathResult.points.map((p: { x: number; y: number }) => ({ x: p.x, y: p.y })),
+                pathIndex: 1,
+            });
+        } else {
+            this.pathCacheByPlayerId.delete(playerId);
+        }
+        return pathResult;
     }
 };

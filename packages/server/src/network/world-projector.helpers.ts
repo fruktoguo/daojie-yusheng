@@ -926,20 +926,83 @@ function buildStableProtocolSignature(value: unknown): string {
 }
 
 function stableShallowSignature(value: unknown): string {
+    return String(stableShallowHash(value));
+}
+
+/** FNV-1a 32-bit hash 常量 */
+const FNV_OFFSET_BASIS = 2166136261;
+const FNV_PRIME = 16777619;
+
+/** 递归 FNV-1a 数值 hash，替代字符串拼接签名。 */
+function stableShallowHash(value: unknown): number {
     if (value == null) {
-        return '';
+        return 0;
     }
     if (Array.isArray(value)) {
-        return value.map((entry) => stableShallowSignature(entry)).join(',');
+        let hash = FNV_OFFSET_BASIS;
+        for (let i = 0; i < value.length; i += 1) {
+            hash = fnvMix(hash, stableShallowHash(value[i]));
+        }
+        return hash >>> 0;
+    }
+    if (typeof value === 'number') {
+        return fnvHashNumber(value);
+    }
+    if (typeof value === 'string') {
+        return fnvHashString(value);
+    }
+    if (typeof value === 'boolean') {
+        return value ? 1231 : 1237;
     }
     if (typeof value !== 'object') {
-        return String(value);
+        return fnvHashString(String(value));
     }
     const record = value as Record<string, unknown>;
-    return Object.keys(record)
-        .sort()
-        .map((key) => `${key}=${stableShallowSignature(record[key])}`)
-        .join(',');
+    const keys = Object.keys(record).sort();
+    let hash = FNV_OFFSET_BASIS;
+    for (let i = 0; i < keys.length; i += 1) {
+        hash = fnvMix(hash, fnvHashString(keys[i]));
+        hash = fnvMix(hash, stableShallowHash(record[keys[i]]));
+    }
+    return hash >>> 0;
+}
+
+function fnvHashString(str: string): number {
+    let hash = FNV_OFFSET_BASIS;
+    for (let i = 0; i < str.length; i += 1) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, FNV_PRIME);
+    }
+    return hash >>> 0;
+}
+
+function fnvHashNumber(num: number): number {
+    // 整数直接混入，浮点转字符串
+    if (Number.isInteger(num) && num >= -2147483648 && num <= 2147483647) {
+        let hash = FNV_OFFSET_BASIS;
+        hash ^= (num & 0xff);
+        hash = Math.imul(hash, FNV_PRIME);
+        hash ^= ((num >>> 8) & 0xff);
+        hash = Math.imul(hash, FNV_PRIME);
+        hash ^= ((num >>> 16) & 0xff);
+        hash = Math.imul(hash, FNV_PRIME);
+        hash ^= ((num >>> 24) & 0xff);
+        hash = Math.imul(hash, FNV_PRIME);
+        return hash >>> 0;
+    }
+    return fnvHashString(String(num));
+}
+
+function fnvMix(hash: number, value: number): number {
+    hash ^= (value & 0xff);
+    hash = Math.imul(hash, FNV_PRIME);
+    hash ^= ((value >>> 8) & 0xff);
+    hash = Math.imul(hash, FNV_PRIME);
+    hash ^= ((value >>> 16) & 0xff);
+    hash = Math.imul(hash, FNV_PRIME);
+    hash ^= ((value >>> 24) & 0xff);
+    hash = Math.imul(hash, FNV_PRIME);
+    return hash >>> 0;
 }
 
 function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): boolean {
