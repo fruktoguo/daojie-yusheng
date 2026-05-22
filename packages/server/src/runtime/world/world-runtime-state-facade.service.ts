@@ -81,6 +81,7 @@ export class WorldRuntimeStateFacadeService {
  */
 
     setPlayerLocation(playerId, location, deps) {
+        disconnectPlayerFromOtherInstances(playerId, location?.instanceId, deps);
         deps.worldRuntimePlayerLocationService.setPlayerLocation(playerId, location);
     }
     /**
@@ -266,3 +267,41 @@ export class WorldRuntimeStateFacadeService {
         await deps.worldRuntimeLifecycleService.rebuildPersistentRuntimeAfterRestore(deps, options);
     }
 };
+
+function disconnectPlayerFromOtherInstances(playerId, targetInstanceId, deps) {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    const normalizedTargetInstanceId = typeof targetInstanceId === 'string' ? targetInstanceId.trim() : '';
+    if (!normalizedPlayerId || !normalizedTargetInstanceId) {
+        return;
+    }
+
+    const disconnectedInstanceIds = new Set();
+    const previous = deps.worldRuntimePlayerLocationService?.getPlayerLocation?.(normalizedPlayerId) ?? null;
+    const previousInstanceId = typeof previous?.instanceId === 'string' ? previous.instanceId.trim() : '';
+    if (previousInstanceId && previousInstanceId !== normalizedTargetInstanceId) {
+        const previousInstance = deps.worldRuntimeInstanceStateService?.getInstanceRuntime?.(previousInstanceId) ?? null;
+        if (typeof previousInstance?.disconnectPlayer === 'function') {
+            previousInstance.disconnectPlayer(normalizedPlayerId);
+            disconnectedInstanceIds.add(previousInstanceId);
+        }
+    }
+
+    const entries = deps.worldRuntimeInstanceStateService?.listInstanceEntries?.();
+    if (!entries) {
+        return;
+    }
+    for (const [instanceId, instance] of entries) {
+        const normalizedInstanceId = typeof instanceId === 'string'
+            ? instanceId.trim()
+            : (typeof instance?.meta?.instanceId === 'string' ? instance.meta.instanceId.trim() : '');
+        if (!normalizedInstanceId
+            || normalizedInstanceId === normalizedTargetInstanceId
+            || disconnectedInstanceIds.has(normalizedInstanceId)) {
+            continue;
+        }
+        if (typeof instance?.disconnectPlayer === 'function') {
+            instance.disconnectPlayer(normalizedPlayerId);
+            disconnectedInstanceIds.add(normalizedInstanceId);
+        }
+    }
+}

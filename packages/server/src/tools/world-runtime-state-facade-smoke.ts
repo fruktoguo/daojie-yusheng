@@ -213,6 +213,62 @@ async function testStateFacade() {
     await service.rebuildPersistentRuntimeAfterRestore(deps);
 }
 
+function testSetPlayerLocationDisconnectsResidualInstancePlayers() {
+    const service = new WorldRuntimeStateFacadeService();
+    const disconnected: string[] = [];
+    const deps = {
+        worldRuntimePlayerLocationService: {
+            getPlayerLocation(playerId) {
+                return playerId === 'player:ghost' ? { instanceId: 'instance:indexed-old' } : null;
+            },
+            setPlayerLocation() {},
+        },
+        worldRuntimeInstanceStateService: {
+            getInstanceRuntime(instanceId) {
+                if (instanceId !== 'instance:indexed-old') {
+                    return null;
+                }
+                return {
+                    disconnectPlayer(playerId) {
+                        disconnected.push(`${instanceId}:${playerId}`);
+                        return true;
+                    },
+                };
+            },
+            listInstanceEntries() {
+                return [
+                    ['instance:indexed-old', {
+                        disconnectPlayer(playerId) {
+                            disconnected.push(`duplicate-old:${playerId}`);
+                            return true;
+                        },
+                    }],
+                    ['instance:target', {
+                        disconnectPlayer(playerId) {
+                            disconnected.push(`target:${playerId}`);
+                            return true;
+                        },
+                    }],
+                    ['instance:residual', {
+                        disconnectPlayer(playerId) {
+                            disconnected.push(`instance:residual:${playerId}`);
+                            return true;
+                        },
+                    }],
+                ];
+            },
+        },
+    };
+
+    service.setPlayerLocation('player:ghost', { instanceId: 'instance:target' }, deps);
+
+    assert.deepEqual(disconnected, [
+        'instance:indexed-old:player:ghost',
+        'instance:residual:player:ghost',
+    ]);
+}
+
 testStateFacade().then(() => {
+    testSetPlayerLocationDisconnectsResidualInstancePlayers();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-state-facade' }, null, 2));
 });
