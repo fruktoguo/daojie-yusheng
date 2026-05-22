@@ -414,45 +414,40 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     currentPlayerIds = instance.listPlayerIds();
                 });
                 if (currentPlayerIds.length > 0) {
-                    for (const playerId of currentPlayerIds) {
-                        this.runIsolatedSyncOperation(deps, 'player_world_time_vision', {
-                            instanceId: instance.meta.instanceId,
-                            playerId,
-                            instanceTick: instance.tick,
-                            worldTick: deps.tick,
-                        }, () => syncWorldTimeVisionForPlayers(instance, [playerId], deps.playerRuntimeService, speed));
-                    }
+                    // T-16: 合并为批量调用，减少逐玩家隔离开销
+                    this.runIsolatedSyncOperation(deps, 'player_world_time_vision_batch', () => ({
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                        playerCount: currentPlayerIds.length,
+                    }), () => syncWorldTimeVisionForPlayers(instance, currentPlayerIds, deps.playerRuntimeService, speed));
                     const cultivationAuraMultiplierByPlayerId = new Map();
-                    for (const playerId of currentPlayerIds) {
-                        this.runIsolatedSyncOperation(deps, 'player_cultivation_aura_projection', {
-                            instanceId: instance.meta.instanceId,
-                            playerId,
-                            instanceTick: instance.tick,
-                            worldTick: deps.tick,
-                        }, () => {
-                            const entry = buildCultivationAuraMultiplierByPlayerId(instance, [playerId], deps.playerRuntimeService);
-                            cultivationAuraMultiplierByPlayerId.set(playerId, entry.get(playerId) ?? 1);
-                        });
-                    }
-                    for (const playerId of currentPlayerIds) {
-                        this.runIsolatedSyncOperation(deps, 'player_tick_advance', {
-                            instanceId: instance.meta.instanceId,
-                            playerId,
-                            instanceTick: instance.tick,
-                            worldTick: deps.tick,
-                        }, () => deps.playerRuntimeService.advanceTickForPlayerIds([playerId], instance.tick, {
-                            idleCultivationBlockedPlayerIds: blockedPlayerIds,
-                            cultivationAuraMultiplierByPlayerId,
-                        }));
-                    }
-                    for (const playerId of currentPlayerIds) {
-                        this.runIsolatedSyncOperation(deps, 'player_tile_qi_drain', {
-                            instanceId: instance.meta.instanceId,
-                            playerId,
-                            instanceTick: instance.tick,
-                            worldTick: deps.tick,
-                        }, () => applyTileQiDrainForPlayers(instance, [playerId], deps));
-                    }
+                    this.runIsolatedSyncOperation(deps, 'player_cultivation_aura_projection_batch', () => ({
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                        playerCount: currentPlayerIds.length,
+                    }), () => {
+                        const entry = buildCultivationAuraMultiplierByPlayerId(instance, currentPlayerIds, deps.playerRuntimeService);
+                        for (const [id, value] of entry) {
+                            cultivationAuraMultiplierByPlayerId.set(id, value);
+                        }
+                    });
+                    this.runIsolatedSyncOperation(deps, 'player_tick_advance_batch', () => ({
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                        playerCount: currentPlayerIds.length,
+                    }), () => deps.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
+                        idleCultivationBlockedPlayerIds: blockedPlayerIds,
+                        cultivationAuraMultiplierByPlayerId,
+                    }));
+                    this.runIsolatedSyncOperation(deps, 'player_tile_qi_drain_batch', () => ({
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                        playerCount: currentPlayerIds.length,
+                    }), () => applyTileQiDrainForPlayers(instance, currentPlayerIds, deps));
                     if (typeof deps.worldRuntimePlayerSkillDispatchService?.resolvePendingPlayerSkillCast === 'function') {
                         for (const playerId of currentPlayerIds) {
                             await this.runIsolatedOperation(deps, 'player_pending_skill_cast', {
