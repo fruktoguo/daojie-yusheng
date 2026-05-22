@@ -1290,6 +1290,22 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
         inventoryInsertPayloads.push(JSON.parse(params[1]) as unknown[]);
       }
       if (
+        sql.includes('SELECT item_instance_id, slot_index, item_id, count, raw_payload, locked_by')
+        && sql.includes('FROM player_inventory_item')
+      ) {
+        return {
+          rows: [{
+            item_instance_id: 'stale-inventory-row',
+            slot_index: 999,
+            item_id: 'stale_item',
+            count: 1,
+            raw_payload: {},
+            locked_by: null,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (
         sql.includes('SELECT item_instance_id')
         && sql.includes('FROM player_equipment_slot')
         && !sql.includes('player_id <> $2')
@@ -1505,9 +1521,12 @@ async function assertInventoryAndWalletSnapshotsUseStaleKeyPruning(): Promise<vo
     'player_enhancement_record',
     'player_logbook_message',
   ]) {
-    if (!normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
-      && query.includes('jsonb_to_recordset')
-      && query.includes('NOT EXISTS'))) {
+    const hasStaleKeyDelete = tableName === 'player_inventory_item'
+      ? normalizedQueries.some((query) => query.includes('DELETE FROM player_inventory_item WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])'))
+      : normalizedQueries.some((query) => query.includes(`DELETE FROM ${tableName} target`)
+        && query.includes('jsonb_to_recordset')
+        && query.includes('NOT EXISTS'));
+    if (!hasStaleKeyDelete) {
       throw new Error(`player snapshot missing stale-key delete guard for ${tableName}`);
     }
   }

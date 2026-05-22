@@ -110,6 +110,7 @@ const PLAYER_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
     'profession_lost',
   ],
 } as const;
+const INVENTORY_TEMP_SLOT_BASE = 1_000_000_000_000;
 
 export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_PRESENCE_TABLE,
@@ -294,6 +295,15 @@ export interface PlayerInventoryItemUpsertInput {
   itemInstanceId?: string | null;
   enhanceLevel?: number | null;
   rawPayload?: Record<string, unknown> | null;
+}
+
+interface PersistedInventoryRow {
+  item_instance_id: string;
+  slot_index: number;
+  item_id: string;
+  count: number;
+  raw_payload: Record<string, unknown>;
+  locked_by: string | null;
 }
 
 export interface PlayerMarketStorageItemUpsertInput {
@@ -3950,26 +3960,181 @@ async function replacePlayerInventoryItems(
     rowsByInstanceId.set(itemInstanceId, row);
   }
   const rows = Array.from(rowsByInstanceId.values());
-  const rowsJson = JSON.stringify(rows);
+  if (rows.length === 0) {
+    if (options.allowEmptyOverwrite !== true) {
+      await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, 0, 'inventory');
+      return;
+    }
+    await client.query(`DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
+    return;
+  }
 
-  if (rows.length > 0) {
+  const existingRowsResult = await client.query(
+    `
+      SELECT item_instance_id, slot_index, item_id, count, raw_payload, locked_by
+      FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+      WHERE player_id = $1
+    `,
+    [playerId],
+  );
+  const existingRows = (existingRowsResult.rows ?? []).map((row) => ({
+    item_instance_id: normalizeRequiredString(row?.item_instance_id),
+    slot_index: normalizeIntegerWithFallback(row?.slot_index, 0),
+    item_id: normalizeRequiredString(row?.item_id),
+    count: normalizeMinimumInteger(row?.count, 1, 1),
+    raw_payload: asRecord(decodeJsonValue(row?.raw_payload)) ?? {},
+    locked_by: normalizeOptionalString(row?.locked_by),
+  })).filter((row): row is PersistedInventoryRow => row.item_instance_id.length > 0 && row.item_id.length > 0);
+  const existingRowsByInstanceId = new Map(existingRows.map((row) => [row.item_instance_id, row]));
+  const incomingRowsByInstanceId = new Map(rows.map((row) => [row.item_instance_id, row]));
+
+  const staleInstanceIds: string[] = [];
+  const sameSlotUpdateRows: PersistedInventoryRow[] = [];
+  const movedRows: Array<PersistedInventoryRow & { temp_slot_index: number }> = [];
+  const newRows: PersistedInventoryRow[] = [];
+  let tempSlotOffset = 0;
+
+  for (const row of rows) {
+    const existingRow = existingRowsByInstanceId.get(row.item_instance_id);
+    if (!existingRow) {
+      newRows.push(row);
+      continue;
+    }
+
+    const sameSlotIdentity = existingRow.slot_index === row.slot_index
+      && existingRow.item_id === row.item_id
+      && existingRow.locked_by === row.locked_by;
+    const samePayload = isSamePersistedPayload(existingRow.raw_payload, row.raw_payload);
+    if (sameSlotIdentity && existingRow.count === row.count && samePayload) {
+      continue;
+    }
+    if (sameSlotIdentity) {
+      sameSlotUpdateRows.push(row);
+      continue;
+    }
+    movedRows.push({
+      ...row,
+      temp_slot_index: INVENTORY_TEMP_SLOT_BASE + tempSlotOffset,
+    });
+    tempSlotOffset += 1;
+  }
+
+  for (const existingRow of existingRows) {
+    if (!incomingRowsByInstanceId.has(existingRow.item_instance_id)) {
+      staleInstanceIds.push(existingRow.item_instance_id);
+    }
+  }
+
+  if (staleInstanceIds.length > 0) {
     await client.query(
+      `DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} WHERE player_id = $1 AND item_instance_id = ANY($2::varchar[])
+      `,
+      [playerId, staleInstanceIds],
+    );
+  }
+
+  if (sameSlotUpdateRows.length > 0) {
+    const sameSlotUpdateRowsJson = JSON.stringify(sameSlotUpdateRows);
+    const result = await client.query(
       `
         WITH incoming AS (
-          SELECT item_instance_id, slot_index
-          FROM jsonb_to_recordset($2::jsonb) AS entry(item_instance_id varchar(180), slot_index bigint)
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            item_instance_id varchar(180),
+            slot_index bigint,
+            item_id varchar(160),
+            count bigint,
+            raw_payload jsonb,
+            locked_by varchar(180)
+          )
         )
-        DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
+        UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
+        SET
+          item_id = incoming.item_id,
+          count = incoming.count,
+          raw_payload = COALESCE(incoming.raw_payload, '{}'::jsonb),
+          locked_by = incoming.locked_by,
+          updated_at = now()
+        FROM incoming
         WHERE target.player_id = $1
-          AND EXISTS (
-            SELECT 1
-            FROM incoming
-            WHERE incoming.slot_index = target.slot_index
-              AND incoming.item_instance_id <> target.item_instance_id
+          AND target.item_instance_id = incoming.item_instance_id
+          AND target.slot_index = incoming.slot_index
+          AND target.item_id = incoming.item_id
+          AND target.locked_by IS NOT DISTINCT FROM incoming.locked_by
+          AND (
+            target.count IS DISTINCT FROM incoming.count
+            OR target.raw_payload IS DISTINCT FROM COALESCE(incoming.raw_payload, '{}'::jsonb)
           )
       `,
-      [playerId, rowsJson],
+      [playerId, sameSlotUpdateRowsJson],
     );
+    if ((result.rowCount ?? 0) !== sameSlotUpdateRows.length) {
+      throw new Error(`replacePlayerInventoryItems: same-slot inventory update mismatch playerId=${playerId}`);
+    }
+  }
+
+  if (movedRows.length > 0) {
+    const movedRowsJson = JSON.stringify(movedRows);
+    const stageResult = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            item_instance_id varchar(180),
+            temp_slot_index bigint,
+            slot_index bigint,
+            item_id varchar(160),
+            count bigint,
+            raw_payload jsonb,
+            locked_by varchar(180)
+          )
+        )
+        UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
+        SET
+          slot_index = incoming.temp_slot_index,
+          item_id = incoming.item_id,
+          count = incoming.count,
+          raw_payload = COALESCE(incoming.raw_payload, '{}'::jsonb),
+          locked_by = incoming.locked_by,
+          updated_at = now()
+        FROM incoming
+        WHERE target.player_id = $1
+          AND target.item_instance_id = incoming.item_instance_id
+      `,
+      [playerId, movedRowsJson],
+    );
+    if ((stageResult.rowCount ?? 0) !== movedRows.length) {
+      throw new Error(`replacePlayerInventoryItems: staged inventory move mismatch playerId=${playerId}`);
+    }
+
+    const finalizeResult = await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            item_instance_id varchar(180),
+            slot_index bigint,
+            temp_slot_index bigint
+          )
+        )
+        UPDATE ${PLAYER_INVENTORY_ITEM_TABLE} target
+        SET
+          slot_index = incoming.slot_index,
+          updated_at = now()
+        FROM incoming
+        WHERE target.player_id = $1
+          AND target.item_instance_id = incoming.item_instance_id
+          AND target.slot_index = incoming.temp_slot_index
+      `,
+      [playerId, movedRowsJson],
+    );
+    if ((finalizeResult.rowCount ?? 0) !== movedRows.length) {
+      throw new Error(`replacePlayerInventoryItems: finalized inventory move mismatch playerId=${playerId}`);
+    }
+  }
+
+  if (newRows.length > 0) {
+    const newRowsJson = JSON.stringify(newRows);
     const result = await client.query(
       `
         WITH incoming AS (
@@ -4006,31 +4171,12 @@ async function replacePlayerInventoryItems(
           updated_at = now()
         WHERE ${PLAYER_INVENTORY_ITEM_TABLE}.player_id = EXCLUDED.player_id
       `,
-      [playerId, rowsJson],
+      [playerId, newRowsJson],
     );
-    if ((result.rowCount ?? 0) !== rows.length) {
+    if ((result.rowCount ?? 0) !== newRows.length) {
       throw new Error(`replacePlayerInventoryItems: item_instance_id conflict outside player scope playerId=${playerId}`);
     }
   }
-  if (options.allowEmptyOverwrite !== true) {
-    await refuseEmptyOverwriteIfRowsExist(client, PLAYER_INVENTORY_ITEM_TABLE, playerId, rows.length, 'inventory');
-  }
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT item_instance_id
-        FROM jsonb_to_recordset($2::jsonb) AS entry(item_instance_id varchar(180))
-      )
-      DELETE FROM ${PLAYER_INVENTORY_ITEM_TABLE} target
-      WHERE target.player_id = $1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM incoming
-          WHERE incoming.item_instance_id = target.item_instance_id
-        )
-    `,
-    [playerId, rowsJson],
-  );
 }
 
 

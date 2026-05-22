@@ -32,6 +32,7 @@
     "smoke:flush-player-payload": "pnpm compile && node dist/tools/flush-presence-payload-smoke.js",
     "report:player-flush-payload": "pnpm compile && node dist/tools/player-flush-payload-report.js",
     "smoke:player-flush-payload-report": "pnpm compile && node dist/tools/player-flush-payload-report.js",
+    "smoke:player-inventory-incremental": "pnpm compile && node dist/tools/player-inventory-incremental-smoke.js",
     "smoke:flush-independent-persistence": "pnpm compile && node dist/tools/flush-independent-persistence-smoke.js",
     "smoke:flush-instance-payload": "pnpm compile && node dist/tools/flush-instance-payload-smoke.js",
     "smoke:flush-instance-state-payload": "pnpm compile && node dist/tools/flush-instance-state-payload-smoke.js",

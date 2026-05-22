@@ -24,6 +24,7 @@ const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
     ['player-domain-persistence-smoke.js', 30_000],
     ['player-domain-recovery-smoke.js', 30_000],
   ['player-domain-empty-overwrite-guard-smoke.js', 30_000],
+  ['player-inventory-incremental-smoke.js', 30_000],
   ['player-columnar-schema-report.js', 60_000],
   ['snapshot-retirement-report-smoke.js', 30_000],
 
