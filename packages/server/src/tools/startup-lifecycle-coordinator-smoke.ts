@@ -8,6 +8,12 @@ import { installSmokeTimeout } from './smoke-timeout';
 installSmokeTimeout(__filename);
 
 async function main(): Promise<void> {
+  await assertAllRoleStartupOrder();
+  await assertWorkerRoleStartsFlushConsumer();
+  console.log('[startup-lifecycle-coordinator-smoke] ok');
+}
+
+async function assertAllRoleStartupOrder(): Promise<void> {
   process.env.SERVER_RUNTIME_ROLE = 'all';
 
   const status = new StartupStatusService();
@@ -147,7 +153,51 @@ async function main(): Promise<void> {
   assert.equal(offlineHangingPlayers.skippedPlayers[0]?.startupRunId, snapshot.startupRunId);
   assert.equal(offlineHangingPlayers.skippedPlayers[0]?.targetInstanceId, instanceId);
 
-  console.log('[startup-lifecycle-coordinator-smoke] ok');
+  delete process.env.SERVER_RUNTIME_ROLE;
+}
+
+async function assertWorkerRoleStartsFlushConsumer(): Promise<void> {
+  process.env.SERVER_RUNTIME_ROLE = 'worker';
+
+  const status = new StartupStatusService();
+  const barrier = new StartupBarrierService();
+  const order: string[] = [];
+
+  const flushTaskRuntimeService = {
+    startForLifecycleCoordinator() {
+      order.push('flush-task');
+      assert.equal(barrier.isWorkerOpen(), true);
+      assert.equal(barrier.isFlushOpen(), false);
+    },
+  };
+
+  const backgroundWorkerRuntimeService = {
+    startForLifecycleCoordinator() {
+      order.push('worker');
+      assert.equal(barrier.isOutboxOpen(), true);
+      assert.equal(barrier.isWorkerOpen(), true);
+    },
+  };
+
+  const coordinator = new ServerLifecycleCoordinatorService(
+    status,
+    barrier,
+    undefined,
+    undefined,
+    flushTaskRuntimeService as never,
+    undefined,
+    undefined,
+    backgroundWorkerRuntimeService as never,
+    undefined,
+  );
+
+  await coordinator.start();
+
+  assert.deepEqual(order, ['flush-task', 'worker']);
+  assert.equal(barrier.isTrafficOpen(), false);
+  assert.equal(barrier.isWorkerOpen(), true);
+  assert.equal(status.getSnapshot().ready, true);
+  delete process.env.SERVER_RUNTIME_ROLE;
 }
 
 main().catch((error) => {
