@@ -178,16 +178,22 @@ for (const playerId of currentPlayerIds) {
 
 - **文件**：`persistence/instance-domain-persistence.service.ts` L4400-4434
 - **现象**：`normalizePersistedItemPayload` 使用 `JSON.stringify + JSON.parse` 做深拷贝
-- **频率**：~200 次/s（仅脏实例 flush 时）
+- **频率**：仅在地图实例 flush 时触发（每 1.5s 一轮，最多 16 实例 × 3 并发），每个 container entry / ground item 调用一次
+- **执行位置**：主线程（不在 worker 中）
 - **方案**：替换为 `structuredClone` 或浅层 spread
-- **预期收益**：5-10ms/s
 
 ### 3.5 持久化层 — isSamePersistedPayload 双重 stringify
 
-- **文件**：`persistence/player-domain-persistence.service.ts` L3801
-- **现象**：`JSON.stringify(left) === JSON.stringify(right)` 用于装备/物品去重
-- **频率**：5000 玩家 × 8 装备槽 = 最多 40000 次/flush 周期
+- **文件**：`persistence/player-domain-persistence.service.ts` L3797
+- **现象**：`JSON.stringify(left) === JSON.stringify(right)` 用于 inventory/equipment 行级 diff
+- **实际频率**：有增量保护 — 先 SELECT 现有行，逐行比较 slot identity，只对 identity 相同的行才调用 payload 比较。调用次数 = 该玩家背包中未变化的物品数（非全量）
 - **方案**：递归浅比较或 hash 签名缓存
+
+### 3.6 持久化层 — 不在 tick 热路径中（独立定时器）
+
+- **确认**：flush 完全不在 tick 循环内，是独立的 `setInterval` 定时器（1.5s 间隔）
+- **tick 循环只做**：`advanceFrame()` → `flushConnectedPlayers()` → `flushTick()`，无任何持久化 IO
+- **结论**：flush CPU 开销不影响 tick 预算，但仍占用主线程事件循环时间片
 
 ### 3.6 inventory 全部 Array.find() 线性扫描（S90）
 
@@ -255,11 +261,19 @@ for (const playerId of currentPlayerIds) {
 
 ### 5.1 已完成的 Worker 形态
 
-| Pool | 职责 | 并发度 | 状态 |
+| Pool | 职责 | 并发度 | 生产状态 |
 |------|------|--------|------|
-| Encoding (CPU) | protobuf encode / A* / FOV / fengshui | min(N_cpu-2, 6) | ✅ 默认启用 |
-| Instance | 实例 tick 子阶段（monster AI intent） | 按 instanceId 哈希分片 | ✅ 默认启用 |
-| Persistence | 持久化 write plan 构造 | 2 | ✅ 默认启用 |
+| Encoding (CPU) | protobuf encode / A* / FOV / fengshui | min(N_cpu-2, 6) | ⚠️ **已启动但 0 任务提交**（所有调用者被禁用） |
+| Instance | 实例 tick 子阶段（monster AI intent） | 按 instanceId 哈希分片 | ⚠️ **已启动，提交任务但结果被忽略** |
+| Persistence | 持久化 write plan 构造 | 2 | ✅ 真正在用（玩家分域 write plan 构建） |
+
+**Encoding Worker Pool 详情**：Worker 线程已启动并空闲运行，但：
+- `AoiEnvelopeEncoder.encodePayloadSync()` 硬编码返回 `null`（注释："JSON→Buffer 实测包体更大"）
+- `AsyncPathfindingService.findPathAsync()` 无任何生产调用者
+- `AsyncFovService.computeFovAsync()` 无任何生产调用者
+- `WorldSyncWorkerEncode.shouldUseWorkerEncode()` 硬编码返回 `false`
+
+**Instance Worker Pool 详情**：每 tick 按活跃实例数提交怪物 AI intent 预计算，但 `resolveMonsterTargetWithHint` 完全忽略返回结果。Worker 做了计算但结果被丢弃。
 
 ### 5.2 Worker 剩余问题
 
@@ -325,7 +339,18 @@ for (const playerId of currentPlayerIds) {
 
 ## 九、综合 CPU 预算分析
 
-### 9.1 服务端主线程每 tick 耗时估算（5000 玩家 / 10000 实例）
+### 9.0 当前实际规模 vs 目标规模
+
+| 维度 | 当前实际（测试服） | 目标规模 |
+|------|-------------------|---------|
+| 运行实例 | ~247（含持久实例），启动时公共实例 ~60-70 | 10000 |
+| 并发玩家 | 未知（远低于目标） | 5000 |
+| 地图模板 | ~40 个 | 未明确上限 |
+| 硬件 | 测试服 | 8 核 / 16GB / 30Mbps |
+
+> 以下耗时估算基于**目标规模**（5000 玩家 / 10000 实例），当前实际规模下 tick 耗时远低于估算值。但架构问题在扩容时会成为硬阻塞。
+
+### 9.1 服务端主线程每 tick 耗时估算（目标规模 5000 玩家 / 10000 实例）
 
 | 系统 | 耗时估算 | 占比 |
 |------|----------|------|
@@ -337,7 +362,7 @@ for (const playerId of currentPlayerIds) {
 | 玩家子阶段推进 | 100-200ms | 6% |
 | **合计（无优化）** | **~2650-2950ms** | **远超 1000ms 预算** |
 
-> 注：怪物 AI intent 预计算虽然通过 Instance Worker Pool 并行提交，但验证确认 `resolveMonsterTargetWithHint` 完全忽略 worker 结果，主线程仍执行完整 AI。寻路也 100% 在主线程（`AsyncPathfindingService` 是死代码）。FOV 和 AOI envelope 编码已走 Encoding Worker。
+> 注：**Encoding Worker Pool 在生产中实际提交 0 个任务**（所有调用者被硬编码禁用）。Instance Worker Pool 提交了怪物 AI 预计算但结果被忽略。唯一真正工作的是 Persistence Worker Pool（write plan 构建）。因此主线程承担了几乎全部计算负载。
 
 ### 9.2 GC 压力估算
 
