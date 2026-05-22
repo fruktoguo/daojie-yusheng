@@ -601,14 +601,28 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
     const combatList = Array.isArray(entry.combatGroup) && entry.combatGroup.length > 0
       ? entry.combatGroup as CombatNoticePayload[]
       : [entry.combat as CombatNoticePayload];
-    // 多条战斗消息直接按数组逐条渲染，避免再占多个 notice 槽位。
-    if (combatList.length === 1) {
-      appendStructuredCombatLine(fragment, combatList[0], linePrefix);
+    // 展开 effects 条目为独立行；保持原 combatGroup 合并显示逻辑不变。
+    const expandedLines = expandCombatListToLines(combatList);
+    if (expandedLines.length === 1) {
+      appendStructuredCombatLine(fragment, expandedLines[0], linePrefix);
     } else {
-      for (const combat of combatList) {
+      const skill = combatList[0].skill;
+      for (let i = 0; i < expandedLines.length; i++) {
+        const c = expandedLines[i];
         const lineEl = document.createElement('div');
         lineEl.className = 'chat-merged-combat-line';
-        appendStructuredCombatLine(lineEl, combat, linePrefix);
+        if (i === 0) {
+          appendStructuredCombatLine(lineEl, c, linePrefix);
+        } else {
+          // 后续行：隐藏对齐元素
+          const indent = document.createElement('span');
+          indent.className = 'chat-merged-combat-indent';
+          indent.append(linePrefix + '你施展');
+          indent.appendChild(buildSkillPill(skill));
+          indent.append(' ');
+          lineEl.appendChild(indent);
+          appendStructuredCombatLine(lineEl, c, '', true);
+        }
         fragment.appendChild(lineEl);
       }
     }
