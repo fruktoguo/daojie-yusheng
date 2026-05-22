@@ -597,32 +597,33 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
   const linePrefix = `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}`;
 
   // 结构化战斗数据渲染
-  if (entry.kind === 'combat' && (entry.combat || entry.combatGroup)) {
-    const combatList = entry.combatGroup
+  if (entry.kind === 'combat' && (entry.combat || (Array.isArray(entry.combatGroup) && entry.combatGroup.length > 0))) {
+    const combatList = Array.isArray(entry.combatGroup) && entry.combatGroup.length > 0
       ? entry.combatGroup as CombatNoticePayload[]
       : [entry.combat as CombatNoticePayload];
-    // 展开 effects 条目为独立行
-    const expandedLines = expandCombatListToLines(combatList);
-    if (expandedLines.length === 1) {
-      appendStructuredCombatLine(fragment, expandedLines[0], linePrefix);
+    // 多条战斗消息直接按数组逐条渲染，避免再占多个 notice 槽位。
+    if (combatList.length === 1) {
+      appendStructuredCombatLine(fragment, combatList[0], linePrefix);
     } else {
-      const skill = combatList[0].skill;
-      for (let i = 0; i < expandedLines.length; i++) {
-        const c = expandedLines[i];
+      for (const combat of combatList) {
         const lineEl = document.createElement('div');
         lineEl.className = 'chat-merged-combat-line';
-        if (i === 0) {
-          appendStructuredCombatLine(lineEl, c, linePrefix);
-        } else {
-          // 后续行：隐藏对齐元素
-          const indent = document.createElement('span');
-          indent.className = 'chat-merged-combat-indent';
-          indent.append(linePrefix + '你施展');
-          indent.appendChild(buildSkillPill(skill));
-          indent.append(' ');
-          lineEl.appendChild(indent);
-          appendStructuredCombatLine(lineEl, c, '', true);
-        }
+        appendStructuredCombatLine(lineEl, combat, linePrefix);
+        fragment.appendChild(lineEl);
+      }
+    }
+    return fragment;
+  }
+
+  if (Array.isArray(entry.structuredGroup) && entry.structuredGroup.length > 0) {
+    const structuredList = entry.structuredGroup as StructuredNoticePayload[];
+    if (structuredList.length === 1) {
+      appendStructuredNoticeLine(fragment, structuredList[0], linePrefix, entry.text);
+    } else {
+      for (const structured of structuredList) {
+        const lineEl = document.createElement('div');
+        lineEl.className = 'chat-merged-combat-line';
+        appendStructuredNoticeLine(lineEl, structured, linePrefix, entry.text);
         fragment.appendChild(lineEl);
       }
     }

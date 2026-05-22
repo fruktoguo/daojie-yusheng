@@ -98,7 +98,9 @@ export interface NoticeQueueEntry {
   text: string;
   castId?: string;
   combat?: CombatNoticePayload;
+  combatGroup?: CombatNoticePayload[];
   structured?: StructuredNoticePayload;
+  structuredGroup?: StructuredNoticePayload[];
 }
 
 /** GM 状态推送标记类型。 */

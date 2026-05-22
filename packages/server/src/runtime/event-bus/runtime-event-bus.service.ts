@@ -100,6 +100,14 @@ export class RuntimeEventBusService {
       id: typeof (notice as NoticeQueueEntry).id === 'number' ? (notice as NoticeQueueEntry).id : ++this.noticeIdCounter,
     };
     const noticePriority = NOTICE_KIND_PRIORITY[normalizedNotice.kind] ?? 0;
+    const groupedResult = tryAggregateGroupedNotice(queue.notices, normalizedNotice);
+    if (groupedResult.merged) {
+      if (noticePriority < queue.minNoticePriority) {
+        queue.minNoticePriority = noticePriority;
+      }
+      this.metrics?.recordMerged('playerNotice');
+      return;
+    }
     const aggregateResult = tryAggregateStructuredNotice(queue.notices, normalizedNotice);
     if (aggregateResult.merged) {
       if (noticePriority < queue.minNoticePriority) {
@@ -658,6 +666,87 @@ function findLowestNoticePriority(notices: NoticeQueueEntry[]): number {
   return priority;
 }
 
+function tryAggregateGroupedNotice(
+  notices: NoticeQueueEntry[],
+  incoming: NoticeQueueEntry,
+): { merged: boolean } {
+  if (incoming.kind === 'combat' && incoming.combat) {
+    const existingIndex = notices.findIndex((entry) => canGroupCombatNotice(entry));
+    if (existingIndex >= 0 && notices[existingIndex]) {
+      notices[existingIndex] = buildCombatGroupNotice(notices[existingIndex], incoming);
+      return { merged: true };
+    }
+  }
+  if (incoming.structured?.key === 'notice.combat.kill-progress') {
+    const existingIndex = notices.findIndex((entry) => canGroupStructuredNotice(entry, 'notice.combat.kill-progress'));
+    if (existingIndex >= 0 && notices[existingIndex]) {
+      notices[existingIndex] = buildStructuredGroupNotice(notices[existingIndex], incoming);
+      return { merged: true };
+    }
+  }
+  return { merged: false };
+}
+
+function canGroupCombatNotice(notice: NoticeQueueEntry): boolean {
+  return notice.kind === 'combat' && (notice.combat !== undefined || (Array.isArray(notice.combatGroup) && notice.combatGroup.length > 0));
+}
+
+function buildCombatGroupNotice(existing: NoticeQueueEntry, incoming: NoticeQueueEntry): NoticeQueueEntry {
+  const existingGroup = Array.isArray(existing.combatGroup) && existing.combatGroup.length > 0
+    ? [...existing.combatGroup]
+    : existing.combat
+      ? [existing.combat]
+      : [];
+  if (incoming.combat) {
+    existingGroup.push(incoming.combat);
+  }
+  return {
+    ...incoming,
+    id: existing.id,
+    kind: existing.kind,
+    text: appendNoticeText(existing.text, incoming.text),
+    castId: existing.castId ?? incoming.castId,
+    combat: existingGroup[0] ?? existing.combat ?? incoming.combat,
+    combatGroup: existingGroup,
+    structured: existing.structured ?? incoming.structured,
+    structuredGroup: existing.structuredGroup ?? incoming.structuredGroup,
+  };
+}
+
+function canGroupStructuredNotice(notice: NoticeQueueEntry, key: string): boolean {
+  return notice.structured?.key === key && (notice.structured !== undefined || (Array.isArray(notice.structuredGroup) && notice.structuredGroup.length > 0));
+}
+
+function buildStructuredGroupNotice(existing: NoticeQueueEntry, incoming: NoticeQueueEntry): NoticeQueueEntry {
+  const existingGroup = Array.isArray(existing.structuredGroup) && existing.structuredGroup.length > 0
+    ? [...existing.structuredGroup]
+    : existing.structured
+      ? [existing.structured]
+      : [];
+  if (incoming.structured) {
+    existingGroup.push(incoming.structured);
+  }
+  return {
+    ...incoming,
+    id: existing.id,
+    kind: existing.kind,
+    text: appendNoticeText(existing.text, incoming.text),
+    castId: existing.castId ?? incoming.castId,
+    combat: existing.combat ?? incoming.combat,
+    combatGroup: existing.combatGroup ?? incoming.combatGroup,
+    structured: existingGroup[0] ?? existing.structured ?? incoming.structured,
+    structuredGroup: existingGroup,
+  };
+}
+
+function appendNoticeText(left: string, right: string): string {
+  const trimmedLeft = left.trim();
+  const trimmedRight = right.trim();
+  if (!trimmedLeft) return trimmedRight;
+  if (!trimmedRight) return trimmedLeft;
+  return `${trimmedLeft}\n${trimmedRight}`;
+}
+
 function tryAggregateStructuredNotice(
   notices: NoticeQueueEntry[],
   incoming: NoticeQueueEntry,
@@ -796,9 +885,16 @@ function isSameNotice(left: NoticeQueueEntry, right: Omit<NoticeQueueEntry, 'id'
 
 function getNoticeDropDetail(notice: Omit<NoticeQueueEntry, 'id'> | NoticeQueueEntry): string {
   const kind = typeof notice.kind === 'string' && notice.kind.length > 0 ? notice.kind : 'unknown';
+  if (Array.isArray(notice.structuredGroup) && notice.structuredGroup.length > 0) {
+    const structuredKey = notice.structuredGroup[0]?.key;
+    return typeof structuredKey === 'string' && structuredKey.length > 0 ? `${kind}:${structuredKey}:group` : `${kind}:structured-group`;
+  }
   const structuredKey = notice.structured?.key;
   if (typeof structuredKey === 'string' && structuredKey.length > 0) {
     return `${kind}:${structuredKey}`;
+  }
+  if (Array.isArray(notice.combatGroup) && notice.combatGroup.length > 0) {
+    return `${kind}:combat-group`;
   }
   if (notice.combat) {
     return `${kind}:combat`;

@@ -84,6 +84,38 @@ function testQueuePlayerNoticeAggregatesLootObtained(): void {
   assert.deepEqual(result.notices[0]?.structured?.vars, { itemList: '灵草 x1、灵石 x3、丹药 x1', count: 3, extraCount: 0 });
 }
 
+function testQueuePlayerNoticeGroupsCombatLines(): void {
+  const svc = createService();
+  svc.queuePlayerNotice('p1', { kind: 'combat', text: '你对狼妖造成 10 点伤害', combat: { caster: '你', target: '狼妖', skill: '攻击' } });
+  svc.queuePlayerNotice('p1', { kind: 'combat', text: '狼妖对你造成 8 点伤害', combat: { caster: '狼妖', target: '你', skill: '攻击' } });
+
+  const result = svc.drainPlayer('p1');
+  assert.ok(result);
+  assert.equal(result.notices.length, 1);
+  assert.equal(result.notices[0]?.combatGroup?.length, 2);
+  assert.equal(result.notices[0]?.text.includes('\n'), true);
+}
+
+function testQueuePlayerNoticeGroupsKillProgress(): void {
+  const svc = createService();
+  svc.queuePlayerNotice('p1', {
+    kind: 'info',
+    text: '斩杀 狼妖，境界修为 +10，战斗经验 +5。',
+    structured: { key: 'notice.combat.kill-progress', vars: { action: '斩杀', target: '狼妖', details: '境界修为 +10，战斗经验 +5' }, pills: [{ key: 'target', style: 'target' }] },
+  });
+  svc.queuePlayerNotice('p1', {
+    kind: 'info',
+    text: '斩杀 虎妖，境界修为 +12，功法经验 +3。',
+    structured: { key: 'notice.combat.kill-progress', vars: { action: '斩杀', target: '虎妖', details: '境界修为 +12，功法经验 +3' }, pills: [{ key: 'target', style: 'target' }] },
+  });
+
+  const result = svc.drainPlayer('p1');
+  assert.ok(result);
+  assert.equal(result.notices.length, 1);
+  assert.equal(result.notices[0]?.structuredGroup?.length, 2);
+  assert.equal(result.notices[0]?.text.includes('\n'), true);
+}
+
 function testQueuePlayerNoticeDoesNotAggregatePinnedKinds(): void {
   const svc = createService();
   svc.queuePlayerNotice('p1', { kind: 'success', text: '自动使用 甲', structured: { key: 'notice.combat.auto-use-item', vars: { itemName: '甲' } } });
@@ -415,6 +447,8 @@ async function main(): Promise<void> {
     testQueuePlayerNoticeDedupStructuredPayload,
     testQueuePlayerNoticeAggregatesCombatKills,
     testQueuePlayerNoticeAggregatesLootObtained,
+    testQueuePlayerNoticeGroupsCombatLines,
+    testQueuePlayerNoticeGroupsKillProgress,
     testQueuePlayerNoticeDoesNotAggregatePinnedKinds,
     testQueuePlayerNoticeLimitDropsLowerPriority,
     testQueuePlayerNoticeLimitRejectsLowerPriorityIncoming,
