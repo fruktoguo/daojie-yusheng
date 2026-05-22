@@ -31,12 +31,21 @@ export class SchedulerStateService {
   }
 
   restoreFromSnapshot(snapshot: SchedulerSnapshot | null): void {
-    this.initialized = snapshot?.initialized ?? false;
-    this.stopping = snapshot?.stopping ?? false;
+    // 进程启动恢复持久化 snapshot 时不能继承 running/stopping 状态：
+    // 1. 上次进程已退出，任何 running=true 都是死状态，会让 beginRun() 永久拒绝调度；
+    // 2. stopping 是关闭流程内态，新进程启动时必须是 false；
+    // 3. lastFailure 等历史指标保留（用于观测），但运行态字段重置为干净值。
+    this.initialized = false;
+    this.stopping = false;
     this.barrier = snapshot?.barrier ? { ...snapshot.barrier } : null;
     this.states.clear();
     for (const task of snapshot?.tasks ?? []) {
-      this.states.set(task.id, { ...task });
+      const sanitized: SchedulerTaskRuntimeState = {
+        ...task,
+        running: false,
+        status: task.enabled ? (task.paused ? 'paused' : 'idle') : 'disabled',
+      };
+      this.states.set(task.id, sanitized);
     }
   }
 

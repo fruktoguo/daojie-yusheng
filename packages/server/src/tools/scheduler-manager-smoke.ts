@@ -72,6 +72,66 @@ async function main(): Promise<void> {
   const stopping = manager.stop('smoke_done');
   assert.equal(stopping.stopping, true);
 
+  // 回归测试：恢复持久化 snapshot 时不能继承 running=true / stopping=true。
+  // 否则 worker 进程被 SIGKILL 后下次启动 beginRun 会永久拒绝该任务，导致 flush 死锁。
+  const recoveryState = new SchedulerStateService();
+  recoveryState.restoreFromSnapshot({
+    initialized: true,
+    stopping: true,
+    barrier: null,
+    tasks: [
+      {
+        id: 'flush-task-consumer',
+        kind: 'flush',
+        scope: 'global',
+        priority: 'high',
+        enabled: true,
+        running: true,
+        paused: false,
+        status: 'running',
+        lastHeartbeatAt: '2026-05-22T14:17:11.822Z',
+        lastSuccessAt: '2026-05-22T14:17:10.025Z',
+        lastFailureAt: '2026-05-22T14:17:05.941Z',
+        lastFailure: null,
+        processedCount: 110,
+        nextRunAt: null,
+        backlogCount: 0,
+        lastDurationMs: 204,
+        runCount: 693,
+        failureCount: 231,
+      },
+    ],
+  });
+  const recoveredManager = new SchedulerManagerService(
+    new SchedulerRegistryService(),
+    recoveryState,
+    undefined,
+    undefined,
+    new StartupBarrierService(),
+  );
+  recoveredManager.registerTask({
+    id: 'flush-task-consumer',
+    kind: 'flush',
+    scope: 'global',
+    enabled: true,
+    priority: 'high',
+    intervalMs: 2_000,
+    maxConcurrency: 1,
+    leaderMode: 'claim',
+  });
+  let recoveredCalls = 0;
+  const recoveredProcessed = await recoveredManager.runTask('flush-task-consumer', async () => {
+    recoveredCalls += 1;
+    return 7;
+  });
+  assert.equal(recoveredCalls, 1, 'restoreFromSnapshot 必须重置 running，否则 beginRun 会拒绝调度导致积压无法消费');
+  assert.equal(recoveredProcessed, 7);
+  const recoveredTaskState = recoveredManager.getSnapshot().tasks.find((task) => task.id === 'flush-task-consumer');
+  assert.ok(recoveredTaskState);
+  assert.equal(recoveredTaskState.runCount, 694, '历史 runCount 应保留');
+  assert.equal(recoveredTaskState.processedCount, 117, '历史 processedCount 应保留');
+  assert.equal(recoveredTaskState.failureCount, 231, '历史 failureCount 应保留');
+
   console.log(JSON.stringify({
     ok: true,
     taskCount: stopping.tasks.length,

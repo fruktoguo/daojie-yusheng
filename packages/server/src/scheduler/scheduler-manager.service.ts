@@ -12,6 +12,9 @@ import { SchedulerStatePersistenceService } from './scheduler-state-persistence.
 import { SchedulerStateService } from './scheduler-state.service';
 import type { SchedulerBarrierSnapshot, SchedulerSnapshot, SchedulerTaskDefinition, SchedulerTaskExecutor, SchedulerTaskRunResult } from './scheduler.types';
 
+/** executor 默认超时：防止 runOnce hang 住导致 running=true 永久卡死 */
+const SCHEDULER_TASK_DEFAULT_TIMEOUT_MS = 30_000;
+
 @Injectable()
 export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SchedulerManagerService.name);
@@ -115,8 +118,9 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     const started = this.state.beginRun(task.id);
     if (!started) return 0;
     const startedAt = performance.now();
+    const timeoutMs = task.timeoutMs ?? SCHEDULER_TASK_DEFAULT_TIMEOUT_MS;
     try {
-      const result = await resolvedExecutor();
+      const result = await withTimeout(resolvedExecutor(), timeoutMs, taskId);
       const normalized = normalizeRunResult(result);
       this.state.completeRun(task.id, {
         processedCount: normalized.processedCount,
@@ -159,4 +163,17 @@ function normalizeRunResult(input: SchedulerTaskRunResult | number | void): { pr
     processedCount: Math.max(0, Math.trunc(Number(input.processedCount) || 0)),
     nextRunAt: typeof input.nextRunAt === 'number' ? input.nextRunAt : null,
   };
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, taskId: string): Promise<T> {
+  if (ms <= 0 || !Number.isFinite(ms)) {
+    return promise;
+  }
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`scheduler_task_timeout: ${taskId} exceeded ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
