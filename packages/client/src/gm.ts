@@ -3470,18 +3470,19 @@ function renderWorkerPanel(): void {
     return;
   }
 
+  const schedulerDiagNote = getSchedulerDiagnosticNote(workerState);
   const alerts = workerState.alerts.length > 0
     ? `
       <div class="network-breakdown">
         <div class="network-breakdown-head">
           <div class="panel-title">Worker 告警</div>
-          <div class="network-breakdown-subtitle">积压、死信和心跳异常会在这里集中显示</div>
+          <div class="network-breakdown-subtitle">积压、死信和心跳异常会在这里集中显示${schedulerDiagNote ? ' · ' + escapeHtml(schedulerDiagNote) : ''}</div>
         </div>
         <div class="network-breakdown-list">
           ${workerState.alerts.map((alert) => `
             <div class="network-row">
               <div class="network-row-label">${escapeHtml(getWorkerAlertLabel(alert.reason))}</div>
-              <div class="network-row-meta">${escapeHtml(alert.workerId)}${alert.count !== undefined ? ` · ${alert.count}` : ''}</div>
+              <div class="network-row-meta">${escapeHtml(alert.workerId)}${alert.count !== undefined ? ` · ${alert.count}` : ''}${alert.reason === 'worker_inactive' ? getAlertInactiveDiagnostic(workerState!, alert.workerId) : ''}</div>
             </div>
           `).join('')}
         </div>
@@ -3493,6 +3494,7 @@ function renderWorkerPanel(): void {
     : '<div class="empty-hint">当前还没有 worker 记录。</div>';
   const capacityCards = getWorkerCapacityMarkup(workerState);
   const topologyMarkup = getWorkerTopologyMarkup(workerState);
+  const schedulerMarkup = getWorkerSchedulerMarkup(workerState);
 
   serverWorkersContentEl.innerHTML = `
     <div class="summary-grid">
@@ -3504,6 +3506,7 @@ function renderWorkerPanel(): void {
     </div>
     <div class="note-card">${escapeHtml(workerState.note ?? 'Worker 面板读取低频诊断快照，不改变 worker 运行。')}</div>
     ${topologyMarkup}
+    ${schedulerMarkup}
     ${alerts}
     <div class="network-breakdown">
       <div class="network-breakdown-head">
@@ -3864,6 +3867,7 @@ function getWorkerRowMarkup(row: GmWorkerRow): string {
     `${formatWorkerRate(row.writesPerSecond)}`,
     row.backlogGrowthPerSecond !== undefined ? `积压增长 ${formatWorkerRate(row.backlogGrowthPerSecond)}` : '',
     row.deadLetterCount ? `死信 ${row.deadLetterCount}` : '',
+    row.stalePayloadCount ? `无 payload ${row.stalePayloadCount} 条` : '',
     row.enabled !== undefined ? `enabled ${row.enabled ? '是' : '否'}` : '',
     row.running !== undefined ? `running ${row.running ? '是' : '否'}` : '',
     row.processedCount !== undefined ? `累计 ${row.processedCount}` : '',
@@ -3926,6 +3930,44 @@ function getWorkerTopologyMarkup(state: GmWorkerStateRes): string {
   `;
 }
 
+function getWorkerSchedulerMarkup(state: GmWorkerStateRes): string {
+  const scheduler = state.scheduler;
+  if (!scheduler || !scheduler.tasks || scheduler.tasks.length === 0) {
+    return '<div class="note-card"><strong>Scheduler 任务</strong>：未加载或无任务注册（worker 进程可能未启动）。</div>';
+  }
+  const taskRows = scheduler.tasks.map((task) => {
+    const isStuck = task.running && task.lastSuccessAt && (Date.now() - Date.parse(task.lastSuccessAt) > 120_000);
+    const statusClass = isStuck ? ' danger' : task.running ? '' : '';
+    const statusText = isStuck ? '可能 hang' : task.running ? '运行中' : task.paused ? '已暂停' : task.enabled ? '空闲' : '已禁用';
+    const meta = [
+      `运行 ${task.runCount} 次`,
+      `成功 ${task.processedCount}`,
+      task.failureCount > 0 ? `失败 ${task.failureCount}` : '',
+      task.lastSuccessAt ? `最近成功 ${formatDateTime(task.lastSuccessAt)}` : '从未成功',
+      task.lastFailure ? `原因: ${task.lastFailure.slice(0, 60)}` : '',
+      task.lastDurationMs > 0 ? `耗时 ${task.lastDurationMs}ms` : '',
+    ].filter(Boolean);
+    return `
+      <div class="network-row">
+        <div class="network-row-label">${escapeHtml(task.id)} <span class="pill${statusClass}">${escapeHtml(statusText)}</span></div>
+        <div class="network-row-meta">${escapeHtml(meta.join(' · '))}</div>
+      </div>
+    `;
+  }).join('');
+  const governorNote = scheduler.governor
+    ? `压力等级 ${scheduler.governor.backlogPressureLevel} · CPU ${scheduler.governor.availableParallelism} 核 · flush 池等待 ${scheduler.governor.flushPoolWaiting} · 锁等待 ${scheduler.governor.lockWaitCount}`
+    : '';
+  return `
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">Scheduler 任务状态</div>
+        <div class="network-breakdown-subtitle">跨进程调度器快照（来自 scheduler_runtime_state 表）${governorNote ? ' · ' + escapeHtml(governorNote) : ''}</div>
+      </div>
+      <div class="network-breakdown-list">${taskRows}</div>
+    </div>
+  `;
+}
+
 function getWorkerAlertLabel(reason: string): string {
   switch (reason) {
     case 'dead_letter_present':
@@ -3941,6 +3983,30 @@ function getWorkerAlertLabel(reason: string): string {
     default:
       return reason;
   }
+}
+
+function getSchedulerDiagnosticNote(state: GmWorkerStateRes): string {
+  const scheduler = state.scheduler;
+  if (!scheduler) return 'scheduler 状态未加载';
+  const flushTask = scheduler.tasks.find((t) => t.id === 'flush-task-consumer');
+  if (!flushTask) return 'flush-task-consumer 未注册（worker 进程可能未启动）';
+  if (flushTask.running && flushTask.lastSuccessAt && Date.now() - Date.parse(flushTask.lastSuccessAt) > 120_000) {
+    return 'flush consumer 可能 hang（running=true 超时）';
+  }
+  if (flushTask.failureCount > 0) {
+    return `flush consumer 有 ${flushTask.failureCount} 次失败`;
+  }
+  return '';
+}
+
+function getAlertInactiveDiagnostic(state: GmWorkerStateRes, workerId: string): string {
+  const row = state.rows.find((r) => r.id === workerId || `${r.kind === 'instance_flush' ? 'instance' : 'player'}:${r.domain}` === workerId);
+  if (!row) return '';
+  const parts: string[] = [];
+  if (row.stalePayloadCount && row.stalePayloadCount > 0) {
+    parts.push(`无 payload ${row.stalePayloadCount} 条（离线玩家旧数据）`);
+  }
+  return parts.length > 0 ? ` · ${parts.join(' · ')}` : '';
 }
 
 function getWorkerCapacityMarkup(state: GmWorkerStateRes): string {

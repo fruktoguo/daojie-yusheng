@@ -45,6 +45,7 @@ const COALESCE_MS = readInt('SERVER_MAP_PERSISTENCE_COALESCE_WINDOW_MS', 'MAP_PE
 const TIME_CHECKPOINT_MS = readInt('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS', 300_000, 60_000, 3_600_000);
 const MONSTER_RUNTIME_MS = readInt('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 60_000, 10_000, 600_000);
 const FLUSH_WAITING_LIMIT = readInt('SERVER_FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 'FLUSH_TASK_RUNTIME_POOL_WAITING_THRESHOLD', 8, 0, 100);
+const STALE_PAYLOAD_ABANDON_THRESHOLD = readInt('SERVER_FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 'FLUSH_TASK_STALE_PAYLOAD_ABANDON_THRESHOLD', 10, 2, 100);
 const INSTANCE_COALESCE_DOMAINS = new Set(['tile_damage', 'tile_resource', 'fengshui']);
 const PLAYER_HIGH_PRIORITY_DOMAINS = new Set(['presence', 'position_checkpoint', 'world_anchor', 'inventory', 'equipment', 'market', 'mail', 'gm_edit', 'gm']);
 const INSTANCE_LOW_PRIORITY_DOMAINS = new Set(['time', 'monster_runtime', 'tile_resource', 'tile_damage', 'fengshui']);
@@ -390,7 +391,15 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
             return;
           }
           if (!shouldStartAuthoritativeRuntime()) {
-            await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+            const attempt = this.bumpFailureAttempt(attemptKey);
+            if (attempt >= STALE_PAYLOAD_ABANDON_THRESHOLD) {
+              this.logger.warn(`玩家刷盘放弃 stale payload：playerId=${playerId} domains=${domains.join(',')} attempt=${attempt}，等待玩家上线重新 stage`);
+              await this.flushLedgerService.markFlushTasksFlushed(group);
+              this.failureAttempts.delete(attemptKey);
+              processed += group.length;
+            } else {
+              await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
+            }
             return;
           }
           const flushed = await this.playerPersistenceFlushService.flushPlayerDomains(playerId, domains);

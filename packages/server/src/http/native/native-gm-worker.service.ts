@@ -55,6 +55,7 @@ export class NativeGmWorkerService {
       retryRows,
       databaseState,
       flushDiagnostics,
+      stalePayloadByDomain,
     ] = await Promise.all([
       this.playerFlushLedgerService.listBacklogSummary(),
       this.flushLedgerService.listInstanceBacklogSummary(),
@@ -64,13 +65,14 @@ export class NativeGmWorkerService {
       this.outboxDispatcherService.listRetryQueue({ limit: 100 }),
       this.nativeGmAdminService.getDatabaseState(),
       Promise.resolve(this.flushDiagnosticsService.getSnapshot()),
+      this.flushLedgerService.listPlayerStalePayloadCountByDomain(),
     ]);
 
     const runtimeRole = resolveServerRuntimeRole();
     const localWorkers = this.backgroundWorkerRuntimeService?.listWorkerStates() ?? [];
     const runtimeById = indexRows(localWorkers, (row) => row.id);
     const rows: GmWorkerRow[] = enrichRowsWithRuntimeState([
-      ...buildPlayerWorkerRows(playerRows, playerThroughputRows),
+      ...buildPlayerWorkerRows(playerRows, playerThroughputRows, stalePayloadByDomain),
       ...buildInstanceWorkerRows(instanceRows, instanceThroughputRows),
       buildOutboxWorkerRow(outboxSummary, retryRows),
       buildFlushLedgerRetentionWorkerRow(),
@@ -178,6 +180,7 @@ function mapWorkerRowToRuntimeId(row: GmWorkerRow): string {
 function buildPlayerWorkerRows(
   backlogRows: Array<Record<string, unknown>>,
   throughputRows: Array<Record<string, unknown>>,
+  stalePayloadByDomain: Map<string, number>,
 ): GmWorkerRow[] {
   const backlogByDomain = indexRows(backlogRows, (row) => String(row.domain ?? ''));
   const throughputByDomain = indexRows(throughputRows, (row) => String(row.domain ?? ''));
@@ -194,6 +197,7 @@ function buildPlayerWorkerRows(
     const claimedCount = toCount(backlog?.claimed_count);
     const delayedCount = toCount(backlog?.delayed_count);
     const writeCount = toCount(throughput?.write_count);
+    const stalePayloadCount = stalePayloadByDomain.get(domain) ?? 0;
     return {
       id: `player:${domain}`,
       label: config?.label ?? `玩家刷盘：${domain}`,
@@ -208,6 +212,7 @@ function buildPlayerWorkerRows(
       backlogGrowthPerSecond: estimateBacklogGrowthPerSecond(pendingCount, delayedCount, writeCount),
       oldestPendingAt: toOptionalString(backlog?.oldest_pending_at),
       latestUpdatedAt: toOptionalString(throughput?.latest_updated_at),
+      stalePayloadCount: stalePayloadCount > 0 ? stalePayloadCount : undefined,
     };
   });
 }

@@ -742,6 +742,31 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }
 
+  /** 统计每个 domain 中 payload 为空的积压记录数（worker 无法处理的 stale 记录） */
+  async listPlayerStalePayloadCountByDomain(): Promise<Map<string, number>> {
+    if (!this.pool || !this.enabled) {
+      return new Map();
+    }
+    const result = await this.pool.query(
+      `
+        SELECT domain, COUNT(*)::bigint AS stale_count
+        FROM ${PLAYER_FLUSH_LEDGER_TABLE}
+        WHERE latest_version > flushed_version
+          AND payload_jsonb IS NULL
+        GROUP BY domain
+      `,
+    );
+    const map = new Map<string, number>();
+    for (const row of (result.rows ?? []) as Array<Record<string, unknown>>) {
+      const domain = String(row.domain ?? '').trim();
+      const count = normalizePositiveInteger(row.stale_count, 0, 0, Number.MAX_SAFE_INTEGER);
+      if (domain && count > 0) {
+        map.set(domain, count);
+      }
+    }
+    return map;
+  }
+
   async listPlayerRecentThroughputSummary(input?: { windowSeconds?: number }): Promise<Array<Record<string, unknown>>> {
     if (!this.pool || !this.enabled) {
       return [];

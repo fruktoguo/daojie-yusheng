@@ -1199,6 +1199,8 @@ export interface GmWorkerRow {
   lastFailureAt?: string | null;
   processedCount?: number;
   runtimeRole?: string;
+  /** stalePayloadCount：payload 为空的积压记录数（worker 无法处理，需等玩家上线重新 stage）。 */
+  stalePayloadCount?: number;
 }
 
 /** GM worker 告警项。 */
