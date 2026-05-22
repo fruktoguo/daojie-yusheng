@@ -259,6 +259,10 @@ class MapInstanceRuntime {
     tick = 0;
     /** 实例级 tick 倍速（默认 1，0 表示暂停）。 */
     tickSpeed = 1;
+    /** 降频开始时间戳（ms），null 表示未降频。 */
+    _throttledSinceMs: number | null = null;
+    /** 降频开始时的实例 tick。 */
+    _throttledSinceTick = 0;
     /** 实例是否暂停 tick 推进。 */
     paused = false;
     /**
@@ -626,8 +630,49 @@ class MapInstanceRuntime {
         this.playersById.set(player.playerId, player);
         this.playersByHandle.set(player.handle, player);
         this.setOccupied(player.x, player.y, player.handle);
+        // T-04: 玩家进入降频实例时执行 catch-up 补偿
+        if (this._throttledSinceMs != null) {
+            this.performThrottleCatchUp();
+        }
         this.worldRevision += 1;
         return player;
+    }
+    /**
+     * T-04: 降频实例 catch-up 补偿。
+     * 计算降频期间跳过的 ticks，批量补偿怪物 respawnLeft 和地块 respawnLeft。
+     */
+    performThrottleCatchUp() {
+        if (this._throttledSinceMs == null) {
+            return;
+        }
+        const elapsedRealSeconds = Math.max(0, Math.floor((Date.now() - this._throttledSinceMs) / 1000));
+        const executedTicks = Math.max(0, this.tick - this._throttledSinceTick);
+        const missedTicks = Math.max(0, elapsedRealSeconds - executedTicks);
+        if (missedTicks <= 0) {
+            this._throttledSinceMs = null;
+            return;
+        }
+        // 补偿怪物 respawnLeft
+        for (const monster of this.monstersByRuntimeId.values()) {
+            if (!monster.alive && monster.respawnLeft > 0) {
+                monster.respawnLeft = Math.max(0, monster.respawnLeft - missedTicks);
+                if (monster.respawnLeft === 0) {
+                    this.respawnMonster(monster);
+                }
+            }
+        }
+        // 补偿地块 respawnLeft
+        for (const [tileIndex, damage] of this.tileDamageByTile.entries()) {
+            if (damage.destroyed === true && damage.respawnLeft > 0) {
+                const newRespawnLeft = Math.max(0, damage.respawnLeft - missedTicks);
+                this.tileDamageByTile.set(tileIndex, {
+                    ...damage,
+                    respawnLeft: newRespawnLeft,
+                });
+            }
+        }
+        // 清除降频标记
+        this._throttledSinceMs = null;
     }
     /** disconnectPlayer：断开玩家与实例的挂接，并清理相关排队状态。 */
     disconnectPlayer(playerId) {

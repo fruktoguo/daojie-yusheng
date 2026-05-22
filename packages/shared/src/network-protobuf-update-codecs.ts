@@ -92,6 +92,9 @@ export function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unkn
   if (entry.cooldownLeft !== undefined) {
     wire.cooldownLeft = entry.cooldownLeft;
   }
+  if (entry.cooldownReadyTick !== undefined) {
+    wire.cooldownReadyTick = entry.cooldownReadyTick;
+  }
   setNullableWireValue(wire, 'autoBattleEnabled', 'clearAutoBattleEnabled', entry.autoBattleEnabled);
   setNullableWireValue(wire, 'autoBattleOrder', 'clearAutoBattleOrder', entry.autoBattleOrder);
   setNullableWireValue(wire, 'skillEnabled', 'clearSkillEnabled', entry.skillEnabled);
@@ -112,6 +115,7 @@ export function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdate
     id: String(wire.id ?? ''),
   };
   if (hasOwn(wire, 'cooldownLeft')) patch.cooldownLeft = Number(wire.cooldownLeft ?? 0);
+  if (hasOwn(wire, 'cooldownReadyTick')) patch.cooldownReadyTick = Number(wire.cooldownReadyTick ?? 0);
   const autoBattleEnabled = readNullableWireValue<boolean>(wire, 'autoBattleEnabled', 'clearAutoBattleEnabled');
   if (autoBattleEnabled !== undefined) patch.autoBattleEnabled = autoBattleEnabled;
   const autoBattleOrder = readNullableWireValue<number>(wire, 'autoBattleOrder', 'clearAutoBattleOrder');

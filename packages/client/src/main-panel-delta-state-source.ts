@@ -37,6 +37,20 @@ import {
   resolvePreviewTechnique,
 } from './content/local-templates';
 import { getStaticClientActionDef } from './constants/ui/action';
+import { getEstimatedServerTick } from './runtime/server-tick';
+
+/** 使用 cooldownReadyTick 本地刷新 action cooldownLeft（T-06）。 */
+function refreshActionCooldownsFromReadyTick(actions: ActionDef[]): void {
+  const serverTick = getEstimatedServerTick();
+  if (serverTick == null) {
+    return;
+  }
+  for (const action of actions) {
+    if (action.cooldownReadyTick != null && action.cooldownReadyTick > 0) {
+      action.cooldownLeft = Math.max(0, action.cooldownReadyTick - serverTick);
+    }
+  }
+}
 
 const UNKNOWN_ITEM_NAME = '未知物品';
 const UNKNOWN_TECHNIQUE_NAME = '未知功法';
@@ -851,6 +865,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     return {
       id: patch.id,
       cooldownLeft: patch.cooldownLeft ?? previousSameAction?.cooldownLeft ?? staticAction?.cooldownLeft ?? 0,
+      cooldownReadyTick: patch.cooldownReadyTick ?? previousSameAction?.cooldownReadyTick,
       autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previousSameAction?.autoBattleEnabled),
       autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previousSameAction?.autoBattleOrder),
       skillEnabled: applyNullablePatch(patch.skillEnabled, previousSameAction?.skillEnabled),
@@ -1212,6 +1227,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       }
       options.bodyTrainingPanel.syncDynamic(nextBodyTraining, player?.foundation);
       if (player) {
+        refreshActionCooldownsFromReadyTick(player.actions);
         options.actionStateSource.syncDynamic(player.actions, player.autoBattle, player.autoRetaliate, player);
       }
       options.syncTechniquesBridgeState(mergedTechniques, nextCultivatingTechId);
@@ -1294,9 +1310,11 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         options.navigation.clearCurrentPath();
       }
       if (shouldRefreshActionPanel) {
+        refreshActionCooldownsFromReadyTick(mergedActions);
         options.actionStateSource.update(mergedActions, nextAutoBattle, nextAutoRetaliate, player ?? undefined);
         options.refreshUiChrome();
       } else {
+        refreshActionCooldownsFromReadyTick(mergedActions);
         options.actionStateSource.syncDynamic(mergedActions, nextAutoBattle, nextAutoRetaliate, player ?? undefined);
       }
       options.targeting.syncSenseQiOverlay();

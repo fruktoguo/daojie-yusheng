@@ -202,6 +202,11 @@ export interface ActionUpdateEntryView {
 
   cooldownLeft?: number;  
   /**
+ * cooldownReadyTick：冷却结束时的绝对服务端 tick。
+ */
+
+  cooldownReadyTick?: number;  
+  /**
  * autoBattleEnabled：启用开关或状态标识。
  */
 

@@ -48,7 +48,7 @@
 
 ### 第二阶段：中等改动高收益（100-300 行，3-5 天）
 
-- [ ] **T-04** 无玩家实例降频 tick
+- [x] **T-04** 无玩家实例降频 tick
   - 文件：`packages/server/src/runtime/world/world-runtime-instance-tick-orchestration.service.ts`
   - **关键约束**（链路验证发现）：
     - `instance.tick` 必须按实际跳过数递增（绝对 tick 比较：技能冷却、临时地块过期）
@@ -80,7 +80,7 @@
   - 验证：`pnpm verify:quick` + worker-pool-equivalence-smoke
   - 预期：quest 导航（无 clientPathHint）从主线程移到 Worker
 
-- [ ] **T-06** cooldownLeft 改为 cooldownReadyTick
+- [x] **T-06** cooldownLeft 改为 cooldownReadyTick
   - 文件：`packages/shared/src/action-combat-types.ts`、`world-projector.helpers.ts`
   - 改动：服务端只在技能进入冷却时发送 `cooldownReadyTick`（绝对 tick，不变值）
   - 改动：`buildActionEntrySignatures` 中排除 cooldownLeft

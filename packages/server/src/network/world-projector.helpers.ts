@@ -906,7 +906,8 @@ function buildEquipmentSlotSignatures(slots: ProjectorPlayerLike['equipment']['s
 function buildActionEntrySignatures(actions: ProjectedActionEntry[]): Record<string, string> {
     const signatures: Record<string, string> = {};
     for (const entry of actions) {
-        signatures[entry.id] = buildStableProtocolSignature(entry);
+        const { cooldownLeft: _cd, ...rest } = entry;
+        signatures[entry.id] = buildStableProtocolSignature(rest);
     }
     return signatures;
 }

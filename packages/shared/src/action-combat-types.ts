@@ -40,6 +40,11 @@ export interface ActionDef {
 
   cooldownLeft: number;  
   /**
+ * cooldownReadyTick：冷却结束时的绝对服务端 tick（不变值，客户端本地计算剩余）。
+ */
+
+  cooldownReadyTick?: number;  
+  /**
  * range：范围相关字段。
  */
 

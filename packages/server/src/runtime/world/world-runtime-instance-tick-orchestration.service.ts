@@ -200,6 +200,20 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             } else {
                 speed = 1;
             }
+            // T-04: 无玩家实例降频到 0.1Hz（排除通天塔和有活跃阵法的实例）
+            if (speed > 0
+                && instance.playersById.size === 0
+                && !instance.meta.templateId.startsWith('tongtian_tower_layer_')
+                && !(deps.worldRuntimeFormationService?.formationsByInstanceId?.get(instance.meta.instanceId)?.length > 0)
+            ) {
+                speed *= 0.1;
+                if (instance._throttledSinceMs == null) {
+                    instance._throttledSinceMs = Date.now();
+                    instance._throttledSinceTick = instance.tick;
+                }
+            } else {
+                instance._throttledSinceMs = null;
+            }
             if (!Number.isFinite(speed) || speed <= 0) {
                 continue;
             }

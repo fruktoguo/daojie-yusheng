@@ -6909,6 +6909,7 @@ function buildActionEntries(player, currentTick) {
                 type: 'skill',
                 desc: skill.desc,
                 cooldownLeft: Math.max(0, normalizedReadyTick - currentTick),
+                cooldownReadyTick: normalizedReadyTick > currentTick ? normalizedReadyTick : undefined,
                 range: skill.targeting?.range ?? skill.range,
                 requiresTarget: skill.requiresTarget ?? true,
                 targetMode: skill.targetMode ?? 'entity',
@@ -6933,6 +6934,7 @@ function buildActionEntries(player, currentTick) {
         const nextAction = reuseActionEntry(previousById.get(entry.id), {
             ...entry,
             cooldownLeft: readyTick > 0 ? Math.max(0, readyTick - currentTick) : Math.max(0, Number(entry.cooldownLeft ?? 0)),
+            cooldownReadyTick: readyTick > currentTick ? readyTick : undefined,
         });
         if (nextAction.changed) {
             changed = true;
