@@ -11,7 +11,8 @@
 ### 1.1 实例 tick 主体仍串行 + 逐玩家隔离调用（S26）
 
 - **文件**：`runtime/world/world-runtime-instance-tick-orchestration.service.ts`
-- **现象**：Instance Worker Pool 已启用（min(N_cpu-2, 6) 个 worker），但**只卸载了怪物 AI intent 预计算**（`precomputeInstanceWorkerIntents` 通过 `Promise.all` 并行提交）。实例 tick 的主体逻辑（`tickOnce`、玩家推进、建筑、阵法、资源流、临时地块等 80%+ 工作量）仍在主线程的串行 `for` 循环中执行。
+- **现象**：Instance Worker Pool 已启用（min(N_cpu-2, 6) 个 worker），通过 `precomputeInstanceWorkerIntents` 并行提交怪物 AI intent 预计算。**但验证发现 `resolveMonsterTargetWithHint` 直接忽略 worker 返回的 intent，无条件调用完整的 `resolveMonsterTarget`**。Worker 预计算结果实际上是死代码。实例 tick 的全部逻辑（怪物完整 AI + 玩家推进 + 建筑 + 阵法等）100% 在主线程串行执行。
+- **额外问题**：所有非暂停实例每帧都执行 tickOnce，**没有"无玩家则跳过"的逻辑**。10000 实例中即使大部分无玩家，仍然全部 tick。
 - **影响**：10000 实例 × 1Hz 串行 tick 主体耗时可能超 1s，世界推进停滞
 
 **深度分析 — 每 tick 临时对象分配约 38.5 万个**：
@@ -52,18 +53,28 @@ for (const playerId of currentPlayerIds) {
 - **影响**：超出 16GB 部署预算，间接导致 GC 压力和 CPU 开销
 - **待确认**：chunk-based 按需分配 / 不活跃实例完全卸载 / 冷数据 lazy 加载
 
-### 1.3 寻路 TypedArray 每次分配（致命 GC 压力）
+### 1.3 寻路 100% 在主线程（AsyncPathfindingService 是死代码）
 
-- **文件**：`runtime/world/world-runtime.path-planning.helpers.ts` L388-393
-- **现象**：每次 A* 调用分配 `Float64Array(size) + Int32Array(size)`
-- **影响**：50×50 地图每次 30KB，4000 次/tick = **120MB 临时内存分配/秒**
-- **方案**：按地图尺寸预分配 buffer pool，tick 间复用
+- **文件**：`runtime/world/world-runtime.path-planning.helpers.ts`
+- **现象**：所有寻路调用（导航 `findOptimalPathOnMap` + 自动战斗 `findPathToTargetWithinRangeOnMap`）100% 在主线程同步执行。`AsyncPathfindingService`（通过 Worker 异步寻路）已实现但**从未被任何业务代码调用**，是死代码。Worker 中的 `pathfind` handler 仅在 bench/smoke 测试中使用。
+- **每次调用分配**：`Float64Array(size) + Int32Array(size)`，50×50 地图每次 30KB
+- **影响**：4000 次/tick = **120MB 临时内存分配/秒**，GC 压力极大
+- **方案**：接入已有的 `AsyncPathfindingService`，将寻路统一走 Encoding Worker Pool
 
 ---
 
 ## 二、高优先级（性能显著影响）
 
 ### 2.1 A* 寻路系统 — 主线程 CPU 超预算
+
+**所有寻路 100% 在主线程直接执行**（验证确认）：
+
+| 调用位置 | 函数 | 场景 |
+|----------|------|------|
+| `world-runtime-navigation.service.ts:481` | `findOptimalPathOnMap` | 跨图导航寻路到传送门 |
+| `world-runtime-navigation.service.ts:506` | `findOptimalPathOnMap` | 本地导航寻路到目标点 |
+| `world-runtime-auto-combat.service.ts:521` | `findPathToTargetWithinRangeOnMap` | 自动战斗 LOS 不通时 |
+| `world-runtime-auto-combat.service.ts:570` | `findPathToTargetWithinRangeOnMap` | 自动战斗目标超范围时 |
 
 **综合耗时估算**：
 
@@ -83,76 +94,78 @@ for (const playerId of currentPlayerIds) {
 5. 同一实例内多个玩家重复构建 blockMask
 
 **优化方案**：
-1. TypedArray 池化（预分配按地图尺寸的 buffer pool）
-2. 导航路径缓存 + 逐步消费（目标/障碍变化时才重规划）
-3. 自动战斗改为深度限制 BFS（只算 1 步方向）
-4. 统一走 Worker 寻路（主线程不再直接调用 A*）
+1. **接入已有的 `AsyncPathfindingService`**（代码已实现，只需在导航和自动战斗中调用）
+2. TypedArray 池化（Worker 内按地图尺寸预分配 buffer pool）
+3. 导航路径缓存 + 逐步消费（目标/障碍变化时才重规划）
+4. 自动战斗改为深度限制 BFS（只算 1 步方向）
 5. blockMask 实例级缓存（同 tick 同实例共享）
 
-### 2.2 网络同步 — stableShallowSignature 字符串拼接
+### 2.2 网络同步 — signature 字符串拼接（验证确认每 tick 每玩家执行）
 
-- **文件**：`network/world-projector.helpers.ts`
-- **现象**：面板 diff 使用递归字符串拼接生成 signature
-- **调用频率**：5000 玩家 × (50 物品 + 5 装备 + 20 技能 + 10 buff) = 42.5 万次递归拼接/tick
-- **影响**：大量中间字符串分配，`Object.keys().sort()` 每次创建新数组
+- **文件**：`network/world-projector.helpers.ts` L924-943
+- **现象**：`buildAttrPanelSignature`、`buildActionPanelSignature`、`buildBuffListSignature` **每 tick 每玩家都执行**（验证确认无法被 selfRevision 短路）
+- **实现**：递归 `Object.keys(record).sort().map(key => ...)` 字符串拼接
+- **但 buildCoordKey 被 playerViewCache 保护**：只有玩家位置变化或 worldRevision 变化时才重建视野，不是每 tick 每玩家都调用（之前报告有误）
 - **方案**：用数值 hash（FNV-1a/xxHash）替代字符串 signature
 - **预期收益**：15-25% panel diff 时间，显著降低 GC 压力
 
-### 2.3 每 tick 递减字段触发全量重发
+### 2.3 每 tick 递减字段触发全量重发（验证确认触发链）
 
-| 字段 | 触发原因 | CPU 影响 | 方案 |
+| 字段 | 触发链（验证确认） | CPU 影响 | 方案 |
 |------|----------|----------|------|
-| remainingTicks | 每 tick -1 | buff 全量重发（500-5KB × 5000人） | 客户端本地递减 |
-| cooldownLeft | 每 tick -1 | action 全量重发（含静态字段） | 独立轻量通道 |
-| lifeElapsedTicks | 每 tick +1 | attr 全量重发（含 bonuses/breakdowns） | 客户端本地递增 |
-| realmProgress | 修炼中每 tick 变化 | attr delta 触发 | 降频或客户端预测 |
-| exp (technique) | 修炼中每 tick 变化 | 整个 entry 重发（含 skills/layers） | 拆数值增量通道 |
+| lifeElapsedTicks | `advancePlayerChronology` 每 tick 无条件 +1 → `buildAttrPanelSignature` 包含此字段 → attrSignature 每 tick 必变 → **所有玩家每 tick 都发 attr panel delta** | 最严重 | 从 signature 中移除，客户端本地递增 |
+| remainingTicks | `tickTemporaryBuffs` 递减 → `buffs.revision++` → `buildBuffListSignature` 包含此字段 → **有 buff 的玩家每 tick 都发 buff panel delta** | 高 | 客户端本地递减 |
+| cooldownLeft | `rebuildActionState` 重算 → `actions.revision++` → **有技能冷却的玩家每 tick 都发 action panel delta** | 中 | 独立轻量通道 |
+| realmProgress | 修炼中每 tick 变化 | 中 | 降频或客户端预测 |
+| exp (technique) | 修炼中每 tick 变化 | 中 | 拆数值增量通道 |
 
-### 2.4 protobuf 热路径 JSON.stringify（S77）
+### 2.4 protobuf 实际是 JSON 对象直发（未启用二进制编码）
 
-- **文件**：`packages/shared/src/network-protobuf-update-codecs.ts`（13 处）、`network-protobuf-tick-codecs.ts`（2 处）
-- **update codecs 频率**：战斗中 ~1500 玩家/tick 触发属性变化 → 1500 × 8 字段 = 12000 次 stringify
-- **tick codecs 频率**：5000 玩家 × 20 可见实体 × 30% 有 buffs = 30000 次 `JSON.stringify(buffs)`
-- **总计**：~42000 次 JSON.stringify/tick
-- **方案**：显式字段编码 + 内容 hash 缓存（不变时复用上次结果）
-- **预期收益**：10-15% tick 编码时间
+- **文件**：`network/aoi-envelope-encoder.service.ts`、`network/world-sync-protocol.service.ts`
+- **现象**：`encodePayloadSync` 硬编码返回 `null`，`maybeEncodeBinary` 直接返回原对象。服务端通过 Socket.IO 原生 JSON 序列化发送，客户端 `decodeServerEventPayload` 直接 `return payload as T`（非二进制时跳过解码）
+- **protobuf schema 状态**：已定义完整 schema + 编解码函数，但仅在 smoke test 中使用，生产路径被显式禁用
+- **影响**：Socket.IO 内部 JSON.stringify 每 tick 每玩家执行，包体比 protobuf 大 2-3 倍
+- **注释原文**："不要在未完成 protobuf/压缩收益验证前改回 Buffer"
 
 ### 2.5 自动战斗每 tick 重建视野和技能表
 
 - **文件**：`runtime/world/combat/world-runtime-auto-combat.service.ts`
 - **现象**：
-  - 每玩家每 tick 调用 `buildPlayerView` 重建视野（遍历实例内所有实体）
-  - 每玩家每 tick 调用 `buildAutoBattleSkillLookup` 重建 Map
+  - 每玩家每 tick 调用 `buildPlayerView` — 但有 `playerViewCache` 保护（位置/revision 不变时复用）
+  - 每玩家每 tick 调用 `buildAutoBattleSkillLookup` 重建 Map（无缓存）
   - `collectThreatTargetCandidates` 重复构建 Map/Set
-- **频率**：3000 autoBattle 玩家 × 30 怪物/实例 = 9 万次距离计算/tick
 - **方案**：
   - skillLookup 缓存在 player 对象上（装备/学习变更时失效）
-  - 视野增量更新（脏标记 + 增量）
   - 路径缓存（目标未移动时复用上一 tick 路径）
 
 ---
 
 ## 三、中优先级（当前规模可控，扩容后成为瓶颈）
 
-### 3.1 怪物 AI — 20 万怪物/tick
+### 3.1 怪物 AI — Worker 预计算结果被完全忽略
 
-- **文件**：`runtime/instance/map-instance.runtime.ts` L5235-5409
-- **现象**：10000 实例 × 平均 20 怪物 = 200000 怪物/tick
-- **热点**：
-  - `chooseMonsterSkill` 内部 `buildEffectiveMonsterSkillGeometry` 每怪每技能创建几何对象
-  - 50000 怪物 × 3 技能 = 150000 次几何对象分配
-  - `new Map(precomputedIntents.map(...))` 每实例一次
+- **文件**：`runtime/instance/map-instance.runtime.ts` L5235-5409, L6138
+- **现象**：`resolveMonsterTargetWithHint(monster, preIntent)` 的实现**直接忽略 preIntent**，无条件调用完整的 `resolveMonsterTarget(monster)`。Worker 预计算的 intent 是死代码。
+- **每个怪物每 tick 执行**：
+  - 遍历所有玩家检查距离 O(P)
+  - shadowcasting 视线计算 O(R²)
+  - 仇恨累积 + 最高仇恨目标选择
+  - `chooseMonsterSkill` + `buildEffectiveMonsterSkillGeometry`（每技能创建几何对象）
+- **复杂度**：O(M × (P + R²))，M=怪物数，P=实例内玩家数
+- **估算**：10000 实例 × 平均 5 怪物 = 50000 次完整 AI 决策/tick
 - **方案**：
+  - 修复 `resolveMonsterTargetWithHint` 使其真正使用 worker 预计算结果
+  - 无玩家实例跳过 tick（当前缺失此逻辑）
   - 怪物技能几何缓存（属性不变时几何不变）
   - 非 aggro 怪物降频到 0.5Hz
-  - intentByMonsterId 在编排层预构建传入
 
-### 3.2 网络同步 — buildCoordKey 字符串分配
+### 3.2 网络同步 — buildCoordKey 字符串分配（被 playerViewCache 保护）
 
 - **文件**：`network/world-sync-map-snapshot.service.ts`
-- **现象**：视野 11×11=121 格 × 5000 玩家 = 605000 次 `${x},${y}` 模板字符串/tick
-- **方案**：改为数值编码 `x * 10000 + y`，用 `Map<number, T>` 替代 `Map<string, T>`
-- **预期收益**：8-12% aux sync 时间
+- **现象**：视野格子 key 使用 `${x},${y}` 字符串
+- **实际频率**：**不是每 tick 每玩家**。`buildPlayerView` 有 `playerViewCacheByPlayerId` 保护，只有玩家位置变化或 worldRevision 变化时才重建视野。静止玩家直接复用缓存。
+- **影响**：比之前估算低很多，仅移动中的玩家触发
+- **方案**：改为数值编码 `x * 10000 + y` 仍有收益，但优先级降低
 
 ### 3.3 网络同步 — 威胁箭头/小地图临时集合
 
@@ -199,16 +212,13 @@ for (const playerId of currentPlayerIds) {
 
 ## 四、客户端渲染 CPU 问题
 
-### 4.1 renderWorld — 全量重绘（最大热点）
+### 4.1 renderWorld — 全量重绘（验证确认无脏区域检测）
 
 - **文件**：`renderer/text.ts` L1104-1298
-- **现象**：每帧对所有可见格子（~300）执行完整绘制，无脏区域检测
-- **每帧 Canvas 调用**：drawImage ~300 + fillRect ~300-600 + strokeRect ~50-200 = 650-1100 次
-- **GC 压力**：`${gx},${gy}` 字符串拼接 300 格 × 60fps = 18000 临时字符串/秒
-- **方案**：
-  - 脏区域检测（场景静止时跳过渲染）
-  - 分层 Canvas（静态地块层 + 动态实体层 + 特效层）
-  - 坐标 key 改为数值编码
+- **现象**：每帧 `clear()` 全屏填充后，双层 for 循环遍历所有可见格子全量重绘。**无脏区域检测、无静止跳过机制**（验证确认）。
+- **缓解措施**：`TileSpriteCache` 离屏 Canvas 缓存地块底色+符号（drawImage 预渲染结果），避免每帧 fillRect+fillText。但叠加层（路径高亮、targeting、感气等）仍每帧逐格重绘。
+- **帧跳过**：有 FPS 限制（`nextFrameAt` 跳过过快的 rAF），但不会因"静止"而跳过渲染。
+- **方案**：脏区域检测 + 分层 Canvas（静态地块层 + 动态实体层 + 特效层）
 
 ### 4.2 renderEntities — 每帧排序 + 临时对象
 
@@ -225,20 +235,19 @@ for (const playerId of currentPlayerIds) {
 - **现象**：每帧创建 2 个 Map + N 个字符串键 + 排序，战斗密集时 256 条
 - **方案**：只在 floatingTexts 数组变化时重建分组
 
-### 4.4 MapStore — cloneJson 全量深拷贝
+### 4.4 MapStore — cloneJson 每 tick 深拷贝所有实体（验证确认）
 
-- **文件**：`game-map/store/`
-- **现象**：
-  - `mergeTickEntities` 每 tick 对所有已知实体执行深拷贝（即使未变化）
-  - `rebuildRenderTileCache` 对整个地图浅拷贝重建
+- **文件**：`game-map/store/map-store.ts` L1020-1028
+- **现象**：`mergeTickEntities` 对所有未被移除的现有实体执行 `clonePlainValue(entity)`（递归手写深拷贝，非 JSON.parse/stringify）。即使只有 1 个实体移动，也深拷贝全部现有实体列表。
+- **clonePlainValue 实现**：递归遍历 plain object/array，跳过 undefined 属性，原始值直接返回
 - **方案**：只克隆有 patch 的实体；renderTileCache 增量更新
 
-### 4.5 伪 protobuf 解码
+### 4.5 编码现状 — Socket.IO 原生 JSON 序列化（非 protobuf）
 
 - **文件**：`shared/network-protobuf.ts`
-- **现象**：当前"protobuf"实际是 UTF-8 编码的 JSON 字符串，解码路径为 Binary → decodeUtf8 → JSON.parse
-- **影响**：WorldDelta 包体含 20-50 实体 patch，每 tick 完整 JSON.parse
-- **方案**：长期改为真正的 protobuf schema
+- **现象**：服务端 `maybeEncodeBinary` 直接返回 JSON 对象，Socket.IO 内部执行 JSON.stringify。客户端收到的是 JSON 对象，`decodeServerEventPayload` 直接 `return payload as T`。
+- **protobuf schema 已准备好但被禁用**：完整 schema + 编解码函数仅在 smoke test 中使用
+- **影响**：Socket.IO 的 JSON.stringify 是隐式 CPU 开销，5000 玩家 × 每 tick 多个 emit
 
 ---
 
@@ -254,8 +263,9 @@ for (const playerId of currentPlayerIds) {
 
 ### 5.2 Worker 剩余问题
 
-- Instance Worker 只卸载了怪物 AI intent 预计算（`precomputeInstanceWorkerIntents`），实例 tick 主体（`tickOnce`、玩家推进、建筑、阵法等）仍在主线程串行 for 循环
-- 主线程仍直接调用 `findOptimalPathOnMap`，未统一走 encoding worker
+- **Instance Worker 预计算结果被完全忽略**：`resolveMonsterTargetWithHint` 直接调用 `resolveMonsterTarget`，不使用 worker 返回的 intent。Worker 做了简单的 `aggroTargetId` 存在性判断，但结果被丢弃。这是一个未完成的优化占位。
+- **AsyncPathfindingService 是死代码**：已实现通过 Worker 异步寻路的完整服务，但从未被任何业务代码注入或调用。所有寻路 100% 在主线程。
+- **无玩家实例未跳过 tick**：`advanceFrame` 遍历所有 `listInstanceRuntimes()`，跳过条件仅有 lease 失效和 paused/speed=0，没有"无玩家则跳过"逻辑。
 - persistence worker 只有 2 个，5000 玩家场景可能不够（建议扩到 4）
 - postMessage 结构化克隆是隐式开销，大型 AOI payload 应考虑 transferable
 
@@ -327,7 +337,7 @@ for (const playerId of currentPlayerIds) {
 | 玩家子阶段推进 | 100-200ms | 6% |
 | **合计（无优化）** | **~2650-2950ms** | **远超 1000ms 预算** |
 
-> 注：怪物 AI intent 预计算已通过 Instance Worker Pool 并行卸载（`Promise.all`），但 `tickOnce` 内部的怪物行动应用、buff tick、hp/qi 恢复、技能选择仍在主线程串行执行。寻路也部分走 Encoding Worker，但自动战斗和导航的主线程直接调用仍存在。
+> 注：怪物 AI intent 预计算虽然通过 Instance Worker Pool 并行提交，但验证确认 `resolveMonsterTargetWithHint` 完全忽略 worker 结果，主线程仍执行完整 AI。寻路也 100% 在主线程（`AsyncPathfindingService` 是死代码）。FOV 和 AOI envelope 编码已走 Encoding Worker。
 
 ### 9.2 GC 压力估算
 
@@ -361,36 +371,39 @@ V8 在此压力下预计每 2-3 tick 触发 minor GC（2-5ms），每 30-60s 触
 
 | # | 问题 | 预期收益 | 复杂度 |
 |---|------|----------|--------|
-| 1 | 寻路 TypedArray 池化 + 统一走 Worker | 消除 120MB/s GC + 主线程减 1200ms | 中 |
-| 2 | 导航路径缓存（不每 tick 重规划） | 主线程减 300ms | 低 |
-| 3 | 自动战斗改深度限制 BFS（只算 1 步） | 主线程减 900ms | 中 |
-| 4 | 每 tick 递减字段改客户端本地递减 | 降低 50%+ 同步 CPU | 中 |
-| 5 | 逐玩家隔离调用合并为批量 | 减少 35000 闭包 + 35000 对象/tick | 中 |
+| 1 | 接入已有 `AsyncPathfindingService`（代码已实现，只需调用） | 寻路 CPU 从主线程移到 Worker | 低 |
+| 2 | 修复 `resolveMonsterTargetWithHint` 使其真正使用 worker intent | 怪物 AI 目标选择从主线程移到 Worker | 低 |
+| 3 | 无玩家实例跳过 tick | 大幅减少无效 tick（可能 80%+ 实例无玩家） | 低 |
+| 4 | 导航路径缓存（不每 tick 重规划） | 主线程减 300ms | 低 |
+| 5 | lifeElapsedTicks 从 attrSignature 中移除 | 消除所有玩家每 tick 必发 attr delta | 低 |
+| 6 | buff remainingTicks 从 signature 中移除 | 消除有 buff 玩家每 tick 必发 buff delta | 低 |
+| 7 | 逐玩家隔离调用合并为批量 | 减少 35000 闭包 + 35000 对象/tick | 中 |
 
 ### P1 — 重要优化（20-40% 性能提升）
 
 | # | 问题 | 预期收益 | 复杂度 |
 |---|------|----------|--------|
-| 6 | stableShallowSignature 改数值 hash | 15-25% panel diff 时间 | 中 |
-| 7 | buildCoordKey 改数值编码 | 8-12% aux sync 时间 | 低 |
-| 8 | tick codec JSON.stringify(buffs) 改显式编码 | 10-15% tick 编码 | 中 |
-| 9 | 怪物技能几何缓存 | 减少 150000 临时对象/tick | 低 |
-| 10 | reconcileDefeatedPlayers 改增量 Set | 从 O(15000) 降为 O(<50) | 低 |
-| 11 | runIsolatedSyncOperation details 惰性构建 | 减少 40000 临时对象/tick | 低 |
-| 12 | 客户端脏区域检测 + 分层 Canvas | 移动端帧率翻倍 | 高 |
+| 8 | stableShallowSignature 改数值 hash | 15-25% panel diff 时间 | 中 |
+| 9 | 自动战斗改深度限制 BFS（只算 1 步方向） | 减少 A* 调用 | 中 |
+| 10 | 寻路 TypedArray 池化（Worker 内预分配） | 减少 Worker 内 GC | 低 |
+| 11 | 怪物技能几何缓存 | 减少 150000 临时对象/tick | 低 |
+| 12 | reconcileDefeatedPlayers 改增量 Set | 从 O(15000) 降为 O(<50) | 低 |
+| 13 | runIsolatedSyncOperation details 惰性构建 | 减少 40000 临时对象/tick | 低 |
+| 14 | 客户端脏区域检测 + 分层 Canvas | 移动端帧率翻倍 | 高 |
 
 ### P2 — 锦上添花
 
 | # | 问题 | 预期收益 | 复杂度 |
 |---|------|----------|--------|
-| 13 | 威胁/minimap 临时 Set/Map 复用 | 5-8% aux sync | 低 |
-| 14 | update codec JSON.stringify 改显式编码 | 5-8% 编码 | 中 |
-| 15 | 持久化 normalizePersistedItemPayload 去冗余 | 5-10ms/s | 低 |
-| 16 | tickOnce 返回值预分配 | 减少 30000 数组/tick | 低 |
-| 17 | tickTemporaryBuffs 消除 filter | 减少 10000 临时数组/tick | 低 |
-| 18 | 非 aggro 怪物降频到 0.5Hz | 减少 50% 怪物 AI 开销 | 低 |
-| 19 | persistence worker 扩容到 4 | 减少 fallback 回主线程 | 低 |
-| 20 | 客户端实体排序缓存 + 对象池 | 减少每帧临时对象 | 低 |
+| 15 | 威胁/minimap 临时 Set/Map 复用 | 5-8% aux sync | 低 |
+| 16 | 持久化 normalizePersistedItemPayload 去冗余 stringify+parse | 5-10ms/s | 低 |
+| 17 | isSamePersistedPayload 改 hash 比较 | 减少 flush 路径 CPU | 低 |
+| 18 | tickOnce 返回值预分配 | 减少 30000 数组/tick | 低 |
+| 19 | tickTemporaryBuffs 消除 filter | 减少 10000 临时数组/tick | 低 |
+| 20 | 非 aggro 怪物降频到 0.5Hz | 减少 50% 怪物 AI 开销 | 低 |
+| 21 | persistence worker 扩容到 4 | 减少 fallback 回主线程 | 低 |
+| 22 | 客户端实体排序缓存 + 对象池 | 减少每帧临时对象 | 低 |
+| 23 | 客户端 mergeTickEntities 增量化 | 只克隆有 patch 的实体 | 低 |
 
 ---
 
