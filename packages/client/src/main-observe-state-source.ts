@@ -497,10 +497,21 @@ function buildObservedFengShuiSectionHtml(info: BuildingSenseQiRoomInfo | null):
 
 
 function formatBuffDuration(buff: VisibleBuffState): string {
+  const estimatedRemaining = estimateBuffRemainingTicks(buff);
   return t('observe.buff.duration', {
-    remaining: formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks))),
+    remaining: formatDisplayInteger(Math.max(0, Math.round(estimatedRemaining))),
     duration: formatDisplayInteger(Math.max(1, Math.round(buff.duration))),
   });
+}
+
+/** 本地估算 buff 剩余 ticks：基于收到时间戳按 1Hz 递减。 */
+function estimateBuffRemainingTicks(buff: VisibleBuffState): number {
+  const baseTime = (buff as unknown as Record<string, unknown>)._remainingTicksReceivedAt;
+  if (typeof baseTime !== 'number' || baseTime <= 0) {
+    return buff.remainingTicks;
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - baseTime) / 1000));
+  return Math.max(0, buff.remainingTicks - elapsedSeconds);
 }
 
 function scaleBuffAttrs(

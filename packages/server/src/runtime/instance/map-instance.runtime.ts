@@ -6132,10 +6132,36 @@ class MapInstanceRuntime {
     }
     /**
      * Phase 4: 使用 worker 预计算 intent 作为 target hint 加速解析。
-     * 如果 hint 指向的玩家仍然有效（存活、在范围内、在视线内），直接使用；
-     * 否则 fallback 到完整的 resolveMonsterTarget 扫描。
+     * - idle hint + 无 aggroTarget + 无玩家在范围内 → 只 decay → return null（跳过 shadowcasting）
+     * - idle hint 但有玩家在范围内 → fallback 完整扫描
+     * - attack hint + 目标有效（存活、在范围内） → 仍执行完整仇恨逻辑（保证仇恨切换），只跳过目标选择
+     * - attack hint + 目标无效 → fallback 完整扫描
      */
     resolveMonsterTargetWithHint(monster, preIntent) {
+        if (!preIntent) {
+            return this.resolveMonsterTarget(monster);
+        }
+        const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
+
+        // idle hint 快速路径：无 aggroTarget 且无玩家在范围内 → 只 decay
+        if (preIntent.action === 'idle' && !monster.aggroTargetPlayerId) {
+            let hasNearbyPlayer = false;
+            for (const player of this.playersById.values()) {
+                if (chebyshevDistance(monster.x, monster.y, player.x, player.y) <= aggroRange
+                    && chebyshevDistance(monster.spawnX, monster.spawnY, player.x, player.y) <= monster.leashRange) {
+                    hasNearbyPlayer = true;
+                    break;
+                }
+            }
+            if (!hasNearbyPlayer) {
+                this.decayMonsterThreats(monster, new Set());
+                return null;
+            }
+            // 有玩家在范围内 → fallback 完整扫描
+            return this.resolveMonsterTarget(monster);
+        }
+
+        // 其他情况 fallback 完整扫描（保证仇恨系统正确推进）
         return this.resolveMonsterTarget(monster);
     }
     /** rememberMonsterTargetSight：记录妖兽最后一次真正看见目标的位置。 */

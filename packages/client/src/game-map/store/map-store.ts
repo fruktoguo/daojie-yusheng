@@ -114,7 +114,8 @@ function isDemonizedBuffCarrier(buffs: readonly { buffId: string; stacks: number
 function resolvePresentationScaleFromBuffs(buffs: readonly VisibleBuffState[] | null | undefined): number | undefined {
   let scale = 1;
   for (const buff of buffs ?? []) {
-    if ((buff.remainingTicks ?? 0) <= 0 || (buff.stacks ?? 0) <= 0) {
+    const remaining = estimateBuffRemainingTicksLocal(buff);
+    if (remaining <= 0 || (buff.stacks ?? 0) <= 0) {
       continue;
     }
     const presentationScale = Number(buff.presentationScale);
@@ -123,6 +124,17 @@ function resolvePresentationScaleFromBuffs(buffs: readonly VisibleBuffState[] | 
     }
   }
   return scale > 1 ? scale : undefined;
+}
+
+/** 本地估算 buff 剩余 ticks：基于收到时间戳按 1Hz 递减。 */
+function estimateBuffRemainingTicksLocal(buff: VisibleBuffState): number {
+  const remaining = buff.remainingTicks ?? 0;
+  const baseTime = (buff as unknown as Record<string, unknown>)._remainingTicksReceivedAt;
+  if (typeof baseTime !== 'number' || baseTime <= 0) {
+    return remaining;
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - baseTime) / 1000));
+  return Math.max(0, remaining - elapsedSeconds);
 }
 
 function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState | null): ObservedMapEntity {

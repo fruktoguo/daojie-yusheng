@@ -798,7 +798,6 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         attr.revision,
         attr.stage ?? '',
         player.boneAgeBaseYears,
-        player.lifeElapsedTicks,
         player.lifespanYears ?? '',
         realm?.progress ?? '',
         realm?.progressToNext ?? '',
@@ -891,7 +890,6 @@ function buildBuffListSignature(revision: number, buffs: VisibleBuffState[]): st
     return `${revision}|${buffs.map((entry) => [
         entry.buffId,
         entry.name,
-        entry.remainingTicks,
         entry.stacks,
         entry.presentationScale ?? '',
     ].join(':')).join(';')}`;
@@ -916,7 +914,8 @@ function buildActionEntrySignatures(actions: ProjectedActionEntry[]): Record<str
 function buildBuffEntrySignatures(buffs: VisibleBuffState[]): Record<string, string> {
     const signatures: Record<string, string> = {};
     for (const entry of buffs) {
-        signatures[entry.buffId] = buildStableProtocolSignature(entry);
+        const { remainingTicks: _rt, ...rest } = entry;
+        signatures[entry.buffId] = buildStableProtocolSignature(rest);
     }
     return signatures;
 }
@@ -946,7 +945,6 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
     return previousAttr.revision === player.attrs.revision
         && previousAttr.stage === player.attrs.stage
         && previousAttr.boneAgeBaseYears === player.boneAgeBaseYears
-        && previousAttr.lifeElapsedTicks === player.lifeElapsedTicks
         && previousAttr.lifespanYears === player.lifespanYears
         && previousAttr.realmProgress === player.realm?.progress
         && previousAttr.realmProgressToNext === player.realm?.progressToNext

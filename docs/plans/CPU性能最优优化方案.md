@@ -10,7 +10,7 @@
 
 ### 第一阶段：零风险高收益（改动 <100 行，1-2 天）
 
-- [ ] **T-01** 移除 `lifeElapsedTicks` 从 attr signature
+- [x] **T-01** 移除 `lifeElapsedTicks` 从 attr signature
   - 文件：`packages/server/src/network/world-projector.helpers.ts` L794, L949
   - 改动：从 `buildAttrPanelSignature` 数组中删除 `player.lifeElapsedTicks`
   - 改动：从 `canReuseAttrPanelSlice` 移除 lifeElapsedTicks 比较
@@ -20,7 +20,7 @@
   - 验证：`pnpm verify:quick` + `pnpm verify:client`
   - 预期：消除所有玩家每 tick 必发 attr delta（当前最大无效网络 IO）
 
-- [ ] **T-02** 移除 `remainingTicks` 从 buff signature
+- [x] **T-02** 移除 `remainingTicks` 从 buff signature
   - 文件：`packages/server/src/network/world-projector.helpers.ts` L890
   - 改动：从 `buildBuffListSignature` 中删除 `entry.remainingTicks`
   - 改动：`buildBuffEntrySignatures` 中排除 remainingTicks（需从 stableShallowSignature 输入中剔除）
@@ -31,7 +31,7 @@
   - 验证：`pnpm verify:quick` + `pnpm verify:client`
   - 预期：有 buff 玩家不再每 tick 发送 buff delta
 
-- [ ] **T-03** 修复 `resolveMonsterTargetWithHint` 使用 worker intent
+- [x] **T-03** 修复 `resolveMonsterTargetWithHint` 使用 worker intent
   - 文件：`packages/server/src/runtime/instance/map-instance.runtime.ts` L6138-6140
   - **核心矛盾**：resolveMonsterTarget 不仅选目标，还承担仇恨系统 tick 推进（被动仇恨累积 + 衰减）
   - 安全的实现方案：
@@ -60,6 +60,7 @@
     - 有活跃阵法的实例降频需谨慎（灵气注入是非线性的）
   - 改动：无玩家实例 `speed *= 0.1`（降频到 0.1Hz）
   - 改动：玩家进入时执行 catch-up 补偿（批量递减 respawnLeft、tick buff、恢复 HP、计算灵气目标值、扣除阵法预算）
+  - ⚠️ 灵气批量计算：机制文档使用整数余数模型（RATE_SCALE=1,000,000,000）避免浮点误差，不能用浮点近似 `(1-rate)^N`。正确方式：`accumulated = diff × RATE_SCALED × N + remainder; step = floor(accumulated / RATE_SCALE); step = min(step, diff)`。或验证 N≤10 时浮点误差可忽略（<1 单位）
   - 改动：排除通天塔实例和有活跃阵法的实例
   - 验证：`pnpm verify:quick` + 新增 smoke（降频/恢复/补偿正确性）
   - 预期：10000 实例中 80% 无玩家 → tick 循环大幅减少
@@ -101,6 +102,8 @@
   - 文件：`packages/server/src/runtime/world/combat/world-runtime-auto-combat.service.ts`
   - 背景：每 tick 对每个需要移动的自动战斗玩家调用完整 A*，结果作为 path 传入 applyMove（一个 tick 内沿路径走多格，受 movePoints 和地形代价限制，硬上限 20 格）
   - 改动：缓存上一次寻路结果（path + targetPosition），下一 tick 检查目标是否移动 + 路径剩余部分是否仍可通行 → 有效则复用，无效才重规划
+  - 目标移动判定：目标位置与缓存时位置曼哈顿距离 ≥ 2 格时重规划（怪物每 tick 最多移动 1 格，1 格偏移不影响接近路径有效性）
+  - 路径有效性：检查路径下一步 occupancy 是否空闲（其他玩家移动可能阻塞）
   - 验证：`pnpm verify:quick` + auto-combat smoke
   - 预期：大部分 tick 路径复用，仅目标移动时重规划
 

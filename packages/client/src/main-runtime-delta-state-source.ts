@@ -857,12 +857,15 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   ): TemporaryBuffState[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const now = Date.now();
     const next = new Map((previous ?? []).map((entry) => [entry.buffId, cloneJson(entry)] as const));
     if (data.full) {
       next.clear();
     }
     for (const buff of data.buffs ?? []) {
-      next.set(buff.buffId, cloneJson(buff));
+      const cloned = cloneJson(buff);
+      (cloned as unknown as Record<string, unknown>)._remainingTicksReceivedAt = now;
+      next.set(buff.buffId, cloned);
     }
     for (const buffId of data.removeBuffIds ?? []) {
       next.delete(buffId);

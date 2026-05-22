@@ -1101,7 +1101,10 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.comprehension = latestAttrUpdate.specialStats?.comprehension ?? player.comprehension;
         player.luck = latestAttrUpdate.specialStats?.luck ?? player.luck;
         player.boneAgeBaseYears = latestAttrUpdate.boneAgeBaseYears ?? player.boneAgeBaseYears;
-        player.lifeElapsedTicks = latestAttrUpdate.lifeElapsedTicks ?? player.lifeElapsedTicks;
+        if (latestAttrUpdate.lifeElapsedTicks != null) {
+          player.lifeElapsedTicks = latestAttrUpdate.lifeElapsedTicks;
+          (player as unknown as Record<string, unknown>)._lifeElapsedTicksBaseTime = Date.now();
+        }
         player.lifespanYears = latestAttrUpdate.lifespanYears === undefined
           ? player.lifespanYears
           : latestAttrUpdate.lifespanYears;

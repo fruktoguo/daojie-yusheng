@@ -20,6 +20,20 @@ import {
   type ReactHudStatusState,
 } from '../react-ui/shell/HudStatus';
 
+/**
+ * 本地估算 lifeElapsedTicks：基于上次收到服务端值的时间戳，按 1Hz 递增。
+ * 显示精度为"天"（7200 ticks），精度要求极低。
+ */
+function estimateLifeElapsedTicks(player: PlayerState): number {
+  const base = player.lifeElapsedTicks ?? 0;
+  const baseTime = (player as unknown as Record<string, unknown>)._lifeElapsedTicksBaseTime;
+  if (typeof baseTime !== 'number' || baseTime <= 0) {
+    return base;
+  }
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - baseTime) / 1000));
+  return base + elapsedSeconds;
+}
+
 /** HUDMeta：HUD 附加显示元数据。 */
 interface HUDMeta {
 /**
@@ -317,9 +331,10 @@ export class HUD {
     node.textContent = value;
   }
 
-  /** buildBoneAgeLabel：构建Bone Age标签。 */
+  /** buildBoneAgeLabel：构建Bone Age标签（使用本地递增估算）。 */
   private buildBoneAgeLabel(player: PlayerState): string {
-    const age = resolveCharacterAge(player);
+    const estimated = { ...player, lifeElapsedTicks: estimateLifeElapsedTicks(player) };
+    const age = resolveCharacterAge(estimated);
     return age.days > 0
       ? t('hud.age.years-days', {
         years: formatDisplayInteger(age.years),
