@@ -2830,29 +2830,62 @@
       gap: 8px;
       max-height: min(54dvh, 560px);
       overflow: auto;
-      padding-right: 2px;
+      padding: 0 2px 2px 0;
     }
     .settings-offline-gain-record-button {
+      position: relative;
       display: grid;
-      gap: 4px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 5px;
       width: 100%;
       min-height: 58px;
-      padding: 9px 10px;
+      box-sizing: border-box;
+      padding: 10px 12px 10px 14px;
       border: 1px solid var(--wash-ink);
+      border-radius: 10px;
+      appearance: none;
       background: var(--surface-base);
       color: var(--ink-black);
       cursor: pointer;
+      font: inherit;
+      line-height: 1.4;
       text-align: left;
+      white-space: normal;
+      transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+    }
+    .settings-offline-gain-record-button::before {
+      content: '';
+      position: absolute;
+      inset: 9px auto 9px 7px;
+      width: 3px;
+      border-radius: 999px;
+      background: transparent;
     }
     .settings-offline-gain-record-button:hover,
     .settings-offline-gain-record-button.active {
       border-color: var(--accent);
       background: var(--surface-muted);
+      box-shadow: inset 0 0 0 1px var(--accent-soft);
+    }
+    .settings-offline-gain-record-button:hover::before,
+    .settings-offline-gain-record-button.active::before {
+      background: var(--accent);
+    }
+    .settings-offline-gain-record-button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .settings-offline-gain-record-date,
+    .settings-offline-gain-record-meta {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .settings-offline-gain-record-date {
-      min-width: 0;
       font-size: var(--font-size-role-body-13);
-      overflow-wrap: anywhere;
+      font-weight: var(--font-weight-strong);
     }
     .settings-offline-gain-record-meta {
       color: var(--ink-grey);
