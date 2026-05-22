@@ -436,7 +436,16 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       const payload = normalizePlayerPresencePayload(task.payloadJson);
       if (!payload) {
         if (shouldStartAuthoritativeRuntime()) return null;
-        await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+        const attemptKey = playerTaskKey(task);
+        const attempt = this.bumpFailureAttempt(attemptKey);
+        if (attempt >= STALE_PAYLOAD_ABANDON_THRESHOLD) {
+          this.logger.warn(`玩家刷盘放弃 stale presence：playerId=${playerId} attempt=${attempt}`);
+          await this.flushLedgerService.markFlushTaskFlushed(task);
+          this.failureAttempts.delete(attemptKey);
+          processed += 1;
+        } else {
+          await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+        }
         continue;
       }
       await this.playerDomainPersistenceService.savePlayerPresence(playerId, payload);
@@ -450,7 +459,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       const invalidTasks = payloadRows.filter((row) => !row.payload).map((row) => row.task);
       if (invalidTasks.length > 0) {
         if (shouldStartAuthoritativeRuntime()) return null;
-        await this.flushLedgerService.markFlushTasksRetry(invalidTasks, RETRY_DELAY_MS);
+        for (const task of invalidTasks) {
+          const attemptKey = playerTaskKey(task);
+          const attempt = this.bumpFailureAttempt(attemptKey);
+          if (attempt >= STALE_PAYLOAD_ABANDON_THRESHOLD) {
+            this.logger.warn(`玩家刷盘放弃 stale projection：playerId=${playerId} domain=${task.domain} attempt=${attempt}`);
+            await this.flushLedgerService.markFlushTaskFlushed(task);
+            this.failureAttempts.delete(attemptKey);
+            processed += 1;
+          } else {
+            await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
+          }
+        }
       }
       for (const { task, payload } of payloadRows) {
         if (!payload) {
