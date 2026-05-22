@@ -80,12 +80,14 @@
 
 ### 第三阶段：架构级优化（扩容到目标规模必须，1-2 周）
 
-- [ ] **T-08** 自动战斗寻路改为深度限制 BFS
+- [ ] **T-08** 自动战斗寻路路径缓存 + 限制搜索范围
   - 文件：`packages/server/src/runtime/world/combat/world-runtime-auto-combat.service.ts`
-  - 文件：`packages/server/src/runtime/world/world-runtime.path-planning.helpers.ts`（新增 `findNextStepBFS`）
-  - 改动：自动战斗移动只需 1 步方向，用 BFS 深度限制为 1 替代完整 A*
+  - 文件：`packages/server/src/runtime/world/world-runtime.path-planning.helpers.ts`
+  - 改动：首次规划后缓存路径，每 tick 消费一步；目标移动/障碍变化时才重规划
+  - 改动：增加 `maxExpandedNodes` 限制（如 200），避免大地图全图搜索
+  - 注意：不能改为深度限制 BFS — 自动战斗需要绕过障碍物到达攻击范围，单步 BFS 无法绕障
   - 验证：`pnpm verify:quick` + auto-combat smoke
-  - 预期：自动战斗寻路从 O(N log N) 降为 O(8)
+  - 预期：自动战斗寻路从每 tick 完整 A* 降为大部分 tick O(1) 路径消费
 
 - [ ] **T-09** stableShallowSignature 改为 FNV-1a 数值 hash
   - 文件：`packages/server/src/network/world-projector.helpers.ts`（stableShallowSignature）
