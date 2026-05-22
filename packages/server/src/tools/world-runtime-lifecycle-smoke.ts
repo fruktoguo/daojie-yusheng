@@ -578,10 +578,114 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
     });
 }
 
+async function testStartupLazyRebuildSkipsHeavyDomainRestore() {
+    const service = new WorldRuntimeLifecycleService();
+    const log = [];
+    await service.rebuildPersistentRuntimeAfterRestore({
+        worldRuntimeInstanceStateService: {
+            resetState() { log.push('instance'); }
+        },
+        worldRuntimePlayerLocationService: {
+            resetState() { log.push('playerLocation'); }
+        },
+        worldRuntimePendingCommandService: {
+            resetState() { log.push('pending'); }
+        },
+        worldRuntimeGmQueueService: {
+            resetState() { log.push('gmQueue'); }
+        },
+        worldRuntimeNavigationService: {
+            reset() { log.push('navigation'); }
+        },
+        worldRuntimeTickProgressService: {
+            resetState() { log.push('tickProgress'); }
+        },
+        worldRuntimeLootContainerService: {
+            reset() { log.push('lootContainer'); },
+            hydrateContainerStates() {
+                log.push('heavyDomainRestore');
+                throw new Error('lazy_startup_must_not_hydrate_domain_state');
+            },
+        },
+        worldRuntimeCombatEffectsService: {
+            resetAll() { log.push('combatEffects'); }
+        },
+        instanceCatalogService: {
+            isEnabled() {
+                return true;
+            },
+            async listInstanceCatalogEntries() {
+                log.push('listInstanceCatalogEntries');
+                return [{
+                    instance_id: 'public:catalog_yunlai',
+                    template_id: 'yunlai_town',
+                    persistent_policy: 'persistent',
+                    status: 'active',
+                    runtime_status: 'running',
+                }];
+            },
+            async updateInstanceStatus() {
+                log.push('rewriteCatalogRuntimeStatus');
+                throw new Error('lazy_startup_must_not_rewrite_catalog_status');
+            },
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() {
+                return true;
+            },
+            async loadInstanceRecoveryWatermark() {
+                log.push('heavyDomainRestore');
+                throw new Error('lazy_startup_must_not_load_instance_domains');
+            },
+        },
+        templateRepository: {
+            list() {
+                return [{ id: 'yunlai_town' }];
+            },
+        },
+        createInstance(input) {
+            log.push(['createInstance', input.instanceId]);
+        },
+        getInstanceCount() {
+            return 3;
+        },
+        logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        getInstanceRuntime() {
+            return null;
+        },
+        listInstanceEntries() {
+            return [];
+        },
+        claimRecoverableCatalogInstances(input) {
+            log.push(['claimRecoverableCatalogInstances', input]);
+        },
+    }, {
+        restoreOfflinePlayers: false,
+        restoreInstanceDomains: false,
+        restoreCatalogInstances: true,
+        rewriteCatalogRuntimeStatus: false,
+    });
+
+    assert.equal(log.includes('listInstanceCatalogEntries'), true);
+    assert.equal(log.includes('rewriteCatalogRuntimeStatus'), false);
+    assert.equal(log.includes('heavyDomainRestore'), false);
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'createInstance' && entry[1] === 'public:catalog_yunlai'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'createInstance' && entry[1] === 'public:yunlai_town'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'claimRecoverableCatalogInstances' && entry[1]?.allowForceReclaim === true));
+}
+
 async function main() {
     testBootstrapPublicInstances();
     await testRestoreAndRebuild();
     await testRestoreOfflineHangingPlayersSkipsMissingTowerInstance();
+    await testStartupLazyRebuildSkipsHeavyDomainRestore();
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-lifecycle' }, null, 2));
 }
 

@@ -5,6 +5,7 @@
  */
 import { Inject, Injectable, Logger, Optional, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
 
+import { readTrimmedEnv } from '../config/env-alias';
 import { shouldStartAuthoritativeRuntime, shouldStartBackgroundWorkers, shouldStartHttpServer } from '../config/runtime-role';
 import { StartupBarrierService } from './startup-barrier.service';
 import { StartupStatusService } from './startup-status.service';
@@ -124,12 +125,20 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     if (!this.worldRuntimeService) {
       throw new Error('world_runtime_service_unavailable');
     }
+    const instanceDomainRestoreMode = resolveStartupInstanceDomainRestoreMode();
+    const eagerRestore = instanceDomainRestoreMode === 'eager';
     this.startupStatusService.beginPhase('recovering_world', 'world_recovery');
-    await this.worldRuntimeService.rebuildPersistentRuntimeAfterRestore({ restoreOfflinePlayers: false });
+    await this.worldRuntimeService.rebuildPersistentRuntimeAfterRestore({
+      restoreOfflinePlayers: false,
+      restoreInstanceDomains: eagerRestore,
+      restoreCatalogInstances: true,
+      rewriteCatalogRuntimeStatus: eagerRestore,
+    });
     const instanceIds = this.listRuntimeInstanceIds();
     this.startupBarrierService.openInstanceWrites(instanceIds);
     this.startupStatusService.completePhase('recovering_world', {
       instanceCount: instanceIds.length,
+      instanceDomainRestoreMode,
     });
   }
 
@@ -205,4 +214,15 @@ function withStartupRunIdForPlayerRecovery(input: unknown, startupRunId: string)
     ...record,
     skippedPlayers,
   };
+}
+
+function resolveStartupInstanceDomainRestoreMode(): 'lazy' | 'eager' {
+  const raw = readTrimmedEnv(
+    'SERVER_STARTUP_INSTANCE_DOMAIN_RESTORE_MODE',
+    'STARTUP_INSTANCE_DOMAIN_RESTORE_MODE',
+  ).toLowerCase();
+  if (raw === 'eager' || raw === 'full') {
+    return 'eager';
+  }
+  return 'lazy';
 }

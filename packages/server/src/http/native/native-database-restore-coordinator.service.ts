@@ -50,7 +50,12 @@ interface WorldRuntimeServiceLike {
   worldRuntimePlayerSessionService: {
     removePlayer(playerId: string, reason: string, deps: unknown): void;
   };
-  rebuildPersistentRuntimeAfterRestore(): Promise<void>;
+  rebuildPersistentRuntimeAfterRestore(options?: {
+    restoreOfflinePlayers?: boolean;
+    restoreInstanceDomains?: boolean;
+    restoreCatalogInstances?: boolean;
+    rewriteCatalogRuntimeStatus?: boolean;
+  }): Promise<void>;
 }
 
 /** 世界同步服务端口。 */
@@ -182,7 +187,12 @@ export class NativeDatabaseRestoreCoordinatorService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (NATIVE_GM_RESTORE_CONTRACT.reloadWorldRuntimeAfterRestore) {
-      await this.worldRuntimeService.rebuildPersistentRuntimeAfterRestore();
+      await this.worldRuntimeService.rebuildPersistentRuntimeAfterRestore({
+        restoreOfflinePlayers: true,
+        restoreInstanceDomains: true,
+        restoreCatalogInstances: true,
+        rewriteCatalogRuntimeStatus: true,
+      });
     }
     if (NATIVE_GM_RESTORE_CONTRACT.reloadMarketAfterRestore) {
       await this.marketRuntimeService.reloadFromPersistence();

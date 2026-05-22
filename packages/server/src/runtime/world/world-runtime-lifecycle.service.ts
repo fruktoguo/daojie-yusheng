@@ -160,8 +160,16 @@ export class WorldRuntimeLifecycleService {
  * @returns 无返回值，直接更新rebuildPersistent运行态AfterRestore相关状态。
  */
 
-    async rebuildPersistentRuntimeAfterRestore(deps, options: { restoreOfflinePlayers?: boolean } = {}) {
-        if (deps.instanceCatalogService?.isEnabled?.()) {
+    async rebuildPersistentRuntimeAfterRestore(deps, options: {
+        restoreOfflinePlayers?: boolean;
+        restoreInstanceDomains?: boolean;
+        restoreCatalogInstances?: boolean;
+        rewriteCatalogRuntimeStatus?: boolean;
+    } = {}) {
+        const restoreCatalogInstances = options.restoreCatalogInstances !== false;
+        const restoreInstanceDomains = options.restoreInstanceDomains !== false;
+        const rewriteCatalogRuntimeStatus = options.rewriteCatalogRuntimeStatus !== false;
+        if (deps.instanceCatalogService?.isEnabled?.() && restoreCatalogInstances) {
             if (typeof deps.worldRuntimeSectService?.restoreSectTemplates === 'function') {
                 await deps.worldRuntimeSectService.restoreSectTemplates(deps);
             }
@@ -224,6 +232,8 @@ export class WorldRuntimeLifecycleService {
                     lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
                 });
             }
+        }
+        if (deps.instanceCatalogService?.isEnabled?.() && rewriteCatalogRuntimeStatus) {
             for (const [instanceId, instance] of deps.listInstanceEntries()) {
                 const kind = typeof instance?.kind === 'string' && instance.kind.trim() ? instance.kind.trim() : 'public';
                 const templateId = instance?.template?.id ?? instance?.templateId ?? '';
@@ -268,7 +278,9 @@ export class WorldRuntimeLifecycleService {
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
             await deps.worldRuntimeSectService.restoreSects(deps);
         }
-        await this.restorePublicInstancePersistence(deps);
+        if (restoreInstanceDomains) {
+            await this.restorePublicInstancePersistence(deps);
+        }
         if (typeof deps.claimRecoverableCatalogInstances === 'function') {
             await deps.claimRecoverableCatalogInstances({ allowForceReclaim: true });
         }
