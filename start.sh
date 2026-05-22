@@ -365,6 +365,8 @@ ensure_server_local_secret_env() {
   local generated_gm_password=""
 # 记录运行时令牌。
   local generated_runtime_token=""
+# 记录 Redis 密码。
+  local generated_redis_password=""
   if [[ -z "${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}" ]]; then
     generated_player_token_secret="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
     needs_write=1
@@ -377,6 +379,11 @@ ensure_server_local_secret_env() {
 
   if [[ -z "${SERVER_RUNTIME_TOKEN:-}" ]]; then
     generated_runtime_token="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
+    needs_write=1
+  fi
+
+  if [[ -z "${REDIS_PASSWORD:-}" ]]; then
+    generated_redis_password="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))")"
     needs_write=1
   fi
 
@@ -397,6 +404,10 @@ ensure_server_local_secret_env() {
 
   if [[ -n "$generated_runtime_token" ]] && ! grep -q '^SERVER_RUNTIME_TOKEN=' "$local_env_file"; then
     printf 'SERVER_RUNTIME_TOKEN=%s\n' "$generated_runtime_token" >> "$local_env_file"
+  fi
+
+  if [[ -n "$generated_redis_password" ]] && ! grep -q '^REDIS_PASSWORD=' "$local_env_file"; then
+    printf 'REDIS_PASSWORD=%s\n' "$generated_redis_password" >> "$local_env_file"
   fi
 
   echo "==> 已写入本地主线密钥缓存 ${local_env_file}"
@@ -467,6 +478,7 @@ prepare_server_base_env() {
   export DB_USERNAME="${DB_USERNAME:-mud}"
   export DB_PASSWORD="${DB_PASSWORD:-jiuzhou123}"
   export DB_DATABASE="${DB_DATABASE:-daojie_yusheng}"
+  export REDIS_PASSWORD="${REDIS_PASSWORD:-}"
   export SERVER_PLAYER_TOKEN_SECRET="${SERVER_PLAYER_TOKEN_SECRET:-${JWT_SECRET:-}}"
   export SERVER_GM_AUTH_SECRET="${SERVER_GM_AUTH_SECRET:-${GM_AUTH_SECRET:-}}"
   export SERVER_SECRET_ENCRYPTION_KEY="${SERVER_SECRET_ENCRYPTION_KEY:-${SECRET_ENCRYPTION_KEY:-}}"
@@ -816,6 +828,7 @@ case "$MODE" in
     export REDIS_HOST="${REDIS_HOST:-localhost}"
     export REDIS_PORT="${REDIS_PORT:-16379}"
     export DATABASE_URL="${DATABASE_URL:-${SERVER_DATABASE_URL:-}}"
+    export SERVER_REDIS_URL="${SERVER_REDIS_URL:-${REDIS_URL:-}}"
 
     if [[ -z "${DATABASE_URL}" ]]; then
       require_env_value "DB_PASSWORD" "未显式提供 DATABASE_URL/SERVER_DATABASE_URL 时，需像线上一样提供 DB_PASSWORD 以组装 PostgreSQL 连接串。"
@@ -824,6 +837,13 @@ case "$MODE" in
 
     export SERVER_DATABASE_URL="${SERVER_DATABASE_URL:-$DATABASE_URL}"
     export DATABASE_URL="$SERVER_DATABASE_URL"
+
+    if [[ -z "$SERVER_REDIS_URL" ]]; then
+      require_env_value "REDIS_PASSWORD" "未显式提供 SERVER_REDIS_URL/REDIS_URL 时，需提供 REDIS_PASSWORD 以组装本地 Redis 连接串。"
+      export SERVER_REDIS_URL="redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT}"
+    fi
+    export REDIS_URL="${REDIS_URL:-$SERVER_REDIS_URL}"
+
     export SERVER_OUTBOX_RUNTIME_ENABLED="${SERVER_OUTBOX_RUNTIME_ENABLED:-1}"
     export SERVER_DEBUG_MOVEMENT="${SERVER_DEBUG_MOVEMENT:-0}"
     export SERVER_DEV_RESTART_DEBOUNCE_MS="${SERVER_DEV_RESTART_DEBOUNCE_MS:-60000}"
@@ -917,6 +937,8 @@ EOF
     echo "  SERVER_SECRET_ENCRYPTION_KEY=... 指定 GM 密钥管理加密密钥（不填则复用 SERVER_PLAYER_TOKEN_SECRET）"
     echo "  SERVER_GM_PASSWORD=...    指定 GM 强密码"
     echo "  SERVER_RUNTIME_TOKEN=...   指定线上同名运行时令牌"
+    echo "  REDIS_PASSWORD=...         指定本地 Redis 密码（未提供时写入 .runtime/server.local.env）"
+    echo "  SERVER_REDIS_URL=...       指定 Redis 连接串"
     echo "  SERVER_DEBUG_MOVEMENT=1    开启服务端移动诊断日志"
     echo "  VITE_DEBUG_MOVEMENT=1      开启客户端移动诊断日志"
     echo "  VITE_DEV_PROXY_TARGET=...  指定前端代理目标"
