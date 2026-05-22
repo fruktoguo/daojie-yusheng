@@ -549,54 +549,107 @@
 
 ---
 
-## 八、带宽热点总结（按影响排序）
+## 八、实测数据（单玩家 72s 采样）
 
-| 优先级 | 包体/问题 | 频率 | 5000人带宽估算 | 优化方案 | 预估节省 |
-|--------|-----------|------|---------------|----------|----------|
-| P0 | Leaderboard 全量广播 | 30-60s | 13+ Mbps | 改为按需拉取 | 13 Mbps |
-| P0 | Buff remainingTicks 伪增量 | 每 tick | 2.5-7.5 MB/s | 客户端本地递减 | 80% buff 带宽 |
-| P0 | Attr lifeElapsedTicks 伪增量 | 每 tick | 0.3-1.0 MB/s | 客户端本地递增 | 60% attr 带宽 |
-| P0 | Action cooldownLeft 伪增量 | 每 tick | 0.5-1.5 MB/s | 独立轻量通道 | 70% action 带宽 |
-| P1 | 坊市广播风暴 | 每次交易 | 突发 1.5 MB/次 | 脏标记+按需拉取 | 99% |
-| P1 | Notice text+combat 冗余 | 每 tick | 变化大 | 去除 text 冗余 | 30-50% |
-| P1 | ItemStack 全量嵌入 | 各面板 | 累计显著 | 只发实例态字段 | 80% 单条 |
-| P1 | Suggestion 全量广播 | 变化时 | 5-50KB×5000 | revision+diff | 95% |
-| P2 | 启用 perMessageDeflate | 全局 | - | 配置项 | 50-70% 全局 |
-| P2 | 子包合并为单次 emit | 每 tick | 帧开销 | 合并 worldDelta+selfDelta+panelDelta | 减少帧头 |
-| P2 | 实体 ID 短映射 | 高频包 | - | 进入视野时分配 uint16 | 20-30% |
-| P2 | 枚举字符串→数字 | 全局 | - | grade/kind/tier/status 等 | 5-10% |
-| P3 | 激活 protobuf 编码 | 全局 | - | schema 已就绪 | 30-50% vs JSON |
-| P3 | tiles RLE/palette 编码 | 切图时 | 突发 | 压缩 60-80% | 首包/切图 |
-| P3 | time GameTimeState 拆分 | 每 tick | 150-200B/tick | 低频全量+高频仅 totalTicks | 5-10% |
+| 包体 | 总量 | 占比 | 次数 | 均次 | 均秒 |
+|------|------|------|------|------|------|
+| **s2c_PanelDelta** | **3.1 MB** | **62.3%** | 399 | 8.1 KB | 43.4 KB/s |
+| s2c_WorldDelta(entity+fx) | 614.7 KB | 11.9% | 296 | 2.1 KB | 8.3 KB/s |
+| s2c_MapStatic | 361.7 KB | 7.0% | 3 | 120.6 KB | 4.9 KB/s |
+| s2c_Realm | 218.8 KB | 4.2% | 147 | 1.5 KB | 3.0 KB/s |
+| s2c_WorldDelta(tile) | 213.6 KB | 4.1% | 348 | 629 B | 2.9 KB/s |
+| s2c_WorldDelta(threat) | 119.6 KB | 2.3% | 258 | 475 B | 1.6 KB/s |
+| s2c_OfflineGainReports | 110.8 KB | 2.1% | 148 | 767 B | 1.5 KB/s |
+| s2c_Quests | 65.6 KB | 1.3% | 322 | 209 B | 907 B/s |
+| s2c_WorldDelta(tile+minimap) | 41.7 KB | 0.8% | 9 | 4.6 KB | 576 B/s |
+| s2c_MarketUpdate | 35.0 KB | 0.7% | 1 | 35.0 KB | 483 B/s |
+| s2c_MarketOrders | 34.9 KB | 0.7% | 1 | 34.9 KB | 482 B/s |
+| s2c_Bootstrap | 34.6 KB | 0.7% | 1 | 34.6 KB | 479 B/s |
+| s2c_WorldDelta(entity) | 28.1 KB | 0.5% | 45 | 640 B | 388 B/s |
+| s2c_MarketListings | 15.9 KB | 0.3% | 1 | 15.9 KB | 220 B/s |
+| s2c_Leaderboard | 11.1 KB | 0.2% | 1 | 11.1 KB | 153 B/s |
+| s2c_AttrDetail | 10.3 KB | 0.2% | 1 | 10.3 KB | 142 B/s |
+| s2c_WorldDelta(fx) | 9.0 KB | 0.2% | 13 | 710 B | 125 B/s |
+| s2c_SelfDelta | 6.4 KB | 0.1% | 220 | 30 B | 88 B/s |
+| s2c_Pong | 4.1 KB | 0.1% | 70 | 60 B | 57 B/s |
+| s2c_TileDetail | 1.8 KB | 0.0% | 1 | 1.8 KB | 25 B/s |
+
+**总计**：~5.1 MB / 72s = ~71 KB/s/玩家
+
+**5000 人外推**：71 KB/s × 5000 = 355 MB/s = 2840 Mbps >> 30 Mbps（超出 94 倍）
 
 ---
 
-## 九、总体带宽估算
+## 九、带宽热点排序（基于实测数据）
 
-### 当前（战斗高峰，JSON 无压缩）
+| 优先级 | 包体/问题 | 实测占比 | 根因 | 优化方案 | 预估节省 |
+|--------|-----------|----------|------|----------|----------|
+| **P0** | **PanelDelta 伪增量** | **62.3%** | buff remainingTicks/attr lifeElapsedTicks/action cooldownLeft 每 tick 触发全量重发 | 客户端本地递减+签名移除高频字段 | 均次 8.1KB→<1KB（**87%**） |
+| **P0** | **PanelDelta 静态字段** | 含在上方 | SyncedItemStack/VisibleBuffState/TechniqueEntry 含 name/desc/skills/attrs 等模板数据 | 只发实例态(itemId+count)，客户端查本地模板 | 进一步 **60-80%** |
+| P1 | WorldDelta(entity+fx) | 11.9% | 怪物/NPC 含 name/color/tier 静态字段 | 首次出现发 templateId，客户端查表 | 均次 2.1KB→~1KB（**50%**） |
+| P1 | MapStatic | 7.0% | tiles 全量 JSON 二维数组 120KB/次 | RLE/palette 编码 + 增量 | **60-80%** |
+| P1 | Realm 高频推送 | 4.2% | progress 每 tick 递增触发全量 | 阈值比较（变化<1%不发） | 147次→~15次（**90%**） |
+| P1 | OfflineGainReports | 2.1% | 统计每 tick 累积触发发送 | 时间节流（每 10s 最多 1 次） | 148次→~7次（**95%**） |
+| P2 | WorldDelta(threat) | 2.3% | 仇恨箭头全量+增量并存 | 只发增量 | **50%** |
+| P2 | WorldDelta(tile) | 4.1% | 视野地块增量已合理 | 无需优化 | - |
+| P2 | 启用 perMessageDeflate | 全局 | JSON 文本无压缩 | 配置项 | 全局 **50-70%** |
+| P3 | 子包合并单次 emit | 全局 | 帧头开销 | 合并 worldDelta+selfDelta+panelDelta | 减少帧头 |
+| P3 | 激活 protobuf | 全局 | JSON 格式开销 40-60% | schema 已就绪 | **30-50%** vs JSON |
 
-| 包体类别 | 单玩家/tick | 5000 玩家/s |
-|----------|------------|-------------|
-| WorldDelta | 400-800 B | 2-4 MB/s |
-| SelfDelta | 60-100 B | 0.3-0.5 MB/s |
-| PanelDelta(全部) | 700-2380 B | 3.5-11.9 MB/s |
-| Notice | 200-2000 B | 1-10 MB/s |
-| Leaderboard(30s) | 均摊 ~300 B/s | 1.5 MB/s |
-| **合计** | **~1.7-5.6 KB** | **8.3-27.9 MB/s** |
+---
 
-> 30Mbps = 3.75 MB/s，当前峰值已超出 7.4 倍！
+## 十、优化路线与预期效果
 
-### 优化后预估（P0+P1 完成）
+### 第一阶段：止血（修复伪增量签名）
 
-| 包体类别 | 单玩家/tick | 5000 玩家/s |
-|----------|------------|-------------|
-| WorldDelta | 300-600 B | 1.5-3 MB/s |
-| SelfDelta | 40-80 B | 0.2-0.4 MB/s |
-| PanelDelta(修复伪增量) | 50-200 B | 0.25-1 MB/s |
-| Notice(去冗余) | 100-800 B | 0.5-4 MB/s |
-| Leaderboard(按需) | ~0 | ~0 |
-| **合计** | **~500-1700 B** | **2.5-8.4 MB/s** |
+| 修复项 | 位置 | 效果 |
+|--------|------|------|
+| attrSignature 移除 lifeElapsedTicks | buildAttrPanelSignature | attr 面板不再每 tick 触发 |
+| buffSignature 移除 remainingTicks | buildBuffListSignature | buff 面板不再每 tick 触发 |
+| actionSignature 移除 combatTargetId | buildActionPanelSignature | action 面板不再因目标切换触发 |
+| Realm progress 阈值比较 | isSameRealmState | 147次→~15次 |
+| OfflineGainReports 节流 | emitPendingPlayerStatisticRecords | 148次→~7次 |
 
-### 优化后预估（P0+P1+P2 perMessageDeflate）
+**预期**：PanelDelta 399次→~50次，均次 8.1KB→~4KB（因仍含静态字段），总量 3.1MB→~200KB
 
-压缩率 70% → **0.75-2.5 MB/s**，在 30Mbps 预算内。
+### 第二阶段：瘦身（面板增量只发实例态）
+
+| 面板 | 当前 | 优化后 |
+|------|------|--------|
+| 背包 slot | SyncedItemStack 40+字段 | { itemId, count, enhanceLevel } |
+| 装备 slot | SyncedItemStack 40+字段 | { itemId, enhanceLevel } |
+| 功法 entry | TechniqueUpdateEntry 含 skills/layers | { techId, level, exp, expToNext, realmLv } |
+| 行动 entry | ActionUpdateEntry 含 name/desc/range | { id, cooldownLeft, autoBattleEnabled } |
+| Buff entry | VisibleBuffState 17+字段 | { buffId, stacks, duration } |
+| 属性 | 全量含 bonuses/breakdowns | L1 仅 finalAttrs+numericStats |
+
+**预期**：PanelDelta 均次 ~4KB→<500B，总量 ~200KB→~25KB
+
+### 第三阶段：世界实体精简
+
+| 实体 | 移除字段 | 客户端补齐方式 |
+|------|----------|---------------|
+| 怪物 | name/color/tier | MonsterTemplate[mid] |
+| NPC | name/char/color/hasShop | NpcTemplate[id] |
+| 传送门 | name/char/targetMapId/direction | 地图模板 |
+
+**预期**：WorldDelta 均次 2.1KB→~1KB
+
+### 第四阶段：传输层压缩
+
+启用 perMessageDeflate 或 protobuf。
+
+**预期**：在前三阶段基础上再减 50-70%
+
+### 总体预期
+
+| 阶段 | 单玩家均秒 | 5000人带宽 | 占 30Mbps |
+|------|-----------|-----------|-----------|
+| 当前 | 71 KB/s | 2840 Mbps | 9467% ❌ |
+| 第一阶段后 | ~15 KB/s | 600 Mbps | 2000% ❌ |
+| 第二阶段后 | ~8 KB/s | 320 Mbps | 1067% ❌ |
+| 第三阶段后 | ~6 KB/s | 240 Mbps | 800% ❌ |
+| 第四阶段后(压缩70%) | ~2 KB/s | 80 Mbps | 267% ⚠️ |
+| +AOI 优化+降频 | <0.75 KB/s | <30 Mbps | ✅ |
+
+> 注：实测数据为单玩家活跃场景（含战斗+修炼+切图），5000人外推需考虑大部分玩家处于低活跃状态，实际带宽约为峰值的 30-50%。
