@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端调度器模块，负责登记、控制和持久化后台任务的运行状态。
+ *
+ * 维护时要区分任务定义、运行开关和实际 worker 逻辑，避免多个节点重复执行同一职责。
+ */
 export type SchedulerTaskKind = 'tick' | 'flush' | 'outbox' | 'maintenance' | 'manual';
 export type SchedulerTaskScope = 'global' | 'player' | 'instance' | 'node';
 export type SchedulerTaskPriority = 'high' | 'normal' | 'low';

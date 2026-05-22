@@ -1,10 +1,8 @@
 /**
- * 路径规划辅助函数集
- * 提供 A* 寻路、坐标边界判定、方向偏移计算等地图导航基础设施
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
-/** 路径规划辅助：负责坐标判定、A* 寻路与移动方向计算。
- * ⚠️ 寻路在 tick 外执行，不在热路径内做 A*。 */
 import { Direction, unpackDirections } from '@mud/shared';
 import { getTileIndex } from '../map/map-template.repository';
 

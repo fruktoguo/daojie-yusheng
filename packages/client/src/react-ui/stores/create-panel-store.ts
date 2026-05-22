@@ -1,8 +1,7 @@
 /**
- * 面板级 store 工厂
- * 
- * 每个面板创建独立的 store，避免跨面板更新穿透。
- * 基于 createExternalStore 封装，增加 selector 支持。
+ * 本文件负责客户端侧的配置、视图、网络或运行态辅助逻辑，服务于正式前端主线的展示与意图收集。
+ *
+ * 维护时要保持前端只处理表现和派生状态，避免复制服务端权威真源或让多套 UI 状态互相分叉。
  */
 import { useSyncExternalStore, useCallback, useRef } from 'react';
 import { createExternalStore, type ExternalStore } from '../stores/create-external-store';

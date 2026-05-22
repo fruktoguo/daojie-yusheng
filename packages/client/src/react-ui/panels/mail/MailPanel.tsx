@@ -1,6 +1,7 @@
 /**
- * React 版邮件面板
- * 三栏布局：摘要统计、列表（筛选+分页+批量操作）、详情（正文+附件分页）
+ * 本文件负责 邮件 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback, useMemo } from 'react';
 import type { MailDetailView, MailFilter, MailPageView, MailSummaryView } from '@mud/shared';

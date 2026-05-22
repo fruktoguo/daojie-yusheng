@@ -1,3 +1,8 @@
+/**
+ * 本文件属于 Canvas 渲染基础设施，负责相机、文本、图块缓存或渲染类型抽象。
+ *
+ * 维护时要关注每帧分配、缓存命中和坐标一致性，避免渲染表现污染运行态权威数据。
+ */
 import {
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPHS,

@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端战斗运行时，负责战斗指令、结算辅助、表现投影或掉落处理。
+ *
+ * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
+ */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ContentTemplateRepository } from '../../../content/content-template.repository';
 import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constants/gameplay/pvp';
@@ -252,7 +257,12 @@ export class WorldRuntimePlayerCombatService {
                 throw new Error(`inventory_grant_player_missing:${playerId}`);
             }
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            deps.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
+            const itemLabel = formatItemStackLabel(item);
+            const lootNotice = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${itemLabel}`, {
+                vars: { itemName: itemLabel },
+                pills: [{ key: 'itemName', style: 'target' }],
+            });
+            deps.queuePlayerNotice(playerId, lootNotice.text, lootNotice.kind, undefined, undefined, lootNotice.structured);
             return;
         }
         deps.spawnGroundItem(instance, x, y, item);
@@ -399,7 +409,12 @@ export class WorldRuntimePlayerCombatService {
         if (reward && deathSite.instance) {
             if (this.playerRuntimeService.canReceiveInventoryItem(killer.playerId, reward.itemId)) {
                 this.playerRuntimeService.receiveInventoryItem(killer.playerId, reward);
-                deps.queuePlayerNotice(killer.playerId, `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`, 'loot');
+                const rewardLabel = `${reward.name} x${bloodEssenceCount}`;
+                const rewardNotice = buildStructuredNotice('loot', 'notice.loot.obtained', `获得 ${rewardLabel}`, {
+                    vars: { itemName: rewardLabel },
+                    pills: [{ key: 'itemName', style: 'target' }],
+                });
+                deps.queuePlayerNotice(killer.playerId, rewardNotice.text, rewardNotice.kind, undefined, undefined, rewardNotice.structured);
             }
             else {
                 deps.spawnGroundItem(deathSite.instance, deathSite.x, deathSite.y, reward);

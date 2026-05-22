@@ -92,11 +92,11 @@
 
 ## 不建议合并的保留项
 
-- [ ] `readiness-gate`
-- [ ] `gm-database`
-- [ ] `shutdown-drain`
-- [ ] `runtime-realm-exp-boundary`
-- [ ] `leaderboard-offline-snapshots`
+- `readiness-gate`
+- `gm-database`
+- `shutdown-drain`
+- `runtime-realm-exp-boundary`
+- `leaderboard-offline-snapshots`
   - 原因：这些更像独立门禁或独立运维验证，职责边界清晰，合并后会削弱失败归因。
 
 ## 建议执行顺序

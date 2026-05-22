@@ -1,3 +1,8 @@
+/**
+ * 本文件属于 Canvas 渲染基础设施，负责相机、文本、图块缓存或渲染类型抽象。
+ *
+ * 维护时要关注每帧分配、缓存命中和坐标一致性，避免渲染表现污染运行态权威数据。
+ */
 /** 渲染器能力约束，确保 TextRenderer 与其他实现保持一致。 */
 
 import { GameTimeState, GridPoint, NpcQuestMarker, RenderEntity, TargetingShape, Tile, VisibleBuffState, type FengShuiGrade } from '@mud/shared';

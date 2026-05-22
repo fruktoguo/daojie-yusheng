@@ -1,9 +1,8 @@
 /**
- * 辅助状态同步服务。
- * 负责 bootstrap 首包和 tick 增量中的辅助面板状态构造（天门、修炼、技能、buff、装备等）。
- * 维护每个玩家的 SyncSlot 缓存，实现最小字段增量下发。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,

@@ -1,3 +1,8 @@
+/**
+ * 本文件属于客户端网络层，负责 socket 生命周期、发包封装或服务端事件消费。
+ *
+ * 维护时要使用共享协议事件名和最小字段，避免把服务端权威判断下沉到客户端。
+ */
 import type { Socket } from 'socket.io-client';
 import { decodeServerEventPayload, type ServerToClientEventPayload } from '@mud/shared';
 import {

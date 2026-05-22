@@ -1,4 +1,9 @@
 /**
+ * 本文件定义前后端共享类型或纯规则函数，用于统一协议、配置和玩法计算口径。
+ *
+ * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
+ */
+/**
  * EphemeralActorIdentity：短期非持久化 actor 身份。
  *
  * 三种 ephemeral kind 共用同一身份模型，仅 playerId 前缀与 ownerPlayerId 不同：

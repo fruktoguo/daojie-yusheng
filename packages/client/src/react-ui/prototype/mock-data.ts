@@ -1,4 +1,9 @@
 /**
+ * 本文件属于渐进式 React UI 层，负责壳层、桥接、覆盖层或前端 store 组合。
+ *
+ * 维护时要复用现有网络、运行态和样式 token，避免形成与 DOM UI 冲突的第二套业务真源。
+ */
+/**
  * PrototypeModuleId：统一结构类型，保证协议与运行时一致性。
  */
 export type PrototypeModuleId =

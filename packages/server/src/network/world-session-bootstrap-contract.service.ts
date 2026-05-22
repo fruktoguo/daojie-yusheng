@@ -1,4 +1,9 @@
 /**
+ * 本文件定义服务端网络网关、上下文或协议投影，连接 socket 请求和运行时服务。
+ *
+ * 维护时要保持 handler 只接收意图、做鉴权和排队，不直接绕过运行时修改权威状态。
+ */
+/**
  * Bootstrap 合同服务。
  * 负责 bootstrap 合同校验、session 复用策略裁定和 requestedSessionId 规范化。
  */

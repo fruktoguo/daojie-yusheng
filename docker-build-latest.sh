@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# 本脚本负责构建并推送 latest 标签的客户端/服务端 Docker 镜像。
+# 维护时重点确认 TENCENT_IMAGE_PREFIX、目标包 Dockerfile 和缓存破坏参数，避免把本地测试镜像误推到生产命名空间。
 
 set -euo pipefail
 

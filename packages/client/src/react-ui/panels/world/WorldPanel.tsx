@@ -1,6 +1,7 @@
 /**
- * React 版世界面板
- * 展示当前地图信息与天机阁入口，复用原生面板相同的 DOM 结构和 CSS class
+ * 本文件负责 世界 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { useCallback, useMemo, useRef } from 'react';
 import type { MapMeta, PlayerState } from '@mud/shared';

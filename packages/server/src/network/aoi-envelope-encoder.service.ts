@@ -1,9 +1,7 @@
 /**
- * AOI Envelope 编码服务。
- * 负责将 envelope POJO 内的 S2C payload 编码为 binary（当前为 JSON → Buffer）。
- * 支持 worker 外移和同步 fallback 两条路径。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 编码格式：UTF-8 JSON bytes（后续可替换为 protobuf）。
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 

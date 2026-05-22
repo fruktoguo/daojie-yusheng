@@ -1,8 +1,7 @@
 /**
- * React 版聊天面板骨架。
+ * 本文件负责客户端侧的配置、视图、网络或运行态辅助逻辑，服务于正式前端主线的展示与意图收集。
  *
- * 消息富文本、IndexedDB 缓存、历史加载和伤害 tooltip 仍由原生 ChatUI 编排；
- * 这里只接管稳定 DOM 结构，避免结构化战斗/通知消息降级成纯文本。
+ * 维护时要保持前端只处理表现和派生状态，避免复制服务端权威真源或让多套 UI 状态互相分叉。
  */
 import { memo } from 'react';
 import type { ChatChannel } from '../../../constants/ui/chat';

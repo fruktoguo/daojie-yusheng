@@ -1,4 +1,9 @@
 /**
+ * 本文件提供 React UI 的 UiResourceBar 基础组件，用于复用面板内的视觉和交互片段。
+ *
+ * 维护时应保持组件无业务真源，只通过 props 呈现状态，并兼顾浅色、深色与移动端可用性。
+ */
+/**
  * UiResourceBarProps：定义接口结构约束，明确可交付字段含义。
  */
 export interface UiResourceBarProps {

@@ -1,3 +1,8 @@
+/**
+ * 本文件是客户端 DOM UI 的 external link guard 模块，负责具体面板、弹层或渲染片段。
+ *
+ * 维护时优先保持局部更新和原有焦点/滚动状态，不在 UI 层裁定资产、战斗或移动合法性。
+ */
 const GUARDED_EXTERNAL_LINK_SELECTOR = 'a[data-guarded-external-link="true"]';
 const POINTER_ACTIVATION_WINDOW_MS = 1500;
 

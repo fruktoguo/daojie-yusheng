@@ -1,7 +1,7 @@
 /**
- * 强化面板只读查询服务。
- * 负责构造强化面板状态、候选列表、成功率和材料需求，
- * 不修改玩家运行态，仅做只读投影。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable } from '@nestjs/common';
 import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate } from '@mud/shared';

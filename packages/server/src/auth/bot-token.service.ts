@@ -1,18 +1,8 @@
 /**
- * BotTokenService：bot 一次性登录 token 的签发与校验。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 设计参考：docs/design/systems/分身宠物机器人系统设计.md §6.2、§9。
- *
- * 安全要点：
- * - token 用 HS256 + base64url 编码，与玩家主线 player token 保持同一风格
- * - 签发密钥来自环境变量 SERVER_BOT_TOKEN_SECRET（缺失时 issue 会拒绝）
- * - 是否允许签发 / 验证由 SERVER_BOT_LOGIN_ENABLED=1 显式开启；prod 默认关闭
- * - token 一次签发即绑定 playerId（含前缀 `bot_`），不能跨 actor 复用
- * - exp 单位秒（与 JWT 规范一致），TTL 上限 24 小时（防止误配置长寿 token）
- *
- * 第 1 批阶段：HTTP 路由调用 issue；第 2 批 WS Hello 路径调用 verify 完成 bot 登录。
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';

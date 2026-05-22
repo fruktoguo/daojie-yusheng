@@ -1,3 +1,8 @@
+/**
+ * 本文件提供 React UI 的 UiGameItem 基础组件，用于复用面板内的视觉和交互片段。
+ *
+ * 维护时应保持组件无业务真源，只通过 props 呈现状态，并兼顾浅色、深色与移动端可用性。
+ */
 import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 /**
  * UiGameItemGradeTone：统一结构类型，保证协议与运行时一致性。

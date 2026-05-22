@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端战斗运行时，负责战斗指令、结算辅助、表现投影或掉落处理。
+ *
+ * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
+ */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, uiLabels } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
@@ -8,6 +13,7 @@ import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../
 import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.service';
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
+import { buildStructuredNotice } from '../structured-notice.helpers';
 import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
@@ -536,6 +542,11 @@ export class WorldRuntimeBasicAttackService {
                 const countdown = containerAttackResult.remainingCount <= 0 && containerAttackResult.respawnRemainingTicks !== undefined
                     ? `，药性回生还需 ${Math.max(1, containerAttackResult.respawnRemainingTicks)} 息`
                     : '';
+                const noticeText = `你攻击 ${containerAttackResult.title}，打落 1 朵，剩余 ${Math.max(0, containerAttackResult.remainingCount)} 朵${countdown}`;
+                const notice = buildStructuredNotice('combat', 'notice.combat.herb-container-hit', noticeText, {
+                    vars: { title: containerAttackResult.title, remaining: Math.max(0, containerAttackResult.remainingCount), countdown },
+                    pills: [{ key: 'title', style: 'target' }],
+                });
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
@@ -544,7 +555,8 @@ export class WorldRuntimeBasicAttackService {
                     damageFloat: { x: targetX, y: targetY, damage: containerAttackResult.appliedDamage, color: effectColor },
                     notices: [{
                         playerId: attacker.playerId,
-                        text: `你攻击 ${containerAttackResult.title}，打落 1 朵，剩余 ${Math.max(0, containerAttackResult.remainingCount)} 朵${countdown}`,
+                        text: notice.text,
+                        structured: notice.structured,
                     }],
                 });
                 return;
@@ -552,6 +564,11 @@ export class WorldRuntimeBasicAttackService {
             const countdown = containerAttackResult.respawnRemainingTicks !== undefined
                 ? `还需 ${Math.max(1, containerAttackResult.respawnRemainingTicks)} 息。`
                 : '暂时无法再生。';
+            const noticeText = `${containerAttackResult.title} 当前没有可打落的草药，${countdown}`;
+            const notice = buildStructuredNotice('combat', 'notice.combat.herb-container-empty', noticeText, {
+                vars: { title: containerAttackResult.title, countdown },
+                pills: [{ key: 'title', style: 'target' }],
+            });
             emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,
@@ -559,7 +576,8 @@ export class WorldRuntimeBasicAttackService {
                 attack: { fromX: attacker.x, fromY: attacker.y, toX: targetX, toY: targetY, color: effectColor },
                 notices: [{
                     playerId: attacker.playerId,
-                    text: `${containerAttackResult.title} 当前没有可打落的草药，${countdown}`,
+                    text: notice.text,
+                    structured: notice.structured,
                 }],
             });
             return;

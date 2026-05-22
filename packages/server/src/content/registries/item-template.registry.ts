@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端内容加载或模板 Registry，负责把配置整理成运行期只读引用。
+ *
+ * 维护时要保持启动期解析、冻结和实例工厂边界，避免 tick 热路径复制大对象。
+ */
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import { resolveProjectPath } from '../../common/project-path';

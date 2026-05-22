@@ -1,8 +1,8 @@
 /**
- * 显示参数管理。
- * 统一维护地图缩放与可视范围的运行时状态，供运行时和渲染层查询。
+ * 本文件负责客户端侧的配置、视图、网络或运行态辅助逻辑，服务于正式前端主线的展示与意图收集。
+ *
+ * 维护时要保持前端只处理表现和派生状态，避免复制服务端权威真源或让多套 UI 状态互相分叉。
  */
-
 import { BASE_CELL_SIZE, DEFAULT_ZOOM, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './constants/visuals/display';
 
 /** 地图缩放持久化 Key。 */

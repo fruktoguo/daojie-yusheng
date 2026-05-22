@@ -1,6 +1,7 @@
 /**
- * React 版设置面板
- * 5 tab 模态：账号、兑换码、界面、性能、收支统计
+ * 本文件负责 设置 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { AccountRedeemCodesRes, OfflineGainReportView, PlayerStatisticTotalsView } from '@mud/shared';

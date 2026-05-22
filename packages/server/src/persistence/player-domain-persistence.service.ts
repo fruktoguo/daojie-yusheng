@@ -1,4 +1,9 @@
 /**
+ * 本文件属于持久化边界，负责数据库真源、flush、兼容转换或失败策略等可靠性逻辑。
+ *
+ * 维护时要优先考虑幂等、崩溃恢复和自动清理，避免在 tick 内直接引入阻塞 IO。
+ */
+/**
  * 玩家分域持久化服务。
  * 管理 player_presence、player_wallet、player_world_anchor、player_position_checkpoint、
  * player_vitals、player_progression_core、player_attr_state、player_body_training_state、

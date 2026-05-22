@@ -1,4 +1,9 @@
 /**
+ * 本文件属于服务端权威运行时，负责地图、玩家、世界、市场、邮件或后台运行态逻辑。
+ *
+ * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
+ */
+/**
  * WorldRuntime 命令路由类型定义
  *
  * 所有玩家命令通过 WorldRuntimePlayerCommandService.dispatchPlayerCommand 统一路由。

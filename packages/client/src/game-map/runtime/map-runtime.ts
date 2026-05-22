@@ -1,3 +1,8 @@
+/**
+ * 本文件属于客户端地图模块，负责相机、交互、投影、渲染适配或地图运行态组织。
+ *
+ * 维护时要保证表现层只处理显示和输入命中，移动合法性、占位和地图权威状态仍以服务端为准。
+ */
 import { VIEW_RADIUS } from '@mud/shared';
 import { getCellSize } from '../../display';
 import { CameraController } from '../camera/camera-controller';

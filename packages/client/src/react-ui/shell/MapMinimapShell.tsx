@@ -1,3 +1,8 @@
+/**
+ * 本文件属于 React 原型壳层，负责 HUD、地图周边或侧栏控件的展示拼装。
+ *
+ * 维护时应把它视为前端表现层：只组织视图和用户意图，不保存会与主运行态冲突的真源。
+ */
 import { StrictMode, memo } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';

@@ -1,7 +1,7 @@
 /**
- * 排行榜运行时服务。
- * 按运行态与持久化玩家快照聚合各类榜单（境界、战力、属性、击杀等）
- * 和世界摘要，结果做短缓存避免高频重算。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { calculateMarketTradeTotalCost } from '@mud/shared';

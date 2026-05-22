@@ -1,7 +1,7 @@
 /**
- * 自定义日志器：继承 NestJS ConsoleLogger，统一时间格式为 yyyy-MM-dd HH:mm:ss，
- * 并将所有日志输出同步捕获到内存环形缓冲区，供 GM 日志页实时查看。
- * 受 GM 运行时开关控制：关闭的级别不写 stdout、不进缓冲区。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { ConsoleLogger, type LogLevel } from '@nestjs/common';
 

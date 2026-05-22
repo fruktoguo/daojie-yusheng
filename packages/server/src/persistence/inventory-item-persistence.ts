@@ -1,4 +1,9 @@
 /**
+ * 本文件属于持久化边界，负责数据库真源、flush、兼容转换或失败策略等可靠性逻辑。
+ *
+ * 维护时要优先考虑幂等、崩溃恢复和自动清理，避免在 tick 内直接引入阻塞 IO。
+ */
+/**
  * 背包物品持久化工具。
  * 提供物品快照序列化（buildPersistedInventoryItemRawPayload）和反序列化水合（hydratePersistedInventoryItem），
  * 处理强化等级、旧字段兼容和内容模板规范化。

@@ -1,20 +1,8 @@
 /**
- * 玩家战斗运行时服务：负责技能施放校验、伤害结算和 buff 应用。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 玩家对玩家/怪物/自身的技能施放入口
- * - 怪物对玩家的技能施放入口
- * - 技能合法性校验（解锁、冷却、元气、射程、存活）
- * - 伤害公式求值和战斗结算调用
- * - buff 生成和应用
- * - 冷却计算（含冷却速度属性加成）
- *
- * 设计：
- * - 所有施放入口最终汇聚到 executeResolvedSkillCast 统一处理
- * - 通过 handlers 回调解耦资源扣除、冷却设置、buff 应用等副作用
- * - 支持 skipResourceAndCooldown / skipTargetDamageApplication 等选项用于特殊场景
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, signedRatioValue } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';

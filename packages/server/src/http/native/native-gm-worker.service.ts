@@ -1,3 +1,8 @@
+/**
+ * 本文件属于原生 HTTP/GM 辅助入口，负责把运维能力接入服务端内部服务。
+ *
+ * 维护时要注意鉴权、审计和后台任务边界，避免把管理操作暴露成无保护的公开接口。
+ */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { GmWorkerAlert, GmWorkerRow, GmWorkerRuntimeRow, GmWorkerStateRes, GmWorkerStatus } from '@mud/shared';
 

@@ -1,4 +1,9 @@
 /**
+ * 本文件属于服务端 HTTP 或 GM 辅助入口，负责把运维能力接入内部服务。
+ *
+ * 维护时要注意鉴权、审计和后台任务边界，避免把管理操作暴露成无保护公开接口。
+ */
+/**
  * GM HTTP 鉴权守卫。
  * 从请求 Authorization 头提取 Bearer token，交由 RuntimeGmAuthService 校验，
  * 未通过时直接返回 401。

@@ -1,8 +1,7 @@
 /**
- * 玩家身份持久化服务。
- * 维护 server_player_identity 主表和 player_identity 镜像表，
- * 管理 userId/username/playerId/playerNo 映射、显示名规范化和来源标签，
- * 支持触发器自动同步镜像和 playerNo 回填。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { containsInvisibleOnlyNameGrapheme, getGraphemeCount, hasVisibleNameGrapheme, resolveDefaultVisibleDisplayName } from '@mud/shared';

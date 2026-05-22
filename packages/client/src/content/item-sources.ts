@@ -1,3 +1,8 @@
+/**
+ * 本文件负责客户端内容索引、模板读取或本地展示数据解析。
+ *
+ * 维护时要区分展示缓存与正式配置真源，避免在客户端内容层重新裁定掉落、资产或战斗规则。
+ */
 /** 物品来源的分类类型。 */
 export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest' | 'alchemy' | 'forging' | 'runtime_pvp_reward';
 /** 灵石对应的物品 ID。 */

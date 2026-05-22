@@ -1,18 +1,8 @@
 /**
- * 战斗结果落地适配器：将结算结果应用到运行时状态。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 为每种目标类型（玩家/怪物/地块/阵法/容器）提供统一的结果应用接口
- * - 通过 handlers 优先 → deps service → deps method 的容错链式调用策略
- * - 处理伤害应用、buff 应用、击杀处理、反击激活、活动记录等副作用
- *
- * 设计：
- * - createCombatOutcomeApplyAdapters 返回按目标类型索引的适配器集合
- * - 每个适配器接收 { outcome, target, result, application, deps } 统一输入
- * - 调用方（如 combat pipeline 的 apply 阶段）不需要关心具体目标类型的差异
- * - callFirstDefined 实现优雅降级：优先用 handlers 覆盖，其次用 deps 中的服务
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { CombatTargetKind } from '../world/combat/combat-action.types';
 
 type OutcomeHandlers = Record<string, any>;

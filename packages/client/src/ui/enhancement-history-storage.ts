@@ -1,4 +1,9 @@
 /**
+ * 本文件是客户端 DOM UI 的 enhancement history storage 模块，负责具体面板、弹层或渲染片段。
+ *
+ * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
+ */
+/**
  * 强化历史 localStorage 读取与解析共享逻辑。
  * 从 craft-workbench-modal.ts 和 craft-enhancement-view.ts 提取。
  */

@@ -1,9 +1,7 @@
 /**
- * Persistence Worker Pool 服务。
- * 无状态池：吃 dirty domain 快照，输出 JSON/SQL 构造所需的序列化结果。
- * 主线程仍负责 pool.query、lease 校验和 markPersisted。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 热路径默认 always-on；任务级故障降级在 pool 内部透明处理。
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';

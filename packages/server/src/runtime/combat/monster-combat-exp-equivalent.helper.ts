@@ -1,19 +1,8 @@
 /**
- * 妖兽战斗经验等价值计算。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 根据妖兽等级和品阶，计算其在战斗经验对抗系统中的等价经验值
- * - 用于战斗经验优势判定（resolveCombatExperienceAdvantage）中怪物侧的经验参数
- *
- * 数据来源：
- * - 从 realm-levels.json 读取各境界等级的升级经验
- * - 按功法品阶（grade）和妖兽品阶（tier）应用倍率
- *
- * 缓存策略：
- * - 首次调用时加载并缓存，后续直接读取内存 Map
- * - 启动期或测试桩缺少内容文件时保持 0，不回退旧口径
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { readFileSync } from 'fs';
 import { resolveProjectPath } from '../../common/project-path';
 import {

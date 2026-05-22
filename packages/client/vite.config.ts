@@ -1,3 +1,8 @@
+/**
+ * 本文件属于项目主线脚本，负责所属模块内的类型、工具或运行逻辑。
+ *
+ * 维护时先确认调用方和数据边界，保持注释说明职责而不改变现有行为。
+ */
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { defineConfig, loadEnv, type Plugin } from 'vite';

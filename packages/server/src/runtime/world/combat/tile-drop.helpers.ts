@@ -1,3 +1,8 @@
+/**
+ * 本文件属于世界运行时战斗边界，负责战斗指令、表现投影或掉落辅助逻辑。
+ *
+ * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要的表现字段。
+ */
 import {
   MINING_EXP_BASE_ACTION_TICKS,
   applyEquipmentAttributeEffectivenessToItemStack,

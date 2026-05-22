@@ -1,3 +1,8 @@
+/**
+ * 本文件属于 Canvas 渲染基础设施，负责相机、文本、图块缓存或渲染类型抽象。
+ *
+ * 维护时要关注每帧分配、缓存命中和坐标一致性，避免渲染表现污染运行态权威数据。
+ */
 /** 摄像机（兼容旧模块），支持延迟后平滑跟随玩家并提供世界/屏幕坐标转换。 */
 
 import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED, PlayerState } from '@mud/shared';

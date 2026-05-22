@@ -1,7 +1,7 @@
 /**
- * React 版炼体面板
- * pane-based 面板，展示炼体等级、经验、底蕴灌注功能
- * 含灌注弹层（detailModal）
+ * 本文件负责 炼体 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { StrictMode, memo, useCallback, useMemo, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';

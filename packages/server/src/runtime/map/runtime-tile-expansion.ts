@@ -1,10 +1,8 @@
 /**
- * 运行时地块扩展工具。
- * 按候选形状和生成器在地图边界外动态激活新地块，
- * 用于无限地图或动态扩展场景。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
-/** createSquareExpansionShape：创建以 origin 为中心的方形候选坐标策略。 */
 function createSquareExpansionShape(radius) {
     const normalizedRadius = Math.max(0, Math.trunc(Number(radius) || 0));
     return {

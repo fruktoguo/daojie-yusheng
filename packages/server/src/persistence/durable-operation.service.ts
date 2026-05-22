@@ -1,8 +1,7 @@
 /**
- * 持久化操作服务（Durable Operation）。
- * 提供邮件领取、市场交易、NPC 购买等涉及多表资产变更的事务性操作，
- * 通过 durable_operation_log 保证幂等性，通过 outbox_event 驱动异步后续，
- * 同时维护 player_presence、player_wallet、player_inventory_item、player_equipment_slot 等分域表。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';

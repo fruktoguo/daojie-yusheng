@@ -1,6 +1,7 @@
 /**
- * 制作变更刷新服务
- * 负责制作结果的面板更新推送、掉落物兜底和 mutation 状态刷新
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { WorldSessionService } from '../../network/world-session.service';

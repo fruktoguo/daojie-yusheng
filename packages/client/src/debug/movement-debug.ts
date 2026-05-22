@@ -1,3 +1,8 @@
+/**
+ * 本文件属于正式客户端主线，负责前端启动、状态拼装、工具函数或表现层逻辑。
+ *
+ * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
+ */
 /** MOVEMENT_DEBUG_STORAGE_KEY：移动调试存储KEY。 */
 const MOVEMENT_DEBUG_STORAGE_KEY = 'debug.movement';
 /** MOVEMENT_DEBUG_QUERY_KEY：移动调试查询KEY。 */

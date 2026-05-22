@@ -1,3 +1,8 @@
+/**
+ * 本文件属于正式客户端主线，负责前端启动、状态拼装、工具函数或表现层逻辑。
+ *
+ * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
+ */
 import type { AttrBonus, ElementKey, HeavenGateRootValues } from '@mud/shared';
 import { ELEMENT_KEY_LABELS } from '../domain-labels';
 import { t } from '../ui/i18n';

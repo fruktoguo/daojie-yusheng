@@ -1,17 +1,8 @@
 /**
- * 战斗结算数学工具与随机源管理。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 对抗率计算（命中 vs 闪避、破防 vs 化解、暴击 vs 抗暴）
- * - 防御减伤率计算
- * - 战斗经验优势加成计算
- * - 战斗随机源管理（生产用 crypto，smoke 可注入确定性 rng）
- *
- * 注意：
- * - 测试挂载 rng 后必须在 finally 里还原，否则污染后续战斗随机性
- * - combat-pipeline.ts 中的环节函数依赖本文件的 cryptoRandom 和对抗率函数
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { COMBAT_EXPERIENCE_ADVANTAGE_BASELINE, COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD, DEFAULT_RATIO_DIVISOR, ratioValue } from '@mud/shared';
 import { randomInt } from 'node:crypto';
 

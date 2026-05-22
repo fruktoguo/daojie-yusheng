@@ -1,9 +1,8 @@
 /**
- * 世界网关主入口。
- * Socket.IO WebSocket 网关，注册所有 C2S 事件 handler 并委托给各 helper 处理。
- * 负责连接生命周期（connect/disconnect）、频率限制和 GM 性能观测挂载。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Inject, Logger } from '@nestjs/common';
 import { C2S } from '@mud/shared';

@@ -1,3 +1,8 @@
+/**
+ * 本文件是客户端 DOM UI 的 suggestion panel 模块，负责具体面板、弹层或渲染片段。
+ *
+ * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
+ */
 import { type Suggestion, type SuggestionReply } from '@mud/shared';
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { detailModalHost } from './detail-modal-host';

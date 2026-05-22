@@ -1,4 +1,9 @@
 /**
+ * 本文件属于持久化边界，负责数据库真源、flush、兼容转换或失败策略等可靠性逻辑。
+ *
+ * 维护时要优先考虑幂等、崩溃恢复和自动清理，避免在 tick 内直接引入阻塞 IO。
+ */
+/**
  * 邮件持久化服务。
  * 管理 player_mail、player_mail_attachment、player_mail_counter、player_recovery_watermark 表，
  * 支持结构化邮件的全量/增量写入、过期清理、软删归档和恢复水位推进。

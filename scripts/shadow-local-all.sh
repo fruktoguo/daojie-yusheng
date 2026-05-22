@@ -1,4 +1,6 @@
 #!/bin/bash
+# 本脚本属于仓库级运维或发布辅助工具，负责把常见检查、环境解析或发布步骤自动化。
+# 维护时要让输入参数、环境变量和退出码含义明确，避免本地脚本在 CI 或生产发布中表现不一致。
 # 用途：按固定顺序执行本地 shadow 的整套常用验证链。
 # 默认：up -> status -> doctor -> shadow -> acceptance -> full
 # 可选：设置 SHADOW_LOCAL_RUN_DESTRUCTIVE=1 后再追加 destructive 全链

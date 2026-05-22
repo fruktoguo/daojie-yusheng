@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端战斗运行时，负责战斗指令、结算辅助、表现投影或掉落处理。
+ *
+ * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
+ */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Direction, TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, parseTileTargetRef, percentModifierToMultiplier, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
@@ -719,12 +724,17 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }
             }
         }
+        const notice = buildStructuredNotice('combat', 'notice.combat.temporary-tiles-created', `${skill.name}生成了 ${created} 处临时石头。`, {
+            vars: { skillName: skill.name, count: created },
+            pills: [{ key: 'skillName', style: 'skill' }],
+        });
         emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
             notices: [{
                 playerId: attacker.playerId,
-                text: `${skill.name}生成了 ${created} 处临时石头。`,
+                text: notice.text,
+                structured: notice.structured,
             }],
         });
     }

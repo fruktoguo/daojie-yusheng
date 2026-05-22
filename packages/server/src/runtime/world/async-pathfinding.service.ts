@@ -1,7 +1,7 @@
 /**
- * 服务端异步寻路入口。
- * 从 MapInstanceRuntime 提取 staticGrid，通过 EncodingWorkerPool 异步执行 A* 寻路。
- * 用于 tick 外的玩家寻路意图解析（enqueueMoveTo），不阻塞 tick。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { findBoundedPath, type PathPoint, type PathfindingTaskInput, type PathfindingTaskResult } from '@mud/shared';

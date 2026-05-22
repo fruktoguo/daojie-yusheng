@@ -1,4 +1,9 @@
 /**
+ * 本文件属于持久化边界，负责数据库真源、flush、兼容转换或失败策略等可靠性逻辑。
+ *
+ * 维护时要优先考虑幂等、崩溃恢复和自动清理，避免在 tick 内直接引入阻塞 IO。
+ */
+/**
  * 坊市（市场）持久化服务。
  * 管理 server_market_order、server_market_trade_history 和 player_market_storage_item 表，
  * 支持订单/成交/托管仓的事务性写入、结构化加载和恢复水位推进。

@@ -1,24 +1,8 @@
 /**
- * 战斗吟唱（Pending Cast）核心工具。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 创建玩家/怪物的吟唱状态对象（pending cast）
- * - 从吟唱状态生成战斗 action（技能释放 / 技能取消）
- * - 判定吟唱是否应被取消（过期、死亡、配置版本不匹配）
- * - 执行吟唱取消并生成取消快照
- *
- * 生命周期：
- * 1. 玩家/怪物发起技能 → createPlayerPendingCombatCast / createMonsterPendingCombatCast
- * 2. 每 tick 检查是否过期/死亡 → resolvePendingCombatCastCancellation
- * 3. remainingTicks 减到 0 → createPlayerSkillActionFromPendingCast 生成 action
- * 4. 中途被打断/过期 → cancelPendingCombatCast 生成取消快照
- *
- * 关键字段：
- * - resolveTick：预期完成的 tick（超过此 tick 且 remainingTicks > 0 则过期）
- * - skipProgressThisTick：创建当 tick 不减 remainingTicks（非自动战斗时首 tick 跳过）
- * - configRevision：技能配置版本，热更后版本不匹配则取消
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import {
   CombatActionKind,
   CombatActionPhase,

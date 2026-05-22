@@ -1,3 +1,8 @@
+/**
+ * 本文件参与服务端启动、就绪或关闭生命周期管理，负责协调依赖状态和对外可用性。
+ *
+ * 维护时要保证 readiness 与 shutdown 语义清晰，避免服务还未恢复完成就提前接流量。
+ */
 import { Injectable } from '@nestjs/common';
 
 @Injectable()

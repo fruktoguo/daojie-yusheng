@@ -1,19 +1,9 @@
 #!/usr/bin/env node
 /**
- * 离线分析 V8 heap snapshot 文件，按 V8 节点 type / constructor (type+name) 聚合，
- * 输出可读文本摘要，避免依赖 Chrome DevTools 或 VSCode 扩展（这两者在 400MB+ 文件上常崩）。
+ * 本脚本负责仓库级构建、发布、同步或维护辅助流程，减少重复手工操作。
  *
- * 用法（建议显式提高 Node 堆上限以承载大 snapshot）：
- *   node --max-old-space-size=8192 scripts/analyze-heap-snapshot.mjs <file.heapsnapshot>
- *
- * 输出维度：
- *   - 文件元信息 / 节点总数 / self_size 总和
- *   - 按 V8 节点 type 聚合（hidden/array/string/object/code/closure/...）
- *   - 按 constructor (type + name) 聚合 Top 100（按 totalSelfSize 倒序）
- *   - 大字符串 Top 50（前 200 字符截断）
- *   - 大 array Top 50（带 edge_count）
+ * 维护时要保持输入参数、环境变量和退出码语义清晰，避免本地执行与 CI 或生产发布链路不一致。
  */
-
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 

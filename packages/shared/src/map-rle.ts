@@ -1,3 +1,8 @@
+/**
+ * 本文件定义前后端共享类型或纯规则函数，用于统一协议、配置和玩法计算口径。
+ *
+ * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
+ */
 /** 地图分层 RLE 编解码（预留）。 */
 const NULL_TOKEN = '_';
 export function encodeRleRow(row: readonly (string | null)[]): string {

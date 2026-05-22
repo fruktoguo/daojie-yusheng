@@ -1,3 +1,8 @@
+/**
+ * 本文件是客户端 DOM UI 的 i18n 模块，负责具体面板、弹层或渲染片段。
+ *
+ * 维护时优先保持局部更新和原有焦点/滚动状态，不在 UI 层裁定资产、战斗或移动合法性。
+ */
 import { CLIENT_I18N_MESSAGES, type ClientI18nKey } from '../constants/ui/i18n.generated';
 
 type I18nValue = string | number | boolean | null | undefined;

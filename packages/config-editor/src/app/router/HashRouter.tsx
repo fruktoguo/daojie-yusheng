@@ -1,3 +1,8 @@
+/**
+ * 本文件提供配置编辑器的哈希路由封装，用于在静态部署下切换页面。
+ *
+ * 维护时要保持路由 key 与侧栏导航一致，避免刷新后落到不存在的编辑页面。
+ */
 import { useCallback, useEffect, useState } from 'react';
 
 export type RouteId = 'maps' | 'monsters' | 'techniques' | 'files' | 'service';

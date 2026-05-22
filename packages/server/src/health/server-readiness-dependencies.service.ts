@@ -1,6 +1,7 @@
 /**
- * 就绪依赖收集服务：封装 readiness 检测所需的运维态依赖（如维护态服务），
- * 便于 HealthReadinessService 统一组装，也方便后续扩展新的就绪条件。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
 

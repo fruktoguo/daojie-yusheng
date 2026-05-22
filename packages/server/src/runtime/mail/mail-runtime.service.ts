@@ -1,7 +1,7 @@
 /**
- * 邮件运行时服务。
- * 负责系统信件发送、附件领取、直接邮件和邮箱缓存管理，
- * 所有写操作按玩家串行化执行并持久化到数据库。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { buildMailPreviewSnippet, canMergeItemStack, createItemStackSignature, normalizeMailBatchIds, normalizeMailFilter, normalizeMailPageSize, renderMailBodyPlain, renderMailTitlePlain } from '@mud/shared';

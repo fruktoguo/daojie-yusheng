@@ -1,7 +1,7 @@
 /**
- * 玩家刷盘账本服务。
- * 维护 player_flush_ledger 表，跟踪每个玩家各域的脏版本号和已刷版本号，
- * 支持 claim/markFlushed/markRetry 的分布式刷盘调度。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';

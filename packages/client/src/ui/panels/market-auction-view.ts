@@ -1,3 +1,8 @@
+/**
+ * 本文件是客户端 DOM UI 的 market auction view 模块，负责具体面板、弹层或渲染片段。
+ *
+ * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
+ */
 import type { AuctionHouseTab, ItemStack, MarketListedItemView, MarketTradeHistoryEntryView, S2C_AuctionListings, S2C_MarketUpdate } from '@mud/shared';
 import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, ITEM_TYPES, MARKET_PRICE_PRESET_VALUES, normalizeEnhanceLevel } from '@mud/shared';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';

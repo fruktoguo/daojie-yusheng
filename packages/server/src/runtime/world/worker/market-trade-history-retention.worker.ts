@@ -1,9 +1,7 @@
 /**
- * 坊市成交历史 retention worker。
- * 按"双玩家最近 100 条 ∩ 7 天保留期"窗口删除老旧 server_market_trade_history 行，
- * 玩家自己面板的最近 100 条永远保留，超过 7 天且双方都不需要的成交才会被裁掉。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 主进程内 OnModuleInit 启动周期 timer，避免依赖单独的 docker 服务；调用方也可手动 runOnce。
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 

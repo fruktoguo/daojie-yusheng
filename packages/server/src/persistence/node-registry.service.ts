@@ -1,7 +1,7 @@
 /**
- * 节点注册持久化服务。
- * 维护 node_registry 表，支持节点注册、心跳、注销和过期扫描，
- * 为多节点部署提供服务发现和健康状态管理。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';

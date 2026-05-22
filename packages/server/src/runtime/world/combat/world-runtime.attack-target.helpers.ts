@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端战斗运行时，负责战斗指令、结算辅助、表现投影或掉落处理。
+ *
+ * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
+ */
 import { encodeTileTargetRef, isTileTargetRef, parseTileTargetRef } from '@mud/shared';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';

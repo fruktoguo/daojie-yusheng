@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
+import { resolveProjectPath } from '../common/project-path';
 
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
@@ -96,7 +96,7 @@ function assertRuntimeMonsterStatsMatchGenerated(
   repository: ContentTemplateRepository,
   mapTemplateRepository: MapTemplateRepository,
 ) {
-  const generatedPath = path.resolve(process.cwd(), 'packages/server/data/generated/monster-runtime-stats.json');
+  const generatedPath = resolveProjectPath('packages', 'server', 'data', 'generated', 'monster-runtime-stats.json');
   const generated = JSON.parse(fs.readFileSync(generatedPath, 'utf-8'));
   const expected = generated.records?.m_town_rat_south;
   assert.ok(expected, 'generated monster stats should include m_town_rat_south');
@@ -115,8 +115,8 @@ function assertRuntimeMonsterStatsMatchGenerated(
     );
   }
 
-  const monsterContentPath = path.resolve(__dirname, '../../data/content/monsters/云来镇.json');
-  const baselinesPath = path.resolve(__dirname, '../../data/content/realm-attr-baselines.json');
+  const monsterContentPath = resolveProjectPath('packages', 'server', 'data', 'content', 'monsters', '云来镇.json');
+  const baselinesPath = resolveProjectPath('packages', 'server', 'data', 'content', 'realm-attr-baselines.json');
   const rawMonster = JSON.parse(fs.readFileSync(monsterContentPath, 'utf-8'))
     .find((entry) => entry.id === 'm_town_rat_south');
   const baselines = JSON.parse(fs.readFileSync(baselinesPath, 'utf-8'));
@@ -225,7 +225,7 @@ function assertHuanlingZhenrenInitialWoundedBuff(
   const spawns = repository.createRuntimeMonstersForMap('ruined_cavern_manor');
   const spawn = spawns.find((monster) => monster.monsterId === 'm_huanling_zhenren');
   assert.ok(spawn, 'ruined_cavern_manor should spawn 重伤的唤灵真人');
-  const currentMonsterContentPath = path.resolve(__dirname, '../../data/content/monsters/破败洞府.json');
+  const currentMonsterContentPath = resolveProjectPath('packages', 'server', 'data', 'content', 'monsters', '破败洞府.json');
   const currentHuanling = JSON.parse(fs.readFileSync(currentMonsterContentPath, 'utf-8'))
     .find((entry) => entry.id === 'm_huanling_zhenren');
   const attrTendency = currentHuanling?.attrTendency ?? {};
@@ -300,10 +300,10 @@ function assertHuanlingZhenrenInitialWoundedBuff(
 }
 
 function assertHuanlingZhenrenSkillOrderAndCastConfig() {
-  const currentMonsterContentPath = path.resolve(__dirname, '../../data/content/monsters/破败洞府.json');
-  const referenceMonsterContentPath = path.resolve(__dirname, '../../../../参考/main-packages-ref/packages/server/data/content/monsters/破败洞府.json');
-  const currentTechniquePath = path.resolve(__dirname, '../../data/content/techniques/凡人期/术法/地阶.json');
-  const referenceTechniquePath = path.resolve(__dirname, '../../../../参考/main-packages-ref/packages/server/data/content/techniques/凡人期/术法/地阶.json');
+  const currentMonsterContentPath = resolveProjectPath('packages', 'server', 'data', 'content', 'monsters', '破败洞府.json');
+  const referenceMonsterContentPath = resolveProjectPath('参考', 'main-packages-ref', 'packages', 'server', 'data', 'content', 'monsters', '破败洞府.json');
+  const currentTechniquePath = resolveProjectPath('packages', 'server', 'data', 'content', 'techniques', '凡人期', '术法', '地阶.json');
+  const referenceTechniquePath = resolveProjectPath('参考', 'main-packages-ref', 'packages', 'server', 'data', 'content', 'techniques', '凡人期', '术法', '地阶.json');
 
   const currentHuanling = JSON.parse(fs.readFileSync(currentMonsterContentPath, 'utf-8'))
     .find((entry) => entry.id === 'm_huanling_zhenren');

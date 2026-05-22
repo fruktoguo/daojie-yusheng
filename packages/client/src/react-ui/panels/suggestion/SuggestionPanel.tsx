@@ -1,6 +1,7 @@
 /**
- * React 版意见收集面板
- * 三栏布局：提交区、列表区（分页+搜索+tab）、详情区（投票+回复）
+ * 本文件负责 建议反馈 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Suggestion, SuggestionReply } from '@mud/shared';

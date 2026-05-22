@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# 本脚本负责构建并推送 prod 标签的客户端/服务端 Docker 镜像。
+# 维护时重点确认镜像前缀、构建目标和登录状态，确保发布产物与 docker-stack.tencent.yml 使用的镜像名一致。
 
 set -euo pipefail
 

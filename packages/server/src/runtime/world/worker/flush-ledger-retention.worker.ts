@@ -1,3 +1,8 @@
+/**
+ * 本文件实现后台 worker 或对应冷路径入口，负责把运行态变更异步落库、清理或压缩。
+ *
+ * 维护时要关注批量大小、重试幂等和中断恢复，不能让后台任务破坏服务端权威状态。
+ */
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { FlushLedgerService, type FlushLedgerRetentionResult } from '../../../persistence/flush-ledger.service';

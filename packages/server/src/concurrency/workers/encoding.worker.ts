@@ -1,4 +1,9 @@
 /**
+ * 本文件属于项目主线脚本，负责所属模块内的类型、工具或运行逻辑。
+ *
+ * 维护时先确认调用方和数据边界，保持注释说明职责而不改变现有行为。
+ */
+/**
  * Encoding Worker 入口。
  * 在 worker_threads 中运行，处理 AOI envelope 编码、A* 寻路、FOV 计算。
  * 不依赖 NestJS 容器，直接 import shared 纯函数。

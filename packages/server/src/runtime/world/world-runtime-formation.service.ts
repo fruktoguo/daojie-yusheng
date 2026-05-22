@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端权威运行时，负责地图、玩家、世界、市场、邮件或后台运行态逻辑。
+ *
+ * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
+ */
 import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
 import { Pool } from 'pg';

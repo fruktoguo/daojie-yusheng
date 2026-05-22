@@ -1,3 +1,8 @@
+/**
+ * 本文件属于渐进式 React UI 层，负责壳层、桥接、覆盖层或前端 store 组合。
+ *
+ * 维护时要复用现有网络、运行态和样式 token，避免形成与 DOM UI 冲突的第二套业务真源。
+ */
 import { StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { getViewportRoot } from '../../ui/responsive-viewport';

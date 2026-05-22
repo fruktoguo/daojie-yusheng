@@ -1,3 +1,8 @@
+/**
+ * 本文件属于客户端 GM 工具链，负责地图编辑、世界查看或管理端辅助展示。
+ *
+ * 维护时要把 GM 能力限定在受控入口，并避免普通玩家客户端路径依赖管理端状态。
+ */
 import {
   MAIL_TEMPLATE_BEGINNER_JOURNEY_ID,
   MAIL_TEMPLATE_DIVINE_ROOT_SEED_ID,

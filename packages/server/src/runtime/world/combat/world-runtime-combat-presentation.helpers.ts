@@ -1,3 +1,8 @@
+/**
+ * 本文件属于世界运行时战斗边界，负责战斗指令、表现投影或掉落辅助逻辑。
+ *
+ * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要的表现字段。
+ */
 let _castIdSeq = 0;
 function nextCastId(): string {
   return `c${(++_castIdSeq).toString(36)}`;
@@ -78,6 +83,7 @@ interface CombatPresentationNotice {
   kind?: string;
   castId?: string;
   combat?: unknown;
+  structured?: unknown;
 }
 
 interface CombatPresentationInput {
@@ -204,7 +210,7 @@ function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: Co
     if (!notice?.playerId || typeof notice.text !== 'string' || notice.text.length <= 0) {
       continue;
     }
-    deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat', notice.castId ?? castId, notice.combat);
+    deps.queuePlayerNotice(notice.playerId, notice.text, notice.kind ?? 'combat', notice.castId ?? castId, notice.combat, notice.structured);
   }
 }
 

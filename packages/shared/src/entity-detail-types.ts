@@ -1,3 +1,8 @@
+/**
+ * 本文件定义前后端共享类型或纯规则函数，用于统一协议、配置和玩法计算口径。
+ *
+ * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
+ */
 import type { MonsterTier, VisibleBuffState } from './world-core-types';
 import type { ItemStack } from './item-runtime-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';

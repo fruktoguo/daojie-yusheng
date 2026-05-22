@@ -1,3 +1,8 @@
+/**
+ * 本文件属于正式客户端主线，负责前端启动、状态拼装、工具函数或表现层逻辑。
+ *
+ * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
+ */
 import { S2C_AttrDetail, S2C_AttrUpdate, PlayerState } from '@mud/shared';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { AttrPanel } from './ui/panels/attr-panel';

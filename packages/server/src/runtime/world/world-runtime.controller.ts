@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端权威运行时，负责地图、玩家、世界、市场、邮件或后台运行态逻辑。
+ *
+ * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
+ */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';

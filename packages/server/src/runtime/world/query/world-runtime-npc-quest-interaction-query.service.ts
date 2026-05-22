@@ -1,3 +1,8 @@
+/**
+ * 本文件属于世界运行时查询层，负责把权威状态整理为只读视图。
+ *
+ * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
+ */
 import { Injectable } from '@nestjs/common';
 import { WorldRuntimeQuestQueryService } from './world-runtime-quest-query.service';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';

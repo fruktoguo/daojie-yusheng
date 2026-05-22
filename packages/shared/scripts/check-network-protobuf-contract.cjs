@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 /**
+ * 本文件属于项目主线脚本，负责所属模块内的类型、工具或运行逻辑。
+ *
+ * 维护时先确认调用方和数据边界，保持注释说明职责而不改变现有行为。
+ */
+/**
  * 用途：把 shared protocol、network-protobuf 与 server protocol audit 的静态契约绑成硬门禁。
  */
 

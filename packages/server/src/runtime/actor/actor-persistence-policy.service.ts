@@ -1,20 +1,8 @@
 /**
- * ActorPersistencePolicyService：actor 落库策略路由。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 设计参考：docs/design/systems/分身宠物机器人系统设计.md §5.5。
- *
- * 设计目标：所有写持久化 / 写运营态的服务（player flush、leaderboard、邮件、市场、
- * outbox、player counters、player domain persistence）在写入前调用本服务的
- * `isPersistenceAllowed(playerId, domain)`，即可短路 ephemeral actor，避免
- * 数据污染。
- *
- * 第 1 批阶段：仅定义 policy 类型与解析逻辑；实际接入 6 个持久化拦截点放到第 2 批。
- *
- * 默认规则（无显式注册时）：
- * - playerId 前缀属于 bot/clone/pet → none / derived / owner-sub（由前缀映射决定）
- * - 其它 → full（真实玩家全字段持久化）
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Injectable } from '@nestjs/common';
 
 import { EphemeralActorKind, getEphemeralKind } from '@mud/shared';

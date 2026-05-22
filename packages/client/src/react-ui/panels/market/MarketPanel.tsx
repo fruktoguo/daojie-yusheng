@@ -1,6 +1,7 @@
 /**
- * React 版市场面板
- * 首屏摘要（统计 + 入口按钮）+ 弹窗（市场列表、我的挂单、交易历史、拍卖行）
+ * 本文件负责 市场 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback } from 'react';
 import type { S2C_MarketUpdate, ItemType, EquipSlot, Inventory, PlayerState, AuctionHouseTab } from '@mud/shared';

@@ -1,6 +1,7 @@
 /**
- * Protobuf 网络编解码入口：聚合 wire helper、payload codec 与二进制入口判断。
- * 当前 encode/decode 入口仍保持现有行为，不在这一轮改变协议启用策略。
+ * 本文件负责前后端共享的类型、常量或纯规则函数，用于统一协议、配置和玩法计算口径。
+ *
+ * 维护时要保持跨端无副作用和依赖一致，避免引入只适用于浏览器或只适用于服务端的私有状态。
  */
 import { PROTOBUF_C2S_EVENTS, PROTOBUF_S2C_EVENTS } from './network-protobuf-schema';
 import type { BinaryPayload } from './network-protobuf-wire-helpers';

@@ -1,3 +1,8 @@
+/**
+ * 本文件定义服务端网络上下文或网关辅助类型，用于连接 socket 请求和运行时服务。
+ *
+ * 维护时要保持 handler 只接收意图、做鉴权和排队，不直接绕过运行时修改权威状态。
+ */
 import type { Logger } from '@nestjs/common';
 import type { HealthReadinessService } from '../health/health-readiness.service';
 import type { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';

@@ -1,9 +1,7 @@
 /**
- * 密码哈希与验证：使用自定义 scrypt 格式（sn1$...）存储密码。
- * 兼容旧版 bcrypt 哈希的验证，并标记需要升级的旧格式。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 实现采用异步 scrypt（基于 libuv 线程池），避免阻塞 Node.js 事件循环；
- * GM 修改密码、玩家登录等高并发或高延迟敏感链路因此不会卡住其他请求。
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';

@@ -1,3 +1,8 @@
+/**
+ * 本文件属于服务端权威运行时，负责地图、玩家、世界、市场、邮件或后台运行态逻辑。
+ *
+ * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
+ */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { NATIVE_GM_BOT_ID_PREFIX, isNativeGmBotPlayerId } from '../../../http/native/native-gm.constants';
 

@@ -1,3 +1,8 @@
+/**
+ * 本文件属于持久化边界，负责 flush 运行时、兼容转换或失败策略等数据可靠性逻辑。
+ *
+ * 维护时要优先考虑幂等、崩溃恢复和数据库真源，避免在 tick 内直接引入阻塞 IO。
+ */
 export type FlushFailureCategory =
   | 'db_connection_timeout'
   | 'db_deadlock_or_serialization'

@@ -1,3 +1,8 @@
+/**
+ * 本文件实现服务端内容模板 Registry，负责把启动期解析后的配置变成运行期只读引用。
+ *
+ * 维护时要保持模板冻结和实例工厂边界，避免 tick 热路径复制大对象或手写模板字段。
+ */
 import { Injectable } from '@nestjs/common';
 import {
   composeTileTypeFromLayers,

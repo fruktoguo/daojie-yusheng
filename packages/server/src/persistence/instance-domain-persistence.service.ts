@@ -1,4 +1,9 @@
 /**
+ * 本文件属于持久化边界，负责数据库真源、flush、兼容转换或失败策略等可靠性逻辑。
+ *
+ * 维护时要优先考虑幂等、崩溃恢复和自动清理，避免在 tick 内直接引入阻塞 IO。
+ */
+/**
  * 地图实例分域持久化服务。
  * 管理 instance_tile_resource_state、instance_tile_cell、instance_tile_damage_state、
  * instance_temporary_tile_state、instance_checkpoint、instance_ground_item、

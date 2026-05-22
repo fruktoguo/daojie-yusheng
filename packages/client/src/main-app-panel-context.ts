@@ -1,3 +1,4 @@
+/** 本文件负责主面板上下文装配；维护时要区分前端显示派生、用户意图和服务端权威数据，避免把业务真源复制到 UI 层。 */
 import { getCurrentAccountName } from './ui/auth-api';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
@@ -33,10 +34,7 @@ import type { MainFrontendModules } from './main-frontend-modules';
 import type { ToastKind } from './main-app-assembly-types';
 /** CreateMainPanelContextOptions：统一结构类型，保证协议与运行时一致性。 */
 type CreateMainPanelContextOptions = {
-/**
- * documentRef：documentRef相关字段。
- */
-
+  /** documentRef：注入浏览器 document，便于测试或宿主环境替换。 */
   documentRef: Document;  
   /**
  * dom：dom相关字段。

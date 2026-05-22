@@ -1,3 +1,8 @@
+/**
+ * 本文件是客户端 DOM UI 的 side panel 模块，负责具体面板、弹层或渲染片段。
+ *
+ * 维护时优先保持局部更新和原有交互状态，不在 UI 层裁定资产、战斗或移动合法性。
+ */
 /** 页面布局与多组标签页控制器 */
 import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
 import { shouldUseMobileUi } from './responsive-viewport';

@@ -136,6 +136,8 @@
     "cleanup:test-players": "pnpm compile && node dist/tools/cleanup-test-players.js",
     "smoke:readiness-gate": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case readiness-gate",
     "smoke:auth-bootstrap": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case auth-bootstrap",
+    "smoke:auth-session-matrix": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --group auth-session",
+    "smoke:player-persistence-recovery-matrix": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --group player-persistence-recovery --include-persistence",
     "smoke:player-password-hash": "pnpm compile && node dist/tools/player-password-hash-smoke.js",
     "smoke:world-runtime-combat-action-service": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case world-runtime-combat-action-service",
     "smoke:world-runtime-combat-boundary": "pnpm compile && node dist/tools/run-stable-smoke-suite.js --case world-runtime-combat-boundary",

@@ -1,16 +1,8 @@
 /**
- * Tick 帧阶段类型定义
- * 显式枚举 advanceFrame 内各域推进顺序，用于调试、文档和阶段性能追踪
- */
-
-/**
- * WorldRuntime Tick Phase 定义
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * advanceFrame 内各域推进顺序的显式枚举。
- * 每个 phase 对应 WorldRuntimeInstanceTickOrchestrationService.advanceFrame 中的一个阶段。
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
-/** Tick 帧内执行阶段枚举 */
 export enum TickPhase {
   /** 重置帧级效果（combat effects 等） */
   ResetFrameEffects = 'ResetFrameEffects',

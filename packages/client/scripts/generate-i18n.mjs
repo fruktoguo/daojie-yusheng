@@ -1,3 +1,8 @@
+/**
+ * 本脚本属于客户端构建或内容生成链路，负责把共享配置、语言包或展示索引整理成前端可消费产物。
+ *
+ * 维护时要检查输入文件、输出路径和生成结果是否稳定，避免构建期产物与运行时展示口径分叉。
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -131,7 +136,7 @@ function toTsObject(records, valueSelector) {
 function buildOutput(records) {
   const categories = Object.fromEntries(records.map((record) => [record.key, record.category]));
   const notes = Object.fromEntries(records.filter((record) => record.note).map((record) => [record.key, record.note]));
-  return `/**\n * 自动生成的前端语言包。\n * 来源：packages/client/src/content/i18n/zh-CN.csv\n * 请使用 pnpm --filter @mud/client i18n:csv 增改文案，不要手写本文件。\n */\n\nexport const CLIENT_I18N_MESSAGES = ${toTsObject(records, (record) => record.text)} as const;\n\nexport const CLIENT_I18N_CATEGORIES = ${JSON.stringify(categories, null, 2)} as const;\n\nexport const CLIENT_I18N_NOTES = ${JSON.stringify(notes, null, 2)} as const;\n\nexport type ClientI18nKey = keyof typeof CLIENT_I18N_MESSAGES;\n`;
+  return `/**\n * 本文件负责承载自动生成的前端语言包常量，来源固定为 packages/client/src/content/i18n/zh-CN.csv。\n *\n * 维护时要通过生成脚本更新文案，保持 CSV、类型导出和客户端渲染口径一致，避免手写本文件造成覆盖丢失。\n */\n\nexport const CLIENT_I18N_MESSAGES = ${toTsObject(records, (record) => record.text)} as const;\n\nexport const CLIENT_I18N_CATEGORIES = ${JSON.stringify(categories, null, 2)} as const;\n\nexport const CLIENT_I18N_NOTES = ${JSON.stringify(notes, null, 2)} as const;\n\nexport type ClientI18nKey = keyof typeof CLIENT_I18N_MESSAGES;\n`;
 }
 
 const records = readRecords();

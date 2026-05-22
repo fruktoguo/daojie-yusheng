@@ -1,7 +1,7 @@
 /**
- * React 版教程面板
- * 三个主 tab（操作指南 / 机制说明 / 流程引导），每个 tab 内有子 topic 切换
- * 以 detailModal 弹层形式展示
+ * 本文件负责客户端侧的配置、视图、网络或运行态辅助逻辑，服务于正式前端主线的展示与意图收集。
+ *
+ * 维护时要保持前端只处理表现和派生状态，避免复制服务端权威真源或让多套 UI 状态互相分叉。
  */
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {

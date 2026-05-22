@@ -1,3 +1,8 @@
+/**
+ * 本文件属于世界运行时查询层，负责把权威状态整理为只读视图。
+ *
+ * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
+ */
 /** 观察构建工具：生成可见度、结论与实体观察详情。 */
 
 import { DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEY_LABELS, MONSTER_TIER_LABELS, PLAYER_REALM_NUMERIC_TEMPLATES, cloneNumericRatioDivisors, cloneNumericStats, formatDisplayCurrentMax, formatDisplayInteger } from '@mud/shared';

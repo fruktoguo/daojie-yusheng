@@ -1,3 +1,8 @@
+/**
+ * 本文件属于配置编辑器顶部栏，负责展示服务状态、主题切换等全局入口。
+ *
+ * 维护时要保持展示逻辑轻量，真实服务状态仍以后端 API 返回和编辑器状态为准。
+ */
 import { useEffect, useState } from 'react';
 import { Badge } from '../../ui/Badge';
 import { cn } from '../../lib/cn';

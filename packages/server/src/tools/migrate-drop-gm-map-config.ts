@@ -1,4 +1,9 @@
 /**
+ * 本文件是服务端冷路径运维工具入口，用于迁移、预检、清理或后台任务手动执行。
+ *
+ * 维护时要让脚本参数、失败退出码和副作用范围清晰，避免误操作生产数据。
+ */
+/**
  * 迁移脚本：删除已废弃的 server_gm_map_config 表。
  * tickSpeed/paused/scale/offsetTicks 已迁移到实例级 checkpoint。
  *

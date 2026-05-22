@@ -1,3 +1,8 @@
+/**
+ * 本脚本负责在中文语言包与 CSV 表格之间做转换，方便非代码方式维护文案。
+ *
+ * 修改时要保持 key 稳定、编码为 UTF-8，并避免把运行时变量占位符改成普通文本。
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

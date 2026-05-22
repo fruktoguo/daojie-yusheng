@@ -1,7 +1,7 @@
 /**
- * 玩家会话路由持久化服务。
- * 维护 player_session_route 表，记录玩家当前所在节点和 session epoch，
- * 支持多节点部署下的路由解析、负载均衡分配和断线重连路由恢复。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';

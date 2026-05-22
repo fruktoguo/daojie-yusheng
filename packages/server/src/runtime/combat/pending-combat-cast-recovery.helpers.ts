@@ -1,18 +1,8 @@
 /**
- * 战斗吟唱 Redis 恢复工具。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 将进行中的吟唱状态序列化到 Redis（用于断线重连/服务重启恢复）
- * - 从 Redis 反序列化并校验吟唱状态的有效性
- * - 处理恢复失败的各种原因（过期、死亡、版本不匹配、fencing 不匹配等）
- *
- * 设计：
- * - Redis key 格式：combat:pending-cast:{actorKind}:{actorId}
- * - 带 schema version 做前向兼容，版本不匹配直接拒绝
- * - 带 fencing（ownerNodeId + leaseToken）防止跨节点/跨租约误恢复
- * - TTL 基于 resolveTick 剩余时间 + 安全余量，最大 120 秒
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import {
   cancelPendingCombatCast,
   CombatPendingCastCancelReason,

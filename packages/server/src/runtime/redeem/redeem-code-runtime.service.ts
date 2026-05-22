@@ -1,7 +1,7 @@
 /**
- * 兑换码运行时服务。
- * 负责兑换码分组管理、码表生成、兑换执行和频率限制，
- * 所有写操作串行化执行并持久化到数据库。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';

@@ -1,7 +1,7 @@
 /**
- * Outbox 事件分发持久化服务。
- * 管理 outbox_event 表的事件认领、投递确认、失败重试和死信转移，
- * 同时维护 consumer dedupe 表防止重复消费。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';

@@ -1,19 +1,8 @@
 /**
- * NativeBotService：bot 蓝图签发与释放的协调服务。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 设计参考：docs/design/systems/分身宠物机器人系统设计.md §6。
- *
- * 第 1 批职责：
- * - 校验 GM 调用入参（数量、TTL、源玩家 ID）
- * - 调用 BotTokenService 签发 bot 一次性登录 token
- * - 在 EphemeralActorIdentityService 注册 bot identity
- * - 在 ActorPersistencePolicyService 显式登记 `none` 策略
- *
- * 第 1 批暂不实现：
- * - ActorBlueprint 真实克隆（fromPlayer，留待第 2 批）
- * - WS Hello 路径接受 token 并应用蓝图（留待第 2 批）
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { randomBytes } from 'node:crypto';
 
 import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';

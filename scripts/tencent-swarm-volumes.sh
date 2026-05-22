@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# 本脚本负责在腾讯云 Docker Swarm 环境预创建 PostgreSQL、Redis 和服务端备份卷。
+# 维护时要保持卷名与部署栈配置一致，避免新环境启动后把数据库或备份数据落到错误卷里。
 
 set -euo pipefail
 

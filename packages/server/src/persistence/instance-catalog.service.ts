@@ -1,7 +1,7 @@
 /**
- * 实例目录持久化服务。
- * 维护 instance_catalog 表，记录所有地图实例的元数据、状态、租约和分片信息，
- * 支持实例注册、状态更新、租约认领/续期和模板缺失标记。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';

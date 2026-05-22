@@ -1,6 +1,7 @@
 /**
- * React 版拾取面板
- * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
+ * 本文件负责 拾取 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback } from 'react';
 import type { LootWindowState } from '@mud/shared';

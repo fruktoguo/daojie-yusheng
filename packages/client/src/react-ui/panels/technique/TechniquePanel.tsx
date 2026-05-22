@@ -1,7 +1,7 @@
 /**
- * React 版功法面板
- * 列表视图：分类筛选 + 状态筛选 + 功法卡片（进度条、主修切换、技能开关）
- * 详情弹窗：星图、技能概览、层级详情
+ * 本文件负责 功法 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback, useMemo, useState } from 'react';
 import type { PlayerState, TechniqueCategory, TechniqueState } from '@mud/shared';

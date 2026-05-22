@@ -1,9 +1,8 @@
 /**
- * 地图静态辅助同步服务。
- * 维护每个玩家的可见 tile 和 minimap marker 缓存，提供初始全量和增量 diff 构造。
- * 是 tick 同步中地图静态层变化检测的核心。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Inject, Injectable } from '@nestjs/common';
 import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';
 import { WorldSyncMinimapService } from './world-sync-minimap.service';

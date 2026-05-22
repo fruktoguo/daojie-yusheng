@@ -1,15 +1,8 @@
 /**
- * 战斗结算管线链路组合：按目标类型把环节串成完整结算流程，并提供统一入口。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 职责：
- * - 定义不同目标类型（战斗者 / 地块）的结算环节执行顺序
- * - 提供 resolveCombatDamage / resolveTileCombatDamage 统一入口
- *
- * 设计：
- * - 随机数消费顺序固定：broken → dodged → resolved → crit，保证 smoke 可回归
- * - 地块链路不吃境界压制、暴击、命中、破招、防御（只有五行加成 + 额外乘区）
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import {
   type CombatResolveContext,
   type CombatResolveInput,

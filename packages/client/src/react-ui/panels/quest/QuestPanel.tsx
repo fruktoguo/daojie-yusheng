@@ -1,6 +1,7 @@
 /**
- * React 版任务面板
- * 按任务线分类展示，支持详情弹层，复用原生面板相同的 DOM 结构和 CSS class
+ * 本文件负责 任务 面板的主要 React 视图入口，统一承接状态展示、用户操作回调和样式组合。
+ *
+ * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback, useMemo, useState } from 'react';
 import type { Inventory, QuestState } from '@mud/shared';

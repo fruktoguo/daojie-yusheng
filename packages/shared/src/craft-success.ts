@@ -1,3 +1,8 @@
+/**
+ * 本文件定义前后端共享类型或纯规则函数，用于统一协议、配置和玩法计算口径。
+ *
+ * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
+ */
 /** 将成功率输入压到 `[0, 1]` 区间。 */
 export function clampUnitSuccessRate(value: number | undefined): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? Number(value) : 0));

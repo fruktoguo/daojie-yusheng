@@ -1,8 +1,8 @@
 /**
- * 威胁箭头同步服务。
- * 负责构造玩家视野内的 threat arrows（战斗目标指向线），支持全量和增量 diff 下发。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Inject, Injectable } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';

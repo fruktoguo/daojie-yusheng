@@ -1,10 +1,8 @@
 /**
- * GM HTTP 模块契约常量。
- * 定义 GM 鉴权、邮件、玩家变更、Socket、数据库恢复等子系统的行为约定，
- * 供服务层和控制器层引用以保持一致性。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
-/** GM HTTP 路由与控制器形态契约。 */
 export const GM_HTTP_CONTRACT = Object.freeze({
   authBasePath: 'api/auth',
   gmBasePath: 'api/gm',

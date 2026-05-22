@@ -1,4 +1,9 @@
 /**
+ * 本文件属于项目主线脚本，负责所属模块内的类型、工具或运行逻辑。
+ *
+ * 维护时先确认调用方和数据边界，保持注释说明职责而不改变现有行为。
+ */
+/**
  * Worker 任务协议契约。
  * 所有 worker pool 共用的统一 envelope 格式。
  * 入参出参必须是 plain object / ArrayBuffer / TypedArray，

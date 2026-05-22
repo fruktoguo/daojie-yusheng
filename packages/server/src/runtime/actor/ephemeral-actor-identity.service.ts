@@ -1,17 +1,8 @@
 /**
- * EphemeralActorIdentityService：短期 actor 身份的内存注册表。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
  *
- * 设计参考：docs/design/systems/分身宠物机器人系统设计.md §5.2。
- *
- * 职责：
- * 1. 签发 / 注销 ephemeral identity（in-memory，重启即失效）
- * 2. 通过 playerId 前缀提供 isEphemeral / getKind 全链路识别接口
- * 3. 对过期 identity 做被动 GC（在每次访问与定时检查时丢弃）
- *
- * 第 1 批阶段：仅 bot 路径会真正调用 register/release；clone/pet 由后续玩法系统接入。
- * 此服务不承担持久化（ephemeral 顾名思义），不写数据库。
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 
 import {

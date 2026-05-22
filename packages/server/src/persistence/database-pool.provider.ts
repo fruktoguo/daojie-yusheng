@@ -1,6 +1,7 @@
 /**
- * 数据库连接池提供者。
- * 将不同用途的数据库访问拆到独立 pool，避免 flush / outbox / GM 查询互相挤占。
+ * 本文件负责服务端侧的权威运行、网络、持久化或运维辅助逻辑，是生产主线的一部分。
+ *
+ * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Pool } from 'pg';

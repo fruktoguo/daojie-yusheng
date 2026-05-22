@@ -1,3 +1,8 @@
+/**
+ * 本文件负责服务端运行配置的解析或角色判断，是启动期配置边界的一部分。
+ *
+ * 维护时要让默认值对生产环境友好，并避免把临时本地配置误当作线上真源。
+ */
 import { readBooleanEnv, readTrimmedEnv } from './env-alias';
 
 export type ServerRuntimeRole = 'all' | 'api' | 'worker';
