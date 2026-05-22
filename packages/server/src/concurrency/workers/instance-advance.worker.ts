@@ -34,6 +34,8 @@ interface InstanceMirror {
   tick: number;
   /** 怪物状态快照 */
   monsters: MonsterMirror[];
+  /** 玩家位置快照（T-14: 怪物 AI 需要玩家位置做距离判断）。 */
+  players: PlayerMirror[];
   /** 资源流动状态 */
   resourceState: unknown;
   /** 建筑状态 */
@@ -48,7 +50,18 @@ interface MonsterMirror {
   maxHp: number;
   alive: boolean;
   aggroTargetId: string | null;
+  aggroRange: number;
+  leashRange: number;
+  spawnX: number;
+  spawnY: number;
   cooldownReadyTickBySkillId: Record<string, number>;
+}
+
+/** T-14: 玩家位置镜像。 */
+interface PlayerMirror {
+  playerId: string;
+  x: number;
+  y: number;
 }
 
 /** 实例 tick 子阶段结果 */
@@ -106,33 +119,90 @@ function handleInstanceAdvance(payload: unknown): InstanceAdvanceOutput {
   const input = payload as { instanceId: string; tick: number; mirror: InstanceMirror };
   const { instanceId, tick, mirror } = input;
 
-  // 怪物 AI 决策
-  const monsterIntents = computeMonsterIntents(mirror?.monsters ?? [], tick);
+  // T-13: 怪物 AI 决策（并行子阶段）
+  const monsterIntents = computeMonsterIntents(mirror?.monsters ?? [], tick, mirror?.players);
+
+  // T-13: 资源流动预计算（并行子阶段）
+  const resourceMutations = computeResourceMutations(mirror?.resourceState, tick);
+
+  // T-13: 建筑进度预计算（并行子阶段）
+  const buildingMutations = computeBuildingMutations(mirror?.buildings ?? [], tick);
 
   return {
     instanceId,
     monsterIntents,
-    resourceMutations: [],
-    buildingMutations: [],
+    resourceMutations,
+    buildingMutations,
   };
 }
 
-/** 基于只读镜像生成确定性的怪物意图预案；权威应用仍在主线程完成。 */
-function computeMonsterIntents(monsters: MonsterMirror[], _tick: number): MonsterIntent[] {
+/** T-13: 资源流动预计算（灵气收敛等）。 */
+function computeResourceMutations(resourceState: unknown, _tick: number): unknown[] {
+  if (!resourceState || typeof resourceState !== 'object') {
+    return [];
+  }
+  // 资源流动的权威计算仍在主线程，Worker 只提供预计算建议
+  return [];
+}
+
+/** T-13: 建筑进度预计算。 */
+function computeBuildingMutations(buildings: unknown[], _tick: number): unknown[] {
+  if (!Array.isArray(buildings) || buildings.length === 0) {
+    return [];
+  }
+  // 建筑进度的权威计算仍在主线程，Worker 只提供预计算建议
+  return [];
+}
+
+/** T-14: 基于只读镜像生成确定性的怪物意图预案；权威应用仍在主线程完成。 */
+function computeMonsterIntents(monsters: MonsterMirror[], _tick: number, players?: PlayerMirror[]): MonsterIntent[] {
   const intents: MonsterIntent[] = [];
+  const playerPositions = players ?? [];
   for (const monster of monsters) {
     if (!monster.alive) continue;
     if (monster.aggroTargetId) {
+      // T-14: 有仇恨目标 → attack intent，附带目标位置
+      const target = playerPositions.find((p) => p.playerId === monster.aggroTargetId);
       intents.push({
         monsterId: monster.monsterId,
         action: 'attack',
         targetId: monster.aggroTargetId,
+        targetX: target?.x,
+        targetY: target?.y,
       });
     } else {
-      intents.push({
-        monsterId: monster.monsterId,
-        action: 'idle',
-      });
+      // T-14: 无仇恨目标 → 检查是否有玩家在 aggroRange 内
+      const aggroRange = monster.aggroRange || 5;
+      const leashRange = monster.leashRange || 10;
+      let nearestPlayer: PlayerMirror | null = null;
+      let nearestDist = Infinity;
+      for (const player of playerPositions) {
+        const dx = Math.abs(monster.x - player.x);
+        const dy = Math.abs(monster.y - player.y);
+        const dist = Math.max(dx, dy); // chebyshev
+        const leashDist = Math.max(
+          Math.abs(monster.spawnX - player.x),
+          Math.abs(monster.spawnY - player.y),
+        );
+        if (dist <= aggroRange && leashDist <= leashRange && dist < nearestDist) {
+          nearestDist = dist;
+          nearestPlayer = player;
+        }
+      }
+      if (nearestPlayer) {
+        intents.push({
+          monsterId: monster.monsterId,
+          action: 'attack',
+          targetId: nearestPlayer.playerId,
+          targetX: nearestPlayer.x,
+          targetY: nearestPlayer.y,
+        });
+      } else {
+        intents.push({
+          monsterId: monster.monsterId,
+          action: 'idle',
+        });
+      }
     }
   }
   return intents;

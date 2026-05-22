@@ -8,6 +8,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
+import * as msgpackParser from 'socket.io-msgpack-parser';
 import {
   encodeClientEventPayload,
   C2S,
@@ -98,6 +99,8 @@ export class SocketManager {
   private createSocketConnection(token: string): Socket {
     return io(this.serverUrlOverride || undefined, {
       auth: { token, protocol: 'mainline' },
+      // T-10: 使用 msgpack 二进制编码，与服务端 parser 对齐
+      parser: msgpackParser,
       // Swarm rolling updates and reverse proxies can route polling requests
       // to a different task, while a single WebSocket connection avoids SID drift.
       transports: [...SOCKET_TRANSPORTS],

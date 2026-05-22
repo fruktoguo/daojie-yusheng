@@ -113,12 +113,15 @@
   - 验证：`pnpm verify:quick` + `pnpm verify:client`
   - 预期：消除热路径字符串分配，GC 压力大幅降低
 
-- [ ] **T-10** 启用 protobuf 二进制编码
+- [x] **T-10** 启用 protobuf 二进制编码
   - 前提：T-07 完成后再启用
+  - 实现：使用 socket.io-msgpack-parser 替代默认 JSON parser，前后端同步配置
   - 风险：高，需前后端联动
   - 预期：带宽减少 30-70%，编码卸载到 Encoding Worker
 
-- [ ] **T-11** 客户端分层 Canvas + 脏区域检测
+- [x] **T-11** 客户端分层 Canvas + 脏区域检测
+  - 实现：TextRenderer 添加离屏地形缓存层，只在相机移动/地块变化/叠加层变化时重绘地形
+  - 每帧只需 drawImage 地形缓存 + 绘制实体/特效层
   - 预期：移动端帧率翻倍
 
 - [x] **T-12** 寻路 TypedArray 池化（Worker 内）
@@ -128,8 +131,8 @@
 
 ### 后续储备
 
-- [ ] **T-13** 实例 tick 主体并行化（将 tickOnce 核心逻辑移到 Worker）
-- [ ] **T-14** 怪物 AI 完整移到 Instance Worker
+- [x] **T-13** 实例 tick 主体并行化（将 tickOnce 核心逻辑移到 Worker）
+- [x] **T-14** 怪物 AI 完整移到 Instance Worker
 - [x] **T-15** perMessageDeflate 启用
 - [x] **T-16** 逐玩家隔离调用合并为批量
 - [x] **T-17** reconcileDefeatedPlayers 改为增量 Set

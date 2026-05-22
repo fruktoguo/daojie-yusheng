@@ -58,5 +58,8 @@
     "typescript-language-server": "^5.1.3",
     "vscode-langservers-extracted": "^4.10.0",
     "yaml-language-server": "^1.21.0"
+  },
+  "dependencies": {
+    "socket.io-msgpack-parser": "^3.0.2"
   }
 }

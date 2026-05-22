@@ -877,6 +877,14 @@ const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 export class TextRenderer implements IRenderer {
   /** 当前 2D 上下文。 */
   private ctx: CanvasRenderingContext2D | null = null;
+  /** T-11: 地形缓存层（离屏 canvas）。 */
+  private terrainCanvas: HTMLCanvasElement | null = null;
+  private terrainCtx: CanvasRenderingContext2D | null = null;
+  /** T-11: 地形缓存脏标记（相机移动或地块变化时置脏）。 */
+  private terrainDirty = true;
+  private terrainCacheCamera = { x: 0, y: 0, offsetX: 0, offsetY: 0 };
+  private terrainCacheWidth = 0;
+  private terrainCacheHeight = 0;
   /** 实体动画状态表。 */
   private entities: Map<string, AnimEntity> = new Map();  
   /**
@@ -977,6 +985,10 @@ export class TextRenderer implements IRenderer {
   /** 绑定渲染上下文。 */
   init(canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
+    // T-11: 创建地形缓存离屏 canvas
+    this.terrainCanvas = document.createElement('canvas');
+    this.terrainCtx = this.terrainCanvas.getContext('2d')!;
+    this.terrainDirty = true;
   }
 
   /** 先清空背景，再绘制下一帧。 */
@@ -984,6 +996,8 @@ export class TextRenderer implements IRenderer {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.ctx) return;
+    // T-11: 地形缓存层会覆盖整个 canvas，跳过全屏 fillRect
+    if (this.terrainCanvas) return;
     const { width, height } = this.ctx.canvas;
     this.ctx.fillStyle = '#1a1816';
     this.ctx.fillRect(0, 0, width, height);
@@ -1043,6 +1057,7 @@ export class TextRenderer implements IRenderer {
     this.pathKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
     this.pathIndexByKey = new Map(cells.map((cell, index) => [`${cell.x},${cell.y}`, index]));
     this.pathTargetKey = cells.length > 0 ? `${cells[cells.length - 1].x},${cells[cells.length - 1].y}` : null;
+    this.terrainDirty = true;
   }
 
   /** 记录当前帧需要渲染的威胁箭头。 */
@@ -1062,27 +1077,32 @@ export class TextRenderer implements IRenderer {
   setTargetingOverlay(state: TargetingOverlayState | null) {
     this.targetingOverlay = state;
     this.targetingAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
+    this.terrainDirty = true;
   }
 
   /** 设置阵法范围叠加层，并同步受影响格子索引。 */
   setFormationRangeOverlay(state: FormationRangeOverlayState | null) {
     this.formationRangeOverlay = state;
     this.formationRangeAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
+    this.terrainDirty = true;
   }
 
   /** 设置感气视角叠加层。 */
   setSenseQiOverlay(state: SenseQiOverlayState | null) {
     this.senseQiOverlay = state;
+    this.terrainDirty = true;
   }
 
   setBuildPreviewOverlay(state: BuildPreviewOverlayState | null) {
     this.buildPreviewOverlay = state;
     this.buildPreviewCellByKey = new Map((state?.cells ?? []).map((cell) => [`${cell.x},${cell.y}`, cell]));
+    this.terrainDirty = true;
   }
 
   setFengShuiOverlay(state: FengShuiOverlayState | null) {
     this.fengShuiOverlay = state;
     this.fengShuiCellByKey = new Map((state?.cells ?? []).map((cell) => [`${cell.x},${cell.y}`, cell]));
+    this.terrainDirty = true;
   }
 
   /** 设置地面物品堆缓存，支持 Map 与可迭代输入。 */
@@ -1116,6 +1136,68 @@ export class TextRenderer implements IRenderer {
   ) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const sw = ctx.canvas.width;
+    const sh = ctx.canvas.height;
+
+    // T-11: 检测地形缓存是否需要重绘
+    const cameraChanged = this.terrainCacheCamera.x !== camera.x
+      || this.terrainCacheCamera.y !== camera.y
+      || this.terrainCacheCamera.offsetX !== camera.offsetX
+      || this.terrainCacheCamera.offsetY !== camera.offsetY;
+    const sizeChanged = this.terrainCacheWidth !== sw || this.terrainCacheHeight !== sh;
+    const tileRevisionChanged = visibleTileRevision !== this.previousVisibleTileRevision;
+    const needsTerrainRedraw = this.terrainDirty || cameraChanged || sizeChanged || tileRevisionChanged;
+
+    if (needsTerrainRedraw && this.terrainCanvas && this.terrainCtx) {
+      // 同步离屏 canvas 尺寸
+      if (sizeChanged) {
+        this.terrainCanvas.width = sw;
+        this.terrainCanvas.height = sh;
+      }
+      this.terrainCacheWidth = sw;
+      this.terrainCacheHeight = sh;
+      this.terrainCacheCamera.x = camera.x;
+      this.terrainCacheCamera.y = camera.y;
+      this.terrainCacheCamera.offsetX = camera.offsetX;
+      this.terrainCacheCamera.offsetY = camera.offsetY;
+      this.terrainDirty = false;
+
+      // 在离屏 canvas 上绘制地形
+      const terrainCtx = this.terrainCtx;
+      terrainCtx.fillStyle = '#1a1816';
+      terrainCtx.fillRect(0, 0, sw, sh);
+      const savedCtx = this.ctx;
+      this.ctx = terrainCtx;
+      this.renderWorldCore(
+        camera, tileCache, visibleTiles, visibleTileRevision,
+        visibleTileTransitionStartedAt, visibleTileTransitionDurationMs,
+        playerX, playerY, displayRangeX, displayRangeY, time,
+      );
+      this.ctx = savedCtx;
+    }
+
+    // T-11: 将地形缓存层绘制到主 canvas
+    if (this.terrainCanvas) {
+      ctx.drawImage(this.terrainCanvas, 0, 0);
+    }
+  }
+
+  /** 地形绘制核心逻辑（绘制到当前 this.ctx）。 */
+  private renderWorldCore(
+    camera: Camera,
+    tileCache: ReadonlyMap<string, Tile>,
+    visibleTiles: ReadonlySet<string>,
+    visibleTileRevision: number,
+    visibleTileTransitionStartedAt: number,
+    visibleTileTransitionDurationMs: number,
+    playerX: number,
+    playerY: number,
+    displayRangeX: number,
+    displayRangeY: number,
+    time: GameTimeState | null,
+  ) {
     if (!this.ctx) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
@@ -2683,6 +2765,10 @@ export class TextRenderer implements IRenderer {
   /** 释放渲染器持有的所有缓存与临时状态。 */
   destroy() {
     this.ctx = null;
+    // T-11: 清理地形缓存
+    this.terrainCanvas = null;
+    this.terrainCtx = null;
+    this.terrainDirty = true;
     this.entities.clear();
     this.threatArrows = [];
     this.groundPiles.clear();

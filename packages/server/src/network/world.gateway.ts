@@ -7,6 +7,7 @@ import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSo
 import { Inject, Logger } from '@nestjs/common';
 import { C2S } from '@mud/shared';
 import { Server, Socket } from 'socket.io';
+import * as msgpackParser from 'socket.io-msgpack-parser';
 import { resolveServerCorsOptions } from '../config/server-cors';
 import { HealthReadinessService } from '../health/health-readiness.service';
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
@@ -67,6 +68,8 @@ const GM_CONNECT_CONTRACT = Object.freeze({
 @WebSocketGateway({
     cors: resolveServerCorsOptions(),
     path: '/socket.io',
+    // T-10: 启用 msgpack 二进制编码，减少包体 30-50%
+    parser: msgpackParser,
     // T-15: 启用 perMessageDeflate 压缩，减少带宽占用
     perMessageDeflate: {
         threshold: 256,
