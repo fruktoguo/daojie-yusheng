@@ -177,9 +177,6 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     if (shouldStartBackgroundWorkers()) {
       this.startupBarrierService.openOutbox();
       this.startupBarrierService.openWorker();
-      if (!shouldStartAuthoritativeRuntime()) {
-        this.flushTaskRuntimeService?.startForLifecycleCoordinator();
-      }
       this.backgroundWorkerRuntimeService?.startForLifecycleCoordinator();
     }
     this.schedulerManagerService?.refreshBarrierSnapshot();
