@@ -7,7 +7,11 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { EncodingWorkerPoolService } from '../concurrency/encoding-worker-pool.service';
 
-/** 编码后的 envelope 包；仅包含需要以二进制下发的 S2C payload。 */
+/**
+ * 预编码 envelope 包占位。
+ * 注意：JSON → Buffer 实测包体更大且没有优化收益，当前必须保持 null，
+ * 让发送路径回退为原始 JSON 对象；不要在未完成 protobuf/压缩收益验证前改回 Buffer。
+ */
 export interface EncodedEnvelope {
   worldDelta?: Buffer | null;
   selfDelta?: Buffer | null;
@@ -65,35 +69,13 @@ export class AoiEnvelopeEncoderService {
     return { mapEnter, worldDelta, selfDelta, panelDelta };
   }
 
-  /** 单 payload 同步编码。 */
-  encodePayloadSync(payload: unknown): Buffer | null {
-    if (payload === null || payload === undefined) {
-      return null;
-    }
-    try {
-      return Buffer.from(JSON.stringify(payload), 'utf-8');
-    } catch {
-      return null;
-    }
+  /** 单 payload 同步编码。当前显式禁用 Buffer，保持 JSON 对象直发。 */
+  encodePayloadSync(_payload: unknown): Buffer | null {
+    return null;
   }
 
-  /** 单 payload worker 编码。 */
-  async encodePayloadAsync(payload: unknown): Promise<Buffer | null> {
-    if (payload === null || payload === undefined) {
-      return null;
-    }
-    if (!this.encodingPool) {
-      return this.encodePayloadSync(payload);
-    }
-    const result = await this.encodingPool.submit<unknown, Buffer>(
-      'envelope-encode',
-      payload,
-      (value) => Buffer.from(JSON.stringify(value), 'utf-8'),
-      500,
-    );
-    if (result.ok && result.result) {
-      return Buffer.from(result.result);
-    }
-    return this.encodePayloadSync(payload);
+  /** 单 payload worker 编码。当前显式禁用 Buffer，保持 JSON 对象直发。 */
+  async encodePayloadAsync(_payload: unknown): Promise<Buffer | null> {
+    return null;
   }
 }

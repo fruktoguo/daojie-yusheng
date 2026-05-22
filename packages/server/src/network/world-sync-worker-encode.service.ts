@@ -39,15 +39,14 @@ export class WorldSyncWorkerEncodeService {
     private readonly worldSyncProtocolService?: WorldSyncProtocolService,
   ) {}
 
-  /** 是否应使用 worker 异步编码路径。 */
+  /** 是否应使用 worker 异步编码路径。当前禁用 Buffer 编码，保持 JSON 直发，不进入 worker 预编码路径。 */
   shouldUseWorkerEncode(): boolean {
-    return Boolean(this.encodingWorkerPool)
-      && Boolean(this.aoiEnvelopeEncoder);
+    return false;
   }
 
   /**
-   * 批量编码并发送 envelope。
-   * worker 路径会先把 JSON binary 编码卸载到 EncodingWorkerPool，随后按 pendingEmits 原顺序 emit。
+   * 批量发送 envelope 的预编码保留路径。
+   * 注意：当前不要把 JSON payload 改为 Buffer；未验证 protobuf/压缩收益前一律 JSON 直发。
    */
   async flushPendingEmitsViaWorker(pendingEmits: PendingEnvelopeEmit[]): Promise<void> {
     if (pendingEmits.length === 0 || !this.worldSyncProtocolService) return;

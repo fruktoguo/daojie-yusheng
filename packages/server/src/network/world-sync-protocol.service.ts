@@ -6,7 +6,8 @@
 /**
  * 同步协议下发服务。
  * 封装所有 S2C 事件的 socket.emit 调用，统一协议出口。
- * 支持 binary 编码模式：高频 envelope 事件以 JSON binary (Buffer) 形式发送，减少主线程 JSON.stringify 开销。
+ * 当前高频 envelope 事件保持原始 JSON 对象发送。
+ * 注意：不要在未完成 protobuf/压缩收益验证前改回 JSON binary (Buffer)，实测会放大包体。
  */
 
 import { Injectable } from '@nestjs/common';
@@ -35,7 +36,7 @@ export class WorldSyncProtocolService {
     }
   }
 
-  /** 按 envelope 结构发送已预编码的 binary payload，未编码字段回退到普通发送路径。 */
+  /** 按 envelope 结构发送预编码占位；当前 encoded 始终为空，实际回退为 JSON 对象直发。 */
   sendEncodedEnvelope(socket: any, envelope: any, encoded: EncodedEnvelope): void {
     if (envelope?.initSession) {
       socket.emit(S2C.InitSession, envelope.initSession);
@@ -54,7 +55,7 @@ export class WorldSyncProtocolService {
     }
   }
 
-  /** 将 payload 编码为 Buffer；当前暂时直接透传 JSON 对象，后续切 protobuf 时启用。 */
+  /** 直接透传 JSON 对象；暂时不要改为 Buffer，除非 protobuf/压缩路径证明包体收益。 */
   private maybeEncodeBinary(payload: unknown): unknown {
     return payload;
   }
