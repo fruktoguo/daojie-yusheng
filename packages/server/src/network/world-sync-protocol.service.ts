@@ -25,14 +25,16 @@ export class WorldSyncProtocolService {
     if (envelope?.mapEnter) {
       socket.emit(S2C.MapEnter, this.maybeEncodeBinary(envelope.mapEnter));
     }
-    if (envelope?.worldDelta) {
-      socket.emit(S2C.WorldDelta, this.maybeEncodeBinary(envelope.worldDelta));
-    }
-    if (envelope?.selfDelta) {
-      socket.emit(S2C.SelfDelta, this.maybeEncodeBinary(envelope.selfDelta));
-    }
-    if (envelope?.panelDelta) {
-      socket.emit(S2C.PanelDelta, this.maybeEncodeBinary(envelope.panelDelta));
+    // T-07: 合并 worldDelta/selfDelta/panelDelta 为单次 emit
+    const hasWorld = !!envelope?.worldDelta;
+    const hasSelf = !!envelope?.selfDelta;
+    const hasPanel = !!envelope?.panelDelta;
+    if (hasWorld || hasSelf || hasPanel) {
+      const merged: Record<string, unknown> = {};
+      if (hasWorld) merged.w = envelope.worldDelta;
+      if (hasSelf) merged.s = envelope.selfDelta;
+      if (hasPanel) merged.p = envelope.panelDelta;
+      socket.emit(S2C.SyncEnvelope, merged);
     }
   }
 
@@ -44,14 +46,16 @@ export class WorldSyncProtocolService {
     if (envelope?.mapEnter) {
       socket.emit(S2C.MapEnter, encoded.mapEnter ?? this.maybeEncodeBinary(envelope.mapEnter));
     }
-    if (envelope?.worldDelta) {
-      socket.emit(S2C.WorldDelta, encoded.worldDelta ?? this.maybeEncodeBinary(envelope.worldDelta));
-    }
-    if (envelope?.selfDelta) {
-      socket.emit(S2C.SelfDelta, encoded.selfDelta ?? this.maybeEncodeBinary(envelope.selfDelta));
-    }
-    if (envelope?.panelDelta) {
-      socket.emit(S2C.PanelDelta, encoded.panelDelta ?? this.maybeEncodeBinary(envelope.panelDelta));
+    // T-07: 合并 worldDelta/selfDelta/panelDelta 为单次 emit
+    const hasWorld = !!envelope?.worldDelta;
+    const hasSelf = !!envelope?.selfDelta;
+    const hasPanel = !!envelope?.panelDelta;
+    if (hasWorld || hasSelf || hasPanel) {
+      const merged: Record<string, unknown> = {};
+      if (hasWorld) merged.w = encoded.worldDelta ?? envelope.worldDelta;
+      if (hasSelf) merged.s = encoded.selfDelta ?? envelope.selfDelta;
+      if (hasPanel) merged.p = encoded.panelDelta ?? envelope.panelDelta;
+      socket.emit(S2C.SyncEnvelope, merged);
     }
   }
 

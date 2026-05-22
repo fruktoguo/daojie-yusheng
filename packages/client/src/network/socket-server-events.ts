@@ -34,6 +34,7 @@ export const SESSION_SERVER_EVENTS = [
   S2C.WorldDelta,
   S2C.SelfDelta,
   S2C.PanelDelta,
+  S2C.SyncEnvelope,
   S2C.Notice,
   S2C.Pong,
   S2C.Error,

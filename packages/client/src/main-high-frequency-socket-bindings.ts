@@ -73,4 +73,10 @@ export function bindMainHighFrequencySocketEvents(options: MainHighFrequencySock
   options.socket.on(S2C.PanelDelta, options.onPanelDelta);
   options.socket.on(S2C.MapStatic, options.onMapStatic);
   options.socket.on(S2C.Bootstrap, options.onBootstrap);
+  // T-07: 合并 envelope 拆分处理
+  options.socket.on(S2C.SyncEnvelope, (data: Record<string, unknown>) => {
+    if (data.w) options.onWorldDelta(data.w as ServerToClientEventPayload<typeof S2C.WorldDelta>);
+    if (data.s) options.onSelfDelta(data.s as ServerToClientEventPayload<typeof S2C.SelfDelta>);
+    if (data.p) options.onPanelDelta(data.p as ServerToClientEventPayload<typeof S2C.PanelDelta>);
+  });
 }

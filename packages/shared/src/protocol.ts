@@ -152,6 +152,8 @@ export const S2C = {
   WorldDelta: 'n:s:worldDelta',
   SelfDelta: 'n:s:selfDelta',
   PanelDelta: 'n:s:panelDelta',
+  /** 合并 envelope：worldDelta + selfDelta + panelDelta 单次发送（T-07）。 */
+  SyncEnvelope: 'n:s:syncEnvelope',
   LootWindowUpdate: 'n:s:lootWindowUpdate',
   QuestNavigateResult: 'n:s:questNavigateResult',
   Notice: 'n:s:notice',
@@ -310,6 +312,8 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.WorldDelta]: ResponsePayloads.S2C_WorldDelta;
   [S2C.SelfDelta]: ResponsePayloads.S2C_SelfDelta;
   [S2C.PanelDelta]: S2C_PanelDelta;
+  /** T-07: 合并 envelope（worldDelta + selfDelta + panelDelta）。 */
+  [S2C.SyncEnvelope]: { w?: ResponsePayloads.S2C_WorldDelta; s?: ResponsePayloads.S2C_SelfDelta; p?: S2C_PanelDelta };
   [S2C.LootWindowUpdate]: ResponsePayloads.S2C_LootWindowUpdate;
   [S2C.QuestNavigateResult]: ResponsePayloads.S2C_QuestNavigateResult;
   [S2C.Notice]: ResponsePayloads.S2C_Notice;

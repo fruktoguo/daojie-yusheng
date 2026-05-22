@@ -88,7 +88,7 @@
   - 验证：`pnpm verify:quick` + `pnpm verify:client` + `pnpm audit:protocol`
   - 预期：有技能冷却的玩家不再每 tick 发送 action delta
 
-- [ ] **T-07** 合并多个 emit 为单 envelope
+- [x] **T-07** 合并多个 emit 为单 envelope
   - 文件：`packages/server/src/network/world-sync-protocol.service.ts`
   - 改动：WorldDelta/SelfDelta/PanelDelta 合并为单次 emit
   - 验证：`pnpm verify:quick` + `pnpm verify:client` + `pnpm audit:protocol`
