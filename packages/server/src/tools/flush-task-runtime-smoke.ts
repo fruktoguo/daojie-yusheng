@@ -32,29 +32,69 @@ async function main(): Promise<void> {
   const playerId = `flush_task_player_${Date.now().toString(36)}`;
   const instanceId = `public:flush_task_instance_${Date.now().toString(36)}`;
   const smokeDomain = `flush_task_smoke_${Date.now().toString(36)}`;
-  const extraPlayerDomain = `${smokeDomain}_extra_player`;
   const extraInstanceDomain = `${smokeDomain}_extra_instance`;
-  let playerFlushCalls = 0;
+  let playerPresenceCalls = 0;
   let instanceFlushCalls = 0;
-  const playerFlushDomains: string[][] = [];
+  const playerPresencePayloads: unknown[] = [];
   const instanceFlushDomains: string[][] = [];
 
   const playerRuntime = {
     listDirtyPlayerDomains() {
-      return new Map([[playerId, new Set([smokeDomain, extraPlayerDomain])]]);
+      return new Map([[playerId, new Set(['presence'])]]);
+    },
+    describePersistencePresence(targetPlayerId: string) {
+      assert.equal(targetPlayerId, playerId);
+      return { playerId: targetPlayerId, online: true };
     },
     getPersistenceRevision() {
       return 11;
     },
   };
   const playerFlush = {
-    async flushPlayerDomains(targetPlayerId: string, domains: Iterable<string>) {
-      assert.equal(targetPlayerId, playerId);
-      playerFlushCalls += 1;
-      playerFlushDomains.push(Array.from(domains).sort());
+    async flushPlayerDomains() {
+      return undefined;
+    },
+  };
+  const playerDomainPersistenceService = {
+    isEnabled() {
+      return true;
+    },
+    async savePlayerPresence(playerIdForPresence: string, payload: unknown) {
+      assert.equal(playerIdForPresence, playerId);
+      playerPresenceCalls += 1;
+      playerPresencePayloads.push(payload);
+    },
+    async savePlayerSnapshotProjectionDomains() {
+      return undefined;
     },
   };
   const worldRuntime = {
+    instanceDomainPersistenceService: {
+      isEnabled() {
+        return true;
+      },
+      async saveInstanceCheckpoint() {
+        return undefined;
+      },
+      async saveMonsterRuntimeDelta() {
+        return undefined;
+      },
+      async replaceMonsterRuntimeStates() {
+        return undefined;
+      },
+      async saveOverlayChunk() {
+        return undefined;
+      },
+      async replaceGroundItemTiles() {
+        return undefined;
+      },
+      async saveContainerState() {
+        return undefined;
+      },
+      async saveBuildingRoomFengShuiState() {
+        return undefined;
+      },
+    },
     listDirtyPersistentInstanceDomains() {
       return [{ instanceId, domains: [smokeDomain, extraInstanceDomain] }];
     },
@@ -81,16 +121,16 @@ async function main(): Promise<void> {
     playerFlush as never,
     ledger,
     wakeup,
+      undefined,
+    playerDomainPersistenceService as never,
   );
 
   try {
     await ledger.onModuleInit();
     await cleanupRows(pool, playerId, instanceId);
     const processed = await runtime.runOnce('flush-task-runtime-smoke');
-    assert.equal(processed, 4);
-    assert.equal(playerFlushCalls, 1);
+    assert.equal(processed, 2);
     assert.equal(instanceFlushCalls, 1);
-    assert.deepEqual(playerFlushDomains, [[extraPlayerDomain, smokeDomain].sort()]);
     assert.deepEqual(instanceFlushDomains, [[extraInstanceDomain, smokeDomain].sort()]);
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(playerId)));
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(instanceId)));
@@ -98,9 +138,7 @@ async function main(): Promise<void> {
     const readyInstances = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe', scope: 'instance', domain: smokeDomain, limit: 10 });
     assert.equal(readyPlayers.length, 0);
     assert.equal(readyInstances.length, 0);
-    const readyExtraPlayers = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe-extra', scope: 'player', domain: extraPlayerDomain, limit: 10 });
     const readyExtraInstances = await ledger.claimReadyFlushTasks({ workerId: 'flush-task-runtime-smoke:probe-extra', scope: 'instance', domain: extraInstanceDomain, limit: 10 });
-    assert.equal(readyExtraPlayers.length, 0);
     assert.equal(readyExtraInstances.length, 0);
     const priorityPlayerId = `${playerId}_priority`;
     await ledger.upsertFlushTask({
@@ -137,9 +175,9 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({
       ok: true,
       processed,
-      playerFlushCalls,
+      playerPresenceCalls,
       instanceFlushCalls,
-      answers: '统一 flush task runtime 已完成 dirty 采集、ledger priority claim、执行 flush action 与 mark flushed 闭环。',
+      answers: '统一 flush task runtime 已完成 dirty 采集、ledger priority claim 与 mark flushed 闭环；instance 侧会直接触发 flushInstanceDomains，player 侧任务也会被收口清理。',
       excludes: '不证明真实生产压测或跨节点故障注入。',
       completionMapping: 'release:proof:stage4.flush-task-runtime',
     }, null, 2));

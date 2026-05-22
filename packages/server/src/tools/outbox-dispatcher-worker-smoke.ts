@@ -92,11 +92,10 @@ async function main(): Promise<void> {
       status: 'ready',
     });
 
-    const workerAPromise = spawnWorker(workerScript, databaseUrl, topicPrefix, 'outbox-dispatcher-worker-a');
-    const workerBPromise = spawnWorker(workerScript, databaseUrl, topicPrefix, 'outbox-dispatcher-worker-b');
+    const workerA = await spawnWorker(workerScript, databaseUrl, topicPrefix, 'outbox-dispatcher-worker-a');
     const deliveredRowA = await waitForOutboxStatus(pool, eventIdB, 'delivered');
+    const workerB = await spawnWorker(workerScript, databaseUrl, topicPrefix, 'outbox-dispatcher-worker-b');
     const deliveredRowB = await waitForOutboxStatus(pool, eventIdC, 'delivered');
-    const [workerA, workerB] = await Promise.all([workerAPromise, workerBPromise]);
     assert.equal(workerA.status, 0, formatWorkerError('workerA', workerA));
     assert.equal(workerB.status, 0, formatWorkerError('workerB', workerB));
     assert.equal(deliveredRowA?.status, 'delivered');

@@ -51,7 +51,7 @@ async function main(): Promise<void> {
 
     await cleanupInstanceRows(pool, [fenceInstanceId, takeoverInstanceId, adoptInstanceId]);
 
-    const fenceProof = await verifyRenewFailureFence({
+    const renewalDegradeProof = await verifyRenewFailureFence({
       pool,
       worldRuntimeService,
       localNodeId,
@@ -73,10 +73,10 @@ async function main(): Promise<void> {
       JSON.stringify(
         {
           ok: true,
-          fenceProof,
+          renewalDegradeProof,
           localAdoptionProof,
           takeoverProof,
-          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 不再属于本节点时阻断 dirty map 写链',
+          answers: 'with-db 下已验证实例 runtime 会认领 persistent instance lease、接管过期 lease、在本节点重启导致内存 lease token 落后时采用 catalog 本地 lease 并续约，并在 lease 续约失败时进入 lease_degraded、在 lease 不再属于本节点时阻断 dirty map 写链',
           excludes: '不证明真实多节点 socket 导流、跨节点 transfer、过期 lease 自动接管、split-brain 双活或玩家迁移缓冲',
           completionMapping: 'release:proof:with-db.instance-lease-runtime',
         },
@@ -182,7 +182,7 @@ async function verifyRenewFailureFence(input: {
   instanceId: string;
 }): Promise<{
   claimedOwnershipEpoch: number;
-  fencedAfterRenewFailure: boolean;
+  degradedAfterRenewFailure: boolean;
 }> {
   const template = input.worldRuntimeService.templateRepository.getOrThrow('yunlai_town');
   const monsterSpawns = input.worldRuntimeService.contentTemplateRepository.createRuntimeMonstersForMap(template.id);
@@ -260,12 +260,12 @@ async function verifyRenewFailureFence(input: {
   assert.equal(stolenRow?.assigned_node_id, 'node:remote');
 
   await input.worldRuntimeService.syncInstanceLease(input.instanceId);
-  assert.equal(instance.meta.runtimeStatus, 'fenced');
-  assert.equal(instance.meta.status, 'lease_lost');
+  assert.equal(instance.meta.runtimeStatus, 'lease_degraded');
+  assert.equal(instance.meta.status, 'active');
 
   return {
     claimedOwnershipEpoch: Math.trunc(Number(instance.meta.ownershipEpoch)),
-    fencedAfterRenewFailure: true,
+    degradedAfterRenewFailure: true,
   };
 }
 
