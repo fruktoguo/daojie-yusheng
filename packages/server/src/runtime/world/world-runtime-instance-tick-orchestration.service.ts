@@ -19,11 +19,18 @@ import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-poo
 @Injectable()
 export class WorldRuntimeInstanceTickOrchestrationService {
   private readonly logger = new Logger(WorldRuntimeInstanceTickOrchestrationService.name);
+  /** T-17: 增量死亡玩家集合，避免每帧全量扫描。 */
+  private readonly defeatedPlayerIds = new Set<string>();
 
   constructor(
     @Optional() @Inject(InstanceWorkerPoolService)
     private readonly instanceWorkerPool?: InstanceWorkerPoolService,
   ) {}
+
+  /** T-17: 外部标记玩家死亡，加入增量集合。 */
+  markPlayerDefeated(playerId: string): void {
+    this.defeatedPlayerIds.add(playerId);
+  }
 
   private recordIsolatedOperationFailure(deps, phase, error, details = {}) {
     const message = error instanceof Error ? error.message : String(error);
@@ -54,22 +61,24 @@ export class WorldRuntimeInstanceTickOrchestrationService {
     }
   }
 
-  private async runIsolatedOperation(deps, phase, details, operation): Promise<boolean> {
+  private async runIsolatedOperation(deps, phase, details: Record<string, unknown> | (() => Record<string, unknown>), operation): Promise<boolean> {
     try {
       await operation();
       return true;
     } catch (error) {
-      this.recordIsolatedOperationFailure(deps, phase, error, details);
+      const resolvedDetails = typeof details === 'function' ? details() : details;
+      this.recordIsolatedOperationFailure(deps, phase, error, resolvedDetails);
       return false;
     }
   }
 
-  private runIsolatedSyncOperation(deps, phase, details, operation): boolean {
+  private runIsolatedSyncOperation(deps, phase, details: Record<string, unknown> | (() => Record<string, unknown>), operation): boolean {
     try {
       operation();
       return true;
     } catch (error) {
-      this.recordIsolatedOperationFailure(deps, phase, error, details);
+      const resolvedDetails = typeof details === 'function' ? details() : details;
+      this.recordIsolatedOperationFailure(deps, phase, error, resolvedDetails);
       return false;
     }
   }
@@ -79,31 +88,35 @@ export class WorldRuntimeInstanceTickOrchestrationService {
    * 这类状态常见于重启恢复或死亡结算中断；如果不先清理，妖兽 AI 只看位置会反复锁定尸体目标。
    */
   private reconcileDefeatedPlayersBeforeTick(deps): void {
+    if (this.defeatedPlayerIds.size === 0) {
+      return;
+    }
     const playerRuntimeService = deps?.playerRuntimeService;
     if (typeof playerRuntimeService?.getPlayer !== 'function') {
       return;
     }
-    for (const instance of deps.listInstanceRuntimes?.() ?? []) {
-      if (typeof instance?.listPlayerIds !== 'function') {
+    for (const playerId of this.defeatedPlayerIds) {
+      const player = playerRuntimeService.getPlayer(playerId);
+      if (!player || player.hp > 0) {
+        this.defeatedPlayerIds.delete(playerId);
         continue;
       }
-      for (const playerId of instance.listPlayerIds()) {
-        const player = playerRuntimeService.getPlayer(playerId);
-        if (!player || player.hp > 0) {
-          continue;
-        }
+      const instanceId = player.instanceId;
+      const instance = instanceId ? deps.getInstanceRuntime?.(instanceId) : null;
+      if (instance) {
         if (typeof instance.clearMonsterAggroForPlayer === 'function') {
           instance.clearMonsterAggroForPlayer(playerId);
         }
         if (typeof instance.cancelPendingCommand === 'function') {
           instance.cancelPendingCommand(playerId);
         }
-        deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
-        deps.clearPendingCommand?.(playerId);
-        if (!deps.worldRuntimeGmQueueService?.hasPendingRespawn?.(playerId)) {
-          deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
-        }
       }
+      deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
+      deps.clearPendingCommand?.(playerId);
+      if (!deps.worldRuntimeGmQueueService?.hasPendingRespawn?.(playerId)) {
+        deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+      }
+      this.defeatedPlayerIds.delete(playerId);
     }
   }
 
@@ -269,6 +282,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         const workerProposals = await this.precomputeInstanceWorkerIntents(instanceStepPlans, deps.tick, deps);
         const steppedPlayerIds = new Set();
         let totalLogicalTicks = 0;
+        // T-19: 预分配 tickOnce 返回值容器，循环内复用
+        const reusableTickResult = { completedBuildings: [] as any[], transfers: [] as any[], monsterActions: [] as any[] };
         const instanceTicksStartedAt = performance.now();
         for (const { instance, steps, speed } of instanceStepPlans) {
             for (let index = 0; index < steps; index += 1) {
@@ -320,7 +335,11 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
                 );
                 const instanceIntents = workerProposals.get(instance.meta.instanceId) ?? null;
-                let result = { completedBuildings: [], transfers: [], monsterActions: [] };
+                // T-19: 复用预分配容器
+                reusableTickResult.completedBuildings.length = 0;
+                reusableTickResult.transfers.length = 0;
+                reusableTickResult.monsterActions.length = 0;
+                let result = reusableTickResult;
                 this.runIsolatedSyncOperation(deps, 'instance_tick_once', {
                     instanceId: instance.meta.instanceId,
                     instanceTick: instance.tick,

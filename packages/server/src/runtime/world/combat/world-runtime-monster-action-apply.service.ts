@@ -653,13 +653,23 @@ function isPlayerLocatedInActionInstance(deps, instance, playerId, instanceId) {
         : null;
     return Boolean(location && location.instanceId === instanceId);
 }
+/** T-20: 怪物技能 maxTargets 几何缓存（按 skill id 缓存）。 */
+const monsterSkillMaxTargetsCache = new Map<string, number>();
+
 function resolveMonsterSkillMaxTargets(skill) {
+    const skillId = typeof skill?.id === 'string' ? skill.id : '';
+    if (skillId && monsterSkillMaxTargetsCache.has(skillId)) {
+        return monsterSkillMaxTargetsCache.get(skillId)!;
+    }
     const configured = Number(skill?.targeting?.maxTargets);
     if (Number.isFinite(configured) && configured > 0) {
-        return Math.max(1, Math.floor(configured));
+        const result = Math.max(1, Math.floor(configured));
+        if (skillId) monsterSkillMaxTargetsCache.set(skillId, result);
+        return result;
     }
     const shape = skill?.targeting?.shape ?? 'single';
     if (shape === 'single') {
+        if (skillId) monsterSkillMaxTargetsCache.set(skillId, 1);
         return 1;
     }
     const geometry = {
@@ -674,13 +684,16 @@ function resolveMonsterSkillMaxTargets(skill) {
     const width = Math.max(1, Math.round(Number(geometry.width) || 1));
     const height = Math.max(1, Math.round(Number(geometry.height) || 1));
     const radius = Math.max(1, Math.round(Number(geometry.radius) || geometry.range || 1));
+    let result: number;
     if (shape === 'box' || shape === 'checkerboard') {
-        return width * height;
+        result = width * height;
+    } else if (shape === 'line') {
+        result = Math.max(1, geometry.range) * width;
+    } else {
+        result = Math.max(1, (radius * 2 + 1) * (radius * 2 + 1));
     }
-    if (shape === 'line') {
-        return Math.max(1, geometry.range) * width;
-    }
-    return Math.max(1, (radius * 2 + 1) * (radius * 2 + 1));
+    if (skillId) monsterSkillMaxTargetsCache.set(skillId, result);
+    return result;
 }
 
 function resolveMonsterSkillCancelRejectReason(reason) {

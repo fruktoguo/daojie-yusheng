@@ -130,12 +130,12 @@
 
 - [ ] **T-13** 实例 tick 主体并行化（将 tickOnce 核心逻辑移到 Worker）
 - [ ] **T-14** 怪物 AI 完整移到 Instance Worker
-- [ ] **T-15** perMessageDeflate 启用
+- [x] **T-15** perMessageDeflate 启用
 - [ ] **T-16** 逐玩家隔离调用合并为批量
-- [ ] **T-17** reconcileDefeatedPlayers 改为增量 Set
-- [ ] **T-18** runIsolatedSyncOperation details 惰性构建
-- [ ] **T-19** tickOnce 返回值预分配复用
-- [ ] **T-20** 怪物技能几何缓存
+- [x] **T-17** reconcileDefeatedPlayers 改为增量 Set
+- [x] **T-18** runIsolatedSyncOperation details 惰性构建
+- [x] **T-19** tickOnce 返回值预分配复用
+- [x] **T-20** 怪物技能几何缓存
 
 ---
 

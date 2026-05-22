@@ -67,6 +67,11 @@ const GM_CONNECT_CONTRACT = Object.freeze({
 @WebSocketGateway({
     cors: resolveServerCorsOptions(),
     path: '/socket.io',
+    // T-15: 启用 perMessageDeflate 压缩，减少带宽占用
+    perMessageDeflate: {
+        threshold: 256,
+        zlibDeflateOptions: { level: 1 },
+    },
 })
 class WorldGateway implements WorldGatewayHelperContext {
         worldGmSocketService: WorldGmSocketService; worldProtocolProjectionService: WorldProtocolProjectionService; sessionBootstrapService: WorldSessionBootstrapService; healthReadinessService: HealthReadinessService;
