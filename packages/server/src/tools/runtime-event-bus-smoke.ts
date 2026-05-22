@@ -87,7 +87,7 @@ function testQueuePlayerNoticeAggregatesLootObtained(): void {
 function testQueuePlayerNoticeGroupsCombatLines(): void {
   const svc = createService();
   svc.queuePlayerNotice('p1', { kind: 'combat', text: '你对狼妖造成 10 点伤害', combat: { caster: '你', target: '狼妖', skill: '攻击' } });
-  svc.queuePlayerNotice('p1', { kind: 'combat', text: '狼妖对你造成 8 点伤害', combat: { caster: '狼妖', target: '你', skill: '攻击' } });
+  svc.queuePlayerNotice('p1', { kind: 'combat', text: '你对虎妖造成 8 点伤害', combat: { caster: '你', target: '虎妖', skill: '攻击' } });
 
   const result = svc.drainPlayer('p1');
   assert.ok(result);

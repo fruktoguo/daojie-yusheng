@@ -74,6 +74,8 @@ export interface CombatNoticePayload {
   targetMaxHp?: number;
   /** 技能名（'攻击' 表示普攻）。 */
   skill: string;
+  /** 同一轮战斗动作的聚合标识。 */
+  castId?: string;
   /** 伤害结算。 */
   resolution?: CombatNoticeResolution;
   /** 阵法结算（与resolution互斥）。 */
@@ -151,8 +153,12 @@ export interface NoticeItemView {
   castId?: string;
   /** 结构化战斗数据，存在时客户端优先使用此字段渲染。 */
   combat?: CombatNoticePayload;
+  /** 结构化战斗数据（多条合并）。 */
+  combatGroup?: CombatNoticePayload[];
   /** 结构化通知数据，存在时客户端优先使用此字段渲染。 */
   structured?: StructuredNoticePayload;
+  /** 结构化通知数据（多条合并）。 */
+  structuredGroup?: StructuredNoticePayload[];
 }
 
 /** 通知批次视图。 */

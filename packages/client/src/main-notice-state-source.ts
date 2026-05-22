@@ -84,10 +84,11 @@ function toSystemMsgFromNotice(item: S2C_NoticeItem): S2C_SystemMsg {
     text: item.text,
     kind,
     from: item.from,
-    occurredAt: item.occurredAt,
-    persistUntilAck: item.persistUntilAck,
-    ...(item.structured ? { structured: item.structured } : undefined),
-  };
+    occurredAt: item.occurredAt ?? Date.now(),
+    persistUntilAck: Boolean(item.persistUntilAck),
+    structured: item.structured,
+    structuredGroup: (item as any).structuredGroup,
+  } as any;
 }
 /**
  * MainNoticeStateSource：统一结构类型，保证协议与运行时一致性。
@@ -141,7 +142,11 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
               ? t('notice.channel.combat', undefined)
               : t('notice.channel.loot', undefined)
         );
-        void options.chatUI.addMessage(rawText, label, data.kind, data.structured ? { structured: data.structured } : undefined);
+        const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+        void options.chatUI.addMessage(rawText, label, data.kind, data.structured || structuredGroup ? {
+          ...(data.structured ? { structured: data.structured } : undefined),
+          ...(structuredGroup ? { structuredGroup } : undefined),
+        } : undefined);
         if (data.kind === 'quest' || data.kind === 'loot') {
           options.showToast(rawText, data.kind);
         }
@@ -156,13 +161,21 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
               : t('notice.channel.travel', undefined)
         );
         const text = rewriteClientNoticeText(rawText);
-        void options.chatUI.addMessage(text, label, data.kind, data.structured ? { structured: data.structured } : undefined);
+        const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+        void options.chatUI.addMessage(text, label, data.kind, data.structured || structuredGroup ? {
+          ...(data.structured ? { structured: data.structured } : undefined),
+          ...(structuredGroup ? { structuredGroup } : undefined),
+        } : undefined);
         options.showToast(text, data.kind);
         return;
       }
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
       const text = rewriteClientNoticeText(rawText);
-      void options.chatUI.addMessage(text, data.from ?? t('notice.channel.system', undefined), fallbackKind, data.structured ? { structured: data.structured } : undefined);
+      const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+      void options.chatUI.addMessage(text, data.from ?? t('notice.channel.system', undefined), fallbackKind, data.structured || structuredGroup ? {
+        ...(data.structured ? { structured: data.structured } : undefined),
+        ...(structuredGroup ? { structuredGroup } : undefined),
+      } : undefined);
       if (text === t('notice.rewrite.unreachable', undefined)
         || text === t('notice.rewrite.target-too-far', undefined)) {
         options.clearCurrentPath();
@@ -179,11 +192,12 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
     handleNotice(payload: S2C_Notice): void {
       const merged = mergeCombatSkillNotices(payload.items);
       for (const item of merged) {
-        if (item.kind === 'combat' && item.combat) {
+        const combatGroup = ((item as any).combatGroup ?? (item as any)._combatGroup) as unknown[] | undefined;
+        if (item.kind === 'combat' && (item.combat || combatGroup)) {
           const label = item.from ?? t('notice.channel.combat', undefined);
-          const combatGroup = (item as any)._combatGroup as unknown[] | undefined;
+          const combat = item.combat ?? combatGroup?.[0];
           void options.chatUI.addMessage(item.text, label, 'combat', {
-            combat: item.combat,
+            ...(combat ? { combat } : undefined),
             ...(combatGroup ? { combatGroup } : undefined),
           });
         } else {
@@ -290,5 +304,8 @@ function mergeCastGroup(group: S2C_NoticeItem[]): S2C_NoticeItem {
   }
 
   // 多目标：合并combat数组到第一条消息
-  return { ...baseItem, combat: baseItem.combat, _combatGroup: combatItems.map(i => i.combat!) } as any;
+  const combatGroup = Array.isArray((baseItem as any).combatGroup) && (baseItem as any).combatGroup.length > 0
+    ? (baseItem as any).combatGroup
+    : combatItems.map(i => i.combat!).filter(Boolean);
+  return { ...baseItem, combat: baseItem.combat, combatGroup, _combatGroup: combatGroup } as any;
 }

@@ -670,8 +670,9 @@ function tryAggregateGroupedNotice(
   notices: NoticeQueueEntry[],
   incoming: NoticeQueueEntry,
 ): { merged: boolean } {
-  if (incoming.kind === 'combat' && incoming.combat) {
-    const existingIndex = notices.findIndex((entry) => canGroupCombatNotice(entry));
+  const combatGroupKey = getCombatGroupKey(incoming);
+  if (combatGroupKey) {
+    const existingIndex = notices.findIndex((entry) => getCombatGroupKey(entry) === combatGroupKey);
     if (existingIndex >= 0 && notices[existingIndex]) {
       notices[existingIndex] = buildCombatGroupNotice(notices[existingIndex], incoming);
       return { merged: true };
@@ -687,8 +688,23 @@ function tryAggregateGroupedNotice(
   return { merged: false };
 }
 
-function canGroupCombatNotice(notice: NoticeQueueEntry): boolean {
-  return notice.kind === 'combat' && (notice.combat !== undefined || (Array.isArray(notice.combatGroup) && notice.combatGroup.length > 0));
+function getCombatGroupKey(notice: NoticeQueueEntry): string | null {
+  if (notice.kind !== 'combat') {
+    return null;
+  }
+  const combat = Array.isArray(notice.combatGroup) && notice.combatGroup.length > 0
+    ? notice.combatGroup[0]
+    : notice.combat ?? null;
+  if (!combat) {
+    return null;
+  }
+  if (combat.caster === '你') {
+    return `out:${combat.castId ?? combat.skill ?? ''}`;
+  }
+  if (combat.target === '你') {
+    return `in:${combat.castId ?? `${combat.caster ?? ''}:${combat.skill ?? ''}`}`;
+  }
+  return `other:${combat.castId ?? `${combat.caster ?? ''}:${combat.target ?? ''}:${combat.skill ?? ''}`}`;
 }
 
 function buildCombatGroupNotice(existing: NoticeQueueEntry, incoming: NoticeQueueEntry): NoticeQueueEntry {
@@ -697,8 +713,13 @@ function buildCombatGroupNotice(existing: NoticeQueueEntry, incoming: NoticeQueu
     : existing.combat
       ? [existing.combat]
       : [];
-  if (incoming.combat) {
-    existingGroup.push(incoming.combat);
+  const incomingGroup = Array.isArray(incoming.combatGroup) && incoming.combatGroup.length > 0
+    ? incoming.combatGroup
+    : incoming.combat
+      ? [incoming.combat]
+      : [];
+  if (incomingGroup.length > 0) {
+    existingGroup.push(...incomingGroup);
   }
   return {
     ...incoming,

@@ -87,6 +87,8 @@ interface ChatAddMessageOptions {
   combatGroup?: unknown[];
   /** 结构化通知数据。 */
   structured?: unknown;
+  /** 结构化通知数据（多条合并）。 */
+  structuredGroup?: unknown[];
 }
 
 /** 解析后的战斗伤害或治疗文本片段。 */
@@ -596,6 +598,11 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
   const fragment = document.createDocumentFragment();
   const linePrefix = `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}`;
 
+  if (Array.isArray(entry.structuredGroup) && entry.structuredGroup.length > 0) {
+    appendStructuredNoticeGroup(fragment, entry.structuredGroup as StructuredNoticePayload[], linePrefix, entry.text);
+    return fragment;
+  }
+
   // 结构化战斗数据渲染
   if (entry.kind === 'combat' && (entry.combat || (Array.isArray(entry.combatGroup) && entry.combatGroup.length > 0))) {
     const combatList = Array.isArray(entry.combatGroup) && entry.combatGroup.length > 0
@@ -606,7 +613,9 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
     if (expandedLines.length === 1) {
       appendStructuredCombatLine(fragment, expandedLines[0], linePrefix);
     } else {
-      const skill = combatList[0].skill;
+      const firstCombat = combatList[0];
+      const skill = firstCombat.skill;
+      const outgoing = firstCombat.caster === '你';
       for (let i = 0; i < expandedLines.length; i++) {
         const c = expandedLines[i];
         const lineEl = document.createElement('div');
@@ -614,30 +623,21 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
         if (i === 0) {
           appendStructuredCombatLine(lineEl, c, linePrefix);
         } else {
-          // 后续行：隐藏对齐元素
+          // 后续行：隐藏对齐元素，保持原多行 combat 的视觉对齐。
           const indent = document.createElement('span');
           indent.className = 'chat-merged-combat-indent';
-          indent.append(linePrefix + '你施展');
-          indent.appendChild(buildSkillPill(skill));
-          indent.append(' ');
-          lineEl.appendChild(indent);
-          appendStructuredCombatLine(lineEl, c, '', true);
+          if (outgoing) {
+            indent.append(linePrefix + '你施展');
+            indent.appendChild(buildSkillPill(skill));
+            indent.append(' ');
+            lineEl.appendChild(indent);
+            appendStructuredCombatLine(lineEl, c, '', true);
+          } else {
+            indent.append(linePrefix);
+            lineEl.appendChild(indent);
+            appendStructuredCombatLine(lineEl, c, '', false);
+          }
         }
-        fragment.appendChild(lineEl);
-      }
-    }
-    return fragment;
-  }
-
-  if (Array.isArray(entry.structuredGroup) && entry.structuredGroup.length > 0) {
-    const structuredList = entry.structuredGroup as StructuredNoticePayload[];
-    if (structuredList.length === 1) {
-      appendStructuredNoticeLine(fragment, structuredList[0], linePrefix, entry.text);
-    } else {
-      for (const structured of structuredList) {
-        const lineEl = document.createElement('div');
-        lineEl.className = 'chat-merged-combat-line';
-        appendStructuredNoticeLine(lineEl, structured, linePrefix, entry.text);
         fragment.appendChild(lineEl);
       }
     }
@@ -695,6 +695,10 @@ function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, r
     container.append(prefix + fallbackText);
     return;
   }
+  if (data.key === 'notice.combat.killed-batch') {
+    appendKilledBatchNotice(container, data, prefix, fallbackText);
+    return;
+  }
   const template = tLoose(data.key, undefined, fallbackText || data.key);
   const vars = data.vars ?? {};
   const pillMap = new Map<string, NoticePillConfig>();
@@ -733,6 +737,67 @@ function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, r
   // 渲染 badges
   for (const badge of data.badges ?? []) {
     container.appendChild(buildLabelBadge(badge));
+  }
+}
+
+function appendStructuredNoticeGroup(
+  container: DocumentFragment | HTMLElement,
+  structuredList: StructuredNoticePayload[],
+  prefix: string,
+  fallbackText = '',
+): void {
+  if (structuredList.length === 1) {
+    appendStructuredNoticeLine(container, structuredList[0], prefix, fallbackText);
+    return;
+  }
+  for (let i = 0; i < structuredList.length; i += 1) {
+    const lineEl = document.createElement('div');
+    lineEl.className = 'chat-merged-combat-line';
+    if (i === 0) {
+      appendStructuredNoticeLine(lineEl, structuredList[i], prefix, fallbackText);
+    } else {
+      const indent = document.createElement('span');
+      indent.className = 'chat-merged-combat-indent';
+      indent.append(prefix);
+      lineEl.appendChild(indent);
+      appendStructuredNoticeLine(lineEl, structuredList[i], '', fallbackText);
+    }
+    container.appendChild(lineEl);
+  }
+}
+
+function appendKilledBatchNotice(
+  container: DocumentFragment | HTMLElement,
+  data: StructuredNoticePayload,
+  prefix: string,
+  fallbackText = '',
+): void {
+  const targetList = String(data.vars?.targetList ?? '').split('、').map((item) => item.trim()).filter(Boolean);
+  if (targetList.length <= 0) {
+    container.append(prefix + (fallbackText || '你斩杀了目标'));
+    return;
+  }
+  const extraCount = Math.max(0, Math.floor(Number(data.vars?.extraCount) || 0));
+  const targets = extraCount > 0 ? [...targetList, `另 ${extraCount} 个目标`] : targetList;
+  if (targets.length === 1) {
+    container.append(prefix + '你斩杀了 ');
+    container.appendChild(buildNoticePill(targets[0], { key: 'target', style: 'target' }));
+  } else {
+    for (let i = 0; i < targets.length; i += 1) {
+      const lineEl = document.createElement('div');
+      lineEl.className = 'chat-merged-combat-line';
+      if (i === 0) {
+        lineEl.append(prefix + '你斩杀了 ');
+      } else {
+        const indent = document.createElement('span');
+        indent.className = 'chat-merged-combat-indent';
+        indent.append(prefix + '你斩杀了');
+        lineEl.appendChild(indent);
+        lineEl.append(' ');
+      }
+      lineEl.appendChild(buildNoticePill(targets[i], { key: 'target', style: 'target' }));
+      container.appendChild(lineEl);
+    }
   }
 }
 
@@ -1115,6 +1180,7 @@ export class ChatUI {
       ...(resolvedOptions?.combat ? { combat: resolvedOptions.combat } : undefined),
       ...(resolvedOptions?.combatGroup ? { combatGroup: resolvedOptions.combatGroup } : undefined),
       ...(resolvedOptions?.structured ? { structured: resolvedOptions.structured } : undefined),
+      ...(resolvedOptions?.structuredGroup ? { structuredGroup: resolvedOptions.structuredGroup } : undefined),
     };
     const channels = this.resolveChannels(entry);
     const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));
