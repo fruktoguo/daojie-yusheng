@@ -10,6 +10,33 @@ import { CARDINAL_DIRECTION_STEPS } from './direction';
 import { manhattanDistance } from './geometry';
 import { PATHFINDING_MIN_STEP_COST } from './constants/gameplay/navigation';
 
+/**
+ * T-12: TypedArray 池化。
+ * 复用上一次分配的 buffer（如果大小匹配），避免每次寻路分配 ~120MB/s 临时内存。
+ */
+interface PathfindingBufferPool {
+  size: number;
+  gScore: Float64Array;
+  parent: Int32Array;
+  closed: Uint8Array;
+  stepDepth: Int32Array;
+}
+let bufferPool: PathfindingBufferPool | null = null;
+
+function acquirePathfindingBuffers(total: number): PathfindingBufferPool {
+  if (bufferPool && bufferPool.size >= total) {
+    return bufferPool;
+  }
+  bufferPool = {
+    size: total,
+    gScore: new Float64Array(total),
+    parent: new Int32Array(total),
+    closed: new Uint8Array(total),
+    stepDepth: new Int32Array(total),
+  };
+  return bufferPool;
+}
+
 /** 寻路失败原因枚举：记录无法返回路径的终止条件。 */
 export type PathResultFailureReason =
   | 'no_path'
@@ -409,12 +436,14 @@ export function findBoundedPath(
   }
 
   const total = grid.width * grid.height;
-  const gScore = new Float64Array(total);
+  const pooled = acquirePathfindingBuffers(total);
+  const gScore = pooled.gScore;
   gScore.fill(Number.POSITIVE_INFINITY);
-  const parent = new Int32Array(total);
+  const parent = pooled.parent;
   parent.fill(-1);
-  const closed = new Uint8Array(total);
-  const stepDepth = new Int32Array(total);
+  const closed = pooled.closed;
+  closed.fill(0);
+  const stepDepth = pooled.stepDepth;
   stepDepth.fill(-1);
   const heap = new MinHeap();
 

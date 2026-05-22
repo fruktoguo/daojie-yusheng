@@ -121,7 +121,7 @@
 - [ ] **T-11** 客户端分层 Canvas + 脏区域检测
   - 预期：移动端帧率翻倍
 
-- [ ] **T-12** 寻路 TypedArray 池化（Worker 内）
+- [x] **T-12** 寻路 TypedArray 池化（Worker 内）
   - 预期：消除 Worker 内 120MB/s 临时内存分配
 
 ---
