@@ -11,6 +11,7 @@ const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const stable_dist_1 = require("./stable-dist");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 exports.packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
@@ -39,6 +40,20 @@ function decodeSocketPayload(payload) {
     }
   }
   return payload;
+}
+function appendObservedEvent(history, byEvent, event, payload) {
+  history.push({ event, payload, at: Date.now() });
+  const current = byEvent.get(event) ?? [];
+  current.push(payload);
+  byEvent.set(event, current);
+}
+function appendCompatEnvelopeEvents(history, byEvent, event, payload) {
+  if (event !== 'n:s:syncEnvelope' || !payload || typeof payload !== 'object') {
+    return;
+  }
+  if (payload.w) appendObservedEvent(history, byEvent, 'n:s:worldDelta', decodeSocketPayload(payload.w));
+  if (payload.s) appendObservedEvent(history, byEvent, 'n:s:selfDelta', decodeSocketPayload(payload.s));
+  if (payload.p) appendObservedEvent(history, byEvent, 'n:s:panelDelta', decodeSocketPayload(payload.p));
 }
 /**
  * 处理delay。
@@ -553,6 +568,7 @@ function createAuditedSocket(options) {
   const socket = (0, socket_io_client_1.io)(options.baseUrl, {
     path: '/socket.io',
     transports: ['websocket'],
+    parser: msgpackParser,
     forceNew: true,
     auth: options.auth,
     autoConnect: options.autoConnect !== false,
@@ -568,13 +584,8 @@ function createAuditedSocket(options) {
   socket.onAny((event, payload) => {
     options.auditor.record('s2c', event, payload, options.caseName, options.label);
     const decodedPayload = decodeSocketPayload(payload);
-    history.push({ event, payload: decodedPayload, at: Date.now() });
-/**
- * 记录当前值。
- */
-    const current = byEvent.get(event) ?? [];
-    current.push(decodedPayload);
-    byEvent.set(event, current);
+    appendObservedEvent(history, byEvent, event, decodedPayload);
+    appendCompatEnvelopeEvents(history, byEvent, event, decodedPayload);
   });
 /**
  * 处理onceconnected。

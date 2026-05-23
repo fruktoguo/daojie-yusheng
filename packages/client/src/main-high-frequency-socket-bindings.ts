@@ -3,7 +3,7 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { S2C, type ServerToClientEventPayload } from '@mud/shared';
+import { decodeServerEventPayload, S2C, type ServerToClientEventPayload } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 /**
  * MainHighFrequencySocketBindingsOptions：统一结构类型，保证协议与运行时一致性。
@@ -75,8 +75,8 @@ export function bindMainHighFrequencySocketEvents(options: MainHighFrequencySock
   options.socket.on(S2C.Bootstrap, options.onBootstrap);
   // T-07: 合并 envelope 拆分处理
   options.socket.on(S2C.SyncEnvelope, (data: Record<string, unknown>) => {
-    if (data.w) options.onWorldDelta(data.w as ServerToClientEventPayload<typeof S2C.WorldDelta>);
-    if (data.s) options.onSelfDelta(data.s as ServerToClientEventPayload<typeof S2C.SelfDelta>);
-    if (data.p) options.onPanelDelta(data.p as ServerToClientEventPayload<typeof S2C.PanelDelta>);
+    if (data.w) options.onWorldDelta(decodeServerEventPayload(S2C.WorldDelta, data.w));
+    if (data.s) options.onSelfDelta(decodeServerEventPayload(S2C.SelfDelta, data.s));
+    if (data.p) options.onPanelDelta(decodeServerEventPayload(S2C.PanelDelta, data.p));
   });
 }

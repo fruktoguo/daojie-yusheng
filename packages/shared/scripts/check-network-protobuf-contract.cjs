@@ -40,7 +40,7 @@ const EXPECTED_STATIC_S2C_SURFACES = [
     label: 'world-sync-protocol service emits',
     relativePath: 'packages/server/src/network/world-sync-protocol.service.ts',
     qualifierName: 'S2C',
-    expectedMembers: ['Bootstrap', 'InitSession', 'LootWindowUpdate', 'MapEnter', 'MapStatic', 'Notice', 'PanelDelta', 'Quests', 'Realm', 'SelfDelta', 'WorldDelta'],
+    expectedMembers: ['Bootstrap', 'InitSession', 'LootWindowUpdate', 'MapEnter', 'MapStatic', 'Notice', 'Quests', 'Realm', 'SyncEnvelope', 'WorldDelta'],
   },
   {
     label: 'world-client-event service emits',
@@ -343,6 +343,7 @@ function assertProtobufEventWhitelists() {
     'n:s:worldDelta',
     'n:s:selfDelta',
     'n:s:panelDelta',
+    'n:s:syncEnvelope',
     'n:s:mapEnter',
   ]);
   const unexpectedS2c = s2cEvents.filter((e) => !allowedS2cEvents.has(e));

@@ -358,6 +358,7 @@ export const PROTOBUF_S2C_EVENTS = new Set<string>([
   'n:s:worldDelta',
   'n:s:selfDelta',
   'n:s:panelDelta',
+  'n:s:syncEnvelope',
   'n:s:mapEnter',
 ]);
 

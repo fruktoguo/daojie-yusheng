@@ -1,8 +1,3 @@
-/**
- * 本文件属于服务端权威运行时，负责地图、玩家、世界、市场、邮件或后台运行态逻辑。
- *
- * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
- */
 import { Inject, Injectable, Logger, Optional, forwardRef } from '@nestjs/common';
 import '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
@@ -959,7 +954,7 @@ export class WorldRuntimeService {
         this.worldRuntimeTickDispatchService.applyTransfer(transfer, this);
     }
         materializeNavigationCommands() {
-        this.worldRuntimeTickDispatchService.materializeNavigationCommands(this);
+        return this.worldRuntimeTickDispatchService.materializeNavigationCommands(this);
     }
         resolveNavigationStep(playerId, intent) {
         return this.worldRuntimeTickDispatchService.resolveNavigationStep(playerId, intent, this);

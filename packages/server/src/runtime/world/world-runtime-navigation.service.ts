@@ -25,6 +25,7 @@ const {
     buildAdjacentGoalPoints,
     decodeClientPathHint,
     findOptimalPathOnMap,
+    buildPathingBlockArray,
     resolvePreferredClientPathHint,
     directionFromStep,
 } = world_runtime_path_planning_helpers_1;
@@ -332,7 +333,7 @@ export class WorldRuntimeNavigationService {
                 continue;
             }
             try {
-                const step = this.resolveNavigationStep(playerId, intent, deps);
+                const step = await this.resolveNavigationStepAsync(playerId, intent, deps);
                 logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.step', { playerId, intent, step });
                 if (step.kind === 'done') {
                     this.navigationIntents.delete(playerId);
@@ -528,6 +529,61 @@ export class WorldRuntimeNavigationService {
             pathCost: pathResult.cost,
         });
         return { kind: 'move', direction, maxSteps: pathResult.points.length, path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })) };
+    }
+    /** resolveNavigationStepAsync：优先通过 AsyncPathfindingService 解析 tick 外寻路，失败时同步 fallback。 */
+    async resolveNavigationStepAsync(playerId, intent, deps) {
+        if (!this.asyncPathfindingService) {
+            return this.resolveNavigationStep(playerId, intent, deps);
+        }
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const destination = this.resolveNavigationDestination(playerId, intent, deps);
+        if (destination.mapId !== player.templateId) {
+            return this.resolveNavigationStep(playerId, intent, deps);
+        }
+        if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
+            logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.arrived', {
+                playerId, mapId: destination.mapId, at: { x: player.x, y: player.y }, goals: destination.goals,
+            });
+            return { kind: 'done' };
+        }
+        const preferredPath = intent.kind === 'point'
+            ? resolvePreferredClientPathHint(instance, player.playerId, player.x, player.y, destination.goals, intent.clientPathHint)
+            : null;
+        if (preferredPath) {
+            const direction = directionFromStep(player.x, player.y, preferredPath.points[0].x, preferredPath.points[0].y);
+            if (direction === null) {
+                throw new BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
+            }
+            return { kind: 'move', direction, maxSteps: preferredPath.points.length, path: preferredPath.points.map((entry) => ({ x: entry.x, y: entry.y })) };
+        }
+        const blocked = buildPathingBlockArray(instance, player.playerId, destination.goals, true);
+        const pathResult = await this.asyncPathfindingService.findPathAsync(
+            instance,
+            blocked,
+            player.x,
+            player.y,
+            destination.goals,
+        );
+        if (pathResult.status !== 'success' || pathResult.path.length === 0) {
+            throw new BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
+        }
+        const direction = directionFromStep(player.x, player.y, pathResult.path[0].x, pathResult.path[0].y);
+        if (direction === null) {
+            throw new BadRequestException(intent.kind === 'quest' ? '任务目标当前不可达' : '无法到达该位置');
+        }
+        logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.local.path', {
+            playerId,
+            mapId: destination.mapId,
+            from: { x: player.x, y: player.y },
+            goals: destination.goals,
+            direction,
+            previewPath: isServerNextMovementDebugEnabled() ? pathResult.path.map((entry) => ({ x: entry.x, y: entry.y })) : null,
+            pathSource: 'async_worker',
+            pathExpandedNodes: pathResult.expandedNodes,
+        });
+        return { kind: 'move', direction, maxSteps: pathResult.path.length, path: pathResult.path.map((entry) => ({ x: entry.x, y: entry.y })) };
     }
     /**
  * resolveNavigationDestination：规范化或转换导航Destination。

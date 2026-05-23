@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const smoke_player_auth_1 = require("./smoke-player-auth");
@@ -25,6 +26,24 @@ function decodeSmokePayload(payload) {
         }
     }
     return payload;
+}
+function handleSelfDelta(payload, state) {
+    const decodedPayload = shared_1.decodeServerEventPayload(shared_1.S2C.SelfDelta, decodeSmokePayload(payload));
+    state.eventLog.push('selfDelta');
+    if ((decodedPayload.hp ?? 0) >= 72 && (decodedPayload.qi ?? 0) >= 18) {
+        state.vitalsDelta = decodedPayload;
+    }
+}
+function handlePanelDelta(payload, state) {
+    const decodedPayload = shared_1.decodeServerEventPayload(shared_1.S2C.PanelDelta, decodeSmokePayload(payload));
+    state.eventLog.push('panelDelta');
+    if (!state.initialPanel) {
+        state.initialPanel = decodedPayload;
+        return;
+    }
+    if (decodedPayload.inv?.slots?.some((entry) => entry.item?.itemId === 'rat_tail' && entry.item.count >= 2)) {
+        state.inventoryDelta = decodedPayload;
+    }
 }
 /**
  * 串联执行脚本主流程。
@@ -44,6 +63,7 @@ async function main() {
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         auth: {
             token: auth.accessToken,
             protocol: 'mainline',
@@ -60,6 +80,12 @@ async function main() {
 /**
  * 记录initialpanel。
  */
+    const deltaState = {
+        eventLog,
+        initialPanel: null,
+        vitalsDelta: null,
+        inventoryDelta: null,
+    };
     let initialPanel = null;
 /**
  * 记录vitalsdelta。
@@ -83,21 +109,30 @@ async function main() {
         eventLog.push('worldDelta');
     });
     socket.on(shared_1.S2C.SelfDelta, (payload) => {
-        const decodedPayload = decodeSmokePayload(payload);
-        eventLog.push('selfDelta');
-        if ((decodedPayload.hp ?? 0) >= 72 && (decodedPayload.qi ?? 0) >= 18) {
-            vitalsDelta = decodedPayload;
-        }
+        handleSelfDelta(payload, deltaState);
+        vitalsDelta = deltaState.vitalsDelta;
     });
     socket.on(shared_1.S2C.PanelDelta, (payload) => {
+        handlePanelDelta(payload, deltaState);
+        initialPanel = deltaState.initialPanel;
+        inventoryDelta = deltaState.inventoryDelta;
+    });
+    socket.on(shared_1.S2C.SyncEnvelope, (payload) => {
         const decodedPayload = decodeSmokePayload(payload);
-        eventLog.push('panelDelta');
-        if (!initialPanel) {
-            initialPanel = decodedPayload;
+        if (!decodedPayload || typeof decodedPayload !== 'object') {
             return;
         }
-        if (decodedPayload.inv?.slots?.some((entry) => entry.item?.itemId === 'rat_tail' && entry.item.count >= 2)) {
-            inventoryDelta = decodedPayload;
+        if (decodedPayload.w) {
+            eventLog.push('worldDelta');
+        }
+        if (decodedPayload.s) {
+            handleSelfDelta(decodedPayload.s, deltaState);
+            vitalsDelta = deltaState.vitalsDelta;
+        }
+        if (decodedPayload.p) {
+            handlePanelDelta(decodedPayload.p, deltaState);
+            initialPanel = deltaState.initialPanel;
+            inventoryDelta = deltaState.inventoryDelta;
         }
     });
     await onceConnected(socket);

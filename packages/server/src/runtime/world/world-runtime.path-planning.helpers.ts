@@ -247,6 +247,26 @@ export function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGo
     }
     return blocked;
 }
+/** 生成寻路阻塞 typed-array 掩码，供 worker/共享寻路使用。 */
+export function buildPathingBlockArray(instance, playerId, goals, allowOccupiedGoals = true) {
+    const size = Math.max(instance.occupancy?.length ?? 0, instance.tilePlane?.getCellCapacity?.() ?? 0, instance.template.width * instance.template.height);
+    const blocked = new Uint8Array(size);
+    instance.forEachPathingBlocker(playerId, (x, y) => {
+        const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(x, y) : -1;
+        if (tileIndex >= 0 && tileIndex < size) {
+            blocked[tileIndex] = 1;
+        }
+    });
+    if (allowOccupiedGoals) {
+        for (const goal of goals) {
+            const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(goal.x, goal.y) : -1;
+            if (tileIndex >= 0 && tileIndex < size) {
+                blocked[tileIndex] = 0;
+            }
+        }
+    }
+    return blocked;
+}
 /** 计算路径总可行走代价，无穷大表示路径不可达。 */
 export function computePathCost(instance, path, playerId = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

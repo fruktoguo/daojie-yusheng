@@ -11,6 +11,7 @@ const node_child_process_1 = require("node:child_process");
 const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
+const msgpackParser = require("socket.io-msgpack-parser");
 const shared_1 = require("@mud/shared");
 const smoke_live_db_lease_guard_1 = require("./smoke-live-db-lease-guard");
 /**
@@ -318,6 +319,7 @@ async function expectMainlineSocketRejected() {
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             protocol: 'mainline',
@@ -361,6 +363,7 @@ async function expectMainlineSocketBootstrapped() {
     const socket = (0, socket_io_client_1.io)(baseUrl, {
         path: '/socket.io',
         transports: ['websocket'],
+        parser: msgpackParser,
         forceNew: true,
         auth: {
             protocol: 'mainline',

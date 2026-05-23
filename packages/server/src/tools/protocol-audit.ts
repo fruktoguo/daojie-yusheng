@@ -177,8 +177,7 @@ var EXPECTED_S2C = [
   S2C.MapStatic,
   S2C.Realm,
   S2C.WorldDelta,
-  S2C.SelfDelta,
-  S2C.PanelDelta,
+  S2C.SyncEnvelope,
   S2C.LootWindowUpdate,
   S2C.QuestNavigateResult,
   S2C.Notice,
@@ -225,7 +224,7 @@ var STATIC_S2C_SURFACE_CHECKS = [
     label: 'world-sync-protocol service emits',
     relativePath: 'packages/server/src/network/world-sync-protocol.service.ts',
     qualifierName: 'S2C',
-    expectedMembers: ['Bootstrap', 'InitSession', 'LootWindowUpdate', 'MapEnter', 'MapStatic', 'Notice', 'PanelDelta', 'Quests', 'Realm', 'SelfDelta', 'WorldDelta'],
+    expectedMembers: ['Bootstrap', 'InitSession', 'LootWindowUpdate', 'MapEnter', 'MapStatic', 'Notice', 'Quests', 'Realm', 'SyncEnvelope', 'WorldDelta'],
   },
   {
     label: 'world-client-event service emits',

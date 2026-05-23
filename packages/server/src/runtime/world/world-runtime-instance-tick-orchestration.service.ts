@@ -12,6 +12,7 @@ import { Injectable, Optional, Inject, Logger } from '@nestjs/common';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, resolveGameTimeState } from '@mud/shared';
 import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from './world-runtime-qi-projection.helpers';
 import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
+import { buildStructuredNotice } from './structured-notice.helpers';
 import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-pool.service';
 
 
@@ -200,8 +201,22 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         maxHp: Math.trunc(Number(monster.maxHp) || 0),
         alive: monster.alive !== false,
         aggroTargetId: typeof monster.aggroTargetPlayerId === 'string' ? monster.aggroTargetPlayerId : null,
+        aggroRange: Math.max(0, Math.trunc(Number(monster.aggroRange) || 0)),
+        leashRange: Math.max(0, Math.trunc(Number(monster.leashRange) || 0)),
+        spawnX: Math.trunc(Number(monster.spawnX) || 0),
+        spawnY: Math.trunc(Number(monster.spawnY) || 0),
         cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
       })),
+      players: typeof instance.listPlayerIds === 'function'
+        ? instance.listPlayerIds().map((playerId) => {
+            const position = typeof instance.getPlayerPosition === 'function' ? instance.getPlayerPosition(playerId) : null;
+            return position ? {
+              playerId,
+              x: Math.trunc(Number(position.x) || 0),
+              y: Math.trunc(Number(position.y) || 0),
+            } : null;
+          }).filter(Boolean)
+        : [],
       resourceState: null,
       buildings: [],
     };
@@ -460,21 +475,25 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             cultivationAuraMultiplierByPlayerId.set(id, value);
                         }
                     });
-                    this.runIsolatedSyncOperation(deps, 'player_tick_advance_batch', () => ({
-                        instanceId: instance.meta.instanceId,
-                        instanceTick: instance.tick,
-                        worldTick: deps.tick,
-                        playerCount: currentPlayerIds.length,
-                    }), () => deps.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
-                        idleCultivationBlockedPlayerIds: blockedPlayerIds,
-                        cultivationAuraMultiplierByPlayerId,
-                    }));
-                    this.runIsolatedSyncOperation(deps, 'player_tile_qi_drain_batch', () => ({
-                        instanceId: instance.meta.instanceId,
-                        instanceTick: instance.tick,
-                        worldTick: deps.tick,
-                        playerCount: currentPlayerIds.length,
-                    }), () => applyTileQiDrainForPlayers(instance, currentPlayerIds, deps));
+                    for (const playerId of currentPlayerIds) {
+                        this.runIsolatedSyncOperation(deps, 'player_tick_advance', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => deps.playerRuntimeService.advanceTickForPlayerIds([playerId], instance.tick, {
+                            idleCultivationBlockedPlayerIds: blockedPlayerIds,
+                            cultivationAuraMultiplierByPlayerId,
+                        }));
+                    }
+                    for (const playerId of currentPlayerIds) {
+                        this.runIsolatedSyncOperation(deps, 'player_tile_qi_drain', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => applyTileQiDrainForPlayers(instance, [playerId], deps));
+                    }
                     if (typeof deps.worldRuntimePlayerSkillDispatchService?.resolvePendingPlayerSkillCast === 'function') {
                         for (const playerId of currentPlayerIds) {
                             await this.runIsolatedOperation(deps, 'player_pending_skill_cast', {
@@ -691,7 +710,8 @@ function applyTileQiDrainForPlayers(instance, playerIds, deps) {
                 instance.cancelPendingCommand?.(playerId);
                 deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
                 deps.clearPendingCommand?.(playerId);
-                deps.queuePlayerNotice?.(playerId, '灵力被地脉道压抽空，你被震回起点。', 'warn');
+                const notice = buildStructuredNotice('warn', 'notice.world.tile-qi-drained-relocated', '灵力被地脉道压抽空，你被震回起点。');
+                deps.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             }
         }
     }

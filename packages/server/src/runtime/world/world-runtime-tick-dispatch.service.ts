@@ -43,7 +43,7 @@ export class WorldRuntimeTickDispatchService {
  */
 
     materializeNavigationCommands(deps) {
-        deps.worldRuntimeNavigationService.materializeNavigationCommands(deps);
+        return deps.worldRuntimeNavigationService.materializeNavigationCommands(deps);
     }
     /**
  * resolveNavigationStep：规范化或转换导航Step。
