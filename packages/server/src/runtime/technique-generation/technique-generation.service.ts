@@ -64,6 +64,10 @@ export class TechniqueGenerationService {
     this.modelConfigResolver = params.modelConfigResolver;
   }
 
+  isReady(): boolean {
+    return this.pool !== null && this.generatedStore !== null && this.modelConfigResolver !== null;
+  }
+
   /** 发起生成 */
   async requestGeneration(params: {
     playerId: number;
@@ -72,6 +76,11 @@ export class TechniqueGenerationService {
     playerContext?: string;
     consumeItem: () => Promise<boolean>;
   }): Promise<GenerationJobResult> {
+    const pool = this.pool;
+    if (!pool) {
+      return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
+    }
+
     // 1. 境界校验
     if (params.playerRealmLv < TECHNIQUE_GENERATION_UNLOCK_REALM_LV) {
       return { success: false, error: '需筑基期方可领悟', errorCode: 'REALM_LOCKED' };
@@ -96,7 +105,7 @@ export class TechniqueGenerationService {
     const jobId = randomUUID();
     const sanitizedContext = sanitizePlayerContext(params.playerContext);
 
-    await insertGenerationJob(this.pool!, {
+    await insertGenerationJob(pool, {
       id: jobId,
       playerId: params.playerId,
       requestedCategory: params.category,
@@ -127,7 +136,10 @@ export class TechniqueGenerationService {
     playerContext: string;
     playerId: number;
   }): Promise<GenerationExecutionResult> {
-    const pool = this.pool!;
+    const pool = this.pool;
+    if (!pool) {
+      return { success: false, error: '功法领悟系统未就绪' };
+    }
 
     // 获取模型配置
     const modelConfig = await this.modelConfigResolver?.();
@@ -244,7 +256,10 @@ export class TechniqueGenerationService {
   }
 
   async getPreview(playerId: number, jobId: string): Promise<TechniquePreview | null> {
-    const pool = this.pool!;
+    const pool = this.pool;
+    if (!pool) {
+      return null;
+    }
     const result = await pool.query(
       `SELECT gt.template
        FROM technique_generation_job j
@@ -275,7 +290,10 @@ export class TechniqueGenerationService {
     jobId: string;
     customName: string;
   }): Promise<AdoptResult> {
-    const pool = this.pool!;
+    const pool = this.pool;
+    if (!pool) {
+      return { success: false, error: '功法领悟系统未就绪', errorCode: 'SERVICE_UNAVAILABLE' };
+    }
 
     // 命名校验
     const name = params.customName.trim();
@@ -332,7 +350,10 @@ export class TechniqueGenerationService {
 
   /** 放弃草稿 */
   async discardDraft(playerId: number, jobId: string): Promise<{ success: boolean; error?: string }> {
-    const pool = this.pool!;
+    const pool = this.pool;
+    if (!pool) {
+      return { success: false, error: '功法领悟系统未就绪' };
+    }
     const jobResult = await pool.query(
       `SELECT status FROM technique_generation_job WHERE id = $1 AND player_id = $2`,
       [jobId, playerId],

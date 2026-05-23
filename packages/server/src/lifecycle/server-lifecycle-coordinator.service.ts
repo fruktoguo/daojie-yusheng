@@ -19,6 +19,13 @@ import { BackgroundWorkerRuntimeService } from '../runtime/worker/background-wor
 import { SchedulerManagerService } from '../scheduler/scheduler-manager.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldShutdownDrainService } from '../network/world-shutdown-drain.service';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
+import { AiProviderConfigService } from '../ai/ai-provider-config.service';
+import { readAiTextModelConfig, type AiTextModelConfig } from '../ai/ai-model-config';
+import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
+import { GeneratedTechniqueStoreService } from '../runtime/technique-generation/generated-technique-store.service';
+import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
+import { ensureGeneratedTechniqueTables } from '../persistence/generated-technique-persistence.service';
 
 @Injectable()
 export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -39,6 +46,11 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
     @Optional() @Inject(MarketRuntimeService) private readonly marketRuntimeService?: MarketRuntimeService,
     @Optional() @Inject(WorldShutdownDrainService) private readonly worldShutdownDrainService?: WorldShutdownDrainService,
     @Optional() @Inject(SchedulerManagerService) private readonly schedulerManagerService?: SchedulerManagerService,
+    @Optional() @Inject(DatabasePoolProvider) private readonly databasePoolProvider?: DatabasePoolProvider,
+    @Optional() @Inject(AiProviderConfigService) private readonly aiProviderConfigService?: AiProviderConfigService,
+    @Optional() @Inject(TechniqueTemplateRegistry) private readonly techniqueTemplateRegistry?: TechniqueTemplateRegistry,
+    @Optional() @Inject(GeneratedTechniqueStoreService) private readonly generatedTechniqueStoreService?: GeneratedTechniqueStoreService,
+    @Optional() @Inject(TechniqueGenerationService) private readonly techniqueGenerationService?: TechniqueGenerationService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -102,6 +114,8 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       http: shouldStartHttpServer(),
     });
 
+    await this.initializeTechniqueGenerationDomain();
+
     if (shouldStartAuthoritativeRuntime()) {
       await this.recoverWorld();
       await this.recoverPlayers();
@@ -162,6 +176,38 @@ export class ServerLifecycleCoordinatorService implements OnApplicationBootstrap
       return;
     }
     await this.marketRuntimeService.reloadFromPersistence();
+  }
+
+  private async initializeTechniqueGenerationDomain(): Promise<void> {
+    if (!this.generatedTechniqueStoreService || !this.techniqueGenerationService) {
+      return;
+    }
+
+    const pool = this.databasePoolProvider?.getPool('technique-generation') ?? null;
+    if (!pool) {
+      this.logger.warn('AI 生成功法持久化未启用：数据库连接池不可用');
+      return;
+    }
+
+    await ensureGeneratedTechniqueTables(pool);
+    this.generatedTechniqueStoreService.initialize(pool);
+    this.techniqueTemplateRegistry?.setGeneratedStore(this.generatedTechniqueStoreService);
+    this.techniqueGenerationService.initialize({
+      pool,
+      generatedStore: this.generatedTechniqueStoreService,
+      modelConfigResolver: () => this.resolveTechniqueGenerationTextModelConfig(),
+    });
+    await this.generatedTechniqueStoreService.reload();
+    this.logger.log(
+      `AI 生成功法持久化已初始化：缓存数量=${this.generatedTechniqueStoreService.size} 就绪=${this.techniqueGenerationService.isReady()}`,
+    );
+  }
+
+  private async resolveTechniqueGenerationTextModelConfig(): Promise<AiTextModelConfig | null> {
+    return await this.aiProviderConfigService?.getTextModelConfig('technique')
+      ?? await this.aiProviderConfigService?.getTextModelConfig('default')
+      ?? readAiTextModelConfig('technique')
+      ?? readAiTextModelConfig('default');
   }
 
   private async startRuntimeLoops(): Promise<void> {

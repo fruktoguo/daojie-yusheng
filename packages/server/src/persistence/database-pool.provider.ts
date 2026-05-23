@@ -157,6 +157,7 @@ export function resolveDatabasePoolGroup(name: string): DatabasePoolGroup {
     || normalized.includes('combat-audit')
     || normalized.includes('gm-runtime-flag')
     || normalized.includes('ai-provider-config')
+    || normalized.includes('technique-generation')
     || normalized.includes('gm-audit-log')
     || normalized.includes('node-registry')
     || normalized.includes('durable-operation')
