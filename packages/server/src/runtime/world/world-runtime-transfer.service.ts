@@ -96,6 +96,9 @@ export class WorldRuntimeTransferService {
         if (runtimePlayer && typeof deps.playerRuntimeService?.completeTransfer === 'function') {
             deps.playerRuntimeService.completeTransfer(runtimePlayer);
         }
-        deps.worldRuntimeNavigationService.handleTransfer(transfer, deps);
+        deps.worldRuntimeNavigationService.handleTransfer({
+            ...transfer,
+            sourceMapId: source.template?.mapId ?? null,
+        }, deps);
     }
 };

@@ -90,6 +90,8 @@ function testApplyTransfer() {
     const playerLocations = new Map();
     const transferStates = [];
     const source = {    
+        template: { mapId: 'old_map' },
+        meta: { instanceId: 'instance:old' },
     /**
  * disconnectPlayer：判断disconnect玩家是否满足条件。
  * @param playerId 玩家 ID。
@@ -199,7 +201,7 @@ function testApplyTransfer() {
  */
 
             handleTransfer(entry) {
-                log.push(['handleTransfer', entry.reason]);
+                log.push(['handleTransfer', entry.reason, entry.sourceMapId]);
             },
         },
     });
@@ -214,7 +216,7 @@ function testApplyTransfer() {
             preferredY: 9,
         }],
         ['setPlayerMoveSpeed', 'player:1', 12],
-        ['handleTransfer', 'auto_portal'],
+        ['handleTransfer', 'auto_portal', 'old_map'],
     ]);
     assert.deepEqual(transferStates, [
         ['beginTransfer', 'player:1', 'yunlai_town'],
@@ -230,6 +232,8 @@ function testApplyTransferUsesRealPreference() {
     const log = [];
     const service = new WorldRuntimeTransferService();
     const source = {
+        template: { mapId: 'old_map' },
+        meta: { instanceId: 'instance:old' },
         disconnectPlayer(playerId) {
             log.push(['disconnectPlayer', playerId]);
         },
@@ -286,7 +290,7 @@ function testApplyTransferUsesRealPreference() {
         },
         worldRuntimeNavigationService: {
             handleTransfer(entry) {
-                log.push(['handleTransfer', entry.reason]);
+                log.push(['handleTransfer', entry.reason, entry.sourceMapId]);
             },
         },
     });
@@ -304,7 +308,7 @@ function testApplyTransferUsesRealPreference() {
         ['setPlayerMoveSpeed', 'player:real', 20],
         ['setPlayerLocation', 'player:real', 'real:yunlai_town'],
         ['completeTransfer', 'player:real'],
-        ['handleTransfer', 'manual_portal'],
+        ['handleTransfer', 'manual_portal', 'old_map'],
     ]);
 }
 

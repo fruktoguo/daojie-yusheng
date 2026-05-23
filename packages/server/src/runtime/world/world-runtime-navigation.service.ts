@@ -306,11 +306,14 @@ export class WorldRuntimeNavigationService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const navigation = this.navigationIntents.get(transfer.playerId);
-        const sourceInstance = typeof deps.getInstanceRuntime === 'function'
+        const transferSourceMapId = typeof transfer.sourceMapId === 'string' && transfer.sourceMapId.trim()
+            ? transfer.sourceMapId.trim()
+            : null;
+        const sourceInstance = !transferSourceMapId && typeof deps.getInstanceRuntime === 'function'
             ? deps.getInstanceRuntime(transfer.fromInstanceId)
             : null;
-        const sourceMapId = sourceInstance?.template?.mapId ?? null;
-        if (navigation?.kind === 'point' && (!sourceMapId || navigation.mapId === sourceMapId)) {
+        const sourceMapId = transferSourceMapId ?? sourceInstance?.template?.mapId ?? null;
+        if (navigation?.kind === 'point' && sourceMapId && navigation.mapId === sourceMapId) {
             this.navigationIntents.delete(transfer.playerId);
         }
         const runtimePlayer = this.playerRuntimeService.getPlayer(transfer.playerId);

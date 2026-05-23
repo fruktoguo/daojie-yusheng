@@ -293,9 +293,69 @@ function testHighCostTileAccumulatesMoveBudget() {
     assert.equal(player.movePoints, 0);
 }
 
+function testCrossMapPointNavigationSurvivesTransfer() {
+    const notices = [];
+    const service = new WorldRuntimeNavigationService({ getOrThrow: (mapId) => ({ id: mapId, name: mapId }) }, {
+        getPlayer(playerId) {
+            assert.equal(playerId, 'player:cross-map');
+            return { worldPreference: { linePreset: 'peaceful' } };
+        },
+    });
+    service.navigationIntents.set('player:cross-map', {
+        kind: 'point',
+        mapId: 'target_map',
+        x: 4,
+        y: 5,
+        allowNearestReachable: false,
+        clientPathHint: null,
+    });
+    service.handleTransfer({
+        playerId: 'player:cross-map',
+        fromInstanceId: 'public:source_map',
+        sourceMapId: 'source_map',
+        targetMapId: 'target_map',
+        reason: 'auto_portal',
+    }, {
+        getInstanceRuntime() {
+            return null;
+        },
+        getOrCreateDefaultLineInstance(mapId) {
+            return { template: { name: mapId } };
+        },
+        queuePlayerNotice(playerId, text, kind, _a, _b, structured) {
+            notices.push([playerId, text, kind, structured?.key ?? null]);
+        },
+    });
+    assert.equal(service.navigationIntents.get('player:cross-map')?.mapId, 'target_map');
+    assert.deepEqual(notices, [['player:cross-map', '穿过灵脉抵达 target_map', 'travel', 'notice.travel.arrived']]);
+
+    service.navigationIntents.set('player:cross-map', {
+        kind: 'point',
+        mapId: 'source_map',
+        x: 1,
+        y: 2,
+        allowNearestReachable: false,
+        clientPathHint: null,
+    });
+    service.handleTransfer({
+        playerId: 'player:cross-map',
+        fromInstanceId: 'public:source_map',
+        sourceMapId: 'source_map',
+        targetMapId: 'target_map',
+        reason: 'auto_portal',
+    }, {
+        getOrCreateDefaultLineInstance(mapId) {
+            return { template: { name: mapId } };
+        },
+        queuePlayerNotice() {},
+    });
+    assert.equal(service.navigationIntents.has('player:cross-map'), false);
+}
+
 testMoveBranch();
 testPortalBranch();
 testManualNavigationMoveKeepsBudget();
 testHighCostTileAccumulatesMoveBudget();
+testCrossMapPointNavigationSurvivesTransfer();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-movement' }, null, 2));
