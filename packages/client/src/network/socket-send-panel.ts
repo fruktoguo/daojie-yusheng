@@ -101,8 +101,13 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  * @returns 无返回值，直接更新sendUse道具相关状态。
  */
 
-    sendUseItem(itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string }): void {
-      deps.emitEvent(C2S.UseItem, { itemRef: buildInventoryItemRef(itemInstanceId), count, ...(options ?? {}) });
+    sendUseItem(itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string; slotIndex?: number; expectedItemId?: string }): void {
+      const normalizedItemInstanceId = typeof itemInstanceId === 'string' ? itemInstanceId.trim() : '';
+      deps.emitEvent(C2S.UseItem, {
+        ...(normalizedItemInstanceId ? { itemRef: buildInventoryItemRef(normalizedItemInstanceId) } : {}),
+        count,
+        ...(options ?? {}),
+      });
     },    
     sendCreateFormation(payload: ClientToServerEventPayload<typeof C2S.CreateFormation>): void {
       deps.emitEvent(C2S.CreateFormation, payload);

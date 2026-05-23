@@ -118,6 +118,67 @@ function testBasicAttackQueue() {
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
 }
+
+function testUseItemResolvesLegacySlotFallback() {
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        combat: {
+            autoBattle: false,
+            combatTargetId: null,
+            combatTargetLocked: false,
+        },
+        actions: {
+            actions: [],
+        },
+        inventory: {
+            items: [
+                { itemId: 'pill.minor_heal', name: '回春散', type: 'consumable', count: 3 },
+            ],
+        },
+    };
+    const service = new WorldRuntimePlayerCommandEnqueueService({
+        getPlayerOrThrow(playerId) {
+            assert.equal(playerId, 'player:1');
+            return player;
+        },
+        updateCombatSettings() {},
+        clearCombatTarget() {},
+    });
+    const deps = createDeps(log);
+    const result = service.enqueueUseItem('player:1', { slotIndex: 0, expectedItemId: 'pill.minor_heal' }, deps);
+    const assignedId = player.inventory.items[0].itemInstanceId;
+    assert.equal(typeof assignedId, 'string');
+    assert.ok(assignedId.length > 0);
+    assert.deepEqual(result, { playerId: 'player:1', tick: 9 });
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'useItem',
+            itemInstanceId: assignedId,
+            payload: { slotIndex: 0, expectedItemId: 'pill.minor_heal' },
+        }],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
+function testUseItemLegacySlotFallbackRejectsChangedItem() {
+    const service = new WorldRuntimePlayerCommandEnqueueService({
+        getPlayerOrThrow() {
+            return {
+                inventory: {
+                    items: [
+                        { itemId: 'spirit_stone', name: '灵石', type: 'material', count: 99 },
+                    ],
+                },
+            };
+        },
+    });
+    assert.throws(
+        () => service.enqueueUseItem('player:1', { slotIndex: 0, expectedItemId: 'pill.minor_heal' }, createDeps([])),
+        /背包物品目标已变化/,
+    );
+}
 /**
  * testStartAlchemyClonesIngredients：构建test开始炼丹CloneIngredient。
  * @returns 无返回值，直接更新testStart炼丹CloneIngredient相关状态。
@@ -309,6 +370,8 @@ function testLockedBattleWithoutTargetStopsCombatCleanly() {
 }
 
 testBasicAttackQueue();
+testUseItemResolvesLegacySlotFallback();
+testUseItemLegacySlotFallbackRejectsChangedItem();
 testStartAlchemyClonesIngredients();
 testCastSkillRequiresKnownAction();
 testCastSkillRejectsDisabledSkillAction();

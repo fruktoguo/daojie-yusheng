@@ -97,6 +97,8 @@ type FormationRangePreviewPayload = {
 type UseItemOptions = {
   sectName?: string;
   sectMark?: string;
+  slotIndex?: number;
+  expectedItemId?: string;
 };
 
 function replaceElementHtml(root: HTMLElement, html: string): void {
@@ -339,7 +341,7 @@ export class InventoryPanel {
       onFilterChange: (filter) => this.handleReactFilterChange(filter),
       onSortInventory: () => this.onSortInventory?.(),
       onRequestLoadMore: (scrollTarget) => this.maybeLoadMoreVisibleItems(scrollTarget),
-      onPrimaryAction: (slotIndex, itemInstanceId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false }),
+      onPrimaryAction: (slotIndex, itemInstanceId, itemId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false, expectedItemId: itemId }),
       onDropOne: (slotIndex, itemInstanceId) => this.handleDropOne(slotIndex, itemInstanceId),
     });
     this.bindPaneEvents();
@@ -574,17 +576,24 @@ export class InventoryPanel {
     this.scheduleLoadMoreCheck();
   }
 
-  private handlePrimaryAction(slotIndex: number, expectedItemInstanceId?: string, options: { closeModal?: boolean } = {}): void {
+  private handlePrimaryAction(
+    slotIndex: number,
+    expectedItemInstanceId?: string | null,
+    options: { closeModal?: boolean; expectedItemId?: string } = {},
+  ): void {
     const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
     const action = item ? this.getPrimaryAction(item) : null;
     if (!item || !action || action.kind === 'status') {
       return;
     }
     const itemInstanceId = this.getInventoryItemInstanceId(item);
-    if (!itemInstanceId || (expectedItemInstanceId && itemInstanceId !== expectedItemInstanceId)) {
+    if (itemInstanceId && expectedItemInstanceId && itemInstanceId !== expectedItemInstanceId) {
       return;
     }
     if (action.kind === 'equip') {
+      if (!itemInstanceId) {
+        return;
+      }
       this.onEquipItem?.(itemInstanceId);
       if (options.closeModal) {
         this.closeModal();
@@ -605,7 +614,10 @@ export class InventoryPanel {
       this.openActionDialog('use', slotIndex, 1);
       return;
     }
-    this.onUseItem?.(itemInstanceId, 1);
+    this.onUseItem?.(itemInstanceId || '', 1, {
+      slotIndex,
+      expectedItemId: options.expectedItemId ?? item.itemId,
+    });
     if (options.closeModal) {
       this.closeModal();
     }
@@ -686,6 +698,7 @@ export class InventoryPanel {
     return {
       slotIndex,
       itemInstanceId: this.getInventoryItemInstanceId(item) || null,
+      itemId: item.itemId,
       itemKey: itemIdentity,
       name: displayName,
       nameClassName: `inventory-cell-name ${this.getNameClass(displayName)}`.trim(),
@@ -1328,8 +1341,7 @@ export class InventoryPanel {
             this.openActionDialog('use', slotIndex, 1);
             return;
           }
-          this.onUseItem?.(itemInstanceId, 1);
-          this.closeModal();
+          this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: true, expectedItemId: item.itemId });
         }, { signal });
         body.querySelectorAll<HTMLElement>('[data-inventory-open-action]').forEach((button) => button.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -1908,10 +1920,10 @@ export class InventoryPanel {
           body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
             event.stopPropagation();
             const itemInstanceId = this.getInventoryItemInstanceId(item);
-            if (!itemInstanceId) {
-              return;
-            }
-            this.onUseItem?.(itemInstanceId, 1);
+            this.onUseItem?.(itemInstanceId || '', 1, {
+              slotIndex,
+              expectedItemId: item.itemId,
+            });
             this.closeModal();
           }, { signal });
         },
@@ -1958,12 +1970,15 @@ export class InventoryPanel {
           event.stopPropagation();
           const selected = this.getUseCountFromInput(countInput, maxCount);
           const itemInstanceId = this.getInventoryItemInstanceId(item);
-          if (!itemInstanceId) {
+          if (dialog.kind === 'use') {
+            this.onUseItem?.(itemInstanceId || '', selected, {
+              slotIndex,
+              expectedItemId: item.itemId,
+            });
+            this.closeModal();
             return;
           }
-          if (dialog.kind === 'use') {
-            this.onUseItem?.(itemInstanceId, selected);
-            this.closeModal();
+          if (!itemInstanceId) {
             return;
           }
           if (dialog.kind === 'drop') {

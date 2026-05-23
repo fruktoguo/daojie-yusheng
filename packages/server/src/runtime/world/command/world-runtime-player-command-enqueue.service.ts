@@ -6,6 +6,7 @@
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { buildTechniqueActivityCancelCommand, buildTechniqueActivityStartCommand } from '../../craft/technique-activity-registry.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
+import { assignItemInstanceIdIfNeeded } from '../item-instance-id.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 
 const {
@@ -452,6 +453,25 @@ export class WorldRuntimePlayerCommandEnqueueService {
         if (direct) {
             return direct;
         }
+        if (eventName === 'useItem') {
+            const slotIndex = normalizeInventorySlotIndex(payload?.slotIndex);
+            const expectedItemId = typeof payload?.expectedItemId === 'string' ? payload.expectedItemId.trim() : '';
+            if (slotIndex !== null && expectedItemId) {
+                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const item = player.inventory?.items?.[slotIndex];
+                if (!item) {
+                    throw new BadRequestException('背包物品目标已变化，请重新选择。');
+                }
+                if (item.itemId !== expectedItemId) {
+                    throw new BadRequestException('背包物品目标已变化，请重新选择。');
+                }
+                assignItemInstanceIdIfNeeded(item);
+                const itemInstanceId = normalizeInventoryItemInstanceId(item.itemInstanceId);
+                if (itemInstanceId) {
+                    return itemInstanceId;
+                }
+            }
+        }
         throw new BadRequestException('背包物品目标缺失，请重新选择。');
     }
     /**
@@ -537,4 +557,12 @@ export class WorldRuntimePlayerCommandEnqueueService {
 
 function normalizeInventoryItemInstanceId(value) {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeInventorySlotIndex(value) {
+    const numeric = Number(value);
+    if (!Number.isInteger(numeric) || numeric < 0) {
+        return null;
+    }
+    return numeric;
 }

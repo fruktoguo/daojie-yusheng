@@ -12,6 +12,7 @@ import { t } from '../../../ui/i18n';
 export interface ReactInventoryItemView {
   slotIndex: number;
   itemInstanceId: string | null;
+  itemId: string;
   itemKey: string;
   name: string;
   nameClassName: string;
@@ -71,7 +72,7 @@ interface InventoryPanelCallbacks {
   onFilterChange: ((filter: InventoryFilter) => void) | null;
   onSortInventory: (() => void) | null;
   onRequestLoadMore: ((scrollTarget: HTMLElement) => void) | null;
-  onPrimaryAction: ((slotIndex: number, itemInstanceId: string) => void) | null;
+  onPrimaryAction: ((slotIndex: number, itemInstanceId: string | null, itemId: string) => void) | null;
   onDropOne: ((slotIndex: number, itemInstanceId: string) => void) | null;
 }
 
@@ -178,10 +179,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
             disabled={item.primaryAction.disabled === true}
             onClick={(event) => {
               event.stopPropagation();
-              if (!item.itemInstanceId) {
-                return;
-              }
-              callbacks.onPrimaryAction?.(item.slotIndex, item.itemInstanceId);
+              callbacks.onPrimaryAction?.(item.slotIndex, item.itemInstanceId, item.itemId);
             }}
           >
             {item.primaryAction.label}

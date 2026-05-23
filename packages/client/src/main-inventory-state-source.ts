@@ -54,7 +54,7 @@ type MainInventoryStateSourceOptions = {
  * sendUseItem：sendUse道具相关字段。
  */
 
-  sendUseItem: (itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string }) => void;
+  sendUseItem: (itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string; slotIndex?: number; expectedItemId?: string }) => void;
   /**
  * sendCreateFormation：send布阵相关字段。
  */
