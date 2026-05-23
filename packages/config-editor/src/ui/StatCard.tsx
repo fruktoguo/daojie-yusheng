@@ -17,18 +17,32 @@ export function StatCard({
   return (
     <div
       data-slot="card"
-      className="rounded-lg border border-border bg-card p-4"
+      className="rounded-lg border border-border/35 bg-card/45 backdrop-blur-md p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.01)] relative overflow-hidden"
     >
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          'mt-1 text-lg font-semibold',
-          variant === 'success' && 'text-success',
-          variant === 'destructive' && 'text-destructive',
+      <p className="text-xs text-muted-foreground font-medium tracking-wider uppercase">{label}</p>
+      <div className="mt-2.5 flex items-center gap-2">
+        {variant === 'success' && (
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-success shadow-[0_0_8px_var(--success)]"></span>
+          </span>
         )}
-      >
-        {value}
-      </p>
+        {variant === 'destructive' && (
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive shadow-[0_0_8px_var(--destructive)]"></span>
+          </span>
+        )}
+        <p
+          className={cn(
+            'text-xl font-bold tracking-tight',
+            variant === 'success' && 'text-success',
+            variant === 'destructive' && 'text-destructive',
+          )}
+        >
+          {value}
+        </p>
+      </div>
     </div>
   );
 }

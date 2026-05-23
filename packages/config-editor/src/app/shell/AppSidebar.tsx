@@ -21,30 +21,43 @@ export function AppSidebar({ collapsed, onClose }: { collapsed?: boolean; onClos
   return (
     <aside
       className={cn(
-        'flex flex-col bg-sidebar border-r border-sidebar-border shrink-0 transition-[width] duration-200',
+        'flex flex-col bg-sidebar/55 backdrop-blur-md border-r border-sidebar-border/40 shrink-0 transition-[width] duration-300 relative z-20',
         collapsed ? 'w-0 overflow-hidden' : 'w-[var(--sidebar-width)]',
       )}
     >
-      <div className="flex items-center h-12 px-3 text-xs font-medium text-sidebar-foreground/70">
-        道劫余生
+      <div className="flex items-center h-14 px-5 text-[11px] font-black tracking-widest bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent uppercase select-none">
+        道劫余生 MUD
       </div>
-      <nav className="flex-1 px-2 space-y-0.5">
-        {navItems.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => { navigate(id); onClose?.(); }}
-            className={cn(
-              'flex items-center gap-2 w-full h-8 text-sm px-2 rounded-md transition-colors',
-              route === id
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent/50',
-            )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            <span>{label}</span>
-          </button>
-        ))}
+      <nav className="flex-1 px-3 py-2 space-y-1">
+        {navItems.map(({ id, label, icon: Icon }) => {
+          const isActive = route === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => { navigate(id); onClose?.(); }}
+              className={cn(
+                'btn-premium-physics flex items-center gap-2.5 w-full h-9 text-sm px-3 rounded-md transition-all duration-200 relative group',
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-[0_1px_4px_rgba(0,0,0,0.05)] border border-white/5'
+                  : 'text-sidebar-foreground/75 hover:bg-sidebar-accent/35 hover:text-sidebar-foreground',
+              )}
+            >
+              {/* 左侧灵动纵向激活指示器 */}
+              {isActive && (
+                <div className="absolute left-1 w-1 h-4 rounded-full bg-primary" />
+              )}
+              
+              <Icon 
+                className={cn(
+                  'h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110',
+                  isActive ? 'text-primary' : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground'
+                )} 
+              />
+              <span>{label}</span>
+            </button>
+          );
+        })}
       </nav>
     </aside>
   );

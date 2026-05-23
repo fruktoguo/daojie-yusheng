@@ -14,7 +14,7 @@ export function Card({
   return (
     <div
       data-slot="card"
-      className={cn('rounded-lg border border-border bg-card p-4', className)}
+      className={cn('rounded-lg border border-border/35 bg-card/45 backdrop-blur-md p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]', className)}
       {...props}
     >
       {children}

@@ -21,9 +21,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="flex flex-col h-svh overflow-hidden">
+    <div className="flex flex-col h-svh overflow-hidden premium-dot-grid relative bg-background text-foreground">
+      {/* 极光氛围灯底座 */}
+      <div className="premium-glow-container">
+        <div className="premium-glow-1" />
+        <div className="premium-glow-2" />
+      </div>
+
       <AppHeader onToggleSidebar={toggle} />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative z-10">
         {/* Desktop sidebar */}
         <div className="hidden md:block">
           <AppSidebar collapsed={collapsed} />
@@ -35,7 +41,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </SheetContent>
         </Sheet>
         {/* Main content */}
-        <main data-slot="sidebar-inset" className="flex-1 overflow-y-auto">
+        <main 
+          data-slot="sidebar-inset" 
+          className="flex-1 overflow-y-auto subpage-premium-entry relative z-10"
+        >
           {children}
         </main>
       </div>
