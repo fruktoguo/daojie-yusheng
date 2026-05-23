@@ -8,6 +8,7 @@ import type { TechniqueCategory } from './cultivation-types';
 import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, MarketTradeSource } from './market-types';
 import type { MailFilter } from './mail-types';
 import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
+import type { InventoryItemRefView } from './inventory-item-ref';
 
 /** 请求坊市首页。 */
 export interface RequestMarketView {}
@@ -254,16 +255,10 @@ export interface CancelGatherView {}
 /** 创建卖单。 */
 export interface CreateMarketSellOrderView {
 /**
- * slotIndex：slotIndex相关字段。
+ * itemRef：背包物品稳定引用。
  */
 
-  slotIndex: number;
-  /**
- * expectedItemInstanceId：客户端选中物品时看到的装备 instanceId。
- * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 做乐观一致性校验。
- */
-
-  expectedItemInstanceId?: string;
+  itemRef: InventoryItemRefView;
   /**
  * quantity：quantity相关字段。
  */
@@ -361,16 +356,10 @@ export interface BuyMarketItemView {
 /** 出售背包物品。 */
 export interface SellMarketItemView {
 /**
- * slotIndex：slotIndex相关字段。
+ * itemRef：背包物品稳定引用。
  */
 
-  slotIndex: number;
-  /**
- * expectedItemInstanceId：客户端选中物品时看到的装备 instanceId。
- * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 做乐观一致性校验。
- */
-
-  expectedItemInstanceId?: string;
+  itemRef: InventoryItemRefView;
   /**
  * quantity：quantity相关字段。
  */
@@ -537,10 +526,10 @@ export interface CancelEnhancementView {}
 /** 使用背包物品。 */
 export interface UseItemView {
 /**
- * slotIndex：slotIndex相关字段。
+ * itemRef：背包物品稳定引用。
  */
 
-  slotIndex: number;
+  itemRef: InventoryItemRefView;
   /**
  * count：数量或计量字段。
  */
@@ -561,10 +550,10 @@ export interface UseItemView {
 /** 丢弃背包物品。 */
 export interface DropItemView {
 /**
- * slotIndex：slotIndex相关字段。
+ * itemRef：背包物品稳定引用。
  */
 
-  slotIndex: number;
+  itemRef: InventoryItemRefView;
   /**
  * count：数量或计量字段。
  */
@@ -575,10 +564,10 @@ export interface DropItemView {
 /** 摧毁背包物品。 */
 export interface DestroyItemView {
 /**
- * slotIndex：slotIndex相关字段。
+ * itemRef：背包物品稳定引用。
  */
 
-  slotIndex: number;
+  itemRef: InventoryItemRefView;
   /**
  * count：数量或计量字段。
  */
@@ -611,17 +600,10 @@ export interface SortInventoryView {}
 /** 装备背包物品。 */
 export interface EquipView {
 /**
- * slotIndex：slotIndex相关字段。
+ * itemRef：背包物品稳定引用。
  */
 
-  slotIndex: number;
-  /**
- * expectedItemInstanceId：客户端选中目标时看到的装备 instanceId。
- * 服务端按 ITEM_INSTANCE_ID_HARD_CHECK 配置做乐观一致性校验，
- * 软模式只记 warn，硬模式 mismatch 直接拒绝。
- */
-
-  expectedItemInstanceId?: string;
+  itemRef: InventoryItemRefView;
 }
 
 /** 卸下装备。 */

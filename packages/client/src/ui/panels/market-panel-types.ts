@@ -56,7 +56,7 @@ export interface MarketTradeDialogState {
 /** 拍卖寄拍独立面板里的可编辑状态。 */
 export interface AuctionConsignPanelState {
   open: boolean;
-  slotIndex: number | null;
+  itemInstanceId: string | null;
   quantity: number;
   totalPrice: number;
   buyoutPrice: number;
@@ -135,8 +135,8 @@ export interface MarketPanelCallbacks {
   onRequestAuctionListings: (payload: import('@mud/shared').C2S_RequestAuctionListings) => void;
   onRequestItemBook: (itemKey: string) => void;
   onRequestTradeHistory: (page: number, source?: 'market' | 'auction', scope?: MarketTradeHistoryScope) => void;
-  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number, expectedItemInstanceId?: string) => void;
-  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string, auctionDurationHours?: number) => void;
+  onCreateSellOrder: (itemInstanceId: string, quantity: number, unitPrice: number) => void;
+  onCreateAuctionSellOrder: (itemInstanceId: string, quantity: number, unitPrice: number, buyoutPrice?: number, auctionDurationHours?: number) => void;
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
   onPlaceAuctionBid: (lotId: string, itemKey: string, unitPrice: number) => void;
   onBuyoutAuctionLot: (lotId: string, itemKey: string) => void;
@@ -194,7 +194,7 @@ export interface MarketPanelInternals {
   getKnownListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[];
   findListingVariantByKey(itemKey: string | null | undefined, update?: S2C_MarketUpdate | null): MarketListedItemView | null;
   findConflictingOwnOrder(itemKey: string, nextSide: MarketTradeDialogKind): MarketOwnOrderView | null;
-  findMatchingInventorySlot(item: ItemStack): number | null;
+  findMatchingInventoryItemInstanceId(item: ItemStack): string | null;
   findMatchingInventoryCount(item: ItemStack): number;
   findInventoryItemCountByItemId(itemId: string): number;
   findEquipmentInventoryCountByLevel(itemId: string, enhanceLevel: number): number;

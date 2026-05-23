@@ -23,6 +23,10 @@ type PanelSenderDeps = {
   emitEvent: SocketEmitEvent;
 };
 
+function buildInventoryItemRef(itemInstanceId: string): { itemInstanceId: string } {
+  return { itemInstanceId };
+}
+
 function sendTechniqueActivityRequest(
   deps: PanelSenderDeps,
   kind: 'alchemy',
@@ -92,13 +96,13 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
   return {  
   /**
  * sendUseItem：执行sendUse道具相关逻辑。
- * @param slotIndex number 参数说明。
+ * @param itemInstanceId string 背包物品实例 ID。
  * @param count number 数量。
  * @returns 无返回值，直接更新sendUse道具相关状态。
  */
 
-    sendUseItem(slotIndex: number, count?: number, options?: { sectName?: string; sectMark?: string }): void {
-      deps.emitEvent(C2S.UseItem, { slotIndex, count, ...(options ?? {}) });
+    sendUseItem(itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string }): void {
+      deps.emitEvent(C2S.UseItem, { itemRef: buildInventoryItemRef(itemInstanceId), count, ...(options ?? {}) });
     },    
     sendCreateFormation(payload: ClientToServerEventPayload<typeof C2S.CreateFormation>): void {
       deps.emitEvent(C2S.CreateFormation, payload);
@@ -111,25 +115,25 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     },
     /**
  * sendDropItem：执行sendDrop道具相关逻辑。
- * @param slotIndex number 参数说明。
+ * @param itemInstanceId string 背包物品实例 ID。
  * @param count number 数量。
  * @returns 无返回值，直接更新sendDrop道具相关状态。
  */
 
 
-    sendDropItem(slotIndex: number, count: number): void {
-      deps.emitEvent(C2S.DropItem, { slotIndex, count });
+    sendDropItem(itemInstanceId: string, count: number): void {
+      deps.emitEvent(C2S.DropItem, { itemRef: buildInventoryItemRef(itemInstanceId), count });
     },    
     /**
  * sendDestroyItem：执行sendDestroy道具相关逻辑。
- * @param slotIndex number 参数说明。
+ * @param itemInstanceId string 背包物品实例 ID。
  * @param count number 数量。
  * @returns 无返回值，直接更新sendDestroy道具相关状态。
  */
 
 
-    sendDestroyItem(slotIndex: number, count: number): void {
-      deps.emitEvent(C2S.DestroyItem, { slotIndex, count });
+    sendDestroyItem(itemInstanceId: string, count: number): void {
+      deps.emitEvent(C2S.DestroyItem, { itemRef: buildInventoryItemRef(itemInstanceId), count });
     },    
     /**
  * sendTakeLoot：执行sendTake掉落相关逻辑。
@@ -180,13 +184,13 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     },    
     /**
  * sendEquip：执行sendEquip相关逻辑。
- * @param slotIndex number 参数说明。
+ * @param itemInstanceId string 背包物品实例 ID。
  * @returns 无返回值，直接更新sendEquip相关状态。
  */
 
 
-    sendEquip(slotIndex: number, expectedItemInstanceId?: string): void {
-      deps.emitEvent(C2S.Equip, expectedItemInstanceId ? { slotIndex, expectedItemInstanceId } : { slotIndex });
+    sendEquip(itemInstanceId: string): void {
+      deps.emitEvent(C2S.Equip, { itemRef: buildInventoryItemRef(itemInstanceId) });
     },    
     /**
  * sendUnequip：执行sendUnequip相关逻辑。

@@ -240,12 +240,12 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     craftWorkbenchModal,
     syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
     syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
-    sendUseItem: (slotIndex, count, useOptions) => panelSender.sendUseItem(slotIndex, count, useOptions),
+    sendUseItem: (itemInstanceId, count, useOptions) => panelSender.sendUseItem(itemInstanceId, count, useOptions),
     sendCreateFormation: (payload) => panelSender.sendCreateFormation(payload),
     previewFormationRange: (payload) => formationPreviewSource.preview(payload),
-    sendDropItem: (slotIndex, count) => panelSender.sendDropItem(slotIndex, count),
-    sendDestroyItem: (slotIndex, count) => panelSender.sendDestroyItem(slotIndex, count),
-    sendEquip: (slotIndex, expectedItemInstanceId) => panelSender.sendEquip(slotIndex, expectedItemInstanceId),
+    sendDropItem: (itemInstanceId, count) => panelSender.sendDropItem(itemInstanceId, count),
+    sendDestroyItem: (itemInstanceId, count) => panelSender.sendDestroyItem(itemInstanceId, count),
+    sendEquip: (itemInstanceId) => panelSender.sendEquip(itemInstanceId),
     sendSortInventory: () => panelSender.sendSortInventory(),
   });
   const settingsStateSource = createMainSettingsStateSource({

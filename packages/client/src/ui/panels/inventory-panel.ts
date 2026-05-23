@@ -111,17 +111,17 @@ interface InventoryActionDialogState {
  * kind：kind相关字段。
  */
 
-  kind: InventoryActionKind;  
+  kind: InventoryActionKind;
   /**
- * slotIndex：slotIndex相关字段。
+ * itemKey：弹窗打开时选中的物品身份。
  */
 
-  slotIndex: number;  
+  itemKey: string;
   /**
  * defaultCount：数量或计量字段。
  */
 
-  defaultCount: number;  
+  defaultCount: number;
   /**
  * confirmDestroy：confirmDestroy相关字段。
  */
@@ -243,13 +243,13 @@ export class InventoryPanel {
   /** pane：pane。 */
   private pane = document.getElementById('pane-inventory')!;
   /** onUseItem：on使用物品。 */
-  private onUseItem: ((slotIndex: number, count?: number, options?: UseItemOptions) => void) | null = null;
+  private onUseItem: ((itemInstanceId: string, count?: number, options?: UseItemOptions) => void) | null = null;
   /** onDropItem：on掉落物品。 */
-  private onDropItem: ((slotIndex: number, count: number) => void) | null = null;
+  private onDropItem: ((itemInstanceId: string, count: number) => void) | null = null;
   /** onDestroyItem：on Destroy物品。 */
-  private onDestroyItem: ((slotIndex: number, count: number) => void) | null = null;
+  private onDestroyItem: ((itemInstanceId: string, count: number) => void) | null = null;
   /** onEquipItem：on Equip物品。 */
-  private onEquipItem: ((slotIndex: number, expectedItemInstanceId?: string) => void) | null = null;
+  private onEquipItem: ((itemInstanceId: string) => void) | null = null;
   /** onSortInventory：on排序背包。 */
   private onSortInventory: (() => void) | null = null;
   /** onCreateFormation：on布阵。 */
@@ -395,20 +395,20 @@ export class InventoryPanel {
   }  
   /**
  * setCallbacks：写入Callback。
- * @param onUse (slotIndex: number, count?: number) => void 参数说明。
- * @param onDrop (slotIndex: number, count: number) => void 参数说明。
- * @param onDestroy (slotIndex: number, count: number) => void 参数说明。
- * @param onEquip (slotIndex: number) => void 参数说明。
+ * @param onUse (itemInstanceId: string, count?: number) => void 参数说明。
+ * @param onDrop (itemInstanceId: string, count: number) => void 参数说明。
+ * @param onDestroy (itemInstanceId: string, count: number) => void 参数说明。
+ * @param onEquip (itemInstanceId: string) => void 参数说明。
  * @param onSort () => void 参数说明。
  * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
   setCallbacks(
-    onUse: (slotIndex: number, count?: number, options?: UseItemOptions) => void,
-    onDrop: (slotIndex: number, count: number) => void,
-    onDestroy: (slotIndex: number, count: number) => void,
-    onEquip: (slotIndex: number, expectedItemInstanceId?: string) => void,
+    onUse: (itemInstanceId: string, count?: number, options?: UseItemOptions) => void,
+    onDrop: (itemInstanceId: string, count: number) => void,
+    onDestroy: (itemInstanceId: string, count: number) => void,
+    onEquip: (itemInstanceId: string) => void,
     onSort: () => void,
     onCreateFormation?: (payload: FormationCreatePayload) => void,
     onPreviewFormationRange?: (payload: FormationRangePreviewPayload) => void,
@@ -707,8 +707,12 @@ export class InventoryPanel {
         if (!action || action.kind === 'status') {
           return;
         }
+        const itemInstanceId = this.getInventoryItemInstanceId(item);
+        if (!itemInstanceId) {
+          return;
+        }
         if (action.kind === 'equip') {
-          this.onEquipItem?.(slotIndex, typeof item?.itemInstanceId === 'string' ? item.itemInstanceId : undefined);
+          this.onEquipItem?.(itemInstanceId);
           return;
         }
         if (item && this.isFormationDiskItem(item)) {
@@ -725,7 +729,7 @@ export class InventoryPanel {
           this.openActionDialog('use', slotIndex, 1);
           return;
         }
-        this.onUseItem?.(slotIndex);
+        this.onUseItem?.(itemInstanceId);
         return;
       }
 
@@ -736,7 +740,13 @@ export class InventoryPanel {
         if (!rawIndex) {
           return;
         }
-        this.onDropItem?.(parseInt(rawIndex, 10), 1);
+        const slotIndex = parseInt(rawIndex, 10);
+        const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
+        const itemInstanceId = this.getInventoryItemInstanceId(item);
+        if (!itemInstanceId) {
+          return;
+        }
+        this.onDropItem?.(itemInstanceId, 1);
         return;
       }
 
@@ -1210,7 +1220,7 @@ export class InventoryPanel {
     }
 
     const { item, slotIndex } = resolved;
-    if (this.actionDialog && this.actionDialog.slotIndex !== slotIndex) {
+    if (this.actionDialog && this.actionDialog.itemKey !== this.selectedItemKey) {
       this.actionDialog = null;
     }
     if (this.formationDialogSlotIndex !== null && this.formationDialogSlotIndex !== slotIndex) {
@@ -1280,8 +1290,12 @@ export class InventoryPanel {
           if (!primaryAction || primaryAction.kind === 'status') {
             return;
           }
+          const itemInstanceId = this.getInventoryItemInstanceId(item);
+          if (!itemInstanceId) {
+            return;
+          }
           if (primaryAction.kind === 'equip') {
-            this.onEquipItem?.(slotIndex, typeof item?.itemInstanceId === 'string' ? item.itemInstanceId : undefined);
+            this.onEquipItem?.(itemInstanceId);
             this.closeModal();
             return;
           }
@@ -1297,7 +1311,7 @@ export class InventoryPanel {
             this.openActionDialog('use', slotIndex, 1);
             return;
           }
-          this.onUseItem?.(slotIndex, 1);
+          this.onUseItem?.(itemInstanceId, 1);
           this.closeModal();
         }, { signal });
         body.querySelectorAll<HTMLElement>('[data-inventory-open-action]').forEach((button) => button.addEventListener('click', (event) => {
@@ -1702,6 +1716,10 @@ export class InventoryPanel {
     const template = this.getSelectedFormationTemplate(body);
     const formationId = template.id;
     const item = this.lastInventory?.items[slotIndex] ?? null;
+    const itemInstanceId = this.getInventoryItemInstanceId(item);
+    if (!itemInstanceId) {
+      return null;
+    }
     const diskMultiplier = item ? this.resolveFormationDiskMultiplier(item) : 1;
     const setup = this.syncFormationSetupInputs(body, template);
     const plan = resolveFormationSetupPlan(template, diskMultiplier, setup);
@@ -1713,7 +1731,7 @@ export class InventoryPanel {
     if (this.getCurrentSpiritStoneCount() < spiritStoneCount) {
       return null;
     }
-    return { slotIndex, formationId, setup: plan.setup, spiritStoneCount, qiCost };
+    return { itemRef: { itemInstanceId }, formationId, setup: plan.setup, spiritStoneCount, qiCost };
   }
 
   private readPositiveFormNumber(body: HTMLElement, selector: string, fallback: number, allowZero = false): number {
@@ -1794,7 +1812,11 @@ export class InventoryPanel {
             if (statusNode) statusNode.textContent = t('inventory.sect-founding.mark-invalid', undefined);
             return;
           }
-          this.onUseItem?.(slotIndex, 1, { sectName, sectMark });
+          const itemInstanceId = this.getInventoryItemInstanceId(item);
+          if (!itemInstanceId) {
+            return;
+          }
+          this.onUseItem?.(itemInstanceId, 1, { sectName, sectMark });
           this.closeModal();
         }, { signal });
       },
@@ -1836,7 +1858,11 @@ export class InventoryPanel {
           }, { signal });
           body.querySelector<HTMLElement>('[data-inventory-destroy-confirm]')?.addEventListener('click', (event) => {
             event.stopPropagation();
-            this.onDestroyItem?.(slotIndex, selectedCount);
+            const itemInstanceId = this.getInventoryItemInstanceId(item);
+            if (!itemInstanceId) {
+              return;
+            }
+            this.onDestroyItem?.(itemInstanceId, selectedCount);
             this.closeModal();
           }, { signal });
         },
@@ -1865,7 +1891,11 @@ export class InventoryPanel {
           }, { signal });
           body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
             event.stopPropagation();
-            this.onUseItem?.(slotIndex, 1);
+            const itemInstanceId = this.getInventoryItemInstanceId(item);
+            if (!itemInstanceId) {
+              return;
+            }
+            this.onUseItem?.(itemInstanceId, 1);
             this.closeModal();
           }, { signal });
         },
@@ -1911,13 +1941,17 @@ export class InventoryPanel {
         body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
           event.stopPropagation();
           const selected = this.getUseCountFromInput(countInput, maxCount);
+          const itemInstanceId = this.getInventoryItemInstanceId(item);
+          if (!itemInstanceId) {
+            return;
+          }
           if (dialog.kind === 'use') {
-            this.onUseItem?.(slotIndex, selected);
+            this.onUseItem?.(itemInstanceId, selected);
             this.closeModal();
             return;
           }
           if (dialog.kind === 'drop') {
-            this.onDropItem?.(slotIndex, selected);
+            this.onDropItem?.(itemInstanceId, selected);
             this.closeModal();
             return;
           }
@@ -2553,9 +2587,10 @@ export class InventoryPanel {
 
   /** openActionDialog：打开动作对话。 */
   private openActionDialog(kind: InventoryActionKind, slotIndex: number, defaultCount: number): void {
+    const item = this.lastInventory?.items[slotIndex] ?? null;
     this.actionDialog = {
       kind,
-      slotIndex,
+      itemKey: item ? this.getItemIdentity(item) : '',
       defaultCount: Math.max(1, defaultCount),
       confirmDestroy: false,
     };
@@ -2762,9 +2797,16 @@ export class InventoryPanel {
     if (cached) {
       return cached;
     }
-    const identity = createItemStackSignature(item);
+    const itemInstanceId = this.getInventoryItemInstanceId(item);
+    const identity = itemInstanceId ? `instance:${itemInstanceId}` : createItemStackSignature(item);
     this.itemIdentityCache.set(item, identity);
     return identity;
+  }
+
+  private getInventoryItemInstanceId(item: ItemStack | null | undefined): string {
+    return typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim().length > 0
+      ? item.itemInstanceId.trim()
+      : '';
   }
 
   /** collectVisibleItems：一次遍历收集可见总数和当前已渲染批次。 */

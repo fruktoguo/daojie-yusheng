@@ -13,7 +13,7 @@ async function main(): Promise<void> {
     runtimeOwnerId: 'runtime:seller',
     sessionEpoch: 9,
     instanceId: 'instance:market-buy',
-    inventory: { items: [{ itemId: 'rat_tail', count: 4, name: '鼠尾' }] },
+    inventory: { items: [{ itemId: 'rat_tail', count: 4, name: '鼠尾', itemInstanceId: 'seller-rat-tail-instance' }] },
     wallet: { balances: [{ walletType: 'spirit_stone', balance: 3, frozenBalance: 0, version: 1 }] },
   };
   const buyerPlayer = {
@@ -64,8 +64,8 @@ async function main(): Promise<void> {
       },
     } as never,
     {
-      peekInventoryItem(requestedPlayerId: string, slotIndex: number) {
-        return runtimePlayers.get(requestedPlayerId)?.inventory?.items?.[slotIndex] ?? null;
+      peekInventoryItemByInstanceId(requestedPlayerId: string, itemInstanceId: string) {
+        return runtimePlayers.get(requestedPlayerId)?.inventory?.items?.find((item) => item.itemInstanceId === itemInstanceId) ?? null;
       },
       snapshot(requestedPlayerId: string) {
         return runtimePlayers.has(requestedPlayerId) ? structuredClone(runtimePlayers.get(requestedPlayerId)) : null;
@@ -88,17 +88,18 @@ async function main(): Promise<void> {
         player.inventory.items = items.map((entry) => ({ ...entry }));
         return player;
       },
-      splitInventoryItem(requestedPlayerId: string, slotIndex: number, quantity: number) {
+      splitInventoryItemByInstanceId(requestedPlayerId: string, itemInstanceId: string, quantity: number) {
         const player = runtimePlayers.get(requestedPlayerId);
-        const item = player?.inventory?.items?.[slotIndex];
+        const slotIndex = player?.inventory?.items?.findIndex((entry) => entry.itemInstanceId === itemInstanceId) ?? -1;
+        const item = slotIndex >= 0 ? player?.inventory?.items?.[slotIndex] : null;
         if (!player || !item || Number(item.count ?? 0) < quantity) {
-          throw new Error(`unexpected splitInventoryItem args: ${JSON.stringify({ requestedPlayerId, slotIndex, quantity })}`);
+          throw new Error(`unexpected splitInventoryItem args: ${JSON.stringify({ requestedPlayerId, itemInstanceId, quantity })}`);
         }
         item.count = Number(item.count ?? 0) - quantity;
         if (Number(item.count ?? 0) <= 0) {
           player.inventory.items.splice(slotIndex, 1);
         }
-        return { ...item, count: quantity };
+        return { ...item, itemInstanceId, count: quantity };
       },
       canAffordWallet() {
         return true;
@@ -211,7 +212,7 @@ async function main(): Promise<void> {
 
   buyerPlayer.wallet.balances[0].balance = 30;
   buyerPlayer.inventory.items = [];
-  sellerPlayer.inventory.items = [{ itemId: 'rat_tail', count: 4, name: '鼠尾' }];
+  sellerPlayer.inventory.items = [{ itemId: 'rat_tail', count: 4, name: '鼠尾', itemInstanceId: 'seller-rat-tail-instance' }];
   (service as unknown as { tradeHistory: Array<Record<string, unknown>> }).tradeHistory = [];
   (service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders = [
     {
@@ -284,10 +285,10 @@ async function main(): Promise<void> {
   const overCapBuyOrderResult = await service.createBuyOrder(buyerId, { itemKey: `iron_sword#${overCapLevel}`, quantity: 1, unitPrice: 8 });
   assert.equal(overCapBuyOrderResult.notices.some((entry) => String(entry.text ?? '').includes(`+${MARKET_MAX_ENHANCE_LEVEL} 及以下装备求购`)), true);
 
-  sellerPlayer.inventory.items = [{ itemId: 'iron_sword', count: 1, name: '铁剑', type: 'equipment', enhanceLevel: overCapLevel }];
-  const overCapMarketSellOrderResult = await service.createSellOrder(sellerId, { slotIndex: 0, quantity: 1, unitPrice: 8, listingMode: 'market' });
+  sellerPlayer.inventory.items = [{ itemId: 'iron_sword', count: 1, name: '铁剑', type: 'equipment', enhanceLevel: overCapLevel, itemInstanceId: 'seller-over-cap-sword' }];
+  const overCapMarketSellOrderResult = await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-over-cap-sword' }, quantity: 1, unitPrice: 8, listingMode: 'market' });
   assert.equal(overCapMarketSellOrderResult.notices.some((entry) => String(entry.text ?? '').includes(`普通坊市只支持 +${MARKET_MAX_ENHANCE_LEVEL}`)), true);
-  const overCapAuctionSellOrderResult = await service.createSellOrder(sellerId, { slotIndex: 0, quantity: 1, unitPrice: 8, listingMode: 'auction' });
+  const overCapAuctionSellOrderResult = await service.createSellOrder(sellerId, { itemRef: { itemInstanceId: 'seller-over-cap-sword' }, quantity: 1, unitPrice: 8, listingMode: 'auction' });
   assert.equal(overCapAuctionSellOrderResult.notices.some((entry) => String(entry.text ?? '').includes('已寄拍')), true);
 
   console.log(JSON.stringify({ ok: true, case: 'market-runtime-buy-now' }, null, 2));

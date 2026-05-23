@@ -42,7 +42,11 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            const destroyed = this.gateway.playerRuntimeService.destroyInventoryItem(playerId, payload?.slotIndex, payload?.count);
+            const itemInstanceId = this.resolveInventoryItemInstanceId(playerId, payload, 'destroyItem');
+            if (!itemInstanceId) {
+                throw new Error('背包物品目标缺失，请重新选择。');
+            }
+            const destroyed = this.gateway.playerRuntimeService.destroyInventoryItemByInstanceId(playerId, itemInstanceId, payload?.count);
             this.gateway.playerRuntimeService.enqueueNotice(playerId, {
                 text: `你摧毁了 ${destroyed.name ?? destroyed.itemId} x${destroyed.count}。`,
                 kind: 'info',
@@ -159,7 +163,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDropItem(playerId, payload?.slotIndex, payload?.count, this.gateway.worldRuntimeService);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDropItem(playerId, payload, payload?.count, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'DROP_ITEM_FAILED', error);
@@ -283,9 +287,8 @@ class WorldGatewayInventoryHelper {
         try {
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(
                 playerId,
-                payload?.slotIndex,
+                payload,
                 this.gateway.worldRuntimeService,
-                typeof payload?.expectedItemInstanceId === 'string' ? payload.expectedItemInstanceId : undefined,
             );
         }
         catch (error) {
@@ -338,6 +341,20 @@ class WorldGatewayInventoryHelper {
     handleUnequip(client, payload) {
         this.executeUnequip(client, payload);
     }
+
+    private resolveInventoryItemInstanceId(playerId: string, payload: any, eventName: string): string {
+        const direct = normalizeInventoryItemInstanceId(payload?.itemRef?.itemInstanceId)
+            || normalizeInventoryItemInstanceId(payload?.itemInstanceId)
+            || normalizeInventoryItemInstanceId(payload?.expectedItemInstanceId);
+        if (direct) {
+            return direct;
+        }
+        return '';
+    }
 }
 
 export { WorldGatewayInventoryHelper };
+
+function normalizeInventoryItemInstanceId(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}

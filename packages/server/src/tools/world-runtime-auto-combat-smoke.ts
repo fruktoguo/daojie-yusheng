@@ -42,10 +42,10 @@ function createPlayerRuntimeService(player: Record<string, unknown>, extraPlayer
     setCombatTarget(playerId: string, targetRef: string, locked: boolean, tick: number) {
       log.push(['setCombatTarget', playerId, targetRef, locked, tick]);
     },
-    useItem(playerId: string, slotIndex: number) {
-      log.push(['useItem', playerId, slotIndex]);
-      const inventory = player.inventory as { items?: Array<{ count?: number }> } | undefined;
-      const item = inventory?.items?.[slotIndex];
+    useItemByInstanceId(playerId: string, itemInstanceId: string) {
+      log.push(['useItemByInstanceId', playerId, itemInstanceId]);
+      const inventory = player.inventory as { items?: Array<{ itemInstanceId?: string; count?: number }> } | undefined;
+      const item = inventory?.items?.find((entry) => entry.itemInstanceId === itemInstanceId);
       if (item && typeof item.count === 'number') {
         item.count -= 1;
       }
@@ -331,6 +331,7 @@ function createAutoUsePillPlayer(overrides: Record<string, unknown> = {}) {
     inventory: {
       items: [{
         itemId: 'pill.minor_heal',
+        itemInstanceId: 'auto-pill-minor-heal',
         name: '回春散',
         count: 3,
         healPercent: 0.22,
@@ -357,7 +358,7 @@ function testAutoUsePillTriggersBeforeAutoCombatCommandMaterialization(): void {
   service.materializeAutoUsePills(createAutoUsePillDeps(playerRuntimeService.log) as never);
 
   assert.deepEqual(playerRuntimeService.log, [
-    ['useItem', 'player:1', 0],
+    ['useItemByInstanceId', 'player:1', 'auto-pill-minor-heal'],
     ['refreshQuestStates', 'player:1'],
     ['queuePlayerNotice', 'player:1', '自动使用 回春散', 'success'],
   ]);
@@ -396,6 +397,7 @@ function testAutoUseBuffPillTriggersOnlyWhenBuffMissing(): void {
     inventory: {
       items: [{
         itemId: 'pill.crimson_bud_elixir',
+        itemInstanceId: 'auto-pill-crimson-bud',
         name: '赤芽丹',
         count: 2,
         consumeBuffs: [{ buffId: 'item_buff.crimson_bud', name: '赤芽生锋', duration: 10 }],
@@ -425,7 +427,7 @@ function testAutoUseBuffPillTriggersOnlyWhenBuffMissing(): void {
   service.materializeAutoUsePills(createAutoUsePillDeps(playerRuntimeService.log) as never);
 
   assert.deepEqual(playerRuntimeService.log, [
-    ['useItem', 'player:1', 0],
+    ['useItemByInstanceId', 'player:1', 'auto-pill-crimson-bud'],
     ['refreshQuestStates', 'player:1'],
     ['queuePlayerNotice', 'player:1', '自动使用 赤芽丹', 'success'],
   ]);

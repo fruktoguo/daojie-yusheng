@@ -282,6 +282,38 @@ function slot(player, itemId) {
   return index;
 }
 /**
+ * 查找玩家背包中指定物品的稳定实例引用。
+ */
+function itemRef(player, itemId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录entry。
+ */
+  var entry = player.inventory.items.find(function (current) { return current.itemId === itemId; });
+  var itemInstanceId = typeof entry?.itemInstanceId === "string" ? entry.itemInstanceId.trim() : "";
+  if (!entry || !itemInstanceId) {
+    throw new Error("missing inventory item ref for item: " + itemId);
+  }
+  return { itemInstanceId: itemInstanceId };
+}
+/**
+ * 从已解析下标转换为正式背包实例引用。下标只用于审计脚本本地查找，不作为协议目标发送。
+ */
+function itemRefAt(player, index, label) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录entry。
+ */
+  var entry = player.inventory.items[index];
+  var itemInstanceId = typeof entry?.itemInstanceId === "string" ? entry.itemInstanceId.trim() : "";
+  if (!entry || !itemInstanceId) {
+    throw new Error("missing inventory item ref at index " + index + " for " + label);
+  }
+  return { itemInstanceId: itemInstanceId };
+}
+/**
  * 统计玩家背包里指定物品的数量。
  */
 function count(player, itemId) {
@@ -1459,7 +1491,7 @@ async function craftPanelCase(runtime) {
  * 记录玩家。
  */
   var player = (await runtime.api.fetchState(playerId)).player;
-  socket.emit(C2S.Equip, { slotIndex: slot(player, "equip.copper_pill_furnace") });
+  socket.emit(C2S.Equip, { itemRef: itemRef(player, "equip.copper_pill_furnace") });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.equipment.slots.some(function (entry) {
       return entry.slot === "weapon" && entry.item && entry.item.itemId === "equip.copper_pill_furnace";
@@ -1558,7 +1590,7 @@ async function craftPanelCase(runtime) {
       && state.job === null;
   }, 10000);
   player = (await runtime.api.fetchState(playerId)).player;
-  socket.emit(C2S.Equip, { slotIndex: slot(player, "equip.copper_enhancement_hammer") });
+  socket.emit(C2S.Equip, { itemRef: itemRef(player, "equip.copper_enhancement_hammer") });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.equipment.slots.some(function (entry) {
       return entry.slot === "weapon" && entry.item && entry.item.itemId === "equip.copper_enhancement_hammer";
@@ -1967,7 +1999,7 @@ async function inventoryOpsCase(runtime) {
  * 记录before数量。
  */
   var beforeCount = count(state, "rat_tail");
-  socket.emit(C2S.DestroyItem, { slotIndex: slot(state, "rat_tail"), count: 1 });
+  socket.emit(C2S.DestroyItem, { itemRef: itemRef(state, "rat_tail"), count: 1 });
   await lib.waitForState(runtime.api, playerId, function (player) {
     return count(player, "rat_tail") === Math.max(0, beforeCount - 1);
   }, 5000, "destroyItem");
@@ -1994,7 +2026,7 @@ async function playerControlCase(runtime) {
  * 记录玩家。
  */
   var player = (await runtime.api.fetchState(playerId)).player;
-  socket.emit(C2S.UseItem, { slotIndex: slot(player, "book.qingmu_sword") });
+  socket.emit(C2S.UseItem, { itemRef: itemRef(player, "book.qingmu_sword") });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; });
   }, 5000, "unlockSkillForAutoBattle");
@@ -2424,7 +2456,7 @@ async function progressionCase(runtime) {
  * 记录玩家。
  */
   var player = (await runtime.api.fetchState(attackerId)).player;
-  attacker.emit(C2S.UseItem, { slotIndex: slot(player, "book.qingmu_sword") });
+  attacker.emit(C2S.UseItem, { itemRef: itemRef(player, "book.qingmu_sword") });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.techniques.techniques.some(function (entry) { return entry.techId === "qingmu_sword"; }); }, 5000, "learn");
   player = (await runtime.api.fetchState(attackerId)).player;
 /**
@@ -2433,7 +2465,7 @@ async function progressionCase(runtime) {
   var learnedSkillId = resolveTechniqueSkillId(player, "qingmu_sword");
   await runtime.api.grantItem(attackerId, "equip.geng_gate_blade", 1);
   player = (await runtime.api.fetchState(attackerId)).player;
-  attacker.emit(C2S.Equip, { slotIndex: slot(player, "equip.geng_gate_blade") });
+  attacker.emit(C2S.Equip, { itemRef: itemRef(player, "equip.geng_gate_blade") });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.equipment.slots.some(function (entry) { return entry.slot === "weapon" && entry.item && entry.item.itemId === "equip.geng_gate_blade"; }); }, 5000, "equip");
   attacker.emit(C2S.Cultivate, { techId: "qingmu_sword" });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.techniques.cultivatingTechId === "qingmu_sword"; }, 5000, "cultivate");
@@ -2441,7 +2473,7 @@ async function progressionCase(runtime) {
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.equipment.slots.some(function (entry) { return entry.slot === "weapon" && entry.item === null; }); }, 5000, "unequip");
   await runtime.api.setVitals(attackerId, { hp: 50, qi: 120, maxQi: 120 });
   player = (await runtime.api.fetchState(attackerId)).player;
-  attacker.emit(C2S.UseItem, { slotIndex: slot(player, "pill.minor_heal") });
+  attacker.emit(C2S.UseItem, { itemRef: itemRef(player, "pill.minor_heal") });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.hp > 50; }, 5000, "heal");
   attacker.emit(C2S.UseAction, { actionId: "toggle:allow_aoe_player_hit" });
   await lib.waitForState(runtime.api, attackerId, function (current) {
@@ -2517,7 +2549,7 @@ async function lootCase(runtime) {
  * 记录worlddeltaafter。
  */
   var worldDeltaAfter = looter.getEventCount(S2C.WorldDelta);
-  dropper.emit(C2S.DropItem, { slotIndex: slot(dropperState, "rat_tail"), count: 2 });
+  dropper.emit(C2S.DropItem, { itemRef: itemRef(dropperState, "rat_tail"), count: 2 });
 /**
  * 记录pileevent。
  */
@@ -2630,7 +2662,7 @@ async function marketCase(runtime) {
   try {
     var tradeSlotIndex = slot(sellerState, tradeItemId);
     tradeItemId = sellerState.inventory.items[tradeSlotIndex]?.itemId ?? tradeItemId;
-    seller.emit(C2S.CreateMarketSellOrder, { slotIndex: tradeSlotIndex, quantity: 1, unitPrice: 1 });
+    seller.emit(C2S.CreateMarketSellOrder, { itemRef: itemRefAt(sellerState, tradeSlotIndex, "market trade item"), quantity: 1, unitPrice: 1 });
     listed = await waitForMarket(runtime, sellerId, function (market) {
       return market && Array.isArray(market.myOrders) && market.myOrders.some(function (entry) { return entry.side === "sell" && entry.item; });
     }, 10000, "marketCreateSellOrder");
@@ -2643,7 +2675,7 @@ async function marketCase(runtime) {
     process.stderr.write("[protocol audit] market seller create sell diagnostic " + JSON.stringify({
       sellerId: sellerId,
       tradeItemId: tradeItemId,
-      slotIndex: slot(sellerState, tradeItemId),
+      itemRef: itemRef(sellerState, tradeItemId),
       sellerItems: sellerState.inventory.items.map(function (entry) { return { itemId: entry.itemId, count: entry.count }; }),
       latestMarketEvents: latestMarketEvents,
       latestMarketOrders: seller.getEvents(S2C.MarketOrders).slice(-3),
@@ -2666,7 +2698,7 @@ async function marketCase(runtime) {
   sellerState = (await runtime.api.fetchState(sellerId)).player;
   var auctionSlotIndex = slot(sellerState, auctionItemId);
   auctionItemId = sellerState.inventory.items[auctionSlotIndex]?.itemId ?? auctionItemId;
-  seller.emit(C2S.CreateMarketSellOrder, { slotIndex: auctionSlotIndex, quantity: 1, unitPrice: 1, listingMode: 'auction', buyoutPrice: 2 });
+  seller.emit(C2S.CreateMarketSellOrder, { itemRef: itemRefAt(sellerState, auctionSlotIndex, "auction item"), quantity: 1, unitPrice: 1, listingMode: 'auction', buyoutPrice: 2 });
   var auctionListings = await emitAndWait(buyer, C2S.RequestAuctionListings, { tab: 'participate', page: 1, pageSize: 10, category: 'all', query: '' }, S2C.AuctionListings, function (payload) {
     return payload && Array.isArray(payload.items) && payload.items.some(function (entry) {
       return entry.item && entry.itemKey !== itemKey;
@@ -2702,7 +2734,7 @@ async function marketCase(runtime) {
  * 记录historyupdateafter。
  */
   var historyUpdateAfter = buyer.getEventCount(S2C.MarketTradeHistory);
-  seller.emit(C2S.SellMarketItem, { slotIndex: slot(sellerState, tradeItemId), quantity: 1 });
+  seller.emit(C2S.SellMarketItem, { itemRef: itemRef(sellerState, tradeItemId), quantity: 1 });
   await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, tradeItemId) >= buyFulfilledAt + 1; }, 5000, "sellNow");
   await buyer.waitForEventAfter(S2C.MarketTradeHistory, historyUpdateAfter, function (payload) {
     return payload && Array.isArray(payload.records) && payload.records.some(function (entry) { return entry.itemId === tradeItemId; });
@@ -2718,7 +2750,7 @@ async function marketCase(runtime) {
   try {
     var cancelSlotIndex = slot(sellerState, cancelItemId);
     cancelItemId = sellerState.inventory.items[cancelSlotIndex]?.itemId ?? cancelItemId;
-    own = await emitAndWaitForOwnMarketOrder(seller, C2S.CreateMarketSellOrder, { slotIndex: cancelSlotIndex, quantity: 1, unitPrice: 1 }, cancelItemId, "sell", 10000);
+    own = await emitAndWaitForOwnMarketOrder(seller, C2S.CreateMarketSellOrder, { itemRef: itemRefAt(sellerState, cancelSlotIndex, "market cancel item"), quantity: 1, unitPrice: 1 }, cancelItemId, "sell", 10000);
   }
   catch (error) {
     process.stderr.write("[protocol audit] market seller cancel-order diagnostic " + JSON.stringify({
@@ -2808,7 +2840,7 @@ async function marketCase(runtime) {
  * 记录storageupdateafter。
  */
   var storageUpdateAfter = storageBuyer.getEventCount(S2C.MarketUpdate);
-  storageSeller.emit(C2S.SellMarketItem, { slotIndex: slot(storageSellerState, storageItemId), quantity: 1 });
+  storageSeller.emit(C2S.SellMarketItem, { itemRef: itemRef(storageSellerState, storageItemId), quantity: 1 });
   await storageBuyer.waitForEventAfter(S2C.MarketUpdate, storageUpdateAfter, function (payload) {
     return payload && payload.storage && Array.isArray(payload.storage.items) && payload.storage.items.some(function (entry) { return entry.itemId === storageItemId; });
   }, 8000);
@@ -2823,7 +2855,7 @@ async function marketCase(runtime) {
   if (fillerSlot < 0) {
     throw new Error("failed to find filler slot for market storage claim");
   }
-  storageBuyer.emit(C2S.DropItem, { slotIndex: fillerSlot, count: 1 });
+  storageBuyer.emit(C2S.DropItem, { itemRef: itemRefAt(storageBuyerState, fillerSlot, "market storage filler"), count: 1 });
   await lib.waitForState(runtime.api, storageBuyerId, function (player) { return player.inventory.items.length <= storageBuyerCapacity - 1; }, 5000, "freeSlot");
 /**
  * 记录claimupdateafter。

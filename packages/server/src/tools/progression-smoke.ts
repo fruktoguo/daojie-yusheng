@@ -31,6 +31,17 @@ let sessionId = '';
 let progressionResourceInstanceId = '';
 let progressionStage = 'bootstrap';
 /**
+ * 解析背包物品的稳定实例引用；脚本可用数组查找本地目标，但协议只发送 itemInstanceId。
+ */
+function itemRefAt(player, slotIndex, label) {
+    const entry = player?.inventory?.items?.[slotIndex] ?? null;
+    const itemInstanceId = typeof entry?.itemInstanceId === 'string' ? entry.itemInstanceId.trim() : '';
+    if (!entry || !itemInstanceId) {
+        throw new Error(`missing itemInstanceId for ${label}`);
+    }
+    return { itemInstanceId };
+}
+/**
  * 串联执行脚本主流程。
  */
 async function main() {
@@ -113,7 +124,7 @@ async function main() {
     if (bookSlot < 0) {
         throw new Error('starter technique book missing');
     }
-    socket.emit(shared_1.C2S.UseItem, { slotIndex: bookSlot });
+    socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(currentState.player, bookSlot, 'starter technique book') });
     progressionStage = 'learn-technique';
     await waitFor(async () => {
 /**
@@ -131,7 +142,7 @@ async function main() {
         throw new Error('equipment item missing after learning');
     }
     const beforeEquipStats = currentState.player?.attrs?.numericStats ?? {};
-    socket.emit(shared_1.C2S.Equip, { slotIndex: equipmentSlot });
+    socket.emit(shared_1.C2S.Equip, { itemRef: itemRefAt(currentState.player, equipmentSlot, PROGRESSION_EQUIPMENT_ITEM_ID) });
     progressionStage = 'equip-weapon';
     await waitFor(async () => {
 /**
@@ -168,7 +179,7 @@ async function main() {
     if (healSlot < 0) {
         throw new Error('starter heal consumable missing');
     }
-    socket.emit(shared_1.C2S.UseItem, { slotIndex: healSlot });
+    socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(currentState.player, healSlot, 'minor heal pill') });
     progressionStage = 'heal-consumable';
     await waitFor(async () => {
 /**
@@ -196,7 +207,7 @@ async function main() {
         throw new Error('windstride consumable missing');
     }
     await sleep(1100);
-    socket.emit(shared_1.C2S.UseItem, { slotIndex: buffSlot });
+    socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(currentState.player, buffSlot, 'windstride elixir') });
     progressionStage = 'windstride-use';
     await waitFor(async () => {
 /**
@@ -223,7 +234,7 @@ async function main() {
         throw new Error('bamboo map item missing');
     }
     await sleep(1100);
-    socket.emit(shared_1.C2S.UseItem, { slotIndex: mapSlot });
+    socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(currentState.player, mapSlot, 'bamboo map') });
     progressionStage = 'bamboo-map-use';
     await waitFor(async () => {
 /**
@@ -257,7 +268,7 @@ async function main() {
  */
     const auraBefore = await fetchTileAura(currentState.player.instanceId, currentState.player.x, currentState.player.y);
     await sleep(1100);
-    socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
+    socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(currentState.player, spiritStoneSlot, 'spirit stone') });
     progressionStage = 'spirit-stone-use';
     await waitFor(async () => {
 /**

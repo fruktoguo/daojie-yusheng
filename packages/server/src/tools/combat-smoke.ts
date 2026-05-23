@@ -48,6 +48,17 @@ let attackerSessionId = '';
 let defenderSessionId = '';
 let combatStage = 'bootstrap';
 /**
+ * 解析背包物品的稳定实例引用。协议目标不能发送格子下标。
+ */
+function itemRefAt(player, slotIndex, label) {
+    const entry = player?.inventory?.items?.[slotIndex] ?? null;
+    const itemInstanceId = typeof entry?.itemInstanceId === 'string' ? entry.itemInstanceId.trim() : '';
+    if (!entry || !itemInstanceId) {
+        throw new Error(`missing itemInstanceId for ${label}`);
+    }
+    return { itemInstanceId };
+}
+/**
  * 从当前玩家状态里解析指定功法已解锁的真实技能 ID。
  */
 function resolveTechniqueSkillId(player, techId) {
@@ -216,7 +227,7 @@ async function main() {
     if (bookSlot < 0) {
         throw new Error('combat smoke missing starter technique book');
     }
-    attacker.emit(shared_1.C2S.UseItem, { slotIndex: bookSlot });
+    attacker.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(attackerState.player, bookSlot, 'combat starter technique book') });
     combatStage = 'learn-technique';
     await waitFor(async () => {
 /**

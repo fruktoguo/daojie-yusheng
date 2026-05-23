@@ -74,6 +74,7 @@ qiCost = ceil(spiritStoneCount × qiPerSpiritStone)
 - 需要满足 minEffectValue
 - 需要阵盘品阶匹配
 - 每 tick 消耗灵气维持
+- 玩家从背包布阵时，阵盘目标必须使用 `itemInstanceId` 定位；背包格子顺序只影响 UI 展示。
 
 ## 阵法效果
 

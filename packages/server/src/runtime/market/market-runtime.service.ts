@@ -6,7 +6,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
-import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
+import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
 import { MarketPersistenceService } from '../../persistence/market-persistence.service';
@@ -412,25 +412,10 @@ export class MarketRuntimeService {
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
             const listingMode = payload?.listingMode === 'auction' || payload?.auction === true ? 'auction' : 'market';
-            const item = this.playerRuntimeService.peekInventoryItem(playerId, payload.slotIndex);
+            const itemInstanceId = this.resolveMarketInventoryItemInstanceId(playerId, payload, 'createSellOrder');
+            const item = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
             if (!item) {
                 return this.singleMessage(playerId, '要挂售的物品不存在。');
-            }
-            // 乐观一致性校验：客户端选中物品时看到的 itemInstanceId
-            const sellOrderCompare = compareItemInstanceId(
-                item.itemInstanceId,
-                typeof payload?.expectedItemInstanceId === 'string' ? payload.expectedItemInstanceId : undefined,
-            );
-            if (sellOrderCompare === 'mismatch') {
-                const sellOrderHardCheck = isItemInstanceIdHardCheckEnabled();
-                console.warn(
-                    `[坊市] 创建卖单物品实例ID不匹配 player=${playerId} `
-                    + `slot=${payload.slotIndex} expected=${payload.expectedItemInstanceId} `
-                    + `actual=${item.itemInstanceId} hardCheck=${sellOrderHardCheck}`,
-                );
-                if (sellOrderHardCheck) {
-                    return this.singleMessage(playerId, '挂售目标已变更，请重新选择。');
-                }
             }
 
             const quantity = this.normalizeQuantity(payload.quantity);
@@ -478,7 +463,7 @@ export class MarketRuntimeService {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，发起拍卖需要上架费 ${this.formatUnitPrice(auctionListingFee)}。`);
             }
 
-            const removed = this.playerRuntimeService.splitInventoryItem(playerId, payload.slotIndex, quantity);
+            const removed = this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
 
             const result = this.createEmptyResult(playerId);
 
@@ -559,6 +544,15 @@ export class MarketRuntimeService {
             this.compactOpenOrders();
             return result;
         });
+    }
+    resolveMarketInventoryItemInstanceId(_playerId, payload, _eventName) {
+        const itemInstanceId = normalizeInventoryItemInstanceId(payload?.itemRef?.itemInstanceId)
+            || normalizeInventoryItemInstanceId(payload?.itemInstanceId)
+            || normalizeInventoryItemInstanceId(payload?.expectedItemInstanceId);
+        if (itemInstanceId) {
+            return itemInstanceId;
+        }
+        return '';
     }
     /** 发起求购挂单，必要时直接撮合卖单。 */
     async createBuyOrder(playerId, payload) {
@@ -840,25 +834,10 @@ export class MarketRuntimeService {
         await this.ensureStorageHydrated(playerId);
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
-            const item = this.playerRuntimeService.peekInventoryItem(playerId, payload.slotIndex);
+            const itemInstanceId = this.resolveMarketInventoryItemInstanceId(playerId, payload, 'sellNow');
+            const item = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
             if (!item) {
                 return this.singleMessage(playerId, '要出售的物品不存在。');
-            }
-            // 乐观一致性校验：客户端选中物品时看到的 itemInstanceId
-            const sellNowCompare = compareItemInstanceId(
-                item.itemInstanceId,
-                typeof payload?.expectedItemInstanceId === 'string' ? payload.expectedItemInstanceId : undefined,
-            );
-            if (sellNowCompare === 'mismatch') {
-                const sellNowHardCheck = isItemInstanceIdHardCheckEnabled();
-                console.warn(
-                    `[坊市] 即时卖出物品实例ID不匹配 player=${playerId} `
-                    + `slot=${payload.slotIndex} expected=${payload.expectedItemInstanceId} `
-                    + `actual=${item.itemInstanceId} hardCheck=${sellNowHardCheck}`,
-                );
-                if (sellNowHardCheck) {
-                    return this.singleMessage(playerId, '出售目标已变更，请重新选择。');
-                }
             }
 
             const quantity = this.normalizeQuantity(payload.quantity);
@@ -913,7 +892,7 @@ export class MarketRuntimeService {
             }
 
             this.captureOnlinePlayerState(playerId, context);
-            this.playerRuntimeService.splitInventoryItem(playerId, payload.slotIndex, quantity);
+            this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, quantity);
 
             const result = this.createEmptyResult(playerId);
 
@@ -3622,6 +3601,10 @@ function cloneInventoryItems(items) {
     return Array.isArray(items)
         ? items.map((item) => ({ ...item }))
         : [];
+}
+
+function normalizeInventoryItemInstanceId(value) {
+    return typeof value === 'string' ? value.trim() : '';
 }
 
 function applyMarketSellNowToInventory(existingItems, item, quantity) {

@@ -50,4 +50,5 @@ signature = itemId + '#' + enhanceLevel
 
 - consumable: 检查冷却 → 消耗 → 触发效果（heal/buff/qi恢复）
 - skill_book: 检查学习条件 → 消耗 → 学习功法/技能
+- 玩家主动使用、丢弃、摧毁、装备、布阵、强化、市场上架等资产操作必须以 `itemInstanceId` 定位背包目标；背包数组顺序和 UI 格子只用于展示、排序和面板 patch。
 - 自动用药: 背包前 12 格内的消耗品可被自动战斗系统使用

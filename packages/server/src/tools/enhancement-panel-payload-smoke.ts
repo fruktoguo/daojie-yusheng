@@ -39,6 +39,7 @@ function createEquipment(itemId: string, count = 1, overrides: Partial<ItemStack
     tags: ["static-tag"],
     count,
     enhanceLevel: 0,
+    itemInstanceId: `${itemId}:${count}:instance`,
     ...overrides,
   };
 }
@@ -151,7 +152,8 @@ function main() {
   assert.equal(highLevelCandidate?.durationTicks, expectedHighLevelDurationTicks, "query duration must follow shared enhancement speed and duration formula");
 
   const runtimeService = new CraftPanelRuntimeService(repository, null, null, null, service);
-  const runtimeCandidate = runtimeService.buildEnhancementCandidate(player, { source: "inventory", slotIndex: 0 }, highLevelTarget);
+  const highLevelTargetRef = typeof highLevelTarget.itemInstanceId === "string" ? highLevelTarget.itemInstanceId : "";
+  const runtimeCandidate = runtimeService.buildEnhancementCandidate(player, { source: "inventory", itemInstanceId: highLevelTargetRef }, highLevelTarget);
   assert.equal(runtimeCandidate?.successRate, expectedHighLevelRate, "runtime success rate must follow main shared formula with equipped hammer modifier");
   assert.equal(runtimeCandidate?.durationTicks, expectedHighLevelDurationTicks, "runtime duration must follow shared enhancement speed and duration formula");
 
@@ -172,8 +174,8 @@ function main() {
   player.enhancementSkill.level = 8;
   player.enhancementSkillLevel = 8;
   player.inventory.items = [
-    createEquipment("equip.test_blade", 1),
-    createEquipment("equip.test_blade", 2),
+    createEquipment("equip.test_blade", 1, { itemInstanceId: "test-blade-a" }),
+    createEquipment("equip.test_blade", 2, { itemInstanceId: "test-blade-b" }),
   ];
 
   player.enhancementJob = {
@@ -181,7 +183,7 @@ function main() {
     jobType: "enhancement",
     target: {
       source: "inventory",
-      slotIndex: 0,
+      itemInstanceId: "test-blade-a",
     },
     item: createEquipment("equip.test_blade", 1),
     targetItemId: "equip.test_blade",

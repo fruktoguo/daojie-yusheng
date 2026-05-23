@@ -79,6 +79,17 @@ const BASELINE_MARKET_STORAGE_ITEMS = Object.freeze([
     },
 ]);
 /**
+ * 解析背包物品的稳定实例引用；脚本本地可用数组查找，协议目标只能发送 itemInstanceId。
+ */
+function itemRefAt(player, slotIndex, label) {
+    const entry = player?.inventory?.items?.[slotIndex] ?? null;
+    const itemInstanceId = typeof entry?.itemInstanceId === 'string' ? entry.itemInstanceId.trim() : '';
+    if (!entry || !itemInstanceId) {
+        throw new Error(`missing itemInstanceId for ${label}`);
+    }
+    return { itemInstanceId };
+}
+/**
  * 记录default端口。
  */
 const defaultPort = Number(process.env.SERVER_SMOKE_PORT ?? 3112);
@@ -206,7 +217,7 @@ async function connectAndMutate(token) {
     if (mapSlot < 0) {
         throw new Error('map unlock item missing before persistence mutation');
     }
-    socket.emit(shared_1.C2S.UseItem, { slotIndex: mapSlot });
+    socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(state.player, mapSlot, 'bamboo map') });
     await waitForCondition(async () => {
 /**
  * 记录玩家状态。
@@ -226,7 +237,7 @@ async function connectAndMutate(token) {
         throw new Error('spirit_stone missing before persistence aura mutation');
     }
     let persistedAuraTile = null;
-    socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
+    socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(state.player, spiritStoneSlot, 'spirit stone') });
     await waitForCondition(async () => {
 /**
  * 记录玩家状态。
@@ -277,7 +288,7 @@ async function connectAndMutate(token) {
         throw new Error('rat_tail missing before persistence drop');
     }
     socket.emit(shared_1.C2S.DropItem, {
-        slotIndex: dropSlot,
+        itemRef: itemRefAt(dropState.player, dropSlot, 'rat tail drop'),
         count: 3,
     });
     await waitForCondition(async () => {

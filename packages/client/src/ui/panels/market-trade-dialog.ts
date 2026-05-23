@@ -117,7 +117,7 @@ export class MarketTradeDialog {
       : rawDialog.unitPrice;
     const dialog: MarketTradeDialogState = { ...rawDialog, unitPrice };
     const matchedInventoryCount = isAuctionBid ? 0 : p.findMatchingInventoryCount(entry.item);
-    const matchedSlotIndex = isAuctionBid ? null : p.findMatchingInventorySlot(entry.item);
+    const matchedItemInstanceId = isAuctionBid ? null : p.findMatchingInventoryItemInstanceId(entry.item);
     const isBuy = dialog.kind === 'buy';
     const conflictOrder = isAuctionBid ? null : p.findConflictingOwnOrder(entry.itemKey, dialog.kind);
     const ownedCurrency = p.findInventoryItemCountByItemId(currencyItemId);
@@ -130,7 +130,7 @@ export class MarketTradeDialog {
     const insufficientCurrency = isBuy && totalCost !== null && totalCost > ownedCurrency;
     const insufficientStepQuantity = !isAuctionBid && quantityMax <= 0;
     const disabled = Boolean(conflictOrder)
-      || ((!isBuy && (matchedSlotIndex === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
+      || ((!isBuy && (matchedItemInstanceId === null || matchedInventoryCount <= 0)) || insufficientCurrency || insufficientStepQuantity || totalCost === null);
     const hints: string[] = [];
     if (isAuctionBid) {
       hints.push(`<div class="market-action-hint">${escapeHtml(t('market.trade.hint.min-bid', { unitPrice: p.formatMarketUnitPrice(minUnitPrice), currencyName }))}</div>`);
@@ -407,13 +407,9 @@ export class MarketTradeDialog {
         this.syncTradeDialogOverlay();
         return;
       }
-      const slotIndex = p.findMatchingInventorySlot(selected.item);
-      if (slotIndex === null) return;
-      const matchedInventory = p.inventory.items[slotIndex];
-      const expectedItemInstanceId = matchedInventory && typeof matchedInventory.itemInstanceId === 'string' && matchedInventory.itemInstanceId.length > 0
-        ? matchedInventory.itemInstanceId
-        : undefined;
-      p.callbacks?.onCreateSellOrder(slotIndex, quantity, unitPrice, expectedItemInstanceId);
+      const itemInstanceId = p.findMatchingInventoryItemInstanceId(selected.item);
+      if (!itemInstanceId) return;
+      p.callbacks?.onCreateSellOrder(itemInstanceId, quantity, unitPrice);
       p.tradeDialog = null;
       this.syncTradeDialogOverlay();
     }));

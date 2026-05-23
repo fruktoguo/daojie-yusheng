@@ -199,7 +199,7 @@ class WorldGatewayMarketHelper {
         }
         try {
             const result = await this.gateway.marketRuntimeService.createSellOrder(playerId, {
-                slotIndex: payload?.slotIndex,
+                itemInstanceId: resolveInventoryItemInstanceId(payload),
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
                 listingMode: payload?.listingMode,
@@ -344,7 +344,7 @@ class WorldGatewayMarketHelper {
         }
         try {
             const result = await this.gateway.marketRuntimeService.sellNow(playerId, {
-                slotIndex: payload?.slotIndex,
+                itemInstanceId: resolveInventoryItemInstanceId(payload),
                 quantity: payload?.quantity,
             });
             await this.gateway.flushMarketResult(result);
@@ -431,3 +431,13 @@ class WorldGatewayMarketHelper {
 }
 
 export { WorldGatewayMarketHelper };
+
+function resolveInventoryItemInstanceId(payload: any): string {
+    return normalizeInventoryItemInstanceId(payload?.itemRef?.itemInstanceId)
+        || normalizeInventoryItemInstanceId(payload?.itemInstanceId)
+        || normalizeInventoryItemInstanceId(payload?.expectedItemInstanceId);
+}
+
+function normalizeInventoryItemInstanceId(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}

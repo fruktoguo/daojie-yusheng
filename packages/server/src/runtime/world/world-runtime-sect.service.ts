@@ -76,7 +76,7 @@ class WorldRuntimeSectService {
         this.databasePoolProvider = databasePoolProvider;
     }
 
-    dispatchCreateSect(playerId, slotIndex, item, deps, payload = null) {
+    dispatchCreateSect(playerId, itemInstanceId, item, deps, payload = null) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (normalizeOptionalString(player.sectId)) {
             throw new BadRequestException('你已经有所属宗门');
@@ -134,7 +134,7 @@ class WorldRuntimeSectService {
         this.attachSectPortals(sect, entranceInstance, sectInstance);
         this.sectsById.set(sectId, sect);
         this.playerSectId.set(playerId, sectId);
-        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
             this.playerRuntimeService.setPlayerSectId(playerId, sectId);
         } else {

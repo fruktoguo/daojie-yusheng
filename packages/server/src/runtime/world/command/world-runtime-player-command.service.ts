@@ -258,7 +258,7 @@ export class WorldRuntimePlayerCommandService {
         }
         switch (command.kind) {
             case 'useItem':
-                this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.slotIndex, deps, command.payload);
+                this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.itemInstanceId, deps, command.payload);
                 return;
             case 'createFormation':
                 deps.worldRuntimeFormationService.dispatchCreateFormation(playerId, command.payload, deps);
@@ -270,10 +270,10 @@ export class WorldRuntimePlayerCommandService {
                 deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, command.payload, deps);
                 return;
             case 'equip':
-                return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.slotIndex, deps, command.expectedItemInstanceId);
+                return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.itemInstanceId, deps);
                 return;
             case 'dropItem':
-                this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.slotIndex, command.count, deps);
+                this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.itemInstanceId, command.count, deps);
                 return;
             case 'moveTo':
                 this.worldRuntimeNavigationService.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint, deps);

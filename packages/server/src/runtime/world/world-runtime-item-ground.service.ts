@@ -32,18 +32,18 @@ export class WorldRuntimeItemGroundService {
     /**
  * dispatchDropItem：判断Drop道具是否满足条件。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 物品实例 ID。
  * @param count 数量。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
-    dispatchDropItem(playerId, slotIndex, count, deps) {
+    dispatchDropItem(playerId, itemInstanceId, count, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const item = this.playerRuntimeService.splitInventoryItem(playerId, slotIndex, count);
+        const item = this.playerRuntimeService.splitInventoryItemByInstanceId(playerId, itemInstanceId, count);
         const displayItem = normalizeGroundNoticeItem(this.playerRuntimeService, item);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const pile = instance.dropGroundItem(player.x, player.y, displayItem);

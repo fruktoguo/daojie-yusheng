@@ -49,6 +49,17 @@ const skillRange = 3;
  */
 const boostedVitalCap = 999;
 /**
+ * 解析背包物品的稳定实例引用。协议目标不能发送格子下标。
+ */
+function itemRefAt(player, slotIndex, label) {
+    const entry = player?.inventory?.items?.[slotIndex] ?? null;
+    const itemInstanceId = typeof entry?.itemInstanceId === 'string' ? entry.itemInstanceId.trim() : '';
+    if (!entry || !itemInstanceId) {
+        throw new Error(`missing itemInstanceId for ${label}`);
+    }
+    return { itemInstanceId };
+}
+/**
  * 串联执行脚本主流程。
  */
 async function main() {
@@ -173,7 +184,7 @@ async function main() {
         if (bookSlot < 0) {
             throw new Error(`monster combat smoke missing technique book ${skillBookItemId}`);
         }
-        socket.emit(shared_1.C2S.UseItem, { slotIndex: bookSlot });
+        socket.emit(shared_1.C2S.UseItem, { itemRef: itemRefAt(stateWithBook.player, bookSlot, skillBookItemId) });
         await waitFor(async () => {
 /**
  * 记录状态。

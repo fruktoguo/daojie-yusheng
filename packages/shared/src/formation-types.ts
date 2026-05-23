@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey } from './qi';
+import type { InventoryItemRefView } from './inventory-item-ref';
 
 export type FormationId = 'spirit_gathering' | 'earth_stabilizing' | 'warding_barrier' | 'sect_guardian_barrier' | string;
 
@@ -99,7 +100,7 @@ export interface FormationSetup {
 }
 
 export interface FormationCreatePayload {
-  slotIndex: number;
+  itemRef: InventoryItemRefView;
   formationId: FormationId;
   setup?: Partial<FormationSetup>;
   spiritStoneCount?: number;

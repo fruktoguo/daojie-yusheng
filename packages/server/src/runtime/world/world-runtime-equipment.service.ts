@@ -33,17 +33,17 @@ export class WorldRuntimeEquipmentService {
     /**
  * dispatchEquipItem：判断Equip道具是否满足条件。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 物品实例 ID。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Equip道具相关状态。
  */
 
-    async dispatchEquipItem(playerId, slotIndex, deps, expectedItemInstanceId?: string) {
+    async dispatchEquipItem(playerId, itemInstanceId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
+        const item = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
         if (!item) {
-            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包物品不存在：${itemInstanceId || 'unknown'}`);
         }
         const normalizedItem = deps.contentTemplateRepository?.normalizeItem
             ? deps.contentTemplateRepository.normalizeItem(item)
@@ -55,7 +55,7 @@ export class WorldRuntimeEquipmentService {
         if (lockReason) {
             throw new BadRequestException(lockReason);
         }
-        this.playerRuntimeService.equipItem(playerId, slotIndex, expectedItemInstanceId);
+        this.playerRuntimeService.equipItemByInstanceId(playerId, itemInstanceId);
         const n1 = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n1.text, n1.kind, undefined, undefined, n1.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);

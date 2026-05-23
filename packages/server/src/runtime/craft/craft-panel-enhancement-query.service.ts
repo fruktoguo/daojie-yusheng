@@ -6,6 +6,7 @@
 import { Injectable } from '@nestjs/common';
 import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
+import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 
 /** 强化面板只读查询服务：负责强化面板状态与候选列表构造。 */
 @Injectable()
@@ -88,8 +89,13 @@ export class CraftPanelEnhancementQueryService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const candidates = [];
-        player.inventory.items.forEach((item, slotIndex) => {
-            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', slotIndex }, item, enhancementConfigs);
+        player.inventory.items.forEach((item) => {
+            assignItemInstanceIdIfNeeded(item);
+            const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
+            if (!itemInstanceId) {
+                return;
+            }
+            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, item, enhancementConfigs);
             if (candidate) {
                 candidates.push(candidate);
             }
@@ -208,22 +214,28 @@ function getEquippedItem(player, slot) {
 function buildProtectionCandidates(player, ref, item, config) {
     const candidates = [];
     const targetProtectionItemId = config?.protectionItemId ?? item.itemId;
-    player.inventory.items.forEach((entry, slotIndex) => {
+    const targetInstanceId = ref.source === 'inventory' ? normalizeInventoryItemInstanceId(ref.itemInstanceId) : '';
+    player.inventory.items.forEach((entry) => {
         if (!entry || !isEligibleProtectionItem(entry, targetProtectionItemId, item.itemId)) {
             return;
         }
-        if (ref.source === 'inventory' && ref.slotIndex === slotIndex) {
+        assignItemInstanceIdIfNeeded(entry);
+        const itemInstanceId = normalizeInventoryItemInstanceId(entry.itemInstanceId);
+        if (!itemInstanceId) {
+            return;
+        }
+        if (targetInstanceId && itemInstanceId === targetInstanceId) {
             const entryCount = Math.max(0, Math.floor(Number(entry.count) || 0));
             if (entryCount < 2) {
                 return;
             }
             const summary = summarizeEnhancementItem(entry);
             summary.count = entryCount - 1;
-            candidates.push({ ref: { source: 'inventory', slotIndex }, item: summary });
+            candidates.push({ ref: { source: 'inventory', itemInstanceId }, item: summary });
             return;
         }
         candidates.push({
-            ref: { source: 'inventory', slotIndex },
+            ref: { source: 'inventory', itemInstanceId },
             item: summarizeEnhancementItem(entry),
         });
     });
@@ -277,6 +289,7 @@ function cloneItem(item) {
 function summarizeEnhancementItem(item) {
     return {
         itemId: item.itemId,
+        itemInstanceId: normalizeInventoryItemInstanceId(item.itemInstanceId) || undefined,
         name: item.name,
         type: item.type,
         count: Math.max(0, Math.floor(Number(item.count) || 0)),
@@ -285,6 +298,10 @@ function summarizeEnhancementItem(item) {
         equipSlot: item.equipSlot,
         enhanceLevel: normalizeEnhanceLevel(item.enhanceLevel),
     };
+}
+
+function normalizeInventoryItemInstanceId(value) {
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 /**
  * clonePartialNumericStats：构建PartialNumericStat。

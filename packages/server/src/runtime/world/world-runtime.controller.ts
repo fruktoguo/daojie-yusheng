@@ -379,18 +379,16 @@ export class WorldRuntimeController {
         const payload = body && typeof body === 'object' ? body : {};
         return {
             queued: true,
-            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, {
-                ...payload,
-                slotIndex: Number.isFinite(payload.slotIndex) ? Number(payload.slotIndex) : -1,
-            }, this.worldRuntimeService),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, payload, this.worldRuntimeService),
         };
     }
     /** dropItem：提交丢弃物品请求，落地逻辑由实例侧执行。 */
     @Post('players/:playerId/drop-item')
     dropItem(@Param('playerId') playerId, @Body() body) {
+        const payload = body && typeof body === 'object' ? body : {};
         return {
             queued: true,
-            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDropItem(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, Number.isFinite(body.count) ? Number(body.count) : undefined, this.worldRuntimeService),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDropItem(playerId, payload, Number.isFinite(payload.count) ? Number(payload.count) : undefined, this.worldRuntimeService),
         };
     }
     /** takeGround：提交拾取地面或容器物品的请求。 */
@@ -404,9 +402,10 @@ export class WorldRuntimeController {
     /** equipItem：提交装备请求。 */
     @Post('players/:playerId/equip')
     equipItem(@Param('playerId') playerId, @Body() body) {
+        const payload = body && typeof body === 'object' ? body : {};
         return {
             queued: true,
-            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, this.worldRuntimeService),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(playerId, payload, this.worldRuntimeService),
         };
     }
     /** unequipItem：提交卸下装备请求。 */
@@ -553,7 +552,8 @@ export class WorldRuntimeController {
     @Post('players/:playerId/market/create-sell-order')
     async createMarketSellOrder(@Param('playerId') playerId, @Body() body) {
         return this.marketRuntimeService.createSellOrder(playerId, {
-            slotIndex: Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : Number.NaN,
+            itemRef: body?.itemRef,
+            itemInstanceId: typeof body?.itemInstanceId === 'string' ? body.itemInstanceId : undefined,
             quantity: Number.isFinite(body.quantity) ? Number(body.quantity) : Number.NaN,
             unitPrice: Number.isFinite(body.unitPrice) ? Number(body.unitPrice) : Number.NaN,
         });
@@ -580,7 +580,8 @@ export class WorldRuntimeController {
     @Post('players/:playerId/market/sell')
     async sellMarketItem(@Param('playerId') playerId, @Body() body) {
         return this.marketRuntimeService.sellNow(playerId, {
-            slotIndex: Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : Number.NaN,
+            itemRef: body?.itemRef,
+            itemInstanceId: typeof body?.itemInstanceId === 'string' ? body.itemInstanceId : undefined,
             quantity: Number.isFinite(body.quantity) ? Number(body.quantity) : Number.NaN,
         });
     }

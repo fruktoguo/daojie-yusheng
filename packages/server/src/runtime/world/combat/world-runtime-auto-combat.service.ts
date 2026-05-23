@@ -208,7 +208,7 @@ function findAutoBattlePlayerSkill(player, skillId, skillLookup = null) {
     return findPlayerSkill(player, skillId);
 }
 
-function findAutoUsePillInventorySlot(player, itemId) {
+function findAutoUsePillInventoryItemRef(player, itemId) {
     const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
     if (!normalizedItemId || !Array.isArray(player?.inventory?.items)) {
         return null;
@@ -222,7 +222,13 @@ function findAutoUsePillInventorySlot(player, itemId) {
         if (count <= 0 || !isAutoUsePillCandidate(item)) {
             continue;
         }
-        return { item, slotIndex: index };
+        const itemInstanceId = typeof item.itemInstanceId === 'string' && item.itemInstanceId.trim().length > 0
+            ? item.itemInstanceId.trim()
+            : '';
+        if (!itemInstanceId) {
+            continue;
+        }
+        return { item, itemInstanceId };
     }
     return null;
 }
@@ -312,12 +318,12 @@ export class WorldRuntimeAutoCombatService {
                 continue;
             }
             for (const config of configs) {
-                const match = findAutoUsePillInventorySlot(player, config?.itemId);
+                const match = findAutoUsePillInventoryItemRef(player, config?.itemId);
                 if (!match || !shouldAutoUsePill(player, match.item, config?.conditions)) {
                     continue;
                 }
                 try {
-                    this.playerRuntimeService.useItem(playerId, match.slotIndex);
+                    this.playerRuntimeService.useItemByInstanceId(playerId, match.itemInstanceId);
                     if (typeof deps.refreshQuestStates === 'function') {
                         deps.refreshQuestStates(playerId);
                     }
@@ -354,12 +360,12 @@ export class WorldRuntimeAutoCombatService {
                 continue;
             }
             for (const config of configs) {
-                const match = findAutoUsePillInventorySlot(player, config?.itemId);
+                const match = findAutoUsePillInventoryItemRef(player, config?.itemId);
                 if (!match || !shouldAutoUsePill(player, match.item, config?.conditions)) {
                     continue;
                 }
                 try {
-                    this.playerRuntimeService.useItem(playerId, match.slotIndex);
+                    this.playerRuntimeService.useItemByInstanceId(playerId, match.itemInstanceId);
                     if (typeof deps.refreshQuestStates === 'function') {
                         deps.refreshQuestStates(playerId);
                     }

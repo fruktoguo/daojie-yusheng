@@ -17,6 +17,10 @@ type SocialEconomySenderDeps = {
 
   emitEvent: SocketEmitEvent;
 };
+
+function buildInventoryItemRef(itemInstanceId: string): { itemInstanceId: string } {
+  return { itemInstanceId };
+}
 /**
  * createSocketSocialEconomySender：构建并返回目标对象。
  * @param deps SocialEconomySenderDeps 运行时依赖。
@@ -207,7 +211,7 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     },
     /**
  * sendCreateMarketSellOrder：构建sendCreate坊市Sell订单。
- * @param slotIndex number 参数说明。
+ * @param itemInstanceId string 背包物品实例 ID。
  * @param quantity number 参数说明。
  * @param unitPrice number 参数说明。
  * @returns 无返回值，直接更新sendCreate坊市Sell订单相关状态。
@@ -215,21 +219,19 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
 
 
     sendCreateMarketSellOrder(
-      slotIndex: number,
+      itemInstanceId: string,
       quantity: number,
       unitPrice: number,
       listingMode?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['listingMode'],
       buyoutPrice?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['buyoutPrice'],
-      expectedItemInstanceId?: string,
       auctionDurationHours?: ClientToServerEventPayload<typeof C2S.CreateMarketSellOrder>['auctionDurationHours'],
     ): void {
       deps.emitEvent(C2S.CreateMarketSellOrder, {
-        slotIndex,
+        itemRef: buildInventoryItemRef(itemInstanceId),
         quantity,
         unitPrice,
         listingMode,
         buyoutPrice,
-        ...(expectedItemInstanceId ? { expectedItemInstanceId } : {}),
         ...(auctionDurationHours !== undefined ? { auctionDurationHours } : {}),
       });
     },
@@ -281,17 +283,16 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
     },
     /**
  * sendSellMarketItem：处理sendSell坊市道具并更新相关状态。
- * @param slotIndex number 参数说明。
+ * @param itemInstanceId string 背包物品实例 ID。
  * @param quantity number 参数说明。
  * @returns 无返回值，直接更新sendSell坊市道具相关状态。
  */
 
 
-    sendSellMarketItem(slotIndex: number, quantity: number, expectedItemInstanceId?: string): void {
+    sendSellMarketItem(itemInstanceId: string, quantity: number): void {
       deps.emitEvent(C2S.SellMarketItem, {
-        slotIndex,
+        itemRef: buildInventoryItemRef(itemInstanceId),
         quantity,
-        ...(expectedItemInstanceId ? { expectedItemInstanceId } : {}),
       });
     },
     /**

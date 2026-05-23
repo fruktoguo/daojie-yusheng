@@ -1016,8 +1016,8 @@ export class WorldRuntimeService {
         dispatchSystemCommand(command) {
         this.worldRuntimeTickDispatchService.dispatchSystemCommand(command, this);
     }
-        dispatchUseItem(playerId, slotIndex) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchUseItem(playerId, slotIndex, this);
+        dispatchUseItem(playerId, itemInstanceId) {
+        this.worldRuntimeGameplayWriteFacadeService.dispatchUseItem(playerId, itemInstanceId, this);
     }
         dispatchBreakthrough(playerId) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchBreakthrough(playerId, this);
@@ -1031,8 +1031,8 @@ export class WorldRuntimeService {
         async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, this);
     }
-        dispatchDropItem(playerId, slotIndex, count) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchDropItem(playerId, slotIndex, count, this);
+        dispatchDropItem(playerId, itemInstanceId, count) {
+        this.worldRuntimeGameplayWriteFacadeService.dispatchDropItem(playerId, itemInstanceId, count, this);
     }
         async dispatchTakeGround(playerId, sourceId, itemKey) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchTakeGround(playerId, sourceId, itemKey, this);
@@ -1046,8 +1046,8 @@ export class WorldRuntimeService {
         async dispatchNpcInteraction(playerId, npcId) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchNpcInteraction(playerId, npcId, this);
     }
-        async dispatchEquipItem(playerId, slotIndex) {
-        return this.worldRuntimeGameplayWriteFacadeService.dispatchEquipItem(playerId, slotIndex, this);
+        async dispatchEquipItem(playerId, itemInstanceId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchEquipItem(playerId, itemInstanceId, this);
     }
         async dispatchUnequipItem(playerId, slot) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchUnequipItem(playerId, slot, this);

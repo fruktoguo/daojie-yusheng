@@ -9,7 +9,6 @@ import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 
 const {
-    normalizeSlotIndex,
     normalizeEquipSlot,
     normalizeTechniqueId,
     normalizePositiveCount,
@@ -78,16 +77,16 @@ export class WorldRuntimePlayerCommandEnqueueService {
     /**
  * enqueueUseItem：处理Use道具并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndexInput 参数说明。
+ * @param payloadInput 背包物品操作载荷。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Use道具相关状态。
  */
 
-    enqueueUseItem(playerId, slotIndexInput, deps) {
-        const payload = typeof slotIndexInput === 'object' && slotIndexInput !== null ? slotIndexInput : { slotIndex: slotIndexInput };
+    enqueueUseItem(playerId, payloadInput, deps) {
+        const payload = typeof payloadInput === 'object' && payloadInput !== null ? payloadInput : {};
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'useItem',
-            slotIndex: normalizeSlotIndex(payload?.slotIndex),
+            itemInstanceId: this.resolveInventoryItemInstanceId(playerId, payload, 'useItem'),
             payload: { ...(payload ?? {}) },
         }, deps);
     }
@@ -115,17 +114,18 @@ export class WorldRuntimePlayerCommandEnqueueService {
     /**
  * enqueueDropItem：处理Drop道具并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndexInput 参数说明。
+ * @param payloadInput 背包物品操作载荷。
  * @param countInput 参数说明。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
-    enqueueDropItem(playerId, slotIndexInput, countInput, deps) {
+    enqueueDropItem(playerId, payloadInput, countInput, deps) {
+        const payload = typeof payloadInput === 'object' && payloadInput !== null ? payloadInput : { count: countInput };
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'dropItem',
-            slotIndex: normalizeSlotIndex(slotIndexInput),
-            count: normalizePositiveCount(countInput),
+            itemInstanceId: this.resolveInventoryItemInstanceId(playerId, payload, 'dropItem'),
+            count: normalizePositiveCount(payload?.count ?? countInput),
         }, deps);
     }
     /**
@@ -183,16 +183,16 @@ export class WorldRuntimePlayerCommandEnqueueService {
     /**
  * enqueueEquip：处理Equip并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndexInput 参数说明。
+ * @param payloadInput 背包物品操作载荷。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Equip相关状态。
  */
 
-    enqueueEquip(playerId, slotIndexInput, deps, expectedItemInstanceId?: string) {
+    enqueueEquip(playerId, payloadInput, deps, expectedItemInstanceId?: string) {
+        const payload = typeof payloadInput === 'object' && payloadInput !== null ? payloadInput : { itemInstanceId: expectedItemInstanceId };
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'equip',
-            slotIndex: normalizeSlotIndex(slotIndexInput),
-            expectedItemInstanceId,
+            itemInstanceId: this.resolveInventoryItemInstanceId(playerId, payload, 'equip'),
         }, deps);
     }
     /**
@@ -438,6 +438,23 @@ export class WorldRuntimePlayerCommandEnqueueService {
         return deps.getPlayerViewOrThrow(playerId);
     }
     /**
+* resolveInventoryItemInstanceId：从玩家输入中的背包目标读取稳定实例 ID。
+ * @param playerId 玩家 ID。
+ * @param payload 载荷参数。
+ * @param eventName 事件名。
+ * @returns itemInstanceId。
+ */
+
+    resolveInventoryItemInstanceId(playerId, payload, eventName) {
+        const direct = normalizeInventoryItemInstanceId(payload?.itemRef?.itemInstanceId)
+            || normalizeInventoryItemInstanceId(payload?.itemInstanceId)
+            || normalizeInventoryItemInstanceId(payload?.expectedItemInstanceId);
+        if (direct) {
+            return direct;
+        }
+        throw new BadRequestException('背包物品目标缺失，请重新选择。');
+    }
+    /**
  * enqueueCombatTargetCommand：读取战斗目标Command并返回结果。
  * @param playerId 玩家 ID。
  * @param kind 参数说明。
@@ -517,3 +534,7 @@ export class WorldRuntimePlayerCommandEnqueueService {
             : {};
     }
 };
+
+function normalizeInventoryItemInstanceId(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}

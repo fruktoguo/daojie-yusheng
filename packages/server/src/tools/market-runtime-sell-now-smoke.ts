@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     runtimeOwnerId: 'runtime:seller',
     sessionEpoch: 11,
     instanceId: 'instance:market-sell',
-    inventory: { items: [{ itemId: 'rat_tail', count: 3, name: '鼠尾' }] },
+    inventory: { items: [{ itemId: 'rat_tail', count: 3, name: '鼠尾', itemInstanceId: 'seller-rat-tail-instance' }] },
     wallet: { balances: [{ walletType: 'spirit_stone', balance: 2, frozenBalance: 0, version: 1 }] },
   };
   const buyerPlayer = {
@@ -40,11 +40,11 @@ async function main(): Promise<void> {
       },
     } as never,
     {
-      peekInventoryItem(requestedPlayerId: string, slotIndex: number) {
-        if (requestedPlayerId !== sellerId || slotIndex !== 0) {
+      peekInventoryItemByInstanceId(requestedPlayerId: string, itemInstanceId: string) {
+        if (requestedPlayerId !== sellerId || itemInstanceId !== 'seller-rat-tail-instance') {
           return null;
         }
-        return { itemId: 'rat_tail', count: 3, name: '鼠尾' };
+        return { itemId: 'rat_tail', count: 3, name: '鼠尾', itemInstanceId: 'seller-rat-tail-instance' };
       },
       snapshot(requestedPlayerId: string) {
         return runtimePlayers.has(requestedPlayerId) ? structuredClone(runtimePlayers.get(requestedPlayerId)) : null;
@@ -64,13 +64,13 @@ async function main(): Promise<void> {
           runtimePlayers.set(String(snapshot.playerId), structuredClone(snapshot));
         }
       },
-      splitInventoryItem(requestedPlayerId: string, slotIndex: number, quantity: number) {
-        if (requestedPlayerId !== sellerId || slotIndex !== 0 || quantity !== 2) {
-          throw new Error(`unexpected split args: ${JSON.stringify({ requestedPlayerId, slotIndex, quantity })}`);
+      splitInventoryItemByInstanceId(requestedPlayerId: string, itemInstanceId: string, quantity: number) {
+        if (requestedPlayerId !== sellerId || itemInstanceId !== 'seller-rat-tail-instance' || quantity !== 2) {
+          throw new Error(`unexpected split args: ${JSON.stringify({ requestedPlayerId, itemInstanceId, quantity })}`);
         }
         const player = runtimePlayers.get(requestedPlayerId)!;
         player.inventory.items[0].count = Number(player.inventory.items[0].count ?? 0) - Number(quantity);
-        return { itemId: 'rat_tail', count: 2, name: '鼠尾' };
+        return { itemId: 'rat_tail', count: 2, name: '鼠尾', itemInstanceId };
       },
       creditWallet(requestedPlayerId: string, walletType: string, amount = 1) {
         if (requestedPlayerId !== sellerId || walletType !== 'spirit_stone') {
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
       updatedAt: 1,
     },
   ];
-  const result = await service.sellNow(sellerId, { slotIndex: 0, quantity: 2 });
+  const result = await service.sellNow(sellerId, { itemRef: { itemInstanceId: 'seller-rat-tail-instance' }, quantity: 2 });
   assert.equal(result.notices.some((entry) => entry.playerId === sellerId), true);
   assert.equal(durableCalls.length, 0);
   assert.equal(sellerPlayer.inventory.items[0].count, 1);

@@ -290,11 +290,13 @@ function normalizeEnhancementTargetRef(value: unknown): EnhancementTargetRef | n
   }
   const candidate = value as Partial<EnhancementTargetRef>;
   if (candidate.source === 'inventory') {
-    const slotIndex = Math.floor(Number(candidate.slotIndex));
-    if (!Number.isInteger(slotIndex) || slotIndex < 0) {
+    const itemInstanceId = typeof candidate.itemInstanceId === 'string'
+      ? candidate.itemInstanceId.trim()
+      : '';
+    if (!itemInstanceId) {
       return null;
     }
-    return { source: 'inventory', slotIndex };
+    return { source: 'inventory', itemInstanceId };
   }
   if (candidate.source === 'equipment' && typeof candidate.slot === 'string') {
     return { source: 'equipment', slot: candidate.slot as EnhancementTargetRef['slot'] };

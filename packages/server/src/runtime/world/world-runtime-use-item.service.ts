@@ -61,17 +61,17 @@ export class WorldRuntimeUseItemService {
     /**
  * dispatchUseItem：判断Use道具是否满足条件。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 物品实例 ID。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Use道具相关状态。
  */
 
-    dispatchUseItem(playerId, slotIndex, deps, payload = null) {
+    dispatchUseItem(playerId, itemInstanceId, deps, payload = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
+        const item = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
         if (!item) {
-            throw new NotFoundException(`背包槽位不存在：${slotIndex}`);
+            throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
         }
         const count = normalizeUseItemCount(payload?.count, item);
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
@@ -80,11 +80,11 @@ export class WorldRuntimeUseItemService {
             return;
         }
         if (item.useBehavior === 'create_sect') {
-            deps.worldRuntimeSectService.dispatchCreateSect(playerId, slotIndex, item, deps, payload);
+            deps.worldRuntimeSectService.dispatchCreateSect(playerId, itemInstanceId, item, deps, payload);
             return;
         }
         if (item.useBehavior === CURRENT_RESPAWN_BIND_USE_BEHAVIOR) {
-            this.handleCurrentRespawnBindItem(playerId, slotIndex, item, deps);
+            this.handleCurrentRespawnBindItem(playerId, itemInstanceId, item, deps);
             return;
         }
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
@@ -95,21 +95,21 @@ export class WorldRuntimeUseItemService {
                 : [];
         if (mapUnlockIds.length > 0) {
             const resolved = this.resolveMapUnlockTargets(mapUnlockIds);
-            this.handleMapUnlockItem(playerId, slotIndex, item, resolved.mapIds, deps, resolved.label);
+            this.handleMapUnlockItem(playerId, itemInstanceId, item, resolved.mapIds, deps, resolved.label);
             return;
         }
         if (typeof item.respawnBindMapId === 'string' && item.respawnBindMapId.trim()) {
-            this.handleRespawnBindItem(playerId, slotIndex, item, item.respawnBindMapId, deps);
+            this.handleRespawnBindItem(playerId, itemInstanceId, item, item.respawnBindMapId, deps);
             return;
         }
         if (this.resolveTileResourceGains(item).length > 0) {
-            this.handleTileResourceItem(playerId, slotIndex, item, deps, count);
+            this.handleTileResourceItem(playerId, itemInstanceId, item, deps, count);
             return;
         }
         if (count > 1) {
             throw new BadRequestException('该物品不支持批量使用');
         }
-        this.playerRuntimeService.useItem(playerId, slotIndex);
+        this.playerRuntimeService.useItemByInstanceId(playerId, itemInstanceId);
         if (learnedTechniqueId) {
             deps.advanceLearnTechniqueQuest(playerId, learnedTechniqueId);
         }
@@ -122,7 +122,7 @@ export class WorldRuntimeUseItemService {
     /**
  * handleMapUnlockItem：处理地图Unlock道具并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 物品实例 ID。
  * @param item 道具。
  * @param mapUnlockIds mapUnlock ID 集合。
  * @param deps 运行时依赖。
@@ -166,7 +166,7 @@ export class WorldRuntimeUseItemService {
             label: expandedLabel,
         };
     }
-    handleMapUnlockItem(playerId, slotIndex, item, mapUnlockIds, deps, targetLabelOverride = '') {
+    handleMapUnlockItem(playerId, itemInstanceId, item, mapUnlockIds, deps, targetLabelOverride = '') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         for (const mapId of mapUnlockIds) {
@@ -182,7 +182,7 @@ export class WorldRuntimeUseItemService {
                 this.playerRuntimeService.unlockMap(playerId, mapId);
             }
         }
-        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         deps.refreshQuestStates(playerId);
         const targetLabel = targetLabelOverride || (mapUnlockIds.length === 1
             ? this.templateRepository.getOrThrow(mapUnlockIds[0]).name
@@ -193,14 +193,14 @@ export class WorldRuntimeUseItemService {
     /**
  * handleRespawnBindItem：处理复活点绑定道具。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 物品实例 ID。
  * @param item 道具。
  * @param mapId 地图 ID。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新复活绑定相关状态。
  */
 
-    handleRespawnBindItem(playerId, slotIndex, item, mapId, deps) {
+    handleRespawnBindItem(playerId, itemInstanceId, item, mapId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
@@ -211,13 +211,13 @@ export class WorldRuntimeUseItemService {
         if (!changed) {
             throw new BadRequestException('已经绑定该复活点');
         }
-        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         deps.refreshQuestStates(playerId);
         const targetLabel = this.templateRepository.getOrThrow(normalizedMapId).name;
         const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${targetLabel}`, { vars: { mapName: targetLabel }, pills: [{ key: 'mapName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }
-    handleCurrentRespawnBindItem(playerId, slotIndex, item, deps) {
+    handleCurrentRespawnBindItem(playerId, itemInstanceId, item, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const location = deps.getPlayerLocationOrThrow(playerId);
@@ -231,7 +231,7 @@ export class WorldRuntimeUseItemService {
         if (!changed) {
             throw new BadRequestException('已经绑定该复活点');
         }
-        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         deps.refreshQuestStates(playerId);
         const n = buildStructuredNotice('success', 'notice.item.spawn-bound', `复活点与遁返落点已绑定：${target.mapName}`, { vars: { mapName: target.mapName }, pills: [{ key: 'mapName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
@@ -269,13 +269,13 @@ export class WorldRuntimeUseItemService {
     /**
  * handleTileResourceItem：处理Tile资源道具并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 物品实例 ID。
  * @param item 道具。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Tile资源道具相关状态。
  */
 
-    handleTileResourceItem(playerId, slotIndex, item, deps, count = 1) {
+    handleTileResourceItem(playerId, itemInstanceId, item, deps, count = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         const resourceGains = this.resolveTileResourceGains(item);
         const normalizedCount = normalizeUseItemCount(count, item);
@@ -297,7 +297,7 @@ export class WorldRuntimeUseItemService {
             }
             results.push({ ...entry, amount: totalGain, nextValue });
         }
-        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, normalizedCount);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, normalizedCount);
         deps.refreshQuestStates(playerId);
         deps.queuePlayerNotice(playerId, buildTileResourceUseNotice(item, normalizedCount, results), 'success');
     }
@@ -347,6 +347,10 @@ function normalizeUseItemCount(input, item) {
         throw new BadRequestException('物品数量不足');
     }
     return count;
+}
+
+function normalizeInventoryItemInstanceId(value) {
+    return typeof value === 'string' ? value.trim() : '';
 }
 
 function buildTileResourceUseNotice(item, count, results) {

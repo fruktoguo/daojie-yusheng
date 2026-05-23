@@ -180,7 +180,7 @@ function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTempla
     grade: template.grade,
     category: template.category,
     realmLv: template.realmLv,
-    skills: (template.skills ?? []) as Array<Record<string, unknown>>,
+    skills: (template.skills ?? []) as unknown as Array<Record<string, unknown>>,
     layers: (template.layers ?? []) as Array<Record<string, unknown> & { level: number; expToNext?: number; attrs?: Record<string, unknown>; specialStats?: Record<string, unknown>; qiProjection?: unknown }>,
   };
 }

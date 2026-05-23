@@ -54,7 +54,7 @@ type MainInventoryStateSourceOptions = {
  * sendUseItem：sendUse道具相关字段。
  */
 
-  sendUseItem: (slotIndex: number, count?: number, options?: { sectName?: string; sectMark?: string }) => void;
+  sendUseItem: (itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string }) => void;
   /**
  * sendCreateFormation：send布阵相关字段。
  */
@@ -69,17 +69,17 @@ type MainInventoryStateSourceOptions = {
  * sendDropItem：sendDrop道具相关字段。
  */
 
-  sendDropItem: (slotIndex: number, count: number) => void;
+  sendDropItem: (itemInstanceId: string, count: number) => void;
   /**
  * sendDestroyItem：sendDestroy道具相关字段。
  */
 
-  sendDestroyItem: (slotIndex: number, count: number) => void;
+  sendDestroyItem: (itemInstanceId: string, count: number) => void;
   /**
  * sendEquip：sendEquip相关字段。
  */
 
-  sendEquip: (slotIndex: number, expectedItemInstanceId?: string) => void;
+  sendEquip: (itemInstanceId: string) => void;
   /**
  * sendSortInventory：sendSort背包相关字段。
  */
@@ -107,10 +107,10 @@ export type MainInventoryStateSource = ReturnType<typeof createMainInventoryStat
 
 export function createMainInventoryStateSource(options: MainInventoryStateSourceOptions) {
   options.inventoryPanel.setCallbacks(
-    (slotIndex, count, useOptions) => options.sendUseItem(slotIndex, count, useOptions),
-    (slotIndex, count) => options.sendDropItem(slotIndex, count),
-    (slotIndex, count) => options.sendDestroyItem(slotIndex, count),
-    (slotIndex, expectedItemInstanceId) => options.sendEquip(slotIndex, expectedItemInstanceId),
+    (itemInstanceId, count, useOptions) => options.sendUseItem(itemInstanceId, count, useOptions),
+    (itemInstanceId, count) => options.sendDropItem(itemInstanceId, count),
+    (itemInstanceId, count) => options.sendDestroyItem(itemInstanceId, count),
+    (itemInstanceId) => options.sendEquip(itemInstanceId),
     () => options.sendSortInventory(),
     (payload) => options.sendCreateFormation(payload),
     (payload) => options.previewFormationRange?.(payload),

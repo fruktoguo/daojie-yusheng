@@ -329,7 +329,7 @@ export interface SyncedAlchemyPanelPatch {
   queue?: CraftQueueItemView[];
 }
 
-/** 强化目标引用，指向背包槽位或装备槽位。 */
+/** 强化目标引用，指向背包稳定实例或装备语义槽位。 */
 export interface EnhancementTargetRef {
 /**
  * source：来源相关字段。
@@ -337,29 +337,15 @@ export interface EnhancementTargetRef {
 
   source: 'inventory' | 'equipment';  
   /**
- * slotIndex：slotIndex相关字段。
+ * itemInstanceId：背包物品稳定实例 ID。source 为 inventory 时必须提供。
  */
 
-  slotIndex?: number;  
+  itemInstanceId?: string;
   /**
  * slot：slot相关字段。
  */
 
   slot?: EquipSlot;
-  /**
- * expectedItemInstanceId：客户端选中目标时看到的 itemInstanceId。
- *
- * 服务端在解析 target 后会按 ITEM_INSTANCE_ID_HARD_CHECK 配置进行乐观一致性校验：
- *   - 软模式：仅记录 warn 日志，不拒绝（迁移期默认）
- *   - 硬模式：mismatch 直接拒绝并提示玩家"目标已变更"
- *
- * 兼容规则：
- *   - 缺失（旧客户端）→ 跳过校验
- *   - target 实例 ID 是迁移期 fallback（含 ":"）→ 跳过校验
- *   - 非装备类目标可以缺省该字段
- */
-
-  expectedItemInstanceId?: string;
 }
 
 /** 强化所需材料的单项要求。 */

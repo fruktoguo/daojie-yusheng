@@ -31,6 +31,7 @@ export * from './entity-detail-types';
 export * from './gm-runtime-types';
 export * from './gm-env-check-types';
 export * from './item-runtime-types';
+export * from './inventory-item-ref';
 export * from './player-runtime-types';
 export * from './technique';
 export * from './geometry';

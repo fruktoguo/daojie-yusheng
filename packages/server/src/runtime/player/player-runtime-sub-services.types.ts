@@ -43,16 +43,22 @@ export interface PlayerInventoryService {
   grantItem(playerId: string, itemId: string, count?: number): boolean;
   receiveInventoryItem(playerId: string, item: SyncedItemStack): boolean;
   splitInventoryItem(playerId: string, slotIndex: number, count: number): boolean;
+  splitInventoryItemByInstanceId(playerId: string, itemInstanceId: string, count: number): SyncedItemStack;
   consumeInventoryItem(playerId: string, slotIndex: number, count?: number): boolean;
+  consumeInventoryItemByInstanceId(playerId: string, itemInstanceId: string, count?: number): SyncedItemStack;
   consumeInventoryItemByItemId(playerId: string, itemId: string, count?: number): boolean;
   destroyInventoryItem(playerId: string, slotIndex: number): boolean;
+  destroyInventoryItemByInstanceId(playerId: string, itemInstanceId: string, count?: number): SyncedItemStack;
   sortInventory(playerId: string): void;
   useItem(playerId: string, slotIndex: number): void;
+  useItemByInstanceId(playerId: string, itemInstanceId: string): void;
   peekInventoryItem(playerId: string, slotIndex: number): SyncedItemStack | null;
+  peekInventoryItemByInstanceId(playerId: string, itemInstanceId: string): SyncedItemStack | null;
   getInventoryCountByItemId(playerId: string, itemId: string): number;
   canReceiveInventoryItem(playerId: string, item: SyncedItemStack): boolean;
 
   equipItem(playerId: string, slotIndex: number): void;
+  equipItemByInstanceId(playerId: string, itemInstanceId: string): void;
   unequipItem(playerId: string, equipSlot: string): void;
   peekEquippedItem(playerId: string, equipSlot: string): SyncedItemStack | null;
   replaceEquipmentSlots(playerId: string, slots: EquipmentSlots): void;

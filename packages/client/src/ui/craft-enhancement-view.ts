@@ -92,7 +92,11 @@ function formatEnhancementPercent(rate: number | undefined): string {
 function buildEnhancementTargetKey(ref: EnhancementTargetRef): string {
   return ref.source === 'equipment'
     ? `equipment:${ref.slot ?? ''}`
-    : `inventory:${ref.slotIndex ?? -1}`;
+    : `inventory:${normalizeInventoryItemInstanceId(ref.itemInstanceId)}`;
+}
+
+function normalizeInventoryItemInstanceId(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 
 
@@ -579,7 +583,7 @@ export class CraftEnhancementView {
       : selected
         ? (selected.ref.source === 'equipment'
           ? `已装备 · ${getEquipSlotLabel(selected.ref.slot ?? 'weapon')}`
-          : `背包槽位 ${formatDisplayInteger((selected.ref.slotIndex ?? 0) + 1)}`)
+          : '背包物品')
         : '尚未选择';
     const selectedLevel = selectedItem ? normalizeEnhanceLevel(selectedItem.enhanceLevel) : null;
     const targetHeadMeta = selectedItem
@@ -731,7 +735,7 @@ export class CraftEnhancementView {
           ${selected.protectionCandidates.length > 0
             ? selected.protectionCandidates.map((entry) => {
               const key = buildEnhancementTargetKey(entry.ref);
-              const sourceLabel = `背包槽位 ${(entry.ref.slotIndex ?? 0) + 1} · 数量 ${entry.item.count}`;
+              const sourceLabel = `背包物品 · 数量 ${entry.item.count}`;
               return `
                 <label class="enhancement-protection-option">
                   <input type="radio" name="enhancement-protection" value="${escapeHtml(key)}" ${this.parent.selectedEnhancementProtectionKey === key ? 'checked' : ''}>
@@ -1121,11 +1125,11 @@ export class CraftEnhancementView {
         : undefined;
       this.parent.callbacks?.onStartEnhancement?.({
         target: targetExpectedInstanceId
-          ? { ...selected.ref, expectedItemInstanceId: targetExpectedInstanceId }
+          ? { ...selected.ref, itemInstanceId: targetExpectedInstanceId }
           : selected.ref,
         protection: protection
           ? (protectionExpectedInstanceId
-            ? { ...protection.ref, expectedItemInstanceId: protectionExpectedInstanceId }
+            ? { ...protection.ref, itemInstanceId: protectionExpectedInstanceId }
             : protection.ref)
           : null,
         targetLevel: this.getSelectedEnhancementTargetLevel(selected) ?? selected.nextLevel,
@@ -1430,7 +1434,7 @@ export class CraftEnhancementView {
               const itemMeta = getItemDisplayMeta(buildBaseEnhancementPreviewItem(entry.item));
               const sourceLabel = entry.ref.source === 'equipment'
                 ? t('craft.workbench.enhancement.picker.source.equipped', { slot: getEquipSlotLabel(entry.ref.slot ?? 'weapon') })
-                : t('craft.workbench.enhancement.picker.source.inventory', { slot: formatDisplayInteger((entry.ref.slotIndex ?? 0) + 1) });
+                : '背包物品';
               const nameClass = getItemNameClass(entry.item.name ?? UNKNOWN_ITEM_NAME);
               const itemTypeLabel = entry.item.type ? getItemTypeLabel(entry.item.type) : t('craft.workbench.enhancement.picker.type.equipment');
               return `
@@ -1634,7 +1638,7 @@ export class CraftEnhancementView {
     if (protectionValue === 'self') {
       payload.protection = candidate.ref;
     } else if (protectionValue.startsWith('inventory:')) {
-      payload.protection = { source: 'inventory', slotIndex: Number(protectionValue.slice('inventory:'.length)) };
+      payload.protection = { source: 'inventory', itemInstanceId: protectionValue.slice('inventory:'.length) };
     } else if (protectionValue.startsWith('equipment:')) {
       payload.protection = { source: 'equipment', slot: protectionValue.slice('equipment:'.length) as EnhancementTargetRef['slot'] };
     } else {

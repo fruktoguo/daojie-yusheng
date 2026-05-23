@@ -184,7 +184,11 @@ function getAlchemyPhaseLabel(phase: 'preparing' | 'brewing' | 'paused'): string
 function buildEnhancementTargetKey(ref: EnhancementTargetRef): string {
   return ref.source === 'equipment'
     ? `equipment:${ref.slot ?? ''}`
-    : `inventory:${ref.slotIndex ?? -1}`;
+    : `inventory:${normalizeInventoryItemInstanceId(ref.itemInstanceId)}`;
+}
+
+function normalizeInventoryItemInstanceId(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 
 function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
@@ -738,7 +742,7 @@ export class CraftWorkbenchModal {
 
   private buildEnhancementCandidateSourceKey(): string {
     const inventoryKey = this.inventory.items
-      .map((item, slotIndex) => this.buildEnhancementCandidateItemSourceKey(`inventory:${slotIndex}`, item))
+      .map((item) => this.buildEnhancementCandidateItemSourceKey(`inventory:${normalizeInventoryItemInstanceId(item.itemInstanceId)}`, item))
       .filter(Boolean)
       .join('|');
     const equipmentKey = EQUIP_SLOTS
@@ -1588,7 +1592,7 @@ export class CraftWorkbenchModal {
       : undefined;
     const payload: C2S_StartEnhancement = {
       target: targetExpectedInstanceId
-        ? { ...candidate.ref, expectedItemInstanceId: targetExpectedInstanceId }
+        ? { ...candidate.ref, itemInstanceId: targetExpectedInstanceId }
         : candidate.ref,
     };
     const targetLevelInput = body.querySelector<HTMLInputElement>('[data-enhancement-target-level-input]');
@@ -1606,12 +1610,12 @@ export class CraftWorkbenchModal {
     }
     if (protectionValue === 'self') {
       payload.protection = targetExpectedInstanceId
-        ? { ...candidate.ref, expectedItemInstanceId: targetExpectedInstanceId }
+        ? { ...candidate.ref, itemInstanceId: targetExpectedInstanceId }
         : candidate.ref;
     } else if (protectionValue.startsWith('inventory:')) {
       payload.protection = {
         source: 'inventory',
-        slotIndex: Number(protectionValue.slice('inventory:'.length)),
+        itemInstanceId: protectionValue.slice('inventory:'.length),
       };
     } else if (protectionValue.startsWith('equipment:')) {
       payload.protection = {
@@ -2379,7 +2383,7 @@ export class CraftWorkbenchModal {
       : selected
         ? (selected.ref.source === 'equipment'
           ? `已装备 · ${getEquipSlotLabel(selected.ref.slot ?? 'weapon')}`
-          : `背包槽位 ${formatDisplayInteger((selected.ref.slotIndex ?? 0) + 1)}`)
+          : '背包物品')
         : '尚未选择';
     const selectedLevel = selectedItem ? normalizeEnhanceLevel(selectedItem.enhanceLevel) : null;
     const targetHeadMeta = selectedItem
@@ -2530,7 +2534,7 @@ export class CraftWorkbenchModal {
           ${selected.protectionCandidates.length > 0
             ? selected.protectionCandidates.map((entry) => {
               const key = buildEnhancementTargetKey(entry.ref);
-              const sourceLabel = `背包槽位 ${(entry.ref.slotIndex ?? 0) + 1} · 数量 ${entry.item.count}`;
+              const sourceLabel = `背包物品 · 数量 ${entry.item.count}`;
               return `
                 <label class="enhancement-protection-option">
                   <input type="radio" name="enhancement-protection" value="${escapeHtml(key)}" ${this.selectedEnhancementProtectionKey === key ? 'checked' : ''}>
@@ -3377,9 +3381,7 @@ export class CraftWorkbenchModal {
                 ? t('craft.workbench.enhancement.picker.source.equipped', {
                   slot: getEquipSlotLabel(entry.ref.slot ?? 'weapon'),
                 })
-                : t('craft.workbench.enhancement.picker.source.inventory', {
-                  slot: formatDisplayInteger((entry.ref.slotIndex ?? 0) + 1),
-                });
+                : '背包物品';
               const nameClass = getItemNameClass(entry.item.name ?? UNKNOWN_ITEM_NAME);
               const itemTypeLabel = entry.item.type ? getItemTypeLabel(entry.item.type) : t('craft.workbench.enhancement.picker.type.equipment');
               return `

@@ -65,6 +65,10 @@ import {
   unmountReactMarketPanel,
 } from '../../react-ui/panels/market/mount-market-panel';
 
+function normalizeInventoryItemInstanceId(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+
 /** 把普通文本转成可安全插入 HTML 的内容。 */
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -122,12 +126,12 @@ interface MarketPanelCallbacks {
  * onCreateSellOrder：onCreateSell订单相关字段。
  */
 
-  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number, expectedItemInstanceId?: string) => void;
+  onCreateSellOrder: (itemInstanceId: string, quantity: number, unitPrice: number) => void;
   /**
  * onCreateAuctionSellOrder：onCreateAuctionSell订单相关字段。
  */
 
-  onCreateAuctionSellOrder: (slotIndex: number, quantity: number, unitPrice: number, buyoutPrice?: number, expectedItemInstanceId?: string, auctionDurationHours?: number) => void;
+  onCreateAuctionSellOrder: (itemInstanceId: string, quantity: number, unitPrice: number, buyoutPrice?: number, auctionDurationHours?: number) => void;
   /**
  * onCreateBuyOrder：onCreateBuy订单相关字段。
  */
@@ -195,7 +199,7 @@ interface MarketTradeDialogState {
 /** 拍卖寄拍独立面板里的可编辑状态。 */
 interface AuctionConsignPanelState {
   open: boolean;
-  slotIndex: number | null;
+  itemInstanceId: string | null;
   quantity: number;
   totalPrice: number;
   buyoutPrice: number;
@@ -389,7 +393,7 @@ export class MarketPanel {
   /** 拍卖发起面板状态，独立于当前拍品列表选中。 */
   private auctionConsignPanel: AuctionConsignPanelState = {
     open: false,
-    slotIndex: null,
+    itemInstanceId: null,
     quantity: 1,
     totalPrice: 1,
     buyoutPrice: 0,
@@ -722,7 +726,7 @@ export class MarketPanel {
     this.auctionSearchQuery = '';
     this.selectedAuctionItemKey = null;
     this.auctionPage = 1;
-    this.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
+    this.auctionConsignPanel = { open: false, itemInstanceId: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
     this.currentPage = 1;
     this.tradeHistoryPage = 1;
     this.itemBookLoading = false;
@@ -1098,7 +1102,7 @@ export class MarketPanel {
     const first = this.auctionView.getAuctionConsignItems(this.marketUpdate).at(0);
     this.auctionConsignPanel = {
       open: true,
-      slotIndex: this.auctionConsignPanel.slotIndex ?? first?.slotIndex ?? null,
+      itemInstanceId: this.auctionConsignPanel.itemInstanceId ?? first?.itemInstanceId ?? null,
       quantity: this.auctionConsignPanel.quantity,
       totalPrice: this.auctionConsignPanel.totalPrice,
       buyoutPrice: this.auctionConsignPanel.buyoutPrice,
@@ -2671,9 +2675,11 @@ export class MarketPanel {
         ?? (this.selectedItemKey ? this.resolveMarketTooltipEntry(this.selectedItemKey) : null);
       return selected ? this.buildMarketItemTooltipPayload(selected.item) : null;
     }
-    if (key.startsWith('auction-consign-slot:')) {
-      const slotIndex = Number.parseInt(key.slice('auction-consign-slot:'.length), 10);
-      const item = Number.isFinite(slotIndex) ? this.inventory.items[slotIndex] ?? null : null;
+    if (key.startsWith('auction-consign-item:')) {
+      const itemInstanceId = normalizeInventoryItemInstanceId(key.slice('auction-consign-item:'.length));
+      const item = itemInstanceId
+        ? this.inventory.items.find((entry) => normalizeInventoryItemInstanceId(entry.itemInstanceId) === itemInstanceId) ?? null
+        : null;
       return item ? this.buildMarketItemTooltipPayload(item) : null;
     }
     const listed = this.resolveMarketTooltipEntry(key);
@@ -2763,26 +2769,28 @@ export class MarketPanel {
     };
   }
 
-  /** 在背包里找一格能对应当前物品的槽位。 */
-  private findMatchingInventorySlot(item: ItemStack): number | null {
+  /** 在背包里找一个能对应当前物品的稳定实例 ID。 */
+  private findMatchingInventoryItemInstanceId(item: ItemStack): string | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    let matchedItem: ItemStack | null = null;
     if (item.type === 'equipment') {
       const targetLevel = this.getMarketEnhanceLevel(item);
-      const slotIndex = this.inventory.items.findIndex((entry) =>
+      matchedItem = this.inventory.items.find((entry) =>
         entry.itemId === item.itemId
         && entry.type === 'equipment'
         && this.getMarketEnhanceLevel(entry) === targetLevel
-      );
-      return slotIndex >= 0 ? slotIndex : null;
+      ) ?? null;
+    } else {
+      const targetKey = createItemStackSignature({ ...item, count: 1 });
+      matchedItem = this.inventory.items.find((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey) ?? null;
+      if (!matchedItem) {
+        matchedItem = this.inventory.items.find((entry) => entry.itemId === item.itemId) ?? null;
+      }
     }
-    const targetKey = createItemStackSignature({ ...item, count: 1 });
-    const exactSlotIndex = this.inventory.items.findIndex((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
-    if (exactSlotIndex >= 0) {
-      return exactSlotIndex;
-    }
-    const fallbackSlotIndex = this.inventory.items.findIndex((entry) => entry.itemId === item.itemId);
-    return fallbackSlotIndex >= 0 ? fallbackSlotIndex : null;
+    return typeof matchedItem?.itemInstanceId === 'string' && matchedItem.itemInstanceId.trim().length > 0
+      ? matchedItem.itemInstanceId.trim()
+      : null;
   }
 
   /** 统计背包里与当前物品匹配的总数量。 */

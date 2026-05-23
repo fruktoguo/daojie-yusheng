@@ -118,13 +118,13 @@ export class WorldRuntimeCommandIntakeFacadeService {
     /**
  * enqueueUseItem：处理Use道具并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndexInput 参数说明。
+ * @param payloadInput 背包物品操作载荷或旧客户端槽位参数。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Use道具相关状态。
  */
 
-    enqueueUseItem(playerId, slotIndexInput, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueUseItem(playerId, slotIndexInput, deps);
+    enqueueUseItem(playerId, payloadInput, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueUseItem(playerId, payloadInput, deps);
     }
     enqueueCreateFormation(playerId, payload, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCreateFormation(playerId, payload, deps);
@@ -138,14 +138,14 @@ export class WorldRuntimeCommandIntakeFacadeService {
     /**
  * enqueueDropItem：处理Drop道具并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndexInput 参数说明。
+ * @param payloadInput 背包物品操作载荷或旧客户端槽位参数。
  * @param countInput 参数说明。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
-    enqueueDropItem(playerId, slotIndexInput, countInput, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueDropItem(playerId, slotIndexInput, countInput, deps);
+    enqueueDropItem(playerId, payloadInput, countInput, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueDropItem(playerId, payloadInput, countInput, deps);
     }
     /**
  * enqueueTakeGround：处理Take地面并更新相关状态。
@@ -173,13 +173,13 @@ export class WorldRuntimeCommandIntakeFacadeService {
     /**
  * enqueueEquip：处理Equip并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndexInput 参数说明。
+ * @param payloadInput 背包物品操作载荷或旧客户端槽位参数。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Equip相关状态。
  */
 
-    enqueueEquip(playerId, slotIndexInput, deps, expectedItemInstanceId?: string) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueEquip(playerId, slotIndexInput, deps, expectedItemInstanceId);
+    enqueueEquip(playerId, payloadInput, deps, expectedItemInstanceId?: string) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueEquip(playerId, payloadInput, deps, expectedItemInstanceId);
     }
     /**
  * enqueueUnequip：处理Unequip并更新相关状态。

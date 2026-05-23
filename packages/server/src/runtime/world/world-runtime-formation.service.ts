@@ -54,8 +54,8 @@ class WorldRuntimeFormationService {
 
     dispatchCreateFormation(playerId, payload, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const slotIndex = normalizeSlotIndex(payload?.slotIndex);
-        const diskItem = player.inventory?.items?.[slotIndex] ?? null;
+        const itemInstanceId = resolveInventoryItemInstanceId(payload);
+        const diskItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
         const diskTier = resolveFormationDiskTier(diskItem);
         if (!diskItem || !diskTier) {
             throw new BadRequestException('需要使用阵盘布阵');
@@ -92,7 +92,7 @@ class WorldRuntimeFormationService {
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
         this.playerRuntimeService.spendQi(playerId, qiCost);
         this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
         const now = Date.now();
         const formation = {
             instanceId: instance.meta.instanceId,
@@ -1666,6 +1666,16 @@ function normalizeDiskMultiplier(item) {
     }
     const tier = resolveFormationDiskTier(item);
     return FORMATION_DISK_TIER_MULTIPLIERS[tier] ?? 1;
+}
+
+function resolveInventoryItemInstanceId(payload) {
+    const itemInstanceId = normalizeOptionalString(payload?.itemRef?.itemInstanceId)
+        || normalizeOptionalString(payload?.itemInstanceId)
+        || normalizeOptionalString(payload?.expectedItemInstanceId);
+    if (!itemInstanceId) {
+        throw new BadRequestException('背包物品目标缺失，请重新选择。');
+    }
+    return itemInstanceId;
 }
 
 function resolveFormationDiskTier(item) {

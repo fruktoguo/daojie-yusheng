@@ -41,6 +41,16 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /** 读取玩家运行时状态。 */
 const state = (id: string) => fetchJson(`/runtime/players/${id}/state`);
 
+/** 解析背包物品的稳定实例引用。 */
+function firstItemRef(player: any, itemId: string) {
+  const entry = player?.inventory?.items?.find((item: any) => item?.itemId === itemId) ?? null;
+  const itemInstanceId = typeof entry?.itemInstanceId === "string" ? entry.itemInstanceId.trim() : "";
+  if (!entry || !itemInstanceId) {
+    throw new Error(`missing itemInstanceId for ${itemId}`);
+  }
+  return { itemInstanceId };
+}
+
 /** 读取地块详情，重点看地面掉落是否按预期生成。 */
 const tile = (instanceId: string, x: number, y: number) =>
   fetchJson(`/runtime/instances/${instanceId}/tiles/${x}/${y}`);  
@@ -74,7 +84,7 @@ async function main() {
 
   const ds = await state(dropperId);
   console.log("after grant inv", ds.player.inventory.items);
-  d.emit(C2S.DropItem, { slotIndex: 0, count: 2 });
+  d.emit(C2S.DropItem, { itemRef: firstItemRef(ds.player, "rat_tail"), count: 2 });
   await sleep(500);
 
   const ds2 = await state(dropperId);

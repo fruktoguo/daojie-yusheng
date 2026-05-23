@@ -117,14 +117,14 @@ export class WorldRuntimeGameplayWriteFacadeService {
     /**
  * dispatchUseItem：判断Use道具是否满足条件。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 背包物品实例 ID。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Use道具相关状态。
  */
 
-    dispatchUseItem(playerId, slotIndex, deps) {
+    dispatchUseItem(playerId, itemInstanceId, deps) {
         this.assertPlayerInstanceLeaseWritable(playerId, deps);
-        deps.worldRuntimeUseItemService.dispatchUseItem(playerId, slotIndex, deps);
+        deps.worldRuntimeUseItemService.dispatchUseItem(playerId, itemInstanceId, deps);
     }
     /**
  * dispatchBreakthrough：判断Breakthrough是否满足条件。
@@ -168,15 +168,15 @@ export class WorldRuntimeGameplayWriteFacadeService {
     /**
  * dispatchDropItem：判断Drop道具是否满足条件。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 背包物品实例 ID。
  * @param count 数量。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
-    dispatchDropItem(playerId, slotIndex, count, deps) {
+    dispatchDropItem(playerId, itemInstanceId, count, deps) {
         this.assertPlayerInstanceLeaseWritable(playerId, deps);
-        deps.worldRuntimeItemGroundService.dispatchDropItem(playerId, slotIndex, count, deps);
+        deps.worldRuntimeItemGroundService.dispatchDropItem(playerId, itemInstanceId, count, deps);
     }
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。
@@ -232,14 +232,14 @@ export class WorldRuntimeGameplayWriteFacadeService {
     /**
  * dispatchEquipItem：判断Equip道具是否满足条件。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 背包物品实例 ID。
  * @param deps 运行时依赖。
  * @returns 无返回值，直接更新Equip道具相关状态。
  */
 
-    async dispatchEquipItem(playerId, slotIndex, deps) {
+    async dispatchEquipItem(playerId, itemInstanceId, deps) {
         this.assertPlayerInstanceLeaseWritable(playerId, deps);
-        return deps.worldRuntimeEquipmentService.dispatchEquipItem(playerId, slotIndex, deps);
+        return deps.worldRuntimeEquipmentService.dispatchEquipItem(playerId, itemInstanceId, deps);
     }
     /**
  * dispatchUnequipItem：判断Unequip道具是否满足条件。

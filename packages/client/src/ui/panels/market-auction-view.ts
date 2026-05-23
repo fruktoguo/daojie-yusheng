@@ -27,6 +27,10 @@ function escapeHtmlAttr(value: unknown): string {
   return escapeHtml(value);
 }
 
+function normalizeInventoryItemInstanceId(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+
 function replaceElementHtml(root: HTMLElement, html: string): void {
   const template = document.createElement('template');
   template.innerHTML = html.trim();
@@ -471,8 +475,8 @@ export class MarketAuctionView {
     const state = this.panel.auctionConsignPanel;
     const items = this.getFilteredAuctionConsignItems(update);
     const allItems = this.getAuctionConsignItems(update);
-    const hasFilteredOutSelection = state.slotIndex !== null && !items.some((entry) => entry.slotIndex === state.slotIndex);
-    const selectedItem = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const hasFilteredOutSelection = state.itemInstanceId !== null && !items.some((entry) => entry.itemInstanceId === state.itemInstanceId);
+    const selectedItem = this.resolveAuctionConsignSelectedItem();
     const quantityMax = Math.max(1, selectedItem?.count ?? 1);
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
     const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
@@ -599,10 +603,10 @@ export class MarketAuctionView {
     `;
   }
 
-  renderAuctionConsignItem(slotIndex: number, item: ItemStack, active: boolean): string {
+  renderAuctionConsignItem(itemInstanceId: string, item: ItemStack, active: boolean): string {
     const itemName = this.panel.getMarketDisplayName(item);
     return `
-      <button class="auction-consign-item ${active ? 'active' : ''}" data-auction-consign-slot="${slotIndex}" data-market-item-tooltip="auction-consign-slot:${slotIndex}" type="button">
+      <button class="auction-consign-item ${active ? 'active' : ''}" data-auction-consign-item="${escapeHtmlAttr(itemInstanceId)}" data-market-item-tooltip="auction-consign-item:${escapeHtmlAttr(itemInstanceId)}" type="button">
         <span>${escapeHtml(itemName)}</span>
         <strong>${formatDisplayCountBadge(item.count)}</strong>
       </button>
@@ -615,7 +619,7 @@ export class MarketAuctionView {
       const key = this.panel.auctionConsignPanel.query.trim() ? 'market.auction.consign.search-empty' : 'market.auction.consign.empty';
       return `<div class="empty-hint">${escapeHtml(t(key, undefined))}</div>`;
     }
-    return items.map((entry) => this.renderAuctionConsignItem(entry.slotIndex, entry.item, this.panel.auctionConsignPanel.slotIndex === entry.slotIndex)).join('');
+    return items.map((entry) => this.renderAuctionConsignItem(entry.itemInstanceId, entry.item, this.panel.auctionConsignPanel.itemInstanceId === entry.itemInstanceId)).join('');
   }
 
   renderAuctionConsignCount(update: S2C_MarketUpdate): string {
@@ -838,7 +842,7 @@ export class MarketAuctionView {
       }
       if (!input.matches('[data-auction-consign-quantity]')) return;
       const state = p.auctionConsignPanel;
-      const item = state.slotIndex === null ? null : p.inventory.items[state.slotIndex] ?? null;
+      const item = this.resolveAuctionConsignSelectedItem();
       if (!item) return;
       const max = Math.max(1, item.count);
       p.auctionConsignPanel = {
@@ -853,7 +857,7 @@ export class MarketAuctionView {
       const quantityActionButton = target instanceof HTMLElement ? target.closest<HTMLElement>('[data-auction-consign-quantity-action]') : null;
       if (quantityActionButton && body.contains(quantityActionButton)) {
         const state = p.auctionConsignPanel;
-        const item = state.slotIndex === null ? null : p.inventory.items[state.slotIndex] ?? null;
+        const item = this.resolveAuctionConsignSelectedItem();
         if (!item) return;
         const action = quantityActionButton.dataset.auctionConsignQuantityAction;
         const max = Math.max(1, item.count);
@@ -885,14 +889,16 @@ export class MarketAuctionView {
         this.patchAuctionConsignPreview();
         return;
       }
-      const button = target instanceof HTMLElement ? target.closest<HTMLElement>('[data-auction-consign-slot]') : null;
+      const button = target instanceof HTMLElement ? target.closest<HTMLElement>('[data-auction-consign-item]') : null;
       if (!button || !body.contains(button)) return;
-      const slotIndex = Number.parseInt(button.dataset.auctionConsignSlot ?? '', 10);
-      const item = Number.isFinite(slotIndex) ? p.inventory.items[slotIndex] : null;
+      const itemInstanceId = normalizeInventoryItemInstanceId(button.dataset.auctionConsignItem);
+      const item = itemInstanceId
+        ? p.inventory.items.find((entry) => normalizeInventoryItemInstanceId(entry.itemInstanceId) === itemInstanceId) ?? null
+        : null;
       if (!item) return;
       p.auctionConsignPanel = {
         open: true,
-        slotIndex,
+        itemInstanceId,
         quantity: Math.max(1, Math.min(item.count, Math.floor(Number(p.auctionConsignPanel.quantity) || item.count))),
         totalPrice: this.normalizeAuctionConsignTotalPrice(p.auctionConsignPanel.totalPrice, 'up'),
         buyoutPrice: this.normalizeAuctionConsignBuyoutPrice(p.auctionConsignPanel.buyoutPrice),
@@ -904,8 +910,9 @@ export class MarketAuctionView {
     }, { signal });
     body.querySelector<HTMLElement>('[data-auction-consign-submit]')?.addEventListener('click', () => {
       const state = p.auctionConsignPanel;
-      if (state.slotIndex === null) return;
-      const item = p.inventory.items[state.slotIndex] ?? null;
+      const itemInstanceId = normalizeInventoryItemInstanceId(state.itemInstanceId);
+      if (!itemInstanceId) return;
+      const item = this.resolveAuctionConsignSelectedItem();
       if (!item) return;
       const quantity = Math.max(1, Math.min(item.count, Math.floor(Number(state.quantity) || 1)));
       const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
@@ -917,12 +924,8 @@ export class MarketAuctionView {
       const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
       const resolvedBuyoutPrice = buyoutPrice >= price.unitPrice ? buyoutPrice : 0;
       const durationHours = this.normalizeAuctionConsignDurationHours(state.durationHours);
-      const auctionMatched = state.slotIndex !== null ? p.inventory.items[state.slotIndex] : null;
-      const auctionExpectedInstanceId = auctionMatched && typeof auctionMatched.itemInstanceId === 'string' && auctionMatched.itemInstanceId.length > 0
-        ? auctionMatched.itemInstanceId
-        : undefined;
-      p.callbacks?.onCreateAuctionSellOrder(state.slotIndex, quantity, price.unitPrice, resolvedBuyoutPrice, auctionExpectedInstanceId, durationHours);
-      p.auctionConsignPanel = { open: false, slotIndex: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
+      p.callbacks?.onCreateAuctionSellOrder(itemInstanceId, quantity, price.unitPrice, resolvedBuyoutPrice, durationHours);
+      p.auctionConsignPanel = { open: false, itemInstanceId: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
       p.requestAuctionListings(1);
       detailModalHost.close('auction-consign-panel');
     }, { signal });
@@ -936,7 +939,7 @@ export class MarketAuctionView {
     const preview = body.querySelector<HTMLElement>('[data-auction-consign-preview]');
     const submit = body.querySelector<HTMLButtonElement>('[data-auction-consign-submit]');
     const state = this.panel.auctionConsignPanel;
-    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const item = this.resolveAuctionConsignSelectedItem();
     const quantityMax = Math.max(1, item?.count ?? 1);
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
     const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
@@ -987,9 +990,9 @@ export class MarketAuctionView {
     const body = this.panel.getOpenAuctionConsignModalBody();
     if (!body) return;
     const state = this.panel.auctionConsignPanel;
-    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
-    body.querySelectorAll<HTMLElement>('[data-auction-consign-slot]').forEach((button) => {
-      button.classList.toggle('active', button.dataset.auctionConsignSlot === String(state.slotIndex));
+    const item = this.resolveAuctionConsignSelectedItem();
+    body.querySelectorAll<HTMLElement>('[data-auction-consign-item]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.auctionConsignItem === state.itemInstanceId);
     });
     const quantityMax = Math.max(1, item?.count ?? 1);
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
@@ -1005,7 +1008,7 @@ export class MarketAuctionView {
     const body = this.panel.getOpenAuctionConsignModalBody();
     if (!body) return;
     const state = this.panel.auctionConsignPanel;
-    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const item = this.resolveAuctionConsignSelectedItem();
     const quantityMax = Math.max(1, item?.count ?? 1);
     const quantity = Math.max(1, Math.min(quantityMax, Math.floor(Number(state.quantity) || 1)));
     const control = body.querySelector<HTMLElement>('[data-auction-consign-quantity-control]');
@@ -1024,7 +1027,7 @@ export class MarketAuctionView {
     const update = this.panel.marketUpdate;
     if (!body || !update) return;
     const state = this.panel.auctionConsignPanel;
-    const item = state.slotIndex === null ? null : this.panel.inventory.items[state.slotIndex] ?? null;
+    const item = this.resolveAuctionConsignSelectedItem();
     const totalPrice = this.normalizeAuctionConsignTotalPrice(state.totalPrice, 'up');
     const buyoutPrice = this.normalizeAuctionConsignBuyoutPrice(state.buyoutPrice);
     this.panel.auctionConsignPanel = {
@@ -1073,14 +1076,14 @@ export class MarketAuctionView {
     }
   }
 
-  getAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ slotIndex: number; item: ItemStack }> {
+  getAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ itemInstanceId: string; item: ItemStack }> {
     const currencyItemId = update?.currencyItemId ?? '';
     return this.panel.inventory.items
-      .map((item, slotIndex) => ({ slotIndex, item }))
-      .filter((entry) => entry.item.count > 0 && entry.item.itemId !== currencyItemId);
+      .map((item) => ({ itemInstanceId: normalizeInventoryItemInstanceId(item.itemInstanceId), item }))
+      .filter((entry) => entry.itemInstanceId && entry.item.count > 0 && entry.item.itemId !== currencyItemId);
   }
 
-  getFilteredAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ slotIndex: number; item: ItemStack }> {
+  getFilteredAuctionConsignItems(update: S2C_MarketUpdate | null): Array<{ itemInstanceId: string; item: ItemStack }> {
     const query = this.panel.auctionConsignPanel.query.trim().toLocaleLowerCase();
     const items = this.getAuctionConsignItems(update);
     if (!query) {
@@ -1091,6 +1094,14 @@ export class MarketAuctionView {
       const itemId = entry.item.itemId.toLocaleLowerCase();
       return displayName.includes(query) || itemId.includes(query);
     });
+  }
+
+  private resolveAuctionConsignSelectedItem(): ItemStack | null {
+    const itemInstanceId = normalizeInventoryItemInstanceId(this.panel.auctionConsignPanel.itemInstanceId);
+    if (!itemInstanceId) {
+      return null;
+    }
+    return this.panel.inventory.items.find((item) => normalizeInventoryItemInstanceId(item.itemInstanceId) === itemInstanceId) ?? null;
   }
 
   resolveAuctionConsignUnitPrice(totalPrice: number): { unitPrice: number | null; actualTotal: number | null } {

@@ -737,10 +737,17 @@ export class CraftPanelRuntimeService {
         }
         const targetLevel = currentLevel + 1;
         const desiredTargetLevel = this.resolveRequestedTargetLevel(currentLevel, payload?.targetLevel);
+        const config = this.enhancementConfigs.get(target.item.itemId);
+        const protection = payload?.protection
+            ? this.resolveEnhancementProtection(player, payload.protection, target, config)
+            : null;
+        if (payload?.protection && !protection) {
+            return buildCraftMutationResult('保护物不存在或不符合本次强化规则。');
+        }
         if (this.hasAnyActiveTechniqueActivity(player)) {
             return this.enqueueCraftQueueItem(
                 player,
-                buildEnhancementQueueItem(target, payload, desiredTargetLevel),
+                buildEnhancementQueueItem(target, protection, payload, desiredTargetLevel),
                 normalizeCraftQueueStartMode(payload?.queueMode),
             );
         }
@@ -749,23 +756,16 @@ export class CraftPanelRuntimeService {
             : normalizeCraftQueueStartMode(payload?.queueMode) === 'preserve'
                 ? getPlayerCraftQueue(player)
                 : [];
-        const config = this.enhancementConfigs.get(target.item.itemId);
         const materials = this.getEnhancementRequirements(config, targetLevel);
-        const protection = payload?.protection
-            ? this.resolveEnhancementProtection(player, payload.protection, target, config)
-            : null;
         const protectionStartLevel = protection
             ? this.resolveProtectionStartLevel(desiredTargetLevel, payload?.protectionStartLevel)
             : undefined;
-        if (payload?.protection && !protection) {
-            return buildCraftMutationResult('保护物不存在或不符合本次强化规则。');
-        }
         const spiritStoneCost = getEnhancementSpiritStoneCost(target.item.level, materials.length > 0);
         if (!this.hasEnoughEnhancementResources(player, target, protection, spiritStoneCost, materials, this.shouldUseProtectionForStep(targetLevel, protectionStartLevel))) {
             return buildCraftMutationResult('所需灵石、材料或保护物不足。');
         }
         const workingItem = target.ref.source === 'inventory'
-            ? extractInventoryItemAt(player, target.ref.slotIndex)
+            ? extractInventoryItemByInstanceId(player, target.ref.itemInstanceId)
             : extractEquipmentItem(player, target.ref.slot);
         if (!workingItem) {
             return buildCraftMutationResult('强化目标不存在。');
@@ -1203,7 +1203,12 @@ export class CraftPanelRuntimeService {
         }
         player.enhancementJob = player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null;
         if (player.enhancementJob?.target?.source === 'equipment') {
-            player.enhancementJob.target = { source: 'inventory', slotIndex: -1 };
+            player.enhancementJob.target = {
+                source: 'inventory',
+                ...(normalizeInventoryItemInstanceId(player.enhancementJob.itemInstanceId)
+                    ? { itemInstanceId: normalizeInventoryItemInstanceId(player.enhancementJob.itemInstanceId) }
+                    : {}),
+            };
             this.finishEnhancementJob(player, player.enhancementJob.currentLevel ?? 0, 'cancelled');
         }
     }
@@ -1236,8 +1241,13 @@ export class CraftPanelRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const candidates = [];
-        player.inventory.items.forEach((item, slotIndex) => {
-            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', slotIndex }, item);
+        player.inventory.items.forEach((item) => {
+            assignItemInstanceIdIfNeeded(item);
+            const itemInstanceId = normalizeInventoryItemInstanceId(item?.itemInstanceId);
+            if (!itemInstanceId) {
+                return;
+            }
+            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, item);
             if (candidate) {
                 candidates.push(candidate);
             }
@@ -1311,22 +1321,28 @@ export class CraftPanelRuntimeService {
     buildProtectionCandidates(player, ref, item, config) {
         const candidates = [];
         const targetProtectionItemId = config?.protectionItemId ?? item.itemId;
-        player.inventory.items.forEach((entry, slotIndex) => {
+        const targetInstanceId = ref.source === 'inventory' ? normalizeInventoryItemInstanceId(ref.itemInstanceId) : '';
+        player.inventory.items.forEach((entry) => {
             if (!entry || !this.isEligibleProtectionItem(entry, targetProtectionItemId, item.itemId)) {
                 return;
             }
-            if (ref.source === 'inventory' && ref.slotIndex === slotIndex) {
+            assignItemInstanceIdIfNeeded(entry);
+            const itemInstanceId = normalizeInventoryItemInstanceId(entry.itemInstanceId);
+            if (!itemInstanceId) {
+                return;
+            }
+            if (targetInstanceId && itemInstanceId === targetInstanceId) {
                 const entryCount = Math.max(0, Math.floor(Number(entry.count) || 0));
                 if (entryCount < 2) {
                     return;
                 }
                 const cloned = cloneItem(entry);
                 cloned.count = entryCount - 1;
-                candidates.push({ ref: { source: 'inventory', slotIndex }, item: cloned });
+                candidates.push({ ref: { source: 'inventory', itemInstanceId }, item: cloned });
                 return;
             }
             candidates.push({
-                ref: { source: 'inventory', slotIndex },
+                ref: { source: 'inventory', itemInstanceId },
                 item: cloneItem(entry),
             });
         });
@@ -1412,9 +1428,12 @@ export class CraftPanelRuntimeService {
         }
         let resolved: { ref: any; item: any } | null = null;
         if (ref.source === 'inventory') {
-            const slotIndex = Number.isFinite(ref.slotIndex) ? Math.max(0, Math.trunc(ref.slotIndex)) : -1;
-            const item = player.inventory.items[slotIndex] ?? null;
-            resolved = item ? { ref: { source: 'inventory', slotIndex }, item } : null;
+            const directItemInstanceId = normalizeInventoryItemInstanceId(ref.itemInstanceId)
+                || normalizeInventoryItemInstanceId(ref.expectedItemInstanceId);
+            if (directItemInstanceId) {
+                const item = findInventoryItemByInstanceId(player, directItemInstanceId);
+                resolved = item ? { ref: { source: 'inventory', itemInstanceId: directItemInstanceId }, item } : null;
+            }
         } else if (ref.source === 'equipment') {
             const slot = normalizeEquipSlot(ref.slot);
             if (!slot) {
@@ -1469,7 +1488,7 @@ export class CraftPanelRuntimeService {
             return null;
         }
         if (target.ref.source === 'inventory'
-            && protection.ref.slotIndex === target.ref.slotIndex
+            && normalizeInventoryItemInstanceId(protection.ref.itemInstanceId) === normalizeInventoryItemInstanceId(target.ref.itemInstanceId)
             && Math.max(0, Math.floor(Number(target.item.count) || 0)) < 2) {
             return null;
         }
@@ -2482,7 +2501,7 @@ function buildAlchemyQueueItem(recipe, ingredients, quantity, kind = 'alchemy') 
     };
 }
 
-function buildEnhancementQueueItem(target, payload, desiredTargetLevel) {
+function buildEnhancementQueueItem(target, protection, payload, desiredTargetLevel) {
     return {
         queueId: buildCraftQueueId('enhancement'),
         kind: 'enhancement',
@@ -2490,8 +2509,8 @@ function buildEnhancementQueueItem(target, payload, desiredTargetLevel) {
         quantity: desiredTargetLevel,
         createdAt: Date.now(),
         payload: {
-            target: payload?.target ? cloneTargetRef(payload.target) : undefined,
-            protection: payload?.protection ? cloneTargetRef(payload.protection) : undefined,
+            target: target?.ref ? cloneTargetRef(target.ref) : undefined,
+            protection: protection?.ref ? cloneTargetRef(protection.ref) : undefined,
             targetLevel: payload?.targetLevel,
             protectionStartLevel: payload?.protectionStartLevel,
         },
@@ -2649,9 +2668,14 @@ function consumeInventoryItemByItemId(player, itemId, count) {
  * @returns 无返回值，直接更新extract背包道具At相关状态。
  */
 
-function extractInventoryItemAt(player, slotIndex) {
+function extractInventoryItemByInstanceId(player, itemInstanceId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const normalizedItemInstanceId = normalizeInventoryItemInstanceId(itemInstanceId);
+    if (!normalizedItemInstanceId) {
+        return null;
+    }
+    const slotIndex = findInventoryItemIndexByInstanceId(player, normalizedItemInstanceId);
     if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= player.inventory.items.length) {
         return null;
     }
@@ -2673,6 +2697,19 @@ function extractInventoryItemAt(player, slotIndex) {
         extracted.itemInstanceId = randomUUID();
     }
     return extracted;
+}
+
+function findInventoryItemByInstanceId(player, itemInstanceId) {
+    const slotIndex = findInventoryItemIndexByInstanceId(player, itemInstanceId);
+    return slotIndex >= 0 ? player.inventory.items[slotIndex] ?? null : null;
+}
+
+function findInventoryItemIndexByInstanceId(player, itemInstanceId) {
+    const normalizedItemInstanceId = normalizeInventoryItemInstanceId(itemInstanceId);
+    if (!normalizedItemInstanceId || !Array.isArray(player?.inventory?.items)) {
+        return -1;
+    }
+    return player.inventory.items.findIndex((item) => normalizeInventoryItemInstanceId(item?.itemInstanceId) === normalizedItemInstanceId);
 }
 /**
  * setEquippedItem：写入Equipped道具。
@@ -2722,6 +2759,10 @@ function extractEquipmentItem(player, slot) {
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeInventoryItemInstanceId(value) {
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 /**
  * normalizeAlchemyPresetName：规范化或转换炼丹Preset名称。
@@ -2966,7 +3007,7 @@ function normalizeEquipSlot(value) {
 function cloneTargetRef(ref) {
     return ref.source === 'equipment'
         ? { source: 'equipment', slot: ref.slot }
-        : { source: 'inventory', slotIndex: ref.slotIndex };
+        : { source: 'inventory', itemInstanceId: normalizeInventoryItemInstanceId(ref.itemInstanceId) };
 }
 /**
  * buildCraftMutationResult：构建并返回目标对象。
