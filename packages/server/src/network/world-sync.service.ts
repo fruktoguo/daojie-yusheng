@@ -9,6 +9,7 @@ import { WorldSyncAuxStateService } from './world-sync-aux-state.service';
 import { WorldSyncEnvelopeService } from './world-sync-envelope.service';
 import { WorldSessionService } from './world-session.service';
 import { WorldSyncWorkerEncodeService, type PendingEnvelopeEmit } from './world-sync-worker-encode.service';
+import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import {
     type SyncFlushBreakdownSample,
     createSyncFlushBreakdownSample,
@@ -29,8 +30,8 @@ export class WorldSyncService {
         @Inject(WorldSyncEnvelopeService) private readonly worldSyncEnvelopeService: any,
         @Inject(RuntimeGmStateService) private readonly runtimeGmStateService: any,
         @Optional() @Inject(WorldSyncWorkerEncodeService) private readonly workerEncodeService?: WorldSyncWorkerEncodeService,
+        @Optional() @Inject(NativePlayerAuthStoreService) private readonly nativePlayerAuthStoreService?: any,
     ) {}
-
     emitInitialSync(playerId: string, socketOverride = undefined) {
         const binding = this.worldSessionService.getBinding(playerId);
         if (!binding) return;
@@ -41,6 +42,7 @@ export class WorldSyncService {
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
         const envelope = this.worldSyncEnvelopeService.createInitialEnvelope(playerId, binding, view, player);
+        if (envelope.initSession) envelope.initSession.pno = this.nativePlayerAuthStoreService?.getMemoryUserByPlayerId?.(playerId)?.playerNo ?? undefined;
         this.emitEnvelope(socket, envelope);
         this.emitAuxInitialSync(binding.playerId, socket, view, player);
         this.worldSyncQuestLootService.markQuestSyncBaseline(binding.playerId, player.quests.revision);

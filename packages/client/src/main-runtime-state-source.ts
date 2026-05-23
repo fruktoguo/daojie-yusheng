@@ -473,6 +473,11 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       pendingSelfDelta = null;
       pendingPanelDelta = null;
       pendingMapStatic = null;
+    },
+    /** 获取当前会话的玩家序列号。 */
+    getPlayerNo(): number | null {
+      const pno = latestInitSession?.pno;
+      return typeof pno === 'number' && Number.isSafeInteger(pno) && pno > 0 ? pno : null;
     },    
     /**
  * handleInitSession：处理InitSession并更新相关状态。

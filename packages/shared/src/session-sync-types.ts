@@ -206,6 +206,8 @@ export interface InitSessionView {
  */
 
   resumed?: boolean;
+  /** 玩家序列号（按注册顺序分配）。 */
+  pno?: number | null;
 }
 
 /** 地图进入包视图。 */

@@ -61,6 +61,7 @@ type CreateMainPanelContextOptions = {
     cancelTargeting(): void;
     hideObserveModal(): void;
     getInfoRadius(): number;
+    getPlayerNo?: () => number | null;
     getCurrentActionDef(actionId: string): ActionDef | null;
     clearCurrentPath(): void;
     setCurrentPathCells(cells: Array<{ x: number; y: number }>): void;
@@ -251,6 +252,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     settingsPanel,
     getCurrentAccountName: () => getCurrentAccountName() ?? '',
     getCurrentPlayerId: () => rootRuntimeSource.getPlayer()?.id ?? '',
+    getPlayerNo: () => callbacks.getPlayerNo?.() ?? null,
     getPlayer: () => rootRuntimeSource.getPlayer(),
     applyVisibleDisplayName: (playerId, displayName) => rootRuntimeSource.applyVisibleDisplayName(playerId, displayName),
     applyVisibleRoleName: (playerId, roleName) => rootRuntimeSource.applyVisibleRoleName(playerId, roleName),

@@ -84,6 +84,8 @@ type SettingsPanelOptions = {
  */
 
   getCurrentRoleName: () => string;  
+  /** 获取当前玩家序列号。 */
+  getCurrentPlayerNo: () => number | null;
   /**
  * onDisplayNameUpdated：on显示名称Updated相关字段。
  */
@@ -204,11 +206,16 @@ export class SettingsPanel {
   }
 
   private buildSubtitle(): string {
-    return t('settings.modal.subtitle', {
+    const playerNo = this.options?.getCurrentPlayerNo?.() ?? null;
+    const base = t('settings.modal.subtitle', {
       account: this.currentAccountName || t('settings.modal.not-logged-in', undefined),
       displayName: this.currentDisplayName || t('settings.modal.not-set', undefined),
       roleName: this.currentRoleName || t('settings.modal.not-set', undefined),
     });
+    if (typeof playerNo === 'number' && playerNo > 0) {
+      return `${base} · 序列：${playerNo}`;
+    }
+    return base;
   }
 
   private syncReactState(): void {

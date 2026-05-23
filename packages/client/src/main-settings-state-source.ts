@@ -53,6 +53,8 @@ type MainSettingsStateSourceOptions = {
  */
 
   getCurrentPlayerId: () => string;
+  /** 获取当前玩家序列号。 */
+  getPlayerNo?: () => number | null;
   /**
  * getPlayer：玩家引用。
  */
@@ -177,6 +179,7 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
   options.settingsPanel.setOptions({
     getCurrentAccountName: options.getCurrentAccountName,
     getCurrentPlayerId: options.getCurrentPlayerId,
+    getCurrentPlayerNo: options.getPlayerNo ?? (() => null),
     getCurrentDisplayName: () => options.getPlayer()?.displayName ?? '',
     getCurrentRoleName: () => options.getPlayer()?.name ?? '',
     onDisplayNameUpdated: (displayName) => {

@@ -104,6 +104,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
       cancelTargeting: () => runtimeOwnerContext.mapRuntimeBridgeSource.cancelTargeting(),
       hideObserveModal: () => runtimeOwnerContext.mapRuntimeBridgeSource.hideObserveModal(),
       getInfoRadius: () => runtimeOwnerContext.getInfoRadius(),
+      getPlayerNo: () => runtimeOwnerContext.runtimeStateSource?.getPlayerNo?.() ?? null,
       getCurrentActionDef: (actionId) => runtimeOwnerContext.mapRuntimeBridgeSource.getCurrentActionDef(actionId),
       clearCurrentPath: () => runtimeOwnerContext.mapRuntimeBridgeSource.clearCurrentPath(),
       setCurrentPathCells: (cells) => runtimeOwnerContext.mapRuntimeBridgeSource.setCurrentPathCells(cells),
