@@ -2966,6 +2966,30 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return player;
     }
+
+    /** 按内容模板施加 Buff，供地形、系统效果等配置驱动来源复用。 */
+    applyConfiguredBuff(playerId, buffId, options: any = {}) {
+        const normalizedBuffId = typeof buffId === 'string' ? buffId.trim() : '';
+        if (!normalizedBuffId) {
+            return null;
+        }
+        const template = this.contentTemplateRepository?.buffRegistry?.tryGetRef?.(normalizedBuffId);
+        if (!template) {
+            throw new Error(`未找到 Buff 模板：${normalizedBuffId}`);
+        }
+        const duration = Math.max(1, Math.round(Number(template.duration) || 1));
+        const stacks = Math.max(1, Math.trunc(Number(options.stacks) || Number(template.stacks) || 1));
+        const remainingTicks = options.refreshDuration === false
+            ? Math.max(1, Math.round(Number(template.remainingTicks) || duration + 1))
+            : duration + 1;
+        const buff = this.contentTemplateRepository.buffRegistry.createInstance(normalizedBuffId, {
+            remainingTicks,
+            duration,
+            stacks,
+            realmLv: Math.max(1, Math.trunc(Number(options.realmLv) || Number(template.realmLv) || 1)),
+        });
+        return this.applyTemporaryBuff(playerId, buff);
+    }
     /** 施加神魂受损 Debuff。 */
     applyPvPSoulInjury(playerId) {
         return this.applyOrRefreshPvpBuff(playerId, buildPvPSoulInjuryBuffState(getPlayerRealmLevel(this.getPlayerOrThrow(playerId))));
@@ -3164,6 +3188,9 @@ export class PlayerRuntimeService {
                 this.playerAttributesService.recalculate(player);
                 markPlayerDirtyDomains(player, buffTickResult.vitalsChanged ? ['buff', 'attr', 'vitals'] : ['buff', 'attr']);
                 this.bumpPersistentRevision(player);
+            }
+            if (buffTickResult.defeated === true && typeof options.markPlayerDefeated === 'function') {
+                options.markPlayerDefeated(player.playerId);
             }
             const playerTick = resolvePlayerRuntimeTick(player, currentTick);
             if (recoverPlayerVitals(player, playerTick)) {
@@ -7265,6 +7292,7 @@ function tickTemporaryBuffs(buffs, player = null) {
 
     let changed = false;
     let vitalsChanged = false;
+    let defeated = false;
     const activeBuffIds = new Set(buffs
         .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
         .map((entry) => entry.buffId));
@@ -7276,6 +7304,13 @@ function tickTemporaryBuffs(buffs, player = null) {
             buff.remainingTicks = 0;
             changed = true;
             continue;
+        }
+        const tickEffectResult = applyBuffTickEffects(player, buff);
+        if (tickEffectResult.vitalsChanged) {
+            vitalsChanged = true;
+            if (player && player.hp <= 0) {
+                defeated = true;
+            }
         }
         if (buff.infiniteDuration === true) {
             if (buff.sustainCost && player) {
@@ -7328,7 +7363,53 @@ function tickTemporaryBuffs(buffs, player = null) {
         }
         buffs.length = writeIndex;
     }
-    return { changed: changed || vitalsChanged, vitalsChanged };
+    return { changed: changed || vitalsChanged, vitalsChanged, defeated };
+}
+
+function applyBuffTickEffects(player, buff) {
+    if (!player || !buff || !Array.isArray(buff.tickEffects) || buff.tickEffects.length === 0) {
+        return { vitalsChanged: false };
+    }
+    let vitalsChanged = false;
+    for (const effect of buff.tickEffects) {
+        if (!effect || effect.type !== 'damage') {
+            continue;
+        }
+        const resource = effect.resource ?? 'hp';
+        if (resource !== 'hp') {
+            continue;
+        }
+        const currentHp = Math.max(0, Math.round(Number(player.hp) || 0));
+        if (currentHp <= 0) {
+            continue;
+        }
+        const damage = resolveBuffTickDamage(player, buff, effect);
+        if (damage <= 0) {
+            continue;
+        }
+        const nextHp = Math.max(0, currentHp - damage);
+        if (nextHp !== player.hp) {
+            player.hp = nextHp;
+            player.selfRevision += 1;
+            vitalsChanged = true;
+        }
+    }
+    return { vitalsChanged };
+}
+
+function resolveBuffTickDamage(player, buff, effect) {
+    const basis = effect.basis === 'target.hp'
+        ? Math.max(0, Math.round(Number(player.hp) || 0))
+        : Math.max(1, Math.round(Number(player.maxHp) || 1));
+    const ratio = Math.max(0, Number(effect.ratio) || 0);
+    if (basis <= 0 || ratio <= 0) {
+        return 0;
+    }
+    const stackFactor = effect.perStack === true
+        ? Math.max(1, Math.round(Number(buff.stacks) || 1))
+        : 1;
+    const minimum = Number.isFinite(effect.min) ? Math.max(0, Math.round(Number(effect.min))) : 0;
+    return Math.max(minimum, Math.round(basis * ratio * stackFactor));
 }
 
 function applyBuffSustainCost(player, buff) {

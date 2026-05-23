@@ -51,6 +51,7 @@ export class BuffTemplateRegistry {
     this.pvpShaInfusionBuffByRealmLv.clear();
     this.pvpShaBacklashBuffByRealmLv.clear();
     this.loadSharedTechniqueBuffs();
+    this.loadTerrainBuffs();
   }
 
   loadSharedTechniqueBuffs(): void {
@@ -69,6 +70,23 @@ export class BuffTemplateRegistry {
         this.sharedTechniqueBuffs.set(effect.id, frozen);
         this.buffTemplates.set(effect.id, frozen);
       }
+    }
+  }
+
+  loadTerrainBuffs(): void {
+    const filePath = resolveProjectPath('packages', 'server', 'data', 'content', 'terrain-buffs.json');
+    if (!fs.existsSync(filePath)) {
+      return;
+    }
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (!Array.isArray(parsed)) {
+      return;
+    }
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        continue;
+      }
+      this.registerTemplate(entry as Record<string, unknown>);
     }
   }
 

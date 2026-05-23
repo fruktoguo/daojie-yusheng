@@ -164,6 +164,101 @@ export interface SkillDamageEffectDef {
   formula: SkillFormula;
 }
 
+/** Buff 每息伤害效果定义。 */
+export interface BuffTickDamageEffectDef {
+/**
+ * type：效果类型。
+ */
+
+  type: 'damage';
+  /**
+ * resource：承受伤害的资源，默认 hp。
+ */
+
+  resource?: 'hp';
+  /**
+ * basis：伤害基准值。
+ */
+
+  basis: 'target.maxHp' | 'target.hp';
+  /**
+ * ratio：基准值倍率。
+ */
+
+  ratio: number;
+  /**
+ * perStack：是否按 Buff 层数放大。
+ */
+
+  perStack?: boolean;
+  /**
+ * min：最小伤害。
+ */
+
+  min?: number;
+  /**
+ * damageKind：伤害类型。
+ */
+
+  damageKind?: SkillDamageKind;
+  /**
+ * element：元素类型。
+ */
+
+  element?: ElementKey;
+}
+
+/** Buff 每息效果定义。 */
+export type BuffTickEffectDef = BuffTickDamageEffectDef;
+
+/** 地块效果施加 Buff 配置。 */
+export interface TerrainApplyBuffEffectDef {
+/**
+ * buffId：要施加的 Buff ID。
+ */
+
+  buffId: string;
+  /**
+ * stacks：每次施加的层数。
+ */
+
+  stacks?: number;
+  /**
+ * refreshDuration：重复触发时是否刷新持续时间。
+ */
+
+  refreshDuration?: boolean;
+}
+
+/** 地块运行时效果配置。 */
+export interface TerrainEffectDef {
+/**
+ * id：效果 ID。
+ */
+
+  id: string;
+  /**
+ * terrainType：触发地形类型。
+ */
+
+  terrainType: string;
+  /**
+ * trigger：触发时机。
+ */
+
+  trigger: 'on_tick';
+  /**
+ * target：效果目标。
+ */
+
+  target: 'player';
+  /**
+ * applyBuff：施加 Buff 动作。
+ */
+
+  applyBuff: TerrainApplyBuffEffectDef;
+}
+
 /** 技能治疗效果定义。 */
 export interface SkillHealEffectDef {
 /**
@@ -301,6 +396,11 @@ export interface SkillBuffEffectDef {
 
   expireWithBuffId?: string;
   /**
+ * tickEffects：Buff 每息结算效果。
+ */
+
+  tickEffects?: BuffTickEffectDef[];
+  /**
  * persistOnDeath：死亡后是否保留。
  */
 
@@ -434,6 +534,11 @@ export interface MonsterInitialBuffDef {
  */
 
   expireWithBuffId?: string;
+  /**
+ * tickEffects：Buff 每息结算效果。
+ */
+
+  tickEffects?: BuffTickEffectDef[];
   /**
  * persistOnDeath：死亡后是否保留。
  */
@@ -656,6 +761,11 @@ export interface TemporaryBuffState extends VisibleBuffState {
  */
 
   expireWithBuffId?: string;
+  /**
+ * tickEffects：Buff 每息结算效果。
+ */
+
+  tickEffects?: BuffTickEffectDef[];
   /**
  * persistOnDeath：死亡后是否保留。
  */

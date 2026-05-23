@@ -1,0 +1,30 @@
+[
+  {
+    "buffId": "terrain_molten_pool_burn",
+    "name": "熔池灼烧",
+    "desc": "站在熔池上会不断叠加灼烧。每层灼烧每息造成 1% 最大气血的火系伤害，持续 10 息，最多 20 层。",
+    "shortMark": "灼",
+    "category": "debuff",
+    "visibility": "public",
+    "duration": 10,
+    "remainingTicks": 11,
+    "stacks": 1,
+    "maxStacks": 20,
+    "sourceSkillId": "terrain",
+    "sourceSkillName": "地形",
+    "realmLv": 1,
+    "color": "#ff8e54",
+    "tickEffects": [
+      {
+        "type": "damage",
+        "resource": "hp",
+        "basis": "target.maxHp",
+        "ratio": 0.01,
+        "perStack": true,
+        "min": 1,
+        "damageKind": "spell",
+        "element": "fire"
+      }
+    ]
+  }
+]

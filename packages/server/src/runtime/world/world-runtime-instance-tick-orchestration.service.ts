@@ -476,6 +476,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         }
                     });
                     for (const playerId of currentPlayerIds) {
+                        this.runIsolatedSyncOperation(deps, 'player_tile_terrain_effects', {
+                            instanceId: instance.meta.instanceId,
+                            playerId,
+                            instanceTick: instance.tick,
+                            worldTick: deps.tick,
+                        }, () => applyTerrainTickEffectsForPlayers(instance, [playerId], deps));
+                    }
+                    for (const playerId of currentPlayerIds) {
                         this.runIsolatedSyncOperation(deps, 'player_tick_advance', {
                             instanceId: instance.meta.instanceId,
                             playerId,
@@ -484,6 +492,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         }, () => deps.playerRuntimeService.advanceTickForPlayerIds([playerId], instance.tick, {
                             idleCultivationBlockedPlayerIds: blockedPlayerIds,
                             cultivationAuraMultiplierByPlayerId,
+                            markPlayerDefeated: (defeatedPlayerId) => this.markPlayerDefeated(defeatedPlayerId),
                         }));
                     }
                     for (const playerId of currentPlayerIds) {
@@ -713,6 +722,41 @@ function applyTileQiDrainForPlayers(instance, playerIds, deps) {
                 const notice = buildStructuredNotice('warn', 'notice.world.tile-qi-drained-relocated', '灵力被地脉道压抽空，你被震回起点。');
                 deps.queuePlayerNotice?.(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             }
+        }
+    }
+}
+
+function applyTerrainTickEffectsForPlayers(instance, playerIds, deps) {
+    const contentTemplateRepository = deps?.contentTemplateRepository;
+    const playerRuntimeService = deps?.playerRuntimeService;
+    if (!instance || typeof instance.getPlayerPosition !== 'function' || typeof instance.getTileLayerState !== 'function' || typeof contentTemplateRepository?.getTerrainTickEffects !== 'function' || typeof playerRuntimeService?.applyConfiguredBuff !== 'function') {
+        return;
+    }
+    for (const playerId of playerIds) {
+        const position = instance.getPlayerPosition(playerId);
+        if (!position) {
+            continue;
+        }
+        const player = typeof playerRuntimeService.getPlayer === 'function'
+            ? playerRuntimeService.getPlayer(playerId)
+            : null;
+        if (!player || player.hp <= 0) {
+            continue;
+        }
+        const layerState = instance.getTileLayerState(position.x, position.y);
+        const terrainType = typeof layerState?.terrain === 'string' ? layerState.terrain.trim() : '';
+        if (!terrainType) {
+            continue;
+        }
+        const effects = contentTemplateRepository.getTerrainTickEffects(terrainType);
+        for (const effect of effects) {
+            if (effect?.trigger !== 'on_tick' || effect?.target !== 'player' || !effect.applyBuff?.buffId) {
+                continue;
+            }
+            playerRuntimeService.applyConfiguredBuff(playerId, effect.applyBuff.buffId, {
+                stacks: effect.applyBuff.stacks,
+                refreshDuration: effect.applyBuff.refreshDuration !== false,
+            });
         }
     }
 }

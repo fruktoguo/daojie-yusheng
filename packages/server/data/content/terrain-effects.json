@@ -1,0 +1,15 @@
+{
+  "terrainEffects": [
+    {
+      "id": "terrain.molten_pool.apply_burn",
+      "terrainType": "molten_pool",
+      "trigger": "on_tick",
+      "target": "player",
+      "applyBuff": {
+        "buffId": "terrain_molten_pool_burn",
+        "stacks": 1,
+        "refreshDuration": true
+      }
+    }
+  ]
+}

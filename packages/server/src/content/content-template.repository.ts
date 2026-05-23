@@ -11,7 +11,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio } from '@mud/shared';
+import { DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, ELEMENT_KEYS, EQUIP_SLOTS, NUMERIC_SCALAR_STAT_KEYS, PLAYER_REALM_NUMERIC_TEMPLATES, TECHNIQUE_EXP_BASE, TechniqueRealm, buildQiResourceKey, calculateTechniqueSkillQiCost, cloneNumericRatioDivisors, cloneNumericStats, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, createMonsterMainCombatStatModifierStats, deriveTechniqueRealm, expandTechniqueAttrRatio, expandTechniqueExpCurve, expandTechniqueLayerGains, getTechniqueExpToNext, getTileTypeFromMapChar, inferMonsterTierFromName, isTileTypeWalkable, normalizeEditableMapDocument, normalizeMonsterTier as normalizeSharedMonsterTier, resolveMonsterTemplateRecord, resolveSkillUnlockLevel, scaleTechniqueExp, shouldExpandTechniqueAttrRatio, type TerrainEffectDef } from '@mud/shared';
 import { resolveProjectPath } from '../common/project-path';
 import { assignItemInstanceIdIfNeeded } from '../runtime/world/item-instance-id.helpers';
 import { BuffTemplateRegistry } from './registries/buff-template.registry';
@@ -66,6 +66,8 @@ export class ContentTemplateRepository {
     monsterRuntimeTemplates = new Map();
     /** 每张地图上的妖兽运行时状态缓存。 */
     monsterRuntimeStatesByMapId = new Map();
+    /** 地形每息效果索引，按 terrainType 启动期预解析。 */
+    terrainEffectsByTerrainType = new Map<string, readonly TerrainEffectDef[]>();
     /** 妖兽倾向数值基准，启动期读取后供运行时模板解析直用。 */
     monsterRealmBaselines = undefined;
     /** 起始背包条目列表。 */
@@ -303,6 +305,7 @@ export class ContentTemplateRepository {
         this.itemRegistry.loadAll();
         this.techniqueTemplates.clear();
         this.skillTemplatesById.clear();
+        this.terrainEffectsByTerrainType.clear();
         this.buffRegistry.loadAll();
         this.formationRegistry.loadAll();
         this.dropTableRegistry.loadAll();
@@ -328,9 +331,45 @@ export class ContentTemplateRepository {
         for (const template of this.monsterRuntimeTemplates.values()) {
             this.buffRegistry.registerTemplates(template.initialBuffs ?? []);
         }
+        this.loadTerrainEffects();
         this.buffRegistry.freezeAll();
+        freezeTemplateMap(this.terrainEffectsByTerrainType);
         this.monsterTemplateRegistry.freezeAll();
         this.logger.log(`已加载 ${this.itemTemplates.size} 个物品模板、${this.techniqueTemplates.size} 个功法、${this.monsterDropsByMonsterId.size} 张妖兽掉落表和 ${this.starterInventoryEntries.length} 条初始物品记录`);
+    }
+
+    /** 按地形类型读取每息地块效果。 */
+    getTerrainTickEffects(terrainType): readonly TerrainEffectDef[] {
+        const normalized = typeof terrainType === 'string' ? terrainType.trim() : '';
+        if (!normalized) {
+            return [];
+        }
+        return this.terrainEffectsByTerrainType.get(normalized) ?? [];
+    }
+
+    private loadTerrainEffects(): void {
+        const filePath = resolveProjectPath('packages', 'server', 'data', 'content', 'terrain-effects.json');
+        if (!fs.existsSync(filePath)) {
+            return;
+        }
+        const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        const entries = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.terrainEffects) ? parsed.terrainEffects : []);
+        for (const entry of entries) {
+            const effect = normalizeTerrainEffect(entry);
+            if (!effect) {
+                continue;
+            }
+            if (!this.buffRegistry.tryGetRef(effect.applyBuff.buffId)) {
+                throw new Error(`地形效果 ${effect.id} 引用的 Buff 不存在：${effect.applyBuff.buffId}`);
+            }
+            const current = this.terrainEffectsByTerrainType.get(effect.terrainType);
+            if (current) {
+                this.terrainEffectsByTerrainType.set(effect.terrainType, [...current, effect]);
+            }
+            else {
+                this.terrainEffectsByTerrainType.set(effect.terrainType, [effect]);
+            }
+        }
     }
     
     loadMonsterDrops() {
@@ -604,6 +643,36 @@ function defineInstanceValue(target, key, value) {
 function normalizeItemInstanceCount(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
+}
+
+function normalizeTerrainEffect(raw): TerrainEffectDef | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return null;
+    }
+    const candidate = raw as Record<string, any>;
+    const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+    const terrainType = typeof candidate.terrainType === 'string' ? candidate.terrainType.trim() : '';
+    const applyBuff = candidate.applyBuff && typeof candidate.applyBuff === 'object' && !Array.isArray(candidate.applyBuff)
+        ? candidate.applyBuff as Record<string, any>
+        : null;
+    const buffId = typeof applyBuff?.buffId === 'string' ? applyBuff.buffId.trim() : '';
+    if (!id || !terrainType || candidate.trigger !== 'on_tick' || candidate.target !== 'player' || !buffId) {
+        return null;
+    }
+    const stacks = Number.isFinite(applyBuff?.stacks)
+        ? Math.max(1, Math.trunc(Number(applyBuff.stacks)))
+        : undefined;
+    return {
+        id,
+        terrainType,
+        trigger: 'on_tick',
+        target: 'player',
+        applyBuff: {
+            buffId,
+            stacks,
+            refreshDuration: applyBuff?.refreshDuration !== false,
+        },
+    };
 }
 
 function normalizeItemInstanceEnhanceLevel(value) {
