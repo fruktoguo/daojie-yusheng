@@ -4,9 +4,20 @@
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback } from 'react';
-import type { S2C_MarketUpdate, ItemType, EquipSlot, Inventory, PlayerState, AuctionHouseTab } from '@mud/shared';
+import {
+  HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
+  HEAVENLY_DAO_SHOP_ITEMS,
+  type S2C_MarketUpdate,
+  type ItemType,
+  type EquipSlot,
+  type Inventory,
+  type PlayerState,
+  type AuctionHouseTab,
+} from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { formatDisplayInteger } from '../../../utils/number';
+import { getPlayerOwnedItemCount } from '../../../utils/player-wallet';
+import { getLocalItemTemplate } from '../../../content/local-templates';
 import { t } from '../../../ui/i18n';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -80,6 +91,7 @@ interface MarketPanelCallbacks {
   onOpenModal: (() => void) | null;
   onOpenAuction: ((tab: AuctionHouseTab) => void) | null;
   onOpenAuctionConsign: (() => void) | null;
+  onBuyHeavenlyDaoShopItem: ((itemId: string, quantity: number) => void) | null;
   onCreateSellOrder: ((slotIndex: number, quantity: number, unitPrice: number) => void) | null;
   onCreateBuyOrder: ((itemKey: string, quantity: number, unitPrice: number) => void) | null;
   onCancelOrder: ((orderId: string) => void) | null;
@@ -92,6 +104,7 @@ const callbacks: MarketPanelCallbacks = {
   onOpenModal: null,
   onOpenAuction: null,
   onOpenAuctionConsign: null,
+  onBuyHeavenlyDaoShopItem: null,
   onCreateSellOrder: null,
   onCreateBuyOrder: null,
   onCancelOrder: null,
@@ -105,7 +118,7 @@ export function setMarketPanelCallbacks(cbs: Partial<MarketPanelCallbacks>): voi
 // ─── Main Component (Summary Pane) ──────────────────────────────────────────
 
 export const MarketPanel = memo(function MarketPanel() {
-  const { marketUpdate, auctionStats, totalListings, myOrders } = useMarketPanelStore();
+  const { marketUpdate, auctionStats, totalListings, myOrders, player, inventory } = useMarketPanelStore();
 
   const listedCount = totalListings || marketUpdate?.listedItems?.length || 0;
   const orderCount = myOrders.length || marketUpdate?.myOrders?.length || 0;
@@ -178,6 +191,44 @@ export const MarketPanel = memo(function MarketPanel() {
           </button>
         </div>
         <AuctionFeed feed={auctionStats.feed} />
+      </div>
+
+      <HeavenlyDaoShop player={player} inventory={inventory} />
+    </div>
+  );
+});
+
+const HeavenlyDaoShop = memo(function HeavenlyDaoShop({ player, inventory }: { player: PlayerState | null; inventory: Inventory | null }) {
+  const currencyName = getLocalItemTemplate(HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.name ?? '功德';
+  const owned = getPlayerOwnedItemCount(player, inventory, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
+  return (
+    <div className="panel-section market-pane heavenly-dao-shop-pane ui-surface-pane ui-surface-pane--stack">
+      <div className="market-pane-headline">
+        <div className="panel-section-title">天道商店</div>
+        <div className="market-pane-headline-actions">
+          <span className="market-pane-copy ui-form-copy">持有 {currencyName}：{formatDisplayInteger(owned)}</span>
+        </div>
+      </div>
+      <div className="auction-pane-feed">
+        {HEAVENLY_DAO_SHOP_ITEMS.map((entry) => {
+          const template = getLocalItemTemplate(entry.itemId);
+          const itemName = template?.name ?? entry.itemId;
+          const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
+          return (
+            <div key={entry.itemId} className="auction-pane-feed-row">
+              <span>{itemName}{countText}</span>
+              <strong>{formatDisplayInteger(entry.price)} {currencyName}</strong>
+              <button
+                className="small-btn ghost"
+                type="button"
+                disabled={owned < entry.price}
+                onClick={() => callbacks.onBuyHeavenlyDaoShopItem?.(entry.itemId, 1)}
+              >
+                购买
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

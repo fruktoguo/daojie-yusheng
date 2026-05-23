@@ -140,6 +140,7 @@ export interface MarketPanelCallbacks {
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
   onPlaceAuctionBid: (lotId: string, itemKey: string, unitPrice: number) => void;
   onBuyoutAuctionLot: (lotId: string, itemKey: string) => void;
+  onBuyHeavenlyDaoShopItem: (itemId: string, quantity: number) => void;
   onCancelOrder: (orderId: string) => void;
   onClaimStorage: () => void;
 }

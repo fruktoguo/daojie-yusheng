@@ -26,6 +26,7 @@ import type {
 } from './client-core-request-types';
 import type {
   AcceptNpcQuestView,
+  BuyHeavenlyDaoShopItemView,
   BuyMarketItemView,
   BuyoutAuctionLotView,
   BuyNpcShopItemView,
@@ -203,6 +204,8 @@ export interface C2S_PlaceAuctionBid extends PlaceAuctionBidView {}
 export interface C2S_BuyoutAuctionLot extends BuyoutAuctionLotView {}
 /** 直接购买坊市挂单物品。 */
 export interface C2S_BuyMarketItem extends BuyMarketItemView {}
+/** 购买天道商店商品。 */
+export interface C2S_BuyHeavenlyDaoShopItem extends BuyHeavenlyDaoShopItemView {}
 /** 直接向坊市出售背包物品。 */
 export interface C2S_SellMarketItem extends SellMarketItemView {}
 /** 取消坊市订单。 */

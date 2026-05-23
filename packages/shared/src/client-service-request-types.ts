@@ -353,6 +353,20 @@ export interface BuyMarketItemView {
   quantity: number;
 }
 
+/** 购买天道商店商品。 */
+export interface BuyHeavenlyDaoShopItemView {
+/**
+ * itemId：商品道具 ID。
+ */
+
+  itemId: string;
+  /**
+ * quantity：购买份数。
+ */
+
+  quantity: number;
+}
+
 /** 出售背包物品。 */
 export interface SellMarketItemView {
 /**

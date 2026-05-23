@@ -5,7 +5,7 @@
  */
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -119,6 +119,44 @@ export class MarketRuntimeService {
                 `等待坊市 mutation 队列收尾失败：${error instanceof Error ? error.stack : String(error)}`,
             );
         }
+    }
+    /** 购买坊市内的天道商店固定商品。 */
+    async buyHeavenlyDaoShopItem(playerId, payload) {
+        return this.runExclusiveMarketMutation(playerId, async (context) => {
+            const itemId = typeof payload?.itemId === 'string' ? payload.itemId.trim() : '';
+            const quantity = this.normalizeHeavenlyDaoShopQuantity(payload?.quantity);
+            const shopItem = HEAVENLY_DAO_SHOP_ITEMS.find((entry) => entry.itemId === itemId);
+            if (!shopItem || !quantity) {
+                return this.singleMessage(playerId, '天道商店商品不存在。', 'warn');
+            }
+            const totalCost = shopItem.price * quantity;
+            if (!Number.isSafeInteger(totalCost) || totalCost <= 0) {
+                return this.singleMessage(playerId, '天道商店价格异常，已拒绝本次购买。', 'warn');
+            }
+            const outputCount = shopItem.count * quantity;
+            if (!Number.isSafeInteger(outputCount) || outputCount <= 0) {
+                return this.singleMessage(playerId, '天道商店商品数量异常，已拒绝本次购买。', 'warn');
+            }
+            const item = this.contentTemplateRepository.createItem(shopItem.itemId, outputCount);
+            if (!item) {
+                return this.singleMessage(playerId, '天道商店商品配置不存在。', 'warn');
+            }
+            const currencyName = this.getHeavenlyDaoShopCurrencyName();
+            if (!this.playerRuntimeService.canAffordWallet(playerId, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, totalCost)) {
+                return this.singleMessage(playerId, `${currencyName}不足，无法购买。`);
+            }
+            this.captureOnlinePlayerState(playerId, context);
+            if (!this.playerRuntimeService.canAffordWallet(playerId, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, totalCost)) {
+                return this.singleMessage(playerId, `${currencyName}不足，无法购买。`);
+            }
+            this.playerRuntimeService.debitWallet(playerId, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, totalCost);
+            this.deliverItemToPlayer(playerId, item, context);
+            const itemLabel = this.formatMarketItemStackLabel(item);
+            return this.singleStructuredMessage(playerId, 'success', 'notice.market.heavenly-dao-shop.purchased', `购买 ${itemLabel}，消耗 ${currencyName} x${totalCost}`, {
+                vars: { itemLabel, currency: currencyName, cost: totalCost },
+                pills: [{ key: 'itemLabel', style: 'target' }, { key: 'currency', style: 'target' }],
+            });
+        });
     }
     async resolveInstanceLeaseContext(instanceId) {
         const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '';
@@ -2775,6 +2813,18 @@ export class MarketRuntimeService {
         }
         return quantity;
     }
+    /** 天道商店一次购买份数，固定商品不允许超大批量压垮背包和持久化。 */
+    normalizeHeavenlyDaoShopQuantity(value) {
+        const numeric = Number(value ?? 1);
+        if (!Number.isFinite(numeric)) {
+            return null;
+        }
+        const quantity = Math.trunc(numeric);
+        if (quantity <= 0 || quantity > 9_999) {
+            return null;
+        }
+        return quantity;
+    }
     /**
  * normalizeUnitPrice：规范化或转换Unit价格。
  * @param value 参数说明。
@@ -2839,6 +2889,16 @@ export class MarketRuntimeService {
 
     formatUnitPrice(value) {
         return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.0+$/, '');
+    }
+    /** 天道商店专属货币展示名。 */
+    getHeavenlyDaoShopCurrencyName() {
+        return this.contentTemplateRepository.createItem(HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, 1)?.name ?? HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID;
+    }
+    /** 生成市场内商品提示标签。 */
+    formatMarketItemStackLabel(item) {
+        const label = item?.name ?? item?.itemId ?? '未知物品';
+        const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+        return count > 1 ? `${label} x${count}` : label;
     }
     /**
  * deliverItemToPlayer：执行deliver道具To玩家相关逻辑。

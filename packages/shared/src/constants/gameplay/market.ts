@@ -16,6 +16,20 @@ export const MARKET_MIN_UNIT_PRICE = MARKET_PRICE_PRESET_VALUES[0];
 /** 市场最高单价 */
 export const MARKET_MAX_UNIT_PRICE = 10_000_000_000;
 
+/** 天道商店消耗的专属货币物品 ID */
+export const HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID = 'merit';
+
+/** 天道商店固定商品表；价格由服务端按此表权威结算。 */
+export const HEAVENLY_DAO_SHOP_ITEMS = [
+  { itemId: 'spirit_stone', count: 240, price: 100 },
+  { itemId: 'root_seed.heaven', count: 1, price: 2_000 },
+  { itemId: 'root_seed.divine', count: 1, price: 10_000 },
+  { itemId: 'wudao_yujian', count: 1, price: 1_000 },
+  { itemId: 'pill.ningxiang', count: 1, price: 100 },
+  { itemId: 'pill.wangsheng', count: 1, price: 100 },
+  { itemId: 'pill.shatter_spirit', count: 1, price: 10 },
+] as const;
+
 /** 拍卖上架费基础值 */
 export const AUCTION_LISTING_FEE_BASE = 10;
 

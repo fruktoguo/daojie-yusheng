@@ -328,6 +328,23 @@ class WorldGatewayMarketHelper {
     async handleBuyMarketItem(client, payload) {
         await this.executeBuyMarketItem(client, payload);
     }
+    /** 处理天道商店购买意图，商品与价格由服务端固定表裁定。 */
+    async handleBuyHeavenlyDaoShopItem(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            const result = await this.gateway.marketRuntimeService.buyHeavenlyDaoShopItem(playerId, {
+                itemId: payload?.itemId ?? '',
+                quantity: payload?.quantity,
+            });
+            await this.gateway.flushMarketResult(result);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'BUY_HEAVENLY_DAO_SHOP_ITEM_FAILED', error);
+        }
+    }
     /**
  * executeSellMarketItem：处理executeSell坊市道具并更新相关状态。
  * @param client 参数说明。

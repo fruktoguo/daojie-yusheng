@@ -16,6 +16,8 @@ import {
   AUCTION_DEFAULT_DURATION_HOURS,
   EQUIP_SLOTS,
   EquipSlot,
+  HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID,
+  HEAVENLY_DAO_SHOP_ITEMS,
   getMarketMinimumTradeQuantity,
   Inventory,
   ITEM_TYPES,
@@ -147,6 +149,8 @@ interface MarketPanelCallbacks {
  */
 
   onBuyoutAuctionLot: (lotId: string, itemKey: string) => void;
+  /** 购买天道商店商品。 */
+  onBuyHeavenlyDaoShopItem: (itemId: string, quantity: number) => void;
   /**
  * onCancelOrder：onCancel订单相关字段。
  */
@@ -313,6 +317,8 @@ const MARKET_DIALOG_MIN_PRICE = MARKET_PRICE_PRESET_VALUES[0];
 const MARKET_DIALOG_MAX_PRICE = MARKET_MAX_UNIT_PRICE;
 /** 交易弹窗允许输入的最大数量。 */
 const MARKET_DIALOG_MAX_QUANTITY = 999_900_000_000;
+/** 天道商店一次点击购买 1 份固定商品。 */
+const HEAVENLY_DAO_SHOP_BUY_QUANTITY = 1;
 /** 功法书筛选按钮的静态配置。 */
 const MARKET_TECHNIQUE_FILTERS: Array<{
 /**
@@ -442,6 +448,7 @@ export class MarketPanel {
       onOpenModal: () => this.openMarketFromPane(),
       onOpenAuction: (tab) => this.openAuctionFromPane(tab),
       onOpenAuctionConsign: () => this.openAuctionConsignFromPane(),
+      onBuyHeavenlyDaoShopItem: (itemId, quantity) => this.callbacks?.onBuyHeavenlyDaoShopItem(itemId, quantity),
     });
     this.bindPaneEvents();
     this.renderPane();
@@ -801,6 +808,17 @@ export class MarketPanel {
               : `<div class="empty-hint">${escapeHtml(t('market.auction.feed.empty', undefined))}</div>`}
           </div>
         </div>
+        <div class="panel-section market-pane heavenly-dao-shop-pane ui-surface-pane ui-surface-pane--stack">
+          <div class="market-pane-headline">
+            <div class="panel-section-title">天道商店</div>
+            <div class="market-pane-headline-actions">
+              <span class="market-pane-copy ui-form-copy">持有 ${escapeHtml(this.getHeavenlyDaoShopCurrencyName())}：${formatDisplayInteger(this.getHeavenlyDaoShopCurrencyOwned())}</span>
+            </div>
+          </div>
+          <div class="auction-pane-feed">
+            ${this.renderHeavenlyDaoShopRows()}
+          </div>
+        </div>
       `);
     });
   }
@@ -824,6 +842,14 @@ export class MarketPanel {
       }
       if (target.closest('[data-auction-consign-open]')) {
         this.openAuctionConsignFromPane();
+        return;
+      }
+      const heavenlyDaoBuy = target.closest<HTMLElement>('[data-heavenly-dao-shop-buy]');
+      if (heavenlyDaoBuy) {
+        const itemId = heavenlyDaoBuy.dataset.heavenlyDaoShopBuy;
+        if (itemId) {
+          this.callbacks?.onBuyHeavenlyDaoShopItem(itemId, HEAVENLY_DAO_SHOP_BUY_QUANTITY);
+        }
       }
     });
   }
@@ -873,6 +899,32 @@ export class MarketPanel {
     this.hasRequestedMarketBootstrap = true;
     this.callbacks?.onRequestMarket();
     return true;
+  }
+
+  private getHeavenlyDaoShopCurrencyName(): string {
+    return getLocalItemTemplate(HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.name ?? '功德';
+  }
+
+  private getHeavenlyDaoShopCurrencyOwned(): number {
+    return getPlayerOwnedItemCount(this.player, this.inventory, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
+  }
+
+  private renderHeavenlyDaoShopRows(): string {
+    const owned = this.getHeavenlyDaoShopCurrencyOwned();
+    const currencyName = this.getHeavenlyDaoShopCurrencyName();
+    return HEAVENLY_DAO_SHOP_ITEMS.map((entry) => {
+      const template = getLocalItemTemplate(entry.itemId);
+      const itemName = template?.name ?? entry.itemId;
+      const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
+      const disabled = owned < entry.price ? 'disabled' : '';
+      return `
+        <div class="auction-pane-feed-row">
+          <span>${escapeHtml(itemName)}${escapeHtml(countText)}</span>
+          <strong>${formatDisplayInteger(entry.price)} ${escapeHtml(currencyName)}</strong>
+          <button class="small-btn ghost" data-heavenly-dao-shop-buy="${escapeHtmlAttr(entry.itemId)}" type="button" ${disabled}>购买</button>
+        </div>
+      `;
+    }).join('');
   }
 
   private getMarketTotalPagesForSummary(): number {

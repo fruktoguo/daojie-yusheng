@@ -8226,6 +8226,12 @@
       }
     },
     {
+      "itemId": "merit",
+      "name": "功德",
+      "type": "consumable",
+      "desc": "天道垂记的无形功业，可在天道商店中兑换稀有物资。"
+    },
+    {
       "itemId": "map.ancient_ruins",
       "name": "古遗迹残图",
       "type": "consumable",

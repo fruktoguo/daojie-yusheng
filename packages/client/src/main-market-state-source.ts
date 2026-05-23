@@ -39,6 +39,7 @@ type MainMarketStateSourceOptions = {
     | 'sendCreateMarketBuyOrder'
     | 'sendPlaceAuctionBid'
     | 'sendBuyoutAuctionLot'
+    | 'sendBuyHeavenlyDaoShopItem'
     | 'sendCancelMarketOrder'
     | 'sendClaimMarketStorage'
   > & {
@@ -82,6 +83,7 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     onCreateBuyOrder: (itemKey, quantity, unitPrice) => options.socket.sendCreateMarketBuyOrder(itemKey, quantity, unitPrice),
     onPlaceAuctionBid: (lotId, itemKey, unitPrice) => options.socket.sendPlaceAuctionBid(lotId, itemKey, unitPrice),
     onBuyoutAuctionLot: (lotId, itemKey) => options.socket.sendBuyoutAuctionLot(lotId, itemKey),
+    onBuyHeavenlyDaoShopItem: (itemId, quantity) => options.socket.sendBuyHeavenlyDaoShopItem(itemId, quantity),
     onCancelOrder: (orderId) => options.socket.sendCancelMarketOrder(orderId),
     onClaimStorage: () => options.socket.sendClaimMarketStorage(),
   });
