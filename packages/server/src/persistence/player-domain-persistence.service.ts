@@ -2419,54 +2419,63 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       const combatByPid = indexRowsByPlayerId(combatRows.rows);
       const activeJobByPid = indexRowsByPlayerId(activeJobRows.rows);
 
-      // 4. 组装每个玩家的轻量 snapshot
+      // 4. 组装每个玩家的轻量 snapshot（按片让出事件循环，避免阻塞 world tick）
       const entries: Array<{ playerId: string; snapshot: PersistedPlayerSnapshot }> = [];
-      for (const playerId of playerIds) {
-        const starterSnapshot = buildStarterSnapshot(playerId);
-        if (!starterSnapshot) {
-          continue;
+      const SNAPSHOT_ASSEMBLY_BATCH = 200;
+      for (let i = 0; i < playerIds.length; i += SNAPSHOT_ASSEMBLY_BATCH) {
+        const sliceEnd = Math.min(playerIds.length, i + SNAPSHOT_ASSEMBLY_BATCH);
+        for (let j = i; j < sliceEnd; j += 1) {
+          const playerId = playerIds[j];
+          const starterSnapshot = buildStarterSnapshot(playerId);
+          if (!starterSnapshot) {
+            continue;
+          }
+          const snapshot = starterSnapshot;
+          // placement
+          const worldAnchor = worldAnchorByPid.get(playerId) ?? null;
+          const checkpoint = checkpointByPid.get(playerId) ?? null;
+          applyProjectedPlacement(snapshot, worldAnchor, checkpoint);
+          // progression
+          applyProjectedProgressionCore(snapshot, progressionByPid.get(playerId) ?? null);
+          // attr state (realm, baseAttrs, runtimeBonuses)
+          applyProjectedAttrState(snapshot, attrStateByPid.get(playerId) ?? null);
+          // body training
+          applyProjectedBodyTraining(snapshot, bodyTrainingByPid.get(playerId) ?? null);
+          // equipment
+          applyProjectedEquipment(snapshot, equipByPid.get(playerId) ?? [], this.contentTemplateRepository);
+          // techniques
+          applyProjectedTechniques(snapshot, techByPid.get(playerId) ?? []);
+          // buffs
+          applyProjectedPersistentBuffs(snapshot, buffByPid.get(playerId) ?? []);
+          // combat preferences (排行榜只需 autoBattle, combatTargetId, cultivatingTechId)
+          applyProjectedCombatPreferences(snapshot, combatByPid.get(playerId) ?? null);
+          // wallet/inventory/marketStorage 灵石计数
+          const walletRow = walletByPid.get(playerId);
+          const walletBalance = walletRow ? Math.max(0, Math.trunc(Number(walletRow.balance) || 0)) : 0;
+          const invCount = Math.max(0, Math.trunc(Number(invSpiritByPid.get(playerId)?.total_count) || 0));
+          const mktCount = Math.max(0, Math.trunc(Number(mktSpiritByPid.get(playerId)?.total_count) || 0));
+          snapshot.wallet = { balances: walletBalance > 0 || invCount > 0
+            ? [{ walletType: currencyItemId, balance: walletBalance, count: invCount }] as any
+            : [] };
+          snapshot.inventory = { ...snapshot.inventory, items: invCount > 0
+            ? [{ itemId: currencyItemId, count: invCount }] as any
+            : [] };
+          snapshot.marketStorage = { items: mktCount > 0
+            ? [{ itemId: currencyItemId, count: mktCount }] as any
+            : [] };
+          // active job (排行榜只需判断 alchemy/enhancement 存在性)
+          const jobRow = activeJobByPid.get(playerId);
+          const jobType = jobRow ? normalizeOptionalString(jobRow.job_type) : null;
+          snapshot.progression.alchemyJob = (jobType === 'alchemy' ? {} : null) as any;
+          snapshot.progression.forgingJob = (jobType === 'forging' ? {} : null) as any;
+          snapshot.progression.enhancementJob = (jobType === 'enhancement' ? {} : null) as any;
+          // 排行榜不需要的字段保持 starter 默认值
+          entries.push({ playerId, snapshot });
         }
-        const snapshot = starterSnapshot;
-        // placement
-        const worldAnchor = worldAnchorByPid.get(playerId) ?? null;
-        const checkpoint = checkpointByPid.get(playerId) ?? null;
-        applyProjectedPlacement(snapshot, worldAnchor, checkpoint);
-        // progression
-        applyProjectedProgressionCore(snapshot, progressionByPid.get(playerId) ?? null);
-        // attr state (realm, baseAttrs, runtimeBonuses)
-        applyProjectedAttrState(snapshot, attrStateByPid.get(playerId) ?? null);
-        // body training
-        applyProjectedBodyTraining(snapshot, bodyTrainingByPid.get(playerId) ?? null);
-        // equipment
-        applyProjectedEquipment(snapshot, equipByPid.get(playerId) ?? [], this.contentTemplateRepository);
-        // techniques
-        applyProjectedTechniques(snapshot, techByPid.get(playerId) ?? []);
-        // buffs
-        applyProjectedPersistentBuffs(snapshot, buffByPid.get(playerId) ?? []);
-        // combat preferences (排行榜只需 autoBattle, combatTargetId, cultivatingTechId)
-        applyProjectedCombatPreferences(snapshot, combatByPid.get(playerId) ?? null);
-        // wallet/inventory/marketStorage 灵石计数
-        const walletRow = walletByPid.get(playerId);
-        const walletBalance = walletRow ? Math.max(0, Math.trunc(Number(walletRow.balance) || 0)) : 0;
-        const invCount = Math.max(0, Math.trunc(Number(invSpiritByPid.get(playerId)?.total_count) || 0));
-        const mktCount = Math.max(0, Math.trunc(Number(mktSpiritByPid.get(playerId)?.total_count) || 0));
-        snapshot.wallet = { balances: walletBalance > 0 || invCount > 0
-          ? [{ walletType: currencyItemId, balance: walletBalance, count: invCount }] as any
-          : [] };
-        snapshot.inventory = { ...snapshot.inventory, items: invCount > 0
-          ? [{ itemId: currencyItemId, count: invCount }] as any
-          : [] };
-        snapshot.marketStorage = { items: mktCount > 0
-          ? [{ itemId: currencyItemId, count: mktCount }] as any
-          : [] };
-        // active job (排行榜只需判断 alchemy/enhancement 存在性)
-        const jobRow = activeJobByPid.get(playerId);
-        const jobType = jobRow ? normalizeOptionalString(jobRow.job_type) : null;
-        snapshot.progression.alchemyJob = (jobType === 'alchemy' ? {} : null) as any;
-        snapshot.progression.forgingJob = (jobType === 'forging' ? {} : null) as any;
-        snapshot.progression.enhancementJob = (jobType === 'enhancement' ? {} : null) as any;
-        // 排行榜不需要的字段保持 starter 默认值
-        entries.push({ playerId, snapshot });
+        // 每完成一片让一次事件循环，给 world tick 等高优先级回调留出执行窗口。
+        if (sliceEnd < playerIds.length) {
+          await new Promise<void>((resolvePromise) => setImmediate(resolvePromise));
+        }
       }
       return entries;
     } finally {

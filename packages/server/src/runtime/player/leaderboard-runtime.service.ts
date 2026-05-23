@@ -148,20 +148,39 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         this._refreshing = true;
         try {
             const snapshots = await this.collectLeaderboardSnapshots();
+            // 在 snapshot 收集与 board 构建之间让一次事件循环，让 world tick 等高优先级 setTimeout 回调先跑。
+            await yieldToEventLoop();
+            // 顺序构建 8 个 board，每个 board 之间 yield 一次，避免连续 sort 占满 CPU。
+            const realm = this.buildRealmBoard(snapshots, MAX_LEADERBOARD_LIMIT);
+            await yieldToEventLoop();
+            const monsterKills = this.buildMonsterKillBoard(snapshots, MAX_LEADERBOARD_LIMIT);
+            await yieldToEventLoop();
+            const spiritStones = this.buildSpiritStoneBoard(snapshots, MAX_LEADERBOARD_LIMIT);
+            await yieldToEventLoop();
+            const playerKills = this.buildPlayerKillBoard(snapshots, MAX_LEADERBOARD_LIMIT);
+            await yieldToEventLoop();
+            const deaths = this.buildDeathBoard(snapshots, MAX_LEADERBOARD_LIMIT);
+            await yieldToEventLoop();
+            const bodyTraining = this.buildBodyTrainingBoard(snapshots, MAX_LEADERBOARD_LIMIT);
+            await yieldToEventLoop();
+            const supremeAttrs = this.buildSupremeAttrBoard(snapshots);
+            await yieldToEventLoop();
+            const sects = this.buildSectBoard(this._sectServiceRef, MAX_LEADERBOARD_LIMIT);
             const payload = {
                 generatedAt: Date.now(),
                 limit: MAX_LEADERBOARD_LIMIT,
                 boards: {
-                    realm: this.buildRealmBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                    monsterKills: this.buildMonsterKillBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                    spiritStones: this.buildSpiritStoneBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                    playerKills: this.buildPlayerKillBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                    deaths: this.buildDeathBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                    bodyTraining: this.buildBodyTrainingBoard(snapshots, MAX_LEADERBOARD_LIMIT),
-                    supremeAttrs: this.buildSupremeAttrBoard(snapshots),
-                    sects: this.buildSectBoard(this._sectServiceRef, MAX_LEADERBOARD_LIMIT),
+                    realm,
+                    monsterKills,
+                    spiritStones,
+                    playerKills,
+                    deaths,
+                    bodyTraining,
+                    supremeAttrs,
+                    sects,
                 },
             };
+            // 缓存替换仍是同步原子操作，避免读到半构造态。
             this.cachedLeaderboard = payload;
             this.cachedLeaderboardSnapshotsByPlayerId = new Map(snapshots.map((snapshot) => [snapshot.playerId, snapshot]));
         } catch (_error) {
@@ -295,7 +314,11 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         for (const player of await this.collectPersistedOfflineSnapshots(playersByPlayerId)) {
             playersByPlayerId.set(player.playerId, player);
         }
+        // 离线玩家投影装载完成后让一次事件循环，避免后续 identity 查询前的 CPU 占用过长。
+        await yieldToEventLoop();
         const identitiesByPlayerId = await this.loadLeaderboardIdentities(playersByPlayerId.keys());
+        // identity 查询完成后再让一次，给 world tick 留出 createSnapshot 之前的窗口。
+        await yieldToEventLoop();
         return [...playersByPlayerId.values()].map((player) => this.createSnapshot(player, identitiesByPlayerId.get(player.playerId) ?? null));
     }
     /** 采集当前运行态玩家快照，排除 bot；无 session 的离线挂机也保留给排行榜。 */
@@ -649,6 +672,14 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         return summary?.name ?? normalizedMapId;
     }
 };
+/**
+ * yieldToEventLoop：把当前微任务让回事件循环，给 world tick 等高优先级
+ * setTimeout/IO 回调一次执行机会。在排行榜分片刷新过程中按片调用，避免
+ * 一次性占用 CPU 数百毫秒导致 tick 慢帧。
+ */
+function yieldToEventLoop(): Promise<void> {
+    return new Promise((resolvePromise) => setImmediate(resolvePromise));
+}
 /**
  * clampLeaderboardLimit：执行clampLeaderboardLimit相关逻辑。
  * @param limit 参数说明。
