@@ -256,6 +256,8 @@ export class InventoryPanel {
   private onCreateFormation: ((payload: FormationCreatePayload) => void) | null = null;
   /** onPreviewFormationRange：on预览阵法范围。 */
   private onPreviewFormationRange: ((payload: FormationRangePreviewPayload) => void) | null = null;
+  /** onOpenTechniqueGeneration：打开功法领悟面板。 */
+  private onOpenTechniqueGeneration: (() => void) | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
   /** activeFilter：活跃筛选。 */
@@ -412,6 +414,7 @@ export class InventoryPanel {
     onSort: () => void,
     onCreateFormation?: (payload: FormationCreatePayload) => void,
     onPreviewFormationRange?: (payload: FormationRangePreviewPayload) => void,
+    onOpenTechniqueGeneration?: () => void,
   ): void {
     this.onUseItem = onUse;
     this.onDropItem = onDrop;
@@ -420,6 +423,7 @@ export class InventoryPanel {
     this.onSortInventory = onSort;
     this.onCreateFormation = onCreateFormation ?? null;
     this.onPreviewFormationRange = onPreviewFormationRange ?? null;
+    this.onOpenTechniqueGeneration = onOpenTechniqueGeneration ?? null;
   }
 
   /** 更新背包数据并刷新列表与弹层 */
@@ -721,6 +725,10 @@ export class InventoryPanel {
         }
         if (item && this.isSectFoundingTokenItem(item)) {
           this.openSectFoundingDialog(slotIndex);
+          return;
+        }
+        if (item && this.isTechniqueGenerationItem(item)) {
+          this.onOpenTechniqueGeneration?.();
           return;
         }
         if (item && this.requiresUseConfirmation(item)) {
@@ -1305,6 +1313,11 @@ export class InventoryPanel {
           }
           if (this.isSectFoundingTokenItem(item)) {
             this.openSectFoundingDialog(slotIndex);
+            return;
+          }
+          if (this.isTechniqueGenerationItem(item)) {
+            this.onOpenTechniqueGeneration?.();
+            this.closeModal();
             return;
           }
           if (this.requiresUseConfirmation(item)) {
@@ -2320,7 +2333,7 @@ export class InventoryPanel {
 
   /** canBatchUseItem：判断是否Batch使用物品。 */
   private canBatchUseItem(item: ItemStack): boolean {
-    return item.allowBatchUse === true && this.canUseItem(item) && !this.isFormationDiskItem(item) && !this.isSectFoundingTokenItem(item) && item.count > 1;
+    return item.allowBatchUse === true && this.canUseItem(item) && !this.isFormationDiskItem(item) && !this.isSectFoundingTokenItem(item) && !this.isTechniqueGenerationItem(item) && item.count > 1;
   }
 
   /** getUseCountFromInput：读取使用数量From输入。 */
@@ -2646,6 +2659,9 @@ export class InventoryPanel {
     if (this.isSectFoundingTokenItem(item)) {
       return { label: t('inventory.action.label.sect-founding', undefined), kind: 'use' };
     }
+    if (this.isTechniqueGenerationItem(item)) {
+      return { label: '领悟功法', kind: 'use' };
+    }
     if (item.type === 'skill_book') {
       return { label: t('inventory.action.label.learn', undefined), kind: 'use' };
     }
@@ -2662,6 +2678,10 @@ export class InventoryPanel {
 
   private isSectFoundingTokenItem(item: ItemStack): boolean {
     return item.useBehavior === 'create_sect' || item.itemId === 'sect_founding_token';
+  }
+
+  private isTechniqueGenerationItem(item: ItemStack): boolean {
+    return item.useBehavior === 'open_technique_generation' || item.itemId === 'wudao_yujian';
   }
 
   private resolveFormationDiskMultiplier(item: ItemStack): number {
