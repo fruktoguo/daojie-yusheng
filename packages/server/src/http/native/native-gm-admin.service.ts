@@ -564,33 +564,32 @@ export class NativeGmAdminService {
                 job: null,
             });
             this.appendDatabaseJobLog(job, `导入前备份已生成：${checkpointBackupId}`);
-            try {
-                process.env.SERVER_RUNTIME_RESTORE_ACTIVE = '1';
-                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
-                await this.databaseRestoreCoordinator.prepareForRestore();
-                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
-                const databaseUrl = resolveServerDatabaseUrl();
-                if (!databaseUrl.trim()) {
-                    throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
-                }
-                await restorePostgresCustomDump(record.filePath, databaseUrl);
-                if (this.pool) {
-                    await restorePreservedGmAuthRecord(this.pool, preservedGmAuthRecord);
-                    await ensureNativeGmAdminTables(this.pool);
-                    await this.backfillBackupMetadataFromFilesystem();
-                }
-                this.appendDatabaseJobLog(job, preservedGmAuthRecord
-                    ? '数据库恢复 SQL 已应用，当前 GM 密码记录已保留，GM 元表已重建并回填备份列表'
-                    : '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
-                job.appliedAt = new Date().toISOString();
-                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
+            process.env.SERVER_RUNTIME_RESTORE_ACTIVE = '1';
+            this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
+            await this.databaseRestoreCoordinator.prepareForRestore();
+            this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
+            const databaseUrl = resolveServerDatabaseUrl();
+            if (!databaseUrl.trim()) {
+                throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
             }
-            finally {
-                delete process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
-                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.RELOADING_RUNTIME);
-                await this.databaseRestoreCoordinator.reloadAfterRestore();
-                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMPLETED);
+            await restorePostgresCustomDump(record.filePath, databaseUrl);
+            if (this.pool) {
+                await restorePreservedGmAuthRecord(this.pool, preservedGmAuthRecord);
+                await ensureNativeGmAdminTables(this.pool);
             }
+            this.appendDatabaseJobLog(job, preservedGmAuthRecord
+                ? '数据库恢复 SQL 已应用，当前 GM 密码记录已保留，GM 元表已重建并回填备份列表'
+                : '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
+            job.appliedAt = new Date().toISOString();
+            this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
+            job.status = 'completed';
+            job.finishedAt = new Date().toISOString();
+            this.lastDatabaseJob = { ...job };
+            this.currentDatabaseJob = null;
+            await this.persistDatabaseJobState().catch(() => undefined);
+            this.logger.log('数据库恢复已完成，进程即将退出以触发容器重启，确保所有子系统从干净状态初始化');
+            // 给日志和持久化一点时间落盘
+            setTimeout(() => process.exit(0), 500);
         });
         return {
             job,
