@@ -1961,6 +1961,13 @@
       min-height: 0;
       overflow: hidden;
     }
+    .detail-modal-card.detail-modal--tutorial .react-panel-host[data-react-panel="tutorial"] {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
     .detail-modal.detail-modal--suggestion {
       --detail-modal-padding: 12px;
       --detail-modal-safe-gap: 10px;
