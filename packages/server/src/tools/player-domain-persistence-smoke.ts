@@ -8,6 +8,10 @@ import { EQUIP_SLOTS, isLegacyItemInstanceId } from '@mud/shared';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import {
+  buildPlayerSnapshotProjectionWritePlan,
+  executePlayerDomainWritePlan,
+} from '../persistence/player-domain-write-plan';
+import {
   PLAYER_DOMAIN_PROJECTED_TABLES,
   PlayerDomainPersistenceService,
 } from '../persistence/player-domain-persistence.service';
@@ -18,6 +22,7 @@ const databaseUrl = resolveServerDatabaseUrl();
 async function main(): Promise<void> {
   await assertInventoryAndWalletSnapshotsUseStaleKeyPruning();
   await assertInventoryDuplicateSlotsAreReassigned();
+  await assertInventoryDuplicateSlotsAreReassignedInWritePlan();
   await assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts();
   await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
   await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
@@ -1624,6 +1629,61 @@ async function assertInventoryDuplicateSlotsAreReassigned(): Promise<void> {
     || itemIds.join(',') !== 'item.slot_a,item.slot_b,item.slot_c,item.slot_d'
   ) {
     throw new Error(`duplicate inventory slots were not reassigned without dropping items: ${JSON.stringify(inventoryInsertPayload)}`);
+  }
+}
+
+async function assertInventoryDuplicateSlotsAreReassignedInWritePlan(): Promise<void> {
+  const snapshot = buildSnapshot(Date.now());
+  snapshot.inventory = {
+    revision: 10,
+    capacity: 24,
+    items: [
+      { itemId: 'item.plan_slot_a', count: 1, slotIndex: 5, itemInstanceId: 'inv:plan:a', rawPayload: { itemId: 'item.plan_slot_a', count: 1 } },
+      { itemId: 'item.plan_slot_b', count: 1, slotIndex: 5, itemInstanceId: 'inv:plan:b', rawPayload: { itemId: 'item.plan_slot_b', count: 1 } },
+      { itemId: 'item.plan_slot_c', count: 1, slotIndex: 0, itemInstanceId: 'inv:plan:c', rawPayload: { itemId: 'item.plan_slot_c', count: 1 } },
+      { itemId: 'item.plan_slot_d', count: 1, slotIndex: 0, itemInstanceId: 'inv:plan:d', rawPayload: { itemId: 'item.plan_slot_d', count: 1 } },
+    ],
+  } as PersistedPlayerSnapshot['inventory'];
+
+  const plan = await buildPlayerSnapshotProjectionWritePlan(
+    'player:duplicate-slot-write-plan',
+    snapshot,
+    ['inventory'],
+  );
+  const inventoryInsertStep = plan.steps.find((step) =>
+    step.sql.includes('INSERT INTO player_inventory_item')
+    && typeof step.params[1] === 'string',
+  );
+  const rows = inventoryInsertStep
+    ? JSON.parse(String(inventoryInsertStep.params[1])) as Array<Record<string, unknown>>
+    : [];
+  const slots = rows.map((row) => Number(row.slot_index));
+  const itemIds = rows.map((row) => String(row.item_id)).sort();
+  if (
+    rows.length !== 4
+    || new Set(slots).size !== 4
+    || itemIds.join(',') !== 'item.plan_slot_a,item.plan_slot_b,item.plan_slot_c,item.plan_slot_d'
+  ) {
+    throw new Error(`duplicate inventory slots were not reassigned in write plan: ${JSON.stringify(rows)}`);
+  }
+
+  const executedParams: unknown[][] = [];
+  const fakeClient = {
+    async query(_sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
+      executedParams.push(Array.isArray(params) ? params : []);
+      return { rows: [], rowCount: rows.length };
+    },
+  };
+  await executePlayerDomainWritePlan(fakeClient as never, plan);
+  const executedInsertRows = executedParams
+    .map((params) => (typeof params[1] === 'string' ? JSON.parse(params[1]) as unknown : null))
+    .find((payload): payload is Array<Record<string, unknown>> =>
+      Array.isArray(payload)
+      && payload.some((row) => (row as Record<string, unknown>)?.item_id === 'item.plan_slot_a'),
+    ) ?? [];
+  const executedSlots = executedInsertRows.map((row) => Number(row.slot_index));
+  if (executedInsertRows.length !== 4 || new Set(executedSlots).size !== 4) {
+    throw new Error(`executePlayerDomainWritePlan carried duplicate inventory slots: ${JSON.stringify(executedInsertRows)}`);
   }
 }
 

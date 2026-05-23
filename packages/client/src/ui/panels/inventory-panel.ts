@@ -1366,7 +1366,7 @@ export class InventoryPanel {
         }, { signal });
         body.querySelector<HTMLElement>('[data-formation-confirm]')?.addEventListener('click', (event) => {
           event.stopPropagation();
-          const payload = this.readFormationPayload(body, slotIndex);
+          const payload = this.readFormationPayload(body, item);
           if (!payload) {
             return;
           }
@@ -1712,10 +1712,9 @@ export class InventoryPanel {
     this.syncFormationPreview(body, item);
   }
 
-  private readFormationPayload(body: HTMLElement, slotIndex: number, enforceQi = true): FormationCreatePayload | null {
+  private readFormationPayload(body: HTMLElement, item: ItemStack | null, enforceQi = true): FormationCreatePayload | null {
     const template = this.getSelectedFormationTemplate(body);
     const formationId = template.id;
-    const item = this.lastInventory?.items[slotIndex] ?? null;
     const itemInstanceId = this.getInventoryItemInstanceId(item);
     if (!itemInstanceId) {
       return null;
