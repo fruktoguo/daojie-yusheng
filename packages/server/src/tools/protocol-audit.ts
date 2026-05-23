@@ -123,6 +123,7 @@ var EXPECTED_C2S = [
   C2S.SubmitNpcQuest,
   C2S.UsePortal,
   C2S.UseItem,
+  C2S.RepairInventoryItemInstanceIds,
   C2S.DropItem,
   C2S.DestroyItem,
   C2S.TakeGround,
@@ -1990,6 +1991,7 @@ async function inventoryOpsCase(runtime) {
  * 记录状态。
  */
   var state = (await runtime.api.fetchState(playerId)).player;
+  socket.emit(C2S.RepairInventoryItemInstanceIds, {});
   socket.emit(C2S.SortInventory, {});
   await lib.waitForState(runtime.api, playerId, function (player) {
     return slot(player, "pill.minor_heal") < slot(player, "rat_tail");

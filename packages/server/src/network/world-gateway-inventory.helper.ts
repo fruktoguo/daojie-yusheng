@@ -10,7 +10,9 @@
 
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
 
+import { BadRequestException } from '@nestjs/common';
 import { S2C } from '@mud/shared';
+import { buildStructuredNotice } from '../runtime/world/structured-notice.helpers';
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
 class WorldGatewayInventoryHelper {
@@ -112,6 +114,29 @@ class WorldGatewayInventoryHelper {
     handleUseItem(client, payload) {
         this.executeUseItem(client, payload);
     }    
+    handleRepairInventoryItemInstanceIds(client, _payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            const repairedCount = this.gateway.playerRuntimeService.repairInventoryItemInstanceIds(playerId);
+            const notice = buildStructuredNotice(
+                repairedCount > 0 ? 'success' : 'info',
+                repairedCount > 0 ? 'notice.inventory.instance-id-repaired' : 'notice.inventory.instance-id-repair-not-needed',
+                repairedCount > 0 ? '背包物品身份已修复，请重新选择。' : '背包物品身份已是最新。',
+                { vars: { count: repairedCount } },
+            );
+            this.gateway.worldClientEventService.emitNoticeItems(client, [{
+                kind: notice.kind,
+                text: notice.text,
+                structured: notice.structured,
+            }]);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'REPAIR_INVENTORY_ITEM_INSTANCE_IDS_FAILED', error);
+        }
+    }
     handleCreateFormation(client, payload) {
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
@@ -349,7 +374,8 @@ class WorldGatewayInventoryHelper {
         if (direct) {
             return direct;
         }
-        return '';
+        this.gateway.playerRuntimeService.repairInventoryItemInstanceIds(playerId);
+        throw new BadRequestException('背包物品身份已修复，请重新选择。');
     }
 }
 

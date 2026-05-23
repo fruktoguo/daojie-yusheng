@@ -100,6 +100,7 @@ export const C2S = {
   ClaimMarketStorage: 'n:c:claimMarketStorage',
   UsePortal: 'n:c:usePortal',
   UseItem: 'n:c:useItem',
+  RepairInventoryItemInstanceIds: 'n:c:repairInventoryItemInstanceIds',
   CreateFormation: 'n:c:createFormation',
   SetFormationActive: 'n:c:setFormationActive',
   RefillFormation: 'n:c:refillFormation',
@@ -266,6 +267,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.ClaimMarketStorage]: RequestPayloads.C2S_ClaimMarketStorage;
   [C2S.UsePortal]: RequestPayloads.C2S_UsePortal;
   [C2S.UseItem]: RequestPayloads.C2S_UseItem;
+  [C2S.RepairInventoryItemInstanceIds]: RequestPayloads.C2S_RepairInventoryItemInstanceIds;
   [C2S.CreateFormation]: RequestPayloads.C2S_CreateFormation;
   [C2S.SetFormationActive]: RequestPayloads.C2S_SetFormationActive;
   [C2S.RefillFormation]: RequestPayloads.C2S_RefillFormation;

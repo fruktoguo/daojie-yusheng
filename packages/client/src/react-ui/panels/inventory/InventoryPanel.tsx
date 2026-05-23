@@ -72,7 +72,7 @@ interface InventoryPanelCallbacks {
   onFilterChange: ((filter: InventoryFilter) => void) | null;
   onSortInventory: (() => void) | null;
   onRequestLoadMore: ((scrollTarget: HTMLElement) => void) | null;
-  onPrimaryAction: ((slotIndex: number, itemInstanceId: string | null, itemId: string) => void) | null;
+  onPrimaryAction: ((slotIndex: number, itemInstanceId: string | null) => void) | null;
   onDropOne: ((slotIndex: number, itemInstanceId: string) => void) | null;
 }
 
@@ -179,7 +179,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
             disabled={item.primaryAction.disabled === true}
             onClick={(event) => {
               event.stopPropagation();
-              callbacks.onPrimaryAction?.(item.slotIndex, item.itemInstanceId, item.itemId);
+              callbacks.onPrimaryAction?.(item.slotIndex, item.itemInstanceId);
             }}
           >
             {item.primaryAction.label}

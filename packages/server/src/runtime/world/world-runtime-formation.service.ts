@@ -54,7 +54,7 @@ class WorldRuntimeFormationService {
 
     dispatchCreateFormation(playerId, payload, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const itemInstanceId = resolveInventoryItemInstanceId(payload);
+        const itemInstanceId = resolveInventoryItemInstanceId(payload, this.playerRuntimeService, playerId);
         const diskItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
         const diskTier = resolveFormationDiskTier(diskItem);
         if (!diskItem || !diskTier) {
@@ -1668,12 +1668,13 @@ function normalizeDiskMultiplier(item) {
     return FORMATION_DISK_TIER_MULTIPLIERS[tier] ?? 1;
 }
 
-function resolveInventoryItemInstanceId(payload) {
+function resolveInventoryItemInstanceId(payload, playerRuntimeService, playerId) {
     const itemInstanceId = normalizeOptionalString(payload?.itemRef?.itemInstanceId)
         || normalizeOptionalString(payload?.itemInstanceId)
         || normalizeOptionalString(payload?.expectedItemInstanceId);
     if (!itemInstanceId) {
-        throw new BadRequestException('背包物品目标缺失，请重新选择。');
+        playerRuntimeService.repairInventoryItemInstanceIds(playerId);
+        throw new BadRequestException('背包物品身份已修复，请重新选择。');
     }
     return itemInstanceId;
 }

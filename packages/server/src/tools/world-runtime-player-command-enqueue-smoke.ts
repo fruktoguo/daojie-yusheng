@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 
 const { WorldRuntimePlayerCommandEnqueueService } = require("../runtime/world/command/world-runtime-player-command-enqueue.service");
+const { assignItemInstanceIdIfNeeded } = require("../runtime/world/item-instance-id.helpers");
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
@@ -119,7 +120,7 @@ function testBasicAttackQueue() {
     ]);
 }
 
-function testUseItemResolvesLegacySlotFallback() {
+function testUseItemMissingInstanceIdRepairsFullInventoryAndRejects() {
     const log = [];
     const player = {
         playerId: 'player:1',
@@ -134,6 +135,8 @@ function testUseItemResolvesLegacySlotFallback() {
         inventory: {
             items: [
                 { itemId: 'pill.minor_heal', name: '回春散', type: 'consumable', count: 3 },
+                { itemId: 'pill.qi', name: '补气丹', type: 'consumable', count: 2 },
+                { itemId: 'spirit_stone', name: '灵石', type: 'material', count: 99, itemInstanceId: 'stable-spirit-stone' },
             ],
         },
     };
@@ -142,27 +145,35 @@ function testUseItemResolvesLegacySlotFallback() {
             assert.equal(playerId, 'player:1');
             return player;
         },
+        repairInventoryItemInstanceIds(playerId) {
+            assert.equal(playerId, 'player:1');
+            let repairedCount = 0;
+            for (const item of player.inventory.items) {
+                if (assignItemInstanceIdIfNeeded(item)) {
+                    repairedCount += 1;
+                }
+            }
+            log.push(['repairInventoryItemInstanceIds', playerId, repairedCount]);
+            return repairedCount;
+        },
         updateCombatSettings() {},
         clearCombatTarget() {},
     });
     const deps = createDeps(log);
-    const result = service.enqueueUseItem('player:1', { slotIndex: 0, expectedItemId: 'pill.minor_heal' }, deps);
-    const assignedId = player.inventory.items[0].itemInstanceId;
-    assert.equal(typeof assignedId, 'string');
-    assert.ok(assignedId.length > 0);
-    assert.deepEqual(result, { playerId: 'player:1', tick: 9 });
+    assert.throws(
+        () => service.enqueueUseItem('player:1', {}, deps),
+        /背包物品身份已修复，请重新选择/,
+    );
+    assert.equal(typeof player.inventory.items[0].itemInstanceId, 'string');
+    assert.equal(typeof player.inventory.items[1].itemInstanceId, 'string');
+    assert.equal(player.inventory.items[2].itemInstanceId, 'stable-spirit-stone');
     assert.deepEqual(log, [
-        ['getPlayerLocationOrThrow', 'player:1'],
-        ['enqueuePendingCommand', 'player:1', {
-            kind: 'useItem',
-            itemInstanceId: assignedId,
-            payload: { slotIndex: 0, expectedItemId: 'pill.minor_heal' },
-        }],
-        ['getPlayerViewOrThrow', 'player:1'],
+        ['repairInventoryItemInstanceIds', 'player:1', 2],
     ]);
 }
 
-function testUseItemLegacySlotFallbackRejectsChangedItem() {
+function testUseItemMissingInstanceIdDoesNotUseSlotFallback() {
+    const log = [];
     const service = new WorldRuntimePlayerCommandEnqueueService({
         getPlayerOrThrow() {
             return {
@@ -173,11 +184,16 @@ function testUseItemLegacySlotFallbackRejectsChangedItem() {
                 },
             };
         },
+        repairInventoryItemInstanceIds(playerId) {
+            log.push(['repairInventoryItemInstanceIds', playerId]);
+            return 1;
+        },
     });
     assert.throws(
         () => service.enqueueUseItem('player:1', { slotIndex: 0, expectedItemId: 'pill.minor_heal' }, createDeps([])),
-        /背包物品目标已变化/,
+        /背包物品身份已修复，请重新选择/,
     );
+    assert.deepEqual(log, [['repairInventoryItemInstanceIds', 'player:1']]);
 }
 /**
  * testStartAlchemyClonesIngredients：构建test开始炼丹CloneIngredient。
@@ -370,8 +386,8 @@ function testLockedBattleWithoutTargetStopsCombatCleanly() {
 }
 
 testBasicAttackQueue();
-testUseItemResolvesLegacySlotFallback();
-testUseItemLegacySlotFallbackRejectsChangedItem();
+testUseItemMissingInstanceIdRepairsFullInventoryAndRejects();
+testUseItemMissingInstanceIdDoesNotUseSlotFallback();
 testStartAlchemyClonesIngredients();
 testCastSkillRequiresKnownAction();
 testCastSkillRejectsDisabledSkillAction();

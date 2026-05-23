@@ -97,8 +97,6 @@ type FormationRangePreviewPayload = {
 type UseItemOptions = {
   sectName?: string;
   sectMark?: string;
-  slotIndex?: number;
-  expectedItemId?: string;
 };
 
 function replaceElementHtml(root: HTMLElement, html: string): void {
@@ -246,6 +244,7 @@ export class InventoryPanel {
   private pane = document.getElementById('pane-inventory')!;
   /** onUseItem：on使用物品。 */
   private onUseItem: ((itemInstanceId: string, count?: number, options?: UseItemOptions) => void) | null = null;
+  private onRepairInventoryItemInstanceIds: (() => void) | null = null;
   /** onDropItem：on掉落物品。 */
   private onDropItem: ((itemInstanceId: string, count: number) => void) | null = null;
   /** onDestroyItem：on Destroy物品。 */
@@ -341,7 +340,7 @@ export class InventoryPanel {
       onFilterChange: (filter) => this.handleReactFilterChange(filter),
       onSortInventory: () => this.onSortInventory?.(),
       onRequestLoadMore: (scrollTarget) => this.maybeLoadMoreVisibleItems(scrollTarget),
-      onPrimaryAction: (slotIndex, itemInstanceId, itemId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false, expectedItemId: itemId }),
+      onPrimaryAction: (slotIndex, itemInstanceId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false }),
       onDropOne: (slotIndex, itemInstanceId) => this.handleDropOne(slotIndex, itemInstanceId),
     });
     this.bindPaneEvents();
@@ -414,6 +413,7 @@ export class InventoryPanel {
     onDestroy: (itemInstanceId: string, count: number) => void,
     onEquip: (itemInstanceId: string) => void,
     onSort: () => void,
+    onRepairInventoryItemInstanceIds: () => void,
     onCreateFormation?: (payload: FormationCreatePayload) => void,
     onPreviewFormationRange?: (payload: FormationRangePreviewPayload) => void,
   ): void {
@@ -422,6 +422,7 @@ export class InventoryPanel {
     this.onDestroyItem = onDestroy;
     this.onEquipItem = onEquip;
     this.onSortInventory = onSort;
+    this.onRepairInventoryItemInstanceIds = onRepairInventoryItemInstanceIds;
     this.onCreateFormation = onCreateFormation ?? null;
     this.onPreviewFormationRange = onPreviewFormationRange ?? null;
   }
@@ -579,7 +580,7 @@ export class InventoryPanel {
   private handlePrimaryAction(
     slotIndex: number,
     expectedItemInstanceId?: string | null,
-    options: { closeModal?: boolean; expectedItemId?: string } = {},
+    options: { closeModal?: boolean } = {},
   ): void {
     const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
     const action = item ? this.getPrimaryAction(item) : null;
@@ -592,6 +593,7 @@ export class InventoryPanel {
     }
     if (action.kind === 'equip') {
       if (!itemInstanceId) {
+        this.repairMissingInventoryItemInstanceIds();
         return;
       }
       this.onEquipItem?.(itemInstanceId);
@@ -614,10 +616,11 @@ export class InventoryPanel {
       this.openActionDialog('use', slotIndex, 1);
       return;
     }
-    this.onUseItem?.(itemInstanceId || '', 1, {
-      slotIndex,
-      expectedItemId: options.expectedItemId ?? item.itemId,
-    });
+    if (!itemInstanceId) {
+      this.repairMissingInventoryItemInstanceIds();
+      return;
+    }
+    this.onUseItem?.(itemInstanceId, 1);
     if (options.closeModal) {
       this.closeModal();
     }
@@ -627,9 +630,16 @@ export class InventoryPanel {
     const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
     const itemInstanceId = this.getInventoryItemInstanceId(item);
     if (!itemInstanceId || (expectedItemInstanceId && itemInstanceId !== expectedItemInstanceId)) {
+      if (!itemInstanceId) {
+        this.repairMissingInventoryItemInstanceIds();
+      }
       return;
     }
     this.onDropItem?.(itemInstanceId, 1);
+  }
+
+  private repairMissingInventoryItemInstanceIds(): void {
+    this.onRepairInventoryItemInstanceIds?.();
   }
 
   private syncReactState(inventory: Inventory | null = this.lastInventory): void {
@@ -1341,7 +1351,7 @@ export class InventoryPanel {
             this.openActionDialog('use', slotIndex, 1);
             return;
           }
-          this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: true, expectedItemId: item.itemId });
+          this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: true });
         }, { signal });
         body.querySelectorAll<HTMLElement>('[data-inventory-open-action]').forEach((button) => button.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -1746,6 +1756,7 @@ export class InventoryPanel {
     const formationId = template.id;
     const itemInstanceId = this.getInventoryItemInstanceId(item);
     if (!itemInstanceId) {
+      this.repairMissingInventoryItemInstanceIds();
       return null;
     }
     const diskMultiplier = item ? this.resolveFormationDiskMultiplier(item) : 1;
@@ -1842,6 +1853,7 @@ export class InventoryPanel {
           }
           const itemInstanceId = this.getInventoryItemInstanceId(item);
           if (!itemInstanceId) {
+            this.repairMissingInventoryItemInstanceIds();
             return;
           }
           this.onUseItem?.(itemInstanceId, 1, { sectName, sectMark });
@@ -1888,6 +1900,7 @@ export class InventoryPanel {
             event.stopPropagation();
             const itemInstanceId = this.getInventoryItemInstanceId(item);
             if (!itemInstanceId) {
+              this.repairMissingInventoryItemInstanceIds();
               return;
             }
             this.onDestroyItem?.(itemInstanceId, selectedCount);
@@ -1920,10 +1933,11 @@ export class InventoryPanel {
           body.querySelector<HTMLElement>('[data-inventory-action-confirm]')?.addEventListener('click', (event) => {
             event.stopPropagation();
             const itemInstanceId = this.getInventoryItemInstanceId(item);
-            this.onUseItem?.(itemInstanceId || '', 1, {
-              slotIndex,
-              expectedItemId: item.itemId,
-            });
+            if (!itemInstanceId) {
+              this.repairMissingInventoryItemInstanceIds();
+              return;
+            }
+            this.onUseItem?.(itemInstanceId, 1);
             this.closeModal();
           }, { signal });
         },
@@ -1971,14 +1985,16 @@ export class InventoryPanel {
           const selected = this.getUseCountFromInput(countInput, maxCount);
           const itemInstanceId = this.getInventoryItemInstanceId(item);
           if (dialog.kind === 'use') {
-            this.onUseItem?.(itemInstanceId || '', selected, {
-              slotIndex,
-              expectedItemId: item.itemId,
-            });
+            if (!itemInstanceId) {
+              this.repairMissingInventoryItemInstanceIds();
+              return;
+            }
+            this.onUseItem?.(itemInstanceId, selected);
             this.closeModal();
             return;
           }
           if (!itemInstanceId) {
+            this.repairMissingInventoryItemInstanceIds();
             return;
           }
           if (dialog.kind === 'drop') {
@@ -2676,7 +2692,7 @@ export class InventoryPanel {
       return { label: t('inventory.action.label.formation', undefined), kind: 'use' };
     }
     if (this.isSectFoundingTokenItem(item)) {
-      return { label: t('inventory.action.label.use', undefined), kind: 'use' };
+      return { label: t('inventory.action.label.sect-founding', undefined), kind: 'use' };
     }
     if (item.type === 'skill_book') {
       return { label: t('inventory.action.label.learn', undefined), kind: 'use' };

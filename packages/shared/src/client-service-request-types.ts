@@ -537,23 +537,16 @@ export interface StartEnhancementView {
 /** 取消强化。 */
 export interface CancelEnhancementView {}
 
+/** 重建当前玩家背包中缺失或旧格式的物品实例 ID。 */
+export interface RepairInventoryItemInstanceIdsView {}
+
 /** 使用背包物品。 */
 export interface UseItemView {
 /**
- * itemRef：背包物品稳定引用。旧投影缺失实例 ID 时可省略，由服务端按 slotIndex + expectedItemId 受保护解析。
+ * itemRef：背包物品稳定引用。
  */
 
-  itemRef?: InventoryItemRefView;
-  /**
- * slotIndex：旧投影兼容字段，仅 useItem 在 itemRef 缺失时使用。
- */
-
-  slotIndex?: number;
-  /**
- * expectedItemId：旧投影兼容校验字段，防止槽位变化后误用其它物品。
- */
-
-  expectedItemId?: string;
+  itemRef: InventoryItemRefView;
   /**
  * count：数量或计量字段。
  */

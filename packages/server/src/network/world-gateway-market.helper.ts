@@ -10,6 +10,7 @@
  */
 
 import type { WorldGatewayHelperContext } from './world-gateway-context.types';
+import { BadRequestException } from '@nestjs/common';
 
 /** 世界 socket 坊市 helper：只收敛 market 相关入口。 */
 class WorldGatewayMarketHelper {
@@ -199,7 +200,7 @@ class WorldGatewayMarketHelper {
         }
         try {
             const result = await this.gateway.marketRuntimeService.createSellOrder(playerId, {
-                itemInstanceId: resolveInventoryItemInstanceId(payload),
+                itemInstanceId: resolveInventoryItemInstanceId(this.gateway.playerRuntimeService, playerId, payload),
                 quantity: payload?.quantity,
                 unitPrice: payload?.unitPrice,
                 listingMode: payload?.listingMode,
@@ -361,7 +362,7 @@ class WorldGatewayMarketHelper {
         }
         try {
             const result = await this.gateway.marketRuntimeService.sellNow(playerId, {
-                itemInstanceId: resolveInventoryItemInstanceId(payload),
+                itemInstanceId: resolveInventoryItemInstanceId(this.gateway.playerRuntimeService, playerId, payload),
                 quantity: payload?.quantity,
             });
             await this.gateway.flushMarketResult(result);
@@ -449,10 +450,15 @@ class WorldGatewayMarketHelper {
 
 export { WorldGatewayMarketHelper };
 
-function resolveInventoryItemInstanceId(payload: any): string {
-    return normalizeInventoryItemInstanceId(payload?.itemRef?.itemInstanceId)
+function resolveInventoryItemInstanceId(playerRuntimeService: any, playerId: string, payload: any): string {
+    const itemInstanceId = normalizeInventoryItemInstanceId(payload?.itemRef?.itemInstanceId)
         || normalizeInventoryItemInstanceId(payload?.itemInstanceId)
         || normalizeInventoryItemInstanceId(payload?.expectedItemInstanceId);
+    if (itemInstanceId) {
+        return itemInstanceId;
+    }
+    playerRuntimeService.repairInventoryItemInstanceIds(playerId);
+    throw new BadRequestException('背包物品身份已修复，请重新选择。');
 }
 
 function normalizeInventoryItemInstanceId(value: unknown): string {

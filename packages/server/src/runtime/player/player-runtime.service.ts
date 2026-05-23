@@ -698,6 +698,27 @@ export class PlayerRuntimeService {
         }
         return player;
     }
+    /**
+ * repairInventoryItemInstanceIds：扫描玩家全背包并补齐缺失或旧格式实例 ID。
+ * @param playerId 玩家 ID。
+ * @returns 修复数量。
+ */
+
+    repairInventoryItemInstanceIds(playerId) {
+        const player = this.getPlayerOrThrow(playerId);
+        let repairedCount = 0;
+        for (const entry of player.inventory?.items ?? []) {
+            if (assignItemInstanceIdIfNeeded(entry)) {
+                repairedCount += 1;
+            }
+        }
+        if (repairedCount > 0) {
+            player.inventory.revision += 1;
+            markPlayerDirtyDomains(player, ['inventory']);
+            this.bumpPersistentRevision(player);
+        }
+        return repairedCount;
+    }
     /** 获取玩家当前境界等级（realmLv），玩家不在线返回 null */
     getPlayerRealmLv(playerId) {
         const player = this.getPlayer(playerId);

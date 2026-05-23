@@ -54,7 +54,12 @@ type MainInventoryStateSourceOptions = {
  * sendUseItem：sendUse道具相关字段。
  */
 
-  sendUseItem: (itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string; slotIndex?: number; expectedItemId?: string }) => void;
+  sendUseItem: (itemInstanceId: string, count?: number, options?: { sectName?: string; sectMark?: string }) => void;
+  /**
+ * sendRepairInventoryItemInstanceIds：请求服务端重建缺失背包实例 ID。
+ */
+
+  sendRepairInventoryItemInstanceIds: () => void;
   /**
  * sendCreateFormation：send布阵相关字段。
  */
@@ -112,6 +117,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
     (itemInstanceId, count) => options.sendDestroyItem(itemInstanceId, count),
     (itemInstanceId) => options.sendEquip(itemInstanceId),
     () => options.sendSortInventory(),
+    () => options.sendRepairInventoryItemInstanceIds(),
     (payload) => options.sendCreateFormation(payload),
     (payload) => options.previewFormationRange?.(payload),
   );

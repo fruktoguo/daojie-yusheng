@@ -3,7 +3,7 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
@@ -583,14 +583,15 @@ export class MarketRuntimeService {
             return result;
         });
     }
-    resolveMarketInventoryItemInstanceId(_playerId, payload, _eventName) {
+    resolveMarketInventoryItemInstanceId(playerId, payload, _eventName) {
         const itemInstanceId = normalizeInventoryItemInstanceId(payload?.itemRef?.itemInstanceId)
             || normalizeInventoryItemInstanceId(payload?.itemInstanceId)
             || normalizeInventoryItemInstanceId(payload?.expectedItemInstanceId);
         if (itemInstanceId) {
             return itemInstanceId;
         }
-        return '';
+        this.playerRuntimeService.repairInventoryItemInstanceIds(playerId);
+        throw new BadRequestException('背包物品身份已修复，请重新选择。');
     }
     /** 发起求购挂单，必要时直接撮合卖单。 */
     async createBuyOrder(playerId, payload) {
