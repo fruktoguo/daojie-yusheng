@@ -256,29 +256,29 @@ export class WorldRuntimePendingCommandService {
         while (true) {
             const player = deps.playerRuntimeService?.getPlayer?.(playerId);
             if (!player || player.hp <= 0 || player.combat?.autoBattle !== true || !player.instanceId) {
-                return { handled: false, error: null };
+                return { handled: false, error: null, errorCommand: null };
             }
             const instance = typeof deps.getInstanceRuntime === 'function'
                 ? deps.getInstanceRuntime(player.instanceId)
                 : deps.getInstanceRuntimeOrThrow(player.instanceId);
             if (!instance) {
-                return { handled: false, error: null };
+                return { handled: false, error: null, errorCommand: null };
             }
             const retryCommand = deps.buildAutoCombatCommand(instance, player, excludedSkillIds.size > 0 ? { excludedSkillIds } : undefined);
             if (!retryCommand) {
-                return { handled: true, error: null };
+                return { handled: true, error: null, errorCommand: null };
             }
             try {
                 await this.dispatchCommand(playerId, retryCommand, deps);
-                return { handled: true, error: null };
+                return { handled: true, error: null, errorCommand: null };
             }
             catch (error) {
                 if (retryCommand.kind !== 'castSkill') {
-                    return { handled: false, error };
+                    return { handled: false, error, errorCommand: retryCommand };
                 }
                 const nextSkillId = typeof retryCommand.skillId === 'string' ? retryCommand.skillId.trim() : '';
                 if (!nextSkillId || excludedSkillIds.has(nextSkillId)) {
-                    return { handled: false, error };
+                    return { handled: false, error, errorCommand: retryCommand };
                 }
                 excludedSkillIds.add(nextSkillId);
             }
@@ -349,6 +349,7 @@ export class WorldRuntimePendingCommandService {
                 if (command?.manualEngage === true) {
                     this.clearManualEngageState(playerId, deps);
                 }
+                let failedCommandForDiagnostics = command;
                 if (this.isAutoCombatCommand(command)) {
                     const retryResult = await this.retryAutoCombatCommand(playerId, deps, command);
                     if (retryResult.handled) {
@@ -356,14 +357,16 @@ export class WorldRuntimePendingCommandService {
                     }
                     if (retryResult.error) {
                         error = retryResult.error;
+                        failedCommandForDiagnostics = retryResult.errorCommand ?? command;
                     }
                 }
                 const message = error instanceof Error ? error.message : String(error);
-                if (this.isAutoCombatCommand(command) && isTerminalAutoCombatTargetFailure(message)) {
-                    this.clearAutoCombatTargetAfterFailure(playerId, deps, command);
+                if (this.isAutoCombatCommand(failedCommandForDiagnostics) && isTerminalAutoCombatTargetFailure(message)) {
+                    this.clearAutoCombatTargetAfterFailure(playerId, deps, failedCommandForDiagnostics);
                 }
-                const noticeMessage = normalizePendingCommandNoticeMessage(command, message);
-                deps.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${command.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, command, deps)}`);
+                const noticeMessage = normalizePendingCommandNoticeMessage(failedCommandForDiagnostics, message);
+                const retrySuffix = failedCommandForDiagnostics !== command ? ` retryOf=${command.kind}` : '';
+                deps.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${failedCommandForDiagnostics.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, failedCommandForDiagnostics, deps)}${retrySuffix}`);
                 if (noticeMessage) {
                     deps.queuePlayerNotice(playerId, noticeMessage, 'warn');
                 }

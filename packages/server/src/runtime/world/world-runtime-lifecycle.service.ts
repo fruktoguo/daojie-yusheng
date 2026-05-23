@@ -16,6 +16,20 @@ const {
 } = world_runtime_normalization_helpers_1;
 
 const LONG_LIVED_INSTANCE_TTL_MS = 24 * 60 * 60 * 1000;
+const TONGTIAN_TOWER_INSTANCE_PREFIX = 'tower:tongtian:layer:';
+
+function isExpectedMissingOfflineRuntimeInstance(instanceId) {
+    return typeof instanceId === 'string' && instanceId.trim().startsWith(TONGTIAN_TOWER_INSTANCE_PREFIX);
+}
+
+function logOfflineRestoreMissingInstance(deps, instanceId, playerId) {
+    const message = `offline_restore_skipped_instance_missing instance=${instanceId} player=${playerId}`;
+    if (isExpectedMissingOfflineRuntimeInstance(instanceId)) {
+        deps.logger?.log?.(message);
+        return;
+    }
+    deps.logger?.warn?.(message);
+}
 
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
 @Injectable()
@@ -382,7 +396,7 @@ export class WorldRuntimeLifecycleService {
                         const reason = typeof attachReady.reason === 'string' && attachReady.reason.trim() ? attachReady.reason.trim() : 'attach_not_ready';
                         markSkipped(reason, entry);
                         if (reason === 'instance_missing') {
-                            deps.logger?.warn?.(`offline_restore_skipped_instance_missing instance=${entry.instanceId} player=${entry.playerId}`);
+                            logOfflineRestoreMissingInstance(deps, entry.instanceId, entry.playerId);
                         } else if (reason === 'attach_gate_closed') {
                             deps.logger?.warn?.(`offline_restore_skipped_startup_attach_gate instance=${entry.instanceId} player=${entry.playerId}`);
                         } else if (reason === 'lease_not_local') {
@@ -395,7 +409,7 @@ export class WorldRuntimeLifecycleService {
                     const instance = attachReady.instance ?? deps.getInstanceRuntime(entry.instanceId);
                     if (!instance) {
                         markSkipped('instance_missing', entry);
-                        deps.logger?.warn?.(`offline_restore_skipped_instance_missing instance=${entry.instanceId} player=${entry.playerId}`);
+                        logOfflineRestoreMissingInstance(deps, entry.instanceId, entry.playerId);
                         return;
                     }
                     if (typeof deps.worldRuntimePlayerSessionService?.connectPlayer !== 'function') {

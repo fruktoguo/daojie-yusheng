@@ -555,7 +555,7 @@ async function testRestoreOfflineHangingPlayersSkipsMissingTowerInstance() {
         ['expireOfflineHangingPlayers'],
         ['listOfflineHangingPlayerPositions'],
         ['restoreOfflineHangingPlayer', 'player:offline'],
-        ['warn', 'offline_restore_skipped_instance_missing instance=tower:tongtian:layer:3 player=player:offline'],
+        ['log', 'offline_restore_skipped_instance_missing instance=tower:tongtian:layer:3 player=player:offline'],
     ]);
     assert.equal(log.some((entry) => Array.isArray(entry) && entry[0] === 'connectPlayer'), false);
     assert.deepEqual(result, {

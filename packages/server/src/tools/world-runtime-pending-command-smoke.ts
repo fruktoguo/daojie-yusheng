@@ -278,6 +278,118 @@ async function testAutoCombatFailedSkillFallsBackToAlternativeCommand() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testAutoCombatRetryFailureLogsRetryCommandDebug() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'public:yunlai_town',
+        hp: 100,
+        x: 43,
+        y: 56,
+        techniques: {
+            techniques: [{
+                skills: [{
+                    id: 'skill.qingmu_sword',
+                    name: '青木剑诀',
+                    range: 2,
+                    effects: [{ type: 'damage', formula: 1 }],
+                }],
+            }],
+        },
+        combat: {
+            autoBattle: true,
+            combatTargetId: 'monster:far',
+        },
+    };
+    service.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill.qingmu_sword',
+        targetPlayerId: null,
+        targetMonsterId: null,
+        targetRef: 'player:target:1',
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand(playerId, command) {
+            log.push(['dispatchPlayerCommand', playerId, command.kind, command.skillId ?? command.targetMonsterId ?? command.targetRef ?? null]);
+            if (command.kind === 'castSkill') {
+                throw new Error('技能 skill.qingmu_sword 元气不足');
+            }
+            throw new Error('目标超出攻击距离');
+        },
+        buildAutoCombatCommand(instance, runtimePlayer, options) {
+            const excludedSkillIds = [...(options?.excludedSkillIds ?? [])].sort();
+            log.push(['buildAutoCombatCommand', instance.meta.instanceId, runtimePlayer.playerId, excludedSkillIds.join(',')]);
+            return {
+                kind: 'basicAttack',
+                targetPlayerId: null,
+                targetMonsterId: 'monster:far',
+                targetX: null,
+                targetY: null,
+                autoCombat: true,
+            };
+        },
+        getInstanceRuntime(instanceId) {
+            return {
+                meta: { instanceId },
+                getMonster(monsterId) {
+                    return monsterId === 'monster:far'
+                        ? { runtimeId: monsterId, x: 99, y: 1, alive: true }
+                        : null;
+                },
+            };
+        },
+        resolveCurrentTickForPlayerId() {
+            return 0;
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                if (playerId === 'player:1') {
+                    return player;
+                }
+                if (playerId === 'target:1') {
+                    return {
+                        playerId,
+                        instanceId: 'public:yunlai_town',
+                        hp: 100,
+                        x: 44,
+                        y: 57,
+                        combat: {},
+                    };
+                }
+                return null;
+            },
+            clearManualEngagePending(playerId) {
+                log.push(['clearManualEngagePending', playerId]);
+            },
+            clearCombatTarget(playerId, currentTick) {
+                log.push(['clearCombatTarget', playerId, currentTick]);
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', 'castSkill', 'skill.qingmu_sword'],
+        ['buildAutoCombatCommand', 'public:yunlai_town', 'player:1', 'skill.qingmu_sword'],
+        ['dispatchPlayerCommand', 'player:1', 'basicAttack', 'monster:far'],
+        ['clearManualEngagePending', 'player:1'],
+        ['clearCombatTarget', 'player:1', 0],
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（目标超出攻击距离） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=43,56 target=monster:far targetKind=monster targetPos=99,1 distance=56 combatTarget=monster:far combatTargetLocked=0 retryOf=castSkill'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 async function testManualEngageAttackClearsServerOnlyEngageState() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
@@ -799,6 +911,7 @@ Promise.resolve()
     .then(() => testAsyncPlayerCommandIsAwaitedBeforeQueueClear())
     .then(() => testAutoCombatStaleTargetRetriesImmediately())
     .then(() => testAutoCombatFailedSkillFallsBackToAlternativeCommand())
+    .then(() => testAutoCombatRetryFailureLogsRetryCommandDebug())
     .then(() => testManualEngageAttackClearsServerOnlyEngageState())
     .then(() => testInvalidAttackNoticeUsesTargetReason())
     .then(() => testAutoCombatInvalidTargetStaysServerInternal())
