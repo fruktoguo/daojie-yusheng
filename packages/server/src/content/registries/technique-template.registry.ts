@@ -6,7 +6,9 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import { TechniqueRealm, deriveTechniqueRealm, getTechniqueExpToNext } from '@mud/shared';
+import type { TechniqueTemplate } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
+import type { GeneratedTechniqueStoreService } from '../../runtime/technique-generation/generated-technique-store.service';
 import {
   buildTechniqueRuntimeStateFromTemplate,
   cloneQiProjectionModifiers,
@@ -32,6 +34,12 @@ type TechniqueTemplateRecord = Record<string, unknown> & {
 @Injectable()
 export class TechniqueTemplateRegistry {
   readonly techniqueTemplates = new Map<string, TechniqueTemplateRecord>();
+  private generatedStore: GeneratedTechniqueStoreService | null = null;
+
+  /** 注入生成功法缓存（启动期由外部调用） */
+  setGeneratedStore(store: GeneratedTechniqueStoreService): void {
+    this.generatedStore = store;
+  }
 
   loadAll(sharedTechniqueBuffs = new Map<string, Record<string, unknown>>()): void {
     this.techniqueTemplates.clear();
@@ -60,7 +68,13 @@ export class TechniqueTemplateRegistry {
   }
 
   tryGetRef(techniqueId: string): Readonly<TechniqueTemplateRecord> | undefined {
-    return this.techniqueTemplates.get(String(techniqueId ?? '').trim());
+    const id = String(techniqueId ?? '').trim();
+    const staticRef = this.techniqueTemplates.get(id);
+    if (staticRef) return staticRef;
+    // fallback: 从生成功法缓存查找
+    const generated = this.generatedStore?.getById(id);
+    if (!generated) return undefined;
+    return generatedTemplateToRecord(generated);
   }
 
   createInstance(techniqueId: string, init: Record<string, unknown> = {}): Record<string, unknown> | null {
@@ -154,5 +168,19 @@ function hydrateMissingTechniqueState(input: Record<string, unknown>): Record<st
     grade: typeof input.grade === 'string' ? input.grade : undefined,
     category: typeof input.category === 'string' ? input.category : undefined,
     layers,
+  };
+}
+
+/** 将 TechniqueTemplate（生成功法缓存格式）转为 TechniqueTemplateRecord（Registry 内部格式） */
+function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTemplateRecord {
+  return {
+    id: template.id,
+    name: template.name,
+    desc: template.desc,
+    grade: template.grade,
+    category: template.category,
+    realmLv: template.realmLv,
+    skills: (template.skills ?? []) as Array<Record<string, unknown>>,
+    layers: (template.layers ?? []) as Array<Record<string, unknown> & { level: number; expToNext?: number; attrs?: Record<string, unknown>; specialStats?: Record<string, unknown>; qiProjection?: unknown }>,
   };
 }

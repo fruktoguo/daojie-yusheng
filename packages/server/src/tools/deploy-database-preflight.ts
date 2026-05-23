@@ -15,6 +15,7 @@ import {
   PLAYER_DOMAIN_PROJECTED_TABLES,
   ensurePlayerDomainTables,
 } from '../persistence/player-domain-persistence.service';
+import { ensureGeneratedTechniqueTables } from '../persistence/generated-technique-persistence.service';
 
 const SUMMARY_QUERY_REQUIRED_TABLES = [
   'player_recovery_watermark',
@@ -74,6 +75,8 @@ async function main(): Promise<void> {
         await ensurePlayerDomainTables(pool);
         actions.push({ type: 'ensure-current-player-domain-schema' });
       }
+      await ensureGeneratedTechniqueTables(pool);
+      actions.push({ type: 'ensure-generated-technique-schema' });
     }
 
     const afterSchema = await inspectDatabase(pool);
