@@ -288,7 +288,7 @@ function cloneJson<T>(value: T): T {
 }
 
 function readLegacyInventoryInstanceId(item: SyncedItemStack): string | undefined {
-  const value = (item as { instanceId?: unknown }).instanceId;
+  const value = item.instanceId;
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 

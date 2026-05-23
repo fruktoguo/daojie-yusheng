@@ -25,6 +25,8 @@ export interface SyncedItemStack {
  */
 
   itemInstanceId?: string;
+  /** 旧版/兼容字段；客户端水合时会规整为 itemInstanceId。 */
+  instanceId?: string;
   /**
  * count：数量或计量字段。
  */

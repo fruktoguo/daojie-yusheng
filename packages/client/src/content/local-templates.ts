@@ -149,11 +149,15 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const template = getLocalItemTemplate(item.itemId);
+  const itemInstanceId = resolvePreviewItemInstanceId(item);
   if (!template) {
-    return item;
+    return itemInstanceId && item.itemInstanceId !== itemInstanceId
+      ? { ...item, itemInstanceId }
+      : item;
   }
   return {
     ...item,
+    itemInstanceId,
     name: item.name || template.name,
     type: item.type || template.type,
     desc: item.desc || template.desc || '',
@@ -189,6 +193,15 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     useBehavior: item.useBehavior ?? template.useBehavior,
     allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
   };
+}
+
+function resolvePreviewItemInstanceId(item: ItemStack): string | undefined {
+  const direct = typeof item.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
+  if (direct) {
+    return direct;
+  }
+  const legacyValue = (item as { instanceId?: unknown }).instanceId;
+  return typeof legacyValue === 'string' && legacyValue.trim() ? legacyValue.trim() : undefined;
 }
 
 /** 用本地模板补齐任务展示字段，保留服务端运行态字段。 */
