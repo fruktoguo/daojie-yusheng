@@ -2057,8 +2057,10 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      flex: 1;
       height: 100%;
       min-height: 0;
+      overflow: hidden;
     }
     .tutorial-modal-main-panes {
       display: flex;
@@ -2086,9 +2088,11 @@
     .tutorial-flow-shell {
       display: grid;
       grid-template-columns: 188px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
       gap: 16px;
       flex: 1;
       min-height: 0;
+      overflow: hidden;
     }
     .tutorial-flow-shell {
       --ui-split-panel-rail-size: 178px;
