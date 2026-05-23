@@ -73,9 +73,9 @@ export class SchedulerStatePersistenceService implements OnModuleInit, OnModuleD
     try {
       await ensureSchedulerStateTable(this.pool);
       this.enabled = true;
-      this.logger.log('Scheduler state persistence 已启用');
+      this.logger.log('调度器状态持久化已启用');
     } catch (error: unknown) {
-      this.logger.warn(`Scheduler state persistence 初始化失败：${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`调度器状态持久化初始化失败：${error instanceof Error ? error.message : String(error)}`);
       this.pool = null;
       this.enabled = false;
     }

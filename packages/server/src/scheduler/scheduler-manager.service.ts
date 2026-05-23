@@ -32,7 +32,7 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit(): void {
-    this.logger.log('SchedulerManager 已注册，等待启动链路编排器初始化');
+    this.logger.log('调度管理器已注册，等待启动链路编排器初始化');
   }
 
   onModuleDestroy(): void {
@@ -54,7 +54,7 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
     this.state.markStopping();
     this.refreshBarrierSnapshot();
     void this.persistSnapshot();
-    this.logger.log(`SchedulerManager 已进入停止状态：${reason}`);
+    this.logger.log(`调度管理器已进入停止状态：${reason}`);
     return this.getSnapshot();
   }
 
@@ -147,7 +147,7 @@ export class SchedulerManagerService implements OnModuleInit, OnModuleDestroy {
   private async persistSnapshot(): Promise<void> {
     if (!this.statePersistenceService) return;
     await this.statePersistenceService.saveSnapshot(this.getSnapshot()).catch((error: unknown) => {
-      this.logger.warn(`Scheduler state 持久化失败：${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(`调度器状态持久化失败：${error instanceof Error ? error.message : String(error)}`);
     });
   }
 }

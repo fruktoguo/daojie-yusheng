@@ -170,7 +170,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       this.stagingTimer = setInterval(() => void this.stageDirtyTasksOnce(), INTERVAL_MS);
       this.stagingTimer.unref();
-      this.logger.log(`统一刷盘 staging collector 已启动，间隔 ${INTERVAL_MS}ms，不在当前 role 消费 flush tasks`);
+      this.logger.log(`统一刷盘暂存收集器已启动，间隔 ${INTERVAL_MS}ms，不在当前 role 消费刷盘任务`);
       return;
     }
     this.logger.log('统一刷盘任务运行时未启用 inline consumer，保留当前配置模式');
@@ -586,7 +586,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         return group.length;
       }
       await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
-      this.logger.warn(`实例刷盘任务未找到运行态，保持 retry 防止 no-op mark flushed instanceId=${first.id}`);
+      this.logger.warn(`实例刷盘任务未找到运行态，保持重试以防空标记 instanceId=${first.id}`);
       return 0;
     }
     const epoch = normalizeInt(runtime.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
@@ -596,7 +596,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     if (typeof this.worldRuntimeService.flushInstanceDomains !== 'function') {
       await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
-      this.logger.warn(`实例刷盘任务缺少 flushInstanceDomains，保持 retry 防止 no-op mark flushed instanceId=${first.id}`);
+      this.logger.warn(`实例刷盘任务缺少 flushInstanceDomains，保持重试以防空标记 instanceId=${first.id}`);
       return 0;
     }
     const domains = Array.from(new Set(group.map((task) => task.domain)));
@@ -690,7 +690,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           continue;
         }
         await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
-        this.logger.warn(`实例刷盘任务未找到运行态，保持 retry 防止 no-op mark flushed instanceId=${task.id} domain=${task.domain}`);
+        this.logger.warn(`实例刷盘任务未找到运行态，保持重试以防空标记 instanceId=${task.id} domain=${task.domain}`);
         continue;
       }
       const epoch = normalizeInt(runtime.meta?.ownershipEpoch, 0, 0, Number.MAX_SAFE_INTEGER);
@@ -701,7 +701,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
       }
       if (typeof this.worldRuntimeService.flushInstanceDomains !== 'function') {
         await this.flushLedgerService.markFlushTaskRetry(task, RETRY_DELAY_MS);
-        this.logger.warn(`实例刷盘任务缺少 flushInstanceDomains，保持 retry 防止 no-op mark flushed instanceId=${task.id} domain=${task.domain}`);
+        this.logger.warn(`实例刷盘任务缺少 flushInstanceDomains，保持重试以防空标记 instanceId=${task.id} domain=${task.domain}`);
         continue;
       }
       const attemptKey = instanceTaskKey(task);

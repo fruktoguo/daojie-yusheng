@@ -106,7 +106,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     } catch (error) {
       finalFlushFailed = true;
       this.shutdownStatusService.recordInstanceFlushFailed('player_flush');
-      this.logger.error('final flush 玩家失败', error instanceof Error ? error.stack : String(error));
+      this.logger.error('最终落盘玩家数据失败', error instanceof Error ? error.stack : String(error));
     }
     try {
       await this.mapPersistenceFlushService.flushAllNow();
@@ -114,7 +114,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     } catch (error) {
       finalFlushFailed = true;
       this.shutdownStatusService.recordInstanceFlushFailed('map_flush');
-      this.logger.error('final flush 地图失败', error instanceof Error ? error.stack : String(error));
+      this.logger.error('最终落盘地图数据失败', error instanceof Error ? error.stack : String(error));
     }
     try {
       await this.tongtianTowerPersistenceService.flushAllProgress();
@@ -122,7 +122,7 @@ export class WorldShutdownDrainService implements BeforeApplicationShutdown {
     } catch (error) {
       finalFlushFailed = true;
       this.shutdownStatusService.recordInstanceFlushFailed('tongtian_tower_flush');
-      this.logger.error('final flush 通天塔失败', error instanceof Error ? error.stack : String(error));
+      this.logger.error('最终落盘通天塔数据失败', error instanceof Error ? error.stack : String(error));
     }
     this.shutdownStatusService.completePhase('final_flushing');
 

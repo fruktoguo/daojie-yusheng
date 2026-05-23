@@ -80,12 +80,12 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
   ) {}
 
   onModuleInit(): void {
-    this.logger.log('后台 worker orchestrator 已注册，等待启动链路编排器开闸');
+    this.logger.log('后台任务编排器已注册，等待启动链路编排器开闸');
   }
 
   startForLifecycleCoordinator(): void {
     if (!shouldStartBackgroundWorkers()) {
-      this.logger.log('后台 worker orchestrator 已跳过：当前 role 不承载后台 worker');
+      this.logger.log('后台任务编排器已跳过：当前 role 不承载后台 worker');
       return;
     }
     if (this.timers.size > 0) {
@@ -101,7 +101,7 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
       this.timers.set(task.id, timer);
       void this.runTask(task);
     }
-    this.logger.log(`后台 worker orchestrator 已启动：${this.timers.size} 个定时任务`);
+    this.logger.log(`后台任务编排器已启动：${this.timers.size} 个定时任务`);
   }
 
   onModuleDestroy(): void {
@@ -256,7 +256,7 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     } catch (error) {
       state.lastFailureAt = new Date().toISOString();
       state.lastFailure = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`后台 worker 执行失败 id=${task.id}: ${error instanceof Error ? error.stack || error.message : String(error)}`);
+      this.logger.warn(`后台任务执行失败 id=${task.id}: ${error instanceof Error ? error.stack || error.message : String(error)}`);
     } finally {
       state.running = false;
       state.lastHeartbeatAt = new Date().toISOString();

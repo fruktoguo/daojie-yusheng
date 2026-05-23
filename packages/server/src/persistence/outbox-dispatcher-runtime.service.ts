@@ -57,10 +57,10 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       description: 'Outbox dispatcher runtime adapter',
     });
     if (!this.isRuntimeEnabled()) {
-      this.logger.log('发件箱调度运行时已跳过：当前配置或 role 不承载 outbox worker');
+      this.logger.log('发件箱调度运行时已跳过：当前配置或 role 不承载发件箱任务');
       return;
     }
-    this.logger.log('发件箱调度运行时已交由 SchedulerManager 调度');
+    this.logger.log('发件箱调度运行时已交由调度管理器调度');
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -96,7 +96,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       }
     } catch (error: unknown) {
       this.logger.error(
-        'outbox dispatcher runtime 轮询失败',
+        '发件箱调度运行时轮询失败',
         error instanceof Error ? error.stack : String(error),
       );
     } finally {
@@ -188,7 +188,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
     const eventId = typeof event.event_id === 'string' ? event.event_id : '';
     const topic = typeof event.topic === 'string' ? event.topic : 'unknown';
     this.logger.error(
-      `outbox event consume failed topic=${topic} eventId=${eventId || 'unknown'}`,
+      `发件箱事件消费失败 topic=${topic} eventId=${eventId || '未知'}`,
       error instanceof Error ? error.stack : String(error),
     );
     if (!eventId) {
@@ -202,7 +202,7 @@ export class OutboxDispatcherRuntimeService implements OnModuleInit, OnModuleDes
       );
     } catch (markFailedError: unknown) {
       this.logger.error(
-        `outbox event markFailed failed topic=${topic} eventId=${eventId}`,
+        `发件箱事件标记失败异常 topic=${topic} eventId=${eventId}`,
         markFailedError instanceof Error ? markFailedError.stack : String(markFailedError),
       );
     }

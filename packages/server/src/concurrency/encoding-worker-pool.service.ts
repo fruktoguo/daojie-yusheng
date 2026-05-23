@@ -88,7 +88,7 @@ export class EncodingWorkerPoolService {
     }
     this.ensureWorkersStarted();
     this.logger.log(
-      `EncodingWorkerPool 已启动：${this.activeWorkerCount} 个 worker`,
+      `编码工作池已启动：${this.activeWorkerCount} 个工作线程`,
     );
   }
 

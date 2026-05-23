@@ -98,7 +98,7 @@ export class NativeBotService {
     }
 
     this.logger.log(
-      `bot blueprint issued: source=${sourcePlayerId} count=${count} ttlSec=${ttlSec}`,
+      `机器人蓝图已签发：来源=${sourcePlayerId} 数量=${count} 有效期=${ttlSec}秒`,
     );
 
     return {
@@ -139,7 +139,7 @@ export class NativeBotService {
     }
 
     this.logger.log(
-      `bot release: requested=${targetIds.length} released=${released.length} skipped=${skipped.length}`,
+      `机器人释放：请求=${targetIds.length} 已释放=${released.length} 已跳过=${skipped.length}`,
     );
 
     return {

@@ -215,7 +215,7 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
       await this.runTickOnce();
       return 1;
     }).catch((error: unknown) => {
-      this.logger.error('世界 Tick SchedulerManager 调度失败', error instanceof Error ? error.stack : String(error));
+      this.logger.error('世界 Tick 调度管理器调度失败', error instanceof Error ? error.stack : String(error));
     });
   }
 

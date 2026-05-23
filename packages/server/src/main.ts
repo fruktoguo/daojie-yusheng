@@ -215,7 +215,7 @@ async function bootstrap(): Promise<void> {
   if (!shouldStartHttpServer(role)) {
     const app = await NestFactory.createApplicationContext(AppModule, { logger });
     bootstrapApp = app;
-    logger.log('worker 角色已启动 Nest application context；不监听 HTTP/Socket.IO 端口');
+    logger.log('worker 角色已启动 Nest 应用上下文；不监听 HTTP/Socket.IO 端口');
     return;
   }
 
@@ -246,7 +246,7 @@ async function bootstrap(): Promise<void> {
     if (hasErrorCode(error, 'EADDRINUSE')) {
       const diagnostics = await collectPortConflictDiagnostics(port);
       const excludedPortHint = resolveExcludedPortHint(port);
-      logger.error(`server 绑定 ${host}:${port} 时发生端口冲突${excludedPortHint ? `\n${excludedPortHint}` : ''}\n${diagnostics}`);
+      logger.error(`服务端绑定 ${host}:${port} 时发生端口冲突${excludedPortHint ? `\n${excludedPortHint}` : ''}\n${diagnostics}`);
     }
 
     await app.close().catch(() => undefined);

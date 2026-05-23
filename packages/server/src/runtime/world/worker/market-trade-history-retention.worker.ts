@@ -42,16 +42,16 @@ export class MarketTradeHistoryRetentionWorker implements OnModuleInit, OnModule
 
   onModuleInit(): void {
     if (!shouldStartBackgroundWorkers()) {
-      this.logger.log('坊市成交历史 retention 已跳过：当前 role 不承载后台 worker');
+      this.logger.log('坊市成交历史清理已跳过：当前 role 不承载后台任务');
       return;
     }
     if (typeof this.marketPersistenceService?.isEnabled === 'function'
       && !this.marketPersistenceService.isEnabled()) {
-      this.logger.log('坊市成交历史 retention 已跳过：MarketPersistenceService 未启用（无数据库）');
+      this.logger.log('坊市成交历史清理已跳过：坊市持久化服务未启用（无数据库）');
       return;
     }
     this.logger.log(
-      `坊市成交历史 retention 已交由后台 worker orchestrator 调度：建议间隔 ${Math.trunc(DEFAULT_INTERVAL_MS / 1000)}s，`
+      `坊市成交历史清理已交由后台任务编排器调度：建议间隔 ${Math.trunc(DEFAULT_INTERVAL_MS / 1000)}s，`
       + `单玩家保留最近 ${DEFAULT_KEEP_PER_PLAYER} 条，保留期 ${DEFAULT_RETENTION_DAYS} 天，`
       + `单批最多 ${DEFAULT_BATCH_LIMIT} 行 × 最多 ${DEFAULT_MAX_BATCHES_PER_CYCLE} 批/周期`,
     );
@@ -111,13 +111,13 @@ export class MarketTradeHistoryRetentionWorker implements OnModuleInit, OnModule
       }
       if (totalRemoved > 0) {
         this.logger.log(
-          `坊市成交历史 retention 完成：reason=${reason} totalRemoved=${totalRemoved} `
-          + `keepPerPlayer=${keepPerPlayer} retentionDays=${retentionDays} batchLimit=${batchLimit}`,
+          `坊市成交历史清理完成：原因=${reason} 删除总数=${totalRemoved} `
+          + `单玩家保留=${keepPerPlayer} 保留天数=${retentionDays} 批量限制=${batchLimit}`,
         );
       }
     } catch (error) {
       this.logger.error(
-        `坊市成交历史 retention 失败：reason=${reason} ${error instanceof Error ? error.stack : String(error)}`,
+        `坊市成交历史清理失败：原因=${reason} ${error instanceof Error ? error.stack : String(error)}`,
       );
     } finally {
       this.running = false;

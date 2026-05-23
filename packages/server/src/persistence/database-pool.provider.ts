@@ -62,7 +62,7 @@ export class DatabasePoolProvider implements OnModuleDestroy {
     });
     this.pools.set(group, pool);
     this.logger.log(
-      `DatabasePoolProvider ${group} 池已创建：max=${resolveDatabasePoolMax(group)} idleTimeoutMs=${resolveDatabasePoolIdleTimeoutMillis(group)} connectTimeoutMs=${resolveDatabasePoolConnectionTimeoutMillis(group)}`,
+      `数据库连接池 ${group} 已创建：最大连接=${resolveDatabasePoolMax(group)} 空闲超时=${resolveDatabasePoolIdleTimeoutMillis(group)}ms 连接超时=${resolveDatabasePoolConnectionTimeoutMillis(group)}ms`,
     );
     return pool;
   }
