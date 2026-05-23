@@ -50,7 +50,7 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-to
 import { detailModalHost } from '../detail-modal-host';
 import { confirmModalHost } from '../confirm-modal-host';
 import { preserveSelection } from '../selection-preserver';
-import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
+import { MARKET_MODAL_TABS, MarketModalTab } from '../../constants/ui/market';
 import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
@@ -350,6 +350,8 @@ export class MarketPanel {
   private static readonly AUCTION_MODAL_OWNER = 'auction-house-panel';
   /** 发起拍卖独立弹窗的归属标识。 */
   private static readonly AUCTION_CONSIGN_MODAL_OWNER = 'auction-consign-panel';
+  /** 天道商店独立弹窗的归属标识。 */
+  private static readonly HEAVENLY_DAO_SHOP_MODAL_OWNER = 'heavenly-dao-shop-panel';
   /** 交易弹窗根节点的 id。 */
   private static readonly TRADE_MODAL_ID = 'market-trade-modal-root';
   /** 买入确认弹层的归属标识。 */
@@ -448,6 +450,7 @@ export class MarketPanel {
       onOpenModal: () => this.openMarketFromPane(),
       onOpenAuction: (tab) => this.openAuctionFromPane(tab),
       onOpenAuctionConsign: () => this.openAuctionConsignFromPane(),
+      onOpenHeavenlyDaoShop: () => this.openHeavenlyDaoShopFromPane(),
       onBuyHeavenlyDaoShopItem: (itemId, quantity) => this.callbacks?.onBuyHeavenlyDaoShopItem(itemId, quantity),
     });
     this.bindPaneEvents();
@@ -480,6 +483,8 @@ export class MarketPanel {
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
+    } else if (detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER)) {
+      this.openHeavenlyDaoShopModal();
     }
   }
 
@@ -498,6 +503,8 @@ export class MarketPanel {
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
+    } else if (detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER)) {
+      this.openHeavenlyDaoShopModal();
     }
   }
 
@@ -756,67 +763,24 @@ export class MarketPanel {
     detailModalHost.close(MarketPanel.MODAL_OWNER);
     detailModalHost.close(MarketPanel.AUCTION_MODAL_OWNER);
     detailModalHost.close(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER);
+    detailModalHost.close(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER);
   }
 
-  /** 渲染面板首屏摘要，只保留打开坊市的入口。 */
+  /** 渲染坊市 tab 首屏入口，只保留独立界面按钮。 */
   private renderPane(): void {
     if (this.useReactPanel()) {
       this.syncReactState();
       mountReactMarketPanel();
       return;
     }
-    const listedCount = this.marketListings?.total ?? this.marketUpdate?.listedItems.length ?? 0;
-    const orderCount = this.marketUpdate?.myOrders.length ?? 0;
-    const storageCount = this.marketUpdate?.storage.items.reduce((sum, item) => sum + item.count, 0) ?? 0;
-    const auctionStats = this.getAuctionPaneStats(this.marketUpdate);
     preserveSelection(this.pane, () => {
       replaceElementHtml(this.pane, `
         <div class="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
           <div class="panel-section-title">${escapeHtml(t('market.pane.title', undefined))}</div>
-          <div class="market-pane-copy ui-form-copy">${escapeHtml(MARKET_PANE_HINT)}</div>
-          <div class="market-pane-stats">
-            <div class="market-pane-stat"><strong>${formatDisplayInteger(listedCount)}</strong><span>${escapeHtml(t('market.pane.stat.listed', undefined))}</span></div>
-            <div class="market-pane-stat"><strong>${formatDisplayInteger(orderCount)}</strong><span>${escapeHtml(t('market.pane.stat.orders', undefined))}</span></div>
-            <div class="market-pane-stat"><strong>${formatDisplayInteger(storageCount)}</strong><span>${escapeHtml(t('market.pane.stat.storage', undefined))}</span></div>
-          </div>
-          <button class="small-btn" data-market-open type="button">${escapeHtml(t('market.pane.open', undefined))}</button>
-        </div>
-        <div class="panel-section market-pane auction-pane ui-surface-pane ui-surface-pane--stack">
-          <div class="market-pane-headline">
-            <div class="panel-section-title">${escapeHtml(t('market.auction.summary.title', undefined))}</div>
-            <div class="market-pane-headline-actions">
-              <button class="small-btn ghost" data-auction-consign-open type="button">${escapeHtml(t('market.auction.action.create', undefined))}</button>
-              <button class="small-btn ghost" data-auction-open="participate" type="button">${escapeHtml(t('market.auction.open', undefined))}</button>
-            </div>
-          </div>
-          <div class="market-pane-copy ui-form-copy">${escapeHtml(t('market.auction.summary.copy', undefined))}</div>
-          <div class="auction-pane-cards">
-            <button class="auction-pane-card ui-surface-card ui-surface-card--compact" data-auction-open="participate" type="button">
-              <span>${escapeHtml(t('market.auction.card.participate', undefined))}</span>
-              <strong>${formatDisplayInteger(auctionStats.activeLots)}</strong>
-              <small>${escapeHtml(t('market.auction.card.my-bids', { count: formatDisplayInteger(auctionStats.myBids) }))}</small>
-            </button>
-            <button class="auction-pane-card ui-surface-card ui-surface-card--compact" data-auction-open="mine" type="button">
-              <span>${escapeHtml(t('market.auction.card.mine', undefined))}</span>
-              <strong>${formatDisplayInteger(auctionStats.myConsignments)}</strong>
-              <small>${escapeHtml(t('market.auction.card.storage-count', { count: formatDisplayInteger(auctionStats.storageCount) }))}</small>
-            </button>
-          </div>
-          <div class="auction-pane-feed">
-            ${auctionStats.feed.length > 0
-              ? auctionStats.feed.map((entry) => `<div class="auction-pane-feed-row"><span>${escapeHtml(entry.status)}</span><strong>${escapeHtml(entry.name)}</strong><small>${escapeHtml(entry.meta)}</small></div>`).join('')
-              : `<div class="empty-hint">${escapeHtml(t('market.auction.feed.empty', undefined))}</div>`}
-          </div>
-        </div>
-        <div class="panel-section market-pane heavenly-dao-shop-pane ui-surface-pane ui-surface-pane--stack">
-          <div class="market-pane-headline">
-            <div class="panel-section-title">天道商店</div>
-            <div class="market-pane-headline-actions">
-              <span class="market-pane-copy ui-form-copy">持有 ${escapeHtml(this.getHeavenlyDaoShopCurrencyName())}：${formatDisplayInteger(this.getHeavenlyDaoShopCurrencyOwned())}</span>
-            </div>
-          </div>
-          <div class="auction-pane-feed">
-            ${this.renderHeavenlyDaoShopRows()}
+          <div class="market-pane-headline-actions">
+            <button class="small-btn" data-market-open type="button">${escapeHtml(t('market.pane.open', undefined))}</button>
+            <button class="small-btn" data-auction-open="participate" type="button">${escapeHtml(t('market.auction.open', undefined))}</button>
+            <button class="small-btn" data-heavenly-dao-shop-open type="button">天道商店</button>
           </div>
         </div>
       `);
@@ -842,6 +806,10 @@ export class MarketPanel {
       }
       if (target.closest('[data-auction-consign-open]')) {
         this.openAuctionConsignFromPane();
+        return;
+      }
+      if (target.closest('[data-heavenly-dao-shop-open]')) {
+        this.openHeavenlyDaoShopFromPane();
         return;
       }
       const heavenlyDaoBuy = target.closest<HTMLElement>('[data-heavenly-dao-shop-buy]');
@@ -891,6 +859,10 @@ export class MarketPanel {
     this.openAuctionConsignModal();
   }
 
+  private openHeavenlyDaoShopFromPane(): void {
+    this.openHeavenlyDaoShopModal();
+  }
+
   /** 预取坊市摘要，避免侧边面板首次进入始终显示本地空态。 */
   private requestMarketBootstrap(): boolean {
     if (this.hasRequestedMarketBootstrap) {
@@ -918,13 +890,60 @@ export class MarketPanel {
       const countText = entry.count > 1 ? ` x${formatDisplayInteger(entry.count)}` : '';
       const disabled = owned < entry.price ? 'disabled' : '';
       return `
-        <div class="auction-pane-feed-row">
-          <span>${escapeHtml(itemName)}${escapeHtml(countText)}</span>
-          <strong>${formatDisplayInteger(entry.price)} ${escapeHtml(currencyName)}</strong>
-          <button class="small-btn ghost" data-heavenly-dao-shop-buy="${escapeHtmlAttr(entry.itemId)}" type="button" ${disabled}>购买</button>
-        </div>
+        <button class="market-item-cell ui-surface-card ui-surface-card--compact" data-heavenly-dao-shop-buy="${escapeHtmlAttr(entry.itemId)}" type="button" ${disabled}>
+          <div class="market-item-cell-name">
+            <span class="market-item-cell-name-text">${escapeHtml(itemName)}${escapeHtml(countText)}</span>
+          </div>
+          <div class="market-item-cell-prices">
+            <span>${formatDisplayInteger(entry.price)} ${escapeHtml(currencyName)}</span>
+            <span>${disabled ? '功德不足' : '购买 1 份'}</span>
+          </div>
+        </button>
       `;
     }).join('');
+  }
+
+  private openHeavenlyDaoShopModal(): void {
+    detailModalHost.open({
+      ownerId: MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER,
+      size: 'full',
+      variantClass: 'detail-modal--market',
+      title: '天道商店',
+      subtitle: `持有 ${this.getHeavenlyDaoShopCurrencyName()}：${formatDisplayInteger(this.getHeavenlyDaoShopCurrencyOwned())}`,
+      renderBody: (body: HTMLElement) => {
+        replaceElementHtml(body, `
+          <div class="market-board-layout">
+            <div class="market-board-list-wrap ui-surface-pane ui-surface-pane--stack">
+              <div class="market-board-list">
+                ${this.renderHeavenlyDaoShopRows()}
+              </div>
+            </div>
+            <div class="market-book-panel ui-surface-pane ui-surface-pane--stack">
+              <div class="market-book-header">
+                <div>
+                  <div class="market-item-title">天道商店</div>
+                  <div class="market-book-subtitle">只消耗 ${escapeHtml(this.getHeavenlyDaoShopCurrencyName())}，商品和价格由服务端固定表结算。</div>
+                </div>
+              </div>
+              <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
+                <div class="market-book-column-head">
+                  <div class="market-book-column-title">可兑换物资</div>
+                </div>
+                <div class="empty-hint">点击左侧商品直接购买 1 份。</div>
+              </div>
+            </div>
+          </div>
+        `);
+      },
+      onAfterRender: (body: HTMLElement, signal: AbortSignal) => {
+        body.querySelectorAll<HTMLElement>('[data-heavenly-dao-shop-buy]').forEach((button) => button.addEventListener('click', () => {
+          const itemId = button.dataset.heavenlyDaoShopBuy;
+          if (itemId) {
+            this.callbacks?.onBuyHeavenlyDaoShopItem(itemId, HEAVENLY_DAO_SHOP_BUY_QUANTITY);
+          }
+        }, { signal }));
+      },
+    });
   }
 
   private getMarketTotalPagesForSummary(): number {

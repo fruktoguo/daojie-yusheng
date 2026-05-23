@@ -10335,7 +10335,7 @@
       "stackable": true,
       "maxStack": 99,
       "grade": "mystic",
-      "useAction": "open_technique_generation"
+      "useBehavior": "open_technique_generation"
     },
     {
       "itemId": "equip.soot_lamp_hood",
