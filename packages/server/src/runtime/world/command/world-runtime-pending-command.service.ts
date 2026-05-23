@@ -5,9 +5,16 @@
  */
 import { Injectable } from '@nestjs/common';
 
+function isOutOfRangeFailure(message) {
+    return message === '目标超出攻击距离'
+        || message === '目标超出技能范围'
+        || (typeof message === 'string' && /^技能 .+ 超出范围$/.test(message))
+        || (typeof message === 'string' && /^Skill .+ out of range$/.test(message));
+}
+
 function normalizePendingCommandNoticeMessage(command, message) {
     if (command?.autoCombat === true && command?.manualEngage !== true) {
-        if (message === '该目标无法被攻击' || message === '没有可命中的目标') {
+        if (message === '该目标无法被攻击' || message === '没有可命中的目标' || isOutOfRangeFailure(message)) {
             return null;
         }
     }
@@ -24,7 +31,7 @@ function normalizePendingCommandNoticeMessage(command, message) {
 }
 
 function isTerminalAutoCombatTargetFailure(message) {
-    return message === '该目标无法被攻击' || message === '没有可命中的目标';
+    return message === '该目标无法被攻击' || message === '没有可命中的目标' || isOutOfRangeFailure(message);
 }
 
 function resolveCommandTargetRef(command) {

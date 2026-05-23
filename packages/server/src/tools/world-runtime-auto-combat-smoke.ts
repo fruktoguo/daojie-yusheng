@@ -1103,6 +1103,68 @@ function testAutoBattleCastsSelfAnchoredAreaSkillWithTarget(): void {
   });
 }
 
+function testActionRangeCannotOverruleSkillGeometryForChase(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 8,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: {
+      actions: [{
+        id: 'skill:ranged',
+        type: 'skill',
+        range: 4,
+        cooldownLeft: 0,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill:ranged',
+          name: '飞剑术',
+          cost: 0,
+          range: 3,
+          effects: [{ type: 'damage', formula: 1 }],
+        }],
+      }],
+    },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      combatTargetId: 'monster:1',
+      combatTargetLocked: true,
+      manualEngagePending: false,
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const command = service.buildAutoCombatCommand(createLongRangePathingInstance() as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 18;
+    },
+    queuePlayerNotice() {},
+  } as never);
+
+  assert.deepEqual(command, {
+    kind: 'move',
+    direction: 2,
+    continuous: true,
+    maxSteps: 1,
+    path: [{ x: 2, y: 1 }],
+    autoCombat: true,
+  });
+}
+
 function testAutoBattleSkipsSelfBuffSkillWhenBuffActive(): void {
   const player = {
     playerId: 'player:1',
@@ -1692,6 +1754,7 @@ testStationaryOutOfRangeSkillSkipsWithoutMove();
 testAutoBattleSkipsSelfBuffSkillWithoutTarget();
 testAutoBattleCastsMissingSelfBuffSkillWithTarget();
 testAutoBattleCastsSelfAnchoredAreaSkillWithTarget();
+testActionRangeCannotOverruleSkillGeometryForChase();
 testAutoBattleSkipsSelfBuffSkillWhenBuffActive();
 testStopDistancePathDoesNotGenerateRangeCandidateGrid();
 testLockedDestroyedTileClearsTarget();

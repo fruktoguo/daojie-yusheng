@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER } from '@mud/shared';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER, buildEffectiveTargetingGeometry } from '@mud/shared';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
@@ -173,12 +173,25 @@ function shouldAutoUsePill(player, item, conditions) {
 }
 
 function resolveAutoBattleEffectiveSkillRange(player, skill, action) {
-    const baseRange = resolveRuntimeSkillRange(skill);
-    const extraRange = Math.max(0, Math.floor(Number(player?.attrs?.numericStats?.extraRange ?? 0)));
-    const actionRange = Number.isFinite(Number(action?.range))
+    const hasAuthoritativeSkillRange = Number.isFinite(Number(skill?.targeting?.range))
+        || Number.isFinite(Number(skill?.range));
+    const skillRange = buildEffectiveTargetingGeometry({
+        range: resolveRuntimeSkillRange(skill),
+        shape: skill.targeting?.shape ?? 'single',
+        radius: skill.targeting?.radius,
+        innerRadius: skill.targeting?.innerRadius,
+        width: skill.targeting?.width,
+        height: skill.targeting?.height,
+        checkerParity: skill.targeting?.checkerParity,
+    }, {
+        extraRange: Math.max(0, Math.floor(Number(player?.attrs?.numericStats?.extraRange ?? 0))),
+        extraArea: Math.max(0, Math.floor(Number(player?.attrs?.numericStats?.extraArea ?? 0))),
+    }).range;
+    const fallbackActionRange = Number.isFinite(Number(action?.range))
         ? Math.max(skill?.requiresTarget === false ? 0 : 1, Math.round(Number(action.range)))
-        : baseRange;
-    return Math.max(actionRange, baseRange + extraRange);
+        : skillRange;
+    const baseRange = hasAuthoritativeSkillRange ? skillRange : fallbackActionRange;
+    return Math.max(skill?.requiresTarget === false ? 0 : 1, Math.round(Number(baseRange) || 0));
 }
 
 function buildAutoBattleSkillLookup(player) {

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimePendingCommandService } = require("../runtime/world/world-runtime-pending-command.service");
+const { WorldRuntimePendingCommandService } = require("../runtime/world/command/world-runtime-pending-command.service");
 /**
  * testQueueOwnershipMethods：执行testQueueOwnershipMethod相关逻辑。
  * @returns 无返回值，直接更新testQueueOwnershipMethod相关状态。
@@ -541,6 +541,66 @@ async function testAutoCombatRetaliateFailurePreservesDifferentLockedTarget() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testAutoCombatOutOfRangeClearsTargetWithoutNotice() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill:area',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:far',
+        targetRef: null,
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('技能 skill:area 超出范围');
+        },
+        buildAutoCombatCommand() {
+            return null;
+        },
+        getInstanceRuntime() {
+            return null;
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                return {
+                    playerId,
+                    instanceId: 'public:yunlai_town',
+                    hp: 100,
+                    combat: {
+                        autoBattle: true,
+                        combatTargetId: 'monster:far',
+                    },
+                };
+            },
+            clearManualEngagePending(playerId) {
+                log.push(['clearManualEngagePending', playerId]);
+            },
+            clearCombatTarget(playerId, currentTick) {
+                log.push(['clearCombatTarget', playerId, currentTick]);
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['clearManualEngagePending', 'player:1'],
+        ['clearCombatTarget', 'player:1', 0],
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill:area 超出范围）'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 async function testSkillOutOfRangeStaysServerInternal() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
@@ -615,6 +675,7 @@ Promise.resolve()
     .then(() => testInvalidAttackNoticeUsesTargetReason())
     .then(() => testAutoCombatInvalidTargetStaysServerInternal())
     .then(() => testAutoCombatRetaliateFailurePreservesDifferentLockedTarget())
+    .then(() => testAutoCombatOutOfRangeClearsTargetWithoutNotice())
     .then(() => testSkillOutOfRangeStaysServerInternal())
     .then(() => testInternalSliceErrorStaysServerInternal())
     .then(() => {
