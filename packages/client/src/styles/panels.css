@@ -2061,16 +2061,19 @@
       min-height: 0;
     }
     .tutorial-modal-main-panes {
+      display: flex;
+      flex-direction: column;
       flex: 1;
       min-height: 0;
     }
     .tutorial-modal-main-pane {
       display: none;
-      height: 100%;
+      flex: 1;
       min-height: 0;
     }
     .tutorial-modal-main-pane.active {
-      display: block;
+      display: flex;
+      flex-direction: column;
     }
     .tutorial-modal-main-pane--flow.active {
       display: flex;
@@ -2084,7 +2087,7 @@
       display: grid;
       grid-template-columns: 188px minmax(0, 1fr);
       gap: 16px;
-      height: 100%;
+      flex: 1;
       min-height: 0;
     }
     .tutorial-flow-shell {
