@@ -377,7 +377,7 @@ fi
   printf 'client_image=%s\n' "$client_image"
   printf 'client_image_id=%s\n' "$client_pulled_id"
   printf 'updated_server=%s\n' "$updated_server"
-  printf 'updated_backup_worker=%s\n' "$updated_backup_worker"
+  printf 'updated_server_worker=%s\n' "$updated_server_worker"
   printf 'updated_client=%s\n' "$updated_client"
 } > "$STATE_FILE"
 
@@ -389,8 +389,8 @@ AUTO_UPDATE_EOF
   cat > "$AUTO_UPDATE_SERVICE_FILE" <<EOF
 [Unit]
 Description=Daojie Yusheng CCR Swarm auto update
-After=docker.service network-online.target
-Wants=network-online.target
+After=docker.service docker.socket network-online.target
+Wants=docker.service network-online.target
 
 [Service]
 Type=oneshot
