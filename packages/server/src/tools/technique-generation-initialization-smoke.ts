@@ -5,13 +5,15 @@
  */
 import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
-import { S2C } from '@mud/shared';
+import { S2C, calcTechniqueAttrValues } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { GeneratedTechniqueStoreService } from '../runtime/technique-generation/generated-technique-store.service';
 import { WorldGatewayTechniqueGenerationHelper } from '../network/world-gateway-technique-generation.helper';
 import { ensureGeneratedTechniqueTables } from '../persistence/generated-technique-persistence.service';
+import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
+import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
 
 type QueryRecord = {
   sql: string;
@@ -229,6 +231,72 @@ async function testGatewayAdoptAndDiscardEmitResultEvents(): Promise<void> {
   assert.equal((emitted[1]?.payload as { jobId?: string; result?: string }).result, 'discarded');
 }
 
+async function testGeneratedInternalPreviewNormalizesAttrRatioAliases(): Promise<void> {
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool: {
+      query: async () => ({
+        rows: [{
+          template: {
+            id: 'gen_preview_alias_smoke',
+            name: '蛮荒霸体诀',
+            grade: 'mystic',
+            category: 'internal',
+            realmLv: 41,
+            attrRatio: { 力道: 3, 体魄: 2 },
+            maxLayer: 9,
+            expDifficulty: 1,
+          },
+        }],
+        rowCount: 1,
+      }),
+    } as unknown as Pool,
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+
+  const preview = await service.getPreview('p_preview_alias_smoke', 'job_preview_alias_smoke');
+  assert.ok(preview);
+  assert.ok((preview.fullLevelAttrs?.strength ?? 0) > 0);
+  assert.ok((preview.fullLevelAttrs?.constitution ?? 0) > 0);
+}
+
+async function testGeneratedTechniqueRegistryExpandsQuantifiedTemplates(): Promise<void> {
+  const registry = new TechniqueTemplateRegistry();
+  registry.setGeneratedStore({
+    getById: () => ({
+      id: 'gen_registry_alias_smoke',
+      name: '蛮荒霸体诀',
+      grade: 'mystic',
+      category: 'internal',
+      realmLv: 41,
+      attrRatio: { 力道: 3, 体魄: 2 },
+      maxLayer: 9,
+      expDifficulty: 1,
+    }),
+  } as unknown as GeneratedTechniqueStoreService);
+
+  const state = registry.createTechniqueState('gen_registry_alias_smoke') as { layers?: Parameters<typeof calcTechniqueAttrValues>[1] } | null;
+  assert.ok(state);
+  assert.equal(state.layers?.length, 9);
+  const attrs = calcTechniqueAttrValues(9, state.layers);
+  assert.ok((attrs.strength ?? 0) > 0);
+  assert.ok((attrs.constitution ?? 0) > 0);
+}
+
+async function testInternalCandidateRejectsUnknownAttrRatioKeys(): Promise<void> {
+  const result = validateTechniqueCandidate({
+    name: '无效功法',
+    grade: 'mystic',
+    category: 'internal',
+    realmLv: 41,
+    attrRatio: { 蛮荒血力: 1, 霸体: 1 },
+    maxLayer: 9,
+  }, 'internal');
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((entry) => entry.field === 'attrRatio'));
+}
+
 async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
   await testInitializedServicePersistsJob();
@@ -236,6 +304,9 @@ async function main(): Promise<void> {
   await testSchemaMigratesPlayerIdsToVarchar();
   await testGatewayGenerateExceptionEmitsFailureResult();
   await testGatewayAdoptAndDiscardEmitResultEvents();
+  await testGeneratedInternalPreviewNormalizesAttrRatioAliases();
+  await testGeneratedTechniqueRegistryExpandsQuantifiedTemplates();
+  await testInternalCandidateRejectsUnknownAttrRatioKeys();
   console.log('technique-generation-initialization-smoke ok');
 }
 

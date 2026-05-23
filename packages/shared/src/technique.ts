@@ -614,11 +614,81 @@ export function calcInternalTechniqueTotalExp(
   return rawTotal * TECHNIQUE_EXP_BASE * normalizedRealmLv;
 }
 
+const TECHNIQUE_ATTR_KEY_ALIAS_ENTRIES: Array<[string, AttrKey]> = [
+  ['constitution', 'constitution'],
+  ['体魄', 'constitution'],
+  ['体质', 'constitution'],
+  ['肉身', 'constitution'],
+  ['体力', 'constitution'],
+  ['spirit', 'spirit'],
+  ['神识', 'spirit'],
+  ['元神', 'spirit'],
+  ['精神', 'spirit'],
+  ['魂力', 'spirit'],
+  ['perception', 'perception'],
+  ['身法', 'perception'],
+  ['感知', 'perception'],
+  ['洞察', 'perception'],
+  ['灵觉', 'perception'],
+  ['talent', 'talent'],
+  ['根骨', 'talent'],
+  ['天赋', 'talent'],
+  ['资质', 'talent'],
+  ['悟性', 'talent'],
+  ['strength', 'strength'],
+  ['力道', 'strength'],
+  ['力量', 'strength'],
+  ['蛮力', 'strength'],
+  ['气力', 'strength'],
+  ['meridians', 'meridians'],
+  ['经脉', 'meridians'],
+  ['灵脉', 'meridians'],
+  ['脉络', 'meridians'],
+  ['真元', 'meridians'],
+];
+
+const TECHNIQUE_ATTR_KEY_ALIASES = new Map<string, AttrKey>(
+  TECHNIQUE_ATTR_KEY_ALIAS_ENTRIES.flatMap(([alias, key]) => {
+    const normalized = normalizeTechniqueAttrRatioKeyText(alias);
+    return normalized === alias ? [[alias, key]] : [[alias, key], [normalized, key]];
+  }),
+);
+
+/** 归一化 AI / 内容输入的六维权重键，兼容中文标签与少量常见同义词。 */
+export function normalizeTechniqueAttrRatio(
+  attrRatio: Partial<Record<string, unknown>> | undefined,
+): Partial<Record<AttrKey, number>> | undefined {
+  if (!attrRatio || typeof attrRatio !== 'object') return undefined;
+  const result: Partial<Record<AttrKey, number>> = {};
+  for (const [rawKey, rawValue] of Object.entries(attrRatio)) {
+    const key = resolveTechniqueAttrRatioKey(rawKey);
+    const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    if (!key || !Number.isFinite(value) || value <= 0) continue;
+    result[key] = (result[key] ?? 0) + value;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+export function resolveTechniqueAttrRatioKey(rawKey: string): AttrKey | null {
+  const key = rawKey.trim();
+  if ((TECHNIQUE_ATTR_KEYS as readonly string[]).includes(key)) {
+    return key as AttrKey;
+  }
+  return TECHNIQUE_ATTR_KEY_ALIASES.get(key)
+    ?? TECHNIQUE_ATTR_KEY_ALIASES.get(normalizeTechniqueAttrRatioKeyText(key))
+    ?? null;
+}
+
+function normalizeTechniqueAttrRatioKeyText(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
 /** attrRatio 的非零权重总和。 */
-function sumAttrRatioWeights(attrRatio: Partial<Record<AttrKey, number>> | undefined): number {
-  if (!attrRatio) return 0;
+function sumAttrRatioWeights(attrRatio: Partial<Record<string, unknown>> | undefined): number {
+  const normalized = normalizeTechniqueAttrRatio(attrRatio);
+  if (!normalized) return 0;
   let sum = 0;
-  for (const value of Object.values(attrRatio)) {
+  for (const value of Object.values(normalized)) {
     if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
       sum += value;
     }
@@ -716,8 +786,8 @@ export function expandTechniqueAttrRatio(template: TechniqueTemplate): InternalT
   const perLayerExp = expCurve.perLayerExp;
 
   // 属性归一（每维按占比分到阶段，阶段内各层均分）
-  const ratioSum = sumAttrRatioWeights(template.attrRatio);
-  const attrRatio = template.attrRatio ?? {};
+  const attrRatio = normalizeTechniqueAttrRatio(template.attrRatio) ?? {};
+  const ratioSum = sumAttrRatioWeights(attrRatio);
 
   const layers: TechniqueLayerDef[] = [];
   for (let level = 1; level <= maxLayer; level += 1) {

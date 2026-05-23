@@ -13,7 +13,7 @@
  */
 
 import type { TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import { TECHNIQUE_GRADE_ORDER, normalizeTechniqueAttrRatio } from '@mud/shared';
 
 export interface ValidationError {
   layer: 1 | 2 | 3;
@@ -149,13 +149,12 @@ function validateNumerics(candidate: Record<string, unknown>, expectedCategory: 
 
   if (expectedCategory === 'internal') {
     const attrRatio = candidate.attrRatio as Record<string, unknown> | undefined;
-    if (attrRatio) {
-      const weightSum = Object.values(attrRatio)
-        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0)
-        .reduce((sum, v) => sum + v, 0);
-      if (weightSum <= 0) {
-        errors.push({ layer: 3, field: 'attrRatio', message: 'attrRatio 权重和必须 > 0' });
-      }
+    const normalizedAttrRatio = normalizeTechniqueAttrRatio(attrRatio);
+    const weightSum = Object.values(normalizedAttrRatio ?? {}).reduce((sum, value) => sum + value, 0);
+    if (!normalizedAttrRatio || weightSum <= 0) {
+      errors.push({ layer: 3, field: 'attrRatio', message: 'attrRatio 必须包含合法六维字段且权重和 > 0' });
+    } else if (Object.keys(normalizedAttrRatio).length < 2) {
+      errors.push({ layer: 3, field: 'attrRatio', message: 'attrRatio 至少需要 2 个合法六维字段' });
     }
   }
 

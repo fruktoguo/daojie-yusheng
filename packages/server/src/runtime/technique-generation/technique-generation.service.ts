@@ -18,6 +18,7 @@ import {
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
   calcTechniqueAttrValues,
   expandTechniqueAttrRatio,
+  normalizeTechniqueAttrRatio,
   shouldExpandTechniqueAttrRatio,
 } from '@mud/shared';
 
@@ -228,7 +229,9 @@ export class TechniqueGenerationService {
       grade: params.grade as any,
       category: params.category,
       realmLv: params.realmLv,
-      attrRatio: params.category === 'internal' ? candidate.attrRatio as any : undefined,
+      attrRatio: params.category === 'internal'
+        ? normalizeTechniqueAttrRatio(candidate.attrRatio as Record<string, unknown>)
+        : undefined,
       attrFloat: typeof candidate.attrFloat === 'number' ? candidate.attrFloat : undefined,
       maxLayer,
       expDifficulty: typeof candidate.expDifficulty === 'number' ? candidate.expDifficulty : 1.0,

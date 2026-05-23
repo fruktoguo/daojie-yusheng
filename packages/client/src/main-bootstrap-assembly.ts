@@ -803,6 +803,9 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
         });
         return;
       }
+      if (data.result === 'failed') {
+        options.showToast(data.errorMessage ?? '功法领悟失败', 'warn');
+      }
       syncTechniqueGenerationState({
         generating: false,
         currentJob: null,

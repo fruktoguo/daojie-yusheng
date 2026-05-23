@@ -175,7 +175,12 @@ export class WorldGatewayTechniqueGenerationHelper {
 
     if (result.success && result.techniqueId) {
       // 直接学习功法
-      const learned = this.deps.playerRuntimeService.learnTechniqueById(playerId, result.techniqueId);
+      let learned = false;
+      try {
+        learned = this.deps.playerRuntimeService.learnTechniqueById(playerId, result.techniqueId);
+      } catch {
+        learned = false;
+      }
       if (!learned) {
         client.emit(S2C.TechniqueGenerationResult, {
           jobId,

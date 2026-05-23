@@ -27,6 +27,11 @@ type TechniqueTemplateRecord = Record<string, unknown> & {
   grade?: string;
   category?: string;
   realmLv?: number;
+  attrRatio?: TechniqueTemplate['attrRatio'];
+  attrFloat?: number;
+  maxLayer?: number;
+  expDifficulty?: number;
+  layerGains?: TechniqueTemplate['layerGains'];
   skills: Array<Record<string, unknown>>;
   layers: Array<Record<string, unknown> & { level: number; expToNext?: number; attrs?: Record<string, unknown>; specialStats?: Record<string, unknown>; qiProjection?: unknown }>;
 };
@@ -173,6 +178,10 @@ function hydrateMissingTechniqueState(input: Record<string, unknown>): Record<st
 
 /** 将 TechniqueTemplate（生成功法缓存格式）转为 TechniqueTemplateRecord（Registry 内部格式） */
 function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTemplateRecord {
+  const normalized = normalizeTechniqueTemplate(template);
+  if (normalized) {
+    return normalized as TechniqueTemplateRecord;
+  }
   return {
     id: template.id,
     name: template.name,
@@ -180,6 +189,11 @@ function generatedTemplateToRecord(template: TechniqueTemplate): TechniqueTempla
     grade: template.grade,
     category: template.category,
     realmLv: template.realmLv,
+    attrRatio: template.attrRatio,
+    attrFloat: template.attrFloat,
+    maxLayer: template.maxLayer,
+    expDifficulty: template.expDifficulty,
+    layerGains: template.layerGains,
     skills: (template.skills ?? []) as unknown as Array<Record<string, unknown>>,
     layers: (template.layers ?? []) as Array<Record<string, unknown> & { level: number; expToNext?: number; attrs?: Record<string, unknown>; specialStats?: Record<string, unknown>; qiProjection?: unknown }>,
   };

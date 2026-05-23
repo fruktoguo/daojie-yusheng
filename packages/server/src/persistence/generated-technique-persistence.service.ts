@@ -217,6 +217,7 @@ export async function publishGeneratedTechnique(pool: Pool, params: PublishGener
          display_name = $2,
          normalized_name = $3,
          name_locked = true,
+         template = jsonb_set(template, '{name}', to_jsonb($2::text), true),
          status = 'published',
          updated_at = NOW()
      WHERE id = $1`,
