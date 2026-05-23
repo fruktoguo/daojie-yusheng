@@ -214,8 +214,8 @@ export async function publishGeneratedTechnique(pool: Pool, params: PublishGener
     `UPDATE ${GENERATED_TECHNIQUE_TABLE}
      SET is_published = true,
          published_at = NOW(),
-         display_name = $2,
-         normalized_name = $3,
+         display_name = $2::text,
+         normalized_name = $3::text,
          name_locked = true,
          template = jsonb_set(template, '{name}', to_jsonb($2::text), true),
          status = 'published',

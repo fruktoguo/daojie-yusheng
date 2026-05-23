@@ -11,7 +11,10 @@ import type { Socket } from 'socket.io';
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { GeneratedTechniqueStoreService } from '../runtime/technique-generation/generated-technique-store.service';
 import { WorldGatewayTechniqueGenerationHelper } from '../network/world-gateway-technique-generation.helper';
-import { ensureGeneratedTechniqueTables } from '../persistence/generated-technique-persistence.service';
+import {
+  ensureGeneratedTechniqueTables,
+  publishGeneratedTechnique,
+} from '../persistence/generated-technique-persistence.service';
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
 
@@ -127,6 +130,20 @@ async function testSchemaMigratesPlayerIdsToVarchar(): Promise<void> {
   assert.ok(normalizedSql.some((sql) => sql.includes('player_id varchar(120) not null')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column created_by_player_id type varchar(120)')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column player_id type varchar(120)')));
+}
+
+async function testPublishGeneratedTechniqueCastsRepeatedNameParameter(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  await publishGeneratedTechnique(createFakePool(queries), {
+    id: 'gen_publish_cast_smoke',
+    displayName: '蛮荒霸体诀',
+    normalizedName: '蛮荒霸体诀',
+  });
+
+  const sql = queries[0]?.sql.replace(/\s+/g, ' ').trim().toLowerCase() ?? '';
+  assert.ok(sql.includes('display_name = $2::text'));
+  assert.ok(sql.includes('normalized_name = $3::text'));
+  assert.ok(sql.includes("template = jsonb_set(template, '{name}', to_jsonb($2::text), true)"));
 }
 
 async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
@@ -302,6 +319,7 @@ async function main(): Promise<void> {
   await testInitializedServicePersistsJob();
   await testItemShortageMarksJobFailedAfterAudit();
   await testSchemaMigratesPlayerIdsToVarchar();
+  await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
   await testGatewayGenerateExceptionEmitsFailureResult();
   await testGatewayAdoptAndDiscardEmitResultEvents();
   await testGeneratedInternalPreviewNormalizesAttrRatioAliases();
