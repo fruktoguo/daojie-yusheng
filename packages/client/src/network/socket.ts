@@ -26,6 +26,7 @@ import { createSocketPanelSender } from './socket-send-panel';
 import { createSocketRuntimeSender } from './socket-send-runtime';
 import { createSocketSocialEconomySender } from './socket-send-social-economy';
 import { createSocketContentSender } from './socket-send-content';
+import { createSocketTechniqueGenerationSender } from './socket-send-technique-generation';
 import { createSocketServerEventRegistry } from './socket-event-registry';
 import { createSocketLifecycleController } from './socket-lifecycle-controller';
 import type { SocketAdminSender } from './socket-send-admin';
@@ -34,6 +35,7 @@ import type { SocketPanelSender } from './socket-send-panel';
 import type { SocketRuntimeSender } from './socket-send-runtime';
 import type { SocketSocialEconomySender } from './socket-send-social-economy';
 import type { SocketContentSender } from './socket-send-content';
+import type { SocketTechniqueGenerationSender } from './socket-send-technique-generation';
 import type { BoundServerEventName, ServerEventCallback } from './socket-server-events';
 
 /** 客户端 Socket.IO 连接管理器，负责连接生命周期、协议编解码和事件分发。 */
@@ -67,6 +69,10 @@ export class SocketManager {
   });
   /** 内容模板按需查询发包 owner。 */
   private readonly contentSender = createSocketContentSender({
+    emitEvent: (event, payload) => this.sendEvent(event, payload),
+  });
+  /** AI 功法生成请求发包 owner。 */
+  private readonly techniqueGenerationSender = createSocketTechniqueGenerationSender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
   });
   /** 服务端事件注册与回调桶 owner。 */
@@ -275,6 +281,10 @@ export class SocketManager {
 
   get content(): SocketContentSender {
     return this.contentSender;
+  }
+
+  get techniqueGeneration(): SocketTechniqueGenerationSender {
+    return this.techniqueGenerationSender;
   }
 }
 

@@ -98,58 +98,57 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
     callbacks.onDiscard?.(state.currentJob.jobId);
   }, [state.currentJob]);
 
-  const handleClose = useCallback(() => {
-    callbacks.onClose?.();
-  }, []);
-
   if (!state.visible) return null;
 
   return (
     <div className="technique-generation-panel">
-      <div className="technique-generation-panel__header">
-        <h3>功法领悟</h3>
-        <button className="technique-generation-panel__close" onClick={handleClose}>✕</button>
-      </div>
-
       {!state.available && (
-        <div className="technique-generation-panel__locked">
-          <p>{state.unavailableReason || '当前无法使用'}</p>
+        <div className="technique-generation-panel__state technique-generation-panel__state--locked">
+          <strong>暂不可用</strong>
+          <span>{state.unavailableReason || '当前无法使用'}</span>
         </div>
       )}
 
       {state.available && !state.currentDraft && !state.generating && (
         <div className="technique-generation-panel__input">
-          {/* 分类 Tab */}
-          <div className="technique-generation-panel__tabs">
-            {CATEGORY_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                className={`technique-generation-panel__tab ${selectedCategory === tab.value ? 'active' : ''} ${tab.locked ? 'locked' : ''}`}
-                disabled={tab.locked}
-                onClick={() => !tab.locked && setSelectedCategory(tab.value)}
-              >
-                {tab.label}
-                {tab.locked && <span className="lock-icon">🔒</span>}
-              </button>
-            ))}
-          </div>
+          <section className="technique-generation-panel__section">
+            <div className="technique-generation-panel__section-title">功法类型</div>
+            <div className="technique-generation-panel__tabs" role="tablist" aria-label="功法类型">
+              {CATEGORY_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  className={`technique-generation-panel__tab ${selectedCategory === tab.value ? 'active' : ''} ${tab.locked ? 'locked' : ''}`}
+                  disabled={tab.locked}
+                  aria-pressed={selectedCategory === tab.value}
+                  onClick={() => !tab.locked && setSelectedCategory(tab.value)}
+                >
+                  <span>{tab.label}</span>
+                  {tab.locked && <small>未开放</small>}
+                </button>
+              ))}
+            </div>
+          </section>
 
-          {/* 提示词输入 */}
-          <div className="technique-generation-panel__context">
-            <label>主题描述（可选）</label>
+          <section className="technique-generation-panel__section technique-generation-panel__section--context">
+            <label className="technique-generation-panel__field-label" htmlFor="technique-generation-context">
+              主题描述
+              <span>可选</span>
+            </label>
             <textarea
+              id="technique-generation-context"
               value={playerContext}
               onChange={(e) => setPlayerContext(e.target.value.slice(0, 200))}
-              placeholder="描述你想要的功法风格、属性倾向..."
+              placeholder="描述功法风格、属性倾向或修行意象"
               maxLength={200}
-              rows={3}
+              rows={5}
             />
-            <span className="char-count">{[...playerContext].length}/200</span>
-          </div>
+            <span className="technique-generation-panel__char-count">{[...playerContext].length}/200</span>
+          </section>
 
-          {/* 开始按钮 */}
           <button
-            className="technique-generation-panel__generate-btn"
+            type="button"
+            className="technique-generation-panel__generate-btn small-btn"
             onClick={handleGenerate}
           >
             开始领悟
@@ -158,46 +157,67 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
       )}
 
       {state.generating && (
-        <div className="technique-generation-panel__loading">
-          <div className="spinner" />
-          <p>正在凝聚天地灵机推演功法...</p>
+        <div className="technique-generation-panel__state technique-generation-panel__state--loading">
+          <span className="technique-generation-panel__spinner" aria-hidden="true" />
+          <strong>正在推演功法</strong>
+          <span>请稍候，结果生成后会自动显示。</span>
         </div>
       )}
 
       {state.currentDraft && (
         <div className="technique-generation-panel__preview">
-          <h4>领悟结果</h4>
+          <div className="technique-generation-panel__section-title">领悟结果</div>
           <div className="technique-generation-panel__preview-info">
-            <p><strong>品阶：</strong>{getTechniqueGradeLabel(state.currentDraft.grade)}</p>
-            <p><strong>类别：</strong>{getTechniqueCategoryLabel(state.currentDraft.category)}</p>
-            <p><strong>境界：</strong>Lv.{state.currentDraft.realmLv}</p>
-            <p><strong>层数：</strong>{state.currentDraft.maxLayer}</p>
-            {state.currentDraft.desc && <p className="desc">{state.currentDraft.desc}</p>}
-            <p className="suggested-name">AI 建议名：{state.currentDraft.suggestedName}</p>
+            <div className="technique-generation-panel__metric">
+              <span>品阶</span>
+              <strong>{getTechniqueGradeLabel(state.currentDraft.grade)}</strong>
+            </div>
+            <div className="technique-generation-panel__metric">
+              <span>类别</span>
+              <strong>{getTechniqueCategoryLabel(state.currentDraft.category)}</strong>
+            </div>
+            <div className="technique-generation-panel__metric">
+              <span>境界</span>
+              <strong>Lv.{state.currentDraft.realmLv}</strong>
+            </div>
+            <div className="technique-generation-panel__metric">
+              <span>层数</span>
+              <strong>{state.currentDraft.maxLayer}</strong>
+            </div>
+            {state.currentDraft.desc && (
+              <p className="technique-generation-panel__desc">{state.currentDraft.desc}</p>
+            )}
+            <div className="technique-generation-panel__suggested-name">
+              <span>建议名</span>
+              <strong>{state.currentDraft.suggestedName}</strong>
+            </div>
           </div>
 
-          {/* 命名输入 */}
           <div className="technique-generation-panel__naming">
-            <label>为功法命名</label>
+            <label className="technique-generation-panel__field-label" htmlFor="technique-generation-name">
+              为功法命名
+              <span>2-8字</span>
+            </label>
             <input
+              id="technique-generation-name"
               type="text"
               value={customName}
               onChange={(e) => setCustomName(e.target.value.slice(0, 8))}
-              placeholder="2~8字"
+              placeholder={state.currentDraft.suggestedName || '输入功法名'}
               maxLength={8}
             />
           </div>
 
-          {/* 操作按钮 */}
           <div className="technique-generation-panel__actions">
             <button
-              className="btn-adopt"
+              type="button"
+              className="small-btn technique-generation-panel__adopt"
               onClick={handleAdopt}
               disabled={[...customName.trim()].length < 2}
             >
               采纳并学习
             </button>
-            <button className="btn-discard" onClick={handleDiscard}>
+            <button type="button" className="small-btn ghost" onClick={handleDiscard}>
               放弃
             </button>
           </div>
@@ -206,7 +226,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
       {state.error && (
         <div className="technique-generation-panel__error">
-          <p>{state.error}</p>
+          {state.error}
         </div>
       )}
     </div>

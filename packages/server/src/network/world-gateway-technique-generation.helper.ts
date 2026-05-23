@@ -71,7 +71,7 @@ export class WorldGatewayTechniqueGenerationHelper {
         return this.handleDiscard(playerId, request);
 
       default:
-        this.deps.worldClientEventService.emitGatewayError(client, 'UNKNOWN_ACTION', new Error(`未知操作: ${action}`));
+        this.deps.worldClientEventService.emitGatewayError(client, 'UNKNOWN_ACTION', new Error('未知操作'));
         return undefined;
     }
   }
@@ -106,12 +106,37 @@ export class WorldGatewayTechniqueGenerationHelper {
     });
 
     if (result.success && result.jobId) {
-      // 生成完成后推送结果（异步，由 service 内部 setImmediate 触发）
-      // 这里先返回 pending 状态
+      setImmediate(() => {
+        this.emitGenerationResultWhenReady(client, playerId, result.jobId!, 0).catch(() => undefined);
+      });
       return { success: true, jobId: result.jobId, rolledGrade: result.rolledGrade, rolledRealmLv: result.rolledRealmLv };
     }
 
+    client.emit(S2C.TechniqueGenerationResult, {
+      jobId: '',
+      result: 'failed',
+      errorMessage: result.error ?? '功法领悟失败',
+    });
     return result;
+  }
+
+  private async emitGenerationResultWhenReady(client: Socket, playerId: string, jobId: string, attempt: number): Promise<void> {
+    const result = await this.techniqueGenerationService!.getPreview(Number(playerId), jobId);
+    if (!result && attempt < 120) {
+      setTimeout(() => {
+        this.emitGenerationResultWhenReady(client, playerId, jobId, attempt + 1).catch(() => undefined);
+      }, 1000);
+      return;
+    }
+    client.emit(S2C.TechniqueGenerationResult, result ? {
+      jobId,
+      result: 'success',
+      preview: result,
+    } : {
+      jobId,
+      result: 'failed',
+      errorMessage: '功法领悟超时，请稍后重试',
+    });
   }
 
   private async handleAdopt(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {

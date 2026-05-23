@@ -243,6 +243,32 @@ export class TechniqueGenerationService {
     return { success: true, techniqueId };
   }
 
+  async getPreview(playerId: number, jobId: string): Promise<TechniquePreview | null> {
+    const pool = this.pool!;
+    const result = await pool.query(
+      `SELECT gt.template
+       FROM technique_generation_job j
+       JOIN generated_technique gt ON gt.id = j.draft_technique_id
+       WHERE j.id = $1 AND j.player_id = $2 AND j.status = 'generated_draft'
+       LIMIT 1`,
+      [jobId, playerId],
+    );
+    const template = result.rows[0]?.template as TechniqueTemplate | undefined;
+    if (!template) {
+      return null;
+    }
+    return {
+      techniqueId: template.id,
+      suggestedName: template.name,
+      grade: template.grade,
+      category: template.category,
+      realmLv: template.realmLv ?? 1,
+      desc: template.desc ?? '',
+      maxLayer: template.maxLayer ?? TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
+      expDifficulty: template.expDifficulty ?? 1,
+    };
+  }
+
   /** 采纳草稿 → 直接学习 */
   async adoptDraft(params: {
     playerId: number;

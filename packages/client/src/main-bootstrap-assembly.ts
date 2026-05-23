@@ -4,8 +4,8 @@
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
 import { MAX_ZOOM, MIN_ZOOM } from './display';
-import { C2S, S2C } from '@mud/shared';
-import type { ActionDef, PlayerState } from '@mud/shared';
+import { C2S, S2C, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
+import type { ActionDef, PlayerState, TechniqueCategory, TechniqueGrade } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 import type { LoginUI } from './ui/login';
 import type { SidePanel } from './ui/side-panel';
@@ -41,6 +41,7 @@ import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { bindMainHighFrequencySocketEvents } from './main-high-frequency-socket-bindings';
 import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bindings';
 import { contentResolver } from './content/content-resolver';
+import { syncTechniqueGenerationState } from './react-ui/panels/technique-generation/mount-technique-generation-panel';
 import { cacheUnlockedMinimapLibrary, getCachedMinimapVersions } from './map-static-cache';
 import { bindMainMapInteractions } from './main-map-interaction-bindings';
 import { bindMainShellInteractions } from './main-shell-bindings';
@@ -59,6 +60,7 @@ import type { SocketBuildingSender } from './network/socket-send-building';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
+import type { SocketTechniqueGenerationSender } from './network/socket-send-technique-generation';
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
 /**
  * ToastKind：统一结构类型，保证协议与运行时一致性。
@@ -75,6 +77,16 @@ type ToastKind =
   | 'success'
   | 'warn'
   | 'travel';
+
+const TECHNIQUE_GENERATION_CATEGORIES = new Set<TechniqueCategory>(['arts', 'internal', 'divine', 'secret']);
+
+function parseTechniqueGenerationGrade(value: string): TechniqueGrade | null {
+  return (TECHNIQUE_GRADE_ORDER as readonly string[]).includes(value) ? value as TechniqueGrade : null;
+}
+
+function parseTechniqueGenerationCategory(value: string): TechniqueCategory | null {
+  return TECHNIQUE_GENERATION_CATEGORIES.has(value as TechniqueCategory) ? value as TechniqueCategory : null;
+}
   /**
  * MainBootstrapAssemblyOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -515,6 +527,7 @@ type MainBootstrapAssemblyOptions = {
     | 'sendRoomSetRole'
     | 'sendFengShuiObserve'
   >;
+  techniqueGenerationSender: SocketTechniqueGenerationSender;
   /**
  * loginUI：loginUI相关字段。
  */
@@ -747,6 +760,26 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onFengShuiOverlayPatch: (data) => options.buildingFengShuiStateSource.handleFengShuiOverlayPatch(data),
     onFengShuiDetail: (data) => options.buildingFengShuiStateSource.handleFengShuiDetail(data),
     onNotice: (payload) => options.noticeStateSource.handleNotice(payload),
+    onTechniqueGenerationResult: (data) => {
+      const grade = data.preview ? parseTechniqueGenerationGrade(data.preview.grade) : null;
+      const category = data.preview ? parseTechniqueGenerationCategory(data.preview.category) : null;
+      syncTechniqueGenerationState({
+        generating: false,
+        currentDraft: data.result === 'success' && data.preview && grade && category ? {
+          techniqueId: data.preview.techniqueId,
+          suggestedName: data.preview.suggestedName,
+          grade,
+          category,
+          realmLv: data.preview.realmLv,
+          desc: data.preview.desc,
+          maxLayer: data.preview.maxLayer,
+        } : null,
+        currentJob: null,
+        error: data.result === 'failed'
+          ? (data.errorMessage ?? '功法领悟失败')
+          : (data.preview && (!grade || !category) ? '功法领悟结果格式异常' : ''),
+      });
+    },
     onError: (data) => options.connectionStateSource.handleError(data),
     onKick: () => options.connectionStateSource.handleKick(),
     onConnectError: (message) => options.connectionStateSource.handleConnectError(message),

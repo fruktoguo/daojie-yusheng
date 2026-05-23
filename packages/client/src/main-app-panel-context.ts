@@ -23,6 +23,7 @@ import { createMainPanelRuntimeSource } from './main-panel-runtime-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
 import { createMainSuggestionStateSource } from './main-suggestion-state-source';
+import { createMainTechniqueGenerationPanelSource } from './main-technique-generation-panel-source';
 import { createMainTechniqueStateSource } from './main-technique-state-source';
 import { createMainUiStateSource } from './main-ui-state-source';
 import { createMainWorldSummaryStateSource } from './main-world-summary-state-source';
@@ -36,25 +37,13 @@ import type { ToastKind } from './main-app-assembly-types';
 type CreateMainPanelContextOptions = {
   /** documentRef：注入浏览器 document，便于测试或宿主环境替换。 */
   documentRef: Document;  
-  /**
- * dom：dom相关字段。
- */
-
+  /** dom：dom相关字段。 */
   dom: Pick<MainDomElements, 'zoomSlider' | 'zoomLevelEl'>;  
-  /**
- * modules：模块相关字段。
- */
-
+  /** modules：模块相关字段。 */
   modules: MainFrontendModules;  
-  /**
- * rootRuntimeSource：根容器运行态来源相关字段。
- */
-
+  /** rootRuntimeSource：根容器运行态来源相关字段。 */
   rootRuntimeSource: ReturnType<typeof import('./main-root-runtime-source').createMainRootRuntimeSource>;  
-  /**
- * callbacks：callback相关字段。
- */
-
+  /** callbacks：callback相关字段。 */
   callbacks: {
     showToast(message: string, kind?: ToastKind): void;
     beginTargeting(actionId: string, actionName: string, targetMode?: string, range?: number): void;
@@ -83,6 +72,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       panelSender,
       socialEconomySender,
       buildingSender,
+      techniqueGenerationSender,
       mapRuntime,
       loginUI,
       hud,
@@ -125,7 +115,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     forging: () => craftWorkbenchModal.openForging(),
     enhancement: () => craftWorkbenchModal.openEnhancement(),
   } as const satisfies Record<ClientTechniqueActivityKind | 'forging', () => void>;
-
+  const techniqueGenerationPanelSource = createMainTechniqueGenerationPanelSource({ sender: techniqueGenerationSender });
   const actionStateSource = createMainActionStateSource({
     actionPanel,
     socket: runtimeSender,
@@ -217,6 +207,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     ackSystemMessages: (ids) => socialEconomySender.ackSystemMessages(ids),
     showToast: (message, kind) => uiStateSource.showToast(message, kind),
     clearCurrentPath: callbacks.clearCurrentPath,
+    onOpenPanel: techniqueGenerationPanelSource.openNamedPanel,
   });
   const formationPreviewSource = createMainFormationPreviewSource({
     getPlayer: () => rootRuntimeSource.getPlayer(),

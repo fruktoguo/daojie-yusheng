@@ -169,6 +169,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
     socialEconomySender: modules.socialEconomySender,
     adminSender: modules.adminSender,
     buildingSender: modules.buildingSender,
+    techniqueGenerationSender: modules.techniqueGenerationSender,
     loginUI: modules.loginUI,
     rootRuntimeSource,
     showToast,

@@ -162,6 +162,7 @@ type MainLowFrequencySocketBindingsOptions = {
  */
 
   onNotice: (data: ServerToClientEventPayload<typeof S2C.Notice>) => void;
+  onTechniqueGenerationResult: (data: ServerToClientEventPayload<typeof S2C.TechniqueGenerationResult>) => void;
   /**
  * onError：onError相关字段。
  */
@@ -231,6 +232,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(S2C.FengShuiOverlayPatch, options.onFengShuiOverlayPatch);
   options.socket.on(S2C.FengShuiDetail, options.onFengShuiDetail);
   options.socket.on(S2C.Notice, options.onNotice);
+  options.socket.on(S2C.TechniqueGenerationResult, options.onTechniqueGenerationResult);
   options.socket.on(S2C.Error, options.onError);
   options.socket.onKick(options.onKick);
   options.socket.onConnectError(options.onConnectError);

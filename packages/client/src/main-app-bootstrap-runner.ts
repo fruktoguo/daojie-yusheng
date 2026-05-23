@@ -56,6 +56,7 @@ export function runMainAppBootstrap(context: ReturnType<typeof import('./main-ap
     socialEconomySender: context.socialEconomySender,
     adminSender: context.adminSender,
     buildingSender: context.buildingSender,
+    techniqueGenerationSender: context.techniqueGenerationSender,
     loginUI: context.loginUI,
     showToast: context.showToast,
     syncTargetingOverlay: context.syncTargetingOverlay,
