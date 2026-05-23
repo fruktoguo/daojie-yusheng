@@ -27,7 +27,11 @@ function createDeps(log) {
  * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
-        queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },        
+        queuePlayerNotice(playerId, message, tone, _castId, _combat, structured) {
+            log.push(structured?.key === 'notice.item.open-panel'
+                ? ['queuePlayerNotice', playerId, message, tone, structured]
+                : ['queuePlayerNotice', playerId, message, tone]);
+        },
         /**
  * advanceLearnTechniqueQuest：执行advanceLearn功法任务相关逻辑。
  * @param playerId 玩家 ID。
@@ -95,6 +99,7 @@ function createService(overrides = {}) {
  */
 
         peekInventoryItem() { return null; },        
+        peekInventoryItemByInstanceId(playerId, itemInstanceId) { return this.peekInventoryItem(playerId, itemInstanceId); },
         /**
  * hasUnlockedMap：判断Unlocked地图是否满足条件。
  * @returns 无返回值，完成Unlocked地图的条件判断。
@@ -127,6 +132,7 @@ function createService(overrides = {}) {
  */
 
         consumeInventoryItem(playerId, slotIndex, count) { overrides.log.push(['consumeInventoryItem', playerId, slotIndex, count]); },        
+        consumeInventoryItemByInstanceId(playerId, itemInstanceId, count) { this.consumeInventoryItem(playerId, itemInstanceId, count); },
         /**
  * useItem：执行use道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -135,6 +141,7 @@ function createService(overrides = {}) {
  */
 
         useItem(playerId, slotIndex) { overrides.log.push(['useItem', playerId, slotIndex]); },        
+        useItemByInstanceId(playerId, itemInstanceId) { this.useItem(playerId, itemInstanceId); },
         /**
  * getPlayerOrThrow：读取玩家OrThrow。
  * @returns 无返回值，完成玩家OrThrow的读取/组装。
@@ -390,6 +397,23 @@ function testNormalUseBranch() {
     ]);
 }
 
+function testTechniqueGenerationOpenPanelBranch() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'wudao_yujian',
+        name: '悟道玉简',
+        useBehavior: 'open_technique_generation',
+    });
+    service.dispatchUseItem('player:1', 0, createDeps(log));
+    assert.deepEqual(log, [
+        ['queuePlayerNotice', 'player:1', '打开功法领悟', 'info', {
+            key: 'notice.item.open-panel',
+            vars: { panel: 'technique_generation' },
+        }],
+    ]);
+}
+
 testMapUnlockBranch();
 testMapGroupUnlockBranch();
 testTileAuraBranch();
@@ -401,5 +425,6 @@ testCurrentRespawnBindRejectsDisallowedMapWithoutConsume();
 testCurrentRespawnBindAllowsOwnSectMap();
 testLegacyTileAuraBranch();
 testNormalUseBranch();
+testTechniqueGenerationOpenPanelBranch();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-use-item' }, null, 2));

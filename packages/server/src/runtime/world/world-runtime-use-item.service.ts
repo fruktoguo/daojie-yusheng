@@ -88,7 +88,7 @@ export class WorldRuntimeUseItemService {
             return;
         }
         if (item.useBehavior === 'open_technique_generation') {
-            const n = buildStructuredNotice('info', 'notice.item.open-panel', '', {
+            const n = buildStructuredNotice('info', 'notice.item.open-panel', '打开功法领悟', {
                 vars: { panel: 'technique_generation' },
             });
             deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);

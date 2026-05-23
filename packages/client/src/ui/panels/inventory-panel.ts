@@ -2676,7 +2676,7 @@ export class InventoryPanel {
       return { label: t('inventory.action.label.formation', undefined), kind: 'use' };
     }
     if (this.isSectFoundingTokenItem(item)) {
-      return { label: t('inventory.action.label.sect-founding', undefined), kind: 'use' };
+      return { label: t('inventory.action.label.use', undefined), kind: 'use' };
     }
     if (item.type === 'skill_book') {
       return { label: t('inventory.action.label.learn', undefined), kind: 'use' };
