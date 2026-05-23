@@ -324,6 +324,18 @@
   overflow-wrap: anywhere;
 }
 
+.offline-gain-confirm-area {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
+}
+
+.offline-gain-confirm-btn {
+  min-width: 120px;
+  padding: 8px 24px;
+  font-size: var(--font-size-14, 14px);
+}
+
 @media (max-width: 640px) {
   .detail-modal-card.detail-modal--offline-gain {
     width: calc(100vw - 18px);
