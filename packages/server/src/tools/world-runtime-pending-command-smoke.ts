@@ -841,6 +841,97 @@ async function testAutoCombatPlayerOutOfRangeClearsRetaliateAndThreatTarget() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testAutoCombatPlayerPvpDisabledClearsTargetWithoutNotice() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: 'target:1',
+        targetMonsterId: null,
+        targetX: null,
+        targetY: null,
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('当前实例不允许玩家互攻');
+        },
+        buildAutoCombatCommand() {
+            return null;
+        },
+        getInstanceRuntime() {
+            return null;
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                if (playerId === 'player:1') {
+                    return {
+                        playerId,
+                        instanceId: 'public:yunlai_town',
+                        hp: 100,
+                        x: 43,
+                        y: 56,
+                        combat: {
+                            autoBattle: true,
+                            retaliatePlayerTargetId: 'target:1',
+                            combatTargetId: 'player:target:1',
+                        },
+                    };
+                }
+                if (playerId === 'target:1') {
+                    return {
+                        playerId,
+                        instanceId: 'public:yunlai_town',
+                        hp: 100,
+                        x: 44,
+                        y: 57,
+                        combat: {},
+                    };
+                }
+                return null;
+            },
+            clearManualEngagePending(playerId) {
+                log.push(['clearManualEngagePending', playerId]);
+            },
+            clearRetaliatePlayerTargetIfMatches(playerId, targetPlayerId, currentTick) {
+                log.push(['clearRetaliatePlayerTargetIfMatches', playerId, targetPlayerId, currentTick]);
+            },
+            clearCombatTarget(playerId, currentTick) {
+                log.push(['clearCombatTarget', playerId, currentTick]);
+            },
+        },
+        worldRuntimeThreatService: {
+            buildPlayerOwnerId(playerId) {
+                log.push(['buildPlayerOwnerId', playerId]);
+                return `player:${playerId}`;
+            },
+            multiplyThreat(ownerId, targetRef, multiplier) {
+                log.push(['multiplyThreat', ownerId, targetRef, multiplier]);
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['clearManualEngagePending', 'player:1'],
+        ['clearRetaliatePlayerTargetIfMatches', 'player:1', 'target:1', 0],
+        ['buildPlayerOwnerId', 'player:1'],
+        ['multiplyThreat', 'player:player:1', 'player:target:1', 0],
+        ['clearCombatTarget', 'player:1', 0],
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（当前实例不允许玩家互攻） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=43,56 target=player:target:1 targetKind=player targetPos=44,57 distance=1 combatTarget=player:target:1 combatTargetLocked=0'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 async function testSkillOutOfRangeStaysServerInternal() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
@@ -918,6 +1009,7 @@ Promise.resolve()
     .then(() => testAutoCombatRetaliateFailurePreservesDifferentLockedTarget())
     .then(() => testAutoCombatOutOfRangeClearsTargetWithoutNotice())
     .then(() => testAutoCombatPlayerOutOfRangeClearsRetaliateAndThreatTarget())
+    .then(() => testAutoCombatPlayerPvpDisabledClearsTargetWithoutNotice())
     .then(() => testSkillOutOfRangeStaysServerInternal())
     .then(() => testInternalSliceErrorStaysServerInternal())
     .then(() => {

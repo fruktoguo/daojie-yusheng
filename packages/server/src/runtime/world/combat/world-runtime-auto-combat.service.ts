@@ -54,6 +54,10 @@ function isPlayerTargetRef(targetRef) {
     return typeof targetRef === 'string' && targetRef.trim().startsWith('player:');
 }
 
+function instanceSupportsPvp(instance) {
+    return instance?.meta?.supportsPvp === true || instance?.supportsPvp === true;
+}
+
 const AUTO_TARGETING_PREFERENCE_MULTIPLIER = PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER;
 const AUTO_UNREACHABLE_TARGET_THREAT_MULTIPLIER = 0.2;
 const AUTO_COMBAT_ACTION_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
@@ -512,9 +516,15 @@ export class WorldRuntimeAutoCombatService {
         if (!view) {
             return null;
         }
+        if (!instanceSupportsPvp(instance) && isPlayerTargetRef(player.combat?.combatTargetId)) {
+            this.playerRuntimeService.clearCombatTarget(player.playerId, deps.resolveCurrentTickForPlayerId(player.playerId));
+        }
         this.refreshPlayerThreats(instance, player, view, deps);
         const target = this.selectAutoCombatTarget(instance, player, view, deps, options);
         if (!target) {
+            return null;
+        }
+        if (target.playerId && !instanceSupportsPvp(instance)) {
             return null;
         }
         if (inSafeZone && target.playerId) {
@@ -700,33 +710,35 @@ export class WorldRuntimeAutoCombatService {
                 now: currentTick,
             });
         }
-        for (const visible of view.visiblePlayers ?? []) {
-            const target = this.playerRuntimeService.getPlayer(visible.playerId);
-            if (!target || target.instanceId !== player.instanceId || target.hp <= 0) {
-                continue;
+        if (instanceSupportsPvp(instance)) {
+            for (const visible of view.visiblePlayers ?? []) {
+                const target = this.playerRuntimeService.getPlayer(visible.playerId);
+                if (!target || target.instanceId !== player.instanceId || target.hp <= 0) {
+                    continue;
+                }
+                if (instance.isPointInSafeZone(player.x, player.y) || instance.isPointInSafeZone(target.x, target.y)) {
+                    continue;
+                }
+                const relation = resolveCombatRelation(player, {
+                    kind: 'player',
+                    target,
+                });
+                if (!isHostileRelation(relation)) {
+                    continue;
+                }
+                const retaliating = relation.matchedRules.includes('retaliators');
+                if (!player.combat.autoBattle && !retaliating) {
+                    continue;
+                }
+                const targetRef = this.worldRuntimeThreatService.buildPlayerTargetId(target.playerId);
+                activeTargetIds.add(targetRef);
+                this.worldRuntimeThreatService.addThreat(ownerId, targetRef, {
+                    baseThreat: DEFAULT_PASSIVE_THREAT_PER_TICK,
+                    distance: chebyshevDistance(player.x, player.y, target.x, target.y),
+                    extraAggroRate,
+                    now: currentTick,
+                });
             }
-            if (instance.isPointInSafeZone(player.x, player.y) || instance.isPointInSafeZone(target.x, target.y)) {
-                continue;
-            }
-            const relation = resolveCombatRelation(player, {
-                kind: 'player',
-                target,
-            });
-            if (!isHostileRelation(relation)) {
-                continue;
-            }
-            const retaliating = relation.matchedRules.includes('retaliators');
-            if (!player.combat.autoBattle && !retaliating) {
-                continue;
-            }
-            const targetRef = this.worldRuntimeThreatService.buildPlayerTargetId(target.playerId);
-            activeTargetIds.add(targetRef);
-            this.worldRuntimeThreatService.addThreat(ownerId, targetRef, {
-                baseThreat: DEFAULT_PASSIVE_THREAT_PER_TICK,
-                distance: chebyshevDistance(player.x, player.y, target.x, target.y),
-                extraAggroRate,
-                now: currentTick,
-            });
         }
         this.worldRuntimeThreatService.decayMissingTargets(ownerId, activeTargetIds, player.maxHp, currentTick);
     }
@@ -794,6 +806,7 @@ export class WorldRuntimeAutoCombatService {
         if (entries.length === 0) {
             return [];
         }
+        const supportsPvp = instanceSupportsPvp(instance);
         const visibleMonstersById = new Map();
         for (const monster of view.localMonsters ?? []) {
             if (typeof monster?.runtimeId === 'string') {
@@ -811,6 +824,9 @@ export class WorldRuntimeAutoCombatService {
         const monsterHostile = isHostileRelation(monsterRelation);
         for (const entry of entries) {
             if (entry.targetId.startsWith('player:')) {
+                if (!supportsPvp) {
+                    continue;
+                }
                 const targetPlayerId = entry.targetId.slice('player:'.length);
                 if (!visiblePlayerIds.has(targetPlayerId)) {
                     continue;

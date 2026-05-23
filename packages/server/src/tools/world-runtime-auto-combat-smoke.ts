@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { WorldRuntimeAutoCombatService } from '../runtime/world/combat/world-runtime-auto-combat.service';
+import { WorldRuntimeThreatService } from '../runtime/world/combat/world-runtime-threat.service';
 import { findPathToTargetWithinRangeOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
 
 function createPlayerRuntimeService(player: Record<string, unknown>, extraPlayers: Array<Record<string, unknown>> = []) {
@@ -1594,6 +1595,86 @@ function testThreatPlayerTargetFallsBackToBasicAttackWithPlayerId(): void {
   ]);
 }
 
+function testNonPvpInstanceSkipsAndClearsPlayerAutoTarget(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    maxHp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 0,
+    attrs: {
+      numericStats: {
+        viewRange: 6,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: { actions: [] },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: true,
+      autoBattleStationary: false,
+      autoBattleTargetingMode: 'player',
+      allowAoePlayerHit: true,
+      combatTargetId: 'player:duel',
+      combatTargetLocked: false,
+      manualEngagePending: false,
+    },
+  };
+  const target = {
+    playerId: 'duel',
+    hp: 100,
+    maxHp: 100,
+    x: 2,
+    y: 2,
+    instanceId: 'public:test_map',
+    combat: {},
+  };
+  const threatService = new WorldRuntimeThreatService();
+  threatService.addThreat(threatService.buildPlayerOwnerId('player:1'), threatService.buildPlayerTargetId('duel'), {
+    baseThreat: 100,
+    distance: 1,
+    now: 32,
+  });
+  const playerRuntimeService = createPlayerRuntimeService(player, [target]);
+  const service = new WorldRuntimeAutoCombatService(playerRuntimeService as never, threatService as never);
+  const command = service.buildAutoCombatCommand({
+    meta: {
+      instanceId: 'public:test_map',
+      supportsPvp: false,
+    },
+    isPointInSafeZone() {
+      return false;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+    buildPlayerView() {
+      return {
+        playerId: 'player:1',
+        self: { x: 1, y: 1 },
+        instance: { width: 4, height: 4 },
+        visiblePlayers: [{ playerId: 'duel' }],
+        localMonsters: [],
+        localNpcs: [],
+        localPortals: [],
+        localGroundPiles: [],
+      };
+    },
+  } as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 32;
+    },
+    queuePlayerNotice() {},
+  } as never);
+
+  assert.equal(command, null);
+  assert.deepEqual(playerRuntimeService.log, [
+    ['clearCombatTarget', 'player:1', 32],
+  ]);
+}
+
 function testRetaliatePlayerDoesNotPreemptLockedPlayerTarget(): void {
   const player = {
     playerId: 'player:1',
@@ -1840,6 +1921,7 @@ testLockedDestroyedTileClearsTarget();
 testLockedHerbTileContinuesBasicAttack();
 testRetaliatePlayerPreemptsLockedMiningTileWithoutClearingLock();
 testThreatPlayerTargetFallsBackToBasicAttackWithPlayerId();
+testNonPvpInstanceSkipsAndClearsPlayerAutoTarget();
 testRetaliatePlayerDoesNotPreemptLockedPlayerTarget();
 testLockedDepletedHerbTileClearsTarget();
 testLockedFormationContinuesBasicAttack();

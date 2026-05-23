@@ -16,7 +16,7 @@ function isOutOfRangeFailure(message) {
 
 function normalizePendingCommandNoticeMessage(command, message) {
     if (command?.autoCombat === true && command?.manualEngage !== true) {
-        if (message === '该目标无法被攻击' || message === '没有可命中的目标' || isOutOfRangeFailure(message)) {
+        if (message === '该目标无法被攻击' || message === '没有可命中的目标' || message === '当前实例不允许玩家互攻' || isOutOfRangeFailure(message)) {
             return null;
         }
     }
@@ -33,7 +33,10 @@ function normalizePendingCommandNoticeMessage(command, message) {
 }
 
 function isTerminalAutoCombatTargetFailure(message) {
-    return message === '该目标无法被攻击' || message === '没有可命中的目标' || isOutOfRangeFailure(message);
+    return message === '该目标无法被攻击'
+        || message === '没有可命中的目标'
+        || message === '当前实例不允许玩家互攻'
+        || isOutOfRangeFailure(message);
 }
 
 function resolveCommandTargetRef(command) {
