@@ -763,17 +763,48 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onTechniqueGenerationResult: (data) => {
       const grade = data.preview ? parseTechniqueGenerationGrade(data.preview.grade) : null;
       const category = data.preview ? parseTechniqueGenerationCategory(data.preview.category) : null;
+      if (data.result === 'learned') {
+        options.showToast(data.techniqueName ? `已学习 ${data.techniqueName}` : '功法已学习', 'success');
+        syncTechniqueGenerationState({
+          generating: false,
+          currentDraft: null,
+          currentJob: null,
+          error: '',
+        });
+        return;
+      }
+      if (data.result === 'discarded') {
+        options.showToast('已放弃功法草稿', 'system');
+        syncTechniqueGenerationState({
+          generating: false,
+          currentDraft: null,
+          currentJob: null,
+          error: '',
+        });
+        return;
+      }
+      if (data.result === 'success' && data.preview && grade && category) {
+        syncTechniqueGenerationState({
+          generating: false,
+          currentDraft: {
+            jobId: data.jobId,
+            techniqueId: data.preview.techniqueId,
+            suggestedName: data.preview.suggestedName,
+            grade,
+            category,
+            realmLv: data.preview.realmLv,
+            desc: data.preview.desc,
+            maxLayer: data.preview.maxLayer,
+            fullLevelAttrs: data.preview.fullLevelAttrs,
+            skills: data.preview.skills,
+          },
+          currentJob: null,
+          error: '',
+        });
+        return;
+      }
       syncTechniqueGenerationState({
         generating: false,
-        currentDraft: data.result === 'success' && data.preview && grade && category ? {
-          techniqueId: data.preview.techniqueId,
-          suggestedName: data.preview.suggestedName,
-          grade,
-          category,
-          realmLv: data.preview.realmLv,
-          desc: data.preview.desc,
-          maxLayer: data.preview.maxLayer,
-        } : null,
         currentJob: null,
         error: data.result === 'failed'
           ? (data.errorMessage ?? '功法领悟失败')

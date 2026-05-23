@@ -8,8 +8,7 @@
  * AI 功法生成业务类型定义。
  */
 
-import type { TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import type { AttrKey } from '@mud/shared';
+import type { Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
 
 export type TechniqueGenerationJobStatus =
   | 'pending'
@@ -49,14 +48,8 @@ export interface TechniquePreview {
   category: TechniqueCategory;
   realmLv: number;
   desc: string;
-  attrRatio?: Partial<Record<AttrKey, number>>;
-  attrTotal?: number;
-  skills?: Array<{
-    name: string;
-    desc: string;
-    cooldown: number;
-    effects: string[];
-  }>;
+  fullLevelAttrs?: Partial<Attributes>;
+  skills?: SkillDef[];
   maxLayer: number;
   expDifficulty: number;
 }

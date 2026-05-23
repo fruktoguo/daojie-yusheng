@@ -13,8 +13,13 @@
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
 import { Injectable } from '@nestjs/common';
-import type { TechniqueCategory, TechniqueTemplate } from '@mud/shared';
-import { TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER } from '@mud/shared';
+import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplate } from '@mud/shared';
+import {
+  TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
+  calcTechniqueAttrValues,
+  expandTechniqueAttrRatio,
+  shouldExpandTechniqueAttrRatio,
+} from '@mud/shared';
 
 import { executeAiTask, type AiTaskRequest } from '../../ai/ai-task-execution.service';
 import { sanitizePlayerContext } from '../../ai/ai-prompt-sanitizer';
@@ -273,14 +278,21 @@ export class TechniqueGenerationService {
     if (!template) {
       return null;
     }
+    const previewLayers = resolvePreviewLayers(template);
+    const maxLayer = template.maxLayer ?? TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
+    const fullLevelAttrs = previewLayers
+      ? normalizePositiveAttrs(calcTechniqueAttrValues(maxLayer, previewLayers))
+      : undefined;
     return {
       techniqueId: template.id,
       suggestedName: template.name,
       grade: template.grade,
-      category: template.category,
+      category: template.category ?? 'internal',
       realmLv: template.realmLv ?? 1,
       desc: template.desc ?? '',
-      maxLayer: template.maxLayer ?? TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
+      fullLevelAttrs,
+      skills: Array.isArray(template.skills) ? template.skills : undefined,
+      maxLayer,
       expDifficulty: template.expDifficulty ?? 1,
     };
   }
@@ -372,4 +384,36 @@ export class TechniqueGenerationService {
     if (!this.pool) return 0;
     return expireStaleGenerationJobs(this.pool);
   }
+}
+
+function resolvePreviewLayers(template: TechniqueTemplate): TechniqueLayerDef[] | undefined {
+  if (shouldExpandTechniqueAttrRatio(template)) {
+    return expandTechniqueAttrRatio(template).layers;
+  }
+  if (!Array.isArray(template.layers)) {
+    return undefined;
+  }
+  const layers: TechniqueLayerDef[] = [];
+  for (const layer of template.layers) {
+    if (isTechniqueLayerDef(layer)) {
+      layers.push(layer);
+    }
+  }
+  return layers.length > 0 ? layers : undefined;
+}
+
+type TechniqueTemplateLayerEntry = NonNullable<TechniqueTemplate['layers']>[number];
+
+function isTechniqueLayerDef(layer: TechniqueTemplateLayerEntry): layer is TechniqueLayerDef {
+  return Boolean(layer && Number.isFinite((layer as TechniqueLayerDef).level) && Number.isFinite((layer as TechniqueLayerDef).expToNext));
+}
+
+function normalizePositiveAttrs(attrs: Partial<Attributes>): Partial<Attributes> | undefined {
+  const result: Partial<Attributes> = {};
+  for (const [key, value] of Object.entries(attrs) as Array<[keyof Attributes, number]>) {
+    if (Number.isFinite(value) && value > 0) {
+      result[key] = Math.round(value);
+    }
+  }
+  return Object.keys(result).length > 0 ? result : {};
 }

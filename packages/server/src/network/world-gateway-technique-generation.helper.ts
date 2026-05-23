@@ -26,6 +26,9 @@ interface TechniqueGenerationHelperDeps {
     consumeItemByItemId(playerId: string, itemId: string, count: number): boolean;
     learnTechniqueById(playerId: string, techniqueId: string): boolean;
   };
+  worldSyncService?: {
+    emitDeltaSync(playerId: string, client?: Socket): void;
+  };
 }
 
 export class WorldGatewayTechniqueGenerationHelper {
@@ -68,7 +71,7 @@ export class WorldGatewayTechniqueGenerationHelper {
         return this.handleAdopt(client, playerId, request);
 
       case 'discard':
-        return this.handleDiscard(playerId, request);
+        return this.handleDiscard(client, playerId, request);
 
       default:
         this.deps.worldClientEventService.emitGatewayError(client, 'UNKNOWN_ACTION', new Error('未知操作'));
@@ -153,25 +156,71 @@ export class WorldGatewayTechniqueGenerationHelper {
     const jobId = String(request.jobId ?? '');
     const customName = String(request.customName ?? '');
 
-    const result = await this.techniqueGenerationService!.adoptDraft({
-      playerId,
-      jobId,
-      customName,
-    });
+    let result: Awaited<ReturnType<TechniqueGenerationService['adoptDraft']>>;
+    try {
+      result = await this.techniqueGenerationService!.adoptDraft({
+        playerId,
+        jobId,
+        customName,
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '功法采纳失败';
+      client.emit(S2C.TechniqueGenerationResult, {
+        jobId,
+        result: 'failed',
+        errorMessage,
+      });
+      return { success: false, error: errorMessage, errorCode: 'ADOPT_FAILED' };
+    }
 
     if (result.success && result.techniqueId) {
       // 直接学习功法
       const learned = this.deps.playerRuntimeService.learnTechniqueById(playerId, result.techniqueId);
       if (!learned) {
+        client.emit(S2C.TechniqueGenerationResult, {
+          jobId,
+          result: 'failed',
+          errorMessage: '功法学习失败',
+        });
         return { success: false, error: '功法学习失败', errorCode: 'LEARN_FAILED' };
       }
+      client.emit(S2C.TechniqueGenerationResult, {
+        jobId,
+        result: 'learned',
+        techniqueId: result.techniqueId,
+        techniqueName: result.techniqueName,
+      });
+      this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+      return result;
     }
 
+    client.emit(S2C.TechniqueGenerationResult, {
+      jobId,
+      result: 'failed',
+      errorMessage: result.error ?? '功法采纳失败',
+    });
     return result;
   }
 
-  private async handleDiscard(playerId: string, request: Record<string, unknown>): Promise<unknown> {
+  private async handleDiscard(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const jobId = String(request.jobId ?? '');
-    return this.techniqueGenerationService!.discardDraft(playerId, jobId);
+    let result: Awaited<ReturnType<TechniqueGenerationService['discardDraft']>>;
+    try {
+      result = await this.techniqueGenerationService!.discardDraft(playerId, jobId);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '功法放弃失败';
+      client.emit(S2C.TechniqueGenerationResult, {
+        jobId,
+        result: 'failed',
+        errorMessage,
+      });
+      return { success: false, error: errorMessage };
+    }
+    client.emit(S2C.TechniqueGenerationResult, {
+      jobId,
+      result: result.success ? 'discarded' : 'failed',
+      errorMessage: result.success ? undefined : result.error ?? '功法放弃失败',
+    });
+    return result;
   }
 }

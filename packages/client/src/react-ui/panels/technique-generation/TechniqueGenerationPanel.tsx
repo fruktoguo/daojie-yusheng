@@ -3,10 +3,13 @@
  *
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
-import { memo, useCallback, useState } from 'react';
-import type { TechniqueCategory, TechniqueGrade } from '@mud/shared';
+import { memo, useCallback, useEffect, useState, type ReactElement } from 'react';
+import type { Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
+import { resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
+import { formatTechniqueBonusSummary } from '../../../ui/technique-bonus-summary';
+import { formatDisplayInteger } from '../../../utils/number';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -24,6 +27,7 @@ export interface TechniqueGenerationPanelState {
     draftExpireAt?: string;
   } | null;
   currentDraft: {
+    jobId: string;
     techniqueId: string;
     suggestedName: string;
     grade: TechniqueGrade;
@@ -31,6 +35,8 @@ export interface TechniqueGenerationPanelState {
     realmLv: number;
     desc: string;
     maxLayer: number;
+    fullLevelAttrs?: Partial<Attributes>;
+    skills?: SkillDef[];
   } | null;
   error: string;
 }
@@ -83,20 +89,25 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   const [playerContext, setPlayerContext] = useState('');
   const [customName, setCustomName] = useState('');
 
+  useEffect(() => {
+    if (!state.currentDraft) return;
+    setCustomName([...state.currentDraft.suggestedName].slice(0, 8).join(''));
+  }, [state.currentDraft?.techniqueId, state.currentDraft?.suggestedName]);
+
   const handleGenerate = useCallback(() => {
     if (state.generating) return;
     callbacks.onGenerate?.(selectedCategory as TechniqueCategory, playerContext);
   }, [selectedCategory, playerContext, state.generating]);
 
   const handleAdopt = useCallback(() => {
-    if (!state.currentJob?.jobId || !customName.trim()) return;
-    callbacks.onAdopt?.(state.currentJob.jobId, customName.trim());
-  }, [state.currentJob, customName]);
+    if (!state.currentDraft?.jobId || !customName.trim()) return;
+    callbacks.onAdopt?.(state.currentDraft.jobId, customName.trim());
+  }, [state.currentDraft, customName]);
 
   const handleDiscard = useCallback(() => {
-    if (!state.currentJob?.jobId) return;
-    callbacks.onDiscard?.(state.currentJob.jobId);
-  }, [state.currentJob]);
+    if (!state.currentDraft?.jobId) return;
+    callbacks.onDiscard?.(state.currentDraft.jobId);
+  }, [state.currentDraft]);
 
   if (!state.visible) return null;
 
@@ -193,6 +204,20 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
             </div>
           </div>
 
+          {state.currentDraft.category === 'internal' && (
+            <div className="technique-generation-panel__effect">
+              <span>满层六维加成</span>
+              <strong>{formatTechniqueBonusSummary(state.currentDraft.fullLevelAttrs, undefined, '无增益')}</strong>
+            </div>
+          )}
+
+          {state.currentDraft.category === 'arts' && (
+            <div className="technique-generation-panel__effect">
+              <span>技能</span>
+              {renderPreviewSkills(state.currentDraft.skills)}
+            </div>
+          )}
+
           <div className="technique-generation-panel__naming">
             <label className="technique-generation-panel__field-label" htmlFor="technique-generation-name">
               为功法命名
@@ -213,7 +238,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
               type="button"
               className="small-btn technique-generation-panel__adopt"
               onClick={handleAdopt}
-              disabled={[...customName.trim()].length < 2}
+              disabled={!state.currentDraft.jobId || [...customName.trim()].length < 2}
             >
               采纳并学习
             </button>
@@ -232,3 +257,32 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
     </div>
   );
 });
+
+function renderPreviewSkills(skills: SkillDef[] | undefined): ReactElement {
+  if (!skills || skills.length === 0) {
+    return <strong>无技能</strong>;
+  }
+  const sortedSkills = [...skills].sort((left, right) => {
+    const levelDelta = resolveSkillUnlockLevel(left) - resolveSkillUnlockLevel(right);
+    if (levelDelta !== 0) return levelDelta;
+    return left.name.localeCompare(right.name, 'zh-CN');
+  });
+  return (
+    <div className="technique-generation-panel__skill-list">
+      {sortedSkills.map((skill) => (
+        <div key={skill.id} className="technique-generation-panel__skill">
+          <div className="technique-generation-panel__skill-head">
+            <strong>{skill.name}</strong>
+            <span>解锁 Lv.{formatDisplayInteger(resolveSkillUnlockLevel(skill))}</span>
+          </div>
+          <div className="technique-generation-panel__skill-meta">
+            <span>灵力 {formatDisplayInteger(skill.cost)}</span>
+            <span>冷却 {formatDisplayInteger(skill.cooldown)} 息</span>
+            <span>射程 {formatDisplayInteger(skill.range)}</span>
+          </div>
+          {skill.desc && <p>{skill.desc}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}

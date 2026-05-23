@@ -164,12 +164,78 @@ async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
   assert.equal((emitted[0]?.payload as { result?: string; errorMessage?: string }).errorMessage, 'simulated_insert_failure');
 }
 
+async function testGatewayAdoptAndDiscardEmitResultEvents(): Promise<void> {
+  const emitted: Array<{ event: string; payload: unknown }> = [];
+  let syncCount = 0;
+  let learnedTechniqueId = '';
+  const helper = new WorldGatewayTechniqueGenerationHelper({
+    gatewayGuardHelper: {
+      requirePlayerId: () => 'p_gateway_adopt_smoke',
+    },
+    worldClientEventService: {
+      emitGatewayError: (client: Socket, code: string, error: unknown) => {
+        client.emit('gatewayError', { code, error });
+      },
+    },
+    playerRuntimeService: {
+      getPlayerRealmLv: () => 31,
+      consumeItemByItemId: () => true,
+      learnTechniqueById: (_playerId: string, techniqueId: string) => {
+        learnedTechniqueId = techniqueId;
+        return true;
+      },
+    },
+    worldSyncService: {
+      emitDeltaSync: () => {
+        syncCount += 1;
+      },
+    },
+  });
+  helper.setService({
+    adoptDraft: async () => ({ success: true, techniqueId: 'gen_adopt_smoke', techniqueName: '烟霞诀' }),
+    discardDraft: async () => ({ success: true }),
+  } as unknown as TechniqueGenerationService);
+
+  const socket = {
+    emit: (event: string, payload: unknown) => {
+      emitted.push({ event, payload });
+      return true;
+    },
+  } as unknown as Socket;
+
+  const adoptResult = await helper.handleTechniqueGeneration(socket, {
+    action: 'adopt',
+    jobId: 'job_adopt_smoke',
+    customName: '烟霞诀',
+  });
+  assert.deepEqual(adoptResult, { success: true, techniqueId: 'gen_adopt_smoke', techniqueName: '烟霞诀' });
+  assert.equal(learnedTechniqueId, 'gen_adopt_smoke');
+  assert.equal(syncCount, 1);
+  assert.equal(emitted[0]?.event, S2C.TechniqueGenerationResult);
+  assert.deepEqual(emitted[0]?.payload, {
+    jobId: 'job_adopt_smoke',
+    result: 'learned',
+    techniqueId: 'gen_adopt_smoke',
+    techniqueName: '烟霞诀',
+  });
+
+  const discardResult = await helper.handleTechniqueGeneration(socket, {
+    action: 'discard',
+    jobId: 'job_discard_smoke',
+  });
+  assert.deepEqual(discardResult, { success: true });
+  assert.equal(emitted[1]?.event, S2C.TechniqueGenerationResult);
+  assert.equal((emitted[1]?.payload as { jobId?: string; result?: string }).jobId, 'job_discard_smoke');
+  assert.equal((emitted[1]?.payload as { jobId?: string; result?: string }).result, 'discarded');
+}
+
 async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
   await testInitializedServicePersistsJob();
   await testItemShortageMarksJobFailedAfterAudit();
   await testSchemaMigratesPlayerIdsToVarchar();
   await testGatewayGenerateExceptionEmitsFailureResult();
+  await testGatewayAdoptAndDiscardEmitResultEvents();
   console.log('technique-generation-initialization-smoke ok');
 }
 

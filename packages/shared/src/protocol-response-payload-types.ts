@@ -88,6 +88,9 @@ import type {
   FengShuiOverlayPatchView,
   RoomSummaryPatchView,
 } from './fengshui-types';
+import type { Attributes } from './attribute-types';
+import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
+import type { SkillDef } from './skill-types';
 
 /** 战利品窗口增量：同步当前可拾取源与条目。 */
 export interface S2C_LootWindowUpdate extends LootWindowUpdateView {}
@@ -353,15 +356,20 @@ export interface S2C_MinimapLibraryDelta {
 /** AI 功法生成结果推送。 */
 export interface S2C_TechniqueGenerationResult {
   jobId: string;
-  result: 'success' | 'failed';
+  result: 'success' | 'failed' | 'learned' | 'discarded';
   preview?: {
     techniqueId: string;
     suggestedName: string;
-    grade: string;
-    category: string;
+    grade: TechniqueGrade;
+    category: TechniqueCategory;
     realmLv: number;
     desc: string;
     maxLayer: number;
+    expDifficulty?: number;
+    fullLevelAttrs?: Partial<Attributes>;
+    skills?: SkillDef[];
   };
+  techniqueId?: string;
+  techniqueName?: string;
   errorMessage?: string;
 }
