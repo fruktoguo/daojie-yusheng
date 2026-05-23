@@ -1022,6 +1022,16 @@
   .auction-detail-panel {
     padding: 8px;
   }
+  .auction-consign-inline-layer {
+    padding: 8px;
+    align-items: stretch;
+  }
+  .auction-consign-inline-card {
+    width: 100%;
+  }
+  .auction-consign-inline-head {
+    flex-direction: column;
+  }
   .auction-list-head {
     display: none;
   }

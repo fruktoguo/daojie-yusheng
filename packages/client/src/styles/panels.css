@@ -1592,6 +1592,7 @@
       box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
     }
     .detail-modal-card.detail-modal--market #detail-modal-body {
+      position: relative;
       flex: 1;
       min-height: 0;
       overflow: hidden;
@@ -5961,6 +5962,28 @@
     }
     .auction-consign-modal-shell {
       min-height: 0;
+    }
+    .auction-consign-inline-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: color-mix(in srgb, var(--surface-paper) 42%, rgba(0, 0, 0, 0.34));
+    }
+    .auction-consign-inline-card {
+      width: min(760px, 100%);
+      max-height: 100%;
+      overflow: auto;
+      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.14);
+    }
+    .auction-consign-inline-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
     }
     .auction-consign-panel {
       display: grid;

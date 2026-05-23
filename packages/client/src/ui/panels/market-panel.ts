@@ -480,6 +480,7 @@ export class MarketPanel {
       if (!this.patchAuctionDetailLiveState()) {
         this.patchAuctionDetailPanel();
       }
+      this.patchAuctionConsignModalState();
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
@@ -500,6 +501,7 @@ export class MarketPanel {
       if (!this.patchAuctionDetailLiveState()) {
         this.patchAuctionDetailPanel();
       }
+      this.patchAuctionConsignModalState();
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
@@ -1180,6 +1182,10 @@ export class MarketPanel {
       durationHours: this.auctionConsignPanel.durationHours,
       query: this.auctionConsignPanel.query,
     };
+    if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
+      this.auctionView.renderInlineAuctionConsignModal();
+      return;
+    }
     this.renderAuctionConsignModal();
   }
 
@@ -1580,6 +1586,9 @@ export class MarketPanel {
 
   /** 读取当前已打开的发起拍卖弹层 body。 */
   private getOpenAuctionConsignModalBody(): HTMLElement | null {
+    if (detailModalHost.isOpenFor(MarketPanel.AUCTION_MODAL_OWNER)) {
+      return document.querySelector<HTMLElement>('[data-auction-consign-inline-body]');
+    }
     if (!detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       return null;
     }

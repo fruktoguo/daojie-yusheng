@@ -636,6 +636,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     const template = getLocalItemTemplate(item.itemId);
     return {
       itemId: item.itemId,
+      itemInstanceId: item.itemInstanceId ?? previousSameItem?.itemInstanceId,
       count: item.count,
       name: resolveSyncedItemName(item.itemId, item.name, previousSameItem?.name, template?.name),
       type: item.type ?? previousSameItem?.type ?? template?.type ?? 'material',

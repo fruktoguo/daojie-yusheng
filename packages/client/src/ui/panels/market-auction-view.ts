@@ -46,6 +46,8 @@ type AuctionConsignPriceField = 'start' | 'buyout';
  * 拍卖行子视图：拍卖列表、竞拍和拍品行渲染。
  */
 export class MarketAuctionView {
+  private inlineAuctionConsignEvents: AbortController | null = null;
+
   constructor(private readonly panel: MarketPanelInternals) {}
 
   openAuctionModal(tab: AuctionHouseTab = this.panel.auctionTab): void {
@@ -475,6 +477,47 @@ export class MarketAuctionView {
     detailModalHost.open(options);
   }
 
+  renderInlineAuctionConsignModal(): void {
+    const body = this.panel.getOpenAuctionModalBody();
+    const update = this.panel.marketUpdate;
+    if (!body) {
+      this.renderAuctionConsignModal();
+      return;
+    }
+    this.inlineAuctionConsignEvents?.abort();
+    this.inlineAuctionConsignEvents = null;
+    const existing = body.querySelector<HTMLElement>('[data-auction-consign-inline-layer]');
+    existing?.remove();
+    const layer = document.createElement('div');
+    layer.className = 'auction-consign-inline-layer';
+    layer.dataset.auctionConsignInlineLayer = 'true';
+    const bodyHtml = update
+      ? `<div class="auction-consign-inline-card ui-surface-pane ui-surface-pane--stack" role="dialog" aria-modal="false">
+          <div class="auction-consign-inline-head">
+            <div>
+              <div class="panel-section-title">${escapeHtml(t('market.auction.consign.title', undefined))}</div>
+              <div class="market-pane-copy">${escapeHtml(t('market.auction.consign.subtitle', undefined))}</div>
+            </div>
+            <button class="small-btn ghost" data-auction-consign-inline-close type="button">${escapeHtml(t('market.auction.consign.close', undefined))}</button>
+          </div>
+          <div data-auction-consign-inline-body>
+            ${this.renderAuctionConsignPanel(update)}
+          </div>
+        </div>`
+      : `<div class="auction-consign-inline-card ui-surface-pane ui-surface-pane--stack"><div class="empty-hint">${escapeHtml(t('auction.loading', undefined))}</div></div>`;
+    replaceElementHtml(layer, bodyHtml);
+    body.appendChild(layer);
+    const controller = new AbortController();
+    this.inlineAuctionConsignEvents = controller;
+    this.bindAuctionConsignModalEvents(layer, controller.signal);
+    this.panel.bindItemTooltipEvents(layer, controller.signal);
+    layer.querySelector<HTMLElement>('[data-auction-consign-inline-close]')?.addEventListener('click', () => {
+      controller.abort();
+      this.panel.auctionConsignPanel = { open: false, itemInstanceId: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
+      layer.remove();
+    }, { signal: controller.signal });
+  }
+
   renderAuctionConsignPanel(update: S2C_MarketUpdate): string {
     const state = this.panel.auctionConsignPanel;
     const items = this.getFilteredAuctionConsignItems(update);
@@ -766,6 +809,9 @@ export class MarketAuctionView {
     body.querySelector<HTMLElement>('[data-auction-consign-open]')?.addEventListener('click', () => {
       this.panel.openAuctionConsignModal();
     }, { signal });
+    body.querySelector<HTMLElement>('[data-auction-consign-inline-close]')?.addEventListener('click', () => {
+      this.closeInlineAuctionConsignModal();
+    }, { signal });
 
     body.querySelectorAll<HTMLElement>('[data-auction-cancel]').forEach((button) => button.addEventListener('click', () => {
       this.handleAuctionCancelClick(button);
@@ -935,9 +981,24 @@ export class MarketAuctionView {
       p.callbacks?.onCreateAuctionSellOrder(itemInstanceId, quantity, price.unitPrice, resolvedBuyoutPrice, durationHours);
       p.auctionConsignPanel = { open: false, itemInstanceId: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
       p.requestAuctionListings(1);
+      if (this.closeInlineAuctionConsignModal()) {
+        return;
+      }
       detailModalHost.close('auction-consign-panel');
     }, { signal });
 
+  }
+
+  private closeInlineAuctionConsignModal(): boolean {
+    const layer = this.panel.getOpenAuctionModalBody()?.querySelector<HTMLElement>('[data-auction-consign-inline-layer]');
+    if (!layer) {
+      return false;
+    }
+    this.inlineAuctionConsignEvents?.abort();
+    this.inlineAuctionConsignEvents = null;
+    this.panel.auctionConsignPanel = { open: false, itemInstanceId: null, quantity: 1, totalPrice: 1, buyoutPrice: 0, durationHours: AUCTION_DEFAULT_DURATION_HOURS, query: '' };
+    layer.remove();
+    return true;
   }
 
   patchAuctionConsignPreview(): void {
