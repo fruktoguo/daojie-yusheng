@@ -140,6 +140,7 @@ export const C2S = {
   Ping: 'n:c:ping',
   ReportMinimapVersions: 'n:c:reportMinimapVersions',
   RequestContentTemplates: 'n:c:requestContentTemplates',
+  TechniqueGeneration: 'n:c:techniqueGeneration',
 } as const;
 
 /** 服务端发往客户端的事件名集合。 */
@@ -193,6 +194,7 @@ export const S2C = {
   MinimapLibraryManifest: 'n:s:minimapLibraryManifest',
   MinimapLibraryDelta: 'n:s:minimapLibraryDelta',
   ContentTemplates: 'n:s:contentTemplates',
+  TechniqueGenerationResult: 'n:s:techniqueGenerationResult',
 } as const;
 
 /** 客户端事件名联合。 */
@@ -300,6 +302,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.Ping]: RequestPayloads.C2S_Ping;
   [C2S.ReportMinimapVersions]: RequestPayloads.C2S_ReportMinimapVersions;
   [C2S.RequestContentTemplates]: C2S_RequestContentTemplates;
+  [C2S.TechniqueGeneration]: RequestPayloads.C2S_TechniqueGeneration;
 }
 
 /** 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
@@ -353,6 +356,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.MinimapLibraryManifest]: ResponsePayloads.S2C_MinimapLibraryManifest;
   [S2C.MinimapLibraryDelta]: ResponsePayloads.S2C_MinimapLibraryDelta;
   [S2C.ContentTemplates]: S2C_ContentTemplates;
+  [S2C.TechniqueGenerationResult]: ResponsePayloads.S2C_TechniqueGenerationResult;
 }
 
 /** 根据客户端事件名读取对应载荷类型。 */

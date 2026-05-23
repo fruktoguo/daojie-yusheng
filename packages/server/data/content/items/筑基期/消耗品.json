@@ -1,0 +1,13 @@
+[
+  {
+    "itemId": "wudao_yujian",
+    "name": "悟道玉简",
+    "type": "consumable",
+    "level": 31,
+    "desc": "蕴含前人道韵的玉简，使用后可开启功法领悟，凝聚天地灵机推演出一门全新功法。",
+    "stackable": true,
+    "maxStack": 99,
+    "grade": "mystic",
+    "useAction": "open_technique_generation"
+  }
+]

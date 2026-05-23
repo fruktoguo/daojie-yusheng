@@ -349,3 +349,19 @@ export interface S2C_MinimapLibraryDelta {
   /** 有变更或客户端缺失的地图完整条目 */
   entries: MapMinimapArchiveEntry[];
 }
+
+/** AI 功法生成结果推送。 */
+export interface S2C_TechniqueGenerationResult {
+  jobId: string;
+  result: 'success' | 'failed';
+  preview?: {
+    techniqueId: string;
+    suggestedName: string;
+    grade: string;
+    category: string;
+    realmLv: number;
+    desc: string;
+    maxLayer: number;
+  };
+  errorMessage?: string;
+}

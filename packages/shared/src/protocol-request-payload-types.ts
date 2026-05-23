@@ -291,3 +291,10 @@ export interface C2S_ReportMinimapVersions {
 
 /** 批量查询内容模板（动态资源按需拉取）。 */
 export type { C2S_RequestContentTemplates } from './content-resolver-types';
+
+/** AI 功法生成请求。 */
+export type C2S_TechniqueGeneration =
+  | { action: 'getStatus' }
+  | { action: 'generate'; category: 'internal' | 'arts'; playerContext?: string }
+  | { action: 'adopt'; jobId: string; customName: string }
+  | { action: 'discard'; jobId: string };
