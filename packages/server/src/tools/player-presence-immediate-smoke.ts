@@ -209,6 +209,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
     {} as never,
     new WorldGatewayPresenceHelper(playerDomainPersistenceService as never, playerRuntimeService as never) as never,
     {} as never,
+    {} as never,
   );
 
   gateway.handleHeartbeat({ id: 'socket:bootstrap', data: {} } as never, {} as never);
