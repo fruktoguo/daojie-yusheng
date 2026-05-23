@@ -5971,13 +5971,16 @@
       align-items: center;
       justify-content: center;
       padding: 16px;
-      background: color-mix(in srgb, var(--surface-paper) 42%, rgba(0, 0, 0, 0.34));
+      background: rgba(18, 16, 14, 0.58);
     }
     .auction-consign-inline-card {
       width: min(760px, 100%);
       max-height: 100%;
       overflow: auto;
-      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.14);
+      background:
+        radial-gradient(circle at top left, rgba(84, 119, 55, 0.08), transparent 30%),
+        var(--surface-gradient-paper);
+      box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.2);
     }
     .auction-consign-inline-head {
       display: flex;
