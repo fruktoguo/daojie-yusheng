@@ -12,7 +12,7 @@ import { Injectable } from '@nestjs/common';
 import type { WorkerPoolMetrics } from './worker-task.types';
 
 /** Pool 类型标识 */
-export type PoolKind = 'encoding' | 'instance' | 'persistence';
+export type PoolKind = 'encoding' | 'instance' | 'persistence' | 'leaderboard';
 
 /** 内部指标状态 */
 interface PoolMetricsState {
@@ -34,7 +34,7 @@ export class WorkerPoolMetricsService {
   private readonly pools = new Map<PoolKind, PoolMetricsState>();
 
   constructor() {
-    for (const kind of ['encoding', 'instance', 'persistence'] as PoolKind[]) {
+    for (const kind of ['encoding', 'instance', 'persistence', 'leaderboard'] as PoolKind[]) {
       this.pools.set(kind, this.createEmptyState());
     }
   }
@@ -102,6 +102,7 @@ export class WorkerPoolMetricsService {
       encoding: this.getMetrics('encoding'),
       instance: this.getMetrics('instance'),
       persistence: this.getMetrics('persistence'),
+      leaderboard: this.getMetrics('leaderboard'),
     };
   }
 

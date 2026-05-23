@@ -3,7 +3,7 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { calculateMarketTradeTotalCost } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
@@ -13,6 +13,12 @@ import { PlayerRuntimeService } from './player-runtime.service';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
+import { LeaderboardWorkerPoolService } from '../../concurrency/leaderboard-worker-pool.service';
+import {
+    buildAllLeaderboards,
+    type LeaderboardFlatSnapshot,
+} from './leaderboard-projection';
+import type { LeaderboardBuildPayload, LeaderboardBuildResult } from '../../concurrency/worker-task.types';
 
 /** 排行榜运行时：按运行态与持久化玩家快照聚合榜单与世界摘要，结果做短缓存。 */
 const DEFAULT_LEADERBOARD_LIMIT = 10;
@@ -65,6 +71,8 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
 
     playerIdentityPersistenceService;
     playerCountersPersistenceService;
+    /** 排行榜构建工作池。可选注入；不可用时回退主线程同步路径。 */
+    private leaderboardWorkerPoolService: LeaderboardWorkerPoolService | null = null;
     /** 缓存后的排行榜结果。 */
     cachedLeaderboard = null;
     /** 排行榜缓存生成时的玩家位置索引，供击杀榜坐标追索复用。 */
@@ -85,6 +93,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any,
         @Inject(PlayerIdentityPersistenceService) playerIdentityPersistenceService: any,
         @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: any = null,
+        @Optional() @Inject(LeaderboardWorkerPoolService) leaderboardWorkerPoolService: LeaderboardWorkerPoolService | null = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
@@ -92,6 +101,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         this.playerDomainPersistenceService = playerDomainPersistenceService;
         this.playerIdentityPersistenceService = playerIdentityPersistenceService;
         this.playerCountersPersistenceService = playerCountersPersistenceService;
+        this.leaderboardWorkerPoolService = leaderboardWorkerPoolService;
     }
     /** 构造各榜单快照，按需截断返回。 */
     async buildLeaderboard(limit, sectService = null) {
@@ -148,37 +158,17 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         this._refreshing = true;
         try {
             const snapshots = await this.collectLeaderboardSnapshots();
-            // 在 snapshot 收集与 board 构建之间让一次事件循环，让 world tick 等高优先级 setTimeout 回调先跑。
+            // snapshot 收集完成后让一次事件循环，给 world tick 回调留窗口。
             await yieldToEventLoop();
-            // 顺序构建 8 个 board，每个 board 之间 yield 一次，避免连续 sort 占满 CPU。
-            const realm = this.buildRealmBoard(snapshots, MAX_LEADERBOARD_LIMIT);
-            await yieldToEventLoop();
-            const monsterKills = this.buildMonsterKillBoard(snapshots, MAX_LEADERBOARD_LIMIT);
-            await yieldToEventLoop();
-            const spiritStones = this.buildSpiritStoneBoard(snapshots, MAX_LEADERBOARD_LIMIT);
-            await yieldToEventLoop();
-            const playerKills = this.buildPlayerKillBoard(snapshots, MAX_LEADERBOARD_LIMIT);
-            await yieldToEventLoop();
-            const deaths = this.buildDeathBoard(snapshots, MAX_LEADERBOARD_LIMIT);
-            await yieldToEventLoop();
-            const bodyTraining = this.buildBodyTrainingBoard(snapshots, MAX_LEADERBOARD_LIMIT);
-            await yieldToEventLoop();
-            const supremeAttrs = this.buildSupremeAttrBoard(snapshots);
-            await yieldToEventLoop();
+            // 宗门榜依赖 NestJS sectService，必须在主线程算好后透传给 worker。
             const sects = this.buildSectBoard(this._sectServiceRef, MAX_LEADERBOARD_LIMIT);
+            await yieldToEventLoop();
+            // 走 worker 卸载 8 个 board 排序；不可用或失败时 fallback 到分片同步路径。
+            const boards = await this.buildBoardsViaWorkerOrFallback(snapshots, sects, MAX_LEADERBOARD_LIMIT);
             const payload = {
                 generatedAt: Date.now(),
                 limit: MAX_LEADERBOARD_LIMIT,
-                boards: {
-                    realm,
-                    monsterKills,
-                    spiritStones,
-                    playerKills,
-                    deaths,
-                    bodyTraining,
-                    supremeAttrs,
-                    sects,
-                },
+                boards,
             };
             // 缓存替换仍是同步原子操作，避免读到半构造态。
             this.cachedLeaderboard = payload;
@@ -188,6 +178,44 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         } finally {
             this._refreshing = false;
         }
+    }
+    /**
+     * 优先走 worker 池；任意失败/不可用都回到分片 yield 的主线程实现。
+     * 主线程 fallback 路径保留阶段 1 的全部 yield 点，仍然不会一次性占用 CPU 数百毫秒。
+     */
+    private async buildBoardsViaWorkerOrFallback(snapshots: LeaderboardFlatSnapshot[], sects: unknown[], limit: number) {
+        const pool = this.leaderboardWorkerPoolService;
+        if (pool && pool.isEnabled()) {
+            const fallback = (payload: LeaderboardBuildPayload): LeaderboardBuildResult => ({
+                boards: buildAllLeaderboards(payload.snapshots as LeaderboardFlatSnapshot[], payload.sects, payload.limit),
+            });
+            const taskResult = await pool.submit({ snapshots, sects, limit }, fallback);
+            if (taskResult.ok && taskResult.result) {
+                return taskResult.result.boards;
+            }
+            this.logger.warn(`排行榜 worker 任务失败，回退主线程同步路径：${taskResult.errorMessage ?? 'unknown'}`);
+        }
+        return this.buildBoardsOnMainThreadWithYield(snapshots, sects, limit);
+    }
+    /**
+     * 主线程 fallback：保留阶段 1 的分片 yield 行为，避免一次性占满事件循环。
+     * 注意此分支只用于 worker 不可用 / 任务失败的兜底，正常路径走 worker。
+     */
+    private async buildBoardsOnMainThreadWithYield(snapshots: LeaderboardFlatSnapshot[], sects: unknown[], limit: number) {
+        const realm = this.buildRealmBoard(snapshots, limit);
+        await yieldToEventLoop();
+        const monsterKills = this.buildMonsterKillBoard(snapshots, limit);
+        await yieldToEventLoop();
+        const spiritStones = this.buildSpiritStoneBoard(snapshots, limit);
+        await yieldToEventLoop();
+        const playerKills = this.buildPlayerKillBoard(snapshots, limit);
+        await yieldToEventLoop();
+        const deaths = this.buildDeathBoard(snapshots, limit);
+        await yieldToEventLoop();
+        const bodyTraining = this.buildBodyTrainingBoard(snapshots, limit);
+        await yieldToEventLoop();
+        const supremeAttrs = this.buildSupremeAttrBoard(snapshots);
+        return { realm, monsterKills, spiritStones, playerKills, deaths, bodyTraining, supremeAttrs, sects };
     }
     /** 构造世界摘要快照。 */
     async buildWorldSummary() {

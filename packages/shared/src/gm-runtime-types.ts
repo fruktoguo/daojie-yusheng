@@ -876,11 +876,12 @@ export interface GmPerformanceSnapshot {
   flushStats?: GmFlushStatsSummary | null;
 }
 
-/** Worker Pool 全量指标（三个池） */
+/** Worker Pool 全量指标（四个池） */
 export interface GmWorkerPoolAllMetrics {
   encoding: GmWorkerPoolMetrics;
   instance: GmWorkerPoolMetrics;
   persistence: GmWorkerPoolMetrics;
+  leaderboard: GmWorkerPoolMetrics;
 }
 
 /** 单个 Worker Pool 的指标快照 */

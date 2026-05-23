@@ -44,7 +44,8 @@ export type WorkerTaskKind =
   | 'pathfind'
   | 'fov'
   | 'instance-advance'
-  | 'persistence-build';
+  | 'persistence-build'
+  | 'leaderboard-build';
 
 // ─── Encoding Worker 载荷类型 ──────────────────────────────────
 
@@ -154,6 +155,34 @@ export interface PersistenceBuildResult {
   domains: string[];
   /** 可执行 SQL 步骤 */
   steps: Array<{ sql: string; params: unknown[] }>;
+}
+
+// ─── Leaderboard Worker 载荷类型 ──────────────────────────────────
+
+/** 排行榜构建任务载荷：主线程把已组装好的 snapshot 数组传给 worker，
+ *  worker 只做纯 CPU 的 sort/slice/map。 */
+export interface LeaderboardBuildPayload {
+  /** 已经在主线程通过 createSnapshot 组装好的扁平 snapshot 数组 */
+  snapshots: unknown[];
+  /** 主线程已经算好的宗门人数榜（依赖 NestJS DI 服务，worker 不能算） */
+  sects: unknown[];
+  /** 排行榜上限 */
+  limit: number;
+}
+
+/** 排行榜构建结果 */
+export interface LeaderboardBuildResult {
+  /** 8 个 board 的最终结果 */
+  boards: {
+    realm: unknown[];
+    monsterKills: unknown[];
+    spiritStones: unknown[];
+    playerKills: unknown[];
+    deaths: unknown[];
+    bodyTraining: unknown[];
+    supremeAttrs: unknown[];
+    sects: unknown[];
+  };
 }
 
 // ─── Worker Pool 通用配置 ──────────────────────────────────────

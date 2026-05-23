@@ -5,7 +5,7 @@
  */
 /**
  * Worker Pool NestJS 模块。
- * 注册三类 worker pool 服务和指标采集服务。
+ * 注册四类 worker pool 服务和指标采集服务。
  * worker pool 默认 always-on，任务级 fallback 在各 pool 内部处理。
  */
 import { Module, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
@@ -14,6 +14,7 @@ import { WorkerPoolMetricsService } from './worker-pool-metrics.service';
 import { EncodingWorkerPoolService } from './encoding-worker-pool.service';
 import { InstanceWorkerPoolService } from './instance-worker-pool.service';
 import { PersistenceWorkerPoolService } from './persistence-worker-pool.service';
+import { LeaderboardWorkerPoolService } from './leaderboard-worker-pool.service';
 
 @Module({
   providers: [
@@ -21,12 +22,14 @@ import { PersistenceWorkerPoolService } from './persistence-worker-pool.service'
     EncodingWorkerPoolService,
     InstanceWorkerPoolService,
     PersistenceWorkerPoolService,
+    LeaderboardWorkerPoolService,
   ],
   exports: [
     WorkerPoolMetricsService,
     EncodingWorkerPoolService,
     InstanceWorkerPoolService,
     PersistenceWorkerPoolService,
+    LeaderboardWorkerPoolService,
   ],
 })
 export class WorkerPoolModule implements OnModuleInit, OnModuleDestroy {
@@ -34,17 +37,20 @@ export class WorkerPoolModule implements OnModuleInit, OnModuleDestroy {
     private readonly encodingPool: EncodingWorkerPoolService,
     private readonly instancePool: InstanceWorkerPoolService,
     private readonly persistencePool: PersistenceWorkerPoolService,
+    private readonly leaderboardPool: LeaderboardWorkerPoolService,
   ) {}
 
   onModuleInit(): void {
     this.encodingPool.initialize();
     this.instancePool.initialize();
     this.persistencePool.initialize();
+    this.leaderboardPool.initialize();
   }
 
   onModuleDestroy(): void {
     this.encodingPool.shutdown();
     this.instancePool.shutdown();
     this.persistencePool.shutdown();
+    this.leaderboardPool.shutdown();
   }
 }
