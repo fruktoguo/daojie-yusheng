@@ -23,6 +23,7 @@ async function main(): Promise<void> {
   await assertInventoryAndWalletSnapshotsUseStaleKeyPruning();
   await assertInventoryDuplicateSlotsAreReassigned();
   await assertInventoryDuplicateSlotsAreReassignedInWritePlan();
+  await assertInventoryProjectionUsesLiveDbStateWhenSlotsMove();
   await assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts();
   await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
   await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
@@ -1684,6 +1685,117 @@ async function assertInventoryDuplicateSlotsAreReassignedInWritePlan(): Promise<
   const executedSlots = executedInsertRows.map((row) => Number(row.slot_index));
   if (executedInsertRows.length !== 4 || new Set(executedSlots).size !== 4) {
     throw new Error(`executePlayerDomainWritePlan carried duplicate inventory slots: ${JSON.stringify(executedInsertRows)}`);
+  }
+}
+
+async function assertInventoryProjectionUsesLiveDbStateWhenSlotsMove(): Promise<void> {
+  const staleSlotOwnerId = '00000000-0000-4000-8000-00000000a001';
+  const movedItemId = '00000000-0000-4000-8000-00000000a002';
+  const submittedKinds: string[] = [];
+  const executedSql: string[] = [];
+  const fakeClient = {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
+      executedSql.push(sql);
+      if (
+        sql.includes('SELECT item_instance_id, slot_index, item_id, count, raw_payload, locked_by')
+        && sql.includes('FROM player_inventory_item')
+      ) {
+        return {
+          rows: [
+            {
+              item_instance_id: staleSlotOwnerId,
+              slot_index: 0,
+              item_id: 'item.removed',
+              count: 1,
+              raw_payload: { itemId: 'item.removed', count: 1 },
+              locked_by: null,
+            },
+            {
+              item_instance_id: movedItemId,
+              slot_index: 1,
+              item_id: 'item.kept',
+              count: 1,
+              raw_payload: { itemId: 'item.kept', count: 1 },
+              locked_by: null,
+            },
+          ],
+          rowCount: 2,
+        };
+      }
+      if (sql.includes('DELETE FROM player_inventory_item') && sql.includes('item_instance_id = ANY')) {
+        const staleIds = Array.isArray(params?.[1]) ? params[1] as unknown[] : [];
+        if (staleIds.length !== 1 || staleIds[0] !== staleSlotOwnerId) {
+          throw new Error(`inventory live projection did not delete stale slot owner first: ${JSON.stringify(staleIds)}`);
+        }
+        return { rows: [], rowCount: 1 };
+      }
+      if (sql.includes('UPDATE player_inventory_item') && sql.includes('slot_index = incoming.temp_slot_index')) {
+        return { rows: [], rowCount: 1 };
+      }
+      if (sql.includes('UPDATE player_inventory_item') && sql.includes('slot_index = incoming.slot_index')) {
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(
+    null,
+    null,
+    {
+      async submit(kind) {
+        submittedKinds.push(String(kind));
+        return { taskId: 'unexpected-persistence-build', ok: false, errorMessage: 'inventory projection should use live DB state', durationMs: 0 };
+      },
+    } as unknown as ConstructorParameters<typeof PlayerDomainPersistenceService>[2],
+  );
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  const snapshot = buildSnapshot(Date.now());
+  snapshot.inventory = {
+    revision: 11,
+    capacity: 24,
+    items: [
+      {
+        itemId: 'item.kept',
+        count: 1,
+        slotIndex: 0,
+        itemInstanceId: movedItemId,
+        rawPayload: { itemId: 'item.kept', count: 1 },
+      },
+    ],
+  } as PersistedPlayerSnapshot['inventory'];
+
+  await service.savePlayerSnapshotProjectionDomains(
+    'player:inventory-live-slot-move',
+    snapshot,
+    ['inventory'],
+    { allowInventoryEmptyOverwrite: true },
+  );
+
+  if (submittedKinds.length > 0) {
+    throw new Error(`inventory projection unexpectedly used persistence worker: ${JSON.stringify(submittedKinds)}`);
+  }
+  const deletedStaleSlotOwner = executedSql.some((sql) =>
+    sql.includes('DELETE FROM player_inventory_item') && sql.includes('item_instance_id = ANY'),
+  );
+  const stagedMove = executedSql.some((sql) =>
+    sql.includes('UPDATE player_inventory_item') && sql.includes('slot_index = incoming.temp_slot_index'),
+  );
+  const finalizedMove = executedSql.some((sql) =>
+    sql.includes('UPDATE player_inventory_item') && sql.includes('slot_index = incoming.slot_index'),
+  );
+  if (!deletedStaleSlotOwner || !stagedMove || !finalizedMove) {
+    throw new Error(`inventory projection did not use live stale-delete and staged move SQL: ${JSON.stringify(executedSql)}`);
   }
 }
 

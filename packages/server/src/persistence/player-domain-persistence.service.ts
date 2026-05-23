@@ -1699,8 +1699,8 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       return;
     }
 
-    const requiresLiveEquipmentWrite = normalizedDomains.has('equipment');
-    const writePlan = requiresLiveEquipmentWrite
+    const requiresLiveDbStateWrite = normalizedDomains.has('equipment') || normalizedDomains.has('inventory');
+    const writePlan = requiresLiveDbStateWrite
       ? null
       : await this.resolvePlayerSnapshotProjectionWritePlan(
         normalizedPlayerId,
@@ -1711,7 +1711,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
 
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
-      if (requiresLiveEquipmentWrite) {
+      if (requiresLiveDbStateWrite) {
         await savePlayerSnapshotProjectionDomainsWithClient(
           client,
           normalizedPlayerId,
