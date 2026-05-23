@@ -1515,6 +1515,85 @@ function testRetaliatePlayerPreemptsLockedMiningTileWithoutClearingLock(): void 
   assert.deepEqual(playerRuntimeService.log, []);
 }
 
+function testThreatPlayerTargetFallsBackToBasicAttackWithPlayerId(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    maxHp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 0,
+    attrs: {
+      numericStats: {
+        viewRange: 6,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: { actions: [] },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: true,
+      autoBattleStationary: false,
+      autoBattleTargetingMode: 'player',
+      allowAoePlayerHit: true,
+      manualEngagePending: false,
+    },
+  };
+  const target = {
+    playerId: 'duel',
+    hp: 100,
+    maxHp: 100,
+    x: 2,
+    y: 2,
+    instanceId: 'public:test_map',
+    combat: {},
+  };
+  const playerRuntimeService = createPlayerRuntimeService(player, [target]);
+  const service = new WorldRuntimeAutoCombatService(playerRuntimeService as never);
+  const command = service.buildAutoCombatCommand({
+    meta: {
+      instanceId: 'public:test_map',
+      supportsPvp: true,
+    },
+    isPointInSafeZone() {
+      return false;
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+    buildPlayerView() {
+      return {
+        playerId: 'player:1',
+        self: { x: 1, y: 1 },
+        instance: { width: 4, height: 4 },
+        visiblePlayers: [{ playerId: 'duel' }],
+        localMonsters: [],
+        localNpcs: [],
+        localPortals: [],
+        localGroundPiles: [],
+      };
+    },
+  } as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 31;
+    },
+    queuePlayerNotice() {},
+  } as never);
+
+  assert.deepEqual(command, {
+    kind: 'basicAttack',
+    targetPlayerId: 'duel',
+    targetMonsterId: null,
+    targetX: null,
+    targetY: null,
+    autoCombat: true,
+  });
+  assert.deepEqual(playerRuntimeService.log, [
+    ['setCombatTarget', 'player:1', 'player:duel', false, 31],
+  ]);
+}
+
 function testRetaliatePlayerDoesNotPreemptLockedPlayerTarget(): void {
   const player = {
     playerId: 'player:1',
@@ -1760,6 +1839,7 @@ testStopDistancePathDoesNotGenerateRangeCandidateGrid();
 testLockedDestroyedTileClearsTarget();
 testLockedHerbTileContinuesBasicAttack();
 testRetaliatePlayerPreemptsLockedMiningTileWithoutClearingLock();
+testThreatPlayerTargetFallsBackToBasicAttackWithPlayerId();
 testRetaliatePlayerDoesNotPreemptLockedPlayerTarget();
 testLockedDepletedHerbTileClearsTarget();
 testLockedFormationContinuesBasicAttack();

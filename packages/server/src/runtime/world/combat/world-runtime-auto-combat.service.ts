@@ -836,6 +836,7 @@ export class WorldRuntimeAutoCombatService {
                     target: {
                         kind: 'player',
                         playerId: target.playerId,
+                        targetPlayerId: target.playerId,
                         targetRef: entry.targetId,
                         x: target.x,
                         y: target.y,

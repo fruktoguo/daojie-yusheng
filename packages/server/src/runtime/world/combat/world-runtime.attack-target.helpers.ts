@@ -35,12 +35,24 @@ function buildBasicAttackCommandFromAttackableTarget(target) {
     if (!target) {
         return null;
     }
+    const targetPlayerId = target.targetPlayerId
+        ?? (target.kind === 'player' ? target.playerId : null)
+        ?? null;
+    const targetMonsterId = target.targetMonsterId
+        ?? (target.kind === 'monster' ? target.runtimeId : null)
+        ?? null;
+    const targetX = target.targetX
+        ?? (targetPlayerId || targetMonsterId ? null : target.x)
+        ?? null;
+    const targetY = target.targetY
+        ?? (targetPlayerId || targetMonsterId ? null : target.y)
+        ?? null;
     return {
         kind: 'basicAttack',
-        targetPlayerId: target.targetPlayerId ?? null,
-        targetMonsterId: target.targetMonsterId ?? null,
-        targetX: target.targetX ?? null,
-        targetY: target.targetY ?? null,
+        targetPlayerId,
+        targetMonsterId,
+        targetX,
+        targetY,
         autoCombat: true,
     };
 }
