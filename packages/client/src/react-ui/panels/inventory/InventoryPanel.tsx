@@ -11,6 +11,7 @@ import { t } from '../../../ui/i18n';
 
 export interface ReactInventoryItemView {
   slotIndex: number;
+  itemInstanceId: string | null;
   itemKey: string;
   name: string;
   nameClassName: string;
@@ -70,12 +71,16 @@ interface InventoryPanelCallbacks {
   onFilterChange: ((filter: InventoryFilter) => void) | null;
   onSortInventory: (() => void) | null;
   onRequestLoadMore: ((scrollTarget: HTMLElement) => void) | null;
+  onPrimaryAction: ((slotIndex: number, itemInstanceId: string) => void) | null;
+  onDropOne: ((slotIndex: number, itemInstanceId: string) => void) | null;
 }
 
 const callbacks: InventoryPanelCallbacks = {
   onFilterChange: null,
   onSortInventory: null,
   onRequestLoadMore: null,
+  onPrimaryAction: null,
+  onDropOne: null,
 };
 
 export function setInventoryPanelCallbacks(cbs: Partial<InventoryPanelCallbacks>): void {
@@ -171,11 +176,29 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
             data-item-primary="true"
             data-inline-primary={item.slotIndex}
             disabled={item.primaryAction.disabled === true}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!item.itemInstanceId) {
+                return;
+              }
+              callbacks.onPrimaryAction?.(item.slotIndex, item.itemInstanceId);
+            }}
           >
             {item.primaryAction.label}
           </button>
         )}
-        <button className="small-btn danger" type="button" data-inline-drop={item.slotIndex}>
+        <button
+          className="small-btn danger"
+          type="button"
+          data-inline-drop={item.slotIndex}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (!item.itemInstanceId) {
+              return;
+            }
+            callbacks.onDropOne?.(item.slotIndex, item.itemInstanceId);
+          }}
+        >
           {t('inventory.action.drop-one', undefined)}
         </button>
       </div>

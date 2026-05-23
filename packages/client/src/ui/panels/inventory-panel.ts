@@ -339,6 +339,8 @@ export class InventoryPanel {
       onFilterChange: (filter) => this.handleReactFilterChange(filter),
       onSortInventory: () => this.onSortInventory?.(),
       onRequestLoadMore: (scrollTarget) => this.maybeLoadMoreVisibleItems(scrollTarget),
+      onPrimaryAction: (slotIndex, itemInstanceId) => this.handlePrimaryAction(slotIndex, itemInstanceId, { closeModal: false }),
+      onDropOne: (slotIndex, itemInstanceId) => this.handleDropOne(slotIndex, itemInstanceId),
     });
     this.bindPaneEvents();
     this.bindTooltipEvents();
@@ -572,6 +574,52 @@ export class InventoryPanel {
     this.scheduleLoadMoreCheck();
   }
 
+  private handlePrimaryAction(slotIndex: number, expectedItemInstanceId?: string, options: { closeModal?: boolean } = {}): void {
+    const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
+    const action = item ? this.getPrimaryAction(item) : null;
+    if (!item || !action || action.kind === 'status') {
+      return;
+    }
+    const itemInstanceId = this.getInventoryItemInstanceId(item);
+    if (!itemInstanceId || (expectedItemInstanceId && itemInstanceId !== expectedItemInstanceId)) {
+      return;
+    }
+    if (action.kind === 'equip') {
+      this.onEquipItem?.(itemInstanceId);
+      if (options.closeModal) {
+        this.closeModal();
+      }
+      return;
+    }
+    if (this.isFormationDiskItem(item)) {
+      this.openFormationDialog(slotIndex);
+      return;
+    }
+    if (this.isSectFoundingTokenItem(item)) {
+      this.openSectFoundingDialog(slotIndex);
+      return;
+    }
+    if (this.requiresUseConfirmation(item)) {
+      this.selectedSlotIndex = slotIndex;
+      this.selectedItemKey = this.getItemIdentity(item);
+      this.openActionDialog('use', slotIndex, 1);
+      return;
+    }
+    this.onUseItem?.(itemInstanceId, 1);
+    if (options.closeModal) {
+      this.closeModal();
+    }
+  }
+
+  private handleDropOne(slotIndex: number, expectedItemInstanceId?: string): void {
+    const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
+    const itemInstanceId = this.getInventoryItemInstanceId(item);
+    if (!itemInstanceId || (expectedItemInstanceId && itemInstanceId !== expectedItemInstanceId)) {
+      return;
+    }
+    this.onDropItem?.(itemInstanceId, 1);
+  }
+
   private syncReactState(inventory: Inventory | null = this.lastInventory): void {
     if (!inventory) {
       syncReactInventoryPanelState({
@@ -637,6 +685,7 @@ export class InventoryPanel {
     const primaryAction = this.getPrimaryAction(item, cooldownState);
     return {
       slotIndex,
+      itemInstanceId: this.getInventoryItemInstanceId(item) || null,
       itemKey: itemIdentity,
       name: displayName,
       nameClassName: `inventory-cell-name ${this.getNameClass(displayName)}`.trim(),
@@ -702,34 +751,7 @@ export class InventoryPanel {
           return;
         }
         const slotIndex = parseInt(rawIndex, 10);
-        const item = this.lastInventory?.items[slotIndex];
-        const action = item ? this.getPrimaryAction(item) : null;
-        if (!action || action.kind === 'status') {
-          return;
-        }
-        const itemInstanceId = this.getInventoryItemInstanceId(item);
-        if (!itemInstanceId) {
-          return;
-        }
-        if (action.kind === 'equip') {
-          this.onEquipItem?.(itemInstanceId);
-          return;
-        }
-        if (item && this.isFormationDiskItem(item)) {
-          this.openFormationDialog(slotIndex);
-          return;
-        }
-        if (item && this.isSectFoundingTokenItem(item)) {
-          this.openSectFoundingDialog(slotIndex);
-          return;
-        }
-        if (item && this.requiresUseConfirmation(item)) {
-          this.selectedSlotIndex = slotIndex;
-          this.selectedItemKey = this.getItemIdentity(item);
-          this.openActionDialog('use', slotIndex, 1);
-          return;
-        }
-        this.onUseItem?.(itemInstanceId);
+        this.handlePrimaryAction(slotIndex);
         return;
       }
 
@@ -741,12 +763,7 @@ export class InventoryPanel {
           return;
         }
         const slotIndex = parseInt(rawIndex, 10);
-        const item = Number.isFinite(slotIndex) ? this.lastInventory?.items[slotIndex] : null;
-        const itemInstanceId = this.getInventoryItemInstanceId(item);
-        if (!itemInstanceId) {
-          return;
-        }
-        this.onDropItem?.(itemInstanceId, 1);
+        this.handleDropOne(slotIndex);
         return;
       }
 
