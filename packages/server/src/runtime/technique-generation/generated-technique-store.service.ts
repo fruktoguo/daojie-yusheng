@@ -15,6 +15,7 @@
  */
 
 import type { Pool } from 'pg';
+import { Injectable } from '@nestjs/common';
 import type { TechniqueTemplate } from '@mud/shared';
 import {
   loadGeneratedTechniqueSignature,
@@ -22,6 +23,7 @@ import {
   type GeneratedTechniqueSignature,
 } from '../../persistence/generated-technique-persistence.service';
 
+@Injectable()
 export class GeneratedTechniqueStoreService {
   private cache = new Map<string, TechniqueTemplate>();
   private lastSignature: GeneratedTechniqueSignature | null = null;

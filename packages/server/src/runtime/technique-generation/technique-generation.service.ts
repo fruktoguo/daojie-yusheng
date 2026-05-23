@@ -12,6 +12,7 @@
 
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
+import { Injectable } from '@nestjs/common';
 import type { TechniqueCategory, TechniqueTemplate } from '@mud/shared';
 import { TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER } from '@mud/shared';
 
@@ -47,6 +48,7 @@ import type {
   TechniquePreview,
 } from './technique-generation.types';
 
+@Injectable()
 export class TechniqueGenerationService {
   private pool: Pool | null = null;
   private generatedStore: GeneratedTechniqueStoreService | null = null;

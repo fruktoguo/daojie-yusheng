@@ -20,6 +20,7 @@ import { runDatabaseBackupWorkerOnce } from '../../tools/database-backup-worker'
 import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
 import type { SchedulerTaskKind, SchedulerTaskPriority, SchedulerTaskScope } from '../../scheduler/scheduler.types';
 import { MarketTradeHistoryRetentionWorker } from '../world/worker/market-trade-history-retention.worker';
+import { TechniqueGenerationService } from '../technique-generation/technique-generation.service';
 
 interface BackgroundWorkerTask {
   id: string;
@@ -77,6 +78,8 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
     private readonly startupBarrierService?: StartupBarrierService,
     @Optional() @Inject(SchedulerManagerService)
     private readonly schedulerManagerService?: SchedulerManagerService,
+    @Optional() @Inject(TechniqueGenerationService)
+    private readonly techniqueGenerationService?: TechniqueGenerationService,
   ) {}
 
   onModuleInit(): void {
@@ -207,6 +210,16 @@ export class BackgroundWorkerRuntimeService implements OnModuleInit, OnModuleDes
         scope: 'node',
         priority: 'low',
         runOnce: async () => (await runDatabaseBackupWorkerOnce()) ? 1 : 0,
+      },
+      {
+        id: 'technique-generation-expire',
+        label: 'Technique generation draft expire',
+        intervalMs: 5 * 60 * 1000,
+        enabled: Boolean(this.techniqueGenerationService),
+        kind: 'maintenance',
+        scope: 'global',
+        priority: 'low',
+        runOnce: async () => this.techniqueGenerationService?.expireStaleJobs() ?? 0,
       },
     ];
   }

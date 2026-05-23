@@ -698,6 +698,49 @@ export class PlayerRuntimeService {
         }
         return player;
     }
+    /** 获取玩家当前境界等级（realmLv），玩家不在线返回 null */
+    getPlayerRealmLv(playerId) {
+        const player = this.getPlayer(playerId);
+        if (!player) return null;
+        return Math.max(1, Math.floor(player.realm?.realmLv ?? 1));
+    }
+    /** 按 itemId 消耗背包物品，成功返回 true */
+    consumeItemByItemId(playerId, itemId, count = 1) {
+        const player = this.getPlayer(playerId);
+        if (!player) return false;
+        const slotIndex = player.inventory.items.findIndex((item) => item && item.itemId === itemId && (item.count ?? 1) >= count);
+        if (slotIndex < 0) return false;
+        consumeInventoryItemAt(player.inventory.items, slotIndex, count);
+        player.inventory.revision += 1;
+        syncWalletCacheFromInventory(player, itemId);
+        markPlayerDirtyDomains(player, ['inventory']);
+        this.bumpPersistentRevision(player);
+        return true;
+    }
+    /** 按 techniqueId 直接学习功法，成功返回 true */
+    learnTechniqueById(playerId, techniqueId) {
+        const player = this.getPlayer(playerId);
+        if (!player) return false;
+        if (player.techniques.techniques.some((entry) => entry.techId === techniqueId)) {
+            return false; // 已学会
+        }
+        const technique = this.contentTemplateRepository.createTechniqueState(techniqueId);
+        if (!technique) return false;
+        player.techniques.techniques.push(toTechniqueUpdateEntry(technique));
+        player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
+        player.techniques.revision += 1;
+        if (!player.techniques.cultivatingTechId) {
+            player.techniques.cultivatingTechId = technique.techId;
+            player.combat.cultivationActive = true;
+        }
+        const currentTick = resolvePlayerRuntimeTick(player, 0);
+        this.playerAttributesService.recalculate(player);
+        this.rebuildActionState(player, currentTick);
+        this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
+        this.bumpPersistentRevision(player);
+        return true;
+    }
     /**
  * getSessionFence：读取当前运行态 session fencing 信息。
  * @param playerId 玩家 ID。
@@ -1356,6 +1399,19 @@ export class PlayerRuntimeService {
         return player.inventory.items[slotIndex] ?? null;
     }
     /**
+ * peekInventoryItemByInstanceId：按稳定实例 ID 读取背包物品。
+ * @param playerId 玩家 ID。
+ * @param itemInstanceId 物品实例 ID。
+ * @returns 背包物品或 null。
+ */
+
+    peekInventoryItemByInstanceId(playerId, itemInstanceId) {
+
+        const player = this.getPlayerOrThrow(playerId);
+        const index = findInventoryItemIndexByInstanceId(player.inventory.items, itemInstanceId);
+        return index >= 0 ? player.inventory.items[index] ?? null : null;
+    }
+    /**
  * peekEquippedItem：执行peekEquipped道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slot 参数说明。
@@ -1703,6 +1759,22 @@ export class PlayerRuntimeService {
         return extracted;
     }
     /**
+ * splitInventoryItemByInstanceId：按稳定实例 ID 拆出背包物品。
+ * @param playerId 玩家 ID。
+ * @param itemInstanceId 物品实例 ID。
+ * @param count 数量。
+ * @returns 拆出的物品快照。
+ */
+
+    splitInventoryItemByInstanceId(playerId, itemInstanceId, count = 1) {
+        const player = this.getPlayerOrThrow(playerId);
+        const slotIndex = findInventoryItemIndexByInstanceId(player.inventory.items, itemInstanceId);
+        if (slotIndex < 0) {
+            throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+        }
+        return this.splitInventoryItem(playerId, slotIndex, count);
+    }
+    /**
  * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param item 道具。
@@ -1805,6 +1877,21 @@ export class PlayerRuntimeService {
         return player;
     }
     /**
+ * useItemByInstanceId：按稳定实例 ID 使用背包物品。
+ * @param playerId 玩家 ID。
+ * @param itemInstanceId 物品实例 ID。
+ * @returns 玩家运行态。
+ */
+
+    useItemByInstanceId(playerId, itemInstanceId) {
+        const player = this.getPlayerOrThrow(playerId);
+        const slotIndex = findInventoryItemIndexByInstanceId(player.inventory.items, itemInstanceId);
+        if (slotIndex < 0) {
+            throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+        }
+        return this.useItem(playerId, slotIndex);
+    }
+    /**
  * consumeInventoryItem：执行consume背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
@@ -1828,6 +1915,22 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
+    }
+    /**
+ * consumeInventoryItemByInstanceId：按稳定实例 ID 消耗背包物品。
+ * @param playerId 玩家 ID。
+ * @param itemInstanceId 物品实例 ID。
+ * @param count 数量。
+ * @returns 玩家运行态。
+ */
+
+    consumeInventoryItemByInstanceId(playerId, itemInstanceId, count = 1) {
+        const player = this.getPlayerOrThrow(playerId);
+        const slotIndex = findInventoryItemIndexByInstanceId(player.inventory.items, itemInstanceId);
+        if (slotIndex < 0) {
+            throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+        }
+        return this.consumeInventoryItem(playerId, slotIndex, count);
     }
     /**
  * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
@@ -1897,6 +2000,22 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return destroyed;
+    }
+    /**
+ * destroyInventoryItemByInstanceId：按稳定实例 ID 摧毁背包物品。
+ * @param playerId 玩家 ID。
+ * @param itemInstanceId 物品实例 ID。
+ * @param count 数量。
+ * @returns 被摧毁的物品快照。
+ */
+
+    destroyInventoryItemByInstanceId(playerId, itemInstanceId, count = 1) {
+        const player = this.getPlayerOrThrow(playerId);
+        const slotIndex = findInventoryItemIndexByInstanceId(player.inventory.items, itemInstanceId);
+        if (slotIndex < 0) {
+            throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+        }
+        return this.destroyInventoryItem(playerId, slotIndex, count);
     }
     /**
  * sortInventory：执行sort背包相关逻辑。
@@ -2195,6 +2314,21 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(player, ['inventory', 'equipment', 'attr']);
         this.bumpPersistentRevision(player);
         return player;
+    }
+    /**
+* equipItemByInstanceId：按稳定实例 ID 装备背包物品。
+ * @param playerId 玩家 ID。
+ * @param itemInstanceId 物品实例 ID。
+ * @returns 玩家运行态。
+ */
+
+    equipItemByInstanceId(playerId, itemInstanceId) {
+        const player = this.getPlayerOrThrow(playerId);
+        const slotIndex = findInventoryItemIndexByInstanceId(player.inventory.items, itemInstanceId);
+        if (slotIndex < 0) {
+            throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
+        }
+        return this.equipItem(playerId, slotIndex, normalizeInventoryItemInstanceId(itemInstanceId));
     }
     /**
  * unequipItem：执行unequip道具相关逻辑。
@@ -6802,6 +6936,22 @@ function repairDuplicateInventoryItemInstanceIds(items: any[]): boolean {
         repaired = true;
     }
     return repaired;
+}
+
+function normalizeInventoryItemInstanceId(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function findInventoryItemIndexByInstanceId(items: any[] | null | undefined, itemInstanceId: unknown): number {
+    const normalized = normalizeInventoryItemInstanceId(itemInstanceId);
+    if (!normalized || !Array.isArray(items)) {
+        return -1;
+    }
+    return items.findIndex((item) =>
+        item
+        && typeof item === 'object'
+        && normalizeInventoryItemInstanceId((item as { itemInstanceId?: unknown }).itemInstanceId) === normalized,
+    );
 }
 
 function consumeInventoryItemAt(items, slotIndex, count) {
