@@ -149,21 +149,35 @@ export class WorldRuntimeNavigationService {
  * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
-    enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, deps) {
+    enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, targetMapIdInput, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (!deps && targetMapIdInput && typeof targetMapIdInput === 'object') {
+            deps = targetMapIdInput;
+            targetMapIdInput = null;
+        }
         const location = deps.getPlayerLocationOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const x = normalizeCoordinate(xInput, 'x');
         const y = normalizeCoordinate(yInput, 'y');
-        if (instance.isInBounds?.(x, y) !== true) {
+        const targetMapId = typeof targetMapIdInput === 'string' && targetMapIdInput.trim()
+            ? targetMapIdInput.trim()
+            : instance.template.mapId;
+        if (targetMapId === instance.template.mapId && instance.isInBounds?.(x, y) !== true) {
             throw new BadRequestException('目标超出地图范围');
+        }
+        if (targetMapId !== instance.template.mapId) {
+            const targetTemplate = this.templateRepository.getOrThrow(targetMapId);
+            if (!isInBounds(x, y, targetTemplate.width, targetTemplate.height)) {
+                throw new BadRequestException('目标超出地图范围');
+            }
         }
         const player = this.playerRuntimeService.getPlayer(playerId);
         this.interruptManualNavigation(playerId, deps);
         const clientPathHint = decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput);
         deps.enqueuePendingCommand(playerId, {
             kind: 'moveTo',
+            mapId: targetMapId,
             x,
             y,
             allowNearestReachable: allowNearestReachableInput === true,
@@ -172,7 +186,7 @@ export class WorldRuntimeNavigationService {
         logServerNextMovement(deps.logger ?? this.logger, 'runtime.enqueue.moveTo', {
             playerId,
             from: player ? { mapId: player.templateId, x: player.x, y: player.y } : null,
-            target: { mapId: instance.template.mapId, x, y },
+            target: { mapId: targetMapId, x, y },
             allowNearestReachable: allowNearestReachableInput === true,
             clientPathHint: clientPathHint ? {
                 startX: clientPathHint.startX,
@@ -292,7 +306,11 @@ export class WorldRuntimeNavigationService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const navigation = this.navigationIntents.get(transfer.playerId);
-        if (navigation?.kind === 'point') {
+        const sourceInstance = typeof deps.getInstanceRuntime === 'function'
+            ? deps.getInstanceRuntime(transfer.fromInstanceId)
+            : null;
+        const sourceMapId = sourceInstance?.template?.mapId ?? null;
+        if (navigation?.kind === 'point' && (!sourceMapId || navigation.mapId === sourceMapId)) {
             this.navigationIntents.delete(transfer.playerId);
         }
         const runtimePlayer = this.playerRuntimeService.getPlayer(transfer.playerId);
@@ -416,19 +434,26 @@ export class WorldRuntimeNavigationService {
  * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
-    dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null, deps) {
+    dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null, targetMapId = null, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (!deps && targetMapId && typeof targetMapId === 'object') {
+            deps = targetMapId;
+            targetMapId = null;
+        }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         this.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
-        const intent = { kind: 'point', mapId: player.templateId, x, y, allowNearestReachable, clientPathHint };
+        const normalizedTargetMapId = typeof targetMapId === 'string' && targetMapId.trim()
+            ? targetMapId.trim()
+            : player.templateId;
+        const intent = { kind: 'point', mapId: normalizedTargetMapId, x, y, allowNearestReachable, clientPathHint };
         this.navigationIntents.set(playerId, intent);
         logServerNextMovement(deps.logger ?? this.logger, 'runtime.dispatch.moveTo', {
             playerId,
             from: { mapId: player.templateId, x: player.x, y: player.y },
-            target: { mapId: player.templateId, x, y },
+            target: { mapId: normalizedTargetMapId, x, y },
             allowNearestReachable,
             previewPath: this.getLegacyNavigationPath(playerId, deps),
             clientPathHint: clientPathHint ? {
@@ -597,9 +622,19 @@ export class WorldRuntimeNavigationService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (intent.kind === 'point') {
-            const location = deps.getPlayerLocationOrThrow(playerId);
-            const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-            const goals = buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable, playerId);
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            const goals = intent.mapId === player.templateId
+                ? (() => {
+                    const location = deps.getPlayerLocationOrThrow(playerId);
+                    const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+                    return buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable, playerId);
+                })()
+                : buildGoalPointsFromTemplate(
+                    this.templateRepository.getOrThrow(intent.mapId),
+                    intent.x,
+                    intent.y,
+                    intent.allowNearestReachable,
+                );
             if (goals.length === 0) {
                 throw new BadRequestException('无法到达该位置');
             }

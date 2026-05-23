@@ -47,6 +47,7 @@ class WorldGatewayMovementHelper {
             payload: {
                 x: payload?.x ?? null,
                 y: payload?.y ?? null,
+                targetMapId: payload?.targetMapId ?? null,
                 allowNearestReachable: payload?.allowNearestReachable === true,
                 ignoreVisibilityLimit: payload?.ignoreVisibilityLimit === true,
                 packedPathSteps: payload?.packedPathSteps ?? null,
@@ -56,7 +57,7 @@ class WorldGatewayMovementHelper {
             },
         });
         try {
-            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY, this.worldRuntimeService);
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY, payload?.targetMapId, this.worldRuntimeService);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, 'MOVE_TO_FAILED', error);

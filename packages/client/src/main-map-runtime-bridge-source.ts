@@ -193,7 +193,11 @@ type MainMapRuntimeBridgeSourceOptions = {
  /**
  * y：y相关字段。
  */
- y: number },
+ y: number;
+ /**
+ * mapId：地图ID标识。
+ */
+ mapId?: string },
       options?: {      
       /**
  * ignoreVisibilityLimit：ignore可见性Limit相关字段。
@@ -455,7 +459,11 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
  /**
  * y：y相关字段。
  */
- y: number },
+ y: number;
+ /**
+ * mapId：地图ID标识。
+ */
+ mapId?: string },
       optionsArg?: {      
       /**
  * ignoreVisibilityLimit：ignore可见性Limit相关字段。

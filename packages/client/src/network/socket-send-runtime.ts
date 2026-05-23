@@ -110,11 +110,17 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
  */
 
         pathStartY?: number;
+        /**
+ * targetMapId：目标地图ID标识。
+ */
+
+        targetMapId?: string;
       },
     ): void {
       logMovement('client.emit.moveTo', {
         x,
         y,
+        targetMapId: options?.targetMapId ?? null,
         allowNearestReachable: options?.allowNearestReachable === true,
         ignoreVisibilityLimit: options?.ignoreVisibilityLimit === true,
         packedPathSteps: options?.packedPathSteps ?? null,
@@ -124,6 +130,7 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
         connected: deps.isConnected(),
       });
       deps.emitEvent(C2S.MoveTo, {
+        targetMapId: options?.targetMapId,
         x,
         y,
         ignoreVisibilityLimit: options?.ignoreVisibilityLimit,

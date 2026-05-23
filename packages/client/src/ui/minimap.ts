@@ -661,7 +661,7 @@ export class Minimap {
   /** catalogFilter：目录筛选。 */
   private catalogFilter: CatalogFilter = 'all';
   /** moveHandler：移动Handler。 */
-  private moveHandler: ((x: number, y: number) => void) | null = null;  
+  private moveHandler: ((x: number, y: number, mapId?: string) => void) | null = null;
   /** memoryDeleteHandler：地图记忆删除后通知地图运行时同步缓存。 */
   private memoryDeleteHandler: ((mapIds: readonly string[] | null) => void) | null = null;
   /**
@@ -965,7 +965,7 @@ export class Minimap {
       }
       event.preventDefault();
       event.stopPropagation();
-      this.openMoveConfirm(display.mapMeta, moveTarget.x, moveTarget.y);
+      this.openMoveConfirm(display.mapMeta, moveTarget.x, moveTarget.y, display.mapId);
     });
 
     window.addEventListener('pointerup', (event) => {
@@ -1045,7 +1045,7 @@ export class Minimap {
   }
 
   /** 注册点击地图前往目标坐标的回调 */
-  setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
+  setMoveHandler(handler: ((x: number, y: number, mapId?: string) => void) | null): void {
     this.moveHandler = handler;
   }
 
@@ -1841,14 +1841,11 @@ export class Minimap {
         ? t('minimap.modal.title.unlock', { mapName: display.mapMeta.name })
         : t('minimap.modal.title.memory', { mapName: display.mapMeta.name });
     }
-    if (!display.isCurrent) {
-      this.closeMoveConfirm();
-    }
     this.drawScene(ctx, display, metrics, true);
   }
 
   /** openMoveConfirm：打开移动Confirm。 */
-  private openMoveConfirm(mapMeta: MapMeta, x: number, y: number): void {
+  private openMoveConfirm(mapMeta: MapMeta, x: number, y: number, mapId: string): void {
     this.pendingMovePoint = { x, y };
     detailModalHost.open({
       ownerId: Minimap.MOVE_CONFIRM_OWNER,
@@ -1862,7 +1859,7 @@ export class Minimap {
         );
       },
       onAfterRender: (body, signal) => {
-        this.bindMoveConfirmActions(body, signal, x, y);
+        this.bindMoveConfirmActions(body, signal, x, y, mapId);
       },
       onClose: () => {
         this.pendingMovePoint = null;
@@ -1939,7 +1936,7 @@ export class Minimap {
   }
 
   /** bindMoveConfirmActions：绑定移动确认弹层按钮。 */
-  private bindMoveConfirmActions(body: HTMLElement, signal: AbortSignal, x: number, y: number): void {
+  private bindMoveConfirmActions(body: HTMLElement, signal: AbortSignal, x: number, y: number, mapId: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     body.querySelector<HTMLButtonElement>('[data-map-move-cancel="true"]')?.addEventListener('click', (event) => {
@@ -1955,7 +1952,7 @@ export class Minimap {
         this.closeMoveConfirm();
         return;
       }
-      this.moveHandler(x, y);
+      this.moveHandler(x, y, mapId);
       this.closeMoveConfirm();
     }, { signal });
   }
@@ -2224,7 +2221,7 @@ export class Minimap {
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!display || !display.isCurrent || !display.player || !canvas) {
+    if (!display || !canvas) {
       return null;
     }
     const point = this.resolveCanvasPoint(canvas, clientX, clientY, display, isModal);
@@ -2718,7 +2715,7 @@ export class Minimap {
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const guide = display.isCurrent
+    const guide = this.moveHandler
       ? t('minimap.hud.guide.current', undefined)
       : t('minimap.hud.guide.readonly', undefined);
     ctx.save();

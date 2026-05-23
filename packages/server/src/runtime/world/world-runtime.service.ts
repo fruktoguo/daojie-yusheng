@@ -1025,8 +1025,8 @@ export class WorldRuntimeService {
         dispatchHeavenGateAction(playerId, action, element) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchHeavenGateAction(playerId, action, element, this);
     }
-        dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null) {
-        this.worldRuntimeTickDispatchService.dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, this);
+        dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null, targetMapId = null) {
+        this.worldRuntimeTickDispatchService.dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, targetMapId, this);
     }
         async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, this);

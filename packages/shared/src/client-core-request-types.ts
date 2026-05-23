@@ -22,6 +22,11 @@ export interface MoveRequestView {
 /** 点击目标点移动。 */
 export interface MoveToRequestView {
 /**
+ * targetMapId：目标地图ID标识；为空时表示当前地图。
+ */
+
+  targetMapId?: string;
+/**
  * x：x相关字段。
  */
 

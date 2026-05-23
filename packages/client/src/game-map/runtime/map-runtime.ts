@@ -220,7 +220,7 @@ export class MapRuntime implements MapRuntimeApi {
  */
 
 
-  setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
+  setMoveHandler(handler: ((x: number, y: number, mapId?: string) => void) | null): void {
     this.minimap.setMoveHandler(handler);
   }
 

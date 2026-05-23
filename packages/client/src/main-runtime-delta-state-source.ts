@@ -272,7 +272,11 @@ type MainRuntimeDeltaStateSourceOptions = {
  /**
  * y：y相关字段。
  */
- y: number } | null;    
+ y: number;
+ /**
+ * mapId：地图ID标识。
+ */
+ mapId?: string } | null;
  /**
  * getPathCells：路径Cell相关字段。
  */
@@ -790,7 +794,14 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     const autoInteractionTriggered = options.navigation.triggerAutoInteractionIfReady();
     const pathTarget = options.navigation.getPathTarget();
     const player = options.getPlayer();
-    if (!autoInteractionTriggered && pathTarget && player && player.x === pathTarget.x && player.y === pathTarget.y) {
+    if (
+      !autoInteractionTriggered
+      && pathTarget
+      && player
+      && player.x === pathTarget.x
+      && player.y === pathTarget.y
+      && (!pathTarget.mapId || pathTarget.mapId === player.mapId)
+    ) {
       options.navigation.clearCurrentPath();
     }
     options.navigation.syncPathCellsToRuntime();

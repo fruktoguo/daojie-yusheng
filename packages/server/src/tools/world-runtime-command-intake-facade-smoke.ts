@@ -36,7 +36,7 @@ function testCommandIntakeFacade() {
  * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
-            enqueueMoveTo(playerId, xInput, yInput) { log.push(['enqueueMoveTo', playerId, xInput, yInput]); return 'moveTo'; },
+            enqueueMoveTo(playerId, xInput, yInput, _allowNearestReachableInput, _packedPathInput, _packedPathStepsInput, _pathStartXInput, _pathStartYInput, targetMapIdInput) { log.push(['enqueueMoveTo', playerId, xInput, yInput, targetMapIdInput ?? null]); return 'moveTo'; },
             /**
  * usePortal：执行use传送门相关逻辑。
  * @param playerId 玩家 ID。
@@ -342,6 +342,11 @@ function testCommandIntakeFacade() {
 
     assert.equal(service.enqueueMove('player:1', 'east', deps), 'move');
     assert.equal(service.enqueueMoveTo('player:1', 1, 2, true, null, null, null, null, deps), 'moveTo');
+    assert.equal(service.enqueueMoveTo('player:1', 3, 4, true, null, null, null, null, 'target_map', deps), 'moveTo');
+    assert.deepEqual(log.filter((entry) => entry[0] === 'enqueueMoveTo'), [
+        ['enqueueMoveTo', 'player:1', 1, 2, null],
+        ['enqueueMoveTo', 'player:1', 3, 4, 'target_map'],
+    ]);
     assert.equal(service.usePortal('player:1', deps), 'portal');
     assert.equal(service.navigateQuest('player:1', 'quest:1', deps), 'quest');
     assert.equal(service.enqueueBasicAttack('player:1', null, 'monster:1', 1, 2, deps), 'basic');

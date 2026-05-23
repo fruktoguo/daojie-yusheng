@@ -120,7 +120,7 @@ type MainMapInteractionBindingsOptions = {
  * setMoveHandler：MoveHandler相关字段。
  */
 
-    setMoveHandler: (handler: (x: number, y: number) => void) => void;
+    setMoveHandler: (handler: (x: number, y: number, mapId?: string) => void) => void;
     /**
  * setInteractionCallbacks：InteractionCallback相关字段。
  */
@@ -190,7 +190,11 @@ type MainMapInteractionBindingsOptions = {
  /**
  * y：y相关字段。
  */
- y: number }, options?: {
+ y: number;
+ /**
+ * mapId：地图ID标识。
+ */
+ mapId?: string }, options?: {
  /**
  * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
@@ -384,8 +388,8 @@ type MainMapInteractionBindingsOptions = {
 
 
 export function bindMainMapInteractions(options: MainMapInteractionBindingsOptions): void {
-  options.mapRuntime.setMoveHandler((x, y) => {
-    options.planPathTo({ x, y });
+  options.mapRuntime.setMoveHandler((x, y, mapId) => {
+    options.planPathTo({ x, y, mapId });
   });
 
   options.mapRuntime.setInteractionCallbacks({

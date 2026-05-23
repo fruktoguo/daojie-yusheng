@@ -202,8 +202,12 @@ export class WorldRuntimeTickDispatchService {
  * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
-    dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, deps) {
-        deps.worldRuntimeNavigationService.dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, deps);
+    dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, targetMapId, deps) {
+        if (!deps && targetMapId && typeof targetMapId === 'object') {
+            deps = targetMapId;
+            targetMapId = null;
+        }
+        deps.worldRuntimeNavigationService.dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, targetMapId, deps);
     }
     /**
  * applyMonsterAction：处理怪物Action并更新相关状态。

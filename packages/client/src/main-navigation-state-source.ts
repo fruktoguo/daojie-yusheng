@@ -225,6 +225,11 @@ type MainNavigationStateSourceOptions = {
  */
 
       pathStartY?: number;
+      /**
+ * targetMapId：目标地图ID标识。
+ */
+
+      targetMapId?: string;
     },
   ) => void;  
   /**
@@ -315,7 +320,11 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
  /**
  * y：y相关字段。
  */
- y: number } | null = null;
+ y: number;
+ /**
+ * mapId：地图ID标识。
+ */
+ mapId?: string } | null = null;
   let pendingAutoInteraction: PendingAutoInteraction | null = null;  
   /**
  * isVisibleBlockingEntityAt：判断可见BlockingEntityAt是否满足条件。
@@ -700,7 +709,11 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
  /**
  * y：y相关字段。
  */
- y: number } | null {
+ y: number;
+ /**
+ * mapId：地图ID标识。
+ */
+ mapId?: string } | null {
       return pathTarget;
     },    
     /**
@@ -814,7 +827,11 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
  /**
  * y：y相关字段。
  */
- y: number },
+ y: number;
+ /**
+ * mapId：地图ID标识。
+ */
+ mapId?: string },
       config?: {      
       /**
  * ignoreVisibilityLimit：ignore可见性Limit相关字段。
@@ -838,14 +855,18 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       if (!config?.preserveAutoInteraction) {
         pendingAutoInteraction = null;
       }
-      pathTarget = target;
-      const preview = buildClientPreviewPath(player.x, player.y, target.x, target.y);
-      pathCells = preview?.cells ?? [{ x: target.x, y: target.y }];
+      const targetMapId = typeof target.mapId === 'string' && target.mapId.trim()
+        ? target.mapId.trim()
+        : player.mapId;
+      const sameMap = targetMapId === player.mapId;
+      pathTarget = { x: target.x, y: target.y, mapId: targetMapId };
+      const preview = sameMap ? buildClientPreviewPath(player.x, player.y, target.x, target.y) : null;
+      pathCells = sameMap ? (preview?.cells ?? [{ x: target.x, y: target.y }]) : [];
       options.setRuntimePathCells(pathCells);
       logMovement('client.intent.moveTo', {
         playerId: player.id,
         from: { x: player.x, y: player.y, mapId: player.mapId },
-        target,
+        target: { x: target.x, y: target.y, mapId: targetMapId },
         allowNearestReachable: config?.allowNearestReachable === true,
         ignoreVisibilityLimit: config?.ignoreVisibilityLimit === true,
         previewFound: Boolean(preview),
@@ -858,6 +879,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         packedPathSteps: preview?.directions.length,
         pathStartX: preview ? player.x : undefined,
         pathStartY: preview ? player.y : undefined,
+        targetMapId: targetMapId === player.mapId ? undefined : targetMapId,
       });
     },    
     /**

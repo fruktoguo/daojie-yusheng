@@ -20,7 +20,7 @@ export class MinimapRuntime {
  */
 
 
-  setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
+  setMoveHandler(handler: ((x: number, y: number, mapId?: string) => void) | null): void {
     this.minimap.setMoveHandler(handler);
   }
 
@@ -60,5 +60,4 @@ export class MinimapRuntime {
     this.minimap.clear();
   }
 }
-
 

@@ -885,7 +885,7 @@ export interface MapRuntimeApi {
   applySelfDelta(data: MapSelfDeltaInput): void;
   reset(): void;
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void;
-  setMoveHandler(handler: ((x: number, y: number) => void) | null): void;
+  setMoveHandler(handler: ((x: number, y: number, mapId?: string) => void) | null): void;
   setPathCells(cells: GridPoint[]): void;
   setTargetingOverlay(state: MapTargetingOverlayState | null): void;
   setFormationRangeOverlay(state: MapFormationRangeOverlayState | null): void;

@@ -39,8 +39,12 @@ export class WorldRuntimeCommandIntakeFacadeService {
  * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
-    enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, deps) {
-        return deps.worldRuntimeNavigationService.enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, deps);
+    enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, targetMapIdInput, deps) {
+        if (!deps && targetMapIdInput && typeof targetMapIdInput === 'object') {
+            deps = targetMapIdInput;
+            targetMapIdInput = null;
+        }
+        return deps.worldRuntimeNavigationService.enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, targetMapIdInput, deps);
     }
     /**
  * usePortal：执行use传送门相关逻辑。
