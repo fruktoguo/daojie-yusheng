@@ -187,35 +187,51 @@ function rollTechniqueRealmLv(playerRealmLv: number): number {
 
 #### 品阶随机
 
-根据 `realmLv` 确定可选品阶范围，再按权重随机：
+根据 `realmLv` 确定可选品阶范围，再按权重随机。
+
+品阶有效区间来源：`docs/design/balance/境界等级基准期望六维公式.md` 的品阶等级区间表：
+
+| 品阶 | 起始等级 | 目标等级 | 说明 |
+|---|---|---|---|
+| 凡阶 mortal | 1 | 18 | 凡俗~先天 |
+| 黄阶 yellow | 9 | 30 | 锻骨~练气后期 |
+| 玄阶 mystic | 19 | 42 | 练气前期~筑基后期 |
+| 地阶 earth | 25 | 54 | 练气后期~金丹后期 |
+| 天阶 heaven | 31 | 86 | 筑基~炼虚中期 |
+| 灵阶 spirit | 64 | 110 | 元婴后期~大乘中期 |
+| 圣阶 saint | 98 | 134 | 合体后期~渡劫后期+ |
+| 帝阶 emperor | 122 | 158 | 渡劫后期~飞升+ |
+
+随机逻辑：筛选 `realmLv` 落在 `[起始等级, 目标等级]` 区间内的所有品阶作为候选，按权重加权随机。
 
 ```ts
-const REALM_LV_GRADE_TABLE: Array<{ maxRealmLv: number; grade: TechniqueGrade; weight: number }> = [
-  // 凡阶：realmLv 1~18
-  { maxRealmLv: 18, grade: 'mortal', weight: 100 },
-  // 黄阶：realmLv 6~30
-  { maxRealmLv: 30, grade: 'yellow', weight: 80 },
-  // 玄阶：realmLv 19~42
-  { maxRealmLv: 42, grade: 'mystic', weight: 60 },
-  // 地阶：realmLv 27~54
-  { maxRealmLv: 54, grade: 'earth', weight: 40 },
-  // 天阶：realmLv 43~78
-  { maxRealmLv: 78, grade: 'heaven', weight: 25 },
-  // 灵阶：realmLv 55~102
-  { maxRealmLv: 102, grade: 'spirit', weight: 15 },
-  // 圣阶：realmLv 79~126
-  { maxRealmLv: 126, grade: 'saint', weight: 8 },
-  // 帝阶：realmLv 103+
-  { maxRealmLv: 127, grade: 'emperor', weight: 3 },
+const TECHNIQUE_GRADE_REALM_BANDS: Array<{
+  grade: TechniqueGrade;
+  fromRealmLv: number;
+  toRealmLv: number;
+  weight: number;
+}> = [
+  { grade: 'mortal',  fromRealmLv: 1,   toRealmLv: 18,  weight: 100 },
+  { grade: 'yellow',  fromRealmLv: 9,   toRealmLv: 30,  weight: 80 },
+  { grade: 'mystic',  fromRealmLv: 19,  toRealmLv: 42,  weight: 60 },
+  { grade: 'earth',   fromRealmLv: 25,  toRealmLv: 54,  weight: 40 },
+  { grade: 'heaven',  fromRealmLv: 31,  toRealmLv: 86,  weight: 25 },
+  { grade: 'spirit',  fromRealmLv: 64,  toRealmLv: 110, weight: 15 },
+  { grade: 'saint',   fromRealmLv: 98,  toRealmLv: 134, weight: 8 },
+  { grade: 'emperor', fromRealmLv: 122, toRealmLv: 158, weight: 3 },
 ];
 
 function rollTechniqueGrade(realmLv: number): TechniqueGrade {
-  // 筛选 realmLv 落在该品阶有效区间内的候选
-  // 按 weight 加权随机
+  const candidates = TECHNIQUE_GRADE_REALM_BANDS
+    .filter(band => realmLv >= band.fromRealmLv && realmLv <= band.toRealmLv);
+  // 按 weight 加权随机从 candidates 中选取
 }
 ```
 
-具体的 realmLv 区间与权重需要参考现有静态功法分布和 `PLAYER_REALM_STAGE_LEVEL_RANGES` 微调。
+示例：玩家 realmLv=35（筑基中期），随机到的功法 realmLv 可能是 29~41，
+- realmLv=29 → 候选：黄阶(80) + 玄阶(60) + 地阶(40)
+- realmLv=35 → 候选：玄阶(60) + 地阶(40) + 天阶(25)
+- realmLv=41 → 候选：玄阶(60) + 地阶(40) + 天阶(25)
 
 ### 4.3 TechniqueGenerationService 核心方法
 
