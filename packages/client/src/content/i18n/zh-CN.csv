@@ -776,8 +776,8 @@ tutorial.hint.set-cultivate.label,教程,设为主修,
 tutorial.hint.set-cultivate.path,教程,右侧卷轴区->功法->对应功法->设为主修,
 tutorial.hint.settings.label,教程,设置,
 tutorial.hint.settings.path,教程,主界面左上角 → 设置,
-tutorial.hint.simple-tutorial.label,教程,简易教程,
-tutorial.hint.simple-tutorial.path,教程,左上角外链区->简易教程,
+tutorial.hint.simple-tutorial.label,教程,机制百科,
+tutorial.hint.simple-tutorial.path,教程,左上角外链区->机制百科,
 tutorial.hint.skill.label,教程,技能,
 tutorial.hint.skill.path,教程,右下角行动栏->技能,
 tutorial.hint.stationary-battle.label,教程,原地战斗,
@@ -802,12 +802,12 @@ tutorial.panel.flow.summary,教程,常惑按景分列。困于何处，便切何
 tutorial.panel.kicker.flow,教程,指引,
 tutorial.panel.kicker.mechanics,教程,核心机制,
 tutorial.panel.kicker.operations,教程,简明说明,
-tutorial.panel.main-tabs.aria,教程,简易教程分类,
+tutorial.panel.main-tabs.aria,教程,机制百科分类,
 tutorial.panel.mechanics-tabs.aria,教程,法则目录,
 tutorial.panel.operations-tabs.aria,教程,入门目录,
-tutorial.panel.subtitle,教程,初涉仙途指引，迷途时可回此翻阅。,
+tutorial.panel.subtitle,教程,修仙百科全书，不解之处可随时翻阅。,
 tutorial.panel.tip-title,教程,小提醒,
-tutorial.panel.title,教程,简易教程,
+tutorial.panel.title,教程,机制百科,
 heaven-gate.static.core-subtitle,静态HTML-开天门,五行未定，先启天门。若不满意，后续可消耗经验逆天改命。,静态 HTML：packages/client/heaven-gate.html
 heaven-gate.static.cursor-text,静态HTML-开天门,斩,静态 HTML：packages/client/heaven-gate.html
 heaven-gate.static.detail-modal-hint-hint,静态HTML-开天门,点击连线可斩 / 补灵根，点击中间丹田可开天门或入天门。,静态 HTML：packages/client/heaven-gate.html
@@ -881,7 +881,7 @@ shell.hud-label-age,静态HTML-主界面,岁,静态 HTML：packages/client/index
 shell.hud-label-lifespan,静态HTML-主界面,寿,静态 HTML：packages/client/index.html
 shell.hud-label-map,静态HTML-主界面,地图,静态 HTML：packages/client/index.html
 shell.hud-label-position,静态HTML-主界面,位置,静态 HTML：packages/client/index.html
-shell.hud-link-btn-text-simple-tutorial,静态HTML-主界面,简易教程,静态 HTML：packages/client/index.html
+shell.hud-link-btn-text-simple-tutorial,静态HTML-主界面,机制百科,静态 HTML：packages/client/index.html
 shell.hud-realm-label-realm,静态HTML-主界面,境界,静态 HTML：packages/client/index.html
 shell.hud-resource-label-hp,静态HTML-主界面,生命值,静态 HTML：packages/client/index.html
 shell.hud-resource-label-qi,静态HTML-主界面,灵力,静态 HTML：packages/client/index.html
@@ -951,8 +951,8 @@ shell.open-chronicle,静态HTML-主界面,史书,静态 HTML：packages/client/i
 shell.open-mail,静态HTML-主界面,飞书,静态 HTML：packages/client/index.html
 shell.open-settings,静态HTML-主界面,设置,静态 HTML：packages/client/index.html
 shell.open-suggestions,静态HTML-主界面,意见,静态 HTML：packages/client/index.html
-shell.open-tutorial.aria-label,静态HTML-主界面,打开简易教程,静态 HTML：packages/client/index.html
-shell.open-tutorial.title,静态HTML-主界面,简易教程,静态 HTML：packages/client/index.html
+shell.open-tutorial.aria-label,静态HTML-主界面,打开机制百科,静态 HTML：packages/client/index.html
+shell.open-tutorial.title,静态HTML-主界面,机制百科,静态 HTML：packages/client/index.html
 shell.password,静态HTML-主界面,口令,静态 HTML：packages/client/index.html
 shell.password.placeholder,静态HTML-主界面,输入密码,静态 HTML：packages/client/index.html
 shell.quest,静态HTML-主界面,任务,静态 HTML：packages/client/index.html

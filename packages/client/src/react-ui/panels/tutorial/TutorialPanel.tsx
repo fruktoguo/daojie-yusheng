@@ -5,18 +5,13 @@
  */
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
-  TUTORIAL_FLOW_TOPICS,
   TUTORIAL_MECHANIC_TOPICS,
-  TUTORIAL_TOPICS,
-  type TutorialFlowTopic,
   type TutorialTopic,
 } from '../../../constants/ui/tutorial';
 import { t } from '../../../ui/i18n';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../../../ui/floating-tooltip';
 
 // ─── 类型 ────────────────────────────────────────────────────────────────────
-
-type TutorialMainTabId = 'operations' | 'mechanics' | 'flow';
 
 interface TutorialOperationHint {
   label: string;
@@ -25,12 +20,6 @@ interface TutorialOperationHint {
 }
 
 // ─── 静态数据 ─────────────────────────────────────────────────────────────────
-
-const TUTORIAL_MAIN_TABS: Array<{ id: TutorialMainTabId; label: string }> = [
-  { id: 'operations', label: t('tutorial.main-tab.operations') },
-  { id: 'mechanics', label: t('tutorial.main-tab.mechanics') },
-  { id: 'flow', label: t('tutorial.main-tab.flow') },
-];
 
 const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
   { label: t('tutorial.hint.click-map-tile.label'), path: t('tutorial.hint.click-map-tile.path') },
@@ -185,10 +174,7 @@ function TutorialInlineAction({ hint }: { hint: TutorialOperationHint }) {
 // ─── 主组件 ──────────────────────────────────────────────────────────────────
 
 export function TutorialPanelContent() {
-  const [mainTab, setMainTab] = useState<TutorialMainTabId>('operations');
-  const [topicId, setTopicId] = useState(TUTORIAL_TOPICS[0]?.id ?? 'basics');
-  const [mechanicId, setMechanicId] = useState(TUTORIAL_MECHANIC_TOPICS[0]?.id ?? 'aura');
-  const [flowId, setFlowId] = useState(TUTORIAL_FLOW_TOPICS[0]?.id ?? 'how-to-play');
+  const [mechanicId, setMechanicId] = useState(TUTORIAL_MECHANIC_TOPICS[0]?.id ?? 'growth');
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const hidePinnedTooltips = useCallback(() => {
@@ -199,52 +185,13 @@ export function TutorialPanelContent() {
 
   return (
     <div className="tutorial-modal-body" ref={panelRef}>
-      {/* Main tabs */}
-      <div className="tutorial-modal-main-tabs ui-modal-main-tabs" role="tablist" aria-label={t('tutorial.panel.main-tabs.aria')}>
-        {TUTORIAL_MAIN_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            className={`tutorial-modal-main-tab ui-modal-main-tab${tab.id === mainTab ? ' active' : ''}`}
-            type="button"
-            role="tab"
-            data-tutorial-main-tab={tab.id}
-            aria-selected={tab.id === mainTab ? 'true' : 'false'}
-            onClick={() => {
-              hidePinnedTooltips();
-              setMainTab(tab.id);
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Main panes */}
+      {/* 直接展示机制百科内容，无需主 Tab 切换 */}
       <div className="tutorial-modal-main-panes">
-        {/* Operations */}
         <section
-          className={`tutorial-modal-main-pane tutorial-modal-main-pane--operations${mainTab === 'operations' ? ' active' : ''}`}
-          data-tutorial-main-pane="operations"
-          role="tabpanel"
-          aria-hidden={mainTab === 'operations' ? 'false' : 'true'}
-        >
-          <TopicShell
-            topics={TUTORIAL_TOPICS}
-            ariaLabel={t('tutorial.panel.operations-tabs.aria')}
-            activeId={topicId}
-            onSelect={setTopicId}
-            tabDataAttr="data-tutorial-tab"
-            paneDataAttr="data-tutorial-pane"
-            kickerKey="tutorial.panel.kicker.operations"
-          />
-        </section>
-
-        {/* Mechanics */}
-        <section
-          className={`tutorial-modal-main-pane tutorial-modal-main-pane--mechanics${mainTab === 'mechanics' ? ' active' : ''}`}
+          className="tutorial-modal-main-pane tutorial-modal-main-pane--mechanics active"
           data-tutorial-main-pane="mechanics"
           role="tabpanel"
-          aria-hidden={mainTab === 'mechanics' ? 'false' : 'true'}
+          aria-hidden="false"
         >
           <TopicShell
             topics={TUTORIAL_MECHANIC_TOPICS}
@@ -257,22 +204,6 @@ export function TutorialPanelContent() {
             tabDataAttr="data-tutorial-mechanic-tab"
             paneDataAttr="data-tutorial-mechanic-pane"
             kickerKey="tutorial.panel.kicker.mechanics"
-          />
-        </section>
-
-        {/* Flow */}
-        <section
-          className={`tutorial-modal-main-pane tutorial-modal-main-pane--flow${mainTab === 'flow' ? ' active' : ''}`}
-          data-tutorial-main-pane="flow"
-          role="tabpanel"
-          aria-hidden={mainTab === 'flow' ? 'false' : 'true'}
-        >
-          <FlowGuide
-            activeId={flowId}
-            onSelect={(id) => {
-              hidePinnedTooltips();
-              setFlowId(id);
-            }}
           />
         </section>
       </div>
@@ -366,94 +297,6 @@ const TopicPane = memo(function TopicPane({ topic, active, paneDataAttr, kickerK
       <div className="tutorial-pane-sections">
         {topic.sections.map((section, si) => (
           <section key={si} className="tutorial-section-card">
-            <div className="tutorial-section-title">{section.title}</div>
-            <ul className="tutorial-section-list">
-              {section.items.map((item, ii) => (
-                <li key={ii}><RichText text={item} /></li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-      {topic.tips && topic.tips.length > 0 && (
-        <section className="tutorial-tip-card">
-          <div className="tutorial-section-title">{t('tutorial.panel.tip-title')}</div>
-          <ul className="tutorial-section-list tutorial-section-list--tips">
-            {topic.tips.map((tip, ti) => (
-              <li key={ti}><RichText text={tip} /></li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </section>
-  );
-});
-
-// ─── FlowGuide ───────────────────────────────────────────────────────────────
-
-function FlowGuide({ activeId, onSelect }: { activeId: string; onSelect: (id: string) => void }) {
-  if (TUTORIAL_FLOW_TOPICS.length <= 0) {
-    return (
-      <div className="tutorial-modal-content ui-split-panel-content">
-        <section className="tutorial-modal-pane active">
-          <div className="tutorial-pane-summary">{t('tutorial.panel.empty')}</div>
-        </section>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="tutorial-pane-hero tutorial-pane-hero--flow">
-        <div className="tutorial-pane-kicker">{t('tutorial.panel.kicker.flow')}</div>
-        <div className="tutorial-pane-summary">
-          <RichText text={t('tutorial.panel.flow.summary')} />
-        </div>
-      </div>
-      <div className="tutorial-flow-shell ui-split-panel-shell">
-        <div className="tutorial-flow-tabs ui-split-panel-tabs" role="tablist" aria-label={t('tutorial.panel.flow-tabs.aria')}>
-          {TUTORIAL_FLOW_TOPICS.map((topic) => {
-            const active = topic.id === activeId;
-            return (
-              <button
-                key={topic.id}
-                className={`tutorial-flow-tab ui-split-panel-tab${active ? ' active' : ''}`}
-                type="button"
-                role="tab"
-                data-tutorial-flow-tab={topic.id}
-                aria-selected={active ? 'true' : 'false'}
-                onClick={() => onSelect(topic.id)}
-              >
-                <span className="tutorial-flow-tab-label ui-split-panel-tab-label">{topic.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="tutorial-flow-content ui-split-panel-content">
-          {TUTORIAL_FLOW_TOPICS.map((topic) => (
-            <FlowPane key={topic.id} topic={topic} active={topic.id === activeId} />
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
-const FlowPane = memo(function FlowPane({ topic, active }: { topic: TutorialFlowTopic; active: boolean }) {
-  return (
-    <section
-      className={`tutorial-flow-pane${active ? ' active' : ''}`}
-      data-tutorial-flow-pane={topic.id}
-      role="tabpanel"
-      aria-hidden={active ? 'false' : 'true'}
-    >
-      <div className="tutorial-flow-pane-head">
-        <div className="tutorial-section-title">{topic.label}</div>
-        <div className="tutorial-flow-step-summary"><RichText text={topic.summary} /></div>
-      </div>
-      <div className="tutorial-flow-grid">
-        {topic.sections.map((section, si) => (
-          <section key={si} className="tutorial-flow-card">
             <div className="tutorial-section-title">{section.title}</div>
             <ul className="tutorial-section-list">
               {section.items.map((item, ii) => (
