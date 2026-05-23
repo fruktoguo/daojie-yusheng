@@ -16,17 +16,18 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        玩家交互层                                 │
-│  洞府研修面板 → 协议请求 → Socket Handler                         │
+│  背包使用悟道玉简 → 功法领悟界面 → Socket Handler                  │
 └────────────────────────────┬────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────┐
 │                     功法生成业务层                                 │
 │  TechniqueGenerationService                                      │
-│  ├─ 资源校验（残页/冷却/速率）                                     │
-│  ├─ 任务状态机（pending → draft → published）                     │
+│  ├─ 前置校验（道具消耗/境界门槛）                                  │
+│  ├─ 品阶与境界随机                                                │
+│  ├─ 任务状态机（pending → draft → learned）                       │
 │  ├─ Prompt 构造                                                  │
 │  ├─ 候选校验（三层防线）                                           │
-│  └─ 发布与缓存刷新                                                │
+│  └─ 确认学习与缓存刷新                                            │
 └────────────────────────────┬────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────┐
@@ -34,8 +35,7 @@
 │  AiTaskExecutionService                                          │
 │  ├─ AiTextClient（已有：OpenAI/Anthropic/Compatible）             │
 │  ├─ AiProviderConfigService（已有：scope 化多模型）                │
-│  ├─ AiRateLimiter（速率限制 + 并发控制）                           │
-│  ├─ AiCostMeter（成本计量 + 账单告警）                             │
+│  ├─ AiTokenMeter（全服 token 消耗记录）                           │
 │  ├─ AiPromptSanitizer（注入过滤）                                 │
 │  └─ AiRetryPolicy（超时/重试/熔断）                               │
 └────────────────────────────┬────────────────────────────────────┘
@@ -63,8 +63,7 @@
 |---|---|---|
 | AiTextClient | `ai/ai-text-client.ts`（已有） | 统一调用 OpenAI/Anthropic/Compatible |
 | AiProviderConfigService | `ai/ai-provider-config.service.ts`（已有） | scope 化模型配置管理 |
-| AiRateLimiter | `ai/ai-rate-limiter.ts`（新增） | 单玩家日额度 + 全服并发上限 |
-| AiCostMeter | `ai/ai-cost-meter.ts`（新增） | token 计量 + 日成本告警 |
+| AiTokenMeter | `ai/ai-token-meter.ts`（新增） | 全服 AI token 消耗记录（in/out） |
 | AiPromptSanitizer | `ai/ai-prompt-sanitizer.ts`（新增） | 玩家输入清洗 + 注入防御 |
 | AiRetryPolicy | `ai/ai-retry-policy.ts`（新增） | 超时/重试/熔断策略 |
 | AiTaskExecutionService | `ai/ai-task-execution.service.ts`（新增） | 编排上述模块的统一入口 |
@@ -73,24 +72,15 @@
 
 ```ts
 interface AiTaskRequest {
-  /** 业务标识，用于计量和审计 */
-  taskType: string;
-  /** 模型 scope（对应 AiProviderConfig 的 scope） */
-  modelScope?: string;
-  /** 发起玩家 ID（用于速率限制） */
-  playerId: number;
-  /** system prompt */
+  taskType: string;             // 业务标识（technique_generation / npc_dialogue / ...）
+  modelScope?: string;          // 模型 scope
+  playerId: number;             // 发起玩家
   systemMessage: string;
-  /** user prompt（已清洗） */
   userMessage: string;
-  /** 期望 JSON 输出 */
   responseFormat?: 'json_object' | 'text';
-  /** 温度 */
   temperature?: number;
-  /** 单次超时 ms */
   timeoutMs?: number;
-  /** 最大重试次数（校验失败时） */
-  maxRetries?: number;
+  maxRetries?: number;          // 校验失败时最大重试
 }
 
 interface AiTaskResult {
@@ -99,49 +89,37 @@ interface AiTaskResult {
   modelName: string;
   promptSnapshot: string;
   attemptCount: number;
-  tokenUsage?: { prompt: number; completion: number };
+  tokenUsage: { promptTokens: number; completionTokens: number };
   error?: string;
 }
 ```
 
-### 3.4 AiRateLimiter
+### 3.4 AiTokenMeter
+
+全服级 token 消耗统计，不做玩家级限额。
 
 ```ts
-interface AiRateLimiterConfig {
-  /** 单玩家每日最大调用次数 */
-  playerDailyLimit: number;       // 默认 5
-  /** 全服最大并发数 */
-  globalConcurrencyLimit: number; // 默认 20
-  /** 单玩家最小间隔 ms */
-  playerMinIntervalMs: number;    // 默认 60_000
-}
-```
-
-实现要点：
-- 玩家日额度用 Redis `INCR + EXPIRE`（key: `ai:rate:{playerId}:{date}`）
-- 全服并发用内存 Semaphore（单实例场景）
-- 超限时返回明确错误码，前端展示剩余冷却
-
-### 3.5 AiCostMeter
-
-```ts
-interface AiCostRecord {
+interface AiTokenUsageRecord {
   taskType: string;
-  playerId: number;
   modelName: string;
   promptTokens: number;
   completionTokens: number;
-  estimatedCost: number;  // 按模型单价估算
   timestamp: number;
+}
+
+class AiTokenMeter {
+  /** 每次 AI 调用后记录（异步写 outbox，不阻塞） */
+  record(usage: AiTokenUsageRecord): void;
+
+  /** GM 查询：全服累计 / 按天 / 按 taskType */
+  async queryUsage(filter?: { from?: Date; to?: Date; taskType?: string }): Promise<{
+    totalPromptTokens: number;
+    totalCompletionTokens: number;
+  }>;
 }
 ```
 
-实现要点：
-- 每次调用后异步写入 outbox（不阻塞主流程）
-- 日成本累计超阈值 → Logger.warn + 可选暂停入口
-- 初期不需要精确计费，估算即可
-
-### 3.6 AiPromptSanitizer
+### 3.5 AiPromptSanitizer
 
 ```ts
 function sanitizePlayerContext(raw: string): string {
@@ -158,16 +136,15 @@ function sanitizePlayerContext(raw: string): string {
 - `system:`
 - `<|im_start|>`
 
-### 3.7 AiRetryPolicy
+### 3.6 AiRetryPolicy
 
 ```ts
 interface AiRetryConfig {
-  maxAttempts: number;        // 默认 2（首次 + 1 次重试）
-  retryDelayMs: number;       // 默认 1000
-  timeoutMs: number;          // 默认 60_000
-  /** 熔断：连续失败 N 次后暂停该 scope */
-  circuitBreakerThreshold: number;  // 默认 10
-  circuitBreakerCooldownMs: number; // 默认 300_000
+  maxAttempts: number;                  // 默认 2（首次 + 1 次重试）
+  retryDelayMs: number;                 // 默认 1000
+  timeoutMs: number;                    // 默认 60_000
+  circuitBreakerThreshold: number;      // 连续失败 N 次暂停，默认 10
+  circuitBreakerCooldownMs: number;     // 熔断冷却，默认 300_000
 }
 ```
 
@@ -186,6 +163,7 @@ interface AiRetryConfig {
 packages/server/src/runtime/technique-generation/
 ├── technique-generation.service.ts       # 主服务（状态机编排）
 ├── technique-generation.types.ts         # 业务类型定义
+├── technique-generation-roll.ts          # 品阶/境界随机逻辑
 ├── technique-prompt-builder.ts           # Prompt 构造器
 ├── technique-candidate-validator.ts      # 三层校验器
 ├── technique-budget-normalizer.ts        # 术法预算归一化
@@ -193,62 +171,113 @@ packages/server/src/runtime/technique-generation/
 └── technique-generation-outbox.ts        # 审计日志
 ```
 
-### 4.2 TechniqueGenerationService 核心方法
+### 4.2 品阶与境界随机
+
+#### realmLv 随机
+
+基于玩家当前 `realmLv`，上下浮动 6 级：
+
+```ts
+function rollTechniqueRealmLv(playerRealmLv: number): number {
+  const min = Math.max(1, playerRealmLv - 6);
+  const max = Math.min(127, playerRealmLv + 6);
+  return randomInt(min, max);  // 含端点均匀分布
+}
+```
+
+#### 品阶随机
+
+根据 `realmLv` 确定可选品阶范围，再按权重随机：
+
+```ts
+const REALM_LV_GRADE_TABLE: Array<{ maxRealmLv: number; grade: TechniqueGrade; weight: number }> = [
+  // 凡阶：realmLv 1~18
+  { maxRealmLv: 18, grade: 'mortal', weight: 100 },
+  // 黄阶：realmLv 6~30
+  { maxRealmLv: 30, grade: 'yellow', weight: 80 },
+  // 玄阶：realmLv 19~42
+  { maxRealmLv: 42, grade: 'mystic', weight: 60 },
+  // 地阶：realmLv 27~54
+  { maxRealmLv: 54, grade: 'earth', weight: 40 },
+  // 天阶：realmLv 43~78
+  { maxRealmLv: 78, grade: 'heaven', weight: 25 },
+  // 灵阶：realmLv 55~102
+  { maxRealmLv: 102, grade: 'spirit', weight: 15 },
+  // 圣阶：realmLv 79~126
+  { maxRealmLv: 126, grade: 'saint', weight: 8 },
+  // 帝阶：realmLv 103+
+  { maxRealmLv: 127, grade: 'emperor', weight: 3 },
+];
+
+function rollTechniqueGrade(realmLv: number): TechniqueGrade {
+  // 筛选 realmLv 落在该品阶有效区间内的候选
+  // 按 weight 加权随机
+}
+```
+
+具体的 realmLv 区间与权重需要参考现有静态功法分布和 `PLAYER_REALM_STAGE_LEVEL_RANGES` 微调。
+
+### 4.3 TechniqueGenerationService 核心方法
 
 ```ts
 @Injectable()
 class TechniqueGenerationService {
-  /** 发起生成（扣资源 + 建任务） */
+  /** 发起生成（消耗悟道玉简 + 建任务 + 异步执行） */
   async requestGeneration(params: {
     playerId: number;
-    category: 'arts' | 'internal';
+    category: 'internal' | 'arts';
     playerContext?: string;
   }): Promise<GenerationJobResult>;
 
-  /** 执行生成（AI 调用 + 校验 + 落草稿） */
+  /** 执行生成（AI 调用 + 校验 + 落草稿）[异步 Worker] */
   async executeGeneration(jobId: string): Promise<GenerationExecutionResult>;
 
-  /** 玩家确认发布（命名 + 唯一检查 + 刷新缓存） */
-  async publishDraft(params: {
+  /** 玩家确认采纳 → 直接学习 */
+  async adoptDraft(params: {
     playerId: number;
     jobId: string;
     customName: string;
-  }): Promise<PublishResult>;
+  }): Promise<AdoptResult>;
 
-  /** 放弃草稿（退款） */
+  /** 放弃草稿 */
   async discardDraft(playerId: number, jobId: string): Promise<void>;
 
   /** 查询当前状态 */
   async getStatus(playerId: number): Promise<GenerationStatus>;
 
-  /** 过期草稿清理（定时任务调用） */
+  /** 过期草稿清理（定时任务） */
   async expireStaleJobs(): Promise<number>;
 }
 ```
 
-### 4.3 生成流程时序
+### 4.4 生成流程时序
 
 ```
-玩家请求
+玩家在背包使用"悟道玉简"
+  │
+  ▼
+打开功法领悟界面（独立面板）
+  ├─ 选择分类 tab：内功 / 术法 / [神通] / [秘术]（后两者灰色锁定）
+  ├─ 输入提示词（可选，≤200字）
+  └─ 点击"开始领悟"
   │
   ▼
 requestGeneration()
-  ├─ AiRateLimiter.check(playerId)          → 超限拒绝
-  ├─ 校验功法残页余额                         → 不足拒绝
-  ├─ 校验冷却时间                             → 冷却中拒绝
-  ├─ 扣除功法残页
+  ├─ 校验玩家境界 ≥ 筑基期（realmLv ≥ 31）     → 不满足拒绝
+  ├─ 校验并消耗悟道玉简（背包扣除 1 个）         → 不足拒绝
+  ├─ rollTechniqueRealmLv(playerRealmLv)        → 随机功法 realmLv
+  ├─ rollTechniqueGrade(rolledRealmLv)          → 随机品阶
   └─ INSERT technique_generation_job (status=pending)
   │
   ▼
-executeGeneration(jobId)  [可异步/Worker]
-  ├─ 读取 job 参数
-  ├─ TechniquePromptBuilder.build(category, grade, realmLv, playerContext)
+executeGeneration(jobId)  [异步 Worker / setImmediate]
+  ├─ 读取 job 参数（category, grade, realmLv, playerContext）
+  ├─ TechniquePromptBuilder.build(...)
   ├─ AiTaskExecutionService.execute(request)
   │     ├─ AiPromptSanitizer.sanitize(playerContext)
-  │     ├─ AiRateLimiter.acquire()
   │     ├─ AiTextClient.call()
-  │     ├─ AiCostMeter.record()
-  │     └─ AiRetryPolicy.handleFailure()
+  │     ├─ AiTokenMeter.record()
+  │     └─ AiRetryPolicy（失败重试 1 次）
   ├─ JSON.parse(result.content)
   ├─ TechniqueCandidateValidator.validate(candidate)
   │     ├─ Layer 1: 结构校验（ajv schema）
@@ -257,98 +286,39 @@ executeGeneration(jobId)  [可异步/Worker]
   ├─ TechniqueBudgetNormalizer.normalize(candidate)  [仅 arts]
   ├─ 组装 TechniqueTemplate
   ├─ INSERT generated_technique (status=draft)
-  └─ UPDATE job (status=generated_draft, draft_expire_at=+24h)
+  ├─ UPDATE job (status=generated_draft, draft_expire_at=+24h)
+  └─ 推送 notify 给玩家
   │
   ▼
-publishDraft(playerId, jobId, customName)
-  ├─ 校验 job 状态 = generated_draft
-  ├─ 校验草稿未过期
-  ├─ 校验命名规则（长度/敏感词/格式）
-  ├─ 校验全服唯一（静态功法 + 已发布生成功法）
-  ├─ UPDATE generated_technique (is_published=true, display_name, name_locked)
-  ├─ UPDATE job (status=published)
-  ├─ GeneratedTechniqueStoreService.refreshAfterPublish()
-  └─ 发放功法书道具（或直接学习）
+玩家预览草稿
+  ├─ 满意 → 输入自定义名称 → adoptDraft()
+  │     ├─ 校验命名规则
+  │     ├─ 校验全服唯一
+  │     ├─ UPDATE generated_technique (is_published=true, display_name)
+  │     ├─ UPDATE job (status=learned)
+  │     ├─ GeneratedTechniqueStoreService.refreshAfterPublish()
+  │     └─ 直接将功法加入玩家 techniques[]（等同学习）
+  └─ 不满意 → discardDraft()（无退款，玉简已消耗）
 ```
-
-### 4.4 Prompt 构造器
-
-```ts
-class TechniquePromptBuilder {
-  /** 构造内功生成 prompt */
-  buildInternalPrompt(params: {
-    grade: TechniqueGrade;
-    realmLv: number;
-    playerContext: string;
-  }): { systemMessage: string; userMessage: string };
-
-  /** 构造术法生成 prompt */
-  buildArtsPrompt(params: {
-    grade: TechniqueGrade;
-    realmLv: number;
-    playerContext: string;
-    allowedBuffKeys: string[];
-    allowedFormulaVars: string[];
-  }): { systemMessage: string; userMessage: string };
-
-  /** 构造重试 prompt（带错误反馈） */
-  buildRetryPrompt(params: {
-    originalPrompt: { systemMessage: string; userMessage: string };
-    failureReason: string;
-    correctionHints: string[];
-  }): { systemMessage: string; userMessage: string };
-}
-```
-
-Prompt 结构：
-- system: 角色设定 + JSON Schema 约束 + 白名单枚举
-- user: 品阶/类别/境界 + 玩家主题 + 输出格式要求
-- 不注入 few-shot（归一化已兜数值）
 
 ### 4.5 三层校验器
 
 ```ts
 class TechniqueCandidateValidator {
-  /** 完整校验链 */
   validate(raw: unknown, category: TechniqueCategory): ValidationResult;
-
-  /** Layer 1: 结构合法性 */
   private validateStructure(raw: unknown): ValidationResult;
-
-  /** Layer 2: 语义合法性 */
   private validateSemantics(candidate: RawCandidate): ValidationResult;
-
-  /** Layer 3: 数值合法性 */
   private validateNumerics(candidate: RawCandidate): ValidationResult;
 }
-
-type ValidationResult = {
-  valid: boolean;
-  errors: Array<{ layer: 1 | 2 | 3; field: string; message: string }>;
-};
 ```
-
-各层检查项：
 
 | 层 | 检查内容 |
 |---|---|
 | 结构 | ajv schema 校验、字段类型、必填项 |
-| 语义 | category 不是 divine/secret、attrFloat 范围、SkillFormulaVar 白名单、buffId 合法、AST 深度 ≤ 6 |
+| 语义 | category 限制（仅 internal/arts）、attrFloat 范围、SkillFormulaVar 白名单、buffId 合法、AST 深度 ≤ 6 |
 | 数值 | attrRatio 权重和 > 0、expDifficulty 范围、归一化可执行（非全零效果） |
 
 ### 4.6 术法预算归一化
-
-```ts
-class TechniqueBudgetNormalizer {
-  /** 按预算归一化技能效果 */
-  normalizeSkills(params: {
-    skills: SkillDef[];
-    grade: TechniqueGrade;
-    realmLv: number;
-    maxLayer: number;
-  }): SkillDef[];
-}
-```
 
 公式（详见 `AI功法生成方案.md §5`）：
 - `BUDGET_max = 3 + (realmLv × 0.1 + stage) × 1.2^(g-1)`
@@ -402,12 +372,6 @@ CREATE INDEX idx_gen_tech_published
   WHERE is_published = true;
 ```
 
-**设计决策**：
-- `template` JSONB 存完整 `TechniqueTemplate`，与静态功法格式一致
-- 冗余 `grade/category/realm_lv` 用于列表筛选，避免 JSONB 索引
-- `normalized_name` 唯一索引保证全服命名不重复
-- 不拆 skill/layer 子表 — 我们的展开函数在启动期完成
-
 ### 5.2 表结构：technique_generation_job
 
 ```sql
@@ -417,13 +381,13 @@ CREATE TABLE technique_generation_job (
   status                VARCHAR(16) NOT NULL DEFAULT 'pending',
 
   requested_category    VARCHAR(16),
-  requested_grade       VARCHAR(16),
+  rolled_grade          VARCHAR(16),
+  rolled_realm_lv       INT,
   player_context        VARCHAR(200),
 
   draft_technique_id    VARCHAR(64),
   model_name            VARCHAR(64),
   attempt_count         INT NOT NULL DEFAULT 0,
-  cost_fragments        INT NOT NULL DEFAULT 0,
 
   draft_expire_at       TIMESTAMPTZ,
   finished_at           TIMESTAMPTZ,
@@ -444,22 +408,13 @@ CREATE INDEX idx_gen_job_status
 ### 5.3 任务状态机
 
 ```
-pending ──────────► generated_draft ──────────► published
+pending ──────────► generated_draft ──────────► learned
    │                      │
    │                      ├──► expired (草稿超时)
-   │                      └──► refunded (玩家放弃)
+   │                      └──► discarded (玩家放弃)
    │
    └──► failed (AI 调用失败/校验耗尽)
-         └──► refunded (自动退款)
 ```
-
-状态转换规则：
-- `pending → generated_draft`：AI 生成成功 + 校验通过
-- `pending → failed`：AI 调用异常或校验耗尽重试
-- `generated_draft → published`：玩家确认命名发布
-- `generated_draft → expired`：超过 `draft_expire_at`
-- `generated_draft → refunded`：玩家主动放弃
-- `failed → refunded`：自动退款（部分或全额）
 
 ### 5.4 缓存服务
 
@@ -469,19 +424,14 @@ class GeneratedTechniqueStoreService {
   private cache = new Map<string, TechniqueTemplate>();
   private lastSignature: { count: number; maxUpdatedAt: string } | null = null;
 
-  /** 启动期加载 */
-  async onModuleInit(): Promise<void> {
-    await this.reload();
-  }
+  async onModuleInit(): Promise<void> { await this.reload(); }
 
-  /** 签名比对 + 按需重载 */
   async reload(): Promise<void> {
     const sig = await this.loadSignature();
     if (this.isSignatureEqual(sig)) return;
-
     const rows = await this.pool.query(
       `SELECT id, template FROM generated_technique
-       WHERE is_published = true AND status = 'published'`
+       WHERE is_published = true`
     );
     this.cache.clear();
     for (const row of rows) {
@@ -490,57 +440,27 @@ class GeneratedTechniqueStoreService {
     this.lastSignature = sig;
   }
 
-  /** 发布后主动刷新 */
   async refreshAfterPublish(): Promise<void> {
     this.lastSignature = null;
     await this.reload();
   }
 
-  getById(id: string): TechniqueTemplate | undefined {
-    return this.cache.get(id);
-  }
-
-  listAll(): TechniqueTemplate[] {
-    return [...this.cache.values()];
-  }
-
-  private async loadSignature() {
-    const result = await this.pool.query(`
-      SELECT COUNT(*)::int AS count,
-             MAX(updated_at)::text AS max_updated_at
-      FROM generated_technique
-      WHERE is_published = true
-    `);
-    return result.rows[0];
-  }
-
-  private isSignatureEqual(sig: { count: number; max_updated_at: string }): boolean {
-    return this.lastSignature !== null
-      && this.lastSignature.count === sig.count
-      && this.lastSignature.maxUpdatedAt === sig.max_updated_at;
-  }
+  getById(id: string): TechniqueTemplate | undefined { return this.cache.get(id); }
+  listAll(): TechniqueTemplate[] { return [...this.cache.values()]; }
 }
 ```
 
-### 5.5 与 ContentTemplateRepository 合并
+### 5.5 与 TechniqueTemplateRegistry 合并
 
 ```ts
-// TechniqueTemplateRegistry 中新增
-listTechniqueTemplates(): TechniqueTemplateRecord[] {
-  return [
-    ...Array.from(this.techniqueTemplates.values()),
-    ...this.generatedStore.listAll().map(normalizeTechniqueTemplate),
-  ];
-}
-
 tryGetRef(techniqueId: string): TechniqueTemplateRecord | undefined {
   return this.techniqueTemplates.get(techniqueId)
     ?? this.generatedStore.getById(techniqueId);
 }
 ```
 
-**关键保证**：
-- 生成功法缓存在 `onModuleInit` 时加载，早于玩家恢复
+关键保证：
+- 缓存在 `onModuleInit` 时加载，早于玩家恢复
 - `hydrate(techId)` 对生成功法和静态功法走同一路径
 - 运行时展开后挂到 `TechniqueState.layers`，战斗/属性结算无感知
 
@@ -548,14 +468,25 @@ tryGetRef(techniqueId: string): TechniqueTemplateRecord | undefined {
 
 ## 6. 玩家交互与协议
 
-### 6.1 协议定义
+### 6.1 入口
+
+玩家在背包中使用"悟道玉简"道具 → 打开独立的**功法领悟界面**。
+
+界面包含：
+- **分类 Tab**：内功 / 术法 / 神通（锁定） / 秘术（锁定）
+- **提示词输入框**：可选，≤200 字，描述想要的功法主题/风格
+- **开始领悟按钮**
+- **预览区域**：生成完成后展示草稿详情
+- **操作按钮**：采纳（需命名）/ 放弃
+
+### 6.2 协议定义
 
 ```ts
 // 请求
 type TechniqueGenerationRequest =
   | { action: 'getStatus' }
-  | { action: 'generate'; category: 'arts' | 'internal'; playerContext?: string }
-  | { action: 'publish'; jobId: string; customName: string }
+  | { action: 'generate'; category: 'internal' | 'arts'; playerContext?: string }
+  | { action: 'adopt'; jobId: string; customName: string }
   | { action: 'discard'; jobId: string };
 
 // 响应
@@ -565,7 +496,7 @@ type TechniqueGenerationResponse = {
   error?: { code: string; message: string };
 };
 
-// 状态推送（生成完成时服务端主动推送）
+// 服务端推送（生成完成时）
 type TechniqueGenerationNotify = {
   type: 'technique_generation_complete';
   jobId: string;
@@ -575,55 +506,48 @@ type TechniqueGenerationNotify = {
 };
 ```
 
-### 6.2 GenerationStatus 结构
+### 6.3 GenerationStatus
 
 ```ts
 type GenerationStatus = {
-  unlocked: boolean;              // 是否解锁洞府研修
-  unlockRequirement?: string;     // 解锁条件描述
-
-  fragmentBalance: number;        // 功法残页余额
-  fragmentCost: number;           // 单次消耗
-
-  cooldownUntil: string | null;   // 冷却结束时间 ISO
-  cooldownRemainingSeconds: number;
+  available: boolean;             // 是否可用（境界 + 有玉简）
+  unavailableReason?: string;     // 不可用原因
 
   currentJob: {
     jobId: string;
-    status: TechniqueGenerationJobStatus;
+    status: string;
     category: string;
+    rolledGrade: TechniqueGrade;
+    rolledRealmLv: number;
     createdAt: string;
     draftExpireAt?: string;
   } | null;
 
   currentDraft: TechniquePreview | null;
-
-  dailyRemaining: number;         // 今日剩余次数
-  dailyLimit: number;             // 每日上限
 };
 ```
 
-### 6.3 TechniquePreview 结构
+### 6.4 TechniquePreview
 
 ```ts
 type TechniquePreview = {
   techniqueId: string;
-  suggestedName: string;          // AI 建议名
+  suggestedName: string;
   grade: TechniqueGrade;
   category: TechniqueCategory;
   realmLv: number;
   desc: string;
 
-  // 内功预览
+  // 内功
   attrRatio?: Partial<Record<AttrKey, number>>;
   attrTotal?: number;
 
-  // 术法预览
+  // 术法
   skills?: Array<{
     name: string;
     desc: string;
     cooldown: number;
-    effects: string[];  // 效果文本描述列表
+    effects: string[];
   }>;
 
   maxLayer: number;
@@ -631,58 +555,46 @@ type TechniquePreview = {
 };
 ```
 
-### 6.4 交互流程（前端视角）
+### 6.5 交互流程
 
 ```
-1. 打开洞府研修面板 → getStatus
-   ├─ 未解锁 → 显示解锁条件
-   ├─ 冷却中 → 显示倒计时
-   ├─ 有草稿 → 显示预览 + 命名/放弃按钮
-   └─ 可生成 → 显示生成入口
+1. 背包使用悟道玉简 → 打开功法领悟界面 → getStatus
+   ├─ 境界不足 → 提示"需筑基期方可领悟"
+   └─ 可用 → 显示分类选择 + 提示词输入
 
-2. 点击"开始领悟" → generate
-   ├─ 选择类别（内功/术法）
-   ├─ 输入主题描述（可选，≤200字）
-   └─ 确认消耗 → 进入等待状态
+2. 选择分类 + 输入提示词 → 点击"开始领悟" → generate
+   └─ 进入等待状态（10~30秒）
 
-3. 等待生成（10~30秒）
+3. 等待生成
    ├─ 轮询 getStatus 或等待 notify 推送
-   └─ 生成完成 → 显示预览
+   └─ 完成 → 显示预览（品阶/境界/属性/技能）
 
 4. 预览草稿
-   ├─ 满意 → 输入自定义名称 → publish
-   └─ 不满意 → discard（部分退款）
-
-5. 发布成功 → 功法书进入背包 → 使用后学习
+   ├─ 满意 → 输入自定义名称 → adopt → 直接学习，功法加入已学列表
+   └─ 不满意 → discard → 关闭界面（玉简已消耗，不退还）
 ```
 
 ---
 
 ## 7. 安全与运营
 
-### 7.1 资源门槛
+### 7.1 门槛
 
-| 项目 | 配置 | 说明 |
-|---|---|---|
-| 解锁条件 | 境界 ≥ 练气中期 | 新手保护 |
-| 消耗道具 | 功法残页 × N | 防白嫖 |
-| 每日上限 | 5 次/天 | 控制 LLM 成本 |
-| 生成冷却 | 可配置（默认 1h） | 防刷 |
-| 草稿有效期 | 24h | 防囤积 |
-
-### 7.2 LLM 成本控制
-
-| 措施 | 实现 |
+| 项目 | 配置 |
 |---|---|
-| 单玩家日额度 | AiRateLimiter（Redis INCR） |
-| 全服并发上限 | 内存 Semaphore（默认 20） |
-| 单次超时 | 60s 硬超时 |
-| 日成本告警 | AiCostMeter 累计 → Logger.warn |
-| 熔断 | 连续 10 次失败 → 暂停 5 分钟 |
+| 解锁条件 | 境界 ≥ 筑基前期（realmLv ≥ 31） |
+| 消耗道具 | 悟道玉简 × 1 |
+| 生成次数 | 无上限（受道具获取速率自然限制） |
+
+### 7.2 Token 消耗记录
+
+- 每次 AI 调用后通过 `AiTokenMeter` 异步记录 promptTokens + completionTokens
+- GM 可查询全服累计消耗、按天/按 taskType 分组统计
+- 不做玩家级限额，不做成本告警（由道具获取速率自然控制）
 
 ### 7.3 Prompt 注入防御
 
-- 玩家输入 `playerContext` 进入 prompt 前必须经过 `AiPromptSanitizer`
+- 玩家 `playerContext` 经过 `AiPromptSanitizer` 清洗
 - 长度截断 ≤ 200 字
 - 剥离控制字符、markdown 代码块
 - 正则拒绝角色扮演指令
@@ -692,33 +604,18 @@ type TechniquePreview = {
 
 ```
 初期：usage_scope = 'player_only'
-  - 仅创建者可学习
+  - 生成后直接学习，绑定创建者
   - 不可交易、邮寄、上架市场
-  - 不可赠送
 
-二阶段：usage_scope = 'tradeable'（需单独评审）
-  - 通过功法书道具流通
-  - 市场上架需额外审核
+二阶段（需单独评审）：
+  - 可能开放功法书道具化流通
 ```
 
-### 7.5 版本化与回滚
+### 7.5 版本化
 
-- `schema_version` 字段跟踪规则版本
-- 规则升级时可按版本批量：
-  - 重新展开（公式变更）
-  - 下架（严重平衡问题）
-  - 迁移（字段结构变更）
-- 支持 GM 命令按 `schema_version` 批量操作
-
-### 7.6 审计日志
-
-每次生成操作写入 outbox：
-- `playerId`、`modelName`、`promptSnapshot`
-- `validationReport`（校验结果快照）
-- `attemptCount`、`tokenUsage`
-- 时间戳、最终状态
-
-保留期：90 天。
+- `schema_version` 跟踪规则版本
+- 升级时可按版本批量重新展开/下架/迁移
+- GM 命令支持按 `schema_version` 批量操作
 
 ---
 
@@ -726,84 +623,39 @@ type TechniquePreview = {
 
 ### 8.1 玩家功法存储
 
-玩家学习 AI 生成功法后：
+采纳后直接学习：
 - `TechniqueState.techId` = `generated_technique.id`
 - 存档格式与静态功法完全一致
-- 恢复时通过合并视图的 `tryGetRef(techId)` 找到模板
+- 恢复时通过合并视图 `tryGetRef(techId)` 找到模板
 
-### 8.2 战斗系统
+### 8.2 战斗 / 属性系统
 
-- 生成功法展开后的 `layers` / `skills` 与静态功法结构相同
-- 战斗结算直接读 `TechniqueState.skills`，无需区分来源
+- 展开后的 `layers` / `skills` 与静态功法结构相同
+- `calcTechniqueFinalAttrBonus()` 无需区分来源
 - 术法预算归一化保证数值在品阶预算内
 
-### 8.3 属性系统
+### 8.3 道具系统
 
-- `calcTechniqueFinalAttrBonus()` 遍历所有 `TechniqueState`
-- 生成功法的 `grade` 参与品阶软衰减，与静态功法同池计算
-- 无需特殊处理
+- 新增"悟道玉简"道具定义（`data/content/items/`）
+- 使用效果：打开功法领悟界面（客户端处理）
+- 物品来源后续单独配置
 
-### 8.4 配置编辑器
+### 8.4 建表落点
 
-- `config-editor` 的功法列表接口增加 `source: 'static' | 'generated'` 标记
-- GM 可查看/禁用生成功法，但不可编辑 template 内容
-- 禁用操作：`UPDATE generated_technique SET status = 'disabled'`
-
-### 8.5 建表落点
-
-走现有 `deploy-database-preflight` 的 ensure schema 链路：
-- 在 `ensureGeneratedTechniqueTables(pool)` 中执行 CREATE TABLE IF NOT EXISTS
-- 不引入新 migration 机制
+走现有 `deploy-database-preflight` 的 ensure schema 链路。
 
 ---
 
 ## 9. 实施路线图
 
-### Phase 0：通用 AI 服务层（1 周）
-
-- `ai/ai-rate-limiter.ts`
-- `ai/ai-cost-meter.ts`
-- `ai/ai-prompt-sanitizer.ts`
-- `ai/ai-retry-policy.ts`
-- `ai/ai-task-execution.service.ts`
-- smoke 测试
-
-### Phase 1：数据层（0.5 周）
-
-- `generated_technique` 表 + preflight
-- `technique_generation_job` 表 + preflight
-- `GeneratedTechniqueStoreService`
-- `TechniqueTemplateRegistry` 合并视图
-- smoke 测试
-
-### Phase 2：校验与归一化（1 周）
-
-- `technique-candidate-validator.ts`（三层校验）
-- `technique-budget-normalizer.ts`（术法预算归一化）
-- JSON Schema 导出（`ts-json-schema-generator`）
-- 单元测试
-
-### Phase 3：生成业务层（1.5 周）
-
-- `TechniqueGenerationService`（状态机编排）
-- `TechniquePromptBuilder`（Prompt 构造）
-- 异步执行链路（可选 Worker）
-- 过期清理定时任务
-- 全链路 smoke
-
-### Phase 4：协议与前端（1 周）
-
-- Socket handler 注册
-- 协议类型定义（shared）
-- 洞府研修面板（react-ui，三端适配）
-- 生成等待 → 预览 → 命名 → 发布流程
-
-### Phase 5：运营工具（0.5 周）
-
-- GM 审核/禁用接口
-- 成本报表查询
-- 按 schema_version 批量操作
-- 接入 `pnpm verify:quick`
+| Phase | 内容 | 周期 |
+|---|---|---|
+| 0 | 通用 AI 服务层（TokenMeter / Sanitizer / RetryPolicy / TaskExecution） | 1 周 |
+| 1 | 数据层（两张表 + preflight + 缓存服务 + Registry 合并） | 0.5 周 |
+| 2 | 校验与归一化（三层校验 + 术法预算 + Schema 导出） | 1 周 |
+| 3 | 生成业务层（Service + PromptBuilder + 品阶随机 + 异步执行） | 1.5 周 |
+| 4 | 协议与前端（handler + 功法领悟界面 + 三端适配） | 1 周 |
+| 5 | 运营工具（GM 查询/禁用 + token 报表） | 0.5 周 |
 
 ---
 
@@ -811,11 +663,12 @@ type TechniquePreview = {
 
 | 维度 | 决策 | 理由 |
 |---|---|---|
-| 存储方案 | 单表 JSONB | 与静态功法格式一致，零 JOIN，展开在启动期完成 |
-| 不拆 skill/layer 子表 | 我们的 template 已是紧凑格式 | 避免三表 JOIN + 三段 INSERT 的复杂度 |
-| 缓存刷新 | 签名比对 | 避免无变化时全量 IO |
-| AI 服务层独立 | 通用抽象 | 后续 NPC 对话/任务生成可复用 |
-| 初期锁 player_only | 不可交易 | 避免经济链路失衡 |
-| 草稿 24h 过期 | 参考 jiuzhou | 防囤积 + 简化状态管理 |
-| 不做沙盒战斗对标 | 归一化已兜底 | 降级为异常监控即可 |
-| 建表走 preflight | 现有链路 | 不引入新 migration 机制 |
+| 存储 | 单表 JSONB | 与静态功法格式一致，零 JOIN |
+| 入口 | 背包使用悟道玉简 | 道具消耗自然限速，无需额外限额 |
+| 品阶 | 随机（realmLv 决定可选范围） | 增加惊喜感，高品阶稀有 |
+| realmLv | 玩家当前 ±6 | 保证功法与玩家实力匹配 |
+| 采纳后 | 直接学习 | 简化流程，无需功法书中间道具 |
+| 分类开放 | 内功 + 术法 | 神通/秘术锁死不开放 AI |
+| 解锁 | 筑基期 | 新手保护 + 确保有足够功法体验 |
+| 无次数限制 | 由道具获取控制 | 简化系统，运营通过道具投放调节 |
+| AI 服务层独立 | 通用抽象 | 后续 AI 功能可复用 |
