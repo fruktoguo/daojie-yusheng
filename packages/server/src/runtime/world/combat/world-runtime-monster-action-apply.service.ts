@@ -456,7 +456,7 @@ export class WorldRuntimeMonsterActionApplyService {
             return this.worldRuntimeCombatActionService.recordMonsterActionReject(deps, action, reason, details, options);
         }
         const logger = deps?.logger ?? this.logger;
-        logger.warn?.(`combat_action_rejected reason=${reason} action=${action?.skillId ?? action?.kind ?? 'unknown'} instance=${action?.instanceId ?? 'unknown'} runtime=${action?.runtimeId ?? 'unknown'}`);
+        logger.warn?.(`战斗动作被拒绝 原因=${reason} 动作=${action?.skillId ?? action?.kind ?? '未知'} 实例=${action?.instanceId ?? '未知'} 运行时=${action?.runtimeId ?? '未知'}`);
         return null;
     }
     recordMonsterActionOutcome(deps, action, target, result = {}, options = undefined) {

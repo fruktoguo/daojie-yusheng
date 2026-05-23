@@ -2859,18 +2859,18 @@ export class WorldRuntimeCombatActionService {
   }
 
   formatRejectLog(outcome) {
-    const actor = outcome.actor ? `${outcome.actor.kind}:${outcome.actor.id}` : 'unknown';
-    const target = outcome.target ? `${outcome.target.kind}:${outcome.target.id ?? ''}` : 'none';
+    const actor = outcome.actor ? `${outcome.actor.kind}:${outcome.actor.id}` : '未知';
+    const target = outcome.target ? `${outcome.target.kind}:${outcome.target.id ?? ''}` : '无';
     const targetCount = resolveOutcomeTargetCount(outcome);
-    return `combat_action_rejected reason=${outcome.reason} phase=${outcome.phase} actor=${actor} action=${outcome.actionId ?? 'unknown'} instance=${outcome.instanceId ?? 'unknown'} target=${target} target_count=${targetCount}`;
+    return `战斗动作被拒绝 原因=${outcome.reason} 阶段=${outcome.phase} 施放者=${actor} 动作=${outcome.actionId ?? '未知'} 实例=${outcome.instanceId ?? '未知'} 目标=${target} 目标数=${targetCount}`;
   }
 
   formatOutcomeLog(outcome) {
-    const actor = outcome.actor ? `${outcome.actor.kind}:${outcome.actor.id}` : 'unknown';
-    const target = outcome.target ? `${outcome.target.kind}:${outcome.target.id ?? ''}` : 'none';
+    const actor = outcome.actor ? `${outcome.actor.kind}:${outcome.actor.id}` : '未知';
+    const target = outcome.target ? `${outcome.target.kind}:${outcome.target.id ?? ''}` : '无';
     const damage = Number.isFinite(Number(outcome.result?.damage)) ? Number(outcome.result.damage) : 0;
     const targetCount = resolveOutcomeTargetCount(outcome);
-    return `combat_action_outcome phase=${outcome.phase} actor=${actor} action=${outcome.actionId ?? 'unknown'} instance=${outcome.instanceId ?? 'unknown'} target=${target} target_count=${targetCount} damage=${damage}`;
+    return `战斗动作结算 阶段=${outcome.phase} 施放者=${actor} 动作=${outcome.actionId ?? '未知'} 实例=${outcome.instanceId ?? '未知'} 目标=${target} 目标数=${targetCount} 伤害=${damage}`;
   }
 }
 
