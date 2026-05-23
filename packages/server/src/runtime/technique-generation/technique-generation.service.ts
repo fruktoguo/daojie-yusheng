@@ -70,7 +70,7 @@ export class TechniqueGenerationService {
 
   /** 发起生成 */
   async requestGeneration(params: {
-    playerId: number;
+    playerId: string;
     playerRealmLv: number;
     category: TechniqueCategory;
     playerContext?: string;
@@ -91,17 +91,11 @@ export class TechniqueGenerationService {
       return { success: false, error: '当前仅开放内功和术法', errorCode: 'CATEGORY_LOCKED' };
     }
 
-    // 3. 消耗悟道玉简
-    const consumed = await params.consumeItem();
-    if (!consumed) {
-      return { success: false, error: '悟道玉简不足', errorCode: 'ITEM_NOT_ENOUGH' };
-    }
-
-    // 4. 随机 realmLv + 品阶
+    // 3. 随机 realmLv + 品阶
     const rolledRealmLv = rollTechniqueRealmLv(params.playerRealmLv);
     const rolledGrade = rollTechniqueGrade(rolledRealmLv);
 
-    // 5. 创建 job
+    // 4. 先创建 job 审计，再消耗道具；数据库不可写时不能扣玩家资产。
     const jobId = randomUUID();
     const sanitizedContext = sanitizePlayerContext(params.playerContext);
 
@@ -113,6 +107,13 @@ export class TechniqueGenerationService {
       rolledRealmLv,
       playerContext: sanitizedContext,
     });
+
+    // 5. 消耗悟道玉简
+    const consumed = await params.consumeItem();
+    if (!consumed) {
+      await updateGenerationJobStatus(pool, jobId, 'failed', 'ITEM_NOT_ENOUGH', '悟道玉简不足');
+      return { success: false, error: '悟道玉简不足', errorCode: 'ITEM_NOT_ENOUGH' };
+    }
 
     // 6. 异步触发执行
     setImmediate(() => {
@@ -134,7 +135,7 @@ export class TechniqueGenerationService {
     grade: string;
     realmLv: number;
     playerContext: string;
-    playerId: number;
+    playerId: string;
   }): Promise<GenerationExecutionResult> {
     const pool = this.pool;
     if (!pool) {
@@ -255,7 +256,7 @@ export class TechniqueGenerationService {
     return { success: true, techniqueId };
   }
 
-  async getPreview(playerId: number, jobId: string): Promise<TechniquePreview | null> {
+  async getPreview(playerId: string, jobId: string): Promise<TechniquePreview | null> {
     const pool = this.pool;
     if (!pool) {
       return null;
@@ -286,7 +287,7 @@ export class TechniqueGenerationService {
 
   /** 采纳草稿 → 直接学习 */
   async adoptDraft(params: {
-    playerId: number;
+    playerId: string;
     jobId: string;
     customName: string;
   }): Promise<AdoptResult> {
@@ -349,7 +350,7 @@ export class TechniqueGenerationService {
   }
 
   /** 放弃草稿 */
-  async discardDraft(playerId: number, jobId: string): Promise<{ success: boolean; error?: string }> {
+  async discardDraft(playerId: string, jobId: string): Promise<{ success: boolean; error?: string }> {
     const pool = this.pool;
     if (!pool) {
       return { success: false, error: '功法领悟系统未就绪' };

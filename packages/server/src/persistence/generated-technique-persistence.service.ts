@@ -43,7 +43,7 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
         normalized_name       VARCHAR(64),
         name_locked           BOOLEAN NOT NULL DEFAULT false,
 
-        created_by_player_id  INT NOT NULL,
+        created_by_player_id  VARCHAR(120) NOT NULL,
         model_name            VARCHAR(64),
         prompt_snapshot       TEXT,
         validation_report     JSONB,
@@ -79,7 +79,7 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${TECHNIQUE_GENERATION_JOB_TABLE} (
         id                    VARCHAR(64) PRIMARY KEY,
-        player_id             INT NOT NULL,
+        player_id             VARCHAR(120) NOT NULL,
         status                VARCHAR(16) NOT NULL DEFAULT 'pending',
 
         requested_category    VARCHAR(16),
@@ -100,6 +100,17 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
         created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
+    `);
+
+    await client.query(`
+      ALTER TABLE ${GENERATED_TECHNIQUE_TABLE}
+      ALTER COLUMN created_by_player_id TYPE VARCHAR(120)
+      USING created_by_player_id::text
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ALTER COLUMN player_id TYPE VARCHAR(120)
+      USING player_id::text
     `);
 
     await client.query(`
@@ -166,7 +177,7 @@ export interface InsertGeneratedTechniqueParams {
   generationId: string;
   template: unknown;
   schemaVersion: number;
-  createdByPlayerId: number;
+  createdByPlayerId: string;
   modelName: string;
   promptSnapshot: string;
   validationReport: unknown;
@@ -217,7 +228,7 @@ export async function publishGeneratedTechnique(pool: Pool, params: PublishGener
 
 export interface InsertGenerationJobParams {
   id: string;
-  playerId: number;
+  playerId: string;
   requestedCategory: string;
   rolledGrade: string;
   rolledRealmLv: number;

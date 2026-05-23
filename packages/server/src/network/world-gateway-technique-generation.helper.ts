@@ -95,15 +95,25 @@ export class WorldGatewayTechniqueGenerationHelper {
       return { success: false, error: '玩家状态异常' };
     }
 
-    const result = await this.techniqueGenerationService!.requestGeneration({
-      playerId: Number(playerId),
-      playerRealmLv: realmLv,
-      category,
-      playerContext,
-      consumeItem: async () => {
-        return this.deps.playerRuntimeService.consumeItemByItemId(playerId, 'wudao_yujian', 1);
-      },
-    });
+    let result: Awaited<ReturnType<TechniqueGenerationService['requestGeneration']>>;
+    try {
+      result = await this.techniqueGenerationService!.requestGeneration({
+        playerId,
+        playerRealmLv: realmLv,
+        category,
+        playerContext,
+        consumeItem: async () => {
+          return this.deps.playerRuntimeService.consumeItemByItemId(playerId, 'wudao_yujian', 1);
+        },
+      });
+    } catch (error: unknown) {
+      client.emit(S2C.TechniqueGenerationResult, {
+        jobId: '',
+        result: 'failed',
+        errorMessage: error instanceof Error ? error.message : '功法领悟失败',
+      });
+      return { success: false, error: '功法领悟失败', errorCode: 'GENERATION_FAILED' };
+    }
 
     if (result.success && result.jobId) {
       setImmediate(() => {
@@ -121,7 +131,7 @@ export class WorldGatewayTechniqueGenerationHelper {
   }
 
   private async emitGenerationResultWhenReady(client: Socket, playerId: string, jobId: string, attempt: number): Promise<void> {
-    const result = await this.techniqueGenerationService!.getPreview(Number(playerId), jobId);
+    const result = await this.techniqueGenerationService!.getPreview(playerId, jobId);
     if (!result && attempt < 120) {
       setTimeout(() => {
         this.emitGenerationResultWhenReady(client, playerId, jobId, attempt + 1).catch(() => undefined);
@@ -144,7 +154,7 @@ export class WorldGatewayTechniqueGenerationHelper {
     const customName = String(request.customName ?? '');
 
     const result = await this.techniqueGenerationService!.adoptDraft({
-      playerId: Number(playerId),
+      playerId,
       jobId,
       customName,
     });
@@ -162,6 +172,6 @@ export class WorldGatewayTechniqueGenerationHelper {
 
   private async handleDiscard(playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const jobId = String(request.jobId ?? '');
-    return this.techniqueGenerationService!.discardDraft(Number(playerId), jobId);
+    return this.techniqueGenerationService!.discardDraft(playerId, jobId);
   }
 }
