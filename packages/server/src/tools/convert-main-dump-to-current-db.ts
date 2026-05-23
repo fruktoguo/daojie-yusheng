@@ -410,7 +410,11 @@ async function convertPlayers(pool, services, limit) {
         persistedSource: 'native',
         seededAt: snapshot.savedAt,
       });
-      await services.playerDomains.savePlayerSnapshotProjectionDomains(playerId, snapshot, PLAYER_DOMAIN_PROJECTION_TARGETS);
+      await services.playerDomains.savePlayerSnapshotProjectionDomains(playerId, snapshot, PLAYER_DOMAIN_PROJECTION_TARGETS, {
+        allowInventoryEmptyOverwrite: true,
+        allowEquipmentEmptyOverwrite: true,
+        allowBuffEmptyOverwrite: true,
+      });
       await services.playerDomains.savePlayerPresence(playerId, {
         online: entry.presence?.online === true || entry.player?.online === true,
         inWorld: entry.presence?.inWorld === true || entry.player?.inWorld === true,
