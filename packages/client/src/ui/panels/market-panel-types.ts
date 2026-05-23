@@ -243,5 +243,6 @@ export interface MarketPanelInternals {
   syncOwnedBadge(button: HTMLElement, ownedCount: number): void;
   openAuctionBidDialog(entry: MarketListedItemView, lot: AuctionLotView): void;
   openAuctionBuyoutConfirm(entry: MarketListedItemView, lot: AuctionLotView): void;
+  openAuctionConsignModal(): void;
   resolveAuctionLotByKey(lotId: string | null | undefined, update: S2C_MarketUpdate | null, tab?: AuctionHouseTab): AuctionLotView | null;
 }

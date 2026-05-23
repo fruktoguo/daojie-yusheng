@@ -150,6 +150,10 @@ export class MarketAuctionView {
           <strong>${formatDisplayInteger(summary.myConsignments)}</strong>
           <small>寄拍中 ${formatDisplayInteger(summary.consigningLots)}</small>
         </div>
+        <button class="auction-summary-card auction-summary-action ui-surface-card ui-surface-card--compact" data-auction-consign-open type="button">
+          <strong>发起拍卖</strong>
+          <small>寄拍背包物品</small>
+        </button>
       </div>
     `;
   }
@@ -758,6 +762,10 @@ export class MarketAuctionView {
     body.querySelectorAll<HTMLElement>('[data-auction-action]').forEach((button) => button.addEventListener('click', () => {
       this.handleAuctionActionClick(button);
     }, { signal }));
+
+    body.querySelector<HTMLElement>('[data-auction-consign-open]')?.addEventListener('click', () => {
+      this.panel.openAuctionConsignModal();
+    }, { signal });
 
     body.querySelectorAll<HTMLElement>('[data-auction-cancel]').forEach((button) => button.addEventListener('click', () => {
       this.handleAuctionCancelClick(button);

@@ -1169,7 +1169,7 @@ export class MarketPanel {
   }
 
   /** 打开发起拍卖独立弹层。 */
-  private openAuctionConsignModal(): void {
+  openAuctionConsignModal(): void {
     const first = this.auctionView.getAuctionConsignItems(this.marketUpdate).at(0);
     this.auctionConsignPanel = {
       open: true,

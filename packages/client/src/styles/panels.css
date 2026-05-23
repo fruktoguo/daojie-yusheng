@@ -5650,12 +5650,28 @@
     }
     .auction-house-summary {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
     }
     .auction-summary-card,
     .auction-price-card {
       min-width: 0;
+    }
+    .auction-summary-action {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      border-color: color-mix(in srgb, var(--stamp-red) 34%, var(--wash-ink));
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+    }
+    .auction-summary-action:hover {
+      background: var(--surface-hover);
+      border-color: var(--stamp-red);
+      transform: translateY(-1px);
     }
     .auction-house-board {
       display: grid;
