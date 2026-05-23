@@ -62,6 +62,18 @@ function formatCoord(x, y) {
     return `${Math.trunc(Number(x))},${Math.trunc(Number(y))}`;
 }
 
+function hasFiniteCoord(x, y) {
+    return x !== null && x !== undefined
+        && y !== null && y !== undefined
+        && Number.isFinite(Number(x))
+        && Number.isFinite(Number(y));
+}
+
+function resolvePlayerIdFromTargetRef(targetRef) {
+    const normalized = typeof targetRef === 'string' ? targetRef.trim() : '';
+    return normalized.startsWith('player:') ? normalized.slice('player:'.length).trim() : '';
+}
+
 function resolveCommandTargetPosition(command, player, deps) {
     if (Number.isFinite(command?.targetX) && Number.isFinite(command?.targetY)) {
         return { kind: 'tile', ref: resolveCommandTargetRef(command) ?? 'tile', x: Math.trunc(Number(command.targetX)), y: Math.trunc(Number(command.targetY)) };
@@ -76,6 +88,13 @@ function resolveCommandTargetPosition(command, player, deps) {
     const targetRef = resolveCommandTargetRef(command);
     if (!targetRef || !player?.instanceId) {
         return null;
+    }
+    const targetRefPlayerId = resolvePlayerIdFromTargetRef(targetRef);
+    if (targetRefPlayerId) {
+        const targetPlayer = deps.playerRuntimeService?.getPlayer?.(targetRefPlayerId);
+        return targetPlayer
+            ? { kind: 'player', ref: targetRef, x: targetPlayer.x, y: targetPlayer.y }
+            : { kind: 'player', ref: targetRef, x: null, y: null };
     }
     const instance = typeof deps.getInstanceRuntime === 'function'
         ? deps.getInstanceRuntime(player.instanceId)
@@ -94,6 +113,17 @@ function resolveCommandTargetPosition(command, player, deps) {
         return { kind: formation.kind ?? 'formation', ref: targetRef, x: formation.x, y: formation.y };
     }
     return { kind: 'unknown', ref: targetRef, x: null, y: null };
+}
+
+function clearAutoCombatThreatTarget(playerId, targetRef, deps) {
+    const normalizedTargetRef = typeof targetRef === 'string' ? targetRef.trim() : '';
+    if (!normalizedTargetRef) {
+        return;
+    }
+    const threatService = deps.worldRuntimeThreatService;
+    if (typeof threatService?.buildPlayerOwnerId === 'function' && typeof threatService?.multiplyThreat === 'function') {
+        threatService.multiplyThreat(threatService.buildPlayerOwnerId(playerId), normalizedTargetRef, 0);
+    }
 }
 
 function buildPendingCommandFailureDebug(playerId, command, deps) {
@@ -120,7 +150,7 @@ function buildPendingCommandFailureDebug(playerId, command, deps) {
             parts.push(`target=${target.ref}`);
             parts.push(`targetKind=${target.kind}`);
             parts.push(`targetPos=${formatCoord(target.x, target.y)}`);
-            if (Number.isFinite(Number(target.x)) && Number.isFinite(Number(target.y)) && Number.isFinite(Number(player.x)) && Number.isFinite(Number(player.y))) {
+            if (hasFiniteCoord(target.x, target.y) && hasFiniteCoord(player.x, player.y)) {
                 parts.push(`distance=${chebyshevDistance(player.x, player.y, target.x, target.y)}`);
             }
         }
@@ -186,6 +216,11 @@ export class WorldRuntimePendingCommandService {
         if (currentTargetRef && commandTargetRef && currentTargetRef !== commandTargetRef) {
             return;
         }
+        const targetPlayerId = resolvePlayerIdFromTargetRef(commandTargetRef);
+        if (targetPlayerId) {
+            deps.playerRuntimeService?.clearRetaliatePlayerTargetIfMatches?.(playerId, targetPlayerId, currentTick);
+        }
+        clearAutoCombatThreatTarget(playerId, commandTargetRef, deps);
         deps.playerRuntimeService?.clearCombatTarget?.(playerId, currentTick);
     }
     /**

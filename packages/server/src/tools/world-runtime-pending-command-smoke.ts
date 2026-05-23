@@ -628,6 +628,107 @@ async function testAutoCombatOutOfRangeClearsTargetWithoutNotice() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testAutoCombatPlayerOutOfRangeClearsRetaliateAndThreatTarget() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill.cloud_blade',
+        targetPlayerId: null,
+        targetMonsterId: null,
+        targetRef: 'player:target:1',
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('目标超出攻击距离');
+        },
+        buildAutoCombatCommand() {
+            return null;
+        },
+        getInstanceRuntime() {
+            return null;
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                if (playerId === 'player:1') {
+                    return {
+                        playerId,
+                        instanceId: 'public:yunlai_town',
+                        hp: 100,
+                        x: 43,
+                        y: 56,
+                        techniques: {
+                            techniques: [{
+                                skills: [{
+                                    id: 'skill.cloud_blade',
+                                    name: '流云刀谱',
+                                    range: 3,
+                                    effects: [{ type: 'damage', formula: 1 }],
+                                }],
+                            }],
+                        },
+                        combat: {
+                            autoBattle: false,
+                            retaliatePlayerTargetId: 'target:1',
+                            combatTargetId: 'player:target:1',
+                        },
+                    };
+                }
+                if (playerId === 'target:1') {
+                    return {
+                        playerId,
+                        instanceId: 'public:yunlai_town',
+                        hp: 100,
+                        x: 99,
+                        y: 1,
+                        combat: {},
+                    };
+                }
+                return null;
+            },
+            clearManualEngagePending(playerId) {
+                log.push(['clearManualEngagePending', playerId]);
+            },
+            clearRetaliatePlayerTargetIfMatches(playerId, targetPlayerId, currentTick) {
+                log.push(['clearRetaliatePlayerTargetIfMatches', playerId, targetPlayerId, currentTick]);
+            },
+            clearCombatTarget(playerId, currentTick) {
+                log.push(['clearCombatTarget', playerId, currentTick]);
+            },
+        },
+        worldRuntimeThreatService: {
+            buildPlayerOwnerId(playerId) {
+                log.push(['buildPlayerOwnerId', playerId]);
+                return `player:${playerId}`;
+            },
+            multiplyThreat(ownerId, targetRef, multiplier) {
+                log.push(['multiplyThreat', ownerId, targetRef, multiplier]);
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['clearManualEngagePending', 'player:1'],
+        ['clearRetaliatePlayerTargetIfMatches', 'player:1', 'target:1', 0],
+        ['buildPlayerOwnerId', 'player:1'],
+        ['multiplyThreat', 'player:player:1', 'player:target:1', 0],
+        ['clearCombatTarget', 'player:1', 0],
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（目标超出攻击距离） debug=auto=1 manual=0 skill=skill.cloud_blade skillName=流云刀谱 skillRange=3 instance=public:yunlai_town playerPos=43,56 target=player:target:1 targetKind=player targetPos=99,1 distance=56 combatTarget=player:target:1 combatTargetLocked=0'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 async function testSkillOutOfRangeStaysServerInternal() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
@@ -703,6 +804,7 @@ Promise.resolve()
     .then(() => testAutoCombatInvalidTargetStaysServerInternal())
     .then(() => testAutoCombatRetaliateFailurePreservesDifferentLockedTarget())
     .then(() => testAutoCombatOutOfRangeClearsTargetWithoutNotice())
+    .then(() => testAutoCombatPlayerOutOfRangeClearsRetaliateAndThreatTarget())
     .then(() => testSkillOutOfRangeStaysServerInternal())
     .then(() => testInternalSliceErrorStaysServerInternal())
     .then(() => {
