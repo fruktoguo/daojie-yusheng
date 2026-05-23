@@ -471,6 +471,10 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleUseItem(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleUseItem(client, payload);
     }
+    @SubscribeMessage(C2S.RepairInventoryItemInstanceIds)
+    handleRepairInventoryItemInstanceIds(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayInventoryHelper.handleRepairInventoryItemInstanceIds(client, payload);
+    }
     @SubscribeMessage(C2S.CreateFormation)
     handleCreateFormation(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayInventoryHelper.handleCreateFormation(client, payload);
