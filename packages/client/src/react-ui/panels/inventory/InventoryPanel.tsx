@@ -191,10 +191,7 @@ const InventoryCell = memo(function InventoryCell({ item }: { item: ReactInvento
           data-inline-drop={item.slotIndex}
           onClick={(event) => {
             event.stopPropagation();
-            if (!item.itemInstanceId) {
-              return;
-            }
-            callbacks.onDropOne?.(item.slotIndex, item.itemInstanceId);
+            callbacks.onDropOne?.(item.slotIndex, item.itemInstanceId ?? '');
           }}
         >
           {t('inventory.action.drop-one', undefined)}

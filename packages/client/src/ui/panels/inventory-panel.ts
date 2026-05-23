@@ -2851,9 +2851,15 @@ export class InventoryPanel {
   }
 
   private getInventoryItemInstanceId(item: ItemStack | null | undefined): string {
-    return typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim().length > 0
-      ? item.itemInstanceId.trim()
+    const direct = typeof item?.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
+    if (direct) {
+      return direct;
+    }
+    const legacyValue = (item as { instanceId?: unknown } | null | undefined)?.instanceId;
+    const legacy = typeof legacyValue === 'string'
+      ? legacyValue.trim()
       : '';
+    return legacy;
   }
 
   /** collectVisibleItems：一次遍历收集可见总数和当前已渲染批次。 */

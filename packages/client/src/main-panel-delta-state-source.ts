@@ -287,6 +287,11 @@ function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
 }
 
+function readLegacyInventoryInstanceId(item: SyncedItemStack): string | undefined {
+  const value = (item as { instanceId?: unknown }).instanceId;
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
 function resolveSyncedItemName(itemId: string, ...candidates: Array<string | undefined>): string {
   for (const candidate of candidates) {
     const trimmed = candidate?.trim();
@@ -636,7 +641,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     const template = getLocalItemTemplate(item.itemId);
     return {
       itemId: item.itemId,
-      itemInstanceId: item.itemInstanceId ?? previousSameItem?.itemInstanceId,
+      itemInstanceId: item.itemInstanceId ?? readLegacyInventoryInstanceId(item) ?? previousSameItem?.itemInstanceId,
       count: item.count,
       name: resolveSyncedItemName(item.itemId, item.name, previousSameItem?.name, template?.name),
       type: item.type ?? previousSameItem?.type ?? template?.type ?? 'material',
