@@ -84,7 +84,7 @@ async function testDispatchRoutesAndClearsQueue() {
     });
     assert.deepEqual(log, [
         ['dispatchInstanceCommand', 'player:1', 'move'],
-        ['warn', '处理玩家 player:2 的待执行指令失败：basicAttack（boom）'],
+        ['warn', '处理玩家 player:2 的待执行指令失败：basicAttack（boom） debug=auto=0 manual=0 playerState=missing'],
         ['queuePlayerNotice', 'player:2', 'boom', 'warn'],
         ['dispatchInstanceCommand', 'player:3', 'portal'],
     ]);
@@ -353,7 +353,7 @@ async function testInvalidAttackNoticeUsesTargetReason() {
         },
     });
     assert.deepEqual(log, [
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击）'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=0 manual=0 playerState=missing'],
         ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
@@ -416,7 +416,7 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
     assert.deepEqual(log, [
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击）'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=unknown target=tile:10:11 targetKind=tile targetPos=10,11'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 
@@ -476,7 +476,7 @@ async function testAutoCombatInvalidTargetStaysServerInternal() {
     assert.deepEqual(skillLog, [
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（没有可命中的目标）'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（没有可命中的目标） debug=auto=1 manual=0 skill=skill:area instance=public:yunlai_town playerPos=unknown target=monster:gone targetKind=unknown targetPos=unknown'],
     ]);
     assert.equal(skillService.getPendingCommandCount(), 0);
 }
@@ -536,7 +536,7 @@ async function testAutoCombatRetaliateFailurePreservesDifferentLockedTarget() {
     });
     assert.deepEqual(log, [
         ['clearManualEngagePending', 'player:1'],
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击）'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=unknown target=player:attacker targetKind=player targetPos=unknown combatTarget=tile:2:1 combatTargetLocked=1'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -571,8 +571,20 @@ async function testAutoCombatOutOfRangeClearsTargetWithoutNotice() {
                     playerId,
                     instanceId: 'public:yunlai_town',
                     hp: 100,
+                    x: 1,
+                    y: 1,
+                    techniques: {
+                        techniques: [{
+                            skills: [{
+                                id: 'skill:area',
+                                name: '地火术',
+                                range: 3,
+                                effects: [{ type: 'damage', formula: 1 }],
+                            }],
+                        }],
+                    },
                     combat: {
-                        autoBattle: true,
+                        autoBattle: false,
                         combatTargetId: 'monster:far',
                     },
                 };
@@ -583,6 +595,21 @@ async function testAutoCombatOutOfRangeClearsTargetWithoutNotice() {
             clearCombatTarget(playerId, currentTick) {
                 log.push(['clearCombatTarget', playerId, currentTick]);
             },
+        },
+        getInstanceRuntime(instanceId) {
+            assert.equal(instanceId, 'public:yunlai_town');
+            return {
+                getMonster(runtimeId) {
+                    assert.equal(runtimeId, 'monster:far');
+                    return {
+                        runtimeId,
+                        x: 7,
+                        y: 2,
+                        hp: 100,
+                        alive: true,
+                    };
+                },
+            };
         },
         logger: {
             warn(message) {
@@ -596,7 +623,7 @@ async function testAutoCombatOutOfRangeClearsTargetWithoutNotice() {
     assert.deepEqual(log, [
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill:area 超出范围）'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill:area 超出范围） debug=auto=1 manual=0 skill=skill:area skillName=地火术 skillRange=3 instance=public:yunlai_town playerPos=1,1 target=monster:far targetKind=monster targetPos=7,2 distance=6 combatTarget=monster:far combatTargetLocked=0'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -628,7 +655,7 @@ async function testSkillOutOfRangeStaysServerInternal() {
         },
     });
     assert.deepEqual(log, [
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（Skill skill.liyan_duanxi out of range）'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（Skill skill.liyan_duanxi out of range） debug=auto=0 manual=0 skill=skill.liyan_duanxi playerState=missing'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -660,7 +687,7 @@ async function testInternalSliceErrorStaysServerInternal() {
         },
     });
     assert.deepEqual(log, [
-        ["warn", "处理玩家 player:1 的待执行指令失败：castSkill（Cannot read properties of undefined (reading 'slice')）"],
+        ["warn", "处理玩家 player:1 的待执行指令失败：castSkill（Cannot read properties of undefined (reading 'slice')） debug=auto=0 manual=0 skill=skill.baihong_duanyue playerState=missing"],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }

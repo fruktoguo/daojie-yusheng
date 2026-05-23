@@ -4,6 +4,8 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { Injectable } from '@nestjs/common';
+import { findPlayerSkill, resolveRuntimeSkillRange } from '../world-runtime.normalization.helpers';
+import { chebyshevDistance } from '../world-runtime.path-planning.helpers';
 
 function isOutOfRangeFailure(message) {
     return message === '目标超出攻击距离'
@@ -51,6 +53,86 @@ function resolveCommandTargetRef(command) {
         return `tile:${Math.trunc(command.targetX)}:${Math.trunc(command.targetY)}`;
     }
     return null;
+}
+
+function formatCoord(x, y) {
+    if (x === null || x === undefined || y === null || y === undefined || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+        return 'unknown';
+    }
+    return `${Math.trunc(Number(x))},${Math.trunc(Number(y))}`;
+}
+
+function resolveCommandTargetPosition(command, player, deps) {
+    if (Number.isFinite(command?.targetX) && Number.isFinite(command?.targetY)) {
+        return { kind: 'tile', ref: resolveCommandTargetRef(command) ?? 'tile', x: Math.trunc(Number(command.targetX)), y: Math.trunc(Number(command.targetY)) };
+    }
+    const targetPlayerId = typeof command?.targetPlayerId === 'string' ? command.targetPlayerId.trim() : '';
+    if (targetPlayerId) {
+        const targetPlayer = deps.playerRuntimeService?.getPlayer?.(targetPlayerId);
+        return targetPlayer
+            ? { kind: 'player', ref: `player:${targetPlayerId}`, x: targetPlayer.x, y: targetPlayer.y }
+            : { kind: 'player', ref: `player:${targetPlayerId}`, x: null, y: null };
+    }
+    const targetRef = resolveCommandTargetRef(command);
+    if (!targetRef || !player?.instanceId) {
+        return null;
+    }
+    const instance = typeof deps.getInstanceRuntime === 'function'
+        ? deps.getInstanceRuntime(player.instanceId)
+        : null;
+    if (!instance) {
+        return { kind: 'unknown', ref: targetRef, x: null, y: null };
+    }
+    const monster = typeof instance.getMonster === 'function' ? instance.getMonster(targetRef) : null;
+    if (monster) {
+        return { kind: 'monster', ref: targetRef, x: monster.x, y: monster.y };
+    }
+    const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
+        ? deps.worldRuntimeFormationService.getFormationCombatState(player.instanceId, targetRef)
+        : null;
+    if (formation) {
+        return { kind: formation.kind ?? 'formation', ref: targetRef, x: formation.x, y: formation.y };
+    }
+    return { kind: 'unknown', ref: targetRef, x: null, y: null };
+}
+
+function buildPendingCommandFailureDebug(playerId, command, deps) {
+    const player = deps.playerRuntimeService?.getPlayer?.(playerId);
+    const parts = [];
+    parts.push(`auto=${command?.autoCombat === true ? '1' : '0'}`);
+    parts.push(`manual=${command?.manualEngage === true ? '1' : '0'}`);
+    if (command?.kind === 'castSkill') {
+        const skillId = typeof command.skillId === 'string' && command.skillId.trim() ? command.skillId.trim() : 'unknown';
+        const skill = Array.isArray(player?.techniques?.techniques) ? findPlayerSkill(player, skillId) : null;
+        parts.push(`skill=${skillId}`);
+        if (skill?.name) {
+            parts.push(`skillName=${skill.name}`);
+        }
+        if (skill) {
+            parts.push(`skillRange=${resolveRuntimeSkillRange(skill)}`);
+        }
+    }
+    if (player) {
+        parts.push(`instance=${player.instanceId ?? 'none'}`);
+        parts.push(`playerPos=${formatCoord(player.x, player.y)}`);
+        const target = resolveCommandTargetPosition(command, player, deps);
+        if (target) {
+            parts.push(`target=${target.ref}`);
+            parts.push(`targetKind=${target.kind}`);
+            parts.push(`targetPos=${formatCoord(target.x, target.y)}`);
+            if (Number.isFinite(Number(target.x)) && Number.isFinite(Number(target.y)) && Number.isFinite(Number(player.x)) && Number.isFinite(Number(player.y))) {
+                parts.push(`distance=${chebyshevDistance(player.x, player.y, target.x, target.y)}`);
+            }
+        }
+        const lockedTarget = typeof player.combat?.combatTargetId === 'string' ? player.combat.combatTargetId.trim() : '';
+        if (lockedTarget) {
+            parts.push(`combatTarget=${lockedTarget}`);
+            parts.push(`combatTargetLocked=${player.combat?.combatTargetLocked === true ? '1' : '0'}`);
+        }
+    } else {
+        parts.push('playerState=missing');
+    }
+    return `debug=${parts.join(' ')}`;
 }
 
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
@@ -246,7 +328,7 @@ export class WorldRuntimePendingCommandService {
                     this.clearAutoCombatTargetAfterFailure(playerId, deps, command);
                 }
                 const noticeMessage = normalizePendingCommandNoticeMessage(command, message);
-                deps.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${command.kind}（${message}）`);
+                deps.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${command.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, command, deps)}`);
                 if (noticeMessage) {
                     deps.queuePlayerNotice(playerId, noticeMessage, 'warn');
                 }
