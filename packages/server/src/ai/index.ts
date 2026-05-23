@@ -46,3 +46,25 @@ export {
   type DashScopeImageGenerationPayload,
   type GeneratedImageAsset,
 } from './ai-image-client';
+export {
+  executeAiTask,
+  type AiTaskRequest,
+  type AiTaskResult,
+} from './ai-task-execution.service';
+export {
+  sanitizePlayerContext,
+} from './ai-prompt-sanitizer';
+export {
+  executeWithRetry,
+  resetAiRetryState,
+  AiCircuitBreakerOpenError,
+  AiTimeoutError,
+  type AiRetryConfig,
+} from './ai-retry-policy';
+export {
+  recordAiTokenUsage,
+  getAiTokenUsageSummary,
+  resetAiTokenUsage,
+  type AiTokenUsageRecord,
+  type AiTokenUsageSummary,
+} from './ai-token-meter';
