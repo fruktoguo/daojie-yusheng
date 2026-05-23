@@ -8,7 +8,7 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
     ]
   },
   {
@@ -20,7 +20,7 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
     ]
   },
   {
@@ -32,7 +32,7 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
     ]
   },
   {
@@ -44,7 +44,7 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
     ]
   },
   {
@@ -56,7 +56,7 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
     ]
   },
   {
@@ -68,7 +68,7 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
     ]
   },
   {
@@ -80,7 +80,7 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 10, "role": "main" }
+      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
     ]
   }
 ]
