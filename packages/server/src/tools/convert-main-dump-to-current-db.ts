@@ -53,7 +53,7 @@ function parseArgs(argv) {
     apply: false,
     keepStaging: false,
     limit: null,
-    include: new Set(['players', 'instances', 'mail', 'market', 'suggestions', 'gm-auth']),
+    include: new Set(['players', 'mail', 'market', 'suggestions', 'gm-auth']),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? '';
@@ -216,6 +216,7 @@ async function main() {
     services = await initializeTargetServices(targetDatabaseUrl);
     const converted = {
       players: args.include.has('players') ? await convertPlayers(sourcePool, services, args.limit) : null,
+      counters: args.include.has('players') ? await convertPlayerCounters(sourcePool, targetPool, args.limit) : null,
       instances: args.include.has('instances') ? await convertRuntimeState(sourcePool, services, args.limit) : null,
       mail: args.include.has('mail') ? await convertMail(sourcePool, services, args.limit) : null,
       market: args.include.has('market') ? await convertMarket(sourcePool, services, args.limit) : null,
@@ -487,6 +488,39 @@ function buildPlayerSnapshot(row, savedAt) {
   if (placement.templateId) unlocks.add(placement.templateId);
   if (respawnMapId) unlocks.add(respawnMapId);
   snapshot.unlockedMapIds = Array.from(unlocks).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+  // 给背包物品分配 itemInstanceId
+  if (snapshot.inventory && Array.isArray(snapshot.inventory.items)) {
+    snapshot.inventory.items = snapshot.inventory.items.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      if (!item.itemInstanceId || typeof item.itemInstanceId !== 'string' || item.itemInstanceId.includes(':')) {
+        return { ...item, itemInstanceId: createHash('md5').update(`inv:${row.id}:${item.itemId}:${Math.random()}`).digest('hex') };
+      }
+      return item;
+    });
+  }
+  // 给装备物品分配 itemInstanceId
+  if (snapshot.equipment && typeof snapshot.equipment === 'object') {
+    const equipSlots = snapshot.equipment.slots ?? snapshot.equipment;
+    for (const slotKey of Object.keys(equipSlots)) {
+      const slot = equipSlots[slotKey];
+      const item = slot?.item ?? slot;
+      if (item && typeof item === 'object' && item.itemId) {
+        if (!item.itemInstanceId || typeof item.itemInstanceId !== 'string' || item.itemInstanceId.includes(':')) {
+          item.itemInstanceId = createHash('md5').update(`eq:${row.id}:${slotKey}:${item.itemId}`).digest('hex');
+        }
+      }
+    }
+  }
+  // 给市场仓库物品分配 itemInstanceId
+  if (snapshot.marketStorage && Array.isArray(snapshot.marketStorage.items)) {
+    snapshot.marketStorage.items = snapshot.marketStorage.items.map((item) => {
+      if (!item || typeof item !== 'object') return item;
+      if (!item.itemInstanceId || typeof item.itemInstanceId !== 'string' || item.itemInstanceId.includes(':')) {
+        return { ...item, itemInstanceId: createHash('md5').update(`ms:${row.id}:${item.itemId}:${Math.random()}`).digest('hex') };
+      }
+      return item;
+    });
+  }
   return snapshot;
 }
 
@@ -682,6 +716,56 @@ async function convertMarket(pool, services, limit) {
     tradeRecords: trades,
   });
   return { orders: orders.length, trades: trades.length };
+}
+
+async function convertPlayerCounters(sourcePool, targetPool, limit) {
+  // 确保 player_counters 表存在
+  await targetPool.query(`
+    CREATE TABLE IF NOT EXISTS player_counters (
+      player_id varchar(100) NOT NULL,
+      counter_key varchar(64) NOT NULL,
+      value bigint NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (player_id, counter_key)
+    )
+  `);
+  const values = [];
+  const limitSql = limit === null ? '' : ` LIMIT $${values.push(limit)}`;
+  const result = await sourcePool.query(`
+    SELECT
+      id AS player_id,
+      "playerKillCount",
+      "monsterKillCount",
+      "eliteMonsterKillCount",
+      "bossMonsterKillCount",
+      "deathCount"
+    FROM players
+    ORDER BY id ASC
+    ${limitSql}
+  `, values).catch(() => ({ rows: [] }));
+  const COUNTER_KEYS = [
+    ['playerKillCount', 'playerKillCount'],
+    ['monsterKillCount', 'monsterKillCount'],
+    ['eliteMonsterKillCount', 'eliteMonsterKillCount'],
+    ['bossMonsterKillCount', 'bossMonsterKillCount'],
+    ['deathCount', 'deathCount'],
+  ];
+  let inserted = 0;
+  for (const row of result.rows) {
+    const playerId = normalizeString(row.player_id);
+    if (!playerId) continue;
+    for (const [sourceKey, counterKey] of COUNTER_KEYS) {
+      const value = normalizeInteger(row[sourceKey], 0);
+      if (value <= 0) continue;
+      await targetPool.query(`
+        INSERT INTO player_counters(player_id, counter_key, value, updated_at)
+        VALUES ($1, $2, $3, now())
+        ON CONFLICT (player_id, counter_key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()
+      `, [playerId, counterKey, value]);
+      inserted += 1;
+    }
+  }
+  return { sourcePlayers: result.rows.length, counterEntries: inserted };
 }
 
 async function convertSuggestions(pool, services) {
