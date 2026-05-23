@@ -172,6 +172,49 @@ function testUseItemMissingInstanceIdRepairsFullInventoryAndRejects() {
     ]);
 }
 
+function testUseItemIgnoresLegacyInstanceIdAndRepairsInventory() {
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        inventory: {
+            items: [
+                { itemId: 'pill.minor_heal', name: '回春散', type: 'consumable', count: 3, instanceId: 'dirty-instance-id' },
+                { itemId: 'pill.qi', name: '补气丹', type: 'consumable', count: 2, itemInstanceId: 'stable-pill-id', instanceId: 'dirty-stable-id' },
+            ],
+        },
+    };
+    const service = new WorldRuntimePlayerCommandEnqueueService({
+        getPlayerOrThrow(playerId) {
+            assert.equal(playerId, 'player:1');
+            return player;
+        },
+        repairInventoryItemInstanceIds(playerId) {
+            assert.equal(playerId, 'player:1');
+            let repairedCount = 0;
+            for (const item of player.inventory.items) {
+                if (assignItemInstanceIdIfNeeded(item)) {
+                    repairedCount += 1;
+                }
+            }
+            log.push(['repairInventoryItemInstanceIds', playerId, repairedCount]);
+            return repairedCount;
+        },
+        updateCombatSettings() {},
+        clearCombatTarget() {},
+    });
+    assert.throws(
+        () => service.enqueueUseItem('player:1', { itemRef: { instanceId: 'dirty-instance-id' } }, createDeps([])),
+        /背包物品身份已修复，请重新选择/,
+    );
+    assert.equal(typeof player.inventory.items[0].itemInstanceId, 'string');
+    assert.equal(Object.prototype.hasOwnProperty.call(player.inventory.items[0], 'instanceId'), false);
+    assert.equal(player.inventory.items[1].itemInstanceId, 'stable-pill-id');
+    assert.equal(Object.prototype.hasOwnProperty.call(player.inventory.items[1], 'instanceId'), false);
+    assert.deepEqual(log, [
+        ['repairInventoryItemInstanceIds', 'player:1', 2],
+    ]);
+}
+
 function testUseItemMissingInstanceIdDoesNotUseSlotFallback() {
     const log = [];
     const service = new WorldRuntimePlayerCommandEnqueueService({
@@ -387,6 +430,7 @@ function testLockedBattleWithoutTargetStopsCombatCleanly() {
 
 testBasicAttackQueue();
 testUseItemMissingInstanceIdRepairsFullInventoryAndRejects();
+testUseItemIgnoresLegacyInstanceIdAndRepairsInventory();
 testUseItemMissingInstanceIdDoesNotUseSlotFallback();
 testStartAlchemyClonesIngredients();
 testCastSkillRequiresKnownAction();

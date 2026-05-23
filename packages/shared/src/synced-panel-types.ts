@@ -20,13 +20,11 @@ export interface SyncedItemStack {
 
   itemId: string;
   /**
- * itemInstanceId：装备稳定实例 ID（同 ItemStack.itemInstanceId）。
- * 仅装备类携带；用于客户端协议透传 expectedItemInstanceId 与稳定 UI key。
+ * itemInstanceId：背包物品稳定实例 ID（同 ItemStack.itemInstanceId）。
+ * 所有背包物品都必须携带；用于客户端资产操作引用和稳定 UI key。
  */
 
   itemInstanceId?: string;
-  /** 旧版/兼容字段；客户端水合时会规整为 itemInstanceId。 */
-  instanceId?: string;
   /**
  * count：数量或计量字段。
  */

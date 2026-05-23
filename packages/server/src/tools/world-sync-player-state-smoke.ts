@@ -36,10 +36,10 @@ function createPlayer() {
         },
         inventory: {
             capacity: 8,
-            items: [{ itemId: 'potion', name: '药', type: 'consumable', count: 2, desc: 'desc', allowBatchUse: true }],
+            items: [{ itemId: 'potion', itemInstanceId: 'potion-instance-id', name: '药', type: 'consumable', count: 2, desc: 'desc', allowBatchUse: true }],
         },
         equipment: {
-            slots: [{ slot: 'weapon', item: { itemId: 'sword', name: '剑', type: 'weapon', count: 1, desc: 'weapon' } }],
+            slots: [{ slot: 'weapon', item: { itemId: 'sword', itemInstanceId: 'sword-instance-id', name: '剑', type: 'weapon', count: 1, desc: 'weapon' } }],
         },
         techniques: {
             techniques: [{ techId: 'tech.a', level: 1, exp: 0, expToNext: 10, realmLv: 1, realm: 'entry', skillsEnabled: true }],
@@ -114,7 +114,9 @@ function testPlayerState() {
     const state = service.buildPlayerSyncState(createPlayer(), { instance: { templateId: 'map.a' } }, ['map.a', 'map.b']);
     assert.equal(state.id, 'player:1');
     assert.equal(state.inventory.items[0].itemId, 'potion');
+    assert.equal(state.inventory.items[0].itemInstanceId, 'potion-instance-id');
     assert.equal(state.equipment.weapon.itemId, 'sword');
+    assert.equal(state.equipment.weapon.itemInstanceId, 'sword-instance-id');
     assert.equal(state.actions[0].id, 'npc:npc.a');
     assert.equal(state.actions[0].name, '任务');
     assert.equal(state.actions[0].type, 'interact');

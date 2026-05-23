@@ -25,7 +25,8 @@ import { isLegacyItemInstanceId } from '@mud/shared';
  *
  * 行为：
  *   - null/undefined/非对象：不动，返回 false
- *   - 已有合法 UUID（不含 ":"）：不动，返回 false
+ *   - 物品对象自带 instanceId：删除该错误字段，返回 true
+ *   - 已有合法 UUID（不含 ":"）：除清理 instanceId 外不动
  *   - 缺失 / 迁移期 fallback：分配新 UUID，返回 true
  *
  * 规范：每个独立格子的物品都必须有独立的 itemInstanceId，无论物品类型。
@@ -34,9 +35,14 @@ export function assignItemInstanceIdIfNeeded(item: ItemStack | null | undefined)
     if (!item || typeof item !== 'object') {
         return false;
     }
+    let changed = false;
+    if (Object.prototype.hasOwnProperty.call(item, 'instanceId')) {
+        delete (item as { instanceId?: unknown }).instanceId;
+        changed = true;
+    }
     const current = (item as { itemInstanceId?: unknown }).itemInstanceId;
     if (typeof current === 'string' && current.length > 0 && !isLegacyItemInstanceId(current)) {
-        return false;
+        return changed;
     }
     (item as { itemInstanceId?: string }).itemInstanceId = randomUUID();
     return true;

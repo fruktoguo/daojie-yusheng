@@ -2852,14 +2852,7 @@ export class InventoryPanel {
 
   private getInventoryItemInstanceId(item: ItemStack | null | undefined): string {
     const direct = typeof item?.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
-    if (direct) {
-      return direct;
-    }
-    const legacyValue = (item as { instanceId?: unknown } | null | undefined)?.instanceId;
-    const legacy = typeof legacyValue === 'string'
-      ? legacyValue.trim()
-      : '';
-    return legacy;
+    return direct;
   }
 
   /** collectVisibleItems：一次遍历收集可见总数和当前已渲染批次。 */

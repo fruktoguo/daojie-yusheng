@@ -305,8 +305,12 @@ function toItemStackState(entry) {
   const normalizedEnhanceLevel = Number.isFinite(Number(entry.enhanceLevel))
     ? Math.max(0, Math.trunc(Number(entry.enhanceLevel)))
     : 0;
+  const itemInstanceId = typeof entry.itemInstanceId === 'string' && entry.itemInstanceId.trim()
+    ? entry.itemInstanceId.trim()
+    : undefined;
   const stack = {
     itemId: entry.itemId,
+    ...(itemInstanceId ? { itemInstanceId } : {}),
     count: entry.count,
   };
   return normalizedEnhanceLevel > 0 ? { ...stack, enhanceLevel: normalizedEnhanceLevel } : stack;

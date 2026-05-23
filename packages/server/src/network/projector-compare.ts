@@ -48,6 +48,7 @@ export function isSameItem(left: SyncedItemStack | null | undefined, right: Sync
         return false;
     }
     return left.itemId === right.itemId
+        && left.itemInstanceId === right.itemInstanceId
         && left.count === right.count
         && left.name === right.name
         && left.type === right.type

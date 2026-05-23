@@ -148,60 +148,58 @@ function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: Techniqu
 export function resolvePreviewItem(item: ItemStack): ItemStack {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const template = getLocalItemTemplate(item.itemId);
-  const itemInstanceId = resolvePreviewItemInstanceId(item);
+  const sourceItem = stripInvalidPreviewInstanceId(item);
+  const template = getLocalItemTemplate(sourceItem.itemId);
   if (!template) {
-    return itemInstanceId && item.itemInstanceId !== itemInstanceId
-      ? { ...item, itemInstanceId }
-      : item;
+    return sourceItem;
   }
   return {
-    ...item,
-    itemInstanceId,
-    name: item.name || template.name,
-    type: item.type || template.type,
-    desc: item.desc || template.desc || '',
-    groundLabel: item.groundLabel ?? template.groundLabel,
-    grade: item.grade ?? template.grade,
-    level: item.level ?? template.level,
-    materialCategory: item.materialCategory ?? template.materialCategory,
-    materialValues: item.materialValues ?? template.materialValues,
-    equipSlot: template.equipSlot ?? item.equipSlot,
-    equipAttrs: item.equipAttrs ?? template.equipAttrs,
-    equipStats: item.equipStats ?? template.equipStats,
-    equipValueStats: item.equipValueStats ?? template.equipValueStats,
-    equipSpecialStats: template.equipSpecialStats ?? item.equipSpecialStats,
-    effects: item.effects ?? template.effects,
-    healAmount: item.healAmount ?? template.healAmount,
-    healPercent: item.healPercent ?? template.healPercent,
-    qiPercent: item.qiPercent ?? template.qiPercent,
-    cooldown: item.cooldown ?? template.cooldown,
-    enhanceLevel: item.enhanceLevel ?? template.enhanceLevel,
-    alchemySuccessRate: item.alchemySuccessRate ?? template.alchemySuccessRate,
-    alchemySpeedRate: item.alchemySpeedRate ?? template.alchemySpeedRate,
-    enhancementSuccessRate: item.enhancementSuccessRate ?? template.enhancementSuccessRate,
-    enhancementSpeedRate: item.enhancementSpeedRate ?? template.enhancementSpeedRate,
-    miningDamageRate: item.miningDamageRate ?? template.miningDamageRate,
-    consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
-    tags: item.tags ?? template.tags,
-    contextActions: item.contextActions ?? template.contextActions,
-    mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
-    mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
-    respawnBindMapId: item.respawnBindMapId ?? template.respawnBindMapId,
-    tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
-    tileResourceGains: item.tileResourceGains ?? template.tileResourceGains,
-    useBehavior: item.useBehavior ?? template.useBehavior,
-    allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
+    ...sourceItem,
+    itemInstanceId: sourceItem.itemInstanceId,
+    name: sourceItem.name || template.name,
+    type: sourceItem.type || template.type,
+    desc: sourceItem.desc || template.desc || '',
+    groundLabel: sourceItem.groundLabel ?? template.groundLabel,
+    grade: sourceItem.grade ?? template.grade,
+    level: sourceItem.level ?? template.level,
+    materialCategory: sourceItem.materialCategory ?? template.materialCategory,
+    materialValues: sourceItem.materialValues ?? template.materialValues,
+    equipSlot: template.equipSlot ?? sourceItem.equipSlot,
+    equipAttrs: sourceItem.equipAttrs ?? template.equipAttrs,
+    equipStats: sourceItem.equipStats ?? template.equipStats,
+    equipValueStats: sourceItem.equipValueStats ?? template.equipValueStats,
+    equipSpecialStats: template.equipSpecialStats ?? sourceItem.equipSpecialStats,
+    effects: sourceItem.effects ?? template.effects,
+    healAmount: sourceItem.healAmount ?? template.healAmount,
+    healPercent: sourceItem.healPercent ?? template.healPercent,
+    qiPercent: sourceItem.qiPercent ?? template.qiPercent,
+    cooldown: sourceItem.cooldown ?? template.cooldown,
+    enhanceLevel: sourceItem.enhanceLevel ?? template.enhanceLevel,
+    alchemySuccessRate: sourceItem.alchemySuccessRate ?? template.alchemySuccessRate,
+    alchemySpeedRate: sourceItem.alchemySpeedRate ?? template.alchemySpeedRate,
+    enhancementSuccessRate: sourceItem.enhancementSuccessRate ?? template.enhancementSuccessRate,
+    enhancementSpeedRate: sourceItem.enhancementSpeedRate ?? template.enhancementSpeedRate,
+    miningDamageRate: sourceItem.miningDamageRate ?? template.miningDamageRate,
+    consumeBuffs: sourceItem.consumeBuffs ?? template.consumeBuffs,
+    tags: sourceItem.tags ?? template.tags,
+    contextActions: sourceItem.contextActions ?? template.contextActions,
+    mapUnlockId: sourceItem.mapUnlockId ?? template.mapUnlockId,
+    mapUnlockIds: sourceItem.mapUnlockIds ?? template.mapUnlockIds,
+    respawnBindMapId: sourceItem.respawnBindMapId ?? template.respawnBindMapId,
+    tileAuraGainAmount: sourceItem.tileAuraGainAmount ?? template.tileAuraGainAmount,
+    tileResourceGains: sourceItem.tileResourceGains ?? template.tileResourceGains,
+    useBehavior: sourceItem.useBehavior ?? template.useBehavior,
+    allowBatchUse: sourceItem.allowBatchUse ?? template.allowBatchUse,
   };
 }
 
-function resolvePreviewItemInstanceId(item: ItemStack): string | undefined {
-  const direct = typeof item.itemInstanceId === 'string' ? item.itemInstanceId.trim() : '';
-  if (direct) {
-    return direct;
+function stripInvalidPreviewInstanceId(item: ItemStack): ItemStack {
+  if (!Object.prototype.hasOwnProperty.call(item, 'instanceId')) {
+    return item;
   }
-  const legacyValue = (item as { instanceId?: unknown }).instanceId;
-  return typeof legacyValue === 'string' && legacyValue.trim() ? legacyValue.trim() : undefined;
+  const sanitized = { ...item } as ItemStack & { instanceId?: unknown };
+  delete sanitized.instanceId;
+  return sanitized;
 }
 
 /** 用本地模板补齐任务展示字段，保留服务端运行态字段。 */
