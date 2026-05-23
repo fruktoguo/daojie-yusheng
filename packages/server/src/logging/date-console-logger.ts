@@ -22,11 +22,60 @@ function formatDateTime(date: Date): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
+/**
+ * 启动期静默的 NestJS 内部 context 列表。
+ * 这些 context 在启动时会产生大量路由/模块注册日志，只计数不输出。
+ */
+const STARTUP_QUIET_CONTEXTS = new Set([
+  'RoutesResolver',
+  'RouterExplorer',
+  'WebSocketsController',
+  'InstanceLoader',
+]);
+
+/** 启动期静默计数器 */
+interface StartupQuietCounters {
+  routes: number;
+  websockets: number;
+  modules: number;
+}
+
 /** 统一服务端日志时间格式（yyyy-MM-dd HH:mm:ss）。 */
 export class DateConsoleLogger extends ConsoleLogger {
+  private startupQuietMode = true;
+  private readonly startupCounters: StartupQuietCounters = {
+    routes: 0,
+    websockets: 0,
+    modules: 0,
+  };
+
   /** 使用服务内置时间格式替换默认时间戳。 */
   getTimestamp(): string {
     return formatDateTime(new Date());
+  }
+
+  /**
+   * 结束启动静默模式并输出汇总。
+   * 由 main.ts 在 app.listen 成功后调用。
+   */
+  flushStartupSummary(): void {
+    if (!this.startupQuietMode) return;
+    this.startupQuietMode = false;
+
+    const parts: string[] = [];
+    if (this.startupCounters.modules > 0) {
+      parts.push(`${this.startupCounters.modules} 个模块`);
+    }
+    if (this.startupCounters.routes > 0) {
+      parts.push(`${this.startupCounters.routes} 个 HTTP 路由`);
+    }
+    if (this.startupCounters.websockets > 0) {
+      parts.push(`${this.startupCounters.websockets} 个 WebSocket 消息`);
+    }
+
+    if (parts.length > 0) {
+      this.log(`已注册 ${parts.join('、')}`);
+    }
   }
 
   /** 捕获 Nest 直接写 stdout/stderr 的日志，供 GM 日志页读取。 */
@@ -37,6 +86,23 @@ export class DateConsoleLogger extends ConsoleLogger {
     writeStreamType?: 'stdout' | 'stderr',
   ): void {
     if (!isLogLevelEnabled(logLevel)) return;
+
+    // 启动期静默：对指定 context 只计数不输出
+    if (this.startupQuietMode && logLevel === 'log' && STARTUP_QUIET_CONTEXTS.has(context)) {
+      for (const message of messages) {
+        const text = typeof message === 'string' ? message : '';
+        if (context === 'RouterExplorer' && text.includes('Mapped')) {
+          this.startupCounters.routes += 1;
+        } else if (context === 'WebSocketsController' && text.includes('subscribed')) {
+          this.startupCounters.websockets += 1;
+        } else if (context === 'InstanceLoader') {
+          this.startupCounters.modules += 1;
+        }
+        // RoutesResolver 不单独计数，它只是 controller 声明行
+      }
+      return;
+    }
+
     messages.forEach((message) => {
       const pidMessage = this.formatPid(process.pid);
       const contextMessage = this.formatContext(context);

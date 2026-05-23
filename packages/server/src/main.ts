@@ -253,6 +253,7 @@ async function bootstrap(): Promise<void> {
     throw error;
   }
 
+  logger.flushStartupSummary();
   logger.log(`服务端已运行于 http://${host}:${port}`);
 }
 /** 类型守卫：判断 error 是否包含指定 code 字段。 */
