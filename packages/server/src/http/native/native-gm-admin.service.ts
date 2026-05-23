@@ -587,9 +587,8 @@ export class NativeGmAdminService {
             this.lastDatabaseJob = { ...job };
             this.currentDatabaseJob = null;
             await this.persistDatabaseJobState().catch(() => undefined);
-            this.logger.log('数据库恢复已完成，进程即将退出以触发容器重启，确保所有子系统从干净状态初始化');
-            // 给日志和持久化一点时间落盘
-            setTimeout(() => process.exit(0), 500);
+            this.logger.log('数据库恢复已完成，即将发送 SIGTERM 触发优雅重启，确保所有子系统从干净状态初始化');
+            setTimeout(() => process.kill(process.pid, 'SIGTERM'), 500);
         });
         return {
             job,
