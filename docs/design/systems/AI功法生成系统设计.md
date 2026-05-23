@@ -173,65 +173,124 @@ packages/server/src/runtime/technique-generation/
 
 ### 4.2 品阶与境界随机
 
+#### 通用非对称衰减分布模型
+
+realmLv 和品阶共用同一套概率模型：
+
+```
+规则：
+- 50% 命中基准值
+- 剩余 50% 按方向分配：低方向 75%（即总概率 37.5%），高方向 25%（即总概率 12.5%）
+- 同方向内越偏离基准概率越低（按几何衰减）
+```
+
+设计意图：大概率拿到匹配当前实力的功法，偶尔出低级过渡品，极小概率出高品（机缘感）。
+
 #### realmLv 随机
 
-基于玩家当前 `realmLv`，上下浮动 6 级：
+基准 = 玩家当前 `realmLv`，浮动范围 ±6：
 
 ```ts
 function rollTechniqueRealmLv(playerRealmLv: number): number {
-  const min = Math.max(1, playerRealmLv - 6);
-  const max = Math.min(127, playerRealmLv + 6);
-  return randomInt(min, max);  // 含端点均匀分布
+  const base = playerRealmLv;
+  const maxOffset = 6;
+
+  // 50% 命中基准
+  if (random() < 0.5) return clamp(base, 1, 127);
+
+  // 剩余 50%：低方向 75%，高方向 25%
+  const goHigh = random() < 0.25;
+  // 几何衰减：offset 1~6，越大概率越低
+  const offset = rollGeometricOffset(maxOffset);
+
+  const result = goHigh ? base + offset : base - offset;
+  return clamp(result, 1, 127);
+}
+
+// 几何衰减：offset=1 概率最高，每增加 1 概率减半
+function rollGeometricOffset(max: number): number {
+  for (let i = 1; i <= max; i++) {
+    if (random() < 0.5) return i;
+  }
+  return max;
 }
 ```
 
-#### 品阶随机
+#### 基准品阶确定
 
-根据 `realmLv` 确定可选品阶范围，再按权重随机。
+根据随机出的 `realmLv` 落在哪些品阶区间，按**区间覆盖比例**确定基准品阶：
 
-品阶有效区间来源：`docs/design/balance/境界等级基准期望六维公式.md` 的品阶等级区间表：
+品阶有效区间（来源：`docs/design/balance/境界等级基准期望六维公式.md`）：
 
-| 品阶 | 起始等级 | 目标等级 | 说明 |
-|---|---|---|---|
-| 凡阶 mortal | 1 | 18 | 凡俗~先天 |
-| 黄阶 yellow | 9 | 30 | 锻骨~练气后期 |
-| 玄阶 mystic | 19 | 42 | 练气前期~筑基后期 |
-| 地阶 earth | 25 | 54 | 练气后期~金丹后期 |
-| 天阶 heaven | 31 | 86 | 筑基~炼虚中期 |
-| 灵阶 spirit | 64 | 110 | 元婴后期~大乘中期 |
-| 圣阶 saint | 98 | 134 | 合体后期~渡劫后期+ |
-| 帝阶 emperor | 122 | 158 | 渡劫后期~飞升+ |
-
-随机逻辑：筛选 `realmLv` 落在 `[起始等级, 目标等级]` 区间内的所有品阶作为候选，按权重加权随机。
+| 品阶 | fromRealmLv | toRealmLv |
+|---|---|---|
+| 凡阶 | 1 | 18 |
+| 黄阶 | 9 | 30 |
+| 玄阶 | 19 | 42 |
+| 地阶 | 25 | 54 |
+| 天阶 | 31 | 86 |
+| 灵阶 | 64 | 110 |
+| 圣阶 | 98 | 134 |
+| 帝阶 | 122 | 158 |
 
 ```ts
-const TECHNIQUE_GRADE_REALM_BANDS: Array<{
-  grade: TechniqueGrade;
-  fromRealmLv: number;
-  toRealmLv: number;
-  weight: number;
-}> = [
-  { grade: 'mortal',  fromRealmLv: 1,   toRealmLv: 18,  weight: 100 },
-  { grade: 'yellow',  fromRealmLv: 9,   toRealmLv: 30,  weight: 80 },
-  { grade: 'mystic',  fromRealmLv: 19,  toRealmLv: 42,  weight: 60 },
-  { grade: 'earth',   fromRealmLv: 25,  toRealmLv: 54,  weight: 40 },
-  { grade: 'heaven',  fromRealmLv: 31,  toRealmLv: 86,  weight: 25 },
-  { grade: 'spirit',  fromRealmLv: 64,  toRealmLv: 110, weight: 15 },
-  { grade: 'saint',   fromRealmLv: 98,  toRealmLv: 134, weight: 8 },
-  { grade: 'emperor', fromRealmLv: 122, toRealmLv: 158, weight: 3 },
-];
-
-function rollTechniqueGrade(realmLv: number): TechniqueGrade {
-  const candidates = TECHNIQUE_GRADE_REALM_BANDS
+function resolveBaseGrade(realmLv: number): TechniqueGrade {
+  // 1. 筛选 realmLv 落在 [from, to] 内的所有品阶
+  const hits = TECHNIQUE_GRADE_REALM_BANDS
     .filter(band => realmLv >= band.fromRealmLv && realmLv <= band.toRealmLv);
-  // 按 weight 加权随机从 candidates 中选取
+
+  // 2. 计算每个命中品阶的"覆盖权重"
+  //    权重 = 1 / 区间宽度（区间越窄说明越精准匹配）
+  //    或用 realmLv 在区间内的归一化位置做加权
+  const weighted = hits.map(band => ({
+    grade: band.grade,
+    weight: 1 / (band.toRealmLv - band.fromRealmLv + 1),
+  }));
+
+  // 3. 按权重选出基准品阶（取权重最高的）
+  return weighted.sort((a, b) => b.weight - a.weight)[0].grade;
 }
 ```
 
-示例：玩家 realmLv=35（筑基中期），随机到的功法 realmLv 可能是 29~41，
-- realmLv=29 → 候选：黄阶(80) + 玄阶(60) + 地阶(40)
-- realmLv=35 → 候选：玄阶(60) + 地阶(40) + 天阶(25)
-- realmLv=41 → 候选：玄阶(60) + 地阶(40) + 天阶(25)
+示例：realmLv=35
+- 玄阶 [19,42] 宽度 24 → 权重 1/24
+- 地阶 [25,54] 宽度 30 → 权重 1/30
+- 天阶 [31,86] 宽度 56 → 权重 1/56
+- 基准 = 玄阶（区间最窄，最精准匹配）
+
+#### 品阶浮动
+
+在基准品阶上下浮动 ±2 档，使用同一套非对称衰减分布：
+
+```ts
+function rollTechniqueGrade(realmLv: number): TechniqueGrade {
+  const baseGrade = resolveBaseGrade(realmLv);
+  const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
+
+  // 50% 命中基准
+  if (random() < 0.5) return baseGrade;
+
+  // 剩余 50%：低方向 75%，高方向 25%
+  const goHigh = random() < 0.25;
+  // 几何衰减：offset 1~2
+  const offset = random() < 0.5 ? 1 : 2;
+
+  const targetIndex = goHigh ? baseIndex + offset : baseIndex - offset;
+  return TECHNIQUE_GRADE_ORDER[clamp(targetIndex, 0, TECHNIQUE_GRADE_ORDER.length - 1)];
+}
+```
+
+#### 概率分布示例（基准=地阶）
+
+| 品阶 | 概率 | 说明 |
+|---|---|---|
+| 黄阶 | ~9.4% | 低方向 offset=2 |
+| 玄阶 | ~18.8% | 低方向 offset=1 |
+| **地阶** | **50%** | 基准 |
+| 天阶 | ~6.3% | 高方向 offset=1 |
+| 灵阶 | ~3.1% | 高方向 offset=2 |
+
+（低方向总计 ~28.1%，高方向总计 ~9.4%，不含 clamp 边界修正）
 
 ### 4.3 TechniqueGenerationService 核心方法
 
