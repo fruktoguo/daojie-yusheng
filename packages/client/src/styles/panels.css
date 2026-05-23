@@ -4837,6 +4837,19 @@
       font-size: var(--font-size-11);
       white-space: nowrap;
     }
+    .market-pane-entry-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      width: 100%;
+    }
+    .market-pane-entry-actions .small-btn {
+      justify-content: center;
+      min-height: 36px;
+      padding: 6px 12px;
+      font-size: var(--font-size-12);
+      white-space: nowrap;
+    }
     .auction-pane {
       margin-top: 10px;
     }

@@ -87,6 +87,13 @@ export class WorldRuntimeUseItemService {
             this.handleCurrentRespawnBindItem(playerId, itemInstanceId, item, deps);
             return;
         }
+        if (item.useBehavior === 'open_technique_generation') {
+            const n = buildStructuredNotice('info', 'notice.item.open-panel', '', {
+                vars: { panel: 'technique_generation' },
+            });
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+            return;
+        }
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
         const mapUnlockIds = Array.isArray(item.mapUnlockIds) && item.mapUnlockIds.length > 0
             ? item.mapUnlockIds

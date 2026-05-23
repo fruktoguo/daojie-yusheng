@@ -38,6 +38,8 @@ type MainNoticeStateSourceOptions = {
  */
 
   clearCurrentPath: () => void;
+  /** 服务端指令打开面板（panel 标识） */
+  onOpenPanel?: (panel: string) => void;
 };
 /**
  * resolveSystemMsgIdFromNotice：规范化或转换SystemMsgIDFromNextNotice。
@@ -113,6 +115,13 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
 
     handleSystemMsg(data: S2C_SystemMsg): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+      // 服务端指令：打开面板（useBehavior 类物品触发）
+      const structured = data.structured as { key?: string; vars?: Record<string, string> } | undefined;
+      if (structured?.key === 'notice.item.open-panel' && structured.vars?.panel) {
+        options.onOpenPanel?.(structured.vars.panel);
+        return;
+      }
 
       const rawText = typeof data.text === 'string' ? data.text.trim() : '';
       if (!rawText) {

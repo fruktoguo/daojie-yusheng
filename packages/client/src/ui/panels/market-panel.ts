@@ -777,9 +777,9 @@ export class MarketPanel {
       replaceElementHtml(this.pane, `
         <div class="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
           <div class="panel-section-title">${escapeHtml(t('market.pane.title', undefined))}</div>
-          <div class="market-pane-headline-actions">
-            <button class="small-btn" data-market-open type="button">${escapeHtml(t('market.pane.open', undefined))}</button>
-            <button class="small-btn" data-auction-open="participate" type="button">${escapeHtml(t('market.auction.open', undefined))}</button>
+          <div class="market-pane-entry-actions">
+            <button class="small-btn" data-market-open type="button">坊市</button>
+            <button class="small-btn" data-auction-open="participate" type="button">拍卖行</button>
             <button class="small-btn" data-heavenly-dao-shop-open type="button">天道商店</button>
           </div>
         </div>

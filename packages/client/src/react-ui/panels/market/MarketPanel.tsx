@@ -120,12 +120,12 @@ export const MarketPanel = memo(function MarketPanel() {
     <div className="market-pane-wrapper">
       <div className="panel-section market-pane ui-surface-pane ui-surface-pane--stack">
         <div className="panel-section-title">{t('market.pane.title', undefined)}</div>
-        <div className="market-pane-headline-actions">
+        <div className="market-pane-entry-actions">
           <button className="small-btn" type="button" onClick={handleOpenMarket}>
-            {t('market.pane.open', undefined)}
+            坊市
           </button>
           <button className="small-btn" type="button" onClick={() => handleOpenAuction('participate')}>
-            {t('market.auction.open', undefined)}
+            拍卖行
           </button>
           <button className="small-btn" type="button" onClick={handleOpenHeavenlyDaoShop}>
             天道商店

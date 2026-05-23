@@ -85,11 +85,6 @@ type MainInventoryStateSourceOptions = {
  */
 
   sendSortInventory: () => void;
-  /**
- * onOpenTechniqueGeneration：打开功法领悟面板。
- */
-
-  onOpenTechniqueGeneration?: () => void;
 };
 /**
  * InventoryPlayerContext：统一结构类型，保证协议与运行时一致性。
@@ -119,7 +114,6 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
     () => options.sendSortInventory(),
     (payload) => options.sendCreateFormation(payload),
     (payload) => options.previewFormationRange?.(payload),
-    () => options.onOpenTechniqueGeneration?.(),
   );
 
   return {
