@@ -22,6 +22,8 @@ import {
   normalizeTechniqueArtsStrengthTemplate,
   normalizeTechniqueAttrRatio,
   shouldExpandTechniqueAttrRatio,
+  type ExpandedTechniqueArtsStrengthSkill,
+  type NormalizedTechniqueArtsStrengthTemplate,
 } from '@mud/shared';
 
 import { executeAiTask, type AiTaskRequest, type AiTaskResult } from '../../ai/ai-task-execution.service';
@@ -231,6 +233,9 @@ export class TechniqueGenerationService {
       return { success: false, error: reason };
     }
 
+    const rawCandidate = cloneJsonRecord(candidate);
+    let artsStrengthNormalizationReport: ArtsStrengthGenerationReport | undefined;
+
     // 补全字段
     const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
@@ -243,7 +248,7 @@ export class TechniqueGenerationService {
         return { success: false, error: reason };
       }
       const targetBudget = calcArtsBudgetMax(params.grade as any, params.realmLv);
-      candidate.skills = normalizedArts.template.skills.map((skill, index) => (
+      const expandedArts = normalizedArts.template.skills.map((skill, index) => (
         expandTechniqueArtsStrengthSkill({
           techniqueId,
           grade: params.grade as any,
@@ -251,8 +256,14 @@ export class TechniqueGenerationService {
           skillIndex: index,
           skill,
           targetBudget,
-        }).skill
+        })
       ));
+      candidate.skills = expandedArts.map((entry) => entry.skill);
+      artsStrengthNormalizationReport = buildArtsStrengthGenerationReport({
+        rawCandidate,
+        normalizedTemplate: normalizedArts.template,
+        expandedSkills: expandedArts,
+      });
     }
 
     const template: TechniqueTemplate = {
@@ -280,7 +291,11 @@ export class TechniqueGenerationService {
       createdByPlayerId: params.playerId,
       modelName: successfulAiResult.modelName,
       promptSnapshot: successfulAiResult.requestSnapshot,
-      validationReport: { valid: true, errors: [] },
+      validationReport: {
+        valid: true,
+        errors: [],
+        ...(artsStrengthNormalizationReport ? { artsStrength: artsStrengthNormalizationReport } : {}),
+      },
       grade: params.grade,
       category: params.category,
       realmLv: params.realmLv,
@@ -472,4 +487,42 @@ function normalizePositiveAttrs(attrs: Partial<Attributes>): Partial<Attributes>
     }
   }
   return Object.keys(result).length > 0 ? result : {};
+}
+
+interface ArtsStrengthGenerationReport {
+  version: 1;
+  note: string;
+  rawCandidate: Record<string, unknown>;
+  normalizedTemplate: NormalizedTechniqueArtsStrengthTemplate;
+  expansion: Array<{
+    skillId: string;
+    inputBudget: number;
+    targetBudget: number;
+    effectScale: number;
+    structureBudgetMultiplier: number;
+  }>;
+}
+
+function buildArtsStrengthGenerationReport(params: {
+  rawCandidate: Record<string, unknown>;
+  normalizedTemplate: NormalizedTechniqueArtsStrengthTemplate;
+  expandedSkills: ExpandedTechniqueArtsStrengthSkill[];
+}): ArtsStrengthGenerationReport {
+  return {
+    version: 1,
+    note: 'template.skills 是服务端展开后的运行时 SkillDef；rawCandidate/normalizedTemplate 保留 AI 原始强度草稿与归一化权重。',
+    rawCandidate: params.rawCandidate,
+    normalizedTemplate: params.normalizedTemplate,
+    expansion: params.expandedSkills.map((entry) => ({
+      skillId: entry.skill.id,
+      inputBudget: entry.inputBudget,
+      targetBudget: entry.targetBudget,
+      effectScale: entry.effectScale,
+      structureBudgetMultiplier: entry.structureBudgetMultiplier,
+    })),
+  };
+}
+
+function cloneJsonRecord(value: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
