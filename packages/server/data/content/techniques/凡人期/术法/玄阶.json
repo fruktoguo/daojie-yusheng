@@ -34,7 +34,7 @@
                   "spellAtk": 4.2
                 }
               },
-              "effectBudget": 5.3
+              "effectBudget": 4.2
             },
             {
               "type": "buff",
@@ -52,11 +52,10 @@
                 "hit": -3,
                 "dodge": -3,
                 "maxQiOutputPerTick": -5
-              },
-              "effectBudget": 63
+              }
             }
           ],
-          "totalBudget": 34.261
+          "totalBudget": 2.1068
         }
       },
       {
@@ -88,7 +87,7 @@
                   "target.buff.buff.monster_soulbind.stacks": 0.05
                 }
               },
-              "effectBudget": 5.45
+              "effectBudget": 4.35
             },
             {
               "type": "buff",
@@ -106,11 +105,10 @@
                 "hit": -3,
                 "dodge": -3,
                 "maxQiOutputPerTick": -5
-              },
-              "effectBudget": 63
+              }
             }
           ],
-          "totalBudget": 35.8387
+          "totalBudget": 2.2775
         }
       }
     ]
@@ -149,7 +147,7 @@
                   "physAtk": 2.8
                 }
               },
-              "effectBudget": 3.9
+              "effectBudget": 2.8
             },
             {
               "type": "buff",
@@ -167,11 +165,10 @@
                 "physDef": 4,
                 "spellDef": 4,
                 "resolvePower": 3
-              },
-              "effectBudget": 57
+              }
             }
           ],
-          "totalBudget": 53.0942
+          "totalBudget": 2.4411
         }
       },
       {
@@ -203,7 +200,7 @@
                   "caster.buff.buff.monster_stonehide.stacks": 0.1
                 }
               },
-              "effectBudget": 4.3
+              "effectBudget": 3.2
             },
             {
               "type": "buff",
@@ -221,11 +218,10 @@
                 "physDef": 4,
                 "spellDef": 4,
                 "resolvePower": 3
-              },
-              "effectBudget": 57
+              }
             }
           ],
-          "totalBudget": 38.5141
+          "totalBudget": 2.0105
         }
       }
     ]
@@ -264,7 +260,7 @@
                   "physAtk": 3.2
                 }
               },
-              "effectBudget": 4.3
+              "effectBudget": 3.2
             },
             {
               "type": "buff",
@@ -282,11 +278,10 @@
                 "hit": 4,
                 "crit": 5,
                 "maxQiOutputPerTick": 6
-              },
-              "effectBudget": 61
+              }
             }
           ],
-          "totalBudget": 37.8147
+          "totalBudget": 1.8531
         }
       },
       {
@@ -357,17 +352,16 @@
                 },
                 "extraPercentBonuses": {
                   "target.buff.buff.thunder_rebuke.stacks": 0.1
-                },
-                "flatBase": 50
+                }
               },
-              "effectBudget": 54.7
+              "effectBudget": 3.6
             },
             {
               "type": "buff",
               "buffRef": "fanren.shufa.mystic.thunder_rebuke"
             }
           ],
-          "totalBudget": 40.0081
+          "totalBudget": 2.6331
         }
       }
     ]
@@ -412,10 +406,9 @@
                 },
                 "extraPercentBonuses": {
                   "target.buff.buff.frost_mark.stacks": 0.1
-                },
-                "flatBase": 50
+                }
               },
-              "effectBudget": 54.7
+              "effectBudget": 3.6
             },
             {
               "type": "buff",
@@ -423,7 +416,7 @@
             }
           ],
           "targetMode": "tile",
-          "totalBudget": 69.134
+          "totalBudget": 4.55
         }
       }
     ]
@@ -466,10 +459,9 @@
                 },
                 "percentBonuses": {
                   "techLevel": -0.5
-                },
-                "flatBase": 20
+                }
               },
-              "effectBudget": 23.05
+              "effectBudget": 2
             },
             {
               "type": "buff",
@@ -477,7 +469,7 @@
             }
           ],
           "requiresTarget": false,
-          "totalBudget": 50.6733
+          "totalBudget": 4.3968
         }
       }
     ]
@@ -515,10 +507,9 @@
             },
             "extraPercentBonuses": {
               "target.distance": 0.3
-            },
-            "flatBase": 100
+            }
           },
-          "totalBudget": 95.4984
+          "totalBudget": 3.9371
         }
       }
     ]

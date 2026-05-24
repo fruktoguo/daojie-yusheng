@@ -68,10 +68,9 @@
           "formulaStrength": {
             "attributeBases": {
               "physAtk": 3
-            },
-            "flatBase": 30
+            }
           },
-          "totalBudget": 49.1392
+          "totalBudget": 4.4672
         }
       }
     ]

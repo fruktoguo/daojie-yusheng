@@ -32,17 +32,16 @@
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.5
-                },
-                "flatBase": 400
+                }
               },
-              "effectBudget": 404.6
+              "effectBudget": 3.5
             },
             {
               "type": "buff",
               "buffRef": "lianqi.earth.self_fortify"
             }
           ],
-          "totalBudget": 118.289
+          "totalBudget": 1.0233
         }
       }
     ]
@@ -80,10 +79,9 @@
             },
             "extraPercentBonuses": {
               "target.buff.buff.metal_edge_mark.stacks": 0.5
-            },
-            "flatBase": 200
+            }
           },
-          "totalBudget": 65.5076
+          "totalBudget": 1.5977
         }
       }
     ]
@@ -162,10 +160,9 @@
                 },
                 "extraPercentBonuses": {
                   "caster.buff.buff.water_glide.stacks": 0.2
-                },
-                "flatBase": 300
+                }
               },
-              "effectBudget": 304.8
+              "effectBudget": 3.7
             },
             {
               "type": "buff",
@@ -173,7 +170,7 @@
             }
           ],
           "targetMode": "tile",
-          "totalBudget": 129.8648
+          "totalBudget": 1.5764
         }
       }
     ]
@@ -215,10 +212,9 @@
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4
-                },
-                "flatBase": 300
+                }
               },
-              "effectBudget": 305.1
+              "effectBudget": 4
             },
             {
               "type": "buff",
@@ -226,7 +222,7 @@
             }
           ],
           "targetMode": "tile",
-          "totalBudget": 205.4716
+          "totalBudget": 2.6938
         }
       }
     ]
@@ -273,16 +269,14 @@
                 },
                 "extraPercentBonuses": {
                   "target.buff.buff.fire_burn_mark.stacks": 0.01
-                },
-                "flatBase": 400
+                }
               },
-              "effectBudget": 405.71
+              "effectBudget": 5.51
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
-              "stacks": 20,
-              "effectBudget": 20
+              "stacks": 20
             }
           ],
           "requiresTarget": false,
@@ -290,7 +284,7 @@
             "windupTicks": 3,
             "warningColor": "#ef6b3b"
           },
-          "totalBudget": 660.4427
+          "totalBudget": 8.5482
         }
       }
     ]

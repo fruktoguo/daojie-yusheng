@@ -85,6 +85,7 @@ cost = costMultiplier × gradeQiCostMultiplier × realmLv × realmAttributeMulti
 源文件: `packages/shared/src/technique-arts-strength.ts`
 
 内容和 AI 草稿只写权重，不直接写运行时 `effects[].formula`、`cost`、`cooldown`、`targeting`。
+伤害/治疗的效果强度只来自属性基底或变量基底，不再支持固定基础伤害值。
 
 ```typescript
 structureBudgetMultiplier =

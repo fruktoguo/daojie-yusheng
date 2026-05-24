@@ -33,7 +33,7 @@
                   "physAtk": 3.2
                 }
               },
-              "effectBudget": 4.3
+              "effectBudget": 3.2
             },
             {
               "type": "buff",
@@ -50,11 +50,10 @@
               "valueStats": {
                 "crit": 4,
                 "breakPower": 5
-              },
-              "effectBudget": 51
+              }
             }
           ],
-          "totalBudget": 97.24
+          "totalBudget": 5.6269
         }
       },
       {
@@ -86,7 +85,7 @@
                   "caster.buff.buff.monster_blade_limb.stacks": 0.1
                 }
               },
-              "effectBudget": 4.6
+              "effectBudget": 3.5
             },
             {
               "type": "buff",
@@ -103,11 +102,10 @@
               "valueStats": {
                 "crit": 4,
                 "breakPower": 5
-              },
-              "effectBudget": 51
+              }
             }
           ],
-          "totalBudget": 56.2083
+          "totalBudget": 3.5383
         }
       }
     ]
@@ -147,7 +145,7 @@
                   "spellAtk": 3.1
                 }
               },
-              "effectBudget": 4.2
+              "effectBudget": 3.1
             },
             {
               "type": "buff",
@@ -165,11 +163,10 @@
                 "spellDef": -3,
                 "dodge": -2,
                 "resolvePower": -3
-              },
-              "effectBudget": 60
+              }
             }
           ],
-          "totalBudget": 135.4677
+          "totalBudget": 6.5413
         }
       },
       {
@@ -201,7 +198,7 @@
                   "target.buff.buff.monster_toxin.stacks": 0.05
                 }
               },
-              "effectBudget": 4.55
+              "effectBudget": 3.45
             },
             {
               "type": "buff",
@@ -219,11 +216,10 @@
                 "spellDef": -3,
                 "dodge": -2,
                 "resolvePower": -3
-              },
-              "effectBudget": 60
+              }
             }
           ],
-          "totalBudget": 49.2634
+          "totalBudget": 2.633
         }
       }
     ]
@@ -262,7 +258,7 @@
                   "physAtk": 3.4
                 }
               },
-              "effectBudget": 4.5
+              "effectBudget": 3.4
             },
             {
               "type": "buff",
@@ -280,11 +276,10 @@
                 "moveSpeed": 8,
                 "crit": 4,
                 "breakPower": 4
-              },
-              "effectBudget": 58
+              }
             }
           ],
-          "totalBudget": 80.1708
+          "totalBudget": 4.3613
         }
       },
       {
@@ -315,7 +310,7 @@
                   "caster.buff.buff.monster_bloodrush.stacks": 0.1
                 }
               },
-              "effectBudget": 4.9
+              "effectBudget": 3.8
             },
             {
               "type": "buff",
@@ -333,11 +328,10 @@
                 "moveSpeed": 8,
                 "crit": 4,
                 "breakPower": 4
-              },
-              "effectBudget": 58
+              }
             }
           ],
-          "totalBudget": 52.9901
+          "totalBudget": 3.2013
         }
       },
       {
@@ -404,7 +398,7 @@
                   "spellAtk": 3.1
                 }
               },
-              "effectBudget": 4.2
+              "effectBudget": 3.1
             },
             {
               "type": "buff",
@@ -421,11 +415,10 @@
               "valueStats": {
                 "hit": 4,
                 "dodge": 4
-              },
-              "effectBudget": 50
+              }
             }
           ],
-          "totalBudget": 60.5282
+          "totalBudget": 3.4619
         }
       },
       {
@@ -457,7 +450,7 @@
                   "caster.buff.buff.monster_skyline.stacks": 0.1
                 }
               },
-              "effectBudget": 4.6
+              "effectBudget": 3.5
             },
             {
               "type": "buff",
@@ -474,11 +467,10 @@
               "valueStats": {
                 "hit": 4,
                 "dodge": 4
-              },
-              "effectBudget": 50
+              }
             }
           ],
-          "totalBudget": 41.0822
+          "totalBudget": 2.6335
         }
       },
       {
@@ -509,7 +501,7 @@
                   "caster.buff.buff.monster_skyline.stacks": 0.1
                 }
               },
-              "effectBudget": 5.1
+              "effectBudget": 4
             },
             {
               "type": "buff",
@@ -527,11 +519,10 @@
                 "spellDef": -3,
                 "hit": -3,
                 "dodge": -3
-              },
-              "effectBudget": 61
+              }
             }
           ],
-          "totalBudget": 38.278
+          "totalBudget": 2.3164
         }
       }
     ]
@@ -571,7 +562,7 @@
                   "spellAtk": 3.2
                 }
               },
-              "effectBudget": 4.3
+              "effectBudget": 3.2
             },
             {
               "type": "buff",
@@ -588,11 +579,10 @@
               "valueStats": {
                 "spellDef": -3,
                 "dodge": -3
-              },
-              "effectBudget": 58
+              }
             }
           ],
-          "totalBudget": 69.5739
+          "totalBudget": 3.5736
         }
       },
       {
@@ -624,7 +614,7 @@
                   "target.buff.buff.monster_bamboo_bind.stacks": 0.05
                 }
               },
-              "effectBudget": 4.75
+              "effectBudget": 3.65
             },
             {
               "type": "buff",
@@ -641,11 +631,10 @@
               "valueStats": {
                 "spellDef": -3,
                 "dodge": -3
-              },
-              "effectBudget": 58
+              }
             }
           ],
-          "totalBudget": 43.6056
+          "totalBudget": 2.5364
         }
       }
     ]
@@ -690,20 +679,18 @@
                 },
                 "extraPercentBonuses": {
                   "target.buff.buff.fire_burn_mark.stacks": 0.01
-                },
-                "flatBase": 50
+                }
               },
-              "effectBudget": 54.11
+              "effectBudget": 3.01
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
-              "stacks": 5,
-              "effectBudget": 5
+              "stacks": 5
             }
           ],
           "targetMode": "tile",
-          "totalBudget": 97.5278
+          "totalBudget": 4.9663
         }
       }
     ]
@@ -815,10 +802,9 @@
             },
             "percentBonuses": {
               "moveSpeed": 1
-            },
-            "flatBase": 50
+            }
           },
-          "totalBudget": 62.1591
+          "totalBudget": 4.8696
         }
       }
     ]

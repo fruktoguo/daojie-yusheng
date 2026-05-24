@@ -48,8 +48,7 @@
                 "viewRange": 30
               },
               "statMode": "percent",
-              "presentationScale": 4,
-              "effectBudget": 395.2
+              "presentationScale": 4
             },
             {
               "type": "buff",
@@ -67,8 +66,7 @@
                 "extraRange": 3,
                 "extraArea": 1
               },
-              "statMode": "flat",
-              "effectBudget": 5
+              "statMode": "flat"
             }
           ],
           "requiresTarget": false,
@@ -83,8 +81,7 @@
                 }
               ]
             }
-          },
-          "totalBudget": 29.7092
+          }
         }
       },
       {
@@ -117,7 +114,7 @@
                   "target.buff.terrain_molten_pool_burn.stacks": 0.1
                 }
               },
-              "effectBudget": 11.25
+              "effectBudget": 10.15
             },
             {
               "type": "buff",
@@ -138,8 +135,7 @@
                 "spellDef": -10
               },
               "statMode": "percent",
-              "color": "#ff8a54",
-              "effectBudget": 201
+              "color": "#ff8a54"
             }
           ],
           "monsterCast": {
@@ -156,7 +152,7 @@
             "windupTicks": 1,
             "warningColor": "#ff2a2a"
           },
-          "totalBudget": 79.652
+          "totalBudget": 3.809
         }
       },
       {
@@ -189,7 +185,7 @@
                   "target.buff.buff.huanling_rongmai_yin.stacks": 0.05
                 }
               },
-              "effectBudget": 11.65
+              "effectBudget": 10.55
             },
             {
               "type": "buff",
@@ -207,8 +203,7 @@
                 "moveSpeed": -200,
                 "dodge": -200
               },
-              "statMode": "percent",
-              "effectBudget": 421
+              "statMode": "percent"
             },
             {
               "type": "buff",
@@ -222,8 +217,7 @@
               "duration": 10,
               "stacks": 10,
               "maxStacks": 20,
-              "color": "#ff8e54",
-              "effectBudget": 40
+              "color": "#ff8e54"
             },
             {
               "type": "terrain",
@@ -232,8 +226,7 @@
               "allowedOriginalTypes": [
                 "floor",
                 "stone"
-              ],
-              "effectBudget": 30
+              ]
             }
           ],
           "monsterCast": {
@@ -254,7 +247,7 @@
             "windupTicks": 1,
             "warningColor": "#ff7a33"
           },
-          "totalBudget": 198.9382
+          "totalBudget": 4.1755
         }
       },
       {
@@ -285,7 +278,7 @@
                   "spellAtk": 10.2
                 }
               },
-              "effectBudget": 11.3
+              "effectBudget": 10.2
             },
             {
               "type": "buff",
@@ -306,8 +299,7 @@
                 "spellDef": -10
               },
               "statMode": "percent",
-              "color": "#ff8a54",
-              "effectBudget": 201
+              "color": "#ff8a54"
             },
             {
               "type": "buff",
@@ -321,8 +313,7 @@
               "duration": 10,
               "stacks": 10,
               "maxStacks": 20,
-              "color": "#ff8e54",
-              "effectBudget": 40
+              "color": "#ff8e54"
             },
             {
               "type": "terrain",
@@ -331,8 +322,7 @@
               "allowedOriginalTypes": [
                 "floor",
                 "stone"
-              ],
-              "effectBudget": 30
+              ]
             }
           ],
           "monsterCast": {
@@ -353,7 +343,7 @@
             "windupTicks": 1,
             "warningColor": "#ff6a2f"
           },
-          "totalBudget": 128.7141
+          "totalBudget": 4.6507
         }
       },
       {
@@ -387,7 +377,7 @@
                   "target.buff.buff.huanling_rongmai_yin.stacks": 0.05
                 }
               },
-              "effectBudget": 11.95
+              "effectBudget": 10.85
             },
             {
               "type": "buff",
@@ -408,8 +398,7 @@
                 "spellDef": -10
               },
               "statMode": "percent",
-              "color": "#ff8a54",
-              "effectBudget": 201
+              "color": "#ff8a54"
             }
           ],
           "monsterCast": {
@@ -430,7 +419,7 @@
             "windupTicks": 1,
             "warningColor": "#ffc16f"
           },
-          "totalBudget": 156.996
+          "totalBudget": 7.9991
         }
       },
       {
@@ -465,7 +454,7 @@
                   "target.buff.terrain_molten_pool_burn.stacks": 0.1
                 }
               },
-              "effectBudget": 12.25
+              "effectBudget": 11.15
             },
             {
               "type": "buff",
@@ -483,8 +472,7 @@
                 "moveSpeed": -200,
                 "dodge": -200
               },
-              "statMode": "percent",
-              "effectBudget": 421
+              "statMode": "percent"
             }
           ],
           "monsterCast": {
@@ -505,7 +493,7 @@
             "windupTicks": 1,
             "warningColor": "#ff9c64"
           },
-          "totalBudget": 208.7081
+          "totalBudget": 5.3713
         }
       },
       {
@@ -540,7 +528,7 @@
                   "target.buff.terrain_molten_pool_burn.stacks": 0.1
                 }
               },
-              "effectBudget": 12.75
+              "effectBudget": 11.65
             },
             {
               "type": "buff",
@@ -561,8 +549,7 @@
                 "spellDef": -10
               },
               "statMode": "percent",
-              "color": "#ff8a54",
-              "effectBudget": 201
+              "color": "#ff8a54"
             }
           ],
           "monsterCast": {
@@ -583,7 +570,7 @@
             "windupTicks": 2,
             "warningColor": "#ff4d36"
           },
-          "totalBudget": 1564.0789
+          "totalBudget": 85.2469
         }
       },
       {

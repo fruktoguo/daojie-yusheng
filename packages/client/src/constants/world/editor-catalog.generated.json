@@ -115,35 +115,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          100,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 4
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.metal_edge_mark.stacks",
-                            "scale": 0.3
-                          }
-                        ]
+                        "var": "target.buff.buff.metal_edge_mark.stacks",
+                        "scale": 0.3
                       }
                     ]
-                  },
-                  1.010547
+                  }
                 ]
               }
             },
@@ -276,33 +264,27 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 10
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                            "scale": 0.05
-                          },
-                          {
-                            "var": "target.buff.terrain_molten_pool_burn.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.terrain_molten_pool_burn.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.108374
+                  }
                 ]
               }
             },
@@ -367,29 +349,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 10.5
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                            "scale": 0.05
-                          }
-                        ]
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.05
                       }
                     ]
-                  },
-                  1.104265
+                  }
                 ]
               }
             },
@@ -479,25 +455,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 10.2
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.107843
+                  }
                 ]
               }
             },
@@ -591,29 +561,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 10.8
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 10.8
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                            "scale": 0.05
-                          }
-                        ]
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.05
                       }
                     ]
-                  },
-                  1.101382
+                  }
                 ]
               }
             },
@@ -683,33 +647,27 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 11
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 11
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                            "scale": 0.05
-                          },
-                          {
-                            "var": "target.buff.terrain_molten_pool_burn.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.terrain_molten_pool_burn.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.098655
+                  }
                 ]
               }
             },
@@ -776,33 +734,27 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 11.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 11.5
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                            "scale": 0.05
-                          },
-                          {
-                            "var": "target.buff.terrain_molten_pool_burn.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                        "scale": 0.05
+                      },
+                      {
+                        "var": "target.buff.terrain_molten_pool_burn.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.094421
+                  }
                 ]
               }
             },
@@ -1015,25 +967,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.2
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.261905
+                  }
                 ]
               }
             },
@@ -1081,29 +1027,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.3
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_soulbind.stacks",
-                            "scale": 0.05
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_soulbind.stacks",
+                        "scale": 0.05
                       }
                     ]
-                  },
-                  1.252874
+                  }
                 ]
               }
             },
@@ -1196,35 +1136,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          50,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.01
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.01
                       }
                     ]
-                  },
-                  1.020751
+                  }
                 ]
               }
             },
@@ -1284,35 +1212,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          400,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 4.5
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.2
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.2
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.01
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.01
                       }
                     ]
-                  },
-                  1.000493
+                  }
                 ]
               }
             },
@@ -1452,25 +1368,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.8
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.8
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  1.284211
+                  }
                 ]
               }
             },
@@ -1516,29 +1426,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.5
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.04
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.04
                       }
                     ]
-                  },
-                  1.282486
+                  }
                 ]
               }
             },
@@ -1582,25 +1486,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.2
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  1.3375
+                  }
                 ]
               }
             },
@@ -1646,29 +1544,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4.2
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_charwood_root_bind.stacks",
-                            "scale": 0.12
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_charwood_root_bind.stacks",
+                        "scale": 0.12
                       }
                     ]
-                  },
-                  1.231481
+                  }
                 ]
               }
             },
@@ -1716,25 +1608,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.3
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.255814
+                  }
                 ]
               }
             },
@@ -1779,29 +1665,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4.5
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.05
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.05
                       }
                     ]
-                  },
-                  1.21978
+                  }
                 ]
               }
             },
@@ -1848,29 +1728,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.maxHp",
+                    "scale": 0.12
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.maxHp",
-                        "scale": 0.12
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_molten_scales.stacks",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_molten_scales.stacks",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  6
+                  }
                 ]
               }
             },
@@ -1918,25 +1792,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.8
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.8
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  1.284211
+                  }
                 ]
               }
             },
@@ -1999,29 +1867,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.1
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.1
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_vine_constrict.stacks",
-                            "scale": 0.12
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_vine_constrict.stacks",
+                        "scale": 0.12
                       }
                     ]
-                  },
-                  1.236967
+                  }
                 ]
               }
             },
@@ -2085,33 +1947,27 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.8
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.8
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.03
-                          },
-                          {
-                            "var": "target.buff.buff.wood_vine_mark.stacks",
-                            "scale": 0.18
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.03
+                      },
+                      {
+                        "var": "target.buff.buff.wood_vine_mark.stacks",
+                        "scale": 0.18
                       }
                     ]
-                  },
-                  1.199601
+                  }
                 ]
               }
             },
@@ -2162,25 +2018,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.8
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.8
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.12
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.12
                       }
                     ]
-                  },
-                  1.23
+                  }
                 ]
               }
             },
@@ -2250,25 +2100,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.2
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.261905
+                  }
                 ]
               }
             },
@@ -2338,33 +2182,27 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 5.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 5.2
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.03
-                          },
-                          {
-                            "var": "target.buff.buff.monster_root_prison.stacks",
-                            "scale": 0.25
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.03
+                      },
+                      {
+                        "var": "target.buff.buff.monster_root_prison.stacks",
+                        "scale": 0.25
                       }
                     ]
-                  },
-                  1.182482
+                  }
                 ]
               }
             },
@@ -2411,29 +2249,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.maxHp",
+                    "scale": 0.18
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.maxHp",
-                        "scale": 0.18
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_phoenix_ember.stacks",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_phoenix_ember.stacks",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  4.846154
+                  }
                 ]
               }
             },
@@ -2496,35 +2328,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          100,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 4
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.metal_edge_mark.stacks",
-                            "scale": 0.3
-                          }
-                        ]
+                        "var": "target.buff.buff.metal_edge_mark.stacks",
+                        "scale": 0.3
                       }
                     ]
-                  },
-                  1.010547
+                  }
                 ]
               }
             },
@@ -2601,14 +2421,8 @@
                     "op": "mul",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          150,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3.25
-                          }
-                        ]
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.25
                       },
                       {
                         "op": "add",
@@ -2626,7 +2440,7 @@
                       }
                     ]
                   },
-                  1
+                  1.000029
                 ]
               }
             }
@@ -2670,35 +2484,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          50,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3.5
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.frost_mark.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "target.buff.buff.frost_mark.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.020522
+                  }
                 ]
               }
             },
@@ -2757,31 +2559,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          300,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3.5
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.003624
+                  }
                 ]
               }
             },
@@ -2859,31 +2649,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          200,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 3
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.005419
+                  }
                 ]
               }
             },
@@ -2941,31 +2719,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          400,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 3.5
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.002726
+                  }
                 ]
               }
             },
@@ -3058,35 +2824,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          50,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3.5
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.thunder_rebuke.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "target.buff.buff.thunder_rebuke.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.020522
+                  }
                 ]
               }
             },
@@ -3143,25 +2897,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 2.8
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 2.8
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.392857
+                  }
                 ]
               }
             },
@@ -3208,29 +2956,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.1
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.1
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_stonehide.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_stonehide.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.34375
+                  }
                 ]
               }
             },
@@ -3288,31 +3030,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.25
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          300,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 3.25
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.003627
+                  }
                 ]
               }
             },
@@ -3374,35 +3104,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          200,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3.5
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.01
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.01
                       }
                     ]
-                  },
-                  1.005405
+                  }
                 ]
               }
             },
@@ -3464,14 +3182,8 @@
                     "op": "mul",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          50,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 3.25
-                          }
-                        ]
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.25
                       },
                       {
                         "op": "add",
@@ -3489,7 +3201,7 @@
                       }
                     ]
                   },
-                  1
+                  0.999999
                 ]
               }
             }
@@ -3742,14 +3454,8 @@
                     "op": "mul",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          30,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 3
-                          }
-                        ]
+                        "var": "caster.stat.physAtk",
+                        "scale": 3
                       },
                       {
                         "op": "add",
@@ -3806,31 +3512,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 1
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          100,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 1
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.010891
+                  }
                 ]
               }
             },
@@ -3842,31 +3536,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          100,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.01068
+                  }
                 ]
               }
             },
@@ -3939,25 +3621,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.2
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.34375
+                  }
                 ]
               }
             },
@@ -4003,29 +3679,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.4
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_blade_limb.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_blade_limb.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.314286
+                  }
                 ]
               }
             },
@@ -4081,25 +3751,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.2
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.34375
+                  }
                 ]
               }
             },
@@ -4209,25 +3873,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.7
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.7
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  1.291892
+                  }
                 ]
               }
             },
@@ -4323,25 +3981,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  1.27
+                  }
                 ]
               }
             },
@@ -4428,25 +4080,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.5
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  1.308571
+                  }
                 ]
               }
             },
@@ -4512,33 +4158,27 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.7
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.7
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_ice_web.stacks",
-                            "scale": 0.25
-                          },
-                          {
-                            "var": "target.buff.buff.frost_mark.stacks",
-                            "scale": 0.06
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_ice_web.stacks",
+                        "scale": 0.25
+                      },
+                      {
+                        "var": "target.buff.buff.frost_mark.stacks",
+                        "scale": 0.06
                       }
                     ]
-                  },
-                  1.199601
+                  }
                 ]
               }
             },
@@ -4627,29 +4267,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.2
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
-                            "scale": 0.12
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
+                        "scale": 0.12
                       }
                     ]
-                  },
-                  1.231481
+                  }
                 ]
               }
             },
@@ -4699,29 +4333,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4.6
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4.6
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
-                            "scale": 0.15
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
+                        "scale": 0.15
                       }
                     ]
-                  },
-                  1.210526
+                  }
                 ]
               }
             },
@@ -4835,14 +4463,8 @@
                     "op": "mul",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          200,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 4.5
-                          }
-                        ]
+                        "var": "caster.stat.physAtk",
+                        "scale": 4.5
                       },
                       {
                         "op": "add",
@@ -4860,7 +4482,7 @@
                       }
                     ]
                   },
-                  1
+                  0.999971
                 ]
               }
             }
@@ -5032,35 +4654,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          300,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3.5
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.water_glide.stacks",
-                            "scale": 0.2
-                          }
-                        ]
+                        "var": "caster.buff.buff.water_glide.stacks",
+                        "scale": 0.2
                       }
                     ]
-                  },
-                  1.003622
+                  }
                 ]
               }
             },
@@ -5268,14 +4878,8 @@
                     "op": "mul",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          200,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 4
-                          }
-                        ]
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4
                       },
                       {
                         "op": "add",
@@ -5289,7 +4893,7 @@
                       }
                     ]
                   },
-                  1
+                  0.999986
                 ]
               }
             }
@@ -5351,31 +4955,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          200,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 3
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.005419
+                  }
                 ]
               }
             },
@@ -5579,25 +5171,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4.4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4.4
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.25
+                  }
                 ]
               }
             },
@@ -5643,29 +5229,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_earth_rend.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_earth_rend.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.243902
+                  }
                 ]
               }
             },
@@ -5771,25 +5351,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.3
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.255814
+                  }
                 ]
               }
             },
@@ -5876,29 +5450,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 4.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4.5
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_stone_skin.stacks",
-                            "scale": 0.12
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_stone_skin.stacks",
+                        "scale": 0.12
                       }
                     ]
-                  },
-                  1.21645
+                  }
                 ]
               }
             },
@@ -5952,25 +5520,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 5
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.12
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.12
                       }
                     ]
-                  },
-                  1.176923
+                  }
                 ]
               }
             },
@@ -6024,29 +5586,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 5.3
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 5.3
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_dragon_earthbind.stacks",
-                            "scale": 0.18
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_dragon_earthbind.stacks",
+                        "scale": 0.18
                       }
                     ]
-                  },
-                  1.182482
+                  }
                 ]
               }
             },
@@ -6207,29 +5763,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 5
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.debuffCount",
-                            "scale": 0.06
-                          }
-                        ]
+                        "var": "target.debuffCount",
+                        "scale": 0.06
                       }
                     ]
-                  },
-                  1.197628
+                  }
                 ]
               }
             },
@@ -6318,33 +5868,27 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 5.6
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 5.6
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_element_shift.stacks",
-                            "scale": 0.12
-                          },
-                          {
-                            "var": "target.debuffCount",
-                            "scale": 0.04
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_element_shift.stacks",
+                        "scale": 0.12
+                      },
+                      {
+                        "var": "target.debuffCount",
+                        "scale": 0.04
                       }
                     ]
-                  },
-                  1.173611
+                  }
                 ]
               }
             },
@@ -6396,29 +5940,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.maxHp",
+                    "scale": 0.15
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.maxHp",
-                        "scale": 0.15
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_element_shift.stacks",
-                            "scale": 0.08
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_element_shift.stacks",
+                        "scale": 0.08
                       }
                     ]
-                  },
-                  5.347826
+                  }
                 ]
               }
             },
@@ -6804,25 +6342,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.1
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.1
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.354839
+                  }
                 ]
               }
             },
@@ -6870,29 +6402,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.4
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_toxin.stacks",
-                            "scale": 0.05
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_toxin.stacks",
+                        "scale": 0.05
                       }
                     ]
-                  },
-                  1.318841
+                  }
                 ]
               }
             },
@@ -6949,25 +6475,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.4
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.323529
+                  }
                 ]
               }
             },
@@ -7014,29 +6534,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.physAtk",
+                    "scale": 3.7
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.7
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_bloodrush.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_bloodrush.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.289474
+                  }
                 ]
               }
             },
@@ -7161,42 +6675,36 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "op": "add",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 10
-                          },
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 10
-                          },
-                          {
-                            "var": "caster.hp",
-                            "scale": 1
-                          },
-                          {
-                            "var": "caster.qi",
-                            "scale": 1
-                          }
-                        ]
+                        "var": "caster.stat.physAtk",
+                        "scale": 10
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.stat.spellAtk",
+                        "scale": 10
+                      },
+                      {
+                        "var": "caster.hp",
+                        "scale": 1
+                      },
+                      {
+                        "var": "caster.qi",
+                        "scale": 1
                       }
                     ]
                   },
-                  0.636364
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      }
+                    ]
+                  }
                 ]
               }
             }
@@ -7231,42 +6739,36 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "op": "add",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 10
-                          },
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 10
-                          },
-                          {
-                            "var": "caster.hp",
-                            "scale": 1
-                          },
-                          {
-                            "var": "caster.qi",
-                            "scale": 1
-                          }
-                        ]
+                        "var": "caster.stat.physAtk",
+                        "scale": 10
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.stat.spellAtk",
+                        "scale": 10
+                      },
+                      {
+                        "var": "caster.hp",
+                        "scale": 1
+                      },
+                      {
+                        "var": "caster.qi",
+                        "scale": 1
                       }
                     ]
                   },
-                  0.636364
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      }
+                    ]
+                  }
                 ]
               }
             }
@@ -7300,42 +6802,36 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "op": "add",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 10
-                          },
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 10
-                          },
-                          {
-                            "var": "caster.hp",
-                            "scale": 1
-                          },
-                          {
-                            "var": "caster.qi",
-                            "scale": 1
-                          }
-                        ]
+                        "var": "caster.stat.physAtk",
+                        "scale": 10
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.stat.spellAtk",
+                        "scale": 10
+                      },
+                      {
+                        "var": "caster.hp",
+                        "scale": 1
+                      },
+                      {
+                        "var": "caster.qi",
+                        "scale": 1
                       }
                     ]
                   },
-                  0.636364
+                  {
+                    "op": "add",
+                    "args": [
+                      1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      }
+                    ]
+                  }
                 ]
               }
             }
@@ -7377,25 +6873,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.1
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.1
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.354839
+                  }
                 ]
               }
             },
@@ -7442,29 +6932,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.4
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_skyline.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_skyline.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.314286
+                  }
                 ]
               }
             },
@@ -7509,29 +6993,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.9
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.9
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "caster.buff.buff.monster_skyline.stacks",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "caster.buff.buff.monster_skyline.stacks",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.275
+                  }
                 ]
               }
             },
@@ -7593,14 +7071,8 @@
                     "op": "mul",
                     "args": [
                       {
-                        "op": "add",
-                        "args": [
-                          100,
-                          {
-                            "var": "caster.stat.physAtk",
-                            "scale": 4
-                          }
-                        ]
+                        "var": "caster.stat.physAtk",
+                        "scale": 4
                       },
                       {
                         "op": "add",
@@ -7618,7 +7090,7 @@
                       }
                     ]
                   },
-                  1
+                  0.999991
                 ]
               }
             }
@@ -7678,31 +7150,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          300,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 4
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.003618
+                  }
                 ]
               }
             },
@@ -7795,31 +7255,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          20,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 2
-                          }
-                        ]
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.05
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.05
                       }
                     ]
-                  },
-                  1.047727
+                  }
                 ]
               }
             },
@@ -7932,35 +7380,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 4.5
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "op": "add",
-                        "args": [
-                          400,
-                          {
-                            "var": "caster.stat.spellAtk",
-                            "scale": 4.5
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.2
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.2
-                          },
-                          {
-                            "var": "target.buff.buff.fire_burn_mark.stacks",
-                            "scale": 0.01
-                          }
-                        ]
+                        "var": "target.buff.buff.fire_burn_mark.stacks",
+                        "scale": 0.01
                       }
                     ]
-                  },
-                  1.000493
+                  }
                 ]
               }
             },
@@ -8020,25 +7456,19 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.2
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.2
-                      },
-                      {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          }
-                        ]
+                        "var": "techLevel",
+                        "scale": 0.1
                       }
                     ]
-                  },
-                  1.34375
+                  }
                 ]
               }
             },
@@ -8085,29 +7515,23 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "mul",
+                    "var": "caster.stat.spellAtk",
+                    "scale": 3.6
+                  },
+                  {
+                    "op": "add",
                     "args": [
+                      1,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.6
+                        "var": "techLevel",
+                        "scale": 0.1
                       },
                       {
-                        "op": "add",
-                        "args": [
-                          1,
-                          {
-                            "var": "techLevel",
-                            "scale": 0.1
-                          },
-                          {
-                            "var": "target.buff.buff.monster_bamboo_bind.stacks",
-                            "scale": 0.05
-                          }
-                        ]
+                        "var": "target.buff.buff.monster_bamboo_bind.stacks",
+                        "scale": 0.05
                       }
                     ]
-                  },
-                  1.30137
+                  }
                 ]
               }
             },

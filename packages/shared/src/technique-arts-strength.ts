@@ -39,7 +39,6 @@ export interface TechniqueArtsStrengthStructureInput {
 }
 
 export interface TechniqueArtsStrengthFormulaInput {
-  flatBase?: number;
   attributeBases?: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>;
   extraBaseVars?: Record<string, number>;
   percentBonuses?: {
@@ -110,7 +109,6 @@ export interface NormalizedTechniqueArtsStrengthStructure {
 }
 
 export interface NormalizedTechniqueArtsStrengthFormula {
-  flatBase: number;
   attributeBases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>;
   extraBaseVars: Record<string, number>;
   percentBonuses: {
@@ -369,7 +367,6 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
 function normalizeFormula(raw: unknown): NormalizedTechniqueArtsStrengthFormula {
   const source = isRecord(raw) ? raw : {};
   const rawFormula = isSkillFormula(source.rawFormula) ? source.rawFormula : undefined;
-  const flatBase = roundTo(Math.max(0, toFiniteNumber(source.flatBase, 0)), 4);
   const bases = normalizeAttributeBases(source.attributeBases);
   const extraBaseVars = normalizeFormulaVarScales(source.extraBaseVars);
   const percentSource = isRecord(source.percentBonuses) ? source.percentBonuses : {};
@@ -388,9 +385,8 @@ function normalizeFormula(raw: unknown): NormalizedTechniqueArtsStrengthFormula 
   const extraPercentBonuses = normalizeFormulaVarScales(source.extraPercentBonuses);
   const effectStrength = rawFormula
     ? calculateRawFormulaStrength(rawFormula)
-    : calculateFormulaEffectStrength(flatBase, bases, extraBaseVars, percentBonuses, extraPercentBonuses);
+    : calculateFormulaEffectStrength(bases, extraBaseVars, percentBonuses, extraPercentBonuses);
   return {
-    flatBase,
     attributeBases: bases,
     extraBaseVars,
     percentBonuses,
@@ -446,13 +442,12 @@ function calculateAttributeBaseCost(stat: TechniqueArtsStrengthAttributeBaseStat
 }
 
 function calculateFormulaEffectStrength(
-  flatBase: number,
   bases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>,
   extraBaseVars: Record<string, number>,
   percentBonuses: NormalizedTechniqueArtsStrengthFormula['percentBonuses'],
   extraPercentBonuses: Record<string, number>,
 ): number {
-  let total = Math.max(0, flatBase);
+  let total = 0;
   for (const [key, value] of Object.entries(bases)) {
     total += calculateAttributeBaseCost(key as TechniqueArtsStrengthAttributeBaseStat, value);
   }
@@ -658,9 +653,6 @@ function buildDamageFormula(
     return scaleWholeFormula(formula.rawFormula, effectScale);
   }
   const baseArgs: SkillFormula[] = [];
-  if (formula.flatBase > 0) {
-    baseArgs.push(formula.flatBase);
-  }
   for (const [key, value] of Object.entries(formula.attributeBases)) {
     baseArgs.push({
       var: `caster.stat.${key as NumericScalarStatKey}`,

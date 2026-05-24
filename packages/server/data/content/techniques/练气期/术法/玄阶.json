@@ -38,10 +38,9 @@
                 },
                 "extraPercentBonuses": {
                   "target.buff.buff.metal_edge_mark.stacks": 0.3
-                },
-                "flatBase": 100
+                }
               },
-              "effectBudget": 105.4
+              "effectBudget": 4.3
             },
             {
               "type": "buff",
@@ -49,7 +48,7 @@
             }
           ],
           "targetMode": "tile",
-          "totalBudget": 41.0864
+          "totalBudget": 1.6762
         }
       }
     ]
@@ -97,16 +96,14 @@
                 },
                 "extraPercentBonuses": {
                   "target.buff.buff.fire_burn_mark.stacks": 0.01
-                },
-                "flatBase": 400
+                }
               },
-              "effectBudget": 405.71
+              "effectBudget": 5.51
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
-              "stacks": 20,
-              "effectBudget": 20
+              "stacks": 20
             }
           ],
           "targetMode": "tile",
@@ -114,7 +111,7 @@
             "windupTicks": 3,
             "warningColor": "#ef6b3b"
           },
-          "totalBudget": 299.2271
+          "totalBudget": 3.8729
         }
       }
     ]
@@ -151,17 +148,16 @@
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.25
-                },
-                "flatBase": 300
+                }
               },
-              "effectBudget": 304.35
+              "effectBudget": 3.25
             },
             {
               "type": "buff",
               "buffRef": "lianqi.earth.self_fortify"
             }
           ],
-          "totalBudget": 120.0677
+          "totalBudget": 1.2821
         }
       }
     ]
@@ -195,10 +191,9 @@
           "formulaStrength": {
             "attributeBases": {
               "spellAtk": 4
-            },
-            "flatBase": 200
+            }
           },
-          "totalBudget": 96.5749
+          "totalBudget": 1.8936
         }
       }
     ]
@@ -239,10 +234,9 @@
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3
-                },
-                "flatBase": 200
+                }
               },
-              "effectBudget": 204.1
+              "effectBudget": 3
             },
             {
               "type": "buff",
@@ -254,7 +248,7 @@
             }
           ],
           "requiresTarget": false,
-          "totalBudget": 166.9632
+          "totalBudget": 2.4541
         }
       }
     ]
@@ -301,12 +295,12 @@
                   "caster.qi": 1
                 }
               },
-              "effectBudget": 14
+              "effectBudget": 22
             }
           ],
           "requiresTarget": true,
           "targetMode": "tile",
-          "totalBudget": 60.1852
+          "totalBudget": 94.5768
         }
       },
       {
@@ -344,12 +338,12 @@
                   "caster.qi": 1
                 }
               },
-              "effectBudget": 14
+              "effectBudget": 22
             }
           ],
           "requiresTarget": true,
           "targetMode": "tile",
-          "totalBudget": 18.4588
+          "totalBudget": 29.0066
         }
       },
       {
@@ -386,12 +380,12 @@
                   "caster.qi": 1
                 }
               },
-              "effectBudget": 14
+              "effectBudget": 22
             }
           ],
           "requiresTarget": true,
           "targetMode": "tile",
-          "totalBudget": 23.989
+          "totalBudget": 37.697
         }
       }
     ]
