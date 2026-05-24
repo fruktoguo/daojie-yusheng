@@ -11,7 +11,7 @@
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
  * 职责：输入校验、ID 构建、坐标/数值归一化。 */
 import { BadRequestException } from '@nestjs/common';
-import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, getDamageTrailColor } from '@mud/shared';
+import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, mergeItemStackEntryInto, mergeItemStackInto } from '@mud/shared';
 
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
@@ -197,19 +197,7 @@ export function parseContainerSourceId(sourceId) {
 }
 /** 生成可稳定比较的物品签名用于同步比对。 */
 export function createSyncedItemStackSignature(item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const comparableEntries = Object.entries(item)
-        .filter(([key, value]) => key !== 'count' && value !== undefined)
-        .sort(([leftKey], [rightKey]) => compareStableKeys(leftKey, rightKey));
-
-    let signature = '';
-    for (const [key, value] of comparableEntries) {
-        signature += `${key}=`;
-        signature += serializeStableComparableValue(value);
-        signature += ';';
-    }
-    return signature;
+    return createItemStackSignature(item);
 }
 /** 稳定 key 比较器。 */
 export function compareStableKeys(left, right) {
@@ -276,26 +264,19 @@ export function groupContainerLootRows(entries) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const rows = [];
-
-    const index = new Map();
-
     const sorted = entries.slice().sort((left, right) => left.createdTick - right.createdTick);
     for (const entry of sorted) {
-        const itemKey = createSyncedItemStackSignature(entry.item);
-        const existing = index.get(itemKey);
-        if (existing) {
-            existing.item.count += entry.item.count;
-            existing.entries.push(entry);
-            continue;
-        }
-
-        const created = {
-            itemKey,
-            item: { ...entry.item },
-            entries: [entry],
-        };
-        index.set(itemKey, created);
-        rows.push(created);
+        mergeItemStackEntryInto(rows, { ...entry.item }, {
+            getItem: (row) => row.item,
+            createEntry: (item, itemKey) => ({
+                itemKey,
+                item,
+                entries: [entry],
+            }),
+            onMerged: (row) => {
+                row.entries.push(entry);
+            },
+        });
     }
     return rows;
 }
@@ -324,13 +305,7 @@ export function canReceiveContainerEntries(simulatedInventory, capacity, entries
 /** 将容器条目应用到背包模拟状态。 */
 export function applyContainerEntriesToInventorySimulation(simulatedInventory, entries) {
     for (const entry of entries) {
-        const item = entry.item;
-        const existing = simulatedInventory.find((candidate) => candidate.itemId === item.itemId);
-        if (existing) {
-            existing.count += item.count;
-            continue;
-        }
-        simulatedInventory.push({ ...item });
+        mergeItemStackInto(simulatedInventory, { ...entry.item });
     }
 }
 /** 校验玩家背包是否可接收整行容器物品。 */

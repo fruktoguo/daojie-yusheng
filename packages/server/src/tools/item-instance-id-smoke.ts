@@ -15,8 +15,11 @@
 import * as assert from 'node:assert/strict';
 import {
     canMergeItemStack,
+    coalesceItemStackList,
     createItemStackSignature,
     isLegacyItemInstanceId,
+    mergeItemStackEntryInto,
+    mergeItemStackInto,
 } from '@mud/shared';
 import {
     assignItemInstanceIdIfNeeded,
@@ -160,17 +163,7 @@ function testEquipCanMergeBySignature(): void {
         inventory.push(existing);
 
         const incoming = makeItem({ itemInstanceId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
-        if (canMergeItemStack(incoming)) {
-            const sig = createItemStackSignature(incoming);
-            const target = inventory.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === sig);
-            if (target) {
-                target.count += incoming.count;
-            } else {
-                inventory.push(incoming);
-            }
-        } else {
-            inventory.push(incoming);
-        }
+        mergeItemStackInto(inventory, incoming);
 
         assert.equal(inventory.length, 1, 'same (itemId, enhanceLevel) equipment must merge into a single slot');
         assert.equal(inventory[0].count, 2, 'merged stack count must increment');
@@ -186,17 +179,7 @@ function testEquipCanMergeBySignature(): void {
         const inventory: any[] = [];
         inventory.push(makeItem({ itemInstanceId: '11111111-1111-4111-8111-111111111111', enhanceLevel: 0 }));
         const plus5 = makeItem({ itemInstanceId: '22222222-2222-4222-8222-222222222222', enhanceLevel: 5 });
-        if (canMergeItemStack(plus5)) {
-            const sig = createItemStackSignature(plus5);
-            const target = inventory.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === sig);
-            if (target) {
-                target.count += plus5.count;
-            } else {
-                inventory.push(plus5);
-            }
-        } else {
-            inventory.push(plus5);
-        }
+        mergeItemStackInto(inventory, plus5);
         assert.equal(inventory.length, 2, 'different enhanceLevel must occupy distinct slots');
         assert.equal(inventory[0].enhanceLevel, 0);
         assert.equal(inventory[1].enhanceLevel, 5);
@@ -208,19 +191,55 @@ function testEquipCanMergeBySignature(): void {
     delete stackA.itemInstanceId;
     delete stackB.itemInstanceId;
     const matInv: any[] = [stackA];
-    if (canMergeItemStack(stackB)) {
-        const sig = createItemStackSignature(stackB);
-        const target = matInv.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === sig);
-        if (target) {
-            target.count += stackB.count;
-        } else {
-            matInv.push(stackB);
-        }
-    }
+    mergeItemStackInto(matInv, stackB);
     assert.equal(matInv.length, 1, 'materials with same itemId must merge');
     assert.equal(matInv[0].count, 5);
 
     console.log('[smoke] equip-merge-by-signature passed');
+}
+
+function testSharedMergeHelpers(): void {
+    const inventory = [
+        makeItem({ itemInstanceId: '11111111-1111-4111-8111-111111111111', count: 1 }),
+    ];
+    const result = mergeItemStackInto(
+        inventory,
+        makeItem({ itemInstanceId: '22222222-2222-4222-8222-222222222222', count: 2 }),
+    );
+    assert.equal(result.merged, true);
+    assert.equal(inventory.length, 1);
+    assert.equal(inventory[0].count, 3);
+    assert.equal(inventory[0].itemInstanceId, '11111111-1111-4111-8111-111111111111');
+
+    const rows: Array<{ itemKey: string; item: any; sources: string[] }> = [];
+    mergeItemStackEntryInto(rows, makeItem({ count: 1 }), {
+        getItem: (row) => row.item,
+        createEntry: (item, itemKey) => ({ itemKey, item, sources: ['first'] }),
+        onMerged: (row) => row.sources.push('merged'),
+    });
+    mergeItemStackEntryInto(rows, makeItem({ count: 4 }), {
+        getItem: (row) => row.item,
+        createEntry: (item, itemKey) => ({ itemKey, item, sources: ['second'] }),
+        onMerged: (row) => row.sources.push('merged'),
+    });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].itemKey, 'equip.test_blade#0');
+    assert.equal(rows[0].item.count, 5);
+    assert.deepEqual(rows[0].sources, ['first', 'merged']);
+
+    const coalesced = [
+        makeItem({ count: 1 }),
+        makeItem({ count: 2 }),
+        makeItem({ count: 1, enhanceLevel: 5 }),
+    ];
+    assert.equal(coalesceItemStackList(coalesced), true);
+    assert.equal(coalesced.length, 2);
+    assert.deepEqual(coalesced.map((item) => [createItemStackSignature(item), item.count]), [
+        ['equip.test_blade#0', 3],
+        ['equip.test_blade#5', 1],
+    ]);
+
+    console.log('[smoke] shared merge helpers passed');
 }
 
 function testStackSplitGetsFreshInstanceId(): void {
@@ -272,18 +291,8 @@ function testDuplicateVisibleInventoryCoalesce(): void {
         makeItem({ itemInstanceId: duplicateId, count: 1, slotIndex: 81 }),
         makeItem({ itemInstanceId: duplicateId, count: 1, slotIndex: 170 }),
     ];
-    const bySignature = new Map<string, any>();
-    const coalesced: any[] = [];
-    for (const item of inventory) {
-        const signature = createItemStackSignature(item);
-        const existing = bySignature.get(signature);
-        if (existing) {
-            existing.count += Math.max(1, Math.trunc(Number(item.count) || 1));
-        } else {
-            bySignature.set(signature, item);
-            coalesced.push(item);
-        }
-    }
+    const coalesced = inventory.slice();
+    coalesceItemStackList(coalesced);
 
     assert.equal(coalesced.length, 1);
     assert.equal(coalesced[0].itemInstanceId, duplicateId);
@@ -517,6 +526,7 @@ async function main(): Promise<void> {
     testAssignment();
     testEnhancementInheritance();
     testEquipCanMergeBySignature();
+    testSharedMergeHelpers();
     testStackSplitGetsFreshInstanceId();
     testDuplicateVisibleInventoryCoalesce();
     testMarketShed();

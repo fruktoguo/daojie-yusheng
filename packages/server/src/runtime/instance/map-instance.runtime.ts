@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -3828,12 +3828,16 @@ class MapInstanceRuntime {
                 continue;
             }
 
+            const mergedItems = [];
+            for (const item of items) {
+                mergeGroundItemEntry(mergedItems, item);
+            }
             const pile = {
                 sourceId: buildGroundSourceId(tileIndex),
                 x,
                 y,
                 tileIndex,
-                items: mergeGroundItemsByKey(items),
+                items: mergedItems,
             };
             pile.items.sort(compareGroundEntries);
             this.groundPilesByTile.set(tileIndex, pile);
@@ -4559,24 +4563,11 @@ class MapInstanceRuntime {
         let changed = false;
         if (existingPile) {
 
-            const existingEntry = existingPile.items.find((entry) => entry.itemKey === itemKey);
-            if (existingEntry) {
-                existingEntry.item.count += normalizedCount;
-                if (!existingEntry.item.name && item.name) {
-                    existingEntry.item.name = item.name;
-                }
-                if (!existingEntry.item.groundLabel && item.groundLabel) {
-                    existingEntry.item.groundLabel = item.groundLabel;
-                }
-            }
-            else {
-                existingPile.items.push({
-                    itemKey,
-                    item: {
-                        ...item,
-                        count: normalizedCount,
-                    },
-                });
+            const mergeResult = mergeGroundItemEntry(existingPile.items, {
+                ...item,
+                count: normalizedCount,
+            });
+            if (!mergeResult.merged) {
                 existingPile.items.sort(compareGroundEntries);
             }
             changed = true;
@@ -6648,28 +6639,21 @@ function normalizePersistedGroundItem(item) {
 function buildGroundItemKey(item) {
     return createItemStackSignature(item);
 }
-/** mergeGroundItemsByKey：按地面物品签名归并历史重复条目。 */
-function mergeGroundItemsByKey(items) {
-    const entries = [];
-    const index = new Map();
-    for (const item of items) {
-        const itemKey = buildGroundItemKey(item);
-        const existing = index.get(itemKey);
-        if (existing) {
-            existing.item.count += item.count;
-            if (!existing.item.name && item.name) {
-                existing.item.name = item.name;
+/** mergeGroundItemEntry：地面堆走共享物品合并规则，额外补齐展示字段。 */
+function mergeGroundItemEntry(entries, item) {
+    return mergeItemStackEntryInto(entries, item, {
+        getItem: (entry: any) => entry.item,
+        createEntry: (entryItem, itemKey) => ({ itemKey, item: entryItem }),
+        onMerged: (targetEntry: any, incomingItem: any) => {
+            const targetItem = targetEntry.item;
+            if (!targetItem.name && incomingItem.name) {
+                targetItem.name = incomingItem.name;
             }
-            if (!existing.item.groundLabel && item.groundLabel) {
-                existing.item.groundLabel = item.groundLabel;
+            if (!targetItem.groundLabel && incomingItem.groundLabel) {
+                targetItem.groundLabel = incomingItem.groundLabel;
             }
-            continue;
-        }
-        const entry = { itemKey, item };
-        index.set(itemKey, entry);
-        entries.push(entry);
-    }
-    return entries;
+        },
+    });
 }
 /** findGroundEntryIndex：优先按签名取地面条目，兼容历史裸 itemId 且避免多变体误取。 */
 function findGroundEntryIndex(entries, itemKey) {

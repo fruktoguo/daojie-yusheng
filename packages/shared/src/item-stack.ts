@@ -14,6 +14,8 @@
  */
 import { ItemStack } from './item-runtime-types';
 
+export type ItemStackMergeItem = { itemId?: string; count?: unknown; [key: string]: unknown };
+
 /**
  * 实例态字段白名单：这些字段会被持久化到 raw_payload jsonb，
  * 且参与堆叠签名判定。值不同则不能合并。
@@ -39,7 +41,7 @@ function normalizePayloadValue(key: string, value: unknown): string {
  * 物品叠加签名：由 itemId + 所有实例态字段的排序拼接构成。
  * 签名相同则视为"同一类物品"，count 可合并。
  */
-export function createItemStackSignature(item: ItemStack | { itemId?: string; [key: string]: unknown }): string {
+export function createItemStackSignature(item: ItemStack | ItemStackMergeItem): string {
   const itemId = typeof item?.itemId === 'string' ? item.itemId : '';
   const parts: string[] = [itemId];
   for (const key of ITEM_INSTANCE_PAYLOAD_KEYS) {
@@ -75,8 +77,131 @@ export function isLegacyItemInstanceId(id: string | undefined | null): boolean {
  *   - 让所有"找现有堆叠合并 count"的代码继续走统一入口，便于将来需要再切回独立时只改一处
  *   - null/undefined 等非法 ItemStack 直接拒绝，防止 NPE 透传到 push/find
  */
-export function canMergeItemStack(item: Pick<ItemStack, 'type' | 'itemInstanceId'> | null | undefined): boolean {
+export function canMergeItemStack(item: Pick<ItemStack, 'type' | 'itemInstanceId'> | ItemStackMergeItem | null | undefined): boolean {
   return Boolean(item);
+}
+
+/** 规范化参与堆叠的数量。非法、空值和小于 1 的值都按 1 处理。 */
+export function normalizeItemStackMergeCount(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
+}
+
+/** 给已有堆叠累加数量，保留已有条目的其他实例字段和 itemInstanceId。 */
+export function addItemStackMergeCount(target: ItemStackMergeItem, incoming: ItemStackMergeItem): number {
+  const nextCount = normalizeItemStackMergeCount(target.count) + normalizeItemStackMergeCount(incoming.count);
+  target.count = nextCount;
+  return nextCount;
+}
+
+export interface ItemStackMergeResult<TEntry> {
+  entry: TEntry;
+  index: number;
+  merged: boolean;
+}
+
+/** 查找可按共享物品堆叠签名合并的条目下标。 */
+export function findMergeableItemStackIndex<TItem extends ItemStackMergeItem>(
+  items: readonly TItem[],
+  item: ItemStackMergeItem,
+): number {
+  if (!canMergeItemStack(item)) {
+    return -1;
+  }
+  const signature = createItemStackSignature(item);
+  return items.findIndex((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature);
+}
+
+/** 将一个物品合入普通物品数组，返回实际承载该堆叠的条目。 */
+export function mergeItemStackInto<TItem extends ItemStackMergeItem>(
+  items: TItem[],
+  item: TItem,
+): ItemStackMergeResult<TItem> {
+  const existingIndex = findMergeableItemStackIndex(items, item);
+  if (existingIndex >= 0) {
+    const existing = items[existingIndex]!;
+    addItemStackMergeCount(existing, item);
+    return { entry: existing, index: existingIndex, merged: true };
+  }
+  items.push(item);
+  return { entry: item, index: items.length - 1, merged: false };
+}
+
+export interface ItemStackEntryMergeOptions<TEntry, TItem extends ItemStackMergeItem> {
+  getItem(entry: TEntry): TItem | null | undefined;
+  createEntry(item: TItem, itemKey: string): TEntry;
+  canMergeEntry?(entry: TEntry, item: TItem, itemKey: string): boolean;
+  onMerged?(targetEntry: TEntry, incomingItem: TItem): void;
+}
+
+/** 将一个物品合入包装条目数组，例如地面堆、容器展示行。 */
+export function mergeItemStackEntryInto<TEntry, TItem extends ItemStackMergeItem>(
+  entries: TEntry[],
+  item: TItem,
+  options: ItemStackEntryMergeOptions<TEntry, TItem>,
+): ItemStackMergeResult<TEntry> {
+  const itemKey = createItemStackSignature(item);
+  const existingIndex = entries.findIndex((entry) => {
+    if (options.canMergeEntry && !options.canMergeEntry(entry, item, itemKey)) {
+      return false;
+    }
+    const entryItem = options.getItem(entry);
+    return Boolean(entryItem && canMergeItemStack(entryItem) && createItemStackSignature(entryItem) === itemKey);
+  });
+  if (existingIndex >= 0) {
+    const existing = entries[existingIndex]!;
+    const existingItem = options.getItem(existing);
+    if (existingItem) {
+      addItemStackMergeCount(existingItem, item);
+    }
+    options.onMerged?.(existing, item);
+    return { entry: existing, index: existingIndex, merged: true };
+  }
+  const created = options.createEntry(item, itemKey);
+  entries.push(created);
+  return { entry: created, index: entries.length - 1, merged: false };
+}
+
+/** 就地合并普通物品数组中的同签名条目，首个条目保留其 itemInstanceId。 */
+export function coalesceItemStackList<TItem extends ItemStackMergeItem>(items: TItem[] | null | undefined): boolean {
+  if (!Array.isArray(items) || items.length === 0) {
+    return false;
+  }
+  let changed = false;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (!items[index]) {
+      items.splice(index, 1);
+      changed = true;
+    }
+  }
+  const signatureIndex = new Map<string, number>();
+  let writeIndex = 0;
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index]!;
+    if (!canMergeItemStack(item)) {
+      items[writeIndex] = item;
+      writeIndex += 1;
+      continue;
+    }
+    const signature = createItemStackSignature(item);
+    const existingIndex = signatureIndex.get(signature);
+    if (existingIndex !== undefined) {
+      addItemStackMergeCount(items[existingIndex]!, item);
+      changed = true;
+      continue;
+    }
+    signatureIndex.set(signature, writeIndex);
+    items[writeIndex] = item;
+    if (writeIndex !== index) {
+      changed = true;
+    }
+    writeIndex += 1;
+  }
+  if (items.length !== writeIndex) {
+    changed = true;
+  }
+  items.length = writeIndex;
+  return changed;
 }
 
 /**

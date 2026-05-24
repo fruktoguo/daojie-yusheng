@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -1250,16 +1250,7 @@ export class PlayerRuntimeService {
         }
         assignItemInstanceIdIfNeeded(item);
 
-        const signature = createItemStackSignature(item);
-        const existing = canMergeItemStack(item)
-            ? player.inventory.items.find((entry) => canMergeItemStack(entry) && createItemStackSignature(entry) === signature)
-            : null;
-        if (existing) {
-            existing.count += item.count;
-        }
-        else {
-            player.inventory.items.push(item);
-        }
+        mergeItemStackInto(player.inventory.items, item);
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
@@ -1812,24 +1803,10 @@ export class PlayerRuntimeService {
         // 这覆盖所有"装备入手"路径：掉落、合成、强化产物、GM、邮件、兑换码、NPC 商店、
         // 任务奖励、市场买家成交（市场内部已脱壳，到这里时 sourceItem 不带 instanceId）。
         assignItemInstanceIdIfNeeded(normalized);
-        if (canMergeItemStack(normalized)) {
-            const signature = createItemStackSignature(normalized);
-            const existing = player.inventory.items.find((entry) =>
-                canMergeItemStack(entry) && createItemStackSignature(entry) === signature,
-            );
-            if (existing) {
-                const newCount = existing.count + normalized.count;
-                if (newCount > MAX_ITEM_COUNT) {
-                    this.logger.warn(`物品数量达到上限 [playerId=${player.id}, itemId=${normalized.itemId}, attempted=${newCount}, capped=${MAX_ITEM_COUNT}]`);
-                }
-                existing.count = Math.min(newCount, MAX_ITEM_COUNT);
-            } else {
-                player.inventory.items.push(normalized);
-            }
-        } else {
-            // 极端兜底：canMergeItemStack 当前对所有合法 ItemStack 返回 true，理论上不会到这里。
-            // 仅当传入对象是 null/undefined 时才走这条分支（已在前置阶段过滤）。
-            player.inventory.items.push(normalized);
+        const mergeResult = mergeItemStackInto(player.inventory.items, normalized);
+        if (mergeResult.merged && mergeResult.entry.count > MAX_ITEM_COUNT) {
+            this.logger.warn(`物品数量达到上限 [playerId=${player.id}, itemId=${normalized.itemId}, attempted=${mergeResult.entry.count}, capped=${MAX_ITEM_COUNT}]`);
+            mergeResult.entry.count = MAX_ITEM_COUNT;
         }
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, normalized.itemId);
@@ -2315,19 +2292,7 @@ export class PlayerRuntimeService {
             // 找不到同签名堆叠时再独立成 slot。previousEquipped 的 itemInstanceId 在合并时
             // 由现有堆叠胜出（直接 ++count，不写入新 instanceId）；独立成 slot 时保留原 id。
             assignItemInstanceIdIfNeeded(previousEquipped);
-            if (canMergeItemStack(previousEquipped)) {
-                const previousSignature = createItemStackSignature(previousEquipped);
-                const mergeTarget = player.inventory.items.find((entry) =>
-                    canMergeItemStack(entry) && createItemStackSignature(entry) === previousSignature,
-                );
-                if (mergeTarget) {
-                    mergeTarget.count += Math.max(1, Math.trunc(Number(previousEquipped.count ?? 1)));
-                } else {
-                    player.inventory.items.push(previousEquipped);
-                }
-            } else {
-                player.inventory.items.push(previousEquipped);
-            }
+            mergeItemStackInto(player.inventory.items, previousEquipped);
         }
         player.inventory.revision += 1;
         player.equipment.revision += 1;
@@ -2385,21 +2350,8 @@ export class PlayerRuntimeService {
                 throw new BadRequestException('装备目标已变更，请重新选择。');
             }
         }
-        if (canMergeItemStack(unequippedItem)) {
-            // 卸下的装备回背包：优先与同 (itemId, enhanceLevel) 签名的现有堆叠合并 count
-            const unequippedSignature = createItemStackSignature(unequippedItem);
-            const mergeTarget = player.inventory.items.find((entry) =>
-                canMergeItemStack(entry) && createItemStackSignature(entry) === unequippedSignature,
-            );
-            if (mergeTarget) {
-                mergeTarget.count += Math.max(1, Math.trunc(Number(unequippedItem.count ?? 1)));
-            } else {
-                player.inventory.items.push(unequippedItem);
-            }
-        } else {
-            // 极端兜底：理论不会到这里（canMergeItemStack 对合法物品恒为 true）
-            player.inventory.items.push(unequippedItem);
-        }
+        // 卸下的装备回背包：优先与同 (itemId, enhanceLevel) 签名的现有堆叠合并 count。
+        mergeItemStackInto(player.inventory.items, unequippedItem);
         equipmentEntry.item = null;
         player.inventory.revision += 1;
         player.equipment.revision += 1;
@@ -6891,48 +6843,7 @@ function compareInventoryItems(left, right) {
  * 合并后保留首个遇到的 slot 的 itemInstanceId（现有堆叠胜出）。
  */
 function coalesceInventoryItems(items: any[] | null | undefined): boolean {
-    if (!Array.isArray(items) || items.length === 0) {
-        return false;
-    }
-    let changed = false;
-    // 先过滤 null/undefined 脏条目，防止后续签名计算崩溃
-    for (let i = items.length - 1; i >= 0; i -= 1) {
-        if (!items[i]) {
-            items.splice(i, 1);
-            changed = true;
-        }
-    }
-    // 正向遍历：首次遇到的签名保留原位，后续同签名合并进首个并移除
-    const signatureIndex = new Map<string, number>();
-    let writeIndex = 0;
-    for (let i = 0; i < items.length; i += 1) {
-        const item = items[i];
-        if (!canMergeItemStack(item)) {
-            items[writeIndex] = item;
-            writeIndex += 1;
-            continue;
-        }
-        const sig = createItemStackSignature(item);
-        const existingIdx = signatureIndex.get(sig);
-        if (existingIdx !== undefined) {
-            const existing = items[existingIdx];
-            existing.count = Math.max(1, Math.trunc(Number(existing.count) || 1))
-                + Math.max(1, Math.trunc(Number(item.count) || 1));
-            changed = true;
-        } else {
-            signatureIndex.set(sig, writeIndex);
-            items[writeIndex] = item;
-            if (writeIndex !== i) {
-                changed = true;
-            }
-            writeIndex += 1;
-        }
-    }
-    if (items.length !== writeIndex) {
-        changed = true;
-    }
-    items.length = writeIndex;
-    return changed;
+    return coalesceItemStackList(items);
 }
 
 function repairDuplicateInventoryItemInstanceIds(items: any[]): boolean {

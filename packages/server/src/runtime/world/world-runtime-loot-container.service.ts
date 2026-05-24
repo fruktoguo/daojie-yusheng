@@ -4,7 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Optional } from '@nestjs/common';
-import { computeAdjustedCraftTicks, computeCraftSkillExpGain, resolveAlchemyGradeValue } from '@mud/shared';
+import { computeAdjustedCraftTicks, computeCraftSkillExpGain, createItemStackSignature, mergeItemStackEntryInto, resolveAlchemyGradeValue } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -16,7 +16,6 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 const {
     buildContainerSourceId,
     parseContainerSourceId,
-    createSyncedItemStackSignature,
     groupContainerLootRows,
     hasHiddenContainerEntries,
     buildContainerWindowItems,
@@ -482,7 +481,7 @@ export class WorldRuntimeLootContainerService {
                 if (state.activeSearch.remainingTicks > 0) {
                     continue;
                 }
-                const target = state.entries.find((entry) => !entry.visible && createSyncedItemStackSignature(entry.item) === state.activeSearch?.itemKey);
+                const target = state.entries.find((entry) => !entry.visible && createItemStackSignature(entry.item) === state.activeSearch?.itemKey);
                 if (target) {
                     target.visible = true;
                 }
@@ -1469,18 +1468,17 @@ function cloneContainerState(state) {
 
 function mergeContainerEntries(entries, nextEntries) {
     for (const nextEntry of nextEntries) {
-        const signature = createSyncedItemStackSignature(nextEntry.item);
-        const existing = entries.find((entry) => entry.visible === nextEntry.visible && createSyncedItemStackSignature(entry.item) === signature);
-        if (existing) {
-            existing.item.count = Math.max(0, Math.trunc(Number(existing.item.count) || 0))
-                + Math.max(1, Math.trunc(Number(nextEntry.item.count) || 1));
-            existing.createdTick = Math.min(existing.createdTick, nextEntry.createdTick);
-            continue;
-        }
-        entries.push({
-            item: { ...nextEntry.item },
-            createdTick: nextEntry.createdTick,
-            visible: nextEntry.visible,
+        mergeItemStackEntryInto(entries, { ...nextEntry.item }, {
+            getItem: (entry: any) => entry.item,
+            createEntry: (item) => ({
+                item,
+                createdTick: nextEntry.createdTick,
+                visible: nextEntry.visible,
+            }),
+            onMerged: (entry: any) => {
+                entry.createdTick = Math.min(entry.createdTick, nextEntry.createdTick);
+            },
+            canMergeEntry: (entry: any) => entry.visible === nextEntry.visible,
         });
     }
 }
