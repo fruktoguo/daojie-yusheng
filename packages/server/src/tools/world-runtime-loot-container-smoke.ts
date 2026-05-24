@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { WorldRuntimeLootContainerService } from '../runtime/world/world-runtime-loot-container.service';
+import { canReceiveItemStack } from '../runtime/world/world-runtime.normalization.helpers';
 
 const TEST_REALM_EXP_TO_NEXT = 10000;
 
@@ -8,7 +9,10 @@ async function main(): Promise<void> {
   await testGroundTakeDurableGrant();
   await testGroundTakeDurableGrantSyncsPresenceFence();
   await testGroundTakeFormatsTemplateName();
+  await testGroundTakeUsesStackSignatureForCapacity();
   await testGroundTakeAllDurableGrant();
+  await testGroundTakeAllUsesStackSignatureForCapacity();
+  await testGroundTakeAllIteratesStableEntrySnapshot();
   await testContainerTakeDurableGrant();
   await testContainerTakeAllDurableGrant();
   await testStartGatherSupportsColonInstanceId();
@@ -273,6 +277,58 @@ async function testGroundTakeDurableGrant() {
   ]);
 }
 
+async function testGroundTakeUsesStackSignatureForCapacity() {
+  const player = buildPlayer('player:ground:one-capacity', 'instance:ground:one-capacity', 'runtime:ground:one-capacity', 19);
+  player.x = 2;
+  player.y = 3;
+  player.inventory.capacity = 1;
+  player.inventory.items.push({
+    itemId: 'equip.copper_furnace',
+    name: '铜胎丹炉',
+    type: 'equipment',
+    count: 1,
+    enhanceLevel: 15,
+  });
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
+  const pileItems = [
+    {
+      itemKey: 'equip.copper_furnace#0',
+      item: { itemId: 'equip.copper_furnace', name: '铜胎丹炉', type: 'equipment', count: 1 },
+    },
+  ];
+  const instance = {
+    getGroundPileBySourceId(sourceId: string) {
+      assert.equal(sourceId, 'ground:one-capacity');
+      return {
+        x: 2,
+        y: 3,
+        items: pileItems,
+      };
+    },
+    takeGroundItem() {
+      throw new Error('single take capacity preflight should not remove ground item');
+    },
+  };
+  await assert.rejects(
+    () => service.dispatchTakeGround(player.playerId, 'ground:one-capacity', 'equip.copper_furnace#0', {
+      getPlayerLocationOrThrow() {
+        return { instanceId: 'instance:ground:one-capacity' };
+      },
+      getInstanceRuntimeOrThrow() {
+        return instance;
+      },
+      refreshQuestStates() {
+        throw new Error('quest state should not refresh on rejected take');
+      },
+      queuePlayerNotice() {
+        throw new Error('notice should not be queued on thrown command error');
+      },
+    } as never),
+    /背包空间不足/,
+  );
+  assert.equal(pileItems.length, 1);
+}
+
 async function testGroundTakeAllDurableGrant() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
@@ -364,6 +420,130 @@ async function testGroundTakeAllDurableGrant() {
   assert.deepEqual(log, [
     ['refreshQuestStates', 'player:ground:all'],
     ['queuePlayerNotice', 'player:ground:all', '获得 鼠尾 x2、狼牙', 'loot'],
+  ]);
+}
+
+async function testGroundTakeAllUsesStackSignatureForCapacity() {
+  const log: Array<unknown[]> = [];
+  const player = buildPlayer('player:ground:capacity', 'instance:ground:capacity', 'runtime:ground:capacity', 17);
+  player.x = 4;
+  player.y = 5;
+  player.inventory.capacity = 1;
+  player.inventory.items.push({
+    itemId: 'equip.copper_furnace',
+    name: '铜胎丹炉',
+    type: 'equipment',
+    count: 1,
+    enhanceLevel: 15,
+  });
+  const normalFurnace = {
+    itemId: 'equip.copper_furnace',
+    name: '铜胎丹炉',
+    type: 'equipment',
+    count: 1,
+  };
+  assert.equal(canReceiveItemStack(player, normalFurnace), false);
+  assert.equal(canReceiveItemStack(player, { ...normalFurnace, enhanceLevel: 15 }), true);
+
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
+  const pileItems = [
+    { itemKey: 'equip.copper_furnace#0', item: normalFurnace },
+  ];
+  const instance = {
+    getGroundPileBySourceId(sourceId: string) {
+      assert.equal(sourceId, 'ground:capacity');
+      return {
+        x: 4,
+        y: 5,
+        items: pileItems,
+      };
+    },
+    takeGroundItem() {
+      throw new Error('capacity preflight should not remove ground item');
+    },
+  };
+  await assert.rejects(
+    () => service.dispatchTakeGroundAll(player.playerId, 'ground:capacity', {
+      getPlayerLocationOrThrow() {
+        return { instanceId: 'instance:ground:capacity' };
+      },
+      getInstanceRuntimeOrThrow() {
+        return instance;
+      },
+      refreshQuestStates(playerId: string) {
+        log.push(['refreshQuestStates', playerId]);
+      },
+      queuePlayerNotice(playerId: string, message: string, tone: string) {
+        log.push(['queuePlayerNotice', playerId, message, tone]);
+      },
+    } as never),
+    /背包空间不足/,
+  );
+  assert.deepEqual(log, []);
+  assert.equal(pileItems.length, 1);
+}
+
+async function testGroundTakeAllIteratesStableEntrySnapshot() {
+  const log: Array<unknown[]> = [];
+  const player = buildPlayer('player:ground:snapshot', 'instance:ground:snapshot', 'runtime:ground:snapshot', 18);
+  player.x = 8;
+  player.y = 9;
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
+  const pile = {
+    x: 8,
+    y: 9,
+    items: [
+      { itemKey: 'equip.copper_furnace#0', item: { itemId: 'equip.copper_furnace', name: '铜胎丹炉', type: 'equipment', count: 1 } },
+      { itemKey: 'equip.copper_furnace#15', item: { itemId: 'equip.copper_furnace', name: '铜胎丹炉', type: 'equipment', count: 1, enhanceLevel: 15 } },
+      { itemKey: 'equip.copper_hammer#0', item: { itemId: 'equip.copper_hammer', name: '铜强化锤', type: 'equipment', count: 1 } },
+    ],
+  };
+  const takenKeys: string[] = [];
+  const durableCalls: Array<Record<string, unknown>> = [];
+  const instance = {
+    getGroundPileBySourceId(sourceId: string) {
+      assert.equal(sourceId, 'ground:snapshot');
+      return pile;
+    },
+    takeGroundItem(_sourceId: string, itemKey: string) {
+      const index = pile.items.findIndex((entry) => entry.itemKey === itemKey);
+      assert.ok(index >= 0, `missing ${itemKey}`);
+      const [entry] = pile.items.splice(index, 1);
+      takenKeys.push(itemKey);
+      return { ...entry!.item };
+    },
+    dropGroundItem() {
+      throw new Error('ground item should not be restored after durable success');
+    },
+  };
+  await service.dispatchTakeGroundAll(player.playerId, 'ground:snapshot', {
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'instance:ground:snapshot' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return instance;
+    },
+    refreshQuestStates(playerId: string) {
+      log.push(['refreshQuestStates', playerId]);
+    },
+    queuePlayerNotice(playerId: string, message: string, tone: string) {
+      log.push(['queuePlayerNotice', playerId, message, tone]);
+    },
+    durableOperationService: {
+      isEnabled() {
+        return true;
+      },
+      async grantInventoryItems(input: Record<string, unknown>) {
+        durableCalls.push(input);
+      },
+    },
+  } as never);
+  assert.deepEqual(takenKeys, ['equip.copper_furnace#0', 'equip.copper_furnace#15', 'equip.copper_hammer#0']);
+  assert.equal(pile.items.length, 0);
+  assert.equal((durableCalls[0]?.grantedItems as Array<Record<string, unknown>>)?.length, 3);
+  assert.deepEqual(log, [
+    ['refreshQuestStates', 'player:ground:snapshot'],
+    ['queuePlayerNotice', 'player:ground:snapshot', '获得 铜胎丹炉、+15 铜胎丹炉、铜强化锤', 'loot'],
   ]);
 }
 

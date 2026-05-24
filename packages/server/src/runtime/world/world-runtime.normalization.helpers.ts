@@ -353,12 +353,9 @@ export function buildNpcQuestProgressText(quest) {
 }
 /** 判断单个物品堆叠是否可放入背包。 */
 export function canReceiveItemStack(player, item) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (player.inventory.items.some((entry) => entry.itemId === item.itemId)) {
-        return true;
-    }
-    return player.inventory.items.length < player.inventory.capacity;
+    const simulated = cloneInventorySimulation(player.inventory.items);
+    mergeItemStackInto(simulated, { ...item });
+    return simulated.length <= player.inventory.capacity;
 }
 /** 将任务奖励条目规范化为标准展示对象。 */
 export function toQuestRewardItem(item, fallback) {

@@ -4,7 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Optional } from '@nestjs/common';
-import { computeAdjustedCraftTicks, computeCraftSkillExpGain, createItemStackSignature, mergeItemStackEntryInto, resolveAlchemyGradeValue } from '@mud/shared';
+import { computeAdjustedCraftTicks, computeCraftSkillExpGain, createItemStackSignature, mergeItemStackEntryInto, mergeItemStackInto, resolveAlchemyGradeValue } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -996,6 +996,9 @@ export class WorldRuntimeLootContainerService {
             if (!targetEntry?.item) {
                 throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
             }
+            if (!canReceiveItemStack(player, targetEntry.item)) {
+                throw new BadRequestException('背包空间不足，无法拿取该物品');
+            }
             const taken = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
             if (!taken) {
                 throw new NotFoundException(`地面物品不存在：${itemKey}，来源 ${sourceId}`);
@@ -1012,6 +1015,10 @@ export class WorldRuntimeLootContainerService {
                 successNotice: `获得 ${this.formatLootItemStackLabel(taken)}`,
             });
             return;
+        }
+        const targetEntry = Array.isArray(pile?.items) ? pile.items.find((entry) => entry?.itemKey === itemKey) : null;
+        if (targetEntry?.item && !canReceiveItemStack(player, targetEntry.item)) {
+            throw new BadRequestException('背包空间不足，无法拿取该物品');
         }
         const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
         if (!item) {
@@ -1079,14 +1086,23 @@ export class WorldRuntimeLootContainerService {
         }
         const originalX = Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x;
         const originalY = Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y;
+        const originalItemCount = pile.items.length;
+        const candidateEntries = pile.items.slice();
+        const simulatedInventory = cloneInventorySimulation(player.inventory.items);
         const takenItems = [];
-        for (const entry of pile.items) {
-            if (!canReceiveItemStack(player, entry.item)) {
+        let stoppedByCapacity = false;
+        for (const entry of candidateEntries) {
+            const nextSimulation = cloneInventorySimulation(simulatedInventory);
+            mergeItemStackInto(nextSimulation, { ...entry.item });
+            if (nextSimulation.length > player.inventory.capacity) {
+                stoppedByCapacity = true;
                 if (takenItems.length === 0) {
                     throw new BadRequestException('背包空间不足，无法继续拿取');
                 }
                 break;
             }
+            simulatedInventory.length = 0;
+            simulatedInventory.push(...nextSimulation);
             const taken = instance.takeGroundItem(sourceId, entry.itemKey, player.x, player.y);
             if (!taken) {
                 continue;
@@ -1107,7 +1123,7 @@ export class WorldRuntimeLootContainerService {
                 sourceType: 'ground_take_all',
                 sourceRefId: sourceId,
                 successNotice: `获得 ${this.formatLootItemListSummary(takenItems)}`,
-                partialNotice: takenItems.length < pile.items.length ? '背包空间不足，剩余物品暂时拿不下。' : '',
+                partialNotice: stoppedByCapacity || takenItems.length < originalItemCount ? '背包空间不足，剩余物品暂时拿不下。' : '',
             });
             return;
         }
@@ -1118,7 +1134,7 @@ export class WorldRuntimeLootContainerService {
         const itemList = this.formatLootItemListSummary(takenItems);
         const n3 = buildStructuredNotice('loot', 'notice.loot.obtained-multi', `获得 ${itemList}`, { vars: { itemList }, pills: [{ key: 'itemList', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n3.text, n3.kind, undefined, undefined, n3.structured);
-        if (takenItems.length < pile.items.length) {
+        if (stoppedByCapacity || takenItems.length < originalItemCount) {
             const nBagFull = buildStructuredNotice('info', 'notice.loot.bag-full', '背包空间不足，剩余物品暂时拿不下。', {});
             deps.queuePlayerNotice(playerId, nBagFull.text, nBagFull.kind, undefined, undefined, nBagFull.structured);
         }
