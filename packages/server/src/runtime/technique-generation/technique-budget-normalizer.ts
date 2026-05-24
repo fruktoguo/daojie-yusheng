@@ -11,7 +11,7 @@
  * 内功不需要归一化（attrRatio 由 expandTechniqueAttrRatio 处理）。
  */
 
-import type { TechniqueGrade } from '@mud/shared';
+import type { SkillDamageKind, SkillFormula, TechniqueGrade } from '@mud/shared';
 import { getTechniqueGradeIndex } from '@mud/shared';
 import { PLAYER_REALM_STAGE_LEVEL_RANGES } from '@mud/shared';
 import { PlayerRealmStage } from '@mud/shared';
@@ -84,6 +84,9 @@ export function normalizeArtsSkills(params: {
       } else if (e.formula === undefined && scaledValue !== null) {
         e.formula = scaledValue;
       }
+      if (e.type === 'damage' && typeof e.formula === 'number' && Number.isFinite(e.formula)) {
+        e.formula = buildGeneratedDamageFormula(e.formula, e.damageKind);
+      }
       return e;
     });
 
@@ -103,4 +106,39 @@ function resolveStageIndex(realmLv: number): number {
     }
   }
   return 1;
+}
+
+function buildGeneratedDamageFormula(value: number, damageKind: unknown): SkillFormula {
+  const statVar = resolveDamageStatVar(damageKind);
+  const scale = Math.max(0, Math.round(value * 100) / 100);
+  return {
+    op: 'mul',
+    args: [
+      {
+        op: 'add',
+        args: [
+          {
+            var: statVar,
+            scale,
+          },
+        ],
+      },
+      {
+        op: 'add',
+        args: [
+          1,
+          {
+            var: 'techLevel',
+            scale: 0.1,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function resolveDamageStatVar(damageKind: unknown): 'caster.stat.physAtk' | 'caster.stat.spellAtk' {
+  return (damageKind as SkillDamageKind) === 'physical'
+    ? 'caster.stat.physAtk'
+    : 'caster.stat.spellAtk';
 }

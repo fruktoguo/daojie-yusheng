@@ -1473,7 +1473,10 @@ function normalizeGeneratedTechniqueSkillEffect(raw, skillId, skillName, index) 
     }
     const effect = { ...raw };
     if ((effect.type === 'damage' || effect.type === 'heal') && effect.formula === undefined && effect.value !== undefined) {
-        effect.formula = normalizeGeneratedTechniqueSkillFormula(effect.value);
+        effect.formula = normalizeGeneratedTechniqueSkillFormula(effect.value, effect.type, effect.damageKind);
+    }
+    if (effect.type === 'damage' && typeof effect.formula === 'number' && Number.isFinite(effect.formula)) {
+        effect.formula = normalizeGeneratedTechniqueSkillFormula(effect.formula, effect.type, effect.damageKind);
     }
     if (effect.type === 'heal' && effect.target !== 'self' && effect.target !== 'target' && effect.target !== 'allies') {
         effect.target = 'self';
@@ -1495,12 +1498,45 @@ function normalizeGeneratedTechniqueSkillEffect(raw, skillId, skillName, index) 
     return effect;
 }
 
-function normalizeGeneratedTechniqueSkillFormula(raw) {
+function normalizeGeneratedTechniqueSkillFormula(raw, effectType, damageKind) {
     if (raw && typeof raw === 'object') {
         return raw;
     }
     const value = Number(raw);
-    return Number.isFinite(value) ? Math.max(0, value) : 1;
+    const normalized = Number.isFinite(value) ? Math.max(0, value) : 1;
+    if (effectType === 'damage') {
+        return buildGeneratedTechniqueDamageFormula(normalized, damageKind);
+    }
+    return normalized;
+}
+
+function buildGeneratedTechniqueDamageFormula(value, damageKind) {
+    const statVar = damageKind === 'physical' ? 'caster.stat.physAtk' : 'caster.stat.spellAtk';
+    const scale = Math.max(0, Math.round(Number(value) * 100) / 100);
+    return {
+        op: 'mul',
+        args: [
+            {
+                op: 'add',
+                args: [
+                    {
+                        var: statVar,
+                        scale,
+                    },
+                ],
+            },
+            {
+                op: 'add',
+                args: [
+                    1,
+                    {
+                        var: 'techLevel',
+                        scale: 0.1,
+                    },
+                ],
+            },
+        ],
+    };
 }
 
 function normalizeSharedTechniqueBuffEffect(raw) {

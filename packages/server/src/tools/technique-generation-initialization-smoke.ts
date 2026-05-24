@@ -363,7 +363,30 @@ async function testGeneratedArtsTechniqueRecoversDraftSkillShape(): Promise<void
   assert.equal(state.skills?.[0]?.id, 'gen_arts_skill_shape_smoke_skill_1');
   assert.ok((state.skills?.[0]?.cost ?? 0) > 0);
   assert.equal(state.skills?.[0]?.costMultiplier, 1.2);
-  assert.equal(state.skills?.[0]?.effects?.[0]?.formula, 6);
+  assert.deepEqual(state.skills?.[0]?.effects?.[0]?.formula, {
+    op: 'mul',
+    args: [
+      {
+        op: 'add',
+        args: [
+          {
+            var: 'caster.stat.spellAtk',
+            scale: 6,
+          },
+        ],
+      },
+      {
+        op: 'add',
+        args: [
+          1,
+          {
+            var: 'techLevel',
+            scale: 0.1,
+          },
+        ],
+      },
+    ],
+  });
 }
 
 async function testInternalCandidateRejectsUnknownAttrRatioKeys(): Promise<void> {
