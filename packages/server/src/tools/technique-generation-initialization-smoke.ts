@@ -99,6 +99,34 @@ async function testInitializedServicePersistsJob(): Promise<void> {
   assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.params?.[2] === 'NO_MODEL'));
 }
 
+async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool: createFakePool(queries),
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+
+  let consumedCount = 0;
+  const result = await service.requestGeneration({
+    playerId: 'p_generation_boost_smoke',
+    playerRealmLv: 31,
+    category: 'arts',
+    itemSpend: 4,
+    consumeItem: async (count) => {
+      consumedCount = count;
+      return true;
+    },
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.itemSpend, 4);
+  assert.equal(consumedCount, 4);
+  const insertJobQuery = queries.find((entry) => entry.sql.includes('INSERT INTO technique_generation_job'));
+  assert.equal(insertJobQuery?.params?.[6], 4);
+}
+
 async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
   const queries: QueryRecord[] = [];
   const service = new TechniqueGenerationService();
@@ -147,6 +175,40 @@ async function testPublishGeneratedTechniqueCastsRepeatedNameParameter(): Promis
   assert.ok(sql.includes('display_name = $2::text'));
   assert.ok(sql.includes('normalized_name = $3::text'));
   assert.ok(sql.includes("template = jsonb_set(template, '{name}', to_jsonb($2::text), true)"));
+}
+
+async function testGatewayStatusEmitsRollRange(): Promise<void> {
+  const emitted: Array<{ event: string; payload: unknown }> = [];
+  const helper = new WorldGatewayTechniqueGenerationHelper({
+    gatewayGuardHelper: {
+      requirePlayerId: () => 'p_gateway_status_smoke',
+    },
+    worldClientEventService: {
+      emitGatewayError: (client: Socket, code: string, error: unknown) => {
+        client.emit('gatewayError', { code, error });
+      },
+    },
+    playerRuntimeService: {
+      getPlayerRealmLv: () => 31,
+      consumeItemByItemId: () => true,
+      learnTechniqueById: () => true,
+    },
+  });
+  helper.setService({} as unknown as TechniqueGenerationService);
+
+  const result = await helper.handleTechniqueGeneration({
+    emit: (event: string, payload: unknown) => {
+      emitted.push({ event, payload });
+      return true;
+    },
+  } as unknown as Socket, { action: 'getStatus', itemSpend: 3 });
+
+  assert.equal(emitted[0]?.event, S2C.TechniqueGenerationStatus);
+  const payload = emitted[0]?.payload as { available?: boolean; rollRange?: { itemSpendDefault?: number; gradeChances?: unknown[] } };
+  assert.equal(payload.available, true);
+  assert.equal(payload.rollRange?.itemSpendDefault, 3);
+  assert.ok((payload.rollRange?.gradeChances?.length ?? 0) > 0);
+  assert.deepEqual(result, emitted[0]?.payload);
 }
 
 async function testGatewayGenerateExceptionEmitsFailureResult(): Promise<void> {
@@ -405,9 +467,11 @@ async function testInternalCandidateRejectsUnknownAttrRatioKeys(): Promise<void>
 async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
   await testInitializedServicePersistsJob();
+  await testInitializedServiceConsumesRequestedItemSpend();
   await testItemShortageMarksJobFailedAfterAudit();
   await testSchemaMigratesPlayerIdsToVarchar();
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
+  await testGatewayStatusEmitsRollRange();
   await testGatewayGenerateExceptionEmitsFailureResult();
   await testGatewayAdoptAndDiscardEmitResultEvents();
   await testGeneratedInternalPreviewNormalizesAttrRatioAliases();

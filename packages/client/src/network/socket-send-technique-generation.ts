@@ -12,15 +12,16 @@ type TechniqueGenerationSenderDeps = {
 
 export function createSocketTechniqueGenerationSender(deps: TechniqueGenerationSenderDeps) {
   return {
-    sendGetStatus(): void {
-      deps.emitEvent(C2S.TechniqueGeneration, { action: 'getStatus' });
+    sendGetStatus(itemSpend?: number): void {
+      deps.emitEvent(C2S.TechniqueGeneration, { action: 'getStatus', itemSpend });
     },
 
-    sendGenerate(category: 'internal' | 'arts', playerContext?: string): void {
+    sendGenerate(category: 'internal' | 'arts', playerContext?: string, itemSpend?: number): void {
       deps.emitEvent(C2S.TechniqueGeneration, {
         action: 'generate',
         category,
         playerContext,
+        itemSpend,
       });
     },
 

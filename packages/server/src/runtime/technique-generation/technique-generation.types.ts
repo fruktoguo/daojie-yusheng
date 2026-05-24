@@ -23,6 +23,7 @@ export interface GenerationJobResult {
   jobId?: string;
   rolledGrade?: TechniqueGrade;
   rolledRealmLv?: number;
+  itemSpend?: number;
   error?: string;
   errorCode?: string;
 }

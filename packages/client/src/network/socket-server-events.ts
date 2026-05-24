@@ -74,5 +74,6 @@ export const GAMEPLAY_SERVER_EVENTS = [
   S2C.EnhancementPanel,
   S2C.GmState,
   S2C.ContentTemplates,
+  S2C.TechniqueGenerationStatus,
   S2C.TechniqueGenerationResult,
 ] as const satisfies BoundServerEventName[];

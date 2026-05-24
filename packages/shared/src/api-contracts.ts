@@ -281,6 +281,7 @@ export interface GmTechniqueGenerationJobSummary {
   modelName?: string | null;
   attemptCount: number;
   itemConsumed: boolean;
+  itemSpend: number;
   consumedAt?: string | null;
   draftExpireAt?: string | null;
   finishedAt?: string | null;

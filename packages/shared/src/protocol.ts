@@ -196,6 +196,7 @@ export const S2C = {
   MinimapLibraryManifest: 'n:s:minimapLibraryManifest',
   MinimapLibraryDelta: 'n:s:minimapLibraryDelta',
   ContentTemplates: 'n:s:contentTemplates',
+  TechniqueGenerationStatus: 'n:s:techniqueGenerationStatus',
   TechniqueGenerationResult: 'n:s:techniqueGenerationResult',
 } as const;
 
@@ -360,6 +361,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.MinimapLibraryManifest]: ResponsePayloads.S2C_MinimapLibraryManifest;
   [S2C.MinimapLibraryDelta]: ResponsePayloads.S2C_MinimapLibraryDelta;
   [S2C.ContentTemplates]: S2C_ContentTemplates;
+  [S2C.TechniqueGenerationStatus]: ResponsePayloads.S2C_TechniqueGenerationStatus;
   [S2C.TechniqueGenerationResult]: ResponsePayloads.S2C_TechniqueGenerationResult;
 }
 

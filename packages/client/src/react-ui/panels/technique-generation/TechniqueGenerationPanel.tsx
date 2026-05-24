@@ -17,6 +17,20 @@ export interface TechniqueGenerationPanelState {
   visible: boolean;
   available: boolean;
   unavailableReason: string;
+  rollRange: {
+    realmLvMin: number;
+    realmLvMax: number;
+    gradeMin: TechniqueGrade;
+    gradeMax: TechniqueGrade;
+    baseGrade: TechniqueGrade;
+    itemSpendMin: number;
+    itemSpendMax: number;
+    itemSpendDefault: number;
+    gradeChances: Array<{
+      grade: TechniqueGrade;
+      chance: number;
+    }>;
+  } | null;
   generating: boolean;
   currentJob: {
     jobId: string;
@@ -46,6 +60,7 @@ export const { store: techniqueGenerationStore, useStore: useTechniqueGeneration
     visible: false,
     available: false,
     unavailableReason: '',
+    rollRange: null,
     generating: false,
     currentJob: null,
     currentDraft: null,
@@ -55,7 +70,8 @@ export const { store: techniqueGenerationStore, useStore: useTechniqueGeneration
 // ─── Callbacks ───────────────────────────────────────────────────────────────
 
 interface TechniqueGenerationCallbacks {
-  onGenerate: ((category: TechniqueCategory, playerContext: string) => void) | null;
+  onGenerate: ((category: TechniqueCategory, playerContext: string, itemSpend: number) => void) | null;
+  onPreviewItemSpend: ((itemSpend: number) => void) | null;
   onAdopt: ((jobId: string, customName: string) => void) | null;
   onDiscard: ((jobId: string) => void) | null;
   onClose: (() => void) | null;
@@ -63,6 +79,7 @@ interface TechniqueGenerationCallbacks {
 
 const callbacks: TechniqueGenerationCallbacks = {
   onGenerate: null,
+  onPreviewItemSpend: null,
   onAdopt: null,
   onDiscard: null,
   onClose: null,
@@ -88,16 +105,31 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
   const [selectedCategory, setSelectedCategory] = useState<CategoryTab>('internal');
   const [playerContext, setPlayerContext] = useState('');
   const [customName, setCustomName] = useState('');
+  const [itemSpend, setItemSpend] = useState(1);
 
   useEffect(() => {
     if (!state.currentDraft) return;
     setCustomName([...state.currentDraft.suggestedName].slice(0, 8).join(''));
   }, [state.currentDraft?.techniqueId, state.currentDraft?.suggestedName]);
 
+  useEffect(() => {
+    const min = state.rollRange?.itemSpendMin ?? 1;
+    const max = state.rollRange?.itemSpendMax ?? 1;
+    setItemSpend((current) => Math.max(min, Math.min(max, current)));
+  }, [state.rollRange?.itemSpendMin, state.rollRange?.itemSpendMax]);
+
   const handleGenerate = useCallback(() => {
     if (state.generating) return;
-    callbacks.onGenerate?.(selectedCategory as TechniqueCategory, playerContext);
-  }, [selectedCategory, playerContext, state.generating]);
+    callbacks.onGenerate?.(selectedCategory as TechniqueCategory, playerContext, itemSpend);
+  }, [selectedCategory, playerContext, itemSpend, state.generating]);
+
+  const handleItemSpendChange = useCallback((value: number) => {
+    const min = state.rollRange?.itemSpendMin ?? 1;
+    const max = state.rollRange?.itemSpendMax ?? 1;
+    const next = Math.max(min, Math.min(max, Math.trunc(value)));
+    setItemSpend(next);
+    callbacks.onPreviewItemSpend?.(next);
+  }, [state.rollRange?.itemSpendMin, state.rollRange?.itemSpendMax]);
 
   const handleAdopt = useCallback(() => {
     if (!state.currentDraft?.jobId || !customName.trim()) return;
@@ -122,48 +154,58 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
       {state.available && !state.currentDraft && !state.generating && (
         <div className="technique-generation-panel__input">
-          <section className="technique-generation-panel__section">
-            <div className="technique-generation-panel__section-title">功法类型</div>
-            <div className="technique-generation-panel__tabs" role="tablist" aria-label="功法类型">
-              {CATEGORY_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  className={`technique-generation-panel__tab ${selectedCategory === tab.value ? 'active' : ''} ${tab.locked ? 'locked' : ''}`}
-                  disabled={tab.locked}
-                  aria-pressed={selectedCategory === tab.value}
-                  onClick={() => !tab.locked && setSelectedCategory(tab.value)}
-                >
-                  <span>{tab.label}</span>
-                  {tab.locked && <small>未开放</small>}
-                </button>
-              ))}
-            </div>
-          </section>
+          <aside className="technique-generation-panel__side technique-generation-panel__side--left">
+            {renderRollRange(state.rollRange)}
+          </aside>
 
-          <section className="technique-generation-panel__section technique-generation-panel__section--context">
-            <label className="technique-generation-panel__field-label" htmlFor="technique-generation-context">
-              主题描述
-              <span>可选</span>
-            </label>
-            <textarea
-              id="technique-generation-context"
-              value={playerContext}
-              onChange={(e) => setPlayerContext(e.target.value.slice(0, 200))}
-              placeholder="描述功法风格、属性倾向或修行意象"
-              maxLength={200}
-              rows={5}
-            />
-            <span className="technique-generation-panel__char-count">{[...playerContext].length}/200</span>
-          </section>
+          <div className="technique-generation-panel__main">
+            <section className="technique-generation-panel__section">
+              <div className="technique-generation-panel__section-title">功法类型</div>
+              <div className="technique-generation-panel__tabs" role="tablist" aria-label="功法类型">
+                {CATEGORY_TABS.map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    className={`technique-generation-panel__tab ${selectedCategory === tab.value ? 'active' : ''} ${tab.locked ? 'locked' : ''}`}
+                    disabled={tab.locked}
+                    aria-pressed={selectedCategory === tab.value}
+                    onClick={() => !tab.locked && setSelectedCategory(tab.value)}
+                  >
+                    <span>{tab.label}</span>
+                    {tab.locked && <small>未开放</small>}
+                  </button>
+                ))}
+              </div>
+            </section>
 
-          <button
-            type="button"
-            className="technique-generation-panel__generate-btn small-btn"
-            onClick={handleGenerate}
-          >
-            开始领悟
-          </button>
+            <section className="technique-generation-panel__section technique-generation-panel__section--context">
+              <label className="technique-generation-panel__field-label" htmlFor="technique-generation-context">
+                主题描述
+                <span>可选</span>
+              </label>
+              <textarea
+                id="technique-generation-context"
+                value={playerContext}
+                onChange={(e) => setPlayerContext(e.target.value.slice(0, 200))}
+                placeholder="描述功法风格、属性倾向或修行意象"
+                maxLength={200}
+                rows={5}
+              />
+              <span className="technique-generation-panel__char-count">{[...playerContext].length}/200</span>
+            </section>
+
+            <button
+              type="button"
+              className="technique-generation-panel__generate-btn small-btn"
+              onClick={handleGenerate}
+            >
+              开始领悟
+            </button>
+          </div>
+
+          <aside className="technique-generation-panel__side technique-generation-panel__side--right">
+            {renderItemSpendSelector(state.rollRange, itemSpend, handleItemSpendChange)}
+          </aside>
         </div>
       )}
 
@@ -392,6 +434,76 @@ function renderTechniqueAttrRadarIcon(
       <span className="technique-generation-panel__attr-radar-label">{node.text}</span>
       <span className="attr-radar-icon-value">{node.valueLabel}</span>
     </div>
+  );
+}
+
+function renderRollRange(range: TechniqueGenerationPanelState['rollRange']): ReactElement {
+  if (!range) {
+    return (
+      <section className="technique-generation-panel__section technique-generation-panel__roll-card">
+        <div className="technique-generation-panel__section-title">随机区间</div>
+        <div className="technique-generation-panel__muted">读取中</div>
+      </section>
+    );
+  }
+  return (
+    <section className="technique-generation-panel__section technique-generation-panel__roll-card">
+      <div className="technique-generation-panel__section-title">随机区间</div>
+      <div className="technique-generation-panel__roll-grid">
+        <div>
+          <span>境界</span>
+          <strong>Lv.{range.realmLvMin} - Lv.{range.realmLvMax}</strong>
+        </div>
+        <div>
+          <span>品阶</span>
+          <strong>{getTechniqueGradeLabel(range.gradeMin)} - {getTechniqueGradeLabel(range.gradeMax)}</strong>
+        </div>
+        <div>
+          <span>基准</span>
+          <strong>{getTechniqueGradeLabel(range.baseGrade)}</strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function renderItemSpendSelector(
+  range: TechniqueGenerationPanelState['rollRange'],
+  itemSpend: number,
+  onChange: (value: number) => void,
+): ReactElement {
+  const min = range?.itemSpendMin ?? 1;
+  const max = range?.itemSpendMax ?? 1;
+  return (
+    <section className="technique-generation-panel__section technique-generation-panel__boost-card">
+      <div className="technique-generation-panel__section-title">悟道玉简</div>
+      <label className="technique-generation-panel__field-label" htmlFor="technique-generation-item-spend">
+        投入数量
+        <span>{itemSpend} 枚</span>
+      </label>
+      <input
+        id="technique-generation-item-spend"
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={itemSpend}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+      />
+      <div className="technique-generation-panel__stepper" role="group" aria-label="调整悟道玉简数量">
+        <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend - 1)} disabled={itemSpend <= min}>-</button>
+        <strong>{itemSpend}</strong>
+        <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend + 1)} disabled={itemSpend >= max}>+</button>
+      </div>
+      <div className="technique-generation-panel__chance-list">
+        {(range?.gradeChances ?? []).map((entry) => (
+          <div key={entry.grade} className="technique-generation-panel__chance-row">
+            <span>{getTechniqueGradeLabel(entry.grade)}</span>
+            <strong>{entry.chance.toFixed(1)}%</strong>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

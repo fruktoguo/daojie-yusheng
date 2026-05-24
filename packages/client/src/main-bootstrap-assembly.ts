@@ -760,6 +760,16 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onFengShuiOverlayPatch: (data) => options.buildingFengShuiStateSource.handleFengShuiOverlayPatch(data),
     onFengShuiDetail: (data) => options.buildingFengShuiStateSource.handleFengShuiDetail(data),
     onNotice: (payload) => options.noticeStateSource.handleNotice(payload),
+    onTechniqueGenerationStatus: (data) => {
+      syncTechniqueGenerationState({
+        available: data.available,
+        unavailableReason: data.unavailableReason ?? '',
+        rollRange: data.rollRange ?? null,
+        currentJob: data.currentJob,
+        currentDraft: data.currentDraft,
+        error: '',
+      });
+    },
     onTechniqueGenerationResult: (data) => {
       const grade = data.preview ? parseTechniqueGenerationGrade(data.preview.grade) : null;
       const category = data.preview ? parseTechniqueGenerationCategory(data.preview.category) : null;

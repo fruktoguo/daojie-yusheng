@@ -13,6 +13,11 @@ import { S2C } from '@mud/shared';
 import type { Socket } from 'socket.io';
 import type { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { TechniqueCategory } from '@mud/shared';
+import { TECHNIQUE_GENERATION_ITEM_ID } from '../runtime/technique-generation/technique-generation-constants';
+import {
+  buildTechniqueGenerationRollRange,
+  normalizeTechniqueGenerationItemSpend,
+} from '../runtime/technique-generation/technique-generation-roll';
 
 interface TechniqueGenerationHelperDeps {
   gatewayGuardHelper: {
@@ -62,7 +67,7 @@ export class WorldGatewayTechniqueGenerationHelper {
 
     switch (action) {
       case 'getStatus':
-        return this.handleGetStatus(playerId);
+        return this.handleGetStatus(client, playerId, request);
 
       case 'generate':
         return this.handleGenerate(client, playerId, request);
@@ -79,19 +84,24 @@ export class WorldGatewayTechniqueGenerationHelper {
     }
   }
 
-  private async handleGetStatus(playerId: string): Promise<unknown> {
+  private async handleGetStatus(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
-    return {
+    const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
+    const status = {
       available: (realmLv ?? 0) >= 31,
       unavailableReason: (realmLv ?? 0) < 31 ? '需筑基期方可领悟' : undefined,
+      rollRange: realmLv && realmLv >= 31 ? buildTechniqueGenerationRollRange(realmLv, itemSpend) : undefined,
       currentJob: null,
       currentDraft: null,
     };
+    client.emit(S2C.TechniqueGenerationStatus, status);
+    return status;
   }
 
   private async handleGenerate(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
     const category = request.category as TechniqueCategory;
     const playerContext = typeof request.playerContext === 'string' ? request.playerContext : undefined;
+    const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
 
     if (!realmLv) {
@@ -105,8 +115,9 @@ export class WorldGatewayTechniqueGenerationHelper {
         playerRealmLv: realmLv,
         category,
         playerContext,
-        consumeItem: async () => {
-          return this.deps.playerRuntimeService.consumeItemByItemId(playerId, 'wudao_yujian', 1);
+        itemSpend,
+        consumeItem: async (count) => {
+          return this.deps.playerRuntimeService.consumeItemByItemId(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
         },
       });
     } catch (error: unknown) {
@@ -122,7 +133,13 @@ export class WorldGatewayTechniqueGenerationHelper {
       setImmediate(() => {
         this.emitGenerationResultWhenReady(client, playerId, result.jobId!, 0).catch(() => undefined);
       });
-      return { success: true, jobId: result.jobId, rolledGrade: result.rolledGrade, rolledRealmLv: result.rolledRealmLv };
+      return {
+        success: true,
+        jobId: result.jobId,
+        rolledGrade: result.rolledGrade,
+        rolledRealmLv: result.rolledRealmLv,
+        itemSpend: result.itemSpend,
+      };
     }
 
     client.emit(S2C.TechniqueGenerationResult, {

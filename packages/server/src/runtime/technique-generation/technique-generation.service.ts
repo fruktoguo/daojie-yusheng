@@ -42,7 +42,10 @@ import { GeneratedTechniqueStoreService } from './generated-technique-store.serv
 import { validateTechniqueCandidate } from './technique-candidate-validator';
 import { buildTechniquePrompt, buildRetryPrompt } from './technique-prompt-builder';
 import { normalizeArtsSkills } from './technique-budget-normalizer';
-import { rollTechniqueRealmLv, rollTechniqueGrade } from './technique-generation-roll';
+import {
+  normalizeTechniqueGenerationItemSpend,
+  rollBoostedTechniqueOutcome,
+} from './technique-generation-roll';
 import {
   TECHNIQUE_GENERATION_UNLOCK_REALM_LV,
   TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
@@ -83,7 +86,8 @@ export class TechniqueGenerationService {
     playerRealmLv: number;
     category: TechniqueCategory;
     playerContext?: string;
-    consumeItem: () => Promise<boolean>;
+    itemSpend?: number;
+    consumeItem: (count: number) => Promise<boolean>;
   }): Promise<GenerationJobResult> {
     const pool = this.pool;
     if (!pool) {
@@ -100,9 +104,11 @@ export class TechniqueGenerationService {
       return { success: false, error: '当前仅开放内功和术法', errorCode: 'CATEGORY_LOCKED' };
     }
 
-    // 3. 随机 realmLv + 品阶
-    const rolledRealmLv = rollTechniqueRealmLv(params.playerRealmLv);
-    const rolledGrade = rollTechniqueGrade(rolledRealmLv);
+    // 3. 随机 realmLv + 品阶；投入多个悟道玉简时，多次抽取并择优。
+    const itemSpend = normalizeTechniqueGenerationItemSpend(params.itemSpend);
+    const roll = rollBoostedTechniqueOutcome(params.playerRealmLv, itemSpend);
+    const rolledRealmLv = roll.realmLv;
+    const rolledGrade = roll.grade;
 
     // 4. 先创建 job 审计，再消耗道具；数据库不可写时不能扣玩家资产。
     const jobId = randomUUID();
@@ -115,10 +121,11 @@ export class TechniqueGenerationService {
       rolledGrade,
       rolledRealmLv,
       playerContext: sanitizedContext,
+      itemSpend,
     });
 
     // 5. 消耗悟道玉简
-    const consumed = await params.consumeItem();
+    const consumed = await params.consumeItem(itemSpend);
     if (!consumed) {
       await updateGenerationJobStatus(pool, jobId, 'failed', 'ITEM_NOT_ENOUGH', '悟道玉简不足');
       return { success: false, error: '悟道玉简不足', errorCode: 'ITEM_NOT_ENOUGH' };
@@ -136,7 +143,7 @@ export class TechniqueGenerationService {
       }).catch(() => undefined);
     });
 
-    return { success: true, jobId, rolledGrade, rolledRealmLv };
+    return { success: true, jobId, rolledGrade, rolledRealmLv, itemSpend };
   }
 
   /** 执行生成（异步） */

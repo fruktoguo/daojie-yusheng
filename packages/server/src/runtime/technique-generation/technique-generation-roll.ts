@@ -20,7 +20,30 @@ import {
   TECHNIQUE_GENERATION_GRADE_OFFSET,
   TECHNIQUE_GENERATION_CENTER_PROBABILITY,
   TECHNIQUE_GENERATION_HIGH_DIRECTION_RATIO,
+  TECHNIQUE_GENERATION_MAX_ITEM_SPEND,
 } from './technique-generation-constants';
+
+export interface TechniqueGenerationRollOutcome {
+  grade: TechniqueGrade;
+  realmLv: number;
+}
+
+export interface TechniqueGenerationRollOptionChance {
+  grade: TechniqueGrade;
+  chance: number;
+}
+
+export interface TechniqueGenerationRollRange {
+  realmLvMin: number;
+  realmLvMax: number;
+  gradeMin: TechniqueGrade;
+  gradeMax: TechniqueGrade;
+  baseGrade: TechniqueGrade;
+  itemSpendMin: number;
+  itemSpendMax: number;
+  itemSpendDefault: number;
+  gradeChances: TechniqueGenerationRollOptionChance[];
+}
 
 // ─── 品阶区间表 ───
 // 来源：docs/design/balance/境界等级基准期望六维公式.md
@@ -138,4 +161,131 @@ export function rollTechniqueGrade(realmLv: number): TechniqueGrade {
   const offset = rollAsymmetricOffset(TECHNIQUE_GENERATION_GRADE_OFFSET);
   const targetIndex = Math.max(0, Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseIndex + offset));
   return TECHNIQUE_GRADE_ORDER[targetIndex];
+}
+
+export function normalizeTechniqueGenerationItemSpend(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 1;
+  }
+  return Math.max(1, Math.min(TECHNIQUE_GENERATION_MAX_ITEM_SPEND, Math.trunc(numeric)));
+}
+
+export function rollBoostedTechniqueOutcome(playerRealmLv: number, itemSpend: number): TechniqueGenerationRollOutcome {
+  const attempts = normalizeTechniqueGenerationItemSpend(itemSpend);
+  let best: TechniqueGenerationRollOutcome | null = null;
+  for (let i = 0; i < attempts; i += 1) {
+    const realmLv = rollTechniqueRealmLv(playerRealmLv);
+    const grade = rollTechniqueGrade(realmLv);
+    const candidate = { grade, realmLv };
+    if (!best || compareRollOutcome(candidate, best) > 0) {
+      best = candidate;
+    }
+  }
+  return best ?? {
+    realmLv: Math.max(1, Math.min(127, Math.trunc(playerRealmLv))),
+    grade: resolveBaseGrade(playerRealmLv),
+  };
+}
+
+export function buildTechniqueGenerationRollRange(playerRealmLv: number, itemSpend: unknown = 1): TechniqueGenerationRollRange {
+  const spend = normalizeTechniqueGenerationItemSpend(itemSpend);
+  const realmLvMin = Math.max(1, Math.trunc(playerRealmLv) - TECHNIQUE_GENERATION_REALM_LV_OFFSET);
+  const realmLvMax = Math.min(127, Math.trunc(playerRealmLv) + TECHNIQUE_GENERATION_REALM_LV_OFFSET);
+  const gradeIndexes: number[] = [];
+  for (let realmLv = realmLvMin; realmLv <= realmLvMax; realmLv += 1) {
+    const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(resolveBaseGrade(realmLv));
+    gradeIndexes.push(
+      Math.max(0, baseIndex - TECHNIQUE_GENERATION_GRADE_OFFSET),
+      Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseIndex + TECHNIQUE_GENERATION_GRADE_OFFSET),
+    );
+  }
+  const gradeMinIndex = Math.min(...gradeIndexes);
+  const gradeMaxIndex = Math.max(...gradeIndexes);
+  return {
+    realmLvMin,
+    realmLvMax,
+    gradeMin: TECHNIQUE_GRADE_ORDER[gradeMinIndex],
+    gradeMax: TECHNIQUE_GRADE_ORDER[gradeMaxIndex],
+    baseGrade: resolveBaseGrade(Math.max(1, Math.min(127, Math.trunc(playerRealmLv)))),
+    itemSpendMin: 1,
+    itemSpendMax: TECHNIQUE_GENERATION_MAX_ITEM_SPEND,
+    itemSpendDefault: spend,
+    gradeChances: estimateBoostedGradeChances(Math.max(1, Math.min(127, Math.trunc(playerRealmLv))), spend),
+  };
+}
+
+function compareRollOutcome(left: TechniqueGenerationRollOutcome, right: TechniqueGenerationRollOutcome): number {
+  const gradeDelta = TECHNIQUE_GRADE_ORDER.indexOf(left.grade) - TECHNIQUE_GRADE_ORDER.indexOf(right.grade);
+  if (gradeDelta !== 0) {
+    return gradeDelta;
+  }
+  return left.realmLv - right.realmLv;
+}
+
+function estimateBoostedGradeChances(playerRealmLv: number, itemSpend: number): TechniqueGenerationRollOptionChance[] {
+  const attempts = normalizeTechniqueGenerationItemSpend(itemSpend);
+  const singleRollOutcomes = buildSingleRollOutcomeDistribution(playerRealmLv)
+    .sort((left, right) => compareRollOutcome(left, right));
+  const gradeProbabilities = new Map<TechniqueGrade, number>();
+  let cumulativeBefore = 0;
+  for (const outcome of singleRollOutcomes) {
+    const cumulativeAfter = cumulativeBefore + outcome.probability;
+    const bestProbability = Math.pow(cumulativeAfter, attempts) - Math.pow(cumulativeBefore, attempts);
+    gradeProbabilities.set(outcome.grade, (gradeProbabilities.get(outcome.grade) ?? 0) + bestProbability);
+    cumulativeBefore = cumulativeAfter;
+  }
+  return TECHNIQUE_GRADE_ORDER
+    .map((grade) => ({ grade, chance: Math.round((gradeProbabilities.get(grade) ?? 0) * 1000) / 10 }))
+    .filter((entry) => entry.chance > 0);
+}
+
+type TechniqueGenerationWeightedOutcome = TechniqueGenerationRollOutcome & {
+  probability: number;
+};
+
+function buildSingleRollOutcomeDistribution(playerRealmLv: number): TechniqueGenerationWeightedOutcome[] {
+  const outcomeProbabilities = new Map<string, TechniqueGenerationWeightedOutcome>();
+  for (const realmOffset of buildAsymmetricOffsetProbabilities(TECHNIQUE_GENERATION_REALM_LV_OFFSET)) {
+    const realmLv = Math.max(1, Math.min(127, playerRealmLv + realmOffset.offset));
+    const baseGrade = resolveBaseGrade(realmLv);
+    const baseIndex = TECHNIQUE_GRADE_ORDER.indexOf(baseGrade);
+    for (const gradeOffset of buildAsymmetricOffsetProbabilities(TECHNIQUE_GENERATION_GRADE_OFFSET)) {
+      const gradeIndex = Math.max(0, Math.min(TECHNIQUE_GRADE_ORDER.length - 1, baseIndex + gradeOffset.offset));
+      const grade = TECHNIQUE_GRADE_ORDER[gradeIndex];
+      const key = `${grade}:${realmLv}`;
+      const probability = realmOffset.probability * gradeOffset.probability;
+      const existing = outcomeProbabilities.get(key);
+      if (existing) {
+        existing.probability += probability;
+      } else {
+        outcomeProbabilities.set(key, { grade, realmLv, probability });
+      }
+    }
+  }
+  return [...outcomeProbabilities.values()];
+}
+
+function buildAsymmetricOffsetProbabilities(maxOffset: number): Array<{ offset: number; probability: number }> {
+  if (maxOffset <= 0) {
+    return [{ offset: 0, probability: 1 }];
+  }
+  const result: Array<{ offset: number; probability: number }> = [
+    { offset: 0, probability: TECHNIQUE_GENERATION_CENTER_PROBABILITY },
+  ];
+  const nonCenterProbability = 1 - TECHNIQUE_GENERATION_CENTER_PROBABILITY;
+  for (let offset = 1; offset <= maxOffset; offset += 1) {
+    const geometricProbability = offset < maxOffset
+      ? Math.pow(0.5, offset)
+      : Math.pow(0.5, maxOffset - 1);
+    result.push({
+      offset,
+      probability: nonCenterProbability * TECHNIQUE_GENERATION_HIGH_DIRECTION_RATIO * geometricProbability,
+    });
+    result.push({
+      offset: -offset,
+      probability: nonCenterProbability * (1 - TECHNIQUE_GENERATION_HIGH_DIRECTION_RATIO) * geometricProbability,
+    });
+  }
+  return result;
 }

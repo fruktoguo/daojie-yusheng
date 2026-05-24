@@ -26,6 +26,9 @@ export const TECHNIQUE_GENERATION_CENTER_PROBABILITY = 0.5;
 /** 偏移部分中高方向占比（低方向 = 1 - 此值） */
 export const TECHNIQUE_GENERATION_HIGH_DIRECTION_RATIO = 0.25;
 
+/** 单次领悟最多投入的悟道玉简数量 */
+export const TECHNIQUE_GENERATION_MAX_ITEM_SPEND = 10;
+
 /** 悟道玉简道具 ID */
 export const TECHNIQUE_GENERATION_ITEM_ID = 'wudao_yujian';
 

@@ -98,6 +98,7 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
         model_name            VARCHAR(64),
         attempt_count         INT NOT NULL DEFAULT 0,
         item_consumed         BOOLEAN NOT NULL DEFAULT false,
+        item_spend            INT NOT NULL DEFAULT 1,
         consumed_at           TIMESTAMPTZ,
 
         draft_expire_at       TIMESTAMPTZ,
@@ -128,6 +129,10 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
     await client.query(`
       ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
       ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ADD COLUMN IF NOT EXISTS item_spend INT NOT NULL DEFAULT 1
     `);
 
     await client.query(`
@@ -232,6 +237,7 @@ interface TechniqueGenerationJobGmRow {
   model_name?: string | null;
   attempt_count?: number | string | null;
   item_consumed?: boolean | null;
+  item_spend?: number | string | null;
   consumed_at?: Date | string | null;
   draft_expire_at?: Date | string | null;
   finished_at?: Date | string | null;
@@ -351,6 +357,7 @@ export async function listTechniqueGenerationJobsForGm(
             model_name,
             attempt_count,
             item_consumed,
+            item_spend,
             consumed_at,
             draft_expire_at,
             finished_at,
@@ -391,6 +398,7 @@ export async function getTechniqueGenerationJobForGm(
             model_name,
             attempt_count,
             item_consumed,
+            item_spend,
             consumed_at,
             draft_expire_at,
             finished_at,
@@ -446,6 +454,7 @@ export interface RecoverableGenerationJob {
   grade: string;
   realmLv: number;
   playerContext: string;
+  itemSpend: number;
 }
 
 export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Promise<RecoverableGenerationJob[]> {
@@ -455,7 +464,8 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
             requested_category,
             rolled_grade,
             rolled_realm_lv,
-            player_context
+            player_context,
+            item_spend
        FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
       WHERE status IN ('pending', 'running')
         AND item_consumed = true
@@ -472,6 +482,7 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
       grade: row.rolled_grade ?? '',
       realmLv: normalizeInteger(row.rolled_realm_lv, 0),
       playerContext: row.player_context ?? '',
+      itemSpend: normalizeInteger(row.item_spend, 1),
     }))
     .filter((row) => (row.category === 'internal' || row.category === 'arts') && row.grade && row.realmLv > 0);
 }
@@ -535,6 +546,7 @@ function toTechniqueGenerationJobSummary(row: TechniqueGenerationJobGmRow): GmTe
     modelName: row.model_name ?? null,
     attemptCount: normalizeInteger(row.attempt_count, 0),
     itemConsumed: Boolean(row.item_consumed),
+    itemSpend: normalizeInteger(row.item_spend, 1),
     consumedAt: row.consumed_at === null || row.consumed_at === undefined ? null : formatDbTimestamp(row.consumed_at),
     draftExpireAt: row.draft_expire_at === null || row.draft_expire_at === undefined ? null : formatDbTimestamp(row.draft_expire_at),
     finishedAt: row.finished_at === null || row.finished_at === undefined ? null : formatDbTimestamp(row.finished_at),
@@ -558,6 +570,7 @@ function toTechniqueGenerationJobRawJson(row: TechniqueGenerationJobGmRow): Reco
     model_name: row.model_name ?? null,
     attempt_count: normalizeInteger(row.attempt_count, 0),
     item_consumed: Boolean(row.item_consumed),
+    item_spend: normalizeInteger(row.item_spend, 1),
     consumed_at: row.consumed_at === null || row.consumed_at === undefined ? null : formatDbTimestamp(row.consumed_at),
     draft_expire_at: row.draft_expire_at === null || row.draft_expire_at === undefined ? null : formatDbTimestamp(row.draft_expire_at),
     finished_at: row.finished_at === null || row.finished_at === undefined ? null : formatDbTimestamp(row.finished_at),
@@ -632,17 +645,18 @@ export interface InsertGenerationJobParams {
   rolledGrade: string;
   rolledRealmLv: number;
   playerContext: string;
+  itemSpend: number;
 }
 
 export async function insertGenerationJob(pool: Pool, params: InsertGenerationJobParams): Promise<void> {
   await pool.query(
     `INSERT INTO ${TECHNIQUE_GENERATION_JOB_TABLE} (
       id, player_id, status, requested_category,
-      rolled_grade, rolled_realm_lv, player_context
-    ) VALUES ($1,$2,'pending',$3,$4,$5,$6)`,
+      rolled_grade, rolled_realm_lv, player_context, item_spend
+    ) VALUES ($1,$2,'pending',$3,$4,$5,$6,$7)`,
     [
       params.id, params.playerId, params.requestedCategory,
-      params.rolledGrade, params.rolledRealmLv, params.playerContext,
+      params.rolledGrade, params.rolledRealmLv, params.playerContext, params.itemSpend,
     ],
   );
 }

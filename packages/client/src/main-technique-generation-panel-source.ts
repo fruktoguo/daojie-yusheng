@@ -18,14 +18,15 @@ export function createMainTechniqueGenerationPanelSource(
   const { sender } = options;
 
   setTechniqueGenerationCallbacks({
-    onGenerate: (category, playerContext) => {
+    onGenerate: (category, playerContext, itemSpend) => {
       if (category !== 'internal' && category !== 'arts') {
         syncTechniqueGenerationState({ error: '当前仅开放内功和术法' });
         return;
       }
-      sender.sendGenerate(category, playerContext);
+      sender.sendGenerate(category, playerContext, itemSpend);
       syncTechniqueGenerationState({ generating: true, currentDraft: null, error: '' });
     },
+    onPreviewItemSpend: (itemSpend) => sender.sendGetStatus(itemSpend),
     onAdopt: (jobId, customName) => sender.sendAdopt(jobId, customName),
     onDiscard: (jobId) => sender.sendDiscard(jobId),
     onClose: () => detailModalHost.close('technique-generation-panel'),

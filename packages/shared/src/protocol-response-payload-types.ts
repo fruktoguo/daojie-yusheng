@@ -373,3 +373,25 @@ export interface S2C_TechniqueGenerationResult {
   techniqueName?: string;
   errorMessage?: string;
 }
+
+/** AI 功法生成状态与随机预览，低频单播给当前玩家。 */
+export interface S2C_TechniqueGenerationStatus {
+  available: boolean;
+  unavailableReason?: string;
+  rollRange?: {
+    realmLvMin: number;
+    realmLvMax: number;
+    gradeMin: TechniqueGrade;
+    gradeMax: TechniqueGrade;
+    baseGrade: TechniqueGrade;
+    itemSpendMin: number;
+    itemSpendMax: number;
+    itemSpendDefault: number;
+    gradeChances: Array<{
+      grade: TechniqueGrade;
+      chance: number;
+    }>;
+  };
+  currentJob: null;
+  currentDraft: null;
+}
