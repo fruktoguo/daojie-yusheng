@@ -868,13 +868,9 @@ export class NativeGmAdminService {
         const records = await this.listFilesystemBackups();
         const persistedRecords = await this.loadPersistedBackupMetadataRecords();
         const persistedById = new Map(persistedRecords.map((record) => [record.id, record]));
-        await Promise.all(records.map(async (record) => {
+        for (const record of records) {
             const existing = persistedById.get(record.id);
             const format = existing?.format ?? record.format;
-            const checksumSha256 = existing?.checksumSha256
-                ?? (format === 'postgres_custom_dump' && record.filePath
-                    ? await computeDatabaseBackupFileSha256(record.filePath).catch(() => undefined)
-                    : undefined);
             await this.persistBackupMetadata({
                 id: record.id,
                 kind: existing?.kind ?? record.kind,
@@ -883,12 +879,12 @@ export class NativeGmAdminService {
                 sizeBytes: record.sizeBytes,
                 scope: existing?.scope ?? BACKUP_SCOPE_LABEL,
                 documentsCount: existing?.documentsCount,
-                checksumSha256,
+                checksumSha256: existing?.checksumSha256,
                 tablesCount: existing?.tablesCount,
                 tablesChecksumSha256: existing?.tablesChecksumSha256,
                 format,
             });
-        }));
+        }
     }
     /**
  * readAllPersistentDocuments：读取AllPersistentDocument并返回结果。

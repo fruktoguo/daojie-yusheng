@@ -10,7 +10,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createWriteStream, promises as fsPromises } from 'node:fs';
+import { createReadStream, createWriteStream, promises as fsPromises } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -521,6 +521,18 @@ function formatDurationLabel(durationMs: number): string {
 }
 
 async function computeFileSha256(filePath: string): Promise<string> {
-  const fileBuffer = await fsPromises.readFile(filePath);
-  return createHash('sha256').update(fileBuffer).digest('hex');
+  return await new Promise<string>((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(filePath);
+
+    stream.on('data', (chunk: Buffer) => {
+      hash.update(chunk);
+    });
+    stream.on('error', (error) => {
+      reject(error);
+    });
+    stream.on('end', () => {
+      resolve(hash.digest('hex'));
+    });
+  });
 }
