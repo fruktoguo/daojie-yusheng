@@ -69,10 +69,11 @@ export class WorldRuntimeUseItemService {
     dispatchUseItem(playerId, itemInstanceId, deps, payload = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const item = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
-        if (!item) {
+        const inventoryItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
+        if (!inventoryItem) {
             throw new NotFoundException(`背包物品不存在：${normalizeInventoryItemInstanceId(itemInstanceId) || 'unknown'}`);
         }
+        const item = this.resolveUseItemView(inventoryItem);
         const count = normalizeUseItemCount(payload?.count, item);
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
             const n = buildStructuredNotice('info', 'notice.item.formation-hint', '阵盘需要通过背包中的布阵页面使用。', {});
@@ -127,6 +128,12 @@ export class WorldRuntimeUseItemService {
         const n = buildStructuredNotice('success', 'notice.item.used', `使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }    
+    resolveUseItemView(item) {
+        const normalized = typeof this.contentTemplateRepository?.normalizeItem === 'function'
+            ? this.contentTemplateRepository.normalizeItem(item)
+            : null;
+        return normalized && typeof normalized === 'object' ? normalized : item;
+    }
     /**
  * handleMapUnlockItem：处理地图Unlock道具并更新相关状态。
  * @param playerId 玩家 ID。
