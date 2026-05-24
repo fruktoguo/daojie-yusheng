@@ -261,14 +261,25 @@ function buildEquipmentRecord(entries) {
   return record;
 }
 
-function toBootstrapTechniqueState(entry) {
+export function projectBootstrapTechniqueStateForSync(entry) {
   return {
     techId: entry.techId,
+    name: entry.name,
     level: entry.level ?? 1,
     exp: entry.exp ?? 0,
     expToNext: entry.expToNext ?? 0,
+    realmLv: entry.realmLv,
+    realm: entry.realm,
     skillsEnabled: entry.skillsEnabled !== false,
+    grade: entry.grade ?? null,
+    category: entry.category ?? null,
+    skills: Array.isArray(entry.skills) ? entry.skills : [],
+    layers: Array.isArray(entry.layers) ? entry.layers : [],
   };
+}
+
+function toBootstrapTechniqueState(entry) {
+  return projectBootstrapTechniqueStateForSync(entry);
 }
 
 function toActionDefinition(entry) {

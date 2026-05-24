@@ -5577,6 +5577,18 @@ function buildTechniqueStateRawPayload(entry: Record<string, unknown>, techId: s
     expToNext: normalizeOptionalNumber(entry.expToNext) ?? 0,
     skillsEnabled: entry.skillsEnabled !== false,
   };
+  const name = normalizeOptionalString(entry.name);
+  if (name) {
+    payload.name = name;
+  }
+  const grade = normalizeOptionalString(entry.grade);
+  if (grade) {
+    payload.grade = grade;
+  }
+  const category = normalizeOptionalString(entry.category);
+  if (category) {
+    payload.category = category;
+  }
   const realm = normalizeOptionalInteger(entry.realm);
   if (realm !== null) {
     payload.realm = realm;
@@ -5584,6 +5596,12 @@ function buildTechniqueStateRawPayload(entry: Record<string, unknown>, techId: s
   const realmLv = normalizeOptionalInteger(entry.realmLv);
   if (realmLv !== null) {
     payload.realmLv = realmLv;
+  }
+  if (Array.isArray(entry.skills)) {
+    payload.skills = entry.skills.map((skill) => ({ ...(asRecord(skill) ?? {}) }));
+  }
+  if (Array.isArray(entry.layers)) {
+    payload.layers = entry.layers.map((layer) => ({ ...(asRecord(layer) ?? {}) }));
   }
   return payload;
 }

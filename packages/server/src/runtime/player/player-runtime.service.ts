@@ -6122,6 +6122,8 @@ function buildPersistedTechniqueState(entry) {
         name: entry.name,
         grade: entry.grade ?? null,
         category: entry.category ?? null,
+        skills: Array.isArray(entry.skills) ? entry.skills : [],
+        layers: Array.isArray(entry.layers) ? entry.layers : [],
     };
 }
 

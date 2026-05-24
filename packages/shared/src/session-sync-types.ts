@@ -3,11 +3,12 @@
  *
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
-import type { PlayerRealmState } from './cultivation-types';
+import type { PlayerRealmState, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueRealm } from './cultivation-types';
 import type { QuestRuntimeStateView } from './quest-types';
 import type { PlayerState } from './player-runtime-types';
 import type { MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot } from './world-view-types';
 import type { MapMeta, GameTimeState, RenderEntity, VisibleTile } from './world-core-types';
+import type { SkillDef } from './skill-types';
 
 /** 首包物品实例态：静态说明、装备模板、效果等由客户端本地资源补齐。 */
 export interface BootstrapItemStackView {
@@ -47,7 +48,7 @@ export type BootstrapEquipmentView = {
   [K in keyof PlayerState['equipment']]: BootstrapItemStackView | null;
 };
 
-/** 首包功法实例态：功法模板、层配置、属性曲线等由客户端本地资源补齐。 */
+/** 首包功法视图：静态功法可由客户端本地资源补齐，动态功法由服务端携带展示模板字段。 */
 export interface BootstrapTechniqueView {
 /**
  * techId：功法ID标识。
@@ -70,10 +71,45 @@ export interface BootstrapTechniqueView {
 
   expToNext?: number;
   /**
+ * realmLv：动态功法的境界等级。
+ */
+
+  realmLv?: number;
+  /**
+ * realm：功法境界阶段。
+ */
+
+  realm?: TechniqueRealm;
+  /**
  * skillsEnabled：启用开关或状态标识。
  */
 
   skillsEnabled?: boolean | null;
+  /**
+ * name：动态功法名称。
+ */
+
+  name?: string | null;
+  /**
+ * grade：动态功法品阶。
+ */
+
+  grade?: TechniqueGrade | null;
+  /**
+ * category：动态功法类别。
+ */
+
+  category?: TechniqueCategory | null;
+  /**
+ * skills：动态功法技能模板。
+ */
+
+  skills?: SkillDef[] | null;
+  /**
+ * layers：动态功法层配置。
+ */
+
+  layers?: TechniqueLayerDef[] | null;
 }
 
 /** 首包技能行动实例态：技能模板说明、范围、目标模式等由客户端本地资源补齐。 */

@@ -17,6 +17,7 @@ import {
 } from '../persistence/generated-technique-persistence.service';
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
+import { projectBootstrapTechniqueStateForSync } from '../network/world-sync-player-state.service';
 
 type QueryRecord = {
   sql: string;
@@ -303,6 +304,31 @@ async function testGeneratedTechniqueRegistryExpandsQuantifiedTemplates(): Promi
   assert.ok((attrs.constitution ?? 0) > 0);
 }
 
+async function testGeneratedTechniqueBootstrapProjectionKeepsTemplateFields(): Promise<void> {
+  const registry = new TechniqueTemplateRegistry();
+  registry.setGeneratedStore({
+    getById: () => ({
+      id: 'gen_bootstrap_projection_smoke',
+      name: '撼岳真诀',
+      grade: 'mystic',
+      category: 'internal',
+      realmLv: 31,
+      attrRatio: { strength: 3, constitution: 1 },
+      maxLayer: 9,
+      expDifficulty: 1,
+    }),
+  } as unknown as GeneratedTechniqueStoreService);
+
+  const state = registry.createTechniqueState('gen_bootstrap_projection_smoke');
+  assert.ok(state);
+  const projected = projectBootstrapTechniqueStateForSync(state);
+  assert.equal(projected.name, '撼岳真诀');
+  assert.equal(projected.grade, 'mystic');
+  assert.equal(projected.category, 'internal');
+  assert.equal(projected.realmLv, 31);
+  assert.equal(projected.layers?.length, 9);
+}
+
 async function testInternalCandidateRejectsUnknownAttrRatioKeys(): Promise<void> {
   const result = validateTechniqueCandidate({
     name: '无效功法',
@@ -326,6 +352,7 @@ async function main(): Promise<void> {
   await testGatewayAdoptAndDiscardEmitResultEvents();
   await testGeneratedInternalPreviewNormalizesAttrRatioAliases();
   await testGeneratedTechniqueRegistryExpandsQuantifiedTemplates();
+  await testGeneratedTechniqueBootstrapProjectionKeepsTemplateFields();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   console.log('technique-generation-initialization-smoke ok');
 }
