@@ -22,6 +22,7 @@ async function main(): Promise<void> {
   await testHerbRefreshAccumulatesExistingStock();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
   await testGatherCompletionDurableGrant();
+  await testGatherCompletionDurableGrantSyncsPresenceFence();
   await testGatherCompletionDurableRollback();
   await testGatherCompletionConsumesSingleAccumulatedStock();
   await testGatherCompletionDirtyDomains();
@@ -1192,6 +1193,138 @@ async function testGatherCompletionDurableGrant() {
   assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
   assert.equal(result.inventoryChanged, true);
   assert.equal(result.attrChanged, true);
+}
+
+async function testGatherCompletionDurableGrantSyncsPresenceFence() {
+  const log: Array<unknown[]> = [];
+  const durableCalls: Array<Record<string, unknown>> = [];
+  const player = buildPlayer('player:gather:fenced', 'inst-gather-fenced', 'runtime:gather:fenced:2', 2);
+  player.x = 5;
+  player.y = 6;
+  player.gatherSkill = {
+    level: 1,
+    exp: 0,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
+  };
+  player.gatherJob = {
+    resourceNodeId: 'herb-fenced',
+    resourceNodeName: '凝露草',
+    startedAt: Date.now(),
+    totalTicks: 720,
+    remainingTicks: 1,
+    pausedTicks: 0,
+    successRate: 1,
+    spiritStoneCost: 0,
+    phase: 'gathering',
+  };
+  const playerRuntimeService = buildPlayerRuntimeService(player, {
+    lootWindowTarget: { tileX: 5, tileY: 6 },
+    onEnsureRuntimeSessionFenceAtLeast(playerId, sessionEpochFloor) {
+      log.push(['ensureRuntimeSessionFenceAtLeast', playerId, sessionEpochFloor]);
+    },
+  });
+  const service = new WorldRuntimeLootContainerService({} as never, playerRuntimeService as never, {
+    isEnabled() {
+      return true;
+    },
+    async loadPlayerPresence(playerId: string) {
+      log.push(['loadPlayerPresence', playerId]);
+      return {
+        runtimeOwnerId: 'runtime:gather:fenced:persisted',
+        sessionEpoch: 58,
+      };
+    },
+    async savePlayerPresence(playerId: string, presence: Record<string, unknown>) {
+      log.push(['savePlayerPresence', playerId, presence.runtimeOwnerId, presence.sessionEpoch]);
+    },
+  } as never);
+  const container = {
+    id: 'herb-fenced',
+    variant: 'herb',
+    grade: 'mortal',
+    x: 5,
+    y: 6,
+    lootPools: [],
+    drops: [],
+    name: '凝露草',
+  };
+  const baseState = {
+    sourceId: 'container:inst-gather-fenced:herb-fenced',
+    containerId: 'herb-fenced',
+    generatedAtTick: 1,
+    refreshAtTick: undefined,
+    entries: [
+      {
+        item: { itemId: 'herb.lingdew_grass', name: '凝露草', count: 1, level: 5, type: 'material' },
+        createdTick: 1,
+        visible: true,
+      },
+    ],
+    activeSearch: undefined,
+  };
+  service.hydrateContainerStates('inst-gather-fenced', [baseState]);
+  const prepared = service.getPreparedContainerLootSource('inst-gather-fenced', container as never);
+  const itemKey = Array.isArray(prepared?.items) ? prepared.items[0]?.itemKey : '';
+  assert.equal(typeof itemKey, 'string');
+  assert.ok(itemKey);
+  service.hydrateContainerStates('inst-gather-fenced', [{
+    ...baseState,
+    activeSearch: {
+      itemKey,
+      totalTicks: 720,
+      remainingTicks: 1,
+    },
+  }]);
+  const deps = {
+    tick: 2,
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'inst-gather-fenced' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return {
+        getContainerById(containerId: string) {
+          assert.equal(containerId, 'herb-fenced');
+          return container;
+        },
+      };
+    },
+    refreshQuestStates() {
+      log.push(['refreshQuestStates']);
+    },
+    durableOperationService: {
+      isEnabled() {
+        return true;
+      },
+      async grantInventoryItems(input: Record<string, unknown>) {
+        durableCalls.push(input);
+      },
+    },
+    instanceCatalogService: {
+      isEnabled() {
+        return true;
+      },
+      async loadInstanceCatalog(instanceId: string) {
+        assert.equal(instanceId, 'inst-gather-fenced');
+        return {
+          assigned_node_id: 'node:gather:fenced',
+          ownership_epoch: 53,
+        };
+      },
+    },
+  };
+
+  const result = await service.tickGather(player.playerId, deps as never);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
+  assert.equal(durableCalls.length, 1);
+  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:player:gather:fenced:59');
+  assert.equal(durableCalls[0]?.expectedSessionEpoch, 59);
+  assert.deepEqual(log, [
+    ['loadPlayerPresence', 'player:gather:fenced'],
+    ['ensureRuntimeSessionFenceAtLeast', 'player:gather:fenced', 58],
+    ['savePlayerPresence', 'player:gather:fenced', 'runtime:player:gather:fenced:59', 59],
+    ['refreshQuestStates'],
+  ]);
 }
 
 async function testGatherCompletionDurableRollback() {

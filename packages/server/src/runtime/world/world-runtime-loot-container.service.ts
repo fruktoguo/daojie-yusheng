@@ -842,23 +842,42 @@ export class WorldRuntimeLootContainerService {
         state.activeSearch = undefined;
         if (this.canUseDurableInventoryGrant(player, deps)) {
             const rollbackState = captureInventoryGrantRollbackState(player);
-            player.suppressImmediateDomainPersistence = true;
             try {
-                this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
-                const leaseContext = await resolveLootInstanceLeaseContext(location.instanceId, deps);
-                await deps.durableOperationService.grantInventoryItems({
-                    operationId: buildLootInventoryGrantOperationId(playerId, 'gather_completion', `${buildContainerSourceId(location.instanceId, container.id)}:${harvestedRow.itemKey}`, [harvestedItem]),
-                    playerId,
-                    expectedRuntimeOwnerId: player.runtimeOwnerId,
-                    expectedSessionEpoch: Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 1))),
-                    expectedInstanceId: player.instanceId ?? null,
-                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                    sourceType: 'gather_completion',
-                    sourceRefId: `${buildContainerSourceId(location.instanceId, container.id)}:${harvestedRow.itemKey}`,
-                    grantedItems: buildGrantedInventorySnapshots([harvestedItem]),
-                    nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
-                });
+                const sourceRefId = `${buildContainerSourceId(location.instanceId, container.id)}:${harvestedRow.itemKey}`;
+                prepareLootGrantItemsForReceiver('gather_completion', [harvestedItem]);
+                await this.syncCurrentPresenceFence(playerId);
+                for (let attempt = 0; attempt < 2; attempt += 1) {
+                    player.suppressImmediateDomainPersistence = true;
+                    try {
+                        this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
+                        const leaseContext = await resolveLootInstanceLeaseContext(location.instanceId, deps);
+                        await deps.durableOperationService.grantInventoryItems({
+                            operationId: buildLootInventoryGrantOperationId(playerId, 'gather_completion', sourceRefId, [harvestedItem]),
+                            playerId,
+                            expectedRuntimeOwnerId: player.runtimeOwnerId,
+                            expectedSessionEpoch: Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 1))),
+                            expectedInstanceId: player.instanceId ?? null,
+                            expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                            expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                            sourceType: 'gather_completion',
+                            sourceRefId,
+                            grantedItems: buildGrantedInventorySnapshots([harvestedItem]),
+                            nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
+                        });
+                        break;
+                    }
+                    catch (grantError) {
+                        restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
+                        player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+                        if (attempt === 0 && shouldRetryLootSessionFence(grantError) && await this.syncCurrentPresenceFence(playerId)) {
+                            continue;
+                        }
+                        throw grantError;
+                    }
+                    finally {
+                        player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+                    }
+                }
             }
             catch (grantError) {
                 restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
