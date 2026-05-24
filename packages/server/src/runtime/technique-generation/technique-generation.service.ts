@@ -497,6 +497,7 @@ interface ArtsStrengthGenerationReport {
   expansion: Array<{
     skillId: string;
     inputBudget: number;
+    totalBudget: number;
     targetBudget: number;
     effectScale: number;
     structureBudgetMultiplier: number;
@@ -510,12 +511,13 @@ function buildArtsStrengthGenerationReport(params: {
 }): ArtsStrengthGenerationReport {
   return {
     version: 1,
-    note: 'template.skills 是服务端展开后的运行时 SkillDef；rawCandidate/normalizedTemplate 保留 AI 原始权重草稿与归一化权重，expansion.inputBudget 为伤害权重与结构/范围权重合计。',
+    note: 'template.skills 是服务端展开后的运行时 SkillDef；rawCandidate/normalizedTemplate 保留 AI 原始权重草稿与归一化权重，expansion.totalBudget 为结构折算后的总预算，targetBudget 为反推到公式效果上的预算。',
     rawCandidate: params.rawCandidate,
     normalizedTemplate: params.normalizedTemplate,
     expansion: params.expandedSkills.map((entry) => ({
       skillId: entry.skill.id,
       inputBudget: entry.inputBudget,
+      totalBudget: entry.totalBudget,
       targetBudget: entry.targetBudget,
       effectScale: entry.effectScale,
       structureBudgetMultiplier: entry.structureBudgetMultiplier,

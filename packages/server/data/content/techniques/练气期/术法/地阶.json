@@ -16,33 +16,33 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 462.86,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -53.36,
-            "cooldown": -5
+            "cost": -10.672,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "earth",
-              "targetBudget": 404.6,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.5
                 },
                 "flatBase": 400
-              }
+              },
+              "effectBudget": 404.6
             },
             {
               "type": "buff",
               "buffRef": "lianqi.earth.self_fortify"
             }
-          ]
+          ],
+          "totalBudget": 118.289
         }
       }
     ]
@@ -64,14 +64,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 259.14,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -49.14,
-            "cooldown": -5
+            "cost": -9.828,
+            "cooldown": -1
           },
           "damageKind": "physical",
           "element": "metal",
@@ -83,7 +82,8 @@
               "target.buff.buff.metal_edge_mark.stacks": 0.5
             },
             "flatBase": 200
-          }
+          },
+          "totalBudget": 65.5076
         }
       }
     ]
@@ -105,14 +105,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 40.36,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": -9.23
+            "cost": -6.026,
+            "cooldown": -1.846
           },
           "effectsStrength": [
             {
@@ -142,7 +141,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 354.84,
           "target": {
             "type": "line",
             "range": 3,
@@ -150,15 +148,14 @@
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -5
+            "cost": -8.828,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "water",
-              "targetBudget": 304.8,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.5
@@ -167,14 +164,16 @@
                   "caster.buff.buff.water_glide.stacks": 0.2
                 },
                 "flatBase": 300
-              }
+              },
+              "effectBudget": 304.8
             },
             {
               "type": "buff",
               "buffRef": "lianqi.water.frost_mark"
             }
           ],
-          "targetMode": "tile"
+          "targetMode": "tile",
+          "totalBudget": 129.8648
         }
       }
     ]
@@ -196,7 +195,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 362.37,
           "target": {
             "type": "box",
             "range": 5,
@@ -206,28 +204,29 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -9.23
+            "cost": -8.828,
+            "cooldown": -1.846
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "wood",
-              "targetBudget": 305.1,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4
                 },
                 "flatBase": 300
-              }
+              },
+              "effectBudget": 305.1
             },
             {
               "type": "buff",
               "buffRef": "lianqi.wood.vine_mark"
             }
           ],
-          "targetMode": "tile"
+          "targetMode": "tile",
+          "totalBudget": 205.4716
         }
       }
     ]
@@ -249,7 +248,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 472.54,
           "target": {
             "type": "box",
             "range": 0,
@@ -258,15 +256,14 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -12.89
+            "cost": -8.828,
+            "cooldown": -2.578
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 405.71,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.5
@@ -278,20 +275,22 @@
                   "target.buff.buff.fire_burn_mark.stacks": 0.01
                 },
                 "flatBase": 400
-              }
+              },
+              "effectBudget": 405.71
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 20,
-              "targetBudget": 20
+              "effectBudget": 20
             }
           ],
           "requiresTarget": false,
           "playerCast": {
             "windupTicks": 3,
             "warningColor": "#ef6b3b"
-          }
+          },
+          "totalBudget": 660.4427
         }
       }
     ]

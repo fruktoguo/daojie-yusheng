@@ -16,14 +16,12 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 34.39,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": 0,
-            "cooldown": 32.89,
+            "cooldown": 6.578,
             "costMultiplier": 0
           },
           "damageKind": "physical",
@@ -34,7 +32,8 @@
             "extraPercentBonuses": {
               "caster.realmLv": 0.5
             }
-          }
+          },
+          "totalBudget": 4.9767
         }
       }
     ]
@@ -56,14 +55,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 103.91,
           "target": {
             "type": "single",
             "range": 2
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": 32.89
+            "cost": -7.604,
+            "cooldown": 6.578
           },
           "damageKind": "physical",
           "element": "wood",
@@ -72,7 +70,8 @@
               "physAtk": 3
             },
             "flatBase": 30
-          }
+          },
+          "totalBudget": 49.1392
         }
       }
     ]

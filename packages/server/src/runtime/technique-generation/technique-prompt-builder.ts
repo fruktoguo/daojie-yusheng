@@ -174,6 +174,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       structureMeaning: [
         'structureStrength.cost 是灵力消耗权重；正数代表更低灵力消耗，负数代表更高灵力消耗，0表示基础消耗倍率1。',
         `structureStrength.cooldown 是冷却权重；正数代表更短冷却，负数代表更长冷却，0表示${constants.structure.baseCooldownTicks}息。`,
+        `结构权重直接作为指数参与预算换算：正数按 ${constants.structure.positiveBudgetPerStrength}^权重，负数按 ${constants.structure.negativeBudgetPerStrength}^绝对值，不再做额外缩放。`,
         'structureStrength.chant 预留给吟唱强度；当前可写0。',
         '结构权重、范围权重、距离权重都会和伤害权重竞争总预算。',
       ],
@@ -224,10 +225,9 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
           damageKind: 'physical',
           element: 'metal',
           target: { type: 'line', range: 3, width: 1, targetMode: 'tile' },
-          structureStrength: { cost: 0, cooldown: 1, chant: 0 },
+          structureStrength: { cooldown: 1 },
           formulaStrength: {
-            attributeBases: { physAtk: 4, breakPower: 1 },
-            percentBonuses: { moveSpeed: 0 },
+            attributeBases: { physAtk: 4 },
           },
         },
       ],

@@ -16,21 +16,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 51.86,
           "target": {
             "type": "single",
             "range": 2
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 16.93
+            "cost": -6.026,
+            "cooldown": 3.386
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "fire",
-              "targetBudget": 4.88,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.8
@@ -38,15 +36,17 @@
                 "percentBonuses": {
                   "techLevel": -0.2
                 }
-              }
+              },
+              "effectBudget": 4.88
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 2,
-              "targetBudget": 2
+              "effectBudget": 2
             }
-          ]
+          ],
+          "totalBudget": 6.7602
         }
       },
       {
@@ -56,7 +56,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 48.56,
           "target": {
             "type": "orientedBox",
             "range": 1,
@@ -65,15 +64,14 @@
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": 5
+            "cost": -7.604,
+            "cooldown": 1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "fire",
-              "targetBudget": 4.54,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.5
@@ -81,14 +79,16 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.fire_burn_mark.stacks": 0.04
                 }
-              }
+              },
+              "effectBudget": 4.54
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 1
             }
-          ]
+          ],
+          "totalBudget": 2.9341
         }
       },
       {
@@ -98,22 +98,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 34.83,
           "target": {
             "type": "single",
             "range": 4,
             "maxTargets": 1
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 0
+            "cost": -6.026
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "wood",
-              "targetBudget": 4.28,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.2
@@ -121,7 +118,8 @@
                 "percentBonuses": {
                   "techLevel": -0.2
                 }
-              }
+              },
+              "effectBudget": 4.28
             },
             {
               "type": "buff",
@@ -140,9 +138,10 @@
                 "moveSpeed": -18,
                 "dodge": -10
               },
-              "targetBudget": 49
+              "effectBudget": 49
             }
-          ]
+          ],
+          "totalBudget": 30.9329
         }
       },
       {
@@ -152,21 +151,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 48.34,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": 5
+            "cost": -7.604,
+            "cooldown": 1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "earth",
-              "targetBudget": 5.32,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 4.2
@@ -174,13 +171,15 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.monster_charwood_root_bind.stacks": 0.12
                 }
-              }
+              },
+              "effectBudget": 5.32
             },
             {
               "type": "buff",
               "buffRef": "lianqi.earth.self_fortify"
             }
-          ]
+          ],
+          "totalBudget": 2.8652
         }
       },
       {
@@ -190,7 +189,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 54.55,
           "target": {
             "type": "line",
             "range": 4,
@@ -198,28 +196,29 @@
             "maxTargets": 4
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -2.61
+            "cost": -8.828,
+            "cooldown": -0.522
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 5.4,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.3
                 }
-              }
+              },
+              "effectBudget": 5.4
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 3,
-              "targetBudget": 3
+              "effectBudget": 3
             }
-          ]
+          ],
+          "totalBudget": 4.9477
         }
       },
       {
@@ -229,7 +228,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 55.69,
           "target": {
             "type": "line",
             "range": 3,
@@ -237,15 +235,14 @@
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -5
+            "cost": -8.828,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "fire",
-              "targetBudget": 5.55,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 4.5
@@ -253,7 +250,8 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.fire_burn_mark.stacks": 0.05
                 }
-              }
+              },
+              "effectBudget": 5.55
             },
             {
               "type": "buff",
@@ -273,9 +271,10 @@
                 "spellDef": 10,
                 "breakPower": 10
               },
-              "targetBudget": 59
+              "effectBudget": 59
             }
-          ]
+          ],
+          "totalBudget": 27.5025
         }
       },
       {
@@ -285,20 +284,18 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 44.22,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": -12.89
+            "cost": -6.026,
+            "cooldown": -2.578
           },
           "effectsStrength": [
             {
               "type": "heal",
               "target": "self",
-              "targetBudget": 1.2,
               "formulaStrength": {
                 "extraBaseVars": {
                   "caster.maxHp": 0.12
@@ -306,7 +303,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_molten_scales.stacks": 0.08
                 }
-              }
+              },
+              "effectBudget": 1.2
             },
             {
               "type": "buff",
@@ -326,10 +324,11 @@
                 "spellDef": 10,
                 "breakPower": 10
               },
-              "targetBudget": 59
+              "effectBudget": 59
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 24.3164
         }
       },
       {
@@ -339,21 +338,18 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 43.82,
           "target": {
             "type": "single",
             "range": 3
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": 0
+            "cost": -7.604
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "wood",
-              "targetBudget": 4.88,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.8
@@ -361,7 +357,8 @@
                 "percentBonuses": {
                   "techLevel": -0.2
                 }
-              }
+              },
+              "effectBudget": 4.88
             },
             {
               "type": "buff",
@@ -384,9 +381,10 @@
                 "hit": -10,
                 "moveSpeed": -15
               },
-              "targetBudget": 46
+              "effectBudget": 46
             }
-          ]
+          ],
+          "totalBudget": 22.8353
         }
       },
       {
@@ -396,21 +394,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 55.86,
           "target": {
             "type": "single",
             "range": 4
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -5
+            "cost": -8.828,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 5.22,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.1
@@ -418,13 +414,14 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.monster_vine_constrict.stacks": 0.12
                 }
-              }
+              },
+              "effectBudget": 5.22
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 2,
-              "targetBudget": 2
+              "effectBudget": 2
             },
             {
               "type": "buff",
@@ -443,9 +440,10 @@
                 "physDef": -8,
                 "spellDef": -8
               },
-              "targetBudget": 41
+              "effectBudget": 41
             }
-          ]
+          ],
+          "totalBudget": 18.7548
         }
       },
       {
@@ -455,7 +453,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 68.38,
           "target": {
             "type": "box",
             "range": 5,
@@ -464,15 +461,14 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -49.14,
-            "cooldown": -9.23
+            "cost": -9.828,
+            "cooldown": -1.846
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 6.01,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.8
@@ -481,19 +477,21 @@
                   "target.buff.buff.fire_burn_mark.stacks": 0.03,
                   "target.buff.buff.wood_vine_mark.stacks": 0.18
                 }
-              }
+              },
+              "effectBudget": 6.01
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 3,
-              "targetBudget": 3
+              "effectBudget": 3
             }
           ],
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#ef6b3b"
-          }
+          },
+          "totalBudget": 5.4611
         }
       },
       {
@@ -503,7 +501,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 68.37,
           "target": {
             "type": "box",
             "range": 0,
@@ -512,15 +509,14 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -9.23
+            "cost": -8.828,
+            "cooldown": -1.846
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 4.92,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.8
@@ -528,13 +524,14 @@
                 "percentBonuses": {
                   "techLevel": 0.2
                 }
-              }
+              },
+              "effectBudget": 4.92
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 2,
-              "targetBudget": 2
+              "effectBudget": 2
             },
             {
               "type": "buff",
@@ -554,14 +551,15 @@
                 "physAtk": -8,
                 "spellAtk": -8
               },
-              "targetBudget": 47
+              "effectBudget": 47
             }
           ],
           "requiresTarget": false,
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#ff7a32"
-          }
+          },
+          "totalBudget": 90.3578
         }
       },
       {
@@ -571,7 +569,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 67.23,
           "target": {
             "type": "box",
             "range": 5,
@@ -580,20 +577,20 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -12.89
+            "cost": -8.828,
+            "cooldown": -2.578
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "wood",
-              "targetBudget": 5.3,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.2
                 }
-              }
+              },
+              "effectBudget": 5.3
             },
             {
               "type": "buff",
@@ -616,13 +613,14 @@
                 "moveSpeed": -55,
                 "dodge": -25
               },
-              "targetBudget": 97
+              "effectBudget": 97
             }
           ],
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#8fb45a"
-          }
+          },
+          "totalBudget": 63.7809
         }
       },
       {
@@ -632,7 +630,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 87.94,
           "target": {
             "type": "box",
             "range": 6,
@@ -641,15 +638,14 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -53.36,
-            "cooldown": -17.6
+            "cost": -10.672,
+            "cooldown": -3.52
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 6.48,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 5.2
@@ -658,19 +654,21 @@
                   "target.buff.buff.fire_burn_mark.stacks": 0.03,
                   "target.buff.buff.monster_root_prison.stacks": 0.25
                 }
-              }
+              },
+              "effectBudget": 6.48
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 4,
-              "targetBudget": 4
+              "effectBudget": 4
             }
           ],
           "monsterCast": {
             "windupTicks": 3,
             "warningColor": "#ff8b3d"
-          }
+          },
+          "totalBudget": 15.9358
         }
       },
       {
@@ -680,20 +678,18 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 75.53,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -30.13
+            "cost": -8.828,
+            "cooldown": -6.026
           },
           "effectsStrength": [
             {
               "type": "heal",
               "target": "self",
-              "targetBudget": 1.26,
               "formulaStrength": {
                 "extraBaseVars": {
                   "caster.maxHp": 0.18
@@ -701,7 +697,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_phoenix_ember.stacks": 0.08
                 }
-              }
+              },
+              "effectBudget": 1.26
             },
             {
               "type": "buff",
@@ -721,10 +718,11 @@
                 "spellDef": 12,
                 "hpRegenRate": 80
               },
-              "targetBudget": 139
+              "effectBudget": 139
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 29.3259
         }
       }
     ]
@@ -746,21 +744,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 51.76,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 16.93
+            "cost": -6.026,
+            "cooldown": 3.386
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "water",
-              "targetBudget": 4.78,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.7
@@ -768,13 +764,15 @@
                 "percentBonuses": {
                   "techLevel": -0.2
                 }
-              }
+              },
+              "effectBudget": 4.78
             },
             {
               "type": "buff",
               "buffRef": "fanren.shufa.mystic.frost_mark"
             }
-          ]
+          ],
+          "totalBudget": 4.6968
         }
       },
       {
@@ -784,14 +782,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 47.24,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": 5
+            "cost": -7.604,
+            "cooldown": 1
           },
           "damageKind": "physical",
           "element": "water",
@@ -802,7 +799,8 @@
             "extraPercentBonuses": {
               "target.buff.buff.frost_mark.stacks": 0.12
             }
-          }
+          },
+          "totalBudget": 2.2728
         }
       },
       {
@@ -812,21 +810,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 48.02,
           "target": {
             "type": "single",
             "range": 2
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": 5
+            "cost": -7.604,
+            "cooldown": 1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "metal",
-              "targetBudget": 5.08,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 4
@@ -834,7 +830,8 @@
                 "percentBonuses": {
                   "techLevel": -0.2
                 }
-              }
+              },
+              "effectBudget": 5.08
             },
             {
               "type": "buff",
@@ -854,9 +851,10 @@
                 "physAtk": -6,
                 "spellAtk": -6
               },
-              "targetBudget": 47
+              "effectBudget": 47
             }
-          ]
+          ],
+          "totalBudget": 28.0487
         }
       },
       {
@@ -866,14 +864,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 25.01,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -19.01,
-            "cooldown": -5
+            "cost": -3.802,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
@@ -894,10 +891,11 @@
                 "spellDef": 18,
                 "resolvePower": 8
               },
-              "targetBudget": 73
+              "effectBudget": 73
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 44.0145
         }
       },
       {
@@ -907,7 +905,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 50.13,
           "target": {
             "type": "box",
             "range": 5,
@@ -916,15 +913,14 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": -2.61
+            "cost": -7.604,
+            "cooldown": -0.522
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "water",
-              "targetBudget": 4.58,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.5
@@ -932,7 +928,8 @@
                 "percentBonuses": {
                   "techLevel": -0.2
                 }
-              }
+              },
+              "effectBudget": 4.58
             },
             {
               "type": "buff",
@@ -954,9 +951,10 @@
               "valueStats": {
                 "moveSpeed": -45
               },
-              "targetBudget": 62
+              "effectBudget": 62
             }
-          ]
+          ],
+          "totalBudget": 58.6467
         }
       },
       {
@@ -966,7 +964,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 63.38,
           "target": {
             "type": "box",
             "range": 5,
@@ -975,15 +972,14 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -9.23
+            "cost": -8.828,
+            "cooldown": -1.846
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "water",
-              "targetBudget": 6.01,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.7
@@ -992,7 +988,8 @@
                   "target.buff.buff.monster_ice_web.stacks": 0.25,
                   "target.buff.buff.frost_mark.stacks": 0.06
                 }
-              }
+              },
+              "effectBudget": 6.01
             },
             {
               "type": "buff",
@@ -1002,7 +999,8 @@
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#9fd4ee"
-          }
+          },
+          "totalBudget": 4.0475
         }
       },
       {
@@ -1012,14 +1010,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 42.25,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": -11.12
+            "cost": -6.026,
+            "cooldown": -2.224
           },
           "effectsStrength": [
             {
@@ -1040,10 +1037,11 @@
                 "spellDef": 25,
                 "moveSpeed": -20
               },
-              "targetBudget": 107
+              "effectBudget": 107
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 44.8626
         }
       },
       {
@@ -1053,7 +1051,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 57.96,
           "target": {
             "type": "line",
             "range": 4,
@@ -1061,15 +1058,14 @@
             "maxTargets": 6
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -5
+            "cost": -8.828,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "water",
-              "targetBudget": 5.32,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.2
@@ -1077,13 +1073,15 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_iron_shell_guard.stacks": 0.12
                 }
-              }
+              },
+              "effectBudget": 5.32
             },
             {
               "type": "buff",
               "buffRef": "lianqi.water.frost_mark"
             }
-          ]
+          ],
+          "totalBudget": 3.5755
         }
       },
       {
@@ -1093,7 +1091,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 76.78,
           "target": {
             "type": "box",
             "range": 0,
@@ -1102,15 +1099,14 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -49.14,
-            "cooldown": -12.89
+            "cost": -9.828,
+            "cooldown": -2.578
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "water",
-              "targetBudget": 5.75,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 4.6
@@ -1118,7 +1114,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_iron_shell_guard.stacks": 0.15
                 }
-              }
+              },
+              "effectBudget": 5.75
             },
             {
               "type": "buff",
@@ -1129,7 +1126,8 @@
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#8fc9e0"
-          }
+          },
+          "totalBudget": 8.0284
         }
       }
     ]
@@ -1151,14 +1149,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 26.01,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -19.01,
-            "cooldown": -5
+            "cost": -3.802,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
@@ -1183,10 +1180,11 @@
                 "spellDef": 10,
                 "resolvePower": 8
               },
-              "targetBudget": 62
+              "effectBudget": 62
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 37.3821
         }
       },
       {
@@ -1196,7 +1194,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 45.85,
           "target": {
             "type": "line",
             "range": 3,
@@ -1204,8 +1201,8 @@
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": -2.61
+            "cost": -7.604,
+            "cooldown": -0.522
           },
           "damageKind": "physical",
           "element": "earth",
@@ -1216,7 +1213,8 @@
             "extraPercentBonuses": {
               "caster.buff.buff.monster_darksoil_shell.stacks": 0.12
             }
-          }
+          },
+          "totalBudget": 2.1511
         }
       },
       {
@@ -1226,7 +1224,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 58.04,
           "target": {
             "type": "line",
             "range": 4,
@@ -1234,20 +1231,20 @@
             "maxTargets": 8
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -5
+            "cost": -8.828,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "earth",
-              "targetBudget": 5.5,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 4.4
                 }
-              }
+              },
+              "effectBudget": 5.5
             },
             {
               "type": "buff",
@@ -1266,9 +1263,10 @@
                 "dodge": -10,
                 "physDef": -8
               },
-              "targetBudget": 42
+              "effectBudget": 42
             }
-          ]
+          ],
+          "totalBudget": 31.9244
         }
       },
       {
@@ -1278,21 +1276,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 48.12,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -38.02,
-            "cooldown": 5
+            "cost": -7.604,
+            "cooldown": 1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "wood",
-              "targetBudget": 5.1,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 4
@@ -1300,7 +1296,8 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.monster_earth_rend.stacks": 0.1
                 }
-              }
+              },
+              "effectBudget": 5.1
             },
             {
               "type": "buff",
@@ -1320,9 +1317,10 @@
                 "physAtk": -6,
                 "spellAtk": -6
               },
-              "targetBudget": 99
+              "effectBudget": 99
             }
-          ]
+          ],
+          "totalBudget": 56.065
         }
       },
       {
@@ -1332,7 +1330,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 67.25,
           "target": {
             "type": "box",
             "range": 5,
@@ -1341,8 +1338,8 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -49.14,
-            "cooldown": -9.23
+            "cost": -9.828,
+            "cooldown": -1.846
           },
           "monsterCast": {
             "windupTicks": 2,
@@ -1357,7 +1354,8 @@
             "extraPercentBonuses": {
               "target.buff.buff.monster_deep_earth_venom.stacks": 0.08
             }
-          }
+          },
+          "totalBudget": 2.9578
         }
       },
       {
@@ -1367,7 +1365,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 57.94,
           "target": {
             "type": "line",
             "range": 4,
@@ -1375,20 +1372,20 @@
             "maxTargets": 8
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -5
+            "cost": -8.828,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "earth",
-              "targetBudget": 5.4,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 4.3
                 }
-              }
+              },
+              "effectBudget": 5.4
             },
             {
               "type": "buff",
@@ -1407,9 +1404,10 @@
                 "spellDef": -10,
                 "spellAtk": -6
               },
-              "targetBudget": 43
+              "effectBudget": 43
             }
-          ]
+          ],
+          "totalBudget": 32.5293
         }
       },
       {
@@ -1419,14 +1417,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 27.21,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -19.01,
-            "cooldown": -7.2
+            "cost": -3.802,
+            "cooldown": -1.44
           },
           "effectsStrength": [
             {
@@ -1447,10 +1444,11 @@
                 "spellDef": 20,
                 "resolvePower": 10
               },
-              "targetBudget": 79
+              "effectBudget": 79
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 45.4743
         }
       },
       {
@@ -1460,7 +1458,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 74.88,
           "target": {
             "type": "box",
             "range": 0,
@@ -1469,15 +1466,14 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -49.14,
-            "cooldown": -11.12
+            "cost": -9.828,
+            "cooldown": -2.224
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "earth",
-              "targetBudget": 5.62,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 4.5
@@ -1485,7 +1481,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_stone_skin.stacks": 0.12
                 }
-              }
+              },
+              "effectBudget": 5.62
             },
             {
               "type": "buff",
@@ -1504,14 +1501,15 @@
                 "hit": -10,
                 "dodge": -10
               },
-              "targetBudget": 41
+              "effectBudget": 41
             }
           ],
           "requiresTarget": false,
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#9a7a55"
-          }
+          },
+          "totalBudget": 67.5669
         }
       },
       {
@@ -1521,7 +1519,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 68.57,
           "target": {
             "type": "box",
             "range": 5,
@@ -1530,15 +1527,14 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -49.14,
-            "cooldown": -9.23
+            "cost": -9.828,
+            "cooldown": -1.846
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "earth",
-              "targetBudget": 6.12,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 5
@@ -1546,7 +1542,8 @@
                 "percentBonuses": {
                   "techLevel": 0.2
                 }
-              }
+              },
+              "effectBudget": 6.12
             },
             {
               "type": "buff",
@@ -1565,13 +1562,14 @@
                 "moveSpeed": -20,
                 "physDef": -10
               },
-              "targetBudget": 53
+              "effectBudget": 53
             }
           ],
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#8a6040"
-          }
+          },
+          "totalBudget": 35.8333
         }
       },
       {
@@ -1581,7 +1579,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 83.39,
           "target": {
             "type": "box",
             "range": 0,
@@ -1590,15 +1587,14 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -53.36,
-            "cooldown": -14.55
+            "cost": -10.672,
+            "cooldown": -2.91
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
               "element": "earth",
-              "targetBudget": 6.48,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 5.3
@@ -1606,7 +1602,8 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.monster_dragon_earthbind.stacks": 0.18
                 }
-              }
+              },
+              "effectBudget": 6.48
             },
             {
               "type": "buff",
@@ -1626,14 +1623,15 @@
                 "physAtk": -8,
                 "spellAtk": -8
               },
-              "targetBudget": 55
+              "effectBudget": 55
             }
           ],
           "requiresTarget": false,
           "monsterCast": {
             "windupTicks": 3,
             "warningColor": "#8d6a4a"
-          }
+          },
+          "totalBudget": 75.838
         }
       },
       {
@@ -1643,7 +1641,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 61.29,
           "target": {
             "type": "orientedBox",
             "range": 1,
@@ -1652,8 +1649,8 @@
             "maxTargets": 5
           },
           "structureStrength": {
-            "cost": -49.14,
-            "cooldown": -5
+            "cost": -9.828,
+            "cooldown": -1
           },
           "damageKind": "physical",
           "element": "earth",
@@ -1664,7 +1661,8 @@
             "extraPercentBonuses": {
               "target.buff.buff.monster_tectonic_pressure.stacks": 0.15
             }
-          }
+          },
+          "totalBudget": 2.3698
         }
       },
       {
@@ -1674,21 +1672,20 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 51.14,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": -19.01
+            "cost": -6.026,
+            "cooldown": -3.802
           },
           "effectsStrength": [
             {
               "type": "buff",
               "buffRef": "lianqi.earth.self_fortify",
               "stacks": 2,
-              "targetBudget": 2
+              "effectBudget": 2
             },
             {
               "type": "buff",
@@ -1708,10 +1705,11 @@
                 "spellDef": 18,
                 "resolvePower": 12
               },
-              "targetBudget": 81
+              "effectBudget": 81
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 29.4695
         }
       },
       {
@@ -1721,21 +1719,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 68.65,
           "target": {
             "type": "single",
             "range": 2
           },
           "structureStrength": {
-            "cost": -53.36,
-            "cooldown": -9.23
+            "cost": -10.672,
+            "cooldown": -1.846
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "earth",
-              "targetBudget": 6.06,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 5
@@ -1743,7 +1739,8 @@
                 "extraPercentBonuses": {
                   "target.debuffCount": 0.06
                 }
-              }
+              },
+              "effectBudget": 6.06
             },
             {
               "type": "buff",
@@ -1763,9 +1760,10 @@
                 "physAtk": -6,
                 "spellAtk": -6
               },
-              "targetBudget": 49
+              "effectBudget": 49
             }
-          ]
+          ],
+          "totalBudget": 14.7246
         }
       },
       {
@@ -1775,14 +1773,13 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 42.25,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": -11.12
+            "cost": -6.026,
+            "cooldown": -2.224
           },
           "effectsStrength": [
             {
@@ -1805,10 +1802,11 @@
                 "spellDef": 8,
                 "maxQiOutputPerTick": 10
               },
-              "targetBudget": 71
+              "effectBudget": 71
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 29.7686
         }
       },
       {
@@ -1818,7 +1816,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 93.3,
           "target": {
             "type": "box",
             "range": 6,
@@ -1827,15 +1824,14 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -57.03,
-            "cooldown": -19.01
+            "cost": -11.406,
+            "cooldown": -3.802
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "earth",
-              "targetBudget": 6.76,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 5.6
@@ -1844,7 +1840,8 @@
                   "caster.buff.buff.monster_element_shift.stacks": 0.12,
                   "target.debuffCount": 0.04
                 }
-              }
+              },
+              "effectBudget": 6.76
             },
             {
               "type": "buff",
@@ -1865,13 +1862,14 @@
                 "physDef": -6,
                 "spellDef": -6
               },
-              "targetBudget": 52
+              "effectBudget": 52
             }
           ],
           "monsterCast": {
             "windupTicks": 3,
             "warningColor": "#9a79bf"
-          }
+          },
+          "totalBudget": 80.2796
         }
       },
       {
@@ -1881,20 +1879,18 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 69.38,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": -24.01
+            "cost": -8.828,
+            "cooldown": -4.802
           },
           "effectsStrength": [
             {
               "type": "heal",
               "target": "self",
-              "targetBudget": 1.23,
               "formulaStrength": {
                 "extraBaseVars": {
                   "caster.maxHp": 0.15
@@ -1902,7 +1898,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_element_shift.stacks": 0.08
                 }
-              }
+              },
+              "effectBudget": 1.23
             },
             {
               "type": "buff",
@@ -1921,10 +1918,11 @@
                 "hpRegenRate": 100,
                 "spellDef": 12
               },
-              "targetBudget": 140
+              "effectBudget": 140
             }
           ],
-          "requiresTarget": false
+          "requiresTarget": false,
+          "totalBudget": 33.5933
         }
       }
     ]

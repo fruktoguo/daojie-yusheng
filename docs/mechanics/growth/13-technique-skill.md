@@ -80,6 +80,26 @@ cost = costMultiplier × gradeQiCostMultiplier × realmLv × realmAttributeMulti
 - 运算: `{ op: 'add'|'sub'|'mul'|'div'|'min'|'max', args: SkillFormula[] }`
 - 钳位: `{ op: 'clamp', value, min?, max? }`
 
+## AI 术法权重展开
+
+源文件: `packages/shared/src/technique-arts-strength.ts`
+
+内容和 AI 草稿只写权重，不直接写运行时 `effects[].formula`、`cost`、`cooldown`、`targeting`。
+
+```typescript
+structureBudgetMultiplier =
+  product(structureStrength.cost/cooldown/chant/area/range 对应的预算乘数)
+
+weight >= 0: multiplier = 1.2^weight
+weight < 0:  multiplier = 0.9^abs(weight)
+
+totalBudget = effectStrength * structureBudgetMultiplier
+effectBudget = totalBudget / structureBudgetMultiplier
+effectScale = effectBudget / effectStrength
+```
+
+`totalBudget` 是结构折算后的技能总预算；运行时公式效果预算由服务端反推。多效果技能使用 `effectsStrength[].effectBudget` 表示单个伤害/治疗效果预算，纯 buff 不消耗效果预算。
+
 ## 炼体系统
 
 ```typescript

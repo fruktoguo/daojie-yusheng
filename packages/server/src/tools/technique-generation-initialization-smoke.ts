@@ -7,6 +7,9 @@ import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
 import {
   S2C,
+  calculateTechniqueArtsStrengthBudgetMultiplier,
+  calculateTechniqueArtsStrengthEffectBudget,
+  calculateTechniqueArtsStrengthTotalBudget,
   calcTechniqueAttrValues,
   expandTechniqueArtsStrengthSkill,
   normalizeTechniqueArtsStrengthSkill,
@@ -528,6 +531,26 @@ async function testZeroRangeArtsStrengthExpandsAsNoTargetSkill(): Promise<void> 
   assert.equal(expanded.skill.targeting?.radius, 4);
 }
 
+async function testArtsStrengthBudgetUsesDirectWeights(): Promise<void> {
+  assert.equal(roundForSmoke(calculateTechniqueArtsStrengthBudgetMultiplier(-8)), 0.430467);
+  assert.equal(roundForSmoke(calculateTechniqueArtsStrengthBudgetMultiplier(1)), 1.2);
+
+  const structureBudgetMultiplier = calculateTechniqueArtsStrengthBudgetMultiplier(-8)
+    * calculateTechniqueArtsStrengthBudgetMultiplier(1)
+    * calculateTechniqueArtsStrengthBudgetMultiplier(1);
+  const totalBudget = calculateTechniqueArtsStrengthTotalBudget(4, structureBudgetMultiplier);
+  assert.equal(roundForSmoke(totalBudget), 2.4795);
+  assertApprox(calculateTechniqueArtsStrengthEffectBudget(totalBudget, structureBudgetMultiplier), 4, 0.0001);
+}
+
+function roundForSmoke(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+function assertApprox(actual: number, expected: number, epsilon: number): void {
+  assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} is not within ${epsilon} of ${expected}`);
+}
+
 async function testArtsCandidateRejectsLegacyEffectsShape(): Promise<void> {
   const result = validateTechniqueCandidate({
     name: '旧术法',
@@ -561,6 +584,7 @@ async function main(): Promise<void> {
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
   await testZeroRangeArtsStrengthExpandsAsNoTargetSkill();
+  await testArtsStrengthBudgetUsesDirectWeights();
   await testArtsCandidateRejectsLegacyEffectsShape();
   console.log('technique-generation-initialization-smoke ok');
 }

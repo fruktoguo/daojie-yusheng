@@ -64,6 +64,7 @@ export interface TechniqueArtsStrengthSkillInput {
   target?: TechniqueArtsStrengthTargetInput;
   structureStrength?: TechniqueArtsStrengthStructureInput;
   formulaStrength?: TechniqueArtsStrengthFormulaInput;
+  totalBudget?: number;
   targetBudget?: number;
   effectsStrength?: TechniqueArtsStrengthEffectInput[];
   playerCast?: unknown;
@@ -72,6 +73,7 @@ export interface TechniqueArtsStrengthSkillInput {
 
 export type TechniqueArtsStrengthEffectInput = Record<string, unknown> & {
   type?: string;
+  effectBudget?: number;
   targetBudget?: number;
   formulaStrength?: TechniqueArtsStrengthFormulaInput;
   hpFormulaStrength?: TechniqueArtsStrengthFormulaInput;
@@ -134,6 +136,7 @@ export interface NormalizedTechniqueArtsStrengthSkill {
   target: NormalizedTechniqueArtsStrengthTarget;
   structure: NormalizedTechniqueArtsStrengthStructure;
   formula: NormalizedTechniqueArtsStrengthFormula;
+  totalBudget?: number;
   targetBudget?: number;
   effectsStrength?: TechniqueArtsStrengthEffectInput[];
   playerCast?: unknown;
@@ -163,6 +166,7 @@ export interface ExpandTechniqueArtsStrengthSkillParams {
 export interface ExpandedTechniqueArtsStrengthSkill {
   skill: SkillDef;
   inputBudget: number;
+  totalBudget: number;
   targetBudget: number;
   effectScale: number;
   structureBudgetMultiplier: number;
@@ -199,27 +203,20 @@ function clampStrength(value: unknown): number {
   return clamp(toFiniteNumber(value, 0), constants.minStrength, constants.maxStrength);
 }
 
-function weightToRuntimeStrength(weight: number): number {
-  const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights;
-  return weight / constants.max * constants.runtimeStrengthAtMaxWeight;
-}
-
 export function calculateTechniqueArtsStrengthEfficiencyFactor(weight: number): number {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
-  const strength = weightToRuntimeStrength(weight);
-  if (strength >= 0) {
-    return constants.positiveEfficiencyPerStrength ** strength;
+  if (weight >= 0) {
+    return constants.positiveEfficiencyPerStrength ** weight;
   }
-  return constants.negativePenaltyPerStrength ** (-strength);
+  return constants.negativePenaltyPerStrength ** (-weight);
 }
 
 export function calculateTechniqueArtsStrengthBudgetMultiplier(weight: number): number {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
-  const strength = weightToRuntimeStrength(weight);
-  if (strength >= 0) {
-    return constants.positiveBudgetPerStrength ** strength;
+  if (weight >= 0) {
+    return constants.positiveBudgetPerStrength ** weight;
   }
-  return constants.negativeBudgetPerStrength ** (-strength);
+  return constants.negativeBudgetPerStrength ** (-weight);
 }
 
 function normalizeTarget(raw: unknown): NormalizedTechniqueArtsStrengthTarget {
@@ -512,9 +509,8 @@ export function normalizeTechniqueArtsStrengthSkill(raw: unknown): NormalizedTec
     target,
     structure,
     formula,
-    targetBudget: Number.isFinite(Number(source.targetBudget)) && Number(source.targetBudget) > 0
-      ? Number(source.targetBudget)
-      : undefined,
+    totalBudget: resolvePositiveBudget(source.totalBudget),
+    targetBudget: resolvePositiveBudget(source.targetBudget),
     effectsStrength: Array.isArray(source.effectsStrength)
       ? source.effectsStrength.filter(isRecord) as TechniqueArtsStrengthEffectInput[]
       : undefined,
@@ -522,6 +518,10 @@ export function normalizeTechniqueArtsStrengthSkill(raw: unknown): NormalizedTec
     monsterCast: isRecord(source.monsterCast) ? { ...source.monsterCast } : undefined,
     inputBudget,
   };
+}
+
+function resolvePositiveBudget(value: unknown): number | undefined {
+  return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : undefined;
 }
 
 function normalizeText(value: unknown, fallback: string): string {
@@ -545,15 +545,14 @@ function validateNormalizedSkill(skill: NormalizedTechniqueArtsStrengthSkill): s
 }
 
 export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStrengthSkillParams): ExpandedTechniqueArtsStrengthSkill {
-  const fullTargetBudget = Number.isFinite(params.targetBudget) && (params.targetBudget ?? 0) > 0
+  const fullTotalBudget = Number.isFinite(params.targetBudget) && (params.targetBudget ?? 0) > 0
     ? Number(params.targetBudget)
-    : Number.isFinite(params.skill.targetBudget) && (params.skill.targetBudget ?? 0) > 0
-      ? Number(params.skill.targetBudget)
-      : params.skill.inputBudget;
-  const totalWeight = Math.max(params.skill.inputBudget, params.skill.formula.effectStrength);
-  const targetBudget = totalWeight > 0
-    ? fullTargetBudget * params.skill.formula.effectStrength / totalWeight
-    : fullTargetBudget;
+    : Number.isFinite(params.skill.totalBudget) && (params.skill.totalBudget ?? 0) > 0
+      ? Number(params.skill.totalBudget)
+      : Number.isFinite(params.skill.targetBudget) && (params.skill.targetBudget ?? 0) > 0
+        ? Number(params.skill.targetBudget)
+        : calculateTechniqueArtsStrengthTotalBudget(params.skill.formula.effectStrength, params.skill.structure.budgetMultiplier);
+  const targetBudget = calculateTechniqueArtsStrengthEffectBudget(fullTotalBudget, params.skill.structure.budgetMultiplier);
   const effectScale = params.skill.formula.effectStrength > 0
     ? targetBudget / params.skill.formula.effectStrength
     : 1;
@@ -597,6 +596,7 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       monsterCast: params.skill.monsterCast as any,
     },
     inputBudget: params.skill.inputBudget,
+    totalBudget: fullTotalBudget,
     targetBudget,
     effectScale,
     structureBudgetMultiplier: params.skill.structure.budgetMultiplier,
@@ -632,8 +632,22 @@ export function expandTechniqueArtsStrengthContentSkill(
   return expandTechniqueArtsStrengthSkill({
     ...params,
     skill: normalized,
-    targetBudget: normalized.targetBudget ?? params.targetBudget,
+    targetBudget: normalized.totalBudget ?? normalized.targetBudget ?? params.targetBudget,
   });
+}
+
+export function calculateTechniqueArtsStrengthTotalBudget(effectStrength: number, structureBudgetMultiplier: number): number {
+  return roundTo(Math.max(0, effectStrength) * Math.max(0, structureBudgetMultiplier), 4);
+}
+
+export function calculateTechniqueArtsStrengthEffectBudget(totalBudget: number, structureBudgetMultiplier: number): number {
+  if (!Number.isFinite(totalBudget) || totalBudget <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(structureBudgetMultiplier) || structureBudgetMultiplier <= 0) {
+    return totalBudget;
+  }
+  return totalBudget / structureBudgetMultiplier;
 }
 
 function buildDamageFormula(
@@ -708,7 +722,13 @@ function isFormulaVarRef(value: SkillFormula): value is { var: SkillFormulaVar; 
 
 function expandEffectStrength(effect: TechniqueArtsStrengthEffectInput): SkillEffectDef | null {
   const type = typeof effect.type === 'string' ? effect.type : '';
-  const { formulaStrength: _formulaStrength, hpFormulaStrength: _hpFormulaStrength, targetBudget: _targetBudget, ...rest } = effect;
+  const {
+    formulaStrength: _formulaStrength,
+    hpFormulaStrength: _hpFormulaStrength,
+    effectBudget: _effectBudget,
+    targetBudget: _targetBudget,
+    ...rest
+  } = effect;
   if (type === 'damage' || type === 'heal') {
     const formula = normalizeFormula(effect.formulaStrength);
     return {
@@ -716,7 +736,7 @@ function expandEffectStrength(effect: TechniqueArtsStrengthEffectInput): SkillEf
       type,
       formula: scaleWholeFormula(
         formula.rawFormula ?? buildDamageFormula(formula),
-        resolveEffectScale(formula.effectStrength, effect.targetBudget),
+        resolveEffectScale(formula.effectStrength, effect.effectBudget ?? effect.targetBudget),
       ),
     } as SkillEffectDef;
   }
@@ -727,7 +747,7 @@ function expandEffectStrength(effect: TechniqueArtsStrengthEffectInput): SkillEf
       type,
       hpFormula: scaleWholeFormula(
         formula.rawFormula ?? buildDamageFormula(formula),
-        resolveEffectScale(formula.effectStrength, effect.targetBudget),
+        resolveEffectScale(formula.effectStrength, effect.effectBudget ?? effect.targetBudget),
       ),
     } as SkillEffectDef;
   }

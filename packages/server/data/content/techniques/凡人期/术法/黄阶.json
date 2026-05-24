@@ -16,25 +16,24 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 67.22,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 32.89
+            "cost": -6.026,
+            "cooldown": 6.578
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
-              "targetBudget": 4.3,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.2
                 }
-              }
+              },
+              "effectBudget": 4.3
             },
             {
               "type": "buff",
@@ -52,9 +51,10 @@
                 "crit": 4,
                 "breakPower": 5
               },
-              "targetBudget": 51
+              "effectBudget": 51
             }
-          ]
+          ],
+          "totalBudget": 97.24
         }
       },
       {
@@ -64,7 +64,6 @@
         "unlockLevel": 4,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 44.34,
           "target": {
             "type": "area",
             "range": 2,
@@ -72,14 +71,13 @@
             "maxTargets": 5
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 7.71
+            "cost": -6.026,
+            "cooldown": 1.542
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
-              "targetBudget": 4.6,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.4
@@ -87,7 +85,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_blade_limb.stacks": 0.1
                 }
-              }
+              },
+              "effectBudget": 4.6
             },
             {
               "type": "buff",
@@ -105,9 +104,10 @@
                 "crit": 4,
                 "breakPower": 5
               },
-              "targetBudget": 51
+              "effectBudget": 51
             }
-          ]
+          ],
+          "totalBudget": 56.2083
         }
       }
     ]
@@ -129,26 +129,25 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 72.12,
           "target": {
             "type": "single",
             "range": 1
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 37.89
+            "cost": -6.026,
+            "cooldown": 7.578
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "wood",
-              "targetBudget": 4.2,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.1
                 }
-              }
+              },
+              "effectBudget": 4.2
             },
             {
               "type": "buff",
@@ -167,9 +166,10 @@
                 "dodge": -2,
                 "resolvePower": -3
               },
-              "targetBudget": 60
+              "effectBudget": 60
             }
-          ]
+          ],
+          "totalBudget": 135.4677
         }
       },
       {
@@ -179,22 +179,20 @@
         "unlockLevel": 4,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 40.58,
           "target": {
             "type": "line",
             "range": 3,
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 5
+            "cost": -6.026,
+            "cooldown": 1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "wood",
-              "targetBudget": 4.55,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.4
@@ -202,7 +200,8 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.monster_toxin.stacks": 0.05
                 }
-              }
+              },
+              "effectBudget": 4.55
             },
             {
               "type": "buff",
@@ -221,9 +220,10 @@
                 "dodge": -2,
                 "resolvePower": -3
               },
-              "targetBudget": 60
+              "effectBudget": 60
             }
-          ]
+          ],
+          "totalBudget": 49.2634
         }
       }
     ]
@@ -245,25 +245,24 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 58.77,
           "target": {
             "type": "single",
             "range": 2
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 24.24
+            "cost": -6.026,
+            "cooldown": 4.848
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
-              "targetBudget": 4.5,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.4
                 }
-              }
+              },
+              "effectBudget": 4.5
             },
             {
               "type": "buff",
@@ -282,9 +281,10 @@
                 "crit": 4,
                 "breakPower": 4
               },
-              "targetBudget": 58
+              "effectBudget": 58
             }
-          ]
+          ],
+          "totalBudget": 80.1708
         }
       },
       {
@@ -294,21 +294,19 @@
         "unlockLevel": 4,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 43.64,
           "target": {
             "type": "line",
             "range": 2,
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 7.71
+            "cost": -6.026,
+            "cooldown": 1.542
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "physical",
-              "targetBudget": 4.9,
               "formulaStrength": {
                 "attributeBases": {
                   "physAtk": 3.7
@@ -316,7 +314,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_bloodrush.stacks": 0.1
                 }
-              }
+              },
+              "effectBudget": 4.9
             },
             {
               "type": "buff",
@@ -335,9 +334,10 @@
                 "crit": 4,
                 "breakPower": 4
               },
-              "targetBudget": 58
+              "effectBudget": 58
             }
-          ]
+          ],
+          "totalBudget": 52.9901
         }
       },
       {
@@ -347,14 +347,13 @@
         "unlockLevel": 6,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 41.04,
           "target": {
             "type": "single",
             "range": 2
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 7.71
+            "cost": -6.026,
+            "cooldown": 1.542
           },
           "damageKind": "physical",
           "formulaStrength": {
@@ -364,7 +363,8 @@
             "extraPercentBonuses": {
               "caster.buff.buff.monster_bloodrush.stacks": 0.1
             }
-          }
+          },
+          "totalBudget": 2.2465
         }
       }
     ]
@@ -386,26 +386,25 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 54.67,
           "target": {
             "type": "single",
             "range": 3
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 20.44
+            "cost": -6.026,
+            "cooldown": 4.088
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 4.2,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.1
                 }
-              }
+              },
+              "effectBudget": 4.2
             },
             {
               "type": "buff",
@@ -423,9 +422,10 @@
                 "hit": 4,
                 "dodge": 4
               },
-              "targetBudget": 50
+              "effectBudget": 50
             }
-          ]
+          ],
+          "totalBudget": 60.5282
         }
       },
       {
@@ -435,22 +435,20 @@
         "unlockLevel": 4,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 42.13,
           "target": {
             "type": "line",
             "range": 4,
             "maxTargets": 4
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": -5
+            "cost": -6.026,
+            "cooldown": -1
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "metal",
-              "targetBudget": 4.6,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.4
@@ -458,7 +456,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_skyline.stacks": 0.1
                 }
-              }
+              },
+              "effectBudget": 4.6
             },
             {
               "type": "buff",
@@ -476,9 +475,10 @@
                 "hit": 4,
                 "dodge": 4
               },
-              "targetBudget": 50
+              "effectBudget": 50
             }
-          ]
+          ],
+          "totalBudget": 41.0822
         }
       },
       {
@@ -488,21 +488,19 @@
         "unlockLevel": 6,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 37.56,
           "target": {
             "type": "single",
             "range": 3
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 2.43
+            "cost": -6.026,
+            "cooldown": 0.486
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "water",
-              "targetBudget": 5.1,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.9
@@ -510,7 +508,8 @@
                 "extraPercentBonuses": {
                   "caster.buff.buff.monster_skyline.stacks": 0.1
                 }
-              }
+              },
+              "effectBudget": 5.1
             },
             {
               "type": "buff",
@@ -529,9 +528,10 @@
                 "hit": -3,
                 "dodge": -3
               },
-              "targetBudget": 61
+              "effectBudget": 61
             }
-          ]
+          ],
+          "totalBudget": 38.278
         }
       }
     ]
@@ -553,26 +553,25 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 54.77,
           "target": {
             "type": "single",
             "range": 3
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 20.44
+            "cost": -6.026,
+            "cooldown": 4.088
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "wood",
-              "targetBudget": 4.3,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.2
                 }
-              }
+              },
+              "effectBudget": 4.3
             },
             {
               "type": "buff",
@@ -590,9 +589,10 @@
                 "spellDef": -3,
                 "dodge": -3
               },
-              "targetBudget": 58
+              "effectBudget": 58
             }
-          ]
+          ],
+          "totalBudget": 69.5739
         }
       },
       {
@@ -602,22 +602,20 @@
         "unlockLevel": 4,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 38.21,
           "target": {
             "type": "line",
             "range": 3,
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -30.13,
-            "cooldown": 2.43
+            "cost": -6.026,
+            "cooldown": 0.486
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "wood",
-              "targetBudget": 4.75,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3.6
@@ -625,7 +623,8 @@
                 "extraPercentBonuses": {
                   "target.buff.buff.monster_bamboo_bind.stacks": 0.05
                 }
-              }
+              },
+              "effectBudget": 4.75
             },
             {
               "type": "buff",
@@ -643,9 +642,10 @@
                 "spellDef": -3,
                 "dodge": -3
               },
-              "targetBudget": 58
+              "effectBudget": 58
             }
-          ]
+          ],
+          "totalBudget": 43.6056
         }
       }
     ]
@@ -667,7 +667,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 125.39,
           "target": {
             "type": "box",
             "range": 3,
@@ -677,15 +676,14 @@
             "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": 24.24
+            "cost": -8.828,
+            "cooldown": 4.848
           },
           "effectsStrength": [
             {
               "type": "damage",
               "damageKind": "spell",
               "element": "fire",
-              "targetBudget": 54.11,
               "formulaStrength": {
                 "attributeBases": {
                   "spellAtk": 3
@@ -694,16 +692,18 @@
                   "target.buff.buff.fire_burn_mark.stacks": 0.01
                 },
                 "flatBase": 50
-              }
+              },
+              "effectBudget": 54.11
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
               "stacks": 5,
-              "targetBudget": 5
+              "effectBudget": 5
             }
           ],
-          "targetMode": "tile"
+          "targetMode": "tile",
+          "totalBudget": 97.5278
         }
       }
     ]
@@ -725,14 +725,12 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 25.24,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": 0,
-            "cooldown": 24.24
+            "cooldown": 4.848
           },
           "effectsStrength": [
             {
@@ -762,14 +760,12 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 25.24,
           "target": {
             "type": "single",
             "range": 0
           },
           "structureStrength": {
-            "cost": 0,
-            "cooldown": 24.24
+            "cooldown": 4.848
           },
           "effectsStrength": [
             {
@@ -799,7 +795,6 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 123.63,
           "target": {
             "type": "orientedBox",
             "range": 3,
@@ -809,8 +804,8 @@
             "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -44.14,
-            "cooldown": 24.24
+            "cost": -8.828,
+            "cooldown": 4.848
           },
           "targetMode": "tile",
           "damageKind": "physical",
@@ -822,7 +817,8 @@
               "moveSpeed": 1
             },
             "flatBase": 50
-          }
+          },
+          "totalBudget": 62.1591
         }
       }
     ]

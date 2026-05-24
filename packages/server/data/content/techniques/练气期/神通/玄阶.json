@@ -32,7 +32,6 @@
         "unlockLevel": 10,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 199.53,
           "target": {
             "type": "box",
             "range": 8,
@@ -41,8 +40,8 @@
             "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -57.03,
-            "cooldown": -100,
+            "cost": -11.406,
+            "cooldown": -20,
             "cooldownTicks": 1800
           },
           "playerCast": {
@@ -57,7 +56,8 @@
             "percentBonuses": {
               "techLevel": 1
             }
-          }
+          },
+          "totalBudget": 9.2233
         }
       }
     ]
@@ -95,7 +95,6 @@
         "unlockLevel": 10,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 208.03,
           "target": {
             "type": "box",
             "range": 9,
@@ -104,8 +103,8 @@
             "maxTargets": 49
           },
           "structureStrength": {
-            "cost": -57.03,
-            "cooldown": -100,
+            "cost": -11.406,
+            "cooldown": -20,
             "cooldownTicks": 1800
           },
           "playerCast": {
@@ -121,7 +120,8 @@
             "percentBonuses": {
               "techLevel": 1
             }
-          }
+          },
+          "totalBudget": 43.4437
         }
       }
     ]

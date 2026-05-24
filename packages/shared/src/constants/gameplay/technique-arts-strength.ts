@@ -54,7 +54,6 @@ export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
   weights: {
     min: -100,
     max: 100,
-    runtimeStrengthAtMaxWeight: 20,
   },
   structure: {
     baseCostMultiplier: 1,
