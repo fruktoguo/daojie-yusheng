@@ -73,8 +73,16 @@ export function normalizeArtsSkills(params: {
     const normalizedEffects = effects.map((effect: unknown) => {
       if (!effect || typeof effect !== 'object') return effect;
       const e = { ...(effect as Record<string, unknown>) };
+      const scaledValue = typeof e.value === 'number' && Number.isFinite(e.value)
+        ? Math.round((e.value as number) * scale * 100) / 100
+        : null;
       if (typeof e.value === 'number' && Number.isFinite(e.value)) {
-        e.value = Math.round((e.value as number) * scale * 100) / 100;
+        e.value = scaledValue;
+      }
+      if (typeof e.formula === 'number' && Number.isFinite(e.formula)) {
+        e.formula = Math.round((e.formula as number) * scale * 100) / 100;
+      } else if (e.formula === undefined && scaledValue !== null) {
+        e.formula = scaledValue;
       }
       return e;
     });

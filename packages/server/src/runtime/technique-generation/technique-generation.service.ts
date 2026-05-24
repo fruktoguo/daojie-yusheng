@@ -215,18 +215,19 @@ export class TechniqueGenerationService {
       return { success: false, error: reason };
     }
 
-    // 术法归一化
+    // 补全字段
+    const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+    // 术法归一化：把 AI 草稿技能收敛成正式 SkillDef 形态，避免恢复时被模板注册表过滤。
     if (params.category === 'arts' && Array.isArray(candidate.skills)) {
       candidate.skills = normalizeArtsSkills({
-        skills: candidate.skills as Array<Record<string, unknown>>,
+        skills: normalizeGeneratedArtsSkillTemplates(candidate.skills as Array<Record<string, unknown>>, techniqueId),
         grade: params.grade as any,
         realmLv: params.realmLv,
         maxLayer,
       });
     }
 
-    // 补全字段
-    const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
     const template: TechniqueTemplate = {
       id: techniqueId,
       name: String(candidate.name ?? '无名功法'),
@@ -444,4 +445,112 @@ function normalizePositiveAttrs(attrs: Partial<Attributes>): Partial<Attributes>
     }
   }
   return Object.keys(result).length > 0 ? result : {};
+}
+
+function normalizeGeneratedArtsSkillTemplates(
+  skills: Array<Record<string, unknown>>,
+  techniqueId: string,
+): Array<Record<string, unknown>> {
+  return skills.map((skill, index) => normalizeGeneratedArtsSkillTemplate(skill, techniqueId, index));
+}
+
+function normalizeGeneratedArtsSkillTemplate(
+  skill: Record<string, unknown>,
+  techniqueId: string,
+  index: number,
+): Record<string, unknown> {
+  const name = typeof skill.name === 'string' && skill.name.trim()
+    ? skill.name.trim()
+    : `术法${index + 1}`;
+  const fallbackId = `${techniqueId}_skill_${index + 1}`;
+  const id = typeof skill.id === 'string' && skill.id.trim()
+    ? normalizeGeneratedSkillId(skill.id, fallbackId)
+    : fallbackId;
+  const costMultiplier = Number.isFinite(Number(skill.costMultiplier))
+    ? Math.max(0, Number(skill.costMultiplier))
+    : Number.isFinite(Number(skill.cost))
+      ? Math.max(0, Number(skill.cost))
+      : 1;
+  const range = Number.isFinite(Number(skill.range))
+    ? Math.max(1, Math.trunc(Number(skill.range)))
+    : Math.max(1, Math.trunc(Number((skill.targeting as Record<string, unknown> | undefined)?.range ?? 1)));
+  const cooldown = Number.isFinite(Number(skill.cooldown)) ? Math.max(0, Math.trunc(Number(skill.cooldown))) : 0;
+  return {
+    ...skill,
+    id,
+    name,
+    desc: typeof skill.desc === 'string' ? skill.desc : '',
+    cooldown,
+    costMultiplier,
+    range,
+    targeting: normalizeGeneratedSkillTargeting(skill.targeting, range),
+    effects: normalizeGeneratedSkillEffects(skill.effects, id, name),
+    unlockLevel: Number.isFinite(Number(skill.unlockLevel))
+      ? Math.max(1, Math.trunc(Number(skill.unlockLevel)))
+      : 1,
+  };
+}
+
+function normalizeGeneratedSkillId(raw: string, fallback: string): string {
+  const normalized = raw.trim().replace(/[^A-Za-z0-9:_-]+/g, '_').replace(/^_+|_+$/g, '');
+  return normalized || fallback;
+}
+
+function normalizeGeneratedSkillTargeting(raw: unknown, fallbackRange: number): Record<string, unknown> {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const shape = source.shape === 'line' || source.shape === 'area' || source.shape === 'single'
+    ? source.shape
+    : 'single';
+  const range = Number.isFinite(Number(source.range))
+    ? Math.max(1, Math.trunc(Number(source.range)))
+    : fallbackRange;
+  return { ...source, shape, range };
+}
+
+function normalizeGeneratedSkillEffects(raw: unknown, skillId: string, skillName: string): Array<Record<string, unknown>> {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))
+    .map((entry, index) => normalizeGeneratedSkillEffect(entry as Record<string, unknown>, skillId, skillName, index));
+}
+
+function normalizeGeneratedSkillEffect(
+  effect: Record<string, unknown>,
+  skillId: string,
+  skillName: string,
+  index: number,
+): Record<string, unknown> {
+  if (effect.type === 'damage' || effect.type === 'heal') {
+    return {
+      ...effect,
+      target: effect.type === 'heal' ? normalizeGeneratedEffectTarget(effect.target, 'self') : effect.target,
+      formula: normalizeGeneratedSkillFormula(effect.formula ?? effect.value),
+    };
+  }
+  if (effect.type === 'buff') {
+    return {
+      ...effect,
+      target: normalizeGeneratedEffectTarget(effect.target, 'self'),
+      buffId: typeof effect.buffId === 'string' && effect.buffId.trim()
+        ? normalizeGeneratedSkillId(effect.buffId, `${skillId}_buff_${index + 1}`)
+        : `${skillId}_buff_${index + 1}`,
+      name: typeof effect.name === 'string' && effect.name.trim() ? effect.name.trim() : skillName,
+      duration: Number.isFinite(Number(effect.duration)) ? Math.max(1, Math.trunc(Number(effect.duration))) : 3,
+    };
+  }
+  return { ...effect };
+}
+
+function normalizeGeneratedEffectTarget(raw: unknown, fallback: 'self' | 'target' | 'allies'): 'self' | 'target' | 'allies' {
+  return raw === 'self' || raw === 'target' || raw === 'allies' ? raw : fallback;
+}
+
+function normalizeGeneratedSkillFormula(raw: unknown): unknown {
+  if (raw && typeof raw === 'object') {
+    return raw;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) ? Math.max(0, value) : 1;
 }

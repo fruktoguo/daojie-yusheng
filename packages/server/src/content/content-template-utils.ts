@@ -1124,7 +1124,7 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
 
     const skills = Array.isArray(candidate.skills)
         ? candidate.skills
-            .map((skill) => normalizeSkill(skill, grade, realmLv, sharedTechniqueBuffs))
+            .map((skill, index) => normalizeSkill(skill, grade, realmLv, sharedTechniqueBuffs, candidate.id, index))
             .filter((entry) => Boolean(entry))
         : [];
     const category = isTechniqueCategory(candidate.category) ? candidate.category : inferTechniqueCategory(skills);
@@ -1372,14 +1372,15 @@ function resolveTechniqueLayerSpecialStats(entry, templateLayer) {
     return templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined;
 }
 
-function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
+function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map(), techniqueId = '', index = 0) {
 
     if (!raw || typeof raw !== 'object') {
         return null;
     }
 
     const candidate = raw;
-    if (typeof candidate.id !== 'string'
+    const skillId = normalizeTechniqueSkillId(candidate.id, techniqueId, index);
+    if (!skillId
         || typeof candidate.name !== 'string'
         || typeof candidate.desc !== 'string'
         || !Number.isFinite(candidate.cooldown)
@@ -1395,13 +1396,17 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
         unlockRealm,
     });
 
-    const costMultiplier = Number.isFinite(candidate.costMultiplier) ? Math.max(0, Number(candidate.costMultiplier)) : 0;
+    const costMultiplier = Number.isFinite(candidate.costMultiplier)
+        ? Math.max(0, Number(candidate.costMultiplier))
+        : Number.isFinite(candidate.cost)
+            ? Math.max(0, Number(candidate.cost))
+            : 0;
 
     const cooldown = Math.max(0, Math.trunc(Number(candidate.cooldown)));
 
     const range = Math.max(0, Math.trunc(Number(candidate.range)));
     return {
-        id: candidate.id,
+        id: skillId,
         name: candidate.name,
         desc: candidate.desc,
         cooldown,
@@ -1409,7 +1414,7 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
         costMultiplier,
         range,
         targeting: candidate.targeting ? { ...candidate.targeting } : undefined,
-        effects: cloneSkillEffects(candidate.effects, sharedTechniqueBuffs),
+        effects: cloneSkillEffects(candidate.effects, sharedTechniqueBuffs, skillId, candidate.name),
         unlockLevel,
         unlockRealm,
         unlockPlayerRealm: candidate.unlockPlayerRealm,
@@ -1418,6 +1423,19 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
         playerCast: normalizeSkillCastDef(candidate.playerCast, false),
         monsterCast: normalizeSkillCastDef(candidate.monsterCast, true),
     };
+}
+
+function normalizeTechniqueSkillId(raw, techniqueId = '', index = 0) {
+    if (typeof raw === 'string' && raw.trim()) {
+        const normalized = raw.trim().replace(/[^A-Za-z0-9:_-]+/g, '_').replace(/^_+|_+$/g, '');
+        if (normalized) {
+            return normalized;
+        }
+    }
+    const normalizedTechniqueId = typeof techniqueId === 'string' && techniqueId.trim()
+        ? techniqueId.trim().replace(/[^A-Za-z0-9:_-]+/g, '_').replace(/^_+|_+$/g, '')
+        : 'technique';
+    return `${normalizedTechniqueId}_skill_${Math.max(1, Math.trunc(Number(index) || 0) + 1)}`;
 }
 function normalizeSkillCastDef(raw, includeConditions = false) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -1438,10 +1456,51 @@ function normalizeSkillCastDef(raw, includeConditions = false) {
     return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
-function cloneSkillEffects(raw, sharedTechniqueBuffs = new Map()) {
+function cloneSkillEffects(raw, sharedTechniqueBuffs = new Map(), skillId = 'skill', skillName = '技能') {
     return raw
         .filter((entry) => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
-        .map((entry) => resolveSharedTechniqueBuffEffect(entry, sharedTechniqueBuffs));
+        .map((entry, index) => normalizeGeneratedTechniqueSkillEffect(
+            resolveSharedTechniqueBuffEffect(entry, sharedTechniqueBuffs),
+            skillId,
+            skillName,
+            index,
+        ));
+}
+
+function normalizeGeneratedTechniqueSkillEffect(raw, skillId, skillName, index) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return raw;
+    }
+    const effect = { ...raw };
+    if ((effect.type === 'damage' || effect.type === 'heal') && effect.formula === undefined && effect.value !== undefined) {
+        effect.formula = normalizeGeneratedTechniqueSkillFormula(effect.value);
+    }
+    if (effect.type === 'heal' && effect.target !== 'self' && effect.target !== 'target' && effect.target !== 'allies') {
+        effect.target = 'self';
+    }
+    if (effect.type === 'buff') {
+        if (effect.target !== 'self' && effect.target !== 'target' && effect.target !== 'allies') {
+            effect.target = 'self';
+        }
+        if (typeof effect.buffId !== 'string' || !effect.buffId.trim()) {
+            effect.buffId = `${skillId}_buff_${Math.max(1, index + 1)}`;
+        }
+        if (typeof effect.name !== 'string' || !effect.name.trim()) {
+            effect.name = skillName;
+        }
+        if (!Number.isFinite(effect.duration)) {
+            effect.duration = 3;
+        }
+    }
+    return effect;
+}
+
+function normalizeGeneratedTechniqueSkillFormula(raw) {
+    if (raw && typeof raw === 'object') {
+        return raw;
+    }
+    const value = Number(raw);
+    return Number.isFinite(value) ? Math.max(0, value) : 1;
 }
 
 function normalizeSharedTechniqueBuffEffect(raw) {

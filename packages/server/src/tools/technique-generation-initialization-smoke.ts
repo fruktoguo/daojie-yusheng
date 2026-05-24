@@ -329,6 +329,43 @@ async function testGeneratedTechniqueBootstrapProjectionKeepsTemplateFields(): P
   assert.equal(projected.layers?.length, 9);
 }
 
+async function testGeneratedArtsTechniqueRecoversDraftSkillShape(): Promise<void> {
+  const registry = new TechniqueTemplateRegistry();
+  registry.setGeneratedStore({
+    getById: () => ({
+      id: 'gen_arts_skill_shape_smoke',
+      name: '裂风剑诀',
+      grade: 'mystic',
+      category: 'arts',
+      realmLv: 31,
+      maxLayer: 9,
+      expDifficulty: 1,
+      skills: [{
+        name: '裂风斩',
+        desc: '凝风成刃，斩击前方敌人。',
+        cooldown: 3,
+        cost: 1.2,
+        range: 4,
+        targeting: { shape: 'single', range: 4 },
+        effects: [{ type: 'damage', value: 6, damageKind: 'spell' }],
+        unlockLevel: 1,
+      }],
+    }),
+  } as unknown as GeneratedTechniqueStoreService);
+
+  const state = registry.createTechniqueState('gen_arts_skill_shape_smoke') as {
+    skills?: Array<{ id?: string; cost?: number; costMultiplier?: number; effects?: Array<{ formula?: unknown }> }>;
+    layers?: unknown[];
+  } | null;
+  assert.ok(state);
+  assert.equal(state.layers?.length, 9);
+  assert.equal(state.skills?.length, 1);
+  assert.equal(state.skills?.[0]?.id, 'gen_arts_skill_shape_smoke_skill_1');
+  assert.ok((state.skills?.[0]?.cost ?? 0) > 0);
+  assert.equal(state.skills?.[0]?.costMultiplier, 1.2);
+  assert.equal(state.skills?.[0]?.effects?.[0]?.formula, 6);
+}
+
 async function testInternalCandidateRejectsUnknownAttrRatioKeys(): Promise<void> {
   const result = validateTechniqueCandidate({
     name: '无效功法',
@@ -353,6 +390,7 @@ async function main(): Promise<void> {
   await testGeneratedInternalPreviewNormalizesAttrRatioAliases();
   await testGeneratedTechniqueRegistryExpandsQuantifiedTemplates();
   await testGeneratedTechniqueBootstrapProjectionKeepsTemplateFields();
+  await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   console.log('technique-generation-initialization-smoke ok');
 }
