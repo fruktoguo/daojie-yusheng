@@ -487,7 +487,12 @@ export class PlayerRuntimeService {
         const memoryReports = this.getPendingPlayerStatisticRecords(normalizedPlayerId);
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
             const persistedReports = await this.playerDomainPersistenceService.loadPlayerOfflineGainReports(normalizedPlayerId);
-            return [...persistedReports, ...memoryReports];
+            const mergedReports = mergePendingOfflineGainReportList(normalizedPlayerId, [...persistedReports, ...memoryReports]);
+            if (mergedReports.length === 1 && persistedReports.length + memoryReports.length > 1) {
+                await this.playerDomainPersistenceService.replacePlayerOfflineGainReports(normalizedPlayerId, mergedReports[0]);
+                this.pendingOfflineGainReportsByPlayerId.delete(normalizedPlayerId);
+            }
+            return mergedReports;
         }
         return memoryReports;
     }
@@ -585,12 +590,13 @@ export class PlayerRuntimeService {
         const shouldSaveOfflineHistory = report.durationMs >= 60_000 && hasOfflineGainReportParts(report);
         if (shouldSaveOfflineHistory) {
             if (this.playerDomainPersistenceService?.isEnabled?.()) {
-                await this.playerDomainPersistenceService.savePlayerOfflineGainReport(normalizedPlayerId, report);
+                const existing = await this.playerDomainPersistenceService.loadPlayerOfflineGainReports(normalizedPlayerId);
+                const mergedReport = mergePendingOfflineGainReport(normalizedPlayerId, existing, report);
+                await this.playerDomainPersistenceService.replacePlayerOfflineGainReports(normalizedPlayerId, mergedReport);
             } else {
                 const existing = this.pendingOfflineGainReportsByPlayerId.get(normalizedPlayerId) ?? [];
-                const deduped = existing.filter((entry) => entry?.id !== report.id);
-                deduped.push(report);
-                this.pendingOfflineGainReportsByPlayerId.set(normalizedPlayerId, deduped);
+                const mergedReport = mergePendingOfflineGainReport(normalizedPlayerId, existing, report);
+                this.pendingOfflineGainReportsByPlayerId.set(normalizedPlayerId, [mergedReport]);
             }
         }
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
@@ -5086,6 +5092,53 @@ function buildPlayerStatisticRecordFromParts(player, session, endedAt, parts, sc
         progress: normalizedParts.progress,
         techniques: normalizedParts.techniques,
         professions: normalizedParts.professions,
+    };
+}
+function mergePendingOfflineGainReportList(playerId, reports) {
+    const normalizedPlayerId = normalizeOfflineGainString(playerId);
+    const normalizedReports = (Array.isArray(reports) ? reports : [])
+        .filter((report) => normalizeOfflineGainString(report?.id).length > 0);
+    if (!normalizedPlayerId || normalizedReports.length <= 1) {
+        return normalizedReports;
+    }
+    return [mergePendingOfflineGainReport(normalizedPlayerId, normalizedReports)];
+}
+function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
+    const normalizedPlayerId = normalizeOfflineGainString(playerId);
+    const normalizedReports = [...(Array.isArray(reports) ? reports : []), nextReport]
+        .filter((report) => normalizeOfflineGainString(report?.id).length > 0)
+        .sort((left, right) => normalizeOfflineGainCount(left?.startedAt) - normalizeOfflineGainCount(right?.startedAt));
+    const first = normalizedReports[0];
+    if (!first) {
+        return nextReport;
+    }
+    if (normalizedReports.length === 1) {
+        return {
+            ...first,
+            playerId: normalizeOfflineGainString(first.playerId) || normalizedPlayerId || undefined,
+        };
+    }
+    const last = normalizedReports[normalizedReports.length - 1];
+    const mergedParts = normalizedReports.reduce((total, report) => mergeOfflineGainReportPartsBySum(
+        total,
+        normalizeOfflineGainReportParts(report),
+    ), createEmptyOfflineGainReportParts());
+    const durationMs = normalizedReports.reduce((total, report) => total + normalizeOfflineGainCount(report?.durationMs), 0);
+    return {
+        ...first,
+        id: normalizeOfflineGainString(first.id),
+        playerId: normalizedPlayerId || normalizeOfflineGainString(first.playerId) || undefined,
+        scope: 'offline',
+        source: 'cultivation',
+        startedAt: normalizeOfflineGainCount(first.startedAt),
+        endedAt: Math.max(normalizeOfflineGainCount(first.startedAt), normalizeOfflineGainCount(last?.endedAt)),
+        durationMs,
+        generatedAt: Date.now(),
+        spiritStones: mergedParts.spiritStones,
+        items: mergedParts.items,
+        progress: mergedParts.progress,
+        techniques: mergedParts.techniques,
+        professions: mergedParts.professions,
     };
 }
 function resolvePlayerStatisticSource(parts, scope) {

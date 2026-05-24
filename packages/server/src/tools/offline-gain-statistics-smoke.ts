@@ -181,10 +181,45 @@ async function testOfflineSnapshotFallbackDoesNotFabricateStoppedServerChanges()
   assert.equal(report.progress.some((entry) => entry.kind === "realmExp"), false);
 }
 
+async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.detachSession(player.playerId);
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  for (let tick = 1; tick <= 60; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+  const firstReport = await service.finalizeOfflineGainSessionForPlayer(player, 70_000);
+
+  player.sessionId = "sid:reconnected";
+  service.detachSession(player.playerId);
+  await service.beginOfflineGainSession(player.playerId, 80_000);
+  for (let tick = 61; tick <= 120; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+  const secondReport = await service.finalizeOfflineGainSessionForPlayer(player, 160_000);
+
+  const records = service.getPendingPlayerStatisticRecords(player.playerId);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].id, firstReport.id);
+  assert.equal(records[0].startedAt, firstReport.startedAt);
+  assert.equal(records[0].endedAt, secondReport.endedAt);
+  assert.equal(records[0].durationMs, firstReport.durationMs + secondReport.durationMs);
+
+  const realmRow = records[0].progress.find((entry) => entry.kind === "realmExp");
+  assert.ok(realmRow, "expected merged realm progress row");
+  assert.equal(realmRow.gained, 14_400);
+  assert.equal(realmRow.lost, 0);
+  assert.equal(realmRow.net, 14_400);
+}
+
 async function main() {
   await testOfflineAccumulatedGainWinsOverSnapshotLoss();
   await testOfflineGlobalStatisticsKeepGainAndLossSeparated();
   await testOfflineSnapshotFallbackDoesNotFabricateStoppedServerChanges();
+  await testUnconfirmedOfflineReportsMergeIntoOnePendingRecord();
   console.log("offline-gain-statistics-smoke passed");
 }
 

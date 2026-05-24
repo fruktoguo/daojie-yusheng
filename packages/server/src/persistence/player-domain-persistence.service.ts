@@ -1206,56 +1206,32 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   /** 保存玩家离线收益报告 */
   async savePlayerOfflineGainReport(playerId: string, report: OfflineGainReportView): Promise<void> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
-    const reportId = normalizeRequiredString(report?.id);
-    if (!this.pool || !this.enabled || !normalizedPlayerId || !reportId) {
+    const payload = this.normalizeOfflineGainReportForStorage(normalizedPlayerId, report);
+    if (!this.pool || !this.enabled || !normalizedPlayerId || !payload) {
       return;
     }
 
-    const payload: OfflineGainReportView = {
-      ...report,
-      id: reportId,
-      playerId: normalizeOptionalString(report.playerId) ?? normalizedPlayerId,
-      startedAt: normalizeMinimumInteger(report.startedAt, Date.now(), 0),
-      endedAt: normalizeMinimumInteger(report.endedAt, Date.now(), 0),
-      durationMs: normalizeMinimumInteger(report.durationMs, 0, 0),
-      generatedAt: normalizeMinimumInteger(report.generatedAt, Date.now(), 0),
-      items: Array.isArray(report.items) ? report.items : [],
-      progress: Array.isArray(report.progress) ? report.progress : [],
-      techniques: Array.isArray(report.techniques) ? report.techniques : [],
-      professions: Array.isArray(report.professions) ? report.professions : [],
-    };
+    await this.withTransaction(async (client) => {
+      await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      await this.upsertPlayerOfflineGainReportWithClient(client, normalizedPlayerId, payload);
+    });
+  }
+
+  /** 替换玩家当前未确认离线收益报告；确认前云端只保留累计后的一条。 */
+  async replacePlayerOfflineGainReports(playerId: string, report: OfflineGainReportView): Promise<void> {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    const payload = this.normalizeOfflineGainReportForStorage(normalizedPlayerId, report);
+    if (!this.pool || !this.enabled || !normalizedPlayerId || !payload) {
+      return;
+    }
 
     await this.withTransaction(async (client) => {
       await acquirePlayerPersistenceLock(client, normalizedPlayerId);
       await client.query(
-        `
-          INSERT INTO ${PLAYER_OFFLINE_GAIN_REPORT_TABLE}(
-            player_id,
-            report_id,
-            started_at,
-            ended_at,
-            duration_ms,
-            payload,
-            updated_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6::jsonb, now())
-          ON CONFLICT (player_id, report_id)
-          DO UPDATE SET
-            started_at = EXCLUDED.started_at,
-            ended_at = EXCLUDED.ended_at,
-            duration_ms = EXCLUDED.duration_ms,
-            payload = EXCLUDED.payload,
-            updated_at = now()
-        `,
-        [
-          normalizedPlayerId,
-          reportId,
-          payload.startedAt,
-          payload.endedAt,
-          payload.durationMs,
-          JSON.stringify(payload),
-        ],
+        `DELETE FROM ${PLAYER_OFFLINE_GAIN_REPORT_TABLE} WHERE player_id = $1`,
+        [normalizedPlayerId],
       );
+      await this.upsertPlayerOfflineGainReportWithClient(client, normalizedPlayerId, payload);
     });
   }
 
@@ -1302,6 +1278,65 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         [normalizedPlayerId, normalizedReportIds],
       );
     });
+  }
+
+  private normalizeOfflineGainReportForStorage(
+    normalizedPlayerId: string,
+    report: OfflineGainReportView,
+  ): OfflineGainReportView | null {
+    const reportId = normalizeRequiredString(report?.id);
+    if (!normalizedPlayerId || !reportId) {
+      return null;
+    }
+    return {
+      ...report,
+      id: reportId,
+      playerId: normalizeOptionalString(report.playerId) ?? normalizedPlayerId,
+      startedAt: normalizeMinimumInteger(report.startedAt, Date.now(), 0),
+      endedAt: normalizeMinimumInteger(report.endedAt, Date.now(), 0),
+      durationMs: normalizeMinimumInteger(report.durationMs, 0, 0),
+      generatedAt: normalizeMinimumInteger(report.generatedAt, Date.now(), 0),
+      items: Array.isArray(report.items) ? report.items : [],
+      progress: Array.isArray(report.progress) ? report.progress : [],
+      techniques: Array.isArray(report.techniques) ? report.techniques : [],
+      professions: Array.isArray(report.professions) ? report.professions : [],
+    };
+  }
+
+  private async upsertPlayerOfflineGainReportWithClient(
+    client: PoolClient,
+    normalizedPlayerId: string,
+    payload: OfflineGainReportView,
+  ): Promise<void> {
+    await client.query(
+      `
+        INSERT INTO ${PLAYER_OFFLINE_GAIN_REPORT_TABLE}(
+          player_id,
+          report_id,
+          started_at,
+          ended_at,
+          duration_ms,
+          payload,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, now())
+        ON CONFLICT (player_id, report_id)
+        DO UPDATE SET
+          started_at = EXCLUDED.started_at,
+          ended_at = EXCLUDED.ended_at,
+          duration_ms = EXCLUDED.duration_ms,
+          payload = EXCLUDED.payload,
+          updated_at = now()
+      `,
+      [
+        normalizedPlayerId,
+        payload.id,
+        payload.startedAt,
+        payload.endedAt,
+        payload.durationMs,
+        JSON.stringify(payload),
+      ],
+    );
   }
 
   async incrementPlayerStatisticDayTotal(
