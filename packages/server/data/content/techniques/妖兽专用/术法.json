@@ -16,18 +16,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 6.88,
+          "targetBudget": 51.86,
           "target": {
             "type": "single",
-            "range": 2,
-            "rawTargeting": null
+            "range": 2
           },
           "structureStrength": {
-            "cost": -30.1284,
-            "cooldown": 16.9264,
-            "chant": 0,
-            "costMultiplier": 3,
-            "cooldownTicks": 14
+            "cost": -30.13,
+            "cooldown": 16.93
           },
           "effectsStrength": [
             {
@@ -36,24 +32,11 @@
               "element": "fire",
               "targetBudget": 4.88,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3.8
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 3.8
+                },
+                "percentBonuses": {
+                  "techLevel": -0.2
                 }
               }
             },
@@ -73,26 +56,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 5.54,
+          "targetBudget": 48.56,
           "target": {
             "type": "orientedBox",
             "range": 1,
             "width": 3,
             "height": 1,
-            "maxTargets": 3,
-            "rawTargeting": {
-              "shape": "orientedBox",
-              "width": 3,
-              "height": 1,
-              "maxTargets": 3
-            }
+            "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 5,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 18
+            "cost": -38.02,
+            "cooldown": 5
           },
           "effectsStrength": [
             {
@@ -101,32 +75,18 @@
               "element": "fire",
               "targetBudget": 4.54,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3.5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.fire_burn_mark.stacks",
-                          "scale": 0.04
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 3.5
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.fire_burn_mark.stacks": 0.04
                 }
               }
             },
             {
               "type": "buff",
               "buffRef": "lianqi.fire.burn_mark",
-              "stacks": 1,
-              "targetBudget": 1
+              "stacks": 1
             }
           ]
         }
@@ -138,22 +98,15 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 53.28,
+          "targetBudget": 34.83,
           "target": {
             "type": "single",
             "range": 4,
-            "maxTargets": 1,
-            "rawTargeting": {
-              "shape": "single",
-              "maxTargets": 1
-            }
+            "maxTargets": 1
           },
           "structureStrength": {
-            "cost": -30.1284,
-            "cooldown": 0,
-            "chant": 0,
-            "costMultiplier": 3,
-            "cooldownTicks": 20
+            "cost": -30.13,
+            "cooldown": 0
           },
           "effectsStrength": [
             {
@@ -162,24 +115,11 @@
               "element": "wood",
               "targetBudget": 4.28,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.2
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 3.2
+                },
+                "percentBonuses": {
+                  "techLevel": -0.2
                 }
               }
             },
@@ -212,18 +152,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 5.32,
+          "targetBudget": 48.34,
           "target": {
             "type": "single",
-            "range": 1,
-            "rawTargeting": null
+            "range": 1
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 5,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 18
+            "cost": -38.02,
+            "cooldown": 5
           },
           "effectsStrength": [
             {
@@ -232,31 +168,17 @@
               "element": "earth",
               "targetBudget": 5.32,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.2
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.monster_charwood_root_bind.stacks",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 4.2
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.monster_charwood_root_bind.stacks": 0.12
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.earth.self_fortify",
-              "targetBudget": 1
+              "buffRef": "lianqi.earth.self_fortify"
             }
           ]
         }
@@ -268,24 +190,16 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 8.4,
+          "targetBudget": 54.55,
           "target": {
             "type": "line",
             "range": 4,
             "width": 1,
-            "maxTargets": 4,
-            "rawTargeting": {
-              "shape": "line",
-              "width": 1,
-              "maxTargets": 4
-            }
+            "maxTargets": 4
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -2.6138,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 22
+            "cost": -44.14,
+            "cooldown": -2.61
           },
           "effectsStrength": [
             {
@@ -294,24 +208,8 @@
               "element": "fire",
               "targetBudget": 5.4,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.3
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 4.3
                 }
               }
             },
@@ -331,24 +229,16 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 64.55,
+          "targetBudget": 55.69,
           "target": {
             "type": "line",
             "range": 3,
             "width": 1,
-            "maxTargets": 3,
-            "rawTargeting": {
-              "shape": "line",
-              "width": 1,
-              "maxTargets": 3
-            }
+            "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 24
+            "cost": -44.14,
+            "cooldown": -5
           },
           "effectsStrength": [
             {
@@ -357,24 +247,11 @@
               "element": "fire",
               "targetBudget": 5.55,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.fire_burn_mark.stacks",
-                          "scale": 0.05
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 4.5
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.fire_burn_mark.stacks": 0.05
                 }
               }
             },
@@ -408,18 +285,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 60.2,
+          "targetBudget": 44.22,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -30.1284,
-            "cooldown": -12.8894,
-            "chant": 0,
-            "costMultiplier": 3,
-            "cooldownTicks": 32
+            "cost": -30.13,
+            "cooldown": -12.89
           },
           "effectsStrength": [
             {
@@ -427,24 +300,11 @@
               "target": "self",
               "targetBudget": 1.2,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.12
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_molten_scales.stacks",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "extraBaseVars": {
+                  "caster.maxHp": 0.12
+                },
+                "extraPercentBonuses": {
+                  "caster.buff.buff.monster_molten_scales.stacks": 0.08
                 }
               }
             },
@@ -479,18 +339,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 50.88,
+          "targetBudget": 43.82,
           "target": {
             "type": "single",
-            "range": 3,
-            "rawTargeting": null
+            "range": 3
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 0,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 20
+            "cost": -38.02,
+            "cooldown": 0
           },
           "effectsStrength": [
             {
@@ -499,31 +355,17 @@
               "element": "wood",
               "targetBudget": 4.88,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3.8
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 3.8
+                },
+                "percentBonuses": {
+                  "techLevel": -0.2
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.wood.vine_mark",
-              "targetBudget": 1
+              "buffRef": "lianqi.wood.vine_mark"
             },
             {
               "type": "buff",
@@ -554,18 +396,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 48.22,
+          "targetBudget": 55.86,
           "target": {
             "type": "single",
-            "range": 4,
-            "rawTargeting": null
+            "range": 4
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 24
+            "cost": -44.14,
+            "cooldown": -5
           },
           "effectsStrength": [
             {
@@ -574,24 +412,11 @@
               "element": "fire",
               "targetBudget": 5.22,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.1
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.monster_vine_constrict.stacks",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 4.1
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.monster_vine_constrict.stacks": 0.12
                 }
               }
             },
@@ -630,26 +455,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 9.01,
+          "targetBudget": 68.38,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -49.1373,
-            "cooldown": -9.2274,
-            "chant": 0,
-            "costMultiplier": 6,
-            "cooldownTicks": 28
+            "cost": -49.14,
+            "cooldown": -9.23
           },
           "effectsStrength": [
             {
@@ -658,28 +474,12 @@
               "element": "fire",
               "targetBudget": 6.01,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.8
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.fire_burn_mark.stacks",
-                          "scale": 0.03
-                        },
-                        {
-                          "var": "target.buff.buff.wood_vine_mark.stacks",
-                          "scale": 0.18
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 4.8
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.fire_burn_mark.stacks": 0.03,
+                  "target.buff.buff.wood_vine_mark.stacks": 0.18
                 }
               }
             },
@@ -703,26 +503,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 53.92,
+          "targetBudget": 68.37,
           "target": {
             "type": "box",
             "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 5,
-              "height": 5,
-              "maxTargets": 25
-            }
+            "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -9.2274,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 28
+            "cost": -44.14,
+            "cooldown": -9.23
           },
           "effectsStrength": [
             {
@@ -731,24 +522,11 @@
               "element": "fire",
               "targetBudget": 4.92,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.8
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 3.8
+                },
+                "percentBonuses": {
+                  "techLevel": 0.2
                 }
               }
             },
@@ -793,26 +571,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 102.3,
+          "targetBudget": 67.23,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -12.8894,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 32
+            "cost": -44.14,
+            "cooldown": -12.89
           },
           "effectsStrength": [
             {
@@ -821,31 +590,14 @@
               "element": "wood",
               "targetBudget": 5.3,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.2
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 4.2
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.wood.vine_mark",
-              "targetBudget": 1
+              "buffRef": "lianqi.wood.vine_mark"
             },
             {
               "type": "buff",
@@ -880,26 +632,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 10.48,
+          "targetBudget": 87.94,
           "target": {
             "type": "box",
             "range": 6,
             "width": 5,
             "height": 5,
-            "maxTargets": 25,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 5,
-              "height": 5,
-              "maxTargets": 25
-            }
+            "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -53.3648,
-            "cooldown": -17.6022,
-            "chant": 0,
-            "costMultiplier": 7,
-            "cooldownTicks": 38
+            "cost": -53.36,
+            "cooldown": -17.6
           },
           "effectsStrength": [
             {
@@ -908,28 +651,12 @@
               "element": "fire",
               "targetBudget": 6.48,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 5.2
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.fire_burn_mark.stacks",
-                          "scale": 0.03
-                        },
-                        {
-                          "var": "target.buff.buff.monster_root_prison.stacks",
-                          "scale": 0.25
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 5.2
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.fire_burn_mark.stacks": 0.03,
+                  "target.buff.buff.monster_root_prison.stacks": 0.25
                 }
               }
             },
@@ -953,18 +680,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 140.26,
+          "targetBudget": 75.53,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -30.1284,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 60
+            "cost": -44.14,
+            "cooldown": -30.13
           },
           "effectsStrength": [
             {
@@ -972,24 +695,11 @@
               "target": "self",
               "targetBudget": 1.26,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.18
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_phoenix_ember.stacks",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "extraBaseVars": {
+                  "caster.maxHp": 0.18
+                },
+                "extraPercentBonuses": {
+                  "caster.buff.buff.monster_phoenix_ember.stacks": 0.08
                 }
               }
             },
@@ -1036,18 +746,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 4.78,
+          "targetBudget": 51.76,
           "target": {
             "type": "single",
-            "range": 1,
-            "rawTargeting": null
+            "range": 1
           },
           "structureStrength": {
-            "cost": -30.1284,
-            "cooldown": 16.9264,
-            "chant": 0,
-            "costMultiplier": 3,
-            "cooldownTicks": 14
+            "cost": -30.13,
+            "cooldown": 16.93
           },
           "effectsStrength": [
             {
@@ -1056,31 +762,17 @@
               "element": "water",
               "targetBudget": 4.78,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3.7
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 3.7
+                },
+                "percentBonuses": {
+                  "techLevel": -0.2
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "fanren.shufa.mystic.frost_mark",
-              "targetBudget": 1
+              "buffRef": "fanren.shufa.mystic.frost_mark"
             }
           ]
         }
@@ -1092,48 +784,25 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 5.22,
+          "targetBudget": 47.24,
           "target": {
             "type": "single",
-            "range": 1,
-            "rawTargeting": null
+            "range": 1
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 5,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 18
+            "cost": -38.02,
+            "cooldown": 5
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "physical",
-              "element": "water",
-              "targetBudget": 5.22,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.1
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.frost_mark.stacks",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
+          "damageKind": "physical",
+          "element": "water",
+          "formulaStrength": {
+            "attributeBases": {
+              "physAtk": 4.1
+            },
+            "extraPercentBonuses": {
+              "target.buff.buff.frost_mark.stacks": 0.12
             }
-          ]
+          }
         }
       },
       {
@@ -1143,18 +812,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 52.08,
+          "targetBudget": 48.02,
           "target": {
             "type": "single",
-            "range": 2,
-            "rawTargeting": null
+            "range": 2
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 5,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 18
+            "cost": -38.02,
+            "cooldown": 5
           },
           "effectsStrength": [
             {
@@ -1163,24 +828,11 @@
               "element": "metal",
               "targetBudget": 5.08,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 4
+                },
+                "percentBonuses": {
+                  "techLevel": -0.2
                 }
               }
             },
@@ -1214,18 +866,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 73,
+          "targetBudget": 25.01,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -19.0089,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 2,
-            "cooldownTicks": 24
+            "cost": -19.01,
+            "cooldown": -5
           },
           "effectsStrength": [
             {
@@ -1259,26 +907,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 66.58,
+          "targetBudget": 50.13,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": -2.6138,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 22
+            "cost": -38.02,
+            "cooldown": -2.61
           },
           "effectsStrength": [
             {
@@ -1287,31 +926,17 @@
               "element": "water",
               "targetBudget": 4.58,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 3.5
+                },
+                "percentBonuses": {
+                  "techLevel": -0.2
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "fanren.shufa.mystic.frost_mark",
-              "targetBudget": 1
+              "buffRef": "fanren.shufa.mystic.frost_mark"
             },
             {
               "type": "buff",
@@ -1341,26 +966,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 6.01,
+          "targetBudget": 63.38,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -9.2274,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 28
+            "cost": -44.14,
+            "cooldown": -9.23
           },
           "effectsStrength": [
             {
@@ -1369,35 +985,18 @@
               "element": "water",
               "targetBudget": 6.01,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.7
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.monster_ice_web.stacks",
-                          "scale": 0.25
-                        },
-                        {
-                          "var": "target.buff.buff.frost_mark.stacks",
-                          "scale": 0.06
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 4.7
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.monster_ice_web.stacks": 0.25,
+                  "target.buff.buff.frost_mark.stacks": 0.06
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "fanren.shufa.mystic.frost_mark",
-              "targetBudget": 1
+              "buffRef": "fanren.shufa.mystic.frost_mark"
             }
           ],
           "monsterCast": {
@@ -1413,18 +1012,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 107,
+          "targetBudget": 42.25,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -30.1284,
-            "cooldown": -11.1195,
-            "chant": 0,
-            "costMultiplier": 3,
-            "cooldownTicks": 30
+            "cost": -30.13,
+            "cooldown": -11.12
           },
           "effectsStrength": [
             {
@@ -1458,24 +1053,16 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 5.32,
+          "targetBudget": 57.96,
           "target": {
             "type": "line",
             "range": 4,
             "width": 2,
-            "maxTargets": 6,
-            "rawTargeting": {
-              "shape": "line",
-              "width": 2,
-              "maxTargets": 6
-            }
+            "maxTargets": 6
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 24
+            "cost": -44.14,
+            "cooldown": -5
           },
           "effectsStrength": [
             {
@@ -1484,31 +1071,17 @@
               "element": "water",
               "targetBudget": 5.32,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.2
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 4.2
+                },
+                "extraPercentBonuses": {
+                  "caster.buff.buff.monster_iron_shell_guard.stacks": 0.12
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.water.frost_mark",
-              "targetBudget": 1
+              "buffRef": "lianqi.water.frost_mark"
             }
           ]
         }
@@ -1520,26 +1093,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 5.75,
+          "targetBudget": 76.78,
           "target": {
             "type": "box",
             "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 5,
-              "height": 5,
-              "maxTargets": 25
-            }
+            "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -49.1373,
-            "cooldown": -12.8894,
-            "chant": 0,
-            "costMultiplier": 6,
-            "cooldownTicks": 32
+            "cost": -49.14,
+            "cooldown": -12.89
           },
           "effectsStrength": [
             {
@@ -1548,31 +1112,17 @@
               "element": "water",
               "targetBudget": 5.75,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.6
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
-                          "scale": 0.15
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 4.6
+                },
+                "extraPercentBonuses": {
+                  "caster.buff.buff.monster_iron_shell_guard.stacks": 0.15
                 }
               }
             },
             {
               "type": "buff",
-              "buffRef": "fanren.shufa.mystic.frost_mark",
-              "targetBudget": 1
+              "buffRef": "fanren.shufa.mystic.frost_mark"
             }
           ],
           "requiresTarget": false,
@@ -1601,24 +1151,19 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 62,
+          "targetBudget": 26.01,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -19.0089,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 2,
-            "cooldownTicks": 24
+            "cost": -19.01,
+            "cooldown": -5
           },
           "effectsStrength": [
             {
               "type": "buff",
-              "buffRef": "lianqi.earth.self_fortify",
-              "targetBudget": 1
+              "buffRef": "lianqi.earth.self_fortify"
             },
             {
               "type": "buff",
@@ -1651,54 +1196,27 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 5.22,
+          "targetBudget": 45.85,
           "target": {
             "type": "line",
             "range": 3,
             "width": 1,
-            "maxTargets": 3,
-            "rawTargeting": {
-              "shape": "line",
-              "width": 1,
-              "maxTargets": 3
-            }
+            "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": -2.6138,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 22
+            "cost": -38.02,
+            "cooldown": -2.61
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "physical",
-              "element": "earth",
-              "targetBudget": 5.22,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.1
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_darksoil_shell.stacks",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
+          "damageKind": "physical",
+          "element": "earth",
+          "formulaStrength": {
+            "attributeBases": {
+              "physAtk": 4.1
+            },
+            "extraPercentBonuses": {
+              "caster.buff.buff.monster_darksoil_shell.stacks": 0.12
             }
-          ]
+          }
         }
       },
       {
@@ -1708,24 +1226,16 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 47.5,
+          "targetBudget": 58.04,
           "target": {
             "type": "line",
             "range": 4,
             "width": 2,
-            "maxTargets": 8,
-            "rawTargeting": {
-              "shape": "line",
-              "width": 2,
-              "maxTargets": 8
-            }
+            "maxTargets": 8
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 24
+            "cost": -44.14,
+            "cooldown": -5
           },
           "effectsStrength": [
             {
@@ -1734,24 +1244,8 @@
               "element": "earth",
               "targetBudget": 5.5,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.4
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 4.4
                 }
               }
             },
@@ -1784,18 +1278,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 104.1,
+          "targetBudget": 48.12,
           "target": {
             "type": "single",
-            "range": 1,
-            "rawTargeting": null
+            "range": 1
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 5,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 18
+            "cost": -38.02,
+            "cooldown": 5
           },
           "effectsStrength": [
             {
@@ -1804,24 +1294,11 @@
               "element": "wood",
               "targetBudget": 5.1,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.monster_earth_rend.stacks",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 4
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.monster_earth_rend.stacks": 0.1
                 }
               }
             },
@@ -1855,59 +1332,31 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 5.88,
+          "targetBudget": 67.25,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -49.1373,
-            "cooldown": -9.2274,
-            "chant": 0,
-            "costMultiplier": 6,
-            "cooldownTicks": 28
+            "cost": -49.14,
+            "cooldown": -9.23
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "physical",
-              "element": "earth",
-              "targetBudget": 5.88,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.8
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.monster_deep_earth_venom.stacks",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          ],
           "monsterCast": {
             "windupTicks": 2,
             "warningColor": "#9d6f45"
+          },
+          "damageKind": "physical",
+          "element": "earth",
+          "formulaStrength": {
+            "attributeBases": {
+              "physAtk": 4.8
+            },
+            "extraPercentBonuses": {
+              "target.buff.buff.monster_deep_earth_venom.stacks": 0.08
+            }
           }
         }
       },
@@ -1918,24 +1367,16 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 48.4,
+          "targetBudget": 57.94,
           "target": {
             "type": "line",
             "range": 4,
             "width": 2,
-            "maxTargets": 8,
-            "rawTargeting": {
-              "shape": "line",
-              "width": 2,
-              "maxTargets": 8
-            }
+            "maxTargets": 8
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 24
+            "cost": -44.14,
+            "cooldown": -5
           },
           "effectsStrength": [
             {
@@ -1944,24 +1385,8 @@
               "element": "earth",
               "targetBudget": 5.4,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.3
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 4.3
                 }
               }
             },
@@ -1994,18 +1419,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 79,
+          "targetBudget": 27.21,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -19.0089,
-            "cooldown": -7.1951,
-            "chant": 0,
-            "costMultiplier": 2,
-            "cooldownTicks": 26
+            "cost": -19.01,
+            "cooldown": -7.2
           },
           "effectsStrength": [
             {
@@ -2039,26 +1460,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 46.62,
+          "targetBudget": 74.88,
           "target": {
             "type": "box",
             "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 5,
-              "height": 5,
-              "maxTargets": 25
-            }
+            "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -49.1373,
-            "cooldown": -11.1195,
-            "chant": 0,
-            "costMultiplier": 6,
-            "cooldownTicks": 30
+            "cost": -49.14,
+            "cooldown": -11.12
           },
           "effectsStrength": [
             {
@@ -2067,24 +1479,11 @@
               "element": "earth",
               "targetBudget": 5.62,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_stone_skin.stacks",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 4.5
+                },
+                "extraPercentBonuses": {
+                  "caster.buff.buff.monster_stone_skin.stacks": 0.12
                 }
               }
             },
@@ -2122,26 +1521,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 59.12,
+          "targetBudget": 68.57,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -49.1373,
-            "cooldown": -9.2274,
-            "chant": 0,
-            "costMultiplier": 6,
-            "cooldownTicks": 28
+            "cost": -49.14,
+            "cooldown": -9.23
           },
           "effectsStrength": [
             {
@@ -2150,24 +1540,11 @@
               "element": "earth",
               "targetBudget": 6.12,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.12
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 5
+                },
+                "percentBonuses": {
+                  "techLevel": 0.2
                 }
               }
             },
@@ -2204,26 +1581,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 61.48,
+          "targetBudget": 83.39,
           "target": {
             "type": "box",
             "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 5,
-              "height": 5,
-              "maxTargets": 25
-            }
+            "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -53.3648,
-            "cooldown": -14.552,
-            "chant": 0,
-            "costMultiplier": 7,
-            "cooldownTicks": 34
+            "cost": -53.36,
+            "cooldown": -14.55
           },
           "effectsStrength": [
             {
@@ -2232,24 +1600,11 @@
               "element": "earth",
               "targetBudget": 6.48,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 5.3
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.monster_dragon_earthbind.stacks",
-                          "scale": 0.18
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 5.3
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.monster_dragon_earthbind.stacks": 0.18
                 }
               }
             },
@@ -2288,56 +1643,28 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 6.15,
+          "targetBudget": 61.29,
           "target": {
             "type": "orientedBox",
             "range": 1,
             "width": 5,
             "height": 1,
-            "maxTargets": 5,
-            "rawTargeting": {
-              "shape": "orientedBox",
-              "width": 5,
-              "height": 1,
-              "maxTargets": 5
-            }
+            "maxTargets": 5
           },
           "structureStrength": {
-            "cost": -49.1373,
-            "cooldown": -5,
-            "chant": 0,
-            "costMultiplier": 6,
-            "cooldownTicks": 24
+            "cost": -49.14,
+            "cooldown": -5
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "physical",
-              "element": "earth",
-              "targetBudget": 6.15,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.buff.buff.monster_tectonic_pressure.stacks",
-                          "scale": 0.15
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
+          "damageKind": "physical",
+          "element": "earth",
+          "formulaStrength": {
+            "attributeBases": {
+              "physAtk": 5
+            },
+            "extraPercentBonuses": {
+              "target.buff.buff.monster_tectonic_pressure.stacks": 0.15
             }
-          ]
+          }
         }
       },
       {
@@ -2347,18 +1674,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 83,
+          "targetBudget": 51.14,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -30.1284,
-            "cooldown": -19.0089,
-            "chant": 0,
-            "costMultiplier": 3,
-            "cooldownTicks": 40
+            "cost": -30.13,
+            "cooldown": -19.01
           },
           "effectsStrength": [
             {
@@ -2398,18 +1721,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 55.06,
+          "targetBudget": 68.65,
           "target": {
             "type": "single",
-            "range": 2,
-            "rawTargeting": null
+            "range": 2
           },
           "structureStrength": {
-            "cost": -53.3648,
-            "cooldown": -9.2274,
-            "chant": 0,
-            "costMultiplier": 7,
-            "cooldownTicks": 28
+            "cost": -53.36,
+            "cooldown": -9.23
           },
           "effectsStrength": [
             {
@@ -2418,24 +1737,11 @@
               "element": "earth",
               "targetBudget": 6.06,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "target.debuffCount",
-                          "scale": 0.06
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 5
+                },
+                "extraPercentBonuses": {
+                  "target.debuffCount": 0.06
                 }
               }
             },
@@ -2469,18 +1775,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 71,
+          "targetBudget": 42.25,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -30.1284,
-            "cooldown": -11.1195,
-            "chant": 0,
-            "costMultiplier": 3,
-            "cooldownTicks": 30
+            "cost": -30.13,
+            "cooldown": -11.12
           },
           "effectsStrength": [
             {
@@ -2516,26 +1818,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 58.76,
+          "targetBudget": 93.3,
           "target": {
             "type": "box",
             "range": 6,
             "width": 5,
             "height": 5,
-            "maxTargets": 25,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 5,
-              "height": 5,
-              "maxTargets": 25
-            }
+            "maxTargets": 25
           },
           "structureStrength": {
-            "cost": -57.0268,
-            "cooldown": -19.0089,
-            "chant": 0,
-            "costMultiplier": 8,
-            "cooldownTicks": 40
+            "cost": -57.03,
+            "cooldown": -19.01
           },
           "effectsStrength": [
             {
@@ -2544,28 +1837,12 @@
               "element": "earth",
               "targetBudget": 6.76,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 5.6
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_element_shift.stacks",
-                          "scale": 0.12
-                        },
-                        {
-                          "var": "target.debuffCount",
-                          "scale": 0.04
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 5.6
+                },
+                "extraPercentBonuses": {
+                  "caster.buff.buff.monster_element_shift.stacks": 0.12,
+                  "target.debuffCount": 0.04
                 }
               }
             },
@@ -2604,18 +1881,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 141.23,
+          "targetBudget": 69.38,
           "target": {
             "type": "single",
-            "range": 0,
-            "rawTargeting": null
+            "range": 0
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -24.0089,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 48
+            "cost": -44.14,
+            "cooldown": -24.01
           },
           "effectsStrength": [
             {
@@ -2623,24 +1896,11 @@
               "target": "self",
               "targetBudget": 1.23,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.maxHp",
-                      "scale": 0.15
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.buff.buff.monster_element_shift.stacks",
-                          "scale": 0.08
-                        }
-                      ]
-                    }
-                  ]
+                "extraBaseVars": {
+                  "caster.maxHp": 0.15
+                },
+                "extraPercentBonuses": {
+                  "caster.buff.buff.monster_element_shift.stacks": 0.08
                 }
               }
             },

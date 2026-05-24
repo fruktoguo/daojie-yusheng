@@ -4,7 +4,7 @@
  * 维护时保持纯函数，不引入服务端持久化、客户端 UI 或运行时状态。
  */
 import type { ElementKey, NumericScalarStatKey } from './numeric';
-import type { SkillDamageKind, SkillDef, SkillEffectDef, SkillFormula, SkillTargetingDef } from './skill-types';
+import type { SkillDamageKind, SkillDef, SkillEffectDef, SkillFormula, SkillFormulaVar, SkillTargetingDef } from './skill-types';
 import type { TechniqueGrade } from './cultivation-types';
 import { calculateTechniqueSkillQiCost } from './technique';
 import {
@@ -39,11 +39,14 @@ export interface TechniqueArtsStrengthStructureInput {
 }
 
 export interface TechniqueArtsStrengthFormulaInput {
+  flatBase?: number;
   attributeBases?: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>;
+  extraBaseVars?: Record<string, number>;
   percentBonuses?: {
     techLevel?: number;
     moveSpeed?: number;
   };
+  extraPercentBonuses?: Record<string, number>;
   rawFormula?: SkillFormula;
 }
 
@@ -105,11 +108,14 @@ export interface NormalizedTechniqueArtsStrengthStructure {
 }
 
 export interface NormalizedTechniqueArtsStrengthFormula {
+  flatBase: number;
   attributeBases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>;
+  extraBaseVars: Record<string, number>;
   percentBonuses: {
     techLevel: number;
     moveSpeed: number;
   };
+  extraPercentBonuses: Record<string, number>;
   rawFormula?: SkillFormula;
   effectStrength: number;
 }
@@ -366,7 +372,9 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
 function normalizeFormula(raw: unknown): NormalizedTechniqueArtsStrengthFormula {
   const source = isRecord(raw) ? raw : {};
   const rawFormula = isSkillFormula(source.rawFormula) ? source.rawFormula : undefined;
+  const flatBase = roundTo(Math.max(0, toFiniteNumber(source.flatBase, 0)), 4);
   const bases = normalizeAttributeBases(source.attributeBases);
+  const extraBaseVars = normalizeFormulaVarScales(source.extraBaseVars);
   const percentSource = isRecord(source.percentBonuses) ? source.percentBonuses : {};
   const percentBonuses = {
     techLevel: clamp(
@@ -380,15 +388,32 @@ function normalizeFormula(raw: unknown): NormalizedTechniqueArtsStrengthFormula 
       TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.maxStrength,
     ),
   };
+  const extraPercentBonuses = normalizeFormulaVarScales(source.extraPercentBonuses);
   const effectStrength = rawFormula
     ? calculateRawFormulaStrength(rawFormula)
-    : calculateFormulaEffectStrength(bases, percentBonuses);
+    : calculateFormulaEffectStrength(flatBase, bases, extraBaseVars, percentBonuses, extraPercentBonuses);
   return {
+    flatBase,
     attributeBases: bases,
+    extraBaseVars,
     percentBonuses,
+    extraPercentBonuses,
     rawFormula,
     effectStrength,
   };
+}
+
+function normalizeFormulaVarScales(raw: unknown): Record<string, number> {
+  const source = isRecord(raw) ? raw : {};
+  const result: Record<string, number> = {};
+  for (const [key, value] of Object.entries(source)) {
+    const normalizedKey = key.trim();
+    const normalizedValue = roundTo(toFiniteNumber(value, 0), 6);
+    if (normalizedKey && normalizedValue !== 0) {
+      result[normalizedKey] = normalizedValue;
+    }
+  }
+  return result;
 }
 
 function normalizeAttributeBases(raw: unknown): Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>> {
@@ -424,15 +449,24 @@ function calculateAttributeBaseCost(stat: TechniqueArtsStrengthAttributeBaseStat
 }
 
 function calculateFormulaEffectStrength(
+  flatBase: number,
   bases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>,
+  extraBaseVars: Record<string, number>,
   percentBonuses: NormalizedTechniqueArtsStrengthFormula['percentBonuses'],
+  extraPercentBonuses: Record<string, number>,
 ): number {
-  let total = 0;
+  let total = Math.max(0, flatBase);
   for (const [key, value] of Object.entries(bases)) {
     total += calculateAttributeBaseCost(key as TechniqueArtsStrengthAttributeBaseStat, value);
   }
+  for (const value of Object.values(extraBaseVars)) {
+    total += Math.abs(value);
+  }
   total += Math.max(0, percentBonuses.techLevel);
   total += Math.abs(percentBonuses.moveSpeed);
+  for (const value of Object.values(extraPercentBonuses)) {
+    total += Math.abs(value);
+  }
   return roundTo(total, 4);
 }
 
@@ -525,14 +559,13 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
     : 1;
   const skillIndex = Math.max(0, Math.floor(params.skillIndex ?? 0));
   const skillId = params.skill.id ?? `${params.techniqueId}_skill_${skillIndex + 1}`;
-  const scaledBases = scaleAttributeBases(params.skill.formula.attributeBases, effectScale);
   const effects = params.skill.effectsStrength?.length
     ? params.skill.effectsStrength.map((effect) => expandEffectStrength(effect)).filter(Boolean) as SkillEffectDef[]
     : [{
       type: 'damage' as const,
       damageKind: params.skill.damageKind,
       element: params.skill.element,
-      formula: buildDamageFormula(scaledBases, params.skill.formula.percentBonuses, params.skill.formula.rawFormula, effectScale),
+      formula: buildDamageFormula(params.skill.formula, effectScale),
     }];
   const requiresTarget = typeof params.skill.requiresTarget === 'boolean'
     ? params.skill.requiresTarget
@@ -603,34 +636,26 @@ export function expandTechniqueArtsStrengthContentSkill(
   });
 }
 
-function scaleAttributeBases(
-  bases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>,
-  effectScale: number,
-): Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>> {
-  const result: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>> = {};
-  const places = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.attributeBases.decimalPlaces;
-  for (const [key, value] of Object.entries(bases)) {
-    const scaled = roundTo(value * effectScale, places);
-    if (scaled > 0) {
-      result[key as TechniqueArtsStrengthAttributeBaseStat] = scaled;
-    }
-  }
-  return result;
-}
-
 function buildDamageFormula(
-  bases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>,
-  percentBonuses: NormalizedTechniqueArtsStrengthFormula['percentBonuses'],
-  rawFormula?: SkillFormula,
+  formula: NormalizedTechniqueArtsStrengthFormula,
   effectScale = 1,
 ): SkillFormula {
-  if (rawFormula) {
-    return scaleWholeFormula(rawFormula, effectScale);
+  if (formula.rawFormula) {
+    return scaleWholeFormula(formula.rawFormula, effectScale);
   }
   const baseArgs: SkillFormula[] = [];
-  for (const [key, value] of Object.entries(bases)) {
+  if (formula.flatBase > 0) {
+    baseArgs.push(formula.flatBase);
+  }
+  for (const [key, value] of Object.entries(formula.attributeBases)) {
     baseArgs.push({
       var: `caster.stat.${key as NumericScalarStatKey}`,
+      scale: value,
+    });
+  }
+  for (const [key, value] of Object.entries(formula.extraBaseVars)) {
+    baseArgs.push({
+      var: key as SkillFormulaVar,
       scale: value,
     });
   }
@@ -638,11 +663,11 @@ function buildDamageFormula(
     1,
     {
       var: 'techLevel',
-      scale: calculateTechLevelScale(percentBonuses.techLevel),
+      scale: calculateTechLevelScale(formula.percentBonuses.techLevel),
     },
   ];
   const moveSpeedScale = roundTo(
-    percentBonuses.moveSpeed
+    formula.percentBonuses.moveSpeed
     * TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.moveSpeedScalePerStrength,
     6,
   );
@@ -652,13 +677,33 @@ function buildDamageFormula(
       scale: moveSpeedScale,
     });
   }
-  return {
+  for (const [key, value] of Object.entries(formula.extraPercentBonuses)) {
+    percentArgs.push({
+      var: key as SkillFormulaVar,
+      scale: value,
+    });
+  }
+  const baseFormula: SkillFormula = baseArgs.length === 0
+    ? 0
+    : baseArgs.length === 1 ? baseArgs[0]! : { op: 'add', args: baseArgs };
+  const hasPercentBonus = percentArgs.some((entry, index) => (
+    index > 0 && isFormulaVarRef(entry) && toFiniteNumber(entry.scale, 0) !== 0
+  ));
+  if (!hasPercentBonus) {
+    return scaleWholeFormula(baseFormula, effectScale);
+  }
+  const result: SkillFormula = {
     op: 'mul',
     args: [
-      baseArgs.length === 1 ? baseArgs[0]! : { op: 'add', args: baseArgs },
+      baseFormula,
       { op: 'add', args: percentArgs },
     ],
   };
+  return scaleWholeFormula(result, effectScale);
+}
+
+function isFormulaVarRef(value: SkillFormula): value is { var: SkillFormulaVar; scale?: number } {
+  return isRecord(value) && typeof (value as Record<string, unknown>).var === 'string';
 }
 
 function expandEffectStrength(effect: TechniqueArtsStrengthEffectInput): SkillEffectDef | null {
@@ -670,7 +715,7 @@ function expandEffectStrength(effect: TechniqueArtsStrengthEffectInput): SkillEf
       ...rest,
       type,
       formula: scaleWholeFormula(
-        formula.rawFormula ?? buildDamageFormula(formula.attributeBases, formula.percentBonuses),
+        formula.rawFormula ?? buildDamageFormula(formula),
         resolveEffectScale(formula.effectStrength, effect.targetBudget),
       ),
     } as SkillEffectDef;
@@ -681,7 +726,7 @@ function expandEffectStrength(effect: TechniqueArtsStrengthEffectInput): SkillEf
       ...rest,
       type,
       hpFormula: scaleWholeFormula(
-        formula.rawFormula ?? buildDamageFormula(formula.attributeBases, formula.percentBonuses),
+        formula.rawFormula ?? buildDamageFormula(formula),
         resolveEffectScale(formula.effectStrength, effect.targetBudget),
       ),
     } as SkillEffectDef;

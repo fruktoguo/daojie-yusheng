@@ -16,18 +16,14 @@
         "unlockLevel": 8,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 400.2,
+          "targetBudget": 125.41,
           "target": {
             "type": "single",
-            "range": 1,
-            "rawTargeting": null
+            "range": 1
           },
           "structureStrength": {
-            "cost": -49.1373,
-            "cooldown": -74.2658,
-            "chant": 0,
-            "costMultiplier": 6,
-            "cooldownTicks": 300
+            "cost": -49.14,
+            "cooldown": -74.27
           },
           "effectsStrength": [
             {
@@ -98,22 +94,15 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 212.25,
+          "targetBudget": 72.14,
           "target": {
             "type": "single",
             "range": 6,
-            "maxTargets": 1,
-            "rawTargeting": {
-              "shape": "single",
-              "maxTargets": 1
-            }
+            "maxTargets": 1
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -15.3469,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 35
+            "cost": -44.14,
+            "cooldown": -15.35
           },
           "effectsStrength": [
             {
@@ -122,32 +111,12 @@
               "element": "earth",
               "targetBudget": 11.25,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 10
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        },
-                        {
-                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                          "scale": 0.05
-                        },
-                        {
-                          "var": "target.buff.terrain_molten_pool_burn.stacks",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 10
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
+                  "target.buff.terrain_molten_pool_burn.stacks": 0.1
                 }
               }
             },
@@ -197,24 +166,16 @@
         "unlockLevel": 2,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 502.65,
+          "targetBudget": 91.32,
           "target": {
             "type": "line",
             "range": 6,
             "width": 1,
-            "maxTargets": 6,
-            "rawTargeting": {
-              "shape": "line",
-              "width": 1,
-              "maxTargets": 6
-            }
+            "maxTargets": 6
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -30.1284,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 60
+            "cost": -44.14,
+            "cooldown": -30.13
           },
           "effectsStrength": [
             {
@@ -223,28 +184,11 @@
               "element": "fire",
               "targetBudget": 11.65,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 10.5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        },
-                        {
-                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                          "scale": 0.05
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 10.5
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05
                 }
               }
             },
@@ -320,26 +264,17 @@
         "unlockLevel": 4,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 282.3,
+          "targetBudget": 89.08,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -27.7422,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 55
+            "cost": -44.14,
+            "cooldown": -27.74
           },
           "effectsStrength": [
             {
@@ -348,24 +283,8 @@
               "element": "fire",
               "targetBudget": 11.3,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 10.2
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 10.2
                 }
               }
             },
@@ -444,26 +363,17 @@
         "unlockLevel": 5,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 212.95,
+          "targetBudget": 84.23,
           "target": {
             "type": "checkerboard",
             "range": 5,
             "width": 5,
             "height": 5,
-            "maxTargets": 13,
-            "rawTargeting": {
-              "shape": "checkerboard",
-              "width": 5,
-              "height": 5,
-              "maxTargets": 13
-            }
+            "maxTargets": 13
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -22.239,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 45
+            "cost": -44.14,
+            "cooldown": -22.24
           },
           "effectsStrength": [
             {
@@ -472,28 +382,11 @@
               "element": "earth",
               "targetBudget": 11.95,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 10.8
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        },
-                        {
-                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                          "scale": 0.05
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 10.8
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05
                 }
               }
             },
@@ -547,26 +440,17 @@
         "unlockLevel": 6,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 433.25,
+          "targetBudget": 85.42,
           "target": {
             "type": "ring",
             "range": 5,
             "radius": 2,
             "innerRadius": 1,
-            "maxTargets": 8,
-            "rawTargeting": {
-              "shape": "ring",
-              "innerRadius": 1,
-              "radius": 2,
-              "maxTargets": 8
-            }
+            "maxTargets": 8
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -25.1284,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 50
+            "cost": -44.14,
+            "cooldown": -25.13
           },
           "effectsStrength": [
             {
@@ -575,32 +459,12 @@
               "element": "earth",
               "targetBudget": 12.25,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 11
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        },
-                        {
-                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                          "scale": 0.05
-                        },
-                        {
-                          "var": "target.buff.terrain_molten_pool_burn.stacks",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 11
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
+                  "target.buff.terrain_molten_pool_burn.stacks": 0.1
                 }
               }
             },
@@ -651,26 +515,17 @@
         "unlockLevel": 7,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 213.75,
+          "targetBudget": 106.42,
           "target": {
             "type": "ring",
             "range": 6,
             "radius": 5,
             "innerRadius": 3,
-            "maxTargets": 18,
-            "rawTargeting": {
-              "shape": "ring",
-              "innerRadius": 3,
-              "radius": 5,
-              "maxTargets": 18
-            }
+            "maxTargets": 18
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -30.1284,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 60
+            "cost": -44.14,
+            "cooldown": -30.13
           },
           "effectsStrength": [
             {
@@ -679,32 +534,12 @@
               "element": "fire",
               "targetBudget": 12.75,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 11.5
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        },
-                        {
-                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                          "scale": 0.05
-                        },
-                        {
-                          "var": "target.buff.terrain_molten_pool_burn.stacks",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
+                "attributeBases": {
+                  "spellAtk": 11.5
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
+                  "target.buff.terrain_molten_pool_burn.stacks": 0.1
                 }
               }
             },
@@ -758,64 +593,18 @@
         "unlockLevel": 8,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 13.25,
+          "targetBudget": 88.03,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "maxTargets": 9
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -27.7422,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 55
+            "cost": -44.14,
+            "cooldown": -27.74
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "spell",
-              "element": "earth",
-              "targetBudget": 13.25,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 12
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        },
-                        {
-                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                          "scale": 0.05
-                        },
-                        {
-                          "var": "target.buff.terrain_molten_pool_burn.stacks",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          ],
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -833,6 +622,17 @@
             },
             "windupTicks": 1,
             "warningColor": "#ff3838"
+          },
+          "damageKind": "spell",
+          "element": "earth",
+          "formulaStrength": {
+            "attributeBases": {
+              "spellAtk": 12
+            },
+            "extraPercentBonuses": {
+              "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
+              "target.buff.terrain_molten_pool_burn.stacks": 0.1
+            }
           }
         }
       },
@@ -843,63 +643,28 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 11.1,
+          "targetBudget": 111,
           "target": {
             "type": "single",
             "range": 5,
-            "maxTargets": 1,
-            "rawTargeting": {
-              "shape": "single",
-              "maxTargets": 1
-            }
+            "maxTargets": 1
           },
           "structureStrength": {
             "cost": 0,
             "cooldown": 100,
-            "chant": 0,
             "cooldownTicks": 0,
             "costMultiplier": 0
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "physical",
-              "targetBudget": 11.1,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "op": "add",
-                      "args": [
-                        {
-                          "var": "caster.stat.physAtk",
-                          "scale": 5
-                        },
-                        {
-                          "var": "caster.stat.spellAtk",
-                          "scale": 5
-                        }
-                      ]
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          ],
           "monsterCast": {
             "windupTicks": 1,
             "warningColor": "#dca06a"
+          },
+          "damageKind": "physical",
+          "formulaStrength": {
+            "attributeBases": {
+              "physAtk": 5,
+              "spellAtk": 5
+            }
           }
         }
       }

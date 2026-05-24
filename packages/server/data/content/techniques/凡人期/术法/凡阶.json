@@ -16,47 +16,25 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 2.5,
+          "targetBudget": 34.39,
           "target": {
             "type": "single",
-            "range": 1,
-            "rawTargeting": null
+            "range": 1
           },
           "structureStrength": {
             "cost": 0,
-            "cooldown": 32.8941,
-            "chant": 0,
-            "costMultiplier": 0,
-            "cooldownTicks": 10
+            "cooldown": 32.89,
+            "costMultiplier": 0
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "physical",
-              "targetBudget": 2.5,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "var": "caster.stat.physAtk",
-                      "scale": 1
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "caster.realmLv",
-                          "scale": 0.5
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
+          "damageKind": "physical",
+          "formulaStrength": {
+            "attributeBases": {
+              "physAtk": 1
+            },
+            "extraPercentBonuses": {
+              "caster.realmLv": 0.5
             }
-          ]
+          }
         }
       }
     ]
@@ -78,54 +56,23 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 34.1,
+          "targetBudget": 103.91,
           "target": {
             "type": "single",
-            "range": 2,
-            "rawTargeting": null
+            "range": 2
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 32.8941,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 10
+            "cost": -38.02,
+            "cooldown": 32.89
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "physical",
-              "element": "wood",
-              "targetBudget": 34.1,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "op": "add",
-                      "args": [
-                        30,
-                        {
-                          "var": "caster.stat.physAtk",
-                          "scale": 3
-                        }
-                      ]
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          ]
+          "damageKind": "physical",
+          "element": "wood",
+          "formulaStrength": {
+            "attributeBases": {
+              "physAtk": 3
+            },
+            "flatBase": 30
+          }
         }
       }
     ]

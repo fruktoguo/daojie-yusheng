@@ -16,27 +16,18 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 105.4,
+          "targetBudget": 159.66,
           "target": {
             "type": "orientedBox",
             "range": 1,
             "width": 3,
             "height": 1,
             "targetMode": "tile",
-            "maxTargets": 3,
-            "rawTargeting": {
-              "shape": "orientedBox",
-              "width": 3,
-              "height": 1,
-              "maxTargets": 3
-            }
+            "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -53.3648,
-            "cooldown": 0,
-            "chant": 0,
-            "costMultiplier": 7,
-            "cooldownTicks": 20
+            "cost": -53.36,
+            "cooldown": 0
           },
           "effectsStrength": [
             {
@@ -45,41 +36,18 @@
               "element": "metal",
               "targetBudget": 105.4,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "op": "add",
-                      "args": [
-                        100,
-                        {
-                          "var": "caster.stat.physAtk",
-                          "scale": 4
-                        }
-                      ]
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        },
-                        {
-                          "var": "target.buff.buff.metal_edge_mark.stacks",
-                          "scale": 0.3
-                        }
-                      ]
-                    }
-                  ]
-                }
+                "attributeBases": {
+                  "physAtk": 4
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.metal_edge_mark.stacks": 0.3
+                },
+                "flatBase": 100
               }
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.metal.edge_mark",
-              "targetBudget": 1
+              "buffRef": "lianqi.metal.edge_mark"
             }
           ],
           "targetMode": "tile"
@@ -104,27 +72,18 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 425.71,
+          "targetBudget": 461.85,
           "target": {
             "type": "box",
             "range": 5,
             "width": 3,
             "height": 3,
             "targetMode": "tile",
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "maxTargets": 9,
-              "width": 3,
-              "height": 3
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": -7.1951,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 26
+            "cost": -44.14,
+            "cooldown": -7.2
           },
           "effectsStrength": [
             {
@@ -133,35 +92,16 @@
               "element": "fire",
               "targetBudget": 405.71,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "op": "add",
-                      "args": [
-                        400,
-                        {
-                          "var": "caster.stat.spellAtk",
-                          "scale": 4.5
-                        }
-                      ]
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.2
-                        },
-                        {
-                          "var": "target.buff.buff.fire_burn_mark.stacks",
-                          "scale": 0.01
-                        }
-                      ]
-                    }
-                  ]
-                }
+                "attributeBases": {
+                  "spellAtk": 4.5
+                },
+                "percentBonuses": {
+                  "techLevel": 1
+                },
+                "extraPercentBonuses": {
+                  "target.buff.buff.fire_burn_mark.stacks": 0.01
+                },
+                "flatBase": 400
               }
             },
             {
@@ -197,18 +137,14 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 304.35,
+          "targetBudget": 348.39,
           "target": {
             "type": "single",
-            "range": 1,
-            "rawTargeting": null
+            "range": 1
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": 0,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 20
+            "cost": -44.14,
+            "cooldown": 0
           },
           "effectsStrength": [
             {
@@ -217,37 +153,15 @@
               "element": "earth",
               "targetBudget": 304.35,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "op": "add",
-                      "args": [
-                        300,
-                        {
-                          "var": "caster.stat.physAtk",
-                          "scale": 3.25
-                        }
-                      ]
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
-                }
+                "attributeBases": {
+                  "physAtk": 3.25
+                },
+                "flatBase": 300
               }
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.earth.self_fortify",
-              "targetBudget": 1
+              "buffRef": "lianqi.earth.self_fortify"
             }
           ]
         }
@@ -271,54 +185,23 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 205.1,
+          "targetBudget": 249.14,
           "target": {
             "type": "single",
-            "range": 5,
-            "rawTargeting": null
+            "range": 5
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": 0,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 20
+            "cost": -44.14,
+            "cooldown": 0
           },
-          "effectsStrength": [
-            {
-              "type": "damage",
-              "damageKind": "spell",
-              "element": "wood",
-              "targetBudget": 205.1,
-              "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "op": "add",
-                      "args": [
-                        200,
-                        {
-                          "var": "caster.stat.spellAtk",
-                          "scale": 4
-                        }
-                      ]
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
-                }
-              }
-            }
-          ]
+          "damageKind": "spell",
+          "element": "wood",
+          "formulaStrength": {
+            "attributeBases": {
+              "spellAtk": 4
+            },
+            "flatBase": 200
+          }
         }
       }
     ]
@@ -340,26 +223,17 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 204.1,
+          "targetBudget": 257.14,
           "target": {
             "type": "box",
             "range": 0,
             "width": 3,
             "height": 3,
-            "maxTargets": 9,
-            "rawTargeting": {
-              "shape": "box",
-              "maxTargets": 9,
-              "width": 3,
-              "height": 3
-            }
+            "maxTargets": 9
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": 5,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 18
+            "cost": -44.14,
+            "cooldown": 5
           },
           "effectsStrength": [
             {
@@ -368,42 +242,19 @@
               "element": "water",
               "targetBudget": 204.1,
               "formulaStrength": {
-                "rawFormula": {
-                  "op": "mul",
-                  "args": [
-                    {
-                      "op": "add",
-                      "args": [
-                        200,
-                        {
-                          "var": "caster.stat.spellAtk",
-                          "scale": 3
-                        }
-                      ]
-                    },
-                    {
-                      "op": "add",
-                      "args": [
-                        1,
-                        {
-                          "var": "techLevel",
-                          "scale": 0.1
-                        }
-                      ]
-                    }
-                  ]
-                }
+                "attributeBases": {
+                  "spellAtk": 3
+                },
+                "flatBase": 200
               }
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.water.frost_mark",
-              "targetBudget": 1
+              "buffRef": "lianqi.water.frost_mark"
             },
             {
               "type": "buff",
-              "buffRef": "lianqi.water.glide",
-              "targetBudget": 1
+              "buffRef": "lianqi.water.glide"
             }
           ],
           "requiresTarget": false
@@ -428,24 +279,16 @@
         "unlockLevel": 1,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 14,
+          "targetBudget": 85.99,
           "target": {
             "type": "single",
             "range": 6,
             "targetMode": "tile",
-            "maxTargets": 1,
-            "rawTargeting": {
-              "shape": "single",
-              "targetMode": "tile",
-              "maxTargets": 1
-            }
+            "maxTargets": 1
           },
           "structureStrength": {
-            "cost": -19.0089,
-            "cooldown": 43.4836,
-            "chant": 0,
-            "costMultiplier": 2,
-            "cooldownTicks": 8
+            "cost": -19.01,
+            "cooldown": 43.48
           },
           "effectsStrength": [
             {
@@ -454,33 +297,13 @@
               "durationTicks": 60,
               "targetBudget": 14,
               "hpFormulaStrength": {
-                "rawFormula": {
-                  "op": "add",
-                  "args": [
-                    {
-                      "op": "mul",
-                      "args": [
-                        {
-                          "op": "add",
-                          "args": [
-                            {
-                              "var": "caster.stat.physAtk"
-                            },
-                            {
-                              "var": "caster.stat.spellAtk"
-                            }
-                          ]
-                        },
-                        10
-                      ]
-                    },
-                    {
-                      "var": "caster.hp"
-                    },
-                    {
-                      "var": "caster.qi"
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 10,
+                  "spellAtk": 10
+                },
+                "extraBaseVars": {
+                  "caster.hp": 1,
+                  "caster.qi": 1
                 }
               }
             }
@@ -496,28 +319,18 @@
         "unlockLevel": 4,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 14,
+          "targetBudget": 81.23,
           "target": {
             "type": "box",
             "range": 6,
             "width": 3,
             "height": 3,
             "targetMode": "tile",
-            "maxTargets": 8,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 3,
-              "targetMode": "tile",
-              "maxTargets": 8
-            }
+            "maxTargets": 8
           },
           "structureStrength": {
-            "cost": -44.1373,
-            "cooldown": 10.5895,
-            "chant": 0,
-            "costMultiplier": 5,
-            "cooldownTicks": 16
+            "cost": -44.14,
+            "cooldown": 10.59
           },
           "effectsStrength": [
             {
@@ -527,33 +340,13 @@
               "excludeAnchor": true,
               "targetBudget": 14,
               "hpFormulaStrength": {
-                "rawFormula": {
-                  "op": "add",
-                  "args": [
-                    {
-                      "op": "mul",
-                      "args": [
-                        {
-                          "op": "add",
-                          "args": [
-                            {
-                              "var": "caster.stat.physAtk"
-                            },
-                            {
-                              "var": "caster.stat.spellAtk"
-                            }
-                          ]
-                        },
-                        10
-                      ]
-                    },
-                    {
-                      "var": "caster.hp"
-                    },
-                    {
-                      "var": "caster.qi"
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 10,
+                  "spellAtk": 10
+                },
+                "extraBaseVars": {
+                  "caster.hp": 1,
+                  "caster.qi": 1
                 }
               }
             }
@@ -569,28 +362,18 @@
         "unlockLevel": 7,
         "artsStrength": {
           "version": 1,
-          "targetBudget": 14,
+          "targetBudget": 86.76,
           "target": {
             "type": "box",
             "range": 6,
             "width": 3,
             "height": 1,
             "targetMode": "tile",
-            "maxTargets": 3,
-            "rawTargeting": {
-              "shape": "box",
-              "width": 3,
-              "height": 1,
-              "targetMode": "tile",
-              "maxTargets": 3
-            }
+            "maxTargets": 3
           },
           "structureStrength": {
-            "cost": -38.0178,
-            "cooldown": 24.2418,
-            "chant": 0,
-            "costMultiplier": 4,
-            "cooldownTicks": 12
+            "cost": -38.02,
+            "cooldown": 24.24
           },
           "effectsStrength": [
             {
@@ -599,33 +382,13 @@
               "durationTicks": 60,
               "targetBudget": 14,
               "hpFormulaStrength": {
-                "rawFormula": {
-                  "op": "add",
-                  "args": [
-                    {
-                      "op": "mul",
-                      "args": [
-                        {
-                          "op": "add",
-                          "args": [
-                            {
-                              "var": "caster.stat.physAtk"
-                            },
-                            {
-                              "var": "caster.stat.spellAtk"
-                            }
-                          ]
-                        },
-                        10
-                      ]
-                    },
-                    {
-                      "var": "caster.hp"
-                    },
-                    {
-                      "var": "caster.qi"
-                    }
-                  ]
+                "attributeBases": {
+                  "physAtk": 10,
+                  "spellAtk": 10
+                },
+                "extraBaseVars": {
+                  "caster.hp": 1,
+                  "caster.qi": 1
                 }
               }
             }

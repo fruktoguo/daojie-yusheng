@@ -36,6 +36,7 @@
           "range": 8,
           "targeting": {
             "shape": "box",
+            "range": 8,
             "width": 5,
             "height": 5,
             "maxTargets": 25
@@ -93,9 +94,11 @@
           "range": 1,
           "targeting": {
             "shape": "orientedBox",
+            "range": 1,
             "width": 3,
             "height": 1,
-            "maxTargets": 3
+            "maxTargets": 3,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -106,29 +109,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      100,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4
+                        "op": "add",
+                        "args": [
+                          100,
+                          {
+                            "var": "caster.stat.physAtk",
+                            "scale": 4
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.metal_edge_mark.stacks",
+                            "scale": 0.3
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "target.buff.buff.metal_edge_mark.stacks",
-                        "scale": 0.3
-                      }
-                    ]
-                  }
+                  1.010547
                 ]
               }
             },
@@ -174,6 +183,11 @@
           "cost": 24,
           "costMultiplier": 6,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "buff",
@@ -244,6 +258,7 @@
           "range": 6,
           "targeting": {
             "shape": "single",
+            "range": 6,
             "maxTargets": 1
           },
           "effects": [
@@ -255,27 +270,33 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 10
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 10
                       },
                       {
-                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                            "scale": 0.05
+                          },
+                          {
+                            "var": "target.buff.terrain_molten_pool_burn.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.108374
                 ]
               }
             },
@@ -327,6 +348,7 @@
           "range": 6,
           "targeting": {
             "shape": "line",
+            "range": 6,
             "width": 1,
             "maxTargets": 6
           },
@@ -339,23 +361,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 10.5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 10.5
                       },
                       {
-                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.05
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                            "scale": 0.05
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.104265
                 ]
               }
             },
@@ -431,6 +459,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -444,19 +473,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 10.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 10.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.107843
                 ]
               }
             },
@@ -535,8 +570,10 @@
           "range": 5,
           "targeting": {
             "shape": "checkerboard",
+            "range": 5,
             "width": 5,
             "height": 5,
+            "checkerParity": "even",
             "maxTargets": 13
           },
           "effects": [
@@ -548,23 +585,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 10.8
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 10.8
                       },
                       {
-                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.05
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                            "scale": 0.05
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.101382
                 ]
               }
             },
@@ -620,8 +663,9 @@
           "range": 5,
           "targeting": {
             "shape": "ring",
-            "innerRadius": 1,
+            "range": 5,
             "radius": 2,
+            "innerRadius": 1,
             "maxTargets": 8
           },
           "effects": [
@@ -633,27 +677,33 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 11
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 11
                       },
                       {
-                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                            "scale": 0.05
+                          },
+                          {
+                            "var": "target.buff.terrain_molten_pool_burn.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.098655
                 ]
               }
             },
@@ -706,8 +756,9 @@
           "range": 6,
           "targeting": {
             "shape": "ring",
-            "innerRadius": 3,
+            "range": 6,
             "radius": 5,
+            "innerRadius": 3,
             "maxTargets": 18
           },
           "effects": [
@@ -719,27 +770,33 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 11.5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 11.5
                       },
                       {
-                        "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.05
-                      },
-                      {
-                        "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                            "scale": 0.05
+                          },
+                          {
+                            "var": "target.buff.terrain_molten_pool_burn.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.094421
                 ]
               }
             },
@@ -795,6 +852,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -863,6 +921,7 @@
           "range": 5,
           "targeting": {
             "shape": "single",
+            "range": 5,
             "maxTargets": 1
           },
           "effects": [
@@ -925,6 +984,10 @@
           "cost": 9,
           "costMultiplier": 3,
           "range": 3,
+          "targeting": {
+            "shape": "single",
+            "range": 3
+          },
           "effects": [
             {
               "type": "damage",
@@ -934,19 +997,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.261905
                 ]
               }
             },
@@ -981,6 +1050,8 @@
           "range": 3,
           "targeting": {
             "shape": "line",
+            "range": 3,
+            "width": 1,
             "maxTargets": 3
           },
           "effects": [
@@ -992,23 +1063,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.3
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.3
                       },
                       {
-                        "var": "target.buff.buff.monster_soulbind.stacks",
-                        "scale": 0.05
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_soulbind.stacks",
+                            "scale": 0.05
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.252874
                 ]
               }
             },
@@ -1086,9 +1163,11 @@
           "range": 3,
           "targeting": {
             "shape": "box",
-            "maxTargets": 9,
+            "range": 3,
             "width": 3,
-            "height": 3
+            "height": 3,
+            "maxTargets": 9,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -1099,29 +1178,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      50,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3
+                        "op": "add",
+                        "args": [
+                          50,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.01
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.01
-                      }
-                    ]
-                  }
+                  1.020751
                 ]
               }
             },
@@ -1166,9 +1251,11 @@
           "range": 5,
           "targeting": {
             "shape": "box",
-            "maxTargets": 9,
+            "range": 5,
             "width": 3,
-            "height": 3
+            "height": 3,
+            "maxTargets": 9,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -1179,29 +1266,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      400,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.5
+                        "op": "add",
+                        "args": [
+                          400,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 4.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.2
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.01
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.2
-                      },
-                      {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.01
-                      }
-                    ]
-                  }
+                  1.000493
                 ]
               }
             },
@@ -1328,6 +1421,10 @@
           "cost": 10730,
           "costMultiplier": 3,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -1337,19 +1434,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.8
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.08
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.8
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.284211
                 ]
               }
             },
@@ -1381,6 +1484,7 @@
           "range": 1,
           "targeting": {
             "shape": "orientedBox",
+            "range": 1,
             "width": 3,
             "height": 1,
             "maxTargets": 3
@@ -1394,19 +1498,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.04
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.5
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.04
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.282486
                 ]
               }
             },
@@ -1438,6 +1552,7 @@
           "range": 4,
           "targeting": {
             "shape": "single",
+            "range": 4,
             "maxTargets": 1
           },
           "effects": [
@@ -1449,19 +1564,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.08
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.3375
                 ]
               }
             },
@@ -1494,6 +1615,10 @@
           "cost": 14307,
           "costMultiplier": 4,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -1503,19 +1628,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.monster_charwood_root_bind.stacks",
-                        "scale": 0.12
+                        "var": "caster.stat.physAtk",
+                        "scale": 4.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_charwood_root_bind.stacks",
+                            "scale": 0.12
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.231481
                 ]
               }
             },
@@ -1550,6 +1685,7 @@
           "range": 4,
           "targeting": {
             "shape": "line",
+            "range": 4,
             "width": 1,
             "maxTargets": 4
           },
@@ -1562,19 +1698,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.3
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.3
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.255814
                 ]
               }
             },
@@ -1606,6 +1748,7 @@
           "range": 3,
           "targeting": {
             "shape": "line",
+            "range": 3,
             "width": 1,
             "maxTargets": 3
           },
@@ -1618,19 +1761,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4.5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.05
+                        "var": "caster.stat.physAtk",
+                        "scale": 4.5
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.05
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.21978
                 ]
               }
             },
@@ -1664,6 +1817,11 @@
           "cost": 10730,
           "costMultiplier": 3,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "heal",
@@ -1672,19 +1830,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.maxHp",
-                    "scale": 0.12
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "caster.buff.buff.monster_molten_scales.stacks",
-                        "scale": 0.08
+                        "var": "caster.maxHp",
+                        "scale": 0.12
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_molten_scales.stacks",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  6
                 ]
               }
             },
@@ -1719,6 +1887,10 @@
           "cost": 14307,
           "costMultiplier": 4,
           "range": 3,
+          "targeting": {
+            "shape": "single",
+            "range": 3
+          },
           "effects": [
             {
               "type": "damage",
@@ -1728,19 +1900,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.8
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.08
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.8
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.284211
                 ]
               }
             },
@@ -1790,6 +1968,10 @@
           "cost": 17883,
           "costMultiplier": 5,
           "range": 4,
+          "targeting": {
+            "shape": "single",
+            "range": 4
+          },
           "effects": [
             {
               "type": "damage",
@@ -1799,19 +1981,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.1
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.monster_vine_constrict.stacks",
-                        "scale": 0.12
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.1
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_vine_constrict.stacks",
+                            "scale": 0.12
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.236967
                 ]
               }
             },
@@ -1861,6 +2053,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -1874,23 +2067,33 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.8
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.03
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.8
                       },
                       {
-                        "var": "target.buff.buff.wood_vine_mark.stacks",
-                        "scale": 0.18
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.03
+                          },
+                          {
+                            "var": "target.buff.buff.wood_vine_mark.stacks",
+                            "scale": 0.18
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.199601
                 ]
               }
             },
@@ -1926,9 +2129,11 @@
           "range": 0,
           "targeting": {
             "shape": "box",
+            "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "requiresTarget": false
           },
           "effects": [
             {
@@ -1939,19 +2144,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.8
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.12
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.8
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.12
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.23
                 ]
               }
             },
@@ -2007,6 +2218,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -2020,19 +2232,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.261905
                 ]
               }
             },
@@ -2088,6 +2306,7 @@
           "range": 6,
           "targeting": {
             "shape": "box",
+            "range": 6,
             "width": 5,
             "height": 5,
             "maxTargets": 25
@@ -2101,23 +2320,33 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 5.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.03
+                        "var": "caster.stat.spellAtk",
+                        "scale": 5.2
                       },
                       {
-                        "var": "target.buff.buff.monster_root_prison.stacks",
-                        "scale": 0.25
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.03
+                          },
+                          {
+                            "var": "target.buff.buff.monster_root_prison.stacks",
+                            "scale": 0.25
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.182482
                 ]
               }
             },
@@ -2151,6 +2380,11 @@
           "cost": 17883,
           "costMultiplier": 5,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "heal",
@@ -2159,19 +2393,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.maxHp",
-                    "scale": 0.18
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "caster.buff.buff.monster_phoenix_ember.stacks",
-                        "scale": 0.08
+                        "var": "caster.maxHp",
+                        "scale": 0.18
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_phoenix_ember.stacks",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  4.846154
                 ]
               }
             },
@@ -2220,7 +2464,10 @@
           "range": 3,
           "targeting": {
             "shape": "line",
-            "maxTargets": 3
+            "range": 3,
+            "width": 1,
+            "maxTargets": 3,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -2231,29 +2478,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      100,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 4
+                        "op": "add",
+                        "args": [
+                          100,
+                          {
+                            "var": "caster.stat.physAtk",
+                            "scale": 4
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.metal_edge_mark.stacks",
+                            "scale": 0.3
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "target.buff.buff.metal_edge_mark.stacks",
-                        "scale": 0.3
-                      }
-                    ]
-                  }
+                  1.010547
                 ]
               }
             },
@@ -2315,6 +2568,10 @@
           "cost": 1056,
           "costMultiplier": 5,
           "range": 5,
+          "targeting": {
+            "shape": "single",
+            "range": 5
+          },
           "effects": [
             {
               "type": "damage",
@@ -2374,9 +2631,11 @@
           "range": 3,
           "targeting": {
             "shape": "box",
-            "maxTargets": 9,
+            "range": 3,
             "width": 3,
-            "height": 3
+            "height": 3,
+            "maxTargets": 9,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -2387,29 +2646,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      50,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.5
+                        "op": "add",
+                        "args": [
+                          50,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.frost_mark.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "target.buff.buff.frost_mark.stacks",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.020522
                 ]
               }
             },
@@ -2455,6 +2720,10 @@
           "cost": 634,
           "costMultiplier": 3,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -2464,25 +2733,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      300,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.5
+                        "op": "add",
+                        "args": [
+                          300,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.003624
                 ]
               }
             },
@@ -2547,6 +2822,10 @@
           "cost": 845,
           "costMultiplier": 4,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -2556,25 +2835,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      200,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3
+                        "op": "add",
+                        "args": [
+                          200,
+                          {
+                            "var": "caster.stat.physAtk",
+                            "scale": 3
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.005419
                 ]
               }
             },
@@ -2619,6 +2904,10 @@
           "cost": 9010,
           "costMultiplier": 7,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -2628,25 +2917,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      400,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.5
+                        "op": "add",
+                        "args": [
+                          400,
+                          {
+                            "var": "caster.stat.physAtk",
+                            "scale": 3.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.002726
                 ]
               }
             },
@@ -2726,6 +3021,10 @@
           "cost": 725,
           "costMultiplier": 5,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -2735,29 +3034,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      50,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.5
+                        "op": "add",
+                        "args": [
+                          50,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.thunder_rebuke.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "target.buff.buff.thunder_rebuke.stacks",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.020522
                 ]
               }
             },
@@ -2802,6 +3107,10 @@
           "cost": 9,
           "costMultiplier": 3,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -2810,19 +3119,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 2.8
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 2.8
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.392857
                 ]
               }
             },
@@ -2857,6 +3172,7 @@
           "range": 2,
           "targeting": {
             "shape": "area",
+            "range": 2,
             "radius": 1,
             "maxTargets": 5
           },
@@ -2868,23 +3184,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.1
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.1
                       },
                       {
-                        "var": "caster.buff.buff.monster_stonehide.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_stonehide.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.34375
                 ]
               }
             },
@@ -2929,6 +3251,10 @@
           "cost": 2808,
           "costMultiplier": 5,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -2938,25 +3264,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      300,
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 3.25
+                        "op": "add",
+                        "args": [
+                          300,
+                          {
+                            "var": "caster.stat.physAtk",
+                            "scale": 3.25
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.003627
                 ]
               }
             },
@@ -3003,9 +3335,11 @@
           "range": 5,
           "targeting": {
             "shape": "box",
-            "maxTargets": 9,
+            "range": 5,
             "width": 3,
-            "height": 3
+            "height": 3,
+            "maxTargets": 9,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -3016,29 +3350,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      200,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.5
+                        "op": "add",
+                        "args": [
+                          200,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.01
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.01
-                      }
-                    ]
-                  }
+                  1.005405
                 ]
               }
             },
@@ -3083,9 +3423,11 @@
           "range": 3,
           "targeting": {
             "shape": "orientedBox",
+            "range": 3,
             "width": 3,
             "height": 1,
-            "maxTargets": 3
+            "maxTargets": 3,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -3354,6 +3696,10 @@
           "cost": 4,
           "costMultiplier": 4,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -3410,9 +3756,11 @@
           "range": 5,
           "targeting": {
             "shape": "box",
-            "maxTargets": 25,
+            "range": 5,
             "width": 5,
-            "height": 5
+            "height": 5,
+            "maxTargets": 25,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -3422,25 +3770,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      100,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 1
+                        "op": "add",
+                        "args": [
+                          100,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 1
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.010891
                 ]
               }
             },
@@ -3452,25 +3806,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      100,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3
+                        "op": "add",
+                        "args": [
+                          100,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.01068
                 ]
               }
             },
@@ -3531,6 +3891,10 @@
           "cost": 6,
           "costMultiplier": 3,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -3539,19 +3903,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.34375
                 ]
               }
             },
@@ -3585,6 +3955,7 @@
           "range": 2,
           "targeting": {
             "shape": "area",
+            "range": 2,
             "radius": 1,
             "maxTargets": 5
           },
@@ -3596,23 +3967,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.4
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.4
                       },
                       {
-                        "var": "caster.buff.buff.monster_blade_limb.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_blade_limb.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.314286
                 ]
               }
             },
@@ -3656,6 +4033,10 @@
           "cost": 9,
           "costMultiplier": 3,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -3664,19 +4045,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.34375
                 ]
               }
             },
@@ -3711,6 +4098,7 @@
           "range": 3,
           "targeting": {
             "shape": "area",
+            "range": 3,
             "radius": 1,
             "maxTargets": 4
           },
@@ -3766,6 +4154,10 @@
           "cost": 6491,
           "costMultiplier": 3,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -3775,19 +4167,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.7
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.08
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.7
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.291892
                 ]
               }
             },
@@ -3820,6 +4218,10 @@
           "cost": 8655,
           "costMultiplier": 4,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -3836,6 +4238,10 @@
                     "op": "add",
                     "args": [
                       1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      },
                       {
                         "var": "target.buff.buff.frost_mark.stacks",
                         "scale": 0.12
@@ -3856,6 +4262,10 @@
           "cost": 8655,
           "costMultiplier": 4,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -3865,19 +4275,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.08
+                        "var": "caster.stat.physAtk",
+                        "scale": 4
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.27
                 ]
               }
             },
@@ -3911,6 +4327,11 @@
           "cost": 4327,
           "costMultiplier": 2,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "buff",
@@ -3945,6 +4366,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -3958,19 +4380,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.08
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.5
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.308571
                 ]
               }
             },
@@ -4022,6 +4450,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -4035,23 +4464,33 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.7
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.monster_ice_web.stacks",
-                        "scale": 0.25
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.7
                       },
                       {
-                        "var": "target.buff.buff.frost_mark.stacks",
-                        "scale": 0.06
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_ice_web.stacks",
+                            "scale": 0.25
+                          },
+                          {
+                            "var": "target.buff.buff.frost_mark.stacks",
+                            "scale": 0.06
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.199601
                 ]
               }
             },
@@ -4088,6 +4527,11 @@
           "cost": 6491,
           "costMultiplier": 3,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "buff",
@@ -4122,6 +4566,7 @@
           "range": 4,
           "targeting": {
             "shape": "line",
+            "range": 4,
             "width": 2,
             "maxTargets": 6
           },
@@ -4134,19 +4579,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
-                        "scale": 0.12
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
+                            "scale": 0.12
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.231481
                 ]
               }
             },
@@ -4181,9 +4636,11 @@
           "range": 0,
           "targeting": {
             "shape": "box",
+            "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "requiresTarget": false
           },
           "effects": [
             {
@@ -4194,19 +4651,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4.6
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
-                        "scale": 0.15
+                        "var": "caster.stat.physAtk",
+                        "scale": 4.6
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
+                            "scale": 0.15
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.210526
                 ]
               }
             },
@@ -4256,6 +4723,11 @@
           "cost": 57,
           "costMultiplier": 1,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "target": "self",
@@ -4299,6 +4771,10 @@
           "cost": 7723,
           "costMultiplier": 6,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -4321,6 +4797,10 @@
                     "op": "add",
                     "args": [
                       1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      },
                       {
                         "var": "target.buff.buff.metal_edge_mark.stacks",
                         "scale": 0.5
@@ -4353,6 +4833,11 @@
           "cost": 3861,
           "costMultiplier": 3,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "target": "self",
@@ -4414,6 +4899,7 @@
           "range": 9,
           "targeting": {
             "shape": "box",
+            "range": 9,
             "width": 7,
             "height": 7,
             "maxTargets": 49
@@ -4472,7 +4958,10 @@
           "range": 3,
           "targeting": {
             "shape": "line",
-            "maxTargets": 3
+            "range": 3,
+            "width": 1,
+            "maxTargets": 3,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -4483,29 +4972,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      300,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3.5
+                        "op": "add",
+                        "args": [
+                          300,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.water_glide.stacks",
+                            "scale": 0.2
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
-                        "var": "caster.buff.buff.water_glide.stacks",
-                        "scale": 0.2
-                      }
-                    ]
-                  }
+                  1.003622
                 ]
               }
             },
@@ -4551,6 +5046,11 @@
           "cost": 68,
           "costMultiplier": 1,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "target": "self",
@@ -4595,6 +5095,11 @@
           "cost": 211,
           "costMultiplier": 1,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "cleanse",
@@ -4626,6 +5131,10 @@
           "cost": 0,
           "costMultiplier": 0,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -4641,6 +5150,10 @@
                     "op": "add",
                     "args": [
                       1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      },
                       {
                         "var": "caster.realmLv",
                         "scale": 0.5
@@ -4673,6 +5186,10 @@
           "cost": 2808,
           "costMultiplier": 5,
           "range": 5,
+          "targeting": {
+            "shape": "single",
+            "range": 5
+          },
           "effects": [
             {
               "type": "damage",
@@ -4747,9 +5264,11 @@
           "range": 0,
           "targeting": {
             "shape": "box",
-            "maxTargets": 9,
+            "range": 0,
             "width": 3,
-            "height": 3
+            "height": 3,
+            "maxTargets": 9,
+            "requiresTarget": false
           },
           "effects": [
             {
@@ -4760,25 +5279,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      200,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 3
+                        "op": "add",
+                        "args": [
+                          200,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 3
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.005419
                 ]
               }
             },
@@ -4860,6 +5385,11 @@
           "cost": 14588,
           "costMultiplier": 2,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "target": "self",
@@ -4912,6 +5442,7 @@
           "range": 3,
           "targeting": {
             "shape": "line",
+            "range": 3,
             "width": 1,
             "maxTargets": 3
           },
@@ -4931,6 +5462,10 @@
                     "op": "add",
                     "args": [
                       1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      },
                       {
                         "var": "caster.buff.buff.monster_darksoil_shell.stacks",
                         "scale": 0.12
@@ -4953,6 +5488,7 @@
           "range": 4,
           "targeting": {
             "shape": "line",
+            "range": 4,
             "width": 2,
             "maxTargets": 8
           },
@@ -4965,19 +5501,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4.4
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 4.4
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.25
                 ]
               }
             },
@@ -5010,6 +5552,10 @@
           "cost": 29175,
           "costMultiplier": 4,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -5019,19 +5565,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.monster_earth_rend.stacks",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 4
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_earth_rend.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.243902
                 ]
               }
             },
@@ -5067,6 +5623,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -5087,6 +5644,10 @@
                     "op": "add",
                     "args": [
                       1,
+                      {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      },
                       {
                         "var": "target.buff.buff.monster_deep_earth_venom.stacks",
                         "scale": 0.08
@@ -5113,6 +5674,7 @@
           "range": 4,
           "targeting": {
             "shape": "line",
+            "range": 4,
             "width": 2,
             "maxTargets": 8
           },
@@ -5125,19 +5687,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.3
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.3
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.255814
                 ]
               }
             },
@@ -5170,6 +5738,11 @@
           "cost": 14588,
           "costMultiplier": 2,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "buff",
@@ -5204,9 +5777,11 @@
           "range": 0,
           "targeting": {
             "shape": "box",
+            "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "requiresTarget": false
           },
           "effects": [
             {
@@ -5217,19 +5792,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4.5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "caster.buff.buff.monster_stone_skin.stacks",
-                        "scale": 0.12
+                        "var": "caster.stat.physAtk",
+                        "scale": 4.5
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_stone_skin.stacks",
+                            "scale": 0.12
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.21645
                 ]
               }
             },
@@ -5269,6 +5854,7 @@
           "range": 5,
           "targeting": {
             "shape": "box",
+            "range": 5,
             "width": 3,
             "height": 3,
             "maxTargets": 9
@@ -5282,19 +5868,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.12
+                        "var": "caster.stat.physAtk",
+                        "scale": 5
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.12
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.176923
                 ]
               }
             },
@@ -5333,9 +5925,11 @@
           "range": 0,
           "targeting": {
             "shape": "box",
+            "range": 0,
             "width": 5,
             "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "requiresTarget": false
           },
           "effects": [
             {
@@ -5346,19 +5940,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 5.3
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.buff.buff.monster_dragon_earthbind.stacks",
-                        "scale": 0.18
+                        "var": "caster.stat.physAtk",
+                        "scale": 5.3
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_dragon_earthbind.stacks",
+                            "scale": 0.18
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.182482
                 ]
               }
             },
@@ -5399,6 +6003,7 @@
           "range": 1,
           "targeting": {
             "shape": "orientedBox",
+            "range": 1,
             "width": 5,
             "height": 1,
             "maxTargets": 5
@@ -5420,6 +6025,10 @@
                     "args": [
                       1,
                       {
+                        "var": "techLevel",
+                        "scale": 0.1
+                      },
+                      {
                         "var": "target.buff.buff.monster_tectonic_pressure.stacks",
                         "scale": 0.15
                       }
@@ -5439,6 +6048,11 @@
           "cost": 21882,
           "costMultiplier": 3,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "target": "self",
@@ -5490,6 +6104,10 @@
           "cost": 51057,
           "costMultiplier": 7,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -5499,19 +6117,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 5
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "target.debuffCount",
-                        "scale": 0.06
+                        "var": "caster.stat.spellAtk",
+                        "scale": 5
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.debuffCount",
+                            "scale": 0.06
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.197628
                 ]
               }
             },
@@ -5545,6 +6173,11 @@
           "cost": 21882,
           "costMultiplier": 3,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "buff",
@@ -5581,6 +6214,7 @@
           "range": 6,
           "targeting": {
             "shape": "box",
+            "range": 6,
             "width": 5,
             "height": 5,
             "maxTargets": 25
@@ -5594,23 +6228,33 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 5.6
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "caster.buff.buff.monster_element_shift.stacks",
-                        "scale": 0.12
+                        "var": "caster.stat.spellAtk",
+                        "scale": 5.6
                       },
                       {
-                        "var": "target.debuffCount",
-                        "scale": 0.04
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_element_shift.stacks",
+                            "scale": 0.12
+                          },
+                          {
+                            "var": "target.debuffCount",
+                            "scale": 0.04
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.173611
                 ]
               }
             },
@@ -5649,6 +6293,11 @@
           "cost": 36469,
           "costMultiplier": 5,
           "range": 0,
+          "targeting": {
+            "shape": "single",
+            "range": 0,
+            "requiresTarget": false
+          },
           "effects": [
             {
               "type": "heal",
@@ -5657,19 +6306,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.maxHp",
-                    "scale": 0.15
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "caster.buff.buff.monster_element_shift.stacks",
-                        "scale": 0.08
+                        "var": "caster.maxHp",
+                        "scale": 0.15
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_element_shift.stacks",
+                            "scale": 0.08
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  5.347826
                 ]
               }
             },
@@ -6042,6 +6701,10 @@
           "cost": 6,
           "costMultiplier": 3,
           "range": 1,
+          "targeting": {
+            "shape": "single",
+            "range": 1
+          },
           "effects": [
             {
               "type": "damage",
@@ -6051,19 +6714,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.1
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.1
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.354839
                 ]
               }
             },
@@ -6098,6 +6767,8 @@
           "range": 3,
           "targeting": {
             "shape": "line",
+            "range": 3,
+            "width": 1,
             "maxTargets": 3
           },
           "effects": [
@@ -6109,23 +6780,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.4
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.4
                       },
                       {
-                        "var": "target.buff.buff.monster_toxin.stacks",
-                        "scale": 0.05
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_toxin.stacks",
+                            "scale": 0.05
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.318841
                 ]
               }
             },
@@ -6170,6 +6847,10 @@
           "cost": 6,
           "costMultiplier": 3,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -6178,19 +6859,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.4
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.4
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.323529
                 ]
               }
             },
@@ -6225,6 +6912,8 @@
           "range": 2,
           "targeting": {
             "shape": "line",
+            "range": 2,
+            "width": 1,
             "maxTargets": 3
           },
           "effects": [
@@ -6235,23 +6924,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.7
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.7
                       },
                       {
-                        "var": "caster.buff.buff.monster_bloodrush.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_bloodrush.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.289474
                 ]
               }
             },
@@ -6284,6 +6979,10 @@
           "cost": 6,
           "costMultiplier": 3,
           "range": 2,
+          "targeting": {
+            "shape": "single",
+            "range": 2
+          },
           "effects": [
             {
               "type": "damage",
@@ -6353,8 +7052,9 @@
           "range": 6,
           "targeting": {
             "shape": "single",
-            "targetMode": "tile",
-            "maxTargets": 1
+            "range": 6,
+            "maxTargets": 1,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -6362,7 +7062,7 @@
               "tileType": "stone",
               "durationTicks": 60,
               "hpFormula": {
-                "op": "add",
+                "op": "mul",
                 "args": [
                   {
                     "op": "mul",
@@ -6371,22 +7071,36 @@
                         "op": "add",
                         "args": [
                           {
-                            "var": "caster.stat.physAtk"
+                            "var": "caster.stat.physAtk",
+                            "scale": 10
                           },
                           {
-                            "var": "caster.stat.spellAtk"
+                            "var": "caster.stat.spellAtk",
+                            "scale": 10
+                          },
+                          {
+                            "var": "caster.hp",
+                            "scale": 1
+                          },
+                          {
+                            "var": "caster.qi",
+                            "scale": 1
                           }
                         ]
                       },
-                      10
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
+                      }
                     ]
                   },
-                  {
-                    "var": "caster.hp"
-                  },
-                  {
-                    "var": "caster.qi"
-                  }
+                  0.636364
                 ]
               }
             }
@@ -6405,10 +7119,11 @@
           "range": 6,
           "targeting": {
             "shape": "box",
+            "range": 6,
             "width": 3,
             "height": 3,
-            "targetMode": "tile",
-            "maxTargets": 8
+            "maxTargets": 8,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -6417,7 +7132,7 @@
               "durationTicks": 60,
               "excludeAnchor": true,
               "hpFormula": {
-                "op": "add",
+                "op": "mul",
                 "args": [
                   {
                     "op": "mul",
@@ -6426,22 +7141,36 @@
                         "op": "add",
                         "args": [
                           {
-                            "var": "caster.stat.physAtk"
+                            "var": "caster.stat.physAtk",
+                            "scale": 10
                           },
                           {
-                            "var": "caster.stat.spellAtk"
+                            "var": "caster.stat.spellAtk",
+                            "scale": 10
+                          },
+                          {
+                            "var": "caster.hp",
+                            "scale": 1
+                          },
+                          {
+                            "var": "caster.qi",
+                            "scale": 1
                           }
                         ]
                       },
-                      10
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
+                      }
                     ]
                   },
-                  {
-                    "var": "caster.hp"
-                  },
-                  {
-                    "var": "caster.qi"
-                  }
+                  0.636364
                 ]
               }
             }
@@ -6460,10 +7189,11 @@
           "range": 6,
           "targeting": {
             "shape": "box",
+            "range": 6,
             "width": 3,
             "height": 1,
-            "targetMode": "tile",
-            "maxTargets": 3
+            "maxTargets": 3,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -6471,7 +7201,7 @@
               "tileType": "stone",
               "durationTicks": 60,
               "hpFormula": {
-                "op": "add",
+                "op": "mul",
                 "args": [
                   {
                     "op": "mul",
@@ -6480,22 +7210,36 @@
                         "op": "add",
                         "args": [
                           {
-                            "var": "caster.stat.physAtk"
+                            "var": "caster.stat.physAtk",
+                            "scale": 10
                           },
                           {
-                            "var": "caster.stat.spellAtk"
+                            "var": "caster.stat.spellAtk",
+                            "scale": 10
+                          },
+                          {
+                            "var": "caster.hp",
+                            "scale": 1
+                          },
+                          {
+                            "var": "caster.qi",
+                            "scale": 1
                           }
                         ]
                       },
-                      10
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
+                      }
                     ]
                   },
-                  {
-                    "var": "caster.hp"
-                  },
-                  {
-                    "var": "caster.qi"
-                  }
+                  0.636364
                 ]
               }
             }
@@ -6524,6 +7268,10 @@
           "cost": 6,
           "costMultiplier": 3,
           "range": 3,
+          "targeting": {
+            "shape": "single",
+            "range": 3
+          },
           "effects": [
             {
               "type": "damage",
@@ -6533,19 +7281,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.1
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.1
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.354839
                 ]
               }
             },
@@ -6579,6 +7333,8 @@
           "range": 4,
           "targeting": {
             "shape": "line",
+            "range": 4,
+            "width": 1,
             "maxTargets": 4
           },
           "effects": [
@@ -6590,23 +7346,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.4
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.4
                       },
                       {
-                        "var": "caster.buff.buff.monster_skyline.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_skyline.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.314286
                 ]
               }
             },
@@ -6638,6 +7400,10 @@
           "cost": 6,
           "costMultiplier": 3,
           "range": 3,
+          "targeting": {
+            "shape": "single",
+            "range": 3
+          },
           "effects": [
             {
               "type": "damage",
@@ -6647,23 +7413,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.9
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.9
                       },
                       {
-                        "var": "caster.buff.buff.monster_skyline.stacks",
-                        "scale": 0.1
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "caster.buff.buff.monster_skyline.stacks",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.275
                 ]
               }
             },
@@ -6710,6 +7482,8 @@
           "range": 4,
           "targeting": {
             "shape": "line",
+            "range": 4,
+            "width": 1,
             "maxTargets": 4
           },
           "effects": [
@@ -6787,9 +7561,11 @@
           "range": 5,
           "targeting": {
             "shape": "box",
-            "maxTargets": 9,
+            "range": 5,
             "width": 3,
-            "height": 3
+            "height": 3,
+            "maxTargets": 9,
+            "targetMode": "tile"
           },
           "effects": [
             {
@@ -6800,25 +7576,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      300,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4
+                        "op": "add",
+                        "args": [
+                          300,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 4
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
-                  }
+                  1.003618
                 ]
               }
             },
@@ -6897,9 +7679,11 @@
           "range": 0,
           "targeting": {
             "shape": "box",
-            "maxTargets": 25,
+            "range": 0,
             "width": 5,
-            "height": 5
+            "height": 5,
+            "maxTargets": 25,
+            "requiresTarget": false
           },
           "effects": [
             {
@@ -6909,25 +7693,31 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      20,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 2
+                        "op": "add",
+                        "args": [
+                          20,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 2
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.05
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.05
-                      }
-                    ]
-                  }
+                  1.047727
                 ]
               }
             },
@@ -7025,9 +7815,11 @@
           "range": 0,
           "targeting": {
             "shape": "box",
-            "maxTargets": 25,
+            "range": 0,
             "width": 5,
-            "height": 5
+            "height": 5,
+            "maxTargets": 25,
+            "requiresTarget": false
           },
           "effects": [
             {
@@ -7038,29 +7830,35 @@
                 "op": "mul",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      400,
                       {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 4.5
+                        "op": "add",
+                        "args": [
+                          400,
+                          {
+                            "var": "caster.stat.spellAtk",
+                            "scale": 4.5
+                          }
+                        ]
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.2
+                          },
+                          {
+                            "var": "target.buff.buff.fire_burn_mark.stacks",
+                            "scale": 0.01
+                          }
+                        ]
                       }
                     ]
                   },
-                  {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.2
-                      },
-                      {
-                        "var": "target.buff.buff.fire_burn_mark.stacks",
-                        "scale": 0.01
-                      }
-                    ]
-                  }
+                  1.000493
                 ]
               }
             },
@@ -7107,6 +7905,10 @@
           "cost": 6,
           "costMultiplier": 3,
           "range": 3,
+          "targeting": {
+            "shape": "single",
+            "range": 3
+          },
           "effects": [
             {
               "type": "damage",
@@ -7116,19 +7918,25 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.2
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.2
+                      },
+                      {
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.34375
                 ]
               }
             },
@@ -7162,6 +7970,8 @@
           "range": 3,
           "targeting": {
             "shape": "line",
+            "range": 3,
+            "width": 1,
             "maxTargets": 3
           },
           "effects": [
@@ -7173,23 +7983,29 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.6
-                  },
-                  {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
-                      1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.6
                       },
                       {
-                        "var": "target.buff.buff.monster_bamboo_bind.stacks",
-                        "scale": 0.05
+                        "op": "add",
+                        "args": [
+                          1,
+                          {
+                            "var": "techLevel",
+                            "scale": 0.1
+                          },
+                          {
+                            "var": "target.buff.buff.monster_bamboo_bind.stacks",
+                            "scale": 0.05
+                          }
+                        ]
                       }
                     ]
-                  }
+                  },
+                  1.30137
                 ]
               }
             },
