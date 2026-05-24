@@ -67,6 +67,7 @@ interface InstanceDomainDeltaPayload {
   domain: string;
   upserts: unknown[];
   deletes: unknown[];
+  revision?: number;
   watermarkPayload?: unknown;
 }
 
@@ -296,9 +297,10 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   private buildInstanceTaskPayload(instanceId: string, domain: string): InstanceDomainDeltaPayload | InstanceDomainStatePayload | null {
+    const runtime = this.worldRuntimeService.getInstanceRuntime?.(instanceId);
     if (INSTANCE_PAYLOAD_BATCH_DOMAINS.has(domain) && typeof this.worldRuntimeService.buildDomainDeltaBatch === 'function') {
       const [delta] = this.worldRuntimeService.buildDomainDeltaBatch(domain, [instanceId]);
-      if (!delta || delta.instanceId !== instanceId) {
+      if (!delta || delta.instanceId !== instanceId || !runtime) {
         return null;
       }
       return {
@@ -306,46 +308,47 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         domain,
         upserts: delta.upserts ?? [],
         deletes: delta.deletes ?? [],
+        revision: resolveRevision(runtime.getPersistenceRevision?.()),
         watermarkPayload: delta.watermarkPayload,
       };
     }
     if (!INSTANCE_PAYLOAD_STATE_DOMAINS.has(domain)) {
       return null;
     }
-    const runtime = this.worldRuntimeService.getInstanceRuntime?.(instanceId);
     if (!runtime) {
       return null;
     }
+    const revision = resolveRevision(runtime.getPersistenceRevision?.());
     if (domain === 'ground_item') {
       const delta = runtime.buildGroundPersistenceDelta?.();
       return delta && delta.fullReplace !== true
         ? {
             kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND,
             domain,
-            revision: resolveRevision(runtime.getPersistenceRevision?.()),
+            revision,
             payload: { tileIndices: delta.tileIndices ?? [], entries: delta.entries ?? [] },
           }
         : null;
     }
     if (domain === 'overlay') {
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: runtime.buildOverlayPersistenceChunks?.() ?? [] };
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: runtime.buildOverlayPersistenceChunks?.() ?? [] };
     }
     if (domain === 'monster_runtime') {
       const delta = runtime.buildMonsterRuntimePersistenceDelta?.();
       if (!delta) return null;
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: delta.fullReplace === true
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: delta.fullReplace === true
         ? { fullReplace: true, entries: runtime.buildMonsterRuntimePersistenceEntries?.() ?? [] }
         : { fullReplace: false, upserts: delta.upserts ?? [], deletes: delta.deletes ?? [] } };
     }
     if (domain === 'container_state') {
       const states = this.worldRuntimeService.worldRuntimeLootContainerService?.buildContainerPersistenceStates?.(instanceId) ?? [];
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: states };
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: states };
     }
     if (domain === 'time') {
-      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: buildTimeCheckpointSnapshot(runtime) };
+      return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: buildTimeCheckpointSnapshot(runtime) };
     }
     const state = runtime.buildBuildingRoomFengShuiPersistenceState?.();
-    return state ? { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: state } : null;
+    return state ? { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, revision, payload: state } : null;
   }
 
   private async collectInstanceTasks(): Promise<void> {
@@ -374,12 +377,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processPlayerTasks(tasks: FlushTask[]): Promise<number> {
-    let processed = 0;
     const groups = Array.from(groupTasksById(tasks).values());
+    const results = new Array(groups.length).fill(0);
+    const indexedGroups = groups.map((group, index) => ({ group, index }));
     await runConcurrent(
-      groups,
+      indexedGroups,
       PLAYER_PARALLELISM,
-      async (group) => {
+      async ({ group, index }) => {
         if (this.isGlobalBackoffActive()) {
           return;
         }
@@ -387,13 +391,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         if (!playerId) {
           return;
         }
-        const domains = Array.from(new Set(group.map((task) => task.domain)));
+        const domains: string[] = Array.from(new Set(group.map((task) => task.domain)));
         const attemptKey = playerGroupKey(group);
         try {
           const payloadProcessed = await this.processPlayerPayloadTaskGroup(playerId, group);
           if (payloadProcessed !== null) {
-            processed += payloadProcessed;
             this.failureAttempts.delete(attemptKey);
+            results[index] = payloadProcessed;
             return;
           }
           if (!shouldStartAuthoritativeRuntime()) {
@@ -402,7 +406,7 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
               this.logger.warn(`玩家刷盘放弃 stale payload：playerId=${playerId} domains=${domains.join(',')} attempt=${attempt}，等待玩家上线重新 stage`);
               await this.flushLedgerService.markFlushTasksFlushed(group);
               this.failureAttempts.delete(attemptKey);
-              processed += group.length;
+              results[index] = group.length;
             } else {
               await this.flushLedgerService.markFlushTasksRetry(group, RETRY_DELAY_MS);
             }
@@ -415,13 +419,13 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
           }
           await this.flushLedgerService.markFlushTasksFlushed(group);
           this.failureAttempts.delete(attemptKey);
-          processed += group.length;
+          results[index] = group.length;
         } catch (error) {
-          processed += await this.retryPlayerTasksIndividually(group, error);
+          results[index] = await this.retryPlayerTasksIndividually(group, error);
         }
       },
     );
-    return processed;
+    return sumProcessedCounts(results);
   }
 
   private async processPlayerPayloadTaskGroup(playerId: string, group: FlushTask[]): Promise<number | null> {
@@ -501,15 +505,18 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
 
   private async processInstanceTasks(tasks: FlushTask[]): Promise<number> {
     const remaining = new Map(tasks.map((task) => [instanceTaskKey(task), task]));
-    let processed = await this.processBatchableInstanceTasks(tasks, remaining);
+    const batchProcessed = await this.processBatchableInstanceTasks(tasks, remaining);
+    const groups = Array.from(groupInstanceTasksByRuntime(remaining.values()).values());
+    const results = new Array(groups.length).fill(0);
+    const indexedGroups = groups.map((group, index) => ({ group, index }));
     await runConcurrent(
-      Array.from(groupInstanceTasksByRuntime(remaining.values()).values()),
+      indexedGroups,
       INSTANCE_PARALLELISM,
-      async (group) => {
-        processed += await this.processInstanceTaskGroup(group);
+      async ({ group, index }) => {
+        results[index] = await this.processInstanceTaskGroup(group);
       },
     );
-    return processed;
+    return batchProcessed + sumProcessedCounts(results);
   }
 
   private async retryPlayerTasksIndividually(tasks: FlushTask[], groupError: unknown): Promise<number> {
@@ -564,6 +571,14 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     let processed = 0;
     for (const { task, payload } of payloadRows as Array<{ task: FlushTask; payload: InstanceDomainStatePayload }>) {
       if (!payload) continue;
+      if (!isPayloadRevisionCurrent(payload, task.latestRevision)) {
+        this.logger.warn(`实例刷盘放弃 stale state payload：instanceId=${task.id} domain=${task.domain} latestRevision=${task.latestRevision} payloadRevision=${payload.revision ?? 'missing'}`);
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+          processed += 1;
+        }
+        this.failureAttempts.delete(instanceTaskKey(task));
+        continue;
+      }
       try {
         await this.applyInstanceDomainStatePayload(task, payload);
         if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
@@ -571,14 +586,6 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
         }
         this.failureAttempts.delete(instanceTaskKey(task));
       } catch (error) {
-        if (isStaleGroundItemStatePayloadError(error)) {
-          this.logger.warn(`实例地面物品刷盘放弃 stale payload：instanceId=${task.id} latestRevision=${task.latestRevision}`);
-          if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
-            processed += 1;
-          }
-          this.failureAttempts.delete(instanceTaskKey(task));
-          continue;
-        }
         await this.markTaskRetryWithDiagnostics(task, error);
       }
     }
@@ -641,9 +648,6 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
     switch (payload.domain) {
       case 'ground_item': {
-        if (!isPayloadRevisionCurrent(payload, task.latestRevision)) {
-          throw new Error(`stale_ground_item_state_payload:${task.id}:${task.latestRevision}:${payload.revision ?? 'missing'}`);
-        }
         const data = payload.payload as { tileIndices?: unknown[]; entries?: unknown[] } | null;
         await persistence.replaceGroundItemTiles?.(instanceId, data?.tileIndices ?? [], data?.entries ?? []);
         return;
@@ -838,25 +842,41 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (validRows.length === 0) {
       return 0;
     }
+    const currentRows = [];
+    let processed = 0;
+    for (const row of validRows) {
+      if (!isPayloadRevisionCurrent(row.payload, row.task.latestRevision)) {
+        this.logger.warn(`实例刷盘放弃 stale delta payload：instanceId=${row.task.id} domain=${row.task.domain} latestRevision=${row.task.latestRevision} payloadRevision=${row.payload.revision ?? 'missing'}`);
+        if (await this.flushLedgerService.markFlushTaskFlushed(row.task)) {
+          remaining.delete(instanceTaskKey(row.task));
+          processed += 1;
+        }
+        this.failureAttempts.delete(instanceTaskKey(row.task));
+        continue;
+      }
+      currentRows.push(row);
+    }
+    if (currentRows.length === 0) {
+      return processed;
+    }
     if (domain === 'tile_damage') {
-      await persistence?.saveTileDamageDeltaBatch?.(validRows.map((row) => ({
+      await persistence?.saveTileDamageDeltaBatch?.(currentRows.map((row) => ({
         instanceId: row.task.id,
         upserts: row.payload.upserts,
         deletes: row.payload.deletes,
       })));
     } else if (domain === 'tile_resource') {
-      await persistence?.saveTileResourceDeltaBatch?.(validRows.map((row) => ({
+      await persistence?.saveTileResourceDeltaBatch?.(currentRows.map((row) => ({
         instanceId: row.task.id,
         upserts: row.payload.upserts,
         deletes: row.payload.deletes,
       })));
     }
-    const watermarks = validRows
+    const watermarks = currentRows
       .filter((row) => row.payload.watermarkPayload)
       .map((row) => ({ instanceId: row.task.id, payload: row.payload.watermarkPayload }));
     if (watermarks.length > 0) await persistence?.saveInstanceRecoveryWatermarkBatch?.(watermarks);
-    let processed = 0;
-    for (const { task } of validRows) {
+    for (const { task } of currentRows) {
       if (await this.flushLedgerService.markFlushTaskFlushed(task)) processed += 1;
       this.failureAttempts.delete(instanceTaskKey(task));
       remaining.delete(instanceTaskKey(task));
@@ -944,7 +964,7 @@ function normalizeInstanceDomainStatePayload(value: unknown): InstanceDomainStat
   };
 }
 
-function isPayloadRevisionCurrent(payload: InstanceDomainStatePayload, latestRevision: unknown): boolean {
+function isPayloadRevisionCurrent(payload: { revision?: number }, latestRevision: unknown): boolean {
   const payloadRevision = payload.revision;
   const taskRevision = normalizeOptionalRevision(latestRevision);
   return payloadRevision !== undefined && taskRevision !== undefined && payloadRevision === taskRevision;
@@ -975,6 +995,7 @@ function normalizeInstanceDomainDeltaPayload(value: unknown): InstanceDomainDelt
     domain: record.domain,
     upserts: Array.isArray(record.upserts) ? record.upserts : [],
     deletes: Array.isArray(record.deletes) ? record.deletes : [],
+    revision: normalizeOptionalRevision(record.revision),
     watermarkPayload: record.watermarkPayload,
   };
 }
@@ -1092,6 +1113,13 @@ function normalizeDomains(domains: Iterable<string> | null | undefined): Set<str
   const normalized = new Set<string>();
   for (const domain of domains ?? []) if (typeof domain === 'string' && domain.trim()) normalized.add(domain.trim());
   return normalized;
+}
+
+function sumProcessedCounts(values: unknown): number {
+  if (!Array.isArray(values)) {
+    return 0;
+  }
+  return values.reduce((sum, value) => sum + (Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : 0), 0);
 }
 
 function normalizeString(value: unknown): string {
