@@ -47,7 +47,9 @@ export function assignItemInstanceIdIfNeeded(item: ItemStack | null | undefined)
     if (typeof current === 'string' && current.length > 0 && !isLegacyItemInstanceId(current)) {
         return changed;
     }
-    logger.warn(`物品水合期 legacy itemInstanceId 升级：old=${typeof current === 'string' ? current : '(empty)'} itemId=${(item as { itemId?: string }).itemId ?? 'unknown'}`);
+    if (typeof current === 'string' && isLegacyItemInstanceId(current)) {
+        logger.warn(`物品水合期 legacy itemInstanceId 升级：old=${current} itemId=${(item as { itemId?: string }).itemId ?? 'unknown'}`);
+    }
     (item as { itemInstanceId?: string }).itemInstanceId = randomUUID();
     return true;
 }
