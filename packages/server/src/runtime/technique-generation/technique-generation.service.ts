@@ -17,12 +17,14 @@ import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplat
 import {
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
   calcTechniqueAttrValues,
+  expandTechniqueArtsStrengthSkill,
   expandTechniqueAttrRatio,
+  normalizeTechniqueArtsStrengthTemplate,
   normalizeTechniqueAttrRatio,
   shouldExpandTechniqueAttrRatio,
 } from '@mud/shared';
 
-import { executeAiTask, type AiTaskRequest } from '../../ai/ai-task-execution.service';
+import { executeAiTask, type AiTaskRequest, type AiTaskResult } from '../../ai/ai-task-execution.service';
 import { sanitizePlayerContext } from '../../ai/ai-prompt-sanitizer';
 import type { AiTextModelConfig } from '../../ai/ai-model-config';
 
@@ -41,7 +43,7 @@ import {
 import { GeneratedTechniqueStoreService } from './generated-technique-store.service';
 import { validateTechniqueCandidate } from './technique-candidate-validator';
 import { buildTechniquePrompt, buildRetryPrompt } from './technique-prompt-builder';
-import { normalizeArtsSkills } from './technique-budget-normalizer';
+import { calcArtsBudgetMax } from './technique-budget-normalizer';
 import {
   normalizeTechniqueGenerationItemSpend,
   rollBoostedTechniqueOutcome,
@@ -168,7 +170,7 @@ export class TechniqueGenerationService {
     }
 
     const maxLayer = TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
-    const prompt = buildTechniquePrompt({
+    const basePrompt = buildTechniquePrompt({
       category: params.category as TechniqueCategory,
       grade: params.grade as any,
       realmLv: params.realmLv,
@@ -176,63 +178,81 @@ export class TechniqueGenerationService {
       playerContext: params.playerContext,
     });
 
-    // AI 调用
-    const taskRequest: AiTaskRequest = {
-      taskType: 'technique_generation',
-      modelConfig,
-      systemMessage: prompt.systemMessage,
-      userMessage: prompt.userMessage,
-      responseFormat: 'json_object',
-      temperature: 0.9,
-      timeoutMs: 60_000,
-      maxAttempts: 2,
-    };
+    let candidate: Record<string, unknown> | null = null;
+    let successfulAiResult: AiTaskResult | null = null;
+    let lastFailureReason = '';
+    let lastFailureCode: 'AI_FAILED' | 'PARSE_FAILED' | 'VALIDATION_FAILED' = 'VALIDATION_FAILED';
+    const maxAttempts = 3;
 
-    const aiResult = await executeAiTask(taskRequest);
-    if (!aiResult.success) {
-      await updateGenerationJobStatus(pool, jobId, 'failed', 'AI_FAILED', aiResult.error);
-      return { success: false, error: aiResult.error };
-    }
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const prompt = lastFailureReason ? buildRetryPrompt(basePrompt, lastFailureReason) : basePrompt;
+      const taskRequest: AiTaskRequest = {
+        taskType: 'technique_generation',
+        modelConfig,
+        systemMessage: prompt.systemMessage,
+        userMessage: prompt.userMessage,
+        responseFormat: 'json_object',
+        temperature: lastFailureReason ? 0.7 : 0.9,
+        timeoutMs: 60_000,
+        maxAttempts: 1,
+      };
 
-    // 解析 JSON
-    let candidate: Record<string, unknown>;
-    try {
-      candidate = JSON.parse(aiResult.content);
-    } catch {
-      // 重试一次
-      const retryPrompt = buildRetryPrompt(prompt, 'JSON 解析失败，请输出合法 JSON');
-      const retryResult = await executeAiTask({ ...taskRequest, userMessage: retryPrompt.userMessage });
-      if (!retryResult.success) {
-        await updateGenerationJobStatus(pool, jobId, 'failed', 'PARSE_FAILED', '生成内容无法解析');
-        return { success: false, error: '生成内容无法解析' };
+      const aiResult = await executeAiTask(taskRequest);
+      if (!aiResult.success) {
+        lastFailureReason = aiResult.error || 'AI 调用失败';
+        lastFailureCode = 'AI_FAILED';
+        continue;
       }
+
+      let parsed: Record<string, unknown>;
       try {
-        candidate = JSON.parse(retryResult.content);
+        parsed = JSON.parse(aiResult.content) as Record<string, unknown>;
       } catch {
-        await updateGenerationJobStatus(pool, jobId, 'failed', 'PARSE_FAILED', '重试后仍无法解析');
-        return { success: false, error: '重试后仍无法解析' };
+        lastFailureReason = 'JSON 解析失败，请只输出单个合法 JSON 对象，不要包含代码块标记或解释文本';
+        lastFailureCode = 'PARSE_FAILED';
+        continue;
       }
+
+      const validation = validateTechniqueCandidate(parsed, params.category as TechniqueCategory);
+      if (!validation.valid) {
+        lastFailureReason = validation.errors.map((e) => `${e.field}: ${e.message}`).join('; ');
+        lastFailureCode = 'VALIDATION_FAILED';
+        continue;
+      }
+
+      candidate = parsed;
+      successfulAiResult = { ...aiResult, attemptCount: attempt };
+      break;
     }
 
-    // 校验
-    const validation = validateTechniqueCandidate(candidate, params.category as TechniqueCategory);
-    if (!validation.valid) {
-      const reason = validation.errors.map((e) => `${e.field}: ${e.message}`).join('; ');
-      await updateGenerationJobStatus(pool, jobId, 'failed', 'VALIDATION_FAILED', reason);
+    if (!candidate || !successfulAiResult) {
+      const reason = lastFailureReason || '生成内容未通过校验';
+      await updateGenerationJobStatus(pool, jobId, 'failed', lastFailureCode, reason);
       return { success: false, error: reason };
     }
 
     // 补全字段
     const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
-    // 术法归一化：把 AI 草稿技能收敛成正式 SkillDef 形态，避免恢复时被模板注册表过滤。
-    if (params.category === 'arts' && Array.isArray(candidate.skills)) {
-      candidate.skills = normalizeArtsSkills({
-        skills: normalizeGeneratedArtsSkillTemplates(candidate.skills as Array<Record<string, unknown>>, techniqueId),
-        grade: params.grade as any,
-        realmLv: params.realmLv,
-        maxLayer,
-      });
+    // 术法归一化：把 AI 强度草稿展开成正式 SkillDef，避免恢复时被模板注册表过滤。
+    if (params.category === 'arts') {
+      const normalizedArts = normalizeTechniqueArtsStrengthTemplate(candidate);
+      if (!normalizedArts.ok || !normalizedArts.template) {
+        const reason = normalizedArts.errors.join('; ') || '术法强度草稿无法归一化';
+        await updateGenerationJobStatus(pool, jobId, 'failed', 'VALIDATION_FAILED', reason);
+        return { success: false, error: reason };
+      }
+      const targetBudget = calcArtsBudgetMax(params.grade as any, params.realmLv);
+      candidate.skills = normalizedArts.template.skills.map((skill, index) => (
+        expandTechniqueArtsStrengthSkill({
+          techniqueId,
+          grade: params.grade as any,
+          realmLv: params.realmLv,
+          skillIndex: index,
+          skill,
+          targetBudget,
+        }).skill
+      ));
     }
 
     const template: TechniqueTemplate = {
@@ -258,8 +278,8 @@ export class TechniqueGenerationService {
       template,
       schemaVersion: TECHNIQUE_GENERATION_SCHEMA_VERSION,
       createdByPlayerId: params.playerId,
-      modelName: aiResult.modelName,
-      promptSnapshot: aiResult.requestSnapshot,
+      modelName: successfulAiResult.modelName,
+      promptSnapshot: successfulAiResult.requestSnapshot,
       validationReport: { valid: true, errors: [] },
       grade: params.grade,
       category: params.category,
@@ -269,8 +289,8 @@ export class TechniqueGenerationService {
     await updateGenerationJobToDraft(pool, {
       id: jobId,
       draftTechniqueId: techniqueId,
-      modelName: aiResult.modelName,
-      attemptCount: aiResult.attemptCount,
+      modelName: successfulAiResult.modelName,
+      attemptCount: successfulAiResult.attemptCount,
       draftExpireHours: TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
     });
 
@@ -452,112 +472,4 @@ function normalizePositiveAttrs(attrs: Partial<Attributes>): Partial<Attributes>
     }
   }
   return Object.keys(result).length > 0 ? result : {};
-}
-
-function normalizeGeneratedArtsSkillTemplates(
-  skills: Array<Record<string, unknown>>,
-  techniqueId: string,
-): Array<Record<string, unknown>> {
-  return skills.map((skill, index) => normalizeGeneratedArtsSkillTemplate(skill, techniqueId, index));
-}
-
-function normalizeGeneratedArtsSkillTemplate(
-  skill: Record<string, unknown>,
-  techniqueId: string,
-  index: number,
-): Record<string, unknown> {
-  const name = typeof skill.name === 'string' && skill.name.trim()
-    ? skill.name.trim()
-    : `术法${index + 1}`;
-  const fallbackId = `${techniqueId}_skill_${index + 1}`;
-  const id = typeof skill.id === 'string' && skill.id.trim()
-    ? normalizeGeneratedSkillId(skill.id, fallbackId)
-    : fallbackId;
-  const costMultiplier = Number.isFinite(Number(skill.costMultiplier))
-    ? Math.max(0, Number(skill.costMultiplier))
-    : Number.isFinite(Number(skill.cost))
-      ? Math.max(0, Number(skill.cost))
-      : 1;
-  const range = Number.isFinite(Number(skill.range))
-    ? Math.max(1, Math.trunc(Number(skill.range)))
-    : Math.max(1, Math.trunc(Number((skill.targeting as Record<string, unknown> | undefined)?.range ?? 1)));
-  const cooldown = Number.isFinite(Number(skill.cooldown)) ? Math.max(0, Math.trunc(Number(skill.cooldown))) : 0;
-  return {
-    ...skill,
-    id,
-    name,
-    desc: typeof skill.desc === 'string' ? skill.desc : '',
-    cooldown,
-    costMultiplier,
-    range,
-    targeting: normalizeGeneratedSkillTargeting(skill.targeting, range),
-    effects: normalizeGeneratedSkillEffects(skill.effects, id, name),
-    unlockLevel: Number.isFinite(Number(skill.unlockLevel))
-      ? Math.max(1, Math.trunc(Number(skill.unlockLevel)))
-      : 1,
-  };
-}
-
-function normalizeGeneratedSkillId(raw: string, fallback: string): string {
-  const normalized = raw.trim().replace(/[^A-Za-z0-9:_-]+/g, '_').replace(/^_+|_+$/g, '');
-  return normalized || fallback;
-}
-
-function normalizeGeneratedSkillTargeting(raw: unknown, fallbackRange: number): Record<string, unknown> {
-  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
-  const shape = source.shape === 'line' || source.shape === 'area' || source.shape === 'single'
-    ? source.shape
-    : 'single';
-  const range = Number.isFinite(Number(source.range))
-    ? Math.max(1, Math.trunc(Number(source.range)))
-    : fallbackRange;
-  return { ...source, shape, range };
-}
-
-function normalizeGeneratedSkillEffects(raw: unknown, skillId: string, skillName: string): Array<Record<string, unknown>> {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw
-    .filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))
-    .map((entry, index) => normalizeGeneratedSkillEffect(entry as Record<string, unknown>, skillId, skillName, index));
-}
-
-function normalizeGeneratedSkillEffect(
-  effect: Record<string, unknown>,
-  skillId: string,
-  skillName: string,
-  index: number,
-): Record<string, unknown> {
-  if (effect.type === 'damage' || effect.type === 'heal') {
-    return {
-      ...effect,
-      target: effect.type === 'heal' ? normalizeGeneratedEffectTarget(effect.target, 'self') : effect.target,
-      formula: normalizeGeneratedSkillFormula(effect.formula ?? effect.value),
-    };
-  }
-  if (effect.type === 'buff') {
-    return {
-      ...effect,
-      target: normalizeGeneratedEffectTarget(effect.target, 'self'),
-      buffId: typeof effect.buffId === 'string' && effect.buffId.trim()
-        ? normalizeGeneratedSkillId(effect.buffId, `${skillId}_buff_${index + 1}`)
-        : `${skillId}_buff_${index + 1}`,
-      name: typeof effect.name === 'string' && effect.name.trim() ? effect.name.trim() : skillName,
-      duration: Number.isFinite(Number(effect.duration)) ? Math.max(1, Math.trunc(Number(effect.duration))) : 3,
-    };
-  }
-  return { ...effect };
-}
-
-function normalizeGeneratedEffectTarget(raw: unknown, fallback: 'self' | 'target' | 'allies'): 'self' | 'target' | 'allies' {
-  return raw === 'self' || raw === 'target' || raw === 'allies' ? raw : fallback;
-}
-
-function normalizeGeneratedSkillFormula(raw: unknown): unknown {
-  if (raw && typeof raw === 'object') {
-    return raw;
-  }
-  const value = Number(raw);
-  return Number.isFinite(value) ? Math.max(0, value) : 1;
 }

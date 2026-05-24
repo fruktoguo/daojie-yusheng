@@ -472,6 +472,46 @@ async function testInternalCandidateRejectsUnknownAttrRatioKeys(): Promise<void>
   assert.ok(result.errors.some((entry) => entry.field === 'attrRatio'));
 }
 
+async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
+  const result = validateTechniqueCandidate({
+    name: '裂风剑诀',
+    grade: 'mystic',
+    category: 'arts',
+    realmLv: 31,
+    maxLayer: 9,
+    skills: [{
+      name: '裂风斩',
+      desc: '凝风成刃，直斩前方敌人。',
+      unlockLevel: 1,
+      damageKind: 'spell',
+      element: 'wood',
+      target: { type: 'line', range: 3, width: 1, targetMode: 'tile' },
+      structureStrength: { cost: 0, cooldown: 1, chant: 0 },
+      formulaStrength: {
+        attributeBases: { spellAtk: 4, resolvePower: 1 },
+        percentBonuses: { moveSpeed: 0 },
+      },
+    }],
+  }, 'arts');
+  assert.equal(result.valid, true);
+}
+
+async function testArtsCandidateRejectsLegacyEffectsShape(): Promise<void> {
+  const result = validateTechniqueCandidate({
+    name: '旧术法',
+    grade: 'mystic',
+    category: 'arts',
+    realmLv: 31,
+    maxLayer: 9,
+    skills: [{
+      name: '旧式技能',
+      effects: [{ type: 'buff', buffId: 'buff.fake', value: 1 }],
+    }],
+  }, 'arts');
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((entry) => entry.field.includes('effects')));
+}
+
 async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
   await testInitializedServicePersistsJob();
@@ -487,6 +527,8 @@ async function main(): Promise<void> {
   await testGeneratedTechniqueBootstrapProjectionKeepsTemplateFields();
   await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
+  await testArtsCandidateAcceptsStrengthShape();
+  await testArtsCandidateRejectsLegacyEffectsShape();
   console.log('technique-generation-initialization-smoke ok');
 }
 

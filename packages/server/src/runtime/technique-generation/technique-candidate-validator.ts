@@ -13,7 +13,12 @@
  */
 
 import type { TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { TECHNIQUE_GRADE_ORDER, normalizeTechniqueAttrRatio } from '@mud/shared';
+import {
+  TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
+  TECHNIQUE_GRADE_ORDER,
+  normalizeTechniqueArtsStrengthTemplate,
+  normalizeTechniqueAttrRatio,
+} from '@mud/shared';
 
 export interface ValidationError {
   layer: 1 | 2 | 3;
@@ -27,6 +32,41 @@ export interface ValidationResult {
 }
 
 const ALLOWED_CATEGORIES: TechniqueCategory[] = ['internal', 'arts'];
+const ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS = new Set<string>(
+  TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
+);
+const ARTS_STRENGTH_TARGET_TYPES = new Set<string>(['single', 'line', 'box', 'area']);
+const ARTS_STRENGTH_TARGET_MODES = new Set<string>(['any', 'entity', 'tile']);
+const ARTS_STRENGTH_SKILL_FORBIDDEN_FIELDS = [
+  'id',
+  'cost',
+  'costMultiplier',
+  'cooldown',
+  'range',
+  'targeting',
+  'effects',
+  'value',
+  'formula',
+  'buff',
+  'buffId',
+  'heal',
+  'maxTargets',
+  'totalBudget',
+  'inputBudget',
+  'targetBudget',
+  'damageValue',
+  'baseDamage',
+] as const;
+const ARTS_STRENGTH_STRUCTURE_KEYS = new Set<string>(['cost', 'cooldown', 'chant']);
+const ARTS_STRENGTH_PERCENT_BONUS_KEYS = new Set<string>(['techLevel', 'moveSpeed']);
+const ARTS_STRENGTH_TARGET_KEYS = new Set<string>([
+  'type',
+  'range',
+  'width',
+  'height',
+  'radius',
+  'targetMode',
+]);
 
 /** 完整校验链 */
 export function validateTechniqueCandidate(
@@ -139,6 +179,10 @@ function validateSemantics(candidate: Record<string, unknown>, expectedCategory:
     }
   }
 
+  if (expectedCategory === 'arts') {
+    errors.push(...validateArtsStrengthSemantics(candidate));
+  }
+
   return errors;
 }
 
@@ -159,18 +203,116 @@ function validateNumerics(candidate: Record<string, unknown>, expectedCategory: 
   }
 
   if (expectedCategory === 'arts') {
-    const skills = candidate.skills as unknown[];
-    if (Array.isArray(skills)) {
-      const hasEffect = skills.some((skill) => {
-        if (!skill || typeof skill !== 'object') return false;
-        const s = skill as Record<string, unknown>;
-        return Array.isArray(s.effects) && s.effects.length > 0;
-      });
-      if (!hasEffect) {
-        errors.push({ layer: 3, field: 'skills', message: '至少一个技能必须有非空 effects' });
+    const normalized = normalizeTechniqueArtsStrengthTemplate(candidate);
+    if (!normalized.ok) {
+      for (const message of normalized.errors) {
+        errors.push({ layer: 3, field: 'skills', message });
       }
     }
   }
 
   return errors;
+}
+
+function validateArtsStrengthSemantics(candidate: Record<string, unknown>): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const skills = candidate.skills;
+  if (!Array.isArray(skills)) {
+    return errors;
+  }
+  if (skills.length !== 1) {
+    errors.push({ layer: 2, field: 'skills', message: 'AI 术法首版必须且只能生成 1 个技能' });
+  }
+
+  skills.forEach((rawSkill, skillIndex) => {
+    if (!rawSkill || typeof rawSkill !== 'object' || Array.isArray(rawSkill)) {
+      errors.push({ layer: 2, field: `skills[${skillIndex}]`, message: '技能必须是对象' });
+      return;
+    }
+    const skill = rawSkill as Record<string, unknown>;
+    for (const field of ARTS_STRENGTH_SKILL_FORBIDDEN_FIELDS) {
+      if (field in skill) {
+        errors.push({
+          layer: 2,
+          field: `skills[${skillIndex}].${field}`,
+          message: '术法强度草稿禁止输出旧版 SkillDef/Effect/预算字段',
+        });
+      }
+    }
+    validateArtsStrengthTarget(skill.target, skillIndex, errors);
+    validateArtsStrengthStructure(skill.structureStrength, skillIndex, errors);
+    validateArtsStrengthFormula(skill.formulaStrength, skillIndex, errors);
+  });
+  return errors;
+}
+
+function validateArtsStrengthTarget(raw: unknown, skillIndex: number, errors: ValidationError[]): void {
+  if (raw === undefined) return;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    errors.push({ layer: 2, field: `skills[${skillIndex}].target`, message: 'target 必须是对象' });
+    return;
+  }
+  const target = raw as Record<string, unknown>;
+  for (const key of Object.keys(target)) {
+    if (!ARTS_STRENGTH_TARGET_KEYS.has(key)) {
+      errors.push({ layer: 2, field: `skills[${skillIndex}].target.${key}`, message: 'target 包含未允许字段' });
+    }
+  }
+  if (target.type !== undefined && !ARTS_STRENGTH_TARGET_TYPES.has(String(target.type))) {
+    errors.push({ layer: 2, field: `skills[${skillIndex}].target.type`, message: 'target.type 不在允许范围' });
+  }
+  if (target.targetMode !== undefined && !ARTS_STRENGTH_TARGET_MODES.has(String(target.targetMode))) {
+    errors.push({ layer: 2, field: `skills[${skillIndex}].target.targetMode`, message: 'targetMode 不在允许范围' });
+  }
+}
+
+function validateArtsStrengthStructure(raw: unknown, skillIndex: number, errors: ValidationError[]): void {
+  if (raw === undefined) return;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    errors.push({ layer: 2, field: `skills[${skillIndex}].structureStrength`, message: 'structureStrength 必须是对象' });
+    return;
+  }
+  for (const key of Object.keys(raw as Record<string, unknown>)) {
+    if (!ARTS_STRENGTH_STRUCTURE_KEYS.has(key)) {
+      errors.push({ layer: 2, field: `skills[${skillIndex}].structureStrength.${key}`, message: 'structureStrength 只允许 cost/cooldown/chant' });
+    }
+  }
+}
+
+function validateArtsStrengthFormula(raw: unknown, skillIndex: number, errors: ValidationError[]): void {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    errors.push({ layer: 2, field: `skills[${skillIndex}].formulaStrength`, message: 'formulaStrength 必须是对象' });
+    return;
+  }
+  const formula = raw as Record<string, unknown>;
+  const bases = formula.attributeBases;
+  if (!bases || typeof bases !== 'object' || Array.isArray(bases)) {
+    errors.push({ layer: 2, field: `skills[${skillIndex}].formulaStrength.attributeBases`, message: 'attributeBases 必须是对象' });
+  } else {
+    for (const key of Object.keys(bases as Record<string, unknown>)) {
+      if (!ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS.has(key)) {
+        errors.push({
+          layer: 2,
+          field: `skills[${skillIndex}].formulaStrength.attributeBases.${key}`,
+          message: 'attributeBases key 不在允许的战斗属性白名单中',
+        });
+      }
+    }
+  }
+  const percentBonuses = formula.percentBonuses;
+  if (percentBonuses !== undefined) {
+    if (!percentBonuses || typeof percentBonuses !== 'object' || Array.isArray(percentBonuses)) {
+      errors.push({ layer: 2, field: `skills[${skillIndex}].formulaStrength.percentBonuses`, message: 'percentBonuses 必须是对象' });
+      return;
+    }
+    for (const key of Object.keys(percentBonuses as Record<string, unknown>)) {
+      if (!ARTS_STRENGTH_PERCENT_BONUS_KEYS.has(key)) {
+        errors.push({
+          layer: 2,
+          field: `skills[${skillIndex}].formulaStrength.percentBonuses.${key}`,
+          message: 'percentBonuses 只允许 techLevel/moveSpeed',
+        });
+      }
+    }
+  }
 }

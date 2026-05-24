@@ -12,6 +12,11 @@
  */
 
 import type { TechniqueCategory, TechniqueGrade } from '@mud/shared';
+import {
+  TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
+  TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
+  TECHNIQUE_ARTS_STRENGTH_CONSTANTS,
+} from '@mud/shared';
 
 export interface TechniquePromptParams {
   category: TechniqueCategory;
@@ -51,48 +56,27 @@ AttrKey 枚举：constitution / spirit / perception / talent / strength / meridi
 - 至少分配 2 个维度的权重
 - 功法名称和描述要有修仙风格，避免现代用语`;
 
-const ARTS_SYSTEM_PROMPT = `你是修仙游戏的功法设计师。根据玩家需求生成一个完整的术法功法 JSON。
-严格遵循下方约束，不要生成约束里不允许的字段。
+const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
+你只能填写强度导向的术法草稿，服务端会把强度草稿归一化并展开成正式 SkillDef。
+不要输出约束里没有列出的字段；不要输出真实伤害值、总预算、effects、buff、heal 或技能公式。`;
 
-输出格式：单个 JSON 对象，可被 JSON.parse 直接解析。
-
-必填字段：
-- name: string（中文，2~8字）
-- grade: string（品阶，必须等于指定值）
-- category: "arts"
-- realmLv: number（必须等于指定值）
-- skills: SkillDef[]（1~2个技能）
-- maxLayer: number（层数，3~49）
-- expDifficulty: number（经验难度，0.5~2.0，默认 1.0）
-
-可选字段：
-- desc: string（功法描述，20~60字）
-
-SkillDef 结构：
-- id: string（临时占位，后端会重写）
-- name: string（技能名，中文）
-- desc: string（技能描述）
-- cooldown: number（冷却息数，0~10）
-- cost: number（灵力消耗倍率）
-- range: number（射程，1~5）
-- targeting: { shape: "single" | "line" | "area", range: number }
-- effects: SkillEffect[]（效果列表）
-- unlockLevel: number（解锁层数，1~maxLayer）
-
-SkillEffect 类型：
-- { type: "damage", value: number, damageKind: "physical"|"spell" }
-- { type: "heal", value: number }
-- { type: "buff", buffId: string, duration: number, value: number }
-
-规则：
-- 技能效果的 value 只是权重，服务端会按预算归一化
-- 功法名称和描述要有修仙风格
-- 每个技能至少有 1 个 effect`;
+const ARTS_TARGET_TYPE_ENUM = ['single', 'line', 'box', 'area'] as const;
+const ARTS_DAMAGE_KIND_ENUM = ['physical', 'spell'] as const;
+const ARTS_ELEMENT_ENUM = ['metal', 'wood', 'water', 'fire', 'earth'] as const;
+const ARTS_TARGET_MODE_ENUM = ['any', 'entity', 'tile'] as const;
+const ARTS_STRUCTURE_STRENGTH_KEYS = ['cost', 'cooldown', 'chant'] as const;
+const ARTS_PERCENT_BONUS_KEYS = ['techLevel', 'moveSpeed'] as const;
 
 export function buildTechniquePrompt(params: TechniquePromptParams): TechniquePromptOutput {
   const { category, grade, realmLv, maxLayer, playerContext } = params;
 
   const systemMessage = category === 'internal' ? INTERNAL_SYSTEM_PROMPT : ARTS_SYSTEM_PROMPT;
+  if (category === 'arts') {
+    return {
+      systemMessage,
+      userMessage: JSON.stringify(buildArtsStrengthPromptInput(params), null, 2),
+    };
+  }
 
   const userParts: string[] = [
     `生成一个${gradeLabel(grade)}${categoryLabel(category)}功法。`,
@@ -118,9 +102,132 @@ export function buildRetryPrompt(
   original: TechniquePromptOutput,
   failureReason: string,
 ): TechniquePromptOutput {
+  const retryGuidance = {
+    previousFailureReason: failureReason,
+    instruction: '请优先修正上述失败原因，并重新输出完整 JSON；不要只输出局部字段。',
+  };
+  try {
+    const parsed = JSON.parse(original.userMessage) as Record<string, unknown>;
+    return {
+      systemMessage: original.systemMessage,
+      userMessage: JSON.stringify({ ...parsed, retryGuidance }, null, 2),
+    };
+  } catch {
+    // 内功 prompt 仍是自然语言，保留原有追加方式。
+  }
   return {
     systemMessage: original.systemMessage,
     userMessage: `${original.userMessage}\n\n【重要修正】上次生成失败，原因：${failureReason}\n请修正后重新输出完整 JSON。`,
+  };
+}
+
+function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<string, unknown> {
+  const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS;
+  return {
+    task: '生成一个 AI 术法功法强度草稿',
+    fixedInputs: {
+      grade: params.grade,
+      gradeLabel: gradeLabel(params.grade),
+      category: 'arts',
+      realmLv: params.realmLv,
+      maxLayer: params.maxLayer,
+      playerTheme: params.playerContext || undefined,
+    },
+    outputTopLevelSchema: {
+      name: 'string，中文，2到8字',
+      grade: `必须严格等于 ${params.grade}`,
+      category: '必须严格等于 arts',
+      realmLv: `必须严格等于 ${params.realmLv}`,
+      maxLayer: `必须严格等于 ${params.maxLayer}`,
+      expDifficulty: 'number，可选，0.5到2.0，默认1',
+      desc: 'string，可选，20到60字',
+      skills: '数组，必须且只能有1个 TechniqueArtsStrengthSkill',
+    },
+    skillSchema: {
+      name: 'string，技能名，中文',
+      desc: 'string，技能描述',
+      unlockLevel: `integer，1到${params.maxLayer}`,
+      damageKind: ARTS_DAMAGE_KIND_ENUM,
+      element: ARTS_ELEMENT_ENUM,
+      target: {
+        type: ARTS_TARGET_TYPE_ENUM,
+        range: `integer，${constants.structure.minRange}到${constants.structure.maxRange}`,
+        width: `integer，可选，line/box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}`,
+        height: `integer，可选，box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}`,
+        radius: `integer，可选，area 使用，${constants.structure.minRadius}到${constants.structure.maxRadius}`,
+        targetMode: ARTS_TARGET_MODE_ENUM,
+      },
+      structureStrength: Object.fromEntries(ARTS_STRUCTURE_STRENGTH_KEYS.map((key) => [
+        key,
+        `number，强度，${constants.structure.minStrength}到${constants.structure.maxStrength}，0表示默认`,
+      ])),
+      formulaStrength: {
+        attributeBases: `对象，key 必须来自 allowedAttributeBaseStats，数量 ${constants.attributeBases.minCount} 到 ${constants.attributeBases.maxCount} 个，value 为强度/倍率意图，必须大于0`,
+        percentBonuses: '对象，可选，只允许 techLevel 和 moveSpeed；省略等于0',
+      },
+    },
+    allowedAttributeBaseStats: [...TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS],
+    attributeBaseCostBy100Percent: TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
+    allowedPercentBonusKeys: [...ARTS_PERCENT_BONUS_KEYS],
+    strengthRules: {
+      budgetOwnership: '禁止输出 totalBudget/inputBudget/targetBudget；总预算由服务端按品阶、境界等级和玉简数量动态计算。',
+      structureMeaning: [
+        'structureStrength.cost 越高，实际灵力消耗越低；0表示基础消耗倍率1。',
+        `structureStrength.cooldown 越高，实际冷却越短；0表示${constants.structure.baseCooldownTicks}息。`,
+        'structureStrength.chant 预留给吟唱强度；当前可写0。',
+        '范围与施法距离会消耗结构预算，但不会随总预算等比放大。',
+      ],
+      formulaMeaning: [
+        'attributeBases 是伤害固定值基底的强度分布，服务端会按总预算等比缩放。',
+        `techLevel 默认0，表示每层增加${Math.round(constants.percentBonuses.techLevelScaleBase * 100)}%总伤害；通常不要写正值。`,
+        `moveSpeed: 1 表示额外加入 caster.stat.moveSpeed * ${constants.percentBonuses.moveSpeedScalePerStrength} 的总百分比加成。`,
+      ],
+      rangeMeaning: [
+        `single 视为0范围强度。`,
+        `line/box/area 按覆盖格数约每${constants.structure.areaCellsPerStrength}格折算1点范围强度。`,
+        `施法距离超过${constants.structure.baseCastRange}格后，每额外1格折算${constants.structure.rangeStrengthPerExtraTile}强度。`,
+      ],
+    },
+    forbiddenFields: [
+      'id', 'cost', 'costMultiplier', 'cooldown', 'range', 'targeting',
+      'effects', 'value', 'formula', 'buff', 'buffId', 'heal',
+      'maxTargets', 'totalBudget', 'inputBudget', 'targetBudget',
+      'damageValue', 'baseDamage',
+    ],
+    outputChecklist: [
+      '只输出单个 JSON 对象，必须可被 JSON.parse 解析。',
+      `grade/category/realmLv/maxLayer 必须严格等于 fixedInputs。`,
+      'skills.length 必须等于1。',
+      'skills[0] 只能描述一个 damage 术法，不允许 heal/buff/debuff/control。',
+      '不得输出 forbiddenFields 中的任何字段。',
+      'formulaStrength.attributeBases 至少1个、最多5个 key，key 必须来自 allowedAttributeBaseStats。',
+      '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
+      '不要为了凑强度写过多文本；描述保持修仙风格。',
+    ],
+    outputExample: {
+      name: '分光诀',
+      grade: params.grade,
+      category: 'arts',
+      realmLv: params.realmLv,
+      maxLayer: params.maxLayer,
+      expDifficulty: 1,
+      desc: '凝锋成线，催动金行锐气直贯前方，破敌护体真元。',
+      skills: [
+        {
+          name: '分光一线',
+          desc: '锋芒成线，直破前方三步。',
+          unlockLevel: 1,
+          damageKind: 'physical',
+          element: 'metal',
+          target: { type: 'line', range: 3, width: 1, targetMode: 'tile' },
+          structureStrength: { cost: 0, cooldown: 1, chant: 0 },
+          formulaStrength: {
+            attributeBases: { physAtk: 4, breakPower: 1 },
+            percentBonuses: { moveSpeed: 0 },
+          },
+        },
+      ],
+    },
   };
 }
 
