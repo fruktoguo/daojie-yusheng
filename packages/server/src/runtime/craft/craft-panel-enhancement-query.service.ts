@@ -100,6 +100,18 @@ export class CraftPanelEnhancementQueryService {
                 candidates.push(candidate);
             }
         });
+        player.equipment?.slots?.forEach((entry) => {
+            const slot = entry?.slot;
+            const item = entry?.item;
+            if (!slot || !item) {
+                return;
+            }
+            assignItemInstanceIdIfNeeded(item);
+            const candidate = this.buildEnhancementCandidate(player, { source: 'equipment', slot }, item, enhancementConfigs);
+            if (candidate) {
+                candidates.push(candidate);
+            }
+        });
         candidates.sort((left, right) => {
             if (left.item.level !== right.item.level) {
                 return left.item.level - right.item.level;

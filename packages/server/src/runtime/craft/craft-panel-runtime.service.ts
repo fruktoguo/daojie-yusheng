@@ -722,9 +722,6 @@ export class CraftPanelRuntimeService {
         if (!target) {
             return buildCraftMutationResult('强化目标不存在。');
         }
-        if (target.ref.source === 'equipment') {
-            return buildCraftMutationResult('身上装备不能直接强化，请先卸下放入背包。');
-        }
         if ((target as Record<string, unknown>).mismatched) {
             return buildCraftMutationResult('强化目标已变更，请重新选择。');
         }
@@ -764,6 +761,7 @@ export class CraftPanelRuntimeService {
         if (!this.hasEnoughEnhancementResources(player, target, protection, spiritStoneCost, materials, this.shouldUseProtectionForStep(targetLevel, protectionStartLevel))) {
             return buildCraftMutationResult('所需灵石、材料或保护物不足。');
         }
+        const equippedHammer = this.getWeapon(player);
         const workingItem = target.ref.source === 'inventory'
             ? extractInventoryItemByInstanceId(player, target.ref.itemInstanceId)
             : extractEquipmentItem(player, target.ref.slot);
@@ -782,8 +780,8 @@ export class CraftPanelRuntimeService {
             consumeInventoryItemByItemId(player, material.itemId, material.count);
         }
         const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
-        const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, target.item.level);
-        const successRate = computeEnhancementAdjustedSuccessRate(targetLevel, roleEnhancementLevel, target.item.level, this.getWeapon(player)?.enhancementSuccessRate);
+        const totalSpeedRate = computeEnhancementToolSpeedRate(equippedHammer?.enhancementSpeedRate, roleEnhancementLevel, target.item.level);
+        const successRate = computeEnhancementAdjustedSuccessRate(targetLevel, roleEnhancementLevel, target.item.level, equippedHammer?.enhancementSuccessRate);
         const totalTicks = computeEnhancementJobTicks(target.item.level, totalSpeedRate);
         const protectionItemId = protection ? (config?.protectionItemId ?? target.item.itemId) : undefined;
         const protectionItemName = protectionItemId
@@ -1203,15 +1201,6 @@ export class CraftPanelRuntimeService {
             player.forgingJob = null;
         }
         player.enhancementJob = player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null;
-        if (player.enhancementJob?.target?.source === 'equipment') {
-            player.enhancementJob.target = {
-                source: 'inventory',
-                ...(normalizeInventoryItemInstanceId(player.enhancementJob.itemInstanceId)
-                    ? { itemInstanceId: normalizeInventoryItemInstanceId(player.enhancementJob.itemInstanceId) }
-                    : {}),
-            };
-            this.finishEnhancementJob(player, player.enhancementJob.currentLevel ?? 0, 'cancelled');
-        }
     }
     /**
  * buildAlchemyPanelState：构建并返回目标对象。
@@ -1249,6 +1238,18 @@ export class CraftPanelRuntimeService {
                 return;
             }
             const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, item);
+            if (candidate) {
+                candidates.push(candidate);
+            }
+        });
+        player.equipment?.slots?.forEach((entry) => {
+            const slot = entry?.slot;
+            const item = entry?.item;
+            if (!slot || !item) {
+                return;
+            }
+            assignItemInstanceIdIfNeeded(item);
+            const candidate = this.buildEnhancementCandidate(player, { source: 'equipment', slot }, item);
             if (candidate) {
                 candidates.push(candidate);
             }
