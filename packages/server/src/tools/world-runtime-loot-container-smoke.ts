@@ -19,9 +19,11 @@ async function main(): Promise<void> {
   await testStartGatherSupportsColonInstanceId();
   await testHydrateContainerStatesCanonicalizesLegacySource();
   await testHerbRefreshRegeneratesEntries();
-  await testHerbRefreshAccumulatesExistingStock();
+  await testHerbRefreshWaitsForDepletedStock();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
   await testGatherCompletionDurableGrant();
+  await testGatherCompletionFormatsTemplateNameAndDepletesStock();
+  await testGatherCompletionResetsExpiredRefreshAfterDepletion();
   await testGatherCompletionDurableGrantSyncsPresenceFence();
   await testGatherCompletionDurableRollback();
   await testGatherCompletionConsumesSingleAccumulatedStock();
@@ -29,7 +31,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药刷新会积攒库存，地块攻击草药会扣 1 朵并在空库存时显示回生倒计时',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药刷新只在库存耗尽后补货，采集完成会扣空库存并显示回生倒计时，地块攻击草药会扣 1 朵并在空库存时显示回生倒计时',
     excludes: '不证明草药采集的 profession 变更已经并入同一资产事务，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -965,7 +967,7 @@ async function testHerbRefreshRegeneratesEntries() {
   assert.equal(refreshed?.items[0]?.item.itemId, 'mat.moondew_grass');
 }
 
-async function testHerbRefreshAccumulatesExistingStock() {
+async function testHerbRefreshWaitsForDepletedStock() {
   const instanceId = 'public:yunlai_town';
   const service = new WorldRuntimeLootContainerService({
     createItem(itemId: string, count: number) {
@@ -1005,19 +1007,19 @@ async function testHerbRefreshAccumulatesExistingStock() {
   assert.ok(refreshed);
   assert.equal(refreshed?.items.length, 1);
   assert.equal(refreshed?.items[0]?.item.itemId, 'mat.moondew_grass');
-  assert.equal(refreshed?.items[0]?.item.count, 2);
-  assert.equal(refreshed?.herb?.respawnRemainingTicks, 5);
+  assert.equal(refreshed?.items[0]?.item.count, 1);
+  assert.equal(refreshed?.herb?.respawnRemainingTicks, undefined);
   assert.equal(refreshed?.destroyed, false);
   const persisted = service.buildContainerPersistenceStates(instanceId);
   assert.equal(persisted[0]?.entries.length, 1);
-  assert.equal(persisted[0]?.entries[0]?.item.count, 2);
-  assert.equal(persisted[0]?.refreshAtTick, 10);
+  assert.equal(persisted[0]?.entries[0]?.item.count, 1);
+  assert.equal(persisted[0]?.refreshAtTick, 5);
 
   service.prepareContainerLootSource(instanceId, container as never, 6);
   const unchanged = service.getPreparedContainerLootSource(instanceId, container as never);
-  assert.equal(unchanged?.items[0]?.item.count, 2);
+  assert.equal(unchanged?.items[0]?.item.count, 1);
   const unchangedPersisted = service.buildContainerPersistenceStates(instanceId);
-  assert.equal(unchangedPersisted[0]?.refreshAtTick, 10);
+  assert.equal(unchangedPersisted[0]?.refreshAtTick, 5);
 }
 
 async function testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown() {
@@ -1193,6 +1195,173 @@ async function testGatherCompletionDurableGrant() {
   assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
   assert.equal(result.inventoryChanged, true);
   assert.equal(result.attrChanged, true);
+}
+
+async function testGatherCompletionFormatsTemplateNameAndDepletesStock() {
+  const player = buildPlayer('player:gather:sunmelt', 'inst-gather-sunmelt', 'runtime:gather:sunmelt', 26);
+  player.x = 5;
+  player.y = 6;
+  player.gatherSkill = {
+    level: 1,
+    exp: 0,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
+  };
+  player.gatherJob = {
+    resourceNodeId: 'herb-sunmelt',
+    resourceNodeName: '融阳子',
+    startedAt: Date.now(),
+    totalTicks: 1,
+    remainingTicks: 1,
+    pausedTicks: 0,
+    successRate: 1,
+    spiritStoneCost: 0,
+    phase: 'gathering',
+  };
+  const service = new WorldRuntimeLootContainerService({
+    normalizeItem(item: Record<string, unknown>) {
+      return item?.itemId === 'mat.sunmelt_seed'
+        ? { ...item, name: '融阳子' }
+        : item;
+    },
+  } as never, buildPlayerRuntimeService(player, {
+    lootWindowTarget: { tileX: 5, tileY: 6 },
+  }) as never);
+  const container = {
+    id: 'herb-sunmelt',
+    variant: 'herb',
+    grade: 'earth',
+    x: 5,
+    y: 6,
+    refreshTicksMin: 50,
+    refreshTicksMax: 50,
+    lootPools: [],
+    drops: [{ itemId: 'mat.sunmelt_seed', name: '融阳子', count: 1, type: 'material' }],
+    name: '融阳子',
+  };
+  service.hydrateContainerStates('inst-gather-sunmelt', [{
+    sourceId: 'container:inst-gather-sunmelt:herb-sunmelt',
+    containerId: 'herb-sunmelt',
+    generatedAtTick: 1,
+    refreshAtTick: 10,
+    entries: [
+      {
+        item: { itemId: 'mat.sunmelt_seed', count: 1, level: 20, type: 'material' },
+        createdTick: 1,
+        visible: true,
+      },
+    ],
+    activeSearch: {
+      itemKey: 'mat.sunmelt_seed#0',
+      totalTicks: 1,
+      remainingTicks: 1,
+    },
+  }]);
+  const deps = {
+    tick: 2,
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'inst-gather-sunmelt' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return {
+        tick: 2,
+        getContainerById(containerId: string) {
+          assert.equal(containerId, 'herb-sunmelt');
+          return container;
+        },
+      };
+    },
+    refreshQuestStates() {},
+  };
+
+  const result = await service.tickGather(player.playerId, deps as never);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 融阳子' }]);
+  assert.equal(player.gatherJob, null);
+  const depleted = service.getPreparedContainerLootSource('inst-gather-sunmelt', container as never, player as never, 2);
+  assert.equal(depleted?.items.length, 0);
+  assert.equal(depleted?.destroyed, true);
+  assert.equal(depleted?.herb?.respawnRemainingTicks, 8);
+}
+
+async function testGatherCompletionResetsExpiredRefreshAfterDepletion() {
+  const player = buildPlayer('player:gather:expired-refresh', 'inst-gather-expired-refresh', 'runtime:gather:expired-refresh', 27);
+  player.x = 5;
+  player.y = 6;
+  player.gatherSkill = {
+    level: 1,
+    exp: 0,
+    expToNext: TEST_REALM_EXP_TO_NEXT,
+  };
+  player.gatherJob = {
+    resourceNodeId: 'herb-expired-refresh',
+    resourceNodeName: '融阳子',
+    startedAt: Date.now(),
+    totalTicks: 1,
+    remainingTicks: 1,
+    pausedTicks: 0,
+    successRate: 1,
+    spiritStoneCost: 0,
+    phase: 'gathering',
+  };
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player, {
+    lootWindowTarget: { tileX: 5, tileY: 6 },
+  }) as never);
+  const container = {
+    id: 'herb-expired-refresh',
+    variant: 'herb',
+    grade: 'earth',
+    x: 5,
+    y: 6,
+    refreshTicksMin: 50,
+    refreshTicksMax: 50,
+    lootPools: [],
+    drops: [{ itemId: 'mat.sunmelt_seed', name: '融阳子', count: 1, type: 'material' }],
+    name: '融阳子',
+  };
+  service.hydrateContainerStates('inst-gather-expired-refresh', [{
+    sourceId: 'container:inst-gather-expired-refresh:herb-expired-refresh',
+    containerId: 'herb-expired-refresh',
+    generatedAtTick: 1,
+    refreshAtTick: 40,
+    entries: [
+      {
+        item: { itemId: 'mat.sunmelt_seed', name: '融阳子', count: 1, level: 20, type: 'material' },
+        createdTick: 1,
+        visible: true,
+      },
+    ],
+    activeSearch: {
+      itemKey: 'mat.sunmelt_seed#0',
+      totalTicks: 1,
+      remainingTicks: 1,
+    },
+  }]);
+  const deps = {
+    tick: 100,
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'inst-gather-expired-refresh' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return {
+        tick: 100,
+        getContainerById(containerId: string) {
+          assert.equal(containerId, 'herb-expired-refresh');
+          return container;
+        },
+      };
+    },
+    refreshQuestStates() {},
+  };
+
+  const result = await service.tickGather(player.playerId, deps as never);
+  assert.equal(result.ok, true);
+  const depleted = service.getPreparedContainerLootSource('inst-gather-expired-refresh', container as never, player as never, 100);
+  assert.equal(depleted?.items.length, 0);
+  assert.equal(depleted?.herb?.respawnRemainingTicks, 50);
+  service.prepareContainerLootSource('inst-gather-expired-refresh', container as never, 101);
+  const stillEmpty = service.getPreparedContainerLootSource('inst-gather-expired-refresh', container as never, player as never, 101);
+  assert.equal(stillEmpty?.items.length, 0);
+  assert.equal(stillEmpty?.herb?.respawnRemainingTicks, 49);
 }
 
 async function testGatherCompletionDurableGrantSyncsPresenceFence() {

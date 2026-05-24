@@ -278,7 +278,9 @@ export class WorldRuntimeLootContainerService {
         if (container.variant === 'herb') {
             const herbRows = groupContainerLootRows(containerState.entries);
             const primaryItem = herbRows[0]?.item ?? null;
-            const respawnRemainingTicks = getContainerRespawnRemainingTicks(containerState, currentTick);
+            const respawnRemainingTicks = herbRows.length <= 0
+                ? getContainerRespawnRemainingTicks(containerState, currentTick)
+                : undefined;
             return {
                 sourceId: containerState.sourceId,
                 kind: 'container',
@@ -355,16 +357,13 @@ export class WorldRuntimeLootContainerService {
         const existing = states.get(sourceId);
         if (existing) {
             if (typeof existing.refreshAtTick === 'number' && existing.refreshAtTick <= currentTick && !existing.activeSearch) {
-                const refreshedEntries = this.generateContainerEntries(container, currentTick);
-                if (container.variant === 'herb') {
-                    mergeContainerEntries(existing.entries, refreshedEntries);
-                }
-                else {
+                if (container.variant !== 'herb' || countContainerEntryItems(existing.entries) <= 0) {
+                    const refreshedEntries = this.generateContainerEntries(container, currentTick);
                     existing.entries = refreshedEntries;
+                    existing.generatedAtTick = currentTick;
+                    existing.refreshAtTick = resolveContainerRefreshAtTick(container, currentTick);
+                    this.markContainerPersistenceDirty(instanceId);
                 }
-                existing.generatedAtTick = currentTick;
-                existing.refreshAtTick = resolveContainerRefreshAtTick(container, currentTick);
-                this.markContainerPersistenceDirty(instanceId);
             }
             return existing;
         }
@@ -666,7 +665,7 @@ export class WorldRuntimeLootContainerService {
         const remainingCount = countContainerEntryItems(state.entries);
         if (remainingCount <= 0) {
             state.activeSearch = undefined;
-            if (typeof state.refreshAtTick !== 'number') {
+            if (typeof state.refreshAtTick !== 'number' || state.refreshAtTick <= normalizedTick) {
                 state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
             }
         }
@@ -923,6 +922,13 @@ export class WorldRuntimeLootContainerService {
         const skillChanged = skillExpResult.changed;
         const craftRealmChanged = grantCraftRealmProgress(this.playerRuntimeService, player, skillExpResult.gain / 2);
         deps.refreshQuestStates(playerId);
+        const remainingCount = countContainerEntryItems(state.entries);
+        if (remainingCount <= 0) {
+            state.activeSearch = undefined;
+            if (typeof state.refreshAtTick !== 'number' || state.refreshAtTick <= instance.tick) {
+                state.refreshAtTick = resolveContainerRefreshAtTick(container, instance.tick);
+            }
+        }
         const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
         if (nextRow) {
             const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
@@ -951,7 +957,7 @@ export class WorldRuntimeLootContainerService {
         this.playerRuntimeService.bumpPersistentRevision(player);
         return buildContainerTickResult(false, [{
                 kind: 'loot',
-                text: `获得 ${formatItemStackLabel(harvestedItem)}`,
+                text: `获得 ${this.formatLootItemStackLabel(harvestedItem)}`,
             }], true, false, Boolean(skillChanged || craftRealmChanged));
     }    
     /**
@@ -1503,23 +1509,6 @@ function cloneContainerState(state) {
             }
             : undefined,
     };
-}
-
-function mergeContainerEntries(entries, nextEntries) {
-    for (const nextEntry of nextEntries) {
-        mergeItemStackEntryInto(entries, { ...nextEntry.item }, {
-            getItem: (entry: any) => entry.item,
-            createEntry: (item) => ({
-                item,
-                createdTick: nextEntry.createdTick,
-                visible: nextEntry.visible,
-            }),
-            onMerged: (entry: any) => {
-                entry.createdTick = Math.min(entry.createdTick, nextEntry.createdTick);
-            },
-            canMergeEntry: (entry: any) => entry.visible === nextEntry.visible,
-        });
-    }
 }
 
 function removeSingleContainerRowItem(entries, row) {
