@@ -9289,6 +9289,9 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    .confirm-modal-actions.hidden {
+      display: none;
+    }
     .confirm-modal-actions .small-btn {
       min-width: 96px;
     }
