@@ -204,9 +204,17 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
   } as unknown as Socket, { action: 'getStatus', itemSpend: 3 });
 
   assert.equal(emitted[0]?.event, S2C.TechniqueGenerationStatus);
-  const payload = emitted[0]?.payload as { available?: boolean; rollRange?: { itemSpendDefault?: number; gradeChances?: unknown[] } };
+  const payload = emitted[0]?.payload as {
+    available?: boolean;
+    rollRange?: {
+      itemSpendDefault?: number;
+      realmLvChances?: unknown[];
+      gradeChances?: unknown[];
+    };
+  };
   assert.equal(payload.available, true);
   assert.equal(payload.rollRange?.itemSpendDefault, 3);
+  assert.ok((payload.rollRange?.realmLvChances?.length ?? 0) > 0);
   assert.ok((payload.rollRange?.gradeChances?.length ?? 0) > 0);
   assert.deepEqual(result, emitted[0]?.payload);
 }

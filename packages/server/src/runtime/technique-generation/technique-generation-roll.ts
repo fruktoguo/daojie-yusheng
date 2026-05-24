@@ -33,6 +33,11 @@ export interface TechniqueGenerationRollOptionChance {
   chance: number;
 }
 
+export interface TechniqueGenerationRollRealmChance {
+  realmLv: number;
+  chance: number;
+}
+
 export interface TechniqueGenerationRollRange {
   realmLvMin: number;
   realmLvMax: number;
@@ -42,6 +47,7 @@ export interface TechniqueGenerationRollRange {
   itemSpendMin: number;
   itemSpendMax: number;
   itemSpendDefault: number;
+  realmLvChances: TechniqueGenerationRollRealmChance[];
   gradeChances: TechniqueGenerationRollOptionChance[];
 }
 
@@ -211,6 +217,7 @@ export function buildTechniqueGenerationRollRange(playerRealmLv: number, itemSpe
     itemSpendMin: 1,
     itemSpendMax: TECHNIQUE_GENERATION_MAX_ITEM_SPEND,
     itemSpendDefault: spend,
+    realmLvChances: estimateBoostedRealmLvChances(Math.max(1, Math.min(127, Math.trunc(playerRealmLv))), spend),
     gradeChances: estimateBoostedGradeChances(Math.max(1, Math.min(127, Math.trunc(playerRealmLv))), spend),
   };
 }
@@ -237,6 +244,24 @@ function estimateBoostedGradeChances(playerRealmLv: number, itemSpend: number): 
   }
   return TECHNIQUE_GRADE_ORDER
     .map((grade) => ({ grade, chance: Math.round((gradeProbabilities.get(grade) ?? 0) * 1000) / 10 }))
+    .filter((entry) => entry.chance > 0);
+}
+
+function estimateBoostedRealmLvChances(playerRealmLv: number, itemSpend: number): TechniqueGenerationRollRealmChance[] {
+  const attempts = normalizeTechniqueGenerationItemSpend(itemSpend);
+  const singleRollOutcomes = buildSingleRollOutcomeDistribution(playerRealmLv)
+    .sort((left, right) => compareRollOutcome(left, right));
+  const realmLvProbabilities = new Map<number, number>();
+  let cumulativeBefore = 0;
+  for (const outcome of singleRollOutcomes) {
+    const cumulativeAfter = cumulativeBefore + outcome.probability;
+    const bestProbability = Math.pow(cumulativeAfter, attempts) - Math.pow(cumulativeBefore, attempts);
+    realmLvProbabilities.set(outcome.realmLv, (realmLvProbabilities.get(outcome.realmLv) ?? 0) + bestProbability);
+    cumulativeBefore = cumulativeAfter;
+  }
+  return [...realmLvProbabilities.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .map(([realmLv, probability]) => ({ realmLv, chance: Math.round(probability * 1000) / 10 }))
     .filter((entry) => entry.chance > 0);
 }
 

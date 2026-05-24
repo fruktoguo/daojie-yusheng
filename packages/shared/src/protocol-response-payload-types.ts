@@ -387,6 +387,10 @@ export interface S2C_TechniqueGenerationStatus {
     itemSpendMin: number;
     itemSpendMax: number;
     itemSpendDefault: number;
+    realmLvChances: Array<{
+      realmLv: number;
+      chance: number;
+    }>;
     gradeChances: Array<{
       grade: TechniqueGrade;
       chance: number;

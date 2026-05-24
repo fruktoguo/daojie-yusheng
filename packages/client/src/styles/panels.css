@@ -2248,6 +2248,86 @@
       margin-top: 0;
       color: var(--stamp-red);
     }
+    .technique-generation-panel__range-group {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 8px;
+      min-width: 0;
+      min-height: 320px;
+    }
+    .technique-generation-panel__range-head {
+      min-width: 0;
+      color: var(--ink-light);
+      font-size: var(--font-size-12);
+      line-height: 1.35;
+    }
+    .technique-generation-panel__range-head strong {
+      display: block;
+      min-width: 0;
+      margin-top: 3px;
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-13);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .technique-generation-panel__range-stack {
+      display: flex;
+      flex-direction: column-reverse;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 1px solid rgba(34, 26, 19, 0.12);
+      background: rgba(255, 255, 255, 0.28);
+    }
+    .technique-generation-panel__range-segment {
+      position: relative;
+      display: flex;
+      flex: 0 1 auto;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 20px;
+      min-width: 0;
+      padding: 4px 3px;
+      overflow: hidden;
+      border-top: 1px solid rgba(255, 255, 255, 0.34);
+      color: #fff;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.38);
+    }
+    .technique-generation-panel__range-segment span,
+    .technique-generation-panel__range-segment strong {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.15;
+    }
+    .technique-generation-panel__range-segment span {
+      font-size: var(--font-size-11);
+      font-weight: var(--font-weight-strong);
+    }
+    .technique-generation-panel__range-segment strong {
+      margin-top: 2px;
+      font-size: 10px;
+      font-weight: var(--font-weight-normal);
+    }
+    .technique-generation-panel__range-group--realm .technique-generation-panel__range-segment span {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      white-space: normal;
+    }
+    .technique-generation-panel__range-group--realm .technique-generation-panel__range-segment strong {
+      display: none;
+    }
+    .technique-generation-panel__range-base {
+      min-height: 18px;
+      color: var(--ink-light);
+      font-size: var(--font-size-12);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
     .technique-generation-panel__boost-card input[type="range"] {
       height: 28px;
       padding: 0;
@@ -2526,6 +2606,7 @@
     :root[data-color-mode="dark"] .technique-generation-panel__skill,
     :root[data-color-mode="dark"] .technique-generation-panel__roll-grid div,
     :root[data-color-mode="dark"] .technique-generation-panel__chance-row,
+    :root[data-color-mode="dark"] .technique-generation-panel__range-stack,
     :root[data-color-mode="dark"] .technique-generation-panel__attr-radar-shell {
       border-color: rgba(234, 221, 202, 0.12);
       background: rgba(255, 255, 255, 0.05);
@@ -2624,6 +2705,9 @@
       .technique-generation-panel__state {
         min-height: 180px;
         padding: 20px 14px;
+      }
+      .technique-generation-panel__range-group {
+        min-height: 280px;
       }
     }
     @media (prefers-reduced-motion: reduce) {

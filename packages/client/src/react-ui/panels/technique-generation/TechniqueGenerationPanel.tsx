@@ -26,6 +26,10 @@ export interface TechniqueGenerationPanelState {
     itemSpendMin: number;
     itemSpendMax: number;
     itemSpendDefault: number;
+    realmLvChances?: Array<{
+      realmLv: number;
+      chance: number;
+    }>;
     gradeChances: Array<{
       grade: TechniqueGrade;
       chance: number;
@@ -100,6 +104,19 @@ const CATEGORY_TABS: Array<{ value: CategoryTab; label: string; locked: boolean 
   { value: 'secret', label: '秘术', locked: true },
 ];
 
+const TECHNIQUE_GRADE_COLORS: Record<TechniqueGrade, string> = {
+  mortal: '#8b8f95',
+  yellow: '#c79a26',
+  mystic: '#4f8fd8',
+  earth: '#7b61d1',
+  heaven: '#d16b3f',
+  spirit: '#1aa37a',
+  saint: '#d24f7f',
+  emperor: '#d33a2c',
+};
+
+const REALM_CHANCE_COLORS = ['#6f8f4f', '#4b9c8d', '#4f8fd8', '#7b61d1', '#b35f93', '#d16b3f'];
+
 export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel() {
   const state = useTechniqueGenerationStore();
   const [selectedCategory, setSelectedCategory] = useState<CategoryTab>('internal');
@@ -155,7 +172,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
       {state.available && !state.currentDraft && !state.generating && (
         <div className="technique-generation-panel__input">
           <aside className="technique-generation-panel__side technique-generation-panel__side--left">
-            {renderRollRange(state.rollRange)}
+            {renderRealmRange(state.rollRange)}
           </aside>
 
           <div className="technique-generation-panel__main">
@@ -204,6 +221,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
           </div>
 
           <aside className="technique-generation-panel__side technique-generation-panel__side--right">
+            {renderGradeRange(state.rollRange)}
             {renderItemSpendSelector(state.rollRange, itemSpend, handleItemSpendChange)}
           </aside>
         </div>
@@ -437,34 +455,94 @@ function renderTechniqueAttrRadarIcon(
   );
 }
 
-function renderRollRange(range: TechniqueGenerationPanelState['rollRange']): ReactElement {
+function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): ReactElement {
   if (!range) {
     return (
       <section className="technique-generation-panel__section technique-generation-panel__roll-card">
-        <div className="technique-generation-panel__section-title">随机区间</div>
+        <div className="technique-generation-panel__section-title">境界等级区间</div>
+        <div className="technique-generation-panel__muted">读取中</div>
+      </section>
+    );
+  }
+  const realmLvChances = normalizeRealmLvChances(range);
+  return (
+    <section className="technique-generation-panel__section technique-generation-panel__roll-card">
+      <div className="technique-generation-panel__section-title">境界等级区间</div>
+      <div className="technique-generation-panel__range-group technique-generation-panel__range-group--realm">
+        <div className="technique-generation-panel__range-head">
+          <span>范围</span>
+          <strong>Lv.{range.realmLvMin} - Lv.{range.realmLvMax}</strong>
+        </div>
+        <div className="technique-generation-panel__range-stack" aria-label="境界等级概率分布">
+          {realmLvChances.map((entry, index) => (
+            <div
+              key={entry.realmLv}
+              className="technique-generation-panel__range-segment"
+              style={{
+                flexGrow: Math.max(0.1, entry.chance),
+                backgroundColor: REALM_CHANCE_COLORS[index % REALM_CHANCE_COLORS.length],
+              }}
+              title={`Lv.${entry.realmLv} ${entry.chance.toFixed(1)}%`}
+            >
+              <span>Lv.{entry.realmLv}</span>
+              <strong>{entry.chance.toFixed(1)}%</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function renderGradeRange(range: TechniqueGenerationPanelState['rollRange']): ReactElement {
+  if (!range) {
+    return (
+      <section className="technique-generation-panel__section technique-generation-panel__roll-card">
+        <div className="technique-generation-panel__section-title">品阶区间</div>
         <div className="technique-generation-panel__muted">读取中</div>
       </section>
     );
   }
   return (
     <section className="technique-generation-panel__section technique-generation-panel__roll-card">
-      <div className="technique-generation-panel__section-title">随机区间</div>
-      <div className="technique-generation-panel__roll-grid">
-        <div>
-          <span>境界</span>
-          <strong>Lv.{range.realmLvMin} - Lv.{range.realmLvMax}</strong>
-        </div>
-        <div>
-          <span>品阶</span>
+      <div className="technique-generation-panel__section-title">品阶区间</div>
+      <div className="technique-generation-panel__range-group technique-generation-panel__range-group--grade">
+        <div className="technique-generation-panel__range-head">
+          <span>范围</span>
           <strong>{getTechniqueGradeLabel(range.gradeMin)} - {getTechniqueGradeLabel(range.gradeMax)}</strong>
         </div>
-        <div>
-          <span>基准</span>
-          <strong>{getTechniqueGradeLabel(range.baseGrade)}</strong>
+        <div className="technique-generation-panel__range-stack" aria-label="品阶概率分布">
+          {range.gradeChances.map((entry) => (
+            <div
+              key={entry.grade}
+              className="technique-generation-panel__range-segment"
+              style={{
+                flexGrow: Math.max(0.1, entry.chance),
+                backgroundColor: TECHNIQUE_GRADE_COLORS[entry.grade],
+              }}
+              title={`${getTechniqueGradeLabel(entry.grade)} ${entry.chance.toFixed(1)}%`}
+            >
+              <span>{getTechniqueGradeLabel(entry.grade)}</span>
+              <strong>{entry.chance.toFixed(1)}%</strong>
+            </div>
+          ))}
         </div>
+        <div className="technique-generation-panel__range-base">基准 {getTechniqueGradeLabel(range.baseGrade)}</div>
       </div>
     </section>
   );
+}
+
+function normalizeRealmLvChances(range: NonNullable<TechniqueGenerationPanelState['rollRange']>): Array<{ realmLv: number; chance: number }> {
+  if (Array.isArray(range.realmLvChances) && range.realmLvChances.length > 0) {
+    return range.realmLvChances;
+  }
+  const count = Math.max(1, range.realmLvMax - range.realmLvMin + 1);
+  const chance = Math.round((1000 / count)) / 10;
+  return Array.from({ length: count }, (_, index) => ({
+    realmLv: range.realmLvMin + index,
+    chance,
+  }));
 }
 
 function renderItemSpendSelector(
@@ -495,13 +573,8 @@ function renderItemSpendSelector(
         <strong>{itemSpend}</strong>
         <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend + 1)} disabled={itemSpend >= max}>+</button>
       </div>
-      <div className="technique-generation-panel__chance-list">
-        {(range?.gradeChances ?? []).map((entry) => (
-          <div key={entry.grade} className="technique-generation-panel__chance-row">
-            <span>{getTechniqueGradeLabel(entry.grade)}</span>
-            <strong>{entry.chance.toFixed(1)}%</strong>
-          </div>
-        ))}
+      <div className="technique-generation-panel__muted">
+        区间概率会随投入数量同步刷新
       </div>
     </section>
   );
