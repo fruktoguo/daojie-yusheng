@@ -29,6 +29,9 @@ import type { AiTextModelConfig } from '../../ai/ai-model-config';
 import {
   insertGeneratedTechnique,
   insertGenerationJob,
+  loadRecoverableGenerationJobs,
+  markGenerationJobItemConsumed,
+  markGenerationJobRunning,
   updateGenerationJobToDraft,
   updateGenerationJobStatus,
   publishGeneratedTechnique,
@@ -120,6 +123,7 @@ export class TechniqueGenerationService {
       await updateGenerationJobStatus(pool, jobId, 'failed', 'ITEM_NOT_ENOUGH', '悟道玉简不足');
       return { success: false, error: '悟道玉简不足', errorCode: 'ITEM_NOT_ENOUGH' };
     }
+    await markGenerationJobItemConsumed(pool, jobId);
 
     // 6. 异步触发执行
     setImmediate(() => {
@@ -147,6 +151,7 @@ export class TechniqueGenerationService {
     if (!pool) {
       return { success: false, error: '功法领悟系统未就绪' };
     }
+    await markGenerationJobRunning(pool, jobId);
 
     // 获取模型配置
     const modelConfig = await this.modelConfigResolver?.();
@@ -386,6 +391,26 @@ export class TechniqueGenerationService {
   async expireStaleJobs(): Promise<number> {
     if (!this.pool) return 0;
     return expireStaleGenerationJobs(this.pool);
+  }
+
+  async recoverPendingJobs(limit = 20): Promise<number> {
+    const pool = this.pool;
+    if (!pool) {
+      return 0;
+    }
+    const jobs = await loadRecoverableGenerationJobs(pool, limit);
+    for (const job of jobs) {
+      setImmediate(() => {
+        this.executeGeneration(job.id, {
+          category: job.category as TechniqueCategory,
+          grade: job.grade,
+          realmLv: job.realmLv,
+          playerContext: job.playerContext,
+          playerId: job.playerId,
+        }).catch(() => undefined);
+      });
+    }
+    return jobs.length;
   }
 }
 

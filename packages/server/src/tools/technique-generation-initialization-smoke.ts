@@ -93,6 +93,8 @@ async function testInitializedServicePersistsJob(): Promise<void> {
 
   await new Promise((resolve) => setImmediate(resolve));
   await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
+  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes("status = 'running'")));
   assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.params?.[2] === 'NO_MODEL'));
 }
 

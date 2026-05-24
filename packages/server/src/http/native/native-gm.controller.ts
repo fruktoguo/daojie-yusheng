@@ -9,7 +9,7 @@
  * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
  */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
+import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmTechniqueGenerationJobListQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import {
@@ -307,6 +307,16 @@ export class NativeGmController {
   @Get('generated-techniques/:id')
   getGeneratedTechnique(@Param('id') id: string) {
     return this.nextGmGeneratedTechniqueService.getGeneratedTechnique(id);
+  }
+
+  @Get('technique-generation/jobs')
+  listTechniqueGenerationJobs(@Query() query: GmTechniqueGenerationJobListQuery) {
+    return this.nextGmGeneratedTechniqueService.listGenerationJobs(query);
+  }
+
+  @Get('technique-generation/jobs/:id')
+  getTechniqueGenerationJob(@Param('id') id: string) {
+    return this.nextGmGeneratedTechniqueService.getGenerationJob(id);
   }
   /**
  * getWorldSummary：读取世界运行态摘要。

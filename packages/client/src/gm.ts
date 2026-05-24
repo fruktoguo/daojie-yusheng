@@ -133,6 +133,9 @@ import {
   type GmGeneratedTechniqueDetailRes,
   type GmGeneratedTechniqueListRes,
   type GmGeneratedTechniqueSummary,
+  type GmTechniqueGenerationJobDetailRes,
+  type GmTechniqueGenerationJobListRes,
+  type GmTechniqueGenerationJobSummary,
   type GmMarketTradeItem,
   type GmMarketTradeListQuery,
   type GmMarketTradeListRes,
@@ -536,6 +539,10 @@ const gameConfigTabBtn = document.getElementById('gm-tab-gameconfig') as HTMLBut
 const aiTabBtn = document.getElementById('gm-tab-ai') as HTMLButtonElement;
 /** generatedTechniqueTabBtn：AI 功法 Tab Btn。 */
 const generatedTechniqueTabBtn = document.getElementById('gm-tab-generated-techniques') as HTMLButtonElement;
+/** generatedTechniqueSubtabTechniquesBtn：AI 生成功法子标签。 */
+const generatedTechniqueSubtabTechniquesBtn = document.getElementById('generated-technique-subtab-techniques') as HTMLButtonElement;
+/** generatedTechniqueSubtabJobsBtn：AI 生成任务子标签。 */
+const generatedTechniqueSubtabJobsBtn = document.getElementById('generated-technique-subtab-jobs') as HTMLButtonElement;
 /** tradesTabBtn：交易记录 Tab Btn。 */
 const tradesTabBtn = document.getElementById('gm-tab-trades') as HTMLButtonElement;
 /** generatedTechniqueListEl：AI 生成功法列表容器。 */
@@ -783,20 +790,36 @@ let currentSuggestionTotal = 0;
 let currentSuggestionKeyword = '';
 /** suggestionSearchTimer：建议搜索Timer。 */
 let suggestionSearchTimer: number | null = null;
+/** currentGeneratedTechniqueSubtab：AI生成当前子标签。 */
+let currentGeneratedTechniqueSubtab: 'techniques' | 'jobs' = 'techniques';
 /** generatedTechniquePage：AI 生成功法当前分页。 */
 let generatedTechniquePage = 1;
 /** generatedTechniqueTotalPages：AI 生成功法总页数。 */
 let generatedTechniqueTotalPages = 1;
 /** generatedTechniques：AI 生成功法当前页摘要。 */
 let generatedTechniques: GmGeneratedTechniqueSummary[] = [];
+/** techniqueGenerationJobPage：AI 生成任务当前分页。 */
+let techniqueGenerationJobPage = 1;
+/** techniqueGenerationJobTotalPages：AI 生成任务总页数。 */
+let techniqueGenerationJobTotalPages = 1;
+/** techniqueGenerationJobs：AI 生成任务当前页摘要。 */
+let techniqueGenerationJobs: GmTechniqueGenerationJobSummary[] = [];
 /** selectedGeneratedTechniqueId：当前选中的 AI 生成功法 ID。 */
 let selectedGeneratedTechniqueId: string | null = null;
 /** selectedGeneratedTechniqueDetail：当前选中的 AI 生成功法详情。 */
 let selectedGeneratedTechniqueDetail: GmGeneratedTechniqueDetailRes['technique'] | null = null;
+/** selectedTechniqueGenerationJobId：当前选中的 AI 生成任务 ID。 */
+let selectedTechniqueGenerationJobId: string | null = null;
+/** selectedTechniqueGenerationJobDetail：当前选中的 AI 生成任务详情。 */
+let selectedTechniqueGenerationJobDetail: GmTechniqueGenerationJobDetailRes['job'] | null = null;
 /** generatedTechniqueListRequestNonce：AI 生成功法列表请求 nonce。 */
 let generatedTechniqueListRequestNonce = 0;
 /** generatedTechniqueDetailRequestNonce：AI 生成功法详情请求 nonce。 */
 let generatedTechniqueDetailRequestNonce = 0;
+/** techniqueGenerationJobListRequestNonce：AI 生成任务列表请求 nonce。 */
+let techniqueGenerationJobListRequestNonce = 0;
+/** techniqueGenerationJobDetailRequestNonce：AI 生成任务详情请求 nonce。 */
+let techniqueGenerationJobDetailRequestNonce = 0;
 /** currentNetworkInPage：当前上行榜分页。 */
 let currentNetworkInPage = 1;
 /** currentNetworkOutPage：当前下行榜分页。 */
@@ -838,6 +861,14 @@ function buildGmGeneratedTechniquesApiPath(params: URLSearchParams): string {
 
 function buildGmGeneratedTechniqueDetailApiPath(id: string): string {
   return `${GM_API_BASE_PATH}/generated-techniques/${encodeURIComponent(id)}`;
+}
+
+function buildGmTechniqueGenerationJobsApiPath(params: URLSearchParams): string {
+  return `${GM_API_BASE_PATH}/technique-generation/jobs?${params.toString()}`;
+}
+
+function buildGmTechniqueGenerationJobDetailApiPath(id: string): string {
+  return `${GM_API_BASE_PATH}/technique-generation/jobs/${encodeURIComponent(id)}`;
 }
 
 function buildGmDatabaseBackupDownloadApiPath(backupId: string): string {
@@ -5027,9 +5058,7 @@ function switchTab(tab: GmMainTab): void {
   } else if (tab === 'ai') {
     loadAiProviderConfigs().catch((e) => console.error('[GM]', e));
   } else if (tab === 'generatedTechniques') {
-    loadGeneratedTechniques(false).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
-    });
+    loadCurrentGeneratedTechniqueSubtab(false).catch(handleGeneratedTechniquePanelLoadError);
   } else if (tab === 'trades') {
     // 进入交易记录 tab：默认拉一次最近一页（无条件），让 GM 立刻能看到现状
     loadTrades({ resetPage: true }).catch((error: unknown) => {
@@ -8804,10 +8833,34 @@ function buildGeneratedTechniqueListQueryParams(): URLSearchParams {
   });
 }
 
+function buildTechniqueGenerationJobListQueryParams(): URLSearchParams {
+  return new URLSearchParams({
+    page: String(techniqueGenerationJobPage),
+    pageSize: '50',
+  });
+}
+
+function switchGeneratedTechniqueSubtab(tab: 'techniques' | 'jobs'): void {
+  currentGeneratedTechniqueSubtab = tab;
+  generatedTechniqueSubtabTechniquesBtn.classList.toggle('active', tab === 'techniques');
+  generatedTechniqueSubtabJobsBtn.classList.toggle('active', tab === 'jobs');
+  loadCurrentGeneratedTechniqueSubtab(false).catch(handleGeneratedTechniquePanelLoadError);
+}
+
+async function loadCurrentGeneratedTechniqueSubtab(silent = true): Promise<void> {
+  if (currentGeneratedTechniqueSubtab === 'jobs') {
+    await loadTechniqueGenerationJobs(silent);
+    return;
+  }
+  await loadGeneratedTechniques(silent);
+}
+
 async function loadGeneratedTechniques(silent = true): Promise<void> {
   if (!token) return;
   const nonce = ++generatedTechniqueListRequestNonce;
-  generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载 AI 生成功法…</div>';
+  generatedTechniqueSubtabTechniquesBtn.classList.add('active');
+  generatedTechniqueSubtabJobsBtn.classList.remove('active');
+  generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载功法…</div>';
   generatedTechniquePageMetaEl.textContent = `第 ${generatedTechniquePage} / ${Math.max(1, generatedTechniqueTotalPages)} 页 · 加载中`;
   generatedTechniquePagePrevBtn.disabled = true;
   generatedTechniquePageNextBtn.disabled = true;
@@ -8828,7 +8881,7 @@ async function loadGeneratedTechniques(silent = true): Promise<void> {
   }
   renderGeneratedTechniquePanel(result);
   if (!silent) {
-    setStatus(`已同步 AI 生成功法第 ${result.page.page} / ${result.page.totalPages} 页，本页 ${result.techniques.length} 条，共 ${result.page.total} 条`);
+    setStatus(`已同步生成的功法第 ${result.page.page} / ${result.page.totalPages} 页，本页 ${result.techniques.length} 条，共 ${result.page.total} 条`);
   }
 }
 
@@ -8844,7 +8897,7 @@ function renderGeneratedTechniquePanel(result?: GmGeneratedTechniqueListRes): vo
   generatedTechniquePageNextBtn.disabled = page.page >= page.totalPages;
 
   if (generatedTechniques.length === 0) {
-    generatedTechniqueListEl.innerHTML = '<div class="empty-hint">暂无 AI 生成功法。</div>';
+    generatedTechniqueListEl.innerHTML = '<div class="empty-hint">暂无生成的功法。</div>';
   } else {
     generatedTechniqueListEl.innerHTML = generatedTechniques.map((technique) => renderGeneratedTechniqueRow(technique)).join('');
   }
@@ -8896,11 +8949,135 @@ async function loadGeneratedTechniqueDetail(id: string): Promise<void> {
   }
   selectedGeneratedTechniqueDetail = result.technique;
   renderGeneratedTechniquePanel();
-  setStatus(`已加载 AI 生成功法：${result.technique.name}`);
+  setStatus(`已加载功法：${result.technique.name}`);
 }
 
 function getGeneratedTechniqueGradeLabel(grade: string | null | undefined): string {
   return grade ? TECHNIQUE_GRADE_LABELS[grade as keyof typeof TECHNIQUE_GRADE_LABELS] ?? grade : '未知品阶';
+}
+
+async function loadTechniqueGenerationJobs(silent = true): Promise<void> {
+  if (!token) return;
+  const nonce = ++techniqueGenerationJobListRequestNonce;
+  generatedTechniqueSubtabTechniquesBtn.classList.remove('active');
+  generatedTechniqueSubtabJobsBtn.classList.add('active');
+  generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载生成任务…</div>';
+  generatedTechniquePageMetaEl.textContent = `第 ${techniqueGenerationJobPage} / ${Math.max(1, techniqueGenerationJobTotalPages)} 页 · 加载中`;
+  generatedTechniquePagePrevBtn.disabled = true;
+  generatedTechniquePageNextBtn.disabled = true;
+
+  const result = await request<GmTechniqueGenerationJobListRes>(
+    buildGmTechniqueGenerationJobsApiPath(buildTechniqueGenerationJobListQueryParams()),
+  );
+  if (nonce !== techniqueGenerationJobListRequestNonce) {
+    return;
+  }
+
+  techniqueGenerationJobs = result.jobs;
+  techniqueGenerationJobPage = result.page.page;
+  techniqueGenerationJobTotalPages = result.page.totalPages;
+  if (!selectedTechniqueGenerationJobId || !techniqueGenerationJobs.some((job) => job.id === selectedTechniqueGenerationJobId)) {
+    selectedTechniqueGenerationJobId = null;
+    selectedTechniqueGenerationJobDetail = null;
+  }
+  renderTechniqueGenerationJobPanel(result);
+  if (!silent) {
+    setStatus(`已同步生成任务第 ${result.page.page} / ${result.page.totalPages} 页，本页 ${result.jobs.length} 条，共 ${result.page.total} 条`);
+  }
+}
+
+function renderTechniqueGenerationJobPanel(result?: GmTechniqueGenerationJobListRes): void {
+  const page = result?.page ?? {
+    page: techniqueGenerationJobPage,
+    pageSize: 50,
+    total: techniqueGenerationJobs.length,
+    totalPages: techniqueGenerationJobTotalPages,
+  };
+  generatedTechniquePageMetaEl.textContent = `第 ${page.page} / ${Math.max(1, page.totalPages)} 页 · 共 ${page.total} 条`;
+  generatedTechniquePagePrevBtn.disabled = page.page <= 1;
+  generatedTechniquePageNextBtn.disabled = page.page >= page.totalPages;
+
+  if (techniqueGenerationJobs.length === 0) {
+    generatedTechniqueListEl.innerHTML = '<div class="empty-hint">暂无生成任务。</div>';
+  } else {
+    generatedTechniqueListEl.innerHTML = techniqueGenerationJobs.map((job) => renderTechniqueGenerationJobRow(job)).join('');
+  }
+  renderTechniqueGenerationJobDetail();
+}
+
+function renderTechniqueGenerationJobRow(job: GmTechniqueGenerationJobSummary): string {
+  const active = job.id === selectedTechniqueGenerationJobId ? ' active' : '';
+  const gradeLabel = getGeneratedTechniqueGradeLabel(job.rolledGrade);
+  const levelLabel = job.rolledRealmLv !== null && job.rolledRealmLv !== undefined ? `Lv.${job.rolledRealmLv}` : 'Lv.-';
+  const name = `${formatTechniqueGenerationJobStatus(job.status)} · ${job.requestedCategory ?? '未知类型'}`;
+  return `
+    <button class="player-row${active}" type="button" data-technique-generation-job-id="${escapeHtml(job.id)}">
+      <div>
+        <div class="player-row-title">${escapeHtml(name)}</div>
+        <div class="player-row-meta">${escapeHtml(formatDateTime(job.createdAt))}</div>
+        <div class="player-row-meta">${escapeHtml(gradeLabel)} · ${escapeHtml(levelLabel)} · ${job.itemConsumed ? '已扣玉简' : '未扣玉简'}</div>
+      </div>
+    </button>
+  `;
+}
+
+function renderTechniqueGenerationJobDetail(): void {
+  if (!selectedTechniqueGenerationJobId) {
+    generatedTechniqueDetailEmptyEl.classList.remove('hidden');
+    generatedTechniqueDetailEl.classList.add('hidden');
+    generatedTechniqueDetailMetaEl.textContent = '从左侧选择一条生成任务。';
+    generatedTechniqueJsonEl.value = '';
+    return;
+  }
+  const summary = techniqueGenerationJobs.find((job) => job.id === selectedTechniqueGenerationJobId) ?? null;
+  generatedTechniqueDetailMetaEl.textContent = summary
+    ? `${formatTechniqueGenerationJobStatus(summary.status)} · ${summary.itemConsumed ? '已扣玉简' : '未扣玉简'} · ${summary.playerId}`
+    : selectedTechniqueGenerationJobId;
+  generatedTechniqueDetailEmptyEl.classList.add('hidden');
+  generatedTechniqueDetailEl.classList.remove('hidden');
+  generatedTechniqueJsonEl.value = selectedTechniqueGenerationJobDetail
+    ? JSON.stringify(selectedTechniqueGenerationJobDetail.rawJson ?? selectedTechniqueGenerationJobDetail, null, 2)
+    : '正在加载详情…';
+}
+
+async function loadTechniqueGenerationJobDetail(id: string): Promise<void> {
+  selectedTechniqueGenerationJobId = id;
+  selectedTechniqueGenerationJobDetail = null;
+  renderTechniqueGenerationJobPanel();
+  const nonce = ++techniqueGenerationJobDetailRequestNonce;
+  const result = await request<GmTechniqueGenerationJobDetailRes>(buildGmTechniqueGenerationJobDetailApiPath(id));
+  if (nonce !== techniqueGenerationJobDetailRequestNonce || selectedTechniqueGenerationJobId !== id) {
+    return;
+  }
+  selectedTechniqueGenerationJobDetail = result.job;
+  renderTechniqueGenerationJobPanel();
+  setStatus(`已加载生成任务：${result.job.id}`);
+}
+
+function formatTechniqueGenerationJobStatus(status: string): string {
+  switch (status) {
+    case 'pending':
+      return '等待生成';
+    case 'running':
+      return '生成中';
+    case 'generated_draft':
+      return '待采纳';
+    case 'learned':
+      return '已学习';
+    case 'discarded':
+      return '已放弃';
+    case 'expired':
+      return '已过期';
+    case 'failed':
+      return '失败';
+    default:
+      return status || '未知状态';
+  }
+}
+
+function handleGeneratedTechniquePanelLoadError(error: unknown): void {
+  generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
+  setStatus(error instanceof Error ? error.message : '加载 AI 生成数据失败', true);
 }
 
 // ===== 交易记录 tab =====
@@ -10992,6 +11169,8 @@ envTabBtn.addEventListener('click', () => switchTab('secrets'));
 gameConfigTabBtn.addEventListener('click', () => switchTab('gameconfig'));
 aiTabBtn.addEventListener('click', () => switchTab('ai'));
 generatedTechniqueTabBtn.addEventListener('click', () => switchTab('generatedTechniques'));
+generatedTechniqueSubtabTechniquesBtn.addEventListener('click', () => switchGeneratedTechniqueSubtab('techniques'));
+generatedTechniqueSubtabJobsBtn.addEventListener('click', () => switchGeneratedTechniqueSubtab('jobs'));
 tradesTabBtn.addEventListener('click', () => switchTab('trades'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
@@ -11546,34 +11725,45 @@ aiProviderAddImageBtn.addEventListener('click', () => {
   addAiProviderConfig('image');
 });
 generatedTechniqueRefreshBtn.addEventListener('click', () => {
-  loadGeneratedTechniques(false).catch((error: unknown) => {
-    generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
-    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
-  });
+  loadCurrentGeneratedTechniqueSubtab(false).catch(handleGeneratedTechniquePanelLoadError);
 });
 generatedTechniquePagePrevBtn.addEventListener('click', () => {
-  if (generatedTechniquePage <= 1) return;
-  generatedTechniquePage -= 1;
-  loadGeneratedTechniques(true).catch((error: unknown) => {
-    generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
-    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
-  });
+  if (currentGeneratedTechniqueSubtab === 'jobs') {
+    if (techniqueGenerationJobPage <= 1) return;
+    techniqueGenerationJobPage -= 1;
+  } else {
+    if (generatedTechniquePage <= 1) return;
+    generatedTechniquePage -= 1;
+  }
+  loadCurrentGeneratedTechniqueSubtab(true).catch(handleGeneratedTechniquePanelLoadError);
 });
 generatedTechniquePageNextBtn.addEventListener('click', () => {
-  if (generatedTechniquePage >= generatedTechniqueTotalPages) return;
-  generatedTechniquePage += 1;
-  loadGeneratedTechniques(true).catch((error: unknown) => {
-    generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
-    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
-  });
+  if (currentGeneratedTechniqueSubtab === 'jobs') {
+    if (techniqueGenerationJobPage >= techniqueGenerationJobTotalPages) return;
+    techniqueGenerationJobPage += 1;
+  } else {
+    if (generatedTechniquePage >= generatedTechniqueTotalPages) return;
+    generatedTechniquePage += 1;
+  }
+  loadCurrentGeneratedTechniqueSubtab(true).catch(handleGeneratedTechniquePanelLoadError);
 });
 generatedTechniqueListEl.addEventListener('click', (event) => {
-  const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-generated-technique-id]');
-  const id = button?.dataset.generatedTechniqueId;
-  if (!id) return;
-  loadGeneratedTechniqueDetail(id).catch((error: unknown) => {
+  const target = event.target as HTMLElement | null;
+  const jobButton = target?.closest<HTMLButtonElement>('[data-technique-generation-job-id]');
+  const jobId = jobButton?.dataset.techniqueGenerationJobId;
+  if (jobId) {
+    loadTechniqueGenerationJobDetail(jobId).catch((error: unknown) => {
+      generatedTechniqueJsonEl.value = error instanceof Error ? error.message : '加载详情失败';
+      setStatus(error instanceof Error ? error.message : '加载生成任务详情失败', true);
+    });
+    return;
+  }
+  const techniqueButton = target?.closest<HTMLButtonElement>('[data-generated-technique-id]');
+  const techniqueId = techniqueButton?.dataset.generatedTechniqueId;
+  if (!techniqueId) return;
+  loadGeneratedTechniqueDetail(techniqueId).catch((error: unknown) => {
     generatedTechniqueJsonEl.value = error instanceof Error ? error.message : '加载详情失败';
-    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法详情失败', true);
+    setStatus(error instanceof Error ? error.message : '加载功法详情失败', true);
   });
 });
 tradesFormEl.addEventListener('submit', (event) => {

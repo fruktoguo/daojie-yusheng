@@ -261,6 +261,49 @@ export interface GmGeneratedTechniqueDetailRes {
   };
 }
 
+/** GM AI 生成功法任务列表查询条件。 */
+export interface GmTechniqueGenerationJobListQuery {
+  /** 页码，从 1 开始。 */
+  page?: number;
+  /** 每页条数，服务端固定限制到最多 50。 */
+  pageSize?: number;
+}
+
+/** GM AI 生成功法任务摘要。 */
+export interface GmTechniqueGenerationJobSummary {
+  id: string;
+  playerId: string;
+  status: string;
+  requestedCategory?: string | null;
+  rolledGrade?: string | null;
+  rolledRealmLv?: number | null;
+  draftTechniqueId?: string | null;
+  modelName?: string | null;
+  attemptCount: number;
+  itemConsumed: boolean;
+  consumedAt?: string | null;
+  draftExpireAt?: string | null;
+  finishedAt?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** GM AI 生成功法任务列表响应。 */
+export interface GmTechniqueGenerationJobListRes {
+  jobs: GmTechniqueGenerationJobSummary[];
+  page: GmGeneratedTechniqueListPage;
+}
+
+/** GM AI 生成功法任务详情响应。 */
+export interface GmTechniqueGenerationJobDetailRes {
+  job: GmTechniqueGenerationJobSummary & {
+    playerContext?: string | null;
+    rawJson: unknown;
+  };
+}
+
 /** 显示名可用性检查响应 */
 export interface DisplayNameAvailabilityRes {
 /**

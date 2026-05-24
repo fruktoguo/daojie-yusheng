@@ -8,14 +8,23 @@
  * 列表只返回摘要，详情按需返回原始 JSON，避免管理端一次性拉取大对象。
  */
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import type { GmGeneratedTechniqueDetailRes, GmGeneratedTechniqueListQuery, GmGeneratedTechniqueListRes } from '@mud/shared';
+import type {
+  GmGeneratedTechniqueDetailRes,
+  GmGeneratedTechniqueListQuery,
+  GmGeneratedTechniqueListRes,
+  GmTechniqueGenerationJobDetailRes,
+  GmTechniqueGenerationJobListQuery,
+  GmTechniqueGenerationJobListRes,
+} from '@mud/shared';
 import type { Pool } from 'pg';
 
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import {
   ensureGeneratedTechniqueTables,
   getGeneratedTechniqueForGm,
+  getTechniqueGenerationJobForGm,
   listGeneratedTechniquesForGm,
+  listTechniqueGenerationJobsForGm,
 } from '../../persistence/generated-technique-persistence.service';
 
 @Injectable()
@@ -59,6 +68,43 @@ export class NativeGmGeneratedTechniqueService {
       throw new NotFoundException('generated_technique_not_found');
     }
     return { technique };
+  }
+
+  async listGenerationJobs(query: GmTechniqueGenerationJobListQuery | null | undefined): Promise<GmTechniqueGenerationJobListRes> {
+    const pool = this.getPool();
+    if (!pool) {
+      return {
+        jobs: [],
+        page: {
+          page: 1,
+          pageSize: 50,
+          total: 0,
+          totalPages: 1,
+        },
+      };
+    }
+    await this.ensureSchema(pool);
+    return listTechniqueGenerationJobsForGm(pool, {
+      page: normalizePositiveInteger(query?.page, 1),
+      pageSize: normalizePositiveInteger(query?.pageSize, 50),
+    });
+  }
+
+  async getGenerationJob(id: string): Promise<GmTechniqueGenerationJobDetailRes> {
+    const normalizedId = id.trim();
+    if (!normalizedId) {
+      throw new NotFoundException('technique_generation_job_not_found');
+    }
+    const pool = this.getPool();
+    if (!pool) {
+      throw new ServiceUnavailableException('database_unavailable');
+    }
+    await this.ensureSchema(pool);
+    const job = await getTechniqueGenerationJobForGm(pool, normalizedId);
+    if (!job) {
+      throw new NotFoundException('technique_generation_job_not_found');
+    }
+    return { job };
   }
 
   private getPool(): Pool | null {

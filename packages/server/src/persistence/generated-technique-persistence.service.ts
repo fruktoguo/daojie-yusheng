@@ -18,6 +18,8 @@ import type {
   GmGeneratedTechniqueDetailRes,
   GmGeneratedTechniqueListPage,
   GmGeneratedTechniqueSummary,
+  GmTechniqueGenerationJobDetailRes,
+  GmTechniqueGenerationJobSummary,
 } from '@mud/shared';
 
 // ─── 表名常量 ───
@@ -95,6 +97,8 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
         draft_technique_id    VARCHAR(64),
         model_name            VARCHAR(64),
         attempt_count         INT NOT NULL DEFAULT 0,
+        item_consumed         BOOLEAN NOT NULL DEFAULT false,
+        consumed_at           TIMESTAMPTZ,
 
         draft_expire_at       TIMESTAMPTZ,
         finished_at           TIMESTAMPTZ,
@@ -116,6 +120,14 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
       ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
       ALTER COLUMN player_id TYPE VARCHAR(120)
       USING player_id::text
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ADD COLUMN IF NOT EXISTS item_consumed BOOLEAN NOT NULL DEFAULT false
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ
     `);
 
     await client.query(`
@@ -182,6 +194,11 @@ export interface ListGeneratedTechniquesForGmParams {
   pageSize: number;
 }
 
+export interface ListTechniqueGenerationJobsForGmParams {
+  page: number;
+  pageSize: number;
+}
+
 interface GeneratedTechniqueGmRow {
   id: string;
   generation_id: string;
@@ -199,6 +216,27 @@ interface GeneratedTechniqueGmRow {
   grade?: string | null;
   category?: string | null;
   realm_lv?: number | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface TechniqueGenerationJobGmRow {
+  id: string;
+  player_id: string;
+  status: string;
+  requested_category?: string | null;
+  rolled_grade?: string | null;
+  rolled_realm_lv?: number | string | null;
+  player_context?: string | null;
+  draft_technique_id?: string | null;
+  model_name?: string | null;
+  attempt_count?: number | string | null;
+  item_consumed?: boolean | null;
+  consumed_at?: Date | string | null;
+  draft_expire_at?: Date | string | null;
+  finished_at?: Date | string | null;
+  error_code?: string | null;
+  error_message?: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -291,6 +329,153 @@ export async function getGeneratedTechniqueForGm(
   };
 }
 
+export async function listTechniqueGenerationJobsForGm(
+  pool: Pool,
+  params: ListTechniqueGenerationJobsForGmParams,
+): Promise<{ jobs: GmTechniqueGenerationJobSummary[]; page: GmGeneratedTechniqueListPage }> {
+  const pageSize = clampInteger(params.pageSize, 1, 50, 50);
+  const requestedPage = clampInteger(params.page, 1, 1_000_000, 1);
+  const countResult = await pool.query(`SELECT COUNT(*)::int AS total FROM ${TECHNIQUE_GENERATION_JOB_TABLE}`);
+  const total = normalizeInteger((countResult.rows[0] as { total?: unknown } | undefined)?.total, 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * pageSize;
+  const listResult = await pool.query(
+    `SELECT id,
+            player_id,
+            status,
+            requested_category,
+            rolled_grade,
+            rolled_realm_lv,
+            draft_technique_id,
+            model_name,
+            attempt_count,
+            item_consumed,
+            consumed_at,
+            draft_expire_at,
+            finished_at,
+            error_code,
+            error_message,
+            created_at,
+            updated_at
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ORDER BY created_at DESC, id DESC
+      LIMIT $1 OFFSET $2`,
+    [pageSize, offset],
+  );
+
+  return {
+    jobs: (listResult.rows as TechniqueGenerationJobGmRow[]).map(toTechniqueGenerationJobSummary),
+    page: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+    },
+  };
+}
+
+export async function getTechniqueGenerationJobForGm(
+  pool: Pool,
+  id: string,
+): Promise<GmTechniqueGenerationJobDetailRes['job'] | null> {
+  const result = await pool.query(
+    `SELECT id,
+            player_id,
+            status,
+            requested_category,
+            rolled_grade,
+            rolled_realm_lv,
+            player_context,
+            draft_technique_id,
+            model_name,
+            attempt_count,
+            item_consumed,
+            consumed_at,
+            draft_expire_at,
+            finished_at,
+            error_code,
+            error_message,
+            created_at,
+            updated_at
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      WHERE id = $1
+      LIMIT 1`,
+    [id],
+  );
+  const row = result.rows[0] as TechniqueGenerationJobGmRow | undefined;
+  if (!row) {
+    return null;
+  }
+  return {
+    ...toTechniqueGenerationJobSummary(row),
+    playerContext: row.player_context ?? null,
+    rawJson: toTechniqueGenerationJobRawJson(row),
+  };
+}
+
+export async function markGenerationJobItemConsumed(pool: Pool, id: string): Promise<void> {
+  await pool.query(
+    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+     SET item_consumed = true,
+         consumed_at = COALESCE(consumed_at, NOW()),
+         updated_at = NOW()
+     WHERE id = $1`,
+    [id],
+  );
+}
+
+export async function markGenerationJobRunning(pool: Pool, id: string): Promise<void> {
+  await pool.query(
+    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+     SET status = 'running',
+         finished_at = NULL,
+         error_code = NULL,
+         error_message = NULL,
+         updated_at = NOW()
+     WHERE id = $1
+       AND status IN ('pending', 'running')`,
+    [id],
+  );
+}
+
+export interface RecoverableGenerationJob {
+  id: string;
+  playerId: string;
+  category: string;
+  grade: string;
+  realmLv: number;
+  playerContext: string;
+}
+
+export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Promise<RecoverableGenerationJob[]> {
+  const result = await pool.query(
+    `SELECT id,
+            player_id,
+            requested_category,
+            rolled_grade,
+            rolled_realm_lv,
+            player_context
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      WHERE status IN ('pending', 'running')
+        AND item_consumed = true
+        AND draft_technique_id IS NULL
+      ORDER BY created_at ASC, id ASC
+      LIMIT $1`,
+    [clampInteger(limit, 1, 200, 20)],
+  );
+  return (result.rows as TechniqueGenerationJobGmRow[])
+    .map((row) => ({
+      id: row.id,
+      playerId: row.player_id,
+      category: row.requested_category ?? '',
+      grade: row.rolled_grade ?? '',
+      realmLv: normalizeInteger(row.rolled_realm_lv, 0),
+      playerContext: row.player_context ?? '',
+    }))
+    .filter((row) => (row.category === 'internal' || row.category === 'arts') && row.grade && row.realmLv > 0);
+}
+
 function toGeneratedTechniqueSummary(row: GeneratedTechniqueGmRow): GmGeneratedTechniqueSummary {
   const templateRecord = isRecord(row.template) ? row.template : null;
   const displayName = row.display_name?.trim()
@@ -333,6 +518,51 @@ function toGeneratedTechniqueRawJson(row: GeneratedTechniqueGmRow): Record<strin
     grade: row.grade ?? null,
     category: row.category ?? null,
     realm_lv: normalizeNullableInteger(row.realm_lv),
+    created_at: formatDbTimestamp(row.created_at),
+    updated_at: formatDbTimestamp(row.updated_at),
+  };
+}
+
+function toTechniqueGenerationJobSummary(row: TechniqueGenerationJobGmRow): GmTechniqueGenerationJobSummary {
+  return {
+    id: row.id,
+    playerId: row.player_id,
+    status: row.status,
+    requestedCategory: row.requested_category ?? null,
+    rolledGrade: row.rolled_grade ?? null,
+    rolledRealmLv: normalizeNullableInteger(row.rolled_realm_lv),
+    draftTechniqueId: row.draft_technique_id ?? null,
+    modelName: row.model_name ?? null,
+    attemptCount: normalizeInteger(row.attempt_count, 0),
+    itemConsumed: Boolean(row.item_consumed),
+    consumedAt: row.consumed_at === null || row.consumed_at === undefined ? null : formatDbTimestamp(row.consumed_at),
+    draftExpireAt: row.draft_expire_at === null || row.draft_expire_at === undefined ? null : formatDbTimestamp(row.draft_expire_at),
+    finishedAt: row.finished_at === null || row.finished_at === undefined ? null : formatDbTimestamp(row.finished_at),
+    errorCode: row.error_code ?? null,
+    errorMessage: row.error_message ?? null,
+    createdAt: formatDbTimestamp(row.created_at),
+    updatedAt: formatDbTimestamp(row.updated_at),
+  };
+}
+
+function toTechniqueGenerationJobRawJson(row: TechniqueGenerationJobGmRow): Record<string, unknown> {
+  return {
+    id: row.id,
+    player_id: row.player_id,
+    status: row.status,
+    requested_category: row.requested_category ?? null,
+    rolled_grade: row.rolled_grade ?? null,
+    rolled_realm_lv: normalizeNullableInteger(row.rolled_realm_lv),
+    player_context: row.player_context ?? null,
+    draft_technique_id: row.draft_technique_id ?? null,
+    model_name: row.model_name ?? null,
+    attempt_count: normalizeInteger(row.attempt_count, 0),
+    item_consumed: Boolean(row.item_consumed),
+    consumed_at: row.consumed_at === null || row.consumed_at === undefined ? null : formatDbTimestamp(row.consumed_at),
+    draft_expire_at: row.draft_expire_at === null || row.draft_expire_at === undefined ? null : formatDbTimestamp(row.draft_expire_at),
+    finished_at: row.finished_at === null || row.finished_at === undefined ? null : formatDbTimestamp(row.finished_at),
+    error_code: row.error_code ?? null,
+    error_message: row.error_message ?? null,
     created_at: formatDbTimestamp(row.created_at),
     updated_at: formatDbTimestamp(row.updated_at),
   };
