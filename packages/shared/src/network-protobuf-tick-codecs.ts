@@ -159,6 +159,7 @@ export function toWireTick(payload: S2C_Tick): Record<string, unknown> {
           itemId: item.itemId,
           type: item.type,
           grade: item.grade,
+          enhanceLevel: item.enhanceLevel,
           groundLabel: item.groundLabel,
         }));
       }
@@ -239,6 +240,9 @@ export function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
                 count: Number((item as Record<string, unknown>).count ?? 0),
                 grade: typeof (item as Record<string, unknown>).grade === 'string'
                   ? String((item as Record<string, unknown>).grade) as TechniqueGrade
+                  : undefined,
+                enhanceLevel: Number.isFinite(Number((item as Record<string, unknown>).enhanceLevel))
+                  ? Math.max(0, Math.trunc(Number((item as Record<string, unknown>).enhanceLevel)))
                   : undefined,
                 groundLabel: typeof (item as Record<string, unknown>).groundLabel === 'string'
                   ? String((item as Record<string, unknown>).groundLabel)

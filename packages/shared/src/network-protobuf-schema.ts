@@ -86,6 +86,7 @@ message GroundItemEntryPayload {
   optional string type = 5;
   optional string grade = 6;
   optional string groundLabel = 7;
+  optional uint32 enhanceLevel = 8;
 }
 
 message GroundItemPilePatchPayload {

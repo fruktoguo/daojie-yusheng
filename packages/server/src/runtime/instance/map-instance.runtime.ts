@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -3833,10 +3833,7 @@ class MapInstanceRuntime {
                 x,
                 y,
                 tileIndex,
-                items: items.map((item) => ({
-                    itemKey: item.itemId,
-                    item,
-                })),
+                items: mergeGroundItemsByKey(items),
             };
             pile.items.sort(compareGroundEntries);
             this.groundPilesByTile.set(tileIndex, pile);
@@ -4553,7 +4550,7 @@ class MapInstanceRuntime {
 
         const normalizedCount = Math.max(1, Math.trunc(item.count));
 
-        const itemKey = item.itemId;
+        const itemKey = buildGroundItemKey(item);
 
         const tileIndex = this.toTileIndex(x, y);
 
@@ -4654,7 +4651,7 @@ class MapInstanceRuntime {
             return null;
         }
 
-        const entryIndex = pile.items.findIndex((entry) => entry.itemKey === itemKey);
+        const entryIndex = findGroundEntryIndex(pile.items, itemKey);
         if (entryIndex < 0) {
             return null;
         }
@@ -6595,6 +6592,7 @@ function toGroundPileView(pile) {
             type: (entry.item.type ?? 'material'),
             count: entry.item.count,
             grade: entry.item.grade,
+            enhanceLevel: entry.item.enhanceLevel,
             groundLabel: entry.item.groundLabel,
         })),
     };
@@ -6621,6 +6619,7 @@ function isSameGroundPileView(left, right) {
             || leftItem.type !== rightItem.type
             || leftItem.count !== rightItem.count
             || leftItem.grade !== rightItem.grade
+            || leftItem.enhanceLevel !== rightItem.enhanceLevel
             || leftItem.groundLabel !== rightItem.groundLabel) {
             return false;
         }
@@ -6637,7 +6636,51 @@ function normalizePersistedGroundItem(item) {
 
     item.itemId = item.itemId.trim();
     item.count = Number.isFinite(Number(item.count)) ? Math.max(1, Math.trunc(Number(item.count))) : 1;
+    if (Number.isFinite(Number(item.enhanceLevel))) {
+        item.enhanceLevel = Math.max(0, Math.trunc(Number(item.enhanceLevel)));
+    }
+    else {
+        delete item.enhanceLevel;
+    }
     return item;
+}
+/** buildGroundItemKey：地面物品用共享堆叠签名区分实例态字段。 */
+function buildGroundItemKey(item) {
+    return createItemStackSignature(item);
+}
+/** mergeGroundItemsByKey：按地面物品签名归并历史重复条目。 */
+function mergeGroundItemsByKey(items) {
+    const entries = [];
+    const index = new Map();
+    for (const item of items) {
+        const itemKey = buildGroundItemKey(item);
+        const existing = index.get(itemKey);
+        if (existing) {
+            existing.item.count += item.count;
+            if (!existing.item.name && item.name) {
+                existing.item.name = item.name;
+            }
+            if (!existing.item.groundLabel && item.groundLabel) {
+                existing.item.groundLabel = item.groundLabel;
+            }
+            continue;
+        }
+        const entry = { itemKey, item };
+        index.set(itemKey, entry);
+        entries.push(entry);
+    }
+    return entries;
+}
+/** findGroundEntryIndex：优先按签名取地面条目，兼容历史裸 itemId 且避免多变体误取。 */
+function findGroundEntryIndex(entries, itemKey) {
+    const directIndex = entries.findIndex((entry) => entry.itemKey === itemKey);
+    if (directIndex >= 0) {
+        return directIndex;
+    }
+    const matches = entries
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => entry.item?.itemId === itemKey);
+    return matches.length === 1 ? matches[0].index : -1;
 }
 /** compareGroundPiles：比较地面物品堆顺序。 */
 function compareGroundPiles(left, right) {

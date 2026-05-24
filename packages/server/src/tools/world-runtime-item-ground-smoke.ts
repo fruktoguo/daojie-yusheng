@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { WorldRuntimeItemGroundService } = require("../runtime/world/world-runtime-item-ground.service");
+const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 /**
  * testDropItem：执行testDrop道具相关逻辑。
  * @returns 无返回值，直接更新testDrop道具相关状态。
@@ -20,13 +21,13 @@ function testDropItem() {
         /**
  * splitInventoryItem：处理背包道具并更新相关状态。
  * @param playerId 玩家 ID。
- * @param slotIndex 参数说明。
+ * @param itemInstanceId 物品实例 ID。
  * @param count 数量。
  * @returns 无返回值，直接更新背包道具相关状态。
  */
 
-        splitInventoryItem(playerId, slotIndex, count) {
-            log.push(['splitInventoryItem', playerId, slotIndex, count]);
+        splitInventoryItemByInstanceId(playerId, itemInstanceId, count) {
+            log.push(['splitInventoryItemByInstanceId', playerId, itemInstanceId, count]);
             return { itemId: 'book.changsheng_chanyuan', count: 1 };
         },        
         contentTemplateRepository: {
@@ -90,9 +91,9 @@ function testDropItem() {
 
         queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },
     };
-    service.dispatchDropItem('player:1', 2, 2, deps);
+    service.dispatchDropItem('player:1', 'item:book', 2, deps);
     assert.deepEqual(log, [
-        ['splitInventoryItem', 'player:1', 2, 2],
+        ['splitInventoryItemByInstanceId', 'player:1', 'item:book', 2],
         ['dropGroundItem', 5, 7, 'book.changsheng_chanyuan', '长生禅缘', 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '放下 长生禅缘', 'info'],
@@ -184,11 +185,108 @@ function testSpawnGroundItemFailure() {
     }, /无法在 8,9 生成掉落/);
 }
 
+function createGroundItemTestInstance() {
+    return new MapInstanceRuntime({
+        instanceId: 'public:ground-item-enhance-smoke',
+        template: {
+            id: 'ground-item-enhance-smoke',
+            name: '地面物品强化烟测',
+            width: 3,
+            height: 3,
+            tiles: ['...', '...', '...'],
+            baseAuraByTile: new Int32Array(9),
+            portals: [],
+            npcs: [],
+            monsters: [],
+            safeZones: [],
+            landmarks: [],
+            containers: [],
+            auras: [],
+            spawnPoint: { x: 1, y: 1 },
+        },
+        monsterSpawns: [],
+        kind: 'public',
+        persistent: true,
+        createdAt: Date.now(),
+        displayName: '地面物品强化烟测',
+        linePreset: 'peaceful',
+        lineIndex: 1,
+        instanceOrigin: 'smoke',
+        defaultEntry: true,
+        canDamageTile: true,
+    });
+}
+
+function assertGroundEnhanceVariants(instance) {
+    const pile = instance.getGroundPileBySourceId('g:4');
+    assert.equal(pile?.items.length, 2);
+    assert.deepEqual(
+        pile.items.map((entry) => [entry.itemKey, entry.item.itemId, entry.item.count, entry.item.enhanceLevel ?? 0]),
+        [
+            ['equip.test_blade#0', 'equip.test_blade', 1, 0],
+            ['equip.test_blade#5', 'equip.test_blade', 1, 5],
+        ],
+    );
+    const view = instance.getTileGroundPile(1, 1);
+    assert.deepEqual(
+        view?.items.map((entry) => [entry.itemKey, entry.itemId, entry.count, entry.enhanceLevel ?? 0]),
+        [
+            ['equip.test_blade#0', 'equip.test_blade', 1, 0],
+            ['equip.test_blade#5', 'equip.test_blade', 1, 5],
+        ],
+    );
+}
+
+function testEnhancedGroundItemsDoNotMerge() {
+    const instance = createGroundItemTestInstance();
+    instance.dropGroundItem(1, 1, { itemId: 'equip.test_blade', name: '测试剑', type: 'equipment', count: 1, enhanceLevel: 5 });
+    instance.dropGroundItem(1, 1, { itemId: 'equip.test_blade', name: '测试剑', type: 'equipment', count: 1 });
+
+    assertGroundEnhanceVariants(instance);
+
+    const normal = instance.takeGroundItem('g:4', 'equip.test_blade#0', 1, 1);
+    assert.equal(normal.itemId, 'equip.test_blade');
+    assert.equal(normal.enhanceLevel, undefined);
+    const enhanced = instance.takeGroundItem('g:4', 'equip.test_blade#5', 1, 1);
+    assert.equal(enhanced.itemId, 'equip.test_blade');
+    assert.equal(enhanced.enhanceLevel, 5);
+}
+
+function testHydratedEnhancedGroundItemsDoNotMerge() {
+    const instance = createGroundItemTestInstance();
+    instance.hydrateGroundPiles([
+        {
+            tileIndex: 4,
+            items: [
+                { itemId: 'equip.test_blade', name: '测试剑', type: 'equipment', count: 1, enhanceLevel: 5 },
+                { itemId: 'equip.test_blade', name: '测试剑', type: 'equipment', count: 1 },
+            ],
+        },
+    ]);
+
+    assertGroundEnhanceVariants(instance);
+}
+
+function testLegacyBareItemKeyCompatibility() {
+    const instance = createGroundItemTestInstance();
+    instance.dropGroundItem(1, 1, { itemId: 'rat_tail', name: '鼠尾', type: 'material', count: 1 });
+    const single = instance.takeGroundItem('g:4', 'rat_tail', 1, 1);
+    assert.equal(single.itemId, 'rat_tail');
+
+    instance.dropGroundItem(1, 1, { itemId: 'equip.test_blade', name: '测试剑', type: 'equipment', count: 1 });
+    instance.dropGroundItem(1, 1, { itemId: 'equip.test_blade', name: '测试剑', type: 'equipment', count: 1, enhanceLevel: 5 });
+    const ambiguous = instance.takeGroundItem('g:4', 'equip.test_blade', 1, 1);
+    assert.equal(ambiguous, null);
+}
+
 Promise.resolve()
     .then(() => testDropItem())
     .then(() => testTakeGroundDelegation())
     .then(() => testSpawnGroundItem())
     .then(() => testSpawnGroundItemFailure())
+    .then(() => testEnhancedGroundItemsDoNotMerge())
+    .then(() => testHydratedEnhancedGroundItemsDoNotMerge())
+    .then(() => testLegacyBareItemKeyCompatibility())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-item-ground' }, null, 2));
 });

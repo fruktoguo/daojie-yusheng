@@ -110,6 +110,7 @@ export class WorldRuntimePlayerViewQueryService {
                         name: entry.name,
                         type: entry.type,
                         grade: entry.grade,
+                        enhanceLevel: entry.enhanceLevel,
                         groundLabel: entry.groundLabel,
                     },
                 })),

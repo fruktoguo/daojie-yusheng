@@ -45,6 +45,11 @@ export interface GroundItemEntryView {
 
   grade?: TechniqueGrade;  
   /**
+ * enhanceLevel：强化等级；不同强化等级必须作为不同地面条目。
+ */
+
+  enhanceLevel?: number;
+  /**
  * groundLabel：groundLabel名称或显示文本。
  */
 

@@ -23,9 +23,11 @@ import { ItemStack } from './item-runtime-types';
  */
 export const ITEM_INSTANCE_PAYLOAD_KEYS: readonly string[] = ['enhanceLevel'];
 
-/** 规范化单个实例态字段值：数字取整、其余类型 JSON 序列化、null/undefined 统一为空串 */
-function normalizePayloadValue(value: unknown): string {
-  if (value == null) return '';
+/** 规范化单个实例态字段值：数字取整、其余类型 JSON 序列化。 */
+function normalizePayloadValue(key: string, value: unknown): string {
+  if (value == null) {
+    return key === 'enhanceLevel' ? '0' : '';
+  }
   if (typeof value === 'number') {
     return Number.isFinite(value) ? String(Math.trunc(value)) : '';
   }
@@ -41,7 +43,7 @@ export function createItemStackSignature(item: ItemStack | { itemId?: string; [k
   const itemId = typeof item?.itemId === 'string' ? item.itemId : '';
   const parts: string[] = [itemId];
   for (const key of ITEM_INSTANCE_PAYLOAD_KEYS) {
-    parts.push(normalizePayloadValue((item as Record<string, unknown>)?.[key]));
+    parts.push(normalizePayloadValue(key, (item as Record<string, unknown>)?.[key]));
   }
   return parts.join('#');
 }
