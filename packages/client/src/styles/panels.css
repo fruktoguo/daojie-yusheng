@@ -2304,6 +2304,43 @@
       line-height: 1.55;
       overflow-wrap: anywhere;
     }
+    .technique-generation-panel__attr-radar-shell {
+      padding: 10px;
+      border-color: rgba(34, 26, 19, 0.1);
+      background: rgba(255, 255, 255, 0.32);
+      box-shadow: none;
+    }
+    .technique-generation-panel__attr-radar-body {
+      min-height: 286px;
+    }
+    .technique-generation-panel__attr-radar-shell .attr-radar {
+      max-width: 286px;
+    }
+    .technique-generation-panel__attr-radar-node {
+      grid-template-columns: 22px minmax(0, max-content) minmax(0, max-content);
+      gap: 4px;
+      min-width: 92px;
+      cursor: default;
+    }
+    .technique-generation-panel__attr-radar-node .attr-radar-icon {
+      width: 20px;
+      height: 20px;
+      background-size: 160px 140px;
+      background-position:
+        calc(var(--attr-icon-col) * -20px)
+        calc(var(--attr-icon-row) * -20px);
+    }
+    .technique-generation-panel__attr-radar-label {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      line-height: 20px;
+      white-space: nowrap;
+    }
+    .technique-generation-panel__attr-radar-node .attr-radar-icon-value {
+      height: 20px;
+      color: var(--ink-black);
+      line-height: 20px;
+    }
     .technique-generation-panel__skill-list {
       display: flex;
       flex-direction: column;
@@ -2401,7 +2438,8 @@
     :root[data-color-mode="dark"] .technique-generation-panel__tab,
     :root[data-color-mode="dark"] .technique-generation-panel__metric,
     :root[data-color-mode="dark"] .technique-generation-panel__desc,
-    :root[data-color-mode="dark"] .technique-generation-panel__skill {
+    :root[data-color-mode="dark"] .technique-generation-panel__skill,
+    :root[data-color-mode="dark"] .technique-generation-panel__attr-radar-shell {
       border-color: rgba(234, 221, 202, 0.12);
       background: rgba(255, 255, 255, 0.05);
     }
@@ -2461,6 +2499,19 @@
       }
       .technique-generation-panel__actions .small-btn {
         width: 100%;
+      }
+      .technique-generation-panel__attr-radar-body {
+        min-height: 252px;
+      }
+      .technique-generation-panel__attr-radar-shell .attr-radar {
+        max-width: 252px;
+      }
+      .technique-generation-panel__attr-radar-node {
+        grid-template-columns: 20px minmax(0, max-content);
+        min-width: 70px;
+      }
+      .technique-generation-panel__attr-radar-label {
+        display: none;
       }
       .technique-generation-panel__state {
         min-height: 180px;

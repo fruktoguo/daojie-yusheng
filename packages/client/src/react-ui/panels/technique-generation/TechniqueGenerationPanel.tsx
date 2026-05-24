@@ -3,13 +3,13 @@
  *
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
-import { memo, useCallback, useEffect, useState, type ReactElement } from 'react';
-import type { Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
-import { resolveSkillUnlockLevel } from '@mud/shared';
+import { memo, useCallback, useEffect, useState, type CSSProperties, type ReactElement } from 'react';
+import type { AttrKey, Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
+import { ATTR_KEYS, resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
-import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
-import { formatTechniqueBonusSummary } from '../../../ui/technique-bonus-summary';
-import { formatDisplayInteger } from '../../../utils/number';
+import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
+import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
+import { formatDisplayInteger, formatDisplaySignedNumber } from '../../../utils/number';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -207,7 +207,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
           {state.currentDraft.category === 'internal' && (
             <div className="technique-generation-panel__effect">
               <span>满层六维加成</span>
-              <strong>{formatTechniqueBonusSummary(state.currentDraft.fullLevelAttrs, undefined, '无增益')}</strong>
+              {renderTechniqueAttrRadar(state.currentDraft.fullLevelAttrs)}
             </div>
           )}
 
@@ -257,6 +257,143 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
     </div>
   );
 });
+
+type TechniqueAttrRadarPoint = {
+  x: number;
+  y: number;
+};
+
+const TECHNIQUE_ATTR_RADAR_CENTER = 170;
+const TECHNIQUE_ATTR_RADAR_RADIUS = 110;
+
+function renderTechniqueAttrRadar(attrs: Partial<Attributes> | undefined): ReactElement {
+  const values = ATTR_KEYS.map((key) => {
+    const value = Number(attrs?.[key] ?? 0);
+    return Number.isFinite(value) ? Math.round(value) : 0;
+  });
+  const maxValue = Math.max(0, ...values.map((value) => Math.max(0, value)));
+  if (maxValue <= 0) {
+    return <strong>无增益</strong>;
+  }
+
+  const scaleStep = maxValue >= 100 ? 50 : maxValue >= 20 ? 10 : 5;
+  const scale = Math.max(scaleStep, Math.ceil(maxValue / scaleStep) * scaleStep);
+  const pointsAt = (index: number, ratio: number, clamp = true): TechniqueAttrRadarPoint => {
+    const clampedRatio = clamp ? Math.max(0, Math.min(1, ratio)) : ratio;
+    const angle = ((-90 + index * (360 / ATTR_KEYS.length)) * Math.PI) / 180;
+    const radius = TECHNIQUE_ATTR_RADAR_RADIUS * clampedRatio;
+    return {
+      x: TECHNIQUE_ATTR_RADAR_CENTER + Math.cos(angle) * radius,
+      y: TECHNIQUE_ATTR_RADAR_CENTER + Math.sin(angle) * radius,
+    };
+  };
+  const formatPoint = (point: TechniqueAttrRadarPoint): string => `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
+  const formatPercent = (value: number): string => `${((value / 340) * 100).toFixed(3)}%`;
+  const nodes = ATTR_KEYS.map((key, index) => {
+    const value = values[index] ?? 0;
+    return {
+      key,
+      text: ATTR_KEY_LABELS[key],
+      value,
+      valueLabel: formatDisplaySignedNumber(value),
+      color: ATTR_COLORS[index % ATTR_COLORS.length] ?? ATTR_COLORS[0],
+      dot: pointsAt(index, value / scale),
+      label: pointsAt(index, 1.14, false),
+    };
+  });
+  const areaPoints = nodes.map((node) => formatPoint(node.dot)).join(' ');
+  const rings = [0.2, 0.4, 0.6, 0.8, 1].map((ratio) => (
+    <polygon
+      key={ratio}
+      className="attr-radar-ring"
+      points={ATTR_KEYS.map((_, index) => formatPoint(pointsAt(index, ratio))).join(' ')}
+    />
+  ));
+  const gradientId = `technique-generation-attr-radar-${scale}`;
+
+  return (
+    <div className="attr-radar-shell technique-generation-panel__attr-radar-shell">
+      <div className="attr-radar-head">
+        <div className="attr-radar-title">六维轮图</div>
+        <div className="attr-radar-scale">刻度 {formatDisplaySignedNumber(scale)}</div>
+      </div>
+      <div className="attr-radar-body technique-generation-panel__attr-radar-body">
+        <svg className="attr-radar" viewBox="0 0 340 340" role="img" aria-label="满层六维加成">
+          <defs>
+            <linearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">
+              {nodes.map((node, index) => {
+                const offset = nodes.length === 1 ? '50%' : `${(index / (nodes.length - 1)) * 100}%`;
+                return <stop key={node.key} offset={offset} stopColor={node.color} stopOpacity="0.4" />;
+              })}
+            </linearGradient>
+          </defs>
+          {rings}
+          {nodes.map((node, index) => {
+            const axis = pointsAt(index, 1);
+            return (
+              <line
+                key={node.key}
+                className="attr-radar-axis"
+                x1={TECHNIQUE_ATTR_RADAR_CENTER}
+                y1={TECHNIQUE_ATTR_RADAR_CENTER}
+                x2={axis.x.toFixed(2)}
+                y2={axis.y.toFixed(2)}
+                stroke={node.color}
+              />
+            );
+          })}
+          <polygon
+            className="attr-radar-area"
+            points={areaPoints}
+            fill={`url(#${gradientId})`}
+            stroke={nodes[0]?.color ?? ATTR_COLORS[0]}
+            strokeWidth="2"
+          />
+          {nodes.map((node, index) => (
+            <g key={node.key} className="attr-radar-node" data-radar-node={index}>
+              <circle
+                className="attr-radar-dot"
+                cx={node.dot.x.toFixed(2)}
+                cy={node.dot.y.toFixed(2)}
+                r="6"
+                fill={node.color}
+                strokeWidth="1.8"
+              />
+            </g>
+          ))}
+        </svg>
+        {nodes.map((node) => renderTechniqueAttrRadarIcon(node, formatPercent(node.label.x), formatPercent(node.label.y)))}
+      </div>
+    </div>
+  );
+}
+
+function renderTechniqueAttrRadarIcon(
+  node: { key: AttrKey; text: string; valueLabel: string },
+  left: string,
+  top: string,
+): ReactElement {
+  const cell = ATTR_ICON_ATLAS_CELLS[node.key];
+  const style: CSSProperties & Record<'--attr-icon-col' | '--attr-icon-row', number> = {
+    left,
+    top,
+    '--attr-icon-col': cell?.col ?? 0,
+    '--attr-icon-row': cell?.row ?? 0,
+  };
+  return (
+    <div
+      key={node.key}
+      className="attr-radar-icon-node technique-generation-panel__attr-radar-node"
+      style={style}
+      aria-label={`${node.text} ${node.valueLabel}`}
+      title={`${node.text} ${node.valueLabel}`}
+    >
+      {cell && <span className="attr-radar-icon" aria-hidden="true" />}
+      <span className="technique-generation-panel__attr-radar-label">{node.text}</span>
+      <span className="attr-radar-icon-value">{node.valueLabel}</span>
+    </div>
+  );
+}
 
 function renderPreviewSkills(skills: SkillDef[] | undefined): ReactElement {
   if (!skills || skills.length === 0) {
