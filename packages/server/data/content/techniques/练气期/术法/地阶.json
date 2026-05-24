@@ -13,46 +13,63 @@
         "id": "skill.huangting_zaishan",
         "name": "载山",
         "desc": "黄庭借山成势，以厚土重压敌身。",
-        "cooldown": 24,
-        "costMultiplier": 7,
-        "range": 1,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 404.6,
+          "target": {
+            "type": "single",
+            "range": 1,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -53.3648,
+            "cooldown": -5,
+            "chant": 0,
+            "costMultiplier": 7,
+            "cooldownTicks": 24
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "earth",
+              "targetBudget": 404.6,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    400,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        400,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 3.5
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "earth"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.earth.self_fortify"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.earth.self_fortify",
+              "targetBudget": 1
+            }
+          ]
+        }
       }
     ]
   },
@@ -70,42 +87,58 @@
         "id": "skill.taibai_zhuxing",
         "name": "诛形",
         "desc": "裂甲既成，贴身诛形。",
-        "cooldown": 24,
-        "costMultiplier": 6,
-        "range": 1,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 206,
+          "target": {
+            "type": "single",
+            "range": 1,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -49.1373,
+            "cooldown": -5,
+            "chant": 0,
+            "costMultiplier": 6,
+            "cooldownTicks": 24
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "metal",
+              "targetBudget": 206,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    200,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        200,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 4.5
+                        }
+                      ]
+                    },
                     {
-                      "var": "target.buff.buff.metal_edge_mark.stacks",
-                      "scale": 0.5
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "target.buff.buff.metal_edge_mark.stacks",
+                          "scale": 0.5
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
-            },
-            "element": "metal"
-          }
-        ],
-        "unlockLevel": 1
+              }
+            }
+          ]
+        }
       }
     ]
   },
@@ -123,17 +156,31 @@
         "id": "skill.taichu_baoyuan",
         "name": "抱元",
         "desc": "抱元守一，短时拔升双抗。",
-        "cooldown": 28,
-        "costMultiplier": 3,
-        "range": 0,
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "buff",
-            "buffRef": "lianqi.common.baoyuan_guard"
-          }
-        ],
-        "unlockLevel": 1
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 1,
+          "target": {
+            "type": "single",
+            "range": 0,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": -9.2274,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 28
+          },
+          "effectsStrength": [
+            {
+              "type": "buff",
+              "buffRef": "lianqi.common.baoyuan_guard",
+              "targetBudget": 1
+            }
+          ],
+          "requiresTarget": false
+        }
       }
     ]
   },
@@ -151,55 +198,73 @@
         "id": "skill.taiyin_guichao",
         "name": "潮",
         "desc": "归潮成线，借己身潮势压垮敌体。",
-        "cooldown": 24,
-        "costMultiplier": 5,
-        "range": 3,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 3
-        },
-        "targetMode": "tile",
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 304.8,
+          "target": {
+            "type": "line",
+            "range": 3,
+            "targetMode": "tile",
+            "maxTargets": 3,
+            "rawTargeting": {
+              "shape": "line",
+              "maxTargets": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": -5,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 24
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "water",
+              "targetBudget": 304.8,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    300,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        300,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3.5
+                        }
+                      ]
                     },
                     {
-                      "var": "caster.buff.buff.water_glide.stacks",
-                      "scale": 0.2
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "caster.buff.buff.water_glide.stacks",
+                          "scale": 0.2
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "water"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.water.frost_mark"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.water.frost_mark",
+              "targetBudget": 1
+            }
+          ],
+          "targetMode": "tile"
+        }
       }
     ]
   },
@@ -217,53 +282,73 @@
         "id": "skill.changsheng_chanyuan",
         "name": "枯荣禁脉",
         "desc": "枯荣逆转，断其回息。",
-        "cooldown": 28,
-        "costMultiplier": 5,
-        "range": 5,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 9,
-          "width": 3,
-          "height": 3
-        },
-        "targetMode": "tile",
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 305.1,
+          "target": {
+            "type": "box",
+            "range": 5,
+            "width": 3,
+            "height": 3,
+            "targetMode": "tile",
+            "maxTargets": 9,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 9,
+              "width": 3,
+              "height": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": -9.2274,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 28
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "wood",
+              "targetBudget": 305.1,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    300,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        300,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 4
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "wood"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.wood.vine_mark"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.wood.vine_mark",
+              "targetBudget": 1
+            }
+          ],
+          "targetMode": "tile"
+        }
       }
     ]
   },
@@ -281,62 +366,81 @@
         "id": "skill.zhuming_jintian",
         "name": "朱明劫焰",
         "desc": "朱明火势归于己身，三息之后覆压四方。",
-        "cooldown": 32,
-        "costMultiplier": 5,
-        "range": 0,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 25,
-          "width": 5,
-          "height": 5
-        },
-        "requiresTarget": false,
-        "playerCast": {
-          "windupTicks": 3,
-          "warningColor": "#ef6b3b"
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 425.71,
+          "target": {
+            "type": "box",
+            "range": 0,
+            "width": 5,
+            "height": 5,
+            "maxTargets": 25,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 25,
+              "width": 5,
+              "height": 5
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": -12.8894,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 32
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "targetBudget": 405.71,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    400,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.2
+                      "op": "add",
+                      "args": [
+                        400,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 4.5
+                        }
+                      ]
                     },
                     {
-                      "var": "target.buff.buff.fire_burn_mark.stacks",
-                      "scale": 0.01
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.2
+                        },
+                        {
+                          "var": "target.buff.buff.fire_burn_mark.stacks",
+                          "scale": 0.01
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "fire"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.fire.burn_mark",
-            "stacks": 20
+            {
+              "type": "buff",
+              "buffRef": "lianqi.fire.burn_mark",
+              "stacks": 20,
+              "targetBudget": 20
+            }
+          ],
+          "requiresTarget": false,
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ef6b3b"
           }
-        ],
-        "unlockLevel": 1
+        }
       }
     ]
   }

@@ -13,35 +13,51 @@
         "id": "skill.tongtian_shadow_strike",
         "name": "虚影重击",
         "desc": "虚影以自身境界压下重击，造成随境界等级提升的物理伤害。",
-        "cooldown": 10,
-        "costMultiplier": 0,
-        "range": 1,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 1
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 2.5,
+          "target": {
+            "type": "single",
+            "range": 1,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": 0,
+            "cooldown": 32.8941,
+            "chant": 0,
+            "costMultiplier": 0,
+            "cooldownTicks": 10
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "targetBudget": 2.5,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "caster.realmLv",
-                      "scale": 0.5
+                      "var": "caster.stat.physAtk",
+                      "scale": 1
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "caster.realmLv",
+                          "scale": 0.5
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             }
-          }
-        ],
-        "unlockLevel": 1
+          ]
+        }
       }
     ]
   },
@@ -59,42 +75,58 @@
         "id": "skill.qingmu_sword",
         "name": "青木剑诀",
         "desc": "青木剑气凝作一线，专取单体破敌。",
-        "cooldown": 10,
-        "costMultiplier": 4,
-        "range": 2,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 34.1,
+          "target": {
+            "type": "single",
+            "range": 2,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -38.0178,
+            "cooldown": 32.8941,
+            "chant": 0,
+            "costMultiplier": 4,
+            "cooldownTicks": 10
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "wood",
+              "targetBudget": 34.1,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    30,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        30,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 3
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
-            },
-            "element": "wood"
-          }
-        ],
-        "unlockLevel": 1
+              }
+            }
+          ]
+        }
       }
     ]
   }

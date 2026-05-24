@@ -4,7 +4,7 @@
  * 维护时保持纯函数，不引入服务端持久化、客户端 UI 或运行时状态。
  */
 import type { ElementKey, NumericScalarStatKey } from './numeric';
-import type { SkillDamageKind, SkillDef, SkillFormula, SkillTargetingDef } from './skill-types';
+import type { SkillDamageKind, SkillDef, SkillEffectDef, SkillFormula, SkillTargetingDef } from './skill-types';
 import type { TechniqueGrade } from './cultivation-types';
 import { calculateTechniqueSkillQiCost } from './technique';
 import {
@@ -15,7 +15,7 @@ import {
 
 export type TechniqueArtsStrengthAttributeBaseStat = typeof TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS[number];
 
-export type TechniqueArtsStrengthTargetType = 'single' | 'line' | 'box' | 'area';
+export type TechniqueArtsStrengthTargetType = 'single' | 'line' | 'box' | 'area' | 'orientedBox' | 'ring' | 'checkerboard';
 
 export interface TechniqueArtsStrengthTargetInput {
   type?: TechniqueArtsStrengthTargetType;
@@ -23,13 +23,19 @@ export interface TechniqueArtsStrengthTargetInput {
   width?: number;
   height?: number;
   radius?: number;
+  innerRadius?: number;
+  checkerParity?: 'even' | 'odd';
+  maxTargets?: number;
   targetMode?: 'any' | 'entity' | 'tile';
+  rawTargeting?: SkillTargetingDef | null;
 }
 
 export interface TechniqueArtsStrengthStructureInput {
   cost?: number;
   cooldown?: number;
   chant?: number;
+  costMultiplier?: number;
+  cooldownTicks?: number;
 }
 
 export interface TechniqueArtsStrengthFormulaInput {
@@ -38,18 +44,35 @@ export interface TechniqueArtsStrengthFormulaInput {
     techLevel?: number;
     moveSpeed?: number;
   };
+  rawFormula?: SkillFormula;
 }
 
 export interface TechniqueArtsStrengthSkillInput {
+  id?: string;
   name?: string;
   desc?: string;
   unlockLevel?: number;
+  unlockRealm?: number;
+  unlockPlayerRealm?: number;
+  requiresTarget?: boolean;
+  targetMode?: 'any' | 'entity' | 'tile';
   damageKind?: SkillDamageKind;
   element?: ElementKey;
   target?: TechniqueArtsStrengthTargetInput;
   structureStrength?: TechniqueArtsStrengthStructureInput;
   formulaStrength?: TechniqueArtsStrengthFormulaInput;
+  targetBudget?: number;
+  effectsStrength?: TechniqueArtsStrengthEffectInput[];
+  playerCast?: unknown;
+  monsterCast?: unknown;
 }
+
+export type TechniqueArtsStrengthEffectInput = Record<string, unknown> & {
+  type?: string;
+  targetBudget?: number;
+  formulaStrength?: TechniqueArtsStrengthFormulaInput;
+  hpFormulaStrength?: TechniqueArtsStrengthFormulaInput;
+};
 
 export interface TechniqueArtsStrengthTemplateInput {
   skills?: TechniqueArtsStrengthSkillInput[];
@@ -61,7 +84,11 @@ export interface NormalizedTechniqueArtsStrengthTarget {
   width?: number;
   height?: number;
   radius?: number;
+  innerRadius?: number;
+  checkerParity?: 'even' | 'odd';
+  maxTargets?: number;
   targetMode?: 'any' | 'entity' | 'tile';
+  rawTargeting?: SkillTargetingDef | null;
   coveredCells: number;
   areaStrength: number;
   rangeStrength: number;
@@ -83,18 +110,28 @@ export interface NormalizedTechniqueArtsStrengthFormula {
     techLevel: number;
     moveSpeed: number;
   };
+  rawFormula?: SkillFormula;
   effectStrength: number;
 }
 
 export interface NormalizedTechniqueArtsStrengthSkill {
+  id?: string;
   name: string;
   desc: string;
   unlockLevel: number;
+  unlockRealm?: number;
+  unlockPlayerRealm?: number;
+  requiresTarget?: boolean;
+  targetMode?: 'any' | 'entity' | 'tile';
   damageKind: SkillDamageKind;
   element?: ElementKey;
   target: NormalizedTechniqueArtsStrengthTarget;
   structure: NormalizedTechniqueArtsStrengthStructure;
   formula: NormalizedTechniqueArtsStrengthFormula;
+  targetBudget?: number;
+  effectsStrength?: TechniqueArtsStrengthEffectInput[];
+  playerCast?: unknown;
+  monsterCast?: unknown;
   inputBudget: number;
 }
 
@@ -128,7 +165,7 @@ export interface ExpandedTechniqueArtsStrengthSkill {
 const ALLOWED_ATTRIBUTE_BASE_STATS = new Set<string>(TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS);
 const ELEMENT_KEYS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];
 const DAMAGE_KINDS: readonly SkillDamageKind[] = ['physical', 'spell'];
-const TARGET_TYPES: readonly TechniqueArtsStrengthTargetType[] = ['single', 'line', 'box', 'area'];
+const TARGET_TYPES: readonly TechniqueArtsStrengthTargetType[] = ['single', 'line', 'box', 'area', 'orientedBox', 'ring', 'checkerboard'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -193,22 +230,51 @@ function normalizeTarget(raw: unknown): NormalizedTechniqueArtsStrengthTarget {
   const targetMode = source.targetMode === 'any' || source.targetMode === 'entity' || source.targetMode === 'tile'
     ? source.targetMode
     : undefined;
+  const rawTargeting = Object.prototype.hasOwnProperty.call(source, 'rawTargeting')
+    ? normalizeRawTargeting(source.rawTargeting)
+    : undefined;
+  const maxTargets = Number.isFinite(Number(source.maxTargets)) && Number(source.maxTargets) > 0
+    ? Math.max(1, Math.floor(Number(source.maxTargets)))
+    : undefined;
 
   if (type === 'line') {
     const width = Math.floor(clamp(toFiniteNumber(source.width, 1), constants.minWidth, constants.maxWidth));
     const coveredCells = Math.max(1, range * width);
-    return buildTargetWithStrength({ type, range, width, targetMode: targetMode ?? 'tile' }, coveredCells);
+    return buildTargetWithStrength({ type, range, width, maxTargets, targetMode, rawTargeting }, coveredCells);
   }
   if (type === 'box') {
     const width = Math.floor(clamp(toFiniteNumber(source.width, 3), constants.minWidth, constants.maxWidth));
     const height = Math.floor(clamp(toFiniteNumber(source.height, width), constants.minWidth, constants.maxWidth));
-    return buildTargetWithStrength({ type, range, width, height, targetMode: targetMode ?? 'tile' }, width * height);
+    return buildTargetWithStrength({ type, range, width, height, maxTargets, targetMode, rawTargeting }, width * height);
+  }
+  if (type === 'orientedBox') {
+    const width = Math.floor(clamp(toFiniteNumber(source.width, 3), constants.minWidth, constants.maxWidth));
+    const height = Math.floor(clamp(toFiniteNumber(source.height, 1), constants.minWidth, constants.maxWidth));
+    return buildTargetWithStrength({ type, range, width, height, maxTargets, targetMode, rawTargeting }, width * height);
+  }
+  if (type === 'checkerboard') {
+    const width = Math.floor(clamp(toFiniteNumber(source.width, 3), constants.minWidth, constants.maxWidth));
+    const height = Math.floor(clamp(toFiniteNumber(source.height, width), constants.minWidth, constants.maxWidth));
+    const checkerParity = source.checkerParity === 'odd' ? 'odd' : 'even';
+    return buildTargetWithStrength({ type, range, width, height, checkerParity, maxTargets, targetMode, rawTargeting }, Math.ceil(width * height / 2));
   }
   if (type === 'area') {
     const radius = Math.floor(clamp(toFiniteNumber(source.radius, 1), constants.minRadius, constants.maxRadius));
-    return buildTargetWithStrength({ type, range, radius, targetMode: targetMode ?? 'tile' }, countCircleCells(radius));
+    return buildTargetWithStrength({ type, range, radius, maxTargets, targetMode, rawTargeting }, countCircleCells(radius));
   }
-  return buildTargetWithStrength({ type: 'single', range, targetMode }, 1);
+  if (type === 'ring') {
+    const radius = Math.floor(clamp(toFiniteNumber(source.radius, 1), constants.minRadius, constants.maxRadius));
+    const innerRadius = Math.floor(clamp(toFiniteNumber(source.innerRadius, Math.max(radius - 1, 0)), 0, radius));
+    return buildTargetWithStrength({ type, range, radius, innerRadius, maxTargets, targetMode, rawTargeting }, countRingCells(innerRadius, radius));
+  }
+  return buildTargetWithStrength({ type: 'single', range, maxTargets, targetMode, rawTargeting }, 1);
+}
+
+function normalizeRawTargeting(raw: unknown): SkillTargetingDef | null {
+  if (raw === null) {
+    return null;
+  }
+  return isRecord(raw) ? { ...raw } as SkillTargetingDef : null;
 }
 
 function buildTargetWithStrength(
@@ -240,6 +306,21 @@ function countCircleCells(radius: number): number {
   return Math.max(1, cells);
 }
 
+function countRingCells(innerRadius: number, outerRadius: number): number {
+  let cells = 0;
+  const innerSquared = Math.max(0, innerRadius) ** 2;
+  const outerSquared = Math.max(0, outerRadius) ** 2;
+  for (let y = -outerRadius; y <= outerRadius; y += 1) {
+    for (let x = -outerRadius; x <= outerRadius; x += 1) {
+      const distanceSquared = x * x + y * y;
+      if (distanceSquared <= outerSquared && distanceSquared > innerSquared) {
+        cells += 1;
+      }
+    }
+  }
+  return Math.max(1, cells);
+}
+
 function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengthTarget): NormalizedTechniqueArtsStrengthStructure {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
   const source = isRecord(raw) ? raw : {};
@@ -257,16 +338,20 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
     Math.abs(cost) + Math.abs(cooldown) + Math.abs(chant) + target.areaStrength + target.rangeStrength,
     4,
   );
-  const costMultiplier = roundTo(clamp(
-    constants.baseCostMultiplier * calculateTechniqueArtsStrengthEfficiencyFactor(cost),
-    constants.minCostMultiplier,
-    constants.maxCostMultiplier,
-  ), 2);
-  const cooldownTicks = Math.round(clamp(
-    constants.baseCooldownTicks * calculateTechniqueArtsStrengthEfficiencyFactor(cooldown),
-    constants.minCooldownTicks,
-    constants.maxCooldownTicks,
-  ));
+  const costMultiplier = Number.isFinite(Number(source.costMultiplier))
+    ? Math.max(0, roundTo(Number(source.costMultiplier), 2))
+    : roundTo(clamp(
+      constants.baseCostMultiplier * calculateTechniqueArtsStrengthEfficiencyFactor(cost),
+      constants.minCostMultiplier,
+      constants.maxCostMultiplier,
+    ), 2);
+  const cooldownTicks = Number.isFinite(Number(source.cooldownTicks))
+    ? Math.max(0, Math.round(Number(source.cooldownTicks)))
+    : Math.round(clamp(
+      constants.baseCooldownTicks * calculateTechniqueArtsStrengthEfficiencyFactor(cooldown),
+      constants.minCooldownTicks,
+      constants.maxCooldownTicks,
+    ));
   return {
     cost,
     cooldown,
@@ -280,6 +365,7 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
 
 function normalizeFormula(raw: unknown): NormalizedTechniqueArtsStrengthFormula {
   const source = isRecord(raw) ? raw : {};
+  const rawFormula = isSkillFormula(source.rawFormula) ? source.rawFormula : undefined;
   const bases = normalizeAttributeBases(source.attributeBases);
   const percentSource = isRecord(source.percentBonuses) ? source.percentBonuses : {};
   const percentBonuses = {
@@ -294,10 +380,13 @@ function normalizeFormula(raw: unknown): NormalizedTechniqueArtsStrengthFormula 
       TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.maxStrength,
     ),
   };
-  const effectStrength = calculateFormulaEffectStrength(bases, percentBonuses);
+  const effectStrength = rawFormula
+    ? calculateRawFormulaStrength(rawFormula)
+    : calculateFormulaEffectStrength(bases, percentBonuses);
   return {
     attributeBases: bases,
     percentBonuses,
+    rawFormula,
     effectStrength,
   };
 }
@@ -374,14 +463,29 @@ export function normalizeTechniqueArtsStrengthSkill(raw: unknown): NormalizedTec
   const formula = normalizeFormula(source.formulaStrength);
   const inputBudget = roundTo(formula.effectStrength + structure.budgetWeight, 4);
   return {
+    id: typeof source.id === 'string' && source.id.trim() ? source.id.trim() : undefined,
     name: normalizeText(source.name, '未命名术法'),
     desc: normalizeText(source.desc, ''),
     unlockLevel: Math.max(1, Math.floor(toFiniteNumber(source.unlockLevel, 1))),
+    unlockRealm: Number.isFinite(Number(source.unlockRealm)) ? Math.max(0, Math.floor(Number(source.unlockRealm))) : undefined,
+    unlockPlayerRealm: Number.isFinite(Number(source.unlockPlayerRealm)) ? Math.max(0, Math.floor(Number(source.unlockPlayerRealm))) : undefined,
+    requiresTarget: typeof source.requiresTarget === 'boolean' ? source.requiresTarget : undefined,
+    targetMode: source.targetMode === 'any' || source.targetMode === 'entity' || source.targetMode === 'tile'
+      ? source.targetMode
+      : undefined,
     damageKind: DAMAGE_KINDS.includes(source.damageKind as SkillDamageKind) ? source.damageKind as SkillDamageKind : 'spell',
     element: ELEMENT_KEYS.includes(source.element as ElementKey) ? source.element as ElementKey : undefined,
     target,
     structure,
     formula,
+    targetBudget: Number.isFinite(Number(source.targetBudget)) && Number(source.targetBudget) > 0
+      ? Number(source.targetBudget)
+      : undefined,
+    effectsStrength: Array.isArray(source.effectsStrength)
+      ? source.effectsStrength.filter(isRecord) as TechniqueArtsStrengthEffectInput[]
+      : undefined,
+    playerCast: isRecord(source.playerCast) ? { ...source.playerCast } : undefined,
+    monsterCast: isRecord(source.monsterCast) ? { ...source.monsterCast } : undefined,
     inputBudget,
   };
 }
@@ -409,7 +513,9 @@ function validateNormalizedSkill(skill: NormalizedTechniqueArtsStrengthSkill): s
 export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStrengthSkillParams): ExpandedTechniqueArtsStrengthSkill {
   const fullTargetBudget = Number.isFinite(params.targetBudget) && (params.targetBudget ?? 0) > 0
     ? Number(params.targetBudget)
-    : params.skill.inputBudget;
+    : Number.isFinite(params.skill.targetBudget) && (params.skill.targetBudget ?? 0) > 0
+      ? Number(params.skill.targetBudget)
+      : params.skill.inputBudget;
   const totalWeight = Math.max(params.skill.inputBudget, params.skill.formula.effectStrength);
   const targetBudget = totalWeight > 0
     ? fullTargetBudget * params.skill.formula.effectStrength / totalWeight
@@ -418,19 +524,26 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
     ? targetBudget / params.skill.formula.effectStrength
     : 1;
   const skillIndex = Math.max(0, Math.floor(params.skillIndex ?? 0));
-  const skillId = `${params.techniqueId}_skill_${skillIndex + 1}`;
+  const skillId = params.skill.id ?? `${params.techniqueId}_skill_${skillIndex + 1}`;
   const scaledBases = scaleAttributeBases(params.skill.formula.attributeBases, effectScale);
-  const effects = [{
-    type: 'damage' as const,
-    damageKind: params.skill.damageKind,
-    element: params.skill.element,
-    formula: buildDamageFormula(scaledBases, params.skill.formula.percentBonuses),
-  }];
-  const requiresTarget = params.skill.target.range > 0;
+  const effects = params.skill.effectsStrength?.length
+    ? params.skill.effectsStrength.map((effect) => expandEffectStrength(effect)).filter(Boolean) as SkillEffectDef[]
+    : [{
+      type: 'damage' as const,
+      damageKind: params.skill.damageKind,
+      element: params.skill.element,
+      formula: buildDamageFormula(scaledBases, params.skill.formula.percentBonuses, params.skill.formula.rawFormula, effectScale),
+    }];
+  const requiresTarget = typeof params.skill.requiresTarget === 'boolean'
+    ? params.skill.requiresTarget
+    : params.skill.target.range > 0;
   const targeting = buildTargetingDef(params.skill.target);
-  if (!requiresTarget) {
-    targeting.requiresTarget = false;
+  if (!requiresTarget && params.skill.target.rawTargeting === undefined) {
+    if (targeting) {
+      targeting.requiresTarget = false;
+    }
   }
+  const explicitRequiresTarget = typeof params.skill.requiresTarget === 'boolean';
   return {
     skill: {
       id: skillId,
@@ -443,14 +556,51 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       targeting,
       effects,
       unlockLevel: params.skill.unlockLevel,
-      ...(requiresTarget ? {} : { requiresTarget: false }),
-      targetMode: params.skill.target.targetMode,
+      unlockRealm: params.skill.unlockRealm as any,
+      unlockPlayerRealm: params.skill.unlockPlayerRealm as any,
+      ...(explicitRequiresTarget ? { requiresTarget: params.skill.requiresTarget } : requiresTarget ? {} : { requiresTarget: false }),
+      targetMode: params.skill.targetMode ?? params.skill.target.targetMode,
+      playerCast: params.skill.playerCast as any,
+      monsterCast: params.skill.monsterCast as any,
     },
     inputBudget: params.skill.inputBudget,
     targetBudget,
     effectScale,
     structureBudgetMultiplier: params.skill.structure.budgetMultiplier,
   };
+}
+
+export function expandTechniqueArtsStrengthContentSkill(
+  raw: unknown,
+  params: Omit<ExpandTechniqueArtsStrengthSkillParams, 'skill'>,
+): ExpandedTechniqueArtsStrengthSkill | null {
+  const source = isRecord(raw) ? raw : {};
+  const strengthSource = isRecord(source.artsStrength)
+    ? {
+      ...source.artsStrength,
+      id: source.id,
+      name: source.name,
+      desc: source.desc,
+      unlockLevel: source.unlockLevel,
+      unlockRealm: source.unlockRealm,
+      unlockPlayerRealm: source.unlockPlayerRealm,
+      requiresTarget: typeof source.requiresTarget === 'boolean'
+        ? source.requiresTarget
+        : source.artsStrength.requiresTarget,
+      targetMode: source.targetMode ?? source.artsStrength.targetMode,
+      playerCast: source.playerCast ?? source.artsStrength.playerCast,
+      monsterCast: source.monsterCast ?? source.artsStrength.monsterCast,
+    }
+    : source;
+  const normalized = normalizeTechniqueArtsStrengthSkill(strengthSource);
+  if (!normalized.id || !normalized.name || !normalized.desc) {
+    return null;
+  }
+  return expandTechniqueArtsStrengthSkill({
+    ...params,
+    skill: normalized,
+    targetBudget: normalized.targetBudget ?? params.targetBudget,
+  });
 }
 
 function scaleAttributeBases(
@@ -471,7 +621,12 @@ function scaleAttributeBases(
 function buildDamageFormula(
   bases: Partial<Record<TechniqueArtsStrengthAttributeBaseStat, number>>,
   percentBonuses: NormalizedTechniqueArtsStrengthFormula['percentBonuses'],
+  rawFormula?: SkillFormula,
+  effectScale = 1,
 ): SkillFormula {
+  if (rawFormula) {
+    return scaleWholeFormula(rawFormula, effectScale);
+  }
   const baseArgs: SkillFormula[] = [];
   for (const [key, value] of Object.entries(bases)) {
     baseArgs.push({
@@ -506,40 +661,180 @@ function buildDamageFormula(
   };
 }
 
+function expandEffectStrength(effect: TechniqueArtsStrengthEffectInput): SkillEffectDef | null {
+  const type = typeof effect.type === 'string' ? effect.type : '';
+  const { formulaStrength: _formulaStrength, hpFormulaStrength: _hpFormulaStrength, targetBudget: _targetBudget, ...rest } = effect;
+  if (type === 'damage' || type === 'heal') {
+    const formula = normalizeFormula(effect.formulaStrength);
+    return {
+      ...rest,
+      type,
+      formula: scaleWholeFormula(
+        formula.rawFormula ?? buildDamageFormula(formula.attributeBases, formula.percentBonuses),
+        resolveEffectScale(formula.effectStrength, effect.targetBudget),
+      ),
+    } as SkillEffectDef;
+  }
+  if (type === 'temporary_tile') {
+    const formula = normalizeFormula(effect.hpFormulaStrength);
+    return {
+      ...rest,
+      type,
+      hpFormula: scaleWholeFormula(
+        formula.rawFormula ?? buildDamageFormula(formula.attributeBases, formula.percentBonuses),
+        resolveEffectScale(formula.effectStrength, effect.targetBudget),
+      ),
+    } as SkillEffectDef;
+  }
+  return { ...rest, type } as SkillEffectDef;
+}
+
+function resolveEffectScale(effectStrength: number, targetBudget: unknown): number {
+  const budget = Number(targetBudget);
+  if (!Number.isFinite(budget) || budget <= 0 || effectStrength <= 0) {
+    return 1;
+  }
+  return budget / effectStrength;
+}
+
+function scaleWholeFormula(formula: SkillFormula, scale: number): SkillFormula {
+  if (!Number.isFinite(scale) || Math.abs(scale - 1) < 1e-9) {
+    return formula;
+  }
+  return {
+    op: 'mul',
+    args: [
+      formula,
+      roundTo(scale, 6),
+    ],
+  };
+}
+
+function calculateRawFormulaStrength(formula: SkillFormula): number {
+  if (typeof formula === 'number') {
+    return Math.abs(formula);
+  }
+  if (!isRecord(formula)) {
+    return 0;
+  }
+  const record = formula as Record<string, unknown>;
+  if (typeof record.var === 'string') {
+    return Math.abs(toFiniteNumber(record.scale, 1));
+  }
+  if (Array.isArray(record.args)) {
+    return roundTo(record.args.reduce((sum: number, entry: unknown) => (
+      sum + (isSkillFormula(entry) ? calculateRawFormulaStrength(entry) : 0)
+    ), 0), 4);
+  }
+  if (isSkillFormula(record.value)) {
+    return calculateRawFormulaStrength(record.value);
+  }
+  return 0;
+}
+
+function isSkillFormula(value: unknown): value is SkillFormula {
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (typeof value.var === 'string') {
+    return true;
+  }
+  if (typeof value.op === 'string' && Array.isArray(value.args)) {
+    return value.args.every(isSkillFormula);
+  }
+  if (value.op === 'clamp') {
+    return isSkillFormula(value.value)
+      && (value.min === undefined || isSkillFormula(value.min))
+      && (value.max === undefined || isSkillFormula(value.max));
+  }
+  return false;
+}
+
 function calculateTechLevelScale(strength: number): number {
   const base = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.percentBonuses.techLevelScaleBase;
   return roundTo(Math.max(0, base * (1 + strength)), 6);
 }
 
-function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): SkillTargetingDef {
+function buildTargetingDef(target: NormalizedTechniqueArtsStrengthTarget): SkillTargetingDef | undefined {
+  if (target.rawTargeting !== undefined) {
+    return target.rawTargeting === null ? undefined : { ...target.rawTargeting };
+  }
   if (target.type === 'line') {
-    return {
+    return stripUndefinedTargeting({
       shape: 'line',
       range: target.range,
       width: target.width,
+      maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    };
+    });
   }
   if (target.type === 'box') {
-    return {
+    return stripUndefinedTargeting({
       shape: 'box',
       range: target.range,
       width: target.width,
       height: target.height,
+      maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    };
+    });
+  }
+  if (target.type === 'orientedBox') {
+    return stripUndefinedTargeting({
+      shape: 'orientedBox',
+      range: target.range,
+      width: target.width,
+      height: target.height,
+      maxTargets: target.maxTargets,
+      targetMode: target.targetMode,
+    });
+  }
+  if (target.type === 'checkerboard') {
+    return stripUndefinedTargeting({
+      shape: 'checkerboard',
+      range: target.range,
+      width: target.width,
+      height: target.height,
+      checkerParity: target.checkerParity,
+      maxTargets: target.maxTargets,
+      targetMode: target.targetMode,
+    });
   }
   if (target.type === 'area') {
-    return {
+    return stripUndefinedTargeting({
       shape: 'area',
       range: target.range,
       radius: target.radius,
+      maxTargets: target.maxTargets,
       targetMode: target.targetMode,
-    };
+    });
   }
-  return {
+  if (target.type === 'ring') {
+    return stripUndefinedTargeting({
+      shape: 'ring',
+      range: target.range,
+      radius: target.radius,
+      innerRadius: target.innerRadius,
+      maxTargets: target.maxTargets,
+      targetMode: target.targetMode,
+    });
+  }
+  return stripUndefinedTargeting({
     shape: 'single',
     range: target.range,
+    maxTargets: target.maxTargets,
     targetMode: target.targetMode,
-  };
+  });
+}
+
+function stripUndefinedTargeting(targeting: SkillTargetingDef): SkillTargetingDef {
+  const result: SkillTargetingDef = {};
+  for (const [key, value] of Object.entries(targeting) as Array<[keyof SkillTargetingDef, unknown]>) {
+    if (value !== undefined) {
+      (result as Record<string, unknown>)[key] = value;
+    }
+  }
+  return result;
 }

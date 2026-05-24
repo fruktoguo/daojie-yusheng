@@ -29,45 +29,63 @@
         "id": "skill.wildsunder_fall",
         "name": "崩界天陨",
         "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；功法层数越高，塌势越重。",
-        "cooldown": 1800,
-        "costMultiplier": 8,
-        "range": 8,
-        "playerCast": {
-          "windupTicks": 3,
-          "warningColor": "#ffb14a"
-        },
-        "targeting": {
-          "shape": "box",
-          "width": 5,
-          "height": 5,
-          "maxTargets": 25
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 30
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 10,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 31.2,
+          "target": {
+            "type": "box",
+            "range": 8,
+            "width": 5,
+            "height": 5,
+            "maxTargets": 25,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 5,
+              "height": 5,
+              "maxTargets": 25
+            }
+          },
+          "structureStrength": {
+            "cost": -57.0268,
+            "cooldown": -100,
+            "chant": 0,
+            "costMultiplier": 8,
+            "cooldownTicks": 1800
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "targetBudget": 31.2,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.2
+                      "var": "caster.stat.physAtk",
+                      "scale": 30
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.2
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             }
+          ],
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ffb14a"
           }
-        ],
-        "unlockLevel": 10
+        }
       }
     ]
   },
@@ -101,46 +119,64 @@
         "id": "skill.voidflame_cataclysm",
         "name": "劫光灭域",
         "desc": "引太虚劫光覆落成域，功法层数越高，劫光越盛。",
-        "cooldown": 1800,
-        "costMultiplier": 8,
-        "range": 9,
-        "playerCast": {
-          "windupTicks": 3,
-          "warningColor": "#ff8c42"
-        },
-        "targeting": {
-          "shape": "box",
-          "width": 7,
-          "height": 7,
-          "maxTargets": 49
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "element": "fire",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.spellAtk",
-                  "scale": 30
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 10,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 31.2,
+          "target": {
+            "type": "box",
+            "range": 9,
+            "width": 7,
+            "height": 7,
+            "maxTargets": 49,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 7,
+              "height": 7,
+              "maxTargets": 49
+            }
+          },
+          "structureStrength": {
+            "cost": -57.0268,
+            "cooldown": -100,
+            "chant": 0,
+            "costMultiplier": 8,
+            "cooldownTicks": 1800
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "targetBudget": 31.2,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.2
+                      "var": "caster.stat.spellAtk",
+                      "scale": 30
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.2
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             }
+          ],
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ff8c42"
           }
-        ],
-        "unlockLevel": 10
+        }
       }
     ]
   }

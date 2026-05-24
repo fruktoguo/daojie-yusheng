@@ -13,55 +13,73 @@
         "id": "skill.genghua_ningfeng",
         "name": "分光",
         "desc": "锋炁成线，直破前方三步。",
-        "cooldown": 18,
-        "costMultiplier": 5,
-        "range": 3,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 3
-        },
-        "targetMode": "tile",
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 105.4,
+          "target": {
+            "type": "line",
+            "range": 3,
+            "targetMode": "tile",
+            "maxTargets": 3,
+            "rawTargeting": {
+              "shape": "line",
+              "maxTargets": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 5,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 18
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "metal",
+              "targetBudget": 105.4,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    100,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        100,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 4
+                        }
+                      ]
                     },
                     {
-                      "var": "target.buff.buff.metal_edge_mark.stacks",
-                      "scale": 0.3
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.metal_edge_mark.stacks",
+                          "scale": 0.3
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "metal"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.metal.edge_mark"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.metal.edge_mark",
+              "targetBudget": 1
+            }
+          ],
+          "targetMode": "tile"
+        }
       }
     ]
   },
@@ -79,45 +97,61 @@
         "id": "skill.guicang_hemai",
         "name": "归藏",
         "desc": "归藏摄杂，目标减益越多，收束越狠。",
-        "cooldown": 20,
-        "costMultiplier": 5,
-        "range": 5,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 154.55,
+          "target": {
+            "type": "single",
+            "range": 5,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 0,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 20
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "targetBudget": 154.55,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    150,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.25
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        150,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3.25
+                        }
+                      ]
                     },
                     {
-                      "var": "target.debuffCount",
-                      "scale": 0.2
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.debuffCount",
+                          "scale": 0.2
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             }
-          }
-        ],
-        "unlockLevel": 1
+          ]
+        }
       }
     ]
   },
@@ -135,50 +169,68 @@
         "id": "skill.hanxi_ximai",
         "name": "凝",
         "desc": "寒汐入体，凝潮压敌。",
-        "cooldown": 16,
-        "costMultiplier": 3,
-        "range": 1,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 304.6,
+          "target": {
+            "type": "single",
+            "range": 1,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": 10.5895,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 16
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "water",
+              "targetBudget": 304.6,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    300,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        300,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3.5
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "water"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.water.frost_mark"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.water.glide"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.water.frost_mark",
+              "targetBudget": 1
+            },
+            {
+              "type": "buff",
+              "buffRef": "lianqi.water.glide",
+              "targetBudget": 1
+            }
+          ]
+        }
       }
     ]
   },
@@ -196,46 +248,63 @@
         "id": "skill.houtu_chengyuan",
         "name": "承岳",
         "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
-        "cooldown": 18,
-        "costMultiplier": 4,
-        "range": 1,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 204.1,
+          "target": {
+            "type": "single",
+            "range": 1,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -38.0178,
+            "cooldown": 5,
+            "chant": 0,
+            "costMultiplier": 4,
+            "cooldownTicks": 18
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "earth",
+              "targetBudget": 204.1,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    200,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        200,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 3
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "earth"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.earth.self_fortify"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.earth.self_fortify",
+              "targetBudget": 1
+            }
+          ]
+        }
       }
     ]
   },
@@ -253,58 +322,78 @@
         "id": "skill.liyan_duanxi",
         "name": "炽息天罗",
         "desc": "离炎成网，烈息罩身。",
-        "cooldown": 22,
-        "costMultiplier": 5,
-        "range": 5,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 9,
-          "width": 3,
-          "height": 3
-        },
-        "targetMode": "tile",
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 214.61,
+          "target": {
+            "type": "box",
+            "range": 5,
+            "width": 3,
+            "height": 3,
+            "targetMode": "tile",
+            "maxTargets": 9,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 9,
+              "width": 3,
+              "height": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": -2.6138,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 22
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "targetBudget": 204.61,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    200,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        200,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3.5
+                        }
+                      ]
                     },
                     {
-                      "var": "target.buff.buff.fire_burn_mark.stacks",
-                      "scale": 0.01
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.fire_burn_mark.stacks",
+                          "scale": 0.01
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "fire"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.fire.burn_mark",
-            "stacks": 10
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.fire.burn_mark",
+              "stacks": 10,
+              "targetBudget": 10
+            }
+          ],
+          "targetMode": "tile"
+        }
       }
     ]
   },
@@ -322,82 +411,105 @@
         "id": "skill.qingmu_yangmai",
         "name": "回春",
         "desc": "木脉铺展，友方回生，敌者受创。",
-        "cooldown": 24,
-        "costMultiplier": 5,
-        "range": 5,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 25,
-          "width": 5,
-          "height": 5
-        },
-        "targetMode": "tile",
-        "effects": [
-          {
-            "type": "heal",
-            "target": "allies",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
-                  "args": [
-                    100,
-                    {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 1
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
-                    }
-                  ]
-                }
-              ]
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 206.2,
+          "target": {
+            "type": "box",
+            "range": 5,
+            "width": 5,
+            "height": 5,
+            "targetMode": "tile",
+            "maxTargets": 25,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 25,
+              "width": 5,
+              "height": 5
             }
           },
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": -5,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 24
+          },
+          "effectsStrength": [
+            {
+              "type": "heal",
+              "target": "allies",
+              "targetBudget": 102.1,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    100,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        100,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 1
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "wood"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.wood.bloom"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "wood",
+              "targetBudget": 104.1,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "op": "add",
+                      "args": [
+                        100,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3
+                        }
+                      ]
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "buff",
+              "buffRef": "lianqi.wood.bloom",
+              "targetBudget": 1
+            }
+          ],
+          "targetMode": "tile"
+        }
       }
     ]
   },
@@ -415,19 +527,33 @@
         "id": "skill.tingmai_dingxi",
         "name": "定息",
         "desc": "调息定脉，净去缠身邪扰。",
-        "cooldown": 24,
-        "costMultiplier": 1,
-        "range": 0,
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "cleanse",
-            "target": "self",
-            "category": "debuff",
-            "removeCount": 1
-          }
-        ],
-        "unlockLevel": 1
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 1,
+          "target": {
+            "type": "single",
+            "range": 0,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": 0,
+            "cooldown": -5,
+            "chant": 0,
+            "costMultiplier": 1,
+            "cooldownTicks": 24
+          },
+          "effectsStrength": [
+            {
+              "type": "cleanse",
+              "target": "self",
+              "category": "debuff",
+              "removeCount": 1,
+              "targetBudget": 1
+            }
+          ],
+          "requiresTarget": false
+        }
       }
     ]
   }

@@ -13,57 +13,77 @@
         "id": "skill.baihong_duanyue",
         "name": "断影",
         "desc": "白虹横掠，断势裂甲。",
-        "cooldown": 20,
-        "costMultiplier": 7,
-        "range": 1,
-        "targeting": {
-          "shape": "orientedBox",
-          "width": 3,
-          "height": 1,
-          "maxTargets": 3
-        },
-        "targetMode": "tile",
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 105.4,
+          "target": {
+            "type": "orientedBox",
+            "range": 1,
+            "width": 3,
+            "height": 1,
+            "targetMode": "tile",
+            "maxTargets": 3,
+            "rawTargeting": {
+              "shape": "orientedBox",
+              "width": 3,
+              "height": 1,
+              "maxTargets": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -53.3648,
+            "cooldown": 0,
+            "chant": 0,
+            "costMultiplier": 7,
+            "cooldownTicks": 20
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "metal",
+              "targetBudget": 105.4,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    100,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        100,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 4
+                        }
+                      ]
                     },
                     {
-                      "var": "target.buff.buff.metal_edge_mark.stacks",
-                      "scale": 0.3
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.metal_edge_mark.stacks",
+                          "scale": 0.3
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "metal"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.metal.edge_mark"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.metal.edge_mark",
+              "targetBudget": 1
+            }
+          ],
+          "targetMode": "tile"
+        }
       }
     ]
   },
@@ -81,62 +101,82 @@
         "id": "skill.chiyao_fenmai",
         "name": "赤曜焚界",
         "desc": "赤曜凝火，三息之后焚界而落。",
-        "cooldown": 26,
-        "costMultiplier": 5,
-        "range": 5,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 9,
-          "width": 3,
-          "height": 3
-        },
-        "targetMode": "tile",
-        "playerCast": {
-          "windupTicks": 3,
-          "warningColor": "#ef6b3b"
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 425.71,
+          "target": {
+            "type": "box",
+            "range": 5,
+            "width": 3,
+            "height": 3,
+            "targetMode": "tile",
+            "maxTargets": 9,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 9,
+              "width": 3,
+              "height": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": -7.1951,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 26
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "targetBudget": 405.71,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    400,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.2
+                      "op": "add",
+                      "args": [
+                        400,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 4.5
+                        }
+                      ]
                     },
                     {
-                      "var": "target.buff.buff.fire_burn_mark.stacks",
-                      "scale": 0.01
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.2
+                        },
+                        {
+                          "var": "target.buff.buff.fire_burn_mark.stacks",
+                          "scale": 0.01
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "fire"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.fire.burn_mark",
-            "stacks": 20
+            {
+              "type": "buff",
+              "buffRef": "lianqi.fire.burn_mark",
+              "stacks": 20,
+              "targetBudget": 20
+            }
+          ],
+          "targetMode": "tile",
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ef6b3b"
           }
-        ],
-        "unlockLevel": 1
+        }
       }
     ]
   },
@@ -154,46 +194,63 @@
         "id": "skill.kunyue_zhenhai",
         "name": "镇海",
         "desc": "坤岳重压，护体更进一步。",
-        "cooldown": 20,
-        "costMultiplier": 5,
-        "range": 1,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 304.35,
+          "target": {
+            "type": "single",
+            "range": 1,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 0,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 20
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "earth",
+              "targetBudget": 304.35,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    300,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 3.25
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        300,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 3.25
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "earth"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.earth.self_fortify"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.earth.self_fortify",
+              "targetBudget": 1
+            }
+          ]
+        }
       }
     ]
   },
@@ -211,42 +268,58 @@
         "id": "skill.wanzhi_huichun",
         "name": "束魂",
         "desc": "木意锁魂，直压单敌。",
-        "cooldown": 20,
-        "costMultiplier": 5,
-        "range": 5,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 205.1,
+          "target": {
+            "type": "single",
+            "range": 5,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 0,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 20
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "wood",
+              "targetBudget": 205.1,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    200,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 4
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        200,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 4
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
-            },
-            "element": "wood"
-          }
-        ],
-        "unlockLevel": 1
+              }
+            }
+          ]
+        }
       }
     ]
   },
@@ -264,57 +337,77 @@
         "id": "skill.xuanjin_huilan",
         "name": "涌",
         "desc": "回澜自起，近身震散敌势。",
-        "cooldown": 18,
-        "costMultiplier": 5,
-        "range": 0,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 9,
-          "width": 3,
-          "height": 3
-        },
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 204.1,
+          "target": {
+            "type": "box",
+            "range": 0,
+            "width": 3,
+            "height": 3,
+            "maxTargets": 9,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 9,
+              "width": 3,
+              "height": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 5,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 18
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "water",
+              "targetBudget": 204.1,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    200,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        200,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "water"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.water.frost_mark"
-          },
-          {
-            "type": "buff",
-            "buffRef": "lianqi.water.glide"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "lianqi.water.frost_mark",
+              "targetBudget": 1
+            },
+            {
+              "type": "buff",
+              "buffRef": "lianqi.water.glide",
+              "targetBudget": 1
+            }
+          ],
+          "requiresTarget": false
+        }
       }
     ]
   },
@@ -332,159 +425,214 @@
         "id": "skill.yi_kunlun_point_stone",
         "name": "叩地成岳",
         "desc": "叩定一处地脉，搬山成岳，生成一块可被攻击拆除的临时石头。",
-        "cooldown": 8,
-        "costMultiplier": 2,
-        "range": 6,
-        "targetMode": "tile",
-        "requiresTarget": true,
-        "targeting": {
-          "shape": "single",
-          "targetMode": "tile",
-          "maxTargets": 1
-        },
-        "effects": [
-          {
-            "type": "temporary_tile",
-            "tileType": "stone",
-            "durationTicks": 60,
-            "hpFormula": {
-              "op": "add",
-              "args": [
-                {
-                  "op": "mul",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 14,
+          "target": {
+            "type": "single",
+            "range": 6,
+            "targetMode": "tile",
+            "maxTargets": 1,
+            "rawTargeting": {
+              "shape": "single",
+              "targetMode": "tile",
+              "maxTargets": 1
+            }
+          },
+          "structureStrength": {
+            "cost": -19.0089,
+            "cooldown": 43.4836,
+            "chant": 0,
+            "costMultiplier": 2,
+            "cooldownTicks": 8
+          },
+          "effectsStrength": [
+            {
+              "type": "temporary_tile",
+              "tileType": "stone",
+              "durationTicks": 60,
+              "targetBudget": 14,
+              "hpFormulaStrength": {
+                "rawFormula": {
+                  "op": "add",
                   "args": [
                     {
-                      "op": "add",
+                      "op": "mul",
                       "args": [
                         {
-                          "var": "caster.stat.physAtk"
+                          "op": "add",
+                          "args": [
+                            {
+                              "var": "caster.stat.physAtk"
+                            },
+                            {
+                              "var": "caster.stat.spellAtk"
+                            }
+                          ]
                         },
-                        {
-                          "var": "caster.stat.spellAtk"
-                        }
+                        10
                       ]
                     },
-                    10
+                    {
+                      "var": "caster.hp"
+                    },
+                    {
+                      "var": "caster.qi"
+                    }
                   ]
-                },
-                {
-                  "var": "caster.hp"
-                },
-                {
-                  "var": "caster.qi"
                 }
-              ]
+              }
             }
-          }
-        ],
-        "unlockLevel": 1
+          ],
+          "requiresTarget": true,
+          "targetMode": "tile"
+        }
       },
       {
         "id": "skill.yi_kunlun_hollow_square",
         "name": "八荒锁岳",
         "desc": "牵动八方地脉，在目标周围叠起三乘三外环石阵，中宫留空。",
-        "cooldown": 16,
-        "costMultiplier": 5,
-        "range": 6,
-        "targetMode": "tile",
-        "requiresTarget": true,
-        "targeting": {
-          "shape": "box",
-          "width": 3,
-          "height": 3,
-          "targetMode": "tile",
-          "maxTargets": 8
-        },
-        "effects": [
-          {
-            "type": "temporary_tile",
-            "tileType": "stone",
-            "durationTicks": 60,
-            "excludeAnchor": true,
-            "hpFormula": {
-              "op": "add",
-              "args": [
-                {
-                  "op": "mul",
+        "unlockLevel": 4,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 14,
+          "target": {
+            "type": "box",
+            "range": 6,
+            "width": 3,
+            "height": 3,
+            "targetMode": "tile",
+            "maxTargets": 8,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 3,
+              "height": 3,
+              "targetMode": "tile",
+              "maxTargets": 8
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 10.5895,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 16
+          },
+          "effectsStrength": [
+            {
+              "type": "temporary_tile",
+              "tileType": "stone",
+              "durationTicks": 60,
+              "excludeAnchor": true,
+              "targetBudget": 14,
+              "hpFormulaStrength": {
+                "rawFormula": {
+                  "op": "add",
                   "args": [
                     {
-                      "op": "add",
+                      "op": "mul",
                       "args": [
                         {
-                          "var": "caster.stat.physAtk"
+                          "op": "add",
+                          "args": [
+                            {
+                              "var": "caster.stat.physAtk"
+                            },
+                            {
+                              "var": "caster.stat.spellAtk"
+                            }
+                          ]
                         },
-                        {
-                          "var": "caster.stat.spellAtk"
-                        }
+                        10
                       ]
                     },
-                    10
+                    {
+                      "var": "caster.hp"
+                    },
+                    {
+                      "var": "caster.qi"
+                    }
                   ]
-                },
-                {
-                  "var": "caster.hp"
-                },
-                {
-                  "var": "caster.qi"
                 }
-              ]
+              }
             }
-          }
-        ],
-        "unlockLevel": 4
+          ],
+          "requiresTarget": true,
+          "targetMode": "tile"
+        }
       },
       {
         "id": "skill.yi_kunlun_horizontal_wall",
         "name": "横断天关",
         "desc": "横移昆仑一线，生成三块相连的临时石头，截断通路。",
-        "cooldown": 12,
-        "costMultiplier": 4,
-        "range": 6,
-        "targetMode": "tile",
-        "requiresTarget": true,
-        "targeting": {
-          "shape": "box",
-          "width": 3,
-          "height": 1,
-          "targetMode": "tile",
-          "maxTargets": 3
-        },
-        "effects": [
-          {
-            "type": "temporary_tile",
-            "tileType": "stone",
-            "durationTicks": 60,
-            "hpFormula": {
-              "op": "add",
-              "args": [
-                {
-                  "op": "mul",
+        "unlockLevel": 7,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 14,
+          "target": {
+            "type": "box",
+            "range": 6,
+            "width": 3,
+            "height": 1,
+            "targetMode": "tile",
+            "maxTargets": 3,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 3,
+              "height": 1,
+              "targetMode": "tile",
+              "maxTargets": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -38.0178,
+            "cooldown": 24.2418,
+            "chant": 0,
+            "costMultiplier": 4,
+            "cooldownTicks": 12
+          },
+          "effectsStrength": [
+            {
+              "type": "temporary_tile",
+              "tileType": "stone",
+              "durationTicks": 60,
+              "targetBudget": 14,
+              "hpFormulaStrength": {
+                "rawFormula": {
+                  "op": "add",
                   "args": [
                     {
-                      "op": "add",
+                      "op": "mul",
                       "args": [
                         {
-                          "var": "caster.stat.physAtk"
+                          "op": "add",
+                          "args": [
+                            {
+                              "var": "caster.stat.physAtk"
+                            },
+                            {
+                              "var": "caster.stat.spellAtk"
+                            }
+                          ]
                         },
-                        {
-                          "var": "caster.stat.spellAtk"
-                        }
+                        10
                       ]
                     },
-                    10
+                    {
+                      "var": "caster.hp"
+                    },
+                    {
+                      "var": "caster.qi"
+                    }
                   ]
-                },
-                {
-                  "var": "caster.hp"
-                },
-                {
-                  "var": "caster.qi"
                 }
-              ]
+              }
             }
-          }
-        ],
-        "unlockLevel": 7
+          ],
+          "requiresTarget": true,
+          "targetMode": "tile"
+        }
       }
     ]
   }

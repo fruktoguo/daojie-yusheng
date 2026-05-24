@@ -13,115 +13,149 @@
         "id": "skill.soul_wail",
         "name": "噬魂哀鸣",
         "desc": "哀鸣先钉住心神，魂缚随后顺势缠上，让后手更容易压进识海。",
-        "cooldown": 22,
-        "costMultiplier": 3,
-        "range": 3,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "element": "earth",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.spellAtk",
-                  "scale": 4.2
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 68.3,
+          "target": {
+            "type": "single",
+            "range": 3,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": -2.6138,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 22
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "earth",
+              "targetBudget": 5.3,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "var": "caster.stat.spellAtk",
+                      "scale": 4.2
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.monster_soulbind",
+              "name": "魂缚",
+              "desc": "神识被阴压缠住，命中、闪避与最大灵力输出都被拖慢。",
+              "shortMark": "缚",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#8170c2",
+              "duration": 28,
+              "maxStacks": 24,
+              "valueStats": {
+                "hit": -3,
+                "dodge": -3,
+                "maxQiOutputPerTick": -5
+              },
+              "targetBudget": 63
             }
-          },
-          {
-            "type": "buff",
-            "target": "target",
-            "buffId": "buff.monster_soulbind",
-            "name": "魂缚",
-            "desc": "神识被阴压缠住，命中、闪避与最大灵力输出都被拖慢。",
-            "shortMark": "缚",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#8170c2",
-            "duration": 28,
-            "maxStacks": 24,
-            "valueStats": {
-              "hit": -3,
-              "dodge": -3,
-              "maxQiOutputPerTick": -5
-            }
-          }
-        ],
-        "unlockLevel": 1
+          ]
+        }
       },
       {
         "id": "skill.nether_chain",
         "name": "阴锁缠身",
         "desc": "顺着魂缚破口把阴锁压成一线，越被缠住的人越难从这道锁里挣开。",
-        "cooldown": 28,
-        "costMultiplier": 3,
-        "range": 3,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 3
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "element": "earth",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.spellAtk",
-                  "scale": 4.3
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 4,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 68.45,
+          "target": {
+            "type": "line",
+            "range": 3,
+            "maxTargets": 3,
+            "rawTargeting": {
+              "shape": "line",
+              "maxTargets": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": -9.2274,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 28
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "earth",
+              "targetBudget": 5.45,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "var": "caster.stat.spellAtk",
+                      "scale": 4.3
                     },
                     {
-                      "var": "target.buff.buff.monster_soulbind.stacks",
-                      "scale": 0.05
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.monster_soulbind.stacks",
+                          "scale": 0.05
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "target",
+              "buffId": "buff.monster_soulbind",
+              "name": "魂缚",
+              "desc": "神识被阴压缠住，命中、闪避与最大灵力输出都被拖慢。",
+              "shortMark": "缚",
+              "category": "debuff",
+              "visibility": "public",
+              "color": "#8170c2",
+              "duration": 28,
+              "maxStacks": 24,
+              "valueStats": {
+                "hit": -3,
+                "dodge": -3,
+                "maxQiOutputPerTick": -5
+              },
+              "targetBudget": 63
             }
-          },
-          {
-            "type": "buff",
-            "target": "target",
-            "buffId": "buff.monster_soulbind",
-            "name": "魂缚",
-            "desc": "神识被阴压缠住，命中、闪避与最大灵力输出都被拖慢。",
-            "shortMark": "缚",
-            "category": "debuff",
-            "visibility": "public",
-            "color": "#8170c2",
-            "duration": 28,
-            "maxStacks": 24,
-            "valueStats": {
-              "hit": -3,
-              "dodge": -3,
-              "maxQiOutputPerTick": -5
-            }
-          }
-        ],
-        "unlockLevel": 4
+          ]
+        }
       }
     ]
   },
@@ -139,114 +173,149 @@
         "id": "skill.core_smash",
         "name": "矿核重击",
         "desc": "先以矿核重击压住正面，自身岩壳也会在这一击后继续增厚。",
-        "cooldown": 15,
-        "costMultiplier": 3,
-        "range": 1,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 2.8
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 60.9,
+          "target": {
+            "type": "single",
+            "range": 1,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": 13.6523,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 15
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "targetBudget": 3.9,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "var": "caster.stat.physAtk",
+                      "scale": 2.8
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.monster_stonehide",
+              "name": "岩壳",
+              "desc": "外壳收紧，防御和化解继续上提。",
+              "shortMark": "岩",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#8b8472",
+              "duration": 28,
+              "maxStacks": 18,
+              "valueStats": {
+                "physDef": 4,
+                "spellDef": 4,
+                "resolvePower": 3
+              },
+              "targetBudget": 57
             }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.monster_stonehide",
-            "name": "岩壳",
-            "desc": "外壳收紧，防御和化解继续上提。",
-            "shortMark": "岩",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8b8472",
-            "duration": 28,
-            "maxStacks": 18,
-            "valueStats": {
-              "physDef": 4,
-              "spellDef": 4,
-              "resolvePower": 3
-            }
-          }
-        ],
-        "unlockLevel": 1
+          ]
+        }
       },
       {
         "id": "skill.guardian_quake",
         "name": "镇域震荡",
         "desc": "把矿核和岩壳一并轰进地面，近身敌群都会吃到这道镇域余震。",
-        "cooldown": 28,
-        "costMultiplier": 3,
-        "range": 2,
-        "targeting": {
-          "shape": "area",
-          "radius": 1,
-          "maxTargets": 5
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 3.1
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 4,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 61.3,
+          "target": {
+            "type": "area",
+            "range": 2,
+            "radius": 1,
+            "maxTargets": 5,
+            "rawTargeting": {
+              "shape": "area",
+              "radius": 1,
+              "maxTargets": 5
+            }
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": -9.2274,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 28
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "targetBudget": 4.3,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "var": "caster.stat.physAtk",
+                      "scale": 3.1
                     },
                     {
-                      "var": "caster.buff.buff.monster_stonehide.stacks",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "caster.buff.buff.monster_stonehide.stacks",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.monster_stonehide",
+              "name": "岩壳",
+              "desc": "外壳收紧，防御和化解继续上提。",
+              "shortMark": "岩",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#8b8472",
+              "duration": 28,
+              "maxStacks": 18,
+              "valueStats": {
+                "physDef": 4,
+                "spellDef": 4,
+                "resolvePower": 3
+              },
+              "targetBudget": 57
             }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.monster_stonehide",
-            "name": "岩壳",
-            "desc": "外壳收紧，防御和化解继续上提。",
-            "shortMark": "岩",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8b8472",
-            "duration": 28,
-            "maxStacks": 18,
-            "valueStats": {
-              "physDef": 4,
-              "spellDef": 4,
-              "resolvePower": 3
-            }
-          }
-        ],
-        "unlockLevel": 4
+          ]
+        }
       }
     ]
   },
@@ -264,97 +333,131 @@
         "id": "skill.star_maw",
         "name": "噬星咬",
         "desc": "獠口先把残星煞意咬进目标体内，自身也会因此积起更凶的噬意。",
-        "cooldown": 19,
-        "costMultiplier": 3,
-        "range": 2,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.physAtk",
-                  "scale": 3.2
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 65.3,
+          "target": {
+            "type": "single",
+            "range": 2,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": 2.4342,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 19
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "targetBudget": 4.3,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "var": "caster.stat.physAtk",
+                      "scale": 3.2
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
+            },
+            {
+              "type": "buff",
+              "target": "self",
+              "buffId": "buff.monster_star_hunger",
+              "name": "噬意",
+              "desc": "残意躁动，命中、暴击和灵力输出进一步上扬。",
+              "shortMark": "噬",
+              "category": "buff",
+              "visibility": "public",
+              "color": "#d87e7e",
+              "duration": 28,
+              "maxStacks": 18,
+              "valueStats": {
+                "hit": 4,
+                "crit": 5,
+                "maxQiOutputPerTick": 6
+              },
+              "targetBudget": 61
             }
-          },
-          {
-            "type": "buff",
-            "target": "self",
-            "buffId": "buff.monster_star_hunger",
-            "name": "噬意",
-            "desc": "残意躁动，命中、暴击和灵力输出进一步上扬。",
-            "shortMark": "噬",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#d87e7e",
-            "duration": 28,
-            "maxStacks": 18,
-            "valueStats": {
-              "hit": 4,
-              "crit": 5,
-              "maxQiOutputPerTick": 6
-            }
-          }
-        ],
-        "unlockLevel": 1
+          ]
+        }
       },
       {
         "id": "skill.void_burst",
         "name": "裂空残啸",
         "desc": "把噬入口中的残意轰成一团裂空乱流，周围都会像被星砂刮过。",
-        "cooldown": 30,
-        "costMultiplier": 3,
-        "range": 3,
-        "targeting": {
-          "shape": "area",
-          "radius": 1,
-          "maxTargets": 4
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "element": "metal",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "var": "caster.stat.spellAtk",
-                  "scale": 4.4
-                },
-                {
-                  "op": "add",
+        "unlockLevel": 5,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 5.6,
+          "target": {
+            "type": "area",
+            "range": 3,
+            "radius": 1,
+            "maxTargets": 4,
+            "rawTargeting": {
+              "shape": "area",
+              "radius": 1,
+              "maxTargets": 4
+            }
+          },
+          "structureStrength": {
+            "cost": -30.1284,
+            "cooldown": -11.1195,
+            "chant": 0,
+            "costMultiplier": 3,
+            "cooldownTicks": 30
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "metal",
+              "targetBudget": 5.6,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    1,
                     {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "var": "caster.stat.spellAtk",
+                      "scale": 4.4
                     },
                     {
-                      "var": "caster.buff.buff.monster_star_hunger.stacks",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "caster.buff.buff.monster_star_hunger.stacks",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             }
-          }
-        ],
-        "unlockLevel": 5
+          ]
+        }
       }
     ]
   },
@@ -372,50 +475,67 @@
         "id": "skill.thunder_palm",
         "name": "惊雷掌",
         "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
-        "cooldown": 14,
-        "costMultiplier": 5,
-        "range": 2,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 54.7,
+          "target": {
+            "type": "single",
+            "range": 2,
+            "rawTargeting": null
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 16.9264,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 14
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "wood",
+              "targetBudget": 54.7,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    50,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        50,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3.5
+                        }
+                      ]
                     },
                     {
-                      "var": "target.buff.buff.thunder_rebuke.stacks",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.thunder_rebuke.stacks",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "wood"
-          },
-          {
-            "type": "buff",
-            "buffRef": "fanren.shufa.mystic.thunder_rebuke"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "fanren.shufa.mystic.thunder_rebuke",
+              "targetBudget": 1
+            }
+          ]
+        }
       }
     ]
   },
@@ -433,57 +553,77 @@
         "id": "skill.frost_sutra",
         "name": "寒魄经",
         "desc": "寒魄化霜，一念封身。",
-        "cooldown": 14,
-        "costMultiplier": 5,
-        "range": 3,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 9,
-          "width": 3,
-          "height": 3
-        },
-        "targetMode": "tile",
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 54.7,
+          "target": {
+            "type": "box",
+            "range": 3,
+            "width": 3,
+            "height": 3,
+            "targetMode": "tile",
+            "maxTargets": 9,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 9,
+              "width": 3,
+              "height": 3
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 16.9264,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 14
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "water",
+              "targetBudget": 54.7,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    50,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 3.5
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        50,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 3.5
+                        }
+                      ]
                     },
                     {
-                      "var": "target.buff.buff.frost_mark.stacks",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.frost_mark.stacks",
+                          "scale": 0.1
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             },
-            "element": "water"
-          },
-          {
-            "type": "buff",
-            "buffRef": "fanren.shufa.mystic.frost_mark"
-          }
-        ],
-        "unlockLevel": 1
+            {
+              "type": "buff",
+              "buffRef": "fanren.shufa.mystic.frost_mark",
+              "targetBudget": 1
+            }
+          ],
+          "targetMode": "tile"
+        }
       }
     ]
   },
@@ -501,52 +641,71 @@
         "id": "skill.spirit_anchor",
         "name": "镇灵篇",
         "desc": "镇灵真意铺开，封镇大片气机。",
-        "cooldown": 18,
-        "costMultiplier": 6,
-        "range": 0,
-        "targeting": {
-          "shape": "box",
-          "maxTargets": 25,
-          "width": 5,
-          "height": 5
-        },
-        "requiresTarget": false,
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "spell",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 23.05,
+          "target": {
+            "type": "box",
+            "range": 0,
+            "width": 5,
+            "height": 5,
+            "maxTargets": 25,
+            "rawTargeting": {
+              "shape": "box",
+              "maxTargets": 25,
+              "width": 5,
+              "height": 5
+            }
+          },
+          "structureStrength": {
+            "cost": -49.1373,
+            "cooldown": 5,
+            "chant": 0,
+            "costMultiplier": 6,
+            "cooldownTicks": 18
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "targetBudget": 23.05,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    20,
                     {
-                      "var": "caster.stat.spellAtk",
-                      "scale": 2
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
+                      "op": "add",
+                      "args": [
+                        20,
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 2
+                        }
+                      ]
+                    },
                     {
-                      "var": "techLevel",
-                      "scale": 0.05
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.05
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
+            },
+            {
+              "type": "buff",
+              "buffRef": "fanren.shufa.mystic.anchor_suppression",
+              "targetBudget": 1
             }
-          },
-          {
-            "type": "buff",
-            "buffRef": "fanren.shufa.mystic.anchor_suppression"
-          }
-        ],
-        "unlockLevel": 1
+          ],
+          "requiresTarget": false
+        }
       }
     ]
   },
@@ -564,49 +723,65 @@
         "id": "skill.starfall_spear",
         "name": "贯星",
         "desc": "枪势贯空，距离越远，星坠越重。",
-        "cooldown": 16,
-        "costMultiplier": 5,
-        "range": 4,
-        "targeting": {
-          "shape": "line",
-          "maxTargets": 4
-        },
-        "effects": [
-          {
-            "type": "damage",
-            "damageKind": "physical",
-            "formula": {
-              "op": "mul",
-              "args": [
-                {
-                  "op": "add",
+        "unlockLevel": 1,
+        "artsStrength": {
+          "version": 1,
+          "targetBudget": 105.4,
+          "target": {
+            "type": "line",
+            "range": 4,
+            "maxTargets": 4,
+            "rawTargeting": {
+              "shape": "line",
+              "maxTargets": 4
+            }
+          },
+          "structureStrength": {
+            "cost": -44.1373,
+            "cooldown": 10.5895,
+            "chant": 0,
+            "costMultiplier": 5,
+            "cooldownTicks": 16
+          },
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "targetBudget": 105.4,
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
                   "args": [
-                    100,
                     {
-                      "var": "caster.stat.physAtk",
-                      "scale": 4
-                    }
-                  ]
-                },
-                {
-                  "op": "add",
-                  "args": [
-                    1,
-                    {
-                      "var": "techLevel",
-                      "scale": 0.1
+                      "op": "add",
+                      "args": [
+                        100,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 4
+                        }
+                      ]
                     },
                     {
-                      "var": "target.distance",
-                      "scale": 0.3
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.distance",
+                          "scale": 0.3
+                        }
+                      ]
                     }
                   ]
                 }
-              ]
+              }
             }
-          }
-        ],
-        "unlockLevel": 1
+          ]
+        }
       }
     ]
   }

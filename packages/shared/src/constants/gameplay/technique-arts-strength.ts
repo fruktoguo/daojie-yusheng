@@ -75,7 +75,7 @@ export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
     minWidth: 1,
     maxWidth: 9,
     minRadius: 1,
-    maxRadius: 4,
+    maxRadius: 12,
     minStrength: -100,
     maxStrength: 100,
   },

@@ -31,12 +31,9 @@
           "name": "崩界天陨",
           "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；功法层数越高，塌势越重。",
           "cooldown": 1800,
+          "cost": 5158,
           "costMultiplier": 8,
           "range": 8,
-          "playerCast": {
-            "windupTicks": 3,
-            "warningColor": "#ffb14a"
-          },
           "targeting": {
             "shape": "box",
             "width": 5,
@@ -69,7 +66,10 @@
             }
           ],
           "unlockLevel": 10,
-          "cost": 5158
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ffb14a"
+          }
         }
       ]
     },
@@ -88,6 +88,7 @@
           "name": "断影",
           "desc": "白虹横掠，断势裂甲。",
           "cooldown": 20,
+          "cost": 3932,
           "costMultiplier": 7,
           "range": 1,
           "targeting": {
@@ -96,11 +97,11 @@
             "height": 1,
             "maxTargets": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
               "damageKind": "physical",
+              "element": "metal",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -129,8 +130,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "metal"
+              }
             },
             {
               "target": "target",
@@ -152,7 +152,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 3932
+          "targetMode": "tile"
         }
       ]
     },
@@ -171,21 +171,9 @@
           "name": "残丹法相虚影",
           "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，借此把整座洞府重新拖回自己的残丹脉路里。",
           "cooldown": 300,
+          "cost": 24,
           "costMultiplier": 6,
           "range": 1,
-          "requiresTarget": false,
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.75
-                }
-              ]
-            }
-          },
           "effects": [
             {
               "type": "buff",
@@ -232,19 +220,7 @@
             }
           ],
           "unlockLevel": 8,
-          "cost": 24
-        },
-        {
-          "id": "skill.huanling_duanhun_ding",
-          "name": "断魂灵钉",
-          "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
-          "cooldown": 35,
-          "costMultiplier": 5,
-          "range": 6,
-          "targeting": {
-            "shape": "single",
-            "maxTargets": 1
-          },
+          "requiresTarget": false,
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -252,12 +228,23 @@
                 {
                   "type": "hp_ratio",
                   "op": "<=",
-                  "value": 1
+                  "value": 0.75
                 }
               ]
-            },
-            "windupTicks": 1,
-            "warningColor": "#ff2a2a"
+            }
+          }
+        },
+        {
+          "id": "skill.huanling_duanhun_ding",
+          "name": "断魂灵钉",
+          "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
+          "cooldown": 35,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 6,
+          "targeting": {
+            "shape": "single",
+            "maxTargets": 1
           },
           "effects": [
             {
@@ -315,20 +302,6 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 20
-        },
-        {
-          "id": "skill.huanling_ronghe_guanmai",
-          "name": "熔河贯脉",
-          "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
-          "cooldown": 60,
-          "costMultiplier": 5,
-          "range": 6,
-          "targeting": {
-            "shape": "line",
-            "width": 1,
-            "maxTargets": 6
-          },
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -336,16 +309,26 @@
                 {
                   "type": "hp_ratio",
                   "op": "<=",
-                  "value": 0.5
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
+                  "value": 1
                 }
               ]
             },
             "windupTicks": 1,
-            "warningColor": "#ff7a33"
+            "warningColor": "#ff2a2a"
+          }
+        },
+        {
+          "id": "skill.huanling_ronghe_guanmai",
+          "name": "熔河贯脉",
+          "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
+          "cooldown": 60,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 6,
+          "targeting": {
+            "shape": "line",
+            "width": 1,
+            "maxTargets": 6
           },
           "effects": [
             {
@@ -419,21 +402,6 @@
             }
           ],
           "unlockLevel": 2,
-          "cost": 20
-        },
-        {
-          "id": "skill.huanling_lieqi_zhixian",
-          "name": "移脉熔宫",
-          "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
-          "cooldown": 55,
-          "costMultiplier": 5,
-          "range": 5,
-          "targeting": {
-            "shape": "box",
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
-          },
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -441,7 +409,7 @@
                 {
                   "type": "hp_ratio",
                   "op": "<=",
-                  "value": 0.75
+                  "value": 0.5
                 },
                 {
                   "type": "has_buff",
@@ -450,7 +418,22 @@
               ]
             },
             "windupTicks": 1,
-            "warningColor": "#ff6a2f"
+            "warningColor": "#ff7a33"
+          }
+        },
+        {
+          "id": "skill.huanling_lieqi_zhixian",
+          "name": "移脉熔宫",
+          "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
+          "cooldown": 55,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
+          "targeting": {
+            "shape": "box",
+            "width": 3,
+            "height": 3,
+            "maxTargets": 9
           },
           "effects": [
             {
@@ -523,21 +506,6 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 20
-        },
-        {
-          "id": "skill.huanling_xingluo_canpan",
-          "name": "星罗残盘",
-          "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
-          "cooldown": 45,
-          "costMultiplier": 5,
-          "range": 5,
-          "targeting": {
-            "shape": "checkerboard",
-            "width": 5,
-            "height": 5,
-            "maxTargets": 13
-          },
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -545,7 +513,7 @@
                 {
                   "type": "hp_ratio",
                   "op": "<=",
-                  "value": 0.5
+                  "value": 0.75
                 },
                 {
                   "type": "has_buff",
@@ -554,7 +522,22 @@
               ]
             },
             "windupTicks": 1,
-            "warningColor": "#ffc16f"
+            "warningColor": "#ff6a2f"
+          }
+        },
+        {
+          "id": "skill.huanling_xingluo_canpan",
+          "name": "星罗残盘",
+          "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
+          "cooldown": 45,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
+          "targeting": {
+            "shape": "checkerboard",
+            "width": 5,
+            "height": 5,
+            "maxTargets": 13
           },
           "effects": [
             {
@@ -608,21 +591,6 @@
             }
           ],
           "unlockLevel": 5,
-          "cost": 20
-        },
-        {
-          "id": "skill.huanling_suogong_neihuan",
-          "name": "锁宫内环",
-          "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
-          "cooldown": 50,
-          "costMultiplier": 5,
-          "range": 5,
-          "targeting": {
-            "shape": "ring",
-            "innerRadius": 1,
-            "radius": 2,
-            "maxTargets": 8
-          },
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -630,7 +598,7 @@
                 {
                   "type": "hp_ratio",
                   "op": "<=",
-                  "value": 0.25
+                  "value": 0.5
                 },
                 {
                   "type": "has_buff",
@@ -639,7 +607,22 @@
               ]
             },
             "windupTicks": 1,
-            "warningColor": "#ff9c64"
+            "warningColor": "#ffc16f"
+          }
+        },
+        {
+          "id": "skill.huanling_suogong_neihuan",
+          "name": "锁宫内环",
+          "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
+          "cooldown": 50,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
+          "targeting": {
+            "shape": "ring",
+            "innerRadius": 1,
+            "radius": 2,
+            "maxTargets": 8
           },
           "effects": [
             {
@@ -694,21 +677,6 @@
             }
           ],
           "unlockLevel": 6,
-          "cost": 20
-        },
-        {
-          "id": "skill.huanling_liefu_waihuan",
-          "name": "裂府外环",
-          "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
-          "cooldown": 60,
-          "costMultiplier": 5,
-          "range": 6,
-          "targeting": {
-            "shape": "ring",
-            "innerRadius": 3,
-            "radius": 5,
-            "maxTargets": 18
-          },
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -724,8 +692,23 @@
                 }
               ]
             },
-            "windupTicks": 2,
-            "warningColor": "#ff4d36"
+            "windupTicks": 1,
+            "warningColor": "#ff9c64"
+          }
+        },
+        {
+          "id": "skill.huanling_liefu_waihuan",
+          "name": "裂府外环",
+          "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
+          "cooldown": 60,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 6,
+          "targeting": {
+            "shape": "ring",
+            "innerRadius": 3,
+            "radius": 5,
+            "maxTargets": 18
           },
           "effects": [
             {
@@ -783,21 +766,6 @@
             }
           ],
           "unlockLevel": 7,
-          "cost": 20
-        },
-        {
-          "id": "skill.huanling_difu_chenyin",
-          "name": "地府沉印",
-          "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
-          "cooldown": 55,
-          "costMultiplier": 5,
-          "range": 5,
-          "targeting": {
-            "shape": "box",
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
-          },
           "monsterCast": {
             "conditions": {
               "mode": "all",
@@ -813,8 +781,23 @@
                 }
               ]
             },
-            "windupTicks": 1,
-            "warningColor": "#ff3838"
+            "windupTicks": 2,
+            "warningColor": "#ff4d36"
+          }
+        },
+        {
+          "id": "skill.huanling_difu_chenyin",
+          "name": "地府沉印",
+          "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
+          "cooldown": 55,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
+          "targeting": {
+            "shape": "box",
+            "width": 3,
+            "height": 3,
+            "maxTargets": 9
           },
           "effects": [
             {
@@ -851,22 +834,36 @@
             }
           ],
           "unlockLevel": 8,
-          "cost": 20
+          "monsterCast": {
+            "conditions": {
+              "mode": "all",
+              "items": [
+                {
+                  "type": "hp_ratio",
+                  "op": "<=",
+                  "value": 0.25
+                },
+                {
+                  "type": "has_buff",
+                  "buffId": "buff.huanling_candan_faxiang"
+                }
+              ]
+            },
+            "windupTicks": 1,
+            "warningColor": "#ff3838"
+          }
         },
         {
           "id": "skill.huanling_canpo_zhang",
           "name": "残魄掌",
           "desc": "随手把残丹余魄拍出一掌，当作最基础的索命手段。",
           "cooldown": 0,
+          "cost": 0,
           "costMultiplier": 0,
           "range": 5,
           "targeting": {
             "shape": "single",
             "maxTargets": 1
-          },
-          "monsterCast": {
-            "windupTicks": 1,
-            "warningColor": "#dca06a"
           },
           "effects": [
             {
@@ -903,7 +900,10 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 0
+          "monsterCast": {
+            "windupTicks": 1,
+            "warningColor": "#dca06a"
+          }
         }
       ]
     },
@@ -922,6 +922,7 @@
           "name": "噬魂哀鸣",
           "desc": "哀鸣先钉住心神，魂缚随后顺势缠上，让后手更容易压进识海。",
           "cooldown": 22,
+          "cost": 9,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -968,14 +969,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 9
+          "unlockLevel": 1
         },
         {
           "id": "skill.nether_chain",
           "name": "阴锁缠身",
           "desc": "顺着魂缚破口把阴锁压成一线，越被缠住的人越难从这道锁里挣开。",
           "cooldown": 28,
+          "cost": 9,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -1030,8 +1031,7 @@
               }
             }
           ],
-          "unlockLevel": 4,
-          "cost": 9
+          "unlockLevel": 4
         }
       ]
     },
@@ -1081,6 +1081,7 @@
           "name": "赤焰诀",
           "desc": "离火化网罩落，灼脉缠身不绝。",
           "cooldown": 12,
+          "cost": 236,
           "costMultiplier": 5,
           "range": 3,
           "targeting": {
@@ -1089,11 +1090,11 @@
             "width": 3,
             "height": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "fire",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -1122,8 +1123,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "fire"
+              }
             },
             {
               "target": "target",
@@ -1142,7 +1142,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 236
+          "targetMode": "tile"
         }
       ]
     },
@@ -1161,6 +1161,7 @@
           "name": "赤曜焚界",
           "desc": "赤曜凝火，三息之后焚界而落。",
           "cooldown": 26,
+          "cost": 2808,
           "costMultiplier": 5,
           "range": 5,
           "targeting": {
@@ -1169,15 +1170,11 @@
             "width": 3,
             "height": 3
           },
-          "targetMode": "tile",
-          "playerCast": {
-            "windupTicks": 3,
-            "warningColor": "#ef6b3b"
-          },
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "fire",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -1206,8 +1203,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "fire"
+              }
             },
             {
               "target": "target",
@@ -1226,7 +1222,11 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 2808
+          "targetMode": "tile",
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ef6b3b"
+          }
         }
       ]
     },
@@ -1325,6 +1325,7 @@
           "name": "焰扑",
           "desc": "焰尾狐裹火扑击，命中后灼入经络。",
           "cooldown": 14,
+          "cost": 10730,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -1368,14 +1369,14 @@
               "stacks": 2
             }
           ],
-          "unlockLevel": 1,
-          "cost": 10730
+          "unlockLevel": 1
         },
         {
           "id": "skill.fire_tail_sweep",
           "name": "火尾横扫",
           "desc": "焰尾拖出扇形火线，扫开近身敌人。",
           "cooldown": 18,
+          "cost": 14307,
           "costMultiplier": 4,
           "range": 1,
           "targeting": {
@@ -1425,14 +1426,14 @@
               "stacks": 1
             }
           ],
-          "unlockLevel": 1,
-          "cost": 14307
+          "unlockLevel": 1
         },
         {
           "id": "skill.root_bind",
           "name": "焦根缠足",
           "desc": "焦黑树根从地缝里钻出，缠住敌人的脚步。",
           "cooldown": 20,
+          "cost": 10730,
           "costMultiplier": 3,
           "range": 4,
           "targeting": {
@@ -1483,14 +1484,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 10730
+          "unlockLevel": 1
         },
         {
           "id": "skill.charwood_slam",
           "name": "焦木重砸",
           "desc": "枯木行者抡起焦木臂，凭厚重身躯砸碎防线。",
           "cooldown": 18,
+          "cost": 14307,
           "costMultiplier": 4,
           "range": 1,
           "effects": [
@@ -1537,14 +1538,14 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 14307
+          "unlockLevel": 1
         },
         {
           "id": "skill.flame_breath",
           "name": "烈焰吐息",
           "desc": "烈焰蜥喷出一道高温火流，持续灼烧前方敌人。",
           "cooldown": 22,
+          "cost": 17883,
           "costMultiplier": 5,
           "range": 4,
           "targeting": {
@@ -1593,14 +1594,14 @@
               "stacks": 3
             }
           ],
-          "unlockLevel": 1,
-          "cost": 17883
+          "unlockLevel": 1
         },
         {
           "id": "skill.molten_charge",
           "name": "熔鳞冲撞",
           "desc": "烈焰蜥以熔鳞护身冲锋，撞碎被火势逼退的目标。",
           "cooldown": 24,
+          "cost": 17883,
           "costMultiplier": 5,
           "range": 3,
           "targeting": {
@@ -1653,17 +1654,16 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 17883
+          "unlockLevel": 1
         },
         {
           "id": "skill.fire_regeneration",
           "name": "浴火再生",
           "desc": "烈焰蜥借火势回补气血，并让熔鳞重新发亮。",
           "cooldown": 32,
+          "cost": 10730,
           "costMultiplier": 3,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "heal",
@@ -1709,13 +1709,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 10730
+          "requiresTarget": false
         },
         {
           "id": "skill.vine_constrict",
           "name": "藤焰绞缠",
           "desc": "藤焰蟒以燃藤勒住目标，限制行动。",
           "cooldown": 20,
+          "cost": 14307,
           "costMultiplier": 4,
           "range": 3,
           "effects": [
@@ -1779,14 +1780,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 14307
+          "unlockLevel": 1
         },
         {
           "id": "skill.flame_venom",
           "name": "焰毒入脉",
           "desc": "藤焰蟒喷出带火的毒涎，灼伤并削弱敌身。",
           "cooldown": 24,
+          "cost": 17883,
           "costMultiplier": 5,
           "range": 4,
           "effects": [
@@ -1848,14 +1849,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 17883
+          "unlockLevel": 1
         },
         {
           "id": "skill.wood_fire_burst",
           "name": "木火爆燃",
           "desc": "木火相激，在目标身侧爆燃成一片。",
           "cooldown": 28,
+          "cost": 21460,
           "costMultiplier": 6,
           "range": 5,
           "targeting": {
@@ -1863,10 +1864,6 @@
             "width": 3,
             "height": 3,
             "maxTargets": 9
-          },
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#ef6b3b"
           },
           "effects": [
             {
@@ -1914,13 +1911,17 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 21460
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#ef6b3b"
+          }
         },
         {
           "id": "skill.inferno_roar",
           "name": "焚王怒吼",
           "desc": "焚木妖王怒吼引燃四周，震散敌胆。",
           "cooldown": 28,
+          "cost": 17883,
           "costMultiplier": 5,
           "range": 0,
           "targeting": {
@@ -1928,11 +1929,6 @@
             "width": 5,
             "height": 5,
             "maxTargets": 25
-          },
-          "requiresTarget": false,
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#ff7a32"
           },
           "effects": [
             {
@@ -1995,13 +1991,18 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 17883
+          "requiresTarget": false,
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#ff7a32"
+          }
         },
         {
           "id": "skill.root_prison",
           "name": "焚根囚牢",
           "desc": "焚木妖王催生焦根，围成囚牢锁住敌人。",
           "cooldown": 32,
+          "cost": 17883,
           "costMultiplier": 5,
           "range": 5,
           "targeting": {
@@ -2009,10 +2010,6 @@
             "width": 3,
             "height": 3,
             "maxTargets": 9
-          },
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#8fb45a"
           },
           "effects": [
             {
@@ -2076,13 +2073,17 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 17883
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#8fb45a"
+          }
         },
         {
           "id": "skill.wood_fire_storm",
           "name": "木火妖岚",
           "desc": "木火同燃，妖岚席卷大片区域。",
           "cooldown": 38,
+          "cost": 25037,
           "costMultiplier": 7,
           "range": 6,
           "targeting": {
@@ -2090,10 +2091,6 @@
             "width": 5,
             "height": 5,
             "maxTargets": 25
-          },
-          "monsterCast": {
-            "windupTicks": 3,
-            "warningColor": "#ff8b3d"
           },
           "effects": [
             {
@@ -2141,16 +2138,19 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 25037
+          "monsterCast": {
+            "windupTicks": 3,
+            "warningColor": "#ff8b3d"
+          }
         },
         {
           "id": "skill.phoenix_rebirth",
           "name": "余烬返生",
           "desc": "焚木妖王以余烬护住心木，回补气血并抬升防御。",
           "cooldown": 60,
+          "cost": 17883,
           "costMultiplier": 5,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "heal",
@@ -2196,7 +2196,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 17883
+          "requiresTarget": false
         }
       ]
     },
@@ -2215,17 +2215,18 @@
           "name": "分光",
           "desc": "锋炁成线，直破前方三步。",
           "cooldown": 18,
+          "cost": 1056,
           "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "line",
             "maxTargets": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
               "damageKind": "physical",
+              "element": "metal",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -2254,8 +2255,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "metal"
+              }
             },
             {
               "target": "target",
@@ -2277,7 +2277,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 1056
+          "targetMode": "tile"
         }
       ]
     },
@@ -2312,6 +2312,7 @@
           "name": "归藏",
           "desc": "归藏摄杂，目标减益越多，收束越狠。",
           "cooldown": 20,
+          "cost": 1056,
           "costMultiplier": 5,
           "range": 5,
           "effects": [
@@ -2349,8 +2350,7 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 1056
+          "unlockLevel": 1
         }
       ]
     },
@@ -2369,6 +2369,7 @@
           "name": "寒魄经",
           "desc": "寒魄化霜，一念封身。",
           "cooldown": 14,
+          "cost": 1003,
           "costMultiplier": 5,
           "range": 3,
           "targeting": {
@@ -2377,11 +2378,11 @@
             "width": 3,
             "height": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "water",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -2410,8 +2411,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "water"
+              }
             },
             {
               "target": "target",
@@ -2433,7 +2433,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 1003
+          "targetMode": "tile"
         }
       ]
     },
@@ -2452,12 +2452,14 @@
           "name": "凝",
           "desc": "寒汐入体，凝潮压敌。",
           "cooldown": 16,
+          "cost": 634,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "water",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -2482,8 +2484,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "water"
+              }
             },
             {
               "target": "target",
@@ -2524,8 +2525,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 634
+          "unlockLevel": 1
         }
       ]
     },
@@ -2544,12 +2544,14 @@
           "name": "承岳",
           "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
           "cooldown": 18,
+          "cost": 845,
           "costMultiplier": 4,
           "range": 1,
           "effects": [
             {
               "type": "damage",
               "damageKind": "physical",
+              "element": "earth",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -2574,8 +2576,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "earth"
+              }
             },
             {
               "target": "self",
@@ -2596,8 +2597,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 845
+          "unlockLevel": 1
         }
       ]
     },
@@ -2616,12 +2616,14 @@
           "name": "载山",
           "desc": "黄庭借山成势，以厚土重压敌身。",
           "cooldown": 24,
+          "cost": 9010,
           "costMultiplier": 7,
           "range": 1,
           "effects": [
             {
               "type": "damage",
               "damageKind": "physical",
+              "element": "earth",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -2646,8 +2648,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "earth"
+              }
             },
             {
               "target": "self",
@@ -2668,8 +2669,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 9010
+          "unlockLevel": 1
         }
       ]
     },
@@ -2723,12 +2723,14 @@
           "name": "惊雷掌",
           "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
           "cooldown": 14,
+          "cost": 725,
           "costMultiplier": 5,
           "range": 2,
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "wood",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -2757,8 +2759,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "wood"
+              }
             },
             {
               "target": "target",
@@ -2779,8 +2780,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 725
+          "unlockLevel": 1
         }
       ]
     },
@@ -2799,6 +2799,7 @@
           "name": "矿核重击",
           "desc": "先以矿核重击压住正面，自身岩壳也会在这一击后继续增厚。",
           "cooldown": 15,
+          "cost": 9,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -2844,14 +2845,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 9
+          "unlockLevel": 1
         },
         {
           "id": "skill.guardian_quake",
           "name": "镇域震荡",
           "desc": "把矿核和岩壳一并轰进地面，近身敌群都会吃到这道镇域余震。",
           "cooldown": 28,
+          "cost": 9,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -2906,8 +2907,7 @@
               }
             }
           ],
-          "unlockLevel": 4,
-          "cost": 9
+          "unlockLevel": 4
         }
       ]
     },
@@ -2926,12 +2926,14 @@
           "name": "镇海",
           "desc": "坤岳重压，护体更进一步。",
           "cooldown": 20,
+          "cost": 2808,
           "costMultiplier": 5,
           "range": 1,
           "effects": [
             {
               "type": "damage",
               "damageKind": "physical",
+              "element": "earth",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -2956,8 +2958,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "earth"
+              }
             },
             {
               "target": "self",
@@ -2978,8 +2979,7 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 2808
+          "unlockLevel": 1
         }
       ]
     },
@@ -2998,6 +2998,7 @@
           "name": "炽息天罗",
           "desc": "离炎成网，烈息罩身。",
           "cooldown": 22,
+          "cost": 1056,
           "costMultiplier": 5,
           "range": 5,
           "targeting": {
@@ -3006,11 +3007,11 @@
             "width": 3,
             "height": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "fire",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -3039,8 +3040,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "fire"
+              }
             },
             {
               "target": "target",
@@ -3059,7 +3059,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 1056
+          "targetMode": "tile"
         }
       ]
     },
@@ -3078,6 +3078,7 @@
           "name": "流云刀谱",
           "desc": "身随刀走，刀随风掠，一线截开前路。",
           "cooldown": 12,
+          "cost": 408,
           "costMultiplier": 5,
           "range": 3,
           "targeting": {
@@ -3086,7 +3087,6 @@
             "height": 1,
             "maxTargets": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
@@ -3123,7 +3123,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 408
+          "targetMode": "tile"
         }
       ]
     },
@@ -3351,12 +3351,14 @@
           "name": "青木剑诀",
           "desc": "青木剑气凝作一线，专取单体破敌。",
           "cooldown": 10,
+          "cost": 4,
           "costMultiplier": 4,
           "range": 2,
           "effects": [
             {
               "type": "damage",
               "damageKind": "physical",
+              "element": "wood",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -3381,12 +3383,10 @@
                     ]
                   }
                 ]
-              },
-              "element": "wood"
+              }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 4
+          "unlockLevel": 1
         }
       ]
     },
@@ -3405,6 +3405,7 @@
           "name": "回春",
           "desc": "木脉铺展，友方回生，敌者受创。",
           "cooldown": 24,
+          "cost": 1056,
           "costMultiplier": 5,
           "range": 5,
           "targeting": {
@@ -3413,7 +3414,6 @@
             "width": 5,
             "height": 5
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "heal",
@@ -3447,6 +3447,7 @@
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "wood",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -3471,8 +3472,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "wood"
+              }
             },
             {
               "target": "allies",
@@ -3493,7 +3493,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 1056
+          "targetMode": "tile"
         }
       ]
     },
@@ -3528,6 +3528,7 @@
           "name": "裂刃前肢",
           "desc": "前肢先切出一道刃口，自身刃势也会顺着这次扑杀一起提起来。",
           "cooldown": 10,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -3572,14 +3573,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 6
+          "unlockLevel": 1
         },
         {
           "id": "skill.whirl_scythe",
           "name": "回旋碎叶",
           "desc": "借刃势把前肢轮成一圈碎叶，贴身敌群会被一口气卷进斩击里。",
           "cooldown": 17,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -3633,8 +3634,7 @@
               }
             }
           ],
-          "unlockLevel": 4,
-          "cost": 6
+          "unlockLevel": 4
         }
       ]
     },
@@ -3653,6 +3653,7 @@
           "name": "噬星咬",
           "desc": "獠口先把残星煞意咬进目标体内，自身也会因此积起更凶的噬意。",
           "cooldown": 19,
+          "cost": 9,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -3698,14 +3699,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 9
+          "unlockLevel": 1
         },
         {
           "id": "skill.void_burst",
           "name": "裂空残啸",
           "desc": "把噬入口中的残意轰成一团裂空乱流，周围都会像被星砂刮过。",
           "cooldown": 30,
+          "cost": 9,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -3743,8 +3744,7 @@
               }
             }
           ],
-          "unlockLevel": 5,
-          "cost": 9
+          "unlockLevel": 5
         }
       ]
     },
@@ -3763,6 +3763,7 @@
           "name": "霜牙",
           "desc": "霜鳞蛇咬入寒气，令敌身迟滞。",
           "cooldown": 14,
+          "cost": 6491,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -3809,14 +3810,14 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 6491
+          "unlockLevel": 1
         },
         {
           "id": "skill.coiling_strike",
           "name": "盘鳞绞击",
           "desc": "霜鳞蛇盘身绞杀，借冰霜迟滞放大伤势。",
           "cooldown": 18,
+          "cost": 8655,
           "costMultiplier": 4,
           "range": 1,
           "effects": [
@@ -3845,14 +3846,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 8655
+          "unlockLevel": 1
         },
         {
           "id": "skill.iron_tail_sting",
           "name": "寒铁尾针",
           "desc": "寒铁蝎以尾针刺入寒毒。",
           "cooldown": 18,
+          "cost": 8655,
           "costMultiplier": 4,
           "range": 2,
           "effects": [
@@ -3900,17 +3901,16 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 8655
+          "unlockLevel": 1
         },
         {
           "id": "skill.frost_armor",
           "name": "霜甲",
           "desc": "寒铁蝎凝霜覆甲，抵住后续攻势。",
           "cooldown": 24,
+          "cost": 4327,
           "costMultiplier": 2,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "buff",
@@ -3933,13 +3933,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 4327
+          "requiresTarget": false
         },
         {
           "id": "skill.ice_web",
           "name": "冰晶蛛网",
           "desc": "冰晶蜘蛛吐出结霜蛛网，封住敌人步法。",
           "cooldown": 22,
+          "cost": 8655,
           "costMultiplier": 4,
           "range": 5,
           "targeting": {
@@ -4009,14 +4010,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 8655
+          "unlockLevel": 1
         },
         {
           "id": "skill.crystal_burst",
           "name": "冰晶爆裂",
           "desc": "蛛网中的冰晶猛然炸开，寒芒割裂周身。",
           "cooldown": 28,
+          "cost": 10819,
           "costMultiplier": 5,
           "range": 5,
           "targeting": {
@@ -4024,10 +4025,6 @@
             "width": 3,
             "height": 3,
             "maxTargets": 9
-          },
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#9fd4ee"
           },
           "effects": [
             {
@@ -4078,16 +4075,19 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 10819
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#9fd4ee"
+          }
         },
         {
           "id": "skill.iron_shell_guard",
           "name": "玄龟铁壳",
           "desc": "铁甲玄龟缩壳固守，短时极难撼动。",
           "cooldown": 30,
+          "cost": 6491,
           "costMultiplier": 3,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "buff",
@@ -4110,13 +4110,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 6491
+          "requiresTarget": false
         },
         {
           "id": "skill.frost_breath",
           "name": "玄龟寒息",
           "desc": "铁甲玄龟吐出寒息，压低敌人的攻势。",
           "cooldown": 24,
+          "cost": 10819,
           "costMultiplier": 5,
           "range": 4,
           "targeting": {
@@ -4168,14 +4169,14 @@
               "type": "buff"
             }
           ],
-          "unlockLevel": 1,
-          "cost": 10819
+          "unlockLevel": 1
         },
         {
           "id": "skill.tidal_slam",
           "name": "寒潮重踏",
           "desc": "铁甲玄龟重踏地面，寒潮沿地面爆开。",
           "cooldown": 32,
+          "cost": 12982,
           "costMultiplier": 6,
           "range": 0,
           "targeting": {
@@ -4183,11 +4184,6 @@
             "width": 5,
             "height": 5,
             "maxTargets": 25
-          },
-          "requiresTarget": false,
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#8fc9e0"
           },
           "effects": [
             {
@@ -4234,7 +4230,11 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 12982
+          "requiresTarget": false,
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#8fc9e0"
+          }
         }
       ]
     },
@@ -4253,9 +4253,9 @@
           "name": "踏风步",
           "desc": "借风提身，轻灵游走。",
           "cooldown": 12,
+          "cost": 57,
           "costMultiplier": 1,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "target": "self",
@@ -4277,7 +4277,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 57
+          "requiresTarget": false
         }
       ]
     },
@@ -4296,12 +4296,14 @@
           "name": "诛形",
           "desc": "裂甲既成，贴身诛形。",
           "cooldown": 24,
+          "cost": 7723,
           "costMultiplier": 6,
           "range": 1,
           "effects": [
             {
               "type": "damage",
               "damageKind": "physical",
+              "element": "metal",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -4326,12 +4328,10 @@
                     ]
                   }
                 ]
-              },
-              "element": "metal"
+              }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 7723
+          "unlockLevel": 1
         }
       ]
     },
@@ -4350,9 +4350,9 @@
           "name": "抱元",
           "desc": "抱元守一，短时拔升双抗。",
           "cooldown": 28,
+          "cost": 3861,
           "costMultiplier": 3,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "target": "self",
@@ -4374,7 +4374,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 3861
+          "requiresTarget": false
         }
       ]
     },
@@ -4409,12 +4409,9 @@
           "name": "劫光灭域",
           "desc": "引太虚劫光覆落成域，功法层数越高，劫光越盛。",
           "cooldown": 1800,
+          "cost": 5158,
           "costMultiplier": 8,
           "range": 9,
-          "playerCast": {
-            "windupTicks": 3,
-            "warningColor": "#ff8c42"
-          },
           "targeting": {
             "shape": "box",
             "width": 7,
@@ -4448,7 +4445,10 @@
             }
           ],
           "unlockLevel": 10,
-          "cost": 5158
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ff8c42"
+          }
         }
       ]
     },
@@ -4467,17 +4467,18 @@
           "name": "潮",
           "desc": "归潮成线，借己身潮势压垮敌体。",
           "cooldown": 24,
+          "cost": 6436,
           "costMultiplier": 5,
           "range": 3,
           "targeting": {
             "shape": "line",
             "maxTargets": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "water",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -4506,8 +4507,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "water"
+              }
             },
             {
               "target": "target",
@@ -4529,7 +4529,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 6436
+          "targetMode": "tile"
         }
       ]
     },
@@ -4548,9 +4548,9 @@
           "name": "铁骨功",
           "desc": "铁息贯骨，护体续命。",
           "cooldown": 12,
+          "cost": 68,
           "costMultiplier": 1,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "target": "self",
@@ -4573,7 +4573,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 68
+          "requiresTarget": false
         }
       ]
     },
@@ -4592,9 +4592,9 @@
           "name": "定息",
           "desc": "调息定脉，净去缠身邪扰。",
           "cooldown": 24,
+          "cost": 211,
           "costMultiplier": 1,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "cleanse",
@@ -4604,7 +4604,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 211
+          "requiresTarget": false
         }
       ]
     },
@@ -4623,6 +4623,7 @@
           "name": "虚影重击",
           "desc": "虚影以自身境界压下重击，造成随境界等级提升的物理伤害。",
           "cooldown": 10,
+          "cost": 0,
           "costMultiplier": 0,
           "range": 1,
           "effects": [
@@ -4650,8 +4651,7 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 0
+          "unlockLevel": 1
         }
       ]
     },
@@ -4670,12 +4670,14 @@
           "name": "束魂",
           "desc": "木意锁魂，直压单敌。",
           "cooldown": 20,
+          "cost": 2808,
           "costMultiplier": 5,
           "range": 5,
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "wood",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -4700,12 +4702,10 @@
                     ]
                   }
                 ]
-              },
-              "element": "wood"
+              }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 2808
+          "unlockLevel": 1
         }
       ]
     },
@@ -4742,6 +4742,7 @@
           "name": "涌",
           "desc": "回澜自起，近身震散敌势。",
           "cooldown": 18,
+          "cost": 2808,
           "costMultiplier": 5,
           "range": 0,
           "targeting": {
@@ -4750,11 +4751,11 @@
             "width": 3,
             "height": 3
           },
-          "requiresTarget": false,
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "water",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -4779,8 +4780,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "water"
+              }
             },
             {
               "target": "target",
@@ -4822,7 +4822,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 2808
+          "requiresTarget": false
         }
       ]
     },
@@ -4857,9 +4857,9 @@
           "name": "玄土甲壳",
           "desc": "玄土甲虫收束厚土之力，甲壳愈发坚硬。",
           "cooldown": 24,
+          "cost": 14588,
           "costMultiplier": 2,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "target": "self",
@@ -4900,13 +4900,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 14588
+          "requiresTarget": false
         },
         {
           "id": "skill.burrowing_charge",
           "name": "潜地冲",
           "desc": "玄土甲虫潜入地层后破土冲出。",
           "cooldown": 22,
+          "cost": 29175,
           "costMultiplier": 4,
           "range": 3,
           "targeting": {
@@ -4940,14 +4941,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 29175
+          "unlockLevel": 1
         },
         {
           "id": "skill.earth_rend",
           "name": "裂地",
           "desc": "裂地蜈蚣撕开地脉，令前方敌人立足不稳。",
           "cooldown": 24,
+          "cost": 36469,
           "costMultiplier": 5,
           "range": 4,
           "targeting": {
@@ -4999,14 +5000,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 36469
+          "unlockLevel": 1
         },
         {
           "id": "skill.venom_mandible",
           "name": "毒颚",
           "desc": "裂地蜈蚣以毒颚撕咬，伤口难以闭合。",
           "cooldown": 18,
+          "cost": 29175,
           "costMultiplier": 4,
           "range": 1,
           "effects": [
@@ -5054,14 +5055,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 29175
+          "unlockLevel": 1
         },
         {
           "id": "skill.burrow_ambush",
           "name": "潜伏伏击",
           "desc": "裂地蜈蚣钻入地缝，再从目标脚下爆起。",
           "cooldown": 28,
+          "cost": 43763,
           "costMultiplier": 6,
           "range": 5,
           "targeting": {
@@ -5069,10 +5070,6 @@
             "width": 3,
             "height": 3,
             "maxTargets": 9
-          },
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#9d6f45"
           },
           "effects": [
             {
@@ -5101,13 +5098,17 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 43763
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#9d6f45"
+          }
         },
         {
           "id": "skill.mixed_element_spit",
           "name": "混元吐息",
           "desc": "混元石蟾吐出五行浊浆，侵蚀敌人的术防。",
           "cooldown": 24,
+          "cost": 36469,
           "costMultiplier": 5,
           "range": 4,
           "targeting": {
@@ -5159,17 +5160,16 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 36469
+          "unlockLevel": 1
         },
         {
           "id": "skill.stone_skin",
           "name": "石蟾硬皮",
           "desc": "混元石蟾鼓起石皮，硬吃正面攻势。",
           "cooldown": 26,
+          "cost": 14588,
           "costMultiplier": 2,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "buff",
@@ -5192,13 +5192,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 14588
+          "requiresTarget": false
         },
         {
           "id": "skill.earth_quake_stomp",
           "name": "地震踏",
           "desc": "混元石蟾重踏地面，震开周围敌人。",
           "cooldown": 30,
+          "cost": 43763,
           "costMultiplier": 6,
           "range": 0,
           "targeting": {
@@ -5206,11 +5207,6 @@
             "width": 5,
             "height": 5,
             "maxTargets": 25
-          },
-          "requiresTarget": false,
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#9a7a55"
           },
           "effects": [
             {
@@ -5257,13 +5253,18 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 43763
+          "requiresTarget": false,
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#9a7a55"
+          }
         },
         {
           "id": "skill.earth_dragon_dive",
           "name": "地龙潜跃",
           "desc": "玄壤地龙潜入地脉，再破土撕咬。",
           "cooldown": 28,
+          "cost": 43763,
           "costMultiplier": 6,
           "range": 5,
           "targeting": {
@@ -5271,10 +5272,6 @@
             "width": 3,
             "height": 3,
             "maxTargets": 9
-          },
-          "monsterCast": {
-            "windupTicks": 2,
-            "warningColor": "#8a6040"
           },
           "effects": [
             {
@@ -5321,13 +5318,17 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 43763
+          "monsterCast": {
+            "windupTicks": 2,
+            "warningColor": "#8a6040"
+          }
         },
         {
           "id": "skill.tectonic_slam",
           "name": "地脉重压",
           "desc": "玄壤地龙引动地脉，向周围重压而下。",
           "cooldown": 34,
+          "cost": 51057,
           "costMultiplier": 7,
           "range": 0,
           "targeting": {
@@ -5335,11 +5336,6 @@
             "width": 5,
             "height": 5,
             "maxTargets": 25
-          },
-          "requiresTarget": false,
-          "monsterCast": {
-            "windupTicks": 3,
-            "warningColor": "#8d6a4a"
           },
           "effects": [
             {
@@ -5387,13 +5383,18 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 51057
+          "requiresTarget": false,
+          "monsterCast": {
+            "windupTicks": 3,
+            "warningColor": "#8d6a4a"
+          }
         },
         {
           "id": "skill.dragon_spine_sweep",
           "name": "龙脊横扫",
           "desc": "玄壤地龙以脊骨横扫前方，摧折防线。",
           "cooldown": 24,
+          "cost": 43763,
           "costMultiplier": 6,
           "range": 1,
           "targeting": {
@@ -5428,17 +5429,16 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 43763
+          "unlockLevel": 1
         },
         {
           "id": "skill.earth_armor_fortify",
           "name": "地甲固化",
           "desc": "玄壤地龙让厚土地甲彻底固化。",
           "cooldown": 40,
+          "cost": 21882,
           "costMultiplier": 3,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "target": "self",
@@ -5480,13 +5480,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 21882
+          "requiresTarget": false
         },
         {
           "id": "skill.fivephase_devour",
           "name": "五行吞脉",
           "desc": "五行噬脉兽咬住灵脉，吞噬目标气机。",
           "cooldown": 28,
+          "cost": 51057,
           "costMultiplier": 7,
           "range": 2,
           "effects": [
@@ -5534,17 +5535,16 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 51057
+          "unlockLevel": 1
         },
         {
           "id": "skill.element_shift",
           "name": "五行转相",
           "desc": "五行噬脉兽转动体内五行，短时补齐弱处。",
           "cooldown": 30,
+          "cost": 21882,
           "costMultiplier": 3,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "buff",
@@ -5569,13 +5569,14 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 21882
+          "requiresTarget": false
         },
         {
           "id": "skill.mixed_element_storm",
           "name": "混元五行暴",
           "desc": "五行噬脉兽搅动五行浊流，覆盖大片区域。",
           "cooldown": 40,
+          "cost": 58351,
           "costMultiplier": 8,
           "range": 6,
           "targeting": {
@@ -5583,10 +5584,6 @@
             "width": 5,
             "height": 5,
             "maxTargets": 25
-          },
-          "monsterCast": {
-            "windupTicks": 3,
-            "warningColor": "#9a79bf"
           },
           "effects": [
             {
@@ -5639,16 +5636,19 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 58351
+          "monsterCast": {
+            "windupTicks": 3,
+            "warningColor": "#9a79bf"
+          }
         },
         {
           "id": "skill.vein_drain",
           "name": "汲脉回元",
           "desc": "五行噬脉兽抽回散逸气机，修补自身。",
           "cooldown": 48,
+          "cost": 36469,
           "costMultiplier": 5,
           "range": 0,
-          "requiresTarget": false,
           "effects": [
             {
               "type": "heal",
@@ -5693,7 +5693,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 36469
+          "requiresTarget": false
         }
       ]
     },
@@ -6039,6 +6039,7 @@
           "name": "毒牙噬",
           "desc": "毒牙先把毒蚀送进经络，后续每一口瘴气都会更容易顺着伤处发作。",
           "cooldown": 9,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 1,
           "effects": [
@@ -6085,14 +6086,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 6
+          "unlockLevel": 1
         },
         {
           "id": "skill.miasma_spray",
           "name": "瘴雾喷吐",
           "desc": "把先前灌入的毒意化成瘴雾一路压过去，毒蚀越深，后劲越狠。",
           "cooldown": 18,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -6147,8 +6148,7 @@
               }
             }
           ],
-          "unlockLevel": 4,
-          "cost": 6
+          "unlockLevel": 4
         }
       ]
     },
@@ -6167,6 +6167,7 @@
           "name": "裂喉扑杀",
           "desc": "压低妖躯后猛扑夺位，先抢到贴身节奏，再把凶奔一并提起来。",
           "cooldown": 12,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -6212,14 +6213,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 6
+          "unlockLevel": 1
         },
         {
           "id": "skill.rending_claw",
           "name": "裂骨爪",
           "desc": "借扑势把爪锋拖成一道撕骨长痕，凶奔越盛，这一下越难硬吃。",
           "cooldown": 17,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 2,
           "targeting": {
@@ -6273,14 +6274,14 @@
               }
             }
           ],
-          "unlockLevel": 4,
-          "cost": 6
+          "unlockLevel": 4
         },
         {
           "id": "skill.brutal_ram",
           "name": "蛮骨冲",
           "desc": "把筋骨、体重和凶奔余势全压进一撞里，最适合强行开路撞穿前排。",
           "cooldown": 17,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 2,
           "effects": [
@@ -6312,8 +6313,7 @@
               }
             }
           ],
-          "unlockLevel": 6,
-          "cost": 6
+          "unlockLevel": 6
         }
       ]
     },
@@ -6348,10 +6348,9 @@
           "name": "叩地成岳",
           "desc": "叩定一处地脉，搬山成岳，生成一块可被攻击拆除的临时石头。",
           "cooldown": 8,
+          "cost": 1123,
           "costMultiplier": 2,
           "range": 6,
-          "targetMode": "tile",
-          "requiresTarget": true,
           "targeting": {
             "shape": "single",
             "targetMode": "tile",
@@ -6393,17 +6392,17 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 1123
+          "requiresTarget": true,
+          "targetMode": "tile"
         },
         {
           "id": "skill.yi_kunlun_hollow_square",
           "name": "八荒锁岳",
           "desc": "牵动八方地脉，在目标周围叠起三乘三外环石阵，中宫留空。",
           "cooldown": 16,
+          "cost": 2808,
           "costMultiplier": 5,
           "range": 6,
-          "targetMode": "tile",
-          "requiresTarget": true,
           "targeting": {
             "shape": "box",
             "width": 3,
@@ -6448,17 +6447,17 @@
             }
           ],
           "unlockLevel": 4,
-          "cost": 2808
+          "requiresTarget": true,
+          "targetMode": "tile"
         },
         {
           "id": "skill.yi_kunlun_horizontal_wall",
           "name": "横断天关",
           "desc": "横移昆仑一线，生成三块相连的临时石头，截断通路。",
           "cooldown": 12,
+          "cost": 2247,
           "costMultiplier": 4,
           "range": 6,
-          "targetMode": "tile",
-          "requiresTarget": true,
           "targeting": {
             "shape": "box",
             "width": 3,
@@ -6502,7 +6501,8 @@
             }
           ],
           "unlockLevel": 7,
-          "cost": 2247
+          "requiresTarget": true,
+          "targetMode": "tile"
         }
       ]
     },
@@ -6521,6 +6521,7 @@
           "name": "裂羽攒射",
           "desc": "羽翎离弦时先校准高空身位，命中后自身也会顺势维持凌空压制。",
           "cooldown": 13,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -6566,14 +6567,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 6
+          "unlockLevel": 1
         },
         {
           "id": "skill.echo_screech",
           "name": "裂空尖啸",
           "desc": "以尖啸震乱前排后，再借凌空余势把回音一路压进整条战线。",
           "cooldown": 24,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 4,
           "targeting": {
@@ -6627,14 +6628,14 @@
               }
             }
           ],
-          "unlockLevel": 4,
-          "cost": 6
+          "unlockLevel": 4
         },
         {
           "id": "skill.frost_plume",
           "name": "霜羽坠",
           "desc": "把高空积起的寒意压进羽锋，坠下时会连霜痕一起钉进目标体表。",
           "cooldown": 19,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -6685,8 +6686,7 @@
               }
             }
           ],
-          "unlockLevel": 6,
-          "cost": 6
+          "unlockLevel": 6
         }
       ]
     },
@@ -6705,6 +6705,7 @@
           "name": "贯星",
           "desc": "枪势贯空，距离越远，星坠越重。",
           "cooldown": 16,
+          "cost": 1365,
           "costMultiplier": 5,
           "range": 4,
           "targeting": {
@@ -6746,8 +6747,7 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 1365
+          "unlockLevel": 1
         }
       ]
     },
@@ -6782,6 +6782,7 @@
           "name": "枯荣禁脉",
           "desc": "枯荣逆转，断其回息。",
           "cooldown": 28,
+          "cost": 6436,
           "costMultiplier": 5,
           "range": 5,
           "targeting": {
@@ -6790,11 +6791,11 @@
             "width": 3,
             "height": 3
           },
-          "targetMode": "tile",
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "wood",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -6819,8 +6820,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "wood"
+              }
             },
             {
               "target": "target",
@@ -6841,7 +6841,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 6436
+          "targetMode": "tile"
         }
       ]
     },
@@ -6892,6 +6892,7 @@
           "name": "镇灵篇",
           "desc": "镇灵真意铺开，封镇大片气机。",
           "cooldown": 18,
+          "cost": 1406,
           "costMultiplier": 6,
           "range": 0,
           "targeting": {
@@ -6900,7 +6901,6 @@
             "width": 5,
             "height": 5
           },
-          "requiresTarget": false,
           "effects": [
             {
               "type": "damage",
@@ -6951,7 +6951,7 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 1406
+          "requiresTarget": false
         }
       ]
     },
@@ -7020,6 +7020,7 @@
           "name": "朱明劫焰",
           "desc": "朱明火势归于己身，三息之后覆压四方。",
           "cooldown": 32,
+          "cost": 6436,
           "costMultiplier": 5,
           "range": 0,
           "targeting": {
@@ -7028,15 +7029,11 @@
             "width": 5,
             "height": 5
           },
-          "requiresTarget": false,
-          "playerCast": {
-            "windupTicks": 3,
-            "warningColor": "#ef6b3b"
-          },
           "effects": [
             {
               "type": "damage",
               "damageKind": "spell",
+              "element": "fire",
               "formula": {
                 "op": "mul",
                 "args": [
@@ -7065,8 +7062,7 @@
                     ]
                   }
                 ]
-              },
-              "element": "fire"
+              }
             },
             {
               "target": "target",
@@ -7085,7 +7081,11 @@
             }
           ],
           "unlockLevel": 1,
-          "cost": 6436
+          "requiresTarget": false,
+          "playerCast": {
+            "windupTicks": 3,
+            "warningColor": "#ef6b3b"
+          }
         }
       ]
     },
@@ -7104,6 +7104,7 @@
           "name": "竹影抽",
           "desc": "先用竹影抽乱步点，再把草木青缠顺着这一抽一起缠上去。",
           "cooldown": 13,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 3,
           "effects": [
@@ -7149,14 +7150,14 @@
               }
             }
           ],
-          "unlockLevel": 1,
-          "cost": 6
+          "unlockLevel": 1
         },
         {
           "id": "skill.leaf_storm",
           "name": "青叶乱雨",
           "desc": "把缠在敌身上的草叶一口气搅成乱雨，青缠越深，落下时越密。",
           "cooldown": 19,
+          "cost": 6,
           "costMultiplier": 3,
           "range": 3,
           "targeting": {
@@ -7210,8 +7211,7 @@
               }
             }
           ],
-          "unlockLevel": 4,
-          "cost": 6
+          "unlockLevel": 4
         }
       ]
     },

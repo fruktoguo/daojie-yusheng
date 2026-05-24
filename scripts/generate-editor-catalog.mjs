@@ -64,6 +64,7 @@ const sharedModule = await import(pathToFileURL(path.join(resolveWorkspacePackag
 const {
   calculateTechniqueSkillQiCost,
   compileEquipmentBaselinePercentsToActualStats,
+  expandTechniqueArtsStrengthContentSkill,
   scaleTechniqueExp,
 } = sharedModule;
 
@@ -593,16 +594,25 @@ function normalizeTechnique(raw, sharedTechniqueBuffs, gradeBandLevelFrom, helpe
   const skills = Array.isArray(raw.skills)
     ? raw.skills
       .filter((skill) => typeof skill?.id === 'string' && typeof skill?.name === 'string')
-      .map((skill) => {
+      .map((skill, index) => {
+        const expandedStrength = isPlainObject(skill.artsStrength)
+          ? expandTechniqueArtsStrengthContentSkill(skill, {
+            techniqueId: raw.id,
+            grade,
+            realmLv,
+            skillIndex: index,
+          })?.skill
+          : null;
+        const normalizedSkill = expandedStrength ?? skill;
 /**
  * 记录costmultiplier。
  */
-        const costMultiplier = Number.isFinite(skill.costMultiplier ?? skill.cost)
-          ? Math.max(0, Number(skill.costMultiplier ?? skill.cost))
+        const costMultiplier = Number.isFinite(normalizedSkill.costMultiplier ?? normalizedSkill.cost)
+          ? Math.max(0, Number(normalizedSkill.costMultiplier ?? normalizedSkill.cost))
           : 0;
         return {
-          ...skill,
-          effects: normalizeSkillEffects(skill.effects, sharedTechniqueBuffs),
+          ...normalizedSkill,
+          effects: normalizeSkillEffects(normalizedSkill.effects, sharedTechniqueBuffs),
           costMultiplier,
           cost: helpers.calculateTechniqueSkillQiCost(costMultiplier, grade, realmLv),
         };
