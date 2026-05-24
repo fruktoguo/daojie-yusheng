@@ -1248,7 +1248,8 @@ export class CraftPanelRuntimeService {
             if (!itemInstanceId) {
                 return;
             }
-            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, item);
+            const normalizedItem = this.normalizeEnhancementInventoryItem(item);
+            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, normalizedItem);
             if (candidate) {
                 candidates.push(candidate);
             }
@@ -1360,6 +1361,10 @@ export class CraftPanelRuntimeService {
         const step = config?.steps.find((entry) => entry.targetEnhanceLevel === targetLevel);
         return (step?.materials ?? []).map((entry) => ({ ...entry }));
     }
+
+    normalizeEnhancementInventoryItem(item) {
+        return this.contentTemplateRepository.normalizeItem?.(item) ?? item;
+    }
     /**
  * getWeapon：读取Weapon。
  * @param player 玩家对象。
@@ -1433,7 +1438,7 @@ export class CraftPanelRuntimeService {
                 || normalizeInventoryItemInstanceId(ref.expectedItemInstanceId);
             if (directItemInstanceId) {
                 const item = findInventoryItemByInstanceId(player, directItemInstanceId);
-                resolved = item ? { ref: { source: 'inventory', itemInstanceId: directItemInstanceId }, item } : null;
+                resolved = item ? { ref: { source: 'inventory', itemInstanceId: directItemInstanceId }, item: this.normalizeEnhancementInventoryItem(item) } : null;
             }
         } else if (ref.source === 'equipment') {
             const slot = normalizeEquipSlot(ref.slot);

@@ -95,7 +95,8 @@ export class CraftPanelEnhancementQueryService {
             if (!itemInstanceId) {
                 return;
             }
-            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, item, enhancementConfigs);
+            const normalizedItem = normalizeEnhancementInventoryItem(this.contentTemplateRepository, item);
+            const candidate = this.buildEnhancementCandidate(player, { source: 'inventory', itemInstanceId }, normalizedItem, enhancementConfigs);
             if (candidate) {
                 candidates.push(candidate);
             }
@@ -302,6 +303,10 @@ function summarizeEnhancementItem(item) {
 
 function normalizeInventoryItemInstanceId(value) {
     return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+
+function normalizeEnhancementInventoryItem(contentTemplateRepository, item) {
+    return contentTemplateRepository.normalizeItem?.(item) ?? item;
 }
 /**
  * clonePartialNumericStats：构建PartialNumericStat。

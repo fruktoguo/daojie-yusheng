@@ -9,7 +9,7 @@ function createRuntime(): { service: CraftPanelRuntimeService; player: any } {
     instanceId: 'instance:enhancement-rule',
     inventory: {
       items: [
-        { itemId: 'iron_sword', count: 1, level: 8, type: 'equipment', name: '背包铁剑', enhanceLevel: 0 },
+        { itemId: 'iron_sword', count: 1, level: 8, type: 'equipment', name: '背包铁剑', enhanceLevel: 0, itemInstanceId: 'inventory-iron-sword' },
       ],
       lockedItems: [],
       revision: 1,
@@ -58,6 +58,15 @@ function createRuntime(): { service: CraftPanelRuntimeService; player: any } {
       return itemId;
     },
     normalizeItem(item: Record<string, unknown>) {
+      if (item.itemId === 'template_light_sword') {
+        return {
+          ...item,
+          type: 'equipment',
+          level: 6,
+          name: '模板轻量剑',
+          equipSlot: 'weapon',
+        };
+      }
       return { ...item };
     },
   };
@@ -103,8 +112,28 @@ function testEnhancementCandidatesExcludeEquippedItems(): void {
   const { service, player } = createRuntime();
   const candidates = service.collectEnhancementCandidates(player);
   assert.deepEqual(candidates.map((candidate: any) => candidate.ref), [
-    { source: 'inventory', slotIndex: 0 },
+    { source: 'inventory', itemInstanceId: 'inventory-iron-sword' },
   ]);
+}
+
+function testLightweightInventoryEquipmentUsesTemplateForCandidatesAndStart(): void {
+  const { service, player } = createRuntime();
+  player.inventory.items = [
+    { itemId: 'template_light_sword', count: 1, enhanceLevel: 0, itemInstanceId: 'light-sword-instance' },
+  ];
+  const candidates = service.collectEnhancementCandidates(player);
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].item.itemId, 'template_light_sword');
+  assert.equal(candidates[0].item.type, 'equipment');
+  assert.equal(candidates[0].item.level, 6);
+  assert.deepEqual(candidates[0].ref, { source: 'inventory', itemInstanceId: 'light-sword-instance' });
+
+  const result = service.startEnhancement(player, { target: { source: 'inventory', itemInstanceId: 'light-sword-instance' } });
+  assert.equal(result.ok, true);
+  assert.equal(player.enhancementJob?.targetItemId, 'template_light_sword');
+  assert.equal(player.enhancementJob?.targetItemLevel, 6);
+  assert.equal(player.inventory.lockedItems.length, 1);
+  assert.equal(player.inventory.lockedItems[0].itemInstanceId, 'light-sword-instance');
 }
 
 function testStartEnhancementRejectsEquippedItems(): void {
@@ -182,6 +211,7 @@ function testExistingEquippedEnhancementJobIsCancelled(): void {
 }
 
 testEnhancementCandidatesExcludeEquippedItems();
+testLightweightInventoryEquipmentUsesTemplateForCandidatesAndStart();
 testStartEnhancementRejectsEquippedItems();
 testExistingEquippedEnhancementJobIsCancelled();
 
