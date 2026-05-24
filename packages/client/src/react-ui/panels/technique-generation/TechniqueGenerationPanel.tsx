@@ -173,6 +173,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
         <div className="technique-generation-panel__input">
           <aside className="technique-generation-panel__side technique-generation-panel__side--left">
             {renderRealmRange(state.rollRange)}
+            {renderItemSpendSelector(state.rollRange, itemSpend, handleItemSpendChange)}
           </aside>
 
           <div className="technique-generation-panel__main">
@@ -222,7 +223,6 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
 
           <aside className="technique-generation-panel__side technique-generation-panel__side--right">
             {renderGradeRange(state.rollRange)}
-            {renderItemSpendSelector(state.rollRange, itemSpend, handleItemSpendChange)}
           </aside>
         </div>
       )}
@@ -459,7 +459,7 @@ function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): Re
   if (!range) {
     return (
       <section className="technique-generation-panel__section technique-generation-panel__roll-card">
-        <div className="technique-generation-panel__section-title">境界等级区间</div>
+        <div className="technique-generation-panel__rail-label">境界</div>
         <div className="technique-generation-panel__muted">读取中</div>
       </section>
     );
@@ -467,12 +467,8 @@ function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): Re
   const realmLvChances = normalizeRealmLvChances(range);
   return (
     <section className="technique-generation-panel__section technique-generation-panel__roll-card">
-      <div className="technique-generation-panel__section-title">境界等级区间</div>
+      <div className="technique-generation-panel__rail-label" title={`境界等级区间 Lv.${range.realmLvMin} - Lv.${range.realmLvMax}`}>境界</div>
       <div className="technique-generation-panel__range-group technique-generation-panel__range-group--realm">
-        <div className="technique-generation-panel__range-head">
-          <span>范围</span>
-          <strong>Lv.{range.realmLvMin} - Lv.{range.realmLvMax}</strong>
-        </div>
         <div className="technique-generation-panel__range-stack" aria-label="境界等级概率分布">
           {realmLvChances.map((entry, index) => (
             <div
@@ -484,8 +480,7 @@ function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): Re
               }}
               title={`Lv.${entry.realmLv} ${entry.chance.toFixed(1)}%`}
             >
-              <span>Lv.{entry.realmLv}</span>
-              <strong>{entry.chance.toFixed(1)}%</strong>
+              <span>{entry.realmLv}</span>
             </div>
           ))}
         </div>
@@ -498,19 +493,20 @@ function renderGradeRange(range: TechniqueGenerationPanelState['rollRange']): Re
   if (!range) {
     return (
       <section className="technique-generation-panel__section technique-generation-panel__roll-card">
-        <div className="technique-generation-panel__section-title">品阶区间</div>
+        <div className="technique-generation-panel__rail-label">品阶</div>
         <div className="technique-generation-panel__muted">读取中</div>
       </section>
     );
   }
   return (
     <section className="technique-generation-panel__section technique-generation-panel__roll-card">
-      <div className="technique-generation-panel__section-title">品阶区间</div>
+      <div
+        className="technique-generation-panel__rail-label"
+        title={`品阶区间 ${getTechniqueGradeLabel(range.gradeMin)} - ${getTechniqueGradeLabel(range.gradeMax)}，基准 ${getTechniqueGradeLabel(range.baseGrade)}`}
+      >
+        品阶
+      </div>
       <div className="technique-generation-panel__range-group technique-generation-panel__range-group--grade">
-        <div className="technique-generation-panel__range-head">
-          <span>范围</span>
-          <strong>{getTechniqueGradeLabel(range.gradeMin)} - {getTechniqueGradeLabel(range.gradeMax)}</strong>
-        </div>
         <div className="technique-generation-panel__range-stack" aria-label="品阶概率分布">
           {range.gradeChances.map((entry) => (
             <div
@@ -523,11 +519,9 @@ function renderGradeRange(range: TechniqueGenerationPanelState['rollRange']): Re
               title={`${getTechniqueGradeLabel(entry.grade)} ${entry.chance.toFixed(1)}%`}
             >
               <span>{getTechniqueGradeLabel(entry.grade)}</span>
-              <strong>{entry.chance.toFixed(1)}%</strong>
             </div>
           ))}
         </div>
-        <div className="technique-generation-panel__range-base">基准 {getTechniqueGradeLabel(range.baseGrade)}</div>
       </div>
     </section>
   );
@@ -554,13 +548,10 @@ function renderItemSpendSelector(
   const max = range?.itemSpendMax ?? 1;
   return (
     <section className="technique-generation-panel__section technique-generation-panel__boost-card">
-      <div className="technique-generation-panel__section-title">悟道玉简</div>
-      <label className="technique-generation-panel__field-label" htmlFor="technique-generation-item-spend">
-        投入数量
-        <span>{itemSpend} 枚</span>
-      </label>
+      <div className="technique-generation-panel__rail-label" title={`悟道玉简 ${itemSpend} 枚`}>玉简</div>
       <input
         id="technique-generation-item-spend"
+        aria-label="悟道玉简投入数量"
         type="range"
         min={min}
         max={max}
@@ -569,12 +560,9 @@ function renderItemSpendSelector(
         onChange={(event) => onChange(Number(event.currentTarget.value))}
       />
       <div className="technique-generation-panel__stepper" role="group" aria-label="调整悟道玉简数量">
-        <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend - 1)} disabled={itemSpend <= min}>-</button>
-        <strong>{itemSpend}</strong>
         <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend + 1)} disabled={itemSpend >= max}>+</button>
-      </div>
-      <div className="technique-generation-panel__muted">
-        区间概率会随投入数量同步刷新
+        <strong title={`投入 ${itemSpend} 枚悟道玉简`}>{itemSpend}</strong>
+        <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend - 1)} disabled={itemSpend <= min}>-</button>
       </div>
     </section>
   );
