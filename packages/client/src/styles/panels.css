@@ -2056,7 +2056,7 @@
     }
     .technique-generation-panel__input {
       display: grid;
-      grid-template-columns: 58px minmax(380px, 1fr) 76px;
+      grid-template-columns: 88px minmax(380px, 1fr) 52px;
       align-items: stretch;
     }
     .technique-generation-panel__side,
@@ -2067,6 +2067,14 @@
       min-width: 0;
       min-height: 0;
       overflow: hidden;
+    }
+    .technique-generation-panel__side--left {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .technique-generation-panel__side--right {
+      gap: 0;
     }
     .technique-generation-panel__section,
     .technique-generation-panel__preview-info,
@@ -2207,6 +2215,12 @@
       min-height: 0;
       overflow: hidden;
     }
+    .technique-generation-panel__side--left .technique-generation-panel__roll-card,
+    .technique-generation-panel__side--left .technique-generation-panel__boost-card,
+    .technique-generation-panel__side--right .technique-generation-panel__roll-card {
+      flex: 1 1 auto;
+      height: 100%;
+    }
     .technique-generation-panel__roll-card,
     .technique-generation-panel__boost-card {
       padding: 8px 6px;
@@ -2272,7 +2286,7 @@
       flex: 1;
       flex-direction: column;
       min-width: 0;
-      min-height: 220px;
+      min-height: 0;
       width: 100%;
     }
     .technique-generation-panel__range-stack {
@@ -2328,7 +2342,7 @@
     .technique-generation-panel__boost-card input[type="range"] {
       flex: 1;
       width: 22px;
-      height: 160px;
+      height: 100%;
       min-height: 0;
       padding: 0;
       accent-color: var(--stamp-red);
@@ -2644,6 +2658,12 @@
       .technique-generation-panel__main {
         overflow: visible;
       }
+      .technique-generation-panel__side--left {
+        flex: 0 0 88px;
+      }
+      .technique-generation-panel__side--right {
+        flex: 0 0 52px;
+      }
     }
     @media (max-width: 720px) {
       .detail-modal.detail-modal--technique-generation {
@@ -2675,8 +2695,11 @@
         gap: 10px;
         overflow: visible;
       }
-      .technique-generation-panel__side {
-        flex: 0 0 52px;
+      .technique-generation-panel__side--left {
+        flex: 0 0 78px;
+      }
+      .technique-generation-panel__side--right {
+        flex: 0 0 46px;
       }
       .technique-generation-panel__section,
       .technique-generation-panel__preview-info,
@@ -2721,9 +2744,6 @@
       .technique-generation-panel__state {
         min-height: 180px;
         padding: 20px 14px;
-      }
-      .technique-generation-panel__range-group {
-        min-height: 220px;
       }
     }
     @media (prefers-reduced-motion: reduce) {
