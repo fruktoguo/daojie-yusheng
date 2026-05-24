@@ -3,13 +3,14 @@
  *
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
-import { memo, useCallback, useEffect, useState, type CSSProperties, type ReactElement } from 'react';
+import { memo, useCallback, useEffect, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AttrKey, Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@mud/shared';
 import { ATTR_KEYS, resolveSkillUnlockLevel } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
 import { formatDisplayInteger, formatDisplaySignedNumber } from '../../../utils/number';
+import { FloatingTooltip } from '../../../ui/floating-tooltip';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -117,12 +118,40 @@ const TECHNIQUE_GRADE_COLORS: Record<TechniqueGrade, string> = {
 
 const REALM_CHANCE_COLORS = ['#6f8f4f', '#4b9c8d', '#4f8fd8', '#7b61d1', '#b35f93', '#d16b3f'];
 
+let techniqueGenerationTooltip: FloatingTooltip | null = null;
+
+function getTechniqueGenerationTooltip(): FloatingTooltip | null {
+  if (typeof document === 'undefined') return null;
+  if (!techniqueGenerationTooltip) {
+    techniqueGenerationTooltip = new FloatingTooltip();
+  }
+  return techniqueGenerationTooltip;
+}
+
+function showTechniqueGenerationTooltip(
+  title: string,
+  lines: string[],
+  event: PointerEvent<HTMLElement>,
+): void {
+  getTechniqueGenerationTooltip()?.show(title, lines, event.clientX, event.clientY);
+}
+
+function moveTechniqueGenerationTooltip(event: PointerEvent<HTMLElement>): void {
+  getTechniqueGenerationTooltip()?.move(event.clientX, event.clientY);
+}
+
+function hideTechniqueGenerationTooltip(): void {
+  getTechniqueGenerationTooltip()?.hide();
+}
+
 export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel() {
   const state = useTechniqueGenerationStore();
   const [selectedCategory, setSelectedCategory] = useState<CategoryTab>('internal');
   const [playerContext, setPlayerContext] = useState('');
   const [customName, setCustomName] = useState('');
   const [itemSpend, setItemSpend] = useState(1);
+
+  useEffect(() => () => hideTechniqueGenerationTooltip(), []);
 
   useEffect(() => {
     if (!state.currentDraft) return;
@@ -467,7 +496,16 @@ function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): Re
   const realmLvChances = normalizeRealmLvChances(range);
   return (
     <section className="technique-generation-panel__section technique-generation-panel__roll-card">
-      <div className="technique-generation-panel__rail-label" title={`境界等级区间 Lv.${range.realmLvMin} - Lv.${range.realmLvMax}`}>境界</div>
+      <div
+        className="technique-generation-panel__rail-label"
+        onPointerMove={(event) => {
+          showTechniqueGenerationTooltip('境界等级区间', [`Lv.${range.realmLvMin} - Lv.${range.realmLvMax}`], event);
+          moveTechniqueGenerationTooltip(event);
+        }}
+        onPointerLeave={hideTechniqueGenerationTooltip}
+      >
+        境界
+      </div>
       <div className="technique-generation-panel__range-group technique-generation-panel__range-group--realm">
         <div className="technique-generation-panel__range-stack" aria-label="境界等级概率分布">
           {realmLvChances.map((entry, index) => (
@@ -478,7 +516,11 @@ function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): Re
                 flexGrow: Math.max(0.1, entry.chance),
                 backgroundColor: REALM_CHANCE_COLORS[index % REALM_CHANCE_COLORS.length],
               }}
-              title={`Lv.${entry.realmLv} ${entry.chance.toFixed(1)}%`}
+              onPointerMove={(event) => {
+                showTechniqueGenerationTooltip(`Lv.${entry.realmLv}`, [`概率 ${entry.chance.toFixed(1)}%`], event);
+                moveTechniqueGenerationTooltip(event);
+              }}
+              onPointerLeave={hideTechniqueGenerationTooltip}
             >
               <span>{entry.realmLv}</span>
             </div>
@@ -502,7 +544,14 @@ function renderGradeRange(range: TechniqueGenerationPanelState['rollRange']): Re
     <section className="technique-generation-panel__section technique-generation-panel__roll-card">
       <div
         className="technique-generation-panel__rail-label"
-        title={`品阶区间 ${getTechniqueGradeLabel(range.gradeMin)} - ${getTechniqueGradeLabel(range.gradeMax)}，基准 ${getTechniqueGradeLabel(range.baseGrade)}`}
+        onPointerMove={(event) => {
+          showTechniqueGenerationTooltip('品阶区间', [
+            `${getTechniqueGradeLabel(range.gradeMin)} - ${getTechniqueGradeLabel(range.gradeMax)}`,
+            `基准 ${getTechniqueGradeLabel(range.baseGrade)}`,
+          ], event);
+          moveTechniqueGenerationTooltip(event);
+        }}
+        onPointerLeave={hideTechniqueGenerationTooltip}
       >
         品阶
       </div>
@@ -516,7 +565,11 @@ function renderGradeRange(range: TechniqueGenerationPanelState['rollRange']): Re
                 flexGrow: Math.max(0.1, entry.chance),
                 backgroundColor: TECHNIQUE_GRADE_COLORS[entry.grade],
               }}
-              title={`${getTechniqueGradeLabel(entry.grade)} ${entry.chance.toFixed(1)}%`}
+              onPointerMove={(event) => {
+                showTechniqueGenerationTooltip(getTechniqueGradeLabel(entry.grade), [`概率 ${entry.chance.toFixed(1)}%`], event);
+                moveTechniqueGenerationTooltip(event);
+              }}
+              onPointerLeave={hideTechniqueGenerationTooltip}
             >
               <span>{getTechniqueGradeLabel(entry.grade)}</span>
             </div>
@@ -548,7 +601,16 @@ function renderItemSpendSelector(
   const max = range?.itemSpendMax ?? 1;
   return (
     <section className="technique-generation-panel__section technique-generation-panel__boost-card">
-      <div className="technique-generation-panel__rail-label" title={`悟道玉简 ${itemSpend} 枚`}>玉简</div>
+      <div
+        className="technique-generation-panel__rail-label"
+        onPointerMove={(event) => {
+          showTechniqueGenerationTooltip('悟道玉简', [`投入 ${itemSpend} 枚`], event);
+          moveTechniqueGenerationTooltip(event);
+        }}
+        onPointerLeave={hideTechniqueGenerationTooltip}
+      >
+        玉简
+      </div>
       <input
         id="technique-generation-item-spend"
         aria-label="悟道玉简投入数量"
@@ -561,7 +623,15 @@ function renderItemSpendSelector(
       />
       <div className="technique-generation-panel__stepper" role="group" aria-label="调整悟道玉简数量">
         <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend + 1)} disabled={itemSpend >= max}>+</button>
-        <strong title={`投入 ${itemSpend} 枚悟道玉简`}>{itemSpend}</strong>
+        <strong
+          onPointerMove={(event) => {
+            showTechniqueGenerationTooltip('悟道玉简', [`投入 ${itemSpend} 枚`], event);
+            moveTechniqueGenerationTooltip(event);
+          }}
+          onPointerLeave={hideTechniqueGenerationTooltip}
+        >
+          {itemSpend}
+        </strong>
         <button type="button" className="small-btn ghost" onClick={() => onChange(itemSpend - 1)} disabled={itemSpend <= min}>-</button>
       </div>
     </section>
