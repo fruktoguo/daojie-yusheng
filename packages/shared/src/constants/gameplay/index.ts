@@ -18,6 +18,7 @@ export * from './inventory';
 export * from './quest';
 export * from './attributes';
 export * from './technique';
+export * from './technique-arts-strength';
 export * from './realm';
 export * from './equipment';
 export * from './monster';

@@ -34,6 +34,7 @@ export * from './item-runtime-types';
 export * from './inventory-item-ref';
 export * from './player-runtime-types';
 export * from './technique';
+export * from './technique-arts-strength';
 export * from './geometry';
 export * from './direction';
 export * from './pathfinding';
