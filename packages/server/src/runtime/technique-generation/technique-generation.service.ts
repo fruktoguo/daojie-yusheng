@@ -510,7 +510,7 @@ function buildArtsStrengthGenerationReport(params: {
 }): ArtsStrengthGenerationReport {
   return {
     version: 1,
-    note: 'template.skills 是服务端展开后的运行时 SkillDef；rawCandidate/normalizedTemplate 保留 AI 原始强度草稿与归一化权重。',
+    note: 'template.skills 是服务端展开后的运行时 SkillDef；rawCandidate/normalizedTemplate 保留 AI 原始权重草稿与归一化权重，expansion.inputBudget 为伤害权重与结构/范围权重合计。',
     rawCandidate: params.rawCandidate,
     normalizedTemplate: params.normalizedTemplate,
     expansion: params.expandedSkills.map((entry) => ({

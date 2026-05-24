@@ -72,6 +72,7 @@ export interface NormalizedTechniqueArtsStrengthStructure {
   cooldown: number;
   chant: number;
   budgetMultiplier: number;
+  budgetWeight: number;
   costMultiplier: number;
   cooldownTicks: number;
 }
@@ -155,16 +156,23 @@ function clampStrength(value: unknown): number {
   return clamp(toFiniteNumber(value, 0), constants.minStrength, constants.maxStrength);
 }
 
-export function calculateTechniqueArtsStrengthEfficiencyFactor(strength: number): number {
+function weightToRuntimeStrength(weight: number): number {
+  const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights;
+  return weight / constants.max * constants.runtimeStrengthAtMaxWeight;
+}
+
+export function calculateTechniqueArtsStrengthEfficiencyFactor(weight: number): number {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
+  const strength = weightToRuntimeStrength(weight);
   if (strength >= 0) {
     return constants.positiveEfficiencyPerStrength ** strength;
   }
   return constants.negativePenaltyPerStrength ** (-strength);
 }
 
-export function calculateTechniqueArtsStrengthBudgetMultiplier(strength: number): number {
+export function calculateTechniqueArtsStrengthBudgetMultiplier(weight: number): number {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
+  const strength = weightToRuntimeStrength(weight);
   if (strength >= 0) {
     return constants.positiveBudgetPerStrength ** strength;
   }
@@ -245,6 +253,10 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
     target.areaStrength,
     target.rangeStrength,
   ].reduce((product, strength) => product * calculateTechniqueArtsStrengthBudgetMultiplier(strength), 1);
+  const budgetWeight = roundTo(
+    Math.abs(cost) + Math.abs(cooldown) + Math.abs(chant) + target.areaStrength + target.rangeStrength,
+    4,
+  );
   const costMultiplier = roundTo(clamp(
     constants.baseCostMultiplier * calculateTechniqueArtsStrengthEfficiencyFactor(cost),
     constants.minCostMultiplier,
@@ -260,6 +272,7 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
     cooldown,
     chant,
     budgetMultiplier,
+    budgetWeight,
     costMultiplier,
     cooldownTicks,
   };
@@ -359,7 +372,7 @@ export function normalizeTechniqueArtsStrengthSkill(raw: unknown): NormalizedTec
   const target = normalizeTarget(source.target);
   const structure = normalizeStructure(source.structureStrength, target);
   const formula = normalizeFormula(source.formulaStrength);
-  const inputBudget = roundTo(formula.effectStrength * structure.budgetMultiplier, 4);
+  const inputBudget = roundTo(formula.effectStrength + structure.budgetWeight, 4);
   return {
     name: normalizeText(source.name, '未命名术法'),
     desc: normalizeText(source.desc, ''),
@@ -394,10 +407,16 @@ function validateNormalizedSkill(skill: NormalizedTechniqueArtsStrengthSkill): s
 }
 
 export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStrengthSkillParams): ExpandedTechniqueArtsStrengthSkill {
-  const targetBudget = Number.isFinite(params.targetBudget) && (params.targetBudget ?? 0) > 0
+  const fullTargetBudget = Number.isFinite(params.targetBudget) && (params.targetBudget ?? 0) > 0
     ? Number(params.targetBudget)
     : params.skill.inputBudget;
-  const effectScale = params.skill.inputBudget > 0 ? targetBudget / params.skill.inputBudget : 1;
+  const totalWeight = Math.max(params.skill.inputBudget, params.skill.formula.effectStrength);
+  const targetBudget = totalWeight > 0
+    ? fullTargetBudget * params.skill.formula.effectStrength / totalWeight
+    : fullTargetBudget;
+  const effectScale = params.skill.formula.effectStrength > 0
+    ? targetBudget / params.skill.formula.effectStrength
+    : 1;
   const skillIndex = Math.max(0, Math.floor(params.skillIndex ?? 0));
   const skillId = `${params.techniqueId}_skill_${skillIndex + 1}`;
   const scaledBases = scaleAttributeBases(params.skill.formula.attributeBases, effectScale);

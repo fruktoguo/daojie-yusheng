@@ -15,6 +15,7 @@
 import type { TechniqueCategory, TechniqueGrade } from '@mud/shared';
 import {
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
+  TECHNIQUE_ARTS_STRENGTH_CONSTANTS,
   TECHNIQUE_GRADE_ORDER,
   normalizeTechniqueArtsStrengthTemplate,
   normalizeTechniqueAttrRatio,
@@ -58,6 +59,7 @@ const ARTS_STRENGTH_SKILL_FORBIDDEN_FIELDS = [
   'baseDamage',
 ] as const;
 const ARTS_STRENGTH_STRUCTURE_KEYS = new Set<string>(['cost', 'cooldown', 'chant']);
+const ARTS_STRENGTH_FORMULA_KEYS = new Set<string>(['attributeBases', 'percentBonuses']);
 const ARTS_STRENGTH_PERCENT_BONUS_KEYS = new Set<string>(['techLevel', 'moveSpeed']);
 const ARTS_STRENGTH_TARGET_KEYS = new Set<string>([
   'type',
@@ -273,8 +275,11 @@ function validateArtsStrengthStructure(raw: unknown, skillIndex: number, errors:
     return;
   }
   for (const key of Object.keys(raw as Record<string, unknown>)) {
+    const value = Number((raw as Record<string, unknown>)[key]);
     if (!ARTS_STRENGTH_STRUCTURE_KEYS.has(key)) {
       errors.push({ layer: 2, field: `skills[${skillIndex}].structureStrength.${key}`, message: 'structureStrength 只允许 cost/cooldown/chant' });
+    } else if (!isValidArtsWeight(value)) {
+      errors.push({ layer: 2, field: `skills[${skillIndex}].structureStrength.${key}`, message: 'structureStrength 权重必须在 [-100, 100]' });
     }
   }
 }
@@ -285,16 +290,28 @@ function validateArtsStrengthFormula(raw: unknown, skillIndex: number, errors: V
     return;
   }
   const formula = raw as Record<string, unknown>;
+  for (const key of Object.keys(formula)) {
+    if (!ARTS_STRENGTH_FORMULA_KEYS.has(key)) {
+      errors.push({ layer: 2, field: `skills[${skillIndex}].formulaStrength.${key}`, message: 'formulaStrength 包含未允许字段' });
+    }
+  }
   const bases = formula.attributeBases;
   if (!bases || typeof bases !== 'object' || Array.isArray(bases)) {
     errors.push({ layer: 2, field: `skills[${skillIndex}].formulaStrength.attributeBases`, message: 'attributeBases 必须是对象' });
   } else {
     for (const key of Object.keys(bases as Record<string, unknown>)) {
+      const value = Number((bases as Record<string, unknown>)[key]);
       if (!ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS.has(key)) {
         errors.push({
           layer: 2,
           field: `skills[${skillIndex}].formulaStrength.attributeBases.${key}`,
           message: 'attributeBases key 不在允许的战斗属性白名单中',
+        });
+      } else if (!Number.isFinite(value) || value <= 0 || value > TECHNIQUE_ARTS_STRENGTH_CONSTANTS.attributeBases.maxScale) {
+        errors.push({
+          layer: 2,
+          field: `skills[${skillIndex}].formulaStrength.attributeBases.${key}`,
+          message: 'attributeBases 必须是 1 到 100 的正权重；0 或负数表示不参与时请省略该 key',
         });
       }
     }
@@ -306,13 +323,26 @@ function validateArtsStrengthFormula(raw: unknown, skillIndex: number, errors: V
       return;
     }
     for (const key of Object.keys(percentBonuses as Record<string, unknown>)) {
+      const value = Number((percentBonuses as Record<string, unknown>)[key]);
       if (!ARTS_STRENGTH_PERCENT_BONUS_KEYS.has(key)) {
         errors.push({
           layer: 2,
           field: `skills[${skillIndex}].formulaStrength.percentBonuses.${key}`,
           message: 'percentBonuses 只允许 techLevel/moveSpeed',
         });
+      } else if (!isValidArtsWeight(value)) {
+        errors.push({
+          layer: 2,
+          field: `skills[${skillIndex}].formulaStrength.percentBonuses.${key}`,
+          message: 'percentBonuses 权重必须在 [-100, 100]',
+        });
       }
     }
   }
+}
+
+function isValidArtsWeight(value: number): boolean {
+  return Number.isFinite(value)
+    && value >= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights.min
+    && value <= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights.max;
 }

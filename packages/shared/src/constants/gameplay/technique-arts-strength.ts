@@ -51,6 +51,11 @@ export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
     maxScale: 100,
     decimalPlaces: 2,
   },
+  weights: {
+    min: -100,
+    max: 100,
+    runtimeStrengthAtMaxWeight: 20,
+  },
   structure: {
     baseCostMultiplier: 1,
     baseCooldownTicks: 20,
@@ -71,14 +76,13 @@ export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
     maxWidth: 9,
     minRadius: 1,
     maxRadius: 4,
-    minStrength: -20,
-    maxStrength: 20,
+    minStrength: -100,
+    maxStrength: 100,
   },
   percentBonuses: {
     techLevelScaleBase: 0.1,
     moveSpeedScalePerStrength: 0.001,
-    minStrength: -20,
-    maxStrength: 20,
+    minStrength: -100,
+    maxStrength: 100,
   },
 } as const;
-
