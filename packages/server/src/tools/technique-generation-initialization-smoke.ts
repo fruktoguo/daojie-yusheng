@@ -5,7 +5,12 @@
  */
 import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
-import { S2C, calcTechniqueAttrValues } from '@mud/shared';
+import {
+  S2C,
+  calcTechniqueAttrValues,
+  expandTechniqueArtsStrengthSkill,
+  normalizeTechniqueArtsStrengthSkill,
+} from '@mud/shared';
 import type { Socket } from 'socket.io';
 
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
@@ -496,6 +501,33 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
   assert.equal(result.valid, true);
 }
 
+async function testZeroRangeArtsStrengthExpandsAsNoTargetSkill(): Promise<void> {
+  const normalized = normalizeTechniqueArtsStrengthSkill({
+    name: '雷环诀',
+    desc: '雷光绕身成环，震荡近处妖邪。',
+    unlockLevel: 1,
+    damageKind: 'spell',
+    element: 'metal',
+    target: { type: 'area', range: 0, radius: 4, targetMode: 'tile' },
+    structureStrength: { cost: 0, cooldown: 0, chant: 0 },
+    formulaStrength: {
+      attributeBases: { spellAtk: 1 },
+      percentBonuses: { techLevel: 0 },
+    },
+  });
+  const expanded = expandTechniqueArtsStrengthSkill({
+    techniqueId: 'gen_zero_range_arts_smoke',
+    grade: 'mystic',
+    realmLv: 31,
+    skill: normalized,
+  });
+  assert.equal(expanded.skill.range, 0);
+  assert.equal(expanded.skill.requiresTarget, false);
+  assert.equal(expanded.skill.targeting?.range, 0);
+  assert.equal(expanded.skill.targeting?.requiresTarget, false);
+  assert.equal(expanded.skill.targeting?.radius, 4);
+}
+
 async function testArtsCandidateRejectsLegacyEffectsShape(): Promise<void> {
   const result = validateTechniqueCandidate({
     name: '旧术法',
@@ -528,6 +560,7 @@ async function main(): Promise<void> {
   await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
+  await testZeroRangeArtsStrengthExpandsAsNoTargetSkill();
   await testArtsCandidateRejectsLegacyEffectsShape();
   console.log('technique-generation-initialization-smoke ok');
 }

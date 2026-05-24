@@ -426,6 +426,11 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
     element: params.skill.element,
     formula: buildDamageFormula(scaledBases, params.skill.formula.percentBonuses),
   }];
+  const requiresTarget = params.skill.target.range > 0;
+  const targeting = buildTargetingDef(params.skill.target);
+  if (!requiresTarget) {
+    targeting.requiresTarget = false;
+  }
   return {
     skill: {
       id: skillId,
@@ -435,9 +440,10 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       cost: calculateTechniqueSkillQiCost(params.skill.structure.costMultiplier, params.grade, params.realmLv),
       costMultiplier: params.skill.structure.costMultiplier,
       range: params.skill.target.range,
-      targeting: buildTargetingDef(params.skill.target),
+      targeting,
       effects,
       unlockLevel: params.skill.unlockLevel,
+      ...(requiresTarget ? {} : { requiresTarget: false }),
       targetMode: params.skill.target.targetMode,
     },
     inputBudget: params.skill.inputBudget,

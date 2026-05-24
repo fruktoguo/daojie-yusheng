@@ -365,11 +365,11 @@ async function run() {
   assert.equal(diagnostics[0].reason, CombatRejectReason.NoRuntimeTargetsInWarningCells);
   assert.equal(logs.length, 1);
   assert.equal(logs[0][0], 'debug');
-  assert.equal(logs[0][1].includes('actor=monster:monster:1'), true);
-  assert.equal(logs[0][1].includes('action=monster:test_skill'), true);
-  assert.equal(logs[0][1].includes('instance=instance:test'), true);
-  assert.equal(logs[0][1].includes('phase=chant_resolve'), true);
-  assert.equal(logs[0][1].includes('target_count=1'), true);
+  assert.equal(logs[0][1].includes('施放者=monster:monster:1'), true);
+  assert.equal(logs[0][1].includes('动作=monster:test_skill'), true);
+  assert.equal(logs[0][1].includes('实例=instance:test'), true);
+  assert.equal(logs[0][1].includes('阶段=chant_resolve'), true);
+  assert.equal(logs[0][1].includes('目标数=1'), true);
 
   const recordedByRuntime = [];
   const runtimeDeps = {
@@ -2399,7 +2399,7 @@ async function run() {
           name: '自锚点震荡',
           range: 0,
           requiresTarget: false,
-          targeting: { shape: 'box', width: 5, height: 5, maxTargets: 3 },
+          targeting: { shape: 'area', range: 0, radius: 4, maxTargets: 3 },
           playerCast: { windupTicks: 1 },
           effects: [{ type: 'damage', formula: 1 }],
         }],
@@ -2411,7 +2411,7 @@ async function run() {
     monsterId: 'monster:self-ref-target',
     name: '自锚点受击妖兽',
     instanceId: 'instance:test',
-    x: 2,
+    x: 4,
     y: 0,
     hp: 20,
     maxHp: 20,
@@ -2484,7 +2484,7 @@ async function run() {
   });
   assert.equal(resolvedSelfRefPending, true);
   assert.deepEqual(selfRefCalls, [
-    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 41, 2],
+    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 41, 4],
   ]);
   assert.equal(selfRefOutcomes.some((entry) => (
     entry.phase === CombatActionPhase.ChantResolve
@@ -2511,8 +2511,8 @@ async function run() {
   });
   assert.equal(resolvedTargetIdSelfAnchorPending, true);
   assert.deepEqual(selfRefCalls, [
-    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 41, 2],
-    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 51, 2],
+    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 41, 4],
+    ['castSkillToMonster', 'monster:self-ref-target', 'skill:self-ref-center-aoe', 51, 4],
   ]);
 
   const staleSkillDiagnostics = [];
