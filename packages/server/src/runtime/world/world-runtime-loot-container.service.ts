@@ -726,6 +726,26 @@ export class WorldRuntimeLootContainerService {
         };
     }
 
+    getHerbContainerWorldProjectionReadOnly(instanceId, container, currentTick) {
+        if (!container || container.variant !== 'herb') {
+            return null;
+        }
+        const state = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
+        if (!state) {
+            return null;
+        }
+        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        const remainingCount = countContainerEntryItems(state.entries);
+        const respawnRemainingTicks = getContainerRespawnRemainingTicks(state, normalizedTick);
+        if (remainingCount > 0 || respawnRemainingTicks === 0) {
+            return { remainingCount: Math.max(1, remainingCount), respawnRemainingTicks: undefined };
+        }
+        return {
+            remainingCount: 0,
+            respawnRemainingTicks,
+        };
+    }
+
     getAttackableContainerCombatStateAtTile(instanceId, container, currentTick) {
         const projection = this.getHerbContainerWorldProjection(instanceId, container, currentTick);
         if (!projection || Math.max(0, Math.trunc(Number(projection.remainingCount) || 0)) <= 0) {

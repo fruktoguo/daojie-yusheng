@@ -37,6 +37,7 @@ interface WorldRuntimePort {
   getInstanceRuntime?(instanceId: string): any;
   worldRuntimeLootContainerService?: {
     getHerbContainerWorldProjection?(instanceId: string, container: any, currentTick: number): any;
+    getHerbContainerWorldProjectionReadOnly?(instanceId: string, container: any, currentTick: number): any;
   };
 }
 
@@ -238,7 +239,7 @@ export class WorldSyncMapSnapshotService {
       const containerTemplateId = container.templateId ?? view.instance?.templateId;
       const runtimeInstance = this.worldRuntimeService.getInstanceRuntime?.(containerInstanceId) ?? null;
       const runtimeContainer = runtimeInstance?.getContainerById?.(container.id) ?? null;
-      const projection = this.worldRuntimeService.worldRuntimeLootContainerService?.getHerbContainerWorldProjection?.(
+      const projection = this.worldRuntimeService.worldRuntimeLootContainerService?.getHerbContainerWorldProjectionReadOnly?.(
         containerInstanceId,
         runtimeContainer,
         runtimeInstance?.tick ?? view.tick,

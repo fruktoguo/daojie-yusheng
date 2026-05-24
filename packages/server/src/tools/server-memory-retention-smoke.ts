@@ -1128,7 +1128,7 @@ function proveEnvelopeContainerRespawnAvoidsNoopArrayClone(): {
         getContainerById: (id: string) => ({ id }),
       }),
       worldRuntimeLootContainerService: {
-        getHerbContainerWorldProjection: () => ({
+        getHerbContainerWorldProjectionReadOnly: () => ({
           remainingCount: 0,
           respawnRemainingTicks,
         }),

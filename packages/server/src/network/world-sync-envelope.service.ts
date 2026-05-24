@@ -132,14 +132,14 @@ export class WorldSyncEnvelopeService {
         const instanceId = view.instance?.instanceId;
         const instance = this.worldRuntimeService.getInstanceRuntime?.(instanceId) ?? null;
         const lootContainerService = this.worldRuntimeService.worldRuntimeLootContainerService;
-        if (!instance || !lootContainerService || typeof lootContainerService.getHerbContainerWorldProjection !== 'function') {
+        if (!instance || !lootContainerService || typeof lootContainerService.getHerbContainerWorldProjectionReadOnly !== 'function') {
             return view;
         }
         let localContainers = null;
         for (let index = 0; index < view.localContainers.length; index += 1) {
             const entry = view.localContainers[index];
             const container = instance.getContainerById?.(entry.id) ?? null;
-            const projection = lootContainerService.getHerbContainerWorldProjection(instanceId, container, instance.tick);
+            const projection = lootContainerService.getHerbContainerWorldProjectionReadOnly(instanceId, container, instance.tick);
             const respawnRemainingTicks = projection?.remainingCount === 0 && projection.respawnRemainingTicks !== undefined
                 ? Math.max(0, Math.trunc(Number(projection.respawnRemainingTicks) || 0))
                 : undefined;

@@ -20,6 +20,7 @@ async function main(): Promise<void> {
   await testHydrateContainerStatesCanonicalizesLegacySource();
   await testHerbGrowthCreatesStockAndPersists();
   await testHerbGrowthAccumulatesStockAndPersists();
+  await testHerbReadOnlyProjectionDoesNotDirtyOrCreateState();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
   await testGatherCompletionDurableGrant();
   await testGatherCompletionFormatsTemplateNameAndConsumesOneStock();
@@ -1032,6 +1033,55 @@ async function testHerbGrowthAccumulatesStockAndPersists() {
   const unchangedPersisted = service.buildContainerPersistenceStates(instanceId);
   assert.equal(unchangedPersisted[0]?.entries[0]?.item.count, 4);
   assert.equal(unchangedPersisted[0]?.refreshAtTick, 20);
+}
+
+async function testHerbReadOnlyProjectionDoesNotDirtyOrCreateState() {
+  const instanceId = 'public:yunlai_town';
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number) {
+      return { itemId, count, name: '月露草', type: 'material', level: 1 };
+    },
+  } as never, buildPlayerRuntimeService(buildPlayer('player:gather:readonly', instanceId, 'runtime:gather:readonly', 24)) as never);
+  const container = {
+    id: 'lm_yunlai_moondew_5_6',
+    name: '月露草',
+    x: 5,
+    y: 6,
+    variant: 'herb',
+    grade: 'mortal',
+    desc: '可采集草药',
+    refreshTicksMin: 5,
+    refreshTicksMax: 5,
+    drops: [{ itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material' }],
+    lootPools: [],
+  };
+
+  const missingProjection = service.getHerbContainerWorldProjectionReadOnly(instanceId, container as never, 100);
+  assert.equal(missingProjection, null);
+  assert.equal(service.getDirtyInstanceIds().has(instanceId), false);
+  assert.equal(service.buildContainerPersistenceStates(instanceId).length, 0);
+
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${container.id}`,
+    containerId: container.id,
+    generatedAtTick: 1,
+    refreshAtTick: 5,
+    entries: [],
+    activeSearch: undefined,
+  }]);
+
+  const maturedProjection = service.getHerbContainerWorldProjectionReadOnly(instanceId, container as never, 100);
+  assert.deepEqual(maturedProjection, { remainingCount: 1, respawnRemainingTicks: undefined });
+  assert.equal(service.getDirtyInstanceIds().has(instanceId), false);
+  const persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted[0]?.entries.length, 0);
+  assert.equal(persisted[0]?.refreshAtTick, 5);
+
+  service.getHerbContainerWorldProjection(instanceId, container as never, 100);
+  assert.equal(service.getDirtyInstanceIds().has(instanceId), true);
+  const grown = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(grown[0]?.entries[0]?.item.count, 20);
+  assert.equal(grown[0]?.refreshAtTick, 105);
 }
 
 async function testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown() {
