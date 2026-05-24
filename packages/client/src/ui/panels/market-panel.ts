@@ -383,6 +383,8 @@ export class MarketPanel {
   private heavenlyDaoShopSelectedItemId: string | null = HEAVENLY_DAO_SHOP_ITEMS[0]?.itemId ?? null;
   /** 天道商店每个商品的数量草稿。 */
   private readonly heavenlyDaoShopQuantityDrafts = new Map<string, string>();
+  /** 天道商店依赖的资产投影签名，用于跳过无变化的每息刷新。 */
+  private heavenlyDaoShopAssetSignature = '';
   /** 弹窗当前标签页。 */
   private modalTab: MarketModalTab = 'market';
   /** 当前市场主分类筛选。 */
@@ -477,7 +479,10 @@ export class MarketPanel {
 
   /** 同步玩家上下文，供钱包类货币展示直接读取。 */
   syncPlayerContext(player?: PlayerState): void {
-    this.player = player ?? null;
+    const nextPlayer = player ?? null;
+    const shouldPatchHeavenlyDaoShop = detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER)
+      && this.captureHeavenlyDaoShopAssetSignature(nextPlayer, this.inventory);
+    this.player = nextPlayer;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.syncVisibleMarketInventoryState();
       this.syncTradeDialogOverlay();
@@ -489,7 +494,7 @@ export class MarketPanel {
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
-    } else if (detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER)) {
+    } else if (shouldPatchHeavenlyDaoShop) {
       this.patchHeavenlyDaoShopModal();
     }
   }
@@ -498,6 +503,8 @@ export class MarketPanel {
   syncInventory(inventory: Inventory): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const shouldPatchHeavenlyDaoShop = detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER)
+      && this.captureHeavenlyDaoShopAssetSignature(this.player, inventory);
     this.inventory = inventory;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.syncVisibleMarketInventoryState();
@@ -510,7 +517,7 @@ export class MarketPanel {
       this.syncTradeDialogOverlay();
     } else if (detailModalHost.isOpenFor(MarketPanel.AUCTION_CONSIGN_MODAL_OWNER)) {
       this.patchAuctionConsignModalState();
-    } else if (detailModalHost.isOpenFor(MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER)) {
+    } else if (shouldPatchHeavenlyDaoShop) {
       this.patchHeavenlyDaoShopModal();
     }
   }
@@ -739,6 +746,7 @@ export class MarketPanel {
     this.enhancementBrowseItemId = null;
     this.heavenlyDaoShopSelectedItemId = HEAVENLY_DAO_SHOP_ITEMS[0]?.itemId ?? null;
     this.heavenlyDaoShopQuantityDrafts.clear();
+    this.heavenlyDaoShopAssetSignature = '';
     this.modalTab = 'market';
     this.activeCategory = 'all';
     this.activeEquipmentCategory = 'all';
@@ -881,6 +889,27 @@ export class MarketPanel {
 
   private getHeavenlyDaoShopCurrencyOwned(): number {
     return getPlayerOwnedItemCount(this.player, this.inventory, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
+  }
+
+  private captureHeavenlyDaoShopAssetSignature(player: PlayerState | null, inventory: Inventory): boolean {
+    const nextSignature = this.buildHeavenlyDaoShopAssetSignature(player, inventory);
+    if (nextSignature === this.heavenlyDaoShopAssetSignature) {
+      return false;
+    }
+    this.heavenlyDaoShopAssetSignature = nextSignature;
+    return true;
+  }
+
+  private buildHeavenlyDaoShopAssetSignature(player: PlayerState | null, inventory: Inventory): string {
+    const trackedItemIds = new Set<string>([HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID]);
+    for (const entry of HEAVENLY_DAO_SHOP_ITEMS) {
+      trackedItemIds.add(entry.itemId);
+    }
+    const parts: string[] = [];
+    for (const itemId of trackedItemIds) {
+      parts.push(`${itemId}:${getPlayerOwnedItemCount(player, inventory, itemId)}`);
+    }
+    return parts.join('|');
   }
 
   private getHeavenlyDaoShopEntry(itemId: string | null) {
@@ -1040,6 +1069,7 @@ export class MarketPanel {
 
   private openHeavenlyDaoShopModal(): void {
     this.ensureHeavenlyDaoShopSelection();
+    this.heavenlyDaoShopAssetSignature = this.buildHeavenlyDaoShopAssetSignature(this.player, this.inventory);
     detailModalHost.open({
       ownerId: MarketPanel.HEAVENLY_DAO_SHOP_MODAL_OWNER,
       size: 'full',
