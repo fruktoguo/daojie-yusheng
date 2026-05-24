@@ -130,6 +130,9 @@ import {
   type GameConfigListRes,
   type GameConfigSetRes,
   type GameConfigDeleteRes,
+  type GmGeneratedTechniqueDetailRes,
+  type GmGeneratedTechniqueListRes,
+  type GmGeneratedTechniqueSummary,
   type GmMarketTradeItem,
   type GmMarketTradeListQuery,
   type GmMarketTradeListRes,
@@ -507,6 +510,8 @@ const envWorkspaceEl = document.getElementById('secrets-workspace') as HTMLEleme
 const gameConfigWorkspaceEl = document.getElementById('gameconfig-workspace') as HTMLElement;
 /** aiWorkspaceEl：AI 配置 workspace El。 */
 const aiWorkspaceEl = document.getElementById('ai-workspace') as HTMLElement;
+/** generatedTechniqueWorkspaceEl：AI 生成功法 workspace El。 */
+const generatedTechniqueWorkspaceEl = document.getElementById('generated-technique-workspace') as HTMLElement;
 /** tradesWorkspaceEl：交易记录 workspace El。 */
 const tradesWorkspaceEl = document.getElementById('trades-workspace') as HTMLElement;
 /** shortcutMailComposerEl：shortcut邮件Composer El。 */
@@ -529,8 +534,28 @@ const envTabBtn = document.getElementById('gm-tab-secrets') as HTMLButtonElement
 const gameConfigTabBtn = document.getElementById('gm-tab-gameconfig') as HTMLButtonElement;
 /** aiTabBtn：AI 配置 Tab Btn。 */
 const aiTabBtn = document.getElementById('gm-tab-ai') as HTMLButtonElement;
+/** generatedTechniqueTabBtn：AI 功法 Tab Btn。 */
+const generatedTechniqueTabBtn = document.getElementById('gm-tab-generated-techniques') as HTMLButtonElement;
 /** tradesTabBtn：交易记录 Tab Btn。 */
 const tradesTabBtn = document.getElementById('gm-tab-trades') as HTMLButtonElement;
+/** generatedTechniqueListEl：AI 生成功法列表容器。 */
+const generatedTechniqueListEl = document.getElementById('generated-technique-list') as HTMLElement;
+/** generatedTechniqueRefreshBtn：AI 生成功法刷新按钮。 */
+const generatedTechniqueRefreshBtn = document.getElementById('generated-technique-refresh') as HTMLButtonElement;
+/** generatedTechniquePageMetaEl：AI 生成功法分页元信息。 */
+const generatedTechniquePageMetaEl = document.getElementById('generated-technique-page-meta') as HTMLElement;
+/** generatedTechniquePagePrevBtn：AI 生成功法上一页。 */
+const generatedTechniquePagePrevBtn = document.getElementById('generated-technique-page-prev') as HTMLButtonElement;
+/** generatedTechniquePageNextBtn：AI 生成功法下一页。 */
+const generatedTechniquePageNextBtn = document.getElementById('generated-technique-page-next') as HTMLButtonElement;
+/** generatedTechniqueDetailEmptyEl：AI 生成功法详情空态。 */
+const generatedTechniqueDetailEmptyEl = document.getElementById('generated-technique-detail-empty') as HTMLElement;
+/** generatedTechniqueDetailEl：AI 生成功法详情容器。 */
+const generatedTechniqueDetailEl = document.getElementById('generated-technique-detail') as HTMLElement;
+/** generatedTechniqueDetailMetaEl：AI 生成功法详情元信息。 */
+const generatedTechniqueDetailMetaEl = document.getElementById('generated-technique-detail-meta') as HTMLElement;
+/** generatedTechniqueJsonEl：AI 生成功法原始 JSON。 */
+const generatedTechniqueJsonEl = document.getElementById('generated-technique-json') as HTMLTextAreaElement;
 /** tradesFormEl：交易记录搜索表单。 */
 const tradesFormEl = document.getElementById('gm-trades-form') as HTMLFormElement;
 /** tradesPlayerInput：玩家序号 / playerId 输入。 */
@@ -724,7 +749,8 @@ let draftSourcePlayerId: string | null = null;
 /** pollTimer：poll Timer。 */
 let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
-let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'ai' | 'trades' = 'server';
+type GmMainTab = 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'ai' | 'generatedTechniques' | 'trades';
+let currentTab: GmMainTab = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
@@ -757,6 +783,20 @@ let currentSuggestionTotal = 0;
 let currentSuggestionKeyword = '';
 /** suggestionSearchTimer：建议搜索Timer。 */
 let suggestionSearchTimer: number | null = null;
+/** generatedTechniquePage：AI 生成功法当前分页。 */
+let generatedTechniquePage = 1;
+/** generatedTechniqueTotalPages：AI 生成功法总页数。 */
+let generatedTechniqueTotalPages = 1;
+/** generatedTechniques：AI 生成功法当前页摘要。 */
+let generatedTechniques: GmGeneratedTechniqueSummary[] = [];
+/** selectedGeneratedTechniqueId：当前选中的 AI 生成功法 ID。 */
+let selectedGeneratedTechniqueId: string | null = null;
+/** selectedGeneratedTechniqueDetail：当前选中的 AI 生成功法详情。 */
+let selectedGeneratedTechniqueDetail: GmGeneratedTechniqueDetailRes['technique'] | null = null;
+/** generatedTechniqueListRequestNonce：AI 生成功法列表请求 nonce。 */
+let generatedTechniqueListRequestNonce = 0;
+/** generatedTechniqueDetailRequestNonce：AI 生成功法详情请求 nonce。 */
+let generatedTechniqueDetailRequestNonce = 0;
 /** currentNetworkInPage：当前上行榜分页。 */
 let currentNetworkInPage = 1;
 /** currentNetworkOutPage：当前下行榜分页。 */
@@ -790,6 +830,14 @@ function buildGmPlayersApiPath(params: URLSearchParams): string {
 
 function buildGmPlayerApiPath(playerId: string): string {
   return `${GM_API_BASE_PATH}/players/${encodeURIComponent(playerId)}`;
+}
+
+function buildGmGeneratedTechniquesApiPath(params: URLSearchParams): string {
+  return `${GM_API_BASE_PATH}/generated-techniques?${params.toString()}`;
+}
+
+function buildGmGeneratedTechniqueDetailApiPath(id: string): string {
+  return `${GM_API_BASE_PATH}/generated-techniques/${encodeURIComponent(id)}`;
 }
 
 function buildGmDatabaseBackupDownloadApiPath(backupId: string): string {
@@ -4919,7 +4967,7 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
 }
 
 /** switchTab：处理switch Tab。 */
-function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'ai' | 'trades'): void {
+function switchTab(tab: GmMainTab): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   // 离开世界管理时停止轮询
@@ -4937,6 +4985,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   envTabBtn.classList.toggle('active', tab === 'secrets');
   gameConfigTabBtn.classList.toggle('active', tab === 'gameconfig');
   aiTabBtn.classList.toggle('active', tab === 'ai');
+  generatedTechniqueTabBtn.classList.toggle('active', tab === 'generatedTechniques');
   tradesTabBtn.classList.toggle('active', tab === 'trades');
   serverWorkspaceEl.classList.toggle('hidden', tab !== 'server');
   redeemWorkspaceEl.classList.toggle('hidden', tab !== 'redeem');
@@ -4947,6 +4996,7 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
   envWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
   gameConfigWorkspaceEl.classList.toggle('hidden', tab !== 'gameconfig');
   aiWorkspaceEl.classList.toggle('hidden', tab !== 'ai');
+  generatedTechniqueWorkspaceEl.classList.toggle('hidden', tab !== 'generatedTechniques');
   tradesWorkspaceEl.classList.toggle('hidden', tab !== 'trades');
   if (tab === 'suggestions') {
     loadSuggestions().catch((e) => console.error('[GM]', e));
@@ -4976,6 +5026,10 @@ function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world
     loadGameConfig().catch((e) => console.error('[GM]', e));
   } else if (tab === 'ai') {
     loadAiProviderConfigs().catch((e) => console.error('[GM]', e));
+  } else if (tab === 'generatedTechniques') {
+    loadGeneratedTechniques(false).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
+    });
   } else if (tab === 'trades') {
     // 进入交易记录 tab：默认拉一次最近一页（无条件），让 GM 立刻能看到现状
     loadTrades({ resetPage: true }).catch((error: unknown) => {
@@ -8741,6 +8795,114 @@ function openAiModelPicker(models: GmAiProviderModelItem[]): Promise<GmAiProvide
   });
 }
 
+// ===== AI 生成功法 tab =====
+
+function buildGeneratedTechniqueListQueryParams(): URLSearchParams {
+  return new URLSearchParams({
+    page: String(generatedTechniquePage),
+    pageSize: '50',
+  });
+}
+
+async function loadGeneratedTechniques(silent = true): Promise<void> {
+  if (!token) return;
+  const nonce = ++generatedTechniqueListRequestNonce;
+  generatedTechniqueListEl.innerHTML = '<div class="empty-hint">正在加载 AI 生成功法…</div>';
+  generatedTechniquePageMetaEl.textContent = `第 ${generatedTechniquePage} / ${Math.max(1, generatedTechniqueTotalPages)} 页 · 加载中`;
+  generatedTechniquePagePrevBtn.disabled = true;
+  generatedTechniquePageNextBtn.disabled = true;
+
+  const result = await request<GmGeneratedTechniqueListRes>(
+    buildGmGeneratedTechniquesApiPath(buildGeneratedTechniqueListQueryParams()),
+  );
+  if (nonce !== generatedTechniqueListRequestNonce) {
+    return;
+  }
+
+  generatedTechniques = result.techniques;
+  generatedTechniquePage = result.page.page;
+  generatedTechniqueTotalPages = result.page.totalPages;
+  if (!selectedGeneratedTechniqueId || !generatedTechniques.some((technique) => technique.id === selectedGeneratedTechniqueId)) {
+    selectedGeneratedTechniqueId = null;
+    selectedGeneratedTechniqueDetail = null;
+  }
+  renderGeneratedTechniquePanel(result);
+  if (!silent) {
+    setStatus(`已同步 AI 生成功法第 ${result.page.page} / ${result.page.totalPages} 页，本页 ${result.techniques.length} 条，共 ${result.page.total} 条`);
+  }
+}
+
+function renderGeneratedTechniquePanel(result?: GmGeneratedTechniqueListRes): void {
+  const page = result?.page ?? {
+    page: generatedTechniquePage,
+    pageSize: 50,
+    total: generatedTechniques.length,
+    totalPages: generatedTechniqueTotalPages,
+  };
+  generatedTechniquePageMetaEl.textContent = `第 ${page.page} / ${Math.max(1, page.totalPages)} 页 · 共 ${page.total} 条`;
+  generatedTechniquePagePrevBtn.disabled = page.page <= 1;
+  generatedTechniquePageNextBtn.disabled = page.page >= page.totalPages;
+
+  if (generatedTechniques.length === 0) {
+    generatedTechniqueListEl.innerHTML = '<div class="empty-hint">暂无 AI 生成功法。</div>';
+  } else {
+    generatedTechniqueListEl.innerHTML = generatedTechniques.map((technique) => renderGeneratedTechniqueRow(technique)).join('');
+  }
+  renderGeneratedTechniqueDetail();
+}
+
+function renderGeneratedTechniqueRow(technique: GmGeneratedTechniqueSummary): string {
+  const active = technique.id === selectedGeneratedTechniqueId ? ' active' : '';
+  const gradeLabel = getGeneratedTechniqueGradeLabel(technique.grade);
+  const levelLabel = technique.realmLv !== null && technique.realmLv !== undefined ? `Lv.${technique.realmLv}` : 'Lv.-';
+  return `
+    <button class="player-row${active}" type="button" data-generated-technique-id="${escapeHtml(technique.id)}">
+      <div>
+        <div class="player-row-title">${escapeHtml(technique.name)}</div>
+        <div class="player-row-meta">${escapeHtml(formatDateTime(technique.createdAt))}</div>
+        <div class="player-row-meta">${escapeHtml(gradeLabel)} · ${escapeHtml(levelLabel)}</div>
+      </div>
+    </button>
+  `;
+}
+
+function renderGeneratedTechniqueDetail(): void {
+  if (!selectedGeneratedTechniqueId) {
+    generatedTechniqueDetailEmptyEl.classList.remove('hidden');
+    generatedTechniqueDetailEl.classList.add('hidden');
+    generatedTechniqueDetailMetaEl.textContent = '从左侧选择一条记录。';
+    generatedTechniqueJsonEl.value = '';
+    return;
+  }
+  const summary = generatedTechniques.find((technique) => technique.id === selectedGeneratedTechniqueId) ?? null;
+  generatedTechniqueDetailMetaEl.textContent = summary
+    ? `${summary.name} · ${getGeneratedTechniqueGradeLabel(summary.grade)} · ${summary.realmLv !== null && summary.realmLv !== undefined ? `Lv.${summary.realmLv}` : 'Lv.-'}`
+    : selectedGeneratedTechniqueId;
+  generatedTechniqueDetailEmptyEl.classList.add('hidden');
+  generatedTechniqueDetailEl.classList.remove('hidden');
+  generatedTechniqueJsonEl.value = selectedGeneratedTechniqueDetail
+    ? JSON.stringify(selectedGeneratedTechniqueDetail.rawJson ?? selectedGeneratedTechniqueDetail, null, 2)
+    : '正在加载详情…';
+}
+
+async function loadGeneratedTechniqueDetail(id: string): Promise<void> {
+  selectedGeneratedTechniqueId = id;
+  selectedGeneratedTechniqueDetail = null;
+  renderGeneratedTechniquePanel();
+  const nonce = ++generatedTechniqueDetailRequestNonce;
+  const result = await request<GmGeneratedTechniqueDetailRes>(buildGmGeneratedTechniqueDetailApiPath(id));
+  if (nonce !== generatedTechniqueDetailRequestNonce || selectedGeneratedTechniqueId !== id) {
+    return;
+  }
+  selectedGeneratedTechniqueDetail = result.technique;
+  renderGeneratedTechniquePanel();
+  setStatus(`已加载 AI 生成功法：${result.technique.name}`);
+}
+
+function getGeneratedTechniqueGradeLabel(grade: string | null | undefined): string {
+  return grade ? TECHNIQUE_GRADE_LABELS[grade as keyof typeof TECHNIQUE_GRADE_LABELS] ?? grade : '未知品阶';
+}
+
 // ===== 交易记录 tab =====
 /** tradesQueryState：交易记录 tab 当前查询状态，分页 / 关键字。 */
 let tradesQueryState: { page: number; pageSize: number; playerKeyword: string; itemKeyword: string } = {
@@ -10829,6 +10991,7 @@ shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));
 envTabBtn.addEventListener('click', () => switchTab('secrets'));
 gameConfigTabBtn.addEventListener('click', () => switchTab('gameconfig'));
 aiTabBtn.addEventListener('click', () => switchTab('ai'));
+generatedTechniqueTabBtn.addEventListener('click', () => switchTab('generatedTechniques'));
 tradesTabBtn.addEventListener('click', () => switchTab('trades'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
@@ -11381,6 +11544,37 @@ aiProviderAddTextBtn.addEventListener('click', () => {
 });
 aiProviderAddImageBtn.addEventListener('click', () => {
   addAiProviderConfig('image');
+});
+generatedTechniqueRefreshBtn.addEventListener('click', () => {
+  loadGeneratedTechniques(false).catch((error: unknown) => {
+    generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
+    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
+  });
+});
+generatedTechniquePagePrevBtn.addEventListener('click', () => {
+  if (generatedTechniquePage <= 1) return;
+  generatedTechniquePage -= 1;
+  loadGeneratedTechniques(true).catch((error: unknown) => {
+    generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
+    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
+  });
+});
+generatedTechniquePageNextBtn.addEventListener('click', () => {
+  if (generatedTechniquePage >= generatedTechniqueTotalPages) return;
+  generatedTechniquePage += 1;
+  loadGeneratedTechniques(true).catch((error: unknown) => {
+    generatedTechniqueListEl.innerHTML = `<div class="empty-hint" style="color:var(--stamp-red);">${escapeHtml(error instanceof Error ? error.message : '加载失败')}</div>`;
+    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法失败', true);
+  });
+});
+generatedTechniqueListEl.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-generated-technique-id]');
+  const id = button?.dataset.generatedTechniqueId;
+  if (!id) return;
+  loadGeneratedTechniqueDetail(id).catch((error: unknown) => {
+    generatedTechniqueJsonEl.value = error instanceof Error ? error.message : '加载详情失败';
+    setStatus(error instanceof Error ? error.message : '加载 AI 生成功法详情失败', true);
+  });
 });
 tradesFormEl.addEventListener('submit', (event) => {
   event.preventDefault();

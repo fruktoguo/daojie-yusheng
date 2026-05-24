@@ -2446,6 +2446,7 @@
         <button class="shell-tab" id="gm-tab-secrets" data-gm-tab="secrets" type="button">环境变量管理</button>
         <button class="shell-tab" id="gm-tab-gameconfig" data-gm-tab="gameconfig" type="button">游戏配置</button>
         <button class="shell-tab" id="gm-tab-ai" data-gm-tab="ai" type="button">AI 配置</button>
+        <button class="shell-tab" id="gm-tab-generated-techniques" data-gm-tab="generated-techniques" type="button">AI 功法</button>
         <button class="shell-tab" id="gm-tab-trades" data-gm-tab="trades" type="button">交易记录</button>
         <span style="border-left:1px solid var(--ink-light); margin:0 4px;"></span>
         <button class="shell-tab shell-tab-minor" id="gm-tab-suggestions" data-gm-tab="suggestions" type="button" data-i18n="gm.tab-suggestions">建议反馈</button>
@@ -3045,6 +3046,41 @@
       <div id="gm-ai-list" style="flex:1; overflow-y:auto; padding:24px; background:var(--paper-light);">
         <div class="empty-hint">正在加载 AI 配置…</div>
       </div>
+    </section>
+
+    <section id="generated-technique-workspace" class="workspace-grid-2col hidden">
+      <section class="layout-section">
+        <div class="section-head">
+          <div>
+            <div class="section-title">AI 生成功法</div>
+            <div class="section-subtitle">每页 50 条，点击列表项查看完整原始 JSON</div>
+          </div>
+          <button id="generated-technique-refresh" class="small-btn" type="button">刷新</button>
+        </div>
+        <div class="section-body">
+          <div id="generated-technique-list" class="player-list"></div>
+          <div class="button-row" style="justify-content: space-between; margin-top: 12px;">
+            <button id="generated-technique-page-prev" class="small-btn" type="button">上一页</button>
+            <div id="generated-technique-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
+            <button id="generated-technique-page-next" class="small-btn" type="button">下一页</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout-section">
+        <div class="section-head">
+          <div>
+            <div class="section-title">功法详细 JSON</div>
+            <div id="generated-technique-detail-meta" class="section-subtitle">从左侧选择一条记录。</div>
+          </div>
+        </div>
+        <div class="section-body" style="display:flex; flex-direction:column; min-height:0;">
+          <div id="generated-technique-detail-empty" class="empty-hint">请选择一条 AI 生成功法。</div>
+          <div id="generated-technique-detail" class="hidden" style="display:flex; flex-direction:column; gap:10px; min-height:0; flex:1;">
+            <textarea id="generated-technique-json" class="editor-textarea" spellcheck="false" readonly style="min-height:420px; flex:1;"></textarea>
+          </div>
+        </div>
+      </section>
     </section>
 
     <section id="trades-workspace" class="layout-section hidden" style="flex:1; min-height:0; display:flex; flex-direction:column;">

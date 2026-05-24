@@ -14,6 +14,11 @@
  */
 
 import type { Pool } from 'pg';
+import type {
+  GmGeneratedTechniqueDetailRes,
+  GmGeneratedTechniqueListPage,
+  GmGeneratedTechniqueSummary,
+} from '@mud/shared';
 
 // ─── 表名常量 ───
 
@@ -170,6 +175,169 @@ export async function loadPublishedGeneratedTechniques(pool: Pool): Promise<Gene
   return result.rows as GeneratedTechniqueRow[];
 }
 
+// ─── GM 只读查询 ───
+
+export interface ListGeneratedTechniquesForGmParams {
+  page: number;
+  pageSize: number;
+}
+
+interface GeneratedTechniqueGmRow {
+  id: string;
+  generation_id: string;
+  template: unknown;
+  schema_version?: number | string | null;
+  status: string;
+  usage_scope?: string | null;
+  is_published: boolean;
+  published_at?: Date | string | null;
+  display_name?: string | null;
+  created_by_player_id: string;
+  model_name?: string | null;
+  prompt_snapshot?: string | null;
+  validation_report?: unknown;
+  grade?: string | null;
+  category?: string | null;
+  realm_lv?: number | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+export async function listGeneratedTechniquesForGm(
+  pool: Pool,
+  params: ListGeneratedTechniquesForGmParams,
+): Promise<{ techniques: GmGeneratedTechniqueSummary[]; page: GmGeneratedTechniqueListPage }> {
+  const pageSize = clampInteger(params.pageSize, 1, 50, 50);
+  const requestedPage = clampInteger(params.page, 1, 1_000_000, 1);
+  const countResult = await pool.query(`SELECT COUNT(*)::int AS total FROM ${GENERATED_TECHNIQUE_TABLE}`);
+  const total = normalizeInteger((countResult.rows[0] as { total?: unknown } | undefined)?.total, 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * pageSize;
+  const listResult = await pool.query(
+    `SELECT id,
+            generation_id,
+            template,
+            status,
+            is_published,
+            published_at,
+            display_name,
+            created_by_player_id,
+            grade,
+            category,
+            realm_lv,
+            created_at,
+            updated_at
+       FROM ${GENERATED_TECHNIQUE_TABLE}
+      ORDER BY created_at DESC, id DESC
+      LIMIT $1 OFFSET $2`,
+    [pageSize, offset],
+  );
+
+  return {
+    techniques: (listResult.rows as GeneratedTechniqueGmRow[]).map(toGeneratedTechniqueSummary),
+    page: {
+      page,
+      pageSize,
+      total,
+      totalPages,
+    },
+  };
+}
+
+export async function getGeneratedTechniqueForGm(
+  pool: Pool,
+  id: string,
+): Promise<GmGeneratedTechniqueDetailRes['technique'] | null> {
+  const result = await pool.query(
+    `SELECT id,
+            generation_id,
+            template,
+            schema_version,
+            status,
+            usage_scope,
+            is_published,
+            published_at,
+            display_name,
+            created_by_player_id,
+            model_name,
+            prompt_snapshot,
+            validation_report,
+            grade,
+            category,
+            realm_lv,
+            created_at,
+            updated_at
+       FROM ${GENERATED_TECHNIQUE_TABLE}
+      WHERE id = $1
+      LIMIT 1`,
+    [id],
+  );
+  const row = result.rows[0] as GeneratedTechniqueGmRow | undefined;
+  if (!row) {
+    return null;
+  }
+  const summary = toGeneratedTechniqueSummary(row);
+  const rawJson = toGeneratedTechniqueRawJson(row);
+  return {
+    ...summary,
+    schemaVersion: normalizeInteger(row.schema_version, 1),
+    usageScope: typeof row.usage_scope === 'string' ? row.usage_scope : 'player_only',
+    modelName: row.model_name ?? null,
+    promptSnapshot: row.prompt_snapshot ?? null,
+    validationReport: row.validation_report ?? null,
+    template: row.template,
+    rawJson,
+  };
+}
+
+function toGeneratedTechniqueSummary(row: GeneratedTechniqueGmRow): GmGeneratedTechniqueSummary {
+  const templateRecord = isRecord(row.template) ? row.template : null;
+  const displayName = row.display_name?.trim()
+    || getStringField(templateRecord, 'name')
+    || row.id;
+  const grade = normalizeOptionalString(row.grade) ?? getStringField(templateRecord, 'grade');
+  const category = normalizeOptionalString(row.category) ?? getStringField(templateRecord, 'category');
+  const realmLv = normalizeNullableInteger(row.realm_lv) ?? normalizeNullableInteger(templateRecord?.realmLv);
+  return {
+    id: row.id,
+    generationId: row.generation_id,
+    createdAt: formatDbTimestamp(row.created_at),
+    updatedAt: formatDbTimestamp(row.updated_at),
+    publishedAt: row.published_at === null || row.published_at === undefined ? null : formatDbTimestamp(row.published_at),
+    name: displayName,
+    grade,
+    category,
+    realmLv,
+    status: row.status,
+    isPublished: Boolean(row.is_published),
+    createdByPlayerId: row.created_by_player_id,
+  };
+}
+
+function toGeneratedTechniqueRawJson(row: GeneratedTechniqueGmRow): Record<string, unknown> {
+  return {
+    id: row.id,
+    generation_id: row.generation_id,
+    template: row.template,
+    schema_version: normalizeInteger(row.schema_version, 1),
+    status: row.status,
+    usage_scope: row.usage_scope ?? null,
+    is_published: Boolean(row.is_published),
+    published_at: row.published_at === null || row.published_at === undefined ? null : formatDbTimestamp(row.published_at),
+    display_name: row.display_name ?? null,
+    created_by_player_id: row.created_by_player_id,
+    model_name: row.model_name ?? null,
+    prompt_snapshot: row.prompt_snapshot ?? null,
+    validation_report: row.validation_report ?? null,
+    grade: row.grade ?? null,
+    category: row.category ?? null,
+    realm_lv: normalizeNullableInteger(row.realm_lv),
+    created_at: formatDbTimestamp(row.created_at),
+    updated_at: formatDbTimestamp(row.updated_at),
+  };
+}
+
 // ─── 写入操作 ───
 
 export interface InsertGeneratedTechniqueParams {
@@ -300,4 +468,42 @@ export async function expireStaleGenerationJobs(pool: Pool): Promise<number> {
        AND draft_expire_at <= NOW()`,
   );
   return result.rowCount ?? 0;
+}
+
+function clampInteger(value: unknown, min: number, max: number, fallback: number): number {
+  const normalized = normalizeInteger(value, fallback);
+  return Math.max(min, Math.min(max, normalized));
+}
+
+function normalizeInteger(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.trunc(numeric);
+}
+
+function normalizeNullableInteger(value: unknown): number | null {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  return Math.trunc(numeric);
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getStringField(record: Record<string, unknown> | null, key: string): string | null {
+  const value = record?.[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : null;
+}
+
+function formatDbTimestamp(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : String(value);
 }

@@ -210,6 +210,57 @@ export interface GmMarketTradeListRes {
   itemKeyword: string;
 }
 
+/** GM AI 生成功法列表查询条件。 */
+export interface GmGeneratedTechniqueListQuery {
+  /** 页码，从 1 开始。 */
+  page?: number;
+  /** 每页条数，服务端固定限制到最多 50。 */
+  pageSize?: number;
+}
+
+/** GM AI 生成功法列表摘要。列表响应不携带大 JSON。 */
+export interface GmGeneratedTechniqueSummary {
+  id: string;
+  generationId: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string | null;
+  name: string;
+  grade?: string | null;
+  category?: string | null;
+  realmLv?: number | null;
+  status: string;
+  isPublished: boolean;
+  createdByPlayerId: string;
+}
+
+/** GM AI 生成功法分页信息。 */
+export interface GmGeneratedTechniqueListPage {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/** GM AI 生成功法列表响应。 */
+export interface GmGeneratedTechniqueListRes {
+  techniques: GmGeneratedTechniqueSummary[];
+  page: GmGeneratedTechniqueListPage;
+}
+
+/** GM AI 生成功法详情响应，rawJson 保留数据库记录原貌供管理端查看。 */
+export interface GmGeneratedTechniqueDetailRes {
+  technique: GmGeneratedTechniqueSummary & {
+    schemaVersion: number;
+    usageScope: string;
+    modelName?: string | null;
+    promptSnapshot?: string | null;
+    validationReport?: unknown;
+    template: unknown;
+    rawJson: unknown;
+  };
+}
+
 /** 显示名可用性检查响应 */
 export interface DisplayNameAvailabilityRes {
 /**
