@@ -55,6 +55,8 @@ type PreviewPlayer = NonNullable<SkillTooltipPreviewContext['player']>;
 /** ScalingMeta：技能缩放徽记元数据。 */
 type ScalingMeta = SkillScalingMeta;
 
+type SkillFormulaObject = Exclude<SkillFormula, number>;
+
 /** FormulaPreview：公式预览结果。 */
 type FormulaPreview = {
 /**
@@ -599,6 +601,37 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
   };
 }
 
+function isFormulaObject(formula: unknown): formula is SkillFormulaObject {
+  return typeof formula === 'object' && formula !== null;
+}
+
+function isSkillFormula(formula: unknown): formula is SkillFormula {
+  if (typeof formula === 'number') {
+    return Number.isFinite(formula);
+  }
+  if (!isFormulaObject(formula)) {
+    return false;
+  }
+  if ('var' in formula) {
+    return typeof formula.var === 'string';
+  }
+  if (formula.op === 'clamp') {
+    return isSkillFormula(formula.value)
+      && (formula.min === undefined || isSkillFormula(formula.min))
+      && (formula.max === undefined || isSkillFormula(formula.max));
+  }
+  return ['add', 'sub', 'mul', 'div', 'min', 'max'].includes(String(formula.op))
+    && Array.isArray(formula.args)
+    && formula.args.every((entry) => isSkillFormula(entry));
+}
+
+function unknownFormulaPreview(): FormulaPreview {
+  return {
+    html: t('skill-tooltip.damage.unknown', undefined, '未知'),
+    resolved: null,
+  };
+}
+
 /** isAddFormula：判断是否Add Formula。 */
 function isAddFormula(formula: SkillFormula): formula is {
 /**
@@ -609,7 +642,7 @@ function isAddFormula(formula: SkillFormula): formula is {
  * args：arg相关字段。
  */
  args: SkillFormula[] } {
-  return typeof formula !== 'number' && !('var' in formula) && formula.op === 'add';
+  return isFormulaObject(formula) && !('var' in formula) && formula.op === 'add';
 }
 
 /** isMulFormula：判断是否Mul Formula。 */
@@ -622,7 +655,7 @@ function isMulFormula(formula: SkillFormula): formula is {
  * args：arg相关字段。
  */
  args: SkillFormula[] } {
-  return typeof formula !== 'number' && !('var' in formula) && formula.op === 'mul';
+  return isFormulaObject(formula) && !('var' in formula) && formula.op === 'mul';
 }
 
 /** isPercentFactorFormula：判断是否Percent Factor Formula。 */
@@ -663,6 +696,9 @@ function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPrevie
 function extractStructuredDamagePreview(formula: SkillFormula, context: SkillTooltipPreviewContext): StructuredDamagePreview | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  if (!isSkillFormula(formula)) {
+    return null;
+  }
   if (!isMulFormula(formula) || formula.args.length < 2) {
     return null;
   }
@@ -703,6 +739,9 @@ function extractStructuredDamagePreview(formula: SkillFormula, context: SkillToo
 function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  if (!isSkillFormula(formula)) {
+    return unknownFormulaPreview();
+  }
   if (typeof formula === 'number') {
     return {
       html: renderFormulaTerm(formatPercent(formula), 'skill-formula-term-percent'),
@@ -763,6 +802,9 @@ function joinFormulaParts(parts: string[], operator: string): string {
 function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  if (!isSkillFormula(formula)) {
+    return unknownFormulaPreview();
+  }
   if (typeof formula === 'number') {
     return {
       html: formatDisplayNumber(formula),
@@ -854,6 +896,9 @@ function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewConte
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  if (!isSkillFormula(formula)) {
+    return `<span class="skill-formula-empty">${t('skill-tooltip.damage.unknown', undefined, '未知')}</span>`;
+  }
   const structured = extractStructuredDamagePreview(formula, context);
   if (structured) {
     const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
