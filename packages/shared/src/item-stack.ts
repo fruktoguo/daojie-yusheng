@@ -15,6 +15,9 @@
 import { ItemStack } from './item-runtime-types';
 
 export type ItemStackMergeItem = { itemId?: string; count?: unknown; [key: string]: unknown };
+export type ItemDisplayNameItem = { itemId?: unknown; name?: unknown; count?: unknown; enhanceLevel?: unknown };
+
+const ITEM_DISPLAY_UNKNOWN_NAME = '未知物品';
 
 /**
  * 实例态字段白名单：这些字段会被持久化到 raw_payload jsonb，
@@ -85,6 +88,32 @@ export function canMergeItemStack(item: Pick<ItemStack, 'type' | 'itemInstanceId
 export function normalizeItemStackMergeCount(value: unknown): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
+}
+
+function normalizeItemDisplayEnhanceLevel(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+}
+
+function normalizeItemBaseDisplayName(item: ItemDisplayNameItem | null | undefined): string {
+  const name = typeof item?.name === 'string' ? item.name.trim() : '';
+  const itemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
+  const baseName = name || itemId || ITEM_DISPLAY_UNKNOWN_NAME;
+  return baseName.replace(/^\+\d+\s+/, '').trim() || ITEM_DISPLAY_UNKNOWN_NAME;
+}
+
+/** 合成物品显示名。item.name 只表示基础数据名，展示统一走这个入口追加实例态标记。 */
+export function getItemDisplayName(item: ItemDisplayNameItem | null | undefined): string {
+  const baseName = normalizeItemBaseDisplayName(item);
+  const enhanceLevel = normalizeItemDisplayEnhanceLevel(item?.enhanceLevel);
+  return enhanceLevel > 0 ? `+${enhanceLevel} ${baseName}` : baseName;
+}
+
+/** 合成物品堆叠展示标签。 */
+export function getItemStackDisplayLabel(item: ItemDisplayNameItem | null | undefined): string {
+  const displayName = getItemDisplayName(item);
+  const count = normalizeItemStackMergeCount(item?.count);
+  return count > 1 ? `${displayName} x${count}` : displayName;
 }
 
 /** 给已有堆叠累加数量，保留已有条目的其他实例字段和 itemInstanceId。 */

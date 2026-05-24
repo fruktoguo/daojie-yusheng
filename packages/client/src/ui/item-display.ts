@@ -11,7 +11,7 @@ import type {
   TechniqueCategory,
   TechniqueGrade,
 } from '@mud/shared';
-import { applyEnhancementToItemStack, normalizeEnhanceLevel } from '@mud/shared';
+import { applyEnhancementToItemStack, getItemDisplayName, normalizeEnhanceLevel } from '@mud/shared';
 import {
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
@@ -175,6 +175,7 @@ function getTechniqueBookTemplate(item: ItemStack) {
 /** getItemDisplayMeta：读取物品显示元数据。 */
 export function getItemDisplayMeta(item: ItemStack): ItemDisplayMeta {
   const displayItem = applyEnhancementToItemStack(resolvePreviewItem(item));
+  displayItem.name = getItemDisplayName(displayItem);
   const techniqueTemplate = getTechniqueBookTemplate(displayItem);
   const grade = techniqueTemplate?.grade ?? displayItem.grade ?? null;
   const level = Number.isFinite(displayItem.level) ? Math.max(0, Math.floor(displayItem.level ?? 0)) : 0;
@@ -240,7 +241,6 @@ export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null 
     element,
   };
 }
-
 
 
 

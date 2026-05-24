@@ -8,6 +8,7 @@
  * 处理装备穿脱的背包操作、属性刷新和持久化提交
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { getItemDisplayName } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
@@ -56,7 +57,8 @@ export class WorldRuntimeEquipmentService {
             throw new BadRequestException(lockReason);
         }
         this.playerRuntimeService.equipItemByInstanceId(playerId, itemInstanceId);
-        const n1 = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+        const itemName = getItemDisplayName(normalizedItem);
+        const n1 = buildStructuredNotice('success', 'notice.equip.equipped', `装备 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n1.text, n1.kind, undefined, undefined, n1.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }    
@@ -81,7 +83,8 @@ export class WorldRuntimeEquipmentService {
             throw new BadRequestException(lockReason);
         }
         this.playerRuntimeService.unequipItem(playerId, slot, expectedItemInstanceId);
-        const n2 = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+        const itemName = getItemDisplayName(item);
+        const n2 = buildStructuredNotice('info', 'notice.equip.unequipped', `卸下 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n2.text, n2.kind, undefined, undefined, n2.structured);
         deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }

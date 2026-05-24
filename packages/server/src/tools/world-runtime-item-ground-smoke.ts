@@ -28,12 +28,12 @@ function testDropItem() {
 
         splitInventoryItemByInstanceId(playerId, itemInstanceId, count) {
             log.push(['splitInventoryItemByInstanceId', playerId, itemInstanceId, count]);
-            return { itemId: 'book.changsheng_chanyuan', count: 1 };
+            return { itemId: 'equip.test_blade', type: 'equipment', count: 1, enhanceLevel: 5 };
         },        
         contentTemplateRepository: {
             normalizeItem(item) {
-                return item?.itemId === 'book.changsheng_chanyuan'
-                    ? { ...item, name: '长生禅缘' }
+                return item?.itemId === 'equip.test_blade'
+                    ? { ...item, name: '测试剑' }
                     : item;
             },
         },
@@ -94,9 +94,9 @@ function testDropItem() {
     service.dispatchDropItem('player:1', 'item:book', 2, deps);
     assert.deepEqual(log, [
         ['splitInventoryItemByInstanceId', 'player:1', 'item:book', 2],
-        ['dropGroundItem', 5, 7, 'book.changsheng_chanyuan', '长生禅缘', 1],
+        ['dropGroundItem', 5, 7, 'equip.test_blade', '测试剑', 1],
         ['refreshQuestStates', 'player:1'],
-        ['queuePlayerNotice', 'player:1', '放下 长生禅缘', 'info'],
+        ['queuePlayerNotice', 'player:1', '放下 +5 测试剑', 'info'],
     ]);
 }
 /**

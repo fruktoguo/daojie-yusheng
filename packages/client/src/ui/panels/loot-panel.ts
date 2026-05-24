@@ -7,7 +7,7 @@
  * 拾取面板
  * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
-import { LootWindowState } from '@mud/shared';
+import { getItemDisplayName, LootWindowState } from '@mud/shared';
 import { getTechniqueGradeLabel } from '../../domain-labels';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
@@ -505,14 +505,15 @@ export class LootPanel {
     }
     const grid = createElement('div', `inventory-grid ${isHerb ? 'herb-gather-grid' : 'loot-item-grid'}`);
     for (const entry of source.items) {
+      const displayName = getItemDisplayName(entry.item);
       const cell = createElement('div', isHerb ? 'herb-gather-card' : 'inventory-cell');
       const head = createElement('div', 'inventory-cell-head');
       head.append(
         createElement('span', 'inventory-cell-type', isHerb ? t('loot.item.type.current-stock', undefined) : source.kind === 'ground' ? t('loot.item.type.ground', undefined) : t('loot.item.type.container', undefined)),
         createElement('span', 'inventory-cell-count', formatDisplayCountBadge(entry.item.count)),
       );
-      const name = createElement('div', 'inventory-cell-name', isHerb ? t('loot.herb.start-hint', undefined) : entry.item.name);
-      name.setAttribute('aria-label', isHerb ? t('loot.herb.start-title', undefined) : entry.item.name);
+      const name = createElement('div', 'inventory-cell-name', isHerb ? t('loot.herb.start-hint', undefined) : displayName);
+      name.setAttribute('aria-label', isHerb ? t('loot.herb.start-title', undefined) : displayName);
       const actions = createElement('div', 'inventory-cell-actions');
       const button = createElement('button', 'small-btn', isHerb ? (harvesting ? t('loot.action.gathering', undefined) : t('loot.action.start-gather', undefined)) : t('loot.action.take', undefined));
       button.type = 'button';

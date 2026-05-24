@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { MapTemplateRepository } from '../map/map-template.repository';
@@ -123,7 +123,8 @@ export class WorldRuntimeUseItemService {
         else {
             deps.refreshQuestStates(playerId);
         }
-        const n = buildStructuredNotice('success', 'notice.item.used', `使用 ${item.name}`, { vars: { itemName: item.name }, pills: [{ key: 'itemName', style: 'target' }] });
+        const itemName = getItemDisplayName(item);
+        const n = buildStructuredNotice('success', 'notice.item.used', `使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }    
     /**

@@ -3900,8 +3900,8 @@ async function replacePlayerInventoryItems(
     let itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
       ? sourceItemInstanceId
       : `inv:${playerId}:${slotIndex}`;
-    if (!sourceItemInstanceId || isLegacyItemInstanceId(sourceItemInstanceId)) {
-      playerDomainModuleLogger.warn(`背包物品缺少有效 itemInstanceId，走 legacy fallback：playerId=${playerId} slot=${slotIndex} itemId=${normalizeOptionalString(entry?.itemId)}`);
+    if (sourceItemInstanceId && isLegacyItemInstanceId(sourceItemInstanceId)) {
+      playerDomainModuleLogger.warn(`背包物品携带 legacy itemInstanceId，走 fallback：playerId=${playerId} slot=${slotIndex} id=${sourceItemInstanceId}`);
     }
     const rawPayload = asRecord(entry?.rawPayload);
     const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);

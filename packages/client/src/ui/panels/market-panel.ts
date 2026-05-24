@@ -40,6 +40,7 @@ import {
   S2C_MarketTradeHistory,
   S2C_MarketUpdate,
   TechniqueCategory,
+  getItemDisplayName,
   getMarketPriceStep,
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
@@ -3024,12 +3025,7 @@ export class MarketPanel {
 
   /** 把装备条目显示成带强化等级前缀的名字。 */
   private getMarketDisplayName(item: ItemStack): string {
-    const baseName = typeof item.name === 'string' && item.name.trim()
-      ? item.name.trim()
-      : '未知物品';
-    const enhanceLevel = this.getMarketEnhanceLevel(item);
-    const cleanName = baseName.replace(/^\+\d+\s+/, '');
-    return enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)} ${cleanName}` : cleanName;
+    return getItemDisplayName(item);
   }
 
   /** 读取本地盘面里 +0 同款装备的最低卖价。 */

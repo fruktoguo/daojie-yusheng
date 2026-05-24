@@ -3400,8 +3400,8 @@ async function replacePlayerInventoryItems(
     const itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
       ? sourceItemInstanceId
       : `inv:${playerId}:${index}`;
-    if (!sourceItemInstanceId || isLegacyItemInstanceId(sourceItemInstanceId)) {
-      durableModuleLogger.warn(`durable 背包物品缺少有效 itemInstanceId，走 legacy fallback：playerId=${playerId} index=${index}`);
+    if (sourceItemInstanceId && isLegacyItemInstanceId(sourceItemInstanceId)) {
+      durableModuleLogger.warn(`durable 背包物品携带 legacy itemInstanceId，走 fallback：playerId=${playerId} index=${index} id=${sourceItemInstanceId}`);
     }
     const row = {
       item_instance_id: itemInstanceId,

@@ -12,6 +12,7 @@ import {
   S2C_LeaderboardPlayerLocations,
   VisibleBuffState,
   MONSTER_TIER_LABELS,
+  getItemDisplayName,
   type PartialNumericStats,
   type NpcQuestMarker,
 } from '@mud/shared';
@@ -429,7 +430,7 @@ export class EntityDetailModal {
       return `<div class="empty-hint">${t('entity-detail.ground.empty', undefined)}</div>`;
     }
     const items = ground.items.length > 0
-      ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: item.name, tone: 'reward' })).join('')}</div>`
+      ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: getItemDisplayName(item), tone: 'reward' })).join('')}</div>`
       : `<div class="inline-rich-text">${t('entity-detail.ground.no-visible-items', undefined)}</div>`;
     return `
       <div class="ui-title-block">

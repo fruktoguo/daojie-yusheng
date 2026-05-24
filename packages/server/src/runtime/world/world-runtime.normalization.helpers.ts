@@ -11,7 +11,7 @@
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
  * 职责：输入校验、ID 构建、坐标/数值归一化。 */
 import { BadRequestException } from '@nestjs/common';
-import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, mergeItemStackEntryInto, mergeItemStackInto } from '@mud/shared';
+import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto } from '@mud/shared';
 
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
@@ -144,8 +144,7 @@ export function buildRuntimeInstancePresetMeta(input) {
 /** 生成物品堆叠用于列表展示的标签文本。 */
 export function formatItemStackLabel(item) {
 
-    const label = item.name ?? item.itemId;
-    return item.count > 1 ? `${label} x${item.count}` : label;
+    return getItemStackDisplayLabel(item);
 }
 /** 将物品列表压缩成前若干项的摘要文本。 */
 export function formatItemListSummary(items) {

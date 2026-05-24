@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
+import { AUCTION_DEFAULT_DURATION_HOURS, AUCTION_LISTING_FEE_BASE, AUCTION_LISTING_FEE_RATE, AUCTION_MAX_DURATION_HOURS, AUCTION_MIN_DURATION_HOURS, EQUIP_SLOTS, HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID, HEAVENLY_DAO_SHOP_ITEMS, ITEM_TYPES, MARKET_MAX_ENHANCE_LEVEL, MARKET_MAX_UNIT_PRICE, calculateMarketTradeTotalCost, canMergeItemStack, createItemStackSignature, getItemDisplayName, getMarketMinimumTradeQuantity, getMarketPriceStep, isValidMarketPrice, isValidMarketTradeQuantity, normalizeMarketPriceUp } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { AUCTION_GLOBAL_TRADE_HISTORY_LIMIT, AUCTION_MY_TRADE_HISTORY_VISIBLE_LIMIT, AUCTION_TRADE_HISTORY_PAGE_SIZE, MARKET_CURRENCY_ITEM_ID, MARKET_MAX_ORDER_QUANTITY, MARKET_STORAGE_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_PAGE_SIZE, MARKET_TRADE_HISTORY_RUNTIME_CACHE_LIMIT, MARKET_TRADE_HISTORY_VISIBLE_LIMIT } from '../../constants/gameplay/market';
@@ -531,8 +531,8 @@ export class MarketRuntimeService {
                 buyOrder.updatedAt = Date.now();
                 this.markOrderDirty(buyOrder.id, context);
                 this.touchAffectedPlayer(result, buyOrder.ownerId);
-                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
-                this.pushNotice(result, playerId, `你卖出了 ${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
+                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${getItemDisplayName(orderItem)} x${tradeQuantity}。`, 'loot');
+                this.pushNotice(result, playerId, `你卖出了 ${getItemDisplayName(orderItem)} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
                 if (buyOrder.remainingQuantity <= 0) {
                     buyOrder.status = 'filled';
                     this.deleteOrder(buyOrder.id, context);
@@ -561,12 +561,12 @@ export class MarketRuntimeService {
                 }
                 this.markOrderDirty(order.id, context);
                 const listingText = listingMode === 'auction'
-                    ? `已寄拍 ${orderItem.name} x${remaining}，整包总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}，已收上架费 ${this.formatUnitPrice(auctionListingFee)} ${this.getCurrencyItemName()}。`
-                    : `已挂售 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`;
+                    ? `已寄拍 ${getItemDisplayName(orderItem)} x${remaining}，整包总价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}，已收上架费 ${this.formatUnitPrice(auctionListingFee)} ${this.getCurrencyItemName()}。`
+                    : `已挂售 ${getItemDisplayName(orderItem)} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`;
                 if (listingMode === 'auction') {
                     this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.consigned', listingText, {
                         vars: {
-                            itemName: orderItem.name,
+                            itemName: getItemDisplayName(orderItem),
                             quantity: remaining,
                             currencyName: this.getCurrencyItemName(),
                             totalPrice: this.formatUnitPrice(unitPrice),
@@ -674,8 +674,8 @@ export class MarketRuntimeService {
                 sellOrder.updatedAt = Date.now();
                 this.markOrderDirty(sellOrder.id, context);
                 this.touchAffectedPlayer(result, sellOrder.ownerId);
-                this.pushNotice(result, playerId, `你买入了 ${orderItem.name} x${tradeQuantity}，成交价 ${this.formatUnitPrice(tradePrice)}。`, 'loot');
-                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${orderItem.name} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
+                this.pushNotice(result, playerId, `你买入了 ${getItemDisplayName(orderItem)} x${tradeQuantity}，成交价 ${this.formatUnitPrice(tradePrice)}。`, 'loot');
+                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${getItemDisplayName(orderItem)} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${match.totalCost}。`, 'loot');
                 if (sellOrder.remainingQuantity <= 0) {
                     sellOrder.status = 'filled';
                     this.deleteOrder(sellOrder.id, context);
@@ -700,7 +700,7 @@ export class MarketRuntimeService {
                 };
                 this.openOrders.push(order);
                 this.markOrderDirty(order.id, context);
-                this.pushNotice(result, playerId, `已挂出求购 ${orderItem.name} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
+                this.pushNotice(result, playerId, `已挂出求购 ${getItemDisplayName(orderItem)} x${remaining}，单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()}。`, 'success');
             }
             this.compactOpenOrders();
             return result;
@@ -795,7 +795,7 @@ export class MarketRuntimeService {
                             expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
                             expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
                             itemId: item.itemId,
-                            itemName: item.name ?? item.itemId,
+                            itemName: getItemDisplayName(item),
                             quantity,
                             totalCost,
                             nextBuyerInventoryItems,
@@ -825,14 +825,14 @@ export class MarketRuntimeService {
                                 sellOrder.updatedAt = Date.now();
                                 this.markOrderDirty(sellOrder.id, context);
                                 this.touchAffectedPlayer(result, sellOrder.ownerId);
-                                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${item.name} x${tradeQuantity}。`, 'loot');
+                                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${getItemDisplayName(item)} x${tradeQuantity}。`, 'loot');
                                 if (sellOrder.remainingQuantity <= 0) {
                                     sellOrder.status = 'filled';
                                     this.deleteOrder(sellOrder.id, context);
                                 }
                             }
                             context.skipPersistence = true;
-                            this.pushNotice(result, playerId, `你买入了 ${item.name} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
+                            this.pushNotice(result, playerId, `你买入了 ${getItemDisplayName(item)} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
                             this.compactOpenOrders();
                             return result;
                         }
@@ -857,13 +857,13 @@ export class MarketRuntimeService {
                 sellOrder.updatedAt = Date.now();
                 this.markOrderDirty(sellOrder.id, context);
                 this.touchAffectedPlayer(result, sellOrder.ownerId);
-                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${item.name} x${tradeQuantity}。`, 'loot');
+                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${getItemDisplayName(item)} x${tradeQuantity}。`, 'loot');
                 if (sellOrder.remainingQuantity <= 0) {
                     sellOrder.status = 'filled';
                     this.deleteOrder(sellOrder.id, context);
                 }
             }
-            this.pushNotice(result, playerId, `你买入了 ${item.name} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
+            this.pushNotice(result, playerId, `你买入了 ${getItemDisplayName(item)} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
             this.compactOpenOrders();
             return result;
         });
@@ -958,7 +958,7 @@ export class MarketRuntimeService {
                             expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
                             expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
                             itemId: orderItem.itemId,
-                            itemName: orderItem.name ?? item.name ?? orderItem.itemId,
+                            itemName: getItemDisplayName(orderItem),
                             quantity,
                             totalIncome,
                             nextSellerInventoryItems,
@@ -983,14 +983,14 @@ export class MarketRuntimeService {
                                 buyOrder.updatedAt = Date.now();
                                 this.markOrderDirty(buyOrder.id, context);
                                 this.touchAffectedPlayer(result, buyOrder.ownerId);
-                                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
+                                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${getItemDisplayName(orderItem)} x${tradeQuantity}。`, 'loot');
                                 if (buyOrder.remainingQuantity <= 0) {
                                     buyOrder.status = 'filled';
                                     this.deleteOrder(buyOrder.id, context);
                                 }
                             }
                             context.skipPersistence = true;
-                            this.pushNotice(result, playerId, `你卖出了 ${orderItem.name} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
+                            this.pushNotice(result, playerId, `你卖出了 ${getItemDisplayName(orderItem)} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
                             this.compactOpenOrders();
                             return result;
                         }
@@ -1015,13 +1015,13 @@ export class MarketRuntimeService {
                 buyOrder.updatedAt = Date.now();
                 this.markOrderDirty(buyOrder.id, context);
                 this.touchAffectedPlayer(result, buyOrder.ownerId);
-                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
+                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${getItemDisplayName(orderItem)} x${tradeQuantity}。`, 'loot');
                 if (buyOrder.remainingQuantity <= 0) {
                     buyOrder.status = 'filled';
                     this.deleteOrder(buyOrder.id, context);
                 }
             }
-            this.pushNotice(result, playerId, `你卖出了 ${orderItem.name} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
+            this.pushNotice(result, playerId, `你卖出了 ${getItemDisplayName(orderItem)} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
             this.compactOpenOrders();
             return result;
         });
@@ -1647,7 +1647,7 @@ export class MarketRuntimeService {
                     continue;
                 }
                 this.deliverMarketCurrencyToPlayer(bid.bidderId, reservedCost, context);
-                this.pushNotice(result, bid.bidderId, `拍卖行 ${sellOrder.item.name ?? sellOrder.item.itemId} 已被一口价，冻结灵石已退回。`, 'info');
+                this.pushNotice(result, bid.bidderId, `拍卖行 ${getItemDisplayName(sellOrder.item)} 已被一口价，冻结灵石已退回。`, 'info');
             }
             this.deliverItemToPlayer(playerId, { ...sellOrder.item, count: tradeQuantity }, context);
             this.deliverMarketCurrencyToPlayer(sellOrder.ownerId, totalCost, context);
@@ -1663,12 +1663,12 @@ export class MarketRuntimeService {
             sellOrder.updatedAt = Date.now();
             this.markOrderDirty(sellOrder.id, context);
             this.touchAffectedPlayer(result, sellOrder.ownerId);
-            this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.buyout-buyer', `你在拍卖行一口价竞得了 ${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，一口价支付 ${this.getCurrencyItemName()} x${totalCost}。`, {
-                vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+            this.pushStructuredNotice(result, playerId, 'success', 'notice.market.auction.buyout-buyer', `你在拍卖行一口价竞得了 ${getItemDisplayName(sellOrder.item)} x${tradeQuantity}，一口价支付 ${this.getCurrencyItemName()} x${totalCost}。`, {
+                vars: { itemName: getItemDisplayName(sellOrder.item), quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
                 pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
             });
-            this.pushStructuredNotice(result, sellOrder.ownerId, 'success', 'notice.market.auction.buyout-seller', `你的寄拍已被一口价拍下：${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${totalCost}。`, {
-                vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+            this.pushStructuredNotice(result, sellOrder.ownerId, 'success', 'notice.market.auction.buyout-seller', `你的寄拍已被一口价拍下：${getItemDisplayName(sellOrder.item)} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${totalCost}。`, {
+                vars: { itemName: getItemDisplayName(sellOrder.item), quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
                 pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
             });
             if (sellOrder.remainingQuantity <= 0) {
@@ -1940,7 +1940,7 @@ export class MarketRuntimeService {
                 continue;
             }
             this.deliverMarketCurrencyToPlayer(bid.bidderId, reservedCost, context);
-            this.pushNotice(result, bid.bidderId, `拍卖行 ${sellOrder.item.name ?? sellOrder.item.itemId} 已成交，冻结灵石已退回。`, 'info');
+            this.pushNotice(result, bid.bidderId, `拍卖行 ${getItemDisplayName(sellOrder.item)} 已成交，冻结灵石已退回。`, 'info');
         }
         const overpayRefund = Math.max(0, highestBid.reservedCost - totalCost);
         if (overpayRefund > 0) {
@@ -1959,12 +1959,12 @@ export class MarketRuntimeService {
         sellOrder.remainingQuantity -= tradeQuantity;
         sellOrder.updatedAt = now;
         this.markOrderDirty(sellOrder.id, context);
-        this.pushStructuredNotice(result, highestBid.bidderId, 'success', 'notice.market.auction.settled-buyer', `你竞得了 ${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，整包成交价 ${this.formatUnitPrice(highestBid.unitPrice)} ${this.getCurrencyItemName()}。`, {
-            vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: this.formatUnitPrice(highestBid.unitPrice) },
+        this.pushStructuredNotice(result, highestBid.bidderId, 'success', 'notice.market.auction.settled-buyer', `你竞得了 ${getItemDisplayName(sellOrder.item)} x${tradeQuantity}，整包成交价 ${this.formatUnitPrice(highestBid.unitPrice)} ${this.getCurrencyItemName()}。`, {
+            vars: { itemName: getItemDisplayName(sellOrder.item), quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: this.formatUnitPrice(highestBid.unitPrice) },
             pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
         });
-        this.pushStructuredNotice(result, sellOrder.ownerId, 'success', 'notice.market.auction.settled-seller', `你的寄拍已成交：${sellOrder.item.name ?? sellOrder.item.itemId} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${totalCost}。`, {
-            vars: { itemName: sellOrder.item.name ?? sellOrder.item.itemId, quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
+        this.pushStructuredNotice(result, sellOrder.ownerId, 'success', 'notice.market.auction.settled-seller', `你的寄拍已成交：${getItemDisplayName(sellOrder.item)} x${tradeQuantity}，入账 ${this.getCurrencyItemName()} x${totalCost}。`, {
+            vars: { itemName: getItemDisplayName(sellOrder.item), quantity: tradeQuantity, currencyName: this.getCurrencyItemName(), totalPrice: totalCost },
             pills: [{ key: 'itemName', style: 'target' }, { key: 'totalPrice', style: 'damage' }],
         });
         if (sellOrder.remainingQuantity <= 0) {

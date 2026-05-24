@@ -31,7 +31,9 @@ export function assignStableItemInstanceId(
     ? normalizedSource
     : randomUUID();
   if (nextItemInstanceId !== normalizedSource) {
-    logger.warn(`装备 itemInstanceId 走 legacy 兼容重分配：source=${normalizedSource || '(empty)'} -> ${nextItemInstanceId}`);
+    if (normalizedSource && isLegacyItemInstanceId(normalizedSource)) {
+      logger.warn(`装备携带 legacy itemInstanceId，重分配：source=${normalizedSource} -> ${nextItemInstanceId}`);
+    }
     if (sourceRecords) {
       writeItemInstanceIdToSources(sourceRecords, nextItemInstanceId);
     }

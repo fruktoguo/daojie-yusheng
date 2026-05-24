@@ -4,6 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { getItemStackDisplayLabel } from '@mud/shared';
 import { WorldSessionService } from '../../network/world-session.service';
 import { WorldClientEventService } from '../../network/world-client-event.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
@@ -222,5 +223,5 @@ export class WorldRuntimeCraftMutationService {
  */
 
 function formatItemStackLabel(item) {
-    return `${item.name ?? item.itemId} x${Math.max(1, Math.floor(Number(item.count) || 1))}`;
+    return getItemStackDisplayLabel(item);
 }

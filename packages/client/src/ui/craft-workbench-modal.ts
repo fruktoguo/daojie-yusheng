@@ -38,6 +38,7 @@ import {
   computeAlchemySuccessRate,
   computeAlchemyTotalJobTicks,
   getAlchemySpiritStoneCost,
+  getItemDisplayName,
   isExactAlchemyRecipe,
   normalizeEnhanceLevel,
   normalizeAlchemyQuantity,
@@ -215,6 +216,13 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     miningDamageRate: template?.miningDamageRate ?? source.miningDamageRate,
     enhanceLevel: 0,
   };
+}
+
+function getEnhancementDisplayName(item: EnhancementItemView): string {
+  return getItemDisplayName({
+    ...buildBaseEnhancementPreviewItem(item),
+    enhanceLevel: item.enhanceLevel,
+  });
 }
 
 function getEffectiveEnhancementToolSuccessRate(weapon: ItemStack | null | undefined, playerRealmLv: number | null): number {
@@ -2535,10 +2543,11 @@ export class CraftWorkbenchModal {
             ? selected.protectionCandidates.map((entry) => {
               const key = buildEnhancementTargetKey(entry.ref);
               const sourceLabel = `背包物品 · 数量 ${entry.item.count}`;
+              const displayName = getEnhancementDisplayName(entry.item);
               return `
                 <label class="enhancement-protection-option">
                   <input type="radio" name="enhancement-protection" value="${escapeHtml(key)}" ${this.selectedEnhancementProtectionKey === key ? 'checked' : ''}>
-                  <span>${escapeHtml(entry.item.name ?? UNKNOWN_ITEM_NAME)}</span>
+                  <span>${escapeHtml(displayName)}</span>
                   <em>${escapeHtml(sourceLabel)}</em>
                 </label>
               `;
@@ -2589,7 +2598,7 @@ export class CraftWorkbenchModal {
           <div class="enhancement-summary-card">
             <div class="enhancement-summary-head">
               <div>
-                <div class="enhancement-summary-title">${escapeHtml(selected.item.name ?? UNKNOWN_ITEM_NAME)}</div>
+                <div class="enhancement-summary-title">${escapeHtml(getEnhancementDisplayName(selected.item))}</div>
                 <div class="enhancement-summary-subtitle">当前 +${formatDisplayInteger(selected.currentLevel)} · 最终目标 +${formatDisplayInteger(selectedTargetLevel)}</div>
               </div>
               <div class="enhancement-summary-rate">首阶 ${formatEnhancementPercent(selected.successRate)}</div>
@@ -3382,7 +3391,8 @@ export class CraftWorkbenchModal {
                   slot: getEquipSlotLabel(entry.ref.slot ?? 'weapon'),
                 })
                 : '背包物品';
-              const nameClass = getItemNameClass(entry.item.name ?? UNKNOWN_ITEM_NAME);
+              const displayName = getEnhancementDisplayName(entry.item);
+              const nameClass = getItemNameClass(displayName);
               const itemTypeLabel = entry.item.type ? getItemTypeLabel(entry.item.type) : t('craft.workbench.enhancement.picker.type.equipment');
               return `
                 <button
@@ -3394,7 +3404,7 @@ export class CraftWorkbenchModal {
                     <span class="inventory-cell-type">${escapeHtml(getItemAffixTypeLabel(itemMeta.displayItem, itemTypeLabel))}</span>
                     <span class="inventory-cell-count">x${formatDisplayInteger(entry.item.count ?? 1)}</span>
                   </div>
-                  <div class="inventory-cell-name ${nameClass}">${escapeHtml(entry.item.name ?? UNKNOWN_ITEM_NAME)}</div>
+                  <div class="inventory-cell-name ${nameClass}">${escapeHtml(displayName)}</div>
                   <div class="enhancement-picker-cell-meta">
                     <span>${escapeHtml(sourceLabel)}</span>
                     <span>+${formatDisplayInteger(entry.currentLevel)} → +${formatDisplayInteger(entry.nextLevel)} · ${formatDisplayInteger(entry.durationTicks)} 息</span>

@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, isExactAlchemyRecipe, isLegacyItemInstanceId } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isExactAlchemyRecipe, isLegacyItemInstanceId } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -801,13 +801,14 @@ export class CraftPanelRuntimeService {
         (workingItem as ItemStack).enhanceLevel = currentLevel;
         (workingItem as ItemStack).count = 1;
         lockItem(player.inventory.lockedItems, workingItem as unknown as Record<string, unknown>, `enhancement:${jobRunId}`);
+        const targetItemName = getItemDisplayName({ ...target.item, enhanceLevel: currentLevel });
         player.enhancementJob = {
             jobRunId,
             jobType: 'enhancement',
             target: cloneTargetRef(target.ref),
             itemInstanceId: workingInstanceId,
             targetItemId: target.item.itemId,
-            targetItemName: target.item.name ?? target.item.itemId,
+            targetItemName,
             targetItemLevel: Math.max(1, Math.floor(Number(target.item.level) || 1)),
             currentLevel,
             targetLevel,
@@ -852,8 +853,8 @@ export class CraftPanelRuntimeService {
             messages: [{
                     kind: 'quest',
                     text: desiredTargetLevel > targetLevel
-                        ? `开始强化 ${target.item.name ?? target.item.itemId}，先冲击 +${targetLevel}，最终目标 +${desiredTargetLevel}${protection ? `，保护从 +${protectionStartLevel} 开始生效` : ''}。`
-                        : `开始强化 ${target.item.name ?? target.item.itemId}，目标 +${targetLevel}，预计耗时 ${totalTicks} 息。`,
+                        ? `开始强化 ${targetItemName}，先冲击 +${targetLevel}，最终目标 +${desiredTargetLevel}${protection ? `，保护从 +${protectionStartLevel} 开始生效` : ''}。`
+                        : `开始强化 ${targetItemName}，目标 +${targetLevel}，预计耗时 ${totalTicks} 息。`,
                 }],
         };
     }

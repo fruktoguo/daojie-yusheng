@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER, buildEffectiveTargetingGeometry } from '@mud/shared';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER, buildEffectiveTargetingGeometry, getItemDisplayName } from '@mud/shared';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
@@ -345,7 +345,8 @@ export class WorldRuntimeAutoCombatService {
                         deps.refreshQuestStates(playerId);
                     }
                     if (typeof deps.queuePlayerNotice === 'function') {
-                        const n = buildStructuredNotice('success', 'notice.combat.auto-use-item', `自动使用 ${match.item.name ?? match.item.itemId}`, { vars: { itemName: match.item.name ?? match.item.itemId }, pills: [{ key: 'itemName', style: 'target' }] });
+                        const itemName = getItemDisplayName(match.item);
+                        const n = buildStructuredNotice('success', 'notice.combat.auto-use-item', `自动使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
                         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
                     }
                 }
@@ -387,7 +388,8 @@ export class WorldRuntimeAutoCombatService {
                         deps.refreshQuestStates(playerId);
                     }
                     if (typeof deps.queuePlayerNotice === 'function') {
-                        const n = buildStructuredNotice('success', 'notice.combat.auto-use-item', `自动使用 ${match.item.name ?? match.item.itemId}`, { vars: { itemName: match.item.name ?? match.item.itemId }, pills: [{ key: 'itemName', style: 'target' }] });
+                        const itemName = getItemDisplayName(match.item);
+                        const n = buildStructuredNotice('success', 'notice.combat.auto-use-item', `自动使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
                         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
                     }
                 }

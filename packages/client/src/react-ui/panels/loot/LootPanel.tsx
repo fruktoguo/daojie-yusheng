@@ -5,6 +5,7 @@
  */
 import { memo, useCallback } from 'react';
 import type { LootWindowState } from '@mud/shared';
+import { getItemDisplayName } from '@mud/shared';
 import { getTechniqueGradeLabel } from '../../../domain-labels';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../../utils/number';
 import { createPanelStore } from '../../stores/create-panel-store';
@@ -239,6 +240,7 @@ const LootItemCell = memo(function LootItemCell({ entry, sourceId, sourceKind, i
   isHerb: boolean;
   harvesting: boolean;
 }) {
+  const displayName = getItemDisplayName(entry.item);
   const handleClick = useCallback(() => {
     if (isHerb) {
       callbacks.onStartGather?.(sourceId, entry.itemKey);
@@ -255,8 +257,8 @@ const LootItemCell = memo(function LootItemCell({ entry, sourceId, sourceKind, i
         </span>
         <span className="inventory-cell-count">{formatDisplayCountBadge(entry.item.count)}</span>
       </div>
-      <div className="inventory-cell-name" aria-label={isHerb ? t('loot.herb.start-title') : entry.item.name}>
-        {isHerb ? t('loot.herb.start-hint') : entry.item.name}
+      <div className="inventory-cell-name" aria-label={isHerb ? t('loot.herb.start-title') : displayName}>
+        {isHerb ? t('loot.herb.start-hint') : displayName}
       </div>
       <div className="inventory-cell-actions">
         <button

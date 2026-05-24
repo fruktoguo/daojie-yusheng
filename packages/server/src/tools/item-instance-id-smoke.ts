@@ -17,6 +17,8 @@ import {
     canMergeItemStack,
     coalesceItemStackList,
     createItemStackSignature,
+    getItemDisplayName,
+    getItemStackDisplayLabel,
     isLegacyItemInstanceId,
     mergeItemStackEntryInto,
     mergeItemStackInto,
@@ -78,6 +80,11 @@ function testSharedHelpers(): void {
         === createItemStackSignature({ itemId: 'foo', enhanceLevel: 0 } as any),
         true,
     );
+
+    // 显示名只在展示入口合成，item.name 本身仍作为基础数据名。
+    assert.equal(getItemDisplayName({ itemId: 'equip.test_blade', name: '测试剑', enhanceLevel: 5 }), '+5 测试剑');
+    assert.equal(getItemDisplayName({ itemId: 'equip.test_blade', name: '+5 测试剑', enhanceLevel: 5 }), '+5 测试剑');
+    assert.equal(getItemStackDisplayLabel({ itemId: 'equip.test_blade', name: '测试剑', enhanceLevel: 5, count: 2 }), '+5 测试剑 x2');
 
     console.log('[smoke] shared helpers passed');
 }
