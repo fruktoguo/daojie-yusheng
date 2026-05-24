@@ -11,6 +11,7 @@ import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel } fr
 import { ATTR_COLORS, ATTR_ICON_ATLAS_CELLS } from '../../../constants/ui/attr-panel';
 import { formatDisplayInteger, formatDisplaySignedNumber } from '../../../utils/number';
 import { FloatingTooltip } from '../../../ui/floating-tooltip';
+import { getLocalRealmLevelEntry } from '../../../content/local-templates';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,10 @@ function moveTechniqueGenerationTooltip(event: PointerEvent<HTMLElement>): void 
 
 function hideTechniqueGenerationTooltip(): void {
   getTechniqueGenerationTooltip()?.hide();
+}
+
+function formatTechniqueGenerationRealmLabel(realmLv: number): string {
+  return getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
 }
 
 export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel() {
@@ -499,7 +504,9 @@ function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): Re
       <div
         className="technique-generation-panel__rail-label"
         onPointerMove={(event) => {
-          showTechniqueGenerationTooltip('境界等级区间', [`Lv.${range.realmLvMin} - Lv.${range.realmLvMax}`], event);
+          showTechniqueGenerationTooltip('境界等级区间', [
+            `${formatTechniqueGenerationRealmLabel(range.realmLvMin)} - ${formatTechniqueGenerationRealmLabel(range.realmLvMax)}`,
+          ], event);
           moveTechniqueGenerationTooltip(event);
         }}
         onPointerLeave={hideTechniqueGenerationTooltip}
@@ -517,7 +524,7 @@ function renderRealmRange(range: TechniqueGenerationPanelState['rollRange']): Re
                 backgroundColor: REALM_CHANCE_COLORS[index % REALM_CHANCE_COLORS.length],
               }}
               onPointerMove={(event) => {
-                showTechniqueGenerationTooltip(`Lv.${entry.realmLv}`, [`概率 ${entry.chance.toFixed(1)}%`], event);
+                showTechniqueGenerationTooltip(formatTechniqueGenerationRealmLabel(entry.realmLv), [`概率 ${entry.chance.toFixed(1)}%`], event);
                 moveTechniqueGenerationTooltip(event);
               }}
               onPointerLeave={hideTechniqueGenerationTooltip}
