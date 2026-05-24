@@ -47,6 +47,7 @@ const GATHER_SPEED_PER_LEVEL = 0.02;
 const DURABLE_OPERATION_ID_MAX_LENGTH = 180;
 const DURABLE_OUTBOX_EVENT_PREFIX_LENGTH = 'outbox:'.length;
 const LOOT_OPERATION_ID_SAFE_LENGTH = DURABLE_OPERATION_ID_MAX_LENGTH - DURABLE_OUTBOX_EVENT_PREFIX_LENGTH;
+const MAX_HERB_GROWTH_CATCH_UP_STEPS = 256;
 
 function normalizeHerbLevel(level) {
     return Math.max(1, Math.floor(Number(level) || 1));
@@ -278,9 +279,7 @@ export class WorldRuntimeLootContainerService {
         if (container.variant === 'herb') {
             const herbRows = groupContainerLootRows(containerState.entries);
             const primaryItem = herbRows[0]?.item ?? null;
-            const respawnRemainingTicks = herbRows.length <= 0
-                ? getContainerRespawnRemainingTicks(containerState, currentTick)
-                : undefined;
+            const respawnRemainingTicks = getContainerRespawnRemainingTicks(containerState, currentTick);
             return {
                 sourceId: containerState.sourceId,
                 kind: 'container',
@@ -356,14 +355,17 @@ export class WorldRuntimeLootContainerService {
         const sourceId = buildContainerSourceId(instanceId, container.id);
         const existing = states.get(sourceId);
         if (existing) {
-            if (typeof existing.refreshAtTick === 'number' && existing.refreshAtTick <= currentTick && !existing.activeSearch) {
-                if (container.variant !== 'herb' || countContainerEntryItems(existing.entries) <= 0) {
+            if (container.variant === 'herb') {
+                if (this.advanceHerbGrowth(container, existing, currentTick)) {
+                    this.markContainerPersistenceDirty(instanceId);
+                }
+            }
+            else if (typeof existing.refreshAtTick === 'number' && existing.refreshAtTick <= currentTick && !existing.activeSearch) {
                     const refreshedEntries = this.generateContainerEntries(container, currentTick);
                     existing.entries = refreshedEntries;
                     existing.generatedAtTick = currentTick;
                     existing.refreshAtTick = resolveContainerRefreshAtTick(container, currentTick);
                     this.markContainerPersistenceDirty(instanceId);
-                }
             }
             return existing;
         }
@@ -379,6 +381,31 @@ export class WorldRuntimeLootContainerService {
         this.markContainerPersistenceDirty(instanceId);
         return created;
     }    
+    advanceHerbGrowth(container, state, currentTick) {
+        if (container?.variant !== 'herb') {
+            return false;
+        }
+        if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(currentTick))) {
+            return false;
+        }
+        let changed = false;
+        let nextRefreshAtTick = Math.trunc(Number(state.refreshAtTick));
+        const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        let steps = 0;
+        while (nextRefreshAtTick <= normalizedCurrentTick && steps < MAX_HERB_GROWTH_CATCH_UP_STEPS) {
+            const refreshedEntries = this.generateContainerEntries(container, nextRefreshAtTick);
+            mergeContainerEntries(state.entries, refreshedEntries);
+            state.generatedAtTick = nextRefreshAtTick;
+            nextRefreshAtTick = resolveContainerRefreshAtTick(container, nextRefreshAtTick) ?? (nextRefreshAtTick + 1);
+            state.refreshAtTick = nextRefreshAtTick;
+            changed = true;
+            steps += 1;
+        }
+        if (steps >= MAX_HERB_GROWTH_CATCH_UP_STEPS && nextRefreshAtTick <= normalizedCurrentTick) {
+            state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + 1);
+        }
+        return changed;
+    }
     /**
  * generateContainerEntries：执行generateContainer条目相关逻辑。
  * @param container 参数说明。
@@ -665,7 +692,7 @@ export class WorldRuntimeLootContainerService {
         const remainingCount = countContainerEntryItems(state.entries);
         if (remainingCount <= 0) {
             state.activeSearch = undefined;
-            if (typeof state.refreshAtTick !== 'number' || state.refreshAtTick <= normalizedTick) {
+            if (typeof state.refreshAtTick !== 'number') {
                 state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedTick);
             }
         }
@@ -925,7 +952,7 @@ export class WorldRuntimeLootContainerService {
         const remainingCount = countContainerEntryItems(state.entries);
         if (remainingCount <= 0) {
             state.activeSearch = undefined;
-            if (typeof state.refreshAtTick !== 'number' || state.refreshAtTick <= instance.tick) {
+            if (typeof state.refreshAtTick !== 'number') {
                 state.refreshAtTick = resolveContainerRefreshAtTick(container, instance.tick);
             }
         }
@@ -1528,6 +1555,23 @@ function removeSingleContainerRowItem(entries, row) {
         }
     }
     return harvestedItem;
+}
+
+function mergeContainerEntries(entries, nextEntries) {
+    for (const nextEntry of nextEntries) {
+        mergeItemStackEntryInto(entries, { ...nextEntry.item }, {
+            getItem: (entry: any) => entry.item,
+            createEntry: (item) => ({
+                item,
+                createdTick: nextEntry.createdTick,
+                visible: nextEntry.visible,
+            }),
+            onMerged: (entry: any) => {
+                entry.createdTick = Math.min(entry.createdTick, nextEntry.createdTick);
+            },
+            canMergeEntry: (entry: any) => entry.visible === nextEntry.visible,
+        });
+    }
 }
 
 function countContainerEntryItems(entries) {

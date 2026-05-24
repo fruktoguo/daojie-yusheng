@@ -18,12 +18,12 @@ async function main(): Promise<void> {
   await testContainerTakeAllDurableGrant();
   await testStartGatherSupportsColonInstanceId();
   await testHydrateContainerStatesCanonicalizesLegacySource();
-  await testHerbRefreshRegeneratesEntries();
-  await testHerbRefreshWaitsForDepletedStock();
+  await testHerbGrowthCreatesStockAndPersists();
+  await testHerbGrowthAccumulatesStockAndPersists();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
   await testGatherCompletionDurableGrant();
-  await testGatherCompletionFormatsTemplateNameAndDepletesStock();
-  await testGatherCompletionResetsExpiredRefreshAfterDepletion();
+  await testGatherCompletionFormatsTemplateNameAndConsumesOneStock();
+  await testGatherCompletionKeepsExpiredGrowthAvailable();
   await testGatherCompletionDurableGrantSyncsPresenceFence();
   await testGatherCompletionDurableRollback();
   await testGatherCompletionConsumesSingleAccumulatedStock();
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药刷新只在库存耗尽后补货，采集完成会扣空库存并显示回生倒计时，地块攻击草药会扣 1 朵并在空库存时显示回生倒计时',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
     excludes: '不证明草药采集的 profession 变更已经并入同一资产事务，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -931,7 +931,7 @@ async function testHydrateContainerStatesCanonicalizesLegacySource() {
   assert.equal(persisted[0]?.generatedAtTick, 7);
 }
 
-async function testHerbRefreshRegeneratesEntries() {
+async function testHerbGrowthCreatesStockAndPersists() {
   const instanceId = 'public:yunlai_town';
   const service = new WorldRuntimeLootContainerService({
     createItem(itemId: string, count: number) {
@@ -961,13 +961,22 @@ async function testHerbRefreshRegeneratesEntries() {
   }]);
 
   service.prepareContainerLootSource(instanceId, container as never, 5);
-  const refreshed = service.getPreparedContainerLootSource(instanceId, container as never);
-  assert.ok(refreshed);
-  assert.equal(refreshed?.items.length, 1);
-  assert.equal(refreshed?.items[0]?.item.itemId, 'mat.moondew_grass');
+  const grown = service.getPreparedContainerLootSource(instanceId, container as never, null, 5);
+  assert.ok(grown);
+  assert.equal(grown?.items.length, 1);
+  assert.equal(grown?.items[0]?.item.itemId, 'mat.moondew_grass');
+  assert.equal(grown?.items[0]?.item.count, 1);
+  assert.equal(grown?.herb?.respawnRemainingTicks, 5);
+  const persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0]?.entries.length, 1);
+  assert.equal(persisted[0]?.entries[0]?.item.itemId, 'mat.moondew_grass');
+  assert.equal(persisted[0]?.entries[0]?.item.count, 1);
+  assert.equal(persisted[0]?.generatedAtTick, 5);
+  assert.equal(persisted[0]?.refreshAtTick, 10);
 }
 
-async function testHerbRefreshWaitsForDepletedStock() {
+async function testHerbGrowthAccumulatesStockAndPersists() {
   const instanceId = 'public:yunlai_town';
   const service = new WorldRuntimeLootContainerService({
     createItem(itemId: string, count: number) {
@@ -1002,24 +1011,27 @@ async function testHerbRefreshWaitsForDepletedStock() {
     activeSearch: undefined,
   }]);
 
-  service.prepareContainerLootSource(instanceId, container as never, 5);
-  const refreshed = service.getPreparedContainerLootSource(instanceId, container as never, null, 5);
-  assert.ok(refreshed);
-  assert.equal(refreshed?.items.length, 1);
-  assert.equal(refreshed?.items[0]?.item.itemId, 'mat.moondew_grass');
-  assert.equal(refreshed?.items[0]?.item.count, 1);
-  assert.equal(refreshed?.herb?.respawnRemainingTicks, undefined);
-  assert.equal(refreshed?.destroyed, false);
+  service.prepareContainerLootSource(instanceId, container as never, 15);
+  const grown = service.getPreparedContainerLootSource(instanceId, container as never, null, 15);
+  assert.ok(grown);
+  assert.equal(grown?.items.length, 1);
+  assert.equal(grown?.items[0]?.item.itemId, 'mat.moondew_grass');
+  assert.equal(grown?.items[0]?.item.count, 4);
+  assert.equal(grown?.herb?.respawnRemainingTicks, 5);
+  assert.equal(grown?.destroyed, false);
   const persisted = service.buildContainerPersistenceStates(instanceId);
   assert.equal(persisted[0]?.entries.length, 1);
-  assert.equal(persisted[0]?.entries[0]?.item.count, 1);
-  assert.equal(persisted[0]?.refreshAtTick, 5);
+  assert.equal(persisted[0]?.entries[0]?.item.count, 4);
+  assert.equal(persisted[0]?.generatedAtTick, 15);
+  assert.equal(persisted[0]?.refreshAtTick, 20);
 
-  service.prepareContainerLootSource(instanceId, container as never, 6);
-  const unchanged = service.getPreparedContainerLootSource(instanceId, container as never);
-  assert.equal(unchanged?.items[0]?.item.count, 1);
+  service.prepareContainerLootSource(instanceId, container as never, 16);
+  const unchanged = service.getPreparedContainerLootSource(instanceId, container as never, null, 16);
+  assert.equal(unchanged?.items[0]?.item.count, 4);
+  assert.equal(unchanged?.herb?.respawnRemainingTicks, 4);
   const unchangedPersisted = service.buildContainerPersistenceStates(instanceId);
-  assert.equal(unchangedPersisted[0]?.refreshAtTick, 5);
+  assert.equal(unchangedPersisted[0]?.entries[0]?.item.count, 4);
+  assert.equal(unchangedPersisted[0]?.refreshAtTick, 20);
 }
 
 async function testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown() {
@@ -1197,7 +1209,7 @@ async function testGatherCompletionDurableGrant() {
   assert.equal(result.attrChanged, true);
 }
 
-async function testGatherCompletionFormatsTemplateNameAndDepletesStock() {
+async function testGatherCompletionFormatsTemplateNameAndConsumesOneStock() {
   const player = buildPlayer('player:gather:sunmelt', 'inst-gather-sunmelt', 'runtime:gather:sunmelt', 26);
   player.x = 5;
   player.y = 6;
@@ -1281,9 +1293,12 @@ async function testGatherCompletionFormatsTemplateNameAndDepletesStock() {
   assert.equal(depleted?.items.length, 0);
   assert.equal(depleted?.destroyed, true);
   assert.equal(depleted?.herb?.respawnRemainingTicks, 8);
+  const persisted = service.buildContainerPersistenceStates('inst-gather-sunmelt');
+  assert.equal(persisted[0]?.entries.length, 0);
+  assert.equal(persisted[0]?.refreshAtTick, 10);
 }
 
-async function testGatherCompletionResetsExpiredRefreshAfterDepletion() {
+async function testGatherCompletionKeepsExpiredGrowthAvailable() {
   const player = buildPlayer('player:gather:expired-refresh', 'inst-gather-expired-refresh', 'runtime:gather:expired-refresh', 27);
   player.x = 5;
   player.y = 6;
@@ -1303,7 +1318,11 @@ async function testGatherCompletionResetsExpiredRefreshAfterDepletion() {
     spiritStoneCost: 0,
     phase: 'gathering',
   };
-  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player, {
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number) {
+      return { itemId, count, name: '融阳子', level: 20, type: 'material' };
+    },
+  } as never, buildPlayerRuntimeService(player, {
     lootWindowTarget: { tileX: 5, tileY: 6 },
   }) as never);
   const container = {
@@ -1355,13 +1374,20 @@ async function testGatherCompletionResetsExpiredRefreshAfterDepletion() {
 
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
-  const depleted = service.getPreparedContainerLootSource('inst-gather-expired-refresh', container as never, player as never, 100);
-  assert.equal(depleted?.items.length, 0);
-  assert.equal(depleted?.herb?.respawnRemainingTicks, 50);
+  const remaining = service.getPreparedContainerLootSource('inst-gather-expired-refresh', container as never, player as never, 100);
+  assert.equal(remaining?.items.length, 1);
+  assert.equal(remaining?.items[0]?.item.count, 2);
+  assert.equal(remaining?.herb?.respawnRemainingTicks, 40);
+  assert.equal(remaining?.destroyed, false);
+  const persisted = service.buildContainerPersistenceStates('inst-gather-expired-refresh');
+  assert.equal(persisted[0]?.entries.length, 1);
+  assert.equal(persisted[0]?.entries[0]?.item.count, 2);
+  assert.equal(persisted[0]?.refreshAtTick, 140);
   service.prepareContainerLootSource('inst-gather-expired-refresh', container as never, 101);
-  const stillEmpty = service.getPreparedContainerLootSource('inst-gather-expired-refresh', container as never, player as never, 101);
-  assert.equal(stillEmpty?.items.length, 0);
-  assert.equal(stillEmpty?.herb?.respawnRemainingTicks, 49);
+  const stillGrowing = service.getPreparedContainerLootSource('inst-gather-expired-refresh', container as never, player as never, 101);
+  assert.equal(stillGrowing?.items.length, 1);
+  assert.equal(stillGrowing?.items[0]?.item.count, 2);
+  assert.equal(stillGrowing?.herb?.respawnRemainingTicks, 39);
 }
 
 async function testGatherCompletionDurableGrantSyncsPresenceFence() {
