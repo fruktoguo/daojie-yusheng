@@ -4,8 +4,11 @@
  * 维护时要优先考虑幂等、崩溃恢复和数据库真源，避免在 tick 内直接引入阻塞 IO。
  */
 import { isLegacyItemInstanceId } from '@mud/shared';
+import { Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
+
+const logger = new Logger('ItemInstanceIdCompat');
 
 export interface ItemInstanceIdPersistenceRowSource {
   entry: Record<string, unknown> | null;
@@ -27,8 +30,11 @@ export function assignStableItemInstanceId(
   const nextItemInstanceId = normalizedSource && !isLegacyItemInstanceId(normalizedSource)
     ? normalizedSource
     : randomUUID();
-  if (nextItemInstanceId !== normalizedSource && sourceRecords) {
-    writeItemInstanceIdToSources(sourceRecords, nextItemInstanceId);
+  if (nextItemInstanceId !== normalizedSource) {
+    logger.warn(`装备 itemInstanceId 走 legacy 兼容重分配：source=${normalizedSource || '(empty)'} -> ${nextItemInstanceId}`);
+    if (sourceRecords) {
+      writeItemInstanceIdToSources(sourceRecords, nextItemInstanceId);
+    }
   }
   return nextItemInstanceId;
 }

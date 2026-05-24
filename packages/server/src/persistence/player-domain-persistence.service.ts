@@ -42,6 +42,7 @@ import { ensureBigintColumnsWithClient, ensureDoubleColumnsWithClient } from './
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
+const playerDomainModuleLogger = new Logger('PlayerDomainPersistence:LegacyCompat');
 const PLAYER_WORLD_ANCHOR_TABLE = 'player_world_anchor';
 const PLAYER_POSITION_CHECKPOINT_TABLE = 'player_position_checkpoint';
 const PLAYER_VITALS_TABLE = 'player_vitals';
@@ -3899,6 +3900,9 @@ async function replacePlayerInventoryItems(
     let itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
       ? sourceItemInstanceId
       : `inv:${playerId}:${slotIndex}`;
+    if (!sourceItemInstanceId || isLegacyItemInstanceId(sourceItemInstanceId)) {
+      playerDomainModuleLogger.warn(`背包物品缺少有效 itemInstanceId，走 legacy fallback：playerId=${playerId} slot=${slotIndex} itemId=${normalizeOptionalString(entry?.itemId)}`);
+    }
     const rawPayload = asRecord(entry?.rawPayload);
     const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);
     const persistedPayload = buildPersistedInventoryItemRawPayload({

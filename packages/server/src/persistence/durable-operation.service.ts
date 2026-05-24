@@ -32,6 +32,7 @@ const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const MARKET_ORDER_TABLE = 'server_market_order';
 const PLAYER_EQUIPMENT_SLOT_TABLE = 'player_equipment_slot';
 const PLAYER_QUEST_PROGRESS_TABLE = 'player_quest_progress';
+const durableModuleLogger = new Logger('DurableOperation:LegacyCompat');
 const PLAYER_ACTIVE_JOB_TABLE = 'player_active_job';
 const PLAYER_ENHANCEMENT_RECORD_TABLE = 'player_enhancement_record';
 const PLAYER_MAIL_TABLE = 'player_mail';
@@ -3399,6 +3400,9 @@ async function replacePlayerInventoryItems(
     const itemInstanceId = sourceItemInstanceId && !isLegacyItemInstanceId(sourceItemInstanceId)
       ? sourceItemInstanceId
       : `inv:${playerId}:${index}`;
+    if (!sourceItemInstanceId || isLegacyItemInstanceId(sourceItemInstanceId)) {
+      durableModuleLogger.warn(`durable 背包物品缺少有效 itemInstanceId，走 legacy fallback：playerId=${playerId} index=${index}`);
+    }
     const row = {
       item_instance_id: itemInstanceId,
       slot_index: index,

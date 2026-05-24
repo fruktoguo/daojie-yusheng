@@ -59,6 +59,7 @@ const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
 
 /** 兼容旧 bcrypt 记录时使用的哨兵盐值。 */
 const LEGACY_BCRYPT_SENTINEL_SALT = '__legacy_bcrypt__';
+const gmAuthModuleLogger = new Logger('RuntimeGmAuth');
 
 @Injectable()
 export class RuntimeGmAuthService {
@@ -499,6 +500,7 @@ async function verifyPassword(password: unknown, record: GmPasswordRecord): Prom
     if (record.salt === LEGACY_BCRYPT_SENTINEL_SALT) {
         // N48：旧 bcrypt 记录改走异步 bcrypt.compare，避免一次性 100ms 主线程阻塞；
         // 单进程登录风暴下，60 个登录请求会被错峰摊到 libuv 线程池，而不是同步串成 6 秒事件循环冻结。
+        gmAuthModuleLogger.warn('GM 密码验证走旧版 bcrypt 兼容路径，请尽快通过 GM 面板重设密码以迁移到 scrypt 格式');
         try {
             return await bcrypt.compare(normalizedPassword, record.hash);
         }
