@@ -74,6 +74,7 @@ interface InstanceDomainStatePayload {
   kind: typeof INSTANCE_DOMAIN_STATE_PAYLOAD_KIND;
   domain: string;
   payload: unknown;
+  revision?: number;
   watermarkPayload?: unknown;
 }
 
@@ -318,7 +319,12 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     if (domain === 'ground_item') {
       const delta = runtime.buildGroundPersistenceDelta?.();
       return delta && delta.fullReplace !== true
-        ? { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain, payload: { tileIndices: delta.tileIndices ?? [], entries: delta.entries ?? [] } }
+        ? {
+            kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND,
+            domain,
+            revision: resolveRevision(runtime.getPersistenceRevision?.()),
+            payload: { tileIndices: delta.tileIndices ?? [], entries: delta.entries ?? [] },
+          }
         : null;
     }
     if (domain === 'overlay') {
@@ -558,11 +564,23 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     let processed = 0;
     for (const { task, payload } of payloadRows as Array<{ task: FlushTask; payload: InstanceDomainStatePayload }>) {
       if (!payload) continue;
-      await this.applyInstanceDomainStatePayload(task.id, payload);
-      if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
-        processed += 1;
+      try {
+        await this.applyInstanceDomainStatePayload(task, payload);
+        if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+          processed += 1;
+        }
+        this.failureAttempts.delete(instanceTaskKey(task));
+      } catch (error) {
+        if (isStaleGroundItemStatePayloadError(error)) {
+          this.logger.warn(`实例地面物品刷盘放弃 stale payload：instanceId=${task.id} latestRevision=${task.latestRevision}`);
+          if (await this.flushLedgerService.markFlushTaskFlushed(task)) {
+            processed += 1;
+          }
+          this.failureAttempts.delete(instanceTaskKey(task));
+          continue;
+        }
+        await this.markTaskRetryWithDiagnostics(task, error);
       }
-      this.failureAttempts.delete(instanceTaskKey(task));
     }
     return processed;
   }
@@ -615,13 +633,17 @@ export class FlushTaskRuntimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async applyInstanceDomainStatePayload(instanceId: string, payload: InstanceDomainStatePayload): Promise<void> {
+  private async applyInstanceDomainStatePayload(task: FlushTask, payload: InstanceDomainStatePayload): Promise<void> {
+    const instanceId = task.id;
     const persistence = this.worldRuntimeService.instanceDomainPersistenceService;
     if (!persistence) {
       throw new Error(`instance_domain_persistence_missing:${instanceId}:${payload.domain}`);
     }
     switch (payload.domain) {
       case 'ground_item': {
+        if (!isPayloadRevisionCurrent(payload, task.latestRevision)) {
+          throw new Error(`stale_ground_item_state_payload:${task.id}:${task.latestRevision}:${payload.revision ?? 'missing'}`);
+        }
         const data = payload.payload as { tileIndices?: unknown[]; entries?: unknown[] } | null;
         await persistence.replaceGroundItemTiles?.(instanceId, data?.tileIndices ?? [], data?.entries ?? []);
         return;
@@ -913,7 +935,31 @@ function normalizeInstanceDomainStatePayload(value: unknown): InstanceDomainStat
   if (record.kind !== INSTANCE_DOMAIN_STATE_PAYLOAD_KIND || typeof record.domain !== 'string') {
     return null;
   }
-  return { kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND, domain: record.domain, payload: record.payload, watermarkPayload: record.watermarkPayload };
+  return {
+    kind: INSTANCE_DOMAIN_STATE_PAYLOAD_KIND,
+    domain: record.domain,
+    payload: record.payload,
+    revision: normalizeOptionalRevision(record.revision),
+    watermarkPayload: record.watermarkPayload,
+  };
+}
+
+function isPayloadRevisionCurrent(payload: InstanceDomainStatePayload, latestRevision: unknown): boolean {
+  const payloadRevision = payload.revision;
+  const taskRevision = normalizeOptionalRevision(latestRevision);
+  return payloadRevision !== undefined && taskRevision !== undefined && payloadRevision === taskRevision;
+}
+
+function isStaleGroundItemStatePayloadError(error: unknown): boolean {
+  return error instanceof Error && error.message.startsWith('stale_ground_item_state_payload:');
+}
+
+function normalizeOptionalRevision(value: unknown): number | undefined {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+  return Math.max(0, Math.trunc(parsed));
 }
 
 function normalizeInstanceDomainDeltaPayload(value: unknown): InstanceDomainDeltaPayload | null {

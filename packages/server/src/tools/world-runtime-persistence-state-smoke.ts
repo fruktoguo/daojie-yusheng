@@ -452,6 +452,52 @@ async function testFlushFullReplaceMonsterRuntimeDomain() {
     ]);
 }
 
+async function testFlushFullReplaceGroundItemDomain() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        tick: 901,
+        getPersistenceRevision() { return 16; },
+        buildGroundPersistenceDelta() {
+            log.push('buildGroundPersistenceDelta');
+            return { fullReplace: true, tileIndices: [], entries: [] };
+        },
+        buildGroundPersistenceEntries() {
+            log.push('buildGroundPersistenceEntries');
+            return [{ tileIndex: 5, items: [{ itemId: 'spirit_stone', count: 3 }] }];
+        },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['ground_item'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async replaceGroundItems(instanceId, entries) {
+                log.push(['replaceGroundItems', instanceId, entries.length]);
+            },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        'buildGroundPersistenceDelta',
+        'buildGroundPersistenceEntries',
+        ['replaceGroundItems', 'public:yunlai_town', 1],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 901, 16, ['ground_item']],
+        ['markPersistenceDomainsPersisted', ['ground_item']],
+    ]);
+}
+
 async function testFlushTimeDomainCheckpoint() {
     const log = [];
     const service = new WorldRuntimePersistenceStateService();
@@ -553,6 +599,7 @@ Promise.all([
     testFlushIncrementalInstanceDomains(),
     testFlushFullReplaceTileDamageDomain(),
     testFlushFullReplaceMonsterRuntimeDomain(),
+    testFlushFullReplaceGroundItemDomain(),
     testFlushTemporaryTileDomain(),
     testFlushTimeDomainCheckpoint(),
 ]).then(() => {

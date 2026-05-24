@@ -56,12 +56,49 @@ async function main(): Promise<void> {
     assert.ok(after.playerRows <= 1);
     assert.ok(after.instanceRows <= 1);
 
+    await ledger.upsertInstanceFlushLedger({
+      instanceId: INSTANCE_ID,
+      domain: `${DOMAIN}_payload_replace`,
+      ownershipEpoch: 1,
+      latestVersion: 1,
+      payloadJson: {
+        kind: 'instance_domain_state',
+        domain: 'ground_item',
+        payload: { tileIndices: [2195], entries: [] },
+      },
+    });
+    await ledger.upsertInstanceFlushLedger({
+      instanceId: INSTANCE_ID,
+      domain: `${DOMAIN}_payload_replace`,
+      ownershipEpoch: 1,
+      latestVersion: 2,
+      payloadJson: null,
+    });
+    const payloadCleared = await loadInstancePayload(pool, `${DOMAIN}_payload_replace`);
+    assert.equal(payloadCleared, null);
+
+    await ledger.upsertInstanceFlushLedger({
+      instanceId: INSTANCE_ID,
+      domain: `${DOMAIN}_payload_replace`,
+      ownershipEpoch: 1,
+      latestVersion: 2,
+      payloadJson: {
+        kind: 'instance_domain_state',
+        domain: 'ground_item',
+        revision: 2,
+        payload: { tileIndices: [7], entries: [{ tileIndex: 7, items: [] }] },
+      },
+    });
+    const payloadReplaced = await loadInstancePayload(pool, `${DOMAIN}_payload_replace`) as { revision?: unknown; payload?: { tileIndices?: unknown[] } } | null;
+    assert.equal(payloadReplaced?.revision, 2);
+    assert.deepEqual(payloadReplaced?.payload?.tileIndices, [7]);
+
     console.log(JSON.stringify({
       ok: true,
       result,
       before,
       after,
-      answers: 'flush ledger retention 对 completed ledger rows 生效：旧 payload_jsonb 被置空，超过行保留期的 completed 空 payload rows 被删除。',
+      answers: 'flush ledger retention 对 completed ledger rows 生效；新版本无 payload 会清掉旧 payload_jsonb，避免旧实例状态包被后续重放。',
       completionMapping: 'flush-ledger-retention',
     }, null, 2));
   } finally {
@@ -106,6 +143,15 @@ async function loadProbeCounts(pool: Pool): Promise<Record<string, number>> {
 async function cleanup(pool: Pool): Promise<void> {
   await pool.query('DELETE FROM player_flush_ledger WHERE domain = $1', [DOMAIN]).catch(() => undefined);
   await pool.query('DELETE FROM instance_flush_ledger WHERE domain = $1', [DOMAIN]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_flush_ledger WHERE domain = $1', [`${DOMAIN}_payload_replace`]).catch(() => undefined);
+}
+
+async function loadInstancePayload(pool: Pool, domain: string): Promise<unknown> {
+  const result = await pool.query(
+    'SELECT payload_jsonb FROM instance_flush_ledger WHERE instance_id = $1 AND domain = $2 AND ownership_epoch = 1 LIMIT 1',
+    [INSTANCE_ID, domain],
+  );
+  return result.rows[0]?.payload_jsonb ?? null;
 }
 
 main().catch((error) => {

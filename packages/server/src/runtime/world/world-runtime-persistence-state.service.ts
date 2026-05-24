@@ -214,6 +214,11 @@ export class WorldRuntimePersistenceStateService {
             if (delta && delta.fullReplace !== true && typeof persistence.replaceGroundItemTiles === 'function') {
                 await persistence.replaceGroundItemTiles(instanceId, delta.tileIndices ?? [], delta.entries ?? []);
             }
+            else if (delta?.fullReplace === true && typeof persistence.replaceGroundItems === 'function') {
+                await persistence.replaceGroundItems(instanceId, typeof instance.buildGroundPersistenceEntries === 'function'
+                    ? instance.buildGroundPersistenceEntries()
+                    : []);
+            }
             else {
                 throw new Error(`instance_domain_delta_required:${instanceId}:ground_item`);
             }

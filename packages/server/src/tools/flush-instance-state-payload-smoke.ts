@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     payloadJson: unknown;
     expected: string;
   }> = [
-    { id: 'instance-ground', domain: 'ground_item', payloadJson: { kind: 'instance_domain_state', domain: 'ground_item', payload: { tileIndices: [1], entries: [{ id: 'g1' }] } }, expected: 'ground_item:instance-ground:1:1' },
+    { id: 'instance-ground', domain: 'ground_item', payloadJson: { kind: 'instance_domain_state', domain: 'ground_item', revision: 1, payload: { tileIndices: [1], entries: [{ id: 'g1' }] } }, expected: 'ground_item:instance-ground:1:1' },
     { id: 'instance-overlay', domain: 'overlay', payloadJson: { kind: 'instance_domain_state', domain: 'overlay', payload: [{ chunkKey: 'overlay-1', patchKind: 'replace', patchVersion: 1, patchPayload: { x: 1 } }] }, expected: 'overlay:instance-overlay:overlay-1' },
     { id: 'instance-monster', domain: 'monster_runtime', payloadJson: { kind: 'instance_domain_state', domain: 'monster_runtime', payload: { fullReplace: false, upserts: [{ monsterId: 'm1' }], deletes: [] } }, expected: 'monster_runtime:instance-monster:1:0' },
     { id: 'instance-container', domain: 'container_state', payloadJson: { kind: 'instance_domain_state', domain: 'container_state', payload: [{ containerId: 'c1', sourceId: 's1', items: [] }] }, expected: 'container_state:instance-container:c1' },
@@ -94,7 +94,8 @@ async function main(): Promise<void> {
         ledger as never,
         { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
         undefined,
-        persistence as never,
+        undefined,
+        undefined,
       );
       const processed = await runtime.runOnce(`instance-state-payload:${scenario.id}`);
       assert.equal(processed, 1);
@@ -159,13 +160,66 @@ async function main(): Promise<void> {
       mixedLedger as never,
       { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
       undefined,
-      persistence as never,
+      undefined,
+      undefined,
     );
     const mixedProcessed = await mixedRuntime.runOnce('instance-state-payload:mixed');
     assert.equal(mixedProcessed, 1);
     assert.deepEqual(mixedFlushedDomains, ['monster_runtime']);
     assert.deepEqual(mixedRetriedDomains, ['time']);
     assert.equal(flushed.at(-1), 'monster_runtime:instance-mixed:1:0');
+
+    const staleGroundRetriedDomains: string[] = [];
+    const staleGroundFlushedDomains: string[] = [];
+    let staleGroundClaimed = false;
+    const staleGroundLedger = {
+      isEnabled: () => true,
+      claimReadyFlushTasks: async (input: { scope: string }) => {
+        if (input.scope !== 'instance' || staleGroundClaimed) return [];
+        staleGroundClaimed = true;
+        return [{
+          scope: 'instance',
+          id: 'instance-stale-ground',
+          domain: 'ground_item',
+          priority: 'normal',
+          latestRevision: 9,
+          ownershipEpoch: 1,
+          payloadJson: {
+            kind: 'instance_domain_state',
+            domain: 'ground_item',
+            payload: { tileIndices: [2195], entries: [] },
+          },
+        }] satisfies FlushTask[];
+      },
+      markFlushTaskFlushed: async (task: FlushTask) => {
+        staleGroundFlushedDomains.push(task.domain);
+        return true;
+      },
+      markFlushTasksRetry: async () => 0,
+      markFlushTaskRetry: async (task: FlushTask) => {
+        staleGroundRetriedDomains.push(task.domain);
+        return true;
+      },
+    };
+    const staleGroundRuntime = new FlushTaskRuntimeService(
+      { listDirtyPlayerDomains: () => new Map() } as never,
+      {
+        instanceDomainPersistenceService: persistence,
+        listDirtyPersistentInstanceDomains: () => [],
+        getInstanceRuntime: () => null,
+      } as never,
+      { flushPlayerDomains: async () => true } as never,
+      staleGroundLedger as never,
+      { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+      undefined,
+      undefined,
+      undefined,
+    );
+    const staleGroundProcessed = await staleGroundRuntime.runOnce('instance-state-payload:stale-ground');
+    assert.equal(staleGroundProcessed, 1);
+    assert.deepEqual(staleGroundRetriedDomains, []);
+    assert.deepEqual(staleGroundFlushedDomains, ['ground_item']);
+    assert.equal(flushed.includes('ground_item:instance-stale-ground:1:0'), false);
 
     const dedupeTasks = [
       {
@@ -251,7 +305,8 @@ async function main(): Promise<void> {
         dedupeLedger as never,
         { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
         undefined,
-        dedupePersistence as never,
+        undefined,
+        undefined,
       );
       dedupeProcessed += await dedupeRuntime.runOnce(`instance-state-payload:dedupe:${dedupeTask.domain}`);
     }
@@ -289,7 +344,8 @@ async function main(): Promise<void> {
       stagingLedger as never,
       { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
       undefined,
-      persistence as never,
+      undefined,
+      undefined,
     );
     await stagingRuntime.stageDirtyTasksOnce();
     assert.equal(staged.length, 1);
@@ -299,6 +355,34 @@ async function main(): Promise<void> {
     assert.equal(stagedTask.payloadJson?.domain, 'time');
     assert.equal(stagedTask.payloadJson?.payload?.tick, 42);
     assert.equal(stagedTask.payloadJson?.payload?.templateId, 'stage-template');
+
+    staged.length = 0;
+    const stagingGroundRuntime = new FlushTaskRuntimeService(
+      { listDirtyPlayerDomains: () => new Map() } as never,
+      {
+        listDirtyPersistentInstanceDomains: () => [{ instanceId: 'stage-ground', domains: ['ground_item'] }],
+        getInstanceRuntime: () => ({
+          meta: { persistent: true, ownershipEpoch: 3 },
+          getPersistenceRevision: () => 12,
+          buildGroundPersistenceDelta: () => ({ fullReplace: false, tileIndices: [7], entries: [{ tileIndex: 7, items: [{ itemId: 'stone', count: 1 }] }] }),
+        }) as never,
+      } as never,
+      { flushPlayerDomains: async () => true } as never,
+      stagingLedger as never,
+      { signalPlayerFlush() {}, signalInstanceFlush() {} } as never,
+      undefined,
+      undefined,
+      undefined,
+    );
+    await stagingGroundRuntime.stageDirtyTasksOnce();
+    assert.equal(staged.length, 1);
+    const stagedGroundTask = staged[0] as { domain?: string; latestRevision?: number; payloadJson?: { kind?: string; domain?: string; revision?: number; payload?: { tileIndices?: number[] } } | null };
+    assert.equal(stagedGroundTask.domain, 'ground_item');
+    assert.equal(stagedGroundTask.latestRevision, 12);
+    assert.equal(stagedGroundTask.payloadJson?.kind, 'instance_domain_state');
+    assert.equal(stagedGroundTask.payloadJson?.domain, 'ground_item');
+    assert.equal(stagedGroundTask.payloadJson?.revision, 12);
+    assert.deepEqual(stagedGroundTask.payloadJson?.payload?.tileIndices, [7]);
   } finally {
     restoreEnv('SERVER_RUNTIME_ROLE', previousRole);
     restoreEnv('SERVER_FLUSH_TASK_RUNTIME_MODE', previousMode);

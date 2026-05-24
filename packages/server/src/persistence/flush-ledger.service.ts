@@ -354,7 +354,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${PLAYER_FLUSH_LEDGER_TABLE}.runtime_owner_id),
           fencing_token = COALESCE(EXCLUDED.fencing_token, ${PLAYER_FLUSH_LEDGER_TABLE}.fencing_token),
           idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${PLAYER_FLUSH_LEDGER_TABLE}.idempotency_key),
-          payload_jsonb = COALESCE(EXCLUDED.payload_jsonb, ${PLAYER_FLUSH_LEDGER_TABLE}.payload_jsonb),
+          payload_jsonb = CASE
+            WHEN EXCLUDED.latest_version > ${PLAYER_FLUSH_LEDGER_TABLE}.latest_version THEN EXCLUDED.payload_jsonb
+            ELSE COALESCE(EXCLUDED.payload_jsonb, ${PLAYER_FLUSH_LEDGER_TABLE}.payload_jsonb)
+          END,
           failure_category = COALESCE(EXCLUDED.failure_category, ${PLAYER_FLUSH_LEDGER_TABLE}.failure_category),
           retry_after = LEAST(
             COALESCE(${PLAYER_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
@@ -429,7 +432,10 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
           runtime_owner_id = COALESCE(EXCLUDED.runtime_owner_id, ${INSTANCE_FLUSH_LEDGER_TABLE}.runtime_owner_id),
           fencing_token = COALESCE(EXCLUDED.fencing_token, ${INSTANCE_FLUSH_LEDGER_TABLE}.fencing_token),
           idempotency_key = COALESCE(EXCLUDED.idempotency_key, ${INSTANCE_FLUSH_LEDGER_TABLE}.idempotency_key),
-          payload_jsonb = COALESCE(EXCLUDED.payload_jsonb, ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb),
+          payload_jsonb = CASE
+            WHEN EXCLUDED.latest_version > ${INSTANCE_FLUSH_LEDGER_TABLE}.latest_version THEN EXCLUDED.payload_jsonb
+            ELSE COALESCE(EXCLUDED.payload_jsonb, ${INSTANCE_FLUSH_LEDGER_TABLE}.payload_jsonb)
+          END,
           failure_category = COALESCE(EXCLUDED.failure_category, ${INSTANCE_FLUSH_LEDGER_TABLE}.failure_category),
           retry_after = LEAST(
             COALESCE(${INSTANCE_FLUSH_LEDGER_TABLE}.retry_after, EXCLUDED.retry_after),
