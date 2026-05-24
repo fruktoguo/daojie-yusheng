@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable } from '@nestjs/common';
-import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER, buildEffectiveTargetingGeometry, getItemDisplayName } from '@mud/shared';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, PLAYER_TARGETING_PREFERENCE_THREAT_MULTIPLIER, buildEffectiveTargetingGeometry, getItemDisplayName, resolveSkillRequiresTarget } from '@mud/shared';
 import { isHostileCombatRelationResolution, resolveCombatRelation } from '../../player/player-combat-config.helpers';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
@@ -121,7 +121,7 @@ function isBuffActive(player, buffId) {
 }
 
 function getAutoSelfBuffEffects(skill) {
-    if (skill?.requiresTarget !== false) {
+    if (resolveSkillRequiresTarget(skill) !== false) {
         return [];
     }
     const effects = Array.isArray(skill?.effects) ? skill.effects : [];
@@ -191,11 +191,12 @@ function resolveAutoBattleEffectiveSkillRange(player, skill, action) {
         extraRange: Math.max(0, Math.floor(Number(player?.attrs?.numericStats?.extraRange ?? 0))),
         extraArea: Math.max(0, Math.floor(Number(player?.attrs?.numericStats?.extraArea ?? 0))),
     }).range;
+    const requiresTarget = resolveSkillRequiresTarget(skill);
     const fallbackActionRange = Number.isFinite(Number(action?.range))
-        ? Math.max(skill?.requiresTarget === false ? 0 : 1, Math.round(Number(action.range)))
+        ? Math.max(requiresTarget === false ? 0 : 1, Math.round(Number(action.range)))
         : skillRange;
     const baseRange = hasAuthoritativeSkillRange ? skillRange : fallbackActionRange;
-    return Math.max(skill?.requiresTarget === false ? 0 : 1, Math.round(Number(baseRange) || 0));
+    return Math.max(requiresTarget === false ? 0 : 1, Math.round(Number(baseRange) || 0));
 }
 
 function buildAutoBattleSkillLookup(player) {
@@ -1070,7 +1071,7 @@ export class WorldRuntimeAutoCombatService {
                 }
                 continue;
             }
-            if (skill.requiresTarget === false && (action.range ?? 0) === 0) {
+            if (resolveSkillRequiresTarget(skill) === false && (action.range ?? 0) === 0) {
                 return {
                     skill,
                     action,

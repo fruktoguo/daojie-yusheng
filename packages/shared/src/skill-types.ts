@@ -724,6 +724,33 @@ export interface SkillDef {
   monsterCast?: SkillMonsterCastDef;
 }
 
+export function resolveSkillEffectiveRange(skill: {
+  range?: number;
+  targeting?: SkillTargetingDef;
+} | null | undefined): number {
+  const targetingRange = skill?.targeting?.range;
+  if (Number.isFinite(Number(targetingRange))) {
+    return Math.max(0, Math.trunc(Number(targetingRange)));
+  }
+  if (Number.isFinite(Number(skill?.range))) {
+    return Math.max(0, Math.trunc(Number(skill?.range)));
+  }
+  return 1;
+}
+
+export function resolveSkillRequiresTarget(
+  skill: {
+    range?: number;
+    targeting?: SkillTargetingDef;
+    requiresTarget?: boolean;
+  } | null | undefined,
+): boolean {
+  if (resolveSkillEffectiveRange(skill) <= 0) {
+    return false;
+  }
+  return skill?.requiresTarget !== false;
+}
+
 /** 临时 Buff 状态（含属性和数值加成）。 */
 export interface TemporaryBuffState extends VisibleBuffState {
 /**

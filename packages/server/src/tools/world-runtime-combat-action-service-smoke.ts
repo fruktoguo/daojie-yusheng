@@ -2387,7 +2387,6 @@ async function run() {
       actions: [{
         id: 'skill:self-ref-center-aoe',
         type: 'skill',
-        requiresTarget: false,
         skillEnabled: true,
       }],
     },
@@ -2398,7 +2397,6 @@ async function run() {
           id: 'skill:self-ref-center-aoe',
           name: '自锚点震荡',
           range: 0,
-          requiresTarget: false,
           targeting: { shape: 'area', range: 0, radius: 4, maxTargets: 3 },
           playerCast: { windupTicks: 1 },
           effects: [{ type: 'damage', formula: 1 }],

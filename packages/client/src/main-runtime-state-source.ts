@@ -15,6 +15,7 @@ import {
   PlayerState,
   TechniqueState,
   ActionDef,
+  resolveSkillRequiresTarget,
 } from '@mud/shared';
 import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
 import { getLocalSkillTemplate, resolvePreviewItem, resolvePreviewQuests } from './content/local-templates';
@@ -329,14 +330,22 @@ function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): Ac
   const skillTemplate = getLocalSkillTemplate(action.id);
   const staticAction = getStaticClientActionDef(action.id);
   const nextType = action.type ?? staticAction?.type ?? (skillTemplate ? 'skill' : 'interact');
+  const range = action.range ?? staticAction?.range ?? skillTemplate?.range;
+  const requiresTarget = action.requiresTarget ?? staticAction?.requiresTarget ?? skillTemplate?.requiresTarget;
   return {
     id: action.id,
     name: String(action.name ?? staticAction?.name ?? skillTemplate?.name ?? '').trim() || '未知动作',
     type: nextType,
     desc: action.desc ?? staticAction?.desc ?? skillTemplate?.desc ?? '',
     cooldownLeft: action.cooldownLeft ?? 0,
-    range: action.range ?? staticAction?.range ?? skillTemplate?.range,
-    requiresTarget: action.requiresTarget ?? staticAction?.requiresTarget ?? skillTemplate?.requiresTarget ?? (nextType === 'skill' ? true : undefined),
+    range,
+    requiresTarget: nextType === 'skill'
+      ? resolveSkillRequiresTarget({
+        range,
+        targeting: skillTemplate?.targeting,
+        requiresTarget,
+      })
+      : requiresTarget,
     targetMode: action.targetMode ?? staticAction?.targetMode ?? skillTemplate?.targetMode ?? (nextType === 'skill' ? 'any' : undefined),
     autoBattleEnabled: action.autoBattleEnabled,
     autoBattleOrder: action.autoBattleOrder,

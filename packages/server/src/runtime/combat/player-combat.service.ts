@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, signedRatioValue } from '@mud/shared';
+import { calcQiCostWithOutputLimit, compileValueStatsToActualStats, percentModifierToMultiplier, resolveSkillEffectiveRange, signedRatioValue } from '@mud/shared';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveMonsterCombatExpEquivalentFallback } from './monster-combat-exp-equivalent.helper';
 import { resolveCombatDamage, resolveTileCombatDamage } from './combat-pipeline-compose';
@@ -386,23 +386,14 @@ function toCombatPlayerState(player) {
 
 /** 获取技能射程（优先 targeting.range，兜底 skill.range）。 */
 function resolveSkillRange(skill) {
-    const targetingRange = skill.targeting?.range;
-    if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
-        return skill.requiresTarget === false
-            ? Math.max(0, Math.round(targetingRange))
-            : Math.max(1, Math.round(targetingRange));
-    }
-    const raw = Math.round(skill.range);
-    return skill.requiresTarget === false ? Math.max(0, raw) : Math.max(1, raw);
+    return resolveSkillEffectiveRange(skill);
 }
 
 /** 获取有效施放射程（options 可覆盖）。 */
 function resolveEffectiveSkillCastRange(skill, options) {
     const optionRange = Number(options?.range);
     if (Number.isFinite(optionRange)) {
-        return skill?.requiresTarget === false
-            ? Math.max(0, Math.round(optionRange))
-            : Math.max(1, Math.round(optionRange));
+        return Math.max(0, Math.round(optionRange));
     }
     return resolveSkillRange(skill);
 }

@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -7356,7 +7356,7 @@ function canMonsterCastSkill(monster, skill, distance, currentTick) {
         return false;
     }
     const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
-    if (skill.requiresTarget !== false && distance > skillRange) {
+    if (resolveSkillRequiresTarget(skill) && distance > skillRange) {
         return false;
     }
 

@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Direction, TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, parseTileTargetRef, percentModifierToMultiplier, signedRatioValue, uiLabels } from '@mud/shared';
+import { Direction, TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -159,13 +159,13 @@ function isTemporaryTileSkill(skill) {
 
 function isSelfBuffNoTargetSkill(skill) {
     const effects = Array.isArray(skill?.effects) ? skill.effects : [];
-    return skill?.requiresTarget === false
+    return resolveSkillRequiresTarget(skill) === false
         && effects.length > 0
         && effects.every((effect) => effect?.type === 'buff' && effect.target === 'self');
 }
 
 function isSelfAnchoredNoTargetSkill(skill) {
-    return skill?.requiresTarget === false
+    return resolveSkillRequiresTarget(skill) === false
         && !isSelfBuffNoTargetSkill(skill)
         && resolveRuntimeSkillRange(skill) <= 0;
 }
@@ -542,7 +542,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, null, deps);
         }
         if (targetRef && !targetMonsterId && !targetPlayerId) {
-            if (targetRef === 'self' && skill.requiresTarget === false && !isSelfBuffNoTargetSkill(skill)) {
+            if (targetRef === 'self' && resolveSkillRequiresTarget(skill) === false && !isSelfBuffNoTargetSkill(skill)) {
                 const anchor = { x: attacker.x, y: attacker.y };
                 if (getPlayerSkillWindupTicks(skill) > 0) {
                     return this.beginPlayerSkillCast(attacker, skill, anchor, null, deps);
@@ -602,7 +602,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             return this.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
         }
         if (!targetPlayerId) {
-            if (skill.requiresTarget === false) {
+            if (resolveSkillRequiresTarget(skill) === false) {
                 const anchor = { x: attacker.x, y: attacker.y };
                 if (isSelfBuffNoTargetSkill(skill)) {
                     const selfTarget = { kind: 'self', playerId: attacker.playerId, x: attacker.x, y: attacker.y };
@@ -656,7 +656,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         let targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
         if (targets.length === 0) {
             // 含有 heal/allies 效果或 requiresTarget:false 的技能允许无敌对目标释放
-            if (hasHealOrAlliesEffect(skill) || skill.requiresTarget === false) {
+            if (hasHealOrAlliesEffect(skill) || resolveSkillRequiresTarget(skill) === false) {
                 targets = [{ kind: 'self', playerId: attacker.playerId, x: attacker.x, y: attacker.y }];
             } else {
                 throw new BadRequestException('没有可命中的目标');

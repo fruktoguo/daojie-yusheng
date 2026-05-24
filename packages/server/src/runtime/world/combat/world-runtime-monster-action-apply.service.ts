@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { getDamageTrailColor } from '@mud/shared';
+import { getDamageTrailColor, resolveSkillRequiresTarget } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
@@ -377,7 +377,7 @@ export class WorldRuntimeMonsterActionApplyService {
                     });
                     labelPushed = true;
                 }
-                if (skill.requiresTarget === false) {
+                if (resolveSkillRequiresTarget(skill) === false) {
                     continue;
                 }
                 const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
@@ -434,7 +434,7 @@ export class WorldRuntimeMonsterActionApplyService {
                     deps.handlePlayerDefeat(updatedPlayer.playerId);
                 }
             }
-            if (skill.requiresTarget !== false && resolvedTargetCount === 0) {
+            if (resolveSkillRequiresTarget(skill) && resolvedTargetCount === 0) {
                 this.recordMonsterActionReject(deps, action, CombatRejectReason.MissingTargetRuntimeState, {
                     selectedTargetCount: actionPlan.selectedTargets.length,
                     rejectedTargets: actionPlan.targetCollection.rejected,

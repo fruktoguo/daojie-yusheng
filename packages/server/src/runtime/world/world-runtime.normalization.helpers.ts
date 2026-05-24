@@ -11,7 +11,7 @@
 /** 运行时参数标准化工具：统一输入解析、比较稳定性与展示数据。
  * 职责：输入校验、ID 构建、坐标/数值归一化。 */
 import { BadRequestException } from '@nestjs/common';
-import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto } from '@mud/shared';
+import { Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PlayerRealmStage, calcQiCostWithOutputLimit, createItemStackSignature, getDamageTrailColor, getItemStackDisplayLabel, mergeItemStackEntryInto, mergeItemStackInto, resolveSkillEffectiveRange } from '@mud/shared';
 
 /** 统一动作 ID。 */
 export function normalizeRuntimeActionId(actionIdInput) {
@@ -696,14 +696,7 @@ export function getSkillEffectColor(skill) {
 export function resolveRuntimeSkillRange(skill) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const targetingRange = skill.targeting?.range;
-    if (typeof targetingRange === 'number' && Number.isFinite(targetingRange)) {
-        return skill.requiresTarget === false
-            ? Math.max(0, Math.round(targetingRange))
-            : Math.max(1, Math.round(targetingRange));
-    }
-    const raw = Math.round(skill.range ?? 1);
-    return skill.requiresTarget === false ? Math.max(0, raw) : Math.max(1, raw);
+    return resolveSkillEffectiveRange(skill);
 }
 /** 计算自动战斗可允许的技能气耗上限。 */
 export function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {

@@ -28,6 +28,7 @@ import {
   isPlainEqual,
   normalizeAutoBattleTargetingMode,
   normalizeCombatTargetingRules,
+  resolveSkillRequiresTarget,
   TechniqueRealm,
 } from '@mud/shared';
 import {
@@ -863,6 +864,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     const staticAction = getStaticClientActionDef(patch.id);
     const nextType = applyNullablePatch(patch.type, previousSameAction?.type ?? staticAction?.type) ?? (skillTemplate ? 'skill' : 'interact');
     const isSkillAction = nextType === 'skill';
+    const range = applyNullablePatch(patch.range, previousSameAction?.range ?? staticAction?.range) ?? skillTemplate?.range;
+    const requiresTarget = applyNullablePatch(patch.requiresTarget, previousSameAction?.requiresTarget ?? staticAction?.requiresTarget)
+      ?? skillTemplate?.requiresTarget;
     return {
       id: patch.id,
       cooldownLeft: patch.cooldownLeft ?? previousSameAction?.cooldownLeft ?? staticAction?.cooldownLeft ?? 0,
@@ -873,10 +877,14 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       name: String(applyNullablePatch(patch.name, previousSameAction?.name ?? staticAction?.name) ?? skillTemplate?.name ?? '').trim() || '未知动作',
       type: nextType,
       desc: applyNullablePatch(patch.desc, previousSameAction?.desc ?? staticAction?.desc) ?? skillTemplate?.desc ?? '',
-      range: applyNullablePatch(patch.range, previousSameAction?.range ?? staticAction?.range) ?? skillTemplate?.range,
-      requiresTarget: applyNullablePatch(patch.requiresTarget, previousSameAction?.requiresTarget ?? staticAction?.requiresTarget)
-        ?? skillTemplate?.requiresTarget
-        ?? (isSkillAction ? true : undefined),
+      range,
+      requiresTarget: isSkillAction
+        ? resolveSkillRequiresTarget({
+          range,
+          targeting: skillTemplate?.targeting,
+          requiresTarget,
+        })
+        : requiresTarget,
       targetMode: applyNullablePatch(patch.targetMode, previousSameAction?.targetMode ?? staticAction?.targetMode)
         ?? skillTemplate?.targetMode
         ?? (isSkillAction ? 'any' : undefined),

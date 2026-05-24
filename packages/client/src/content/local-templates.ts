@@ -19,6 +19,7 @@ import {
   type TechniqueGrade,
   type TechniqueLayerDef,
   type TechniqueState,
+  resolveSkillRequiresTarget,
 } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 import { contentResolver, type LocalBuffTemplate } from './content-resolver';
@@ -234,7 +235,7 @@ export function resolvePreviewSkill(skill: SkillDef): SkillDef {
   if (!template) {
     return skill;
   }
-  return {
+  const resolved = {
     ...skill,
     name: skill.name || template.name,
     desc: skill.desc || template.desc,
@@ -249,6 +250,10 @@ export function resolvePreviewSkill(skill: SkillDef): SkillDef {
     unlockPlayerRealm: skill.unlockPlayerRealm ?? template.unlockPlayerRealm,
     requiresTarget: skill.requiresTarget ?? template.requiresTarget,
     targetMode: skill.targetMode ?? template.targetMode,
+  };
+  return {
+    ...resolved,
+    requiresTarget: resolveSkillRequiresTarget(resolved),
   };
 }
 

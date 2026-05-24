@@ -8,6 +8,7 @@ import {
   assertCombatAoiResultEventBudget,
   computeAffectedCellsFromAnchor,
   normalizeCombatProtocolResult,
+  resolveSkillRequiresTarget,
 } from '@mud/shared';
 import {
   CombatActionKind,
@@ -312,13 +313,21 @@ export class WorldRuntimeCombatActionService {
   createSkillDefinition(action, skill, input: AnyRecord = {}) {
     const geometry = normalizeSkillGeometry(skill);
     const maxTargets = resolveSkillMaxTargets(skill, geometry);
+    const requiresTarget = resolveSkillRequiresTarget({
+      ...skill,
+      range: geometry.range,
+      targeting: {
+        ...(skill.targeting ?? {}),
+        range: geometry.range,
+      },
+    });
     return createCombatActionDefinition({
       actionId: skill.id ?? action?.actionId ?? null,
       kind: CombatActionKind.Skill,
       actorKind: action?.actor?.kind ?? input.actorKind ?? null,
       name: skill.name ?? skill.id ?? action?.actionId ?? null,
       source: action?.source ?? CombatActionSource.System,
-      requiresTarget: skill.requiresTarget !== false,
+      requiresTarget,
       targetMode: skill.targetMode ?? skill.targeting?.targetMode ?? null,
       allowedTargetKinds: resolveSkillAllowedTargetKinds(skill),
       range: geometry.range,
@@ -1835,7 +1844,7 @@ export class WorldRuntimeCombatActionService {
       ? { x: Math.trunc(Number(targetRuntimeState.x)), y: Math.trunc(Number(targetRuntimeState.y)) }
       : null;
     const fallbackTargetPosition = normalizeCombatCell(runtimeTargetPosition ?? locationPosition ?? playerStatePosition);
-    const requiresTarget = skill.requiresTarget !== false;
+    const requiresTarget = resolveSkillRequiresTarget(skill);
     if (!fallbackTargetPosition && warningCells.length === 0 && requiresTarget) {
       return {
         ok: false,
@@ -2926,7 +2935,7 @@ function resolveSkillAllowedTargetKinds(skill: AnyRecord = {}) {
     return explicit.filter(Boolean);
   }
   const targetMode = skill.targetMode ?? skill.targeting?.targetMode;
-  if (targetMode === 'self' || skill.requiresTarget === false) {
+  if (targetMode === 'self' || isPlayerSelfOnlySkill(skill)) {
     return [CombatTargetKind.Self];
   }
   if (targetMode === 'tile') {
@@ -2956,7 +2965,7 @@ function resolveSkillAllowedTargetKinds(skill: AnyRecord = {}) {
 
 function isPlayerSelfOnlySkill(skill: AnyRecord = {}) {
   const effects = Array.isArray(skill.effects) ? skill.effects : [];
-  return skill.requiresTarget === false
+  return resolveSkillRequiresTarget(skill) === false
     && effects.length > 0
     && effects.every((effect) => effect?.type === CombatEffectKind.Buff && effect.target === 'self');
 }
