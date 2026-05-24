@@ -5527,6 +5527,9 @@
     .npc-shop-board-list {
       padding-top: 2px;
     }
+    .heavenly-dao-shop-board .market-board-list {
+      grid-template-rows: repeat(7, minmax(0, 1fr));
+    }
     .market-item-cell {
       display: flex;
       flex-direction: column;
