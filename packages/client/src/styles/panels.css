@@ -1620,7 +1620,9 @@
       position: relative;
       flex: 1;
       min-height: 0;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
     .detail-modal-card.detail-modal--auction-house {
       height: min(78dvh, calc(100dvh - 24px));
@@ -5588,30 +5590,27 @@
     .market-modal-content {
       display: flex;
       flex-direction: column;
-      height: 100%;
       min-height: 420px;
       min-width: 0;
     }
     .market-modal-content--wide {
       min-width: 0;
-      min-height: 0;
-      height: 100%;
-      overflow: hidden;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: visible;
       display: flex;
       flex-direction: column;
     }
     .npc-shop-modal-shell {
       display: flex;
       flex-direction: column;
-      height: 100%;
-      min-height: 0;
+      min-height: 100%;
     }
     .market-market-tab {
       display: flex;
       flex-direction: column;
       gap: 14px;
       flex: 1;
-      height: 100%;
       min-height: 0;
       position: relative;
     }
@@ -5648,8 +5647,7 @@
       grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
       gap: 16px;
       flex: 1;
-      height: 100%;
-      min-height: 0;
+      min-height: 420px;
     }
     .market-board-list-wrap {
       height: 100%;
@@ -5808,7 +5806,9 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       height: 100%;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
       min-height: 0;
     }
     .market-book-header {
@@ -9209,14 +9209,15 @@
     .detail-modal-card.detail-modal--alchemy #detail-modal-body {
       flex: 1;
       min-height: 0;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
     }
     .craft-workbench-shell {
       display: grid;
       grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
       gap: 16px;
-      height: 100%;
-      min-height: 0;
+      min-height: 100%;
       font-family: var(--font-role-body);
     }
     .craft-workbench-sidebar,
@@ -9234,7 +9235,8 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       gap: 12px;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: visible;
     }
     .craft-workbench-header {
       display: grid;
@@ -9389,7 +9391,7 @@
       display: grid;
       align-content: start;
       gap: 8px;
-      height: 100%;
+      min-height: 100%;
       padding: 16px;
       border: 1px solid rgba(84, 57, 35, 0.14);
       background: rgba(255, 251, 242, 0.78);
@@ -9405,7 +9407,8 @@
     }
     .craft-workbench-content {
       min-height: 0;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: visible;
       border-top: 1px solid var(--wash-ink);
     }
     .craft-workbench-content .alchemy-modal-shell,
@@ -9516,7 +9519,8 @@
         display: none;
       }
       .detail-modal-card.detail-modal--craft #detail-modal-body {
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: auto;
       }
       .craft-workbench-shell {
         grid-template-columns: 1fr;
@@ -10233,8 +10237,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      height: 100%;
-      min-height: 0;
+      min-height: 100%;
       font-family: var(--font-role-body);
     }
     .alchemy-job-card {
@@ -10462,8 +10465,9 @@
       grid-template-columns: minmax(220px, 248px) minmax(0, 1fr);
       gap: 12px;
       flex: 1 1 auto;
-      min-height: 0;
-      overflow: hidden;
+      min-height: 360px;
+      overflow-x: hidden;
+      overflow-y: visible;
       align-items: stretch;
     }
     .alchemy-recipe-sidebar {
@@ -10583,7 +10587,8 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: visible;
     }
     .alchemy-tab-stack {
       display: flex;
@@ -10885,8 +10890,7 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      min-height: 0;
-      height: 100%;
+      min-height: 100%;
     }
     .enhancement-toolbar {
       display: flex;
@@ -10908,8 +10912,7 @@
       display: grid;
       grid-template-columns: minmax(0, 1.62fr) minmax(300px, 360px);
       gap: 16px;
-      min-height: 0;
-      height: 100%;
+      min-height: 420px;
     }
     .enhancement-layout--single-slot,
     .enhancement-workbench,
