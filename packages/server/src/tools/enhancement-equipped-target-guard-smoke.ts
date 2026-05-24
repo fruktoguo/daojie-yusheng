@@ -27,7 +27,7 @@ function createRuntime(): { service: CraftPanelRuntimeService; player: any } {
             name: '强化锤',
             tags: ['enhancement_hammer'],
             enhancementSpeedRate: 0,
-            enhancementSuccessRate: 0.25,
+            enhancementSuccessRate: 0,
           },
         },
         {
@@ -99,30 +99,25 @@ function createRuntime(): { service: CraftPanelRuntimeService; player: any } {
   return { service, player };
 }
 
-function testEnhancementCandidatesIncludeEquippedItems(): void {
+function testEnhancementCandidatesExcludeEquippedItems(): void {
   const { service, player } = createRuntime();
   const candidates = service.collectEnhancementCandidates(player);
-  assert(candidates.some((candidate: any) => candidate.ref.source === 'inventory' && candidate.item.itemId === 'iron_sword'));
-  assert(candidates.some((candidate: any) => candidate.ref.source === 'equipment' && candidate.ref.slot === 'weapon' && candidate.item.itemId === 'copper_hammer'));
-  assert(candidates.some((candidate: any) => candidate.ref.source === 'equipment' && candidate.ref.slot === 'body' && candidate.item.itemId === 'iron_armor'));
+  assert.deepEqual(candidates.map((candidate: any) => candidate.ref), [
+    { source: 'inventory', slotIndex: 0 },
+  ]);
 }
 
-function testStartEnhancementAcceptsEquippedItemsAndLocksSourceSlot(): void {
+function testStartEnhancementRejectsEquippedItems(): void {
   const { service, player } = createRuntime();
   const result = service.startEnhancement(player, { target: { source: 'equipment', slot: 'body' } });
-  assert.equal(result.ok, true);
-  assert.equal(player.equipment.slots.find((entry: any) => entry.slot === 'body')?.item, null);
-  assert.equal(player.enhancementJob?.target?.source, 'equipment');
-  assert.equal(player.enhancementJob?.target?.slot, 'body');
-  assert(player.enhancementJob?.successRate > 0.4);
-  assert.equal(player.inventory.lockedItems.length, 1);
-  assert.equal(player.inventory.lockedItems[0].itemId, 'iron_armor');
-  assert.equal(player.dirtyDomains.has('active_job'), true);
-  assert.equal(player.dirtyDomains.has('inventory'), true);
-  assert.equal(player.dirtyDomains.has('equipment'), true);
+  assert.equal(result.ok, false);
+  assert.match((result as unknown as { error?: string }).error ?? '', /身上装备不能直接强化/);
+  assert.equal(player.equipment.slots.find((entry: any) => entry.slot === 'body')?.item?.itemId, 'iron_armor');
+  assert.equal(player.enhancementJob, null);
+  assert.equal(player.inventory.lockedItems.length, 0);
 }
 
-function testEquippedEnhancementJobSurvivesNormalizationAndReturnsToSlot(): void {
+function testExistingEquippedEnhancementJobIsCancelled(): void {
   const { service, player } = createRuntime();
   player.inventory.items = [];
   player.inventory.lockedItems = [{
@@ -175,24 +170,19 @@ function testEquippedEnhancementJobSurvivesNormalizationAndReturnsToSlot(): void
     levels: [],
   }];
   service.buildEnhancementPanelState(player);
-  assert.equal(player.enhancementJob?.target?.source, 'equipment');
-  assert.equal(player.enhancementJob?.target?.slot, 'body');
-  assert.equal(player.inventory.lockedItems.length, 1);
-  const finishResult = service.finishEnhancementJob(player, 4, 'completed');
-  assert.equal(finishResult.equipmentChanged, true);
   assert.equal(player.enhancementJob, null);
   assert.equal(player.inventory.lockedItems.length, 0);
-  assert.equal(player.inventory.items.length, 0);
-  const bodyItem = player.equipment.slots.find((entry: any) => entry.slot === 'body')?.item;
-  assert.equal(bodyItem?.itemId, 'iron_armor');
-  assert.equal(bodyItem?.enhanceLevel, 4);
-  assert.equal(player.enhancementRecords[0].status, 'completed');
+  assert.equal(player.inventory.items.length, 1);
+  assert.equal(player.inventory.items[0].itemId, 'iron_armor');
+  assert.equal(player.inventory.items[0].enhanceLevel, 3);
+  assert.equal(player.enhancementRecords[0].status, 'cancelled');
+  assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.equal(player.dirtyDomains.has('enhancement_record'), true);
-  assert.equal(player.dirtyDomains.has('equipment'), true);
+  assert.equal(player.dirtyDomains.has('inventory'), true);
 }
 
-testEnhancementCandidatesIncludeEquippedItems();
-testStartEnhancementAcceptsEquippedItemsAndLocksSourceSlot();
-testEquippedEnhancementJobSurvivesNormalizationAndReturnsToSlot();
+testEnhancementCandidatesExcludeEquippedItems();
+testStartEnhancementRejectsEquippedItems();
+testExistingEquippedEnhancementJobIsCancelled();
 
 console.log(JSON.stringify({ ok: true, case: 'enhancement-equipped-target-guard' }, null, 2));
