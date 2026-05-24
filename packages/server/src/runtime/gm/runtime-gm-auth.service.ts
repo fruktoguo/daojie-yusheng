@@ -442,6 +442,7 @@ function normalizePasswordRecord(raw) {
     const candidate = raw;
     if (typeof candidate.passwordHash === 'string' && candidate.passwordHash
         && typeof candidate.updatedAt === 'string' && candidate.updatedAt) {
+        gmAuthModuleLogger.warn('GM 密码记录缺少 salt 字段，填入 legacy bcrypt 哨兵盐——请尽快通过 GM 面板重设密码');
         return {
             salt: LEGACY_BCRYPT_SENTINEL_SALT,
             hash: candidate.passwordHash,

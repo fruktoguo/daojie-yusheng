@@ -19,6 +19,9 @@
 import { randomUUID } from 'node:crypto';
 import type { ItemStack } from '@mud/shared';
 import { isLegacyItemInstanceId } from '@mud/shared';
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('ItemInstanceId:LegacyCompat');
 
 /**
  * 若该物品当前缺失 itemInstanceId 或处于迁移期 fallback，则就地分配新 UUID。
@@ -44,6 +47,7 @@ export function assignItemInstanceIdIfNeeded(item: ItemStack | null | undefined)
     if (typeof current === 'string' && current.length > 0 && !isLegacyItemInstanceId(current)) {
         return changed;
     }
+    logger.warn(`物品水合期 legacy itemInstanceId 升级：old=${typeof current === 'string' ? current : '(empty)'} itemId=${(item as { itemId?: string }).itemId ?? 'unknown'}`);
     (item as { itemInstanceId?: string }).itemInstanceId = randomUUID();
     return true;
 }
@@ -121,6 +125,7 @@ export function compareItemInstanceId(
     }
     if (isLegacyItemInstanceId(actual)) {
         // 服务端是 fallback 形式，水合后才会升级，跳过校验
+        logger.warn(`compareItemInstanceId 跳过校验：actual=${actual} 是 legacy 格式`);
         return 'skip';
     }
     return actual === expected ? 'match' : 'mismatch';
