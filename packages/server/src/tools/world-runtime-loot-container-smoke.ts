@@ -13,6 +13,7 @@ async function main(): Promise<void> {
   await testGroundTakeAllDurableGrant();
   await testGroundTakeAllUsesStackSignatureForCapacity();
   await testGroundTakeAllIteratesStableEntrySnapshot();
+  await testGroundTakeLongHammerOperationIdFitsOutboxLimit();
   await testContainerTakeDurableGrant();
   await testContainerTakeAllDurableGrant();
   await testStartGatherSupportsColonInstanceId();
@@ -545,6 +546,88 @@ async function testGroundTakeAllIteratesStableEntrySnapshot() {
     ['refreshQuestStates', 'player:ground:snapshot'],
     ['queuePlayerNotice', 'player:ground:snapshot', '获得 铜胎丹炉、+15 铜胎丹炉、铜强化锤', 'loot'],
   ]);
+}
+
+async function testGroundTakeLongHammerOperationIdFitsOutboxLimit() {
+  const playerId = 'p_34a88cf0-0c4c-44d9-a443-4400a8b696e5_1774164770651';
+  const player = buildPlayer(playerId, 'public:qizhen_crossing', 'runtime:ground:long-hammer', 29);
+  player.x = 37;
+  player.y = 37;
+  player.inventory.items.push({
+    itemId: 'equip.copper_enhancement_hammer',
+    name: '铜强化锤',
+    type: 'equipment',
+    count: 887950,
+  });
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player) as never);
+  const durableCalls: Array<Record<string, unknown>> = [];
+  const pileItems = [
+    {
+      itemKey: 'equip.copper_enhancement_hammer#0',
+      item: {
+        itemId: 'equip.copper_enhancement_hammer',
+        name: '铜强化锤',
+        type: 'equipment',
+        count: 4,
+        itemInstanceId: '39642698-05ae-42cd-a1c2-cfe70b257a59',
+      },
+    },
+    {
+      itemKey: 'equip.copper_enhancement_hammer#10',
+      item: {
+        itemId: 'equip.copper_enhancement_hammer',
+        name: '铜强化锤',
+        type: 'equipment',
+        count: 1,
+        enhanceLevel: 10,
+        itemInstanceId: '019b1d8c949df27ce0a98673e4c9484d',
+      },
+    },
+  ];
+  const instance = {
+    getGroundPileBySourceId(sourceId: string) {
+      assert.equal(sourceId, 'g:2256');
+      return {
+        x: 36,
+        y: 37,
+        items: pileItems,
+      };
+    },
+    takeGroundItem(sourceId: string, itemKey: string) {
+      assert.equal(sourceId, 'g:2256');
+      assert.equal(itemKey, 'equip.copper_enhancement_hammer#0');
+      const index = pileItems.findIndex((entry) => entry.itemKey === itemKey);
+      assert.ok(index >= 0);
+      const [entry] = pileItems.splice(index, 1);
+      return { ...entry!.item };
+    },
+    dropGroundItem() {
+      throw new Error('ground item should not be restored after durable success');
+    },
+  };
+  await service.dispatchTakeGround(player.playerId, 'g:2256', 'equip.copper_enhancement_hammer#0', {
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'public:qizhen_crossing' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return instance;
+    },
+    refreshQuestStates() {},
+    queuePlayerNotice() {},
+    durableOperationService: {
+      isEnabled() {
+        return true;
+      },
+      async grantInventoryItems(input: Record<string, unknown>) {
+        durableCalls.push(input);
+      },
+    },
+  } as never);
+  const operationId = String(durableCalls[0]?.operationId ?? '');
+  assert.ok(operationId.startsWith(`${`op:${playerId}:ground_take:g:2256:equip.copper_enhancement_hammer#0`}`));
+  assert.ok(operationId.includes(':h:'));
+  assert.ok(operationId.length <= 173, `operationId length=${operationId.length}`);
+  assert.ok(`outbox:${operationId}`.length <= 180, `outbox event id length=${`outbox:${operationId}`.length}`);
 }
 
 async function testContainerTakeDurableGrant() {

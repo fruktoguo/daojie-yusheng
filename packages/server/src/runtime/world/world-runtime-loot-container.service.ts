@@ -4,6 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { computeAdjustedCraftTicks, computeCraftSkillExpGain, createItemStackSignature, mergeItemStackEntryInto, mergeItemStackInto, resolveAlchemyGradeValue } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
@@ -43,6 +44,9 @@ const CONTAINER_SEARCH_TICKS_BY_GRADE = {
 
 const HERB_GATHER_TIME_RATE = 0.5;
 const GATHER_SPEED_PER_LEVEL = 0.02;
+const DURABLE_OPERATION_ID_MAX_LENGTH = 180;
+const DURABLE_OUTBOX_EVENT_PREFIX_LENGTH = 'outbox:'.length;
+const LOOT_OPERATION_ID_SAFE_LENGTH = DURABLE_OPERATION_ID_MAX_LENGTH - DURABLE_OUTBOX_EVENT_PREFIX_LENGTH;
 
 function normalizeHerbLevel(level) {
     return Math.max(1, Math.floor(Number(level) || 1));
@@ -1615,7 +1619,16 @@ function buildLootInventoryGrantOperationId(playerId, sourceType, sourceRefId, i
             return `${itemId}:x${count}:${itemInstanceId}`;
         }).join('|')
         : 'items';
-    return `op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemSignature}`;
+    return compactLootOperationId(`op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemSignature}`);
+}
+
+function compactLootOperationId(operationId) {
+    if (operationId.length <= LOOT_OPERATION_ID_SAFE_LENGTH) {
+        return operationId;
+    }
+    const digest = createHash('sha256').update(operationId).digest('hex').slice(0, 24);
+    const suffix = `:h:${digest}`;
+    return `${operationId.slice(0, LOOT_OPERATION_ID_SAFE_LENGTH - suffix.length)}${suffix}`;
 }
 
 function applyCraftSkillExp(source, skill, amount) {
