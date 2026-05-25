@@ -2723,7 +2723,18 @@
   ],
   "ruin_keystone": [],
   "rune_shard": [],
-  "sect_founding_token": [],
+  "sect_founding_token": [
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "sect_founding_token",
+      "count": 1,
+      "price": 2000,
+      "currencyItemId": "merit"
+    }
+  ],
   "serpent_gall": [],
   "serpent_scale": [],
   "sky_pattern_page": [],

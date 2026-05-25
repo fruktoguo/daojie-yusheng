@@ -24,6 +24,7 @@ export const HEAVENLY_DAO_SHOP_ITEMS = [
   { itemId: 'spirit_stone', count: 240, price: 100 },
   { itemId: 'root_seed.heaven', count: 1, price: 2_000 },
   { itemId: 'root_seed.divine', count: 1, price: 10_000 },
+  { itemId: 'sect_founding_token', count: 1, price: 2_000 },
   { itemId: 'wudao_yujian', count: 1, price: 1_000 },
   { itemId: 'pill.ningxiang', count: 1, price: 100 },
   { itemId: 'pill.wangsheng', count: 1, price: 100 },
