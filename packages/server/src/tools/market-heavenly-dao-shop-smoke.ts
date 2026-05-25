@@ -155,22 +155,29 @@ async function main(): Promise<void> {
   assert.equal(playerAfterSuccess.inventory.items.find((entry) => entry.itemId === 'spirit_stone')?.count, 240);
   assert.equal(success.notices[0]?.structured?.key, 'notice.market.heavenly-dao-shop.purchased');
 
-  const rejected = await service.buyHeavenlyDaoShopItem(playerId, { itemId: 'pill.ningxiang', quantity: 1 });
+  const pillResult = await service.buyHeavenlyDaoShopItem(playerId, { itemId: 'pill.ningxiang', quantity: 1 });
+  const playerAfterPill = runtimePlayers.get(playerId)!;
+  assert.equal(playerAfterPill.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 49);
+  assert.equal(playerAfterPill.inventory.items.find((entry) => entry.itemId === 'pill.ningxiang')?.count, 1);
+  assert.equal(pillResult.notices[0]?.structured?.vars?.itemLabel, '凝相丹');
+  assert.equal(pillResult.notices[0]?.structured?.vars?.cost, 1);
+
+  const rejected = await service.buyHeavenlyDaoShopItem(playerId, { itemId: 'sect_founding_token', quantity: 1 });
   const playerAfterReject = runtimePlayers.get(playerId)!;
-  assert.equal(playerAfterReject.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 50);
-  assert.equal(playerAfterReject.inventory.items.find((entry) => entry.itemId === 'pill.ningxiang'), undefined);
+  assert.equal(playerAfterReject.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 49);
+  assert.equal(playerAfterReject.inventory.items.find((entry) => entry.itemId === 'sect_founding_token'), undefined);
   assert.equal(rejected.notices[0]?.text, '功德不足，无法购买。');
 
   const meritStack = playerAfterReject.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
   assert.ok(meritStack);
-  meritStack.count = 2_050;
+  meritStack.count = 2_049;
   const meritWallet = playerAfterReject.wallet.balances.find((entry) => entry.walletType === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID);
   assert.ok(meritWallet);
-  meritWallet.balance = 2_050;
+  meritWallet.balance = 2_049;
 
   const sectTokenResult = await service.buyHeavenlyDaoShopItem(playerId, { itemId: 'sect_founding_token', quantity: 1 });
   const playerAfterSectToken = runtimePlayers.get(playerId)!;
-  assert.equal(playerAfterSectToken.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 50);
+  assert.equal(playerAfterSectToken.inventory.items.find((entry) => entry.itemId === HEAVENLY_DAO_SHOP_CURRENCY_ITEM_ID)?.count, 49);
   assert.equal(playerAfterSectToken.inventory.items.find((entry) => entry.itemId === 'sect_founding_token')?.count, 1);
   assert.equal(sectTokenResult.notices[0]?.structured?.vars?.itemLabel, '建宗令');
   assert.equal(sectTokenResult.notices[0]?.structured?.vars?.cost, 2_000);

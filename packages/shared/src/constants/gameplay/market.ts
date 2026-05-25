@@ -26,7 +26,7 @@ export const HEAVENLY_DAO_SHOP_ITEMS = [
   { itemId: 'root_seed.divine', count: 1, price: 10_000 },
   { itemId: 'sect_founding_token', count: 1, price: 2_000 },
   { itemId: 'wudao_yujian', count: 1, price: 1_000 },
-  { itemId: 'pill.ningxiang', count: 1, price: 100 },
+  { itemId: 'pill.ningxiang', count: 1, price: 1 },
   { itemId: 'pill.wangsheng', count: 1, price: 100 },
   { itemId: 'pill.shatter_spirit', count: 1, price: 10 },
 ] as const;

@@ -2509,7 +2509,7 @@
       "shopName": "天道商店",
       "itemId": "pill.ningxiang",
       "count": 1,
-      "price": 100,
+      "price": 1,
       "currencyItemId": "merit"
     }
   ],
