@@ -54,7 +54,7 @@
 
 ### 闭关修炼（advanceCultivation）
 
-基础每息：境界修为 5，功法经验 5。
+基础每息：境界修为 10，功法经验 10。
 
 ```ts
 realmBasePerTick = numericStats.realmExpPerTick × auraMultiplier

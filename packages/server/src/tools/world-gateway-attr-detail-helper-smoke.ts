@@ -1122,14 +1122,14 @@ function testPerTickExperienceScalingUsesBoostedBaseline() {
         grade: 'mortal',
         level: 0,
     });
-    assert.equal(baselineStats.realmExpPerTick, 4);
-    assert.equal(baselineStats.techniqueExpPerTick, 4);
+    assert.equal(baselineStats.realmExpPerTick, 8);
+    assert.equal(baselineStats.techniqueExpPerTick, 8);
     const valueStats = compileValueStatsToActualStats({
         realmExpPerTick: 2,
         techniqueExpPerTick: 3,
     });
-    assert.equal(valueStats.realmExpPerTick, 10);
-    assert.equal(valueStats.techniqueExpPerTick, 15);
+    assert.equal(valueStats.realmExpPerTick, 20);
+    assert.equal(valueStats.techniqueExpPerTick, 30);
 }
 
 testAttrDetailBuilders();

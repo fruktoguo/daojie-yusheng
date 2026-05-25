@@ -16,6 +16,8 @@ import {
   AttrKey,
   Attributes,
   BASE_MOVE_POINTS_PER_TICK,
+  CULTIVATE_EXP_PER_TICK,
+  CULTIVATION_REALM_EXP_PER_TICK,
   DEFAULT_QI_EFFICIENCY_BP,
   ELEMENT_KEYS,
   HeavenGateRootValues,
@@ -416,8 +418,8 @@ function renderTooltipChildLine(label: string, value: string, tone: 'fixed' | 'p
 
 /** SYSTEM_FIXED_BASE_BY_NUMERIC_KEY：数值面板中的系统固定底座。 */
 const SYSTEM_FIXED_BASE_BY_NUMERIC_KEY: Partial<Record<NumericCardKey, number>> = {
-  realmExpPerTick: 1,
-  techniqueExpPerTick: 5,
+  realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
+  techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
 };
 
 /** getAttrFlatContribution：计算六维对当前数值的固定贡献。 */

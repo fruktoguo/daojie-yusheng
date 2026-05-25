@@ -8043,7 +8043,7 @@
       "equipSlot": "accessory",
       "equipStats": {
         "maxQi": 64,
-        "techniqueExpPerTick": 6
+        "techniqueExpPerTick": 13
       }
     },
     {
@@ -8469,8 +8469,8 @@
         "spellAtk": 15,
         "resolvePower": 15,
         "maxQiOutputPerTick": 15,
-        "realmExpPerTick": 2,
-        "techniqueExpPerTick": 10
+        "realmExpPerTick": 21,
+        "techniqueExpPerTick": 19
       }
     },
     {
@@ -8659,7 +8659,7 @@
         "maxQi": 84,
         "maxQiOutputPerTick": 14,
         "qiRegenRate": 11,
-        "techniqueExpPerTick": 8
+        "techniqueExpPerTick": 16
       }
     },
     {
@@ -8825,8 +8825,8 @@
         "spellDef": 15,
         "resolvePower": 15,
         "maxQiOutputPerTick": 13,
-        "realmExpPerTick": 2,
-        "techniqueExpPerTick": 10
+        "realmExpPerTick": 21,
+        "techniqueExpPerTick": 19
       }
     },
     {
@@ -8878,8 +8878,8 @@
         "physDef": 11,
         "resolvePower": 12,
         "maxQiOutputPerTick": 11,
-        "realmExpPerTick": 2,
-        "techniqueExpPerTick": 6
+        "realmExpPerTick": 15,
+        "techniqueExpPerTick": 13
       }
     },
     {
@@ -9880,7 +9880,7 @@
       "equipStats": {
         "spellDef": 15,
         "resolvePower": 12,
-        "techniqueExpPerTick": 9
+        "techniqueExpPerTick": 18
       }
     },
     {
@@ -10211,8 +10211,8 @@
         }
       ],
       "equipStats": {
-        "realmExpPerTick": 2,
-        "techniqueExpPerTick": 5
+        "realmExpPerTick": 15,
+        "techniqueExpPerTick": 11
       }
     },
     {
@@ -14590,7 +14590,7 @@
           "equipSlot": "accessory",
           "equipStats": {
             "maxQi": 64,
-            "techniqueExpPerTick": 6
+            "techniqueExpPerTick": 13
           },
           "count": 1
         },
@@ -15323,7 +15323,7 @@
             "maxQi": 84,
             "maxQiOutputPerTick": 14,
             "qiRegenRate": 11,
-            "techniqueExpPerTick": 8
+            "techniqueExpPerTick": 16
           },
           "count": 1
         },
@@ -16110,7 +16110,7 @@
           "equipStats": {
             "spellDef": 15,
             "resolvePower": 12,
-            "techniqueExpPerTick": 9
+            "techniqueExpPerTick": 18
           },
           "count": 1
         }
@@ -16552,8 +16552,8 @@
             }
           ],
           "equipStats": {
-            "realmExpPerTick": 2,
-            "techniqueExpPerTick": 5
+            "realmExpPerTick": 15,
+            "techniqueExpPerTick": 11
           },
           "count": 1
         }
