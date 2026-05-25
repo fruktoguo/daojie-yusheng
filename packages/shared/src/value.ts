@@ -379,7 +379,7 @@ export const EQUIPMENT_BASELINE_GRADE_MULTIPLIER = 1.2;
 /** 装备基准占比中，每 1 基准对应的特殊实际值。 */
 export const EQUIPMENT_BASELINE_STAT_POINTS_PER_VALUE_OVERRIDE: Partial<Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>> = {
   realmExpPerTick: 0.5,
-  techniqueExpPerTick: 2.5,
+  techniqueExpPerTick: 0.5,
 };
 
 /** 计算装备等级基准量化值。 */

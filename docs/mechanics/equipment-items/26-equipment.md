@@ -31,7 +31,7 @@ actualValue = round(baselineValue × gradeMultiplier × (percent/100) × pointsP
 ### 特殊 pointsPerValue 覆盖
 
 - realmExpPerTick: 0.5
-- techniqueExpPerTick: 2.5
+- techniqueExpPerTick: 0.5
 
 ## 数值属性折算表
 

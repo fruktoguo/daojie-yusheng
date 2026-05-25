@@ -146,7 +146,7 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
 };
 
 /** 功法每息经验参考底座。 */
-const TECHNIQUE_EXP_REFERENCE_PER_TICK = 20;
+const TECHNIQUE_EXP_REFERENCE_PER_TICK = 5;
 
 /** 视野百分比乘区参考底座。 */
 const VIEW_RANGE_REFERENCE = 8;

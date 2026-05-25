@@ -12,7 +12,7 @@ import type { TechniqueGrade } from '../../cultivation-types';
  */
 
 /** 修炼每 tick 获得经验 */
-export const CULTIVATE_EXP_PER_TICK = 20;
+export const CULTIVATE_EXP_PER_TICK = 5;
 
 /** 修炼每 tick 获得境界修为 */
 export const CULTIVATION_REALM_EXP_PER_TICK = 5;

@@ -1123,7 +1123,7 @@ function testPerTickExperienceScalingUsesBoostedBaseline() {
         level: 0,
     });
     assert.equal(baselineStats.realmExpPerTick, 4);
-    assert.equal(baselineStats.techniqueExpPerTick, 20);
+    assert.equal(baselineStats.techniqueExpPerTick, 4);
     const valueStats = compileValueStatsToActualStats({
         realmExpPerTick: 2,
         techniqueExpPerTick: 3,
