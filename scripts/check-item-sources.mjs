@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadHeavenlyDaoShopConstants } from './lib/heavenly-dao-shop.mjs';
 import { buildResourceNodeIndexes } from './lib/resource-nodes.mjs';
 import { loadRuntimeTileDropSources } from './lib/runtime-tile-drops.mjs';
 
@@ -78,9 +79,10 @@ const MONSTER_EQUIPMENT_SLOTS = ['weapon', 'head', 'body', 'legs', 'feet', 'ring
 /**
  * 标记允许无来源的特殊物品，避免被误报。
  */
-const INTENTIONAL_NO_SOURCE_ITEM_IDS = new Set(['root_seed.heaven', 'root_seed.divine']);
+const INTENTIONAL_NO_SOURCE_ITEM_IDS = new Set();
 const { landmarkNodesById } = buildResourceNodeIndexes();
 const runtimeTileDropSources = loadRuntimeTileDropSources();
+const heavenlyDaoShop = loadHeavenlyDaoShopConstants(repoRoot);
 
 /**
  * 递归收集目录下的全部 JSON 文件并按中文顺序排序。
@@ -489,6 +491,8 @@ function formatInvalidRef(entry) {
       return `- ${entry.itemId} <- 怪物 ${entry.monsterId} ${entry.monsterName} @ ${entry.mapId}`;
     case 'shop':
       return `- ${entry.itemId} <- 商店 ${entry.npcId} ${entry.npcName} @ ${entry.mapId}`;
+    case 'heavenly_dao_shop':
+      return `- ${entry.itemId} <- 天道商店`;
     case 'search':
     case 'mining':
       return `- ${entry.itemId} <- ${entry.kind} ${entry.landmarkId} ${entry.landmarkName} @ ${entry.mapId}`;
@@ -701,7 +705,7 @@ function renderMarkdownReport({
     '',
     `- 生成时间: ${generatedAt}`,
     `- 检查脚本: \`scripts/check-item-sources.mjs\``,
-    '- 统计口径: 只认“玩家实际可获得”的来源，包括怪物 `drops`、任务奖励、商店 `shopItems`、地图容器/搜索/矿点掉落、`starter-inventory`、炼丹配方，以及运行时资源地块/PVP 奖励掉落（如灵石矿、玄铁矿、断剑堆、云墙、血精）。',
+    '- 统计口径: 只认“玩家实际可获得”的来源，包括怪物 `drops`、任务奖励、商店 `shopItems`、天道商店固定表、地图容器/搜索/矿点掉落、`starter-inventory`、炼丹配方，以及运行时资源地块/PVP 奖励掉落（如灵石矿、玄铁矿、断剑堆、云墙、血精）。',
     '- 特别说明: 怪物 `equipment`、仅作为配置引用的物品，不计入可获得来源。',
     '',
     '## 汇总',
@@ -1177,6 +1181,19 @@ function main() {
       kind: 'starter',
       mapId: 'starter_inventory',
       mapName: '初始携带',
+    });
+  }
+
+  for (const entry of heavenlyDaoShop.items) {
+    pushKnownSource(sourceByItemId, invalidRefs, entry.itemId, {
+      kind: 'heavenly_dao_shop',
+      mapId: 'market',
+      mapName: '坊市',
+      shopName: '天道商店',
+      itemId: entry.itemId,
+      count: entry.count,
+      price: entry.price,
+      currencyItemId: heavenlyDaoShop.currencyItemId,
     });
   }
 

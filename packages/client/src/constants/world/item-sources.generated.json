@@ -1000,15 +1000,7 @@
     }
   ],
   "fivephase_dust": [],
-  "formation_disk.earth": [
-    {
-      "kind": "shop",
-      "mapId": "qizhen_crossing",
-      "mapName": "栖真渡",
-      "npcId": "npc_gu_hui",
-      "npcName": "行修散商·顾回"
-    }
-  ],
+  "formation_disk.earth": [],
   "formation_disk.mortal": [
     {
       "kind": "shop",
@@ -1018,24 +1010,8 @@
       "npcName": "行修散商·顾回"
     }
   ],
-  "formation_disk.mystic": [
-    {
-      "kind": "shop",
-      "mapId": "qizhen_crossing",
-      "mapName": "栖真渡",
-      "npcId": "npc_gu_hui",
-      "npcName": "行修散商·顾回"
-    }
-  ],
-  "formation_disk.yellow": [
-    {
-      "kind": "shop",
-      "mapId": "qizhen_crossing",
-      "mapName": "栖真渡",
-      "npcId": "npc_gu_hui",
-      "npcName": "行修散商·顾回"
-    }
-  ],
+  "formation_disk.mystic": [],
+  "formation_disk.yellow": [],
   "frost_essence": [
     {
       "kind": "search",
@@ -2525,7 +2501,18 @@
       "recipeName": "回春散丹方"
     }
   ],
-  "pill.ningxiang": [],
+  "pill.ningxiang": [
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "pill.ningxiang",
+      "count": 1,
+      "price": 100,
+      "currencyItemId": "merit"
+    }
+  ],
   "pill.nurturing_paste": [
     {
       "kind": "alchemy",
@@ -2535,8 +2522,30 @@
       "recipeName": "养脉膏丹方"
     }
   ],
-  "pill.shatter_spirit": [],
-  "pill.wangsheng": [],
+  "pill.shatter_spirit": [
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "pill.shatter_spirit",
+      "count": 1,
+      "price": 10,
+      "currencyItemId": "merit"
+    }
+  ],
+  "pill.wangsheng": [
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "pill.wangsheng",
+      "count": 1,
+      "price": 100,
+      "currencyItemId": "merit"
+    }
+  ],
   "pill.windstride_elixir": [
     {
       "kind": "shop",
@@ -2688,19 +2697,33 @@
       "count": 2
     }
   ],
-  "root_seed.divine": [],
-  "root_seed.heaven": [],
-  "ruin_keystone": [],
-  "rune_shard": [],
-  "sect_founding_token": [
+  "root_seed.divine": [
     {
-      "kind": "shop",
-      "mapId": "qizhen_crossing",
-      "mapName": "栖真渡",
-      "npcId": "npc_gu_hui",
-      "npcName": "行修散商·顾回"
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "root_seed.divine",
+      "count": 1,
+      "price": 10000,
+      "currencyItemId": "merit"
     }
   ],
+  "root_seed.heaven": [
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "root_seed.heaven",
+      "count": 1,
+      "price": 2000,
+      "currencyItemId": "merit"
+    }
+  ],
+  "ruin_keystone": [],
+  "rune_shard": [],
+  "sect_founding_token": [],
   "serpent_gall": [],
   "serpent_scale": [],
   "sky_pattern_page": [],
@@ -2728,6 +2751,16 @@
       "landmarkName": "碎露灵石矿",
       "mode": "direct",
       "count": 1
+    },
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "spirit_stone",
+      "count": 240,
+      "price": 100,
+      "currencyItemId": "merit"
     }
   ],
   "spiritwood_heart": [
@@ -2909,5 +2942,16 @@
     }
   ],
   "wolf_fang": [],
-  "wudao_yujian": []
+  "wudao_yujian": [
+    {
+      "kind": "heavenly_dao_shop",
+      "mapId": "market",
+      "mapName": "坊市",
+      "shopName": "天道商店",
+      "itemId": "wudao_yujian",
+      "count": 1,
+      "price": 1000,
+      "currencyItemId": "merit"
+    }
+  ]
 }

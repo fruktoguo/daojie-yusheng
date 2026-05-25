@@ -4,7 +4,7 @@
  * 维护时要区分展示缓存与正式配置真源，避免在客户端内容层重新裁定掉落、资产或战斗规则。
  */
 /** 物品来源的分类类型。 */
-export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest' | 'alchemy' | 'forging' | 'runtime_pvp_reward';
+export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'heavenly_dao_shop' | 'quest' | 'alchemy' | 'forging' | 'runtime_pvp_reward';
 /** 灵石对应的物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
@@ -202,6 +202,16 @@ export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
   npcName: string;
 }
 
+/** 天道商店兑换来源条目。 */
+export interface HeavenlyDaoShopItemSourceEntry extends ItemSourceBaseEntry {
+  kind: 'heavenly_dao_shop';
+  shopName: string;
+  itemId: string;
+  count: number;
+  price: number;
+  currencyItemId: string;
+}
+
 /** 炼丹配方来源条目。 */
 export interface AlchemyItemSourceEntry extends ItemSourceBaseEntry {
   kind: 'alchemy';
@@ -228,6 +238,7 @@ export type ItemSourceEntry =
   | DirectItemNodeSourceEntry
   | PoolItemNodeSourceEntry
   | ShopItemSourceEntry
+  | HeavenlyDaoShopItemSourceEntry
   | QuestItemSourceEntry
   | AlchemyItemSourceEntry
   | ForgingItemSourceEntry
@@ -293,6 +304,8 @@ function getSourceLinkLabel(kind: ItemSourceKind): string {
       return '搜索';
     case 'shop':
       return '购买';
+    case 'heavenly_dao_shop':
+      return '兑换';
     case 'quest':
       return '任务';
     case 'alchemy':
@@ -334,6 +347,13 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{
     return [
       { tone: 'map', text: entry.mapName },
       { tone: 'shop', text: entry.npcName },
+    ];
+  }
+
+  if (entry.kind === 'heavenly_dao_shop') {
+    return [
+      { tone: 'map', text: entry.mapName },
+      { tone: 'shop', text: entry.shopName },
     ];
   }
 

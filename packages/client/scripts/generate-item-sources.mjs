@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadHeavenlyDaoShopConstants } from '../../../scripts/lib/heavenly-dao-shop.mjs';
 import { buildResourceNodeIndexes } from '../../../scripts/lib/resource-nodes.mjs';
 import { loadRuntimeTileDropSources } from '../../../scripts/lib/runtime-tile-drops.mjs';
 
@@ -55,6 +56,7 @@ const outputPath = path.join(clientDir, 'src/constants/world/item-sources.genera
 const monsterLocationOutputPath = path.join(clientDir, 'src/constants/world/monster-locations.generated.json');
 const { landmarkNodesById } = buildResourceNodeIndexes();
 const runtimeTileDropSources = loadRuntimeTileDropSources();
+const heavenlyDaoShop = loadHeavenlyDaoShopConstants(repoRoot);
 
 /**
  * 记录品阶order。
@@ -499,6 +501,7 @@ function sortSources(entries) {
     mining: 1,
     search: 1,
     shop: 2,
+    heavenly_dao_shop: 2,
     quest: 3,
     alchemy: 4,
     forging: 5,
@@ -557,6 +560,9 @@ function sortSources(entries) {
       }
       if (left.kind === 'shop' && right.kind === 'shop') {
         return left.npcId.localeCompare(right.npcId, 'zh-CN');
+      }
+      if (left.kind === 'heavenly_dao_shop' && right.kind === 'heavenly_dao_shop') {
+        return left.itemId.localeCompare(right.itemId, 'zh-CN');
       }
       if ((left.kind === 'alchemy' || left.kind === 'forging') && left.kind === right.kind) {
         return left.recipeId.localeCompare(right.recipeId, 'zh-CN');
@@ -762,6 +768,19 @@ function main() {
           : (resourceNode.sourceLabel ?? resourceNode.name ?? group.resourceNodeId),
       });
     }
+  }
+
+  for (const entry of heavenlyDaoShop.items) {
+    pushSource(sourceByItemId, entry.itemId, {
+      kind: 'heavenly_dao_shop',
+      mapId: 'market',
+      mapName: '坊市',
+      shopName: '天道商店',
+      itemId: entry.itemId,
+      count: entry.count,
+      price: entry.price,
+      currencyItemId: heavenlyDaoShop.currencyItemId,
+    });
   }
 
   for (const group of questGroups) {
