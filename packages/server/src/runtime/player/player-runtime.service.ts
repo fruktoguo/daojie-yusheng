@@ -8131,10 +8131,21 @@ function shouldKeepRuntimeBonusSourceId(source) {
 }
 
 function isDerivedPersistentRuntimeBonusSource(source) {
-    return source === 'runtime:realm_stage'
-        || source === 'runtime:realm_state'
-        || source === 'runtime:heaven_gate_roots'
-        || source === 'runtime:technique_aggregate';
+    const normalized = typeof source === 'string' ? source.trim() : '';
+    return normalized === 'runtime:realm_stage'
+        || normalized === 'runtime:realm_state'
+        || normalized === 'runtime:heaven_gate_roots'
+        || normalized === 'runtime:technique_aggregate'
+        || normalized === 'technique:aggregate'
+        || normalized === 'realm:state'
+        || normalized === 'realm:stage'
+        || normalized === 'heaven_gate:roots'
+        || normalized.startsWith('technique:')
+        || normalized.startsWith('equipment:')
+        || normalized.startsWith('equip:')
+        || normalized.startsWith('equip-effect:')
+        || normalized.startsWith('body_training:')
+        || normalized.startsWith('buff:');
 }
 /**
  * ensureVitalBaselineBonus：执行ensureVitalBaselineBonu相关逻辑。

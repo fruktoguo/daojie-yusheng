@@ -753,6 +753,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       await ensurePlayerDomainTables(this.pool);
       this.enabled = true;
       await this.expireStaleOnlinePresenceOnStartup();
+      await this.cleanupDerivedRuntimeBonusEntriesOnStartup();
       this.logger.log('玩家分域持久化已启用');
     } catch (error: unknown) {
       this.logger.error(
@@ -794,6 +795,67 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     const expiredCount = Number(result.rowCount ?? 0);
     if (expiredCount > 0) {
       this.logger.warn(`已清理陈旧玩家在线态：count=${expiredCount} timeoutMs=${PLAYER_HEARTBEAT_TIMEOUT_MS}`);
+    }
+  }
+
+  private async cleanupDerivedRuntimeBonusEntriesOnStartup(): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+
+    const result = await this.pool.query(`
+      UPDATE ${PLAYER_ATTR_STATE_TABLE}
+      SET
+        bonus_entries_payload = (
+          SELECT COALESCE(jsonb_agg(entry), '[]'::jsonb)
+          FROM jsonb_array_elements(bonus_entries_payload) AS entry
+          WHERE NOT (
+            entry->>'source' IN (
+              'runtime:realm_stage',
+              'runtime:realm_state',
+              'runtime:heaven_gate_roots',
+              'runtime:technique_aggregate',
+              'technique:aggregate',
+              'realm:state',
+              'realm:stage',
+              'heaven_gate:roots'
+            )
+            OR entry->>'source' LIKE 'technique:%'
+            OR entry->>'source' LIKE 'equipment:%'
+            OR entry->>'source' LIKE 'equip:%'
+            OR entry->>'source' LIKE 'equip-effect:%'
+            OR entry->>'source' LIKE 'body_training:%'
+            OR entry->>'source' LIKE 'buff:%'
+          )
+        ),
+        updated_at = now()
+      WHERE jsonb_typeof(bonus_entries_payload) = 'array'
+        AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(bonus_entries_payload) AS entry
+          WHERE (
+            entry->>'source' IN (
+              'runtime:realm_stage',
+              'runtime:realm_state',
+              'runtime:heaven_gate_roots',
+              'runtime:technique_aggregate',
+              'technique:aggregate',
+              'realm:state',
+              'realm:stage',
+              'heaven_gate:roots'
+            )
+            OR entry->>'source' LIKE 'technique:%'
+            OR entry->>'source' LIKE 'equipment:%'
+            OR entry->>'source' LIKE 'equip:%'
+            OR entry->>'source' LIKE 'equip-effect:%'
+            OR entry->>'source' LIKE 'body_training:%'
+            OR entry->>'source' LIKE 'buff:%'
+          )
+        )
+    `);
+    const cleanedCount = Number(result.rowCount ?? 0);
+    if (cleanedCount > 0) {
+      this.logger.warn(`已清理玩家属性派生加成残留：count=${cleanedCount}`);
     }
   }
 
@@ -6860,10 +6922,21 @@ function normalizeRuntimeBonusEntry(
 }
 
 function isDerivedPersistentRuntimeBonusSource(source: string): boolean {
-  return source === 'runtime:realm_stage'
-    || source === 'runtime:realm_state'
-    || source === 'runtime:heaven_gate_roots'
-    || source === 'runtime:technique_aggregate';
+  const normalized = typeof source === 'string' ? source.trim() : '';
+  return normalized === 'runtime:realm_stage'
+    || normalized === 'runtime:realm_state'
+    || normalized === 'runtime:heaven_gate_roots'
+    || normalized === 'runtime:technique_aggregate'
+    || normalized === 'technique:aggregate'
+    || normalized === 'realm:state'
+    || normalized === 'realm:stage'
+    || normalized === 'heaven_gate:roots'
+    || normalized.startsWith('technique:')
+    || normalized.startsWith('equipment:')
+    || normalized.startsWith('equip:')
+    || normalized.startsWith('equip-effect:')
+    || normalized.startsWith('body_training:')
+    || normalized.startsWith('buff:');
 }
 
 function cloneJsonValue<T>(value: T): T {

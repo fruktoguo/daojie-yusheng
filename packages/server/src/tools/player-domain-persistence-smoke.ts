@@ -236,6 +236,9 @@ async function main(): Promise<void> {
       || !String(JSON.stringify(attrStateRow.heaven_gate_payload ?? '')).includes('averageBonus')
       || !String(JSON.stringify(attrStateRow.spiritual_roots_payload ?? '')).includes('metal')
       || String(JSON.stringify(attrStateRow.bonus_entries_payload ?? '')).includes('runtime:technique_aggregate')
+      || String(JSON.stringify(attrStateRow.bonus_entries_payload ?? '')).includes('equip-effect:')
+      || String(JSON.stringify(attrStateRow.bonus_entries_payload ?? '')).includes('equipment:')
+      || String(JSON.stringify(attrStateRow.bonus_entries_payload ?? '')).includes('body_training:')
     ) {
       throw new Error(`unexpected player_attr_state row: ${JSON.stringify(attrStateRow)}`);
     }
@@ -2460,6 +2463,26 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
         },
         stats: {
           attack: 3,
+        },
+      },
+      {
+        source: 'equip-effect:accessory:equip.sealed_path_token:sealed-path-march',
+        label: '+20 封路令:sealed-path-march',
+        stats: {
+          realmExpPerTick: 7,
+          techniqueExpPerTick: 14,
+        },
+      },
+      {
+        source: 'equipment:accessory',
+        stats: {
+          realmExpPerTick: 13.46,
+        },
+      },
+      {
+        source: 'body_training:aggregate',
+        attrs: {
+          constitution: 12,
         },
       },
     ],

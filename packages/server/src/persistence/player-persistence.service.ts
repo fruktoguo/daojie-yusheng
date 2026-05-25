@@ -800,10 +800,16 @@ function canonicalizeRuntimeBonusSource(source: unknown): string {
 }
 
 function isDerivedPersistentRuntimeBonusSource(source: string): boolean {
-  return source === 'runtime:realm_stage'
-    || source === 'runtime:realm_state'
-    || source === 'runtime:heaven_gate_roots'
-    || source === 'runtime:technique_aggregate';
+  const normalized = typeof source === 'string' ? source.trim() : '';
+  return normalized === 'runtime:realm_stage'
+    || normalized === 'runtime:realm_state'
+    || normalized === 'runtime:heaven_gate_roots'
+    || normalized === 'runtime:technique_aggregate'
+    || normalized.startsWith('technique:')
+    || normalized.startsWith('equipment:')
+    || normalized.startsWith('equip-effect:')
+    || normalized.startsWith('body_training:')
+    || normalized.startsWith('buff:');
 }
 
 function normalizePendingLogbookMessages(

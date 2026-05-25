@@ -673,6 +673,20 @@ function buildSnapshot(now: number): ProjectedRecoverySnapshot {
           attack: 3,
         },
       },
+      {
+        source: 'equip-effect:accessory:equip.sealed_path_token:sealed-path-march',
+        label: '+20 封路令:sealed-path-march',
+        stats: {
+          realmExpPerTick: 7,
+          techniqueExpPerTick: 14,
+        },
+      },
+      {
+        source: 'body_training:aggregate',
+        attrs: {
+          constitution: 12,
+        },
+      },
     ],
   };
 }

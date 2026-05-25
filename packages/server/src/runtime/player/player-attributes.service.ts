@@ -892,6 +892,8 @@ function isDerivedRuntimeBonusSource(source) {
         || source === 'runtime:technique_aggregate'
         || source.startsWith('technique:')
         || source.startsWith('equipment:')
+        || source.startsWith('equip-effect:')
+        || source.startsWith('body_training:')
         || source.startsWith('buff:');
 }
 /**
