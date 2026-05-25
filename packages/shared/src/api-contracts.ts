@@ -1504,6 +1504,9 @@ export interface GmWorkerStateRes {
       lastDurationMs: number;
       runCount: number;
       failureCount: number;
+      nodeId?: string;
+      runtimeRole?: string;
+      snapshotUpdatedAt?: string;
     }>;
     governor?: {
       availableParallelism: number;

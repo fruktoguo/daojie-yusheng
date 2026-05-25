@@ -4018,7 +4018,13 @@ function getWorkerSchedulerMarkup(state: GmWorkerStateRes): string {
     const isStuck = task.running && task.lastSuccessAt && (Date.now() - Date.parse(task.lastSuccessAt) > 120_000);
     const statusClass = isStuck ? ' danger' : task.running ? '' : '';
     const statusText = isStuck ? '可能 hang' : task.running ? '运行中' : task.paused ? '已暂停' : task.enabled ? '空闲' : '已禁用';
+    const sourceText = [
+      task.runtimeRole ? `role=${task.runtimeRole}` : '',
+      task.nodeId ? `node=${task.nodeId}` : '',
+      task.snapshotUpdatedAt ? `快照 ${formatDateTime(task.snapshotUpdatedAt)}` : '',
+    ].filter(Boolean).join(' · ');
     const meta = [
+      sourceText,
       `运行 ${task.runCount} 次`,
       `成功 ${task.processedCount}`,
       task.failureCount > 0 ? `失败 ${task.failureCount}` : '',

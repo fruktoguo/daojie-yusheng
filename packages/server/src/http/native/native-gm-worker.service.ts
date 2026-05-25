@@ -13,6 +13,11 @@ import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.ser
 import { PlayerFlushLedgerService } from '../../persistence/player-flush-ledger.service';
 import { BackgroundWorkerRuntimeService } from '../../runtime/worker/background-worker-runtime.service';
 import { SchedulerManagerService } from '../../scheduler/scheduler-manager.service';
+import {
+  SchedulerStatePersistenceService,
+  type SchedulerPersistedSnapshotRecord,
+} from '../../scheduler/scheduler-state-persistence.service';
+import type { SchedulerGovernorSnapshot, SchedulerSnapshot, SchedulerTaskRuntimeState } from '../../scheduler/scheduler.types';
 import { NativeGmAdminService } from './native-gm-admin.service';
 
 const WORKER_WINDOW_SECONDS = 60;
@@ -43,6 +48,8 @@ export class NativeGmWorkerService {
     private readonly backgroundWorkerRuntimeService: BackgroundWorkerRuntimeService | null = null,
     @Optional() @Inject(SchedulerManagerService)
     private readonly schedulerManagerService: SchedulerManagerService | null = null,
+    @Optional() @Inject(SchedulerStatePersistenceService)
+    private readonly schedulerStatePersistenceService: SchedulerStatePersistenceService | null = null,
   ) {}
 
   async getWorkerState(): Promise<GmWorkerStateRes> {
@@ -56,6 +63,7 @@ export class NativeGmWorkerService {
       databaseState,
       flushDiagnostics,
       stalePayloadByDomain,
+      scheduler,
     ] = await Promise.all([
       this.playerFlushLedgerService.listBacklogSummary(),
       this.flushLedgerService.listInstanceBacklogSummary(),
@@ -66,6 +74,7 @@ export class NativeGmWorkerService {
       this.nativeGmAdminService.getDatabaseState(),
       Promise.resolve(this.flushDiagnosticsService.getSnapshot()),
       this.flushLedgerService.listPlayerStalePayloadCountByDomain(),
+      this.loadSchedulerSnapshot(),
     ]);
 
     const runtimeRole = resolveServerRuntimeRole();
@@ -137,10 +146,149 @@ export class NativeGmWorkerService {
           byDomain: flushDiagnostics.failures.byDomain,
         },
       },
-      scheduler: this.schedulerManagerService?.getSnapshot() ?? null,
+      scheduler,
       note: 'GM worker 面板读取 flush ledger、outbox 与数据库备份 worker 心跳的低频汇总；它不启动、不停止 worker，也不替代进程级监控。',
     };
   }
+
+  private async loadSchedulerSnapshot(): Promise<SchedulerSnapshot | null> {
+    const fallback = this.schedulerManagerService?.getSnapshot() ?? null;
+    const records = await this.schedulerStatePersistenceService?.listRecentSnapshots()
+      .catch(() => []) ?? [];
+    if (records.length === 0) {
+      return fallback;
+    }
+    return buildClusterSchedulerSnapshot(records, fallback);
+  }
+}
+
+type GmSchedulerTaskRuntimeState = SchedulerTaskRuntimeState & {
+  nodeId?: string;
+  runtimeRole?: string;
+  snapshotUpdatedAt?: string;
+};
+
+function buildClusterSchedulerSnapshot(
+  records: SchedulerPersistedSnapshotRecord[],
+  fallback: SchedulerSnapshot | null,
+): SchedulerSnapshot {
+  const tasksById = new Map<string, GmSchedulerTaskRuntimeState>();
+  const barrierNodes: Array<Record<string, unknown>> = [];
+  const governors: SchedulerGovernorSnapshot[] = [];
+  let initialized = false;
+  let stopping = false;
+  for (const record of records) {
+    const snapshot = record.snapshot;
+    initialized = initialized || snapshot.initialized === true;
+    stopping = stopping || snapshot.stopping === true;
+    barrierNodes.push({
+      stateKey: record.stateKey,
+      nodeId: record.nodeId,
+      runtimeRole: record.runtimeRole,
+      processId: record.processId,
+      updatedAt: record.updatedAt,
+      barrier: snapshot.barrier,
+    });
+    if (snapshot.governor) {
+      governors.push(snapshot.governor);
+    }
+    for (const task of snapshot.tasks ?? []) {
+      const enriched: GmSchedulerTaskRuntimeState = {
+        ...task,
+        nodeId: record.nodeId,
+        runtimeRole: record.runtimeRole,
+        snapshotUpdatedAt: record.updatedAt,
+      };
+      const existing = tasksById.get(task.id);
+      if (!existing || shouldReplaceSchedulerTask(existing, enriched)) {
+        tasksById.set(task.id, enriched);
+      }
+    }
+  }
+  if (tasksById.size === 0 && fallback) {
+    for (const task of fallback.tasks ?? []) {
+      tasksById.set(task.id, { ...task, runtimeRole: 'local' });
+    }
+  }
+  return {
+    initialized,
+    stopping,
+    barrier: {
+      cluster: true,
+      nodes: barrierNodes,
+    },
+    tasks: Array.from(tasksById.values()).sort(compareSchedulerTasks),
+    governor: mergeSchedulerGovernors(governors) ?? fallback?.governor ?? null,
+  };
+}
+
+function shouldReplaceSchedulerTask(existing: GmSchedulerTaskRuntimeState, next: GmSchedulerTaskRuntimeState): boolean {
+  const existingScore = scoreSchedulerTask(existing);
+  const nextScore = scoreSchedulerTask(next);
+  if (nextScore !== existingScore) {
+    return nextScore > existingScore;
+  }
+  return timestampOf(next.lastHeartbeatAt ?? next.snapshotUpdatedAt) >= timestampOf(existing.lastHeartbeatAt ?? existing.snapshotUpdatedAt);
+}
+
+function scoreSchedulerTask(task: GmSchedulerTaskRuntimeState): number {
+  let score = 0;
+  if (task.enabled) score += 1000;
+  if (task.running) score += 100;
+  if (task.lastHeartbeatAt) score += 10;
+  if (task.lastSuccessAt) score += 5;
+  return score;
+}
+
+function compareSchedulerTasks(left: SchedulerTaskRuntimeState, right: SchedulerTaskRuntimeState): number {
+  const priorityRank: Record<string, number> = { high: 0, normal: 1, low: 2 };
+  const leftPriority = priorityRank[left.priority] ?? 1;
+  const rightPriority = priorityRank[right.priority] ?? 1;
+  if (leftPriority !== rightPriority) {
+    return leftPriority - rightPriority;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function mergeSchedulerGovernors(governors: SchedulerGovernorSnapshot[]): SchedulerGovernorSnapshot | null {
+  if (governors.length === 0) {
+    return null;
+  }
+  const pressureRank: Record<SchedulerGovernorSnapshot['backlogPressureLevel'], number> = {
+    low: 0,
+    medium: 1,
+    high: 2,
+    critical: 3,
+  };
+  let pressureLevel: SchedulerGovernorSnapshot['backlogPressureLevel'] = 'low';
+  let availableParallelism = 0;
+  let cpuReserve = 0;
+  let flushPoolWaiting = 0;
+  let lockWaitCount = 0;
+  let backlogCount = 0;
+  for (const governor of governors) {
+    availableParallelism += Math.max(0, Math.trunc(Number(governor.availableParallelism) || 0));
+    cpuReserve += Math.max(0, Math.trunc(Number(governor.cpuReserve) || 0));
+    flushPoolWaiting += Math.max(0, Math.trunc(Number(governor.flushPoolWaiting) || 0));
+    lockWaitCount += Math.max(0, Math.trunc(Number(governor.lockWaitCount) || 0));
+    backlogCount += Math.max(0, Math.trunc(Number(governor.backlogCount) || 0));
+    if (pressureRank[governor.backlogPressureLevel] > pressureRank[pressureLevel]) {
+      pressureLevel = governor.backlogPressureLevel;
+    }
+  }
+  return {
+    availableParallelism,
+    cpuReserve,
+    flushPoolWaiting,
+    lockWaitCount,
+    backlogCount,
+    backlogPressureLevel: pressureLevel,
+  };
+}
+
+function timestampOf(value: string | null | undefined): number {
+  const parsed = Date.parse(value ?? '');
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function toGmRuntimeRow(row: GmWorkerRuntimeRow): GmWorkerRuntimeRow {
