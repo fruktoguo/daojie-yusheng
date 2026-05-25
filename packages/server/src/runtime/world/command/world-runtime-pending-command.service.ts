@@ -39,6 +39,18 @@ function isTerminalAutoCombatTargetFailure(message) {
         || isOutOfRangeFailure(message);
 }
 
+function isCooldownFailure(message) {
+    return typeof message === 'string' && /^技能 .+ 尚在冷却$/.test(message);
+}
+
+function shouldDowngradePendingCommandFailure(command, message) {
+    if (command?.autoCombat === true || command?.manualEngage === true) {
+        return false;
+    }
+    return isCooldownFailure(message)
+        || (command?.kind === 'engageBattle' && message === '没有可命中的目标');
+}
+
 function resolveCommandTargetRef(command) {
     const targetPlayerId = typeof command?.targetPlayerId === 'string' ? command.targetPlayerId.trim() : '';
     if (targetPlayerId) {
@@ -166,6 +178,14 @@ function buildPendingCommandFailureDebug(playerId, command, deps) {
         parts.push('playerState=missing');
     }
     return `debug=${parts.join(' ')}`;
+}
+
+function emitPendingCommandFailureLog(deps, line, command, message) {
+    if (shouldDowngradePendingCommandFailure(command, message) && typeof deps.logger?.debug === 'function') {
+        deps.logger.debug(line);
+        return;
+    }
+    deps.logger.warn(line);
 }
 
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
@@ -369,7 +389,12 @@ export class WorldRuntimePendingCommandService {
                 }
                 const noticeMessage = normalizePendingCommandNoticeMessage(failedCommandForDiagnostics, message);
                 const retrySuffix = failedCommandForDiagnostics !== command ? ` retryOf=${command.kind}` : '';
-                deps.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${failedCommandForDiagnostics.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, failedCommandForDiagnostics, deps)}${retrySuffix}`);
+                emitPendingCommandFailureLog(
+                    deps,
+                    `处理玩家 ${playerId} 的待执行指令失败：${failedCommandForDiagnostics.kind}（${message}） ${buildPendingCommandFailureDebug(playerId, failedCommandForDiagnostics, deps)}${retrySuffix}`,
+                    failedCommandForDiagnostics,
+                    message,
+                );
                 if (noticeMessage) {
                     deps.queuePlayerNotice(playerId, noticeMessage, 'warn');
                 }
