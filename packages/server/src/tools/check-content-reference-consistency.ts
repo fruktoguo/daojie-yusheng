@@ -74,6 +74,7 @@ function collectItemIds() {
 
   const items = loadArrayDirectory("items");
   const ids = new Set();
+  const byId = new Map();
   const duplicates = [];
   for (const item of items) {
     if (typeof item?.itemId !== "string") {
@@ -84,8 +85,9 @@ function collectItemIds() {
       continue;
     }
     ids.add(item.itemId);
+    byId.set(item.itemId, item);
   }
-  return { items, ids, duplicates };
+  return { items, ids, byId, duplicates };
 }
 /**
  * collectMonsterIds：执行怪物ID相关逻辑。
@@ -369,6 +371,9 @@ function validateItemRefs(errors, items, refs) {
     if (item?.type === "consumable" && !hasConsumableUseRuntimeEffect(item)) {
       errors.push(`${itemId}: consumable 缺少运行时可识别的使用效果字段`);
     }
+    if (typeof item?.formationDiskTier === "string" && item.formationDiskTier.length > 0 && item?.type !== "consumable") {
+      errors.push(`${itemId}: 阵盘必须是 consumable，当前 type=${item?.type ?? "unknown"}`);
+    }
     for (const buff of item?.consumeBuffs ?? []) {
       const buffLabel = `${itemId}: consumeBuffs.${typeof buff?.buffId === "string" ? buff.buffId : "unknown-buff"}`;
       if (buff?.valueStats) {
@@ -508,7 +513,7 @@ function validateAlchemyRefs(errors, itemIds) {
  */
 
 
-function validateEnhancementRefs(errors, itemIds) {
+function validateEnhancementRefs(errors, itemIds, itemById) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const enhancementsDir = path.join(contentRoot, "enhancements");
@@ -519,6 +524,10 @@ function validateEnhancementRefs(errors, itemIds) {
       const targetItemId = typeof entry?.targetItemId === "string" ? entry.targetItemId : "unknown-enhancement-target";
       if (typeof entry?.targetItemId === "string" && !itemIds.has(entry.targetItemId)) {
         errors.push(`${relativePath}: enhancement targetItemId 不存在 -> ${entry.targetItemId}`);
+      }
+      const targetItem = itemById.get(entry?.targetItemId);
+      if (targetItem && targetItem.type !== "equipment") {
+        errors.push(`${relativePath}: enhancement targetItemId 必须是装备 -> ${entry.targetItemId}`);
       }
       for (const step of entry?.steps ?? []) {
         if (!Number.isInteger(step?.targetEnhanceLevel) || step.targetEnhanceLevel <= 0) {
@@ -680,7 +689,7 @@ async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const errors = [];
-  const { items, ids: itemIds, duplicates: itemDuplicates } = collectItemIds();
+  const { items, ids: itemIds, byId: itemById, duplicates: itemDuplicates } = collectItemIds();
   const { monsters, ids: monsterIds, duplicates: monsterDuplicates } = collectMonsterIds();
   const { techniques, techniqueIds, skillIds, duplicates: techniqueDuplicates } = collectTechniqueSkillIds();
   const { buffs: techniqueBuffs, buffRefs: techniqueBuffRefs, duplicates: techniqueBuffDuplicates } = collectTechniqueBuffIds();
@@ -699,7 +708,7 @@ async function main() {
   validateResourceNodeRefs(errors, itemIds);
   await validateRuntimeTileDropRefs(errors, itemIds);
   validateAlchemyRefs(errors, itemIds);
-  validateEnhancementRefs(errors, itemIds);
+  validateEnhancementRefs(errors, itemIds, itemById);
   validateTechniqueRefs(errors, techniques, techniqueBuffRefs);
   validateTechniqueBuffRefs(errors, techniqueBuffs);
   validateQuestRefs(errors, questFiles, {

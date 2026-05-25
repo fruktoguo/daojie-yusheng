@@ -627,15 +627,6 @@
   "equip.chasing_edge_boots": [],
   "equip.cleantide_robe": [],
   "equip.cleft_blade_cloak": [],
-  "equip.copper_array_plate": [
-    {
-      "kind": "forging",
-      "mapId": "crafting",
-      "mapName": "炼器",
-      "recipeId": "forging.copper_array_plate",
-      "recipeName": "凡品阵盘器方"
-    }
-  ],
   "equip.copper_building_hammer": [
     {
       "kind": "forging",
@@ -1008,6 +999,13 @@
       "mapName": "栖真渡",
       "npcId": "npc_gu_hui",
       "npcName": "行修散商·顾回"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.copper_array_plate",
+      "recipeName": "凡品阵盘器方"
     }
   ],
   "formation_disk.mystic": [],

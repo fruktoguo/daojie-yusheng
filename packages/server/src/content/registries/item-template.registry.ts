@@ -21,6 +21,10 @@ type ItemTemplateRecord = Record<string, unknown> & {
   type?: string;
 };
 
+const ITEM_TEMPLATE_ALIASES = new Map<string, string>([
+  ['equip.copper_array_plate', 'formation_disk.mortal'],
+]);
+
 @Injectable()
 export class ItemTemplateRegistry {
   readonly itemTemplates = new Map<string, ItemTemplateRecord>();
@@ -52,12 +56,13 @@ export class ItemTemplateRegistry {
   }
 
   tryGetRef(itemId: string): Readonly<ItemTemplateRecord> | undefined {
-    return this.itemTemplates.get(String(itemId ?? '').trim());
+    return this.itemTemplates.get(resolveItemTemplateId(itemId));
   }
 
   createInstance(itemId: string, init: Record<string, unknown> = {}): Record<string, unknown> | null {
-    const template = this.tryGetRef(itemId);
-    return template ? createItemInstanceFromTemplate(template, { ...init, itemId }) : null;
+    const resolvedItemId = resolveItemTemplateId(itemId);
+    const template = this.itemTemplates.get(resolvedItemId);
+    return template ? createItemInstanceFromTemplate(template, { ...init, itemId: resolvedItemId }) : null;
   }
 
   hydrate(itemId: string, payload: Record<string, unknown> = {}): Record<string, unknown> | null {
@@ -69,7 +74,8 @@ export class ItemTemplateRegistry {
   }
 
   createItem(itemId: string, count = 1): Record<string, unknown> | null {
-    return this.createInstance(itemId, { itemId, count });
+    const resolvedItemId = resolveItemTemplateId(itemId);
+    return this.createInstance(resolvedItemId, { itemId: resolvedItemId, count });
   }
 
   normalizeItem(item: unknown): Record<string, unknown> | null {
@@ -77,14 +83,15 @@ export class ItemTemplateRegistry {
       return null;
     }
     const record = item as Record<string, unknown>;
-    const template = this.tryGetRef(String(record?.itemId ?? ''));
+    const resolvedItemId = resolveItemTemplateId(String(record?.itemId ?? ''));
+    const template = this.itemTemplates.get(resolvedItemId);
     if (!template) {
       return {
         ...record,
         count: Math.max(1, Math.trunc(Number(record.count) || 1)),
       };
     }
-    return createItemInstanceFromTemplate(template, record);
+    return createItemInstanceFromTemplate(template, { ...record, itemId: resolvedItemId });
   }
 
   getItemName(itemId: string): string | null {
@@ -150,4 +157,9 @@ export class ItemTemplateRegistry {
       allowBatchUse: template.allowBatchUse,
     })).sort((left, right) => (left.itemId as string).localeCompare(right.itemId as string, 'zh-Hans-CN'));
   }
+}
+
+function resolveItemTemplateId(itemId: unknown): string {
+  const normalized = String(itemId ?? '').trim();
+  return ITEM_TEMPLATE_ALIASES.get(normalized) ?? normalized;
 }

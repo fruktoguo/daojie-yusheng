@@ -49,7 +49,7 @@
   },
   {
     "recipeId": "forging.copper_array_plate",
-    "outputItemId": "equip.copper_array_plate",
+    "outputItemId": "formation_disk.mortal",
     "outputCount": 1,
     "level": 1,
     "grade": "yellow",
