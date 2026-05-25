@@ -308,13 +308,13 @@ export class ContentTemplateRepository {
         this.terrainEffectsByTerrainType.clear();
         this.buffRegistry.loadAll();
         this.formationRegistry.loadAll();
-        this.dropTableRegistry.loadAll();
-        this.monsterTemplateRegistry.loadAll();
         this.monsterRealmBaselines = undefined;
         this.starterInventoryEntries = [];
         resetMapDocumentFileIndex();
         this.techniqueRegistry.loadAll(this.sharedTechniqueBuffs);
         this.skillRegistry.loadAll(this.techniqueTemplates);
+        this.dropTableRegistry.loadAll();
+        this.monsterTemplateRegistry.loadAll();
 
         const starterPath = resolveProjectPath('packages', 'server', 'data', 'content', 'starter-inventory.json');
 
@@ -2051,6 +2051,7 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
         monsterCast: normalizeSkillCastDef(candidate.monsterCast, true),
     };
 }
+
 function normalizeSkillCastDef(raw, includeConditions = false) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
         return undefined;

@@ -1436,13 +1436,13 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map(), t
 
 function normalizeTechniqueSkillId(raw, techniqueId = '', index = 0) {
     if (typeof raw === 'string' && raw.trim()) {
-        const normalized = raw.trim().replace(/[^A-Za-z0-9:_-]+/g, '_').replace(/^_+|_+$/g, '');
+        const normalized = raw.trim().replace(/[^A-Za-z0-9:_.-]+/g, '_').replace(/^_+|_+$/g, '');
         if (normalized) {
             return normalized;
         }
     }
     const normalizedTechniqueId = typeof techniqueId === 'string' && techniqueId.trim()
-        ? techniqueId.trim().replace(/[^A-Za-z0-9:_-]+/g, '_').replace(/^_+|_+$/g, '')
+        ? techniqueId.trim().replace(/[^A-Za-z0-9:_.-]+/g, '_').replace(/^_+|_+$/g, '')
         : 'technique';
     return `${normalizedTechniqueId}_skill_${Math.max(1, Math.trunc(Number(index) || 0) + 1)}`;
 }

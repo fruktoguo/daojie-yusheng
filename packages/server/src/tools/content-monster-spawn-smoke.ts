@@ -82,6 +82,7 @@ function main() {
   assertHuanlingZhenrenInitialWoundedBuff(repository, mapTemplateRepository);
   assertHuanlingZhenrenSkillOrderAndCastConfig();
   assertHuanlingZhenrenRuntimeSkillSelection(repository, mapTemplateRepository);
+  assertConfiguredMonsterSkillsResolved(repository);
 
   console.log(JSON.stringify({
     ok: true,
@@ -90,6 +91,28 @@ function main() {
     rootMapCount: rootMapMonsters.length,
     yunlaiMapCount: yunlaiMonsters.length,
   }, null, 2));
+}
+
+function assertConfiguredMonsterSkillsResolved(repository: ContentTemplateRepository) {
+  const expectedSkillIdsByMonsterId: Record<string, string[]> = {
+    m_iron_devour_lord: ['skill.core_smash', 'skill.guardian_quake', 'skill.brutal_ram'],
+    m_town_rat_south: ['skill.predator_pounce'],
+    m_town_rat_refuse: ['skill.predator_pounce'],
+    m_gate_thug: ['skill.houtu_chengyuan'],
+    m_night_blade: ['skill.cloud_blade'],
+  };
+
+  for (const [monsterId, expectedSkillIds] of Object.entries(expectedSkillIdsByMonsterId)) {
+    const template = repository.monsterRuntimeTemplates.get(monsterId);
+    assert.ok(template, `${monsterId} runtime template should exist`);
+    const actualSkillIds = new Set((template.skills ?? []).map((skill) => skill.id));
+    for (const skillId of expectedSkillIds) {
+      assert.ok(
+        actualSkillIds.has(skillId),
+        `${monsterId} should resolve configured monster skill ${skillId}`,
+      );
+    }
+  }
 }
 
 function assertRuntimeMonsterStatsMatchGenerated(
@@ -327,9 +350,10 @@ function assertHuanlingZhenrenSkillOrderAndCastConfig() {
   for (const skillId of currentHuanling.skills) {
     const currentSkill = currentSkills.get(skillId);
     assert.ok(currentSkill, `${skillId} should resolve from current 地阶 technique content`);
-    if (currentSkill.requiresTarget !== false) {
+    if (resolveRawRequiresTarget(currentSkill) !== false) {
+      const currentMonsterCast = resolveRawMonsterCast(currentSkill);
       assert.ok(
-        Number(currentSkill.monsterCast?.windupTicks) > 0,
+        Number(currentMonsterCast?.windupTicks) > 0,
         `${skillId} targeted monster skill should keep a positive windupTicks`,
       );
     }
@@ -340,10 +364,40 @@ function assertHuanlingZhenrenSkillOrderAndCastConfig() {
   assert.ok(currentCanpo, 'current content should include 残魄掌');
   assert.ok(referenceCanpo, 'reference main should include 残魄掌');
   assert.equal(currentCanpo.name, '残魄掌', '残魄掌 display name should stay stable');
-  assert.equal(currentCanpo.cooldown, 0, '残魄掌 should remain a zero-cooldown fallback');
-  assert.equal(currentCanpo.range, 5, '残魄掌 should keep reference range 5');
-  assert.deepEqual(currentCanpo.targeting, referenceCanpo.targeting, '残魄掌 targeting should stay aligned with reference main');
-  assert.deepEqual(currentCanpo.monsterCast, referenceCanpo.monsterCast, '残魄掌 monsterCast warning config should stay aligned with reference main');
+  assert.equal(resolveRawCooldown(currentCanpo), 0, '残魄掌 should remain a zero-cooldown fallback');
+  assert.equal(resolveRawRange(currentCanpo), 5, '残魄掌 should keep reference range 5');
+  assert.deepEqual(resolveRawTargeting(currentCanpo), resolveRawTargeting(referenceCanpo), '残魄掌 targeting should stay aligned with reference main');
+  assert.deepEqual(resolveRawMonsterCast(currentCanpo), resolveRawMonsterCast(referenceCanpo), '残魄掌 monsterCast warning config should stay aligned with reference main');
+}
+
+function resolveRawCooldown(skill) {
+  return skill.cooldown ?? skill.artsStrength?.structureStrength?.cooldownTicks ?? skill.artsStrength?.cooldown;
+}
+
+function resolveRawRange(skill) {
+  return skill.range ?? skill.targeting?.range ?? skill.artsStrength?.target?.range;
+}
+
+function resolveRawTargeting(skill) {
+  const rawTargeting = skill.targeting ?? skill.artsStrength?.target;
+  if (!rawTargeting || typeof rawTargeting !== 'object') {
+    return rawTargeting;
+  }
+  const normalized = { ...rawTargeting };
+  if (typeof normalized.shape !== 'string' && typeof normalized.type === 'string') {
+    normalized.shape = normalized.type;
+  }
+  delete normalized.type;
+  delete normalized.range;
+  return normalized;
+}
+
+function resolveRawRequiresTarget(skill) {
+  return skill.requiresTarget ?? skill.artsStrength?.requiresTarget;
+}
+
+function resolveRawMonsterCast(skill) {
+  return skill.monsterCast ?? skill.artsStrength?.monsterCast;
 }
 
 function assertHuanlingZhenrenRuntimeSkillSelection(
