@@ -205,6 +205,7 @@ class WorldGatewayMarketHelper {
                 unitPrice: payload?.unitPrice,
                 listingMode: payload?.listingMode,
                 buyoutPrice: payload?.buyoutPrice,
+                auctionDurationHours: payload?.auctionDurationHours,
             });
             await this.gateway.flushMarketResult(result);
         }

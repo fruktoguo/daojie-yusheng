@@ -562,7 +562,7 @@ export class MarketAuctionView {
             <label class="market-trade-dialog-field auction-consign-duration-field">
               <span>${escapeHtml(t('market.auction.consign.duration-hours', undefined))}</span>
               <input
-                class="ui-number-input"
+                class="gm-inline-input auction-consign-duration-input"
                 data-auction-consign-duration-hours
                 type="number"
                 min="${AUCTION_MIN_DURATION_HOURS}"

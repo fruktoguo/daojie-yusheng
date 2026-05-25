@@ -1625,6 +1625,10 @@
       overscroll-behavior: contain;
     }
     .detail-modal-card.detail-modal--auction-house {
+      --market-trade-accent: #9a5a2b;
+      --market-trade-accent-soft: rgba(154, 90, 43, 0.1);
+      --market-trade-display-bg: var(--surface-base);
+      --market-trade-display-border: var(--input-border);
       height: min(78dvh, calc(100dvh - 24px));
       background:
         radial-gradient(circle at top left, rgba(84, 119, 55, 0.12), transparent 30%),
@@ -1632,7 +1636,15 @@
         var(--surface-gradient-paper);
     }
     .detail-modal-card.detail-modal--auction-consign {
+      --market-trade-accent: #9a5a2b;
+      --market-trade-accent-soft: rgba(154, 90, 43, 0.1);
+      --market-trade-display-bg: var(--surface-base);
+      --market-trade-display-border: var(--input-border);
       width: min(720px, calc(100vw - 28px));
+    }
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--auction-house,
+    :root[data-color-mode="dark"] .detail-modal-card.detail-modal--auction-consign {
+      --market-trade-display-bg: var(--surface-card);
     }
     .detail-modal-card.detail-modal--skill-management {
       width: min(1180px, calc(100vw - 24px));
@@ -6842,6 +6854,15 @@
     .auction-consign-fields .market-quantity-row .small-btn {
       min-width: 38px;
       padding: 2px 8px;
+    }
+    .auction-consign-duration-input {
+      width: 96px;
+      height: 34px;
+      border-color: var(--market-trade-display-border);
+      border-radius: 9px;
+      background: var(--market-trade-display-bg);
+      text-align: center;
+      font-size: var(--font-size-role-body-13);
     }
     .auction-consign-package-count {
       display: flex;
