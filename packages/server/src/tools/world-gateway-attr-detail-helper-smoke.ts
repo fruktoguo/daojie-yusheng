@@ -333,11 +333,11 @@ function testCultivationEquipmentProgressBoostAffectsRuntimeStats() {
 
     assert.equal(
         active.attrs.numericStats.techniqueExpPerTick - inactive.attrs.numericStats.techniqueExpPerTick,
-        CULTIVATE_EXP_PER_TICK + 7,
+        7,
     );
     assert.equal(
         active.attrs.numericStats.realmExpPerTick - inactive.attrs.numericStats.realmExpPerTick,
-        CULTIVATION_REALM_EXP_PER_TICK + 3,
+        3,
     );
 
     const breakdowns = buildAttrDetailNumericStatBreakdowns(active);
@@ -1003,7 +1003,7 @@ function testSpecialStatsAffectOnlyConfiguredRates() {
     assert.equal(breakdowns.rareLootRate?.bonusBaseValue, 400);
 }
 
-function testActiveCultivationProjectsPerTickStats() {
+function testCultivationBaselineProjectsPerTickStats() {
     const service = new PlayerAttributesService();
     const player = {
         realm: {
@@ -1025,8 +1025,11 @@ function testActiveCultivationProjectsPerTickStats() {
         spiritualRoots: null,
     };
     service.recalculate(player);
-    assert.equal(player.attrs.numericStats.realmExpPerTick, 0);
-    assert.equal(player.attrs.numericStats.techniqueExpPerTick, 0);
+    assert.equal(player.attrs.numericStats.realmExpPerTick, CULTIVATION_REALM_EXP_PER_TICK);
+    assert.equal(player.attrs.numericStats.techniqueExpPerTick, CULTIVATE_EXP_PER_TICK);
+    const inactiveBreakdowns = buildAttrDetailNumericStatBreakdowns(player);
+    assert.equal(inactiveBreakdowns.realmExpPerTick?.flatBuffValue, CULTIVATION_REALM_EXP_PER_TICK);
+    assert.equal(inactiveBreakdowns.techniqueExpPerTick?.flatBuffValue, CULTIVATE_EXP_PER_TICK);
     player.combat.cultivationActive = true;
     service.recalculate(player);
     assert.equal(player.attrs.numericStats.realmExpPerTick, CULTIVATION_REALM_EXP_PER_TICK);
@@ -1125,7 +1128,7 @@ testBuffStatModePercentUsesMultiplierBreakdown();
 testBuffRealmFactorAndShaCapMatchMain();
 testTieguPercentBuffDoesNotCompileRateStats();
 testSpecialStatsAffectOnlyConfiguredRates();
-testActiveCultivationProjectsPerTickStats();
+testCultivationBaselineProjectsPerTickStats();
 testTechniqueSpecialStatsAffectOnlyConfiguredRates();
 
 console.log(JSON.stringify({ ok: true, case: 'world-gateway-attr-detail-helper' }, null, 2));

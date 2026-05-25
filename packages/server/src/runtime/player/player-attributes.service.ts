@@ -25,13 +25,15 @@ export class PlayerAttributesService {
     createInitialState() {
 
         const template = resolvePlayerRealmNumericTemplate(DEFAULT_PLAYER_REALM_STAGE);
+        const numericStats = cloneNumericStats(template.stats);
+        applyCultivationBaselineStats(numericStats);
         return {
             revision: 1,
             stage: DEFAULT_PLAYER_REALM_STAGE,
             rawBaseAttrs: createBaseAttributes(),
             baseAttrs: createBaseAttributes(),
             finalAttrs: createBaseAttributes(),
-            numericStats: cloneNumericStats(template.stats),
+            numericStats,
             ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
         };
     }
@@ -208,7 +210,7 @@ export class PlayerAttributesService {
         for (const bonus of projectedRuntimeBonuses) {
             addPartialNumericStats(numericStats, bonus.stats);
         }
-        applyActiveCultivationStats(numericStats, player);
+        applyCultivationBaselineStats(numericStats);
         applyPercentBonuses(numericStats, percentBonuses);
         applyRealmNumericScaling(numericStats, realmLv);
         applySpiritualRoots(numericStats, player.spiritualRoots);
@@ -254,10 +256,7 @@ function applySpiritualRoots(target, roots) {
     target.elementDamageReduce.earth += roots.earth;
 }
 
-function applyActiveCultivationStats(target, player) {
-    if (player?.combat?.cultivationActive !== true) {
-        return;
-    }
+function applyCultivationBaselineStats(target) {
     target.realmExpPerTick += CULTIVATION_REALM_EXP_PER_TICK;
     target.techniqueExpPerTick += CULTIVATE_EXP_PER_TICK;
 }

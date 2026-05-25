@@ -1029,6 +1029,28 @@ function testProgressionServiceDirtyDomains(): void {
   const realm = service.gainRealmProgress(player, 5);
   assert.ok(realm.dirtyDomains.includes('progression'), `expected progression dirty domain, got ${realm.dirtyDomains.join(',')}`);
 
+  const inactiveCultivator = runtime.createFreshPlayer(`${playerId}:inactive-cultivation`, null);
+  inactiveCultivator.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 100,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  inactiveCultivator.combat.cultivationActive = false;
+  inactiveCultivator.attrs.numericStats.realmExpPerTick = 1;
+  inactiveCultivator.attrs.numericStats.techniqueExpPerTick = 5;
+
+  const inactiveCultivation = service.advanceCultivation(inactiveCultivator, 1, { auraMultiplier: 3 });
+
+  assert.equal(inactiveCultivator.realm.progress, 0);
+  assert.equal(inactiveCultivation.changed, false);
+  assert.deepEqual(inactiveCultivation.dirtyDomains, []);
+
   const noMainCultivator = runtime.createFreshPlayer(`${playerId}:no-main`, null);
   noMainCultivator.realm = {
     stage: '炼气',

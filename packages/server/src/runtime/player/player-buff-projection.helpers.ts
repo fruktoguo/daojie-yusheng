@@ -9,11 +9,9 @@
  * 包含修炼、营造和黑暗三种合成 buff 的投影逻辑。
  */
 import {
-  CULTIVATE_EXP_PER_TICK,
   CULTIVATION_ACTION_ID,
   CULTIVATION_BUFF_DURATION,
   CULTIVATION_BUFF_ID,
-  CULTIVATION_REALM_EXP_PER_TICK,
   buildWorldDarknessBuffState,
   type VisibleBuffState,
 } from '@mud/shared';
@@ -148,12 +146,7 @@ function buildCultivationBuffProjection(player: ProjectablePlayerBuffState): Vis
     maxStacks: 1,
     sourceSkillId: CULTIVATION_ACTION_ID,
     sourceSkillName: '修炼',
-    stats: {
-      realmExpPerTick: CULTIVATION_REALM_EXP_PER_TICK,
-      techniqueExpPerTick: CULTIVATE_EXP_PER_TICK,
-    },
   });
-  if (projected.stats) { freezeVisibleBuffProjection(projected.stats); }
   cultivationBuffProjectionCache.set(cacheKey, projected);
   return projected;
 }

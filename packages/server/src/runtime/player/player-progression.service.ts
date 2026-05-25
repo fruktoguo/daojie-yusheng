@@ -398,6 +398,14 @@ export class PlayerProgressionService {
                 dirtyDomains: [],
             };
         }
+        if (player.combat?.cultivationActive !== true) {
+            return {
+                changed: false,
+                notices: [],
+                actionsDirty: false,
+                dirtyDomains: [],
+            };
+        }
 
         const resolved = this.resolveActiveCultivatingTechnique(player);
         let mutation = resolved;
