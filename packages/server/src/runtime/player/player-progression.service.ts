@@ -2072,21 +2072,7 @@ export class PlayerProgressionService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const level = Math.max(1, Math.floor(monsterLevel));
-
-        const expToNext = this.getRealmRuntimeExpToNext(level);
-        if (expToNext <= 0) {
-            return 0;
-        }
-
-        const levelAdjustment = getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
-        const monsterLevelDecay = getMonsterLevelExpDecayMultiplier(level);
-        return expToNext
-            * Math.max(0, expMultiplier)
-            * levelAdjustment
-            * monsterLevelDecay
-            * clamp(contributionRatio, 0, 1)
-            / 200;
+        return this.getRealmCombatExp(monsterLevel, playerRealmLv, monsterTier, expMultiplier, contributionRatio);
     }
     /**
  * finalizeProgressionMutation：执行finalize修炼进度Mutation相关逻辑。

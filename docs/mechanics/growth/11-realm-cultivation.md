@@ -93,7 +93,7 @@ foundationGain = ln(1 + decayRate × overflow × e^(-decayRate × currentFoundat
 
 ```ts
 getRealmCombatExp = expToNext × expMultiplier × levelAdjustment × monsterLevelDecay × contributionRatio / 1000
-getTechniqueCombatExp = 同上 / 200（功法经验是境界经验的 5 倍基数）
+getTechniqueCombatExp = getRealmCombatExp（功法战斗经验与境界战斗经验同基数）
 ```
 
 单次击杀上限：`SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER = 5`（最多给当前境界需求的 5 倍）
