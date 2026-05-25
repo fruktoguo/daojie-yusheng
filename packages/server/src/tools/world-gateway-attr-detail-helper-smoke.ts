@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, PLAYER_REALM_CONFIG, PLAYER_REALM_NUMERIC_TEMPLATES, PlayerRealmStage, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, calcTechniqueMaxAttrPercentBonus, getRealmAttributeMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } = require("@mud/shared");
+const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, PLAYER_REALM_CONFIG, PLAYER_REALM_NUMERIC_TEMPLATES, PlayerRealmStage, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, calcTechniqueMaxAttrPercentBonus, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, getRealmAttributeMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } = require("@mud/shared");
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
@@ -331,18 +331,22 @@ function testCultivationEquipmentProgressBoostAffectsRuntimeStats() {
     service.recalculate(inactive);
     service.recalculate(active);
 
+    const expectedProgressBoostStats = compileValueStatsToActualStats({
+        realmExpPerTick: 3,
+        techniqueExpPerTick: 7,
+    });
     assert.equal(
         active.attrs.numericStats.techniqueExpPerTick - inactive.attrs.numericStats.techniqueExpPerTick,
-        7,
+        expectedProgressBoostStats.techniqueExpPerTick,
     );
     assert.equal(
         active.attrs.numericStats.realmExpPerTick - inactive.attrs.numericStats.realmExpPerTick,
-        3,
+        expectedProgressBoostStats.realmExpPerTick,
     );
 
     const breakdowns = buildAttrDetailNumericStatBreakdowns(active);
-    assert.equal(breakdowns.techniqueExpPerTick.bonusBaseValue, 7);
-    assert.equal(breakdowns.realmExpPerTick.bonusBaseValue, 3);
+    assert.equal(breakdowns.techniqueExpPerTick.bonusBaseValue, expectedProgressBoostStats.techniqueExpPerTick);
+    assert.equal(breakdowns.realmExpPerTick.bonusBaseValue, expectedProgressBoostStats.realmExpPerTick);
     assert.equal(breakdowns.techniqueExpPerTick.finalValue, active.attrs.numericStats.techniqueExpPerTick);
 }
 
@@ -1110,6 +1114,24 @@ function testTechniqueSpecialStatsAffectOnlyConfiguredRates() {
     assert.equal(breakdowns.rareLootRate?.bonusBaseValue, 500);
 }
 
+function testPerTickExperienceScalingUsesBoostedBaseline() {
+    const baselineStats = compileEquipmentBaselinePercentsToActualStats({
+        realmExpPerTick: 100,
+        techniqueExpPerTick: 100,
+    }, {
+        grade: 'mortal',
+        level: 0,
+    });
+    assert.equal(baselineStats.realmExpPerTick, 4);
+    assert.equal(baselineStats.techniqueExpPerTick, 20);
+    const valueStats = compileValueStatsToActualStats({
+        realmExpPerTick: 2,
+        techniqueExpPerTick: 3,
+    });
+    assert.equal(valueStats.realmExpPerTick, 10);
+    assert.equal(valueStats.techniqueExpPerTick, 15);
+}
+
 testAttrDetailBuilders();
 testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate();
 testAttrDetailUsesAggregateTechniqueAttrBonus();
@@ -1130,5 +1152,6 @@ testTieguPercentBuffDoesNotCompileRateStats();
 testSpecialStatsAffectOnlyConfiguredRates();
 testCultivationBaselineProjectsPerTickStats();
 testTechniqueSpecialStatsAffectOnlyConfiguredRates();
+testPerTickExperienceScalingUsesBoostedBaseline();
 
 console.log(JSON.stringify({ ok: true, case: 'world-gateway-attr-detail-helper' }, null, 2));

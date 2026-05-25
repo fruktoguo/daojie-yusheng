@@ -81,8 +81,8 @@ export const NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE = {
   auraPowerRate: 100,
   playerExpRate: 100,
   techniqueExpRate: 100,
-  realmExpPerTick: 1,
-  techniqueExpPerTick: 1,
+  realmExpPerTick: 5,
+  techniqueExpPerTick: 5,
   lootRate: 100,
   rareLootRate: 100,
   viewRange: 1,
@@ -378,8 +378,8 @@ export const EQUIPMENT_BASELINE_GRADE_MULTIPLIER = 1.2;
 
 /** 装备基准占比中，每 1 基准对应的特殊实际值。 */
 export const EQUIPMENT_BASELINE_STAT_POINTS_PER_VALUE_OVERRIDE: Partial<Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>> = {
-  realmExpPerTick: 0.1,
-  techniqueExpPerTick: 0.5,
+  realmExpPerTick: 0.5,
+  techniqueExpPerTick: 2.5,
 };
 
 /** 计算装备等级基准量化值。 */

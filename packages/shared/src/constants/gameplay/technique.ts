@@ -12,10 +12,10 @@ import type { TechniqueGrade } from '../../cultivation-types';
  */
 
 /** 修炼每 tick 获得经验 */
-export const CULTIVATE_EXP_PER_TICK = 5;
+export const CULTIVATE_EXP_PER_TICK = 20;
 
 /** 修炼每 tick 获得境界修为 */
-export const CULTIVATION_REALM_EXP_PER_TICK = 1;
+export const CULTIVATION_REALM_EXP_PER_TICK = 5;
 
 /** 修炼状态的可见 Buff 标识。 */
 export const CULTIVATION_BUFF_ID = 'cultivation:active';
