@@ -44,6 +44,7 @@
     "smoke:world-tick-scheduler": "pnpm compile && node dist/tools/world-tick-scheduler-smoke.js",
     "smoke:scheduler-governor": "pnpm compile && node dist/tools/scheduler-governor-smoke.js",
     "smoke:gm-worker-scheduler": "pnpm compile && node dist/tools/gm-worker-scheduler-smoke.js",
+    "smoke:pvp-defeat-idempotency": "pnpm compile && node dist/tools/pvp-defeat-idempotency-smoke.js",
     "smoke:scheduler-control": "pnpm compile && node dist/tools/scheduler-control-smoke.js",
     "smoke:shutdown-coordinator-order": "pnpm compile && node dist/tools/shutdown-coordinator-order-smoke.js",
     "smoke:shutdown-failed-flush-keeps-lease": "pnpm compile && node dist/tools/shutdown-failed-flush-keeps-lease-smoke.js",

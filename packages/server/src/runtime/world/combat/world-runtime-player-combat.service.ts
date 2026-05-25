@@ -306,12 +306,21 @@ export class WorldRuntimePlayerCombatService {
 
     async handlePlayerDefeat(playerId: string, deps: any, killerPlayerId: string | null = null) {
         const victim = this.playerRuntimeService.getPlayer(playerId);
-        if (!victim || victim.hp > 0) {
-            deps.clearPendingCommand(playerId);
-            deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);
+        if (!victim) {
+            deps.clearPendingCommand?.(playerId);
+            return;
+        }
+        if (victim.hp > 0) {
+            deps.clearPendingCommand?.(playerId);
+            deps.worldRuntimeGmQueueService?.clearPendingRespawn?.(playerId);
+            return;
+        }
+        if (deps.worldRuntimeGmQueueService?.hasPendingRespawn?.(playerId) === true) {
+            deps.clearPendingCommand?.(playerId);
             return;
         }
         const deathSite = resolvePlayerDeathSite(victim, deps);
+        deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
         // 玩家死亡时立即清除所有以该玩家为仇恨目标的妖兽仇恨，
         // 避免下一个 tick 产生无效攻击 intent。
         if (deathSite.instance && typeof deathSite.instance.clearMonsterAggroForPlayer === 'function') {
@@ -386,8 +395,7 @@ export class WorldRuntimePlayerCombatService {
             deps.worldRuntimePlayerCombatOutcomeService.removeOfflineDefeatedPlayer(playerId, deps);
             return;
         }
-        deps.clearPendingCommand(playerId);
-        deps.worldRuntimeGmQueueService.markPendingRespawn(playerId);
+        deps.clearPendingCommand?.(playerId);
     }
     /** 处理玩家互杀奖励与惩罚。 */
     async applyPvPKillRewards(killer: any, victim: any, deathSite: any, deps: any) {

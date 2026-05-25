@@ -397,6 +397,27 @@ async function testRealLineAllowsPlayerBasicAttack() {
   assert.equal(deps.combatOutcomes[0].result.damage, 9);
 }
 
+async function testPlayerBasicAttackRejectsDeadPlayerTarget() {
+  const log = [];
+  const attacker = createAttacker({ instanceId: 'real:yunlai_town' });
+  const target = createTarget({ instanceId: 'real:yunlai_town', hp: 0 });
+  const service = createBasicAttackService(attacker, target, log);
+  const deps = createBasicAttackDeps(createInstance({
+    meta: {
+      instanceId: 'real:yunlai_town',
+      supportsPvp: true,
+      canDamageTile: true,
+    },
+  }), log);
+  await assert.rejects(
+    () => service.dispatchBasicAttackToPlayer(attacker, target.playerId, 'spell', 14, 8, deps),
+    /目标已死亡/,
+  );
+  assert.deepEqual(log, [
+    ['getInstanceRuntimeOrThrow', 'real:yunlai_town'],
+  ]);
+}
+
 async function testPlayerBasicAttackMonsterRecordsCombatOutcome() {
   const log = [];
   const attacker = createAttacker();
@@ -1502,6 +1523,7 @@ async function testRealLineAllowsTileLockOnAndDispatch() {
 Promise.resolve()
   .then(() => testPeacefulLineRejectsPlayerBasicAttack())
   .then(() => testRealLineAllowsPlayerBasicAttack())
+  .then(() => testPlayerBasicAttackRejectsDeadPlayerTarget())
   .then(() => testPlayerBasicAttackMonsterRecordsCombatOutcome())
   .then(() => testPlayerBasicAttackMonsterKillKeepsRewardAndDamageFloat())
   .then(() => testPlayerBasicAttackFormationRecordsCombatOutcome())

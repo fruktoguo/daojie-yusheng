@@ -352,6 +352,9 @@ export class WorldRuntimeBasicAttackService {
         if (!target) {
             return;
         }
+        if (target.hp <= 0) {
+            throw new BadRequestException('目标已死亡');
+        }
         if (instance.isPointInSafeZone(target.x, target.y)) {
             throw new BadRequestException('目标处于安全区内，无法对其造成伤害。');
         }
