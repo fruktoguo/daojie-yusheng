@@ -5107,7 +5107,7 @@
     }
     .formation-config-grid {
       display: grid;
-      grid-template-columns: minmax(190px, 1.2fr) minmax(120px, 0.75fr) minmax(150px, 0.8fr);
+      grid-template-columns: minmax(190px, 1.1fr) minmax(190px, 1fr) minmax(210px, 1.05fr);
       gap: 12px;
       align-items: stretch;
     }
@@ -5165,6 +5165,11 @@
     }
     .formation-config-field--select {
       min-width: 180px;
+    }
+    .formation-config-field--slider {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     .formation-config-field > strong,
     .formation-cost-card > strong,
@@ -5237,11 +5242,19 @@
       font-size: var(--font-size-role-body-13);
       line-height: 1.55;
     }
+    .formation-effect-specific-metrics,
     .formation-effect-list {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
     }
+    .formation-effect-specific-metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .formation-effect-specific-metrics:empty {
+      display: none;
+    }
+    .formation-effect-specific-metrics span,
     .formation-effect-list span {
       min-width: 0;
       padding: 8px 9px;
@@ -5249,6 +5262,8 @@
       border-radius: 7px;
       background: color-mix(in srgb, var(--paper) 74%, transparent);
     }
+    .formation-effect-specific-metrics em,
+    .formation-effect-specific-metrics output,
     .formation-effect-list em,
     .formation-effect-list output {
       display: block;
@@ -5258,11 +5273,13 @@
       white-space: nowrap;
       font-style: normal;
     }
+    .formation-effect-specific-metrics em,
     .formation-effect-list em {
       color: var(--ink-grey);
       font-size: var(--font-size-11);
       margin-bottom: 4px;
     }
+    .formation-effect-specific-metrics output,
     .formation-effect-list output {
       color: var(--ink-black);
       font-size: var(--font-size-role-body-12);
@@ -5270,12 +5287,28 @@
       line-height: 1.35;
       white-space: normal;
     }
+    .formation-effect-specific-metrics output {
+      font-size: var(--font-size-role-body-15);
+      font-variant-numeric: tabular-nums;
+    }
     .formation-config-input {
       min-width: 0;
       height: 38px;
       padding: 7px 10px;
       border-radius: 6px;
       font-size: var(--font-size-role-body-13);
+    }
+    .formation-config-slider-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(72px, 92px);
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .formation-config-number-input {
+      width: 100%;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
     .formation-config-slider {
       width: 100%;
@@ -5300,7 +5333,7 @@
     }
     .formation-preview-metrics {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 8px;
       margin-top: 10px;
     }
@@ -5345,6 +5378,7 @@
       background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 14%, var(--surface-base)), color-mix(in srgb, var(--surface-base) 86%, transparent));
       border-color: color-mix(in srgb, var(--accent) 28%, var(--panel-border));
     }
+    :root[data-color-mode="dark"] .formation-effect-specific-metrics span,
     :root[data-color-mode="dark"] .formation-effect-list span {
       background: color-mix(in srgb, var(--surface-base) 78%, transparent);
     }
@@ -5537,6 +5571,7 @@
       .formation-preview-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+      .formation-effect-specific-metrics,
       .formation-effect-list {
         grid-template-columns: 1fr;
       }

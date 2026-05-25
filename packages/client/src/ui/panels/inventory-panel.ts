@@ -20,8 +20,10 @@ import {
   FORMATION_DISK_TIER_LABELS,
   FormationCreatePayload,
   FORMATION_SPIRIT_STONE_ITEM_ID,
+  FORMATION_TICKS_PER_DAY,
   normalizeFormationSetup,
   resolveFormationCostConfig,
+  resolveFormationDamagePerAura,
   resolveFormationSetupPlan,
   resolveFormationVisual,
   type FormationEffectKind,
@@ -93,6 +95,12 @@ type FormationRangePreviewPayload = {
   radius: number;
   rangeHighlightColor?: string;
 } | null;
+
+const FORMATION_SETUP_MIN_RADIUS = 1;
+const FORMATION_SETUP_MAX_RADIUS = 10;
+const FORMATION_SETUP_MIN_DURATION_MINUTES = 1;
+const FORMATION_SETUP_MAX_DURATION_MINUTES = 24 * 60;
+const FORMATION_DAMAGE_REDUCTION_DENOMINATOR = 100_000;
 
 type UseItemOptions = {
   sectName?: string;
@@ -1429,13 +1437,19 @@ export class InventoryPanel {
             ${BUILTIN_FORMATION_TEMPLATES.filter((template) => template.placeableByDisk !== false).map((template) => `<option value="${this.escapeHtml(template.id)}">${this.escapeHtml(template.name)}</option>`).join('')}
           </select>
         </label>
-        <label class="formation-config-field ui-detail-field">
+        <label class="formation-config-field formation-config-field--slider ui-detail-field">
           <strong>${t('inventory.formation.field.range', undefined)} <span>${t('inventory.formation.default-radius', undefined)} <output data-formation-default-radius>1</output> ${t('common.unit.grid', undefined)}</span></strong>
-          <input class="ui-input formation-config-input" data-formation-input data-formation-radius type="number" min="1" step="1" value="1">
+          <div class="formation-config-slider-row">
+            <input class="formation-config-slider" data-formation-input data-formation-radius-slider type="range" min="${FORMATION_SETUP_MIN_RADIUS}" max="${FORMATION_SETUP_MAX_RADIUS}" step="1" value="1">
+            <input class="ui-input formation-config-input formation-config-number-input" data-formation-input data-formation-radius-input type="number" min="${FORMATION_SETUP_MIN_RADIUS}" max="${FORMATION_SETUP_MAX_RADIUS}" step="1" value="1">
+          </div>
         </label>
-        <label class="formation-config-field ui-detail-field">
+        <label class="formation-config-field formation-config-field--slider ui-detail-field">
           <strong>${t('inventory.formation.field.duration', undefined)} <span>${t('inventory.formation.default-duration', undefined)} <output data-formation-default-duration>120 ${t('common.unit.minute', undefined)}</output></span></strong>
-          <input class="ui-input formation-config-input" data-formation-input data-formation-duration-minutes type="number" min="1" step="1" value="120">
+          <div class="formation-config-slider-row">
+            <input class="formation-config-slider" data-formation-input data-formation-duration-slider type="range" min="${FORMATION_SETUP_MIN_DURATION_MINUTES}" max="${FORMATION_SETUP_MAX_DURATION_MINUTES}" step="1" value="120">
+            <input class="ui-input formation-config-input formation-config-number-input" data-formation-input data-formation-duration-input type="number" min="${FORMATION_SETUP_MIN_DURATION_MINUTES}" max="${FORMATION_SETUP_MAX_DURATION_MINUTES}" step="1" value="120">
+          </div>
         </label>
         <label class="formation-config-field ui-detail-field">
           <strong>${t('inventory.formation.field.effect', undefined)} <span>${t('inventory.formation.min-effect', undefined)} <output data-formation-min-effect>1</output></span></strong>
@@ -1454,7 +1468,7 @@ export class InventoryPanel {
       </div>
       <div class="formation-preview">
         <div class="formation-section-heading">
-          <strong>${t('inventory.formation.preview', undefined)}</strong>
+          <strong>${t('inventory.formation.preview.common', undefined)}</strong>
           <span data-formation-preview-summary>${t('inventory.formation.disk-multiplier', { multiplier: formatDisplayNumber(diskMultiplier) })}</span>
         </div>
         <div class="formation-preview-metrics">
@@ -1468,9 +1482,10 @@ export class InventoryPanel {
       </div>
       <div class="formation-effect-card ui-detail-field">
         <div class="formation-section-heading">
-          <strong>${t('inventory.formation.effect.intro', undefined)}</strong>
+          <strong>${t('inventory.formation.preview.unique', undefined)}</strong>
           <span data-formation-effect-kind>-</span>
         </div>
+        <div class="formation-effect-specific-metrics" data-formation-effect-specific-metrics></div>
         <div class="formation-effect-desc" data-formation-effect-desc>-</div>
         <div class="formation-effect-list">
           <span><em>${t('inventory.formation.effect.target', undefined)}</em><output data-formation-effect-target>-</output></span>
@@ -1573,11 +1588,75 @@ export class InventoryPanel {
   private syncFormationEffectIntro(body: HTMLElement, template: FormationTemplate, stats: FormationResolvedStats): void {
     const meta = this.describeFormationEffect(template.effect.kind, stats);
     this.setFormationTextContent(body, '[data-formation-effect-kind]', meta.kindLabel);
+    this.renderFormationSpecificPreview(body, template, stats);
     this.setFormationTextContent(body, '[data-formation-effect-desc]', template.desc?.trim() || meta.fallbackDesc);
     this.setFormationTextContent(body, '[data-formation-effect-target]', meta.target);
     this.setFormationTextContent(body, '[data-formation-effect-scaling]', meta.scaling);
     this.setFormationTextContent(body, '[data-formation-effect-range]', this.describeFormationRange(template, stats));
     this.setFormationTextContent(body, '[data-formation-effect-visibility]', meta.visibility);
+  }
+
+  private renderFormationSpecificPreview(body: HTMLElement, template: FormationTemplate, stats: FormationResolvedStats): void {
+    const container = body.querySelector<HTMLElement>('[data-formation-effect-specific-metrics]');
+    if (!container) {
+      return;
+    }
+    const metrics = this.describeFormationSpecificMetrics(template, stats);
+    container.replaceChildren(...metrics.map((metric) => {
+      const item = document.createElement('span');
+      const label = document.createElement('em');
+      label.textContent = metric.label;
+      const output = document.createElement('output');
+      output.value = metric.value;
+      output.textContent = metric.value;
+      item.append(label, output);
+      return item;
+    }));
+  }
+
+  private describeFormationSpecificMetrics(template: FormationTemplate, stats: FormationResolvedStats): Array<{ label: string; value: string }> {
+    if (template.effect.kind === 'tile_aura_source') {
+      const halfLifeTicks = Math.max(1, Math.trunc(template.effect.convergenceHalfLifeTicks ?? FORMATION_TICKS_PER_DAY));
+      const perTickGain = stats.effectValue > 0 ? Math.max(1, Math.ceil(stats.effectValue / halfLifeTicks)) : 0;
+      return [
+        { label: '每息增加灵力', value: formatDisplayInteger(perTickGain) },
+        { label: '预计最大灵力', value: formatDisplayInteger(stats.effectValue) },
+      ];
+    }
+    if (template.effect.kind === 'terrain_stabilizer') {
+      const reduction = this.resolveFormationDamageReduction(stats.effectValue);
+      return [
+        { label: '地块受击减伤', value: this.formatFormationPercent(reduction) },
+        { label: '实际承伤比例', value: this.formatFormationPercent(1 - reduction) },
+      ];
+    }
+    const selfDamageReduction = this.resolveFormationDamageReduction(stats.effectValue);
+    const damagePerAura = resolveFormationDamagePerAura(template);
+    const rawDurability = Math.max(1, Math.ceil(stats.totalAuraBudget * damagePerAura));
+    const effectiveDurability = Math.max(1, Math.ceil(rawDurability / Math.max(0.000001, 1 - selfDamageReduction)));
+    return [
+      { label: '预计承受伤害', value: formatDisplayInteger(effectiveDurability) },
+      { label: '阵法减伤', value: this.formatFormationPercent(selfDamageReduction) },
+    ];
+  }
+
+  private resolveFormationDamageReduction(effectValue: number): number {
+    const normalizedValue = Math.max(0, Number(effectValue) || 0);
+    if (normalizedValue <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(0.999999, normalizedValue / (normalizedValue + FORMATION_DAMAGE_REDUCTION_DENOMINATOR)));
+  }
+
+  private formatFormationPercent(value: number): string {
+    const normalizedValue = Math.max(0, Math.min(1, Number(value) || 0));
+    if (normalizedValue <= 0) {
+      return '0%';
+    }
+    if (normalizedValue >= 0.999999) {
+      return '99.99%';
+    }
+    return `${(normalizedValue * 100).toFixed(2)}%`;
   }
 
   private describeFormationEffect(kind: FormationEffectKind, stats: FormationResolvedStats): {
@@ -1653,24 +1732,63 @@ export class InventoryPanel {
 
   private syncFormationSetupInputs(body: HTMLElement, template: FormationTemplate): FormationSetup {
     const cost = resolveFormationCostConfig(template);
-    const radiusInput = body.querySelector<HTMLInputElement>('[data-formation-radius]');
-    const durationInput = body.querySelector<HTMLInputElement>('[data-formation-duration-minutes]');
+    const radiusSlider = body.querySelector<HTMLInputElement>('[data-formation-radius-slider]');
+    const radiusInput = body.querySelector<HTMLInputElement>('[data-formation-radius-input]');
+    const durationSlider = body.querySelector<HTMLInputElement>('[data-formation-duration-slider]');
+    const durationInput = body.querySelector<HTMLInputElement>('[data-formation-duration-input]');
     const effectInput = body.querySelector<HTMLInputElement>('[data-formation-effect-value]');
     const defaultDurationMinutes = Math.max(1, Math.round(cost.defaultDurationHours * 60));
+    const activeRadiusInput = document.activeElement === radiusSlider ? radiusSlider : radiusInput ?? radiusSlider;
+    const activeDurationInput = document.activeElement === durationSlider ? durationSlider : durationInput ?? durationSlider;
+    const radiusValue = this.clampFormationControlNumber(
+      activeRadiusInput?.value,
+      cost.defaultRadius,
+      FORMATION_SETUP_MIN_RADIUS,
+      FORMATION_SETUP_MAX_RADIUS,
+    );
+    const durationMinutes = this.clampFormationControlNumber(
+      activeDurationInput?.value,
+      defaultDurationMinutes,
+      FORMATION_SETUP_MIN_DURATION_MINUTES,
+      FORMATION_SETUP_MAX_DURATION_MINUTES,
+    );
     const setup = normalizeFormationSetup(template, {
-      radius: radiusInput ? Number.parseInt(radiusInput.value, 10) : cost.defaultRadius,
-      durationHours: durationInput ? Number(durationInput.value) / 60 : cost.defaultDurationHours,
+      radius: radiusValue,
+      durationHours: durationMinutes / 60,
       effectValue: effectInput ? Number.parseInt(effectInput.value, 10) : cost.minEffectValue,
     });
-    if (radiusInput) {
-      radiusInput.min = String(cost.defaultRadius);
-      radiusInput.step = '1';
-      radiusInput.value = String(setup.radius);
+    const syncedRadius = this.clampFormationControlNumber(
+      setup.radius,
+      cost.defaultRadius,
+      FORMATION_SETUP_MIN_RADIUS,
+      FORMATION_SETUP_MAX_RADIUS,
+    );
+    const syncedDurationMinutes = this.clampFormationControlNumber(
+      Math.round(setup.durationHours * 60),
+      defaultDurationMinutes,
+      FORMATION_SETUP_MIN_DURATION_MINUTES,
+      FORMATION_SETUP_MAX_DURATION_MINUTES,
+    );
+    for (const input of [radiusSlider, radiusInput]) {
+      if (!input) {
+        continue;
+      }
+      input.min = String(FORMATION_SETUP_MIN_RADIUS);
+      input.max = String(FORMATION_SETUP_MAX_RADIUS);
+      input.step = '1';
+      input.value = String(syncedRadius);
     }
-    if (durationInput) {
-      durationInput.min = String(cost.minDurationMinutes);
-      durationInput.step = '1';
-      durationInput.value = String(Math.max(1, Math.round(setup.durationHours * 60)));
+    for (const input of [durationSlider, durationInput]) {
+      if (!input) {
+        continue;
+      }
+      input.min = String(FORMATION_SETUP_MIN_DURATION_MINUTES);
+      input.max = String(FORMATION_SETUP_MAX_DURATION_MINUTES);
+      input.step = '1';
+      input.value = String(syncedDurationMinutes);
+    }
+    if (radiusInput) {
+      radiusInput.setAttribute('aria-label', `阵法范围，${FORMATION_SETUP_MIN_RADIUS} 到 ${FORMATION_SETUP_MAX_RADIUS} 格`);
     }
     if (effectInput) {
       effectInput.min = String(cost.minEffectValue);
@@ -1680,7 +1798,13 @@ export class InventoryPanel {
     this.setFormationOutputText(body, '[data-formation-default-radius]', cost.defaultRadius, ' 格');
     this.setFormationOutputText(body, '[data-formation-default-duration]', defaultDurationMinutes, ' 分钟');
     this.setFormationOutputText(body, '[data-formation-min-effect]', cost.minEffectValue);
-    return setup;
+    return { ...setup, radius: syncedRadius, durationHours: syncedDurationMinutes / 60 };
+  }
+
+  private clampFormationControlNumber(value: unknown, fallback: number, min: number, max: number): number {
+    const parsed = Math.round(Number(value));
+    const normalized = Number.isFinite(parsed) ? parsed : Math.round(Number(fallback) || min);
+    return Math.max(min, Math.min(max, normalized));
   }
 
   private setFormationOutputText(body: HTMLElement, selector: string, value: number, suffix = ''): void {
@@ -1746,9 +1870,35 @@ export class InventoryPanel {
   private handleFormationInputChange(
     body: HTMLElement,
     item: ItemStack,
-    _input: HTMLInputElement | HTMLSelectElement,
+    input: HTMLInputElement | HTMLSelectElement,
   ): void {
+    this.syncFormationPairedInput(body, input);
     this.syncFormationPreview(body, item);
+  }
+
+  private syncFormationPairedInput(body: HTMLElement, input: HTMLInputElement | HTMLSelectElement): void {
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    const pairs: Array<[string, string]> = [
+      ['[data-formation-radius-slider]', '[data-formation-radius-input]'],
+      ['[data-formation-duration-slider]', '[data-formation-duration-input]'],
+    ];
+    for (const [sliderSelector, inputSelector] of pairs) {
+      const slider = body.querySelector<HTMLInputElement>(sliderSelector);
+      const numberInput = body.querySelector<HTMLInputElement>(inputSelector);
+      if (!slider || !numberInput) {
+        continue;
+      }
+      if (input === slider) {
+        numberInput.value = slider.value;
+        return;
+      }
+      if (input === numberInput) {
+        slider.value = numberInput.value;
+        return;
+      }
+    }
   }
 
   private readFormationPayload(body: HTMLElement, item: ItemStack | null, enforceQi = true): FormationCreatePayload | null {
