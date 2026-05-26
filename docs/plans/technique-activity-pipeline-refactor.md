@@ -308,7 +308,7 @@ strategy 只负责领域差异：
 
 - [x] 当前任务完成后能启动下一项队列任务。
 - [x] 条件型 sleeping 项不会每 tick 热检查。
-- [ ] active job 和队列都能持久化恢复。
+- [x] active job 和队列都能持久化恢复。
 - [x] 从统一任务列表取消当前 job 或队列项，不需要进入对应技艺子面板。
 
 ### Phase 3：配方型技艺落入 pipeline
@@ -391,9 +391,9 @@ strategy 只负责领域差异：
 
 ### Phase 7：持久化模型收敛
 
-- [ ] `player_active_job` 支持统一 job payload。
+- [x] `player_active_job` 支持统一 job payload。
 - [x] 玩家完整快照 `progression` 保存、回读、水合和运行态 clone 覆盖 `techniqueActivityQueue`。
-- [ ] `player_profession_state` 保持按 profession type 存储。
+- [x] `player_profession_state` 保持按 profession type 存储。
 - [ ] 旧 `alchemyJob` / `forgingJob` / `enhancementJob` / `gatherJob` / `buildingJob` / `formationJob` 水合兼容保留一个发布周期。
 - [ ] flush ledger / active job version 只在统一路径 bump。
 - [x] 从统一任务列表取消队列项时标记 `active_job` 脏域并递增持久化版本，避免队列删除只刷新面板不落入快照。
@@ -403,7 +403,7 @@ strategy 只负责领域差异：
 
 - [ ] 活跃任务重启后能继续或按规则停止。
 - [ ] 取消、完成、失败、异常恢复不会造成资产复制或丢失。
-- [ ] 持久化 proof 自带清理。
+- [x] 持久化 proof 自带清理。
 
 ### Phase 8：客户端和协议整理
 
@@ -491,6 +491,7 @@ strategy 只负责领域差异：
 - 2026-05-27：`techniqueActivityQueue` 纳入玩家完整快照 progression、`hydrateFromSnapshot`、`cloneRuntimePlayerState` 和 `buildRuntimePlayerPersistenceSnapshot`，partial snapshot 中随 `active_job` 域保存；统一任务列表取消队列项时会标记 `active_job` 脏域并 bump `persistentRevision`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-persistence-snapshot-smoke.js`、`technique-activity-task-view-smoke.js`、`technique-activity-cancel-ref-smoke.js` 通过，证明队列快照深拷贝、重启水合、运行态 clone 和取消落盘触发链路有效。`player_active_job` 单表 payload 统一、锁定物恢复联动和 DB proof 仍未完成，Phase 7 不能标记整体完成。
 - 2026-05-27：`TechniqueActivityQueueService.tickQueue` 的 sleeping 项在 `retryAfterTicks` 到期前只递减计数，不调用 strategy 条件检查；到期后如果条件永久失效，会移除队列项、标记 `active_job` 脏域、bump `persistentRevision` 并返回 `panelChanged=true`，避免只在内存里静默删除。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`technique-activity-persistence-snapshot-smoke.js`、`technique-activity-task-view-smoke.js` 通过。该 proof 覆盖队列热检查和永久失效项移除，不等同于全部采集/建造/阵法外部占用恢复验收完成。
 - 2026-05-27：阵法入口语义收敛：地图动作中 `formation:maintain` 仍是持续维护 job，走 pending command、`FormationStrategy`、`formationJob`、每息注入玩家灵力并获得阵法技艺经验；`formation:refill` / `C2S.RefillFormation` 作为一次性“资源补给”动作，立即扣灵石/灵力并写阵法资源池，不创建 `formationJob`、不写 `techniqueActivityQueue`、不增加阵法技艺经验。上下文动作文案从“补充”改为“资源补给”，避免和持续维护 job 混淆。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-formation-smoke.js`、`world-runtime-craft-smoke.js`、`technique-activity-task-view-smoke.js` 通过。
+- 2026-05-27：`player-domain-persistence-smoke` 增加 `player_active_job` 统一 job kind 投影恢复 proof：直接写入 `alchemy` / `forging` / `enhancement` / `gather` / `mining` / `building` / `formation` 行，再通过 `loadProjectedSnapshot` 回读到对应 `progression.<kind>Job`，断言 `jobRunId`、`jobType`、`jobVersion`、`remainingTicks`、`interruptWaitRemainingTicks` 和 detail payload 保留，且不会泄漏到其他 job slot；该 smoke 使用独立玩家 id 并在 finally 中自动清理。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-domain-persistence-smoke.js` 通过。该 proof 证明 active job DB payload 按统一 kind 恢复，但不等同于强化锁定物、队列和 active job 在崩溃时一起恢复或清理。
 
 ## 验证矩阵
 
@@ -525,7 +526,7 @@ strategy 只负责领域差异：
 - [ ] 所有技艺具体动作都以 job 形式存在，挖矿、阵法持续补充灵力、建造、采集不再是面板外的隐式动作。
 - [ ] 旧 service 不再承载技艺玩法规则。
 - [ ] 只剩一种活动队列。
-- [ ] active job 持久化和恢复按统一 job kind 工作。
+- [x] active job 持久化和恢复按统一 job kind 工作。
 - [ ] 技艺经验、产出、掉地、通知、面板 patch 都从统一 result 流出。
 - [ ] 技艺面板能看到所有当前 job、打断等待、队列项，并能直接取消当前 job 或队列项。
 - [ ] 打断等待是独立条，不修改实际 job 进度条、总工作量或剩余工作量。

@@ -14,6 +14,7 @@ import {
 import {
   PLAYER_DOMAIN_PROJECTED_TABLES,
   PlayerDomainPersistenceService,
+  type PlayerActiveJobUpsertInput,
 } from '../persistence/player-domain-persistence.service';
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
   const edgePlayerId = `${playerId}_edge`;
   const directPlayerId = `${playerId}_direct`;
   const walletOnlyPlayerId = `${playerId}_wallet`;
+  const activeJobRecoveryPlayerId = `${playerId}_active_recovery`;
   const buffClearPlayerId = `${playerId}_buff_clear`;
   const inventoryClearPlayerId = `${playerId}_inventory_clear`;
   const equipmentClearPlayerId = `${playerId}_equipment_clear`;
@@ -73,6 +75,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, edgePlayerId);
     await cleanupPlayer(pool, directPlayerId);
     await cleanupPlayer(pool, walletOnlyPlayerId);
+    await cleanupPlayer(pool, activeJobRecoveryPlayerId);
     await cleanupPlayer(pool, buffClearPlayerId);
     await cleanupPlayer(pool, inventoryClearPlayerId);
     await cleanupPlayer(pool, equipmentClearPlayerId);
@@ -1253,6 +1256,7 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected loadPlayerDomains wallet-only result: ${JSON.stringify(walletOnlyDomains)}`);
     }
+    await assertProjectedActiveJobRecoveryKinds(service, activeJobRecoveryPlayerId, directBaseVersion + 1000);
 
     await service.savePlayerAutoBattleSkills(
       autoPreferenceClearPlayerId,
@@ -1281,7 +1285,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进，以及 player_active_job 按 alchemy/forging/enhancement/gather/mining/building/formation 统一 job kind 投影恢复到 progression.<kind>Job',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1299,6 +1303,7 @@ async function main(): Promise<void> {
           enhancementJobType: enhancementJobRow.job_type,
           enhancementRecordCount: enhancementRecordRows.length,
           directDomainWriteSafe: true,
+          projectedActiveJobRecoverySafe: true,
           emptyStringProjectionSafe: true,
           invalidAssetEntryRejectsSilentPrune: true,
           inventoryEmptyProjectionExplicitOptionSafe: true,
@@ -1316,6 +1321,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, edgePlayerId).catch(() => undefined);
     await cleanupPlayer(pool, directPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, walletOnlyPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, activeJobRecoveryPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, buffClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, inventoryClearPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, equipmentClearPlayerId).catch(() => undefined);
@@ -2309,6 +2315,102 @@ async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void>
       throw new Error(`expected invalid ${testCase.name} entry to reject before stale cleanup`);
     }
   }
+}
+
+async function assertProjectedActiveJobRecoveryKinds(
+  service: PlayerDomainPersistenceService,
+  playerId: string,
+  versionSeed: number,
+): Promise<void> {
+  const jobKinds: Array<PlayerActiveJobUpsertInput['jobType']> = [
+    'alchemy',
+    'forging',
+    'enhancement',
+    'gather',
+    'mining',
+    'building',
+    'formation',
+  ];
+  const jobFields: Record<PlayerActiveJobUpsertInput['jobType'], string> = {
+    alchemy: 'alchemyJob',
+    forging: 'forgingJob',
+    enhancement: 'enhancementJob',
+    gather: 'gatherJob',
+    mining: 'miningJob',
+    building: 'buildingJob',
+    formation: 'formationJob',
+  };
+
+  for (const [index, jobType] of jobKinds.entries()) {
+    const jobRunId = `job-run:projected:${jobType}:${index}`;
+    await service.savePlayerActiveJob(
+      playerId,
+      {
+        jobRunId,
+        jobType,
+        status: 'running',
+        phase: jobType === 'formation' ? 'maintaining' : 'running',
+        startedAt: versionSeed + index,
+        finishedAt: null,
+        pausedTicks: index,
+        totalTicks: 30 + index,
+        remainingTicks: 10 + index,
+        successRate: 0.5 + index / 100,
+        speedRate: 1 + index / 10,
+        jobVersion: 100 + index,
+        detailJson: {
+          jobRunId,
+          jobType,
+          targetId: `target:${jobType}`,
+          interruptWaitRemainingTicks: 3 + index,
+        },
+      },
+      { versionSeed: versionSeed + index },
+    );
+
+    const projected = await service.loadProjectedSnapshot(
+      playerId,
+      () => buildStarterSnapshotForProjectedActiveJob(versionSeed),
+    );
+    if (!projected) {
+      throw new Error(`expected projected snapshot for active job ${jobType}`);
+    }
+
+    const progression = projected.progression as unknown as Record<string, unknown>;
+    const expectedField = jobFields[jobType];
+    const projectedJob = progression[expectedField] as Record<string, unknown> | null | undefined;
+    if (
+      !projectedJob
+      || projectedJob.jobRunId !== jobRunId
+      || projectedJob.jobType !== jobType
+      || projectedJob.targetId !== `target:${jobType}`
+      || Number(projectedJob.jobVersion ?? 0) !== 100 + index
+      || Number(projectedJob.remainingTicks ?? 0) !== 10 + index
+      || Number(projectedJob.interruptWaitRemainingTicks ?? 0) !== 3 + index
+    ) {
+      throw new Error(`unexpected projected ${jobType} active job: ${JSON.stringify(projectedJob)}`);
+    }
+
+    for (const [otherJobType, otherField] of Object.entries(jobFields)) {
+      if (otherJobType !== jobType && progression[otherField]) {
+        throw new Error(
+          `projected active job ${jobType} leaked into ${otherField}: ${JSON.stringify(progression[otherField])}`,
+        );
+      }
+    }
+  }
+}
+
+function buildStarterSnapshotForProjectedActiveJob(now: number): PersistedPlayerSnapshot {
+  const snapshot = buildSnapshot(now);
+  snapshot.progression.alchemyJob = null;
+  snapshot.progression.forgingJob = null;
+  snapshot.progression.enhancementJob = null;
+  snapshot.progression.gatherJob = null;
+  snapshot.progression.miningJob = null;
+  snapshot.progression.buildingJob = null;
+  snapshot.progression.formationJob = null;
+  return snapshot;
 }
 
 function buildSnapshot(now: number): PersistedPlayerSnapshot {
