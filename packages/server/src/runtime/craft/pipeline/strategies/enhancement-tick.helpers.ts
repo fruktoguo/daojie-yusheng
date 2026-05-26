@@ -85,7 +85,7 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
     : protectionActiveForStep
       ? Math.max(0, job.currentLevel - 1)
       : 0;
-  craftService.touchEnhancementLevelRecord(player, job.targetItemId, job.targetLevel, success, resultingLevel);
+  craftService.recordEnhancementStepResult(player, job, success, resultingLevel);
 
   const skillGain = resolveEnhancementSkillExpGain(player.enhancementSkill, job.targetItemLevel, success, ctx);
   const skillChanged = applyEnhancementSkillExp(player.enhancementSkill, skillGain, ctx);

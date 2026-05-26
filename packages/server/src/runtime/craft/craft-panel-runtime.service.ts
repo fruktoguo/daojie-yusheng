@@ -935,7 +935,7 @@ export class CraftPanelRuntimeService {
             totalSpeedRate,
             jobVersion: 1,
         };
-        this.touchEnhancementRecord(player, {
+        this.recordEnhancementStart(player, {
             itemId: target.item.itemId,
             actionStartedAt: player.enhancementJob.startedAt,
             startLevel: validated.currentLevel,
@@ -1657,6 +1657,26 @@ export class CraftPanelRuntimeService {
         }
         record.highestLevel = Math.max(record.highestLevel, resultingLevel);
     }
+    /** 强化 start 生命周期显式记录 hook。 */
+    recordEnhancementStart(player, input) {
+        return this.touchEnhancementRecord(player, input);
+    }
+    /** 强化单阶结算显式记录 hook。 */
+    recordEnhancementStepResult(player, job, success, resultingLevel) {
+        return this.touchEnhancementLevelRecord(player, job.targetItemId, job.targetLevel, success, resultingLevel);
+    }
+    /** 强化 job 结束显式记录 hook。 */
+    completeEnhancementRecord(player, job, resultingLevel, status) {
+        const record = (player.enhancementRecords ?? []).find((entry) => entry.itemId === job.targetItemId);
+        if (!record) {
+            return null;
+        }
+        record.actionEndedAt = Date.now();
+        record.status = status;
+        record.highestLevel = Math.max(record.highestLevel, resultingLevel);
+        this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
+        return record;
+    }
     /**
  * advanceEnhancementJob：执行advance强化Job相关逻辑。
  * @param player 玩家对象。
@@ -1798,12 +1818,7 @@ export class CraftPanelRuntimeService {
                 (e) => e.lockedBy !== orphanKey,
             );
             const cleaned = before !== player.inventory.lockedItems.length;
-            const record = (player.enhancementRecords ?? []).find((entry) => entry.itemId === job.targetItemId);
-            if (record) {
-                record.actionEndedAt = Date.now();
-                record.status = status;
-                record.highestLevel = Math.max(record.highestLevel, resultingLevel);
-            }
+            this.completeEnhancementRecord(player, job, resultingLevel, status);
             player.enhancementJob = null;
             this.finalizeMutation(player, {
                 inventoryChanged: cleaned,
@@ -1857,12 +1872,7 @@ export class CraftPanelRuntimeService {
         else {
             groundDrops.push(resolvedItem);
         }
-        const record = (player.enhancementRecords ?? []).find((entry) => entry.itemId === job.targetItemId);
-        if (record) {
-            record.actionEndedAt = Date.now();
-            record.status = status;
-            record.highestLevel = Math.max(record.highestLevel, resultingLevel);
-        }
+        this.completeEnhancementRecord(player, job, resultingLevel, status);
         player.enhancementJob = null;
         this.finalizeMutation(player, {
             inventoryChanged,
