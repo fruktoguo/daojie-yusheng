@@ -292,11 +292,13 @@ export class CraftPanelRuntimeService {
             panelChanged: true,
             messages: [{
                     kind: 'system',
-                    text: mode === 'append'
-                        ? `已加入制造队列末尾：${item.label}`
+                    key: mode === 'append'
+                        ? 'notice.craft.queue.appended'
                         : mode === 'preserve'
-                            ? `已加入当前任务之后：${item.label}`
-                            : `已重置等待队列，下一项为：${item.label}`,
+                            ? 'notice.craft.queue.preserved'
+                            : 'notice.craft.queue.replaced',
+                    vars: { label: item.label },
+                    pills: [{ key: 'label', style: 'target' }],
             }],
         };
     }
@@ -429,12 +431,25 @@ export class CraftPanelRuntimeService {
             dirtyDomains: ['active_job'],
         });
     }
-    /** 构建炼丹/炼器启动提示；迁移期仍返回旧 notice 结构，后续统一改结构化 payload。 */
+    /** 构建炼丹/炼器启动提示。 */
     buildAlchemyLikeStartMessages(validated) {
         const recipe = validated.recipe;
+        const actionLabel = validated.jobKind === 'forging' ? '炼器' : '炼制';
+        const successRateText = (validated.successRate * 100).toFixed(validated.successRate === 1 ? 0 : 1);
         return [{
             kind: 'quest',
-            text: `开始${validated.jobKind === 'forging' ? '炼器' : '炼制'} ${recipe.outputName}${validated.quantity > 1 ? `，共 ${validated.quantity} 批` : ''}${validated.spiritStoneCost > 0 ? `，消耗灵石 x${validated.spiritStoneCost}` : ''}；预计 ${validated.totalTicks} 息。单批固定 ${validated.batchOutputCount} 件，每件${validated.outputNoun}率 ${(validated.successRate * 100).toFixed(validated.successRate === 1 ? 0 : 1)}%。`,
+            key: 'notice.craft.alchemy.start',
+            vars: {
+                actionLabel,
+                itemName: recipe.outputName,
+                quantity: validated.quantity,
+                spiritStoneCost: validated.spiritStoneCost,
+                totalTicks: validated.totalTicks,
+                batchOutputCount: validated.batchOutputCount,
+                outputNoun: validated.outputNoun,
+                successRate: successRateText,
+            },
+            pills: [{ key: 'itemName', style: 'target' }],
         }];
     }
     /** 提交新炼丹任务前完成装备与状态校验。 */
@@ -523,9 +538,9 @@ export class CraftPanelRuntimeService {
             groundDrops,
             messages: [{
                     kind: 'system',
-                    text: refundableBatchCount > 0
-                        ? '已取消技艺任务，未开始的后续批次材料已退回。'
-                        : '已取消技艺任务，当前批次材料已投入，无法退回。',
+                    key: refundableBatchCount > 0
+                        ? 'notice.craft.alchemy.cancel-refunded'
+                        : 'notice.craft.alchemy.cancel-no-refund',
                 }],
         };
     }
@@ -648,12 +663,14 @@ export class CraftPanelRuntimeService {
         });
         return buildCraftTickResult(true, [{
                 kind: 'system',
-                text: buildTechniqueActivityInterruptMessage(
-                    this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
-                    normalizedJobKind === 'forging' ? '炼器' : '炼制',
-                    ALCHEMY_INTERRUPT_PAUSE_TICKS,
+                key: 'notice.craft.activity-interrupted-wait',
+                vars: {
+                    itemName: this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
+                    activityLabel: normalizedJobKind === 'forging' ? '炼器' : '炼制',
+                    ticks: ALCHEMY_INTERRUPT_PAUSE_TICKS,
                     reason,
-                ),
+                },
+                pills: [{ key: 'itemName', style: 'target' }],
             }]);
     }
     /** 读取炼丹/炼器 active job，供 pipeline strategy 推进。 */
@@ -740,16 +757,28 @@ export class CraftPanelRuntimeService {
         const successNoun = normalizedJobKind === 'forging' ? '成器' : '成丹';
         return {
             kind: 'quest',
-            text: `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} ${activityLabel}完成，${successNoun} ${job.successCount} 件。`,
+            key: 'notice.craft.alchemy.completed',
+            vars: {
+                itemName: this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
+                activityLabel,
+                successNoun,
+                count: job.successCount,
+            },
+            pills: [{ key: 'itemName', style: 'target' }],
         };
     }
     buildAlchemyLikeBatchMessage(jobKind, job, successCount) {
         const successNoun = jobKind === 'forging' ? '成器' : '成丹';
         return {
             kind: successCount > 0 ? 'quest' : 'system',
-            text: successCount > 0
-                ? `第 ${job.completedCount} 批${successNoun} ${successCount} 件。`
-                : `第 ${job.completedCount} 批未能${successNoun}。`,
+            key: successCount > 0
+                ? 'notice.craft.alchemy.batch-success'
+                : 'notice.craft.alchemy.batch-failed',
+            vars: {
+                batch: job.completedCount,
+                successNoun,
+                count: successCount,
+            },
         };
     }
     buildAlchemyLikeTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = [], craftRealmExpGain = 0) {
@@ -1105,7 +1134,9 @@ export class CraftPanelRuntimeService {
                     messages: [
                         {
                             kind: 'system',
-                            text: `开始队列中的制造任务：${next.label}`,
+                            key: 'notice.craft.queue.started',
+                            vars: { label: next.label },
+                            pills: [{ key: 'label', style: 'target' }],
                         },
                         ...(result.messages ?? []),
                     ],
@@ -1118,7 +1149,12 @@ export class CraftPanelRuntimeService {
                     panelChanged: true,
                     messages: [{
                             kind: 'system',
-                text: `队列任务无法开始，已跳过：${next.label}。${(result as Record<string, unknown>)?.error ?? ''}`.trim(),
+                            key: 'notice.craft.queue.skipped',
+                            vars: {
+                                label: next.label,
+                                error: String((result as Record<string, unknown>)?.error ?? ''),
+                            },
+                            pills: [{ key: 'label', style: 'target' }],
                         }],
                 };
             }

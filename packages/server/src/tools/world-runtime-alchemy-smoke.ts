@@ -9,7 +9,7 @@ import { WorldRuntimeAlchemyService } from '../runtime/world/world-runtime-alche
 import { WorldRuntimeCraftMutationService } from '../runtime/world/world-runtime-craft-mutation.service';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 
-type SmokeNotice = [event: 'queuePlayerNotice', playerId: string, text: string, kind: string];
+type SmokeNotice = [event: 'queuePlayerNotice', playerId: string, text: string, kind: string, structuredKey?: string | null];
 type SmokeEmit = [event: 'emit', socketEvent: string, ok: boolean];
 type SmokeLog = SmokeNotice | SmokeEmit;
 
@@ -117,7 +117,7 @@ async function testDirectAlchemyJobNoPreparationAndSeparateInterruptWait(): Prom
   const cancel = craftService.cancelTechniqueActivity(player, 'alchemy', ctx.deps);
   assert.equal(cancel.ok, true);
   assert.equal(player.alchemyJob, null);
-  assert.equal((cancel.messages ?? []).some((message) => message.text.includes('炉')), false);
+  assert.equal((cancel.messages ?? []).some((message) => String(message.text ?? '').includes('炉')), false);
 }
 
 async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
@@ -451,7 +451,7 @@ async function testWorldAlchemyWritePathFlushesCurrentPipelineResult(): Promise<
 
   assert.equal(player.alchemyJob?.phase, 'brewing');
   assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice' && entry[2].includes('炉')), false);
-  assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice' && entry[2].includes('开始炼制')), true);
+  assert.equal(log.some((entry) => entry[0] === 'queuePlayerNotice' && entry[4] === 'notice.craft.alchemy.start'), true);
   assert.equal(log.some((entry) => entry[0] === 'emit' && entry[1] === 'n:s:alchemyPanel' && entry[2] === true), true);
   assert.equal(persistedActiveJobs.at(-1)?.jobType, 'alchemy');
   assert.equal(persistedActiveJobs.at(-1)?.phase, 'brewing');
@@ -613,8 +613,8 @@ function createContentTemplateRepository(): any {
 
 function createDeps(log: SmokeLog[]): any {
   return {
-    queuePlayerNotice(playerId: string, text: string, kind: string): void {
-      log.push(['queuePlayerNotice', playerId, text, kind]);
+    queuePlayerNotice(playerId: string, text: string, kind: string, _title?: unknown, _icon?: unknown, structured?: { key?: string }): void {
+      log.push(['queuePlayerNotice', playerId, text, kind, structured?.key ?? null]);
     },
     getInstanceRuntimeOrThrow(): any {
       return {
