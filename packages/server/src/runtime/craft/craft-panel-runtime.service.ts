@@ -956,11 +956,40 @@ export class CraftPanelRuntimeService {
     }
     /** 构建强化启动提示。 */
     buildEnhancementStartMessages(validated, job) {
+        if (validated.desiredTargetLevel > validated.targetLevel && validated.protection) {
+            return [{
+                kind: 'quest',
+                key: 'notice.craft.enhancement.start-chain-protected',
+                vars: {
+                    itemName: job.targetItemName,
+                    targetLevel: validated.targetLevel,
+                    desiredTargetLevel: validated.desiredTargetLevel,
+                    protectionStartLevel: validated.protectionStartLevel,
+                },
+                pills: [{ key: 'itemName', style: 'target' }],
+            }];
+        }
+        if (validated.desiredTargetLevel > validated.targetLevel) {
+            return [{
+                kind: 'quest',
+                key: 'notice.craft.enhancement.start-chain',
+                vars: {
+                    itemName: job.targetItemName,
+                    targetLevel: validated.targetLevel,
+                    desiredTargetLevel: validated.desiredTargetLevel,
+                },
+                pills: [{ key: 'itemName', style: 'target' }],
+            }];
+        }
         return [{
             kind: 'quest',
-            text: validated.desiredTargetLevel > validated.targetLevel
-                ? `开始强化 ${job.targetItemName}，先冲击 +${validated.targetLevel}，最终目标 +${validated.desiredTargetLevel}${validated.protection ? `，保护从 +${validated.protectionStartLevel} 开始生效` : ''}。`
-                : `开始强化 ${job.targetItemName}，目标 +${validated.targetLevel}，预计耗时 ${job.totalTicks} 息。`,
+            key: 'notice.craft.enhancement.start',
+            vars: {
+                itemName: job.targetItemName,
+                targetLevel: validated.targetLevel,
+                totalTicks: job.totalTicks,
+            },
+            pills: [{ key: 'itemName', style: 'target' }],
         }];
     }
     /**
@@ -1659,7 +1688,12 @@ export class CraftPanelRuntimeService {
                 groundDrops: finishResult.groundDrops,
                 messages: [{
                         kind: 'system',
-                        text: `${job.targetItemName} 当前已到 +${currentLevel}，后续强化所需灵石、材料或保护物不足，队列已停止。`,
+                        key: 'notice.craft.enhancement.advance-resources-missing',
+                        vars: {
+                            itemName: job.targetItemName,
+                            currentLevel,
+                        },
+                        pills: [{ key: 'itemName', style: 'target' }],
                     }],
             };
         }
@@ -1680,7 +1714,9 @@ export class CraftPanelRuntimeService {
                 groundDrops: finishResult.groundDrops,
                 messages: [{
                         kind: 'system',
-                        text: `${job.targetItemName} 当前强化目标数据缺失，队列已停止。`,
+                        key: 'notice.craft.enhancement.advance-missing-target',
+                        vars: { itemName: job.targetItemName },
+                        pills: [{ key: 'itemName', style: 'target' }],
                     }],
             };
         }
@@ -1715,7 +1751,13 @@ export class CraftPanelRuntimeService {
             attrChanged: false,
             messages: [{
                     kind: 'quest',
-                    text: `${job.targetItemName} 已调整为 +${currentLevel}，继续冲击 +${nextTargetLevel}。`,
+                    key: 'notice.craft.enhancement.advance-continue',
+                    vars: {
+                        itemName: job.targetItemName,
+                        currentLevel,
+                        nextTargetLevel,
+                    },
+                    pills: [{ key: 'itemName', style: 'target' }],
                 }],
         };
     }

@@ -45,7 +45,9 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
     const finishResult = craftService.finishEnhancementJob(player, job.currentLevel, 'stopped');
     return buildEnhancementTickResult(true, [{
       kind: 'system',
-      text: `${job.targetItemName} 当前强化目标数据缺失，本阶已终止。`,
+      key: 'notice.craft.enhancement.target-missing',
+      vars: { itemName: job.targetItemName },
+      pills: [{ key: 'itemName', style: 'target' }],
     }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged, finishResult.groundDrops);
   }
 
@@ -60,7 +62,9 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
       const finishResult = craftService.finishEnhancementJob(player, job.currentLevel, 'stopped');
       return buildEnhancementTickResult(true, [{
         kind: 'system',
-        text: `${job.targetItemName} 强化中断，结算时灵石不足，本阶未能继续。`,
+        key: 'notice.craft.enhancement.wallet-insufficient',
+        vars: { itemName: job.targetItemName },
+        pills: [{ key: 'itemName', style: 'target' }],
       }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged, finishResult.groundDrops);
     }
   }
@@ -70,7 +74,9 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
     const finishResult = craftService.finishEnhancementJob(player, job.currentLevel, 'stopped');
     return buildEnhancementTickResult(true, [{
       kind: 'system',
-      text: `${job.targetItemName} 强化失败，保护物不足，本阶已终止。`,
+      key: 'notice.craft.enhancement.protection-missing',
+      vars: { itemName: job.targetItemName },
+      pills: [{ key: 'itemName', style: 'target' }],
     }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged, finishResult.groundDrops);
   }
 
@@ -112,11 +118,16 @@ export function executeEnhancementTick(craftService: any, player: any, ctx: Pipe
   const nextStartResult = craftService.startNextQueuedCraftJob(player);
   return buildEnhancementTickResult(true, [{
     kind: success ? 'quest' : 'system',
-    text: success
-      ? `${job.targetItemName} 强化成功，已提升至 +${resultingLevel}。`
+    key: success
+      ? 'notice.craft.enhancement.success'
       : protectionActiveForStep
-        ? `${job.targetItemName} 强化失败，保护生效，降为 +${resultingLevel}。`
-        : `${job.targetItemName} 强化失败，已归零为 +0。`,
+        ? 'notice.craft.enhancement.failed-protected'
+        : 'notice.craft.enhancement.failed-reset',
+    vars: {
+      itemName: job.targetItemName,
+      level: resultingLevel,
+    },
+    pills: [{ key: 'itemName', style: 'target' }],
   }, ...(nextStartResult.messages ?? [])],
   finishResult.inventoryChanged || Boolean(nextStartResult.inventoryChanged),
   finishResult.equipmentChanged || Boolean(nextStartResult.equipmentChanged),

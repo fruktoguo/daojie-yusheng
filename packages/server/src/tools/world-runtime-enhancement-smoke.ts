@@ -60,6 +60,7 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
     },
   });
   assert.equal(start.ok, true);
+  assert.equal(start.messages?.[0]?.key, 'notice.craft.enhancement.start');
   assert.equal(player.enhancementJob?.phase, 'enhancing');
   assert.equal(player.enhancementJob?.remainingTicks, player.enhancementJob?.workRemainingTicks);
   assert.equal(player.enhancementJob?.totalTicks, player.enhancementJob?.workTotalTicks);
@@ -103,6 +104,7 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
   try {
     const completed = craftService.tickEnhancement(player);
     assert.equal(completed.ok, true);
+    assert.equal(completed.messages?.[0]?.key, 'notice.craft.enhancement.success');
   } finally {
     Math.random = originalRandom;
   }
@@ -217,6 +219,7 @@ async function testProtectionMissingStopsAndReturnsCurrentLevel(): Promise<void>
   try {
     const stopped = craftService.tickEnhancement(player);
     assert.equal(stopped.ok, true);
+    assert.equal(stopped.messages?.[0]?.key, 'notice.craft.enhancement.protection-missing');
   } finally {
     Math.random = originalRandom;
   }
@@ -244,6 +247,7 @@ async function testSpiritStoneMissingStopsOnSuccessSettlement(): Promise<void> {
   try {
     const stopped = craftService.tickEnhancement(player);
     assert.equal(stopped.ok, true);
+    assert.equal(stopped.messages?.[0]?.key, 'notice.craft.enhancement.wallet-insufficient');
   } finally {
     Math.random = originalRandom;
   }
@@ -271,6 +275,7 @@ async function testMissingLockedItemClearsJobWithoutSnapshotFallback(): Promise<
   try {
     const stopped = craftService.tickEnhancement(player);
     assert.equal(stopped.ok, true);
+    assert.equal(stopped.messages?.[0]?.key, 'notice.craft.enhancement.target-missing');
   } finally {
     Math.random = originalRandom;
   }
