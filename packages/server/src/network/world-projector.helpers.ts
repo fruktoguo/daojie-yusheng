@@ -813,6 +813,7 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         buildCraftSkillSignature(player.gatherSkill),
         buildCraftSkillSignature(player.enhancementSkill),
         buildCraftSkillSignature(player.miningSkill),
+        buildCraftSkillSignature(player.formationSkill),
         buildAttrBonusesSignature(buildAttrBonuses(player)),
     ].join('|');
 }
@@ -1019,6 +1020,7 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
         && isSameCraftSkillState(previousAttr.gatherSkill, player.gatherSkill)
         && isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
         && isSameCraftSkillState(previousAttr.miningSkill, player.miningSkill)
+        && isSameCraftSkillState(previousAttr.formationSkill, player.formationSkill)
         && isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
         && isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
 }
@@ -1092,6 +1094,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
         enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
         miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
+        formationSkill: player.formationSkill ? { ...player.formationSkill } : undefined,
     };
 }
 
@@ -1176,6 +1179,7 @@ function buildFullAttrDeltaFromState(attr: ProjectedAttrPanelState): ProjectedAt
         gatherSkill: attr.gatherSkill,
         enhancementSkill: attr.enhancementSkill,
         miningSkill: attr.miningSkill,
+        formationSkill: attr.formationSkill,
     };
 }
 
@@ -1241,6 +1245,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
     const gatherSkillChanged = !isSameCraftSkillState(previousAttr.gatherSkill, currentAttr.gatherSkill);
     const enhancementSkillChanged = !isSameCraftSkillState(previousAttr.enhancementSkill, currentAttr.enhancementSkill);
     const miningSkillChanged = !isSameCraftSkillState(previousAttr.miningSkill, currentAttr.miningSkill);
+    const formationSkillChanged = !isSameCraftSkillState(previousAttr.formationSkill, currentAttr.formationSkill);
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
         + (bonusesChanged ? 1 : 0)
@@ -1259,7 +1264,8 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
         + (buildingSkillChanged ? 1 : 0)
         + (gatherSkillChanged ? 1 : 0)
         + (enhancementSkillChanged ? 1 : 0)
-        + (miningSkillChanged ? 1 : 0);
+        + (miningSkillChanged ? 1 : 0)
+        + (formationSkillChanged ? 1 : 0);
     if (totalChanges > ATTR_DELTA_PATCH_THRESHOLD) {
         return buildFullAttrDeltaFromState(currentAttr);
     }
@@ -1284,6 +1290,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
         gatherSkill: gatherSkillChanged ? currentAttr.gatherSkill : undefined,
         enhancementSkill: enhancementSkillChanged ? currentAttr.enhancementSkill : undefined,
         miningSkill: miningSkillChanged ? currentAttr.miningSkill : undefined,
+        formationSkill: formationSkillChanged ? currentAttr.formationSkill : undefined,
     };
 }
 

@@ -65,7 +65,7 @@ while (exp >= expToNext && expToNext > 0):
 ### 已接入种类
 
 ```ts
-RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining'
+RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation'
 ```
 
 ### 管线生命周期
@@ -75,6 +75,17 @@ start → [validateStart → consumeResources → createJob]
   → tick循环 → [conditionCheck → pause → advance → resolve → skillExp → output → completion]
 interrupt → [暂停/休眠]
 cancel → [computeRefund → 清理job]
+```
+
+### 阵法维护经验
+
+阵法维护每息按统一公式结算一次成功动作：
+
+```ts
+baseActionTicks = 1
+successCount = 1
+failureCount = 0
+targetLevel = formationSkill.level
 ```
 
 ### 队列系统

@@ -291,6 +291,18 @@ export class WorldRuntimeGameplayWriteFacadeService {
                     deps,
                 );
                 return;
+            case 'formation':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeFormationService.startFormationMaintenance(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        payload,
+                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                    ),
+                    'formation',
+                    deps,
+                );
+                return;
         }
     }
     /**
@@ -315,6 +327,17 @@ export class WorldRuntimeGameplayWriteFacadeService {
                     playerId,
                     deps.worldRuntimeLootContainerService.dispatchCancelGather(playerId, deps),
                     'gather',
+                    deps,
+                );
+                return;
+            case 'formation':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeFormationService.cancelFormationMaintenance(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                    ),
+                    'formation',
                     deps,
                 );
                 return;

@@ -400,8 +400,10 @@ export class PlayerRuntimeService {
             gatherSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             buildingSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             miningSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
+            formationSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherJob: null,
             buildingJob: null,
+            formationJob: null,
             alchemyPresets: [],
             alchemyJob: null,
             forgingJob: null,
@@ -3994,8 +3996,10 @@ export class PlayerRuntimeService {
             gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             miningSkill: normalizeCraftSkillState(snapshot.progression?.miningSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+            formationSkill: normalizeCraftSkillState(snapshot.progression?.formationSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
+            formationJob: normalizeFormationJob(snapshot.progression?.formationJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
             forgingJob: normalizeAlchemyJob(snapshot.progression?.forgingJob),
@@ -4747,8 +4751,10 @@ function cloneRuntimePlayerState(player) {
         gatherSkill: cloneCraftSkillState(player.gatherSkill),
         buildingSkill: cloneCraftSkillState(player.buildingSkill),
         miningSkill: cloneCraftSkillState(player.miningSkill),
+        formationSkill: cloneCraftSkillState(player.formationSkill),
         gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
         buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
+        formationJob: player.formationJob ? cloneFormationJob(player.formationJob) : null,
         alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
         alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
         forgingJob: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
@@ -6076,8 +6082,10 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             gatherSkill: cloneCraftSkillState(player.gatherSkill),
             buildingSkill: cloneCraftSkillState(player.buildingSkill),
             miningSkill: cloneCraftSkillState(player.miningSkill),
+            formationSkill: cloneCraftSkillState(player.formationSkill),
             gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
             buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
+            formationJob: player.formationJob ? cloneFormationJob(player.formationJob) : null,
             alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
             forgingJob: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
@@ -6337,6 +6345,38 @@ function normalizeBuildingJob(value) {
     };
 }
 /**
+ * normalizeFormationJob：规范化或转换阵法维护 Job。
+ * @param value 参数说明。
+ * @returns 无返回值，直接更新阵法维护 Job 相关状态。
+ */
+
+function normalizeFormationJob(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!value || typeof value !== 'object' || typeof value.formationInstanceId !== 'string') {
+        return null;
+    }
+    return {
+        jobRunId: typeof value.jobRunId === 'string' ? value.jobRunId : undefined,
+        jobType: 'formation',
+        formationInstanceId: String(value.formationInstanceId),
+        formationName: typeof value.formationName === 'string' ? value.formationName : String(value.formationInstanceId),
+        instanceId: typeof value.instanceId === 'string' ? value.instanceId : '',
+        controlInstanceId: typeof value.controlInstanceId === 'string' ? value.controlInstanceId : (typeof value.instanceId === 'string' ? value.instanceId : ''),
+        controlX: Math.trunc(Number(value.controlX) || 0),
+        controlY: Math.trunc(Number(value.controlY) || 0),
+        phase: value.phase === 'paused' ? 'paused' : 'maintaining',
+        startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
+        totalTicks: Math.max(1, Math.floor(Number(value.totalTicks) || 1)),
+        remainingTicks: Math.max(0, Math.floor(Number(value.remainingTicks) || 0)),
+        pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),
+        successRate: Math.max(0, Math.min(1, Number(value.successRate) || 1)),
+        spiritStoneCost: Math.max(0, Math.floor(Number(value.spiritStoneCost) || 0)),
+        maintenanceRate: Math.max(1, Math.floor(Number(value.maintenanceRate) || 1)),
+        jobVersion: Math.max(1, Math.floor(Number(value.jobVersion) || 1)),
+    };
+}
+/**
  * cloneGatherJob：构建采集 Job。
  * @param entry 参数说明。
  * @returns 无返回值，直接更新采集 Job 相关状态。
@@ -6354,6 +6394,17 @@ function cloneGatherJob(entry) {
  */
 
 function cloneBuildingJob(entry) {
+    return {
+        ...entry,
+    };
+}
+/**
+ * cloneFormationJob：构建阵法维护 Job。
+ * @param entry 参数说明。
+ * @returns 无返回值，直接更新阵法维护 Job 相关状态。
+ */
+
+function cloneFormationJob(entry) {
     return {
         ...entry,
     };
@@ -7688,7 +7739,8 @@ function shouldResumeIdleCultivation(player, currentTick, blockedPlayerIds) {
 
     if (player.hp <= 0
         || player.combat.cultivationActive
-        || player.combat.autoIdleCultivation === false) {
+        || player.combat.autoIdleCultivation === false
+        || hasAnyRemainingTechniqueJob(player)) {
         return false;
     }
     if (blockedPlayerIds?.has(player.playerId)) {
@@ -7712,7 +7764,17 @@ function hasDetachedRuntimeActivity(player) {
         || hasRemainingRuntimeJob(player.forgingJob)
         || hasRemainingRuntimeJob(player.enhancementJob)
         || hasRemainingRuntimeJob(player.gatherJob)
-        || hasRemainingRuntimeJob(player.buildingJob);
+        || hasRemainingRuntimeJob(player.buildingJob)
+        || hasRemainingRuntimeJob(player.formationJob);
+}
+
+function hasAnyRemainingTechniqueJob(player) {
+    return hasRemainingRuntimeJob(player?.alchemyJob)
+        || hasRemainingRuntimeJob(player?.forgingJob)
+        || hasRemainingRuntimeJob(player?.enhancementJob)
+        || hasRemainingRuntimeJob(player?.gatherJob)
+        || hasRemainingRuntimeJob(player?.buildingJob)
+        || hasRemainingRuntimeJob(player?.formationJob);
 }
 
 function hasRemainingRuntimeJob(job) {

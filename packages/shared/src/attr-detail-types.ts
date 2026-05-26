@@ -71,4 +71,9 @@ export interface AttrDetailView {
  */
 
   miningSkill?: PlayerState['miningSkill'];
+  /**
+ * formationSkill：阵法技能相关字段。
+ */
+
+  formationSkill?: PlayerState['formationSkill'];
 }

@@ -199,6 +199,18 @@ export class WorldRuntimePlayerCommandService {
                     deps,
                 );
                 return;
+            case 'formation':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeFormationService.startFormationMaintenance(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        payload,
+                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                    ),
+                    'formation',
+                    deps,
+                );
+                return;
         }
     }
     /**
@@ -225,6 +237,17 @@ export class WorldRuntimePlayerCommandService {
                     deps,
                 );
                 return;
+            case 'formation':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeFormationService.cancelFormationMaintenance(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                    ),
+                    'formation',
+                    deps,
+                );
+                return;
         }
     }
     /**
@@ -245,14 +268,16 @@ export class WorldRuntimePlayerCommandService {
         if (player.hp <= 0 && command.kind !== 'redeemCodes') {
             return;
         }
-        if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather' || command.kind === 'startBuilding')) {
+        if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather' || command.kind === 'startBuilding' || command.kind === 'startFormationMaintenance')) {
             const pendingActivityText = command.kind === 'startEnhancement'
                 ? '吟唱中无法分心强化。'
                 : command.kind === 'startGather'
                     ? '吟唱中无法分心采集。'
                     : command.kind === 'startBuilding'
                         ? '吟唱中无法分心营造。'
-                        : '吟唱中无法分心炼丹。';
+                        : command.kind === 'startFormationMaintenance'
+                            ? '吟唱中无法分心维护阵法。'
+                            : '吟唱中无法分心炼丹。';
             deps.queuePlayerNotice?.(playerId, pendingActivityText, 'system');
             return;
         }
@@ -319,6 +344,10 @@ export class WorldRuntimePlayerCommandService {
             case 'startBuilding':
                 deps.dispatchStartBuildingConstruction(playerId, command.buildingId);
                 return;
+            case 'startFormationMaintenance':
+                return this.dispatchStartTechniqueActivity(playerId, 'formation', command.payload, deps);
+            case 'cancelFormationMaintenance':
+                return this.dispatchCancelTechniqueActivity(playerId, 'formation', deps);
             case 'redeemCodes':
                 return this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);
             case 'breakthrough':

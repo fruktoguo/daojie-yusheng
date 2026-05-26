@@ -18,6 +18,7 @@ import { ForgingStrategy } from '../craft/pipeline/strategies/forging.strategy';
 import { EnhancementStrategy } from '../craft/pipeline/strategies/enhancement.strategy';
 import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
+import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
 
 interface CraftPlayerLike {
   gatherJob?: {
@@ -29,6 +30,11 @@ interface CraftPlayerLike {
     remainingTicks?: number;
     buildingId?: string;
     buildingName?: string;
+  } | null;
+  formationJob?: {
+    remainingTicks?: number;
+    formationInstanceId?: string;
+    formationName?: string;
   } | null;
 }
 
@@ -66,6 +72,7 @@ export class WorldRuntimeCraftInterruptService {
     this.pipeline.register(new EnhancementStrategy(craftPanelRuntimeService));
     this.pipeline.register(new GatherStrategy());
     this.pipeline.register(new BuildingStrategy());
+    this.pipeline.register(new FormationStrategy());
     this.queueService = new TechniqueActivityQueueService(this.pipeline);
   }
 
@@ -79,6 +86,9 @@ export class WorldRuntimeCraftInterruptService {
       return;
     }
     for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
+      if (kind === 'formation' && reason === 'move') {
+        continue;
+      }
       this.worldRuntimeCraftMutationService.flushCraftMutation(
         playerId,
         this.craftPanelRuntimeService.interruptTechniqueActivity(player, kind, reason, deps),

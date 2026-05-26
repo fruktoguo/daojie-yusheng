@@ -76,6 +76,14 @@ qiCost = ceil(spiritStoneCount × qiPerSpiritStone)
 - 每 tick 消耗灵气维持
 - 玩家从背包布阵时，阵盘目标必须使用 `itemInstanceId` 定位；背包格子顺序只影响 UI 展示。
 
+## 阵法维护
+
+- 玩家站在阵眼/控制点位时，可以开始“阵法维护”。
+- 阵法维护走统一技艺活动队列，使用 `formationJob` 记录运行态。
+- 每息注入阵法的灵力为 `floor(sqrt(maxQiOutputPerTick))`，最低 1 点，并消耗同等玩家当前灵力。
+- 每息按统一技艺经验公式获得 1 息“阵法”技艺经验。
+- 离开阵法控制点位会取消维护；攻击或主动进入修炼会让维护暂停 10 息。
+
 ## 阵法效果
 
 - tile_aura_source: 向地块注入灵气

@@ -176,10 +176,6 @@ export class WorldRuntimeCraftMutationService {
         if (player.suppressImmediateDomainPersistence === true) {
             return;
         }
-        const activeJob = player.enhancementJob ?? player.forgingJob ?? player.alchemyJob;
-        if (!activeJob || !activeJob.jobRunId) {
-            return;
-        }
         await this.craftPanelRuntimeService.persistTechniqueActivitySnapshot(player);
     }
 

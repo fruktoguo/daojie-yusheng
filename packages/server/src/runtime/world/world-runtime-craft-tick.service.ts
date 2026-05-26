@@ -20,6 +20,7 @@ import { ForgingStrategy } from '../craft/pipeline/strategies/forging.strategy';
 import { EnhancementStrategy } from '../craft/pipeline/strategies/enhancement.strategy';
 import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
+import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 @Injectable()
@@ -84,6 +85,7 @@ export class WorldRuntimeCraftTickService {
         this.pipeline.register(new EnhancementStrategy(craftPanelRuntimeService));
         this.pipeline.register(new GatherStrategy());
         this.pipeline.register(new BuildingStrategy());
+        this.pipeline.register(new FormationStrategy());
         this.queueService = new TechniqueActivityQueueService(this.pipeline);
     }
     /**
@@ -132,7 +134,8 @@ export class WorldRuntimeCraftTickService {
             // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个
             if (!this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity(player)
                 && !(player.gatherJob && Number(player.gatherJob.remainingTicks) > 0)
-                && !(player.buildingJob && Number(player.buildingJob.remainingTicks) > 0)) {
+                && !(player.buildingJob && Number(player.buildingJob.remainingTicks) > 0)
+                && !(player.formationJob && Number(player.formationJob.remainingTicks) > 0)) {
                 const ctx = { contentTemplateRepository: null as any, resolveExpToNextByLevel: () => 100, getInstanceRuntime: () => null, deps };
                 const queueResult = this.queueService.tickQueue(player, ctx);
                 if (queueResult?.ok) {
@@ -163,6 +166,7 @@ export class WorldRuntimeCraftTickService {
             { job: player.enhancementJob, type: 'enhancement' },
             { job: player.gatherJob, type: 'gather' },
             { job: player.buildingJob, type: 'building' },
+            { job: player.formationJob, type: 'formation' },
         ];
 
         for (const { job, type } of jobs) {
@@ -187,6 +191,7 @@ export class WorldRuntimeCraftTickService {
         if (player.enhancementJob && Number(player.enhancementJob.remainingTicks) > 0) return 'enhancement';
         if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) return 'gather';
         if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) return 'building';
+        if (player.formationJob && Number(player.formationJob.remainingTicks) > 0) return 'formation';
         return null;
     }
 };

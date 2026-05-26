@@ -490,6 +490,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       enhancementSkill: player.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined,
       forgingSkill: player.forgingSkill ? cloneJson(player.forgingSkill) : undefined,
       miningSkill: player.miningSkill ? cloneJson(player.miningSkill) : undefined,
+      formationSkill: player.formationSkill ? cloneJson(player.formationSkill) : undefined,
     };
   }
   /**
@@ -574,6 +575,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       miningSkill: patch.miningSkill
         ? cloneJson(patch.miningSkill)
         : (previous?.miningSkill ? cloneJson(previous.miningSkill) : (player?.miningSkill ? cloneJson(player.miningSkill) : undefined)),
+      formationSkill: patch.formationSkill
+        ? cloneJson(patch.formationSkill)
+        : (previous?.formationSkill ? cloneJson(previous.formationSkill) : (player?.formationSkill ? cloneJson(player.formationSkill) : undefined)),
     };
   }  
 
@@ -1140,6 +1144,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.buildingSkill = latestAttrUpdate.buildingSkill ?? player.buildingSkill;
         player.gatherSkill = latestAttrUpdate.gatherSkill ?? player.gatherSkill;
         player.enhancementSkill = latestAttrUpdate.enhancementSkill ?? player.enhancementSkill;
+        player.formationSkill = latestAttrUpdate.formationSkill ?? player.formationSkill;
         if (player.realm) {
           player.realm.progress = latestAttrUpdate.realmProgress ?? player.realm.progress;
           player.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? player.realm.progressToNext;

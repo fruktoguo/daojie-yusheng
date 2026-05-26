@@ -376,7 +376,7 @@ interface AttrStateRow {
 }
 
 interface ProfessionStateRow {
-  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement' | 'forging' | 'mining';
+  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement' | 'forging' | 'mining' | 'formation';
   level: number;
   exp: number | null;
   expToNext: number | null;
@@ -444,7 +444,7 @@ interface AutoUseItemRuleRow {
 
 interface ActiveJobRow {
   jobRunId: string;
-  jobType: 'alchemy' | 'forging' | 'enhancement';
+  jobType: 'alchemy' | 'forging' | 'enhancement' | 'formation';
   status: string;
   phase: string;
   startedAt: number;
@@ -2567,6 +2567,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           snapshot.progression.alchemyJob = (jobType === 'alchemy' ? {} : null) as any;
           snapshot.progression.forgingJob = (jobType === 'forging' ? {} : null) as any;
           snapshot.progression.enhancementJob = (jobType === 'enhancement' ? {} : null) as any;
+          snapshot.progression.formationJob = (jobType === 'formation' ? {} : null) as any;
           // 排行榜不需要的字段保持 starter 默认值
           entries.push({ playerId, snapshot });
         }
@@ -5931,6 +5932,16 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
     });
   }
 
+  const formation = asRecord(progression?.formationSkill);
+  if (formation) {
+    rows.push({
+      professionType: 'formation',
+      level: normalizeMinimumInteger(formation.level, 1, 1),
+      exp: normalizeOptionalNumber(formation.exp),
+      expToNext: normalizeOptionalNumber(formation.expToNext),
+    });
+  }
+
   const forging = asRecord(progression?.forgingSkill);
   if (forging) {
     rows.push({
@@ -6017,6 +6028,38 @@ function buildActiveJobRow(
       detailJson: {
         ...enhancementJob,
         jobRunId,
+        jobVersion,
+      },
+    };
+  }
+
+  const formationJob = asRecord(progression?.formationJob);
+  if (formationJob && Object.keys(formationJob).length > 0) {
+    const startedAt = normalizeOptionalInteger(formationJob.startedAt) ?? versionSeed;
+    const jobRunId =
+      normalizeOptionalString(formationJob.jobRunId)
+      ?? `job:${playerId}:formation:${startedAt}`;
+    const jobVersion = Math.max(
+      1,
+      Math.trunc(Number(normalizeOptionalInteger(formationJob.jobVersion) ?? versionSeed)),
+    );
+    return {
+      jobRunId,
+      jobType: 'formation',
+      status: normalizeJobStatus(formationJob),
+      phase: normalizeOptionalString(formationJob.phase) ?? 'maintaining',
+      startedAt,
+      finishedAt: normalizeOptionalInteger(formationJob.finishedAt),
+      pausedTicks: normalizeMinimumInteger(formationJob.pausedTicks, 0, 0),
+      totalTicks: normalizeMinimumInteger(formationJob.totalTicks, 1, 1),
+      remainingTicks: normalizeMinimumInteger(formationJob.remainingTicks, 0, 0),
+      successRate: normalizeOptionalNumber(formationJob.successRate) ?? 1,
+      speedRate: normalizeOptionalNumber(formationJob.maintenanceRate) ?? 1,
+      jobVersion,
+      detailJson: {
+        ...formationJob,
+        jobRunId,
+        jobType: 'formation',
         jobVersion,
       },
     };
@@ -6766,6 +6809,8 @@ function applyProjectedProfessions(
       snapshot.progression.gatherSkill = state;
     } else if (professionType === 'mining') {
       snapshot.progression.miningSkill = state;
+    } else if (professionType === 'formation') {
+      snapshot.progression.formationSkill = state;
     } else if (professionType === 'enhancement') {
       snapshot.progression.enhancementSkill = state;
       snapshot.progression.enhancementSkillLevel = state.level;
@@ -6796,6 +6841,7 @@ function applyProjectedActiveJob(
     snapshot.progression.alchemyJob = null;
     snapshot.progression.forgingJob = null;
     snapshot.progression.enhancementJob = null;
+    snapshot.progression.formationJob = null;
     return;
   }
   const detail = asRecord(decodeJsonValue(row.detail_jsonb)) ?? {};
@@ -6818,6 +6864,14 @@ function applyProjectedActiveJob(
     snapshot.progression.enhancementJob = { ...normalizedJob, jobType: 'enhancement' };
     snapshot.progression.alchemyJob = null;
     snapshot.progression.forgingJob = null;
+    snapshot.progression.formationJob = null;
+    return;
+  }
+  if (jobType === 'formation') {
+    snapshot.progression.formationJob = { ...normalizedJob, jobType: 'formation' };
+    snapshot.progression.alchemyJob = null;
+    snapshot.progression.forgingJob = null;
+    snapshot.progression.enhancementJob = null;
     return;
   }
   if (jobType === 'forging') {
@@ -6828,6 +6882,7 @@ function applyProjectedActiveJob(
     snapshot.progression.forgingJob = null;
   }
   snapshot.progression.enhancementJob = null;
+  snapshot.progression.formationJob = null;
 }
 
 function applyProjectedEnhancementRecords(

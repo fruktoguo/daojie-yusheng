@@ -123,6 +123,11 @@ export interface AttrUpdateView {
  */
 
   miningSkill?: PlayerState['miningSkill'];
+  /**
+ * formationSkill：阵法技能相关字段。
+ */
+
+  formationSkill?: PlayerState['formationSkill'];
 }
 
 /** 功法面板局部更新项。 */

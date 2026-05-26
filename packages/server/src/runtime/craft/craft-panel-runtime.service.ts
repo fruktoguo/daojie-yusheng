@@ -26,6 +26,7 @@ import { ForgingStrategy } from './pipeline/strategies/forging.strategy';
 import { EnhancementStrategy } from './pipeline/strategies/enhancement.strategy';
 import { GatherStrategy } from './pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from './pipeline/strategies/building.strategy';
+import { FormationStrategy } from './pipeline/strategies/formation.strategy';
 
 /** 强化与炼丹计算中固定使用的灵石物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
@@ -186,6 +187,9 @@ export class CraftPanelRuntimeService {
         if (kind === 'enhancement') {
             return this.hasActiveEnhancementJob(player);
         }
+        if (kind === 'formation') {
+            return hasTechniqueActivityJob(player.formationJob);
+        }
         // gather/building 仍由独立路径 tick，不纳入此列表以避免双重 tick
         return false;
     }
@@ -252,6 +256,7 @@ export class CraftPanelRuntimeService {
         this.pipeline.register(new EnhancementStrategy(this));
         this.pipeline.register(new GatherStrategy());
         this.pipeline.register(new BuildingStrategy());
+        this.pipeline.register(new FormationStrategy());
     }
     /** 把制造任务写入当前活跃任务携带的等待队列。 */
     enqueueCraftQueueItem(player, item, mode) {
@@ -1161,6 +1166,7 @@ export class CraftPanelRuntimeService {
         player.forgingSkill = normalizeCraftSkill(player.forgingSkill, resolveExpToNext);
         player.gatherSkill = normalizeCraftSkill(player.gatherSkill, resolveExpToNext);
         player.miningSkill = normalizeCraftSkill(player.miningSkill, resolveExpToNext);
+        player.formationSkill = normalizeCraftSkill(player.formationSkill, resolveExpToNext);
         player.enhancementSkill = normalizeCraftSkill(player.enhancementSkill ?? {
             level: player.enhancementSkillLevel,
             exp: 0,
@@ -2524,6 +2530,9 @@ function buildEnhancementQueueItem(target, protection, payload, desiredTargetLev
 }
 
 function buildActiveJobSnapshotFromPlayer(player) {
+    if (player?.formationJob) {
+        return buildActiveJobSnapshot(player.formationJob, 'formation');
+    }
     if (player?.enhancementJob) {
         return buildActiveJobSnapshot(player.enhancementJob, 'enhancement');
     }
@@ -2540,7 +2549,7 @@ function buildActiveJobSnapshot(job, jobType) {
     if (!job || typeof job !== 'object') {
         return null;
     }
-    const normalizedJobType = jobType === 'enhancement' ? 'enhancement' : jobType === 'forging' ? 'forging' : 'alchemy';
+    const normalizedJobType = jobType === 'formation' ? 'formation' : jobType === 'enhancement' ? 'enhancement' : jobType === 'forging' ? 'forging' : 'alchemy';
     const jobRunId = typeof job.jobRunId === 'string' && job.jobRunId.trim()
         ? job.jobRunId.trim()
         : createCraftJobRunId(typeof job.playerId === 'string' ? job.playerId : '', normalizedJobType);

@@ -97,6 +97,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
     enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
     miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
+    formationSkill: player.formationSkill ? { ...player.formationSkill } : undefined,
     enhancementSkillLevel: player.enhancementSkillLevel,
     actions: player.actions.actions.map((entry) => toActionDefinition(entry)),
     quests: player.quests.quests.map((entry) => toQuestRuntimeState(entry)),

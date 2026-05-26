@@ -371,6 +371,7 @@ export interface ProjectorPlayerLike {
   gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
   miningSkill?: S2C_PanelAttrDelta['miningSkill'];
+  formationSkill?: S2C_PanelAttrDelta['formationSkill'];
   attrs: {
     revision: number;
     stage: S2C_PanelAttrDelta['stage'];
@@ -428,6 +429,7 @@ export interface ProjectedAttrPanelState {
   gatherSkill?: S2C_PanelAttrDelta['gatherSkill'];
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
   miningSkill?: S2C_PanelAttrDelta['miningSkill'];
+  formationSkill?: S2C_PanelAttrDelta['formationSkill'];
 }
 export interface ProjectedActionPanelState {
   revision: number;

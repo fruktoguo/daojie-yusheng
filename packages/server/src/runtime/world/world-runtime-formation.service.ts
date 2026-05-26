@@ -4,7 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
-import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
+import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
@@ -248,6 +248,157 @@ class WorldRuntimeFormationService {
             kind: 'success',
         });
         return formation;
+    }
+
+    startFormationMaintenance(player, payload, ctx) {
+        const playerId = normalizePlayerId(player);
+        if (!playerId) {
+            throw new BadRequestException('玩家不存在。');
+        }
+        const formationInstanceId = normalizeOptionalString(payload?.formationInstanceId);
+        if (!formationInstanceId) {
+            throw new BadRequestException('阵法实例 ID 不能为空。');
+        }
+        if (hasActiveFormationMaintenance(player, formationInstanceId)) {
+            return {
+                ok: true,
+                panelChanged: false,
+                messages: [{ kind: 'info', text: '正在维护该阵法。' }],
+            };
+        }
+        const activeJob = resolveAnyActiveTechniqueJob(player);
+        if (activeJob) {
+            const formation = this.findOwnedFormation(playerId, formationInstanceId);
+            if (enqueueFormationMaintenance(player, formationInstanceId, formation.name)) {
+                markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
+                return {
+                    ok: true,
+                    panelChanged: true,
+                    messages: [{ kind: 'system', text: '已将阵法维护加入技艺行动队列。' }],
+                };
+            }
+            throw new BadRequestException('技艺行动队列已满。');
+        }
+        const validation = this.checkFormationMaintenanceCondition(player, { formationInstanceId }, ctx);
+        if (!validation.satisfied) {
+            throw new BadRequestException(validation.reason || '当前不能维护该阵法。');
+        }
+        player.formationJob = this.createFormationMaintenanceJob(player, { formationInstanceId }, ctx);
+        markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
+        return {
+            ok: true,
+            panelChanged: true,
+            messages: [{ kind: 'quest', text: `开始维护 ${player.formationJob.formationName}。` }],
+        };
+    }
+
+    cancelFormationMaintenance(player, _ctx = null) {
+        if (!player?.formationJob || Number(player.formationJob.remainingTicks) <= 0) {
+            throw new BadRequestException('当前没有进行中的阵法维护。');
+        }
+        const formationName = player.formationJob.formationName || '阵法';
+        player.formationJob = null;
+        markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
+        return {
+            ok: true,
+            panelChanged: true,
+            messages: [{ kind: 'system', text: `已停止维护 ${formationName}。` }],
+        };
+    }
+
+    createFormationMaintenanceJob(player, validated, ctx) {
+        const playerId = normalizePlayerId(player);
+        const formation = this.findOwnedFormation(playerId, validated?.formationInstanceId);
+        const rate = resolveFormationMaintenanceRate(player);
+        return {
+            jobRunId: `job:${playerId}:formation:${Date.now()}`,
+            jobType: 'formation',
+            formationInstanceId: formation.id,
+            formationName: formation.name,
+            instanceId: formation.instanceId,
+            controlInstanceId: normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId,
+            controlX: Math.trunc(Number(formation.eyeX) || formation.x),
+            controlY: Math.trunc(Number(formation.eyeY) || formation.y),
+            phase: 'maintaining',
+            startedAt: Date.now(),
+            totalTicks: 1,
+            remainingTicks: 1,
+            pausedTicks: 0,
+            successRate: 1,
+            spiritStoneCost: 0,
+            maintenanceRate: rate,
+            jobVersion: 1,
+        };
+    }
+
+    checkFormationMaintenanceCondition(player, job, _ctx = null) {
+        const playerId = normalizePlayerId(player);
+        const formationInstanceId = normalizeOptionalString(job?.formationInstanceId);
+        if (!playerId || !formationInstanceId) {
+            return { satisfied: false, reason: '阵法维护目标无效。', shouldCancel: true };
+        }
+        let formation = null;
+        try {
+            formation = this.findOwnedFormation(playerId, formationInstanceId);
+        } catch (_error) {
+            return { satisfied: false, reason: '阵法已不存在或不属于你。', shouldCancel: true };
+        }
+        if (!formation || Number(formation.remainingAuraBudget) <= 0) {
+            return { satisfied: false, reason: '阵法灵力已耗尽。', shouldCancel: true };
+        }
+        const controlInstanceId = normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId;
+        const controlX = Math.trunc(Number(formation.eyeX) || formation.x);
+        const controlY = Math.trunc(Number(formation.eyeY) || formation.y);
+        const playerInstanceId = normalizeInstanceId(player.instanceId);
+        if (playerInstanceId !== controlInstanceId
+            || Math.trunc(Number(player.x)) !== controlX
+            || Math.trunc(Number(player.y)) !== controlY) {
+            return { satisfied: false, reason: '离开阵法控制点位。', shouldCancel: true };
+        }
+        return { satisfied: true };
+    }
+
+    resolveFormationMaintenanceTick(player, job, ctx) {
+        const playerId = normalizePlayerId(player);
+        if (!playerId) {
+            return buildFormationResolveResult(true, []);
+        }
+        const formation = this.findOwnedFormation(playerId, job.formationInstanceId);
+        const rate = resolveFormationMaintenanceRate(player);
+        const transfer = Math.min(rate, Math.max(0, Math.floor(Number(player.qi) || 0)));
+        if (transfer <= 0) {
+            player.formationJob = null;
+            markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
+            return buildFormationResolveResult(true, [{ kind: 'warn', text: `${formation.name}维护中止：自身灵力不足。` }]);
+        }
+        this.playerRuntimeService.spendQi(playerId, transfer);
+        formation.remainingAuraBudget = Math.max(0, Number(formation.remainingAuraBudget) || 0) + transfer;
+        formation.updatedAt = Date.now();
+        touchRuntimeInstanceRevision(ctx?.deps, formation.instanceId);
+        this.persistInstanceFormationsSoon(formation.instanceId);
+        if (typeof this.playerRuntimeService.recordActivity === 'function') {
+            this.playerRuntimeService.recordActivity(playerId, Number(ctx?.deps?.tick) || 0, { interruptCultivation: true });
+        }
+        job.maintenanceRate = rate;
+        job.remainingTicks = 1;
+        job.totalTicks = 1;
+        job.jobVersion = Math.max(1, Math.floor(Number(job.jobVersion) || 1) + 1);
+        markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
+        return {
+            successCount: 1,
+            failureCount: 0,
+            outputs: [],
+            expParams: {
+                skillLevel: player.formationSkill?.level ?? 1,
+                targetLevel: player.formationSkill?.level ?? 1,
+                baseActionTicks: 1,
+                successCount: 1,
+                failureCount: 0,
+                getExpToNextByLevel: ctx.resolveExpToNextByLevel,
+            },
+            completed: false,
+            messages: [],
+        };
     }
 
     dispatchSetPersistentFormationActive(playerId, payload, deps = null) {
@@ -1711,6 +1862,90 @@ function touchInstanceRevision(instance) {
         return;
     }
     instance.worldRevision += 1;
+}
+
+function normalizePlayerId(player) {
+    return normalizeOptionalString(player?.playerId ?? player?.id);
+}
+
+function buildFormationResolveResult(completed, messages) {
+    return {
+        successCount: 0,
+        failureCount: 0,
+        outputs: [],
+        expParams: {
+            skillLevel: 1,
+            targetLevel: 1,
+            baseActionTicks: 0,
+            successCount: 0,
+            failureCount: 0,
+            getExpToNextByLevel: () => 0,
+        },
+        completed,
+        messages,
+    };
+}
+
+function hasActiveFormationMaintenance(player, formationInstanceId) {
+    return Boolean(player?.formationJob
+        && Number(player.formationJob.remainingTicks) > 0
+        && normalizeOptionalString(player.formationJob.formationInstanceId) === normalizeOptionalString(formationInstanceId));
+}
+
+function resolveAnyActiveTechniqueJob(player) {
+    const jobs = [
+        player?.alchemyJob,
+        player?.forgingJob,
+        player?.enhancementJob,
+        player?.gatherJob,
+        player?.buildingJob,
+        player?.formationJob,
+    ];
+    return jobs.find((job) => job && Number(job.remainingTicks) > 0) ?? null;
+}
+
+function enqueueFormationMaintenance(player, formationInstanceId, formationName = null) {
+    if (!Array.isArray(player.techniqueActivityQueue)) {
+        player.techniqueActivityQueue = [];
+    }
+    const normalizedId = normalizeOptionalString(formationInstanceId);
+    if (!normalizedId) {
+        return false;
+    }
+    const exists = player.techniqueActivityQueue.some((entry) => entry?.kind === 'formation'
+        && normalizeOptionalString(entry?.payload?.formationInstanceId) === normalizedId
+        && entry?.state === 'pending');
+    if (exists) {
+        return true;
+    }
+    if (player.techniqueActivityQueue.length >= TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH) {
+        return false;
+    }
+    player.techniqueActivityQueue.push({
+        queueId: `formation_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        kind: 'formation',
+        payload: { formationInstanceId: normalizedId },
+        label: formationName ? `维护 ${formationName}` : '阵法维护',
+        state: 'pending',
+        createdAt: Date.now(),
+    });
+    return true;
+}
+
+function resolveFormationMaintenanceRate(player) {
+    const output = Math.max(0, Number(player?.attrs?.numericStats?.maxQiOutputPerTick ?? player?.numericStats?.maxQiOutputPerTick) || 0);
+    return Math.max(1, Math.floor(Math.sqrt(output)));
+}
+
+function markPlayerRuntimeDirty(player, domains, playerRuntimeService) {
+    if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
+        for (const domain of domains) {
+            player.dirtyDomains.add(domain);
+        }
+    }
+    if (typeof playerRuntimeService?.bumpPersistentRevision === 'function') {
+        playerRuntimeService.bumpPersistentRevision(player);
+    }
 }
 
 function formatInteger(value) {

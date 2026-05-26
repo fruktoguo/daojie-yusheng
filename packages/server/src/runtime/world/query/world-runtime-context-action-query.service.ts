@@ -175,6 +175,18 @@ export class WorldRuntimeContextActionQueryService {
                 desc: `消耗 ${formation.refillSpiritStoneCount} 灵石和 ${formation.refillQiCost} 灵力，为当前阵法补充 ${formation.refillAuraBudget} 阵眼灵力。`,
                 cooldownLeft: 0,
             });
+            const maintaining = player.formationJob
+                && Number(player.formationJob.remainingTicks) > 0
+                && player.formationJob.formationInstanceId === formation.id;
+            actions.push({
+                id: maintaining ? `formation:cancel_maintain:${formation.id}` : `formation:maintain:${formation.id}`,
+                name: maintaining ? `停止维护：${formation.name}` : `维护：${formation.name}`,
+                type: 'interact',
+                desc: maintaining
+                    ? '停止持续向阵法注入自身灵力。'
+                    : '持续向阵法注入自身灵力，每息获得阵法技艺经验。',
+                cooldownLeft: 0,
+            });
         }
         const localBuildings = Array.isArray(view?.localBuildings) ? view.localBuildings : [];
         if (typeof deps?.getInstanceRuntimeOrThrow === 'function') {

@@ -126,6 +126,7 @@ export class TechniqueActivityPipelineService {
         // 条件不满足 → 清理 job，返回休眠信号
         strategy.onConditionFailed?.(player, job, ctx);
         (player as any)[strategy.jobSlot] = null;
+        markPipelineDirty(player, ['active_job'], ctx);
         return {
           ok: true,
           panelChanged: true,
@@ -149,14 +150,17 @@ export class TechniqueActivityPipelineService {
       // Inline pause advancement to avoid type guard issues
       job.pausedTicks = Math.max(0, Math.floor(Number(job.pausedTicks) || 0) - 1);
       if (job.pausedTicks > 0) {
+        markPipelineDirty(player, ['active_job'], ctx);
         return { ...emptyTickResult(), ok: true };
       }
       job.phase = resumePhase;
+      markPipelineDirty(player, ['active_job'], ctx);
       return { ...emptyTickResult(), panelChanged: true };
     }
 
     // Stage 4: Advance
     job.remainingTicks = Math.max(0, job.remainingTicks - 1);
+    markPipelineDirty(player, ['active_job'], ctx);
 
     // Stage 5: Progress（未到结算点）
     if (!strategy.isResolvePoint(job)) {
@@ -174,6 +178,7 @@ export class TechniqueActivityPipelineService {
         const { finalGain } = computeExpGainFromParams(resolved.expParams);
         if (finalGain > 0) {
           attrChanged = applyCraftSkillExpInline(skillState, finalGain, ctx.resolveExpToNextByLevel);
+          markPipelineDirty(player, ['profession'], ctx);
         }
       }
     }
@@ -223,6 +228,7 @@ export class TechniqueActivityPipelineService {
     if (strategy.conditional && strategy.pauseTicks === 0) {
       strategy.onConditionFailed?.(player, job, ctx);
       (player as any)[strategy.jobSlot] = null;
+      markPipelineDirty(player, ['active_job'], ctx);
       return {
         ok: true,
         panelChanged: true,
@@ -238,6 +244,7 @@ export class TechniqueActivityPipelineService {
     // 非条件型：暂停
     const added = applyTechniqueActivityInterrupt(job as any, strategy.pauseTicks);
     if (added <= 0) return emptyTickResult();
+    markPipelineDirty(player, ['active_job'], ctx);
 
     return {
       ok: true,
@@ -273,6 +280,7 @@ export class TechniqueActivityPipelineService {
       strategy.onConditionFailed?.(player, job, ctx);
     }
     (player as any)[strategy.jobSlot] = null;
+    markPipelineDirty(player, ['active_job'], ctx);
 
     return {
       ok: true,
@@ -291,6 +299,18 @@ function interruptReasonLabel(reason: TechniqueActivityInterruptReason): string 
     case 'attack': return '出手';
     case 'cancel': return '手动取消';
     case 'cultivate': return '打坐';
+  }
+}
+
+function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext): void {
+  if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
+    for (const domain of domains) {
+      player.dirtyDomains.add(domain);
+    }
+  }
+  const runtimeService = (ctx.deps as { playerRuntimeService?: { bumpPersistentRevision?: (player: any) => void } } | null)?.playerRuntimeService;
+  if (runtimeService && typeof runtimeService.bumpPersistentRevision === 'function') {
+    runtimeService.bumpPersistentRevision(player);
   }
 }
 

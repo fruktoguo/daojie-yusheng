@@ -14,6 +14,7 @@ import type {
   PlayerBuildingJob,
   PlayerEnhancementJob,
   PlayerEnhancementRecord,
+  PlayerFormationJob,
   PlayerForgingJob,
   PlayerGatherJob,
 } from './crafting-types';
@@ -484,10 +485,20 @@ export interface PlayerState {
 
   miningSkill?: AlchemySkillState;
   /**
+ * formationSkill：阵法技能相关字段。
+ */
+
+  formationSkill?: AlchemySkillState;
+  /**
  * buildingJob：building Job 相关字段。
  */
 
   buildingJob?: PlayerBuildingJob | null;
+  /**
+ * formationJob：阵法维护 Job 相关字段。
+ */
+
+  formationJob?: PlayerFormationJob | null;
   /**
  * enhancementSkillLevel：强化技能等级数值。
  */

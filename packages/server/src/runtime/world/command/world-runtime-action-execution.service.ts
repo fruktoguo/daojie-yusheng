@@ -234,6 +234,22 @@ export class WorldRuntimeActionExecutionService {
             deps.refreshPlayerContextActions(playerId);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
+        if (actionId.startsWith('formation:maintain:')) {
+            const formationInstanceId = actionId.slice('formation:maintain:'.length).trim();
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'startFormationMaintenance',
+                payload: { formationInstanceId },
+            });
+            deps.refreshPlayerContextActions(playerId);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId.startsWith('formation:cancel_maintain:')) {
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'cancelFormationMaintenance',
+            });
+            deps.refreshPlayerContextActions(playerId);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
         if (actionId.startsWith('building:start:')) {
             const buildingId = actionId.slice('building:start:'.length).trim();
             if (!buildingId) {

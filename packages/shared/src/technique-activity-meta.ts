@@ -44,7 +44,9 @@ export type TechniqueActivityCommandKind =
   | 'startBuilding'
   | 'cancelBuilding'
   | 'startMining'
-  | 'cancelMining';
+  | 'cancelMining'
+  | 'startFormationMaintenance'
+  | 'cancelFormationMaintenance';
 
 export type TechniqueActivityRequestPanelErrorCode =
   | 'REQUEST_ALCHEMY_PANEL_FAILED'
@@ -56,7 +58,8 @@ export type TechniqueActivityStartErrorCode =
   | 'START_ENHANCEMENT_FAILED'
   | 'START_GATHER_FAILED'
   | 'START_BUILDING_FAILED'
-  | 'START_MINING_FAILED';
+  | 'START_MINING_FAILED'
+  | 'START_FORMATION_FAILED';
 
 export type TechniqueActivityCancelErrorCode =
   | 'CANCEL_ALCHEMY_FAILED'
@@ -64,7 +67,8 @@ export type TechniqueActivityCancelErrorCode =
   | 'CANCEL_ENHANCEMENT_FAILED'
   | 'CANCEL_GATHER_FAILED'
   | 'CANCEL_BUILDING_FAILED'
-  | 'CANCEL_MINING_FAILED';
+  | 'CANCEL_MINING_FAILED'
+  | 'CANCEL_FORMATION_FAILED';
 
 export interface TechniqueActivityMetadata {
   kind: RuntimeTechniqueActivityKind;
@@ -156,6 +160,19 @@ export const TECHNIQUE_ACTIVITY_METADATA = {
     startErrorCode: 'START_MINING_FAILED',
     cancelErrorCode: 'CANCEL_MINING_FAILED',
   },
+  formation: {
+    kind: 'formation',
+    requestEvent: null,
+    startEvent: null,
+    cancelEvent: null,
+    panelEvent: null,
+    startCommandKind: 'startFormationMaintenance',
+    cancelCommandKind: 'cancelFormationMaintenance',
+    requestPanelErrorCode: null,
+    startErrorCode: 'START_FORMATION_FAILED',
+    cancelErrorCode: 'CANCEL_FORMATION_FAILED',
+    conditional: true,
+  },
 } as const satisfies Record<RuntimeTechniqueActivityKind, TechniqueActivityMetadata>;
 
 export type TechniqueActivityMetadataByKind = typeof TECHNIQUE_ACTIVITY_METADATA;
@@ -184,6 +201,8 @@ export function resolveTechniqueActivityStartCommandKind(kind: TechniqueActivity
       return 'startBuilding';
     case 'mining':
       return 'startMining';
+    case 'formation':
+      return 'startFormationMaintenance';
   }
 }
 
@@ -201,5 +220,7 @@ export function resolveTechniqueActivityCancelCommandKind(kind: TechniqueActivit
       return 'cancelBuilding';
     case 'mining':
       return 'cancelMining';
+    case 'formation':
+      return 'cancelFormationMaintenance';
   }
 }

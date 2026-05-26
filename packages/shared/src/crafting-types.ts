@@ -544,6 +544,65 @@ export interface PlayerBuildingJob extends TechniqueActivityJobBase {
   phase: 'building' | 'paused';
 }
 
+/** 玩家当前阵法维护任务的最小持久化运行态。 */
+export interface PlayerFormationJob extends TechniqueActivityJobBase {
+/**
+ * formationInstanceId：阵法实例 ID。
+ */
+
+  formationInstanceId: string;
+  /**
+ * formationName：阵法名称名称或显示文本。
+ */
+
+  formationName: string;
+  /**
+ * instanceId：阵法所在实例 ID。
+ */
+
+  instanceId: string;
+  /**
+ * controlInstanceId：阵法控制点所在实例 ID。
+ */
+
+  controlInstanceId: string;
+  /**
+ * controlX：控制点 X 坐标。
+ */
+
+  controlX: number;
+  /**
+ * controlY：控制点 Y 坐标。
+ */
+
+  controlY: number;
+  /**
+ * phase：phase相关字段。
+ */
+
+  phase: 'maintaining' | 'paused';
+  /**
+ * maintenanceRate：每息维护注入灵力。
+ */
+
+  maintenanceRate: number;
+  /**
+ * jobRunId：任务运行 ID。
+ */
+
+  jobRunId?: string;
+  /**
+ * jobType：任务类型。
+ */
+
+  jobType?: 'formation';
+  /**
+ * jobVersion：任务版本号。
+ */
+
+  jobVersion?: number;
+}
+
 /** 单个强化目标等级的历史记录。 */
 export interface PlayerEnhancementLevelRecord {
 /**

@@ -12,6 +12,8 @@ const { Pool } = require("pg");
 const { resolveServerDatabaseUrl } = require("../config/env-alias");
 const { DatabasePoolProvider } = require("../persistence/database-pool.provider");
 const { WorldRuntimeFormationService } = require("../runtime/world/world-runtime-formation.service");
+const { TechniqueActivityPipelineService } = require("../runtime/craft/pipeline/technique-activity-pipeline.service");
+const { FormationStrategy } = require("../runtime/craft/pipeline/strategies/formation.strategy");
 const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
@@ -28,11 +30,18 @@ async function main() {
   const player = {
     playerId,
     sectId: "sect:smoke",
+    instanceId,
+    x: 4,
+    y: 5,
     qi: 20000,
+    attrs: { numericStats: { maxQiOutputPerTick: 16 } },
+    formationSkill: { level: 1, exp: 0, expToNext: 60 },
+    dirtyDomains: new Set(),
     inventory: {
       items: [
         {
           itemId: "formation_disk.mystic",
+          itemInstanceId: "formation-disk:mystic:1",
           name: "玄阶阵盘",
           count: 2,
           formationDiskTier: "mystic",
@@ -87,6 +96,17 @@ async function main() {
       assert.equal(targetPlayerId, playerId);
       player.inventory.items[slotIndex].count -= count;
     },
+    peekInventoryItemByInstanceId(targetPlayerId, itemInstanceId) {
+      assert.equal(targetPlayerId, playerId);
+      return player.inventory.items.find((entry) => entry.itemInstanceId === itemInstanceId) ?? null;
+    },
+    consumeInventoryItemByInstanceId(targetPlayerId, itemInstanceId, count) {
+      assert.equal(targetPlayerId, playerId);
+      const item = player.inventory.items.find((entry) => entry.itemInstanceId === itemInstanceId);
+      assert.ok(item);
+      item.count -= count;
+    },
+    repairInventoryItemInstanceIds() {},
     enqueueNotice(targetPlayerId, notice) {
       notices.push({ targetPlayerId, ...notice });
     },
@@ -116,7 +136,7 @@ async function main() {
     meta: { instanceId: "public:formation_smoke", kind: "public", linePreset: "peaceful" },
   };
   assert.throws(() => service.dispatchCreateFormation(playerId, {
-    slotIndex: 0,
+    itemInstanceId: "formation-disk:mystic:1",
     formationId: "spirit_gathering",
     spiritStoneCount: 100,
     allocation: { effectPercent: 80, rangePercent: 10, durationPercent: 10 },
@@ -135,7 +155,7 @@ async function main() {
   assert.equal(player.inventory.items[0].count, 2);
 
   assert.throws(() => service.dispatchCreateFormation(playerId, {
-    slotIndex: 0,
+    itemInstanceId: "formation-disk:mystic:1",
     formationId: "spirit_gathering",
     spiritStoneCount: 99,
     qiCost: 1,
@@ -145,7 +165,7 @@ async function main() {
   assert.equal(player.wallet.spirit_stone, 1000);
   assert.equal(player.inventory.items[0].count, 2);
   assert.throws(() => service.dispatchCreateFormation(playerId, {
-    slotIndex: 0,
+    itemInstanceId: "formation-disk:mystic:1",
     formationId: "sect_guardian_barrier",
     spiritStoneCount: 1,
     qiCost: 1,
@@ -153,7 +173,7 @@ async function main() {
   }, deps), /不能通过阵盘布置/);
 
   const formation = service.dispatchCreateFormation(playerId, {
-    slotIndex: 0,
+    itemInstanceId: "formation-disk:mystic:1",
     formationId: "spirit_gathering",
     setup: { radius: 2, durationHours: 2, effectValue: 1000 },
   }, deps);
@@ -260,6 +280,7 @@ async function main() {
       inventory: {
         items: [{
           itemId: "formation_disk.mortal",
+          itemInstanceId: "formation-disk:mortal:sparse",
           name: "凡品阵盘",
           count: 1,
           formationDiskTier: "mortal",
@@ -310,6 +331,17 @@ async function main() {
         assert.equal(targetPlayerId, sparsePlayerId);
         sparsePlayer.inventory.items[slotIndex].count -= count;
       },
+      peekInventoryItemByInstanceId(targetPlayerId, itemInstanceId) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        return sparsePlayer.inventory.items.find((entry) => entry.itemInstanceId === itemInstanceId) ?? null;
+      },
+      consumeInventoryItemByInstanceId(targetPlayerId, itemInstanceId, count) {
+        assert.equal(targetPlayerId, sparsePlayerId);
+        const item = sparsePlayer.inventory.items.find((entry) => entry.itemInstanceId === itemInstanceId);
+        assert.ok(item);
+        item.count -= count;
+      },
+      repairInventoryItemInstanceIds() {},
       enqueueNotice() {},
     };
     const sparseService = new WorldRuntimeFormationService(
@@ -318,7 +350,7 @@ async function main() {
     );
     sparseService.ensurePersistencePool = async () => null;
     const sparseFormation = sparseService.dispatchCreateFormation(sparsePlayerId, {
-      slotIndex: 0,
+      itemInstanceId: "formation-disk:mortal:sparse",
       formationId: "spirit_gathering",
       spiritStoneCount: 1000,
       allocation: { effectPercent: 50, rangePercent: 40, durationPercent: 10 },
@@ -349,10 +381,34 @@ async function main() {
   assert.equal(player.wallet.spirit_stone, 992);
   assert.equal(Math.round(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeRefill), 1500);
 
+  const maintenancePipeline = new TechniqueActivityPipelineService();
+  maintenancePipeline.register(new FormationStrategy());
+  const maintenanceCtx = {
+    contentTemplateRepository: { getItemName: () => null, normalizeItem: (item) => item },
+    resolveExpToNextByLevel: () => 60,
+    getInstanceRuntime: () => instance,
+    deps: { worldRuntimeFormationService: service, playerRuntimeService, tick: 100 },
+  };
+  const maintenanceStart = maintenancePipeline.start(player, "formation", { formationInstanceId: formation.id }, maintenanceCtx);
+  assert.equal(maintenanceStart.ok, true);
+  assert.equal(player.formationJob?.formationInstanceId, formation.id);
+  const auraBeforeMaintenance = service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget;
+  const qiBeforeMaintenance = player.qi;
+  const maintenanceTick = maintenancePipeline.tick(player, "formation", maintenanceCtx);
+  assert.equal(maintenanceTick.ok, true);
+  assert.equal(qiBeforeMaintenance - player.qi, 4);
+  assert.equal(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeMaintenance, 4);
+  assert.ok(player.formationSkill.exp > 0);
+  player.x = 5;
+  const maintenanceCancel = maintenancePipeline.tick(player, "formation", maintenanceCtx);
+  assert.equal(maintenanceCancel.ok, true);
+  assert.equal(player.formationJob, null);
+  player.x = 4;
+
   player.qi = 200000;
   player.wallet.spirit_stone = 2000;
   const earthFormation = service.dispatchCreateFormation(playerId, {
-    slotIndex: 0,
+    itemInstanceId: "formation-disk:mystic:1",
     formationId: "earth_stabilizing",
     spiritStoneCount: 1000,
     qiCost: 1,
@@ -477,7 +533,7 @@ async function main() {
 
   player.inventory.items[0].count = 1;
   const barrierFormation = service.dispatchCreateFormation(playerId, {
-    slotIndex: 0,
+    itemInstanceId: "formation-disk:mystic:1",
     formationId: "warding_barrier",
     spiritStoneCount: 100,
     qiCost: 1,
