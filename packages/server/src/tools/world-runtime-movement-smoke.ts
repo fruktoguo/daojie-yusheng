@@ -171,8 +171,7 @@ function testPortalBranch() {
         ['recordActivity', 'player:1', 33, { interruptCultivation: true }],
         ['interruptCraftForReason', 'player:1', 'move'],
         ['tryPortalTransfer', 'player:1', 'manual_portal'],
-        ['tryPortalTransfer', 'player:1', 'auto_portal'],
-        ['applyTransfer', 'auto_portal'],
+        ['enqueuePortalUse', { playerId: 'player:1' }],
     ]);
 }
 

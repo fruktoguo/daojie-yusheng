@@ -87,11 +87,6 @@ export class WorldRuntimeMovementService {
             deps.applyTransfer(manualTransfer);
             return;
         }
-        const autoTransfer = instance.tryPortalTransfer(playerId, 'auto_portal');
-        if (autoTransfer) {
-            deps.applyTransfer(autoTransfer);
-            return;
-        }
         instance.enqueuePortalUse({ playerId });
     }
 };
