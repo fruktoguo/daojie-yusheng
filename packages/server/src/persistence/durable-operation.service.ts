@@ -3344,6 +3344,38 @@ function safeStringifyDurableEntry(value: unknown): string {
   return serialized.length > maxLength ? `${serialized.slice(0, maxLength)}...` : serialized;
 }
 
+function isSameDurablePayload(left: Record<string, unknown>, right: Record<string, unknown>): boolean {
+  return stableJsonStringify(left) === stableJsonStringify(right);
+}
+
+function stableJsonStringify(value: unknown): string {
+  if (value == null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableJsonStringify(entry)).join(',')}]`;
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const entries: string[] = [];
+    for (const key of Object.keys(record).sort()) {
+      const entry = record[key];
+      if (typeof entry === 'undefined' || typeof entry === 'function' || typeof entry === 'symbol') {
+        continue;
+      }
+      entries.push(`${JSON.stringify(key)}:${stableJsonStringify(entry)}`);
+    }
+    return `{${entries.join(',')}}`;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? JSON.stringify(value) : 'null';
+  }
+  if (typeof value === 'string' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  return 'null';
+}
+
 async function refuseEmptyOverwriteIfRowsExist(
   client: import('pg').PoolClient,
   tableName: string,
@@ -3577,7 +3609,7 @@ async function replacePlayerMarketStorageItems(
         || existingSlotRow.item_id !== itemId
         || existingSlotRow.count !== count
         || existingSlotRow.enhance_level !== enhanceLevel
-        || JSON.stringify(existingSlotRow.raw_payload) !== JSON.stringify(row.raw_payload)
+        || !isSameDurablePayload(existingSlotRow.raw_payload, row.raw_payload)
       ) {
         throw new Error(
           `replacePlayerMarketStorageItems: duplicate slot_index with conflicting payload playerId=${playerId} slotIndex=${slotIndex}`,
@@ -3728,7 +3760,7 @@ async function replacePlayerEquipmentSlots(
       if (
         existingSlotRow.item_instance_id !== itemInstanceId
         || existingSlotRow.item_id !== itemId
-        || JSON.stringify(existingSlotRow.raw_payload) !== JSON.stringify(rawPayload)
+        || !isSameDurablePayload(existingSlotRow.raw_payload, rawPayload)
       ) {
         throw new Error(
           `replacePlayerEquipmentSlots: duplicate slot with conflicting payload playerId=${playerId} slot=${slotType}`,
