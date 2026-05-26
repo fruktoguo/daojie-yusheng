@@ -676,6 +676,7 @@ export class CraftPanelRuntimeService {
     /** 发放炼丹/炼器本批次产出；背包满时返回掉地项，由 flush 统一落地。 */
     grantAlchemyLikeBatchOutput(player, job, successCount) {
         const groundDrops = [];
+        const grantedItems = [];
         let inventoryChanged = false;
         if (successCount > 0) {
             const outputItem = this.contentTemplateRepository.normalizeItem({
@@ -684,13 +685,14 @@ export class CraftPanelRuntimeService {
             });
             if (canReceiveCraftItem(player, outputItem)) {
                 receiveInventoryItem(player, this.contentTemplateRepository, outputItem);
+                grantedItems.push(outputItem);
                 inventoryChanged = true;
             }
             else {
                 groundDrops.push(outputItem);
             }
         }
-        return { inventoryChanged, groundDrops };
+        return { inventoryChanged, grantedItems, groundDrops };
     }
     /** 应用炼丹/炼器本批次技艺经验。 */
     applyAlchemyLikeBatchSkillExp(player, jobKind, job, successCount, failureCount) {
@@ -700,6 +702,53 @@ export class CraftPanelRuntimeService {
         const skillGain = resolveAlchemySkillExpGain(this.playerRuntimeService, catalog, job, craftSkill, successCount, failureCount);
         const skillChanged = applyCraftSkillExp(craftSkill, skillGain, (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level));
         return { skillGain, skillChanged };
+    }
+    /** 构建炼丹/炼器批次结算 result；后续公共 pipeline 会直接消费该结构。 */
+    buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, outputResult, expResult, completed, messages) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        return {
+            successCount,
+            failureCount,
+            outputs: [
+                ...(outputResult.grantedItems ?? []),
+                ...(outputResult.groundDrops ?? []),
+            ].map((item) => ({
+                itemId: item.itemId,
+                count: item.count,
+                ...(typeof item.name === 'string' ? { name: item.name } : {}),
+            })),
+            inventoryDelta: {
+                granted: (outputResult.grantedItems ?? []).map((item) => ({ itemId: item.itemId, count: item.count, ...(typeof item.name === 'string' ? { name: item.name } : {}) })),
+                dropped: (outputResult.groundDrops ?? []).map((item) => ({ itemId: item.itemId, count: item.count, ...(typeof item.name === 'string' ? { name: item.name } : {}) })),
+                changed: Boolean(outputResult.inventoryChanged),
+            },
+            panelDirty: {
+                changed: true,
+                kinds: [normalizedJobKind],
+                reason: completed ? 'completed' : 'batch',
+            },
+            expParams: this.buildAlchemyLikeExpParams(player, normalizedJobKind, job, successCount, failureCount),
+            completed,
+            messages,
+            craftRealmExpGain: expResult.skillGain / 2,
+        };
+    }
+    buildAlchemyLikeExpParams(player, jobKind, job, successCount, failureCount) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const catalog = normalizedJobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
+        const recipe = Array.isArray(catalog)
+            ? catalog.find((entry) => entry.recipeId === job.recipeId)
+            : null;
+        const skill = normalizedJobKind === 'forging' ? player.forgingSkill : player.alchemySkill;
+        return {
+            skillLevel: skill?.level ?? 1,
+            targetLevel: recipe?.outputLevel ?? job.outputLevel ?? 1,
+            baseActionTicks: resolveAlchemySkillBaseActionTicks(recipe, job),
+            successCount,
+            failureCount,
+            successMultiplier: 1,
+            getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
+        };
     }
     /** 完成炼丹/炼器 job，并尝试启动统一队列中的下一项。 */
     completeAlchemyLikeJob(player, jobKind, job) {

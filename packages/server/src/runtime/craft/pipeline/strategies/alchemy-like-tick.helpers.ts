@@ -3,6 +3,7 @@
  *
  * 维护时要保持 active job、背包、技艺经验和队列启动的服务端真源一致。
  */
+import type { TechniqueActivityResolveResult } from '@mud/shared';
 
 export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKindInput: 'alchemy' | 'forging'): unknown {
   const jobKind = jobKindInput === 'forging' ? 'forging' : 'alchemy';
@@ -52,28 +53,50 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
 
   if (jobCompleted) {
     const nextStartResult = craftService.completeAlchemyLikeJob(player, jobKind, job);
-    return craftService.buildAlchemyLikeTickResult(
+    const resolved = craftService.buildAlchemyLikeBatchResolveResult(
+      player,
+      jobKind,
+      job,
+      successCount,
+      failureCount,
+      outputResult,
+      expResult,
       true,
       [
         craftService.buildAlchemyLikeCompletionMessage(jobKind, job),
         ...(nextStartResult.messages ?? []),
       ],
-      outputResult.inventoryChanged || Boolean(nextStartResult.inventoryChanged),
+    ) as TechniqueActivityResolveResult;
+    return craftService.buildAlchemyLikeTickResult(
+      true,
+      resolved.messages ?? [],
+      Boolean(resolved.inventoryDelta?.changed) || Boolean(nextStartResult.inventoryChanged),
       Boolean(nextStartResult.equipmentChanged),
       expResult.skillChanged || Boolean(nextStartResult.attrChanged),
-      [...outputResult.groundDrops, ...(nextStartResult.groundDrops ?? [])],
-      expResult.skillGain / 2,
+      [...(resolved.inventoryDelta?.dropped ?? []), ...(nextStartResult.groundDrops ?? [])],
+      resolved.craftRealmExpGain ?? 0,
     );
   }
 
   job.currentBatchRemainingTicks = job.batchBrewTicks;
+  const resolved = craftService.buildAlchemyLikeBatchResolveResult(
+    player,
+    jobKind,
+    job,
+    successCount,
+    failureCount,
+    outputResult,
+    expResult,
+    false,
+    [craftService.buildAlchemyLikeBatchMessage(jobKind, job, successCount)],
+  ) as TechniqueActivityResolveResult;
   return craftService.buildAlchemyLikeTickResult(
     true,
-    [craftService.buildAlchemyLikeBatchMessage(jobKind, job, successCount)],
-    outputResult.inventoryChanged,
+    resolved.messages ?? [],
+    Boolean(resolved.inventoryDelta?.changed),
     false,
     expResult.skillChanged,
-    outputResult.groundDrops,
-    expResult.skillGain / 2,
+    resolved.inventoryDelta?.dropped ?? [],
+    resolved.craftRealmExpGain ?? 0,
   );
 }
