@@ -100,6 +100,7 @@ interface PlayerSnapshotProgression {
   enhancementSkillLevel: number;
   enhancementJob: Record<string, unknown> | null;
   enhancementRecords: unknown[];
+  techniqueActivityQueue?: unknown[];
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;
   lifespanYears: number | null;
@@ -609,6 +610,9 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       enhancementJob: asRecordOrNull(progression?.enhancementJob),
       enhancementRecords: Array.isArray(progression?.enhancementRecords)
         ? progression.enhancementRecords
+        : [],
+      techniqueActivityQueue: Array.isArray(progression?.techniqueActivityQueue)
+        ? progression.techniqueActivityQueue
         : [],
       boneAgeBaseYears: isFiniteNumber(progression?.boneAgeBaseYears)
         ? Math.trunc(progression.boneAgeBaseYears)

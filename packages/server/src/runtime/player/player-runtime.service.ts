@@ -405,6 +405,7 @@ export class PlayerRuntimeService {
             buildingJob: null,
             miningJob: null,
             formationJob: null,
+            techniqueActivityQueue: [],
             alchemyPresets: [],
             alchemyJob: null,
             forgingJob: null,
@@ -4002,6 +4003,7 @@ export class PlayerRuntimeService {
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             miningJob: normalizeMiningJob(snapshot.progression?.miningJob),
             formationJob: normalizeFormationJob(snapshot.progression?.formationJob),
+            techniqueActivityQueue: normalizeTechniqueActivityQueue(snapshot.progression?.techniqueActivityQueue),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
             forgingJob: normalizeAlchemyJob(snapshot.progression?.forgingJob),
@@ -4760,6 +4762,7 @@ function cloneRuntimePlayerState(player) {
         buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
         miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
         formationJob: player.formationJob ? cloneFormationJob(player.formationJob) : null,
+        techniqueActivityQueue: cloneTechniqueActivityQueue(player.techniqueActivityQueue),
         alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
         alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
         forgingJob: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
@@ -6092,6 +6095,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
             miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
             formationJob: player.formationJob ? cloneFormationJob(player.formationJob) : null,
+            techniqueActivityQueue: cloneTechniqueActivityQueue(player.techniqueActivityQueue),
             alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
             forgingJob: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
@@ -6464,6 +6468,92 @@ function cloneFormationJob(entry) {
     return {
         ...entry,
     };
+}
+
+function normalizeTechniqueActivityKind(value) {
+    return value === 'forging'
+        || value === 'enhancement'
+        || value === 'gather'
+        || value === 'building'
+        || value === 'mining'
+        || value === 'formation'
+        ? value
+        : 'alchemy';
+}
+
+function normalizeTechniqueActivityQueueText(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function cloneTechniqueActivityQueuePayload(value) {
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+    return structuredClone(value);
+}
+
+function normalizeTechniqueActivityQueue(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    const queue = [];
+    for (const entry of value) {
+        if (!entry || typeof entry !== 'object') {
+            continue;
+        }
+        const kind = normalizeTechniqueActivityKind(entry.kind);
+        const createdAt = Math.max(1, Math.trunc(Number(entry.createdAt ?? Date.now()) || Date.now()));
+        const queueId = normalizeTechniqueActivityQueueText(entry.queueId)
+            || `technique-queue:${kind}:${createdAt}:${queue.length}`;
+        const item = {
+            queueId,
+            kind,
+            payload: cloneTechniqueActivityQueuePayload(entry.payload),
+            label: normalizeTechniqueActivityQueueText(entry.label) || (kind === 'forging'
+                ? '炼器任务'
+                : kind === 'enhancement'
+                    ? '强化任务'
+                    : kind === 'gather'
+                        ? '采集任务'
+                        : kind === 'building'
+                            ? '营造任务'
+                            : kind === 'mining'
+                                ? '挖矿任务'
+                                : kind === 'formation'
+                                    ? '阵法任务'
+                                    : '炼丹任务'),
+            state: entry.state === 'sleeping' ? 'sleeping' : 'pending',
+            createdAt,
+            cancelRef: {
+                kind,
+                queueId,
+            },
+            targetLabel: undefined,
+            sleepReason: undefined,
+            sleepingSince: undefined,
+            retryAfterTicks: undefined,
+        };
+        const targetLabel = normalizeTechniqueActivityQueueText(entry.targetLabel);
+        if (targetLabel) {
+            item.targetLabel = targetLabel;
+        }
+        const sleepReason = normalizeTechniqueActivityQueueText(entry.sleepReason);
+        if (sleepReason) {
+            item.sleepReason = sleepReason;
+        }
+        if (Number.isFinite(Number(entry.sleepingSince))) {
+            item.sleepingSince = Math.max(0, Math.trunc(Number(entry.sleepingSince)));
+        }
+        if (Number.isFinite(Number(entry.retryAfterTicks))) {
+            item.retryAfterTicks = Math.max(0, Math.trunc(Number(entry.retryAfterTicks)));
+        }
+        queue.push(item);
+    }
+    return queue;
+}
+
+function cloneTechniqueActivityQueue(value) {
+    return normalizeTechniqueActivityQueue(value);
 }
 /**
  * normalizeAlchemyJob：规范化或转换炼丹Job。

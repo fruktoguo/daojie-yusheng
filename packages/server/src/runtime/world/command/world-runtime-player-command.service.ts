@@ -389,6 +389,8 @@ export class WorldRuntimePlayerCommandService {
         const queueId = typeof cancelRef?.queueId === 'string' ? cancelRef.queueId.trim() : '';
         if (queueId) {
             if (removeTechniqueActivityQueueItem(player, queueId)) {
+                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+                this.playerRuntimeService.bumpPersistentRevision?.(player);
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
                     { ok: true, panelChanged: true, groundDrops: [], messages: [] },

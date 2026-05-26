@@ -16,7 +16,7 @@
 | 持久化刷盘并行化根修 | 0% | [持久化刷盘并行化根修计划](持久化刷盘并行化根修计划.md) |
 | server TS 类型补强 | 90% | [main](main.md) |
 | AI 术法强度归一化设计 | 讨论中 | [AI术法强度归一化设计](AI术法强度归一化设计.md) |
-| 技艺彻底通用化 | Phase 5 条件型迁移基本完成，Phase 6 tick 编排已收敛，规则拆分/持久化恢复待完成 | [technique-activity-pipeline-refactor](technique-activity-pipeline-refactor.md) |
+| 技艺彻底通用化 | Phase 5 条件型迁移基本完成，Phase 6 tick 编排已收敛，队列快照恢复已补齐，规则拆分/player_active_job 统一待完成 | [technique-activity-pipeline-refactor](technique-activity-pipeline-refactor.md) |
 
 ## 待开始
 
