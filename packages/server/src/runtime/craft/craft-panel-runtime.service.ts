@@ -18,7 +18,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
 import { ALCHEMY_FURNACE_TAG, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
 import { CraftPanelEnhancementQueryService } from './craft-panel-enhancement-query.service';
-import { advanceTechniqueActivityPause, applyTechniqueActivityInterrupt, buildTechniqueActivityInterruptMessage, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
+import { advanceTechniqueActivityPause, applyTechniqueActivityInterrupt, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from './craft-skill-exp.helpers';
 import { TechniqueActivityPipelineService } from './pipeline/technique-activity-pipeline.service';
 import { AlchemyStrategy } from './pipeline/strategies/alchemy.strategy';
@@ -39,8 +39,6 @@ const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
 /** 炼丹被打断后进入的暂停息数。 */
 const ALCHEMY_INTERRUPT_PAUSE_TICKS = 10;
 
-/** 强化被打断后进入的暂停息数。 */
-const ENHANCEMENT_INTERRUPT_PAUSE_TICKS = 10;
 /** 制作运行时服务：负责炼丹与强化的任务创建、进度推进与结果落库。 */
 @Injectable()
 export class CraftPanelRuntimeService {
@@ -1015,25 +1013,7 @@ export class CraftPanelRuntimeService {
     interruptEnhancement(player, reason) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        this.ensureCraftSkills(player);
-        const job = player.enhancementJob;
-        const addedPauseTicks = applyTechniqueActivityInterrupt(job, ENHANCEMENT_INTERRUPT_PAUSE_TICKS, reason);
-        if (addedPauseTicks <= 0) {
-            return buildCraftTickResult();
-        }
-        this.finalizeMutation(player, {
-            persistentOnly: true,
-            dirtyDomains: ['active_job'],
-        });
-        return buildCraftTickResult(true, [{
-                kind: 'system',
-                text: buildTechniqueActivityInterruptMessage(
-                    job.targetItemName,
-                    '强化',
-                    ENHANCEMENT_INTERRUPT_PAUSE_TICKS,
-                    reason,
-                ),
-            }]);
+        return this.interruptTechniqueActivity(player, 'enhancement', reason);
     }
     /**
  * tickEnhancement：执行tick强化相关逻辑。

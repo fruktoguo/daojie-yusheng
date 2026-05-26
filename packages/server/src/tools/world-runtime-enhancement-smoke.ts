@@ -80,6 +80,7 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
 
   const interrupt = craftService.interruptEnhancement(player, 'attack');
   assert.equal(interrupt.ok, true);
+  assert.equal(interrupt.messages?.[0]?.key, 'notice.craft.activity-interrupted-wait');
   assert.equal(player.enhancementJob?.phase, 'paused');
   assert.equal(player.enhancementJob?.workRemainingTicks, player.enhancementJob?.remainingTicks);
   assert.equal(player.enhancementJob?.interruptWaitRemainingTicks, 10);
