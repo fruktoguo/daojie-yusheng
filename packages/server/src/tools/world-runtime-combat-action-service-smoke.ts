@@ -1187,6 +1187,56 @@ async function run() {
   assert.equal(monsterSkillPlan.targetEntries[0].source, 'warning_cell');
   assert.equal(monsterSkillPlan.validation.ok, true);
 
+  const targetlessAoeMonsterSkillPlan = service.resolveMonsterSkillActionPlan({
+    action: {
+      kind: 'skill',
+      instanceId: 'instance:test',
+      runtimeId: 'monster:1',
+      targetPlayerId: 'player:stale-primary',
+      skillId: 'monster:self_anchored_aoe',
+      targetX: 10,
+      targetY: 10,
+      warningCells: [{ x: 10, y: 10 }, { x: 11, y: 10 }],
+    },
+    instance: {
+      getPlayerPosition: () => null,
+      getPlayersAtTile: (x, y) => (x === 11 && y === 10 ? [{ playerId: 'player:inside-aoe' }] : []),
+      canSeeTileFrom: () => true,
+    },
+    deps: {
+      getPlayerLocation: () => null,
+    },
+    monster: {
+      runtimeId: 'monster:1',
+      x: 10,
+      y: 10,
+    },
+    skill: {
+      id: 'monster:self_anchored_aoe',
+      range: 0,
+      requiresTarget: false,
+      targeting: { shape: 'box', width: 3, height: 3, maxTargets: 9 },
+      effects: [{ type: 'damage' }, { type: 'buff', target: 'target', buffId: 'buff:slow' }],
+    },
+    playerRuntimeService: {
+      getPlayer: (playerId) => (playerId === 'player:inside-aoe'
+        ? {
+          playerId,
+          hp: 100,
+          instanceId: 'instance:test',
+          x: 11,
+          y: 10,
+        }
+        : null),
+    },
+  });
+  assert.equal(targetlessAoeMonsterSkillPlan.ok, true);
+  assert.equal(targetlessAoeMonsterSkillPlan.distance, 0);
+  assert.deepEqual(targetlessAoeMonsterSkillPlan.distanceAnchor, { x: 10, y: 10 });
+  assert.equal(targetlessAoeMonsterSkillPlan.targetEntries.length, 1);
+  assert.equal(targetlessAoeMonsterSkillPlan.targetEntries[0].player.playerId, 'player:inside-aoe');
+  assert.equal(targetlessAoeMonsterSkillPlan.targetEntries[0].source, 'warning_cell');
+
   const emptyMonsterSkillPlan = service.resolveMonsterSkillActionPlan({
     action: {
       kind: 'skill',

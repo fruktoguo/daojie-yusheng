@@ -1180,6 +1180,87 @@ function testMonsterSkillConsumesMultiplePlanTargetsOncePerTarget() {
   assert.deepEqual(deps.combatOutcomes.map((entry) => entry.result.damage), [9, 7]);
 }
 
+function testTargetlessMonsterAoeSkillStillAppliesDamage() {
+  const log = [];
+  const player = createTarget({
+    playerId: 'player:aoe-victim',
+    name: '范围受击者',
+    hp: 100,
+    x: 11,
+    y: 10,
+  });
+  const monster = createMonster({
+    skills: [{
+      id: 'monster:self_anchored_aoe',
+      name: '原地震荡',
+      range: 0,
+      requiresTarget: false,
+      targeting: { shape: 'box', width: 3, height: 3, maxTargets: 9 },
+      cooldown: { ticks: 1 },
+      cost: {},
+      effects: [{ type: 'damage' }, { type: 'buff', target: 'target', buffId: 'buff:slow' }],
+    }],
+  });
+  const instance = createInstance({
+    tick: 35,
+    getMonster(runtimeId) {
+      return runtimeId === monster.runtimeId ? monster : null;
+    },
+    getPlayerPosition(playerId) {
+      return playerId === player.playerId ? { x: player.x, y: player.y } : null;
+    },
+    getPlayersAtTile(x, y) {
+      return x === player.x && y === player.y
+        ? [{ playerId: player.playerId, x, y }]
+        : [];
+    },
+    canSeeTileFrom() {
+      return true;
+    },
+  });
+  const playerCombatService = {
+    castMonsterSkill(attacker, target, skillId, _currentTick, distance, _applySelfBuff, _applyTargetBuff, _spendQi, options) {
+      log.push(['castMonsterSkill', attacker.runtimeId, target.playerId, skillId, distance, options?.targetCount]);
+      return {
+        skillId,
+        totalDamage: 13,
+        totalRawDamage: 13,
+        hitCount: 1,
+        damageKind: 'physical',
+        damageRolls: [{
+          hit: true,
+          rawDamage: 13,
+          damage: 13,
+          damageKind: 'physical',
+        }],
+        targetPlayerId: target.playerId,
+      };
+    },
+  };
+  const service = createMonsterActionApplyService(player, log, playerCombatService);
+  const deps = createMonsterActionDeps(instance, player, log);
+  service.applyMonsterSkill({
+    kind: 'skill',
+    instanceId: instance.meta.instanceId,
+    runtimeId: monster.runtimeId,
+    targetPlayerId: 'player:stale-primary',
+    skillId: 'monster:self_anchored_aoe',
+    targetX: 10,
+    targetY: 10,
+    warningCells: [{ x: 10, y: 10 }, { x: 11, y: 10 }],
+  }, deps);
+
+  assert.ok(log.some((entry) => entry[0] === 'castMonsterSkill'
+    && entry[2] === player.playerId), `expected targetless monster aoe to resolve warning-cell target, log=${JSON.stringify(log)}`);
+  assert.equal(deps.combatOutcomes.length, 1);
+  assert.equal(deps.combatOutcomes[0].target.id, player.playerId);
+  assert.equal(deps.combatOutcomes[0].result.damage, 13);
+  assert.ok(log.some((entry) => entry[0] === 'pushDamageFloatEffect'
+    && entry[2] === player.x
+    && entry[3] === player.y
+    && entry[4] === 13), `expected targetless monster aoe damage float, log=${JSON.stringify(log)}`);
+}
+
 function testPeacefulLineAllowsTileAttack() {
   const log = [];
   const attacker = createAttacker();
@@ -1537,6 +1618,7 @@ Promise.resolve()
   .then(() => testAnchoredMonsterChantMissStillShowsCast())
   .then(() => testAnchoredMonsterChantHitsWarningCellPlayerWithoutPrimaryTargetLocation())
   .then(() => testMonsterSkillConsumesMultiplePlanTargetsOncePerTarget())
+  .then(() => testTargetlessMonsterAoeSkillStillAppliesDamage())
   .then(() => testPeacefulLineAllowsTileAttack())
   .then(() => testTileAttackHitsHerbContainerBeforeTerrainDamage())
   .then(() => testPlannedTileAttackDoesNotRetargetHerbContainer())

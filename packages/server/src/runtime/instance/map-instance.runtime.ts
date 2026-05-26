@@ -5395,21 +5395,22 @@ class MapInstanceRuntime {
                 }
                 this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
                 changed = true;
+                const skillAnchor = resolveMonsterSkillAnchor(monster, skill, target);
+                const warningCells = buildMonsterSkillAffectedCells(monster, skill, skillAnchor);
                 const windupTicks = getMonsterSkillWindupTicks(skill);
                 if (windupTicks > 0) {
-                    const warningCells = buildMonsterSkillAffectedCells(monster, skill, { x: target.x, y: target.y });
                     if (warningCells.length > 0) {
                         const geometry = buildEffectiveMonsterSkillGeometry(monster, skill);
                         const warningOrigin = (geometry.shape ?? 'single') === 'line'
                             ? { x: monster.x, y: monster.y }
-                            : { x: target.x, y: target.y };
+                            : skillAnchor;
                         monster.facing = resolveFacingToward(monster.x, monster.y, target.x, target.y);
                         monster.pendingCast = createMonsterPendingCombatCast({
                             runtimeId: monster.runtimeId,
                             instanceId: this.meta.instanceId,
                             skillId: skill.id,
                             targetPlayerId: target.playerId,
-                            anchor: { x: target.x, y: target.y },
+                            anchor: skillAnchor,
                             warningCells,
                             warningOrigin,
                             remainingTicks: windupTicks,
@@ -5442,13 +5443,19 @@ class MapInstanceRuntime {
                         continue;
                     }
                 }
-                monsterActions.push({
+                const instantSkillAction: any = {
                     instanceId: this.meta.instanceId,
                     runtimeId: monster.runtimeId,
                     targetPlayerId: target.playerId,
                     kind: 'skill',
                     skillId: skill.id,
-                });
+                };
+                if (resolveSkillRequiresTarget(skill) === false) {
+                    instantSkillAction.targetX = skillAnchor.x;
+                    instantSkillAction.targetY = skillAnchor.y;
+                    instantSkillAction.warningCells = warningCells;
+                }
+                monsterActions.push(instantSkillAction);
                 continue;
             }
             if (distance <= monster.attackRange && monster.attackReadyTick <= this.tick) {
@@ -7259,7 +7266,7 @@ function chooseMonsterSkill(monster, target, distance, currentTick) {
 
     let selectedRange = 0;
     for (const skill of monster.skills) {
-        if (!canMonsterCastSkill(monster, skill, distance, currentTick)) {
+        if (!canMonsterCastSkill(monster, skill, target, distance, currentTick)) {
             continue;
         }
         const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
@@ -7286,7 +7293,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     const targetPrimed = targetYinStacks + targetBurnStacks;
 
     if (!hasFaxiang && hpRatio <= 0.75) {
-        const phaseAwaken = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const phaseAwaken = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_FAXIANG_SKILL_ID,
             HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
             HUANLING_CANPO_ZHANG_SKILL_ID,
@@ -7297,7 +7304,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     }
 
     if (hpRatio <= 0.25) {
-        const desperation = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const desperation = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_DIFU_CHENYIN_SKILL_ID,
             HUANLING_LIEFU_WAIHUAN_SKILL_ID,
             HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
@@ -7308,7 +7315,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     }
 
     if (hpRatio <= 0.5) {
-        const collapse = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const collapse = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_XINGLUO_CANPAN_SKILL_ID,
             HUANLING_RONGHE_GUANMAI_SKILL_ID,
         ]);
@@ -7318,14 +7325,14 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     }
 
     if (!hasFaxiang) {
-        return pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_DUANHUN_DING_SKILL_ID,
             HUANLING_CANPO_ZHANG_SKILL_ID,
         ]);
     }
 
     if (targetLocked || targetPrimed >= 4) {
-        const finisher = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const finisher = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_DIFU_CHENYIN_SKILL_ID,
             HUANLING_LIEFU_WAIHUAN_SKILL_ID,
             HUANLING_DUANHUN_DING_SKILL_ID,
@@ -7337,7 +7344,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     }
 
     if (distance <= 2) {
-        const closeControl = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const closeControl = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
             HUANLING_DIFU_CHENYIN_SKILL_ID,
             HUANLING_XINGLUO_CANPAN_SKILL_ID,
@@ -7349,7 +7356,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     }
 
     if (distance >= 4) {
-        const longRangePressure = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const longRangePressure = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_LIEFU_WAIHUAN_SKILL_ID,
             HUANLING_RONGHE_GUANMAI_SKILL_ID,
             HUANLING_XINGLUO_CANPAN_SKILL_ID,
@@ -7361,7 +7368,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     }
 
     if (!targetLocked) {
-        const setup = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const setup = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_LIEQI_ZHIXIAN_SKILL_ID,
             HUANLING_XINGLUO_CANPAN_SKILL_ID,
             HUANLING_RONGHE_GUANMAI_SKILL_ID,
@@ -7374,7 +7381,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
     }
 
     if (targetPrimed >= 2) {
-        const cashOut = pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+        const cashOut = pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
             HUANLING_DIFU_CHENYIN_SKILL_ID,
             HUANLING_LIEFU_WAIHUAN_SKILL_ID,
             HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
@@ -7386,7 +7393,7 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
         }
     }
 
-    return pickFirstCastableMonsterSkill(monster, distance, currentTick, [
+    return pickFirstCastableMonsterSkill(monster, target, distance, currentTick, [
         HUANLING_DIFU_CHENYIN_SKILL_ID,
         HUANLING_LIEFU_WAIHUAN_SKILL_ID,
         HUANLING_SUOGONG_NEIHUAN_SKILL_ID,
@@ -7397,25 +7404,30 @@ function selectHuanlingZhenrenSkill(monster, target, distance, currentTick) {
         HUANLING_CANPO_ZHANG_SKILL_ID,
     ]);
 }
-function pickFirstCastableMonsterSkill(monster, distance, currentTick, skillIds) {
+function pickFirstCastableMonsterSkill(monster, target, distance, currentTick, skillIds) {
     for (const skillId of skillIds) {
         const skill = monster.skills.find((entry) => entry.id === skillId);
         if (!skill) {
             continue;
         }
-        if (!canMonsterCastSkill(monster, skill, distance, currentTick)) {
+        if (!canMonsterCastSkill(monster, skill, target, distance, currentTick)) {
             continue;
         }
         return skill;
     }
     return null;
 }
-function canMonsterCastSkill(monster, skill, distance, currentTick) {
+function canMonsterCastSkill(monster, skill, target, distance, currentTick) {
     if (!matchesMonsterSkillConditions(monster, skill)) {
         return false;
     }
     const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
     if (resolveSkillRequiresTarget(skill) && distance > skillRange) {
+        return false;
+    }
+    if (!resolveSkillRequiresTarget(skill)
+        && monsterSkillHasHostileTargetEffect(skill)
+        && !isMonsterTargetInsideSelfAnchoredSkillArea(monster, skill, target)) {
         return false;
     }
 
@@ -7515,6 +7527,24 @@ function buildMonsterSkillAffectedCells(monster, skill, anchor) {
             : [];
     }
     return computeAffectedCellsFromAnchor({ x: monster.x, y: monster.y }, anchor, geometry);
+}
+function resolveMonsterSkillAnchor(monster, skill, target) {
+    return resolveSkillRequiresTarget(skill)
+        ? { x: target.x, y: target.y }
+        : { x: monster.x, y: monster.y };
+}
+function monsterSkillHasHostileTargetEffect(skill) {
+    const effects = Array.isArray(skill?.effects) ? skill.effects : [];
+    return effects.some((effect) => effect?.type === 'damage'
+        || (effect?.type === 'buff' && effect.target !== 'self' && effect.target !== 'allies'));
+}
+function isMonsterTargetInsideSelfAnchoredSkillArea(monster, skill, target) {
+    if (!target) {
+        return false;
+    }
+    const anchor = { x: monster.x, y: monster.y };
+    return buildMonsterSkillAffectedCells(monster, skill, anchor)
+        .some((cell) => cell.x === target.x && cell.y === target.y);
 }
 function resolveFacingToward(fromX, fromY, toX, toY) {
     if (toX > fromX) {

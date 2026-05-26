@@ -361,6 +361,7 @@ export class WorldRuntimeMonsterActionApplyService {
                     instance.markMonsterRuntimePersistenceDirty(monster.runtimeId);
                 }, {
                     skipResourceAndCooldown: index > 0,
+                    skipSelfEffects: index > 0,
                     skipTargetDamageApplication: true,
                     targetCount: Math.max(1, targetEntries.length),
                 });
@@ -377,7 +378,7 @@ export class WorldRuntimeMonsterActionApplyService {
                     });
                     labelPushed = true;
                 }
-                if (resolveSkillRequiresTarget(skill) === false) {
+                if (isMonsterSelfOnlySkill(skill)) {
                     continue;
                 }
                 const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
@@ -712,4 +713,13 @@ function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
         }
     }
     return resolveMonsterCombatExpEquivalentFallback(monster);
+}
+
+function isMonsterSelfOnlySkill(skill) {
+    const effects = Array.isArray(skill?.effects) ? skill.effects : [];
+    if (resolveSkillRequiresTarget(skill) !== false || effects.length === 0) {
+        return false;
+    }
+    return effects.every((effect) => effect?.type !== 'damage'
+        && (effect?.type !== 'buff' || effect.target === 'self' || effect.target === 'allies'));
 }

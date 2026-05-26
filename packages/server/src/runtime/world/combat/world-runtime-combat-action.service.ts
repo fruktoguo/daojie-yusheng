@@ -1860,9 +1860,12 @@ export class WorldRuntimeCombatActionService {
         targetCollection: { targets: [], rejected: [] },
       };
     }
+    const selfAnchoredPosition = !requiresTarget && monster
+      ? { x: Math.trunc(Number(monster.x)), y: Math.trunc(Number(monster.y)) }
+      : null;
     const distanceAnchor = hasAnchoredCast
       ? { x: Math.trunc(Number(action.targetX)), y: Math.trunc(Number(action.targetY)) }
-      : fallbackTargetPosition ?? warningCells[0] ?? null;
+      : selfAnchoredPosition ?? fallbackTargetPosition ?? warningCells[0] ?? null;
     if (requiresTarget && !distanceAnchor) {
       return {
         ok: false,
@@ -1878,7 +1881,7 @@ export class WorldRuntimeCombatActionService {
     const distance = requiresTarget
       ? combatChebyshevDistance(monster.x, monster.y, distanceAnchor.x, distanceAnchor.y)
       : 0;
-    if (!requiresTarget) {
+    if (!requiresTarget && isCombatSelfOnlySkill(skill)) {
       const selfBuffTarget = playerRuntimeService?.getPlayer?.(action.targetPlayerId) ?? null;
       if (!selfBuffTarget || selfBuffTarget.hp <= 0) {
         return {
@@ -2968,6 +2971,15 @@ function isPlayerSelfOnlySkill(skill: AnyRecord = {}) {
   return resolveSkillRequiresTarget(skill) === false
     && effects.length > 0
     && effects.every((effect) => effect?.type === CombatEffectKind.Buff && effect.target === 'self');
+}
+
+function isCombatSelfOnlySkill(skill: AnyRecord = {}) {
+  const effects = Array.isArray(skill.effects) ? skill.effects : [];
+  if (effects.length === 0) {
+    return false;
+  }
+  return effects.every((effect) => effect?.type !== CombatEffectKind.Damage
+    && (effect?.type !== CombatEffectKind.Buff || effect.target === 'self' || effect.target === 'allies'));
 }
 
 function normalizeSkillCost(skill: AnyRecord = {}) {
