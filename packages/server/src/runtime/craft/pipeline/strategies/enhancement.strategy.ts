@@ -5,8 +5,7 @@
  */
 /**
  * 强化策略。
- * 通过 executeTick/executeStart/executeCancel 全权委托给
- * CraftPanelRuntimeService 的现有强化方法，管线只负责路由。
+ * start/tick/interrupt 仍在迁移期委托旧 service；cancel 已拆入 strategy helper。
  */
 import type {
   TechniqueActivityResolveResult,
@@ -14,6 +13,7 @@ import type {
   TechniqueActivityStartValidationResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
+import { executeEnhancementCancel } from './enhancement-cancel.helpers';
 
 export class EnhancementStrategy implements TechniqueActivityStrategy {
   readonly kind = 'enhancement' as const;
@@ -24,8 +24,6 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
   readonly conditional = false;
 
   constructor(private craftService: any) {}
-
-  // ─── 全权委托方法（管线直接调用这些） ───
 
   getActiveJob(player: unknown): any {
     return (player as any).enhancementJob ?? null;
@@ -43,8 +41,8 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
     return this.craftService.startEnhancement(player, payload);
   }
 
-  executeCancel(player: unknown, _ctx: PipelineContext): unknown {
-    return this.craftService.cancelEnhancement(player);
+  executeCancel(player: unknown, ctx: PipelineContext): unknown {
+    return executeEnhancementCancel(this.craftService, player, ctx);
   }
 
   executeInterrupt(player: unknown, reason: string, _ctx: PipelineContext): unknown {

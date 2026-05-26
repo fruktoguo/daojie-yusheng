@@ -303,8 +303,9 @@ async function testCancelReturnsLockedTarget(): Promise<void> {
   assert.equal(start.ok, true);
   assert.equal(player.enhancementJob?.phase, 'enhancing');
 
-  const cancelled = craftService.cancelEnhancement(player);
+  const cancelled = craftService.cancelTechniqueActivity(player, 'enhancement');
   assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.messages?.[0]?.key, 'notice.craft.enhancement.cancelled');
   assert.equal(player.enhancementJob, null);
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
   assert.equal(player.inventory.items.some((item) => item.itemId === 'iron_sword' && item.enhanceLevel === 1), true);
