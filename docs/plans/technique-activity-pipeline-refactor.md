@@ -260,8 +260,8 @@ strategy 只负责领域差异：
 ### Phase 0：事实校准和保护网
 
 - [ ] 补一份当前数据流审计：炼丹、炼器、强化、采集、建造、挖矿、阵法维护各自的 start -> tick -> resolve -> persist -> panel。
-- [ ] 额外审计阵法补充灵力链路，确认它是阵法维护、阵法补充还是独立技艺动作，避免命名统一后遗漏真实运行态。
-- [ ] 审计 `refillFormation` 是否是即时消耗动作、持续 job、还是应拆成“下达补充”与“维护注入”两个动作。
+- [x] 额外审计阵法补充灵力链路，确认它是阵法维护、阵法补充还是独立技艺动作，避免命名统一后遗漏真实运行态。
+- [x] 审计 `refillFormation` 是否是即时消耗动作、持续 job、还是应拆成“下达补充”与“维护注入”两个动作。
 - [ ] 审计挖矿是否保留“攻击地块产生伤害”的战斗路径，还是新增“挖矿 job 对矿脉施加工作量”的独立路径；如果两者并存，要定义经验和掉落不可重复。
 - [ ] 列出每种技艺当前写入的 dirty domain。
 - [ ] 列出每种技艺当前依赖的外部资源：背包、钱包、锁定物品、地图容器、建筑 activeBuilder、阵法实例。
@@ -363,7 +363,7 @@ strategy 只负责领域差异：
 - [x] 挖矿 job 必须与战斗攻击地块路径互斥或去重：技艺 job 的每次地块伤害只在 `MiningStrategy.executeTick` 中调用一次掉落/经验 helper；攻击/技能地块破坏保留为独立战斗入口，不复用同一次 damage result。
 - [x] 建造条件检查接入建筑存在、状态为 building、activeBuilderPlayerId。
 - [x] 阵法维护条件检查接入阵法实例、控制点、灵石存量规则；离开控制点进入统一 sleeping 队列，阵法失效/灵石耗尽明确取消。
-- [ ] 阵法补充灵力命名和入口收敛：持续注入/维护必须使用 `formation` job 并在任务列表展示；一次性资源补给必须明确标记为资源管理命令，不得混入技艺进度、经验或打断等待。
+- [x] 阵法补充灵力命名和入口收敛：持续注入/维护必须使用 `formation` job 并在任务列表展示；一次性资源补给必须明确标记为资源管理命令，不得混入技艺进度、经验或打断等待。
 - [x] 条件失败统一进入 sleeping 队列或明确取消，不能静默清 job。（采集/建造/阵法维护/挖矿已覆盖；挖矿目标永久失效时取消，离开矿脉范围时进入 sleeping payload。）
 - [x] 中断、移动、战斗、打坐触发统一 `interruptTechniqueActivity`。（采集/建造会先写 sleeping 队列，再通过 strategy 委托真实释放路径；阵法移动仍由控制点条件失败进入 sleeping，避免把离开范围误表现为 10 息暂停。）
 - [ ] 这些 job 的当前进度、打断等待和条件睡眠状态都要进入统一技艺面板。
@@ -490,6 +490,7 @@ strategy 只负责领域差异：
 - 2026-05-27：`WorldRuntimeCraftTickService.advanceCraftJobs` 移除采集/建造专用 tick 分支，所有 active kind 统一调用 `CraftPanelRuntimeService.tickTechniqueActivity(player, kind, deps)` 并等待异步结果；`GatherStrategy.executeTick` 委托 `WorldRuntimeLootContainerService.tickGather`，`BuildingStrategy.executeTick` 委托 `tickBuildingConstruction`。采集/建造中断改为先写统一 sleeping 队列，再统一调用 `interruptTechniqueActivity`，由 strategy 委托真实释放路径。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`technique-activity-task-view-smoke.js`、`technique-activity-cancel-ref-smoke.js`、`world-runtime-mining-job-smoke.js` 通过，证明采集/建造不再由 tick service 双路径推进；采集完成时的 durable inventory grant 仍在旧 `tickGather` 内，Phase 6 的“tick 内无 DB IO”仍未完成。
 - 2026-05-27：`techniqueActivityQueue` 纳入玩家完整快照 progression、`hydrateFromSnapshot`、`cloneRuntimePlayerState` 和 `buildRuntimePlayerPersistenceSnapshot`，partial snapshot 中随 `active_job` 域保存；统一任务列表取消队列项时会标记 `active_job` 脏域并 bump `persistentRevision`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-persistence-snapshot-smoke.js`、`technique-activity-task-view-smoke.js`、`technique-activity-cancel-ref-smoke.js` 通过，证明队列快照深拷贝、重启水合、运行态 clone 和取消落盘触发链路有效。`player_active_job` 单表 payload 统一、锁定物恢复联动和 DB proof 仍未完成，Phase 7 不能标记整体完成。
 - 2026-05-27：`TechniqueActivityQueueService.tickQueue` 的 sleeping 项在 `retryAfterTicks` 到期前只递减计数，不调用 strategy 条件检查；到期后如果条件永久失效，会移除队列项、标记 `active_job` 脏域、bump `persistentRevision` 并返回 `panelChanged=true`，避免只在内存里静默删除。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`technique-activity-persistence-snapshot-smoke.js`、`technique-activity-task-view-smoke.js` 通过。该 proof 覆盖队列热检查和永久失效项移除，不等同于全部采集/建造/阵法外部占用恢复验收完成。
+- 2026-05-27：阵法入口语义收敛：地图动作中 `formation:maintain` 仍是持续维护 job，走 pending command、`FormationStrategy`、`formationJob`、每息注入玩家灵力并获得阵法技艺经验；`formation:refill` / `C2S.RefillFormation` 作为一次性“资源补给”动作，立即扣灵石/灵力并写阵法资源池，不创建 `formationJob`、不写 `techniqueActivityQueue`、不增加阵法技艺经验。上下文动作文案从“补充”改为“资源补给”，避免和持续维护 job 混淆。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-formation-smoke.js`、`world-runtime-craft-smoke.js`、`technique-activity-task-view-smoke.js` 通过。
 
 ## 验证矩阵
 

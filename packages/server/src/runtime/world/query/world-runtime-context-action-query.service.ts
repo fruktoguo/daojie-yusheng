@@ -170,9 +170,9 @@ export class WorldRuntimeContextActionQueryService {
             });
             actions.push({
                 id: `formation:refill:${formation.id}`,
-                name: `补充：${formation.name}`,
+                name: `资源补给：${formation.name}`,
                 type: 'interact',
-                desc: `消耗 ${formation.refillSpiritStoneCount} 灵石和 ${formation.refillQiCost} 灵力，为当前阵法分别补充灵石与阵眼灵力。`,
+                desc: `一次性消耗 ${formation.refillSpiritStoneCount} 灵石和 ${formation.refillQiCost} 灵力，补给当前阵法资源池。`,
                 cooldownLeft: 0,
             });
             const maintaining = player.formationJob

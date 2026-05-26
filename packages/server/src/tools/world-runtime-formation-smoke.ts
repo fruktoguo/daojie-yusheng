@@ -405,6 +405,7 @@ async function main() {
   const auraBeforeRefill = service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget;
   const qiBeforeRefill = player.qi;
   const stonesBeforeRefill = player.wallet.spirit_stone;
+  const formationExpBeforeRefill = player.formationSkill.exp;
   service.dispatchRefillFormation(playerId, {
     formationInstanceId: formation.id,
     spiritStoneCount: 1,
@@ -413,6 +414,9 @@ async function main() {
   assert.equal(player.qi, qiBeforeRefill - 1);
   assert.equal(player.wallet.spirit_stone, stonesBeforeRefill - 1);
   assert.equal(Math.round(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeRefill), 1);
+  assert.equal(player.formationJob ?? null, null);
+  assert.equal(player.techniqueActivityQueue?.length ?? 0, 0);
+  assert.equal(player.formationSkill.exp, formationExpBeforeRefill);
 
   const maintenancePipeline = new TechniqueActivityPipelineService();
   maintenancePipeline.register(new FormationStrategy());
