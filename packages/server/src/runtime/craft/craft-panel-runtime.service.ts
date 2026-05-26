@@ -656,58 +656,25 @@ export class CraftPanelRuntimeService {
                 ),
             }]);
     }
-    /**
- * tickAlchemy：执行tick炼丹相关逻辑。
- * @param player 玩家对象。
- * @returns 无返回值，直接更新tick炼丹相关状态。
- */
-
-    tickAlchemy(player, jobKind = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        this.ensureCraftSkills(player);
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const job = getAlchemyLikeJob(player, normalizedJobKind);
-        if (!job || job.remainingTicks <= 0) {
-            return buildCraftTickResult();
-        }
-        const catalog = normalizedJobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
-        const activityLabel = normalizedJobKind === 'forging' ? '炼器' : '炼制';
-        const successNoun = normalizedJobKind === 'forging' ? '成器' : '成丹';
-        if (job.phase === 'paused') {
-            const resumed = advanceTechniqueActivityPause(
-                job,
-                'brewing',
-            );
-            if (!resumed.resumed) {
-                this.finalizeMutation(player, {
-                    persistentOnly: true,
-                    dirtyDomains: ['active_job'],
-                });
-                return buildCraftTickResult();
-            }
-            this.finalizeMutation(player, {
-                persistentOnly: true,
-                dirtyDomains: ['active_job'],
-            });
-            return buildCraftTickResult(true);
-        }
-        job.phase = 'brewing';
-        job.remainingTicks = Math.max(0, job.remainingTicks - 1);
-        job.workRemainingTicks = Math.max(0, Math.floor(Number(job.workRemainingTicks ?? job.remainingTicks + 1) || 0) - 1);
-        job.currentBatchRemainingTicks = Math.max(0, job.currentBatchRemainingTicks - 1);
-        if (job.currentBatchRemainingTicks > 0 && job.remainingTicks > 0) {
-            this.finalizeMutation(player, {
-                persistentOnly: true,
-                dirtyDomains: ['active_job'],
-            });
-            return buildCraftTickResult();
-        }
-        const successCount = resolveAlchemyBatchSuccess(job.outputCount, job.successRate);
-        const failureCount = Math.max(0, job.outputCount - successCount);
-        job.completedCount += 1;
-        job.successCount += successCount;
-        job.failureCount += failureCount;
+    /** 读取炼丹/炼器 active job，供 pipeline strategy 推进。 */
+    getAlchemyLikeActiveJob(player, jobKind = 'alchemy') {
+        return getAlchemyLikeJob(player, jobKind === 'forging' ? 'forging' : 'alchemy');
+    }
+    /** 推进炼丹/炼器打断等待，只改等待状态，不修改实际工作量。 */
+    advanceAlchemyLikePausedJob(player, job) {
+        const resumed = advanceTechniqueActivityPause(job, 'brewing');
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
+        return resumed;
+    }
+    /** 解析当前批次成功数。 */
+    resolveAlchemyLikeBatchSuccess(job) {
+        return resolveAlchemyBatchSuccess(job.outputCount, job.successRate);
+    }
+    /** 发放炼丹/炼器本批次产出；背包满时返回掉地项，由 flush 统一落地。 */
+    grantAlchemyLikeBatchOutput(player, job, successCount) {
         const groundDrops = [];
         let inventoryChanged = false;
         if (successCount > 0) {
@@ -723,39 +690,59 @@ export class CraftPanelRuntimeService {
                 groundDrops.push(outputItem);
             }
         }
-        const craftSkill = jobKind === 'forging' ? player.forgingSkill : player.alchemySkill;
+        return { inventoryChanged, groundDrops };
+    }
+    /** 应用炼丹/炼器本批次技艺经验。 */
+    applyAlchemyLikeBatchSkillExp(player, jobKind, job, successCount, failureCount) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const catalog = normalizedJobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
+        const craftSkill = normalizedJobKind === 'forging' ? player.forgingSkill : player.alchemySkill;
         const skillGain = resolveAlchemySkillExpGain(this.playerRuntimeService, catalog, job, craftSkill, successCount, failureCount);
         const skillChanged = applyCraftSkillExp(craftSkill, skillGain, (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level));
-        const jobCompleted = job.completedCount >= job.quantity || job.remainingTicks <= 0;
-        this.finalizeMutation(player, {
-            inventoryChanged,
-            attrChanged: skillChanged,
-            persistentOnly: true,
-            dirtyDomains: [
-                ...(jobCompleted ? [] : ['active_job']),
-                ...(skillChanged ? ['profession'] : []),
-            ],
-        });
-        if (jobCompleted) {
-            migrateLegacyCraftQueueToUnifiedQueue(player, job.queuedJobs);
-            setAlchemyLikeJob(player, normalizedJobKind, null);
-            const nextStartResult: any = this.startNextQueuedCraftJob(player);
-            if (!player.alchemyJob && !player.forgingJob && !player.enhancementJob) {
-                this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
-            }
-            const nextMessages = nextStartResult.messages ?? [];
-            return buildCraftTickResult(true, [{
-                   kind: 'quest',
-                    text: `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} ${activityLabel}完成，${successNoun} ${job.successCount} 件。`,
-                }, ...nextMessages], inventoryChanged || Boolean(nextStartResult.inventoryChanged), Boolean(nextStartResult.equipmentChanged), skillChanged || Boolean(nextStartResult.attrChanged), [...groundDrops, ...(nextStartResult.groundDrops ?? [])], skillGain / 2);
+        return { skillGain, skillChanged };
+    }
+    /** 完成炼丹/炼器 job，并尝试启动统一队列中的下一项。 */
+    completeAlchemyLikeJob(player, jobKind, job) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        migrateLegacyCraftQueueToUnifiedQueue(player, job.queuedJobs);
+        setAlchemyLikeJob(player, normalizedJobKind, null);
+        const nextStartResult = this.startNextQueuedCraftJob(player);
+        if (!player.alchemyJob && !player.forgingJob && !player.enhancementJob) {
+            this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
         }
-        job.currentBatchRemainingTicks = job.batchBrewTicks;
-        return buildCraftTickResult(true, [{
-                kind: successCount > 0 ? 'quest' : 'system',
-                text: successCount > 0
-                    ? `第 ${job.completedCount} 批${successNoun} ${successCount} 件。`
-                    : `第 ${job.completedCount} 批未能${successNoun}。`,
-            }], inventoryChanged, false, skillChanged, groundDrops, skillGain / 2);
+        return nextStartResult;
+    }
+    buildAlchemyLikeCompletionMessage(jobKind, job) {
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const activityLabel = normalizedJobKind === 'forging' ? '炼器' : '炼制';
+        const successNoun = normalizedJobKind === 'forging' ? '成器' : '成丹';
+        return {
+            kind: 'quest',
+            text: `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} ${activityLabel}完成，${successNoun} ${job.successCount} 件。`,
+        };
+    }
+    buildAlchemyLikeBatchMessage(jobKind, job, successCount) {
+        const successNoun = jobKind === 'forging' ? '成器' : '成丹';
+        return {
+            kind: successCount > 0 ? 'quest' : 'system',
+            text: successCount > 0
+                ? `第 ${job.completedCount} 批${successNoun} ${successCount} 件。`
+                : `第 ${job.completedCount} 批未能${successNoun}。`,
+        };
+    }
+    buildAlchemyLikeTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = [], craftRealmExpGain = 0) {
+        return buildCraftTickResult(panelChanged, messages, inventoryChanged, equipmentChanged, attrChanged, groundDrops, craftRealmExpGain);
+    }
+    /**
+ * tickAlchemy：执行tick炼丹相关逻辑。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新tick炼丹相关状态。
+ */
+
+    tickAlchemy(player, jobKind = undefined) {
+        this.ensurePipelineInitialized();
+        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        return this.pipeline.tick(player, normalizedJobKind, this.buildPipelineContext(null));
     }
     /**
  * startEnhancement：执行开始强化相关逻辑。

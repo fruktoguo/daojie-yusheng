@@ -10,6 +10,7 @@ import type {
   TechniqueActivityStartValidationResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
+import { executeAlchemyLikeTick } from './alchemy-like-tick.helpers';
 export class AlchemyStrategy implements TechniqueActivityStrategy {
   readonly kind = 'alchemy' as const;
   readonly jobSlot = 'alchemyJob';
@@ -29,7 +30,7 @@ export class AlchemyStrategy implements TechniqueActivityStrategy {
   }
 
   executeTick(player: unknown, _ctx: PipelineContext): unknown {
-    return this.craftService.tickAlchemy(player);
+    return executeAlchemyLikeTick(this.craftService, player, 'alchemy');
   }
 
   executeCancel(player: unknown, _ctx: PipelineContext): unknown {
