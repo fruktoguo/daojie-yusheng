@@ -11,7 +11,7 @@
 - `TechniqueActivityPipelineService` 已提供 `start`、`tick`、`interrupt`、`cancel` 骨架。
 - `AlchemyStrategy`、`ForgingStrategy`、`EnhancementStrategy` 目前仍通过 `executeStart` / `executeTick` / `executeCancel` 全权委托回 `CraftPanelRuntimeService`，真实规则还在旧 service 中。
 - `WorldRuntimeCraftTickService` 已按 active kind 统一调用 `tickTechniqueActivity`；炼丹、炼器、强化、采集、建造、挖矿、阵法维护的 tick 编排都进入 pipeline。采集/建造的 strategy tick 仍委托旧 runtime 服务承载真实规则，后续还要继续把领域规则拆入 strategy。
-- 制造型新 start 已写入 `player.techniqueActivityQueue`，旧 active job 内 `queuedJobs` 仍保留只读/迁移兼容，后续还要清理双形态。
+- 制造型新 start 已写入 `player.techniqueActivityQueue`；旧 active job 内 `queuedJobs` 会在玩家水合期迁移到统一队列并清掉旧字段，少量只读 fallback 仅用于兼容尚未水合的旧形态。
 - 采集、建造、阵法维护属于条件型技艺；采集/建造/阵法维护的 sleeping 重试已经能通过 strategy 条件检查和 pipeline start 恢复，tick 条件暂时失败也能进入统一 sleeping 队列；采集/建造结算和外部占用推进已从 tick 编排层进入 pipeline，但真实领域规则仍委托旧 runtime 服务。
 - 技艺经验已经有共享公式，但调用点仍分布在旧 runtime、pipeline、采集/挖矿/阵法链路中，持久化脏域需要统一保证。
 
@@ -296,7 +296,7 @@ strategy 只负责领域差异：
 
 ### Phase 2：统一活动互斥和队列
 
-- [ ] 选择 `techniqueActivityQueue` 作为唯一队列真源。
+- [x] 选择 `techniqueActivityQueue` 作为唯一队列真源。
 - [ ] 明确资源扣除时机：默认 running job 启动时扣资源，queued job 不提前扣资源；例外必须在 strategy 中写明。
 - [x] 给炼丹、炼器、强化 start 入口改为写统一队列，不再写 job 内 `queuedJobs`。
 - [x] 水合期把旧 `queuedJobs` 迁移到 `techniqueActivityQueue`。
@@ -493,6 +493,7 @@ strategy 只负责领域差异：
 - 2026-05-27：阵法入口语义收敛：地图动作中 `formation:maintain` 仍是持续维护 job，走 pending command、`FormationStrategy`、`formationJob`、每息注入玩家灵力并获得阵法技艺经验；`formation:refill` / `C2S.RefillFormation` 作为一次性“资源补给”动作，立即扣灵石/灵力并写阵法资源池，不创建 `formationJob`、不写 `techniqueActivityQueue`、不增加阵法技艺经验。上下文动作文案从“补充”改为“资源补给”，避免和持续维护 job 混淆。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-formation-smoke.js`、`world-runtime-craft-smoke.js`、`technique-activity-task-view-smoke.js` 通过。
 - 2026-05-27：`player-domain-persistence-smoke` 增加 active job 双向兼容 proof：`alchemy` / `forging` / `enhancement` / `gather` / `mining` / `building` / `formation` 的旧 `progression.<kind>Job` 快照会投影写入 `player_active_job(job_type, detail_jsonb)`；直接写入 `player_active_job` 后也能通过 `loadProjectedSnapshot` 回读到对应 `progression.<kind>Job`。断言覆盖 `jobRunId`、`jobType`、`jobVersion`、`remainingTicks`、`interruptWaitRemainingTicks` 和 detail payload 保留，且不会泄漏到其他 job slot；该 smoke 使用独立玩家 id 并在 finally 中自动清理。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-domain-persistence-smoke.js` 通过。该 proof 证明 active job DB payload 按统一 kind 写入和恢复，但不等同于强化锁定物、队列和 active job 在崩溃时一起恢复或清理。
 - 2026-05-27：`world-runtime-craft-smoke` 补齐条件型 sleeping 恢复覆盖：采集、建造、阵法维护、挖矿的 sleeping 队列项都会用原 payload 经 `TechniqueActivityQueueService.tickQueue` 和 `TechniqueActivityPipelineService.start` 恢复；其中阵法委托 `FormationStrategy.executeStart -> worldRuntimeFormationService.startFormationMaintenance`，挖矿恢复会重新校验玩家位置、矿脉地块和耐久并创建 `miningJob`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 覆盖“条件暂时不满足时休眠，恢复后能继续”，不覆盖永久失效时所有外部占用释放。
+- 2026-05-27：旧制造 job 内 `queuedJobs` 的水合迁移补齐：`PlayerRuntimeService.hydrateFromSnapshot` 会把 `alchemyJob` / `forgingJob` / `enhancementJob.queuedJobs` 合并进 `techniqueActivityQueue`，清除旧字段，标记 `active_job` 脏域并 bump `persistentRevision`，保证下一次快照只保存统一队列。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-runtime-persistence-roundtrip-smoke.js` 通过。查询侧仍保留旧字段只读 fallback，供尚未水合的旧形态兼容。
 
 ## 验证矩阵
 

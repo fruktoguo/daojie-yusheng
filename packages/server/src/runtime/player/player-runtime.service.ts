@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TechniqueRealm, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -4190,6 +4190,10 @@ export class PlayerRuntimeService {
                 }
             }
         }
+        if (migrateLegacyCraftQueuedJobsToTechniqueActivityQueue(player)) {
+            markPlayerDirtyDomains(player, ['active_job']);
+            this.bumpPersistentRevision(player);
+        }
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
     }
@@ -6554,6 +6558,38 @@ function normalizeTechniqueActivityQueue(value) {
 
 function cloneTechniqueActivityQueue(value) {
     return normalizeTechniqueActivityQueue(value);
+}
+
+function migrateLegacyCraftQueuedJobsToTechniqueActivityQueue(player) {
+    if (!player || typeof player !== 'object') {
+        return false;
+    }
+    const currentQueue = normalizeTechniqueActivityQueue(player.techniqueActivityQueue);
+    const seen = new Set(currentQueue.map((entry) => entry.queueId));
+    let changed = currentQueue.length !== (Array.isArray(player.techniqueActivityQueue) ? player.techniqueActivityQueue.length : 0);
+    for (const job of [player.alchemyJob, player.forgingJob, player.enhancementJob]) {
+        if (!job || typeof job !== 'object' || !Array.isArray(job.queuedJobs)) {
+            continue;
+        }
+        const legacyQueue = normalizeTechniqueActivityQueue(job.queuedJobs);
+        for (const item of legacyQueue) {
+            if (currentQueue.length >= TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH) {
+                break;
+            }
+            if (seen.has(item.queueId)) {
+                continue;
+            }
+            currentQueue.push(item);
+            seen.add(item.queueId);
+            changed = true;
+        }
+        delete job.queuedJobs;
+        changed = true;
+    }
+    if (changed) {
+        player.techniqueActivityQueue = currentQueue.slice(0, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH);
+    }
+    return changed;
 }
 /**
  * normalizeAlchemyJob：规范化或转换炼丹Job。

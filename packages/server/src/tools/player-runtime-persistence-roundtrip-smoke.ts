@@ -208,6 +208,62 @@ function testBuildingJobRoundtrip() {
     assert.deepEqual(snapshot.progression.buildingJob, buildingJob);
 }
 
+function testLegacyCraftQueuedJobsMigrateToUnifiedQueue() {
+    const service = createPlayerRuntimeService();
+    const snapshot = createSnapshot(null);
+    snapshot.progression.techniqueActivityQueue = [{
+        queueId: 'queue:existing:formation',
+        kind: 'formation',
+        label: '维护聚灵阵',
+        payload: { formationInstanceId: 'formation:1' },
+        state: 'pending',
+        createdAt: 1,
+    }];
+    snapshot.progression.alchemyJob = {
+        jobRunId: 'job:alchemy:legacy-queue',
+        jobType: 'alchemy',
+        recipeId: 'alchemy.qi_pill',
+        outputItemId: 'pill.qi',
+        outputCount: 1,
+        quantity: 1,
+        completedCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        ingredients: [{ itemId: 'herb.qi', count: 1 }],
+        phase: 'brewing',
+        preparationTicks: 0,
+        batchBrewTicks: 2,
+        currentBatchRemainingTicks: 1,
+        pausedTicks: 0,
+        spiritStoneCost: 0,
+        totalTicks: 2,
+        remainingTicks: 1,
+        successRate: 1,
+        exactRecipe: true,
+        startedAt: 100,
+        queuedJobs: [{
+            queueId: 'legacy:alchemy:next',
+            kind: 'alchemy',
+            label: '旧队列炼丹',
+            payload: { recipeId: 'alchemy.qi_pill', quantity: 1 },
+            createdAt: 2,
+        }],
+    };
+
+    const player = service.hydrateFromSnapshot('player:legacy-craft-queue', 'session:legacy-craft-queue', snapshot);
+    assert.equal(player.techniqueActivityQueue.length, 2);
+    assert.equal(player.techniqueActivityQueue[0].queueId, 'queue:existing:formation');
+    assert.equal(player.techniqueActivityQueue[1].queueId, 'legacy:alchemy:next');
+    assert.equal(player.alchemyJob.queuedJobs, undefined);
+    assert.ok(player.dirtyDomains?.has('active_job'));
+    assert.ok(player.persistentRevision > player.persistedRevision);
+
+    service.players.set(player.playerId, player);
+    const persisted = service.buildPersistenceSnapshot(player.playerId);
+    assert.equal(persisted.progression.techniqueActivityQueue.length, 2);
+    assert.equal(persisted.progression.alchemyJob.queuedJobs, undefined);
+}
+
 function testInvalidGatherJobFallsBackToNull() {
     const service = createPlayerRuntimeService();
     const player = service.hydrateFromSnapshot('player:2', 'session:2', createSnapshot({
@@ -548,6 +604,7 @@ function testPendingStatisticRecordsReuseReadonlyReferences() {
 
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
+    testLegacyCraftQueuedJobsMigrateToUnifiedQueue();
     testInvalidGatherJobFallsBackToNull();
 testFreshSnapshotKeepsGatherJobEmpty();
 testMissingRespawnFallsBackToStarterMap();
