@@ -93,17 +93,31 @@ export class TechniqueActivityPipelineService {
     const validation = strategy.validateStart(player, payload, ctx);
     if (!validation.ok) return errorMutationResult((validation as any).error);
 
-    // 2. 消耗资源
-    strategy.consumeResources(player, validation.validated, ctx);
+    // 2. 活动互斥与排队。排队项不提前扣资源，等真正启动时再校验并消耗。
+    if (strategy.queueStart) {
+      const queued = strategy.queueStart(player, validation.validated, payload, ctx) as CraftMutationResult | null | undefined;
+      if (queued) {
+        return queued;
+      }
+    }
 
-    // 3. 创建 job
+    // 3. 消耗资源
+    const consumeResult = strategy.consumeResources(player, validation.validated, ctx);
+    if (consumeResult && typeof consumeResult === 'object' && 'ok' in consumeResult && !consumeResult.ok) {
+      return errorMutationResult((consumeResult as { error?: string }).error ?? `${strategy.activityLabel}资源不足`);
+    }
+
+    // 4. 创建 job
     const job = strategy.createJob(player, validation.validated, ctx);
     setStrategyActiveJob(strategy, player, job);
+    const messages = strategy.buildStartMessages
+      ? strategy.buildStartMessages(player, validation.validated, job, ctx)
+      : [];
 
     return {
       ok: true,
       panelChanged: true,
-      messages: [],
+      messages,
       inventoryChanged: true,
     };
   }

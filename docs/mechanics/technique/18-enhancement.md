@@ -128,6 +128,7 @@ tickEnhancement:
 - 攻击、移动、手动开始修炼等触发打断时，强化 job 进入 `phase='paused'`。
 - 打断只刷新 `interruptWaitRemainingTicks` / `interruptState`，不增加 `workTotalTicks`，也不倒退 `workRemainingTicks`。
 - 前端应把“实际冲级进度”和“打断等待”显示为两个独立条。
+- 强化当前 job、等待状态和排队项必须进入统一技艺任务列表；取消按钮可以保留在强化子面板，但统一技艺任务列表也必须能直接取消。
 
 ## 相关源文件
 

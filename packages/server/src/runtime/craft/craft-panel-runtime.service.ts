@@ -297,49 +297,24 @@ export class CraftPanelRuntimeService {
                         : mode === 'preserve'
                             ? `已加入当前任务之后：${item.label}`
                             : `已重置等待队列，下一项为：${item.label}`,
-                }],
+            }],
         };
     }
-    /** 提交新炼丹任务前完成装备与状态校验。 */
-    startAlchemy(player, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+    /** 校验炼丹/炼器 start 的配方、投料和基础参数；不检查背包和钱包，避免排队任务提前要求资源。 */
+    validateAlchemyLikeStart(player, payload, jobKindInput = undefined) {
         this.ensureCraftSkills(player);
-        const jobKind = payload?.kind === 'forging' ? 'forging' : 'alchemy';
+        const jobKind = jobKindInput === 'forging' || payload?.kind === 'forging' ? 'forging' : 'alchemy';
         const catalog = jobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
         const outputNoun = jobKind === 'forging' ? '成器' : '成丹';
         const recipe = catalog.find((entry) => entry.recipeId === normalizeText(payload?.recipeId));
         if (!recipe) {
-            return buildCraftMutationResult(jobKind === 'forging' ? '对应器方不存在。' : '对应丹方不存在。');
+            return { ok: false, error: jobKind === 'forging' ? '对应器方不存在。' : '对应丹方不存在。' };
         }
         const normalizedSelection = validateAlchemySelection(recipe, normalizeIngredientSelections(payload?.ingredients));
         if ('error' in normalizedSelection) {
-            return buildCraftMutationResult(normalizedSelection.error);
+            return { ok: false, error: normalizedSelection.error };
         }
         const quantity = normalizeQuantity(payload?.quantity, 1, 99);
-        if (this.hasAnyActiveTechniqueActivity(player)) {
-            return this.enqueueCraftQueueItem(
-                player,
-                buildAlchemyQueueItem(recipe, normalizedSelection.ingredients, quantity, jobKind),
-                normalizeCraftQueueStartMode(payload?.queueMode),
-            );
-        }
-        for (const ingredient of normalizedSelection.ingredients) {
-            const requiredCount = ingredient.count * quantity;
-            if (countInventoryItem(player, ingredient.itemId) < requiredCount) {
-                return buildCraftMutationResult(`${this.contentTemplateRepository.getItemName(ingredient.itemId) ?? ingredient.itemId} 数量不足。`);
-            }
-        }
-        const spiritStoneCost = getAlchemySpiritStoneCost(recipe.outputLevel, recipe.category === 'buff') * quantity;
-        if (spiritStoneCost > 0 && !this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
-            return buildCraftMutationResult(`灵石不足，需要 ${spiritStoneCost} 枚。`);
-        }
-        for (const ingredient of normalizedSelection.ingredients) {
-            consumeInventoryItemByItemId(player, ingredient.itemId, ingredient.count * quantity);
-        }
-        if (spiritStoneCost > 0) {
-            this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost);
-        }
         const furnaceOutputCount = jobKind === 'forging' || recipe.category === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
         const baseSuccessRate = computeAlchemySuccessRate(recipe, normalizedSelection.ingredients);
         const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
@@ -361,50 +336,130 @@ export class CraftPanelRuntimeService {
             this.getAlchemyLikeToolSuccessRate(player, jobKind)
         );
         const batchOutputCount = computeAlchemyBatchOutputCountWithSize(recipe.outputCount, furnaceOutputCount);
+        const spiritStoneCost = getAlchemySpiritStoneCost(recipe.outputLevel, recipe.category === 'buff') * quantity;
+        return {
+            ok: true,
+            validated: {
+                jobKind,
+                catalog,
+                outputNoun,
+                recipe,
+                ingredients: normalizedSelection.ingredients,
+                quantity,
+                spiritStoneCost,
+                batchBrewTicks,
+                totalTicks,
+                exactRecipe,
+                successRate,
+                batchOutputCount,
+            },
+        };
+    }
+    /** 活动互斥时把炼丹/炼器 start 转成统一技艺队列项。 */
+    queueAlchemyLikeStart(player, validated, payload) {
+        if (!this.hasAnyActiveTechniqueActivity(player)) {
+            return null;
+        }
+        return this.enqueueCraftQueueItem(
+            player,
+            buildAlchemyQueueItem(validated.recipe, validated.ingredients, validated.quantity, validated.jobKind),
+            normalizeCraftQueueStartMode(payload?.queueMode),
+        );
+    }
+    /** 真正启动炼丹/炼器 job 前消耗材料和灵石。 */
+    consumeAlchemyLikeStartResources(player, validated) {
+        for (const ingredient of validated.ingredients) {
+            const requiredCount = ingredient.count * validated.quantity;
+            if (countInventoryItem(player, ingredient.itemId) < requiredCount) {
+                return { ok: false, error: `${this.contentTemplateRepository.getItemName(ingredient.itemId) ?? ingredient.itemId} 数量不足。` };
+            }
+        }
+        if (validated.spiritStoneCost > 0 && !this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, validated.spiritStoneCost)) {
+            return { ok: false, error: `灵石不足，需要 ${validated.spiritStoneCost} 枚。` };
+        }
+        for (const ingredient of validated.ingredients) {
+            consumeInventoryItemByItemId(player, ingredient.itemId, ingredient.count * validated.quantity);
+        }
+        if (validated.spiritStoneCost > 0) {
+            this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, validated.spiritStoneCost);
+        }
+        return { ok: true };
+    }
+    /** 创建炼丹/炼器 active job；调用方负责先完成资源消耗。 */
+    createAlchemyLikeStartJob(player, validated) {
+        const recipe = validated.recipe;
         const nextJob = {
-            jobRunId: createCraftJobRunId(player.playerId, jobKind),
-            jobType: jobKind,
+            jobRunId: createCraftJobRunId(player.playerId, validated.jobKind),
+            jobType: validated.jobKind,
             recipeId: recipe.recipeId,
             outputItemId: recipe.outputItemId,
-            outputCount: batchOutputCount,
-            quantity,
+            outputCount: validated.batchOutputCount,
+            quantity: validated.quantity,
             completedCount: 0,
             successCount: 0,
             failureCount: 0,
-            ingredients: normalizedSelection.ingredients.map((entry) => ({ ...entry })),
+            ingredients: validated.ingredients.map((entry) => ({ ...entry })),
             phase: 'brewing',
             preparationTicks: 0,
-            batchBrewTicks,
-            currentBatchRemainingTicks: batchBrewTicks,
+            batchBrewTicks: validated.batchBrewTicks,
+            currentBatchRemainingTicks: validated.batchBrewTicks,
             pausedTicks: 0,
-            workTotalTicks: totalTicks,
-            workRemainingTicks: totalTicks,
+            workTotalTicks: validated.totalTicks,
+            workRemainingTicks: validated.totalTicks,
             interruptWaitRemainingTicks: 0,
             interruptState: null,
-            spiritStoneCost,
-            totalTicks,
-            remainingTicks: totalTicks,
-            successRate,
+            spiritStoneCost: validated.spiritStoneCost,
+            totalTicks: validated.totalTicks,
+            remainingTicks: validated.totalTicks,
+            successRate: validated.successRate,
             jobVersion: 1,
-            exactRecipe,
+            exactRecipe: validated.exactRecipe,
             outputLevel: recipe.outputLevel,
             baseBrewTicks: recipe.baseBrewTicks,
             startedAt: Date.now(),
         };
-        setAlchemyLikeJob(player, jobKind, nextJob);
+        setAlchemyLikeJob(player, validated.jobKind, nextJob);
+        return nextJob;
+    }
+    /** 标记炼丹/炼器 start 对背包和 active job 的权威变更。 */
+    finalizeAlchemyLikeStart(player) {
         this.finalizeMutation(player, {
             inventoryChanged: true,
             persistentOnly: true,
             dirtyDomains: ['active_job'],
         });
+    }
+    /** 构建炼丹/炼器启动提示；迁移期仍返回旧 notice 结构，后续统一改结构化 payload。 */
+    buildAlchemyLikeStartMessages(validated) {
+        const recipe = validated.recipe;
+        return [{
+            kind: 'quest',
+            text: `开始${validated.jobKind === 'forging' ? '炼器' : '炼制'} ${recipe.outputName}${validated.quantity > 1 ? `，共 ${validated.quantity} 批` : ''}${validated.spiritStoneCost > 0 ? `，消耗灵石 x${validated.spiritStoneCost}` : ''}；预计 ${validated.totalTicks} 息。单批固定 ${validated.batchOutputCount} 件，每件${validated.outputNoun}率 ${(validated.successRate * 100).toFixed(validated.successRate === 1 ? 0 : 1)}%。`,
+        }];
+    }
+    /** 提交新炼丹任务前完成装备与状态校验。 */
+    startAlchemy(player, payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const validation = this.validateAlchemyLikeStart(player, payload);
+        if (!validation.ok) {
+            return buildCraftMutationResult(validation.error);
+        }
+        const queued = this.queueAlchemyLikeStart(player, validation.validated, payload);
+        if (queued) {
+            return queued;
+        }
+        const consumed = this.consumeAlchemyLikeStartResources(player, validation.validated);
+        if (!consumed.ok) {
+            return buildCraftMutationResult(consumed.error);
+        }
+        this.createAlchemyLikeStartJob(player, validation.validated);
+        this.finalizeAlchemyLikeStart(player);
         return {
             ok: true,
             panelChanged: true,
             inventoryChanged: true,
-            messages: [{
-                    kind: 'quest',
-                    text: `开始${jobKind === 'forging' ? '炼器' : '炼制'} ${recipe.outputName}${quantity > 1 ? `，共 ${quantity} 批` : ''}${spiritStoneCost > 0 ? `，消耗灵石 x${spiritStoneCost}` : ''}；预计 ${totalTicks} 息。单批固定 ${batchOutputCount} 件，每件${outputNoun}率 ${(successRate * 100).toFixed(successRate === 1 ? 0 : 1)}%。`,
-                }],
+            messages: this.buildAlchemyLikeStartMessages(validation.validated),
         };
     }
     /** 提交新炼器任务：复用炼丹成功率、加速、队列和打断规则。 */

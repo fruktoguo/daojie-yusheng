@@ -3,11 +3,7 @@
  *
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
-/**
- * 锻造策略。
- * 通过 executeTick/executeStart/executeCancel 全权委托给
- * CraftPanelRuntimeService 的现有炼器方法，管线只负责路由。
- */
+/** 锻造策略。start 已拆入公共 pipeline；tick/cancel 仍在迁移期委托旧 service。 */
 import type {
   TechniqueActivityResolveResult,
   TechniqueActivityRefundResult,
@@ -36,10 +32,6 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
     return this.craftService.tickAlchemy(player, 'forging');
   }
 
-  executeStart(player: unknown, payload: unknown, _ctx: PipelineContext): unknown {
-    return this.craftService.startForging(player, payload);
-  }
-
   executeCancel(player: unknown, _ctx: PipelineContext): unknown {
     return this.craftService.cancelForging(player);
   }
@@ -50,9 +42,23 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
 
   // ─── 接口占位 ───
 
-  validateStart(): TechniqueActivityStartValidationResult { return { ok: true, validated: {} }; }
-  consumeResources(): void {}
-  createJob(player: unknown): any { return (player as any).forgingJob; }
+  validateStart(player: unknown, payload: unknown): TechniqueActivityStartValidationResult {
+    return this.craftService.validateAlchemyLikeStart(player, payload, 'forging');
+  }
+  queueStart(player: unknown, validated: unknown, payload: unknown): unknown | null {
+    return this.craftService.queueAlchemyLikeStart(player, validated, payload);
+  }
+  consumeResources(player: unknown, validated: unknown): { ok: true } | { ok: false; error?: string } | void {
+    return this.craftService.consumeAlchemyLikeStartResources(player, validated);
+  }
+  createJob(player: unknown, validated: unknown): any {
+    const job = this.craftService.createAlchemyLikeStartJob(player, validated);
+    this.craftService.finalizeAlchemyLikeStart(player);
+    return job;
+  }
+  buildStartMessages(_player: unknown, validated: unknown): any[] {
+    return this.craftService.buildAlchemyLikeStartMessages(validated);
+  }
   resolveResumePhase(job: any): string {
     return 'brewing';
   }

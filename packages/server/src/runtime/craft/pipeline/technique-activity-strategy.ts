@@ -66,11 +66,20 @@ export interface TechniqueActivityStrategy<
   /** 启动校验。 */
   validateStart(player: unknown, payload: unknown, ctx: PipelineContext): TechniqueActivityStartValidationResult<TValidated>;
 
-  /** 消耗资源（扣材料、扣灵石、锁装备槽等）。 */
-  consumeResources(player: unknown, validated: TValidated, ctx: PipelineContext): void;
+  /**
+   * 活动互斥时的入队处理。
+   * 返回非空结果表示本次 start 已被转换为队列操作，管线不再继续消耗资源或创建 job。
+   */
+  queueStart?(player: unknown, validated: TValidated, payload: unknown, ctx: PipelineContext): unknown | null;
+
+  /** 消耗资源（扣材料、扣灵石、锁装备槽等）。失败时返回 { ok:false, error }。 */
+  consumeResources(player: unknown, validated: TValidated, ctx: PipelineContext): { ok: true } | { ok: false; error?: string } | void;
 
   /** 创建 job 对象。 */
   createJob(player: unknown, validated: TValidated, ctx: PipelineContext): TJob;
+
+  /** 启动成功后的通知消息。 */
+  buildStartMessages?(player: unknown, validated: TValidated, job: TJob, ctx: PipelineContext): TechniqueActivityNoticeMessage[];
 
   /** 确定暂停恢复后应回到的阶段。 */
   resolveResumePhase(job: TJob): string;
