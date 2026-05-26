@@ -123,10 +123,10 @@ message VisibleTileRowPayload {
 message TileRuntimeResourcePayload {
   optional string key = 1;
   optional string label = 2;
-  optional sint32 value = 3;
-  optional sint32 effectiveValue = 4;
+  optional double value = 3;
+  optional double effectiveValue = 4;
   optional sint32 level = 5;
-  optional sint32 sourceValue = 6;
+  optional double sourceValue = 6;
 }
 
 message VisibleTileCellPayload {

@@ -29,7 +29,7 @@ import { createObserveModalController, type ObserveAsideCard } from './main-ui-h
 import { detailModalHost } from './ui/detail-modal-host';
 import { bindInlineItemTooltips, renderInlineItemChip } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
-import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger, formatDisplayPercent } from './utils/number';
+import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from './utils/number';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 import { t } from './ui/i18n';
 
@@ -749,7 +749,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     if (typeof fallbackLevel === 'number') {
       return formatDisplayInteger(Math.max(0, Math.round(fallbackLevel)));
     }
-    return formatDisplayInteger(Math.max(0, Math.round(resource.value)));
+    return formatDisplayNumber(Math.max(0, resource.value));
   }  
   /**
  * buildObservedResourceAsideLines：构建并返回目标对象。
@@ -764,10 +764,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const effectiveValue = typeof resource.effectiveValue === 'number' && Number.isFinite(resource.effectiveValue)
       ? resource.effectiveValue
       : undefined;
-    const hasProjectedValue = effectiveValue !== undefined && Math.round(effectiveValue) !== Math.round(resource.value);
-    const lines = [t('observe.resource.current-value', { value: formatDisplayInteger(Math.max(0, Math.round(hasProjectedValue ? effectiveValue : resource.value))) })];
+    const hasProjectedValue = effectiveValue !== undefined && Math.abs(effectiveValue - resource.value) > 0.005;
+    const lines = [t('observe.resource.current-value', { value: formatDisplayNumber(Math.max(0, hasProjectedValue ? effectiveValue : resource.value)) })];
     if (hasProjectedValue) {
-      lines.push(t('observe.resource.source-value', { value: formatDisplayInteger(Math.max(0, Math.round(resource.value))) }));
+      lines.push(t('observe.resource.source-value', { value: formatDisplayNumber(Math.max(0, resource.value)) }));
     }
     if (typeof resource.level === 'number') {
       lines.unshift(t('observe.resource.current-level', { level: formatDisplayInteger(Math.max(0, Math.round(resource.level))) }));
@@ -803,7 +803,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           lines: [
             typeof resource.level === 'number'
               ? t('observe.resource.current-level', { level: formatDisplayInteger(Math.max(0, Math.round(resource.level))) })
-              : t('observe.resource.current-value', { value: formatDisplayInteger(Math.max(0, Math.round(resource.effectiveValue ?? resource.value))) }),
+              : t('observe.resource.current-value', { value: formatDisplayNumber(Math.max(0, resource.effectiveValue ?? resource.value)) }),
             t('observe.resource.senseqi.loading', undefined),
           ],
           tone: 'buff',
@@ -1275,7 +1275,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     if ((observedTileDetail?.resources?.length ?? 0) > 0) {
       const visibleResourceSummary = observedTileDetail!.resources!
         .filter((resource) => resource.key !== 'aura.refined.neutral' && resource.value > 0)
-        .map((resource) => `${resource.label} ${formatDisplayInteger(Math.max(0, Math.round(resource.effectiveValue ?? resource.value)))}`);
+        .map((resource) => `${resource.label} ${formatDisplayNumber(Math.max(0, resource.effectiveValue ?? resource.value))}`);
       if (visibleResourceSummary.length > 0) {
         terrainRows.push({
           label: t('observe.resource.qi-presence', undefined),

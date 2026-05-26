@@ -705,7 +705,7 @@ function isInTemplateBounds(template, x, y) {
 }
 
 function buildProjectedTileResource(entry, player) {
-  const value = Math.max(0, Math.trunc(entry.value));
+  const value = Math.max(0, Number(entry.value));
   const projection = player ? resolvePlayerQiResourceProjection(player, entry.resourceKey) : null;
   if (projection?.visibility === 'hidden') {
     return null;
@@ -725,18 +725,18 @@ function buildProjectedTileResource(entry, player) {
       : !projection && parseQiResourceKey(entry.resourceKey)
         ? getAuraLevel(value, DEFAULT_AURA_LEVEL_BASE_VALUE)
         : getQiResourceDefaultLevel(entry.resourceKey, value, DEFAULT_AURA_LEVEL_BASE_VALUE),
-    sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
+    sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Number(entry.sourceValue)) : undefined,
   };
 }
 
 function buildProjectedTileAura(rawAura, resources, player) {
-  const value = Math.max(0, Math.trunc(Number.isFinite(rawAura) ? rawAura : 0));
+  const value = Math.max(0, Number.isFinite(rawAura) ? Number(rawAura) : 0);
   if (Array.isArray(resources) && resources.length > 0) {
     let projectedQiValue = 0;
     let hasProjectableQiResource = false;
     for (const resource of resources) {
       const parsed = parseQiResourceKey(resource.key);
-      const effectiveValue = Math.max(0, Math.trunc(resource.effectiveValue ?? 0));
+      const effectiveValue = Math.max(0, Number(resource.effectiveValue ?? 0));
       if (!parsed || effectiveValue <= 0) {
         continue;
       }

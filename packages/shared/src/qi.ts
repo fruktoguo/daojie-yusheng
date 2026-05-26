@@ -276,7 +276,7 @@ export function getQiResourceDefaultLevel(
   value: number,
   auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE,
 ): number | undefined {
-  const normalizedValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  const normalizedValue = Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
   if (normalizedValue <= 0) {
     return 0;
   }

@@ -21,6 +21,7 @@ import {
 } from './main-targeting-helpers';
 import type { BuildingSenseQiRoomInfo } from './main-building-fengshui-state-source';
 import { t } from './ui/i18n';
+import { formatDisplayNumber } from './utils/number';
 
 const WANG_QI_FENGSHUI_OVERLAY_REQUEST_INTERVAL_MS = 3000;
 /**
@@ -294,7 +295,7 @@ function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLe
     lines.push(
       typeof resource.level === 'number' && Number.isFinite(resource.level)
         ? t('targeting.tooltip.resource-level', { label: resource.label, level: Math.max(0, Math.round(resource.level)) })
-        : t('targeting.tooltip.resource-value', { label: resource.label, value: Math.max(0, Math.round(displayValue)) }),
+        : t('targeting.tooltip.resource-value', { label: resource.label, value: formatDisplayNumber(Math.max(0, displayValue)) }),
     );
   }
   return lines;

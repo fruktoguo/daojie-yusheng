@@ -17,7 +17,7 @@ const { FormationStrategy } = require("../runtime/craft/pipeline/strategies/form
 const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
-const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, resolveFormationSetupPlan } = require("@mud/shared");
+const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TileType, buildQiHalfLifeRateScaled, decodeMessage, encodeMessage, fromWireTick, resolveFormationSetupPlan, tickPayloadType, toWireTick } = require("@mud/shared");
 
 const playerId = "player:formation-smoke";
 const sectPlayerId = "player:formation-sect-member";
@@ -264,6 +264,34 @@ async function main() {
   assert.ok(tileResources.size > 0);
   const firstAuraGain = Array.from(tileResources.values())[0];
   assert.ok(firstAuraGain > 0 && firstAuraGain < 1);
+  const wireTick = toWireTick({
+    p: [],
+    e: [],
+    t: [{
+      x: 4,
+      y: 5,
+      tile: {
+        type: TileType.Floor,
+        walkable: true,
+        blocksSight: false,
+        aura: 0,
+        resources: [{
+          key: DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY,
+          label: "灵气",
+          value: firstAuraGain,
+          effectiveValue: firstAuraGain,
+          sourceValue: firstAuraGain,
+        }],
+      },
+    }],
+  });
+  const decodedTick = fromWireTick(decodeMessage(tickPayloadType, encodeMessage(tickPayloadType, wireTick)));
+  const decodedResource = decodedTick.t?.[0]?.tile?.resources?.[0];
+  assert.ok(decodedResource);
+  assert.equal(decodedResource.key, DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY);
+  assert.equal(decodedResource.value, firstAuraGain);
+  assert.equal(decodedResource.effectiveValue, firstAuraGain);
+  assert.equal(decodedResource.sourceValue, firstAuraGain);
 
   {
     const sparsePlayerId = "player:formation-sparse-sect";
