@@ -56,7 +56,12 @@ const FORGING_RECIPE: AlchemyRecipeCatalogEntry = {
 async function main(): Promise<void> {
   await testDirectAlchemyJobNoPreparationAndSeparateInterruptWait();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
+  await testAlchemyFailureDoesNotCreateOutput();
+  await testAlchemyOutputDropsWhenInventoryFull();
+  await testLegacyActiveAlchemyAndForgingJobsContinueToCompletion();
   await testForgingUsesIndependentJobSlot();
+  await testForgingResolveEdges();
+  await testForgingInterruptCancelAndQueue();
   await testWorldAlchemyWritePathFlushesCurrentPipelineResult();
 
   console.log(JSON.stringify({
@@ -66,7 +71,10 @@ async function main(): Promise<void> {
       '打断等待独立于 workRemainingTicks/workTotalTicks。',
       '制造型队列写入 techniqueActivityQueue，当前任务完成后能启动下一项。',
       '炼丹/炼器入队不会提前消耗材料或灵石。',
+      '炼丹失败不产出，背包满时产出掉地。',
+      '旧 active alchemy/forging job 能继续 tick 到完成。',
       '炼器使用独立 forgingJob 槽位。',
+      '炼器成功、失败、背包满掉地、打断、取消和队列都有独立 proof。',
       'WorldRuntimeAlchemyService 通过统一 technique activity 入口启动并刷新面板。',
     ],
   }, null, 2));
@@ -160,6 +168,74 @@ async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
   assert.equal(player.alchemyJob?.workRemainingTicks, player.alchemyJob?.workTotalTicks);
 }
 
+async function testAlchemyFailureDoesNotCreateOutput(): Promise<void> {
+  const player = createPlayer('player:alchemy:failure', [
+    { itemId: 'herb.qi', count: 2 },
+  ]);
+  const { craftService } = createCraftHarness(player);
+  const ctx = craftService.buildPipelineContext(createDeps([]));
+
+  const start = craftService.startTechniqueActivity(player, 'alchemy', {
+    recipeId: ALCHEMY_RECIPE.recipeId,
+    ingredients: [{ itemId: 'herb.qi', count: 1 }],
+    quantity: 1,
+  }, ctx.deps);
+  assert.equal(start.ok, true);
+  forceAlchemyLikeJobReadyToResolve(player.alchemyJob, 0);
+
+  const result = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
+  assert.equal(result.ok, true);
+  assert.equal(player.alchemyJob, null);
+  assert.equal(countPlayerItem(player, 'pill.qi'), 0);
+  assert.deepEqual(result.groundDrops, []);
+}
+
+async function testAlchemyOutputDropsWhenInventoryFull(): Promise<void> {
+  const player = createPlayer('player:alchemy:drop-full', [
+    { itemId: 'herb.qi', count: 2 },
+  ]);
+  const { craftService } = createCraftHarness(player);
+  const ctx = craftService.buildPipelineContext(createDeps([]));
+
+  const start = craftService.startTechniqueActivity(player, 'alchemy', {
+    recipeId: ALCHEMY_RECIPE.recipeId,
+    ingredients: [{ itemId: 'herb.qi', count: 1 }],
+    quantity: 1,
+  }, ctx.deps);
+  assert.equal(start.ok, true);
+  player.inventory.capacity = 0;
+  forceAlchemyLikeJobReadyToResolve(player.alchemyJob, 1);
+
+  const result = craftService.tickTechniqueActivity(player, 'alchemy', ctx.deps);
+  assert.equal(result.ok, true);
+  assert.equal(player.alchemyJob, null);
+  assert.equal(countPlayerItem(player, 'pill.qi'), 0);
+  assert.equal(result.groundDrops?.[0]?.itemId, 'pill.qi');
+  assert.equal(result.groundDrops?.[0]?.count, 6);
+}
+
+async function testLegacyActiveAlchemyAndForgingJobsContinueToCompletion(): Promise<void> {
+  const alchemyPlayer = createPlayer('player:alchemy:legacy-active', []);
+  const forgingPlayer = createPlayer('player:forging:legacy-active', []);
+  const { craftService: alchemyCraftService } = createCraftHarness(alchemyPlayer);
+  const { craftService: forgingCraftService } = createCraftHarness(forgingPlayer);
+  const alchemyCtx = alchemyCraftService.buildPipelineContext(createDeps([]));
+  const forgingCtx = forgingCraftService.buildPipelineContext(createDeps([]));
+
+  alchemyPlayer.alchemyJob = createLegacyAlchemyLikeJob('alchemy');
+  forgingPlayer.forgingJob = createLegacyAlchemyLikeJob('forging');
+
+  const alchemyResult = alchemyCraftService.tickTechniqueActivity(alchemyPlayer, 'alchemy', alchemyCtx.deps);
+  const forgingResult = forgingCraftService.tickTechniqueActivity(forgingPlayer, 'forging', forgingCtx.deps);
+
+  assert.equal(alchemyResult.ok, true);
+  assert.equal(forgingResult.ok, true);
+  assert.equal(alchemyPlayer.alchemyJob, null);
+  assert.equal(forgingPlayer.forgingJob, null);
+  assert.equal(countPlayerItem(alchemyPlayer, 'pill.qi'), 1);
+  assert.equal(countPlayerItem(forgingPlayer, 'equip.copper_sword'), 1);
+}
+
 async function testForgingUsesIndependentJobSlot(): Promise<void> {
   const player = createPlayer('player:forging:direct', [
     { itemId: 'ore.copper', count: 4 },
@@ -179,6 +255,164 @@ async function testForgingUsesIndependentJobSlot(): Promise<void> {
   assert.equal(player.forgingJob?.jobType, 'forging');
   assert.equal(player.forgingJob?.phase, 'brewing');
   assert.equal(player.forgingJob?.preparationTicks, 0);
+}
+
+async function testForgingResolveEdges(): Promise<void> {
+  const successPlayer = createPlayer('player:forging:success', [
+    { itemId: 'ore.copper', count: 2 },
+  ]);
+  const { craftService: successCraftService } = createCraftHarness(successPlayer);
+  const successCtx = successCraftService.buildPipelineContext(createDeps([]));
+  const successStart = startForgingJob(successCraftService, successPlayer, successCtx.deps);
+  assert.equal(successStart.ok, true);
+  forceAlchemyLikeJobReadyToResolve(successPlayer.forgingJob, 1);
+  const successResult = successCraftService.tickTechniqueActivity(successPlayer, 'forging', successCtx.deps);
+  assert.equal(successResult.ok, true);
+  assert.equal(successPlayer.forgingJob, null);
+  assert.equal(countPlayerItem(successPlayer, 'equip.copper_sword'), 1);
+
+  const failurePlayer = createPlayer('player:forging:failure', [
+    { itemId: 'ore.copper', count: 2 },
+  ]);
+  const { craftService: failureCraftService } = createCraftHarness(failurePlayer);
+  const failureCtx = failureCraftService.buildPipelineContext(createDeps([]));
+  const failureStart = startForgingJob(failureCraftService, failurePlayer, failureCtx.deps);
+  assert.equal(failureStart.ok, true);
+  forceAlchemyLikeJobReadyToResolve(failurePlayer.forgingJob, 0);
+  const failureResult = failureCraftService.tickTechniqueActivity(failurePlayer, 'forging', failureCtx.deps);
+  assert.equal(failureResult.ok, true);
+  assert.equal(failurePlayer.forgingJob, null);
+  assert.equal(countPlayerItem(failurePlayer, 'equip.copper_sword'), 0);
+  assert.deepEqual(failureResult.groundDrops, []);
+
+  const dropPlayer = createPlayer('player:forging:drop-full', [
+    { itemId: 'ore.copper', count: 2 },
+  ]);
+  const { craftService: dropCraftService } = createCraftHarness(dropPlayer);
+  const dropCtx = dropCraftService.buildPipelineContext(createDeps([]));
+  const dropStart = startForgingJob(dropCraftService, dropPlayer, dropCtx.deps);
+  assert.equal(dropStart.ok, true);
+  dropPlayer.inventory.capacity = 0;
+  forceAlchemyLikeJobReadyToResolve(dropPlayer.forgingJob, 1);
+  const dropResult = dropCraftService.tickTechniqueActivity(dropPlayer, 'forging', dropCtx.deps);
+  assert.equal(dropResult.ok, true);
+  assert.equal(dropPlayer.forgingJob, null);
+  assert.equal(countPlayerItem(dropPlayer, 'equip.copper_sword'), 0);
+  assert.equal(dropResult.groundDrops?.[0]?.itemId, 'equip.copper_sword');
+  assert.equal(dropResult.groundDrops?.[0]?.count, 1);
+}
+
+async function testForgingInterruptCancelAndQueue(): Promise<void> {
+  const interruptPlayer = createPlayer('player:forging:interrupt-cancel', [
+    { itemId: 'ore.copper', count: 4 },
+  ]);
+  const { craftService: interruptCraftService } = createCraftHarness(interruptPlayer);
+  const interruptCtx = interruptCraftService.buildPipelineContext(createDeps([]));
+  const start = startForgingJob(interruptCraftService, interruptPlayer, interruptCtx.deps);
+  assert.equal(start.ok, true);
+  const workRemainingBeforeInterrupt = interruptPlayer.forgingJob?.workRemainingTicks;
+  const totalBeforeInterrupt = interruptPlayer.forgingJob?.workTotalTicks;
+  const interrupt = interruptCraftService.interruptTechniqueActivity(
+    interruptPlayer,
+    'forging',
+    'attack',
+    interruptCtx.deps,
+  );
+  assert.equal(interrupt.ok, true);
+  assert.equal(interruptPlayer.forgingJob?.phase, 'paused');
+  assert.equal(interruptPlayer.forgingJob?.workRemainingTicks, workRemainingBeforeInterrupt);
+  assert.equal(interruptPlayer.forgingJob?.workTotalTicks, totalBeforeInterrupt);
+  assert.equal(interruptPlayer.forgingJob?.interruptWaitRemainingTicks, 10);
+
+  const tickWhilePaused = interruptCraftService.tickTechniqueActivity(interruptPlayer, 'forging', interruptCtx.deps);
+  assert.equal(tickWhilePaused.ok, true);
+  assert.equal(interruptPlayer.forgingJob?.workRemainingTicks, workRemainingBeforeInterrupt);
+  assert.equal(interruptPlayer.forgingJob?.interruptWaitRemainingTicks, 9);
+
+  const cancel = interruptCraftService.cancelTechniqueActivity(interruptPlayer, 'forging', interruptCtx.deps);
+  assert.equal(cancel.ok, true);
+  assert.equal(interruptPlayer.forgingJob, null);
+
+  const queuePlayer = createPlayer('player:forging:queue', [
+    { itemId: 'ore.copper', count: 8 },
+  ]);
+  const { craftService: queueCraftService } = createCraftHarness(queuePlayer);
+  const queueCtx = queueCraftService.buildPipelineContext(createDeps([]));
+  const first = startForgingJob(queueCraftService, queuePlayer, queueCtx.deps);
+  assert.equal(first.ok, true);
+  const oreCountAfterFirstStart = countPlayerItem(queuePlayer, 'ore.copper');
+  const queued = startForgingJob(queueCraftService, queuePlayer, queueCtx.deps, 'append');
+  assert.equal(queued.ok, true);
+  assert.equal(countPlayerItem(queuePlayer, 'ore.copper'), oreCountAfterFirstStart);
+  assert.equal(queuePlayer.forgingJob?.queuedJobs, undefined);
+  assert.equal(queuePlayer.techniqueActivityQueue.length, 1);
+  assert.equal(queuePlayer.techniqueActivityQueue[0]?.state, 'pending');
+  assert.deepEqual(queuePlayer.techniqueActivityQueue[0]?.cancelRef, {
+    kind: 'forging',
+    queueId: queuePlayer.techniqueActivityQueue[0]?.queueId,
+  });
+
+  forceAlchemyLikeJobReadyToResolve(queuePlayer.forgingJob, 1);
+  const completed = queueCraftService.tickTechniqueActivity(queuePlayer, 'forging', queueCtx.deps);
+  assert.equal(completed.ok, true);
+  assert.equal(queuePlayer.techniqueActivityQueue.length, 0);
+  assert.equal(queuePlayer.forgingJob?.phase, 'brewing');
+  assert.equal(queuePlayer.forgingJob?.completedCount, 0);
+  assert.equal(queuePlayer.forgingJob?.workRemainingTicks, queuePlayer.forgingJob?.workTotalTicks);
+}
+
+function startForgingJob(
+  craftService: CraftPanelRuntimeService,
+  player: any,
+  deps: any,
+  queueMode?: 'append',
+): { ok: boolean } {
+  return craftService.startTechniqueActivity(player, 'forging', {
+    kind: 'forging',
+    recipeId: FORGING_RECIPE.recipeId,
+    ingredients: [{ itemId: 'ore.copper', count: 1 }],
+    quantity: 1,
+    queueMode,
+  }, deps) as { ok: boolean };
+}
+
+function forceAlchemyLikeJobReadyToResolve(job: any, successRate: number): void {
+  if (!job) {
+    throw new Error('missing alchemy-like job');
+  }
+  job.successRate = successRate;
+  job.remainingTicks = 1;
+  job.workRemainingTicks = 1;
+  job.currentBatchRemainingTicks = 1;
+}
+
+function createLegacyAlchemyLikeJob(kind: 'alchemy' | 'forging'): any {
+  const recipe = kind === 'forging' ? FORGING_RECIPE : ALCHEMY_RECIPE;
+  return {
+    jobRunId: `job:${kind}:legacy-active`,
+    jobType: kind,
+    recipeId: recipe.recipeId,
+    outputItemId: recipe.outputItemId,
+    outputCount: 1,
+    quantity: 1,
+    completedCount: 0,
+    successCount: 0,
+    failureCount: 0,
+    ingredients: recipe.ingredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
+    phase: 'brewing',
+    preparationTicks: 0,
+    batchBrewTicks: 1,
+    currentBatchRemainingTicks: 1,
+    pausedTicks: 0,
+    spiritStoneCost: 0,
+    totalTicks: 1,
+    remainingTicks: 1,
+    workTotalTicks: 1,
+    workRemainingTicks: 1,
+    successRate: 1,
+    exactRecipe: true,
+    startedAt: 100,
+  };
 }
 
 async function testWorldAlchemyWritePathFlushesCurrentPipelineResult(): Promise<void> {

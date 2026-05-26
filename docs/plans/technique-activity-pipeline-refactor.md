@@ -19,6 +19,15 @@
 
 这次不是给现有工坊面板补几个显示字段，而是把“技艺动作”本身统一成一种权威运行时活动。玩家不应该需要理解某个动作背后属于炼丹 service、建筑 service、掉落容器 service、阵法 service 还是攻击地块链路；只要它是技艺行为，就应该表现为一个可见、可推进、可打断、可取消、可恢复的 job。
 
+本轮裁定：
+
+- “走 job 控制”不是把散落动作投影到任务列表里看起来像 job，而是 start、条件检查、资源锁定/消耗、tick 推进、打断等待、取消、完成结算、经验、产出、持久化和面板 patch 都由技艺活动生命周期托管。
+- 任何跨 tick 推进、可以被打断或取消、会授予技艺经验、会占用外部对象、会延迟产出或持续消耗资源的技艺动作，都必须是 job。炼丹、炼器、强化、采集、挖矿、建造、阵法持续注入/维护灵力都属于这一类。
+- 真正一次性完成的资源管理命令可以不是 job，但必须明确不显示进度、不进入队列、不获得技艺经验、不参与 10 息打断等待。例如一次性把灵石/灵力转入阵法资源池。
+- 统一技艺任务列表是公共取消入口。各子面板可以保留专用取消按钮作为重复入口，但不能要求玩家必须进入对应子面板才能取消当前 job、排队项或休眠项。
+- 当前“手动开始修炼、攻击等 10 息等待会修改实际 job 进度条”的行为按缺陷处理；后续实现中任何新增写路径都不得通过改 `totalTicks`、`remainingTicks`、`workTotalTicks` 或 `workRemainingTicks` 表达等待。
+- 炼丹、炼器的“开炉/准备/炉火已稳”等阶段不再是玩家可见流程。内部兼容字段不能透出到通知、任务状态、按钮、进度文案或面板标题。
+
 必须严格区分三个概念：
 
 - 实际工作进度：job 还剩多少工作量，只由该技艺的真实劳动推进递减。
@@ -141,6 +150,7 @@ type TechniqueActivityInterruptState = {
 
 技艺面板按统一活动视图展示所有技艺 job：
 
+- 统一任务列表是技艺面板的公共运行态区域，不属于某个炼丹、强化、建筑或阵法子面板。
 - 当前执行 job：显示技艺类型、目标、实际进度条、打断等待条、预计剩余工作量。
 - 任务队列：显示等待任务、休眠任务、条件不满足原因、每项取消按钮。
 - 具体技艺子面板：仍可保留炼丹配方、强化候选、阵法目标等专用操作区，但当前 job 和队列的可见性必须统一。
@@ -260,12 +270,14 @@ strategy 只负责领域差异：
 ### Phase 0：事实校准和保护网
 
 - [ ] 补一份当前数据流审计：炼丹、炼器、强化、采集、建造、挖矿、阵法维护各自的 start -> tick -> resolve -> persist -> panel。
+- [ ] 列出所有玩家可触发的技艺具体动作，并逐项判定为“必须 job 化”或“一次性资源管理命令”；判定依据必须写清是否跨 tick、是否可打断/取消、是否授予技艺经验、是否占用外部对象、是否延迟产出。
 - [x] 额外审计阵法补充灵力链路，确认它是阵法维护、阵法补充还是独立技艺动作，避免命名统一后遗漏真实运行态。
 - [x] 审计 `refillFormation` 是否是即时消耗动作、持续 job、还是应拆成“下达补充”与“维护注入”两个动作。
 - [ ] 审计挖矿是否保留“攻击地块产生伤害”的战斗路径，还是新增“挖矿 job 对矿脉施加工作量”的独立路径；如果两者并存，要定义经验和掉落不可重复。
 - [ ] 列出每种技艺当前写入的 dirty domain。
 - [ ] 列出每种技艺当前依赖的外部资源：背包、钱包、锁定物品、地图容器、建筑 activeBuilder、阵法实例。
 - [ ] 找出所有当前会修改 `remainingTicks` / `totalTicks` 来表达打断等待的路径。
+- [ ] 找出所有攻击、移动、手动开始修炼、切换状态等会中断技艺的入口，确认它们只写 `interruptWaitRemainingTicks` / `interruptState`，不污染实际工作进度。
 - [ ] 找出炼丹、炼器中“准备/开炉/炉火已稳”相关阶段、文本和客户端展示点。
 - [ ] 标记所有服务端玩家可见文本拼接点，后续迁移时改为结构化 notice。
 - [ ] 建立最小 smoke 清单，不先改行为。
@@ -326,9 +338,9 @@ strategy 只负责领域差异：
 
 验收：
 
-- [ ] 炼丹成功、失败、取消、打断、队列、掉地全部 smoke。
-- [ ] 炼器成功、失败、取消、打断、队列、掉地全部 smoke。
-- [ ] 旧存档中的 active alchemy/forging job 能恢复并继续。
+- [x] 炼丹成功、失败、取消、打断、队列、掉地全部 smoke。
+- [x] 炼器成功、失败、取消、打断、队列、掉地全部 smoke。
+- [x] 旧存档中的 active alchemy/forging job 能恢复并继续。
 - [x] 打断 10 息时，炼丹/炼器实际制作进度不倒退、不膨胀总时长，只显示独立等待条。
 
 ### Phase 4：强化落入 pipeline
@@ -408,6 +420,7 @@ strategy 只负责领域差异：
 ### Phase 8：客户端和协议整理
 
 - [ ] 增加统一技艺任务视图 payload，包含当前 job、打断等待、队列项、休眠原因、取消能力。
+- [ ] 技艺面板增加公共任务列表区域，作为所有技艺 job 的统一可见入口；子面板不能独占运行态展示。
 - [ ] 保留现有面板 payload 作为专用操作区数据，先不强迫炼丹/强化配方区一次性改成完全通用结构。
 - [ ] 网络发送 helper 保留 `sendStartAlchemy` 等语义入口，但内部映射到通用 activity command。
 - [x] 新增统一取消发送 helper，任务列表点击取消只发 `cancelRef`，不需要知道子面板内部结构。
@@ -475,7 +488,8 @@ strategy 只负责领域差异：
 - 2026-05-27：`pnpm --filter @mud/client exec tsc --noEmit --pretty false` 通过，覆盖客户端 TS 类型。
 - 2026-05-27：`node packages/server/dist/tools/technique-activity-task-view-smoke.js` 通过，证明 active job、旧制造队列、统一技艺队列可投影为统一任务视图，且打断等待独立于 `workRemainingTicks`。
 - 2026-05-27：`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js` 通过，证明统一取消引用可删除统一队列和旧制造队列，并用 `jobRunId` 防止旧按钮误取消新任务。
-- 2026-05-27：`node packages/server/dist/tools/world-runtime-alchemy-smoke.js` 通过，覆盖炼丹/炼器创建后直接进入制作 job、炼器独立 `forgingJob`、制造队列进入 `techniqueActivityQueue` 且当前任务完成后启动下一项、取消文案去炉火、打断等待不修改实际工作进度、统一写入口刷新面板和 active job 快照。失败判定、掉地、旧存档恢复仍需后续专项 smoke 覆盖。
+- 2026-05-27：`node packages/server/dist/tools/world-runtime-alchemy-smoke.js` 通过，覆盖炼丹/炼器创建后直接进入制作 job、炼器独立 `forgingJob`、制造队列进入 `techniqueActivityQueue` 且当前任务完成后启动下一项、取消文案去炉火、打断等待不修改实际工作进度、统一写入口刷新面板和 active job 快照。
+- 2026-05-27：`node packages/server/dist/tools/world-runtime-alchemy-smoke.js` 补齐 Phase 3 边界 proof：炼丹失败不产出、背包满时成功产出掉地；炼器成功入包、失败不产出、背包满时掉地、打断等待独立、取消清 job、队列从统一 `techniqueActivityQueue` 启动下一项；旧 active alchemy/forging job shape 能继续 tick 到完成。
 - 2026-05-27：`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过，覆盖 `hasAnyActiveTechniqueActivity` 可见全部 runtime kind，采集/建造在迁移前仍走专用释放和 tick 路径，避免因统一枚举发生双中断或双 tick。
 - 2026-05-27：`node packages/server/dist/tools/world-runtime-enhancement-smoke.js` 通过，覆盖强化启动后写入 `workRemainingTicks/workTotalTicks`、打断等待只改 `interruptWaitRemainingTicks`、tick 按 `job.successRate` 判定成功/失败、保护失败消耗保护物并继续、保护物不足停止并返还当前等级、灵石结算不足停止并返还当前等级、锁定物丢失停止且不扣灵石、成功回写强化等级和记录、取消释放锁定目标。
 - 2026-05-27：`node packages/server/dist/tools/enhancement-panel-payload-smoke.js` 通过，覆盖强化面板候选成功率、runtime candidate 成功率和共享强化公式一致；运行中出现 legacy `itemInstanceId` 升级 WARN 属于该 smoke 的夹具数据。
@@ -527,6 +541,7 @@ strategy 只负责领域差异：
 
 - [ ] 所有 runtime kind 的 start/cancel/interrupt/tick 都通过 pipeline。
 - [ ] 所有技艺具体动作都以 job 形式存在，挖矿、阵法持续补充灵力、建造、采集不再是面板外的隐式动作。
+- [ ] “以 job 形式存在”必须覆盖服务端生命周期真源，不只是客户端任务列表投影。
 - [ ] 旧 service 不再承载技艺玩法规则。
 - [ ] 只剩一种活动队列。
 - [x] active job 持久化和恢复按统一 job kind 工作。
