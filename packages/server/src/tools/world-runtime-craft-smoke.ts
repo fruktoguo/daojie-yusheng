@@ -13,6 +13,7 @@ import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/tech
 import { TechniqueActivityQueueService } from '../runtime/craft/pipeline/technique-activity-queue.service';
 import { WorldRuntimeCraftInterruptService } from '../runtime/world/world-runtime-craft-interrupt.service';
 import { WorldRuntimeCraftTickService } from '../runtime/world/world-runtime-craft-tick.service';
+import { WorldRuntimeLootContainerService } from '../runtime/world/world-runtime-loot-container.service';
 
 type FlushCall = [playerId: string, kind: string, text: string | null];
 
@@ -25,6 +26,7 @@ async function main(): Promise<void> {
   testSleepingBuildingQueueRestartsThroughPipeline();
   testSleepingFormationQueueRestartsThroughPipeline();
   testSleepingMiningQueueRestartsThroughPipeline();
+  await testGatherActiveSearchRejectsCompetingPlayers();
   await testGatherStrategyTickDelegatesRuntimeService();
   testBuildingStrategyTickDelegatesRuntimeService();
   await testCraftTickUsesUnifiedPipelineForCraftingKinds();
@@ -41,6 +43,7 @@ async function main(): Promise<void> {
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
+      '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集/建造 strategy tick 会委托真实 runtime service。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
@@ -430,6 +433,130 @@ function testSleepingMiningQueueRestartsThroughPipeline(): void {
   assert.equal(player.miningJob?.targetY, 5);
   assert.equal(player.miningJob?.remainingTicks, 7);
   assert.deepEqual(tileChecks, [[5, 5], [5, 5]]);
+}
+
+async function testGatherActiveSearchRejectsCompetingPlayers(): Promise<void> {
+  const instanceId = 'instance:gather-competition';
+  const container = {
+    id: 'herb-1',
+    name: '灵草丛',
+    variant: 'herb',
+    grade: 'mortal',
+    x: 1,
+    y: 1,
+    drops: [{
+      itemId: 'herb.qi',
+      name: '灵草',
+      type: 'material',
+      count: 1,
+      chance: 1,
+    }],
+    lootPools: [],
+  };
+  const instance = {
+    tick: 1,
+    getContainerById(containerId: string): unknown {
+      return containerId === container.id ? container : null;
+    },
+  };
+  const playerA = createGatherCompetitionPlayer('player:gather-a', instanceId);
+  const playerB = createGatherCompetitionPlayer('player:gather-b', instanceId);
+  const players = new Map<string, any>([
+    [playerA.playerId, playerA],
+    [playerB.playerId, playerB],
+  ]);
+  const playerRuntimeService = {
+    getPlayer(playerId: string): any | null {
+      return players.get(playerId) ?? null;
+    },
+    getPlayerOrThrow(playerId: string): any {
+      const player = players.get(playerId);
+      if (!player) {
+        throw new Error(`unknown player: ${playerId}`);
+      }
+      return player;
+    },
+    getLootWindowTarget(): { tileX: number; tileY: number } {
+      return { tileX: container.x, tileY: container.y };
+    },
+    clearLootWindow(): void {},
+    bumpPersistentRevision(player: any): void {
+      player.persistentRevision = Math.max(0, Math.trunc(Number(player.persistentRevision) || 0)) + 1;
+    },
+    markPersistenceDirtyDomains(player: any, domains: string[]): void {
+      if (!(player.dirtyDomains instanceof Set)) {
+        player.dirtyDomains = new Set<string>();
+      }
+      for (const domain of domains) {
+        player.dirtyDomains.add(domain);
+      }
+    },
+  };
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number): unknown {
+      return { itemId, count, name: '灵草', type: 'material', grade: 'mortal', level: 1 };
+    },
+  } as never, playerRuntimeService as never, null);
+  const deps = {
+    getPlayerLocationOrThrow(playerId: string): { instanceId: string } {
+      assert.equal(players.has(playerId), true);
+      return { instanceId };
+    },
+    getInstanceRuntimeOrThrow(targetInstanceId: string): unknown {
+      assert.equal(targetInstanceId, instanceId);
+      return instance;
+    },
+    getInstanceRuntime(targetInstanceId: string): unknown {
+      assert.equal(targetInstanceId, instanceId);
+      return instance;
+    },
+  };
+  const sourceId = `container:${instanceId}:${container.id}`;
+
+  const startA = service.dispatchStartGather(playerA.playerId, { sourceId }, deps);
+  assert.equal(startA.ok, true);
+  const state = service.ensureContainerState(instanceId, container, instance.tick);
+  assert.equal(state.activeSearch?.playerId, playerA.playerId);
+
+  const startB = service.dispatchStartGather(playerB.playerId, { sourceId }, deps) as any;
+  assert.equal(startB.ok, false);
+  assert.equal(startB.error, '当前已有玩家正在采集该目标。');
+  assert.equal(state.activeSearch?.playerId, playerA.playerId);
+
+  playerB.gatherJob = {
+    resourceNodeId: container.id,
+    sourceId,
+    instanceId,
+    resourceNodeName: container.name,
+    remainingTicks: 2,
+    totalTicks: 2,
+    workRemainingTicks: 2,
+    workTotalTicks: 2,
+    phase: 'gathering',
+  };
+  const tickB = await service.tickGather(playerB.playerId, deps) as any;
+  assert.equal(tickB.ok, true);
+  assert.equal(tickB.sleepPayload?.kind, 'gather');
+  assert.equal(playerB.gatherJob, null);
+  assert.equal(state.activeSearch?.playerId, playerA.playerId);
+
+  const cancelA = service.dispatchCancelGather(playerA.playerId, deps);
+  assert.equal(cancelA.ok, true);
+  assert.equal(state.activeSearch, undefined);
+}
+
+function createGatherCompetitionPlayer(playerId: string, instanceId: string): any {
+  return {
+    playerId,
+    instanceId,
+    x: 1,
+    y: 1,
+    gatherSkill: { level: 1, exp: 0, expToNext: 60 },
+    gatherJob: null,
+    techniqueActivityQueue: [],
+    persistentRevision: 1,
+    dirtyDomains: new Set<string>(),
+  };
 }
 
 async function testCraftTickUsesUnifiedPipelineForCraftingKinds(): Promise<void> {

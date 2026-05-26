@@ -587,6 +587,9 @@ export class WorldRuntimeLootContainerService {
         const sourceId = typeof payload?.sourceId === 'string' ? payload.sourceId.trim() : '';
         const itemKey = typeof payload?.itemKey === 'string' ? payload.itemKey.trim() : '';
         const resolved = this.resolveHerbContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
+        if (resolved.state.activeSearch) {
+            return buildContainerMutationResult('当前已有玩家正在采集该目标。');
+        }
         const herbRows = groupContainerLootRows(resolved.state.entries);
         const nextRow = (itemKey
             ? herbRows.find((entry) => entry.itemKey === itemKey)
@@ -596,6 +599,7 @@ export class WorldRuntimeLootContainerService {
         }
         const totalTicks = computeEffectiveHerbGatherTicks(player, resolved.container, nextRow);
         resolved.state.activeSearch = {
+            playerId,
             itemKey: nextRow.itemKey,
             totalTicks,
             remainingTicks: totalTicks,
@@ -646,8 +650,10 @@ export class WorldRuntimeLootContainerService {
         const container = instance.getContainerById(job.resourceNodeId);
         if (container) {
             const state = this.ensureContainerState(location.instanceId, container, instance.tick);
-            state.activeSearch = undefined;
-            this.markContainerPersistenceDirty(location.instanceId);
+            if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
+                state.activeSearch = undefined;
+                this.markContainerPersistenceDirty(location.instanceId);
+            }
         }
         player.gatherJob = null;
         this.playerRuntimeService.bumpPersistentRevision(player);
@@ -687,6 +693,10 @@ export class WorldRuntimeLootContainerService {
             return { satisfied: false, reason: '请重新打开采集目标。' };
         }
         const state = this.ensureContainerState(location.instanceId, container, instance.tick);
+        const activeSearchPlayerId = resolveActiveSearchPlayerId(state.activeSearch);
+        if (activeSearchPlayerId && activeSearchPlayerId !== playerId) {
+            return { satisfied: false, reason: '采集目标正在由其他玩家采集。' };
+        }
         const rows = groupContainerLootRows(state.entries);
         if (rows.length <= 0) {
             return { satisfied: false, reason: `${container.name} 已经采尽。`, shouldCancel: true };
@@ -706,7 +716,7 @@ export class WorldRuntimeLootContainerService {
             return;
         }
         const state = this.ensureContainerState(parsedSource.instanceId, container, instance.tick);
-        if (state.activeSearch) {
+        if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
             state.activeSearch = undefined;
             this.markContainerPersistenceDirty(parsedSource.instanceId);
         }
@@ -870,8 +880,10 @@ export class WorldRuntimeLootContainerService {
         const container = instance.getContainerById(job.resourceNodeId);
         if (container) {
             const state = this.ensureContainerState(location.instanceId, container, instance.tick);
-            state.activeSearch = undefined;
-            this.markContainerPersistenceDirty(location.instanceId);
+            if (isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
+                state.activeSearch = undefined;
+                this.markContainerPersistenceDirty(location.instanceId);
+            }
         }
         player.gatherJob = null;
         this.playerRuntimeService.bumpPersistentRevision(player);
@@ -928,6 +940,21 @@ export class WorldRuntimeLootContainerService {
                 }]);
         }
         const state = this.ensureContainerState(location.instanceId, container, instance.tick);
+        const activeSearchPlayerId = resolveActiveSearchPlayerId(state.activeSearch);
+        if (activeSearchPlayerId && activeSearchPlayerId !== playerId) {
+            const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '采集目标正在由其他玩家采集。');
+            player.gatherJob = null;
+            this.playerRuntimeService.bumpPersistentRevision(player);
+            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+            return buildContainerTickSleepResult(sleepPayload, [{
+                    kind: 'warn',
+                    text: '采集目标正在由其他玩家采集，已转入等待队列。',
+                }]);
+        }
+        if (state.activeSearch && !activeSearchPlayerId) {
+            state.activeSearch.playerId = playerId;
+            this.markContainerPersistenceDirty(location.instanceId);
+        }
         if (!state.activeSearch) {
             const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
             if (!nextRow) {
@@ -941,6 +968,7 @@ export class WorldRuntimeLootContainerService {
             }
             const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
             state.activeSearch = {
+                playerId,
                 itemKey: nextRow.itemKey,
                 totalTicks,
                 remainingTicks: totalTicks,
@@ -1626,6 +1654,19 @@ function buildContainerMutationResult(error) {
         messages: [],
         panelChanged: false,
     };
+}
+
+function resolveActiveSearchPlayerId(activeSearch) {
+    const playerId = typeof activeSearch?.playerId === 'string' ? activeSearch.playerId.trim() : '';
+    return playerId || '';
+}
+
+function isActiveSearchOwnedByPlayer(activeSearch, playerId) {
+    if (!activeSearch) {
+        return false;
+    }
+    const activeSearchPlayerId = resolveActiveSearchPlayerId(activeSearch);
+    return !activeSearchPlayerId || activeSearchPlayerId === playerId;
 }
 
 function buildContainerTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = []) {
