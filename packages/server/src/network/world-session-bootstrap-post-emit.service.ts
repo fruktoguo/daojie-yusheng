@@ -6,7 +6,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { S2C } from '@mud/shared';
 
-import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldClientEventService } from './world-client-event.service';
 import type { BootstrapClientLike } from './world-session-bootstrap-context.helper';
@@ -15,15 +15,15 @@ import {
     WorldSessionBootstrapSnapshotService,
 } from './world-session-bootstrap-snapshot.service';
 
-interface SuggestionRuntimePort {
-    getAll(): unknown[];
-}
-
 interface WorldClientEventPort {
     emitPendingLogbookNotice(client: BootstrapClientLike, notice: unknown): void;
-    emitSuggestionUpdate(client: BootstrapClientLike, suggestions: unknown[]): void;
+    emitActivityStatus(client: BootstrapClientLike, status: unknown): void;
     emitMailSummaryForPlayer(client: BootstrapClientLike, playerId: string): Promise<void>;
     emitPendingLogbookMessages(client: BootstrapClientLike, playerId: string): void;
+}
+
+interface ActivityRuntimePort {
+    getStatus(playerId: string): Promise<unknown>;
 }
 
 interface PlayerRuntimePort {
@@ -39,8 +39,8 @@ export class WorldSessionBootstrapPostEmitService {
         @Inject(WorldSessionBootstrapSnapshotService)
         private readonly snapshotBootstrapService: WorldSessionBootstrapSnapshotService | null = null,
         @Optional()
-        @Inject(SuggestionRuntimeService)
-        private readonly suggestionRuntimeService: SuggestionRuntimePort | null = null,
+        @Inject(ActivityRuntimeService)
+        private readonly activityRuntimeService: ActivityRuntimePort | null = null,
         @Optional()
         @Inject(WorldClientEventService)
         private readonly worldClientEventService: WorldClientEventPort | null = null,
@@ -61,7 +61,10 @@ export class WorldSessionBootstrapPostEmitService {
         if (bootstrapRecovery?.queuedNotice) {
             this.worldClientEventService?.emitPendingLogbookNotice(client, bootstrapRecovery.queuedNotice);
         }
-        this.worldClientEventService?.emitSuggestionUpdate(client, this.suggestionRuntimeService?.getAll() ?? []);
+        const activityStatus = await this.activityRuntimeService?.getStatus(playerId);
+        if (activityStatus) {
+            this.worldClientEventService?.emitActivityStatus(client, activityStatus);
+        }
         await this.worldClientEventService?.emitMailSummaryForPlayer(client, playerId);
         this.worldClientEventService?.emitPendingLogbookMessages(client, playerId);
         const offlineGainReports = await this.playerRuntimeService?.loadPendingOfflineGainReports(playerId) ?? [];

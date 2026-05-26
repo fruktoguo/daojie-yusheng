@@ -4,7 +4,7 @@
  * 维护时要把 GM 能力限定在受控入口，并避免普通玩家客户端路径依赖管理端状态。
  */
 /**
- * GM 管理后台前端 —— 登录鉴权、角色列表/编辑器、机器人管理、建议反馈
+ * GM 管理后台前端 —— 登录鉴权、角色列表/编辑器、机器人管理与运营工具
  * 当前作为 GM 独立工具入口继续保留，不并入玩家主线 main.ts，也不作为主线硬切的前台阻塞项。
  */
 
@@ -36,9 +36,7 @@ import {
   type GmCreateMailReq,
   type GmRedeemCodeGroupDetailRes,
   type GmRedeemCodeGroupListRes,
-  type GmReplySuggestionReq,
   type GmSetPlayerBodyTrainingLevelReq,
-  type GmSuggestionListRes,
   type GmCpuSectionSnapshot,
   type GmHeapSnapshotRes,
   type GmHeapSnapshotSummaryRes,
@@ -101,7 +99,6 @@ import {
   type QuestState,
   QUEST_LINE_LABELS,
   QUEST_STATUS_LABELS,
-  type Suggestion,
   type TechniqueState,
   TECHNIQUE_GRADE_LABELS,
   TECHNIQUE_REALM_LABELS,
@@ -499,8 +496,6 @@ const gmPasswordSaveBtn = document.getElementById('gm-password-save') as HTMLBut
 const playerWorkspaceEl = document.getElementById('player-workspace') as HTMLElement;
 /** redeemWorkspaceEl：兑换Workspace El。 */
 const redeemWorkspaceEl = document.getElementById('redeem-workspace') as HTMLElement;
-/** suggestionWorkspaceEl：建议Workspace El。 */
-const suggestionWorkspaceEl = document.getElementById('suggestion-workspace') as HTMLElement;
 /** serverWorkspaceEl：服务端Workspace El。 */
 const serverWorkspaceEl = document.getElementById('server-workspace') as HTMLElement;
 /** worldWorkspaceEl：世界Workspace El。 */
@@ -525,8 +520,6 @@ const serverTabBtn = document.getElementById('gm-tab-server') as HTMLButtonEleme
 const redeemTabBtn = document.getElementById('gm-tab-redeem') as HTMLButtonElement;
 /** playerTabBtn：玩家Tab Btn。 */
 const playerTabBtn = document.getElementById('gm-tab-players') as HTMLButtonElement;
-/** suggestionTabBtn：建议Tab Btn。 */
-const suggestionTabBtn = document.getElementById('gm-tab-suggestions') as HTMLButtonElement;
 /** worldTabBtn：世界Tab Btn。 */
 const worldTabBtn = document.getElementById('gm-tab-world') as HTMLButtonElement;
 /** shortcutTabBtn：shortcut Tab Btn。 */
@@ -583,18 +576,6 @@ const tradesPageMetaEl = document.getElementById('gm-trades-page-meta') as HTMLE
 const tradesPagePrevBtn = document.getElementById('gm-trades-page-prev') as HTMLButtonElement;
 /** tradesPageNextBtn：下一页。 */
 const tradesPageNextBtn = document.getElementById('gm-trades-page-next') as HTMLButtonElement;
-/** suggestionListEl：建议列表El。 */
-const suggestionListEl = document.getElementById('gm-suggestion-list') as HTMLElement;
-/** suggestionSearchInput：建议搜索输入。 */
-const suggestionSearchInput = document.getElementById('gm-suggestion-search') as HTMLInputElement;
-/** suggestionSearchClearBtn：建议搜索Clear Btn。 */
-const suggestionSearchClearBtn = document.getElementById('gm-suggestion-search-clear') as HTMLButtonElement;
-/** suggestionPrevPageBtn：建议Prev分页Btn。 */
-const suggestionPrevPageBtn = document.getElementById('gm-suggestion-page-prev') as HTMLButtonElement;
-/** suggestionNextPageBtn：建议新版分页Btn。 */
-const suggestionNextPageBtn = document.getElementById('gm-suggestion-page-next') as HTMLButtonElement;
-/** suggestionPageMetaEl：建议分页元数据El。 */
-const suggestionPageMetaEl = document.getElementById('gm-suggestion-page-meta') as HTMLDivElement;
 /** redeemStatusEl：兑换状态El。 */
 const redeemStatusEl = document.getElementById('redeem-status') as HTMLDivElement | null;
 /** redeemGroupListEl：兑换分组列表El。 */
@@ -729,7 +710,6 @@ let databaseSubTab: DatabaseSubTab = 'commands';
 let tableStatsState: GmDatabaseTableStatsRes | null = null;
 let tableStatsLoading = false;
 let cleanupBusy = false;
-let suggestions: Suggestion[] = [];
 /** EditorCatalogSource：编辑器目录数据的当前来源标记。 */
 type EditorCatalogSource = 'server' | 'local-fallback' | 'unavailable';
 /** editorCatalog：编辑器目录。 */
@@ -756,7 +736,7 @@ let draftSourcePlayerId: string | null = null;
 /** pollTimer：poll Timer。 */
 let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
-type GmMainTab = 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'ai' | 'generatedTechniques' | 'trades';
+type GmMainTab = 'server' | 'redeem' | 'players' | 'world' | 'shortcuts' | 'secrets' | 'gameconfig' | 'ai' | 'generatedTechniques' | 'trades';
 let currentTab: GmMainTab = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
@@ -780,16 +760,6 @@ let currentPlayerTotalPages = 1;
 let playerSearchTimer: number | null = null;
 /** statusToastTimer：状态Toast Timer。 */
 let statusToastTimer: number | null = null;
-/** currentSuggestionPage：当前建议分页。 */
-let currentSuggestionPage = 1;
-/** currentSuggestionTotalPages：当前建议总量Pages。 */
-let currentSuggestionTotalPages = 1;
-/** currentSuggestionTotal：当前建议总量。 */
-let currentSuggestionTotal = 0;
-/** currentSuggestionKeyword：当前建议Keyword。 */
-let currentSuggestionKeyword = '';
-/** suggestionSearchTimer：建议搜索Timer。 */
-let suggestionSearchTimer: number | null = null;
 /** currentGeneratedTechniqueSubtab：AI生成当前子标签。 */
 let currentGeneratedTechniqueSubtab: 'techniques' | 'jobs' = 'techniques';
 /** generatedTechniquePage：AI 生成功法当前分页。 */
@@ -923,8 +893,6 @@ function assertGmPlayerDetailResponseShape(data: unknown): asserts data is GmPla
     throw new Error(t('gm.response.invalid-player-detail'));
   }
 }
-/** lastSuggestionStructureKey：last建议Structure Key。 */
-let lastSuggestionStructureKey: string | null = null;
 /** lastNetworkInStructureKey：last Network In Structure Key。 */
 let lastNetworkInStructureKey: string | null = null;
 /** lastNetworkOutStructureKey：last Network Out Structure Key。 */
@@ -2792,16 +2760,6 @@ function renderPerfLists(data: GmStateRes): void {
     pathfindingFailureItems,
     '当前还没有寻路失败记录。',
   );
-}
-
-/** renderSuggestionReply：渲染建议回复。 */
-function renderSuggestionReply(reply: Suggestion['replies'][number]): string {
-  return gmMarkupHelpers.renderSuggestionReply(reply);
-}
-
-/** getSuggestionCardMarkup：读取建议卡片Markup。 */
-function getSuggestionCardMarkup(suggestion: Suggestion): string {
-  return gmMarkupHelpers.getSuggestionCardMarkup(suggestion);
 }
 
 /** getEditorTabLabel：读取编辑器Tab标签。 */
@@ -5018,7 +4976,6 @@ function switchTab(tab: GmMainTab): void {
   playerTabBtn.classList.toggle('active', tab === 'players');
   worldTabBtn.classList.toggle('active', tab === 'world');
   shortcutTabBtn.classList.toggle('active', tab === 'shortcuts');
-  suggestionTabBtn.classList.toggle('active', tab === 'suggestions');
   envTabBtn.classList.toggle('active', tab === 'secrets');
   gameConfigTabBtn.classList.toggle('active', tab === 'gameconfig');
   aiTabBtn.classList.toggle('active', tab === 'ai');
@@ -5029,15 +4986,12 @@ function switchTab(tab: GmMainTab): void {
   playerWorkspaceEl.classList.toggle('hidden', tab !== 'players');
   worldWorkspaceEl.classList.toggle('hidden', tab !== 'world');
   shortcutWorkspaceEl.classList.toggle('hidden', tab !== 'shortcuts');
-  suggestionWorkspaceEl.classList.toggle('hidden', tab !== 'suggestions');
   envWorkspaceEl.classList.toggle('hidden', tab !== 'secrets');
   gameConfigWorkspaceEl.classList.toggle('hidden', tab !== 'gameconfig');
   aiWorkspaceEl.classList.toggle('hidden', tab !== 'ai');
   generatedTechniqueWorkspaceEl.classList.toggle('hidden', tab !== 'generatedTechniques');
   tradesWorkspaceEl.classList.toggle('hidden', tab !== 'trades');
-  if (tab === 'suggestions') {
-    loadSuggestions().catch((e) => console.error('[GM]', e));
-  } else if (tab === 'redeem') {
+  if (tab === 'redeem') {
     loadRedeemGroups(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载兑换码面板失败', true);
     });
@@ -5070,31 +5024,6 @@ function switchTab(tab: GmMainTab): void {
     loadTrades({ resetPage: true }).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载交易记录失败', true);
     });
-  }
-}
-
-/** loadSuggestions：加载Suggestions。 */
-async function loadSuggestions(): Promise<void> {
-  try {
-    const params = new URLSearchParams({
-      page: String(currentSuggestionPage),
-      pageSize: '10',
-    });
-    if (currentSuggestionKeyword.trim()) {
-      params.set('keyword', currentSuggestionKeyword.trim());
-    }
-    const result = await request<GmSuggestionListRes>(`${GM_API_BASE_PATH}/suggestions?${params.toString()}`);
-    /** suggestions：suggestions。 */
-    suggestions = result.items;
-    /** currentSuggestionPage：当前建议分页。 */
-    currentSuggestionPage = result.page;
-    /** currentSuggestionTotalPages：当前建议总量Pages。 */
-    currentSuggestionTotalPages = result.totalPages;
-    /** currentSuggestionTotal：当前建议总量。 */
-    currentSuggestionTotal = result.total;
-    renderSuggestions();
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : '加载建议失败', true);
   }
 }
 
@@ -5193,89 +5122,6 @@ function flushShortcutMailComposerRefresh(): void {
   /** shortcutMailComposerRefreshBlocked：shortcut邮件Composer Refresh Blocked。 */
   shortcutMailComposerRefreshBlocked = false;
   renderShortcutMailComposer(true);
-}
-
-/** renderSuggestions：渲染Suggestions。 */
-function renderSuggestions(): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!suggestions || suggestions.length === 0) {
-    if (lastSuggestionStructureKey !== 'empty') {
-      suggestionListEl.innerHTML = `<div class="empty-hint">${escapeHtml(t('gm.suggestion.empty'))}</div>`;
-      lastSuggestionStructureKey = 'empty';
-    }
-    suggestionPageMetaEl.textContent = t('gm.suggestion.page-meta', {
-      page: currentSuggestionPage,
-      totalPages: currentSuggestionTotalPages,
-      total: currentSuggestionTotal,
-    });
-    suggestionPrevPageBtn.disabled = currentSuggestionPage <= 1;
-    suggestionNextPageBtn.disabled = currentSuggestionPage >= currentSuggestionTotalPages;
-    return;
-  }
-
-  const structureKey = suggestions.map((suggestion) => [
-    suggestion.id,
-    suggestion.status,
-    suggestion.upvotes.length,
-    suggestion.downvotes.length,
-    suggestion.replies.length,
-    suggestion.replies[suggestion.replies.length - 1]?.id ?? '',
-  ].join(':')).join('|');
-  if (lastSuggestionStructureKey !== structureKey) {
-    suggestionListEl.innerHTML = suggestions.map((suggestion) => getSuggestionCardMarkup(suggestion)).join('');
-    /** lastSuggestionStructureKey：last建议Structure Key。 */
-    lastSuggestionStructureKey = structureKey;
-  }
-  suggestionPageMetaEl.textContent = t('gm.suggestion.page-meta', {
-    page: currentSuggestionPage,
-    totalPages: currentSuggestionTotalPages,
-    total: currentSuggestionTotal,
-  });
-  suggestionPrevPageBtn.disabled = currentSuggestionPage <= 1;
-  suggestionNextPageBtn.disabled = currentSuggestionPage >= currentSuggestionTotalPages;
-}
-
-/** completeSuggestion：完成建议。 */
-async function completeSuggestion(id: string): Promise<void> {
-  try {
-    await request(`${GM_API_BASE_PATH}/suggestions/${id}/complete`, { method: 'POST' });
-    setStatus(t('gm.suggestion.completed'));
-    await loadSuggestions();
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  }
-}
-
-/** replySuggestion：处理回复建议。 */
-async function replySuggestion(id: string, content: string): Promise<void> {
-  try {
-    await request(`${GM_API_BASE_PATH}/suggestions/${id}/replies`, {
-      method: 'POST',
-      body: JSON.stringify({ content } satisfies GmReplySuggestionReq),
-    });
-    setStatus(t('gm.suggestion.reply-sent'));
-    await loadSuggestions();
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  }
-}
-
-/** removeSuggestion：处理remove建议。 */
-async function removeSuggestion(id: string): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!confirm(t('gm.suggestion.remove.confirm'))) return;
-  try {
-    await request(`${GM_API_BASE_PATH}/suggestions/${id}`, { method: 'DELETE' });
-    setStatus(t('gm.suggestion.removed'));
-    if (suggestions.length === 1 && currentSuggestionPage > 1) {
-      currentSuggestionPage -= 1;
-    }
-    await loadSuggestions();
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
-  }
 }
 
 /** GM 默认请求超时（毫秒）。超过该值仍未收到响应即立即 reject，避免 UI 永久卡在“正在保存…”。 */
@@ -7836,11 +7682,6 @@ function logout(message?: string): void {
     /** pollTimer：poll Timer。 */
     pollTimer = null;
   }
-  if (suggestionSearchTimer !== null) {
-    window.clearTimeout(suggestionSearchTimer);
-    /** suggestionSearchTimer：建议搜索Timer。 */
-    suggestionSearchTimer = null;
-  }
   if (playerSearchTimer !== null) {
     window.clearTimeout(playerSearchTimer);
     /** playerSearchTimer：玩家搜索Timer。 */
@@ -7850,20 +7691,6 @@ function logout(message?: string): void {
   /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
   lastPlayerListStructureKey = null;
   clearEditorRenderCache();
-  /** lastSuggestionStructureKey：last建议Structure Key。 */
-  lastSuggestionStructureKey = null;
-  /** currentSuggestionPage：当前建议分页。 */
-  currentSuggestionPage = 1;
-  /** currentSuggestionTotalPages：当前建议总量Pages。 */
-  currentSuggestionTotalPages = 1;
-  /** currentSuggestionTotal：当前建议总量。 */
-  currentSuggestionTotal = 0;
-  /** currentSuggestionKeyword：当前建议Keyword。 */
-  currentSuggestionKeyword = '';
-  suggestionSearchInput.value = '';
-  suggestionPageMetaEl.textContent = '第 1 / 1 页';
-  suggestionPrevPageBtn.disabled = true;
-  suggestionNextPageBtn.disabled = true;
   currentNetworkInPage = 1;
   currentNetworkOutPage = 1;
   networkInPageMetaEl.textContent = '第 1 / 1 页 · 共 0 条';
@@ -7890,7 +7717,6 @@ function logout(message?: string): void {
   lastMemoryDomainStructureKey = null;
   /** lastMemoryInstanceStructureKey：last Memory Instance Structure Key。 */
   lastMemoryInstanceStructureKey = null;
-  suggestionListEl.innerHTML = '';
   summaryNetInBreakdownEl.innerHTML = '';
   summaryNetOutBreakdownEl.innerHTML = '';
   cpuBreakdownListEl.innerHTML = '';
@@ -11014,76 +10840,6 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-suggestionListEl.addEventListener('click', (event) => {
-  const trigger = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
-  const card = (event.target as HTMLElement).closest<HTMLElement>('[data-suggestion-id]');
-  const suggestionId = card?.dataset.suggestionId;
-  const action = trigger?.dataset.action;
-  if (!trigger || !suggestionId || !action) {
-    return;
-  }
-  if (action === 'complete-suggestion') {
-    completeSuggestion(suggestionId).catch((e) => console.error('[GM]', e));
-    return;
-  }
-  if (action === 'reply-suggestion') {
-    const replyInput = card?.querySelector<HTMLTextAreaElement>('[data-role="reply-input"]');
-    const content = replyInput?.value.trim() ?? '';
-    if (!content) {
-      setStatus(t('gm.suggestion.reply.empty'), true);
-      return;
-    }
-    replySuggestion(suggestionId, content).catch((e) => console.error('[GM]', e));
-    return;
-  }
-  if (action === 'remove-suggestion') {
-    removeSuggestion(suggestionId).catch((e) => console.error('[GM]', e));
-  }
-});
-
-suggestionSearchInput.addEventListener('input', () => {
-  /** currentSuggestionKeyword：当前建议Keyword。 */
-  currentSuggestionKeyword = suggestionSearchInput.value;
-  /** currentSuggestionPage：当前建议分页。 */
-  currentSuggestionPage = 1;
-  if (suggestionSearchTimer !== null) {
-    window.clearTimeout(suggestionSearchTimer);
-  }
-  suggestionSearchTimer = window.setTimeout(() => {
-    loadSuggestions().catch((e) => console.error('[GM]', e));
-  }, 250);
-});
-
-suggestionSearchClearBtn.addEventListener('click', () => {
-  suggestionSearchInput.value = '';
-  /** currentSuggestionKeyword：当前建议Keyword。 */
-  currentSuggestionKeyword = '';
-  /** currentSuggestionPage：当前建议分页。 */
-  currentSuggestionPage = 1;
-  if (suggestionSearchTimer !== null) {
-    window.clearTimeout(suggestionSearchTimer);
-    /** suggestionSearchTimer：建议搜索Timer。 */
-    suggestionSearchTimer = null;
-  }
-  loadSuggestions().catch((e) => console.error('[GM]', e));
-});
-
-suggestionPrevPageBtn.addEventListener('click', () => {
-  if (currentSuggestionPage <= 1) {
-    return;
-  }
-  currentSuggestionPage -= 1;
-  loadSuggestions().catch((e) => console.error('[GM]', e));
-});
-
-suggestionNextPageBtn.addEventListener('click', () => {
-  if (currentSuggestionPage >= currentSuggestionTotalPages) {
-    return;
-  }
-  currentSuggestionPage += 1;
-  loadSuggestions().catch((e) => console.error('[GM]', e));
-});
-
 networkInPrevPageBtn.addEventListener('click', () => {
   if (currentNetworkInPage <= 1 || !state) {
     return;
@@ -11167,7 +10923,6 @@ playerNextPageBtn.addEventListener('click', () => {
 });
 redeemTabBtn.addEventListener('click', () => switchTab('redeem'));
 playerTabBtn.addEventListener('click', () => switchTab('players'));
-suggestionTabBtn.addEventListener('click', () => switchTab('suggestions'));
 serverTabBtn.addEventListener('click', () => switchTab('server'));
 worldTabBtn.addEventListener('click', () => switchTab('world'));
 shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));

@@ -106,13 +106,11 @@ function createWorldClientEventService(log = []) {
             flushMarketResult(subscribers, result, options) {
                 log.push(['flushMarketResult', Array.from(subscribers), result, options.marketListingRequests.get('player:1'), options.marketTradeHistoryRequests.get('player:1'), options.auctionListingRequests.get('player:1')]);
             },            
-            /**
- * broadcastSuggestionUpdate：处理broadcastSuggestionUpdate并更新相关状态。
- * @returns 无返回值，直接更新broadcastSuggestionUpdate相关状态。
- */
-
-            broadcastSuggestionUpdate() {
-                log.push(['broadcastSuggestionUpdate']);
+            emitActivityStatus(client, payload) {
+                log.push(['emitActivityStatus', client.id, payload]);
+            },
+            emitActivityOperationResult(client, payload) {
+                log.push(['emitActivityOperationResult', client.id, payload]);
             },
     };
 }
@@ -128,6 +126,8 @@ async function testClientEmitHelper() {
     const helper = new WorldGatewayClientEmitHelper(createWorldClientEventService(log));
     const client = { id: 'socket:1' };
     helper.emitQuests(client, { quests: [] });
+    helper.emitActivityStatus(client, { hasRedDot: false });
+    helper.emitActivityOperationResult(client, { ok: true, operation: 'claimDailySignIn' });
     helper.emitProtocolMailSummary(client, { unread: 2 });
     helper.emitNpcShop(client, { npcId: 'npc.a' });
     await helper.flushMarketResult(
@@ -140,10 +140,13 @@ async function testClientEmitHelper() {
         },
     );
     await helper.emitMailSummaryForPlayer(client, 'player:1');
-    helper.broadcastSuggestions();
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'mainline'],
         ['emitQuests', 'socket:1', { quests: [] }],
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['emitActivityStatus', 'socket:1', { hasRedDot: false }],
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['emitActivityOperationResult', 'socket:1', { ok: true, operation: 'claimDailySignIn' }],
         ['markProtocol', 'socket:1', 'mainline'],
         ['emitMailSummary', 'socket:1', { unread: 2 }],
         ['markProtocol', 'socket:1', 'mainline'],
@@ -151,7 +154,6 @@ async function testClientEmitHelper() {
         ['flushMarketResult', ['player:1'], { ok: true }, 2, 3, 4],
         ['markProtocol', 'socket:1', 'mainline'],
         ['emitMailSummaryForPlayer', 'socket:1', 'player:1'],
-        ['broadcastSuggestionUpdate'],
     ]);
 }
 

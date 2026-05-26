@@ -30,7 +30,6 @@ import { PlayerCountersPersistenceService } from '../persistence/player-counters
 import { RuntimeEventBusService } from '../runtime/event-bus/runtime-event-bus.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { RedeemCodeRuntimeService } from '../runtime/redeem/redeem-code-runtime.service';
-import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
 
 async function main(): Promise<void> {
   const mailProof = await proveMailboxCacheBound();
@@ -60,7 +59,6 @@ async function main(): Promise<void> {
   const persistenceDirtyDomainProjectionProof = provePersistenceDirtyDomainProjectionPresent();
   const viewHotpathProof = proveViewHotpathOptimizationsPresent();
   const cacheLifecycleProof = proveEntryCachesFollowLifecycle();
-  const suggestionProof = await proveSuggestionTextBounds();
   const gmObserverProof = proveGmWorldObserverIdsRemoved();
 
   console.log(JSON.stringify({
@@ -92,10 +90,9 @@ async function main(): Promise<void> {
     persistenceDirtyDomainProjectionProof,
     viewHotpathProof,
     cacheLifecycleProof,
-    suggestionProof,
     gmObserverProof,
     answers:
-      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；物品实例通过模板 prototype 读取静态字段，own/JSON 只保留实例字段；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存，玩家 panel 只常驻 revision/signature cursor，不再常驻完整 panel clone；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 和面板变更包只生成一次性 panel delta，不写回完整 panel cache；Bootstrap 玩家状态直接从玩家真源构造，不依赖 projector panel cache；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；迁移快照的 technique skills/layer attrs/quest rewards 复用只读子对象引用；map static aux tile patch 复用按源 resources 数组缓存的 compact resource；panel cursor 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；地面物品 flush 和静态地图对象不再复制模板外壳；妖兽 spawn 基础属性和 ratioDivisors 复用模板/已解析引用；妖兽公式重算只浅层覆盖 level/tier，不再递归深拷 raw；静态 snapshot 视图复用源引用，地面物品 snapshot 不再 spread item；妖兽 snapshot 不再深拷属性、buff、冷却和伤害贡献子结构；building/room 查询列表复用运行态引用；room/fengShui hydrate 补 instanceId 时不再复制整条对象；妖兽运行态 hydrate 和落盘投影复用 payload 子结构引用；地面物品 DB hydrate 直接接管 payload 引用并仅就地规范化 itemId/count；玩家临时 Buff clone 以 prototype 承载静态/加成字段，持久化和出网显式 materialize；fallback 通知 drain 直接摘走队列引用并重置为空队列；建议文本服务端限长；GM world 不再保留 observer id。',
+      '已证明本轮新增的内存保留边界：邮箱缓存 LRU 有上限且加载失败释放 pending；兑换频率表会按 TTL 清理；恢复队列同 key 覆盖且有最大排队；Outbox 本地去重有环形上限；认证限流桶会清理过期项；flush wakeup key 有上限；物品实例通过模板 prototype 读取静态字段，own/JSON 只保留实例字段；EventBus drain/flush 后释放玩家和实例队列；PlayerCounters 不缓存/落库 GM bot；Projector 无变化 delta 不替换缓存，玩家 panel 只常驻 revision/signature cursor，不再常驻完整 panel clone；多玩家共享同一稳定实例条目的 projector 投影 ref；Projector 全量 envelope 和面板变更包只生成一次性 panel delta，不写回完整 panel cache；Bootstrap 玩家状态直接从玩家真源构造，不依赖 projector panel cache；Aux 状态复用稳定 time/realm/loot/minimap marker 引用；Projector runtime bonus 克隆按源数组复用；tile projection ref 会进入玩家 map static cache，稳定视野下 visible tile matrix/byKey 也会复用；render entity 对 NPC/容器/阵法/怪物 buffs 复用稳定投影且玩家投影坐标不再二次 spread；container respawn 投影无变化时复用原 view/localContainers；projector/envelope/threat 小热路径已移除 identity 全量 map、buff scale 临时数组、eventBus worldDelta spread 与 threat arrow clone；迁移快照的 technique skills/layer attrs/quest rewards 复用只读子对象引用；map static aux tile patch 复用按源 resources 数组缓存的 compact resource；panel cursor 在 noop delta 下复用缓存；combat effect 以只读 ref 透传；持久化 flush 已把 dirtyDomains 下传到运行态快照并按域裁剪大子树克隆；玩家视野、妖兽视野条目与 overlay 热路径优化已落在生产源码；地面物品 flush 和静态地图对象不再复制模板外壳；妖兽 spawn 基础属性和 ratioDivisors 复用模板/已解析引用；妖兽公式重算只浅层覆盖 level/tier，不再递归深拷 raw；静态 snapshot 视图复用源引用，地面物品 snapshot 不再 spread item；妖兽 snapshot 不再深拷属性、buff、冷却和伤害贡献子结构；building/room 查询列表复用运行态引用；room/fengShui hydrate 补 instanceId 时不再复制整条对象；妖兽运行态 hydrate 和落盘投影复用 payload 子结构引用；地面物品 DB hydrate 直接接管 payload 引用并仅就地规范化 itemId/count；玩家临时 Buff clone 以 prototype 承载静态/加成字段，持久化和出网显式 materialize；fallback 通知 drain 直接摘走队列引用并重置为空队列；GM world 不再保留 observer id。',
     excludes:
       '不证明正式服真实 RSS 曲线，也不证明全量业务缓存已改为懒加载；这里只覆盖本轮确定修复的保留边界。',
   }, null, 2));
@@ -2106,26 +2103,6 @@ function proveEntryCachesFollowLifecycle(): {
     instancePersistenceNormalizesObjectPayloads,
     instanceOverlayPortalPersistenceUsesWhitelist,
   };
-}
-
-async function proveSuggestionTextBounds(): Promise<{ titleLength: number; descriptionLength: number; replyLength: number }> {
-  let persisted: unknown = null;
-  const service = new SuggestionRuntimeService({
-    loadSuggestions: async () => null,
-    saveSuggestions: async (document: unknown) => {
-      persisted = document;
-    },
-  });
-  const suggestion = await service.create('suggestion_player', 'suggestion_author'.repeat(10), '题'.repeat(80), '描'.repeat(700));
-  assert.ok(suggestion);
-  assert.equal(suggestion.title.length, 50);
-  assert.equal(suggestion.description.length, 500);
-  const reply = await service.addReply(suggestion.id, 'gm', 'gm', 'developer'.repeat(10), '回'.repeat(700));
-  assert.ok(reply);
-  const replyLength = reply.replies[0]?.content.length ?? 0;
-  assert.equal(replyLength, 500);
-  assert.ok(persisted);
-  return { titleLength: suggestion.title.length, descriptionLength: suggestion.description.length, replyLength };
 }
 
 function proveGmWorldObserverIdsRemoved(): { retainedObserverField: boolean } {

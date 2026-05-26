@@ -147,7 +147,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
     runtimeStateSource: runtimeOwnerContext.runtimeStateSource,
     detailStateSource: panelContext.detailStateSource,
     buildingFengShuiStateSource: panelContext.buildingFengShuiStateSource,
-    suggestionStateSource: panelContext.suggestionStateSource,
+    activityStateSource: panelContext.activityStateSource,
     mailStateSource: panelContext.mailStateSource,
     settingsStateSource: panelContext.settingsStateSource,
     marketStateSource: panelContext.marketStateSource,

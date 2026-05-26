@@ -103,7 +103,6 @@ const LEGACY_S2C_EVENTS = new Set([
     's:mailDetail',
     's:redeemCodesResult',
     's:mailOpResult',
-    's:suggestionUpdate',
     's:marketUpdate',
     's:marketListings',
     's:marketOrders',
@@ -152,7 +151,7 @@ function createWorldGatewayForAuthBootstrapSmoke(overrides = {}) {
         overrides.mailRuntimeService ?? {},
         overrides.marketRuntimeService ?? {},
         overrides.craftPanelRuntimeService ?? {},
-        overrides.suggestionRuntimeService ?? {},
+        overrides.activityRuntimeService ?? {},
         overrides.leaderboardRuntimeService ?? {},
         runtimeGmStateService,
         overrides.worldRuntimeService ?? {},
@@ -167,11 +166,11 @@ function createWorldGatewayForAuthBootstrapSmoke(overrides = {}) {
         overrides.gatewayMovementHelper ?? {},
         overrides.gatewayNpcHelper ?? {},
         overrides.gatewayCraftHelper ?? {},
-        overrides.gatewaySuggestionHelper ?? {},
-        overrides.gatewayGmSuggestionHelper ?? {},
+        overrides.gatewayActivityHelper ?? {},
         overrides.gatewayReadModelHelper ?? {},
         overrides.gatewayPresenceHelper ?? {},
         overrides.gatewayContentHelper ?? {},
+        overrides.techniqueGenerationService ?? {},
     );
 }
 /**
@@ -1286,19 +1285,15 @@ async function verifyProtocolSocketRejectsLegacyEventContract(token, expectedPla
         const legacyRejectProofs = [];
         const legacyEventsToReject = [
             { event: 'c:ping', payload: { clientAt: Date.now() }, label: 'c:ping' },
-            { event: 'c:requestSuggestions', payload: {}, label: 'c:requestSuggestions' },
+            { event: 'c:requestActivityStatus', payload: {}, label: 'c:requestActivityStatus' },
             { event: 'c:requestMailSummary', payload: {}, label: 'c:requestMailSummary' },
             { event: 'c:requestMailPage', payload: {}, label: 'c:requestMailPage' },
             { event: 'c:requestMailDetail', payload: {}, label: 'c:requestMailDetail' },
             { event: 'c:requestMarket', payload: {}, label: 'c:requestMarket' },
             { event: 'c:redeemCodes', payload: {}, label: 'c:redeemCodes' },
             { event: 'c:markMailRead', payload: {}, label: 'c:markMailRead' },
-            { event: 'c:createSuggestion', payload: {}, label: 'c:createSuggestion' },
-            { event: 'c:voteSuggestion', payload: {}, label: 'c:voteSuggestion' },
-            { event: 'c:replySuggestion', payload: {}, label: 'c:replySuggestion' },
-            { event: 'c:markSuggestionRepliesRead', payload: {}, label: 'c:markSuggestionRepliesRead' },
-            { event: 'c:gmMarkSuggestionCompleted', payload: {}, label: 'c:gmMarkSuggestionCompleted' },
-            { event: 'c:gmRemoveSuggestion', payload: {}, label: 'c:gmRemoveSuggestion' },
+            { event: 'c:claimMeritMonthCard', payload: {}, label: 'c:claimMeritMonthCard' },
+            { event: 'c:claimDailySignIn', payload: {}, label: 'c:claimDailySignIn' },
             { event: 'c:claimMailAttachments', payload: {}, label: 'c:claimMailAttachments' },
             { event: 'c:deleteMail', payload: {}, label: 'c:deleteMail' },
             { event: 'c:requestMarketItemBook', payload: {}, label: 'c:requestMarketItemBook' },
@@ -3003,6 +2998,8 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
         ensurePlayerMailbox: async () => undefined,
         ensureWelcomeMail: async () => undefined,
     }, {
+        getStatus: async () => ({ serverNow: Date.now(), monthCard: {}, dailySignIn: {}, hasRedDot: false }),
+    }, {
         getAll: () => [],
     }, {
         worldRuntimePlayerSessionService: {
@@ -3023,7 +3020,7 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
     }, {
         emitInitialSync: () => undefined,
     }, {
-        emitSuggestionUpdate: () => undefined,
+        emitActivityStatus: () => undefined,
         emitMailSummaryForPlayer: async () => undefined,
         emitPendingLogbookNotice: (client, entry) => {
             const playerId = typeof entry?.id === 'string' ? entry.id.split(':')[1] ?? '' : '';
@@ -3454,6 +3451,8 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
                 ensurePlayerMailbox: async () => undefined,
                 ensureWelcomeMail: async () => undefined,
             }, {
+                getStatus: async () => ({ serverNow: Date.now(), monthCard: {}, dailySignIn: {}, hasRedDot: false }),
+            }, {
                 getAll: () => [],
             }, {
                 worldRuntimePlayerSessionService: {
@@ -3474,7 +3473,7 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
             }, {
                 emitInitialSync: () => undefined,
             }, {
-                emitSuggestionUpdate: () => undefined,
+                emitActivityStatus: () => undefined,
                 emitMailSummaryForPlayer: async () => undefined,
                 emitPendingLogbookNotice: () => undefined,
                 emitPendingLogbookMessages: () => undefined,

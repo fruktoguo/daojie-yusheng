@@ -77,6 +77,7 @@ import { WorldRuntimeSectService } from './world-runtime-sect.service';
 import { WorldRuntimeSystemCommandEnqueueService } from './command/world-runtime-system-command-enqueue.service';
 import { WorldRuntimeTongtianTowerService } from './world-runtime-tongtian-tower.service';
 import { MailRuntimeService } from '../mail/mail-runtime.service';
+import { ActivityRuntimeService } from '../activity/activity-runtime.service';
 import { PlayerCombatService } from '../combat/player-combat.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
@@ -192,14 +193,12 @@ const TICK_METRIC_WINDOW_SIZE = 60;
 
 @Injectable()
 export class WorldRuntimeService {
-
     contentTemplateRepository;
 
     templateRepository;
 
     instanceDomainPersistenceService;
     instanceCatalogService;
-
     playerRuntimeService;
 
     playerCombatService;
@@ -211,7 +210,7 @@ export class WorldRuntimeService {
     redeemCodeRuntimeService;
 
     craftPanelRuntimeService;
-
+    activityRuntimeService;
     worldRuntimeNpcShopQueryService;
 
     worldRuntimeQuestQueryService;
@@ -436,6 +435,7 @@ export class WorldRuntimeService {
         @Inject(NodeRegistryService) nodeRegistryService: NodeRegistryService,
         @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService: PlayerPersistenceFlushService,
         @Inject(MailRuntimeService) mailRuntimeService: MailRuntimeService,
+        @Inject(ActivityRuntimeService) activityRuntimeService: ActivityRuntimeService,
         @Inject(DurableOperationService) durableOperationService: DurableOperationService,
         @Inject(RuntimeEventBusService) runtimeEventBusService: RuntimeEventBusService = undefined,
         @Inject(DatabasePoolProvider) databasePoolProvider: DatabasePoolProvider = undefined,
@@ -518,6 +518,7 @@ export class WorldRuntimeService {
         this.nodeRegistryService = nodeRegistryService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mailRuntimeService = mailRuntimeService;
+        this.activityRuntimeService = activityRuntimeService;
         this.durableOperationService = durableOperationService;
         this.runtimeEventBusService = runtimeEventBusService;
         this.databasePoolProvider = databasePoolProvider;
@@ -1016,10 +1017,10 @@ export class WorldRuntimeService {
         dispatchSystemCommand(command) {
         this.worldRuntimeTickDispatchService.dispatchSystemCommand(command, this);
     }
-        dispatchUseItem(playerId, itemInstanceId) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchUseItem(playerId, itemInstanceId, this);
+    async dispatchUseItem(playerId, itemInstanceId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchUseItem(playerId, itemInstanceId, this);
     }
-        dispatchBreakthrough(playerId) {
+    dispatchBreakthrough(playerId) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchBreakthrough(playerId, this);
     }
         dispatchHeavenGateAction(playerId, action, element) {

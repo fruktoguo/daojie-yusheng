@@ -12,7 +12,6 @@ import {
   type QuestState,
   type TemporaryBuffState,
   type TechniqueState,
-  type Suggestion,
   type RedeemCodeCodeView,
 } from '@mud/shared';
 import { getInventoryRowMeta } from './catalog';
@@ -214,75 +213,6 @@ export function getReadonlyPreviewValue(draft: PlayerState, path: string): strin
     default:
       return formatJson(null);
   }
-}
-
-/** renderSuggestionReply：渲染建议回复。 */
-export function renderSuggestionReply(reply: Suggestion['replies'][number]): string {
-  return `
-    <div class="gm-suggestion-reply ${reply.authorType === 'gm' ? 'gm' : ''}">
-      <div class="gm-suggestion-reply-head">
-        <div class="gm-suggestion-reply-author">${escapeHtml(reply.authorType === 'gm' ? '开发者' : '发起人')}</div>
-        <div>${new Date(reply.createdAt).toLocaleString()}</div>
-      </div>
-      <div class="gm-suggestion-reply-content">${escapeHtml(reply.content)}</div>
-    </div>
-  `;
-}
-
-/** getSuggestionCardMarkup：读取建议卡片Markup。 */
-export function getSuggestionCardMarkup(suggestion: Suggestion): string {
-  const completed = suggestion.status === 'completed';
-  const score = suggestion.upvotes.length - suggestion.downvotes.length;
-  return `
-    <div class="gm-suggestion-card ${completed ? 'completed' : ''}" data-suggestion-id="${escapeHtml(suggestion.id)}">
-      <div class="gm-suggestion-head">
-        <div>
-          <div class="gm-suggestion-title">${escapeHtml(suggestion.title)}</div>
-          <div class="gm-suggestion-meta">
-            发起人：${escapeHtml(suggestion.authorName)}<br />
-            创建时间：${new Date(suggestion.createdAt).toLocaleString()}<br />
-            状态：${completed ? '已完成' : '待处理'}
-          </div>
-        </div>
-        <div class="gm-suggestion-side">
-          <div class="pill" style="background:${completed ? '#2e7d32' : 'var(--ink-grey)'}; color:#fff;">${completed ? '已完成' : '待处理'}</div>
-          <div class="gm-suggestion-meta">赞同 ${suggestion.upvotes.length} · 反对 ${suggestion.downvotes.length} · 分值 ${score > 0 ? '+' : ''}${score}</div>
-        </div>
-      </div>
-      <div class="gm-suggestion-body">
-        <div class="gm-suggestion-description-wrap">
-          <div class="gm-suggestion-section-title">原始意见</div>
-          <div class="gm-suggestion-description">${escapeHtml(suggestion.description)}</div>
-        </div>
-        <div class="gm-suggestion-replies">
-          <div class="gm-suggestion-section-title">回复记录</div>
-          ${suggestion.replies.length > 0
-            ? suggestion.replies.map((reply) => renderSuggestionReply(reply)).join('')
-            : '<div class="empty-hint">当前还没有回复记录</div>'}
-        </div>
-      </div>
-      <div class="gm-suggestion-reply-composer">
-        <div class="gm-suggestion-section-title">开发者回复</div>
-        <textarea
-          class="editor-textarea gm-suggestion-reply-input"
-          rows="3"
-          maxlength="500"
-          data-role="reply-input"
-          placeholder="输入给玩家的回复内容；回复后玩家端会出现未读红点。"
-        ></textarea>
-        <div class="button-row gm-suggestion-reply-actions">
-          <button class="small-btn primary" type="button" data-action="reply-suggestion">发送回复</button>
-        </div>
-      </div>
-      <div class="gm-suggestion-actions">
-        <div class="gm-suggestion-page-meta">该条会话共 ${suggestion.replies.length} 条回复</div>
-        <div class="button-row">
-          ${completed ? '' : '<button class="primary small-btn" type="button" data-action="complete-suggestion">标记完成</button>'}
-          <button class="danger small-btn" type="button" data-action="remove-suggestion">永久移除</button>
-        </div>
-      </div>
-    </div>
-  `;
 }
 
 /** getRedeemCodeStatusLabel：读取兑换兑换码状态标签。 */

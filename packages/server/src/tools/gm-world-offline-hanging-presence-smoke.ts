@@ -90,7 +90,6 @@ function createService(queryCalls: QueryCall[]): NativeGmWorldService {
       loadAll() {},
       listSummaries() { return [{ id: 'yunlai_town' }]; },
     } as never,
-    { markCompleted() { return false; }, addReply() { return false; }, remove() { return false; } } as never,
     { updateMapTick() {}, updateMapTime() {}, pruneMapConfigs() {} } as never,
     { invalidatePlayerListCaches() {}, listPlayers() { return { players: [] }; }, getState() { return {}; } } as never,
     { getEditorCatalog() { return {}; } } as never,
@@ -133,7 +132,6 @@ function createService(queryCalls: QueryCall[]): NativeGmWorldService {
         };
       },
     } as never,
-    { getSuggestions() { return {}; } } as never,
     { listNodes() { return []; }, isEnabled() { return true; }, getNodeId() { return 'node:test'; } } as never,
     { listRetryQueue() { return []; } } as never,
     { getOperationReplay() { return {}; } } as never,

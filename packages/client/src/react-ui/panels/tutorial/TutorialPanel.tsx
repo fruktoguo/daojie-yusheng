@@ -55,7 +55,7 @@ const TUTORIAL_OPERATION_HINTS: TutorialOperationHint[] = [
   { label: t('tutorial.hint.toggle.label'), path: t('tutorial.hint.toggle.path') },
   { label: t('tutorial.hint.breakthrough.label'), path: t('tutorial.hint.breakthrough.path') },
   { label: t('tutorial.hint.settings.label'), path: t('tutorial.hint.settings.path') },
-  { label: t('tutorial.hint.suggestion.label'), path: t('tutorial.hint.suggestion.path') },
+  { label: t('tutorial.hint.activity.label'), path: t('tutorial.hint.activity.path') },
   { label: t('tutorial.hint.changelog.label'), path: t('tutorial.hint.changelog.path') },
   { label: 'QQ', path: t('tutorial.hint.qq.path') },
 ];

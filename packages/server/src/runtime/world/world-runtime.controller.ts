@@ -11,7 +11,6 @@ import { clearAuthTrace, readAuthTrace } from '../../network/world-player-token.
 import { MailRuntimeService } from '../mail/mail-runtime.service';
 import { MarketRuntimeService } from '../market/market-runtime.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
-import { SuggestionRuntimeService } from '../suggestion/suggestion-runtime.service';
 import { RuntimeEventBusMetricsService } from '../event-bus/runtime-event-bus-metrics.service';
 import { RuntimeHttpAccessGuard } from './runtime-http-access.guard';
 import { WorldRuntimeService } from './world-runtime.service';
@@ -40,11 +39,6 @@ export class WorldRuntimeController {
 
     playerRuntimeService;    
     /**
- * suggestionRuntimeService：suggestion运行态服务引用。
- */
-
-    suggestionRuntimeService;    
-    /**
  * playerPersistenceFlushService：玩家PersistenceFlush服务引用。
  */
 
@@ -66,19 +60,17 @@ export class WorldRuntimeController {
  * @param mailRuntimeService 参数说明。
  * @param marketRuntimeService 参数说明。
  * @param playerRuntimeService 参数说明。
- * @param suggestionRuntimeService 参数说明。
  * @param playerPersistenceFlushService 参数说明。
  * @param mapPersistenceFlushService 参数说明。
  * @param durableOperationService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(@Inject(WorldRuntimeService) worldRuntimeService, @Inject(MailRuntimeService) mailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService, @Inject(PlayerRuntimeService) playerRuntimeService, @Inject(SuggestionRuntimeService) suggestionRuntimeService, @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService, @Inject(MapPersistenceFlushService) mapPersistenceFlushService, @Inject(DurableOperationService) durableOperationService, @Inject(RuntimeEventBusMetricsService) runtimeEventBusMetricsService) {
+    constructor(@Inject(WorldRuntimeService) worldRuntimeService, @Inject(MailRuntimeService) mailRuntimeService, @Inject(MarketRuntimeService) marketRuntimeService, @Inject(PlayerRuntimeService) playerRuntimeService, @Inject(PlayerPersistenceFlushService) playerPersistenceFlushService, @Inject(MapPersistenceFlushService) mapPersistenceFlushService, @Inject(DurableOperationService) durableOperationService, @Inject(RuntimeEventBusMetricsService) runtimeEventBusMetricsService) {
         this.worldRuntimeService = worldRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
-        this.suggestionRuntimeService = suggestionRuntimeService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mapPersistenceFlushService = mapPersistenceFlushService;
         this.durableOperationService = durableOperationService;
@@ -308,13 +300,6 @@ export class WorldRuntimeController {
             detail: await this.mailRuntimeService.getDetail(playerId, mailId),
         };
     }
-    /** getSuggestions：读取建议列表。 */
-    @Get('suggestions')
-    getSuggestions() {
-        return {
-            suggestions: this.suggestionRuntimeService.getAll(),
-        };
-    }
     /** flushPersistence：强制刷新玩家与地图的持久化缓存。 */
     @Post('persistence/flush')
     async flushPersistence() {
@@ -490,62 +475,6 @@ export class WorldRuntimeController {
                     }))
                     : [],
             }),
-        };
-    }
-    /** createSuggestion：创建建议。 */
-    @Post('players/:playerId/suggestions')
-    async createSuggestion(@Param('playerId') playerId, @Body() body) {
-        return {
-            suggestion: await this.suggestionRuntimeService.create(playerId, playerId, body.title ?? '', body.description ?? ''),
-        };
-    }
-    /** voteSuggestion：对建议进行投票。 */
-    @Post('players/:playerId/suggestions/:suggestionId/vote')
-    async voteSuggestion(@Param('playerId') playerId, @Param('suggestionId') suggestionId, @Body() body) {
-        return {
-            suggestion: await this.suggestionRuntimeService.vote(playerId, suggestionId, body.vote ?? 'up'),
-        };
-    }
-    /** replySuggestion：回复建议。 */
-    @Post('players/:playerId/suggestions/:suggestionId/reply')
-    async replySuggestion(@Param('playerId') playerId, @Param('suggestionId') suggestionId, @Body() body) {
-        return {
-            suggestion: await this.suggestionRuntimeService.addReply(suggestionId, 'author', playerId, playerId, body.content ?? ''),
-        };
-    }
-    /** markSuggestionRepliesRead：标记建议回复为已读。 */
-    @Post('players/:playerId/suggestions/:suggestionId/read-replies')
-    async markSuggestionRepliesRead(@Param('playerId') playerId, @Param('suggestionId') suggestionId) {
-        return {
-            suggestion: await this.suggestionRuntimeService.markRepliesRead(suggestionId, playerId),
-        };
-    }
-    /** completeSuggestion：完成建议。 */
-    @Post('suggestions/:suggestionId/complete')
-    async completeSuggestion(@Param('suggestionId') suggestionId) {
-        return {
-            suggestion: await this.suggestionRuntimeService.markCompleted(suggestionId),
-        };
-    }
-    /** reopenSuggestion：重新打开建议。 */
-    @Post('suggestions/:suggestionId/pending')
-    async reopenSuggestion(@Param('suggestionId') suggestionId) {
-        return {
-            suggestion: await this.suggestionRuntimeService.markPending(suggestionId),
-        };
-    }
-    /** gmReplySuggestion：GM 回复建议。 */
-    @Post('suggestions/:suggestionId/reply')
-    async gmReplySuggestion(@Param('suggestionId') suggestionId, @Body() body) {
-        return {
-            suggestion: await this.suggestionRuntimeService.addReply(suggestionId, 'gm', 'gm', '开发者', body.content ?? ''),
-        };
-    }
-    /** removeSuggestion：删除建议。 */
-    @Delete('suggestions/:suggestionId')
-    async removeSuggestion(@Param('suggestionId') suggestionId) {
-        return {
-            ok: await this.suggestionRuntimeService.remove(suggestionId),
         };
     }
     /** createMarketSellOrder：创建市场卖单。 */

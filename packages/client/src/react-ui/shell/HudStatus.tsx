@@ -222,8 +222,8 @@ const HudCornerActions = memo(function HudCornerActions() {
       <button id="hud-open-mail" className="hud-corner-btn" type="button" data-i18n="shell.open-mail">
         {t('shell.open-mail', undefined)}
       </button>
-      <button id="hud-open-suggestions" className="hud-corner-btn" type="button" data-i18n="shell.open-suggestions">
-        {t('shell.open-suggestions', undefined)}
+      <button id="hud-open-activity" className="hud-corner-btn" type="button" data-i18n="shell.open-activity">
+        {t('shell.open-activity', undefined)}
       </button>
       <button id="hud-open-chronicle" className="hud-corner-btn" type="button" data-i18n="shell.open-chronicle">
         {t('shell.open-chronicle', undefined)}

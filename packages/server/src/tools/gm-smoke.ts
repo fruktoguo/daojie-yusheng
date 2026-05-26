@@ -707,53 +707,6 @@ async function main() {
         const mailPage = await waitForMailPage(auth.playerId, (page) => page.items.some((entry) => entry?.mailId === directMail?.mailId)
             && page.items.some((entry) => typeof entry?.title === 'string' && entry.title.includes('GM群邮')), 8000, 'gm mail page');
 /**
- * 记录createdsuggestion。
- */
-        const createdSuggestion = await requestJson(`/runtime/players/${auth.playerId}/suggestions`, {
-            method: 'POST',
-            body: {
-                title: `GM建议${suffix.slice(-4)}`,
-                description: `gm suggestion ${suffix}`,
-            },
-        });
-/**
- * 记录suggestionID。
- */
-        const suggestionId = String(createdSuggestion?.suggestion?.id ?? '').trim();
-        if (!suggestionId) {
-            throw new Error(`unexpected suggestion create payload: ${JSON.stringify(createdSuggestion)}`);
-        }
-        await waitForGmSuggestions(gmToken, (payload) => findSuggestion(payload, suggestionId)?.status === 'pending', 8000, 'gm suggestions list');
-        await authedRequestJson(`/api/gm/suggestions/${suggestionId}/replies`, {
-            method: 'POST',
-            token: gmToken,
-            body: {
-                content: `GM回复${suffix}`,
-            },
-        });
-        await authedRequestJson(`/api/gm/suggestions/${suggestionId}/complete`, {
-            method: 'POST',
-            token: gmToken,
-            body: {},
-        });
-/**
- * 记录completedsuggestions。
- */
-        const completedSuggestions = await waitForGmSuggestions(gmToken, (payload) => {
-/**
- * 记录suggestion。
- */
-            const suggestion = findSuggestion(payload, suggestionId);
-            return suggestion?.status === 'completed'
-                && Array.isArray(suggestion?.replies)
-                && suggestion.replies.some((entry) => entry?.authorType === 'gm');
-        }, 8000, 'gm suggestions complete');
-        await authedRequestJson(`/api/gm/suggestions/${suggestionId}`, {
-            method: 'DELETE',
-            token: gmToken,
-    });
-    await waitForGmSuggestions(gmToken, (payload) => findSuggestion(payload, suggestionId) === null, 8000, 'gm suggestions remove');
-/**
  * 记录地图运行态before。
  */
         const mapRuntimeBefore = await fetchGmMapRuntime(gmToken, httpResetRuntime.templateId, auth.playerId, httpResetRuntime.x, httpResetRuntime.y);
@@ -1022,13 +975,6 @@ async function main() {
                     unreadCount: Number(mailSummaryAfter?.unreadCount ?? 0),
                     claimableCount: Number(mailSummaryAfter?.claimableCount ?? 0),
                     topMailIds: Array.isArray(mailPage?.items) ? mailPage.items.slice(0, 3).map((entry) => entry?.mailId ?? null) : [],
-                },
-                suggestions: {
-                    suggestionId,
-                    status: findSuggestion(completedSuggestions, suggestionId)?.status ?? null,
-                    replyCount: Array.isArray(findSuggestion(completedSuggestions, suggestionId)?.replies)
-                        ? findSuggestion(completedSuggestions, suggestionId).replies.length
-                        : 0,
                 },
                 mapRuntime: {
                     mapId: httpResetRuntime.templateId,
@@ -1807,33 +1753,7 @@ async function waitForGmState(token, predicate, timeoutMs, label) {
     }, timeoutMs, label);
     return resolved;
 }
-/**
- * 处理fetchGMsuggestions。
- */
-async function fetchGmSuggestions(token) {
-    return authedGetJson('/api/gm/suggestions?page=1&pageSize=20', token);
-}
-/**
- * 轮询 GM 建议列表直到建议状态满足预期。
- */
-async function waitForGmSuggestions(token, predicate, timeoutMs, label) {
-/**
- * 记录resolved。
- */
-    let resolved = null;
-    await waitFor(async () => {
-/**
- * 记录payload。
- */
-        const payload = await fetchGmSuggestions(token);
-        if (!Array.isArray(payload?.items) || !(await predicate(payload))) {
-            return false;
-        }
-        resolved = payload;
-        return true;
-    }, timeoutMs, label);
-    return resolved;
-}
+
 /**
  * 处理fetchGM地图运行态。
  */
@@ -2264,14 +2184,7 @@ function summarizeGmPlayer(payload, playerId) {
         ? payload.players.find((entry) => entry?.id === playerId) ?? null
         : null;
 }
-/**
- * 查找suggestion。
- */
-function findSuggestion(payload, suggestionId) {
-    return Array.isArray(payload?.items)
-        ? payload.items.find((entry) => entry?.id === suggestionId) ?? null
-        : null;
-}
+
 /**
  * 判断是否updatedposition状态。
  */

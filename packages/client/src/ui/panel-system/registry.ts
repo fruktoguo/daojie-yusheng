@@ -164,14 +164,6 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
-      id: 'suggestion',
-      title: t('panel.registry.suggestion'),
-      templateKind: 'modal',
-      defaultPlacement: { desktop: 'overlay', mobile: 'overlay' },
-      supports: ['desktop', 'mobile'],
-      preservesInteractionState: true,
-    },
-    {
       id: 'changelog',
       title: t('panel.registry.changelog'),
       templateKind: 'modal',

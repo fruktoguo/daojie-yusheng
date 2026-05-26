@@ -20,7 +20,7 @@ export type PrototypeModuleId =
   | 'market'
   | 'mail'
   | 'settings'
-  | 'suggestion'
+  | 'activity'
   | 'npc-shop'
   | 'npc-quest'
   | 'craft'
@@ -84,7 +84,7 @@ export const PROTOTYPE_MODULES: PrototypeModuleCardData[] = [
   { id: 'market', title: '坊市面板', domain: '面板', summary: '盘面、书籍、交易弹窗、托管仓。', interactions: ['分页', '物品 hover', '交易弹窗'], status: 'prototype-ready' },
   { id: 'mail', title: '邮件面板', domain: '面板', summary: '邮件列表、正文、附件、未读态。', interactions: ['选中态', '滚动保留', '附件区'], status: 'prototype-ready' },
   { id: 'settings', title: '设置面板', domain: '面板', summary: '主题、字号、缩放、登出与兑换码。', interactions: ['表单项', '危险按钮', '主题切换'], status: 'prototype-ready' },
-  { id: 'suggestion', title: '建议面板', domain: '面板', summary: '我的建议、处理结果、线程区。', interactions: ['Tab 切换', '线程阅读', '提交入口'], status: 'planned' },
+  { id: 'activity', title: '活动中心', domain: '面板', summary: '功德月卡、每日签到与运营活动入口。', interactions: ['Tab 切换', '领取按钮', '状态红点'], status: 'planned' },
   { id: 'npc-shop', title: '场景人物商店', domain: '浮层', summary: '货架列表、详情区、购买确认。', interactions: ['列表详情联动', '数量输入'], status: 'planned' },
   { id: 'npc-quest', title: '场景人物委托', domain: '浮层', summary: '接取、提交、任务详情。', interactions: ['详情切换', '状态按钮'], status: 'planned' },
   { id: 'craft', title: '炼丹 / 强化', domain: '浮层', summary: '双模式工作台、配方、进度、取消。', interactions: ['模式切换', '进度态', '材料列表'], status: 'planned' },
@@ -93,7 +93,7 @@ export const PROTOTYPE_MODULES: PrototypeModuleCardData[] = [
   { id: 'tutorial', title: '教程', domain: '浮层', summary: '分主题阅读与索引。', interactions: ['目录切换', '正文滚动'], status: 'prototype-ready' },
   { id: 'changelog', title: '更新日志', domain: '浮层', summary: '版本说明和公告。', interactions: ['只读正文'], status: 'prototype-ready' },
   { id: 'debug', title: '调试面板', domain: '浮层', summary: '诊断信息与调试动作。', interactions: ['状态标签', '按钮'], status: 'planned' },
-  { id: 'gm', title: 'GM 面板', domain: 'GM', summary: '玩家列表、建议处理、地图控制。', interactions: ['表格局部 patch', '筛选'], status: 'planned' },
+  { id: 'gm', title: 'GM 面板', domain: 'GM', summary: '玩家列表、运营管理、地图控制。', interactions: ['表格局部 patch', '筛选'], status: 'planned' },
   { id: 'heaven-gate', title: '天门', domain: '浮层', summary: '特殊突破流程和判定展示。', interactions: ['阶段切换', '特殊面板'], status: 'planned' },
   { id: 'entity-detail', title: '实体详情', domain: '浮层', summary: '观察目标、Buff、交互入口。', interactions: ['单实例详情弹层', 'tooltip'], status: 'planned' },
 ];

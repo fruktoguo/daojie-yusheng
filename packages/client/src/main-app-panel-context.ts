@@ -17,12 +17,12 @@ import { createMainFormationPreviewSource } from './main-formation-preview-sourc
 import { createMainDetailStateSource } from './main-detail-state-source';
 import { createMainInventoryStateSource } from './main-inventory-state-source';
 import { createMainMailStateSource } from './main-mail-state-source';
+import { createMainActivityStateSource } from './main-activity-state-source';
 import { createMainMarketStateSource } from './main-market-state-source';
 import { createMainNoticeStateSource } from './main-notice-state-source';
 import { createMainPanelRuntimeSource } from './main-panel-runtime-source';
 import { createMainQuestStateSource } from './main-quest-state-source';
 import { createMainSettingsStateSource } from './main-settings-state-source';
-import { createMainSuggestionStateSource } from './main-suggestion-state-source';
 import { createMainTechniqueGenerationPanelSource } from './main-technique-generation-panel-source';
 import { createMainTechniqueStateSource } from './main-technique-state-source';
 import { createMainUiStateSource } from './main-ui-state-source';
@@ -103,9 +103,10 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     socket: socialEconomySender,
     recoverSession: () => loginUI.restoreSession(),
   });
-  const suggestionStateSource = createMainSuggestionStateSource({
+  const activityStateSource = createMainActivityStateSource({
     socket: socialEconomySender,
     isSocketConnected: () => socket.connected,
+    sendUseItem: (itemInstanceId) => panelSender.sendUseItem(itemInstanceId),
   });
 
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;
@@ -275,7 +276,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   });
 
   return {
-    mailStateSource, suggestionStateSource, buildingFengShuiStateSource,
+    mailStateSource, activityStateSource, buildingFengShuiStateSource,
     actionStateSource,
     techniqueStateSource,
     attrDetailStateSource,

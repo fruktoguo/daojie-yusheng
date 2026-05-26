@@ -11,7 +11,7 @@
  * - protocol-core.ts（会话、移动、系统、面板）
  * - protocol-combat.ts（战斗、行动）
  * - protocol-craft.ts（炼丹、强化）
- * - protocol-social.ts（邮件、建议、聊天）
+ * - protocol-social.ts（邮件、聊天）
  * - protocol-market.ts（市场，当前为域标记）
  */
 import type * as RequestPayloads from './protocol-request-payload-types';
@@ -62,13 +62,9 @@ export const C2S = {
   GmRemoveBots: 'n:c:gmRemoveBots',
   GmUpdatePlayer: 'n:c:gmUpdatePlayer',
   GmResetPlayer: 'n:c:gmResetPlayer',
-  RequestSuggestions: 'n:c:requestSuggestions',
-  CreateSuggestion: 'n:c:createSuggestion',
-  VoteSuggestion: 'n:c:voteSuggestion',
-  ReplySuggestion: 'n:c:replySuggestion',
-  MarkSuggestionRepliesRead: 'n:c:markSuggestionRepliesRead',
-  GmMarkSuggestionCompleted: 'n:c:gmMarkSuggestionCompleted',
-  GmRemoveSuggestion: 'n:c:gmRemoveSuggestion',
+  RequestActivityStatus: 'n:c:requestActivityStatus',
+  ClaimMeritMonthCard: 'n:c:claimMeritMonthCard',
+  ClaimDailySignIn: 'n:c:claimDailySignIn',
   RequestMailSummary: 'n:c:requestMailSummary',
   RequestMailPage: 'n:c:requestMailPage',
   RequestMailDetail: 'n:c:requestMailDetail',
@@ -161,7 +157,8 @@ export const S2C = {
   QuestNavigateResult: 'n:s:questNavigateResult',
   Notice: 'n:s:notice',
   OfflineGainReports: 'n:s:offlineGainReports',
-  SuggestionUpdate: 'n:s:suggestionUpdate',
+  ActivityStatus: 'n:s:activityStatus',
+  ActivityOperationResult: 'n:s:activityOperationResult',
   MailSummary: 'n:s:mailSummary',
   MailPage: 'n:s:mailPage',
   MailDetail: 'n:s:mailDetail',
@@ -227,13 +224,9 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.GmRemoveBots]: RequestPayloads.C2S_GmRemoveBots;
   [C2S.GmUpdatePlayer]: RequestPayloads.C2S_GmUpdatePlayer;
   [C2S.GmResetPlayer]: RequestPayloads.C2S_GmResetPlayer;
-  [C2S.RequestSuggestions]: RequestPayloads.C2S_RequestSuggestions;
-  [C2S.CreateSuggestion]: RequestPayloads.C2S_CreateSuggestion;
-  [C2S.VoteSuggestion]: RequestPayloads.C2S_VoteSuggestion;
-  [C2S.ReplySuggestion]: RequestPayloads.C2S_ReplySuggestion;
-  [C2S.MarkSuggestionRepliesRead]: RequestPayloads.C2S_MarkSuggestionRepliesRead;
-  [C2S.GmMarkSuggestionCompleted]: RequestPayloads.C2S_GmMarkSuggestionCompleted;
-  [C2S.GmRemoveSuggestion]: RequestPayloads.C2S_GmRemoveSuggestion;
+  [C2S.RequestActivityStatus]: RequestPayloads.C2S_RequestActivityStatus;
+  [C2S.ClaimMeritMonthCard]: RequestPayloads.C2S_ClaimMeritMonthCard;
+  [C2S.ClaimDailySignIn]: RequestPayloads.C2S_ClaimDailySignIn;
   [C2S.RequestMailSummary]: RequestPayloads.C2S_RequestMailSummary;
   [C2S.RequestMailPage]: RequestPayloads.C2S_RequestMailPage;
   [C2S.RequestMailDetail]: RequestPayloads.C2S_RequestMailDetail;
@@ -326,7 +319,8 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.QuestNavigateResult]: ResponsePayloads.S2C_QuestNavigateResult;
   [S2C.Notice]: ResponsePayloads.S2C_Notice;
   [S2C.OfflineGainReports]: ResponsePayloads.S2C_OfflineGainReports;
-  [S2C.SuggestionUpdate]: ResponsePayloads.S2C_SuggestionUpdate;
+  [S2C.ActivityStatus]: ResponsePayloads.S2C_ActivityStatus;
+  [S2C.ActivityOperationResult]: ResponsePayloads.S2C_ActivityOperationResult;
   [S2C.MailSummary]: ResponsePayloads.S2C_MailSummary;
   [S2C.MailPage]: ResponsePayloads.S2C_MailPage;
   [S2C.MailDetail]: S2C_MailDetail;

@@ -17,7 +17,6 @@ import type {
   MailDetailView,
 } from './mail-types';
 import type { QuestLine, QuestObjectiveType, QuestState } from './quest-types';
-import type { Suggestion } from './world-view-types';
 import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueLayerGains } from './cultivation-types';
 import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { PlayerState } from './player-runtime-types';
@@ -89,68 +88,6 @@ export interface AuthTokenRes {
  */
 
   refreshToken: string;
-}
-
-/** GM 建议列表查询条件。 */
-export interface GmListSuggestionsQuery {
-/**
- * page：page相关字段。
- */
-
-  page?: number;
-  /**
- * pageSize：数量或计量字段。
- */
-
-  pageSize?: number;
-  /**
- * keyword：keyword相关字段。
- */
-
-  keyword?: string;
-}
-
-/** GM 回复建议请求。 */
-export interface GmReplySuggestionReq {
-/**
- * content：内容相关字段。
- */
-
-  content: string;
-}
-
-/** GM 建议列表响应。 */
-export interface GmSuggestionListRes {
-/**
- * items：集合字段。
- */
-
-  items: Suggestion[];
-  /**
- * total：数量或计量字段。
- */
-
-  total: number;
-  /**
- * page：page相关字段。
- */
-
-  page: number;
-  /**
- * pageSize：数量或计量字段。
- */
-
-  pageSize: number;
-  /**
- * totalPages：totalPage相关字段。
- */
-
-  totalPages: number;
-  /**
- * keyword：keyword相关字段。
- */
-
-  keyword: string;
 }
 
 /** GM 坊市交易记录查询条件。 */

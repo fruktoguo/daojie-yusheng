@@ -14,7 +14,6 @@ import { S2C, type QuestNavigateResultView } from '@mud/shared';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
 import { WorldSessionService } from './world-session.service';
 import { WorldSyncQuestLootService } from './world-sync-quest-loot.service';
 
@@ -80,8 +79,6 @@ export class WorldClientEventService {
     marketRuntimeService;
     /** 玩家 runtime，用于读取任务、聊天和日志书状态。 */
     playerRuntimeService;
-    /** 建议 runtime，用于推送建议板块更新。 */
-    suggestionRuntimeService;
     /** 会话管理入口，用于把 playerId 映射回在线 socket。 */
     worldSessionService;
     /** 复用 quest / loot 同步服务里的拾取窗口推送。 */
@@ -91,7 +88,6 @@ export class WorldClientEventService {
  * @param mailRuntimeService 参数说明。
  * @param marketRuntimeService 参数说明。
  * @param playerRuntimeService 参数说明。
- * @param suggestionRuntimeService 参数说明。
  * @param worldSessionService 参数说明。
  * @param worldSyncQuestLootService 参数说明。
  * @returns 无返回值，完成实例初始化。
@@ -101,14 +97,12 @@ export class WorldClientEventService {
         @Inject(MailRuntimeService) mailRuntimeService: any,
         @Inject(MarketRuntimeService) marketRuntimeService: any,
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
-        @Inject(SuggestionRuntimeService) suggestionRuntimeService: any,
         @Inject(WorldSessionService) worldSessionService: any,
         @Inject(WorldSyncQuestLootService) worldSyncQuestLootService: any,
     ) {
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
         this.playerRuntimeService = playerRuntimeService;
-        this.suggestionRuntimeService = suggestionRuntimeService;
         this.worldSessionService = worldSessionService;
         this.worldSyncQuestLootService = worldSyncQuestLootService;
     }
@@ -331,11 +325,13 @@ export class WorldClientEventService {
     emitQuests(client, payload) {
         this.emit(client, S2C.Quests, payload);
     }
-    /** 推送建议列表变更。 */
-    emitSuggestionUpdate(client, suggestions) {
-        this.emit(client, S2C.SuggestionUpdate, {
-            suggestions,
-        });
+    /** 推送活动中心状态。 */
+    emitActivityStatus(client, status) {
+        this.emit(client, S2C.ActivityStatus, status);
+    }
+    /** 推送活动中心操作结果。 */
+    emitActivityOperationResult(client, payload) {
+        this.emit(client, S2C.ActivityOperationResult, payload);
     }
     /** 推送邮件摘要。 */
     emitMailSummary(client, summary) {
@@ -563,22 +559,6 @@ export class WorldClientEventService {
                 continue;
             }
             this.emitMarketTradeHistory(socket, await this.marketRuntimeService.buildTradeHistoryPage(subscriberPlayerId, request.page, request.source, request.scope));
-        }
-    }
-    /**
- * broadcastSuggestionUpdate：处理broadcastSuggestionUpdate并更新相关状态。
- * @returns 无返回值，直接更新broadcastSuggestionUpdate相关状态。
- */
-
-    broadcastSuggestionUpdate() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const suggestions = this.suggestionRuntimeService.getAll();
-        for (const binding of this.worldSessionService.listBindings()) {
-            const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
-            if (socket) {
-                this.emitSuggestionUpdate(socket, suggestions);
-            }
         }
     }
 };

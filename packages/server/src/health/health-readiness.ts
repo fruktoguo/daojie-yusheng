@@ -52,7 +52,7 @@ export interface HealthReadinessDependencies {
   playerPersistenceService?: PersistenceServiceLike | null;
   mailPersistenceService?: PersistenceServiceLike | null;
   marketPersistenceService?: PersistenceServiceLike | null;
-  suggestionPersistenceService?: PersistenceServiceLike | null;
+  activityPersistenceService?: PersistenceServiceLike | null;
   maintenanceStateService?: MaintenanceStateServiceLike | null;
   worldRuntimeService?: RuntimeServiceLike | null;
   startupRunId?: string | null;
@@ -115,7 +115,7 @@ interface HealthResponse {
       player: PersistenceReadiness;
       mail: PersistenceReadiness;
       market: PersistenceReadiness;
-      suggestion: PersistenceReadiness;
+      activity: PersistenceReadiness;
     };
     auth: {
       ready: boolean;
@@ -137,7 +137,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     player: resolvePersistenceReadiness(database.configured, dependencies.playerPersistenceService),
     mail: resolvePersistenceReadiness(database.configured, dependencies.mailPersistenceService),
     market: resolvePersistenceReadiness(database.configured, dependencies.marketPersistenceService),
-    suggestion: resolvePersistenceReadiness(database.configured, dependencies.suggestionPersistenceService),
+    activity: resolvePersistenceReadiness(database.configured, dependencies.activityPersistenceService),
   };
   const auth = resolveAuthReadiness();
   const runtime = resolveRuntimeReadiness(dependencies.worldRuntimeService, dependencies.startupRunId);
@@ -148,7 +148,7 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
     && persistence.player.enabled
     && persistence.mail.enabled
     && persistence.market.enabled
-    && persistence.suggestion.enabled
+    && persistence.activity.enabled
     && runtime.ready
     && !(shutdown?.blocking === true);
 

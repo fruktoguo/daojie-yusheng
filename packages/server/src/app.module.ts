@@ -44,7 +44,7 @@ import { WorldSyncService } from './network/world-sync.service';
 import { WorldGatewayBuildingHelper } from './network/world-gateway-building.helper';
 import { WorldGatewayClientEmitHelper } from './network/world-gateway-client-emit.helper';
 import { WorldGatewayCraftHelper } from './network/world-gateway-craft.helper';
-import { WorldGatewayGmSuggestionHelper } from './network/world-gateway-gm-suggestion.helper';
+import { WorldGatewayActivityHelper } from './network/world-gateway-activity.helper';
 import { WorldGatewayGuardHelper } from './network/world-gateway-guard.helper';
 import { WorldGatewayMovementHelper } from './network/world-gateway-movement.helper';
 import { WorldGatewayNpcHelper } from './network/world-gateway-npc.helper';
@@ -52,7 +52,6 @@ import { WorldGatewayPresenceHelper } from './network/world-gateway-presence.hel
 import { WorldGatewayReadModelHelper } from './network/world-gateway-read-model.helper';
 import { WorldGatewayContentHelper } from './network/world-gateway-content.helper';
 import { WorldGatewaySessionStateHelper } from './network/world-gateway-session-state.helper';
-import { WorldGatewaySuggestionHelper } from './network/world-gateway-suggestion.helper';
 import { ContentTemplateRepository } from './content/content-template.repository';
 import { BuffTemplateRegistry } from './content/registries/buff-template.registry';
 import { DropTableRegistry } from './content/registries/drop-table.registry';
@@ -181,7 +180,7 @@ import { PlayerSessionRouteService } from './persistence/player-session-route.se
 import { OutboxDispatcherService } from './persistence/outbox-dispatcher.service';
 import { OutboxEventConsumerRegistryService } from './persistence/outbox-event-consumer-registry.service';
 import { OutboxDispatcherRuntimeService } from './persistence/outbox-dispatcher-runtime.service';
-import { SuggestionPersistenceService } from './persistence/suggestion-persistence.service';
+import { ActivityPersistenceService } from './persistence/activity-persistence.service';
 import { RedeemCodePersistenceService } from './persistence/redeem-code-persistence.service';
 import { PlayerCountersPersistenceService } from './persistence/player-counters-persistence.service';
 import { TongtianTowerPersistenceService } from './persistence/tongtian-tower-persistence.service';
@@ -204,7 +203,7 @@ import { InstanceTileDamageFlushWorker } from './runtime/world/worker/instance-t
 import { InstanceOverlayFlushWorker } from './runtime/world/worker/instance-overlay-flush.worker';
 import { InstanceMonsterRuntimeFlushWorker } from './runtime/world/worker/instance-monster-runtime-flush.worker';
 import { CheckpointCompactionWorker } from './runtime/world/worker/checkpoint-compaction.worker';
-import { SuggestionRuntimeService } from './runtime/suggestion/suggestion-runtime.service';
+import { ActivityRuntimeService } from './runtime/activity/activity-runtime.service';
 import { RedeemCodeRuntimeService } from './runtime/redeem/redeem-code-runtime.service';
 import { RuntimeEventBusMetricsService } from './runtime/event-bus/runtime-event-bus-metrics.service';
 import { RuntimeEventBusService } from './runtime/event-bus/runtime-event-bus.service';
@@ -226,10 +225,10 @@ import { AoiEnvelopeEncoderService } from './network/aoi-envelope-encoder.servic
 const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
   ? [
     WorldShutdownDrainService,
+    WorldGatewayActivityHelper,
     WorldGatewayBuildingHelper,
     WorldGatewayClientEmitHelper,
     WorldGatewayCraftHelper,
-    WorldGatewayGmSuggestionHelper,
     WorldGatewayGuardHelper,
     WorldGatewayMovementHelper,
     WorldGatewayNpcHelper,
@@ -237,7 +236,6 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     WorldGatewayReadModelHelper,
     WorldGatewayContentHelper,
     WorldGatewaySessionStateHelper,
-    WorldGatewaySuggestionHelper,
     WorldGateway,
   ]
   : [];
@@ -382,7 +380,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     PlayerFlushLedgerService,
     PlayerIdentityPersistenceService,
     PlayerPersistenceFlushService,
-    SuggestionPersistenceService,
+    ActivityPersistenceService,
     RedeemCodePersistenceService,
     TongtianTowerPersistenceService,
     PlayerCountersPersistenceService,
@@ -410,7 +408,7 @@ const WORLD_GATEWAY_PROVIDERS = shouldStartHttpServer()
     InstanceOverlayFlushWorker,
     InstanceMonsterRuntimeFlushWorker,
     CheckpointCompactionWorker,
-    SuggestionRuntimeService,
+    ActivityRuntimeService,
     RedeemCodeRuntimeService,
     ...WORLD_AUTH_PROVIDERS,
     WorldSessionService,

@@ -55,7 +55,6 @@ export const NATIVE_GM_RESTORE_CONTRACT = Object.freeze({
   clearDetachedCachesBeforeRestore: true,
   reloadWorldRuntimeAfterRestore: true,
   reloadMarketAfterRestore: true,
-  reloadSuggestionAfterRestore: true,
   reloadGmAuthAfterRestore: true,
   preImportBackupEnabled: true,
   requiresMaintenance: false,

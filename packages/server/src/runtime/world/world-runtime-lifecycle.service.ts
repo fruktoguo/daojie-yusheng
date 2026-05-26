@@ -351,9 +351,14 @@ export class WorldRuntimeLifecycleService {
             return result;
         }
         result.enabled = true;
-        // 先将超过 48 小时的离线玩家标记为彻底离线
+        const activeMonthCardPlayerIds = typeof deps.activityRuntimeService?.listActiveMonthCardPlayerIds === 'function'
+            ? await deps.activityRuntimeService.listActiveMonthCardPlayerIds()
+            : [];
+        const baseOfflineTimeoutMs = 48 * 60 * 60 * 1000;
+        const monthCardOfflineTimeoutMs = 72 * 60 * 60 * 1000;
+        // 先将超过权益时长的离线玩家标记为彻底离线
         try {
-            const expiredCount = await persistenceService.expireOfflineHangingPlayers();
+            const expiredCount = await persistenceService.expireOfflineHangingPlayers(baseOfflineTimeoutMs, activeMonthCardPlayerIds, monthCardOfflineTimeoutMs);
             result.expired = Number.isFinite(Number(expiredCount)) ? Math.max(0, Math.trunc(Number(expiredCount))) : 0;
             if (result.expired > 0) {
                 deps.logger?.log?.(`离线挂机超时离场：${result.expired} 名玩家已标记为彻底离线`);
@@ -365,7 +370,7 @@ export class WorldRuntimeLifecycleService {
         // 恢复未超时的离线挂机玩家
         let positions: Array<{ playerId: string; instanceId: string; x: number; y: number }>;
         try {
-            positions = await persistenceService.listOfflineHangingPlayerPositions();
+            positions = await persistenceService.listOfflineHangingPlayerPositions(baseOfflineTimeoutMs, activeMonthCardPlayerIds, monthCardOfflineTimeoutMs);
         } catch (error) {
             markSkipped('query_failed');
             deps.logger?.warn?.(`查询离线挂机玩家位置失败：${error instanceof Error ? error.message : String(error)}`);

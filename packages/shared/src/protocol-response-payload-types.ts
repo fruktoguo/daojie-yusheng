@@ -48,9 +48,9 @@ import type {
   NpcShopSyncView,
   QuestUpdateView,
   RedeemCodesResultView,
-  SuggestionUpdateView,
   TileRuntimeDetailView,
 } from './service-sync-types';
+import type { ActivityOperationResultView, ActivityStatusView } from './activity-types';
 import type {
   GroundItemPilePatchView,
   WorldBuildingPatchView,
@@ -340,8 +340,10 @@ export interface S2C_MailSummary extends MailSummarySyncView {}
 export interface S2C_MailPage extends MailPageSyncView {}
 /** 邮件操作结果。 */
 export interface S2C_MailOpResult extends MailOpResultView {}
-/** 建议列表更新。 */
-export interface S2C_SuggestionUpdate extends SuggestionUpdateView {}
+/** 活动中心状态。 */
+export interface S2C_ActivityStatus extends ActivityStatusView {}
+/** 活动中心操作结果。 */
+export interface S2C_ActivityOperationResult extends ActivityOperationResultView {}
 /** minimapLibrary 版本清单：告知客户端已解锁地图及版本号。 */
 export interface S2C_MinimapLibraryManifest {
   /** 已解锁地图的 id + 版本号列表 */

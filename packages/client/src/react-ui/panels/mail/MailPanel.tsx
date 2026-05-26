@@ -244,7 +244,7 @@ const MailListSection = memo(function MailListSection({
           ))
           : <div className="empty-hint">{t('mail.empty.list', undefined)}</div>}
       </div>
-      <div className="suggestion-pagination">
+      <div className="mail-pagination">
         <button className="small-btn ghost" type="button" disabled={pageData.page <= 1} onClick={() => onPage('prev')}>{t('mail.action.prev-page', undefined)}</button>
         <button className="small-btn ghost" type="button" disabled={pageData.page >= pageData.totalPages} onClick={() => onPage('next')}>{t('mail.action.next-page', undefined)}</button>
       </div>
@@ -277,7 +277,7 @@ const MailListEntry = memo(function MailListEntry({ item, selected, checked, onS
         <div className="mail-entry-head">
           <div className="mail-entry-title-row">
             <div className="mail-entry-title">{item.title}</div>
-            <span className="suggestion-inline-dot" aria-hidden="true" hidden={item.read} />
+            <span className="mail-inline-dot" aria-hidden="true" hidden={item.read} />
           </div>
           <div className="mail-entry-time">{new Date(item.createdAt).toLocaleString()}</div>
         </div>

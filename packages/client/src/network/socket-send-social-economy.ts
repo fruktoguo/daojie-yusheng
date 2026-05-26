@@ -30,56 +30,14 @@ function buildInventoryItemRef(itemInstanceId: string): { itemInstanceId: string
 
 export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
   return {
-  /**
- * sendRequestSuggestions：执行sendRequestSuggestion相关逻辑。
- * @returns 无返回值，直接更新sendRequestSuggestion相关状态。
- */
-
-    sendRequestSuggestions(): void {
-      deps.emitEvent(C2S.RequestSuggestions, {});
+    sendRequestActivityStatus(): void {
+      deps.emitEvent(C2S.RequestActivityStatus, {});
     },
-    /**
- * sendCreateSuggestion：构建sendCreateSuggestion。
- * @param title string 参数说明。
- * @param description string 参数说明。
- * @returns 无返回值，直接更新sendCreateSuggestion相关状态。
- */
-
-
-    sendCreateSuggestion(title: string, description: string): void {
-      deps.emitEvent(C2S.CreateSuggestion, { title, description });
+    sendClaimMeritMonthCard(): void {
+      deps.emitEvent(C2S.ClaimMeritMonthCard, {});
     },
-    /**
- * sendReplySuggestion：执行sendReplySuggestion相关逻辑。
- * @param suggestionId string suggestion ID。
- * @param content string 参数说明。
- * @returns 无返回值，直接更新sendReplySuggestion相关状态。
- */
-
-
-    sendReplySuggestion(suggestionId: string, content: string): void {
-      deps.emitEvent(C2S.ReplySuggestion, { suggestionId, content });
-    },
-    /**
- * sendVoteSuggestion：执行sendVoteSuggestion相关逻辑。
- * @param suggestionId string suggestion ID。
- * @param vote 'up' | 'down' 参数说明。
- * @returns 无返回值，直接更新sendVoteSuggestion相关状态。
- */
-
-
-    sendVoteSuggestion(suggestionId: string, vote: 'up' | 'down'): void {
-      deps.emitEvent(C2S.VoteSuggestion, { suggestionId, vote });
-    },
-    /**
- * sendMarkSuggestionRepliesRead：读取sendMarkSuggestionReplyRead并返回结果。
- * @param suggestionId string suggestion ID。
- * @returns 无返回值，直接更新sendMarkSuggestionReplyRead相关状态。
- */
-
-
-    sendMarkSuggestionRepliesRead(suggestionId: string): void {
-      deps.emitEvent(C2S.MarkSuggestionRepliesRead, { suggestionId });
+    sendClaimDailySignIn(): void {
+      deps.emitEvent(C2S.ClaimDailySignIn, {});
     },
     /**
  * sendRequestMailSummary：执行sendRequest邮件摘要相关逻辑。

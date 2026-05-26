@@ -14,7 +14,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldClientEventService } from './world-client-event.service';
 import {
@@ -41,15 +41,15 @@ import { WorldPlayerSnapshotService } from './world-player-snapshot.service';
 import { WorldSessionService } from './world-session.service';
 import { WorldSyncService } from './world-sync.service';
 
-interface SuggestionRuntimePort {
-    getAll(): unknown[];
-}
-
 interface WorldClientEventPort {
     emitPendingLogbookNotice(client: BootstrapClientLike, notice: unknown): void;
-    emitSuggestionUpdate(client: BootstrapClientLike, suggestions: unknown[]): void;
+    emitActivityStatus(client: BootstrapClientLike, status: unknown): void;
     emitMailSummaryForPlayer(client: BootstrapClientLike, playerId: string): Promise<void>;
     emitPendingLogbookMessages(client: BootstrapClientLike, playerId: string): void;
+}
+
+interface ActivityRuntimePort {
+    getStatus(playerId: string): Promise<unknown>;
 }
 
 interface PlayerRuntimeInitPort {
@@ -105,8 +105,8 @@ export class WorldSessionBootstrapService {
     playerRuntimeService;
     /** 邮件 runtime。 */
     mailRuntimeService;
-    /** 建议 runtime。 */
-    suggestionRuntimeService;
+    /** 活动 runtime。 */
+    activityRuntimeService;
     /** 世界 runtime。 */
     worldRuntimeService;
     /** 会话管理入口。 */
@@ -138,7 +138,7 @@ export class WorldSessionBootstrapService {
  * @param worldGmAuthService 参数说明。
  * @param playerRuntimeService 参数说明。
  * @param mailRuntimeService 参数说明。
- * @param suggestionRuntimeService 参数说明。
+ * @param activityRuntimeService 参数说明。
  * @param worldRuntimeService 参数说明。
  * @param worldSessionService 参数说明。
  * @param worldSyncService 参数说明。
@@ -155,8 +155,8 @@ export class WorldSessionBootstrapService {
         playerRuntimeService: unknown,
         @Inject(MailRuntimeService)
         mailRuntimeService: unknown,
-        @Inject(SuggestionRuntimeService)
-        suggestionRuntimeService: unknown,
+        @Inject(ActivityRuntimeService)
+        activityRuntimeService: unknown,
         @Inject(WorldRuntimeService)
         worldRuntimeService: unknown,
         worldSessionService: WorldSessionService,
@@ -194,7 +194,7 @@ export class WorldSessionBootstrapService {
         this.worldGmAuthService = worldGmAuthService;
         this.playerRuntimeService = playerRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
-        this.suggestionRuntimeService = suggestionRuntimeService;
+        this.activityRuntimeService = activityRuntimeService;
         this.worldRuntimeService = worldRuntimeService;
         this.worldSessionService = worldSessionService;
         this.worldSyncService = worldSyncService;
@@ -205,7 +205,7 @@ export class WorldSessionBootstrapService {
         this.snapshotBootstrapService = snapshotBootstrapService ?? new WorldSessionBootstrapSnapshotService(this.contextHelper, worldPlayerSnapshotService ?? null, worldPlayerAuthService ?? null, playerRuntimeService ?? null);
         this.postEmitBootstrapService = postEmitBootstrapService ?? new WorldSessionBootstrapPostEmitService(
             this.snapshotBootstrapService,
-            suggestionRuntimeService as SuggestionRuntimePort,
+            activityRuntimeService as ActivityRuntimePort,
             worldClientEventService as WorldClientEventPort,
         );
         this.sessionBindBootstrapService = sessionBindBootstrapService ?? new WorldSessionBootstrapSessionBindService(

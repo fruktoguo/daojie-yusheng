@@ -83,13 +83,6 @@ const RULES: AuditRule[] = [
     ],
   },
   {
-    file: 'packages/server/src/persistence/suggestion-persistence.service.ts',
-    banned: [
-      { pattern: 'persistent_documents', reason: '建议真源必须是 server_suggestion_* 专表' },
-      { pattern: 'ensurePersistentDocumentsTable', reason: '建议服务不得初始化通用文档桶' },
-    ],
-  },
-  {
     file: 'packages/server/src/persistence/market-persistence.service.ts',
     banned: [
       { pattern: 'persistent_documents', reason: '坊市订单/历史/托管仓不得再写通用文档桶' },

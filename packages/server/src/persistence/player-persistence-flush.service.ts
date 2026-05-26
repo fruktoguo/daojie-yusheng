@@ -25,6 +25,7 @@ import { PersistenceWorkerPoolService } from '../concurrency/persistence-worker-
 import { DatabasePoolProvider } from './database-pool.provider';
 import { FlushDiagnosticsService, type PlayerFlushDiagnostics } from './flush-diagnostics.service';
 import { shouldRunLegacyFlushIntervals } from './flush-task-runtime-mode';
+import { ActivityPersistenceService } from './activity-persistence.service';
 
 /**
  * 玩家分域刷盘周期。
@@ -149,6 +150,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     private readonly flushDiagnostics?: FlushDiagnosticsService,
     @Optional() @Inject(StartupBarrierService)
     private readonly startupBarrierService?: StartupBarrierService,
+    @Optional() @Inject(ActivityPersistenceService)
+    private readonly activityPersistenceService?: ActivityPersistenceService,
   ) {}
 
   setLeaseGuard(leaseGuard: LeaseGuardPort | null): void {
@@ -572,8 +575,12 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     if (!players || players.size === 0) {
       return;
     }
-    const offlineTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
+    const baseOfflineTimeoutMs = DEFAULT_OFFLINE_PLAYER_TIMEOUT_SEC * 1000;
+    const monthCardOfflineTimeoutMs = 72 * 60 * 60 * 1000;
     const now = Date.now();
+    const activeMonthCardPlayerIds = new Set(
+      await this.activityPersistenceService?.listActiveMonthCardPlayerIds?.(now).catch(() => []) ?? [],
+    );
     const expiredPlayerIds: string[] = [];
     for (const [playerId, player] of players) {
       if (!player) continue;
@@ -581,7 +588,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       if (!isOffline) continue;
       const offlineSince = Number(player.offlineSinceAt);
       if (!Number.isFinite(offlineSince) || offlineSince <= 0) continue;
-      if (now - offlineSince >= offlineTimeoutMs) {
+      const timeoutMs = activeMonthCardPlayerIds.has(playerId) ? monthCardOfflineTimeoutMs : baseOfflineTimeoutMs;
+      if (now - offlineSince >= timeoutMs) {
         expiredPlayerIds.push(playerId);
       }
     }

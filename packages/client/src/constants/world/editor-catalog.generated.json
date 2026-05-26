@@ -8562,6 +8562,14 @@
       "desc": "天道垂记的无形功业，可在天道商店中兑换稀有物资。"
     },
     {
+      "itemId": "merit_month_card",
+      "name": "功德月卡",
+      "type": "consumable",
+      "grade": "yellow",
+      "desc": "使用后激活功德月卡 30 天；重复使用会累计有效期。月卡有效期间每日可在活动中领取 100 功德，并将最大离线挂机时长提升至 72 小时。",
+      "useBehavior": "activate_merit_month_card"
+    },
+    {
       "itemId": "map.ancient_ruins",
       "name": "古遗迹残图",
       "type": "consumable",

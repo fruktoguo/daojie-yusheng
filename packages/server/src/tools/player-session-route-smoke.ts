@@ -189,7 +189,6 @@ async function verifyHookWiring(): Promise<{
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
     new WorldGatewayPresenceHelper(playerDomainPersistenceService as never, playerRuntimeService as never) as never,
     {} as never,
     {} as never,

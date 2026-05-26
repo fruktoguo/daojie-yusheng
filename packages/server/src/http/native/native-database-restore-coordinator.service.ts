@@ -18,7 +18,6 @@ import { RuntimeGmAuthService } from '../../runtime/gm/runtime-gm-auth.service';
 import { MailRuntimeService } from '../../runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
-import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
 import { NativePlayerAuthStoreService } from './native-player-auth-store.service';
@@ -83,11 +82,6 @@ interface MarketRuntimeServiceLike {
   reloadFromPersistence(): Promise<void>;
 }
 
-/** 建议运行时服务端口。 */
-interface SuggestionRuntimeServiceLike {
-  reloadFromPersistence(): Promise<void>;
-}
-
 /** GM 鉴权运行时服务端口。 */
 interface RuntimeGmAuthServiceLike {
   reloadPasswordRecordFromPersistence(): Promise<void>;
@@ -110,7 +104,6 @@ export class NativeDatabaseRestoreCoordinatorService {
     @Inject(PlayerSessionRouteService) private readonly playerSessionRouteService: PlayerSessionRouteService,
     @Inject(MailRuntimeService) private readonly mailRuntimeService: MailRuntimeServiceLike,
     @Inject(MarketRuntimeService) private readonly marketRuntimeService: MarketRuntimeServiceLike,
-    @Inject(SuggestionRuntimeService) private readonly suggestionRuntimeService: SuggestionRuntimeServiceLike,
     @Inject(RuntimeGmAuthService) private readonly runtimeGmAuthService: RuntimeGmAuthServiceLike,
     @Inject(NativePlayerAuthStoreService) private readonly playerAuthStoreService: NativePlayerAuthStoreServiceLike,
   ) {}
@@ -200,9 +193,6 @@ export class NativeDatabaseRestoreCoordinatorService {
 
     this.mailRuntimeService.clearRuntimeCache();
 
-    if (NATIVE_GM_RESTORE_CONTRACT.reloadSuggestionAfterRestore) {
-      await this.suggestionRuntimeService.reloadFromPersistence();
-    }
     if (NATIVE_GM_RESTORE_CONTRACT.reloadGmAuthAfterRestore) {
       await this.runtimeGmAuthService.reloadPasswordRecordFromPersistence();
     }

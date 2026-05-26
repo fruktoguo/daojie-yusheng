@@ -133,10 +133,10 @@ type MainResetStateSourceOptions = {
 
   clearMailState: () => void;  
   /**
- * clearSuggestionState：clearSuggestion状态状态或数据块。
+ * clearActivityState：清理活动中心状态。
  */
 
-  clearSuggestionState: () => void;  
+  clearActivityState: () => void;
   /** 清理建造、房间和风水低频投影。 */
   clearBuildingFengShuiState: () => void;
   /**
@@ -211,7 +211,7 @@ export function createMainResetStateSource(options: MainResetStateSourceOptions)
       options.clearLootPanel();
       options.clearWorldPanel();
       options.clearMailState();
-      options.clearSuggestionState();
+      options.clearActivityState();
       options.clearBuildingFengShuiState();
       options.resetMapRuntime();
       options.resetReactUiBridge();

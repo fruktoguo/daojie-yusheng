@@ -259,10 +259,10 @@ type MainRuntimeStateSourceOptions = {
 
   initMailState: (playerId: string) => void;  
   /**
- * initSuggestionState：initSuggestion状态状态或数据块。
+ * initActivityState：初始化活动中心状态。
  */
 
-  initSuggestionState: (playerId: string) => void;  
+  initActivityState: () => void;
   /**
  * hideObserveModal：hideObserve弹层相关字段。
  */
@@ -689,7 +689,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.initWorldSummaryState();
       options.refreshUiChrome();
       options.initMailState(player.id);
-      options.initSuggestionState(player.id);
+      options.initActivityState();
       flushPendingBootstrapEnvelope();
     },
   };

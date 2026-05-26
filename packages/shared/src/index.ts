@@ -16,6 +16,7 @@ export * from './api-contracts';
 export * from './numeric';
 export * from './automation-types';
 export * from './action-combat-types';
+export * from './activity-types';
 export * from './attribute-types';
 export * from './attr-detail-types';
 export * from './client-core-request-types';

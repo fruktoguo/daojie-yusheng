@@ -798,7 +798,7 @@ export class MailPanel {
                 ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
                 : `<div class="empty-hint">${escapeHtml(MAIL_LIST_EMPTY_TEXT)}</div>`}
             </div>
-            <div class="suggestion-pagination">
+            <div class="mail-pagination">
               <button class="small-btn ghost" data-mail-page-action="prev" type="button" ${this.pageData.page <= 1 ? 'disabled' : ''}>${escapeHtml(t('mail.action.prev-page', undefined))}</button>
               <button class="small-btn ghost" data-mail-page-action="next" type="button" ${this.pageData.page >= this.pageData.totalPages ? 'disabled' : ''}>${escapeHtml(t('mail.action.next-page', undefined))}</button>
             </div>
@@ -844,7 +844,7 @@ export class MailPanel {
     title.className = 'mail-entry-title';
     title.dataset.mailEntryTitle = 'true';
     const unreadDot = document.createElement('span');
-    unreadDot.className = 'suggestion-inline-dot';
+    unreadDot.className = 'mail-inline-dot';
     unreadDot.setAttribute('aria-hidden', 'true');
     unreadDot.dataset.mailEntryUnreadDot = 'true';
     const time = document.createElement('div');
@@ -1114,7 +1114,7 @@ export class MailPanel {
           <div class="mail-entry-head">
             <div class="mail-entry-title-row">
               <div class="mail-entry-title" data-mail-entry-title="true">${escapeHtml(item.title)}</div>
-              <span class="suggestion-inline-dot" aria-hidden="true" data-mail-entry-unread-dot="true" ${item.read ? 'hidden' : ''}></span>
+              <span class="mail-inline-dot" aria-hidden="true" data-mail-entry-unread-dot="true" ${item.read ? 'hidden' : ''}></span>
             </div>
             <div class="mail-entry-time" data-mail-entry-time="true">${new Date(item.createdAt).toLocaleString()}</div>
           </div>

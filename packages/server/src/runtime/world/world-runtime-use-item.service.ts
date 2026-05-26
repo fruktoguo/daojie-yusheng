@@ -8,9 +8,10 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_MONTH_CARD_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
+import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -41,6 +42,7 @@ export class WorldRuntimeUseItemService {
  */
 
     playerRuntimeService;    
+    activityRuntimeService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
@@ -53,10 +55,12 @@ export class WorldRuntimeUseItemService {
         @Inject(ContentTemplateRepository) contentTemplateRepository: any,
         @Inject(MapTemplateRepository) templateRepository: any,
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
+        @Inject(ActivityRuntimeService) activityRuntimeService: any = undefined,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.playerRuntimeService = playerRuntimeService;
+        this.activityRuntimeService = activityRuntimeService;
     }    
     /**
  * dispatchUseItem：判断Use道具是否满足条件。
@@ -66,7 +70,7 @@ export class WorldRuntimeUseItemService {
  * @returns 无返回值，直接更新Use道具相关状态。
  */
 
-    dispatchUseItem(playerId, itemInstanceId, deps, payload = null) {
+    async dispatchUseItem(playerId, itemInstanceId, deps, payload = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const inventoryItem = this.playerRuntimeService.peekInventoryItemByInstanceId(playerId, itemInstanceId);
@@ -93,6 +97,10 @@ export class WorldRuntimeUseItemService {
                 vars: { panel: 'technique_generation' },
             });
             deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+            return;
+        }
+        if (item.useBehavior === MERIT_MONTH_CARD_USE_BEHAVIOR) {
+            await this.handleMeritMonthCardItem(playerId, itemInstanceId, item, deps);
             return;
         }
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
@@ -128,6 +136,24 @@ export class WorldRuntimeUseItemService {
         const n = buildStructuredNotice('success', 'notice.item.used', `使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }    
+    async handleMeritMonthCardItem(playerId, itemInstanceId, item, deps) {
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+        try {
+            await this.activityRuntimeService.activateMeritMonthCard(playerId);
+        }
+        catch (error) {
+            this.playerRuntimeService.receiveInventoryItem(playerId, { ...item, count: 1 });
+            throw normalizeActivityError(error);
+        }
+        deps.refreshQuestStates(playerId);
+        const itemName = getItemDisplayName(item);
+        const n = buildStructuredNotice('success', 'notice.activity.month-card-activated', `已激活${itemName}，有效期增加 30 天`, {
+            vars: { itemName, days: 30 },
+            pills: [{ key: 'itemName', style: 'target' }],
+        });
+        deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+    }
+
     resolveUseItemView(item) {
         const normalized = typeof this.contentTemplateRepository?.normalizeItem === 'function'
             ? this.contentTemplateRepository.normalizeItem(item)

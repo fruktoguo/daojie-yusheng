@@ -61,7 +61,7 @@ export class HealthController {
           player: { enabled: false, reason: 'service_unavailable' },
           mail: { enabled: false, reason: 'service_unavailable' },
           market: { enabled: false, reason: 'service_unavailable' },
-          suggestion: { enabled: false, reason: 'service_unavailable' },
+          activity: { enabled: false, reason: 'service_unavailable' },
         },
         auth: {
           ready: true,

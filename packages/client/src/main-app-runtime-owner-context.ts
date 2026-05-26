@@ -344,7 +344,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     initWorldSummaryState: () => panelContext.worldSummaryStateSource.init(),
     refreshUiChrome: () => panelContext.uiStateSource.refreshUiChrome(),
     initMailState: (playerId) => panelContext.mailStateSource.initFromPlayer(playerId),
-    initSuggestionState: (playerId) => panelContext.suggestionStateSource.initFromPlayer(playerId),
+    initActivityState: () => panelContext.activityStateSource.init(),
     hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(),
     applyWorldDelta: (data, mapIdHint, instanceIdHint) => runtimeDeltaStateSource.handleWorldDelta(data, mapIdHint, instanceIdHint),
     applySelfDelta: (data) => runtimeDeltaStateSource.handleSelfDelta(data),
@@ -413,7 +413,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     clearWorldSummaryState: () => panelContext.worldSummaryStateSource.clear(),
     clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(),
     clearWorldPanel: () => panelContext.panelDeps.worldPanel.clear(),
-    clearMailState: () => panelContext.mailStateSource.clear(), clearSuggestionState: () => panelContext.suggestionStateSource.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(),
+    clearMailState: () => panelContext.mailStateSource.clear(), clearActivityState: () => panelContext.activityStateSource.clear(), clearBuildingFengShuiState: () => panelContext.buildingFengShuiStateSource.clear(),
     resetMapRuntime: () => mapRuntime.reset(),
     resetReactUiBridge: () => {
       reactUiBridge.reset();

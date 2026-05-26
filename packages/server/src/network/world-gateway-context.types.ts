@@ -14,7 +14,7 @@ import type { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import type { MarketRuntimeService } from '../runtime/market/market-runtime.service';
 import type { LeaderboardRuntimeService } from '../runtime/player/leaderboard-runtime.service';
 import type { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import type { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import type { ActivityRuntimeService } from '../runtime/activity/activity-runtime.service';
 import type { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import type { WorldClientEventService } from './world-client-event.service';
 import type { WorldGmSocketService } from './world-gm-socket.service';
@@ -23,12 +23,12 @@ import type { WorldSessionBootstrapService } from './world-session-bootstrap.ser
 import type { WorldSessionService } from './world-session.service';
 import type { WorldSyncService } from './world-sync.service';
 import type { WorldGatewayActionHelper } from './world-gateway-action.helper';
+import type { WorldGatewayActivityHelper } from './world-gateway-activity.helper';
 import type { WorldGatewayBootstrapHelper } from './world-gateway-bootstrap.helper';
 import type { WorldGatewayBuildingHelper } from './world-gateway-building.helper';
 import type { WorldGatewayClientEmitHelper } from './world-gateway-client-emit.helper';
 import type { WorldGatewayCraftHelper } from './world-gateway-craft.helper';
 import type { WorldGatewayGmCommandHelper } from './world-gateway-gm-command.helper';
-import type { WorldGatewayGmSuggestionHelper } from './world-gateway-gm-suggestion.helper';
 import type { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
 import type { WorldGatewayInventoryHelper } from './world-gateway-inventory.helper';
 import type { WorldGatewayMailHelper } from './world-gateway-mail.helper';
@@ -39,7 +39,6 @@ import type { WorldGatewayPlayerControlsHelper } from './world-gateway-player-co
 import type { WorldGatewayPresenceHelper } from './world-gateway-presence.helper';
 import type { WorldGatewayReadModelHelper } from './world-gateway-read-model.helper';
 import type { WorldGatewaySessionStateHelper } from './world-gateway-session-state.helper';
-import type { WorldGatewaySuggestionHelper } from './world-gateway-suggestion.helper';
 
 export interface WorldGatewayHelperContext {
   logger: Logger;
@@ -53,7 +52,7 @@ export interface WorldGatewayHelperContext {
   mailRuntimeService: MailRuntimeService;
   marketRuntimeService: MarketRuntimeService;
   craftPanelRuntimeService: CraftPanelRuntimeService;
-  suggestionRuntimeService: SuggestionRuntimeService;
+  activityRuntimeService: ActivityRuntimeService;
   leaderboardRuntimeService: LeaderboardRuntimeService;
   runtimeGmStateService: RuntimeGmStateService;
   worldRuntimeService: WorldRuntimeService;
@@ -64,8 +63,7 @@ export interface WorldGatewayHelperContext {
   flushMarketResult(result: unknown): Promise<void>;
   gatewayBootstrapHelper: WorldGatewayBootstrapHelper;
   gatewayGmCommandHelper: WorldGatewayGmCommandHelper;
-  gatewayGmSuggestionHelper: WorldGatewayGmSuggestionHelper;
-  gatewaySuggestionHelper: WorldGatewaySuggestionHelper;
+  gatewayActivityHelper: WorldGatewayActivityHelper;
   gatewayMovementHelper: WorldGatewayMovementHelper;
   gatewayInventoryHelper: WorldGatewayInventoryHelper;
   gatewayMailHelper: WorldGatewayMailHelper;

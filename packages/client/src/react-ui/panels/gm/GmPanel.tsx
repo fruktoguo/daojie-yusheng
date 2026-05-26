@@ -4,7 +4,7 @@
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { memo, useCallback, useMemo, useState, useRef } from 'react';
-import type { C2S_GmUpdatePlayer, GmPlayerSummary, GmWorkerPoolAllMetrics, GmWorkerPoolMetrics, S2C_GmState, Suggestion } from '@mud/shared';
+import type { C2S_GmUpdatePlayer, GmPlayerSummary, GmWorkerPoolAllMetrics, GmWorkerPoolMetrics, S2C_GmState } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { getCachedMapMeta } from '../../../map-static-cache';
 
@@ -12,7 +12,6 @@ import { getCachedMapMeta } from '../../../map-static-cache';
 
 interface GmPanelState {
   gmState: S2C_GmState | null;
-  suggestions: Suggestion[];
 }
 
 function createEmptyGmState(): S2C_GmState {
@@ -63,7 +62,6 @@ function createEmptyGmState(): S2C_GmState {
 
 export const { store: gmPanelStore, useStore: useGmPanelStore } = createPanelStore<GmPanelState>({
   gmState: null,
-  suggestions: [],
 });
 
 // ─── Callbacks ───────────────────────────────────────────────────────────────
@@ -77,8 +75,6 @@ interface GmPanelCallbacks {
   onUpdatePlayer: ((payload: C2S_GmUpdatePlayer) => void) | null;
   onResetPlayer: ((playerId: string) => void) | null;
   onResetHeavenGate: ((playerId: string) => void) | null;
-  onMarkSuggestionCompleted: ((id: string) => void) | null;
-  onRemoveSuggestion: ((id: string) => void) | null;
 }
 
 const callbacks: GmPanelCallbacks = {
@@ -90,8 +86,6 @@ const callbacks: GmPanelCallbacks = {
   onUpdatePlayer: null,
   onResetPlayer: null,
   onResetHeavenGate: null,
-  onMarkSuggestionCompleted: null,
-  onRemoveSuggestion: null,
 };
 
 export function setGmPanelCallbacks(cbs: Partial<GmPanelCallbacks>): void {
@@ -118,7 +112,7 @@ function getPlayerMapLabel(player: GmPlayerSummary): string {
 type GmTab = 'overview' | 'workers';
 
 export function GmPanel() {
-  const { gmState, suggestions } = useGmPanelStore();
+  const { gmState } = useGmPanelStore();
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GmTab>('overview');
 
@@ -170,7 +164,6 @@ export function GmPanel() {
             player={selectedPlayer}
             mapIds={state.mapIds}
           />
-          <GmSuggestionSection suggestions={suggestions} />
         </>
       )}
       {activeTab === 'workers' && (
@@ -478,61 +471,6 @@ function GmPlayerDetailSection({
     </div>
   );
 }
-
-// ─── 意见管理区 ──────────────────────────────────────────────────────────────
-
-const GmSuggestionSection = memo(function GmSuggestionSection({ suggestions }: { suggestions: Suggestion[] }) {
-  const sorted = useMemo(
-    () => [...suggestions].sort((a, b) => b.createdAt - a.createdAt),
-    [suggestions],
-  );
-
-  return (
-    <div className="panel-section ui-surface-pane ui-surface-pane--stack">
-      <div className="panel-section-title">意见管理</div>
-      <div className="gm-suggestion-list ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
-        {sorted.length === 0 ? (
-          <div className="empty-hint ui-empty-hint">暂无意见收集</div>
-        ) : (
-          sorted.map((suggestion) => (
-            <GmSuggestionCard key={suggestion.id} suggestion={suggestion} />
-          ))
-        )}
-      </div>
-    </div>
-  );
-});
-
-const GmSuggestionCard = memo(function GmSuggestionCard({ suggestion }: { suggestion: Suggestion }) {
-  const handleComplete = useCallback(() => {
-    callbacks.onMarkSuggestionCompleted?.(suggestion.id);
-  }, [suggestion.id]);
-
-  const handleRemove = useCallback(() => {
-    if (confirm('确定移除这条意见吗？')) {
-      callbacks.onRemoveSuggestion?.(suggestion.id);
-    }
-  }, [suggestion.id]);
-
-  return (
-    <div className="gm-suggestion-card ui-surface-card ui-surface-card--compact" data-gm-suggestion-id={suggestion.id}>
-      <div className="gm-suggestion-head">
-        <span className={`gm-suggestion-title ${suggestion.status === 'completed' ? 'completed' : 'pending'}`}>
-          {suggestion.title}
-        </span>
-        <span className="gm-suggestion-author">{suggestion.authorName}</span>
-      </div>
-      <div className="gm-suggestion-desc">{suggestion.description}</div>
-      <div className="gm-suggestion-actions">
-        <span className="gm-suggestion-votes">👍{suggestion.upvotes.length} 👎{suggestion.downvotes.length}</span>
-        {suggestion.status === 'pending' && (
-          <button className="gm-suggestion-action" type="button" onClick={handleComplete}>标记完成</button>
-        )}
-        <button className="gm-suggestion-action gm-suggestion-action--danger" type="button" onClick={handleRemove}>移除</button>
-      </div>
-    </div>
-  );
-});
 
 // ─── 多线程 Worker Pool 区 ──────────────────────────────────────────────────
 

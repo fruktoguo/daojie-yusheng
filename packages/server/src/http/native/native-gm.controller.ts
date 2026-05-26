@@ -5,7 +5,7 @@
  */
 /**
  * GM 主控制器。
- * 提供世界状态查询、玩家管理、地图实例操作、邮件、兑换码、建议系统、
+ * 提供世界状态查询、玩家管理、地图实例操作、邮件、兑换码、
  * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
  */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
@@ -186,22 +186,6 @@ interface RedeemCodeGroupBody {
  */
 
   count?: unknown;
-}
-/**
- * SuggestionsQuery：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface SuggestionsQuery {
-  [key: string]: unknown;
-}
-/**
- * SuggestionReplyBody：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface SuggestionReplyBody {
-  [key: string]: unknown;
 }
 /**
  * MapConfigBody：定义接口结构约束，明确可交付字段含义。
@@ -1017,51 +1001,6 @@ export class NativeGmController {
   @Delete('redeem-codes/:codeId')
   async destroyRedeemCode(@Param('codeId') codeId: string) {
     return this.redeemCodeRuntimeService.destroyCode(codeId);
-  }
-  /**
- * getSuggestions：读取Suggestion。
- * @param query SuggestionsQuery 参数说明。
- * @returns 无返回值，完成Suggestion的读取/组装。
- */
-
-
-  @Get('suggestions')
-  getSuggestions(@Query() query: SuggestionsQuery) {
-    return this.nextGmWorldService.getSuggestions(query ?? {});
-  }
-  /**
- * completeSuggestion：执行completeSuggestion相关逻辑。
- * @param id string 参数说明。
- * @returns 无返回值，直接更新completeSuggestion相关状态。
- */
-
-
-  @Post('suggestions/:id/complete')
-  async completeSuggestion(@Param('id') id: string) {
-    return this.nextGmWorldService.completeSuggestion(id);
-  }
-  /**
- * replySuggestion：执行replySuggestion相关逻辑。
- * @param id string 参数说明。
- * @param body SuggestionReplyBody 参数说明。
- * @returns 无返回值，直接更新replySuggestion相关状态。
- */
-
-
-  @Post('suggestions/:id/replies')
-  async replySuggestion(@Param('id') id: string, @Body() body: SuggestionReplyBody) {
-    return this.nextGmWorldService.replySuggestion(id, body ?? {});
-  }
-  /**
- * removeSuggestion：处理Suggestion并更新相关状态。
- * @param id string 参数说明。
- * @returns 无返回值，直接更新Suggestion相关状态。
- */
-
-
-  @Delete('suggestions/:id')
-  async removeSuggestion(@Param('id') id: string) {
-    return this.nextGmWorldService.removeSuggestion(id);
   }
   /**
  * updateMapTick：处理地图tick并更新相关状态。

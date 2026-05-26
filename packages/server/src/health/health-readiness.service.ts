@@ -12,7 +12,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { MailPersistenceService } from '../persistence/mail-persistence.service';
 import { MarketPersistenceService } from '../persistence/market-persistence.service';
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
-import { SuggestionPersistenceService } from '../persistence/suggestion-persistence.service';
+import { ActivityPersistenceService } from '../persistence/activity-persistence.service';
 import { StartupBarrierService } from '../lifecycle/startup-barrier.service';
 import { StartupStatusService } from '../lifecycle/startup-status.service';
 import { ShutdownStatusService } from '../lifecycle/shutdown-status.service';
@@ -46,8 +46,8 @@ export class HealthReadinessService {
     @Inject(MarketPersistenceService)
     private readonly marketPersistenceService: PersistenceServiceLike,
     @Optional()
-    @Inject(SuggestionPersistenceService)
-    private readonly suggestionPersistenceService: PersistenceServiceLike,
+    @Inject(ActivityPersistenceService)
+    private readonly activityPersistenceService: PersistenceServiceLike,
     @Optional()
     @Inject(ServerReadinessDependenciesService)
     private readonly serverReadinessDependenciesService: ServerReadinessDependenciesService,
@@ -72,7 +72,7 @@ export class HealthReadinessService {
       playerPersistenceService: this.playerPersistenceService,
       mailPersistenceService: this.mailPersistenceService,
       marketPersistenceService: this.marketPersistenceService,
-      suggestionPersistenceService: this.suggestionPersistenceService,
+      activityPersistenceService: this.activityPersistenceService,
       ...(this.serverReadinessDependenciesService?.build() ?? {}),
       worldRuntimeService: this.worldRuntimeService,
       startupRunId: startup?.startupRunId ?? null,

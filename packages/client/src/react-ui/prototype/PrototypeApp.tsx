@@ -89,7 +89,7 @@ const MODULE_GROUPS: ReadonlyArray<{
   },
   {
     title: '补充面板',
-    ids: ['suggestion', 'npc-shop', 'npc-quest', 'craft', 'loot', 'minimap', 'tutorial', 'changelog'],
+    ids: ['activity', 'npc-shop', 'npc-quest', 'craft', 'loot', 'minimap', 'tutorial', 'changelog'],
   },
   {
     title: '管理与特殊',

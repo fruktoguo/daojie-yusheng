@@ -66,7 +66,8 @@ const EXPECTED_STATIC_S2C_SURFACES = [
       'QuestNavigateResult',
       'Quests',
       'RedeemCodesResult',
-      'SuggestionUpdate',
+      'ActivityStatus',
+      'ActivityOperationResult',
     ],
   },
   {

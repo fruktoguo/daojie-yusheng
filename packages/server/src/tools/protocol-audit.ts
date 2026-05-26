@@ -62,7 +62,6 @@ var LEGACY_S2C_SET = new Set([
   's:mailDetail',
   's:redeemCodesResult',
   's:mailOpResult',
-  's:suggestionUpdate',
   's:marketUpdate',
   's:marketListings',
   's:marketOrders',
@@ -132,11 +131,9 @@ var EXPECTED_C2S = [
   C2S.Unequip,
   C2S.Cultivate,
   C2S.CastSkill,
-  C2S.RequestSuggestions,
-  C2S.CreateSuggestion,
-  C2S.VoteSuggestion,
-  C2S.ReplySuggestion,
-  C2S.MarkSuggestionRepliesRead,
+  C2S.RequestActivityStatus,
+  C2S.ClaimMeritMonthCard,
+  C2S.ClaimDailySignIn,
   C2S.RequestMailSummary,
   C2S.RequestMailPage,
   C2S.RequestMailDetail,
@@ -189,7 +186,8 @@ var EXPECTED_S2C = [
   S2C.EnhancementPanel,
   S2C.Quests,
   S2C.NpcQuests,
-  S2C.SuggestionUpdate,
+  S2C.ActivityStatus,
+  S2C.ActivityOperationResult,
   S2C.MailSummary,
   S2C.MailPage,
   S2C.MailDetail,
@@ -211,8 +209,6 @@ if (HAS_DATABASE) {
   EXPECTED_C2S.push(C2S.GmRemoveBots);
   EXPECTED_C2S.push(C2S.GmUpdatePlayer);
   EXPECTED_C2S.push(C2S.GmResetPlayer);
-  EXPECTED_C2S.push(C2S.GmMarkSuggestionCompleted);
-  EXPECTED_C2S.push(C2S.GmRemoveSuggestion);
   EXPECTED_C2S.push(C2S.RedeemCodes);
   EXPECTED_S2C.push(S2C.GmState);
   EXPECTED_S2C.push(S2C.RedeemCodesResult);
@@ -251,7 +247,8 @@ var STATIC_S2C_SURFACE_CHECKS = [
       'QuestNavigateResult',
       'Quests',
       'RedeemCodesResult',
-      'SuggestionUpdate',
+      'ActivityStatus',
+      'ActivityOperationResult',
     ],
   },
   {
@@ -2250,71 +2247,25 @@ async function gmCase(runtime) {
   }, 8000);
 }
 /**
- * 处理suggestioncase。
+ * 处理activitycase。
  */
-async function suggestionCase(runtime) {
+async function activityCase(runtime) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
  * 记录socket。
  */
-  var socket = runtime.createSocket("suggestion");
-/**
- * 记录会话。
- */
-  var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
-/**
- * 记录玩家ID。
- */
-  var playerId = session.playerId;
-  await emitAndWait(socket, C2S.RequestSuggestions, {}, S2C.SuggestionUpdate, function () { return true; }, 10000);
-/**
- * 记录title。
- */
-  var title = "协议审计 " + playerId;
-/**
- * 记录created。
- */
-  var created = await emitAndWait(socket, C2S.CreateSuggestion, { title: title, description: "protocol audit" }, S2C.SuggestionUpdate, function (payload) {
-    return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.title === title; });
+  var socket = runtime.createSocket("activity");
+  await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+  await emitAndWait(socket, C2S.RequestActivityStatus, {}, S2C.ActivityStatus, function (payload) {
+    return payload && payload.monthCard && payload.dailySignIn;
   }, 10000);
-/**
- * 记录suggestionID。
- */
-  var suggestionId = created.suggestions.find(function (entry) { return entry.title === title; }).id;
-  await emitAndWait(socket, C2S.VoteSuggestion, { suggestionId: suggestionId, vote: "up" }, S2C.SuggestionUpdate, function (payload) {
-    return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
+  await emitAndWait(socket, C2S.ClaimMeritMonthCard, {}, S2C.ActivityOperationResult, function (payload) {
+    return payload && payload.operation === "claimMonthCard";
   }, 10000);
-  await runtime.api.post("/runtime/suggestions/" + suggestionId + "/reply", { content: "GM 审计回复" });
-  await emitAndWait(socket, C2S.ReplySuggestion, { suggestionId: suggestionId, content: "审计回复" }, S2C.SuggestionUpdate, function (payload) {
-    return payload && payload.suggestions && payload.suggestions.some(function (entry) {
-      return entry.id === suggestionId && Array.isArray(entry.replies) && entry.replies.length > 1 && entry.replies[entry.replies.length - 1].authorType === "author";
-    });
+  await emitAndWait(socket, C2S.ClaimDailySignIn, {}, S2C.ActivityOperationResult, function (payload) {
+    return payload && payload.operation === "claimDailySignIn";
   }, 10000);
-  await emitAndWait(socket, C2S.MarkSuggestionRepliesRead, { suggestionId: suggestionId }, S2C.SuggestionUpdate, function (payload) {
-    return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId; });
-  }, 10000);
-  if (HAS_DATABASE) {
-/**
- * 记录GM鉴权。
- */
-    var gmAuth = await registerAndLoginPlayer(runtime.baseUrl, pid("audit_gm_suggestion"));
-/**
- * 记录GM令牌。
- */
-    var gmToken = await loginGm(runtime.baseUrl);
-/**
- * 记录GM socket。
- */
-    var gmSocket = runtime.createSocket("suggestion:gm", { token: gmAuth.accessToken, gmToken: gmToken, protocol: "mainline" });
-    await awaitAuthenticatedBootstrap(runtime, gmSocket, 12000);
-    await emitAndWait(gmSocket, C2S.GmMarkSuggestionCompleted, { suggestionId: suggestionId }, S2C.SuggestionUpdate, function (payload) {
-      return payload && payload.suggestions && payload.suggestions.some(function (entry) { return entry.id === suggestionId && entry.status === "completed"; });
-    }, 10000);
-    await emitAndWait(gmSocket, C2S.GmRemoveSuggestion, { suggestionId: suggestionId }, S2C.SuggestionUpdate, function (payload) {
-      return payload && Array.isArray(payload.suggestions) && payload.suggestions.every(function (entry) { return entry.id !== suggestionId; });
-    }, 10000);
-  }
 }
 /**
  * 处理mailcase。
@@ -2980,7 +2931,7 @@ async function main() {
     { name: "pending-logbook-ack", run: pendingLogbookAckCase },
     ...(HAS_DATABASE ? [{ name: "redeem-codes", run: redeemCodesCase }] : []),
     ...(HAS_DATABASE ? [{ name: "gm", run: gmCase }] : []),
-    { name: "suggestions", run: suggestionCase },
+    { name: "activity", run: activityCase },
     { name: "mail", run: mailCase },
     { name: "progression-combat", run: progressionCase },
     { name: "loot", run: lootCase },

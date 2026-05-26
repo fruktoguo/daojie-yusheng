@@ -1189,7 +1189,11 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   }
 
   /** 查询所有离线挂机中的玩家位置（in_world=true, online=false, 未超时） */
-  async listOfflineHangingPlayerPositions(offlineTimeoutMs: number = 48 * 60 * 60 * 1000): Promise<Array<{
+  async listOfflineHangingPlayerPositions(
+    offlineTimeoutMs: number = 48 * 60 * 60 * 1000,
+    extendedPlayerIds: string[] = [],
+    extendedOfflineTimeoutMs: number = offlineTimeoutMs,
+  ): Promise<Array<{
     playerId: string;
     instanceId: string;
     x: number;
@@ -1198,7 +1202,10 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     if (!this.pool || !this.enabled) {
       return [];
     }
-    const cutoffAt = Date.now() - Math.max(0, Math.trunc(offlineTimeoutMs));
+    const now = Date.now();
+    const cutoffAt = now - Math.max(0, Math.trunc(offlineTimeoutMs));
+    const extendedCutoffAt = now - Math.max(0, Math.trunc(extendedOfflineTimeoutMs));
+    const normalizedExtendedPlayerIds = normalizePlayerIdList(extendedPlayerIds);
     const result = await this.pool.query<{
       player_id?: unknown;
       instance_id?: unknown;
@@ -1213,9 +1220,15 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           AND p.online = false
           AND pc.instance_id IS NOT NULL
           AND pc.instance_id <> ''
-          AND COALESCE(p.offline_since_at, 0) >= $1
+          AND (
+            COALESCE(p.offline_since_at, 0) >= $1
+            OR (
+              p.player_id = ANY($2::text[])
+              AND COALESCE(p.offline_since_at, 0) >= $3
+            )
+          )
       `,
-      [cutoffAt],
+      [cutoffAt, normalizedExtendedPlayerIds, extendedCutoffAt],
     );
     return result.rows
       .map((row) => ({
@@ -1247,11 +1260,18 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   }
 
   /** 将超时离线玩家标记为彻底离线（in_world=false） */
-  async expireOfflineHangingPlayers(offlineTimeoutMs: number = 48 * 60 * 60 * 1000): Promise<number> {
+  async expireOfflineHangingPlayers(
+    offlineTimeoutMs: number = 48 * 60 * 60 * 1000,
+    extendedPlayerIds: string[] = [],
+    extendedOfflineTimeoutMs: number = offlineTimeoutMs,
+  ): Promise<number> {
     if (!this.pool || !this.enabled) {
       return 0;
     }
-    const cutoffAt = Date.now() - Math.max(0, Math.trunc(offlineTimeoutMs));
+    const now = Date.now();
+    const cutoffAt = now - Math.max(0, Math.trunc(offlineTimeoutMs));
+    const extendedCutoffAt = now - Math.max(0, Math.trunc(extendedOfflineTimeoutMs));
+    const normalizedExtendedPlayerIds = normalizePlayerIdList(extendedPlayerIds);
     const result = await this.pool.query(
       `
         UPDATE ${PLAYER_PRESENCE_TABLE}
@@ -1259,8 +1279,12 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         WHERE in_world = true
           AND online = false
           AND COALESCE(offline_since_at, 0) < $1
+          AND NOT (
+            player_id = ANY($2::text[])
+            AND COALESCE(offline_since_at, 0) >= $3
+          )
       `,
-      [cutoffAt],
+      [cutoffAt, normalizedExtendedPlayerIds, extendedCutoffAt],
     );
     return Number(result.rowCount ?? 0);
   }
@@ -7113,6 +7137,13 @@ function indexMultiRowsByPlayerId<T extends { player_id?: unknown }>(rows: T[]):
 
 function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizePlayerIdList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return Array.from(new Set(value.map((entry) => normalizeRequiredString(entry)).filter((entry) => entry.length > 0)));
 }
 
 function normalizeOptionalString(value: unknown): string | null {

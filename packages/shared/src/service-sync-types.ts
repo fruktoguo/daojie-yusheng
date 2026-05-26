@@ -9,7 +9,6 @@ import type { ObservedTileEntityDetail } from './detail-view-types';
 import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
 import type { QuestRuntimeStateView } from './quest-types';
-import type { Suggestion } from './world-view-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
 import type { InventorySlotUpdateEntry, EquipmentSlotUpdateEntry, MarketListingPageEntry, MarketOwnOrderSyncEntry, MarketStorageSyncEntry, SyncedInventoryCooldownState, SyncedInventorySnapshot, SyncedLootWindowState, SyncedNpcShopView } from './synced-panel-types';
@@ -574,13 +573,4 @@ export interface MailOpResultView {
  */
 
   message?: string;
-}
-
-/** 建议面板同步视图。 */
-export interface SuggestionUpdateView {
-/**
- * suggestions：suggestion相关字段。
- */
-
-  suggestions: Suggestion[];
 }

@@ -30,7 +30,7 @@ import type { MainPanelRuntimeSource } from './main-panel-runtime-source';
 import type { MainRuntimeMonitorSource } from './main-runtime-monitor-source';
 import type { MainRuntimeStateSource } from './main-runtime-state-source';
 import type { MainSettingsStateSource } from './main-settings-state-source';
-import type { MainSuggestionStateSource } from './main-suggestion-state-source';
+import type { MainActivityStateSource } from './main-activity-state-source';
 import type { MainTargetingStateSource } from './main-targeting-state-source';
 import type { MainUiStateSource } from './main-ui-state-source';
 import { ChangelogPanel } from './ui/changelog-panel';
@@ -289,10 +289,10 @@ type MainBootstrapAssemblyOptions = {
     | 'handleFengShuiDetail'
   >;
   /**
- * suggestionStateSource：suggestion状态来源相关字段。
+ * activityStateSource：活动中心状态来源。
  */
 
-  suggestionStateSource: Pick<MainSuggestionStateSource, 'handleSuggestionUpdate'>;
+  activityStateSource: Pick<MainActivityStateSource, 'handleActivityStatus' | 'handleActivityOperationResult'>;
   /**
  * mailStateSource：邮件状态来源相关字段。
  */
@@ -741,7 +741,8 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       showToast: (message, kind) => options.showToast(message, kind),
       windowRef: options.windowRef,
     }),
-    onSuggestionUpdate: (data) => options.suggestionStateSource.handleSuggestionUpdate(data.suggestions),
+    onActivityStatus: (data) => options.activityStateSource.handleActivityStatus(data),
+    onActivityOperationResult: (data) => options.activityStateSource.handleActivityOperationResult(data),
     onMailSummary: (data) => options.mailStateSource.handleMailSummary(data.summary),
     onMailPage: (data) => options.mailStateSource.handleMailPage(data.page),
     onMailDetail: (data) => options.mailStateSource.handleMailDetail(data.detail, data.error),

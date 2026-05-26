@@ -64,7 +64,7 @@ function main(): void {
       playerPersistenceService: { enabled: true, pool: {} },
       mailPersistenceService: { enabled: true, pool: {} },
       marketPersistenceService: { enabled: true, pool: {} },
-      suggestionPersistenceService: { enabled: true, pool: {} },
+      activityPersistenceService: { enabled: true, pool: {} },
       worldRuntimeService: { getRuntimeSummary: () => summary },
       startupRunId: 'startup:smoke:quarantine',
     });

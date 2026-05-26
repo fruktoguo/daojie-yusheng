@@ -80,19 +80,17 @@ import type {
   UseItemView,
 } from './client-service-request-types';
 import type {
-  CreateSuggestionRequestView,
   GmGetStateRequestView,
-  GmMarkSuggestionCompletedRequestView,
   GmRemoveBotsRequestView,
-  GmRemoveSuggestionRequestView,
   GmResetPlayerRequestView,
   GmSpawnBotsRequestView,
   GmUpdatePlayerRequestView,
-  MarkSuggestionRepliesReadRequestView,
-  ReplySuggestionRequestView,
-  RequestSuggestionsView,
-  VoteSuggestionRequestView,
 } from './client-social-admin-request-types';
+import type {
+  ClaimDailySignInView,
+  ClaimMeritMonthCardView,
+  RequestActivityStatusView,
+} from './activity-types';
 import type {
   FormationControlPayload,
   FormationCreatePayload,
@@ -275,20 +273,12 @@ export interface C2S_Cultivate extends CultivateView {}
 export interface C2S_CastSkill extends CastSkillView {}
 /** 兑换码提交请求。 */
 export interface C2S_RedeemCodes extends RedeemCodesView {}
-/** 主动请求最新建议列表 */
-export interface C2S_RequestSuggestions extends RequestSuggestionsView {}
-/** 创建建议 */
-export interface C2S_CreateSuggestion extends CreateSuggestionRequestView {}
-/** 建议投票 */
-export interface C2S_VoteSuggestion extends VoteSuggestionRequestView {}
-/** 回复建议。 */
-export interface C2S_ReplySuggestion extends ReplySuggestionRequestView {}
-/** 标记某条建议的回复已读。 */
-export interface C2S_MarkSuggestionRepliesRead extends MarkSuggestionRepliesReadRequestView {}
-/** GM 标记建议已完成。 */
-export interface C2S_GmMarkSuggestionCompleted extends GmMarkSuggestionCompletedRequestView {}
-/** GM 删除建议。 */
-export interface C2S_GmRemoveSuggestion extends GmRemoveSuggestionRequestView {}
+/** 请求活动中心状态。 */
+export interface C2S_RequestActivityStatus extends RequestActivityStatusView {}
+/** 领取功德月卡每日奖励。 */
+export interface C2S_ClaimMeritMonthCard extends ClaimMeritMonthCardView {}
+/** 领取每日签到奖励。 */
+export interface C2S_ClaimDailySignIn extends ClaimDailySignInView {}
 /** 客户端上报本地 minimapLibrary 缓存版本。 */
 export interface C2S_ReportMinimapVersions {
   /** mapId → 本地缓存版本号 */

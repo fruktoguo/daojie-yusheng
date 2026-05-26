@@ -6,7 +6,7 @@
 
 /**
  * 世界网关客户端发包 helper。
- * 统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。
+ * 统一主线单播、市场广播和活动状态的 markProtocol/emit 边界。
  */
 
 import { Injectable } from '@nestjs/common';
@@ -18,7 +18,7 @@ interface MarketFlushRequestSnapshot {
     marketTradeHistoryRequests: Map<string, unknown>;
 }
 
-/** 世界 socket 客户端发包 helper：统一主线单播、市场广播和建议广播的 markProtocol/emit 边界。 */
+/** 世界 socket 客户端发包 helper：统一主线单播、市场广播和活动状态的 markProtocol/emit 边界。 */
 @Injectable()
 class WorldGatewayClientEmitHelper {
     constructor(private readonly worldClientEventService: WorldClientEventService) {}
@@ -42,16 +42,14 @@ class WorldGatewayClientEmitHelper {
         this.markProtocolClient(client);
         this.worldClientEventService.emitQuests(client, toQuestSyncPayload(payload));
     }
-    /**
- * emitMainlineSuggestionUpdate：处理主线 SuggestionUpdate 并更新相关状态。
- * @param client 参数说明。
- * @param suggestions 参数说明。
- * @returns 无返回值，直接更新主线 SuggestionUpdate 相关状态。
- */
-
-    emitSuggestionUpdate(client, suggestions) {
+    emitActivityStatus(client, status) {
         this.markProtocolClient(client);
-        this.worldClientEventService.emitSuggestionUpdate(client, suggestions);
+        this.worldClientEventService.emitActivityStatus(client, status);
+    }
+
+    emitActivityOperationResult(client, payload) {
+        this.markProtocolClient(client);
+        this.worldClientEventService.emitActivityOperationResult(client, payload);
     }
     /**
  * emitMainlineMailSummary：处理主线邮件摘要并更新相关状态。
@@ -218,14 +216,6 @@ class WorldGatewayClientEmitHelper {
 
     async emitMailSummary(client, playerId) {
         await this.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
-    }
-    /**
- * broadcastSuggestions：执行broadcastSuggestion相关逻辑。
- * @returns 无返回值，直接更新broadcastSuggestion相关状态。
- */
-
-    broadcastSuggestions() {
-        this.worldClientEventService.broadcastSuggestionUpdate();
     }
 }
 

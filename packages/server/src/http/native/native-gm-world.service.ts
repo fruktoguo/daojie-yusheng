@@ -14,7 +14,6 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
-import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.service';
@@ -32,7 +31,6 @@ import { NativeGmEditorQueryService } from './native-gm-editor-query.service';
 import { NativeGmMapQueryService } from './native-gm-map-query.service';
 import { NativeGmMapRuntimeQueryService } from './native-gm-map-runtime-query.service';
 import { NativeGmStateQueryService } from './native-gm-state-query.service';
-import { NativeGmSuggestionQueryService } from './native-gm-suggestion-query.service';
 import { NodeRegistryService } from '../../persistence/node-registry.service';
 /**
  * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -87,16 +85,6 @@ interface MapTemplateRepositoryLike {
  * id：ID标识。
  */
  id: string }>;
-}
-/**
- * SuggestionRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface SuggestionRuntimeServiceLike {
-  markCompleted(id: string): Promise<boolean>;
-  addReply(id: string, authorId: string, authorType: string, authorName: string, content: string): Promise<boolean>;
-  remove(id: string): Promise<boolean>;
 }
 /**
  * RuntimeMapConfigServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -159,15 +147,6 @@ interface NativeGmMapRuntimeQueryServiceLike {
   recalculateInstanceBuildingState(instanceId: string): unknown;
   repairInstanceBuildingState(instanceId: string): unknown;
 }
-/**
- * NativeGmSuggestionQueryServiceLike：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface NativeGmSuggestionQueryServiceLike {
-  getSuggestions(query?: unknown): unknown;
-}
-
 interface WorldRuntimeCommandIntakeFacadeLike {
   enqueueGmUpdatePlayer(input: unknown): { queued: boolean };
 }
@@ -314,13 +293,11 @@ export class NativeGmWorldService {
  * @param contentTemplateRepository ContentTemplateRepositoryLike 参数说明。
  * @param runtimeGmStateService RuntimeGmStateServiceLike 参数说明。
  * @param mapTemplateRepository MapTemplateRepositoryLike 参数说明。
- * @param suggestionRuntimeService SuggestionRuntimeServiceLike 参数说明。
  * @param runtimeMapConfigService RuntimeMapConfigServiceLike 参数说明。
  * @param nextGmStateQueryService NativeGmStateQueryServiceLike 参数说明。
  * @param nextGmEditorQueryService NativeGmEditorQueryServiceLike 参数说明。
  * @param nextGmMapQueryService NativeGmMapQueryServiceLike 参数说明。
  * @param nextGmMapRuntimeQueryService NativeGmMapRuntimeQueryServiceLike 参数说明。
- * @param nextGmSuggestionQueryService NativeGmSuggestionQueryServiceLike 参数说明。
  * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
@@ -333,8 +310,6 @@ export class NativeGmWorldService {
     private readonly runtimeGmStateService: RuntimeGmStateServiceLike,
     @Inject(MapTemplateRepository)
     private readonly mapTemplateRepository: MapTemplateRepositoryLike,
-    @Inject(SuggestionRuntimeService)
-    private readonly suggestionRuntimeService: SuggestionRuntimeServiceLike,
     @Inject(RuntimeMapConfigService)
     private readonly runtimeMapConfigService: RuntimeMapConfigServiceLike,
     @Inject(NativeGmStateQueryService)
@@ -345,8 +320,6 @@ export class NativeGmWorldService {
     private readonly nextGmMapQueryService: NativeGmMapQueryServiceLike,
     @Inject(NativeGmMapRuntimeQueryService)
     private readonly nextGmMapRuntimeQueryService: NativeGmMapRuntimeQueryServiceLike,
-    @Inject(NativeGmSuggestionQueryService)
-    private readonly nextGmSuggestionQueryService: NativeGmSuggestionQueryServiceLike,
     @Inject(NodeRegistryService)
     private readonly nodeRegistryService: NodeRegistryServiceLike,
     @Inject(OutboxDispatcherService)
@@ -523,68 +496,6 @@ export class NativeGmWorldService {
 
   getEditorCatalog() {
     return this.nextGmEditorQueryService.getEditorCatalog();
-  }
-  /**
- * getSuggestions：读取Suggestion。
- * @param query 参数说明。
- * @returns 无返回值，完成Suggestion的读取/组装。
- */
-
-
-  getSuggestions(query) {
-    return this.nextGmSuggestionQueryService.getSuggestions(query);
-  }
-  /**
- * completeSuggestion：执行completeSuggestion相关逻辑。
- * @param id string 参数说明。
- * @returns 无返回值，直接更新completeSuggestion相关状态。
- */
-
-
-  async completeSuggestion(id: string) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const updated = await this.suggestionRuntimeService.markCompleted(id);
-    if (!updated) {
-      throw new BadRequestException('目标建议不存在');
-    }
-
-    return { ok: true };
-  }
-  /**
- * replySuggestion：执行replySuggestion相关逻辑。
- * @param id string 参数说明。
- * @param body 参数说明。
- * @returns 无返回值，直接更新replySuggestion相关状态。
- */
-
-
-  async replySuggestion(id: string, body) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const updated = await this.suggestionRuntimeService.addReply(id, 'gm', 'gm', '开发者', body?.content ?? '');
-    if (!updated) {
-      throw new BadRequestException('回复失败');
-    }
-
-    return { ok: true };
-  }
-  /**
- * removeSuggestion：处理Suggestion并更新相关状态。
- * @param id string 参数说明。
- * @returns 无返回值，直接更新Suggestion相关状态。
- */
-
-
-  async removeSuggestion(id: string) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const removed = await this.suggestionRuntimeService.remove(id);
-    if (!removed) {
-      throw new BadRequestException('目标建议不存在');
-    }
-
-    return { ok: true };
   }
   /**
  * getMaps：读取地图。

@@ -7,7 +7,7 @@ import { StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { isReactPanelEnabled } from '../../bridge/panel-flags';
 import { GmPanel, gmPanelStore, setGmPanelCallbacks } from './GmPanel';
-import type { C2S_GmUpdatePlayer, S2C_GmState, Suggestion } from '@mud/shared';
+import type { C2S_GmUpdatePlayer, S2C_GmState } from '@mud/shared';
 
 let root: Root | null = null;
 let host: HTMLDivElement | null = null;
@@ -50,7 +50,6 @@ export function unmountReactGmPanel(): void {
 
 export function syncReactGmPanelState(input: {
   gmState: S2C_GmState | null;
-  suggestions: Suggestion[];
 }): void {
   gmPanelStore.patchState(input);
 }
@@ -64,8 +63,6 @@ export function setReactGmPanelCallbacks(callbacks: {
   onUpdatePlayer?: (payload: C2S_GmUpdatePlayer) => void;
   onResetPlayer?: (playerId: string) => void;
   onResetHeavenGate?: (playerId: string) => void;
-  onMarkSuggestionCompleted?: (id: string) => void;
-  onRemoveSuggestion?: (id: string) => void;
 }): void {
   setGmPanelCallbacks(callbacks);
 }

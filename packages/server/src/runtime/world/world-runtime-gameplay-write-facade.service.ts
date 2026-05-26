@@ -122,9 +122,9 @@ export class WorldRuntimeGameplayWriteFacadeService {
  * @returns 无返回值，直接更新Use道具相关状态。
  */
 
-    dispatchUseItem(playerId, itemInstanceId, deps) {
+    async dispatchUseItem(playerId, itemInstanceId, deps) {
         this.assertPlayerInstanceLeaseWritable(playerId, deps);
-        deps.worldRuntimeUseItemService.dispatchUseItem(playerId, itemInstanceId, deps);
+        await deps.worldRuntimeUseItemService.dispatchUseItem(playerId, itemInstanceId, deps);
     }
     /**
  * dispatchBreakthrough：判断Breakthrough是否满足条件。

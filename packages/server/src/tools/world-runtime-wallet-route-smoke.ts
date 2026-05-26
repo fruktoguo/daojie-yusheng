@@ -72,7 +72,6 @@ async function main(): Promise<void> {
     } as never,
     {} as never,
     {} as never,
-    {} as never,
     {
       mutatePlayerWallet(input: Record<string, unknown>) {
         durableCalls.push(input);

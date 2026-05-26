@@ -20,7 +20,6 @@ export type PanelId =
   | 'loot'
   | 'settings'
   | 'mail'
-  | 'suggestion'
   | 'changelog'
   | 'minimap'
   | 'debug';

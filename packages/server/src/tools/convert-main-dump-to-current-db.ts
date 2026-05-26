@@ -54,7 +54,7 @@ function parseArgs(argv) {
     apply: false,
     keepStaging: false,
     limit: null,
-    include: new Set(['players', 'mail', 'market', 'suggestions', 'gm-auth']),
+    include: new Set(['players', 'mail', 'market', 'gm-auth']),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index] ?? '';
@@ -221,7 +221,6 @@ async function main() {
       instances: args.include.has('instances') ? await convertRuntimeState(sourcePool, services, args.limit) : null,
       mail: args.include.has('mail') ? await convertMail(sourcePool, services, args.limit) : null,
       market: args.include.has('market') ? await convertMarket(sourcePool, services, args.limit) : null,
-      suggestions: args.include.has('suggestions') ? await convertSuggestions(sourcePool, services) : null,
       gmAuth: args.include.has('gm-auth') ? await convertGmAuth(sourcePool, targetPool) : null,
     };
     const targetChecks = await inspectTarget(targetPool);
@@ -263,7 +262,6 @@ async function initializeTargetServices(targetDatabaseUrl) {
   const { InstanceDomainPersistenceService } = require('../persistence/instance-domain-persistence.service');
   const { MailPersistenceService } = require('../persistence/mail-persistence.service');
   const { MarketPersistenceService } = require('../persistence/market-persistence.service');
-  const { SuggestionPersistenceService } = require('../persistence/suggestion-persistence.service');
 
   const provider = new DatabasePoolProvider();
   const content = new ContentTemplateRepository();
@@ -279,7 +277,6 @@ async function initializeTargetServices(targetDatabaseUrl) {
     instanceDomains: new InstanceDomainPersistenceService(provider),
     mail: new MailPersistenceService(provider),
     market: new MarketPersistenceService(provider),
-    suggestions: new SuggestionPersistenceService(provider),
   };
   await services.authStore.onModuleInit();
   await services.identity.onModuleInit();
@@ -289,14 +286,12 @@ async function initializeTargetServices(targetDatabaseUrl) {
   await services.instanceDomains.onModuleInit();
   await services.mail.onModuleInit();
   await services.market.onModuleInit();
-  await services.suggestions.onModuleInit();
   return services;
 }
 
 async function safeDestroyServices(services) {
   if (!services) return;
   const destroyers = [
-    services.suggestions,
     services.market,
     services.mail,
     services.instanceDomains,
@@ -326,7 +321,6 @@ async function inspectSource(pool) {
     'player_mail_receipts',
     'market_orders',
     'market_trade_history',
-    'suggestions',
     'gm_risk_operation_audits',
   ];
   const tableCounts = {};
@@ -778,34 +772,6 @@ async function convertPlayerCounters(sourcePool, targetPool, limit) {
   };
 }
 
-async function convertSuggestions(pool, services) {
-  const result = await pool.query(`
-    SELECT id, "authorId", "authorName", title, description, status, upvotes, downvotes, "createdAt", replies, "authorLastReadGmReplyAt"
-    FROM suggestions
-    ORDER BY "createdAt" DESC, id ASC
-  `).catch(() => ({ rows: [] }));
-  const suggestions = result.rows.map((row) => ({
-    id: normalizeString(row.id),
-    authorId: normalizeString(row.authorId),
-    authorName: normalizeString(row.authorName),
-    title: normalizeString(row.title),
-    description: normalizeString(row.description),
-    status: normalizeString(row.status) || 'open',
-    upvotes: Array.isArray(row.upvotes) ? row.upvotes : [],
-    downvotes: Array.isArray(row.downvotes) ? row.downvotes : [],
-    replies: Array.isArray(row.replies) ? row.replies : [],
-    createdAt: normalizeInteger(row.createdAt, Date.now()),
-    updatedAt: normalizeInteger(row.createdAt, Date.now()),
-    authorLastReadGmReplyAt: normalizeInteger(row.authorLastReadGmReplyAt, 0),
-  })).filter((entry) => entry.id);
-  await services.suggestions.saveSuggestions({
-    version: 1,
-    revision: Date.now(),
-    suggestions,
-  });
-  return { suggestions: suggestions.length };
-}
-
 async function convertGmAuth(sourcePool, targetPool) {
   const result = await sourcePool.query(`
     SELECT payload
@@ -868,7 +834,6 @@ async function inspectTarget(pool) {
     'player_mail_counter',
     'server_market_order',
     'server_market_trade_history',
-    'server_suggestion',
     'server_gm_auth',
     'instance_tile_resource_state',
     'instance_tile_damage_state',

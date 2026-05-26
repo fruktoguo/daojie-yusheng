@@ -80,8 +80,6 @@ const MAINLINE_BACKUP_TABLES = [
     'server_redeem_code_state',
     'server_redeem_code_group',
     'server_redeem_code',
-    'server_suggestion_state',
-    'server_suggestion',
     'server_market_order',
     'server_market_trade_history',
     'server_sect',
@@ -168,7 +166,6 @@ const DATABASE_CLEANUP_PROTECTED_PREFIXES = [
     'server_player_',
     'server_redeem_',
     'server_sect',
-    'server_suggestion',
 ];
 
 const DATABASE_CLEANUP_TIME_COLUMN_CANDIDATES = [

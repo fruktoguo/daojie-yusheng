@@ -5,10 +5,10 @@
  */
 /**
  * GM 管理面板
- * 提供服务端性能监控、在线玩家列表、玩家编辑、机器人控制与意见管理
+ * 提供服务端性能监控、在线玩家列表、玩家编辑与机器人控制。
  * 当前作为 GM 工具面板继续保留，由独立 GM 入口驱动，不并入玩家主线 main.ts。
  */
-import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
+import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState } from '@mud/shared';
 import { getCachedMapMeta } from '../../map-static-cache';
 import {
   mountReactGmPanel,
@@ -60,16 +60,6 @@ interface GmCallbacks {
  */
 
   onResetHeavenGate: (playerId: string) => void;  
-  /**
- * onMarkSuggestionCompleted：onMarkSuggestionCompleted相关字段。
- */
-
-  onMarkSuggestionCompleted: (id: string) => void;  
-  /**
- * onRemoveSuggestion：onRemoveSuggestion相关字段。
- */
-
-  onRemoveSuggestion: (id: string) => void;
 }
 
 /** 生成玩家账号展示文本。 */
@@ -174,14 +164,12 @@ function replaceWithSingleChild(container: HTMLElement, child: HTMLElement): voi
   container.replaceChildren(child);
 }
 
-/** GM 面板实现，负责展示服务器概况、玩家列表和意见处理。 */
+/** GM 面板实现，负责展示服务器概况和玩家管理。 */
 export class GmPanel {
   /** 面板根节点。 */
   private pane = document.getElementById('pane-gm')!;
   /** 当前收到的 GM 状态快照。 */
   private state: S2C_GmState = createEmptyGmState();
-  /** 意见列表缓存。 */
-  private suggestions: Suggestion[] = [];
   /** 当前选中的玩家 ID。 */
   private selectedPlayerId: string | null = null;
   /** 各类 GM 操作回调。 */
@@ -205,9 +193,6 @@ export class GmPanel {
   private detailFormEl: HTMLElement | null = null;
   /** 详情空态节点。 */
   private detailEmptyEl: HTMLElement | null = null;
-  /** 意见列表容器。 */
-  private suggestionListEl: HTMLElement | null = null;
-
   /** 玩家地图下拉框。 */
   private mapSelect: HTMLSelectElement | null = null;
   /** 玩家坐标 X 输入框。 */
@@ -258,62 +243,11 @@ export class GmPanel {
     this.updateOverview();
     this.updatePlayerList();
     this.updateDetail();
-    this.updateSuggestions();
-  }
-
-  /** 更新意见列表数据并重绘意见区域。 */
-  updateSuggestionsData(suggestions: Suggestion[]) {
-    this.suggestions = suggestions;
-    if (this.useReactPanel()) {
-      this.syncReactState();
-      this.mountReactPanel();
-      return;
-    }
-    this.updateSuggestions();
-  }
-
-  /** 以复用节点的方式刷新意见列表。 */
-  private updateSuggestions() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!this.suggestionListEl) return;
-
-    const preserved = this.captureContainerState(this.suggestionListEl);
-    if (this.suggestions.length === 0) {
-      const empty = document.createElement('div');
-      empty.dataset.gmEmptyState = 'suggestions';
-      empty.className = 'empty-hint ui-empty-hint';
-      empty.textContent = '暂无意见收集';
-      replaceWithSingleChild(this.suggestionListEl, empty);
-      return;
-    }
-
-    const orderedSuggestions = [...this.suggestions].sort((a, b) => b.createdAt - a.createdAt);
-    const existingItems = new Map<string, HTMLElement>();
-    this.suggestionListEl.querySelectorAll<HTMLElement>('[data-gm-suggestion-id]').forEach((item) => {
-      const id = item.dataset.gmSuggestionId;
-      if (id) {
-        existingItems.set(id, item);
-      }
-    });
-
-    const orderedItems = orderedSuggestions.map((suggestion) => {
-      const existing = existingItems.get(suggestion.id);
-      const item = existing ?? this.createSuggestionItem();
-      this.patchSuggestionItem(item, suggestion);
-      existingItems.delete(suggestion.id);
-      return item;
-    });
-
-    existingItems.forEach((item) => item.remove());
-    this.syncContainerChildren(this.suggestionListEl, orderedItems);
-    this.restoreContainerState(this.suggestionListEl, preserved);
   }
 
   /** 清空 GM 面板并回到未初始化状态。 */
   clear(): void {
     this.state = createEmptyGmState();
-    this.suggestions = [];
     this.selectedPlayerId = null;
     this.initialized = false;
     this.perfCpuEl = null;
@@ -324,7 +258,6 @@ export class GmPanel {
     this.playerListEl = null;
     this.detailFormEl = null;
     this.detailEmptyEl = null;
-    this.suggestionListEl = null;
     this.mapSelect = null;
     this.xInput = null;
     this.yInput = null;
@@ -354,7 +287,6 @@ export class GmPanel {
   private syncReactState(): void {
     syncReactGmPanelState({
       gmState: this.initialized || this.state.players.length > 0 || this.state.mapIds.length > 0 ? this.state : null,
-      suggestions: this.suggestions,
     });
   }
 
@@ -437,11 +369,6 @@ export class GmPanel {
           </div>
         </div>
       </div>
-      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
-        <div class="panel-section-title">意见管理</div>
-        <div id="gm-suggestion-list" class="gm-suggestion-list ui-surface-pane ui-surface-pane--stack ui-scroll-panel">
-        </div>
-      </div>
     `;
 
     this.perfCpuEl = this.pane.querySelector('[data-gm-perf-cpu]');
@@ -452,7 +379,6 @@ export class GmPanel {
     this.playerListEl = this.pane.querySelector('[data-gm-player-list]');
     this.detailFormEl = this.pane.querySelector('[data-gm-detail-form]');
     this.detailEmptyEl = this.pane.querySelector('[data-gm-detail-empty]');
-    this.suggestionListEl = this.pane.querySelector<HTMLElement>('#gm-suggestion-list');
     this.mapSelect = this.pane.querySelector<HTMLSelectElement>('#gm-map');
     this.xInput = this.pane.querySelector<HTMLInputElement>('#gm-x');
     this.yInput = this.pane.querySelector<HTMLInputElement>('#gm-y');
@@ -496,22 +422,6 @@ export class GmPanel {
         this.handlePlayerSelect(id);
       }
     });
-    this.suggestionListEl?.addEventListener('click', (event) => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-gm-suggest-action][data-id]');
-      const id = button?.dataset.id;
-      if (!id) {
-        return;
-      }
-      const action = button.dataset.gmSuggestAction;
-      if (action === 'complete') {
-        this.callbacks?.onMarkSuggestionCompleted(id);
-        return;
-      }
-      if (action === 'remove' && confirm('确定移除这条意见吗？')) {
-        this.callbacks?.onRemoveSuggestion(id);
-      }
-    });
-
     this.saveBtn?.addEventListener('click', () => this.handleSave());
     this.healBtn?.addEventListener('click', () => this.handleHeal());
     this.resetBtn?.addEventListener('click', () => this.handleReset());
@@ -782,104 +692,6 @@ export class GmPanel {
     }
   }
 
-  /** 创建意见列表条目的基础节点。 */
-  private createSuggestionItem(): HTMLElement {
-    const item = document.createElement('div');
-    item.className = 'gm-suggestion-card ui-surface-card ui-surface-card--compact';
-
-    const header = document.createElement('div');
-    header.className = 'gm-suggestion-head';
-
-    const title = document.createElement('span');
-    title.className = 'gm-suggestion-title';
-    title.dataset.gmSuggestionRole = 'title';
-    const author = document.createElement('span');
-    author.className = 'gm-suggestion-author';
-    author.dataset.gmSuggestionRole = 'author';
-    header.append(title, author);
-
-    const description = document.createElement('div');
-    description.className = 'gm-suggestion-desc';
-    description.dataset.gmSuggestionRole = 'description';
-
-    const actions = document.createElement('div');
-    actions.className = 'gm-suggestion-actions';
-    actions.dataset.gmSuggestionRole = 'actions';
-
-    const votes = document.createElement('span');
-    votes.className = 'gm-suggestion-votes';
-    votes.dataset.gmSuggestionRole = 'votes';
-    actions.appendChild(votes);
-
-    item.append(header, description, actions);
-    return item;
-  }
-
-  /** 将意见数据写入条目并同步动作按钮。 */
-  private patchSuggestionItem(item: HTMLElement, suggestion: Suggestion): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    item.dataset.gmSuggestionId = suggestion.id;
-    const title = item.querySelector<HTMLElement>('[data-gm-suggestion-role="title"]');
-    const author = item.querySelector<HTMLElement>('[data-gm-suggestion-role="author"]');
-    const description = item.querySelector<HTMLElement>('[data-gm-suggestion-role="description"]');
-    const votes = item.querySelector<HTMLElement>('[data-gm-suggestion-role="votes"]');
-    const actions = item.querySelector<HTMLElement>('[data-gm-suggestion-role="actions"]');
-
-    if (title) {
-      title.textContent = suggestion.title;
-      title.classList.toggle('completed', suggestion.status === 'completed');
-      title.classList.toggle('pending', suggestion.status !== 'completed');
-    }
-    if (author) {
-      author.textContent = suggestion.authorName;
-    }
-    if (description) {
-      description.textContent = suggestion.description;
-    }
-    if (votes) {
-      votes.textContent = `👍${suggestion.upvotes.length} 👎${suggestion.downvotes.length}`;
-    }
-    if (!actions) {
-      return;
-    }
-
-    this.setSuggestionPendingAction(actions, suggestion);
-    let removeButton = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="remove"]');
-    if (!removeButton) {
-      removeButton = this.createSuggestionActionButton('移除', 'remove', 'danger');
-      actions.appendChild(removeButton);
-    }
-    removeButton.dataset.id = suggestion.id;
-  }
-
-  /** 根据意见状态切换“标记完成”按钮。 */
-  private setSuggestionPendingAction(actions: HTMLElement, suggestion: Suggestion): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const existing = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="complete"]');
-    if (suggestion.status !== 'pending') {
-      existing?.remove();
-      return;
-    }
-    const button = existing ?? this.createSuggestionActionButton('标记完成', 'complete');
-    button.dataset.id = suggestion.id;
-    if (!existing) {
-      const removeButton = actions.querySelector('[data-gm-suggest-action="remove"]');
-      actions.insertBefore(button, removeButton ?? null);
-    }
-  }
-
-  /** 创建意见卡片上的操作按钮。 */
-  private createSuggestionActionButton(label: string, action: 'complete' | 'remove', tone?: 'danger'): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.gmSuggestAction = action;
-    button.className = `gm-suggestion-action${tone === 'danger' ? ' gm-suggestion-action--danger' : ''}`;
-    button.textContent = label;
-    return button;
-  }
-
   /** 按给定顺序同步容器子节点。 */
   private syncContainerChildren(container: HTMLElement, orderedChildren: HTMLElement[]): void {
     const allowed = new Set(orderedChildren);
@@ -939,14 +751,6 @@ export class GmPanel {
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || !container.contains(active)) {
       return null;
-    }
-    const suggestionButton = active.closest<HTMLElement>('[data-gm-suggest-action][data-id]');
-    if (suggestionButton && container.contains(suggestionButton)) {
-      const action = suggestionButton.dataset.gmSuggestAction;
-      const id = suggestionButton.dataset.id;
-      if (action && id) {
-        return `[data-gm-suggest-action="${action}"][data-id="${this.escapeSelectorValue(id)}"]`;
-      }
     }
     const playerButton = active.closest<HTMLElement>('[data-gm-player-id]');
     if (playerButton && container.contains(playerButton)) {

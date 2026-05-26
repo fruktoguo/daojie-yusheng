@@ -741,10 +741,6 @@ async function main() {
  */
     let playerId = '';
 /**
- * 记录post备份suggestionID。
- */
-    let postBackupSuggestionId = '';
-/**
  * 记录pre备份mailID。
  */
     let preBackupMailId = '';
@@ -865,11 +861,6 @@ async function main() {
         await assertStructuredPlayerEnhancementRecords(playerId, POST_BACKUP_ENHANCEMENT_RECORDS);
         await replaceStructuredPlayerMarketStorageItems(playerId, POST_BACKUP_MARKET_STORAGE_ITEMS);
         await assertStructuredPlayerMarketStorageItems(playerId, POST_BACKUP_MARKET_STORAGE_ITEMS);
-        postBackupSuggestionId = await createSuggestion(playerId, {
-            title: `restore-suggestion-${playerSuffix.slice(-6)}`,
-            description: `post-backup suggestion ${playerSuffix}`,
-        });
-        await waitForSuggestionPresent(token, postBackupSuggestionId);
 /**
  * 记录mailpagebaseline。
  */
@@ -985,7 +976,6 @@ async function main() {
         const rollbackToken = await login(changedGmPassword);
         await assertBackupDownload(rollbackToken, checkpointBackupId, requireBackupRecord(restoreState, checkpointBackupId, 'checkpoint backup'));
         await waitForMailPresent(playerId, preBackupMailId, mailPageTotalBaseline);
-        await waitForSuggestionAbsent(rollbackToken, postBackupSuggestionId);
         await waitForMailAbsent(playerId, postBackupMailId, mailPageTotalBaseline);
         await waitForMailSummary(playerId, (summary) => matchesMailSummary(summary, mailSummaryBaseline), 10000);
         await assertStructuredPlayerPresencePresent(playerId);
@@ -1034,7 +1024,6 @@ async function main() {
             throw new Error(`expected appliedAt to persist after restart, got ${JSON.stringify(finalState.lastJob)}`);
         }
         await waitForMailPresent(playerId, preBackupMailId, mailPageTotalBaseline);
-        await waitForSuggestionAbsent(token, postBackupSuggestionId);
         await waitForMailAbsent(playerId, postBackupMailId, mailPageTotalBaseline);
         await waitForMailSummary(playerId, (summary) => matchesMailSummary(summary, mailSummaryBaseline), 10000);
         await assertStructuredPlayerPresencePresent(playerId);
@@ -1093,7 +1082,6 @@ async function main() {
             originalBackupId,
             checkpointBackupId,
             playerId,
-            revertedSuggestionId: postBackupSuggestionId,
             revertedMailId: postBackupMailId,
             mailSummaryBaseline,
             maintenanceSocketErrorCode: 'SERVER_BUSY',
@@ -1927,28 +1915,6 @@ async function authedPostJson(path, token, body) {
     return response.json();
 }
 /**
- * 创建suggestion。
- */
-async function createSuggestion(playerId, body) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录payload。
- */
-    const payload = await requestJson(`/runtime/players/${playerId}/suggestions`, {
-        method: 'POST',
-        body,
-    });
-/**
- * 记录suggestionID。
- */
-    const suggestionId = String(payload?.suggestion?.id ?? '').trim();
-    if (!suggestionId) {
-        throw new Error(`unexpected suggestion create payload: ${JSON.stringify(payload)}`);
-    }
-    return suggestionId;
-}
-/**
  * 创建directmail。
  */
 async function createDirectMail(token, playerId, body) {
@@ -2083,30 +2049,6 @@ function matchesMailSummary(summary, baseline) {
         && Number(summary.revision ?? 0) === Number(baseline.revision ?? 0);
 }
 /**
- * 等待forsuggestionpresent。
- */
-async function waitForSuggestionPresent(token, suggestionId) {
-    await waitForCondition(async () => {
-/**
- * 记录payload。
- */
-        const payload = await authedGetJson('/api/gm/suggestions?page=1&pageSize=50', token);
-        return findSuggestion(payload, suggestionId) !== null;
-    }, 30000);
-}
-/**
- * 等待forsuggestionabsent。
- */
-async function waitForSuggestionAbsent(token, suggestionId) {
-    await waitForCondition(async () => {
-/**
- * 记录payload。
- */
-        const payload = await authedGetJson('/api/gm/suggestions?page=1&pageSize=50', token);
-        return findSuggestion(payload, suggestionId) === null;
-    }, 30000);
-}
-/**
  * 处理authedpost。
  */
 async function authedPost(path, token, body) {
@@ -2204,14 +2146,6 @@ async function assertConcurrentDatabaseJobRejected(response, jobType) {
     if (!text.includes('当前已有数据库任务执行中')) {
         throw new Error(`expected concurrent ${jobType} rejection to mention running database job, got ${text}`);
     }
-}
-/**
- * 查找suggestion。
- */
-function findSuggestion(payload, suggestionId) {
-    return Array.isArray(payload?.items)
-        ? payload.items.find((entry) => String(entry?.id ?? '').trim() === suggestionId) ?? null
-        : null;
 }
 /**
  * 处理require备份record。

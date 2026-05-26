@@ -20,7 +20,6 @@ export type ReactPanelId =
   | 'body-training'
   | 'quest'
   | 'gm'
-  | 'suggestion'
   | 'settings'
   | 'mail'
   | 'chat'
@@ -47,7 +46,6 @@ const DEFAULT_ENABLED: Set<ReactPanelId> = new Set([
   'market',
   'quest',
   'settings',
-  'suggestion',
   'technique',
   'tutorial',
   'world',
@@ -80,7 +78,7 @@ function loadFlags(): Map<ReactPanelId, boolean> {
     if (paramValue === 'all') {
       const allPanels: ReactPanelId[] = [
         'changelog', 'world', 'loot', 'equipment', 'tutorial',
-        'body-training', 'quest', 'gm', 'suggestion', 'settings',
+        'body-training', 'quest', 'gm', 'settings',
         'mail', 'chat', 'technique', 'attr', 'market', 'inventory',
         'craft', 'action',
       ];
@@ -141,7 +139,7 @@ export function registerPanelFlagApi(win: Window): void {
       const flags = loadFlags();
       const allPanels: ReactPanelId[] = [
         'changelog', 'world', 'loot', 'equipment', 'tutorial',
-        'body-training', 'quest', 'gm', 'suggestion', 'settings',
+        'body-training', 'quest', 'gm', 'settings',
         'mail', 'chat', 'technique', 'attr', 'market', 'inventory',
         'craft', 'action',
       ];

@@ -53,7 +53,6 @@ const LEGACY_S2C_EVENTS = new Set([
     's:mailDetail',
     's:redeemCodesResult',
     's:mailOpResult',
-    's:suggestionUpdate',
     's:marketUpdate',
     's:marketListings',
     's:marketOrders',

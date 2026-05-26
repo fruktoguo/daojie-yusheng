@@ -283,7 +283,7 @@ export class WorldRuntimePlayerCommandService {
         }
         switch (command.kind) {
             case 'useItem':
-                this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.itemInstanceId, deps, command.payload);
+                await this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.itemInstanceId, deps, command.payload);
                 return;
             case 'createFormation':
                 deps.worldRuntimeFormationService.dispatchCreateFormation(playerId, command.payload, deps);
