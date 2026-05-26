@@ -24,6 +24,7 @@ async function main(): Promise<void> {
   await assertInventoryDuplicateSlotsAreReassigned();
   await assertInventoryDuplicateSlotsAreReassignedInWritePlan();
   await assertInventoryProjectionUsesLiveDbStateWhenSlotsMove();
+  await assertInventorySameSlotPersistenceLocksRowsAndUsesJsonbStableCompare();
   await assertEquipmentProjectionWritePlanRecorderDoesNotInventConflicts();
   await assertEquipmentInstanceIdsRepairLegacyAndOutOfScopeConflicts();
   await assertEmptyCollectionSnapshotsDoNotIssueDeletes();
@@ -1799,6 +1800,111 @@ async function assertInventoryProjectionUsesLiveDbStateWhenSlotsMove(): Promise<
   );
   if (!deletedStaleSlotOwner || !stagedMove || !finalizedMove) {
     throw new Error(`inventory projection did not use live stale-delete and staged move SQL: ${JSON.stringify(executedSql)}`);
+  }
+}
+
+async function assertInventorySameSlotPersistenceLocksRowsAndUsesJsonbStableCompare(): Promise<void> {
+  const itemInstanceId = '00000000-0000-4000-8000-00000000b001';
+  const lockedBy = 'enhancement:job:jsonb-order-smoke';
+  let phase: 'jsonb-order' | 'same-slot-update' = 'jsonb-order';
+  const queries: string[] = [];
+  const fakeClient = {
+    async query(sql: string, params?: unknown[]): Promise<{ rows: unknown[]; rowCount: number }> {
+      queries.push(sql);
+      if (
+        sql.includes('SELECT item_instance_id, slot_index, item_id, count, raw_payload, locked_by')
+        && sql.includes('FROM player_inventory_item')
+      ) {
+        return {
+          rows: [{
+            item_instance_id: itemInstanceId,
+            slot_index: -1,
+            item_id: 'equip.sealed_path_token',
+            count: 1,
+            raw_payload: { lockedAt: 12345, enhanceLevel: 0 },
+            locked_by: lockedBy,
+          }],
+          rowCount: 1,
+        };
+      }
+      if (
+        sql.includes('UPDATE player_inventory_item')
+        && sql.includes('item_id = incoming.item_id')
+        && sql.includes('slot_index = incoming.slot_index')
+      ) {
+        if (phase === 'jsonb-order') {
+          throw new Error('jsonb key order equivalent payload should not issue same-slot update');
+        }
+        const normalizedSql = sql.replace(/\s+/g, ' ').trim();
+        if (normalizedSql.includes('target.count IS DISTINCT') || normalizedSql.includes('target.raw_payload IS DISTINCT')) {
+          throw new Error(`same-slot update still depends on PG no-op distinct guard: ${normalizedSql}`);
+        }
+        const rows = typeof params?.[1] === 'string'
+          ? JSON.parse(params[1]) as unknown[]
+          : [];
+        return { rows: [], rowCount: rows.length };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+    release() {
+      return undefined;
+    },
+  };
+  const service = new PlayerDomainPersistenceService(null, null);
+  Object.assign(service as unknown as { pool: unknown; enabled: boolean }, {
+    pool: {
+      async connect() {
+        return fakeClient;
+      },
+    },
+    enabled: true,
+  });
+
+  await service.savePlayerInventoryItems(
+    'player:inventory-same-slot-jsonb',
+    [{
+      itemId: 'equip.sealed_path_token',
+      count: 1,
+      itemInstanceId,
+      lockedBy,
+      lockedAt: 12345,
+      enhanceLevel: 0,
+      rawPayload: { enhanceLevel: 0, lockedAt: 12345 },
+    } as never],
+    { versionSeed: 1 },
+  );
+
+  const lockedSelect = queries.find((sql) =>
+    sql.includes('SELECT item_instance_id, slot_index, item_id, count, raw_payload, locked_by')
+    && sql.includes('FROM player_inventory_item'),
+  );
+  if (!lockedSelect || !lockedSelect.includes('FOR UPDATE')) {
+    throw new Error(`inventory same-slot persistence did not lock existing rows: ${JSON.stringify(queries)}`);
+  }
+
+  phase = 'same-slot-update';
+  queries.length = 0;
+  await service.savePlayerInventoryItems(
+    'player:inventory-same-slot-jsonb',
+    [{
+      itemId: 'equip.sealed_path_token',
+      count: 2,
+      itemInstanceId,
+      lockedBy,
+      lockedAt: 12345,
+      enhanceLevel: 0,
+      rawPayload: { enhanceLevel: 0, lockedAt: 12345 },
+    } as never],
+    { versionSeed: 2 },
+  );
+
+  const sameSlotUpdate = queries.find((sql) =>
+    sql.includes('UPDATE player_inventory_item')
+    && sql.includes('item_id = incoming.item_id')
+    && sql.includes('slot_index = incoming.slot_index'),
+  );
+  if (!sameSlotUpdate) {
+    throw new Error(`inventory same-slot count change did not issue targeted update: ${JSON.stringify(queries)}`);
   }
 }
 

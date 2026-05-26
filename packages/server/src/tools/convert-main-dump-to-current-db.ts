@@ -16,6 +16,7 @@ const DEFAULT_TARGET_DB_PREFIX = 'mud_mmo_next_converted_main';
 const GM_AUTH_RECORD_KEY = 'gm_auth';
 const LEGACY_BCRYPT_SENTINEL_SALT = '__legacy_bcrypt__';
 const DEFAULT_INITIAL_CRAFT_EXP_TO_NEXT = 10_000;
+const IMPORT_LEGACY_PVP_COUNTERS_ENV = 'MUD_IMPORT_LEGACY_PVP_COUNTERS';
 
 const PLAYER_DOMAIN_PROJECTION_TARGETS = [
   'world_anchor',
@@ -743,13 +744,18 @@ async function convertPlayerCounters(sourcePool, targetPool, limit) {
     ORDER BY id ASC
     ${limitSql}
   `, values).catch(() => ({ rows: [] }));
+  const importLegacyPvpCounters = process.env[IMPORT_LEGACY_PVP_COUNTERS_ENV] === '1';
   const COUNTER_KEYS = [
-    ['playerKillCount', 'playerKillCount'],
     ['monsterKillCount', 'monsterKillCount'],
     ['eliteMonsterKillCount', 'eliteMonsterKillCount'],
     ['bossMonsterKillCount', 'bossMonsterKillCount'],
-    ['deathCount', 'deathCount'],
   ];
+  if (importLegacyPvpCounters) {
+    COUNTER_KEYS.push(
+      ['playerKillCount', 'playerKillCount'],
+      ['deathCount', 'deathCount'],
+    );
+  }
   let inserted = 0;
   for (const row of result.rows) {
     const playerId = normalizeString(row.player_id);
@@ -765,7 +771,11 @@ async function convertPlayerCounters(sourcePool, targetPool, limit) {
       inserted += 1;
     }
   }
-  return { sourcePlayers: result.rows.length, counterEntries: inserted };
+  return {
+    sourcePlayers: result.rows.length,
+    counterEntries: inserted,
+    skippedLegacyPvpCounters: importLegacyPvpCounters ? [] : ['playerKillCount', 'deathCount'],
+  };
 }
 
 async function convertSuggestions(pool, services) {

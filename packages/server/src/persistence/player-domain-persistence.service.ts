@@ -3905,7 +3905,35 @@ function isSamePersistedPayload(
   left: Record<string, unknown>,
   right: Record<string, unknown>,
 ): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return stableJsonStringify(left) === stableJsonStringify(right);
+}
+
+function stableJsonStringify(value: unknown): string {
+  if (value == null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableJsonStringify(entry)).join(',')}]`;
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const entries: string[] = [];
+    for (const key of Object.keys(record).sort()) {
+      const entry = record[key];
+      if (typeof entry === 'undefined' || typeof entry === 'function' || typeof entry === 'symbol') {
+        continue;
+      }
+      entries.push(`${JSON.stringify(key)}:${stableJsonStringify(entry)}`);
+    }
+    return `{${entries.join(',')}}`;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? JSON.stringify(value) : 'null';
+  }
+  if (typeof value === 'string' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  return 'null';
 }
 
 function isExplicitEquipmentSlotProjection(slots: readonly unknown[]): boolean {
@@ -4084,6 +4112,7 @@ async function replacePlayerInventoryItems(
       SELECT item_instance_id, slot_index, item_id, count, raw_payload, locked_by
       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
       WHERE player_id = $1
+      FOR UPDATE
     `,
     [playerId],
   );
@@ -4171,10 +4200,6 @@ async function replacePlayerInventoryItems(
           AND target.slot_index = incoming.slot_index
           AND target.item_id = incoming.item_id
           AND target.locked_by IS NOT DISTINCT FROM incoming.locked_by
-          AND (
-            target.count IS DISTINCT FROM incoming.count
-            OR target.raw_payload IS DISTINCT FROM COALESCE(incoming.raw_payload, '{}'::jsonb)
-          )
       `,
       [playerId, sameSlotUpdateRowsJson],
     );
