@@ -19,6 +19,19 @@
 
 这次不是给现有工坊面板补几个显示字段，而是把“技艺动作”本身统一成一种权威运行时活动。玩家不应该需要理解某个动作背后属于炼丹 service、建筑 service、掉落容器 service、阵法 service 还是攻击地块链路；只要它是技艺行为，就应该表现为一个可见、可推进、可打断、可取消、可恢复的 job。
 
+### 需求裁定
+
+本计划后续按以下口径验收，不再把局部显示补丁视为完成：
+
+- 所有技艺的具体动作都由 job 控制。这里的“具体动作”指玩家发起后会跨 tick 推进、锁定/消耗资源、占用外部对象、延迟产出、授予技艺经验、可打断或可取消的动作；包括炼丹、炼器、强化、采集、挖矿、建造、阵法持续维护/持续补充灵力。
+- “走 job 控制”必须覆盖服务端权威生命周期：start、排队、条件检查、资源锁定/消耗、tick 推进、打断等待、取消、完成结算、经验、产出、持久化 dirty 和面板 patch。只把动作投影成一条客户端任务显示不算完成。
+- 技艺面板里的统一任务列表是所有技艺 job 的公共运行态入口。挖矿、阵法持续维护/持续补充灵力、建造、采集不能只在地图、建筑面板、阵法面板或掉落面板中显示。
+- 任务列表必须直接提供取消按钮。玩家可以从统一任务列表取消 running、interrupt_wait、queued、sleeping 中的可取消项，不需要切到对应技艺子面板；子面板里的取消按钮只能作为重复入口。
+- 手动开始修炼、进行攻击、移动等行为产生的 10 息等待是独立等待状态，不是实际工作量。它只能写 `interruptWaitRemainingTicks` / `interruptState`，不能修改 `totalTicks`、`remainingTicks`、`workTotalTicks` 或 `workRemainingTicks` 来影响实际 job 进度条。
+- 炼丹、炼器不再有玩家可见的“开炉”“准备”“炉火已稳”等阶段。它们开始后就是制作 job，面板和通知只展示制作进度、产出、失败、取消、排队和等待状态。
+- 阵法需要拆清命名：持续维护/持续补充灵力属于 `formation` 技艺 job；一次性资源补给是资源管理命令，不进入 job 队列、不显示进度、不获得技艺经验、不参与打断等待。
+- 本文中的“任务列表”特指技艺面板的活动任务列表，不是 NPC/主支线 quest 系统。
+
 本轮裁定：
 
 - “走 job 控制”不是把散落动作投影到任务列表里看起来像 job，而是 start、条件检查、资源锁定/消耗、tick 推进、打断等待、取消、完成结算、经验、产出、持久化和面板 patch 都由技艺活动生命周期托管。
@@ -334,7 +347,7 @@ strategy 只负责领域差异：
 - [x] 去掉炼丹、炼器的准备/开炉阶段；创建 job 后直接进入实际制作进度。
 - [x] 删除或替换“开始准备炼制”“炉火已稳”“开炉”等阶段文本和面板状态。
 - [x] 炼器保留独立 `forgingJob` 和 `forgingSkill`，不再寄生炼丹语义。
-- [ ] 经验走 pipeline 公共 `profession` 写入。
+- [x] 经验走 pipeline 公共 `profession` 写入。
 - [ ] 产出入包/掉地只保留一处实现。
 - [ ] 面板 patch 仍保持炼丹/炼器现有客户端结构，避免 UI 同步大改。
 
@@ -524,6 +537,7 @@ strategy 只负责领域差异：
 - 2026-05-27：炼丹/炼器 tick 生命周期从 `CraftPanelRuntimeService.tickAlchemy` 整段实现拆入 `packages/server/src/runtime/craft/pipeline/strategies/alchemy-like-tick.helpers.ts`，`AlchemyStrategy` / `ForgingStrategy` 的 `executeTick` 直接推进暂停恢复、实际工作量、批次成功/失败、产出入包/掉地、经验和队列下一项；旧 `tickAlchemy` 只保留兼容 wrapper，回调 `TechniqueActivityPipelineService.tick`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 不等同于经验/产出已经完全改成统一 `TechniqueActivityResolveResult` 流出。
 - 2026-05-27：炼丹/炼器批次结算新增 `buildAlchemyLikeBatchResolveResult` / `buildAlchemyLikeExpParams`，每批会生成统一 `TechniqueActivityResolveResult` 形态，包含 `inventoryDelta.granted/dropped/changed`、`panelDirty`、`expParams`、`messages` 和 `craftRealmExpGain`；公共 `materializeTechniqueActivityResolveResult` 负责把该 result 转成现有 `CraftTickResult`，保持面板和资产行为不变。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。经验应用、入包副作用和结构化 notice 全替换仍未完全迁入公共 result 流程。
 - 2026-05-27：`materializeTechniqueActivityResolveResult` 上移到 `TechniqueActivityPipelineService` 模块，统一从 `TechniqueActivityResolveResult.inventoryDelta/panelDirty/messages/craftRealmExpGain` 生成 `CraftTickResult`；`alchemy-like-tick.helpers.ts` 不再自行拼旧 tick 返回结构，只传入下一队列项启动产生的额外 dirty/drop/attr 结果。`pnpm --filter @mud/server compile`、`world-runtime-alchemy-smoke`、`technique-activity-task-view-smoke`、`world-runtime-craft-smoke`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
+- 2026-05-27：炼丹/炼器批次经验应用迁入公共 `applyTechniqueActivityResolveExperience`，由 `TechniqueActivityResolveResult.expParams` 统一计算经验并写入对应 `profession` 技能；旧 `applyAlchemyLikeBatchSkillExp` / `resolveAlchemySkillExpGain` 移除，境界经验由公共经验结果派生。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。产出入包副作用和结构化 notice 全替换仍未完全迁入公共 result 流程。
 
 ## 验证矩阵
 
@@ -557,6 +571,8 @@ strategy 只负责领域差异：
 - [ ] 所有 runtime kind 的 start/cancel/interrupt/tick 都通过 pipeline。
 - [ ] 所有技艺具体动作都以 job 形式存在，挖矿、阵法持续补充灵力、建造、采集不再是面板外的隐式动作。
 - [ ] “以 job 形式存在”必须覆盖服务端生命周期真源，不只是客户端任务列表投影。
+- [ ] 所有可取消的 running、interrupt_wait、queued、sleeping 技艺任务都能从统一技艺任务列表直接取消，不要求进入对应子面板。
+- [ ] 手动开始修炼、攻击、移动等打断来源只刷新独立等待状态，不改变任何 job 的实际总工作量或剩余工作量。
 - [ ] 旧 service 不再承载技艺玩法规则。
 - [ ] 只剩一种活动队列。
 - [x] active job 持久化和恢复按统一 job kind 工作。

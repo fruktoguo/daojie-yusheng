@@ -4,9 +4,13 @@
  * 维护时要保持 active job、背包、技艺经验和队列启动的服务端真源一致。
  */
 import type { TechniqueActivityResolveResult } from '@mud/shared';
-import { materializeTechniqueActivityResolveResult } from '../technique-activity-pipeline.service';
+import {
+  applyTechniqueActivityResolveExperience,
+  materializeTechniqueActivityResolveResult,
+} from '../technique-activity-pipeline.service';
+import type { PipelineContext } from '../technique-activity-strategy';
 
-export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKindInput: 'alchemy' | 'forging'): unknown {
+export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKindInput: 'alchemy' | 'forging', ctx: PipelineContext): unknown {
   const jobKind = jobKindInput === 'forging' ? 'forging' : 'alchemy';
   craftService.ensureCraftSkills(player);
   const job = craftService.getAlchemyLikeActiveJob(player, jobKind);
@@ -38,45 +42,8 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
   job.successCount += successCount;
   job.failureCount += failureCount;
 
-  const outputResult = craftService.grantAlchemyLikeBatchOutput(player, job, successCount);
-  const expResult = craftService.applyAlchemyLikeBatchSkillExp(player, jobKind, job, successCount, failureCount);
   const jobCompleted = job.completedCount >= job.quantity || job.remainingTicks <= 0;
-
-  craftService.finalizeMutation(player, {
-    inventoryChanged: outputResult.inventoryChanged,
-    attrChanged: expResult.skillChanged,
-    persistentOnly: true,
-    dirtyDomains: [
-      ...(jobCompleted ? [] : ['active_job']),
-      ...(expResult.skillChanged ? ['profession'] : []),
-    ],
-  });
-
-  if (jobCompleted) {
-    const nextStartResult = craftService.completeAlchemyLikeJob(player, jobKind, job);
-    const resolved = craftService.buildAlchemyLikeBatchResolveResult(
-      player,
-      jobKind,
-      job,
-      successCount,
-      failureCount,
-      outputResult,
-      expResult,
-      true,
-      [
-        craftService.buildAlchemyLikeCompletionMessage(jobKind, job),
-        ...(nextStartResult.messages ?? []),
-      ],
-    ) as TechniqueActivityResolveResult;
-    return materializeTechniqueActivityResolveResult(resolved, {
-      inventoryChanged: Boolean(nextStartResult.inventoryChanged),
-      equipmentChanged: Boolean(nextStartResult.equipmentChanged),
-      attrChanged: expResult.skillChanged || Boolean(nextStartResult.attrChanged),
-      additionalGroundDrops: nextStartResult.groundDrops ?? [],
-    });
-  }
-
-  job.currentBatchRemainingTicks = job.batchBrewTicks;
+  const outputResult = craftService.grantAlchemyLikeBatchOutput(player, job, successCount);
   const resolved = craftService.buildAlchemyLikeBatchResolveResult(
     player,
     jobKind,
@@ -84,11 +51,45 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     successCount,
     failureCount,
     outputResult,
-    expResult,
-    false,
-    [craftService.buildAlchemyLikeBatchMessage(jobKind, job, successCount)],
+    jobCompleted,
+    jobCompleted
+      ? [craftService.buildAlchemyLikeCompletionMessage(jobKind, job)]
+      : [craftService.buildAlchemyLikeBatchMessage(jobKind, job, successCount)],
   ) as TechniqueActivityResolveResult;
+  const expResult = applyTechniqueActivityResolveExperience(
+    player,
+    jobKind === 'forging' ? 'forgingSkill' : 'alchemySkill',
+    resolved,
+    ctx,
+  );
+  resolved.craftRealmExpGain = expResult.finalGain / 2;
+
+  craftService.finalizeMutation(player, {
+    inventoryChanged: outputResult.inventoryChanged,
+    attrChanged: expResult.attrChanged,
+    persistentOnly: true,
+    dirtyDomains: [
+      ...(jobCompleted ? [] : ['active_job']),
+      ...(expResult.attrChanged ? ['profession'] : []),
+    ],
+  });
+
+  if (jobCompleted) {
+    const nextStartResult = craftService.completeAlchemyLikeJob(player, jobKind, job);
+    resolved.messages = [
+      ...(resolved.messages ?? []),
+      ...(nextStartResult.messages ?? []),
+    ];
+    return materializeTechniqueActivityResolveResult(resolved, {
+      inventoryChanged: Boolean(nextStartResult.inventoryChanged),
+      equipmentChanged: Boolean(nextStartResult.equipmentChanged),
+      attrChanged: expResult.attrChanged || Boolean(nextStartResult.attrChanged),
+      additionalGroundDrops: nextStartResult.groundDrops ?? [],
+    });
+  }
+
+  job.currentBatchRemainingTicks = job.batchBrewTicks;
   return materializeTechniqueActivityResolveResult(resolved, {
-    attrChanged: expResult.skillChanged,
+    attrChanged: expResult.attrChanged,
   });
 }

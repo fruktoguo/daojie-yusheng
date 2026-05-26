@@ -52,6 +52,11 @@ export interface TechniqueActivityResolveMaterializeOptions {
   additionalGroundDrops?: Array<{ itemId: string; count: number; name?: string }>;
 }
 
+export interface TechniqueActivityResolveExperienceResult {
+  finalGain: number;
+  attrChanged: boolean;
+}
+
 function emptyTickResult(): CraftTickResult {
   return { ok: true, panelChanged: false, inventoryChanged: false, equipmentChanged: false, attrChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
 }
@@ -76,6 +81,29 @@ export function materializeTechniqueActivityResolveResult(
       ...(options.additionalGroundDrops ?? []),
     ],
     craftRealmExpGain: resolved.craftRealmExpGain ?? 0,
+  };
+}
+
+export function applyTechniqueActivityResolveExperience(
+  player: any,
+  skillSlot: string,
+  resolved: TechniqueActivityResolveResult,
+  ctx: PipelineContext,
+): TechniqueActivityResolveExperienceResult {
+  if (!resolved.expParams) {
+    return { finalGain: 0, attrChanged: false };
+  }
+  const skillState = player?.[skillSlot];
+  if (!skillState) {
+    return { finalGain: 0, attrChanged: false };
+  }
+  const { finalGain } = computeExpGainFromParams(resolved.expParams);
+  if (finalGain <= 0) {
+    return { finalGain: 0, attrChanged: false };
+  }
+  return {
+    finalGain,
+    attrChanged: applyCraftSkillExpInline(skillState, finalGain, ctx.resolveExpToNextByLevel),
   };
 }
 
@@ -217,16 +245,9 @@ export class TechniqueActivityPipelineService {
     const resolved = strategy.resolve(player, job, ctx);
 
     // Stage 7: SkillExp（公共）
-    let attrChanged = false;
-    if (resolved.expParams) {
-      const skillState = (player as any)[strategy.skillSlot];
-      if (skillState) {
-        const { finalGain } = computeExpGainFromParams(resolved.expParams);
-        if (finalGain > 0) {
-          attrChanged = applyCraftSkillExpInline(skillState, finalGain, ctx.resolveExpToNextByLevel);
-          markPipelineDirty(player, ['profession'], ctx);
-        }
-      }
+    const expResult = applyTechniqueActivityResolveExperience(player, strategy.skillSlot, resolved, ctx);
+    if (expResult.attrChanged) {
+      markPipelineDirty(player, ['profession'], ctx);
     }
 
     // Stage 8: Output（公共）
@@ -246,7 +267,7 @@ export class TechniqueActivityPipelineService {
     // Stage 10: 返回结果
     return materializeTechniqueActivityResolveResult(resolved, {
       inventoryChanged,
-      attrChanged,
+      attrChanged: expResult.attrChanged,
       additionalGroundDrops: groundDrops,
     });
   }

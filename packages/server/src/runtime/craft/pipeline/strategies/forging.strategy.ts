@@ -29,8 +29,8 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
     (player as any).forgingJob = job;
   }
 
-  executeTick(player: unknown, _ctx: PipelineContext): unknown {
-    return executeAlchemyLikeTick(this.craftService, player, 'forging');
+  executeTick(player: unknown, ctx: PipelineContext): unknown {
+    return executeAlchemyLikeTick(this.craftService, player, 'forging', ctx);
   }
 
   executeCancel(player: unknown, _ctx: PipelineContext): unknown {

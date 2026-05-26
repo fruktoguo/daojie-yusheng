@@ -29,8 +29,8 @@ export class AlchemyStrategy implements TechniqueActivityStrategy {
     (player as any).alchemyJob = job;
   }
 
-  executeTick(player: unknown, _ctx: PipelineContext): unknown {
-    return executeAlchemyLikeTick(this.craftService, player, 'alchemy');
+  executeTick(player: unknown, ctx: PipelineContext): unknown {
+    return executeAlchemyLikeTick(this.craftService, player, 'alchemy', ctx);
   }
 
   executeCancel(player: unknown, _ctx: PipelineContext): unknown {

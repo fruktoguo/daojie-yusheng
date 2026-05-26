@@ -694,17 +694,8 @@ export class CraftPanelRuntimeService {
         }
         return { inventoryChanged, grantedItems, groundDrops };
     }
-    /** 应用炼丹/炼器本批次技艺经验。 */
-    applyAlchemyLikeBatchSkillExp(player, jobKind, job, successCount, failureCount) {
-        const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const catalog = normalizedJobKind === 'forging' ? this.forgingCatalog : this.alchemyCatalog;
-        const craftSkill = normalizedJobKind === 'forging' ? player.forgingSkill : player.alchemySkill;
-        const skillGain = resolveAlchemySkillExpGain(this.playerRuntimeService, catalog, job, craftSkill, successCount, failureCount);
-        const skillChanged = applyCraftSkillExp(craftSkill, skillGain, (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level));
-        return { skillGain, skillChanged };
-    }
     /** 构建炼丹/炼器批次结算 result；后续公共 pipeline 会直接消费该结构。 */
-    buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, outputResult, expResult, completed, messages) {
+    buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, outputResult, completed, messages) {
         const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
         return {
             successCount,
@@ -730,7 +721,6 @@ export class CraftPanelRuntimeService {
             expParams: this.buildAlchemyLikeExpParams(player, normalizedJobKind, job, successCount, failureCount),
             completed,
             messages,
-            craftRealmExpGain: expResult.skillGain / 2,
         };
     }
     buildAlchemyLikeExpParams(player, jobKind, job, successCount, failureCount) {
@@ -3188,25 +3178,6 @@ function applyCraftSkillExp(skill, amount, getExpToNextByLevel = null) {
         changed = true;
     }
     return changed || amount > 0;
-}
-
-function resolveAlchemySkillExpGain(source, alchemyCatalog, job, skill, successCount, failureCount) {
-    if (!skill || (skill.expToNext ?? 0) <= 0) {
-        return 0;
-    }
-    const recipe = Array.isArray(alchemyCatalog)
-        ? alchemyCatalog.find((entry) => entry.recipeId === job.recipeId)
-        : null;
-    const gainResult = computeCraftSkillExpGain({
-        skillLevel: skill.level,
-        targetLevel: recipe?.outputLevel ?? job.outputLevel ?? 1,
-        baseActionTicks: resolveAlchemySkillBaseActionTicks(recipe, job),
-        successCount,
-        failureCount,
-        successMultiplier: 1,
-        getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(source, level),
-    });
-    return gainResult.finalGain;
 }
 
 function resolveAlchemySkillBaseActionTicks(recipe, job) {
