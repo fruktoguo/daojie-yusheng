@@ -205,7 +205,15 @@ export function tickBuildingConstruction(runtime, playerId) {
     if (progressedTicks > 0) {
         awardBuildingConstructionProgress(runtime, playerId, progressedTicks);
     }
-    if (building.state !== 'building' || nextRemainingTicks <= 0) {
+    if (building.state !== 'building') {
+        releaseStaleBuildingActiveBuilder(instance, building, playerId);
+        player.buildingJob = null;
+        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+        runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
+        runtime.refreshPlayerContextActions?.(playerId);
+        return buildBuildingTickResult(true, [{ kind: 'warn', text: '建筑当前不可继续施工。' }]);
+    }
+    if (nextRemainingTicks <= 0) {
         player.buildingJob = null;
         runtime.playerRuntimeService.bumpPersistentRevision?.(player);
         runtime.refreshPlayerContextActions?.(playerId);
@@ -554,6 +562,19 @@ function resolveBuildingRemainingTicksForView(building) {
         return Math.max(1, Math.trunc(Number(building.buildStrength)));
     }
     return 0;
+}
+function releaseStaleBuildingActiveBuilder(instance, building, playerId) {
+    if (!instance || !building || building.activeBuilderPlayerId !== playerId) {
+        return false;
+    }
+    building.activeBuilderPlayerId = null;
+    building.buildCompleteTick = undefined;
+    building.updatedAtTick = instance.tick;
+    building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+    instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
+    instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
+    instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
+    return true;
 }
 function consumeBuildingCost(playerRuntimeService, playerId, consumedItems) {
     for (const entry of Array.isArray(consumedItems) ? consumedItems : []) {

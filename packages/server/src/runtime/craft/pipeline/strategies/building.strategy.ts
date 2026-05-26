@@ -148,8 +148,8 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     return { satisfied: true };
   }
 
-  onConditionFailed(_player: unknown, _job: any, _ctx: PipelineContext): void {
-    // 释放 building 的 activeBuilderPlayerId
+  onConditionFailed(player: unknown, job: any, ctx: PipelineContext): void {
+    releaseBuildingActiveBuilder(player, job, ctx);
   }
 
   onConditionRestored(_player: unknown, _job: any, _ctx: PipelineContext): void {
@@ -210,4 +210,29 @@ function resolveInstanceId(player: unknown, job: unknown, deps: BuildingDepsPort
   return typeof location?.instanceId === 'string' && location.instanceId.trim()
     ? location.instanceId.trim()
     : '';
+}
+
+function releaseBuildingActiveBuilder(player: unknown, job: unknown, ctx: PipelineContext): void {
+  const playerId = resolvePlayerId(player);
+  const buildingId = resolveBuildingId(job);
+  const deps = resolveBuildingDeps(ctx);
+  const instanceId = resolveInstanceId(player, job, deps);
+  const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
+    ? deps.getInstanceRuntime(instanceId)
+    : null;
+  const building = instance?.buildingById?.get?.(buildingId);
+  if (!playerId || !buildingId || !instance || !building || building.activeBuilderPlayerId !== playerId) {
+    return;
+  }
+  if (building.state === 'building' && typeof instance.stopBuildingConstruction === 'function') {
+    instance.stopBuildingConstruction(buildingId, playerId);
+    return;
+  }
+  building.activeBuilderPlayerId = null;
+  building.buildCompleteTick = undefined;
+  building.updatedAtTick = instance.tick;
+  building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
+  instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
+  instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
+  instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
 }

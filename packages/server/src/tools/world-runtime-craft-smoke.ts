@@ -14,6 +14,7 @@ import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/tech
 import { TechniqueActivityQueueService } from '../runtime/craft/pipeline/technique-activity-queue.service';
 import { WorldRuntimeCraftInterruptService } from '../runtime/world/world-runtime-craft-interrupt.service';
 import { WorldRuntimeCraftTickService } from '../runtime/world/world-runtime-craft-tick.service';
+import { tickBuildingConstruction } from '../runtime/world/world-runtime-building.service';
 import { WorldRuntimeLootContainerService } from '../runtime/world/world-runtime-loot-container.service';
 
 type FlushCall = [playerId: string, kind: string, text: string | null];
@@ -30,6 +31,8 @@ async function main(): Promise<void> {
   await testGatherActiveSearchRejectsCompetingPlayers();
   await testGatherPermanentLossReleasesStaleActiveSearch();
   testBuildingActiveBuilderRejectsCompetingPlayers();
+  testBuildingStrategyConditionFailureReleasesActiveBuilder();
+  testBuildingPermanentInvalidTickReleasesActiveBuilder();
   await testGatherStrategyTickDelegatesRuntimeService();
   testBuildingStrategyTickDelegatesRuntimeService();
   await testCraftTickUsesUnifiedPipelineForCraftingKinds();
@@ -49,6 +52,7 @@ async function main(): Promise<void> {
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
       '建造 activeBuilder 不会被其他玩家重入覆盖。',
+      '建造条件永久失效时会释放当前玩家遗留 activeBuilder。',
       '采集/建造 strategy tick 会委托真实 runtime service。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
@@ -683,6 +687,142 @@ function testBuildingActiveBuilderRejectsCompetingPlayers(): void {
   const resumedByOwner = instance.startBuildingConstruction('building-1', 'player:builder-a');
   assert.equal(resumedByOwner.ok, true);
   assert.equal(building.activeBuilderPlayerId, 'player:builder-a');
+}
+
+function testBuildingStrategyConditionFailureReleasesActiveBuilder(): void {
+  const strategy = new BuildingStrategy();
+  const instance = {
+    tick: 20,
+    worldRevision: 1,
+    persistentRevision: 1,
+    buildingById: new Map<string, any>([
+      ['building-1', {
+        id: 'building-1',
+        state: 'active',
+        activeBuilderPlayerId: 'player:builder-a',
+        buildCompleteTick: 30,
+        revision: 1,
+      }],
+    ]),
+    dirtyDomains: [] as string[][],
+    markPersistenceDirtyDomainsHighPriority(domains: string[]): void {
+      this.dirtyDomains.push(domains);
+    },
+  };
+  const player = {
+    playerId: 'player:builder-a',
+    instanceId: 'instance:building',
+  };
+  const job = {
+    buildingId: 'building-1',
+    instanceId: 'instance:building',
+  };
+
+  const condition = strategy.checkContinueCondition(player, job, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return instance; },
+    deps: {
+      getInstanceRuntime(instanceId: string): unknown {
+        assert.equal(instanceId, 'instance:building');
+        return instance;
+      },
+    },
+  });
+  assert.equal(condition.satisfied, false);
+  assert.equal(condition.shouldCancel, true);
+
+  strategy.onConditionFailed?.(player, job, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return instance; },
+    deps: {
+      getInstanceRuntime(instanceId: string): unknown {
+        assert.equal(instanceId, 'instance:building');
+        return instance;
+      },
+    },
+  });
+
+  const building = instance.buildingById.get('building-1');
+  assert.equal(building.activeBuilderPlayerId, null);
+  assert.equal(building.buildCompleteTick, undefined);
+  assert.equal(instance.worldRevision, 2);
+  assert.equal(instance.persistentRevision, 2);
+  assert.deepEqual(instance.dirtyDomains, [['building']]);
+}
+
+function testBuildingPermanentInvalidTickReleasesActiveBuilder(): void {
+  const player = {
+    playerId: 'player:builder-a',
+    buildingJob: {
+      buildingId: 'building-1',
+      buildingName: '工坊',
+      instanceId: 'instance:building',
+      remainingTicks: 3,
+      totalTicks: 3,
+    },
+  };
+  const building = {
+    id: 'building-1',
+    state: 'active',
+    activeBuilderPlayerId: 'player:builder-a',
+    buildCompleteTick: 30,
+    buildRemainingTicks: 3,
+    revision: 1,
+  };
+  const instance = {
+    tick: 20,
+    worldRevision: 1,
+    persistentRevision: 1,
+    buildingById: new Map<string, any>([['building-1', building]]),
+    dirtyDomains: [] as string[][],
+    markPersistenceDirtyDomainsHighPriority(domains: string[]): void {
+      this.dirtyDomains.push(domains);
+    },
+  };
+  const playerDirtyDomains: string[][] = [];
+  let bumped = 0;
+  let refreshed = 0;
+  const result = tickBuildingConstruction({
+    playerRuntimeService: {
+      getPlayer(playerId: string): unknown {
+        return playerId === player.playerId ? player : null;
+      },
+      bumpPersistentRevision(): void {
+        bumped += 1;
+      },
+      markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+        playerDirtyDomains.push(domains);
+      },
+    },
+    getInstanceRuntime(instanceId: string): unknown {
+      assert.equal(instanceId, 'instance:building');
+      return instance;
+    },
+    refreshPlayerContextActions(playerId: string): void {
+      assert.equal(playerId, player.playerId);
+      refreshed += 1;
+    },
+  }, player.playerId) as { ok?: boolean; panelChanged?: boolean; messages?: Array<{ text?: string }> };
+
+  assert.equal(result.ok, true);
+  assert.equal(result.panelChanged, true);
+  assert.equal(player.buildingJob, null);
+  assert.equal(building.activeBuilderPlayerId, null);
+  assert.equal(building.buildCompleteTick, undefined);
+  assert.equal(instance.worldRevision, 2);
+  assert.equal(instance.persistentRevision, 2);
+  assert.deepEqual(instance.dirtyDomains, [['building']]);
+  assert.equal(bumped, 1);
+  assert.deepEqual(playerDirtyDomains, [['active_job']]);
+  assert.equal(refreshed, 1);
 }
 
 function createGatherCompetitionPlayer(playerId: string, instanceId: string): any {

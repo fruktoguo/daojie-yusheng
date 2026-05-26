@@ -15,15 +15,15 @@
 - 采集、建造、阵法维护属于条件型技艺；采集/建造/阵法维护的 sleeping 重试已经能通过 strategy 条件检查和 pipeline start 恢复，tick 条件暂时失败也能进入统一 sleeping 队列；采集/建造结算和外部占用推进已从 tick 编排层进入 pipeline，但真实领域规则仍委托旧 runtime 服务。
 - 技艺经验已经有共享公式，但调用点仍分布在旧 runtime、pipeline、采集/挖矿/阵法链路中，持久化脏域需要统一保证。
 
-## 本次需求理解
+## 本轮需求理解
 
-这次不是给现有工坊面板补几个显示字段，而是把“技艺动作”本身统一成一种权威运行时活动。玩家不应该需要理解某个动作背后属于炼丹 service、建筑 service、掉落容器 service、阵法 service 还是攻击地块链路；只要它是技艺行为，就应该表现为一个可见、可推进、可打断、可取消、可恢复的 job。
+这次不是给现有工坊面板补几个显示字段，而是把“技艺动作”本身统一成一种权威运行时活动。玩家不应该需要理解某个动作背后属于炼丹 service、建筑 service、掉落容器 service、阵法 service 还是攻击地块链路；只要它是技艺行为，就必须表现为一个可见、可推进、可打断、可取消、可恢复的 job。
 
 ### 需求裁定
 
 本计划后续按以下口径验收，不再把局部显示补丁视为完成：
 
-- 所有技艺的具体动作都由 job 控制。这里的“具体动作”指玩家发起后会跨 tick 推进、锁定/消耗资源、占用外部对象、延迟产出、授予技艺经验、可打断或可取消的动作；包括炼丹、炼器、强化、采集、挖矿、建造、阵法持续维护/持续补充灵力。
+- 所有技艺的具体动作都由 job 控制。“具体动作”指玩家发起后会跨 tick 推进、锁定/消耗资源、占用外部对象、延迟产出、授予技艺经验、可打断或可取消的动作；包括炼丹、炼器、强化、采集、挖矿、建造、阵法持续维护/持续补充灵力。
 - “走 job 控制”必须覆盖服务端权威生命周期：start、排队、条件检查、资源锁定/消耗、tick 推进、打断等待、取消、完成结算、经验、产出、持久化 dirty 和面板 patch。只把动作投影成一条客户端任务显示不算完成。
 - 技艺面板里的统一任务列表是所有技艺 job 的公共运行态入口。挖矿、阵法持续维护/持续补充灵力、建造、采集不能只在地图、建筑面板、阵法面板或掉落面板中显示。
 - 任务列表必须直接提供取消按钮。玩家可以从统一任务列表取消 running、interrupt_wait、queued、sleeping 中的可取消项，不需要切到对应技艺子面板；子面板里的取消按钮只能作为重复入口。
@@ -32,33 +32,24 @@
 - 阵法需要拆清命名：持续维护/持续补充灵力属于 `formation` 技艺 job；一次性资源补给是资源管理命令，不进入 job 队列、不显示进度、不获得技艺经验、不参与打断等待。
 - 本文中的“任务列表”特指技艺面板的活动任务列表，不是 NPC/主支线 quest 系统。
 
-本轮裁定：
-
-- “走 job 控制”不是把散落动作投影到任务列表里看起来像 job，而是 start、条件检查、资源锁定/消耗、tick 推进、打断等待、取消、完成结算、经验、产出、持久化和面板 patch 都由技艺活动生命周期托管。
-- 任何跨 tick 推进、可以被打断或取消、会授予技艺经验、会占用外部对象、会延迟产出或持续消耗资源的技艺动作，都必须是 job。炼丹、炼器、强化、采集、挖矿、建造、阵法持续注入/维护灵力都属于这一类。
-- 真正一次性完成的资源管理命令可以不是 job，但必须明确不显示进度、不进入队列、不获得技艺经验、不参与 10 息打断等待。例如一次性把灵石/灵力转入阵法资源池。
-- 统一技艺任务列表是公共取消入口。各子面板可以保留专用取消按钮作为重复入口，但不能要求玩家必须进入对应子面板才能取消当前 job、排队项或休眠项。
-- 当前“手动开始修炼、攻击等 10 息等待会修改实际 job 进度条”的行为按缺陷处理；后续实现中任何新增写路径都不得通过改 `totalTicks`、`remainingTicks`、`workTotalTicks` 或 `workRemainingTicks` 表达等待。
-- 炼丹、炼器的“开炉/准备/炉火已稳”等阶段不再是玩家可见流程。内部兼容字段不能透出到通知、任务状态、按钮、进度文案或面板标题。
-- 炼丹、炼器批次结算已经开始生成 `TechniqueActivityResolveResult` 形态，记录成功/失败、背包 delta、掉地 delta、经验参数、panel dirty、通知和境界经验；`materializeTechniqueActivityResolveResult` 已上移到公共 pipeline 模块。经验应用和入包副作用仍在炼丹工具端口里，后续要继续迁入公共 result 流程。
-
-必须严格区分三个概念：
+### 三类状态红线
 
 - 实际工作进度：job 还剩多少工作量，只由该技艺的真实劳动推进递减。
-- 打断等待：攻击、移动、手动开始修炼等行为造成的恢复等待，是独立倒计时，不能通过增加 `totalTicks` 或回退 `remainingTicks` 伪装成工作变慢。
+- 打断等待：攻击、移动、手动开始修炼等行为造成的恢复等待，是独立倒计时，不能通过增加 `totalTicks` 或回退 `remainingTicks` 伪装成工作变慢；当前会这样做的路径都按缺陷处理。
 - 条件休眠：采集目标消失、建造目标被占用、阵法条件不足等外部条件失败，不等同于 10 息打断；它要么进入 sleeping 队列等待重试，要么按明确规则取消并释放外部占用。
 
-玩家侧目标体验：
+### 玩家侧验收口径
 
 - 挖矿、采集、建造、阵法持续补充灵力、炼丹、炼器、强化都在技艺面板的任务列表里可见。
 - 当前 job、打断等待、排队任务、休眠任务都在同一任务列表里显示。
-- 技艺任务列表里的每个可取消项都有取消按钮，不要求进入对应技艺子面板；这里的“任务列表”指工坊/技艺面板里的活动任务列表，不是任务/quest 系统。
+- 技艺任务列表里的每个可取消项都有取消按钮，不要求进入对应技艺子面板。
 - 炼丹、炼器不再有玩家可见的“开炉/准备/炉火已稳”阶段；开始后就是制作 job。
 
-工程侧目标约束：
+### 工程侧约束
 
 - 技艺 job 的 start/cancel/interrupt/tick 必须最终只经过 `TechniqueActivityPipelineService`。
 - 旧 service 可以短期作为 facade 或策略适配，但不能长期保留真实规则真源。
+- 炼丹、炼器批次结算已经开始生成 `TechniqueActivityResolveResult` 形态，记录成功/失败、背包 delta、掉地 delta、经验参数、panel dirty、通知和境界经验；`materializeTechniqueActivityResolveResult` 已上移到公共 pipeline 模块。经验应用和入包副作用仍在炼丹工具端口里，后续要继续迁入公共 result 流程。
 - 高频 task patch 只能发 job 进度、等待、状态、队列 add/remove；配方、候选、长文本、目录数据不混入每 tick 包。
 - 任何会影响资产、建筑占用、容器占用、阵法状态、经验和掉落的行为，必须在服务端权威路径里结算，并能被 smoke/proof 验证。
 
@@ -407,7 +398,7 @@ strategy 只负责领域差异：
 验收：
 
 - [x] 条件暂时不满足时休眠，恢复后能继续。
-- [ ] 条件永久失效时取消并释放外部占用。
+- [x] 条件永久失效时取消并释放外部占用。
 - [x] 多玩家竞争 activeBuilder / activeSearch 不会重入。
 - [x] 挖矿、采集、建造、阵法持续补充灵力都能在技艺面板看到当前 job。
 - [x] 打断等待不会污染这些 job 的实际进度条。
@@ -554,6 +545,7 @@ strategy 只负责领域差异：
 - 2026-05-27：强化 interrupt 生命周期从 `CraftPanelRuntimeService.interruptEnhancement` 整段实现拆入 `packages/server/src/runtime/craft/pipeline/strategies/enhancement-interrupt.helpers.ts`，`EnhancementStrategy.executeInterrupt` 直接调用 `applyTechniqueActivityInterrupt` 写 `phase='paused'`、`pausedTicks`、`interruptWaitRemainingTicks` 和 `interruptState`，不修改 `workTotalTicks` / `workRemainingTicks`；旧 `interruptEnhancement` 只保留兼容 facade，回调 `interruptTechniqueActivity('enhancement')`。强化打断通知改为结构化 `notice.craft.activity-interrupted-wait`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js` 通过。
 - 2026-05-27：强化 start、advance、tick、interrupt、cancel 通知全部改为结构化 `key/vars/pills`：新增 `notice.craft.enhancement.*` i18n 源并生成 `i18n.generated.ts`，`world-runtime-enhancement-smoke` 断言启动、打断、成功、保护物不足、灵石不足、锁定物丢失和取消 key。`pnpm --filter @mud/server compile`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js`、`node packages/server/dist/tools/enhancement-panel-payload-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:client`、`pnpm verify:quick` 通过；`enhancement-panel-payload-smoke` 的 legacy itemInstanceId WARN 来自夹具水合，`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：强化记录写入拆成生命周期显式 hook：start 创建/更新记录走 `recordEnhancementStart`，tick 单阶成功/失败计数走 `recordEnhancementStepResult`，完成/停止/取消状态和最高等级收口走 `completeEnhancementRecord`；`finishEnhancementJob` 不再内联直接改 `enhancementRecords`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js`、`node packages/server/dist/tools/enhancement-panel-payload-smoke.js` 通过。该 proof 证明记录写入口已显式命名并保持 smoke 行为，不等同于强化记录已经完全改成公共 `TechniqueActivityResolveResult.recordDelta` 物化。
+- 2026-05-27：建造条件永久失效释放补强：`BuildingStrategy.onConditionFailed` 会释放当前玩家持有的 `activeBuilderPlayerId`；真实 `tickBuildingConstruction` 委托路径遇到建筑已不再处于 `building` 状态但仍残留当前玩家 activeBuilder 时，会清理 activeBuilder、清 buildCompleteTick、递增建筑 revision / worldRevision / persistentRevision，并标记 building 持久化脏域。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 与既有采集目标永久消失释放 `activeSearch` 一起覆盖 Phase 5 “条件永久失效时取消并释放外部占用”的验收项。
 
 ## 验证矩阵
 
