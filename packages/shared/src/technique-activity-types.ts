@@ -34,8 +34,8 @@ export const RUNTIME_TECHNIQUE_ACTIVITY_KINDS = [
   'alchemy',
   'forging',
   'enhancement',
-  'gather',
-  'building',
-  'mining',
   'formation',
+  'gather',
+  'mining',
+  'building',
 ] as const satisfies readonly RuntimeTechniqueActivityKind[];

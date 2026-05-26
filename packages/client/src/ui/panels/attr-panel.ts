@@ -100,7 +100,7 @@ const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
   absorbable: 2,
 };
 
-const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'building', 'forging', 'enhancement']);
+const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'forging', 'enhancement', 'building']);
 
 /** formatRateBp：格式化速率Bp。 */
 function formatRateBp(value: number): string {
@@ -1713,12 +1713,12 @@ export class AttrPanel {
 
     const skills = [
       this.buildCraftSkillSnapshot('alchemy', '炼丹', alchemySkill),
-      this.buildCraftSkillSnapshot('building', '营造', buildingSkill),
-      this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
       this.buildCraftSkillSnapshot('forging', '炼器', forgingSkill),
       this.buildCraftSkillSnapshot('enhancement', '强化', enhancementSkill),
-      this.buildCraftSkillSnapshot('mining', '挖矿', miningSkill),
       this.buildCraftSkillSnapshot('formation', '阵法', formationSkill),
+      this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
+      this.buildCraftSkillSnapshot('mining', '挖矿', miningSkill),
+      this.buildCraftSkillSnapshot('building', '营造', buildingSkill),
     ].filter((entry): entry is AttrCraftSkillSnapshot => Boolean(entry));
     if (skills.length === 0) {
       return { kind: 'placeholder', message: '技艺未录' };
