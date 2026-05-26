@@ -425,7 +425,7 @@ strategy 只负责领域差异：
 - [x] 增加统一技艺任务视图 payload，包含当前 job、打断等待、队列项、休眠原因、取消能力。
 - [x] 技艺面板增加公共任务列表区域，作为所有技艺 job 的统一可见入口；子面板不能独占运行态展示。
 - [x] 保留现有面板 payload 作为专用操作区数据，先不强迫炼丹/强化配方区一次性改成完全通用结构。
-- [ ] 网络发送 helper 保留 `sendStartAlchemy` 等语义入口，但内部映射到通用 activity command。
+- [x] 网络发送 helper 保留 `sendStartAlchemy` 等语义入口，但内部映射到通用 activity command。
 - [x] 新增统一取消发送 helper，任务列表点击取消只发 `cancelRef`，不需要知道子面板内部结构。
 - [x] 队列展示改读统一队列 view，并为每个可取消项提供取消按钮。
 - [x] 进度展示改读统一 active job progress view；实际进度条与打断等待条分离。
@@ -517,6 +517,7 @@ strategy 只负责领域差异：
 - 2026-05-27：采集目标永久消失时，`tickGather` 先调用 `releaseGatherActiveSearch`，即使容器模板已不存在也会按 sourceId 清理旧 `container_state.activeSearch` 并标记容器持久化脏。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-loot-container-smoke.js` 通过。该 proof 覆盖采集外部占用永久失效释放，不等同于所有条件型外部占用的完整验收。
 - 2026-05-27：新增 `S2C.TechniqueActivityTasks` 统一任务列表同步事件；打开炼丹/炼器/强化面板时服务端随专用面板 payload 下发完整任务视图，技艺 mutation/tick 后也推送完整任务视图。客户端工坊顶部任务列表优先消费统一 task view，覆盖炼丹、炼器、强化、采集、建造、挖矿、阵法维护，保留每项 `cancelRef` 直接发 `C2S.CancelTechniqueActivity`，并继续把实际工作进度和打断等待显示为两条。`pnpm build:shared`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm audit:protocol`、`pnpm verify:client`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 不等同于 Playwright 视觉检查或手机/浅色/深色截图验收。
 - 2026-05-27：`TechniqueActivityResolveResult` / `TechniqueActivityRefundResult` 扩展出 `inventoryDelta`、`walletDelta`、`equipmentDelta`、`recordDelta`、`panelDirty` 和结构化 notice 字段；新增 `TechniqueActivityStartResult`、`TechniqueActivityTickResult`、`TechniqueActivityCancelResult` 作为后续拆旧 service 的目标契约。`WorldRuntimeCraftMutationService.flushCraftMutation` 会把技艺 result 中的结构化 notice 透传给 `queuePlayerNotice`，且 durable active_job 路径启用时不再触发非 CAS 后备快照写入，避免 active job 版本双写。`pnpm build:shared`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-mutation-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 证明 result 契约和 flush 边界已具备，但不等同于炼丹/强化真实规则已经迁出旧 service。
+- 2026-05-27：客户端 `sendStartAlchemy` / `sendStartForging` / `sendStartEnhancement` / cancel 语义入口继续保留，但 request/start/cancel 内部统一通过 `TECHNIQUE_ACTIVITY_METADATA` 映射事件；炼器取消不再在 `socket-send-panel.ts` 单独直发 `C2S.CancelAlchemy`，由 `emitTechniqueActivityCancel('forging')` 生成 `{ kind: 'forging' }` payload。`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`pnpm verify:client` 通过。
 
 ## 验证矩阵
 

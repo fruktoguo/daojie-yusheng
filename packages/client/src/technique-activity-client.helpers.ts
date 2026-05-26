@@ -58,7 +58,8 @@ export function emitTechniqueActivityCancel(
   emitEvent: SocketEmitEvent,
   kind: ClientTechniqueActivityKind,
 ): void {
-  emitEvent(TECHNIQUE_ACTIVITY_METADATA[kind].cancelEvent, {});
+  const payload = kind === 'forging' ? { kind: 'forging' } : {};
+  emitEvent(TECHNIQUE_ACTIVITY_METADATA[kind].cancelEvent, payload as never);
 }
 
 export function bindTechniqueActivityPanelEvents(

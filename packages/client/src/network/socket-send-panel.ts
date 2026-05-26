@@ -79,10 +79,6 @@ function sendTechniqueActivityCancel(
   deps: PanelSenderDeps,
   kind: 'alchemy' | 'forging' | 'enhancement',
 ): void {
-  if (kind === 'forging') {
-    deps.emitEvent(C2S.CancelAlchemy, { kind: 'forging' });
-    return;
-  }
   emitTechniqueActivityCancel(deps.emitEvent, kind);
 }
 /**
