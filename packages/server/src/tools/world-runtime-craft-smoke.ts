@@ -17,6 +17,8 @@ type FlushCall = [playerId: string, kind: string, text: string | null];
 async function main(): Promise<void> {
   testActiveTechniqueActivityCoversAllRuntimeKinds();
   testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs();
+  testSleepingQueueRetrySkipsHotConditionCheck();
+  testSleepingQueuePermanentCancelMarksDirty();
   testSleepingGatherQueueRestartsThroughPipeline();
   testSleepingBuildingQueueRestartsThroughPipeline();
   await testGatherStrategyTickDelegatesRuntimeService();
@@ -32,6 +34,8 @@ async function main(): Promise<void> {
     answers: [
       'hasAnyActiveTechniqueActivity 覆盖 alchemy/forging/enhancement/gather/building/formation/mining。',
       '采集/建造中断先写 sleeping 队列，再统一调用 interruptTechniqueActivity。',
+      'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
+      'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
       '采集/建造 strategy tick 会委托真实 runtime service。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
@@ -112,6 +116,116 @@ function testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs(): void {
   assert.equal(player.techniqueActivityQueue.length, 2);
   assert.equal(player.techniqueActivityQueue[0]?.kind, 'gather');
   assert.equal(player.techniqueActivityQueue[1]?.kind, 'building');
+}
+
+function createConditionalQueueProbeStrategy(condition: (job: { targetId?: string }) => { satisfied: boolean; shouldCancel?: boolean; reason?: string }) {
+  return {
+    kind: 'gather',
+    jobSlot: 'gatherJob',
+    skillSlot: 'gatherSkill',
+    activityLabel: '采集',
+    pauseTicks: 0,
+    conditional: true,
+    validateStart() { return { ok: false, error: 'not used' }; },
+    consumeResources() {},
+    createJob() { return { remainingTicks: 1, totalTicks: 1 }; },
+    resolveResumePhase() { return 'gathering'; },
+    isResolvePoint() { return false; },
+    resolve() { return { successCount: 0, failureCount: 0, outputs: [], expParams: undefined as never }; },
+    computeRefund() { return { items: [], spiritStones: 0 }; },
+    dirtyDomains() { return ['active_job']; },
+    checkContinueCondition(_player: unknown, job: { targetId?: string }) {
+      return condition(job);
+    },
+  };
+}
+
+function testSleepingQueueRetrySkipsHotConditionCheck(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  let conditionChecks = 0;
+  pipeline.register(createConditionalQueueProbeStrategy(() => {
+    conditionChecks += 1;
+    return { satisfied: false };
+  }) as never);
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const player = {
+    playerId: 'player:sleeping-retry-skip',
+    techniqueActivityQueue: [{
+      queueId: 'queue:gather:retry',
+      kind: 'gather',
+      payload: { targetId: 'node:1' },
+      label: '采集',
+      state: 'sleeping',
+      retryAfterTicks: 2,
+      createdAt: 1,
+    }],
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {},
+  });
+
+  assert.equal(result, null);
+  assert.equal(conditionChecks, 0);
+  assert.equal(player.techniqueActivityQueue[0]?.retryAfterTicks, 1);
+  assert.equal(player.techniqueActivityQueue.length, 1);
+}
+
+function testSleepingQueuePermanentCancelMarksDirty(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  let conditionChecks = 0;
+  pipeline.register(createConditionalQueueProbeStrategy((job) => {
+    conditionChecks += 1;
+    assert.equal(job.targetId, 'node:gone');
+    return { satisfied: false, shouldCancel: true, reason: '目标消失' };
+  }) as never);
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const player = {
+    playerId: 'player:sleeping-permanent-cancel',
+    persistentRevision: 1,
+    dirtyDomains: new Set<string>(),
+    techniqueActivityQueue: [{
+      queueId: 'queue:gather:gone',
+      kind: 'gather',
+      payload: { targetId: 'node:gone' },
+      label: '采集',
+      state: 'sleeping',
+      retryAfterTicks: 0,
+      createdAt: 1,
+    }],
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      playerRuntimeService: {
+        markPersistenceDirtyDomains(target: typeof player, domains: string[]) {
+          for (const domain of domains) target.dirtyDomains.add(domain);
+        },
+        bumpPersistentRevision(target: typeof player) {
+          target.persistentRevision += 1;
+        },
+      },
+    },
+  });
+
+  assert.equal(conditionChecks, 1);
+  assert.equal(result?.ok, true);
+  assert.equal(result?.panelChanged, true);
+  assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(player.persistentRevision, 2);
 }
 
 function testSleepingGatherQueueRestartsThroughPipeline(): void {

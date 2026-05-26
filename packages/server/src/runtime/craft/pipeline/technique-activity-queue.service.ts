@@ -108,7 +108,8 @@ export class TechniqueActivityQueueService {
     if (!strategy) {
       // 无效策略，移除
       queue.shift();
-      return null;
+      markQueueDirty(player, ctx);
+      return queueMutationResult();
     }
 
     // 当前槽是否空闲
@@ -142,12 +143,14 @@ export class TechniqueActivityQueueService {
         if (condition.shouldCancel) {
           // 条件永久不满足 → 移除
           queue.shift();
-          return null;
+          markQueueDirty(player, ctx);
+          return queueMutationResult();
         }
         // 条件仍不满足 → 移到队尾，重置计时器
         queue.shift();
         head.retryAfterTicks = TECHNIQUE_ACTIVITY_SLEEP_RETRY_TICKS;
         queue.push(head);
+        markQueueDirty(player, ctx);
       }
       return null;
     }
@@ -178,6 +181,33 @@ export class TechniqueActivityQueueService {
 let queueIdCounter = 0;
 function generateQueueId(): string {
   return `q_${Date.now().toString(36)}_${(++queueIdCounter).toString(36)}`;
+}
+
+function queueMutationResult(): CraftMutationResult {
+  return {
+    ok: true,
+    panelChanged: true,
+    messages: [],
+    groundDrops: [],
+  };
+}
+
+function markQueueDirty(player: any, ctx: PipelineContext): void {
+  if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
+    player.dirtyDomains.add('active_job');
+  }
+  const runtimeService = (ctx.deps as {
+    playerRuntimeService?: {
+      markPersistenceDirtyDomains?: (player: any, domains: string[]) => void;
+      bumpPersistentRevision?: (player: any) => void;
+    };
+  } | null)?.playerRuntimeService;
+  if (typeof runtimeService?.markPersistenceDirtyDomains === 'function') {
+    runtimeService.markPersistenceDirtyDomains(player, ['active_job']);
+  }
+  if (typeof runtimeService?.bumpPersistentRevision === 'function') {
+    runtimeService.bumpPersistentRevision(player);
+  }
 }
 
 function buildConditionProbeJob(item: TechniqueActivityQueueItem): Record<string, unknown> {

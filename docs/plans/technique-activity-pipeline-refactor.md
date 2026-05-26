@@ -307,7 +307,7 @@ strategy 只负责领域差异：
 验收：
 
 - [x] 当前任务完成后能启动下一项队列任务。
-- [ ] 条件型 sleeping 项不会每 tick 热检查。
+- [x] 条件型 sleeping 项不会每 tick 热检查。
 - [ ] active job 和队列都能持久化恢复。
 - [x] 从统一任务列表取消当前 job 或队列项，不需要进入对应技艺子面板。
 
@@ -489,6 +489,7 @@ strategy 只负责领域差异：
 - 2026-05-27：挖矿新增 `PlayerMiningJob` 和 `MiningStrategy`，矿镐 `mining:start` context action 入 `startMining` pending command 后由 pipeline 启动；tick 复用地块伤害、阵法减伤、掉落、挖矿经验和宗门扩张副作用，打断等待只更新 `interruptWaitRemainingTicks` / `interruptState`，不改 `workRemainingTicks`。统一任务视图已投影 `miningJob` 并提供取消引用；active job 快照/回读识别 `mining`，同时补齐 `gather/building/mining` 的 active job 快照识别，避免条件型 job 重启丢失。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:client`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：`WorldRuntimeCraftTickService.advanceCraftJobs` 移除采集/建造专用 tick 分支，所有 active kind 统一调用 `CraftPanelRuntimeService.tickTechniqueActivity(player, kind, deps)` 并等待异步结果；`GatherStrategy.executeTick` 委托 `WorldRuntimeLootContainerService.tickGather`，`BuildingStrategy.executeTick` 委托 `tickBuildingConstruction`。采集/建造中断改为先写统一 sleeping 队列，再统一调用 `interruptTechniqueActivity`，由 strategy 委托真实释放路径。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`technique-activity-task-view-smoke.js`、`technique-activity-cancel-ref-smoke.js`、`world-runtime-mining-job-smoke.js` 通过，证明采集/建造不再由 tick service 双路径推进；采集完成时的 durable inventory grant 仍在旧 `tickGather` 内，Phase 6 的“tick 内无 DB IO”仍未完成。
 - 2026-05-27：`techniqueActivityQueue` 纳入玩家完整快照 progression、`hydrateFromSnapshot`、`cloneRuntimePlayerState` 和 `buildRuntimePlayerPersistenceSnapshot`，partial snapshot 中随 `active_job` 域保存；统一任务列表取消队列项时会标记 `active_job` 脏域并 bump `persistentRevision`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-persistence-snapshot-smoke.js`、`technique-activity-task-view-smoke.js`、`technique-activity-cancel-ref-smoke.js` 通过，证明队列快照深拷贝、重启水合、运行态 clone 和取消落盘触发链路有效。`player_active_job` 单表 payload 统一、锁定物恢复联动和 DB proof 仍未完成，Phase 7 不能标记整体完成。
+- 2026-05-27：`TechniqueActivityQueueService.tickQueue` 的 sleeping 项在 `retryAfterTicks` 到期前只递减计数，不调用 strategy 条件检查；到期后如果条件永久失效，会移除队列项、标记 `active_job` 脏域、bump `persistentRevision` 并返回 `panelChanged=true`，避免只在内存里静默删除。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`technique-activity-persistence-snapshot-smoke.js`、`technique-activity-task-view-smoke.js` 通过。该 proof 覆盖队列热检查和永久失效项移除，不等同于全部采集/建造/阵法外部占用恢复验收完成。
 
 ## 验证矩阵
 
