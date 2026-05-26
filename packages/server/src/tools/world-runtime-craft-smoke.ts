@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 import { BuildingStrategy } from '../runtime/craft/pipeline/strategies/building.strategy';
+import { FormationStrategy } from '../runtime/craft/pipeline/strategies/formation.strategy';
 import { GatherStrategy } from '../runtime/craft/pipeline/strategies/gather.strategy';
+import { MiningStrategy } from '../runtime/craft/pipeline/strategies/mining.strategy';
 import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
 import { TechniqueActivityQueueService } from '../runtime/craft/pipeline/technique-activity-queue.service';
 import { WorldRuntimeCraftInterruptService } from '../runtime/world/world-runtime-craft-interrupt.service';
@@ -21,6 +23,8 @@ async function main(): Promise<void> {
   testSleepingQueuePermanentCancelMarksDirty();
   testSleepingGatherQueueRestartsThroughPipeline();
   testSleepingBuildingQueueRestartsThroughPipeline();
+  testSleepingFormationQueueRestartsThroughPipeline();
+  testSleepingMiningQueueRestartsThroughPipeline();
   await testGatherStrategyTickDelegatesRuntimeService();
   testBuildingStrategyTickDelegatesRuntimeService();
   await testCraftTickUsesUnifiedPipelineForCraftingKinds();
@@ -36,7 +40,7 @@ async function main(): Promise<void> {
       '采集/建造中断先写 sleeping 队列，再统一调用 interruptTechniqueActivity。',
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
-      '采集/建造 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
+      '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
       '采集/建造 strategy tick 会委托真实 runtime service。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
@@ -316,6 +320,116 @@ function testSleepingBuildingQueueRestartsThroughPipeline(): void {
   assert.equal(result?.ok, true);
   assert.deepEqual(startedBuildingIds, ['building-1']);
   assert.equal(player.techniqueActivityQueue.length, 0);
+}
+
+function testSleepingFormationQueueRestartsThroughPipeline(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new FormationStrategy());
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const startedPayloads: unknown[] = [];
+  const player = {
+    playerId: 'player:formation-queue',
+    techniqueActivityQueue: [{
+      queueId: 'queue:formation:1',
+      kind: 'formation',
+      payload: { formationInstanceId: 'formation-1' },
+      label: '维护 聚灵阵',
+      state: 'sleeping',
+      sleepReason: '离开阵法控制点位',
+      retryAfterTicks: 0,
+      createdAt: 1,
+    }],
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      worldRuntimeFormationService: {
+        checkFormationMaintenanceCondition(
+          _player: unknown,
+          job: { formationInstanceId?: string },
+        ): { satisfied: boolean } {
+          assert.equal(job.formationInstanceId, 'formation-1');
+          return { satisfied: true };
+        },
+        startFormationMaintenance(_player: unknown, payload: unknown): { ok: boolean; panelChanged: boolean; messages: unknown[] } {
+          startedPayloads.push(payload);
+          return { ok: true, panelChanged: true, messages: [] };
+        },
+      },
+    },
+  });
+
+  assert.equal(result?.ok, true);
+  assert.deepEqual(startedPayloads, [{ formationInstanceId: 'formation-1' }]);
+  assert.equal(player.techniqueActivityQueue.length, 0);
+}
+
+function testSleepingMiningQueueRestartsThroughPipeline(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new MiningStrategy());
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const tileChecks: Array<[number, number]> = [];
+  const player = {
+    playerId: 'player:mining-queue',
+    instanceId: 'instance:mine',
+    x: 4,
+    y: 5,
+    attrs: { numericStats: { physAtk: 3 } },
+    miningJob: null,
+    techniqueActivityQueue: [{
+      queueId: 'queue:mining:1',
+      kind: 'mining',
+      payload: { instanceId: 'instance:mine', targetX: 5, targetY: 5 },
+      label: '黑铁矿',
+      state: 'sleeping',
+      sleepReason: '离开矿脉范围',
+      retryAfterTicks: 0,
+      createdAt: 1,
+    }],
+  };
+  const instance = {
+    getTileCombatState(x: number, y: number): unknown {
+      tileChecks.push([x, y]);
+      return { tileType: 'black_iron_ore', hp: 7, maxHp: 10, destroyed: false };
+    },
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(instanceId: string): unknown {
+      assert.equal(instanceId, 'instance:mine');
+      return instance;
+    },
+    deps: {
+      getPlayerLocation(playerId: string): { instanceId: string; x: number; y: number } {
+        assert.equal(playerId, 'player:mining-queue');
+        return { instanceId: 'instance:mine', x: 4, y: 5 };
+      },
+      getInstanceRuntime(instanceId: string): unknown {
+        assert.equal(instanceId, 'instance:mine');
+        return instance;
+      },
+    },
+  });
+
+  assert.equal(result?.ok, true);
+  assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.equal(player.miningJob?.jobType, 'mining');
+  assert.equal(player.miningJob?.instanceId, 'instance:mine');
+  assert.equal(player.miningJob?.targetX, 5);
+  assert.equal(player.miningJob?.targetY, 5);
+  assert.equal(player.miningJob?.remainingTicks, 7);
+  assert.deepEqual(tileChecks, [[5, 5], [5, 5]]);
 }
 
 async function testCraftTickUsesUnifiedPipelineForCraftingKinds(): Promise<void> {
