@@ -8,6 +8,7 @@ import {
   type RuntimeTechniqueActivityKind,
   type TechniqueActivityNoticeMessage,
   type TechniqueActivityInterruptReason,
+  type TechniqueActivityResolveResult,
 } from '@mud/shared';
 import {
   applyTechniqueActivityInterrupt,
@@ -44,12 +45,38 @@ export interface CraftMutationResult {
   craftRealmExpGain?: number;
 }
 
+export interface TechniqueActivityResolveMaterializeOptions {
+  inventoryChanged?: boolean;
+  equipmentChanged?: boolean;
+  attrChanged?: boolean;
+  additionalGroundDrops?: Array<{ itemId: string; count: number; name?: string }>;
+}
+
 function emptyTickResult(): CraftTickResult {
   return { ok: true, panelChanged: false, inventoryChanged: false, equipmentChanged: false, attrChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
 }
 
 function errorMutationResult(error: string): CraftMutationResult {
   return { ok: false, error, panelChanged: false, messages: [] };
+}
+
+export function materializeTechniqueActivityResolveResult(
+  resolved: TechniqueActivityResolveResult,
+  options: TechniqueActivityResolveMaterializeOptions = {},
+): CraftTickResult {
+  return {
+    ok: true,
+    panelChanged: resolved.panelDirty?.changed ?? true,
+    inventoryChanged: Boolean(resolved.inventoryDelta?.changed) || Boolean(options.inventoryChanged),
+    equipmentChanged: Boolean(resolved.equipmentDelta?.changed) || Boolean(options.equipmentChanged),
+    attrChanged: Boolean(options.attrChanged),
+    messages: resolved.messages ?? [],
+    groundDrops: [
+      ...(resolved.inventoryDelta?.dropped ?? []),
+      ...(options.additionalGroundDrops ?? []),
+    ],
+    craftRealmExpGain: resolved.craftRealmExpGain ?? 0,
+  };
 }
 
 // ─── 管线骨架服务 ───
@@ -217,16 +244,11 @@ export class TechniqueActivityPipelineService {
     }
 
     // Stage 10: 返回结果
-    return {
-      ok: true,
-      panelChanged: true,
+    return materializeTechniqueActivityResolveResult(resolved, {
       inventoryChanged,
-      equipmentChanged: false,
       attrChanged,
-      messages: resolved.messages ?? [],
-      groundDrops,
-      craftRealmExpGain: resolved.craftRealmExpGain ?? 0,
-    };
+      additionalGroundDrops: groundDrops,
+    });
   }
 
   // ─── 公共 Interrupt ───

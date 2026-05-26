@@ -4,6 +4,7 @@
  * 维护时要保持 active job、背包、技艺经验和队列启动的服务端真源一致。
  */
 import type { TechniqueActivityResolveResult } from '@mud/shared';
+import { materializeTechniqueActivityResolveResult } from '../technique-activity-pipeline.service';
 
 export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKindInput: 'alchemy' | 'forging'): unknown {
   const jobKind = jobKindInput === 'forging' ? 'forging' : 'alchemy';
@@ -67,15 +68,12 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
         ...(nextStartResult.messages ?? []),
       ],
     ) as TechniqueActivityResolveResult;
-    return craftService.buildAlchemyLikeTickResult(
-      true,
-      resolved.messages ?? [],
-      Boolean(resolved.inventoryDelta?.changed) || Boolean(nextStartResult.inventoryChanged),
-      Boolean(nextStartResult.equipmentChanged),
-      expResult.skillChanged || Boolean(nextStartResult.attrChanged),
-      [...(resolved.inventoryDelta?.dropped ?? []), ...(nextStartResult.groundDrops ?? [])],
-      resolved.craftRealmExpGain ?? 0,
-    );
+    return materializeTechniqueActivityResolveResult(resolved, {
+      inventoryChanged: Boolean(nextStartResult.inventoryChanged),
+      equipmentChanged: Boolean(nextStartResult.equipmentChanged),
+      attrChanged: expResult.skillChanged || Boolean(nextStartResult.attrChanged),
+      additionalGroundDrops: nextStartResult.groundDrops ?? [],
+    });
   }
 
   job.currentBatchRemainingTicks = job.batchBrewTicks;
@@ -90,13 +88,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
     false,
     [craftService.buildAlchemyLikeBatchMessage(jobKind, job, successCount)],
   ) as TechniqueActivityResolveResult;
-  return craftService.buildAlchemyLikeTickResult(
-    true,
-    resolved.messages ?? [],
-    Boolean(resolved.inventoryDelta?.changed),
-    false,
-    expResult.skillChanged,
-    resolved.inventoryDelta?.dropped ?? [],
-    resolved.craftRealmExpGain ?? 0,
-  );
+  return materializeTechniqueActivityResolveResult(resolved, {
+    attrChanged: expResult.skillChanged,
+  });
 }
