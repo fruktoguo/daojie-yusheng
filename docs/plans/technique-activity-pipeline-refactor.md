@@ -348,7 +348,7 @@ strategy 只负责领域差异：
 - [x] 删除或替换“开始准备炼制”“炉火已稳”“开炉”等阶段文本和面板状态。
 - [x] 炼器保留独立 `forgingJob` 和 `forgingSkill`，不再寄生炼丹语义。
 - [x] 经验走 pipeline 公共 `profession` 写入。
-- [ ] 产出入包/掉地只保留一处实现。
+- [x] 产出入包/掉地只保留一处实现。
 - [ ] 面板 patch 仍保持炼丹/炼器现有客户端结构，避免 UI 同步大改。
 
 验收：
@@ -538,6 +538,7 @@ strategy 只负责领域差异：
 - 2026-05-27：炼丹/炼器批次结算新增 `buildAlchemyLikeBatchResolveResult` / `buildAlchemyLikeExpParams`，每批会生成统一 `TechniqueActivityResolveResult` 形态，包含 `inventoryDelta.granted/dropped/changed`、`panelDirty`、`expParams`、`messages` 和 `craftRealmExpGain`；公共 `materializeTechniqueActivityResolveResult` 负责把该 result 转成现有 `CraftTickResult`，保持面板和资产行为不变。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。经验应用、入包副作用和结构化 notice 全替换仍未完全迁入公共 result 流程。
 - 2026-05-27：`materializeTechniqueActivityResolveResult` 上移到 `TechniqueActivityPipelineService` 模块，统一从 `TechniqueActivityResolveResult.inventoryDelta/panelDirty/messages/craftRealmExpGain` 生成 `CraftTickResult`；`alchemy-like-tick.helpers.ts` 不再自行拼旧 tick 返回结构，只传入下一队列项启动产生的额外 dirty/drop/attr 结果。`pnpm --filter @mud/server compile`、`world-runtime-alchemy-smoke`、`technique-activity-task-view-smoke`、`world-runtime-craft-smoke`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：炼丹/炼器批次经验应用迁入公共 `applyTechniqueActivityResolveExperience`，由 `TechniqueActivityResolveResult.expParams` 统一计算经验并写入对应 `profession` 技能；旧 `applyAlchemyLikeBatchSkillExp` / `resolveAlchemySkillExpGain` 移除，境界经验由公共经验结果派生。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。产出入包副作用和结构化 notice 全替换仍未完全迁入公共 result 流程。
+- 2026-05-27：炼丹/炼器批次产出不再先由 `CraftPanelRuntimeService.grantAlchemyLikeBatchOutput` 直接改背包；strategy 只在 `TechniqueActivityResolveResult.inventoryDelta.granted` 声明本批次产出，公共 `applyTechniqueActivityResolveInventory` 统一执行 normalize、入包、背包满掉地和 result delta 回写。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。结构化 notice 全替换仍未完成。
 
 ## 验证矩阵
 

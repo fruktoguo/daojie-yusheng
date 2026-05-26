@@ -673,45 +673,28 @@ export class CraftPanelRuntimeService {
     resolveAlchemyLikeBatchSuccess(job) {
         return resolveAlchemyBatchSuccess(job.outputCount, job.successRate);
     }
-    /** 发放炼丹/炼器本批次产出；背包满时返回掉地项，由 flush 统一落地。 */
-    grantAlchemyLikeBatchOutput(player, job, successCount) {
-        const groundDrops = [];
-        const grantedItems = [];
-        let inventoryChanged = false;
-        if (successCount > 0) {
-            const outputItem = this.contentTemplateRepository.normalizeItem({
-                itemId: job.outputItemId,
-                count: successCount,
-            });
-            if (canReceiveCraftItem(player, outputItem)) {
-                receiveInventoryItem(player, this.contentTemplateRepository, outputItem);
-                grantedItems.push(outputItem);
-                inventoryChanged = true;
-            }
-            else {
-                groundDrops.push(outputItem);
-            }
-        }
-        return { inventoryChanged, grantedItems, groundDrops };
-    }
     /** 构建炼丹/炼器批次结算 result；后续公共 pipeline 会直接消费该结构。 */
-    buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, outputResult, completed, messages) {
+    buildAlchemyLikeBatchResolveResult(player, jobKind, job, successCount, failureCount, completed, messages) {
         const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
+        const outputItems = successCount > 0
+            ? [{
+                    itemId: job.outputItemId,
+                    count: successCount,
+                    ...(typeof job.outputItemName === 'string' ? { name: job.outputItemName } : {}),
+                }]
+            : [];
         return {
             successCount,
             failureCount,
-            outputs: [
-                ...(outputResult.grantedItems ?? []),
-                ...(outputResult.groundDrops ?? []),
-            ].map((item) => ({
+            outputs: outputItems.map((item) => ({
                 itemId: item.itemId,
                 count: item.count,
                 ...(typeof item.name === 'string' ? { name: item.name } : {}),
             })),
             inventoryDelta: {
-                granted: (outputResult.grantedItems ?? []).map((item) => ({ itemId: item.itemId, count: item.count, ...(typeof item.name === 'string' ? { name: item.name } : {}) })),
-                dropped: (outputResult.groundDrops ?? []).map((item) => ({ itemId: item.itemId, count: item.count, ...(typeof item.name === 'string' ? { name: item.name } : {}) })),
-                changed: Boolean(outputResult.inventoryChanged),
+                granted: outputItems.map((item) => ({ itemId: item.itemId, count: item.count, ...(typeof item.name === 'string' ? { name: item.name } : {}) })),
+                dropped: [],
+                changed: false,
             },
             panelDirty: {
                 changed: true,

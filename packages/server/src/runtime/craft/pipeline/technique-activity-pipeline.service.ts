@@ -4,12 +4,16 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import {
+  canMergeItemStack,
   computeCraftSkillExpGain,
+  createItemStackSignature,
   type RuntimeTechniqueActivityKind,
   type TechniqueActivityNoticeMessage,
   type TechniqueActivityInterruptReason,
+  type TechniqueActivityOutputItem,
   type TechniqueActivityResolveResult,
 } from '@mud/shared';
+import { assignItemInstanceIdIfNeeded } from '../../world/item-instance-id.helpers';
 import {
   applyTechniqueActivityInterrupt,
 } from '../technique-activity-runtime.helpers';
@@ -55,6 +59,12 @@ export interface TechniqueActivityResolveMaterializeOptions {
 export interface TechniqueActivityResolveExperienceResult {
   finalGain: number;
   attrChanged: boolean;
+}
+
+export interface TechniqueActivityResolveInventoryResult {
+  inventoryChanged: boolean;
+  grantedItems: TechniqueActivityOutputItem[];
+  groundDrops: TechniqueActivityOutputItem[];
 }
 
 function emptyTickResult(): CraftTickResult {
@@ -104,6 +114,46 @@ export function applyTechniqueActivityResolveExperience(
   return {
     finalGain,
     attrChanged: applyCraftSkillExpInline(skillState, finalGain, ctx.resolveExpToNextByLevel),
+  };
+}
+
+export function applyTechniqueActivityResolveInventory(
+  player: any,
+  resolved: TechniqueActivityResolveResult,
+  ctx: PipelineContext,
+): TechniqueActivityResolveInventoryResult {
+  const requestedItems = normalizeResolveOutputItems(
+    resolved.inventoryDelta?.granted && resolved.inventoryDelta.granted.length > 0
+      ? resolved.inventoryDelta.granted
+      : resolved.outputs,
+    ctx,
+  );
+  const existingDropped = normalizeResolveOutputItems(resolved.inventoryDelta?.dropped ?? [], ctx);
+  const grantedItems: TechniqueActivityOutputItem[] = [];
+  const groundDrops: TechniqueActivityOutputItem[] = [];
+  let inventoryChanged = false;
+
+  for (const item of requestedItems) {
+    if (canReceiveTechniqueActivityItem(player, item)) {
+      const received = receiveTechniqueActivityInventoryItem(player, item, ctx);
+      grantedItems.push(toTechniqueActivityOutputItem(received));
+      inventoryChanged = true;
+    } else {
+      groundDrops.push(item);
+    }
+  }
+
+  resolved.inventoryDelta = {
+    ...(resolved.inventoryDelta ?? {}),
+    granted: grantedItems,
+    dropped: [...existingDropped, ...groundDrops],
+    changed: Boolean(resolved.inventoryDelta?.changed) || inventoryChanged,
+  };
+
+  return {
+    inventoryChanged,
+    grantedItems,
+    groundDrops,
   };
 }
 
@@ -251,13 +301,7 @@ export class TechniqueActivityPipelineService {
     }
 
     // Stage 8: Output（公共）
-    const groundDrops: Array<{ itemId: string; count: number; name?: string }> = [];
-    let inventoryChanged = false;
-    for (const output of resolved.outputs) {
-      // 尝试放入背包由调用方处理，这里只收集产出
-      groundDrops.push(output);
-      inventoryChanged = true;
-    }
+    const inventoryResult = applyTechniqueActivityResolveInventory(player, resolved, ctx);
 
     // Stage 9: Completion
     if (resolved.completed) {
@@ -266,9 +310,8 @@ export class TechniqueActivityPipelineService {
 
     // Stage 10: 返回结果
     return materializeTechniqueActivityResolveResult(resolved, {
-      inventoryChanged,
+      inventoryChanged: inventoryResult.inventoryChanged,
       attrChanged: expResult.attrChanged,
-      additionalGroundDrops: groundDrops,
     });
   }
 
@@ -404,6 +447,62 @@ function resolveSleepLabel(kind: RuntimeTechniqueActivityKind, fallback: string,
   if (kind === 'building' && typeof job?.buildingName === 'string' && job.buildingName.trim()) return job.buildingName.trim();
   if (kind === 'mining' && typeof job?.miningNodeName === 'string' && job.miningNodeName.trim()) return job.miningNodeName.trim();
   return fallback;
+}
+
+function normalizeResolveOutputItems(
+  items: TechniqueActivityOutputItem[],
+  ctx: PipelineContext,
+): TechniqueActivityOutputItem[] {
+  const normalizedItems: TechniqueActivityOutputItem[] = [];
+  for (const item of items) {
+    const normalized = ctx.contentTemplateRepository.normalizeItem({
+      itemId: item.itemId,
+      count: Math.max(1, Math.floor(Number(item.count) || 1)),
+    }) as Record<string, unknown>;
+    normalizedItems.push(toTechniqueActivityOutputItem({
+      ...normalized,
+      ...(typeof item.name === 'string' ? { name: item.name } : {}),
+    }));
+  }
+  return normalizedItems;
+}
+
+function receiveTechniqueActivityInventoryItem(
+  player: any,
+  item: TechniqueActivityOutputItem,
+  ctx: PipelineContext,
+): TechniqueActivityOutputItem {
+  const normalized = ctx.contentTemplateRepository.normalizeItem(item) as any;
+  assignItemInstanceIdIfNeeded(normalized);
+  if (canMergeItemStack(normalized)) {
+    const signature = createItemStackSignature(normalized);
+    const existing = Array.isArray(player?.inventory?.items)
+      ? player.inventory.items.find((entry: unknown) => canMergeItemStack(entry as any) && createItemStackSignature(entry as any) === signature)
+      : null;
+    if (existing) {
+      (existing as { count: number }).count += normalized.count;
+      return toTechniqueActivityOutputItem(existing);
+    }
+  }
+  player.inventory.items.push(normalized);
+  return toTechniqueActivityOutputItem(normalized);
+}
+
+function canReceiveTechniqueActivityItem(player: any, item: TechniqueActivityOutputItem): boolean {
+  if (!Array.isArray(player?.inventory?.items)) return false;
+  const signature = createItemStackSignature(item as any);
+  return player.inventory.items.some((entry: unknown) => createItemStackSignature(entry as any) === signature)
+    || player.inventory.items.length < Math.max(0, Math.floor(Number(player.inventory.capacity) || 0));
+}
+
+function toTechniqueActivityOutputItem(item: unknown): TechniqueActivityOutputItem {
+  const source = item as { itemId?: unknown; count?: unknown; name?: unknown };
+  return {
+    ...(item && typeof item === 'object' ? item as Record<string, unknown> : {}),
+    itemId: String(source.itemId ?? ''),
+    count: Math.max(1, Math.floor(Number(source.count) || 1)),
+    ...(typeof source.name === 'string' ? { name: source.name } : {}),
+  } as TechniqueActivityOutputItem;
 }
 
 /** 内联计算经验（避免引入外部依赖循环）。 */

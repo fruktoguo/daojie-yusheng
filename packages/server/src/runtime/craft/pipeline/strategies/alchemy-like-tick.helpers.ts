@@ -5,6 +5,7 @@
  */
 import type { TechniqueActivityResolveResult } from '@mud/shared';
 import {
+  applyTechniqueActivityResolveInventory,
   applyTechniqueActivityResolveExperience,
   materializeTechniqueActivityResolveResult,
 } from '../technique-activity-pipeline.service';
@@ -43,19 +44,18 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
   job.failureCount += failureCount;
 
   const jobCompleted = job.completedCount >= job.quantity || job.remainingTicks <= 0;
-  const outputResult = craftService.grantAlchemyLikeBatchOutput(player, job, successCount);
   const resolved = craftService.buildAlchemyLikeBatchResolveResult(
     player,
     jobKind,
     job,
     successCount,
     failureCount,
-    outputResult,
     jobCompleted,
     jobCompleted
       ? [craftService.buildAlchemyLikeCompletionMessage(jobKind, job)]
       : [craftService.buildAlchemyLikeBatchMessage(jobKind, job, successCount)],
   ) as TechniqueActivityResolveResult;
+  const inventoryResult = applyTechniqueActivityResolveInventory(player, resolved, ctx);
   const expResult = applyTechniqueActivityResolveExperience(
     player,
     jobKind === 'forging' ? 'forgingSkill' : 'alchemySkill',
@@ -65,7 +65,7 @@ export function executeAlchemyLikeTick(craftService: any, player: unknown, jobKi
   resolved.craftRealmExpGain = expResult.finalGain / 2;
 
   craftService.finalizeMutation(player, {
-    inventoryChanged: outputResult.inventoryChanged,
+    inventoryChanged: inventoryResult.inventoryChanged,
     attrChanged: expResult.attrChanged,
     persistentOnly: true,
     dirtyDomains: [
