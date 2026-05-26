@@ -5,7 +5,7 @@
  */
 /**
  * 强化策略。
- * start/tick/interrupt 仍在迁移期委托旧 service；cancel 已拆入 strategy helper。
+ * start/cancel 已拆入 pipeline strategy；tick/interrupt 仍在迁移期委托旧 service。
  */
 import type {
   TechniqueActivityResolveResult,
@@ -37,10 +37,6 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
     return this.craftService.tickEnhancement(player);
   }
 
-  executeStart(player: unknown, payload: unknown, _ctx: PipelineContext): unknown {
-    return this.craftService.startEnhancement(player, payload);
-  }
-
   executeCancel(player: unknown, ctx: PipelineContext): unknown {
     return executeEnhancementCancel(this.craftService, player, ctx);
   }
@@ -49,17 +45,31 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
     return this.craftService.interruptEnhancement(player, reason);
   }
 
-  // ─── 接口占位（executeTick/Start/Cancel 优先时不会被调用） ───
+  // ─── Start 生命周期插槽 ───
 
-  validateStart(_player: unknown, _payload: unknown, _ctx: PipelineContext): TechniqueActivityStartValidationResult {
-    return { ok: true, validated: {} };
+  validateStart(player: unknown, payload: unknown, _ctx: PipelineContext): TechniqueActivityStartValidationResult {
+    return this.craftService.validateEnhancementStart(player, payload);
   }
 
-  consumeResources(): void {}
-
-  createJob(player: unknown): any {
-    return (player as any).enhancementJob;
+  queueStart(player: unknown, validated: unknown, payload: unknown, _ctx: PipelineContext): unknown | null {
+    return this.craftService.queueEnhancementStart(player, validated, payload);
   }
+
+  consumeResources(player: unknown, validated: unknown, _ctx: PipelineContext): { ok: true } | { ok: false; error?: string } | void {
+    return this.craftService.consumeEnhancementStartResources(player, validated);
+  }
+
+  createJob(player: unknown, validated: unknown, _ctx: PipelineContext): any {
+    const job = this.craftService.createEnhancementStartJob(player, validated);
+    this.craftService.finalizeEnhancementStart(player);
+    return job;
+  }
+
+  buildStartMessages(_player: unknown, validated: unknown, job: any, _ctx: PipelineContext): any[] {
+    return this.craftService.buildEnhancementStartMessages(validated, job);
+  }
+
+  // ─── Tick/resolve 接口占位（executeTick 优先时不会被调用） ───
 
   resolveResumePhase(): string { return 'enhancing'; }
 

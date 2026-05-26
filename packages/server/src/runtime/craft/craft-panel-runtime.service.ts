@@ -795,33 +795,25 @@ export class CraftPanelRuntimeService {
         const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
         return this.pipeline.tick(player, normalizedJobKind, this.buildPipelineContext(null));
     }
-    /**
- * startEnhancement：执行开始强化相关逻辑。
- * @param player 玩家对象。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新start强化相关状态。
- */
-
-    startEnhancement(player, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+    /** 校验强化 start 的目标、保护物和基础参数；不提前锁装备或扣资源。 */
+    validateEnhancementStart(player, payload) {
         this.ensureCraftSkills(player);
         const target = this.resolveEnhancementTarget(player, payload?.target);
         if (!target) {
-            return buildCraftMutationResult('强化目标不存在。');
+            return { ok: false, error: '强化目标不存在。' };
         }
         if (target.ref.source === 'equipment') {
-            return buildCraftMutationResult('身上装备不能直接强化，请先卸下放入背包。');
+            return { ok: false, error: '身上装备不能直接强化，请先卸下放入背包。' };
         }
         if ((target as Record<string, unknown>).mismatched) {
-            return buildCraftMutationResult('强化目标已变更，请重新选择。');
+            return { ok: false, error: '强化目标已变更，请重新选择。' };
         }
         if (target.item.type !== 'equipment') {
-            return buildCraftMutationResult('当前仅支持强化装备。');
+            return { ok: false, error: '当前仅支持强化装备。' };
         }
         const currentLevel = normalizeEnhanceLevel(target.item.enhanceLevel);
         if (currentLevel >= MAX_ENHANCE_LEVEL) {
-            return buildCraftMutationResult(`该装备已达到强化上限 +${MAX_ENHANCE_LEVEL}。`);
+            return { ok: false, error: `该装备已达到强化上限 +${MAX_ENHANCE_LEVEL}。` };
         }
         const targetLevel = currentLevel + 1;
         const desiredTargetLevel = this.resolveRequestedTargetLevel(currentLevel, payload?.targetLevel);
@@ -830,76 +822,104 @@ export class CraftPanelRuntimeService {
             ? this.resolveEnhancementProtection(player, payload.protection, target, config)
             : null;
         if (payload?.protection && !protection) {
-            return buildCraftMutationResult('保护物不存在或不符合本次强化规则。');
-        }
-        if (this.hasAnyActiveTechniqueActivity(player)) {
-            return this.enqueueCraftQueueItem(
-                player,
-                buildEnhancementQueueItem(target, protection, payload, desiredTargetLevel),
-                normalizeCraftQueueStartMode(payload?.queueMode),
-            );
+            return { ok: false, error: '保护物不存在或不符合本次强化规则。' };
         }
         const materials = this.getEnhancementRequirements(config, targetLevel);
         const protectionStartLevel = protection
             ? this.resolveProtectionStartLevel(desiredTargetLevel, payload?.protectionStartLevel)
             : undefined;
         const spiritStoneCost = getEnhancementSpiritStoneCost(target.item.level, materials.length > 0);
-        if (!this.hasEnoughEnhancementResources(player, target, protection, spiritStoneCost, materials, this.shouldUseProtectionForStep(targetLevel, protectionStartLevel))) {
-            return buildCraftMutationResult('所需灵石、材料或保护物不足。');
+        return {
+            ok: true,
+            validated: {
+                payload,
+                target,
+                currentLevel,
+                targetLevel,
+                desiredTargetLevel,
+                config,
+                protection,
+                materials,
+                protectionStartLevel,
+                spiritStoneCost,
+                jobRunId: createCraftJobRunId(player.playerId, 'enhancement'),
+            },
+        };
+    }
+    /** 活动互斥时把强化 start 转入统一技艺队列，不提前锁装备或扣资源。 */
+    queueEnhancementStart(player, validated, payload) {
+        if (!this.hasAnyActiveTechniqueActivity(player)) {
+            return null;
+        }
+        return this.enqueueCraftQueueItem(
+            player,
+            buildEnhancementQueueItem(validated.target, validated.protection, payload, validated.desiredTargetLevel),
+            normalizeCraftQueueStartMode(payload?.queueMode),
+        );
+    }
+    /** 锁定强化工件并扣除本阶材料；调用方负责先完成校验和排队。 */
+    consumeEnhancementStartResources(player, validated) {
+        const target = validated.target;
+        const protectionRequired = this.shouldUseProtectionForStep(validated.targetLevel, validated.protectionStartLevel);
+        if (!this.hasEnoughEnhancementResources(player, target, validated.protection, validated.spiritStoneCost, validated.materials, protectionRequired)) {
+            return { ok: false, error: '所需灵石、材料或保护物不足。' };
         }
         const workingItem = target.ref.source === 'inventory'
             ? extractInventoryItemByInstanceId(player, target.ref.itemInstanceId)
             : extractEquipmentItem(player, target.ref.slot);
         if (!workingItem) {
-            return buildCraftMutationResult('强化目标不存在。');
+            return { ok: false, error: '强化目标不存在。' };
         }
-        // 装备类必须有稳定 itemInstanceId 才能进入锁定空间作为索引键
         assignItemInstanceIdIfNeeded(workingItem as ItemStack);
         const workingInstanceId = typeof (workingItem as ItemStack).itemInstanceId === 'string'
             ? (workingItem as ItemStack).itemInstanceId
             : '';
         if (!workingInstanceId) {
-            return buildCraftMutationResult('强化目标缺失实例标识。');
+            return { ok: false, error: '强化目标缺失实例标识。' };
         }
-        for (const material of materials) {
+        for (const material of validated.materials) {
             consumeInventoryItemByItemId(player, material.itemId, material.count);
         }
-        const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
-        const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, target.item.level);
-        const successRate = computeEnhancementAdjustedSuccessRate(targetLevel, roleEnhancementLevel, target.item.level, this.getWeapon(player)?.enhancementSuccessRate);
-        const totalTicks = computeEnhancementJobTicks(target.item.level, totalSpeedRate);
-        const protectionItemId = protection ? (config?.protectionItemId ?? target.item.itemId) : undefined;
-        const protectionItemName = protectionItemId
-            ? (this.contentTemplateRepository.getItemName(protectionItemId) ?? protectionItemId)
-            : undefined;
-        const protectionItemSignature = protection
-            ? createItemStackSignature(protection.item)
-            : undefined;
-        const jobRunId = createCraftJobRunId(player.playerId, 'enhancement');
-        // 把工件移入锁定空间（escrow）：之后的强化结算路径都通过 itemInstanceId 取出/写回
         if (!Array.isArray(player.inventory.lockedItems)) {
             player.inventory.lockedItems = [];
         }
-        // 锁定时同步把当前 enhanceLevel 对齐到 currentLevel，保证后续 mutation 一致
-        (workingItem as ItemStack).enhanceLevel = currentLevel;
+        (workingItem as ItemStack).enhanceLevel = validated.currentLevel;
         (workingItem as ItemStack).count = 1;
-        lockItem(player.inventory.lockedItems, workingItem as unknown as Record<string, unknown>, `enhancement:${jobRunId}`);
-        const targetItemName = getItemDisplayName({ ...target.item, enhanceLevel: currentLevel });
+        lockItem(player.inventory.lockedItems, workingItem as unknown as Record<string, unknown>, `enhancement:${validated.jobRunId}`);
+        validated.workingItem = workingItem;
+        validated.workingInstanceId = workingInstanceId;
+        return { ok: true };
+    }
+    /** 创建强化 active job；调用方负责先完成资源锁定和材料消耗。 */
+    createEnhancementStartJob(player, validated) {
+        const target = validated.target;
+        const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
+        const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, target.item.level);
+        const successRate = computeEnhancementAdjustedSuccessRate(validated.targetLevel, roleEnhancementLevel, target.item.level, this.getWeapon(player)?.enhancementSuccessRate);
+        const totalTicks = computeEnhancementJobTicks(target.item.level, totalSpeedRate);
+        const protectionItemId = validated.protection ? (validated.config?.protectionItemId ?? target.item.itemId) : undefined;
+        const protectionItemName = protectionItemId
+            ? (this.contentTemplateRepository.getItemName(protectionItemId) ?? protectionItemId)
+            : undefined;
+        const protectionItemSignature = validated.protection
+            ? createItemStackSignature(validated.protection.item)
+            : undefined;
+        const targetItemName = getItemDisplayName({ ...target.item, enhanceLevel: validated.currentLevel });
         player.enhancementJob = {
-            jobRunId,
+            jobRunId: validated.jobRunId,
             jobType: 'enhancement',
             target: cloneTargetRef(target.ref),
-            itemInstanceId: workingInstanceId,
+            itemInstanceId: validated.workingInstanceId,
             targetItemId: target.item.itemId,
             targetItemName,
             targetItemLevel: Math.max(1, Math.floor(Number(target.item.level) || 1)),
-            currentLevel,
-            targetLevel,
-            desiredTargetLevel,
-            spiritStoneCost,
-            materials: materials.map((entry) => ({ ...entry })),
-            protectionUsed: Boolean(protection),
-            protectionStartLevel,
+            currentLevel: validated.currentLevel,
+            targetLevel: validated.targetLevel,
+            desiredTargetLevel: validated.desiredTargetLevel,
+            spiritStoneCost: validated.spiritStoneCost,
+            materials: validated.materials.map((entry) => ({ ...entry })),
+            protectionUsed: Boolean(validated.protection),
+            protectionStartLevel: validated.protectionStartLevel,
             protectionItemId,
             protectionItemName,
             protectionItemSignature,
@@ -920,29 +940,42 @@ export class CraftPanelRuntimeService {
         this.touchEnhancementRecord(player, {
             itemId: target.item.itemId,
             actionStartedAt: player.enhancementJob.startedAt,
-            startLevel: currentLevel,
-            initialTargetLevel: targetLevel,
-            desiredTargetLevel,
-            protectionStartLevel,
+            startLevel: validated.currentLevel,
+            initialTargetLevel: validated.targetLevel,
+            desiredTargetLevel: validated.desiredTargetLevel,
+            protectionStartLevel: validated.protectionStartLevel,
             status: 'in_progress',
         });
+        return player.enhancementJob;
+    }
+    /** 标记强化 start 对背包、active job 和强化记录的权威变更。 */
+    finalizeEnhancementStart(player) {
         this.finalizeMutation(player, {
             inventoryChanged: true,
-            equipmentChanged: target.ref.source === 'equipment',
             persistentOnly: true,
             dirtyDomains: ['active_job', 'enhancement_record'],
         });
-        return {
-            ok: true,
-            panelChanged: true,
-            inventoryChanged: true,
-            messages: [{
-                    kind: 'quest',
-                    text: desiredTargetLevel > targetLevel
-                        ? `开始强化 ${targetItemName}，先冲击 +${targetLevel}，最终目标 +${desiredTargetLevel}${protection ? `，保护从 +${protectionStartLevel} 开始生效` : ''}。`
-                        : `开始强化 ${targetItemName}，目标 +${targetLevel}，预计耗时 ${totalTicks} 息。`,
-                }],
-        };
+    }
+    /** 构建强化启动提示。 */
+    buildEnhancementStartMessages(validated, job) {
+        return [{
+            kind: 'quest',
+            text: validated.desiredTargetLevel > validated.targetLevel
+                ? `开始强化 ${job.targetItemName}，先冲击 +${validated.targetLevel}，最终目标 +${validated.desiredTargetLevel}${validated.protection ? `，保护从 +${validated.protectionStartLevel} 开始生效` : ''}。`
+                : `开始强化 ${job.targetItemName}，目标 +${validated.targetLevel}，预计耗时 ${job.totalTicks} 息。`,
+        }];
+    }
+    /**
+ * startEnhancement：执行开始强化相关逻辑。
+ * @param player 玩家对象。
+ * @param payload 载荷参数。
+ * @returns 无返回值，直接更新start强化相关状态。
+ */
+
+    startEnhancement(player, payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        return this.startTechniqueActivity(player, 'enhancement', payload);
     }
     /**
  * cancelEnhancement：判断cancel强化是否满足条件。
