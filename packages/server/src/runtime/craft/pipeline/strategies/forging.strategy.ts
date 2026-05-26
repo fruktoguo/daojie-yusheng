@@ -3,7 +3,7 @@
  *
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
-/** 锻造策略。start 已拆入公共 pipeline；tick/cancel 仍在迁移期委托旧 service。 */
+/** 锻造策略。start/tick/cancel 已拆入 pipeline strategy；interrupt 仍在迁移期委托旧 service。 */
 import type {
   TechniqueActivityResolveResult,
   TechniqueActivityRefundResult,
@@ -11,6 +11,7 @@ import type {
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { executeAlchemyLikeTick } from './alchemy-like-tick.helpers';
+import { executeAlchemyLikeCancel } from './alchemy-like-cancel.helpers';
 export class ForgingStrategy implements TechniqueActivityStrategy {
   readonly kind = 'forging' as const;
   readonly jobSlot = 'forgingJob';
@@ -33,8 +34,8 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
     return executeAlchemyLikeTick(this.craftService, player, 'forging', ctx);
   }
 
-  executeCancel(player: unknown, _ctx: PipelineContext): unknown {
-    return this.craftService.cancelForging(player);
+  executeCancel(player: unknown, ctx: PipelineContext): unknown {
+    return executeAlchemyLikeCancel(this.craftService, player, 'forging', ctx);
   }
 
   executeInterrupt(player: unknown, reason: string, _ctx: PipelineContext): unknown {
