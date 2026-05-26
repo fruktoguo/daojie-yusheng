@@ -28,6 +28,7 @@ async function main(): Promise<void> {
   testSleepingFormationQueueRestartsThroughPipeline();
   testSleepingMiningQueueRestartsThroughPipeline();
   await testGatherActiveSearchRejectsCompetingPlayers();
+  await testGatherPermanentLossReleasesStaleActiveSearch();
   testBuildingActiveBuilderRejectsCompetingPlayers();
   await testGatherStrategyTickDelegatesRuntimeService();
   testBuildingStrategyTickDelegatesRuntimeService();
@@ -46,6 +47,7 @@ async function main(): Promise<void> {
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
+      '采集目标永久消失时会释放遗留 container activeSearch。',
       '建造 activeBuilder 不会被其他玩家重入覆盖。',
       '采集/建造 strategy tick 会委托真实 runtime service。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
@@ -546,6 +548,101 @@ async function testGatherActiveSearchRejectsCompetingPlayers(): Promise<void> {
   const cancelA = service.dispatchCancelGather(playerA.playerId, deps);
   assert.equal(cancelA.ok, true);
   assert.equal(state.activeSearch, undefined);
+}
+
+async function testGatherPermanentLossReleasesStaleActiveSearch(): Promise<void> {
+  const instanceId = 'instance:gather-permanent-loss';
+  const containerId = 'herb-missing';
+  const player = createGatherCompetitionPlayer('player:gather-loss', instanceId);
+  player.gatherJob = {
+    resourceNodeId: containerId,
+    sourceId: `container:${instanceId}:${containerId}`,
+    instanceId,
+    resourceNodeName: '消失的灵草丛',
+    remainingTicks: 2,
+    totalTicks: 2,
+    workRemainingTicks: 2,
+    workTotalTicks: 2,
+    phase: 'gathering',
+  };
+  const playerRuntimeService = {
+    getLootWindowTarget(): { tileX: number; tileY: number } {
+      return { tileX: 1, tileY: 1 };
+    },
+    getPlayerOrThrow(): any {
+      return player;
+    },
+    getPlayer(): any {
+      return player;
+    },
+    bumpPersistentRevision(targetPlayer: any): void {
+      targetPlayer.persistentRevision = Math.max(0, Math.trunc(Number(targetPlayer.persistentRevision) || 0)) + 1;
+    },
+    markPersistenceDirtyDomains(targetPlayer: any, domains: string[]): void {
+      if (!(targetPlayer.dirtyDomains instanceof Set)) {
+        targetPlayer.dirtyDomains = new Set<string>();
+      }
+      for (const domain of domains) {
+        targetPlayer.dirtyDomains.add(domain);
+      }
+    },
+  };
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number): unknown {
+      return { itemId, count };
+    },
+  } as never, playerRuntimeService as never, null);
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${containerId}`,
+    containerId,
+    generatedAtTick: 1,
+    refreshAtTick: 100,
+    entries: [],
+    activeSearch: {
+      playerId: player.playerId,
+      itemKey: 'herb.qi:1',
+      totalTicks: 2,
+      remainingTicks: 1,
+    },
+  }]);
+  const instance = {
+    tick: 5,
+    getContainerById(): null {
+      return null;
+    },
+  };
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new GatherStrategy());
+
+  const result = await Promise.resolve(pipeline.tick(player, 'gather', {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return instance; },
+    deps: {
+      worldRuntimeLootContainerService: service,
+      getPlayerLocationOrThrow(): { instanceId: string } {
+        return { instanceId };
+      },
+      getInstanceRuntimeOrThrow(targetInstanceId: string): unknown {
+        assert.equal(targetInstanceId, instanceId);
+        return instance;
+      },
+      getInstanceRuntime(targetInstanceId: string): unknown {
+        assert.equal(targetInstanceId, instanceId);
+        return instance;
+      },
+    },
+  })) as any;
+
+  assert.equal(result.ok, true);
+  assert.equal(result.sleepPayload, undefined);
+  assert.equal(player.gatherJob, null);
+  const [persisted] = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted?.activeSearch, undefined);
+  assert.equal(service.getDirtyInstanceIds().has(instanceId), true);
 }
 
 function testBuildingActiveBuilderRejectsCompetingPlayers(): void {

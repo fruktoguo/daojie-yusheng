@@ -713,6 +713,7 @@ export class WorldRuntimeLootContainerService {
         const instance = deps.getInstanceRuntime?.(parsedSource.instanceId) ?? deps.getInstanceRuntimeOrThrow?.(parsedSource.instanceId);
         const container = instance?.getContainerById?.(parsedSource.containerId);
         if (!container) {
+            this.clearGatherActiveSearchState(parsedSource.instanceId, parsedSource.containerId, playerId);
             return;
         }
         const state = this.ensureContainerState(parsedSource.instanceId, container, instance.tick);
@@ -720,6 +721,16 @@ export class WorldRuntimeLootContainerService {
             state.activeSearch = undefined;
             this.markContainerPersistenceDirty(parsedSource.instanceId);
         }
+    }
+
+    clearGatherActiveSearchState(instanceId, containerId, playerId) {
+        const states = this.containerStatesByInstanceId.get(instanceId);
+        const state = states?.get?.(buildContainerSourceId(instanceId, containerId));
+        if (!state || !isActiveSearchOwnedByPlayer(state.activeSearch, playerId)) {
+            return;
+        }
+        state.activeSearch = undefined;
+        this.markContainerPersistenceDirty(instanceId);
     }
 
     resolveGatherJobSourceId(playerId, player, job, deps) {
@@ -912,6 +923,7 @@ export class WorldRuntimeLootContainerService {
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const container = instance.getContainerById(job.resourceNodeId);
         if (!container || container.variant !== 'herb') {
+            this.releaseGatherActiveSearch(playerId, player, job, deps);
             player.gatherJob = null;
             this.playerRuntimeService.bumpPersistentRevision(player);
             this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
