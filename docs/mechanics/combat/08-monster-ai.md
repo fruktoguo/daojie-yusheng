@@ -4,6 +4,14 @@
 
 源文件: `packages/server/src/runtime/instance/map-instance-monster-advancer.ts`
 
+空实例（当前实例内无玩家）仍按 1Hz 推进逻辑时间，但怪物主动 AI 会休眠：
+
+- 保留死亡怪物 `respawnLeft--` 和复活。
+- 保留存活怪物 buff tick、派生属性重算、HP/QI 恢复。
+- 清理过期追击/仇恨状态。
+- 取消残留怪物吟唱，避免玩家回图后继承离图前的延迟攻击。
+- 跳过主动寻敌、丢失视野追击、回出生点、闲逛、技能释放、普攻和追击移动。
+
 ```
 1. 死亡怪物: 倒计时 respawnLeft--，到 0 时复活
 2. 存活怪物:

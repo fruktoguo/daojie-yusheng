@@ -156,7 +156,11 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   private async precomputeInstanceWorkerIntents(instanceStepPlans, worldTick, deps = null): Promise<Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>> {
     const proposals = new Map<string, Array<{ monsterId: string; action: string; targetId?: string }>>();
     if (!this.instanceWorkerPool) return proposals;
-    const results = await Promise.all(instanceStepPlans.map(async ({ instance }) => {
+    const activeAiPlans = instanceStepPlans.filter(({ sleepMonsterAi }) => sleepMonsterAi !== true);
+    if (activeAiPlans.length <= 0) {
+      return proposals;
+    }
+    const results = await Promise.all(activeAiPlans.map(async ({ instance }) => {
       try {
         return await this.instanceWorkerPool.submit(
           'instance-advance',
@@ -255,18 +259,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             } else {
                 speed = 1;
             }
-            // T-04: 无玩家实例降频到 0.1Hz（排除通天塔和有活跃阵法的实例）
-            if (speed > 0
-                && instance.playersById.size === 0
-                && !instance.meta.templateId.startsWith('tongtian_tower_layer_')
-                && !(deps.worldRuntimeFormationService?.formationsByInstanceId?.get(instance.meta.instanceId)?.length > 0)
-            ) {
-                speed *= 0.1;
-                if (instance._throttledSinceMs == null) {
-                    instance._throttledSinceMs = Date.now();
-                    instance._throttledSinceTick = instance.tick;
-                }
-            } else {
+            const playerCount = resolveInstancePlayerCount(instance);
+            const sleepMonsterAi = playerCount <= 0;
+            if (instance._throttledSinceMs != null) {
                 instance._throttledSinceMs = null;
             }
             if (!Number.isFinite(speed) || speed <= 0) {
@@ -294,7 +289,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             if (steps <= 0) {
                 continue;
             }
-            instanceStepPlans.push({ instance, steps, speed });
+            instanceStepPlans.push({ instance, steps, speed, sleepMonsterAi });
             plannedLogicalTicks += steps;
         }
         if (plannedLogicalTicks <= 0) {
@@ -327,7 +322,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         // T-19: 预分配 tickOnce 返回值容器，循环内复用
         const reusableTickResult = { completedBuildings: [] as any[], transfers: [] as any[], monsterActions: [] as any[] };
         const instanceTicksStartedAt = performance.now();
-        for (const { instance, steps, speed } of instanceStepPlans) {
+        for (const { instance, steps, speed, sleepMonsterAi } of instanceStepPlans) {
             for (let index = 0; index < steps; index += 1) {
                 // 加速 tick 补偿：对于后续逻辑 tick，为当前实例的玩家重新物化命令
                 if (index > 0) {
@@ -376,7 +371,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     terrainStabilizationChecker(x, y) === true
                     || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
                 );
-                const instanceIntents = workerProposals.get(instance.meta.instanceId) ?? null;
+                const instanceIntents = sleepMonsterAi === true ? null : (workerProposals.get(instance.meta.instanceId) ?? null);
                 // T-19: 复用预分配容器
                 reusableTickResult.completedBuildings.length = 0;
                 reusableTickResult.transfers.length = 0;
@@ -387,7 +382,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     instanceTick: instance.tick,
                     worldTick: deps.tick,
                 }, () => {
-                    result = instance.tickOnce(instanceIntents) ?? result;
+                    result = instance.tickOnce(instanceIntents, { sleepMonsterAi: sleepMonsterAi === true }) ?? result;
                 });
                 if (typeof instance.advanceTileResourceFlow === 'function') {
                     this.runIsolatedSyncOperation(deps, 'instance_tile_resource_flow', {
@@ -619,6 +614,22 @@ function isSameWorldTimeVisionState(left, right) {
         && left.darknessStacks === right.darknessStacks
         && left.visionMultiplier === right.visionMultiplier
         && left.lightPercent === right.lightPercent;
+}
+
+function resolveInstancePlayerCount(instance) {
+    const directCount = Number(instance?.playerCount);
+    if (Number.isFinite(directCount) && directCount >= 0) {
+        return Math.trunc(directCount);
+    }
+    const playersById = instance?.playersById;
+    if (playersById && Number.isFinite(Number(playersById.size))) {
+        return Math.max(0, Math.trunc(Number(playersById.size)));
+    }
+    if (typeof instance?.listPlayerIds === 'function') {
+        const playerIds = instance.listPlayerIds();
+        return Array.isArray(playerIds) ? playerIds.length : 0;
+    }
+    return 0;
 }
 
 function buildCultivationAuraMultiplierByPlayerId(instance, playerIds, playerRuntimeService) {

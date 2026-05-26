@@ -2161,8 +2161,9 @@ class MapInstanceRuntime {
     }
     /** tickOnce：推进当前地图实例的一个逻辑 tick。
      * @param precomputedMonsterIntents 可选的 worker 预计算怪物意图，作为 target hints 加速 AI 决策。
+     * @param options sleepMonsterAi=true 时仅休眠怪物主动寻敌、移动、攻击和吟唱，仍推进复活、buff 与恢复。
      */
-    tickOnce(precomputedMonsterIntents = null) {
+    tickOnce(precomputedMonsterIntents = null, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.tick += 1;
@@ -2197,7 +2198,9 @@ class MapInstanceRuntime {
         }
         this.pendingCommands.clear();
         const completedBuildings = this.advanceBuildingConstruction();
-        this.advanceMonsters(monsterActions, precomputedMonsterIntents);
+        this.advanceMonsters(monsterActions, precomputedMonsterIntents, {
+            sleepActiveAi: options?.sleepMonsterAi === true,
+        });
         return {
             completedBuildings,
             transfers,
@@ -5265,11 +5268,12 @@ class MapInstanceRuntime {
         return entry;
     }
     /** advanceMonsters：推进妖兽 AI 和行动。 */
-    advanceMonsters(monsterActions, precomputedIntents = null) {
+    advanceMonsters(monsterActions, precomputedIntents = null, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const sleepActiveAi = options?.sleepActiveAi === true;
         // Phase 4: 构建 worker 预计算 intent 索引，用于加速 target 解析
-        const intentByMonsterId = precomputedIntents
+        const intentByMonsterId = !sleepActiveAi && precomputedIntents
             ? new Map(precomputedIntents.map((intent) => [intent.monsterId, intent]))
             : null;
 
@@ -5319,6 +5323,20 @@ class MapInstanceRuntime {
                     monster.pendingCast = undefined;
                     continue;
                 }
+                if (sleepActiveAi) {
+                    const sleepCancelledPendingCast = cancelPendingCombatCast(monster.pendingCast, {
+                        reason: CombatPendingCastCancelReason.TargetInvalid,
+                        cancelledTick: this.tick,
+                    });
+                    monsterActions.push(createMonsterSkillCancelActionFromPendingCast(sleepCancelledPendingCast, {
+                        instanceId: this.meta.instanceId,
+                        runtimeId: monster.runtimeId,
+                    }));
+                    monster.pendingCast = undefined;
+                    this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+                    changed = true;
+                    continue;
+                }
                 monster.pendingCast.remainingTicks = Math.max(0, Math.trunc(Number(monster.pendingCast.remainingTicks) || 0) - 1);
                 if (monster.pendingCast.remainingTicks > 0) {
                     continue;
@@ -5331,6 +5349,13 @@ class MapInstanceRuntime {
                     runtimeId: monster.runtimeId,
                     targetPlayerId: pendingTarget?.playerId ?? pendingCast.targetPlayerId,
                 }));
+                continue;
+            }
+
+            if (sleepActiveAi) {
+                if (this.clearMonsterActiveAiStateForSleep(monster)) {
+                    changed = true;
+                }
                 continue;
             }
 
@@ -6210,6 +6235,21 @@ class MapInstanceRuntime {
         monster.lastSeenTargetX = undefined;
         monster.lastSeenTargetY = undefined;
         monster.lastSeenTargetTick = undefined;
+    }
+    /** clearMonsterActiveAiStateForSleep：空实例休眠主动 AI 时清理追击态，避免玩家回图后继承过期仇恨。 */
+    clearMonsterActiveAiStateForSleep(monster) {
+        const hadPursuit = monster.aggroTargetPlayerId != null
+            || monster.lastSeenTargetX !== undefined
+            || monster.lastSeenTargetY !== undefined
+            || monster.lastSeenTargetTick !== undefined;
+        const hadThreat = this.monsterThreatByRuntimeId.has(monster.runtimeId);
+        if (!hadPursuit && !hadThreat) {
+            return false;
+        }
+        this.clearMonsterTargetPursuit(monster);
+        this.monsterThreatByRuntimeId.delete(monster.runtimeId);
+        this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+        return true;
     }
     /** clearMonsterAggroForPlayer：清除所有以指定玩家为仇恨目标的妖兽仇恨。 */
     clearMonsterAggroForPlayer(playerId: string) {

@@ -221,6 +221,76 @@ function testMonsterPendingCastActorDeadEmitsCancelAction() {
   assert.equal(result.monsterActions[0]?.skillId, 'monster:warning_strike');
 }
 
+function testSleepingMonsterAiStillAdvancesRespawnButSkipsActiveBehavior() {
+  const respawnInstance = createInstance({
+    alive: false,
+    hp: 0,
+    respawnLeft: 2,
+  });
+  const respawnResult = respawnInstance.tickOnce(null, { sleepMonsterAi: true });
+  const respawningMonster = respawnInstance.getMonster('monster:los');
+
+  assert.deepEqual(respawnResult.monsterActions, []);
+  assert.equal(respawningMonster?.alive, false);
+  assert.equal(respawningMonster?.respawnLeft, 1);
+
+  const activeInstance = createInstance({
+    x: 1,
+    y: 0,
+    spawnOriginX: 1,
+    spawnOriginY: 1,
+  });
+  const activeMonster = activeInstance.monstersByRuntimeId.get('monster:los');
+  activeMonster.aggroTargetPlayerId = 'player:target';
+  activeMonster.lastSeenTargetX = 4;
+  activeMonster.lastSeenTargetY = 0;
+  activeMonster.lastSeenTargetTick = activeInstance.tick;
+
+  const activeResult = activeInstance.tickOnce(null, { sleepMonsterAi: true });
+
+  assert.deepEqual(activeResult.monsterActions, []);
+  assert.equal(activeMonster.x, 1);
+  assert.equal(activeMonster.y, 0);
+  assert.equal(activeMonster.aggroTargetPlayerId, null);
+}
+
+function testSleepingMonsterAiCancelsPendingCast() {
+  const instance = createInstance({
+    skills: [{
+      id: 'monster:warning_strike',
+      name: '预警打击',
+      range: 5,
+      cooldown: 1,
+      cost: 0,
+      targeting: { shape: 'single' },
+      monsterCast: {
+        windupTicks: 2,
+        warningColor: '#ffcc66',
+      },
+      effects: [],
+    }],
+  });
+  const monster = instance.monstersByRuntimeId.get('monster:los');
+  monster.pendingCast = createMonsterPendingCombatCast({
+    runtimeId: 'monster:los',
+    instanceId: 'instance:monster-los-smoke',
+    skillId: 'monster:warning_strike',
+    targetPlayerId: 'player:target',
+    anchor: { x: 3, y: 1 },
+    warningCells: [{ x: 3, y: 1 }],
+    remainingTicks: 2,
+    startedTick: 0,
+    resolveTick: 2,
+  });
+
+  const result = instance.tickOnce(null, { sleepMonsterAi: true });
+
+  assert.equal(result.monsterActions.length, 1);
+  assert.equal(result.monsterActions[0]?.kind, 'skill_cancel');
+  assert.equal(result.monsterActions[0]?.cancelReason, 'target_invalid');
+  assert.equal(monster.pendingCast, undefined);
+}
+
 function testMonsterPendingCastRevisionMismatchEmitsCancelAction() {
   const instance = createInstance({
     skills: [{
@@ -447,6 +517,8 @@ testMonsterAcquiresTargetAfterWallDestroyed();
 testDynamicBarrierBlocksMovementButNotSight();
 testPendingCastCompletionDoesNotDropWhenOriginalTargetDisconnects();
 testMonsterPendingCastActorDeadEmitsCancelAction();
+testSleepingMonsterAiStillAdvancesRespawnButSkipsActiveBehavior();
+testSleepingMonsterAiCancelsPendingCast();
 testMonsterPendingCastRevisionMismatchEmitsCancelAction();
 testMonsterPendingCastExpiredEmitsCancelAction();
 testMonsterPendingCastNotPersistedAndClearedOnHydrate();
@@ -457,5 +529,5 @@ testMonsterSkillInsufficientQiDoesNotEmitActionOrCommitCooldown();
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-monster-los',
-  answers: '妖兽不会隔墙索敌或攻击；遮挡地块被摧毁后才会按视野重新索敌；动态阵法边界挡通行但不遮挡视线；吟唱完成时原目标断开也不会静默丢弃技能 action；怪物 pending cast 死亡、过期和配置版本不匹配会产出取消 action；怪物 pending cast 不持久化且 hydrate 时显式清空；怪物瞬发/吟唱技能在 tick 生产阶段预提交元气与冷却，吟唱完成不重复扣元气，元气不足不产出技能 action 或冷却提交。',
+  answers: '妖兽不会隔墙索敌或攻击；遮挡地块被摧毁后才会按视野重新索敌；动态阵法边界挡通行但不遮挡视线；吟唱完成时原目标断开也不会静默丢弃技能 action；空实例休眠怪物主动 AI 时仍推进复活倒计时、清理追击态并取消残留吟唱；怪物 pending cast 死亡、过期和配置版本不匹配会产出取消 action；怪物 pending cast 不持久化且 hydrate 时显式清空；怪物瞬发/吟唱技能在 tick 生产阶段预提交元气与冷却，吟唱完成不重复扣元气，元气不足不产出技能 action 或冷却提交。',
 }, null, 2));

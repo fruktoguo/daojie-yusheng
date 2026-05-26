@@ -16,6 +16,7 @@ function createDeps(log) {
         meta: { instanceId: 'instance:1' },
         template: { id: 'yunlai_town' },
         tick: 3,        
+        playersById: new Map([['player:1', {}]]),
         /**
  * tickOnce：执行tick一次性相关逻辑。
  * @returns 无返回值，直接更新tickOnce相关状态。
@@ -262,6 +263,37 @@ async function verifyZeroTickPath() {
     assert.equal(deps.worldRuntimeMetricsService.idleCalled, true);
     assert.equal(deps.worldRuntimeMetricsService.frameCalled, false);
     assert.deepEqual(log, ['resetFrameEffects', 'setProgress:instance:1', 'recordIdleFrame']);
+}
+
+async function verifyEmptyInstanceKeepsOneHzAndSleepsMonsterAi() {
+    const log = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    let capturedOptions = null;
+    instance.playersById = new Map();
+    instance.listPlayerIds = () => {
+        log.push('instance.listPlayerIds');
+        return [];
+    };
+    instance.tickOnce = (_intents, options) => {
+        capturedOptions = options;
+        log.push(['instance.tickOnce', options]);
+        return { transfers: [], monsterActions: [] };
+    };
+    deps.playerRuntimeService.advanceTickForPlayerIds = () => {
+        throw new Error('empty instance should not advance player ticks');
+    };
+
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+    const ticks = await service.advanceFrame(deps, 1000, null);
+
+    assert.equal(ticks, 1);
+    assert.equal(deps.tick, 1);
+    assert.deepEqual(capturedOptions, { sleepMonsterAi: true });
+    assert.equal(deps.worldRuntimeMetricsService.frameCalled, true);
+    assert.equal(deps.worldRuntimeMetricsService.idleCalled, false);
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'instance.tickOnce' && entry[1]?.sleepMonsterAi === true));
+    assert.ok(!log.includes('advanceTickForPlayerIds'));
 }
 
 async function verifyAwaitsPendingCommandsBeforeSystemAndTicks() {
@@ -656,6 +688,7 @@ async function verifyOperationFailuresAreIsolatedWithinTick() {
 Promise.resolve()
     .then(() => verifyNormalPath())
     .then(() => verifyZeroTickPath())
+    .then(() => verifyEmptyInstanceKeepsOneHzAndSleepsMonsterAi())
     .then(() => verifyAwaitsPendingCommandsBeforeSystemAndTicks())
     .then(() => verifyCultivationAuraMultiplierUsesPlayerTileAura())
     .then(() => verifyCultivationAuraMultiplierUsesQiProjectionEfficiency())

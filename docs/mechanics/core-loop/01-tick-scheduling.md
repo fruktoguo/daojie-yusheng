@@ -59,7 +59,7 @@ runTickOnce():
 9.  dispatchPendingSystemCommands()        — 系统命令
 10. precomputeInstanceWorkerIntents()      — Worker 预计算怪物意图
 11. 逐实例逐 step 循环:
-      a. instance.tickOnce(intents)         — 实例核心 tick
+      a. instance.tickOnce(intents, options)— 实例核心 tick；空实例休眠怪物主动 AI
       b. instance.advanceTileResourceFlow() — 灵气流转
       c. advanceInstanceFormations()        — 阵法推进
       d. advanceTemporaryTiles()            — 临时地块衰减
@@ -74,6 +74,7 @@ runTickOnce():
 - 加速实例: `steps = floor(accumulated + speed × elapsed/1000)`
 - 余数跨帧保留，保证精确步进
 - 动态调整全局 tick 间隔以适配最快实例
+- 无玩家实例仍保持 1Hz 逻辑时间推进，不再降到 0.1Hz；调度层传入 `sleepMonsterAi=true`，只休眠怪物主动寻敌、移动、攻击和吟唱，复活倒计时、地块恢复、临时地块、灵气流转、阵法与地图时间仍按 1Hz 推进。
 
 ## 异步任务调度
 
