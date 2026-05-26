@@ -66,7 +66,7 @@
 - 队列：炼丹/炼器/强化的新 start 已写入 `player.techniqueActivityQueue`；旧 `queuedJobs` 仍需要读取、迁移和清理。
 - 技艺经验：炼丹/炼器/强化在 `CraftPanelRuntimeService` 内算；采集在 `WorldRuntimeLootContainerService` 内算；挖矿在地块攻击链路内算；阵法维护在 `WorldRuntimeFormationService` 内算；建造在 building runtime 内算。
 - 资产副作用：强化涉及锁定装备、保护物、灵石、强化记录；炼丹/炼器涉及材料、灵石、产出；采集/挖矿涉及容器/地块掉落和背包授予；阵法涉及玩家灵力和阵法灵力池；建造涉及建筑实例状态和 activeBuilder。
-- 面板副作用：炼丹/炼器/强化已有工坊面板；采集、挖矿、建造、阵法维护没有统一进入技艺任务列表。
+- 面板副作用：炼丹/炼器/强化已有工坊面板；统一 `S2C.TechniqueActivityTasks` 已把采集、挖矿、建造、阵法维护等 runtime kind 的任务视图送入工坊顶部公共任务列表。后续仍需继续把真实结算、经验、通知和 panel patch 从旧 service 拆入统一 result。
 
 ## 目标状态
 
@@ -422,21 +422,21 @@ strategy 只负责领域差异：
 
 ### Phase 8：客户端和协议整理
 
-- [ ] 增加统一技艺任务视图 payload，包含当前 job、打断等待、队列项、休眠原因、取消能力。
-- [ ] 技艺面板增加公共任务列表区域，作为所有技艺 job 的统一可见入口；子面板不能独占运行态展示。
-- [ ] 保留现有面板 payload 作为专用操作区数据，先不强迫炼丹/强化配方区一次性改成完全通用结构。
+- [x] 增加统一技艺任务视图 payload，包含当前 job、打断等待、队列项、休眠原因、取消能力。
+- [x] 技艺面板增加公共任务列表区域，作为所有技艺 job 的统一可见入口；子面板不能独占运行态展示。
+- [x] 保留现有面板 payload 作为专用操作区数据，先不强迫炼丹/强化配方区一次性改成完全通用结构。
 - [ ] 网络发送 helper 保留 `sendStartAlchemy` 等语义入口，但内部映射到通用 activity command。
 - [x] 新增统一取消发送 helper，任务列表点击取消只发 `cancelRef`，不需要知道子面板内部结构。
 - [x] 队列展示改读统一队列 view，并为每个可取消项提供取消按钮。
 - [x] 进度展示改读统一 active job progress view；实际进度条与打断等待条分离。
-- [ ] 技艺面板增加所有技艺 job 的统一任务列表，覆盖挖矿、阵法持续补充灵力、建造、采集。
+- [x] 技艺面板增加所有技艺 job 的统一任务列表，覆盖挖矿、阵法持续补充灵力、建造、采集。
 - [ ] 手机端、浅色、深色仍保持现有工作台体验。
 
 验收：
 
 - [ ] 炼丹、炼器、强化面板不会因 tick patch 丢焦点、丢滚动、丢当前选择。
-- [ ] 采集/建造/阵法的活动状态显示一致。
-- [ ] 从任务列表点击取消能取消当前 job 或队列项。
+- [x] 采集/建造/阵法的活动状态显示一致。
+- [x] 从任务列表点击取消能取消当前 job 或队列项。
 - [ ] 打断等待条更新不会触发整面板重建。
 
 ## 不做事项
@@ -515,6 +515,7 @@ strategy 只负责领域差异：
 - 2026-05-27：采集 `activeSearch` 增加运行时 owner 防重入；同一草药目标已有玩家采集时，其他玩家 start 会拒绝，已有错误 job tick 会进入 sleeping 且不覆盖原 owner。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-loot-container-smoke.js` 通过。该 proof 覆盖 activeSearch 竞争，不覆盖 activeBuilder 多玩家竞争。
 - 2026-05-27：建造 `activeBuilderPlayerId` 在 `MapInstanceRuntime.startBuildingConstruction` 权威层增加竞争拒绝；其他玩家重入返回 `building_active_builder_mismatch`，不会覆盖原 activeBuilder、不会写 buildCompleteTick、不会推进 world revision 或 building dirty domain。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。
 - 2026-05-27：采集目标永久消失时，`tickGather` 先调用 `releaseGatherActiveSearch`，即使容器模板已不存在也会按 sourceId 清理旧 `container_state.activeSearch` 并标记容器持久化脏。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-loot-container-smoke.js` 通过。该 proof 覆盖采集外部占用永久失效释放，不等同于所有条件型外部占用的完整验收。
+- 2026-05-27：新增 `S2C.TechniqueActivityTasks` 统一任务列表同步事件；打开炼丹/炼器/强化面板时服务端随专用面板 payload 下发完整任务视图，技艺 mutation/tick 后也推送完整任务视图。客户端工坊顶部任务列表优先消费统一 task view，覆盖炼丹、炼器、强化、采集、建造、挖矿、阵法维护，保留每项 `cancelRef` 直接发 `C2S.CancelTechniqueActivity`，并继续把实际工作进度和打断等待显示为两条。`pnpm build:shared`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm audit:protocol`、`pnpm verify:client`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 不等同于 Playwright 视觉检查或手机/浅色/深色截图验收。
 
 ## 验证矩阵
 
@@ -552,8 +553,8 @@ strategy 只负责领域差异：
 - [ ] 只剩一种活动队列。
 - [x] active job 持久化和恢复按统一 job kind 工作。
 - [ ] 技艺经验、产出、掉地、通知、面板 patch 都从统一 result 流出。
-- [ ] 技艺面板能看到所有当前 job、打断等待、队列项，并能直接取消当前 job 或队列项。
-- [ ] 打断等待是独立条，不修改实际 job 进度条、总工作量或剩余工作量。
-- [ ] 炼丹、炼器没有玩家可见的开炉/准备阶段。
+- [x] 技艺面板能看到所有当前 job、打断等待、队列项，并能直接取消当前 job 或队列项。
+- [x] 打断等待是独立条，不修改实际 job 进度条、总工作量或剩余工作量。
+- [x] 炼丹、炼器没有玩家可见的开炉/准备阶段。
 - [ ] 现有炼丹、炼器、强化、采集、建造、挖矿、阵法维护行为不回退。
 - [ ] 验证覆盖启动、取消、打断、完成、失败、队列、重启恢复、资产一致性。

@@ -3,7 +3,7 @@
  *
  * 维护时优先保持局部更新和原有焦点/滚动状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
-import type { CraftQueueItemView } from '@mud/shared';
+import type { CraftQueueItemView, TechniqueActivityTaskView } from '@mud/shared';
 import { formatDisplayInteger } from '../utils/number';
 import { t } from './i18n';
 
@@ -43,6 +43,8 @@ export interface CraftQueueParent {
   readonly alchemyPanel: { state?: { job?: { recipeId: string; jobRunId?: string; startedAt: number; outputItemId: string; quantity: number; completedCount: number; remainingTicks: number; totalTicks: number; workRemainingTicks?: number; workTotalTicks?: number; pausedTicks?: number; interruptWaitRemainingTicks?: number; interruptState?: { waitTotalTicks?: number; waitRemainingTicks?: number } | null; phase: string; jobType?: string; queuedJobs?: CraftQueueItemView[] } | null; queue?: CraftQueueItemView[] } | null } | null;
   readonly enhancementPanel: { state?: { job?: { jobRunId?: string; startedAt: number; targetItemName: string; desiredTargetLevel: number; remainingTicks: number; totalTicks: number; workRemainingTicks?: number; workTotalTicks?: number; pausedTicks?: number; interruptWaitRemainingTicks?: number; interruptState?: { waitTotalTicks?: number; waitRemainingTicks?: number } | null; phase?: string; queuedJobs?: CraftQueueItemView[] } | null; queue?: CraftQueueItemView[] } | null } | null;
   readonly alchemyCatalog: Array<{ recipeId: string; outputName: string }>;
+  readonly techniqueActivityTasksSynced: boolean;
+  readonly techniqueActivityTasks: TechniqueActivityTaskView[];
 }
 
 export class CraftQueueView {
@@ -57,6 +59,18 @@ export class CraftQueueView {
     }
     if (kind === 'enhancement') {
       return t('craft.workbench.mode.enhancement');
+    }
+    if (kind === 'gather') {
+      return '采集';
+    }
+    if (kind === 'building') {
+      return '建造';
+    }
+    if (kind === 'mining') {
+      return '挖矿';
+    }
+    if (kind === 'formation') {
+      return '阵法维护';
     }
     return t('craft.workbench.mode.technique');
   }
@@ -146,6 +160,13 @@ export class CraftQueueView {
   }
 
   getCraftQueueSnapshot(): CraftQueueDisplayItem[] {
+    const unifiedTasks = Array.isArray(this.parent.techniqueActivityTasks)
+      ? this.parent.techniqueActivityTasks
+      : [];
+    if (this.parent.techniqueActivityTasksSynced) {
+      return unifiedTasks.map((task) => this.buildDisplayItemFromTechniqueTask(task));
+    }
+
     const activeAlchemyJob = this.parent.alchemyPanel?.state?.job ?? null;
     const activeEnhancementJob = this.parent.enhancementPanel?.state?.job ?? null;
     const queue = activeAlchemyJob?.queuedJobs
@@ -199,6 +220,64 @@ export class CraftQueueView {
         },
       })),
     ];
+  }
+
+  private buildDisplayItemFromTechniqueTask(task: TechniqueActivityTaskView): CraftQueueDisplayItem {
+    const isActive = task.state === 'running' || task.state === 'interrupt_wait' || task.state === 'completing';
+    return {
+      queueId: task.cancelRef.jobRunId ?? task.cancelRef.queueId ?? task.id,
+      kind: task.kind,
+      label: task.targetLabel ? `${task.label} · ${task.targetLabel}` : task.label,
+      createdAt: 0,
+      isActive,
+      state: task.state === 'sleeping' ? 'sleeping' : 'pending',
+      sleepReason: task.sleepReason,
+      cancelRef: task.cancelRef,
+      progress: isActive
+        ? this.buildTechniqueTaskProgress(task)
+        : {
+          ratio: 0,
+          label: task.state === 'sleeping' ? '休眠中' : '等待中',
+          detail: task.sleepReason || (task.state === 'sleeping' ? '等待条件恢复' : '等待上一项完成'),
+        },
+      interruptProgress: this.buildTechniqueTaskInterruptProgress(task),
+    };
+  }
+
+  private buildTechniqueTaskProgress(task: TechniqueActivityTaskView): CraftQueueProgressView {
+    const total = Math.max(0, Math.floor(Number(task.workTotalTicks) || 0));
+    const remaining = Math.max(0, Math.floor(Number(task.workRemainingTicks) || 0));
+    if (total <= 0) {
+      return {
+        ratio: 0,
+        label: '--',
+        detail: task.state === 'interrupt_wait' ? '等待恢复' : '进度未知',
+      };
+    }
+    const ratio = Math.max(0, Math.min(1, 1 - (Math.min(remaining, total) / total)));
+    const stateLabel = task.state === 'interrupt_wait'
+      ? '工作暂停'
+      : task.state === 'completing'
+        ? '结算中'
+        : '进行中';
+    return {
+      ratio,
+      label: `${formatDisplayInteger(Math.round(ratio * 100))}%`,
+      detail: `${stateLabel} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}`,
+    };
+  }
+
+  private buildTechniqueTaskInterruptProgress(task: TechniqueActivityTaskView): CraftQueueProgressView | null {
+    const remaining = Math.max(0, Math.floor(Number(task.interruptWaitRemainingTicks) || 0));
+    if (remaining <= 0) {
+      return null;
+    }
+    const total = Math.max(remaining, 10);
+    return {
+      ratio: Math.max(0, Math.min(1, 1 - (remaining / total))),
+      label: formatTicks(remaining),
+      detail: '打断等待',
+    };
   }
 
   buildCraftQueueTimeProgress(remainingTicks: number | undefined, totalTicks: number | undefined, phase?: string): CraftQueueProgressView {

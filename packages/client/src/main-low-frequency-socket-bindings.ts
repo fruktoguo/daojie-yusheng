@@ -48,6 +48,7 @@ type MainLowFrequencySocketBindingsOptions = {
  */
 
   onEnhancementPanel: (data: ServerToClientEventPayload<typeof S2C.EnhancementPanel>) => void;
+  onTechniqueActivityTasks: (data: ServerToClientEventPayload<typeof S2C.TechniqueActivityTasks>) => void;
   /**
  * onLeaderboard：onLeaderboard相关字段。
  */
@@ -204,6 +205,7 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
     forging: options.onAlchemyPanel,
     enhancement: options.onEnhancementPanel,
   });
+  options.socket.on(S2C.TechniqueActivityTasks, options.onTechniqueActivityTasks);
   options.socket.on(S2C.Leaderboard, options.onLeaderboard);
   options.socket.on(S2C.LeaderboardPlayerLocations, options.onLeaderboardPlayerLocations);
   options.socket.on(S2C.WorldSummary, options.onWorldSummary);

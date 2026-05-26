@@ -269,6 +269,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleAttrDetail'
     | 'handleAlchemyPanel'
     | 'handleEnhancementPanel'
+    | 'handleTechniqueActivityTasks'
     | 'handleLeaderboard'
     | 'handleLeaderboardPlayerLocations'
     | 'handleWorldSummary'
@@ -730,6 +731,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onAttrDetail: (data) => options.detailStateSource.handleAttrDetail(data),
     onAlchemyPanel: techniqueActivityPanelHandlers.alchemy,
     onEnhancementPanel: techniqueActivityPanelHandlers.enhancement,
+    onTechniqueActivityTasks: (data) => options.detailStateSource.handleTechniqueActivityTasks(data),
     onLeaderboard: (data) => options.detailStateSource.handleLeaderboard(data),
     onLeaderboardPlayerLocations: (data) => options.detailStateSource.handleLeaderboardPlayerLocations(data),
     onWorldSummary: (data) => options.detailStateSource.handleWorldSummary(data),

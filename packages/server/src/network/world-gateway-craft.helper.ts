@@ -10,7 +10,7 @@
 
 import { Injectable } from '@nestjs/common';
 import type { Socket } from 'socket.io';
-import { emitTechniqueActivityPanel, getTechniqueActivityMetadata } from '../runtime/craft/technique-activity-registry.helpers';
+import { emitTechniqueActivityPanel, emitTechniqueActivityTasks, getTechniqueActivityMetadata } from '../runtime/craft/technique-activity-registry.helpers';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
@@ -51,6 +51,7 @@ class WorldGatewayCraftHelper {
             this.worldClientEventService.markProtocol(client, 'mainline');
             const panelPayload = this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, kind, payload?.knownCatalogVersion);
             emitTechniqueActivityPanel(client, kind, panelPayload);
+            emitTechniqueActivityTasks(client, this.craftPanelRuntimeService.buildTechniqueActivityTaskListPayload(player, undefined));
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).requestPanelErrorCode, error);

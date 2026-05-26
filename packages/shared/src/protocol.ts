@@ -29,7 +29,7 @@ export type * from './protocol-response-payload-types';
 
 // ===== 域文件接口引用（供 PayloadMap 使用） =====
 import type { S2C_Bootstrap, S2C_MapStatic, S2C_PanelDelta, S2C_Detail, S2C_AttrDetail } from './protocol-core';
-import type { S2C_AlchemyPanel, S2C_EnhancementPanel } from './protocol-craft';
+import type { S2C_AlchemyPanel, S2C_EnhancementPanel, S2C_TechniqueActivityTasks } from './protocol-craft';
 import type { S2C_MailDetail } from './protocol-social';
 import type { C2S_RequestContentTemplates, S2C_ContentTemplates } from './content-resolver-types';
 
@@ -183,6 +183,7 @@ export const S2C = {
   NpcShop: 'n:s:npcShop',
   AlchemyPanel: 'n:s:alchemyPanel',
   EnhancementPanel: 'n:s:enhancementPanel',
+  TechniqueActivityTasks: 'n:s:techniqueActivityTasks',
   BuildResult: 'n:s:buildResult',
   RoomSummaryPatch: 'n:s:roomSummaryPatch',
   FengShuiOverlayPatch: 'n:s:fengShuiOverlayPatch',
@@ -346,6 +347,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.NpcShop]: ResponsePayloads.S2C_NpcShop;
   [S2C.AlchemyPanel]: S2C_AlchemyPanel;
   [S2C.EnhancementPanel]: S2C_EnhancementPanel;
+  [S2C.TechniqueActivityTasks]: S2C_TechniqueActivityTasks;
   [S2C.BuildResult]: ResponsePayloads.S2C_BuildResult;
   [S2C.RoomSummaryPatch]: ResponsePayloads.S2C_RoomSummaryPatch;
   [S2C.FengShuiOverlayPatch]: ResponsePayloads.S2C_FengShuiOverlayPatch;

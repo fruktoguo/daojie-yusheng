@@ -15,6 +15,7 @@ import {
   S2C_NpcQuests,
   S2C_NpcShop,
   S2C_QuestNavigateResult,
+  S2C_TechniqueActivityTasks,
   S2C_QuestUpdate,
   S2C_TileDetail,
   S2C_WorldSummary,
@@ -44,7 +45,7 @@ type MainDetailStateSourceOptions = {
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'updateAlchemy' | 'updateForging' | 'updateEnhancement'>;
+  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'updateAlchemy' | 'updateForging' | 'updateEnhancement' | 'updateTechniqueActivityTasks'>;
   /**
  * npcShopModal：NPCShop弹层相关字段。
  */
@@ -174,6 +175,9 @@ export function createMainDetailStateSource(options: MainDetailStateSourceOption
 
     handleEnhancementPanel(data: S2C_EnhancementPanel): void {
       applyTechniqueActivityPanelToWorkbench(options.craftWorkbenchModal, 'enhancement', data);
+    },
+    handleTechniqueActivityTasks(data: S2C_TechniqueActivityTasks): void {
+      options.craftWorkbenchModal.updateTechniqueActivityTasks(data);
     },
     /**
  * handleLeaderboard：处理Leaderboard并更新相关状态。

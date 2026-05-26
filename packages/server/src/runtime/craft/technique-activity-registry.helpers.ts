@@ -10,6 +10,7 @@
  */
 import {
   TECHNIQUE_ACTIVITY_METADATA,
+  S2C,
   listTechniqueActivityMetadataKinds,
   resolveTechniqueActivityCancelCommandKind,
   resolveTechniqueActivityStartCommandKind,
@@ -33,6 +34,13 @@ export function emitTechniqueActivityPanel(
   if (panelEvent) {
     socket.emit(panelEvent, payload);
   }
+}
+
+export function emitTechniqueActivityTasks(
+  socket: { emit(event: string, payload: unknown): void },
+  payload: unknown,
+): void {
+  socket.emit(S2C.TechniqueActivityTasks, payload);
 }
 
 export function buildTechniqueActivityStartCommand(

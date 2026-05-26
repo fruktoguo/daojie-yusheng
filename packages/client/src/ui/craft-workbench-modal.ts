@@ -20,9 +20,11 @@ import type {
   S2C_AlchemyPanel,
   S2C_AttrUpdate,
   S2C_EnhancementPanel,
+  S2C_TechniqueActivityTasks,
   SyncedEnhancementPanelState,
   SyncedEnhancementCandidateView,
   TechniqueActivityCancelRef,
+  TechniqueActivityTaskView,
   RuntimeTechniqueActivityKind,
 } from '@mud/shared';
 import {
@@ -97,6 +99,7 @@ type CraftQueueProgressView = {
 type CraftQueueDisplayItem = CraftQueueItemView & {
   isActive?: boolean;
   progress?: CraftQueueProgressView;
+  interruptProgress?: CraftQueueProgressView | null;
 };
 
 type AlchemyViewState = {
@@ -426,6 +429,8 @@ export class CraftWorkbenchModal {
 
   private alchemyPanel: S2C_AlchemyPanel | null = null;
   private enhancementPanel: S2C_EnhancementPanel | null = null;
+  private techniqueActivityTasksSynced = false;
+  private techniqueActivityTasks: TechniqueActivityTaskView[] = [];
   private alchemyCatalogVersion = 0;
   private alchemyCatalog: AlchemyRecipeCatalogEntry[] = [];
   private alchemySkillLevel = 1;
@@ -674,6 +679,19 @@ export class CraftWorkbenchModal {
     }
   }
 
+  updateTechniqueActivityTasks(data: S2C_TechniqueActivityTasks): void {
+    this.techniqueActivityTasksSynced = true;
+    this.techniqueActivityTasks = Array.isArray(data.tasks)
+      ? data.tasks.map((task) => ({
+        ...task,
+        cancelRef: { ...task.cancelRef },
+      }))
+      : [];
+    if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+      this.patchOpenCraftShell();
+    }
+  }
+
   private mergeEnhancementPanel(data: S2C_EnhancementPanel): S2C_EnhancementPanel {
     const patch = data.statePatch;
     if (!patch) {
@@ -722,6 +740,8 @@ export class CraftWorkbenchModal {
     this.loading = false;
     this.alchemyPanel = null;
     this.enhancementPanel = null;
+    this.techniqueActivityTasksSynced = false;
+    this.techniqueActivityTasks = [];
     this.alchemyCatalog = [];
     this.alchemyCatalogVersion = 0;
     this.selectedAlchemyRecipeId = null;
@@ -1296,7 +1316,7 @@ export class CraftWorkbenchModal {
           ${queue.length > 0
             ? queue.map((entry, index) => `
               <div class="craft-queue-item ${entry.isActive ? 'active' : ''}" data-craft-queue-entry="${escapeHtmlAttr(entry.queueId)}">
-                <span>${escapeHtml(this.getCraftQueueKindLabel(entry.kind))} · ${escapeHtml(index === 0 ? t('craft.workbench.queue.active') : t('craft.workbench.queue.pending', { index: formatDisplayInteger(index) }))}</span>
+                <span>${escapeHtml(this.getCraftQueueKindLabel(entry.kind))} · ${escapeHtml(this.getCraftQueueStatusLabel(entry, index))}</span>
                 <strong>${escapeHtml(entry.label)}</strong>
                 ${this.renderCraftQueueItemMeta(entry)}
                 ${this.renderCraftQueueItemProgress(entry)}
@@ -1304,8 +1324,9 @@ export class CraftWorkbenchModal {
                   class="small-btn ghost craft-queue-cancel"
                   type="button"
                   data-craft-action="cancel-queue-entry"
-                  data-kind="${escapeHtmlAttr(entry.kind)}"
-                  ${entry.isActive ? `data-job-run-id="${escapeHtmlAttr(entry.queueId)}"` : `data-queue-id="${escapeHtmlAttr(entry.queueId)}"`}
+                  data-kind="${escapeHtmlAttr(entry.cancelRef?.kind ?? entry.kind)}"
+                  ${entry.cancelRef?.jobRunId || entry.isActive ? `data-job-run-id="${escapeHtmlAttr(entry.cancelRef?.jobRunId ?? entry.queueId)}"` : ''}
+                  ${entry.cancelRef?.queueId || !entry.isActive ? `data-queue-id="${escapeHtmlAttr(entry.cancelRef?.queueId ?? entry.queueId)}"` : ''}
                 >取消</button>
               </div>
             `).join('')
@@ -1317,6 +1338,16 @@ export class CraftWorkbenchModal {
 
   private getCraftQueueKindLabel(kind: CraftQueueItemView['kind']): string {
     return this.queueView.getCraftQueueKindLabel(kind);
+  }
+
+  private getCraftQueueStatusLabel(entry: CraftQueueDisplayItem, index: number): string {
+    if (entry.isActive) {
+      return t('craft.workbench.queue.active');
+    }
+    if (entry.state === 'sleeping') {
+      return '休眠中';
+    }
+    return t('craft.workbench.queue.pending', { index: formatDisplayInteger(Math.max(1, index)) });
   }
 
   private renderCraftQueueItemMeta(entry: CraftQueueItemView): string {
@@ -1338,7 +1369,15 @@ export class CraftWorkbenchModal {
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
       this.getCraftQueueSnapshot()
-        .map((entry) => `${entry.queueId}:${entry.kind}:${entry.label}:${entry.quantity ?? ''}`)
+        .map((entry) => [
+          entry.queueId,
+          entry.kind,
+          entry.label,
+          entry.quantity ?? '',
+          entry.state ?? '',
+          entry.cancelRef?.jobRunId ?? '',
+          entry.cancelRef?.queueId ?? '',
+        ].join(':'))
         .join('|'),
     ].join('::');
   }

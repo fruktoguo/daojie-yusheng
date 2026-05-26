@@ -9,7 +9,7 @@ import { WorldSessionService } from '../../network/world-session.service';
 import { WorldClientEventService } from '../../network/world-client-event.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
-import { emitTechniqueActivityPanel, listTechniqueActivityRefreshKinds } from '../craft/technique-activity-registry.helpers';
+import { emitTechniqueActivityPanel, emitTechniqueActivityTasks, listTechniqueActivityRefreshKinds } from '../craft/technique-activity-registry.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
@@ -86,6 +86,19 @@ export class WorldRuntimeCraftMutationService {
             eventBus.queuePlayerPanelPatch(playerId, panel, payload);
         }
     }    
+    /** 下发统一技艺任务列表，覆盖所有 runtime kind 的当前 job、等待和队列项。 */
+    emitTechniqueActivityTaskUpdate(playerId) {
+        const socket = this.worldSessionService.getSocketByPlayerId(playerId);
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!socket || !player || !this.worldClientEventService.prefersMainline(socket)) {
+            return;
+        }
+        if (typeof this.craftPanelRuntimeService.buildTechniqueActivityTaskListPayload !== 'function') {
+            return;
+        }
+        emitTechniqueActivityTasks(socket, this.craftPanelRuntimeService.buildTechniqueActivityTaskListPayload(player));
+    }
+
     /**
  * emitAllTechniqueActivityPanelUpdates：按统一技艺顺序补发所有面板。
  * @param playerId 玩家 ID。
@@ -97,6 +110,7 @@ export class WorldRuntimeCraftMutationService {
         for (const kind of listTechniqueActivityRefreshKinds()) {
             this.emitCraftPanelUpdate(playerId, kind, deps);
         }
+        this.emitTechniqueActivityTaskUpdate(playerId);
     }    
     /** 判断指定技艺面板是否有运行中任务，需要每息推送运行态小包。 */
     hasActiveCraftPanelJob(playerId, panel) {
@@ -139,7 +153,18 @@ export class WorldRuntimeCraftMutationService {
         if (result.panelChanged || this.hasActiveCraftPanelJob(playerId, panel)) {
             this.emitCraftPanelUpdate(playerId, panel, deps);
         }
+        if (result.panelChanged || this.hasAnyActiveTechniqueActivity(playerId)) {
+            this.emitTechniqueActivityTaskUpdate(playerId);
+        }
     }    
+    /** 判断任一技艺任务是否仍需推送运行态。 */
+    hasAnyActiveTechniqueActivity(playerId) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player || typeof this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity !== 'function') {
+            return false;
+        }
+        return this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity(player);
+    }
     /** 在 durable 任务成功后补发制造附带的境界修为。 */
     grantCraftRealmExp(playerId, amount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
