@@ -89,10 +89,7 @@ export class WorldRuntimeCraftTickService {
                 continue;
             }
             for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
-                if (kind === 'gather' || kind === 'building') {
-                    continue;
-                }
-                const result = this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps);
+                const result = await Promise.resolve(this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps));
                 this.sleepConditionalTechniqueActivityIfRequested(player, result);
                 this.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -101,34 +98,9 @@ export class WorldRuntimeCraftTickService {
                     deps,
                 );
             }
-            if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
-                const gatherResult = await deps.worldRuntimeLootContainerService.tickGather(playerId, deps);
-                this.sleepConditionalTechniqueActivityIfRequested(player, gatherResult);
-                this.worldRuntimeCraftMutationService.flushCraftMutation(
-                    playerId,
-                    gatherResult,
-                    'gather',
-                    deps,
-                );
-            }
-            if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) {
-                const buildingResult = deps.tickBuildingConstruction(playerId);
-                this.sleepConditionalTechniqueActivityIfRequested(player, buildingResult);
-                if (buildingResult?.ok) {
-                    this.worldRuntimeCraftMutationService.flushCraftMutation(
-                        playerId,
-                        buildingResult,
-                        'building',
-                        deps,
-                    );
-                }
-            }
 
             // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个
-            if (!this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity(player)
-                && !(player.gatherJob && Number(player.gatherJob.remainingTicks) > 0)
-                && !(player.buildingJob && Number(player.buildingJob.remainingTicks) > 0)
-                && !(player.formationJob && Number(player.formationJob.remainingTicks) > 0)) {
+            if (!this.craftPanelRuntimeService.hasAnyActiveTechniqueActivity(player)) {
                 const ctx = this.craftPanelRuntimeService.buildPipelineContext(deps);
                 const queueResult = this.queueService.tickQueue(player, ctx);
                 if (queueResult?.ok) {

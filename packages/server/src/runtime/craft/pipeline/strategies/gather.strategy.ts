@@ -69,6 +69,15 @@ export class GatherStrategy implements TechniqueActivityStrategy {
     return service.interruptGather(playerId, player, reason, ctx.deps);
   }
 
+  async executeTick(player: unknown, ctx: PipelineContext): Promise<unknown> {
+    const playerId = resolvePlayerId(player);
+    const service = resolveGatherRuntimeService(ctx);
+    if (!playerId || !service || typeof service.tickGather !== 'function') {
+      return emptyGatherTickResult();
+    }
+    return service.tickGather(playerId, ctx.deps);
+  }
+
   resolveResumePhase(_job: any): string {
     return 'gathering';
   }
@@ -136,11 +145,25 @@ type GatherRuntimeServicePort = {
     deps: unknown,
   ) => TechniqueActivityConditionCheckResult;
   releaseGatherActiveSearch?: (playerId: string, player: unknown, job: unknown, deps: unknown) => void;
+  tickGather?: (playerId: string, deps: unknown) => Promise<unknown> | unknown;
 };
 
 function resolvePlayerId(player: unknown): string {
   const playerId = (player as { playerId?: unknown } | null | undefined)?.playerId;
   return typeof playerId === 'string' && playerId.trim() ? playerId.trim() : '';
+}
+
+function emptyGatherTickResult(): Record<string, unknown> {
+  return {
+    ok: true,
+    panelChanged: false,
+    inventoryChanged: false,
+    equipmentChanged: false,
+    attrChanged: false,
+    messages: [],
+    groundDrops: [],
+    craftRealmExpGain: 0,
+  };
 }
 
 function resolveGatherRuntimeService(ctx: PipelineContext): GatherRuntimeServicePort | null {

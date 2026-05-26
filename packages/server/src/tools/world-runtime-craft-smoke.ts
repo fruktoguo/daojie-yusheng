@@ -16,11 +16,13 @@ type FlushCall = [playerId: string, kind: string, text: string | null];
 
 async function main(): Promise<void> {
   testActiveTechniqueActivityCoversAllRuntimeKinds();
-  testInterruptSkipsGenericGatherBuildingAndUsesSpecialReleasePaths();
+  testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs();
   testSleepingGatherQueueRestartsThroughPipeline();
   testSleepingBuildingQueueRestartsThroughPipeline();
+  await testGatherStrategyTickDelegatesRuntimeService();
+  testBuildingStrategyTickDelegatesRuntimeService();
   await testCraftTickUsesUnifiedPipelineForCraftingKinds();
-  await testCraftTickSkipsGenericGatherBuildingToAvoidDoubleTick();
+  await testCraftTickUsesUnifiedPipelineForGatherBuilding();
   await testCraftTickSleepsConditionalGatherFailure();
   await testCraftTickSleepsConditionalBuildingFailure();
   await testCraftTickSleepsConditionalFormationFailure();
@@ -29,10 +31,10 @@ async function main(): Promise<void> {
     ok: true,
     answers: [
       'hasAnyActiveTechniqueActivity 覆盖 alchemy/forging/enhancement/gather/building/formation/mining。',
-      '采集/建造中断走专用释放路径，不再因统一 kind 枚举发生双 flush。',
+      '采集/建造中断先写 sleeping 队列，再统一调用 interruptTechniqueActivity。',
       '采集/建造 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
-      '炼丹/炼器/强化 tick 编排直接走统一 tickTechniqueActivity 入口。',
-      'tick 编排能看见采集/建造用于互斥，但迁移前不走 pipeline 双 tick。',
+      '采集/建造 strategy tick 会委托真实 runtime service。',
+      '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
       '阵法维护 tick 条件失败会进入统一 sleeping 队列。',
     ],
@@ -61,7 +63,7 @@ function testActiveTechniqueActivityCoversAllRuntimeKinds(): void {
   assert.equal(service.hasAnyActiveTechniqueActivity(player as never), true);
 }
 
-function testInterruptSkipsGenericGatherBuildingAndUsesSpecialReleasePaths(): void {
+function testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs(): void {
   const flushes: FlushCall[] = [];
   const genericInterrupts: string[] = [];
   const player = {
@@ -97,14 +99,15 @@ function testInterruptSkipsGenericGatherBuildingAndUsesSpecialReleasePaths(): vo
       },
     },
     interruptBuildingConstruction(playerId: string, reason: string): void {
-      flushes.push([playerId, 'building-release', reason]);
+      assert.equal(playerId, player.playerId);
+      assert.equal(reason, 'move');
       player.buildingJob = null;
     },
   });
 
-  assert.deepEqual(genericInterrupts, ['alchemy:move']);
+  assert.deepEqual(genericInterrupts, ['alchemy:move', 'gather:move', 'building:move']);
   assert.equal(flushes.some((entry) => entry[1] === 'gather'), true);
-  assert.equal(flushes.some((entry) => entry[1] === 'building-release'), true);
+  assert.equal(flushes.some((entry) => entry[1] === 'building'), true);
   assert.equal(flushes.some((entry) => entry[1] === 'formation'), false);
   assert.equal(player.techniqueActivityQueue.length, 2);
   assert.equal(player.techniqueActivityQueue[0]?.kind, 'gather');
@@ -247,7 +250,63 @@ async function testCraftTickUsesUnifiedPipelineForCraftingKinds(): Promise<void>
   assert.deepEqual(flushedKinds, ['alchemy', 'forging', 'enhancement']);
 }
 
-async function testCraftTickSkipsGenericGatherBuildingToAvoidDoubleTick(): Promise<void> {
+async function testGatherStrategyTickDelegatesRuntimeService(): Promise<void> {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new GatherStrategy());
+  const player = {
+    playerId: 'player:gather-strategy-tick',
+    gatherJob: { remainingTicks: 2, resourceNodeId: 'herb-1' },
+  };
+  const calls: string[] = [];
+  const result = await Promise.resolve(pipeline.tick(player, 'gather', {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      worldRuntimeLootContainerService: {
+        async tickGather(playerId: string): Promise<unknown> {
+          calls.push(playerId);
+          return { ok: true, panelChanged: true, messages: [] };
+        },
+      },
+    },
+  }));
+
+  assert.deepEqual(calls, ['player:gather-strategy-tick']);
+  assert.equal((result as { ok?: boolean })?.ok, true);
+}
+
+function testBuildingStrategyTickDelegatesRuntimeService(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new BuildingStrategy());
+  const player = {
+    playerId: 'player:building-strategy-tick',
+    buildingJob: { remainingTicks: 2, buildingId: 'building-1' },
+  };
+  const calls: string[] = [];
+  const result = pipeline.tick(player, 'building', {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      tickBuildingConstruction(playerId: string): unknown {
+        calls.push(playerId);
+        return { ok: true, panelChanged: true, messages: [] };
+      },
+    },
+  });
+
+  assert.deepEqual(calls, ['player:building-strategy-tick']);
+  assert.equal((result as { ok?: boolean })?.ok, true);
+}
+
+async function testCraftTickUsesUnifiedPipelineForGatherBuilding(): Promise<void> {
   const tickedKinds: string[] = [];
   const flushedKinds: string[] = [];
   const player = {
@@ -285,20 +344,11 @@ async function testCraftTickSkipsGenericGatherBuildingToAvoidDoubleTick(): Promi
   );
 
   await service.advanceCraftJobs([player.playerId], {
-    worldRuntimeLootContainerService: {
-      async tickGather(): Promise<unknown> {
-        tickedKinds.push('gather-special');
-        return { ok: true, panelChanged: true, messages: [] };
-      },
-    },
-    tickBuildingConstruction(): void {
-      tickedKinds.push('building-special');
-    },
     queuePlayerNotice(): void {},
   });
 
-  assert.deepEqual(tickedKinds, ['gather-special', 'building-special']);
-  assert.deepEqual(flushedKinds, ['gather']);
+  assert.deepEqual(tickedKinds, ['gather', 'building']);
+  assert.deepEqual(flushedKinds, ['gather', 'building']);
 }
 
 async function testCraftTickSleepsConditionalGatherFailure(): Promise<void> {
@@ -322,20 +372,6 @@ async function testCraftTickSleepsConditionalGatherFailure(): Promise<void> {
         return Boolean(activePlayer.gatherJob && Number(activePlayer.gatherJob.remainingTicks) > 0);
       },
       tickTechniqueActivity(): unknown {
-        throw new Error('gather should not use generic tick before migration completes');
-      },
-      buildPipelineContext(): unknown {
-        return {};
-      },
-    },
-    {
-      flushCraftMutation(): void {},
-    },
-  );
-
-  await service.advanceCraftJobs([player.playerId], {
-    worldRuntimeLootContainerService: {
-      async tickGather(): Promise<unknown> {
         player.gatherJob = null;
         return {
           ok: true,
@@ -350,7 +386,16 @@ async function testCraftTickSleepsConditionalGatherFailure(): Promise<void> {
           },
         };
       },
+      buildPipelineContext(): unknown {
+        return {};
+      },
     },
+    {
+      flushCraftMutation(): void {},
+    },
+  );
+
+  await service.advanceCraftJobs([player.playerId], {
     queuePlayerNotice(): void {},
   });
 
@@ -381,7 +426,19 @@ async function testCraftTickSleepsConditionalBuildingFailure(): Promise<void> {
         return Boolean(activePlayer.buildingJob && Number(activePlayer.buildingJob.remainingTicks) > 0);
       },
       tickTechniqueActivity(): unknown {
-        throw new Error('building should not use generic tick before migration completes');
+        player.buildingJob = null;
+        return {
+          ok: true,
+          panelChanged: true,
+          messages: [],
+          groundDrops: [],
+          sleepPayload: {
+            kind: 'building',
+            payload: { buildingId: 'building-1' },
+            label: '工坊',
+            reason: '建筑正在由其他玩家施工。',
+          },
+        };
       },
       buildPipelineContext(): unknown {
         return {};
@@ -393,21 +450,6 @@ async function testCraftTickSleepsConditionalBuildingFailure(): Promise<void> {
   );
 
   await service.advanceCraftJobs([player.playerId], {
-    tickBuildingConstruction(): unknown {
-      player.buildingJob = null;
-      return {
-        ok: true,
-        panelChanged: true,
-        messages: [],
-        groundDrops: [],
-        sleepPayload: {
-          kind: 'building',
-          payload: { buildingId: 'building-1' },
-          label: '工坊',
-          reason: '建筑正在由其他玩家施工。',
-        },
-      };
-    },
     queuePlayerNotice(): void {},
   });
 

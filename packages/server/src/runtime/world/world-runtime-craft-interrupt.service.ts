@@ -98,12 +98,10 @@ export class WorldRuntimeCraftInterruptService {
       return;
     }
     for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
-      if (kind === 'gather' || kind === 'building') {
-        continue;
-      }
       if (kind === 'formation' && reason === 'move') {
         continue;
       }
+      this.sleepConditionalTechniqueActivityBeforeInterrupt(player, kind, reason);
       this.worldRuntimeCraftMutationService.flushCraftMutation(
         playerId,
         this.craftPanelRuntimeService.interruptTechniqueActivity(player, kind, reason, deps),
@@ -111,8 +109,14 @@ export class WorldRuntimeCraftInterruptService {
         deps,
       );
     }
-    if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
-      // 采集中断后休眠入队列（条件型技艺）
+  }
+
+  private sleepConditionalTechniqueActivityBeforeInterrupt(
+    player: CraftPlayerLike,
+    kind: string,
+    reason: string,
+  ): void {
+    if (kind === 'gather' && player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
       const gatherJob = player.gatherJob;
       this.queueService.sleepToQueue(
         player, 'gather',
@@ -124,15 +128,8 @@ export class WorldRuntimeCraftInterruptService {
         gatherJob.resourceNodeName ?? '采集',
         reason === 'move' ? '离开采集点' : '被打断',
       );
-      this.worldRuntimeCraftMutationService.flushCraftMutation(
-        playerId,
-        deps.worldRuntimeLootContainerService.interruptGather(playerId, player, reason, deps),
-        'gather',
-        deps,
-      );
     }
-    if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) {
-      // 建造中断后休眠入队列（条件型技艺）
+    if (kind === 'building' && player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) {
       const buildingJob = player.buildingJob;
       this.queueService.sleepToQueue(
         player, 'building',
@@ -140,7 +137,6 @@ export class WorldRuntimeCraftInterruptService {
         buildingJob.buildingName ?? '建造',
         reason === 'move' ? '离开建筑' : '被打断',
       );
-      deps.interruptBuildingConstruction?.(playerId, reason);
     }
   }
 }

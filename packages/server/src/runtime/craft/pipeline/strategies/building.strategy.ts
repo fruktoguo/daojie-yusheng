@@ -81,6 +81,15 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     return { ok: true, panelChanged: true, inventoryChanged: false, equipmentChanged: false, attrChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
   }
 
+  executeTick(player: unknown, ctx: PipelineContext): unknown {
+    const playerId = resolvePlayerId(player);
+    const deps = resolveBuildingDeps(ctx);
+    if (!playerId || typeof deps?.tickBuildingConstruction !== 'function') {
+      return emptyBuildingTickResult();
+    }
+    return deps.tickBuildingConstruction(playerId) ?? emptyBuildingTickResult();
+  }
+
   resolveResumePhase(_job: any): string {
     return 'building';
   }
@@ -151,6 +160,7 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
 type BuildingDepsPort = {
   dispatchStartBuildingConstruction?: (playerId: string, buildingId: string) => unknown;
   interruptBuildingConstruction?: (playerId: string, reason?: string) => unknown;
+  tickBuildingConstruction?: (playerId: string) => unknown;
   getInstanceRuntime?: (instanceId: string) => any;
   getPlayerLocation?: (playerId: string) => { instanceId?: string } | null;
   getPlayerLocationOrThrow?: (playerId: string) => { instanceId?: string };
@@ -159,6 +169,19 @@ type BuildingDepsPort = {
 function resolvePlayerId(player: unknown): string {
   const playerId = (player as { playerId?: unknown } | null | undefined)?.playerId;
   return typeof playerId === 'string' && playerId.trim() ? playerId.trim() : '';
+}
+
+function emptyBuildingTickResult(): Record<string, unknown> {
+  return {
+    ok: true,
+    panelChanged: false,
+    inventoryChanged: false,
+    equipmentChanged: false,
+    attrChanged: false,
+    messages: [],
+    groundDrops: [],
+    craftRealmExpGain: 0,
+  };
 }
 
 function resolveBuildingId(value: unknown): string {

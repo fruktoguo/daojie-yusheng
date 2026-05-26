@@ -10,9 +10,9 @@
 - `packages/shared/src/technique-activity-meta.ts` 已集中维护部分协议事件、命令名和错误码。
 - `TechniqueActivityPipelineService` 已提供 `start`、`tick`、`interrupt`、`cancel` 骨架。
 - `AlchemyStrategy`、`ForgingStrategy`、`EnhancementStrategy` 目前仍通过 `executeStart` / `executeTick` / `executeCancel` 全权委托回 `CraftPanelRuntimeService`，真实规则还在旧 service 中。
-- `WorldRuntimeCraftTickService` 对炼丹、炼器、强化已直接调用统一 `tickTechniqueActivity`；采集、建造的 start/cancel、sleeping 恢复和 tick 条件失败休眠已接入统一 pipeline/queue，但 tick 结算仍保留专用路径，pipeline 还不是全部 kind 的唯一 tick 真源。
+- `WorldRuntimeCraftTickService` 已按 active kind 统一调用 `tickTechniqueActivity`；炼丹、炼器、强化、采集、建造、挖矿、阵法维护的 tick 编排都进入 pipeline。采集/建造的 strategy tick 仍委托旧 runtime 服务承载真实规则，后续还要继续把领域规则拆入 strategy。
 - 制造型新 start 已写入 `player.techniqueActivityQueue`，旧 active job 内 `queuedJobs` 仍保留只读/迁移兼容，后续还要清理双形态。
-- 采集、建造、阵法维护属于条件型技艺；采集/建造/阵法维护的 sleeping 重试已经能通过 strategy 条件检查和 pipeline start 恢复，tick 条件暂时失败也能进入统一 sleeping 队列；采集/建造结算和外部占用推进仍未完全统一。
+- 采集、建造、阵法维护属于条件型技艺；采集/建造/阵法维护的 sleeping 重试已经能通过 strategy 条件检查和 pipeline start 恢复，tick 条件暂时失败也能进入统一 sleeping 队列；采集/建造结算和外部占用推进已从 tick 编排层进入 pipeline，但真实领域规则仍委托旧 runtime 服务。
 - 技艺经验已经有共享公式，但调用点仍分布在旧 runtime、pipeline、采集/挖矿/阵法链路中，持久化脏域需要统一保证。
 
 ## 本次需求理解
@@ -46,9 +46,9 @@
 | 炼丹 | `C2S.StartAlchemy` -> `WorldRuntimeAlchemyService` -> `CraftPanelRuntimeService.startAlchemy` | `WorldRuntimeCraftTickService` -> `tickTechniqueActivity('alchemy')` -> strategy 委托 `tickAlchemy` | `player.alchemyJob`，含 `brewing`、旧存档兼容 `queuedJobs` | pipeline strategy 只是委托；真实规则还在旧 service；旧队列形态仍需清理 |
 | 炼器 | `C2S.StartAlchemy` + `kind=forging` -> `startForging` | `WorldRuntimeCraftTickService` -> `tickTechniqueActivity('forging')` -> strategy 委托 `tickAlchemy(..., 'forging')` | `player.forgingJob`，历史兼容 `alchemyJob.jobType='forging'` | 与炼丹共用旧实现；pipeline 未承载真实规则 |
 | 强化 | `C2S.StartEnhancement` -> `WorldRuntimeEnhancementService` -> `startEnhancement` | `WorldRuntimeCraftTickService` -> `tickTechniqueActivity('enhancement')` -> strategy 委托 `tickEnhancement` | `player.enhancementJob` + `inventory.lockedItems` + `enhancementRecords` | pipeline strategy 仍委托旧 service；资产链复杂；打断等待已从实际工作进度拆出 |
-| 采集 | `C2S.StartGather` -> `TechniqueActivityPipelineService.start('gather')` -> `dispatchStartGather` | `WorldRuntimeLootContainerService.tickGather` | `player.gatherJob` + 容器 `activeSearch` | start/cancel 和离开范围休眠已接 pipeline/queue；tick 结算仍是专用路径 |
+| 采集 | `C2S.StartGather` -> `TechniqueActivityPipelineService.start('gather')` -> `dispatchStartGather` | `WorldRuntimeCraftTickService` -> `tickTechniqueActivity('gather')` -> `GatherStrategy.executeTick` -> `WorldRuntimeLootContainerService.tickGather` | `player.gatherJob` + 容器 `activeSearch` | tick 编排已统一；真实采集结算仍委托旧 loot container service，后续要拆入 strategy/result |
 | 挖矿 | 矿镐 `mining:start` context action -> `startMining` pending command -> `TechniqueActivityPipelineService.start('mining')`；攻击/技能命中地块仍保留战斗破坏入口 | `MiningStrategy.executeTick` 复用地块伤害、阵法减伤、掉落、挖矿经验和宗门扩张副作用；战斗入口仍在 `world-runtime-basic-attack.service` / `world-runtime-player-skill-dispatch.service` 内独立结算 | `player.miningJob` + `player.miningSkill`，active job 快照已识别 `mining` | 已有可见 job、取消、打断等待独立条和最小 smoke；仍需后续把所有条件型 tick 编排完全收敛到 pipeline |
-| 建造 | `startBuilding` 命令 -> `TechniqueActivityPipelineService.start('building')` -> `dispatchStartBuildingConstruction` | `tickBuildingConstruction` 读取实例建筑状态 | `player.buildingJob` + 建筑 `activeBuilderPlayerId` | start/cancel 和 activeBuilder 冲突休眠已接 pipeline/queue；tick 结算仍是专用路径 |
+| 建造 | `startBuilding` 命令 -> `TechniqueActivityPipelineService.start('building')` -> `dispatchStartBuildingConstruction` | `WorldRuntimeCraftTickService` -> `tickTechniqueActivity('building')` -> `BuildingStrategy.executeTick` -> `tickBuildingConstruction` | `player.buildingJob` + 建筑 `activeBuilderPlayerId` | tick 编排已统一；真实建造结算仍委托旧 building runtime，后续要拆入 strategy/result |
 | 阵法维护 / 补充灵力 | `startFormationMaintenance` -> `TechniqueActivityPipelineService.start('formation')`；`refillFormation` 是待命名澄清的一次性资源操作 | `TechniqueActivityPipelineService.tick('formation')` -> `WorldRuntimeFormationService.resolveFormationMaintenanceTick` | `player.formationJob`，持续维护每息注入灵力 | 持续补充灵力必须是 `formation` job 并进入任务列表；一次性补给只能作为无进度资源操作，不能承载技艺经验、打断等待或任务进度 |
 
 ### 现有真源和副作用
@@ -365,7 +365,7 @@ strategy 只负责领域差异：
 - [x] 阵法维护条件检查接入阵法实例、控制点、灵石存量规则；离开控制点进入统一 sleeping 队列，阵法失效/灵石耗尽明确取消。
 - [ ] 阵法补充灵力命名和入口收敛：持续注入/维护必须使用 `formation` job 并在任务列表展示；一次性资源补给必须明确标记为资源管理命令，不得混入技艺进度、经验或打断等待。
 - [x] 条件失败统一进入 sleeping 队列或明确取消，不能静默清 job。（采集/建造/阵法维护/挖矿已覆盖；挖矿目标永久失效时取消，离开矿脉范围时进入 sleeping payload。）
-- [ ] 中断、移动、战斗、打坐触发统一 `interruptTechniqueActivity`。
+- [x] 中断、移动、战斗、打坐触发统一 `interruptTechniqueActivity`。（采集/建造会先写 sleeping 队列，再通过 strategy 委托真实释放路径；阵法移动仍由控制点条件失败进入 sleeping，避免把离开范围误表现为 10 息暂停。）
 - [ ] 这些 job 的当前进度、打断等待和条件睡眠状态都要进入统一技艺面板。
 
 验收：
@@ -378,16 +378,16 @@ strategy 只负责领域差异：
 
 ### Phase 6：tick 编排收敛
 
-- [ ] `WorldRuntimeCraftTickService.advanceCraftJobs` 不再特殊分发炼丹、强化、采集、建造。
-- [ ] 每个玩家每 tick 只枚举活跃技艺 kind，然后统一调用 `pipeline.tick`。
-- [ ] EventBus active job progress 从统一 job view 构建。
+- [x] `WorldRuntimeCraftTickService.advanceCraftJobs` 不再特殊分发炼丹、强化、采集、建造。
+- [x] 每个玩家每 tick 只枚举活跃技艺 kind，然后统一调用 `pipeline.tick`。
+- [x] EventBus active job progress 从统一 job view 构建。
 - [ ] `WorldRuntimeAlchemyService`、`WorldRuntimeEnhancementService` 降级为兼容 facade 或删除。
 
 验收：
 
-- [ ] 不存在同一个 job 被双重 tick 的路径。
+- [x] 不存在同一个 job 被双重 tick 的路径。
 - [ ] 所有面板 patch 仍局部刷新，不全量重刷。
-- [ ] tick 内无数据库 IO、无配置解析、无高频 JSON 签名比较。
+- [ ] tick 内无数据库 IO、无配置解析、无高频 JSON 签名比较。（采集完成仍可能在 `tickGather` 内走 durable inventory grant，后续拆分规则时必须处理。）
 
 ### Phase 7：持久化模型收敛
 
@@ -485,6 +485,7 @@ strategy 只负责领域差异：
 - 2026-05-27：`WorldRuntimeCraftTickService` 消费条件型技艺 tick 返回的 `sleepPayload` 并写入统一队列；采集 tick 离开范围时释放容器 `activeSearch` 并休眠，建造 tick 发现 `activeBuilderPlayerId` 被其他玩家占用时休眠。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:quick` 通过，覆盖采集/建造 tick 条件失败进入统一 sleeping 队列；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：阵法维护 start/cancel 命令入口改为先走 `CraftPanelRuntimeService.startTechniqueActivity/cancelTechniqueActivity`；pipeline 条件失败的 `sleepPayload` 会被 `WorldRuntimeCraftTickService` 写入统一队列。阵法维护离开控制点不再作为永久取消，而是 sleeping 等待恢复；持续维护注入灵力通过 `formation` job 表达。`refillFormation` 当前更像一次性资源补给，后续必须通过命名和入口审计确认它不会承载持续技艺进度、经验或打断等待。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-formation-smoke.js`、`technique-activity-task-view-smoke.js`、`technique-activity-cancel-ref-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：挖矿新增 `PlayerMiningJob` 和 `MiningStrategy`，矿镐 `mining:start` context action 入 `startMining` pending command 后由 pipeline 启动；tick 复用地块伤害、阵法减伤、掉落、挖矿经验和宗门扩张副作用，打断等待只更新 `interruptWaitRemainingTicks` / `interruptState`，不改 `workRemainingTicks`。统一任务视图已投影 `miningJob` 并提供取消引用；active job 快照/回读识别 `mining`，同时补齐 `gather/building/mining` 的 active job 快照识别，避免条件型 job 重启丢失。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:client`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
+- 2026-05-27：`WorldRuntimeCraftTickService.advanceCraftJobs` 移除采集/建造专用 tick 分支，所有 active kind 统一调用 `CraftPanelRuntimeService.tickTechniqueActivity(player, kind, deps)` 并等待异步结果；`GatherStrategy.executeTick` 委托 `WorldRuntimeLootContainerService.tickGather`，`BuildingStrategy.executeTick` 委托 `tickBuildingConstruction`。采集/建造中断改为先写统一 sleeping 队列，再统一调用 `interruptTechniqueActivity`，由 strategy 委托真实释放路径。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`technique-activity-task-view-smoke.js`、`technique-activity-cancel-ref-smoke.js`、`world-runtime-mining-job-smoke.js` 通过，证明采集/建造不再由 tick service 双路径推进；采集完成时的 durable inventory grant 仍在旧 `tickGather` 内，Phase 6 的“tick 内无 DB IO”仍未完成。
 
 ## 验证矩阵
 
