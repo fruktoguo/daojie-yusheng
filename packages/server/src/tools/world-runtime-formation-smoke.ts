@@ -184,7 +184,8 @@ async function main() {
   assert.equal(formation.spiritStoneCount, 4);
   assert.equal(formation.qiCost, 400);
   assert.equal(formation.stats.totalAuraBudget, 1500);
-  assert.deepEqual(formation.allocation, { radius: 2, durationHours: 2, effectValue: 1000 });
+  assert.equal(formation.stats.effectValue, 4200);
+  assert.deepEqual(formation.allocation, { radius: 2, durationHours: 2, effectValue: 1000, formationSkillLevel: 1 });
   const formationTemplate = service.resolveFormationTemplate("spirit_gathering");
   assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 1 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 125);
   assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 5 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 142);
@@ -416,11 +417,12 @@ async function main() {
     qiCost: 1,
     allocation: { effectPercent: 80, rangePercent: 10, durationPercent: 10 },
   }, deps);
-  assert.equal(earthFormation.stats.effectValue, 320000);
+  assert.equal(earthFormation.stats.effectValue, 336000);
   assert.equal(service.isTerrainStabilized(instanceId, 4, 5), true);
   const reduction = service.resolveTerrainDamageReduction(instanceId, 4, 5);
-  assert.ok(Math.abs(reduction - (320000 / 420000)) < 0.000001);
-  assert.equal(Math.round(service.mitigateTerrainDamage(instanceId, 4, 5, 1000)), 238);
+  const expectedReduction = earthFormation.stats.effectValue / (earthFormation.stats.effectValue + 100000);
+  assert.ok(Math.abs(reduction - expectedReduction) < 0.000001);
+  assert.equal(Math.round(service.mitigateTerrainDamage(instanceId, 4, 5, 1000)), Math.round(1000 * (1 - expectedReduction)));
   assert.equal(service.mitigateTerrainDamage(instanceId, 15, 15, 1000), 1000);
   const beforeDamageState = service.getFormationCombatState(instanceId, earthFormation.id);
   assert.equal(beforeDamageState.damagePerAura, 100);

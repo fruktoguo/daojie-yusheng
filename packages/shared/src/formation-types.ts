@@ -91,12 +91,14 @@ export interface FormationAllocation {
   effectPercent: number;
   rangePercent: number;
   durationPercent: number;
+  formationSkillLevel?: number;
 }
 
 export interface FormationSetup {
   radius: number;
   durationHours: number;
   effectValue: number;
+  formationSkillLevel?: number;
 }
 
 export interface FormationCreatePayload {
@@ -177,6 +179,7 @@ import {
   DEFAULT_FORMATION_VISUAL_COLOR,
   DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
   FORMATION_DEFAULT_DAMAGE_PER_AURA,
+  FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL,
 } from './constants/gameplay/formation';
 
 export const DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
@@ -495,18 +498,21 @@ export function resolveFormationStats(
   spiritStoneCount: number,
   diskMultiplier: number,
   allocationInput: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
+  formationSkillLevel?: number,
 ): FormationResolvedStats {
+  const resolvedFormationSkillLevel = resolveFormationInputSkillLevel(formationSkillLevel, allocationInput);
   if (isFormationSetupInput(allocationInput)) {
-    return resolveFormationSetupStats(template, diskMultiplier, allocationInput);
+    return resolveFormationSetupStats(template, diskMultiplier, allocationInput, resolvedFormationSkillLevel);
   }
   const allocation = normalizeFormationAllocation(allocationInput);
   const normalizedStones = Math.max(1, Math.trunc(Number(spiritStoneCount) || 0));
   const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
+  const strengthMultiplier = resolveFormationSkillStrengthMultiplier(resolvedFormationSkillLevel);
   const baseAuraBudget = normalizedStones * FORMATION_AURA_PER_SPIRIT_STONE;
   const totalAuraBudget = Math.round(baseAuraBudget * normalizedMultiplier);
   const effectAura = Math.floor(totalAuraBudget * allocation.effectPercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
   const rangeAura = Math.floor(totalAuraBudget * allocation.rangePercent / FORMATION_ALLOCATION_TOTAL_PERCENT);
-  const effectValue = Math.floor(effectAura * Math.max(0, Number(template.effect.conversionRatio) || 0));
+  const effectValue = Math.max(0, Math.floor(effectAura * Math.max(0, Number(template.effect.conversionRatio) || 0) * strengthMultiplier));
   const radius = resolveFormationRadius(template.range, rangeAura);
   const durationScale = Math.max(0.01, allocation.durationPercent / FORMATION_DAILY_DURATION_BASE_PERCENT);
   const dailyActiveCost = totalAuraBudget / durationScale;
@@ -546,10 +552,13 @@ export function resolveFormationSetupStats(
   template: FormationTemplate,
   diskMultiplier: number,
   setupInput: Partial<FormationSetup> | null | undefined,
+  formationSkillLevel?: number,
 ): FormationResolvedStats {
   const cost = resolveFormationCostConfig(template);
   const setup = normalizeFormationSetup(template, setupInput);
   const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
+  const resolvedFormationSkillLevel = resolveFormationInputSkillLevel(formationSkillLevel, setupInput);
+  const strengthMultiplier = normalizedMultiplier * resolveFormationSkillStrengthMultiplier(resolvedFormationSkillLevel);
   const rangeSteps = Math.max(0, setup.radius - cost.defaultRadius);
   const rangeMultiplier = Math.pow(cost.rangeCostRatio, rangeSteps);
   const linearDurationMultiplier = setup.durationHours / cost.defaultDurationHours;
@@ -582,9 +591,9 @@ export function resolveFormationSetupStats(
     baseQiBudget: baseAuraBudget,
     totalQiBudget: totalAuraBudget,
     totalSpiritStoneBudget: spiritStoneCount,
-    effectAura: setup.effectValue,
+    effectAura: Math.max(0, Math.floor(setup.effectValue * strengthMultiplier)),
     rangeAura: requiredAuraBudget,
-    effectValue: setup.effectValue,
+    effectValue: Math.max(0, Math.floor(setup.effectValue * strengthMultiplier)),
     radius: setup.radius,
     dailyActiveCost,
     dailyInactiveCost,
@@ -605,6 +614,7 @@ export function resolveFormationSetupPlan(
   template: FormationTemplate,
   diskMultiplier: number,
   setupInput: Partial<FormationSetup> | null | undefined,
+  formationSkillLevel?: number,
 ): {
   setup: FormationSetup;
   stats: FormationResolvedStats;
@@ -612,7 +622,7 @@ export function resolveFormationSetupPlan(
   qiCost: number;
 } {
   const cost = resolveFormationCostConfig(template);
-  const stats = resolveFormationSetupStats(template, diskMultiplier, setupInput);
+  const stats = resolveFormationSetupStats(template, diskMultiplier, setupInput, formationSkillLevel);
   const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
   const spiritStoneCount = Math.max(
     FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
@@ -624,6 +634,21 @@ export function resolveFormationSetupPlan(
     spiritStoneCount,
     qiCost: resolveFormationQiCost(spiritStoneCount, template),
   };
+}
+
+export function resolveFormationSkillStrengthMultiplier(formationSkillLevel: number | undefined): number {
+  const normalizedLevel = Math.max(0, Math.floor(Number(formationSkillLevel) || 0));
+  return Math.pow(1 + FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL, normalizedLevel);
+}
+
+function resolveFormationInputSkillLevel(
+  explicitLevel: number | undefined,
+  input: Partial<FormationAllocation> | Partial<FormationSetup> | null | undefined,
+): number {
+  const embeddedLevel = input && typeof input === 'object'
+    ? (input as { formationSkillLevel?: number }).formationSkillLevel
+    : undefined;
+  return Math.max(0, Math.floor(Number(explicitLevel ?? embeddedLevel) || 0));
 }
 
 export function resolveFormationDamagePerAura(template: FormationTemplate): number {

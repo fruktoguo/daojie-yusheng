@@ -70,9 +70,10 @@ class WorldRuntimeFormationService {
             throw new BadRequestException(`${template.name}不能通过阵盘布置`);
         }
         const diskMultiplier = normalizeDiskMultiplier(diskItem);
+        const formationSkillLevel = resolveFormationSkillLevel(player);
         const hasSetupPayload = payload?.setup && typeof payload.setup === 'object';
         const plan = hasSetupPayload
-            ? resolveFormationSetupPlan(template, diskMultiplier, payload.setup)
+            ? resolveFormationSetupPlan(template, diskMultiplier, payload.setup, formationSkillLevel)
             : null;
         const spiritStoneCount = plan
             ? plan.spiritStoneCount
@@ -82,8 +83,10 @@ class WorldRuntimeFormationService {
             throw new BadRequestException(`${template.name}至少需要投入 ${formatInteger(minSpiritStoneCount)} 灵石`);
         }
         const qiCost = plan ? plan.qiCost : resolveFormationQiCost(spiritStoneCount, template);
-        const allocation = plan ? plan.setup : normalizeFormationAllocation(payload?.allocation);
-        const stats = plan ? plan.stats : resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+        const allocation = plan
+            ? { ...plan.setup, formationSkillLevel }
+            : { ...normalizeFormationAllocation(payload?.allocation), formationSkillLevel };
+        const stats = plan ? plan.stats : resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation, formationSkillLevel);
         const location = deps.getPlayerLocationOrThrow(playerId);
         const instance = deps.getInstanceRuntime(location.instanceId);
         if (!instance) {
@@ -1048,10 +1051,11 @@ class WorldRuntimeFormationService {
             ? Math.max(rawSpiritStoneCount, Math.ceil(rawRemainingQiBudget / resolveFormationAuraPerSpiritStone(template)))
             : rawSpiritStoneCount;
         const allocationPayload = entry.allocation && typeof entry.allocation === 'object' ? entry.allocation : {};
+        const formationSkillLevel = resolveFormationSkillLevel(entry);
         const allocation = typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
-            ? normalizeFormationSetup(template, allocationPayload)
-            : normalizeFormationAllocation(allocationPayload);
-        const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+            ? { ...normalizeFormationSetup(template, allocationPayload), formationSkillLevel }
+            : { ...normalizeFormationAllocation(allocationPayload), formationSkillLevel };
+        const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation, formationSkillLevel);
         if (template.id === 'sect_guardian_barrier') {
             stats.radius = Math.max(1, Math.trunc(Number(entry.radius) || 1));
         }
@@ -1539,6 +1543,14 @@ function resolvePlayerSectId(player) {
         || normalizeOptionalString(player?.ownerSectId)
         || normalizeOptionalString(player?.guildId)
         || normalizeOptionalString(player?.clanId);
+}
+
+function resolveFormationSkillLevel(source) {
+    const allocation = source?.allocation && typeof source.allocation === 'object' ? source.allocation : null;
+    const value = source?.formationSkillLevel
+        ?? allocation?.formationSkillLevel
+        ?? source?.formationSkill?.level;
+    return Math.max(0, Math.floor(Number(value) || 0));
 }
 
 function assertCanPlaceFormationInInstance(instance) {

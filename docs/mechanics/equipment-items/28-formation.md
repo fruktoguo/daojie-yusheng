@@ -13,6 +13,7 @@
 | FORMATION_DEFAULT_EFFECT_COST_RATIO | 100 | 效果消耗比 |
 | FORMATION_TICKS_PER_DAY | 86400 | 每天 tick 数 |
 | FORMATION_DEFAULT_DAMAGE_PER_AURA | 100 | 每灵气伤害值 |
+| FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL | 0.05 | 阵法技艺每级强度增幅 |
 
 ## 阵盘品阶倍率
 
@@ -43,7 +44,8 @@ totalQiBudget = totalAuraBudget
 totalSpiritStoneBudget = spiritStoneCount
 effectAura = floor(totalAuraBudget × effectPercent / 100)
 rangeAura = floor(totalAuraBudget × rangePercent / 100)
-effectValue = floor(effectAura × conversionRatio)
+skillStrengthMultiplier = 1.05 ^ 阵法技艺等级
+effectValue = floor(effectAura × conversionRatio × skillStrengthMultiplier)
 durationScale = max(0.01, durationPercent / 33.33)
 dailyActiveCost = totalAuraBudget / durationScale
 dailyInactiveCost = dailyActiveCost / 10
@@ -72,9 +74,13 @@ spiritStoneCount = ceil(requiredAuraBudget / (auraPerSpiritStone × diskMultipli
 qiCost = ceil(spiritStoneCount × qiPerSpiritStone)
 totalQiBudget = requiredAuraBudget
 totalSpiritStoneBudget = spiritStoneCount
+skillStrengthMultiplier = 1.05 ^ 阵法技艺等级
+actualEffectValue = floor(effectValue × diskMultiplier × skillStrengthMultiplier)
 tickActiveQiCost = totalQiBudget / durationTicks
 tickActiveSpiritStoneCost = tickActiveQiCost / (auraPerSpiritStone × diskMultiplier)
 ```
+
+Setup 模式中，布阵消耗按玩家输入的基础强度 `effectValue` 计算；实际生效强度再吃阵盘倍率和阵法技艺等级增幅。预览中的“开启消耗 / 关闭消耗”按每日消耗展示。
 
 ## 内置阵法模板
 

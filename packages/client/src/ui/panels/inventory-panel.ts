@@ -305,6 +305,8 @@ export class InventoryPanel {
   private playerFoundation = 0;
   /** playerQi：玩家当前灵气/灵力。 */
   private playerQi = 0;
+  /** playerFormationSkillLevel：阵法技艺等级。 */
+  private playerFormationSkillLevel = 0;
   /** lastPlayerContextKey：上次玩家上下文签名。 */
   private lastPlayerContextKey: string | null = null;
   /** playerContextRevision：玩家上下文版本，用于格子渲染缓存失效。 */
@@ -477,7 +479,7 @@ export class InventoryPanel {
 
 
   syncPlayerContext(
-    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi'>,
+    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi' | 'formationSkill'>,
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -496,6 +498,7 @@ export class InventoryPanel {
       this.playerHeavenGate = null;
       this.playerFoundation = 0;
       this.playerQi = 0;
+      this.playerFormationSkillLevel = 0;
     } else {
       this.learnedTechniqueIds = new Set(
         (player.techniques ?? [])
@@ -517,6 +520,7 @@ export class InventoryPanel {
       this.playerHeavenGate = player.realm?.heavenGate ?? player.heavenGate ?? null;
       this.playerFoundation = Math.max(0, Math.floor(player.foundation ?? 0));
       this.playerQi = Math.max(0, Math.floor(player.qi ?? 0));
+      this.playerFormationSkillLevel = Math.max(0, Math.floor(Number(player.formationSkill?.level) || 0));
     }
     if (this.lastInventory) {
       this.update(this.lastInventory);
@@ -525,7 +529,7 @@ export class InventoryPanel {
 
   /** buildPlayerContextKey：构建背包展示依赖的玩家上下文签名。 */
   private buildPlayerContextKey(
-    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi'>,
+    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi' | 'formationSkill'>,
   ): string {
     if (!player) {
       return 'none';
@@ -552,6 +556,7 @@ export class InventoryPanel {
       `gate=${heavenGate?.averageBonus ?? ''}`,
       `foundation=${Math.max(0, Math.floor(player.foundation ?? 0))}`,
       `qi=${Math.max(0, Math.floor(player.qi ?? 0))}`,
+      `formation=${Math.max(0, Math.floor(Number(player.formationSkill?.level) || 0))}`,
     ].join('|');
   }
 
@@ -1477,8 +1482,8 @@ export class InventoryPanel {
           <span><em>${t('inventory.formation.stat.effect', undefined)}</em><output data-formation-stat="effectValue">-</output></span>
           <span><em>${t('inventory.formation.stat.radius', undefined)}</em><output data-formation-stat="radius">-</output></span>
           <span><em>${t('inventory.formation.stat.duration', undefined)}</em><output data-formation-stat="durationHours">-</output></span>
-          <span><em>${t('inventory.formation.stat.active-cost', undefined)}</em><output data-formation-stat="activeCost">-</output></span>
-          <span><em>${t('inventory.formation.stat.inactive-cost', undefined)}</em><output data-formation-stat="inactiveCost">-</output></span>
+          <span class="formation-preview-metric--wide"><em>${t('inventory.formation.stat.active-cost', undefined)}</em><output data-formation-stat="activeCost">-</output></span>
+          <span class="formation-preview-metric--wide"><em>${t('inventory.formation.stat.inactive-cost', undefined)}</em><output data-formation-stat="inactiveCost">-</output></span>
         </div>
       </div>
       <div class="formation-effect-card ui-detail-field">
@@ -1511,7 +1516,7 @@ export class InventoryPanel {
     const template = this.getSelectedFormationTemplate(body);
     const diskMultiplier = this.resolveFormationDiskMultiplier(item);
     const setup = this.syncFormationSetupInputs(body, template);
-    const plan = resolveFormationSetupPlan(template, diskMultiplier, setup);
+    const plan = resolveFormationSetupPlan(template, diskMultiplier, setup, this.playerFormationSkillLevel);
     const stats = plan.stats;
     const spiritStoneCount = plan.spiritStoneCount;
     const qiCost = plan.qiCost;
@@ -1546,7 +1551,7 @@ export class InventoryPanel {
       previewSummary.textContent = !hasEnoughStones
         ? `灵石不足 ${formatDisplayInteger(spiritStoneCount - this.getCurrentSpiritStoneCount())}`
         : hasEnoughQi
-          ? `阵盘增幅 ${formatDisplayNumber(diskMultiplier)} 倍`
+          ? `阵盘增幅 ${formatDisplayNumber(diskMultiplier)} 倍 · 阵法 ${formatDisplayNumber(this.playerFormationSkillLevel)} 级`
           : `灵力不足 ${formatDisplayInteger(qiCost - this.playerQi)}`;
     }
     this.setFormationStatText(body, 'totalAura', stats.totalQiBudget ?? stats.totalAuraBudget);
@@ -1621,8 +1626,8 @@ export class InventoryPanel {
       const halfLifeTicks = Math.max(1, Math.trunc(template.effect.convergenceHalfLifeTicks ?? FORMATION_TICKS_PER_DAY));
       const perTickGain = stats.effectValue > 0 ? Math.max(1, Math.ceil(stats.effectValue / halfLifeTicks)) : 0;
       return [
-        { label: '每息增加灵力', value: formatDisplayInteger(perTickGain) },
-        { label: '预计最大灵力', value: formatDisplayInteger(stats.effectValue) },
+        { label: '每息增加灵力', value: this.formatFormationDecimal(perTickGain) },
+        { label: '预计最大灵力', value: this.formatFormationDecimal(stats.effectValue) },
       ];
     }
     if (template.effect.kind === 'terrain_stabilizer') {
@@ -1637,7 +1642,7 @@ export class InventoryPanel {
     const rawDurability = Math.max(1, Math.ceil((stats.totalQiBudget ?? stats.totalAuraBudget) * damagePerAura));
     const effectiveDurability = Math.max(1, Math.ceil(rawDurability / Math.max(0.000001, 1 - selfDamageReduction)));
     return [
-      { label: '预计承受伤害', value: formatDisplayInteger(effectiveDurability) },
+      { label: '预计承受伤害', value: this.formatFormationDecimal(effectiveDurability) },
       { label: '阵法减伤', value: this.formatFormationPercent(selfDamageReduction) },
     ];
   }
@@ -1728,7 +1733,23 @@ export class InventoryPanel {
   }
 
   private formatFormationResourceCost(qiCost: number, spiritStoneCost: number): string {
-    return `${formatDisplayInteger(qiCost)}灵力 / ${formatDisplayNumber(spiritStoneCost)}灵石`;
+    return `每日 ${formatDisplayInteger(qiCost)}灵力 / ${formatDisplayNumber(spiritStoneCost)}灵石`;
+  }
+
+  private formatFormationDecimal(value: number): string {
+    const normalizedValue = Number.isFinite(value) ? Number(value) : 0;
+    const sign = normalizedValue < 0 ? '-' : '';
+    const absValue = Math.abs(normalizedValue);
+    const units = [
+      { value: 1e12, suffix: '兆' },
+      { value: 1e8, suffix: '亿' },
+      { value: 1e4, suffix: '万' },
+    ] as const;
+    const unit = units.find((entry) => absValue >= entry.value);
+    if (unit) {
+      return `${sign}${(absValue / unit.value).toFixed(2)}${unit.suffix}`;
+    }
+    return `${sign}${absValue.toFixed(2)}`;
   }
 
   private getSelectedFormationTemplate(body: HTMLElement): FormationTemplate {
@@ -1919,7 +1940,7 @@ export class InventoryPanel {
     }
     const diskMultiplier = item ? this.resolveFormationDiskMultiplier(item) : 1;
     const setup = this.syncFormationSetupInputs(body, template);
-    const plan = resolveFormationSetupPlan(template, diskMultiplier, setup);
+    const plan = resolveFormationSetupPlan(template, diskMultiplier, setup, this.playerFormationSkillLevel);
     const spiritStoneCount = plan.spiritStoneCount;
     const qiCost = plan.qiCost;
     if (enforceQi && this.playerQi < qiCost) {

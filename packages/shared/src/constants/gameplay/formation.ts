@@ -75,3 +75,6 @@ export const DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR = '#3b82f6';
 
 /** 默认每灵气伤害值 */
 export const FORMATION_DEFAULT_DAMAGE_PER_AURA = 100;
+
+/** 阵法技艺每级提供的强度指数增幅 */
+export const FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL = 0.05;

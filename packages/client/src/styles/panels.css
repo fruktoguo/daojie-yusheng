@@ -5386,6 +5386,9 @@
       border-radius: 7px;
       background: color-mix(in srgb, var(--surface-base) 70%, transparent);
     }
+    .formation-preview-metrics .formation-preview-metric--wide {
+      grid-column: span 2;
+    }
     .formation-preview-metrics em,
     .formation-preview-metrics output {
       display: block;
@@ -5405,6 +5408,13 @@
       font-size: var(--font-size-role-body-14);
       font-weight: 650;
       font-variant-numeric: tabular-nums;
+    }
+    .formation-preview-metrics .formation-preview-metric--wide output {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.35;
     }
     :root[data-color-mode="dark"] .formation-preview {
       background: color-mix(in srgb, var(--surface-base) 82%, transparent);
@@ -5612,6 +5622,9 @@
       }
       .formation-preview-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .formation-preview-metrics .formation-preview-metric--wide {
+        grid-column: span 2;
       }
       .formation-effect-specific-metrics,
       .formation-effect-list {
