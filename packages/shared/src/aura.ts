@@ -23,14 +23,14 @@ export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_A
   return Math.max(1, Math.round(Number(value)));
 }
 
-/** 将灵气值归一化为非负整数，供等级换算和持久化使用。 */
+/** 将灵气值归一化为非负数，供等级换算和持久化使用。 */
 export function normalizeAuraValue(value: unknown): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!Number.isFinite(value)) {
     return 0;
   }
-  return Math.max(0, Math.round(Number(value)));
+  return Math.max(0, Number(value));
 }
 
 /** 计算指定灵气等级所需的最低灵气值。 */

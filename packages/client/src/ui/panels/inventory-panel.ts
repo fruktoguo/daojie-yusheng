@@ -1624,7 +1624,7 @@ export class InventoryPanel {
   private describeFormationSpecificMetrics(template: FormationTemplate, stats: FormationResolvedStats): Array<{ label: string; value: string }> {
     if (template.effect.kind === 'tile_aura_source') {
       const halfLifeTicks = Math.max(1, Math.trunc(template.effect.convergenceHalfLifeTicks ?? FORMATION_TICKS_PER_DAY));
-      const perTickGain = stats.effectValue > 0 ? Math.max(1, Math.ceil(stats.effectValue / halfLifeTicks)) : 0;
+      const perTickGain = stats.effectValue > 0 ? stats.effectValue / halfLifeTicks : 0;
       return [
         { label: '每息增加灵力', value: this.formatFormationDecimal(perTickGain) },
         { label: '预计最大灵力', value: this.formatFormationDecimal(stats.effectValue) },

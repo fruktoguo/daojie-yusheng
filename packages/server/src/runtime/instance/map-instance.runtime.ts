@@ -23,6 +23,8 @@ import { resolveTileDamageDropMultiplier } from '../world/combat/tile-drop.helpe
 const DEFAULT_TILE_AURA_RESOURCE_KEY = buildQiResourceKey(DEFAULT_QI_RESOURCE_DESCRIPTOR);
 const TILE_AURA_FLOW_RATE_SCALE = TILE_AURA_HALF_LIFE_RATE_SCALE ?? QI_HALF_LIFE_RATE_SCALE ?? 1_000_000_000;
 const TILE_AURA_FLOW_RATE_SCALED = Math.max(1, Math.trunc(Number(TILE_AURA_HALF_LIFE_RATE_SCALED) || 1));
+const TILE_AURA_FLOW_RATE = TILE_AURA_FLOW_RATE_SCALED / TILE_AURA_FLOW_RATE_SCALE;
+const TILE_RESOURCE_EPSILON = 1e-9;
 const DEFAULT_TILE_LAYER_FALLBACK_SEED = resolveDefaultTileLayerFallback();
 const BASE_CHANT_TICK_DURATION_MS = 1000;
 
@@ -481,10 +483,10 @@ class MapInstanceRuntime {
         const defaultBuildingRuntime = getDefaultBuildingRuntime();
         this.buildingCatalog = defaultBuildingRuntime.catalog;
         this.fengShuiRules = defaultBuildingRuntime.rules;
-        this.auraByTile = new Int32Array(initialCellCapacity);
+        this.auraByTile = new Float64Array(initialCellCapacity);
         this.auraByTile.set(request.template.baseAuraByTile);
         this.tileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, this.auraByTile);
-        const baseAuraByTile = new Int32Array(initialCellCapacity);
+        const baseAuraByTile = new Float64Array(initialCellCapacity);
         baseAuraByTile.set(request.template.baseAuraByTile);
         this.baseTileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, baseAuraByTile);
         for (const entry of request.template.baseTileResourceEntries ?? []) {
@@ -498,7 +500,7 @@ class MapInstanceRuntime {
             if (tileIndex < 0 || tileIndex >= this.auraByTile.length) {
                 continue;
             }
-            const value = Math.max(0, Math.trunc(entry.value));
+            const value = normalizeTileResourceValue(entry.value);
             if (value <= 0) {
                 continue;
             }
@@ -824,10 +826,10 @@ class MapInstanceRuntime {
         this.meta.templateId = nextTemplate.id;
         const nextCellCapacity = this.tilePlane.getCellCapacity();
         this.occupancy = new Uint32Array(nextCellCapacity);
-        this.auraByTile = new Int32Array(nextCellCapacity);
+        this.auraByTile = new Float64Array(nextCellCapacity);
         this.auraByTile.set(nextTemplate.baseAuraByTile);
         this.tileResourceBuckets = new Map([[DEFAULT_TILE_AURA_RESOURCE_KEY, this.auraByTile]]);
-        const baseAuraByTile = new Int32Array(nextCellCapacity);
+        const baseAuraByTile = new Float64Array(nextCellCapacity);
         baseAuraByTile.set(nextTemplate.baseAuraByTile);
         this.baseTileResourceBuckets = new Map([[DEFAULT_TILE_AURA_RESOURCE_KEY, baseAuraByTile]]);
         this.tileResourceFlowRemainderBuckets = new Map();
@@ -882,7 +884,7 @@ class MapInstanceRuntime {
         const tileIndex = this.tilePlane.activateCell(normalizedX, normalizedY, tileType);
         this.ensureCellStorageCapacity(tileIndex + 1);
         if (Number.isFinite(Number(options?.aura))) {
-            this.auraByTile[tileIndex] = Math.max(0, Math.trunc(Number(options.aura)));
+            this.auraByTile[tileIndex] = normalizeTileResourceValue(options.aura);
             const baseAura = this.baseTileResourceBuckets.get(DEFAULT_TILE_AURA_RESOURCE_KEY);
             if (baseAura) {
                 baseAura[tileIndex] = this.auraByTile[tileIndex];
@@ -3440,7 +3442,7 @@ class MapInstanceRuntime {
             return null;
         }
 
-        const normalizedAmount = Math.trunc(amount);
+        const normalizedAmount = Number(amount);
         if (normalizedAmount === 0) {
             return this.getTileResource(resourceKey, x, y);
         }
@@ -3448,7 +3450,7 @@ class MapInstanceRuntime {
         const tileIndex = this.toTileIndex(x, y);
         const previous = this.getTileResourceValueByIndex(resourceKey, tileIndex);
         const next = Math.max(0, previous + normalizedAmount);
-        if (next === previous) {
+        if (areTileResourceValuesEqual(next, previous)) {
             return next;
         }
         this.setTileResourceValueByIndex(resourceKey, tileIndex, next, previous);
@@ -3469,24 +3471,29 @@ class MapInstanceRuntime {
             const baseBucket = this.baseTileResourceBuckets.get(resourceKey);
             const remainderBucket = this.getOrCreateTileResourceFlowRemainderBucket(resourceKey);
             for (const tileIndex of Array.from(tileIndices.values())) {
-                const current = Math.max(0, Math.trunc(Number(bucket[tileIndex]) || 0));
-                const base = Math.max(0, Math.trunc(Number(baseBucket?.[tileIndex]) || 0));
-                if (current === base) {
+                const current = normalizeTileResourceValue(bucket[tileIndex]);
+                const base = normalizeTileResourceValue(baseBucket?.[tileIndex]);
+                if (areTileResourceValuesEqual(current, base)) {
+                    if (current !== base) {
+                        this.setTileResourceValueByIndex(resourceKey, tileIndex, base, current);
+                    }
                     remainderBucket[tileIndex] = 0;
                     tileIndices.delete(tileIndex);
                     continue;
                 }
                 const diff = Math.abs(current - base);
-                const accumulated = diff * TILE_AURA_FLOW_RATE_SCALED + (remainderBucket[tileIndex] ?? 0);
-                let step = Math.floor(accumulated / TILE_AURA_FLOW_RATE_SCALE);
-                remainderBucket[tileIndex] = accumulated - step * TILE_AURA_FLOW_RATE_SCALE;
-                if (step <= 0) {
+                const step = Math.min(diff, diff * TILE_AURA_FLOW_RATE);
+                remainderBucket[tileIndex] = 0;
+                if (step <= TILE_RESOURCE_EPSILON) {
+                    this.setTileResourceValueByIndex(resourceKey, tileIndex, base, current);
+                    remainderBucket[tileIndex] = 0;
+                    tileIndices.delete(tileIndex);
+                    changed = true;
                     continue;
                 }
-                step = Math.min(step, diff);
-                const next = current > base ? current - step : current + step;
+                const next = current > base ? Math.max(base, current - step) : Math.min(base, current + step);
                 this.setTileResourceValueByIndex(resourceKey, tileIndex, next, current);
-                if (next === base) {
+                if (areTileResourceValuesEqual(next, base)) {
                     remainderBucket[tileIndex] = 0;
                 }
                 changed = true;
@@ -3534,7 +3541,7 @@ class MapInstanceRuntime {
                 continue;
             }
 
-            const next = Math.max(0, Math.trunc(entry.value));
+            const next = normalizeTileResourceValue(entry.value);
             if (entry.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && next <= 0) {
                 continue;
             }
@@ -3785,7 +3792,7 @@ class MapInstanceRuntime {
                 continue;
             }
 
-            const next = Math.max(0, Math.trunc(entry.value));
+            const next = normalizeTileResourceValue(entry.value);
             if (entry.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && next <= 0) {
                 continue;
             }
@@ -4041,8 +4048,8 @@ class MapInstanceRuntime {
                 continue;
             }
             for (let tileIndex = 0; tileIndex < bucket.length; tileIndex += 1) {
-                const value = bucket[tileIndex] ?? 0;
-                if (value !== this.getTileResourceBaseValueByIndex(resourceKey, tileIndex)) {
+                const value = normalizeTileResourceValue(bucket[tileIndex]);
+                if (!areTileResourceValuesEqual(value, this.getTileResourceBaseValueByIndex(resourceKey, tileIndex))) {
                     entries.push({
                         resourceKey,
                         tileIndex,
@@ -4079,8 +4086,8 @@ class MapInstanceRuntime {
         for (const pair of dirtyPairs) {
             const value = this.getTileResourceValueByIndex(pair.resourceKey, pair.tileIndex);
             const base = this.getTileResourceBaseValueByIndex(pair.resourceKey, pair.tileIndex);
-            if (value !== base) {
-                upserts.push({ resourceKey: pair.resourceKey, tileIndex: pair.tileIndex, value: Math.max(0, Math.trunc(Number(value) || 0)) });
+            if (!areTileResourceValuesEqual(value, base)) {
+                upserts.push({ resourceKey: pair.resourceKey, tileIndex: pair.tileIndex, value: normalizeTileResourceValue(value) });
             }
             else {
                 deletes.push({ resourceKey: pair.resourceKey, tileIndex: pair.tileIndex });
@@ -5788,7 +5795,7 @@ class MapInstanceRuntime {
         if (existing) {
             return existing;
         }
-        const bucket = new Int32Array(Math.max(this.tilePlane.getCellCapacity(), this.occupancy.length));
+        const bucket = new Float64Array(Math.max(this.tilePlane.getCellCapacity(), this.occupancy.length));
         this.tileResourceBuckets.set(resourceKey, bucket);
         return bucket;
     }
@@ -5798,7 +5805,7 @@ class MapInstanceRuntime {
         if (existing) {
             return existing;
         }
-        const bucket = new Int32Array(Math.max(this.tilePlane.getCellCapacity(), this.occupancy.length));
+        const bucket = new Float64Array(Math.max(this.tilePlane.getCellCapacity(), this.occupancy.length));
         this.baseTileResourceBuckets.set(resourceKey, bucket);
         return bucket;
     }
@@ -5818,10 +5825,10 @@ class MapInstanceRuntime {
             return;
         }
         const normalizedTileIndex = Math.max(0, Math.trunc(Number(tileIndex)));
-        const current = Math.max(0, Math.trunc(Number(value) || 0));
-        const base = Math.max(0, Math.trunc(Number(this.getTileResourceBaseValueByIndex(resourceKey, normalizedTileIndex)) || 0));
+        const current = normalizeTileResourceValue(value);
+        const base = normalizeTileResourceValue(this.getTileResourceBaseValueByIndex(resourceKey, normalizedTileIndex));
         let tileIndices = this.tileResourceFlowIndicesByKey.get(resourceKey);
-        if (current === base) {
+        if (areTileResourceValuesEqual(current, base)) {
             if (tileIndices instanceof Set) {
                 tileIndices.delete(normalizedTileIndex);
                 if (tileIndices.size <= 0) {
@@ -5845,9 +5852,9 @@ class MapInstanceRuntime {
             }
             const baseBucket = this.baseTileResourceBuckets.get(resourceKey);
             for (let tileIndex = 0; tileIndex < bucket.length; tileIndex += 1) {
-                const current = Math.max(0, Math.trunc(Number(bucket[tileIndex]) || 0));
-                const base = Math.max(0, Math.trunc(Number(baseBucket?.[tileIndex]) || 0));
-                if (current !== base) {
+                const current = normalizeTileResourceValue(bucket[tileIndex]);
+                const base = normalizeTileResourceValue(baseBucket?.[tileIndex]);
+                if (!areTileResourceValuesEqual(current, base)) {
                     this.updateTileResourceFlowIndex(resourceKey, tileIndex, current);
                 }
             }
@@ -5868,9 +5875,14 @@ class MapInstanceRuntime {
     setTileResourceValueByIndex(resourceKey, tileIndex, next, previous = this.getTileResourceValueByIndex(resourceKey, tileIndex)) {
         this.ensureCellStorageCapacity(tileIndex + 1);
         const bucket = this.getOrCreateTileResourceBucket(resourceKey);
-        bucket[tileIndex] = next;
-        this.applyTileResourceDirtyCounter(resourceKey, tileIndex, previous, next);
-        this.updateTileResourceFlowIndex(resourceKey, tileIndex, next);
+        const normalizedPrevious = normalizeTileResourceValue(previous);
+        const normalizedNext = normalizeTileResourceValue(next);
+        if (areTileResourceValuesEqual(normalizedPrevious, normalizedNext)) {
+            return;
+        }
+        bucket[tileIndex] = normalizedNext;
+        this.applyTileResourceDirtyCounter(resourceKey, tileIndex, normalizedPrevious, normalizedNext);
+        this.updateTileResourceFlowIndex(resourceKey, tileIndex, normalizedNext);
         if (resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && (this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0) <= 0) {
             this.tileResourceBuckets.delete(resourceKey);
         }
@@ -5893,7 +5905,7 @@ class MapInstanceRuntime {
             if (bucket.length >= nextCapacity) {
                 continue;
             }
-            const nextBucket = new Int32Array(nextCapacity);
+            const nextBucket = new Float64Array(nextCapacity);
             nextBucket.set(bucket);
             this.tileResourceBuckets.set(resourceKey, nextBucket);
             if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
@@ -5904,7 +5916,7 @@ class MapInstanceRuntime {
             if (bucket.length >= nextCapacity) {
                 continue;
             }
-            const nextBucket = new Int32Array(nextCapacity);
+            const nextBucket = new Float64Array(nextCapacity);
             nextBucket.set(bucket);
             this.baseTileResourceBuckets.set(resourceKey, nextBucket);
         }
@@ -5920,8 +5932,8 @@ class MapInstanceRuntime {
     /** applyTileResourceDirtyCounter：维护地块资源脏条目统计。 */
     applyTileResourceDirtyCounter(resourceKey, tileIndex, previous, next) {
         const baseValue = this.getTileResourceBaseValueByIndex(resourceKey, tileIndex);
-        const previousDirty = previous !== baseValue;
-        const nextDirty = next !== baseValue;
+        const previousDirty = !areTileResourceValuesEqual(previous, baseValue);
+        const nextDirty = !areTileResourceValuesEqual(next, baseValue);
         if (previousDirty === nextDirty) {
             if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
                 this.changedAuraTileCount = this.changedTileResourceEntryCountByKey.get(DEFAULT_TILE_AURA_RESOURCE_KEY) ?? this.changedAuraTileCount;
@@ -6379,6 +6391,13 @@ function normalizeTileRestoreTicksLeft(value, tileType) {
 
     const normalized = Math.trunc(Number(value));
     return Number.isFinite(normalized) && normalized > 0 ? normalized : calculateTileRestoreTicks(tileType);
+}
+function normalizeTileResourceValue(value) {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) && normalized > 0 ? normalized : 0;
+}
+function areTileResourceValuesEqual(left, right) {
+    return Math.abs(normalizeTileResourceValue(left) - normalizeTileResourceValue(right)) <= TILE_RESOURCE_EPSILON;
 }
 /** resolveTileDurabilityProfile：解析分层耐久配置，structure 优先，terrain 仅处理真正地形层。 */
 function resolveTileDurabilityProfile(tileType, layerState = null) {

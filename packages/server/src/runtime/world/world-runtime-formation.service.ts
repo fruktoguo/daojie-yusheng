@@ -889,7 +889,7 @@ class WorldRuntimeFormationService {
             if (current >= target) {
                 return;
             }
-            const delta = Math.max(1, Math.ceil((target - current) / halfLifeTicks));
+            const delta = Math.max(0, (target - current) / halfLifeTicks);
             instance.addTileResource(resourceKey, x, y, Math.min(delta, target - current));
         });
     }

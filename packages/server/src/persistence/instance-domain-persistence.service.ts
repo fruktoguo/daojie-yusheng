@@ -778,7 +778,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       ? result.rows.map((row) => ({
           resourceKey: typeof row.resource_key === 'string' ? row.resource_key : '',
           tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
-          value: normalizeNullableInteger(row.value) ?? 0,
+          value: normalizeNullableNumber(row.value) ?? 0,
         }))
       : [];
   }

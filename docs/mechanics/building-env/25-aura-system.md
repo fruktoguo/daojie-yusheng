@@ -8,7 +8,7 @@
 |------|-----|------|
 | DEFAULT_AURA_LEVEL_BASE_VALUE | 1000 | 灵气等级基础值 |
 | TILE_AURA_HALF_LIFE_TICKS | 86400 息（≈24小时） | 地块灵气半衰期 |
-| TILE_AURA_HALF_LIFE_RATE_SCALE | 1,000,000,000 | 半衰期固定点精度 |
+| TILE_AURA_HALF_LIFE_RATE_SCALE | 1,000,000,000 | 半衰期比例常量精度 |
 | TILE_AURA_HALF_LIFE_RATE_SCALED | ≈8023 | 计算值 |
 
 ## 灵气等级公式
@@ -30,9 +30,8 @@ level_n: 1000 × 1.5^(n-1)
 ```typescript
 // 每 tick 执行:
 diff = |current - base|
-accumulated = diff × RATE_SCALED + remainder
-step = floor(accumulated / RATE_SCALE)
-remainder = accumulated - step × RATE_SCALE
+rate = RATE_SCALED / RATE_SCALE
+step = diff × rate
 step = min(step, diff)
 next = current > base ? current - step : current + step
 ```
@@ -41,7 +40,7 @@ next = current > base ? current - step : current + step
 
 - 每息衰减/回补比例 ≈ `1 - 0.5^(1/86400)` ≈ 0.000008023
 - 经过 86400 息后，差值缩小为原来的 50%
-- 使用整数余数模型避免浮点误差累积
+- 地块灵气运行态、持久化回读和增量落盘均按 double 数值保存，历史整数灵气会原样作为 double 读回，不会清空或重置。
 
 ## 灵气流转触发条件
 

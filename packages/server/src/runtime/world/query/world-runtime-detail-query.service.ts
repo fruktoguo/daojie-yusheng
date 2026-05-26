@@ -472,7 +472,7 @@ function buildTileRuntimeResources(entries, aura, viewer) {
         if (projection?.visibility === 'hidden') {
             return null;
         }
-        const value = Math.max(0, Math.trunc(entry.value));
+        const value = Math.max(0, Number(entry.value) || 0);
         const effectiveValue = projection
             ? (projection.visibility === 'absorbable'
                 ? projectPlayerQiResourceValue(viewer, entry.resourceKey, value)
@@ -488,7 +488,7 @@ function buildTileRuntimeResources(entries, aura, viewer) {
                 : !projection && parsed
                     ? getAuraLevel(value, DEFAULT_AURA_LEVEL_BASE_VALUE)
                     : undefined,
-            sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
+            sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Number(entry.sourceValue) || 0) : undefined,
         };
     }).filter((entry) => entry !== null);
     if (resources.length > 0) {
@@ -498,7 +498,7 @@ function buildTileRuntimeResources(entries, aura, viewer) {
         return [];
     }
     const resourceKey = 'aura.refined.neutral';
-    const value = Math.max(0, Math.trunc(aura));
+    const value = Math.max(0, Number(aura) || 0);
     const effectiveValue = viewer
         ? projectPlayerQiResourceValue(viewer, resourceKey, value)
         : value;
@@ -512,13 +512,13 @@ function buildTileRuntimeResources(entries, aura, viewer) {
 }
 
 function buildTileRuntimeAuraLevel(resources, aura, viewer) {
-    const rawAura = Number.isFinite(aura) ? Math.max(0, Math.trunc(aura)) : 0;
+    const rawAura = Number.isFinite(aura) ? Math.max(0, Number(aura) || 0) : 0;
     if (Array.isArray(resources) && resources.length > 0) {
         let projectedQiValue = 0;
         let hasProjectableQiResource = false;
         for (const resource of resources) {
             const parsed = parseQiResourceKey(resource.key);
-            const effectiveValue = Math.max(0, Math.trunc(resource.effectiveValue ?? 0));
+            const effectiveValue = Math.max(0, Number(resource.effectiveValue ?? 0) || 0);
             if (!parsed || effectiveValue <= 0) {
                 continue;
             }

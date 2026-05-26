@@ -262,6 +262,8 @@ async function main() {
   service.advanceInstanceFormations(instance, 2, deps);
   assert.equal(service.listRuntimeFormations(instanceId).length, 1);
   assert.ok(tileResources.size > 0);
+  const firstAuraGain = Array.from(tileResources.values())[0];
+  assert.ok(firstAuraGain > 0 && firstAuraGain < 1);
 
   {
     const sparsePlayerId = "player:formation-sparse-sect";

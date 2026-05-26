@@ -262,7 +262,7 @@ export class MapTemplateRepository {
         const blocksSightMask = new Uint8Array(size);
         const portalIndexByTile = new Int32Array(size);
         const safeZoneMask = new Uint8Array(size);
-        const baseAuraByTile = new Int32Array(size);
+        const baseAuraByTile = new Float64Array(size);
         const movementCostOverrideByTile = new Int32Array(size);
         const qiDrainByTile = new Int32Array(size);
         const baseTileResourceEntryByKey = new Map();

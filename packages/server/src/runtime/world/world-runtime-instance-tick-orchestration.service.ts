@@ -669,7 +669,7 @@ function resolveTileCultivationAura(instance, player, x, y) {
         let projectedQiValue = 0;
         let hasQiResource = false;
         for (const resource of resources) {
-            const value = Math.max(0, Math.trunc(Number(resource.value) || 0));
+            const value = Math.max(0, Number(resource.value) || 0);
             const projected = resolveCultivationResourceValue(player, resource.resourceKey, value);
             if (!projected.contributes) {
                 continue;
@@ -689,7 +689,7 @@ function resolveTileCultivationAura(instance, player, x, y) {
     const rawAura = typeof instance.getTileAura === 'function'
         ? instance.getTileAura(x, y)
         : 0;
-    const normalizedAura = Math.max(0, Math.trunc(Number(rawAura) || 0));
+    const normalizedAura = Math.max(0, Number(rawAura) || 0);
     const effectiveAura = player
         ? projectPlayerQiResourceValue(player, 'aura.refined.neutral', normalizedAura)
         : normalizedAura;
