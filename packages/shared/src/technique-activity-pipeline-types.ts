@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { CraftSkillExpComputationParams } from './craft-skill';
+import type { NoticeKind, StructuredNoticePayload } from './notice-types';
 import type {
   RuntimeTechniqueActivityKind,
   TechniqueActivityCancelRef,
@@ -39,13 +40,55 @@ export interface TechniqueActivityOutputItem {
 
 /** 通知消息。 */
 export interface TechniqueActivityNoticeMessage {
-  kind: 'quest' | 'system' | 'loot' | 'warn' | 'info';
-  /** 旧字段：兼容现有服务端文本通知。新链路应优先使用 key/vars。 */
-  text: string;
+  kind: NoticeKind;
+  /** 旧字段：兼容现有服务端文本通知。新链路应优先使用 structured。 */
+  text?: string;
+  /** 结构化通知载荷；服务端传 key/vars，客户端负责拼接和渲染。 */
+  structured?: StructuredNoticePayload;
   /** 结构化消息 key。 */
   key?: string;
   /** 结构化消息变量。 */
-  vars?: Record<string, string | number | boolean | null>;
+  vars?: StructuredNoticePayload['vars'];
+  /** 结构化消息胶囊配置。 */
+  pills?: StructuredNoticePayload['pills'];
+  /** 结构化消息标签。 */
+  badges?: StructuredNoticePayload['badges'];
+}
+
+/** 背包 delta。策略可以声明消耗、入包、掉地和是否改动背包。 */
+export interface TechniqueActivityInventoryDelta {
+  consumed?: TechniqueActivityOutputItem[];
+  granted?: TechniqueActivityOutputItem[];
+  dropped?: TechniqueActivityOutputItem[];
+  changed?: boolean;
+}
+
+/** 钱包 delta。负数表示扣除，正数表示返还或获得。 */
+export interface TechniqueActivityWalletDelta {
+  spiritStones?: number;
+  changed?: boolean;
+}
+
+/** 装备/锁定空间 delta。 */
+export interface TechniqueActivityEquipmentDelta {
+  lockedItemInstanceIds?: string[];
+  unlockedItemInstanceIds?: string[];
+  updatedItemInstanceIds?: string[];
+  changed?: boolean;
+}
+
+/** 领域记录 delta，例如强化记录。 */
+export interface TechniqueActivityRecordDelta {
+  recordType: 'alchemy' | 'forging' | 'enhancement' | RuntimeTechniqueActivityKind | string;
+  entries?: unknown[];
+  changed?: boolean;
+}
+
+/** 面板 dirty 信息。高频任务视图仍单独走 task patch，不混入 catalog/detail。 */
+export interface TechniqueActivityPanelDirty {
+  changed: boolean;
+  kinds?: RuntimeTechniqueActivityKind[];
+  reason?: string;
 }
 
 /** 策略 resolve 返回的结算结果。 */
@@ -56,6 +99,16 @@ export interface TechniqueActivityResolveResult {
   failureCount: number;
   /** 产出物品列表。 */
   outputs: TechniqueActivityOutputItem[];
+  /** 背包 delta。 */
+  inventoryDelta?: TechniqueActivityInventoryDelta;
+  /** 钱包 delta。 */
+  walletDelta?: TechniqueActivityWalletDelta;
+  /** 装备/锁定空间 delta。 */
+  equipmentDelta?: TechniqueActivityEquipmentDelta;
+  /** 领域记录 delta。 */
+  recordDelta?: TechniqueActivityRecordDelta | TechniqueActivityRecordDelta[];
+  /** 面板 dirty。 */
+  panelDirty?: TechniqueActivityPanelDirty;
   /** 经验计算参数。 */
   expParams: CraftSkillExpComputationParams;
   /** true=还有后续批次/步骤，不清理 job。 */
@@ -78,7 +131,47 @@ export interface TechniqueActivityResolveResult {
 export interface TechniqueActivityRefundResult {
   items: TechniqueActivityOutputItem[];
   spiritStones: number;
+  inventoryDelta?: TechniqueActivityInventoryDelta;
+  walletDelta?: TechniqueActivityWalletDelta;
+  equipmentDelta?: TechniqueActivityEquipmentDelta;
+  recordDelta?: TechniqueActivityRecordDelta | TechniqueActivityRecordDelta[];
+  panelDirty?: TechniqueActivityPanelDirty;
   messages?: TechniqueActivityNoticeMessage[];
+}
+
+/** 启动结果、tick 结果、取消结果的公共字段。 */
+export interface TechniqueActivityLifecycleResultBase {
+  ok: boolean;
+  kind?: RuntimeTechniqueActivityKind;
+  panelChanged?: boolean;
+  inventoryDelta?: TechniqueActivityInventoryDelta;
+  walletDelta?: TechniqueActivityWalletDelta;
+  equipmentDelta?: TechniqueActivityEquipmentDelta;
+  recordDelta?: TechniqueActivityRecordDelta | TechniqueActivityRecordDelta[];
+  panelDirty?: TechniqueActivityPanelDirty;
+  messages?: TechniqueActivityNoticeMessage[];
+  error?: string;
+}
+
+/** start 结果：只表达启动或排队，不承载 tick 结算。 */
+export interface TechniqueActivityStartResult extends TechniqueActivityLifecycleResultBase {
+  lifecycle: 'start';
+  started?: boolean;
+  queued?: boolean;
+}
+
+/** tick 结果：表达推进、结算、休眠或完成。 */
+export interface TechniqueActivityTickResult extends TechniqueActivityLifecycleResultBase {
+  lifecycle: 'tick';
+  completed?: boolean;
+  sleepPayload?: unknown;
+  craftRealmExpGain?: number;
+}
+
+/** cancel 结果：表达取消、退款、释放占用。 */
+export interface TechniqueActivityCancelResult extends TechniqueActivityLifecycleResultBase {
+  lifecycle: 'cancel';
+  cancelled?: boolean;
 }
 
 // ─── 条件检查结果 ───

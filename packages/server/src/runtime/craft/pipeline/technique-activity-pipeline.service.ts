@@ -6,6 +6,7 @@
 import {
   computeCraftSkillExpGain,
   type RuntimeTechniqueActivityKind,
+  type TechniqueActivityNoticeMessage,
   type TechniqueActivityInterruptReason,
 } from '@mud/shared';
 import {
@@ -26,7 +27,7 @@ export interface CraftTickResult {
   inventoryChanged: boolean;
   equipmentChanged: boolean;
   attrChanged: boolean;
-  messages: Array<{ kind: string; text: string }>;
+  messages: TechniqueActivityNoticeMessage[];
   groundDrops: Array<{ itemId: string; count: number; name?: string }>;
   craftRealmExpGain: number;
 }
@@ -35,7 +36,7 @@ export interface CraftMutationResult {
   ok: boolean;
   error?: string;
   panelChanged: boolean;
-  messages: Array<{ kind: string; text: string }>;
+  messages: TechniqueActivityNoticeMessage[];
   inventoryChanged?: boolean;
   equipmentChanged?: boolean;
   attrChanged?: boolean;

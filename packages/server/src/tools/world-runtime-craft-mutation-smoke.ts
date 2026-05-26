@@ -207,13 +207,80 @@ async function testFallbackActiveJobSnapshotStillWorksWithoutDurableSession() {
     assert.deepEqual(fallbackWrites, ['job:craft:alchemy:missing-lease']);
 }
 
+async function testStructuredTechniqueNoticePassesThroughFlush() {
+    const notices = [];
+    const service = new WorldRuntimeCraftMutationService(
+        {
+            getPlayer(playerId) {
+                return playerId === 'player:structured-notice' ? { playerId, instanceId: 'instance:notice' } : null;
+            },
+        },
+        {
+            async persistTechniqueActivitySnapshot() {},
+            buildTechniqueActivityPanelPayload() {
+                return {};
+            },
+        },
+        {
+            getSocketByPlayerId() {
+                return null;
+            },
+        },
+        {
+            prefersMainline() {
+                return false;
+            },
+        },
+    );
+    service.flushCraftMutation(
+        'player:structured-notice',
+        {
+            ok: true,
+            panelChanged: false,
+            messages: [
+                {
+                    kind: 'quest',
+                    key: 'notice.technique.activity-complete',
+                    vars: { itemName: '归元丹', count: 2 },
+                    pills: [{ key: 'itemName', style: 'target' }],
+                },
+            ],
+            groundDrops: [],
+        },
+        'alchemy',
+        {
+            queuePlayerNotice(playerId, text, kind, _title, _icon, structured) {
+                notices.push({ playerId, text, kind, structured });
+            },
+            getInstanceRuntimeOrThrow() {
+                return {};
+            },
+            spawnGroundItem() {},
+        },
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(notices, [
+        {
+            playerId: 'player:structured-notice',
+            text: 'notice.technique.activity-complete',
+            kind: 'quest',
+            structured: {
+                key: 'notice.technique.activity-complete',
+                vars: { itemName: '归元丹', count: 2 },
+                pills: [{ key: 'itemName', style: 'target' }],
+            },
+        },
+    ]);
+}
+
 async function main() {
     await testDurableRuntimeSkipsFallbackActiveJobSnapshot();
     await testFallbackActiveJobSnapshotStillWorksWithoutDurableSession();
+    await testStructuredTechniqueNoticePassesThroughFlush();
     console.log(JSON.stringify({
         ok: true,
         case: 'world-runtime-craft-mutation',
-        answers: 'WorldRuntimeCraftMutationService 在 durable 会话启用时不再通过非 CAS 后备直写 active_job，避免旧 fire-and-forget flush 读到新内存版本后抢先推进 player_active_job；durable 不可用时仍保留后备快照持久化。',
+        answers: 'WorldRuntimeCraftMutationService 在 durable 会话启用时不再通过非 CAS 后备直写 active_job，durable 不可用时仍保留后备快照持久化，并且技艺 result 的结构化 notice 会透传到通知队列。',
     }, null, 2));
 }
 

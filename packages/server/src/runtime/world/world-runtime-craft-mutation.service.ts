@@ -136,7 +136,7 @@ export class WorldRuntimeCraftMutationService {
         if (!result?.ok) {
             return;
         }
-        if (!options.skipActiveJobPersistence) {
+        if (!options.skipActiveJobPersistence && !isDurableActiveJobPersistenceEnabled(deps)) {
             void this.persistActiveJobIfNeeded(playerId, deps).catch((error) => {
                 this.logger.warn(`活跃任务持久化记账失败：${error instanceof Error ? error.message : String(error)}`);
             });
@@ -146,8 +146,9 @@ export class WorldRuntimeCraftMutationService {
         }
         this.grantCraftRealmExp(playerId, result.craftRealmExpGain);
         for (const message of result.messages ?? []) {
-            if (message?.text) {
-                deps.queuePlayerNotice(playerId, message.text, message.kind ?? 'info');
+            const notice = normalizeTechniqueActivityNotice(message);
+            if (notice) {
+                deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             }
         }
         if (result.panelChanged || this.hasActiveCraftPanelJob(playerId, panel)) {
@@ -248,4 +249,43 @@ export class WorldRuntimeCraftMutationService {
 
 function formatItemStackLabel(item) {
     return getItemStackDisplayLabel(item);
+}
+
+function normalizeTechniqueActivityNotice(message) {
+    if (!message || typeof message !== 'object') {
+        return null;
+    }
+    const structured = message.structured
+        ?? (typeof message.key === 'string' && message.key.trim()
+            ? {
+                key: message.key.trim(),
+                ...(message.vars && typeof message.vars === 'object' ? { vars: message.vars } : {}),
+                ...(Array.isArray(message.pills) ? { pills: message.pills } : {}),
+                ...(Array.isArray(message.badges) ? { badges: message.badges } : {}),
+            }
+            : undefined);
+    const text = typeof message.text === 'string' && message.text.trim()
+        ? message.text
+        : structured?.key;
+    if (!text) {
+        return null;
+    }
+    return {
+        text,
+        kind: message.kind ?? 'info',
+        structured,
+    };
+}
+
+function isDurableActiveJobPersistenceEnabled(deps) {
+    const service = deps?.durableOperationService;
+    if (!service || typeof service.isEnabled !== 'function') {
+        return false;
+    }
+    try {
+        return service.isEnabled() === true;
+    }
+    catch {
+        return false;
+    }
 }

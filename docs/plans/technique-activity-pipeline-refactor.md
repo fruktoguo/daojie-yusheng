@@ -293,7 +293,7 @@ strategy 只负责领域差异：
 - [x] 明确兼容期从旧 `totalTicks` / `remainingTicks` / `pausedTicks` 到新字段的水合规则。
 - [x] 定义 `TechniqueActivityTaskView` 和 `TechniqueActivityTaskPatch`，用于统一技艺面板当前 job / 队列 / 等待条展示。
 - [x] 定义统一取消 payload：`{ kind, jobRunId? , queueId? }`。
-- [ ] 扩展 `TechniqueActivityResolveResult`，支持 inventory output、wallet delta、equipment delta、record delta、panel dirty、structured notice。
+- [x] 扩展 `TechniqueActivityResolveResult`，支持 inventory output、wallet delta、equipment delta、record delta、panel dirty、structured notice。
 - [ ] 区分 `start` 结果、`tick` 结果、`cancel` 结果，避免用 `CraftMutationResult` 承载所有情况。
 - [ ] 把 `TechniqueActivityNoticeMessage.text` 改为结构化 payload 的计划项，不在新链路继续扩散文本拼接。
 - [x] 给 strategy 增加明确的 `getActiveJob` / `setActiveJob` 或 job accessor，减少字符串 slot。
@@ -303,7 +303,7 @@ strategy 只负责领域差异：
 
 - [x] shared build 通过。
 - [x] 旧策略委托模式仍可编译运行。
-- [ ] 新 result 类型能覆盖强化锁定物、保护物、强化记录。
+- [x] 新 result 类型能覆盖强化锁定物、保护物、强化记录。
 - [x] 打断等待字段不会参与实际 job 进度百分比计算。
 
 ### Phase 2：统一活动互斥和队列
@@ -516,6 +516,7 @@ strategy 只负责领域差异：
 - 2026-05-27：建造 `activeBuilderPlayerId` 在 `MapInstanceRuntime.startBuildingConstruction` 权威层增加竞争拒绝；其他玩家重入返回 `building_active_builder_mismatch`，不会覆盖原 activeBuilder、不会写 buildCompleteTick、不会推进 world revision 或 building dirty domain。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。
 - 2026-05-27：采集目标永久消失时，`tickGather` 先调用 `releaseGatherActiveSearch`，即使容器模板已不存在也会按 sourceId 清理旧 `container_state.activeSearch` 并标记容器持久化脏。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-loot-container-smoke.js` 通过。该 proof 覆盖采集外部占用永久失效释放，不等同于所有条件型外部占用的完整验收。
 - 2026-05-27：新增 `S2C.TechniqueActivityTasks` 统一任务列表同步事件；打开炼丹/炼器/强化面板时服务端随专用面板 payload 下发完整任务视图，技艺 mutation/tick 后也推送完整任务视图。客户端工坊顶部任务列表优先消费统一 task view，覆盖炼丹、炼器、强化、采集、建造、挖矿、阵法维护，保留每项 `cancelRef` 直接发 `C2S.CancelTechniqueActivity`，并继续把实际工作进度和打断等待显示为两条。`pnpm build:shared`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm audit:protocol`、`pnpm verify:client`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 不等同于 Playwright 视觉检查或手机/浅色/深色截图验收。
+- 2026-05-27：`TechniqueActivityResolveResult` / `TechniqueActivityRefundResult` 扩展出 `inventoryDelta`、`walletDelta`、`equipmentDelta`、`recordDelta`、`panelDirty` 和结构化 notice 字段；新增 `TechniqueActivityStartResult`、`TechniqueActivityTickResult`、`TechniqueActivityCancelResult` 作为后续拆旧 service 的目标契约。`WorldRuntimeCraftMutationService.flushCraftMutation` 会把技艺 result 中的结构化 notice 透传给 `queuePlayerNotice`，且 durable active_job 路径启用时不再触发非 CAS 后备快照写入，避免 active job 版本双写。`pnpm build:shared`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-mutation-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 证明 result 契约和 flush 边界已具备，但不等同于炼丹/强化真实规则已经迁出旧 service。
 
 ## 验证矩阵
 
