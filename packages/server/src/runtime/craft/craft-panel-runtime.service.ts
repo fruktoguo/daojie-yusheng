@@ -1044,102 +1044,11 @@ export class CraftPanelRuntimeService {
     tickEnhancement(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        this.ensureCraftSkills(player);
-        const job = player.enhancementJob;
-        if (!job || job.remainingTicks <= 0) {
-            return buildCraftTickResult();
-        }
-        if (job.phase === 'paused') {
-            const resumed = advanceTechniqueActivityPause(job, 'enhancing');
-            if (!resumed.resumed) {
-                this.finalizeMutation(player, {
-                    persistentOnly: true,
-                    dirtyDomains: ['active_job'],
-                });
-                return buildCraftTickResult();
-            }
-            this.finalizeMutation(player, {
-                persistentOnly: true,
-                dirtyDomains: ['active_job'],
-            });
-            return buildCraftTickResult(true);
-        }
-        job.remainingTicks = Math.max(0, job.remainingTicks - 1);
-        job.workRemainingTicks = Math.max(0, Math.floor(Number(job.workRemainingTicks ?? job.remainingTicks + 1) || 0) - 1);
-        if (job.remainingTicks > 0) {
-            this.finalizeMutation(player, {
-                persistentOnly: true,
-                dirtyDomains: ['active_job'],
-            });
-            return buildCraftTickResult();
-        }
-        if (!getLockedItem(player.inventory.lockedItems ?? [], job.itemInstanceId)) {
-            const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'stopped');
-            return buildCraftTickResult(true, [{
-                    kind: 'system',
-                    text: `${job.targetItemName} 当前强化目标数据缺失，本阶已终止。`,
-                }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged, finishResult.groundDrops);
-        }
-        const success = Math.random() < job.successRate;
-        if (success) {
-            try {
-                this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, job.spiritStoneCost);
-            }
-            catch (error) {
-                if (error instanceof TypeError || error instanceof ReferenceError) {
-                    console.error(`[制作] 扣费异常 player=${player.playerId}：`, error);
-                }
-                const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'stopped');
-                return buildCraftTickResult(true, [{
-                        kind: 'system',
-                        text: `${job.targetItemName} 强化中断，结算时灵石不足，本阶未能继续。`,
-                    }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged, finishResult.groundDrops);
-            }
-        }
-        const protectionActiveForStep = this.shouldUseProtectionForStep(job.targetLevel, job.protectionStartLevel);
-        if (!success && protectionActiveForStep && !this.consumeProtectionItemForFailure(player, job)) {
-            const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'stopped');
-            return buildCraftTickResult(true, [{
-                    kind: 'system',
-                    text: `${job.targetItemName} 强化失败，保护物不足，本阶已终止。`,
-                }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged, finishResult.groundDrops);
-        }
-        const resultingLevel = success
-            ? job.targetLevel
-            : protectionActiveForStep
-                ? Math.max(0, job.currentLevel - 1)
-                : 0;
-        this.touchEnhancementLevelRecord(player, job.targetItemId, job.targetLevel, success, resultingLevel);
-        const skillGain = resolveEnhancementSkillExpGain(this.playerRuntimeService, player.enhancementSkill, job.targetItemLevel, success);
-        const skillChanged = applyCraftSkillExp(player.enhancementSkill, skillGain, (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level));
-        player.enhancementSkillLevel = player.enhancementSkill.level;
-        if (skillChanged) {
-            this.finalizeMutation(player, {
-                attrChanged: true,
-                persistentOnly: true,
-                dirtyDomains: ['profession'],
-            });
-        }
-        if (resultingLevel < job.desiredTargetLevel) {
-            const continueResult = this.advanceEnhancementJob(player, resultingLevel);
-            if (continueResult) {
-                if (continueResult.continued) {
-                    return buildCraftTickResult(true, continueResult.messages, continueResult.inventoryChanged, continueResult.equipmentChanged, skillChanged || continueResult.attrChanged, continueResult.groundDrops, skillGain / 2);
-                }
-                return buildCraftTickResult(true, continueResult.messages, continueResult.inventoryChanged, continueResult.equipmentChanged, skillChanged || continueResult.attrChanged, continueResult.groundDrops, skillGain / 2);
-            }
-        }
-        migrateLegacyCraftQueueToUnifiedQueue(player, job.queuedJobs);
-        const finishResult = this.finishEnhancementJob(player, resultingLevel, 'completed');
-        const nextStartResult: any = this.startNextQueuedCraftJob(player);
-        return buildCraftTickResult(true, [{
-                kind: success ? 'quest' : 'system',
-                text: success
-                    ? `${job.targetItemName} 强化成功，已提升至 +${resultingLevel}。`
-                    : protectionActiveForStep
-                        ? `${job.targetItemName} 强化失败，保护生效，降为 +${resultingLevel}。`
-                        : `${job.targetItemName} 强化失败，已归零为 +0。`,
-            }, ...(nextStartResult.messages ?? [])], finishResult.inventoryChanged || Boolean(nextStartResult.inventoryChanged), finishResult.equipmentChanged || Boolean(nextStartResult.equipmentChanged), finishResult.attrChanged || skillChanged || Boolean(nextStartResult.attrChanged), [...(finishResult.groundDrops ?? []), ...(nextStartResult.groundDrops ?? [])], skillGain / 2);
+        return this.tickTechniqueActivity(player, 'enhancement');
+    }
+    /** 兼容旧 active job 内 queuedJobs，迁移到统一技艺队列。 */
+    migrateLegacyCraftQueueToUnifiedQueue(player, queuedJobs) {
+        migrateLegacyCraftQueueToUnifiedQueue(player, queuedJobs);
     }
     /** 从等待队列取下一项制造任务并启动。 */
     startNextQueuedCraftJob(player) {

@@ -14,6 +14,7 @@ import type {
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { executeEnhancementCancel } from './enhancement-cancel.helpers';
+import { executeEnhancementTick } from './enhancement-tick.helpers';
 
 export class EnhancementStrategy implements TechniqueActivityStrategy {
   readonly kind = 'enhancement' as const;
@@ -33,8 +34,8 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
     (player as any).enhancementJob = job;
   }
 
-  executeTick(player: unknown, _ctx: PipelineContext): unknown {
-    return this.craftService.tickEnhancement(player);
+  executeTick(player: unknown, ctx: PipelineContext): unknown {
+    return executeEnhancementTick(this.craftService, player, ctx);
   }
 
   executeCancel(player: unknown, ctx: PipelineContext): unknown {
