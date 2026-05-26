@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
+import { MapInstanceRuntime } from '../runtime/instance/map-instance.runtime';
 import { BuildingStrategy } from '../runtime/craft/pipeline/strategies/building.strategy';
 import { FormationStrategy } from '../runtime/craft/pipeline/strategies/formation.strategy';
 import { GatherStrategy } from '../runtime/craft/pipeline/strategies/gather.strategy';
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
   testSleepingFormationQueueRestartsThroughPipeline();
   testSleepingMiningQueueRestartsThroughPipeline();
   await testGatherActiveSearchRejectsCompetingPlayers();
+  testBuildingActiveBuilderRejectsCompetingPlayers();
   await testGatherStrategyTickDelegatesRuntimeService();
   testBuildingStrategyTickDelegatesRuntimeService();
   await testCraftTickUsesUnifiedPipelineForCraftingKinds();
@@ -44,6 +46,7 @@ async function main(): Promise<void> {
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
+      '建造 activeBuilder 不会被其他玩家重入覆盖。',
       '采集/建造 strategy tick 会委托真实 runtime service。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
@@ -543,6 +546,46 @@ async function testGatherActiveSearchRejectsCompetingPlayers(): Promise<void> {
   const cancelA = service.dispatchCancelGather(playerA.playerId, deps);
   assert.equal(cancelA.ok, true);
   assert.equal(state.activeSearch, undefined);
+}
+
+function testBuildingActiveBuilderRejectsCompetingPlayers(): void {
+  const instance = Object.create(MapInstanceRuntime.prototype) as any;
+  instance.tick = 10;
+  instance.worldRevision = 1;
+  instance.persistentRevision = 1;
+  instance.playersById = new Map<string, any>([
+    ['player:builder-a', { playerId: 'player:builder-a', x: 1, y: 1 }],
+    ['player:builder-b', { playerId: 'player:builder-b', x: 1, y: 1 }],
+  ]);
+  instance.buildingById = new Map<string, any>([
+    ['building-1', {
+      id: 'building-1',
+      state: 'building',
+      x: 1,
+      y: 1,
+      buildStrength: 5,
+      buildRemainingTicks: 5,
+      activeBuilderPlayerId: 'player:builder-a',
+      revision: 1,
+    }],
+  ]);
+  const dirtyDomains: string[][] = [];
+  instance.markPersistenceDirtyDomainsHighPriority = (domains: string[]): void => {
+    dirtyDomains.push(domains);
+  };
+
+  const rejected = instance.startBuildingConstruction('building-1', 'player:builder-b');
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.reason, 'building_active_builder_mismatch');
+  const building = instance.buildingById.get('building-1');
+  assert.equal(building.activeBuilderPlayerId, 'player:builder-a');
+  assert.equal(building.buildCompleteTick, undefined);
+  assert.equal(instance.worldRevision, 1);
+  assert.deepEqual(dirtyDomains, []);
+
+  const resumedByOwner = instance.startBuildingConstruction('building-1', 'player:builder-a');
+  assert.equal(resumedByOwner.ok, true);
+  assert.equal(building.activeBuilderPlayerId, 'player:builder-a');
 }
 
 function createGatherCompetitionPlayer(playerId: string, instanceId: string): any {

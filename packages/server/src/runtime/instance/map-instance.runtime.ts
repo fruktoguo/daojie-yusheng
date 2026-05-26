@@ -1180,6 +1180,9 @@ class MapInstanceRuntime {
         if (chebyshevDistance(player.x, player.y, building.x, building.y) > 1) {
             return { ok: false, reason: 'building_too_far' };
         }
+        if (building.activeBuilderPlayerId && building.activeBuilderPlayerId !== playerId) {
+            return { ok: false, reason: 'building_active_builder_mismatch' };
+        }
         let changed = false;
         for (const entry of this.buildingById.values()) {
             if (entry?.state !== 'building' || entry.id === building.id) {

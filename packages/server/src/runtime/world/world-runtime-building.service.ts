@@ -540,6 +540,8 @@ function localizeStartBuildingFailure(reason) {
             return '当前角色不存在';
         case 'building_too_far':
             return '需要靠近半成品后才能开始建造';
+        case 'building_active_builder_mismatch':
+            return '建筑正在由其他玩家施工';
         default:
             return '开始建造失败';
     }

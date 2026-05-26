@@ -379,13 +379,14 @@ strategy 只负责领域差异：
 - [x] 条件失败统一进入 sleeping 队列或明确取消，不能静默清 job。（采集/建造/阵法维护/挖矿已覆盖；挖矿目标永久失效时取消，离开矿脉范围时进入 sleeping payload。）
 - [x] 中断、移动、战斗、打坐触发统一 `interruptTechniqueActivity`。（采集/建造会先写 sleeping 队列，再通过 strategy 委托真实释放路径；阵法移动仍由控制点条件失败进入 sleeping，避免把离开范围误表现为 10 息暂停。）
 - [x] 采集 `activeSearch` 增加运行时 owner，第二个玩家不能覆盖同一草药采集目标的 active job 进度；竞争玩家会被拒绝或转入 sleeping，而原 owner 的 activeSearch 保持不变。
+- [x] 建造 `activeBuilderPlayerId` 在实例权威层拒绝其他玩家重入，竞争启动不会覆盖原 activeBuilder，也不会推进建筑 revision / dirty domain。
 - [ ] 这些 job 的当前进度、打断等待和条件睡眠状态都要进入统一技艺面板。
 
 验收：
 
 - [x] 条件暂时不满足时休眠，恢复后能继续。
 - [ ] 条件永久失效时取消并释放外部占用。
-- [ ] 多玩家竞争 activeBuilder / activeSearch 不会重入。
+- [x] 多玩家竞争 activeBuilder / activeSearch 不会重入。
 - [x] 挖矿、采集、建造、阵法持续补充灵力都能在技艺面板看到当前 job。
 - [x] 打断等待不会污染这些 job 的实际进度条。
 
@@ -511,6 +512,7 @@ strategy 只负责领域差异：
 - 2026-05-27：旧制造 job 内 `queuedJobs` 的水合迁移补齐：`PlayerRuntimeService.hydrateFromSnapshot` 会把 `alchemyJob` / `forgingJob` / `enhancementJob.queuedJobs` 合并进 `techniqueActivityQueue`，清除旧字段，标记 `active_job` 脏域并 bump `persistentRevision`，保证下一次快照只保存统一队列。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-runtime-persistence-roundtrip-smoke.js` 通过。查询侧仍保留旧字段只读 fallback，供尚未水合的旧形态兼容。
 - 2026-05-27：队列资源扣除时机 proof 补齐：炼丹/炼器已有 running job 时追加 `queueMode=append` 只写 `techniqueActivityQueue`，不消耗材料或灵石；强化已有其他技艺活动时入队不锁定装备、不扣灵石，目标装备仍留在背包。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js` 通过。
 - 2026-05-27：采集 `activeSearch` 增加运行时 owner 防重入；同一草药目标已有玩家采集时，其他玩家 start 会拒绝，已有错误 job tick 会进入 sleeping 且不覆盖原 owner。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-loot-container-smoke.js` 通过。该 proof 覆盖 activeSearch 竞争，不覆盖 activeBuilder 多玩家竞争。
+- 2026-05-27：建造 `activeBuilderPlayerId` 在 `MapInstanceRuntime.startBuildingConstruction` 权威层增加竞争拒绝；其他玩家重入返回 `building_active_builder_mismatch`，不会覆盖原 activeBuilder、不会写 buildCompleteTick、不会推进 world revision 或 building dirty domain。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。
 
 ## 验证矩阵
 
