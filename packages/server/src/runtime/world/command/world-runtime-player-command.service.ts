@@ -59,6 +59,74 @@ function recordCombatAction(player, currentTick) {
     player.combat.combatActionsUsedThisTick = used + 1;
 }
 
+function normalizeTechniqueActivityKind(kind) {
+    return kind === 'forging'
+        || kind === 'enhancement'
+        || kind === 'gather'
+        || kind === 'building'
+        || kind === 'mining'
+        || kind === 'formation'
+        ? kind
+        : 'alchemy';
+}
+
+function removeTechniqueActivityQueueItem(player, queueId) {
+    const normalizedQueueId = typeof queueId === 'string' ? queueId.trim() : '';
+    if (!normalizedQueueId || !player || typeof player !== 'object') {
+        return false;
+    }
+    let removed = false;
+    if (Array.isArray(player.techniqueActivityQueue)) {
+        const nextQueue = player.techniqueActivityQueue.filter((item) => item?.queueId !== normalizedQueueId);
+        removed = nextQueue.length !== player.techniqueActivityQueue.length;
+        player.techniqueActivityQueue = nextQueue;
+    }
+    for (const holder of [player.alchemyJob, player.forgingJob, player.enhancementJob]) {
+        if (!Array.isArray(holder?.queuedJobs)) {
+            continue;
+        }
+        const nextQueue = holder.queuedJobs.filter((item) => item?.queueId !== normalizedQueueId);
+        if (nextQueue.length !== holder.queuedJobs.length) {
+            holder.queuedJobs = nextQueue;
+            removed = true;
+        }
+    }
+    return removed;
+}
+
+function resolveTechniqueActivityJob(player, kind) {
+    if (!player || typeof player !== 'object') {
+        return null;
+    }
+    if (kind === 'forging') {
+        return player.forgingJob ?? (player.alchemyJob?.jobType === 'forging' ? player.alchemyJob : null);
+    }
+    if (kind === 'enhancement') {
+        return player.enhancementJob ?? null;
+    }
+    if (kind === 'gather') {
+        return player.gatherJob ?? null;
+    }
+    if (kind === 'building') {
+        return player.buildingJob ?? null;
+    }
+    if (kind === 'formation') {
+        return player.formationJob ?? null;
+    }
+    if (kind === 'mining') {
+        return player.miningJob ?? null;
+    }
+    return player.alchemyJob?.jobType === 'forging' ? null : player.alchemyJob ?? null;
+}
+
+function doesCancelRefMatchActiveJob(player, kind, cancelRef) {
+    const expectedJobRunId = typeof cancelRef?.jobRunId === 'string' ? cancelRef.jobRunId.trim() : '';
+    if (!expectedJobRunId) {
+        return true;
+    }
+    return resolveTechniqueActivityJob(player, kind)?.jobRunId === expectedJobRunId;
+}
+
 /** world-runtime player-command orchestration：承接玩家命令路由与门禁。 */
 @Injectable()
 export class WorldRuntimePlayerCommandService {
@@ -194,18 +262,50 @@ export class WorldRuntimePlayerCommandService {
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeLootContainerService.dispatchStartGather(playerId, payload, deps),
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'gather',
+                        payload,
+                        deps,
+                    ),
                     'gather',
+                    deps,
+                );
+                return;
+            case 'mining':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'mining',
+                        payload,
+                        deps,
+                    ),
+                    'mining',
+                    deps,
+                );
+                return;
+            case 'building':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'building',
+                        payload,
+                        deps,
+                    ),
+                    'building',
                     deps,
                 );
                 return;
             case 'formation':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeFormationService.startFormationMaintenance(
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
                         this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'formation',
                         payload,
-                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                        deps,
                     ),
                     'formation',
                     deps,
@@ -232,23 +332,76 @@ export class WorldRuntimePlayerCommandService {
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeLootContainerService.dispatchCancelGather(playerId, deps),
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'gather',
+                        deps,
+                    ),
                     'gather',
+                    deps,
+                );
+                return;
+            case 'mining':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'mining',
+                        deps,
+                    ),
+                    'mining',
+                    deps,
+                );
+                return;
+            case 'building':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'building',
+                        deps,
+                    ),
+                    'building',
                     deps,
                 );
                 return;
             case 'formation':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeFormationService.cancelFormationMaintenance(
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
                         this.playerRuntimeService.getPlayerOrThrow(playerId),
-                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                        'formation',
+                        deps,
                     ),
                     'formation',
                     deps,
                 );
                 return;
         }
+    }
+    /** 统一任务列表取消入口：可取消队列项，也可按 jobRunId 保护性取消当前 job。 */
+    async dispatchCancelTechniqueActivityByRef(playerId, cancelRef, deps) {
+        const kind = normalizeTechniqueActivityKind(cancelRef?.kind);
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
+        const queueId = typeof cancelRef?.queueId === 'string' ? cancelRef.queueId.trim() : '';
+        if (queueId) {
+            if (removeTechniqueActivityQueueItem(player, queueId)) {
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    { ok: true, panelChanged: true, groundDrops: [], messages: [] },
+                    kind,
+                    deps,
+                );
+            }
+            return;
+        }
+        if (!doesCancelRefMatchActiveJob(player, kind, cancelRef)) {
+            return;
+        }
+        return this.dispatchCancelTechniqueActivity(playerId, kind, deps);
     }
     /**
  * dispatchPlayerCommand：判断玩家Command是否满足条件。
@@ -268,16 +421,18 @@ export class WorldRuntimePlayerCommandService {
         if (player.hp <= 0 && command.kind !== 'redeemCodes') {
             return;
         }
-        if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather' || command.kind === 'startBuilding' || command.kind === 'startFormationMaintenance')) {
+        if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather' || command.kind === 'startMining' || command.kind === 'startBuilding' || command.kind === 'startFormationMaintenance')) {
             const pendingActivityText = command.kind === 'startEnhancement'
                 ? '吟唱中无法分心强化。'
                 : command.kind === 'startGather'
                     ? '吟唱中无法分心采集。'
-                    : command.kind === 'startBuilding'
-                        ? '吟唱中无法分心营造。'
-                        : command.kind === 'startFormationMaintenance'
-                            ? '吟唱中无法分心维护阵法。'
-                            : '吟唱中无法分心炼丹。';
+                    : command.kind === 'startMining'
+                        ? '吟唱中无法分心挖矿。'
+                        : command.kind === 'startBuilding'
+                            ? '吟唱中无法分心营造。'
+                            : command.kind === 'startFormationMaintenance'
+                                ? '吟唱中无法分心维护阵法。'
+                                : '吟唱中无法分心炼丹。';
             deps.queuePlayerNotice?.(playerId, pendingActivityText, 'system');
             return;
         }
@@ -341,13 +496,24 @@ export class WorldRuntimePlayerCommandService {
             case 'cancelGather':
                 this.dispatchCancelTechniqueActivity(playerId, 'gather', deps);
                 return;
+            case 'startMining':
+                this.dispatchStartTechniqueActivity(playerId, 'mining', command.payload, deps);
+                return;
+            case 'cancelMining':
+                this.dispatchCancelTechniqueActivity(playerId, 'mining', deps);
+                return;
             case 'startBuilding':
-                deps.dispatchStartBuildingConstruction(playerId, command.buildingId);
+                this.dispatchStartTechniqueActivity(playerId, 'building', { buildingId: command.buildingId }, deps);
+                return;
+            case 'cancelBuilding':
+                this.dispatchCancelTechniqueActivity(playerId, 'building', deps);
                 return;
             case 'startFormationMaintenance':
                 return this.dispatchStartTechniqueActivity(playerId, 'formation', command.payload, deps);
             case 'cancelFormationMaintenance':
                 return this.dispatchCancelTechniqueActivity(playerId, 'formation', deps);
+            case 'cancelTechniqueActivity':
+                return this.dispatchCancelTechniqueActivityByRef(playerId, command.cancelRef, deps);
             case 'redeemCodes':
                 return this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);
             case 'breakthrough':

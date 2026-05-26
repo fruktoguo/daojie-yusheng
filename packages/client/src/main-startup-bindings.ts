@@ -194,6 +194,7 @@ type MainStartupBindingsOptions = {
 
       onCancelAlchemy: () => void;
       onCancelForging: () => void;
+      onCancelTechniqueActivity: (cancelRef: Parameters<SocketPanelSender['sendCancelTechniqueActivity']>[0]) => void;
       /**
  * onStartEnhancement：onStart强化相关字段。
  */
@@ -318,6 +319,7 @@ type MainStartupBindingsOptions = {
     | 'sendCancelForging'
     | 'sendStartEnhancement'
     | 'sendCancelEnhancement'
+    | 'sendCancelTechniqueActivity'
   >;
   /**
  * socialEconomySender：socialEconomySender相关字段。
@@ -455,6 +457,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     onStartForging: (recipeId, ingredients, quantity, queueMode) => options.panelSender.sendStartForging({ recipeId, ingredients, quantity, queueMode }),
     onCancelAlchemy: () => options.panelSender.sendCancelAlchemy(),
     onCancelForging: () => options.panelSender.sendCancelForging(),
+    onCancelTechniqueActivity: (cancelRef) => options.panelSender.sendCancelTechniqueActivity(cancelRef),
     onStartEnhancement: (payload) => options.panelSender.sendStartEnhancement(payload),
     onCancelEnhancement: () => options.panelSender.sendCancelEnhancement(),
   });

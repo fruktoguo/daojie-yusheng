@@ -122,4 +122,36 @@ export interface TechniqueActivityStrategy<
 
   /** 条件恢复时重新获取外部资源。 */
   onConditionRestored?(player: unknown, job: TJob, ctx: PipelineContext): void;
+
+  /** 读取当前 active job；实现后 pipeline 不再直接依赖字符串槽位。 */
+  getActiveJob?(player: unknown): TJob | null;
+
+  /** 写入或清空当前 active job；实现后 pipeline 不再直接依赖字符串槽位。 */
+  setActiveJob?(player: unknown, job: TJob | null): void;
+}
+
+/** 读取策略的 active job；优先使用策略 accessor，兼容期回退到 jobSlot。 */
+export function getStrategyActiveJob<TJob extends TechniqueActivityJobBase>(
+  strategy: TechniqueActivityStrategy<TJob>,
+  player: unknown,
+): TJob | null {
+  if (typeof strategy.getActiveJob === 'function') {
+    return strategy.getActiveJob(player);
+  }
+  const slot = strategy.jobSlot;
+  const job = (player as Record<string, unknown> | null | undefined)?.[slot];
+  return job && typeof job === 'object' ? job as TJob : null;
+}
+
+/** 写入策略的 active job；优先使用策略 accessor，兼容期回退到 jobSlot。 */
+export function setStrategyActiveJob<TJob extends TechniqueActivityJobBase>(
+  strategy: TechniqueActivityStrategy<TJob>,
+  player: unknown,
+  job: TJob | null,
+): void {
+  if (typeof strategy.setActiveJob === 'function') {
+    strategy.setActiveJob(player, job);
+    return;
+  }
+  (player as Record<string, unknown>)[strategy.jobSlot] = job;
 }

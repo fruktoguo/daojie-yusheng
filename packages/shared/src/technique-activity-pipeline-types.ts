@@ -4,7 +4,11 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { CraftSkillExpComputationParams } from './craft-skill';
-import type { RuntimeTechniqueActivityKind } from './technique-activity-types';
+import type {
+  RuntimeTechniqueActivityKind,
+  TechniqueActivityCancelRef,
+  TechniqueActivityInterruptState,
+} from './technique-activity-types';
 
 // ─── 管线启动结果 ───
 
@@ -36,7 +40,12 @@ export interface TechniqueActivityOutputItem {
 /** 通知消息。 */
 export interface TechniqueActivityNoticeMessage {
   kind: 'quest' | 'system' | 'loot' | 'warn' | 'info';
+  /** 旧字段：兼容现有服务端文本通知。新链路应优先使用 key/vars。 */
   text: string;
+  /** 结构化消息 key。 */
+  key?: string;
+  /** 结构化消息变量。 */
+  vars?: Record<string, string | number | boolean | null>;
 }
 
 /** 策略 resolve 返回的结算结果。 */
@@ -57,6 +66,10 @@ export interface TechniqueActivityResolveResult {
   messages?: TechniqueActivityNoticeMessage[];
   /** 附带的境界修为。 */
   craftRealmExpGain?: number;
+  /** 可选的新工作进度剩余值；不包含打断等待。 */
+  workRemainingTicks?: number;
+  /** 可选的结构化打断等待状态。 */
+  interruptState?: TechniqueActivityInterruptState | null;
 }
 
 // ─── 管线取消/退还结果 ───
@@ -91,10 +104,13 @@ export interface TechniqueActivityQueueItem {
   payload: unknown;
   label: string;
   state: TechniqueActivityQueueItemState;
+  targetLabel?: string;
   sleepReason?: string;
   sleepingSince?: number;
   /** 休眠后多少 tick 重试条件检查（避免每 tick 检查）。 */
   retryAfterTicks?: number;
+  /** 取消引用，供统一任务列表直接取消队列项。 */
+  cancelRef?: TechniqueActivityCancelRef;
   createdAt: number;
 }
 

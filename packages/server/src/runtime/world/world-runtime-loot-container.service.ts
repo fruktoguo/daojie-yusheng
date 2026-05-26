@@ -600,12 +600,19 @@ export class WorldRuntimeLootContainerService {
             totalTicks,
             remainingTicks: totalTicks,
         };
+        const normalizedSourceId = buildContainerSourceId(location.instanceId, resolved.container.id);
         player.gatherJob = {
             resourceNodeId: resolved.container.id,
+            sourceId: normalizedSourceId,
+            instanceId: location.instanceId,
             resourceNodeName: resolved.container.name,
             startedAt: Date.now(),
             totalTicks,
             remainingTicks: totalTicks,
+            workTotalTicks: totalTicks,
+            workRemainingTicks: totalTicks,
+            interruptWaitRemainingTicks: 0,
+            interruptState: null,
             pausedTicks: 0,
             successRate: 1,
             spiritStoneCost: 0,
@@ -649,6 +656,88 @@ export class WorldRuntimeLootContainerService {
                 kind: 'info',
                 text: `你停止了 ${job.resourceNodeName} 的采集。`,
             }]);
+    }
+
+    checkGatherContinueCondition(playerId, player, job, deps) {
+        const sourceId = this.resolveGatherJobSourceId(playerId, player, job, deps);
+        if (!sourceId) {
+            return { satisfied: false, reason: '采集目标无效。', shouldCancel: true };
+        }
+        let location = null;
+        try {
+            location = deps.getPlayerLocationOrThrow(playerId);
+        }
+        catch (_error) {
+            return { satisfied: false, reason: '当前位置不可用。' };
+        }
+        const parsedSource = parseContainerSourceId(sourceId);
+        if (!parsedSource || parsedSource.instanceId !== location.instanceId) {
+            return { satisfied: false, reason: '采集目标不在当前地图。' };
+        }
+        const instance = deps.getInstanceRuntime?.(location.instanceId) ?? deps.getInstanceRuntimeOrThrow?.(location.instanceId);
+        const container = instance?.getContainerById?.(parsedSource.containerId);
+        if (!container || container.variant !== 'herb') {
+            return { satisfied: false, reason: '采集目标已经不存在。', shouldCancel: true };
+        }
+        if (Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1) {
+            return { satisfied: false, reason: '你已离开草药采集范围。' };
+        }
+        const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
+        if (!lootWindowTarget || lootWindowTarget.tileX !== container.x || lootWindowTarget.tileY !== container.y) {
+            return { satisfied: false, reason: '请重新打开采集目标。' };
+        }
+        const state = this.ensureContainerState(location.instanceId, container, instance.tick);
+        const rows = groupContainerLootRows(state.entries);
+        if (rows.length <= 0) {
+            return { satisfied: false, reason: `${container.name} 已经采尽。`, shouldCancel: true };
+        }
+        return { satisfied: true };
+    }
+
+    releaseGatherActiveSearch(playerId, player, job, deps) {
+        const sourceId = this.resolveGatherJobSourceId(playerId, player, job, deps);
+        const parsedSource = sourceId ? parseContainerSourceId(sourceId) : null;
+        if (!parsedSource) {
+            return;
+        }
+        const instance = deps.getInstanceRuntime?.(parsedSource.instanceId) ?? deps.getInstanceRuntimeOrThrow?.(parsedSource.instanceId);
+        const container = instance?.getContainerById?.(parsedSource.containerId);
+        if (!container) {
+            return;
+        }
+        const state = this.ensureContainerState(parsedSource.instanceId, container, instance.tick);
+        if (state.activeSearch) {
+            state.activeSearch = undefined;
+            this.markContainerPersistenceDirty(parsedSource.instanceId);
+        }
+    }
+
+    resolveGatherJobSourceId(playerId, player, job, deps) {
+        const explicitSourceId = typeof job?.sourceId === 'string' && job.sourceId.trim() ? job.sourceId.trim() : '';
+        if (parseContainerSourceId(explicitSourceId)) {
+            return explicitSourceId;
+        }
+        const rawContainerId = typeof job?.resourceNodeId === 'string' && job.resourceNodeId.trim()
+            ? job.resourceNodeId.trim()
+            : typeof job?.sourceId === 'string' && job.sourceId.trim()
+                ? job.sourceId.trim()
+                : '';
+        if (!rawContainerId) {
+            return '';
+        }
+        const instanceId = typeof job?.instanceId === 'string' && job.instanceId.trim()
+            ? job.instanceId.trim()
+            : typeof player?.instanceId === 'string' && player.instanceId.trim()
+                ? player.instanceId.trim()
+                : (() => {
+                    try {
+                        return deps.getPlayerLocationOrThrow(playerId)?.instanceId ?? '';
+                    }
+                    catch (_error) {
+                        return '';
+                    }
+                })();
+        return instanceId ? buildContainerSourceId(instanceId, rawContainerId) : '';
     }    
     /**
  * damageHerbContainerAtTile：按地块攻击口径打落一朵草药。
@@ -824,10 +913,16 @@ export class WorldRuntimeLootContainerService {
             || lootWindowTarget.tileX !== container.x
             || lootWindowTarget.tileY !== container.y
             || Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1) {
+            const state = this.ensureContainerState(location.instanceId, container, instance.tick);
+            if (state.activeSearch) {
+                state.activeSearch = undefined;
+                this.markContainerPersistenceDirty(location.instanceId);
+            }
+            const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '你已离开草药采集范围。');
             player.gatherJob = null;
             this.playerRuntimeService.bumpPersistentRevision(player);
             this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            return buildContainerTickResult(false, [{
+            return buildContainerTickSleepResult(sleepPayload, [{
                     kind: 'warn',
                     text: '你已离开草药采集范围。',
                 }]);
@@ -852,9 +947,15 @@ export class WorldRuntimeLootContainerService {
             };
             job.totalTicks = totalTicks;
             job.remainingTicks = totalTicks;
+            job.workTotalTicks = totalTicks;
+            job.workRemainingTicks = totalTicks;
+            job.interruptWaitRemainingTicks = 0;
+            job.interruptState = null;
         }
         state.activeSearch.remainingTicks -= 1;
         job.remainingTicks = Math.max(0, state.activeSearch.remainingTicks);
+        job.workRemainingTicks = job.remainingTicks;
+        job.workTotalTicks = Math.max(1, Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 1));
         this.markContainerPersistenceDirty(location.instanceId);
         if (state.activeSearch.remainingTicks > 0) {
             this.playerRuntimeService.bumpPersistentRevision(player);
@@ -989,6 +1090,10 @@ export class WorldRuntimeLootContainerService {
                 startedAt: Date.now(),
                 totalTicks,
                 remainingTicks: totalTicks,
+                workTotalTicks: totalTicks,
+                workRemainingTicks: totalTicks,
+                interruptWaitRemainingTicks: 0,
+                interruptState: null,
                 pausedTicks: 0,
                 phase: 'gathering',
             };
@@ -1532,6 +1637,28 @@ function buildContainerTickResult(panelChanged = false, messages = [], inventory
         attrChanged,
         messages,
         groundDrops,
+    };
+}
+
+function buildContainerTickSleepResult(sleepPayload, messages = []) {
+    return {
+        ...buildContainerTickResult(true, messages),
+        sleepPayload,
+    };
+}
+
+function buildGatherSleepPayload(job, instanceId, container, reason) {
+    return {
+        kind: 'gather',
+        payload: {
+            sourceId: typeof job?.sourceId === 'string' && job.sourceId.trim()
+                ? job.sourceId.trim()
+                : buildContainerSourceId(instanceId, container.id),
+            resourceNodeId: container.id,
+            instanceId,
+        },
+        label: job?.resourceNodeName ?? container.name ?? '采集',
+        reason,
     };
 }
 

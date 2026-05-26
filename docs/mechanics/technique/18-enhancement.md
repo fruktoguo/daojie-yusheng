@@ -105,19 +105,29 @@ startEnhancement:
   4. 按 `itemInstanceId` 从背包提取装备 → 锁定到 lockedItems
   5. 扣除材料 → 计算 successRate/totalTicks
   6. 创建 job (phase='enhancing')
+     - `workTotalTicks/workRemainingTicks` 表示实际冲级工作量
+     - `interruptWaitRemainingTicks` 表示打断后的恢复等待，不计入实际工作量
 
 tickEnhancement:
-  1. remainingTicks -= 1
-  2. phase='paused' → 推进暂停
-  3. remainingTicks > 0 → 等待
-  4. remainingTicks = 0 → 判定成功(Math.random() < successRate)
-  5. 成功 → 扣灵石 → 提升等级
-  6. 失败+保护 → 扣保护物 → 降1级
-  7. 失败+无保护 → 归零
-  8. 计算技能经验
-  9. 未达目标 → advanceEnhancementJob(继续下一阶)
-  10. 达到目标 → finishEnhancementJob → 启动队列下一项
+  1. phase='paused' → 只推进 `interruptWaitRemainingTicks/pausedTicks`
+  2. 暂停未结束 → 不递减 `workRemainingTicks`
+  3. 暂停结束 → phase 恢复为 `enhancing`
+  4. 非暂停状态：`remainingTicks/workRemainingTicks -= 1`
+  5. `workRemainingTicks > 0` → 等待
+  6. `workRemainingTicks = 0` → 判定成功(Math.random() < successRate)
+  7. 成功 → 扣灵石 → 提升等级
+  8. 失败+保护 → 扣保护物 → 降1级
+  9. 失败+无保护 → 归零
+  10. 计算技能经验
+  11. 未达目标 → advanceEnhancementJob(继续下一阶)
+  12. 达到目标 → finishEnhancementJob → 启动队列下一项
 ```
+
+## 打断等待
+
+- 攻击、移动、手动开始修炼等触发打断时，强化 job 进入 `phase='paused'`。
+- 打断只刷新 `interruptWaitRemainingTicks` / `interruptState`，不增加 `workTotalTicks`，也不倒退 `workRemainingTicks`。
+- 前端应把“实际冲级进度”和“打断等待”显示为两个独立条。
 
 ## 相关源文件
 

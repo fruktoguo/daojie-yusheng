@@ -15,6 +15,10 @@ import type {
   PipelineContext,
   TechniqueActivityStrategy,
 } from './technique-activity-strategy';
+import {
+  getStrategyActiveJob,
+  setStrategyActiveJob,
+} from './technique-activity-strategy';
 
 export interface CraftTickResult {
   ok: boolean;
@@ -93,7 +97,7 @@ export class TechniqueActivityPipelineService {
 
     // 3. 创建 job
     const job = strategy.createJob(player, validation.validated, ctx);
-    (player as any)[strategy.jobSlot] = job;
+    setStrategyActiveJob(strategy, player, job);
 
     return {
       ok: true,
@@ -114,7 +118,7 @@ export class TechniqueActivityPipelineService {
       return strategy.executeTick(player, ctx) as CraftTickResult;
     }
 
-    const job = (player as any)[strategy.jobSlot];
+    const job = getStrategyActiveJob(strategy, player) as any;
 
     // Stage 1: Guard
     if (!job || Number(job.remainingTicks) <= 0) return emptyTickResult();
@@ -125,7 +129,7 @@ export class TechniqueActivityPipelineService {
       if (!condition.satisfied) {
         // 条件不满足 → 清理 job，返回休眠信号
         strategy.onConditionFailed?.(player, job, ctx);
-        (player as any)[strategy.jobSlot] = null;
+        setStrategyActiveJob(strategy, player, null);
         markPipelineDirty(player, ['active_job'], ctx);
         return {
           ok: true,
@@ -139,7 +143,7 @@ export class TechniqueActivityPipelineService {
           groundDrops: [],
           craftRealmExpGain: 0,
           // 管线调用方通过 condition 信息决定是否入队列休眠
-          ...(condition.shouldCancel ? {} : { sleepPayload: { kind, reason: condition.reason } }),
+          ...(condition.shouldCancel ? {} : { sleepPayload: buildSleepPayload(kind, strategy.activityLabel, job, condition.reason) }),
         } as any;
       }
     }
@@ -194,7 +198,7 @@ export class TechniqueActivityPipelineService {
 
     // Stage 9: Completion
     if (resolved.completed) {
-      (player as any)[strategy.jobSlot] = null;
+      setStrategyActiveJob(strategy, player, null);
     }
 
     // Stage 10: 返回结果
@@ -221,13 +225,13 @@ export class TechniqueActivityPipelineService {
       return strategy.executeInterrupt(player, reason, ctx) as CraftTickResult;
     }
 
-    const job = (player as any)[strategy.jobSlot];
+    const job = getStrategyActiveJob(strategy, player) as any;
     if (!job || Number(job.remainingTicks) <= 0) return emptyTickResult();
 
     // 条件型技艺：不暂停，直接清理（由队列服务决定是否休眠入队）
     if (strategy.conditional && strategy.pauseTicks === 0) {
       strategy.onConditionFailed?.(player, job, ctx);
-      (player as any)[strategy.jobSlot] = null;
+      setStrategyActiveJob(strategy, player, null);
       markPipelineDirty(player, ['active_job'], ctx);
       return {
         ok: true,
@@ -242,7 +246,7 @@ export class TechniqueActivityPipelineService {
     }
 
     // 非条件型：暂停
-    const added = applyTechniqueActivityInterrupt(job as any, strategy.pauseTicks);
+    const added = applyTechniqueActivityInterrupt(job as any, strategy.pauseTicks, reason);
     if (added <= 0) return emptyTickResult();
     markPipelineDirty(player, ['active_job'], ctx);
 
@@ -269,7 +273,7 @@ export class TechniqueActivityPipelineService {
       return strategy.executeCancel(player, ctx) as CraftMutationResult;
     }
 
-    const job = (player as any)[strategy.jobSlot];
+    const job = getStrategyActiveJob(strategy, player) as any;
     if (!job || Number(job.remainingTicks) <= 0) return errorMutationResult('当前没有进行中的任务。');
 
     // 计算退还
@@ -279,7 +283,7 @@ export class TechniqueActivityPipelineService {
     if (strategy.conditional) {
       strategy.onConditionFailed?.(player, job, ctx);
     }
-    (player as any)[strategy.jobSlot] = null;
+    setStrategyActiveJob(strategy, player, null);
     markPipelineDirty(player, ['active_job'], ctx);
 
     return {
@@ -312,6 +316,36 @@ function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext)
   if (runtimeService && typeof runtimeService.bumpPersistentRevision === 'function') {
     runtimeService.bumpPersistentRevision(player);
   }
+}
+
+function buildSleepPayload(kind: RuntimeTechniqueActivityKind, label: string, job: any, reason?: string): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  if (kind === 'formation' && typeof job?.formationInstanceId === 'string') {
+    payload.formationInstanceId = job.formationInstanceId;
+  } else if (kind === 'gather') {
+    if (typeof job?.sourceId === 'string') payload.sourceId = job.sourceId;
+    if (typeof job?.resourceNodeId === 'string') payload.resourceNodeId = job.resourceNodeId;
+    if (typeof job?.instanceId === 'string') payload.instanceId = job.instanceId;
+  } else if (kind === 'building') {
+    if (typeof job?.buildingId === 'string') payload.buildingId = job.buildingId;
+    if (typeof job?.instanceId === 'string') payload.instanceId = job.instanceId;
+  } else if (kind === 'mining') {
+    if (typeof job?.miningNodeId === 'string') payload.miningNodeId = job.miningNodeId;
+  }
+  return {
+    kind,
+    payload,
+    label: resolveSleepLabel(kind, label, job),
+    reason: reason ?? '条件暂时不满足',
+  };
+}
+
+function resolveSleepLabel(kind: RuntimeTechniqueActivityKind, fallback: string, job: any): string {
+  if (kind === 'formation' && typeof job?.formationName === 'string' && job.formationName.trim()) return `维护 ${job.formationName.trim()}`;
+  if (kind === 'gather' && typeof job?.resourceNodeName === 'string' && job.resourceNodeName.trim()) return job.resourceNodeName.trim();
+  if (kind === 'building' && typeof job?.buildingName === 'string' && job.buildingName.trim()) return job.buildingName.trim();
+  if (kind === 'mining' && typeof job?.miningNodeName === 'string' && job.miningNodeName.trim()) return job.miningNodeName.trim();
+  return fallback;
 }
 
 /** 内联计算经验（避免引入外部依赖循环）。 */

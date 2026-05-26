@@ -19,11 +19,14 @@ import { EnhancementStrategy } from '../craft/pipeline/strategies/enhancement.st
 import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
 import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
+import { MiningStrategy } from '../craft/pipeline/strategies/mining.strategy';
 
 interface CraftPlayerLike {
   gatherJob?: {
     remainingTicks?: number;
     resourceNodeId?: string;
+    sourceId?: string;
+    instanceId?: string;
     resourceNodeName?: string;
   } | null;
   buildingJob?: {
@@ -35,6 +38,14 @@ interface CraftPlayerLike {
     remainingTicks?: number;
     formationInstanceId?: string;
     formationName?: string;
+  } | null;
+  miningJob?: {
+    remainingTicks?: number;
+    miningNodeId?: string;
+    miningNodeName?: string;
+    instanceId?: string;
+    targetX?: number;
+    targetY?: number;
   } | null;
 }
 
@@ -71,6 +82,7 @@ export class WorldRuntimeCraftInterruptService {
     this.pipeline.register(new ForgingStrategy(craftPanelRuntimeService));
     this.pipeline.register(new EnhancementStrategy(craftPanelRuntimeService));
     this.pipeline.register(new GatherStrategy());
+    this.pipeline.register(new MiningStrategy());
     this.pipeline.register(new BuildingStrategy());
     this.pipeline.register(new FormationStrategy());
     this.queueService = new TechniqueActivityQueueService(this.pipeline);
@@ -86,6 +98,9 @@ export class WorldRuntimeCraftInterruptService {
       return;
     }
     for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
+      if (kind === 'gather' || kind === 'building') {
+        continue;
+      }
       if (kind === 'formation' && reason === 'move') {
         continue;
       }
@@ -101,7 +116,11 @@ export class WorldRuntimeCraftInterruptService {
       const gatherJob = player.gatherJob;
       this.queueService.sleepToQueue(
         player, 'gather',
-        { sourceId: gatherJob.resourceNodeId },
+        {
+          sourceId: gatherJob.sourceId ?? gatherJob.resourceNodeId,
+          resourceNodeId: gatherJob.resourceNodeId,
+          instanceId: gatherJob.instanceId,
+        },
         gatherJob.resourceNodeName ?? '采集',
         reason === 'move' ? '离开采集点' : '被打断',
       );

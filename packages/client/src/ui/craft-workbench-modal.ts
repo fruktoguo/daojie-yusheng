@@ -22,10 +22,11 @@ import type {
   S2C_EnhancementPanel,
   SyncedEnhancementPanelState,
   SyncedEnhancementCandidateView,
+  TechniqueActivityCancelRef,
+  RuntimeTechniqueActivityKind,
 } from '@mud/shared';
 import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
-  ALCHEMY_PREPARATION_TICKS,
   EQUIP_SLOTS,
   MAX_ENHANCE_LEVEL,
   applyEquipmentAttributeEffectivenessToItemStack,
@@ -78,6 +79,7 @@ type CraftWorkbenchCallbacks = {
   onStartForging: (recipeId: string, ingredients: Array<{ itemId: string; count: number }>, quantity: number, queueMode: CraftQueueStartMode) => void;
   onCancelAlchemy: () => void;
   onCancelForging: () => void;
+  onCancelTechniqueActivity: (cancelRef: TechniqueActivityCancelRef) => void;
   onStartEnhancement: (payload: C2S_StartEnhancement) => void;
   onCancelEnhancement: () => void;
 };
@@ -162,6 +164,26 @@ function formatRate(rate: number | undefined): string {
     maximumFractionDigits: 1,
     compactThreshold: Number.POSITIVE_INFINITY,
   });
+}
+
+function resolveEnhancementWorkRemainingTicks(job: EnhancementJobView): number {
+  return Math.max(0, Math.floor(Number(job.workRemainingTicks ?? job.remainingTicks) || 0));
+}
+
+function resolveEnhancementWorkTotalTicks(job: EnhancementJobView): number {
+  return Math.max(1, Math.floor(Number(job.workTotalTicks ?? job.totalTicks) || 1));
+}
+
+function resolveEnhancementInterruptRemainingTicks(job: EnhancementJobView): number {
+  return Math.max(0, Math.floor(Number(
+    job.interruptWaitRemainingTicks
+      ?? job.interruptState?.waitRemainingTicks
+      ?? job.pausedTicks,
+  ) || 0));
+}
+
+function resolveEnhancementInterruptTotalTicks(job: EnhancementJobView, remaining: number): number {
+  return Math.max(remaining, Math.floor(Number(job.interruptState?.waitTotalTicks ?? 10) || 10));
 }
 
 function formatEnhancementPercent(rate: number | undefined): string {
@@ -378,6 +400,20 @@ function normalizeAlchemyCategory(value: string | undefined): AlchemyRecipeCateg
     return value;
   }
   return 'recovery';
+}
+
+function normalizeTechniqueActivityKind(value: string | undefined): RuntimeTechniqueActivityKind {
+  if (
+    value === 'forging'
+    || value === 'enhancement'
+    || value === 'gather'
+    || value === 'building'
+    || value === 'mining'
+    || value === 'formation'
+  ) {
+    return value;
+  }
+  return 'alchemy';
 }
 
 export class CraftWorkbenchModal {
@@ -1264,6 +1300,13 @@ export class CraftWorkbenchModal {
                 <strong>${escapeHtml(entry.label)}</strong>
                 ${this.renderCraftQueueItemMeta(entry)}
                 ${this.renderCraftQueueItemProgress(entry)}
+                <button
+                  class="small-btn ghost craft-queue-cancel"
+                  type="button"
+                  data-craft-action="cancel-queue-entry"
+                  data-kind="${escapeHtmlAttr(entry.kind)}"
+                  ${entry.isActive ? `data-job-run-id="${escapeHtmlAttr(entry.queueId)}"` : `data-queue-id="${escapeHtmlAttr(entry.queueId)}"`}
+                >取消</button>
               </div>
             `).join('')
             : `<div class="craft-queue-empty">${escapeHtml(t('craft.workbench.queue.empty'))}</div>`}
@@ -1394,6 +1437,20 @@ export class CraftWorkbenchModal {
         } else if (mode === 'enhancement') {
           this.openEnhancement();
         }
+        return;
+      }
+      if (action === 'cancel-queue-entry') {
+        const kind = normalizeTechniqueActivityKind(target.dataset.kind);
+        const jobRunId = (target.dataset.jobRunId ?? '').trim();
+        const queueId = (target.dataset.queueId ?? '').trim();
+        if (!jobRunId && !queueId) {
+          return;
+        }
+        this.callbacks?.onCancelTechniqueActivity({
+          kind,
+          ...(jobRunId ? { jobRunId } : {}),
+          ...(queueId ? { queueId } : {}),
+        });
         return;
       }
       if (action === 'alchemy-switch-category') {
@@ -1975,8 +2032,9 @@ export class CraftWorkbenchModal {
 
   private getEnhancementToolbarNoteText(): string {
     const state = this.enhancementPanel?.state ?? null;
-    return state?.job
-      ? `强化队列进行中，剩余 ${formatTicks(state.job.remainingTicks)} / ${formatTicks(state.job.totalTicks)}`
+    const job = state?.job ?? null;
+    return job
+      ? `强化队列进行中，剩余 ${formatTicks(resolveEnhancementWorkRemainingTicks(job))} / ${formatTicks(resolveEnhancementWorkTotalTicks(job))}`
       : `角色强化等级 Lv.${formatDisplayInteger(state?.enhancementSkillLevel ?? this.enhancementSkillLevel)} · 当前可强化装备 ${formatDisplayInteger(state?.candidates.length ?? 0)} 件`;
   }
 
@@ -1985,6 +2043,16 @@ export class CraftWorkbenchModal {
     const subtitle = runningCard?.querySelector<HTMLElement>('.enhancement-summary-subtitle');
     const rate = runningCard?.querySelector<HTMLElement>('.enhancement-summary-rate');
     const metrics = runningCard?.querySelectorAll<HTMLElement>('.enhancement-summary-metric strong');
+    const workRemainingTicks = resolveEnhancementWorkRemainingTicks(job);
+    const workTotalTicks = resolveEnhancementWorkTotalTicks(job);
+    const workPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const interruptRemainingTicks = resolveEnhancementInterruptRemainingTicks(job);
+    const interruptTotalTicks = resolveEnhancementInterruptTotalTicks(job, interruptRemainingTicks);
+    const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
+    const workFill = runningCard?.querySelector<HTMLElement>('[data-enhancement-work-fill="true"]');
+    const interruptProgress = runningCard?.querySelector<HTMLElement>('[data-enhancement-interrupt-progress="true"]');
+    const interruptLabel = runningCard?.querySelector<HTMLElement>('[data-enhancement-interrupt-label="true"]');
+    const interruptFill = runningCard?.querySelector<HTMLElement>('[data-enhancement-interrupt-fill="true"]');
     const sideMetrics = workbench.querySelectorAll<HTMLElement>('.enhancement-workbench-side .enhancement-summary-metric strong');
     const materialOwned = workbench.querySelector<HTMLElement>('.enhancement-material-owned');
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
@@ -1995,9 +2063,21 @@ export class CraftWorkbenchModal {
       rate.textContent = formatEnhancementPercent(job.successRate);
     }
     if (metrics && metrics.length >= 3) {
-      metrics[0].textContent = formatDisplayInteger(job.remainingTicks);
-      metrics[1].textContent = t('craft.workbench.enhance-ticks', { ticks: formatDisplayInteger(job.totalTicks) });
+      metrics[0].textContent = formatDisplayInteger(workRemainingTicks);
+      metrics[1].textContent = t('craft.workbench.enhance-ticks', { ticks: formatDisplayInteger(workTotalTicks) });
       metrics[2].textContent = formatEnhancementPercent(job.successRate);
+    }
+    if (workFill) {
+      workFill.style.width = `${workPercent.toFixed(2)}%`;
+    }
+    if (interruptProgress) {
+      interruptProgress.classList.toggle('is-hidden', interruptRemainingTicks <= 0);
+    }
+    if (interruptLabel) {
+      interruptLabel.textContent = formatTicks(interruptRemainingTicks);
+    }
+    if (interruptFill) {
+      interruptFill.style.width = `${interruptPercent.toFixed(2)}%`;
     }
     if (sideMetrics.length >= 3) {
       sideMetrics[0].textContent = `+${formatDisplayInteger(job.targetLevel)}`;
@@ -2337,7 +2417,6 @@ export class CraftWorkbenchModal {
                 maxQuantity: formatDisplayInteger(maxQuantity),
                 batchCount: formatDisplayInteger(this.getAlchemyBatchOutputCount(recipe)),
                 unit,
-                preparationTicks: formatDisplayInteger(ALCHEMY_PREPARATION_TICKS),
               })
               : t('craft.workbench.alchemy.confirm.error.no-materials'),
         )}</div>
@@ -2699,6 +2778,12 @@ export class CraftWorkbenchModal {
     const currentLines = describeEquipmentBonuses(currentPreview, this.playerRealmLv);
     const resultLines = describeEquipmentBonuses(resultPreview, this.playerRealmLv);
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
+    const workRemainingTicks = resolveEnhancementWorkRemainingTicks(job);
+    const workTotalTicks = resolveEnhancementWorkTotalTicks(job);
+    const workPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const interruptRemainingTicks = resolveEnhancementInterruptRemainingTicks(job);
+    const interruptTotalTicks = resolveEnhancementInterruptTotalTicks(job, interruptRemainingTicks);
+    const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
     const compactMobileLayout = this.isCompactEnhancementLayout();
     return `
       <div class="enhancement-workbench-grid" data-enhancement-job-key="${escapeHtml(this.getEnhancementJobPatchKey(job))}">
@@ -2718,15 +2803,33 @@ export class CraftWorkbenchModal {
             <div class="enhancement-summary-metrics">
               <div class="enhancement-summary-metric">
                 <span>剩余</span>
-                <strong>${formatDisplayInteger(job.remainingTicks)}</strong>
+                <strong>${formatDisplayInteger(workRemainingTicks)}</strong>
               </div>
               <div class="enhancement-summary-metric">
                 <span>总时长</span>
-                <strong>${formatDisplayInteger(job.totalTicks)} 息</strong>
+                <strong>${formatDisplayInteger(workTotalTicks)} 息</strong>
               </div>
               <div class="enhancement-summary-metric">
                 <span>本阶成功率</span>
                 <strong>${formatEnhancementPercent(job.successRate)}</strong>
+              </div>
+            </div>
+            <div class="alchemy-job-progress">
+              <div class="alchemy-job-progress-head">
+                <span>实际进度</span>
+                <strong>${escapeHtml(formatTicks(workRemainingTicks))}</strong>
+              </div>
+              <div class="alchemy-job-progress-bar">
+                <div class="alchemy-job-progress-fill" data-enhancement-work-fill="true" style="width:${workPercent.toFixed(2)}%"></div>
+              </div>
+            </div>
+            <div class="alchemy-job-progress alchemy-job-progress--interrupt ${interruptRemainingTicks > 0 ? '' : 'is-hidden'}" data-enhancement-interrupt-progress="true">
+              <div class="alchemy-job-progress-head">
+                <span>打断等待</span>
+                <strong data-enhancement-interrupt-label="true">${escapeHtml(formatTicks(interruptRemainingTicks))}</strong>
+              </div>
+              <div class="alchemy-job-progress-bar">
+                <div class="alchemy-job-progress-fill" data-enhancement-interrupt-fill="true" style="width:${interruptPercent.toFixed(2)}%"></div>
               </div>
             </div>
           </div>
@@ -3681,7 +3784,7 @@ export class CraftWorkbenchModal {
     const batchBrewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);
     const totalTicks = quantity === null
       ? null
-      : computeAlchemyTotalJobTicks(batchBrewTicks, quantity, ALCHEMY_PREPARATION_TICKS);
+      : computeAlchemyTotalJobTicks(batchBrewTicks, quantity, 0);
     const spiritStoneCost = quantity === null
       ? null
       : this.getAlchemySpiritStoneCost(recipe, quantity);
@@ -3787,7 +3890,6 @@ export class CraftWorkbenchModal {
           maxQuantity: formatDisplayInteger(state.maxQuantity),
           outputCount: formatDisplayInteger(this.getAlchemyBatchOutputCount(recipe)),
           unit,
-          preparationTicks: formatDisplayInteger(ALCHEMY_PREPARATION_TICKS),
         }))}</div>
         <div class="craft-start-mode-row">
           <button class="small-btn" data-alchemy-confirm-start-mode="replace" type="button" ${state.startDisabled ? 'disabled' : ''}>${escapeHtml(t('craft.workbench.alchemy.confirm.start'))}</button>
@@ -3884,7 +3986,6 @@ export class CraftWorkbenchModal {
         maxQuantity: formatDisplayInteger(state.maxQuantity),
         outputCount: formatDisplayInteger(this.getAlchemyBatchOutputCount(recipe)),
         unit,
-        preparationTicks: formatDisplayInteger(ALCHEMY_PREPARATION_TICKS),
       });
     }
     if (maxButton) {

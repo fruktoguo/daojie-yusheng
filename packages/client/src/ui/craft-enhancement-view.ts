@@ -82,6 +82,26 @@ function formatTicks(ticks: number | undefined): string {
   });
 }
 
+function resolveEnhancementWorkRemainingTicks(job: EnhancementJobView): number {
+  return Math.max(0, Math.floor(Number(job.workRemainingTicks ?? job.remainingTicks) || 0));
+}
+
+function resolveEnhancementWorkTotalTicks(job: EnhancementJobView): number {
+  return Math.max(1, Math.floor(Number(job.workTotalTicks ?? job.totalTicks) || 1));
+}
+
+function resolveEnhancementInterruptRemainingTicks(job: EnhancementJobView): number {
+  return Math.max(0, Math.floor(Number(
+    job.interruptWaitRemainingTicks
+      ?? job.interruptState?.waitRemainingTicks
+      ?? job.pausedTicks,
+  ) || 0));
+}
+
+function resolveEnhancementInterruptTotalTicks(job: EnhancementJobView, remaining: number): number {
+  return Math.max(remaining, Math.floor(Number(job.interruptState?.waitTotalTicks ?? 10) || 10));
+}
+
 function formatEnhancementPercent(rate: number | undefined): string {
   const normalized = typeof rate === 'number' && Number.isFinite(rate) ? rate : 0;
   return formatDisplayPercent(normalized * 100, {
@@ -330,8 +350,9 @@ export class CraftEnhancementView {
 
   private getEnhancementToolbarNoteText(): string {
     const state = this.parent.enhancementPanel?.state ?? null;
-    return state?.job
-      ? `强化队列进行中，剩余 ${formatTicks(state.job.remainingTicks)} / ${formatTicks(state.job.totalTicks)}`
+    const job = state?.job ?? null;
+    return job
+      ? `强化队列进行中，剩余 ${formatTicks(resolveEnhancementWorkRemainingTicks(job))} / ${formatTicks(resolveEnhancementWorkTotalTicks(job))}`
       : `角色强化等级 Lv.${formatDisplayInteger(state?.enhancementSkillLevel ?? this.parent.enhancementSkillLevel)} · 当前可强化装备 ${formatDisplayInteger(state?.candidates.length ?? 0)} 件`;
   }
 
@@ -457,6 +478,16 @@ export class CraftEnhancementView {
     const subtitle = runningCard?.querySelector<HTMLElement>('.enhancement-summary-subtitle');
     const rate = runningCard?.querySelector<HTMLElement>('.enhancement-summary-rate');
     const metrics = runningCard?.querySelectorAll<HTMLElement>('.enhancement-summary-metric strong');
+    const workRemainingTicks = resolveEnhancementWorkRemainingTicks(job);
+    const workTotalTicks = resolveEnhancementWorkTotalTicks(job);
+    const workPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const interruptRemainingTicks = resolveEnhancementInterruptRemainingTicks(job);
+    const interruptTotalTicks = resolveEnhancementInterruptTotalTicks(job, interruptRemainingTicks);
+    const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
+    const workFill = runningCard?.querySelector<HTMLElement>('[data-enhancement-work-fill="true"]');
+    const interruptProgress = runningCard?.querySelector<HTMLElement>('[data-enhancement-interrupt-progress="true"]');
+    const interruptLabel = runningCard?.querySelector<HTMLElement>('[data-enhancement-interrupt-label="true"]');
+    const interruptFill = runningCard?.querySelector<HTMLElement>('[data-enhancement-interrupt-fill="true"]');
     const sideMetrics = workbench.querySelectorAll<HTMLElement>('.enhancement-workbench-side .enhancement-summary-metric strong');
     const materialOwned = workbench.querySelector<HTMLElement>('.enhancement-material-owned');
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
@@ -467,9 +498,21 @@ export class CraftEnhancementView {
       rate.textContent = formatEnhancementPercent(job.successRate);
     }
     if (metrics && metrics.length >= 3) {
-      metrics[0].textContent = formatDisplayInteger(job.remainingTicks);
-      metrics[1].textContent = t('craft.enhancement.enhance-ticks', { ticks: formatDisplayInteger(job.totalTicks) });
+      metrics[0].textContent = formatDisplayInteger(workRemainingTicks);
+      metrics[1].textContent = t('craft.enhancement.enhance-ticks', { ticks: formatDisplayInteger(workTotalTicks) });
       metrics[2].textContent = formatEnhancementPercent(job.successRate);
+    }
+    if (workFill) {
+      workFill.style.width = `${workPercent.toFixed(2)}%`;
+    }
+    if (interruptProgress) {
+      interruptProgress.classList.toggle('is-hidden', interruptRemainingTicks <= 0);
+    }
+    if (interruptLabel) {
+      interruptLabel.textContent = formatTicks(interruptRemainingTicks);
+    }
+    if (interruptFill) {
+      interruptFill.style.width = `${interruptPercent.toFixed(2)}%`;
     }
     if (sideMetrics.length >= 3) {
       sideMetrics[0].textContent = `+${formatDisplayInteger(job.targetLevel)}`;
@@ -882,6 +925,12 @@ export class CraftEnhancementView {
     const currentLines = describeEquipmentBonuses(currentPreview, this.parent.playerRealmLv);
     const resultLines = describeEquipmentBonuses(resultPreview, this.parent.playerRealmLv);
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
+    const workRemainingTicks = resolveEnhancementWorkRemainingTicks(job);
+    const workTotalTicks = resolveEnhancementWorkTotalTicks(job);
+    const workPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const interruptRemainingTicks = resolveEnhancementInterruptRemainingTicks(job);
+    const interruptTotalTicks = resolveEnhancementInterruptTotalTicks(job, interruptRemainingTicks);
+    const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
     const compactMobileLayout = this.isCompactEnhancementLayout();
     return `
       <div class="enhancement-workbench-grid" data-enhancement-job-key="${escapeHtml(this.getEnhancementJobPatchKey(job))}">
@@ -899,9 +948,27 @@ export class CraftEnhancementView {
               <div class="enhancement-summary-rate">${formatEnhancementPercent(job.successRate)}</div>
             </div>
             <div class="enhancement-summary-metrics">
-              <div class="enhancement-summary-metric"><span>剩余</span><strong>${formatDisplayInteger(job.remainingTicks)}</strong></div>
-              <div class="enhancement-summary-metric"><span>总时长</span><strong>${formatDisplayInteger(job.totalTicks)} 息</strong></div>
+              <div class="enhancement-summary-metric"><span>剩余</span><strong>${formatDisplayInteger(workRemainingTicks)}</strong></div>
+              <div class="enhancement-summary-metric"><span>总时长</span><strong>${formatDisplayInteger(workTotalTicks)} 息</strong></div>
               <div class="enhancement-summary-metric"><span>本阶成功率</span><strong>${formatEnhancementPercent(job.successRate)}</strong></div>
+            </div>
+            <div class="alchemy-job-progress">
+              <div class="alchemy-job-progress-head">
+                <span>实际进度</span>
+                <strong>${escapeHtml(formatTicks(workRemainingTicks))}</strong>
+              </div>
+              <div class="alchemy-job-progress-bar">
+                <div class="alchemy-job-progress-fill" data-enhancement-work-fill="true" style="width:${workPercent.toFixed(2)}%"></div>
+              </div>
+            </div>
+            <div class="alchemy-job-progress alchemy-job-progress--interrupt ${interruptRemainingTicks > 0 ? '' : 'is-hidden'}" data-enhancement-interrupt-progress="true">
+              <div class="alchemy-job-progress-head">
+                <span>打断等待</span>
+                <strong data-enhancement-interrupt-label="true">${escapeHtml(formatTicks(interruptRemainingTicks))}</strong>
+              </div>
+              <div class="alchemy-job-progress-bar">
+                <div class="alchemy-job-progress-fill" data-enhancement-interrupt-fill="true" style="width:${interruptPercent.toFixed(2)}%"></div>
+              </div>
             </div>
           </div>
           <div class="enhancement-requirement-card">

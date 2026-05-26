@@ -362,6 +362,10 @@ class WorldRuntimeFormationService {
             startedAt: Date.now(),
             totalTicks: 1,
             remainingTicks: 1,
+            workTotalTicks: 1,
+            workRemainingTicks: 1,
+            interruptWaitRemainingTicks: 0,
+            interruptState: null,
             pausedTicks: 0,
             successRate: 1,
             spiritStoneCost: 0,
@@ -392,7 +396,7 @@ class WorldRuntimeFormationService {
         if (playerInstanceId !== controlInstanceId
             || Math.trunc(Number(player.x)) !== controlX
             || Math.trunc(Number(player.y)) !== controlY) {
-            return { satisfied: false, reason: '离开阵法控制点位。', shouldCancel: true };
+            return { satisfied: false, reason: '离开阵法控制点位。' };
         }
         return { satisfied: true };
     }
@@ -424,6 +428,10 @@ class WorldRuntimeFormationService {
         job.maintenanceRate = rate;
         job.remainingTicks = 1;
         job.totalTicks = 1;
+        job.workRemainingTicks = 1;
+        job.workTotalTicks = 1;
+        job.interruptWaitRemainingTicks = 0;
+        job.interruptState = null;
         job.jobVersion = Math.max(1, Math.floor(Number(job.jobVersion) || 1) + 1);
         markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
         return {

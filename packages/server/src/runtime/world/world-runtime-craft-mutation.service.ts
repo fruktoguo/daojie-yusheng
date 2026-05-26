@@ -176,6 +176,9 @@ export class WorldRuntimeCraftMutationService {
         if (player.suppressImmediateDomainPersistence === true) {
             return;
         }
+        if (typeof this.craftPanelRuntimeService.persistTechniqueActivitySnapshot !== 'function') {
+            return;
+        }
         await this.craftPanelRuntimeService.persistTechniqueActivitySnapshot(player);
     }
 

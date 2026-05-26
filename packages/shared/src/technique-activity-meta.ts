@@ -46,7 +46,8 @@ export type TechniqueActivityCommandKind =
   | 'startMining'
   | 'cancelMining'
   | 'startFormationMaintenance'
-  | 'cancelFormationMaintenance';
+  | 'cancelFormationMaintenance'
+  | 'cancelTechniqueActivity';
 
 export type TechniqueActivityRequestPanelErrorCode =
   | 'REQUEST_ALCHEMY_PANEL_FAILED'

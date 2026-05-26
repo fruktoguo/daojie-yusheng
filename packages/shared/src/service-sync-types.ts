@@ -5,6 +5,7 @@
  */
 import type { AccountRedeemCodesRes } from './api-contracts';
 import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelPatch, SyncedAlchemyPanelState, SyncedEnhancementPanelPatch, SyncedEnhancementPanelState } from './crafting-types';
+import type { TechniqueActivityTaskListView, TechniqueActivityTaskPatch } from './technique-activity-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';
 import type { AuctionFilterCategory, AuctionHouseTab, AuctionListingCountsView, AuctionListingSummaryView, AuctionLotPageEntry, MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView, MarketTradeHistoryScope, MarketTradeSource } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
@@ -21,6 +22,12 @@ export interface LootWindowUpdateView {
 
   window: SyncedLootWindowState | null;
 }
+
+/** 技艺任务列表完整同步视图。 */
+export interface TechniqueActivityTasksView extends TechniqueActivityTaskListView {}
+
+/** 技艺任务列表增量同步视图。 */
+export interface TechniqueActivityTasksPatchView extends TechniqueActivityTaskPatch {}
 
 /** 兑换码结果视图。 */
 export interface RedeemCodesResultView {

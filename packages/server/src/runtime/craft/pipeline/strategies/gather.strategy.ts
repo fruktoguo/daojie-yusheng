@@ -24,6 +24,14 @@ export class GatherStrategy implements TechniqueActivityStrategy {
   readonly pauseTicks = 0;
   readonly conditional = true;
 
+  getActiveJob(player: unknown): any {
+    return (player as any).gatherJob ?? null;
+  }
+
+  setActiveJob(player: unknown, job: any | null): void {
+    (player as any).gatherJob = job;
+  }
+
   validateStart(_player: unknown, _payload: unknown, _ctx: PipelineContext): TechniqueActivityStartValidationResult {
     return { ok: true, validated: { _player, _payload } };
   }
@@ -32,6 +40,33 @@ export class GatherStrategy implements TechniqueActivityStrategy {
 
   createJob(player: unknown, _validated: unknown, _ctx: PipelineContext): any {
     return (player as any).gatherJob;
+  }
+
+  executeStart(player: unknown, payload: unknown, ctx: PipelineContext): unknown {
+    const playerId = resolvePlayerId(player);
+    const service = resolveGatherRuntimeService(ctx);
+    if (!playerId || !service || typeof service.dispatchStartGather !== 'function') {
+      return { ok: false, error: '采集运行时不可用。', panelChanged: false, messages: [] };
+    }
+    return service.dispatchStartGather(playerId, normalizeGatherStartPayload(playerId, payload, ctx), ctx.deps);
+  }
+
+  executeCancel(player: unknown, ctx: PipelineContext): unknown {
+    const playerId = resolvePlayerId(player);
+    const service = resolveGatherRuntimeService(ctx);
+    if (!playerId || !service || typeof service.dispatchCancelGather !== 'function') {
+      return { ok: false, error: '采集运行时不可用。', panelChanged: false, messages: [] };
+    }
+    return service.dispatchCancelGather(playerId, ctx.deps);
+  }
+
+  executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
+    const playerId = resolvePlayerId(player);
+    const service = resolveGatherRuntimeService(ctx);
+    if (!playerId || !service || typeof service.interruptGather !== 'function') {
+      return { ok: true, panelChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
+    }
+    return service.interruptGather(playerId, player, reason, ctx.deps);
   }
 
   resolveResumePhase(_job: any): string {
@@ -68,20 +103,85 @@ export class GatherStrategy implements TechniqueActivityStrategy {
 
   // ─── 条件型方法 ───
 
-  checkContinueCondition(_player: unknown, _job: any, _ctx: PipelineContext): TechniqueActivityConditionCheckResult {
-    // 实际条件检查将在 Phase 5 集成时从 WorldRuntimeLootContainerService.tickGather 提取：
-    // - 玩家在容器 1 格内
-    // - 容器存在且为 herb 类型
-    // - 容器仍有可采集物
-    // 当前存根默认满足
+  checkContinueCondition(player: unknown, job: any, ctx: PipelineContext): TechniqueActivityConditionCheckResult {
+    const playerId = resolvePlayerId(player);
+    const service = resolveGatherRuntimeService(ctx);
+    if (playerId && service && typeof service.checkGatherContinueCondition === 'function') {
+      return service.checkGatherContinueCondition(playerId, player, job, ctx.deps);
+    }
     return { satisfied: true };
   }
 
-  onConditionFailed(_player: unknown, _job: any, _ctx: PipelineContext): void {
-    // 释放容器的 activeSearch 状态
+  onConditionFailed(player: unknown, job: any, ctx: PipelineContext): void {
+    const playerId = resolvePlayerId(player);
+    const service = resolveGatherRuntimeService(ctx);
+    if (playerId && service && typeof service.releaseGatherActiveSearch === 'function') {
+      service.releaseGatherActiveSearch(playerId, player, job, ctx.deps);
+    }
   }
 
   onConditionRestored(_player: unknown, _job: any, _ctx: PipelineContext): void {
-    // 重新锁定容器的 activeSearch
+    // 启动时由 dispatchStartGather 重新锁定 activeSearch，避免恢复阶段重复占用。
   }
+}
+
+type GatherRuntimeServicePort = {
+  dispatchStartGather?: (playerId: string, payload: unknown, deps: unknown) => unknown;
+  dispatchCancelGather?: (playerId: string, deps: unknown) => unknown;
+  interruptGather?: (playerId: string, player: unknown, reason: string, deps: unknown) => unknown;
+  checkGatherContinueCondition?: (
+    playerId: string,
+    player: unknown,
+    job: unknown,
+    deps: unknown,
+  ) => TechniqueActivityConditionCheckResult;
+  releaseGatherActiveSearch?: (playerId: string, player: unknown, job: unknown, deps: unknown) => void;
+};
+
+function resolvePlayerId(player: unknown): string {
+  const playerId = (player as { playerId?: unknown } | null | undefined)?.playerId;
+  return typeof playerId === 'string' && playerId.trim() ? playerId.trim() : '';
+}
+
+function resolveGatherRuntimeService(ctx: PipelineContext): GatherRuntimeServicePort | null {
+  const deps = ctx.deps as { worldRuntimeLootContainerService?: GatherRuntimeServicePort } | null | undefined;
+  return deps?.worldRuntimeLootContainerService ?? null;
+}
+
+function normalizeGatherStartPayload(playerId: string, payload: unknown, ctx: PipelineContext): unknown {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+  const record = payload as Record<string, unknown>;
+  const sourceId = typeof record.sourceId === 'string' && record.sourceId.trim()
+    ? record.sourceId.trim()
+    : typeof record.resourceNodeId === 'string' && record.resourceNodeId.trim()
+      ? record.resourceNodeId.trim()
+      : '';
+  if (!sourceId || sourceId.startsWith('container:')) {
+    return payload;
+  }
+  const deps = ctx.deps as {
+    getPlayerLocation?: (playerId: string) => { instanceId?: string } | null;
+    getPlayerLocationOrThrow?: (playerId: string) => { instanceId?: string };
+  } | null | undefined;
+  let instanceId = typeof record.instanceId === 'string' && record.instanceId.trim()
+    ? record.instanceId.trim()
+    : '';
+  if (!instanceId) {
+    let location: { instanceId?: string } | null | undefined = deps?.getPlayerLocation?.(playerId);
+    if (!location && typeof deps?.getPlayerLocationOrThrow === 'function') {
+      try {
+        location = deps.getPlayerLocationOrThrow(playerId);
+      } catch (_error) {
+        location = null;
+      }
+    }
+    instanceId = typeof location?.instanceId === 'string' && location.instanceId.trim()
+      ? location.instanceId.trim()
+      : '';
+  }
+  return instanceId
+    ? { ...record, sourceId: `container:${instanceId}:${sourceId}` }
+    : payload;
 }

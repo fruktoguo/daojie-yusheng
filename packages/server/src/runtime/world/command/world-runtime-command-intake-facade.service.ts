@@ -291,8 +291,8 @@ export class WorldRuntimeCommandIntakeFacadeService {
  * @returns 无返回值，直接更新技艺活动取消入队相关状态。
  */
 
-    enqueueCancelTechniqueActivity(playerId, kind, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelTechniqueActivity(playerId, kind, deps);
+    enqueueCancelTechniqueActivity(playerId, kind, deps, cancelRef = null) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelTechniqueActivity(playerId, kind, deps, cancelRef);
     }
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。

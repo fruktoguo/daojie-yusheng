@@ -24,6 +24,14 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
   readonly pauseTicks = 0;
   readonly conditional = true;
 
+  getActiveJob(player: unknown): any {
+    return (player as any).buildingJob ?? null;
+  }
+
+  setActiveJob(player: unknown, job: any | null): void {
+    (player as any).buildingJob = job;
+  }
+
   validateStart(_player: unknown, _payload: unknown, _ctx: PipelineContext): TechniqueActivityStartValidationResult {
     return { ok: true, validated: { _player, _payload } };
   }
@@ -32,6 +40,45 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
 
   createJob(player: unknown, _validated: unknown, _ctx: PipelineContext): any {
     return (player as any).buildingJob;
+  }
+
+  executeStart(player: unknown, payload: unknown, ctx: PipelineContext): unknown {
+    const playerId = resolvePlayerId(player);
+    const buildingId = resolveBuildingId(payload);
+    const deps = resolveBuildingDeps(ctx);
+    if (!playerId || !buildingId || typeof deps?.dispatchStartBuildingConstruction !== 'function') {
+      return { ok: false, error: '建造运行时不可用。', panelChanged: false, messages: [] };
+    }
+    try {
+      deps.dispatchStartBuildingConstruction(playerId, buildingId);
+      return { ok: true, panelChanged: true, messages: [] };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+        panelChanged: false,
+        messages: [],
+      };
+    }
+  }
+
+  executeCancel(player: unknown, ctx: PipelineContext): unknown {
+    const playerId = resolvePlayerId(player);
+    const deps = resolveBuildingDeps(ctx);
+    if (!playerId || typeof deps?.interruptBuildingConstruction !== 'function') {
+      return { ok: false, error: '建造运行时不可用。', panelChanged: false, messages: [] };
+    }
+    deps.interruptBuildingConstruction(playerId, 'cancel');
+    return { ok: true, panelChanged: true, messages: [] };
+  }
+
+  executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
+    const playerId = resolvePlayerId(player);
+    const deps = resolveBuildingDeps(ctx);
+    if (playerId && typeof deps?.interruptBuildingConstruction === 'function') {
+      deps.interruptBuildingConstruction(playerId, reason);
+    }
+    return { ok: true, panelChanged: true, inventoryChanged: false, equipmentChanged: false, attrChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
   }
 
   resolveResumePhase(_job: any): string {
@@ -68,12 +115,27 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
 
   // ─── 条件型方法 ───
 
-  checkContinueCondition(_player: unknown, _job: any, _ctx: PipelineContext): TechniqueActivityConditionCheckResult {
-    // 实际条件检查将在 Phase 5 集成时从 world-runtime-building.service.ts 提取：
-    // - 建筑存在于目标实例
-    // - 建筑状态为 'building'
-    // - 玩家是 activeBuilderPlayerId
-    // 当前存根默认满足
+  checkContinueCondition(player: unknown, job: any, ctx: PipelineContext): TechniqueActivityConditionCheckResult {
+    const playerId = resolvePlayerId(player);
+    const buildingId = resolveBuildingId(job);
+    const deps = resolveBuildingDeps(ctx);
+    if (!playerId || !buildingId) {
+      return { satisfied: false, reason: '建造目标无效。', shouldCancel: true };
+    }
+    const instanceId = resolveInstanceId(player, job, deps);
+    const instance = instanceId && typeof deps?.getInstanceRuntime === 'function'
+      ? deps.getInstanceRuntime(instanceId)
+      : null;
+    const building = instance?.buildingById?.get?.(buildingId);
+    if (!instance || !building) {
+      return { satisfied: false, reason: '建造目标已经不存在。', shouldCancel: true };
+    }
+    if (building.state !== 'building') {
+      return { satisfied: false, reason: '建筑当前不可继续施工。', shouldCancel: true };
+    }
+    if (building.activeBuilderPlayerId && building.activeBuilderPlayerId !== playerId) {
+      return { satisfied: false, reason: '建筑正在由其他玩家施工。' };
+    }
     return { satisfied: true };
   }
 
@@ -82,6 +144,47 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
   }
 
   onConditionRestored(_player: unknown, _job: any, _ctx: PipelineContext): void {
-    // 重新注册为 activeBuilder
+    // 启动时由 dispatchStartBuildingConstruction 重新注册 activeBuilder。
   }
+}
+
+type BuildingDepsPort = {
+  dispatchStartBuildingConstruction?: (playerId: string, buildingId: string) => unknown;
+  interruptBuildingConstruction?: (playerId: string, reason?: string) => unknown;
+  getInstanceRuntime?: (instanceId: string) => any;
+  getPlayerLocation?: (playerId: string) => { instanceId?: string } | null;
+  getPlayerLocationOrThrow?: (playerId: string) => { instanceId?: string };
+};
+
+function resolvePlayerId(player: unknown): string {
+  const playerId = (player as { playerId?: unknown } | null | undefined)?.playerId;
+  return typeof playerId === 'string' && playerId.trim() ? playerId.trim() : '';
+}
+
+function resolveBuildingId(value: unknown): string {
+  const record = value as { buildingId?: unknown } | null | undefined;
+  const buildingId = record?.buildingId;
+  return typeof buildingId === 'string' && buildingId.trim() ? buildingId.trim() : '';
+}
+
+function resolveBuildingDeps(ctx: PipelineContext): BuildingDepsPort | null {
+  return ctx.deps as BuildingDepsPort | null;
+}
+
+function resolveInstanceId(player: unknown, job: unknown, deps: BuildingDepsPort | null): string {
+  const jobInstanceId = (job as { instanceId?: unknown } | null | undefined)?.instanceId;
+  if (typeof jobInstanceId === 'string' && jobInstanceId.trim()) {
+    return jobInstanceId.trim();
+  }
+  const playerInstanceId = (player as { instanceId?: unknown } | null | undefined)?.instanceId;
+  if (typeof playerInstanceId === 'string' && playerInstanceId.trim()) {
+    return playerInstanceId.trim();
+  }
+  const playerId = resolvePlayerId(player);
+  const location = playerId
+    ? deps?.getPlayerLocation?.(playerId) ?? deps?.getPlayerLocationOrThrow?.(playerId)
+    : null;
+  return typeof location?.instanceId === 'string' && location.instanceId.trim()
+    ? location.instanceId.trim()
+    : '';
 }

@@ -27,6 +27,14 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
 
   // ─── 全权委托方法（管线直接调用这些） ───
 
+  getActiveJob(player: unknown): any {
+    return (player as any).enhancementJob ?? null;
+  }
+
+  setActiveJob(player: unknown, job: any | null): void {
+    (player as any).enhancementJob = job;
+  }
+
   executeTick(player: unknown, _ctx: PipelineContext): unknown {
     return this.craftService.tickEnhancement(player);
   }

@@ -109,6 +109,7 @@ export const C2S = {
   StopLootHarvest: 'n:c:stopLootHarvest',
   StartGather: 'n:c:startGather',
   CancelGather: 'n:c:cancelGather',
+  CancelTechniqueActivity: 'n:c:cancelTechniqueActivity',
   TakeGround: 'n:c:takeGround',
   SortInventory: 'n:c:sortInventory',
   Equip: 'n:c:equip',
@@ -250,6 +251,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.StopLootHarvest]: RequestPayloads.C2S_StopLootHarvest;
   [C2S.StartGather]: RequestPayloads.C2S_StartGather;
   [C2S.CancelGather]: RequestPayloads.C2S_CancelGather;
+  [C2S.CancelTechniqueActivity]: RequestPayloads.C2S_CancelTechniqueActivity;
   [C2S.CreateMarketSellOrder]: RequestPayloads.C2S_CreateMarketSellOrder;
   [C2S.CreateMarketBuyOrder]: RequestPayloads.C2S_CreateMarketBuyOrder;
   [C2S.PlaceAuctionBid]: RequestPayloads.C2S_PlaceAuctionBid;

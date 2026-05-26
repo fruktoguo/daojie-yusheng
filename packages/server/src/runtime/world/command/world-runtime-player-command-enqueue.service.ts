@@ -318,10 +318,10 @@ export class WorldRuntimePlayerCommandEnqueueService {
  * @returns 无返回值，直接更新技艺活动取消入队相关状态。
  */
 
-    enqueueCancelTechniqueActivity(playerId, kind, deps) {
+    enqueueCancelTechniqueActivity(playerId, kind, deps, cancelRef = null) {
         return this.enqueueNormalizedPlayerCommand(
             playerId,
-            buildTechniqueActivityCancelCommand(kind),
+            buildTechniqueActivityCancelCommand(kind, cancelRef),
             deps,
         );
     }

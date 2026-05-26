@@ -6,8 +6,7 @@
 
 | 常量 | 值 | 说明 | 源文件 |
 |------|-----|------|--------|
-| ALCHEMY_PREPARATION_TICKS | 10 | 准备阶段息数 | craft.ts |
-| ALCHEMY_FURNACE_OUTPUT_COUNT | 6 | 丹炉单次产出数量 | craft.ts |
+| ALCHEMY_FURNACE_OUTPUT_COUNT | 6 | 炼丹单次制作产出倍率 | craft.ts |
 | ALCHEMY_MAX_PRESET_COUNT | 24 | 预设最大数量 | craft-panel-runtime.service.ts |
 | ALCHEMY_INTERRUPT_PAUSE_TICKS | 10 | 被打断暂停息数 | craft-panel-runtime.service.ts |
 
@@ -63,16 +62,16 @@ brewTicks = isExactRecipe ? baseBrewTicks : ceil(baseBrewTicks × powerRatio)
 speedRate = (recipeLevel > alchemyLevel) ? -0.1 × (recipeLevel - alchemyLevel)
           : (recipeLevel < alchemyLevel) ? +0.02 × (alchemyLevel - recipeLevel)
           : 0
-speedRate += furnaceSpeedRate  // 丹炉加速
+speedRate += toolSpeedRate  // 工具/设施加速
 
 // 3. 耗时因子
 durationFactor = (speedRate >= 0) ? 1/(1+speedRate) : 1+|speedRate|
 
-// 4. 最终单炉耗时
+// 4. 最终单批耗时
 adjustedBrewTicks = max(1, ceil(brewTicks × durationFactor))
 
 // 5. 总耗时
-totalTicks = ALCHEMY_PREPARATION_TICKS + adjustedBrewTicks × quantity
+totalTicks = adjustedBrewTicks × quantity
 ```
 
 ## 灵石消耗
@@ -98,14 +97,19 @@ startAlchemy:
   3. 检查材料充足 → 检查灵石充足
   4. 扣除材料 → 扣除灵石
   5. 计算 batchBrewTicks/totalTicks/successRate/batchOutputCount
-  6. 创建 job (phase='preparing')
+  6. 创建 job (phase='brewing')
 
 tickAlchemy:
-  1. remainingTicks -= 1
-  2. phase='paused' → 推进暂停倒计时
-  3. phase='preparing' → 等待准备期结束 → 切换到 'brewing'
-  4. phase='brewing' → currentBatchRemainingTicks -= 1
-  5. 单炉完成 → 逐件判定成功(Math.random() < successRate)
-  6. 产出入背包 → 计算技能经验 → 判断是否全部完成
-  7. 全部完成 → 启动队列下一项
+  1. phase='paused' → 只推进 interruptWaitRemainingTicks / pausedTicks，不改实际工作进度
+  2. phase='brewing' → remainingTicks/workRemainingTicks/currentBatchRemainingTicks -= 1
+  3. 单批完成 → 逐件判定成功(Math.random() < successRate)
+  4. 产出入背包 → 计算技能经验 → 判断是否全部完成
+  5. 全部完成 → 启动队列下一项
 ```
+
+## 面板表现约束
+
+- 炼丹表现为直接进行的制作 job，不再展示准备、开炉、炉火稳定等阶段。
+- 实际制作进度只按 `workTotalTicks/workRemainingTicks` 计算。
+- 攻击、移动、手动开始修炼等打断只显示独立等待条，不改变实际制作进度。
+- 当前 job 和队列项必须能在统一技艺任务列表中直接取消。

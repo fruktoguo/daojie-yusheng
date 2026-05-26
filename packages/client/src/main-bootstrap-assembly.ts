@@ -507,6 +507,7 @@ type MainBootstrapAssemblyOptions = {
     | 'sendCancelForging'
     | 'sendStartEnhancement'
     | 'sendCancelEnhancement'
+    | 'sendCancelTechniqueActivity'
     | 'sendRequestLeaderboard'
     | 'sendRequestWorldSummary'
   >;

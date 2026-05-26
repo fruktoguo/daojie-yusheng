@@ -24,6 +24,14 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
 
   constructor(private craftService: any) {}
 
+  getActiveJob(player: unknown): any {
+    return (player as any).forgingJob ?? null;
+  }
+
+  setActiveJob(player: unknown, job: any | null): void {
+    (player as any).forgingJob = job;
+  }
+
   executeTick(player: unknown, _ctx: PipelineContext): unknown {
     return this.craftService.tickAlchemy(player, 'forging');
   }
@@ -46,7 +54,7 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
   consumeResources(): void {}
   createJob(player: unknown): any { return (player as any).forgingJob; }
   resolveResumePhase(job: any): string {
-    return job.completedCount > 0 || job.currentBatchRemainingTicks < job.batchBrewTicks ? 'brewing' : 'preparing';
+    return 'brewing';
   }
   isResolvePoint(job: any): boolean { return job.currentBatchRemainingTicks <= 0 || job.remainingTicks <= 0; }
   resolve(): TechniqueActivityResolveResult {

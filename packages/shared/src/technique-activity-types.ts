@@ -12,6 +12,15 @@ export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement'
 /** 技艺活动通用中断原因。 */
 export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel' | 'cultivate';
 
+/** 技艺活动任务视图状态。 */
+export type TechniqueActivityTaskState =
+  | 'running'
+  | 'interrupt_wait'
+  | 'queued'
+  | 'sleeping'
+  | 'blocked'
+  | 'completing';
+
 /** 技艺经验成长公共状态。 */
 export interface TechniqueSkillProgressState {
   level: number;
@@ -19,14 +28,71 @@ export interface TechniqueSkillProgressState {
   expToNext: number;
 }
 
+/** 技艺活动打断等待状态：只控制恢复等待，不计入实际工作量。 */
+export interface TechniqueActivityInterruptState {
+  reason: TechniqueActivityInterruptReason;
+  waitTotalTicks: number;
+  waitRemainingTicks: number;
+  startedAtTick: number;
+}
+
+/** 技艺任务取消引用，既可指向当前 job，也可指向队列项。 */
+export interface TechniqueActivityCancelRef {
+  kind: RuntimeTechniqueActivityKind;
+  jobRunId?: string;
+  queueId?: string;
+}
+
 /** 技艺活动生命周期公共状态。 */
 export interface TechniqueActivityJobBase {
   startedAt: number;
+  /**
+   * 目标态实际工作总量。旧 job 兼容期仍可只写 totalTicks。
+   * UI 进度应优先使用 workTotalTicks/workRemainingTicks。
+   */
+  workTotalTicks?: number;
+  /** 目标态实际剩余工作量，不包含打断等待。 */
+  workRemainingTicks?: number;
+  /** 目标态打断等待剩余息数，不参与实际进度百分比。 */
+  interruptWaitRemainingTicks?: number;
+  /** 目标态结构化打断等待状态。 */
+  interruptState?: TechniqueActivityInterruptState | null;
+  /** 旧字段：兼容历史 job，总量可能被暂停逻辑污染。 */
   totalTicks: number;
+  /** 旧字段：兼容历史 job，剩余量可能被暂停逻辑污染。 */
   remainingTicks: number;
+  /** 旧字段：兼容历史 job，后续应迁移为 interruptState。 */
   pausedTicks: number;
   successRate: number;
   spiritStoneCost: number;
+}
+
+/** 技艺面板统一任务视图。 */
+export interface TechniqueActivityTaskView {
+  id: string;
+  kind: RuntimeTechniqueActivityKind;
+  label: string;
+  targetLabel?: string;
+  state: TechniqueActivityTaskState;
+  workTotalTicks?: number;
+  workRemainingTicks?: number;
+  interruptWaitRemainingTicks?: number;
+  sleepReason?: string;
+  canCancel: boolean;
+  cancelRef: TechniqueActivityCancelRef;
+}
+
+/** 技艺任务列表增量。 */
+export interface TechniqueActivityTaskPatch {
+  upsert?: TechniqueActivityTaskView[];
+  removeIds?: string[];
+  serverTick?: number;
+}
+
+/** 技艺任务列表完整同步。 */
+export interface TechniqueActivityTaskListView {
+  tasks: TechniqueActivityTaskView[];
+  serverTick?: number;
 }
 
 /** 已接入 runtime 的技艺活动顺序。 */

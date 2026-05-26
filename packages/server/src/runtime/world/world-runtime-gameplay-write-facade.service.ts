@@ -286,18 +286,50 @@ export class WorldRuntimeGameplayWriteFacadeService {
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeLootContainerService.dispatchStartGather(playerId, payload, deps),
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'gather',
+                        payload,
+                        deps,
+                    ),
                     'gather',
+                    deps,
+                );
+                return;
+            case 'mining':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'mining',
+                        payload,
+                        deps,
+                    ),
+                    'mining',
+                    deps,
+                );
+                return;
+            case 'building':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'building',
+                        payload,
+                        deps,
+                    ),
+                    'building',
                     deps,
                 );
                 return;
             case 'formation':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeFormationService.startFormationMaintenance(
+                    deps.craftPanelRuntimeService.startTechniqueActivity(
                         deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'formation',
                         payload,
-                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                        deps,
                     ),
                     'formation',
                     deps,
@@ -325,17 +357,46 @@ export class WorldRuntimeGameplayWriteFacadeService {
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeLootContainerService.dispatchCancelGather(playerId, deps),
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'gather',
+                        deps,
+                    ),
                     'gather',
+                    deps,
+                );
+                return;
+            case 'mining':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'mining',
+                        deps,
+                    ),
+                    'mining',
+                    deps,
+                );
+                return;
+            case 'building':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                        deps.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'building',
+                        deps,
+                    ),
+                    'building',
                     deps,
                 );
                 return;
             case 'formation':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    deps.worldRuntimeFormationService.cancelFormationMaintenance(
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
                         deps.playerRuntimeService.getPlayerOrThrow(playerId),
-                        deps.craftPanelRuntimeService.buildPipelineContext(deps),
+                        'formation',
+                        deps,
                     ),
                     'formation',
                     deps,

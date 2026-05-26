@@ -17,8 +17,10 @@ import type {
   PlayerFormationJob,
   PlayerForgingJob,
   PlayerGatherJob,
+  PlayerMiningJob,
 } from './crafting-types';
 import type { EquipmentSlots, Inventory } from './item-runtime-types';
+import type { TechniqueActivityQueueItem } from './technique-activity-pipeline-types';
 import type { MarketStorage } from './market-types';
 import type { PendingLogbookMessage, QuestNavigationState, QuestState } from './quest-types';
 import type { TemporaryBuffState } from './skill-types';
@@ -485,6 +487,11 @@ export interface PlayerState {
 
   miningSkill?: AlchemySkillState;
   /**
+ * miningJob：挖矿 Job 相关字段。
+ */
+
+  miningJob?: PlayerMiningJob | null;
+  /**
  * formationSkill：阵法技能相关字段。
  */
 
@@ -499,6 +506,11 @@ export interface PlayerState {
  */
 
   formationJob?: PlayerFormationJob | null;
+  /**
+ * techniqueActivityQueue：统一技艺活动队列。
+ */
+
+  techniqueActivityQueue?: TechniqueActivityQueueItem[];
   /**
  * enhancementSkillLevel：强化技能等级数值。
  */

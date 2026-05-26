@@ -9,6 +9,7 @@ import type { AuctionFilterCategory, AuctionHouseTab, MarketTradeHistoryScope, M
 import type { MailFilter } from './mail-types';
 import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
 import type { InventoryItemRefView } from './inventory-item-ref';
+import type { TechniqueActivityCancelRef } from './technique-activity-types';
 
 /** 请求坊市首页。 */
 export interface RequestMarketView {}
@@ -251,6 +252,15 @@ export interface StartGatherView {
 
 /** 取消当前草药采集。 */
 export interface CancelGatherView {}
+
+/** 从统一技艺任务列表取消当前 job 或队列项。 */
+export interface CancelTechniqueActivityView {
+/**
+ * cancelRef：服务端下发的取消引用。
+ */
+
+  cancelRef: TechniqueActivityCancelRef;
+}
 
 /** 创建卖单。 */
 export interface CreateMarketSellOrderView {

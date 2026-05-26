@@ -403,6 +403,7 @@ export class PlayerRuntimeService {
             formationSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherJob: null,
             buildingJob: null,
+            miningJob: null,
             formationJob: null,
             alchemyPresets: [],
             alchemyJob: null,
@@ -3999,6 +4000,7 @@ export class PlayerRuntimeService {
             formationSkill: normalizeCraftSkillState(snapshot.progression?.formationSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
+            miningJob: normalizeMiningJob(snapshot.progression?.miningJob),
             formationJob: normalizeFormationJob(snapshot.progression?.formationJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
@@ -4756,6 +4758,7 @@ function cloneRuntimePlayerState(player) {
         formationSkill: cloneCraftSkillState(player.formationSkill),
         gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
         buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
+        miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
         formationJob: player.formationJob ? cloneFormationJob(player.formationJob) : null,
         alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
         alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
@@ -6087,6 +6090,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             formationSkill: cloneCraftSkillState(player.formationSkill),
             gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
             buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
+            miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
             formationJob: player.formationJob ? cloneFormationJob(player.formationJob) : null,
             alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
@@ -6347,6 +6351,42 @@ function normalizeBuildingJob(value) {
     };
 }
 /**
+ * normalizeMiningJob：规范化或转换挖矿 Job。
+ * @param value 参数说明。
+ * @returns 无返回值，直接更新挖矿 Job 相关状态。
+ */
+
+function normalizeMiningJob(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!value || typeof value !== 'object' || typeof value.miningNodeId !== 'string') {
+        return null;
+    }
+    return {
+        jobRunId: typeof value.jobRunId === 'string' ? value.jobRunId : undefined,
+        jobType: 'mining',
+        miningNodeId: String(value.miningNodeId),
+        miningNodeName: typeof value.miningNodeName === 'string' ? value.miningNodeName : String(value.miningNodeId),
+        instanceId: typeof value.instanceId === 'string' ? value.instanceId : '',
+        targetX: Math.trunc(Number(value.targetX) || 0),
+        targetY: Math.trunc(Number(value.targetY) || 0),
+        tileType: typeof value.tileType === 'string' ? value.tileType : '',
+        baseDamagePerTick: Math.max(1, Math.floor(Number(value.baseDamagePerTick) || 1)),
+        phase: value.phase === 'paused' ? 'paused' : 'mining',
+        startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
+        totalTicks: Math.max(1, Math.floor(Number(value.totalTicks) || 1)),
+        remainingTicks: Math.max(0, Math.floor(Number(value.remainingTicks) || 0)),
+        workTotalTicks: Math.max(1, Math.floor(Number(value.workTotalTicks ?? value.totalTicks) || 1)),
+        workRemainingTicks: Math.max(0, Math.floor(Number(value.workRemainingTicks ?? value.remainingTicks) || 0)),
+        pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),
+        interruptWaitRemainingTicks: Math.max(0, Math.floor(Number(value.interruptWaitRemainingTicks ?? value.pausedTicks) || 0)),
+        interruptState: value.interruptState && typeof value.interruptState === 'object' ? { ...value.interruptState } : null,
+        successRate: Math.max(0, Math.min(1, Number(value.successRate) || 1)),
+        spiritStoneCost: Math.max(0, Math.floor(Number(value.spiritStoneCost) || 0)),
+        jobVersion: Math.max(1, Math.floor(Number(value.jobVersion) || 1)),
+    };
+}
+/**
  * normalizeFormationJob：规范化或转换阵法维护 Job。
  * @param value 参数说明。
  * @returns 无返回值，直接更新阵法维护 Job 相关状态。
@@ -6398,6 +6438,20 @@ function cloneGatherJob(entry) {
 function cloneBuildingJob(entry) {
     return {
         ...entry,
+    };
+}
+/**
+ * cloneMiningJob：构建挖矿 Job。
+ * @param entry 参数说明。
+ * @returns 无返回值，直接更新挖矿 Job 相关状态。
+ */
+
+function cloneMiningJob(entry) {
+    return {
+        ...entry,
+        interruptState: entry?.interruptState && typeof entry.interruptState === 'object'
+            ? { ...entry.interruptState }
+            : entry?.interruptState ?? null,
     };
 }
 /**
@@ -7767,6 +7821,7 @@ function hasDetachedRuntimeActivity(player) {
         || hasRemainingRuntimeJob(player.enhancementJob)
         || hasRemainingRuntimeJob(player.gatherJob)
         || hasRemainingRuntimeJob(player.buildingJob)
+        || hasRemainingRuntimeJob(player.miningJob)
         || hasRemainingRuntimeJob(player.formationJob);
 }
 
@@ -7776,6 +7831,7 @@ function hasAnyRemainingTechniqueJob(player) {
         || hasRemainingRuntimeJob(player?.enhancementJob)
         || hasRemainingRuntimeJob(player?.gatherJob)
         || hasRemainingRuntimeJob(player?.buildingJob)
+        || hasRemainingRuntimeJob(player?.miningJob)
         || hasRemainingRuntimeJob(player?.formationJob);
 }
 

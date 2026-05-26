@@ -15,7 +15,10 @@ import {
   type TechniqueActivityQueueMode,
   type RuntimeTechniqueActivityKind,
 } from '@mud/shared';
-import type { PipelineContext } from './technique-activity-strategy';
+import {
+  getStrategyActiveJob,
+  type PipelineContext,
+} from './technique-activity-strategy';
 import type { TechniqueActivityPipelineService, CraftMutationResult } from './technique-activity-pipeline.service';
 
 /** 玩家队列字段名。 */
@@ -109,7 +112,7 @@ export class TechniqueActivityQueueService {
     }
 
     // 当前槽是否空闲
-    const currentJob = (player as any)[strategy.jobSlot];
+    const currentJob = getStrategyActiveJob(strategy, player);
     if (currentJob && Number(currentJob.remainingTicks) > 0) {
       // 槽占用，不启动
       return null;
@@ -128,11 +131,12 @@ export class TechniqueActivityQueueService {
 
       // 检查条件
       if (strategy.conditional && strategy.checkContinueCondition) {
-        const condition = strategy.checkContinueCondition(player, { remainingTicks: 1 } as any, ctx);
+        const conditionJob = buildConditionProbeJob(head);
+        const condition = strategy.checkContinueCondition(player, conditionJob as any, ctx);
         if (condition.satisfied) {
           // 条件恢复 → 唤醒并启动
           queue.shift();
-          strategy.onConditionRestored?.(player, {} as any, ctx);
+          strategy.onConditionRestored?.(player, conditionJob as any, ctx);
           return this.pipeline.start(player, head.kind, head.payload, ctx);
         }
         if (condition.shouldCancel) {
@@ -174,4 +178,17 @@ export class TechniqueActivityQueueService {
 let queueIdCounter = 0;
 function generateQueueId(): string {
   return `q_${Date.now().toString(36)}_${(++queueIdCounter).toString(36)}`;
+}
+
+function buildConditionProbeJob(item: TechniqueActivityQueueItem): Record<string, unknown> {
+  const payload = item.payload && typeof item.payload === 'object'
+    ? item.payload as Record<string, unknown>
+    : {};
+  return {
+    ...payload,
+    remainingTicks: 1,
+    totalTicks: 1,
+    workRemainingTicks: 1,
+    workTotalTicks: 1,
+  };
 }

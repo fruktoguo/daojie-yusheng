@@ -73,6 +73,7 @@ import type {
   StartGatherView,
   StartEnhancementView,
   CancelGatherView,
+  CancelTechniqueActivityView,
   StopLootHarvestView,
   SubmitNpcQuestView,
   TakeLootView,
@@ -193,6 +194,8 @@ export interface C2S_StopLootHarvest extends StopLootHarvestView {}
 export interface C2S_StartGather extends StartGatherView {}
 /** 取消草药采集。 */
 export interface C2S_CancelGather extends CancelGatherView {}
+/** 取消统一技艺任务。 */
+export interface C2S_CancelTechniqueActivity extends CancelTechniqueActivityView {}
 /** 创建坊市卖单。 */
 export interface C2S_CreateMarketSellOrder extends CreateMarketSellOrderView {}
 /** 创建坊市买单。 */

@@ -4,9 +4,10 @@ import {
   computeAlchemyAdjustedSuccessRate,
   computeCraftAdjustedSuccessRate,
   computeEnhancementAdjustedSuccessRate,
-  computeEnhancementLevelSuccessModifier,
   computeEnhancementJobTicks,
   computeEnhancementToolSpeedRate,
+  ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL,
+  applyMultiplicativeSuccessFactor,
   getEnhancementTargetSuccessRate,
   MAX_ENHANCE_LEVEL,
 } from "@mud/shared";
@@ -119,15 +120,15 @@ function main() {
   const expectedAlchemyRate = computeCraftAdjustedSuccessRate(0.64, 30, 24, 0.15);
   assert.equal(computeAlchemyAdjustedSuccessRate(0.64, 30, 24, 0.15), expectedAlchemyRate, "alchemy success modifier must use common craft formula");
   assert.equal(computeAlchemyAdjustedSuccessRate(0.64, 30, 24, 0.15), expectedAlchemyRate, "forging reuses alchemy-like success modifier and must use common craft formula");
+  const expectedEnhancementCombinedRate = applyMultiplicativeSuccessFactor(
+    getEnhancementTargetSuccessRate(1),
+    (1 + 0.15) * Math.pow(ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL, 6),
+    1,
+  );
   assert.equal(
     computeEnhancementAdjustedSuccessRate(1, 24, 30, 0.15),
-    computeEnhancementAdjustedSuccessRate(
-      1,
-      30,
-      30,
-      computeEnhancementLevelSuccessModifier(30, 24) + 0.15,
-    ),
-    "enhancement success modifier must combine level delta and hammer modifier in the same modifier range",
+    expectedEnhancementCombinedRate,
+    "enhancement success modifier must add positive modifiers and multiply level-decay modifiers in the shared odds formula",
   );
 
   const service = new CraftPanelEnhancementQueryService(repository);

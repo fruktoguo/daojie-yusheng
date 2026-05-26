@@ -9402,11 +9402,24 @@
     .craft-queue-item em {
       font-style: normal;
     }
+    .craft-queue-cancel {
+      justify-self: end;
+      min-width: 44px;
+      padding: 3px 8px;
+      font-size: var(--font-size-11);
+      line-height: 1.2;
+    }
     .craft-queue-progress {
       display: grid;
       gap: 4px;
       min-width: 0;
       margin-top: 2px;
+    }
+    .craft-queue-progress.is-hidden {
+      display: none;
+    }
+    .craft-queue-progress--interrupt .craft-queue-progress-fill {
+      background: linear-gradient(90deg, rgba(92, 126, 160, 0.9), rgba(120, 169, 196, 0.92));
     }
     .craft-queue-progress-head {
       display: flex;
@@ -10346,6 +10359,9 @@
       display: grid;
       gap: 6px;
     }
+    .alchemy-job-progress.is-hidden {
+      display: none;
+    }
     .alchemy-job-progress-head {
       display: flex;
       align-items: center;
@@ -10370,6 +10386,9 @@
       height: 100%;
       background: linear-gradient(90deg, rgba(188, 122, 55, 0.9), rgba(226, 180, 102, 0.92));
       transition: width 0.18s linear;
+    }
+    .alchemy-job-progress--interrupt .alchemy-job-progress-fill {
+      background: linear-gradient(90deg, rgba(92, 126, 160, 0.9), rgba(120, 169, 196, 0.92));
     }
     .alchemy-job-metrics,
     .alchemy-modal-tabs,

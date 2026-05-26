@@ -24,15 +24,15 @@ startForging:
   6. 创建 job
 
 tickForging:
-  1. remainingTicks -= 1
-  2. 暂停处理
+  1. phase='paused' → 只推进 interruptWaitRemainingTicks / pausedTicks，不改实际工作进度
+  2. phase='brewing' → remainingTicks/workRemainingTicks -= 1
   3. 完成 → 判定成功 → 产出/技能经验
 ```
 
 ## 与炼丹的区别
 
 - `furnaceOutputCount = 1`（锻造单次产出 1 件）
-- 炼丹 `furnaceOutputCount = 6`（丹炉产出 6 件）
+- 炼丹 `furnaceOutputCount = 6`（炼丹单次制作产出倍率为 6）
 - 成功率公式共用（赔率空间渐近修正）
 - 耗时公式共用（速度修正）
 
@@ -59,3 +59,10 @@ totalTicks = max(1, ceil(baseTicks × durationFactor(speedRate)))
 - `packages/server/src/runtime/craft/pipeline/strategies/forging.strategy.ts` — 锻造策略
 - `packages/shared/src/craft-success.ts` — 成功率
 - `packages/shared/src/craft-duration.ts` — 耗时
+
+## 面板表现约束
+
+- 锻造表现为直接进行的制作 job，不再展示准备、开炉、炉火稳定等阶段。
+- 实际制作进度只按 `workTotalTicks/workRemainingTicks` 计算。
+- 攻击、移动、手动开始修炼等打断只显示独立等待条，不改变实际制作进度。
+- 当前 job 和队列项必须能在统一技艺任务列表中直接取消。

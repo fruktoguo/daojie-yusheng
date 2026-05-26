@@ -86,7 +86,7 @@ class WorldGatewayCraftHelper {
  * @returns 无返回值，直接更新技艺活动取消相关状态。
  */
 
-    handleCancelTechniqueActivity(client: Socket, kind: any) {
+    handleCancelTechniqueActivity(client: Socket, kind: any, cancelRef: any = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gatewayGuardHelper.requirePlayerId(client);
@@ -95,11 +95,24 @@ class WorldGatewayCraftHelper {
         }
         try {
             this.worldClientEventService.markProtocol(client, 'mainline');
-            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, kind, this.worldRuntimeService);
+            this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, kind, this.worldRuntimeService, cancelRef);
         }
         catch (error) {
             this.worldClientEventService.emitGatewayError(client, getTechniqueActivityMetadata(kind).cancelErrorCode, error);
         }
+    }
+    /** 统一任务列表取消按钮入口：payload 只作为取消意图，实际裁定在 runtime 命令队列执行。 */
+    handleCancelTechniqueActivityView(client: Socket, payload: any) {
+        const rawRef = payload?.cancelRef && typeof payload.cancelRef === 'object'
+            ? payload.cancelRef
+            : payload;
+        const kind = normalizeTechniqueActivityKind(rawRef?.kind);
+        const cancelRef = {
+            kind,
+            ...(typeof rawRef?.jobRunId === 'string' && rawRef.jobRunId.trim() ? { jobRunId: rawRef.jobRunId.trim() } : {}),
+            ...(typeof rawRef?.queueId === 'string' && rawRef.queueId.trim() ? { queueId: rawRef.queueId.trim() } : {}),
+        };
+        this.handleCancelTechniqueActivity(client, kind, cancelRef);
     }    
     /**
  * handleRequestAlchemyPanel：处理炼丹面板请求并更新相关状态。
@@ -207,6 +220,17 @@ class WorldGatewayCraftHelper {
         void _payload;
         this.handleCancelTechniqueActivity(client, 'enhancement');
     }
+}
+
+function normalizeTechniqueActivityKind(kind: any) {
+    return kind === 'forging'
+        || kind === 'enhancement'
+        || kind === 'gather'
+        || kind === 'building'
+        || kind === 'mining'
+        || kind === 'formation'
+        ? kind
+        : 'alchemy';
 }
 
 export { WorldGatewayCraftHelper };

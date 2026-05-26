@@ -15,6 +15,7 @@ import {
   resolveTechniqueActivityStartCommandKind,
   type TechniqueActivityKind,
   type RuntimeTechniqueActivityKind,
+  type TechniqueActivityCancelRef,
   type TechniqueActivityCommandKind,
   type TechniqueActivityMetadata,
 } from '@mud/shared';
@@ -46,7 +47,14 @@ export function buildTechniqueActivityStartCommand(
 
 export function buildTechniqueActivityCancelCommand(
   kind: TechniqueActivityKind,
-): { kind: TechniqueActivityCommandKind } {
+  cancelRef?: TechniqueActivityCancelRef | null,
+): { kind: TechniqueActivityCommandKind; cancelRef?: TechniqueActivityCancelRef } {
+  if (cancelRef) {
+    return {
+      kind: 'cancelTechniqueActivity',
+      cancelRef,
+    };
+  }
   return {
     kind: resolveTechniqueActivityCancelCommandKind(kind),
   };

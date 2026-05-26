@@ -21,6 +21,13 @@ interface TechniqueActivityRuntimeJob {
   pausedTicks: number;
   remainingTicks: number;
   totalTicks: number;
+  interruptWaitRemainingTicks?: number;
+  interruptState?: {
+    reason?: TechniqueActivityInterruptReason;
+    waitTotalTicks?: number;
+    waitRemainingTicks?: number;
+    startedAtTick?: number;
+  } | null;
 }
 
 /**
@@ -38,7 +45,11 @@ function hasTechniqueActivityJob(job: TechniqueActivityRuntimeJob | null | undef
  * @param pauseTicks 暂停息数。
  * @returns 返回本次实际追加的暂停息数。
  */
-function applyTechniqueActivityInterrupt(job: TechniqueActivityRuntimeJob | null | undefined, pauseTicks: number): number {
+function applyTechniqueActivityInterrupt(
+  job: TechniqueActivityRuntimeJob | null | undefined,
+  pauseTicks: number,
+  reason: TechniqueActivityInterruptReason = 'attack',
+): number {
   if (!hasTechniqueActivityJob(job)) {
     return 0;
   }
@@ -53,8 +64,14 @@ function applyTechniqueActivityInterrupt(job: TechniqueActivityRuntimeJob | null
   }
   job.phase = 'paused';
   job.pausedTicks = normalizedPauseTicks;
-  job.remainingTicks += addedPauseTicks;
-  job.totalTicks += addedPauseTicks;
+  job.interruptWaitRemainingTicks = normalizedPauseTicks;
+  job.interruptState = {
+    ...(job.interruptState ?? {}),
+    reason,
+    waitTotalTicks: normalizedPauseTicks,
+    waitRemainingTicks: normalizedPauseTicks,
+    startedAtTick: Date.now(),
+  };
   return addedPauseTicks;
 }
 
@@ -72,10 +89,19 @@ function advanceTechniqueActivityPause(
     return { resumed: false };
   }
   job.pausedTicks = Math.max(0, Math.floor(Number(job.pausedTicks) || 0) - 1);
+  job.interruptWaitRemainingTicks = job.pausedTicks;
+  if (job.interruptState) {
+    job.interruptState = {
+      ...job.interruptState,
+      waitRemainingTicks: job.pausedTicks,
+    };
+  }
   if (job.pausedTicks > 0) {
     return { resumed: false };
   }
   job.phase = resumePhase;
+  job.interruptWaitRemainingTicks = 0;
+  job.interruptState = null;
   return { resumed: true };
 }
 

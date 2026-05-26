@@ -140,13 +140,18 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
         throw new Error(localizeStartBuildingFailure(result?.reason));
     }
     const buildingName = resolveBuildingDisplayName(context.instance, result.building) ?? result.building.name ?? result.building.defId ?? '建筑';
+    const totalTicks = Math.max(1, Math.trunc(Number(result.building.buildRemainingTicks ?? result.building.buildStrength ?? 1) || 1));
     player.buildingJob = {
         buildingId: result.building.id,
         buildingName,
         instanceId: context.instance.meta.instanceId,
         startedAt: Date.now(),
-        totalTicks: Math.max(1, Math.trunc(Number(result.building.buildRemainingTicks ?? result.building.buildStrength ?? 1) || 1)),
-        remainingTicks: Math.max(1, Math.trunc(Number(result.building.buildRemainingTicks ?? result.building.buildStrength ?? 1) || 1)),
+        totalTicks,
+        remainingTicks: totalTicks,
+        workTotalTicks: totalTicks,
+        workRemainingTicks: totalTicks,
+        interruptWaitRemainingTicks: 0,
+        interruptState: null,
         pausedTicks: 0,
         successRate: 1,
         spiritStoneCost: 0,
@@ -191,10 +196,8 @@ export function tickBuildingConstruction(runtime, playerId) {
         player.buildingJob = null;
         runtime.playerRuntimeService.bumpPersistentRevision?.(player);
         runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        if (canQueueBuildingNotice(runtime)) {
-            runtime.queuePlayerNotice(playerId, '建造目标已经不存在。', 'warn');
-        }
-        return;
+        runtime.refreshPlayerContextActions?.(playerId);
+        return buildBuildingTickResult(true, [{ kind: 'warn', text: '建造目标已经不存在。' }]);
     }
     const previousRemainingTicks = Math.max(0, Math.trunc(Number(job.remainingTicks) || 0));
     const nextRemainingTicks = resolveBuildingRemainingTicksForView(building);
@@ -206,22 +209,32 @@ export function tickBuildingConstruction(runtime, playerId) {
         player.buildingJob = null;
         runtime.playerRuntimeService.bumpPersistentRevision?.(player);
         runtime.refreshPlayerContextActions?.(playerId);
-        return;
+        return buildBuildingTickResult(true);
     }
     if (building.activeBuilderPlayerId !== playerId) {
+        const sleepPayload = buildBuildingSleepPayload(job, building, '建筑正在由其他玩家施工。');
         player.buildingJob = null;
         runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+        runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         runtime.refreshPlayerContextActions?.(playerId);
-        return;
+        return {
+            ...buildBuildingTickResult(true, [{ kind: 'warn', text: '建筑施工条件暂时不满足，已转入等待队列。' }]),
+            sleepPayload,
+        };
     }
     const nextTotalTicks = Math.max(nextRemainingTicks, Math.trunc(Number(job.totalTicks) || 0), Math.trunc(Number(building.buildStrength) || 0), 1);
     job.buildingName = resolveBuildingDisplayName(instance, building) ?? job.buildingName ?? building.defId ?? '建筑';
     job.instanceId = instance.meta.instanceId;
     job.totalTicks = nextTotalTicks;
     job.remainingTicks = nextRemainingTicks;
+    job.workTotalTicks = nextTotalTicks;
+    job.workRemainingTicks = nextRemainingTicks;
+    job.interruptWaitRemainingTicks = 0;
+    job.interruptState = null;
     job.pausedTicks = 0;
     job.phase = 'building';
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
+    return buildBuildingTickResult(true);
 }
 
 export function handleBuildDeconstructIntent(runtime, playerId, payload) {
@@ -491,6 +504,29 @@ function buildBuildingInterruptMessage(buildingNameInput, reason) {
                 ? '打坐'
                 : '手动取消';
     return `${buildingName} 的营造被${reasonLabel}打断。`;
+}
+function buildBuildingTickResult(panelChanged = false, messages = []) {
+    return {
+        ok: true,
+        panelChanged,
+        inventoryChanged: false,
+        equipmentChanged: false,
+        attrChanged: false,
+        messages,
+        groundDrops: [],
+        craftRealmExpGain: 0,
+    };
+}
+function buildBuildingSleepPayload(job, building, reason) {
+    return {
+        kind: 'building',
+        payload: {
+            buildingId: job?.buildingId ?? building?.id,
+            instanceId: job?.instanceId ?? building?.instanceId,
+        },
+        label: job?.buildingName ?? building?.defId ?? '建造',
+        reason,
+    };
 }
 function localizeStartBuildingFailure(reason) {
     switch (reason) {

@@ -264,6 +264,20 @@ export class WorldRuntimeActionExecutionService {
                 view: deps.getPlayerViewOrThrow(playerId),
             };
         }
+        if (actionId === 'mining:start') {
+            const targetRef = typeof targetInput === 'string' ? targetInput.trim() : '';
+            if (!targetRef) {
+                throw new BadRequestException('挖矿目标不能为空');
+            }
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'startMining',
+                payload: { targetRef },
+            });
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
+        }
         if (actionId.startsWith('sect:')) {
             return deps.worldRuntimeSectService.executeSectAction(playerId, actionId, deps);
         }

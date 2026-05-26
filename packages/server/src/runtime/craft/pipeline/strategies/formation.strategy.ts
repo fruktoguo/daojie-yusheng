@@ -20,6 +20,14 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
   readonly pauseTicks = 10;
   readonly conditional = true;
 
+  getActiveJob(player: unknown): PlayerFormationJob | null {
+    return (player as { formationJob?: PlayerFormationJob | null }).formationJob ?? null;
+  }
+
+  setActiveJob(player: unknown, job: PlayerFormationJob | null): void {
+    (player as { formationJob?: PlayerFormationJob | null }).formationJob = job;
+  }
+
   validateStart(_player: unknown, payload: unknown): TechniqueActivityStartValidationResult {
     const formationInstanceId = typeof (payload as { formationInstanceId?: unknown } | null)?.formationInstanceId === 'string'
       ? String((payload as { formationInstanceId: string }).formationInstanceId).trim()

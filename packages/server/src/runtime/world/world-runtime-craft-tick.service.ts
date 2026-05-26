@@ -11,8 +11,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
 import { WorldRuntimeCraftMutationService } from './world-runtime-craft-mutation.service';
-import { WorldRuntimeAlchemyService } from './world-runtime-alchemy.service';
-import { WorldRuntimeEnhancementService } from './world-runtime-enhancement.service';
 import { TechniqueActivityPipelineService } from '../craft/pipeline/technique-activity-pipeline.service';
 import { TechniqueActivityQueueService } from '../craft/pipeline/technique-activity-queue.service';
 import { AlchemyStrategy } from '../craft/pipeline/strategies/alchemy.strategy';
@@ -21,6 +19,8 @@ import { EnhancementStrategy } from '../craft/pipeline/strategies/enhancement.st
 import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
 import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
+import { MiningStrategy } from '../craft/pipeline/strategies/mining.strategy';
+import { buildTechniqueActivityTaskListView } from '../craft/technique-activity-task-view.helpers';
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 @Injectable()
@@ -40,17 +40,6 @@ export class WorldRuntimeCraftTickService {
  */
 
     worldRuntimeCraftMutationService;
-    /**
- * worldRuntimeAlchemyService：世界运行态炼丹 tick 服务引用。
- */
-
-    worldRuntimeAlchemyService;
-    /**
- * worldRuntimeEnhancementService：世界运行态强化 tick 服务引用。
- */
-
-    worldRuntimeEnhancementService;
-
     /** 技艺管线服务。 */
     pipeline;
     /** 技艺队列服务。 */
@@ -69,14 +58,10 @@ export class WorldRuntimeCraftTickService {
         @Inject(PlayerRuntimeService) playerRuntimeService: any,
         @Inject(CraftPanelRuntimeService) craftPanelRuntimeService: any,
         @Inject(WorldRuntimeCraftMutationService) worldRuntimeCraftMutationService: any,
-        @Inject(WorldRuntimeAlchemyService) worldRuntimeAlchemyService: any,
-        @Inject(WorldRuntimeEnhancementService) worldRuntimeEnhancementService: any,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
-        this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
-        this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
 
         // 初始化管线并注册所有策略
         this.pipeline = new TechniqueActivityPipelineService();
@@ -84,6 +69,7 @@ export class WorldRuntimeCraftTickService {
         this.pipeline.register(new ForgingStrategy(craftPanelRuntimeService));
         this.pipeline.register(new EnhancementStrategy(craftPanelRuntimeService));
         this.pipeline.register(new GatherStrategy());
+        this.pipeline.register(new MiningStrategy());
         this.pipeline.register(new BuildingStrategy());
         this.pipeline.register(new FormationStrategy());
         this.queueService = new TechniqueActivityQueueService(this.pipeline);
@@ -103,23 +89,21 @@ export class WorldRuntimeCraftTickService {
                 continue;
             }
             for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
-                if (kind === 'alchemy' || kind === 'forging') {
-                    await this.worldRuntimeAlchemyService.tickAlchemy(playerId, player, deps, kind);
+                if (kind === 'gather' || kind === 'building') {
                     continue;
                 }
-                if (kind === 'enhancement') {
-                    await this.worldRuntimeEnhancementService.tickEnhancement(playerId, player, deps);
-                    continue;
-                }
+                const result = this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps);
+                this.sleepConditionalTechniqueActivityIfRequested(player, result);
                 this.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
-                    this.craftPanelRuntimeService.tickTechniqueActivity(player, kind, deps),
+                    result,
                     kind,
                     deps,
                 );
             }
             if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
                 const gatherResult = await deps.worldRuntimeLootContainerService.tickGather(playerId, deps);
+                this.sleepConditionalTechniqueActivityIfRequested(player, gatherResult);
                 this.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
                     gatherResult,
@@ -128,7 +112,16 @@ export class WorldRuntimeCraftTickService {
                 );
             }
             if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) {
-                deps.tickBuildingConstruction(playerId);
+                const buildingResult = deps.tickBuildingConstruction(playerId);
+                this.sleepConditionalTechniqueActivityIfRequested(player, buildingResult);
+                if (buildingResult?.ok) {
+                    this.worldRuntimeCraftMutationService.flushCraftMutation(
+                        playerId,
+                        buildingResult,
+                        'building',
+                        deps,
+                    );
+                }
             }
 
             // 队列推进：如果当前没有活跃任务，尝试启动队列中的下一个
@@ -136,7 +129,7 @@ export class WorldRuntimeCraftTickService {
                 && !(player.gatherJob && Number(player.gatherJob.remainingTicks) > 0)
                 && !(player.buildingJob && Number(player.buildingJob.remainingTicks) > 0)
                 && !(player.formationJob && Number(player.formationJob.remainingTicks) > 0)) {
-                const ctx = { contentTemplateRepository: null as any, resolveExpToNextByLevel: () => 100, getInstanceRuntime: () => null, deps };
+                const ctx = this.craftPanelRuntimeService.buildPipelineContext(deps);
                 const queueResult = this.queueService.tickQueue(player, ctx);
                 if (queueResult?.ok) {
                     const kind = this.resolveQueueResultKind(player);
@@ -160,26 +153,18 @@ export class WorldRuntimeCraftTickService {
         const eventBus = this.playerRuntimeService.runtimeEventBusService;
         if (!eventBus) return;
 
-        const jobs = [
-            { job: player.alchemyJob, type: 'alchemy' },
-            { job: player.forgingJob, type: 'forging' },
-            { job: player.enhancementJob, type: 'enhancement' },
-            { job: player.gatherJob, type: 'gather' },
-            { job: player.buildingJob, type: 'building' },
-            { job: player.formationJob, type: 'formation' },
-        ];
-
-        for (const { job, type } of jobs) {
-            if (!job || Number(job.remainingTicks) <= 0) continue;
-            const total = Number(job.totalTicks || job.durationTicks || 1);
-            const remaining = Number(job.remainingTicks);
+        const tasks = buildTechniqueActivityTaskListView(player).tasks;
+        for (const task of tasks) {
+            if (task.state !== 'running' && task.state !== 'interrupt_wait') continue;
+            const total = Number(task.workTotalTicks ?? 1);
+            const remaining = Number(task.workRemainingTicks ?? 0);
             const progress = total > 0 ? Math.max(0, Math.min(1, 1 - remaining / total)) : 0;
             eventBus.queueActiveJobProgress(playerId, {
-                jobId: job.jobRunId || `${type}:${playerId}`,
-                jobType: type,
+                jobId: task.cancelRef.jobRunId || task.id,
+                jobType: task.kind,
                 progress,
                 remainingMs: remaining * 1000,
-                label: job.label || job.recipeName || undefined,
+                label: task.targetLabel || task.label,
             });
         }
     }
@@ -190,8 +175,24 @@ export class WorldRuntimeCraftTickService {
         if (player.forgingJob && Number(player.forgingJob.remainingTicks) > 0) return 'forging';
         if (player.enhancementJob && Number(player.enhancementJob.remainingTicks) > 0) return 'enhancement';
         if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) return 'gather';
+        if (player.miningJob && Number(player.miningJob.remainingTicks) > 0) return 'mining';
         if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) return 'building';
         if (player.formationJob && Number(player.formationJob.remainingTicks) > 0) return 'formation';
         return null;
+    }
+
+    /** 条件型技艺 tick 失败时，领域服务只返回休眠信号，统一队列由这里写入。 */
+    private sleepConditionalTechniqueActivityIfRequested(player: any, result: any): void {
+        const sleepPayload = result?.sleepPayload;
+        if (!sleepPayload || typeof sleepPayload !== 'object') return;
+        const kind = sleepPayload.kind;
+        if (kind !== 'gather' && kind !== 'building' && kind !== 'formation' && kind !== 'mining') return;
+        this.queueService.sleepToQueue(
+            player,
+            kind,
+            sleepPayload.payload ?? {},
+            typeof sleepPayload.label === 'string' && sleepPayload.label.trim() ? sleepPayload.label.trim() : '技艺任务',
+            typeof sleepPayload.reason === 'string' && sleepPayload.reason.trim() ? sleepPayload.reason.trim() : '条件暂时不满足',
+        );
     }
 };

@@ -3,7 +3,7 @@
  *
  * 维护时要使用共享协议事件名和最小字段，避免把服务端权威判断下沉到客户端。
  */
-import { C2S, type ClientToServerEventPayload } from '@mud/shared';
+import { C2S, type ClientToServerEventPayload, type TechniqueActivityCancelRef } from '@mud/shared';
 import type { SocketEmitEvent } from './socket-send-types';
 import {
   emitTechniqueActivityCancel,
@@ -363,6 +363,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendCancelEnhancement(): void {
       sendTechniqueActivityCancel(deps, 'enhancement');
+    },
+    sendCancelTechniqueActivity(cancelRef: TechniqueActivityCancelRef): void {
+      deps.emitEvent(C2S.CancelTechniqueActivity, { cancelRef });
     },
   };
 }

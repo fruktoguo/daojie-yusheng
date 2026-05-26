@@ -168,7 +168,12 @@ function cloneCraftQueue(queue) {
 }
 
 function clonePlayerCraftQueue(player) {
-    return cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.forgingJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []);
+    return [
+        ...cloneCraftQueue(player.techniqueActivityQueue ?? []),
+        ...cloneCraftQueue(player.alchemyJob?.queuedJobs ?? []),
+        ...cloneCraftQueue(player.forgingJob?.queuedJobs ?? []),
+        ...cloneCraftQueue(player.enhancementJob?.queuedJobs ?? []),
+    ];
 }
 /**
  * getEnhancementRequirements：读取强化Requirement。

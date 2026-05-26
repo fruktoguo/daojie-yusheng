@@ -10410,6 +10410,18 @@
       "tags": [
         "mining_pickaxe"
       ],
+      "contextActions": [
+        {
+          "id": "mining:start",
+          "name": "挖矿",
+          "type": "craft",
+          "desc": "选择附近矿脉，开始一个可在技艺任务列表中查看和取消的挖矿任务。",
+          "cooldownLeft": 0,
+          "requiresTarget": true,
+          "targetMode": "tile",
+          "range": 1
+        }
+      ],
       "miningDamageRate": 0.5
     },
     {

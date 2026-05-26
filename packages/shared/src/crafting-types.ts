@@ -6,7 +6,7 @@
 /**
  * 炼制与强化共享类型：承接面板、任务运行态与同步视图结构。
  */
-import type { TechniqueActivityJobBase } from './technique-activity-types';
+import type { TechniqueActivityCancelRef, TechniqueActivityInterruptState, TechniqueActivityJobBase } from './technique-activity-types';
 import type { TechniqueGrade } from './cultivation-types';
 import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
 
@@ -16,11 +16,15 @@ export type CraftQueueStartMode = 'replace' | 'preserve' | 'append';
 /** 制造型技艺任务队列条目。 */
 export interface CraftQueueItemView {
   queueId: string;
-  kind: 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining';
+  kind: 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation';
   label: string;
   quantity?: number;
   createdAt: number;
   payload?: unknown;
+  state?: 'pending' | 'sleeping';
+  targetLabel?: string;
+  sleepReason?: string;
+  cancelRef?: TechniqueActivityCancelRef;
 }
 
 /** 炼制技能的经验与等级运行态。 */
@@ -267,6 +271,26 @@ export interface PlayerAlchemyJob {
 
   remainingTicks: number;  
   /**
+ * workTotalTicks：实际工作总量，不包含打断等待。
+ */
+
+  workTotalTicks?: number;
+  /**
+ * workRemainingTicks：实际剩余工作量，不包含打断等待。
+ */
+
+  workRemainingTicks?: number;
+  /**
+ * interruptWaitRemainingTicks：打断等待剩余息数，独立于实际工作进度。
+ */
+
+  interruptWaitRemainingTicks?: number;
+  /**
+ * interruptState：结构化打断等待状态。
+ */
+
+  interruptState?: TechniqueActivityInterruptState | null;
+  /**
  * successRate：successRate数值。
  */
 
@@ -480,6 +504,26 @@ export interface PlayerEnhancementJob {
 
   remainingTicks: number;  
   /**
+ * workTotalTicks：实际工作总量，不包含打断等待。
+ */
+
+  workTotalTicks?: number;
+  /**
+ * workRemainingTicks：实际剩余工作量，不包含打断等待。
+ */
+
+  workRemainingTicks?: number;
+  /**
+ * interruptWaitRemainingTicks：打断等待剩余息数，独立于实际工作进度。
+ */
+
+  interruptWaitRemainingTicks?: number;
+  /**
+ * interruptState：结构化打断等待状态。
+ */
+
+  interruptState?: TechniqueActivityInterruptState | null;
+  /**
  * startedAt：startedAt相关字段。
  */
 
@@ -542,6 +586,65 @@ export interface PlayerBuildingJob extends TechniqueActivityJobBase {
  */
 
   phase: 'building' | 'paused';
+}
+
+/** 玩家当前挖矿任务的最小持久化运行态。 */
+export interface PlayerMiningJob extends TechniqueActivityJobBase {
+/**
+ * jobRunId：任务运行 ID。
+ */
+
+  jobRunId?: string;
+  /**
+ * jobType：任务类型。
+ */
+
+  jobType?: 'mining';
+  /**
+ * jobVersion：任务版本号。
+ */
+
+  jobVersion?: number;
+/**
+ * miningNodeId：矿脉目标 ID。
+ */
+
+  miningNodeId: string;
+  /**
+ * miningNodeName：矿脉目标名称。
+ */
+
+  miningNodeName: string;
+  /**
+ * instanceId：实例 ID。
+ */
+
+  instanceId: string;
+  /**
+ * targetX：目标地块 X 坐标。
+ */
+
+  targetX: number;
+  /**
+ * targetY：目标地块 Y 坐标。
+ */
+
+  targetY: number;
+  /**
+ * tileType：目标地块类型。
+ */
+
+  tileType: string;
+  /**
+ * baseDamagePerTick：每息基础采掘伤害，实际伤害还会吃挖矿等级和矿镐加成。
+ */
+
+  baseDamagePerTick: number;
+  /**
+ * phase：phase相关字段。
+ */
+
+  phase: 'mining' | 'paused';
 }
 
 /** 玩家当前阵法维护任务的最小持久化运行态。 */
