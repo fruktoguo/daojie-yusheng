@@ -1256,6 +1256,7 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected loadPlayerDomains wallet-only result: ${JSON.stringify(walletOnlyDomains)}`);
     }
+    await assertSnapshotActiveJobRows(service, pool, activeJobRecoveryPlayerId, directBaseVersion + 900);
     await assertProjectedActiveJobRecoveryKinds(service, activeJobRecoveryPlayerId, directBaseVersion + 1000);
 
     await service.savePlayerAutoBattleSkills(
@@ -1285,7 +1286,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进，以及 player_active_job 按 alchemy/forging/enhancement/gather/mining/building/formation 统一 job kind 投影恢复到 progression.<kind>Job',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录、日志与职业作业投影写入当前已落地的分域表，并支持 inventory/wallet/equipment/map/technique/buff/quest/auto/profession/alchemy/enhancement/logbook/market storage 快照 stale 行清理、wallet/market storage/equipment 非法 entry 拒绝静默跳过、运行时显式选项清空最后一个 inventory/equipment/buff row、auto_battle_skill/auto_use_item_rule 清空偏好列表、wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进，以及 alchemy/forging/enhancement/gather/mining/building/formation 旧快照 job 写入 player_active_job、player_active_job 再按统一 job kind 投影恢复到 progression.<kind>Job',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'release:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1303,6 +1304,7 @@ async function main(): Promise<void> {
           enhancementJobType: enhancementJobRow.job_type,
           enhancementRecordCount: enhancementRecordRows.length,
           directDomainWriteSafe: true,
+          snapshotActiveJobProjectionSafe: true,
           projectedActiveJobRecoverySafe: true,
           emptyStringProjectionSafe: true,
           invalidAssetEntryRejectsSilentPrune: true,
@@ -2399,6 +2401,127 @@ async function assertProjectedActiveJobRecoveryKinds(
       }
     }
   }
+}
+
+async function assertSnapshotActiveJobRows(
+  service: PlayerDomainPersistenceService,
+  pool: Pool,
+  playerId: string,
+  versionSeed: number,
+): Promise<void> {
+  const jobKinds: Array<PlayerActiveJobUpsertInput['jobType']> = [
+    'alchemy',
+    'forging',
+    'enhancement',
+    'gather',
+    'mining',
+    'building',
+    'formation',
+  ];
+
+  for (const [index, jobType] of jobKinds.entries()) {
+    const jobRunId = `job-run:snapshot:${jobType}:${index}`;
+    await service.savePlayerSnapshotProjection(
+      playerId,
+      buildSnapshotWithOnlyActiveJob(jobType, versionSeed + index, jobRunId, 200 + index),
+    );
+
+    const row = await fetchSingleRow(
+      pool,
+      'SELECT job_type, job_run_id, job_version, remaining_ticks, detail_jsonb FROM player_active_job WHERE player_id = $1',
+      [playerId],
+    );
+    const detail = row?.detail_jsonb as Record<string, unknown> | null | undefined;
+    if (
+      !row
+      || row.job_type !== jobType
+      || row.job_run_id !== jobRunId
+      || Number(row.job_version ?? 0) !== 200 + index
+      || Number(row.remaining_ticks ?? 0) !== 20 + index
+      || detail?.targetId !== `target:${jobType}`
+      || detail?.jobType !== jobType
+    ) {
+      throw new Error(`unexpected snapshot active job row for ${jobType}: ${JSON.stringify(row)}`);
+    }
+  }
+}
+
+function buildSnapshotWithOnlyActiveJob(
+  jobType: PlayerActiveJobUpsertInput['jobType'],
+  now: number,
+  jobRunId: string,
+  jobVersion: number,
+): PersistedPlayerSnapshot {
+  const snapshot = buildStarterSnapshotForProjectedActiveJob(now);
+  const progression = snapshot.progression as unknown as Record<string, unknown>;
+  const commonJob = {
+    jobRunId,
+    jobType,
+    jobVersion,
+    phase: jobType === 'formation' ? 'maintaining' : 'running',
+    startedAt: now,
+    totalTicks: 40 + (jobVersion - 200),
+    remainingTicks: 20 + (jobVersion - 200),
+    pausedTicks: jobVersion - 200,
+    successRate: 0.5,
+    totalSpeedRate: 1.25,
+    targetId: `target:${jobType}`,
+  };
+
+  if (jobType === 'formation') {
+    progression.formationJob = {
+      ...commonJob,
+      maintenanceRate: 1.5,
+      formationId: 'formation:active-job-smoke',
+    };
+    return snapshot;
+  }
+  if (jobType === 'mining') {
+    progression.miningJob = {
+      ...commonJob,
+      baseDamagePerTick: 3,
+      tileKey: 'mine:1:2',
+    };
+    return snapshot;
+  }
+  if (jobType === 'gather') {
+    progression.gatherJob = {
+      ...commonJob,
+      containerId: 'loot:active-job-smoke',
+    };
+    return snapshot;
+  }
+  if (jobType === 'building') {
+    progression.buildingJob = {
+      ...commonJob,
+      buildingId: 'building:active-job-smoke',
+    };
+    return snapshot;
+  }
+  if (jobType === 'enhancement') {
+    progression.enhancementJob = {
+      ...commonJob,
+      targetItemId: 'iron_sword',
+      currentLevel: 2,
+      targetLevel: 3,
+    };
+    return snapshot;
+  }
+  if (jobType === 'forging') {
+    progression.forgingJob = {
+      ...commonJob,
+      recipeId: 'forge_active_job_smoke',
+      outputItemId: 'forge_active_job_smoke',
+    };
+    return snapshot;
+  }
+
+  progression.alchemyJob = {
+    ...commonJob,
+    recipeId: 'alchemy_active_job_smoke',
+    outputItemId: 'alchemy_active_job_smoke',
+  };
+  return snapshot;
 }
 
 function buildStarterSnapshotForProjectedActiveJob(now: number): PersistedPlayerSnapshot {
