@@ -15,6 +15,7 @@ import {
 } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../../world/item-instance-id.helpers';
 import {
+  advanceTechniqueActivityPause,
   applyTechniqueActivityInterrupt,
 } from '../technique-activity-runtime.helpers';
 import type {
@@ -271,15 +272,9 @@ export class TechniqueActivityPipelineService {
     // Stage 3: Pause
     if (job.phase === 'paused') {
       const resumePhase = strategy.resolveResumePhase(job);
-      // Inline pause advancement to avoid type guard issues
-      job.pausedTicks = Math.max(0, Math.floor(Number(job.pausedTicks) || 0) - 1);
-      if (job.pausedTicks > 0) {
-        markPipelineDirty(player, ['active_job'], ctx);
-        return { ...emptyTickResult(), ok: true };
-      }
-      job.phase = resumePhase;
+      const resumed = advanceTechniqueActivityPause(job as any, resumePhase as any);
       markPipelineDirty(player, ['active_job'], ctx);
-      return { ...emptyTickResult(), panelChanged: true };
+      return { ...emptyTickResult(), panelChanged: resumed.resumed };
     }
 
     // Stage 4: Advance

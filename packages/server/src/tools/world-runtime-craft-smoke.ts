@@ -28,6 +28,7 @@ async function main(): Promise<void> {
   testSleepingBuildingQueueRestartsThroughPipeline();
   testSleepingFormationQueueRestartsThroughPipeline();
   testSleepingMiningQueueRestartsThroughPipeline();
+  testGenericPipelinePauseAdvancesInterruptWaitState();
   await testGatherActiveSearchRejectsCompetingPlayers();
   await testGatherPermanentLossReleasesStaleActiveSearch();
   testBuildingActiveBuilderRejectsCompetingPlayers();
@@ -49,6 +50,7 @@ async function main(): Promise<void> {
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
+      '公共 pipeline 暂停推进会同步 interruptWaitRemainingTicks 和 interruptState，不改实际工作进度。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
       '建造 activeBuilder 不会被其他玩家重入覆盖。',
@@ -154,6 +156,78 @@ function createConditionalQueueProbeStrategy(condition: (job: { targetId?: strin
       return condition(job);
     },
   };
+}
+
+function testGenericPipelinePauseAdvancesInterruptWaitState(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  const player = {
+    playerId: 'player:pipeline-pause',
+    formationJob: {
+      remainingTicks: 5,
+      totalTicks: 5,
+      workRemainingTicks: 5,
+      workTotalTicks: 5,
+      pausedTicks: 3,
+      interruptWaitRemainingTicks: 3,
+      interruptState: {
+        reason: 'attack',
+        waitTotalTicks: 3,
+        waitRemainingTicks: 3,
+      },
+      phase: 'paused',
+    },
+    dirtyDomains: new Set<string>(),
+    persistentRevision: 1,
+  };
+  pipeline.register({
+    kind: 'formation',
+    jobSlot: 'formationJob',
+    skillSlot: 'formationSkill',
+    activityLabel: '阵法维护',
+    pauseTicks: 10,
+    conditional: false,
+    resolveResumePhase(): string {
+      return 'maintaining';
+    },
+    isResolvePoint(): boolean {
+      return false;
+    },
+    resolve(): never {
+      throw new Error('unexpected resolve');
+    },
+    computeRefund(): { items: never[]; spiritStones: number } {
+      return { items: [], spiritStones: 0 };
+    },
+    dirtyDomains(): string[] {
+      return ['active_job'];
+    },
+  } as any);
+
+  const result = pipeline.tick(player, 'formation', {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      playerRuntimeService: {
+        bumpPersistentRevision(activePlayer: typeof player): void {
+          activePlayer.persistentRevision += 1;
+        },
+      },
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(player.formationJob.pausedTicks, 2);
+  assert.equal(player.formationJob.interruptWaitRemainingTicks, 2);
+  assert.equal(player.formationJob.interruptState?.waitRemainingTicks, 2);
+  assert.equal(player.formationJob.remainingTicks, 5);
+  assert.equal(player.formationJob.workRemainingTicks, 5);
+  assert.equal(player.formationJob.phase, 'paused');
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(player.persistentRevision, 2);
 }
 
 function testSleepingQueueRetrySkipsHotConditionCheck(): void {
