@@ -297,7 +297,7 @@ strategy 只负责领域差异：
 ### Phase 2：统一活动互斥和队列
 
 - [x] 选择 `techniqueActivityQueue` 作为唯一队列真源。
-- [ ] 明确资源扣除时机：默认 running job 启动时扣资源，queued job 不提前扣资源；例外必须在 strategy 中写明。
+- [x] 明确资源扣除时机：默认 running job 启动时扣资源，queued job 不提前扣资源；例外必须在 strategy 中写明。
 - [x] 给炼丹、炼器、强化 start 入口改为写统一队列，不再写 job 内 `queuedJobs`。
 - [x] 水合期把旧 `queuedJobs` 迁移到 `techniqueActivityQueue`。
 - [x] 队列推进使用真实 `buildPipelineContext(deps)`，不能再用 `contentTemplateRepository: null` 和固定 `resolveExpToNextByLevel: () => 100`。
@@ -494,6 +494,7 @@ strategy 只负责领域差异：
 - 2026-05-27：`player-domain-persistence-smoke` 增加 active job 双向兼容 proof：`alchemy` / `forging` / `enhancement` / `gather` / `mining` / `building` / `formation` 的旧 `progression.<kind>Job` 快照会投影写入 `player_active_job(job_type, detail_jsonb)`；直接写入 `player_active_job` 后也能通过 `loadProjectedSnapshot` 回读到对应 `progression.<kind>Job`。断言覆盖 `jobRunId`、`jobType`、`jobVersion`、`remainingTicks`、`interruptWaitRemainingTicks` 和 detail payload 保留，且不会泄漏到其他 job slot；该 smoke 使用独立玩家 id 并在 finally 中自动清理。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-domain-persistence-smoke.js` 通过。该 proof 证明 active job DB payload 按统一 kind 写入和恢复，但不等同于强化锁定物、队列和 active job 在崩溃时一起恢复或清理。
 - 2026-05-27：`world-runtime-craft-smoke` 补齐条件型 sleeping 恢复覆盖：采集、建造、阵法维护、挖矿的 sleeping 队列项都会用原 payload 经 `TechniqueActivityQueueService.tickQueue` 和 `TechniqueActivityPipelineService.start` 恢复；其中阵法委托 `FormationStrategy.executeStart -> worldRuntimeFormationService.startFormationMaintenance`，挖矿恢复会重新校验玩家位置、矿脉地块和耐久并创建 `miningJob`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 覆盖“条件暂时不满足时休眠，恢复后能继续”，不覆盖永久失效时所有外部占用释放。
 - 2026-05-27：旧制造 job 内 `queuedJobs` 的水合迁移补齐：`PlayerRuntimeService.hydrateFromSnapshot` 会把 `alchemyJob` / `forgingJob` / `enhancementJob.queuedJobs` 合并进 `techniqueActivityQueue`，清除旧字段，标记 `active_job` 脏域并 bump `persistentRevision`，保证下一次快照只保存统一队列。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-runtime-persistence-roundtrip-smoke.js` 通过。查询侧仍保留旧字段只读 fallback，供尚未水合的旧形态兼容。
+- 2026-05-27：队列资源扣除时机 proof 补齐：炼丹/炼器已有 running job 时追加 `queueMode=append` 只写 `techniqueActivityQueue`，不消耗材料或灵石；强化已有其他技艺活动时入队不锁定装备、不扣灵石，目标装备仍留在背包。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js` 通过。
 
 ## 验证矩阵
 

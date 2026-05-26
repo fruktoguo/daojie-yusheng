@@ -25,6 +25,7 @@ async function main(): Promise<void> {
   await testSpiritStoneMissingStopsOnSuccessSettlement();
   await testMissingLockedItemClearsJobWithoutSnapshotFallback();
   await testCancelReturnsLockedTarget();
+  await testQueuedEnhancementDoesNotLockOrConsumeResources();
 
   console.log(JSON.stringify({
     ok: true,
@@ -34,6 +35,7 @@ async function main(): Promise<void> {
       'tick 结算按 job.successRate 判定成功或失败。',
       '保护物不足、灵石不足、锁定物丢失都有确定停止结果。',
       '成功后会回写强化等级、记录和灵石消耗；取消会释放锁定目标。',
+      '已有技艺活动时，强化入队不会提前锁装备或扣灵石。',
     ],
   }, null, 2));
 }
@@ -310,6 +312,35 @@ async function testCancelReturnsLockedTarget(): Promise<void> {
   await settleAsync();
   assert.equal(persistedActiveJobs.at(-1)?.phase ?? null, null);
   assert.equal(persistedEnhancementRecords.length > 0, true);
+}
+
+async function testQueuedEnhancementDoesNotLockOrConsumeResources(): Promise<void> {
+  const player = createPlayer('player:enhancement:queue-no-preconsume', [
+    createEquipmentItem('iron_sword', '铁剑', 8, 1),
+  ]);
+  player.alchemyJob = {
+    jobRunId: 'job:alchemy:blocking',
+    jobType: 'alchemy',
+    phase: 'brewing',
+    remainingTicks: 3,
+    totalTicks: 3,
+  };
+  const { craftService } = createCraftHarness(player, [], []);
+  const target = player.inventory.items[0];
+  const targetInstanceId = target.itemInstanceId;
+  const balanceBefore = Number(player.wallet.balances[0].balance);
+
+  const queued = craftService.startEnhancement(player, {
+    target: buildInventoryRef(target),
+    queueMode: 'append',
+  });
+
+  assert.equal(queued.ok, true);
+  assert.equal(player.techniqueActivityQueue.length, 1);
+  assert.equal(player.techniqueActivityQueue[0]?.kind, 'enhancement');
+  assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
+  assert.equal(player.inventory.items.some((item: { itemInstanceId?: string }) => item.itemInstanceId === targetInstanceId), true);
+  assert.equal(Number(player.wallet.balances[0].balance), balanceBefore);
 }
 
 function createCraftHarness(

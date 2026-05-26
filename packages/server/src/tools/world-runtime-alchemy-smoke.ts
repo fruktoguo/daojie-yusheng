@@ -65,6 +65,7 @@ async function main(): Promise<void> {
       '炼丹/炼器创建后直接进入实际制作 job，不再创建玩家可见准备阶段。',
       '打断等待独立于 workRemainingTicks/workTotalTicks。',
       '制造型队列写入 techniqueActivityQueue，当前任务完成后能启动下一项。',
+      '炼丹/炼器入队不会提前消耗材料或灵石。',
       '炼器使用独立 forgingJob 槽位。',
       'WorldRuntimeAlchemyService 通过统一 technique activity 入口启动并刷新面板。',
     ],
@@ -125,6 +126,8 @@ async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
     quantity: 1,
   }, ctx.deps);
   assert.equal(first.ok, true);
+  const herbCountAfterFirstStart = countPlayerItem(player, 'herb.qi');
+  const spiritStonesAfterFirstStart = resolveWalletBalance(player, 'spirit_stone');
 
   const queued = craftService.startTechniqueActivity(player, 'alchemy', {
     recipeId: ALCHEMY_RECIPE.recipeId,
@@ -133,6 +136,8 @@ async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
     queueMode: 'append',
   }, ctx.deps);
   assert.equal(queued.ok, true);
+  assert.equal(countPlayerItem(player, 'herb.qi'), herbCountAfterFirstStart);
+  assert.equal(resolveWalletBalance(player, 'spirit_stone'), spiritStonesAfterFirstStart);
   assert.equal(player.alchemyJob?.queuedJobs, undefined);
   assert.equal(player.techniqueActivityQueue.length, 1);
   assert.equal(player.techniqueActivityQueue[0]?.state, 'pending');
