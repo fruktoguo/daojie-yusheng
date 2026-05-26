@@ -18,7 +18,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
 import { ALCHEMY_FURNACE_TAG, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
 import { CraftPanelEnhancementQueryService } from './craft-panel-enhancement-query.service';
-import { advanceTechniqueActivityPause, applyTechniqueActivityInterrupt, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
+import { advanceTechniqueActivityPause, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from './craft-skill-exp.helpers';
 import { TechniqueActivityPipelineService } from './pipeline/technique-activity-pipeline.service';
 import { AlchemyStrategy } from './pipeline/strategies/alchemy.strategy';
@@ -35,9 +35,6 @@ import {
 
 /** 强化与炼丹计算中固定使用的灵石物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = ENHANCEMENT_SPIRIT_STONE_ITEM_ID;
-
-/** 炼丹被打断后进入的暂停息数。 */
-const ALCHEMY_INTERRUPT_PAUSE_TICKS = 10;
 
 /** 制作运行时服务：负责炼丹与强化的任务创建、进度推进与结果落库。 */
 @Injectable()
@@ -648,28 +645,8 @@ export class CraftPanelRuntimeService {
     interruptAlchemy(player, reason, jobKind = 'alchemy') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        this.ensureCraftSkills(player);
         const normalizedJobKind = jobKind === 'forging' ? 'forging' : 'alchemy';
-        const job = getAlchemyLikeJob(player, normalizedJobKind);
-        const addedPauseTicks = applyTechniqueActivityInterrupt(job, ALCHEMY_INTERRUPT_PAUSE_TICKS, reason);
-        if (addedPauseTicks <= 0) {
-            return buildCraftTickResult();
-        }
-        this.finalizeMutation(player, {
-            persistentOnly: true,
-            dirtyDomains: ['active_job'],
-        });
-        return buildCraftTickResult(true, [{
-                kind: 'system',
-                key: 'notice.craft.activity-interrupted-wait',
-                vars: {
-                    itemName: this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
-                    activityLabel: normalizedJobKind === 'forging' ? '炼器' : '炼制',
-                    ticks: ALCHEMY_INTERRUPT_PAUSE_TICKS,
-                    reason,
-                },
-                pills: [{ key: 'itemName', style: 'target' }],
-            }]);
+        return this.interruptTechniqueActivity(player, normalizedJobKind, reason);
     }
     /** 读取炼丹/炼器 active job，供 pipeline strategy 推进。 */
     getAlchemyLikeActiveJob(player, jobKind = 'alchemy') {
