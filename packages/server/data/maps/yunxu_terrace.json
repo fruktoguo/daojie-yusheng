@@ -172,6 +172,22 @@
       "observeDesc": "石台北缘的阶口向下延伸，云雾中隐约可见天梯石阶的轮廓。"
     },
     {
+      "id": "yunxu_terrace:17,4",
+      "direction": "one_way",
+      "x": 17,
+      "y": 4,
+      "targetMapId": "guizang_vein_cavern",
+      "targetX": 33,
+      "targetY": 31,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false,
+      "observeTitle": "归藏捷径",
+      "observeDesc": "天梯回阶旁另开一座偏阵，阵纹向下折入归藏脉窟，只能由云墟台单向回返旧窟。"
+    },
+    {
       "id": "yunxu_terrace:24,41",
       "targetPortalId": "frostblade_abyss:19,4",
       "direction": "two_way",
