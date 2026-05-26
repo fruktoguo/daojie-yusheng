@@ -146,7 +146,7 @@ export class WorldSyncQuestLootService {
 type QuestRuntimeSyncEntry = {
     id: string;
     status: string;
-    progress: number;
+    progress?: number;
 };
 
 function buildQuestDeltaPayload(previous: QuestRuntimeSyncEntry[], current: QuestRuntimeSyncEntry[], revision: number) {
@@ -173,9 +173,12 @@ function buildQuestDeltaPayload(previous: QuestRuntimeSyncEntry[], current: Ques
 }
 
 function toQuestRuntimeState(source) {
-    return {
+    const entry: QuestRuntimeSyncEntry = {
         id: source.id,
         status: source.status,
-        progress: Math.max(0, Math.trunc(Number(source.progress ?? 0))),
     };
+    if (source.status !== 'completed') {
+        entry.progress = Math.max(0, Math.trunc(Number(source.progress ?? 0)));
+    }
+    return entry;
 }

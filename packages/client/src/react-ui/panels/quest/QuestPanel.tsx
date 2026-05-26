@@ -238,6 +238,7 @@ export function QuestPanel() {
   const { quests, inventory } = useQuestPanelStore();
   const [activeLine, setActiveLine] = useState<QuestState['line']>('main');
   const [userHasSelected, setUserHasSelected] = useState(false);
+  const [expandedCompletedLines, setExpandedCompletedLines] = useState<ReadonlySet<QuestState['line']>>(() => new Set());
 
   const counts = useMemo(() => buildCounts(quests), [quests]);
 
@@ -248,6 +249,9 @@ export function QuestPanel() {
   }, [activeLine, counts, userHasSelected]);
 
   const visibleQuests = useMemo(() => getVisibleQuests(quests, effectiveLine), [quests, effectiveLine]);
+  const incompleteQuests = useMemo(() => visibleQuests.filter((quest) => quest.status !== 'completed'), [visibleQuests]);
+  const completedQuests = useMemo(() => visibleQuests.filter((quest) => quest.status === 'completed'), [visibleQuests]);
+  const completedExpanded = expandedCompletedLines.has(effectiveLine);
 
   const handleTabClick = useCallback((line: QuestState['line']) => {
     setUserHasSelected(true);
@@ -261,6 +265,18 @@ export function QuestPanel() {
   const handleNavigate = useCallback((questId: string) => {
     callbacks.onNavigateQuest?.(questId);
   }, []);
+
+  const handleCompletedToggle = useCallback(() => {
+    setExpandedCompletedLines((previous) => {
+      const next = new Set(previous);
+      if (next.has(effectiveLine)) {
+        next.delete(effectiveLine);
+      } else {
+        next.add(effectiveLine);
+      }
+      return next;
+    });
+  }, [effectiveLine]);
 
   if (quests.length === 0) {
     return (
@@ -283,7 +299,7 @@ export function QuestPanel() {
         <div className="empty-hint" data-quest-empty="true">{t('quest.empty.line', { line: getQuestLineLabel(effectiveLine) })}</div>
       ) : (
         <div className="quest-card-list">
-          {visibleQuests.map((quest) => (
+          {incompleteQuests.map((quest) => (
             <QuestCard
               key={quest.id}
               quest={quest}
@@ -292,6 +308,14 @@ export function QuestPanel() {
               onNavigate={handleNavigate}
             />
           ))}
+          <QuestCompletedSection
+            completedExpanded={completedExpanded}
+            completedQuests={completedQuests}
+            inventory={inventory}
+            onClick={handleQuestClick}
+            onNavigate={handleNavigate}
+            onToggle={handleCompletedToggle}
+          />
         </div>
       )}
     </div>
@@ -326,6 +350,52 @@ const QuestLineTabs = memo(function QuestLineTabs({
         </button>
       ))}
     </div>
+  );
+});
+
+const QuestCompletedSection = memo(function QuestCompletedSection({
+  completedExpanded,
+  completedQuests,
+  inventory,
+  onClick,
+  onNavigate,
+  onToggle,
+}: {
+  completedExpanded: boolean;
+  completedQuests: QuestState[];
+  inventory: Inventory | null;
+  onClick: (questId: string) => void;
+  onNavigate: (questId: string) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <button
+        className="quest-completed-toggle"
+        type="button"
+        disabled={completedQuests.length === 0}
+        aria-expanded={completedExpanded ? 'true' : 'false'}
+        data-quest-completed-toggle="true"
+        onClick={onToggle}
+      >
+        <span className="quest-completed-toggle-icon" aria-hidden="true">{completedExpanded ? 'v' : '>'}</span>
+        <span>{t('quest.completed.title', undefined, '已完成')}</span>
+        <span className="quest-completed-count">{completedQuests.length}</span>
+      </button>
+      {completedExpanded && completedQuests.length > 0 && (
+        <div className="quest-completed-list">
+          {completedQuests.map((quest) => (
+            <QuestCard
+              key={quest.id}
+              quest={quest}
+              requiredItemCount={quest.requiredItemId ? getInventoryItemCount(inventory, quest.requiredItemId) : 0}
+              onClick={onClick}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 });
 

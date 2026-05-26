@@ -90,6 +90,8 @@ export class QuestPanel {
   private lastVisibleQuestIds: string[] | null = null;
   /** lastStructureLine：last Structure Line。 */
   private lastStructureLine: QuestState['line'] | null = null;  
+  /** completedExpandedLines：已完成任务展开状态，按任务线保存。 */
+  private completedExpandedLines = new Set<QuestState['line']>();
   /**
  * currentMapId：current地图ID标识。
  */
@@ -211,6 +213,7 @@ export class QuestPanel {
     this.lastStructureLine = null;
     this.selectedQuestId = undefined;
     this.hasUserSelectedLine = false;
+    this.completedExpandedLines.clear();
     this.inventory = null;
     this.shellRefs = null;
     if (this.useReactPanel()) {
@@ -338,6 +341,20 @@ export class QuestPanel {
         return;
       }
 
+      const completedToggle = target.closest<HTMLElement>('[data-quest-completed-toggle]');
+      if (completedToggle) {
+        const line = completedToggle.dataset.questCompletedToggle as QuestState['line'] | undefined;
+        if (!line) return;
+        if (this.completedExpandedLines.has(line)) {
+          this.completedExpandedLines.delete(line);
+        } else {
+          this.completedExpandedLines.add(line);
+        }
+        this.renderList();
+        this.patchModal();
+        return;
+      }
+
       const questButton = target.closest<HTMLElement>('[data-quest-id]');
       if (!questButton) {
         return;
@@ -375,13 +392,14 @@ export class QuestPanel {
       countNode.textContent = `${counts[line]}`;
     }
 
-    const visibleQuests = this.getVisibleQuests(quests);
+    const visibleGroups = this.getVisibleQuestGroups(quests);
+    const visibleQuests = this.getRenderedVisibleQuests(visibleGroups);
     const visibleQuestIds = visibleQuests.map((quest) => quest.id);
     const titleNode = section.querySelector<HTMLElement>('.panel-section-title');
     if (!titleNode) {
       return false;
     }
-    if (visibleQuests.length === 0) {
+    if (visibleGroups.incomplete.length === 0 && visibleGroups.completed.length === 0) {
       const emptyNode = this.pane.querySelector<HTMLElement>('[data-quest-empty="true"]') ?? this.createEmptyState();
       emptyNode.textContent = t('quest.empty.line', {
         line: getQuestLineLabel(this.activeLine),
@@ -396,6 +414,7 @@ export class QuestPanel {
     if (
       this.lastStructureLine === this.activeLine
       && isSameQuestIdSequence(this.lastVisibleQuestIds, visibleQuestIds)
+      && Boolean(section.querySelector('[data-quest-completed-toggle]'))
     ) {
       for (const quest of visibleQuests) {
         const card = this.pane.querySelector<HTMLElement>(`[data-quest-id="${CSS.escape(quest.id)}"]`);
@@ -403,6 +422,7 @@ export class QuestPanel {
           this.patchQuestCard(card, quest);
         }
       }
+      this.patchCompletedToggle(section, visibleGroups);
       this.lastVisibleQuestIds = visibleQuestIds;
       this.lastStructureLine = this.activeLine;
       return true;
@@ -415,12 +435,20 @@ export class QuestPanel {
         existingCards.set(questId, card);
       }
     });
-    const orderedCards = visibleQuests.map((quest) => {
+    const orderedIncompleteCards = visibleGroups.incomplete.map((quest) => {
       const card = existingCards.get(quest.id) ?? this.createQuestCard(quest);
       this.patchQuestCard(card, quest);
       existingCards.delete(quest.id);
       return card;
     });
+    const orderedCompletedCards = visibleGroups.completedExpanded
+      ? visibleGroups.completed.map((quest) => {
+        const card = existingCards.get(quest.id) ?? this.createQuestCard(quest);
+        this.patchQuestCard(card, quest);
+        existingCards.delete(quest.id);
+        return card;
+      })
+      : [];
     existingCards.forEach((card) => card.remove());
 
     // 增量同步 section 子节点，保留滚动位置
@@ -431,23 +459,25 @@ export class QuestPanel {
     if (titleNode.nextSibling !== subtabs) {
       section.insertBefore(subtabs, titleNode.nextSibling);
     }
-    // 同步 cards 部分（subtabs 之后）
-    const allowedCards = new Set<HTMLElement>(orderedCards);
     let cursor = subtabs.nextSibling;
     while (cursor) {
       const next = cursor.nextSibling;
-      if (cursor instanceof HTMLElement && !allowedCards.has(cursor)) {
+      if (cursor instanceof HTMLElement) {
         cursor.remove();
       }
       cursor = next;
     }
-    let ref: ChildNode | null = subtabs.nextSibling;
-    for (const card of orderedCards) {
-      if (ref !== card) {
-        section.insertBefore(card, ref);
-      } else {
-        ref = ref.nextSibling;
-      }
+    for (const card of orderedIncompleteCards) {
+      section.append(card);
+    }
+    const completedToggle = this.createCompletedToggle(visibleGroups);
+    section.append(completedToggle);
+    if (visibleGroups.completedExpanded && orderedCompletedCards.length > 0) {
+      const completedList = document.createElement('div');
+      completedList.className = 'quest-completed-list';
+      completedList.dataset.questCompletedList = this.activeLine;
+      completedList.append(...orderedCompletedCards);
+      section.append(completedList);
     }
 
     this.lastVisibleQuestIds = visibleQuestIds;
@@ -514,6 +544,53 @@ export class QuestPanel {
 
     this.patchQuestCard(card, quest);
     return card;
+  }
+
+  /** createCompletedToggle：创建已完成任务折叠头。 */
+  private createCompletedToggle(groups: {
+    completed: QuestState[];
+    completedExpanded: boolean;
+  }): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = 'quest-completed-toggle';
+    button.type = 'button';
+    button.dataset.questCompletedToggle = this.activeLine;
+    button.setAttribute('aria-expanded', groups.completedExpanded ? 'true' : 'false');
+    button.disabled = groups.completed.length === 0;
+
+    const icon = document.createElement('span');
+    icon.className = 'quest-completed-toggle-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = groups.completedExpanded ? 'v' : '>';
+    const label = document.createElement('span');
+    label.textContent = t('quest.completed.title', undefined, '已完成');
+    const count = document.createElement('span');
+    count.className = 'quest-completed-count';
+    count.textContent = `${groups.completed.length}`;
+    button.append(icon, label, count);
+    return button;
+  }
+
+  /** patchCompletedToggle：局部更新已完成折叠头。 */
+  private patchCompletedToggle(section: HTMLElement, groups: {
+    completed: QuestState[];
+    completedExpanded: boolean;
+  }): void {
+    const toggle = section.querySelector<HTMLButtonElement>('[data-quest-completed-toggle]');
+    if (!toggle) {
+      return;
+    }
+    toggle.dataset.questCompletedToggle = this.activeLine;
+    toggle.setAttribute('aria-expanded', groups.completedExpanded ? 'true' : 'false');
+    toggle.disabled = groups.completed.length === 0;
+    const icon = toggle.querySelector<HTMLElement>('.quest-completed-toggle-icon');
+    if (icon) {
+      icon.textContent = groups.completedExpanded ? 'v' : '>';
+    }
+    const count = toggle.querySelector<HTMLElement>('.quest-completed-count');
+    if (count) {
+      count.textContent = `${groups.completed.length}`;
+    }
   }
 
   /** patchQuestCard：处理patch任务卡片。 */
@@ -767,6 +844,31 @@ export class QuestPanel {
     return [...quests]
       .filter((quest) => quest.line === this.activeLine)
       .sort((a, b) => STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]);
+  }
+
+  /** getVisibleQuestGroups：按当前任务线拆分未完成与已完成任务。 */
+  private getVisibleQuestGroups(quests: QuestState[]): {
+    incomplete: QuestState[];
+    completed: QuestState[];
+    completedExpanded: boolean;
+  } {
+    const lineQuests = this.getVisibleQuests(quests);
+    return {
+      incomplete: lineQuests.filter((quest) => quest.status !== 'completed'),
+      completed: lineQuests.filter((quest) => quest.status === 'completed'),
+      completedExpanded: this.completedExpandedLines.has(this.activeLine),
+    };
+  }
+
+  /** getRenderedVisibleQuests：读取当前实际渲染为卡片的任务。 */
+  private getRenderedVisibleQuests(groups: {
+    incomplete: QuestState[];
+    completed: QuestState[];
+    completedExpanded: boolean;
+  }): QuestState[] {
+    return groups.completedExpanded
+      ? [...groups.incomplete, ...groups.completed]
+      : groups.incomplete;
   }
 
   /** buildVisibleQuestIds：构建可见任务ID 列表。 */

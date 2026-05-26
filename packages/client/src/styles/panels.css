@@ -4933,6 +4933,48 @@
       border-color: rgba(125, 27, 27, 0.35);
       background: var(--surface-hover);
     }
+    .quest-completed-toggle {
+      width: 100%;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 4px 0 8px;
+      padding: 7px 10px;
+      border: 1px solid var(--wash-ink);
+      background: var(--surface-muted);
+      color: var(--ink-grey);
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-12);
+      cursor: pointer;
+    }
+    .quest-completed-toggle:hover:not(:disabled) {
+      border-color: rgba(125, 27, 27, 0.35);
+      background: var(--surface-hover);
+      color: var(--ink-black);
+    }
+    .quest-completed-toggle:disabled {
+      cursor: default;
+      opacity: 0.68;
+    }
+    .quest-completed-toggle-icon {
+      width: 14px;
+      text-align: center;
+      color: var(--stamp-red);
+      font-weight: var(--font-weight-heavy);
+    }
+    .quest-completed-count {
+      min-width: 18px;
+      padding: 1px 6px;
+      border: 1px solid currentColor;
+      text-align: center;
+      font-size: var(--font-size-11);
+      line-height: 1.1;
+    }
+    .quest-completed-list {
+      margin-bottom: 8px;
+    }
     .quest-title-row {
       display: flex;
       justify-content: space-between;

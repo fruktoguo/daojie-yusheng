@@ -241,10 +241,10 @@ export interface QuestRuntimeStateView {
 
   status: QuestStatus;
   /**
- * progress：服务端裁定的当前进度。
+ * progress：服务端裁定的当前进度。已完成任务可省略，客户端按 required 派生满进度。
  */
 
-  progress: number;
+  progress?: number;
 }
 
 /** 任务自动导航的运行状态。 */

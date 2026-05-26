@@ -206,15 +206,23 @@ function stripInvalidPreviewInstanceId(item: ItemStack): ItemStack {
 /** 用本地模板补齐任务展示字段，保留服务端运行态字段。 */
 export function resolvePreviewQuest(quest: QuestState): QuestState {
   const template = getLocalQuestTemplate(quest.id);
+  const required = quest.required ?? template?.required ?? 1;
+  const progress = quest.status === 'completed'
+    ? required
+    : quest.progress ?? template?.progress ?? 0;
   const merged = template
     ? {
       ...template,
       ...quest,
       status: quest.status ?? template.status,
-      progress: quest.progress ?? template.progress,
-      required: quest.required ?? template.required,
+      progress,
+      required,
     }
-    : quest;
+    : {
+      ...quest,
+      progress,
+      required,
+    };
   return {
     ...merged,
     rewardItemIds: Array.isArray(merged.rewardItemIds) ? merged.rewardItemIds.slice() : [],

@@ -4015,11 +4015,12 @@ async function replacePlayerQuestProgressRows(
     if (!questId) {
       continue;
     }
+    const status = normalizeOptionalString(row?.status) ?? 'active';
     normalizedRows.push({
       quest_id: questId,
-      status: normalizeOptionalString(row?.status) ?? 'active',
-      progress_payload: normalizeQuestProgressPayload(row?.progressPayload),
-      raw_payload: normalizeQuestRawPayload(row?.rawPayload, questId, row?.status),
+      status,
+      progress_payload: status === 'completed' ? null : normalizeQuestProgressPayload(row?.progressPayload),
+      raw_payload: normalizeQuestRawPayload(row?.rawPayload, questId, status),
     });
   }
 
@@ -4043,7 +4044,7 @@ async function replacePlayerQuestProgressRows(
           raw_payload,
           updated_at
         )
-        SELECT $1, quest_id, status, COALESCE(progress_payload, '{}'::jsonb), COALESCE(raw_payload, '{}'::jsonb), now()
+        SELECT $1, quest_id, status, progress_payload, COALESCE(raw_payload, '{}'::jsonb), now()
         FROM incoming
         ON CONFLICT (player_id, quest_id)
         DO UPDATE SET
@@ -4166,7 +4167,7 @@ function normalizeQuestProgressSnapshots(
     rows.push({
       questId,
       status,
-      progressPayload: normalizeQuestProgressPayload(snapshot?.progressPayload),
+      progressPayload: status === 'completed' ? null : normalizeQuestProgressPayload(snapshot?.progressPayload),
       rawPayload: normalizeQuestRawPayload(snapshot?.rawPayload, questId, status),
     });
   }
@@ -4191,6 +4192,15 @@ function normalizeQuestRawPayload(
   status: string,
 ): Record<string, unknown> {
   if (rawPayload && typeof rawPayload === 'object' && !Array.isArray(rawPayload)) {
+    if (status === 'completed') {
+      const { progress: _progress, ...rest } = rawPayload as Record<string, unknown>;
+      return {
+        ...rest,
+        id: questId,
+        questId,
+        status,
+      };
+    }
     return {
       ...(rawPayload as Record<string, unknown>),
       id: questId,
@@ -4202,7 +4212,6 @@ function normalizeQuestRawPayload(
     id: questId,
     questId,
     status,
-    progress: null,
   };
 }
 

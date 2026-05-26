@@ -4991,12 +4991,15 @@ async function replacePlayerQuestProgressRows(
   playerId: string,
   rows: QuestProgressRow[],
 ): Promise<void> {
-  const normalizedRows = rows.map((row) => ({
-    quest_id: row.questId,
-    status: row.status,
-    progress_payload: row.progressPayload,
-    raw_payload: row.rawPayload,
-  }));
+  const normalizedRows = rows.map((row) => {
+    const status = normalizeOptionalString(row.status) ?? 'active';
+    return {
+      quest_id: row.questId,
+      status,
+      progress_payload: status === 'completed' ? null : row.progressPayload,
+      raw_payload: buildQuestProgressRawPayload(row.rawPayload ?? {}, row.questId, status),
+    };
+  });
   if (normalizedRows.length > 0) {
     await client.query(
       `
@@ -5017,7 +5020,7 @@ async function replacePlayerQuestProgressRows(
           raw_payload,
           updated_at
         )
-        SELECT $1, quest_id, status, COALESCE(progress_payload, '{}'::jsonb), COALESCE(raw_payload, '{}'::jsonb), now()
+        SELECT $1, quest_id, status, progress_payload, COALESCE(raw_payload, '{}'::jsonb), now()
         FROM incoming
         ON CONFLICT (player_id, quest_id)
         DO UPDATE SET
@@ -5772,14 +5775,27 @@ function buildQuestProgressRows(snapshot: PersistedPlayerSnapshot): QuestProgres
     if (!questId) {
       continue;
     }
+    const status = normalizeOptionalString(normalized?.status) ?? 'active';
     rows.push({
       questId,
-      status: normalizeOptionalString(normalized?.status) ?? 'active',
-      progressPayload: normalizeQuestProgressPayload(normalized?.progress),
-      rawPayload: { ...normalized, id: questId },
+      status,
+      progressPayload: status === 'completed' ? null : normalizeQuestProgressPayload(normalized?.progress),
+      rawPayload: buildQuestProgressRawPayload(normalized ?? {}, questId, status),
     });
   }
   return rows;
+}
+
+function buildQuestProgressRawPayload(
+  normalized: Record<string, unknown>,
+  questId: string,
+  status: string,
+): Record<string, unknown> {
+  if (status === 'completed') {
+    const { progress: _progress, ...rest } = normalized;
+    return { ...rest, id: questId, questId, status };
+  }
+  return { ...normalized, id: questId, questId, status };
 }
 
 function buildEnhancementRecordRows(playerId: string, snapshot: PersistedPlayerSnapshot): EnhancementRecordRow[] {
@@ -6618,12 +6634,19 @@ function applyProjectedQuestProgress(
         ?? normalizeOptionalString(rawPayload?.id)
         ?? normalizeOptionalString(row.quest_id)
         ?? 'quest:unknown';
-      return {
+      const status = normalizeOptionalString(rawPayload?.status) ?? normalizeOptionalString(row.status) ?? 'active';
+      const progress = decodeJsonValue(row.progress_payload) ?? rawPayload?.progress;
+      const entry = {
         ...(rawPayload ?? {}),
         id: questId,
         questId,
-        status: normalizeOptionalString(rawPayload?.status) ?? normalizeOptionalString(row.status) ?? 'active',
-        progress: decodeJsonValue(row.progress_payload) ?? rawPayload?.progress ?? {},
+        status,
+      };
+      if (status !== 'completed') {
+        (entry as Record<string, unknown>).progress = progress ?? {};
+      }
+      return {
+        ...entry,
       };
     }),
   };

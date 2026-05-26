@@ -4593,13 +4593,15 @@ function cloneQuestRuntimeEntry(entry) {
         || entry.objectiveType === 'realm_stage'
         ? entry.objectiveType
         : 'kill';
+    const status = entry.status === 'available' || entry.status === 'active' || entry.status === 'ready' || entry.status === 'completed' ? entry.status : 'active';
+    const required = Math.max(1, Math.trunc(Number(entry.required ?? 1)));
     const cloned: any = {
         id: typeof entry.id === 'string' ? entry.id : '',
         line: entry.line === 'main' || entry.line === 'daily' || entry.line === 'encounter' ? entry.line : 'side',
-        status: entry.status === 'available' || entry.status === 'active' || entry.status === 'ready' || entry.status === 'completed' ? entry.status : 'active',
+        status,
         objectiveType,
-        progress: Math.max(0, Math.trunc(Number(entry.progress ?? 0))),
-        required: Math.max(1, Math.trunc(Number(entry.required ?? 1))),
+        progress: status === 'completed' ? required : Math.max(0, Math.trunc(Number(entry.progress ?? 0))),
+        required,
         targetMonsterId: typeof entry.targetMonsterId === 'string' ? entry.targetMonsterId : '',
     };
     if (typeof entry.targetName === 'string' && entry.targetName.trim() && entry.targetName !== cloned.targetMonsterId) {

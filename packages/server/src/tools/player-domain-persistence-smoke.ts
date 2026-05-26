@@ -150,7 +150,7 @@ async function main(): Promise<void> {
     );
     const questRows = await fetchRows(
       pool,
-      'SELECT quest_id, status FROM player_quest_progress WHERE player_id = $1 ORDER BY quest_id ASC',
+      'SELECT quest_id, status, progress_payload, raw_payload FROM player_quest_progress WHERE player_id = $1 ORDER BY quest_id ASC',
       [playerId],
     );
     const combatPreferenceRow = await fetchSingleRow(
@@ -285,11 +285,22 @@ async function main(): Promise<void> {
       throw new Error(`unexpected player_persistent_buff_state rows: ${JSON.stringify(persistentBuffRows)}`);
     }
     if (
-      questRows.length !== 1
+      questRows.length !== 2
       || questRows[0]?.quest_id !== 'quest.intro.begin'
       || questRows[0]?.status !== 'in_progress'
+      || questRows[1]?.quest_id !== 'quest.intro.done'
+      || questRows[1]?.status !== 'completed'
     ) {
       throw new Error(`unexpected player_quest_progress rows: ${JSON.stringify(questRows)}`);
+    }
+    if (questRows[1]?.progress_payload !== null) {
+      throw new Error(`completed quest should not persist progress_payload: ${JSON.stringify(questRows[1])}`);
+    }
+    const completedQuestRawPayload = questRows[1]?.raw_payload && typeof questRows[1].raw_payload === 'object'
+      ? questRows[1].raw_payload as Record<string, unknown>
+      : {};
+    if (Object.prototype.hasOwnProperty.call(completedQuestRawPayload, 'progress')) {
+      throw new Error(`completed quest raw_payload should omit progress: ${JSON.stringify(questRows[1])}`);
     }
     if (
       !combatPreferenceRow
@@ -2510,6 +2521,16 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
           status: 'in_progress',
           progress: {
             kills: 2,
+            target: 5,
+          },
+          rewardItemIds: ['pill.minor_heal'],
+          rewards: [{ type: 'item', itemId: 'pill.minor_heal', count: 1 }],
+        },
+        {
+          id: 'quest.intro.done',
+          status: 'completed',
+          progress: {
+            kills: 5,
             target: 5,
           },
           rewardItemIds: ['pill.minor_heal'],
