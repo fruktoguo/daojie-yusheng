@@ -255,7 +255,8 @@ class WorldRuntimeSectService {
             eyeY: sect.coreY,
             radius: 1,
             spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
-            remainingAuraBudget: SECT_GUARDIAN_INITIAL_AURA,
+            remainingQiBudget: SECT_GUARDIAN_INITIAL_AURA,
+            remainingSpiritStoneBudget: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
             active: true,
         }, deps);
     }
@@ -323,13 +324,14 @@ class WorldRuntimeSectService {
         }
         if (actionId.startsWith('sect:guardian:inject:')) {
             assertSectPermission(sect, playerId, 'guardian');
-            const [, , , stoneText = '0'] = actionId.split(':');
+            const [, , , stoneText = '0', qiText = '0'] = actionId.split(':');
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
                 ?? this.ensureGuardianFormation(sect, deps);
             deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
                 instanceId: sect.entranceInstanceId,
                 formationInstanceId: formation?.id ?? guardianId,
                 spiritStoneCount: normalizeNonNegativeInteger(stoneText),
+                qiAmount: normalizeNonNegativeInteger(qiText),
             }, deps);
             const nCharged = buildStructuredNotice('success', 'notice.sect.formation-charged', '护宗大阵灵力已注入。');
             deps.queuePlayerNotice(playerId, nCharged.text, nCharged.kind, undefined, undefined, nCharged.structured);
@@ -345,6 +347,7 @@ class WorldRuntimeSectService {
                     instanceId: sect.entranceInstanceId,
                     formationInstanceId: guardianId,
                     spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / FORMATION_AURA_PER_SPIRIT_STONE),
+                    qiAmount: SECT_GUARDIAN_INITIAL_AURA,
                 }, deps);
             }
             const nReplenished = buildStructuredNotice('success', 'notice.sect.formation-replenished', '护宗大阵已补充灵力。');
@@ -1382,15 +1385,18 @@ function formatSectGuardianStatusLabel(formation) {
     if (!formation) {
         return '未建立';
     }
-    if (formation.active === false || Number(formation.remainingAuraBudget) <= 0) {
+    const qiBudget = Number(formation.remainingQiBudget ?? formation.remainingAuraBudget) || 0;
+    const spiritStoneBudget = Number(formation.remainingSpiritStoneBudget ?? formation.spiritStoneCount) || 0;
+    if (formation.active === false || qiBudget <= 0 || spiritStoneBudget <= 0) {
         return '停摆';
     }
     return '开启';
 }
 
 function formatSectGuardianAuraLabel(formation) {
-    const value = Math.max(0, Math.floor(Number(formation?.remainingAuraBudget) || 0));
-    return formatInteger(value);
+    const qiValue = Math.max(0, Math.floor(Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0));
+    const stoneValue = Math.max(0, Math.floor(Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0));
+    return `${formatInteger(qiValue)} / 灵石 ${formatInteger(stoneValue)}`;
 }
 
 function formatInteger(value) {

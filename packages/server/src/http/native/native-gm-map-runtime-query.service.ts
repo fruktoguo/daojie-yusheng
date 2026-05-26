@@ -401,6 +401,8 @@ interface WorldRuntimeServiceLike {
       showText?: boolean;
       rangeHighlightColor?: string;
       remainingAuraBudget?: number;
+      remainingQiBudget?: number;
+      remainingSpiritStoneBudget?: number;
       ownerPlayerId?: string;
       formationId?: string;
     }>;
@@ -913,6 +915,8 @@ export class NativeGmMapRuntimeQueryService {
         showText: formation.showText !== false,
         rangeHighlightColor: formation.rangeHighlightColor,
         remainingAuraBudget: formation.remainingAuraBudget,
+        remainingQiBudget: formation.remainingQiBudget ?? formation.remainingAuraBudget,
+        remainingSpiritStoneBudget: formation.remainingSpiritStoneBudget,
         ownerPlayerId: formation.ownerPlayerId,
         formationId: formation.formationId,
       });

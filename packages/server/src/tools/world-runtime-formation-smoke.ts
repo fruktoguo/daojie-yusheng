@@ -212,7 +212,7 @@ async function main() {
   assert.equal(ownedAtEye[0].id, formation.id);
   assert.equal(ownedAtEye[0].refillSpiritStoneCount, 4);
   assert.equal(ownedAtEye[0].refillQiCost, 400);
-  assert.equal(ownedAtEye[0].refillAuraBudget, 1500);
+  assert.equal(ownedAtEye[0].refillQiBudget, 400);
 
   const worldDelta = buildFullWorldDelta({
     tick: 1,
@@ -372,14 +372,16 @@ async function main() {
   }
 
   const auraBeforeRefill = service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget;
+  const qiBeforeRefill = player.qi;
+  const stonesBeforeRefill = player.wallet.spirit_stone;
   service.dispatchRefillFormation(playerId, {
     formationInstanceId: formation.id,
     spiritStoneCount: 1,
     qiCost: 1,
   }, deps);
-  assert.equal(player.qi, 19200);
-  assert.equal(player.wallet.spirit_stone, 992);
-  assert.equal(Math.round(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeRefill), 1500);
+  assert.equal(player.qi, qiBeforeRefill - 1);
+  assert.equal(player.wallet.spirit_stone, stonesBeforeRefill - 1);
+  assert.equal(Math.round(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeRefill), 1);
 
   const maintenancePipeline = new TechniqueActivityPipelineService();
   maintenancePipeline.register(new FormationStrategy());
@@ -513,10 +515,18 @@ async function main() {
         effectValue: 1,
         radius: 1,
         totalAuraBudget: 1,
+        totalQiBudget: 1,
+        totalSpiritStoneBudget: 1000,
         tickActiveCost: 2,
         tickInactiveCost: 0,
+        tickActiveQiCost: 2,
+        tickInactiveQiCost: 0,
+        tickActiveSpiritStoneCost: 0,
+        tickInactiveSpiritStoneCost: 0,
       },
       active: true,
+      remainingQiBudget: 1,
+      remainingSpiritStoneBudget: 1000,
       remainingAuraBudget: 1,
       createdAt: Date.now(),
       updatedAt: Date.now(),

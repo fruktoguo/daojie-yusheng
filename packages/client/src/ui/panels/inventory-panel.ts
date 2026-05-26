@@ -1473,6 +1473,7 @@ export class InventoryPanel {
         </div>
         <div class="formation-preview-metrics">
           <span><em>${t('inventory.formation.stat.total-aura', undefined)}</em><output data-formation-stat="totalAura">-</output></span>
+          <span><em>${t('inventory.formation.stat.total-stones', undefined)}</em><output data-formation-stat="totalStones">-</output></span>
           <span><em>${t('inventory.formation.stat.effect', undefined)}</em><output data-formation-stat="effectValue">-</output></span>
           <span><em>${t('inventory.formation.stat.radius', undefined)}</em><output data-formation-stat="radius">-</output></span>
           <span><em>${t('inventory.formation.stat.duration', undefined)}</em><output data-formation-stat="durationHours">-</output></span>
@@ -1548,12 +1549,13 @@ export class InventoryPanel {
           ? `阵盘增幅 ${formatDisplayNumber(diskMultiplier)} 倍`
           : `灵力不足 ${formatDisplayInteger(qiCost - this.playerQi)}`;
     }
-    this.setFormationStatText(body, 'totalAura', stats.totalAuraBudget);
+    this.setFormationStatText(body, 'totalAura', stats.totalQiBudget ?? stats.totalAuraBudget);
+    this.setFormationStatText(body, 'totalStones', stats.totalSpiritStoneBudget ?? spiritStoneCount);
     this.setFormationStatText(body, 'effectValue', stats.effectValue);
     this.setFormationStatText(body, 'radius', stats.radius);
     this.setFormationStatText(body, 'durationHours', stats.durationHours ?? setup.durationHours, '', 'duration');
-    this.setFormationStatText(body, 'activeCost', stats.dailyActiveCost);
-    this.setFormationStatText(body, 'inactiveCost', stats.dailyInactiveCost);
+    this.setFormationStatText(body, 'activeCost', this.formatFormationResourceCost(stats.dailyActiveQiCost ?? stats.dailyActiveCost, stats.dailyActiveSpiritStoneCost ?? 0));
+    this.setFormationStatText(body, 'inactiveCost', this.formatFormationResourceCost(stats.dailyInactiveQiCost ?? stats.dailyInactiveCost, stats.dailyInactiveSpiritStoneCost ?? 0));
     this.syncFormationEffectIntro(body, template, stats);
     const confirmButton = body.querySelector<HTMLButtonElement>('[data-formation-confirm]');
     if (confirmButton) {
@@ -1632,7 +1634,7 @@ export class InventoryPanel {
     }
     const selfDamageReduction = this.resolveFormationDamageReduction(stats.effectValue);
     const damagePerAura = resolveFormationDamagePerAura(template);
-    const rawDurability = Math.max(1, Math.ceil(stats.totalAuraBudget * damagePerAura));
+    const rawDurability = Math.max(1, Math.ceil((stats.totalQiBudget ?? stats.totalAuraBudget) * damagePerAura));
     const effectiveDurability = Math.max(1, Math.ceil(rawDurability / Math.max(0.000001, 1 - selfDamageReduction)));
     return [
       { label: '预计承受伤害', value: formatDisplayInteger(effectiveDurability) },
@@ -1713,14 +1715,20 @@ export class InventoryPanel {
     node.textContent = text;
   }
 
-  private setFormationStatText(body: HTMLElement, key: string, value: number, suffix = '', format: 'integer' | 'duration' = 'integer'): void {
+  private setFormationStatText(body: HTMLElement, key: string, value: number | string, suffix = '', format: 'integer' | 'duration' = 'integer'): void {
     const node = body.querySelector<HTMLOutputElement>(`[data-formation-stat="${key}"]`);
     if (!node) {
       return;
     }
-    const text = format === 'duration' ? this.formatFormationDuration(value) : `${formatDisplayInteger(value)}${suffix}`;
+    const text = typeof value === 'string'
+      ? value
+      : format === 'duration' ? this.formatFormationDuration(value) : `${formatDisplayInteger(value)}${suffix}`;
     node.value = text;
     node.textContent = text;
+  }
+
+  private formatFormationResourceCost(qiCost: number, spiritStoneCost: number): string {
+    return `${formatDisplayInteger(qiCost)}灵力 / ${formatDisplayNumber(spiritStoneCost)}灵石`;
   }
 
   private getSelectedFormationTemplate(body: HTMLElement): FormationTemplate {

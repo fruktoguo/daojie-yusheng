@@ -282,6 +282,8 @@ function normalizeFormationEntries(payload) {
       allocation: entry.allocation && typeof entry.allocation === 'object' ? entry.allocation : {},
       active: entry.active !== false,
       remainingAuraBudget: Math.max(0, Number(entry.remainingAuraBudget) || 0),
+      remainingQiBudget: Math.max(0, Number(entry.remainingQiBudget ?? entry.remainingAuraBudget) || 0),
+      remainingSpiritStoneBudget: Math.max(0, Number(entry.remainingSpiritStoneBudget ?? entry.spiritStoneCount) || 0),
       createdAt: normalizeFiniteInteger(entry.createdAt, Date.now()),
       updatedAt: normalizeFiniteInteger(entry.updatedAt, Date.now()),
     }))
@@ -316,6 +318,8 @@ async function replaceFormationStates(pool, instanceId, formations) {
             allocation_payload,
             active,
             remaining_aura_budget,
+            remaining_qi_budget,
+            remaining_spirit_stone_budget,
             created_at_ms,
             updated_at_ms,
             updated_at
@@ -324,7 +328,7 @@ async function replaceFormationStates(pool, instanceId, formations) {
             $1, $2, $3, $4, $5,
             $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15,
-            $16::jsonb, $17, $18, $19, $20, now()
+            $16::jsonb, $17, $18, $19, $20, $21, $22, now()
           )
         `,
         [
@@ -346,6 +350,8 @@ async function replaceFormationStates(pool, instanceId, formations) {
           JSON.stringify(formation.allocation ?? {}),
           formation.active,
           formation.remainingAuraBudget,
+          formation.remainingQiBudget,
+          formation.remainingSpiritStoneBudget,
           formation.createdAt,
           formation.updatedAt,
         ],

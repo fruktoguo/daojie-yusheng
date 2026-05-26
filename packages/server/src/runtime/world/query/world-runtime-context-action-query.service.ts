@@ -165,14 +165,14 @@ export class WorldRuntimeContextActionQueryService {
                 id: `formation:toggle:${formation.id}`,
                 name: formation.active ? `关闭：${formation.name}` : `开启：${formation.name}`,
                 type: 'interact',
-                desc: `阵眼灵力 ${formation.remainingAuraBudget}，半径 ${formation.radius}。`,
+                desc: `阵眼灵力 ${formation.remainingQiBudget ?? formation.remainingAuraBudget}，灵石 ${formation.remainingSpiritStoneBudget ?? 0}，半径 ${formation.radius}。`,
                 cooldownLeft: 0,
             });
             actions.push({
                 id: `formation:refill:${formation.id}`,
                 name: `补充：${formation.name}`,
                 type: 'interact',
-                desc: `消耗 ${formation.refillSpiritStoneCount} 灵石和 ${formation.refillQiCost} 灵力，为当前阵法补充 ${formation.refillAuraBudget} 阵眼灵力。`,
+                desc: `消耗 ${formation.refillSpiritStoneCount} 灵石和 ${formation.refillQiCost} 灵力，为当前阵法分别补充灵石与阵眼灵力。`,
                 cooldownLeft: 0,
             });
             const maintaining = player.formationJob

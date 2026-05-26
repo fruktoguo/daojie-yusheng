@@ -3155,11 +3155,12 @@ export class ActionPanel {
           }, { signal });
         });
         body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
-          const stones = this.readSectGuardianInjectValue(body);
-          this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, t('action.sect.manage.action.inject-aura', undefined));
+          const inject = this.readSectGuardianInjectValue(body);
+          this.onAction?.(`sect:guardian:inject:${inject.stones}:${inject.qi}`, false, undefined, undefined, t('action.sect.manage.action.inject-aura', undefined));
         }, { signal });
         const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
         body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview, { signal });
+        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="qi"]')?.addEventListener('input', syncGuardianInjectPreview, { signal });
         syncGuardianInjectPreview();
       },
     });
@@ -3227,6 +3228,10 @@ export class ActionPanel {
                 <strong>${t('action.sect.manage.guardian.inject-stones', undefined)}</strong>
                 <input class="ui-input formation-config-input" data-sect-guardian-inject-input="stones" type="number" min="0" step="1" value="1000">
               </label>
+              <label class="formation-config-field ui-detail-field">
+                <strong>${t('action.sect.manage.guardian.inject-qi', undefined)}</strong>
+                <input class="ui-input formation-config-input" data-sect-guardian-inject-input="qi" type="number" min="0" step="1" value="100000">
+              </label>
               <div class="formation-cost-card ui-detail-field" data-sect-guardian-inject-cost>
                 <strong>${t('action.sect.manage.guardian.cost', undefined)}</strong>
                 <output data-sect-guardian-inject-qi-cost>100,000</output>
@@ -3252,26 +3257,31 @@ export class ActionPanel {
     }
   }
 
-  private readSectGuardianInjectValue(root: HTMLElement): number {
-    const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]');
-    const value = Math.trunc(Number(input?.value ?? 0));
-    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  private readSectGuardianInjectValue(root: HTMLElement): { stones: number; qi: number } {
+    const stoneInput = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]');
+    const qiInput = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="qi"]');
+    const stones = Math.trunc(Number(stoneInput?.value ?? 0));
+    const qi = Math.trunc(Number(qiInput?.value ?? 0));
+    return {
+      stones: Number.isFinite(stones) ? Math.max(0, stones) : 0,
+      qi: Number.isFinite(qi) ? Math.max(0, qi) : 0,
+    };
   }
 
   private syncSectGuardianInjectPreview(root: HTMLElement): void {
-    const stones = this.readSectGuardianInjectValue(root);
-    const qiCost = stones * 100;
+    const inject = this.readSectGuardianInjectValue(root);
     const output = root.querySelector<HTMLOutputElement>('[data-sect-guardian-inject-qi-cost]');
     if (output) {
-      output.value = formatDisplayNumber(qiCost);
-      output.textContent = formatDisplayNumber(qiCost);
+      const text = `${formatDisplayNumber(inject.stones)} 灵石 / ${formatDisplayNumber(inject.qi)} 灵力`;
+      output.value = text;
+      output.textContent = text;
     }
     const button = root.querySelector<HTMLButtonElement>('[data-sect-guardian-inject]');
     if (button) {
       const allowed = button.dataset.sectGuardianAllowed !== '0';
-      button.disabled = stones <= 0 || !allowed;
+      button.disabled = (inject.stones <= 0 && inject.qi <= 0) || !allowed;
       button.textContent = allowed
-        ? (stones > 0 ? t('action.sect.manage.action.inject-aura', undefined) : t('action.sect.manage.guardian.inject-stones-short', undefined))
+        ? (inject.stones > 0 || inject.qi > 0 ? t('action.sect.manage.action.inject-aura', undefined) : t('action.sect.manage.guardian.inject-stones-short', undefined))
         : t('action.sect.manage.guardian.no-permission', undefined);
     }
   }

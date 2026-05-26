@@ -25,11 +25,22 @@
 | mystic | 4 | 玄阶 |
 | earth | 8 | 地阶 |
 
-## 灵气预算计算（分配模式）
+## 阵法资源
+
+阵法运行态拆分为两个资源池：
+
+- 灵力池：维持阵法效果、承受攻击、阵法维护补充的资源。
+- 灵石池：维持阵法存在的资源，只被运行持续消耗和补充操作影响，不会因受击减少。
+
+每 tick 运行时同时扣除灵力池和灵石池。灵力不足时阵法关闭但不摧毁；灵石不足时阵法损毁并从运行态移除。阵法被攻击时只扣灵力池。阵法维护只补充灵力池。
+
+## 灵力/灵石预算计算（分配模式）
 
 ```typescript
 baseAuraBudget = spiritStoneCount × 100
 totalAuraBudget = round(baseAuraBudget × diskMultiplier)
+totalQiBudget = totalAuraBudget
+totalSpiritStoneBudget = spiritStoneCount
 effectAura = floor(totalAuraBudget × effectPercent / 100)
 rangeAura = floor(totalAuraBudget × rangePercent / 100)
 effectValue = floor(effectAura × conversionRatio)
@@ -37,6 +48,8 @@ durationScale = max(0.01, durationPercent / 33.33)
 dailyActiveCost = totalAuraBudget / durationScale
 dailyInactiveCost = dailyActiveCost / 10
 tickActiveCost = dailyActiveCost / 86400
+tickActiveQiCost = tickActiveCost
+tickActiveSpiritStoneCost = tickActiveCost / (auraPerSpiritStone × diskMultiplier)
 ```
 
 默认三等分: effectPercent=rangePercent=durationPercent=33.33%
@@ -57,6 +70,10 @@ durationMultiplier = 短时间用指数插值, 长时间用线性
 requiredAuraBudget = ceil(effectValue × effectCostRatio × rangeMultiplier × durationMultiplier)
 spiritStoneCount = ceil(requiredAuraBudget / (auraPerSpiritStone × diskMultiplier))
 qiCost = ceil(spiritStoneCount × qiPerSpiritStone)
+totalQiBudget = requiredAuraBudget
+totalSpiritStoneBudget = spiritStoneCount
+tickActiveQiCost = totalQiBudget / durationTicks
+tickActiveSpiritStoneCost = tickActiveQiCost / (auraPerSpiritStone × diskMultiplier)
 ```
 
 ## 内置阵法模板
@@ -73,14 +90,14 @@ qiCost = ceil(spiritStoneCount × qiPerSpiritStone)
 - 需要足够灵石投入
 - 需要满足 minEffectValue
 - 需要阵盘品阶匹配
-- 每 tick 消耗灵气维持
+- 每 tick 同时消耗灵力池和灵石池维持
 - 玩家从背包布阵时，阵盘目标必须使用 `itemInstanceId` 定位；背包格子顺序只影响 UI 展示。
 
 ## 阵法维护
 
 - 玩家站在阵眼/控制点位时，可以开始“阵法维护”。
 - 阵法维护走统一技艺活动队列，使用 `formationJob` 记录运行态。
-- 每息注入阵法的灵力为 `floor(sqrt(maxQiOutputPerTick))`，最低 1 点，并消耗同等玩家当前灵力。
+- 每息注入阵法灵力池的数值为 `floor(sqrt(maxQiOutputPerTick))`，最低 1 点，并消耗同等玩家当前灵力。
 - 每息按统一技艺经验公式获得 1 息“阵法”技艺经验。
 - 离开阵法控制点位会取消维护；攻击或主动进入修炼会让维护暂停 10 息。
 

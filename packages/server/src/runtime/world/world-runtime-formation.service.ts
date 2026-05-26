@@ -24,6 +24,8 @@ const INSTANCE_FORMATION_STATE_BIGINT_COLUMNS = [
 ];
 const INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS = [
     'qi_cost',
+    'remaining_qi_budget',
+    'remaining_spirit_stone_budget',
 ];
 const TERRAIN_DAMAGE_REDUCTION_DENOMINATOR = 100000;
 const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
@@ -116,6 +118,8 @@ class WorldRuntimeFormationService {
             allocation,
             stats,
             active: true,
+            remainingQiBudget: stats.totalQiBudget ?? stats.totalAuraBudget,
+            remainingSpiritStoneBudget: stats.totalSpiritStoneBudget ?? spiritStoneCount,
             remainingAuraBudget: stats.totalAuraBudget,
             createdAt: now,
             updatedAt: now,
@@ -124,7 +128,7 @@ class WorldRuntimeFormationService {
         touchInstanceRevision(instance);
         this.persistInstanceFormationsSoon(instance.meta.instanceId);
         this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${template.name}已布下：半径 ${stats.radius}，强度 ${formatInteger(stats.effectValue)}，总灵力 ${formatInteger(stats.totalAuraBudget)}。`,
+            text: `${template.name}已布下：半径 ${stats.radius}，强度 ${formatInteger(stats.effectValue)}，灵力 ${formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget)}，灵石 ${formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount)}。`,
             kind: 'success',
         });
         if (typeof deps.refreshPlayerContextActions === 'function') {
@@ -151,13 +155,18 @@ class WorldRuntimeFormationService {
         const eyeInstanceId = normalizeInstanceId(input?.eyeInstanceId) || instanceId;
         const eyeX = firstFiniteInteger(input?.eyeX, x);
         const eyeY = firstFiniteInteger(input?.eyeY, y);
-        const explicitRemainingAuraBudget = Number.isFinite(Number(input?.remainingAuraBudget))
-            ? Math.max(0, Number(input.remainingAuraBudget))
+        const explicitRemainingQiBudget = Number.isFinite(Number(input?.remainingQiBudget ?? input?.remainingAuraBudget))
+            ? Math.max(0, Number(input.remainingQiBudget ?? input.remainingAuraBudget))
+            : null;
+        const explicitRemainingSpiritStoneBudget = Number.isFinite(Number(input?.remainingSpiritStoneBudget))
+            ? Math.max(0, Number(input.remainingSpiritStoneBudget))
             : null;
         const inputSpiritStoneCount = Math.trunc(Number(input?.spiritStoneCount) || 0);
         const auraPerSpiritStone = resolveFormationAuraPerSpiritStone(template);
-        const fallbackSpiritStoneCount = explicitRemainingAuraBudget !== null
-            ? Math.ceil(explicitRemainingAuraBudget / auraPerSpiritStone)
+        const fallbackSpiritStoneCount = explicitRemainingSpiritStoneBudget !== null
+            ? Math.ceil(explicitRemainingSpiritStoneBudget)
+            : explicitRemainingQiBudget !== null
+            ? Math.ceil(explicitRemainingQiBudget / auraPerSpiritStone)
             : resolveFormationMinSpiritStoneCount(template);
         const spiritStoneCount = Math.max(1, inputSpiritStoneCount > 0 ? inputSpiritStoneCount : fallbackSpiritStoneCount);
         const diskMultiplier = Number.isFinite(Number(input?.diskMultiplier)) ? Math.max(1, Number(input.diskMultiplier)) : 1;
@@ -171,9 +180,13 @@ class WorldRuntimeFormationService {
             || `formation:sect_guardian:${ownerSectId || 'public'}:${instanceId}:${x}:${y}`;
         const list = this.getFormationList(instanceId);
         const existing = list.find((entry) => entry.id === formationId);
-        const remainingAuraBudget = existing
-            ? Math.max(0, Number(existing.remainingAuraBudget) || 0)
-            : explicitRemainingAuraBudget !== null ? explicitRemainingAuraBudget : stats.totalAuraBudget;
+        const remainingQiBudget = existing
+            ? resolveFormationRemainingQiBudget(existing)
+            : explicitRemainingQiBudget !== null ? explicitRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
+        const remainingSpiritStoneBudget = existing
+            ? resolveFormationRemainingSpiritStoneBudget(existing)
+            : explicitRemainingSpiritStoneBudget !== null ? explicitRemainingSpiritStoneBudget : stats.totalSpiritStoneBudget ?? spiritStoneCount;
+        const active = input?.active !== false && remainingQiBudget > 0 && remainingSpiritStoneBudget > 0;
         const patch = {
             instanceId,
             id: formationId,
@@ -195,8 +208,10 @@ class WorldRuntimeFormationService {
             eyeY,
             allocation,
             stats,
-            active: input?.active !== false,
-            remainingAuraBudget,
+            active,
+            remainingQiBudget,
+            remainingSpiritStoneBudget,
+            remainingAuraBudget: remainingQiBudget,
             createdAt: existing?.createdAt ?? now,
             updatedAt: now,
         };
@@ -217,7 +232,9 @@ class WorldRuntimeFormationService {
         if (isPersistentFormation(formation)) {
             throw new BadRequestException('持续性阵法需要在阵法管理面板操作');
         }
-        formation.active = payload?.active !== false;
+        formation.active = payload?.active !== false
+            && resolveFormationRemainingQiBudget(formation) > 0
+            && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
@@ -233,18 +250,37 @@ class WorldRuntimeFormationService {
         if (isPersistentFormation(formation)) {
             throw new BadRequestException('持续性阵法需要在阵法管理面板注入灵石或灵力');
         }
-        const spiritStoneCount = Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1));
-        const qiCost = resolveFormationQiCost(spiritStoneCount, formation.template);
-        this.assertCanPay(playerId, qiCost, spiritStoneCount);
-        this.playerRuntimeService.spendQi(playerId, qiCost);
-        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-        const added = resolveFormationRefillAuraBudget(formation, spiritStoneCount);
-        formation.remainingAuraBudget += added;
+        const defaultSpiritStoneCount = Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1));
+        const spiritStoneCount = payload && 'spiritStoneCount' in payload
+            ? normalizeNonNegativeInteger(payload.spiritStoneCount ?? 0)
+            : defaultSpiritStoneCount;
+        const qiAmount = payload && ('qiAmount' in payload || 'qiCost' in payload)
+            ? normalizeNonNegativeInteger(payload.qiAmount ?? payload.qiCost ?? 0)
+            : resolveFormationQiCost(defaultSpiritStoneCount, formation.template);
+        if (spiritStoneCount <= 0 && qiAmount <= 0) {
+            throw new BadRequestException('至少需要补充灵石或灵力');
+        }
+        this.assertCanPay(playerId, qiAmount, spiritStoneCount);
+        if (qiAmount > 0) {
+            this.playerRuntimeService.spendQi(playerId, qiAmount);
+        }
+        if (spiritStoneCount > 0) {
+            this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+        }
+        if (spiritStoneCount > 0) {
+            setFormationRemainingSpiritStoneBudget(formation, resolveFormationRemainingSpiritStoneBudget(formation) + spiritStoneCount);
+        }
+        if (qiAmount > 0) {
+            setFormationRemainingQiBudget(formation, resolveFormationRemainingQiBudget(formation) + qiAmount);
+        }
+        if (resolveFormationRemainingQiBudget(formation) > 0 && resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
+            formation.active = true;
+        }
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
         this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${formation.name}补充灵力 ${formatInteger(added)}。`,
+            text: `${formation.name}补充灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
             kind: 'success',
         });
         return formation;
@@ -343,8 +379,8 @@ class WorldRuntimeFormationService {
         } catch (_error) {
             return { satisfied: false, reason: '阵法已不存在或不属于你。', shouldCancel: true };
         }
-        if (!formation || Number(formation.remainingAuraBudget) <= 0) {
-            return { satisfied: false, reason: '阵法灵力已耗尽。', shouldCancel: true };
+        if (!formation || resolveFormationRemainingSpiritStoneBudget(formation) <= 0) {
+            return { satisfied: false, reason: '阵法灵石已耗尽。', shouldCancel: true };
         }
         const controlInstanceId = normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId;
         const controlX = Math.trunc(Number(formation.eyeX) || formation.x);
@@ -372,7 +408,10 @@ class WorldRuntimeFormationService {
             return buildFormationResolveResult(true, [{ kind: 'warn', text: `${formation.name}维护中止：自身灵力不足。` }]);
         }
         this.playerRuntimeService.spendQi(playerId, transfer);
-        formation.remainingAuraBudget = Math.max(0, Number(formation.remainingAuraBudget) || 0) + transfer;
+        setFormationRemainingQiBudget(formation, resolveFormationRemainingQiBudget(formation) + transfer);
+        if (resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
+            formation.active = true;
+        }
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(ctx?.deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
@@ -409,7 +448,9 @@ class WorldRuntimeFormationService {
         if (!isPersistentFormation(formation)) {
             throw new BadRequestException('该阵法不是持续性阵法');
         }
-        formation.active = payload?.active !== false && formation.remainingAuraBudget > 0;
+        formation.active = payload?.active !== false
+            && resolveFormationRemainingQiBudget(formation) > 0
+            && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
@@ -429,23 +470,29 @@ class WorldRuntimeFormationService {
             throw new BadRequestException('该阵法不是持续性阵法');
         }
         const spiritStoneCount = normalizeNonNegativeInteger(payload?.spiritStoneCount ?? 0);
-        const qiAmount = resolveFormationQiCost(spiritStoneCount, formation.template);
-        if (spiritStoneCount <= 0) {
-            throw new BadRequestException('至少需要注入灵石');
+        const qiAmount = normalizeNonNegativeInteger(payload?.qiAmount ?? payload?.qiCost ?? resolveFormationQiCost(spiritStoneCount, formation.template));
+        if (spiritStoneCount <= 0 && qiAmount <= 0) {
+            throw new BadRequestException('至少需要注入灵石或灵力');
         }
         this.assertCanInject(playerId, qiAmount, spiritStoneCount);
-        this.playerRuntimeService.spendQi(playerId, qiAmount);
-        this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
-        const added = resolveFormationRefillAuraBudget(formation, spiritStoneCount);
-        formation.remainingAuraBudget = Math.max(0, Number(formation.remainingAuraBudget) || 0) + added;
-        if (formation.remainingAuraBudget > 0) {
+        if (qiAmount > 0) {
+            this.playerRuntimeService.spendQi(playerId, qiAmount);
+        }
+        if (spiritStoneCount > 0) {
+            this.playerRuntimeService.debitWallet(playerId, FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+            setFormationRemainingSpiritStoneBudget(formation, resolveFormationRemainingSpiritStoneBudget(formation) + spiritStoneCount);
+        }
+        if (qiAmount > 0) {
+            setFormationRemainingQiBudget(formation, resolveFormationRemainingQiBudget(formation) + qiAmount);
+        }
+        if (resolveFormationRemainingQiBudget(formation) > 0 && resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
             formation.active = true;
         }
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
         this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${formation.name}注入灵力 ${formatInteger(added)}。`,
+            text: `${formation.name}注入灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
             kind: 'success',
         });
         return formation;
@@ -459,45 +506,49 @@ class WorldRuntimeFormationService {
         let persistenceDirty = false;
         for (let index = formations.length - 1; index >= 0; index -= 1) {
             const formation = formations[index];
-            if (isPersistentFormation(formation) && formation.remainingAuraBudget <= 0) {
+            const tickCost = isPersistentFormation(formation)
+                ? resolvePersistentFormationTickCost(formation)
+                : resolveFormationTickCost(formation);
+            const spiritStoneBefore = resolveFormationRemainingSpiritStoneBudget(formation);
+            const qiBefore = resolveFormationRemainingQiBudget(formation);
+            const lacksSpiritStone = tickCost.spiritStoneCost > 0 && spiritStoneBefore < tickCost.spiritStoneCost;
+            setFormationRemainingSpiritStoneBudget(formation, Math.max(0, spiritStoneBefore - tickCost.spiritStoneCost));
+            if (lacksSpiritStone || resolveFormationRemainingSpiritStoneBudget(formation) <= 0) {
+                formations.splice(index, 1);
+                touchInstanceRevision(instance);
+                persistenceDirty = true;
+                this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
+                    text: `${formation.name}灵石耗尽，阵势损毁。`,
+                    kind: 'warning',
+                });
+                continue;
+            }
+            const wasActive = formation.active !== false;
+            const lacksQi = tickCost.qiCost > 0 && qiBefore < tickCost.qiCost;
+            setFormationRemainingQiBudget(formation, Math.max(0, qiBefore - tickCost.qiCost));
+            if (tickCost.spiritStoneCost > 0 || tickCost.qiCost > 0) {
+                formation.updatedAt = Date.now();
+            }
+            if (lacksQi || resolveFormationRemainingQiBudget(formation) <= 0) {
                 if (formation.active !== false) {
                     formation.active = false;
                     formation.updatedAt = Date.now();
                     touchInstanceRevision(instance);
                     persistenceDirty = true;
-                }
-                continue;
-            }
-            const tickCost = isPersistentFormation(formation)
-                ? resolvePersistentFormationTickCost(formation)
-                : formation.active ? formation.stats.tickActiveCost : formation.stats.tickInactiveCost;
-            formation.remainingAuraBudget -= tickCost;
-            if (formation.remainingAuraBudget <= 0) {
-                if (isPersistentFormation(formation)) {
-                    formation.remainingAuraBudget = 0;
-                    formation.active = false;
-                    formation.updatedAt = Date.now();
-                    touchInstanceRevision(instance);
-                    persistenceDirty = true;
                     this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                        text: `${formation.name}灵力耗尽，阵势停摆。`,
+                        text: `${formation.name}灵力不足，阵势关闭。`,
                         kind: 'warning',
                     });
-                    continue;
                 }
-                formations.splice(index, 1);
-                touchInstanceRevision(instance);
-                persistenceDirty = true;
-                this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                    text: `${formation.name}灵力耗尽，阵势散去。`,
-                    kind: 'warning',
-                });
+                if (Number.isFinite(Number(_worldTick)) && Number(_worldTick) % 60 === 0) {
+                    persistenceDirty = true;
+                }
                 continue;
             }
             if (Number.isFinite(Number(_worldTick)) && Number(_worldTick) % 60 === 0) {
                 persistenceDirty = true;
             }
-            if (formation.active !== true) {
+            if (!wasActive || formation.active !== true) {
                 continue;
             }
             if (formation.template.effect.kind === TILE_AURA_SOURCE_EFFECT_KIND) {
@@ -627,7 +678,7 @@ class WorldRuntimeFormationService {
             y: Math.trunc(y),
             centerX: formation.x,
             centerY: formation.y,
-            remainingAuraBudget: Math.max(0, Number(formation.remainingAuraBudget) || 0),
+            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
             damagePerAura: resolveFormationDamagePerAura(formation.template),
         };
     }
@@ -665,7 +716,7 @@ class WorldRuntimeFormationService {
 
     getFormationCombatState(instanceId, formationInstanceId) {
         const formation = this.findFormationInInstance(instanceId, formationInstanceId);
-        if (!formation || formation.remainingAuraBudget <= 0) {
+        if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
             return null;
         }
         const normalizedInstanceId = normalizeInstanceId(instanceId);
@@ -677,7 +728,7 @@ class WorldRuntimeFormationService {
             name: formation.name,
             x: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
             y: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
-            remainingAuraBudget: Math.max(0, Number(formation.remainingAuraBudget) || 0),
+            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
             damagePerAura: resolveFormationDamagePerAura(formation.template),
         };
     }
@@ -713,7 +764,7 @@ class WorldRuntimeFormationService {
         const candidates = [];
         for (const formations of this.formationsByInstanceId.values()) {
             for (const formation of formations) {
-                if (!formation || Number(formation.remainingAuraBudget) <= 0) {
+                if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
                     continue;
                 }
                 const eyeInstanceId = normalizeInstanceId(formation.eyeInstanceId ?? formation.instanceId);
@@ -731,7 +782,7 @@ class WorldRuntimeFormationService {
 
     applyDamageToFormation(instanceId, formationInstanceId, damage, attackerPlayerId = null, deps = null) {
         const formation = this.findFormationInInstance(instanceId, formationInstanceId);
-        if (!formation || formation.remainingAuraBudget <= 0) {
+        if (!formation || resolveFormationRemainingQiBudget(formation) <= 0) {
             return null;
         }
         const normalizedDamage = Math.max(0, Number(damage) || 0);
@@ -747,39 +798,23 @@ class WorldRuntimeFormationService {
                 appliedDamage: 0,
                 auraDamage: 0,
                 destroyed: false,
-                remainingAuraBudget: formation.remainingAuraBudget,
+                remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
                 damagePerAura,
                 selfDamageReduction,
             };
         }
-        const appliedAuraDamage = Math.min(Math.max(0, Number(formation.remainingAuraBudget) || 0), auraDamage);
+        const appliedAuraDamage = Math.min(resolveFormationRemainingQiBudget(formation), auraDamage);
         const appliedDamage = appliedAuraDamage * damagePerAura;
-        formation.remainingAuraBudget = Math.max(0, formation.remainingAuraBudget - appliedAuraDamage);
+        setFormationRemainingQiBudget(formation, Math.max(0, resolveFormationRemainingQiBudget(formation) - appliedAuraDamage));
         formation.updatedAt = Date.now();
-        const destroyed = formation.remainingAuraBudget <= 0;
+        const destroyed = resolveFormationRemainingQiBudget(formation) <= 0;
         if (destroyed) {
-            if (isPersistentFormation(formation)) {
-                formation.remainingAuraBudget = 0;
-                formation.active = false;
-                this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                    text: `${formation.name}阵眼受损，阵势停摆。`,
-                    kind: 'warning',
-                });
-            }
-            else {
-                const formations = this.formationsByInstanceId.get(instanceId);
-                const index = formations?.findIndex((entry) => entry.id === formation.id) ?? -1;
-                if (formations && index >= 0) {
-                    formations.splice(index, 1);
-                    if (formations.length <= 0) {
-                        this.formationsByInstanceId.delete(instanceId);
-                    }
-                }
-                this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                    text: `${formation.name}被摧毁，阵势散去。`,
-                    kind: 'warning',
-                });
-            }
+            setFormationRemainingQiBudget(formation, 0);
+            formation.active = false;
+            this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
+                text: `${formation.name}阵眼灵力耗尽，阵势关闭。`,
+                kind: 'warning',
+            });
             if (typeof deps?.refreshPlayerContextActions === 'function') {
                 deps.refreshPlayerContextActions(formation.ownerPlayerId);
                 if (attackerPlayerId && attackerPlayerId !== formation.ownerPlayerId) {
@@ -797,7 +832,7 @@ class WorldRuntimeFormationService {
             appliedDamage,
             auraDamage: appliedAuraDamage,
             destroyed,
-            remainingAuraBudget: formation.remainingAuraBudget,
+            remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
             damagePerAura,
             selfDamageReduction,
             attackerPlayerId,
@@ -832,11 +867,13 @@ class WorldRuntimeFormationService {
             id: formation.id,
             name: formation.name,
             active: formation.active,
-            remainingAuraBudget: Math.max(0, Math.floor(formation.remainingAuraBudget)),
+            remainingAuraBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+            remainingQiBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+            remainingSpiritStoneBudget: Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation))),
             radius: formation.stats.radius,
             refillSpiritStoneCount: Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)),
             refillQiCost: resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
-            refillAuraBudget: resolveFormationRefillAuraBudget(formation, Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1))),
+            refillQiBudget: resolveFormationQiCost(Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)), formation.template),
         }));
     }
 
@@ -903,7 +940,7 @@ class WorldRuntimeFormationService {
         for (const formation of formations) {
             if (formation.active !== true
                 || formation.template.effect.kind !== BOUNDARY_BARRIER_EFFECT_KIND
-                || formation.remainingAuraBudget <= 0) {
+                || resolveFormationRemainingQiBudget(formation) <= 0) {
                 continue;
             }
             if (!this.containsBoundaryTile(formation, x, y)) {
@@ -912,7 +949,7 @@ class WorldRuntimeFormationService {
             if (this.canPlayerPassFormationBoundary(formation, playerId)) {
                 continue;
             }
-            if (!selected || formation.remainingAuraBudget > selected.remainingAuraBudget) {
+            if (!selected || resolveFormationRemainingQiBudget(formation) > resolveFormationRemainingQiBudget(selected)) {
                 selected = formation;
             }
         }
@@ -995,17 +1032,20 @@ class WorldRuntimeFormationService {
         const diskTier = normalizeFormationDiskTier(entry.diskTier);
         const diskMultiplier = Number.isFinite(Number(entry.diskMultiplier)) ? Math.max(1, Number(entry.diskMultiplier)) : 1;
         const lifecycle = normalizeFormationLifecycle(entry.lifecycle ?? template.lifecycle);
-        const rawRemainingAuraBudget = Number.isFinite(Number(entry.remainingAuraBudget))
-            ? Math.max(0, Number(entry.remainingAuraBudget))
+        const rawRemainingQiBudget = Number.isFinite(Number(entry.remainingQiBudget ?? entry.remainingAuraBudget))
+            ? Math.max(0, Number(entry.remainingQiBudget ?? entry.remainingAuraBudget))
+            : null;
+        const rawRemainingSpiritStoneBudget = Number.isFinite(Number(entry.remainingSpiritStoneBudget))
+            ? Math.max(0, Number(entry.remainingSpiritStoneBudget))
             : null;
         const rawSpiritStoneCount = Math.max(1, Math.trunc(Number(entry.spiritStoneCount) || 1));
         const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
         const spiritStoneCount = lifecycle === FORMATION_LIFECYCLE_PERSISTENT
             && template.id === 'sect_guardian_barrier'
             && rawSpiritStoneCount <= minSpiritStoneCount
-            && rawRemainingAuraBudget !== null
-            && rawRemainingAuraBudget > rawSpiritStoneCount * resolveFormationAuraPerSpiritStone(template)
-            ? Math.max(rawSpiritStoneCount, Math.ceil(rawRemainingAuraBudget / resolveFormationAuraPerSpiritStone(template)))
+            && rawRemainingQiBudget !== null
+            && rawRemainingQiBudget > rawSpiritStoneCount * resolveFormationAuraPerSpiritStone(template)
+            ? Math.max(rawSpiritStoneCount, Math.ceil(rawRemainingQiBudget / resolveFormationAuraPerSpiritStone(template)))
             : rawSpiritStoneCount;
         const allocationPayload = entry.allocation && typeof entry.allocation === 'object' ? entry.allocation : {};
         const allocation = typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
@@ -1015,8 +1055,9 @@ class WorldRuntimeFormationService {
         if (template.id === 'sect_guardian_barrier') {
             stats.radius = Math.max(1, Math.trunc(Number(entry.radius) || 1));
         }
-        const remainingAuraBudget = rawRemainingAuraBudget !== null ? rawRemainingAuraBudget : stats.totalAuraBudget;
-        if (remainingAuraBudget <= 0 && lifecycle !== FORMATION_LIFECYCLE_PERSISTENT) {
+        const remainingQiBudget = rawRemainingQiBudget !== null ? rawRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
+        const remainingSpiritStoneBudget = rawRemainingSpiritStoneBudget !== null ? rawRemainingSpiritStoneBudget : stats.totalSpiritStoneBudget ?? spiritStoneCount;
+        if (remainingSpiritStoneBudget <= 0) {
             return null;
         }
         const restoredId = typeof entry.id === 'string' && entry.id.trim()
@@ -1048,8 +1089,10 @@ class WorldRuntimeFormationService {
             eyeY: firstFiniteInteger(entry.eyeY, y),
             allocation,
             stats,
-            active: lifecycle === FORMATION_LIFECYCLE_PERSISTENT && remainingAuraBudget <= 0 ? false : entry.active !== false,
-            remainingAuraBudget,
+            active: remainingQiBudget <= 0 ? false : entry.active !== false,
+            remainingQiBudget,
+            remainingSpiritStoneBudget,
+            remainingAuraBudget: remainingQiBudget,
             createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
             updatedAt: Number.isFinite(Number(entry.updatedAt)) ? Number(entry.updatedAt) : Date.now(),
         };
@@ -1188,6 +1231,8 @@ class WorldRuntimeFormationService {
                 allocation_payload,
                 active,
                 remaining_aura_budget,
+                remaining_qi_budget,
+                remaining_spirit_stone_budget,
                 created_at_ms,
                 updated_at_ms
             FROM ${INSTANCE_FORMATION_STATE_TABLE}
@@ -1214,6 +1259,8 @@ class WorldRuntimeFormationService {
                 allocation: row.allocation_payload ?? {},
                 active: row.active !== false,
                 remainingAuraBudget: Number(row.remaining_aura_budget),
+                remainingQiBudget: Number(row.remaining_qi_budget),
+                remainingSpiritStoneBudget: Number(row.remaining_spirit_stone_budget),
                 createdAt: Number(row.created_at_ms),
                 updatedAt: Number(row.updated_at_ms),
             })),
@@ -1392,6 +1439,8 @@ async function ensureInstanceFormationStateTable(pool) {
             allocation_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
             active boolean NOT NULL DEFAULT true,
             remaining_aura_budget double precision NOT NULL DEFAULT 0,
+            remaining_qi_budget double precision NOT NULL DEFAULT 0,
+            remaining_spirit_stone_budget double precision NOT NULL DEFAULT 0,
             created_at_ms bigint NOT NULL DEFAULT 0,
             updated_at_ms bigint NOT NULL DEFAULT 0,
             updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1401,6 +1450,14 @@ async function ensureInstanceFormationStateTable(pool) {
     await pool.query(`
         ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
         ADD COLUMN IF NOT EXISTS lifecycle varchar(32) NOT NULL DEFAULT 'deployed'
+    `);
+    await pool.query(`
+        ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
+        ADD COLUMN IF NOT EXISTS remaining_qi_budget double precision NOT NULL DEFAULT 0
+    `);
+    await pool.query(`
+        ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
+        ADD COLUMN IF NOT EXISTS remaining_spirit_stone_budget double precision NOT NULL DEFAULT 0
     `);
     for (const column of INSTANCE_FORMATION_STATE_BIGINT_COLUMNS) {
         await ensureBigintColumnType(pool, INSTANCE_FORMATION_STATE_TABLE, column);
@@ -1526,7 +1583,8 @@ function isPersistentFormation(formation) {
 function isActiveTerrainStabilizerFormation(formation) {
     return formation?.active === true
         && formation?.template?.effect?.kind === TERRAIN_STABILIZER_EFFECT_KIND
-        && Math.max(0, Number(formation?.remainingAuraBudget) || 0) > 0;
+        && resolveFormationRemainingQiBudget(formation) > 0
+        && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
 }
 
 function forEachFormationAffectedRuntimeCell(instance, formation, visitor) {
@@ -1572,16 +1630,49 @@ function isFormationAffectedCell(shape, centerX, centerY, x, y, radius) {
     return true;
 }
 
-function resolvePersistentFormationTickCost(formation) {
-    const remainingAuraBudget = Math.max(0, Number(formation?.remainingAuraBudget) || 0);
-    if (remainingAuraBudget <= 0) {
-        return 0;
+function resolveFormationTickCost(formation) {
+    const stats = formation?.stats ?? {};
+    if (formation?.active === false) {
+        return {
+            qiCost: Math.max(0, Number(stats.tickInactiveQiCost ?? stats.tickInactiveCost) || 0),
+            spiritStoneCost: Math.max(0, Number(stats.tickInactiveSpiritStoneCost) || 0),
+        };
     }
+    return {
+        qiCost: Math.max(0, Number(stats.tickActiveQiCost ?? stats.tickActiveCost) || 0),
+        spiritStoneCost: Math.max(0, Number(stats.tickActiveSpiritStoneCost) || 0),
+    };
+}
+
+function resolvePersistentFormationTickCost(formation) {
+    const remainingQiBudget = resolveFormationRemainingQiBudget(formation);
+    const remainingSpiritStoneBudget = resolveFormationRemainingSpiritStoneBudget(formation);
     const activeRate = PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED / QI_HALF_LIFE_RATE_SCALE;
     const rate = formation?.active === false
         ? activeRate / PERSISTENT_FORMATION_INACTIVE_DECAY_DIVISOR
         : activeRate;
-    return Math.min(remainingAuraBudget, remainingAuraBudget * rate);
+    return {
+        qiCost: remainingQiBudget <= 0 ? 0 : Math.min(remainingQiBudget, remainingQiBudget * rate),
+        spiritStoneCost: remainingSpiritStoneBudget <= 0 ? 0 : Math.min(remainingSpiritStoneBudget, remainingSpiritStoneBudget * rate),
+    };
+}
+
+function resolveFormationRemainingQiBudget(formation) {
+    return Math.max(0, Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0);
+}
+
+function resolveFormationRemainingSpiritStoneBudget(formation) {
+    return Math.max(0, Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0);
+}
+
+function setFormationRemainingQiBudget(formation, value) {
+    const normalized = Math.max(0, Number(value) || 0);
+    formation.remainingQiBudget = normalized;
+    formation.remainingAuraBudget = normalized;
+}
+
+function setFormationRemainingSpiritStoneBudget(formation, value) {
+    formation.remainingSpiritStoneBudget = Math.max(0, Number(value) || 0);
 }
 
 function buildRuntimeFormationProjection(formation, role = 'effect') {
@@ -1606,7 +1697,9 @@ function buildRuntimeFormationProjection(formation, role = 'effect') {
         active: formation.active,
         blocksBoundary: !isEyeProjection && formation.template.effect.kind === BOUNDARY_BARRIER_EFFECT_KIND,
         damagePerAura: resolveFormationDamagePerAura(formation.template),
-        remainingAuraBudget: Math.max(0, Math.floor(formation.remainingAuraBudget)),
+        remainingAuraBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+        remainingQiBudget: Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation))),
+        remainingSpiritStoneBudget: Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation))),
     };
 }
 
@@ -1618,7 +1711,8 @@ function getRuntimeFormationProjection(formation, role = 'effect') {
     const y = isEyeProjection && Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
     const eyeX = Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x;
     const eyeY = Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y;
-    const remainingAuraBudget = Math.max(0, Math.floor(formation.remainingAuraBudget));
+    const remainingAuraBudget = Math.max(0, Math.floor(resolveFormationRemainingQiBudget(formation)));
+    const remainingSpiritStoneBudget = Math.max(0, Math.floor(resolveFormationRemainingSpiritStoneBudget(formation)));
     const cachedByRole = runtimeFormationProjectionCache.get(formation);
     const cached = cachedByRole?.[cacheKey];
     if (cached
@@ -1635,7 +1729,8 @@ function getRuntimeFormationProjection(formation, role = 'effect') {
         && cached.radius === (isEyeProjection ? 1 : formation.stats.radius)
         && cached.rangeShape === formation.template.range.shape
         && cached.active === formation.active
-        && cached.remainingAuraBudget === remainingAuraBudget) {
+        && cached.remainingAuraBudget === remainingAuraBudget
+        && cached.remainingSpiritStoneBudget === remainingSpiritStoneBudget) {
         return cached.projection;
     }
     const projection = freezeRuntimeProjection(buildRuntimeFormationProjection(formation, role));
@@ -1656,6 +1751,7 @@ function getRuntimeFormationProjection(formation, role = 'effect') {
             rangeShape: formation.template.range.shape,
             active: formation.active,
             remainingAuraBudget,
+            remainingSpiritStoneBudget,
             projection,
         },
     });
@@ -1720,7 +1816,9 @@ function serializeFormation(formation) {
         eyeY: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
         allocation: { ...formation.allocation },
         active: formation.active !== false,
-        remainingAuraBudget: Math.max(0, Number(formation.remainingAuraBudget) || 0),
+        remainingAuraBudget: resolveFormationRemainingQiBudget(formation),
+        remainingQiBudget: resolveFormationRemainingQiBudget(formation),
+        remainingSpiritStoneBudget: resolveFormationRemainingSpiritStoneBudget(formation),
         radius: Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1)),
         createdAt: formation.createdAt,
         updatedAt: formation.updatedAt,
@@ -1749,6 +1847,8 @@ async function upsertFormationStateRow(client, instanceId, formation) {
             allocation_payload,
             active,
             remaining_aura_budget,
+            remaining_qi_budget,
+            remaining_spirit_stone_budget,
             created_at_ms,
             updated_at_ms,
             updated_at
@@ -1757,7 +1857,7 @@ async function upsertFormationStateRow(client, instanceId, formation) {
             $1, $2, $3, $4, $5,
             $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15,
-            $16, $17::jsonb, $18, $19, $20, $21, now()
+            $16, $17::jsonb, $18, $19, $20, $21, $22, $23, now()
         )
         ON CONFLICT (instance_id, formation_instance_id)
         DO UPDATE SET
@@ -1778,6 +1878,8 @@ async function upsertFormationStateRow(client, instanceId, formation) {
             allocation_payload = EXCLUDED.allocation_payload,
             active = EXCLUDED.active,
             remaining_aura_budget = EXCLUDED.remaining_aura_budget,
+            remaining_qi_budget = EXCLUDED.remaining_qi_budget,
+            remaining_spirit_stone_budget = EXCLUDED.remaining_spirit_stone_budget,
             created_at_ms = EXCLUDED.created_at_ms,
             updated_at_ms = EXCLUDED.updated_at_ms,
             updated_at = now()
@@ -1801,6 +1903,8 @@ async function upsertFormationStateRow(client, instanceId, formation) {
         JSON.stringify(formation.allocation ?? {}),
         formation.active !== false,
         formation.remainingAuraBudget,
+        formation.remainingQiBudget,
+        formation.remainingSpiritStoneBudget,
         formation.createdAt,
         formation.updatedAt,
     ]);

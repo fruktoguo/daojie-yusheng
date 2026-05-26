@@ -114,16 +114,22 @@ export interface FormationControlPayload {
 
 export interface FormationRefillPayload {
   formationInstanceId: string;
-  spiritStoneCount: number;
-  qiCost: number;
+  spiritStoneCount?: number;
+  qiAmount?: number;
+  qiCost?: number;
 }
 
 export interface FormationResolvedStats {
   setup?: FormationSetup;
   requiredAuraBudget?: number;
   durationHours?: number;
+  requiredQiBudget?: number;
+  requiredSpiritStoneBudget?: number;
   baseAuraBudget: number;
   totalAuraBudget: number;
+  baseQiBudget: number;
+  totalQiBudget: number;
+  totalSpiritStoneBudget: number;
   effectAura: number;
   rangeAura: number;
   effectValue: number;
@@ -132,6 +138,14 @@ export interface FormationResolvedStats {
   dailyInactiveCost: number;
   tickActiveCost: number;
   tickInactiveCost: number;
+  dailyActiveQiCost: number;
+  dailyInactiveQiCost: number;
+  tickActiveQiCost: number;
+  tickInactiveQiCost: number;
+  dailyActiveSpiritStoneCost: number;
+  dailyInactiveSpiritStoneCost: number;
+  tickActiveSpiritStoneCost: number;
+  tickInactiveSpiritStoneCost: number;
 }
 
 export interface FormationAffectedCell {
@@ -497,9 +511,17 @@ export function resolveFormationStats(
   const durationScale = Math.max(0.01, allocation.durationPercent / FORMATION_DAILY_DURATION_BASE_PERCENT);
   const dailyActiveCost = totalAuraBudget / durationScale;
   const dailyInactiveCost = dailyActiveCost / 10;
+  const tickActiveCost = dailyActiveCost / FORMATION_TICKS_PER_DAY;
+  const tickInactiveCost = dailyInactiveCost / FORMATION_TICKS_PER_DAY;
+  const spiritStoneCostDivisor = Math.max(1, FORMATION_AURA_PER_SPIRIT_STONE * normalizedMultiplier);
+  const dailyActiveSpiritStoneCost = dailyActiveCost / spiritStoneCostDivisor;
+  const dailyInactiveSpiritStoneCost = dailyInactiveCost / spiritStoneCostDivisor;
   return {
     baseAuraBudget,
     totalAuraBudget,
+    baseQiBudget: baseAuraBudget,
+    totalQiBudget: totalAuraBudget,
+    totalSpiritStoneBudget: normalizedStones,
     effectAura,
     rangeAura,
     effectValue,
@@ -507,8 +529,16 @@ export function resolveFormationStats(
     durationHours: 24 * durationScale,
     dailyActiveCost,
     dailyInactiveCost,
-    tickActiveCost: dailyActiveCost / FORMATION_TICKS_PER_DAY,
-    tickInactiveCost: dailyInactiveCost / FORMATION_TICKS_PER_DAY,
+    tickActiveCost,
+    tickInactiveCost,
+    dailyActiveQiCost: dailyActiveCost,
+    dailyInactiveQiCost: dailyInactiveCost,
+    tickActiveQiCost: tickActiveCost,
+    tickInactiveQiCost: tickInactiveCost,
+    dailyActiveSpiritStoneCost,
+    dailyInactiveSpiritStoneCost,
+    tickActiveSpiritStoneCost: dailyActiveSpiritStoneCost / FORMATION_TICKS_PER_DAY,
+    tickInactiveSpiritStoneCost: dailyInactiveSpiritStoneCost / FORMATION_TICKS_PER_DAY,
   };
 }
 
@@ -536,20 +566,38 @@ export function resolveFormationSetupStats(
   const durationTicks = Math.max(1, Math.round(setup.durationHours * 3_600));
   const dailyActiveCost = totalAuraBudget * (FORMATION_TICKS_PER_DAY / durationTicks);
   const dailyInactiveCost = dailyActiveCost / 10;
+  const tickActiveCost = totalAuraBudget / durationTicks;
+  const tickInactiveCost = tickActiveCost / 10;
+  const spiritStoneCostDivisor = Math.max(1, cost.auraPerSpiritStone * normalizedMultiplier);
+  const tickActiveSpiritStoneCost = tickActiveCost / spiritStoneCostDivisor;
+  const tickInactiveSpiritStoneCost = tickInactiveCost / spiritStoneCostDivisor;
   return {
     setup,
     requiredAuraBudget,
+    requiredQiBudget: requiredAuraBudget,
+    requiredSpiritStoneBudget: spiritStoneCount,
     durationHours: setup.durationHours,
     baseAuraBudget,
     totalAuraBudget,
+    baseQiBudget: baseAuraBudget,
+    totalQiBudget: totalAuraBudget,
+    totalSpiritStoneBudget: spiritStoneCount,
     effectAura: setup.effectValue,
     rangeAura: requiredAuraBudget,
     effectValue: setup.effectValue,
     radius: setup.radius,
     dailyActiveCost,
     dailyInactiveCost,
-    tickActiveCost: totalAuraBudget / durationTicks,
-    tickInactiveCost: totalAuraBudget / durationTicks / 10,
+    tickActiveCost,
+    tickInactiveCost,
+    dailyActiveQiCost: dailyActiveCost,
+    dailyInactiveQiCost: dailyInactiveCost,
+    tickActiveQiCost: tickActiveCost,
+    tickInactiveQiCost: tickInactiveCost,
+    dailyActiveSpiritStoneCost: tickActiveSpiritStoneCost * FORMATION_TICKS_PER_DAY,
+    dailyInactiveSpiritStoneCost: tickInactiveSpiritStoneCost * FORMATION_TICKS_PER_DAY,
+    tickActiveSpiritStoneCost,
+    tickInactiveSpiritStoneCost,
   };
 }
 
