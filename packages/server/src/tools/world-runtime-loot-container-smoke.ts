@@ -20,6 +20,7 @@ async function main(): Promise<void> {
   await testHydrateContainerStatesCanonicalizesLegacySource();
   await testHerbGrowthCreatesStockAndPersists();
   await testHerbGrowthAccumulatesStockAndPersists();
+  await testHerbGrowthRepairsLegacyFutureSchedule();
   await testHerbTickGrowthUsesInstanceTick();
   await testHerbReadOnlyProjectionDoesNotDirtyOrCreateState();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
@@ -1035,6 +1036,52 @@ async function testHerbGrowthAccumulatesStockAndPersists() {
   const unchangedPersisted = service.buildContainerPersistenceStates(instanceId);
   assert.equal(unchangedPersisted[0]?.entries[0]?.item.count, 4);
   assert.equal(unchangedPersisted[0]?.refreshAtTick, 20);
+}
+
+async function testHerbGrowthRepairsLegacyFutureSchedule() {
+  const instanceId = 'public:yunlai_town';
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number) {
+      return { itemId, count, name: '月露草', type: 'material', level: 1 };
+    },
+  } as never, buildPlayerRuntimeService(buildPlayer('player:gather:legacy-future', instanceId, 'runtime:gather:legacy-future', 24)) as never);
+  const container = {
+    id: 'lm_yunlai_moondew_legacy',
+    name: '月露草',
+    x: 5,
+    y: 6,
+    variant: 'herb',
+    grade: 'mortal',
+    desc: '可采集草药',
+    refreshTicksMin: 5,
+    refreshTicksMax: 5,
+    drops: [{ itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material' }],
+    lootPools: [],
+  };
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${container.id}`,
+    containerId: container.id,
+    generatedAtTick: 1,
+    refreshAtTick: 100000,
+    entries: [
+      {
+        item: { itemId: 'mat.moondew_grass', name: '月露草', count: 70000, type: 'material', level: 1 },
+        createdTick: 1,
+        visible: false,
+      },
+    ],
+    activeSearch: undefined,
+  }]);
+
+  service.prepareContainerLootSource(instanceId, container as never, 10);
+  const repaired = service.getPreparedContainerLootSource(instanceId, container as never, null, 10);
+  assert.equal(repaired?.items[0]?.item.count, 256);
+  assert.equal(repaired?.herb?.respawnRemainingTicks, 5);
+
+  const persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted[0]?.generatedAtTick, 10);
+  assert.equal(persisted[0]?.refreshAtTick, 15);
+  assert.equal(persisted[0]?.entries[0]?.item.count, 256);
 }
 
 async function testHerbTickGrowthUsesInstanceTick() {

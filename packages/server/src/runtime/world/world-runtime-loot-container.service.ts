@@ -49,6 +49,7 @@ const DURABLE_OPERATION_ID_MAX_LENGTH = 180;
 const DURABLE_OUTBOX_EVENT_PREFIX_LENGTH = 'outbox:'.length;
 const LOOT_OPERATION_ID_SAFE_LENGTH = DURABLE_OPERATION_ID_MAX_LENGTH - DURABLE_OUTBOX_EVENT_PREFIX_LENGTH;
 const MAX_HERB_GROWTH_CATCH_UP_STEPS = 256;
+const HERB_STALE_FUTURE_SCHEDULE_GRACE_TICKS = 300;
 
 function normalizeHerbLevel(level) {
     return Math.max(1, Math.floor(Number(level) || 1));
@@ -357,7 +358,9 @@ export class WorldRuntimeLootContainerService {
         const existing = states.get(sourceId);
         if (existing) {
             if (container.variant === 'herb') {
-                if (this.advanceHerbGrowth(container, existing, currentTick)) {
+                const repaired = repairStaleHerbSchedule(container, existing, currentTick);
+                const advanced = this.advanceHerbGrowth(container, existing, currentTick);
+                if (repaired || advanced) {
                     this.markContainerPersistenceDirty(instanceId);
                 }
             }
@@ -501,7 +504,9 @@ export class WorldRuntimeLootContainerService {
                     continue;
                 }
                 if (runtimeContainer.variant === 'herb') {
-                    if (this.advanceHerbGrowth(runtimeContainer, state, instanceTick)) {
+                    const repaired = repairStaleHerbSchedule(runtimeContainer, state, instanceTick);
+                    const advanced = this.advanceHerbGrowth(runtimeContainer, state, instanceTick);
+                    if (repaired || advanced) {
                         changed = true;
                     }
                     continue;
@@ -1453,6 +1458,79 @@ function resolveContainerRefreshAtTick(container, currentTick) {
     const min = refreshTicksMin ?? refreshTicksMax ?? 1;
     const max = Math.max(min, refreshTicksMax ?? min);
     return currentTick + randomIntInclusive(min, max);
+}
+
+function resolveContainerMaxRefreshTicks(container) {
+    const fixedRefreshTicks = Number.isInteger(container?.refreshTicks) && Number(container.refreshTicks) > 0
+        ? Number(container.refreshTicks)
+        : undefined;
+    if (fixedRefreshTicks) {
+        return fixedRefreshTicks;
+    }
+    const refreshTicksMin = Number.isInteger(container?.refreshTicksMin) && Number(container.refreshTicksMin) > 0
+        ? Number(container.refreshTicksMin)
+        : undefined;
+    const refreshTicksMax = Number.isInteger(container?.refreshTicksMax) && Number(container.refreshTicksMax) > 0
+        ? Number(container.refreshTicksMax)
+        : undefined;
+    return Math.max(1, refreshTicksMax ?? refreshTicksMin ?? 1);
+}
+
+function repairStaleHerbSchedule(container, state, currentTick) {
+    if (container?.variant !== 'herb' || !Number.isFinite(Number(currentTick))) {
+        return false;
+    }
+    if (typeof state?.refreshAtTick !== 'number' || !Number.isFinite(Number(state.refreshAtTick))) {
+        return false;
+    }
+    const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    const refreshAtTick = Math.max(0, Math.trunc(Number(state.refreshAtTick) || 0));
+    const maxRefreshTicks = resolveContainerMaxRefreshTicks(container);
+    const staleFutureThreshold = Math.max(
+        maxRefreshTicks * 2,
+        maxRefreshTicks + HERB_STALE_FUTURE_SCHEDULE_GRACE_TICKS,
+    );
+    if (refreshAtTick - normalizedCurrentTick <= staleFutureThreshold) {
+        return false;
+    }
+    state.generatedAtTick = normalizedCurrentTick;
+    state.refreshAtTick = resolveContainerRefreshAtTick(container, normalizedCurrentTick) ?? (normalizedCurrentTick + maxRefreshTicks);
+    clampLegacyHerbStock(state.entries, MAX_HERB_GROWTH_CATCH_UP_STEPS);
+    return true;
+}
+
+function clampLegacyHerbStock(entries, limit) {
+    if (!Array.isArray(entries)) {
+        return false;
+    }
+    const normalizedLimit = Math.max(1, Math.trunc(Number(limit) || 1));
+    let remaining = normalizedLimit;
+    let changed = false;
+    for (let index = 0; index < entries.length; index += 1) {
+        const entry = entries[index];
+        const count = Math.max(0, Math.trunc(Number(entry?.item?.count) || 0));
+        if (remaining <= 0) {
+            if (count > 0) {
+                entry.item.count = 0;
+                changed = true;
+            }
+            continue;
+        }
+        if (count > remaining) {
+            entry.item.count = remaining;
+            changed = true;
+            remaining = 0;
+            continue;
+        }
+        remaining -= count;
+    }
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+        if (Math.max(0, Math.trunc(Number(entries[index]?.item?.count) || 0)) <= 0) {
+            entries.splice(index, 1);
+            changed = true;
+        }
+    }
+    return changed;
 }
 
 function randomIntInclusive(min, max) {
