@@ -828,7 +828,13 @@ export class CraftPanelRuntimeService {
         }
         return this.enqueueCraftQueueItem(
             player,
-            buildEnhancementQueueItem(validated.target, validated.protection, payload, validated.desiredTargetLevel),
+            buildEnhancementQueueItem(
+                validated.target,
+                validated.protection,
+                payload,
+                validated.desiredTargetLevel,
+                this.resolveEnhancementItemDisplayName(validated.target.item, normalizeEnhanceLevel(validated.target.item.enhanceLevel)),
+            ),
             normalizeCraftQueueStartMode(payload?.queueMode),
         );
     }
@@ -879,7 +885,7 @@ export class CraftPanelRuntimeService {
         const protectionItemSignature = validated.protection
             ? createItemStackSignature(validated.protection.item)
             : undefined;
-        const targetItemName = getItemDisplayName({ ...target.item, enhanceLevel: validated.currentLevel });
+        const targetItemName = this.resolveEnhancementItemDisplayName(target.item, validated.currentLevel);
         player.enhancementJob = {
             jobRunId: validated.jobRunId,
             jobType: 'enhancement',
@@ -968,6 +974,17 @@ export class CraftPanelRuntimeService {
             },
             pills: [{ key: 'itemName', style: 'target' }],
         }];
+    }
+    /** 解析强化玩家可见装备名，运行态物品缺少 name 时用内容目录兜底。 */
+    resolveEnhancementItemDisplayName(item, enhanceLevel) {
+        const itemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
+        const itemName = typeof item?.name === 'string' ? item.name.trim() : '';
+        const templateName = itemId ? this.contentTemplateRepository.getItemName(itemId) : null;
+        return getItemDisplayName({
+            ...(item ?? {}),
+            ...(templateName && (!itemName || itemName === itemId) ? { name: templateName } : {}),
+            enhanceLevel,
+        });
     }
     /**
  * startEnhancement：执行开始强化相关逻辑。
@@ -2702,11 +2719,11 @@ function buildAlchemyQueueItem(recipe, ingredients, quantity, kind = 'alchemy') 
     };
 }
 
-function buildEnhancementQueueItem(target, protection, payload, desiredTargetLevel) {
+function buildEnhancementQueueItem(target, protection, payload, desiredTargetLevel, targetLabel = undefined) {
     return {
         queueId: buildCraftQueueId('enhancement'),
         kind: 'enhancement',
-        label: target?.item?.name ?? target?.item?.itemId ?? '强化任务',
+        label: targetLabel ?? target?.item?.name ?? target?.item?.itemId ?? '强化任务',
         quantity: desiredTargetLevel,
         createdAt: Date.now(),
         payload: {

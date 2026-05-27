@@ -6,6 +6,7 @@
 import type { CraftQueueItemView, TechniqueActivityTaskView } from '@mud/shared';
 import { formatDisplayInteger } from '../utils/number';
 import { t } from './i18n';
+import { resolveClientDisplayToken } from './structured-notice-display';
 
 type CraftQueueProgressView = {
   ratio: number;
@@ -224,10 +225,12 @@ export class CraftQueueView {
 
   private buildDisplayItemFromTechniqueTask(task: TechniqueActivityTaskView): CraftQueueDisplayItem {
     const isActive = task.state === 'running' || task.state === 'interrupt_wait' || task.state === 'completing';
+    const taskLabel = resolveClientDisplayToken(task.label);
+    const targetLabel = task.targetLabel ? resolveClientDisplayToken(task.targetLabel) : '';
     return {
       queueId: task.cancelRef.jobRunId ?? task.cancelRef.queueId ?? task.id,
       kind: task.kind,
-      label: task.targetLabel ? `${task.label} · ${task.targetLabel}` : task.label,
+      label: targetLabel ? `${taskLabel} · ${targetLabel}` : taskLabel,
       createdAt: 0,
       isActive,
       state: task.state === 'sleeping' ? 'sleeping' : 'pending',

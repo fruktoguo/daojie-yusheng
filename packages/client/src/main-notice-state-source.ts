@@ -3,9 +3,10 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg, type StructuredNoticePayload } from '@mud/shared';
+import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg } from '@mud/shared';
 import { ChatUI } from './ui/chat';
-import { hasI18nKey, t, tLoose } from './ui/i18n';
+import { t } from './ui/i18n';
+import { resolveStructuredNoticeText } from './ui/structured-notice-display';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -221,24 +222,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
 
 function resolveClientNoticeText(rawText: string, structured?: unknown, structuredGroup?: unknown[]): string {
   const normalizedText = rewriteClientNoticeText(rawText);
-  const payload = normalizeStructuredNotice(structured) ?? normalizeStructuredNotice(structuredGroup?.[0]);
-  if (payload && hasI18nKey(payload.key)) {
-    return tLoose(payload.key, payload.vars);
-  }
-  if (hasI18nKey(normalizedText)) {
-    return tLoose(normalizedText);
-  }
-  return normalizedText;
-}
-
-function normalizeStructuredNotice(value: unknown): StructuredNoticePayload | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-  const payload = value as Partial<StructuredNoticePayload>;
-  return typeof payload.key === 'string' && payload.key.trim().length > 0
-    ? payload as StructuredNoticePayload
-    : null;
+  return resolveStructuredNoticeText(normalizedText, structured, structuredGroup);
 }
 
 function rewriteClientNoticeText(rawText: string): string {

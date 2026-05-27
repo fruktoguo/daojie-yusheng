@@ -28,6 +28,7 @@ async function main(): Promise<void> {
   await testMissingLockedItemClearsJobWithoutSnapshotFallback();
   await testCancelReturnsLockedTarget();
   await testQueuedEnhancementDoesNotLockOrConsumeResources();
+  await testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing();
 
   console.log(JSON.stringify({
     ok: true,
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
       '强化取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 复用权威 finishEnhancementJob。',
       '强化中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '已有技艺活动时，强化入队不会提前锁装备或扣灵石。',
+      '强化运行态物品缺少 name 或仅有 itemId 时，任务、通知和队列使用内容目录显示名。',
     ],
   }, null, 2));
 }
@@ -364,6 +366,34 @@ async function testQueuedEnhancementDoesNotLockOrConsumeResources(): Promise<voi
   assert.equal(player.inventory.lockedItems?.length ?? 0, 0);
   assert.equal(player.inventory.items.some((item: { itemInstanceId?: string }) => item.itemInstanceId === targetInstanceId), true);
   assert.equal(Number(player.wallet.balances[0].balance), balanceBefore);
+}
+
+async function testEnhancementUsesTemplateNameWhenRuntimeItemNameMissing(): Promise<void> {
+  const unnamedTarget = createEquipmentItem('iron_sword', 'iron_sword', 8, 1);
+  delete unnamedTarget.name;
+  const player = createPlayer('player:enhancement:template-name', [
+    unnamedTarget,
+  ]);
+  const { craftService } = createCraftHarness(player, [], []);
+  const target = player.inventory.items[0];
+  const start = craftService.startEnhancement(player, {
+    target: buildInventoryRef(target),
+  });
+
+  assert.equal(start.ok, true);
+  assert.equal(player.enhancementJob?.targetItemName, '+1 铁剑');
+  assert.equal(start.messages?.[0]?.vars?.itemName, '+1 铁剑');
+
+  const queuedTarget = createEquipmentItem('iron_sword', 'iron_sword', 8, 0);
+  player.inventory.items.push({
+    ...queuedTarget,
+    itemInstanceId: randomUUID(),
+  });
+  const queued = craftService.startEnhancement(player, {
+    target: buildInventoryRef(player.inventory.items.at(-1)),
+  });
+  assert.equal(queued.ok, true);
+  assert.equal(player.techniqueActivityQueue[0]?.label, '铁剑');
 }
 
 function createCraftHarness(

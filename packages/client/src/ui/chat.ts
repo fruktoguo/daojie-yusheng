@@ -34,6 +34,7 @@ import { hasI18nKey, t, tLoose } from './i18n';
 import { mountReactChatPanel, shouldUseReactChatPanel } from '../react-ui/panels/chat/mount-chat-panel';
 import { getLocalBuffTemplate } from '../content/local-templates';
 import { describePreviewBonuses } from './stat-preview';
+import { normalizeStructuredNoticeVars, resolveClientDisplayToken } from './structured-notice-display';
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
@@ -700,7 +701,7 @@ function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, r
     return;
   }
   const template = tLoose(data.key, undefined, fallbackText || data.key);
-  const vars = data.vars ?? {};
+  const vars = normalizeStructuredNoticeVars(data.vars) ?? {};
   const pillMap = new Map<string, NoticePillConfig>();
   for (const pill of data.pills ?? []) {
     if (typeof pill === 'string') {
@@ -722,7 +723,7 @@ function appendStructuredNoticeLine(container: DocumentFragment | HTMLElement, r
     const varName = match[1];
     const rawValue = String(vars[varName] ?? match[0]);
     const enumKey = `notice.enum.${rawValue}`;
-    const value = hasI18nKey(enumKey) ? tLoose(enumKey) : rawValue;
+    const value = hasI18nKey(enumKey) ? tLoose(enumKey) : resolveClientDisplayToken(rawValue);
     const pillConfig = pillMap.get(varName);
     if (pillConfig) {
       container.appendChild(buildNoticePill(value, pillConfig));

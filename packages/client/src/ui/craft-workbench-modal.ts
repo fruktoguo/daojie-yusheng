@@ -58,6 +58,7 @@ import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tool
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from './item-display';
 import { CraftAlchemyView } from './craft-alchemy-view';
 import type { CraftAlchemyParent } from './craft-alchemy-view';
+import { resolveClientDisplayToken } from './structured-notice-display';
 import { CraftEnhancementView } from './craft-enhancement-view';
 import type { CraftEnhancementParent } from './craft-enhancement-view';
 import { CraftQueueView } from './craft-queue-view';
@@ -2555,7 +2556,14 @@ export class CraftWorkbenchModal {
     selected: SyncedEnhancementCandidateView | null,
     extraContent = '',
   ): string {
-    const selectedItem = activeJob?.item ?? selected?.item ?? null;
+    const selectedItem = activeJob
+      ? buildBaseEnhancementPreviewItem(activeJob.item ?? {
+        itemId: activeJob.targetItemId,
+        name: activeJob.targetItemName,
+        level: 1,
+        enhanceLevel: activeJob.currentLevel,
+      })
+      : selected?.item ?? null;
     const sourceLabel = activeJob
       ? (activeJob.target.source === 'equipment'
         ? `队列锁定 · ${getEquipSlotLabel(activeJob.target.slot ?? 'weapon')}`
@@ -2870,6 +2878,7 @@ export class CraftWorkbenchModal {
     };
     const currentLines = describeEquipmentBonuses(currentPreview, this.playerRealmLv);
     const resultLines = describeEquipmentBonuses(resultPreview, this.playerRealmLv);
+    const displayTargetName = getItemDisplayName(currentPreview) || resolveClientDisplayToken(job.targetItemName);
     const finalTargetLevel = Math.max(job.targetLevel, job.desiredTargetLevel ?? job.targetLevel);
     const workRemainingTicks = resolveEnhancementWorkRemainingTicks(job);
     const workTotalTicks = resolveEnhancementWorkTotalTicks(job);
@@ -2888,7 +2897,7 @@ export class CraftWorkbenchModal {
           <div class="enhancement-summary-card enhancement-summary-card--running">
             <div class="enhancement-summary-head">
               <div>
-                <div class="enhancement-summary-title">${escapeHtml(job.targetItemName)}</div>
+                <div class="enhancement-summary-title">${escapeHtml(displayTargetName)}</div>
                 <div class="enhancement-summary-subtitle">进行中：+${formatDisplayInteger(job.currentLevel)} → +${formatDisplayInteger(job.targetLevel)}${finalTargetLevel > job.targetLevel ? ` · 最终目标 +${formatDisplayInteger(finalTargetLevel)}` : ''}</div>
               </div>
               <div class="enhancement-summary-rate">${formatEnhancementPercent(job.successRate)}</div>
