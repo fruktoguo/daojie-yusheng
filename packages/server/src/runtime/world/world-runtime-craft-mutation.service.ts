@@ -9,7 +9,7 @@ import { WorldSessionService } from '../../network/world-session.service';
 import { WorldClientEventService } from '../../network/world-client-event.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelRuntimeService } from '../craft/craft-panel-runtime.service';
-import { emitTechniqueActivityPanel, emitTechniqueActivityTasks, listTechniqueActivityRefreshKinds } from '../craft/technique-activity-registry.helpers';
+import { emitTechniqueActivityPanel, emitTechniqueActivityTasks, getTechniqueActivityMetadata, listTechniqueActivityRefreshKinds } from '../craft/technique-activity-registry.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 
 /** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
@@ -67,6 +67,9 @@ export class WorldRuntimeCraftMutationService {
     emitCraftPanelUpdate(playerId, panel, _deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (!hasTechniqueActivityPanelEvent(panel)) {
+            return;
+        }
         const socket = this.worldSessionService.getSocketByPlayerId(playerId);
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!socket || !player || !this.worldClientEventService.prefersMainline(socket)) {
@@ -151,11 +154,11 @@ export class WorldRuntimeCraftMutationService {
                 deps.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
             }
         }
-        if (result.panelChanged || this.hasActiveCraftPanelJob(playerId, panel)) {
-            this.emitCraftPanelUpdate(playerId, panel, deps);
-        }
         if (result.panelChanged || this.hasAnyActiveTechniqueActivity(playerId)) {
             this.emitTechniqueActivityTaskUpdate(playerId);
+        }
+        if (result.panelChanged || this.hasActiveCraftPanelJob(playerId, panel)) {
+            this.emitCraftPanelUpdate(playerId, panel, deps);
         }
     }    
     /** 判断任一技艺任务是否仍需推送运行态。 */
@@ -275,6 +278,15 @@ function normalizeTechniqueActivityNotice(message) {
         kind: message.kind ?? 'info',
         structured,
     };
+}
+
+function hasTechniqueActivityPanelEvent(panel) {
+    try {
+        return Boolean(getTechniqueActivityMetadata(panel)?.panelEvent);
+    }
+    catch {
+        return false;
+    }
 }
 
 function isDurableActiveJobPersistenceEnabled(deps) {
