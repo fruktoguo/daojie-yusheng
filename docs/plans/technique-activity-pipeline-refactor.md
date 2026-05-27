@@ -304,7 +304,7 @@ strategy 只负责领域差异：
 - [x] 把 `TechniqueActivityNoticeMessage.text` 改为结构化 payload 的计划项，不在新链路继续扩散文本拼接；兼容旧 runtime 的 fallback `text` 字段暂时保留，但 pipeline 公共分支和已迁入的制造型链路只新增 `key/vars/pills`。
 - [x] 炼丹/炼器 pipeline 的 start、queue、interrupt、cancel、batch、completion 通知改为结构化 key/vars/pills，不再在该新链路拼玩家可见中文。
 - [x] 给 strategy 增加明确的 `getActiveJob` / `setActiveJob` 或 job accessor，减少字符串 slot。
-- [ ] 明确公共 pipeline 是否负责入包；如果负责，strategy 不直接改背包；如果不负责，result 类型不能命名为 outputs 后再掉地。
+- [x] 明确公共 pipeline 是否负责入包；公共 pipeline 只根据 `inventoryDelta.granted` 执行入包/掉地，`outputs` 只保留结算摘要，不再作为自动入包回退字段。
 
 验收：
 
@@ -551,6 +551,7 @@ strategy 只负责领域差异：
 - 2026-05-27：旧工坊 modal 的炼丹/炼器 active job 卡补齐独立打断等待条和局部 patch hook，实际进度统一按 `workTotalTicks/workRemainingTicks` 计算，打断等待按 `interruptWaitRemainingTicks/interruptState/pausedTicks` 单独显示；`patchAlchemyJobHost` 只更新进度条、等待条、阶段 chip 和 meta，不重建炼丹/炼器面板主体。新炼丹视图、旧工坊 modal、强化新旧视图都具备实际进度与等待条分离的局部 patch 路径。`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`pnpm verify:client` 通过；未做浏览器截图或真机触控验证，所以手机端、浅色、深色体验仍保留未勾选。
 - 2026-05-27：公共 `TechniqueActivityPipelineService` 的条件失败、无等待打断和有等待打断通知改为结构化 `key/vars/pills`，不再在 pipeline 公共分支拼玩家可见中文；删除未使用的 `buildTechniqueActivityInterruptMessage` 文本 helper。新增 `notice.craft.activity-condition-failed`、`notice.craft.activity-interrupted`、`notice.craft.activity-interrupted-wait-generic` i18n 源并生成客户端产物，`world-runtime-mining-job-smoke` 断言挖矿通用打断通知不带 `text` 且包含结构化变量。`pnpm --filter @mud/server compile`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:client` 通过；旧采集/建造/阵法 runtime service 里的玩家可见文本 notice 仍待后续迁移。
 - 2026-05-27：`TechniqueActivityPipelineService` 增加 `startLifecycle` / `tickLifecycle` / `cancelLifecycle`，分别返回 shared 的 `TechniqueActivityStartResult`、`TechniqueActivityTickResult`、`TechniqueActivityCancelResult` 语义并携带过渡期 effect flags；原 `start` / `tick` / `cancel` 保留为兼容适配器，把 lifecycle 结果转成旧 `CraftMutationResult` / `CraftTickResult`，避免一次性改破现有 world tick、队列推进和 flush 调用面。`world-runtime-mining-job-smoke` 增加 lifecycle 断言，覆盖 start/tick/cancel 三类结果不再混用同一个 mutation 语义。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。仍待后续把更多策略的 legacy delegate 返回值直接迁成 lifecycle/result，而不是经适配器包裹。
+- 2026-05-27：公共 resolve 入包契约进一步收紧：`applyTechniqueActivityResolveInventory` 只消费 `inventoryDelta.granted`，`TechniqueActivityResolveResult.outputs` 仅作为结算摘要，不再作为自动入包回退字段。新增 `technique-activity-resolve-inventory-contract-smoke` 验证 outputs 单独存在不会改变背包，而 `inventoryDelta.granted` 才会入包或转落地。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/shared build`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-resolve-inventory-contract-smoke.js`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 
 ## 验证矩阵
 

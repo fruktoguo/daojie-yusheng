@@ -55,7 +55,7 @@ export interface TechniqueActivityNoticeMessage {
   badges?: StructuredNoticePayload['badges'];
 }
 
-/** 背包 delta。策略可以声明消耗、入包、掉地和是否改动背包。 */
+/** 背包 delta。公共 pipeline 只根据此 delta 执行入包/掉地，`outputs` 仅作结算摘要。 */
 export interface TechniqueActivityInventoryDelta {
   consumed?: TechniqueActivityOutputItem[];
   granted?: TechniqueActivityOutputItem[];
@@ -97,7 +97,7 @@ export interface TechniqueActivityResolveResult {
   successCount: number;
   /** 本批次失败数。 */
   failureCount: number;
-  /** 产出物品列表。 */
+  /** 产出物品摘要；不会被公共 pipeline 自动入包，入包必须写入 `inventoryDelta.granted`。 */
   outputs: TechniqueActivityOutputItem[];
   /** 背包 delta。 */
   inventoryDelta?: TechniqueActivityInventoryDelta;

@@ -135,9 +135,7 @@ export function applyTechniqueActivityResolveInventory(
   ctx: PipelineContext,
 ): TechniqueActivityResolveInventoryResult {
   const requestedItems = normalizeResolveOutputItems(
-    resolved.inventoryDelta?.granted && resolved.inventoryDelta.granted.length > 0
-      ? resolved.inventoryDelta.granted
-      : resolved.outputs,
+    resolved.inventoryDelta?.granted ?? [],
     ctx,
   );
   const existingDropped = normalizeResolveOutputItems(resolved.inventoryDelta?.dropped ?? [], ctx);
