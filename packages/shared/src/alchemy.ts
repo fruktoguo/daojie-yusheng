@@ -17,7 +17,6 @@ import { computeCraftAdjustedSuccessRate } from './craft-success';
 
 import {
   ALCHEMY_MAX_PRESET_COUNT,
-  ALCHEMY_PREPARATION_TICKS,
   ALCHEMY_FURNACE_OUTPUT_COUNT,
 } from './constants/gameplay/craft';
 
@@ -57,7 +56,7 @@ export function getAlchemySpiritStoneCost(
 export function computeAlchemyTotalJobTicks(
   batchBrewTicks: number,
   quantity: number | undefined,
-  preparationTicks = ALCHEMY_PREPARATION_TICKS,
+  preparationTicks = 0,
 ): number {
   const normalizedBatchTicks = Math.max(1, Math.floor(Number(batchBrewTicks) || 1));
   const normalizedPreparationTicks = Math.max(0, Math.floor(Number(preparationTicks) || 0));
@@ -312,12 +311,10 @@ export function normalizePlayerAlchemyJob(value: unknown): PlayerAlchemyJob | nu
     successCount: Math.max(0, Math.floor(Number(candidate.successCount) || 0)),
     failureCount: Math.max(0, Math.floor(Number(candidate.failureCount) || 0)),
     ingredients: normalizeAlchemyIngredientSelections(candidate.ingredients),
-    phase: candidate.phase === 'preparing'
-      ? 'preparing'
-      : candidate.phase === 'paused'
+    phase: candidate.phase === 'paused'
         ? 'paused'
         : 'brewing',
-    preparationTicks: Math.max(0, Math.floor(Number(candidate.preparationTicks) || ALCHEMY_PREPARATION_TICKS)),
+    preparationTicks: 0,
     batchBrewTicks: Math.max(1, Math.floor(Number(candidate.batchBrewTicks) || 1)),
     currentBatchRemainingTicks: Math.max(0, Math.floor(Number(candidate.currentBatchRemainingTicks) || 0)),
     pausedTicks: Math.max(0, Math.floor(Number(candidate.pausedTicks) || 0)),

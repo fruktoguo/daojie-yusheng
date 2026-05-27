@@ -10728,11 +10728,6 @@
       font-size: var(--font-size-12);
       line-height: 1.55;
     }
-    .alchemy-job-phase-chip.is-preparing {
-      border-color: rgba(168, 111, 59, 0.22);
-      background: rgba(248, 235, 214, 0.92);
-      color: #955126;
-    }
     .alchemy-job-phase-chip.is-brewing {
       border-color: rgba(88, 114, 71, 0.22);
       background: rgba(228, 238, 220, 0.92);
@@ -10886,11 +10881,6 @@
       border-color: rgba(212, 176, 137, 0.22);
       background: rgba(70, 56, 45, 0.92);
       color: #f5e8d8;
-    }
-    :root[data-color-mode="dark"] .alchemy-job-phase-chip.is-preparing {
-      border-color: rgba(212, 176, 137, 0.24);
-      background: rgba(92, 68, 45, 0.92);
-      color: #f2d2aa;
     }
     :root[data-color-mode="dark"] .alchemy-job-phase-chip.is-brewing {
       border-color: rgba(153, 192, 130, 0.24);

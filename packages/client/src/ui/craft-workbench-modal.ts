@@ -197,10 +197,7 @@ function formatEnhancementPercent(rate: number | undefined): string {
   });
 }
 
-function getAlchemyPhaseLabel(phase: 'preparing' | 'brewing' | 'paused'): string {
-  if (phase === 'preparing') {
-    return t('craft.workbench.alchemy.phase.preparing');
-  }
+function getAlchemyPhaseLabel(phase: 'brewing' | 'paused'): string {
   if (phase === 'paused') {
     return t('craft.workbench.alchemy.phase.paused');
   }
@@ -1905,7 +1902,6 @@ export class CraftWorkbenchModal {
     }
     if (phaseChip) {
       phaseChip.textContent = getAlchemyPhaseLabel(job.phase);
-      phaseChip.classList.toggle('is-preparing', job.phase === 'preparing');
       phaseChip.classList.toggle('is-paused', job.phase === 'paused');
       phaseChip.classList.toggle('is-brewing', job.phase === 'brewing');
     }
@@ -2227,7 +2223,7 @@ export class CraftWorkbenchModal {
     }
     const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === job.recipeId) ?? null;
     const progressPercent = Math.max(0, Math.min(100, (1 - (job.remainingTicks / Math.max(1, job.totalTicks))) * 100));
-    const phaseClass = job.phase === 'preparing' ? 'is-preparing' : (job.phase === 'paused' ? 'is-paused' : 'is-brewing');
+    const phaseClass = job.phase === 'paused' ? 'is-paused' : 'is-brewing';
     return `
       <section class="alchemy-job-card" data-alchemy-job-card="true" data-alchemy-job-key="${escapeHtml(this.getAlchemyJobPatchKey(job))}">
         <div class="alchemy-job-head">

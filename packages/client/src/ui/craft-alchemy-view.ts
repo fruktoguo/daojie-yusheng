@@ -77,10 +77,7 @@ function formatRate(rate: number | undefined): string {
   return `${Math.max(0, Math.min(100, Number(rate) * 100)).toFixed(1)}%`;
 }
 
-function getAlchemyPhaseLabel(phase: 'preparing' | 'brewing' | 'paused'): string {
-  if (phase === 'preparing') {
-    return t('craft.workbench.alchemy.phase.preparing');
-  }
+function getAlchemyPhaseLabel(phase: 'brewing' | 'paused'): string {
   if (phase === 'paused') {
     return t('craft.workbench.alchemy.phase.paused');
   }
@@ -539,7 +536,6 @@ export class CraftAlchemyView {
     }
     if (phaseChip) {
       phaseChip.textContent = getAlchemyPhaseLabel(job.phase);
-      phaseChip.classList.toggle('is-preparing', job.phase === 'preparing');
       phaseChip.classList.toggle('is-paused', job.phase === 'paused');
       phaseChip.classList.toggle('is-brewing', job.phase === 'brewing');
     }
@@ -744,7 +740,7 @@ export class CraftAlchemyView {
     const interruptRemainingTicks = resolveInterruptRemainingTicks(job);
     const interruptTotalTicks = resolveInterruptTotalTicks(job, interruptRemainingTicks);
     const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
-    const phaseClass = job.phase === 'preparing' ? 'is-preparing' : (job.phase === 'paused' ? 'is-paused' : 'is-brewing');
+    const phaseClass = job.phase === 'paused' ? 'is-paused' : 'is-brewing';
     return `
       <section class="alchemy-job-card" data-alchemy-job-card="true" data-alchemy-job-key="${escapeHtml(this.getAlchemyJobPatchKey(job))}">
         <div class="alchemy-job-head">

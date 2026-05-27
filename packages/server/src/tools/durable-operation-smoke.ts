@@ -2158,7 +2158,7 @@ async function main(): Promise<void> {
           jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
           jobType: 'alchemy',
           jobVersion: 2,
-          phase: 'preparing',
+          phase: 'brewing',
           remainingTicks: 8,
         }),
         nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
@@ -2182,7 +2182,7 @@ async function main(): Promise<void> {
           jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
           jobType: 'alchemy',
           jobVersion: 2,
-          phase: 'preparing',
+          phase: 'brewing',
           remainingTicks: 8,
         }),
         nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
@@ -2209,7 +2209,7 @@ async function main(): Promise<void> {
           jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
           jobType: 'alchemy',
           jobVersion: 2,
-          phase: 'preparing',
+          phase: 'brewing',
           remainingTicks: 8,
         }),
         nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
@@ -2274,7 +2274,7 @@ async function main(): Promise<void> {
         jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
         jobType: 'alchemy',
         jobVersion: 2,
-        phase: 'preparing',
+        phase: 'brewing',
         remainingTicks: 8,
       }),
       nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
@@ -2301,7 +2301,7 @@ async function main(): Promise<void> {
         jobRunId: `job:${activeJobStartPlayerId}:alchemy:start:1`,
         jobType: 'alchemy',
         jobVersion: 2,
-        phase: 'preparing',
+        phase: 'brewing',
         remainingTicks: 8,
       }),
       nextEnhancementRecords: buildActiveJobStartEnhancementRecords(),
@@ -2368,7 +2368,7 @@ async function main(): Promise<void> {
       || activeJobStartRow.job_run_id !== `job:${activeJobStartPlayerId}:alchemy:start:1`
       || activeJobStartRow.job_type !== 'alchemy'
       || Number(activeJobStartRow.job_version) !== 2
-      || activeJobStartRow.phase !== 'preparing'
+      || activeJobStartRow.phase !== 'brewing'
       || Number(activeJobStartRow.remaining_ticks) !== 8
     ) {
       throw new Error(`unexpected active-job start row: ${JSON.stringify(activeJobStartRow)}`);

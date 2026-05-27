@@ -294,13 +294,11 @@ export class CraftQueueView {
     const label = `${formatDisplayInteger(Math.round(ratio * 100))}%`;
     const phaseText = phase === 'paused'
       ? '等待恢复'
-      : phase === 'preparing'
+      : phase === 'brewing'
         ? '制作'
-        : phase === 'brewing'
-          ? '制作'
-          : phase === 'enhancing'
-            ? '强化'
-            : '进行中';
+        : phase === 'enhancing'
+          ? '强化'
+          : '进行中';
     return {
       ratio,
       label,

@@ -6621,8 +6621,8 @@ function normalizeAlchemyJob(value) {
                 count: Math.max(1, Math.floor(Number(ingredient.count) || 1)),
             }))
             : [],
-        phase: value.phase === 'preparing' || value.phase === 'paused' ? value.phase : 'brewing',
-        preparationTicks: Math.max(0, Math.floor(Number(value.preparationTicks) || 0)),
+        phase: value.phase === 'paused' ? value.phase : 'brewing',
+        preparationTicks: 0,
         batchBrewTicks: Math.max(1, Math.floor(Number(value.batchBrewTicks) || 1)),
         currentBatchRemainingTicks: Math.max(0, Math.floor(Number(value.currentBatchRemainingTicks) || 0)),
         pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),

@@ -234,7 +234,7 @@ export interface PlayerAlchemyJob {
  * phase：phase相关字段。
  */
 
-  phase: 'preparing' | 'brewing' | 'paused';  
+  phase: 'brewing' | 'paused';
   /**
  * preparationTicks：preparationtick相关字段。
  */

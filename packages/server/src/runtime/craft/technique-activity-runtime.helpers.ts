@@ -14,7 +14,7 @@ import {
   type TechniqueActivityInterruptReason,
 } from '@mud/shared';
 
-type TechniqueActivityRuntimePhase = 'preparing' | 'brewing' | 'enhancing' | 'paused';
+type TechniqueActivityRuntimePhase = 'brewing' | 'enhancing' | 'mining' | 'maintaining' | 'paused';
 
 interface TechniqueActivityRuntimeJob {
   phase: TechniqueActivityRuntimePhase;

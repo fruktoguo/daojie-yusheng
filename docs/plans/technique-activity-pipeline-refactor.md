@@ -284,7 +284,7 @@ strategy 只负责领域差异：
 - [ ] 列出每种技艺当前依赖的外部资源：背包、钱包、锁定物品、地图容器、建筑 activeBuilder、阵法实例。
 - [ ] 找出所有当前会修改 `remainingTicks` / `totalTicks` 来表达打断等待的路径。
 - [ ] 找出所有攻击、移动、手动开始修炼、切换状态等会中断技艺的入口，确认它们只写 `interruptWaitRemainingTicks` / `interruptState`，不污染实际工作进度。
-- [ ] 找出炼丹、炼器中“准备/开炉/炉火已稳”相关阶段、文本和客户端展示点。
+- [x] 找出炼丹、炼器中“准备/开炉/炉火已稳”相关阶段、文本和客户端展示点。
 - [ ] 标记所有服务端玩家可见文本拼接点，后续迁移时改为结构化 notice。
 - [ ] 建立最小 smoke 清单，不先改行为。
 
@@ -547,6 +547,7 @@ strategy 只负责领域差异：
 - 2026-05-27：强化记录写入拆成生命周期显式 hook：start 创建/更新记录走 `recordEnhancementStart`，tick 单阶成功/失败计数走 `recordEnhancementStepResult`，完成/停止/取消状态和最高等级收口走 `completeEnhancementRecord`；`finishEnhancementJob` 不再内联直接改 `enhancementRecords`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js`、`node packages/server/dist/tools/enhancement-panel-payload-smoke.js` 通过。该 proof 证明记录写入口已显式命名并保持 smoke 行为，不等同于强化记录已经完全改成公共 `TechniqueActivityResolveResult.recordDelta` 物化。
 - 2026-05-27：建造条件永久失效释放补强：`BuildingStrategy.onConditionFailed` 会释放当前玩家持有的 `activeBuilderPlayerId`；真实 `tickBuildingConstruction` 委托路径遇到建筑已不再处于 `building` 状态但仍残留当前玩家 activeBuilder 时，会清理 activeBuilder、清 buildCompleteTick、递增建筑 revision / worldRevision / persistentRevision，并标记 building 持久化脏域。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 与既有采集目标永久消失释放 `activeSearch` 一起覆盖 Phase 5 “条件永久失效时取消并释放外部占用”的验收项。
 - 2026-05-27：公共 pipeline 的 paused 阶段改为复用 `advanceTechniqueActivityPause`，每息同步递减 `pausedTicks`、`interruptWaitRemainingTicks` 和 `interruptState.waitRemainingTicks`，恢复时清空独立等待状态；新增 `world-runtime-craft-smoke` 断言公共暂停路径不修改 `remainingTicks` / `workRemainingTicks`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 覆盖公共 pipeline 等待条推进，不等同于所有攻击/移动/修炼入口的完整端到端审计。
+- 2026-05-27：炼丹/炼器准备阶段残留清理：`PlayerAlchemyJob.phase` 不再包含 `preparing`，旧存档水合和 shared normalize 会把旧 `preparing` 规整为 `brewing`；客户端工坊、旧 modal、统一任务摘要、i18n 源、教程机制和链路文档均移除玩家可见 preparing / 开炉准备分支。`pnpm --filter @mud/server compile`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`pnpm verify:client`、`pnpm audit:protocol`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 覆盖可见层和共享类型，不等同于所有旧持久化 row 的 DB 回读专项。
 
 ## 验证矩阵
 
