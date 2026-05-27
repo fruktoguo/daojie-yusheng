@@ -46,7 +46,6 @@ export function resolveFormationMaintenanceTick(
   job.workTotalTicks = 1;
   job.interruptWaitRemainingTicks = 0;
   job.interruptState = null;
-  job.jobVersion = Math.max(1, Math.floor(Number(job.jobVersion) || 1) + 1);
 
   const skillLevel = Math.max(1, Math.trunc(Number((player as { formationSkill?: { level?: unknown } } | null)?.formationSkill?.level) || 1));
   return {

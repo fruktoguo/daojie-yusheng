@@ -38,6 +38,7 @@ async function main(): Promise<void> {
       '保护物不足、灵石不足、锁定物丢失都有确定停止结果。',
       '成功后会回写强化等级、记录和灵石消耗；取消会释放锁定目标。',
       '强化取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 复用权威 finishEnhancementJob。',
+      '强化中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '已有技艺活动时，强化入队不会提前锁装备或扣灵石。',
     ],
   }, null, 2));
@@ -48,9 +49,10 @@ function testEnhancementCancelUsesPipelineLifecycle(): void {
   const { craftService } = createCraftHarness(player, [], []);
   craftService.ensurePipelineInitialized();
   const pipeline = (craftService as unknown as { pipeline?: { getStrategy?: (kind: RuntimeTechniqueActivityKind) => unknown } }).pipeline;
-  const enhancementStrategy = pipeline?.getStrategy?.('enhancement') as { executeCancel?: unknown; computeRefund?: unknown } | undefined;
+  const enhancementStrategy = pipeline?.getStrategy?.('enhancement') as { executeCancel?: unknown; executeInterrupt?: unknown; computeRefund?: unknown } | undefined;
 
   assert.equal(typeof enhancementStrategy?.executeCancel, 'undefined');
+  assert.equal(typeof enhancementStrategy?.executeInterrupt, 'undefined');
   assert.equal(typeof enhancementStrategy?.computeRefund, 'function');
 }
 
@@ -95,7 +97,7 @@ async function testStartInterruptAndCompleteEnhancement(): Promise<void> {
 
   const interrupt = craftService.interruptEnhancement(player, 'attack');
   assert.equal(interrupt.ok, true);
-  assert.equal(interrupt.messages?.[0]?.key, 'notice.craft.activity-interrupted-wait');
+  assert.equal(interrupt.messages?.[0]?.key, 'notice.craft.activity-interrupted-wait-generic');
   assert.equal(player.enhancementJob?.phase, 'paused');
   assert.equal(player.enhancementJob?.workRemainingTicks, player.enhancementJob?.remainingTicks);
   assert.equal(player.enhancementJob?.interruptWaitRemainingTicks, 10);

@@ -12,7 +12,6 @@ import type {
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { executeAlchemyLikeTick } from './alchemy-like-tick.helpers';
 import { computeAlchemyLikeCancelRefund } from './alchemy-like-cancel.helpers';
-import { executeAlchemyLikeInterrupt } from './alchemy-like-interrupt.helpers';
 export class AlchemyStrategy implements TechniqueActivityStrategy {
   readonly kind = 'alchemy' as const;
   readonly jobSlot = 'alchemyJob';
@@ -33,10 +32,6 @@ export class AlchemyStrategy implements TechniqueActivityStrategy {
 
   executeTick(player: unknown, ctx: PipelineContext): unknown {
     return executeAlchemyLikeTick(this.craftService, player, 'alchemy', ctx);
-  }
-
-  executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
-    return executeAlchemyLikeInterrupt(this.craftService, player, 'alchemy', reason, ctx);
   }
 
   // ─── 接口占位 ───

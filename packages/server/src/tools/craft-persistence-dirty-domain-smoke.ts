@@ -65,6 +65,7 @@ function createService() {
   const enhancementRecordWrites: Array<{ playerId: string; rows: unknown[]; versionSeed?: number | null }> = [];
   const alchemyPresetWrites: Array<{ playerId: string; rows: unknown[]; versionSeed?: number | null }> = [];
   const activeJobWrites: Array<{ playerId: string; row: unknown; versionSeed?: number | null }> = [];
+  const techniqueActivityQueueWrites: Array<{ playerId: string; rows: unknown[]; versionSeed?: number | null }> = [];
   const service = new CraftPanelRuntimeService(
     {
       normalizeItem(item: Record<string, unknown>) {
@@ -92,6 +93,9 @@ function createService() {
       async savePlayerActiveJob(playerId: string, row: unknown, options: { versionSeed?: number | null } = {}) {
         activeJobWrites.push({ playerId, row, versionSeed: options.versionSeed ?? null });
       },
+      async savePlayerTechniqueActivityQueue(playerId: string, rows: readonly unknown[], options: { versionSeed?: number | null } = {}) {
+        techniqueActivityQueueWrites.push({ playerId, rows: [...rows], versionSeed: options.versionSeed ?? null });
+      },
     } as never,
     {} as never,
     {} as never,
@@ -104,7 +108,7 @@ function createService() {
       outputName: '气丹',
       outputCount: 1,
       outputLevel: 1,
-      baseBrewTicks: 1,
+      baseBrewTicks: 2,
       ingredients: [{ itemId: 'moondew_grass', count: 1 }],
     },
   ];
@@ -119,7 +123,7 @@ function createService() {
     }],
   ]);
 
-  return { service, runtimeHarness, playerStore, enhancementRecordWrites, alchemyPresetWrites, activeJobWrites };
+  return { service, runtimeHarness, playerStore, enhancementRecordWrites, alchemyPresetWrites, activeJobWrites, techniqueActivityQueueWrites };
 }
 
 function createPlayer() {
@@ -131,7 +135,7 @@ function createPlayer() {
       revision: 1,
       capacity: 24,
       items: [
-        { itemId: 'iron_sword', type: 'equipment', level: 1, count: 1, name: '铁剑', enhanceLevel: 0 },
+        { itemId: 'iron_sword', itemInstanceId: 'item:iron-sword:craft-dirty', type: 'equipment', level: 1, count: 1, name: '铁剑', enhanceLevel: 0 },
         { itemId: 'moondew_grass', type: 'material', count: 3, name: '月露草' },
         { itemId: 'iron_essence', type: 'material', count: 2, name: '铁华' },
       ],
@@ -248,9 +252,13 @@ function testTickEnhancementMarksDomains() {
   playerStore.set(player.playerId, player);
 
   const start = service.startEnhancement(player as never, {
-    target: { source: 'inventory', slotIndex: 0 },
+    target: {
+      source: 'inventory',
+      itemInstanceId: 'item:iron-sword:craft-dirty',
+      expectedItemInstanceId: 'item:iron-sword:craft-dirty',
+    },
   });
-  assert.equal(start.ok, true);
+  assert.equal(start.ok, true, start.error);
   assert.equal(player.enhancementJob?.jobVersion, 2);
   resetDirty(player);
   activeJobWrites.length = 0;

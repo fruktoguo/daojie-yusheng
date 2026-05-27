@@ -14,7 +14,6 @@ import type {
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { computeEnhancementCancelRefund } from './enhancement-cancel.helpers';
-import { executeEnhancementInterrupt } from './enhancement-interrupt.helpers';
 import { executeEnhancementTick } from './enhancement-tick.helpers';
 
 export class EnhancementStrategy implements TechniqueActivityStrategy {
@@ -37,10 +36,6 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
 
   executeTick(player: unknown, ctx: PipelineContext): unknown {
     return executeEnhancementTick(this.craftService, player, ctx);
-  }
-
-  executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
-    return executeEnhancementInterrupt(this.craftService, player, reason, ctx);
   }
 
   // ─── Start 生命周期插槽 ───

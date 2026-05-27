@@ -73,6 +73,7 @@ async function main(): Promise<void> {
       '制造型队列写入 techniqueActivityQueue，当前任务完成后能启动下一项。',
       '炼丹/炼器入队不会提前消耗材料或灵石。',
       '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 物化退款。',
+      '炼丹/炼器中断不再暴露 strategy executeInterrupt，公共 interrupt lifecycle 统一刷新独立等待条和 active job version。',
       '炼丹失败不产出，背包满时产出掉地。',
       '旧 active alchemy/forging job 能继续 tick 到完成。',
       '炼器使用独立 forgingJob 槽位。',
@@ -86,11 +87,13 @@ function testAlchemyForgingCancelUsesPipelineLifecycle(): void {
   const player = createPlayer('player:alchemy:lifecycle-cancel', []);
   const { craftService } = createCraftHarness(player);
   const pipeline = (craftService as unknown as { pipeline?: { getStrategy?: (kind: RuntimeTechniqueActivityKind) => unknown } }).pipeline;
-  const alchemyStrategy = pipeline?.getStrategy?.('alchemy') as { executeCancel?: unknown; computeRefund?: unknown } | undefined;
-  const forgingStrategy = pipeline?.getStrategy?.('forging') as { executeCancel?: unknown; computeRefund?: unknown } | undefined;
+  const alchemyStrategy = pipeline?.getStrategy?.('alchemy') as { executeCancel?: unknown; executeInterrupt?: unknown; computeRefund?: unknown } | undefined;
+  const forgingStrategy = pipeline?.getStrategy?.('forging') as { executeCancel?: unknown; executeInterrupt?: unknown; computeRefund?: unknown } | undefined;
 
   assert.equal(typeof alchemyStrategy?.executeCancel, 'undefined');
   assert.equal(typeof forgingStrategy?.executeCancel, 'undefined');
+  assert.equal(typeof alchemyStrategy?.executeInterrupt, 'undefined');
+  assert.equal(typeof forgingStrategy?.executeInterrupt, 'undefined');
   assert.equal(typeof alchemyStrategy?.computeRefund, 'function');
   assert.equal(typeof forgingStrategy?.computeRefund, 'function');
 }
@@ -119,6 +122,7 @@ async function testDirectAlchemyJobNoPreparationAndSeparateInterruptWait(): Prom
   const totalBeforeInterrupt = player.alchemyJob?.workTotalTicks;
   const interrupt = craftService.interruptTechniqueActivity(player, 'alchemy', 'attack', ctx.deps);
   assert.equal(interrupt.ok, true);
+  assert.equal(interrupt.messages?.[0]?.key, 'notice.craft.activity-interrupted-wait-generic');
   assert.equal(player.alchemyJob?.phase, 'paused');
   assert.equal(player.alchemyJob?.workRemainingTicks, workRemainingBeforeInterrupt);
   assert.equal(player.alchemyJob?.workTotalTicks, totalBeforeInterrupt);
@@ -334,6 +338,7 @@ async function testForgingInterruptCancelAndQueue(): Promise<void> {
     interruptCtx.deps,
   );
   assert.equal(interrupt.ok, true);
+  assert.equal(interrupt.messages?.[0]?.key, 'notice.craft.activity-interrupted-wait-generic');
   assert.equal(interruptPlayer.forgingJob?.phase, 'paused');
   assert.equal(interruptPlayer.forgingJob?.workRemainingTicks, workRemainingBeforeInterrupt);
   assert.equal(interruptPlayer.forgingJob?.workTotalTicks, totalBeforeInterrupt);

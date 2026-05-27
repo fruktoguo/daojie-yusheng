@@ -353,11 +353,6 @@ export class TechniqueActivityPipelineService {
     const strategy = this.strategies.get(kind);
     if (!strategy) return emptyTickResult();
 
-    // 如果策略实现了 executeInterrupt，直接委托
-    if (strategy.executeInterrupt) {
-      return strategy.executeInterrupt(player, reason, ctx) as CraftTickResult;
-    }
-
     const job = getStrategyActiveJob(strategy, player) as any;
     if (!job || Number(job.remainingTicks) <= 0) return emptyTickResult();
 
@@ -649,8 +644,14 @@ function buildTechniqueActivityInterruptedNotice(
 }
 
 function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext): void {
+  const normalizedDomains = domains
+    .map((domain) => typeof domain === 'string' ? domain.trim() : '')
+    .filter((domain) => domain.length > 0);
+  if (normalizedDomains.includes('active_job')) {
+    bumpActiveJobVersion(player);
+  }
   if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
-    for (const domain of domains) {
+    for (const domain of normalizedDomains) {
       player.dirtyDomains.add(domain);
     }
   }
@@ -661,11 +662,26 @@ function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext)
     };
   } | null)?.playerRuntimeService;
   if (runtimeService && typeof runtimeService.markPersistenceDirtyDomains === 'function') {
-    runtimeService.markPersistenceDirtyDomains(player, domains);
+    runtimeService.markPersistenceDirtyDomains(player, normalizedDomains);
   }
   if (runtimeService && typeof runtimeService.bumpPersistentRevision === 'function') {
     runtimeService.bumpPersistentRevision(player);
   }
+}
+
+function bumpActiveJobVersion(player: any): void {
+  const activeJob = player?.formationJob
+    ?? player?.buildingJob
+    ?? player?.miningJob
+    ?? player?.gatherJob
+    ?? player?.enhancementJob
+    ?? player?.forgingJob
+    ?? player?.alchemyJob
+    ?? null;
+  if (!activeJob || typeof activeJob !== 'object') {
+    return;
+  }
+  activeJob.jobVersion = Math.max(1, Math.trunc(Number(activeJob.jobVersion ?? 1))) + 1;
 }
 
 function buildSleepPayload(kind: RuntimeTechniqueActivityKind, label: string, job: any, reason?: string): Record<string, unknown> {

@@ -112,12 +112,6 @@ export interface TechniqueActivityStrategy<
    */
   executeCancel?(player: unknown, ctx: PipelineContext): unknown;
 
-  /**
-   * 完整 interrupt 委托（可选）。
-   * 如果实现此方法，管线的 interrupt 将直接委托给策略。
-   */
-  executeInterrupt?(player: unknown, reason: string, ctx: PipelineContext): unknown;
-
   /** 取消时的退还策略。 */
   computeRefund(player: unknown, job: TJob, ctx: PipelineContext): TechniqueActivityRefundResult;
 
