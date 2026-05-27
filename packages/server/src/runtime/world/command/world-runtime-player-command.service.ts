@@ -4,6 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+import { isOreMinableTileType } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeUseItemService } from '../world-runtime-use-item.service';
 import { WorldRuntimeEquipmentService } from '../world-runtime-equipment.service';
@@ -125,6 +126,67 @@ function doesCancelRefMatchActiveJob(player, kind, cancelRef) {
         return true;
     }
     return resolveTechniqueActivityJob(player, kind)?.jobRunId === expectedJobRunId;
+}
+
+function resolveForcedAttackMiningPayload(player, command, deps) {
+    if (command?.kind !== 'engageBattle' || command?.locked !== true) {
+        return null;
+    }
+    if (command.targetPlayerId || command.targetMonsterId) {
+        return null;
+    }
+    if (!Number.isFinite(Number(command.targetX)) || !Number.isFinite(Number(command.targetY))) {
+        return null;
+    }
+    const x = Math.trunc(Number(command.targetX));
+    const y = Math.trunc(Number(command.targetY));
+    const instance = player?.instanceId
+        ? (typeof deps?.getInstanceRuntime === 'function'
+            ? deps.getInstanceRuntime(player.instanceId)
+            : (typeof deps?.getInstanceRuntimeOrThrow === 'function'
+                ? deps.getInstanceRuntimeOrThrow(player.instanceId)
+                : null))
+        : null;
+    const tileState = typeof instance?.getTileCombatState === 'function'
+        ? instance.getTileCombatState(x, y)
+        : null;
+    if (!tileState || tileState.destroyed === true || !isOreMinableTileType(tileState.tileType)) {
+        return null;
+    }
+    return { targetRef: `tile:${x}:${y}` };
+}
+
+function isMiningJobAttackCommand(player, command) {
+    if (command?.kind !== 'basicAttack') {
+        return false;
+    }
+    const jobRunId = typeof command?.miningJobRunId === 'string' ? command.miningJobRunId.trim() : '';
+    if (!jobRunId || player?.miningJob?.jobRunId !== jobRunId) {
+        return false;
+    }
+    return Number.isFinite(Number(command.targetX))
+        && Number.isFinite(Number(command.targetY))
+        && Math.trunc(Number(command.targetX)) === Math.trunc(Number(player.miningJob.targetX))
+        && Math.trunc(Number(command.targetY)) === Math.trunc(Number(player.miningJob.targetY));
+}
+
+async function runWithMiningJobAttackMarker(player, command, executor) {
+    if (!isMiningJobAttackCommand(player, command)) {
+        return executor();
+    }
+    const previous = player.suppressCraftInterruptForMiningJobRunId;
+    player.suppressCraftInterruptForMiningJobRunId = command.miningJobRunId;
+    try {
+        return await executor();
+    }
+    finally {
+        if (previous === undefined) {
+            delete player.suppressCraftInterruptForMiningJobRunId;
+        }
+        else {
+            player.suppressCraftInterruptForMiningJobRunId = previous;
+        }
+    }
 }
 
 /** world-runtime player-command orchestration：承接玩家命令路由与门禁。 */
@@ -461,9 +523,18 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeNavigationService.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint, command.mapId, deps);
                 return;
             case 'basicAttack':
-                return this.dispatchCombatCommand(playerId, player, command, deps, () => this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps));
-            case 'engageBattle':
+                return this.dispatchCombatCommand(playerId, player, command, deps, () => runWithMiningJobAttackMarker(player, command, () => this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps)));
+            case 'engageBattle': {
+                const miningPayload = resolveForcedAttackMiningPayload(player, command, deps);
+                if (miningPayload) {
+                    if (player.combat?.pendingSkillCast) {
+                        deps.queuePlayerNotice?.(playerId, '吟唱中无法分心挖矿。', 'system');
+                        return;
+                    }
+                    return this.dispatchStartTechniqueActivity(playerId, 'mining', miningPayload, deps);
+                }
                 return this.dispatchCombatCommand(playerId, player, command, deps, () => this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps));
+            }
             case 'takeGround':
                 return this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
             case 'takeGroundAll':

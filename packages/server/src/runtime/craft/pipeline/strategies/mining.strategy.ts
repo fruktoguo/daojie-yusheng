@@ -1,7 +1,7 @@
 /**
  * 本文件属于服务端权威运行时，负责挖矿技艺 job 的启动、推进和取消。
  *
- * 挖矿 job 复用地块伤害/掉落/经验真源，但由技艺管线驱动，避免客户端或战斗链路决定产出。
+ * 挖矿 job 负责持续恢复矿脉强制攻击意图，实际地块伤害/掉落/经验仍走战斗地块链路。
  */
 import {
   isOreMinableTileType,
@@ -15,11 +15,6 @@ import {
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { bumpTechniqueActivityJobVersion } from '../../technique-activity-runtime.helpers';
-import {
-  applyMiningExpForTileDamage,
-  resolveMiningAdjustedTileDamage,
-  spawnTileDrops,
-} from '../../../world/combat/tile-drop.helpers';
 
 type MiningValidatedPayload = {
   instanceId: string;
@@ -36,15 +31,11 @@ type MiningDepsPort = {
   getInstanceRuntimeOrThrow?: (instanceId: string) => any;
   getPlayerLocation?: (playerId: string) => { instanceId?: string; x?: number; y?: number } | null;
   getPlayerLocationOrThrow?: (playerId: string) => { instanceId?: string; x?: number; y?: number };
+  hasPendingCommand?: (playerId: string) => boolean;
+  enqueuePendingCommand?: (playerId: string, command: unknown) => void;
   playerRuntimeService?: {
     markPersistenceDirtyDomains?: (player: any, domains: string[]) => void;
     bumpPersistentRevision?: (player: any) => void;
-  };
-  worldRuntimeFormationService?: {
-    mitigateTerrainDamage?: (instanceId: string, x: number, y: number, damage: number) => number;
-  };
-  worldRuntimeSectService?: {
-    expandSectForDestroyedTile?: (instanceId: string, x: number, y: number, deps: unknown) => unknown;
   };
 };
 
@@ -162,52 +153,20 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
     const deps = resolveMiningDeps(ctx);
     const instance = resolveInstance(job.instanceId, deps, ctx);
     const tileState = instance?.getTileCombatState?.(job.targetX, job.targetY);
-    const effectiveDamage = resolveMiningAdjustedTileDamage({
-      attacker: player,
-      tileType: tileState?.tileType ?? job.tileType,
-      baseDamage: job.baseDamagePerTick,
-    }).damage;
-    const mitigatedDamage = typeof deps?.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
-      ? deps.worldRuntimeFormationService.mitigateTerrainDamage(job.instanceId, job.targetX, job.targetY, effectiveDamage)
-      : effectiveDamage;
-    const applied = instance?.damageTile?.(job.targetX, job.targetY, Math.max(0, Math.round(Number(mitigatedDamage) || 0)));
-    const appliedDamage = Math.max(0, Math.round(Number(applied?.appliedDamage) || 0));
-    if (appliedDamage <= 0) {
-      return emptyMiningTickResult();
-    }
-
-    spawnTileDrops({
-      playerId: resolvePlayerId(player),
-      tileDrops: applied?.tileDrops,
-      deps: ctx.deps,
-    });
-    const miningExpResult = applyMiningExpForTileDamage({
-      attacker: player,
-      tileType: tileState?.tileType ?? job.tileType,
-      appliedDamage,
-      playerRuntimeService: deps?.playerRuntimeService,
-    });
-    const nextRemaining = Math.max(0, Math.min(
-      Math.max(0, Math.trunc(Number(job.remainingTicks) || 0)) - appliedDamage,
-      Math.max(0, Math.trunc(Number(applied?.hp) || 0)),
-    ));
+    const nextRemaining = Math.max(0, Math.trunc(Number(tileState?.hp ?? job.remainingTicks) || 0));
+    const progressChanged = nextRemaining !== Math.max(0, Math.trunc(Number(job.remainingTicks) || 0));
     job.remainingTicks = nextRemaining;
     job.workRemainingTicks = nextRemaining;
-    if (miningExpResult.changed) {
-      markMiningDirty(player, ['profession'], ctx);
-    }
-    if (applied?.destroyed === true || nextRemaining <= 0) {
-      if (applied?.destroyed === true) {
-        deps?.worldRuntimeSectService?.expandSectForDestroyedTile?.(job.instanceId, job.targetX, job.targetY, ctx.deps);
-      }
+    if (tileState?.destroyed === true || nextRemaining <= 0) {
       this.setActiveJob(player, null);
+      markMiningDirty(player, ['active_job'], ctx);
+      return { ...emptyMiningTickResult(), panelChanged: true };
     }
+    const commandQueued = enqueueMiningAttackCommand(player, job, deps);
     markMiningDirty(player, ['active_job'], ctx);
     return {
       ...emptyMiningTickResult(),
-      panelChanged: true,
-      inventoryChanged: Array.isArray(applied?.tileDrops) && applied.tileDrops.length > 0,
-      attrChanged: miningExpResult.changed,
+      panelChanged: progressChanged || commandQueued,
     };
   }
 
@@ -341,6 +300,58 @@ function resolveInstance(instanceId: string, deps: MiningDepsPort | null, ctx: P
 
 function isWithinMiningRange(location: { x: number; y: number }, target: { x: number; y: number }): boolean {
   return Math.max(Math.abs(location.x - target.x), Math.abs(location.y - target.y)) <= 1;
+}
+
+function resolveMiningTargetRef(job: PlayerMiningJob): string {
+  return `tile:${Math.trunc(Number(job.targetX) || 0)}:${Math.trunc(Number(job.targetY) || 0)}`;
+}
+
+function isEntityCombatTargetRef(targetRef: unknown): boolean {
+  const normalized = typeof targetRef === 'string' ? targetRef.trim() : '';
+  return normalized.length > 0 && !normalized.startsWith('tile:');
+}
+
+function isMiningCombatBusy(player: unknown): boolean {
+  const combat = (player as {
+    combat?: {
+      combatTargetId?: unknown;
+      pendingSkillCast?: unknown;
+      retaliatePlayerTargetId?: unknown;
+    };
+  } | null | undefined)?.combat;
+  if (combat?.pendingSkillCast) {
+    return true;
+  }
+  const retaliatePlayerTargetId = typeof combat?.retaliatePlayerTargetId === 'string'
+    ? combat.retaliatePlayerTargetId.trim()
+    : '';
+  if (retaliatePlayerTargetId) {
+    return true;
+  }
+  return isEntityCombatTargetRef(combat?.combatTargetId);
+}
+
+function enqueueMiningAttackCommand(player: unknown, job: PlayerMiningJob, deps: MiningDepsPort | null): boolean {
+  const playerId = resolvePlayerId(player);
+  if (!playerId || typeof deps?.enqueuePendingCommand !== 'function') {
+    return false;
+  }
+  if (typeof deps.hasPendingCommand === 'function' && deps.hasPendingCommand(playerId)) {
+    return false;
+  }
+  if (isMiningCombatBusy(player)) {
+    return false;
+  }
+  deps.enqueuePendingCommand(playerId, {
+    kind: 'basicAttack',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetX: Math.trunc(Number(job.targetX) || 0),
+    targetY: Math.trunc(Number(job.targetY) || 0),
+    miningJobRunId: typeof job.jobRunId === 'string' ? job.jobRunId : undefined,
+    miningTargetRef: resolveMiningTargetRef(job),
+  });
+  return true;
 }
 
 function resolveMiningBaseDamage(player: unknown): number {

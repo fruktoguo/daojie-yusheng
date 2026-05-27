@@ -90,7 +90,12 @@ function createPipeline(): TechniqueActivityPipelineService {
   return pipeline;
 }
 
-function createContext(instance: SmokeMiningInstance, inventory: unknown[], sectExpansions: unknown[]): PipelineContext {
+function createContext(
+  instance: SmokeMiningInstance,
+  inventory: unknown[],
+  sectExpansions: unknown[],
+  pendingCommands: unknown[] = [],
+): PipelineContext {
   const playerRuntimeService = {
     receiveInventoryItem(_playerId: string, item: unknown) {
       inventory.push(item);
@@ -113,6 +118,13 @@ function createContext(instance: SmokeMiningInstance, inventory: unknown[], sect
     getPlayerLocation(playerId: string) {
       assert.equal(playerId, 'player:mining-job-smoke');
       return { instanceId: 'instance:mining-job-smoke', x: 0, y: 0 };
+    },
+    hasPendingCommand() {
+      return pendingCommands.length > 0;
+    },
+    enqueuePendingCommand(playerId: string, command: unknown) {
+      assert.equal(playerId, 'player:mining-job-smoke');
+      pendingCommands.push(command);
     },
     playerRuntimeService,
     contentTemplateRepository: {
@@ -208,26 +220,49 @@ function main(): void {
   const tickInstance = new SmokeMiningInstance(1);
   const inventory: unknown[] = [];
   const sectExpansions: unknown[] = [];
-  const tickContext = createContext(tickInstance, inventory, sectExpansions);
+  const pendingCommands: unknown[] = [];
+  const tickContext = createContext(tickInstance, inventory, sectExpansions, pendingCommands);
   assert.equal(pipeline.start(tickPlayer, 'mining', { targetX: 1, targetY: 0 }, tickContext).ok, true);
   const beforeExp = tickPlayer.miningSkill.exp;
   const tickResult = pipeline.tickLifecycle(tickPlayer, 'mining', tickContext) as any;
   assert.equal(tickResult.lifecycle, 'tick');
   assert.equal(tickResult.ok, true);
-  assert.equal(tickResult.inventoryChanged, true);
-  assert.equal(tickResult.attrChanged, true);
-  assert.equal(tickInstance.damageCalls, 1);
-  assert.equal(inventory.length, 1);
-  assert.deepEqual(inventory[0], { itemId: 'mat.black_iron_ore', count: 1, source: 'smoke' });
-  assert.ok(tickPlayer.miningSkill.exp > beforeExp);
-  assert.equal(tickPlayer.miningJob, null);
-  assert.deepEqual(sectExpansions, [{ instanceId: 'instance:mining-job-smoke', x: 1, y: 0 }]);
+  assert.equal(tickResult.inventoryChanged, false);
+  assert.equal(tickResult.attrChanged, false);
+  assert.equal(tickInstance.damageCalls, 0);
+  assert.equal(inventory.length, 0);
+  assert.equal(tickPlayer.miningSkill.exp, beforeExp);
+  assert.ok(tickPlayer.miningJob);
+  const tickMiningJob = tickPlayer.miningJob as { jobRunId?: string };
+  assert.deepEqual(pendingCommands, [{
+    kind: 'basicAttack',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetX: 1,
+    targetY: 0,
+    miningJobRunId: tickMiningJob.jobRunId,
+    miningTargetRef: 'tile:1:0',
+  }]);
+  assert.deepEqual(sectExpansions, []);
   assert.equal(tickPlayer.dirtyDomains.has('active_job'), true);
-  assert.equal(tickPlayer.dirtyDomains.has('profession'), true);
+  assert.equal(tickPlayer.dirtyDomains.has('profession'), false);
+
+  const retaliatingPlayer = {
+    ...createPlayer(),
+    combat: { retaliatePlayerTargetId: 'player:attacker' },
+  } as SmokePlayer & { combat: { retaliatePlayerTargetId: string } };
+  const retaliatingInstance = new SmokeMiningInstance(3);
+  const retaliatingPendingCommands: unknown[] = [];
+  const retaliatingContext = createContext(retaliatingInstance, [], [], retaliatingPendingCommands);
+  assert.equal(pipeline.start(retaliatingPlayer, 'mining', { targetX: 1, targetY: 0 }, retaliatingContext).ok, true);
+  const retaliatingTickResult = pipeline.tickLifecycle(retaliatingPlayer, 'mining', retaliatingContext) as any;
+  assert.equal(retaliatingTickResult.ok, true);
+  assert.deepEqual(retaliatingPendingCommands, []);
+  assert.equal(retaliatingInstance.damageCalls, 0);
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '挖矿已能作为统一技艺 job 启动、显示、打断等待独立展示、取消，并在 tick 中结算地块伤害/掉落/挖矿经验/摧毁副作用。',
+    answers: '挖矿已能作为统一技艺 job 启动、显示、打断等待独立展示、取消，并在 tick 中持续发起地块战斗攻击；地块伤害/掉落/挖矿经验仍由战斗链路结算。',
   }, null, 2));
 }
 

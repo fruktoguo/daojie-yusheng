@@ -52,6 +52,18 @@ function ensureInstanceSupportsTileDamage(instance) {
     }
     throw new BadRequestException('当前实例不允许攻击地块');
 }
+function isMiningJobIssuedTileAttack(attacker, targetX, targetY) {
+    const jobRunId = typeof attacker?.suppressCraftInterruptForMiningJobRunId === 'string'
+        ? attacker.suppressCraftInterruptForMiningJobRunId.trim()
+        : '';
+    const job = attacker?.miningJob;
+    return Boolean(jobRunId)
+        && job?.jobRunId === jobRunId
+        && Number.isFinite(Number(targetX))
+        && Number.isFinite(Number(targetY))
+        && Math.trunc(Number(targetX)) === Math.trunc(Number(job.targetX))
+        && Math.trunc(Number(targetY)) === Math.trunc(Number(job.targetY));
+}
 function formatAuraDamage(value) {
     const amount = Math.max(0, Number(value) || 0);
     if (amount <= 0) {
@@ -133,7 +145,9 @@ export class WorldRuntimeBasicAttackService {
         this.playerRuntimeService.recordActivity(playerId, currentTick, {
             interruptCultivation: true,
         });
-        deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
+        if (!isMiningJobIssuedTileAttack(attacker, targetX, targetY)) {
+            deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
+        }
         if (!attacker.instanceId) {
             throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }
