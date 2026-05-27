@@ -2305,6 +2305,13 @@ notice.enum.resumed,通知,恢复,结构化通知枚举值翻译
 notice.enum.stopped,通知,停止,结构化通知枚举值翻译
 notice.equip.equipped,通知,装备 {itemName},装备穿戴通知
 notice.equip.unequipped,通知,卸下 {itemName},装备卸下通知
+notice.formation.active-set,通知,{formationName}已{stateLabel}。,
+notice.formation.deployed,通知,{formationName}已布下：半径 {radius}，强度 {effectValue}，灵力 {qiBudget}，灵石 {spiritStoneBudget}。,
+notice.formation.eye-qi-depleted,通知,{formationName}阵眼灵力耗尽，阵势关闭。,
+notice.formation.injected,通知,{formationName}注入灵石 {spiritStoneCount}，灵力 {qiAmount}。,
+notice.formation.qi-depleted,通知,{formationName}灵力不足，阵势关闭。,
+notice.formation.refilled,通知,{formationName}补充灵石 {spiritStoneCount}，灵力 {qiAmount}。,
+notice.formation.spirit-stone-depleted,通知,{formationName}灵石耗尽，阵势损毁。,
 notice.heaven-gate.already-entered-duplicate,通知,已入天门，无需重复确认,
 notice.heaven-gate.already-entered-no-modify,通知,已入天门，无法改动灵根,
 notice.heaven-gate.already-entered-no-reopen,通知,已入天门，无法重开,

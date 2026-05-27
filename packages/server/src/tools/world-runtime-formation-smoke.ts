@@ -184,6 +184,14 @@ async function main() {
   assert.equal(player.inventory.items[0].count, 1);
   assert.equal(formation.spiritStoneCount, 4);
   assert.equal(formation.qiCost, 400);
+  assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.deployed");
+  assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
+    formationName: "聚灵阵",
+    radius: 2,
+    effectValue: "4200",
+    qiBudget: "1500",
+    spiritStoneBudget: "4",
+  });
   assert.equal(formation.stats.totalAuraBudget, 1500);
   assert.equal(formation.stats.effectValue, 4200);
   assert.deepEqual(formation.allocation, { radius: 2, durationHours: 2, effectValue: 1000, formationSkillLevel: 1 });
@@ -412,6 +420,12 @@ async function main() {
     spiritStoneCount: 1,
     qiCost: 1,
   }, deps);
+  assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.refilled");
+  assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
+    formationName: "聚灵阵",
+    spiritStoneCount: "1",
+    qiAmount: "1",
+  });
   assert.equal(player.qi, qiBeforeRefill - 1);
   assert.equal(player.wallet.spirit_stone, stonesBeforeRefill - 1);
   assert.equal(Math.round(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeRefill), 1);
@@ -629,6 +643,11 @@ async function main() {
     formationInstanceId: barrierFormation.id,
     active: false,
   }, deps);
+  assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.active-set");
+  assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
+    formationName: "太玄封界阵",
+    stateLabel: "关闭",
+  });
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, boundaryX, boundaryY), false);
   const inactiveBarrierDelta = buildFullWorldDelta({
     tick: 3,
@@ -652,6 +671,11 @@ async function main() {
     formationInstanceId: barrierFormation.id,
     active: true,
   }, deps);
+  assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.active-set");
+  assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
+    formationName: "太玄封界阵",
+    stateLabel: "开启",
+  });
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, boundaryX, boundaryY), true);
   const beforeBoundaryDamage = service.getFormationCombatState(instanceId, barrierFormation.id).remainingAuraBudget;
   const boundaryDamageResult = service.applyDamageToBoundaryBarrier(instanceId, boundaryX, boundaryY, 25000, playerId, deps);
@@ -807,6 +831,10 @@ async function main() {
     active: true,
   }, deps);
   service.applyDamageToFormation("sect:smoke:inner", guardian.id, 999999999999, outsiderPlayerId, deps);
+  assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.eye-qi-depleted");
+  assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
+    formationName: "护宗大阵",
+  });
   const damagedGuardian = service.findFormationInInstance(instanceId, guardian.id);
   assert.equal(damagedGuardian.id, guardian.id);
   assert.equal(damagedGuardian.active, false);
@@ -819,6 +847,12 @@ async function main() {
     formationInstanceId: guardian.id,
     spiritStoneCount: 7,
   }, deps);
+  assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.injected");
+  assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
+    formationName: "护宗大阵",
+    spiritStoneCount: "7",
+    qiAmount: "700",
+  });
   assert.equal(player.qi, 300);
   assert.equal(player.wallet.spirit_stone, 993);
   assert.equal(Math.round(service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget), 700);

@@ -8,6 +8,7 @@ import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STO
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 const TERRAIN_STABILIZER_EFFECT_KIND = 'terrain_stabilizer';
 const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
@@ -52,6 +53,14 @@ class WorldRuntimeFormationService {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.databasePoolProvider = databasePoolProvider;
+    }
+
+    enqueueFormationNotice(playerId, kind, key, fallbackText, vars = {}) {
+        const notice = buildStructuredNotice(kind, key, fallbackText, {
+            vars,
+            pills: [{ key: 'formationName', style: 'target' }],
+        });
+        this.playerRuntimeService.enqueueNotice(playerId, notice);
     }
 
     async onModuleInit() {
@@ -134,10 +143,19 @@ class WorldRuntimeFormationService {
         this.getFormationList(instance.meta.instanceId).push(formation);
         touchInstanceRevision(instance);
         this.persistInstanceFormationsSoon(instance.meta.instanceId);
-        this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${template.name}已布下：半径 ${stats.radius}，强度 ${formatInteger(stats.effectValue)}，灵力 ${formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget)}，灵石 ${formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount)}。`,
-            kind: 'success',
-        });
+        this.enqueueFormationNotice(
+            playerId,
+            'success',
+            'notice.formation.deployed',
+            `${template.name}已布下：半径 ${stats.radius}，强度 ${formatInteger(stats.effectValue)}，灵力 ${formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget)}，灵石 ${formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount)}。`,
+            {
+                formationName: template.name,
+                radius: stats.radius,
+                effectValue: formatInteger(stats.effectValue),
+                qiBudget: formatInteger(stats.totalQiBudget ?? stats.totalAuraBudget),
+                spiritStoneBudget: formatInteger(stats.totalSpiritStoneBudget ?? spiritStoneCount),
+            },
+        );
         if (typeof deps.refreshPlayerContextActions === 'function') {
             deps.refreshPlayerContextActions(playerId);
         }
@@ -245,10 +263,13 @@ class WorldRuntimeFormationService {
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
-        this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
-            kind: 'info',
-        });
+        this.enqueueFormationNotice(
+            playerId,
+            'info',
+            'notice.formation.active-set',
+            `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
+            { formationName: formation.name, stateLabel: formation.active ? '开启' : '关闭' },
+        );
         return formation;
     }
 
@@ -286,10 +307,17 @@ class WorldRuntimeFormationService {
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
-        this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${formation.name}补充灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
-            kind: 'success',
-        });
+        this.enqueueFormationNotice(
+            playerId,
+            'success',
+            'notice.formation.refilled',
+            `${formation.name}补充灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
+            {
+                formationName: formation.name,
+                spiritStoneCount: formatInteger(spiritStoneCount),
+                qiAmount: formatInteger(qiAmount),
+            },
+        );
         return formation;
     }
 
@@ -375,10 +403,13 @@ class WorldRuntimeFormationService {
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
-        this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
-            kind: 'info',
-        });
+        this.enqueueFormationNotice(
+            playerId,
+            'info',
+            'notice.formation.active-set',
+            `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
+            { formationName: formation.name, stateLabel: formation.active ? '开启' : '关闭' },
+        );
         return formation;
     }
 
@@ -412,10 +443,17 @@ class WorldRuntimeFormationService {
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
         this.persistInstanceFormationsSoon(formation.instanceId);
-        this.playerRuntimeService.enqueueNotice(playerId, {
-            text: `${formation.name}注入灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
-            kind: 'success',
-        });
+        this.enqueueFormationNotice(
+            playerId,
+            'success',
+            'notice.formation.injected',
+            `${formation.name}注入灵石 ${formatInteger(spiritStoneCount)}，灵力 ${formatInteger(qiAmount)}。`,
+            {
+                formationName: formation.name,
+                spiritStoneCount: formatInteger(spiritStoneCount),
+                qiAmount: formatInteger(qiAmount),
+            },
+        );
         return formation;
     }
 
@@ -438,10 +476,13 @@ class WorldRuntimeFormationService {
                 formations.splice(index, 1);
                 touchInstanceRevision(instance);
                 persistenceDirty = true;
-                this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                    text: `${formation.name}灵石耗尽，阵势损毁。`,
-                    kind: 'warning',
-                });
+                this.enqueueFormationNotice(
+                    formation.ownerPlayerId,
+                    'warning',
+                    'notice.formation.spirit-stone-depleted',
+                    `${formation.name}灵石耗尽，阵势损毁。`,
+                    { formationName: formation.name },
+                );
                 continue;
             }
             const wasActive = formation.active !== false;
@@ -456,10 +497,13 @@ class WorldRuntimeFormationService {
                     formation.updatedAt = Date.now();
                     touchInstanceRevision(instance);
                     persistenceDirty = true;
-                    this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                        text: `${formation.name}灵力不足，阵势关闭。`,
-                        kind: 'warning',
-                    });
+                    this.enqueueFormationNotice(
+                        formation.ownerPlayerId,
+                        'warning',
+                        'notice.formation.qi-depleted',
+                        `${formation.name}灵力不足，阵势关闭。`,
+                        { formationName: formation.name },
+                    );
                 }
                 if (Number.isFinite(Number(_worldTick)) && Number(_worldTick) % 60 === 0) {
                     persistenceDirty = true;
@@ -732,10 +776,13 @@ class WorldRuntimeFormationService {
         if (destroyed) {
             setFormationRemainingQiBudget(formation, 0);
             formation.active = false;
-            this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                text: `${formation.name}阵眼灵力耗尽，阵势关闭。`,
-                kind: 'warning',
-            });
+            this.enqueueFormationNotice(
+                formation.ownerPlayerId,
+                'warning',
+                'notice.formation.eye-qi-depleted',
+                `${formation.name}阵眼灵力耗尽，阵势关闭。`,
+                { formationName: formation.name },
+            );
             if (typeof deps?.refreshPlayerContextActions === 'function') {
                 deps.refreshPlayerContextActions(formation.ownerPlayerId);
                 if (attackerPlayerId && attackerPlayerId !== formation.ownerPlayerId) {
