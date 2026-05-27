@@ -343,7 +343,7 @@ strategy 只负责领域差异：
 - [x] 经验走 pipeline 公共 `profession` 写入。
 - [x] 产出入包/掉地只保留一处实现。
 - [x] 取消规则走 pipeline strategy helper，退料入包/掉地复用公共 result 消费，清理 active job 不再由 strategy 委托旧 service。
-- [ ] 面板 patch 仍保持炼丹/炼器现有客户端结构，避免 UI 同步大改。
+- [x] 面板 patch 仍保持炼丹/炼器现有客户端结构，避免 UI 同步大改。
 
 验收：
 
@@ -446,10 +446,10 @@ strategy 只负责领域差异：
 
 验收：
 
-- [ ] 炼丹、炼器、强化面板不会因 tick patch 丢焦点、丢滚动、丢当前选择。
+- [x] 炼丹、炼器、强化面板不会因 tick patch 丢焦点、丢滚动、丢当前选择。
 - [x] 采集/建造/阵法的活动状态显示一致。
 - [x] 从任务列表点击取消能取消当前 job 或队列项。
-- [ ] 打断等待条更新不会触发整面板重建。
+- [x] 打断等待条更新不会触发整面板重建。
 
 ## 不做事项
 
@@ -548,6 +548,7 @@ strategy 只负责领域差异：
 - 2026-05-27：建造条件永久失效释放补强：`BuildingStrategy.onConditionFailed` 会释放当前玩家持有的 `activeBuilderPlayerId`；真实 `tickBuildingConstruction` 委托路径遇到建筑已不再处于 `building` 状态但仍残留当前玩家 activeBuilder 时，会清理 activeBuilder、清 buildCompleteTick、递增建筑 revision / worldRevision / persistentRevision，并标记 building 持久化脏域。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 与既有采集目标永久消失释放 `activeSearch` 一起覆盖 Phase 5 “条件永久失效时取消并释放外部占用”的验收项。
 - 2026-05-27：公共 pipeline 的 paused 阶段改为复用 `advanceTechniqueActivityPause`，每息同步递减 `pausedTicks`、`interruptWaitRemainingTicks` 和 `interruptState.waitRemainingTicks`，恢复时清空独立等待状态；新增 `world-runtime-craft-smoke` 断言公共暂停路径不修改 `remainingTicks` / `workRemainingTicks`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 覆盖公共 pipeline 等待条推进，不等同于所有攻击/移动/修炼入口的完整端到端审计。
 - 2026-05-27：炼丹/炼器准备阶段残留清理：`PlayerAlchemyJob.phase` 不再包含 `preparing`，旧存档水合和 shared normalize 会把旧 `preparing` 规整为 `brewing`；客户端工坊、旧 modal、统一任务摘要、i18n 源、教程机制和链路文档均移除玩家可见 preparing / 开炉准备分支。`pnpm --filter @mud/server compile`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`pnpm verify:client`、`pnpm audit:protocol`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 覆盖可见层和共享类型，不等同于所有旧持久化 row 的 DB 回读专项。
+- 2026-05-27：旧工坊 modal 的炼丹/炼器 active job 卡补齐独立打断等待条和局部 patch hook，实际进度统一按 `workTotalTicks/workRemainingTicks` 计算，打断等待按 `interruptWaitRemainingTicks/interruptState/pausedTicks` 单独显示；`patchAlchemyJobHost` 只更新进度条、等待条、阶段 chip 和 meta，不重建炼丹/炼器面板主体。新炼丹视图、旧工坊 modal、强化新旧视图都具备实际进度与等待条分离的局部 patch 路径。`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`pnpm verify:client` 通过；未做浏览器截图或真机触控验证，所以手机端、浅色、深色体验仍保留未勾选。
 
 ## 验证矩阵
 

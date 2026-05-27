@@ -189,6 +189,27 @@ function resolveEnhancementInterruptTotalTicks(job: EnhancementJobView, remainin
   return Math.max(remaining, Math.floor(Number(job.interruptState?.waitTotalTicks ?? 10) || 10));
 }
 
+function resolveAlchemyWorkTotalTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']>): number {
+  return Math.max(0, Math.floor(Number(job.workTotalTicks ?? job.totalTicks) || 0));
+}
+
+function resolveAlchemyWorkRemainingTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']>): number {
+  return Math.max(0, Math.floor(Number(job.workRemainingTicks ?? job.remainingTicks) || 0));
+}
+
+function resolveAlchemyInterruptRemainingTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']>): number {
+  return Math.max(0, Math.floor(Number(
+    job.interruptWaitRemainingTicks
+      ?? job.interruptState?.waitRemainingTicks
+      ?? job.pausedTicks
+      ?? 0,
+  ) || 0));
+}
+
+function resolveAlchemyInterruptTotalTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']>, remaining: number): number {
+  return Math.max(remaining, Math.floor(Number(job.interruptState?.waitTotalTicks ?? 10) || 10));
+}
+
 function formatEnhancementPercent(rate: number | undefined): string {
   const normalized = typeof rate === 'number' && Number.isFinite(rate) ? rate : 0;
   return formatDisplayPercent(normalized * 100, {
@@ -1886,9 +1907,17 @@ export class CraftWorkbenchModal {
     if (!job) {
       return;
     }
-    const progressPercent = Math.max(0, Math.min(100, (1 - (job.remainingTicks / Math.max(1, job.totalTicks))) * 100));
+    const workRemainingTicks = resolveAlchemyWorkRemainingTicks(job);
+    const workTotalTicks = resolveAlchemyWorkTotalTicks(job);
+    const progressPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const interruptRemainingTicks = resolveAlchemyInterruptRemainingTicks(job);
+    const interruptTotalTicks = resolveAlchemyInterruptTotalTicks(job, interruptRemainingTicks);
+    const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
     const progressLabel = card.querySelector<HTMLElement>('.alchemy-job-progress-head strong');
-    const progressFill = card.querySelector<HTMLElement>('.alchemy-job-progress-fill');
+    const progressFill = card.querySelector<HTMLElement>('[data-alchemy-work-fill="true"]');
+    const interruptProgress = card.querySelector<HTMLElement>('[data-alchemy-interrupt-progress="true"]');
+    const interruptLabel = card.querySelector<HTMLElement>('[data-alchemy-interrupt-label="true"]');
+    const interruptFill = card.querySelector<HTMLElement>('[data-alchemy-interrupt-fill="true"]');
     const phaseChip = card.querySelector<HTMLElement>('.alchemy-job-phase-chip');
     const metaSpans = card.querySelectorAll<HTMLElement>(':scope .alchemy-job-meta > span');
     if (progressLabel) {
@@ -1900,13 +1929,22 @@ export class CraftWorkbenchModal {
     if (progressFill) {
       progressFill.style.width = `${progressPercent.toFixed(2)}%`;
     }
+    if (interruptProgress) {
+      interruptProgress.classList.toggle('is-hidden', interruptRemainingTicks <= 0);
+    }
+    if (interruptLabel) {
+      interruptLabel.textContent = formatTicks(interruptRemainingTicks);
+    }
+    if (interruptFill) {
+      interruptFill.style.width = `${interruptPercent.toFixed(2)}%`;
+    }
     if (phaseChip) {
       phaseChip.textContent = getAlchemyPhaseLabel(job.phase);
       phaseChip.classList.toggle('is-paused', job.phase === 'paused');
       phaseChip.classList.toggle('is-brewing', job.phase === 'brewing');
     }
     const metaText = [
-      t('craft.workbench.alchemy.job.remaining', { ticks: formatTicks(job.remainingTicks) }),
+      t('craft.workbench.alchemy.job.remaining', { ticks: formatTicks(workRemainingTicks) }),
       t('craft.workbench.alchemy.job.success-count', { count: formatDisplayInteger(job.successCount) }),
       t('craft.workbench.alchemy.job.failure-count', { count: formatDisplayInteger(job.failureCount) }),
       getAlchemyPhaseLabel(job.phase),
@@ -2222,7 +2260,12 @@ export class CraftWorkbenchModal {
       return `<section class="alchemy-job-card empty" data-alchemy-job-card="true" data-alchemy-job-key="empty"><div class="alchemy-job-title">${escapeHtml(t('craft.workbench.alchemy.job.title'))}</div><div class="alchemy-job-text">${escapeHtml(t('craft.workbench.alchemy.job.empty', { activityName }))}</div></section>`;
     }
     const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === job.recipeId) ?? null;
-    const progressPercent = Math.max(0, Math.min(100, (1 - (job.remainingTicks / Math.max(1, job.totalTicks))) * 100));
+    const workRemainingTicks = resolveAlchemyWorkRemainingTicks(job);
+    const workTotalTicks = resolveAlchemyWorkTotalTicks(job);
+    const progressPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const interruptRemainingTicks = resolveAlchemyInterruptRemainingTicks(job);
+    const interruptTotalTicks = resolveAlchemyInterruptTotalTicks(job, interruptRemainingTicks);
+    const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
     const phaseClass = job.phase === 'paused' ? 'is-paused' : 'is-brewing';
     return `
       <section class="alchemy-job-card" data-alchemy-job-card="true" data-alchemy-job-key="${escapeHtml(this.getAlchemyJobPatchKey(job))}">
@@ -2245,11 +2288,20 @@ export class CraftWorkbenchModal {
             <strong>${escapeHtml(t('craft.workbench.alchemy.job.progress-value', { completed: formatDisplayInteger(job.completedCount), quantity: formatDisplayInteger(job.quantity) }))}</strong>
           </div>
           <div class="alchemy-job-progress-bar">
-            <div class="alchemy-job-progress-fill" style="width:${progressPercent.toFixed(2)}%"></div>
+            <div class="alchemy-job-progress-fill" data-alchemy-work-fill="true" style="width:${progressPercent.toFixed(2)}%"></div>
+          </div>
+        </div>
+        <div class="alchemy-job-progress alchemy-job-progress--interrupt ${interruptRemainingTicks > 0 ? '' : 'is-hidden'}" data-alchemy-interrupt-progress="true">
+          <div class="alchemy-job-progress-head">
+            <span>打断等待</span>
+            <strong data-alchemy-interrupt-label="true">${escapeHtml(formatTicks(interruptRemainingTicks))}</strong>
+          </div>
+          <div class="alchemy-job-progress-bar">
+            <div class="alchemy-job-progress-fill" data-alchemy-interrupt-fill="true" style="width:${interruptPercent.toFixed(2)}%"></div>
           </div>
         </div>
         <div class="alchemy-job-meta">
-          <span>${escapeHtml(t('craft.workbench.alchemy.job.remaining', { ticks: formatTicks(job.remainingTicks) }))}</span>
+          <span>${escapeHtml(t('craft.workbench.alchemy.job.remaining', { ticks: formatTicks(workRemainingTicks) }))}</span>
           <span>${escapeHtml(t('craft.workbench.alchemy.job.success-count', { count: formatDisplayInteger(job.successCount) }))}</span>
           <span>${escapeHtml(t('craft.workbench.alchemy.job.failure-count', { count: formatDisplayInteger(job.failureCount) }))}</span>
           <span>${escapeHtml(getAlchemyPhaseLabel(job.phase))}</span>
