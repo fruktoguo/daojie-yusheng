@@ -4,7 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
-import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
+import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
@@ -291,62 +291,6 @@ class WorldRuntimeFormationService {
             kind: 'success',
         });
         return formation;
-    }
-
-    startFormationMaintenance(player, payload, ctx) {
-        const playerId = normalizePlayerId(player);
-        if (!playerId) {
-            throw new BadRequestException('玩家不存在。');
-        }
-        const formationInstanceId = normalizeOptionalString(payload?.formationInstanceId);
-        if (!formationInstanceId) {
-            throw new BadRequestException('阵法实例 ID 不能为空。');
-        }
-        if (hasActiveFormationMaintenance(player, formationInstanceId)) {
-            return {
-                ok: true,
-                panelChanged: false,
-                messages: [{ kind: 'info', text: '正在维护该阵法。' }],
-            };
-        }
-        const activeJob = resolveAnyActiveTechniqueJob(player);
-        if (activeJob) {
-            const formation = this.findOwnedFormation(playerId, formationInstanceId);
-            if (enqueueFormationMaintenance(player, formationInstanceId, formation.name)) {
-                markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
-                return {
-                    ok: true,
-                    panelChanged: true,
-                    messages: [{ kind: 'system', text: '已将阵法维护加入技艺行动队列。' }],
-                };
-            }
-            throw new BadRequestException('技艺行动队列已满。');
-        }
-        const validation = this.checkFormationMaintenanceCondition(player, { formationInstanceId }, ctx);
-        if (!validation.satisfied) {
-            throw new BadRequestException(validation.reason || '当前不能维护该阵法。');
-        }
-        player.formationJob = this.createFormationMaintenanceJob(player, { formationInstanceId }, ctx);
-        markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
-        return {
-            ok: true,
-            panelChanged: true,
-            messages: [{ kind: 'quest', text: `开始维护 ${player.formationJob.formationName}。` }],
-        };
-    }
-
-    cancelFormationMaintenance(player, _ctx = null) {
-        if (!player?.formationJob || Number(player.formationJob.remainingTicks) <= 0) {
-            throw new BadRequestException('当前没有进行中的阵法维护。');
-        }
-        const formationName = player.formationJob.formationName || '阵法';
-        player.formationJob = null;
-        markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
-        return {
-            ok: true,
-            panelChanged: true,
-            messages: [{ kind: 'system', text: `已停止维护 ${formationName}。` }],
-        };
     }
 
     createFormationMaintenanceJob(player, validated, ctx) {
@@ -2016,52 +1960,6 @@ function buildFormationResolveResult(completed, messages) {
         completed,
         messages,
     };
-}
-
-function hasActiveFormationMaintenance(player, formationInstanceId) {
-    return Boolean(player?.formationJob
-        && Number(player.formationJob.remainingTicks) > 0
-        && normalizeOptionalString(player.formationJob.formationInstanceId) === normalizeOptionalString(formationInstanceId));
-}
-
-function resolveAnyActiveTechniqueJob(player) {
-    const jobs = [
-        player?.alchemyJob,
-        player?.forgingJob,
-        player?.enhancementJob,
-        player?.gatherJob,
-        player?.buildingJob,
-        player?.formationJob,
-    ];
-    return jobs.find((job) => job && Number(job.remainingTicks) > 0) ?? null;
-}
-
-function enqueueFormationMaintenance(player, formationInstanceId, formationName = null) {
-    if (!Array.isArray(player.techniqueActivityQueue)) {
-        player.techniqueActivityQueue = [];
-    }
-    const normalizedId = normalizeOptionalString(formationInstanceId);
-    if (!normalizedId) {
-        return false;
-    }
-    const exists = player.techniqueActivityQueue.some((entry) => entry?.kind === 'formation'
-        && normalizeOptionalString(entry?.payload?.formationInstanceId) === normalizedId
-        && entry?.state === 'pending');
-    if (exists) {
-        return true;
-    }
-    if (player.techniqueActivityQueue.length >= TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH) {
-        return false;
-    }
-    player.techniqueActivityQueue.push({
-        queueId: `formation_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-        kind: 'formation',
-        payload: { formationInstanceId: normalizedId },
-        label: formationName ? `维护 ${formationName}` : '阵法维护',
-        state: 'pending',
-        createdAt: Date.now(),
-    });
-    return true;
 }
 
 function resolveFormationMaintenanceRate(player) {

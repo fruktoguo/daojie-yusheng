@@ -15,6 +15,7 @@ import { TechniqueActivityQueueService } from '../runtime/craft/pipeline/techniq
 import { WorldRuntimeCraftInterruptService } from '../runtime/world/world-runtime-craft-interrupt.service';
 import { WorldRuntimeCraftTickService } from '../runtime/world/world-runtime-craft-tick.service';
 import { tickBuildingConstruction } from '../runtime/world/world-runtime-building.service';
+import { WorldRuntimeFormationService } from '../runtime/world/world-runtime-formation.service';
 import { WorldRuntimeLootContainerService } from '../runtime/world/world-runtime-loot-container.service';
 
 type FlushCall = [playerId: string, kind: string, text: string | null];
@@ -33,6 +34,7 @@ async function main(): Promise<void> {
   testGatherStartCancelUsePipelineLifecycle();
   testSleepingBuildingQueueRestartsThroughPipeline();
   testBuildingStartCancelUsePipelineLifecycle();
+  testFormationServiceNoLongerExposesStartCancelLifecycle();
   testSleepingFormationQueueRestartsThroughPipeline();
   testSleepingMiningQueueRestartsThroughPipeline();
   testGenericPipelinePauseAdvancesInterruptWaitState();
@@ -62,6 +64,7 @@ async function main(): Promise<void> {
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
       '采集 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeSearch。',
       '建造 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeBuilder。',
+      '阵法维护旧 start/cancel service 入口已删除，启动/入队/取消只剩 strategy/pipeline lifecycle。',
       '公共 pipeline 暂停推进会同步 interruptWaitRemainingTicks 和 interruptState，不改实际工作进度。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
@@ -1081,6 +1084,12 @@ function testBuildingStartCancelUsePipelineLifecycle(): void {
   assert.equal(player.dirtyDomains.has('active_job'), true);
 }
 
+function testFormationServiceNoLongerExposesStartCancelLifecycle(): void {
+  const prototype = WorldRuntimeFormationService.prototype as unknown as Record<string, unknown>;
+  assert.equal(prototype.startFormationMaintenance, undefined);
+  assert.equal(prototype.cancelFormationMaintenance, undefined);
+}
+
 function testSleepingFormationQueueRestartsThroughPipeline(): void {
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new FormationStrategy());
@@ -1111,6 +1120,8 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
     getInstanceRuntime(): unknown { return null; },
     deps: {
       worldRuntimeFormationService: {
+        startFormationMaintenance: undefined,
+        cancelFormationMaintenance: undefined,
         findOwnedFormation(playerId: string, formationInstanceId: string): { id: string; name: string; instanceId: string; x: number; y: number } {
           assert.equal(playerId, 'player:formation-queue');
           assert.equal(formationInstanceId, 'formation-1');
@@ -1137,9 +1148,6 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
             workRemainingTicks: 1,
             jobVersion: 1,
           };
-        },
-        startFormationMaintenance(): never {
-          throw new Error('formation queue restart must use pipeline lifecycle');
         },
       },
       playerRuntimeService: {
