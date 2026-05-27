@@ -222,7 +222,9 @@ export function createContainerOutcomeApplyAdapter(handlers: OutcomeHandlers = {
     const damage = normalizeDamage(result);
     const instance = resolveInstance(deps, outcome?.instanceId);
     const container = result?.container ?? target?.runtime ?? (x !== null && y !== null ? instance?.getContainerAtTile?.(x, y) : null);
-    const currentTick = result?.currentTick ?? deps?.currentTick ?? deps?.tick ?? 0;
+    const currentTick = Number.isFinite(Number(instance?.tick))
+      ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
+      : result?.currentTick ?? deps?.currentTick ?? deps?.tick ?? 0;
     const applied = callFirstDefined([
       () => handlers.applyContainerDamage?.({ targetId, x, y, damage, container, currentTick, outcome, result, application, deps, instance }),
       () => container ? deps?.worldRuntimeLootContainerService?.damageAttackableContainerAtTile?.(outcome?.instanceId, container, currentTick) : null,

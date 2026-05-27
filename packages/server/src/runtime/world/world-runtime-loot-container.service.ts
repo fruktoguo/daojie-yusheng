@@ -491,6 +491,9 @@ export class WorldRuntimeLootContainerService {
             if (!instance) {
                 continue;
             }
+            const instanceTick = Number.isFinite(Number(instance.tick))
+                ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
+                : Math.max(0, Math.trunc(Number(currentTick) || 0));
             let changed = false;
             for (const state of states.values()) {
                 const runtimeContainer = instance.template.containers.find((entry) => entry.id === state.containerId) ?? null;
@@ -498,7 +501,17 @@ export class WorldRuntimeLootContainerService {
                     continue;
                 }
                 if (runtimeContainer.variant === 'herb') {
+                    if (this.advanceHerbGrowth(runtimeContainer, state, instanceTick)) {
+                        changed = true;
+                    }
                     continue;
+                }
+                if (typeof state.refreshAtTick === 'number' && state.refreshAtTick <= instanceTick && !state.activeSearch) {
+                    const refreshedEntries = this.generateContainerEntries(runtimeContainer, instanceTick);
+                    state.entries = refreshedEntries;
+                    state.generatedAtTick = instanceTick;
+                    state.refreshAtTick = resolveContainerRefreshAtTick(runtimeContainer, instanceTick);
+                    changed = true;
                 }
                 if (!state.activeSearch) {
                     if (hasHiddenContainerEntries(state.entries) && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex)) {

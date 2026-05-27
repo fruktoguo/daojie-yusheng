@@ -515,11 +515,14 @@ export class WorldRuntimeBasicAttackService {
             : typeof lootContainerService?.damageHerbContainerAtTile === 'function'
                 ? lootContainerService.damageHerbContainerAtTile.bind(lootContainerService)
                 : null;
+        const containerTick = Number.isFinite(Number(instance.tick))
+            ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
+            : Math.max(0, Math.trunc(Number(currentTick ?? deps.tick) || 0));
         const containerAttackOutcome = (!planTargetsTile && !planTargetsBoundary && (planTargetsContainer || !plannedTarget)) && container && damageContainerAtTile
             ? this.applyPlayerBasicAttackOutcome({
                 ...deps,
                 instance,
-                currentTick: currentTick ?? deps.tick ?? 0,
+                currentTick: containerTick,
             }, attacker, {
                 kind: CombatTargetKind.Container,
                 id: container.id,
@@ -535,7 +538,7 @@ export class WorldRuntimeBasicAttackService {
                 damage: baseDamage,
                 rawDamage: baseDamage,
                 container,
-                currentTick: currentTick ?? deps.tick ?? 0,
+                currentTick: containerTick,
             })
             : null;
         const containerAttackResult = containerAttackOutcome?.ok === true ? containerAttackOutcome.adapterResult : null;

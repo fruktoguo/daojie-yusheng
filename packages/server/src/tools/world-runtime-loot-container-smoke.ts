@@ -20,6 +20,7 @@ async function main(): Promise<void> {
   await testHydrateContainerStatesCanonicalizesLegacySource();
   await testHerbGrowthCreatesStockAndPersists();
   await testHerbGrowthAccumulatesStockAndPersists();
+  await testHerbTickGrowthUsesInstanceTick();
   await testHerbReadOnlyProjectionDoesNotDirtyOrCreateState();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
   await testGatherCompletionAvoidsDurableGrantInTick();
@@ -1036,6 +1037,64 @@ async function testHerbGrowthAccumulatesStockAndPersists() {
   assert.equal(unchangedPersisted[0]?.refreshAtTick, 20);
 }
 
+async function testHerbTickGrowthUsesInstanceTick() {
+  const instanceId = 'public:yunlai_town';
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number) {
+      return { itemId, count, name: '月露草', type: 'material', level: 1 };
+    },
+  } as never, buildPlayerRuntimeService(buildPlayer('player:gather:instance-tick', instanceId, 'runtime:gather:instance-tick', 24)) as never);
+  const container = {
+    id: 'lm_yunlai_moondew_5_6',
+    name: '月露草',
+    x: 5,
+    y: 6,
+    variant: 'herb',
+    grade: 'mortal',
+    desc: '可采集草药',
+    refreshTicksMin: 5,
+    refreshTicksMax: 5,
+    drops: [{ itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material' }],
+    lootPools: [],
+  };
+  const instance = {
+    tick: 10,
+    template: {
+      containers: [container],
+    },
+  };
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${container.id}`,
+    containerId: container.id,
+    generatedAtTick: 1,
+    refreshAtTick: 5,
+    entries: [],
+    activeSearch: undefined,
+  }]);
+
+  service.advanceContainerSearches({
+    getInstanceRuntime(id: string) {
+      assert.equal(id, instanceId);
+      return instance;
+    },
+  } as never, buildEmptyPlayerLocationIndex() as never, 1_000_000);
+  let persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted[0]?.entries[0]?.item.count, 2);
+  assert.equal(persisted[0]?.generatedAtTick, 10);
+  assert.equal(persisted[0]?.refreshAtTick, 15);
+
+  instance.tick = 15;
+  service.advanceContainerSearches({
+    getInstanceRuntime() {
+      return instance;
+    },
+  } as never, buildEmptyPlayerLocationIndex() as never, 1_000_001);
+  persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted[0]?.entries[0]?.item.count, 3);
+  assert.equal(persisted[0]?.generatedAtTick, 15);
+  assert.equal(persisted[0]?.refreshAtTick, 20);
+}
+
 async function testHerbReadOnlyProjectionDoesNotDirtyOrCreateState() {
   const instanceId = 'public:yunlai_town';
   const service = new WorldRuntimeLootContainerService({
@@ -1929,6 +1988,17 @@ function buildPlayerRuntimeService(
       getRealmRuntimeExpToNext(level: number) {
         return Math.max(1, Math.floor(Number(level) || 1)) > 0 ? TEST_REALM_EXP_TO_NEXT : 0;
       },
+    },
+  };
+}
+
+function buildEmptyPlayerLocationIndex() {
+  return {
+    listConnectedPlayerIds() {
+      return [];
+    },
+    getPlayerLocation() {
+      return null;
     },
   };
 }

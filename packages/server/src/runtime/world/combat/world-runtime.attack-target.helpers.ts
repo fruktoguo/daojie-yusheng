@@ -216,8 +216,11 @@ function resolveAttackableTileTarget(instance, playerRuntimeService, player, til
         const container = typeof instance.getContainerAtTile === 'function'
             ? instance.getContainerAtTile(tile.x, tile.y)
             : null;
+        const containerTick = Number.isFinite(Number(instance?.tick))
+            ? Math.max(0, Math.trunc(Number(instance.tick) || 0))
+            : currentTick;
         const containerState = typeof deps.worldRuntimeLootContainerService?.getAttackableContainerCombatStateAtTile === 'function'
-            ? deps.worldRuntimeLootContainerService.getAttackableContainerCombatStateAtTile(player.instanceId, container, currentTick)
+            ? deps.worldRuntimeLootContainerService.getAttackableContainerCombatStateAtTile(player.instanceId, container, containerTick)
             : null;
         if (containerState) {
             return buildAttackableTarget({
