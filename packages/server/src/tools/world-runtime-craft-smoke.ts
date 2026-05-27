@@ -67,6 +67,7 @@ async function main(): Promise<void> {
       '建造 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeBuilder。',
       '阵法维护旧 start/cancel service 入口已删除，启动/入队/取消只剩 strategy/pipeline lifecycle。',
       '阵法维护 tick 规则已迁入 strategy helper，旧 formation service 不再暴露 resolveFormationMaintenanceTick。',
+      '阵法维护 start/cancel/灵力不足中止通知由 strategy result 返回结构化 key/vars。',
       '公共 pipeline 暂停推进会同步 interruptWaitRemainingTicks 和 interruptState，不改实际工作进度。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
@@ -1165,9 +1166,34 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
   });
 
   assert.equal(result?.ok, true);
+  assert.equal(result?.messages?.[0]?.key, 'notice.craft.formation.start');
+  assert.deepEqual(result?.messages?.[0]?.vars, { formationName: '聚灵阵' });
   assert.equal(player.formationJob?.formationInstanceId, 'formation-1');
   assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.equal(player.techniqueActivityQueue.length, 0);
+  const cancelResult = pipeline.cancel(player, 'formation', {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      worldRuntimeFormationService: {
+        checkFormationMaintenanceCondition(): { satisfied: boolean } {
+          return { satisfied: true };
+        },
+      },
+      playerRuntimeService: {
+        bumpPersistentRevision(activePlayer: typeof player): void {
+          activePlayer.persistentRevision += 1;
+        },
+      },
+    },
+  });
+  assert.equal(cancelResult.ok, true);
+  assert.equal(cancelResult.messages?.[0]?.key, 'notice.craft.formation.stopped');
+  assert.deepEqual(cancelResult.messages?.[0]?.vars, { formationName: '聚灵阵' });
 }
 
 function testFormationMaintenanceTickUsesStrategyHelper(): void {
@@ -1280,6 +1306,13 @@ function testFormationMaintenanceTickUsesStrategyHelper(): void {
   assert.deepEqual(dirtyDomains, [['active_job'], ['profession']]);
   assert.deepEqual(activityLog, [[player.playerId, 321, { interruptCultivation: true }]]);
   assert.equal(result.attrChanged, true);
+
+  player.qi = 0;
+  const insufficient = pipeline.tick(player, 'formation', ctx);
+  assert.equal(insufficient.ok, true);
+  assert.equal(insufficient.messages?.[0]?.key, 'notice.craft.formation.qi-insufficient');
+  assert.deepEqual(insufficient.messages?.[0]?.vars, { formationName: '聚灵阵' });
+  assert.equal(player.formationJob, null);
 }
 
 function testSleepingMiningQueueRestartsThroughPipeline(): void {

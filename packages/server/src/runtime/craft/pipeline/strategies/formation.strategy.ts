@@ -42,7 +42,7 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
     const formation = formationService.findOwnedFormation(resolvePlayerId(player), formationInstanceId);
     const activeJob = this.getActiveJob(player);
     if (activeJob && Number(activeJob.remainingTicks) > 0 && activeJob.formationInstanceId === formationInstanceId) {
-      return { ok: true, validated: { formationInstanceId, formationName: formation?.name ?? '阵法', alreadyMaintaining: true } };
+      return { ok: true, validated: { formationInstanceId, formationName: normalizeFormationName(formation?.name), alreadyMaintaining: true } };
     }
     if (!resolveAnyActiveTechniqueJob(player)) {
       const condition = formationService.checkFormationMaintenanceCondition(player, { formationInstanceId }, ctx);
@@ -50,20 +50,22 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
         return { ok: false, error: condition.reason || '当前不能维护该阵法。' };
       }
     }
-    return { ok: true, validated: { formationInstanceId, formationName: formation?.name ?? '阵法' } };
+    return { ok: true, validated: { formationInstanceId, formationName: normalizeFormationName(formation?.name) } };
   }
 
   queueStart(player: unknown, validated: unknown, _payload: unknown, ctx: PipelineContext): unknown | null {
+    const formationName = normalizeFormationName((validated as { formationName?: unknown }).formationName);
     if ((validated as { alreadyMaintaining?: unknown }).alreadyMaintaining === true) {
-      return { ok: true, panelChanged: false, messages: [{ kind: 'info', text: '正在维护该阵法。' }] };
+      return {
+        ok: true,
+        panelChanged: false,
+        messages: [buildFormationNotice('info', 'notice.craft.formation.already-maintaining', formationName)],
+      };
     }
     if (!resolveAnyActiveTechniqueJob(player)) {
       return null;
     }
     const formationInstanceId = String((validated as { formationInstanceId?: unknown }).formationInstanceId ?? '').trim();
-    const formationName = typeof (validated as { formationName?: unknown }).formationName === 'string'
-      ? String((validated as { formationName: string }).formationName)
-      : '阵法';
     if (!enqueueFormationMaintenance(player, formationInstanceId, formationName)) {
       return { ok: false, error: '技艺行动队列已满。', panelChanged: false, messages: [] };
     }
@@ -71,7 +73,7 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
     return {
       ok: true,
       panelChanged: true,
-      messages: [{ kind: 'system', text: '已将阵法维护加入技艺行动队列。' }],
+      messages: [buildFormationNotice('system', 'notice.craft.formation.queued', formationName)],
     };
   }
 
@@ -85,7 +87,7 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
   }
 
   buildStartMessages(_player: unknown, _validated: unknown, job: PlayerFormationJob): TechniqueActivityNoticeMessage[] {
-    return [{ kind: 'quest', text: `开始维护 ${job.formationName}。` }];
+    return [buildFormationNotice('quest', 'notice.craft.formation.start', job.formationName)];
   }
 
   startDirtyDomains(): PersistenceDomain[] {
@@ -110,17 +112,33 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
   }
 
   computeRefund(_player: unknown, job: PlayerFormationJob): TechniqueActivityRefundResult {
-    const formationName = job.formationName || '阵法';
     return {
       items: [],
       spiritStones: 0,
-      messages: [{ kind: 'system', text: `已停止维护 ${formationName}。` }],
+      messages: [buildFormationNotice('system', 'notice.craft.formation.stopped', job.formationName)],
     };
   }
 
   dirtyDomains(): PersistenceDomain[] {
     return ['active_job', 'profession'];
   }
+}
+
+function buildFormationNotice(
+  kind: TechniqueActivityNoticeMessage['kind'],
+  key: string,
+  formationName: unknown,
+): TechniqueActivityNoticeMessage {
+  return {
+    kind,
+    key,
+    vars: { formationName: normalizeFormationName(formationName) },
+    pills: [{ key: 'formationName', style: 'target' }],
+  };
+}
+
+function normalizeFormationName(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : '阵法';
 }
 
 function resolveFormationService(ctx: PipelineContext): any {

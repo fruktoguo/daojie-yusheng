@@ -429,6 +429,8 @@ async function main() {
   };
   const maintenanceStart = maintenancePipeline.start(player, "formation", { formationInstanceId: formation.id }, maintenanceCtx);
   assert.equal(maintenanceStart.ok, true);
+  assert.equal(maintenanceStart.messages?.[0]?.key, "notice.craft.formation.start");
+  assert.deepEqual(maintenanceStart.messages?.[0]?.vars, { formationName: "聚灵阵" });
   assert.equal(player.formationJob?.formationInstanceId, formation.id);
   const auraBeforeMaintenance = service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget;
   const qiBeforeMaintenance = player.qi;

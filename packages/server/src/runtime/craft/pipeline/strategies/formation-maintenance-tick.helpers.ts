@@ -20,7 +20,9 @@ export function resolveFormationMaintenanceTick(
   const transfer = Math.min(rate, Math.max(0, Math.floor(Number((player as { qi?: unknown } | null)?.qi) || 0)));
   if (transfer <= 0) {
     (player as { formationJob?: PlayerFormationJob | null }).formationJob = null;
-    return buildFormationResolveResult(true, [{ kind: 'warn', text: `${formation.name}维护中止：自身灵力不足。` }]);
+    return buildFormationResolveResult(true, [
+      buildFormationNotice('warn', 'notice.craft.formation.qi-insufficient', formation.name),
+    ]);
   }
 
   const playerRuntimeService = resolvePlayerRuntimeService(ctx);
@@ -133,4 +135,21 @@ function buildFormationResolveResult(
     completed,
     messages,
   };
+}
+
+function buildFormationNotice(
+  kind: TechniqueActivityNoticeMessage['kind'],
+  key: string,
+  formationName: unknown,
+): TechniqueActivityNoticeMessage {
+  return {
+    kind,
+    key,
+    vars: { formationName: normalizeFormationName(formationName) },
+    pills: [{ key: 'formationName', style: 'target' }],
+  };
+}
+
+function normalizeFormationName(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : '阵法';
 }
