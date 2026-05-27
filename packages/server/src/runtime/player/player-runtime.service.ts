@@ -7999,6 +7999,9 @@ function hasDetachedRuntimeActivity(player) {
     if (combat.autoBattle === true) {
         return true;
     }
+    if (hasRemainingTechniqueActivityQueue(player)) {
+        return true;
+    }
     return hasRemainingRuntimeJob(player.alchemyJob)
         || hasRemainingRuntimeJob(player.forgingJob)
         || hasRemainingRuntimeJob(player.enhancementJob)
@@ -8019,7 +8022,20 @@ function hasAnyRemainingTechniqueJob(player) {
 }
 
 function hasRemainingRuntimeJob(job) {
-    return Boolean(job && Number(job.remainingTicks) > 0);
+    if (!job || typeof job !== 'object') {
+        return false;
+    }
+    return Number(job.remainingTicks) > 0 || Number(job.workRemainingTicks) > 0 || hasLegacyQueuedRuntimeJobs(job);
+}
+
+function hasRemainingTechniqueActivityQueue(player) {
+    return Array.isArray(player?.techniqueActivityQueue)
+        && player.techniqueActivityQueue.some((entry) => entry && typeof entry === 'object');
+}
+
+function hasLegacyQueuedRuntimeJobs(job) {
+    return Array.isArray(job?.queuedJobs)
+        && job.queuedJobs.some((entry) => entry && typeof entry === 'object');
 }
 
 function buildPvPSoulInjuryBuffState(sourceRealmLv) {

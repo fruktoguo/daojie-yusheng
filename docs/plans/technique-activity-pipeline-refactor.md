@@ -47,12 +47,24 @@
 
 - 所有技艺的具体动作都由 job 控制。“具体动作”指玩家发起后会跨 tick 推进、锁定/消耗资源、占用外部对象、延迟产出、授予技艺经验、可打断或可取消的动作；包括炼丹、炼器、强化、采集、挖矿、建造、阵法持续维护/持续补充灵力。
 - “走 job 控制”必须覆盖服务端权威生命周期：start、排队、条件检查、资源锁定/消耗、tick 推进、打断等待、取消、完成结算、经验、产出、持久化 dirty 和面板 patch。只把动作投影成一条客户端任务显示不算完成。
+- 旧 service 如果还在直接推进具体技艺规则，只能作为迁移期适配层；最终不能出现“任务列表显示为 job，但真实推进仍在另一个 service 私有 tick 里完成”的双真源状态。
 - 技艺面板里的统一任务列表是所有技艺 job 的公共运行态入口。挖矿、阵法持续维护/持续补充灵力、建造、采集不能只在地图、建筑面板、阵法面板或掉落面板中显示。
 - 任务列表必须直接提供取消按钮。玩家可以从统一任务列表取消 running、interrupt_wait、queued、sleeping 中的可取消项，不需要切到对应技艺子面板；子面板里的取消按钮只能作为重复入口。
 - 手动开始修炼、进行攻击、移动等行为产生的 10 息等待是独立等待状态，不是实际工作量。它只能写 `interruptWaitRemainingTicks` / `interruptState`，不能修改 `totalTicks`、`remainingTicks`、`workTotalTicks` 或 `workRemainingTicks` 来影响实际 job 进度条。
 - 炼丹、炼器不再有玩家可见的“开炉”“准备”“炉火已稳”等阶段。它们开始后就是制作 job，面板和通知只展示制作进度、产出、失败、取消、排队和等待状态。
 - 阵法需要拆清命名：持续维护/持续补充灵力属于 `formation` 技艺 job；一次性资源补给是资源管理命令，不进入 job 队列、不显示进度、不获得技艺经验、不参与打断等待。
 - 本文中的“任务列表”特指技艺面板的活动任务列表，不是 NPC/主支线 quest 系统。
+
+### 不可降级口径
+
+后续实现不能把需求降级为以下几类“看起来统一”：
+
+- 不能只在客户端把挖矿、采集、建造、阵法维护包装成任务卡片，而服务端仍由地图、容器、建筑、阵法各自独立推进、结算和取消。
+- 不能用增加 `remainingTicks`、重置 `totalTicks`、回退 `workRemainingTicks` 的方式表现攻击、移动、手动修炼造成的 10 息等待；等待条和实际进度条必须是两个状态。
+- 不能要求玩家进入炼丹、强化、建筑、阵法、采集等子面板才能取消任务；统一任务列表必须是公共取消入口。
+- 不能保留炼丹、炼器的“开炉/准备/炉火稳定”作为玩家可见阶段；兼容旧字段时只能水合为正在制作、等待、队列或停止。
+- 不能把阵法一次性补给误并入 `formation` job；只有持续注入/维护这种跨 tick 行为才是技艺 job。
+- 不能为了统一任务列表扩大高频包，把配方目录、候选装备、建筑详情、阵法长文本等低频 detail 混进每 tick patch。
 
 ### 三类状态红线
 
@@ -77,6 +89,16 @@
 - 炼丹、炼器批次结算已经开始生成 `TechniqueActivityResolveResult` 形态，记录成功/失败、背包 delta、掉地 delta、经验参数、panel dirty、通知和境界经验；`materializeTechniqueActivityResolveResult` 已上移到公共 pipeline 模块。经验应用和入包副作用仍在炼丹工具端口里，后续要继续迁入公共 result 流程。
 - 高频 task patch 只能发 job 进度、等待、状态、队列 add/remove；配方、候选、长文本、目录数据不混入每 tick 包。
 - 任何会影响资产、建筑占用、容器占用、阵法状态、经验和掉落的行为，必须在服务端权威路径里结算，并能被 smoke/proof 验证。
+
+### 后续执行顺序
+
+当前文档后续不再按“先显示、再补规则”的顺序推进，而按真源收敛推进：
+
+1. 先补齐中断和恢复入口审计：攻击、移动、手动修炼、死亡、跨实例传送、GM 强迁、离线、重连恢复都必须经过统一中断/恢复规则，且 proof 证明不污染实际工作量。
+2. 再收敛条件型技艺旧委托：采集、建造、阵法维护、挖矿的真实 tick 规则逐步从旧 runtime service 拆入 strategy/result，旧 service 降级为查询、注册或外部对象 helper。
+3. 然后统一 result 物化：经验、产出、掉地、钱包/背包/equipment delta、外部占用释放、结构化 notice、panel patch 都从 pipeline result 分发。
+4. 再审计持久化和 flush ledger：active job version、queue version、取消、完成、失败、异常恢复只在统一路径 bump，避免资产重复、丢失或队列幽灵恢复。
+5. 最后做客户端体验验收：任务列表取消按钮、实际进度条、等待条、sleeping 状态、浅色/深色/手机端都用最小 patch 更新，不打断子面板焦点、滚动和选择。
 
 ## 当前链路审计
 
@@ -148,7 +170,11 @@
   - `world-runtime-player-skill-dispatch.service` 的技能释放入口记录活动后调用 `interruptCraftForReason(..., 'attack', ...)`。
   - `world-runtime-action-execution.service` 的 `cultivation:toggle` 在手动恢复修炼时调用 `interruptCraftForReason(..., 'cultivate', ...)`。
   - `WorldRuntimeCraftInterruptService` 对炼丹/炼器/强化/挖矿/阵法维护统一调用 `CraftPanelRuntimeService.interruptTechniqueActivity`；对采集/建造先写 sleeping 队列再释放外部占用；阵法维护在移动时不伪装成 10 息等待，后续由控制点条件失败进入 sleeping。
-- 仍需后续单独审计的状态切换：死亡、跨图恢复、GM 强制迁移、离线/重连恢复等非玩家主动入口，避免它们绕过统一中断或恢复规则。
+- 已审计的非主动状态切换：
+  - 死亡会在进入复生/离线移除前触发 `defeat` 中断，且不污染实际工作量。
+  - 跨实例传送、GM 强迁/重定位会在位置变化前触发统一 `move` 中断，且不污染实际工作量。
+  - 断线 detach 本身不触发技艺中断；玩家运行态保留，技艺 job/队列继续由服务端 lifecycle 管住。重连 `syncFromWorldView` 只同步世界锚点，不改 `workTotalTicks/workRemainingTicks/interruptWaitRemainingTicks` 或统一队列。
+  - session reaper 只在 flush 成功后尝试卸载 detached runtime；active job、`workRemainingTicks`、统一 `techniqueActivityQueue` 和旧 `queuedJobs` 都会阻止卸载，避免重连/恢复前丢失技艺活动。
 
 #### 玩家可见文本残留
 
@@ -383,7 +409,7 @@ strategy 只负责领域差异：
 - [x] 列出每种技艺当前写入的 dirty domain。
 - [x] 列出每种技艺当前依赖的外部资源：背包、钱包、锁定物品、地图容器、建筑 activeBuilder、阵法实例。
 - [x] 找出所有当前会修改 `remainingTicks` / `totalTicks` 来表达打断等待的路径。
-- [ ] 找出所有攻击、移动、手动开始修炼、切换状态等会中断技艺的入口，确认它们只写 `interruptWaitRemainingTicks` / `interruptState`，不污染实际工作进度。（玩家主动入口已审计并补 proof；跨实例传送、GM 强迁/重定位已接入统一技艺中断器并补 proof；死亡已接入 `defeat` 中断并补 proof；离线/重连恢复等非主动状态切换仍待审计。）
+- [x] 找出所有攻击、移动、手动开始修炼、切换状态等会中断技艺的入口，确认它们只写 `interruptWaitRemainingTicks` / `interruptState`，不污染实际工作进度。（玩家主动入口已审计并补 proof；跨实例传送、GM 强迁/重定位已接入统一技艺中断器并补 proof；死亡已接入 `defeat` 中断并补 proof；断线/重连/会话回收审计完成：detach 不伪装成 10 息等待，重连只同步世界锚点，session reaper 在 active job、统一队列或旧队列存在时不会卸载运行态。）
 - [x] 找出炼丹、炼器中“准备/开炉/炉火已稳”相关阶段、文本和客户端展示点。
 - [x] 标记所有服务端玩家可见文本拼接点，后续迁移时改为结构化 notice。
 - [x] 建立最小 smoke 清单，不先改行为。
@@ -676,6 +702,7 @@ strategy 只负责领域差异：
 - 2026-05-27：强化异常恢复前移到水合期：`PlayerRuntimeService.hydrateFromSnapshot` 发现 `enhancementJob.itemInstanceId` 指向的 `inventory.lockedItems` 不存在时，会清掉 `enhancementJob`，把对应强化记录标记为 `stopped`，并标记 `active_job` / `enhancement_record` / `inventory` 脏域后 bump `persistentRevision`，避免缺工件 job 进入运行态 tick 后才处理。`player-runtime-persistence-roundtrip-smoke` 增加无 DB proof，`player-domain-recovery-smoke` 增加 with-db proof：分域表恢复出 active job 但无锁定物时，运行态水合立即停止 job。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-runtime-persistence-roundtrip-smoke.js`、`node packages/server/dist/tools/player-domain-recovery-smoke.js` 通过。该 proof 只覆盖强化锁定物缺失，不覆盖采集/建造/阵法/挖矿外部目标缺失。
 - 2026-05-27：条件型 sleeping 队列异常恢复补齐失败清理：`TechniqueActivityQueueService.tickQueue` 在 sleeping 项重试时如果 strategy 判定 `shouldCancel`，会先调用 `onConditionFailed` 再移除队列和标记 `active_job`。`world-runtime-craft-smoke` 新增恢复态 proof：采集队列目标永久消失时释放持久化容器状态中的遗留 `activeSearch` 并标记 container dirty；建造队列目标已非 building 时释放遗留 `activeBuilderPlayerId`、清 `buildCompleteTick` 并标记 building dirty；阵法目标失效和挖矿矿脉失效会清理 sleeping 队列、标记 `active_job` 并 bump revision。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。
 - 2026-05-27：玩家死亡接入统一技艺中断器：`WorldRuntimePlayerCombatService.handlePlayerDefeat` 在首次进入待复生队列时调用 `worldRuntimeCraftInterruptService.interruptCraftForReason(..., 'defeat', ...)`，在线玩家死亡会在复生前刷新独立等待状态，离线玩家死亡在移除运行态前也先触发技艺中断，避免 active job 绕过非主动状态切换。共享 `TechniqueActivityInterruptReason` 增加 `defeat`，公共通知 reasonLabel 为“身陨”；炼丹/炼器、强化中断 helper 允许保存该 reason。`world-runtime-craft-smoke` 增加 `defeat` proof，断言炼丹、炼器、强化、挖矿、阵法维护的 `workTotalTicks/workRemainingTicks` 不被污染；`technique-defeat-interrupt-smoke` 覆盖在线/离线死亡入口会调用统一中断器。`pnpm --filter @mud/shared build`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-defeat-interrupt-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js` 通过。
+- 2026-05-27：断线/重连/会话回收审计完成：`detachSession` 只清网络会话并记录离线起点，不写技艺打断等待，也不修改 `workTotalTicks/workRemainingTicks/interruptWaitRemainingTicks`；`syncFromWorldView` 重连同步只更新世界锚点和风水，不改 active job 或统一队列。`PlayerRuntimeService.canUnloadDetachedPlayerRuntime` 的活动判定扩展为 active job、`workRemainingTicks`、统一 `techniqueActivityQueue` 和旧 `queuedJobs` 都阻止 session reaper 卸载 detached runtime，避免重连/恢复前队列或 job 被运行态 GC 清掉。新增 `technique-detached-runtime-activity-smoke` 覆盖 idle 可卸载、active job 保留、workRemainingTicks 保留、统一队列保留、旧队列兼容保留和重连不污染实际工作量。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-detached-runtime-activity-smoke.js`、`node packages/server/dist/tools/world-session-reaper-route-smoke.js`、`node packages/server/dist/tools/technique-activity-persistence-snapshot-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过；`world-session-reaper-route-smoke` 中 `simulated_flush_failure` 是用例内故障注入且最终通过。
 
 ## 验证矩阵
 
