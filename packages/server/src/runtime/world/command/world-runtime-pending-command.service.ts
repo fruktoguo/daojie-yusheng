@@ -77,6 +77,23 @@ function formatCoord(x, y) {
     return `${Math.trunc(Number(x))},${Math.trunc(Number(y))}`;
 }
 
+function formatDiagnosticToken(value) {
+    const normalized = typeof value === 'string' ? value.trim().replace(/\s+/g, '_') : '';
+    return normalized.length > 0 ? normalized.slice(0, 80) : '';
+}
+
+function resolvePlayerDiagnosticName(player, playerId) {
+    const displayName = formatDiagnosticToken(player?.displayName);
+    if (displayName && displayName !== playerId) {
+        return displayName;
+    }
+    const name = formatDiagnosticToken(player?.name);
+    if (name && name !== playerId) {
+        return name;
+    }
+    return '';
+}
+
 function hasFiniteCoord(x, y) {
     return x !== null && x !== undefined
         && y !== null && y !== undefined
@@ -158,6 +175,10 @@ function buildPendingCommandFailureDebug(playerId, command, deps) {
         }
     }
     if (player) {
+        const playerName = resolvePlayerDiagnosticName(player, playerId);
+        if (playerName) {
+            parts.push(`playerName=${playerName}`);
+        }
         parts.push(`instance=${player.instanceId ?? 'none'}`);
         parts.push(`playerPos=${formatCoord(player.x, player.y)}`);
         const target = resolveCommandTargetPosition(command, player, deps);

@@ -137,6 +137,7 @@ async function testAutoCombatStaleTargetRetriesImmediately() {
     const log = [];
     const player = {
         playerId: 'player:1',
+        displayName: '青衫客',
         instanceId: 'public:yunlai_town',
         hp: 100,
         combat: {
@@ -206,6 +207,7 @@ async function testAutoCombatFailedSkillFallsBackToAlternativeCommand() {
     const log = [];
     const player = {
         playerId: 'player:1',
+        displayName: '青衫客',
         instanceId: 'public:yunlai_town',
         hp: 100,
         combat: {
@@ -283,6 +285,7 @@ async function testAutoCombatRetryFailureLogsRetryCommandDebug() {
     const log = [];
     const player = {
         playerId: 'player:1',
+        displayName: '青衫客',
         instanceId: 'public:yunlai_town',
         hp: 100,
         x: 43,
@@ -385,7 +388,7 @@ async function testAutoCombatRetryFailureLogsRetryCommandDebug() {
         ['dispatchPlayerCommand', 'player:1', 'basicAttack', 'monster:far'],
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 0],
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（目标超出攻击距离） debug=auto=1 manual=0 instance=public:yunlai_town playerPos=43,56 target=monster:far targetKind=monster targetPos=99,1 distance=56 combatTarget=monster:far combatTargetLocked=0 retryOf=castSkill'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（目标超出攻击距离） debug=auto=1 manual=0 playerName=青衫客 instance=public:yunlai_town playerPos=43,56 target=monster:far targetKind=monster targetPos=99,1 distance=56 combatTarget=monster:far combatTargetLocked=0 retryOf=castSkill'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
