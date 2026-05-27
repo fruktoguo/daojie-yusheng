@@ -1014,7 +1014,6 @@ export class WorldRuntimeLootContainerService {
                     text: `${container.name} 当前没有可收取的草药。`,
                 }]);
         }
-        const stateEntriesBeforeHarvest = state.entries.map(cloneContainerEntryForRestore);
         const harvestedItem = removeSingleContainerRowItem(state.entries, harvestedRow);
         if (!harvestedItem) {
             state.activeSearch = undefined;
@@ -1027,85 +1026,8 @@ export class WorldRuntimeLootContainerService {
                 }]);
         }
         state.activeSearch = undefined;
-        if (this.canUseDurableInventoryGrant(player, deps)) {
-            const rollbackState = captureInventoryGrantRollbackState(player);
-            try {
-                const sourceRefId = `${buildContainerSourceId(location.instanceId, container.id)}:${harvestedRow.itemKey}`;
-                prepareLootGrantItemsForReceiver('gather_completion', [harvestedItem]);
-                await this.syncCurrentPresenceFence(playerId);
-                for (let attempt = 0; attempt < 2; attempt += 1) {
-                    player.suppressImmediateDomainPersistence = true;
-                    try {
-                        this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
-                        const leaseContext = await resolveLootInstanceLeaseContext(location.instanceId, deps);
-                        await deps.durableOperationService.grantInventoryItems({
-                            operationId: buildLootInventoryGrantOperationId(playerId, 'gather_completion', sourceRefId, [harvestedItem]),
-                            playerId,
-                            expectedRuntimeOwnerId: player.runtimeOwnerId,
-                            expectedSessionEpoch: Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 1))),
-                            expectedInstanceId: player.instanceId ?? null,
-                            expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
-                            expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
-                            sourceType: 'gather_completion',
-                            sourceRefId,
-                            grantedItems: buildGrantedInventorySnapshots([harvestedItem]),
-                            nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
-                        });
-                        break;
-                    }
-                    catch (grantError) {
-                        restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
-                        player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-                        if (attempt === 0 && shouldRetryLootSessionFence(grantError) && await this.syncCurrentPresenceFence(playerId)) {
-                            continue;
-                        }
-                        throw grantError;
-                    }
-                    finally {
-                        player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-                    }
-                }
-            }
-            catch (grantError) {
-                restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
-                state.entries.length = 0;
-                state.entries.push(...stateEntriesBeforeHarvest.map(cloneContainerEntryForRestore));
-                const prevFailures = Math.max(0, Math.trunc(Number(job.grantFailures) || 0));
-                const grantFailures = prevFailures + 1;
-                const MAX_GRANT_FAILURES = 3;
-                if (grantFailures >= MAX_GRANT_FAILURES) {
-                    state.activeSearch = undefined;
-                    player.gatherJob = null;
-                    this.playerRuntimeService.bumpPersistentRevision(player);
-                    this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-                    this.markContainerPersistenceDirty(location.instanceId);
-                    this.logger.warn(`采集持久化授予连续失败 ${grantFailures} 次，已终止采集：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
-                    return buildContainerTickResult(false, [{
-                            kind: 'warn',
-                            text: '采集入库失败，请稍后重试。',
-                        }], false, false, false);
-                }
-                state.activeSearch = {
-                    itemKey: harvestedRow.itemKey,
-                    totalTicks: job.totalTicks,
-                    remainingTicks: 1,
-                };
-                job.remainingTicks = 1;
-                job.grantFailures = grantFailures;
-                this.markContainerPersistenceDirty(location.instanceId);
-                this.logger.warn(`采集持久化授予失败 (${grantFailures}/${MAX_GRANT_FAILURES})：playerId=${playerId} error=${grantError instanceof Error ? grantError.message : String(grantError)}`);
-                return buildContainerTickResult(false, [{
-                        kind: 'warn',
-                        text: '采集失败，草药仍保留在原处。',
-                    }], false, false, false);
-            }
-            finally {
-                player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
-            }
-        }
-        else {
-            this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
-        }
+        prepareLootGrantItemsForReceiver('gather_completion', [harvestedItem]);
+        this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
         const skillExpResult = applyGatherSkillExp(this.playerRuntimeService, player.gatherSkill, harvestedItem.level, computeHerbNativeGatherTicks(container, harvestedRow));
         const skillChanged = skillExpResult.changed;
         const craftRealmChanged = grantCraftRealmProgress(this.playerRuntimeService, player, skillExpResult.gain / 2);
@@ -1121,6 +1043,7 @@ export class WorldRuntimeLootContainerService {
         if (nextRow) {
             const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
             state.activeSearch = {
+                playerId,
                 itemKey: nextRow.itemKey,
                 totalTicks,
                 remainingTicks: totalTicks,

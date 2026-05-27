@@ -22,18 +22,18 @@ async function main(): Promise<void> {
   await testHerbGrowthAccumulatesStockAndPersists();
   await testHerbReadOnlyProjectionDoesNotDirtyOrCreateState();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
-  await testGatherCompletionDurableGrant();
+  await testGatherCompletionAvoidsDurableGrantInTick();
   await testGatherCompletionFormatsTemplateNameAndConsumesOneStock();
   await testGatherCompletionKeepsExpiredGrowthAvailable();
-  await testGatherCompletionDurableGrantSyncsPresenceFence();
-  await testGatherCompletionDurableRollback();
+  await testGatherCompletionDoesNotSyncPresenceFenceInTick();
+  await testGatherCompletionIgnoresDurableFailureBecauseTickDoesNotCallIt();
   await testGatherCompletionConsumesSingleAccumulatedStock();
   await testGatherCompletionDirtyDomains();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
-    excludes: '不证明草药采集的 profession 变更已经并入同一资产事务，也不证明更泛化的 tick 资产 intent 编排',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取仍走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成不再在 tick 内调用 durable grant 或 presence fence，而是只更新运行态背包、标记 inventory/active_job/profession 脏域并交由 flush 链路落盘；草药会按生长时间持续补库存，库存未耗尽也会增长并写入 container_state，采集和地块攻击只扣 1 朵，下一次生长倒计时持续保留',
+    excludes: '不证明草药采集已经迁出旧 loot container service，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
 
@@ -1135,9 +1135,8 @@ async function testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown() {
   assert.equal(persisted[0]?.refreshAtTick, 12);
 }
 
-async function testGatherCompletionDurableGrant() {
+async function testGatherCompletionAvoidsDurableGrantInTick() {
   const durableCalls: Array<Record<string, unknown>> = [];
-  let resolveDurable = () => {};
   const player = buildPlayer('player:gather:durable', 'inst-gather-durable', 'runtime:gather:durable', 24);
   player.x = 5;
   player.y = 6;
@@ -1217,14 +1216,7 @@ async function testGatherCompletionDurableGrant() {
       },
       grantInventoryItems(input: Record<string, unknown>) {
         durableCalls.push(input);
-        return new Promise((resolve) => {
-          resolveDurable = () => resolve({
-            ok: true,
-            alreadyCommitted: false,
-            grantedCount: 1,
-            sourceType: 'gather_completion',
-          });
-        });
+        throw new Error('gather tick must not call durable grant');
       },
     },
     instanceCatalogService: {
@@ -1241,22 +1233,14 @@ async function testGatherCompletionDurableGrant() {
     },
   };
 
-  const pending = service.tickGather(player.playerId, deps as never);
-  await nextTick();
-  assert.equal(durableCalls.length, 1);
-  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:gather:durable');
-  assert.equal(durableCalls[0]?.expectedSessionEpoch, 24);
-  assert.equal(durableCalls[0]?.expectedInstanceId, 'inst-gather-durable');
-  assert.equal(durableCalls[0]?.expectedAssignedNodeId, 'node:gather');
-  assert.equal(durableCalls[0]?.expectedOwnershipEpoch, 51);
-  assert.equal(durableCalls[0]?.sourceType, 'gather_completion');
-  assert.equal(durableCalls[0]?.sourceRefId, `container:inst-gather-durable:herb1:${itemKey}`);
-  resolveDurable();
-  const result = await pending;
+  const result = await service.tickGather(player.playerId, deps as never);
+  assert.equal(durableCalls.length, 0);
   assert.equal(result.ok, true);
   assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
   assert.equal(result.inventoryChanged, true);
   assert.equal(result.attrChanged, true);
+  assert.equal(player.inventory.items.length, 1);
+  assert.equal(player.inventory.items[0]?.itemId, 'herb.lingdew_grass');
 }
 
 async function testGatherCompletionFormatsTemplateNameAndConsumesOneStock() {
@@ -1440,7 +1424,7 @@ async function testGatherCompletionKeepsExpiredGrowthAvailable() {
   assert.equal(stillGrowing?.herb?.respawnRemainingTicks, 39);
 }
 
-async function testGatherCompletionDurableGrantSyncsPresenceFence() {
+async function testGatherCompletionDoesNotSyncPresenceFenceInTick() {
   const log: Array<unknown[]> = [];
   const durableCalls: Array<Record<string, unknown>> = [];
   const player = buildPlayer('player:gather:fenced', 'inst-gather-fenced', 'runtime:gather:fenced:2', 2);
@@ -1474,13 +1458,11 @@ async function testGatherCompletionDurableGrantSyncsPresenceFence() {
     },
     async loadPlayerPresence(playerId: string) {
       log.push(['loadPlayerPresence', playerId]);
-      return {
-        runtimeOwnerId: 'runtime:gather:fenced:persisted',
-        sessionEpoch: 58,
-      };
+      throw new Error('gather tick must not load presence');
     },
     async savePlayerPresence(playerId: string, presence: Record<string, unknown>) {
       log.push(['savePlayerPresence', playerId, presence.runtimeOwnerId, presence.sessionEpoch]);
+      throw new Error('gather tick must not save presence');
     },
   } as never);
   const container = {
@@ -1542,6 +1524,7 @@ async function testGatherCompletionDurableGrantSyncsPresenceFence() {
       },
       async grantInventoryItems(input: Record<string, unknown>) {
         durableCalls.push(input);
+        throw new Error('gather tick must not call durable grant');
       },
     },
     instanceCatalogService: {
@@ -1561,18 +1544,13 @@ async function testGatherCompletionDurableGrantSyncsPresenceFence() {
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
   assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
-  assert.equal(durableCalls.length, 1);
-  assert.equal(durableCalls[0]?.expectedRuntimeOwnerId, 'runtime:player:gather:fenced:59');
-  assert.equal(durableCalls[0]?.expectedSessionEpoch, 59);
+  assert.equal(durableCalls.length, 0);
   assert.deepEqual(log, [
-    ['loadPlayerPresence', 'player:gather:fenced'],
-    ['ensureRuntimeSessionFenceAtLeast', 'player:gather:fenced', 58],
-    ['savePlayerPresence', 'player:gather:fenced', 'runtime:player:gather:fenced:59', 59],
     ['refreshQuestStates'],
   ]);
 }
 
-async function testGatherCompletionDurableRollback() {
+async function testGatherCompletionIgnoresDurableFailureBecauseTickDoesNotCallIt() {
   const player = buildPlayer('player:gather:rollback', 'inst-gather-rollback', 'runtime:gather:rollback', 25);
   player.x = 7;
   player.y = 8;
@@ -1651,7 +1629,7 @@ async function testGatherCompletionDurableRollback() {
         return true;
       },
       async grantInventoryItems() {
-        throw new Error('durable_gather_failed');
+        throw new Error('gather tick must not call durable grant');
       },
     },
     instanceCatalogService: {
@@ -1669,12 +1647,13 @@ async function testGatherCompletionDurableRollback() {
 
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.messages, [{ kind: 'warn', text: '采集失败，草药仍保留在原处。' }]);
-  assert.deepEqual(player.inventory.items, []);
-  assert.equal(player.gatherSkill?.exp, 0);
-  assert.equal(Number(player.gatherJob?.remainingTicks), 1);
+  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
+  assert.equal(player.inventory.items.length, 1);
+  assert.equal(player.inventory.items[0]?.itemId, 'herb.lingdew_grass');
+  assert.ok((player.gatherSkill?.exp ?? 0) > 0);
+  assert.equal(player.gatherJob, null);
   const restored = service.getPreparedContainerLootSource('inst-gather-rollback', container as never);
-  assert.equal(Array.isArray(restored?.items) ? restored.items.length : 0, 1);
+  assert.equal(Array.isArray(restored?.items) ? restored.items.length : 0, 0);
 }
 
 async function testGatherCompletionConsumesSingleAccumulatedStock() {
