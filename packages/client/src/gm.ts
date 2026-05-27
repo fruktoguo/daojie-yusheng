@@ -8842,12 +8842,13 @@ function renderTechniqueGenerationJobRow(job: GmTechniqueGenerationJobSummary): 
   const gradeLabel = getGeneratedTechniqueGradeLabel(job.rolledGrade);
   const levelLabel = job.rolledRealmLv !== null && job.rolledRealmLv !== undefined ? `Lv.${job.rolledRealmLv}` : 'Lv.-';
   const name = `${formatTechniqueGenerationJobStatus(job.status)} · ${job.requestedCategory ?? '未知类型'}`;
+  const itemState = formatTechniqueGenerationJobItemState(job);
   return `
     <button class="player-row${active}" type="button" data-technique-generation-job-id="${escapeHtml(job.id)}">
       <div>
         <div class="player-row-title">${escapeHtml(name)}</div>
         <div class="player-row-meta">${escapeHtml(formatDateTime(job.createdAt))}</div>
-        <div class="player-row-meta">${escapeHtml(gradeLabel)} · ${escapeHtml(levelLabel)} · ${job.itemConsumed ? '已扣玉简' : '未扣玉简'}</div>
+        <div class="player-row-meta">${escapeHtml(gradeLabel)} · ${escapeHtml(levelLabel)} · ${escapeHtml(itemState)}</div>
       </div>
     </button>
   `;
@@ -8863,7 +8864,7 @@ function renderTechniqueGenerationJobDetail(): void {
   }
   const summary = techniqueGenerationJobs.find((job) => job.id === selectedTechniqueGenerationJobId) ?? null;
   generatedTechniqueDetailMetaEl.textContent = summary
-    ? `${formatTechniqueGenerationJobStatus(summary.status)} · ${summary.itemConsumed ? '已扣玉简' : '未扣玉简'} · ${summary.playerId}`
+    ? `${formatTechniqueGenerationJobStatus(summary.status)} · ${formatTechniqueGenerationJobItemState(summary)} · ${summary.playerId}`
     : selectedTechniqueGenerationJobId;
   generatedTechniqueDetailEmptyEl.classList.add('hidden');
   generatedTechniqueDetailEl.classList.remove('hidden');
@@ -8884,6 +8885,13 @@ async function loadTechniqueGenerationJobDetail(id: string): Promise<void> {
   selectedTechniqueGenerationJobDetail = result.job;
   renderTechniqueGenerationJobPanel();
   setStatus(`已加载生成任务：${result.job.id}`);
+}
+
+function formatTechniqueGenerationJobItemState(job: GmTechniqueGenerationJobSummary): string {
+  if (job.itemRefunded) {
+    return '已返还玉简';
+  }
+  return job.itemConsumed ? '已扣玉简' : '未扣玉简';
 }
 
 function formatTechniqueGenerationJobStatus(status: string): string {

@@ -18,6 +18,7 @@ import type { Socket } from 'socket.io';
 
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
 import type { GeneratedTechniqueStoreService } from '../runtime/technique-generation/generated-technique-store.service';
+import type { AiTextModelConfig } from '../ai/ai-model-config';
 import { WorldGatewayTechniqueGenerationHelper } from '../network/world-gateway-technique-generation.helper';
 import {
   ensureGeneratedTechniqueTables,
@@ -53,6 +54,17 @@ function createFakeSchemaPool(records: QueryRecord[]): Pool {
   } as unknown as Pool;
 }
 
+function createFakeTextModelConfig(): AiTextModelConfig {
+  return {
+    provider: 'openai',
+    apiKey: 'smoke-key',
+    baseURL: 'https://example.invalid/v1',
+    modelName: 'smoke-model',
+    timeoutMs: 1,
+    anthropicMaxTokens: 1,
+  };
+}
+
 async function testUninitializedServiceDoesNotConsumeItem(): Promise<void> {
   const service = new TechniqueGenerationService();
   let consumeCount = 0;
@@ -72,7 +84,7 @@ async function testUninitializedServiceDoesNotConsumeItem(): Promise<void> {
   assert.equal(consumeCount, 0);
 }
 
-async function testInitializedServicePersistsJob(): Promise<void> {
+async function testNoModelFailsWithoutConsumingItem(): Promise<void> {
   const queries: QueryRecord[] = [];
   const service = new TechniqueGenerationService();
   service.initialize({
@@ -83,7 +95,7 @@ async function testInitializedServicePersistsJob(): Promise<void> {
 
   let consumeCount = 0;
   const result = await service.requestGeneration({
-    playerId: 'p_generation_smoke',
+    playerId: 'p_no_model_smoke',
     playerRealmLv: 31,
     category: 'internal',
     playerContext: '  test context  ',
@@ -93,17 +105,13 @@ async function testInitializedServicePersistsJob(): Promise<void> {
     },
   });
 
-  assert.equal(result.success, true);
-  assert.equal(typeof result.jobId, 'string');
-  assert.equal(consumeCount, 1);
+  assert.equal(result.success, false);
+  assert.equal(result.errorCode, 'NO_MODEL');
+  assert.equal(consumeCount, 0);
   const insertJobQuery = queries.find((entry) => entry.sql.includes('INSERT INTO technique_generation_job'));
   assert.ok(insertJobQuery);
-  assert.equal(insertJobQuery.params?.[1], 'p_generation_smoke');
-
-  await new Promise((resolve) => setImmediate(resolve));
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
-  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes("status = 'running'")));
+  assert.equal(insertJobQuery.params?.[1], 'p_no_model_smoke');
+  assert.ok(!queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
   assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.params?.[2] === 'NO_MODEL'));
 }
 
@@ -113,8 +121,15 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
   service.initialize({
     pool: createFakePool(queries),
     generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
-    modelConfigResolver: async () => null,
+    modelConfigResolver: async () => createFakeTextModelConfig(),
   });
+  let executedJobId = '';
+  let executedModelName = '';
+  service.executeGeneration = async (jobId, params) => {
+    executedJobId = jobId;
+    executedModelName = params.modelConfig?.modelName ?? '';
+    return { success: true };
+  };
 
   let consumedCount = 0;
   const result = await service.requestGeneration({
@@ -133,6 +148,10 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
   assert.equal(consumedCount, 4);
   const insertJobQuery = queries.find((entry) => entry.sql.includes('INSERT INTO technique_generation_job'));
   assert.equal(insertJobQuery?.params?.[6], 4);
+  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(executedJobId, result.jobId);
+  assert.equal(executedModelName, 'smoke-model');
 }
 
 async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
@@ -141,7 +160,7 @@ async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
   service.initialize({
     pool: createFakePool(queries),
     generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
-    modelConfigResolver: async () => null,
+    modelConfigResolver: async () => createFakeTextModelConfig(),
   });
 
   const result = await service.requestGeneration({
@@ -160,6 +179,45 @@ async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
   assert.ok(insertIndex < failedIndex);
 }
 
+async function testNoModelConsumedJobRefundsOnce(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = {
+    query: async (sql: unknown, params?: unknown[]) => {
+      const text = String(sql);
+      queries.push({ sql: text, params });
+      if (text.includes('FROM technique_generation_job') && text.includes("error_code = 'NO_MODEL'")) {
+        return {
+          rows: [{ id: 'job_refund_smoke', player_id: 'p_refund_smoke', item_spend: 10 }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('UPDATE technique_generation_job') && text.includes('item_refunded = true')) {
+        return { rows: [], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool,
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+
+  let refundedCount = 0;
+  const result = await service.refundNoModelFailedConsumedJobsForPlayer({
+    playerId: 'p_refund_smoke',
+    refundItem: async (count) => {
+      refundedCount += count;
+      return true;
+    },
+  });
+
+  assert.equal(result, 10);
+  assert.equal(refundedCount, 10);
+  assert.ok(queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.params?.[0] === 'job_refund_smoke'));
+}
+
 async function testSchemaMigratesPlayerIdsToVarchar(): Promise<void> {
   const queries: QueryRecord[] = [];
   await ensureGeneratedTechniqueTables(createFakeSchemaPool(queries));
@@ -169,6 +227,9 @@ async function testSchemaMigratesPlayerIdsToVarchar(): Promise<void> {
   assert.ok(normalizedSql.some((sql) => sql.includes('player_id varchar(120) not null')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column created_by_player_id type varchar(120)')));
   assert.ok(normalizedSql.some((sql) => sql.includes('alter column player_id type varchar(120)')));
+  assert.ok(normalizedSql.some((sql) => sql.includes('item_refunded boolean not null default false')));
+  assert.ok(normalizedSql.some((sql) => sql.includes('add column if not exists item_refunded boolean not null default false')));
+  assert.ok(normalizedSql.some((sql) => sql.includes('add column if not exists refunded_at timestamptz')));
 }
 
 async function testPublishGeneratedTechniqueCastsRepeatedNameParameter(): Promise<void> {
@@ -569,9 +630,10 @@ async function testArtsCandidateRejectsLegacyEffectsShape(): Promise<void> {
 
 async function main(): Promise<void> {
   await testUninitializedServiceDoesNotConsumeItem();
-  await testInitializedServicePersistsJob();
+  await testNoModelFailsWithoutConsumingItem();
   await testInitializedServiceConsumesRequestedItemSpend();
   await testItemShortageMarksJobFailedAfterAudit();
+  await testNoModelConsumedJobRefundsOnce();
   await testSchemaMigratesPlayerIdsToVarchar();
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
   await testGatewayStatusEmitsRollRange();

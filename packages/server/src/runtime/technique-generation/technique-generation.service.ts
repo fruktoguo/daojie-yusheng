@@ -34,7 +34,9 @@ import {
   insertGeneratedTechnique,
   insertGenerationJob,
   loadRecoverableGenerationJobs,
+  loadRefundableNoModelGenerationJobsForPlayer,
   markGenerationJobItemConsumed,
+  markGenerationJobItemRefunded,
   markGenerationJobRunning,
   updateGenerationJobToDraft,
   updateGenerationJobStatus,
@@ -69,6 +71,7 @@ export class TechniqueGenerationService {
   private pool: Pool | null = null;
   private generatedStore: GeneratedTechniqueStoreService | null = null;
   private modelConfigResolver: (() => Promise<AiTextModelConfig | null>) | null = null;
+  private readonly refundingJobIds = new Set<string>();
 
   initialize(params: {
     pool: Pool;
@@ -128,7 +131,14 @@ export class TechniqueGenerationService {
       itemSpend,
     });
 
-    // 5. 消耗悟道玉简
+    // 5. 模型未配置属于系统不可用，不消耗玩家资产。
+    const modelConfig = await this.modelConfigResolver?.();
+    if (!modelConfig) {
+      await updateGenerationJobStatus(pool, jobId, 'failed', 'NO_MODEL', 'AI 模型未配置');
+      return { success: false, error: 'AI 模型未配置', errorCode: 'NO_MODEL' };
+    }
+
+    // 6. 消耗悟道玉简
     const consumed = await params.consumeItem(itemSpend);
     if (!consumed) {
       await updateGenerationJobStatus(pool, jobId, 'failed', 'ITEM_NOT_ENOUGH', '悟道玉简不足');
@@ -144,6 +154,7 @@ export class TechniqueGenerationService {
         realmLv: rolledRealmLv,
         playerContext: sanitizedContext,
         playerId: params.playerId,
+        modelConfig,
       }).catch(() => undefined);
     });
 
@@ -157,6 +168,7 @@ export class TechniqueGenerationService {
     realmLv: number;
     playerContext: string;
     playerId: string;
+    modelConfig?: AiTextModelConfig;
   }): Promise<GenerationExecutionResult> {
     const pool = this.pool;
     if (!pool) {
@@ -165,7 +177,7 @@ export class TechniqueGenerationService {
     await markGenerationJobRunning(pool, jobId);
 
     // 获取模型配置
-    const modelConfig = await this.modelConfigResolver?.();
+    const modelConfig = params.modelConfig ?? await this.modelConfigResolver?.();
     if (!modelConfig) {
       await updateGenerationJobStatus(pool, jobId, 'failed', 'NO_MODEL', 'AI 模型未配置');
       return { success: false, error: 'AI 模型未配置' };
@@ -441,6 +453,10 @@ export class TechniqueGenerationService {
     if (!pool) {
       return 0;
     }
+    const modelConfig = await this.modelConfigResolver?.();
+    if (!modelConfig) {
+      return 0;
+    }
     const jobs = await loadRecoverableGenerationJobs(pool, limit);
     for (const job of jobs) {
       setImmediate(() => {
@@ -450,10 +466,43 @@ export class TechniqueGenerationService {
           realmLv: job.realmLv,
           playerContext: job.playerContext,
           playerId: job.playerId,
+          modelConfig,
         }).catch(() => undefined);
       });
     }
     return jobs.length;
+  }
+
+  async refundNoModelFailedConsumedJobsForPlayer(params: {
+    playerId: string;
+    refundItem: (count: number) => Promise<boolean>;
+    limit?: number;
+  }): Promise<number> {
+    const pool = this.pool;
+    if (!pool) {
+      return 0;
+    }
+    const jobs = await loadRefundableNoModelGenerationJobsForPlayer(pool, params.playerId, params.limit ?? 20);
+    let refunded = 0;
+    for (const job of jobs) {
+      if (this.refundingJobIds.has(job.id)) {
+        continue;
+      }
+      this.refundingJobIds.add(job.id);
+      try {
+        const refundOk = await params.refundItem(job.itemSpend);
+        if (!refundOk) {
+          continue;
+        }
+        const marked = await markGenerationJobItemRefunded(pool, job.id);
+        if (marked) {
+          refunded += job.itemSpend;
+        }
+      } finally {
+        this.refundingJobIds.delete(job.id);
+      }
+    }
+    return refunded;
   }
 }
 

@@ -29,6 +29,7 @@ interface TechniqueGenerationHelperDeps {
   playerRuntimeService: {
     getPlayerRealmLv(playerId: string): number | null;
     consumeItemByItemId(playerId: string, itemId: string, count: number): boolean;
+    grantItem?: (playerId: string, itemId: string, count: number) => unknown;
     addPendingTechniqueComprehensionById?: (playerId: string, techniqueId: string, sourceKind: 'normal' | 'created', creatorPlayerId?: string | null) => boolean;
     learnTechniqueById?: (playerId: string, techniqueId: string) => boolean;
   };
@@ -86,6 +87,7 @@ export class WorldGatewayTechniqueGenerationHelper {
   }
 
   private async handleGetStatus(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
+    await this.refundNoModelFailedJobs(client, playerId);
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
     const status = {
@@ -100,6 +102,7 @@ export class WorldGatewayTechniqueGenerationHelper {
   }
 
   private async handleGenerate(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {
+    await this.refundNoModelFailedJobs(client, playerId);
     const category = request.category as TechniqueCategory;
     const playerContext = typeof request.playerContext === 'string' ? request.playerContext : undefined;
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
@@ -168,6 +171,22 @@ export class WorldGatewayTechniqueGenerationHelper {
       result: 'failed',
       errorMessage: '功法领悟超时，请稍后重试',
     });
+  }
+
+  private async refundNoModelFailedJobs(client: Socket, playerId: string): Promise<void> {
+    if (!this.techniqueGenerationService || typeof this.deps.playerRuntimeService.grantItem !== 'function') {
+      return;
+    }
+    const refunded = await this.techniqueGenerationService.refundNoModelFailedConsumedJobsForPlayer({
+      playerId,
+      refundItem: async (count) => {
+        this.deps.playerRuntimeService.grantItem?.(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
+        return true;
+      },
+    });
+    if (refunded > 0) {
+      this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+    }
   }
 
   private async handleAdopt(client: Socket, playerId: string, request: Record<string, unknown>): Promise<unknown> {

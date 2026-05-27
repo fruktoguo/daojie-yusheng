@@ -100,6 +100,8 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
         item_consumed         BOOLEAN NOT NULL DEFAULT false,
         item_spend            INT NOT NULL DEFAULT 1,
         consumed_at           TIMESTAMPTZ,
+        item_refunded         BOOLEAN NOT NULL DEFAULT false,
+        refunded_at           TIMESTAMPTZ,
 
         draft_expire_at       TIMESTAMPTZ,
         finished_at           TIMESTAMPTZ,
@@ -133,6 +135,14 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
     await client.query(`
       ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
       ADD COLUMN IF NOT EXISTS item_spend INT NOT NULL DEFAULT 1
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ADD COLUMN IF NOT EXISTS item_refunded BOOLEAN NOT NULL DEFAULT false
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMPTZ
     `);
 
     await client.query(`
@@ -239,6 +249,8 @@ interface TechniqueGenerationJobGmRow {
   item_consumed?: boolean | null;
   item_spend?: number | string | null;
   consumed_at?: Date | string | null;
+  item_refunded?: boolean | null;
+  refunded_at?: Date | string | null;
   draft_expire_at?: Date | string | null;
   finished_at?: Date | string | null;
   error_code?: string | null;
@@ -359,6 +371,8 @@ export async function listTechniqueGenerationJobsForGm(
             item_consumed,
             item_spend,
             consumed_at,
+            item_refunded,
+            refunded_at,
             draft_expire_at,
             finished_at,
             error_code,
@@ -400,6 +414,8 @@ export async function getTechniqueGenerationJobForGm(
             item_consumed,
             item_spend,
             consumed_at,
+            item_refunded,
+            refunded_at,
             draft_expire_at,
             finished_at,
             error_code,
@@ -457,6 +473,12 @@ export interface RecoverableGenerationJob {
   itemSpend: number;
 }
 
+export interface RefundableGenerationJob {
+  id: string;
+  playerId: string;
+  itemSpend: number;
+}
+
 export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Promise<RecoverableGenerationJob[]> {
   const result = await pool.query(
     `SELECT id,
@@ -485,6 +507,46 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
       itemSpend: normalizeInteger(row.item_spend, 1),
     }))
     .filter((row) => (row.category === 'internal' || row.category === 'arts') && row.grade && row.realmLv > 0);
+}
+
+export async function loadRefundableNoModelGenerationJobsForPlayer(
+  pool: Pool,
+  playerId: string,
+  limit = 20,
+): Promise<RefundableGenerationJob[]> {
+  const result = await pool.query(
+    `SELECT id, player_id, item_spend
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      WHERE player_id = $1
+        AND status = 'failed'
+        AND error_code = 'NO_MODEL'
+        AND item_consumed = true
+        AND item_refunded = false
+      ORDER BY created_at ASC, id ASC
+      LIMIT $2`,
+    [playerId, clampInteger(limit, 1, 200, 20)],
+  );
+  return (result.rows as TechniqueGenerationJobGmRow[])
+    .map((row) => ({
+      id: row.id,
+      playerId: row.player_id,
+      itemSpend: clampInteger(row.item_spend, 1, 1_000, 1),
+    }))
+    .filter((row) => row.playerId === playerId && row.itemSpend > 0);
+}
+
+export async function markGenerationJobItemRefunded(pool: Pool, id: string): Promise<boolean> {
+  const result = await pool.query(
+    `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+     SET item_refunded = true,
+         refunded_at = COALESCE(refunded_at, NOW()),
+         updated_at = NOW()
+     WHERE id = $1
+       AND item_consumed = true
+       AND item_refunded = false`,
+    [id],
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 function toGeneratedTechniqueSummary(row: GeneratedTechniqueGmRow): GmGeneratedTechniqueSummary {
@@ -548,6 +610,8 @@ function toTechniqueGenerationJobSummary(row: TechniqueGenerationJobGmRow): GmTe
     itemConsumed: Boolean(row.item_consumed),
     itemSpend: normalizeInteger(row.item_spend, 1),
     consumedAt: row.consumed_at === null || row.consumed_at === undefined ? null : formatDbTimestamp(row.consumed_at),
+    itemRefunded: Boolean(row.item_refunded),
+    refundedAt: row.refunded_at === null || row.refunded_at === undefined ? null : formatDbTimestamp(row.refunded_at),
     draftExpireAt: row.draft_expire_at === null || row.draft_expire_at === undefined ? null : formatDbTimestamp(row.draft_expire_at),
     finishedAt: row.finished_at === null || row.finished_at === undefined ? null : formatDbTimestamp(row.finished_at),
     errorCode: row.error_code ?? null,
@@ -572,6 +636,8 @@ function toTechniqueGenerationJobRawJson(row: TechniqueGenerationJobGmRow): Reco
     item_consumed: Boolean(row.item_consumed),
     item_spend: normalizeInteger(row.item_spend, 1),
     consumed_at: row.consumed_at === null || row.consumed_at === undefined ? null : formatDbTimestamp(row.consumed_at),
+    item_refunded: Boolean(row.item_refunded),
+    refunded_at: row.refunded_at === null || row.refunded_at === undefined ? null : formatDbTimestamp(row.refunded_at),
     draft_expire_at: row.draft_expire_at === null || row.draft_expire_at === undefined ? null : formatDbTimestamp(row.draft_expire_at),
     finished_at: row.finished_at === null || row.finished_at === undefined ? null : formatDbTimestamp(row.finished_at),
     error_code: row.error_code ?? null,

@@ -220,6 +220,8 @@ export interface GmTechniqueGenerationJobSummary {
   itemConsumed: boolean;
   itemSpend: number;
   consumedAt?: string | null;
+  itemRefunded: boolean;
+  refundedAt?: string | null;
   draftExpireAt?: string | null;
   finishedAt?: string | null;
   errorCode?: string | null;
