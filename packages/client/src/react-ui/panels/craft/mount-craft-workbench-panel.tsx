@@ -32,6 +32,10 @@ export function syncReactCraftWorkbenchState(state: Partial<ReactCraftWorkbenchS
   craftWorkbenchStore.patchState(state);
 }
 
+export function getReactCraftWorkbenchState(): ReactCraftWorkbenchState {
+  return craftWorkbenchStore.getState();
+}
+
 export function setReactCraftWorkbenchAfterContentRender(callback: (() => void) | null): void {
   setCraftWorkbenchAfterContentRender(callback);
 }

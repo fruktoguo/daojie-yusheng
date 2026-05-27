@@ -64,6 +64,7 @@ import { CraftQueueView } from './craft-queue-view';
 import type { CraftQueueParent } from './craft-queue-view';
 import { readEnhancementHistoryFromStorage } from './enhancement-history-storage';
 import {
+  getReactCraftWorkbenchState,
   mountReactCraftWorkbenchPanel,
   setReactCraftWorkbenchAfterContentRender,
   shouldUseReactCraftWorkbenchPanel,
@@ -1054,12 +1055,15 @@ export class CraftWorkbenchModal {
     _definition: { title: string; subtitle: string; variantClass: string; body: string },
     includeContent: boolean,
   ): void {
+    const current = getReactCraftWorkbenchState();
+    const nextTabsKey = this.buildCraftTabsKey();
+    const nextHeaderKey = this.buildCraftHeaderKey();
     syncReactCraftWorkbenchState({
       activeMode: this.activeMode,
-      tabsKey: this.buildCraftTabsKey(),
-      tabsHtml: this.renderCraftModeTabs(),
-      headerKey: this.buildCraftHeaderKey(),
-      headerHtml: this.renderCraftHeader(),
+      tabsKey: nextTabsKey,
+      ...(current.tabsKey !== nextTabsKey ? { tabsHtml: this.renderCraftModeTabs() } : {}),
+      headerKey: nextHeaderKey,
+      ...(current.headerKey !== nextHeaderKey ? { headerHtml: this.renderCraftHeader() } : {}),
       ...(includeContent
         ? {
           contentKey: this.buildCraftContentKey(),
@@ -1201,6 +1205,7 @@ export class CraftWorkbenchModal {
       }
       this.syncReactShell(definition, false);
       mountReactCraftWorkbenchPanel(body);
+      this.patchCraftShellHeaderAndTabs(body);
       if ((this.activeMode === 'alchemy' || this.activeMode === 'forging') && this.tryPatchAlchemyBody(body)) {
         return;
       }
@@ -1393,6 +1398,7 @@ export class CraftWorkbenchModal {
           entry.label,
           entry.quantity ?? '',
           entry.state ?? '',
+          entry.isActive ? 'active' : 'idle',
           entry.cancelRef?.jobRunId ?? '',
           entry.cancelRef?.queueId ?? '',
         ].join(':'))
