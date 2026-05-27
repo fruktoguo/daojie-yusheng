@@ -21,8 +21,7 @@ type MainTechniqueStateSourceOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketRuntimeSender, 'sendCultivate' | 'sendStartTechniqueTransmission' | 'sendCancelTechniqueTransmission'>;
-  getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
+  socket: Pick<SocketRuntimeSender, 'sendCultivate' | 'sendCancelTechniqueTransmission'>;
 };
 /**
  * MainTechniqueStateSource：统一结构类型，保证协议与运行时一致性。
@@ -41,9 +40,7 @@ export function createMainTechniqueStateSource(options: MainTechniqueStateSource
   options.techniquePanel.setCallbacks(
     (techId) => options.socket.sendCultivate(techId),
     undefined,
-    (learnerPlayerId, techId) => options.socket.sendStartTechniqueTransmission(learnerPlayerId, techId),
     (techId) => options.socket.sendCancelTechniqueTransmission(techId),
-    options.getTransmissionTargets,
   );
 
   return {  

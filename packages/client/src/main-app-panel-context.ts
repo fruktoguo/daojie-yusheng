@@ -135,7 +135,6 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const techniqueStateSource = createMainTechniqueStateSource({
     techniquePanel,
     socket: runtimeSender,
-    getTransmissionTargets: () => getNearbyTransmissionTargets(),
   });
   craftWorkbenchModal.setTransmissionCallbacks({
     getTransmissionTargets: () => getNearbyTransmissionTargets(),

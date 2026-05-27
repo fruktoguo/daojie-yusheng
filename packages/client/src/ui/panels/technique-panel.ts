@@ -16,7 +16,6 @@ import {
   deriveTechniqueRealm,
   getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
-  isCreatedTechniqueId,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
@@ -70,8 +69,6 @@ type TechniquePanelState = {
   techniques: TechniqueState[];
   pendingComprehensions?: PlayerState['pendingTechniqueComprehensions'];
 };
-
-type TechniqueTransmissionTarget = { playerId: string; name: string };
 
 /** TechniqueCardNodeRefs：功法卡片子节点缓存引用，避免每 tick querySelector。 */
 interface TechniqueCardNodeRefs {
@@ -389,9 +386,7 @@ export class TechniquePanel {
   private onCultivate: ((techId: string | null) => void) | null = null;
   /** onToggleTechniqueSkills：on Toggle Technique技能。 */
   private onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
-  private onStartTechniqueTransmission: ((learnerPlayerId: string, techId: string) => void) | null = null;
   private onCancelTechniqueTransmission: ((techId: string) => void) | null = null;
-  private getTransmissionTargets: (() => TechniqueTransmissionTarget[]) | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip();
   /** constellationCanvas：星图Canvas。 */
@@ -447,9 +442,7 @@ export class TechniquePanel {
       onCultivate: (techId) => this.handleCultivate(techId),
       onToggleSkills: (techId, enabled) => this.handleToggleTechniqueSkills(techId, enabled),
       onOpenDetail: (techId) => this.openTechniqueDetail(techId),
-      onStartTransmission: (learnerPlayerId, techId) => this.handleStartTechniqueTransmission(learnerPlayerId, techId),
       onCancelTransmission: (techId) => this.handleCancelTechniqueTransmission(techId),
-      getTransmissionTargets: () => this.getTransmissionTargetOptions(),
     });
     this.bindPaneEvents();
   }
@@ -483,15 +476,11 @@ export class TechniquePanel {
   setCallbacks(
     onCultivate: (techId: string | null) => void,
     onToggleTechniqueSkills?: (techId: string, enabled: boolean) => void,
-    onStartTechniqueTransmission?: (learnerPlayerId: string, techId: string) => void,
     onCancelTechniqueTransmission?: (techId: string) => void,
-    getTransmissionTargets?: () => TechniqueTransmissionTarget[],
   ): void {
     this.onCultivate = onCultivate;
     this.onToggleTechniqueSkills = onToggleTechniqueSkills ?? null;
-    this.onStartTechniqueTransmission = onStartTechniqueTransmission ?? null;
     this.onCancelTechniqueTransmission = onCancelTechniqueTransmission ?? null;
-    this.getTransmissionTargets = getTransmissionTargets ?? null;
   }
 
   /** 更新功法列表与主修状态 */
@@ -586,18 +575,6 @@ export class TechniquePanel {
     }
     this.renderList();
     this.patchModal();
-  }
-
-  private getTransmissionTargetOptions(): TechniqueTransmissionTarget[] {
-    return this.getTransmissionTargets?.() ?? [];
-  }
-
-  private handleStartTechniqueTransmission(learnerPlayerId: string, techId: string): void {
-    const normalizedLearnerId = learnerPlayerId.trim();
-    if (!normalizedLearnerId || !techId) {
-      return;
-    }
-    this.onStartTechniqueTransmission?.(normalizedLearnerId, techId);
   }
 
   private handleCancelTechniqueTransmission(techId: string): void {
@@ -715,11 +692,6 @@ export class TechniquePanel {
     const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
     const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
     const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
-    const canTransmitTechnique = isCreatedTechniqueId(tech.techId);
-    const transmissionTargets = canTransmitTechnique ? this.getTransmissionTargetOptions() : [];
-    const transmissionOptions = transmissionTargets.length > 0
-      ? transmissionTargets.map((target) => `<option value="${escapeHtml(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
-      : '<option value="">附近无可传授玩家</option>';
     return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}">
       <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
         <span class="tech-summary-main">
@@ -750,15 +722,6 @@ export class TechniquePanel {
           data-cultivate-stop="${isCultivating ? tech.techId : ''}"
           type="button"
         >${isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined)}</button>
-        ${canTransmitTechnique ? `<select class="ui-input tech-transmission-target" data-tech-transmission-target="${tech.techId}" ${transmissionTargets.length === 0 ? 'disabled' : ''}>
-            ${transmissionOptions}
-          </select>
-          <button
-            class="small-btn ghost"
-            data-tech-transmit="${tech.techId}"
-            type="button"
-            ${transmissionTargets.length === 0 ? 'disabled' : ''}
-          >传授</button>` : ''}
       </div>
     </div>`;
   }
@@ -1263,19 +1226,6 @@ export class TechniquePanel {
         return;
       }
 
-      const transmitButton = target.closest<HTMLElement>('[data-tech-transmit]');
-      if (transmitButton) {
-        event.stopPropagation();
-        const techId = transmitButton.dataset.techTransmit;
-        if (!techId) {
-          return;
-        }
-        const selector = this.pane.querySelector<HTMLSelectElement>(`[data-tech-transmission-target="${CSS.escape(techId)}"]`);
-        const learnerPlayerId = selector?.value ?? '';
-        this.handleStartTechniqueTransmission(learnerPlayerId, techId);
-        return;
-      }
-
       const cancelTransmissionButton = target.closest<HTMLElement>('[data-tech-transmission-cancel]');
       if (cancelTransmissionButton) {
         event.stopPropagation();
@@ -1637,27 +1587,6 @@ export class TechniquePanel {
       cultivateButton.classList.toggle('danger', isCultivating);
       cultivateButton.dataset.cultivate = isCultivating ? '' : tech.techId;
       cultivateButton.dataset.cultivateStop = isCultivating ? tech.techId : '';
-      const transmissionTargets = this.getTransmissionTargetOptions();
-      const transmissionSelect = card.querySelector<HTMLSelectElement>(`[data-tech-transmission-target="${CSS.escape(tech.techId)}"]`);
-      const transmissionButton = card.querySelector<HTMLButtonElement>(`[data-tech-transmit="${CSS.escape(tech.techId)}"]`);
-      if (transmissionSelect) {
-        const selected = transmissionSelect.value;
-        transmissionSelect.replaceChildren(...(transmissionTargets.length > 0
-          ? transmissionTargets.map((target) => {
-            const option = document.createElement('option');
-            option.value = target.playerId;
-            option.textContent = target.name;
-            return option;
-          })
-          : [Object.assign(document.createElement('option'), { value: '', textContent: '附近无可传授玩家' })]));
-        if (transmissionTargets.some((target) => target.playerId === selected)) {
-          transmissionSelect.value = selected;
-        }
-        transmissionSelect.disabled = transmissionTargets.length === 0;
-      }
-      if (transmissionButton) {
-        transmissionButton.disabled = transmissionTargets.length === 0;
-      }
     }
 
     this.lastVisibleTechniqueIds = visibleTechniqueIds;

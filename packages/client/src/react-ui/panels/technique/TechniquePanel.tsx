@@ -32,18 +32,14 @@ interface TechniquePanelCallbacks {
   onCultivate: ((techId: string | null) => void) | null;
   onToggleSkills: ((techId: string, enabled: boolean) => void) | null;
   onOpenDetail: ((techId: string) => void) | null;
-  onStartTransmission: ((learnerPlayerId: string, techId: string) => void) | null;
   onCancelTransmission: ((techId: string) => void) | null;
-  getTransmissionTargets: (() => Array<{ playerId: string; name: string }>) | null;
 }
 
 const callbacks: TechniquePanelCallbacks = {
   onCultivate: null,
   onToggleSkills: null,
   onOpenDetail: null,
-  onStartTransmission: null,
   onCancelTransmission: null,
-  getTransmissionTargets: null,
 };
 
 export function setTechniquePanelCallbacks(cbs: Partial<TechniquePanelCallbacks>): void {
@@ -253,11 +249,6 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
   const progressText = formatProgressText(tech);
   const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
   const gradeLabel = getTechniqueGradeLabel(tech.grade);
-  const transmissionTargets = callbacks.getTransmissionTargets?.() ?? [];
-  const [selectedLearnerId, setSelectedLearnerId] = useState('');
-  const resolvedSelectedLearnerId = transmissionTargets.some((target) => target.playerId === selectedLearnerId)
-    ? selectedLearnerId
-    : transmissionTargets[0]?.playerId ?? '';
 
   const handleCultivate = useCallback(() => {
     callbacks.onCultivate?.(isCultivating ? null : tech.techId);
@@ -270,12 +261,6 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
   const handleOpen = useCallback(() => {
     callbacks.onOpenDetail?.(tech.techId);
   }, [tech.techId]);
-
-  const handleTransmit = useCallback(() => {
-    if (resolvedSelectedLearnerId) {
-      callbacks.onStartTransmission?.(resolvedSelectedLearnerId, tech.techId);
-    }
-  }, [resolvedSelectedLearnerId, tech.techId]);
 
   return (
     <div className={`tech-card${isCultivating ? ' cultivating' : ''}`}>
@@ -310,17 +295,6 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
         >
           {isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined)}
         </button>
-        <select
-          className="ui-input tech-transmission-target"
-          value={resolvedSelectedLearnerId}
-          onChange={(event) => setSelectedLearnerId(event.target.value)}
-          disabled={transmissionTargets.length === 0}
-        >
-          {transmissionTargets.length > 0
-            ? transmissionTargets.map((target) => <option key={target.playerId} value={target.playerId}>{target.name}</option>)
-            : <option value="">附近无可传授玩家</option>}
-        </select>
-        <button className="small-btn ghost" type="button" onClick={handleTransmit} disabled={!resolvedSelectedLearnerId}>传授</button>
       </div>
     </div>
   );
