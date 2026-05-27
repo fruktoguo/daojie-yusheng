@@ -10,6 +10,7 @@ import { PlayerDomainPersistenceService, PLAYER_DOMAIN_PROJECTED_TABLES } from '
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { PlayerPersistenceService } from '../persistence/player-persistence.service';
 import { WorldPlayerSnapshotService } from '../network/world-player-snapshot.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
 const databaseUrl = resolveServerDatabaseUrl();
 
@@ -291,6 +292,27 @@ async function main(): Promise<void> {
     }
     assertEnhancementActiveJobLockedQueueRecovered(enhancementRecovered.snapshot);
 
+    const missingLockedPlayerId = `${playerId}_enh_missing`;
+    await cleanupPlayer(pool, missingLockedPlayerId);
+    const missingLockedSnapshot = buildEnhancementActiveJobRecoverySnapshot(now + 3);
+    (missingLockedSnapshot.progression.enhancementJob as Record<string, unknown>).jobRunId = 'job-run:enhancement:missing-locked-recovery';
+    missingLockedSnapshot.inventory.lockedItems = [];
+    await domainPersistence.savePlayerSnapshotProjection(missingLockedPlayerId, missingLockedSnapshot);
+    const missingLockedRecovered = await snapshotService.loadPlayerSnapshotResult(
+      missingLockedPlayerId,
+      'proof:technique-active-job-missing-locked-recovery',
+    );
+    if (!missingLockedRecovered.snapshot) {
+      throw new Error(`expected missing-locked projected recovery to succeed, got ${JSON.stringify(missingLockedRecovered)}`);
+    }
+    const runtimeService = createPlayerRuntimeService();
+    const missingLockedRuntimePlayer = runtimeService.hydrateFromSnapshot(
+      missingLockedPlayerId,
+      'session:missing-locked-recovery',
+      missingLockedRecovered.snapshot,
+    );
+    assertMissingLockedEnhancementJobStopped(missingLockedRuntimePlayer);
+
     const presenceOnly = await snapshotService.loadPlayerSnapshotResult(
       presenceOnlyPlayerId,
       'proof:player-domain-presence-only',
@@ -305,7 +327,8 @@ async function main(): Promise<void> {
           ok: true,
           playerId,
           enhancementRecoveryPlayerId,
-          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/technique/persistent buff/quest/combat config/profession/preset/job/technique queue/enhancement record/logbook 子域回读重建；强化 active job、lockedItems 与统一技艺队列可一起恢复',
+          missingLockedPlayerId,
+          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/technique/persistent buff/quest/combat config/profession/preset/job/technique queue/enhancement record/logbook 子域回读重建；强化 active job、lockedItems 与统一技艺队列可一起恢复；active job 存在但锁定物缺失时水合期会停止 job 并标记 active_job/enhancement_record/inventory 脏域',
           excludes: '不证明未投影子域已迁出旧快照，也不证明玩家全域已经不再依赖 server_player_snapshot',
           completionMapping: 'release:proof:with-db.player-domain-recovery',
           source: recovered.source,
@@ -321,6 +344,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
     await cleanupPlayer(pool, presenceOnlyPlayerId).catch(() => undefined);
     await cleanupPlayer(pool, `${playerId}_enh`).catch(() => undefined);
+    await cleanupPlayer(pool, `${playerId}_enh_missing`).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await snapshotPersistence.onModuleDestroy().catch(() => undefined);
     await domainPersistence.onModuleDestroy().catch(() => undefined);
@@ -1193,6 +1217,106 @@ function assertEnhancementActiveJobLockedQueueRecovered(snapshot: PersistedPlaye
   ) {
     throw new Error(`unexpected recovered enhancement queue: ${JSON.stringify(queue)}`);
   }
+}
+
+function assertMissingLockedEnhancementJobStopped(player: ReturnType<PlayerRuntimeService['hydrateFromSnapshot']>): void {
+  if (player.enhancementJob !== null) {
+    throw new Error(`missing locked item should stop enhancement job during hydrate: ${JSON.stringify(player.enhancementJob)}`);
+  }
+  const record = Array.isArray(player.enhancementRecords) ? player.enhancementRecords[0] as Record<string, unknown> | undefined : undefined;
+  if (!record || record.status !== 'stopped' || Number(record.highestLevel ?? 0) !== 2) {
+    throw new Error(`missing locked item should mark enhancement record stopped: ${JSON.stringify(player.enhancementRecords)}`);
+  }
+  if (
+    !player.dirtyDomains?.has('active_job')
+    || !player.dirtyDomains?.has('enhancement_record')
+    || !player.dirtyDomains?.has('inventory')
+    || player.persistentRevision <= player.persistedRevision
+  ) {
+    throw new Error(`missing locked item hydrate should mark dirty domains: ${JSON.stringify({
+      dirtyDomains: Array.from(player.dirtyDomains ?? []),
+      persistentRevision: player.persistentRevision,
+      persistedRevision: player.persistedRevision,
+    })}`);
+  }
+}
+
+function createPlayerRuntimeService(): PlayerRuntimeService {
+  return new PlayerRuntimeService(
+    {
+      createStarterInventory() {
+        return {
+          capacity: 24,
+          items: [],
+        };
+      },
+      createDefaultEquipment() {
+        return {};
+      },
+      normalizeItem(item: unknown) {
+        return item;
+      },
+      hydrateTechniqueState(entry: unknown) {
+        return entry;
+      },
+    } as never,
+    {
+      has(mapId: string) {
+        return mapId === STARTER_TEMPLATE_ID;
+      },
+      getOrThrow(mapId: string) {
+        return {
+          id: mapId,
+          width: 64,
+          height: 64,
+          spawnX: 32,
+          spawnY: 5,
+          walkableMask: new Uint8Array(64 * 64).fill(1),
+        };
+      },
+      list() {
+        return [{
+          id: STARTER_TEMPLATE_ID,
+          width: 64,
+          height: 64,
+          spawnX: 32,
+          spawnY: 5,
+          walkableMask: new Uint8Array(64 * 64).fill(1),
+        }];
+      },
+    } as never,
+    {
+      createInitialState() {
+        return {
+          stage: '炼气',
+          rawBaseAttrs: null,
+          baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
+          finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
+          numericStats: {},
+          ratioDivisors: {},
+        };
+      },
+      recalculate() {
+        return undefined;
+      },
+      markPanelDirty() {
+        return undefined;
+      },
+    } as never,
+    {
+      getRealmRuntimeExpToNext() {
+        return 60;
+      },
+      initializePlayer() {
+        return undefined;
+      },
+      refreshPreview() {
+        return undefined;
+      },
+    } as never,
+    undefined,
+    undefined,
+  );
 }
 
 async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {

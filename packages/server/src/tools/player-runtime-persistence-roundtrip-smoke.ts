@@ -264,6 +264,55 @@ function testLegacyCraftQueuedJobsMigrateToUnifiedQueue() {
     assert.equal(persisted.progression.alchemyJob.queuedJobs, undefined);
 }
 
+function testInvalidEnhancementRecoveryStopsMissingLockedItemJob() {
+    const service = createPlayerRuntimeService();
+    const snapshot = createSnapshot(null);
+    snapshot.progression.enhancementJob = {
+        jobRunId: 'job:enhancement:missing-locked-recovery',
+        jobType: 'enhancement',
+        target: { source: 'inventory', itemInstanceId: 'missing-sword-instance' },
+        itemInstanceId: 'missing-sword-instance',
+        targetItemId: 'iron_sword',
+        targetItemName: '铁剑',
+        targetItemLevel: 8,
+        currentLevel: 2,
+        targetLevel: 3,
+        desiredTargetLevel: 4,
+        spiritStoneCost: 10,
+        materials: [],
+        protectionUsed: false,
+        phase: 'enhancing',
+        pausedTicks: 0,
+        successRate: 1,
+        totalTicks: 5,
+        remainingTicks: 3,
+        startedAt: 100,
+        roleEnhancementLevel: 2,
+        totalSpeedRate: 1,
+        jobVersion: 7,
+    };
+    snapshot.progression.enhancementRecords = [{
+        itemId: 'iron_sword',
+        highestLevel: 2,
+        levels: [],
+        actionStartedAt: 100,
+        startLevel: 2,
+        initialTargetLevel: 3,
+        desiredTargetLevel: 4,
+        status: 'in_progress',
+    }];
+    snapshot.inventory.lockedItems = [];
+
+    const player = service.hydrateFromSnapshot('player:enhancement-missing-locked-recovery', 'session:enhancement-missing-locked-recovery', snapshot);
+    assert.equal(player.enhancementJob, null);
+    assert.equal(player.enhancementRecords[0].status, 'stopped');
+    assert.equal(player.enhancementRecords[0].highestLevel, 2);
+    assert.ok(player.dirtyDomains?.has('active_job'));
+    assert.ok(player.dirtyDomains?.has('enhancement_record'));
+    assert.ok(player.dirtyDomains?.has('inventory'));
+    assert.ok(player.persistentRevision > player.persistedRevision);
+}
+
 function testInvalidGatherJobFallsBackToNull() {
     const service = createPlayerRuntimeService();
     const player = service.hydrateFromSnapshot('player:2', 'session:2', createSnapshot({
@@ -605,6 +654,7 @@ function testPendingStatisticRecordsReuseReadonlyReferences() {
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testLegacyCraftQueuedJobsMigrateToUnifiedQueue();
+    testInvalidEnhancementRecoveryStopsMissingLockedItemJob();
     testInvalidGatherJobFallsBackToNull();
 testFreshSnapshotKeepsGatherJobEmpty();
 testMissingRespawnFallsBackToStarterMap();

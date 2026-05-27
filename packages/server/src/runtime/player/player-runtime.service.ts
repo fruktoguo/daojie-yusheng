@@ -4194,6 +4194,9 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['active_job']);
             this.bumpPersistentRevision(player);
         }
+        if (repairInvalidEnhancementRecoveryState(player)) {
+            this.bumpPersistentRevision(player);
+        }
         this.rebuildActionState(player, resolvePlayerRuntimeTick(player, 0));
         return player;
     }
@@ -6590,6 +6593,60 @@ function migrateLegacyCraftQueuedJobsToTechniqueActivityQueue(player) {
         player.techniqueActivityQueue = currentQueue.slice(0, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH);
     }
     return changed;
+}
+
+function repairInvalidEnhancementRecoveryState(player) {
+    const job = player?.enhancementJob;
+    if (!job || typeof job !== 'object') {
+        return false;
+    }
+    const itemInstanceId = typeof job.itemInstanceId === 'string' && job.itemInstanceId.trim()
+        ? job.itemInstanceId.trim()
+        : '';
+    const lockedItems = Array.isArray(player?.inventory?.lockedItems) ? player.inventory.lockedItems : [];
+    const hasLockedItem = Boolean(itemInstanceId)
+        && lockedItems.some((entry) => entry?.itemInstanceId === itemInstanceId);
+    if (hasLockedItem) {
+        return false;
+    }
+    const jobRunId = typeof job.jobRunId === 'string' && job.jobRunId.trim() ? job.jobRunId.trim() : '';
+    const orphanLockedBy = jobRunId ? `enhancement:${jobRunId}` : '';
+    if (orphanLockedBy) {
+        player.inventory.lockedItems = lockedItems.filter((entry) => entry?.lockedBy !== orphanLockedBy);
+    }
+    const now = Date.now();
+    const targetItemId = typeof job.targetItemId === 'string' && job.targetItemId.trim() ? job.targetItemId.trim() : '';
+    const record = targetItemId
+        ? (player.enhancementRecords ?? []).find((entry) => entry?.itemId === targetItemId)
+        : null;
+    if (record) {
+        record.status = 'stopped';
+        record.actionEndedAt = now;
+        record.highestLevel = Math.max(
+            Math.floor(Number(record.highestLevel) || 0),
+            Math.floor(Number(job.currentLevel) || 0),
+        );
+    }
+    else if (targetItemId) {
+        if (!Array.isArray(player.enhancementRecords)) {
+            player.enhancementRecords = [];
+        }
+        player.enhancementRecords.push({
+            itemId: targetItemId,
+            highestLevel: Math.max(0, Math.floor(Number(job.currentLevel) || 0)),
+            levels: [],
+            actionStartedAt: Number.isFinite(Number(job.startedAt)) ? Math.max(0, Math.trunc(Number(job.startedAt))) : undefined,
+            actionEndedAt: now,
+            startLevel: Math.max(0, Math.floor(Number(job.currentLevel) || 0)),
+            initialTargetLevel: Math.max(1, Math.floor(Number(job.targetLevel) || 1)),
+            desiredTargetLevel: Math.max(1, Math.floor(Number(job.desiredTargetLevel) || Number(job.targetLevel) || 1)),
+            protectionStartLevel: job.protectionStartLevel,
+            status: 'stopped',
+        });
+    }
+    player.enhancementJob = null;
+    markPlayerDirtyDomains(player, ['active_job', 'enhancement_record', 'inventory']);
+    return true;
 }
 /**
  * normalizeAlchemyJob：规范化或转换炼丹Job。
