@@ -131,6 +131,8 @@ export const C2S = {
   UpdateCombatTargetingRules: 'n:c:updateCombatTargetingRules',
   UpdateAutoBattleTargetingMode: 'n:c:updateAutoBattleTargetingMode',
   UpdateTechniqueSkillAvailability: 'n:c:updateTechniqueSkillAvailability',
+  StartTechniqueTransmission: 'n:c:startTechniqueTransmission',
+  CancelTechniqueTransmission: 'n:c:cancelTechniqueTransmission',
   DebugResetSpawn: 'n:c:debugResetSpawn',
   Chat: 'n:c:chat',
   AckSystemMessages: 'n:c:ackSystemMessages',
@@ -295,6 +297,8 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.UpdateCombatTargetingRules]: RequestPayloads.C2S_UpdateCombatTargetingRules;
   [C2S.UpdateAutoBattleTargetingMode]: RequestPayloads.C2S_UpdateAutoBattleTargetingMode;
   [C2S.UpdateTechniqueSkillAvailability]: RequestPayloads.C2S_UpdateTechniqueSkillAvailability;
+  [C2S.StartTechniqueTransmission]: RequestPayloads.C2S_StartTechniqueTransmission;
+  [C2S.CancelTechniqueTransmission]: RequestPayloads.C2S_CancelTechniqueTransmission;
   [C2S.DebugResetSpawn]: RequestPayloads.C2S_DebugResetSpawn;
   [C2S.Chat]: RequestPayloads.C2S_Chat;
   [C2S.AckSystemMessages]: RequestPayloads.C2S_AckSystemMessages;

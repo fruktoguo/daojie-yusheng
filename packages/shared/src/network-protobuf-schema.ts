@@ -183,6 +183,7 @@ message TechniqueUpdatePayload {
   repeated string removeTechniqueIds = 4;
   optional string bodyTrainingJson = 5;
   optional bool clearBodyTraining = 6;
+  optional string pendingComprehensionsJson = 7;
 }
 
 message TechniqueUpdateEntryPayload {

@@ -89,6 +89,7 @@ interface PlayerSnapshotProgression {
   gatherSkill: Record<string, unknown> | null;
   miningSkill?: Record<string, unknown> | null;
   formationSkill?: Record<string, unknown> | null;
+  transmissionSkill?: Record<string, unknown> | null;
   gatherJob: Record<string, unknown> | null;
   miningJob?: Record<string, unknown> | null;
   buildingJob?: Record<string, unknown> | null;
@@ -138,6 +139,7 @@ interface PlayerSnapshotTechniques {
   revision: number;
   techniques: unknown[];
   cultivatingTechId: string | null;
+  pendingComprehensions?: unknown[];
 }
 
 interface PlayerSnapshotBuffs {
@@ -653,6 +655,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
           typeof techniques?.cultivatingTechId === 'string' || techniques?.cultivatingTechId === null
             ? (techniques.cultivatingTechId as string | null)
             : null,
+        pendingComprehensions: Array.isArray(techniques?.pendingComprehensions) ? techniques.pendingComprehensions : [],
       },
     buffs: {
       revision: isFiniteNumber(buffs?.revision) ? Math.trunc(buffs.revision) : 1,

@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -352,6 +352,7 @@ export class PlayerRuntimeService {
                 techniques: [],
                 cultivatingTechId: null,
             },
+            pendingTechniqueComprehensions: [],
             attrs: this.playerAttributesService.createInitialState(),
             actions: {
                 revision: 1,
@@ -401,6 +402,7 @@ export class PlayerRuntimeService {
             buildingSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             miningSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             formationSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
+            transmissionSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             gatherJob: null,
             buildingJob: null,
             miningJob: null,
@@ -757,6 +759,8 @@ export class PlayerRuntimeService {
         }
         const technique = this.contentTemplateRepository.createTechniqueState(techniqueId);
         if (!technique) return false;
+        player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? [])
+            .filter((entry) => entry?.techId !== techniqueId);
         player.techniques.techniques.push(toTechniqueUpdateEntry(technique));
         player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
         player.techniques.revision += 1;
@@ -771,6 +775,145 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
         this.bumpPersistentRevision(player);
         return true;
+    }
+    /** 将功法加入未领悟列表，不直接学会。 */
+    addPendingTechniqueComprehensionById(playerId, techniqueId, sourceKind = 'normal', creatorPlayerId = null) {
+        const player = this.getPlayer(playerId);
+        if (!player) return false;
+        const normalizedTechId = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
+        if (!normalizedTechId) return false;
+        if (player.techniques.techniques.some((entry) => entry.techId === normalizedTechId)) {
+            return false;
+        }
+        const technique = this.contentTemplateRepository.createTechniqueState(normalizedTechId);
+        if (!technique) return false;
+        const normalizedSourceKind = sourceKind === 'created' ? 'created' : 'normal';
+        const currentTick = resolvePlayerRuntimeTick(player, 0);
+        const pending = Array.isArray(player.pendingTechniqueComprehensions)
+            ? player.pendingTechniqueComprehensions
+            : [];
+        const existing = pending.find((entry) => entry?.techId === normalizedTechId);
+        const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+            sourceKind: normalizedSourceKind,
+            techniqueRealmLv: technique.realmLv,
+            grade: technique.grade,
+            learnerRealmLv: player.realm?.realmLv ?? 1,
+            learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
+        });
+        if (existing) {
+            existing.requiredProgress = requiredProgress;
+            existing.updatedAtTick = currentTick;
+            existing.name = technique.name ?? existing.name ?? normalizedTechId;
+            existing.sourceKind = normalizedSourceKind;
+            if (creatorPlayerId) {
+                existing.creatorPlayerId = creatorPlayerId;
+            }
+        }
+        else {
+            pending.push({
+                techId: normalizedTechId,
+                name: technique.name ?? normalizedTechId,
+                sourceKind: normalizedSourceKind,
+                creatorPlayerId: creatorPlayerId ?? undefined,
+                progress: 0,
+                requiredProgress,
+                realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
+                grade: technique.grade ?? undefined,
+                category: technique.category ?? undefined,
+                createdAtTick: currentTick,
+                updatedAtTick: currentTick,
+                activeTransferJob: null,
+            });
+        }
+        player.pendingTechniqueComprehensions = pending;
+        if (!player.techniques.cultivatingTechId) {
+            player.techniques.cultivatingTechId = normalizedTechId;
+            player.combat.cultivationActive = true;
+        }
+        player.techniques.revision += 1;
+        markPlayerDirtyDomains(player, ['technique']);
+        this.bumpPersistentRevision(player);
+        return true;
+    }
+    startTechniqueTransmission(teacherPlayerId, learnerPlayerId, techniqueId) {
+        const teacher = this.getPlayerOrThrow(teacherPlayerId);
+        const learner = this.getPlayerOrThrow(learnerPlayerId);
+        const normalizedTechId = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
+        if (!normalizedTechId) {
+            throw new BadRequestException('功法不能为空');
+        }
+        const teacherTechnique = teacher.techniques.techniques.find((entry) => entry.techId === normalizedTechId);
+        if (!teacherTechnique) {
+            throw new BadRequestException('传授者尚未掌握该功法');
+        }
+        if (learner.techniques.techniques.some((entry) => entry.techId === normalizedTechId)) {
+            throw new BadRequestException('学习者已经掌握该功法');
+        }
+        if (!isPlayerInTransmissionRange(teacher, learner)) {
+            throw new BadRequestException('传授距离超过 2 格');
+        }
+        const currentTick = resolvePlayerRuntimeTick(learner, 0);
+        const pendingList = Array.isArray(learner.pendingTechniqueComprehensions)
+            ? learner.pendingTechniqueComprehensions
+            : [];
+        let pending = pendingList.find((entry) => entry?.techId === normalizedTechId);
+        const sourceKind = normalizedTechId.startsWith('gen_') ? 'created' : 'normal';
+        const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+            sourceKind,
+            techniqueRealmLv: teacherTechnique.realmLv,
+            grade: teacherTechnique.grade,
+            learnerRealmLv: learner.realm?.realmLv ?? 1,
+            learnerTransmissionLevel: learner.transmissionSkill?.level ?? 1,
+            teacherTransmissionLevel: teacher.transmissionSkill?.level ?? 1,
+        });
+        if (!pending) {
+            pending = {
+                techId: normalizedTechId,
+                name: teacherTechnique.name ?? normalizedTechId,
+                sourceKind,
+                progress: 0,
+                requiredProgress,
+                realmLv: Math.max(1, Math.floor(Number(teacherTechnique.realmLv) || 1)),
+                grade: teacherTechnique.grade ?? undefined,
+                category: teacherTechnique.category ?? undefined,
+                createdAtTick: currentTick,
+                updatedAtTick: currentTick,
+                activeTransferJob: null,
+            };
+            pendingList.push(pending);
+        }
+        if (pending.activeTransferJob) {
+            throw new BadRequestException('该功法已有进行中的传授');
+        }
+        pending.requiredProgress = requiredProgress;
+        pending.updatedAtTick = currentTick;
+        pending.activeTransferJob = {
+            jobId: `transmission:${learner.playerId}:${normalizedTechId}:${currentTick}`,
+            teacherPlayerId,
+            teacherName: teacher.displayName ?? teacher.name ?? teacherPlayerId,
+            startedAtTick: currentTick,
+            status: 'running',
+            range: 2,
+        };
+        learner.pendingTechniqueComprehensions = pendingList;
+        learner.techniques.revision += 1;
+        markPlayerDirtyDomains(learner, ['technique']);
+        this.bumpPersistentRevision(learner);
+        return learner;
+    }
+    cancelTechniqueTransmission(learnerPlayerId, techniqueId) {
+        const learner = this.getPlayerOrThrow(learnerPlayerId);
+        const normalizedTechId = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
+        const pending = (learner.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === normalizedTechId);
+        if (!pending?.activeTransferJob) {
+            throw new BadRequestException('没有进行中的传授');
+        }
+        pending.activeTransferJob = null;
+        pending.updatedAtTick = resolvePlayerRuntimeTick(learner, 0);
+        learner.techniques.revision += 1;
+        markPlayerDirtyDomains(learner, ['technique']);
+        this.bumpPersistentRevision(learner);
+        return learner;
     }
     /**
  * getSessionFence：读取当前运行态 session fencing 信息。
@@ -1855,15 +1998,43 @@ export class PlayerRuntimeService {
             if (!technique) {
                 throw new NotFoundException(`功法不存在：${learnTechniqueId}`);
             }
-            player.techniques.techniques.push(toTechniqueUpdateEntry(technique));
-            player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
+            const pending = Array.isArray(player.pendingTechniqueComprehensions)
+                ? player.pendingTechniqueComprehensions
+                : [];
+            const existing = pending.find((entry) => entry?.techId === learnTechniqueId);
+            const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+                sourceKind: 'normal',
+                techniqueRealmLv: technique.realmLv,
+                grade: technique.grade,
+                learnerRealmLv: player.realm?.realmLv ?? 1,
+                learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
+            });
+            if (existing) {
+                existing.requiredProgress = requiredProgress;
+                existing.updatedAtTick = currentTick;
+                existing.name = technique.name ?? existing.name ?? learnTechniqueId;
+            }
+            else {
+                pending.push({
+                    techId: learnTechniqueId,
+                    name: technique.name ?? learnTechniqueId,
+                    sourceKind: 'normal',
+                    progress: 0,
+                    requiredProgress,
+                    realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
+                    grade: technique.grade ?? undefined,
+                    category: technique.category ?? undefined,
+                    createdAtTick: currentTick,
+                    updatedAtTick: currentTick,
+                    activeTransferJob: null,
+                });
+            }
+            player.pendingTechniqueComprehensions = pending;
             player.techniques.revision += 1;
             if (!player.techniques.cultivatingTechId) {
                 player.techniques.cultivatingTechId = technique.techId;
                 player.combat.cultivationActive = true;
             }
-            this.playerAttributesService.recalculate(player);
-            this.rebuildActionState(player, currentTick);
             consumed = true;
         }
         else {
@@ -1880,7 +2051,7 @@ export class PlayerRuntimeService {
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
-        markPlayerDirtyDomains(player, learnTechniqueId ? ['inventory', 'technique', 'auto_battle_skill', 'attr'] : ['inventory']);
+        markPlayerDirtyDomains(player, learnTechniqueId ? ['inventory', 'technique'] : ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -2383,7 +2554,9 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : null;
-        if (normalized && !player.techniques.techniques.some((entry) => entry.techId === normalized)) {
+        const hasLearned = normalized && player.techniques.techniques.some((entry) => entry.techId === normalized);
+        const hasPending = normalized && (player.pendingTechniqueComprehensions ?? []).some((entry) => entry?.techId === normalized);
+        if (normalized && !hasLearned && !hasPending) {
             throw new NotFoundException(`尚未学会功法：${normalized}`);
         }
         const previousCultivatingTechId = player.techniques.cultivatingTechId;
@@ -3328,6 +3501,9 @@ export class PlayerRuntimeService {
                 });
                 this.applyProgressionResult(player, result, playerTick);
             }
+            if (player.hp > 0) {
+                this.advanceTechniqueTransmissionForPlayer(player, playerTick);
+            }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
                 const result = this.playerProgressionService.autoRefineRootFoundation(player);
                 this.applyProgressionResult(player, result, playerTick, true);
@@ -3340,6 +3516,93 @@ export class PlayerRuntimeService {
 
             // stateDelta 发射：仅在数值实际变化时入队
             this.emitPlayerStateDeltaIfChanged(player, _prevHp, _prevMp, _prevExp, _prevLevel, buffTickResult);
+    }
+
+    /** 推进挂在学习者身上的传法 job。传授者只作为距离与功法掌握校验来源，不占用传授者行动。 */
+    advanceTechniqueTransmissionForPlayer(player, playerTick) {
+        const pendingList = Array.isArray(player.pendingTechniqueComprehensions)
+            ? player.pendingTechniqueComprehensions
+            : [];
+        if (pendingList.length === 0) {
+            return;
+        }
+        let changed = false;
+        let completed = false;
+        for (const pending of [...pendingList]) {
+            const job = pending?.activeTransferJob;
+            if (!job) {
+                continue;
+            }
+            const teacher = this.getPlayer(job.teacherPlayerId);
+            const teacherTechnique = teacher?.techniques?.techniques?.find((entry) => entry?.techId === pending.techId) ?? null;
+            if (!teacher || !teacherTechnique || !isPlayerInTransmissionRange(teacher, player)) {
+                if (job.status !== 'blocked' || job.blockedReason !== 'teacher_out_of_range') {
+                    job.status = 'blocked';
+                    job.blockedReason = 'teacher_out_of_range';
+                    pending.updatedAtTick = playerTick;
+                    changed = true;
+                }
+                continue;
+            }
+            if (job.status !== 'running' || job.blockedReason !== undefined) {
+                job.status = 'running';
+                delete job.blockedReason;
+                changed = true;
+            }
+            const previousProgress = Math.max(0, Math.floor(Number(pending.progress) || 0));
+            const requiredProgress = Math.max(1, Math.floor(Number(pending.requiredProgress) || 1));
+            pending.progress = Math.min(requiredProgress, previousProgress + 1);
+            pending.updatedAtTick = playerTick;
+            changed = true;
+            if (pending.progress < requiredProgress) {
+                continue;
+            }
+            const technique = this.contentTemplateRepository.createTechniqueState(pending.techId);
+            if (!technique) {
+                job.status = 'blocked';
+                job.blockedReason = 'teacher_out_of_range';
+                this.queuePlayerStructuredNotice(player, {
+                    kind: 'warn',
+                    text: `功法 ${pending.name ?? pending.techId} 已无法找到，传法进度保留。`,
+                    structured: {
+                        key: 'notice.progression.technique-comprehension-template-missing',
+                        vars: { techName: pending.name ?? pending.techId },
+                        pills: [{ key: 'techName', style: 'skill' }],
+                    },
+                });
+                continue;
+            }
+            const learnedEntry = toTechniqueUpdateEntry(technique);
+            if (!player.techniques.techniques.some((entry) => entry.techId === learnedEntry.techId)) {
+                player.techniques.techniques.push(learnedEntry);
+                player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
+            }
+            player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? []).filter((entry) => entry?.techId !== pending.techId);
+            completed = true;
+            this.queuePlayerStructuredNotice(player, {
+                kind: 'success',
+                text: `${pending.name ?? pending.techId} 已领悟完成。`,
+                structured: {
+                    key: 'notice.progression.technique-comprehension-complete',
+                    vars: { techName: pending.name ?? pending.techId },
+                    pills: [{ key: 'techName', style: 'skill' }],
+                },
+            });
+        }
+        if (!changed) {
+            return;
+        }
+        player.techniques.revision += 1;
+        if (completed) {
+            this.playerAttributesService.recalculate(player);
+            this.rebuildActionState(player, playerTick);
+            this.playerProgressionService.refreshPreview(player);
+            markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
+        }
+        else {
+            markPlayerDirtyDomains(player, ['technique']);
+        }
+        this.bumpPersistentRevision(player);
     }
 
     /** 比较 tick 前后关键数值，有变化时向 EventBus 发射 stateDelta。 */
@@ -3876,6 +4139,7 @@ export class PlayerRuntimeService {
                 attrs: this.playerAttributesService.createInitialState(),
                 equipment: { revision: 1, slots: equipmentSlots },
                 techniques: { revision: 1, techniques, cultivatingTechId: snapshot.techniques.cultivatingTechId },
+                pendingTechniqueComprehensions: clonePendingTechniqueComprehensions(snapshot.techniques?.pendingComprehensions),
                 buffs: { revision: 1, buffs },
                 runtimeBonuses,
                 combat: {
@@ -4002,6 +4266,7 @@ export class PlayerRuntimeService {
             buildingSkill: normalizeCraftSkillState(snapshot.progression?.buildingSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             miningSkill: normalizeCraftSkillState(snapshot.progression?.miningSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             formationSkill: normalizeCraftSkillState(snapshot.progression?.formationSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+            transmissionSkill: normalizeCraftSkillState(snapshot.progression?.transmissionSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             miningJob: normalizeMiningJob(snapshot.progression?.miningJob),
@@ -4014,6 +4279,7 @@ export class PlayerRuntimeService {
             enhancementSkillLevel: Math.max(1, Math.floor(Number(snapshot.progression?.enhancementSkillLevel ?? snapshot.progression?.enhancementSkill?.level) || 1)),
             enhancementJob: normalizeEnhancementJob(snapshot.progression?.enhancementJob),
             enhancementRecords: normalizeEnhancementRecords(snapshot.progression?.enhancementRecords),
+            pendingTechniqueComprehensions: clonePendingTechniqueComprehensions(snapshot.techniques?.pendingComprehensions),
             unlockedMapIds: snapshot.unlockedMapIds.slice(),
             selfRevision: 1,
             inventory: {
@@ -4389,6 +4655,8 @@ export class PlayerRuntimeService {
                     id: player.notices.nextId,
                     kind: notice.kind,
                     text,
+                    ...(notice.structured ? { structured: notice.structured } : {}),
+                    ...(Array.isArray(notice.structuredGroup) && notice.structuredGroup.length > 0 ? { structuredGroup: notice.structuredGroup } : {}),
                 };
                 player.notices.nextId += 1;
                 if (this.runtimeEventBusService) {
@@ -4408,6 +4676,27 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, dirtyDomains);
         }
         return player;
+    }
+    /** 发送结构化玩家通知，服务端只携带 key 与变量，文本仅作为兼容 fallback。 */
+    queuePlayerStructuredNotice(player, notice) {
+        const text = typeof notice?.text === 'string' ? notice.text.trim() : '';
+        if (!text) {
+            return;
+        }
+        const entry = {
+            id: player.notices.nextId,
+            kind: notice.kind ?? 'info',
+            text,
+            ...(notice.structured ? { structured: notice.structured } : {}),
+            ...(Array.isArray(notice.structuredGroup) && notice.structuredGroup.length > 0 ? { structuredGroup: notice.structuredGroup } : {}),
+        };
+        player.notices.nextId += 1;
+        if (this.runtimeEventBusService) {
+            this.runtimeEventBusService.queuePlayerNotice(player.playerId, entry);
+        }
+        else {
+            player.notices.queue.push(entry);
+        }
     }
     /** applyProgressionResultWithStatistics：应用进度变更，并按变更发生顺序记录收支，避免快照净值互相抵消。 */
     applyProgressionResultWithStatistics(player, result, beforeSnapshot, currentTick = 0, rebuildActions = false) {
@@ -4719,6 +5008,7 @@ function cloneRuntimePlayerState(player) {
             revision: player.techniques.revision,
             techniques: player.techniques.techniques.map((entry) => ({ ...entry })),
             cultivatingTechId: player.techniques.cultivatingTechId,
+            pendingComprehensions: clonePendingTechniqueComprehensions(player.pendingTechniqueComprehensions),
         },
         attrs: cloneRuntimeAttrState(player.attrs),
         actions: {
@@ -4768,6 +5058,7 @@ function cloneRuntimePlayerState(player) {
         buildingSkill: cloneCraftSkillState(player.buildingSkill),
         miningSkill: cloneCraftSkillState(player.miningSkill),
         formationSkill: cloneCraftSkillState(player.formationSkill),
+        transmissionSkill: cloneCraftSkillState(player.transmissionSkill),
         gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
         buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
         miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
@@ -6101,6 +6392,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             buildingSkill: cloneCraftSkillState(player.buildingSkill),
             miningSkill: cloneCraftSkillState(player.miningSkill),
             formationSkill: cloneCraftSkillState(player.formationSkill),
+            transmissionSkill: cloneCraftSkillState(player.transmissionSkill),
             gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
             buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
             miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
@@ -6146,10 +6438,12 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             revision: player.techniques.revision,
             techniques: needsDomain('technique') ? player.techniques.techniques.map((entry) => buildPersistedTechniqueState(entry)) : [],
             cultivatingTechId: player.techniques.cultivatingTechId,
+            pendingComprehensions: clonePendingTechniqueComprehensions(player.pendingTechniqueComprehensions),
         } : {
             revision: player.techniques.revision,
             techniques: [],
             cultivatingTechId: player.techniques.cultivatingTechId,
+            pendingComprehensions: clonePendingTechniqueComprehensions(player.pendingTechniqueComprehensions),
         },
         buffs: needsDomain('buff') ? {
             revision: player.buffs.revision,
@@ -6273,6 +6567,25 @@ function normalizeCraftSkillState(value, resolveExpToNext = null) {
 
 function cloneCraftSkillState(value) {
     return value ? { ...normalizeCraftSkillState(value) } : undefined;
+}
+function clonePendingTechniqueComprehensions(value) {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value
+        .filter((entry) => entry && typeof entry === 'object' && typeof entry.techId === 'string' && entry.techId.trim())
+        .map((entry) => ({
+            ...entry,
+            activeTransferJob: entry.activeTransferJob ? { ...entry.activeTransferJob } : null,
+        }));
+}
+function isPlayerInTransmissionRange(teacher, learner) {
+    if (!teacher || !learner || teacher.instanceId !== learner.instanceId) {
+        return false;
+    }
+    const dx = Math.abs(Math.floor(Number(teacher.x) || 0) - Math.floor(Number(learner.x) || 0));
+    const dy = Math.abs(Math.floor(Number(teacher.y) || 0) - Math.floor(Number(learner.y) || 0));
+    return Math.max(dx, dy) <= 2;
 }
 /**
  * normalizeAlchemyPresets：规范化或转换炼丹Preset。

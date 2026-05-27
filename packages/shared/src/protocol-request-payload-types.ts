@@ -17,10 +17,12 @@ import type {
   MoveToRequestView,
   NavigateQuestRequestView,
   PingRequestView,
+  CancelTechniqueTransmissionRequestView,
   UpdateAutoBattleSkillsRequestView,
   UpdateAutoBattleTargetingModeRequestView,
   UpdateAutoUsePillsRequestView,
   UpdateCombatTargetingRulesRequestView,
+  StartTechniqueTransmissionRequestView,
   UpdateTechniqueSkillAvailabilityRequestView,
   UsePortalRequestView,
 } from './client-core-request-types';
@@ -140,6 +142,10 @@ export interface C2S_UpdateCombatTargetingRules extends UpdateCombatTargetingRul
 export interface C2S_UpdateAutoBattleTargetingMode extends UpdateAutoBattleTargetingModeRequestView {}
 /** 切换功法技能开关。 */
 export interface C2S_UpdateTechniqueSkillAvailability extends UpdateTechniqueSkillAvailabilityRequestView {}
+/** 开始传授功法。 */
+export interface C2S_StartTechniqueTransmission extends StartTechniqueTransmissionRequestView {}
+/** 取消传法。 */
+export interface C2S_CancelTechniqueTransmission extends CancelTechniqueTransmissionRequestView {}
 /** 调试：回出生点 */
 export interface C2S_DebugResetSpawn extends DebugResetSpawnRequestView {}
 /** 聊天消息 */

@@ -6,7 +6,7 @@
 import type { NumericRatioDivisors, NumericStats } from './numeric';
 import type { ActionDef } from './action-combat-types';
 import type { AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, CombatTargetingRules } from './automation-types';
-import type { BodyTrainingState, HeavenGateRootValues, HeavenGateState, PlayerRealmState, TechniqueState } from './cultivation-types';
+import type { BodyTrainingState, HeavenGateRootValues, HeavenGateState, PendingTechniqueComprehensionState, PlayerRealmState, TechniqueState } from './cultivation-types';
 import type {
   AlchemySkillState,
   PlayerAlchemyJob,
@@ -347,6 +347,11 @@ export interface PlayerState {
 
   techniques: TechniqueState[];
   /**
+ * pendingTechniqueComprehensions：未领悟功法状态。
+ */
+
+  pendingTechniqueComprehensions?: PendingTechniqueComprehensionState[];
+  /**
  * bodyTraining：bodyTraining相关字段。
  */
 
@@ -496,6 +501,11 @@ export interface PlayerState {
  */
 
   formationSkill?: AlchemySkillState;
+  /**
+ * transmissionSkill：传法技艺状态。
+ */
+
+  transmissionSkill?: AlchemySkillState;
   /**
  * buildingJob：building Job 相关字段。
  */

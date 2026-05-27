@@ -90,6 +90,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     },
     equipment: buildEquipmentRecord(player.equipment.slots),
     techniques: player.techniques.techniques.map((entry) => toBootstrapTechniqueState(entry)),
+    pendingTechniqueComprehensions: clonePendingComprehensions(player.pendingTechniqueComprehensions),
     bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : undefined,
     alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
     forgingSkill: player.forgingSkill ? { ...player.forgingSkill } : undefined,
@@ -98,6 +99,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
     miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
     formationSkill: player.formationSkill ? { ...player.formationSkill } : undefined,
+    transmissionSkill: player.transmissionSkill ? { ...player.transmissionSkill } : undefined,
     enhancementSkillLevel: player.enhancementSkillLevel,
     actions: player.actions.actions.map((entry) => toActionDefinition(entry)),
     quests: player.quests.quests.map((entry) => toQuestRuntimeState(entry)),
@@ -132,6 +134,13 @@ function cloneAutoBattleSkills(source) {
   const cloned = source.map((entry) => ({ ...entry }));
   autoBattleSkillCloneCache.set(source, cloned);
   return cloned;
+}
+
+function clonePendingComprehensions(source) {
+  return (Array.isArray(source) ? source : []).map((entry) => ({
+    ...entry,
+    activeTransferJob: entry.activeTransferJob ? { ...entry.activeTransferJob } : null,
+  }));
 }
 
 function cloneAutoUsePills(source) {

@@ -276,6 +276,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
             cultivatingTechId: typeof row.cultivatingTechId === 'string' && row.cultivatingTechId.trim()
                 ? row.cultivatingTechId
                 : null,
+            pendingComprehensions: [],
         },
         buffs: {
             revision: 1,

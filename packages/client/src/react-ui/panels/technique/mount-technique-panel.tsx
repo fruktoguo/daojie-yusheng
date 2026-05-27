@@ -22,11 +22,13 @@ export function shouldUseReactTechniquePanel(): boolean {
 
 export function syncReactTechniquePanelState(input: {
   techniques: TechniqueState[];
+  pendingComprehensions?: PlayerState['pendingTechniqueComprehensions'];
   cultivatingTechId?: string;
   previewPlayer?: PlayerState;
 }): void {
   techniquePanelStore.patchState({
     techniques: input.techniques,
+    pendingComprehensions: input.pendingComprehensions ?? [],
     cultivatingTechId: input.cultivatingTechId,
     previewPlayer: input.previewPlayer ?? null,
   });
@@ -36,6 +38,9 @@ export function setReactTechniquePanelCallbacks(callbacks: {
   onCultivate?: (techId: string | null) => void;
   onToggleSkills?: (techId: string, enabled: boolean) => void;
   onOpenDetail?: (techId: string) => void;
+  onStartTransmission?: (learnerPlayerId: string, techId: string) => void;
+  onCancelTransmission?: (techId: string) => void;
+  getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 }): void {
   setTechniquePanelCallbacks(callbacks);
 }

@@ -114,6 +114,7 @@ const EXPECTED_INTERFACES = {
     forgingSkill: { type: "PlayerState['forgingSkill']", optional: true },
     miningSkill: { type: "PlayerState['miningSkill']", optional: true },
     formationSkill: { type: "PlayerState['formationSkill']", optional: true },
+    transmissionSkill: { type: "PlayerState['transmissionSkill']", optional: true },
   },
 };
 

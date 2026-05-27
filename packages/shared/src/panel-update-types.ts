@@ -3,7 +3,7 @@
  *
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
-import type { BodyTrainingState, PlayerRealmStage, PlayerSpecialStats, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
+import type { BodyTrainingState, PendingTechniqueComprehensionState, PlayerRealmStage, PlayerSpecialStats, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
 import type { ActionType } from './action-combat-types';
 import type { AttrBonus, Attributes } from './attribute-types';
 import type { SkillDef } from './skill-types';
@@ -128,6 +128,11 @@ export interface AttrUpdateView {
  */
 
   formationSkill?: PlayerState['formationSkill'];
+  /**
+ * transmissionSkill：传法技艺状态。
+ */
+
+  transmissionSkill?: PlayerState['transmissionSkill'];
 }
 
 /** 功法面板局部更新项。 */
@@ -299,6 +304,11 @@ export interface TechniqueUpdateView {
  */
 
   bodyTraining?: BodyTrainingState | null;
+  /**
+ * pendingComprehensions：未领悟功法列表。
+ */
+
+  pendingComprehensions?: PendingTechniqueComprehensionState[];
 }
 
 /** 行动面板更新视图。 */
@@ -432,6 +442,11 @@ export interface PanelTechniqueDeltaView {
  */
 
   bodyTraining?: BodyTrainingState | null;
+  /**
+ * pendingComprehensions：未领悟功法列表。
+ */
+
+  pendingComprehensions?: PendingTechniqueComprehensionState[];
 }
 
 /** 行动面板增量视图。 */

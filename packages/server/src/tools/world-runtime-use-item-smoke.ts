@@ -263,7 +263,7 @@ function testBloodEssenceBatchBranch() {
         ['queuePlayerNotice', 'player:1', '使用 血精石 x3，当前地块煞气提升至 7', 'success'],
     ]);
 }
-function testTileResourceProtectedTileRejectsUse() {
+async function testTileResourceProtectedTileRejectsUse() {
     const log = [];
     const service = createService({ log });
     service.playerRuntimeService.peekInventoryItem = () => ({
@@ -290,7 +290,7 @@ function testTileResourceProtectedTileRejectsUse() {
             return 7;
         },
     });
-    assert.throws(
+    await assert.rejects(
         () => service.dispatchUseItem('player:1', 1, deps, { count: 2 }),
         /无法使用地块资源道具/,
     );
@@ -333,11 +333,11 @@ function testCurrentRespawnBindBranchUsesCurrentAllowedMap() {
         ['queuePlayerNotice', 'player:1', '复活点与遁返落点已绑定：栖真渡', 'success'],
     ]);
 }
-function testCurrentRespawnBindRejectsDisallowedMapWithoutConsume() {
+async function testCurrentRespawnBindRejectsDisallowedMapWithoutConsume() {
     const log = [];
     const service = createService({ log });
     service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone', name: '命石', useBehavior: 'bind_current_respawn' });
-    assert.throws(
+    await assert.rejects(
         () => service.dispatchUseItem('player:1', 5, createDeps(log)),
         /命石只能在云来镇、栖真渡、云墟台或自己所属宗门使用/,
     );
@@ -392,8 +392,8 @@ function testNormalUseBranch() {
     service.dispatchUseItem('player:1', 0, createDeps(log));
     assert.deepEqual(log, [
         ['useItem', 'player:1', 0],
-        ['advanceLearnTechniqueQuest', 'player:1', 'technique.scroll'],
-        ['queuePlayerNotice', 'player:1', '使用 功法玉简', 'success'],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '参悟 功法玉简', 'success'],
     ]);
 }
 
@@ -414,17 +414,21 @@ function testTechniqueGenerationOpenPanelBranch() {
     ]);
 }
 
-testMapUnlockBranch();
-testMapGroupUnlockBranch();
-testTileAuraBranch();
-testBloodEssenceBatchBranch();
-testTileResourceProtectedTileRejectsUse();
-testRespawnBindBranch();
-testCurrentRespawnBindBranchUsesCurrentAllowedMap();
-testCurrentRespawnBindRejectsDisallowedMapWithoutConsume();
-testCurrentRespawnBindAllowsOwnSectMap();
-testLegacyTileAuraBranch();
-testNormalUseBranch();
-testTechniqueGenerationOpenPanelBranch();
+async function main() {
+    testMapUnlockBranch();
+    testMapGroupUnlockBranch();
+    testTileAuraBranch();
+    testBloodEssenceBatchBranch();
+    await testTileResourceProtectedTileRejectsUse();
+    testRespawnBindBranch();
+    testCurrentRespawnBindBranchUsesCurrentAllowedMap();
+    await testCurrentRespawnBindRejectsDisallowedMapWithoutConsume();
+    testCurrentRespawnBindAllowsOwnSectMap();
+    testLegacyTileAuraBranch();
+    testNormalUseBranch();
+    testTechniqueGenerationOpenPanelBranch();
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-use-item' }, null, 2));
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-use-item' }, null, 2));
+}
+
+void main();

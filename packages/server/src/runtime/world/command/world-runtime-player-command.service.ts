@@ -594,6 +594,12 @@ export class WorldRuntimePlayerCommandService {
             case 'cultivate':
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
+            case 'startTechniqueTransmission':
+                this.playerRuntimeService.startTechniqueTransmission(playerId, command.learnerPlayerId, command.techniqueId);
+                return;
+            case 'cancelTechniqueTransmission':
+                this.playerRuntimeService.cancelTechniqueTransmission(playerId, command.techniqueId);
+                return;
             case 'startAlchemy':
                 return this.dispatchStartTechniqueActivity(playerId, 'alchemy', command.payload, deps);
             case 'cancelAlchemy':

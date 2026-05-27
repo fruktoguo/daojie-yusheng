@@ -127,11 +127,13 @@ export class WorldRuntimeUseItemService {
         }
         this.playerRuntimeService.useItemByInstanceId(playerId, itemInstanceId);
         if (learnedTechniqueId) {
-            deps.advanceLearnTechniqueQuest(playerId, learnedTechniqueId);
-        }
-        else {
             deps.refreshQuestStates(playerId);
+            const itemName = getItemDisplayName(item);
+            const n = buildStructuredNotice('success', 'notice.item.technique-comprehension-added', `参悟 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'skill' }] });
+            deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+            return;
         }
+        deps.refreshQuestStates(playerId);
         const itemName = getItemDisplayName(item);
         const n = buildStructuredNotice('success', 'notice.item.used', `使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);

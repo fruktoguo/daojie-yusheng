@@ -14,12 +14,14 @@ import { t } from '../../../ui/i18n';
 
 interface TechniquePanelState {
   techniques: TechniqueState[];
+  pendingComprehensions: PlayerState['pendingTechniqueComprehensions'];
   cultivatingTechId: string | undefined;
   previewPlayer: PlayerState | null;
 }
 
 export const { store: techniquePanelStore, useStore: useTechniquePanelStore } = createPanelStore<TechniquePanelState>({
   techniques: [],
+  pendingComprehensions: [],
   cultivatingTechId: undefined,
   previewPlayer: null,
 });
@@ -30,12 +32,18 @@ interface TechniquePanelCallbacks {
   onCultivate: ((techId: string | null) => void) | null;
   onToggleSkills: ((techId: string, enabled: boolean) => void) | null;
   onOpenDetail: ((techId: string) => void) | null;
+  onStartTransmission: ((learnerPlayerId: string, techId: string) => void) | null;
+  onCancelTransmission: ((techId: string) => void) | null;
+  getTransmissionTargets: (() => Array<{ playerId: string; name: string }>) | null;
 }
 
 const callbacks: TechniquePanelCallbacks = {
   onCultivate: null,
   onToggleSkills: null,
   onOpenDetail: null,
+  onStartTransmission: null,
+  onCancelTransmission: null,
+  getTransmissionTargets: null,
 };
 
 export function setTechniquePanelCallbacks(cbs: Partial<TechniquePanelCallbacks>): void {
@@ -100,7 +108,7 @@ function sortTechniques(techniques: TechniqueState[]): TechniqueState[] {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export const TechniquePanel = memo(function TechniquePanel() {
-  const { techniques, cultivatingTechId, previewPlayer } = useTechniquePanelStore();
+  const { techniques, pendingComprehensions, cultivatingTechId, previewPlayer } = useTechniquePanelStore();
   const [categoryFilter, setCategoryFilter] = useState<TechniqueCategoryFilter>('all');
   const [statusFilter, setStatusFilter] = useState<TechniqueStatusFilter>('in_progress');
 
@@ -127,7 +135,7 @@ export const TechniquePanel = memo(function TechniquePanel() {
     return counts;
   }, [techniques]);
 
-  if (techniques.length === 0) {
+  if (techniques.length === 0 && (pendingComprehensions ?? []).length === 0) {
     return <div className="empty-hint">{t('technique.empty.none-learned', undefined)}</div>;
   }
 
@@ -160,6 +168,13 @@ export const TechniquePanel = memo(function TechniquePanel() {
           ))}
         </div>
         <div className="tech-panel-list">
+          {(pendingComprehensions ?? []).map((pending) => (
+            <PendingTechniqueCard
+              key={`pending:${pending.techId}`}
+              pending={pending}
+              isCultivating={cultivatingTechId === pending.techId}
+            />
+          ))}
           {filtered.length > 0
             ? filtered.map((tech) => (
               <TechniqueCard
@@ -171,6 +186,44 @@ export const TechniquePanel = memo(function TechniquePanel() {
             ))
             : <div className="empty-hint">{resolveFilteredEmptyHint(statusFilter)}</div>}
         </div>
+      </div>
+    </div>
+  );
+});
+
+const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCultivating }: {
+  pending: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number];
+  isCultivating: boolean;
+}) {
+  const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;
+  const handleCultivate = useCallback(() => {
+    callbacks.onCultivate?.(isCultivating ? null : pending.techId);
+  }, [isCultivating, pending.techId]);
+  const handleCancelTransmission = useCallback(() => {
+    callbacks.onCancelTransmission?.(pending.techId);
+  }, [pending.techId]);
+  return (
+    <div className={`tech-card pending${isCultivating ? ' cultivating' : ''}`}>
+      <button className="tech-card-main" type="button" onClick={handleCultivate}>
+        <span className="tech-summary-main">
+          <span className="tech-name">{pending.name}</span>
+          <span className="tech-badge tech-category">{pending.sourceKind === 'created' ? '自创' : '未领悟'}</span>
+          {pending.activeTransferJob && <span className="tech-badge tech-grade">{pending.activeTransferJob.status === 'blocked' ? '等待传授' : '传授中'}</span>}
+        </span>
+        <span className="tech-progress-meta">
+          <span className="tech-progress-text">{Math.floor(pending.progress)} / {Math.floor(pending.requiredProgress)}</span>
+        </span>
+        <span className="tech-progress-bar">
+          <span className="tech-progress-fill" style={{ width: `${(ratio * 100).toFixed(2)}%` }} />
+        </span>
+      </button>
+      <div className="tech-card-actions">
+        <button className={`small-btn ${isCultivating ? 'danger' : 'ghost'}`} type="button" onClick={handleCultivate} disabled={Boolean(pending.activeTransferJob)}>
+          {pending.activeTransferJob ? '传授中' : isCultivating ? t('technique.action.cancel-cultivate', undefined) : '设为主修领悟'}
+        </button>
+        {pending.activeTransferJob && (
+          <button className="small-btn danger" type="button" onClick={handleCancelTransmission}>取消传法</button>
+        )}
       </div>
     </div>
   );
@@ -200,6 +253,11 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
   const progressText = formatProgressText(tech);
   const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
   const gradeLabel = getTechniqueGradeLabel(tech.grade);
+  const transmissionTargets = callbacks.getTransmissionTargets?.() ?? [];
+  const [selectedLearnerId, setSelectedLearnerId] = useState('');
+  const resolvedSelectedLearnerId = transmissionTargets.some((target) => target.playerId === selectedLearnerId)
+    ? selectedLearnerId
+    : transmissionTargets[0]?.playerId ?? '';
 
   const handleCultivate = useCallback(() => {
     callbacks.onCultivate?.(isCultivating ? null : tech.techId);
@@ -212,6 +270,12 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
   const handleOpen = useCallback(() => {
     callbacks.onOpenDetail?.(tech.techId);
   }, [tech.techId]);
+
+  const handleTransmit = useCallback(() => {
+    if (resolvedSelectedLearnerId) {
+      callbacks.onStartTransmission?.(resolvedSelectedLearnerId, tech.techId);
+    }
+  }, [resolvedSelectedLearnerId, tech.techId]);
 
   return (
     <div className={`tech-card${isCultivating ? ' cultivating' : ''}`}>
@@ -246,6 +310,17 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
         >
           {isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined)}
         </button>
+        <select
+          className="ui-input tech-transmission-target"
+          value={resolvedSelectedLearnerId}
+          onChange={(event) => setSelectedLearnerId(event.target.value)}
+          disabled={transmissionTargets.length === 0}
+        >
+          {transmissionTargets.length > 0
+            ? transmissionTargets.map((target) => <option key={target.playerId} value={target.playerId}>{target.name}</option>)
+            : <option value="">附近无可传授玩家</option>}
+        </select>
+        <button className="small-btn ghost" type="button" onClick={handleTransmit} disabled={!resolvedSelectedLearnerId}>传授</button>
       </div>
     </div>
   );

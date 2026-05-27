@@ -178,6 +178,29 @@ export interface UpdateTechniqueSkillAvailabilityRequestView {
   enabled: boolean;
 }
 
+/** 开始传授功法。 */
+export interface StartTechniqueTransmissionRequestView {
+/**
+ * learnerPlayerId：被传授者玩家ID。
+ */
+
+  learnerPlayerId: string;
+  /**
+ * techId：功法ID。
+ */
+
+  techId: string;
+}
+
+/** 取消自己身上的传法 job。 */
+export interface CancelTechniqueTransmissionRequestView {
+/**
+ * techId：功法ID。
+ */
+
+  techId: string;
+}
+
 /** 调试回出生点。 */
 export interface DebugResetSpawnRequestView {
 /**

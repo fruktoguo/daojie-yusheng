@@ -29,7 +29,8 @@ interface TechniqueGenerationHelperDeps {
   playerRuntimeService: {
     getPlayerRealmLv(playerId: string): number | null;
     consumeItemByItemId(playerId: string, itemId: string, count: number): boolean;
-    learnTechniqueById(playerId: string, techniqueId: string): boolean;
+    addPendingTechniqueComprehensionById?: (playerId: string, techniqueId: string, sourceKind: 'normal' | 'created', creatorPlayerId?: string | null) => boolean;
+    learnTechniqueById?: (playerId: string, techniqueId: string) => boolean;
   };
   worldSyncService?: {
     emitDeltaSync(playerId: string, client?: Socket): void;
@@ -191,10 +192,12 @@ export class WorldGatewayTechniqueGenerationHelper {
     }
 
     if (result.success && result.techniqueId) {
-      // 直接学习功法
+      // 采纳自创功法后进入未领悟列表，由修炼推进领悟进度。
       let learned = false;
       try {
-        learned = this.deps.playerRuntimeService.learnTechniqueById(playerId, result.techniqueId);
+        learned = typeof this.deps.playerRuntimeService.addPendingTechniqueComprehensionById === 'function'
+          ? this.deps.playerRuntimeService.addPendingTechniqueComprehensionById(playerId, result.techniqueId, 'created', playerId)
+          : this.deps.playerRuntimeService.learnTechniqueById?.(playerId, result.techniqueId) === true;
       } catch {
         learned = false;
       }

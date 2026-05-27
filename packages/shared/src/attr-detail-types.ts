@@ -76,4 +76,9 @@ export interface AttrDetailView {
  */
 
   formationSkill?: PlayerState['formationSkill'];
+  /**
+ * transmissionSkill：传法技艺状态。
+ */
+
+  transmissionSkill?: PlayerState['transmissionSkill'];
 }

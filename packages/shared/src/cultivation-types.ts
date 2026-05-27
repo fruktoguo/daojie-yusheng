@@ -491,6 +491,37 @@ export interface TechniqueState {
 
 }
 
+export type TechniqueComprehensionSourceKind = 'normal' | 'created';
+
+export type TechniqueTransmissionJobStatus = 'running' | 'blocked';
+
+export type TechniqueTransmissionBlockedReason = 'teacher_out_of_range';
+
+export interface TechniqueTransmissionJobState {
+  jobId: string;
+  teacherPlayerId: string;
+  teacherName?: string;
+  startedAtTick: number;
+  status: TechniqueTransmissionJobStatus;
+  blockedReason?: TechniqueTransmissionBlockedReason;
+  range: number;
+}
+
+export interface PendingTechniqueComprehensionState {
+  techId: string;
+  name: string;
+  sourceKind: TechniqueComprehensionSourceKind;
+  creatorPlayerId?: string;
+  progress: number;
+  requiredProgress: number;
+  realmLv: number;
+  grade?: TechniqueGrade;
+  category?: TechniqueCategory;
+  createdAtTick: number;
+  updatedAtTick: number;
+  activeTransferJob?: TechniqueTransmissionJobState | null;
+}
+
 /** 炼体状态。 */
 export interface BodyTrainingState {
 /**

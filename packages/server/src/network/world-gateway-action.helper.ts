@@ -67,6 +67,8 @@ interface WorldGatewayActionDeps {
       enqueueRedeemCodes(playerId: string, codes: string[], deps: unknown): void;
       usePortal(playerId: string, deps: unknown): void;
       enqueueCultivate(playerId: string, techId: string | null, deps: unknown): void;
+      enqueueStartTechniqueTransmission(playerId: string, learnerPlayerId: string, techId: string | null, deps: unknown): void;
+      enqueueCancelTechniqueTransmission(playerId: string, techId: string | null, deps: unknown): void;
       enqueueCastSkill(
         playerId: string,
         skillId: string,
@@ -313,6 +315,45 @@ export class WorldGatewayActionHelper {
     payload: ClientToServerEventPayload<typeof C2S.Cultivate>,
   ): void {
     this.executeCultivate(client, payload);
+  }
+
+  handleStartTechniqueTransmission(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.StartTechniqueTransmission>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueTransmission(
+        playerId,
+        payload?.learnerPlayerId ?? '',
+        payload?.techId ?? null,
+        this.gateway.worldRuntimeService,
+      );
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'START_TECHNIQUE_TRANSMISSION_FAILED', error);
+    }
+  }
+
+  handleCancelTechniqueTransmission(
+    client: Socket,
+    payload: ClientToServerEventPayload<typeof C2S.CancelTechniqueTransmission>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueTransmission(
+        playerId,
+        payload?.techId ?? null,
+        this.gateway.worldRuntimeService,
+      );
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'CANCEL_TECHNIQUE_TRANSMISSION_FAILED', error);
+    }
   }
 
   handleCastSkill(

@@ -429,6 +429,7 @@ export class PlayerProgressionService {
             mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueBaseGain, {
                 expBonus: player.attrs.numericStats.techniqueExpRate,
                 minimumGain: 1,
+                allowPendingComprehension: true,
             }));
         }
         if (!mutation.changed) {
@@ -1791,6 +1792,13 @@ export class PlayerProgressionService {
 
         const current = this.resolveCultivatingTechnique(player);
         if (!current) {
+            const currentTechId = player.techniques.cultivatingTechId;
+            if (currentTechId && (player.pendingTechniqueComprehensions ?? []).some((entry) => entry?.techId === currentTechId)) {
+                return {
+                    ...createEmptyMutation(),
+                    technique: null,
+                };
+            }
             if (!player.techniques.cultivatingTechId) {
                 return {
                     ...createEmptyMutation(),
@@ -1904,6 +1912,12 @@ export class PlayerProgressionService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
+        const pending = options.allowPendingComprehension === true
+            ? this.resolveCultivatingPendingComprehension(player)
+            : null;
+        if (pending) {
+            return this.advancePendingTechniqueComprehensionInternal(player, pending, amount, options);
+        }
         const resolved = this.resolveActiveCultivatingTechnique(player);
         if (!resolved.technique) {
             if (!player.techniques.cultivatingTechId && player.techniques.techniques.length > 0) {
@@ -1983,6 +1997,72 @@ export class PlayerProgressionService {
             }
         }
         return mutation;
+    }
+    resolveCultivatingPendingComprehension(player) {
+        const techId = player.techniques?.cultivatingTechId;
+        if (!techId) {
+            return null;
+        }
+        return (player.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === techId) ?? null;
+    }
+    advancePendingTechniqueComprehensionInternal(player, pending, amount, options: any = {}) {
+        const resolved = createEmptyMutation();
+        if (pending.activeTransferJob) {
+            return resolved;
+        }
+        const normalized = applyTechniqueRateBonus(amount, 1, options);
+        if (normalized <= 0) {
+            return resolved;
+        }
+        const previousProgress = Math.max(0, Math.floor(Number(pending.progress) || 0));
+        const requiredProgress = Math.max(1, Math.floor(Number(pending.requiredProgress) || 1));
+        pending.progress = Math.min(requiredProgress, previousProgress + normalized);
+        pending.updatedAtTick = Math.max(0, Math.floor(Number(player.lifeElapsedTicks) || 0));
+        if (pending.progress < requiredProgress) {
+            return {
+                changed: true,
+                panelDirty: false,
+                attrRecalculated: false,
+                techniquesDirty: true,
+                actionsDirty: false,
+                notices: [],
+            };
+        }
+        const technique = this.contentTemplateRepository.createTechniqueState(pending.techId);
+        if (!technique) {
+            return {
+                changed: true,
+                panelDirty: false,
+                attrRecalculated: false,
+                techniquesDirty: true,
+                actionsDirty: false,
+                notices: [{
+                    text: `功法 ${pending.name ?? pending.techId} 已无法找到，领悟进度保留。`,
+                    kind: 'warn',
+                    structured: { key: 'notice.progression.technique-comprehension-template-missing', vars: { techName: pending.name ?? pending.techId }, pills: [{ key: 'techName', style: 'skill' }] },
+                }],
+            };
+        }
+        const learnedEntry = toTechniqueUpdateEntryLocal(technique);
+        if (!player.techniques.techniques.some((entry) => entry.techId === learnedEntry.techId)) {
+            player.techniques.techniques.push(learnedEntry);
+            player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
+        }
+        player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? []).filter((entry) => entry?.techId !== pending.techId);
+        const attrRecalculated = this.playerAttributesService.recalculate(player);
+        this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
+        return {
+            changed: true,
+            panelDirty: false,
+            attrRecalculated,
+            techniquesDirty: true,
+            actionsDirty: true,
+            notices: [{
+                text: `${pending.name ?? pending.techId} 已领悟完成。`,
+                kind: 'success',
+                structured: { key: 'notice.progression.technique-comprehension-complete', vars: { techName: pending.name ?? pending.techId }, pills: [{ key: 'techName', style: 'skill' }] },
+            }],
+        };
     }
     /** 将无主修或全圆满后的功法经验转入炼体。 */
     advanceBodyTrainingProgressInternal(player, amount, resolved) {
@@ -2372,6 +2452,23 @@ function snapshotCultivatingTechnique(player) {
         name: technique?.name ?? techId,
         level: Math.max(0, Math.floor(technique?.level ?? 0)),
         exp: Math.max(0, Math.floor(technique?.exp ?? 0)),
+    };
+}
+
+function toTechniqueUpdateEntryLocal(technique) {
+    return {
+        techId: technique.techId,
+        level: technique.level,
+        exp: technique.exp,
+        expToNext: technique.expToNext,
+        realmLv: technique.realmLv,
+        realm: technique.realm ?? TechniqueRealm.Entry,
+        skillsEnabled: technique.skillsEnabled !== false,
+        name: technique.name,
+        grade: technique.grade ?? null,
+        category: technique.category ?? null,
+        skills: technique.skills,
+        layers: technique.layers ?? null,
     };
 }
 /**

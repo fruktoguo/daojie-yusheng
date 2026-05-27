@@ -28,6 +28,7 @@ import type {
   NumericStats,
   PlayerSpecialStats,
   PlayerWalletState,
+  PendingTechniqueComprehensionState,
   S2C_PanelAttrDelta,
   S2C_PanelDelta,
   SelfDeltaView,
@@ -363,7 +364,9 @@ export interface ProjectorPlayerLike {
     revision: number;
     techniques: TechniqueUpdateEntryView[];
     cultivatingTechId?: string | null;
+    pendingComprehensions?: PendingTechniqueComprehensionState[];
   };
+  pendingTechniqueComprehensions?: PendingTechniqueComprehensionState[];
   bodyTraining?: BodyTrainingState | null;
   alchemySkill?: S2C_PanelAttrDelta['alchemySkill'];
   forgingSkill?: S2C_PanelAttrDelta['alchemySkill'];
@@ -372,6 +375,7 @@ export interface ProjectorPlayerLike {
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
   miningSkill?: S2C_PanelAttrDelta['miningSkill'];
   formationSkill?: S2C_PanelAttrDelta['formationSkill'];
+  transmissionSkill?: S2C_PanelAttrDelta['transmissionSkill'];
   attrs: {
     revision: number;
     stage: S2C_PanelAttrDelta['stage'];
@@ -430,6 +434,7 @@ export interface ProjectedAttrPanelState {
   enhancementSkill?: S2C_PanelAttrDelta['enhancementSkill'];
   miningSkill?: S2C_PanelAttrDelta['miningSkill'];
   formationSkill?: S2C_PanelAttrDelta['formationSkill'];
+  transmissionSkill?: S2C_PanelAttrDelta['transmissionSkill'];
 }
 export interface ProjectedActionPanelState {
   revision: number;
@@ -469,6 +474,7 @@ export interface ProjectedPanelState {
     techniques: TechniqueUpdateEntryView[];
     cultivatingTechId?: string | null;
     bodyTraining?: BodyTrainingState | null;
+    pendingComprehensions?: PendingTechniqueComprehensionState[];
   };
   attr: ProjectedAttrPanelState;
   action: ProjectedActionPanelState;

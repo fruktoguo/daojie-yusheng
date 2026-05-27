@@ -558,6 +558,7 @@ function buildFullPanelDeltaFromState(panel: ProjectedPanelState): S2C_PanelDelt
             techniques: panel.technique.techniques,
             cultivatingTechId: panel.technique.cultivatingTechId,
             bodyTraining: panel.technique.bodyTraining,
+            pendingComprehensions: panel.technique.pendingComprehensions,
         },
         attr: buildFullAttrDeltaFromState(panel.attr),
         act: buildFullActionDeltaFromState(panel.action),
@@ -814,6 +815,7 @@ function buildAttrPanelSignature(player: ProjectorPlayerLike): string {
         buildCraftSkillSignature(player.enhancementSkill),
         buildCraftSkillSignature(player.miningSkill),
         buildCraftSkillSignature(player.formationSkill),
+        buildCraftSkillSignature(player.transmissionSkill),
         buildAttrBonusesSignature(buildAttrBonuses(player)),
     ].join('|');
 }
@@ -1021,6 +1023,7 @@ function canReuseAttrPanelSlice(previousAttr: ProjectedAttrPanelState, player: P
         && isSameCraftSkillState(previousAttr.enhancementSkill, player.enhancementSkill)
         && isSameCraftSkillState(previousAttr.miningSkill, player.miningSkill)
         && isSameCraftSkillState(previousAttr.formationSkill, player.formationSkill)
+        && isSameCraftSkillState(previousAttr.transmissionSkill, player.transmissionSkill)
         && isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStatsCached(player))
         && isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
 }
@@ -1069,7 +1072,13 @@ function captureEquipmentPanelSlice(player: ProjectorPlayerLike): ProjectedPanel
 }
 
 function captureTechniquePanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['technique'] {
-    return { revision: player.techniques.revision, techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)), cultivatingTechId: player.techniques.cultivatingTechId, bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null };
+    return {
+        revision: player.techniques.revision,
+        techniques: player.techniques.techniques.map((entry) => cloneTechniqueEntry(entry)),
+        cultivatingTechId: player.techniques.cultivatingTechId,
+        bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
+        pendingComprehensions: clonePendingComprehensions(player.pendingTechniqueComprehensions),
+    };
 }
 
 function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelState {
@@ -1095,6 +1104,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
         miningSkill: player.miningSkill ? { ...player.miningSkill } : undefined,
         formationSkill: player.formationSkill ? { ...player.formationSkill } : undefined,
+        transmissionSkill: player.transmissionSkill ? { ...player.transmissionSkill } : undefined,
     };
 }
 
@@ -1180,6 +1190,7 @@ function buildFullAttrDeltaFromState(attr: ProjectedAttrPanelState): ProjectedAt
         enhancementSkill: attr.enhancementSkill,
         miningSkill: attr.miningSkill,
         formationSkill: attr.formationSkill,
+        transmissionSkill: attr.transmissionSkill,
     };
 }
 
@@ -1246,6 +1257,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
     const enhancementSkillChanged = !isSameCraftSkillState(previousAttr.enhancementSkill, currentAttr.enhancementSkill);
     const miningSkillChanged = !isSameCraftSkillState(previousAttr.miningSkill, currentAttr.miningSkill);
     const formationSkillChanged = !isSameCraftSkillState(previousAttr.formationSkill, currentAttr.formationSkill);
+    const transmissionSkillChanged = !isSameCraftSkillState(previousAttr.transmissionSkill, currentAttr.transmissionSkill);
     const totalChanges = (stageChanged ? 1 : 0)
         + baseAttrsPatch.changes
         + (bonusesChanged ? 1 : 0)
@@ -1265,7 +1277,8 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
         + (gatherSkillChanged ? 1 : 0)
         + (enhancementSkillChanged ? 1 : 0)
         + (miningSkillChanged ? 1 : 0)
-        + (formationSkillChanged ? 1 : 0);
+        + (formationSkillChanged ? 1 : 0)
+        + (transmissionSkillChanged ? 1 : 0);
     if (totalChanges > ATTR_DELTA_PATCH_THRESHOLD) {
         return buildFullAttrDeltaFromState(currentAttr);
     }
@@ -1291,6 +1304,7 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
         enhancementSkill: enhancementSkillChanged ? currentAttr.enhancementSkill : undefined,
         miningSkill: miningSkillChanged ? currentAttr.miningSkill : undefined,
         formationSkill: formationSkillChanged ? currentAttr.formationSkill : undefined,
+        transmissionSkill: transmissionSkillChanged ? currentAttr.transmissionSkill : undefined,
     };
 }
 
@@ -1327,6 +1341,8 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
                 ? currentTechnique.cultivatingTechId : undefined,
             bodyTraining: !isSameBodyTrainingState(previous.techniquePanel.bodyTraining, currentTechnique.bodyTraining)
                 ? currentTechnique.bodyTraining : undefined,
+            pendingComprehensions: !isSamePendingComprehensions(previous.techniquePanel.pendingComprehensions, currentTechnique.pendingComprehensions)
+                ? currentTechnique.pendingComprehensions : undefined,
         };
         techniquePanel = currentTechnique;
     } else if (!techniquePanel) {
@@ -1367,6 +1383,7 @@ function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, current
             techniques: technique.techniques,
             cultivatingTechId: technique.cultivatingTechId,
             bodyTraining: technique.bodyTraining,
+            pendingComprehensions: technique.pendingComprehensions,
         };
     }
     if (previousCursor.attrSignature !== currentCursor.attrSignature) {
@@ -1502,6 +1519,37 @@ function isSameBodyTrainingState(left: ProjectedPanelState['technique']['bodyTra
     return left.level === right.level
         && left.exp === right.exp
         && left.expToNext === right.expToNext;
+}
+
+function clonePendingComprehensions(value: ProjectedPanelState['technique']['pendingComprehensions']) {
+    return (Array.isArray(value) ? value : []).map((entry) => ({
+        ...entry,
+        activeTransferJob: entry.activeTransferJob ? { ...entry.activeTransferJob } : null,
+    }));
+}
+
+function isSamePendingComprehensions(
+    left: ProjectedPanelState['technique']['pendingComprehensions'],
+    right: ProjectedPanelState['technique']['pendingComprehensions'],
+): boolean {
+    const leftList = left ?? [];
+    const rightList = right ?? [];
+    if (leftList.length !== rightList.length) {
+        return false;
+    }
+    for (let index = 0; index < leftList.length; index += 1) {
+        const leftEntry = leftList[index];
+        const rightEntry = rightList[index];
+        if (!leftEntry || !rightEntry
+            || leftEntry.techId !== rightEntry.techId
+            || leftEntry.progress !== rightEntry.progress
+            || leftEntry.requiredProgress !== rightEntry.requiredProgress
+            || leftEntry.activeTransferJob?.jobId !== rightEntry.activeTransferJob?.jobId
+            || leftEntry.activeTransferJob?.status !== rightEntry.activeTransferJob?.status) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPanel: ProjectedPanelState): S2C_PanelDelta | null {

@@ -513,6 +513,14 @@ class WorldGateway implements WorldGatewayHelperContext {
     handleCultivate(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleCultivate(client, payload);
     }
+    @SubscribeMessage(C2S.StartTechniqueTransmission)
+    handleStartTechniqueTransmission(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayActionHelper.handleStartTechniqueTransmission(client, payload);
+    }
+    @SubscribeMessage(C2S.CancelTechniqueTransmission)
+    handleCancelTechniqueTransmission(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
+        return this.gatewayActionHelper.handleCancelTechniqueTransmission(client, payload);
+    }
     @SubscribeMessage(C2S.CastSkill)
     handleCastSkill(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
         return this.gatewayActionHelper.handleCastSkill(client, payload);

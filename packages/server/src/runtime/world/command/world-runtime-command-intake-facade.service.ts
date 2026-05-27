@@ -207,6 +207,12 @@ export class WorldRuntimeCommandIntakeFacadeService {
     enqueueCultivate(playerId, techniqueIdInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCultivate(playerId, techniqueIdInput, deps);
     }
+    enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps);
+    }
+    enqueueCancelTechniqueTransmission(playerId, techniqueIdInput, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelTechniqueTransmission(playerId, techniqueIdInput, deps);
+    }
     /**
  * enqueueStartAlchemy：处理开始炼丹并更新相关状态。
  * @param playerId 玩家 ID。

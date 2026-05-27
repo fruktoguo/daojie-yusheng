@@ -54,6 +54,7 @@ const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const PLAYER_MAP_UNLOCK_TABLE = 'player_map_unlock';
 const PLAYER_EQUIPMENT_SLOT_TABLE = 'player_equipment_slot';
 const PLAYER_TECHNIQUE_STATE_TABLE = 'player_technique_state';
+const PLAYER_TECHNIQUE_COMPREHENSION_TABLE = 'player_technique_comprehension';
 const PLAYER_PERSISTENT_BUFF_STATE_TABLE = 'player_persistent_buff_state';
 const PLAYER_QUEST_PROGRESS_TABLE = 'player_quest_progress';
 const PLAYER_COMBAT_PREFERENCES_TABLE = 'player_combat_preferences';
@@ -378,7 +379,7 @@ interface AttrStateRow {
 }
 
 interface ProfessionStateRow {
-  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement' | 'forging' | 'mining' | 'formation';
+  professionType: 'alchemy' | 'building' | 'gather' | 'enhancement' | 'forging' | 'mining' | 'formation' | 'transmission';
   level: number;
   exp: number | null;
   expToNext: number | null;
@@ -391,6 +392,20 @@ interface TechniqueStateRow {
   expToNext: number | null;
   realmLv: number | null;
   skillsEnabled: boolean;
+  rawPayload: Record<string, unknown>;
+}
+
+interface TechniqueComprehensionRow {
+  techId: string;
+  sourceKind: string;
+  progress: number;
+  requiredProgress: number;
+  realmLv: number | null;
+  grade: string | null;
+  category: string | null;
+  creatorPlayerId: string | null;
+  activeTransferJobId: string | null;
+  activeTransferTeacherId: string | null;
   rawPayload: Record<string, unknown>;
 }
 
@@ -600,6 +615,20 @@ interface PlayerTechniqueStateLoadRow {
   raw_payload?: unknown;
 }
 
+interface PlayerTechniqueComprehensionLoadRow {
+  tech_id?: unknown;
+  source_kind?: unknown;
+  progress?: unknown;
+  required_progress?: unknown;
+  realm_lv?: unknown;
+  grade?: unknown;
+  category?: unknown;
+  creator_player_id?: unknown;
+  active_transfer_job_id?: unknown;
+  active_transfer_teacher_id?: unknown;
+  raw_payload?: unknown;
+}
+
 interface PlayerPersistentBuffStateLoadRow {
   buff_id?: unknown;
   source_skill_id?: unknown;
@@ -735,6 +764,7 @@ export interface LoadedPlayerDomains {
   mapUnlocks: PlayerMapUnlockLoadRow[];
   equipmentSlots: PlayerEquipmentSlotLoadRow[];
   techniqueStates: PlayerTechniqueStateLoadRow[];
+  techniqueComprehensions: PlayerTechniqueComprehensionLoadRow[];
   persistentBuffStates: PlayerPersistentBuffStateLoadRow[];
   questProgressRows: PlayerQuestProgressLoadRow[];
   combatPreferences: PlayerCombatPreferencesLoadRow | null;
@@ -2156,6 +2186,27 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         `,
         [normalizedPlayerId],
       );
+      const techniqueComprehensions = await queryRows<PlayerTechniqueComprehensionLoadRow>(
+        client,
+        `
+          SELECT
+            tech_id,
+            source_kind,
+            progress,
+            required_progress,
+            realm_lv,
+            grade,
+            category,
+            creator_player_id,
+            active_transfer_job_id,
+            active_transfer_teacher_id,
+            raw_payload
+          FROM ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE}
+          WHERE player_id = $1
+          ORDER BY realm_lv ASC NULLS LAST, tech_id ASC
+        `,
+        [normalizedPlayerId],
+      );
       const persistentBuffStates = await queryRows<PlayerPersistentBuffStateLoadRow>(
         client,
         `
@@ -2367,6 +2418,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         mapUnlocks,
         equipmentSlots,
         techniqueStates,
+        techniqueComprehensions,
         persistentBuffStates,
         questProgressRows,
         combatPreferences,
@@ -2393,6 +2445,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         mapUnlocks,
         equipmentSlots,
         techniqueStates,
+        techniqueComprehensions,
         persistentBuffStates,
         questProgressRows,
         combatPreferences,
@@ -2424,6 +2477,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         mapUnlocks,
         equipmentSlots,
         techniqueStates,
+        techniqueComprehensions,
         persistentBuffStates,
         questProgressRows,
         combatPreferences,
@@ -2750,6 +2804,7 @@ export async function savePlayerSnapshotProjectionWithClient(
   const mapUnlockIds = Array.isArray(snapshot.unlockedMapIds) ? snapshot.unlockedMapIds : [];
   const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
   const techniqueStates = buildTechniqueStateRows(snapshot);
+  const techniqueComprehensions = buildTechniqueComprehensionRows(snapshot);
   const persistentBuffStates = buildPersistentBuffStateRows(snapshot);
   const questProgressRows = buildQuestProgressRows(snapshot);
   const combatPreferences = buildCombatPreferencesRow(snapshot);
@@ -2934,6 +2989,7 @@ export async function savePlayerSnapshotProjectionWithClient(
 
   await replacePlayerEquipmentSlots(client, normalizedPlayerId, equipmentSlots);
   await replacePlayerTechniqueStates(client, normalizedPlayerId, techniqueStates);
+  await replacePlayerTechniqueComprehensions(client, normalizedPlayerId, techniqueComprehensions);
   await replacePlayerPersistentBuffStates(client, normalizedPlayerId, persistentBuffStates);
   await replacePlayerQuestProgressRows(client, normalizedPlayerId, questProgressRows);
   await replacePlayerCombatPreferences(client, normalizedPlayerId, combatPreferences);
@@ -3126,6 +3182,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
 
   if (rawDomains.has('technique')) {
     await replacePlayerTechniqueStates(client, normalizedPlayerId, buildTechniqueStateRows(snapshot));
+    await replacePlayerTechniqueComprehensions(client, normalizedPlayerId, buildTechniqueComprehensionRows(snapshot));
     watermarkPatch.technique_version = versionSeed;
   }
 
@@ -3599,6 +3656,28 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_technique_state_player_idx
     ON ${PLAYER_TECHNIQUE_STATE_TABLE}(player_id, realm_lv ASC, tech_id ASC)
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE} (
+      player_id varchar(100) NOT NULL,
+      tech_id varchar(120) NOT NULL,
+      source_kind varchar(24) NOT NULL,
+      progress double precision NOT NULL DEFAULT 0,
+      required_progress double precision NOT NULL DEFAULT 1,
+      realm_lv bigint,
+      grade varchar(32),
+      category varchar(32),
+      creator_player_id varchar(100),
+      active_transfer_job_id varchar(180),
+      active_transfer_teacher_id varchar(100),
+      raw_payload jsonb NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY(player_id, tech_id)
+    )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_technique_comprehension_player_idx
+    ON ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE}(player_id, realm_lv ASC, tech_id ASC)
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_PERSISTENT_BUFF_STATE_TABLE} (
@@ -5025,6 +5104,87 @@ async function replacePlayerTechniqueStates(
   );
 }
 
+async function replacePlayerTechniqueComprehensions(
+  client: PoolClient,
+  playerId: string,
+  rows: TechniqueComprehensionRow[],
+): Promise<void> {
+  const normalizedRows = rows.map((row) => ({
+    tech_id: row.techId,
+    source_kind: row.sourceKind,
+    progress: row.progress,
+    required_progress: row.requiredProgress,
+    realm_lv: row.realmLv,
+    grade: row.grade,
+    category: row.category,
+    creator_player_id: row.creatorPlayerId,
+    active_transfer_job_id: row.activeTransferJobId,
+    active_transfer_teacher_id: row.activeTransferTeacherId,
+    raw_payload: row.rawPayload,
+  }));
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            tech_id varchar(120),
+            source_kind varchar(24),
+            progress double precision,
+            required_progress double precision,
+            realm_lv bigint,
+            grade varchar(32),
+            category varchar(32),
+            creator_player_id varchar(100),
+            active_transfer_job_id varchar(180),
+            active_transfer_teacher_id varchar(100),
+            raw_payload jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE}(
+          player_id,
+          tech_id,
+          source_kind,
+          progress,
+          required_progress,
+          realm_lv,
+          grade,
+          category,
+          creator_player_id,
+          active_transfer_job_id,
+          active_transfer_teacher_id,
+          raw_payload,
+          updated_at
+        )
+        SELECT $1, tech_id, source_kind, progress, required_progress, realm_lv, grade, category, creator_player_id, active_transfer_job_id, active_transfer_teacher_id, COALESCE(raw_payload, '{}'::jsonb), now()
+        FROM incoming
+        ON CONFLICT (player_id, tech_id)
+        DO UPDATE SET
+          source_kind = EXCLUDED.source_kind,
+          progress = EXCLUDED.progress,
+          required_progress = EXCLUDED.required_progress,
+          realm_lv = EXCLUDED.realm_lv,
+          grade = EXCLUDED.grade,
+          category = EXCLUDED.category,
+          creator_player_id = EXCLUDED.creator_player_id,
+          active_transfer_job_id = EXCLUDED.active_transfer_job_id,
+          active_transfer_teacher_id = EXCLUDED.active_transfer_teacher_id,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
+    );
+  }
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_TECHNIQUE_COMPREHENSION_TABLE,
+    playerId,
+    normalizedRows.map(({ tech_id }) => ({ tech_id })),
+    'tech_id varchar(120)',
+    'incoming.tech_id = target.tech_id',
+  );
+}
+
 async function replacePlayerPersistentBuffStates(
   client: PoolClient,
   playerId: string,
@@ -5917,6 +6077,37 @@ function buildTechniqueStateRows(snapshot: PersistedPlayerSnapshot): TechniqueSt
   return rows;
 }
 
+function buildTechniqueComprehensionRows(snapshot: PersistedPlayerSnapshot): TechniqueComprehensionRow[] {
+  const entries = Array.isArray(snapshot.techniques?.pendingComprehensions) ? snapshot.techniques.pendingComprehensions : [];
+  const rows: TechniqueComprehensionRow[] = [];
+  for (const entry of entries) {
+    const normalized = asRecord(entry);
+    const techId = normalizeRequiredString(normalized?.techId);
+    if (!techId) {
+      continue;
+    }
+    const activeTransferJob = asRecord(normalized?.activeTransferJob);
+    rows.push({
+      techId,
+      sourceKind: normalizeOptionalString(normalized?.sourceKind) === 'created' ? 'created' : 'normal',
+      progress: normalizeMinimumNumber(normalized?.progress, 0, 0),
+      requiredProgress: normalizeMinimumNumber(normalized?.requiredProgress, 1, 1),
+      realmLv: normalizeOptionalInteger(normalized?.realmLv),
+      grade: normalizeOptionalString(normalized?.grade),
+      category: normalizeOptionalString(normalized?.category),
+      creatorPlayerId: normalizeOptionalString(normalized?.creatorPlayerId),
+      activeTransferJobId: normalizeOptionalString(activeTransferJob?.jobId),
+      activeTransferTeacherId: normalizeOptionalString(activeTransferJob?.teacherPlayerId),
+      rawPayload: {
+        ...normalized,
+        techId,
+        activeTransferJob: activeTransferJob ? { ...activeTransferJob } : null,
+      },
+    });
+  }
+  return rows;
+}
+
 function buildTechniqueStateRawPayload(entry: Record<string, unknown>, techId: string): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     techId,
@@ -6177,6 +6368,16 @@ function buildProfessionStateRows(snapshot: PersistedPlayerSnapshot): Profession
       level: normalizeMinimumInteger(formation.level, 1, 1),
       exp: normalizeOptionalNumber(formation.exp),
       expToNext: normalizeOptionalNumber(formation.expToNext),
+    });
+  }
+
+  const transmission = asRecord(progression?.transmissionSkill);
+  if (transmission) {
+    rows.push({
+      professionType: 'transmission',
+      level: normalizeMinimumInteger(transmission.level, 1, 1),
+      exp: normalizeOptionalNumber(transmission.exp),
+      expToNext: normalizeOptionalNumber(transmission.expToNext),
     });
   }
 
@@ -6545,6 +6746,7 @@ function hasProjectedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
     || domains.mapUnlocks.length > 0
     || domains.equipmentSlots.length > 0
     || domains.techniqueStates.length > 0
+    || domains.techniqueComprehensions.length > 0
     || domains.persistentBuffStates.length > 0
     || domains.questProgressRows.length > 0
     || domains.combatPreferences !== null
@@ -6657,6 +6859,7 @@ function buildProjectedSnapshotFromDomains(
   applyProjectedMapUnlocks(snapshot, domains.mapUnlocks);
   applyProjectedEquipment(snapshot, domains.equipmentSlots, contentTemplateRepository);
   applyProjectedTechniques(snapshot, domains.techniqueStates);
+  applyProjectedTechniqueComprehensions(snapshot, domains.techniqueComprehensions);
   applyProjectedPersistentBuffs(snapshot, domains.persistentBuffStates);
   applyProjectedQuestProgress(snapshot, domains.questProgressRows);
   applyProjectedCombatPreferences(snapshot, domains.combatPreferences);
@@ -6922,6 +7125,34 @@ function applyProjectedTechniques(
   };
 }
 
+function applyProjectedTechniqueComprehensions(
+  snapshot: PersistedPlayerSnapshot,
+  rows: PlayerTechniqueComprehensionLoadRow[],
+): void {
+  snapshot.techniques = {
+    ...snapshot.techniques,
+    pendingComprehensions: rows.map((row) => {
+      const rawPayload = asRecord(decodeJsonValue(row.raw_payload)) ?? {};
+      const techId = normalizeOptionalString(rawPayload.techId) ?? normalizeOptionalString(row.tech_id) ?? 'tech:unknown';
+      return {
+        ...rawPayload,
+        techId,
+        name: normalizeOptionalString(rawPayload.name) ?? techId,
+        sourceKind: normalizeOptionalString(rawPayload.sourceKind) === 'created' || normalizeOptionalString(row.source_kind) === 'created'
+          ? 'created'
+          : 'normal',
+        progress: normalizeMinimumNumber(rawPayload.progress ?? row.progress, 0, 0),
+        requiredProgress: normalizeMinimumNumber(rawPayload.requiredProgress ?? row.required_progress, 1, 1),
+        realmLv: normalizeOptionalInteger(rawPayload.realmLv ?? row.realm_lv) ?? 1,
+        grade: normalizeOptionalString(rawPayload.grade ?? row.grade) ?? undefined,
+        category: normalizeOptionalString(rawPayload.category ?? row.category) ?? undefined,
+        creatorPlayerId: normalizeOptionalString(rawPayload.creatorPlayerId ?? row.creator_player_id) ?? undefined,
+        activeTransferJob: asRecord(rawPayload.activeTransferJob) ?? null,
+      };
+    }),
+  };
+}
+
 function applyProjectedPersistentBuffs(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerPersistentBuffStateLoadRow[],
@@ -7178,6 +7409,8 @@ function applyProjectedProfessions(
       snapshot.progression.miningSkill = state;
     } else if (professionType === 'formation') {
       snapshot.progression.formationSkill = state;
+    } else if (professionType === 'transmission') {
+      snapshot.progression.transmissionSkill = state;
     } else if (professionType === 'enhancement') {
       snapshot.progression.enhancementSkill = state;
       snapshot.progression.enhancementSkillLevel = state.level;

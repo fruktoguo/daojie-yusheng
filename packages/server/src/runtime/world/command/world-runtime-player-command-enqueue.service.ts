@@ -224,6 +224,19 @@ export class WorldRuntimePlayerCommandEnqueueService {
             techniqueId: normalizeTechniqueId(techniqueIdInput),
         }, deps);
     }
+    enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps) {
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'startTechniqueTransmission',
+            learnerPlayerId: typeof learnerPlayerIdInput === 'string' ? learnerPlayerIdInput.trim() : '',
+            techniqueId: normalizeTechniqueId(techniqueIdInput),
+        }, deps);
+    }
+    enqueueCancelTechniqueTransmission(playerId, techniqueIdInput, deps) {
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'cancelTechniqueTransmission',
+            techniqueId: normalizeTechniqueId(techniqueIdInput),
+        }, deps);
+    }
     /**
  * enqueueStartAlchemy：处理开始炼丹并更新相关状态。
  * @param playerId 玩家 ID。

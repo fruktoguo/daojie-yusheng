@@ -1048,6 +1048,29 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     return false;
   }
 
+  function havePendingTechniqueComprehensionChanges(
+    previousPending: PlayerState['pendingTechniqueComprehensions'] | undefined,
+    nextPending: PlayerState['pendingTechniqueComprehensions'] | undefined,
+  ): boolean {
+    const previousList = previousPending ?? [];
+    const nextList = nextPending ?? [];
+    if (previousList.length !== nextList.length) {
+      return true;
+    }
+    for (let index = 0; index < previousList.length; index += 1) {
+      const previous = previousList[index]!;
+      const next = nextList[index]!;
+      if (previous.techId !== next.techId
+        || previous.progress !== next.progress
+        || previous.requiredProgress !== next.requiredProgress
+        || previous.activeTransferJob?.jobId !== next.activeTransferJob?.jobId
+        || previous.activeTransferJob?.status !== next.activeTransferJob?.status) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   return {  
   /**
  * getLatestAttrUpdate：读取最新AttrUpdate。
@@ -1151,6 +1174,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.gatherSkill = latestAttrUpdate.gatherSkill ?? player.gatherSkill;
         player.enhancementSkill = latestAttrUpdate.enhancementSkill ?? player.enhancementSkill;
         player.formationSkill = latestAttrUpdate.formationSkill ?? player.formationSkill;
+        player.transmissionSkill = latestAttrUpdate.transmissionSkill ?? player.transmissionSkill;
         if (player.realm) {
           player.realm.progress = latestAttrUpdate.realmProgress ?? player.realm.progress;
           player.realm.progressToNext = latestAttrUpdate.realmProgressToNext ?? player.realm.progressToNext;
@@ -1231,12 +1255,17 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const nextBodyTraining = data.bodyTraining === undefined
         ? player?.bodyTraining
         : data.bodyTraining ?? undefined;
+      const nextPendingComprehensions = data.pendingComprehensions === undefined
+        ? player?.pendingTechniqueComprehensions
+        : data.pendingComprehensions;
       const shouldRefreshTechniquePanel = !player
-        || haveTechniqueStructureChanges(player.techniques, player.cultivatingTechId, mergedTechniques, nextCultivatingTechId);
+        || haveTechniqueStructureChanges(player.techniques, player.cultivatingTechId, mergedTechniques, nextCultivatingTechId)
+        || havePendingTechniqueComprehensionChanges(player.pendingTechniqueComprehensions, nextPendingComprehensions);
       if (player) {
         player.techniques = mergedTechniques;
         player.cultivatingTechId = nextCultivatingTechId;
         player.bodyTraining = nextBodyTraining;
+        player.pendingTechniqueComprehensions = nextPendingComprehensions;
         options.inventoryStateSource.syncPlayerContext(player);
       }
       if (shouldRefreshTechniquePanel) {

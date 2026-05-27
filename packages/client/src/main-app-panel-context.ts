@@ -139,6 +139,14 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const techniqueStateSource = createMainTechniqueStateSource({
     techniquePanel,
     socket: runtimeSender,
+    getTransmissionTargets: () => {
+      const player = rootRuntimeSource.getPlayer();
+      if (!player) return [];
+      return rootRuntimeSource.getLatestEntities()
+        .filter((entity) => entity.kind === 'player' && entity.id !== player.id)
+        .filter((entity) => Math.max(Math.abs(Math.floor(entity.wx) - Math.floor(player.x)), Math.abs(Math.floor(entity.wy) - Math.floor(player.y))) <= 2)
+        .map((entity) => ({ playerId: entity.id, name: entity.name ?? entity.id }));
+    },
   });
   const attrDetailStateSource = createMainAttrDetailStateSource({
     attrPanel,

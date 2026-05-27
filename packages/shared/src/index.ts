@@ -35,6 +35,7 @@ export * from './item-runtime-types';
 export * from './inventory-item-ref';
 export * from './player-runtime-types';
 export * from './technique';
+export * from './technique-comprehension';
 export * as techniqueNormalization from './technique-normalization';
 export * from './technique-arts-strength';
 export * from './geometry';
