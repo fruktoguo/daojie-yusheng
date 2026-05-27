@@ -925,6 +925,7 @@ export class SettingsPanel {
         data-offline-gain-report-id="${escapeHtml(report.id)}"
       >
         <span class="settings-offline-gain-record-date">${escapeHtml(formatOfflineGainTime(report.endedAt))}</span>
+        <br class="settings-offline-gain-record-break" aria-hidden="true" />
         <span class="settings-offline-gain-record-meta">${escapeHtml(t('settings.offline-gain.record.duration', {
           duration: formatOfflineGainDuration(report.durationMs),
         }))}</span>

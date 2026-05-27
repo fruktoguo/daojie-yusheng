@@ -3527,10 +3527,12 @@
       overflow: auto;
       padding: 0 2px 2px 0;
     }
-    .settings-offline-gain-record-button {
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button {
       position: relative;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
+      grid-auto-rows: auto;
+      justify-items: start;
       gap: 5px;
       width: 100%;
       min-height: 58px;
@@ -3548,7 +3550,7 @@
       white-space: normal;
       transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
     }
-    .settings-offline-gain-record-button::before {
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button::before {
       content: '';
       position: absolute;
       inset: 9px auto 9px 7px;
@@ -3556,27 +3558,32 @@
       border-radius: 999px;
       background: transparent;
     }
-    .settings-offline-gain-record-button:hover,
-    .settings-offline-gain-record-button.active {
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button:hover,
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button.active {
       border-color: var(--accent);
       background: var(--surface-muted);
       box-shadow: inset 0 0 0 1px var(--accent-soft);
     }
-    .settings-offline-gain-record-button:hover::before,
-    .settings-offline-gain-record-button.active::before {
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button:hover::before,
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button.active::before {
       background: var(--accent);
     }
-    .settings-offline-gain-record-button:focus-visible {
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
-    .settings-offline-gain-record-date,
-    .settings-offline-gain-record-meta {
+    .settings-offline-gain-record-break {
+      display: none;
+    }
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button > .settings-offline-gain-record-date,
+    .settings-offline-gain-record-list > .settings-offline-gain-record-button > .settings-offline-gain-record-meta {
       display: block;
+      width: 100%;
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      text-align: left;
     }
     .settings-offline-gain-record-date {
       font-size: var(--font-size-role-body-13);
