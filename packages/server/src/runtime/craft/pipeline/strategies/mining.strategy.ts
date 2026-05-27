@@ -71,9 +71,6 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
     if (!instance || typeof instance.getTileCombatState !== 'function') {
       return { ok: false, error: '当前地图不可挖矿。' };
     }
-    if (!isWithinMiningRange(location, target)) {
-      return { ok: false, error: '距离矿脉太远。' };
-    }
     const tileState = instance.getTileCombatState(target.x, target.y);
     if (!tileState || tileState.destroyed === true) {
       return { ok: false, error: '挖矿目标已经不存在。' };

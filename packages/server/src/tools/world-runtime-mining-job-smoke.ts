@@ -188,6 +188,37 @@ function main(): void {
   assert.equal(miningTask?.workTotalTicks, 5);
   assert.equal(miningTask?.workRemainingTicks, 5);
 
+  const farStartPlayer = createPlayer();
+  farStartPlayer.x = 9;
+  farStartPlayer.y = 9;
+  const farStartInstance = new SmokeMiningInstance(4);
+  const farStartPendingCommands: unknown[] = [];
+  const farStartContext = createContext(
+    farStartInstance,
+    [],
+    [],
+    farStartPendingCommands,
+    { instanceId: 'instance:mining-job-smoke', x: 9, y: 9 },
+  );
+  const farStartResult = pipeline.startLifecycle(farStartPlayer, 'mining', { targetX: 1, targetY: 0 }, farStartContext);
+  assert.equal(farStartResult.lifecycle, 'start');
+  assert.equal(farStartResult.ok, true);
+  assert.equal(farStartResult.started, true);
+  assert.ok(farStartPlayer.miningJob);
+  const farStartTickResult = pipeline.tickLifecycle(farStartPlayer, 'mining', farStartContext) as any;
+  assert.equal(farStartTickResult.ok, true);
+  const farStartJob = farStartPlayer.miningJob as { jobRunId?: string };
+  assert.deepEqual(farStartPendingCommands, [{
+    kind: 'engageBattle',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetX: 1,
+    targetY: 0,
+    locked: true,
+    miningJobRunId: farStartJob.jobRunId,
+    miningTargetRef: 'tile:1:0',
+  }]);
+
   const beforeInterruptRemaining = miningTask?.workRemainingTicks;
   const interruptResult = pipeline.interrupt(visiblePlayer, 'mining', 'attack', visibleContext);
   assert.equal(interruptResult.ok, true);
