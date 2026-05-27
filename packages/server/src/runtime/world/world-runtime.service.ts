@@ -3,7 +3,6 @@ import '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import '../../debug/movement-debug';
 import '../../http/native/native-gm.constants';
-import '../../content/content-template.repository';
 import { WorldSessionService } from '../../network/world-session.service';
 import { WorldClientEventService } from '../../network/world-client-event.service';
 import { InstanceDomainPersistenceService } from '../../persistence/instance-domain-persistence.service';
@@ -91,7 +90,6 @@ import * as world_runtime_observation_helpers_1 from './query/world-runtime.obse
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
 import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, syncManagedInstanceRegistration, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
-
 
 const {
     buildPublicInstanceId,
@@ -188,7 +186,6 @@ const {
 } = world_runtime_path_planning_helpers_1;
 
 const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
-
 const TICK_METRIC_WINDOW_SIZE = 60;
 
 @Injectable()

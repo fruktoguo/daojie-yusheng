@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   testSleepingQueuePermanentCancelMarksDirty();
   testSleepingGatherQueueRestartsThroughPipeline();
   testSleepingBuildingQueueRestartsThroughPipeline();
+  testBuildingStartCancelUsePipelineLifecycle();
   testSleepingFormationQueueRestartsThroughPipeline();
   testSleepingMiningQueueRestartsThroughPipeline();
   testGenericPipelinePauseAdvancesInterruptWaitState();
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
+      '建造 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeBuilder。',
       '公共 pipeline 暂停推进会同步 interruptWaitRemainingTicks 和 interruptState，不改实际工作进度。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
@@ -541,9 +543,11 @@ function testSleepingBuildingQueueRestartsThroughPipeline(): void {
   pipeline.register(new BuildingStrategy());
   const queueService = new TechniqueActivityQueueService(pipeline);
   const startedBuildingIds: string[] = [];
+  const dirtyDomains: string[][] = [];
   const player = {
     playerId: 'player:building-queue',
     instanceId: 'instance:building',
+    buildingJob: null as any,
     techniqueActivityQueue: [{
       queueId: 'queue:building:1',
       kind: 'building',
@@ -572,13 +576,127 @@ function testSleepingBuildingQueueRestartsThroughPipeline(): void {
       },
       dispatchStartBuildingConstruction(_playerId: string, buildingId: string): void {
         startedBuildingIds.push(buildingId);
+        player.buildingJob = {
+          buildingId,
+          buildingName: '工坊',
+          instanceId: 'instance:building',
+          remainingTicks: 5,
+          totalTicks: 5,
+          workRemainingTicks: 5,
+          workTotalTicks: 5,
+          phase: 'building',
+        };
+        dirtyDomains.push(['active_job']);
+      },
+      playerRuntimeService: {
+        markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+          dirtyDomains.push(domains);
+        },
+        bumpPersistentRevision(_player: unknown): void {},
       },
     },
   });
 
   assert.equal(result?.ok, true);
   assert.deepEqual(startedBuildingIds, ['building-1']);
+  assert.equal(player.buildingJob?.buildingId, 'building-1');
   assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.deepEqual(dirtyDomains, [['active_job']]);
+}
+
+function testBuildingStartCancelUsePipelineLifecycle(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new BuildingStrategy());
+  const building = {
+    id: 'building-1',
+    state: 'building',
+    activeBuilderPlayerId: null as string | null,
+    buildCompleteTick: 40 as number | undefined,
+    buildRemainingTicks: 4,
+    revision: 1,
+  };
+  const instance = {
+    tick: 20,
+    worldRevision: 1,
+    persistentRevision: 1,
+    buildingById: new Map<string, any>([['building-1', building]]),
+    dirtyDomains: [] as string[][],
+    stopBuildingConstruction(buildingId: string, playerId: string): { ok: boolean } {
+      assert.equal(buildingId, 'building-1');
+      assert.equal(playerId, 'player:building-lifecycle');
+      building.activeBuilderPlayerId = null;
+      building.buildCompleteTick = undefined;
+      this.dirtyDomains.push(['building']);
+      return { ok: true };
+    },
+    markPersistenceDirtyDomainsHighPriority(domains: string[]): void {
+      this.dirtyDomains.push(domains);
+    },
+  };
+  const player = {
+    playerId: 'player:building-lifecycle',
+    instanceId: 'instance:building',
+    buildingJob: null as any,
+    dirtyDomains: new Set<string>(),
+  };
+  const playerDirtyDomains: string[][] = [];
+  let refreshed = 0;
+  const ctx = {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return instance; },
+    deps: {
+      getInstanceRuntime(instanceId: string): unknown {
+        assert.equal(instanceId, 'instance:building');
+        return instance;
+      },
+      dispatchStartBuildingConstruction(playerId: string, buildingId: string): void {
+        assert.equal(playerId, player.playerId);
+        assert.equal(buildingId, 'building-1');
+        building.activeBuilderPlayerId = playerId;
+        player.buildingJob = {
+          buildingId,
+          buildingName: '工坊',
+          instanceId: 'instance:building',
+          remainingTicks: 4,
+          totalTicks: 4,
+          workRemainingTicks: 4,
+          workTotalTicks: 4,
+          phase: 'building',
+        };
+      },
+      refreshPlayerContextActions(playerId: string): void {
+        assert.equal(playerId, player.playerId);
+        refreshed += 1;
+      },
+      playerRuntimeService: {
+        markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+          playerDirtyDomains.push(domains);
+        },
+        bumpPersistentRevision(_player: unknown): void {},
+      },
+    },
+  };
+
+  const started = pipeline.start(player, 'building', { buildingId: 'building-1' }, ctx);
+  assert.equal(started.ok, true);
+  assert.equal(started.panelChanged, true);
+  assert.equal(player.buildingJob?.buildingId, 'building-1');
+  assert.equal(building.activeBuilderPlayerId, player.playerId);
+
+  const cancelled = pipeline.cancel(player, 'building', ctx);
+  assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.panelChanged, true);
+  assert.equal(player.buildingJob, null);
+  assert.equal(building.activeBuilderPlayerId, null);
+  assert.equal(building.buildCompleteTick, undefined);
+  assert.equal(refreshed, 1);
+  assert.deepEqual(instance.dirtyDomains, [['building']]);
+  assert.deepEqual(playerDirtyDomains, [['active_job']]);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
 }
 
 function testSleepingFormationQueueRestartsThroughPipeline(): void {

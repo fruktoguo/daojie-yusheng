@@ -19,6 +19,16 @@
 
 这次不是给现有工坊面板补几个显示字段，而是把“技艺动作”本身统一成一种权威运行时活动。玩家不应该需要理解某个动作背后属于炼丹 service、建筑 service、掉落容器 service、阵法 service 还是攻击地块链路；只要它是技艺行为，就必须表现为一个可见、可推进、可打断、可取消、可恢复的 job。
 
+### 原始诉求映射
+
+| 用户诉求 | 工程裁定 |
+|----------|----------|
+| 所有技艺的具体动作都走 job 控制 | 不只做客户端列表投影，必须把 start、tick、interrupt、cancel、resolve、经验、产出、dirty 和 panel patch 都纳入 `TechniqueActivityPipelineService` 生命周期 |
+| 挖矿、阵法补充灵力、建造、采集都在技艺面板显示 | 统一技艺任务列表是所有 runtime kind 的公共运行态入口，地图、建筑、阵法、掉落面板只能作为专用操作区，不能成为唯一进度或取消入口 |
+| 手动修炼、攻击等 10 息等待不能改实际 job 进度条 | 打断等待只能写 `interruptWaitRemainingTicks` / `interruptState`，实际工作量只能由 `workTotalTicks` / `workRemainingTicks` 表示 |
+| 炼丹炼器的开炉之类都去掉 | 炼丹、炼器开始后直接表现为制作 job，不再保留玩家可见的开炉、准备、炉火已稳等阶段文本或面板状态 |
+| 任务列表直接加取消按钮 | running、interrupt_wait、queued、sleeping 中所有可取消项都必须带 `cancelRef`，由统一任务列表直接提交取消意图，服务端负责退款、释放占用和拒绝条件 |
+
 ### 需求裁定
 
 本计划后续按以下口径验收，不再把局部显示补丁视为完成：
@@ -464,6 +474,7 @@ strategy 只负责领域差异：
 - [x] 阵法维护条件检查接入阵法实例、控制点、灵石存量规则；离开控制点进入统一 sleeping 队列，阵法失效/灵石耗尽明确取消。
 - [x] 阵法补充灵力命名和入口收敛：持续注入/维护必须使用 `formation` job 并在任务列表展示；一次性资源补给必须明确标记为资源管理命令，不得混入技艺进度、经验或打断等待。
 - [x] 阵法维护 start/cancel 不再走 `FormationStrategy.executeStart/executeCancel` 旧委托；启动校验、互斥入队、job 创建、启动通知和取消通知改由 strategy 标准 lifecycle 插槽处理。
+- [x] 建造 start/cancel 不再走 `BuildingStrategy.executeStart/executeCancel` 旧委托；启动校验、真实 runtime 建造注册、job 创建、active_job dirty 和取消释放 activeBuilder 改由 strategy 标准 lifecycle 插槽处理。
 - [x] 条件失败统一进入 sleeping 队列或明确取消，不能静默清 job。（采集/建造/阵法维护/挖矿已覆盖；挖矿目标永久失效时取消，离开矿脉范围时进入 sleeping payload。）
 - [x] 中断、移动、战斗、打坐触发统一 `interruptTechniqueActivity`。（采集/建造会先写 sleeping 队列，再通过 strategy 委托真实释放路径；阵法移动仍由控制点条件失败进入 sleeping，避免把离开范围误表现为 10 息暂停。）
 - [x] 采集 `activeSearch` 增加运行时 owner，第二个玩家不能覆盖同一草药采集目标的 active job 进度；竞争玩家会被拒绝或转入 sleeping，而原 owner 的 activeSearch 保持不变。
@@ -634,6 +645,7 @@ strategy 只负责领域差异：
 - 2026-05-27：采集完成从 `tickGather` 的 durable inventory grant / presence fence 路径移出，tick 内只执行 `prepareLootGrantItemsForReceiver('gather_completion')`、运行态 `receiveInventoryItem`、经验结算、容器状态更新和 dirty domain 标记；`world-runtime-loot-container-smoke` 改为断言 durable grant / presence load/save 在采集完成 tick 中被调用就失败，同时保留地面 pile 和容器主动拾取走 durable 主链的证明。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-loot-container-smoke.js` 通过。该 proof 只处理采集完成的 tick 内 DB IO 缺口，不证明采集真实规则已经迁出旧 loot container service，也不证明其他旧 runtime 委托路径没有 tick 内 IO。
 - 2026-05-27：`WorldRuntimeFormationService` 增加启动期持久化池初始化，并收紧 `persistInstanceFormationsSoon`：延迟刷盘 timer 触发时如果池未就绪，直接记录“阵法持久化池未就绪，跳过延迟刷盘”，不再调用 `ensurePersistencePool`，因此不会从阵法维护 tick 派生路径懒创建连接池、建表或跑 schema 迁移。`world-runtime-formation-smoke` 增加截获 `setTimeout` 的 proof，断言 timer 回调不会调用 `ensurePersistencePool`；`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-formation-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 不等同于把阵法状态迁入通用实例 flush 域；阵法独立表和延迟刷盘仍是当前恢复真源。
 - 2026-05-27：阵法维护 start/cancel 从旧委托迁入标准 pipeline lifecycle：`FormationStrategy` 不再实现 `executeStart` / `executeCancel`，而是通过 `validateStart`、`queueStart`、`createJob`、`buildStartMessages` 和 `computeRefund` 承载启动校验、互斥入队、job 创建、启动通知和取消通知。`world-runtime-craft-smoke` 的 sleeping 阵法队列恢复 proof 改为断言旧 `startFormationMaintenance` 被调用即失败，并证明恢复会通过 pipeline start 创建 `formationJob`、标记 `active_job` dirty；`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/world-runtime-formation-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js` 通过。阵法维护 tick/resolve 仍委托 `WorldRuntimeFormationService.resolveFormationMaintenanceTick`，所以不能据此勾选“旧 service 不再承载技艺玩法规则”。
+- 2026-05-27：建造 start/cancel 从旧委托迁入标准 pipeline lifecycle：`BuildingStrategy` 不再实现 `executeStart` / `executeCancel`，而是通过 `validateStart`、`consumeResources`、`createJob`、`startDirtyDomains`、`computeRefund` 和条件型 `onConditionFailed` 承载启动校验、调用真实建造 runtime 注册 activeBuilder、读取 created job、标记 active_job、取消时释放 activeBuilder。公共 `markPipelineDirty` 同步补调用 `playerRuntimeService.markPersistenceDirtyDomains`，避免只 bump revision 不写脏域。`world-runtime-craft-smoke` 增加建造 lifecycle proof，覆盖 sleeping 恢复通过 pipeline start 创建 `buildingJob`、取消通过公共 cancel 释放 activeBuilder 并标记 active_job dirty。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js` 通过。建造 tick 仍委托 `tickBuildingConstruction`，所以不能据此勾选“旧 service 不再承载技艺玩法规则”。
 
 ## 验证矩阵
 

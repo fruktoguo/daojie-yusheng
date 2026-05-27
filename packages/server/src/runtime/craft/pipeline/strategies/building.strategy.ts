@@ -32,44 +32,41 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     (player as any).buildingJob = job;
   }
 
-  validateStart(_player: unknown, _payload: unknown, _ctx: PipelineContext): TechniqueActivityStartValidationResult {
-    return { ok: true, validated: { _player, _payload } };
+  validateStart(player: unknown, payload: unknown, ctx: PipelineContext): TechniqueActivityStartValidationResult {
+    const playerId = resolvePlayerId(player);
+    const buildingId = resolveBuildingId(payload);
+    const deps = resolveBuildingDeps(ctx);
+    if (!playerId || !buildingId || typeof deps?.dispatchStartBuildingConstruction !== 'function') {
+      return { ok: false, error: '建造运行时不可用。' };
+    }
+    return { ok: true, validated: { playerId, buildingId } };
   }
 
-  consumeResources(_player: unknown, _validated: unknown, _ctx: PipelineContext): void {}
+  consumeResources(player: unknown, validated: unknown, ctx: PipelineContext): { ok: true } | { ok: false; error?: string } {
+    const playerId = typeof (validated as { playerId?: unknown } | null)?.playerId === 'string'
+      ? String((validated as { playerId: string }).playerId).trim()
+      : resolvePlayerId(player);
+    const buildingId = typeof (validated as { buildingId?: unknown } | null)?.buildingId === 'string'
+      ? String((validated as { buildingId: string }).buildingId).trim()
+      : '';
+    const deps = resolveBuildingDeps(ctx);
+    try {
+      deps.dispatchStartBuildingConstruction(playerId, buildingId);
+      if (!this.getActiveJob(player)) {
+        return { ok: false, error: '建造任务创建失败。' };
+      }
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  }
 
   createJob(player: unknown, _validated: unknown, _ctx: PipelineContext): any {
     return (player as any).buildingJob;
   }
 
-  executeStart(player: unknown, payload: unknown, ctx: PipelineContext): unknown {
-    const playerId = resolvePlayerId(player);
-    const buildingId = resolveBuildingId(payload);
-    const deps = resolveBuildingDeps(ctx);
-    if (!playerId || !buildingId || typeof deps?.dispatchStartBuildingConstruction !== 'function') {
-      return { ok: false, error: '建造运行时不可用。', panelChanged: false, messages: [] };
-    }
-    try {
-      deps.dispatchStartBuildingConstruction(playerId, buildingId);
-      return { ok: true, panelChanged: true, messages: [] };
-    } catch (error) {
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-        panelChanged: false,
-        messages: [],
-      };
-    }
-  }
-
-  executeCancel(player: unknown, ctx: PipelineContext): unknown {
-    const playerId = resolvePlayerId(player);
-    const deps = resolveBuildingDeps(ctx);
-    if (!playerId || typeof deps?.interruptBuildingConstruction !== 'function') {
-      return { ok: false, error: '建造运行时不可用。', panelChanged: false, messages: [] };
-    }
-    deps.interruptBuildingConstruction(playerId, 'cancel');
-    return { ok: true, panelChanged: true, messages: [] };
+  startDirtyDomains(): PersistenceDomain[] {
+    return ['active_job'];
   }
 
   executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
@@ -164,6 +161,7 @@ type BuildingDepsPort = {
   getInstanceRuntime?: (instanceId: string) => any;
   getPlayerLocation?: (playerId: string) => { instanceId?: string } | null;
   getPlayerLocationOrThrow?: (playerId: string) => { instanceId?: string };
+  refreshPlayerContextActions?: (playerId: string) => unknown;
 };
 
 function resolvePlayerId(player: unknown): string {
@@ -226,6 +224,7 @@ function releaseBuildingActiveBuilder(player: unknown, job: unknown, ctx: Pipeli
   }
   if (building.state === 'building' && typeof instance.stopBuildingConstruction === 'function') {
     instance.stopBuildingConstruction(buildingId, playerId);
+    deps?.refreshPlayerContextActions?.(playerId);
     return;
   }
   building.activeBuilderPlayerId = null;
@@ -235,4 +234,5 @@ function releaseBuildingActiveBuilder(player: unknown, job: unknown, ctx: Pipeli
   instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
   instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
   instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
+  deps?.refreshPlayerContextActions?.(playerId);
 }

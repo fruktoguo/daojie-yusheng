@@ -649,7 +649,15 @@ function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext)
       player.dirtyDomains.add(domain);
     }
   }
-  const runtimeService = (ctx.deps as { playerRuntimeService?: { bumpPersistentRevision?: (player: any) => void } } | null)?.playerRuntimeService;
+  const runtimeService = (ctx.deps as {
+    playerRuntimeService?: {
+      markPersistenceDirtyDomains?: (player: any, domains: string[]) => void;
+      bumpPersistentRevision?: (player: any) => void;
+    };
+  } | null)?.playerRuntimeService;
+  if (runtimeService && typeof runtimeService.markPersistenceDirtyDomains === 'function') {
+    runtimeService.markPersistenceDirtyDomains(player, domains);
+  }
   if (runtimeService && typeof runtimeService.bumpPersistentRevision === 'function') {
     runtimeService.bumpPersistentRevision(player);
   }
