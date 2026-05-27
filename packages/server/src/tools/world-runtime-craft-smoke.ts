@@ -26,6 +26,7 @@ async function main(): Promise<void> {
   testSleepingQueueRetrySkipsHotConditionCheck();
   testSleepingQueuePermanentCancelMarksDirty();
   testSleepingGatherQueueRestartsThroughPipeline();
+  testGatherStartCancelUsePipelineLifecycle();
   testSleepingBuildingQueueRestartsThroughPipeline();
   testBuildingStartCancelUsePipelineLifecycle();
   testSleepingFormationQueueRestartsThroughPipeline();
@@ -53,6 +54,7 @@ async function main(): Promise<void> {
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
+      '采集 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeSearch。',
       '建造 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeBuilder。',
       '公共 pipeline 暂停推进会同步 interruptWaitRemainingTicks 和 interruptState，不改实际工作进度。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
@@ -498,8 +500,10 @@ function testSleepingGatherQueueRestartsThroughPipeline(): void {
   pipeline.register(new GatherStrategy());
   const queueService = new TechniqueActivityQueueService(pipeline);
   const startedPayloads: unknown[] = [];
+  const dirtyDomains: string[][] = [];
   const player = {
     playerId: 'player:gather-queue',
+    gatherJob: null as any,
     techniqueActivityQueue: [{
       queueId: 'queue:gather:1',
       kind: 'gather',
@@ -527,15 +531,97 @@ function testSleepingGatherQueueRestartsThroughPipeline(): void {
         },
         dispatchStartGather(_playerId: string, payload: unknown): { ok: boolean; panelChanged: boolean; messages: unknown[] } {
           startedPayloads.push(payload);
+          player.gatherJob = {
+            sourceId: 'container:instance:herb-1',
+            resourceNodeId: 'herb-1',
+            instanceId: 'instance',
+            resourceNodeName: '灵草丛',
+            remainingTicks: 3,
+            totalTicks: 3,
+            workRemainingTicks: 3,
+            workTotalTicks: 3,
+            phase: 'gathering',
+          };
+          dirtyDomains.push(['active_job']);
           return { ok: true, panelChanged: true, messages: [] };
         },
+      },
+      playerRuntimeService: {
+        markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+          dirtyDomains.push(domains);
+        },
+        bumpPersistentRevision(_player: unknown): void {},
       },
     },
   });
 
   assert.equal(result?.ok, true);
   assert.deepEqual(startedPayloads, [{ sourceId: 'container:instance:herb-1', itemKey: 'herb:item' }]);
+  assert.equal(player.gatherJob?.sourceId, 'container:instance:herb-1');
   assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.deepEqual(dirtyDomains, [['active_job']]);
+}
+
+function testGatherStartCancelUsePipelineLifecycle(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new GatherStrategy());
+  const player = {
+    playerId: 'player:gather-lifecycle',
+    gatherJob: null as any,
+    dirtyDomains: new Set<string>(),
+  };
+  const released: Array<{ playerId: string; sourceId?: string }> = [];
+  const playerDirtyDomains: string[][] = [];
+  const ctx = {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      worldRuntimeLootContainerService: {
+        dispatchStartGather(playerId: string, payload: unknown): { ok: boolean; panelChanged: boolean; messages: unknown[] } {
+          assert.equal(playerId, player.playerId);
+          assert.deepEqual(payload, { sourceId: 'container:instance:herb-1' });
+          player.gatherJob = {
+            sourceId: 'container:instance:herb-1',
+            resourceNodeId: 'herb-1',
+            instanceId: 'instance',
+            resourceNodeName: '灵草丛',
+            remainingTicks: 3,
+            totalTicks: 3,
+            workRemainingTicks: 3,
+            workTotalTicks: 3,
+            phase: 'gathering',
+          };
+          return { ok: true, panelChanged: true, messages: [] };
+        },
+        releaseGatherActiveSearch(playerId: string, _player: unknown, job: { sourceId?: string }): void {
+          released.push({ playerId, sourceId: job.sourceId });
+        },
+      },
+      playerRuntimeService: {
+        markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+          playerDirtyDomains.push(domains);
+        },
+        bumpPersistentRevision(_player: unknown): void {},
+      },
+    },
+  };
+
+  const started = pipeline.start(player, 'gather', { sourceId: 'container:instance:herb-1' }, ctx);
+  assert.equal(started.ok, true);
+  assert.equal(started.panelChanged, true);
+  assert.equal(player.gatherJob?.sourceId, 'container:instance:herb-1');
+
+  const cancelled = pipeline.cancel(player, 'gather', ctx);
+  assert.equal(cancelled.ok, true);
+  assert.equal(cancelled.panelChanged, true);
+  assert.equal(player.gatherJob, null);
+  assert.deepEqual(released, [{ playerId: player.playerId, sourceId: 'container:instance:herb-1' }]);
+  assert.deepEqual(playerDirtyDomains, [['active_job']]);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
 }
 
 function testSleepingBuildingQueueRestartsThroughPipeline(): void {

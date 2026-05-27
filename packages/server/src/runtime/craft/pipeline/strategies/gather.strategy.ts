@@ -32,32 +32,37 @@ export class GatherStrategy implements TechniqueActivityStrategy {
     (player as any).gatherJob = job;
   }
 
-  validateStart(_player: unknown, _payload: unknown, _ctx: PipelineContext): TechniqueActivityStartValidationResult {
-    return { ok: true, validated: { _player, _payload } };
+  validateStart(player: unknown, payload: unknown, ctx: PipelineContext): TechniqueActivityStartValidationResult {
+    const playerId = resolvePlayerId(player);
+    const service = resolveGatherRuntimeService(ctx);
+    if (!playerId || !service || typeof service.dispatchStartGather !== 'function') {
+      return { ok: false, error: '采集运行时不可用。' };
+    }
+    return { ok: true, validated: { playerId, payload: normalizeGatherStartPayload(playerId, payload, ctx) } };
   }
 
-  consumeResources(_player: unknown, _validated: unknown, _ctx: PipelineContext): void {}
+  consumeResources(player: unknown, validated: unknown, ctx: PipelineContext): { ok: true } | { ok: false; error?: string } {
+    const playerId = typeof (validated as { playerId?: unknown } | null)?.playerId === 'string'
+      ? String((validated as { playerId: string }).playerId).trim()
+      : resolvePlayerId(player);
+    const payload = (validated as { payload?: unknown } | null)?.payload;
+    const service = resolveGatherRuntimeService(ctx);
+    const result = service?.dispatchStartGather?.(playerId, payload, ctx.deps) as { ok?: boolean; error?: string } | undefined;
+    if (!result || result.ok !== true) {
+      return { ok: false, error: result?.error ?? '开始采集失败。' };
+    }
+    if (!this.getActiveJob(player)) {
+      return { ok: false, error: '采集任务创建失败。' };
+    }
+    return { ok: true };
+  }
 
   createJob(player: unknown, _validated: unknown, _ctx: PipelineContext): any {
     return (player as any).gatherJob;
   }
 
-  executeStart(player: unknown, payload: unknown, ctx: PipelineContext): unknown {
-    const playerId = resolvePlayerId(player);
-    const service = resolveGatherRuntimeService(ctx);
-    if (!playerId || !service || typeof service.dispatchStartGather !== 'function') {
-      return { ok: false, error: '采集运行时不可用。', panelChanged: false, messages: [] };
-    }
-    return service.dispatchStartGather(playerId, normalizeGatherStartPayload(playerId, payload, ctx), ctx.deps);
-  }
-
-  executeCancel(player: unknown, ctx: PipelineContext): unknown {
-    const playerId = resolvePlayerId(player);
-    const service = resolveGatherRuntimeService(ctx);
-    if (!playerId || !service || typeof service.dispatchCancelGather !== 'function') {
-      return { ok: false, error: '采集运行时不可用。', panelChanged: false, messages: [] };
-    }
-    return service.dispatchCancelGather(playerId, ctx.deps);
+  startDirtyDomains(): PersistenceDomain[] {
+    return ['active_job'];
   }
 
   executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
@@ -136,7 +141,6 @@ export class GatherStrategy implements TechniqueActivityStrategy {
 
 type GatherRuntimeServicePort = {
   dispatchStartGather?: (playerId: string, payload: unknown, deps: unknown) => unknown;
-  dispatchCancelGather?: (playerId: string, deps: unknown) => unknown;
   interruptGather?: (playerId: string, player: unknown, reason: string, deps: unknown) => unknown;
   checkGatherContinueCondition?: (
     playerId: string,
