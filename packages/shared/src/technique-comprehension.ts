@@ -9,6 +9,11 @@ import { TECHNIQUE_GRADE_ORDER } from './constants/gameplay/technique';
 export const TECHNIQUE_COMPREHENSION_NORMAL_BASE_TICKS = 10;
 export const TECHNIQUE_COMPREHENSION_CREATED_BASE_TICKS = 300;
 export const TECHNIQUE_TRANSMISSION_RANGE = 2;
+export const CREATED_TECHNIQUE_ID_PREFIX = 'gen_';
+
+export function isCreatedTechniqueId(techId: string | null | undefined): boolean {
+  return typeof techId === 'string' && techId.trim().startsWith(CREATED_TECHNIQUE_ID_PREFIX);
+}
 
 export function getTechniqueComprehensionGradeFactor(grade: TechniqueGrade | null | undefined): number {
   const index = grade ? TECHNIQUE_GRADE_ORDER.indexOf(grade) : -1;

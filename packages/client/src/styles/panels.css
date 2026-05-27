@@ -10807,6 +10807,15 @@
       flex: 0 0 auto;
       justify-content: flex-end;
     }
+    .transmission-teach-picker {
+      display: grid;
+      grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.4fr) minmax(140px, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .transmission-teach-picker .small-btn {
+      min-height: 39px;
+    }
     .alchemy-ingredient-role {
       min-width: 34px;
       padding: 2px 6px;
@@ -11566,6 +11575,9 @@
       }
       .alchemy-ingredient-editor {
         justify-content: flex-start;
+      }
+      .transmission-teach-picker {
+        grid-template-columns: minmax(0, 1fr);
       }
       .enhancement-layout,
       .enhancement-layout--single-slot,

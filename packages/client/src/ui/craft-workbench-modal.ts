@@ -42,6 +42,7 @@ import {
   computeAlchemyTotalJobTicks,
   getAlchemySpiritStoneCost,
   getItemDisplayName,
+  isCreatedTechniqueId,
   isExactAlchemyRecipe,
   normalizeEnhanceLevel,
   normalizeAlchemyQuantity,
@@ -1568,7 +1569,7 @@ export class CraftWorkbenchModal {
     const exp = Math.max(0, Math.floor(this.transmissionSkillExp || 0));
     const progressRatio = expToNext > 0 ? Math.max(0, Math.min(1, exp / expToNext)) : 1;
     const pending = this.pendingTechniqueComprehensions ?? [];
-    const learned = this.transmissionTechniques ?? [];
+    const learned = this.getTransmittableTechniques();
     const targets = this.getTransmissionTargets();
     return `
       <div class="alchemy-tab-stack" data-transmission-panel="true">
@@ -1611,12 +1612,14 @@ export class CraftWorkbenchModal {
             <div class="alchemy-summary-title">传授功法</div>
             <span class="alchemy-summary-mode">${formatDisplayInteger(learned.length)} 门可传</span>
           </div>
-          <div class="enhancement-candidate-list">
-            ${learned.length > 0 ? learned.map((tech) => this.renderTransmissionTeachRow(tech, targets)).join('') : '<div class="empty-hint">暂无已掌握功法</div>'}
-          </div>
+          ${this.renderTransmissionTeachPicker(learned, targets)}
         </section>
       </div>
     `;
+  }
+
+  private getTransmittableTechniques(): PlayerState['techniques'] {
+    return (this.transmissionTechniques ?? []).filter((tech) => isCreatedTechniqueId(tech.techId));
   }
 
   private renderTransmissionPendingRow(entry: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): string {
@@ -1643,25 +1646,31 @@ export class CraftWorkbenchModal {
     `;
   }
 
-  private renderTransmissionTeachRow(
-    tech: PlayerState['techniques'][number],
+  private renderTransmissionTeachPicker(
+    techniques: PlayerState['techniques'],
     targets: Array<{ playerId: string; name: string }>,
   ): string {
+    if (techniques.length === 0) {
+      return '<div class="empty-hint">暂无可传授自创功法</div>';
+    }
+    const techniqueOptions = techniques.map((tech) => {
+      const search = `${tech.name ?? ''} ${tech.techId}`.toLowerCase();
+      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(getTechniqueGradeLabel(tech.grade))} · 第 ${formatDisplayInteger(tech.level ?? 1)} 层</option>`;
+    }).join('');
     const targetOptions = targets.length > 0
       ? targets.map((target) => `<option value="${escapeHtmlAttr(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
       : '<option value="">附近无可传授玩家</option>';
+    const disabled = targets.length === 0 ? 'disabled' : '';
     return `
-      <div class="enhancement-candidate-card" data-transmission-tech="${escapeHtmlAttr(tech.techId)}">
-        <div class="enhancement-candidate-main">
-          <strong>${escapeHtml(tech.name ?? tech.techId)}</strong>
-          <span>${escapeHtml(getTechniqueGradeLabel(tech.grade))} · 第 ${formatDisplayInteger(tech.level ?? 1)} 层</span>
-        </div>
-        <div class="alchemy-ingredient-editor">
-          <select class="ui-input" data-transmission-target="${escapeHtmlAttr(tech.techId)}" ${targets.length === 0 ? 'disabled' : ''}>
-            ${targetOptions}
-          </select>
-          <button class="small-btn" type="button" data-craft-action="transmission-start" data-tech-id="${escapeHtmlAttr(tech.techId)}" ${targets.length === 0 ? 'disabled' : ''}>传授</button>
-        </div>
+      <div class="transmission-teach-picker">
+        <input class="ui-search-input" type="search" data-transmission-tech-search="true" placeholder="搜索自创功法">
+        <select class="ui-input" data-transmission-tech-select="true" ${disabled}>
+          ${techniqueOptions}
+        </select>
+        <select class="ui-input" data-transmission-target-select="true" ${disabled}>
+          ${targetOptions}
+        </select>
+        <button class="small-btn" type="button" data-craft-action="transmission-start" ${disabled}>传授</button>
       </div>
     `;
   }
@@ -1728,6 +1737,9 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'enhancement') {
       this.bindEnhancementEvents(body, signal);
     }
+    if (this.activeMode === 'transmission') {
+      this.bindTransmissionEvents(body, signal);
+    }
     body.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-craft-action]') : null;
       if (!target) {
@@ -1762,11 +1774,8 @@ export class CraftWorkbenchModal {
         return;
       }
       if (action === 'transmission-start') {
-        const techId = (target.dataset.techId ?? '').trim();
-        const select = techId
-          ? body.querySelector<HTMLSelectElement>(`[data-transmission-target="${CSS.escape(techId)}"]`)
-          : null;
-        const learnerPlayerId = (select?.value ?? '').trim();
+        const techId = (target.dataset.techId ?? body.querySelector<HTMLSelectElement>('[data-transmission-tech-select="true"]')?.value ?? '').trim();
+        const learnerPlayerId = (body.querySelector<HTMLSelectElement>('[data-transmission-target-select="true"]')?.value ?? '').trim();
         if (techId && learnerPlayerId) {
           (this.transmissionCallbacks?.onStartTransmission ?? this.callbacks?.onStartTransmission)?.(learnerPlayerId, techId);
         }
@@ -1959,6 +1968,52 @@ export class CraftWorkbenchModal {
         this.callbacks?.onCancelEnhancement();
       }
     }, { signal });
+  }
+
+  private bindTransmissionEvents(body: HTMLElement, signal: AbortSignal): void {
+    body.addEventListener('input', (event) => {
+      const input = event.target instanceof HTMLInputElement && event.target.matches('[data-transmission-tech-search="true"]')
+        ? event.target
+        : null;
+      if (!input) return;
+      this.filterTransmissionTechniqueOptions(body, input.value);
+    }, { signal });
+    body.addEventListener('change', (event) => {
+      const changed = event.target instanceof HTMLSelectElement
+        && (event.target.matches('[data-transmission-tech-select="true"]') || event.target.matches('[data-transmission-target-select="true"]'));
+      if (changed) {
+        this.syncTransmissionStartButton(body);
+      }
+    }, { signal });
+  }
+
+  private filterTransmissionTechniqueOptions(body: HTMLElement, query: string): void {
+    const select = body.querySelector<HTMLSelectElement>('[data-transmission-tech-select="true"]');
+    if (!select) return;
+    const normalizedQuery = query.trim().toLowerCase();
+    let firstVisibleValue = '';
+    for (const option of Array.from(select.options)) {
+      const matches = !normalizedQuery || (option.dataset.search ?? option.textContent ?? '').toLowerCase().includes(normalizedQuery);
+      option.hidden = !matches;
+      if (matches && !firstVisibleValue) {
+        firstVisibleValue = option.value;
+      }
+    }
+    const selectedOption = select.selectedOptions[0] ?? null;
+    if (!selectedOption || selectedOption.hidden) {
+      select.value = firstVisibleValue;
+    }
+    select.disabled = !firstVisibleValue;
+    this.syncTransmissionStartButton(body);
+  }
+
+  private syncTransmissionStartButton(body: HTMLElement): void {
+    const techId = (body.querySelector<HTMLSelectElement>('[data-transmission-tech-select="true"]')?.value ?? '').trim();
+    const learnerPlayerId = (body.querySelector<HTMLSelectElement>('[data-transmission-target-select="true"]')?.value ?? '').trim();
+    const button = body.querySelector<HTMLButtonElement>('[data-craft-action="transmission-start"]');
+    if (button) {
+      button.disabled = !techId || !learnerPlayerId;
+    }
   }
 
   private adjustNumericInput(body: HTMLElement, selector: string, delta: number): void {

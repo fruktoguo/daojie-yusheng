@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -846,6 +846,9 @@ export class PlayerRuntimeService {
         if (!teacherTechnique) {
             throw new BadRequestException('传授者尚未掌握该功法');
         }
+        if (!isCreatedTechniqueId(normalizedTechId)) {
+            throw new BadRequestException('只能传授自创功法');
+        }
         if (learner.techniques.techniques.some((entry) => entry.techId === normalizedTechId)) {
             throw new BadRequestException('学习者已经掌握该功法');
         }
@@ -857,7 +860,7 @@ export class PlayerRuntimeService {
             ? learner.pendingTechniqueComprehensions
             : [];
         let pending = pendingList.find((entry) => entry?.techId === normalizedTechId);
-        const sourceKind = normalizedTechId.startsWith('gen_') ? 'created' : 'normal';
+        const sourceKind = isCreatedTechniqueId(normalizedTechId) ? 'created' : 'normal';
         const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
             sourceKind,
             techniqueRealmLv: teacherTechnique.realmLv,
@@ -3531,6 +3534,15 @@ export class PlayerRuntimeService {
         for (const pending of [...pendingList]) {
             const job = pending?.activeTransferJob;
             if (!job) {
+                continue;
+            }
+            if (!isCreatedTechniqueId(pending.techId)) {
+                if (job.status !== 'blocked' || job.blockedReason !== 'not_created_technique') {
+                    job.status = 'blocked';
+                    job.blockedReason = 'not_created_technique';
+                    pending.updatedAtTick = playerTick;
+                    changed = true;
+                }
                 continue;
             }
             const teacher = this.getPlayer(job.teacherPlayerId);

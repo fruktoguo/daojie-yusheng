@@ -16,6 +16,7 @@ import {
   deriveTechniqueRealm,
   getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
+  isCreatedTechniqueId,
   PlayerState,
   resolveSkillUnlockLevel,
   TECHNIQUE_ATTR_KEYS,
@@ -714,7 +715,8 @@ export class TechniquePanel {
     const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
     const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
     const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
-    const transmissionTargets = this.getTransmissionTargetOptions();
+    const canTransmitTechnique = isCreatedTechniqueId(tech.techId);
+    const transmissionTargets = canTransmitTechnique ? this.getTransmissionTargetOptions() : [];
     const transmissionOptions = transmissionTargets.length > 0
       ? transmissionTargets.map((target) => `<option value="${escapeHtml(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
       : '<option value="">附近无可传授玩家</option>';
@@ -748,15 +750,15 @@ export class TechniquePanel {
           data-cultivate-stop="${isCultivating ? tech.techId : ''}"
           type="button"
         >${isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined)}</button>
-        <select class="ui-input tech-transmission-target" data-tech-transmission-target="${tech.techId}" ${transmissionTargets.length === 0 ? 'disabled' : ''}>
-          ${transmissionOptions}
-        </select>
-        <button
-          class="small-btn ghost"
-          data-tech-transmit="${tech.techId}"
-          type="button"
-          ${transmissionTargets.length === 0 ? 'disabled' : ''}
-        >传授</button>
+        ${canTransmitTechnique ? `<select class="ui-input tech-transmission-target" data-tech-transmission-target="${tech.techId}" ${transmissionTargets.length === 0 ? 'disabled' : ''}>
+            ${transmissionOptions}
+          </select>
+          <button
+            class="small-btn ghost"
+            data-tech-transmit="${tech.techId}"
+            type="button"
+            ${transmissionTargets.length === 0 ? 'disabled' : ''}
+          >传授</button>` : ''}
       </div>
     </div>`;
   }
