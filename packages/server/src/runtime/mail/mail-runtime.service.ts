@@ -331,28 +331,11 @@ export class MailRuntimeService {
                     };
                 }
             }
-            for (const credit of resolution.walletCredits) {
-                this.playerRuntimeService.creditWallet(playerId, credit.walletType, credit.count);
-            }
-            for (const item of resolution.inventoryItems) {
-                this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            }
-            const now = Date.now();
-            for (const entry of visible) {
-                entry.firstSeenAt ??= now;
-                entry.readAt ??= now;
-                entry.claimedAt = now;
-                entry.updatedAt = now;
-                entry.mailVersion = nextMailVersion(entry);
-            }
-            mailbox.revision += 1;
-            this.compactMailbox(mailbox);
-            await this.persistMailboxMutation(playerId, mailbox, visible);
             return {
                 operation: 'claim',
-                ok: true,
+                ok: false,
                 mailIds: visible.map((entry) => entry.mailId),
-                message: `已领取 ${visible.length} 封邮件的附件。`,
+                message: '邮件附件领取事务暂不可用，请稍后再试。',
             };
         });
     }

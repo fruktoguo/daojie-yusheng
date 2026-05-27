@@ -219,13 +219,35 @@ export class RedeemCodePersistenceService {
                       VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::timestamptz, $10::timestamptz, $11::jsonb)
                       ON CONFLICT (code_id)
                       DO UPDATE SET
-                        status = EXCLUDED.status,
-                        used_by_player_id = EXCLUDED.used_by_player_id,
-                        used_by_role_name = EXCLUDED.used_by_role_name,
-                        used_at = EXCLUDED.used_at,
-                        destroyed_at = EXCLUDED.destroyed_at,
-                        updated_at = EXCLUDED.updated_at,
-                        raw_payload = EXCLUDED.raw_payload
+                        status = CASE
+                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.status
+                          WHEN ${REDEEM_CODE_TABLE}.status = 'destroyed' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.status
+                          ELSE EXCLUDED.status
+                        END,
+                        used_by_player_id = CASE
+                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.used_by_player_id
+                          ELSE EXCLUDED.used_by_player_id
+                        END,
+                        used_by_role_name = CASE
+                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.used_by_role_name
+                          ELSE EXCLUDED.used_by_role_name
+                        END,
+                        used_at = CASE
+                          WHEN ${REDEEM_CODE_TABLE}.status = 'used' AND EXCLUDED.status <> 'used' THEN ${REDEEM_CODE_TABLE}.used_at
+                          ELSE EXCLUDED.used_at
+                        END,
+                        destroyed_at = CASE
+                          WHEN ${REDEEM_CODE_TABLE}.status = 'destroyed' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.destroyed_at
+                          ELSE EXCLUDED.destroyed_at
+                        END,
+                        updated_at = CASE
+                          WHEN ${REDEEM_CODE_TABLE}.status <> 'active' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.updated_at
+                          ELSE EXCLUDED.updated_at
+                        END,
+                        raw_payload = CASE
+                          WHEN ${REDEEM_CODE_TABLE}.status <> 'active' AND EXCLUDED.status = 'active' THEN ${REDEEM_CODE_TABLE}.raw_payload
+                          ELSE EXCLUDED.raw_payload
+                        END
                     `,
                     [
                         code.id,
@@ -243,6 +265,93 @@ export class RedeemCodePersistenceService {
                 );
             }
             await client.query('COMMIT');
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
+        finally {
+            client.release();
+        }
+    }
+    /** 原子核销兑换码：只有 active 状态能被置为 used，跨节点并发只有一个调用成功。 */
+    async claimCodeForUse(input) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.pool || !this.enabled) {
+            return { ok: true, skipped: true };
+        }
+        const code = typeof input?.code === 'string' ? input.code.trim().toUpperCase() : '';
+        const playerId = typeof input?.playerId === 'string' ? input.playerId.trim() : '';
+        const playerName = typeof input?.playerName === 'string' ? input.playerName.trim() : '';
+        const usedAt = typeof input?.usedAt === 'string' && input.usedAt.trim() ? input.usedAt.trim() : new Date().toISOString();
+        if (!code || !playerId) {
+            return { ok: false, reason: 'invalid_input' };
+        }
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await client.query(
+                `
+                  UPDATE ${REDEEM_CODE_TABLE}
+                  SET
+                    status = 'used',
+                    used_by_player_id = $2,
+                    used_by_role_name = $3,
+                    used_at = $4::timestamptz,
+                    updated_at = $4::timestamptz,
+                    raw_payload = raw_payload
+                      || jsonb_build_object(
+                        'status', 'used',
+                        'usedByPlayerId', $2,
+                        'usedByRoleName', $3,
+                        'usedAt', $4,
+                        'updatedAt', $4
+                      )
+                  WHERE code = $1 AND status = 'active'
+                  RETURNING code_id, group_id, code, status, used_by_player_id, used_by_role_name, used_at, updated_at
+                `,
+                [code, playerId, playerName || playerId, usedAt],
+            );
+            if ((result.rowCount ?? 0) !== 1) {
+                await client.query('ROLLBACK');
+                return { ok: false, reason: 'not_active' };
+            }
+            const row = result.rows[0];
+            await client.query(
+                `
+                  UPDATE ${REDEEM_CODE_GROUP_TABLE}
+                  SET
+                    updated_at = $2::timestamptz,
+                    raw_payload = jsonb_set(raw_payload, '{updatedAt}', to_jsonb($2::text), true)
+                  WHERE group_id = $1
+                `,
+                [row.group_id, usedAt],
+            );
+            await client.query(
+                `
+                  INSERT INTO ${REDEEM_CODE_STATE_TABLE}(state_key, revision, updated_at)
+                  VALUES ($1, 2, now())
+                  ON CONFLICT (state_key)
+                  DO UPDATE SET revision = ${REDEEM_CODE_STATE_TABLE}.revision + 1, updated_at = now()
+                `,
+                [REDEEM_CODE_STATE_KEY],
+            );
+            await client.query('COMMIT');
+            return {
+                ok: true,
+                skipped: false,
+                code: {
+                    id: typeof row.code_id === 'string' ? row.code_id : '',
+                    groupId: typeof row.group_id === 'string' ? row.group_id : '',
+                    code: typeof row.code === 'string' ? row.code : '',
+                    status: 'used',
+                    usedByPlayerId: typeof row.used_by_player_id === 'string' ? row.used_by_player_id : playerId,
+                    usedByRoleName: typeof row.used_by_role_name === 'string' ? row.used_by_role_name : (playerName || playerId),
+                    usedAt: normalizeNullableDbTimestamp(row.used_at) ?? usedAt,
+                    updatedAt: normalizeDbTimestamp(row.updated_at),
+                },
+            };
         }
         catch (error) {
             await client.query('ROLLBACK').catch(() => undefined);

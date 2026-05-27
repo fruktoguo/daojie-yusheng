@@ -26,7 +26,7 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-function buildHarness(code: string) {
+function buildHarness(code: string, options: { persistentClaim?: boolean } = {}) {
   const playerId = 'player:redeem-durable-smoke';
   const nowIso = '2026-04-23T00:00:00.000Z';
   const player = {
@@ -49,13 +49,45 @@ function buildHarness(code: string) {
     suppressImmediateDomainPersistence: false,
   };
   const durableCalls: Array<Record<string, unknown>> = [];
+  const walletMutations: Array<Record<string, unknown>> = [];
   const walletCredits: Array<Record<string, unknown>> = [];
   const replacedInventories: Array<Array<Record<string, unknown>>> = [];
   const receivedInventories: Array<Record<string, unknown>> = [];
   const notices: Array<Record<string, unknown>> = [];
   const logbookMessages: Array<Record<string, unknown>> = [];
   const persistedDocuments: Array<Record<string, unknown>> = [];
+  const claimCalls: Array<Record<string, unknown>> = [];
   const deferred = createDeferred<{ ok: boolean; alreadyCommitted: boolean; grantedCount: number; sourceType: string }>();
+  const persistenceService: Record<string, unknown> = {
+    async loadDocument() {
+      return null;
+    },
+    async saveDocument(document: Record<string, unknown>) {
+      persistedDocuments.push(document);
+    },
+  };
+  if (options.persistentClaim === true) {
+    persistenceService.claimCodeForUse = async (input: Record<string, unknown>) => {
+      claimCalls.push(input);
+      if (input.code !== code) {
+        return { ok: false, reason: 'not_active' };
+      }
+      return {
+        ok: true,
+        skipped: false,
+        code: {
+          id: `code:${code}`,
+          groupId: 'group:redeem-smoke',
+          code,
+          status: 'used',
+          usedByPlayerId: input.playerId,
+          usedByRoleName: input.playerName,
+          usedAt: input.usedAt,
+          updatedAt: input.usedAt,
+        },
+      };
+    };
+  }
 
   const service = new RedeemCodeRuntimeService(
     {
@@ -118,14 +150,7 @@ function buildHarness(code: string) {
         refreshPreview() {},
       },
     } as never,
-    {
-      async loadDocument() {
-        return null;
-      },
-      async saveDocument(document: Record<string, unknown>) {
-        persistedDocuments.push(document);
-      },
-    } as never,
+    persistenceService as never,
     {
       isEnabled() {
         return true;
@@ -133,6 +158,10 @@ function buildHarness(code: string) {
       async grantInventoryItems(input: Record<string, unknown>) {
         durableCalls.push(input);
         return deferred.promise;
+      },
+      async mutatePlayerWallet(input: Record<string, unknown>) {
+        walletMutations.push(input);
+        return { ok: true, alreadyCommitted: false };
       },
     } as never,
     {
@@ -178,12 +207,14 @@ function buildHarness(code: string) {
     service,
     player,
     durableCalls,
+    walletMutations,
     walletCredits,
     replacedInventories,
     receivedInventories,
     notices,
     logbookMessages,
     persistedDocuments,
+    claimCalls,
     deferred,
   };
 }
@@ -220,6 +251,9 @@ async function main(): Promise<void> {
   assert.equal(successResult.results.length, 1);
   assert.equal(successResult.results[0]?.ok, true);
   assert.equal(success.walletCredits.length, 1);
+  assert.equal(success.walletMutations.length, 1);
+  assert.equal(success.walletMutations[0]?.walletType, 'spirit_stone');
+  assert.equal(success.walletMutations[0]?.delta, 3);
   assert.deepEqual(success.walletCredits[0], { walletType: 'spirit_stone', amount: 3 });
   assert.equal(success.replacedInventories.length, 1);
   assert.equal(success.player.inventory.items[0]?.itemId, 'rat_tail');
@@ -237,20 +271,43 @@ async function main(): Promise<void> {
   failure.deferred.reject(new Error('redeem durable failed'));
   await assert.rejects(() => failurePromise, /redeem durable failed/);
   assert.equal(failure.player.inventory.items.length, 0);
+  assert.equal(failure.walletMutations.length, 0);
   assert.equal(failure.walletCredits.length, 0);
   assert.equal(failure.notices.length, 0);
   assert.equal(failure.logbookMessages.length, 0);
   assert.equal(failure.persistedDocuments.length, 0);
   assert.equal((failure as any).service.codes[0]?.status, 'active');
 
+  const persistentClaimFailure = buildHarness('REDEEM-DURABLE-CODE-003', { persistentClaim: true });
+  const persistentClaimFailurePromise = persistentClaimFailure.service.redeemCodes(
+    persistentClaimFailure.player.playerId,
+    [persistentClaimFailure.code],
+  );
+  await nextTick();
+  assert.equal(persistentClaimFailure.claimCalls.length, 1);
+  assert.equal(persistentClaimFailure.claimCalls[0]?.playerId, persistentClaimFailure.player.playerId);
+  assert.equal(persistentClaimFailure.claimCalls[0]?.code, persistentClaimFailure.code);
+  assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'used');
+  assert.equal(persistentClaimFailure.durableCalls.length, 1);
+  persistentClaimFailure.deferred.reject(new Error('redeem durable failed after claim'));
+  await assert.rejects(() => persistentClaimFailurePromise, /redeem durable failed after claim/);
+  assert.equal(persistentClaimFailure.player.inventory.items.length, 0);
+  assert.equal(persistentClaimFailure.walletMutations.length, 0);
+  assert.equal(persistentClaimFailure.walletCredits.length, 0);
+  assert.equal(persistentClaimFailure.notices.length, 0);
+  assert.equal(persistentClaimFailure.logbookMessages.length, 0);
+  assert.equal(persistentClaimFailure.persistedDocuments.length, 0);
+  assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'used');
+
   console.log(
     JSON.stringify(
       {
         ok: true,
-        durableCallCount: success.durableCalls.length + failure.durableCalls.length,
+        durableCallCount: success.durableCalls.length + failure.durableCalls.length + persistentClaimFailure.durableCalls.length,
+        persistentClaimCount: persistentClaimFailure.claimCalls.length,
         answers:
-          'RedeemCodeRuntimeService 的非钱包奖励现在会先走 grantInventoryItems durable 主链，成功提交后才落运行态 inventory、wallet、notice、logbook 和 code used 持久化；durable 失败时会保持运行态与兑换码状态不变',
-        excludes: '不证明 live socket 兑换码链路或任务奖励库存抽象已统一切换到同一 durable 主链',
+          'RedeemCodeRuntimeService 的非钱包奖励会走 grantInventoryItems durable 主链；持久化兑换码会在发奖前先通过 claimCodeForUse 条件更新抢占核销，durable 失败时不发物、不发钱包、不发 notice，并且不会把已抢占的码回退成 active',
+        excludes: '不证明 live socket 兑换码链路、真实 PostgreSQL 并发条件更新或任务奖励库存抽象已统一切换到同一 durable 主链',
         completionMapping: 'release:proof:redeem-code-runtime-durable',
       },
       null,

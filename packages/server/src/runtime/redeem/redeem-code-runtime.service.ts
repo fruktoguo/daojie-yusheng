@@ -330,6 +330,16 @@ export class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
+                const claimResult = await this.claimCodeForUseBeforeRewards(codeEntry, player, nowIso);
+                if (!claimResult.ok) {
+                    results.push({
+                        code: submittedCode,
+                        ok: false,
+                        message: '兑换码无效或已过期',
+                        groupName,
+                    });
+                    continue;
+                }
                 const walletItems = [];
                 const inventoryItems = [];
                 for (const item of items) {
@@ -565,6 +575,28 @@ export class RedeemCodeRuntimeService {
             player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
         }
         this.playerRuntimeService.replaceInventoryItems(player.playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
+    }
+    /** 在发奖前抢占核销兑换码；持久化启用时使用数据库条件更新防止跨节点双花。 */
+    async claimCodeForUseBeforeRewards(codeEntry, player, nowIso) {
+        const claimFn = this.redeemCodePersistenceService?.claimCodeForUse;
+        if (typeof claimFn !== 'function') {
+            return { ok: true, persistent: false };
+        }
+        const result = await claimFn.call(this.redeemCodePersistenceService, {
+            code: codeEntry.code,
+            playerId: player.playerId,
+            playerName: player.name,
+            usedAt: nowIso,
+        });
+        if (!result?.ok) {
+            return { ok: false, persistent: true, reason: result?.reason ?? 'not_active' };
+        }
+        codeEntry.status = 'used';
+        codeEntry.usedByPlayerId = player.playerId;
+        codeEntry.usedByRoleName = player.name;
+        codeEntry.usedAt = nowIso;
+        codeEntry.updatedAt = nowIso;
+        return { ok: true, persistent: result?.skipped !== true };
     }
     /** 兑换码钱包奖励必须走 durable 钱包事务，禁止 direct runtime fallback。 */
     async grantWalletReward(player, item, submittedCode) {
