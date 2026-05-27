@@ -12,6 +12,9 @@ import {
   type TechniqueActivityInterruptReason,
   type TechniqueActivityOutputItem,
   type TechniqueActivityResolveResult,
+  type TechniqueActivityStartResult,
+  type TechniqueActivityTickResult,
+  type TechniqueActivityCancelResult,
 } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded } from '../../world/item-instance-id.helpers';
 import {
@@ -68,12 +71,20 @@ export interface TechniqueActivityResolveInventoryResult {
   groundDrops: TechniqueActivityOutputItem[];
 }
 
+type TechniqueActivityLegacyEffectFields = {
+  inventoryChanged?: boolean;
+  equipmentChanged?: boolean;
+  attrChanged?: boolean;
+  groundDrops?: Array<{ itemId: string; count: number; name?: string }>;
+  craftRealmExpGain?: number;
+};
+
+type TechniqueActivityStartLifecycleResult = TechniqueActivityStartResult & TechniqueActivityLegacyEffectFields;
+type TechniqueActivityTickLifecycleResult = TechniqueActivityTickResult & TechniqueActivityLegacyEffectFields;
+type TechniqueActivityCancelLifecycleResult = TechniqueActivityCancelResult & TechniqueActivityLegacyEffectFields;
+
 function emptyTickResult(): CraftTickResult {
   return { ok: true, panelChanged: false, inventoryChanged: false, equipmentChanged: false, attrChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
-}
-
-function errorMutationResult(error: string): CraftMutationResult {
-  return { ok: false, error, panelChanged: false, messages: [] };
 }
 
 export function materializeTechniqueActivityResolveResult(
@@ -187,30 +198,34 @@ export class TechniqueActivityPipelineService {
   // ─── 公共 Start ───
 
   start(player: any, kind: RuntimeTechniqueActivityKind, payload: unknown, ctx: PipelineContext): CraftMutationResult {
+    return startLifecycleResultToMutation(this.startLifecycle(player, kind, payload, ctx));
+  }
+
+  startLifecycle(player: any, kind: RuntimeTechniqueActivityKind, payload: unknown, ctx: PipelineContext): TechniqueActivityStartLifecycleResult {
     const strategy = this.strategies.get(kind);
-    if (!strategy) return errorMutationResult(`unsupported technique activity kind: ${kind}`);
+    if (!strategy) return errorStartLifecycleResult(kind, `unsupported technique activity kind: ${kind}`);
 
     // 如果策略实现了 executeStart，直接委托
     if (strategy.executeStart) {
-      return strategy.executeStart(player, payload, ctx) as CraftMutationResult;
+      return startLifecycleResultFromMutation(kind, strategy.executeStart(player, payload, ctx) as CraftMutationResult);
     }
 
     // 1. 校验
     const validation = strategy.validateStart(player, payload, ctx);
-    if (!validation.ok) return errorMutationResult((validation as any).error);
+    if (!validation.ok) return errorStartLifecycleResult(kind, (validation as any).error);
 
     // 2. 活动互斥与排队。排队项不提前扣资源，等真正启动时再校验并消耗。
     if (strategy.queueStart) {
       const queued = strategy.queueStart(player, validation.validated, payload, ctx) as CraftMutationResult | null | undefined;
       if (queued) {
-        return queued;
+        return startLifecycleResultFromMutation(kind, queued, { queued: queued.ok === true });
       }
     }
 
     // 3. 消耗资源
     const consumeResult = strategy.consumeResources(player, validation.validated, ctx);
     if (consumeResult && typeof consumeResult === 'object' && 'ok' in consumeResult && !consumeResult.ok) {
-      return errorMutationResult((consumeResult as { error?: string }).error ?? `${strategy.activityLabel}资源不足`);
+      return errorStartLifecycleResult(kind, (consumeResult as { error?: string }).error ?? `${strategy.activityLabel}资源不足`);
     }
 
     // 4. 创建 job
@@ -221,9 +236,13 @@ export class TechniqueActivityPipelineService {
       : [];
 
     return {
+      lifecycle: 'start',
       ok: true,
+      kind,
+      started: true,
       panelChanged: true,
       messages,
+      inventoryDelta: { changed: true },
       inventoryChanged: true,
     };
   }
@@ -231,18 +250,34 @@ export class TechniqueActivityPipelineService {
   // ─── 公共 Tick ───
 
   tick(player: any, kind: RuntimeTechniqueActivityKind, ctx: PipelineContext): CraftTickResult {
+    const lifecycleResult = this.tickLifecycle(player, kind, ctx);
+    if (isPromiseLike(lifecycleResult)) {
+      return lifecycleResult.then(tickLifecycleResultToCraftTick) as unknown as CraftTickResult;
+    }
+    return tickLifecycleResultToCraftTick(lifecycleResult);
+  }
+
+  tickLifecycle(
+    player: any,
+    kind: RuntimeTechniqueActivityKind,
+    ctx: PipelineContext,
+  ): TechniqueActivityTickLifecycleResult | Promise<TechniqueActivityTickLifecycleResult> {
     const strategy = this.strategies.get(kind);
-    if (!strategy) return emptyTickResult();
+    if (!strategy) return emptyTickLifecycleResult(kind);
 
     // 如果策略实现了 executeTick，直接委托（过渡期全权委托模式）
     if (strategy.executeTick) {
-      return strategy.executeTick(player, ctx) as CraftTickResult;
+      const delegated = strategy.executeTick(player, ctx) as CraftTickResult | Promise<CraftTickResult>;
+      if (isPromiseLike(delegated)) {
+        return delegated.then((result) => tickLifecycleResultFromCraftTick(kind, result));
+      }
+      return tickLifecycleResultFromCraftTick(kind, delegated);
     }
 
     const job = getStrategyActiveJob(strategy, player) as any;
 
     // Stage 1: Guard
-    if (!job || Number(job.remainingTicks) <= 0) return emptyTickResult();
+    if (!job || Number(job.remainingTicks) <= 0) return emptyTickLifecycleResult(kind);
 
     // Stage 2: ConditionCheck（条件型技艺）
     if (strategy.conditional && strategy.checkContinueCondition) {
@@ -253,11 +288,12 @@ export class TechniqueActivityPipelineService {
         setStrategyActiveJob(strategy, player, null);
         markPipelineDirty(player, ['active_job'], ctx);
         return {
+          lifecycle: 'tick',
           ok: true,
+          kind,
           panelChanged: true,
-          inventoryChanged: false,
-          equipmentChanged: false,
-          attrChanged: false,
+          inventoryDelta: { changed: false },
+          equipmentDelta: { changed: false },
           messages: condition.reason
             ? [buildTechniqueActivityConditionFailedNotice(strategy.activityLabel, condition.reason)]
             : [],
@@ -274,7 +310,7 @@ export class TechniqueActivityPipelineService {
       const resumePhase = strategy.resolveResumePhase(job);
       const resumed = advanceTechniqueActivityPause(job as any, resumePhase as any);
       markPipelineDirty(player, ['active_job'], ctx);
-      return { ...emptyTickResult(), panelChanged: resumed.resumed };
+      return { ...emptyTickLifecycleResult(kind), panelChanged: resumed.resumed };
     }
 
     // Stage 4: Advance
@@ -283,7 +319,7 @@ export class TechniqueActivityPipelineService {
 
     // Stage 5: Progress（未到结算点）
     if (!strategy.isResolvePoint(job)) {
-      return emptyTickResult();
+      return emptyTickLifecycleResult(kind);
     }
 
     // Stage 6: Resolve（策略插槽）
@@ -304,10 +340,10 @@ export class TechniqueActivityPipelineService {
     }
 
     // Stage 10: 返回结果
-    return materializeTechniqueActivityResolveResult(resolved, {
+    return tickLifecycleResultFromCraftTick(kind, materializeTechniqueActivityResolveResult(resolved, {
       inventoryChanged: inventoryResult.inventoryChanged,
       attrChanged: expResult.attrChanged,
-    });
+    }));
   }
 
   // ─── 公共 Interrupt ───
@@ -361,16 +397,20 @@ export class TechniqueActivityPipelineService {
   // ─── 公共 Cancel ───
 
   cancel(player: any, kind: RuntimeTechniqueActivityKind, ctx: PipelineContext): CraftMutationResult {
+    return cancelLifecycleResultToMutation(this.cancelLifecycle(player, kind, ctx));
+  }
+
+  cancelLifecycle(player: any, kind: RuntimeTechniqueActivityKind, ctx: PipelineContext): TechniqueActivityCancelLifecycleResult {
     const strategy = this.strategies.get(kind);
-    if (!strategy) return errorMutationResult(`unsupported technique activity kind: ${kind}`);
+    if (!strategy) return errorCancelLifecycleResult(kind, `unsupported technique activity kind: ${kind}`);
 
     // 如果策略实现了 executeCancel，直接委托
     if (strategy.executeCancel) {
-      return strategy.executeCancel(player, ctx) as CraftMutationResult;
+      return cancelLifecycleResultFromMutation(kind, strategy.executeCancel(player, ctx) as CraftMutationResult);
     }
 
     const job = getStrategyActiveJob(strategy, player) as any;
-    if (!job || Number(job.remainingTicks) <= 0) return errorMutationResult('当前没有进行中的任务。');
+    if (!job || Number(job.remainingTicks) <= 0) return errorCancelLifecycleResult(kind, '当前没有进行中的任务。');
 
     // 计算退还
     const refund = strategy.computeRefund(player, job);
@@ -383,15 +423,179 @@ export class TechniqueActivityPipelineService {
     markPipelineDirty(player, ['active_job'], ctx);
 
     return {
+      lifecycle: 'cancel',
       ok: true,
+      kind,
+      cancelled: true,
       panelChanged: true,
       messages: refund.messages ?? [],
+      inventoryDelta: {
+        ...(refund.inventoryDelta ?? {}),
+        dropped: refund.items.length > 0 ? refund.items : refund.inventoryDelta?.dropped,
+        changed: Boolean(refund.inventoryDelta?.changed),
+      },
+      walletDelta: refund.walletDelta,
+      equipmentDelta: refund.equipmentDelta,
+      recordDelta: refund.recordDelta,
       groundDrops: refund.items.length > 0 ? refund.items : undefined,
     };
   }
 }
 
 // ─── 内部工具函数 ───
+
+function errorStartLifecycleResult(
+  kind: RuntimeTechniqueActivityKind,
+  error: string,
+): TechniqueActivityStartLifecycleResult {
+  return {
+    lifecycle: 'start',
+    ok: false,
+    kind,
+    error,
+    panelChanged: false,
+    messages: [],
+  };
+}
+
+function errorCancelLifecycleResult(
+  kind: RuntimeTechniqueActivityKind,
+  error: string,
+): TechniqueActivityCancelLifecycleResult {
+  return {
+    lifecycle: 'cancel',
+    ok: false,
+    kind,
+    error,
+    panelChanged: false,
+    messages: [],
+  };
+}
+
+function emptyTickLifecycleResult(kind: RuntimeTechniqueActivityKind): TechniqueActivityTickLifecycleResult {
+  return {
+    lifecycle: 'tick',
+    ok: true,
+    kind,
+    panelChanged: false,
+    inventoryDelta: { changed: false },
+    equipmentDelta: { changed: false },
+    messages: [],
+    groundDrops: [],
+    craftRealmExpGain: 0,
+  };
+}
+
+function startLifecycleResultFromMutation(
+  kind: RuntimeTechniqueActivityKind,
+  result: CraftMutationResult,
+  flags: { queued?: boolean; started?: boolean } = {},
+): TechniqueActivityStartLifecycleResult {
+  return {
+    lifecycle: 'start',
+    ok: result.ok,
+    kind,
+    error: result.error,
+    started: flags.started ?? (result.ok === true && flags.queued !== true),
+    queued: flags.queued,
+    panelChanged: result.panelChanged,
+    inventoryDelta: { changed: Boolean(result.inventoryChanged) },
+    equipmentDelta: { changed: Boolean(result.equipmentChanged) },
+    messages: result.messages ?? [],
+    groundDrops: result.groundDrops,
+    craftRealmExpGain: result.craftRealmExpGain,
+    inventoryChanged: result.inventoryChanged,
+    equipmentChanged: result.equipmentChanged,
+    attrChanged: result.attrChanged,
+  };
+}
+
+function cancelLifecycleResultFromMutation(
+  kind: RuntimeTechniqueActivityKind,
+  result: CraftMutationResult,
+): TechniqueActivityCancelLifecycleResult {
+  return {
+    lifecycle: 'cancel',
+    ok: result.ok,
+    kind,
+    error: result.error,
+    cancelled: result.ok === true,
+    panelChanged: result.panelChanged,
+    inventoryDelta: { changed: Boolean(result.inventoryChanged), dropped: result.groundDrops },
+    equipmentDelta: { changed: Boolean(result.equipmentChanged) },
+    messages: result.messages ?? [],
+    groundDrops: result.groundDrops,
+    craftRealmExpGain: result.craftRealmExpGain,
+    inventoryChanged: result.inventoryChanged,
+    equipmentChanged: result.equipmentChanged,
+    attrChanged: result.attrChanged,
+  };
+}
+
+function tickLifecycleResultFromCraftTick(
+  kind: RuntimeTechniqueActivityKind,
+  result: CraftTickResult,
+): TechniqueActivityTickLifecycleResult {
+  return {
+    lifecycle: 'tick',
+    ok: result.ok,
+    kind,
+    panelChanged: result.panelChanged,
+    inventoryDelta: { changed: Boolean(result.inventoryChanged), dropped: result.groundDrops },
+    equipmentDelta: { changed: Boolean(result.equipmentChanged) },
+    messages: result.messages ?? [],
+    craftRealmExpGain: result.craftRealmExpGain,
+    groundDrops: result.groundDrops,
+    inventoryChanged: result.inventoryChanged,
+    equipmentChanged: result.equipmentChanged,
+    attrChanged: result.attrChanged,
+  };
+}
+
+function startLifecycleResultToMutation(result: TechniqueActivityStartLifecycleResult): CraftMutationResult {
+  return {
+    ok: result.ok,
+    error: result.error,
+    panelChanged: result.panelChanged ?? result.panelDirty?.changed ?? false,
+    messages: result.messages ?? [],
+    inventoryChanged: result.inventoryChanged ?? Boolean(result.inventoryDelta?.changed),
+    equipmentChanged: result.equipmentChanged ?? Boolean(result.equipmentDelta?.changed),
+    attrChanged: result.attrChanged,
+    groundDrops: result.groundDrops ?? result.inventoryDelta?.dropped,
+    craftRealmExpGain: result.craftRealmExpGain,
+  };
+}
+
+function cancelLifecycleResultToMutation(result: TechniqueActivityCancelLifecycleResult): CraftMutationResult {
+  return {
+    ok: result.ok,
+    error: result.error,
+    panelChanged: result.panelChanged ?? result.panelDirty?.changed ?? false,
+    messages: result.messages ?? [],
+    inventoryChanged: result.inventoryChanged ?? Boolean(result.inventoryDelta?.changed),
+    equipmentChanged: result.equipmentChanged ?? Boolean(result.equipmentDelta?.changed),
+    attrChanged: result.attrChanged,
+    groundDrops: result.groundDrops ?? result.inventoryDelta?.dropped,
+    craftRealmExpGain: result.craftRealmExpGain,
+  };
+}
+
+function tickLifecycleResultToCraftTick(result: TechniqueActivityTickLifecycleResult): CraftTickResult {
+  return {
+    ok: result.ok,
+    panelChanged: result.panelChanged ?? result.panelDirty?.changed ?? false,
+    inventoryChanged: result.inventoryChanged ?? Boolean(result.inventoryDelta?.changed),
+    equipmentChanged: result.equipmentChanged ?? Boolean(result.equipmentDelta?.changed),
+    attrChanged: result.attrChanged ?? false,
+    messages: result.messages ?? [],
+    groundDrops: result.groundDrops ?? result.inventoryDelta?.dropped ?? [],
+    craftRealmExpGain: result.craftRealmExpGain ?? 0,
+  };
+}
+
+function isPromiseLike<T>(value: T | Promise<T>): value is Promise<T> {
+  return Boolean(value && typeof (value as Promise<T>).then === 'function');
+}
 
 function interruptReasonLabel(reason: TechniqueActivityInterruptReason): string {
   switch (reason) {

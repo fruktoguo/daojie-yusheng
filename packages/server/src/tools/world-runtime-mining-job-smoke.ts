@@ -161,8 +161,10 @@ function main(): void {
   const visibleInventory: unknown[] = [];
   const visibleSectExpansions: unknown[] = [];
   const visibleContext = createContext(visibleInstance, visibleInventory, visibleSectExpansions);
-  const startResult = pipeline.start(visiblePlayer, 'mining', { targetRef: 'tile:1:0' }, visibleContext);
+  const startResult = pipeline.startLifecycle(visiblePlayer, 'mining', { targetRef: 'tile:1:0' }, visibleContext);
+  assert.equal(startResult.lifecycle, 'start');
   assert.equal(startResult.ok, true);
+  assert.equal(startResult.started, true);
   assert.ok(visiblePlayer.miningJob);
 
   const view = buildTechniqueActivityTaskListView(visiblePlayer);
@@ -185,14 +187,17 @@ function main(): void {
   assert.equal(interruptedTask?.state, 'interrupt_wait');
   assert.equal(interruptedTask?.workRemainingTicks, beforeInterruptRemaining);
   assert.equal(interruptedTask?.interruptWaitRemainingTicks, 10);
-  const pauseTickResult = pipeline.tick(visiblePlayer, 'mining', visibleContext);
+  const pauseTickResult = pipeline.tickLifecycle(visiblePlayer, 'mining', visibleContext) as any;
+  assert.equal(pauseTickResult.lifecycle, 'tick');
   assert.equal(pauseTickResult.ok, true);
   const pauseTickTask = buildTechniqueActivityTaskListView(visiblePlayer).tasks.find((task) => task.kind === 'mining');
   assert.equal(pauseTickTask?.workRemainingTicks, beforeInterruptRemaining);
   assert.equal(pauseTickTask?.interruptWaitRemainingTicks, 9);
 
-  const cancelResult = pipeline.cancel(visiblePlayer, 'mining', visibleContext);
+  const cancelResult = pipeline.cancelLifecycle(visiblePlayer, 'mining', visibleContext);
+  assert.equal(cancelResult.lifecycle, 'cancel');
   assert.equal(cancelResult.ok, true);
+  assert.equal(cancelResult.cancelled, true);
   assert.equal(visiblePlayer.miningJob, null);
   assert.equal(buildTechniqueActivityTaskListView(visiblePlayer).tasks.some((task) => task.kind === 'mining'), false);
 
@@ -203,7 +208,8 @@ function main(): void {
   const tickContext = createContext(tickInstance, inventory, sectExpansions);
   assert.equal(pipeline.start(tickPlayer, 'mining', { targetX: 1, targetY: 0 }, tickContext).ok, true);
   const beforeExp = tickPlayer.miningSkill.exp;
-  const tickResult = pipeline.tick(tickPlayer, 'mining', tickContext);
+  const tickResult = pipeline.tickLifecycle(tickPlayer, 'mining', tickContext) as any;
+  assert.equal(tickResult.lifecycle, 'tick');
   assert.equal(tickResult.ok, true);
   assert.equal(tickResult.inventoryChanged, true);
   assert.equal(tickResult.attrChanged, true);
