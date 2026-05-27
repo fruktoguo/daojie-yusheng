@@ -708,7 +708,7 @@ export class CraftWorkbenchModal {
       }))
       : [];
     if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
-      this.patchOpenCraftShell();
+      this.patchOpenCraftQueueOnly();
     }
   }
 
@@ -1233,6 +1233,30 @@ export class CraftWorkbenchModal {
     }
   }
 
+  private patchOpenCraftQueueOnly(): void {
+    if (!detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+      return;
+    }
+    const body = document.getElementById('detail-modal-body');
+    if (!(body instanceof HTMLElement)) {
+      return;
+    }
+    if (this.useReactPanel()) {
+      const current = getReactCraftWorkbenchState();
+      const nextHeaderKey = this.buildCraftHeaderKey();
+      if (current.headerKey !== nextHeaderKey) {
+        syncReactCraftWorkbenchState({
+          headerKey: nextHeaderKey,
+          headerHtml: this.renderCraftHeader(),
+        });
+      }
+      mountReactCraftWorkbenchPanel(body);
+    }
+    if (!this.patchCraftQueuePanel(body)) {
+      this.patchOpenCraftShell();
+    }
+  }
+
   private patchCraftShellHeaderAndTabs(body: HTMLElement): void {
     const craftHeader = body.querySelector<HTMLElement>('[data-craft-workbench-header="true"]');
     const craftTabs = body.querySelector<HTMLElement>('[data-craft-workbench-tabs="true"]');
@@ -1242,7 +1266,7 @@ export class CraftWorkbenchModal {
         replaceElementHtml(craftHeader, this.renderCraftHeader());
         craftHeader.dataset.craftHeaderKey = headerKey;
       }
-      this.patchCraftQueueProgress(craftHeader);
+      this.patchCraftQueuePanel(craftHeader);
     }
     if (craftTabs) {
       const tabsKey = this.buildCraftTabsKey();
@@ -1331,8 +1355,21 @@ export class CraftWorkbenchModal {
         <div class="craft-workbench-title">${escapeHtml(this.getCraftProfessionTitle())}</div>
         <div class="craft-workbench-desc">${escapeHtml(this.getCraftProfessionDescription())}</div>
         </div>
-        <div class="craft-queue-panel">
-          <div class="craft-queue-head">
+        ${this.renderCraftQueuePanel(queue)}
+    `;
+  }
+
+  private renderCraftQueuePanel(queue = this.getCraftQueueSnapshot()): string {
+    return `
+      <div class="craft-queue-panel" data-craft-queue-key="${escapeHtml(this.buildCraftQueueStructureKey(queue))}">
+        ${this.renderCraftQueuePanelContent(queue)}
+      </div>
+    `;
+  }
+
+  private renderCraftQueuePanelContent(queue = this.getCraftQueueSnapshot()): string {
+    return `
+        <div class="craft-queue-head">
           <span>${escapeHtml(t('craft.workbench.queue.title'))}</span>
           <strong>${formatDisplayInteger(queue.length)}</strong>
         </div>
@@ -1356,7 +1393,6 @@ export class CraftWorkbenchModal {
             `).join('')
             : `<div class="craft-queue-empty">${escapeHtml(t('craft.workbench.queue.empty'))}</div>`}
         </div>
-      </div>
     `;
   }
 
@@ -1386,25 +1422,44 @@ export class CraftWorkbenchModal {
     this.queueView.patchCraftQueueProgress(root);
   }
 
+  private patchCraftQueuePanel(root: HTMLElement): boolean {
+    const queuePanel = root.querySelector<HTMLElement>('.craft-queue-panel');
+    if (!queuePanel) {
+      return false;
+    }
+    const queue = this.getCraftQueueSnapshot();
+    const queueKey = this.buildCraftQueueStructureKey(queue);
+    if (queuePanel.dataset.craftQueueKey !== queueKey) {
+      replaceElementHtml(queuePanel, this.renderCraftQueuePanelContent(queue));
+      queuePanel.dataset.craftQueueKey = queueKey;
+    }
+    this.patchCraftQueueProgress(queuePanel);
+    return true;
+  }
+
   private buildCraftHeaderKey(): string {
     return [
       this.activeMode ?? 'none',
       this.alchemySkillLevel,
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
-      this.getCraftQueueSnapshot()
-        .map((entry) => [
-          entry.queueId,
-          entry.kind,
-          entry.label,
-          entry.quantity ?? '',
-          entry.state ?? '',
-          entry.isActive ? 'active' : 'idle',
-          entry.cancelRef?.jobRunId ?? '',
-          entry.cancelRef?.queueId ?? '',
-        ].join(':'))
-        .join('|'),
+      this.buildCraftQueueStructureKey(),
     ].join('::');
+  }
+
+  private buildCraftQueueStructureKey(queue = this.getCraftQueueSnapshot()): string {
+    return queue
+      .map((entry) => [
+        entry.queueId,
+        entry.kind,
+        entry.label,
+        entry.quantity ?? '',
+        entry.state ?? '',
+        entry.isActive ? 'active' : 'idle',
+        entry.cancelRef?.jobRunId ?? '',
+        entry.cancelRef?.queueId ?? '',
+      ].join(':'))
+      .join('|');
   }
 
   private buildCraftTabsKey(): string {
