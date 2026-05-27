@@ -107,7 +107,6 @@
       font-family: var(--font-role-realm-level);
       color: var(--stamp-red);
       line-height: 1.1;
-      font-style: italic;
       opacity: 0.9;
       margin-top: 2px;
       min-width: 0;
@@ -141,9 +140,9 @@
     .hud-resource-meter {
       position: relative;
       height: 8px;
-      border: 1px solid rgba(17, 17, 17, 0.12);
+      border: 1px solid var(--wash-ink);
       border-radius: 999px;
-      background: rgba(17, 17, 17, 0.08);
+      background: var(--highlight);
       overflow: hidden;
     }
     .hud-resource-fill {
@@ -172,8 +171,8 @@
       position: relative;
       height: 8px;
       border-radius: 999px;
-      border: 1px solid rgba(17, 17, 17, 0.12);
-      background: rgba(17, 17, 17, 0.08);
+      border: 1px solid var(--wash-ink);
+      background: var(--highlight);
       margin-top: 6px;
     }
     .hud-progress-fill {

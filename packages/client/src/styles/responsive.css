@@ -290,6 +290,7 @@
     justify-self: stretch;
     align-self: stretch;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     padding-right: 2px;
     padding-bottom: 20px;

@@ -131,11 +131,9 @@
       opacity: 0.9;
       pointer-events: none;
     }
-    .layout-collapse-toggle[data-layout-axis="horizontal"] {
-      cursor: ew-resize;
-    }
+    .layout-collapse-toggle[data-layout-axis="horizontal"],
     .layout-collapse-toggle[data-layout-axis="vertical"] {
-      cursor: ns-resize;
+      cursor: pointer;
     }
     .layout-collapse-toggle:hover {
       background: var(--collapse-rail-hover-bg);

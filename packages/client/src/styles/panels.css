@@ -7,37 +7,65 @@
     /* ====== Toast ====== */
     #toast {
       position: fixed;
-      top: 24px;
+      top: 28px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: #fff;
-      padding: 10px 26px;
-      font-size: var(--font-size-15);
+      background: rgba(33, 28, 24, 0.96);
+      color: #f6eee0;
+      padding: 11px 28px;
+      font-family: var(--font-role-body);
+      font-size: var(--font-size-role-body-15);
       line-height: 1.55;
-      border-radius: 12px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
       max-width: min(88vw, 720px);
       text-align: center;
       z-index: 4500;
       pointer-events: none;
-      transition: opacity 0.3s;
+      transition: opacity 0.3s, transform 0.3s;
       opacity: 0;
+      box-shadow: 
+        0 10px 28px rgba(0, 0, 0, 0.28), 
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      letter-spacing: 1px;
     }
-    #toast.show { opacity: 1; }
-    #toast.hidden { opacity: 0; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.hidden { opacity: 0; transform: translateX(-50%) translateY(-6px); }
     #toast.toast-kind-quest {
-      background: rgba(102, 74, 35, 0.9);
+      background: rgba(133, 98, 45, 0.98);
+      border-color: rgba(214, 188, 142, 0.6);
       padding: 14px 34px;
-      font-size: var(--font-size-18);
+      font-size: var(--font-size-role-body-18);
       line-height: 1.65;
       max-width: min(92vw, 840px);
+      box-shadow: 
+        0 12px 32px rgba(0, 0, 0, 0.32), 
+        inset 0 0 0 1px rgba(255, 255, 255, 0.12);
     }
-    #toast.toast-kind-loot { background: rgba(41, 88, 54, 0.9); }
-    #toast.toast-kind-combat { background: rgba(123, 38, 38, 0.92); }
-    #toast.toast-kind-grudge { background: rgba(104, 28, 52, 0.92); }
-    #toast.toast-kind-success { background: rgba(53, 110, 56, 0.92); }
-    #toast.toast-kind-warn { background: rgba(140, 79, 18, 0.94); }
-    #toast.toast-kind-travel { background: rgba(46, 79, 128, 0.92); }
+    #toast.toast-kind-loot { 
+      background: rgba(46, 109, 70, 0.98); 
+      border-color: rgba(110, 212, 141, 0.42);
+    }
+    #toast.toast-kind-combat { 
+      background: rgba(146, 46, 46, 0.98); 
+      border-color: rgba(234, 140, 121, 0.42);
+    }
+    #toast.toast-kind-grudge { 
+      background: rgba(124, 38, 64, 0.98); 
+      border-color: rgba(183, 106, 132, 0.42);
+    }
+    #toast.toast-kind-success { 
+      background: rgba(53, 115, 78, 0.98); 
+      border-color: rgba(110, 212, 141, 0.42);
+    }
+    #toast.toast-kind-warn { 
+      background: rgba(154, 88, 35, 0.98); 
+      border-color: rgba(214, 138, 74, 0.42);
+    }
+    #toast.toast-kind-travel { 
+      background: rgba(51, 88, 124, 0.98); 
+      border-color: rgba(119, 179, 212, 0.42);
+    }
     #chat-panel {
       display: flex;
       flex-direction: column;
