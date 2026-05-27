@@ -80,6 +80,9 @@ export async function detectDatabaseBackupFormat(filePath: string, fileName = ''
     if (bytesRead === POSTGRES_DUMP_MAGIC.length && buffer.equals(POSTGRES_DUMP_MAGIC)) {
       return 'postgres_custom_dump';
     }
+    if (bytesRead >= 2 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
+      return await isGzipPostgresCustomDump(filePath) ? 'postgres_custom_dump' : 'unknown';
+    }
     return 'unknown';
   } finally {
     await handle.close().catch(() => undefined);

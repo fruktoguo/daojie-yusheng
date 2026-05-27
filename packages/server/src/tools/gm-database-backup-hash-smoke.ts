@@ -39,6 +39,10 @@ async function main(): Promise<void> {
     if (gzipFormat !== 'postgres_custom_dump') {
       throw new Error(`expected gzip PostgreSQL custom dump format, got ${gzipFormat}`);
     }
+    const gzipFormatWithoutFileName = await detectDatabaseBackupFormat(gzipFilePath);
+    if (gzipFormatWithoutFileName !== 'postgres_custom_dump') {
+      throw new Error(`expected gzip PostgreSQL custom dump format without fileName, got ${gzipFormatWithoutFileName}`);
+    }
     const expectedGzipChecksum = createHash('sha256').update(gzipBytes).digest('hex');
     const actualGzipChecksum = await computeDatabaseBackupFileSha256(gzipFilePath);
     if (actualGzipChecksum !== expectedGzipChecksum) {
