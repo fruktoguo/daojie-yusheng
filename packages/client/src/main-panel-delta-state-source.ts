@@ -578,6 +578,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       formationSkill: patch.formationSkill
         ? cloneJson(patch.formationSkill)
         : (previous?.formationSkill ? cloneJson(previous.formationSkill) : (player?.formationSkill ? cloneJson(player.formationSkill) : undefined)),
+      transmissionSkill: patch.transmissionSkill
+        ? cloneJson(patch.transmissionSkill)
+        : (previous?.transmissionSkill ? cloneJson(previous.transmissionSkill) : (player?.transmissionSkill ? cloneJson(player.transmissionSkill) : undefined)),
     };
   }  
 

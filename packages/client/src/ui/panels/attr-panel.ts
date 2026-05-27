@@ -100,7 +100,7 @@ const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
   absorbable: 2,
 };
 
-const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'forging', 'enhancement', 'building']);
+const OPENABLE_CRAFT_SKILL_KEYS = new Set(['alchemy', 'forging', 'enhancement', 'transmission', 'building']);
 
 /** formatRateBp：格式化速率Bp。 */
 function formatRateBp(value: number): string {
@@ -1670,7 +1670,8 @@ export class AttrPanel {
       | PlayerState['enhancementSkill']
       | PlayerState['forgingSkill']
       | PlayerState['buildingSkill']
-      | PlayerState['miningSkill'],
+      | PlayerState['miningSkill']
+      | PlayerState['transmissionSkill'],
   ): AttrCraftSkillSnapshot | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -1721,11 +1722,11 @@ export class AttrPanel {
       this.buildCraftSkillSnapshot('alchemy', '炼丹', alchemySkill),
       this.buildCraftSkillSnapshot('forging', '炼器', forgingSkill),
       this.buildCraftSkillSnapshot('enhancement', '强化', enhancementSkill),
+      this.buildCraftSkillSnapshot('transmission', '传法', transmissionSkill),
       this.buildCraftSkillSnapshot('formation', '阵法', formationSkill),
       this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
       this.buildCraftSkillSnapshot('mining', '挖矿', miningSkill),
       this.buildCraftSkillSnapshot('building', '营造', buildingSkill),
-      this.buildCraftSkillSnapshot('transmission', '传法', transmissionSkill),
     ].filter((entry): entry is AttrCraftSkillSnapshot => Boolean(entry));
     if (skills.length === 0) {
       return { kind: 'placeholder', message: '技艺未录' };

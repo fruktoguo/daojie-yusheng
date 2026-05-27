@@ -86,9 +86,12 @@ type CraftWorkbenchCallbacks = {
   onCancelTechniqueActivity: (cancelRef: TechniqueActivityCancelRef) => void;
   onStartEnhancement: (payload: C2S_StartEnhancement) => void;
   onCancelEnhancement: () => void;
+  onStartTransmission?: (learnerPlayerId: string, techId: string) => void;
+  onCancelTransmission?: (techId: string) => void;
+  getTransmissionTargets?: () => Array<{ playerId: string; name: string }>;
 };
 
-type CraftMode = 'alchemy' | 'forging' | 'enhancement' | null;
+type CraftMode = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | null;
 type AlchemyTab = 'full' | 'simple';
 type AlchemyRealmTab = 'mortal' | 'qi' | 'foundation';
 type EnhancementJobView = NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']>;
@@ -444,6 +447,7 @@ export class CraftWorkbenchModal {
   private static readonly ALCHEMY_CONFIRM_OWNER = 'craft-workbench-modal:alchemy-confirm';
 
   private callbacks: CraftWorkbenchCallbacks | null = null;
+  private transmissionCallbacks: Pick<CraftWorkbenchCallbacks, 'onStartTransmission' | 'onCancelTransmission' | 'getTransmissionTargets'> | null = null;
   private activeMode: CraftMode = null;
   private loading = false;
 
@@ -457,6 +461,11 @@ export class CraftWorkbenchModal {
   private forgingSkillLevel = 1;
   private gatherSkillLevel = 1;
   private enhancementSkillLevel = 1;
+  private transmissionSkillLevel = 1;
+  private transmissionSkillExp = 0;
+  private transmissionSkillExpToNext = 60;
+  private transmissionTechniques: PlayerState['techniques'] = [];
+  private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
   private playerRealmLv: number | null = null;
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
   private equipment: EquipmentSlots = { weapon: null, head: null, body: null, legs: null, accessory: null };
@@ -496,6 +505,10 @@ export class CraftWorkbenchModal {
     this.callbacks = callbacks;
   }
 
+  setTransmissionCallbacks(callbacks: Pick<CraftWorkbenchCallbacks, 'onStartTransmission' | 'onCancelTransmission' | 'getTransmissionTargets'>): void {
+    this.transmissionCallbacks = callbacks;
+  }
+
   initFromPlayer(player: PlayerState): void {
     this.inventory = player.inventory;
     this.equipment = player.equipment;
@@ -503,6 +516,11 @@ export class CraftWorkbenchModal {
     this.forgingSkillLevel = Math.max(1, Math.floor(player.forgingSkill?.level ?? 1));
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
+    this.transmissionSkillLevel = Math.max(1, Math.floor(player.transmissionSkill?.level ?? 1));
+    this.transmissionSkillExp = Math.max(0, Math.floor(player.transmissionSkill?.exp ?? 0));
+    this.transmissionSkillExpToNext = Math.max(0, Math.floor(player.transmissionSkill?.expToNext ?? 60));
+    this.transmissionTechniques = Array.isArray(player.techniques) ? player.techniques : [];
+    this.pendingTechniqueComprehensions = Array.isArray(player.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
     this.playerRealmLv = Number.isFinite(Number(player.realm?.realmLv ?? player.realmLv))
       ? Math.max(1, Math.floor(Number(player.realm?.realmLv ?? player.realmLv)))
       : null;
@@ -521,6 +539,11 @@ export class CraftWorkbenchModal {
     if (update.enhancementSkill) {
       this.enhancementSkillLevel = Math.max(1, Math.floor(update.enhancementSkill.level ?? this.enhancementSkillLevel));
     }
+    if (update.transmissionSkill) {
+      this.transmissionSkillLevel = Math.max(1, Math.floor(update.transmissionSkill.level ?? this.transmissionSkillLevel));
+      this.transmissionSkillExp = Math.max(0, Math.floor(update.transmissionSkill.exp ?? this.transmissionSkillExp));
+      this.transmissionSkillExpToNext = Math.max(0, Math.floor(update.transmissionSkill.expToNext ?? this.transmissionSkillExpToNext));
+    }
     if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
@@ -530,11 +553,16 @@ export class CraftWorkbenchModal {
     const nextRealmLv = Number.isFinite(Number(player?.realm?.realmLv ?? player?.realmLv))
       ? Math.max(1, Math.floor(Number(player?.realm?.realmLv ?? player?.realmLv)))
       : null;
-    if (this.playerRealmLv === nextRealmLv) {
-      return;
+    this.transmissionTechniques = Array.isArray(player?.techniques) ? player.techniques : [];
+    this.pendingTechniqueComprehensions = Array.isArray(player?.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
+    if (player?.transmissionSkill) {
+      this.transmissionSkillLevel = Math.max(1, Math.floor(player.transmissionSkill.level ?? this.transmissionSkillLevel));
+      this.transmissionSkillExp = Math.max(0, Math.floor(player.transmissionSkill.exp ?? this.transmissionSkillExp));
+      this.transmissionSkillExpToNext = Math.max(0, Math.floor(player.transmissionSkill.expToNext ?? this.transmissionSkillExpToNext));
     }
+    const realmChanged = this.playerRealmLv !== nextRealmLv;
     this.playerRealmLv = nextRealmLv;
-    if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+    if ((realmChanged || this.activeMode === 'transmission') && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
   }
@@ -591,6 +619,12 @@ export class CraftWorkbenchModal {
     this.lastEnhancementCandidateSourceKey = this.buildEnhancementCandidateSourceKey();
     this.render();
     this.callbacks?.onRequestEnhancement();
+  }
+
+  openTransmission(): void {
+    this.activeMode = 'transmission';
+    this.loading = false;
+    this.render();
   }
 
   updateAlchemy(data: S2C_AlchemyPanel): void {
@@ -1089,6 +1123,7 @@ export class CraftWorkbenchModal {
       this.selectedEnhancementProtectionStartLevel ?? '',
       this.enhancementHistoryExpanded ? 'history' : '',
       this.enhancementProtectionExpanded ? 'protect' : '',
+      this.activeMode === 'transmission' ? this.buildTransmissionRenderKey() : '',
     ].join(':');
   }
 
@@ -1204,7 +1239,7 @@ export class CraftWorkbenchModal {
       })) {
         return;
       }
-      this.syncReactShell(definition, false);
+      this.syncReactShell(definition, this.activeMode === 'transmission');
       mountReactCraftWorkbenchPanel(body);
       this.patchCraftShellHeaderAndTabs(body);
       if ((this.activeMode === 'alchemy' || this.activeMode === 'forging') && this.tryPatchAlchemyBody(body)) {
@@ -1230,6 +1265,13 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'enhancement') {
       this.tryPatchEnhancementBody(body);
+      return;
+    }
+    if (this.activeMode === 'transmission') {
+      const content = body.querySelector<HTMLElement>('[data-craft-workbench-content="true"]');
+      if (content) {
+        replaceElementHtml(content, this.renderTransmissionBody());
+      }
     }
   }
 
@@ -1302,6 +1344,14 @@ export class CraftWorkbenchModal {
         body: this.renderCraftBody(),
       };
     }
+    if (this.activeMode === 'transmission') {
+      return {
+        title: t('craft.workbench.modal.title'),
+        subtitle: this.getCraftSubtitle(),
+        variantClass: 'detail-modal--craft detail-modal--craft-transmission',
+        body: this.renderCraftBody(),
+      };
+    }
     return null;
   }
 
@@ -1314,6 +1364,9 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'enhancement') {
       return t('craft.workbench.modal.subtitle.enhancement', { level: formatDisplayInteger(this.enhancementSkillLevel) });
+    }
+    if (this.activeMode === 'transmission') {
+      return `传法 LV ${formatDisplayInteger(this.transmissionSkillLevel)}`;
     }
     return t('craft.workbench.modal.subtitle.default');
   }
@@ -1344,6 +1397,9 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'enhancement') {
       return this.renderEnhancementBody();
+    }
+    if (this.activeMode === 'transmission') {
+      return this.renderTransmissionBody();
     }
     return this.renderForgingPlaceholder();
   }
@@ -1443,6 +1499,7 @@ export class CraftWorkbenchModal {
       this.alchemySkillLevel,
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
+      this.transmissionSkillLevel,
       this.buildCraftQueueStructureKey(),
     ].join('::');
   }
@@ -1468,6 +1525,7 @@ export class CraftWorkbenchModal {
       this.alchemySkillLevel,
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
+      this.transmissionSkillLevel,
     ].join(':');
   }
 
@@ -1476,6 +1534,7 @@ export class CraftWorkbenchModal {
       { mode: 'alchemy', label: t('craft.workbench.mode.alchemy'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.alchemySkillLevel) }) },
       { mode: 'forging', label: t('craft.workbench.mode.forging'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.forgingSkillLevel) }) },
       { mode: 'enhancement', label: t('craft.workbench.mode.enhancement'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.enhancementSkillLevel) }) },
+      { mode: 'transmission', label: '传法', note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.transmissionSkillLevel) }) },
     ];
     return tabs.map((tab) => `
       <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}">
@@ -1483,6 +1542,128 @@ export class CraftWorkbenchModal {
         <em>${escapeHtml(tab.note)}</em>
       </button>
     `).join('');
+  }
+
+  private buildTransmissionRenderKey(): string {
+    return [
+      this.transmissionSkillLevel,
+      this.transmissionSkillExp,
+      this.transmissionSkillExpToNext,
+      this.transmissionTechniques.map((tech) => tech.techId).join(','),
+      (this.pendingTechniqueComprehensions ?? [])
+        .map((entry) => `${entry.techId}:${Math.floor(entry.progress ?? 0)}/${Math.floor(entry.requiredProgress ?? 1)}:${entry.activeTransferJob?.status ?? 'self'}`)
+        .join(','),
+      this.getTransmissionTargets().map((target) => target.playerId).join(','),
+    ].join('|');
+  }
+
+  private getTransmissionTargets(): Array<{ playerId: string; name: string }> {
+    return this.transmissionCallbacks?.getTransmissionTargets?.()
+      ?? this.callbacks?.getTransmissionTargets?.()
+      ?? [];
+  }
+
+  private renderTransmissionBody(): string {
+    const expToNext = Math.max(0, Math.floor(this.transmissionSkillExpToNext || 0));
+    const exp = Math.max(0, Math.floor(this.transmissionSkillExp || 0));
+    const progressRatio = expToNext > 0 ? Math.max(0, Math.min(1, exp / expToNext)) : 1;
+    const pending = this.pendingTechniqueComprehensions ?? [];
+    const learned = this.transmissionTechniques ?? [];
+    const targets = this.getTransmissionTargets();
+    return `
+      <div class="alchemy-tab-stack" data-transmission-panel="true">
+        <div class="alchemy-summary-card">
+          <div class="alchemy-summary-head">
+            <div class="alchemy-summary-title">传法等级</div>
+            <span class="alchemy-summary-mode">LV ${formatDisplayInteger(this.transmissionSkillLevel)}</span>
+          </div>
+          <div class="alchemy-summary-metrics">
+            <div class="alchemy-summary-metric">
+              <span class="alchemy-summary-metric-label">经验</span>
+              <strong class="alchemy-summary-metric-value">${formatDisplayInteger(exp)} / ${formatDisplayInteger(expToNext)}</strong>
+            </div>
+            <div class="alchemy-summary-metric">
+              <span class="alchemy-summary-metric-label">进度</span>
+              <strong class="alchemy-summary-metric-value">${formatDisplayPercent(progressRatio * 100, { maximumFractionDigits: 1 })}</strong>
+            </div>
+            <div class="alchemy-summary-metric">
+              <span class="alchemy-summary-metric-label">附近玩家</span>
+              <strong class="alchemy-summary-metric-value">${formatDisplayInteger(targets.length)}</strong>
+            </div>
+          </div>
+          <div class="attr-craft-exp">
+            <div class="attr-craft-exp-track" aria-hidden="true">
+              <span class="attr-craft-exp-fill" style="width:${(progressRatio * 100).toFixed(2)}%"></span>
+            </div>
+          </div>
+        </div>
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head">
+            <div class="alchemy-summary-title">未领悟功法</div>
+            <span class="alchemy-summary-mode">${formatDisplayInteger(pending.length)} 门</span>
+          </div>
+          <div class="enhancement-candidate-list">
+            ${pending.length > 0 ? pending.map((entry) => this.renderTransmissionPendingRow(entry)).join('') : '<div class="empty-hint">暂无未领悟功法</div>'}
+          </div>
+        </section>
+        <section class="alchemy-summary-card">
+          <div class="alchemy-summary-head">
+            <div class="alchemy-summary-title">传授功法</div>
+            <span class="alchemy-summary-mode">${formatDisplayInteger(learned.length)} 门可传</span>
+          </div>
+          <div class="enhancement-candidate-list">
+            ${learned.length > 0 ? learned.map((tech) => this.renderTransmissionTeachRow(tech, targets)).join('') : '<div class="empty-hint">暂无已掌握功法</div>'}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  private renderTransmissionPendingRow(entry: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): string {
+    const required = Math.max(1, Math.floor(Number(entry.requiredProgress) || 1));
+    const progress = Math.max(0, Math.floor(Number(entry.progress) || 0));
+    const ratio = Math.max(0, Math.min(1, progress / required));
+    const job = entry.activeTransferJob ?? null;
+    const status = job
+      ? (job.status === 'blocked' ? '等待传授' : '传授中')
+      : '自行领悟';
+    return `
+      <div class="enhancement-candidate-card" data-transmission-pending="${escapeHtmlAttr(entry.techId)}">
+        <div class="enhancement-candidate-main">
+          <strong>${escapeHtml(entry.name ?? entry.techId)}</strong>
+          <span>${escapeHtml(status)} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}</span>
+        </div>
+        <div class="attr-craft-exp">
+          <div class="attr-craft-exp-track" aria-hidden="true">
+            <span class="attr-craft-exp-fill" style="width:${(ratio * 100).toFixed(2)}%"></span>
+          </div>
+        </div>
+        ${job ? `<button class="small-btn danger" type="button" data-craft-action="transmission-cancel" data-tech-id="${escapeHtmlAttr(entry.techId)}">取消传法</button>` : ''}
+      </div>
+    `;
+  }
+
+  private renderTransmissionTeachRow(
+    tech: PlayerState['techniques'][number],
+    targets: Array<{ playerId: string; name: string }>,
+  ): string {
+    const targetOptions = targets.length > 0
+      ? targets.map((target) => `<option value="${escapeHtmlAttr(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
+      : '<option value="">附近无可传授玩家</option>';
+    return `
+      <div class="enhancement-candidate-card" data-transmission-tech="${escapeHtmlAttr(tech.techId)}">
+        <div class="enhancement-candidate-main">
+          <strong>${escapeHtml(tech.name ?? tech.techId)}</strong>
+          <span>${escapeHtml(getTechniqueGradeLabel(tech.grade))} · 第 ${formatDisplayInteger(tech.level ?? 1)} 层</span>
+        </div>
+        <div class="alchemy-ingredient-editor">
+          <select class="ui-input" data-transmission-target="${escapeHtmlAttr(tech.techId)}" ${targets.length === 0 ? 'disabled' : ''}>
+            ${targetOptions}
+          </select>
+          <button class="small-btn" type="button" data-craft-action="transmission-start" data-tech-id="${escapeHtmlAttr(tech.techId)}" ${targets.length === 0 ? 'disabled' : ''}>传授</button>
+        </div>
+      </div>
+    `;
   }
 
   private renderForgingPlaceholder(): string {
@@ -1513,6 +1694,9 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'enhancement') {
       return t('craft.workbench.mode.enhancement');
     }
+    if (this.activeMode === 'transmission') {
+      return '传法';
+    }
     return t('craft.workbench.mode.craft');
   }
 
@@ -1525,6 +1709,9 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'enhancement') {
       return t('craft.workbench.profession.description.enhancement');
+    }
+    if (this.activeMode === 'transmission') {
+      return `传法 LV ${formatDisplayInteger(this.transmissionSkillLevel)}，用于降低功法领悟与传授所需时间。`;
     }
     return t('craft.workbench.profession.description.default');
   }
@@ -1555,6 +1742,8 @@ export class CraftWorkbenchModal {
           this.openForging();
         } else if (mode === 'enhancement') {
           this.openEnhancement();
+        } else if (mode === 'transmission') {
+          this.openTransmission();
         }
         return;
       }
@@ -1570,6 +1759,24 @@ export class CraftWorkbenchModal {
           ...(jobRunId ? { jobRunId } : {}),
           ...(queueId ? { queueId } : {}),
         });
+        return;
+      }
+      if (action === 'transmission-start') {
+        const techId = (target.dataset.techId ?? '').trim();
+        const select = techId
+          ? body.querySelector<HTMLSelectElement>(`[data-transmission-target="${CSS.escape(techId)}"]`)
+          : null;
+        const learnerPlayerId = (select?.value ?? '').trim();
+        if (techId && learnerPlayerId) {
+          (this.transmissionCallbacks?.onStartTransmission ?? this.callbacks?.onStartTransmission)?.(learnerPlayerId, techId);
+        }
+        return;
+      }
+      if (action === 'transmission-cancel') {
+        const techId = (target.dataset.techId ?? '').trim();
+        if (techId) {
+          (this.transmissionCallbacks?.onCancelTransmission ?? this.callbacks?.onCancelTransmission)?.(techId);
+        }
         return;
       }
       if (action === 'alchemy-switch-category') {

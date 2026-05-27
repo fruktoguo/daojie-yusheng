@@ -128,6 +128,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
         forgingSkill: options.cloneJson(detail.forgingSkill ?? player.forgingSkill),
         miningSkill: options.cloneJson(detail.miningSkill ?? player.miningSkill),
         formationSkill: options.cloneJson(detail.formationSkill ?? player.formationSkill),
+        transmissionSkill: options.cloneJson(detail.transmissionSkill ?? player.transmissionSkill),
       });
       const attrUpdate: S2C_AttrUpdate = {
         ...attrUpdateBase,
@@ -147,6 +148,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
       player.forgingSkill = options.cloneJson(detail.forgingSkill ?? player.forgingSkill);
       player.miningSkill = options.cloneJson(detail.miningSkill ?? player.miningSkill);
       player.formationSkill = options.cloneJson(detail.formationSkill ?? player.formationSkill);
+      player.transmissionSkill = options.cloneJson(detail.transmissionSkill ?? player.transmissionSkill);
       options.attrPanel.update(attrUpdate);
       options.attrPanel.applyDetail(detail);
     },

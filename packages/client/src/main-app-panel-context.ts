@@ -1,12 +1,6 @@
 /** 本文件负责主面板上下文装配；维护时要区分前端显示派生、用户意图和服务端权威数据，避免把业务真源复制到 UI 层。 */
 import { getCurrentAccountName } from './ui/auth-api';
-import {
-  DEFAULT_AURA_LEVEL_BASE_VALUE,
-  type ActionDef,
-  type Inventory,
-  type S2C_TileDetail,
-  type SyncedItemStack,
-} from '@mud/shared';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE, type ActionDef, type Inventory, type S2C_TileDetail, type SyncedItemStack } from '@mud/shared';
 import { reactUiBridge } from './react-ui/bridge/react-ui-bridge';
 import { createMainActionStateSource } from './main-action-state-source';
 import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
@@ -30,6 +24,7 @@ import { createMainWorldSummaryStateSource } from './main-world-summary-state-so
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
 import { getCraftOpenActionId } from './constants/ui/action';
 import { openWorldMigrationModal } from './ui/world-migration-modal';
+import { resolveNearbyTransmissionTargets } from './main-transmission-targets';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
 import type { ToastKind } from './main-app-assembly-types';
@@ -136,17 +131,16 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     getInfoRadius: callbacks.getInfoRadius,
     getCurrentActionDef: callbacks.getCurrentActionDef,
   });
+  const getNearbyTransmissionTargets = () => resolveNearbyTransmissionTargets(rootRuntimeSource.getPlayer(), rootRuntimeSource.getLatestEntities());
   const techniqueStateSource = createMainTechniqueStateSource({
     techniquePanel,
     socket: runtimeSender,
-    getTransmissionTargets: () => {
-      const player = rootRuntimeSource.getPlayer();
-      if (!player) return [];
-      return rootRuntimeSource.getLatestEntities()
-        .filter((entity) => entity.kind === 'player' && entity.id !== player.id)
-        .filter((entity) => Math.max(Math.abs(Math.floor(entity.wx) - Math.floor(player.x)), Math.abs(Math.floor(entity.wy) - Math.floor(player.y))) <= 2)
-        .map((entity) => ({ playerId: entity.id, name: entity.name ?? entity.id }));
-    },
+    getTransmissionTargets: () => getNearbyTransmissionTargets(),
+  });
+  craftWorkbenchModal.setTransmissionCallbacks({
+    getTransmissionTargets: () => getNearbyTransmissionTargets(),
+    onStartTransmission: (learnerPlayerId, techId) => runtimeSender.sendStartTechniqueTransmission(learnerPlayerId, techId),
+    onCancelTransmission: (techId) => runtimeSender.sendCancelTechniqueTransmission(techId),
   });
   const attrDetailStateSource = createMainAttrDetailStateSource({
     attrPanel,
@@ -156,9 +150,11 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     setLatestAttrUpdate: (value) => panelDeltaStateSource.setLatestAttrUpdate(value),
     mergeAttrUpdatePatch: (current, data) => panelDeltaStateSource.mergeAttrUpdatePatch(current, data),
     cloneJson: (value) => detailHydrationSource.cloneJson(value),
-    onOpenCraftSkill: (key) => key === 'building'
-      ? buildingFengShuiStateSource.openBuildingPanel()
-      : techniqueActivityOpeners[key as keyof typeof techniqueActivityOpeners]?.(),
+    onOpenCraftSkill: (key) => {
+      if (key === 'building') { buildingFengShuiStateSource.openBuildingPanel(); return; }
+      if (key === 'transmission') { craftWorkbenchModal.openTransmission(); return; }
+      techniqueActivityOpeners[key as keyof typeof techniqueActivityOpeners]?.();
+    },
     onBindCraftSkill: (key) => { const actionId = getCraftOpenActionId(key); if (actionId) actionPanel.toggleShortcutBinding(actionId); },
     getCraftSkillBindLabel: (key) => { const actionId = getCraftOpenActionId(key); return actionId ? actionPanel.getShortcutBindLabel(actionId) : '绑定键'; },
   });
