@@ -105,6 +105,22 @@ async function main(): Promise<void> {
   player.facing = 1;
   player.lifeElapsedTicks = 100;
   player.attrs.numericStats.moveSpeed = 18;
+  player.alchemyJob = {
+    jobRunId: 'job:transfer:alchemy',
+    jobType: 'alchemy',
+    phase: 'brewing',
+    totalTicks: 20,
+    remainingTicks: 12,
+    workTotalTicks: 20,
+    workRemainingTicks: 12,
+    pausedTicks: 0,
+    interruptWaitRemainingTicks: 0,
+    interruptState: null,
+    successRate: 1,
+    spiritStoneCost: 0,
+    startedAt: 1,
+    outputItemId: 'pill.transfer',
+  } as never;
   const skillId = 'skill.transfer.cooldown';
   player.techniques.techniques = [
     {
@@ -137,6 +153,12 @@ async function main(): Promise<void> {
   assert.equal(beforeDirtyDomains.has('position_checkpoint'), false);
   const beforePersistentRevision = player.persistentRevision;
   const beforeSelfRevision = player.selfRevision;
+  const beforeCraftProgress = {
+    totalTicks: player.alchemyJob.totalTicks,
+    remainingTicks: player.alchemyJob.remainingTicks,
+    workTotalTicks: player.alchemyJob.workTotalTicks,
+    workRemainingTicks: player.alchemyJob.workRemainingTicks,
+  };
 
   const logs: Array<[string, ...unknown[]]> = [];
   const playerLocations = new Map<string, { instanceId: string; sessionId: string }>();
@@ -197,6 +219,23 @@ async function main(): Promise<void> {
         };
       },
       playerRuntimeService: runtime,
+      worldRuntimeCraftInterruptService: {
+        interruptCraftForReason(id: string, activePlayer: typeof player, reason: string) {
+          logs.push(['interruptCraftForReason', id, reason]);
+          assert.equal(id, playerId);
+          assert.equal(activePlayer, player);
+          assert.equal(reason, 'move');
+          activePlayer.alchemyJob.phase = 'paused';
+          activePlayer.alchemyJob.pausedTicks = 10;
+          activePlayer.alchemyJob.interruptWaitRemainingTicks = 10;
+          activePlayer.alchemyJob.interruptState = {
+            reason: 'move',
+            waitTotalTicks: 10,
+            waitRemainingTicks: 10,
+            startedAtTick: 100,
+          };
+        },
+      },
       worldRuntimeNavigationService: {
         handleTransfer(entry: { reason: string }) {
           logs.push(['handleTransfer', entry.reason]);
@@ -215,6 +254,14 @@ async function main(): Promise<void> {
   assert.equal(updatedPlayer?.lifeElapsedTicks, 100, '传送不能重置或平移玩家自己的 tick');
   assert.equal(updatedPlayer?.combat.cooldownReadyTickBySkillId[skillId], 130);
   assert.equal(updatedPlayer?.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 30);
+  assert.deepEqual({
+    totalTicks: updatedPlayer?.alchemyJob?.totalTicks,
+    remainingTicks: updatedPlayer?.alchemyJob?.remainingTicks,
+    workTotalTicks: updatedPlayer?.alchemyJob?.workTotalTicks,
+    workRemainingTicks: updatedPlayer?.alchemyJob?.workRemainingTicks,
+  }, beforeCraftProgress);
+  assert.equal(updatedPlayer?.alchemyJob?.interruptWaitRemainingTicks, 10);
+  assert.equal(updatedPlayer?.alchemyJob?.interruptState?.reason, 'move');
   assert.ok((updatedPlayer?.persistentRevision ?? 0) > beforePersistentRevision);
   assert.ok((updatedPlayer?.selfRevision ?? 0) > beforeSelfRevision);
 
@@ -226,6 +273,7 @@ async function main(): Promise<void> {
     sessionId,
   });
   assert.deepEqual(logs, [
+    ['interruptCraftForReason', playerId, 'move'],
     ['getOrCreateDefaultLineInstance', 'transfer_target_map'],
     ['disconnectPlayer', playerId],
     ['connectPlayer', {
@@ -253,7 +301,7 @@ async function main(): Promise<void> {
         },
         dirtyDomains: Array.from(dirtyDomains).sort(),
         answers:
-          'WorldRuntimeTransferService.applyTransfer 现已直接证明会通过真实 PlayerRuntimeService.syncFromWorldView 更新玩家落点，玩家 tick 与技能冷却不会随源/目标地图 tick 差异被平移，并把 world_anchor 与 position_checkpoint 一起打进 dirty domains',
+          'WorldRuntimeTransferService.applyTransfer 现已直接证明会在跨实例前触发统一技艺中断，且不修改技艺实际工作进度；同时会通过真实 PlayerRuntimeService.syncFromWorldView 更新玩家落点，玩家 tick 与技能冷却不会随源/目标地图 tick 差异被平移，并把 world_anchor 与 position_checkpoint 一起打进 dirty domains',
         excludes:
           '不证明 player_position_checkpoint/player_world_anchor 的跨节点协议消息格式已完全固化，也不证明真实多节点 socket redirect、route handoff 或数据库写回时序',
         completionMapping: 'release:proof:world-runtime-transfer.placement-dirty-domains',

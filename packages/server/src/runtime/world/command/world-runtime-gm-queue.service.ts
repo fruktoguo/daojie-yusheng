@@ -218,6 +218,12 @@ export class WorldRuntimeGmQueueService {
         const resolvedTargetInstance = targetInstance ?? deps.getOrCreatePublicInstance(nextMapId);
         const previous = deps.getPlayerLocation(playerId);
         const sessionId = previous?.sessionId ?? player.sessionId ?? `session:${playerId}`;
+        const relocatesPlayer = !previous
+            || previous.instanceId !== resolvedTargetInstance.meta.instanceId
+            || (command.x !== undefined && command.y !== undefined);
+        if (relocatesPlayer && typeof deps.worldRuntimeCraftInterruptService?.interruptCraftForReason === 'function') {
+            deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);
+        }
         if (!previous) {
             deps.playerRuntimeService.ensurePlayer(playerId, sessionId);
             const runtimePlayer = resolvedTargetInstance.connectPlayer({ playerId, sessionId, preferredX: command.x, preferredY: command.y });

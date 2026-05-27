@@ -47,6 +47,9 @@ export class WorldRuntimeTransferService {
         if (typeof deps.worldRuntimePlayerSkillDispatchService?.cancelPendingPlayerSkillCastForInstanceTransfer === 'function') {
             deps.worldRuntimePlayerSkillDispatchService.cancelPendingPlayerSkillCastForInstanceTransfer(transfer.playerId, deps);
         }
+        if (runtimePlayer && typeof deps.worldRuntimeCraftInterruptService?.interruptCraftForReason === 'function') {
+            deps.worldRuntimeCraftInterruptService.interruptCraftForReason(transfer.playerId, runtimePlayer, 'move', deps);
+        }
         const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
         let target = null;
         const targetInstanceId = typeof transfer.targetInstanceId === 'string' && transfer.targetInstanceId.trim()
