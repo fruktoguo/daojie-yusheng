@@ -3,9 +3,9 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg } from '@mud/shared';
+import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg, type StructuredNoticePayload } from '@mud/shared';
 import { ChatUI } from './ui/chat';
-import { t } from './ui/i18n';
+import { hasI18nKey, t, tLoose } from './ui/i18n';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -132,7 +132,8 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       if (data.kind === 'grudge') {
-        void options.chatUI.addMessage(rawText, data.from ?? t('notice.channel.grudge', undefined), data.kind, {
+        const text = resolveClientNoticeText(rawText, data.structured, (data as any).structuredGroup);
+        void options.chatUI.addMessage(text, data.from ?? t('notice.channel.grudge', undefined), data.kind, {
           id: data.id,
           at: data.occurredAt,
         }).then((stored) => {
@@ -140,7 +141,7 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
             options.ackSystemMessages([data.id]);
           }
         });
-        options.showToast(rawText, data.kind);
+        options.showToast(text, data.kind);
         return;
       }
       if (data.kind === 'quest' || data.kind === 'combat' || data.kind === 'loot') {
@@ -152,12 +153,13 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
               : t('notice.channel.loot', undefined)
         );
         const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
-        void options.chatUI.addMessage(rawText, label, data.kind, data.structured || structuredGroup ? {
+        const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
+        void options.chatUI.addMessage(text, label, data.kind, data.structured || structuredGroup ? {
           ...(data.structured ? { structured: data.structured } : undefined),
           ...(structuredGroup ? { structuredGroup } : undefined),
         } : undefined);
         if (data.kind === 'quest' || data.kind === 'loot') {
-          options.showToast(rawText, data.kind);
+          options.showToast(text, data.kind);
         }
         return;
       }
@@ -169,8 +171,8 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
               ? t('notice.channel.warn', undefined)
               : t('notice.channel.travel', undefined)
         );
-        const text = rewriteClientNoticeText(rawText);
         const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+        const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
         void options.chatUI.addMessage(text, label, data.kind, data.structured || structuredGroup ? {
           ...(data.structured ? { structured: data.structured } : undefined),
           ...(structuredGroup ? { structuredGroup } : undefined),
@@ -179,8 +181,8 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
-      const text = rewriteClientNoticeText(rawText);
       const structuredGroup = (data as any).structuredGroup as unknown[] | undefined;
+      const text = resolveClientNoticeText(rawText, data.structured, structuredGroup);
       void options.chatUI.addMessage(text, data.from ?? t('notice.channel.system', undefined), fallbackKind, data.structured || structuredGroup ? {
         ...(data.structured ? { structured: data.structured } : undefined),
         ...(structuredGroup ? { structuredGroup } : undefined),
@@ -215,6 +217,28 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
       }
     },
   };
+}
+
+function resolveClientNoticeText(rawText: string, structured?: unknown, structuredGroup?: unknown[]): string {
+  const normalizedText = rewriteClientNoticeText(rawText);
+  const payload = normalizeStructuredNotice(structured) ?? normalizeStructuredNotice(structuredGroup?.[0]);
+  if (payload && hasI18nKey(payload.key)) {
+    return tLoose(payload.key, payload.vars);
+  }
+  if (hasI18nKey(normalizedText)) {
+    return tLoose(normalizedText);
+  }
+  return normalizedText;
+}
+
+function normalizeStructuredNotice(value: unknown): StructuredNoticePayload | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const payload = value as Partial<StructuredNoticePayload>;
+  return typeof payload.key === 'string' && payload.key.trim().length > 0
+    ? payload as StructuredNoticePayload
+    : null;
 }
 
 function rewriteClientNoticeText(rawText: string): string {
