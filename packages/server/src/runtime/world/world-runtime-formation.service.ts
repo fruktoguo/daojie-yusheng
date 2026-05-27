@@ -142,7 +142,7 @@ class WorldRuntimeFormationService {
         };
         this.getFormationList(instance.meta.instanceId).push(formation);
         touchInstanceRevision(instance);
-        this.persistInstanceFormationsSoon(instance.meta.instanceId);
+        this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
             playerId,
             'success',
@@ -262,7 +262,7 @@ class WorldRuntimeFormationService {
             && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistInstanceFormationsSoon(formation.instanceId);
+        this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
             playerId,
             'info',
@@ -306,7 +306,7 @@ class WorldRuntimeFormationService {
         }
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistInstanceFormationsSoon(formation.instanceId);
+        this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
             playerId,
             'success',
@@ -402,7 +402,7 @@ class WorldRuntimeFormationService {
             && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistInstanceFormationsSoon(formation.instanceId);
+        this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
             playerId,
             'info',
@@ -442,7 +442,7 @@ class WorldRuntimeFormationService {
         }
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
-        this.persistInstanceFormationsSoon(formation.instanceId);
+        this.persistFormationSnapshotSoon(formation);
         this.enqueueFormationNotice(
             playerId,
             'success',
@@ -476,6 +476,7 @@ class WorldRuntimeFormationService {
                 formations.splice(index, 1);
                 touchInstanceRevision(instance);
                 persistenceDirty = true;
+                this.persistFormationRemovalSoon(formation);
                 this.enqueueFormationNotice(
                     formation.ownerPlayerId,
                     'warning',
@@ -794,7 +795,7 @@ class WorldRuntimeFormationService {
         if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
             touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
         }
-        this.persistInstanceFormationsSoon(formation.instanceId);
+        this.persistFormationSnapshotSoon(formation);
         return {
             formation,
             appliedDamage,
@@ -1089,6 +1090,12 @@ class WorldRuntimeFormationService {
         });
     }
 
+    persistFormationRemovalSoon(formation) {
+        void this.deleteFormationSnapshot(formation).catch((error) => {
+            this.logger.warn(`阵法删除持久化失败：${formation?.instanceId ?? ''} ${error instanceof Error ? error.message : String(error)}`);
+        });
+    }
+
     /**
      * releaseInstance：实例销毁/fencing 卸载收口，清理内存中按 instanceId 索引的阵法状态。
      * 防止 destroyManagedInstance / fenceInstanceRuntime 卸载实例时遗留 formationsByInstanceId 与
@@ -1143,6 +1150,26 @@ class WorldRuntimeFormationService {
         } finally {
             client.release();
         }
+    }
+
+    async deleteFormationSnapshot(formation) {
+        if (!formation) {
+            return;
+        }
+        const pool = await this.ensurePersistencePool();
+        if (!pool) {
+            return;
+        }
+        await ensureInstanceFormationStateTable(pool);
+        const normalizedInstanceId = normalizeInstanceId(formation.instanceId);
+        const formationInstanceId = normalizeOptionalString(formation.id);
+        if (!normalizedInstanceId || !formationInstanceId) {
+            return;
+        }
+        await pool.query(
+            `DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE} WHERE instance_id = $1 AND formation_instance_id = $2`,
+            [normalizedInstanceId, formationInstanceId],
+        );
     }
 
     async saveInstanceFormations(instanceId) {
@@ -1283,9 +1310,6 @@ class WorldRuntimeFormationService {
         if (this.persistenceReady && this.persistencePool) {
             const instanceIds = Array.from(this.formationsByInstanceId.keys());
             for (const instanceId of instanceIds) {
-                if (!this.restoredFormationInstanceIds.has(normalizeInstanceId(instanceId))) {
-                    continue;
-                }
                 await this.saveInstanceFormations(instanceId).catch((error) => {
                     this.logger.warn(`关闭前阵法刷盘失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
                 });

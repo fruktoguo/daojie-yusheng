@@ -89,6 +89,17 @@ export class WorldRuntimeLifecycleService {
             if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
                 await deps.worldRuntimeSectService.restoreSects(deps);
             }
+            for (const [instanceId, instance] of deps.listInstanceEntries()) {
+                if (!instance.meta.persistent) {
+                    continue;
+                }
+                if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
+                    const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+                    if (restoredFormations > 0) {
+                        deps.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
+                    }
+                }
+            }
             return;
         }
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {

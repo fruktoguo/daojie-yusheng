@@ -27,6 +27,7 @@ const instanceId = "real:formation_smoke";
 
 async function main() {
   await testFormationDeferredPersistenceDoesNotLazyInitialize();
+  await testFormationShutdownFlushesUnrestoredRuntimeInstances();
   const notices = [];
   const player = {
     playerId,
@@ -896,6 +897,25 @@ async function testFormationDeferredPersistenceDoesNotLazyInitialize() {
   scheduled?.();
   await new Promise((resolve) => originalSetTimeout(resolve, 0));
   assert.equal(ensureCalls, 0);
+}
+
+async function testFormationShutdownFlushesUnrestoredRuntimeInstances() {
+  const service = new WorldRuntimeFormationService(
+    { getFormationTemplate: () => null },
+    {},
+  );
+  const instanceId = "inst:formation:shutdown-unrestored";
+  service.formationsByInstanceId.set(instanceId, []);
+  service.persistenceReady = true;
+  service.persistencePool = {};
+  const savedInstanceIds = [];
+  service.saveInstanceFormations = async (targetInstanceId) => {
+    savedInstanceIds.push(targetInstanceId);
+  };
+  await service.closePersistencePool();
+  assert.deepEqual(savedInstanceIds, [instanceId]);
+  assert.equal(service.persistenceReady, false);
+  assert.equal(service.persistencePool, null);
 }
 
 async function runFormationPersistenceSmoke(playerRuntimeService) {
