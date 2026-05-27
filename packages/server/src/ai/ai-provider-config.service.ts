@@ -3,7 +3,7 @@
  *
  * 维护时要保护密钥不出现在普通响应中，并让外部模型调用保持可配置、可禁用、可超时。
  */
-import { Inject, Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { NativeGmSecretStoreService } from '../http/native/native-gm-secret-store.service';
 import {
@@ -25,6 +25,8 @@ export type AiProviderConfigView = Omit<AiProviderConfigRecord, 'secretKeyRef'> 
 
 @Injectable()
 export class AiProviderConfigService {
+  private readonly logger = new Logger(AiProviderConfigService.name);
+
   constructor(
     @Inject(AiProviderConfigPersistenceService)
     private readonly persistence: AiProviderConfigPersistenceService,
@@ -94,7 +96,14 @@ export class AiProviderConfigService {
 
   private async readApiKey(record: AiProviderConfigRecord): Promise<string> {
     if (!record.secretKeyRef || !this.secretStore?.isAvailable()) return '';
-    return await this.secretStore.readSecret(record.secretKeyRef) ?? '';
+    try {
+      return await this.secretStore.readSecret(record.secretKeyRef) ?? '';
+    } catch (error) {
+      this.logger.warn(
+        `AI provider ${record.scope}/${record.kind} 的 API Key 读取失败，已按未配置处理：${error instanceof Error ? error.message : String(error)}`,
+      );
+      return '';
+    }
   }
 }
 

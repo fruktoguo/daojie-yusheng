@@ -156,8 +156,18 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 供其他服务运行时读取密钥明文。 */
   async readSecret(key: string): Promise<string | null> {
-    const record = await this.get(key);
-    return record?.value ?? null;
+    this.assertAvailable();
+    const result = await this.pool!.query(
+      `SELECT encrypted_value FROM ${SECRET_TABLE} WHERE secret_key = $1`,
+      [key],
+    );
+    if (result.rowCount === 0) return null;
+    try {
+      return this.decrypt(result.rows[0]?.encrypted_value);
+    } catch (error) {
+      this.logger.warn(`密钥 ${key} 解密失败，已按未配置处理：${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
   }
 
   private encrypt(plaintext: string): string {

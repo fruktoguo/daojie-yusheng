@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 
+import { AiProviderConfigService } from '../ai/ai-provider-config.service';
 import {
   __aiImageClientInternals,
   buildDashScopeImageGenerationPayload,
@@ -59,7 +60,7 @@ const restoreEnv = (): void => {
   }
 };
 
-const run = (): void => {
+const run = async (): Promise<void> => {
   captureEnv();
   try {
     assert.equal(normalizeOpenAIBaseUrl('https://api.openai.com/v1/chat/completions'), 'https://api.openai.com/v1');
@@ -148,10 +149,49 @@ const run = (): void => {
     );
     assert.equal(openAiImagePayload.model, 'gpt-image-1.5');
     assert.equal(openAiImagePayload.prompt, 'prompt');
+
+    await runAiProviderSecretFailureSmoke();
   } finally {
     restoreEnv();
   }
 };
 
-run();
-console.log('[ai-provider-config-smoke] ok');
+async function runAiProviderSecretFailureSmoke(): Promise<void> {
+  const persistence = {
+    async get(scope: string, kind: 'text' | 'image') {
+      return {
+        scope,
+        kind,
+        provider: 'openai-compatible',
+        enabled: true,
+        baseURL: 'https://compat.example.com/v1',
+        modelName: 'compat-model',
+        models: [{ name: 'compat-model', enabled: true, source: 'manual' }],
+        secretKeyRef: 'broken_key',
+        timeoutMs: 30_000,
+        imageSize: '',
+        imageQuality: '',
+        updatedAt: new Date(0).toISOString(),
+        updatedBy: 'smoke',
+      };
+    },
+    async list() { return []; },
+    async upsert() { return null; },
+    async delete() { return false; },
+  };
+  const secretStore = {
+    isAvailable: () => true,
+    async readSecret() {
+      throw new Error('Unsupported state or unable to authenticate data');
+    },
+  };
+  const service = new AiProviderConfigService(persistence as never, secretStore as never);
+  assert.equal(await service.getTextModelConfig('technique'), null);
+}
+
+void run().then(() => {
+  console.log('[ai-provider-config-smoke] ok');
+}).catch((error: unknown) => {
+  console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  process.exitCode = 1;
+});
