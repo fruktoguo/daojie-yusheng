@@ -175,6 +175,67 @@ function testPortalBranch() {
     ]);
 }
 
+function testMiningJobMoveDoesNotInterruptCraft() {
+    const log = [];
+    const service = new WorldRuntimeMovementService();
+    const deps = buildDeps(log);
+    deps.playerRuntimeService.getPlayer = (playerId) => {
+        if (playerId !== 'player:1') return null;
+        return {
+            hp: 10,
+            attrs: { numericStats: { moveSpeed: 12 } },
+            miningJob: {
+                jobRunId: 'mining:job:1',
+                targetX: 8,
+                targetY: 1,
+            },
+        };
+    };
+    service.dispatchInstanceCommand('player:1', {
+        kind: 'move',
+        direction: 2,
+        continuous: true,
+        maxSteps: 3,
+        path: [{ x: 2, y: 1 }, { x: 3, y: 1 }],
+        miningJobRunId: 'mining:job:1',
+        miningTargetRef: 'tile:8:1',
+    }, deps);
+    assert.deepEqual(log, [
+        ['setPlayerMoveSpeed', 'player:1', 12],
+        ['recordActivity', 'player:1', 33, { interruptCultivation: true }],
+        ['enqueueMove', {
+            playerId: 'player:1',
+            direction: 2,
+            continuous: true,
+            maxSteps: 3,
+            path: [{ x: 2, y: 1 }, { x: 3, y: 1 }],
+            resetBudget: false,
+        }],
+    ]);
+}
+
+function testStaleMiningJobMoveIsIgnored() {
+    const log = [];
+    const service = new WorldRuntimeMovementService();
+    const deps = buildDeps(log);
+    deps.playerRuntimeService.getPlayer = (playerId) => {
+        if (playerId !== 'player:1') return null;
+        return {
+            hp: 10,
+            attrs: { numericStats: { moveSpeed: 12 } },
+            miningJob: null,
+        };
+    };
+    service.dispatchInstanceCommand('player:1', {
+        kind: 'move',
+        direction: 2,
+        continuous: true,
+        miningJobRunId: 'mining:job:old',
+        miningTargetRef: 'tile:8:1',
+    }, deps);
+    assert.deepEqual(log, []);
+}
+
 function testManualNavigationMoveKeepsBudget() {
     const log = [];
     const service = new WorldRuntimeNavigationService(null, {
@@ -353,6 +414,8 @@ function testCrossMapPointNavigationSurvivesTransfer() {
 
 testMoveBranch();
 testPortalBranch();
+testMiningJobMoveDoesNotInterruptCraft();
+testStaleMiningJobMoveIsIgnored();
 testManualNavigationMoveKeepsBudget();
 testHighCostTileAccumulatesMoveBudget();
 testCrossMapPointNavigationSurvivesTransfer();

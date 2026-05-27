@@ -1976,6 +1976,114 @@ function testLockedFormationContinuesBasicAttack(): void {
   });
 }
 
+function testLockedMiningTileOutsideViewRangeMovesBack(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 2,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: { actions: [] },
+    combat: {
+      autoBattle: true,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      combatTargetId: 'tile:8:1',
+      combatTargetLocked: true,
+      manualEngagePending: false,
+    },
+    miningJob: {
+      jobRunId: 'mining:job:outside-view',
+      targetX: 8,
+      targetY: 1,
+    },
+  };
+  const playerRuntimeService = createPlayerRuntimeService(player);
+  const service = new WorldRuntimeAutoCombatService(playerRuntimeService as never);
+  const command = service.buildAutoCombatCommand({
+    template: {
+      width: 12,
+      height: 4,
+    },
+    meta: {
+      instanceId: 'public:test_map',
+      canDamageTile: true,
+    },
+    isPointInSafeZone() {
+      return false;
+    },
+    buildPlayerView() {
+      return {
+        playerId: 'player:1',
+        self: { x: 1, y: 1 },
+        instance: { width: 12, height: 4 },
+        visiblePlayers: [],
+        localMonsters: [],
+        localNpcs: [],
+        localPortals: [],
+        localGroundPiles: [],
+      };
+    },
+    getMonster() {
+      return null;
+    },
+    getTileCombatState(x: number, y: number) {
+      assert.equal(x, 8);
+      assert.equal(y, 1);
+      return {
+        tileType: 'black_iron_ore',
+        hp: 10,
+        maxHp: 10,
+        destroyed: false,
+      };
+    },
+    isInBounds(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 12 && y < 4;
+    },
+    toTileIndex(x: number, y: number) {
+      return y * 12 + x;
+    },
+    isWalkable(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 12 && y < 4 && !(x === 8 && y === 1);
+    },
+    forEachPathingBlocker(_playerId: string, _callback: (x: number, y: number) => void) {},
+    getTileTraversalCost(x: number, y: number) {
+      return x === 8 && y === 1 ? Number.POSITIVE_INFINITY : 1;
+    },
+  } as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 31;
+    },
+    queuePlayerNotice() {},
+  } as never);
+
+  assert.deepEqual(command, {
+    kind: 'move',
+    direction: 2,
+    continuous: true,
+    maxSteps: 6,
+    path: [
+      { x: 2, y: 1 },
+      { x: 3, y: 1 },
+      { x: 4, y: 1 },
+      { x: 5, y: 1 },
+      { x: 6, y: 1 },
+      { x: 7, y: 1 },
+    ],
+    autoCombat: true,
+    miningJobRunId: 'mining:job:outside-view',
+    miningTargetRef: 'tile:8:1',
+  });
+  assert.deepEqual(playerRuntimeService.log, []);
+}
+
 testAutoCombatDoesNotEnqueueSpentActionCommand();
 testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown();
 testOutOfRangeSkillMovesToSkillMaxRangeImmediately();
@@ -1997,6 +2105,7 @@ testNonPvpInstanceSkipsAndClearsPlayerAutoTarget();
 testRetaliatePlayerDoesNotPreemptLockedPlayerTarget();
 testLockedDepletedHerbTileClearsTarget();
 testLockedFormationContinuesBasicAttack();
+testLockedMiningTileOutsideViewRangeMovesBack();
 testAutoUsePillTriggersBeforeAutoCombatCommandMaterialization();
 testAutoUsePillSkipsEmptyConditions();
 testAutoUsePillSkipsWhenManualCommandIsPending();

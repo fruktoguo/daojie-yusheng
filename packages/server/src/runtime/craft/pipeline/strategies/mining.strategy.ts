@@ -331,6 +331,21 @@ function isMiningCombatBusy(player: unknown): boolean {
   return isEntityCombatTargetRef(combat?.combatTargetId);
 }
 
+function isMiningCombatAlreadyLocked(player: unknown, job: PlayerMiningJob): boolean {
+  const combat = (player as {
+    combat?: {
+      autoBattle?: unknown;
+      combatTargetId?: unknown;
+      combatTargetLocked?: unknown;
+    };
+  } | null | undefined)?.combat;
+  if (combat?.autoBattle !== true || combat?.combatTargetLocked !== true) {
+    return false;
+  }
+  const combatTargetId = typeof combat.combatTargetId === 'string' ? combat.combatTargetId.trim() : '';
+  return combatTargetId === resolveMiningTargetRef(job);
+}
+
 function enqueueMiningAttackCommand(player: unknown, job: PlayerMiningJob, deps: MiningDepsPort | null): boolean {
   const playerId = resolvePlayerId(player);
   if (!playerId || typeof deps?.enqueuePendingCommand !== 'function') {
@@ -340,6 +355,9 @@ function enqueueMiningAttackCommand(player: unknown, job: PlayerMiningJob, deps:
     return false;
   }
   if (isMiningCombatBusy(player)) {
+    return false;
+  }
+  if (isMiningCombatAlreadyLocked(player, job)) {
     return false;
   }
   deps.enqueuePendingCommand(playerId, {

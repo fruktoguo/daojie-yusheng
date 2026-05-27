@@ -102,6 +102,12 @@ function resolveMiningJobTargetRef(player) {
     return `tile:${Math.trunc(Number(job.targetX))}:${Math.trunc(Number(job.targetY))}`;
 }
 
+function isMiningJobTargetRef(player, targetRef) {
+    const miningTargetRef = resolveMiningJobTargetRef(player);
+    const normalizedTargetRef = typeof targetRef === 'string' ? targetRef.trim() : '';
+    return Boolean(miningTargetRef) && normalizedTargetRef === miningTargetRef;
+}
+
 function resolveMiningJobCommandMarker(player, target) {
     const jobRunId = typeof player?.miningJob?.jobRunId === 'string'
         ? player.miningJob.jobRunId.trim()
@@ -115,7 +121,7 @@ function resolveMiningJobCommandMarker(player, target) {
 }
 
 function attachMiningJobCommandMarker(command, player, target) {
-    if (!command || !isAutoCombatActionCommand(command)) {
+    if (!command) {
         return command;
     }
     const marker = resolveMiningJobCommandMarker(player, target);
@@ -594,14 +600,14 @@ export class WorldRuntimeAutoCombatService {
                     return null;
                 }
                 const losMaxSteps = resolveInitialRunLength(losPathResult.points, player.x, player.y, losDirection);
-                return {
+                return attachMiningJobCommandMarker({
                     kind: 'move',
                     direction: losDirection,
                     continuous: true,
                     maxSteps: losMaxSteps,
                     path: losPathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
                     autoCombat: true,
-                };
+                }, player, target);
             }
             if (target.targetMonsterId) {
                 return attachMiningJobCommandMarker({
@@ -643,14 +649,14 @@ export class WorldRuntimeAutoCombatService {
             return null;
         }
         const maxSteps = resolveInitialRunLength(pathResult.points, player.x, player.y, direction);
-        return {
+        return attachMiningJobCommandMarker({
             kind: 'move',
             direction,
             continuous: true,
             maxSteps,
             path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })),
             autoCombat: true,
-        };
+        }, player, target);
     }
     /**
  * handleUnreachableAutoCombatTarget：当前目标不可达时降权并立即重选。
@@ -983,7 +989,9 @@ export class WorldRuntimeAutoCombatService {
         if (!targetRuntimeId) {
             return null;
         }
-        const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+        const radius = isMiningJobTargetRef(player, targetRuntimeId)
+            ? undefined
+            : Math.max(1, Math.round(player.attrs.numericStats.viewRange));
         const trackedTarget = resolveAttackableTargetRef(
             instance,
             this.playerRuntimeService,

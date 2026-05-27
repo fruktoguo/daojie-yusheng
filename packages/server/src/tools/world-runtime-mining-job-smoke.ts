@@ -262,6 +262,22 @@ function main(): void {
   assert.deepEqual(retaliatingPendingCommands, []);
   assert.equal(retaliatingInstance.damageCalls, 0);
 
+  const lockedPlayer = {
+    ...createPlayer(),
+    combat: {
+      autoBattle: true,
+      combatTargetId: 'tile:1:0',
+      combatTargetLocked: true,
+    },
+  } as SmokePlayer & { combat: { autoBattle: boolean; combatTargetId: string; combatTargetLocked: boolean } };
+  const lockedInstance = new SmokeMiningInstance(3);
+  const lockedPendingCommands: unknown[] = [];
+  const lockedContext = createContext(lockedInstance, [], [], lockedPendingCommands);
+  assert.equal(pipeline.start(lockedPlayer, 'mining', { targetX: 1, targetY: 0 }, lockedContext).ok, true);
+  const lockedTickResult = pipeline.tickLifecycle(lockedPlayer, 'mining', lockedContext) as any;
+  assert.equal(lockedTickResult.ok, true);
+  assert.deepEqual(lockedPendingCommands, []);
+
   const farPlayer = createPlayer();
   farPlayer.x = 9;
   farPlayer.y = 9;

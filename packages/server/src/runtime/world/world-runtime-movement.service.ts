@@ -5,6 +5,26 @@
  */
 import { Injectable } from '@nestjs/common';
 
+function resolveMiningJobTargetRef(job) {
+    if (!job || !Number.isFinite(Number(job.targetX)) || !Number.isFinite(Number(job.targetY))) {
+        return '';
+    }
+    return `tile:${Math.trunc(Number(job.targetX))}:${Math.trunc(Number(job.targetY))}`;
+}
+
+function hasMiningJobCommandMarker(command) {
+    return typeof command?.miningJobRunId === 'string' && command.miningJobRunId.trim().length > 0;
+}
+
+function isMatchingMiningJobCommand(player, command) {
+    const jobRunId = typeof command?.miningJobRunId === 'string' ? command.miningJobRunId.trim() : '';
+    const targetRef = typeof command?.miningTargetRef === 'string' ? command.miningTargetRef.trim() : '';
+    const job = player?.miningJob;
+    return Boolean(jobRunId)
+        && job?.jobRunId === jobRunId
+        && targetRef === resolveMiningJobTargetRef(job);
+}
+
 /** world-runtime movement orchestration：承接实例侧移动/传送执行编排。 */
 @Injectable()
 export class WorldRuntimeMovementService {
@@ -48,12 +68,17 @@ export class WorldRuntimeMovementService {
  */
 
     dispatchMoveCommand(playerId, command, player, instance, deps) {
+        if (hasMiningJobCommandMarker(command) && !isMatchingMiningJobCommand(player, command)) {
+            return;
+        }
         instance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
         deps.worldRuntimePlayerSkillDispatchService?.interruptPendingPlayerSkillCast?.(playerId, '你移动了身形。', deps);
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
-        deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);
+        if (!isMatchingMiningJobCommand(player, command)) {
+            deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);
+        }
         instance.enqueueMove({
             playerId,
             direction: command.direction,
