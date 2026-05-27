@@ -95,6 +95,7 @@ function createContext(
   inventory: unknown[],
   sectExpansions: unknown[],
   pendingCommands: unknown[] = [],
+  location: { instanceId: string; x: number; y: number } = { instanceId: 'instance:mining-job-smoke', x: 0, y: 0 },
 ): PipelineContext {
   const playerRuntimeService = {
     receiveInventoryItem(_playerId: string, item: unknown) {
@@ -117,7 +118,7 @@ function createContext(
     },
     getPlayerLocation(playerId: string) {
       assert.equal(playerId, 'player:mining-job-smoke');
-      return { instanceId: 'instance:mining-job-smoke', x: 0, y: 0 };
+      return location;
     },
     hasPendingCommand() {
       return pendingCommands.length > 0;
@@ -235,11 +236,12 @@ function main(): void {
   assert.ok(tickPlayer.miningJob);
   const tickMiningJob = tickPlayer.miningJob as { jobRunId?: string };
   assert.deepEqual(pendingCommands, [{
-    kind: 'basicAttack',
+    kind: 'engageBattle',
     targetPlayerId: null,
     targetMonsterId: null,
     targetX: 1,
     targetY: 0,
+    locked: true,
     miningJobRunId: tickMiningJob.jobRunId,
     miningTargetRef: 'tile:1:0',
   }]);
@@ -259,6 +261,39 @@ function main(): void {
   assert.equal(retaliatingTickResult.ok, true);
   assert.deepEqual(retaliatingPendingCommands, []);
   assert.equal(retaliatingInstance.damageCalls, 0);
+
+  const farPlayer = createPlayer();
+  farPlayer.x = 9;
+  farPlayer.y = 9;
+  const farInstance = new SmokeMiningInstance(3);
+  const farPendingCommands: unknown[] = [];
+  const farContext = createContext(
+    farInstance,
+    [],
+    [],
+    farPendingCommands,
+    { instanceId: 'instance:mining-job-smoke', x: 9, y: 9 },
+  );
+  assert.equal(pipeline.start(farPlayer, 'mining', { targetX: 1, targetY: 0 }, createContext(farInstance, [], [])).ok, true);
+  const farJob = farPlayer.miningJob as { phase?: string; pausedTicks?: number; jobRunId?: string };
+  farJob.phase = 'paused';
+  farJob.pausedTicks = 1;
+  const farPauseResult = pipeline.tickLifecycle(farPlayer, 'mining', farContext) as any;
+  assert.equal(farPauseResult.ok, true);
+  assert.equal((farPlayer.miningJob as { phase?: string } | null)?.phase, 'mining');
+  const farResumeResult = pipeline.tickLifecycle(farPlayer, 'mining', farContext) as any;
+  assert.equal(farResumeResult.ok, true);
+  assert.deepEqual(farPendingCommands, [{
+    kind: 'engageBattle',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetX: 1,
+    targetY: 0,
+    locked: true,
+    miningJobRunId: farJob.jobRunId,
+    miningTargetRef: 'tile:1:0',
+  }]);
+  assert.ok(farPlayer.miningJob);
 
   console.log(JSON.stringify({
     ok: true,

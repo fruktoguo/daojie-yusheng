@@ -58,6 +58,28 @@ function ensureInstanceSupportsTileDamage(instance) {
     }
     throw new BadRequestException('当前实例不允许攻击地块');
 }
+function resolveMiningJobTargetRef(job) {
+    if (!job || !Number.isFinite(Number(job.targetX)) || !Number.isFinite(Number(job.targetY))) {
+        return '';
+    }
+    return `tile:${Math.trunc(Number(job.targetX))}:${Math.trunc(Number(job.targetY))}`;
+}
+function isMiningJobIssuedSkillAction(attacker, targetRef) {
+    const jobRunId = typeof attacker?.suppressCraftInterruptForMiningJobRunId === 'string'
+        ? attacker.suppressCraftInterruptForMiningJobRunId.trim()
+        : '';
+    const job = attacker?.miningJob;
+    if (!jobRunId || job?.jobRunId !== jobRunId) {
+        return false;
+    }
+    const expectedTargetRef = resolveMiningJobTargetRef(job);
+    const markerTargetRef = typeof attacker?.suppressCraftInterruptForMiningTargetRef === 'string'
+        ? attacker.suppressCraftInterruptForMiningTargetRef.trim()
+        : '';
+    const commandTargetRef = typeof targetRef === 'string' ? targetRef.trim() : '';
+    const actualTargetRef = markerTargetRef || commandTargetRef;
+    return Boolean(expectedTargetRef) && actualTargetRef === expectedTargetRef;
+}
 function formatAuraDamage(value) {
     const amount = Math.max(0, Number(value) || 0);
     if (amount <= 0) {
@@ -515,7 +537,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         ensurePlayerSkillActionEnabled(attacker, skillId);
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.recordActivity(playerId, currentTick, { interruptCultivation: true });
-        deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
+        if (!isMiningJobIssuedSkillAction(attacker, targetRef)) {
+            deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
+        }
         if (!attacker.instanceId) {
             throw new BadRequestException(`玩家 ${playerId} 未进入地图实例`);
         }

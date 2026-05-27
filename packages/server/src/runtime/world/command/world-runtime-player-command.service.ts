@@ -120,6 +120,51 @@ function resolveTechniqueActivityJob(player, kind) {
     return player.alchemyJob?.jobType === 'forging' ? null : player.alchemyJob ?? null;
 }
 
+function resolveMiningJobTargetRef(job) {
+    if (!job || !Number.isFinite(Number(job.targetX)) || !Number.isFinite(Number(job.targetY))) {
+        return '';
+    }
+    return `tile:${Math.trunc(Number(job.targetX))}:${Math.trunc(Number(job.targetY))}`;
+}
+
+function resolveMiningCommandTargetRef(command) {
+    const explicitRef = typeof command?.miningTargetRef === 'string' ? command.miningTargetRef.trim() : '';
+    if (explicitRef) {
+        return explicitRef;
+    }
+    const targetRef = typeof command?.targetRef === 'string' ? command.targetRef.trim() : '';
+    if (targetRef) {
+        return targetRef;
+    }
+    if (
+        Number.isFinite(Number(command?.targetX))
+        && Number.isFinite(Number(command?.targetY))
+        && !command?.targetPlayerId
+        && !command?.targetMonsterId
+    ) {
+        return `tile:${Math.trunc(Number(command.targetX))}:${Math.trunc(Number(command.targetY))}`;
+    }
+    return '';
+}
+
+function resolveMiningJobCommandMarker(player, command) {
+    const jobRunId = typeof command?.miningJobRunId === 'string' ? command.miningJobRunId.trim() : '';
+    const job = player?.miningJob;
+    if (!jobRunId || job?.jobRunId !== jobRunId) {
+        return null;
+    }
+    const expectedTargetRef = resolveMiningJobTargetRef(job);
+    const commandTargetRef = resolveMiningCommandTargetRef(command);
+    if (!expectedTargetRef || commandTargetRef !== expectedTargetRef) {
+        return null;
+    }
+    return { jobRunId, targetRef: expectedTargetRef };
+}
+
+function hasMiningJobCommandMarker(command) {
+    return typeof command?.miningJobRunId === 'string' && command.miningJobRunId.trim().length > 0;
+}
+
 function doesCancelRefMatchActiveJob(player, kind, cancelRef) {
     const expectedJobRunId = typeof cancelRef?.jobRunId === 'string' ? cancelRef.jobRunId.trim() : '';
     if (!expectedJobRunId) {
@@ -130,6 +175,9 @@ function doesCancelRefMatchActiveJob(player, kind, cancelRef) {
 
 function resolveForcedAttackMiningPayload(player, command, deps) {
     if (command?.kind !== 'engageBattle' || command?.locked !== true) {
+        return null;
+    }
+    if (resolveMiningJobCommandMarker(player, command)) {
         return null;
     }
     if (command.targetPlayerId || command.targetMonsterId) {
@@ -156,35 +204,30 @@ function resolveForcedAttackMiningPayload(player, command, deps) {
     return { targetRef: `tile:${x}:${y}` };
 }
 
-function isMiningJobAttackCommand(player, command) {
-    if (command?.kind !== 'basicAttack') {
-        return false;
-    }
-    const jobRunId = typeof command?.miningJobRunId === 'string' ? command.miningJobRunId.trim() : '';
-    if (!jobRunId || player?.miningJob?.jobRunId !== jobRunId) {
-        return false;
-    }
-    return Number.isFinite(Number(command.targetX))
-        && Number.isFinite(Number(command.targetY))
-        && Math.trunc(Number(command.targetX)) === Math.trunc(Number(player.miningJob.targetX))
-        && Math.trunc(Number(command.targetY)) === Math.trunc(Number(player.miningJob.targetY));
-}
-
-async function runWithMiningJobAttackMarker(player, command, executor) {
-    if (!isMiningJobAttackCommand(player, command)) {
+async function runWithMiningJobCombatMarker(player, command, executor) {
+    const marker = resolveMiningJobCommandMarker(player, command);
+    if (!marker) {
         return executor();
     }
-    const previous = player.suppressCraftInterruptForMiningJobRunId;
-    player.suppressCraftInterruptForMiningJobRunId = command.miningJobRunId;
+    const previousRunId = player.suppressCraftInterruptForMiningJobRunId;
+    const previousTargetRef = player.suppressCraftInterruptForMiningTargetRef;
+    player.suppressCraftInterruptForMiningJobRunId = marker.jobRunId;
+    player.suppressCraftInterruptForMiningTargetRef = marker.targetRef;
     try {
         return await executor();
     }
     finally {
-        if (previous === undefined) {
+        if (previousRunId === undefined) {
             delete player.suppressCraftInterruptForMiningJobRunId;
         }
         else {
-            player.suppressCraftInterruptForMiningJobRunId = previous;
+            player.suppressCraftInterruptForMiningJobRunId = previousRunId;
+        }
+        if (previousTargetRef === undefined) {
+            delete player.suppressCraftInterruptForMiningTargetRef;
+        }
+        else {
+            player.suppressCraftInterruptForMiningTargetRef = previousTargetRef;
         }
     }
 }
@@ -523,8 +566,14 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeNavigationService.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint, command.mapId, deps);
                 return;
             case 'basicAttack':
-                return this.dispatchCombatCommand(playerId, player, command, deps, () => runWithMiningJobAttackMarker(player, command, () => this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps)));
+                if (hasMiningJobCommandMarker(command) && !resolveMiningJobCommandMarker(player, command)) {
+                    return;
+                }
+                return this.dispatchCombatCommand(playerId, player, command, deps, () => runWithMiningJobCombatMarker(player, command, () => this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps)));
             case 'engageBattle': {
+                if (hasMiningJobCommandMarker(command) && !resolveMiningJobCommandMarker(player, command)) {
+                    return;
+                }
                 const miningPayload = resolveForcedAttackMiningPayload(player, command, deps);
                 if (miningPayload) {
                     if (player.combat?.pendingSkillCast) {
@@ -533,7 +582,7 @@ export class WorldRuntimePlayerCommandService {
                     }
                     return this.dispatchStartTechniqueActivity(playerId, 'mining', miningPayload, deps);
                 }
-                return this.dispatchCombatCommand(playerId, player, command, deps, () => this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps));
+                return this.dispatchCombatCommand(playerId, player, command, deps, () => runWithMiningJobCombatMarker(player, command, () => this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps)));
             }
             case 'takeGround':
                 return this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
@@ -599,7 +648,10 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeProgressionService.dispatchHeavenGateAction(playerId, command.action, command.element, deps);
                 return;
             case 'castSkill':
-                return this.dispatchCombatCommand(playerId, player, command, deps, () => this.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef, deps));
+                if (hasMiningJobCommandMarker(command) && !resolveMiningJobCommandMarker(player, command)) {
+                    return;
+                }
+                return this.dispatchCombatCommand(playerId, player, command, deps, () => runWithMiningJobCombatMarker(player, command, () => this.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef, deps)));
             case 'buyNpcShopItem':
                 return this.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity, deps);
                 return;

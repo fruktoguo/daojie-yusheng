@@ -94,6 +94,34 @@ function isAutoCombatActionCommand(command) {
     return AUTO_COMBAT_ACTION_COMMAND_KINDS.has(command?.kind);
 }
 
+function resolveMiningJobTargetRef(player) {
+    const job = player?.miningJob;
+    if (!job || !Number.isFinite(Number(job.targetX)) || !Number.isFinite(Number(job.targetY))) {
+        return '';
+    }
+    return `tile:${Math.trunc(Number(job.targetX))}:${Math.trunc(Number(job.targetY))}`;
+}
+
+function resolveMiningJobCommandMarker(player, target) {
+    const jobRunId = typeof player?.miningJob?.jobRunId === 'string'
+        ? player.miningJob.jobRunId.trim()
+        : '';
+    const targetRef = typeof target?.targetRef === 'string' ? target.targetRef.trim() : '';
+    const miningTargetRef = resolveMiningJobTargetRef(player);
+    if (!jobRunId || !miningTargetRef || targetRef !== miningTargetRef) {
+        return null;
+    }
+    return { miningJobRunId: jobRunId, miningTargetRef };
+}
+
+function attachMiningJobCommandMarker(command, player, target) {
+    if (!command || !isAutoCombatActionCommand(command)) {
+        return command;
+    }
+    const marker = resolveMiningJobCommandMarker(player, target);
+    return marker ? { ...command, ...marker } : command;
+}
+
 function isAutoUsePillCandidate(item) {
     return (item?.healAmount ?? 0) > 0
         || (item?.healPercent ?? 0) > 0
@@ -540,14 +568,14 @@ export class WorldRuntimeAutoCombatService {
         if (skillChoice?.skillId) {
             // selfCast（以自身为中心的 AOE）不需要对目标做 LOS 检查
             if (skillChoice.selfCast) {
-                return {
+                return attachMiningJobCommandMarker({
                     kind: 'castSkill',
                     skillId: skillChoice.skillId,
                     targetPlayerId: null,
                     targetMonsterId: null,
                     targetRef: null,
                     autoCombat: true,
-                };
+                }, player, target);
             }
             // LOS 预检：避免对视线被遮挡的目标发出必然失败的 castSkill 指令
             const losRange = Math.max(1, Math.round(skillChoice.range ?? 1));
@@ -576,23 +604,23 @@ export class WorldRuntimeAutoCombatService {
                 };
             }
             if (target.targetMonsterId) {
-                return {
+                return attachMiningJobCommandMarker({
                     kind: 'castSkill',
                     skillId: skillChoice.skillId,
                     targetPlayerId: null,
                     targetMonsterId: target.targetMonsterId,
                     targetRef: null,
                     autoCombat: true,
-                };
+                }, player, target);
             }
-            return {
+            return attachMiningJobCommandMarker({
                 kind: 'castSkill',
                 skillId: skillChoice.skillId,
                 targetPlayerId: null,
                 targetMonsterId: null,
                 targetRef: target.targetRef,
                 autoCombat: true,
-            };
+            }, player, target);
         }
         if (distance <= 1) {
             // 近战基础攻击也做 LOS 预检
@@ -600,7 +628,7 @@ export class WorldRuntimeAutoCombatService {
                 instance.canSeeTileFrom(player.x, player.y, target.x, target.y, 1) === false) {
                 return null;
             }
-            return buildBasicAttackCommandFromAttackableTarget(target);
+            return attachMiningJobCommandMarker(buildBasicAttackCommandFromAttackableTarget(target), player, target);
         }
         if (player.combat.autoBattleStationary) {
             return null;

@@ -39,6 +39,7 @@ function createService(log: SmokeLogEntry[], player: Record<string, unknown>): W
         targetX: number | null,
         targetY: number | null,
         locked: boolean,
+        _deps?: unknown,
       ) {
         log.push(['dispatchEngageBattle', playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked]);
       },
@@ -57,6 +58,24 @@ function createService(log: SmokeLogEntry[], player: Record<string, unknown>): W
           targetX,
           targetY,
           player.suppressCraftInterruptForMiningJobRunId,
+        ]);
+      },
+      dispatchCastSkill(
+        playerId: string,
+        skillId: string,
+        targetPlayerId: string | null,
+        targetMonsterId: string | null,
+        targetRef: string | null,
+      ) {
+        log.push([
+          'dispatchCastSkill',
+          playerId,
+          skillId,
+          targetPlayerId,
+          targetMonsterId,
+          targetRef,
+          player.suppressCraftInterruptForMiningJobRunId,
+          player.suppressCraftInterruptForMiningTargetRef,
         ]);
       },
     } as never,
@@ -159,6 +178,11 @@ async function testForcedAttackOreRespectsPendingCast(): Promise<void> {
 async function testMiningJobAttackCarriesSelfInterruptMarker(): Promise<void> {
   const log: SmokeLogEntry[] = [];
   const player = createPlayer({
+    combat: {
+      autoBattle: true,
+      combatTargetId: 'tile:1:0',
+      combatTargetLocked: true,
+    },
     miningJob: {
       jobRunId: 'mining:job:1',
       targetX: 1,
@@ -167,19 +191,70 @@ async function testMiningJobAttackCarriesSelfInterruptMarker(): Promise<void> {
   });
   const service = createService(log, player);
   await service.dispatchPlayerCommand('player:force-attack-mining', {
-    kind: 'basicAttack',
+    kind: 'engageBattle',
     targetPlayerId: null,
     targetMonsterId: null,
     targetX: 1,
     targetY: 0,
+    locked: true,
     miningJobRunId: 'mining:job:1',
+    miningTargetRef: 'tile:1:0',
   } as never, createDeps(log, TileType.BlackIronOre) as never);
 
   assert.deepEqual(log, [
     ['getPlayer', 'player:force-attack-mining'],
-    ['dispatchBasicAttack', 'player:force-attack-mining', null, null, 1, 0, 'mining:job:1'],
+    ['dispatchEngageBattle', 'player:force-attack-mining', null, null, 1, 0, true],
   ]);
   assert.equal(player.suppressCraftInterruptForMiningJobRunId, undefined);
+  assert.equal(player.suppressCraftInterruptForMiningTargetRef, undefined);
+}
+
+async function testMiningJobSkillCarriesSelfInterruptMarker(): Promise<void> {
+  const log: SmokeLogEntry[] = [];
+  const player = createPlayer({
+    miningJob: {
+      jobRunId: 'mining:job:1',
+      targetX: 1,
+      targetY: 0,
+    },
+  });
+  const service = createService(log, player);
+  await service.dispatchPlayerCommand('player:force-attack-mining', {
+    kind: 'castSkill',
+    skillId: 'skill:ore-breaker',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetRef: 'tile:1:0',
+    miningJobRunId: 'mining:job:1',
+    miningTargetRef: 'tile:1:0',
+  } as never, createDeps(log, TileType.BlackIronOre) as never);
+
+  assert.deepEqual(log, [
+    ['getPlayer', 'player:force-attack-mining'],
+    ['dispatchCastSkill', 'player:force-attack-mining', 'skill:ore-breaker', null, null, 'tile:1:0', 'mining:job:1', 'tile:1:0'],
+  ]);
+  assert.equal(player.suppressCraftInterruptForMiningJobRunId, undefined);
+  assert.equal(player.suppressCraftInterruptForMiningTargetRef, undefined);
+}
+
+async function testStaleMiningJobCommandIsIgnored(): Promise<void> {
+  const log: SmokeLogEntry[] = [];
+  const player = createPlayer();
+  const service = createService(log, player);
+  await service.dispatchPlayerCommand('player:force-attack-mining', {
+    kind: 'engageBattle',
+    targetPlayerId: null,
+    targetMonsterId: null,
+    targetX: 1,
+    targetY: 0,
+    locked: true,
+    miningJobRunId: 'mining:old',
+    miningTargetRef: 'tile:1:0',
+  } as never, createDeps(log, TileType.BlackIronOre) as never);
+
+  assert.deepEqual(log, [
+    ['getPlayer', 'player:force-attack-mining'],
+  ]);
 }
 
 async function main(): Promise<void> {
@@ -187,6 +262,8 @@ async function main(): Promise<void> {
   await testForcedAttackNonOreKeepsCombatPath();
   await testForcedAttackOreRespectsPendingCast();
   await testMiningJobAttackCarriesSelfInterruptMarker();
+  await testMiningJobSkillCarriesSelfInterruptMarker();
+  await testStaleMiningJobCommandIsIgnored();
   console.log(JSON.stringify({ ok: true, case: 'world-runtime-force-attack-mining' }, null, 2));
 }
 

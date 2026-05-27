@@ -205,7 +205,7 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
   checkContinueCondition(player: unknown, job: PlayerMiningJob, ctx: PipelineContext): TechniqueActivityConditionCheckResult {
     const deps = resolveMiningDeps(ctx);
     const location = resolvePlayerLocation(resolvePlayerId(player), player, deps);
-    if (location.instanceId !== job.instanceId || !isWithinMiningRange(location, { x: job.targetX, y: job.targetY })) {
+    if (location.instanceId !== job.instanceId) {
       return { satisfied: false, reason: '离开矿脉范围。' };
     }
     const instance = resolveInstance(job.instanceId, deps, ctx);
@@ -343,11 +343,12 @@ function enqueueMiningAttackCommand(player: unknown, job: PlayerMiningJob, deps:
     return false;
   }
   deps.enqueuePendingCommand(playerId, {
-    kind: 'basicAttack',
+    kind: 'engageBattle',
     targetPlayerId: null,
     targetMonsterId: null,
     targetX: Math.trunc(Number(job.targetX) || 0),
     targetY: Math.trunc(Number(job.targetY) || 0),
+    locked: true,
     miningJobRunId: typeof job.jobRunId === 'string' ? job.jobRunId : undefined,
     miningTargetRef: resolveMiningTargetRef(job),
   });
