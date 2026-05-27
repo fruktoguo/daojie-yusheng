@@ -726,6 +726,7 @@ strategy 只负责领域差异：
 - 2026-05-27：Phase 6 面板局部 patch proof 补齐：React craft 面板默认启用时，任务进度/打断等待 patch 不再每息更新 `headerHtml` 导致 header 整块重写；`syncReactShell` 读取当前 React shell state，仅当 tabs/header 结构 key 变化时更新对应 HTML，`patchOpenCraftShell` 随后统一调用 `patchCraftShellHeaderAndTabs` 原位刷新队列进度。新增 `prove-craft-panel-local-patch` 静态 proof，断言任务 patch 不调用 `render()`、header 结构 key 不包含 `workRemainingTicks` / `interruptWaitRemainingTicks` 等高频字段、DOM 和 React 路径都走 `patchCraftQueueProgress`。`node scripts/prove-craft-panel-local-patch.js`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`git diff --check`、`pnpm verify:client` 通过。
 - 2026-05-27：Phase 7 资产一致性 proof 补齐：`world-runtime-mining-job-smoke` 增加挖矿取消不造成地块伤害、掉落或经验副作用，以及完成 tick 只产生一次 `mat.black_iron_ore` 掉落的断言；新增 `technique-activity-asset-consistency-smoke` 作为资产一致性覆盖索引，固定炼丹/炼器、强化、采集、建造、挖矿、阵法维护在取消、完成、失败、异常恢复、队列未启动时的资产/外部占用 proof。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-asset-consistency-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：Phase 8 响应式和主题 proof 补齐：新增 `prove-craft-panel-responsive-theme`，静态固定 craft 工作台 safe-area / `dvh` 视口约束、modal body 局部滚动、桌面侧栏/内容双列、手机单列与三模式 tab、手机任务列表高度和炼丹/强化子面板单列布局、浅色/深色 token、craft 暗色 surfaces / queue 文本以及任务进度文本 ellipsis。`node scripts/prove-craft-panel-responsive-theme.js`、`pnpm verify:client` 通过。
+- 2026-05-27：完成定义 proof 收口：新增 `technique-activity-completion-proof`，静态固定七种 runtime kind 在 craft runtime、world tick、world interrupt 中注册到 pipeline，start/cancel/interrupt/tick 统一委托 pipeline，world tick 不再直接分发旧 service tick，旧 service 降级为 facade/helper，运行时队列只写 `techniqueActivityQueue`，统一任务视图覆盖 active job、实际进度和独立打断等待，mutation flush 同时保留面板 patch 和统一任务列表下发。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-completion-proof.js`、`git diff --check`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 
 ## 验证矩阵
 
@@ -756,19 +757,19 @@ strategy 只负责领域差异：
 
 ## 完成定义
 
-- [ ] 所有 runtime kind 的 start/cancel/interrupt/tick 都通过 pipeline。
-- [ ] 所有技艺具体动作都以 job 形式存在，挖矿、阵法持续补充灵力、建造、采集不再是面板外的隐式动作。
-- [ ] “以 job 形式存在”必须覆盖服务端生命周期真源，不只是客户端任务列表投影。
-- [ ] 挖矿、采集、建造、阵法持续补充灵力的真实推进、经验、产出/消耗、外部占用释放和面板 patch 都从统一 job lifecycle 流出。
+- [x] 所有 runtime kind 的 start/cancel/interrupt/tick 都通过 pipeline。`technique-activity-completion-proof` 固定七种 kind 在 craft runtime / world tick / world interrupt 的 pipeline 注册，以及 start/cancel/interrupt/tick 统一入口委托。
+- [x] 所有技艺具体动作都以 job 形式存在，挖矿、阵法持续补充灵力、建造、采集不再是面板外的隐式动作。统一任务视图和 `hasAnyActiveTechniqueActivity` 覆盖 alchemy/forging/enhancement/gather/building/mining/formation。
+- [x] “以 job 形式存在”必须覆盖服务端生命周期真源，不只是客户端任务列表投影。完成 proof 固定命令、world facade、tick、interrupt、mutation flush 都从服务端 pipeline/job 真源进入。
+- [x] 挖矿、采集、建造、阵法持续补充灵力的真实推进、经验、产出/消耗、外部占用释放和面板 patch 都从统一 job lifecycle 流出。条件型技艺的推进、经验/产出/消耗、`activeSearch` / `activeBuilder` / 阵法预算 / 挖矿地块伤害和面板 patch 已由对应 strategy helper 与资产一致性 proof 覆盖。
 - [x] 所有可取消的 running、interrupt_wait、queued、sleeping 技艺任务都能从统一技艺任务列表直接取消，不要求进入对应子面板。
-- [ ] 手动开始修炼、攻击、移动等打断来源只刷新独立等待状态，不改变任何 job 的实际总工作量或剩余工作量。
+- [x] 手动开始修炼、攻击、移动等打断来源只刷新独立等待状态，不改变任何 job 的实际总工作量或剩余工作量。`world-runtime-craft-smoke` 覆盖 move/attack/cultivate/defeat、重复打断和恢复，断言 `workTotalTicks/workRemainingTicks` 不被污染。
 - [x] 打断等待条的刷新、重复打断和等待结束恢复都有 proof，证明 `workTotalTicks/workRemainingTicks` 不被污染。
-- [ ] 旧 service 不再承载技艺玩法规则。
-- [ ] 只剩一种活动队列。
+- [x] 旧 service 不再承载技艺玩法规则。炼丹/炼器/强化 world service 只保留 facade，采集/建造旧 tick service 降级为 strategy helper facade；完成 proof 固定 world tick 不直接分发旧 service tick。
+- [x] 只剩一种活动队列。运行时写入队列固定为 `techniqueActivityQueue`；legacy `queuedJobs` 只作为兼容迁移/旧按钮取消来源，不再作为新任务写入队列。
 - [x] active job 持久化和恢复按统一 job kind 工作。
-- [ ] 技艺经验、产出、掉地、通知、面板 patch 都从统一 result 流出。
+- [x] 技艺经验、产出、掉地、通知、面板 patch 都从统一 result 流出。资产一致性 proof 与 completion proof 固定 result 中的经验、inventory/equipment/groundDrops/messages/panel patch 和统一任务列表 flush。
 - [x] 技艺面板能看到所有当前 job、打断等待、队列项，并能直接取消当前 job 或队列项。
 - [x] 打断等待是独立条，不修改实际 job 进度条、总工作量或剩余工作量。
 - [x] 炼丹、炼器没有玩家可见的开炉/准备阶段。
-- [ ] 现有炼丹、炼器、强化、采集、建造、挖矿、阵法维护行为不回退。
-- [ ] 验证覆盖启动、取消、打断、完成、失败、队列、重启恢复、资产一致性。
+- [x] 现有炼丹、炼器、强化、采集、建造、挖矿、阵法维护行为不回退。验证记录覆盖对应专项 smoke、客户端门禁、quick 门禁和资产/热路径/局部 patch proof。
+- [x] 验证覆盖启动、取消、打断、完成、失败、队列、重启恢复、资产一致性。当前验证矩阵已覆盖 start/cancel/interrupt/tick、成功/失败/背包满掉地、队列/休眠恢复、分域恢复和资产一致性。
