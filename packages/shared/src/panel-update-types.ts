@@ -207,7 +207,7 @@ export interface ActionUpdateEntryView {
 
   cooldownLeft?: number;  
   /**
- * cooldownReadyTick：冷却结束时的绝对服务端 tick。
+ * cooldownReadyTick：冷却结束时的绝对玩家 lifeElapsedTicks。
  */
 
   cooldownReadyTick?: number;  

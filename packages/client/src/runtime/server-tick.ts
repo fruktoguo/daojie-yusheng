@@ -3,6 +3,8 @@
  *
  * 维护时要区分服务端真源和本地派生状态，避免 UI 高频刷新打断焦点、滚动或当前操作。
  */
+import type { PlayerState } from '@mud/shared';
+
 /** 当前估算服务端 tick（可为空表示还未接收到服务端节拍基准）。 */
 let currentServerTick: number | null = null;
 /** 当前服务端 tick 时间戳（ms），用于换算本地延迟后 tick。 */
@@ -40,6 +42,28 @@ export function getEstimatedServerTick(now = performance.now()): number | null {
   const elapsedMs = Math.max(0, now - currentServerTickSyncedAt);
   const elapsedTicks = Math.floor(elapsedMs / Math.max(1, currentServerTickIntervalMs));
   return currentServerTick + elapsedTicks;
+}
+
+/** 记录玩家生命 tick 的本地估算基点。 */
+export function markPlayerLifeTickSynced(player: PlayerState, nowMs = Date.now()): void {
+  if (!Number.isFinite(Number(player.lifeElapsedTicks))) {
+    return;
+  }
+  (player as unknown as Record<string, unknown>)._lifeElapsedTicksBaseTime = nowMs;
+}
+
+/** 根据玩家自己的 lifeElapsedTicks 估算当前玩家 tick。 */
+export function getEstimatedPlayerTick(player: PlayerState | null | undefined, nowMs = Date.now()): number | null {
+  if (!player || !Number.isFinite(Number(player.lifeElapsedTicks))) {
+    return null;
+  }
+  const baseTick = Math.max(0, Math.floor(Number(player.lifeElapsedTicks) || 0));
+  const baseTime = Number((player as unknown as Record<string, unknown>)._lifeElapsedTicksBaseTime);
+  if (!Number.isFinite(baseTime) || baseTime <= 0) {
+    return baseTick;
+  }
+  const elapsedTicks = Math.max(0, Math.floor((nowMs - baseTime) / 1000));
+  return baseTick + elapsedTicks;
 }
 
 /** 根据冷却开始 tick 与当前估算 tick 计算剩余可用秒/时序 tick。 */

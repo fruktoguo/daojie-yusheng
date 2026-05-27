@@ -29,6 +29,7 @@ function main(): void {
   const expDeltaProof = proveTechniqueExpDeltaAvoidsStaticDetails();
   const levelDeltaProof = proveTechniqueLevelDeltaAvoidsStaticDetails();
   const attrPanelBonusProof = proveAttrPanelUsesProjectedTechniqueBonuses();
+  const actionCooldownProof = proveActionCooldownReadyTickDelta();
 
   console.log(JSON.stringify({
     ok: true,
@@ -37,8 +38,9 @@ function main(): void {
     expDeltaProof,
     levelDeltaProof,
     attrPanelBonusProof,
+    actionCooldownProof,
     answers:
-      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影。',
+      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影；行动面板会下发技能 cooldownReadyTick 的设置与清除差量。',
   }, null, 2));
 }
 
@@ -218,6 +220,43 @@ function proveAttrPanelUsesProjectedTechniqueBonuses(): {
   };
 }
 
+function proveActionCooldownReadyTickDelta(): {
+  patchCarriesReadyTick: boolean;
+  clearPatchCarriesAction: boolean;
+  clearPatchHasNoReadyTick: boolean;
+} {
+  const service = createProjector();
+  const player = createProjectorPlayer();
+  player.actions = {
+    revision: 1,
+    actions: [createAction('skill:cooldown-proof', 0, undefined)],
+  };
+  service.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, createProjectorView(), player);
+
+  player.actions = {
+    revision: 2,
+    actions: [createAction('skill:cooldown-proof', 5, 105)],
+  };
+  const activeEnvelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, player);
+  const activeAction = activeEnvelope?.panelDelta?.act?.actions?.find((entry) => entry.id === 'skill:cooldown-proof');
+
+  player.actions = {
+    revision: 3,
+    actions: [createAction('skill:cooldown-proof', 0, undefined)],
+  };
+  const clearEnvelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 3 }, player);
+  const clearAction = clearEnvelope?.panelDelta?.act?.actions?.find((entry) => entry.id === 'skill:cooldown-proof');
+
+  const patchCarriesReadyTick = activeAction?.cooldownReadyTick === 105;
+  const clearPatchCarriesAction = clearAction?.cooldownLeft === 0;
+  const clearPatchHasNoReadyTick = clearAction !== undefined && clearAction.cooldownReadyTick === undefined;
+
+  assert.equal(patchCarriesReadyTick, true);
+  assert.equal(clearPatchCarriesAction, true);
+  assert.equal(clearPatchHasNoReadyTick, true);
+  return { patchCarriesReadyTick, clearPatchCarriesAction, clearPatchHasNoReadyTick };
+}
+
 function createProjector(): WorldProjectorService {
   return new WorldProjectorService({
     has: () => true,
@@ -270,6 +309,23 @@ function createTechnique(techId: string, exp: number): TechniqueEntry {
         efficiencyBpMultiplier: 11000,
       }],
     }],
+  };
+}
+
+function createAction(id: string, cooldownLeft: number, cooldownReadyTick: number | undefined) {
+  return {
+    id,
+    name: '冷却证明',
+    type: 'skill',
+    desc: '验证动作冷却时间轴',
+    cooldownLeft,
+    cooldownReadyTick,
+    range: 1,
+    requiresTarget: true,
+    targetMode: 'entity',
+    autoBattleEnabled: true,
+    autoBattleOrder: 0,
+    skillEnabled: true,
   };
 }
 
@@ -326,7 +382,7 @@ function createProjectorPlayer() {
       numericStats: createNumericStats(),
       ratioDivisors: createRatioDivisors(),
     },
-    actions: { revision: 1, actions: [] },
+    actions: { revision: 1, actions: [] as any[] },
     combat: {
       autoBattle: false,
       autoUsePills: [],

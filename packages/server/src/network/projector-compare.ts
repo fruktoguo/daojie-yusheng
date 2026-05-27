@@ -497,6 +497,7 @@ export function isSameActionEntry(left: ProjectedActionEntry | null | undefined,
         && left.type === right.type
         && left.desc === right.desc
         && left.cooldownLeft === right.cooldownLeft
+        && left.cooldownReadyTick === right.cooldownReadyTick
         && left.range === right.range
         && left.requiresTarget === right.requiresTarget
         && left.targetMode === right.targetMode

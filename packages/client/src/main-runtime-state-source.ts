@@ -20,6 +20,7 @@ import {
 import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
 import { getLocalSkillTemplate, resolvePreviewItem, resolvePreviewQuests } from './content/local-templates';
 import { getStaticClientActionDef } from './constants/ui/action';
+import { markPlayerLifeTickSynced } from './runtime/server-tick';
 import { handleTickEventBusPayload } from './network/event-bus-consumer';
 /**
  * MainRuntimeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
@@ -338,6 +339,7 @@ function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): Ac
     type: nextType,
     desc: action.desc ?? staticAction?.desc ?? skillTemplate?.desc ?? '',
     cooldownLeft: action.cooldownLeft ?? 0,
+    cooldownReadyTick: action.cooldownReadyTick,
     range,
     requiresTarget: nextType === 'skill'
       ? resolveSkillRequiresTarget({
@@ -355,7 +357,7 @@ function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): Ac
 
 function hydrateBootstrapPlayer(rawPlayer: S2C_Bootstrap['self']): PlayerState {
   const player = rawPlayer as unknown as PlayerState;
-  return {
+  const hydrated = {
     ...player,
     inventory: {
       ...player.inventory,
@@ -367,6 +369,8 @@ function hydrateBootstrapPlayer(rawPlayer: S2C_Bootstrap['self']): PlayerState {
     bonuses: [],
     quests: resolvePreviewQuests(player.quests),
   };
+  markPlayerLifeTickSynced(hydrated);
+  return hydrated;
 }
 
 function optionsResolvePreviewTechniquesSafe(techniques: PlayerState['techniques']): PlayerState['techniques'] {

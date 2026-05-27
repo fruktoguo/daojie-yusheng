@@ -9,6 +9,7 @@
  */
 
 import { PlayerState, resolveCharacterAge } from '@mud/shared';
+import { getEstimatedPlayerTick } from '../runtime/server-tick';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 import { t } from './i18n';
 import {
@@ -25,13 +26,7 @@ import {
  * 显示精度为"天"（7200 ticks），精度要求极低。
  */
 function estimateLifeElapsedTicks(player: PlayerState): number {
-  const base = player.lifeElapsedTicks ?? 0;
-  const baseTime = (player as unknown as Record<string, unknown>)._lifeElapsedTicksBaseTime;
-  if (typeof baseTime !== 'number' || baseTime <= 0) {
-    return base;
-  }
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - baseTime) / 1000));
-  return base + elapsedSeconds;
+  return getEstimatedPlayerTick(player) ?? player.lifeElapsedTicks ?? 0;
 }
 
 /** HUDMeta：HUD 附加显示元数据。 */

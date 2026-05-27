@@ -288,6 +288,7 @@ function toActionDefinition(entry) {
   const action: Record<string, unknown> = {
     id: normalizedEntry.id,
     cooldownLeft: normalizedEntry.cooldownLeft ?? 0,
+    cooldownReadyTick: normalizedEntry.cooldownReadyTick,
     autoBattleEnabled: normalizedEntry.autoBattleEnabled !== false,
     autoBattleOrder: normalizedEntry.autoBattleOrder ?? undefined,
     skillEnabled: normalizedEntry.skillEnabled !== false,
