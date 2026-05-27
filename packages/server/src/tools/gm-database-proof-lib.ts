@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck -- legacy CommonJS-style proof helper; keeping local contract edits scoped.
 
 /**
  * 用途：提供 GM 数据库 proof 脚本的共享函数。
@@ -322,7 +322,7 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
 /**
  * 记录expected文件名称。
  */
-    const expectedFileName = String(expectedRecord?.fileName ?? `server-database-backup-${backupId}.dump`).trim();
+    const expectedFileName = String(expectedRecord?.fileName ?? `server-database-backup-${backupId}.dump.gz`).trim();
     const expectedFormat = normalizeBackupFormat(expectedRecord?.format, expectedFileName);
     const expectedDownloadFileName = expectedFormat === 'postgres_custom_dump' && !expectedFileName.toLowerCase().endsWith('.gz')
         ? `${expectedFileName}.gz`
@@ -354,23 +354,31 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
         if (!isPostgresCustomDumpBuffer(decompressedBytes)) {
             throw new Error(`expected downloaded gzip archive to contain PostgreSQL custom dump, got ${decompressedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
         }
-        const downloadedChecksum = computeBufferSha256(decompressedBytes);
+        const downloadedArchiveChecksum = computeBufferSha256(downloadedBytes);
+        const downloadedPayloadChecksum = computeBufferSha256(decompressedBytes);
         if (options.expectedFilePath) {
             const diskBytes = await node_fs_1.promises.readFile(options.expectedFilePath);
-            if (computeBufferSha256(diskBytes) !== downloadedChecksum) {
+            if (isGzipBuffer(diskBytes)) {
+                const diskArchiveChecksum = computeBufferSha256(diskBytes);
+                if (diskArchiveChecksum !== downloadedArchiveChecksum) {
+                    throw new Error(`expected downloaded PostgreSQL gzip archive checksum to match on-disk compressed backup for ${backupId}`);
+                }
+            }
+            else if (computeBufferSha256(diskBytes) !== downloadedPayloadChecksum) {
                 throw new Error(`expected downloaded PostgreSQL gzip payload checksum to match on-disk backup for ${backupId}`);
             }
         }
         if (expectedRecord) {
             const expectedChecksum = String(expectedRecord?.checksumSha256 ?? '').trim();
-            if (expectedChecksum && expectedChecksum !== downloadedChecksum) {
-                throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got ${downloadedChecksum}`);
+            if (expectedChecksum && expectedChecksum !== downloadedArchiveChecksum && expectedChecksum !== downloadedPayloadChecksum) {
+                throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got archive=${downloadedArchiveChecksum} payload=${downloadedPayloadChecksum}`);
             }
         }
         return {
             backupId,
             format: 'postgres_custom_dump',
-            checksumSha256: downloadedChecksum,
+            checksumSha256: downloadedArchiveChecksum,
+            payloadChecksumSha256: downloadedPayloadChecksum,
             sizeBytes: decompressedBytes.length,
             compressedSizeBytes: downloadedBytes.length,
         };
@@ -477,7 +485,7 @@ exports.requireBackupRecord = requireBackupRecord;
  * 构建备份文件路径。
  */
 function buildBackupFilePath(backupDirectory, backupId) {
-    return (0, node_path_1.join)(backupDirectory, `server-database-backup-${backupId}.dump`);
+    return (0, node_path_1.join)(backupDirectory, `server-database-backup-${backupId}.dump.gz`);
 }
 exports.buildBackupFilePath = buildBackupFilePath;
 

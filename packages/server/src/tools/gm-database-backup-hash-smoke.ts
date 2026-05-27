@@ -5,11 +5,18 @@ import { createHash } from 'node:crypto';
 import { promises as fsPromises } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { computeDatabaseBackupFileSha256 } from '../http/native/native-postgres-backup';
+import { gzipSync } from 'node:zlib';
+import {
+  buildPostgresDumpFileName,
+  computeDatabaseBackupFileSha256,
+  detectDatabaseBackupFormat,
+} from '../http/native/native-postgres-backup';
 
 async function main(): Promise<void> {
   const directory = await fsPromises.mkdtemp(join(tmpdir(), 'gm-database-backup-hash-smoke-'));
   const filePath = join(directory, 'server-database-backup-smoke.dump');
+  const gzipFileName = buildPostgresDumpFileName('smoke-gzip');
+  const gzipFilePath = join(directory, gzipFileName);
   const fileBytes = Buffer.concat([
     Buffer.from('PGDMP'),
     Buffer.from('\nstreamed-hash-smoke\n'),
@@ -23,9 +30,23 @@ async function main(): Promise<void> {
     if (actual !== expected) {
       throw new Error(`expected sha256=${expected}, got ${actual}`);
     }
+    if (!gzipFileName.endsWith('.dump.gz')) {
+      throw new Error(`expected generated PostgreSQL backup file name to end with .dump.gz, got ${gzipFileName}`);
+    }
+    const gzipBytes = gzipSync(fileBytes);
+    await fsPromises.writeFile(gzipFilePath, gzipBytes, { mode: 0o600 });
+    const gzipFormat = await detectDatabaseBackupFormat(gzipFilePath, gzipFileName);
+    if (gzipFormat !== 'postgres_custom_dump') {
+      throw new Error(`expected gzip PostgreSQL custom dump format, got ${gzipFormat}`);
+    }
+    const expectedGzipChecksum = createHash('sha256').update(gzipBytes).digest('hex');
+    const actualGzipChecksum = await computeDatabaseBackupFileSha256(gzipFilePath);
+    if (actualGzipChecksum !== expectedGzipChecksum) {
+      throw new Error(`expected gzip sha256=${expectedGzipChecksum}, got ${actualGzipChecksum}`);
+    }
     console.log(JSON.stringify({
       ok: true,
-      answers: 'GM 数据库备份 SHA-256 计算与文件内容一致，验证不触碰数据库',
+      answers: 'GM 数据库备份 SHA-256 计算与压缩文件内容一致，.dump.gz 能识别为 PostgreSQL custom dump，验证不触碰数据库',
       excludes: '不证明真实 pg_dump/pg_restore、备份元数据持久化或远端磁盘吞吐',
     }, null, 2));
   } finally {

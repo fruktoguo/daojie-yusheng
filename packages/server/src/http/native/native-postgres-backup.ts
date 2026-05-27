@@ -14,6 +14,8 @@ import { createReadStream, createWriteStream, promises as fsPromises } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
+import { pipeline } from 'node:stream/promises';
+import { createGunzip, createGzip } from 'node:zlib';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import { cleanupPostgresRestoreOrphanSectState } from './native-postgres-restore-cleanup';
@@ -54,13 +56,16 @@ export function getDatabaseProcessCapabilities(): DatabaseProcessCapabilities {
 }
 
 export function buildPostgresDumpFileName(backupId: string): string {
-  return `server-database-backup-${backupId}.dump`;
+  return `server-database-backup-${backupId}.dump.gz`;
 }
 
 export async function detectDatabaseBackupFormat(filePath: string, fileName = ''): Promise<NativeDatabaseBackupFormat> {
   const normalizedName = String(fileName ?? '').trim().toLowerCase();
   if (normalizedName.endsWith('.json')) {
     return 'legacy_json_snapshot';
+  }
+  if (normalizedName.endsWith('.dump.gz')) {
+    return await isGzipPostgresCustomDump(filePath) ? 'postgres_custom_dump' : 'unknown';
   }
   if (normalizedName.endsWith('.dump')) {
     return 'postgres_custom_dump';
@@ -110,7 +115,8 @@ export async function restorePostgresCustomDump(filePath: string, databaseUrl: s
   const restoreTempDirectory = await fsPromises.mkdtemp(join(tmpdir(), 'mud-next-restore-'));
   const sqlFilePath = join(restoreTempDirectory, 'restore.filtered.sql');
   try {
-    await materializeFilteredRestoreSql(filePath, restoreSpec, supportedSettings, skippedParameters, sqlFilePath);
+    const restoreDumpPath = await materializeRestoreDumpFile(filePath, restoreTempDirectory);
+    await materializeFilteredRestoreSql(restoreDumpPath, restoreSpec, supportedSettings, skippedParameters, sqlFilePath);
     await executeSqlFile(sqlFilePath, databaseUrl);
     await cleanupPostgresRestoreOrphanSectState(databaseUrl);
   } catch (error: unknown) {
@@ -122,6 +128,23 @@ export async function restorePostgresCustomDump(filePath: string, databaseUrl: s
   } finally {
     await fsPromises.rm(restoreTempDirectory, { recursive: true, force: true }).catch(() => undefined);
   }
+}
+
+async function materializeRestoreDumpFile(filePath: string, restoreTempDirectory: string): Promise<string> {
+  if (!isGzipBackupFileName(filePath) && !await isGzipFile(filePath)) {
+    return filePath;
+  }
+  const outputPath = join(restoreTempDirectory, 'restore.dump');
+  await pipeline(
+    createReadStream(filePath),
+    createGunzip(),
+    createWriteStream(outputPath, { mode: 0o600 }),
+  );
+  const format = await detectDatabaseBackupFormat(outputPath, 'restore.dump');
+  if (format !== 'postgres_custom_dump') {
+    throw new Error('目标备份 gzip 解压后不是 PostgreSQL 自定义备份');
+  }
+  return outputPath;
 }
 
 async function runDumpProcess(filePath: string, databaseUrl: string): Promise<void> {
@@ -136,9 +159,20 @@ async function runDumpProcess(filePath: string, databaseUrl: string): Promise<vo
     const output = createWriteStream(filePath, { mode: 0o600 });
     let stderr = '';
     let settled = false;
+    let streamDone = false;
+    let childDone = false;
     const timeout = createProcessTimeout(child, 'pg_dump', (message) => {
       stderr = stderr ? `${stderr}\n${message}` : message;
     });
+
+    const finishIfReady = (): void => {
+      if (settled || !streamDone || !childDone) {
+        return;
+      }
+      settled = true;
+      timeout.clear();
+      resolve();
+    };
 
     const fail = (error: Error): void => {
       if (settled) {
@@ -146,39 +180,40 @@ async function runDumpProcess(filePath: string, databaseUrl: string): Promise<vo
       }
       settled = true;
       timeout.clear();
+      stdout.destroy();
       output.destroy();
       void fsPromises.rm(filePath, { force: true }).catch(() => undefined);
       reject(error);
     };
 
-    stdout.on('data', (chunk) => {
-      output.write(chunk);
-    });
-    stdout.on('end', () => {
-      output.end();
-    });
     stderrStream.on('data', (chunk) => {
       stderr += String(chunk);
     });
     child.on('error', (error) => {
       fail(error);
     });
-    output.on('error', (error) => {
-      fail(error);
-    });
     child.on('close', (code) => {
-      output.end();
-      timeout.clear();
       if (settled) {
         return;
       }
       if (code === 0) {
-        settled = true;
-        resolve();
+        childDone = true;
+        finishIfReady();
         return;
       }
       fail(new Error(stderr.trim() || `pg_dump 退出码 ${code ?? 'unknown'}`));
     });
+    const streamPipeline = isGzipBackupFileName(filePath)
+      ? pipeline(stdout, createGzip(), output)
+      : pipeline(stdout, output);
+    streamPipeline
+      .then(() => {
+        streamDone = true;
+        finishIfReady();
+      })
+      .catch((error: unknown) => {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      });
   });
 }
 
@@ -534,5 +569,54 @@ async function computeFileSha256(filePath: string): Promise<string> {
     stream.on('end', () => {
       resolve(hash.digest('hex'));
     });
+  });
+}
+
+function isGzipBackupFileName(filePath: string): boolean {
+  return filePath.trim().toLowerCase().endsWith('.gz');
+}
+
+async function isGzipFile(filePath: string): Promise<boolean> {
+  const handle = await fsPromises.open(filePath, 'r').catch(() => null);
+  if (!handle) {
+    return false;
+  }
+  try {
+    const buffer = Buffer.alloc(2);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    return bytesRead === 2 && buffer[0] === 0x1f && buffer[1] === 0x8b;
+  } finally {
+    await handle.close().catch(() => undefined);
+  }
+}
+
+async function isGzipPostgresCustomDump(filePath: string): Promise<boolean> {
+  return await new Promise<boolean>((resolve) => {
+    let settled = false;
+    let head = Buffer.alloc(0);
+    const source = createReadStream(filePath);
+    const gunzip = createGunzip();
+    const finish = (result: boolean): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      source.destroy();
+      gunzip.destroy();
+      resolve(result);
+    };
+    source.on('error', () => finish(false));
+    gunzip.on('error', () => finish(false));
+    gunzip.on('end', () => finish(false));
+    gunzip.on('data', (chunk: Buffer) => {
+      if (head.length >= POSTGRES_DUMP_MAGIC.length) {
+        return;
+      }
+      head = Buffer.concat([head, chunk]).subarray(0, POSTGRES_DUMP_MAGIC.length);
+      if (head.length === POSTGRES_DUMP_MAGIC.length) {
+        finish(head.equals(POSTGRES_DUMP_MAGIC));
+      }
+    });
+    source.pipe(gunzip);
   });
 }

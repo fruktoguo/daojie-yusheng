@@ -149,13 +149,16 @@ export class NativeGmAdminController {
     });
   }
 
-  /** 下载指定备份文件；PostgreSQL custom dump 以 gzip 包形式下发，恢复真源仍保留原始 .dump。 */
+  /** 下载指定备份文件；已压缩备份直接下发，旧版未压缩 dump 才在响应流中补 gzip。 */
   @Get('database/backups/:backupId/download')
   async downloadDatabaseBackup(@Param('backupId') backupId: string, @Res() response: DownloadResponseLike) {
     const record = await this.nextGmAdminService.getBackupDownloadRecord(backupId);
     // 确认文件存在
     const fileStat = await stat(record.filePath).catch(() => { throw new NotFoundException('备份文件不存在'); });
-    const shouldGzipDownload = record.format === 'postgres_custom_dump';
+    const backupFileName = record.fileName.toLowerCase();
+    const backupFilePath = record.filePath.toLowerCase();
+    const alreadyGzipped = backupFileName.endsWith('.gz') || backupFilePath.endsWith('.gz');
+    const shouldGzipDownload = record.format === 'postgres_custom_dump' && !alreadyGzipped;
     const downloadFileName = shouldGzipDownload && !record.fileName.toLowerCase().endsWith('.gz')
       ? `${record.fileName}.gz`
       : record.fileName;

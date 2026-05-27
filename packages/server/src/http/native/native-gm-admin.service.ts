@@ -13,7 +13,7 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream, promises as fsPromises } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
-import { createGunzip } from 'node:zlib';
+import { createGzip } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
@@ -448,28 +448,29 @@ export class NativeGmAdminService {
         const isGzipped = extension === '.dump.gz';
         const backupId = buildUploadedBackupId();
         const createdAt = new Date().toISOString();
-        // 最终存储为 .dump（如果上传的是 .dump.gz 则解压后存储）
-        const finalFileName = `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}.dump`;
+        // 最终统一存储为 .dump.gz，保证备份卷中的 PostgreSQL 备份天然压缩。
+        const finalFileName = `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}.dump.gz`;
         const finalFilePath = join(this.backupDirectory, finalFileName);
         await fsPromises.mkdir(this.backupDirectory, { recursive: true });
 
-        // 如果是 gzip 压缩文件，先写入临时路径再解压
+        const rawUploadTempPath = join(this.backupDirectory, `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}.dump.tmp`);
         const uploadFilePath = isGzipped
-            ? join(this.backupDirectory, `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}.dump.gz.tmp`)
-            : finalFilePath;
+            ? finalFilePath
+            : rawUploadTempPath;
 
         let sizeBytes = 0;
         try {
-            sizeBytes = Number(await writeUploadStreamToFile(input.stream, uploadFilePath, maxBytes));
+            await writeUploadStreamToFile(input.stream, uploadFilePath, maxBytes);
 
-            if (isGzipped) {
-                await decompressGzipFile(uploadFilePath, finalFilePath);
-                await fsPromises.rm(uploadFilePath, { force: true }).catch(() => undefined);
-                const decompressedStats = await fsPromises.stat(finalFilePath);
-                sizeBytes = decompressedStats.size;
+            const validationPath = isGzipped ? finalFilePath : rawUploadTempPath;
+            const uploaded = await validateUploadedDatabaseBackup(validationPath, originalFileName);
+            if (!isGzipped) {
+                await compressGzipFile(rawUploadTempPath, finalFilePath);
+                await fsPromises.rm(rawUploadTempPath, { force: true }).catch(() => undefined);
             }
 
-            const uploaded = await validateUploadedDatabaseBackup(finalFilePath, originalFileName);
+            const finalStats = await fsPromises.stat(finalFilePath);
+            sizeBytes = finalStats.size;
             const record = {
                 id: backupId,
                 kind: 'uploaded',
@@ -478,7 +479,7 @@ export class NativeGmAdminService {
                 sizeBytes,
                 scope: uploaded.scope,
                 documentsCount: uploaded.documentsCount,
-                checksumSha256: uploaded.checksumSha256,
+                checksumSha256: await computeDatabaseBackupFileSha256(finalFilePath),
                 tablesCount: uploaded.tablesCount,
                 tablesChecksumSha256: uploaded.tablesChecksumSha256,
                 format: uploaded.format,
@@ -502,6 +503,7 @@ export class NativeGmAdminService {
         }
         catch (error) {
             await fsPromises.rm(uploadFilePath, { force: true }).catch(() => undefined);
+            await fsPromises.rm(rawUploadTempPath, { force: true }).catch(() => undefined);
             await fsPromises.rm(finalFilePath, { force: true }).catch(() => undefined);
             throw error;
         }
@@ -1013,8 +1015,8 @@ export class NativeGmAdminService {
             if (!entry.isFile()) {
                 continue;
             }
-            const isPostgresDump = entry.name.startsWith(`${BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.dump');
-            const isUploadedPostgresDump = entry.name.startsWith(`${UPLOADED_BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.dump');
+            const isPostgresDump = entry.name.startsWith(`${BACKUP_FILE_PREFIX}-`) && (entry.name.endsWith('.dump') || entry.name.endsWith('.dump.gz'));
+            const isUploadedPostgresDump = entry.name.startsWith(`${UPLOADED_BACKUP_FILE_PREFIX}-`) && (entry.name.endsWith('.dump') || entry.name.endsWith('.dump.gz'));
             const isUploadedJsonBackup = entry.name.startsWith(`${UPLOADED_BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.json');
             const isLegacyJsonBackup = entry.name.startsWith(`${LEGACY_BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.json');
             if (!isPostgresDump && !isUploadedPostgresDump && !isUploadedJsonBackup && !isLegacyJsonBackup) {
@@ -1028,10 +1030,11 @@ export class NativeGmAdminService {
                 continue;
             }
 
+            const postgresDumpSuffix = entry.name.endsWith('.dump.gz') ? '.dump.gz' : '.dump';
             const backupId = isPostgresDump
-                ? entry.name.slice(`${BACKUP_FILE_PREFIX}-`.length, -'.dump'.length)
+                ? entry.name.slice(`${BACKUP_FILE_PREFIX}-`.length, -postgresDumpSuffix.length)
                 : isUploadedPostgresDump
-                    ? entry.name.slice(`${UPLOADED_BACKUP_FILE_PREFIX}-`.length, -'.dump'.length)
+                    ? entry.name.slice(`${UPLOADED_BACKUP_FILE_PREFIX}-`.length, -postgresDumpSuffix.length)
                     : isUploadedJsonBackup
                         ? entry.name.slice(`${UPLOADED_BACKUP_FILE_PREFIX}-`.length, -'.json'.length)
                 : entry.name.slice(`${LEGACY_BACKUP_FILE_PREFIX}-`.length, -'.json'.length);
@@ -1859,6 +1862,9 @@ function inferBackupFormatFromFileName(fileName) {
     if (!normalized) {
         return 'unknown';
     }
+    if (normalized.endsWith('.dump.gz')) {
+        return 'postgres_custom_dump';
+    }
     if (normalized.endsWith('.dump')) {
         return 'postgres_custom_dump';
     }
@@ -2400,15 +2406,15 @@ async function writeUploadStreamToFile(stream, filePath, maxBytes) {
     });
 }
 
-async function decompressGzipFile(gzipPath, outputPath) {
-    const source = createReadStream(gzipPath);
-    const gunzip = createGunzip();
-    const destination = createWriteStream(outputPath, { flags: 'wx' });
-    await pipeline(source, gunzip, destination);
+async function compressGzipFile(inputPath, outputPath) {
+    const source = createReadStream(inputPath);
+    const gzip = createGzip();
+    const destination = createWriteStream(outputPath, { flags: 'wx', mode: 0o600 });
+    await pipeline(source, gzip, destination);
 }
 
 async function validateUploadedDatabaseBackup(filePath, originalFileName) {
-    const magicFormat = await detectDatabaseBackupFormat(filePath, '');
+    const magicFormat = await detectDatabaseBackupFormat(filePath, filePath);
     if (magicFormat === 'postgres_custom_dump') {
         return {
             scope: BACKUP_SCOPE_LABEL,
