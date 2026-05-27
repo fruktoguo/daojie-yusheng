@@ -14,6 +14,7 @@ import {
   type TechniqueActivityStartValidationResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
+import { bumpTechniqueActivityJobVersion } from '../../technique-activity-runtime.helpers';
 import {
   applyMiningExpForTileDamage,
   resolveMiningAdjustedTileDamage,
@@ -192,7 +193,6 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
     ));
     job.remainingTicks = nextRemaining;
     job.workRemainingTicks = nextRemaining;
-    job.jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion) || 1)) + 1;
     if (miningExpResult.changed) {
       markMiningDirty(player, ['profession'], ctx);
     }
@@ -372,10 +372,16 @@ function advanceMiningPause(job: PlayerMiningJob): void {
 
 function markMiningDirty(player: unknown, domains: string[], ctx: PipelineContext): void {
   const deps = resolveMiningDeps(ctx);
+  const normalizedDomains = domains
+    .map((domain) => typeof domain === 'string' ? domain.trim() : '')
+    .filter((domain) => domain.length > 0);
+  if (normalizedDomains.includes('active_job')) {
+    bumpTechniqueActivityJobVersion(player);
+  }
   if (typeof deps?.playerRuntimeService?.markPersistenceDirtyDomains === 'function') {
-    deps.playerRuntimeService.markPersistenceDirtyDomains(player, domains);
+    deps.playerRuntimeService.markPersistenceDirtyDomains(player, normalizedDomains);
   } else if ((player as { dirtyDomains?: Set<string> } | null)?.dirtyDomains instanceof Set) {
-    for (const domain of domains) {
+    for (const domain of normalizedDomains) {
       (player as { dirtyDomains: Set<string> }).dirtyDomains.add(domain);
     }
   }

@@ -18,7 +18,7 @@ import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
 import { ALCHEMY_FURNACE_TAG, cloneAlchemyJob } from './craft-panel-alchemy-query.helpers';
 import { CraftPanelEnhancementQueryService } from './craft-panel-enhancement-query.service';
-import { advanceTechniqueActivityPause, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
+import { advanceTechniqueActivityPause, bumpTechniqueActivityJobVersion, hasTechniqueActivityJob, listRuntimeTechniqueActivityKinds } from './technique-activity-runtime.helpers';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from './craft-skill-exp.helpers';
 import { TechniqueActivityPipelineService } from './pipeline/technique-activity-pipeline.service';
 import { AlchemyStrategy } from './pipeline/strategies/alchemy.strategy';
@@ -2148,7 +2148,7 @@ export class CraftPanelRuntimeService {
             }
         }
         if (dirtyDomains.includes('active_job')) {
-            bumpActiveJobVersion(player);
+            bumpTechniqueActivityJobVersion(player);
         }
         if (dirtyDomains.length > 0) {
             this.playerRuntimeService.markPersistenceDirtyDomains(player, dirtyDomains);
@@ -2817,21 +2817,6 @@ function normalizeActiveJobSnapshotType(jobType) {
         default:
             return 'alchemy';
     }
-}
-
-function bumpActiveJobVersion(player) {
-    const activeJob = player?.formationJob
-        ?? player?.buildingJob
-        ?? player?.miningJob
-        ?? player?.gatherJob
-        ?? player?.enhancementJob
-        ?? player?.forgingJob
-        ?? player?.alchemyJob
-        ?? null;
-    if (!activeJob || typeof activeJob !== 'object') {
-        return;
-    }
-    activeJob.jobVersion = Math.max(1, Math.trunc(Number(activeJob.jobVersion ?? 1))) + 1;
 }
 
 function isCompletedAlchemyLikeJob(job) {

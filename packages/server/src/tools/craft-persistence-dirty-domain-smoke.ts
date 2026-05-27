@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 
@@ -285,6 +287,21 @@ function testTickEnhancementMarksDomains() {
   assert.equal(activeJobWrites[0].row, null);
 }
 
+function testActiveJobVersionBumpHasSingleImplementation() {
+  const files = [
+    'packages/server/src/runtime/craft/technique-activity-runtime.helpers.ts',
+    'packages/server/src/runtime/craft/craft-panel-runtime.service.ts',
+    'packages/server/src/runtime/craft/pipeline/technique-activity-pipeline.service.ts',
+    'packages/server/src/runtime/craft/pipeline/strategies/mining.strategy.ts',
+  ];
+  const joined = files
+    .map((filePath) => readFileSync(resolve(process.cwd(), filePath), 'utf-8'))
+    .join('\n');
+  assert.equal(countMatches(joined, /jobVersion\s*=\s*Math\.max\(1,\s*Math\.trunc\(Number\([^)]*jobVersion[^)]*\)[\s\S]*?\)\s*\+\s*1/g), 1);
+  assert.equal(countMatches(joined, /function bumpActiveJobVersion|bumpActiveJobVersion\(/g), 0);
+  assert.equal(countMatches(joined, /bumpTechniqueActivityJobVersion\(/g), 4);
+}
+
 function ensureWalletEntry(player: ReturnType<typeof createPlayer>, walletType: string) {
   if (!player.wallet || !Array.isArray(player.wallet.balances)) {
     player.wallet = { balances: [] };
@@ -311,16 +328,21 @@ function getWalletBalance(player: ReturnType<typeof createPlayer> | undefined, w
     .reduce((total, entry) => total + Math.max(0, Math.trunc(Number(entry.balance ?? 0))), 0);
 }
 
+function countMatches(source: string, pattern: RegExp): number {
+  return source.match(pattern)?.length ?? 0;
+}
+
 function main() {
   testSaveAlchemyPresetDirtyDomain();
   testTickAlchemyMarksActiveJob();
   testTickEnhancementMarksDomains();
+  testActiveJobVersionBumpHasSingleImplementation();
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        answers: 'CraftPanelRuntimeService 现已把 alchemy_preset / active_job / enhancement_record / profession 显式接入 dirtyDomains，并让 active_job 的 jobVersion 随 craft 变更单调前进；同时强化灵石校验/扣费已切到 wallet，炼丹与强化不再只能退回 snapshot',
+        answers: 'CraftPanelRuntimeService 现已把 alchemy_preset / active_job / enhancement_record / profession 显式接入 dirtyDomains，并让 active_job 的 jobVersion 随 craft 变更单调前进；active job version 递增实现只保留在 bumpTechniqueActivityJobVersion；同时强化灵石校验/扣费已切到 wallet，炼丹与强化不再只能退回 snapshot',
         completionMapping: 'release:proof:with-db.craft-persistence-dirty-domains',
       },
       null,

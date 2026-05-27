@@ -20,6 +20,7 @@ import { assignItemInstanceIdIfNeeded } from '../../world/item-instance-id.helpe
 import {
   advanceTechniqueActivityPause,
   applyTechniqueActivityInterrupt,
+  bumpTechniqueActivityJobVersion,
 } from '../technique-activity-runtime.helpers';
 import type {
   PipelineContext,
@@ -648,7 +649,7 @@ function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext)
     .map((domain) => typeof domain === 'string' ? domain.trim() : '')
     .filter((domain) => domain.length > 0);
   if (normalizedDomains.includes('active_job')) {
-    bumpActiveJobVersion(player);
+    bumpTechniqueActivityJobVersion(player);
   }
   if (player?.dirtyDomains && typeof player.dirtyDomains.add === 'function') {
     for (const domain of normalizedDomains) {
@@ -667,21 +668,6 @@ function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext)
   if (runtimeService && typeof runtimeService.bumpPersistentRevision === 'function') {
     runtimeService.bumpPersistentRevision(player);
   }
-}
-
-function bumpActiveJobVersion(player: any): void {
-  const activeJob = player?.formationJob
-    ?? player?.buildingJob
-    ?? player?.miningJob
-    ?? player?.gatherJob
-    ?? player?.enhancementJob
-    ?? player?.forgingJob
-    ?? player?.alchemyJob
-    ?? null;
-  if (!activeJob || typeof activeJob !== 'object') {
-    return;
-  }
-  activeJob.jobVersion = Math.max(1, Math.trunc(Number(activeJob.jobVersion ?? 1))) + 1;
 }
 
 function buildSleepPayload(kind: RuntimeTechniqueActivityKind, label: string, job: any, reason?: string): Record<string, unknown> {

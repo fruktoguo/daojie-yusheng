@@ -21,6 +21,7 @@ interface TechniqueActivityRuntimeJob {
   pausedTicks: number;
   remainingTicks: number;
   totalTicks: number;
+  jobVersion?: number;
   interruptWaitRemainingTicks?: number;
   interruptState?: {
     reason?: TechniqueActivityInterruptReason;
@@ -28,6 +29,34 @@ interface TechniqueActivityRuntimeJob {
     waitRemainingTicks?: number;
     startedAtTick?: number;
   } | null;
+}
+
+function getActiveTechniqueActivityJob(player: unknown): TechniqueActivityRuntimeJob | null {
+  const record = player as {
+    formationJob?: TechniqueActivityRuntimeJob | null;
+    buildingJob?: TechniqueActivityRuntimeJob | null;
+    miningJob?: TechniqueActivityRuntimeJob | null;
+    gatherJob?: TechniqueActivityRuntimeJob | null;
+    enhancementJob?: TechniqueActivityRuntimeJob | null;
+    forgingJob?: TechniqueActivityRuntimeJob | null;
+    alchemyJob?: TechniqueActivityRuntimeJob | null;
+  } | null | undefined;
+  return record?.formationJob
+    ?? record?.buildingJob
+    ?? record?.miningJob
+    ?? record?.gatherJob
+    ?? record?.enhancementJob
+    ?? record?.forgingJob
+    ?? record?.alchemyJob
+    ?? null;
+}
+
+function bumpTechniqueActivityJobVersion(player: unknown): void {
+  const activeJob = getActiveTechniqueActivityJob(player);
+  if (!activeJob || typeof activeJob !== 'object') {
+    return;
+  }
+  activeJob.jobVersion = Math.max(1, Math.trunc(Number(activeJob.jobVersion ?? 1))) + 1;
 }
 
 /**
@@ -116,6 +145,7 @@ function listRuntimeTechniqueActivityKinds(): RuntimeTechniqueActivityKind[] {
 export {
   advanceTechniqueActivityPause,
   applyTechniqueActivityInterrupt,
+  bumpTechniqueActivityJobVersion,
   hasTechniqueActivityJob,
   listRuntimeTechniqueActivityKinds,
 };
