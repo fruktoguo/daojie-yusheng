@@ -42,6 +42,7 @@
     "proof:release-gates": "node scripts/check-release-gates.js",
     "proof:file-size-gate": "node scripts/check-file-size-gate.js",
     "proof:craft-panel-local-patch": "node scripts/prove-craft-panel-local-patch.js",
+    "proof:craft-panel-responsive-theme": "node scripts/prove-craft-panel-responsive-theme.js",
     "proof:client-s2c-consumption": "node scripts/prove-client-s2c-consumption.js",
     "proof:shared-types-source": "node scripts/prove-shared-types-source.js",
     "proof:protobuf-drift": "node scripts/prove-protobuf-drift.js",

@@ -586,7 +586,7 @@ strategy 只负责领域差异：
 - [x] 队列展示改读统一队列 view，并为每个可取消项提供取消按钮。
 - [x] 进度展示改读统一 active job progress view；实际进度条与打断等待条分离。
 - [x] 技艺面板增加所有技艺 job 的统一任务列表，覆盖挖矿、阵法持续补充灵力、建造、采集。
-- [ ] 手机端、浅色、深色仍保持现有工作台体验。
+- [x] 手机端、浅色、深色仍保持现有工作台体验。`prove-craft-panel-responsive-theme` 固定 craft modal 的 safe-area 视口约束、桌面侧栏/内容布局、手机单列/三 tab/紧凑任务列表、浅色/深色 token 和 craft 暗色选择器、进度文本 ellipsis。
 
 验收：
 
@@ -725,6 +725,7 @@ strategy 只负责领域差异：
 - 2026-05-27：Phase 6 tick 热路径 proof 补齐：新增 `technique-activity-tick-hotpath-smoke`，静态检查 `WorldRuntimeCraftTickService`、`TechniqueActivityPipelineService` 和所有当前技艺 tick helper / strategy tick 文件，禁止出现 `JSON.stringify`、`JSON.parse`、文件 IO、配置目录读取、player active job / queue / enhancement record / alchemy preset 直接持久化写入、persistence pool 懒初始化和 schema/migration 初始化；同时断言炼丹、炼器、强化配置读取仍限定在 `CraftPanelRuntimeService` 构造期加载函数。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-tick-hotpath-smoke.js` 通过。
 - 2026-05-27：Phase 6 面板局部 patch proof 补齐：React craft 面板默认启用时，任务进度/打断等待 patch 不再每息更新 `headerHtml` 导致 header 整块重写；`syncReactShell` 读取当前 React shell state，仅当 tabs/header 结构 key 变化时更新对应 HTML，`patchOpenCraftShell` 随后统一调用 `patchCraftShellHeaderAndTabs` 原位刷新队列进度。新增 `prove-craft-panel-local-patch` 静态 proof，断言任务 patch 不调用 `render()`、header 结构 key 不包含 `workRemainingTicks` / `interruptWaitRemainingTicks` 等高频字段、DOM 和 React 路径都走 `patchCraftQueueProgress`。`node scripts/prove-craft-panel-local-patch.js`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`git diff --check`、`pnpm verify:client` 通过。
 - 2026-05-27：Phase 7 资产一致性 proof 补齐：`world-runtime-mining-job-smoke` 增加挖矿取消不造成地块伤害、掉落或经验副作用，以及完成 tick 只产生一次 `mat.black_iron_ore` 掉落的断言；新增 `technique-activity-asset-consistency-smoke` 作为资产一致性覆盖索引，固定炼丹/炼器、强化、采集、建造、挖矿、阵法维护在取消、完成、失败、异常恢复、队列未启动时的资产/外部占用 proof。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-asset-consistency-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
+- 2026-05-27：Phase 8 响应式和主题 proof 补齐：新增 `prove-craft-panel-responsive-theme`，静态固定 craft 工作台 safe-area / `dvh` 视口约束、modal body 局部滚动、桌面侧栏/内容双列、手机单列与三模式 tab、手机任务列表高度和炼丹/强化子面板单列布局、浅色/深色 token、craft 暗色 surfaces / queue 文本以及任务进度文本 ellipsis。`node scripts/prove-craft-panel-responsive-theme.js`、`pnpm verify:client` 通过。
 
 ## 验证矩阵
 
