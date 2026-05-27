@@ -106,33 +106,6 @@ function advanceTechniqueActivityPause(
 }
 
 /**
- * buildTechniqueActivityInterruptMessage：构建统一技艺中断提示。
- * @param subjectLabel 活动目标名。
- * @param activityLabel 活动名称。
- * @param pauseTicks 暂停息数。
- * @param reason 中断原因。
- * @returns 返回统一提示文本。
- */
-function buildTechniqueActivityInterruptMessage(
-  subjectLabel: string | null | undefined,
-  activityLabel: string | null | undefined,
-  pauseTicks: number,
-  reason: TechniqueActivityInterruptReason,
-): string {
-  const normalizedSubjectLabel = typeof subjectLabel === 'string' && subjectLabel.trim() ? subjectLabel.trim() : '当前技艺活动';
-  const normalizedActivityLabel = typeof activityLabel === 'string' && activityLabel.trim() ? activityLabel.trim() : '技艺活动';
-  const normalizedPauseTicks = Math.max(0, Math.floor(Number(pauseTicks) || 0));
-  const reasonLabel = reason === 'move'
-    ? '移动'
-    : reason === 'cancel'
-      ? '手动取消'
-      : reason === 'cultivate'
-        ? '打坐'
-      : '出手';
-  return `${normalizedSubjectLabel} 的${normalizedActivityLabel}被${reasonLabel}打断，暂歇 ${normalizedPauseTicks} 息。`;
-}
-
-/**
  * listRuntimeTechniqueActivityKinds：返回已接入 runtime 的技艺活动键顺序。
  * @returns 返回活动键列表。
  */
@@ -143,7 +116,6 @@ function listRuntimeTechniqueActivityKinds(): RuntimeTechniqueActivityKind[] {
 export {
   advanceTechniqueActivityPause,
   applyTechniqueActivityInterrupt,
-  buildTechniqueActivityInterruptMessage,
   hasTechniqueActivityJob,
   listRuntimeTechniqueActivityKinds,
 };

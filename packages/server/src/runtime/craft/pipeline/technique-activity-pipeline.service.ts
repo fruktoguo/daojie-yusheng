@@ -259,7 +259,7 @@ export class TechniqueActivityPipelineService {
           equipmentChanged: false,
           attrChanged: false,
           messages: condition.reason
-            ? [{ kind: 'system', text: `${strategy.activityLabel}中断：${condition.reason}` }]
+            ? [buildTechniqueActivityConditionFailedNotice(strategy.activityLabel, condition.reason)]
             : [],
           groundDrops: [],
           craftRealmExpGain: 0,
@@ -335,7 +335,7 @@ export class TechniqueActivityPipelineService {
         inventoryChanged: false,
         equipmentChanged: false,
         attrChanged: false,
-        messages: [{ kind: 'system', text: `${strategy.activityLabel}被${interruptReasonLabel(reason)}打断。` }],
+        messages: [buildTechniqueActivityInterruptedNotice(strategy.activityLabel, reason, 0, false)],
         groundDrops: [],
         craftRealmExpGain: 0,
       };
@@ -352,7 +352,7 @@ export class TechniqueActivityPipelineService {
       inventoryChanged: false,
       equipmentChanged: false,
       attrChanged: false,
-      messages: [{ kind: 'system', text: `${strategy.activityLabel}被${interruptReasonLabel(reason)}打断，暂歇 ${strategy.pauseTicks} 息。` }],
+      messages: [buildTechniqueActivityInterruptedNotice(strategy.activityLabel, reason, strategy.pauseTicks, true)],
       groundDrops: [],
       craftRealmExpGain: 0,
     };
@@ -400,6 +400,42 @@ function interruptReasonLabel(reason: TechniqueActivityInterruptReason): string 
     case 'cancel': return '手动取消';
     case 'cultivate': return '打坐';
   }
+}
+
+function buildTechniqueActivityConditionFailedNotice(activityLabel: string, reason: string): TechniqueActivityNoticeMessage {
+  return {
+    kind: 'system',
+    key: 'notice.craft.activity-condition-failed',
+    vars: {
+      activityLabel,
+      reason,
+    },
+    pills: [
+      { key: 'activityLabel', style: 'target' },
+      { key: 'reason', style: 'target' },
+    ],
+  };
+}
+
+function buildTechniqueActivityInterruptedNotice(
+  activityLabel: string,
+  reason: TechniqueActivityInterruptReason,
+  pauseTicks: number,
+  withWait: boolean,
+): TechniqueActivityNoticeMessage {
+  const reasonLabel = interruptReasonLabel(reason);
+  const normalizedPauseTicks = Math.max(0, Math.floor(Number(pauseTicks) || 0));
+  return {
+    kind: 'system',
+    key: withWait ? 'notice.craft.activity-interrupted-wait-generic' : 'notice.craft.activity-interrupted',
+    vars: withWait
+      ? { activityLabel, reasonLabel, ticks: normalizedPauseTicks }
+      : { activityLabel, reasonLabel },
+    pills: [
+      { key: 'activityLabel', style: 'target' },
+      { key: 'reasonLabel', style: 'target' },
+    ],
+  };
 }
 
 function markPipelineDirty(player: any, domains: string[], ctx: PipelineContext): void {

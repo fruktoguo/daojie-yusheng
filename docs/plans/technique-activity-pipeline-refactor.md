@@ -301,7 +301,7 @@ strategy 只负责领域差异：
 - [x] 定义统一取消 payload：`{ kind, jobRunId? , queueId? }`。
 - [x] 扩展 `TechniqueActivityResolveResult`，支持 inventory output、wallet delta、equipment delta、record delta、panel dirty、structured notice。
 - [ ] 区分 `start` 结果、`tick` 结果、`cancel` 结果，避免用 `CraftMutationResult` 承载所有情况。
-- [ ] 把 `TechniqueActivityNoticeMessage.text` 改为结构化 payload 的计划项，不在新链路继续扩散文本拼接。
+- [x] 把 `TechniqueActivityNoticeMessage.text` 改为结构化 payload 的计划项，不在新链路继续扩散文本拼接；兼容旧 runtime 的 fallback `text` 字段暂时保留，但 pipeline 公共分支和已迁入的制造型链路只新增 `key/vars/pills`。
 - [x] 炼丹/炼器 pipeline 的 start、queue、interrupt、cancel、batch、completion 通知改为结构化 key/vars/pills，不再在该新链路拼玩家可见中文。
 - [x] 给 strategy 增加明确的 `getActiveJob` / `setActiveJob` 或 job accessor，减少字符串 slot。
 - [ ] 明确公共 pipeline 是否负责入包；如果负责，strategy 不直接改背包；如果不负责，result 类型不能命名为 outputs 后再掉地。
@@ -549,6 +549,7 @@ strategy 只负责领域差异：
 - 2026-05-27：公共 pipeline 的 paused 阶段改为复用 `advanceTechniqueActivityPause`，每息同步递减 `pausedTicks`、`interruptWaitRemainingTicks` 和 `interruptState.waitRemainingTicks`，恢复时清空独立等待状态；新增 `world-runtime-craft-smoke` 断言公共暂停路径不修改 `remainingTicks` / `workRemainingTicks`。`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 覆盖公共 pipeline 等待条推进，不等同于所有攻击/移动/修炼入口的完整端到端审计。
 - 2026-05-27：炼丹/炼器准备阶段残留清理：`PlayerAlchemyJob.phase` 不再包含 `preparing`，旧存档水合和 shared normalize 会把旧 `preparing` 规整为 `brewing`；客户端工坊、旧 modal、统一任务摘要、i18n 源、教程机制和链路文档均移除玩家可见 preparing / 开炉准备分支。`pnpm --filter @mud/server compile`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`pnpm verify:client`、`pnpm audit:protocol`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。该 proof 覆盖可见层和共享类型，不等同于所有旧持久化 row 的 DB 回读专项。
 - 2026-05-27：旧工坊 modal 的炼丹/炼器 active job 卡补齐独立打断等待条和局部 patch hook，实际进度统一按 `workTotalTicks/workRemainingTicks` 计算，打断等待按 `interruptWaitRemainingTicks/interruptState/pausedTicks` 单独显示；`patchAlchemyJobHost` 只更新进度条、等待条、阶段 chip 和 meta，不重建炼丹/炼器面板主体。新炼丹视图、旧工坊 modal、强化新旧视图都具备实际进度与等待条分离的局部 patch 路径。`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`pnpm verify:client` 通过；未做浏览器截图或真机触控验证，所以手机端、浅色、深色体验仍保留未勾选。
+- 2026-05-27：公共 `TechniqueActivityPipelineService` 的条件失败、无等待打断和有等待打断通知改为结构化 `key/vars/pills`，不再在 pipeline 公共分支拼玩家可见中文；删除未使用的 `buildTechniqueActivityInterruptMessage` 文本 helper。新增 `notice.craft.activity-condition-failed`、`notice.craft.activity-interrupted`、`notice.craft.activity-interrupted-wait-generic` i18n 源并生成客户端产物，`world-runtime-mining-job-smoke` 断言挖矿通用打断通知不带 `text` 且包含结构化变量。`pnpm --filter @mud/server compile`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:client` 通过；旧采集/建造/阵法 runtime service 里的玩家可见文本 notice 仍待后续迁移。
 
 ## 验证矩阵
 
