@@ -36,6 +36,7 @@ async function main(): Promise<void> {
   testBuildingStartCancelUsePipelineLifecycle();
   testFormationServiceNoLongerExposesStartCancelLifecycle();
   testSleepingFormationQueueRestartsThroughPipeline();
+  testFormationMaintenanceTickUsesStrategyHelper();
   testSleepingMiningQueueRestartsThroughPipeline();
   testGenericPipelinePauseAdvancesInterruptWaitState();
   await testGatherActiveSearchRejectsCompetingPlayers();
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
       '采集 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeSearch。',
       '建造 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeBuilder。',
       '阵法维护旧 start/cancel service 入口已删除，启动/入队/取消只剩 strategy/pipeline lifecycle。',
+      '阵法维护 tick 规则已迁入 strategy helper，旧 formation service 不再暴露 resolveFormationMaintenanceTick。',
       '公共 pipeline 暂停推进会同步 interruptWaitRemainingTicks 和 interruptState，不改实际工作进度。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
@@ -1088,6 +1090,7 @@ function testFormationServiceNoLongerExposesStartCancelLifecycle(): void {
   const prototype = WorldRuntimeFormationService.prototype as unknown as Record<string, unknown>;
   assert.equal(prototype.startFormationMaintenance, undefined);
   assert.equal(prototype.cancelFormationMaintenance, undefined);
+  assert.equal(prototype.resolveFormationMaintenanceTick, undefined);
 }
 
 function testSleepingFormationQueueRestartsThroughPipeline(): void {
@@ -1162,6 +1165,118 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
   assert.equal(player.formationJob?.formationInstanceId, 'formation-1');
   assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.equal(player.techniqueActivityQueue.length, 0);
+}
+
+function testFormationMaintenanceTickUsesStrategyHelper(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new FormationStrategy());
+  const formation = {
+    id: 'formation:tick',
+    name: '聚灵阵',
+    instanceId: 'instance:formation-tick',
+    remainingQiBudget: 10,
+    remainingAuraBudget: 10,
+    remainingSpiritStoneBudget: 3,
+    active: false,
+    updatedAt: 0,
+  };
+  const instance = { worldRevision: 1 };
+  const player = {
+    playerId: 'player:formation-tick',
+    qi: 50,
+    attrs: { numericStats: { maxQiOutputPerTick: 16 } },
+    formationSkill: { level: 2, exp: 0 },
+    dirtyDomains: new Set<string>(),
+    persistentRevision: 1,
+    formationJob: {
+      jobRunId: 'job:formation:tick',
+      jobType: 'formation',
+      formationInstanceId: formation.id,
+      formationName: formation.name,
+      phase: 'maintaining',
+      remainingTicks: 1,
+      totalTicks: 1,
+      workRemainingTicks: 1,
+      workTotalTicks: 1,
+      interruptWaitRemainingTicks: 0,
+      interruptState: null,
+      maintenanceRate: 1,
+      jobVersion: 1,
+    },
+  };
+  const dirtyDomains: string[][] = [];
+  const activityLog: Array<[string, number, unknown]> = [];
+  const ctx = {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 60; },
+    getInstanceRuntime(instanceId: string): unknown {
+      assert.equal(instanceId, formation.instanceId);
+      return instance;
+    },
+    deps: {
+      tick: 321,
+      worldRuntimeFormationService: {
+        resolveFormationMaintenanceTick: undefined,
+        findOwnedFormation(playerId: string, formationInstanceId: string): typeof formation {
+          assert.equal(playerId, player.playerId);
+          assert.equal(formationInstanceId, formation.id);
+          return formation;
+        },
+        checkFormationMaintenanceCondition(_player: unknown, job: { formationInstanceId?: string }): { satisfied: boolean } {
+          assert.equal(job.formationInstanceId, formation.id);
+          return { satisfied: true };
+        },
+        resolveFormationRemainingQiBudget(target: typeof formation): number {
+          return Number(target.remainingQiBudget ?? target.remainingAuraBudget ?? 0);
+        },
+        resolveFormationRemainingSpiritStoneBudget(target: typeof formation): number {
+          return Number(target.remainingSpiritStoneBudget ?? 0);
+        },
+        setFormationRemainingQiBudget(target: typeof formation, value: number): void {
+          target.remainingQiBudget = value;
+          target.remainingAuraBudget = value;
+        },
+        persistInstanceFormationsSoon(instanceId: string): void {
+          assert.equal(instanceId, formation.instanceId);
+        },
+      },
+      playerRuntimeService: {
+        spendQi(playerId: string, amount: number): void {
+          assert.equal(playerId, player.playerId);
+          player.qi -= amount;
+        },
+        recordActivity(playerId: string, tick: number, options: unknown): void {
+          activityLog.push([playerId, tick, options]);
+        },
+        markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+          dirtyDomains.push(domains);
+        },
+        bumpPersistentRevision(activePlayer: typeof player): void {
+          activePlayer.persistentRevision += 1;
+        },
+      },
+    },
+  };
+
+  const result = pipeline.tick(player, 'formation', ctx);
+
+  assert.equal(result.ok, true);
+  assert.equal(player.qi, 46);
+  assert.equal(formation.remainingQiBudget, 14);
+  assert.equal(formation.remainingAuraBudget, 14);
+  assert.equal(formation.active, true);
+  assert.equal(instance.worldRevision, 2);
+  assert.equal(player.formationJob.remainingTicks, 1);
+  assert.equal(player.formationJob.workRemainingTicks, 1);
+  assert.equal(player.formationJob.maintenanceRate, 4);
+  assert.equal(player.formationJob.jobVersion, 2);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.deepEqual(dirtyDomains, [['active_job'], ['profession']]);
+  assert.deepEqual(activityLog, [[player.playerId, 321, { interruptCultivation: true }]]);
+  assert.equal(result.attrChanged, true);
 }
 
 function testSleepingMiningQueueRestartsThroughPipeline(): void {

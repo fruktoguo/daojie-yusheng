@@ -349,54 +349,16 @@ class WorldRuntimeFormationService {
         return { satisfied: true };
     }
 
-    resolveFormationMaintenanceTick(player, job, ctx) {
-        const playerId = normalizePlayerId(player);
-        if (!playerId) {
-            return buildFormationResolveResult(true, []);
-        }
-        const formation = this.findOwnedFormation(playerId, job.formationInstanceId);
-        const rate = resolveFormationMaintenanceRate(player);
-        const transfer = Math.min(rate, Math.max(0, Math.floor(Number(player.qi) || 0)));
-        if (transfer <= 0) {
-            player.formationJob = null;
-            markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
-            return buildFormationResolveResult(true, [{ kind: 'warn', text: `${formation.name}维护中止：自身灵力不足。` }]);
-        }
-        this.playerRuntimeService.spendQi(playerId, transfer);
-        setFormationRemainingQiBudget(formation, resolveFormationRemainingQiBudget(formation) + transfer);
-        if (resolveFormationRemainingSpiritStoneBudget(formation) > 0) {
-            formation.active = true;
-        }
-        formation.updatedAt = Date.now();
-        touchRuntimeInstanceRevision(ctx?.deps, formation.instanceId);
-        this.persistInstanceFormationsSoon(formation.instanceId);
-        if (typeof this.playerRuntimeService.recordActivity === 'function') {
-            this.playerRuntimeService.recordActivity(playerId, Number(ctx?.deps?.tick) || 0, { interruptCultivation: true });
-        }
-        job.maintenanceRate = rate;
-        job.remainingTicks = 1;
-        job.totalTicks = 1;
-        job.workRemainingTicks = 1;
-        job.workTotalTicks = 1;
-        job.interruptWaitRemainingTicks = 0;
-        job.interruptState = null;
-        job.jobVersion = Math.max(1, Math.floor(Number(job.jobVersion) || 1) + 1);
-        markPlayerRuntimeDirty(player, ['active_job'], this.playerRuntimeService);
-        return {
-            successCount: 1,
-            failureCount: 0,
-            outputs: [],
-            expParams: {
-                skillLevel: player.formationSkill?.level ?? 1,
-                targetLevel: player.formationSkill?.level ?? 1,
-                baseActionTicks: 1,
-                successCount: 1,
-                failureCount: 0,
-                getExpToNextByLevel: ctx.resolveExpToNextByLevel,
-            },
-            completed: false,
-            messages: [],
-        };
+    resolveFormationRemainingQiBudget(formation) {
+        return resolveFormationRemainingQiBudget(formation);
+    }
+
+    resolveFormationRemainingSpiritStoneBudget(formation) {
+        return resolveFormationRemainingSpiritStoneBudget(formation);
+    }
+
+    setFormationRemainingQiBudget(formation, value) {
+        setFormationRemainingQiBudget(formation, value);
     }
 
     dispatchSetPersistentFormationActive(playerId, payload, deps = null) {
@@ -1942,24 +1904,6 @@ function touchInstanceRevision(instance) {
 
 function normalizePlayerId(player) {
     return normalizeOptionalString(player?.playerId ?? player?.id);
-}
-
-function buildFormationResolveResult(completed, messages) {
-    return {
-        successCount: 0,
-        failureCount: 0,
-        outputs: [],
-        expParams: {
-            skillLevel: 1,
-            targetLevel: 1,
-            baseActionTicks: 0,
-            successCount: 0,
-            failureCount: 0,
-            getExpToNextByLevel: () => 0,
-        },
-        completed,
-        messages,
-    };
 }
 
 function resolveFormationMaintenanceRate(player) {

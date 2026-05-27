@@ -13,6 +13,7 @@ import type {
 } from '@mud/shared';
 import { TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
+import { resolveFormationMaintenanceTick } from './formation-maintenance-tick.helpers';
 
 export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormationJob> {
   readonly kind = 'formation' as const;
@@ -100,8 +101,7 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
   }
 
   resolve(player: unknown, job: PlayerFormationJob, ctx: PipelineContext): TechniqueActivityResolveResult {
-    const formationService = resolveFormationService(ctx);
-    return formationService.resolveFormationMaintenanceTick(player, job, ctx);
+    return resolveFormationMaintenanceTick(player, job, ctx);
   }
 
   checkContinueCondition(player: unknown, job: PlayerFormationJob, ctx: PipelineContext): TechniqueActivityConditionCheckResult {
