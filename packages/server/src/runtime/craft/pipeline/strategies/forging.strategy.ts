@@ -11,7 +11,7 @@ import type {
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { executeAlchemyLikeTick } from './alchemy-like-tick.helpers';
-import { executeAlchemyLikeCancel } from './alchemy-like-cancel.helpers';
+import { computeAlchemyLikeCancelRefund } from './alchemy-like-cancel.helpers';
 import { executeAlchemyLikeInterrupt } from './alchemy-like-interrupt.helpers';
 export class ForgingStrategy implements TechniqueActivityStrategy {
   readonly kind = 'forging' as const;
@@ -33,10 +33,6 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
 
   executeTick(player: unknown, ctx: PipelineContext): unknown {
     return executeAlchemyLikeTick(this.craftService, player, 'forging', ctx);
-  }
-
-  executeCancel(player: unknown, ctx: PipelineContext): unknown {
-    return executeAlchemyLikeCancel(this.craftService, player, 'forging', ctx);
   }
 
   executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
@@ -69,6 +65,8 @@ export class ForgingStrategy implements TechniqueActivityStrategy {
   resolve(): TechniqueActivityResolveResult {
     return { successCount: 0, failureCount: 0, outputs: [], expParams: { skillLevel: 1, targetLevel: 1, baseActionTicks: 1, getExpToNextByLevel: () => 100 }, completed: true };
   }
-  computeRefund(): TechniqueActivityRefundResult { return { items: [], spiritStones: 0 }; }
+  computeRefund(player: unknown, _job: any, ctx: PipelineContext): TechniqueActivityRefundResult {
+    return computeAlchemyLikeCancelRefund(this.craftService, player, 'forging', ctx);
+  }
   dirtyDomains(): PersistenceDomain[] { return ['active_job', 'inventory']; }
 }

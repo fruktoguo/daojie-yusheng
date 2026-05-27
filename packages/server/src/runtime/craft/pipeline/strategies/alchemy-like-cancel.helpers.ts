@@ -5,29 +5,33 @@
  */
 import {
   ENHANCEMENT_SPIRIT_STONE_ITEM_ID,
+  type TechniqueActivityRefundResult,
   type TechniqueActivityResolveResult,
 } from '@mud/shared';
 import {
   applyTechniqueActivityResolveInventory,
-  materializeTechniqueActivityResolveResult,
 } from '../technique-activity-pipeline.service';
 import type { PipelineContext } from '../technique-activity-strategy';
 
-export function executeAlchemyLikeCancel(
+export function computeAlchemyLikeCancelRefund(
   craftService: any,
   player: any,
   jobKindInput: 'alchemy' | 'forging',
   ctx: PipelineContext,
-): unknown {
+): TechniqueActivityRefundResult {
   craftService.ensureCraftSkills(player);
   const jobKind = jobKindInput === 'forging' ? 'forging' : 'alchemy';
   const job = craftService.getAlchemyLikeActiveJob(player, jobKind);
   if (!job || Number(job.remainingTicks) <= 0) {
     return {
-      ok: false,
-      error: jobKind === 'forging' ? '当前没有可取消的炼器任务。' : '当前没有可取消的炼丹任务。',
-      panelChanged: false,
-      messages: [],
+      items: [],
+      spiritStones: 0,
+      messages: [{
+        kind: 'system',
+        key: jobKind === 'forging'
+          ? 'notice.craft.forging.cancel-no-active'
+          : 'notice.craft.alchemy.cancel-no-active',
+      }],
     };
   }
 
@@ -39,6 +43,7 @@ export function executeAlchemyLikeCancel(
   );
   const refundItems: Array<{ itemId: string; count: number }> = [];
   let walletChanged = false;
+  let walletRefunded = 0;
 
   for (const ingredient of Array.isArray(job.ingredients) ? job.ingredients : []) {
     const refundCount = Math.max(0, Math.floor(Number(ingredient.count) || 0) * refundableBatchCount);
@@ -48,6 +53,7 @@ export function executeAlchemyLikeCancel(
     if (ingredient.itemId === ENHANCEMENT_SPIRIT_STONE_ITEM_ID) {
       craftService.playerRuntimeService.creditWallet(player.playerId, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, refundCount);
       walletChanged = true;
+      walletRefunded += refundCount;
       continue;
     }
     refundItems.push({ itemId: ingredient.itemId, count: refundCount });
@@ -60,6 +66,7 @@ export function executeAlchemyLikeCancel(
     if (refundableSpiritStones > 0) {
       craftService.playerRuntimeService.creditWallet(player.playerId, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, refundableSpiritStones);
       walletChanged = true;
+      walletRefunded += refundableSpiritStones;
     }
   }
 
@@ -95,21 +102,23 @@ export function executeAlchemyLikeCancel(
   };
   const inventoryResult = applyTechniqueActivityResolveInventory(player, resolved, ctx);
 
-  if (jobKind === 'forging') {
-    player.forgingJob = null;
-  } else {
-    player.alchemyJob = null;
-  }
   craftService.finalizeMutation(player, {
     inventoryChanged: inventoryResult.inventoryChanged || walletChanged,
     persistentOnly: true,
-    dirtyDomains: ['active_job'],
   });
 
   return {
-    ...materializeTechniqueActivityResolveResult(resolved, {
-      inventoryChanged: inventoryResult.inventoryChanged || walletChanged,
-    }),
-    panelChanged: true,
+    items: [],
+    spiritStones: 0,
+    inventoryDelta: {
+      ...(resolved.inventoryDelta ?? {}),
+      changed: Boolean(resolved.inventoryDelta?.changed) || inventoryResult.inventoryChanged || walletChanged,
+    },
+    walletDelta: {
+      spiritStones: walletRefunded,
+      changed: walletChanged,
+    },
+    panelDirty: resolved.panelDirty,
+    messages: resolved.messages,
   };
 }

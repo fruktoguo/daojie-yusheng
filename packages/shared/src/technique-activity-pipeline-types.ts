@@ -137,6 +137,8 @@ export interface TechniqueActivityRefundResult {
   recordDelta?: TechniqueActivityRecordDelta | TechniqueActivityRecordDelta[];
   panelDirty?: TechniqueActivityPanelDirty;
   messages?: TechniqueActivityNoticeMessage[];
+  groundDrops?: TechniqueActivityOutputItem[];
+  attrChanged?: boolean;
 }
 
 /** 启动结果、tick 结果、取消结果的公共字段。 */

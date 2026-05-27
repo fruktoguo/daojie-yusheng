@@ -54,6 +54,7 @@ const FORGING_RECIPE: AlchemyRecipeCatalogEntry = {
 };
 
 async function main(): Promise<void> {
+  testAlchemyForgingCancelUsesPipelineLifecycle();
   await testDirectAlchemyJobNoPreparationAndSeparateInterruptWait();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
   await testAlchemyFailureDoesNotCreateOutput();
@@ -71,6 +72,7 @@ async function main(): Promise<void> {
       '打断等待独立于 workRemainingTicks/workTotalTicks。',
       '制造型队列写入 techniqueActivityQueue，当前任务完成后能启动下一项。',
       '炼丹/炼器入队不会提前消耗材料或灵石。',
+      '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 物化退款。',
       '炼丹失败不产出，背包满时产出掉地。',
       '旧 active alchemy/forging job 能继续 tick 到完成。',
       '炼器使用独立 forgingJob 槽位。',
@@ -78,6 +80,19 @@ async function main(): Promise<void> {
       'WorldRuntimeAlchemyService 通过统一 technique activity 入口启动并刷新面板。',
     ],
   }, null, 2));
+}
+
+function testAlchemyForgingCancelUsesPipelineLifecycle(): void {
+  const player = createPlayer('player:alchemy:lifecycle-cancel', []);
+  const { craftService } = createCraftHarness(player);
+  const pipeline = (craftService as unknown as { pipeline?: { getStrategy?: (kind: RuntimeTechniqueActivityKind) => unknown } }).pipeline;
+  const alchemyStrategy = pipeline?.getStrategy?.('alchemy') as { executeCancel?: unknown; computeRefund?: unknown } | undefined;
+  const forgingStrategy = pipeline?.getStrategy?.('forging') as { executeCancel?: unknown; computeRefund?: unknown } | undefined;
+
+  assert.equal(typeof alchemyStrategy?.executeCancel, 'undefined');
+  assert.equal(typeof forgingStrategy?.executeCancel, 'undefined');
+  assert.equal(typeof alchemyStrategy?.computeRefund, 'function');
+  assert.equal(typeof forgingStrategy?.computeRefund, 'function');
 }
 
 async function testDirectAlchemyJobNoPreparationAndSeparateInterruptWait(): Promise<void> {

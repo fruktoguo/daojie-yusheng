@@ -119,7 +119,7 @@ export interface TechniqueActivityStrategy<
   executeInterrupt?(player: unknown, reason: string, ctx: PipelineContext): unknown;
 
   /** 取消时的退还策略。 */
-  computeRefund(player: unknown, job: TJob): TechniqueActivityRefundResult;
+  computeRefund(player: unknown, job: TJob, ctx: PipelineContext): TechniqueActivityRefundResult;
 
   /** 该技艺的脏域列表。 */
   dirtyDomains(): PersistenceDomain[];

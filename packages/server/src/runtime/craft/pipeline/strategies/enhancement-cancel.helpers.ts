@@ -3,28 +3,41 @@
  *
  * 强化取消必须释放锁定装备、写强化记录并清理 active job。
  */
-import type { PipelineContext } from '../technique-activity-strategy';
+import type { TechniqueActivityRefundResult } from '@mud/shared';
 
-export function executeEnhancementCancel(craftService: any, player: any, _ctx: PipelineContext): unknown {
+export function computeEnhancementCancelRefund(craftService: any, player: any): TechniqueActivityRefundResult {
   craftService.ensureCraftSkills(player);
   const job = player?.enhancementJob;
   if (!job || Number(job.remainingTicks) <= 0) {
     return {
-      ok: false,
-      error: '当前没有可取消的强化任务。',
-      panelChanged: false,
+      items: [],
+      spiritStones: 0,
       messages: [],
     };
   }
 
   const finishResult = craftService.finishEnhancementJob(player, job.currentLevel, 'cancelled');
   return {
-    ok: true,
-    panelChanged: true,
-    inventoryChanged: finishResult.inventoryChanged,
-    equipmentChanged: finishResult.equipmentChanged,
-    attrChanged: finishResult.attrChanged,
+    items: [],
+    spiritStones: 0,
+    inventoryDelta: {
+      changed: Boolean(finishResult.inventoryChanged),
+      dropped: finishResult.groundDrops,
+    },
+    equipmentDelta: {
+      changed: Boolean(finishResult.equipmentChanged),
+    },
+    recordDelta: {
+      recordType: 'enhancement',
+      changed: true,
+    },
+    panelDirty: {
+      changed: true,
+      kinds: ['enhancement'],
+      reason: 'cancelled',
+    },
     groundDrops: finishResult.groundDrops,
+    attrChanged: Boolean(finishResult.attrChanged),
     messages: [{
       kind: 'system',
       key: 'notice.craft.enhancement.cancelled',

@@ -414,14 +414,17 @@ export class TechniqueActivityPipelineService {
     if (!job || Number(job.remainingTicks) <= 0) return errorCancelLifecycleResult(kind, '当前没有进行中的任务。');
 
     // 计算退还
-    const refund = strategy.computeRefund(player, job);
+    const refund = strategy.computeRefund(player, job, ctx);
 
-    // 清理 job
-    if (strategy.conditional) {
+    // 清理 job；部分复杂策略会在 computeRefund 内调用权威 finish helper 并清空 active job。
+    const activeJobAfterRefund = getStrategyActiveJob(strategy, player) as any;
+    if (activeJobAfterRefund && strategy.conditional) {
       strategy.onConditionFailed?.(player, job, ctx);
     }
-    setStrategyActiveJob(strategy, player, null);
-    markPipelineDirty(player, ['active_job'], ctx);
+    if (activeJobAfterRefund) {
+      setStrategyActiveJob(strategy, player, null);
+      markPipelineDirty(player, ['active_job'], ctx);
+    }
 
     return {
       lifecycle: 'cancel',
@@ -438,7 +441,8 @@ export class TechniqueActivityPipelineService {
       walletDelta: refund.walletDelta,
       equipmentDelta: refund.equipmentDelta,
       recordDelta: refund.recordDelta,
-      groundDrops: refund.items.length > 0 ? refund.items : undefined,
+      groundDrops: refund.groundDrops ?? (refund.items.length > 0 ? refund.items : undefined),
+      attrChanged: refund.attrChanged,
     };
   }
 }

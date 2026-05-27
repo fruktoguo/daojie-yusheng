@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
+import type { RuntimeTechniqueActivityKind } from '@mud/shared';
 import { computeEnhancementAdjustedSuccessRate } from '@mud/shared';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 
@@ -18,6 +19,7 @@ type PersistedActiveJob = {
 };
 
 async function main(): Promise<void> {
+  testEnhancementCancelUsesPipelineLifecycle();
   await testStartInterruptAndCompleteEnhancement();
   await testTickUsesJobSuccessRateForFailure();
   await testProtectionFailureConsumesProtectionAndContinues();
@@ -35,9 +37,21 @@ async function main(): Promise<void> {
       'tick 结算按 job.successRate 判定成功或失败。',
       '保护物不足、灵石不足、锁定物丢失都有确定停止结果。',
       '成功后会回写强化等级、记录和灵石消耗；取消会释放锁定目标。',
+      '强化取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 复用权威 finishEnhancementJob。',
       '已有技艺活动时，强化入队不会提前锁装备或扣灵石。',
     ],
   }, null, 2));
+}
+
+function testEnhancementCancelUsesPipelineLifecycle(): void {
+  const player = createPlayer('player:enhancement:lifecycle-cancel', []);
+  const { craftService } = createCraftHarness(player, [], []);
+  craftService.ensurePipelineInitialized();
+  const pipeline = (craftService as unknown as { pipeline?: { getStrategy?: (kind: RuntimeTechniqueActivityKind) => unknown } }).pipeline;
+  const enhancementStrategy = pipeline?.getStrategy?.('enhancement') as { executeCancel?: unknown; computeRefund?: unknown } | undefined;
+
+  assert.equal(typeof enhancementStrategy?.executeCancel, 'undefined');
+  assert.equal(typeof enhancementStrategy?.computeRefund, 'function');
 }
 
 async function testStartInterruptAndCompleteEnhancement(): Promise<void> {

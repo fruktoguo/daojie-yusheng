@@ -13,7 +13,7 @@ import type {
   TechniqueActivityStartValidationResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
-import { executeEnhancementCancel } from './enhancement-cancel.helpers';
+import { computeEnhancementCancelRefund } from './enhancement-cancel.helpers';
 import { executeEnhancementInterrupt } from './enhancement-interrupt.helpers';
 import { executeEnhancementTick } from './enhancement-tick.helpers';
 
@@ -37,10 +37,6 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
 
   executeTick(player: unknown, ctx: PipelineContext): unknown {
     return executeEnhancementTick(this.craftService, player, ctx);
-  }
-
-  executeCancel(player: unknown, ctx: PipelineContext): unknown {
-    return executeEnhancementCancel(this.craftService, player, ctx);
   }
 
   executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
@@ -81,8 +77,8 @@ export class EnhancementStrategy implements TechniqueActivityStrategy {
     return { successCount: 0, failureCount: 0, outputs: [], expParams: { skillLevel: 1, targetLevel: 1, baseActionTicks: 1, getExpToNextByLevel: () => 100 }, completed: true };
   }
 
-  computeRefund(): TechniqueActivityRefundResult {
-    return { items: [], spiritStones: 0 };
+  computeRefund(player: unknown): TechniqueActivityRefundResult {
+    return computeEnhancementCancelRefund(this.craftService, player);
   }
 
   dirtyDomains(): PersistenceDomain[] {
