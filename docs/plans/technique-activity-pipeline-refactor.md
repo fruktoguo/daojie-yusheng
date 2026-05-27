@@ -73,6 +73,81 @@
 - 资产副作用：强化涉及锁定装备、保护物、灵石、强化记录；炼丹/炼器涉及材料、灵石、产出；采集/挖矿涉及容器/地块掉落和背包授予；阵法涉及玩家灵力和阵法灵力池；建造涉及建筑实例状态和 activeBuilder。
 - 面板副作用：炼丹/炼器/强化已有工坊面板；统一 `S2C.TechniqueActivityTasks` 已把采集、挖矿、建造、阵法维护等 runtime kind 的任务视图送入工坊顶部公共任务列表。后续仍需继续把真实结算、经验、通知和 panel patch 从旧 service 拆入统一 result。
 
+### Phase 0 补充代码审计
+
+本节只记录当前代码事实，作为后续继续迁移和勾选完成定义的依据。
+
+#### start -> tick -> resolve -> persist -> panel 数据流
+
+| 技艺 | start 真源 | tick / resolve 真源 | persist / dirty | panel / task view |
+|------|------------|---------------------|-----------------|-------------------|
+| 炼丹 | `WorldRuntimeAlchemyService` facade -> `CraftPanelRuntimeService.startTechniqueActivity('alchemy')` -> `AlchemyStrategy.validateStart/queueStart/consumeResources/createJob` | `WorldRuntimeCraftTickService.advanceCraftJobs` -> `tickTechniqueActivity('alchemy')` -> `executeAlchemyLikeTick`；批次产出、经验、完成和队列续跑已走 `TechniqueActivityResolveResult` / 公共 materialize | active job、inventory、profession、alchemy preset；公共入包只消费 `inventoryDelta.granted` | 旧工坊 modal 和新任务列表都按 `workTotalTicks/workRemainingTicks` + `interruptWaitRemainingTicks` 局部 patch |
+| 炼器 | `StartAlchemy` 携带 `kind=forging` -> `CraftPanelRuntimeService.startTechniqueActivity('forging')` -> `ForgingStrategy` | 与炼丹共用 `executeAlchemyLikeTick`，但 active slot 是 `player.forgingJob`、skill slot 是 `forgingSkill` | active job、inventory、profession | 与炼丹同一工坊结构，任务列表按 `forging` kind 投影 |
+| 强化 | `StartEnhancement` -> `WorldRuntimeEnhancementService` facade -> `TechniqueActivityPipelineService.start('enhancement')` -> `EnhancementStrategy` | `executeEnhancementTick` 推进暂停、单阶判定、保护物、灵石结算、经验、记录 hook 和连续冲级 | active job、inventory/equipment、profession、enhancement_record；装备锁定空间在 `inventory.lockedItems` | 强化面板和统一任务列表共显；候选/历史仍为低频 detail |
+| 采集 | `StartGather` -> `GatherStrategy.executeStart` -> `WorldRuntimeLootContainerService.dispatchStartGather` | `GatherStrategy.executeTick` 委托 `tickGather`；完成授予、经验、容器剩余和 activeSearch 仍在 loot container service | active job、inventory、profession、container_state；采集完成仍存在 tick 内 durable inventory grant 缺口 | 统一任务列表可见 running/sleeping/cancel；掉落/容器面板不再是唯一入口 |
+| 挖矿 | 矿镐 context action `mining:start` -> pending command -> `MiningStrategy.validateStart/createJob` | `MiningStrategy.executeTick` 复用地块伤害、阵法减伤、地块掉落、挖矿经验和宗门扩张；普通攻击/技能攻击地块保留为独立战斗入口 | active job、profession、tile/ground item 相关实例域；掉落通过地块掉落 helper | 统一任务列表显示矿脉、实际工作量、等待条和取消 |
+| 建造 | `startBuilding` 命令 -> `BuildingStrategy.executeStart` -> `dispatchStartBuildingConstruction` -> `world-runtime-building.service` | `BuildingStrategy.executeTick` 委托 `tickBuildingConstruction`；建筑状态推进、经验和 activeBuilder 仍在 building runtime | active job、profession、building 实例域；activeBuilder 释放会标记 building persistence dirty | 统一任务列表显示建造 job 和 sleeping；建筑面板只是专用操作区 |
+| 阵法维护 / 持续注入 | `startFormationMaintenance` -> `FormationStrategy.executeStart` -> `WorldRuntimeFormationService.startFormationMaintenance` | `FormationStrategy.resolve` -> `resolveFormationMaintenanceTick`；持续消耗玩家灵力、推进阵法维护和经验 | active job、profession、formation 实例状态；一次性 `refillFormation` 另走资源管理 | 统一任务列表显示维护 job；一次性补给不进入任务进度 |
+
+#### 玩家可触发技艺动作判定
+
+| 动作 | 当前判定 | 依据 |
+|------|----------|------|
+| 炼丹、炼器、强化 | 必须 job 化，当前已为 pipeline job | 跨 tick、消耗/锁定资源、可打断/取消、延迟结算、授予技艺经验 |
+| 采集、建造、阵法维护、挖矿 | 必须 job 化，当前已进入统一任务视图，真实规则仍有委托残留 | 跨 tick、依赖外部对象、可休眠/取消、授予经验或产生延迟产出 |
+| 阵法一次性补充灵石/灵力 | 一次性资源管理命令，不进入 job | 即时扣资源并注入池，不应显示进度、不获得技艺经验、不参与打断等待 |
+| 普通攻击/技能攻击地块 | 战斗入口，不是技艺 job | 仍可破坏地块；不得与挖矿 job 对同一次 damage result 重复发经验/掉落 |
+| 手动修炼、移动、攻击 | 打断来源，不是技艺 job | 只能刷新 `interruptWaitRemainingTicks` / `interruptState` 或触发条件休眠，不能改写实际工作量 |
+
+#### dirty domain 和外部资源
+
+| 技艺 | dirty domain | 外部资源 / 占用 |
+|------|--------------|----------------|
+| 炼丹 | `active_job`、`inventory`、`profession`、`alchemy_preset` | 背包材料、灵石钱包、产出入包/掉地、统一队列 |
+| 炼器 | `active_job`、`inventory`、`profession` | 背包材料、灵石钱包、产出入包/掉地、统一队列 |
+| 强化 | `active_job`、`inventory`、`equipment`、`profession`、`enhancement_record` | `inventory.lockedItems`、目标装备、保护物、灵石、强化记录 |
+| 采集 | `active_job`、`inventory`、`profession`、`container_state` | 地图容器、`activeSearch`、背包空间、掉地 |
+| 挖矿 | `active_job`、`profession`、实例地块/掉地相关域 | 矿脉地块 HP、阵法减伤、地块掉落、宗门扩张副作用 |
+| 建造 | `active_job`、`profession`、`building` | 建筑实例、`activeBuilderPlayerId`、建筑 revision / persistentRevision |
+| 阵法维护 | `active_job`、`profession`、formation 状态 | 阵法实例、玩家灵力、阵法灵力/灵石池、控制点条件 |
+
+#### 进度字段和打断入口审计
+
+- 进度递减路径：炼丹/炼器 `executeAlchemyLikeTick`、强化 `executeEnhancementTick`、采集 `tickGather`、建造 `tickBuildingConstruction`、挖矿 `MiningStrategy.executeTick`、公共 pipeline 默认 tick / 阵法维护 resolve。
+- 打断等待写入路径：公共 `applyTechniqueActivityInterrupt`、炼丹/炼器 `executeAlchemyLikeInterrupt`、强化 `executeEnhancementInterrupt`、挖矿 pause helper。它们应只写 `phase='paused'`、`pausedTicks`、`interruptWaitRemainingTicks`、`interruptState`。
+- 条件型休眠路径：采集/建造/阵法/挖矿的条件失败应写 sleeping 队列或明确取消；离开范围、目标占用、目标临时不可用不应通过膨胀 `totalTicks` 表达。
+- 建造 `tickBuildingConstruction` 会按建筑实例真实 `buildRemainingTicks` 同步 `totalTicks/workTotalTicks/remainingTicks/workRemainingTicks`；这是外部建筑真源到 job view 的同步，不是打断等待。后续拆 strategy/result 时要保留这个区别。
+- 已审计的打断来源入口：
+  - `world-runtime-movement.service` 的移动/传送执行入口先记录活动，再调用 `worldRuntimeCraftInterruptService.interruptCraftForReason(..., 'move', ...)`。
+  - `world-runtime-basic-attack.service` 的普攻入口记录活动后调用 `interruptCraftForReason(..., 'attack', ...)`。
+  - `world-runtime-player-skill-dispatch.service` 的技能释放入口记录活动后调用 `interruptCraftForReason(..., 'attack', ...)`。
+  - `world-runtime-action-execution.service` 的 `cultivation:toggle` 在手动恢复修炼时调用 `interruptCraftForReason(..., 'cultivate', ...)`。
+  - `WorldRuntimeCraftInterruptService` 对炼丹/炼器/强化/挖矿/阵法维护统一调用 `CraftPanelRuntimeService.interruptTechniqueActivity`；对采集/建造先写 sleeping 队列再释放外部占用；阵法维护在移动时不伪装成 10 息等待，后续由控制点条件失败进入 sleeping。
+- 仍需后续单独审计的状态切换：死亡、跨图恢复、GM 强制迁移、离线/重连恢复等非玩家主动入口，避免它们绕过统一中断或恢复规则。
+
+#### 玩家可见文本残留
+
+已迁入结构化 notice 的新链路：炼丹/炼器、强化、公共 pipeline 条件失败/打断等待、挖矿通用打断。
+
+仍需后续迁移或确认的技艺相关旧文本：
+
+- `world-runtime-building.service`：开始建造、取消/中断、目标不存在、不可施工、转入等待、完工等仍有中文文本或 `queuePlayerNotice` 直传。
+- `world-runtime-loot-container.service`：采集开始、失败、入库失败、获得物品等仍有旧文本路径，其中部分获得物品已使用 `notice.loot.*`。
+- `world-runtime-formation.service`：布阵、开关、一次性补给、维护开始/停止、维护中止、阵法灵力/灵石耗尽等仍有旧文本路径。
+- 战斗地块破坏路径：普通攻击/技能攻击地块的 combat 文本仍属于战斗系统，不作为技艺 job notice 完成项，但要与挖矿 job 去重经验/掉落。
+
+#### 最小 smoke 清单映射
+
+| 证明点 | 当前/目标 smoke |
+|--------|-----------------|
+| 任务视图覆盖 active、queue、sleeping、等待条 | `technique-activity-task-view-smoke` |
+| 统一取消 ref 覆盖 active job、统一队列、旧队列兼容 | `technique-activity-cancel-ref-smoke` |
+| 炼丹/炼器无准备阶段、等待条独立、产出/掉地/队列 | `world-runtime-alchemy-smoke` |
+| 强化资产、记录、等待条独立 | `world-runtime-enhancement-smoke`、`enhancement-panel-payload-smoke` |
+| 采集/建造/阵法/挖矿 tick 统一编排和条件休眠 | `world-runtime-craft-smoke`、`world-runtime-formation-smoke`、`world-runtime-mining-job-smoke` |
+| active job / queue 快照和 DB 投影 | `technique-activity-persistence-snapshot-smoke`、`player-domain-persistence-smoke` |
+| 公共 resolve 入包契约 | `technique-activity-resolve-inventory-contract-smoke` |
+
 ## 目标状态
 
 ### 用户需求口径
@@ -275,23 +350,23 @@ strategy 只负责领域差异：
 
 ### Phase 0：事实校准和保护网
 
-- [ ] 补一份当前数据流审计：炼丹、炼器、强化、采集、建造、挖矿、阵法维护各自的 start -> tick -> resolve -> persist -> panel。
-- [ ] 列出所有玩家可触发的技艺具体动作，并逐项判定为“必须 job 化”或“一次性资源管理命令”；判定依据必须写清是否跨 tick、是否可打断/取消、是否授予技艺经验、是否占用外部对象、是否延迟产出。
+- [x] 补一份当前数据流审计：炼丹、炼器、强化、采集、建造、挖矿、阵法维护各自的 start -> tick -> resolve -> persist -> panel。
+- [x] 列出所有玩家可触发的技艺具体动作，并逐项判定为“必须 job 化”或“一次性资源管理命令”；判定依据必须写清是否跨 tick、是否可打断/取消、是否授予技艺经验、是否占用外部对象、是否延迟产出。
 - [x] 额外审计阵法补充灵力链路，确认它是阵法维护、阵法补充还是独立技艺动作，避免命名统一后遗漏真实运行态。
 - [x] 审计 `refillFormation` 是否是即时消耗动作、持续 job、还是应拆成“下达补充”与“维护注入”两个动作。
-- [ ] 审计挖矿是否保留“攻击地块产生伤害”的战斗路径，还是新增“挖矿 job 对矿脉施加工作量”的独立路径；如果两者并存，要定义经验和掉落不可重复。
-- [ ] 列出每种技艺当前写入的 dirty domain。
-- [ ] 列出每种技艺当前依赖的外部资源：背包、钱包、锁定物品、地图容器、建筑 activeBuilder、阵法实例。
-- [ ] 找出所有当前会修改 `remainingTicks` / `totalTicks` 来表达打断等待的路径。
-- [ ] 找出所有攻击、移动、手动开始修炼、切换状态等会中断技艺的入口，确认它们只写 `interruptWaitRemainingTicks` / `interruptState`，不污染实际工作进度。
+- [x] 审计挖矿是否保留“攻击地块产生伤害”的战斗路径，还是新增“挖矿 job 对矿脉施加工作量”的独立路径；如果两者并存，要定义经验和掉落不可重复。
+- [x] 列出每种技艺当前写入的 dirty domain。
+- [x] 列出每种技艺当前依赖的外部资源：背包、钱包、锁定物品、地图容器、建筑 activeBuilder、阵法实例。
+- [x] 找出所有当前会修改 `remainingTicks` / `totalTicks` 来表达打断等待的路径。
+- [ ] 找出所有攻击、移动、手动开始修炼、切换状态等会中断技艺的入口，确认它们只写 `interruptWaitRemainingTicks` / `interruptState`，不污染实际工作进度。（玩家主动入口已审计并补 proof；死亡、GM 强迁、离线/重连恢复等非主动状态切换仍待审计。）
 - [x] 找出炼丹、炼器中“准备/开炉/炉火已稳”相关阶段、文本和客户端展示点。
-- [ ] 标记所有服务端玩家可见文本拼接点，后续迁移时改为结构化 notice。
-- [ ] 建立最小 smoke 清单，不先改行为。
+- [x] 标记所有服务端玩家可见文本拼接点，后续迁移时改为结构化 notice。
+- [x] 建立最小 smoke 清单，不先改行为。
 
 验收：
 
-- [ ] 文档能说明每种技艺当前真源和消费方。
-- [ ] 没有未读实现就提出的抽象假设。
+- [x] 文档能说明每种技艺当前真源和消费方。
+- [x] 没有未读实现就提出的抽象假设。
 
 ### Phase 1：统一类型和结果契约
 
@@ -552,6 +627,7 @@ strategy 只负责领域差异：
 - 2026-05-27：公共 `TechniqueActivityPipelineService` 的条件失败、无等待打断和有等待打断通知改为结构化 `key/vars/pills`，不再在 pipeline 公共分支拼玩家可见中文；删除未使用的 `buildTechniqueActivityInterruptMessage` 文本 helper。新增 `notice.craft.activity-condition-failed`、`notice.craft.activity-interrupted`、`notice.craft.activity-interrupted-wait-generic` i18n 源并生成客户端产物，`world-runtime-mining-job-smoke` 断言挖矿通用打断通知不带 `text` 且包含结构化变量。`pnpm --filter @mud/server compile`、`pnpm --filter @mud/client exec tsc --noEmit --pretty false`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:client` 通过；旧采集/建造/阵法 runtime service 里的玩家可见文本 notice 仍待后续迁移。
 - 2026-05-27：`TechniqueActivityPipelineService` 增加 `startLifecycle` / `tickLifecycle` / `cancelLifecycle`，分别返回 shared 的 `TechniqueActivityStartResult`、`TechniqueActivityTickResult`、`TechniqueActivityCancelResult` 语义并携带过渡期 effect flags；原 `start` / `tick` / `cancel` 保留为兼容适配器，把 lifecycle 结果转成旧 `CraftMutationResult` / `CraftTickResult`，避免一次性改破现有 world tick、队列推进和 flush 调用面。`world-runtime-mining-job-smoke` 增加 lifecycle 断言，覆盖 start/tick/cancel 三类结果不再混用同一个 mutation 语义。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。仍待后续把更多策略的 legacy delegate 返回值直接迁成 lifecycle/result，而不是经适配器包裹。
 - 2026-05-27：公共 resolve 入包契约进一步收紧：`applyTechniqueActivityResolveInventory` 只消费 `inventoryDelta.granted`，`TechniqueActivityResolveResult.outputs` 仅作为结算摘要，不再作为自动入包回退字段。新增 `technique-activity-resolve-inventory-contract-smoke` 验证 outputs 单独存在不会改变背包，而 `inventoryDelta.granted` 才会入包或转落地。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/shared build`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-resolve-inventory-contract-smoke.js`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
+- 2026-05-27：`world-runtime-craft-smoke` 增加打断入口独立等待 proof：通过真实 `WorldRuntimeCraftInterruptService` -> `CraftPanelRuntimeService.interruptTechniqueActivity` 链路分别触发 `move`、`attack`、`cultivate`，断言炼丹、炼器、强化、挖矿、阵法维护不会修改 `totalTicks` / `remainingTicks` / `workTotalTicks` / `workRemainingTicks`；非移动阵法维护写独立 `interruptWaitRemainingTicks`，移动阵法维护不伪装成等待条。同步审计移动、普攻、技能释放、手动恢复修炼入口都会进入统一中断器。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。死亡、GM 强迁、离线/重连恢复等非玩家主动状态切换仍需后续独立审计。
 
 ## 验证矩阵
 

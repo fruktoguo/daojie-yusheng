@@ -22,6 +22,7 @@ type FlushCall = [playerId: string, kind: string, text: string | null];
 async function main(): Promise<void> {
   testActiveTechniqueActivityCoversAllRuntimeKinds();
   testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs();
+  testInterruptReasonsKeepWorkProgressSeparate();
   testSleepingQueueRetrySkipsHotConditionCheck();
   testSleepingQueuePermanentCancelMarksDirty();
   testSleepingGatherQueueRestartsThroughPipeline();
@@ -47,6 +48,7 @@ async function main(): Promise<void> {
     answers: [
       'hasAnyActiveTechniqueActivity 覆盖 alchemy/forging/enhancement/gather/building/formation/mining。',
       '采集/建造中断先写 sleeping 队列，再统一调用 interruptTechniqueActivity。',
+      'move/attack/cultivate 打断炼丹/炼器/强化/挖矿/阵法维护时不修改实际工作进度；阵法移动不伪装成等待条。',
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
@@ -136,6 +138,54 @@ function testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs(): void {
   assert.equal(player.techniqueActivityQueue[1]?.kind, 'building');
 }
 
+function testInterruptReasonsKeepWorkProgressSeparate(): void {
+  for (const reason of ['move', 'attack', 'cultivate'] as const) {
+    const player = createInterruptProgressPlayer(reason);
+    const before = snapshotProgressFields(player);
+    const craftService = createInterruptProgressCraftService();
+    const service = new WorldRuntimeCraftInterruptService(
+      craftService as never,
+      {
+        flushCraftMutation(_playerId: string, mutation: { ok?: boolean }, _kind: string): void {
+          assert.equal(mutation.ok, true);
+        },
+      },
+    );
+
+    service.interruptCraftForReason(player.playerId, player, reason, {
+      playerRuntimeService: {
+        markPersistenceDirtyDomains(activePlayer: typeof player, domains: string[]): void {
+          for (const domain of domains) {
+            activePlayer.dirtyDomains.add(domain);
+          }
+        },
+        bumpPersistentRevision(activePlayer: typeof player): void {
+          activePlayer.persistentRevision += 1;
+        },
+      },
+      worldRuntimeLootContainerService: {
+        interruptGather(): unknown {
+          throw new Error('gather should not be active in this proof');
+        },
+      },
+    } as never);
+
+    assert.deepEqual(snapshotProgressFields(player), before);
+    assertInterruptWait(player.alchemyJob, reason);
+    assertInterruptWait(player.forgingJob, reason);
+    assertInterruptWait(player.enhancementJob, reason);
+    assertInterruptWait(player.miningJob, reason);
+    if (reason === 'move') {
+      assert.equal(player.formationJob.phase, 'maintaining');
+      assert.equal(player.formationJob.interruptWaitRemainingTicks, 0);
+      assert.equal(player.formationJob.interruptState, null);
+    } else {
+      assertInterruptWait(player.formationJob, reason);
+    }
+    assert.equal(player.dirtyDomains.has('active_job'), true);
+  }
+}
+
 function createConditionalQueueProbeStrategy(condition: (job: { targetId?: string }) => { satisfied: boolean; shouldCancel?: boolean; reason?: string }) {
   return {
     kind: 'gather',
@@ -156,6 +206,129 @@ function createConditionalQueueProbeStrategy(condition: (job: { targetId?: strin
       return condition(job);
     },
   };
+}
+
+function createInterruptProgressCraftService(): CraftPanelRuntimeService {
+  const service = Object.create(CraftPanelRuntimeService.prototype) as CraftPanelRuntimeService & {
+    contentTemplateRepository: {
+      getItemName(itemId: string): string;
+      normalizeItem(item: { itemId: string; count: number }): unknown;
+    };
+    playerRuntimeService: {
+      markPersistenceDirtyDomains(player: { dirtyDomains: Set<string> }, domains: string[]): void;
+      bumpPersistentRevision(player: { persistentRevision: number }): void;
+    };
+    ensureCraftSkills(player: unknown): void;
+    finalizeMutation(player: { dirtyDomains: Set<string>; persistentRevision: number }, options?: { dirtyDomains?: string[] }): void;
+  };
+  service.pipeline = null;
+  service.contentTemplateRepository = {
+    getItemName(itemId: string): string {
+      return `物品:${itemId}`;
+    },
+    normalizeItem(item: { itemId: string; count: number }): unknown {
+      return item;
+    },
+  };
+  service.playerRuntimeService = {
+    markPersistenceDirtyDomains(player: { dirtyDomains: Set<string> }, domains: string[]): void {
+      for (const domain of domains) {
+        player.dirtyDomains.add(domain);
+      }
+    },
+    bumpPersistentRevision(player: { persistentRevision: number }): void {
+      player.persistentRevision += 1;
+    },
+  };
+  service.ensureCraftSkills = () => {};
+  service.finalizeMutation = (
+    player: { dirtyDomains: Set<string>; persistentRevision: number },
+    options: { dirtyDomains?: string[] } = {},
+  ) => {
+    for (const domain of options.dirtyDomains ?? ['active_job']) {
+      player.dirtyDomains.add(domain);
+    }
+    player.persistentRevision += 1;
+  };
+  return service;
+}
+
+function createInterruptProgressPlayer(reason: string) {
+  return {
+    playerId: `player:interrupt-progress:${reason}`,
+    dirtyDomains: new Set<string>(),
+    persistentRevision: 1,
+    techniqueActivityQueue: [],
+    alchemyJob: createProgressJob('alchemy', 'brewing', {
+      outputItemId: 'pill.test',
+      currentBatchRemainingTicks: 4,
+    }),
+    forgingJob: createProgressJob('forging', 'brewing', {
+      outputItemId: 'gear.test',
+      currentBatchRemainingTicks: 5,
+    }),
+    enhancementJob: createProgressJob('enhancement', 'enhancing', {
+      targetItemName: '试炼剑',
+    }),
+    miningJob: createProgressJob('mining', 'mining', {
+      miningNodeName: '试炼矿脉',
+      instanceId: 'instance:test',
+      targetX: 1,
+      targetY: 1,
+      tileType: 'ore',
+      baseDamagePerTick: 1,
+    }),
+    formationJob: createProgressJob('formation', 'maintaining', {
+      formationInstanceId: 'formation:test',
+      formationName: '试炼阵法',
+    }),
+  };
+}
+
+function createProgressJob(jobType: string, phase: string, extra: Record<string, unknown>) {
+  return {
+    jobRunId: `job:${jobType}:progress-proof`,
+    jobType,
+    phase,
+    totalTicks: 20,
+    remainingTicks: 12,
+    workTotalTicks: 20,
+    workRemainingTicks: 12,
+    pausedTicks: 0,
+    interruptWaitRemainingTicks: 0,
+    interruptState: null,
+    successRate: 1,
+    spiritStoneCost: 0,
+    startedAt: 1,
+    ...extra,
+  };
+}
+
+function snapshotProgressFields(player: ReturnType<typeof createInterruptProgressPlayer>): Record<string, unknown> {
+  return {
+    alchemy: pickProgressFields(player.alchemyJob),
+    forging: pickProgressFields(player.forgingJob),
+    enhancement: pickProgressFields(player.enhancementJob),
+    mining: pickProgressFields(player.miningJob),
+    formation: pickProgressFields(player.formationJob),
+  };
+}
+
+function pickProgressFields(job: { totalTicks: number; remainingTicks: number; workTotalTicks: number; workRemainingTicks: number }): Record<string, number> {
+  return {
+    totalTicks: job.totalTicks,
+    remainingTicks: job.remainingTicks,
+    workTotalTicks: job.workTotalTicks,
+    workRemainingTicks: job.workRemainingTicks,
+  };
+}
+
+function assertInterruptWait(job: { phase: string; pausedTicks: number; interruptWaitRemainingTicks?: number; interruptState?: { reason?: string; waitRemainingTicks?: number } | null }, reason: string): void {
+  assert.equal(job.phase, 'paused');
+  assert.equal(job.pausedTicks, 10);
+  assert.equal(job.interruptWaitRemainingTicks, 10);
+  assert.equal(job.interruptState?.reason, reason);
+  assert.equal(job.interruptState?.waitRemainingTicks, 10);
 }
 
 function testGenericPipelinePauseAdvancesInterruptWaitState(): void {
