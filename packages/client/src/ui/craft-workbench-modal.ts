@@ -467,6 +467,7 @@ export class CraftWorkbenchModal {
   private transmissionSkillExpToNext = 60;
   private transmissionTechniques: PlayerState['techniques'] = [];
   private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
+  private lastTransmissionRenderKey: string | null = null;
   private playerRealmLv: number | null = null;
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
   private equipment: EquipmentSlots = { weapon: null, head: null, body: null, legs: null, accessory: null };
@@ -973,6 +974,9 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'enhancement') {
       this.lastEnhancementRenderKey = this.buildEnhancementPanelRenderKey();
     }
+    if (this.activeMode === 'transmission') {
+      this.lastTransmissionRenderKey = this.buildTransmissionRenderKey();
+    }
     if (this.useReactPanel()) {
       this.renderReact(definition);
       return;
@@ -1008,6 +1012,7 @@ export class CraftWorkbenchModal {
         this.enhancementFormulaTooltip.hide(true);
         this.activeMode = null;
         this.loading = false;
+        this.lastTransmissionRenderKey = null;
       },
     });
   }
@@ -1046,6 +1051,7 @@ export class CraftWorkbenchModal {
         unmountReactCraftWorkbenchPanel();
         this.activeMode = null;
         this.loading = false;
+        this.lastTransmissionRenderKey = null;
       },
     });
   }
@@ -1270,10 +1276,19 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'transmission') {
       const content = body.querySelector<HTMLElement>('[data-craft-workbench-content="true"]');
-      if (content) {
+      const nextKey = this.buildTransmissionRenderKey();
+      if (content && this.lastTransmissionRenderKey !== nextKey && !this.shouldDeferTransmissionContentPatch(content)) {
+        this.lastTransmissionRenderKey = nextKey;
         replaceElementHtml(content, this.renderTransmissionBody());
       }
     }
+  }
+
+  private shouldDeferTransmissionContentPatch(content: HTMLElement): boolean {
+    const active = document.activeElement;
+    return active instanceof HTMLElement
+      && content.contains(active)
+      && (active.matches('input, select, textarea') || active.closest('[data-transmission-tech-search], [data-transmission-tech-select], [data-transmission-target-select]') !== null);
   }
 
   private patchOpenCraftQueueOnly(): void {

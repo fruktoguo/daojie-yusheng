@@ -2839,6 +2839,8 @@ action.static.auto-switch-cultivation.desc,行动,控制主修功法圆满后是
 action.static.auto-switch-cultivation.name,行动,修满自动切换,
 action.static.building-open.desc,行动,打开营造菜单；未装备建造锤时可以建造，但不会获得建造工具加成。,
 action.static.building-open.name,行动,营造,
+action.static.transmission-open.desc,行动,打开传法菜单，查看未领悟功法并向附近玩家传授自创功法。,
+action.static.transmission-open.name,行动,传法,
 action.static.cultivation-toggle.desc,行动,切换角色修炼状态；没有主修时只推进境界修为。,
 action.static.cultivation-toggle.name,行动,当前修炼,
 action.static.enhancement-open.desc,行动,打开强化菜单；未装备强化锤时可以强化，但不会获得强化锤加成。,

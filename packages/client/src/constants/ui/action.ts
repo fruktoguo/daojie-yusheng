@@ -30,6 +30,7 @@ const CRAFT_OPEN_ACTION_IDS = {
   building: 'building:open',
   forging: 'forging:open',
   enhancement: 'enhancement:open',
+  transmission: 'transmission:open',
 } as const;
 
 /** 读取指定技艺页对应的打开动作 ID。 */
@@ -81,6 +82,13 @@ const STATIC_CLIENT_ACTION_DEFS: Record<string, ActionDef> = {
     name: actionText('action.static.building-open.name'),
     type: 'craft',
     desc: actionText('action.static.building-open.desc'),
+    cooldownLeft: 0,
+  },
+  'transmission:open': {
+    id: 'transmission:open',
+    name: actionText('action.static.transmission-open.name'),
+    type: 'craft',
+    desc: actionText('action.static.transmission-open.desc'),
     cooldownLeft: 0,
   },
   'toggle:auto_battle': {

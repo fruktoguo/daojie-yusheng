@@ -79,6 +79,11 @@ type MainActionStateSourceOptions = {
 
   openBuildingPanel: () => void;
   /**
+ * openTransmissionPanel：打开传法面板。
+ */
+
+  openTransmissionPanel: () => void;
+  /**
  * openWorldMigrationModal：打开世界迁移弹窗。
  */
 
@@ -150,6 +155,12 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.cancelTargeting();
         options.hideObserveModal();
         options.openBuildingPanel();
+        return;
+      }
+      if (actionId === 'transmission:open') {
+        options.cancelTargeting();
+        options.hideObserveModal();
+        options.openTransmissionPanel();
         return;
       }
       if (actionId === 'world:migrate') {

@@ -123,6 +123,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openNpcQuestPending: (npcId) => npcQuestModal.openPending(npcId),
     openTechniqueActivity: (kind) => techniqueActivityOpeners[kind](),
     openBuildingPanel: () => buildingFengShuiStateSource.openBuildingPanel(),
+    openTransmissionPanel: () => craftWorkbenchModal.openTransmission(),
     openWorldMigrationModal: () => openWorldMigrationModal({
       getPlayer: () => rootRuntimeSource.getPlayer(),
       sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),
