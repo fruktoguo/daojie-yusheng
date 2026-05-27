@@ -15,6 +15,7 @@ import type {
   TechniqueActivityConditionCheckResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
+import { executeBuildingTick } from './building-tick.helpers';
 
 export class BuildingStrategy implements TechniqueActivityStrategy {
   readonly kind = 'building' as const;
@@ -81,10 +82,10 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
   executeTick(player: unknown, ctx: PipelineContext): unknown {
     const playerId = resolvePlayerId(player);
     const deps = resolveBuildingDeps(ctx);
-    if (!playerId || typeof deps?.tickBuildingConstruction !== 'function') {
+    if (!playerId || typeof deps?.getInstanceRuntime !== 'function') {
       return emptyBuildingTickResult();
     }
-    return deps.tickBuildingConstruction(playerId) ?? emptyBuildingTickResult();
+    return executeBuildingTick(playerId, ctx, deps as never);
   }
 
   resolveResumePhase(_job: any): string {
@@ -158,10 +159,21 @@ type BuildingDepsPort = {
   dispatchStartBuildingConstruction?: (playerId: string, buildingId: string) => unknown;
   interruptBuildingConstruction?: (playerId: string, reason?: string) => unknown;
   tickBuildingConstruction?: (playerId: string) => unknown;
+  playerRuntimeService?: {
+    getPlayer?(playerId: string): Record<string, any> | null;
+    markPersistenceDirtyDomains?(player: Record<string, any>, domains: string[]): void;
+    bumpPersistentRevision?(player: Record<string, any>): void;
+  };
   getInstanceRuntime?: (instanceId: string) => any;
   getPlayerLocation?: (playerId: string) => { instanceId?: string } | null;
   getPlayerLocationOrThrow?: (playerId: string) => { instanceId?: string };
   refreshPlayerContextActions?: (playerId: string) => unknown;
+  resolveBuildingDisplayName?: (instance: unknown, building: Record<string, any>) => string | null;
+  resolveBuildingDisplayNameByRuntime?: (runtime: unknown, building: Record<string, any>) => string | null;
+  queuePlayerNotice?: (playerId: string, message: string, kind: string) => void;
+  worldRuntimeTickDispatchService?: {
+    queuePlayerNotice?: unknown;
+  };
 };
 
 function resolvePlayerId(player: unknown): string {

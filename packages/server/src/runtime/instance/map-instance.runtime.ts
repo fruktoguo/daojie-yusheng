@@ -2078,7 +2078,6 @@ class MapInstanceRuntime {
         return this.buildTransfer(player, portal, reason);
     }
     advanceBuildingConstruction() {
-        const completedBuildings = [];
         let changed = false;
         for (const building of this.buildingById.values()) {
             if (building?.state !== 'building') {
@@ -2097,30 +2096,14 @@ class MapInstanceRuntime {
                 changed = true;
                 continue;
             }
-            const nextRemainingTicks = Math.max(0, resolveBuildingRemainingTicks(building) - 1);
-            building.buildRemainingTicks = nextRemainingTicks;
-            building.buildCompleteTick = nextRemainingTicks > 0 ? this.tick + nextRemainingTicks : this.tick;
-            building.updatedAtTick = this.tick;
-            building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
-            changed = true;
-            if (nextRemainingTicks > 0) {
-                continue;
-            }
-            building.state = 'active';
-            building.activeBuilderPlayerId = null;
-            const completionDomains = this.activatePlacedBuildingTopologyAndVisual(building);
-            if (completionDomains.length > 0) {
-                this.markPersistenceDirtyDomainsHighPriority(completionDomains);
-            }
-            completedBuildings.push(building);
         }
         if (!changed) {
-            return completedBuildings;
+            return [];
         }
         this.worldRevision += 1;
         this.persistentRevision += 1;
         this.markPersistenceDirtyDomainsHighPriority(['building']);
-        return completedBuildings;
+        return [];
     }
     activatePlacedBuildingTopologyAndVisual(building) {
         const compiled = building && this.buildingCatalog?.defByHandle

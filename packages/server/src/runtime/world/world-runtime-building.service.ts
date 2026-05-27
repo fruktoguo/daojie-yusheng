@@ -7,8 +7,9 @@
  * 建筑系统运行时服务
  * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
  */
-import { calculateTerrainDurability, computeCraftSkillExpGain, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
-import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
+import { calculateTerrainDurability, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
+import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
+import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 
 /**
  * 建筑操作结果缓存上限：默认 1000，可通过 env SERVER_BUILDING_OPERATION_RESULTS_LIMIT
@@ -184,65 +185,16 @@ export function interruptBuildingConstruction(runtime, playerId, reason = 'cance
 }
 
 export function tickBuildingConstruction(runtime, playerId) {
-    const player = runtime?.playerRuntimeService?.getPlayer?.(playerId);
-    const job = player?.buildingJob;
-    if (!player || !job || Number(job.remainingTicks) <= 0) {
-        return;
-    }
-    const instanceId = typeof job.instanceId === 'string' && job.instanceId.trim() ? job.instanceId.trim() : '';
-    const instance = instanceId ? runtime.getInstanceRuntime?.(instanceId) : null;
-    const building = instance?.buildingById?.get?.(job.buildingId);
-    if (!instance || !building) {
-        player.buildingJob = null;
-        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
-        runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        runtime.refreshPlayerContextActions?.(playerId);
-        return buildBuildingTickResult(true, [{ kind: 'warn', text: '建造目标已经不存在。' }]);
-    }
-    const previousRemainingTicks = Math.max(0, Math.trunc(Number(job.remainingTicks) || 0));
-    const nextRemainingTicks = resolveBuildingRemainingTicksForView(building);
-    const progressedTicks = Math.max(0, previousRemainingTicks - nextRemainingTicks);
-    if (progressedTicks > 0) {
-        awardBuildingConstructionProgress(runtime, playerId, progressedTicks);
-    }
-    if (building.state !== 'building') {
-        releaseStaleBuildingActiveBuilder(instance, building, playerId);
-        player.buildingJob = null;
-        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
-        runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        runtime.refreshPlayerContextActions?.(playerId);
-        return buildBuildingTickResult(true, [{ kind: 'warn', text: '建筑当前不可继续施工。' }]);
-    }
-    if (nextRemainingTicks <= 0) {
-        player.buildingJob = null;
-        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
-        runtime.refreshPlayerContextActions?.(playerId);
-        return buildBuildingTickResult(true);
-    }
-    if (building.activeBuilderPlayerId !== playerId) {
-        const sleepPayload = buildBuildingSleepPayload(job, building, '建筑正在由其他玩家施工。');
-        player.buildingJob = null;
-        runtime.playerRuntimeService.bumpPersistentRevision?.(player);
-        runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        runtime.refreshPlayerContextActions?.(playerId);
-        return {
-            ...buildBuildingTickResult(true, [{ kind: 'warn', text: '建筑施工条件暂时不满足，已转入等待队列。' }]),
-            sleepPayload,
-        };
-    }
-    const nextTotalTicks = Math.max(nextRemainingTicks, Math.trunc(Number(job.totalTicks) || 0), Math.trunc(Number(building.buildStrength) || 0), 1);
-    job.buildingName = resolveBuildingDisplayName(instance, building) ?? job.buildingName ?? building.defId ?? '建筑';
-    job.instanceId = instance.meta.instanceId;
-    job.totalTicks = nextTotalTicks;
-    job.remainingTicks = nextRemainingTicks;
-    job.workTotalTicks = nextTotalTicks;
-    job.workRemainingTicks = nextRemainingTicks;
-    job.interruptWaitRemainingTicks = 0;
-    job.interruptState = null;
-    job.pausedTicks = 0;
-    job.phase = 'building';
-    runtime.playerRuntimeService.bumpPersistentRevision?.(player);
-    return buildBuildingTickResult(true);
+    return executeBuildingTick(playerId, {
+        contentTemplateRepository: runtime.contentTemplateRepository,
+        resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(runtime.playerRuntimeService, level),
+        getInstanceRuntime: (instanceId) => runtime.getInstanceRuntime?.(instanceId) ?? null,
+        deps: runtime,
+    }, {
+        ...runtime,
+        resolveBuildingDisplayName,
+        resolveBuildingDisplayNameByRuntime,
+    });
 }
 
 export function handleBuildDeconstructIntent(runtime, playerId, payload) {
@@ -422,74 +374,8 @@ function resolvePlacedBuildingMaxHp(compiled, buildingSkillLevel, buildStrength)
     const baseMultiplier = Math.max(0.01, Number(compiled?.durabilityMultiplier ?? (Number(compiled?.maxHp ?? 1) / 100)));
     return Math.max(1, Math.trunc(calculateTerrainDurability(buildingSkillLevel, baseMultiplier) * buildStrength));
 }
-function applyCraftSkillExp(source, skill, amount) {
-    if (!skill) {
-        return false;
-    }
-    let changed = false;
-    const currentExpToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
-    if (skill.expToNext !== currentExpToNext) {
-        skill.expToNext = currentExpToNext;
-        changed = true;
-    }
-    skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
-    while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
-        skill.exp -= skill.expToNext;
-        skill.level += 1;
-        skill.expToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
-        changed = true;
-    }
-    return changed || amount > 0;
-}
-function ensureBuildingSkillState(source, player) {
-    const level = Math.max(1, Math.floor(Number(player?.buildingSkill?.level) || 1));
-    const expToNext = resolveCraftSkillExpToNextByLevel(source, level, DEFAULT_CRAFT_EXP_TO_NEXT);
-    const state = {
-        level,
-        exp: Math.max(0, Math.floor(Number(player?.buildingSkill?.exp) || 0)),
-        expToNext,
-    };
-    player.buildingSkill = state;
-    return state;
-}
-function applyBuildingSkillExp(source, player, buildStrength) {
-    if (!player) {
-        return 0;
-    }
-    const skill = ensureBuildingSkillState(source, player);
-    const gain = computeCraftSkillExpGain({
-        skillLevel: skill.level,
-        targetLevel: skill.level,
-        baseActionTicks: normalizeBuildStrength(buildStrength),
-        getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(source, level),
-        successCount: 1,
-        failureCount: 0,
-        successMultiplier: 1,
-    }).finalGain;
-    if (gain <= 0) {
-        return 0;
-    }
-    applyCraftSkillExp(source, skill, gain);
-    if (!(player.dirtyDomains instanceof Set)) {
-        player.dirtyDomains = new Set();
-    }
-    player.dirtyDomains.add('profession');
-    return gain;
-}
 export function awardBuildingConstructionProgress(runtime, playerIdInput, progressTicks = 1) {
-    const playerId = normalizeBuildingRequestId(playerIdInput);
-    if (!playerId) {
-        return 0;
-    }
-    const player = runtime?.playerRuntimeService?.getPlayer?.(playerId);
-    if (!player) {
-        return 0;
-    }
-    const gainedExp = applyBuildingSkillExp(runtime?.playerRuntimeService, player, progressTicks);
-    if (gainedExp > 0) {
-        runtime?.playerRuntimeService?.bumpPersistentRevision?.(player);
-    }
-    return gainedExp;
+    return 0;
 }
 export function notifyBuildingConstructionCompletion(runtime, building) {
     const playerId = normalizeBuildingRequestId(building?.ownerPlayerId);
@@ -513,29 +399,6 @@ function buildBuildingInterruptMessage(buildingNameInput, reason) {
                 : '手动取消';
     return `${buildingName} 的营造被${reasonLabel}打断。`;
 }
-function buildBuildingTickResult(panelChanged = false, messages = []) {
-    return {
-        ok: true,
-        panelChanged,
-        inventoryChanged: false,
-        equipmentChanged: false,
-        attrChanged: false,
-        messages,
-        groundDrops: [],
-        craftRealmExpGain: 0,
-    };
-}
-function buildBuildingSleepPayload(job, building, reason) {
-    return {
-        kind: 'building',
-        payload: {
-            buildingId: job?.buildingId ?? building?.id,
-            instanceId: job?.instanceId ?? building?.instanceId,
-        },
-        label: job?.buildingName ?? building?.defId ?? '建造',
-        reason,
-    };
-}
 function localizeStartBuildingFailure(reason) {
     switch (reason) {
         case 'building_not_found':
@@ -553,28 +416,6 @@ function localizeStartBuildingFailure(reason) {
         default:
             return '开始建造失败';
     }
-}
-function resolveBuildingRemainingTicksForView(building) {
-    if (Number.isFinite(Number(building?.buildRemainingTicks))) {
-        return Math.max(0, Math.trunc(Number(building.buildRemainingTicks)));
-    }
-    if (Number.isFinite(Number(building?.buildStrength))) {
-        return Math.max(1, Math.trunc(Number(building.buildStrength)));
-    }
-    return 0;
-}
-function releaseStaleBuildingActiveBuilder(instance, building, playerId) {
-    if (!instance || !building || building.activeBuilderPlayerId !== playerId) {
-        return false;
-    }
-    building.activeBuilderPlayerId = null;
-    building.buildCompleteTick = undefined;
-    building.updatedAtTick = instance.tick;
-    building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
-    instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
-    instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
-    instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
-    return true;
 }
 function consumeBuildingCost(playerRuntimeService, playerId, consumedItems) {
     for (const entry of Array.isArray(consumedItems) ? consumedItems : []) {

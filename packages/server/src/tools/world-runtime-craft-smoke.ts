@@ -45,7 +45,7 @@ async function main(): Promise<void> {
   testBuildingStrategyConditionFailureReleasesActiveBuilder();
   testBuildingPermanentInvalidTickReleasesActiveBuilder();
   await testGatherStrategyTickUsesStrategyHelper();
-  testBuildingStrategyTickDelegatesRuntimeService();
+  testBuildingStrategyTickUsesStrategyHelper();
   await testCraftTickUsesUnifiedPipelineForCraftingKinds();
   await testCraftTickUsesUnifiedPipelineForGatherBuilding();
   await testCraftTickSleepsConditionalGatherFailure();
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
       '采集目标永久消失时会释放遗留 container activeSearch。',
       '建造 activeBuilder 不会被其他玩家重入覆盖。',
       '建造条件永久失效时会释放当前玩家遗留 activeBuilder。',
-      '采集 strategy tick 规则已迁入 strategy helper；建造 strategy tick 仍委托真实 runtime service。',
+      '采集/建造 strategy tick 规则已迁入 strategy helper。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
       '阵法维护 tick 条件失败会进入统一 sleeping 队列。',
@@ -1926,31 +1926,109 @@ async function testGatherStrategyTickUsesStrategyHelper(): Promise<void> {
   assert.equal(player.persistentRevision, 2);
 }
 
-function testBuildingStrategyTickDelegatesRuntimeService(): void {
+function testBuildingStrategyTickUsesStrategyHelper(): void {
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new BuildingStrategy());
+  const building = {
+    id: 'building-1',
+    defId: 'workshop',
+    ownerPlayerId: 'player:building-strategy-tick',
+    state: 'building',
+    activeBuilderPlayerId: 'player:building-strategy-tick',
+    buildRemainingTicks: 1,
+    buildStrength: 1,
+    revision: 1,
+  };
+  const instance = {
+    tick: 20,
+    meta: { instanceId: 'instance:building-strategy-tick' },
+    worldRevision: 1,
+    persistentRevision: 1,
+    buildingById: new Map<string, any>([['building-1', building]]),
+    dirtyDomains: [] as string[][],
+    activatePlacedBuildingTopologyAndVisual(target: typeof building): string[] {
+      assert.equal(target.id, building.id);
+      return ['building', 'room'];
+    },
+    markPersistenceDirtyDomainsHighPriority(domains: string[]): void {
+      this.dirtyDomains.push(domains);
+    },
+  };
   const player = {
     playerId: 'player:building-strategy-tick',
-    buildingJob: { remainingTicks: 2, buildingId: 'building-1' },
+    buildingSkill: { level: 1, exp: 0, expToNext: 60 },
+    persistentRevision: 1,
+    buildingJob: {
+      buildingId: 'building-1',
+      buildingName: '工坊',
+      instanceId: 'instance:building-strategy-tick',
+      remainingTicks: 1,
+      totalTicks: 1,
+      workRemainingTicks: 1,
+      workTotalTicks: 1,
+      phase: 'building',
+    },
   };
-  const calls: string[] = [];
+  const dirtyDomains: string[][] = [];
+  const notices: Array<[string, string, string]> = [];
+  const refreshed: string[] = [];
+  const deps = {
+    playerRuntimeService: {
+      getPlayer(playerId: string): typeof player | null {
+        assert.equal(playerId, player.playerId);
+        return player;
+      },
+      markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+        dirtyDomains.push(domains);
+      },
+      bumpPersistentRevision(activePlayer: typeof player): void {
+        activePlayer.persistentRevision += 1;
+      },
+    },
+    getInstanceRuntime(instanceId: string): typeof instance | null {
+      assert.equal(instanceId, instance.meta.instanceId);
+      return instance;
+    },
+    refreshPlayerContextActions(playerId: string): void {
+      refreshed.push(playerId);
+    },
+    resolveBuildingDisplayName(): string {
+      return '工坊';
+    },
+    resolveBuildingDisplayNameByRuntime(): string {
+      return '工坊';
+    },
+    queuePlayerNotice(playerId: string, message: string, kind: string): void {
+      notices.push([playerId, message, kind]);
+    },
+    worldRuntimeTickDispatchService: {
+      queuePlayerNotice(): void {},
+    },
+  };
+  assert.equal(Object.prototype.hasOwnProperty.call(deps, 'tickBuildingConstruction'), false);
+
   const result = pipeline.tick(player, 'building', {
     contentTemplateRepository: {
       getItemName(): string | null { return null; },
       normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
     },
     resolveExpToNextByLevel(): number { return 100; },
-    getInstanceRuntime(): unknown { return null; },
-    deps: {
-      tickBuildingConstruction(playerId: string): unknown {
-        calls.push(playerId);
-        return { ok: true, panelChanged: true, messages: [] };
-      },
-    },
+    getInstanceRuntime(instanceId: string): typeof instance | null { return deps.getInstanceRuntime(instanceId); },
+    deps,
   });
 
-  assert.deepEqual(calls, ['player:building-strategy-tick']);
   assert.equal((result as { ok?: boolean })?.ok, true);
+  assert.equal((result as { panelChanged?: boolean })?.panelChanged, true);
+  assert.equal((result as { attrChanged?: boolean })?.attrChanged, true);
+  assert.equal(player.buildingJob, null);
+  assert.equal(building.state, 'active');
+  assert.equal(building.activeBuilderPlayerId, null);
+  assert.equal(building.buildRemainingTicks, 0);
+  assert.deepEqual(instance.dirtyDomains, [['building'], ['building', 'room']]);
+  assert.deepEqual(dirtyDomains, [['active_job', 'profession']]);
+  assert.deepEqual(refreshed, [player.playerId]);
+  assert.deepEqual(notices, [[player.playerId, '工坊已完工', 'success']]);
+  assert.equal(player.persistentRevision, 2);
 }
 
 async function testCraftTickUsesUnifiedPipelineForGatherBuilding(): Promise<void> {

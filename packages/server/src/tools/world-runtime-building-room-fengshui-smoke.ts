@@ -500,8 +500,49 @@ function main() {
   assert.equal(replacement.ok, true);
   yunlaiReplaceWallInstance.playersById.set("player:replace-wall", { playerId: "player:replace-wall", x: replaceX, y: replaceY - 1 });
   assert.equal(yunlaiReplaceWallInstance.startBuildingConstruction(replacement.building.id, "player:replace-wall").ok, true);
-  const replaceCompletionTick = yunlaiReplaceWallInstance.tickOnce();
-  assert.equal(replaceCompletionTick.completedBuildings.length, 1);
+  const replaceAutoTick = yunlaiReplaceWallInstance.tickOnce();
+  assert.equal(replaceAutoTick.completedBuildings.length, 0);
+  assert.equal(replacement.building.state, "building");
+  assert.equal(replacement.building.buildRemainingTicks, 1);
+  const replacePlayer = {
+    playerId: "player:replace-wall",
+    dirtyDomains: new Set(),
+    buildingSkill: { level: 1, exp: 0, expToNext: 60 },
+    buildingJob: {
+      buildingId: replacement.building.id,
+      buildingName: "石墙",
+      instanceId: yunlaiReplaceWallInstance.meta.instanceId,
+      remainingTicks: 1,
+      totalTicks: 1,
+      workRemainingTicks: 1,
+      workTotalTicks: 1,
+      phase: "building",
+    },
+  };
+  const replaceRuntime = Object.create(WorldRuntimeService.prototype);
+  replaceRuntime.contentTemplateRepository = {};
+  replaceRuntime.playerRuntimeService = {
+    getPlayer(playerId) {
+      return playerId === replacePlayer.playerId ? replacePlayer : null;
+    },
+    markPersistenceDirtyDomains(player, domains) {
+      for (const domain of domains) {
+        player.dirtyDomains.add(domain);
+      }
+    },
+    bumpPersistentRevision(player) {
+      player.persistentRevision = (player.persistentRevision ?? 0) + 1;
+    },
+  };
+  replaceRuntime.getInstanceRuntime = () => yunlaiReplaceWallInstance;
+  replaceRuntime.refreshPlayerContextActions = () => {};
+  const replaceCompletionResult = WorldRuntimeService.prototype.tickBuildingConstruction.call(
+    replaceRuntime,
+    replacePlayer.playerId,
+  );
+  assert.equal(replaceCompletionResult.ok, true);
+  assert.equal(replacement.building.state, "active");
+  assert.equal(replacePlayer.buildingJob, null);
   assert.equal(yunlaiReplaceWallInstance.tileDamageByTile.has(replaceTileIndex), false);
   assert.equal(yunlaiReplaceWallInstance.getEffectiveTileType(replaceX, replaceY), TileType.Wall);
   assert.equal(yunlaiReplaceWallInstance.getTileLayerState(replaceX, replaceY)?.legacyTileType, TileType.Wall);
@@ -629,6 +670,14 @@ function main() {
     bumpPersistentRevision(player) {
       player.persistentRevision = (player.persistentRevision ?? 0) + 1;
     },
+    markPersistenceDirtyDomains(player, domains) {
+      if (!(player.dirtyDomains instanceof Set)) {
+        player.dirtyDomains = new Set();
+      }
+      for (const domain of domains) {
+        player.dirtyDomains.add(domain);
+      }
+    },
   };
   commandRuntime.getPlayerLocationOrThrow = () => ({ instanceId: commandInstance.meta.instanceId });
   commandRuntime.getInstanceRuntimeOrThrow = () => commandInstance;
@@ -662,6 +711,8 @@ function main() {
     ),
   );
   assert.equal(placeResult.building.maxHp, expectedWallMaxHp);
+  const commandBuilding = commandInstance.buildingById.get(placeResult.building.id);
+  assert.ok(commandBuilding);
   assert.equal(commandInstance.tilePlane.getTileType(commandInstance.toTileIndex(1, 1)), TileType.Floor);
   assert.equal(commandPlayer.buildingSkill.exp, 0);
   assert.equal(commandPlayer.inventory.items.find((entry) => entry.itemId === "earthbearing_stone").count, 3);
@@ -688,15 +739,19 @@ function main() {
   for (let index = 0; index < buildStrength - 1; index += 1) {
     const pendingTick = commandInstance.tickOnce();
     assert.equal(pendingTick.completedBuildings.length, 0);
-    WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+    assert.equal(commandBuilding.buildRemainingTicks, buildStrength - index);
+    const tickResult = WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+    assert.equal(tickResult.ok, true);
     assert.ok(commandPlayer.buildingSkill.exp > previousBuildingExp);
     assert.equal(commandPlayer.buildingJob.remainingTicks, buildStrength - index - 1);
     previousBuildingExp = commandPlayer.buildingSkill.exp;
   }
   const completionTick = commandInstance.tickOnce();
-  WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
-  assert.equal(completionTick.completedBuildings.length, 1);
-  assert.equal(completionTick.completedBuildings[0].state, "active");
+  assert.equal(completionTick.completedBuildings.length, 0);
+  assert.equal(commandBuilding.state, "building");
+  const completionResult = WorldRuntimeService.prototype.tickBuildingConstruction.call(commandRuntime, commandPlayer.playerId);
+  assert.equal(completionResult.ok, true);
+  assert.equal(commandBuilding.state, "active");
   assert.ok(commandPlayer.buildingSkill.exp > previousBuildingExp);
   const finalBuildingExp = commandPlayer.buildingSkill.exp;
   assert.equal(commandPlayer.buildingJob, null);
