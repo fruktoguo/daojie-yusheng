@@ -264,6 +264,9 @@
 }
 
 .offline-gain-report {
+  container-type: inline-size;
+  box-sizing: border-box;
+  min-width: 0;
   padding: 12px;
   border: 1px solid var(--wash-ink);
   background: var(--surface-muted);
@@ -298,19 +301,23 @@
 }
 
 .offline-gain-section {
+  min-width: 0;
   margin-bottom: 10px;
 }
 
 .offline-gain-list {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .offline-gain-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) fit-content(45%);
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 6px 12px;
+  box-sizing: border-box;
+  min-width: 0;
   min-height: 30px;
   padding: 6px 8px;
   border: 1px solid rgba(34, 26, 19, 0.1);
@@ -322,6 +329,12 @@
   min-width: 0;
   color: var(--ink-black);
   overflow-wrap: anywhere;
+}
+
+.offline-gain-row strong {
+  min-width: 0;
+  justify-self: end;
+  text-align: right;
 }
 
 .offline-gain-confirm-area {
@@ -347,8 +360,26 @@
   }
 
   .offline-gain-row {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
     gap: 4px;
+  }
+
+  .offline-gain-row strong {
+    justify-self: start;
+    text-align: left;
+  }
+}
+
+@container (max-width: 420px) {
+  .offline-gain-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 4px;
+  }
+
+  .offline-gain-row strong {
+    justify-self: start;
+    text-align: left;
   }
 }
