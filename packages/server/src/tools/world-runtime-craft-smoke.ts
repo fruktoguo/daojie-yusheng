@@ -12,6 +12,7 @@ import { GatherStrategy } from '../runtime/craft/pipeline/strategies/gather.stra
 import { MiningStrategy } from '../runtime/craft/pipeline/strategies/mining.strategy';
 import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
 import { TechniqueActivityQueueService } from '../runtime/craft/pipeline/technique-activity-queue.service';
+import { applyTechniqueActivityInterrupt } from '../runtime/craft/technique-activity-runtime.helpers';
 import { WorldRuntimeCraftInterruptService } from '../runtime/world/world-runtime-craft-interrupt.service';
 import { WorldRuntimeCraftTickService } from '../runtime/world/world-runtime-craft-tick.service';
 import { tickBuildingConstruction } from '../runtime/world/world-runtime-building.service';
@@ -24,6 +25,7 @@ async function main(): Promise<void> {
   testActiveTechniqueActivityCoversAllRuntimeKinds();
   testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs();
   testInterruptReasonsKeepWorkProgressSeparate();
+  testRepeatedInterruptAndResumeKeepWorkProgressSeparate();
   testSleepingQueueRetrySkipsHotConditionCheck();
   testSleepingQueuePermanentCancelMarksDirty();
   await testSleepingGatherPermanentCancelReleasesRecoveredActiveSearch();
@@ -69,6 +71,7 @@ async function main(): Promise<void> {
       '阵法维护 tick 规则已迁入 strategy helper，旧 formation service 不再暴露 resolveFormationMaintenanceTick。',
       '阵法维护 start/cancel/灵力不足中止通知由 strategy result 返回结构化 key/vars。',
       '公共 pipeline 暂停推进会同步 interruptWaitRemainingTicks 和 interruptState，不改实际工作进度。',
+      '重复打断不会叠加等待或污染实际工作进度，等待结束会恢复原 phase。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
       '建造 activeBuilder 不会被其他玩家重入覆盖。',
@@ -418,6 +421,92 @@ function testGenericPipelinePauseAdvancesInterruptWaitState(): void {
   assert.equal(player.formationJob.phase, 'paused');
   assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.equal(player.persistentRevision, 2);
+}
+
+function testRepeatedInterruptAndResumeKeepWorkProgressSeparate(): void {
+  const job = createProgressJob('alchemy', 'brewing', {
+    outputItemId: 'pill.repeat-proof',
+    currentBatchRemainingTicks: 4,
+  });
+  const before = pickProgressFields(job);
+
+  assert.equal(applyTechniqueActivityInterrupt(job as never, 10, 'attack'), 10);
+  assert.deepEqual(pickProgressFields(job), before);
+  assert.equal(job.phase, 'paused');
+  assert.equal(job.pausedTicks, 10);
+  assert.equal(job.interruptWaitRemainingTicks, 10);
+
+  assert.equal(applyTechniqueActivityInterrupt(job as never, 10, 'cultivate'), 0);
+  assert.deepEqual(pickProgressFields(job), before);
+  assert.equal(job.phase, 'paused');
+  assert.equal(job.pausedTicks, 10);
+  assert.equal(job.interruptWaitRemainingTicks, 10);
+  assert.equal(job.interruptState?.reason, 'attack');
+
+  const pipeline = new TechniqueActivityPipelineService();
+  const player = {
+    playerId: 'player:repeat-interrupt-resume',
+    alchemyJob: job,
+    dirtyDomains: new Set<string>(),
+    persistentRevision: 1,
+  };
+  pipeline.register({
+    kind: 'alchemy',
+    jobSlot: 'alchemyJob',
+    skillSlot: 'alchemySkill',
+    activityLabel: '炼丹',
+    pauseTicks: 10,
+    conditional: false,
+    resolveResumePhase(): string {
+      return 'brewing';
+    },
+    isResolvePoint(): boolean {
+      return false;
+    },
+    resolve(): never {
+      throw new Error('unexpected resolve');
+    },
+    computeRefund(): { items: never[]; spiritStones: number } {
+      return { items: [], spiritStones: 0 };
+    },
+    dirtyDomains(): string[] {
+      return ['active_job'];
+    },
+  } as any);
+
+  const ctx = {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      playerRuntimeService: {
+        bumpPersistentRevision(activePlayer: typeof player): void {
+          activePlayer.persistentRevision += 1;
+        },
+      },
+    },
+  };
+
+  for (let i = 9; i >= 1; i -= 1) {
+    const tick = pipeline.tick(player, 'alchemy', ctx);
+    assert.equal(tick.ok, true);
+    assert.equal(job.phase, 'paused');
+    assert.equal(job.pausedTicks, i);
+    assert.equal(job.interruptWaitRemainingTicks, i);
+    assert.equal(job.interruptState?.waitRemainingTicks, i);
+    assert.deepEqual(pickProgressFields(job), before);
+  }
+
+  const resumed = pipeline.tick(player, 'alchemy', ctx);
+  assert.equal(resumed.ok, true);
+  assert.equal(job.phase, 'brewing');
+  assert.equal(job.pausedTicks, 0);
+  assert.equal(job.interruptWaitRemainingTicks, 0);
+  assert.equal(job.interruptState, null);
+  assert.deepEqual(pickProgressFields(job), before);
 }
 
 function testSleepingQueueRetrySkipsHotConditionCheck(): void {
