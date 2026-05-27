@@ -485,12 +485,13 @@ strategy 只负责领域差异：
 - [x] EventBus active job progress 从统一 job view 构建。
 - [x] `WorldRuntimeAlchemyService`、`WorldRuntimeEnhancementService` 降级为兼容 facade：只负责取玩家、调用统一技艺入口、错误转换和 mutation flush，不再承载炼制/强化玩法规则。
 - [x] 采集完成路径不再在 `tickGather` 内调用 durable inventory grant 或 presence fence；完成时只更新运行态背包、经验、active job 和 container state，并通过 `inventory` / `active_job` / `profession` dirty domain 交给 flush 链路落盘。
+- [x] 阵法持久化池改为启动期初始化，阵法延迟刷盘 timer 不再在 tick 派生路径里懒初始化数据库连接、建表或 schema 迁移；池未就绪时跳过本次延迟刷盘并记录日志。
 
 验收：
 
 - [x] 不存在同一个 job 被双重 tick 的路径。
 - [ ] 所有面板 patch 仍局部刷新，不全量重刷。
-- [ ] tick 内无数据库 IO、无配置解析、无高频 JSON 签名比较。（采集完成 durable grant 缺口已处理；仍需继续审计其他旧 runtime 委托路径，不能据此标记整个 Phase 6 完成。）
+- [ ] tick 内无数据库 IO、无配置解析、无高频 JSON 签名比较。（采集完成 durable grant 缺口已处理；阵法维护 tick 派生的延迟刷盘不再懒初始化 DB/schema；仍需继续审计其他旧 runtime 委托路径，不能据此标记整个 Phase 6 完成。）
 
 ### Phase 7：持久化模型收敛
 
@@ -630,6 +631,7 @@ strategy 只负责领域差异：
 - 2026-05-27：公共 resolve 入包契约进一步收紧：`applyTechniqueActivityResolveInventory` 只消费 `inventoryDelta.granted`，`TechniqueActivityResolveResult.outputs` 仅作为结算摘要，不再作为自动入包回退字段。新增 `technique-activity-resolve-inventory-contract-smoke` 验证 outputs 单独存在不会改变背包，而 `inventoryDelta.granted` 才会入包或转落地。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/shared build`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-resolve-inventory-contract-smoke.js`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/world-runtime-mining-job-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：`world-runtime-craft-smoke` 增加打断入口独立等待 proof：通过真实 `WorldRuntimeCraftInterruptService` -> `CraftPanelRuntimeService.interruptTechniqueActivity` 链路分别触发 `move`、`attack`、`cultivate`，断言炼丹、炼器、强化、挖矿、阵法维护不会修改 `totalTicks` / `remainingTicks` / `workTotalTicks` / `workRemainingTicks`；非移动阵法维护写独立 `interruptWaitRemainingTicks`，移动阵法维护不伪装成等待条。同步审计移动、普攻、技能释放、手动恢复修炼入口都会进入统一中断器。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。死亡、GM 强迁、离线/重连恢复等非玩家主动状态切换仍需后续独立审计。
 - 2026-05-27：采集完成从 `tickGather` 的 durable inventory grant / presence fence 路径移出，tick 内只执行 `prepareLootGrantItemsForReceiver('gather_completion')`、运行态 `receiveInventoryItem`、经验结算、容器状态更新和 dirty domain 标记；`world-runtime-loot-container-smoke` 改为断言 durable grant / presence load/save 在采集完成 tick 中被调用就失败，同时保留地面 pile 和容器主动拾取走 durable 主链的证明。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-loot-container-smoke.js` 通过。该 proof 只处理采集完成的 tick 内 DB IO 缺口，不证明采集真实规则已经迁出旧 loot container service，也不证明其他旧 runtime 委托路径没有 tick 内 IO。
+- 2026-05-27：`WorldRuntimeFormationService` 增加启动期持久化池初始化，并收紧 `persistInstanceFormationsSoon`：延迟刷盘 timer 触发时如果池未就绪，直接记录“阵法持久化池未就绪，跳过延迟刷盘”，不再调用 `ensurePersistencePool`，因此不会从阵法维护 tick 派生路径懒创建连接池、建表或跑 schema 迁移。`world-runtime-formation-smoke` 增加截获 `setTimeout` 的 proof，断言 timer 回调不会调用 `ensurePersistencePool`；`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-formation-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。该 proof 不等同于把阵法状态迁入通用实例 flush 域；阵法独立表和延迟刷盘仍是当前恢复真源。
 
 ## 验证矩阵
 

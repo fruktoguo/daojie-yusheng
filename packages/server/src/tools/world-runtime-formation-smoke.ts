@@ -26,6 +26,7 @@ const detachedOwnerPlayerId = "player:formation-owner-detached";
 const instanceId = "real:formation_smoke";
 
 async function main() {
+  await testFormationDeferredPersistenceDoesNotLazyInitialize();
   const notices = [];
   const player = {
     playerId,
@@ -832,6 +833,33 @@ async function main() {
     affectedAuraTiles: tileResources.size,
     persistedFormationCount,
   }, null, 2));
+}
+
+async function testFormationDeferredPersistenceDoesNotLazyInitialize() {
+  const service = new WorldRuntimeFormationService(
+    { getFormationTemplate: () => null },
+    {},
+  );
+  let ensureCalls = 0;
+  service.ensurePersistencePool = async () => {
+    ensureCalls += 1;
+    throw new Error("formation persistence timer must not initialize pool");
+  };
+  let scheduled = null;
+  const originalSetTimeout = global.setTimeout;
+  global.setTimeout = ((callback) => {
+    scheduled = () => callback();
+    return 0;
+  });
+  try {
+    service.persistInstanceFormationsSoon("inst:formation:deferred");
+  } finally {
+    global.setTimeout = originalSetTimeout;
+  }
+  assert.equal(typeof scheduled, "function");
+  scheduled?.();
+  await new Promise((resolve) => originalSetTimeout(resolve, 0));
+  assert.equal(ensureCalls, 0);
 }
 
 async function runFormationPersistenceSmoke(playerRuntimeService) {

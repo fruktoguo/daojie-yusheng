@@ -740,6 +740,9 @@ export class WorldRuntimeService {
         return this.combatDiagnostics.slice(-safeLimit);
     }
         async onModuleInit() {
+        if (typeof this.worldRuntimeFormationService?.onModuleInit === 'function') {
+            await this.worldRuntimeFormationService.onModuleInit();
+        }
         this.logger.log('世界运行时已注册，等待启动链路编排器恢复实例');
     }
     async onApplicationBootstrap() {

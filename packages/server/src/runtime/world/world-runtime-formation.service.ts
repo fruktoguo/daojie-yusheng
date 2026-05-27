@@ -54,6 +54,10 @@ class WorldRuntimeFormationService {
         this.databasePoolProvider = databasePoolProvider;
     }
 
+    async onModuleInit() {
+        await this.ensurePersistencePool();
+    }
+
     dispatchCreateFormation(playerId, payload, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const itemInstanceId = resolveInventoryItemInstanceId(payload, this.playerRuntimeService, playerId);
@@ -1116,6 +1120,10 @@ class WorldRuntimeFormationService {
         if (this._formationPersistTimers.has(instanceId)) return;
         this._formationPersistTimers.set(instanceId, setTimeout(() => {
             this._formationPersistTimers.delete(instanceId);
+            if (!this.persistenceReady || !this.persistencePool) {
+                this.logger.warn(`阵法持久化池未就绪，跳过延迟刷盘：${instanceId}`);
+                return;
+            }
             void this.saveInstanceFormations(instanceId).catch((error) => {
                 this.logger.warn(`阵法持久化失败：${instanceId} ${error instanceof Error ? error.message : String(error)}`);
             });
