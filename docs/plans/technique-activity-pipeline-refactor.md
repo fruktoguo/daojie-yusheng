@@ -532,14 +532,14 @@ strategy 只负责领域差异：
 - [x] 旧 `alchemyJob` / `forgingJob` / `enhancementJob` / `gatherJob` / `buildingJob` / `formationJob` 水合兼容保留一个发布周期。
 - [ ] flush ledger / active job version 只在统一路径 bump。
 - [x] 从统一任务列表取消队列项时标记 `active_job` 脏域并递增持久化版本，避免队列删除只刷新面板不落入快照。
-- [x] 崩溃恢复时强化锁定物、统一队列、active job 能一起从分域表恢复；后续仍要继续补其他外部真源缺失时的异常恢复 proof。
+- [x] 崩溃恢复时强化锁定物、统一队列、active job 能一起从分域表恢复；条件型 sleeping 队列恢复后目标永久失效的异常清理 proof 已覆盖采集、建造、阵法、挖矿。
 - [x] active job 存在但强化锁定物缺失时，水合期停止 job、更新强化记录并标记 `active_job` / `enhancement_record` / `inventory` 脏域，避免不完整 active job 进入运行态 tick。
-- [ ] 队列存在但目标永久失效、采集/建造/阵法外部占用缺失等异常恢复能一起清理或按规则停止。
+- [x] 队列存在但目标永久失效、采集/建造/阵法外部占用缺失等异常恢复能一起清理或按规则停止。`TechniqueActivityQueueService.tickQueue` 在 sleeping 项永久失效时先调用 strategy `onConditionFailed`，再移除队列并标记 `active_job`；采集会释放恢复态 `activeSearch`，建造会释放恢复态 `activeBuilderPlayerId`，阵法/挖矿会清理失效队列。
 
 验收：
 
 - [x] 活跃任务重启后能从分域表恢复 active job、interrupt wait、queue 和 locked item。
-- [ ] 活跃任务异常恢复时能按规则停止。（强化锁定物缺失已覆盖，条件型外部目标缺失仍待补 proof。）
+- [x] 活跃任务异常恢复时能按规则停止。（强化锁定物缺失已覆盖；条件型 sleeping 队列目标永久失效已覆盖采集 `activeSearch`、建造 `activeBuilderPlayerId`、阵法目标失效、挖矿矿脉失效。）
 - [ ] 取消、完成、失败、异常恢复不会造成资产复制或丢失。（强化锁定物缺失已证明不回退资产，其他 job kind 仍待覆盖。）
 - [x] 持久化 proof 自带清理。
 
@@ -674,6 +674,7 @@ strategy 只负责领域差异：
 - 2026-05-27：非主动位置变化入口补齐技艺中断：`WorldRuntimeTransferService.applyTransfer` 在跨实例断开/连接前调用 `worldRuntimeCraftInterruptService.interruptCraftForReason(..., 'move', ...)`，GM `dispatchGmUpdatePlayer` 在强迁、首次挂入实例或坐标重定位前同样调用统一技艺中断器；单纯修改 HP / autoBattle 不触发技艺中断。`world-runtime-transfer-placement-smoke` 增加传送前技艺中断 proof，断言传送只刷新独立等待状态，不改 `totalTicks` / `remainingTicks` / `workTotalTicks` / `workRemainingTicks`；新增 `world-runtime-gm-queue-technique-interrupt-smoke` 覆盖 GM 强迁/重定位和非位置更新。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-transfer-placement-smoke.js`、`node packages/server/dist/tools/world-runtime-gm-queue-technique-interrupt-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。死亡、离线/重连恢复等非主动状态切换仍待后续审计。
 - 2026-05-27：统一技艺队列补齐分域恢复真源：新增 `player_technique_activity_queue`，随 `active_job` 脏域由 `PlayerDomainPersistenceService` 全量投影、清空和回读，`CraftPanelRuntimeService.persistTechniqueActivitySnapshot` 直写 active job 时同步直写 unified queue；`WorldPlayerSnapshotService` 在 `server_player_snapshot` 缺失时可从分域表同时恢复 active job、统一队列和强化 `inventory.lockedItems`。`player-domain-recovery-smoke` 增加 with-db proof，覆盖整档快照删除后从分域表恢复炼丹 active job + formation/mining queue，以及强化 active job + locked item + enhancement queue；`technique-activity-persistence-snapshot-smoke` 保留运行态快照/取消队列 dirty proof。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-persistence-snapshot-smoke.js`、`node packages/server/dist/tools/player-domain-recovery-smoke.js` 通过。该 proof 证明正常崩溃恢复能一起恢复，不等同于 active job 存在但锁定物缺失时已经能自动清理或按规则停止。
 - 2026-05-27：强化异常恢复前移到水合期：`PlayerRuntimeService.hydrateFromSnapshot` 发现 `enhancementJob.itemInstanceId` 指向的 `inventory.lockedItems` 不存在时，会清掉 `enhancementJob`，把对应强化记录标记为 `stopped`，并标记 `active_job` / `enhancement_record` / `inventory` 脏域后 bump `persistentRevision`，避免缺工件 job 进入运行态 tick 后才处理。`player-runtime-persistence-roundtrip-smoke` 增加无 DB proof，`player-domain-recovery-smoke` 增加 with-db proof：分域表恢复出 active job 但无锁定物时，运行态水合立即停止 job。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/player-runtime-persistence-roundtrip-smoke.js`、`node packages/server/dist/tools/player-domain-recovery-smoke.js` 通过。该 proof 只覆盖强化锁定物缺失，不覆盖采集/建造/阵法/挖矿外部目标缺失。
+- 2026-05-27：条件型 sleeping 队列异常恢复补齐失败清理：`TechniqueActivityQueueService.tickQueue` 在 sleeping 项重试时如果 strategy 判定 `shouldCancel`，会先调用 `onConditionFailed` 再移除队列和标记 `active_job`。`world-runtime-craft-smoke` 新增恢复态 proof：采集队列目标永久消失时释放持久化容器状态中的遗留 `activeSearch` 并标记 container dirty；建造队列目标已非 building 时释放遗留 `activeBuilderPlayerId`、清 `buildCompleteTick` 并标记 building dirty；阵法目标失效和挖矿矿脉失效会清理 sleeping 队列、标记 `active_job` 并 bump revision。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。
 
 ## 验证矩阵
 

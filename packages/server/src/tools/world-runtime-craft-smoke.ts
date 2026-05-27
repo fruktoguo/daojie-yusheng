@@ -25,6 +25,10 @@ async function main(): Promise<void> {
   testInterruptReasonsKeepWorkProgressSeparate();
   testSleepingQueueRetrySkipsHotConditionCheck();
   testSleepingQueuePermanentCancelMarksDirty();
+  await testSleepingGatherPermanentCancelReleasesRecoveredActiveSearch();
+  testSleepingBuildingPermanentCancelReleasesRecoveredActiveBuilder();
+  testSleepingFormationPermanentCancelRemovesRecoveredQueue();
+  testSleepingMiningPermanentCancelRemovesRecoveredQueue();
   testSleepingGatherQueueRestartsThroughPipeline();
   testGatherStartCancelUsePipelineLifecycle();
   testSleepingBuildingQueueRestartsThroughPipeline();
@@ -53,6 +57,8 @@ async function main(): Promise<void> {
       'move/attack/cultivate 打断炼丹/炼器/强化/挖矿/阵法维护时不修改实际工作进度；阵法移动不伪装成等待条。',
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
+      '恢复态 sleeping 队列永久失效会调用 strategy 失败清理钩子，释放采集 activeSearch 和建造 activeBuilder。',
+      '阵法/挖矿恢复态 sleeping 队列目标永久失效会按规则停止并清理队列。',
       '采集/建造/阵法/挖矿 sleeping 队列项会用原 payload 经过 pipeline start 恢复。',
       '采集 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeSearch。',
       '建造 start/cancel 不再走 strategy 旧委托，而是通过标准 pipeline lifecycle 创建 job 并释放 activeBuilder。',
@@ -490,6 +496,296 @@ function testSleepingQueuePermanentCancelMarksDirty(): void {
   assert.equal(conditionChecks, 1);
   assert.equal(result?.ok, true);
   assert.equal(result?.panelChanged, true);
+  assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(player.persistentRevision, 2);
+}
+
+async function testSleepingGatherPermanentCancelReleasesRecoveredActiveSearch(): Promise<void> {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new GatherStrategy());
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const instanceId = 'instance:gather-recovered-loss';
+  const containerId = 'herb-recovered-missing';
+  const player = {
+    playerId: 'player:gather-recovered-loss',
+    instanceId,
+    x: 1,
+    y: 1,
+    gatherJob: null,
+    persistentRevision: 1,
+    dirtyDomains: new Set<string>(),
+    techniqueActivityQueue: [{
+      queueId: 'queue:gather:recovered-loss',
+      kind: 'gather',
+      payload: { sourceId: `container:${instanceId}:${containerId}` },
+      label: '消失的灵草丛',
+      state: 'sleeping',
+      sleepReason: '恢复后重新检查',
+      retryAfterTicks: 0,
+      createdAt: 1,
+    }],
+  };
+  const playerRuntimeService = {
+    getLootWindowTarget(): { tileX: number; tileY: number } {
+      return { tileX: 1, tileY: 1 };
+    },
+    bumpPersistentRevision(targetPlayer: typeof player): void {
+      targetPlayer.persistentRevision += 1;
+    },
+    markPersistenceDirtyDomains(targetPlayer: typeof player, domains: string[]): void {
+      for (const domain of domains) targetPlayer.dirtyDomains.add(domain);
+    },
+  };
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number): unknown {
+      return { itemId, count };
+    },
+  } as never, playerRuntimeService as never, null);
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${containerId}`,
+    containerId,
+    generatedAtTick: 1,
+    refreshAtTick: 100,
+    entries: [],
+    activeSearch: {
+      playerId: player.playerId,
+      itemKey: 'herb.qi:1',
+      totalTicks: 2,
+      remainingTicks: 1,
+    },
+  }]);
+  const instance = {
+    tick: 5,
+    getContainerById(): null {
+      return null;
+    },
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return instance; },
+    deps: {
+      worldRuntimeLootContainerService: service,
+      playerRuntimeService,
+      getPlayerLocationOrThrow(playerId: string): { instanceId: string } {
+        assert.equal(playerId, player.playerId);
+        return { instanceId };
+      },
+      getInstanceRuntime(targetInstanceId: string): unknown {
+        assert.equal(targetInstanceId, instanceId);
+        return instance;
+      },
+      getInstanceRuntimeOrThrow(targetInstanceId: string): unknown {
+        assert.equal(targetInstanceId, instanceId);
+        return instance;
+      },
+    },
+  });
+
+  assert.equal(result?.ok, true);
+  assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(player.persistentRevision, 2);
+  const [persisted] = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted?.activeSearch, undefined);
+  assert.equal(service.getDirtyInstanceIds().has(instanceId), true);
+}
+
+function testSleepingBuildingPermanentCancelReleasesRecoveredActiveBuilder(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new BuildingStrategy());
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const building = {
+    id: 'building-recovered',
+    state: 'active',
+    activeBuilderPlayerId: 'player:building-recovered-loss',
+    buildCompleteTick: 30 as number | undefined,
+    revision: 1,
+  };
+  const instance = {
+    tick: 20,
+    worldRevision: 1,
+    persistentRevision: 1,
+    buildingById: new Map<string, any>([['building-recovered', building]]),
+    dirtyDomains: [] as string[][],
+    markPersistenceDirtyDomainsHighPriority(domains: string[]): void {
+      this.dirtyDomains.push(domains);
+    },
+  };
+  const player = {
+    playerId: 'player:building-recovered-loss',
+    instanceId: 'instance:building-recovered',
+    buildingJob: null,
+    persistentRevision: 1,
+    dirtyDomains: new Set<string>(),
+    techniqueActivityQueue: [{
+      queueId: 'queue:building:recovered-loss',
+      kind: 'building',
+      payload: { buildingId: 'building-recovered', instanceId: 'instance:building-recovered' },
+      label: '旧工坊',
+      state: 'sleeping',
+      sleepReason: '恢复后重新检查',
+      retryAfterTicks: 0,
+      createdAt: 1,
+    }],
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return instance; },
+    deps: {
+      getInstanceRuntime(instanceId: string): unknown {
+        assert.equal(instanceId, 'instance:building-recovered');
+        return instance;
+      },
+      refreshPlayerContextActions(refreshPlayerId: string): void {
+        assert.equal(refreshPlayerId, player.playerId);
+      },
+      playerRuntimeService: {
+        bumpPersistentRevision(targetPlayer: typeof player): void {
+          targetPlayer.persistentRevision += 1;
+        },
+        markPersistenceDirtyDomains(targetPlayer: typeof player, domains: string[]): void {
+          for (const domain of domains) targetPlayer.dirtyDomains.add(domain);
+        },
+      },
+    },
+  });
+
+  assert.equal(result?.ok, true);
+  assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.equal(building.activeBuilderPlayerId, null);
+  assert.equal(building.buildCompleteTick, undefined);
+  assert.equal(instance.worldRevision, 2);
+  assert.equal(instance.persistentRevision, 2);
+  assert.deepEqual(instance.dirtyDomains, [['building']]);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(player.persistentRevision, 2);
+}
+
+function testSleepingFormationPermanentCancelRemovesRecoveredQueue(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new FormationStrategy());
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const player = {
+    playerId: 'player:formation-recovered-loss',
+    formationJob: null,
+    persistentRevision: 1,
+    dirtyDomains: new Set<string>(),
+    techniqueActivityQueue: [{
+      queueId: 'queue:formation:recovered-loss',
+      kind: 'formation',
+      payload: { formationInstanceId: 'formation-gone' },
+      label: '维护 已失效阵法',
+      state: 'sleeping',
+      sleepReason: '恢复后重新检查',
+      retryAfterTicks: 0,
+      createdAt: 1,
+    }],
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(): unknown { return null; },
+    deps: {
+      worldRuntimeFormationService: {
+        checkFormationMaintenanceCondition(_player: unknown, job: { formationInstanceId?: string }): { satisfied: boolean; shouldCancel: boolean; reason: string } {
+          assert.equal(job.formationInstanceId, 'formation-gone');
+          return { satisfied: false, shouldCancel: true, reason: '阵法已不存在或不属于你。' };
+        },
+      },
+      playerRuntimeService: {
+        bumpPersistentRevision(targetPlayer: typeof player): void {
+          targetPlayer.persistentRevision += 1;
+        },
+        markPersistenceDirtyDomains(targetPlayer: typeof player, domains: string[]): void {
+          for (const domain of domains) targetPlayer.dirtyDomains.add(domain);
+        },
+      },
+    },
+  });
+
+  assert.equal(result?.ok, true);
+  assert.equal(player.techniqueActivityQueue.length, 0);
+  assert.equal(player.dirtyDomains.has('active_job'), true);
+  assert.equal(player.persistentRevision, 2);
+}
+
+function testSleepingMiningPermanentCancelRemovesRecoveredQueue(): void {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new MiningStrategy());
+  const queueService = new TechniqueActivityQueueService(pipeline);
+  const player = {
+    playerId: 'player:mining-recovered-loss',
+    instanceId: 'instance:mining-recovered',
+    x: 4,
+    y: 5,
+    miningJob: null,
+    persistentRevision: 1,
+    dirtyDomains: new Set<string>(),
+    techniqueActivityQueue: [{
+      queueId: 'queue:mining:recovered-loss',
+      kind: 'mining',
+      payload: { instanceId: 'instance:mining-recovered', targetX: 5, targetY: 5 },
+      label: '已耗尽矿脉',
+      state: 'sleeping',
+      sleepReason: '恢复后重新检查',
+      retryAfterTicks: 0,
+      createdAt: 1,
+    }],
+  };
+  const instance = {
+    getTileCombatState(x: number, y: number): null {
+      assert.equal(x, 5);
+      assert.equal(y, 5);
+      return null;
+    },
+  };
+
+  const result = queueService.tickQueue(player, {
+    contentTemplateRepository: {
+      getItemName(): string | null { return null; },
+      normalizeItem(item: { itemId: string; count: number }): unknown { return item; },
+    },
+    resolveExpToNextByLevel(): number { return 100; },
+    getInstanceRuntime(instanceId: string): unknown {
+      assert.equal(instanceId, 'instance:mining-recovered');
+      return instance;
+    },
+    deps: {
+      getPlayerLocation(playerId: string): { instanceId: string; x: number; y: number } {
+        assert.equal(playerId, player.playerId);
+        return { instanceId: 'instance:mining-recovered', x: 4, y: 5 };
+      },
+      getInstanceRuntime(instanceId: string): unknown {
+        assert.equal(instanceId, 'instance:mining-recovered');
+        return instance;
+      },
+      playerRuntimeService: {
+        bumpPersistentRevision(targetPlayer: typeof player): void {
+          targetPlayer.persistentRevision += 1;
+        },
+        markPersistenceDirtyDomains(targetPlayer: typeof player, domains: string[]): void {
+          for (const domain of domains) targetPlayer.dirtyDomains.add(domain);
+        },
+      },
+    },
+  });
+
+  assert.equal(result?.ok, true);
   assert.equal(player.techniqueActivityQueue.length, 0);
   assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.equal(player.persistentRevision, 2);

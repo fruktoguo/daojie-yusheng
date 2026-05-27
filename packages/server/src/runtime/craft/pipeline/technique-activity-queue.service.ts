@@ -142,6 +142,7 @@ export class TechniqueActivityQueueService {
         }
         if (condition.shouldCancel) {
           // 条件永久不满足 → 移除
+          strategy.onConditionFailed?.(player, conditionJob as any, ctx);
           queue.shift();
           markQueueDirty(player, ctx);
           return queueMutationResult();
