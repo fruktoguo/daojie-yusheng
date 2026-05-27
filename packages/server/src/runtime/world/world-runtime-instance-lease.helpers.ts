@@ -811,7 +811,7 @@ async function restorePersistentInstanceFormations(runtime, instanceId) {
   }
   const restoredFormations = await runtime.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
   if (restoredFormations > 0) {
-    runtime.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
+    runtime.logger.debug?.(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
   }
 }
 

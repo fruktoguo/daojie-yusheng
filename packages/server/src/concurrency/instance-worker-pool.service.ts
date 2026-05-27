@@ -11,6 +11,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
@@ -38,6 +39,8 @@ export class InstanceWorkerPoolService {
   private roundRobinIndex = 0;
   private shuttingDown = false;
   private activeWorkerCount = 0;
+  private disabledMissingWorkerPath: string | null = null;
+  private missingWorkerPathLogged = false;
 
   constructor(
     private readonly metricsService: WorkerPoolMetricsService,
@@ -68,7 +71,9 @@ export class InstanceWorkerPoolService {
       return;
     }
     this.ensureWorkersStarted();
-    this.logger.log(`实例工作池已启动：${this.activeWorkerCount} 个工作线程`);
+    if (this.activeWorkerCount > 0) {
+      this.logger.log(`实例工作池已启动：${this.activeWorkerCount} 个工作线程`);
+    }
   }
 
   shutdown(): void {
@@ -97,18 +102,31 @@ export class InstanceWorkerPoolService {
   }
 
   private ensureWorkersStarted(): void {
-    if (this.forceSyncMode || this.activeWorkerCount > 0 || this.shuttingDown) return;
+    if (this.forceSyncMode || this.activeWorkerCount > 0 || this.shuttingDown || this.disabledMissingWorkerPath) return;
     const workerPath = resolve(__dirname, 'workers', 'instance-advance.worker.js');
+    if (!existsSync(workerPath)) {
+      this.disableForMissingWorkerPath(workerPath);
+      return;
+    }
     this.workers = new Array(this.config.poolSize).fill(null);
     for (let i = 0; i < this.config.poolSize; i += 1) this.spawnSingleWorker(workerPath, i);
     this.metricsService.setActiveWorkers('instance', this.activeWorkerCount);
   }
 
   private spawnSingleWorker(workerPath: string, index: number): void {
+    if (this.disabledMissingWorkerPath || !existsSync(workerPath)) {
+      this.disableForMissingWorkerPath(workerPath);
+      return;
+    }
     try {
       const worker = new Worker(workerPath);
       worker.on('message', (msg: WorkerTaskResult) => this.handleWorkerResult(msg));
       worker.on('error', (err) => {
+        if (isWorkerModuleMissing(err, workerPath)) {
+          this.disableForMissingWorkerPath(workerPath);
+          this.handleWorkerDeath(worker, index, workerPath);
+          return;
+        }
         this.logger.error(`实例工作线程 ${index} 错误：${err.message}`);
         this.handleWorkerDeath(worker, index, workerPath);
       });
@@ -119,6 +137,10 @@ export class InstanceWorkerPoolService {
       this.activeWorkerCount += 1;
       this.metricsService.setActiveWorkers('instance', this.activeWorkerCount);
     } catch (err: unknown) {
+      if (isWorkerModuleMissing(err, workerPath)) {
+        this.disableForMissingWorkerPath(workerPath);
+        return;
+      }
       this.logger.error(`实例工作线程 ${index} 启动失败：${err instanceof Error ? err.message : String(err)}`);
     }
   }
@@ -208,8 +230,27 @@ export class InstanceWorkerPoolService {
       this.pendingTasks.delete(taskId);
       pending.resolve(this.executeFallbackSync(taskId, pending.payload, pending.fallback, 'Worker died'));
     }
+    if (this.disabledMissingWorkerPath) {
+      return;
+    }
     setTimeout(() => {
-      if (!this.shuttingDown && !this.workers[index]) this.spawnSingleWorker(workerPath, index);
+      if (!this.shuttingDown && !this.disabledMissingWorkerPath && !this.workers[index]) this.spawnSingleWorker(workerPath, index);
     }, 1000);
   }
+
+  private disableForMissingWorkerPath(workerPath: string): void {
+    this.disabledMissingWorkerPath = workerPath;
+    this.activeWorkerCount = 0;
+    this.metricsService.setActiveWorkers('instance', 0);
+    if (!this.missingWorkerPathLogged) {
+      this.missingWorkerPathLogged = true;
+      this.logger.warn(`实例工作池已降级为同步路径：worker 文件不存在 ${workerPath}`);
+    }
+  }
+}
+
+function isWorkerModuleMissing(error: unknown, workerPath: string): boolean {
+  const candidate = error as { code?: unknown; message?: unknown };
+  const message = typeof candidate?.message === 'string' ? candidate.message : '';
+  return candidate?.code === 'MODULE_NOT_FOUND' && message.includes(workerPath);
 }

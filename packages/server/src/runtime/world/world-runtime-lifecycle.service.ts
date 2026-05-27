@@ -85,6 +85,9 @@ export class WorldRuntimeLifecycleService {
         const domainPersistenceService = deps.instanceDomainPersistenceService;
         const domainPersistenceEnabled = typeof domainPersistenceService?.isEnabled === 'function'
             && domainPersistenceService.isEnabled();
+        let restoredFormationInstances = 0;
+        let restoredFormationCount = 0;
+        let restoredDomainInstances = 0;
         if (!domainPersistenceEnabled) {
             if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
                 await deps.worldRuntimeSectService.restoreSects(deps);
@@ -96,10 +99,12 @@ export class WorldRuntimeLifecycleService {
                 if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
                     const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
                     if (restoredFormations > 0) {
-                        deps.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
+                        restoredFormationInstances += 1;
+                        restoredFormationCount += restoredFormations;
                     }
                 }
             }
+            logInstanceRestoreSummary(deps, restoredDomainInstances, restoredFormationInstances, restoredFormationCount);
             return;
         }
         if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
@@ -163,21 +168,24 @@ export class WorldRuntimeLifecycleService {
                 if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
                     const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
                     if (restoredFormations > 0) {
-                        deps.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
+                        restoredFormationInstances += 1;
+                        restoredFormationCount += restoredFormations;
                     }
                 }
                 if (watermark || (Array.isArray(eventStates) && eventStates.length > 0) || (Array.isArray(overlayChunks) && overlayChunks.length > 0) || checkpoint) {
-                    deps.logger.log(`实例分域恢复已回填：${instanceId}`);
+                    restoredDomainInstances += 1;
                 }
                 continue;
             }
             if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
                 const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
                 if (restoredFormations > 0) {
-                    deps.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
+                    restoredFormationInstances += 1;
+                    restoredFormationCount += restoredFormations;
                 }
             }
         }
+        logInstanceRestoreSummary(deps, restoredDomainInstances, restoredFormationInstances, restoredFormationCount);
     }    
     /**
  * rebuildPersistentRuntimeAfterRestore：判断rebuildPersistent运行态AfterRestore是否满足条件。
@@ -496,6 +504,15 @@ async function markMissingTemplateCatalogEntry(deps, entry, instanceId, template
     if (changed) {
         deps.logger.warn(`实例目录引用的地图模板不存在，已标记为待内容恢复：${instanceId} -> ${templateId}`);
     }
+}
+
+function logInstanceRestoreSummary(deps, restoredDomainInstances, restoredFormationInstances, restoredFormationCount) {
+    if (restoredDomainInstances <= 0 && restoredFormationInstances <= 0) {
+        return;
+    }
+    deps.logger.log(
+        `实例持久化恢复完成：分域回填 ${restoredDomainInstances} 个实例，阵法恢复 ${restoredFormationCount} 个 / ${restoredFormationInstances} 个实例`,
+    );
 }
 
 async function restoreCatalogInstanceShellsAfterReset(deps, catalogEntries) {
