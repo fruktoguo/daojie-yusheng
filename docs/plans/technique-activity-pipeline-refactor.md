@@ -554,7 +554,7 @@ strategy 只负责领域差异：
 
 - [x] 不存在同一个 job 被双重 tick 的路径。
 - [ ] 所有面板 patch 仍局部刷新，不全量重刷。
-- [ ] tick 内无数据库 IO、无配置解析、无高频 JSON 签名比较。（采集完成 durable grant 缺口已处理且采集 tick 规则已迁入 strategy helper；阵法维护 tick 派生的延迟刷盘不再懒初始化 DB/schema；仍需继续审计其他旧 runtime 委托路径，不能据此标记整个 Phase 6 完成。）
+- [x] tick 内无数据库 IO、无配置解析、无高频 JSON 签名比较。`technique-activity-tick-hotpath-smoke` 静态覆盖统一 tick 编排、pipeline tick 和炼丹/炼器/强化/采集/建造/阵法维护/挖矿 tick helper，禁止 DB 写入、文件 IO、配置解析、schema/migration 初始化和 `JSON.stringify` / `JSON.parse`。
 
 ### Phase 7：持久化模型收敛
 
@@ -722,6 +722,7 @@ strategy 只负责领域差异：
 - 2026-05-27：打断等待重复刷新和恢复 proof 补齐：`world-runtime-craft-smoke` 增加 `testRepeatedInterruptAndResumeKeepWorkProgressSeparate`，同一 active job 首次打断会写独立等待，重复打断不会叠加等待、不改 reason、不污染 `totalTicks` / `remainingTicks` / `workTotalTicks` / `workRemainingTicks`；随后通过 pipeline tick 逐息推进等待条，直到恢复原 phase，全程实际工作进度不变。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-craft-smoke.js`、`pnpm verify:quick` 通过；`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：炼丹、炼器、强化的 `executeInterrupt` 完整委托口移除，公共 `TechniqueActivityPipelineService.interrupt` 统一处理非条件型技艺的暂停等待、结构化通用打断通知和 `active_job` dirty；`markPipelineDirty` 在 `active_job` dirty 时统一 bump active job version，阵法维护 tick helper 不再手动递增 `jobVersion`。`craft-persistence-dirty-domain-smoke` 补齐统一队列分域直写 mock，并用稳定 `itemInstanceId` 引用强化目标，继续证明 active job version 随 craft 变更单调前进。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/craft-persistence-dirty-domain-smoke.js`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。后续提交已继续把 `CraftPanelRuntimeService.finalizeMutation` 和 `MiningStrategy.executeTick` 的版本递增实现收敛到共享 helper。
 - 2026-05-27：active job version 递增实现收敛为唯一 helper：新增 `bumpTechniqueActivityJobVersion`，`TechniqueActivityPipelineService.markPipelineDirty`、`CraftPanelRuntimeService.finalizeMutation` 和 `MiningStrategy.markMiningDirty` 都只调用该 helper；`MiningStrategy.executeTick` 不再手写 `job.jobVersion = ... + 1`，旧 `bumpActiveJobVersion` 局部函数删除。`craft-persistence-dirty-domain-smoke` 增加源码静态 proof，断言 `jobVersion` 递增表达式只剩 `bumpTechniqueActivityJobVersion` 一处，且旧 `bumpActiveJobVersion` 不存在；同时保留炼丹 tick 和强化完成时 active job dirty / versionSeed proof。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/craft-persistence-dirty-domain-smoke.js` 通过。
+- 2026-05-27：Phase 6 tick 热路径 proof 补齐：新增 `technique-activity-tick-hotpath-smoke`，静态检查 `WorldRuntimeCraftTickService`、`TechniqueActivityPipelineService` 和所有当前技艺 tick helper / strategy tick 文件，禁止出现 `JSON.stringify`、`JSON.parse`、文件 IO、配置目录读取、player active job / queue / enhancement record / alchemy preset 直接持久化写入、persistence pool 懒初始化和 schema/migration 初始化；同时断言炼丹、炼器、强化配置读取仍限定在 `CraftPanelRuntimeService` 构造期加载函数。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-tick-hotpath-smoke.js` 通过。
 
 ## 验证矩阵
 
