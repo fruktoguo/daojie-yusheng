@@ -459,6 +459,9 @@ async function testInvalidAttackNoticeUsesTargetReason() {
             throw new Error('该目标无法被攻击');
         },
         logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
             warn(message) {
                 log.push(['warn', message]);
             },
@@ -468,8 +471,55 @@ async function testInvalidAttackNoticeUsesTargetReason() {
         },
     });
     assert.deepEqual(log, [
-        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=0 manual=0 playerState=missing'],
+        ['log', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击） debug=auto=0 manual=0 playerState=missing'],
         ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
+async function testMoveToUnreachableFailureUsesLogWhenAvailable() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'moveTo',
+        x: 99,
+        y: 99,
+        allowNearestReachable: false,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('无法到达该位置');
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                assert.equal(playerId, 'player:1');
+                return {
+                    playerId: 'player:1',
+                    name: '妖',
+                    instanceId: 'real:cold_tide_marsh',
+                    x: 23,
+                    y: 37,
+                };
+            },
+        },
+        logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['log', '处理玩家 player:1 的待执行指令失败：moveTo（无法到达该位置） debug=auto=0 manual=0 playerName=妖 instance=real:cold_tide_marsh playerPos=23,37'],
+        ['queuePlayerNotice', 'player:1', '无法到达该位置', 'warn'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
@@ -953,6 +1003,9 @@ async function testSkillOutOfRangeStaysServerInternal() {
             throw new Error('Skill skill.liyan_duanxi out of range');
         },
         logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
             warn(message) {
                 log.push(['warn', message]);
             },
@@ -962,12 +1015,12 @@ async function testSkillOutOfRangeStaysServerInternal() {
         },
     });
     assert.deepEqual(log, [
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（Skill skill.liyan_duanxi out of range） debug=auto=0 manual=0 skill=skill.liyan_duanxi playerState=missing'],
+        ['log', '处理玩家 player:1 的待执行指令失败：castSkill（Skill skill.liyan_duanxi out of range） debug=auto=0 manual=0 skill=skill.liyan_duanxi playerState=missing'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
-async function testManualSkillCooldownFailureUsesDebugLogWhenAvailable() {
+async function testManualSkillCooldownFailureUsesLogWhenAvailable() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
     service.enqueuePendingCommand('player:1', {
@@ -985,6 +1038,9 @@ async function testManualSkillCooldownFailureUsesDebugLogWhenAvailable() {
             throw new Error('技能 skill.iron_bone_art 尚在冷却');
         },
         logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
             debug(message) {
                 log.push(['debug', message]);
             },
@@ -997,13 +1053,13 @@ async function testManualSkillCooldownFailureUsesDebugLogWhenAvailable() {
         },
     });
     assert.deepEqual(log, [
-        ['debug', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill.iron_bone_art 尚在冷却） debug=auto=0 manual=0 skill=skill.iron_bone_art playerState=missing'],
+        ['log', '处理玩家 player:1 的待执行指令失败：castSkill（技能 skill.iron_bone_art 尚在冷却） debug=auto=0 manual=0 skill=skill.iron_bone_art playerState=missing'],
         ['queuePlayerNotice', 'player:1', '技能 skill.iron_bone_art 尚在冷却', 'warn'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
-async function testManualEngageNoTargetFailureUsesDebugLogWhenAvailable() {
+async function testManualEngageNoTargetFailureUsesLogWhenAvailable() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
     service.enqueuePendingCommand('player:1', {
@@ -1022,6 +1078,9 @@ async function testManualEngageNoTargetFailureUsesDebugLogWhenAvailable() {
             throw new Error('没有可命中的目标');
         },
         logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
             debug(message) {
                 log.push(['debug', message]);
             },
@@ -1034,7 +1093,7 @@ async function testManualEngageNoTargetFailureUsesDebugLogWhenAvailable() {
         },
     });
     assert.deepEqual(log, [
-        ['debug', '处理玩家 player:1 的待执行指令失败：engageBattle（没有可命中的目标） debug=auto=0 manual=0 playerState=missing'],
+        ['log', '处理玩家 player:1 的待执行指令失败：engageBattle（没有可命中的目标） debug=auto=0 manual=0 playerState=missing'],
         ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn'],
     ]);
     assert.equal(service.getPendingCommandCount(), 0);
@@ -1081,14 +1140,15 @@ Promise.resolve()
     .then(() => testAutoCombatRetryFailureLogsRetryCommandDebug())
     .then(() => testManualEngageAttackClearsServerOnlyEngageState())
     .then(() => testInvalidAttackNoticeUsesTargetReason())
+    .then(() => testMoveToUnreachableFailureUsesLogWhenAvailable())
     .then(() => testAutoCombatInvalidTargetStaysServerInternal())
     .then(() => testAutoCombatRetaliateFailurePreservesDifferentLockedTarget())
     .then(() => testAutoCombatOutOfRangeClearsTargetWithoutNotice())
     .then(() => testAutoCombatPlayerOutOfRangeClearsRetaliateAndThreatTarget())
     .then(() => testAutoCombatPlayerPvpDisabledClearsTargetWithoutNotice())
     .then(() => testSkillOutOfRangeStaysServerInternal())
-    .then(() => testManualSkillCooldownFailureUsesDebugLogWhenAvailable())
-    .then(() => testManualEngageNoTargetFailureUsesDebugLogWhenAvailable())
+    .then(() => testManualSkillCooldownFailureUsesLogWhenAvailable())
+    .then(() => testManualEngageNoTargetFailureUsesLogWhenAvailable())
     .then(() => testInternalSliceErrorStaysServerInternal())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command' }, null, 2));

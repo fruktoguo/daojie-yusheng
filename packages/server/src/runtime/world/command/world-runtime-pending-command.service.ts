@@ -47,8 +47,43 @@ function shouldDowngradePendingCommandFailure(command, message) {
     if (command?.autoCombat === true || command?.manualEngage === true) {
         return false;
     }
-    return isCooldownFailure(message)
-        || (command?.kind === 'engageBattle' && message === '没有可命中的目标');
+    return isExpectedPendingCommandReject(command, message);
+}
+
+function isExpectedNavigationReject(message) {
+    return message === '无法到达该位置'
+        || message === '任务目标当前不可达'
+        || message === '目标超出地图范围'
+        || message === '前往界门的路径不可达'
+        || (typeof message === 'string' && /^无法规划前往 .+ 的跨图路线$/.test(message))
+        || (typeof message === 'string' && /^当前地图没有通往 .+ 的界门$/.test(message));
+}
+
+function isExpectedCombatReject(message) {
+    return message === '没有可命中的目标'
+        || message === '该目标无法被攻击'
+        || message === '目标超出攻击距离'
+        || message === '目标超出技能范围'
+        || message === '目标被遮挡'
+        || message === '目标不在同一地图'
+        || message === '目标已经死亡'
+        || message === '施法者已死亡'
+        || isCooldownFailure(message)
+        || isOutOfRangeFailure(message)
+        || (typeof message === 'string' && /^技能 .+ 元气不足$/.test(message))
+        || (typeof message === 'string' && /^玩家 .+ 元气不足$/.test(message));
+}
+
+function isExpectedPendingCommandReject(command, message) {
+    if (command?.kind === 'moveTo') {
+        return isExpectedNavigationReject(message);
+    }
+    if (command?.kind === 'engageBattle'
+        || command?.kind === 'basicAttack'
+        || command?.kind === 'castSkill') {
+        return isExpectedCombatReject(message);
+    }
+    return false;
 }
 
 function resolveCommandTargetRef(command) {
@@ -202,11 +237,22 @@ function buildPendingCommandFailureDebug(playerId, command, deps) {
 }
 
 function emitPendingCommandFailureLog(deps, line, command, message) {
-    if (shouldDowngradePendingCommandFailure(command, message) && typeof deps.logger?.debug === 'function') {
-        deps.logger.debug(line);
+    if (shouldDowngradePendingCommandFailure(command, message)) {
+        const log = typeof deps.logger?.log === 'function'
+            ? deps.logger.log
+            : typeof deps.logger?.debug === 'function'
+                ? deps.logger.debug
+                : null;
+        if (log) {
+            log.call(deps.logger, line);
+            return;
+        }
+    }
+    if (typeof deps.logger?.warn === 'function') {
+        deps.logger.warn(line);
         return;
     }
-    deps.logger.warn(line);
+    deps.logger?.log?.(line);
 }
 
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
