@@ -3394,16 +3394,19 @@ export class PlayerRuntimeService {
             (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level),
         );
         this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, afterSnapshot);
-        if (!hasOfflineGainReportParts(delta)) {
-            return;
-        }
         const offlineSession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
         if (offlineSession && !normalizeOfflineGainString(player?.sessionId)) {
+            offlineSession.accumulatedDurationMs = normalizeOfflineGainCount(offlineSession.accumulatedDurationMs) + 1000;
+            if (!hasOfflineGainReportParts(delta)) {
+                return;
+            }
             offlineSession.accumulatedPayload = mergeOfflineGainReportPartsBySum(
                 normalizeOfflineGainReportParts(offlineSession.accumulatedPayload),
                 delta,
             );
-            offlineSession.accumulatedDurationMs = normalizeOfflineGainCount(offlineSession.accumulatedDurationMs) + 1000;
+            return;
+        }
+        if (!hasOfflineGainReportParts(delta)) {
             return;
         }
         if (!normalizeOfflineGainString(player?.sessionId)) {

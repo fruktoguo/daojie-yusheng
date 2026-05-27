@@ -181,6 +181,34 @@ async function testOfflineSnapshotFallbackDoesNotFabricateStoppedServerChanges()
   assert.equal(report.progress.some((entry) => entry.kind === "realmExp"), false);
 }
 
+async function testOfflineDurationIncludesNoGainTicks() {
+  const service = createService();
+  const player = createPlayer({
+    combat: {
+      cultivationActive: false,
+      autoIdleCultivation: false,
+      lastActiveTick: 0,
+      cooldownReadyTickBySkillId: {},
+    },
+  });
+  service.players.set(player.playerId, player);
+
+  service.detachSession(player.playerId);
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  service.advanceSinglePlayerTick(player, 1);
+  player.combat.cultivationActive = true;
+  service.advanceSinglePlayerTick(player, 2);
+
+  const report = await service.finalizeOfflineGainSessionForPlayer(player, 10_000);
+  const realmRow = report.progress.find((entry) => entry.kind === "realmExp");
+
+  assert.ok(realmRow, "expected one tick of offline cultivation gain");
+  assert.equal(realmRow.gained, 120);
+  assert.equal(realmRow.lost, 0);
+  assert.equal(realmRow.net, 120);
+  assert.equal(report.durationMs, 2_000);
+}
+
 async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
   const service = createService();
   const player = createPlayer();
@@ -219,6 +247,7 @@ async function main() {
   await testOfflineAccumulatedGainWinsOverSnapshotLoss();
   await testOfflineGlobalStatisticsKeepGainAndLossSeparated();
   await testOfflineSnapshotFallbackDoesNotFabricateStoppedServerChanges();
+  await testOfflineDurationIncludesNoGainTicks();
   await testUnconfirmedOfflineReportsMergeIntoOnePendingRecord();
   console.log("offline-gain-statistics-smoke passed");
 }
