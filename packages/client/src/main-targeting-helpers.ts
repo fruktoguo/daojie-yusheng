@@ -205,7 +205,7 @@ export function resolveCurrentTargetingRange(
 ): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack') {
+  if (action.actionId === 'client:observe' || action.actionId === 'battle:force_attack' || action.actionId === 'mining:start') {
     return Math.max(1, infoRadius);
   }
   return Math.max(1, getEffectiveTargetingGeometry(action, myPlayer).range);

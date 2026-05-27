@@ -1422,7 +1422,7 @@ function testSleepingMiningQueueRestartsThroughPipeline(): void {
       payload: { instanceId: 'instance:mine', targetX: 5, targetY: 5 },
       label: '黑铁矿',
       state: 'sleeping',
-      sleepReason: '离开矿脉范围',
+      sleepReason: '已离开矿脉所在地图',
       retryAfterTicks: 0,
       createdAt: 1,
     }],

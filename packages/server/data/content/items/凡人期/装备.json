@@ -362,11 +362,11 @@
         "id": "mining:start",
         "name": "挖矿",
         "type": "craft",
-        "desc": "选择附近矿脉，开始一个可在技艺任务列表中查看和取消的挖矿任务。",
+        "desc": "选择视野内矿脉，开始一个可在技艺任务列表中查看和取消的挖矿任务。",
         "cooldownLeft": 0,
         "requiresTarget": true,
         "targetMode": "tile",
-        "range": 1
+        "range": 999
       }
     ],
     "miningDamageRate": 0.5

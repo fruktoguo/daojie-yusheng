@@ -440,6 +440,10 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           options.cancelTargeting();
           return;
         }
+        if (pendingTargetedAction.actionId === 'mining:start' && !options.getVisibleTileAt(target.x, target.y)) {
+          options.showToast(t('map-interaction.toast.select-visible-tile'));
+          return;
+        }
         if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
           options.showToast(t('map-interaction.toast.cast-out-of-range', { range: pendingTargetedAction.range }));
           return;

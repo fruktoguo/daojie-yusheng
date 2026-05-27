@@ -203,7 +203,7 @@ export class MiningStrategy implements TechniqueActivityStrategy<PlayerMiningJob
     const deps = resolveMiningDeps(ctx);
     const location = resolvePlayerLocation(resolvePlayerId(player), player, deps);
     if (location.instanceId !== job.instanceId) {
-      return { satisfied: false, reason: '离开矿脉范围。' };
+      return { satisfied: false, reason: '已离开矿脉所在地图。' };
     }
     const instance = resolveInstance(job.instanceId, deps, ctx);
     const tileState = instance?.getTileCombatState?.(job.targetX, job.targetY);
@@ -293,10 +293,6 @@ function resolveInstance(instanceId: string, deps: MiningDepsPort | null, ctx: P
   return deps?.getInstanceRuntime?.(instanceId)
     ?? deps?.getInstanceRuntimeOrThrow?.(instanceId)
     ?? ctx.getInstanceRuntime(instanceId);
-}
-
-function isWithinMiningRange(location: { x: number; y: number }, target: { x: number; y: number }): boolean {
-  return Math.max(Math.abs(location.x - target.x), Math.abs(location.y - target.y)) <= 1;
 }
 
 function resolveMiningTargetRef(job: PlayerMiningJob): string {

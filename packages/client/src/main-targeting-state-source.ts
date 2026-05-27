@@ -371,7 +371,7 @@ function isTileInsideFormationRange(entity: MainTargetingObservedEntity, x: numb
 
 
 function doesTargetingRequireVision(actionId: string): boolean {
-  return actionId === 'client:observe' || actionId === 'battle:force_attack';
+  return actionId === 'client:observe' || actionId === 'battle:force_attack' || actionId === 'mining:start';
 }
 /**
  * MainTargetingStateSource：统一结构类型，保证协议与运行时一致性。
