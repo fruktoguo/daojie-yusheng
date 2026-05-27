@@ -81,6 +81,9 @@ export interface TechniqueActivityStrategy<
   /** 启动成功后的通知消息。 */
   buildStartMessages?(player: unknown, validated: TValidated, job: TJob, ctx: PipelineContext): TechniqueActivityNoticeMessage[];
 
+  /** 启动成功后的变更信号；具体 dirty 写入仍由 strategy/finalize 钩子负责。 */
+  startDirtyDomains?(player: unknown, validated: TValidated, job: TJob, ctx: PipelineContext): PersistenceDomain[];
+
   /** 确定暂停恢复后应回到的阶段。 */
   resolveResumePhase(job: TJob): string;
 

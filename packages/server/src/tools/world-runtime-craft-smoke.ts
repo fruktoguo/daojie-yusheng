@@ -585,9 +585,11 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new FormationStrategy());
   const queueService = new TechniqueActivityQueueService(pipeline);
-  const startedPayloads: unknown[] = [];
   const player = {
     playerId: 'player:formation-queue',
+    formationJob: null,
+    dirtyDomains: new Set<string>(),
+    persistentRevision: 1,
     techniqueActivityQueue: [{
       queueId: 'queue:formation:1',
       kind: 'formation',
@@ -609,6 +611,11 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
     getInstanceRuntime(): unknown { return null; },
     deps: {
       worldRuntimeFormationService: {
+        findOwnedFormation(playerId: string, formationInstanceId: string): { id: string; name: string; instanceId: string; x: number; y: number } {
+          assert.equal(playerId, 'player:formation-queue');
+          assert.equal(formationInstanceId, 'formation-1');
+          return { id: 'formation-1', name: '聚灵阵', instanceId: 'instance:formation', x: 4, y: 5 };
+        },
         checkFormationMaintenanceCondition(
           _player: unknown,
           job: { formationInstanceId?: string },
@@ -616,16 +623,36 @@ function testSleepingFormationQueueRestartsThroughPipeline(): void {
           assert.equal(job.formationInstanceId, 'formation-1');
           return { satisfied: true };
         },
-        startFormationMaintenance(_player: unknown, payload: unknown): { ok: boolean; panelChanged: boolean; messages: unknown[] } {
-          startedPayloads.push(payload);
-          return { ok: true, panelChanged: true, messages: [] };
+        createFormationMaintenanceJob(_player: unknown, validated: { formationInstanceId?: string }): Record<string, unknown> {
+          assert.equal(validated.formationInstanceId, 'formation-1');
+          return {
+            jobRunId: 'job:formation:queue',
+            jobType: 'formation',
+            formationInstanceId: 'formation-1',
+            formationName: '聚灵阵',
+            phase: 'maintaining',
+            totalTicks: 1,
+            remainingTicks: 1,
+            workTotalTicks: 1,
+            workRemainingTicks: 1,
+            jobVersion: 1,
+          };
+        },
+        startFormationMaintenance(): never {
+          throw new Error('formation queue restart must use pipeline lifecycle');
+        },
+      },
+      playerRuntimeService: {
+        bumpPersistentRevision(activePlayer: typeof player): void {
+          activePlayer.persistentRevision += 1;
         },
       },
     },
   });
 
   assert.equal(result?.ok, true);
-  assert.deepEqual(startedPayloads, [{ formationInstanceId: 'formation-1' }]);
+  assert.equal(player.formationJob?.formationInstanceId, 'formation-1');
+  assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.equal(player.techniqueActivityQueue.length, 0);
 }
 

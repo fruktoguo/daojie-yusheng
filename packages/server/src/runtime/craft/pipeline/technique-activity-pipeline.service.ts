@@ -229,6 +229,9 @@ export class TechniqueActivityPipelineService {
     // 4. 创建 job
     const job = strategy.createJob(player, validation.validated, ctx);
     setStrategyActiveJob(strategy, player, job);
+    const startDirtyDomains = typeof strategy.startDirtyDomains === 'function'
+      ? strategy.startDirtyDomains(player, validation.validated, job, ctx)
+      : ['inventory'];
     const messages = strategy.buildStartMessages
       ? strategy.buildStartMessages(player, validation.validated, job, ctx)
       : [];
@@ -240,8 +243,8 @@ export class TechniqueActivityPipelineService {
       started: true,
       panelChanged: true,
       messages,
-      inventoryDelta: { changed: true },
-      inventoryChanged: true,
+      inventoryDelta: { changed: startDirtyDomains.includes('inventory') },
+      inventoryChanged: startDirtyDomains.includes('inventory'),
     };
   }
 
