@@ -268,8 +268,8 @@ function resolveStartupInstanceDomainRestoreMode(): 'lazy' | 'eager' {
     'SERVER_STARTUP_INSTANCE_DOMAIN_RESTORE_MODE',
     'STARTUP_INSTANCE_DOMAIN_RESTORE_MODE',
   ).toLowerCase();
-  if (raw === 'eager' || raw === 'full') {
-    return 'eager';
+  if (raw === 'lazy' || raw === 'shell') {
+    return 'lazy';
   }
-  return 'lazy';
+  return 'eager';
 }

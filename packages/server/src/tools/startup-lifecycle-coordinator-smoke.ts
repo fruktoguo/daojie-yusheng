@@ -30,9 +30,9 @@ async function assertAllRoleStartupOrder(): Promise<void> {
     }) {
       order.push('world');
       assert.equal(options.restoreOfflinePlayers, false);
-      assert.equal(options.restoreInstanceDomains, false);
+      assert.equal(options.restoreInstanceDomains, true);
       assert.equal(options.restoreCatalogInstances, true);
-      assert.equal(options.rewriteCatalogRuntimeStatus, false);
+      assert.equal(options.rewriteCatalogRuntimeStatus, true);
       assert.equal(barrier.isTickOpen(), false);
       assert.equal(barrier.isFlushOpen(), false);
       assert.equal(barrier.isTrafficOpen(), false);
@@ -142,7 +142,7 @@ async function assertAllRoleStartupOrder(): Promise<void> {
   assert.equal(snapshot.ready, true);
   const recoveringPlayers = snapshot.phases.find((phase) => phase.phase === 'recovering_players');
   const recoveringWorld = snapshot.phases.find((phase) => phase.phase === 'recovering_world');
-  assert.equal(recoveringWorld?.metrics.instanceDomainRestoreMode, 'lazy');
+  assert.equal(recoveringWorld?.metrics.instanceDomainRestoreMode, 'eager');
   const offlineHangingPlayers = recoveringPlayers?.metrics.offlineHangingPlayers as any;
   assert.equal(offlineHangingPlayers.enabled, true);
   assert.equal(offlineHangingPlayers.expired, 1);
