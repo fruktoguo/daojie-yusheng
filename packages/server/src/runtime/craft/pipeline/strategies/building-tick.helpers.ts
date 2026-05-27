@@ -1,4 +1,4 @@
-import { computeCraftSkillExpGain } from '@mud/shared';
+import { computeCraftSkillExpGain, type TechniqueActivityNoticeMessage } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
 import {
   DEFAULT_CRAFT_EXP_TO_NEXT,
@@ -25,7 +25,7 @@ export function executeBuildingTick(
     player.buildingJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
     runtime.refreshPlayerContextActions?.(playerId);
-    return buildBuildingTickResult(true, [{ kind: 'warn', text: '建造目标已经不存在。' }]);
+    return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.target-missing')]);
   }
 
   if (building.state !== 'building') {
@@ -33,7 +33,7 @@ export function executeBuildingTick(
     player.buildingJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
     runtime.refreshPlayerContextActions?.(playerId);
-    return buildBuildingTickResult(true, [{ kind: 'warn', text: '建筑当前不可继续施工。' }]);
+    return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.unavailable')]);
   }
 
   if (building.activeBuilderPlayerId !== playerId) {
@@ -42,7 +42,7 @@ export function executeBuildingTick(
     markPlayerActiveJobDirty(playerRuntimeService, player);
     runtime.refreshPlayerContextActions?.(playerId);
     return {
-      ...buildBuildingTickResult(true, [{ kind: 'warn', text: '建筑施工条件暂时不满足，已转入等待队列。' }]),
+      ...buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.sleeping')]),
       sleepPayload,
     };
   }
@@ -70,9 +70,14 @@ export function executeBuildingTick(
     player.buildingJob = null;
     playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job', ...(skillChanged ? ['profession'] : [])]);
     playerRuntimeService.bumpPersistentRevision?.(player);
-    notifyBuildingConstructionCompletion(runtime, building);
     runtime.refreshPlayerContextActions?.(playerId);
-    return buildBuildingTickResult(true, [], false, skillChanged, gainedExp / 2);
+    return buildBuildingTickResult(
+      true,
+      [buildBuildingCompletionNotice(runtime, building)],
+      false,
+      skillChanged,
+      gainedExp / 2,
+    );
   }
 
   const nextTotalTicks = Math.max(
@@ -179,12 +184,28 @@ function normalizeBuildStrength(value: unknown): number {
   return Math.max(1, normalized);
 }
 
-function notifyBuildingConstructionCompletion(runtime: BuildingTickRuntimePort, building: Record<string, any>): void {
-  const playerId = normalizeBuildingId(building?.ownerPlayerId);
+function buildBuildingCompletionNotice(runtime: BuildingTickRuntimePort, building: Record<string, any>): TechniqueActivityNoticeMessage {
   const buildingName = runtime.resolveBuildingDisplayNameByRuntime?.(runtime, building) ?? building?.defId ?? '建筑';
-  if (playerId && canQueueBuildingNotice(runtime)) {
-    runtime.queuePlayerNotice?.(playerId, `${buildingName}已完工`, 'success');
-  }
+  return buildBuildingNotice(
+    'success',
+    'notice.craft.building.completed',
+    { buildingName },
+    [{ key: 'buildingName', style: 'target' }],
+  );
+}
+
+function buildBuildingNotice(
+  kind: BuildingNoticeKind,
+  key: string,
+  vars?: Record<string, string | number>,
+  pills?: Array<{ key: string; style: 'target' }>,
+): TechniqueActivityNoticeMessage {
+  return {
+    kind,
+    key,
+    ...(vars ? { vars } : {}),
+    ...(pills ? { pills } : {}),
+  };
 }
 
 function buildBuildingTickResult(
@@ -242,19 +263,9 @@ function releaseStaleBuildingActiveBuilder(instance: Record<string, any>, buildi
   return true;
 }
 
-function canQueueBuildingNotice(runtime: BuildingTickRuntimePort): boolean {
-  return typeof runtime?.queuePlayerNotice === 'function'
-    && typeof runtime?.worldRuntimeTickDispatchService?.queuePlayerNotice === 'function';
-}
+type BuildingNoticeKind = TechniqueActivityNoticeMessage['kind'];
 
-function normalizeBuildingId(value: unknown): string {
-  return typeof value === 'string' && value.trim() ? value.trim() : '';
-}
-
-type BuildingNoticeMessage = {
-  kind: string;
-  text?: string;
-};
+type BuildingNoticeMessage = TechniqueActivityNoticeMessage;
 
 type BuildingTickResult = {
   ok: boolean;
@@ -288,9 +299,4 @@ type BuildingTickRuntimePort = {
   refreshPlayerContextActions?(playerId: string): unknown;
   resolveBuildingDisplayName?(instance: unknown, building: Record<string, any>): string | null;
   resolveBuildingDisplayNameByRuntime?(runtime: unknown, building: Record<string, any>): string | null;
-  queuePlayerNotice?(playerId: string, message: string, kind: string): void;
-  worldRuntimeTickDispatchService?: {
-    queuePlayerNotice?: unknown;
-  };
 };
-

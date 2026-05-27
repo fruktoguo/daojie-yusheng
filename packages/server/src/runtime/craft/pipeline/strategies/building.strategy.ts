@@ -13,6 +13,7 @@ import type {
   TechniqueActivityRefundResult,
   TechniqueActivityStartValidationResult,
   TechniqueActivityConditionCheckResult,
+  TechniqueActivityNoticeMessage,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { executeBuildingTick } from './building-tick.helpers';
@@ -70,13 +71,17 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     return ['active_job'];
   }
 
-  executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
-    const playerId = resolvePlayerId(player);
-    const deps = resolveBuildingDeps(ctx);
-    if (playerId && typeof deps?.interruptBuildingConstruction === 'function') {
-      deps.interruptBuildingConstruction(playerId, reason);
-    }
-    return { ok: true, panelChanged: true, inventoryChanged: false, equipmentChanged: false, attrChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
+  buildStartMessages(_player: unknown, _validated: unknown, job: any): TechniqueActivityNoticeMessage[] {
+    const buildingName = typeof job?.buildingName === 'string' && job.buildingName.trim()
+      ? job.buildingName.trim()
+      : '建筑';
+    const totalTicks = Math.max(1, Math.trunc(Number(job?.totalTicks ?? job?.workTotalTicks ?? 1) || 1));
+    return [{
+      kind: 'info',
+      key: 'notice.craft.building.start',
+      vars: { buildingName, totalTicks },
+      pills: [{ key: 'buildingName', style: 'target' }],
+    }];
   }
 
   executeTick(player: unknown, ctx: PipelineContext): unknown {
@@ -157,7 +162,6 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
 
 type BuildingDepsPort = {
   dispatchStartBuildingConstruction?: (playerId: string, buildingId: string) => unknown;
-  interruptBuildingConstruction?: (playerId: string, reason?: string) => unknown;
   tickBuildingConstruction?: (playerId: string) => unknown;
   playerRuntimeService?: {
     getPlayer?(playerId: string): Record<string, any> | null;
@@ -170,10 +174,6 @@ type BuildingDepsPort = {
   refreshPlayerContextActions?: (playerId: string) => unknown;
   resolveBuildingDisplayName?: (instance: unknown, building: Record<string, any>) => string | null;
   resolveBuildingDisplayNameByRuntime?: (runtime: unknown, building: Record<string, any>) => string | null;
-  queuePlayerNotice?: (playerId: string, message: string, kind: string) => void;
-  worldRuntimeTickDispatchService?: {
-    queuePlayerNotice?: unknown;
-  };
 };
 
 function resolvePlayerId(player: unknown): string {

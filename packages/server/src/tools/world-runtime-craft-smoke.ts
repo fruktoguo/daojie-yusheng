@@ -73,6 +73,7 @@ async function main(): Promise<void> {
       '建造 activeBuilder 不会被其他玩家重入覆盖。',
       '建造条件永久失效时会释放当前玩家遗留 activeBuilder。',
       '采集/建造 strategy tick 规则已迁入 strategy helper。',
+      '建造 start/completion 通知由 strategy result 返回结构化 key/vars，再交给统一 flush 分发。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
       '阵法维护 tick 条件失败会进入统一 sleeping 队列。',
@@ -1071,6 +1072,8 @@ function testBuildingStartCancelUsePipelineLifecycle(): void {
   const started = pipeline.start(player, 'building', { buildingId: 'building-1' }, ctx);
   assert.equal(started.ok, true);
   assert.equal(started.panelChanged, true);
+  assert.equal(started.messages?.[0]?.key, 'notice.craft.building.start');
+  assert.deepEqual(started.messages?.[0]?.vars, { buildingName: '工坊', totalTicks: 4 });
   assert.equal(player.buildingJob?.buildingId, 'building-1');
   assert.equal(building.activeBuilderPlayerId, player.playerId);
 
@@ -1970,7 +1973,6 @@ function testBuildingStrategyTickUsesStrategyHelper(): void {
     },
   };
   const dirtyDomains: string[][] = [];
-  const notices: Array<[string, string, string]> = [];
   const refreshed: string[] = [];
   const deps = {
     playerRuntimeService: {
@@ -1998,12 +2000,6 @@ function testBuildingStrategyTickUsesStrategyHelper(): void {
     resolveBuildingDisplayNameByRuntime(): string {
       return '工坊';
     },
-    queuePlayerNotice(playerId: string, message: string, kind: string): void {
-      notices.push([playerId, message, kind]);
-    },
-    worldRuntimeTickDispatchService: {
-      queuePlayerNotice(): void {},
-    },
   };
   assert.equal(Object.prototype.hasOwnProperty.call(deps, 'tickBuildingConstruction'), false);
 
@@ -2020,6 +2016,11 @@ function testBuildingStrategyTickUsesStrategyHelper(): void {
   assert.equal((result as { ok?: boolean })?.ok, true);
   assert.equal((result as { panelChanged?: boolean })?.panelChanged, true);
   assert.equal((result as { attrChanged?: boolean })?.attrChanged, true);
+  assert.equal((result as { messages?: Array<{ key?: string }> }).messages?.[0]?.key, 'notice.craft.building.completed');
+  assert.deepEqual(
+    (result as { messages?: Array<{ vars?: Record<string, unknown> }> }).messages?.[0]?.vars,
+    { buildingName: '工坊' },
+  );
   assert.equal(player.buildingJob, null);
   assert.equal(building.state, 'active');
   assert.equal(building.activeBuilderPlayerId, null);
@@ -2027,7 +2028,6 @@ function testBuildingStrategyTickUsesStrategyHelper(): void {
   assert.deepEqual(instance.dirtyDomains, [['building'], ['building', 'room']]);
   assert.deepEqual(dirtyDomains, [['active_job', 'profession']]);
   assert.deepEqual(refreshed, [player.playerId]);
-  assert.deepEqual(notices, [[player.playerId, '工坊已完工', 'success']]);
   assert.equal(player.persistentRevision, 2);
 }
 

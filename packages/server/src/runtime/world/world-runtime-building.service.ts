@@ -10,6 +10,7 @@
 import { calculateTerrainDurability, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
+import { buildStructuredNotice } from './structured-notice.helpers';
 
 /**
  * 建筑操作结果缓存上限：默认 1000，可通过 env SERVER_BUILDING_OPERATION_RESULTS_LIMIT
@@ -104,13 +105,6 @@ export function handleStartBuildingConstruction(runtime, playerId, buildingIdInp
     const result = context.instance.startBuildingConstruction?.(buildingId, playerId) ?? { ok: false, reason: 'building_start_unsupported' };
     if (result?.ok === true) {
         const buildingView = toBuildingInstanceView(result.building);
-        if (buildingView && canQueueBuildingNotice(runtime)) {
-            runtime.queuePlayerNotice(
-                playerId,
-                `开始建造：${resolveBuildingDisplayName(context.instance, result.building) ?? buildingView.defId}`,
-                'info',
-            );
-        }
         return {
             ok: true,
             changed: result.changed !== false,
@@ -179,7 +173,8 @@ export function interruptBuildingConstruction(runtime, playerId, reason = 'cance
     runtime.playerRuntimeService.bumpPersistentRevision?.(player);
     runtime.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
     if (canQueueBuildingNotice(runtime)) {
-        runtime.queuePlayerNotice(playerId, buildBuildingInterruptMessage(job.buildingName, reason), 'system');
+        const notice = buildBuildingInterruptNotice(job.buildingName, reason);
+        runtime.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
     }
     runtime.refreshPlayerContextActions?.(playerId);
 }
@@ -381,7 +376,13 @@ export function notifyBuildingConstructionCompletion(runtime, building) {
     const playerId = normalizeBuildingRequestId(building?.ownerPlayerId);
     const buildingName = resolveBuildingDisplayNameByRuntime(runtime, building) ?? building?.defId ?? '建筑';
     if (playerId && canQueueBuildingNotice(runtime)) {
-        runtime.queuePlayerNotice(playerId, `${buildingName}已完工`, 'success');
+        const notice = buildStructuredNotice(
+            'success',
+            'notice.craft.building.completed',
+            `${buildingName}已完工`,
+            { vars: { buildingName }, pills: [{ key: 'buildingName', style: 'target' }] },
+        );
+        runtime.queuePlayerNotice(playerId, notice.text, notice.kind, undefined, undefined, notice.structured);
     }
     return 0;
 }
@@ -398,6 +399,27 @@ function buildBuildingInterruptMessage(buildingNameInput, reason) {
                 ? '打坐'
                 : '手动取消';
     return `${buildingName} 的营造被${reasonLabel}打断。`;
+}
+function buildBuildingInterruptNotice(buildingNameInput, reason) {
+    const buildingName = typeof buildingNameInput === 'string' && buildingNameInput.trim() ? buildingNameInput.trim() : '当前建筑';
+    const reasonLabel = reason === 'move'
+        ? '移动'
+        : reason === 'attack'
+            ? '出手'
+            : reason === 'cultivate'
+                ? '打坐'
+                : reason === 'defeat'
+                    ? '身陨'
+                    : '手动取消';
+    return buildStructuredNotice(
+        'system',
+        'notice.craft.building.interrupted',
+        buildBuildingInterruptMessage(buildingName, reason),
+        {
+            vars: { buildingName, reasonLabel },
+            pills: [{ key: 'buildingName', style: 'target' }, { key: 'reasonLabel', style: 'target' }],
+        },
+    );
 }
 function localizeStartBuildingFailure(reason) {
     switch (reason) {
