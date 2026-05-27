@@ -84,6 +84,7 @@ healAmount > 0 || healPercent > 0 || qiPercent > 0 || consumeBuffs.length > 0
 5. 自我 buff 技能: buff 缺失时自动释放
 6. 无目标 AOE: 以自身为中心释放
 7. 有目标技能: 计算有效射程 = baseRange + extraRange
+8. 若首个可用目标技能当前距离不可释放，继续顺延检查后续技能；没有任何技能可释放时，追击停距仍使用首个可用技能射程
 ```
 
 ## 自动修炼

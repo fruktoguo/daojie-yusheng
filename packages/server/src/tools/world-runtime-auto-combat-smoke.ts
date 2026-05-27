@@ -887,6 +887,77 @@ function testStationaryOutOfRangeSkillSkipsWithoutMove(): void {
   assert.equal(command, null);
 }
 
+function testStationaryOutOfRangeFirstSkillFallsThroughToLaterInRangeSkill(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 8,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: {
+      actions: [{
+        id: 'skill:short',
+        type: 'skill',
+        range: 3,
+        cooldownLeft: 0,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }, {
+        id: 'skill:long',
+        type: 'skill',
+        range: 5,
+        cooldownLeft: 0,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill:short',
+          cost: 0,
+          range: 3,
+        }, {
+          id: 'skill:long',
+          cost: 0,
+          range: 5,
+        }],
+      }],
+    },
+    combat: {
+      autoBattle: false,
+      autoRetaliate: false,
+      autoBattleStationary: true,
+      combatTargetId: 'monster:1',
+      combatTargetLocked: false,
+      manualEngagePending: true,
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const command = service.buildAutoCombatCommand(createLongRangePathingInstance() as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 14;
+    },
+    queuePlayerNotice() {},
+  } as never);
+
+  assert.deepEqual(command, {
+    kind: 'castSkill',
+    skillId: 'skill:long',
+    targetPlayerId: null,
+    targetMonsterId: 'monster:1',
+    targetRef: null,
+    autoCombat: true,
+  });
+}
+
 function testAutoBattleSkipsSelfBuffSkillWithoutTarget(): void {
   const player = {
     playerId: 'player:1',
@@ -1911,6 +1982,7 @@ testOutOfRangeSkillMovesToSkillMaxRangeImmediately();
 testInRangeButBlockedLineOfSightMovesToCastPosition();
 testUnreachableCurrentTargetIsPenalizedAndRetargetedImmediately();
 testStationaryOutOfRangeSkillSkipsWithoutMove();
+testStationaryOutOfRangeFirstSkillFallsThroughToLaterInRangeSkill();
 testAutoBattleSkipsSelfBuffSkillWithoutTarget();
 testAutoBattleCastsMissingSelfBuffSkillWithTarget();
 testAutoBattleCastsSelfAnchoredAreaSkillWithTarget();

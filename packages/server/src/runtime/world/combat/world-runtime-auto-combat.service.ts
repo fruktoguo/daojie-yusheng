@@ -1042,7 +1042,7 @@ export class WorldRuntimeAutoCombatService {
  * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
  */
 
-    resolveFirstUsableAutoBattleSkill(player, options = undefined, skillLookup = null) {
+    resolveFirstUsableAutoBattleSkill(player, options = undefined, skillLookup = null, acceptChoice = undefined) {
         if (!Array.isArray(player?.actions?.actions)) {
             return null;
         }
@@ -1067,24 +1067,34 @@ export class WorldRuntimeAutoCombatService {
             }
             if (isAutoSelfBuffSkill(skill)) {
                 if (shouldAutoCastSelfBuffSkill(player, skill)) {
-                    return { skill, action, range: 0, selfCast: true };
+                    const choice = { skill, action, range: 0, selfCast: true };
+                    if (!acceptChoice || acceptChoice(choice)) {
+                        return choice;
+                    }
                 }
                 continue;
             }
             if (resolveSkillRequiresTarget(skill) === false && (action.range ?? 0) === 0) {
-                return {
+                const choice = {
                     skill,
                     action,
                     range: Math.max(1, resolveSkillAoeCoverRadius(skill)),
                     selfCast: true,
                 };
+                if (!acceptChoice || acceptChoice(choice)) {
+                    return choice;
+                }
+                continue;
             }
-            return {
+            const choice = {
                 skill,
                 action,
                 range: Math.max(1, Math.round(resolveAutoBattleEffectiveSkillRange(player, skill, action))),
                 selfCast: false,
             };
+            if (!acceptChoice || acceptChoice(choice)) {
+                return choice;
+            }
         }
         return null;
     }
@@ -1113,6 +1123,21 @@ export class WorldRuntimeAutoCombatService {
                 skillId: choice.skill.id,
                 range,
                 selfCast: choice.selfCast === true,
+            };
+        }
+        const inRangeChoice = this.resolveFirstUsableAutoBattleSkill(player, options, skillLookup, (candidate) => {
+            if (candidate.selfCast && isAutoSelfBuffSkill(candidate.skill)) {
+                return true;
+            }
+            const candidateRange = Math.max(1, Math.round(candidate.range));
+            return distance <= candidateRange;
+        });
+        if (inRangeChoice) {
+            const inRange = Math.max(1, Math.round(inRangeChoice.range));
+            return {
+                skillId: inRangeChoice.skill.id,
+                range: inRange,
+                selfCast: inRangeChoice.selfCast === true,
             };
         }
         return {
