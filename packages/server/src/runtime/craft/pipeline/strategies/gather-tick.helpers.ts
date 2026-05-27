@@ -3,6 +3,7 @@ import {
   computeCraftSkillExpGain,
   resolveAlchemyGradeValue,
   type ItemStack,
+  type TechniqueActivityNoticeMessage,
 } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
 import { resolveCraftSkillExpToNextByLevel } from '../../craft-skill-exp.helpers';
@@ -36,7 +37,7 @@ export async function executeGatherTick(
     service.releaseGatherActiveSearch?.(playerId, player, job, deps);
     player.gatherJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
-    return buildGatherTickResult(false, [{ kind: 'warn', text: '采集目标已经不存在。' }]);
+    return buildGatherTickResult(false, [buildGatherNotice('warn', 'notice.craft.gather.target-missing')]);
   }
 
   const lootWindowTarget = playerRuntimeService.getLootWindowTarget?.(playerId);
@@ -54,7 +55,7 @@ export async function executeGatherTick(
     const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '你已离开草药采集范围。');
     player.gatherJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
-    return buildGatherTickSleepResult(sleepPayload, [{ kind: 'warn', text: '你已离开草药采集范围。' }]);
+    return buildGatherTickSleepResult(sleepPayload, [buildGatherNotice('warn', 'notice.craft.gather.left-range')]);
   }
 
   const state = service.ensureContainerState(location.instanceId, container, instance.tick);
@@ -63,7 +64,7 @@ export async function executeGatherTick(
     const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '采集目标正在由其他玩家采集。');
     player.gatherJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
-    return buildGatherTickSleepResult(sleepPayload, [{ kind: 'warn', text: '采集目标正在由其他玩家采集，已转入等待队列。' }]);
+    return buildGatherTickSleepResult(sleepPayload, [buildGatherNotice('warn', 'notice.craft.gather.busy-sleeping')]);
   }
 
   if (state.activeSearch && !activeSearchPlayerId) {
@@ -75,7 +76,7 @@ export async function executeGatherTick(
     if (!nextRow) {
       player.gatherJob = null;
       markPlayerActiveJobDirty(playerRuntimeService, player);
-      return buildGatherTickResult(false, [{ kind: 'info', text: `${container.name} 已经采尽。` }]);
+      return buildGatherTickResult(false, [buildGatherNodeNotice('info', 'notice.craft.gather.depleted', container.name)]);
     }
     const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
     state.activeSearch = {
@@ -108,7 +109,7 @@ export async function executeGatherTick(
     state.activeSearch = undefined;
     player.gatherJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
-    return buildGatherTickResult(false, [{ kind: 'warn', text: `${container.name} 当前没有可收取的草药。` }]);
+    return buildGatherTickResult(false, [buildGatherNodeNotice('warn', 'notice.craft.gather.empty', container.name)]);
   }
 
   const harvestedItem = removeSingleContainerRowItem(state.entries, harvestedRow);
@@ -116,7 +117,7 @@ export async function executeGatherTick(
     state.activeSearch = undefined;
     player.gatherJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
-    return buildGatherTickResult(false, [{ kind: 'warn', text: `${container.name} 当前没有可收取的草药。` }]);
+    return buildGatherTickResult(false, [buildGatherNodeNotice('warn', 'notice.craft.gather.empty', container.name)]);
   }
 
   state.activeSearch = undefined;
@@ -173,7 +174,12 @@ export async function executeGatherTick(
   playerRuntimeService.bumpPersistentRevision?.(player);
   return buildGatherTickResult(
     false,
-    [{ kind: 'loot', text: `获得 ${service.formatLootItemStackLabel(harvestedItem)}` }],
+    [buildGatherNotice(
+      'loot',
+      'notice.craft.gather.obtained',
+      { itemLabel: service.formatLootItemStackLabel(harvestedItem) },
+      [{ key: 'itemLabel', style: 'target' }],
+    )],
     true,
     false,
     Boolean(skillChanged || craftRealmChanged),
@@ -308,6 +314,32 @@ function buildGatherTickSleepResult(sleepPayload: Record<string, unknown>, messa
   };
 }
 
+function buildGatherNodeNotice(kind: GatherNoticeKind, key: string, resourceNodeName: unknown): GatherNoticeMessage {
+  const normalizedName = typeof resourceNodeName === 'string' && resourceNodeName.trim()
+    ? resourceNodeName.trim()
+    : '采集目标';
+  return buildGatherNotice(
+    kind,
+    key,
+    { resourceNodeName: normalizedName },
+    [{ key: 'resourceNodeName', style: 'target' }],
+  );
+}
+
+function buildGatherNotice(
+  kind: GatherNoticeKind,
+  key: string,
+  vars?: Record<string, string | number>,
+  pills?: Array<{ key: string; style: 'target' }>,
+): GatherNoticeMessage {
+  return {
+    kind,
+    key,
+    ...(vars ? { vars } : {}),
+    ...(pills ? { pills } : {}),
+  };
+}
+
 function buildGatherSleepPayload(job: Record<string, any>, instanceId: string, container: Record<string, any>, reason: string): Record<string, unknown> {
   return {
     kind: 'gather',
@@ -373,10 +405,9 @@ function randomIntInclusive(min: number, max: number): number {
   return normalizedMin + Math.floor(Math.random() * ((normalizedMax - normalizedMin) + 1));
 }
 
-type GatherNoticeMessage = {
-  kind: string;
-  text?: string;
-};
+type GatherNoticeKind = TechniqueActivityNoticeMessage['kind'];
+
+type GatherNoticeMessage = TechniqueActivityNoticeMessage;
 
 type GatherTickResult = {
   ok: boolean;

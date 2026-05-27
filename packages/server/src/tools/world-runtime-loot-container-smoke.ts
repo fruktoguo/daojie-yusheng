@@ -899,7 +899,8 @@ async function testStartGatherSupportsColonInstanceId() {
 
   const result = service.dispatchStartGather(player.playerId, { sourceId: prepared?.sourceId, itemKey }, deps as never);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.messages, [{ kind: 'info', text: '你开始采集 月露草。' }]);
+  assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.start');
+  assert.deepEqual(result.messages?.[0]?.vars, { resourceNodeName: '月露草', totalTicks: 5 });
   assert.equal(player.gatherJob?.resourceNodeId, container.id);
   assert.equal(player.gatherJob?.remainingTicks, 5);
 }
@@ -1236,7 +1237,8 @@ async function testGatherCompletionAvoidsDurableGrantInTick() {
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(durableCalls.length, 0);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
+  assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.obtained');
+  assert.deepEqual(result.messages?.[0]?.vars, { itemLabel: '凝露草' });
   assert.equal(result.inventoryChanged, true);
   assert.equal(result.attrChanged, true);
   assert.equal(player.inventory.items.length, 1);
@@ -1321,7 +1323,8 @@ async function testGatherCompletionFormatsTemplateNameAndConsumesOneStock() {
 
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 融阳子' }]);
+  assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.obtained');
+  assert.deepEqual(result.messages?.[0]?.vars, { itemLabel: '融阳子' });
   assert.equal(player.gatherJob, null);
   const depleted = service.getPreparedContainerLootSource('inst-gather-sunmelt', container as never, player as never, 2);
   assert.equal(depleted?.items.length, 0);
@@ -1543,7 +1546,8 @@ async function testGatherCompletionDoesNotSyncPresenceFenceInTick() {
 
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
+  assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.obtained');
+  assert.deepEqual(result.messages?.[0]?.vars, { itemLabel: '凝露草' });
   assert.equal(durableCalls.length, 0);
   assert.deepEqual(log, [
     ['refreshQuestStates'],
@@ -1647,7 +1651,8 @@ async function testGatherCompletionIgnoresDurableFailureBecauseTickDoesNotCallIt
 
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
+  assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.obtained');
+  assert.deepEqual(result.messages?.[0]?.vars, { itemLabel: '凝露草' });
   assert.equal(player.inventory.items.length, 1);
   assert.equal(player.inventory.items[0]?.itemId, 'herb.lingdew_grass');
   assert.ok((player.gatherSkill?.exp ?? 0) > 0);
@@ -1734,7 +1739,8 @@ async function testGatherCompletionConsumesSingleAccumulatedStock() {
 
   const result = await service.tickGather(player.playerId, deps as never);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
+  assert.equal(result.messages?.[0]?.key, 'notice.craft.gather.obtained');
+  assert.deepEqual(result.messages?.[0]?.vars, { itemLabel: '凝露草' });
   assert.equal(player.inventory.items.length, 1);
   assert.equal(player.inventory.items[0]?.count, 1);
   assert.equal(Number(player.gatherJob?.remainingTicks), 3);

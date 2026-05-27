@@ -13,6 +13,7 @@ import type {
   TechniqueActivityRefundResult,
   TechniqueActivityStartValidationResult,
   TechniqueActivityConditionCheckResult,
+  TechniqueActivityNoticeMessage,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
 import { executeGatherTick } from './gather-tick.helpers';
@@ -66,13 +67,15 @@ export class GatherStrategy implements TechniqueActivityStrategy {
     return ['active_job'];
   }
 
-  executeInterrupt(player: unknown, reason: string, ctx: PipelineContext): unknown {
-    const playerId = resolvePlayerId(player);
-    const service = resolveGatherRuntimeService(ctx);
-    if (!playerId || !service || typeof service.interruptGather !== 'function') {
-      return { ok: true, panelChanged: false, messages: [], groundDrops: [], craftRealmExpGain: 0 };
-    }
-    return service.interruptGather(playerId, player, reason, ctx.deps);
+  buildStartMessages(_player: unknown, _validated: unknown, job: any): TechniqueActivityNoticeMessage[] {
+    const resourceNodeName = normalizeGatherResourceNodeName(job);
+    const totalTicks = Math.max(1, Math.trunc(Number(job?.totalTicks ?? job?.workTotalTicks ?? 1) || 1));
+    return [{
+      kind: 'info',
+      key: 'notice.craft.gather.start',
+      vars: { resourceNodeName, totalTicks },
+      pills: [{ key: 'resourceNodeName', style: 'target' }],
+    }];
   }
 
   async executeTick(player: unknown, ctx: PipelineContext): Promise<unknown> {
@@ -114,8 +117,18 @@ export class GatherStrategy implements TechniqueActivityStrategy {
     };
   }
 
-  computeRefund(_player: unknown, _job: any): TechniqueActivityRefundResult {
-    return { items: [], spiritStones: 0 };
+  computeRefund(_player: unknown, job: any): TechniqueActivityRefundResult {
+    const resourceNodeName = normalizeGatherResourceNodeName(job);
+    return {
+      items: [],
+      spiritStones: 0,
+      messages: [{
+        kind: 'info',
+        key: 'notice.craft.gather.cancelled',
+        vars: { resourceNodeName },
+        pills: [{ key: 'resourceNodeName', style: 'target' }],
+      }],
+    };
   }
 
   dirtyDomains(): PersistenceDomain[] {
@@ -239,4 +252,9 @@ function normalizeGatherStartPayload(playerId: string, payload: unknown, ctx: Pi
   return instanceId
     ? { ...record, sourceId: `container:${instanceId}:${sourceId}` }
     : payload;
+}
+
+function normalizeGatherResourceNodeName(job: unknown): string {
+  const name = (job as { resourceNodeName?: unknown } | null | undefined)?.resourceNodeName;
+  return typeof name === 'string' && name.trim() ? name.trim() : '采集目标';
 }

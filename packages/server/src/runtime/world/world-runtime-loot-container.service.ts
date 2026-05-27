@@ -626,10 +626,17 @@ export class WorldRuntimeLootContainerService {
         this.playerRuntimeService.bumpPersistentRevision(player);
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
         this.markContainerPersistenceDirty(location.instanceId);
-        return buildContainerTickResult(false, [{
-                kind: 'info',
-                text: `你开始采集 ${resolved.container.name}。`,
-            }]);
+        return buildContainerTickResult(false, [
+            buildGatherTechniqueNotice(
+                'info',
+                'notice.craft.gather.start',
+                {
+                    resourceNodeName: resolved.container.name,
+                    totalTicks,
+                },
+                [{ key: 'resourceNodeName', style: 'target' }],
+            ),
+        ]);
     }    
     /**
  * dispatchCancelGather：取消当前草药采集。
@@ -659,10 +666,14 @@ export class WorldRuntimeLootContainerService {
         player.gatherJob = null;
         this.playerRuntimeService.bumpPersistentRevision(player);
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        return buildContainerTickResult(false, [{
-                kind: 'info',
-                text: `你停止了 ${job.resourceNodeName} 的采集。`,
-            }]);
+        return buildContainerTickResult(false, [
+            buildGatherTechniqueNotice(
+                'info',
+                'notice.craft.gather.cancelled',
+                { resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName) },
+                [{ key: 'resourceNodeName', style: 'target' }],
+            ),
+        ]);
     }
 
     checkGatherContinueCondition(playerId, player, job, deps) {
@@ -900,10 +911,17 @@ export class WorldRuntimeLootContainerService {
         player.gatherJob = null;
         this.playerRuntimeService.bumpPersistentRevision(player);
         this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-        return buildContainerTickResult(false, [{
-                kind: 'system',
-                text: `${job.resourceNodeName} 的采集被${reason === 'move' ? '移动' : '出手'}打断。`,
-            }]);
+        return buildContainerTickResult(false, [
+            buildGatherTechniqueNotice(
+                'system',
+                'notice.craft.gather.interrupted',
+                {
+                    resourceNodeName: normalizeGatherResourceNodeName(job.resourceNodeName),
+                    reasonLabel: resolveGatherInterruptReasonLabel(reason),
+                },
+                [{ key: 'resourceNodeName', style: 'target' }, { key: 'reasonLabel', style: 'target' }],
+            ),
+        ]);
     }    
     /**
  * tickGather：推进当前草药采集。
@@ -1462,6 +1480,34 @@ function buildContainerTickResult(panelChanged = false, messages = [], inventory
         messages,
         groundDrops,
     };
+}
+
+function buildGatherTechniqueNotice(kind, key, vars = undefined, pills = undefined) {
+    return {
+        kind,
+        key,
+        ...(vars ? { vars } : {}),
+        ...(pills ? { pills } : {}),
+    };
+}
+
+function normalizeGatherResourceNodeName(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : '采集目标';
+}
+
+function resolveGatherInterruptReasonLabel(reason) {
+    switch (reason) {
+        case 'move':
+            return '移动';
+        case 'attack':
+            return '出手';
+        case 'cultivate':
+            return '打坐';
+        case 'defeat':
+            return '身陨';
+        default:
+            return '手动取消';
+    }
 }
 
 function buildContainerTickSleepResult(sleepPayload, messages = []) {
