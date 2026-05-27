@@ -19,6 +19,8 @@ import {
   SOCKET_RECONNECTION_DELAY_MAX_MS,
   SOCKET_RECONNECTION_DELAY_MS,
   SOCKET_TRANSPORTS,
+  S2C,
+  type ServerToClientEventPayload,
 } from '@mud/shared';
 import { createSocketAdminSender } from './socket-send-admin';
 import { createSocketBuildingSender } from './socket-send-building';
@@ -202,7 +204,7 @@ export class SocketManager {
  */
 
 
-  onKick(cb: () => void): void {
+  onKick(cb: (payload: ServerToClientEventPayload<typeof S2C.Kick> | undefined) => void): void {
     this.lifecycle.onKick(cb);
   }  
   /**

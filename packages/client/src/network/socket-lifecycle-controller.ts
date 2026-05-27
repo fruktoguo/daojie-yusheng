@@ -4,7 +4,7 @@
  * 维护时要使用共享协议事件名和最小字段，避免把服务端权威判断下沉到客户端。
  */
 import type { Socket } from 'socket.io-client';
-import { S2C, PLAYER_HEARTBEAT_INTERVAL_MS } from '@mud/shared';
+import { S2C, PLAYER_HEARTBEAT_INTERVAL_MS, type ServerToClientEventPayload } from '@mud/shared';
 /**
  * SocketLifecycleControllerDeps：统一结构类型，保证协议与运行时一致性。
  */
@@ -36,7 +36,8 @@ type SocketLifecycleControllerDeps = {
 
 export function createSocketLifecycleController(deps: SocketLifecycleControllerDeps) {
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  const onKickCallbacks: Array<() => void> = [];
+  type KickPayload = ServerToClientEventPayload<typeof S2C.Kick>;
+  const onKickCallbacks: Array<(payload: KickPayload | undefined) => void> = [];
   const onDisconnectCallbacks: Array<(reason: string) => void> = [];
   const onConnectErrorCallbacks: Array<(message: string) => void> = [];  
   /**
@@ -85,8 +86,8 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
         deps.sendHeartbeat();
       });
 
-      socket.on(S2C.Kick, () => {
-        onKickCallbacks.forEach((cb) => cb());
+      socket.on(S2C.Kick, (payload: KickPayload | undefined) => {
+        onKickCallbacks.forEach((cb) => cb(payload));
         deps.disconnect();
       });
 
@@ -115,7 +116,7 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
  */
 
 
-    onKick(cb: () => void): void {
+    onKick(cb: (payload: KickPayload | undefined) => void): void {
       onKickCallbacks.push(cb);
     },    
     /**

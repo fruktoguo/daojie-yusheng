@@ -5,6 +5,7 @@
  */
 import type { SocketManager } from './network/socket';
 import { t } from './ui/i18n';
+import { S2C, type ServerToClientEventPayload } from '@mud/shared';
 /**
  * MainConnectionStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -173,9 +174,19 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
  */
 
 
-    handleKick(): void {
+    handleKick(data?: ServerToClientEventPayload<typeof S2C.Kick>): void {
       options.resetGameState();
-      options.logout(t('connection.kicked', undefined));
+      const reason = typeof data?.reason === 'string' ? data.reason.trim() : '';
+      if (reason === 'server_shutdown') {
+        options.showLogin(t('connection.kicked.server-shutdown', undefined));
+        options.scheduleConnectionRecovery(2_000, true);
+        return;
+      }
+      if (reason === 'removed') {
+        options.logout(t('connection.kicked.removed', undefined));
+        return;
+      }
+      options.logout(t('connection.kicked.replaced', undefined));
     },    
     /**
  * handleConnectError：处理ConnectError并更新相关状态。

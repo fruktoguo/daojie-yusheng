@@ -829,7 +829,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       });
     },
     onError: (data) => options.connectionStateSource.handleError(data),
-    onKick: () => options.connectionStateSource.handleKick(),
+    onKick: (data) => options.connectionStateSource.handleKick(data),
     onConnectError: (message) => options.connectionStateSource.handleConnectError(message),
     onDisconnect: (reason) => options.connectionStateSource.handleDisconnect(reason),
     onPong: (data) => {

@@ -354,7 +354,7 @@ export interface S2C_PayloadMap extends Record<S2C_EventName, unknown> {
   [S2C.FengShuiDetail]: ResponsePayloads.S2C_FengShuiDetail;
   [S2C.GmState]: ResponsePayloads.S2C_GmState;
   [S2C.Error]: ResponsePayloads.S2C_Error;
-  [S2C.Kick]: undefined;
+  [S2C.Kick]: { reason?: string };
   [S2C.Pong]: ResponsePayloads.S2C_Pong;
   [S2C.MinimapLibraryManifest]: ResponsePayloads.S2C_MinimapLibraryManifest;
   [S2C.MinimapLibraryDelta]: ResponsePayloads.S2C_MinimapLibraryDelta;
