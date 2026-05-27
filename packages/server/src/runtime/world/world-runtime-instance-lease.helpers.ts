@@ -743,7 +743,7 @@ function shouldForceReclaimStaleLease(): boolean {
   if (explicit === '1') return true;
   if (explicit === '0') return false;
   const env = String(process.env.SERVER_RUNTIME_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
-  return env === 'development' || env === 'dev' || env === 'local' || env === 'test' || env === '';
+  return env === 'development' || env === 'dev' || env === 'local' || env === 'test';
 }
 
 export async function hydratePersistentInstanceSnapshot(runtime, instanceId, instance) {

@@ -47,6 +47,10 @@ function main() {
   const serverTesting = read('packages/server/TESTING.md');
   const serverRunbook = read('packages/server/RUNBOOK.md');
   const runtimeEnvManagementService = read('packages/server/src/runtime/gm/runtime-env-management.service.ts');
+  const runtimeGmAuthService = read('packages/server/src/runtime/gm/runtime-gm-auth.service.ts');
+  const runtimeGmStateService = read('packages/server/src/runtime/gm/runtime-gm-state.service.ts');
+  const worldRuntimeInstanceLeaseHelpers = read('packages/server/src/runtime/world/world-runtime-instance-lease.helpers.ts');
+  const healthController = read('packages/server/src/health.controller.ts');
   const dockerStackTencent = read('docker-stack.tencent.yml');
   const dockerCompose = read('docker-compose.yml');
   const deployLatest = read('deploy-latest.sh');
@@ -97,6 +101,22 @@ function main() {
     runtimeEnvManagementService,
     /shouldSkipLocalRuntimeEnvAutoload\(\)[\s\S]*return;/,
     'GM runtime env 管理服务必须尊重 SERVER_SKIP_LOCAL_ENV_AUTOLOAD，避免无库门禁重新套用 .runtime/server.local.env',
+  );
+  assert(
+    !/new Set\(\['',\s*'development'/.test(runtimeGmAuthService),
+    'GM 弱密码本地降级不得把未配置 SERVER_RUNTIME_ENV 当作 development',
+  );
+  assert(
+    !/new Set\(\['',\s*'development'/.test(runtimeGmStateService),
+    'GM 网络载荷采样不得把未配置 SERVER_RUNTIME_ENV 当作 development',
+  );
+  assert(
+    !/env === 'development' \|\| env === 'dev' \|\| env === 'local' \|\| env === 'test' \|\| env === ''/.test(worldRuntimeInstanceLeaseHelpers),
+    '实例 lease force reclaim 不得把未配置 SERVER_RUNTIME_ENV 当作 dev/test',
+  );
+  assert(
+    /if \(env !== 'development' && env !== 'dev' && env !== 'local' && env !== 'test'\)/.test(healthController),
+    '/health 在未配置 SERVER_RUNTIME_ENV 时必须按生产口径返回最小响应',
   );
   for (const [scriptName, content] of [
     ['release:local', localScript],

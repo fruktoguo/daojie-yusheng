@@ -62,6 +62,7 @@ async function main() {
       ...process.env,
       SERVER_PACKAGE_ROOT: packageRoot,
       SERVER_TOOL_DIST_ROOT: snapshot.distRoot,
+      SERVER_RUNTIME_ENV: process.env.SERVER_RUNTIME_ENV || process.env.APP_ENV || process.env.NODE_ENV || 'test',
       SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD:
         process.env.SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD
         || process.env.GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD

@@ -8,22 +8,104 @@ import {
 async function main(): Promise<void> {
   const previousForce = process.env.SERVER_FORCE_RECLAIM_STALE_LEASES;
   const previousRuntimeEnv = process.env.SERVER_RUNTIME_ENV;
-  process.env.SERVER_FORCE_RECLAIM_STALE_LEASES = '1';
-  process.env.SERVER_RUNTIME_ENV = 'development';
   try {
+    const productionDefaultProof = await verifyStartupRecoveryDoesNotForceReclaimWithoutEnv();
+    process.env.SERVER_FORCE_RECLAIM_STALE_LEASES = '1';
+    process.env.SERVER_RUNTIME_ENV = 'development';
     const periodicProof = await verifyPeriodicSyncDoesNotForceReclaim();
     const startupProof = await verifyStartupRecoveryStillCanForceReclaim();
     console.log(JSON.stringify({
       ok: true,
+      productionDefaultProof,
       periodicProof,
       startupProof,
-      answers: '实例 lease 周期同步不会把 dev/local 的 force reclaim 泄漏到常规续租；启动恢复显式传入 allowForceReclaim 时仍可强制接管旧租约',
+      answers: '实例 lease 未声明运行环境时按生产口径不强制接管；周期同步不会把 dev/local 的 force reclaim 泄漏到常规续租；启动恢复显式传入 allowForceReclaim 且测试/本地开关满足时仍可强制接管旧租约',
       excludes: '不证明真实 PostgreSQL 锁等待、跨节点 socket 迁移或生产节点故障转移，只证明运行时 lease 同步分支选择',
     }, null, 2));
   } finally {
     restoreEnv('SERVER_FORCE_RECLAIM_STALE_LEASES', previousForce);
     restoreEnv('SERVER_RUNTIME_ENV', previousRuntimeEnv);
   }
+}
+
+async function verifyStartupRecoveryDoesNotForceReclaimWithoutEnv(): Promise<{
+  claimedCount: number;
+  forceClaimCalls: number;
+  createdInstanceId: string | null;
+}> {
+  delete process.env.SERVER_FORCE_RECLAIM_STALE_LEASES;
+  delete process.env.SERVER_RUNTIME_ENV;
+  const instanceId = 'public:startup-recovery-prod-default';
+  const catalogRow = {
+    instance_id: instanceId,
+    template_id: 'public_startup_recovery_prod_default',
+    persistent_policy: 'persistent',
+    status: 'active',
+    runtime_status: 'leased',
+    assigned_node_id: 'node:remote',
+    lease_token: 'lease:remote:valid',
+    lease_expire_at: new Date(Date.now() + 60_000).toISOString(),
+    ownership_epoch: 4,
+  };
+  let forceClaimCalls = 0;
+  let createdInstanceId: string | null = null;
+  const runtime = {
+    logger: {
+      warn() {},
+      log() {},
+    },
+    nodeRegistryService: {
+      getNodeId() {
+        return 'node:local';
+      },
+    },
+    templateRepository: {
+      has() {
+        return true;
+      },
+    },
+    instanceCatalogService: {
+      isEnabled() {
+        return true;
+      },
+      async listInstanceCatalogEntries() {
+        return [catalogRow];
+      },
+      async forceClaimInstanceLease() {
+        forceClaimCalls += 1;
+        return { ok: true, ownershipEpoch: 5 };
+      },
+      async claimInstanceLease() {
+        throw new Error('production-default startup recovery must not claim a valid remote lease');
+      },
+    },
+    playerRuntimeService: {
+      playerDomainPersistenceService: {
+        async hasOnlinePlayersInInstance() {
+          return false;
+        },
+      },
+    },
+    getInstanceRuntime() {
+      return null;
+    },
+    createInstance(input: { instanceId: string }) {
+      createdInstanceId = input.instanceId;
+      return {};
+    },
+  };
+
+  const claimedCount = await claimRecoverableCatalogInstances(runtime, { allowForceReclaim: true });
+
+  assert.equal(claimedCount, 0);
+  assert.equal(forceClaimCalls, 0);
+  assert.equal(createdInstanceId, null);
+
+  return {
+    claimedCount,
+    forceClaimCalls,
+    createdInstanceId,
+  };
 }
 
 async function verifyPeriodicSyncDoesNotForceReclaim(): Promise<{

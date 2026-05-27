@@ -52,7 +52,7 @@ const GM_AUTH_TABLE = 'server_gm_auth';
 
 /** 仅用于显式本地降级方案的默认 GM 密码。 */
 const DEFAULT_GM_PASSWORD = GM_AUTH_CONTRACT.defaultInsecurePassword;
-const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
+const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
 
 /** 默认 token 有效期。 */
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;

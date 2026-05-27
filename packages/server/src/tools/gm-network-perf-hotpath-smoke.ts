@@ -11,15 +11,26 @@ import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 async function main(): Promise<void> {
   const originalEnabled = process.env.SERVER_GM_NETWORK_PERF_ENABLED;
   const originalCapture = process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS;
+  const originalRuntimeEnv = process.env.SERVER_RUNTIME_ENV;
+  const originalAppEnv = process.env.APP_ENV;
+  const originalNodeEnv = process.env.NODE_ENV;
   const originalStringify = JSON.stringify;
 
   try {
     const service = createRuntimeGmStateService();
+    delete process.env.SERVER_RUNTIME_ENV;
+    delete process.env.APP_ENV;
+    delete process.env.NODE_ENV;
     delete process.env.SERVER_GM_NETWORK_PERF_ENABLED;
     delete process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS;
 
     assert.equal(service.shouldRecordNetworkPerf(), false);
     assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
+    process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS = 'true';
+    assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
+    process.env.SERVER_RUNTIME_ENV = 'test';
+    assert.equal(service.shouldCaptureNetworkPayloadBody(), true);
+    delete process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS;
     JSON.stringify = throwIfStringifyUsed as typeof JSON.stringify;
     service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
     assert.equal(service.networkOutBucketByKey.size, 0);
@@ -66,6 +77,9 @@ async function main(): Promise<void> {
     JSON.stringify = originalStringify;
     restoreEnv('SERVER_GM_NETWORK_PERF_ENABLED', originalEnabled);
     restoreEnv('SERVER_GM_NETWORK_CAPTURE_PAYLOADS', originalCapture);
+    restoreEnv('SERVER_RUNTIME_ENV', originalRuntimeEnv);
+    restoreEnv('APP_ENV', originalAppEnv);
+    restoreEnv('NODE_ENV', originalNodeEnv);
   }
 
   console.log(JSON.stringify({

@@ -85,7 +85,7 @@ export class HealthController {
       response.status(HttpStatus.SERVICE_UNAVAILABLE);
     }
     const env = String(process.env.SERVER_RUNTIME_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
-    if (env && env !== 'development' && env !== 'dev' && env !== 'local' && env !== 'test') {
+    if (env !== 'development' && env !== 'dev' && env !== 'local' && env !== 'test') {
       return { ok: health.ok ?? (health.readiness?.ok ?? false), service: 'server' };
     }
     return health;
