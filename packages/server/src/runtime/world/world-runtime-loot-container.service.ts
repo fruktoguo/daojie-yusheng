@@ -5,11 +5,12 @@
  */
 import { Inject, Injectable, BadRequestException, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { computeAdjustedCraftTicks, computeCraftSkillExpGain, createItemStackSignature, mergeItemStackEntryInto, mergeItemStackInto, resolveAlchemyGradeValue } from '@mud/shared';
+import { computeAdjustedCraftTicks, createItemStackSignature, mergeItemStackEntryInto, mergeItemStackInto, resolveAlchemyGradeValue } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
+import { executeGatherTick } from '../craft/pipeline/strategies/gather-tick.helpers';
 import { reassignItemInstanceId } from './item-instance-id.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import * as world_runtime_normalization_helpers_1 from './world-runtime.normalization.helpers';
@@ -912,168 +913,15 @@ export class WorldRuntimeLootContainerService {
  */
 
     async tickGather(playerId, deps) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const player = this.playerRuntimeService.getPlayer(playerId);
-        const job = player?.gatherJob;
-        if (!player || !job || Number(job.remainingTicks) <= 0) {
-            return buildContainerTickResult();
-        }
-        const location = deps.getPlayerLocationOrThrow(playerId);
-        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const container = instance.getContainerById(job.resourceNodeId);
-        if (!container || container.variant !== 'herb') {
-            this.releaseGatherActiveSearch(playerId, player, job, deps);
-            player.gatherJob = null;
-            this.playerRuntimeService.bumpPersistentRevision(player);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            return buildContainerTickResult(false, [{
-                    kind: 'warn',
-                    text: '采集目标已经不存在。',
-                }]);
-        }
-        const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
-        if (!lootWindowTarget
-            || lootWindowTarget.tileX !== container.x
-            || lootWindowTarget.tileY !== container.y
-            || Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1) {
-            const state = this.ensureContainerState(location.instanceId, container, instance.tick);
-            if (state.activeSearch) {
-                state.activeSearch = undefined;
-                this.markContainerPersistenceDirty(location.instanceId);
-            }
-            const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '你已离开草药采集范围。');
-            player.gatherJob = null;
-            this.playerRuntimeService.bumpPersistentRevision(player);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            return buildContainerTickSleepResult(sleepPayload, [{
-                    kind: 'warn',
-                    text: '你已离开草药采集范围。',
-                }]);
-        }
-        const state = this.ensureContainerState(location.instanceId, container, instance.tick);
-        const activeSearchPlayerId = resolveActiveSearchPlayerId(state.activeSearch);
-        if (activeSearchPlayerId && activeSearchPlayerId !== playerId) {
-            const sleepPayload = buildGatherSleepPayload(job, location.instanceId, container, '采集目标正在由其他玩家采集。');
-            player.gatherJob = null;
-            this.playerRuntimeService.bumpPersistentRevision(player);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            return buildContainerTickSleepResult(sleepPayload, [{
-                    kind: 'warn',
-                    text: '采集目标正在由其他玩家采集，已转入等待队列。',
-                }]);
-        }
-        if (state.activeSearch && !activeSearchPlayerId) {
-            state.activeSearch.playerId = playerId;
-            this.markContainerPersistenceDirty(location.instanceId);
-        }
-        if (!state.activeSearch) {
-            const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
-            if (!nextRow) {
-                player.gatherJob = null;
-                this.playerRuntimeService.bumpPersistentRevision(player);
-                this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-                return buildContainerTickResult(false, [{
-                        kind: 'info',
-                        text: `${container.name} 已经采尽。`,
-                    }]);
-            }
-            const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
-            state.activeSearch = {
-                playerId,
-                itemKey: nextRow.itemKey,
-                totalTicks,
-                remainingTicks: totalTicks,
-            };
-            job.totalTicks = totalTicks;
-            job.remainingTicks = totalTicks;
-            job.workTotalTicks = totalTicks;
-            job.workRemainingTicks = totalTicks;
-            job.interruptWaitRemainingTicks = 0;
-            job.interruptState = null;
-        }
-        state.activeSearch.remainingTicks -= 1;
-        job.remainingTicks = Math.max(0, state.activeSearch.remainingTicks);
-        job.workRemainingTicks = job.remainingTicks;
-        job.workTotalTicks = Math.max(1, Math.trunc(Number(job.workTotalTicks ?? job.totalTicks) || 1));
-        this.markContainerPersistenceDirty(location.instanceId);
-        if (state.activeSearch.remainingTicks > 0) {
-            this.playerRuntimeService.bumpPersistentRevision(player);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            return buildContainerTickResult();
-        }
-        const harvestedRow = groupContainerLootRows(state.entries)
-            .find((entry) => entry.itemKey === state.activeSearch?.itemKey) ?? null;
-        if (!harvestedRow) {
-            state.activeSearch = undefined;
-            player.gatherJob = null;
-            this.playerRuntimeService.bumpPersistentRevision(player);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            return buildContainerTickResult(false, [{
-                    kind: 'warn',
-                    text: `${container.name} 当前没有可收取的草药。`,
-                }]);
-        }
-        const harvestedItem = removeSingleContainerRowItem(state.entries, harvestedRow);
-        if (!harvestedItem) {
-            state.activeSearch = undefined;
-            player.gatherJob = null;
-            this.playerRuntimeService.bumpPersistentRevision(player);
-            this.playerRuntimeService.markPersistenceDirtyDomains?.(player, ['active_job']);
-            return buildContainerTickResult(false, [{
-                    kind: 'warn',
-                    text: `${container.name} 当前没有可收取的草药。`,
-                }]);
-        }
-        state.activeSearch = undefined;
-        prepareLootGrantItemsForReceiver('gather_completion', [harvestedItem]);
-        this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
-        const skillExpResult = applyGatherSkillExp(this.playerRuntimeService, player.gatherSkill, harvestedItem.level, computeHerbNativeGatherTicks(container, harvestedRow));
-        const skillChanged = skillExpResult.changed;
-        const craftRealmChanged = grantCraftRealmProgress(this.playerRuntimeService, player, skillExpResult.gain / 2);
-        deps.refreshQuestStates(playerId);
-        const remainingCount = countContainerEntryItems(state.entries);
-        if (remainingCount <= 0) {
-            state.activeSearch = undefined;
-            if (typeof state.refreshAtTick !== 'number') {
-                state.refreshAtTick = resolveContainerRefreshAtTick(container, instance.tick);
-            }
-        }
-        const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
-        if (nextRow) {
-            const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
-            state.activeSearch = {
-                playerId,
-                itemKey: nextRow.itemKey,
-                totalTicks,
-                remainingTicks: totalTicks,
-            };
-            player.gatherJob = {
-                ...job,
-                startedAt: Date.now(),
-                totalTicks,
-                remainingTicks: totalTicks,
-                workTotalTicks: totalTicks,
-                workRemainingTicks: totalTicks,
-                interruptWaitRemainingTicks: 0,
-                interruptState: null,
-                pausedTicks: 0,
-                phase: 'gathering',
-            };
-        }
-        else {
-            player.gatherJob = null;
-        }
-        const dirtyDomains = ['inventory', 'active_job'];
-        if (skillChanged) {
-            dirtyDomains.push('profession');
-        }
-        this.playerRuntimeService.markPersistenceDirtyDomains(player, dirtyDomains);
-        this.playerRuntimeService.bumpPersistentRevision(player);
-        return buildContainerTickResult(false, [{
-                kind: 'loot',
-                text: `获得 ${this.formatLootItemStackLabel(harvestedItem)}`,
-            }], true, false, Boolean(skillChanged || craftRealmChanged));
+        return executeGatherTick(playerId, {
+            contentTemplateRepository: this.contentTemplateRepository,
+            resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(this.playerRuntimeService, level),
+            getInstanceRuntime: (instanceId) => deps.getInstanceRuntime?.(instanceId) ?? null,
+            deps: {
+                ...deps,
+                worldRuntimeLootContainerService: this,
+            },
+        }, this);
     }    
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。
@@ -1623,21 +1471,6 @@ function buildContainerTickSleepResult(sleepPayload, messages = []) {
     };
 }
 
-function buildGatherSleepPayload(job, instanceId, container, reason) {
-    return {
-        kind: 'gather',
-        payload: {
-            sourceId: typeof job?.sourceId === 'string' && job.sourceId.trim()
-                ? job.sourceId.trim()
-                : buildContainerSourceId(instanceId, container.id),
-            resourceNodeId: container.id,
-            instanceId,
-        },
-        label: job?.resourceNodeName ?? container.name ?? '采集',
-        reason,
-    };
-}
-
 function cloneContainerState(state) {
     return {
         sourceId: state.sourceId,
@@ -1804,56 +1637,4 @@ function compactLootOperationId(operationId) {
     const digest = createHash('sha256').update(operationId).digest('hex').slice(0, 24);
     const suffix = `:h:${digest}`;
     return `${operationId.slice(0, LOOT_OPERATION_ID_SAFE_LENGTH - suffix.length)}${suffix}`;
-}
-
-function applyCraftSkillExp(source, skill, amount) {
-    if (!skill) {
-        return false;
-    }
-    let changed = false;
-    const currentExpToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
-    if (skill.expToNext !== currentExpToNext) {
-        skill.expToNext = currentExpToNext;
-        changed = true;
-    }
-    skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
-    while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
-        skill.exp -= skill.expToNext;
-        skill.level += 1;
-        skill.expToNext = resolveCraftSkillExpToNextByLevel(source, skill.level);
-        changed = true;
-    }
-    return changed || amount > 0;
-}
-
-function applyGatherSkillExp(source, skill, targetLevel, baseActionTicks) {
-    if (!skill) {
-        return { changed: false, gain: 0 };
-    }
-    const gain = computeCraftSkillExpGain({
-        skillLevel: skill.level,
-        targetLevel,
-        baseActionTicks,
-        getExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(source, level),
-        successCount: 1,
-        failureCount: 0,
-        successMultiplier: 1,
-    }).finalGain;
-    return {
-        changed: applyCraftSkillExp(source, skill, gain),
-        gain,
-    };
-}
-
-function grantCraftRealmProgress(playerRuntimeService, player, amount) {
-    const normalized = Number(amount);
-    if (!Number.isFinite(normalized) || normalized <= 0) {
-        return false;
-    }
-    const result = playerRuntimeService.playerProgressionService?.grantCraftRealmExp?.(player, normalized);
-    if (!result) {
-        return false;
-    }
-    playerRuntimeService.applyProgressionResult?.(player, result);
-    return result.changed === true;
 }

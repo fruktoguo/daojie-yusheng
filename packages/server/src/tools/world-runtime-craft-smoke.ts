@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   testBuildingActiveBuilderRejectsCompetingPlayers();
   testBuildingStrategyConditionFailureReleasesActiveBuilder();
   testBuildingPermanentInvalidTickReleasesActiveBuilder();
-  await testGatherStrategyTickDelegatesRuntimeService();
+  await testGatherStrategyTickUsesStrategyHelper();
   testBuildingStrategyTickDelegatesRuntimeService();
   await testCraftTickUsesUnifiedPipelineForCraftingKinds();
   await testCraftTickUsesUnifiedPipelineForGatherBuilding();
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
       '采集目标永久消失时会释放遗留 container activeSearch。',
       '建造 activeBuilder 不会被其他玩家重入覆盖。',
       '建造条件永久失效时会释放当前玩家遗留 activeBuilder。',
-      '采集/建造 strategy tick 会委托真实 runtime service。',
+      '采集 strategy tick 规则已迁入 strategy helper；建造 strategy tick 仍委托真实 runtime service。',
       '炼丹/炼器/强化/采集/建造 tick 编排直接走统一 tickTechniqueActivity 入口。',
       '采集/建造 tick 条件失败会进入统一 sleeping 队列。',
       '阵法维护 tick 条件失败会进入统一 sleeping 队列。',
@@ -1782,14 +1782,113 @@ async function testCraftTickUsesUnifiedPipelineForCraftingKinds(): Promise<void>
   assert.deepEqual(flushedKinds, ['alchemy', 'forging', 'enhancement']);
 }
 
-async function testGatherStrategyTickDelegatesRuntimeService(): Promise<void> {
+async function testGatherStrategyTickUsesStrategyHelper(): Promise<void> {
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new GatherStrategy());
+  const state = {
+    entries: [{
+      item: {
+        itemId: 'herb:test',
+        itemInstanceId: 'herb:source',
+        name: '灵草',
+        type: 'material',
+        count: 1,
+        desc: '测试草药',
+        level: 1,
+        grade: 'mortal',
+      },
+      createdTick: 1,
+      visible: true,
+    }],
+    activeSearch: {
+      playerId: 'player:gather-strategy-tick',
+      itemKey: 'herb:test#0',
+      totalTicks: 1,
+      remainingTicks: 1,
+    },
+  };
+  const container = {
+    id: 'herb-1',
+    variant: 'herb',
+    name: '灵草丛',
+    x: 1,
+    y: 1,
+    grade: 'mortal',
+  };
+  const instance = {
+    tick: 10,
+    getContainerById(containerId: string): typeof container | null {
+      assert.equal(containerId, container.id);
+      return container;
+    },
+  };
   const player = {
     playerId: 'player:gather-strategy-tick',
-    gatherJob: { remainingTicks: 2, resourceNodeId: 'herb-1' },
+    x: 1,
+    y: 1,
+    gatherSkill: { level: 1, exp: 0, expToNext: 60 },
+    persistentRevision: 1,
+    gatherJob: {
+      sourceId: 'container:instance:gather-tick:herb-1',
+      resourceNodeId: 'herb-1',
+      instanceId: 'instance:gather-tick',
+      resourceNodeName: '灵草丛',
+      remainingTicks: 1,
+      totalTicks: 1,
+      workRemainingTicks: 1,
+      workTotalTicks: 1,
+      interruptWaitRemainingTicks: 0,
+      interruptState: null,
+      pausedTicks: 0,
+      phase: 'gathering',
+    },
   };
-  const calls: string[] = [];
+  const receivedItems: unknown[] = [];
+  const containerDirty: string[] = [];
+  const dirtyDomains: string[][] = [];
+  const refreshedQuests: string[] = [];
+  const gatherService = {
+    playerRuntimeService: {
+      getPlayer(playerId: string): typeof player | null {
+        assert.equal(playerId, player.playerId);
+        return player;
+      },
+      getLootWindowTarget(playerId: string): { tileX: number; tileY: number } {
+        assert.equal(playerId, player.playerId);
+        return { tileX: 1, tileY: 1 };
+      },
+      receiveInventoryItem(playerId: string, item: unknown): void {
+        assert.equal(playerId, player.playerId);
+        receivedItems.push(item);
+      },
+      markPersistenceDirtyDomains(_player: unknown, domains: string[]): void {
+        dirtyDomains.push(domains);
+      },
+      bumpPersistentRevision(activePlayer: typeof player): void {
+        activePlayer.persistentRevision += 1;
+      },
+      playerProgressionService: {
+        grantCraftRealmExp(_player: unknown, amount: number): { changed: boolean } {
+          assert.equal(amount > 0, true);
+          return { changed: true };
+        },
+      },
+      applyProgressionResult(): void {},
+    },
+    ensureContainerState(instanceId: string, targetContainer: typeof container): typeof state {
+      assert.equal(instanceId, 'instance:gather-tick');
+      assert.equal(targetContainer.id, container.id);
+      return state;
+    },
+    markContainerPersistenceDirty(instanceId: string): void {
+      containerDirty.push(instanceId);
+    },
+    formatLootItemStackLabel(item: { name?: string; count?: number }): string {
+      return `${item.name ?? '未知'} x${item.count ?? 0}`;
+    },
+  };
+  assert.equal(Object.prototype.hasOwnProperty.call(gatherService, 'tickGather'), false);
+
   const result = await Promise.resolve(pipeline.tick(player, 'gather', {
     contentTemplateRepository: {
       getItemName(): string | null { return null; },
@@ -1798,17 +1897,33 @@ async function testGatherStrategyTickDelegatesRuntimeService(): Promise<void> {
     resolveExpToNextByLevel(): number { return 100; },
     getInstanceRuntime(): unknown { return null; },
     deps: {
-      worldRuntimeLootContainerService: {
-        async tickGather(playerId: string): Promise<unknown> {
-          calls.push(playerId);
-          return { ok: true, panelChanged: true, messages: [] };
-        },
+      worldRuntimeLootContainerService: gatherService,
+      getPlayerLocationOrThrow(playerId: string): { instanceId: string } {
+        assert.equal(playerId, player.playerId);
+        return { instanceId: 'instance:gather-tick' };
+      },
+      getInstanceRuntimeOrThrow(instanceId: string): typeof instance {
+        assert.equal(instanceId, 'instance:gather-tick');
+        return instance;
+      },
+      refreshQuestStates(playerId: string): void {
+        refreshedQuests.push(playerId);
       },
     },
   }));
 
-  assert.deepEqual(calls, ['player:gather-strategy-tick']);
   assert.equal((result as { ok?: boolean })?.ok, true);
+  assert.equal((result as { inventoryChanged?: boolean })?.inventoryChanged, true);
+  assert.equal((result as { attrChanged?: boolean })?.attrChanged, true);
+  assert.equal(player.gatherJob, null);
+  assert.equal(state.entries.length, 0);
+  assert.equal(state.activeSearch, undefined);
+  assert.equal((receivedItems[0] as { itemId?: string })?.itemId, 'herb:test');
+  assert.equal(typeof (receivedItems[0] as { itemInstanceId?: string })?.itemInstanceId, 'string');
+  assert.deepEqual(containerDirty, ['instance:gather-tick']);
+  assert.deepEqual(dirtyDomains, [['inventory', 'active_job', 'profession']]);
+  assert.deepEqual(refreshedQuests, [player.playerId]);
+  assert.equal(player.persistentRevision, 2);
 }
 
 function testBuildingStrategyTickDelegatesRuntimeService(): void {

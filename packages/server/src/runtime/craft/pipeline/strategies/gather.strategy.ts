@@ -15,6 +15,7 @@ import type {
   TechniqueActivityConditionCheckResult,
 } from '@mud/shared';
 import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } from '../technique-activity-strategy';
+import { executeGatherTick } from './gather-tick.helpers';
 
 export class GatherStrategy implements TechniqueActivityStrategy {
   readonly kind = 'gather' as const;
@@ -77,10 +78,16 @@ export class GatherStrategy implements TechniqueActivityStrategy {
   async executeTick(player: unknown, ctx: PipelineContext): Promise<unknown> {
     const playerId = resolvePlayerId(player);
     const service = resolveGatherRuntimeService(ctx);
-    if (!playerId || !service || typeof service.tickGather !== 'function') {
+    if (
+      !playerId
+      || !service
+      || typeof service.ensureContainerState !== 'function'
+      || typeof service.markContainerPersistenceDirty !== 'function'
+      || typeof service.formatLootItemStackLabel !== 'function'
+    ) {
       return emptyGatherTickResult();
     }
-    return service.tickGather(playerId, ctx.deps);
+    return executeGatherTick(playerId, ctx, service as never);
   }
 
   resolveResumePhase(_job: any): string {
@@ -148,8 +155,29 @@ type GatherRuntimeServicePort = {
     job: unknown,
     deps: unknown,
   ) => TechniqueActivityConditionCheckResult;
+  playerRuntimeService?: {
+    getPlayer?(playerId: string): Record<string, any> | null;
+    getLootWindowTarget?(playerId: string): { tileX: number; tileY: number } | null;
+    receiveInventoryItem?(playerId: string, item: Record<string, any>): void;
+    markPersistenceDirtyDomains?(player: Record<string, any>, domains: string[]): void;
+    bumpPersistentRevision?(player: Record<string, any>): void;
+    playerProgressionService?: {
+      grantCraftRealmExp?(player: Record<string, any>, amount: number): { changed?: boolean } | null;
+    };
+    applyProgressionResult?(player: Record<string, any>, result: unknown): void;
+  };
+  ensureContainerState?(
+    instanceId: string,
+    container: Record<string, any>,
+    currentTick: number,
+  ): {
+    entries: Array<Record<string, any>>;
+    activeSearch?: Record<string, any>;
+    refreshAtTick?: number;
+  };
+  markContainerPersistenceDirty?(instanceId: string): void;
+  formatLootItemStackLabel?(item: Record<string, any>): string;
   releaseGatherActiveSearch?: (playerId: string, player: unknown, job: unknown, deps: unknown) => void;
-  tickGather?: (playerId: string, deps: unknown) => Promise<unknown> | unknown;
 };
 
 function resolvePlayerId(player: unknown): string {
