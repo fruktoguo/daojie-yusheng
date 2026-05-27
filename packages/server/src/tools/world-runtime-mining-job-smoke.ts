@@ -200,6 +200,9 @@ function main(): void {
   assert.equal(cancelResult.cancelled, true);
   assert.equal(visiblePlayer.miningJob, null);
   assert.equal(buildTechniqueActivityTaskListView(visiblePlayer).tasks.some((task) => task.kind === 'mining'), false);
+  assert.equal(visibleInstance.damageCalls, 0);
+  assert.equal(visibleInventory.length, 0);
+  assert.equal(visiblePlayer.miningSkill.exp, 0);
 
   const tickPlayer = createPlayer();
   const tickInstance = new SmokeMiningInstance(1);
@@ -215,6 +218,7 @@ function main(): void {
   assert.equal(tickResult.attrChanged, true);
   assert.equal(tickInstance.damageCalls, 1);
   assert.equal(inventory.length, 1);
+  assert.deepEqual(inventory[0], { itemId: 'mat.black_iron_ore', count: 1, source: 'smoke' });
   assert.ok(tickPlayer.miningSkill.exp > beforeExp);
   assert.equal(tickPlayer.miningJob, null);
   assert.deepEqual(sectExpansions, [{ instanceId: 'instance:mining-job-smoke', x: 1, y: 0 }]);
