@@ -54,7 +54,7 @@ async function main(): Promise<void> {
     answers: [
       'hasAnyActiveTechniqueActivity 覆盖 alchemy/forging/enhancement/gather/building/formation/mining。',
       '采集/建造中断先写 sleeping 队列，再统一调用 interruptTechniqueActivity。',
-      'move/attack/cultivate 打断炼丹/炼器/强化/挖矿/阵法维护时不修改实际工作进度；阵法移动不伪装成等待条。',
+      'move/attack/cultivate/defeat 打断炼丹/炼器/强化/挖矿/阵法维护时不修改实际工作进度；阵法移动不伪装成等待条。',
       'sleeping 队列在 retryAfterTicks 到期前不做条件热检查。',
       'sleeping 队列永久失效会移除队列、标记 active_job 脏域并触发面板刷新。',
       '恢复态 sleeping 队列永久失效会调用 strategy 失败清理钩子，释放采集 activeSearch 和建造 activeBuilder。',
@@ -149,7 +149,7 @@ function testInterruptUsesUnifiedPipelineAndSleepsConditionalJobs(): void {
 }
 
 function testInterruptReasonsKeepWorkProgressSeparate(): void {
-  for (const reason of ['move', 'attack', 'cultivate'] as const) {
+  for (const reason of ['move', 'attack', 'cultivate', 'defeat'] as const) {
     const player = createInterruptProgressPlayer(reason);
     const before = snapshotProgressFields(player);
     const craftService = createInterruptProgressCraftService();

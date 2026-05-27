@@ -55,6 +55,6 @@ function buildAlchemyLikeInterruptResult(
   };
 }
 
-function normalizeInterruptReason(reason: string): 'move' | 'attack' | 'cancel' | 'cultivate' {
-  return reason === 'move' || reason === 'cancel' || reason === 'cultivate' ? reason : 'attack';
+function normalizeInterruptReason(reason: string): 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat' {
+  return reason === 'move' || reason === 'cancel' || reason === 'cultivate' || reason === 'defeat' ? reason : 'attack';
 }

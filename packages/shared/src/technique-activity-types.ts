@@ -10,7 +10,7 @@ export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gat
 export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation';
 
 /** 技艺活动通用中断原因。 */
-export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel' | 'cultivate';
+export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat';
 
 /** 技艺活动任务视图状态。 */
 export type TechniqueActivityTaskState =

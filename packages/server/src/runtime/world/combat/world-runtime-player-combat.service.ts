@@ -321,6 +321,7 @@ export class WorldRuntimePlayerCombatService {
         }
         const deathSite = resolvePlayerDeathSite(victim, deps);
         deps.worldRuntimeGmQueueService?.markPendingRespawn?.(playerId);
+        interruptTechniqueActivitiesForDefeat(playerId, victim, deps);
         // 玩家死亡时立即清除所有以该玩家为仇恨目标的妖兽仇恨，
         // 避免下一个 tick 产生无效攻击 intent。
         if (deathSite.instance && typeof deathSite.instance.clearMonsterAggroForPlayer === 'function') {
@@ -527,6 +528,13 @@ function resolvePlayerDeathSite(victim: any, deps: any) {
         x: victim.x,
         y: victim.y,
     };
+}
+
+function interruptTechniqueActivitiesForDefeat(playerId: string, victim: any, deps: any): void {
+    if (typeof deps?.worldRuntimeCraftInterruptService?.interruptCraftForReason !== 'function') {
+        return;
+    }
+    deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, victim, 'defeat', deps);
 }
 
 function isOfflineRuntimePlayer(player: any) {

@@ -608,6 +608,7 @@ function interruptReasonLabel(reason: TechniqueActivityInterruptReason): string 
     case 'attack': return '出手';
     case 'cancel': return '手动取消';
     case 'cultivate': return '打坐';
+    case 'defeat': return '身陨';
   }
 }
 
