@@ -3200,6 +3200,29 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
       ON ${PLAYER_ACTIVE_JOB_TABLE}(job_type, status ASC, player_id ASC)
     `);
     await client.query(`
+      CREATE TABLE IF NOT EXISTS player_technique_activity_queue (
+        player_id varchar(100) NOT NULL,
+        queue_id varchar(180) NOT NULL,
+        kind varchar(32) NOT NULL,
+        state varchar(32) NOT NULL,
+        label varchar(160),
+        target_label varchar(160),
+        sleep_reason varchar(240),
+        retry_after_ticks bigint,
+        created_at bigint NOT NULL,
+        queue_order bigint NOT NULL DEFAULT 0,
+        payload_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+        cancel_ref_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+        detail_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY(player_id, queue_id)
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_technique_activity_queue_player_idx
+      ON player_technique_activity_queue(player_id, queue_order ASC, created_at ASC)
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_ENHANCEMENT_RECORD_TABLE} (
         record_id varchar(180) PRIMARY KEY,
         player_id varchar(100) NOT NULL,

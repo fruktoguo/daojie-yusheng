@@ -246,6 +246,21 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected recovered active job: ${JSON.stringify(snapshot.progression.alchemyJob)}`);
     }
+    if (!Array.isArray(snapshot.progression.techniqueActivityQueue) || snapshot.progression.techniqueActivityQueue.length !== 2) {
+      throw new Error(`unexpected recovered technique queue: ${JSON.stringify(snapshot.progression.techniqueActivityQueue)}`);
+    }
+    const recoveredTechniqueQueue = snapshot.progression.techniqueActivityQueue.map((entry) => entry as Record<string, unknown>);
+    const recoveredFormationCancelRef = recoveredTechniqueQueue[0]?.cancelRef as Record<string, unknown> | undefined;
+    if (
+      recoveredTechniqueQueue[0]?.queueId !== 'queue:formation:recovery'
+      || recoveredTechniqueQueue[0]?.kind !== 'formation'
+      || recoveredTechniqueQueue[0]?.state !== 'sleeping'
+      || recoveredFormationCancelRef?.queueId !== 'queue:formation:recovery'
+      || recoveredTechniqueQueue[1]?.queueId !== 'queue:mining:recovery'
+      || recoveredTechniqueQueue[1]?.kind !== 'mining'
+    ) {
+      throw new Error(`unexpected recovered technique queue content: ${JSON.stringify(snapshot.progression.techniqueActivityQueue)}`);
+    }
     if (
       !Array.isArray(snapshot.progression.enhancementRecords)
       || snapshot.progression.enhancementRecords.length !== 1
@@ -257,6 +272,24 @@ async function main(): Promise<void> {
     if (snapshot.pendingLogbookMessages.length !== 1 || snapshot.pendingLogbookMessages[0]?.id !== 'log:1') {
       throw new Error(`unexpected recovered logbook messages: ${JSON.stringify(snapshot.pendingLogbookMessages)}`);
     }
+
+    const enhancementRecoveryPlayerId = `${playerId}_enh`;
+    await cleanupPlayer(pool, enhancementRecoveryPlayerId);
+    const enhancementSnapshot = buildEnhancementActiveJobRecoverySnapshot(now + 2);
+    await snapshotPersistence.savePlayerSnapshot(enhancementRecoveryPlayerId, enhancementSnapshot, {
+      persistedSource: 'native',
+      seededAt: now + 2,
+    });
+    await domainPersistence.savePlayerSnapshotProjection(enhancementRecoveryPlayerId, enhancementSnapshot);
+    await pool.query('DELETE FROM server_player_snapshot WHERE player_id = $1', [enhancementRecoveryPlayerId]);
+    const enhancementRecovered = await snapshotService.loadPlayerSnapshotResult(
+      enhancementRecoveryPlayerId,
+      'proof:technique-active-job-locked-queue-recovery',
+    );
+    if (!enhancementRecovered.snapshot) {
+      throw new Error(`expected enhancement projected recovery to succeed, got ${JSON.stringify(enhancementRecovered)}`);
+    }
+    assertEnhancementActiveJobLockedQueueRecovered(enhancementRecovered.snapshot);
 
     const presenceOnly = await snapshotService.loadPlayerSnapshotResult(
       presenceOnlyPlayerId,
@@ -271,7 +304,8 @@ async function main(): Promise<void> {
         {
           ok: true,
           playerId,
-          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/technique/persistent buff/quest/combat config/profession/preset/job/enhancement record/logbook 子域回读重建，并与旧整档快照当前已落地投影子集保持一致',
+          enhancementRecoveryPlayerId,
+          answers: 'with-db 下 snapshot miss 已能从 player-domain 当前已落地的 anchor/checkpoint/vitals/progression core/attr/body training/inventory/map unlock/equipment/technique/persistent buff/quest/combat config/profession/preset/job/technique queue/enhancement record/logbook 子域回读重建；强化 active job、lockedItems 与统一技艺队列可一起恢复',
           excludes: '不证明未投影子域已迁出旧快照，也不证明玩家全域已经不再依赖 server_player_snapshot',
           completionMapping: 'release:proof:with-db.player-domain-recovery',
           source: recovered.source,
@@ -286,6 +320,7 @@ async function main(): Promise<void> {
   } finally {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
     await cleanupPlayer(pool, presenceOnlyPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, `${playerId}_enh`).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await snapshotPersistence.onModuleDestroy().catch(() => undefined);
     await domainPersistence.onModuleDestroy().catch(() => undefined);
@@ -452,6 +487,37 @@ function buildSnapshot(now: number): ProjectedRecoverySnapshot {
         outputItemId: 'qi_pill',
         quantity: 2,
       },
+      techniqueActivityQueue: [
+        {
+          queueId: 'queue:formation:recovery',
+          kind: 'formation',
+          payload: { formationInstanceId: 'formation:recovery' },
+          label: '阵法维护',
+          targetLabel: '护宗阵眼',
+          state: 'sleeping',
+          sleepReason: '离开阵眼',
+          retryAfterTicks: 3,
+          sleepingSince: now - 3,
+          cancelRef: {
+            kind: 'formation',
+            queueId: 'queue:formation:recovery',
+          },
+          createdAt: now - 5,
+        },
+        {
+          queueId: 'queue:mining:recovery',
+          kind: 'mining',
+          payload: { tileX: 12, tileY: 23 },
+          label: '挖矿',
+          targetLabel: '黑铁矿',
+          state: 'pending',
+          cancelRef: {
+            kind: 'mining',
+            queueId: 'queue:mining:recovery',
+          },
+          createdAt: now - 4,
+        },
+      ],
       enhancementSkill: null,
       enhancementSkillLevel: 3,
       enhancementJob: null,
@@ -739,6 +805,7 @@ function assertProjectedSubsetParity(
         : [],
     })),
     alchemyJob: normalizeComparableAlchemyJob(originalSnapshot.progression.alchemyJob),
+    techniqueActivityQueue: normalizeComparableTechniqueActivityQueue(originalSnapshot.progression.techniqueActivityQueue),
     logbook: originalSnapshot.pendingLogbookMessages,
   };
   const recoveredSubset = {
@@ -785,6 +852,7 @@ function assertProjectedSubsetParity(
         : [],
     })),
     alchemyJob: normalizeComparableAlchemyJob(recoveredSnapshot.progression.alchemyJob),
+    techniqueActivityQueue: normalizeComparableTechniqueActivityQueue(recoveredSnapshot.progression.techniqueActivityQueue),
     logbook: recoveredSnapshot.pendingLogbookMessages,
   };
   const normalizedOriginalSubset = normalizeComparableJson(originalSubset);
@@ -1005,6 +1073,126 @@ function normalizeComparableAlchemyJob(job: unknown): Record<string, unknown> | 
     outputItemId: record.outputItemId ?? null,
     quantity: record.quantity ?? null,
   };
+}
+
+function normalizeComparableTechniqueActivityQueue(queue: unknown): Array<Record<string, unknown>> {
+  return (Array.isArray(queue) ? queue : [])
+    .map((entry) => {
+      const record = entry as Record<string, unknown> | null | undefined;
+      const cancelRef = record?.cancelRef as Record<string, unknown> | null | undefined;
+      return {
+        queueId: String(record?.queueId ?? ''),
+        kind: String(record?.kind ?? ''),
+        state: String(record?.state ?? ''),
+        label: record?.label == null ? null : String(record.label),
+        targetLabel: record?.targetLabel == null ? null : String(record.targetLabel),
+        sleepReason: record?.sleepReason == null ? null : String(record.sleepReason),
+        retryAfterTicks: record?.retryAfterTicks == null ? null : Number(record.retryAfterTicks),
+        cancelKind: String(cancelRef?.kind ?? ''),
+        cancelQueueId: String(cancelRef?.queueId ?? ''),
+        payload: normalizeComparableJson(record?.payload ?? {}),
+      };
+    })
+    .filter((entry) => entry.queueId.length > 0 && entry.kind.length > 0)
+    .sort((left, right) => left.queueId.localeCompare(right.queueId, 'zh-Hans-CN'));
+}
+
+function buildEnhancementActiveJobRecoverySnapshot(now: number): ProjectedRecoverySnapshot {
+  const snapshot = buildStarterSnapshot(`starter:enhancement:${now}`);
+  snapshot.savedAt = now;
+  snapshot.progression.enhancementSkill = {
+    level: 3,
+    exp: 8,
+    expToNext: 20,
+  };
+  snapshot.progression.enhancementSkillLevel = 3;
+  snapshot.progression.enhancementJob = {
+    jobRunId: 'job-run:enhancement:locked-recovery',
+    jobVersion: 9,
+    phase: 'enhancing',
+    startedAt: now - 10,
+    totalTicks: 20,
+    remainingTicks: 7,
+    pausedTicks: 0,
+    successRate: 0.65,
+    totalSpeedRate: 1.1,
+    itemInstanceId: 'locked-sword-recovery',
+    targetItemId: 'iron_sword',
+    targetItemName: '铁剑',
+    targetItemLevel: 1,
+    currentLevel: 2,
+    targetLevel: 3,
+    desiredTargetLevel: 4,
+    spiritStoneCost: 10,
+    materials: [],
+    protectionUsed: false,
+    roleEnhancementLevel: 3,
+  };
+  snapshot.progression.techniqueActivityQueue = [
+    {
+      queueId: 'queue:enhancement-followup:recovery',
+      kind: 'enhancement',
+      payload: { targetLevel: 5 },
+      label: '继续强化',
+      targetLabel: '铁剑',
+      state: 'pending',
+      cancelRef: {
+        kind: 'enhancement',
+        queueId: 'queue:enhancement-followup:recovery',
+      },
+      createdAt: now - 3,
+    },
+  ];
+  snapshot.inventory = {
+    revision: 3,
+    capacity: 24,
+    items: [
+      { itemId: 'spirit_stone', count: 50 },
+    ],
+    lockedItems: [
+      {
+        itemId: 'iron_sword',
+        itemInstanceId: 'locked-sword-recovery',
+        count: 1,
+        name: '铁剑',
+        type: 'equipment',
+        equipSlot: 'weapon',
+        enhanceLevel: 2,
+        lockedBy: 'enhancement:job-run:enhancement:locked-recovery',
+        lockedAt: now - 10,
+      },
+    ],
+  } as ProjectedRecoverySnapshot['inventory'];
+  return snapshot;
+}
+
+function assertEnhancementActiveJobLockedQueueRecovered(snapshot: PersistedPlayerSnapshot): void {
+  const job = snapshot.progression.enhancementJob as Record<string, unknown> | null;
+  if (
+    !job
+    || job.jobRunId !== 'job-run:enhancement:locked-recovery'
+    || job.itemInstanceId !== 'locked-sword-recovery'
+    || Number(job.jobVersion ?? 0) !== 9
+    || Number(job.remainingTicks ?? 0) !== 7
+  ) {
+    throw new Error(`unexpected recovered enhancement job: ${JSON.stringify(snapshot.progression.enhancementJob)}`);
+  }
+  const lockedItems = Array.isArray(snapshot.inventory.lockedItems) ? snapshot.inventory.lockedItems : [];
+  const lockedItem = lockedItems.find((entry) => (entry as Record<string, unknown>)?.itemInstanceId === 'locked-sword-recovery') as Record<string, unknown> | undefined;
+  if (!lockedItem || lockedItem.itemId !== 'iron_sword' || lockedItem.lockedBy !== 'enhancement:job-run:enhancement:locked-recovery') {
+    throw new Error(`unexpected recovered locked item: ${JSON.stringify(snapshot.inventory.lockedItems)}`);
+  }
+  const queue = snapshot.progression.techniqueActivityQueue;
+  const queueEntry = Array.isArray(queue) ? queue[0] as Record<string, unknown> | undefined : undefined;
+  const cancelRef = queueEntry?.cancelRef as Record<string, unknown> | undefined;
+  if (
+    !Array.isArray(queue)
+    || queue.length !== 1
+    || queueEntry?.queueId !== 'queue:enhancement-followup:recovery'
+    || cancelRef?.queueId !== 'queue:enhancement-followup:recovery'
+  ) {
+    throw new Error(`unexpected recovered enhancement queue: ${JSON.stringify(queue)}`);
+  }
 }
 
 async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {

@@ -8,7 +8,7 @@
  * 管理 player_presence、player_wallet、player_world_anchor、player_position_checkpoint、
  * player_vitals、player_progression_core、player_attr_state、player_body_training_state、
  * player_inventory_item、player_equipment_slot、player_technique_state、player_persistent_buff_state、
- * player_quest_progress、player_combat_preferences、player_active_job、player_enhancement_record、
+ * player_quest_progress、player_combat_preferences、player_active_job、player_technique_activity_queue、player_enhancement_record、
  * player_logbook_message、player_offline_gain_*、player_statistic_day_total 等分域表，
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
@@ -62,6 +62,7 @@ const PLAYER_AUTO_USE_ITEM_RULE_TABLE = 'player_auto_use_item_rule';
 const PLAYER_PROFESSION_STATE_TABLE = 'player_profession_state';
 const PLAYER_ALCHEMY_PRESET_TABLE = 'player_alchemy_preset';
 const PLAYER_ACTIVE_JOB_TABLE = 'player_active_job';
+const PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE = 'player_technique_activity_queue';
 const PLAYER_ENHANCEMENT_RECORD_TABLE = 'player_enhancement_record';
 const PLAYER_LOGBOOK_MESSAGE_TABLE = 'player_logbook_message';
 const PLAYER_OFFLINE_GAIN_SESSION_TABLE = 'player_offline_gain_session';
@@ -135,6 +136,7 @@ export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_PROFESSION_STATE_TABLE,
   PLAYER_ALCHEMY_PRESET_TABLE,
   PLAYER_ACTIVE_JOB_TABLE,
+  PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE,
   PLAYER_ENHANCEMENT_RECORD_TABLE,
   PLAYER_LOGBOOK_MESSAGE_TABLE,
   PLAYER_OFFLINE_GAIN_SESSION_TABLE,
@@ -458,6 +460,20 @@ interface ActiveJobRow {
   detailJson: Record<string, unknown>;
 }
 
+interface TechniqueActivityQueueRow {
+  queueId: string;
+  kind: string;
+  state: string;
+  label: string | null;
+  targetLabel: string | null;
+  sleepReason: string | null;
+  retryAfterTicks: number | null;
+  createdAt: number;
+  payloadJson: unknown;
+  cancelRefJson: unknown;
+  detailJson: Record<string, unknown>;
+}
+
 interface EnhancementRecordRow {
   recordId: string;
   itemId: string;
@@ -482,6 +498,7 @@ export type PlayerAutoUseItemRuleUpsertInput = AutoUseItemRuleRow;
 export type PlayerProfessionStateUpsertInput = ProfessionStateRow;
 export type PlayerAlchemyPresetUpsertInput = AlchemyPresetRow;
 export type PlayerActiveJobUpsertInput = ActiveJobRow;
+export type PlayerTechniqueActivityQueueUpsertInput = TechniqueActivityQueueRow;
 export type PlayerEnhancementRecordUpsertInput = EnhancementRecordRow;
 
 interface PlayerWorldAnchorLoadRow {
@@ -663,6 +680,21 @@ interface PlayerActiveJobLoadRow {
   detail_jsonb?: unknown;
 }
 
+interface PlayerTechniqueActivityQueueLoadRow {
+  queue_id?: unknown;
+  kind?: unknown;
+  state?: unknown;
+  label?: unknown;
+  target_label?: unknown;
+  sleep_reason?: unknown;
+  retry_after_ticks?: unknown;
+  created_at?: unknown;
+  queue_order?: unknown;
+  payload_jsonb?: unknown;
+  cancel_ref_jsonb?: unknown;
+  detail_jsonb?: unknown;
+}
+
 interface PlayerEnhancementRecordLoadRow {
   record_id?: unknown;
   item_id?: unknown;
@@ -711,6 +743,7 @@ export interface LoadedPlayerDomains {
   professionStates: PlayerProfessionStateLoadRow[];
   alchemyPresets: PlayerAlchemyPresetLoadRow[];
   activeJob: PlayerActiveJobLoadRow | null;
+  techniqueActivityQueue: PlayerTechniqueActivityQueueLoadRow[];
   enhancementRecords: PlayerEnhancementRecordLoadRow[];
   logbookMessages: PlayerLogbookMessageLoadRow[];
   recoveryWatermark: PlayerRecoveryWatermarkLoadRow | null;
@@ -1767,6 +1800,16 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     );
   }
 
+  async savePlayerTechniqueActivityQueue(
+    playerId: string,
+    rows: readonly PlayerTechniqueActivityQueueUpsertInput[],
+    options: PlayerDomainWriteOptions = {},
+  ): Promise<void> {
+    await this.saveProjectedDomain(playerId, options.versionSeed, ['active_job_version'], (client, normalizedPlayerId) =>
+      replacePlayerTechniqueActivityQueue(client, normalizedPlayerId, [...rows]),
+    );
+  }
+
   async savePlayerEnhancementRecords(
     playerId: string,
     rows: readonly PlayerEnhancementRecordUpsertInput[],
@@ -2247,6 +2290,28 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         `,
         [normalizedPlayerId],
       );
+      const techniqueActivityQueue = await queryRows<PlayerTechniqueActivityQueueLoadRow>(
+        client,
+        `
+          SELECT
+            queue_id,
+            kind,
+            state,
+            label,
+            target_label,
+            sleep_reason,
+            retry_after_ticks,
+            created_at,
+            queue_order,
+            payload_jsonb,
+            cancel_ref_jsonb,
+            detail_jsonb
+          FROM ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE}
+          WHERE player_id = $1
+          ORDER BY queue_order ASC, created_at ASC, queue_id ASC
+        `,
+        [normalizedPlayerId],
+      );
       const enhancementRecords = await queryRows<PlayerEnhancementRecordLoadRow>(
         client,
         `
@@ -2310,6 +2375,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         professionStates,
         alchemyPresets,
         activeJob,
+        techniqueActivityQueue,
         enhancementRecords,
         logbookMessages,
         recoveryWatermark,
@@ -2335,6 +2401,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         professionStates,
         alchemyPresets,
         activeJob,
+        techniqueActivityQueue,
         enhancementRecords,
         logbookMessages,
         recoveryWatermark,
@@ -2365,6 +2432,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         professionStates,
         alchemyPresets,
         activeJob,
+        techniqueActivityQueue,
         enhancementRecords,
         logbookMessages,
         recoveryWatermark,
@@ -2690,6 +2758,7 @@ export async function savePlayerSnapshotProjectionWithClient(
   const professions = buildProfessionStateRows(snapshot);
   const presets = buildAlchemyPresetRows(snapshot);
   const activeJob = buildActiveJobRow(normalizedPlayerId, snapshot, versionSeed);
+  const techniqueActivityQueue = buildTechniqueActivityQueueRows(snapshot);
   const enhancementRecords = buildEnhancementRecordRows(normalizedPlayerId, snapshot);
   const logbookMessages = Array.isArray(snapshot.pendingLogbookMessages)
     ? snapshot.pendingLogbookMessages
@@ -2873,6 +2942,7 @@ export async function savePlayerSnapshotProjectionWithClient(
   await replacePlayerProfessionStates(client, normalizedPlayerId, professions);
   await replacePlayerAlchemyPresets(client, normalizedPlayerId, presets);
   await replacePlayerActiveJob(client, normalizedPlayerId, activeJob);
+  await replacePlayerTechniqueActivityQueue(client, normalizedPlayerId, techniqueActivityQueue);
   await replacePlayerEnhancementRecords(client, normalizedPlayerId, enhancementRecords);
   await replacePlayerLogbookMessages(client, normalizedPlayerId, logbookMessages);
 
@@ -3101,6 +3171,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
 
   if (rawDomains.has('active_job')) {
     await replacePlayerActiveJob(client, normalizedPlayerId, buildActiveJobRow(normalizedPlayerId, snapshot, versionSeed));
+    await replacePlayerTechniqueActivityQueue(client, normalizedPlayerId, buildTechniqueActivityQueueRows(snapshot));
     watermarkPatch.active_job_version = versionSeed;
   }
 
@@ -3682,6 +3753,29 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_active_job_job_idx
     ON ${PLAYER_ACTIVE_JOB_TABLE}(job_type, status ASC, player_id ASC)
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE} (
+      player_id varchar(100) NOT NULL,
+      queue_id varchar(180) NOT NULL,
+      kind varchar(32) NOT NULL,
+      state varchar(32) NOT NULL,
+      label varchar(160),
+      target_label varchar(160),
+      sleep_reason varchar(240),
+      retry_after_ticks bigint,
+      created_at bigint NOT NULL,
+      queue_order bigint NOT NULL DEFAULT 0,
+      payload_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+      cancel_ref_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+      detail_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY(player_id, queue_id)
+    )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_technique_activity_queue_player_idx
+    ON ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE}(player_id, queue_order ASC, created_at ASC)
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_ENHANCEMENT_RECORD_TABLE} (
@@ -5490,6 +5584,110 @@ async function replacePlayerActiveJob(
   );
 }
 
+async function replacePlayerTechniqueActivityQueue(
+  client: PoolClient,
+  playerId: string,
+  rows: readonly TechniqueActivityQueueRow[],
+): Promise<void> {
+  const normalizedRows = rows
+    .map((row, index) => ({
+      queue_id: normalizeRequiredString(row.queueId),
+      kind: normalizeRequiredString(row.kind),
+      state: normalizeOptionalString(row.state) ?? 'pending',
+      label: normalizeOptionalString(row.label),
+      target_label: normalizeOptionalString(row.targetLabel),
+      sleep_reason: normalizeOptionalString(row.sleepReason),
+      retry_after_ticks: normalizeOptionalInteger(row.retryAfterTicks),
+      created_at: normalizeMinimumInteger(row.createdAt, Date.now(), 1),
+      queue_order: index,
+      payload_jsonb: cloneJsonValue(row.payloadJson ?? {}),
+      cancel_ref_jsonb: cloneJsonValue(row.cancelRefJson ?? {}),
+      detail_jsonb: cloneJsonValue(row.detailJson ?? {}),
+    }))
+    .filter((row) => row.queue_id && row.kind);
+
+  if (normalizedRows.length > 0) {
+    await client.query(
+      `
+        WITH incoming AS (
+          SELECT *
+          FROM jsonb_to_recordset($2::jsonb) AS entry(
+            queue_id varchar(180),
+            kind varchar(32),
+            state varchar(32),
+            label varchar(160),
+            target_label varchar(160),
+            sleep_reason varchar(240),
+            retry_after_ticks bigint,
+            created_at bigint,
+            queue_order bigint,
+            payload_jsonb jsonb,
+            cancel_ref_jsonb jsonb,
+            detail_jsonb jsonb
+          )
+        )
+        INSERT INTO ${PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE}(
+          player_id,
+          queue_id,
+          kind,
+          state,
+          label,
+          target_label,
+          sleep_reason,
+          retry_after_ticks,
+          created_at,
+          queue_order,
+          payload_jsonb,
+          cancel_ref_jsonb,
+          detail_jsonb,
+          updated_at
+        )
+        SELECT
+          $1,
+          queue_id,
+          kind,
+          state,
+          label,
+          target_label,
+          sleep_reason,
+          retry_after_ticks,
+          created_at,
+          queue_order,
+          COALESCE(payload_jsonb, '{}'::jsonb),
+          COALESCE(cancel_ref_jsonb, '{}'::jsonb),
+          COALESCE(detail_jsonb, '{}'::jsonb),
+          now()
+        FROM incoming
+        ON CONFLICT (player_id, queue_id)
+        DO UPDATE SET
+          kind = EXCLUDED.kind,
+          state = EXCLUDED.state,
+          label = EXCLUDED.label,
+          target_label = EXCLUDED.target_label,
+          sleep_reason = EXCLUDED.sleep_reason,
+          retry_after_ticks = EXCLUDED.retry_after_ticks,
+          created_at = EXCLUDED.created_at,
+          queue_order = EXCLUDED.queue_order,
+          payload_jsonb = EXCLUDED.payload_jsonb,
+          cancel_ref_jsonb = EXCLUDED.cancel_ref_jsonb,
+          detail_jsonb = EXCLUDED.detail_jsonb,
+          updated_at = now()
+      `,
+      [playerId, JSON.stringify(normalizedRows)],
+    );
+  }
+
+  await prunePlayerRowsBySnapshotKeys(
+    client,
+    PLAYER_TECHNIQUE_ACTIVITY_QUEUE_TABLE,
+    playerId,
+    normalizedRows.map(({ queue_id }) => ({ queue_id })),
+    'queue_id varchar(180)',
+    'incoming.queue_id = target.queue_id',
+    { allowEmptyOverwrite: true },
+  );
+}
+
 async function replacePlayerEnhancementRecords(
   client: PoolClient,
   playerId: string,
@@ -6151,6 +6349,50 @@ function buildActiveJobRow(
   return null;
 }
 
+function buildTechniqueActivityQueueRows(snapshot: PersistedPlayerSnapshot): TechniqueActivityQueueRow[] {
+  const progression = asRecord(snapshot.progression);
+  const entries = Array.isArray(progression?.techniqueActivityQueue) ? progression.techniqueActivityQueue : [];
+  const rows: TechniqueActivityQueueRow[] = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = asRecord(entries[index]);
+    const kind = normalizeRequiredString(entry?.kind);
+    if (!kind) {
+      continue;
+    }
+    const createdAt = normalizeMinimumInteger(entry?.createdAt, snapshot.savedAt + index, 1);
+    const queueId =
+      normalizeOptionalString(entry?.queueId)
+      ?? normalizeOptionalString(asRecord(entry?.cancelRef)?.queueId)
+      ?? `technique_queue:${kind}:${createdAt}:${index}`;
+    const cancelRef = asRecord(entry?.cancelRef) ?? {
+      kind,
+      queueId,
+    };
+    rows.push({
+      queueId,
+      kind,
+      state: normalizeOptionalString(entry?.state) ?? 'pending',
+      label: normalizeOptionalString(entry?.label),
+      targetLabel: normalizeOptionalString(entry?.targetLabel),
+      sleepReason: normalizeOptionalString(entry?.sleepReason),
+      retryAfterTicks: normalizeOptionalInteger(entry?.retryAfterTicks),
+      createdAt,
+      payloadJson: cloneJsonValue(entry?.payload ?? {}),
+      cancelRefJson: cloneJsonValue(cancelRef),
+      detailJson: {
+        ...entry,
+        queueId,
+        kind,
+        state: normalizeOptionalString(entry?.state) ?? 'pending',
+        createdAt,
+        payload: cloneJsonValue(entry?.payload ?? {}),
+        cancelRef: cloneJsonValue(cancelRef),
+      },
+    });
+  }
+  return rows;
+}
+
 function buildGenericTechniqueActiveJobRow(
   playerId: string,
   job: Record<string, unknown>,
@@ -6310,6 +6552,7 @@ function hasProjectedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
     || domains.autoUseItemRules.length > 0
     || domains.professionStates.length > 0
     || domains.alchemyPresets.length > 0
+    || domains.techniqueActivityQueue.length > 0
     || domains.enhancementRecords.length > 0
     || domains.logbookMessages.length > 0
   ) {
@@ -6422,6 +6665,7 @@ function buildProjectedSnapshotFromDomains(
   applyProjectedProfessions(snapshot, domains.professionStates);
   applyProjectedAlchemyPresets(snapshot, domains.alchemyPresets);
   applyProjectedActiveJob(snapshot, domains.activeJob);
+  applyProjectedTechniqueActivityQueue(snapshot, domains.techniqueActivityQueue);
   applyProjectedEnhancementRecords(snapshot, domains.enhancementRecords);
   applyProjectedLogbook(snapshot, domains.logbookMessages);
   snapshot.savedAt = resolveProjectedSnapshotSavedAt(snapshot, domains.recoveryWatermark);
@@ -7048,6 +7292,45 @@ function applyProjectedActiveJob(
   snapshot.progression.miningJob = null;
   snapshot.progression.buildingJob = null;
   snapshot.progression.formationJob = null;
+}
+
+function applyProjectedTechniqueActivityQueue(
+  snapshot: PersistedPlayerSnapshot,
+  rows: PlayerTechniqueActivityQueueLoadRow[],
+): void {
+  if (rows.length === 0) {
+    snapshot.progression.techniqueActivityQueue = [];
+    return;
+  }
+  snapshot.progression.techniqueActivityQueue = rows
+    .map((row, index) => {
+      const detail = asRecord(decodeJsonValue(row.detail_jsonb)) ?? {};
+      const kind = normalizeOptionalString(row.kind) ?? normalizeOptionalString(detail.kind);
+      const queueId = normalizeOptionalString(row.queue_id) ?? normalizeOptionalString(detail.queueId);
+      if (!kind || !queueId) {
+        return null;
+      }
+      const payload = decodeJsonValue(row.payload_jsonb);
+      const cancelRef = asRecord(decodeJsonValue(row.cancel_ref_jsonb)) ?? asRecord(detail.cancelRef) ?? { kind, queueId };
+      return {
+        ...detail,
+        queueId,
+        kind,
+        state: normalizeOptionalString(row.state) ?? normalizeOptionalString(detail.state) ?? 'pending',
+        label: normalizeOptionalString(row.label) ?? normalizeOptionalString(detail.label) ?? undefined,
+        targetLabel: normalizeOptionalString(row.target_label) ?? normalizeOptionalString(detail.targetLabel) ?? undefined,
+        sleepReason: normalizeOptionalString(row.sleep_reason) ?? normalizeOptionalString(detail.sleepReason) ?? undefined,
+        retryAfterTicks: normalizeOptionalInteger(row.retry_after_ticks) ?? normalizeOptionalInteger(detail.retryAfterTicks) ?? undefined,
+        createdAt: normalizeOptionalInteger(row.created_at) ?? normalizeOptionalInteger(detail.createdAt) ?? snapshot.savedAt + index,
+        payload: payload == null ? cloneJsonValue(detail.payload ?? {}) : payload,
+        cancelRef: {
+          ...cancelRef,
+          kind: normalizeOptionalString(cancelRef.kind) ?? kind,
+          queueId: normalizeOptionalString(cancelRef.queueId) ?? queueId,
+        },
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 }
 
 function applyProjectedEnhancementRecords(

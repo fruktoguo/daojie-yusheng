@@ -12,7 +12,7 @@ import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
-import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries } from '../../persistence/player-domain-persistence.service';
+import { PlayerDomainPersistenceService, buildEnhancementRecordRowsFromEntries, type PlayerTechniqueActivityQueueUpsertInput } from '../../persistence/player-domain-persistence.service';
 import { resolveProjectPath } from '../../common/project-path';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { CraftPanelAlchemyQueryService, buildForgingAlchemyPanelState } from './craft-panel-alchemy-query.service';
@@ -2086,6 +2086,9 @@ export class CraftPanelRuntimeService {
         await this.playerDomainPersistenceService.savePlayerActiveJob(playerId, activeJob, {
             versionSeed: player.persistentRevision,
         });
+        await this.playerDomainPersistenceService.savePlayerTechniqueActivityQueue(playerId, buildTechniqueActivityQueueSnapshotFromPlayer(player), {
+            versionSeed: player.persistentRevision,
+        });
     }
     /**
  * persistTechniqueActivitySnapshot：执行persist技艺活动Snapshot相关逻辑。
@@ -2105,6 +2108,9 @@ export class CraftPanelRuntimeService {
         }
         const activeJob = buildActiveJobSnapshotFromPlayer(player);
         await this.playerDomainPersistenceService.savePlayerActiveJob(playerId, activeJob, {
+            versionSeed: player.persistentRevision,
+        });
+        await this.playerDomainPersistenceService.savePlayerTechniqueActivityQueue(playerId, buildTechniqueActivityQueueSnapshotFromPlayer(player), {
             versionSeed: player.persistentRevision,
         });
     }
@@ -2735,6 +2741,37 @@ function buildActiveJobSnapshotFromPlayer(player) {
         return buildActiveJobSnapshot(player.alchemyJob, player.alchemyJob.jobType === 'forging' ? 'forging' : 'alchemy');
     }
     return null;
+}
+
+function buildTechniqueActivityQueueSnapshotFromPlayer(player): PlayerTechniqueActivityQueueUpsertInput[] {
+    return getPlayerTechniqueActivityQueue(player).map((entry, index) => {
+        const queueId = typeof entry.queueId === 'string' && entry.queueId.trim()
+            ? entry.queueId.trim()
+            : buildCraftQueueId(entry.kind ?? 'activity');
+        const kind = typeof entry.kind === 'string' && entry.kind.trim() ? entry.kind.trim() : 'activity';
+        const cancelRef = entry.cancelRef && typeof entry.cancelRef === 'object'
+            ? { ...entry.cancelRef, kind, queueId }
+            : { kind, queueId };
+        return {
+            queueId,
+            kind,
+            state: typeof entry.state === 'string' && entry.state.trim() ? entry.state.trim() : 'pending',
+            label: typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim() : null,
+            targetLabel: typeof entry.targetLabel === 'string' && entry.targetLabel.trim() ? entry.targetLabel.trim() : null,
+            sleepReason: typeof entry.sleepReason === 'string' && entry.sleepReason.trim() ? entry.sleepReason.trim() : null,
+            retryAfterTicks: Number.isFinite(Number(entry.retryAfterTicks)) ? Math.max(0, Math.trunc(Number(entry.retryAfterTicks))) : null,
+            createdAt: Math.max(1, Math.trunc(Number(entry.createdAt ?? Date.now()))),
+            payloadJson: entry.payload && typeof entry.payload === 'object' ? structuredClone(entry.payload) : {},
+            cancelRefJson: cancelRef,
+            detailJson: {
+                ...entry,
+                queueId,
+                kind,
+                cancelRef,
+                queueOrder: index,
+            },
+        };
+    });
 }
 
 function buildActiveJobSnapshot(job, jobType) {

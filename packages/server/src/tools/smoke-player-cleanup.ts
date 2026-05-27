@@ -34,6 +34,7 @@ const PLAYER_SCOPED_MAINLINE_TABLES = [
   'player_profession_state',
   'player_alchemy_preset',
   'player_active_job',
+  'player_technique_activity_queue',
   'player_logbook_message',
   'player_recovery_watermark',
   'player_mail_attachment',

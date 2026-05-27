@@ -19,6 +19,18 @@
 
 这次不是给现有工坊面板补几个显示字段，而是把“技艺动作”本身统一成一种权威运行时活动。玩家不应该需要理解某个动作背后属于炼丹 service、建筑 service、掉落容器 service、阵法 service 还是攻击地块链路；只要它是技艺行为，就必须表现为一个可见、可推进、可打断、可取消、可恢复的 job。
 
+### 2026-05-27 讨论确认
+
+用户确认的目标不是“给任务列表补显示”，而是“技艺的彻底通用化”：
+
+- 所有技艺的具体动作都必须由 job 控制。炼丹、炼器、强化、采集、挖矿、建造、阵法持续补充灵力都应由同一套 job lifecycle 管住开始、推进、等待、取消、完成和恢复。
+- 挖矿、阵法补充灵力、建造、采集这些原本容易散落在地图/阵法/建筑/掉落面板里的动作，必须在技艺面板的统一任务列表里显示。
+- 手动开始修炼、进行攻击、移动等造成的 10 息等待必须是单独等待条，不能通过改 `totalTicks`、`remainingTicks`、`workTotalTicks` 或 `workRemainingTicks` 影响实际 job 进度条。
+- 炼丹、炼器不再展示“开炉”“准备”“炉火已稳”等玩家可见阶段，开始后就是直接进行的制作 job。
+- 技艺任务列表必须直接提供取消按钮。取消当前 job、打断等待中的 job、队列项、休眠项时，不要求玩家再进入对应的炼丹/阵法/建筑/采集子面板。
+
+后续实现和验收以这组裁定为准；任何只在客户端额外投影一条任务、但服务端仍由旧 service 独立推进的做法，都不算完成“走 job 控制”。
+
 ### 原始诉求映射
 
 | 用户诉求 | 工程裁定 |
@@ -54,11 +66,14 @@
 - 当前 job、打断等待、排队任务、休眠任务都在同一任务列表里显示。
 - 技艺任务列表里的每个可取消项都有取消按钮，不要求进入对应技艺子面板。
 - 炼丹、炼器不再有玩家可见的“开炉/准备/炉火已稳”阶段；开始后就是制作 job。
+- 技艺面板中实际进度条和打断等待条必须同时存在且语义分离：等待条变化时，实际进度条比例不跳变。
+- 地图、阵法、建筑、掉落容器等专用面板可以保留启动入口或重复取消入口，但不能替代技艺面板统一任务列表。
 
 ### 工程侧约束
 
 - 技艺 job 的 start/cancel/interrupt/tick 必须最终只经过 `TechniqueActivityPipelineService`。
 - 旧 service 可以短期作为 facade 或策略适配，但不能长期保留真实规则真源。
+- “走 job 控制”的最低工程定义是：服务端 active job / queue / interrupt wait / resolve result / dirty domain / panel patch 都由 pipeline lifecycle 产生或分发；只更新 `TechniqueActivityTaskView` 不满足要求。
 - 炼丹、炼器批次结算已经开始生成 `TechniqueActivityResolveResult` 形态，记录成功/失败、背包 delta、掉地 delta、经验参数、panel dirty、通知和境界经验；`materializeTechniqueActivityResolveResult` 已上移到公共 pipeline 模块。经验应用和入包副作用仍在炼丹工具端口里，后续要继续迁入公共 result 流程。
 - 高频 task patch 只能发 job 进度、等待、状态、队列 add/remove；配方、候选、长文本、目录数据不混入每 tick 包。
 - 任何会影响资产、建筑占用、容器占用、阵法状态、经验和掉落的行为，必须在服务端权威路径里结算，并能被 smoke/proof 验证。
@@ -512,15 +527,18 @@ strategy 只负责领域差异：
 
 - [x] `player_active_job` 支持统一 job payload。
 - [x] 玩家完整快照 `progression` 保存、回读、水合和运行态 clone 覆盖 `techniqueActivityQueue`。
+- [x] `player_technique_activity_queue` 支持统一队列分域投影，随 `active_job` 脏域保存、清空和恢复，避免主快照缺失时只恢复 active job 而丢队列。
 - [x] `player_profession_state` 保持按 profession type 存储。
 - [x] 旧 `alchemyJob` / `forgingJob` / `enhancementJob` / `gatherJob` / `buildingJob` / `formationJob` 水合兼容保留一个发布周期。
 - [ ] flush ledger / active job version 只在统一路径 bump。
 - [x] 从统一任务列表取消队列项时标记 `active_job` 脏域并递增持久化版本，避免队列删除只刷新面板不落入快照。
-- [ ] 崩溃恢复时锁定物、队列、active job 能一起恢复或一起清理。
+- [x] 崩溃恢复时强化锁定物、统一队列、active job 能一起从分域表恢复；后续仍要补“缺任一真源时一起清理/停止”的异常恢复 proof。
+- [ ] active job 存在但锁定物缺失、队列存在但目标永久失效等异常恢复能一起清理或按规则停止。
 
 验收：
 
-- [ ] 活跃任务重启后能继续或按规则停止。
+- [x] 活跃任务重启后能从分域表恢复 active job、interrupt wait、queue 和 locked item。
+- [ ] 活跃任务异常恢复时能按规则停止。
 - [ ] 取消、完成、失败、异常恢复不会造成资产复制或丢失。
 - [x] 持久化 proof 自带清理。
 
@@ -653,6 +671,7 @@ strategy 只负责领域差异：
 - 2026-05-27：炼丹/炼器 cancel 从 `executeCancel` 完整委托迁入标准 pipeline lifecycle：`AlchemyStrategy` / `ForgingStrategy` 不再实现 `executeCancel`，取消退款由 `computeAlchemyLikeCancelRefund` 在 `computeRefund` 阶段物化，负责退未开始批次材料、退灵石、入包或掉地并标记背包相关变更；公共 `cancelLifecycle` 随后统一清 active job、标记 active_job dirty 并返回 cancel lifecycle 结果。`world-runtime-alchemy-smoke` 增加结构性 proof，断言炼丹/炼器 strategy 不再暴露 `executeCancel` 且具备 `computeRefund`；同时保留炼丹/炼器取消、掉地、队列和打断行为 proof。`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js` 通过。炼丹/炼器 tick 和 interrupt 仍通过 strategy helper 走 `executeTick` / `executeInterrupt`，所以不能据此勾选“所有 runtime kind 的 start/cancel/interrupt/tick 都通过公共 lifecycle”。
 - 2026-05-27：强化 cancel 从 `executeCancel` 完整委托迁入标准 pipeline lifecycle：`EnhancementStrategy` 不再实现 `executeCancel`，取消退款和副作用由 `computeEnhancementCancelRefund` 在 `computeRefund` 阶段物化，内部复用权威 `finishEnhancementJob` 释放锁定装备、回写背包/装备、记录 `cancelled` 并返回 `inventoryDelta`、`equipmentDelta`、`recordDelta`、`groundDrops`、`attrChanged` 和结构化取消通知；公共 `cancelLifecycle` 负责后续 active job 清理/dirty/result 输出，且会识别 `finishEnhancementJob` 已清掉 active job 的复杂策略场景。`world-runtime-enhancement-smoke` 增加结构性 proof，断言强化 strategy 不再暴露 `executeCancel` 且具备 `computeRefund`；同时保留取消释放锁定目标、清 job、记录 cancelled 的行为 proof。`git diff --check`、`pnpm --filter @mud/shared build`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-alchemy-smoke.js`、`node packages/server/dist/tools/world-runtime-enhancement-smoke.js`、`node packages/server/dist/tools/enhancement-panel-payload-smoke.js`、`node packages/server/dist/tools/technique-activity-task-view-smoke.js`、`node packages/server/dist/tools/technique-activity-cancel-ref-smoke.js`、`pnpm verify:quick` 通过；`enhancement-panel-payload-smoke` 的 legacy itemInstanceId WARN 来自夹具水合，`verify:quick` 中 session reaper 的 `simulated_flush_failure` 是用例内故障注入且最终通过。
 - 2026-05-27：非主动位置变化入口补齐技艺中断：`WorldRuntimeTransferService.applyTransfer` 在跨实例断开/连接前调用 `worldRuntimeCraftInterruptService.interruptCraftForReason(..., 'move', ...)`，GM `dispatchGmUpdatePlayer` 在强迁、首次挂入实例或坐标重定位前同样调用统一技艺中断器；单纯修改 HP / autoBattle 不触发技艺中断。`world-runtime-transfer-placement-smoke` 增加传送前技艺中断 proof，断言传送只刷新独立等待状态，不改 `totalTicks` / `remainingTicks` / `workTotalTicks` / `workRemainingTicks`；新增 `world-runtime-gm-queue-technique-interrupt-smoke` 覆盖 GM 强迁/重定位和非位置更新。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/world-runtime-transfer-placement-smoke.js`、`node packages/server/dist/tools/world-runtime-gm-queue-technique-interrupt-smoke.js`、`node packages/server/dist/tools/world-runtime-craft-smoke.js` 通过。死亡、离线/重连恢复等非主动状态切换仍待后续审计。
+- 2026-05-27：统一技艺队列补齐分域恢复真源：新增 `player_technique_activity_queue`，随 `active_job` 脏域由 `PlayerDomainPersistenceService` 全量投影、清空和回读，`CraftPanelRuntimeService.persistTechniqueActivitySnapshot` 直写 active job 时同步直写 unified queue；`WorldPlayerSnapshotService` 在 `server_player_snapshot` 缺失时可从分域表同时恢复 active job、统一队列和强化 `inventory.lockedItems`。`player-domain-recovery-smoke` 增加 with-db proof，覆盖整档快照删除后从分域表恢复炼丹 active job + formation/mining queue，以及强化 active job + locked item + enhancement queue；`technique-activity-persistence-snapshot-smoke` 保留运行态快照/取消队列 dirty proof。`git diff --check`、`pnpm --filter @mud/server exec tsc --noEmit --pretty false`、`pnpm --filter @mud/server compile`、`node packages/server/dist/tools/technique-activity-persistence-snapshot-smoke.js`、`node packages/server/dist/tools/player-domain-recovery-smoke.js` 通过。该 proof 证明正常崩溃恢复能一起恢复，不等同于 active job 存在但锁定物缺失时已经能自动清理或按规则停止。
 
 ## 验证矩阵
 
@@ -686,8 +705,10 @@ strategy 只负责领域差异：
 - [ ] 所有 runtime kind 的 start/cancel/interrupt/tick 都通过 pipeline。
 - [ ] 所有技艺具体动作都以 job 形式存在，挖矿、阵法持续补充灵力、建造、采集不再是面板外的隐式动作。
 - [ ] “以 job 形式存在”必须覆盖服务端生命周期真源，不只是客户端任务列表投影。
+- [ ] 挖矿、采集、建造、阵法持续补充灵力的真实推进、经验、产出/消耗、外部占用释放和面板 patch 都从统一 job lifecycle 流出。
 - [ ] 所有可取消的 running、interrupt_wait、queued、sleeping 技艺任务都能从统一技艺任务列表直接取消，不要求进入对应子面板。
 - [ ] 手动开始修炼、攻击、移动等打断来源只刷新独立等待状态，不改变任何 job 的实际总工作量或剩余工作量。
+- [ ] 打断等待条的刷新、重复打断和等待结束恢复都有 proof，证明 `workTotalTicks/workRemainingTicks` 不被污染。
 - [ ] 旧 service 不再承载技艺玩法规则。
 - [ ] 只剩一种活动队列。
 - [x] active job 持久化和恢复按统一 job kind 工作。
