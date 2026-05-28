@@ -1496,6 +1496,7 @@ export class CraftWorkbenchModal {
                   data-kind="${escapeHtmlAttr(entry.cancelRef?.kind ?? entry.kind)}"
                   ${entry.cancelRef?.jobRunId || entry.isActive ? `data-job-run-id="${escapeHtmlAttr(entry.cancelRef?.jobRunId ?? entry.queueId)}"` : ''}
                   ${entry.cancelRef?.queueId || !entry.isActive ? `data-queue-id="${escapeHtmlAttr(entry.cancelRef?.queueId ?? entry.queueId)}"` : ''}
+                  ${entry.cancelRef?.techId ? `data-tech-id="${escapeHtmlAttr(entry.cancelRef.techId)}"` : ''}
                 >取消</button>
               </div>
             `).join('')
@@ -1566,6 +1567,7 @@ export class CraftWorkbenchModal {
         entry.isActive ? 'active' : 'idle',
         entry.cancelRef?.jobRunId ?? '',
         entry.cancelRef?.queueId ?? '',
+        entry.cancelRef?.techId ?? '',
       ].join(':'))
       .join('|');
   }
@@ -1790,13 +1792,15 @@ export class CraftWorkbenchModal {
         const kind = normalizeTechniqueActivityKind(target.dataset.kind);
         const jobRunId = (target.dataset.jobRunId ?? '').trim();
         const queueId = (target.dataset.queueId ?? '').trim();
-        if (!jobRunId && !queueId) {
+        const techId = (target.dataset.techId ?? '').trim();
+        if (!jobRunId && !queueId && !techId) {
           return;
         }
         this.callbacks?.onCancelTechniqueActivity({
-          kind,
+          kind: target.dataset.kind === 'transmission' ? 'transmission' : kind,
           ...(jobRunId ? { jobRunId } : {}),
           ...(queueId ? { queueId } : {}),
+          ...(techId ? { techId } : {}),
         });
         return;
       }

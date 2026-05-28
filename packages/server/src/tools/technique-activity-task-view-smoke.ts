@@ -56,10 +56,32 @@ function main(): void {
       sleepReason: '不在控制点范围内',
       createdAt: 2,
     }],
+    pendingTechniqueComprehensions: [{
+      techId: 'gen_task_view_transmission',
+      name: '试炼传法诀',
+      progress: 20,
+      requiredProgress: 100,
+      activeTransferJob: {
+        jobId: 'transmission:learner:gen_task_view_transmission:123',
+        teacherName: '传功者',
+        status: 'running',
+      },
+    }, {
+      techId: 'gen_task_view_blocked',
+      name: '阻滞传法诀',
+      progress: 5,
+      requiredProgress: 50,
+      activeTransferJob: {
+        jobId: 'transmission:learner:gen_task_view_blocked:124',
+        teacherName: '传功者',
+        status: 'blocked',
+        blockedReason: 'teacher_out_of_range',
+      },
+    }],
   }, 123);
 
   assert.equal(view.serverTick, 123);
-  assert.equal(view.tasks.length, 5);
+  assert.equal(view.tasks.length, 7);
 
   const alchemy = view.tasks.find((task) => task.kind === 'alchemy');
   assert.equal(alchemy?.state, 'interrupt_wait');
@@ -87,10 +109,27 @@ function main(): void {
   assert.equal(formationQueue?.targetLabel, '聚灵阵');
   assert.equal(formationQueue?.sleepReason, '不在控制点范围内');
 
+  const transmission = view.tasks.find((task) => task.cancelRef.techId === 'gen_task_view_transmission');
+  assert.equal(transmission?.kind, 'transmission');
+  assert.equal(transmission?.state, 'running');
+  assert.equal(transmission?.label, '传法');
+  assert.equal(transmission?.targetLabel, '试炼传法诀');
+  assert.equal(transmission?.workTotalTicks, 100);
+  assert.equal(transmission?.workRemainingTicks, 80);
+  assert.deepEqual(transmission?.cancelRef, {
+    kind: 'transmission',
+    jobRunId: 'transmission:learner:gen_task_view_transmission:123',
+    techId: 'gen_task_view_transmission',
+  });
+
+  const blockedTransmission = view.tasks.find((task) => task.cancelRef.techId === 'gen_task_view_blocked');
+  assert.equal(blockedTransmission?.state, 'blocked');
+  assert.equal(blockedTransmission?.sleepReason, '传授者不在 2 格范围内');
+
   console.log(JSON.stringify({
     ok: true,
     tasks: view.tasks.length,
-    answers: '统一技艺任务视图能同时投影 active job、旧制造队列和统一技艺队列；打断等待独立于实际 workRemainingTicks。',
+    answers: '统一技艺任务视图能同时投影 active job、旧制造队列、统一技艺队列和学习者传法 job；打断等待独立于实际 workRemainingTicks。',
   }, null, 2));
 }
 

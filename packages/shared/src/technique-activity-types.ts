@@ -9,6 +9,9 @@ export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gat
 /** 当前已经接入 runtime 活动主链的技艺键。 */
 export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation';
 
+/** 统一任务列表可展示的任务键；传法由学习者身上的 job 驱动，不进入制造 pipeline。 */
+export type TechniqueActivityTaskKind = RuntimeTechniqueActivityKind | 'transmission';
+
 /** 技艺活动通用中断原因。 */
 export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat';
 
@@ -38,9 +41,10 @@ export interface TechniqueActivityInterruptState {
 
 /** 技艺任务取消引用，既可指向当前 job，也可指向队列项。 */
 export interface TechniqueActivityCancelRef {
-  kind: RuntimeTechniqueActivityKind;
+  kind: TechniqueActivityTaskKind;
   jobRunId?: string;
   queueId?: string;
+  techId?: string;
 }
 
 /** 技艺活动生命周期公共状态。 */
@@ -70,7 +74,7 @@ export interface TechniqueActivityJobBase {
 /** 技艺面板统一任务视图。 */
 export interface TechniqueActivityTaskView {
   id: string;
-  kind: RuntimeTechniqueActivityKind;
+  kind: TechniqueActivityTaskKind;
   label: string;
   targetLabel?: string;
   state: TechniqueActivityTaskState;

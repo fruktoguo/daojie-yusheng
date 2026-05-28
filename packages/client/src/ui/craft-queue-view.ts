@@ -73,6 +73,9 @@ export class CraftQueueView {
     if (kind === 'formation') {
       return '阵法维护';
     }
+    if (kind === 'transmission') {
+      return '传法';
+    }
     return t('craft.workbench.mode.technique');
   }
 
@@ -241,7 +244,7 @@ export class CraftQueueView {
         : {
           ratio: 0,
           label: task.state === 'sleeping' ? '休眠中' : '等待中',
-          detail: task.sleepReason || (task.state === 'sleeping' ? '等待条件恢复' : '等待上一项完成'),
+          detail: task.sleepReason || (task.state === 'blocked' || task.state === 'sleeping' ? '等待条件恢复' : '等待上一项完成'),
         },
       interruptProgress: this.buildTechniqueTaskInterruptProgress(task),
     };

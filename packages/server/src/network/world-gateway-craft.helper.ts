@@ -107,11 +107,12 @@ class WorldGatewayCraftHelper {
         const rawRef = payload?.cancelRef && typeof payload.cancelRef === 'object'
             ? payload.cancelRef
             : payload;
-        const kind = normalizeTechniqueActivityKind(rawRef?.kind);
+        const kind = rawRef?.kind === 'transmission' ? 'transmission' : normalizeTechniqueActivityKind(rawRef?.kind);
         const cancelRef = {
             kind,
             ...(typeof rawRef?.jobRunId === 'string' && rawRef.jobRunId.trim() ? { jobRunId: rawRef.jobRunId.trim() } : {}),
             ...(typeof rawRef?.queueId === 'string' && rawRef.queueId.trim() ? { queueId: rawRef.queueId.trim() } : {}),
+            ...(typeof rawRef?.techId === 'string' && rawRef.techId.trim() ? { techId: rawRef.techId.trim() } : {}),
         };
         this.handleCancelTechniqueActivity(client, kind, cancelRef);
     }    

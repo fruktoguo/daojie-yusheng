@@ -113,6 +113,9 @@ export class WorldRuntimeCraftTickService {
 
             // EventBus: 发射活跃 job 进度
             this.emitActiveJobProgress(playerId, player);
+            if (this.hasActiveTechniqueTransmission(player)) {
+                this.worldRuntimeCraftMutationService.emitTechniqueActivityTaskUpdate(playerId);
+            }
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             deps?.queuePlayerNotice?.(playerId, message, 'warn');
@@ -139,6 +142,14 @@ export class WorldRuntimeCraftTickService {
                 label: task.targetLabel || task.label,
             });
         }
+    }
+
+    /** 传法由学习者 player tick 推进，这里只负责把其任务列表进度补发给客户端。 */
+    private hasActiveTechniqueTransmission(player: any): boolean {
+        const pendingList = Array.isArray(player?.pendingTechniqueComprehensions)
+            ? player.pendingTechniqueComprehensions
+            : [];
+        return pendingList.some((entry: any) => entry?.activeTransferJob && typeof entry.activeTransferJob === 'object');
     }
 
     /** 从玩家当前活跃 job 推断刚启动的 kind。 */

@@ -190,9 +190,41 @@ async function testQueueCancelMarksActiveJobDirty(): Promise<void> {
   assert.deepEqual(flushes, ['player:queue-cancel:mining']);
 }
 
+async function testTransmissionCancelByTaskRef(): Promise<void> {
+  const calls: string[] = [];
+  const commandService = Object.create(WorldRuntimePlayerCommandService.prototype) as WorldRuntimePlayerCommandService;
+  (commandService as unknown as { playerRuntimeService: unknown }).playerRuntimeService = {
+    cancelTechniqueTransmission(playerId: string, techniqueId: string) {
+      calls.push(`cancel:${playerId}:${techniqueId}`);
+    },
+  };
+
+  await commandService.dispatchCancelTechniqueActivityByRef(
+    'player:transmission-cancel',
+    {
+      kind: 'transmission',
+      jobRunId: 'transmission:player:transmission-cancel:gen_transmission_cancel:1',
+      techId: 'gen_transmission_cancel',
+    },
+    {
+      worldRuntimeCraftMutationService: {
+        emitTechniqueActivityTaskUpdate(playerId: string) {
+          calls.push(`task-update:${playerId}`);
+        },
+      },
+    } as never,
+  );
+
+  assert.deepEqual(calls, [
+    'cancel:player:transmission-cancel:gen_transmission_cancel',
+    'task-update:player:transmission-cancel',
+  ]);
+}
+
 async function main(): Promise<void> {
   testTechniqueActivityQueueSnapshotRoundtrip();
   await testQueueCancelMarksActiveJobDirty();
+  await testTransmissionCancelByTaskRef();
 
   console.log(JSON.stringify({
     ok: true,
@@ -200,6 +232,7 @@ async function main(): Promise<void> {
       'techniqueActivityQueue 随 active_job 域进入玩家快照，payload 深拷贝后不会共享引用。',
       'hydrateFromSnapshot 和 snapshot clone 会恢复/复制统一技艺队列。',
       '统一任务列表取消队列项会标记 active_job 脏域并递增持久化版本。',
+      '统一任务列表的传法取消引用会按 techId 路由到学习者传法取消，并补发任务列表。',
     ],
   }, null, 2));
 }

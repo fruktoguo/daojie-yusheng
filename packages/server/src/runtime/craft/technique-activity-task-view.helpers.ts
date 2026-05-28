@@ -35,6 +35,19 @@ type LegacyTechniqueJob = {
   queuedJobs?: CraftQueueItemView[];
 };
 
+type PendingTechniqueComprehensionTask = {
+  techId?: string;
+  name?: string;
+  progress?: number;
+  requiredProgress?: number;
+  activeTransferJob?: {
+    jobId?: string;
+    status?: string;
+    blockedReason?: string;
+    teacherName?: string;
+  } | null;
+};
+
 type TechniqueActivityTaskPlayerView = {
   playerId?: string;
   alchemyJob?: LegacyTechniqueJob | null;
@@ -45,6 +58,7 @@ type TechniqueActivityTaskPlayerView = {
   formationJob?: LegacyTechniqueJob | null;
   miningJob?: LegacyTechniqueJob | null;
   techniqueActivityQueue?: TechniqueActivityQueueItem[];
+  pendingTechniqueComprehensions?: PendingTechniqueComprehensionTask[];
 };
 
 const LEGACY_ACTIVE_JOB_SLOTS = [
@@ -75,6 +89,10 @@ export function buildTechniqueActivityTaskListView(
     tasks.push(buildActiveJobTaskView(player, kind, job));
   }
 
+  for (const pending of listActiveTransmissionJobs(player)) {
+    tasks.push(buildTransmissionTaskView(player, pending));
+  }
+
   for (const item of listLegacyCraftQueueItems(player)) {
     tasks.push(buildLegacyQueueTaskView(item));
   }
@@ -88,6 +106,13 @@ export function buildTechniqueActivityTaskListView(
   }
 
   return serverTick == null ? { tasks } : { tasks, serverTick };
+}
+
+function listActiveTransmissionJobs(player: TechniqueActivityTaskPlayerView): PendingTechniqueComprehensionTask[] {
+  const pendingList = Array.isArray(player.pendingTechniqueComprehensions)
+    ? player.pendingTechniqueComprehensions
+    : [];
+  return pendingList.filter((entry) => entry?.activeTransferJob && typeof entry.activeTransferJob === 'object');
 }
 
 /** 构建统一技艺任务列表增量；迁移期先用全量 upsert 表达，后续再做签名差分。 */
@@ -160,6 +185,33 @@ function buildTechniqueQueueTaskView(item: TechniqueActivityQueueItem): Techniqu
   const sleepReason = normalizeText(item.sleepReason);
   if (sleepReason) {
     task.sleepReason = sleepReason;
+  }
+  return task;
+}
+
+function buildTransmissionTaskView(
+  player: TechniqueActivityTaskPlayerView,
+  pending: PendingTechniqueComprehensionTask,
+): TechniqueActivityTaskView {
+  const techId = normalizeText(pending.techId) || 'unknown';
+  const job = pending.activeTransferJob ?? {};
+  const jobRunId = normalizeText(job.jobId) || `active:transmission:${normalizeText(player.playerId) || 'unknown'}:${techId}`;
+  const required = Math.max(1, resolveNonNegativeInteger(pending.requiredProgress));
+  const progress = Math.min(required, resolveNonNegativeInteger(pending.progress));
+  const state: TechniqueActivityTaskState = job.status === 'blocked' ? 'blocked' : 'running';
+  const task: TechniqueActivityTaskView = {
+    id: `job:transmission:${jobRunId}`,
+    kind: 'transmission',
+    label: '传法',
+    targetLabel: normalizeText(pending.name) || techId,
+    state,
+    workTotalTicks: required,
+    workRemainingTicks: Math.max(0, required - progress),
+    canCancel: true,
+    cancelRef: { kind: 'transmission', jobRunId, techId },
+  };
+  if (state === 'blocked') {
+    task.sleepReason = resolveTransmissionBlockedReason(job.blockedReason);
   }
   return task;
 }
@@ -257,6 +309,7 @@ function normalizeCancelRef(
         kind: normalizeKind(cancelRef.kind),
         ...(normalizeText(cancelRef.jobRunId) ? { jobRunId: normalizeText(cancelRef.jobRunId) } : {}),
         ...(normalizeText(cancelRef.queueId) ? { queueId: normalizeText(cancelRef.queueId) } : { queueId }),
+        ...(normalizeText(cancelRef.techId) ? { techId: normalizeText(cancelRef.techId) } : {}),
       }
     : { kind, queueId };
 }
@@ -289,6 +342,16 @@ function resolveKindLabel(kind: RuntimeTechniqueActivityKind): string {
     case 'formation':
       return '阵法任务';
   }
+}
+
+function resolveTransmissionBlockedReason(reason: unknown): string {
+  if (reason === 'teacher_out_of_range') {
+    return '传授者不在 2 格范围内';
+  }
+  if (reason === 'not_created_technique') {
+    return '只能传授自创功法';
+  }
+  return '等待传授条件恢复';
 }
 
 function resolveNonNegativeInteger(value: unknown): number {

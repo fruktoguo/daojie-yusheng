@@ -173,6 +173,10 @@ function doesCancelRefMatchActiveJob(player, kind, cancelRef) {
     return resolveTechniqueActivityJob(player, kind)?.jobRunId === expectedJobRunId;
 }
 
+function normalizeCancelRefTechniqueId(cancelRef) {
+    return typeof cancelRef?.techId === 'string' && cancelRef.techId.trim() ? cancelRef.techId.trim() : '';
+}
+
 function resolveForcedAttackMiningPayload(player, command, deps) {
     if (command?.kind !== 'engageBattle' || command?.locked !== true) {
         return null;
@@ -486,6 +490,15 @@ export class WorldRuntimePlayerCommandService {
     }
     /** 统一任务列表取消入口：可取消队列项，也可按 jobRunId 保护性取消当前 job。 */
     async dispatchCancelTechniqueActivityByRef(playerId, cancelRef, deps) {
+        if (cancelRef?.kind === 'transmission') {
+            const techniqueId = normalizeCancelRefTechniqueId(cancelRef);
+            if (!techniqueId) {
+                return;
+            }
+            this.playerRuntimeService.cancelTechniqueTransmission(playerId, techniqueId);
+            deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(playerId);
+            return;
+        }
         const kind = normalizeTechniqueActivityKind(cancelRef?.kind);
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
@@ -595,10 +608,14 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startTechniqueTransmission':
-                this.playerRuntimeService.startTechniqueTransmission(playerId, command.learnerPlayerId, command.techniqueId);
+                {
+                    const learner = this.playerRuntimeService.startTechniqueTransmission(playerId, command.learnerPlayerId, command.techniqueId);
+                    deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(learner?.playerId);
+                }
                 return;
             case 'cancelTechniqueTransmission':
                 this.playerRuntimeService.cancelTechniqueTransmission(playerId, command.techniqueId);
+                deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(playerId);
                 return;
             case 'startAlchemy':
                 return this.dispatchStartTechniqueActivity(playerId, 'alchemy', command.payload, deps);

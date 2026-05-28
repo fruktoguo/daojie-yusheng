@@ -6,7 +6,7 @@
 /**
  * 炼制与强化共享类型：承接面板、任务运行态与同步视图结构。
  */
-import type { TechniqueActivityCancelRef, TechniqueActivityInterruptState, TechniqueActivityJobBase } from './technique-activity-types';
+import type { TechniqueActivityCancelRef, TechniqueActivityInterruptState, TechniqueActivityJobBase, TechniqueActivityTaskKind } from './technique-activity-types';
 import type { TechniqueGrade } from './cultivation-types';
 import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
 
@@ -16,7 +16,7 @@ export type CraftQueueStartMode = 'replace' | 'preserve' | 'append';
 /** 制造型技艺任务队列条目。 */
 export interface CraftQueueItemView {
   queueId: string;
-  kind: 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation';
+  kind: TechniqueActivityTaskKind;
   label: string;
   quantity?: number;
   createdAt: number;
