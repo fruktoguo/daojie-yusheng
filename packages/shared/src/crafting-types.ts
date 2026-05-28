@@ -704,6 +704,10 @@ export interface PlayerTransmissionJob extends TechniqueActivityJobBase {
    */
 
   category?: TechniqueCategory;
+  /** 当前每息可推进的领悟进度，用于客户端估算速率。 */
+  progressGainPerTick?: number;
+  /** 按当前速率估算的剩余完成息数。 */
+  estimatedRemainingTicks?: number;
   /**
    * status：传法运行状态。
    */

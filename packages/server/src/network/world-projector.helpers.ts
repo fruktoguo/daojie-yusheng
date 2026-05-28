@@ -1550,11 +1550,23 @@ function buildProjectedTransmissionJob(entry: unknown, transmissionJob: any = nu
         status,
         blockedReason: transmissionJob.blockedReason,
         range: Math.max(1, Math.floor(Number(transmissionJob.range) || 2)),
+        progressGainPerTick: normalizePositiveProjectionNumber(transmissionJob.progressGainPerTick),
+        estimatedRemainingTicks: normalizeNonNegativeProjectionNumber(transmissionJob.estimatedRemainingTicks),
         interruptWaitRemainingTicks: waitRemaining,
         interruptState: transmissionJob.interruptState && typeof transmissionJob.interruptState === 'object'
             ? { ...transmissionJob.interruptState }
             : null,
     };
+}
+
+function normalizePositiveProjectionNumber(value: unknown): number | undefined {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) && normalized > 0 ? normalized : undefined;
+}
+
+function normalizeNonNegativeProjectionNumber(value: unknown): number | undefined {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) && normalized >= 0 ? normalized : undefined;
 }
 
 function isSamePendingComprehensions(

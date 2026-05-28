@@ -4,7 +4,7 @@
  * 维护时优先保持局部更新和原有焦点/滚动状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
 import type { CraftQueueItemView, TechniqueActivityTaskView } from '@mud/shared';
-import { formatDisplayInteger } from '../utils/number';
+import { formatDisplayInteger, formatDisplayNumber } from '../utils/number';
 import { t } from './i18n';
 import { resolveClientDisplayToken } from './structured-notice-display';
 
@@ -36,6 +36,17 @@ function formatTicks(ticks: number | undefined): string {
   return t('craft.workbench.time.ticks', {
     ticks: formatDisplayInteger(Math.max(0, Math.round(Number(ticks)))),
   });
+}
+
+function formatProgressRate(rate: number | undefined): string {
+  const normalized = Number(rate);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    return '0/息';
+  }
+  return `${formatDisplayNumber(normalized, {
+    maximumFractionDigits: 2,
+    compactThreshold: Number.POSITIVE_INFINITY,
+  })}/息`;
 }
 
 /** @internal Minimal interface for accessing parent state needed by CraftQueueView */
@@ -266,10 +277,16 @@ export class CraftQueueView {
       : task.state === 'completing'
         ? '结算中'
         : '进行中';
+    const rateText = task.kind === 'transmission' && Number(task.progressGainPerTick) > 0
+      ? ` · 速率 ${formatProgressRate(task.progressGainPerTick)}`
+      : '';
+    const etaText = task.kind === 'transmission' && Number(task.estimatedRemainingTicks) > 0
+      ? ` · 预计 ${formatTicks(task.estimatedRemainingTicks)}`
+      : '';
     return {
       ratio,
       label: `${formatDisplayInteger(Math.round(ratio * 100))}%`,
-      detail: `${stateLabel} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}`,
+      detail: `${stateLabel} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}${rateText}${etaText}`,
     };
   }
 

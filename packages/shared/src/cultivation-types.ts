@@ -505,6 +505,10 @@ export interface TechniqueTransmissionJobState {
   status: TechniqueTransmissionJobStatus;
   blockedReason?: TechniqueTransmissionBlockedReason;
   range: number;
+  /** 当前每息可推进的领悟进度，用于客户端估算速率。 */
+  progressGainPerTick?: number;
+  /** 按当前速率估算的剩余完成息数。 */
+  estimatedRemainingTicks?: number;
   interruptWaitRemainingTicks?: number;
   interruptState?: {
     reason?: 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat';

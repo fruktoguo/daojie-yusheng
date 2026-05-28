@@ -40,6 +40,7 @@ import {
   computeAlchemyPowerRatio,
   computeAlchemySuccessRate,
   computeAlchemyTotalJobTicks,
+  calculateTechniqueComprehensionProgressGain,
   getAlchemySpiritStoneCost,
   getItemDisplayName,
   isCreatedTechniqueId,
@@ -49,7 +50,7 @@ import {
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalRealmLevelEntry } from '../content/local-templates';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
-import { formatDisplayInteger, formatDisplayPercent } from '../utils/number';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
 import { describeEquipmentBonuses } from './equipment-tooltip';
@@ -163,6 +164,17 @@ function formatTicks(ticks: number | undefined): string {
   return t('craft.workbench.time.ticks', {
     ticks: formatDisplayInteger(Math.max(0, Math.round(Number(ticks)))),
   });
+}
+
+function formatComprehensionRate(rate: number | undefined): string {
+  const normalized = Number(rate);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    return '0/息';
+  }
+  return `${formatDisplayNumber(normalized, {
+    maximumFractionDigits: 2,
+    compactThreshold: Number.POSITIVE_INFINITY,
+  })}/息`;
 }
 
 function formatRate(rate: number | undefined): string {
@@ -462,6 +474,7 @@ export class CraftWorkbenchModal {
   private forgingSkillLevel = 1;
   private gatherSkillLevel = 1;
   private enhancementSkillLevel = 1;
+  private transmissionSkillLevel = 1;
   private transmissionTechniques: PlayerState['techniques'] = [];
   private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
   private lastTransmissionRenderKey: string | null = null;
@@ -515,6 +528,7 @@ export class CraftWorkbenchModal {
     this.forgingSkillLevel = Math.max(1, Math.floor(player.forgingSkill?.level ?? 1));
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
+    this.transmissionSkillLevel = Math.max(1, Math.floor(player.transmissionSkill?.level ?? 1));
     this.transmissionTechniques = Array.isArray(player.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
     this.playerRealmLv = Number.isFinite(Number(player.realm?.realmLv ?? player.realmLv))
@@ -535,6 +549,9 @@ export class CraftWorkbenchModal {
     if (update.enhancementSkill) {
       this.enhancementSkillLevel = Math.max(1, Math.floor(update.enhancementSkill.level ?? this.enhancementSkillLevel));
     }
+    if (update.transmissionSkill) {
+      this.transmissionSkillLevel = Math.max(1, Math.floor(update.transmissionSkill.level ?? this.transmissionSkillLevel));
+    }
     if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
@@ -546,6 +563,7 @@ export class CraftWorkbenchModal {
       : null;
     this.transmissionTechniques = Array.isArray(player?.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player?.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
+    this.transmissionSkillLevel = Math.max(1, Math.floor(player?.transmissionSkill?.level ?? this.transmissionSkillLevel));
     const realmChanged = this.playerRealmLv !== nextRealmLv;
     this.playerRealmLv = nextRealmLv;
     if ((realmChanged || this.activeMode === 'transmission') && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
@@ -1307,10 +1325,14 @@ export class CraftWorkbenchModal {
       const job = entry.activeTransferJob ?? null;
       const status = job
         ? (job.status === 'blocked' ? '等待传授' : '传授中')
-        : '自行领悟';
+        : entry.selfComprehensionAllowed === false ? '等待传法' : '自行领悟';
+      const rate = this.resolveTransmissionPendingRate(entry);
+      const estimate = this.resolveTransmissionPendingEstimate(entry, rate);
+      const rateText = rate > 0 ? ` · 速率 ${formatComprehensionRate(rate)}` : '';
+      const estimateText = estimate > 0 ? ` · 预计 ${formatTicks(estimate)}` : '';
       const pendingTextNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-text="true"]');
       if (pendingTextNode) {
-        pendingTextNode.textContent = `${status} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}`;
+        pendingTextNode.textContent = `${status} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}${rateText}${estimateText}`;
       }
       const pendingFillNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-fill="true"]');
       if (pendingFillNode) {
@@ -1657,12 +1679,16 @@ export class CraftWorkbenchModal {
     const job = entry.activeTransferJob ?? null;
     const status = job
       ? (job.status === 'blocked' ? '等待传授' : '传授中')
-      : '自行领悟';
+      : entry.selfComprehensionAllowed === false ? '等待传法' : '自行领悟';
+    const rate = this.resolveTransmissionPendingRate(entry);
+    const estimate = this.resolveTransmissionPendingEstimate(entry, rate);
+    const rateText = rate > 0 ? ` · 速率 ${formatComprehensionRate(rate)}` : '';
+    const estimateText = estimate > 0 ? ` · 预计 ${formatTicks(estimate)}` : '';
     return `
       <div class="enhancement-candidate-card" data-transmission-pending="${escapeHtmlAttr(entry.techId)}">
         <div class="enhancement-candidate-main">
           <strong>${escapeHtml(entry.name ?? entry.techId)}</strong>
-          <span data-transmission-pending-progress-text="true">${escapeHtml(status)} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}</span>
+          <span data-transmission-pending-progress-text="true">${escapeHtml(status)} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}${escapeHtml(rateText)}${escapeHtml(estimateText)}</span>
         </div>
         <div class="attr-craft-exp">
           <div class="attr-craft-exp-track" aria-hidden="true">
@@ -1672,6 +1698,38 @@ export class CraftWorkbenchModal {
         ${job ? `<button class="small-btn danger" type="button" data-craft-action="transmission-cancel" data-tech-id="${escapeHtmlAttr(entry.techId)}">取消传法</button>` : ''}
       </div>
     `;
+  }
+
+  private resolveTransmissionPendingRate(entry: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): number {
+    const jobRate = Number(entry.activeTransferJob?.progressGainPerTick);
+    if (Number.isFinite(jobRate) && jobRate > 0) {
+      return jobRate;
+    }
+    if (entry.selfComprehensionAllowed === false) {
+      return 0;
+    }
+    return calculateTechniqueComprehensionProgressGain({
+      baseProgress: 1,
+      techniqueRealmLv: Math.max(1, Math.floor(Number(entry.realmLv) || 1)),
+      learnerRealmLv: Math.max(1, Math.floor(Number(this.playerRealmLv) || 1)),
+      learnerTransmissionLevel: this.transmissionSkillLevel,
+    });
+  }
+
+  private resolveTransmissionPendingEstimate(
+    entry: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number],
+    rate: number,
+  ): number {
+    const jobEstimate = Number(entry.activeTransferJob?.estimatedRemainingTicks);
+    if (Number.isFinite(jobEstimate) && jobEstimate >= 0) {
+      return jobEstimate;
+    }
+    const required = Math.max(1, Number(entry.requiredProgress) || 1);
+    const progress = Math.max(0, Number(entry.progress) || 0);
+    const remaining = Math.max(0, required - Math.min(required, progress));
+    return Number.isFinite(rate) && rate > 0 && remaining > 0
+      ? Math.max(1, Math.ceil(remaining / rate))
+      : 0;
   }
 
   private renderTransmissionTeachPicker(

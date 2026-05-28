@@ -33,6 +33,8 @@ type LegacyTechniqueJob = {
   remainingTicks?: number;
   workTotalTicks?: number;
   workRemainingTicks?: number;
+  progressGainPerTick?: number;
+  estimatedRemainingTicks?: number;
   pausedTicks?: number;
   interruptWaitRemainingTicks?: number;
   interruptState?: { waitRemainingTicks?: number; [key: string]: unknown } | null;
@@ -121,6 +123,8 @@ function buildActiveJobTaskView(
     state: resolveActiveJobState(job, interruptWaitRemainingTicks),
     workTotalTicks: resolveNonNegativeInteger(job.workTotalTicks ?? job.totalTicks),
     workRemainingTicks: resolveNonNegativeInteger(job.workRemainingTicks ?? job.remainingTicks),
+    progressGainPerTick: resolvePositiveNumber(job.progressGainPerTick),
+    estimatedRemainingTicks: resolveNonNegativeNumber(job.estimatedRemainingTicks),
     canCancel: true,
     cancelRef: { kind, jobRunId },
   };
@@ -329,6 +333,16 @@ function resolveNonNegativeInteger(value: unknown): number {
     return 0;
   }
   return Math.max(0, Math.trunc(numeric));
+}
+
+function resolvePositiveNumber(value: unknown): number | undefined {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : undefined;
+}
+
+function resolveNonNegativeNumber(value: unknown): number | undefined {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined;
 }
 
 function normalizeText(value: unknown): string | undefined {

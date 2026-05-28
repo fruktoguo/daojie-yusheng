@@ -87,7 +87,9 @@ transmissionSkillFactor:
 
 领悟进度可保留小数；客户端文本当前按整数展示，服务端持久化使用 double precision 保存。
 
-传法不是 pending 功法条目上的旁路状态，而是学习者身上的正式通用技艺 job。学习者同一时间只能接受一个传法 job；传授者由 job 私有字段记录，作为距离、功法掌握和传法技能加成的条件来源。传法未取消或完成时，对应 pending 功法不能自行领悟；取消后保留已有领悟进度，可由其他传授者重新开始传法并继续推进。
+传法不是 pending 功法条目上的旁路状态，而是学习者身上的正式通用技艺 job。学习者同一时间只能接受一个传法 job；传授者由 job 私有字段记录，作为距离、功法掌握和传法技能加成的条件来源。传法未取消或完成时，对应 pending 功法不能自行领悟；取消后保留已有领悟进度，可由其他传授者重新开始传法并继续推进。传法 job 每实际推进 1 息时，学习者和当前传授者都按 1 息获得传法技艺经验；自行领悟 pending 功法时，自学者按本次修炼投入息数获得传法技艺经验，领悟速度加成只影响进度，不额外放大技艺经验。
+
+传法与自行领悟界面应展示当前估算速率和预计剩余完成息数。传法速率由服务端随 job 投影给学习者；自行领悟速率可由客户端按当前玩家境界、传法等级和 pending 功法境界本地推算。速率展示只用于估算，不要求每息额外发送网络包。
 
 功法玩家态持久化只保存动态真源字段，不保存模板可补全的重复字段。已掌握功法从 `player_technique_state` 的 `tech_id/level/exp/exp_to_next/realm_lv/skills_enabled` 恢复，并在运行时通过内容模板补全 `name/grade/category/skills/layers`。未领悟功法从 `player_technique_comprehension` 的 `tech_id/source_kind/progress/required_progress/realm_lv/grade/category/creator_player_id/self_comprehension_allowed/created_at_tick/updated_at_tick` 恢复；`raw_payload` 不作为功法重复字段真源。
 

@@ -215,19 +215,28 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     });
     pending.progress = Math.min(requiredProgress, previousProgress + progressGain);
     pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
-    updateJobProgress(job, requiredProgress, pending.progress);
-    const professionChanged = applyTransmissionSkillExpFromTicks(
+    updateJobProgress(job, requiredProgress, pending.progress, progressGain);
+    const learnerProfessionChanged = applyTransmissionSkillExpFromTicks(
       learner,
       1,
       pending.realmLv,
       ctx.resolveExpToNextByLevel,
     );
+    const teacherProfessionChanged = applyTransmissionSkillExpFromTicks(
+      teacher,
+      1,
+      pending.realmLv,
+      ctx.resolveExpToNextByLevel,
+    );
+    if (teacherProfessionChanged) {
+      markTransmissionDirty(teacher, ctx, ['profession']);
+    }
     if (pending.progress < requiredProgress) {
       learner.techniques.revision += 1;
-      markTransmissionDirty(learner, ctx, ['active_job', 'technique', ...(professionChanged ? ['profession'] : [])]);
-      return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: professionChanged };
+      markTransmissionDirty(learner, ctx, ['active_job', 'technique', ...(learnerProfessionChanged ? ['profession'] : [])]);
+      return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: learnerProfessionChanged };
     }
-    completeTransmission(learner, pending, job, ctx, professionChanged);
+    completeTransmission(learner, pending, job, ctx, learnerProfessionChanged);
     this.setActiveJob(learner, null);
     return {
       ...emptyTransmissionTickResult(),
@@ -422,12 +431,17 @@ function completeTransmission(
   markTransmissionDirty(learner, ctx, ['active_job', 'technique', 'auto_battle_skill', 'attr', ...(professionChanged ? ['profession'] : [])]);
 }
 
-function updateJobProgress(job: PlayerTransmissionJob, requiredProgress: number, progress: number): void {
+function updateJobProgress(job: PlayerTransmissionJob, requiredProgress: number, progress: number, progressGain: number): void {
   const remaining = Math.max(0, requiredProgress - Math.min(requiredProgress, progress));
+  const normalizedGain = Math.max(0, Number(progressGain) || 0);
   job.workTotalTicks = requiredProgress;
   job.workRemainingTicks = remaining;
   job.totalTicks = requiredProgress;
   job.remainingTicks = remaining > 0 ? Math.max(1, Math.ceil(remaining)) : 0;
+  job.progressGainPerTick = normalizedGain;
+  job.estimatedRemainingTicks = normalizedGain > 0 && remaining > 0
+    ? Math.max(1, Math.ceil(remaining / normalizedGain))
+    : 0;
 }
 
 function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, targetLevel: unknown, getExpToNextByLevel: (level: number) => number): boolean {

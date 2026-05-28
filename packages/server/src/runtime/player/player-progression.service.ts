@@ -2047,7 +2047,7 @@ export class PlayerProgressionService {
         const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
         pending.progress = Math.min(requiredProgress, previousProgress + normalized);
         pending.updatedAtTick = Math.max(0, Math.floor(Number(player.lifeElapsedTicks) || 0));
-        const progressedTicks = Math.max(0, pending.progress - previousProgress);
+        const progressedTicks = Math.max(0, baseProgress);
         const transmissionSkillDirty = applyTransmissionSkillExpFromTicks(
             player,
             progressedTicks,

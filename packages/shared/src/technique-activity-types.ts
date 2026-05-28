@@ -80,6 +80,10 @@ export interface TechniqueActivityTaskView {
   state: TechniqueActivityTaskState;
   workTotalTicks?: number;
   workRemainingTicks?: number;
+  /** 当前每息可推进的工作量，主要用于传法/领悟估算。 */
+  progressGainPerTick?: number;
+  /** 按当前速率估算的剩余完成息数。 */
+  estimatedRemainingTicks?: number;
   interruptWaitRemainingTicks?: number;
   sleepReason?: string;
   canCancel: boolean;

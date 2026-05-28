@@ -276,6 +276,32 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 4);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 4));
 
+  const acceleratedLearner = createPlayer('learner:self-accelerated', 0, 0);
+  acceleratedLearner.realm.realmLv = 8;
+  acceleratedLearner.transmissionSkill.level = 8;
+  acceleratedLearner.techniques.cultivatingTechId = technique.techId;
+  acceleratedLearner.pendingTechniqueComprehensions.push({
+    techId: technique.techId,
+    name: technique.name,
+    sourceKind: 'normal',
+    progress: 0,
+    requiredProgress: 100,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+  const acceleratedProgressed = progressionService.advanceTechniqueProgressInternal(acceleratedLearner, 999, {
+    allowPendingComprehension: true,
+    expBonus: 100000,
+    pendingComprehensionTicks: 4,
+  });
+  assert.equal(acceleratedProgressed.changed, true);
+  assert.ok((acceleratedLearner.pendingTechniqueComprehensions[0]?.progress ?? 0) > 4);
+  assert.equal(acceleratedLearner.transmissionSkill.exp, getExpectedTransmissionExpGain(8, 1, 4));
+
   learner.transmissionJob = {
     jobRunId: 'job:test',
     jobType: 'transmission',
@@ -523,6 +549,9 @@ function testTransmissionBlocksCancelsAndContinues() {
   tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(pending.progress, 1);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+  assert.equal(teacherA.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
+  assertAlmostEqual(learner.transmissionJob?.progressGainPerTick ?? 0, 1, 'transmission progress gain per tick');
+  assert.equal(learner.transmissionJob?.estimatedRemainingTicks, 299);
 
   assert.equal(interruptTransmissionWithPipeline(runtimeService, learner, 'move').panelChanged, true);
   assert.equal(learner.transmissionJob?.interruptWaitRemainingTicks, 10);
@@ -537,10 +566,12 @@ function testTransmissionBlocksCancelsAndContinues() {
   tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(pending.progress, 2);
   assert.equal(learner.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 2));
+  assert.equal(teacherA.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 2));
 
   teacherA.x = 99;
   tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(pending.progress, 2);
+  assert.equal(teacherA.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 2));
   assert.equal(learner.transmissionJob?.status, 'blocked');
 
   assert.equal(cancelTransmissionWithPipeline(runtimeService, learner).ok, true);
@@ -551,6 +582,7 @@ function testTransmissionBlocksCancelsAndContinues() {
   assert.equal(learner.pendingTechniqueComprehensions.length, 0);
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
   assert.equal(learner.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 3));
+  assert.equal(teacherB.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();
