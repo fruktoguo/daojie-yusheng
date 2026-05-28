@@ -200,15 +200,27 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
 }) {
   const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;
   const realmLabel = getTechniqueRealmLevelLabel(pending.realmLv);
+  const transferLocked = Boolean(pending.activeTransferJob);
+  const selfComprehensionAllowed = pending.selfComprehensionAllowed !== false;
+  const canStartCultivating = selfComprehensionAllowed && !transferLocked;
+  const startDisabled = !isCultivating && !canStartCultivating;
   const handleCultivate = useCallback(() => {
+    if (!isCultivating && !canStartCultivating) return;
     callbacks.onCultivate?.(isCultivating ? null : pending.techId);
-  }, [isCultivating, pending.techId]);
+  }, [canStartCultivating, isCultivating, pending.techId]);
   const handleCancelTransmission = useCallback(() => {
     callbacks.onCancelTransmission?.(pending.techId);
   }, [pending.techId]);
+  const actionLabel = transferLocked
+    ? '传授中'
+    : !selfComprehensionAllowed
+      ? '需传法领悟'
+      : isCultivating
+        ? t('technique.action.cancel-cultivate', undefined)
+        : '设为主修领悟';
   return (
     <div className={`tech-card pending${isCultivating ? ' cultivating' : ''}`}>
-      <button className="tech-card-main" type="button" onClick={handleCultivate}>
+      <button className="tech-card-main" type="button" onClick={handleCultivate} disabled={startDisabled}>
         <span className="tech-summary-main">
           <span className="tech-name">{pending.name}</span>
           <span className="tech-badge tech-category">未领悟</span>
@@ -217,6 +229,7 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
           <span className="tech-badge tech-category">{getTechniqueCategoryLabel(pending.category)}</span>
           <span className="tech-badge tech-realm-level">{realmLabel}</span>
           {pending.activeTransferJob && <span className="tech-badge tech-grade">{pending.activeTransferJob.status === 'blocked' ? '等待传授' : '传授中'}</span>}
+          {!selfComprehensionAllowed && <span className="tech-badge tech-grade">需传法</span>}
         </span>
         <span className="tech-progress-meta">
           <span className="tech-progress-text">{Math.floor(pending.progress)} / {Math.floor(pending.requiredProgress)}</span>
@@ -226,8 +239,8 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
         </span>
       </button>
       <div className="tech-card-actions">
-        <button className={`small-btn ${isCultivating ? 'danger' : 'ghost'}`} type="button" onClick={handleCultivate} disabled={Boolean(pending.activeTransferJob)}>
-          {pending.activeTransferJob ? '传授中' : isCultivating ? t('technique.action.cancel-cultivate', undefined) : '设为主修领悟'}
+        <button className={`small-btn ${isCultivating ? 'danger' : 'ghost'}`} type="button" onClick={handleCultivate} disabled={startDisabled}>
+          {actionLabel}
         </button>
         {pending.activeTransferJob && (
           <button className="small-btn danger" type="button" onClick={handleCancelTransmission}>取消传法</button>

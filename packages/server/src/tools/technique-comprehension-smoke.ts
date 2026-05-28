@@ -104,6 +104,7 @@ function createRuntimeService() {
     playerAttributesService as never,
     null,
   );
+  progressionService.onModuleInit();
   (progressionService as any).getRealmRuntimeExpToNext = resolveExpToNextByLevel;
   const runtimeService = new PlayerRuntimeService(
     contentTemplateRepository as never,
@@ -329,9 +330,36 @@ function testTransmittedPendingCannotSelfComprehendWithoutActiveJob() {
     pendingComprehensionTicks: 4,
   });
 
-  assert.equal(result.changed, false);
+  assert.equal(result.changed, true);
+  assert.equal(learner.techniques.cultivatingTechId, null);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 0);
   assert.equal(learner.transmissionSkill.exp, 0);
+}
+
+function testTransmittedPendingCannotBeSetAsMainTechnique() {
+  const { runtimeService } = createRuntimeService();
+  const learner = createPlayer('learner:set-main-blocked', 0, 0);
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: false,
+    progress: 0,
+    requiredProgress: 10,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+  runtimeService.players.set(learner.playerId, learner);
+
+  assert.throws(
+    () => runtimeService.cultivateTechnique(learner.playerId, createdTechnique.techId),
+    /只能通过传法领悟/,
+  );
+  assert.equal(learner.techniques.cultivatingTechId, null);
 }
 
 function testCreatedPendingRefreshDoesNotUnlockTransmittedTechnique() {
@@ -367,6 +395,16 @@ function testCreatedPendingRefreshDoesNotUnlockTransmittedTechnique() {
     true,
   );
   assert.equal(learner.pendingTechniqueComprehensions[0]?.selfComprehensionAllowed, true);
+}
+
+function testCreatedPendingWithoutCreatorDoesNotAutoMainTechnique() {
+  const { runtimeService } = createRuntimeService();
+  const learner = createPlayer('learner:auto-main-blocked', 0, 0);
+  runtimeService.players.set(learner.playerId, learner);
+
+  assert.equal(runtimeService.addPendingTechniqueComprehensionById(learner.playerId, createdTechnique.techId, 'created'), true);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.selfComprehensionAllowed, false);
+  assert.equal(learner.techniques.cultivatingTechId, null);
 }
 
 function testCultivationUsesElapsedTicksForPendingComprehension() {
@@ -517,7 +555,9 @@ function testTransmissionBlocksCancelsAndContinues() {
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();
 testTransmittedPendingCannotSelfComprehendWithoutActiveJob();
+testTransmittedPendingCannotBeSetAsMainTechnique();
 testCreatedPendingRefreshDoesNotUnlockTransmittedTechnique();
+testCreatedPendingWithoutCreatorDoesNotAutoMainTechnique();
 testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();

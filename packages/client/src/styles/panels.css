@@ -1120,6 +1120,10 @@
       text-align: left;
       cursor: pointer;
     }
+    .tech-card-main:disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
+    }
     .tech-summary-main {
       display: flex;
       align-items: center;

@@ -1918,6 +1918,9 @@ export class PlayerProgressionService {
             ? this.resolveCultivatingPendingComprehension(player)
             : null;
         if (pending) {
+            if (pending.selfComprehensionAllowed === false) {
+                return this.clearInvalidCultivation(player);
+            }
             return this.advancePendingTechniqueComprehensionInternal(player, pending, amount, options);
         }
         const resolved = this.resolveActiveCultivatingTechnique(player);

@@ -743,12 +743,22 @@ export class TechniquePanel {
   private createPendingTechniqueCardElement(pending: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): HTMLElement {
     const isCultivating = this.lastState.cultivatingTechId === pending.techId;
     const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;
-    const locked = Boolean(pending.activeTransferJob);
+    const transferLocked = Boolean(pending.activeTransferJob);
+    const selfComprehensionAllowed = pending.selfComprehensionAllowed !== false;
+    const canStartCultivating = selfComprehensionAllowed && !transferLocked;
+    const startDisabled = !isCultivating && !canStartCultivating;
+    const actionLabel = transferLocked
+      ? '传授中'
+      : !selfComprehensionAllowed
+        ? '需传法领悟'
+        : isCultivating
+          ? t('technique.action.cancel-cultivate', undefined)
+          : '设为主修领悟';
     const realmLv = Math.max(1, Math.floor(Number(pending.realmLv) || 1));
     const realmLabel = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
     const template = document.createElement('template');
     template.innerHTML = `<div class="tech-card pending ${isCultivating ? 'cultivating' : ''}" data-pending-tech-card="${escapeHtml(pending.techId)}">
-      <button class="tech-card-main" data-cultivate="${locked || isCultivating ? '' : escapeHtml(pending.techId)}" data-cultivate-stop="${isCultivating && !locked ? escapeHtml(pending.techId) : ''}" type="button">
+      <button class="tech-card-main" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">
         <span class="tech-summary-main">
           <span class="tech-name">${escapeHtml(pending.name)}</span>
           <span class="tech-badge tech-category">未领悟</span>
@@ -756,14 +766,15 @@ export class TechniquePanel {
           <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(pending.grade))}</span>
           <span class="tech-badge tech-category">${escapeHtml(getTechniqueCategoryLabel(pending.category))}</span>
           <span class="tech-badge tech-realm-level">${escapeHtml(realmLabel)}</span>
-          ${locked ? `<span class="tech-badge tech-grade">${pending.activeTransferJob?.status === 'blocked' ? '等待传授' : '传授中'}</span>` : ''}
+          ${transferLocked ? `<span class="tech-badge tech-grade">${pending.activeTransferJob?.status === 'blocked' ? '等待传授' : '传授中'}</span>` : ''}
+          ${!selfComprehensionAllowed ? '<span class="tech-badge tech-grade">需传法</span>' : ''}
         </span>
         <span class="tech-progress-meta"><span class="tech-progress-text">${Math.floor(pending.progress)} / ${Math.floor(pending.requiredProgress)}</span></span>
         <span class="tech-progress-bar"><span class="tech-progress-fill" style="width:${(ratio * 100).toFixed(2)}%"></span></span>
       </button>
       <div class="tech-card-actions">
-        <button class="small-btn ${isCultivating ? 'danger' : 'ghost'}" data-cultivate="${locked || isCultivating ? '' : escapeHtml(pending.techId)}" data-cultivate-stop="${isCultivating && !locked ? escapeHtml(pending.techId) : ''}" ${locked ? 'disabled' : ''} type="button">${locked ? '传授中' : isCultivating ? t('technique.action.cancel-cultivate', undefined) : '设为主修领悟'}</button>
-        ${locked ? `<button class="small-btn danger" data-tech-transmission-cancel="${escapeHtml(pending.techId)}" type="button">取消传法</button>` : ''}
+        <button class="small-btn ${isCultivating ? 'danger' : 'ghost'}" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">${actionLabel}</button>
+        ${transferLocked ? `<button class="small-btn danger" data-tech-transmission-cancel="${escapeHtml(pending.techId)}" type="button">取消传法</button>` : ''}
       </div>
     </div>`.trim();
     const card = template.content.firstElementChild;

@@ -803,23 +803,25 @@ export class PlayerRuntimeService {
             learnerRealmLv: player.realm?.realmLv ?? 1,
             learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
         });
+        let selfComprehensionAllowed = false;
         if (existing) {
             existing.requiredProgress = requiredProgress;
             existing.updatedAtTick = currentTick;
             existing.name = technique.name ?? existing.name ?? normalizedTechId;
             existing.sourceKind = normalizedSourceKind;
-            existing.selfComprehensionAllowed = resolvePendingSelfComprehensionAllowed(
+            selfComprehensionAllowed = resolvePendingSelfComprehensionAllowed(
                 player.playerId,
                 normalizedSourceKind,
                 creatorPlayerId ?? existing.creatorPlayerId,
                 existing,
             );
+            existing.selfComprehensionAllowed = selfComprehensionAllowed;
             if (creatorPlayerId) {
                 existing.creatorPlayerId = creatorPlayerId;
             }
         }
         else {
-            const selfComprehensionAllowed = resolvePendingSelfComprehensionAllowed(
+            selfComprehensionAllowed = resolvePendingSelfComprehensionAllowed(
                 player.playerId,
                 normalizedSourceKind,
                 creatorPlayerId,
@@ -840,7 +842,7 @@ export class PlayerRuntimeService {
             });
         }
         player.pendingTechniqueComprehensions = pending;
-        if (!player.techniques.cultivatingTechId) {
+        if (!player.techniques.cultivatingTechId && selfComprehensionAllowed) {
             player.techniques.cultivatingTechId = normalizedTechId;
             player.combat.cultivationActive = true;
         }
@@ -2590,9 +2592,15 @@ export class PlayerRuntimeService {
 
         const normalized = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : null;
         const hasLearned = normalized && player.techniques.techniques.some((entry) => entry.techId === normalized);
-        const hasPending = normalized && (player.pendingTechniqueComprehensions ?? []).some((entry) => entry?.techId === normalized);
+        const pending = normalized
+            ? (player.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === normalized)
+            : null;
+        const hasPending = Boolean(pending);
         if (normalized && !hasLearned && !hasPending) {
             throw new NotFoundException(`尚未学会功法：${normalized}`);
+        }
+        if (pending && pending.selfComprehensionAllowed === false) {
+            throw new BadRequestException('该功法只能通过传法领悟，不能设为主修。');
         }
         const previousCultivatingTechId = player.techniques.cultivatingTechId;
         player.techniques.cultivatingTechId = normalized;
