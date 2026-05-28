@@ -4,7 +4,7 @@
  * 传法是学习者身上的正式通用技艺 job；传授者只作为距离、功法掌握与传法技能加成的条件来源。
  */
 import {
-  calculateTechniqueComprehensionProgressGain,
+  calculateTechniqueComprehensionProgressBreakdown,
   calculateTechniqueComprehensionRequiredProgress,
   computeCraftSkillExpGain,
   isCreatedTechniqueId,
@@ -132,6 +132,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     markTransmissionDirty(learner, ctx, ['technique', 'active_job']);
     queueTeacherTransmissionStartNotice(validated, ctx);
     const remaining = Math.max(1, Math.ceil(required - Math.min(required, progress)));
+    const deps = resolveTransmissionDeps(ctx);
+    const teacher = deps?.playerRuntimeService?.getPlayer?.(validated.teacherPlayerId) ?? null;
+    const progressBreakdown = resolveTransmissionProgressBreakdown(learner, teacher, validated.realmLv);
     return {
       jobRunId: `transmission:${validated.learnerPlayerId}:${validated.techniqueId}:${resolvePlayerRuntimeTick(learner)}`,
       jobType: 'transmission',
@@ -151,6 +154,13 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
       remainingTicks: remaining,
       workTotalTicks: required,
       workRemainingTicks: remaining,
+      ...(progressBreakdown.progressGain > 0
+        ? {
+          progressGainPerTick: progressBreakdown.progressGain,
+          estimatedRemainingTicks: Math.max(1, Math.ceil(remaining / progressBreakdown.progressGain)),
+          progressBreakdown,
+        }
+        : {}),
       pausedTicks: 0,
       interruptWaitRemainingTicks: 0,
       interruptState: null,
@@ -206,16 +216,11 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     refreshPendingRequirement(learner, pending, teacherTechnique, teacher, job);
     const previousProgress = Math.max(0, Number(pending.progress) || 0);
     const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
-    const progressGain = calculateTechniqueComprehensionProgressGain({
-      baseProgress: 1,
-      techniqueRealmLv: pending.realmLv ?? teacherTechnique.realmLv,
-      learnerRealmLv: learner.realm?.realmLv ?? 1,
-      learnerTransmissionLevel: learner.transmissionSkill?.level ?? 1,
-      teacherTransmissionLevel: teacher.transmissionSkill?.level ?? 1,
-    });
+    const progressBreakdown = resolveTransmissionProgressBreakdown(learner, teacher, pending.realmLv ?? teacherTechnique.realmLv);
+    const progressGain = progressBreakdown.progressGain;
     pending.progress = Math.min(requiredProgress, previousProgress + progressGain);
     pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
-    updateJobProgress(job, requiredProgress, pending.progress, progressGain);
+    updateJobProgress(job, requiredProgress, pending.progress, progressBreakdown);
     const learnerProfessionChanged = applyTransmissionSkillExpFromTicks(
       learner,
       1,
@@ -431,9 +436,14 @@ function completeTransmission(
   markTransmissionDirty(learner, ctx, ['active_job', 'technique', 'auto_battle_skill', 'attr', ...(professionChanged ? ['profession'] : [])]);
 }
 
-function updateJobProgress(job: PlayerTransmissionJob, requiredProgress: number, progress: number, progressGain: number): void {
+function updateJobProgress(
+  job: PlayerTransmissionJob,
+  requiredProgress: number,
+  progress: number,
+  progressBreakdown: ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown>,
+): void {
   const remaining = Math.max(0, requiredProgress - Math.min(requiredProgress, progress));
-  const normalizedGain = Math.max(0, Number(progressGain) || 0);
+  const normalizedGain = Math.max(0, Number(progressBreakdown.progressGain) || 0);
   job.workTotalTicks = requiredProgress;
   job.workRemainingTicks = remaining;
   job.totalTicks = requiredProgress;
@@ -442,6 +452,17 @@ function updateJobProgress(job: PlayerTransmissionJob, requiredProgress: number,
   job.estimatedRemainingTicks = normalizedGain > 0 && remaining > 0
     ? Math.max(1, Math.ceil(remaining / normalizedGain))
     : 0;
+  job.progressBreakdown = progressBreakdown;
+}
+
+function resolveTransmissionProgressBreakdown(learner: any, teacher: any, techniqueRealmLv: unknown): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
+  return calculateTechniqueComprehensionProgressBreakdown({
+    baseProgress: 1,
+    techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
+    learnerRealmLv: learner?.realm?.realmLv ?? 1,
+    learnerTransmissionLevel: learner?.transmissionSkill?.level ?? 1,
+    teacherTransmissionLevel: teacher?.transmissionSkill?.level ?? 1,
+  });
 }
 
 function applyTransmissionSkillExpFromTicks(player: any, elapsedTicks: number, targetLevel: unknown, getExpToNextByLevel: (level: number) => number): boolean {

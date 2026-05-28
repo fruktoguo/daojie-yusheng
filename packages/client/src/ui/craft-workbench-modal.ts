@@ -40,17 +40,18 @@ import {
   computeAlchemyPowerRatio,
   computeAlchemySuccessRate,
   computeAlchemyTotalJobTicks,
-  calculateTechniqueComprehensionProgressGain,
+  calculateTechniqueComprehensionProgressBreakdown,
   getAlchemySpiritStoneCost,
   getItemDisplayName,
   isCreatedTechniqueId,
   isExactAlchemyRecipe,
   normalizeEnhanceLevel,
   normalizeAlchemyQuantity,
+  type TechniqueComprehensionProgressBreakdown,
 } from '@mud/shared';
 import { getLocalItemTemplate, getLocalRealmLevelEntry } from '../content/local-templates';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
-import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent, formatDisplaySignedNumber } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
 import { describeEquipmentBonuses } from './equipment-tooltip';
@@ -175,6 +176,40 @@ function formatComprehensionRate(rate: number | undefined): string {
     maximumFractionDigits: 2,
     compactThreshold: Number.POSITIVE_INFINITY,
   })}/息`;
+}
+
+function formatComprehensionBonusPercent(value: number): string {
+  return `${formatDisplaySignedNumber(value, {
+    maximumFractionDigits: 1,
+    compactThreshold: Number.POSITIVE_INFINITY,
+  })}%`;
+}
+
+function formatComprehensionFactorBonus(factor: number | undefined): string {
+  const normalized = Number(factor);
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    return '+0%';
+  }
+  return formatComprehensionBonusPercent(((1 / normalized) - 1) * 100);
+}
+
+function formatComprehensionProgressBreakdown(breakdown: TechniqueComprehensionProgressBreakdown | null | undefined): string {
+  if (!breakdown || !Number.isFinite(Number(breakdown.progressGain)) || Number(breakdown.progressGain) <= 0) {
+    return '';
+  }
+  const parts = [
+    `基准 ${formatComprehensionRate(breakdown.baseProgress)}`,
+    `境界差 ${formatComprehensionFactorBonus(breakdown.realmFactor)}`,
+    `自身传法 ${formatComprehensionFactorBonus(breakdown.learnerTransmissionFactor)}`,
+  ];
+  if (breakdown.teacherTransmissionFactor !== undefined) {
+    parts.push(`传授者传法 ${formatComprehensionFactorBonus(breakdown.teacherTransmissionFactor)}`);
+  }
+  const totalBonus = breakdown.baseProgress > 0
+    ? ((breakdown.progressGain / breakdown.baseProgress) - 1) * 100
+    : 0;
+  parts.push(`合计 ${formatComprehensionBonusPercent(totalBonus)}`);
+  return `速率构成：${parts.join(' · ')}`;
 }
 
 function formatRate(rate: number | undefined): string {
@@ -1330,9 +1365,15 @@ export class CraftWorkbenchModal {
       const estimate = this.resolveTransmissionPendingEstimate(entry, rate);
       const rateText = rate > 0 ? ` · 速率 ${formatComprehensionRate(rate)}` : '';
       const estimateText = estimate > 0 ? ` · 预计 ${formatTicks(estimate)}` : '';
+      const factorText = formatComprehensionProgressBreakdown(this.resolveTransmissionPendingBreakdown(entry));
       const pendingTextNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-text="true"]');
       if (pendingTextNode) {
         pendingTextNode.textContent = `${status} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}${rateText}${estimateText}`;
+      }
+      const pendingFactorNode = card.querySelector<HTMLElement>('[data-transmission-pending-factor-text="true"]');
+      if (pendingFactorNode) {
+        pendingFactorNode.textContent = factorText;
+        pendingFactorNode.hidden = factorText.length === 0;
       }
       const pendingFillNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-fill="true"]');
       if (pendingFillNode) {
@@ -1684,11 +1725,13 @@ export class CraftWorkbenchModal {
     const estimate = this.resolveTransmissionPendingEstimate(entry, rate);
     const rateText = rate > 0 ? ` · 速率 ${formatComprehensionRate(rate)}` : '';
     const estimateText = estimate > 0 ? ` · 预计 ${formatTicks(estimate)}` : '';
+    const factorText = formatComprehensionProgressBreakdown(this.resolveTransmissionPendingBreakdown(entry));
     return `
       <div class="enhancement-candidate-card" data-transmission-pending="${escapeHtmlAttr(entry.techId)}">
         <div class="enhancement-candidate-main">
           <strong>${escapeHtml(entry.name ?? entry.techId)}</strong>
           <span data-transmission-pending-progress-text="true">${escapeHtml(status)} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}${escapeHtml(rateText)}${escapeHtml(estimateText)}</span>
+          <span class="transmission-factor-breakdown" data-transmission-pending-factor-text="true"${factorText.length === 0 ? ' hidden' : ''}>${escapeHtml(factorText)}</span>
         </div>
         <div class="attr-craft-exp">
           <div class="attr-craft-exp-track" aria-hidden="true">
@@ -1708,7 +1751,22 @@ export class CraftWorkbenchModal {
     if (entry.selfComprehensionAllowed === false) {
       return 0;
     }
-    return calculateTechniqueComprehensionProgressGain({
+    return calculateTechniqueComprehensionProgressBreakdown({
+      baseProgress: 1,
+      techniqueRealmLv: Math.max(1, Math.floor(Number(entry.realmLv) || 1)),
+      learnerRealmLv: Math.max(1, Math.floor(Number(this.playerRealmLv) || 1)),
+      learnerTransmissionLevel: this.transmissionSkillLevel,
+    }).progressGain;
+  }
+
+  private resolveTransmissionPendingBreakdown(entry: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): TechniqueComprehensionProgressBreakdown | null {
+    if (entry.activeTransferJob?.progressBreakdown) {
+      return entry.activeTransferJob.progressBreakdown;
+    }
+    if (entry.selfComprehensionAllowed === false) {
+      return null;
+    }
+    return calculateTechniqueComprehensionProgressBreakdown({
       baseProgress: 1,
       techniqueRealmLv: Math.max(1, Math.floor(Number(entry.realmLv) || 1)),
       learnerRealmLv: Math.max(1, Math.floor(Number(this.playerRealmLv) || 1)),

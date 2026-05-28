@@ -1552,6 +1552,7 @@ function buildProjectedTransmissionJob(entry: unknown, transmissionJob: any = nu
         range: Math.max(1, Math.floor(Number(transmissionJob.range) || 2)),
         progressGainPerTick: normalizePositiveProjectionNumber(transmissionJob.progressGainPerTick),
         estimatedRemainingTicks: normalizeNonNegativeProjectionNumber(transmissionJob.estimatedRemainingTicks),
+        progressBreakdown: normalizeProgressBreakdown(transmissionJob.progressBreakdown),
         interruptWaitRemainingTicks: waitRemaining,
         interruptState: transmissionJob.interruptState && typeof transmissionJob.interruptState === 'object'
             ? { ...transmissionJob.interruptState }
@@ -1567,6 +1568,41 @@ function normalizePositiveProjectionNumber(value: unknown): number | undefined {
 function normalizeNonNegativeProjectionNumber(value: unknown): number | undefined {
     const normalized = Number(value);
     return Number.isFinite(normalized) && normalized >= 0 ? normalized : undefined;
+}
+
+function normalizeProgressBreakdown(value: unknown): TechniqueTransmissionJobState['progressBreakdown'] | undefined {
+    if (!value || typeof value !== 'object') {
+        return undefined;
+    }
+    const source = value as Record<string, unknown>;
+    const baseProgress = normalizePositiveProjectionNumber(source.baseProgress);
+    const progressGain = normalizePositiveProjectionNumber(source.progressGain);
+    const difficultyFactor = normalizePositiveProjectionNumber(source.difficultyFactor);
+    const realmFactor = normalizePositiveProjectionNumber(source.realmFactor);
+    const learnerTransmissionFactor = normalizePositiveProjectionNumber(source.learnerTransmissionFactor);
+    if (
+        baseProgress === undefined
+        || progressGain === undefined
+        || difficultyFactor === undefined
+        || realmFactor === undefined
+        || learnerTransmissionFactor === undefined
+    ) {
+        return undefined;
+    }
+    const teacherTransmissionLevel = normalizePositiveProjectionNumber(source.teacherTransmissionLevel);
+    const teacherTransmissionFactor = normalizePositiveProjectionNumber(source.teacherTransmissionFactor);
+    return {
+        baseProgress,
+        progressGain,
+        difficultyFactor,
+        techniqueRealmLv: Math.max(1, Math.floor(Number(source.techniqueRealmLv) || 1)),
+        learnerRealmLv: Math.max(1, Math.floor(Number(source.learnerRealmLv) || 1)),
+        learnerTransmissionLevel: Math.max(1, Math.floor(Number(source.learnerTransmissionLevel) || 1)),
+        ...(teacherTransmissionLevel === undefined ? {} : { teacherTransmissionLevel }),
+        realmFactor,
+        learnerTransmissionFactor,
+        ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+    };
 }
 
 function isSamePendingComprehensions(
@@ -1586,11 +1622,33 @@ function isSamePendingComprehensions(
             || leftEntry.progress !== rightEntry.progress
             || leftEntry.requiredProgress !== rightEntry.requiredProgress
             || leftEntry.activeTransferJob?.jobId !== rightEntry.activeTransferJob?.jobId
-            || leftEntry.activeTransferJob?.status !== rightEntry.activeTransferJob?.status) {
+            || leftEntry.activeTransferJob?.status !== rightEntry.activeTransferJob?.status
+            || leftEntry.activeTransferJob?.progressGainPerTick !== rightEntry.activeTransferJob?.progressGainPerTick
+            || leftEntry.activeTransferJob?.estimatedRemainingTicks !== rightEntry.activeTransferJob?.estimatedRemainingTicks
+            || !isSameProgressBreakdown(leftEntry.activeTransferJob?.progressBreakdown, rightEntry.activeTransferJob?.progressBreakdown)) {
             return false;
         }
     }
     return true;
+}
+
+function isSameProgressBreakdown(
+    left: TechniqueTransmissionJobState['progressBreakdown'],
+    right: TechniqueTransmissionJobState['progressBreakdown'],
+): boolean {
+    if (!left || !right) {
+        return left == null && right == null;
+    }
+    return left.baseProgress === right.baseProgress
+        && left.progressGain === right.progressGain
+        && left.difficultyFactor === right.difficultyFactor
+        && left.techniqueRealmLv === right.techniqueRealmLv
+        && left.learnerRealmLv === right.learnerRealmLv
+        && left.learnerTransmissionLevel === right.learnerTransmissionLevel
+        && left.teacherTransmissionLevel === right.teacherTransmissionLevel
+        && left.realmFactor === right.realmFactor
+        && left.learnerTransmissionFactor === right.learnerTransmissionFactor
+        && left.teacherTransmissionFactor === right.teacherTransmissionFactor;
 }
 
 function buildPanelDeltaFromState(previousPanel: ProjectedPanelState, currentPanel: ProjectedPanelState): S2C_PanelDelta | null {

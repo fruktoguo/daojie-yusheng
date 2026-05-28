@@ -8,6 +8,7 @@ import type { BreakthroughItemRequirement, BreakthroughPreviewState } from './pr
 import type { AttrKey, Attributes } from './attribute-types';
 import type { SkillDef } from './skill-types';
 import type { QiProjectionModifier } from './qi';
+import type { TechniqueComprehensionProgressBreakdown } from './technique-comprehension';
 
 /** 功法境界。 */
 export enum TechniqueRealm {
@@ -509,6 +510,8 @@ export interface TechniqueTransmissionJobState {
   progressGainPerTick?: number;
   /** 按当前速率估算的剩余完成息数。 */
   estimatedRemainingTicks?: number;
+  /** 当前速率的构成拆解，用于解释境界差和传法等级加成。 */
+  progressBreakdown?: TechniqueComprehensionProgressBreakdown;
   interruptWaitRemainingTicks?: number;
   interruptState?: {
     reason?: 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat';

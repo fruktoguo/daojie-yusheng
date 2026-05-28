@@ -9,6 +9,7 @@
 import type { TechniqueActivityCancelRef, TechniqueActivityInterruptState, TechniqueActivityJobBase, TechniqueActivityTaskKind } from './technique-activity-types';
 import type { TechniqueCategory, TechniqueGrade, TechniqueTransmissionBlockedReason, TechniqueTransmissionJobStatus } from './cultivation-types';
 import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
+import type { TechniqueComprehensionProgressBreakdown } from './technique-comprehension';
 
 /** 制造型技艺任务的启动排队策略。 */
 export type CraftQueueStartMode = 'replace' | 'preserve' | 'append';
@@ -708,6 +709,8 @@ export interface PlayerTransmissionJob extends TechniqueActivityJobBase {
   progressGainPerTick?: number;
   /** 按当前速率估算的剩余完成息数。 */
   estimatedRemainingTicks?: number;
+  /** 当前速率的构成拆解，用于解释境界差和传法等级加成。 */
+  progressBreakdown?: TechniqueComprehensionProgressBreakdown;
   /**
    * status：传法运行状态。
    */

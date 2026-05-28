@@ -3,6 +3,8 @@
  *
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
+import type { TechniqueComprehensionProgressBreakdown } from './technique-comprehension';
+
 /** 可并入统一技艺活动框架的技艺键。 */
 export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'gather' | 'building' | 'mining' | 'formation';
 
@@ -84,6 +86,8 @@ export interface TechniqueActivityTaskView {
   progressGainPerTick?: number;
   /** 按当前速率估算的剩余完成息数。 */
   estimatedRemainingTicks?: number;
+  /** 当前速率的构成拆解，用于解释境界差和传法等级加成。 */
+  progressBreakdown?: TechniqueComprehensionProgressBreakdown;
   interruptWaitRemainingTicks?: number;
   sleepReason?: string;
   canCancel: boolean;

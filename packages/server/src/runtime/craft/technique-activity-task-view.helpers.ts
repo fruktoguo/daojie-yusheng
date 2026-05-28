@@ -5,6 +5,7 @@
  */
 import type {
   RuntimeTechniqueActivityKind,
+  TechniqueComprehensionProgressBreakdown,
   TechniqueActivityCancelRef,
   TechniqueActivityQueueItem,
   TechniqueActivityTaskListView,
@@ -35,6 +36,7 @@ type LegacyTechniqueJob = {
   workRemainingTicks?: number;
   progressGainPerTick?: number;
   estimatedRemainingTicks?: number;
+  progressBreakdown?: TechniqueComprehensionProgressBreakdown;
   pausedTicks?: number;
   interruptWaitRemainingTicks?: number;
   interruptState?: { waitRemainingTicks?: number; [key: string]: unknown } | null;
@@ -125,6 +127,7 @@ function buildActiveJobTaskView(
     workRemainingTicks: resolveNonNegativeInteger(job.workRemainingTicks ?? job.remainingTicks),
     progressGainPerTick: resolvePositiveNumber(job.progressGainPerTick),
     estimatedRemainingTicks: resolveNonNegativeNumber(job.estimatedRemainingTicks),
+    progressBreakdown: resolveProgressBreakdown(job.progressBreakdown),
     canCancel: true,
     cancelRef: { kind, jobRunId },
   };
@@ -343,6 +346,41 @@ function resolvePositiveNumber(value: unknown): number | undefined {
 function resolveNonNegativeNumber(value: unknown): number | undefined {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : undefined;
+}
+
+function resolveProgressBreakdown(value: unknown): TechniqueComprehensionProgressBreakdown | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const source = value as Partial<Record<keyof TechniqueComprehensionProgressBreakdown, unknown>>;
+  const baseProgress = resolvePositiveNumber(source.baseProgress);
+  const progressGain = resolvePositiveNumber(source.progressGain);
+  const difficultyFactor = resolvePositiveNumber(source.difficultyFactor);
+  const realmFactor = resolvePositiveNumber(source.realmFactor);
+  const learnerTransmissionFactor = resolvePositiveNumber(source.learnerTransmissionFactor);
+  if (
+    baseProgress === undefined
+    || progressGain === undefined
+    || difficultyFactor === undefined
+    || realmFactor === undefined
+    || learnerTransmissionFactor === undefined
+  ) {
+    return undefined;
+  }
+  const teacherTransmissionLevel = resolvePositiveNumber(source.teacherTransmissionLevel);
+  const teacherTransmissionFactor = resolvePositiveNumber(source.teacherTransmissionFactor);
+  return {
+    baseProgress,
+    progressGain,
+    difficultyFactor,
+    techniqueRealmLv: Math.max(1, Math.floor(Number(source.techniqueRealmLv) || 1)),
+    learnerRealmLv: Math.max(1, Math.floor(Number(source.learnerRealmLv) || 1)),
+    learnerTransmissionLevel: Math.max(1, Math.floor(Number(source.learnerTransmissionLevel) || 1)),
+    ...(teacherTransmissionLevel === undefined ? {} : { teacherTransmissionLevel }),
+    realmFactor,
+    learnerTransmissionFactor,
+    ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+  };
 }
 
 function normalizeText(value: unknown): string | undefined {

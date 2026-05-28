@@ -1068,6 +1068,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previous.requiredProgress !== next.requiredProgress
         || previous.activeTransferJob?.jobId !== next.activeTransferJob?.jobId
         || previous.activeTransferJob?.status !== next.activeTransferJob?.status
+        || previous.activeTransferJob?.progressGainPerTick !== next.activeTransferJob?.progressGainPerTick
+        || previous.activeTransferJob?.estimatedRemainingTicks !== next.activeTransferJob?.estimatedRemainingTicks
+        || !isPlainEqual(previous.activeTransferJob?.progressBreakdown ?? null, next.activeTransferJob?.progressBreakdown ?? null)
         || previous.activeTransferJob?.interruptWaitRemainingTicks !== next.activeTransferJob?.interruptWaitRemainingTicks
         || previous.activeTransferJob?.interruptState?.waitRemainingTicks !== next.activeTransferJob?.interruptState?.waitRemainingTicks) {
         return true;

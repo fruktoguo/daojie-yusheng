@@ -164,6 +164,7 @@ function buildProjectedTransmissionJob(entry, transmissionJob = null) {
     range: Math.max(1, Math.floor(Number(transmissionJob.range) || 2)),
     progressGainPerTick: normalizePositiveProjectionNumber(transmissionJob.progressGainPerTick),
     estimatedRemainingTicks: normalizeNonNegativeProjectionNumber(transmissionJob.estimatedRemainingTicks),
+    progressBreakdown: normalizeProgressBreakdown(transmissionJob.progressBreakdown),
     interruptWaitRemainingTicks: waitRemaining,
     interruptState: transmissionJob.interruptState && typeof transmissionJob.interruptState === 'object'
       ? { ...transmissionJob.interruptState }
@@ -179,6 +180,40 @@ function normalizePositiveProjectionNumber(value) {
 function normalizeNonNegativeProjectionNumber(value) {
   const normalized = Number(value);
   return Number.isFinite(normalized) && normalized >= 0 ? normalized : undefined;
+}
+
+function normalizeProgressBreakdown(value) {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const baseProgress = normalizePositiveProjectionNumber(value.baseProgress);
+  const progressGain = normalizePositiveProjectionNumber(value.progressGain);
+  const difficultyFactor = normalizePositiveProjectionNumber(value.difficultyFactor);
+  const realmFactor = normalizePositiveProjectionNumber(value.realmFactor);
+  const learnerTransmissionFactor = normalizePositiveProjectionNumber(value.learnerTransmissionFactor);
+  if (
+    baseProgress === undefined
+    || progressGain === undefined
+    || difficultyFactor === undefined
+    || realmFactor === undefined
+    || learnerTransmissionFactor === undefined
+  ) {
+    return undefined;
+  }
+  const teacherTransmissionLevel = normalizePositiveProjectionNumber(value.teacherTransmissionLevel);
+  const teacherTransmissionFactor = normalizePositiveProjectionNumber(value.teacherTransmissionFactor);
+  return {
+    baseProgress,
+    progressGain,
+    difficultyFactor,
+    techniqueRealmLv: Math.max(1, Math.floor(Number(value.techniqueRealmLv) || 1)),
+    learnerRealmLv: Math.max(1, Math.floor(Number(value.learnerRealmLv) || 1)),
+    learnerTransmissionLevel: Math.max(1, Math.floor(Number(value.learnerTransmissionLevel) || 1)),
+    ...(teacherTransmissionLevel === undefined ? {} : { teacherTransmissionLevel }),
+    realmFactor,
+    learnerTransmissionFactor,
+    ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+  };
 }
 
 function cloneAutoUsePills(source) {

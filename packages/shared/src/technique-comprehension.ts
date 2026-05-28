@@ -42,6 +42,19 @@ export function getTechniqueTransmissionSkillFactor(skillLevel: number, techniqu
   return 1;
 }
 
+export interface TechniqueComprehensionProgressBreakdown {
+  baseProgress: number;
+  progressGain: number;
+  difficultyFactor: number;
+  techniqueRealmLv: number;
+  learnerRealmLv: number;
+  learnerTransmissionLevel: number;
+  teacherTransmissionLevel?: number;
+  realmFactor: number;
+  learnerTransmissionFactor: number;
+  teacherTransmissionFactor?: number;
+}
+
 export function getTechniqueComprehensionProgressDifficultyFactor(input: {
   techniqueRealmLv: number;
   learnerRealmLv: number;
@@ -57,6 +70,46 @@ export function getTechniqueComprehensionProgressDifficultyFactor(input: {
   return Number.isFinite(factor) && factor > 0 ? factor : 1;
 }
 
+export function calculateTechniqueComprehensionProgressBreakdown(input: {
+  baseProgress: number;
+  techniqueRealmLv: number;
+  learnerRealmLv: number;
+  learnerTransmissionLevel?: number;
+  teacherTransmissionLevel?: number;
+}): TechniqueComprehensionProgressBreakdown {
+  const baseProgress = Number(input.baseProgress);
+  const normalizedBaseProgress = Number.isFinite(baseProgress) && baseProgress > 0 ? baseProgress : 0;
+  const techniqueRealmLv = Math.max(1, Math.floor(Number(input.techniqueRealmLv) || 1));
+  const learnerRealmLv = Math.max(1, Math.floor(Number(input.learnerRealmLv) || 1));
+  const learnerTransmissionLevel = Math.max(1, Math.floor(Number(input.learnerTransmissionLevel) || 1));
+  const teacherTransmissionLevel = input.teacherTransmissionLevel === undefined
+    ? undefined
+    : Math.max(1, Math.floor(Number(input.teacherTransmissionLevel) || 1));
+  const realmFactor = getTechniqueComprehensionRealmFactor(techniqueRealmLv, learnerRealmLv);
+  const learnerTransmissionFactor = getTechniqueTransmissionSkillFactor(learnerTransmissionLevel, techniqueRealmLv);
+  const teacherTransmissionFactor = teacherTransmissionLevel === undefined
+    ? undefined
+    : getTechniqueTransmissionSkillFactor(teacherTransmissionLevel, techniqueRealmLv);
+  const rawDifficultyFactor = realmFactor
+    * learnerTransmissionFactor
+    * (teacherTransmissionFactor ?? 1);
+  const difficultyFactor = Number.isFinite(rawDifficultyFactor) && rawDifficultyFactor > 0
+    ? rawDifficultyFactor
+    : 1;
+  return {
+    baseProgress: normalizedBaseProgress,
+    progressGain: normalizedBaseProgress > 0 ? Math.max(0, normalizedBaseProgress / difficultyFactor) : 0,
+    difficultyFactor,
+    techniqueRealmLv,
+    learnerRealmLv,
+    learnerTransmissionLevel,
+    ...(teacherTransmissionLevel === undefined ? {} : { teacherTransmissionLevel }),
+    realmFactor,
+    learnerTransmissionFactor,
+    ...(teacherTransmissionFactor === undefined ? {} : { teacherTransmissionFactor }),
+  };
+}
+
 export function calculateTechniqueComprehensionProgressGain(input: {
   baseProgress: number;
   techniqueRealmLv: number;
@@ -68,8 +121,7 @@ export function calculateTechniqueComprehensionProgressGain(input: {
   if (!Number.isFinite(baseProgress) || baseProgress <= 0) {
     return 0;
   }
-  const difficultyFactor = getTechniqueComprehensionProgressDifficultyFactor(input);
-  return Math.max(0, baseProgress / difficultyFactor);
+  return calculateTechniqueComprehensionProgressBreakdown(input).progressGain;
 }
 
 export function calculateTechniqueComprehensionRequiredProgress(input: {

@@ -552,6 +552,10 @@ function testTransmissionBlocksCancelsAndContinues() {
   assert.equal(teacherA.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
   assertAlmostEqual(learner.transmissionJob?.progressGainPerTick ?? 0, 1, 'transmission progress gain per tick');
   assert.equal(learner.transmissionJob?.estimatedRemainingTicks, 299);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.baseProgress, 1);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.realmFactor, 1);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.learnerTransmissionFactor, 1);
+  assert.equal(learner.transmissionJob?.progressBreakdown?.teacherTransmissionFactor, 1);
 
   assert.equal(interruptTransmissionWithPipeline(runtimeService, learner, 'move').panelChanged, true);
   assert.equal(learner.transmissionJob?.interruptWaitRemainingTicks, 10);
