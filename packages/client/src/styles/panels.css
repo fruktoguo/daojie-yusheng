@@ -2812,10 +2812,21 @@
       align-items: center;
     }
     .detail-modal-card.detail-modal--activity {
-      width: min(760px, calc(100vw - 32px));
+      width: min(clamp(760px, 68vw, 960px), calc(100vw - 32px));
+      min-height: min(520px, calc(100dvh - var(--ui-modal-padding-top, 24px) - var(--ui-modal-padding-bottom, 24px) - 24px));
+      max-height: min(82dvh, calc(100dvh - var(--ui-modal-padding-top, 24px) - var(--ui-modal-padding-bottom, 24px) - 24px));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .detail-modal-card.detail-modal--activity #detail-modal-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
     }
     .activity-shell {
       display: flex;
+      min-height: 100%;
       flex-direction: column;
       gap: 14px;
     }
@@ -2850,6 +2861,8 @@
     }
     .activity-card {
       display: flex;
+      flex: 1;
+      min-height: 0;
       flex-direction: column;
       gap: 16px;
       padding: 16px;
@@ -2907,6 +2920,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      margin-top: auto;
     }
     .activity-action-btn {
       min-height: 38px;
@@ -2947,6 +2961,8 @@
     @media (max-width: 720px) {
       .detail-modal-card.detail-modal--activity {
         width: min(100vw - 16px, 760px);
+        min-height: min(460px, calc(100dvh - var(--ui-modal-padding-top, 8px) - var(--ui-modal-padding-bottom, 8px) - 16px));
+        max-height: min(86dvh, calc(100dvh - var(--ui-modal-padding-top, 8px) - var(--ui-modal-padding-bottom, 8px) - 16px));
       }
       .activity-metric-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
