@@ -521,7 +521,7 @@ export interface PendingTechniqueComprehensionState {
   creatorPlayerId?: string;
   /**
    * selfComprehensionAllowed：是否允许通过主修修炼自行领悟。
-   * 功法书和自创功法默认为 true；被他人传授加入的功法为 false，必须由传法 job 推进。
+   * 功法书和自己创建的自创功法为 true；被他人传授加入的功法为 false，必须由传法 job 推进。
    */
   selfComprehensionAllowed?: boolean;
   progress: number;

@@ -808,18 +808,28 @@ export class PlayerRuntimeService {
             existing.updatedAtTick = currentTick;
             existing.name = technique.name ?? existing.name ?? normalizedTechId;
             existing.sourceKind = normalizedSourceKind;
-            existing.selfComprehensionAllowed = true;
+            existing.selfComprehensionAllowed = resolvePendingSelfComprehensionAllowed(
+                player.playerId,
+                normalizedSourceKind,
+                creatorPlayerId ?? existing.creatorPlayerId,
+                existing,
+            );
             if (creatorPlayerId) {
                 existing.creatorPlayerId = creatorPlayerId;
             }
         }
         else {
+            const selfComprehensionAllowed = resolvePendingSelfComprehensionAllowed(
+                player.playerId,
+                normalizedSourceKind,
+                creatorPlayerId,
+            );
             pending.push({
                 techId: normalizedTechId,
                 name: technique.name ?? normalizedTechId,
                 sourceKind: normalizedSourceKind,
                 creatorPlayerId: creatorPlayerId ?? undefined,
-                selfComprehensionAllowed: true,
+                selfComprehensionAllowed,
                 progress: 0,
                 requiredProgress,
                 realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
@@ -6617,6 +6627,22 @@ function clonePendingTechniqueComprehensions(value) {
             selfComprehensionAllowed: entry.selfComprehensionAllowed !== false,
             activeTransferJob: null,
         }));
+}
+
+function resolvePendingSelfComprehensionAllowed(playerId, sourceKind, creatorPlayerId = null, existing = null) {
+    if (sourceKind !== 'created') {
+        return true;
+    }
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    const normalizedCreatorId = typeof creatorPlayerId === 'string' ? creatorPlayerId.trim() : '';
+    if (normalizedCreatorId) {
+        return normalizedCreatorId === normalizedPlayerId;
+    }
+    const existingCreatorId = typeof existing?.creatorPlayerId === 'string' ? existing.creatorPlayerId.trim() : '';
+    if (existingCreatorId) {
+        return existingCreatorId === normalizedPlayerId;
+    }
+    return false;
 }
 
 function normalizeLegacyTransmissionJobFromPending(sourcePendingList, normalizedPendingList) {
