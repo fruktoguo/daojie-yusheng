@@ -90,6 +90,9 @@ export class NativeGmAiProviderController {
       await this.secretStore.set(secretKeyRef, apiKey, `AI ${kind} provider ${scope}`);
       secretWritten = true;
     }
+    if (body?.enabled !== false && !(await this.hasUsableApiKey(secretKeyRef))) {
+      throw new BadRequestException('启用 AI provider 需要填写可用 API Key；当前密钥引用不存在或无法解密');
+    }
 
     const item = await this.aiProviderConfigService.upsert({
       scope,
@@ -287,6 +290,14 @@ export class NativeGmAiProviderController {
     const apiKey = await this.secretStore.readSecret(record.secretKeyRef);
     if (!apiKey) throw new BadRequestException('AI provider 未配置可用 API Key');
     return apiKey;
+  }
+
+  private async hasUsableApiKey(secretKeyRef: string): Promise<boolean> {
+    if (!this.secretStore.isAvailable()) {
+      return false;
+    }
+    const apiKey = await this.secretStore.readSecret(secretKeyRef);
+    return typeof apiKey === 'string' && apiKey.trim().length > 0;
   }
 }
 
