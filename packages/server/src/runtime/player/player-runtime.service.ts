@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -3539,6 +3539,7 @@ export class PlayerRuntimeService {
         }
         let changed = false;
         let completed = false;
+        let professionChanged = false;
         for (const pending of [...pendingList]) {
             const job = pending?.activeTransferJob;
             if (!job) {
@@ -3574,6 +3575,12 @@ export class PlayerRuntimeService {
             pending.progress = Math.min(requiredProgress, previousProgress + 1);
             pending.updatedAtTick = playerTick;
             changed = true;
+            professionChanged = applyTransmissionSkillExpFromTicks(
+                player,
+                Math.max(0, pending.progress - previousProgress),
+                pending.realmLv,
+                (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level),
+            ) || professionChanged;
             if (pending.progress < requiredProgress) {
                 continue;
             }
@@ -3617,10 +3624,10 @@ export class PlayerRuntimeService {
             this.playerAttributesService.recalculate(player);
             this.rebuildActionState(player, playerTick);
             this.playerProgressionService.refreshPreview(player);
-            markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
+            markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr', ...(professionChanged ? ['profession'] : [])]);
         }
         else {
-            markPlayerDirtyDomains(player, ['technique']);
+            markPlayerDirtyDomains(player, ['technique', ...(professionChanged ? ['profession'] : [])]);
         }
         this.bumpPersistentRevision(player);
     }
@@ -6588,6 +6595,48 @@ function normalizeCraftSkillState(value, resolveExpToNext = null) {
 function cloneCraftSkillState(value) {
     return value ? { ...normalizeCraftSkillState(value) } : undefined;
 }
+
+function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, getExpToNextByLevel) {
+    const skill = player?.transmissionSkill;
+    if (!skill) {
+        return false;
+    }
+    const gain = computeCraftSkillExpGain({
+        skillLevel: skill.level,
+        targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
+        baseActionTicks: elapsedTicks,
+        getExpToNextByLevel,
+        successCount: 1,
+        failureCount: 0,
+        successMultiplier: 1,
+    }).finalGain;
+    return applyCraftSkillExpLocal(skill, gain, getExpToNextByLevel);
+}
+
+function applyCraftSkillExpLocal(skill, amount, getExpToNextByLevel) {
+    if (!skill) {
+        return false;
+    }
+    let changed = false;
+    const resolvedExpToNext = Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0));
+    if (skill.expToNext !== resolvedExpToNext) {
+        skill.expToNext = resolvedExpToNext;
+        changed = true;
+    }
+    const gain = Math.max(0, Math.floor(Number(amount) || 0));
+    if (gain <= 0) {
+        return changed;
+    }
+    skill.exp += gain;
+    while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
+        skill.exp -= skill.expToNext;
+        skill.level += 1;
+        skill.expToNext = Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0));
+        changed = true;
+    }
+    return changed || gain > 0;
+}
+
 function clonePendingTechniqueComprehensions(value) {
     if (!Array.isArray(value)) {
         return [];

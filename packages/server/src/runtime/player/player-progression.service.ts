@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';
+import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -2022,12 +2022,20 @@ export class PlayerProgressionService {
         const requiredProgress = Math.max(1, Math.floor(Number(pending.requiredProgress) || 1));
         pending.progress = Math.min(requiredProgress, previousProgress + normalized);
         pending.updatedAtTick = Math.max(0, Math.floor(Number(player.lifeElapsedTicks) || 0));
+        const progressedTicks = Math.max(0, pending.progress - previousProgress);
+        const transmissionSkillDirty = applyTransmissionSkillExpFromTicks(
+            player,
+            progressedTicks,
+            pending.realmLv,
+            (level) => this.getRealmRuntimeExpToNext(level),
+        );
         if (pending.progress < requiredProgress) {
             return {
                 changed: true,
                 panelDirty: false,
                 attrRecalculated: false,
                 techniquesDirty: true,
+                professionDirty: transmissionSkillDirty,
                 actionsDirty: false,
                 notices: [],
             };
@@ -2039,6 +2047,7 @@ export class PlayerProgressionService {
                 panelDirty: false,
                 attrRecalculated: false,
                 techniquesDirty: true,
+                professionDirty: transmissionSkillDirty,
                 actionsDirty: false,
                 notices: [{
                     text: `功法 ${pending.name ?? pending.techId} 已无法找到，领悟进度保留。`,
@@ -2060,6 +2069,7 @@ export class PlayerProgressionService {
             panelDirty: false,
             attrRecalculated,
             techniquesDirty: true,
+            professionDirty: transmissionSkillDirty,
             actionsDirty: true,
             notices: [{
                 text: `${pending.name ?? pending.techId} 已领悟完成。`,
@@ -2263,6 +2273,7 @@ function createEmptyMutation() {
         attrRecalculated: false,
         techniquesDirty: false,
         bodyTrainingDirty: false,
+        professionDirty: false,
         actionsDirty: false,
         notices: [],
     };
@@ -2282,6 +2293,9 @@ function describeProgressionDirtyDomains(mutation) {
     }
     if (mutation.bodyTrainingDirty) {
         domains.push('body_training');
+    }
+    if (mutation.professionDirty) {
+        domains.push('profession');
     }
     return domains;
 }
@@ -2317,6 +2331,7 @@ function mergeProgressionMutation(left, right) {
         realmChanged: left.realmChanged || right.realmChanged,
         techniquesDirty: left.techniquesDirty || right.techniquesDirty,
         bodyTrainingDirty: left.bodyTrainingDirty || right.bodyTrainingDirty,
+        professionDirty: left.professionDirty || right.professionDirty,
         actionsDirty: left.actionsDirty || right.actionsDirty,
 
         notices: left.notices.length === 0
@@ -2374,6 +2389,47 @@ function applyTechniqueRateBonus(baseGain, levelAdjustment = 1, options: any = {
         return applyRateBonus(adjustedGain, options.expBonus, options.minimumGain ?? 1);
     }
     return normalizeProgressionAmount(adjustedGain);
+}
+
+function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, getExpToNextByLevel) {
+    const skill = player?.transmissionSkill;
+    if (!skill) {
+        return false;
+    }
+    const gain = computeCraftSkillExpGain({
+        skillLevel: skill.level,
+        targetLevel: Math.max(1, Math.floor(Number(targetLevel) || 1)),
+        baseActionTicks: elapsedTicks,
+        getExpToNextByLevel,
+        successCount: 1,
+        failureCount: 0,
+        successMultiplier: 1,
+    }).finalGain;
+    return applyCraftSkillExpLocal(skill, gain, getExpToNextByLevel);
+}
+
+function applyCraftSkillExpLocal(skill, amount, getExpToNextByLevel) {
+    if (!skill) {
+        return false;
+    }
+    let changed = false;
+    const resolvedExpToNext = Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0));
+    if (skill.expToNext !== resolvedExpToNext) {
+        skill.expToNext = resolvedExpToNext;
+        changed = true;
+    }
+    const gain = Math.max(0, Math.floor(Number(amount) || 0));
+    if (gain <= 0) {
+        return changed;
+    }
+    skill.exp += gain;
+    while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
+        skill.exp -= skill.expToNext;
+        skill.level += 1;
+        skill.expToNext = Math.max(0, Math.floor(Number(getExpToNextByLevel(skill.level)) || 0));
+        changed = true;
+    }
+    return changed || gain > 0;
 }
 
 function normalizeCultivationAuraMultiplier(value) {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { computeCraftSkillExpGain } from '@mud/shared';
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
@@ -39,6 +40,10 @@ const contentTemplateRepository = {
     return null;
   },
 };
+
+function resolveExpToNextByLevel() {
+  return 60;
+}
 
 const playerAttributesService = {
   recalculate() {
@@ -92,6 +97,7 @@ function createRuntimeService() {
     playerAttributesService as never,
     null,
   );
+  (progressionService as any).getRealmRuntimeExpToNext = resolveExpToNextByLevel;
   const runtimeService = new PlayerRuntimeService(
     contentTemplateRepository as never,
     null as never,
@@ -100,7 +106,35 @@ function createRuntimeService() {
       refreshPreview() {},
     } as never,
   );
+  (runtimeService as any).playerProgressionService.getRealmRuntimeExpToNext = resolveExpToNextByLevel;
   return { progressionService, runtimeService };
+}
+
+function getExpectedTransmissionExpGain(skillLevel: number, targetLevel: number, ticks: number): number {
+  return computeCraftSkillExpGain({
+    skillLevel,
+    targetLevel,
+    baseActionTicks: ticks,
+    getExpToNextByLevel: resolveExpToNextByLevel,
+    successCount: 1,
+    failureCount: 0,
+    successMultiplier: 1,
+  }).finalGain;
+}
+
+function getExpectedRepeatedTransmissionExpGain(skillLevel: number, targetLevel: number, ticks: number): number {
+  const normalizedTicks = Math.max(0, Math.floor(Number(ticks) || 0));
+  let level = Math.max(1, Math.floor(Number(skillLevel) || 1));
+  let exp = 0;
+  const expToNext = resolveExpToNextByLevel();
+  for (let index = 0; index < normalizedTicks; index += 1) {
+    exp += getExpectedTransmissionExpGain(level, targetLevel, 1);
+    while (expToNext > 0 && exp >= expToNext) {
+      exp -= expToNext;
+      level += 1;
+    }
+  }
+  return exp;
 }
 
 function testSelfComprehensionProgressesOnlyWithoutTransmission() {
@@ -128,6 +162,7 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   });
   assert.equal(progressed.changed, true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 4);
+  assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 4));
 
   learner.pendingTechniqueComprehensions[0]!.activeTransferJob = {
     jobId: 'job:test',
@@ -143,6 +178,7 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   });
   assert.equal(blocked.changed, false);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 4);
+  assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 4));
 }
 
 function testCultivationUsesElapsedTicksForPendingComprehension() {
@@ -169,6 +205,7 @@ function testCultivationUsesElapsedTicksForPendingComprehension() {
   const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
   assert.equal(result.changed, true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
+  assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
 
 function testPendingTechniqueNameResolvesDisplayName() {
@@ -237,6 +274,7 @@ function testTransmissionBlocksCancelsAndContinues() {
   pending.requiredProgress = 3;
   runtimeService.advanceTechniqueTransmissionForPlayer(learner, 1);
   assert.equal(pending.progress, 1);
+  assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 
   teacherA.x = 99;
   runtimeService.advanceTechniqueTransmissionForPlayer(learner, 2);
@@ -251,6 +289,7 @@ function testTransmissionBlocksCancelsAndContinues() {
   runtimeService.advanceTechniqueTransmissionForPlayer(learner, 4);
   assert.equal(learner.pendingTechniqueComprehensions.length, 0);
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
+  assert.equal(learner.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 3));
 }
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();

@@ -744,12 +744,17 @@ export class TechniquePanel {
     const isCultivating = this.lastState.cultivatingTechId === pending.techId;
     const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;
     const locked = Boolean(pending.activeTransferJob);
+    const realmLv = Math.max(1, Math.floor(Number(pending.realmLv) || 1));
+    const realmLabel = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
     const template = document.createElement('template');
     template.innerHTML = `<div class="tech-card pending ${isCultivating ? 'cultivating' : ''}" data-pending-tech-card="${escapeHtml(pending.techId)}">
       <button class="tech-card-main" data-cultivate="${locked || isCultivating ? '' : escapeHtml(pending.techId)}" data-cultivate-stop="${isCultivating && !locked ? escapeHtml(pending.techId) : ''}" type="button">
         <span class="tech-summary-main">
           <span class="tech-name">${escapeHtml(pending.name)}</span>
           <span class="tech-badge tech-category">${pending.sourceKind === 'created' ? '自创' : '未领悟'}</span>
+          <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(pending.grade))}</span>
+          <span class="tech-badge tech-category">${escapeHtml(getTechniqueCategoryLabel(pending.category))}</span>
+          <span class="tech-badge tech-realm-level">${escapeHtml(realmLabel)}</span>
           ${locked ? `<span class="tech-badge tech-grade">${pending.activeTransferJob?.status === 'blocked' ? '等待传授' : '传授中'}</span>` : ''}
         </span>
         <span class="tech-progress-meta"><span class="tech-progress-text">${Math.floor(pending.progress)} / ${Math.floor(pending.requiredProgress)}</span></span>

@@ -8,6 +8,8 @@ import type { PlayerState, TechniqueCategory, TechniqueState } from '@mud/shared
 import { getTechniqueMaxLevel, TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../../domain-labels';
+import { getLocalRealmLevelEntry } from '../../../content/local-templates';
+import { formatDisplayInteger } from '../../../utils/number';
 import { t } from '../../../ui/i18n';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -192,6 +194,8 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
   isCultivating: boolean;
 }) {
   const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;
+  const realmLv = Math.max(1, Math.floor(Number(pending.realmLv) || 1));
+  const realmLabel = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
   const handleCultivate = useCallback(() => {
     callbacks.onCultivate?.(isCultivating ? null : pending.techId);
   }, [isCultivating, pending.techId]);
@@ -204,6 +208,9 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
         <span className="tech-summary-main">
           <span className="tech-name">{pending.name}</span>
           <span className="tech-badge tech-category">{pending.sourceKind === 'created' ? '自创' : '未领悟'}</span>
+          <span className="tech-badge tech-grade">{getTechniqueGradeLabel(pending.grade)}</span>
+          <span className="tech-badge tech-category">{getTechniqueCategoryLabel(pending.category)}</span>
+          <span className="tech-badge tech-realm-level">{realmLabel}</span>
           {pending.activeTransferJob && <span className="tech-badge tech-grade">{pending.activeTransferJob.status === 'blocked' ? '等待传授' : '传授中'}</span>}
         </span>
         <span className="tech-progress-meta">
