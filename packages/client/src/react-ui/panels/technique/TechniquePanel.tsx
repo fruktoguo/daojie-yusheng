@@ -94,6 +94,11 @@ function formatProgressText(tech: TechniqueState): string {
   return `${tech.exp ?? 0} / ${tech.expToNext ?? 0}`;
 }
 
+function getTechniqueRealmLevelLabel(realmLv: number): string {
+  const normalizedRealmLv = Math.max(1, Math.floor(Number(realmLv) || 1));
+  return getLocalRealmLevelEntry(normalizedRealmLv)?.displayName ?? `Lv.${formatDisplayInteger(normalizedRealmLv)}`;
+}
+
 function sortTechniques(techniques: TechniqueState[]): TechniqueState[] {
   return [...techniques].sort((a, b) => {
     const ga = GRADE_SORT_INDEX.get(a.grade!) ?? 99;
@@ -194,8 +199,7 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
   isCultivating: boolean;
 }) {
   const ratio = pending.requiredProgress > 0 ? Math.min(1, pending.progress / pending.requiredProgress) : 0;
-  const realmLv = Math.max(1, Math.floor(Number(pending.realmLv) || 1));
-  const realmLabel = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
+  const realmLabel = getTechniqueRealmLevelLabel(pending.realmLv);
   const handleCultivate = useCallback(() => {
     callbacks.onCultivate?.(isCultivating ? null : pending.techId);
   }, [isCultivating, pending.techId]);
@@ -207,7 +211,8 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
       <button className="tech-card-main" type="button" onClick={handleCultivate}>
         <span className="tech-summary-main">
           <span className="tech-name">{pending.name}</span>
-          <span className="tech-badge tech-category">{pending.sourceKind === 'created' ? '自创' : '未领悟'}</span>
+          <span className="tech-badge tech-category">未领悟</span>
+          {pending.sourceKind === 'created' && <span className="tech-badge tech-category">自创</span>}
           <span className="tech-badge tech-grade">{getTechniqueGradeLabel(pending.grade)}</span>
           <span className="tech-badge tech-category">{getTechniqueCategoryLabel(pending.category)}</span>
           <span className="tech-badge tech-realm-level">{realmLabel}</span>
@@ -256,6 +261,7 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
   const progressText = formatProgressText(tech);
   const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
   const gradeLabel = getTechniqueGradeLabel(tech.grade);
+  const realmLevelLabel = getTechniqueRealmLevelLabel(tech.realmLv);
 
   const handleCultivate = useCallback(() => {
     callbacks.onCultivate?.(isCultivating ? null : tech.techId);
@@ -276,6 +282,7 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
           <span className="tech-name">{tech.name}</span>
           <span className="tech-badge tech-grade">{gradeLabel}</span>
           <span className="tech-badge tech-category">{categoryLabel}</span>
+          <span className="tech-badge tech-realm-level">{realmLevelLabel}</span>
           <span className="tech-layer">{t('technique.card.layer', { level: tech.level, maxLevel })}</span>
         </span>
         <span className="tech-progress-meta">

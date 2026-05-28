@@ -751,7 +751,8 @@ export class TechniquePanel {
       <button class="tech-card-main" data-cultivate="${locked || isCultivating ? '' : escapeHtml(pending.techId)}" data-cultivate-stop="${isCultivating && !locked ? escapeHtml(pending.techId) : ''}" type="button">
         <span class="tech-summary-main">
           <span class="tech-name">${escapeHtml(pending.name)}</span>
-          <span class="tech-badge tech-category">${pending.sourceKind === 'created' ? '自创' : '未领悟'}</span>
+          <span class="tech-badge tech-category">未领悟</span>
+          ${pending.sourceKind === 'created' ? '<span class="tech-badge tech-category">自创</span>' : ''}
           <span class="tech-badge tech-grade">${escapeHtml(getTechniqueGradeLabel(pending.grade))}</span>
           <span class="tech-badge tech-category">${escapeHtml(getTechniqueCategoryLabel(pending.category))}</span>
           <span class="tech-badge tech-realm-level">${escapeHtml(realmLabel)}</span>
