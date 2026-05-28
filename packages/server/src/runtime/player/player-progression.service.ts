@@ -425,11 +425,13 @@ export class PlayerProgressionService {
             }));
         }
         const techniqueBaseGain = techniqueBasePerTick * ticks;
-        if (techniqueBaseGain > 0) {
+        const pendingComprehensionTicks = this.resolveCultivatingPendingComprehension(player) ? ticks : 0;
+        if (techniqueBaseGain > 0 || pendingComprehensionTicks > 0) {
             mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueBaseGain, {
                 expBonus: player.attrs.numericStats.techniqueExpRate,
                 minimumGain: 1,
                 allowPendingComprehension: true,
+                pendingComprehensionTicks,
             }));
         }
         if (!mutation.changed) {
@@ -2010,7 +2012,9 @@ export class PlayerProgressionService {
         if (pending.activeTransferJob) {
             return resolved;
         }
-        const normalized = applyTechniqueRateBonus(amount, 1, options);
+        const normalized = Object.prototype.hasOwnProperty.call(options ?? {}, 'pendingComprehensionTicks')
+            ? normalizeProgressionAmount(options.pendingComprehensionTicks)
+            : normalizeProgressionAmount(amount);
         if (normalized <= 0) {
             return resolved;
         }

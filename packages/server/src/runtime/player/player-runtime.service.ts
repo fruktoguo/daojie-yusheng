@@ -1601,7 +1601,15 @@ export class PlayerRuntimeService {
     getTechniqueName(playerId, techId) {
 
         const player = this.getPlayerOrThrow(playerId);
-        return player.techniques.techniques.find((entry) => entry.techId === techId)?.name ?? null;
+        const learnedName = player.techniques.techniques.find((entry) => entry.techId === techId)?.name;
+        if (learnedName) {
+            return learnedName;
+        }
+        const pendingName = (player.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === techId)?.name;
+        if (pendingName) {
+            return pendingName;
+        }
+        return this.contentTemplateRepository.createTechniqueState(techId)?.name ?? null;
     }
     /**
  * listQuests：读取任务并返回结果。

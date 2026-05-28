@@ -66,7 +66,18 @@ function createPlayer(playerId: string, x: number, y: number) {
     combat: { cultivationActive: false },
     notices: { nextId: 1, queue: [] },
     actions: { revision: 0, actions: [], contextActions: [] },
-    attrs: { revision: 0, baseAttrs: {}, finalAttrs: {}, numericStats: {}, ratioDivisors: {} },
+    attrs: {
+      revision: 0,
+      baseAttrs: {},
+      finalAttrs: {},
+      numericStats: {
+        realmExpPerTick: 0,
+        techniqueExpPerTick: 0,
+        playerExpRate: 0,
+        techniqueExpRate: 0,
+      },
+      ratioDivisors: {},
+    },
     buffs: { revision: 0, buffs: [] },
     inventory: { revision: 0, items: [] },
     equipment: { revision: 0, slots: {} },
@@ -110,7 +121,11 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
     activeTransferJob: null,
   });
 
-  const progressed = progressionService.advanceTechniqueProgressInternal(learner, 4, { allowPendingComprehension: true });
+  const progressed = progressionService.advanceTechniqueProgressInternal(learner, 999, {
+    allowPendingComprehension: true,
+    expBonus: 100000,
+    pendingComprehensionTicks: 4,
+  });
   assert.equal(progressed.changed, true);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 4);
 
@@ -121,9 +136,60 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
     status: 'running',
     range: 2,
   };
-  const blocked = progressionService.advanceTechniqueProgressInternal(learner, 4, { allowPendingComprehension: true });
+  const blocked = progressionService.advanceTechniqueProgressInternal(learner, 999, {
+    allowPendingComprehension: true,
+    expBonus: 100000,
+    pendingComprehensionTicks: 4,
+  });
   assert.equal(blocked.changed, false);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 4);
+}
+
+function testCultivationUsesElapsedTicksForPendingComprehension() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:cultivation', 0, 0);
+  learner.combat.cultivationActive = true;
+  learner.attrs.numericStats.techniqueExpPerTick = 999;
+  learner.attrs.numericStats.techniqueExpRate = 100000;
+  learner.techniques.cultivatingTechId = createdTechnique.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    progress: 0,
+    requiredProgress: 10,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
+  assert.equal(result.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
+}
+
+function testPendingTechniqueNameResolvesDisplayName() {
+  const { runtimeService } = createRuntimeService();
+  const learner = createPlayer('learner:name', 0, 0);
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    progress: 0,
+    requiredProgress: 10,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+  runtimeService.players.set(learner.playerId, learner);
+
+  assert.equal(runtimeService.getTechniqueName(learner.playerId, createdTechnique.techId), createdTechnique.name);
 }
 
 function testTransmissionBlocksCancelsAndContinues() {
@@ -188,6 +254,8 @@ function testTransmissionBlocksCancelsAndContinues() {
 }
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();
+testCultivationUsesElapsedTicksForPendingComprehension();
+testPendingTechniqueNameResolvesDisplayName();
 testTransmissionBlocksCancelsAndContinues();
 
 console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));
