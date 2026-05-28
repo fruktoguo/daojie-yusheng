@@ -47,8 +47,8 @@ import {
   normalizeEnhanceLevel,
   normalizeAlchemyQuantity,
 } from '@mud/shared';
-import { getLocalItemTemplate } from '../content/local-templates';
-import { getEquipSlotLabel, getItemTypeLabel, getTechniqueGradeLabel } from '../domain-labels';
+import { getLocalItemTemplate, getLocalRealmLevelEntry } from '../content/local-templates';
+import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger, formatDisplayPercent } from '../utils/number';
 import { confirmModalHost } from './confirm-modal-host';
 import { detailModalHost } from './detail-modal-host';
@@ -1637,6 +1637,14 @@ export class CraftWorkbenchModal {
     return (this.transmissionTechniques ?? []).filter((tech) => isCreatedTechniqueId(tech.techId));
   }
 
+  private getTransmissionTechniqueMetaText(tech: PlayerState['techniques'][number]): string {
+    const gradeLabel = getTechniqueGradeLabel(tech.grade);
+    const categoryLabel = getTechniqueCategoryLabel(tech.category);
+    const realmLv = Math.max(1, Math.floor(Number(tech.realmLv) || 1));
+    const realmLabel = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
+    return [gradeLabel, categoryLabel, realmLabel].join(' · ');
+  }
+
   private renderTransmissionPendingRow(entry: NonNullable<PlayerState['pendingTechniqueComprehensions']>[number]): string {
     const required = Math.max(1, Math.floor(Number(entry.requiredProgress) || 1));
     const progress = Math.max(0, Math.floor(Number(entry.progress) || 0));
@@ -1669,8 +1677,9 @@ export class CraftWorkbenchModal {
       return '<div class="empty-hint">暂无可传授自创功法</div>';
     }
     const techniqueOptions = techniques.map((tech) => {
-      const search = `${tech.name ?? ''} ${tech.techId}`.toLowerCase();
-      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(getTechniqueGradeLabel(tech.grade))} · 第 ${formatDisplayInteger(tech.level ?? 1)} 层</option>`;
+      const metaText = this.getTransmissionTechniqueMetaText(tech);
+      const search = `${tech.name ?? ''} ${tech.techId} ${metaText}`.toLowerCase();
+      return `<option value="${escapeHtmlAttr(tech.techId)}" data-search="${escapeHtmlAttr(search)}">${escapeHtml(tech.name ?? tech.techId)} · ${escapeHtml(metaText)}</option>`;
     }).join('');
     const targetOptions = targets.length > 0
       ? targets.map((target) => `<option value="${escapeHtmlAttr(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
