@@ -447,6 +447,7 @@ export class WorldRuntimeNavigationService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         this.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
+            reason: 'move',
         });
         const normalizedTargetMapId = typeof targetMapId === 'string' && targetMapId.trim()
             ? targetMapId.trim()

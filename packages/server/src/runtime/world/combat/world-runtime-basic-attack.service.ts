@@ -144,6 +144,7 @@ export class WorldRuntimeBasicAttackService {
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.recordActivity(playerId, currentTick, {
             interruptCultivation: true,
+            reason: 'attack',
         });
         if (!isMiningJobIssuedTileAttack(attacker, targetX, targetY)) {
             deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
@@ -433,6 +434,7 @@ export class WorldRuntimeBasicAttackService {
             : this.playerRuntimeService.getPlayerOrThrow(target.playerId);
         this.playerRuntimeService.recordActivity(target.playerId, currentTick, {
             interruptCultivation: true,
+            reason: 'attack',
         });
         if (updated.hp <= 0 && appliedOutcome?.adapterResult?.handledDefeat !== true) {
             await deps.handlePlayerDefeat(updated.playerId, attacker.playerId);

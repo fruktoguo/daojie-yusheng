@@ -292,6 +292,7 @@ export class WorldRuntimePlayerCombatService {
         const updated = this.playerRuntimeService.applyDamage(playerId, amount);
         this.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
+            reason: 'attack',
         });
         if (updated.hp <= 0) {
             await this.handlePlayerDefeat(playerId, deps);

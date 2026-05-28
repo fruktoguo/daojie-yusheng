@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -917,6 +917,42 @@ export class PlayerRuntimeService {
         markPlayerDirtyDomains(learner, ['technique']);
         this.bumpPersistentRevision(learner);
         return learner;
+    }
+    interruptTechniqueTransmissionForPlayer(learnerPlayerId, reason = 'attack', currentTick = 0) {
+        const learner = this.getPlayer(learnerPlayerId);
+        if (!learner) {
+            return false;
+        }
+        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        const normalizedReason = normalizeTechniqueTransmissionInterruptReason(reason);
+        let changed = false;
+        for (const pending of learner.pendingTechniqueComprehensions ?? []) {
+            const job = pending?.activeTransferJob;
+            if (!job || job.status === 'blocked') {
+                continue;
+            }
+            const currentRemaining = resolveTechniqueTransmissionInterruptWait(job);
+            if (currentRemaining >= TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS) {
+                continue;
+            }
+            job.interruptWaitRemainingTicks = TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS;
+            job.interruptState = {
+                ...(job.interruptState ?? {}),
+                reason: normalizedReason,
+                waitTotalTicks: TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS,
+                waitRemainingTicks: TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS,
+                startedAtTick: normalizedTick,
+            };
+            pending.updatedAtTick = normalizedTick;
+            changed = true;
+        }
+        if (!changed) {
+            return false;
+        }
+        learner.techniques.revision += 1;
+        markPlayerDirtyDomains(learner, ['technique']);
+        this.bumpPersistentRevision(learner);
+        return true;
     }
     /**
  * getSessionFence：读取当前运行态 session fencing 信息。
@@ -2691,6 +2727,9 @@ export class PlayerRuntimeService {
             markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
             this.bumpPersistentRevision(player);
         }
+        if (input.interruptCultivation === true) {
+            this.interruptTechniqueTransmissionForPlayer(playerId, input.reason ?? 'cultivate', normalizedTick);
+        }
         return player;
     }
     /**
@@ -3554,6 +3593,24 @@ export class PlayerRuntimeService {
                 }
                 continue;
             }
+            const interruptWaitRemainingTicks = resolveTechniqueTransmissionInterruptWait(job);
+            if (interruptWaitRemainingTicks > 0) {
+                const nextRemaining = Math.max(0, interruptWaitRemainingTicks - 1);
+                job.interruptWaitRemainingTicks = nextRemaining;
+                if (job.interruptState) {
+                    job.interruptState = {
+                        ...job.interruptState,
+                        waitRemainingTicks: nextRemaining,
+                    };
+                }
+                if (nextRemaining <= 0) {
+                    job.interruptWaitRemainingTicks = 0;
+                    job.interruptState = null;
+                }
+                pending.updatedAtTick = playerTick;
+                changed = true;
+                continue;
+            }
             const teacher = this.getPlayer(job.teacherPlayerId);
             const teacherTechnique = teacher?.techniques?.techniques?.find((entry) => entry?.techId === pending.techId) ?? null;
             if (!teacher || !teacherTechnique || !isPlayerInTransmissionRange(teacher, player)) {
@@ -3570,9 +3627,16 @@ export class PlayerRuntimeService {
                 delete job.blockedReason;
                 changed = true;
             }
-            const previousProgress = Math.max(0, Math.floor(Number(pending.progress) || 0));
-            const requiredProgress = Math.max(1, Math.floor(Number(pending.requiredProgress) || 1));
-            pending.progress = Math.min(requiredProgress, previousProgress + 1);
+            const previousProgress = Math.max(0, Number(pending.progress) || 0);
+            const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
+            const progressGain = calculateTechniqueComprehensionProgressGain({
+                baseProgress: 1,
+                techniqueRealmLv: pending.realmLv ?? teacherTechnique.realmLv,
+                learnerRealmLv: player.realm?.realmLv ?? 1,
+                learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
+                teacherTransmissionLevel: teacher.transmissionSkill?.level ?? 1,
+            });
+            pending.progress = Math.min(requiredProgress, previousProgress + progressGain);
             pending.updatedAtTick = playerTick;
             changed = true;
             professionChanged = applyTransmissionSkillExpFromTicks(
@@ -6596,6 +6660,8 @@ function cloneCraftSkillState(value) {
     return value ? { ...normalizeCraftSkillState(value) } : undefined;
 }
 
+const TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS = 10;
+
 function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, getExpToNextByLevel) {
     const skill = player?.transmissionSkill;
     if (!skill) {
@@ -6635,6 +6701,24 @@ function applyCraftSkillExpLocal(skill, amount, getExpToNextByLevel) {
         changed = true;
     }
     return changed || gain > 0;
+}
+
+function resolveTechniqueTransmissionInterruptWait(job) {
+    return Math.max(0, Math.floor(Number(
+        job?.interruptWaitRemainingTicks
+            ?? job?.interruptState?.waitRemainingTicks
+            ?? 0,
+    ) || 0));
+}
+
+function normalizeTechniqueTransmissionInterruptReason(reason) {
+    return reason === 'move'
+        || reason === 'attack'
+        || reason === 'cancel'
+        || reason === 'cultivate'
+        || reason === 'defeat'
+        ? reason
+        : 'attack';
 }
 
 function clonePendingTechniqueComprehensions(value) {

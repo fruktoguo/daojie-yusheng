@@ -60,7 +60,7 @@ export function createPlayerOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) 
     if (targetPlayerId && result?.recordActivity !== false) {
       callFirstDefined([
         () => handlers.recordPlayerActivity?.({ playerId: targetPlayerId, outcome, result, application, deps }),
-        () => deps?.playerRuntimeService?.recordActivity?.(targetPlayerId, deps?.currentTick, { interruptCultivation: true }),
+        () => deps?.playerRuntimeService?.recordActivity?.(targetPlayerId, deps?.currentTick, { interruptCultivation: true, reason: 'attack' }),
       ]);
     }
     // 激活自动反击

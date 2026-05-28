@@ -62,6 +62,17 @@ interface CraftInterruptDeps<TPlayer = CraftPlayerLike> {
   worldRuntimeLootContainerService: {
     interruptGather(playerId: string, player: TPlayer, reason: string, deps: CraftInterruptDeps<TPlayer>): unknown;
   };
+  playerRuntimeService?: {
+    interruptTechniqueTransmissionForPlayer?(
+      playerId: string,
+      reason: string,
+      currentTick?: number,
+    ): boolean;
+  };
+  resolveCurrentTickForPlayerId?: (playerId: string) => number;
+  worldRuntimeCraftMutationService?: {
+    emitTechniqueActivityTaskUpdate?(playerId: string): void;
+  };
   interruptBuildingConstruction?: (playerId: string, reason: string) => void;
 }
 
@@ -96,6 +107,14 @@ export class WorldRuntimeCraftInterruptService {
   ): void {
     if ((player as { suppressImmediateDomainPersistence?: boolean } | null)?.suppressImmediateDomainPersistence === true) {
       return;
+    }
+    const interruptedTransmission = deps.playerRuntimeService?.interruptTechniqueTransmissionForPlayer?.(
+      playerId,
+      reason,
+      deps.resolveCurrentTickForPlayerId?.(playerId) ?? 0,
+    ) === true;
+    if (interruptedTransmission) {
+      deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(playerId);
     }
     for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
       if (kind === 'formation' && reason === 'move') {

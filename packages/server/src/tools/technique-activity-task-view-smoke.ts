@@ -77,11 +77,28 @@ function main(): void {
         status: 'blocked',
         blockedReason: 'teacher_out_of_range',
       },
+    }, {
+      techId: 'gen_task_view_interrupted',
+      name: '暂歇传法诀',
+      progress: 8,
+      requiredProgress: 40,
+      activeTransferJob: {
+        jobId: 'transmission:learner:gen_task_view_interrupted:125',
+        teacherName: '传功者',
+        status: 'running',
+        interruptWaitRemainingTicks: 9,
+        interruptState: {
+          reason: 'move',
+          waitTotalTicks: 10,
+          waitRemainingTicks: 9,
+          startedAtTick: 125,
+        },
+      },
     }],
   }, 123);
 
   assert.equal(view.serverTick, 123);
-  assert.equal(view.tasks.length, 7);
+  assert.equal(view.tasks.length, 8);
 
   const alchemy = view.tasks.find((task) => task.kind === 'alchemy');
   assert.equal(alchemy?.state, 'interrupt_wait');
@@ -125,6 +142,11 @@ function main(): void {
   const blockedTransmission = view.tasks.find((task) => task.cancelRef.techId === 'gen_task_view_blocked');
   assert.equal(blockedTransmission?.state, 'blocked');
   assert.equal(blockedTransmission?.sleepReason, '传授者不在 2 格范围内');
+
+  const interruptedTransmission = view.tasks.find((task) => task.cancelRef.techId === 'gen_task_view_interrupted');
+  assert.equal(interruptedTransmission?.state, 'interrupt_wait');
+  assert.equal(interruptedTransmission?.interruptWaitRemainingTicks, 9);
+  assert.equal(interruptedTransmission?.workRemainingTicks, 32);
 
   console.log(JSON.stringify({
     ok: true,

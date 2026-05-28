@@ -505,6 +505,13 @@ export interface TechniqueTransmissionJobState {
   status: TechniqueTransmissionJobStatus;
   blockedReason?: TechniqueTransmissionBlockedReason;
   range: number;
+  interruptWaitRemainingTicks?: number;
+  interruptState?: {
+    reason?: 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat';
+    waitTotalTicks?: number;
+    waitRemainingTicks?: number;
+    startedAtTick?: number;
+  } | null;
 }
 
 export interface PendingTechniqueComprehensionState {

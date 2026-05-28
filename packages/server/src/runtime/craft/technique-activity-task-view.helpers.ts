@@ -45,6 +45,8 @@ type PendingTechniqueComprehensionTask = {
     status?: string;
     blockedReason?: string;
     teacherName?: string;
+    interruptWaitRemainingTicks?: number;
+    interruptState?: { waitRemainingTicks?: number; [key: string]: unknown } | null;
   } | null;
 };
 
@@ -198,7 +200,12 @@ function buildTransmissionTaskView(
   const jobRunId = normalizeText(job.jobId) || `active:transmission:${normalizeText(player.playerId) || 'unknown'}:${techId}`;
   const required = Math.max(1, resolveNonNegativeInteger(pending.requiredProgress));
   const progress = Math.min(required, resolveNonNegativeInteger(pending.progress));
-  const state: TechniqueActivityTaskState = job.status === 'blocked' ? 'blocked' : 'running';
+  const interruptWaitRemainingTicks = resolveTransmissionInterruptWaitRemainingTicks(job);
+  const state: TechniqueActivityTaskState = interruptWaitRemainingTicks > 0
+    ? 'interrupt_wait'
+    : job.status === 'blocked'
+      ? 'blocked'
+      : 'running';
   const task: TechniqueActivityTaskView = {
     id: `job:transmission:${jobRunId}`,
     kind: 'transmission',
@@ -210,6 +217,9 @@ function buildTransmissionTaskView(
     canCancel: true,
     cancelRef: { kind: 'transmission', jobRunId, techId },
   };
+  if (interruptWaitRemainingTicks > 0) {
+    task.interruptWaitRemainingTicks = interruptWaitRemainingTicks;
+  }
   if (state === 'blocked') {
     task.sleepReason = resolveTransmissionBlockedReason(job.blockedReason);
   }
@@ -352,6 +362,13 @@ function resolveTransmissionBlockedReason(reason: unknown): string {
     return '只能传授自创功法';
   }
   return '等待传授条件恢复';
+}
+
+function resolveTransmissionInterruptWaitRemainingTicks(job: {
+  interruptWaitRemainingTicks?: number;
+  interruptState?: { waitRemainingTicks?: number; [key: string]: unknown } | null;
+}): number {
+  return resolveNonNegativeInteger(job.interruptWaitRemainingTicks ?? job.interruptState?.waitRemainingTicks);
 }
 
 function resolveNonNegativeInteger(value: unknown): number {

@@ -1067,7 +1067,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previous.progress !== next.progress
         || previous.requiredProgress !== next.requiredProgress
         || previous.activeTransferJob?.jobId !== next.activeTransferJob?.jobId
-        || previous.activeTransferJob?.status !== next.activeTransferJob?.status) {
+        || previous.activeTransferJob?.status !== next.activeTransferJob?.status
+        || previous.activeTransferJob?.interruptWaitRemainingTicks !== next.activeTransferJob?.interruptWaitRemainingTicks
+        || previous.activeTransferJob?.interruptState?.waitRemainingTicks !== next.activeTransferJob?.interruptState?.waitRemainingTicks) {
         return true;
       }
     }

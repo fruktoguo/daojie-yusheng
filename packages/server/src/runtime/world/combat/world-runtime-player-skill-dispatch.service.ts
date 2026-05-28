@@ -536,7 +536,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         }
         ensurePlayerSkillActionEnabled(attacker, skillId);
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
-        this.playerRuntimeService.recordActivity(playerId, currentTick, { interruptCultivation: true });
+        this.playerRuntimeService.recordActivity(playerId, currentTick, { interruptCultivation: true, reason: 'attack' });
         if (!isMiningJobIssuedSkillAction(attacker, targetRef)) {
             deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
         }
@@ -1497,7 +1497,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         now: currentTick,
                     },
                 );
-                this.playerRuntimeService.recordActivity(targetPlayer.playerId, currentTick, { interruptCultivation: true });
+                this.playerRuntimeService.recordActivity(targetPlayer.playerId, currentTick, { interruptCultivation: true, reason: 'attack' });
                 const updatedTarget = this.playerRuntimeService.getPlayer(targetPlayer.playerId);
                 if (updatedTarget && updatedTarget.hp <= 0 && appliedOutcome?.adapterResult?.handledDefeat !== true) {
                     await deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);

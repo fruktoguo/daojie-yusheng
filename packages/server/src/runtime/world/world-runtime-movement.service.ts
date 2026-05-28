@@ -75,6 +75,7 @@ export class WorldRuntimeMovementService {
         deps.worldRuntimePlayerSkillDispatchService?.interruptPendingPlayerSkillCast?.(playerId, '你移动了身形。', deps);
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
+            reason: 'move',
         });
         if (!isMatchingMiningJobCommand(player, command)) {
             deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);
@@ -104,6 +105,7 @@ export class WorldRuntimeMovementService {
 
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
+            reason: 'move',
         });
         deps.worldRuntimePlayerSkillDispatchService?.interruptPendingPlayerSkillCast?.(playerId, '你移动了身形。', deps);
         deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);

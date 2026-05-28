@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { computeCraftSkillExpGain } from '@mud/shared';
+import {
+  calculateTechniqueComprehensionProgressGain,
+  calculateTechniqueComprehensionRequiredProgress,
+  computeCraftSkillExpGain,
+} from '@mud/shared';
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 
@@ -135,6 +139,52 @@ function getExpectedRepeatedTransmissionExpGain(skillLevel: number, targetLevel:
     }
   }
   return exp;
+}
+
+function assertAlmostEqual(actual: number, expected: number, label: string): void {
+  assert.ok(Math.abs(actual - expected) < 1e-9, `${label}: expected ${expected}, got ${actual}`);
+}
+
+function testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors() {
+  const baseline = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: 8,
+    grade: 'earth',
+    learnerRealmLv: 1,
+    learnerTransmissionLevel: 1,
+    teacherTransmissionLevel: 1,
+  });
+  const changedDynamicFactors = calculateTechniqueComprehensionRequiredProgress({
+    sourceKind: 'created',
+    techniqueRealmLv: 8,
+    grade: 'earth',
+    learnerRealmLv: 80,
+    learnerTransmissionLevel: 80,
+    teacherTransmissionLevel: 80,
+  });
+
+  assert.equal(baseline, 300 * 8 * 4);
+  assert.equal(changedDynamicFactors, baseline);
+}
+
+function testDynamicFactorsApplyToProgressGain() {
+  const lowLearnerGain = calculateTechniqueComprehensionProgressGain({
+    baseProgress: 10,
+    techniqueRealmLv: 8,
+    learnerRealmLv: 1,
+    learnerTransmissionLevel: 1,
+  });
+  const highLearnerGain = calculateTechniqueComprehensionProgressGain({
+    baseProgress: 10,
+    techniqueRealmLv: 8,
+    learnerRealmLv: 12,
+    learnerTransmissionLevel: 12,
+  });
+
+  assert.ok(lowLearnerGain < 10);
+  assert.ok(highLearnerGain > 10);
+  assertAlmostEqual(lowLearnerGain, 10 / ((1.1 ** 7) * (1.05 ** 7)), 'low learner gain');
+  assertAlmostEqual(highLearnerGain, 10 / ((0.98 ** 4) * (0.95 ** 4)), 'high learner gain');
 }
 
 function testSelfComprehensionProgressesOnlyWithoutTransmission() {
@@ -276,23 +326,37 @@ function testTransmissionBlocksCancelsAndContinues() {
   assert.equal(pending.progress, 1);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 
-  teacherA.x = 99;
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 2);
+  assert.equal(runtimeService.interruptTechniqueTransmissionForPlayer(learner.playerId, 'move', 2), true);
+  assert.equal(pending.activeTransferJob?.interruptWaitRemainingTicks, 10);
+  for (let tick = 2; tick <= 11; tick += 1) {
+    runtimeService.advanceTechniqueTransmissionForPlayer(learner, tick);
+  }
   assert.equal(pending.progress, 1);
+  assert.equal(pending.activeTransferJob?.interruptWaitRemainingTicks, 0);
+  assert.equal(pending.activeTransferJob?.interruptState, null);
+
+  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 12);
+  assert.equal(pending.progress, 2);
+  assert.equal(learner.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 2));
+
+  teacherA.x = 99;
+  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 13);
+  assert.equal(pending.progress, 2);
   assert.equal(pending.activeTransferJob?.status, 'blocked');
 
   runtimeService.cancelTechniqueTransmission(learner.playerId, createdTechnique.techId);
   assert.equal(pending.activeTransferJob, null);
   runtimeService.startTechniqueTransmission(teacherB.playerId, learner.playerId, createdTechnique.techId);
   learner.pendingTechniqueComprehensions[0]!.requiredProgress = 3;
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 3);
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 4);
+  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 14);
   assert.equal(learner.pendingTechniqueComprehensions.length, 0);
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
   assert.equal(learner.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 3));
 }
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();
+testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors();
+testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
 testPendingTechniqueNameResolvesDisplayName();
 testTransmissionBlocksCancelsAndContinues();
