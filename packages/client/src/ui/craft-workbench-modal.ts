@@ -462,9 +462,6 @@ export class CraftWorkbenchModal {
   private forgingSkillLevel = 1;
   private gatherSkillLevel = 1;
   private enhancementSkillLevel = 1;
-  private transmissionSkillLevel = 1;
-  private transmissionSkillExp = 0;
-  private transmissionSkillExpToNext = 60;
   private transmissionTechniques: PlayerState['techniques'] = [];
   private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
   private lastTransmissionRenderKey: string | null = null;
@@ -518,9 +515,6 @@ export class CraftWorkbenchModal {
     this.forgingSkillLevel = Math.max(1, Math.floor(player.forgingSkill?.level ?? 1));
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
-    this.transmissionSkillLevel = Math.max(1, Math.floor(player.transmissionSkill?.level ?? 1));
-    this.transmissionSkillExp = Math.max(0, Math.floor(player.transmissionSkill?.exp ?? 0));
-    this.transmissionSkillExpToNext = Math.max(0, Math.floor(player.transmissionSkill?.expToNext ?? 60));
     this.transmissionTechniques = Array.isArray(player.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
     this.playerRealmLv = Number.isFinite(Number(player.realm?.realmLv ?? player.realmLv))
@@ -541,11 +535,6 @@ export class CraftWorkbenchModal {
     if (update.enhancementSkill) {
       this.enhancementSkillLevel = Math.max(1, Math.floor(update.enhancementSkill.level ?? this.enhancementSkillLevel));
     }
-    if (update.transmissionSkill) {
-      this.transmissionSkillLevel = Math.max(1, Math.floor(update.transmissionSkill.level ?? this.transmissionSkillLevel));
-      this.transmissionSkillExp = Math.max(0, Math.floor(update.transmissionSkill.exp ?? this.transmissionSkillExp));
-      this.transmissionSkillExpToNext = Math.max(0, Math.floor(update.transmissionSkill.expToNext ?? this.transmissionSkillExpToNext));
-    }
     if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
@@ -557,11 +546,6 @@ export class CraftWorkbenchModal {
       : null;
     this.transmissionTechniques = Array.isArray(player?.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player?.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
-    if (player?.transmissionSkill) {
-      this.transmissionSkillLevel = Math.max(1, Math.floor(player.transmissionSkill.level ?? this.transmissionSkillLevel));
-      this.transmissionSkillExp = Math.max(0, Math.floor(player.transmissionSkill.exp ?? this.transmissionSkillExp));
-      this.transmissionSkillExpToNext = Math.max(0, Math.floor(player.transmissionSkill.expToNext ?? this.transmissionSkillExpToNext));
-    }
     const realmChanged = this.playerRealmLv !== nextRealmLv;
     this.playerRealmLv = nextRealmLv;
     if ((realmChanged || this.activeMode === 'transmission') && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
@@ -1309,21 +1293,6 @@ export class CraftWorkbenchModal {
   }
 
   private patchTransmissionProgress(content: HTMLElement): void {
-    const expToNext = Math.max(0, Math.floor(this.transmissionSkillExpToNext || 0));
-    const exp = Math.max(0, Math.floor(this.transmissionSkillExp || 0));
-    const progressRatio = expToNext > 0 ? Math.max(0, Math.min(1, exp / expToNext)) : 1;
-    const expNode = content.querySelector<HTMLElement>('[data-transmission-skill-exp="true"]');
-    if (expNode) {
-      expNode.textContent = `${formatDisplayInteger(exp)} / ${formatDisplayInteger(expToNext)}`;
-    }
-    const progressTextNode = content.querySelector<HTMLElement>('[data-transmission-skill-progress-text="true"]');
-    if (progressTextNode) {
-      progressTextNode.textContent = formatDisplayPercent(progressRatio * 100, { maximumFractionDigits: 1 });
-    }
-    const progressFillNode = content.querySelector<HTMLElement>('[data-transmission-skill-progress-fill="true"]');
-    if (progressFillNode) {
-      progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
-    }
     for (const entry of this.pendingTechniqueComprehensions ?? []) {
       const escapedTechId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
         ? CSS.escape(entry.techId)
@@ -1448,7 +1417,7 @@ export class CraftWorkbenchModal {
       return t('craft.workbench.modal.subtitle.enhancement', { level: formatDisplayInteger(this.enhancementSkillLevel) });
     }
     if (this.activeMode === 'transmission') {
-      return `传法 LV ${formatDisplayInteger(this.transmissionSkillLevel)}`;
+      return '功法领悟与传授';
     }
     return t('craft.workbench.modal.subtitle.default');
   }
@@ -1582,7 +1551,6 @@ export class CraftWorkbenchModal {
       this.alchemySkillLevel,
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
-      this.transmissionSkillLevel,
       this.buildCraftQueueStructureKey(),
     ].join('::');
   }
@@ -1608,7 +1576,6 @@ export class CraftWorkbenchModal {
       this.alchemySkillLevel,
       this.forgingSkillLevel,
       this.enhancementSkillLevel,
-      this.transmissionSkillLevel,
     ].join(':');
   }
 
@@ -1617,7 +1584,7 @@ export class CraftWorkbenchModal {
       { mode: 'alchemy', label: t('craft.workbench.mode.alchemy'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.alchemySkillLevel) }) },
       { mode: 'forging', label: t('craft.workbench.mode.forging'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.forgingSkillLevel) }) },
       { mode: 'enhancement', label: t('craft.workbench.mode.enhancement'), note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.enhancementSkillLevel) }) },
-      { mode: 'transmission', label: '传法', note: t('craft.workbench.level.short', { level: formatDisplayInteger(this.transmissionSkillLevel) }) },
+      { mode: 'transmission', label: '传法', note: '功法' },
     ];
     return tabs.map((tab) => `
       <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}">
@@ -1629,7 +1596,6 @@ export class CraftWorkbenchModal {
 
   private buildTransmissionRenderKey(): string {
     return [
-      this.transmissionSkillLevel,
       this.transmissionTechniques.map((tech) => tech.techId).join(','),
       (this.pendingTechniqueComprehensions ?? [])
         .map((entry) => `${entry.techId}:${entry.activeTransferJob?.status ?? 'self'}:${entry.activeTransferJob?.blockedReason ?? ''}`)
@@ -1645,39 +1611,11 @@ export class CraftWorkbenchModal {
   }
 
   private renderTransmissionBody(): string {
-    const expToNext = Math.max(0, Math.floor(this.transmissionSkillExpToNext || 0));
-    const exp = Math.max(0, Math.floor(this.transmissionSkillExp || 0));
-    const progressRatio = expToNext > 0 ? Math.max(0, Math.min(1, exp / expToNext)) : 1;
     const pending = this.pendingTechniqueComprehensions ?? [];
     const learned = this.getTransmittableTechniques();
     const targets = this.getTransmissionTargets();
     return `
       <div class="alchemy-tab-stack" data-transmission-panel="true">
-        <div class="alchemy-summary-card">
-          <div class="alchemy-summary-head">
-            <div class="alchemy-summary-title">传法等级</div>
-            <span class="alchemy-summary-mode">LV ${formatDisplayInteger(this.transmissionSkillLevel)}</span>
-          </div>
-          <div class="alchemy-summary-metrics">
-            <div class="alchemy-summary-metric">
-              <span class="alchemy-summary-metric-label">经验</span>
-              <strong class="alchemy-summary-metric-value" data-transmission-skill-exp="true">${formatDisplayInteger(exp)} / ${formatDisplayInteger(expToNext)}</strong>
-            </div>
-            <div class="alchemy-summary-metric">
-              <span class="alchemy-summary-metric-label">进度</span>
-              <strong class="alchemy-summary-metric-value" data-transmission-skill-progress-text="true">${formatDisplayPercent(progressRatio * 100, { maximumFractionDigits: 1 })}</strong>
-            </div>
-            <div class="alchemy-summary-metric">
-              <span class="alchemy-summary-metric-label">附近玩家</span>
-              <strong class="alchemy-summary-metric-value">${formatDisplayInteger(targets.length)}</strong>
-            </div>
-          </div>
-          <div class="attr-craft-exp">
-            <div class="attr-craft-exp-track" aria-hidden="true">
-              <span class="attr-craft-exp-fill" data-transmission-skill-progress-fill="true" style="width:${(progressRatio * 100).toFixed(2)}%"></span>
-            </div>
-          </div>
-        </div>
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
             <div class="alchemy-summary-title">未领悟功法</div>
@@ -1690,7 +1628,7 @@ export class CraftWorkbenchModal {
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
             <div class="alchemy-summary-title">传授功法</div>
-            <span class="alchemy-summary-mode">${formatDisplayInteger(learned.length)} 门可传</span>
+            <span class="alchemy-summary-mode">${formatDisplayInteger(learned.length)} 门可传 · ${formatDisplayInteger(targets.length)} 人附近</span>
           </div>
           ${this.renderTransmissionTeachPicker(learned, targets)}
         </section>
@@ -1809,7 +1747,7 @@ export class CraftWorkbenchModal {
       return t('craft.workbench.profession.description.enhancement');
     }
     if (this.activeMode === 'transmission') {
-      return `传法 LV ${formatDisplayInteger(this.transmissionSkillLevel)}，用于降低功法领悟与传授所需时间。`;
+      return '用于功法领悟与传授。';
     }
     return t('craft.workbench.profession.description.default');
   }
