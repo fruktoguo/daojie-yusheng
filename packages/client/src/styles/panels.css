@@ -2830,17 +2830,23 @@
     .activity-tab {
       min-width: 96px;
       min-height: 34px;
-      border: 0;
+      border: 1px solid transparent;
       border-radius: 6px;
       background: transparent;
       color: var(--text-secondary);
       font: inherit;
+      font-weight: 600;
       cursor: pointer;
     }
     .activity-tab.active {
-      background: var(--surface-panel);
-      color: var(--text-primary);
-      box-shadow: var(--shadow-soft);
+      border-color: var(--accent-border);
+      background: var(--accent);
+      color: var(--accent-contrast);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+    }
+    .activity-tab:focus-visible {
+      outline: 2px solid var(--accent-border);
+      outline-offset: 2px;
     }
     .activity-card {
       display: flex;

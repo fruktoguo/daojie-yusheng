@@ -17,6 +17,9 @@
       --line-strong: rgba(34, 26, 19, 0.42);
       --accent: #9b5a2c;
       --accent-ink: #7e4b27;
+      --accent-strong: var(--accent-ink);
+      --accent-border: rgba(155, 90, 44, 0.42);
+      --accent-contrast: #fffaf3;
       --accent-soft: rgba(155, 90, 44, 0.14);
       --stamp-red: #c53c3c;
       --stamp-red-hover: #a12b2b;
@@ -242,6 +245,9 @@
       --line-strong: rgba(246, 238, 224, 0.46);
       --accent: #d38a4c;
       --accent-ink: #f2c28d;
+      --accent-strong: var(--accent-ink);
+      --accent-border: rgba(211, 138, 76, 0.56);
+      --accent-contrast: #24170f;
       --accent-soft: rgba(211, 138, 76, 0.22);
       --stamp-red: #d36f5c;
       --stamp-red-hover: #ea8c79;

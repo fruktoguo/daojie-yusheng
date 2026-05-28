@@ -23,7 +23,7 @@ type ActivityTab = 'month-card' | 'sign-in';
 export class ActivityPanel {
   private static readonly MODAL_OWNER = 'activity-panel';
   private status: ActivityStatusView | null = null;
-  private activeTab: ActivityTab = 'month-card';
+  private activeTab: ActivityTab = 'sign-in';
   private bound = false;
 
   constructor(private readonly options: ActivityPanelOptions) {}
@@ -98,9 +98,10 @@ export class ActivityPanel {
 
     const tabs = document.createElement('div');
     tabs.className = 'activity-tabs';
+    tabs.setAttribute('role', 'tablist');
     tabs.append(
-      this.createTabButton('month-card', t('activity.tab.month-card', undefined, '功德月卡')),
       this.createTabButton('sign-in', t('activity.tab.sign-in', undefined, '每日签到')),
+      this.createTabButton('month-card', t('activity.tab.month-card', undefined, '功德月卡')),
     );
     root.append(tabs);
 
@@ -113,7 +114,7 @@ export class ActivityPanel {
       return;
     }
 
-    root.append(this.activeTab === 'month-card' ? this.renderMonthCard() : this.renderSignIn());
+    root.append(this.activeTab === 'sign-in' ? this.renderSignIn() : this.renderMonthCard());
     body.append(root);
   }
 
@@ -213,7 +214,10 @@ export class ActivityPanel {
   private createTabButton(tab: ActivityTab, label: string): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `activity-tab${this.activeTab === tab ? ' active' : ''}`;
+    const selected = this.activeTab === tab;
+    button.className = `activity-tab${selected ? ' active' : ''}`;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', selected ? 'true' : 'false');
     button.textContent = label;
     button.addEventListener('click', () => {
       this.activeTab = tab;
