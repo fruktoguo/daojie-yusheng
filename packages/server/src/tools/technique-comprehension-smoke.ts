@@ -258,6 +258,32 @@ function testCultivationUsesElapsedTicksForPendingComprehension() {
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
 
+function testCultivationCanStoreFractionalComprehensionProgress() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:fractional', 0, 0);
+  learner.combat.cultivationActive = true;
+  learner.attrs.numericStats.techniqueExpPerTick = 999;
+  learner.attrs.numericStats.techniqueExpRate = 100000;
+  learner.techniques.cultivatingTechId = createdTechnique.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    progress: 0,
+    requiredProgress: 10,
+    realmLv: 2,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
+  assert.equal(result.changed, true);
+  assertAlmostEqual(learner.pendingTechniqueComprehensions[0]?.progress ?? 0, 1 / (1.1 * 1.05), 'fractional self comprehension progress');
+}
+
 function testPendingTechniqueNameResolvesDisplayName() {
   const { runtimeService } = createRuntimeService();
   const learner = createPlayer('learner:name', 0, 0);
@@ -358,6 +384,7 @@ testSelfComprehensionProgressesOnlyWithoutTransmission();
 testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
+testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();
 testTransmissionBlocksCancelsAndContinues();
 

@@ -42,11 +42,41 @@ export function getTechniqueTransmissionSkillFactor(skillLevel: number, techniqu
   return 1;
 }
 
+export function getTechniqueComprehensionProgressDifficultyFactor(input: {
+  techniqueRealmLv: number;
+  learnerRealmLv: number;
+  learnerTransmissionLevel?: number;
+  teacherTransmissionLevel?: number;
+}): number {
+  const techniqueRealmLv = Math.max(1, Math.floor(Number(input.techniqueRealmLv) || 1));
+  let factor = getTechniqueComprehensionRealmFactor(techniqueRealmLv, input.learnerRealmLv)
+    * getTechniqueTransmissionSkillFactor(input.learnerTransmissionLevel ?? 1, techniqueRealmLv);
+  if (input.teacherTransmissionLevel !== undefined) {
+    factor *= getTechniqueTransmissionSkillFactor(input.teacherTransmissionLevel, techniqueRealmLv);
+  }
+  return Number.isFinite(factor) && factor > 0 ? factor : 1;
+}
+
+export function calculateTechniqueComprehensionProgressGain(input: {
+  baseProgress: number;
+  techniqueRealmLv: number;
+  learnerRealmLv: number;
+  learnerTransmissionLevel?: number;
+  teacherTransmissionLevel?: number;
+}): number {
+  const baseProgress = Number(input.baseProgress);
+  if (!Number.isFinite(baseProgress) || baseProgress <= 0) {
+    return 0;
+  }
+  const difficultyFactor = getTechniqueComprehensionProgressDifficultyFactor(input);
+  return Math.max(0, baseProgress / difficultyFactor);
+}
+
 export function calculateTechniqueComprehensionRequiredProgress(input: {
   sourceKind: 'normal' | 'created';
   techniqueRealmLv: number;
   grade: TechniqueGrade | null | undefined;
-  learnerRealmLv: number;
+  learnerRealmLv?: number;
   learnerTransmissionLevel?: number;
   teacherTransmissionLevel?: number;
 }): number {
@@ -54,13 +84,8 @@ export function calculateTechniqueComprehensionRequiredProgress(input: {
     ? TECHNIQUE_COMPREHENSION_CREATED_BASE_TICKS
     : TECHNIQUE_COMPREHENSION_NORMAL_BASE_TICKS;
   const techniqueRealmLv = Math.max(1, Math.floor(Number(input.techniqueRealmLv) || 1));
-  let required = base
+  const required = base
     * techniqueRealmLv
-    * getTechniqueComprehensionGradeFactor(input.grade)
-    * getTechniqueComprehensionRealmFactor(techniqueRealmLv, input.learnerRealmLv)
-    * getTechniqueTransmissionSkillFactor(input.learnerTransmissionLevel ?? 1, techniqueRealmLv);
-  if (input.teacherTransmissionLevel !== undefined) {
-    required *= getTechniqueTransmissionSkillFactor(input.teacherTransmissionLevel, techniqueRealmLv);
-  }
+    * getTechniqueComprehensionGradeFactor(input.grade);
   return Math.max(1, Math.ceil(required));
 }

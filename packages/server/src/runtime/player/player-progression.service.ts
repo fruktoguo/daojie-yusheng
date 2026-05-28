@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';
+import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, calculateTechniqueComprehensionProgressGain, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -2012,14 +2012,20 @@ export class PlayerProgressionService {
         if (pending.activeTransferJob) {
             return resolved;
         }
-        const normalized = Object.prototype.hasOwnProperty.call(options ?? {}, 'pendingComprehensionTicks')
+        const baseProgress = Object.prototype.hasOwnProperty.call(options ?? {}, 'pendingComprehensionTicks')
             ? normalizeProgressionAmount(options.pendingComprehensionTicks)
             : normalizeProgressionAmount(amount);
+        const normalized = calculateTechniqueComprehensionProgressGain({
+            baseProgress,
+            techniqueRealmLv: pending.realmLv,
+            learnerRealmLv: player.realm?.realmLv ?? 1,
+            learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
+        });
         if (normalized <= 0) {
             return resolved;
         }
-        const previousProgress = Math.max(0, Math.floor(Number(pending.progress) || 0));
-        const requiredProgress = Math.max(1, Math.floor(Number(pending.requiredProgress) || 1));
+        const previousProgress = Math.max(0, Number(pending.progress) || 0);
+        const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
         pending.progress = Math.min(requiredProgress, previousProgress + normalized);
         pending.updatedAtTick = Math.max(0, Math.floor(Number(player.lifeElapsedTicks) || 0));
         const progressedTicks = Math.max(0, pending.progress - previousProgress);

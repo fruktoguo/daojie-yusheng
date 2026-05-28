@@ -198,8 +198,8 @@ function buildTransmissionTaskView(
   const techId = normalizeText(pending.techId) || 'unknown';
   const job = pending.activeTransferJob ?? {};
   const jobRunId = normalizeText(job.jobId) || `active:transmission:${normalizeText(player.playerId) || 'unknown'}:${techId}`;
-  const required = Math.max(1, resolveNonNegativeInteger(pending.requiredProgress));
-  const progress = Math.min(required, resolveNonNegativeInteger(pending.progress));
+  const required = Math.max(1, resolveNonNegativeNumber(pending.requiredProgress));
+  const progress = Math.min(required, resolveNonNegativeNumber(pending.progress));
   const interruptWaitRemainingTicks = resolveTransmissionInterruptWaitRemainingTicks(job);
   const state: TechniqueActivityTaskState = interruptWaitRemainingTicks > 0
     ? 'interrupt_wait'
@@ -377,6 +377,14 @@ function resolveNonNegativeInteger(value: unknown): number {
     return 0;
   }
   return Math.max(0, Math.trunc(numeric));
+}
+
+function resolveNonNegativeNumber(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+  return Math.max(0, numeric);
 }
 
 function normalizeText(value: unknown): string | undefined {

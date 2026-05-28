@@ -53,6 +53,40 @@ deriveTechniqueRealm(level, layers):
   else → Entry（入门）
 ```
 
+## 功法领悟进度
+
+未领悟功法使用 `requiredProgress/progress` 表示领悟总需求和当前进度。
+
+```typescript
+requiredProgress = ceil(base × techniqueRealmLv × gradeFactor)
+```
+
+`base`：普通功法 10，自创功法 300。
+
+`gradeFactor`：mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8。
+
+境界差、学习者传法技能、传授者传法技能不改变 `requiredProgress`，只改变每息获得的 `progressGain`：
+
+```typescript
+progressGain = baseProgress / difficultyFactor
+difficultyFactor =
+  realmFactor(techniqueRealmLv, learnerRealmLv)
+  × transmissionSkillFactor(learnerTransmissionLevel, techniqueRealmLv)
+  × transmissionSkillFactor(teacherTransmissionLevel, techniqueRealmLv) // 仅传法时
+
+realmFactor:
+  technique > learner → 1.1^(technique - learner)
+  technique < learner → 0.98^(learner - technique)
+  same → 1
+
+transmissionSkillFactor:
+  skill > technique → 0.95^(skill - technique)
+  skill < technique → 1.05^(technique - skill)
+  same → 1
+```
+
+领悟进度可保留小数；客户端文本当前按整数展示，服务端持久化使用 double precision 保存。
+
 ## 技能灵力消耗
 
 ```typescript
