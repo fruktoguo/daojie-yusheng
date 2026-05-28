@@ -3,8 +3,8 @@
  *
  * 维护时优先保持局部更新和原有焦点/滚动状态，不在 UI 层裁定资产、战斗或移动合法性。
  */
-import type { CraftQueueItemView, TechniqueActivityTaskView, TechniqueComprehensionProgressBreakdown } from '@mud/shared';
-import { formatDisplayInteger, formatDisplayNumber, formatDisplaySignedNumber } from '../utils/number';
+import type { CraftQueueItemView, TechniqueActivityTaskView } from '@mud/shared';
+import { formatDisplayInteger, formatDisplayNumber } from '../utils/number';
 import { t } from './i18n';
 import { resolveClientDisplayToken } from './structured-notice-display';
 
@@ -47,40 +47,6 @@ function formatProgressRate(rate: number | undefined): string {
     maximumFractionDigits: 2,
     compactThreshold: Number.POSITIVE_INFINITY,
   })}/息`;
-}
-
-function formatBonusPercent(value: number): string {
-  return `${formatDisplaySignedNumber(value, {
-    maximumFractionDigits: 1,
-    compactThreshold: Number.POSITIVE_INFINITY,
-  })}%`;
-}
-
-function formatFactorBonus(factor: number | undefined): string {
-  const normalized = Number(factor);
-  if (!Number.isFinite(normalized) || normalized <= 0) {
-    return '+0%';
-  }
-  return formatBonusPercent(((1 / normalized) - 1) * 100);
-}
-
-function formatProgressBreakdown(breakdown: TechniqueComprehensionProgressBreakdown | null | undefined): string {
-  if (!breakdown || !Number.isFinite(Number(breakdown.progressGain)) || Number(breakdown.progressGain) <= 0) {
-    return '';
-  }
-  const parts = [
-    `基准 ${formatProgressRate(breakdown.baseProgress)}`,
-    `境界差 ${formatFactorBonus(breakdown.realmFactor)}`,
-    `自身传法 ${formatFactorBonus(breakdown.learnerTransmissionFactor)}`,
-  ];
-  if (breakdown.teacherTransmissionFactor !== undefined) {
-    parts.push(`传授者传法 ${formatFactorBonus(breakdown.teacherTransmissionFactor)}`);
-  }
-  const totalBonus = breakdown.baseProgress > 0
-    ? ((breakdown.progressGain / breakdown.baseProgress) - 1) * 100
-    : 0;
-  parts.push(`合计 ${formatBonusPercent(totalBonus)}`);
-  return ` · 构成：${parts.join(' · ')}`;
 }
 
 /** @internal Minimal interface for accessing parent state needed by CraftQueueView */
@@ -317,13 +283,10 @@ export class CraftQueueView {
     const etaText = task.kind === 'transmission' && Number(task.estimatedRemainingTicks) > 0
       ? ` · 预计 ${formatTicks(task.estimatedRemainingTicks)}`
       : '';
-    const breakdownText = task.kind === 'transmission'
-      ? formatProgressBreakdown(task.progressBreakdown)
-      : '';
     return {
       ratio,
       label: `${formatDisplayInteger(Math.round(ratio * 100))}%`,
-      detail: `${stateLabel} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}${rateText}${etaText}${breakdownText}`,
+      detail: `${stateLabel} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}${rateText}${etaText}`,
     };
   }
 
