@@ -127,8 +127,10 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     const required = Math.max(1, Number(validated.requiredProgress) || 1);
     pending.requiredProgress = required;
     pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
+    pending.selfComprehensionAllowed = false;
     delete pending.activeTransferJob;
     markTransmissionDirty(learner, ctx, ['technique', 'active_job']);
+    queueTeacherTransmissionStartNotice(validated, ctx);
     const remaining = Math.max(1, Math.ceil(required - Math.min(required, progress)));
     return {
       jobRunId: `transmission:${validated.learnerPlayerId}:${validated.techniqueId}:${resolvePlayerRuntimeTick(learner)}`,
@@ -299,6 +301,7 @@ function ensurePendingComprehension(learner: any, validated: TransmissionValidat
       techId: validated.techniqueId,
       name: validated.techniqueName,
       sourceKind: 'created',
+      selfComprehensionAllowed: false,
       progress: 0,
       requiredProgress: validated.requiredProgress,
       realmLv: validated.realmLv,
@@ -311,6 +314,7 @@ function ensurePendingComprehension(learner: any, validated: TransmissionValidat
   } else {
     pending.name = validated.techniqueName;
     pending.sourceKind = 'created';
+    pending.selfComprehensionAllowed = false;
     pending.requiredProgress = validated.requiredProgress;
     pending.realmLv = validated.realmLv;
     pending.grade = validated.grade;
@@ -343,6 +347,34 @@ function refreshPendingRequirement(learner: any, pending: any, teacherTechnique:
   job.grade = pending.grade;
   job.category = pending.category;
   job.teacherName = teacher.displayName ?? teacher.name ?? job.teacherPlayerId;
+}
+
+function queueTeacherTransmissionStartNotice(validated: TransmissionValidatedPayload, ctx: PipelineContext): void {
+  const deps = resolveTransmissionDeps(ctx);
+  const runtime = deps?.playerRuntimeService;
+  const teacher = runtime?.getPlayer?.(validated.teacherPlayerId) ?? null;
+  if (!teacher || typeof runtime?.queuePlayerStructuredNotice !== 'function') {
+    return;
+  }
+  runtime.queuePlayerStructuredNotice(teacher, {
+    kind: 'info',
+    text: 'notice.craft.transmission.teacher-start',
+    structured: {
+      key: 'notice.craft.transmission.teacher-start',
+      vars: {
+        learnerName: resolvePlayerDisplayName(runtime.getPlayer?.(validated.learnerPlayerId) ?? null, validated.learnerPlayerId),
+        techniqueName: validated.techniqueName,
+      },
+      pills: [
+        { key: 'learnerName', style: 'target' },
+        { key: 'techniqueName', style: 'skill' },
+      ],
+    },
+  });
+}
+
+function resolvePlayerDisplayName(player: any, fallbackPlayerId: string): string {
+  return normalizeText(player?.displayName) || normalizeText(player?.name) || fallbackPlayerId;
 }
 
 function blockTransmission(

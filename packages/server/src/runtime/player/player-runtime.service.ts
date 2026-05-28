@@ -808,6 +808,7 @@ export class PlayerRuntimeService {
             existing.updatedAtTick = currentTick;
             existing.name = technique.name ?? existing.name ?? normalizedTechId;
             existing.sourceKind = normalizedSourceKind;
+            existing.selfComprehensionAllowed = true;
             if (creatorPlayerId) {
                 existing.creatorPlayerId = creatorPlayerId;
             }
@@ -818,6 +819,7 @@ export class PlayerRuntimeService {
                 name: technique.name ?? normalizedTechId,
                 sourceKind: normalizedSourceKind,
                 creatorPlayerId: creatorPlayerId ?? undefined,
+                selfComprehensionAllowed: true,
                 progress: 0,
                 requiredProgress,
                 realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
@@ -2035,12 +2037,14 @@ export class PlayerRuntimeService {
                 existing.requiredProgress = requiredProgress;
                 existing.updatedAtTick = currentTick;
                 existing.name = technique.name ?? existing.name ?? learnTechniqueId;
+                existing.selfComprehensionAllowed = true;
             }
             else {
                 pending.push({
                     techId: learnTechniqueId,
                     name: technique.name ?? learnTechniqueId,
                     sourceKind: 'normal',
+                    selfComprehensionAllowed: true,
                     progress: 0,
                     requiredProgress,
                     realmLv: Math.max(1, Math.floor(Number(technique.realmLv) || 1)),
@@ -6610,6 +6614,7 @@ function clonePendingTechniqueComprehensions(value) {
         .filter((entry) => entry && typeof entry === 'object' && typeof entry.techId === 'string' && entry.techId.trim())
         .map((entry) => ({
             ...entry,
+            selfComprehensionAllowed: entry.selfComprehensionAllowed !== false,
             activeTransferJob: null,
         }));
 }

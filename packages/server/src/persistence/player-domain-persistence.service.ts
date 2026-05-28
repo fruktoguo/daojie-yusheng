@@ -13,7 +13,7 @@
  * 按域独立读写，支持增量刷盘、恢复水位和旧快照兼容水合。
  */
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
+import { createItemStackSignature, EQUIP_SLOTS, isLegacyItemInstanceId, PLAYER_HEARTBEAT_TIMEOUT_MS, TechniqueRealm } from '@mud/shared';
 import type { OfflineGainReportView, PlayerStatisticPeriodTotalView } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -39,6 +39,12 @@ import {
 } from './inventory-item-persistence';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 import { ensureBigintColumnsWithClient, ensureDoubleColumnsWithClient } from './schema-bigint-migration';
+
+type TechniqueTemplateRepositoryPort = InventoryItemTemplateRepository & {
+  hydrateTechniqueState?(input: Record<string, unknown>): Record<string, unknown> | null;
+  createTechniqueState?(techniqueId: string): Record<string, unknown> | null;
+  getTechniqueName?(techniqueId: string): string | null;
+};
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
@@ -77,6 +83,7 @@ const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
   [PLAYER_BODY_TRAINING_STATE_TABLE]: ['level'],
   [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
   [PLAYER_TECHNIQUE_STATE_TABLE]: ['level', 'realm_lv'],
+  [PLAYER_TECHNIQUE_COMPREHENSION_TABLE]: ['realm_lv', 'created_at_tick', 'updated_at_tick'],
   [PLAYER_PERSISTENT_BUFF_STATE_TABLE]: [
     'realm_lv',
     'remaining_ticks',
@@ -101,6 +108,7 @@ const PLAYER_DOMAIN_DOUBLE_COLUMNS_BY_TABLE = {
   [PLAYER_PROGRESSION_CORE_TABLE]: ['foundation', 'root_foundation', 'combat_exp'],
   [PLAYER_BODY_TRAINING_STATE_TABLE]: ['exp', 'exp_to_next'],
   [PLAYER_TECHNIQUE_STATE_TABLE]: ['exp', 'exp_to_next'],
+  [PLAYER_TECHNIQUE_COMPREHENSION_TABLE]: ['progress', 'required_progress'],
   [PLAYER_PROFESSION_STATE_TABLE]: ['exp', 'exp_to_next'],
   [PLAYER_STATISTIC_DAY_TOTAL_TABLE]: [
     'spirit_gained',
@@ -404,6 +412,9 @@ interface TechniqueComprehensionRow {
   grade: string | null;
   category: string | null;
   creatorPlayerId: string | null;
+  selfComprehensionAllowed: boolean;
+  createdAtTick: number;
+  updatedAtTick: number;
   activeTransferJobId: string | null;
   activeTransferTeacherId: string | null;
   rawPayload: Record<string, unknown>;
@@ -624,6 +635,9 @@ interface PlayerTechniqueComprehensionLoadRow {
   grade?: unknown;
   category?: unknown;
   creator_player_id?: unknown;
+  self_comprehension_allowed?: unknown;
+  created_at_tick?: unknown;
+  updated_at_tick?: unknown;
   active_transfer_job_id?: unknown;
   active_transfer_teacher_id?: unknown;
   raw_payload?: unknown;
@@ -790,7 +804,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   constructor(
     @Optional()
     @Inject(ContentTemplateRepository)
-    private readonly contentTemplateRepository: InventoryItemTemplateRepository | null = null,
+    private readonly contentTemplateRepository: TechniqueTemplateRepositoryPort | null = null,
     @Inject(DatabasePoolProvider)
     private readonly databasePoolProvider: DatabasePoolProvider | null = null,
     @Optional()
@@ -2198,6 +2212,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
             grade,
             category,
             creator_player_id,
+            self_comprehension_allowed,
+            created_at_tick,
+            updated_at_tick,
             active_transfer_job_id,
             active_transfer_teacher_id,
             raw_payload
@@ -2688,7 +2705,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           // equipment
           applyProjectedEquipment(snapshot, equipByPid.get(playerId) ?? [], this.contentTemplateRepository);
           // techniques
-          applyProjectedTechniques(snapshot, techByPid.get(playerId) ?? []);
+          applyProjectedTechniques(snapshot, techByPid.get(playerId) ?? [], this.contentTemplateRepository);
           // buffs
           applyProjectedPersistentBuffs(snapshot, buffByPid.get(playerId) ?? []);
           // combat preferences (排行榜只需 autoBattle, combatTargetId, cultivatingTechId)
@@ -3668,6 +3685,9 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       grade varchar(32),
       category varchar(32),
       creator_player_id varchar(100),
+      self_comprehension_allowed boolean NOT NULL DEFAULT true,
+      created_at_tick bigint NOT NULL DEFAULT 0,
+      updated_at_tick bigint NOT NULL DEFAULT 0,
       active_transfer_job_id varchar(180),
       active_transfer_teacher_id varchar(100),
       raw_payload jsonb NOT NULL,
@@ -3678,6 +3698,12 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_technique_comprehension_player_idx
     ON ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE}(player_id, realm_lv ASC, tech_id ASC)
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE}
+      ADD COLUMN IF NOT EXISTS self_comprehension_allowed boolean NOT NULL DEFAULT true,
+      ADD COLUMN IF NOT EXISTS created_at_tick bigint NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS updated_at_tick bigint NOT NULL DEFAULT 0
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_PERSISTENT_BUFF_STATE_TABLE} (
@@ -5118,6 +5144,9 @@ async function replacePlayerTechniqueComprehensions(
     grade: row.grade,
     category: row.category,
     creator_player_id: row.creatorPlayerId,
+    self_comprehension_allowed: row.selfComprehensionAllowed,
+    created_at_tick: row.createdAtTick,
+    updated_at_tick: row.updatedAtTick,
     active_transfer_job_id: row.activeTransferJobId,
     active_transfer_teacher_id: row.activeTransferTeacherId,
     raw_payload: row.rawPayload,
@@ -5136,6 +5165,9 @@ async function replacePlayerTechniqueComprehensions(
             grade varchar(32),
             category varchar(32),
             creator_player_id varchar(100),
+            self_comprehension_allowed boolean,
+            created_at_tick bigint,
+            updated_at_tick bigint,
             active_transfer_job_id varchar(180),
             active_transfer_teacher_id varchar(100),
             raw_payload jsonb
@@ -5151,12 +5183,15 @@ async function replacePlayerTechniqueComprehensions(
           grade,
           category,
           creator_player_id,
+          self_comprehension_allowed,
+          created_at_tick,
+          updated_at_tick,
           active_transfer_job_id,
           active_transfer_teacher_id,
           raw_payload,
           updated_at
         )
-        SELECT $1, tech_id, source_kind, progress, required_progress, realm_lv, grade, category, creator_player_id, active_transfer_job_id, active_transfer_teacher_id, COALESCE(raw_payload, '{}'::jsonb), now()
+        SELECT $1, tech_id, source_kind, progress, required_progress, realm_lv, grade, category, creator_player_id, COALESCE(self_comprehension_allowed, true), COALESCE(created_at_tick, 0), COALESCE(updated_at_tick, 0), active_transfer_job_id, active_transfer_teacher_id, COALESCE(raw_payload, '{}'::jsonb), now()
         FROM incoming
         ON CONFLICT (player_id, tech_id)
         DO UPDATE SET
@@ -5167,6 +5202,9 @@ async function replacePlayerTechniqueComprehensions(
           grade = EXCLUDED.grade,
           category = EXCLUDED.category,
           creator_player_id = EXCLUDED.creator_player_id,
+          self_comprehension_allowed = EXCLUDED.self_comprehension_allowed,
+          created_at_tick = EXCLUDED.created_at_tick,
+          updated_at_tick = EXCLUDED.updated_at_tick,
           active_transfer_job_id = EXCLUDED.active_transfer_job_id,
           active_transfer_teacher_id = EXCLUDED.active_transfer_teacher_id,
           raw_payload = EXCLUDED.raw_payload,
@@ -6071,7 +6109,7 @@ function buildTechniqueStateRows(snapshot: PersistedPlayerSnapshot): TechniqueSt
       expToNext: normalizeOptionalNumber(normalized?.expToNext),
       realmLv: normalizeOptionalInteger(normalized?.realmLv),
       skillsEnabled: normalized?.skillsEnabled !== false,
-      rawPayload: buildTechniqueStateRawPayload(normalized, techId),
+      rawPayload: {},
     });
   }
   return rows;
@@ -6086,7 +6124,6 @@ function buildTechniqueComprehensionRows(snapshot: PersistedPlayerSnapshot): Tec
     if (!techId) {
       continue;
     }
-    const activeTransferJob = asRecord(normalized?.activeTransferJob);
     rows.push({
       techId,
       sourceKind: normalizeOptionalString(normalized?.sourceKind) === 'created' ? 'created' : 'normal',
@@ -6096,53 +6133,15 @@ function buildTechniqueComprehensionRows(snapshot: PersistedPlayerSnapshot): Tec
       grade: normalizeOptionalString(normalized?.grade),
       category: normalizeOptionalString(normalized?.category),
       creatorPlayerId: normalizeOptionalString(normalized?.creatorPlayerId),
-      activeTransferJobId: normalizeOptionalString(activeTransferJob?.jobId),
-      activeTransferTeacherId: normalizeOptionalString(activeTransferJob?.teacherPlayerId),
-      rawPayload: {
-        ...normalized,
-        techId,
-        activeTransferJob: activeTransferJob ? { ...activeTransferJob } : null,
-      },
+      selfComprehensionAllowed: normalized?.selfComprehensionAllowed !== false,
+      createdAtTick: normalizeMinimumInteger(normalized?.createdAtTick, 0, 0),
+      updatedAtTick: normalizeMinimumInteger(normalized?.updatedAtTick, 0, 0),
+      activeTransferJobId: null,
+      activeTransferTeacherId: null,
+      rawPayload: {},
     });
   }
   return rows;
-}
-
-function buildTechniqueStateRawPayload(entry: Record<string, unknown>, techId: string): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
-    techId,
-    level: normalizeMinimumInteger(entry.level, 1, 1),
-    exp: normalizeOptionalNumber(entry.exp) ?? 0,
-    expToNext: normalizeOptionalNumber(entry.expToNext) ?? 0,
-    skillsEnabled: entry.skillsEnabled !== false,
-  };
-  const name = normalizeOptionalString(entry.name);
-  if (name) {
-    payload.name = name;
-  }
-  const grade = normalizeOptionalString(entry.grade);
-  if (grade) {
-    payload.grade = grade;
-  }
-  const category = normalizeOptionalString(entry.category);
-  if (category) {
-    payload.category = category;
-  }
-  const realm = normalizeOptionalInteger(entry.realm);
-  if (realm !== null) {
-    payload.realm = realm;
-  }
-  const realmLv = normalizeOptionalInteger(entry.realmLv);
-  if (realmLv !== null) {
-    payload.realmLv = realmLv;
-  }
-  if (Array.isArray(entry.skills)) {
-    payload.skills = entry.skills.map((skill) => ({ ...(asRecord(skill) ?? {}) }));
-  }
-  if (Array.isArray(entry.layers)) {
-    payload.layers = entry.layers.map((layer) => ({ ...(asRecord(layer) ?? {}) }));
-  }
-  return payload;
 }
 
 function buildPersistentBuffStateRows(snapshot: PersistedPlayerSnapshot): PersistentBuffStateRow[] {
@@ -6869,8 +6868,8 @@ function buildProjectedSnapshotFromDomains(
   applyProjectedInventory(snapshot, domains.inventoryItems, contentTemplateRepository);
   applyProjectedMapUnlocks(snapshot, domains.mapUnlocks);
   applyProjectedEquipment(snapshot, domains.equipmentSlots, contentTemplateRepository);
-  applyProjectedTechniques(snapshot, domains.techniqueStates);
-  applyProjectedTechniqueComprehensions(snapshot, domains.techniqueComprehensions);
+  applyProjectedTechniques(snapshot, domains.techniqueStates, contentTemplateRepository);
+  applyProjectedTechniqueComprehensions(snapshot, domains.techniqueComprehensions, contentTemplateRepository);
   applyProjectedPersistentBuffs(snapshot, domains.persistentBuffStates);
   applyProjectedQuestProgress(snapshot, domains.questProgressRows);
   applyProjectedCombatPreferences(snapshot, domains.combatPreferences);
@@ -7113,6 +7112,7 @@ function applyProjectedEquipment(
 function applyProjectedTechniques(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerTechniqueStateLoadRow[],
+  contentTemplateRepository?: TechniqueTemplateRepositoryPort | null,
 ): void {
   if (rows.length === 0) {
     return;
@@ -7121,17 +7121,16 @@ function applyProjectedTechniques(
     ...snapshot.techniques,
     revision: Math.max(1, Number(snapshot.techniques?.revision ?? 1)),
     techniques: rows.map((row) => {
-      const rawPayload = asRecord(decodeJsonValue(row.raw_payload));
-      const techId = normalizeOptionalString(rawPayload?.techId) ?? normalizeOptionalString(row.tech_id) ?? 'tech:unknown';
-      return {
-        ...(rawPayload ?? {}),
+      const techId = normalizeOptionalString(row.tech_id) ?? 'tech:unknown';
+      const dynamicState = {
         techId,
-        level: normalizeMinimumInteger(rawPayload?.level ?? row.level, 1, 1),
-        exp: normalizeOptionalNumber(rawPayload?.exp ?? row.exp) ?? 0,
-        expToNext: normalizeOptionalNumber(rawPayload?.expToNext ?? row.exp_to_next) ?? 0,
-        realmLv: normalizeOptionalInteger(rawPayload?.realmLv ?? row.realm_lv) ?? undefined,
-        skillsEnabled: rawPayload?.skillsEnabled !== false && row.skills_enabled !== false,
+        level: normalizeMinimumInteger(row.level, 1, 1),
+        exp: normalizeOptionalNumber(row.exp) ?? 0,
+        expToNext: normalizeOptionalNumber(row.exp_to_next) ?? 0,
+        realmLv: normalizeOptionalInteger(row.realm_lv) ?? undefined,
+        skillsEnabled: row.skills_enabled !== false,
       };
+      return hydrateProjectedTechniqueState(dynamicState, contentTemplateRepository);
     }),
   };
 }
@@ -7139,29 +7138,59 @@ function applyProjectedTechniques(
 function applyProjectedTechniqueComprehensions(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerTechniqueComprehensionLoadRow[],
+  contentTemplateRepository?: TechniqueTemplateRepositoryPort | null,
 ): void {
   snapshot.techniques = {
     ...snapshot.techniques,
     pendingComprehensions: rows.map((row) => {
-      const rawPayload = asRecord(decodeJsonValue(row.raw_payload)) ?? {};
-      const techId = normalizeOptionalString(rawPayload.techId) ?? normalizeOptionalString(row.tech_id) ?? 'tech:unknown';
+      const techId = normalizeOptionalString(row.tech_id) ?? 'tech:unknown';
+      const name = resolveProjectedTechniqueName(techId, contentTemplateRepository);
       return {
-        ...rawPayload,
         techId,
-        name: normalizeOptionalString(rawPayload.name) ?? techId,
-        sourceKind: normalizeOptionalString(rawPayload.sourceKind) === 'created' || normalizeOptionalString(row.source_kind) === 'created'
+        name: name ?? techId,
+        sourceKind: normalizeOptionalString(row.source_kind) === 'created'
           ? 'created'
           : 'normal',
-        progress: normalizeMinimumNumber(rawPayload.progress ?? row.progress, 0, 0),
-        requiredProgress: normalizeMinimumNumber(rawPayload.requiredProgress ?? row.required_progress, 1, 1),
-        realmLv: normalizeOptionalInteger(rawPayload.realmLv ?? row.realm_lv) ?? 1,
-        grade: normalizeOptionalString(rawPayload.grade ?? row.grade) ?? undefined,
-        category: normalizeOptionalString(rawPayload.category ?? row.category) ?? undefined,
-        creatorPlayerId: normalizeOptionalString(rawPayload.creatorPlayerId ?? row.creator_player_id) ?? undefined,
-        activeTransferJob: asRecord(rawPayload.activeTransferJob) ?? null,
+        creatorPlayerId: normalizeOptionalString(row.creator_player_id) ?? undefined,
+        selfComprehensionAllowed: row.self_comprehension_allowed !== false,
+        progress: normalizeMinimumNumber(row.progress, 0, 0),
+        requiredProgress: normalizeMinimumNumber(row.required_progress, 1, 1),
+        realmLv: normalizeOptionalInteger(row.realm_lv) ?? 1,
+        grade: normalizeOptionalString(row.grade) ?? undefined,
+        category: normalizeOptionalString(row.category) ?? undefined,
+        createdAtTick: normalizeMinimumInteger(row.created_at_tick, 0, 0),
+        updatedAtTick: normalizeMinimumInteger(row.updated_at_tick, 0, 0),
+        activeTransferJob: null,
       };
     }),
   };
+}
+
+function hydrateProjectedTechniqueState(
+  dynamicState: Record<string, unknown> & { techId: string },
+  contentTemplateRepository?: TechniqueTemplateRepositoryPort | null,
+): Record<string, unknown> {
+  const hydrated = contentTemplateRepository?.hydrateTechniqueState?.(dynamicState);
+  if (hydrated) {
+    return hydrated;
+  }
+  const fallbackName = resolveProjectedTechniqueName(dynamicState.techId, contentTemplateRepository) ?? dynamicState.techId;
+  return {
+    ...dynamicState,
+    name: fallbackName,
+    realm: TechniqueRealm.Entry,
+    skills: [],
+    layers: [],
+  };
+}
+
+function resolveProjectedTechniqueName(
+  techId: string,
+  contentTemplateRepository?: TechniqueTemplateRepositoryPort | null,
+): string | null {
+  return normalizeOptionalString(contentTemplateRepository?.getTechniqueName?.(techId))
+    ?? normalizeOptionalString(contentTemplateRepository?.createTechniqueState?.(techId)?.name)
+    ?? null;
 }
 
 function applyProjectedPersistentBuffs(

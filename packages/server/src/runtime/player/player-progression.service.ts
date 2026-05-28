@@ -2010,6 +2010,7 @@ export class PlayerProgressionService {
     advancePendingTechniqueComprehensionInternal(player, pending, amount, options: any = {}) {
         const resolved = createEmptyMutation();
         if (pending.activeTransferJob
+            || pending.selfComprehensionAllowed === false
             || (player.transmissionJob?.techniqueId === pending.techId && Number(player.transmissionJob?.remainingTicks) > 0)) {
             return resolved;
         }

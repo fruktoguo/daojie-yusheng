@@ -143,7 +143,12 @@ async function main(): Promise<void> {
     );
     const techniqueRows = await fetchRows(
       pool,
-      'SELECT tech_id, level, realm_lv, skills_enabled FROM player_technique_state WHERE player_id = $1 ORDER BY realm_lv ASC NULLS LAST, tech_id ASC',
+      'SELECT tech_id, level, realm_lv, skills_enabled, raw_payload FROM player_technique_state WHERE player_id = $1 ORDER BY realm_lv ASC NULLS LAST, tech_id ASC',
+      [playerId],
+    );
+    const techniqueComprehensionRows = await fetchRows(
+      pool,
+      'SELECT tech_id, source_kind, progress, required_progress, self_comprehension_allowed, created_at_tick, updated_at_tick, raw_payload FROM player_technique_comprehension WHERE player_id = $1 ORDER BY realm_lv ASC NULLS LAST, tech_id ASC',
       [playerId],
     );
     const persistentBuffRows = await fetchRows(
@@ -276,8 +281,23 @@ async function main(): Promise<void> {
       techniqueRows.length !== 2
       || techniqueRows.map((entry) => `${String(entry?.tech_id ?? '')}:${Number(entry?.level ?? 0)}`).join(',')
         !== 'qi.breathing:3,sword.basic:2'
+      || JSON.stringify(techniqueRows[0]?.raw_payload ?? null) !== '{}'
+      || JSON.stringify(techniqueRows[1]?.raw_payload ?? null) !== '{}'
     ) {
       throw new Error(`unexpected player_technique_state rows: ${JSON.stringify(techniqueRows)}`);
+    }
+    if (
+      techniqueComprehensionRows.length !== 1
+      || techniqueComprehensionRows[0]?.tech_id !== 'gen.pending_self'
+      || techniqueComprehensionRows[0]?.source_kind !== 'created'
+      || Number(techniqueComprehensionRows[0]?.progress ?? 0) !== 7
+      || Number(techniqueComprehensionRows[0]?.required_progress ?? 0) !== 300
+      || techniqueComprehensionRows[0]?.self_comprehension_allowed !== false
+      || Number(techniqueComprehensionRows[0]?.created_at_tick ?? 0) !== 11
+      || Number(techniqueComprehensionRows[0]?.updated_at_tick ?? 0) !== 22
+      || JSON.stringify(techniqueComprehensionRows[0]?.raw_payload ?? null) !== '{}'
+    ) {
+      throw new Error(`unexpected player_technique_comprehension rows: ${JSON.stringify(techniqueComprehensionRows)}`);
     }
     if (
       persistentBuffRows.length !== 1
@@ -2722,6 +2742,29 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
         },
       ],
       cultivatingTechId: 'qi.breathing',
+      pendingComprehensions: [
+        {
+          techId: 'gen.pending_self',
+          name: '待悟自创功法',
+          sourceKind: 'created',
+          creatorPlayerId: 'creator:pending_self',
+          selfComprehensionAllowed: false,
+          progress: 7,
+          requiredProgress: 300,
+          realmLv: 1,
+          grade: 'mortal',
+          category: 'internal',
+          createdAtTick: 11,
+          updatedAtTick: 22,
+          activeTransferJob: {
+            jobId: 'legacy-transfer-should-not-persist',
+            teacherPlayerId: 'teacher:legacy',
+            startedAtTick: 11,
+            status: 'running',
+            range: 2,
+          },
+        },
+      ],
     },
     buffs: {
       revision: 2,

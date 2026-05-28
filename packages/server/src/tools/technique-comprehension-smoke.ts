@@ -304,6 +304,36 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 4));
 }
 
+function testTransmittedPendingCannotSelfComprehendWithoutActiveJob() {
+  const { progressionService } = createRuntimeService();
+  const learner = createPlayer('learner:self-blocked', 0, 0);
+  learner.techniques.cultivatingTechId = createdTechnique.techId;
+  learner.pendingTechniqueComprehensions.push({
+    techId: createdTechnique.techId,
+    name: createdTechnique.name,
+    sourceKind: 'created',
+    selfComprehensionAllowed: false,
+    progress: 0,
+    requiredProgress: 10,
+    realmLv: 1,
+    grade: 'mortal',
+    category: 'internal',
+    createdAtTick: 0,
+    updatedAtTick: 0,
+    activeTransferJob: null,
+  });
+
+  const result = progressionService.advanceTechniqueProgressInternal(learner, 999, {
+    allowPendingComprehension: true,
+    expBonus: 100000,
+    pendingComprehensionTicks: 4,
+  });
+
+  assert.equal(result.changed, false);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 0);
+  assert.equal(learner.transmissionSkill.exp, 0);
+}
+
 function testCultivationUsesElapsedTicksForPendingComprehension() {
   const { progressionService } = createRuntimeService();
   const learner = createPlayer('learner:cultivation', 0, 0);
@@ -414,6 +444,8 @@ function testTransmissionBlocksCancelsAndContinues() {
   );
   startTransmissionWithPipeline(runtimeService, teacherA.playerId, learner, createdTechnique.techId);
   const pending = learner.pendingTechniqueComprehensions[0]!;
+  assert.equal(pending.selfComprehensionAllowed, false);
+  assert.equal(teacherA.notices.queue[0]?.structured?.key, 'notice.craft.transmission.teacher-start');
   pending.requiredProgress = 3;
   tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(pending.progress, 1);
@@ -449,6 +481,7 @@ function testTransmissionBlocksCancelsAndContinues() {
 }
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();
+testTransmittedPendingCannotSelfComprehendWithoutActiveJob();
 testRequiredProgressIgnoresDynamicLearnerAndTeacherFactors();
 testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
