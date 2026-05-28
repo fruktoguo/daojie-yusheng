@@ -254,6 +254,7 @@ function testCultivationUsesElapsedTicksForPendingComprehension() {
 
   const result = progressionService.advanceCultivation(learner, 1, { auraMultiplier: 10 });
   assert.equal(result.changed, true);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.requiredProgress, 300);
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 1);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
@@ -303,6 +304,23 @@ function testPendingTechniqueNameResolvesDisplayName() {
   runtimeService.players.set(learner.playerId, learner);
 
   assert.equal(runtimeService.getTechniqueName(learner.playerId, createdTechnique.techId), createdTechnique.name);
+}
+
+function testTransmissionRefreshesStaleRequiredProgress() {
+  const { runtimeService } = createRuntimeService();
+  const teacher = createPlayer('teacher:stale-required', 0, 0);
+  const learner = createPlayer('learner:stale-required', 0, 1);
+  teacher.techniques.techniques.push({ ...createdTechnique });
+  runtimeService.players.set(teacher.playerId, teacher);
+  runtimeService.players.set(learner.playerId, learner);
+
+  runtimeService.startTechniqueTransmission(teacher.playerId, learner.playerId, createdTechnique.techId);
+  const pending = learner.pendingTechniqueComprehensions[0]!;
+  pending.requiredProgress = 999999;
+  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 1);
+
+  assert.equal(pending.requiredProgress, 300);
+  assert.equal(pending.progress, 1);
 }
 
 function testTransmissionBlocksCancelsAndContinues() {
@@ -373,7 +391,7 @@ function testTransmissionBlocksCancelsAndContinues() {
   runtimeService.cancelTechniqueTransmission(learner.playerId, createdTechnique.techId);
   assert.equal(pending.activeTransferJob, null);
   runtimeService.startTechniqueTransmission(teacherB.playerId, learner.playerId, createdTechnique.techId);
-  learner.pendingTechniqueComprehensions[0]!.requiredProgress = 3;
+  learner.pendingTechniqueComprehensions[0]!.progress = 299;
   runtimeService.advanceTechniqueTransmissionForPlayer(learner, 14);
   assert.equal(learner.pendingTechniqueComprehensions.length, 0);
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
@@ -386,6 +404,7 @@ testDynamicFactorsApplyToProgressGain();
 testCultivationUsesElapsedTicksForPendingComprehension();
 testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();
+testTransmissionRefreshesStaleRequiredProgress();
 testTransmissionBlocksCancelsAndContinues();
 
 console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));

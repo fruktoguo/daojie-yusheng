@@ -5,7 +5,7 @@
  */
 import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import * as fs from 'fs';
-import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, calculateTechniqueComprehensionProgressGain, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, normalizeBodyTrainingState } from '@mud/shared';
+import { ATTR_KEYS, DEFAULT_PLAYER_REALM_STAGE, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES, PlayerRealmStage, SHATTER_SPIRIT_PILL_COST_RATIO as SHARED_SHATTER_SPIRIT_PILL_COST_RATIO, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, computeCraftSkillExpGain, deriveTechniqueRealm, getBodyTrainingExpToNext, getMonsterKillExpLevelAdjustment, getMonsterLevelExpDecayMultiplier, getTechniqueExpLevelAdjustment, getTechniqueExpToNext, getTechniqueMaxLevel, isCreatedTechniqueId, normalizeBodyTrainingState } from '@mud/shared';
 import { resolveProjectPath } from '../../common/project-path';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { getMonsterCombatExpGradeFactor, resolveMonsterCombatExpTierFactor } from '../combat/monster-combat-exp-equivalent.helper';
@@ -2023,6 +2023,20 @@ export class PlayerProgressionService {
         });
         if (normalized <= 0) {
             return resolved;
+        }
+        const pendingTechnique = this.contentTemplateRepository.createTechniqueState(pending.techId);
+        if (pendingTechnique) {
+            const sourceKind = pending.sourceKind === 'created' || isCreatedTechniqueId(pending.techId) ? 'created' : 'normal';
+            pending.sourceKind = sourceKind;
+            pending.requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+                sourceKind,
+                techniqueRealmLv: pendingTechnique.realmLv,
+                grade: pendingTechnique.grade,
+            });
+            pending.realmLv = Math.max(1, Math.floor(Number(pendingTechnique.realmLv) || 1));
+            pending.grade = pendingTechnique.grade ?? pending.grade;
+            pending.category = pendingTechnique.category ?? pending.category;
+            pending.name = pendingTechnique.name ?? pending.name ?? pending.techId;
         }
         const previousProgress = Math.max(0, Number(pending.progress) || 0);
         const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);

@@ -918,6 +918,62 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(learner);
         return learner;
     }
+    normalizePendingTechniqueComprehensionsForRuntime(value) {
+        const entries = clonePendingTechniqueComprehensions(value);
+        let changed = false;
+        for (const pending of entries) {
+            changed = this.refreshPendingTechniqueComprehensionRequirement(pending) || changed;
+        }
+        return { entries, changed };
+    }
+    refreshPendingTechniqueComprehensionRequirement(pending, fallbackTechnique = null) {
+        if (!pending || typeof pending.techId !== 'string' || !pending.techId.trim()) {
+            return false;
+        }
+        const technique = fallbackTechnique ?? this.contentTemplateRepository.createTechniqueState(pending.techId);
+        if (!technique) {
+            return false;
+        }
+        const sourceKind = pending.sourceKind === 'created' || isCreatedTechniqueId(pending.techId) ? 'created' : 'normal';
+        const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
+            sourceKind,
+            techniqueRealmLv: technique.realmLv,
+            grade: technique.grade,
+        });
+        let changed = false;
+        if (pending.sourceKind !== sourceKind) {
+            pending.sourceKind = sourceKind;
+            changed = true;
+        }
+        if (pending.requiredProgress !== requiredProgress) {
+            pending.requiredProgress = requiredProgress;
+            changed = true;
+        }
+        const progress = Math.min(requiredProgress, Math.max(0, Number(pending.progress) || 0));
+        if (pending.progress !== progress) {
+            pending.progress = progress;
+            changed = true;
+        }
+        const realmLv = Math.max(1, Math.floor(Number(technique.realmLv) || 1));
+        if (pending.realmLv !== realmLv) {
+            pending.realmLv = realmLv;
+            changed = true;
+        }
+        if ((technique.grade ?? undefined) !== undefined && pending.grade !== technique.grade) {
+            pending.grade = technique.grade;
+            changed = true;
+        }
+        if ((technique.category ?? undefined) !== undefined && pending.category !== technique.category) {
+            pending.category = technique.category;
+            changed = true;
+        }
+        const name = technique.name ?? pending.name ?? pending.techId;
+        if (pending.name !== name) {
+            pending.name = name;
+            changed = true;
+        }
+        return changed;
+    }
     interruptTechniqueTransmissionForPlayer(learnerPlayerId, reason = 'attack', currentTick = 0) {
         const learner = this.getPlayer(learnerPlayerId);
         if (!learner) {
@@ -3627,6 +3683,10 @@ export class PlayerRuntimeService {
                 delete job.blockedReason;
                 changed = true;
             }
+            if (this.refreshPendingTechniqueComprehensionRequirement(pending, teacherTechnique)) {
+                pending.updatedAtTick = playerTick;
+                changed = true;
+            }
             const previousProgress = Math.max(0, Number(pending.progress) || 0);
             const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
             const progressGain = calculateTechniqueComprehensionProgressGain({
@@ -4310,6 +4370,7 @@ export class PlayerRuntimeService {
                 || Math.trunc(snapshot.respawn.y) !== snapshotRespawnY)
         );
 
+        const pendingComprehensions = this.normalizePendingTechniqueComprehensionsForRuntime(snapshot.techniques?.pendingComprehensions);
         const player = {
             playerId,
             sessionId,
@@ -4370,7 +4431,7 @@ export class PlayerRuntimeService {
             enhancementSkillLevel: Math.max(1, Math.floor(Number(snapshot.progression?.enhancementSkillLevel ?? snapshot.progression?.enhancementSkill?.level) || 1)),
             enhancementJob: normalizeEnhancementJob(snapshot.progression?.enhancementJob),
             enhancementRecords: normalizeEnhancementRecords(snapshot.progression?.enhancementRecords),
-            pendingTechniqueComprehensions: clonePendingTechniqueComprehensions(snapshot.techniques?.pendingComprehensions),
+            pendingTechniqueComprehensions: pendingComprehensions.entries,
             unlockedMapIds: snapshot.unlockedMapIds.slice(),
             selfRevision: 1,
             inventory: {
@@ -4481,6 +4542,10 @@ export class PlayerRuntimeService {
         player.attrs.rawBaseAttrs = decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs);
         player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         this.playerProgressionService.initializePlayer(player);
+        if (pendingComprehensions.changed) {
+            markPlayerDirtyDomains(player, ['technique']);
+            this.bumpPersistentRevision(player);
+        }
         syncWalletCacheFromInventory(player);
         if (ensureVitalBaselineBonus(player, snapshot.vitals)) {
             this.playerAttributesService.recalculate(player);
