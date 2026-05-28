@@ -26,7 +26,7 @@ import { AiProviderConfigService, type AiProviderConfigView } from '../../ai/ai-
 import { AiProviderConfigPersistenceService, normalizeAiProviderModels } from '../../ai/ai-provider-config-persistence.service';
 import { callTextModelWithConfig } from '../../ai/ai-text-client';
 import { generateImageAssetWithConfig } from '../../ai/ai-image-client';
-import { normalizeOpenAIBaseUrl, resolveDashScopeImageEndpoint } from '../../ai/ai-model-config';
+import { normalizeAnthropicBaseUrl, normalizeOpenAIBaseUrl, resolveDashScopeImageEndpoint } from '../../ai/ai-model-config';
 import type { AiProviderConfigRecord, AiProviderModelRecord } from '../../ai/ai-provider-config.types';
 import { NativeGmSecretStoreService } from './native-gm-secret-store.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
@@ -218,7 +218,7 @@ export class NativeGmAiProviderController {
         await callTextModelWithConfig({
           provider: record.provider as any,
           apiKey,
-          baseURL: record.provider === 'anthropic' ? record.baseURL : normalizeOpenAIBaseUrl(record.baseURL),
+          baseURL: record.provider === 'anthropic' ? normalizeAnthropicBaseUrl(record.baseURL) : normalizeOpenAIBaseUrl(record.baseURL),
           modelName,
           timeoutMs: Math.min(record.timeoutMs, 20_000),
           anthropicMaxTokens: 64,
@@ -382,7 +382,8 @@ function toApiModel(model: AiProviderModelRecord): GmAiProviderModelItem {
 
 async function fetchProviderModelNames(record: AiProviderConfigRecord, apiKey: string): Promise<string[]> {
   if (record.provider === 'anthropic') {
-    return fetchJsonModelNames(`${record.baseURL || 'https://api.anthropic.com'}/v1/models`, {
+    const baseURL = normalizeAnthropicBaseUrl(record.baseURL) || 'https://api.anthropic.com';
+    return fetchJsonModelNames(`${baseURL}/v1/models`, {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     });

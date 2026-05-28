@@ -7,6 +7,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { NativeGmSecretStoreService } from '../http/native/native-gm-secret-store.service';
 import {
+  normalizeAnthropicBaseUrl,
   normalizeOpenAIBaseUrl,
   resolveDashScopeImageEndpoint,
   type AiImageModelConfig,
@@ -62,7 +63,7 @@ export class AiProviderConfigService {
     return {
       provider: record.provider as AiTextModelConfig['provider'],
       apiKey,
-      baseURL: record.provider === 'anthropic' ? record.baseURL : normalizeOpenAIBaseUrl(record.baseURL),
+      baseURL: record.provider === 'anthropic' ? normalizeAnthropicBaseUrl(record.baseURL) : normalizeOpenAIBaseUrl(record.baseURL),
       modelName: resolveDefaultModelName(record),
       timeoutMs: record.timeoutMs,
       anthropicMaxTokens: 8192,

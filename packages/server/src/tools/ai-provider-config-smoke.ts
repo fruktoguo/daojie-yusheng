@@ -8,6 +8,7 @@ import {
   readDashScopeImageGenerationResult,
 } from '../ai/ai-image-client';
 import {
+  normalizeAnthropicBaseUrl,
   normalizeDashScopeImageSize,
   normalizeOpenAIBaseUrl,
   readAiImageModelConfig,
@@ -65,6 +66,9 @@ const run = async (): Promise<void> => {
   try {
     assert.equal(normalizeOpenAIBaseUrl('https://api.openai.com/v1/chat/completions'), 'https://api.openai.com/v1');
     assert.equal(normalizeOpenAIBaseUrl('https://example.com'), 'https://example.com/v1');
+    assert.equal(normalizeAnthropicBaseUrl('https://api.anthropic.com/v1'), 'https://api.anthropic.com');
+    assert.equal(normalizeAnthropicBaseUrl('https://api.anthropic.com/v1/messages'), 'https://api.anthropic.com');
+    assert.equal(normalizeAnthropicBaseUrl('https://api.anthropic.com/v1/models'), 'https://api.anthropic.com');
     assert.equal(
       resolveDashScopeImageEndpoint('https://dashscope.aliyuncs.com'),
       'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
@@ -81,6 +85,15 @@ const run = async (): Promise<void> => {
     assert.equal(textConfig?.provider, 'openai-compatible');
     assert.equal(textConfig?.baseURL, 'https://compat.example.com/v1');
     assert.equal(textConfig?.modelName, 'compat-model');
+
+    process.env.AI_TECHNIQUE_MODEL_PROVIDER = 'anthropic';
+    process.env.AI_TECHNIQUE_MODEL_URL = 'https://api.anthropic.com/v1/messages';
+    process.env.AI_TECHNIQUE_MODEL_KEY = 'anthropic-key';
+    process.env.AI_TECHNIQUE_MODEL_NAME = 'claude-opus-4-7';
+    const anthropicTextConfig = readAiTextModelConfig('technique');
+    assert.equal(anthropicTextConfig?.provider, 'anthropic');
+    assert.equal(anthropicTextConfig?.baseURL, 'https://api.anthropic.com');
+    assert.equal(anthropicTextConfig?.modelName, 'claude-opus-4-7');
 
     const responsesPayload = __aiTextClientInternals.buildOpenAIResponsesPayload(
       {

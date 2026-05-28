@@ -76,6 +76,15 @@ export const normalizeOpenAIBaseUrl = (raw: string): string => {
   return `${endpoint}/v1`;
 };
 
+export const normalizeAnthropicBaseUrl = (raw: string): string => {
+  const endpoint = trimTrailingSlash(raw.trim());
+  if (!endpoint) return '';
+  if (/\/v1\/messages$/i.test(endpoint)) return endpoint.replace(/\/v1\/messages$/i, '');
+  if (/\/v1\/models$/i.test(endpoint)) return endpoint.replace(/\/v1\/models$/i, '');
+  if (/\/v1$/i.test(endpoint)) return endpoint.replace(/\/v1$/i, '');
+  return endpoint;
+};
+
 export const resolveDashScopeImageEndpoint = (raw: string): string => {
   const endpoint = trimTrailingSlash(raw.trim());
   if (!endpoint) return '';
@@ -180,7 +189,7 @@ export const readAiTextModelConfig = (scope = 'default'): AiTextModelConfig | nu
     provider,
     apiKey,
     baseURL: provider === 'anthropic'
-      ? trimTrailingSlash(endpointRaw)
+      ? normalizeAnthropicBaseUrl(endpointRaw)
       : normalizeOpenAIBaseUrl(endpointRaw),
     modelName,
     timeoutMs,
