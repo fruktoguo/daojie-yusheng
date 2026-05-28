@@ -1675,17 +1675,17 @@ export class CraftWorkbenchModal {
     const targetOptions = targets.length > 0
       ? targets.map((target) => `<option value="${escapeHtmlAttr(target.playerId)}">${escapeHtml(target.name)}</option>`).join('')
       : '<option value="">附近无可传授玩家</option>';
-    const disabled = targets.length === 0 ? 'disabled' : '';
+    const targetDisabled = targets.length === 0 ? 'disabled' : '';
     return `
       <div class="transmission-teach-picker">
         <input class="ui-search-input" type="search" data-transmission-tech-search="true" placeholder="搜索自创功法">
-        <select class="ui-input" data-transmission-tech-select="true" ${disabled}>
+        <select class="ui-input" data-transmission-tech-select="true">
           ${techniqueOptions}
         </select>
-        <select class="ui-input" data-transmission-target-select="true" ${disabled}>
+        <select class="ui-input" data-transmission-target-select="true" ${targetDisabled}>
           ${targetOptions}
         </select>
-        <button class="small-btn" type="button" data-craft-action="transmission-start" ${disabled}>传授</button>
+        <button class="small-btn" type="button" data-craft-action="transmission-start" ${targetDisabled}>传授</button>
       </div>
     `;
   }
