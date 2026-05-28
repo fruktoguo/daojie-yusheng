@@ -90,6 +90,7 @@ interface PlayerSnapshotProgression {
   miningSkill?: Record<string, unknown> | null;
   formationSkill?: Record<string, unknown> | null;
   transmissionSkill?: Record<string, unknown> | null;
+  transmissionJob?: Record<string, unknown> | null;
   gatherJob: Record<string, unknown> | null;
   miningJob?: Record<string, unknown> | null;
   buildingJob?: Record<string, unknown> | null;
@@ -598,6 +599,8 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       gatherSkill: asRecordOrNull(progression?.gatherSkill),
       miningSkill: asRecordOrNull(progression?.miningSkill),
       formationSkill: asRecordOrNull(progression?.formationSkill),
+      transmissionSkill: asRecordOrNull(progression?.transmissionSkill),
+      transmissionJob: asRecordOrNull(progression?.transmissionJob),
       gatherJob: asRecordOrNull(progression?.gatherJob),
       miningJob: asRecordOrNull(progression?.miningJob),
       buildingJob: asRecordOrNull(progression?.buildingJob),

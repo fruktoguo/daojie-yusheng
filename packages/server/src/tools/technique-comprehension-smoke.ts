@@ -6,6 +6,8 @@ import {
 } from '@mud/shared';
 import { PlayerProgressionService } from '../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { TechniqueActivityPipelineService } from '../runtime/craft/pipeline/technique-activity-pipeline.service';
+import { TransmissionStrategy } from '../runtime/craft/pipeline/strategies/transmission.strategy';
 
 function createTechnique(techId: string, name: string) {
   return {
@@ -72,6 +74,7 @@ function createPlayer(playerId: string, x: number, y: number) {
     techniques: { revision: 0, techniques: [], cultivatingTechId: null },
     pendingTechniqueComprehensions: [],
     transmissionSkill: { level: 1, exp: 0, expToNext: 60 },
+    transmissionJob: null,
     combat: { cultivationActive: false },
     notices: { nextId: 1, queue: [] },
     actions: { revision: 0, actions: [], contextActions: [] },
@@ -112,6 +115,64 @@ function createRuntimeService() {
   );
   (runtimeService as any).playerProgressionService.getRealmRuntimeExpToNext = resolveExpToNextByLevel;
   return { progressionService, runtimeService };
+}
+
+function createTransmissionPipeline(runtimeService: PlayerRuntimeService) {
+  const pipeline = new TechniqueActivityPipelineService();
+  pipeline.register(new TransmissionStrategy());
+  const ctx = {
+    contentTemplateRepository: {
+      ...(contentTemplateRepository as Record<string, unknown>),
+      getItemName() {
+        return null;
+      },
+      normalizeItem(item: unknown) {
+        return item;
+      },
+    },
+    resolveExpToNextByLevel,
+    getInstanceRuntime() {
+      return null;
+    },
+    deps: { playerRuntimeService: runtimeService },
+  };
+  return { pipeline, ctx };
+}
+
+function startTransmissionWithPipeline(
+  runtimeService: PlayerRuntimeService,
+  teacherPlayerId: string,
+  learner: ReturnType<typeof createPlayer>,
+  techniqueId: string,
+) {
+  const { pipeline, ctx } = createTransmissionPipeline(runtimeService);
+  const result = pipeline.start(
+    learner,
+    'transmission',
+    { learnerPlayerId: learner.playerId, teacherPlayerId, techniqueId },
+    ctx as never,
+  );
+  assert.equal(result.ok, true, result.error);
+  return { pipeline, ctx };
+}
+
+function tickTransmissionWithPipeline(runtimeService: PlayerRuntimeService, learner: ReturnType<typeof createPlayer>) {
+  const { pipeline, ctx } = createTransmissionPipeline(runtimeService);
+  return pipeline.tick(learner, 'transmission', ctx as never);
+}
+
+function interruptTransmissionWithPipeline(
+  runtimeService: PlayerRuntimeService,
+  learner: ReturnType<typeof createPlayer>,
+  reason: 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat',
+) {
+  const { pipeline, ctx } = createTransmissionPipeline(runtimeService);
+  return pipeline.interrupt(learner, 'transmission', reason, ctx as never);
+}
+
+function cancelTransmissionWithPipeline(runtimeService: PlayerRuntimeService, learner: ReturnType<typeof createPlayer>) {
+  const { pipeline, ctx } = createTransmissionPipeline(runtimeService);
+  return pipeline.cancel(learner, 'transmission', ctx as never);
 }
 
 function getExpectedTransmissionExpGain(skillLevel: number, targetLevel: number, ticks: number): number {
@@ -214,12 +275,24 @@ function testSelfComprehensionProgressesOnlyWithoutTransmission() {
   assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 4);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 4));
 
-  learner.pendingTechniqueComprehensions[0]!.activeTransferJob = {
-    jobId: 'job:test',
+  learner.transmissionJob = {
+    jobRunId: 'job:test',
+    jobType: 'transmission',
+    techniqueId: technique.techId,
+    techniqueName: technique.name,
     teacherPlayerId: 'teacher:1',
-    startedAtTick: 0,
+    startedAt: 0,
     status: 'running',
+    phase: 'transmitting',
+    totalTicks: 100,
+    remainingTicks: 100,
+    workTotalTicks: 100,
+    workRemainingTicks: 100,
+    pausedTicks: 0,
     range: 2,
+    realmLv: 1,
+    successRate: 1,
+    spiritStoneCost: 0,
   };
   const blocked = progressionService.advanceTechniqueProgressInternal(learner, 999, {
     allowPendingComprehension: true,
@@ -314,10 +387,10 @@ function testTransmissionRefreshesStaleRequiredProgress() {
   runtimeService.players.set(teacher.playerId, teacher);
   runtimeService.players.set(learner.playerId, learner);
 
-  runtimeService.startTechniqueTransmission(teacher.playerId, learner.playerId, createdTechnique.techId);
+  startTransmissionWithPipeline(runtimeService, teacher.playerId, learner, createdTechnique.techId);
   const pending = learner.pendingTechniqueComprehensions[0]!;
   pending.requiredProgress = 999999;
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 1);
+  tickTransmissionWithPipeline(runtimeService, learner);
 
   assert.equal(pending.requiredProgress, 300);
   assert.equal(pending.progress, 1);
@@ -339,60 +412,37 @@ function testTransmissionBlocksCancelsAndContinues() {
     () => runtimeService.startTechniqueTransmission(teacherA.playerId, learner.playerId, technique.techId),
     /只能传授自创功法/,
   );
-  learner.pendingTechniqueComprehensions.push({
-    techId: technique.techId,
-    name: technique.name,
-    sourceKind: 'normal',
-    progress: 0,
-    requiredProgress: 3,
-    realmLv: 1,
-    grade: 'mortal',
-    category: 'internal',
-    createdAtTick: 0,
-    updatedAtTick: 0,
-    activeTransferJob: {
-      jobId: 'legacy-normal-technique-job',
-      teacherPlayerId: teacherA.playerId,
-      startedAtTick: 0,
-      status: 'running',
-      range: 2,
-    },
-  });
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 1);
-  assert.equal(learner.pendingTechniqueComprehensions[0]?.progress, 0);
-  assert.equal(learner.pendingTechniqueComprehensions[0]?.activeTransferJob?.blockedReason, 'not_created_technique');
-  learner.pendingTechniqueComprehensions = [];
-
-  runtimeService.startTechniqueTransmission(teacherA.playerId, learner.playerId, createdTechnique.techId);
+  startTransmissionWithPipeline(runtimeService, teacherA.playerId, learner, createdTechnique.techId);
   const pending = learner.pendingTechniqueComprehensions[0]!;
   pending.requiredProgress = 3;
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 1);
+  tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(pending.progress, 1);
   assert.equal(learner.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 
-  assert.equal(runtimeService.interruptTechniqueTransmissionForPlayer(learner.playerId, 'move', 2), true);
-  assert.equal(pending.activeTransferJob?.interruptWaitRemainingTicks, 10);
+  assert.equal(interruptTransmissionWithPipeline(runtimeService, learner, 'move').panelChanged, true);
+  assert.equal(learner.transmissionJob?.interruptWaitRemainingTicks, 10);
   for (let tick = 2; tick <= 11; tick += 1) {
-    runtimeService.advanceTechniqueTransmissionForPlayer(learner, tick);
+    learner.lifeElapsedTicks = tick;
+    tickTransmissionWithPipeline(runtimeService, learner);
   }
   assert.equal(pending.progress, 1);
-  assert.equal(pending.activeTransferJob?.interruptWaitRemainingTicks, 0);
-  assert.equal(pending.activeTransferJob?.interruptState, null);
+  assert.equal(learner.transmissionJob?.interruptWaitRemainingTicks, 0);
+  assert.equal(learner.transmissionJob?.interruptState, null);
 
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 12);
+  tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(pending.progress, 2);
   assert.equal(learner.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 2));
 
   teacherA.x = 99;
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 13);
+  tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(pending.progress, 2);
-  assert.equal(pending.activeTransferJob?.status, 'blocked');
+  assert.equal(learner.transmissionJob?.status, 'blocked');
 
-  runtimeService.cancelTechniqueTransmission(learner.playerId, createdTechnique.techId);
-  assert.equal(pending.activeTransferJob, null);
-  runtimeService.startTechniqueTransmission(teacherB.playerId, learner.playerId, createdTechnique.techId);
+  assert.equal(cancelTransmissionWithPipeline(runtimeService, learner).ok, true);
+  assert.equal(learner.transmissionJob, null);
+  startTransmissionWithPipeline(runtimeService, teacherB.playerId, learner, createdTechnique.techId);
   learner.pendingTechniqueComprehensions[0]!.progress = 299;
-  runtimeService.advanceTechniqueTransmissionForPlayer(learner, 14);
+  tickTransmissionWithPipeline(runtimeService, learner);
   assert.equal(learner.pendingTechniqueComprehensions.length, 0);
   assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
   assert.equal(learner.transmissionSkill.exp, getExpectedRepeatedTransmissionExpGain(1, 1, 3));

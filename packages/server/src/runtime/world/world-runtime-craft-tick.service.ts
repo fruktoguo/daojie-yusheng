@@ -16,6 +16,7 @@ import { TechniqueActivityQueueService } from '../craft/pipeline/technique-activ
 import { AlchemyStrategy } from '../craft/pipeline/strategies/alchemy.strategy';
 import { ForgingStrategy } from '../craft/pipeline/strategies/forging.strategy';
 import { EnhancementStrategy } from '../craft/pipeline/strategies/enhancement.strategy';
+import { TransmissionStrategy } from '../craft/pipeline/strategies/transmission.strategy';
 import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
 import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
@@ -68,6 +69,7 @@ export class WorldRuntimeCraftTickService {
         this.pipeline.register(new AlchemyStrategy(craftPanelRuntimeService));
         this.pipeline.register(new ForgingStrategy(craftPanelRuntimeService));
         this.pipeline.register(new EnhancementStrategy(craftPanelRuntimeService));
+        this.pipeline.register(new TransmissionStrategy());
         this.pipeline.register(new GatherStrategy());
         this.pipeline.register(new MiningStrategy());
         this.pipeline.register(new BuildingStrategy());
@@ -113,9 +115,6 @@ export class WorldRuntimeCraftTickService {
 
             // EventBus: 发射活跃 job 进度
             this.emitActiveJobProgress(playerId, player);
-            if (this.hasActiveTechniqueTransmission(player)) {
-                this.worldRuntimeCraftMutationService.emitTechniqueActivityTaskUpdate(playerId);
-            }
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             deps?.queuePlayerNotice?.(playerId, message, 'warn');
@@ -144,19 +143,12 @@ export class WorldRuntimeCraftTickService {
         }
     }
 
-    /** 传法由学习者 player tick 推进，这里只负责把其任务列表进度补发给客户端。 */
-    private hasActiveTechniqueTransmission(player: any): boolean {
-        const pendingList = Array.isArray(player?.pendingTechniqueComprehensions)
-            ? player.pendingTechniqueComprehensions
-            : [];
-        return pendingList.some((entry: any) => entry?.activeTransferJob && typeof entry.activeTransferJob === 'object');
-    }
-
     /** 从玩家当前活跃 job 推断刚启动的 kind。 */
     private resolveQueueResultKind(player) {
         if (player.alchemyJob && Number(player.alchemyJob.remainingTicks) > 0) return 'alchemy';
         if (player.forgingJob && Number(player.forgingJob.remainingTicks) > 0) return 'forging';
         if (player.enhancementJob && Number(player.enhancementJob.remainingTicks) > 0) return 'enhancement';
+        if (player.transmissionJob && Number(player.transmissionJob.remainingTicks) > 0) return 'transmission';
         if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) return 'gather';
         if (player.miningJob && Number(player.miningJob.remainingTicks) > 0) return 'mining';
         if (player.buildingJob && Number(player.buildingJob.remainingTicks) > 0) return 'building';

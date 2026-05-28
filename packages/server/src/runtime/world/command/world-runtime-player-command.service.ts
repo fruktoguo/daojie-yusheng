@@ -63,6 +63,7 @@ function recordCombatAction(player, currentTick) {
 function normalizeTechniqueActivityKind(kind) {
     return kind === 'forging'
         || kind === 'enhancement'
+        || kind === 'transmission'
         || kind === 'gather'
         || kind === 'building'
         || kind === 'mining'
@@ -104,6 +105,9 @@ function resolveTechniqueActivityJob(player, kind) {
     }
     if (kind === 'enhancement') {
         return player.enhancementJob ?? null;
+    }
+    if (kind === 'transmission') {
+        return player.transmissionJob ?? null;
     }
     if (kind === 'gather') {
         return player.gatherJob ?? null;
@@ -368,6 +372,29 @@ export class WorldRuntimePlayerCommandService {
                 return this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, { ...(payload ?? {}), kind: 'forging' }, deps);
             case 'enhancement':
                 return this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
+            case 'transmission': {
+                const learnerPlayerId = typeof payload?.learnerPlayerId === 'string' && payload.learnerPlayerId.trim()
+                    ? payload.learnerPlayerId.trim()
+                    : playerId;
+                const learner = this.playerRuntimeService.getPlayerOrThrow(learnerPlayerId);
+                const result = deps.craftPanelRuntimeService.startTechniqueActivity(
+                    learner,
+                    'transmission',
+                    {
+                        ...(payload ?? {}),
+                        learnerPlayerId,
+                        teacherPlayerId: typeof payload?.teacherPlayerId === 'string' && payload.teacherPlayerId.trim()
+                            ? payload.teacherPlayerId.trim()
+                            : playerId,
+                    },
+                    deps,
+                );
+                if (!result.ok) {
+                    throw new BadRequestException(result.error ?? '启动传法失败');
+                }
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(learnerPlayerId, result, 'transmission', deps);
+                return;
+            }
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -438,6 +465,18 @@ export class WorldRuntimePlayerCommandService {
                 return this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps, 'forging');
             case 'enhancement':
                 return this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
+            case 'transmission':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.craftPanelRuntimeService.cancelTechniqueActivity(
+                        this.playerRuntimeService.getPlayerOrThrow(playerId),
+                        'transmission',
+                        deps,
+                    ),
+                    'transmission',
+                    deps,
+                );
+                return;
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -490,15 +529,6 @@ export class WorldRuntimePlayerCommandService {
     }
     /** 统一任务列表取消入口：可取消队列项，也可按 jobRunId 保护性取消当前 job。 */
     async dispatchCancelTechniqueActivityByRef(playerId, cancelRef, deps) {
-        if (cancelRef?.kind === 'transmission') {
-            const techniqueId = normalizeCancelRefTechniqueId(cancelRef);
-            if (!techniqueId) {
-                return;
-            }
-            this.playerRuntimeService.cancelTechniqueTransmission(playerId, techniqueId);
-            deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(playerId);
-            return;
-        }
         const kind = normalizeTechniqueActivityKind(cancelRef?.kind);
         const player = this.playerRuntimeService.getPlayer(playerId);
         if (!player) {
@@ -608,15 +638,14 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startTechniqueTransmission':
-                {
-                    const learner = this.playerRuntimeService.startTechniqueTransmission(playerId, command.learnerPlayerId, command.techniqueId);
-                    deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(learner?.playerId);
-                }
-                return;
+                return this.dispatchStartTechniqueActivity(
+                    command.learnerPlayerId,
+                    'transmission',
+                    { learnerPlayerId: command.learnerPlayerId, teacherPlayerId: playerId, techniqueId: command.techniqueId },
+                    deps,
+                );
             case 'cancelTechniqueTransmission':
-                this.playerRuntimeService.cancelTechniqueTransmission(playerId, command.techniqueId);
-                deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(playerId);
-                return;
+                return this.dispatchCancelTechniqueActivity(playerId, 'transmission', deps);
             case 'startAlchemy':
                 return this.dispatchStartTechniqueActivity(playerId, 'alchemy', command.payload, deps);
             case 'cancelAlchemy':

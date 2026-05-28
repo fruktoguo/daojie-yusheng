@@ -26,6 +26,8 @@ import { projectHeavenGateState, projectRealmState } from './player-realm-projec
 import { createPlayerRuntimeStateStore } from './player-runtime.state';
 import { createRuntimeTemporaryBuff, materializeRuntimeTemporaryBuff, refreshRuntimeTemporaryBuffPrototype } from './runtime-buff-instance';
 import { DEFAULT_CRAFT_EXP_TO_NEXT, resolveCraftSkillExpToNextByLevel, resolveInitialCraftSkillExpToNext } from '../craft/craft-skill-exp.helpers';
+import { TechniqueActivityPipelineService } from '../craft/pipeline/technique-activity-pipeline.service';
+import { TransmissionStrategy } from '../craft/pipeline/strategies/transmission.strategy';
 
 /** 新角色默认出生地图。 */
 const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
@@ -403,6 +405,7 @@ export class PlayerRuntimeService {
             miningSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             formationSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
             transmissionSkill: createCraftSkillState(resolveInitialCraftSkillExpToNext(this.playerProgressionService)),
+            transmissionJob: null,
             gatherJob: null,
             buildingJob: null,
             miningJob: null,
@@ -822,7 +825,6 @@ export class PlayerRuntimeService {
                 category: technique.category ?? undefined,
                 createdAtTick: currentTick,
                 updatedAtTick: currentTick,
-                activeTransferJob: null,
             });
         }
         player.pendingTechniqueComprehensions = pending;
@@ -836,86 +838,29 @@ export class PlayerRuntimeService {
         return true;
     }
     startTechniqueTransmission(teacherPlayerId, learnerPlayerId, techniqueId) {
-        const teacher = this.getPlayerOrThrow(teacherPlayerId);
         const learner = this.getPlayerOrThrow(learnerPlayerId);
-        const normalizedTechId = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
-        if (!normalizedTechId) {
-            throw new BadRequestException('功法不能为空');
-        }
-        const teacherTechnique = teacher.techniques.techniques.find((entry) => entry.techId === normalizedTechId);
-        if (!teacherTechnique) {
-            throw new BadRequestException('传授者尚未掌握该功法');
-        }
-        if (!isCreatedTechniqueId(normalizedTechId)) {
-            throw new BadRequestException('只能传授自创功法');
-        }
-        if (learner.techniques.techniques.some((entry) => entry.techId === normalizedTechId)) {
-            throw new BadRequestException('学习者已经掌握该功法');
-        }
-        if (!isPlayerInTransmissionRange(teacher, learner)) {
-            throw new BadRequestException('传授距离超过 2 格');
-        }
-        const currentTick = resolvePlayerRuntimeTick(learner, 0);
-        const pendingList = Array.isArray(learner.pendingTechniqueComprehensions)
-            ? learner.pendingTechniqueComprehensions
-            : [];
-        let pending = pendingList.find((entry) => entry?.techId === normalizedTechId);
-        const sourceKind = isCreatedTechniqueId(normalizedTechId) ? 'created' : 'normal';
-        const requiredProgress = calculateTechniqueComprehensionRequiredProgress({
-            sourceKind,
-            techniqueRealmLv: teacherTechnique.realmLv,
-            grade: teacherTechnique.grade,
-            learnerRealmLv: learner.realm?.realmLv ?? 1,
-            learnerTransmissionLevel: learner.transmissionSkill?.level ?? 1,
-            teacherTransmissionLevel: teacher.transmissionSkill?.level ?? 1,
-        });
-        if (!pending) {
-            pending = {
-                techId: normalizedTechId,
-                name: teacherTechnique.name ?? normalizedTechId,
-                sourceKind,
-                progress: 0,
-                requiredProgress,
-                realmLv: Math.max(1, Math.floor(Number(teacherTechnique.realmLv) || 1)),
-                grade: teacherTechnique.grade ?? undefined,
-                category: teacherTechnique.category ?? undefined,
-                createdAtTick: currentTick,
-                updatedAtTick: currentTick,
-                activeTransferJob: null,
-            };
-            pendingList.push(pending);
-        }
-        if (pending.activeTransferJob) {
-            throw new BadRequestException('该功法已有进行中的传授');
-        }
-        pending.requiredProgress = requiredProgress;
-        pending.updatedAtTick = currentTick;
-        pending.activeTransferJob = {
-            jobId: `transmission:${learner.playerId}:${normalizedTechId}:${currentTick}`,
+        const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+        const result = pipeline.start(learner, 'transmission', {
+            learnerPlayerId,
             teacherPlayerId,
-            teacherName: teacher.displayName ?? teacher.name ?? teacherPlayerId,
-            startedAtTick: currentTick,
-            status: 'running',
-            range: 2,
-        };
-        learner.pendingTechniqueComprehensions = pendingList;
-        learner.techniques.revision += 1;
-        markPlayerDirtyDomains(learner, ['technique']);
-        this.bumpPersistentRevision(learner);
+            techniqueId,
+        }, ctx);
+        if (!result.ok) {
+            throw new BadRequestException(result.error ?? '启动传法失败');
+        }
         return learner;
     }
     cancelTechniqueTransmission(learnerPlayerId, techniqueId) {
         const learner = this.getPlayerOrThrow(learnerPlayerId);
         const normalizedTechId = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
-        const pending = (learner.pendingTechniqueComprehensions ?? []).find((entry) => entry?.techId === normalizedTechId);
-        if (!pending?.activeTransferJob) {
+        if (normalizedTechId && learner.transmissionJob?.techniqueId !== normalizedTechId) {
             throw new BadRequestException('没有进行中的传授');
         }
-        pending.activeTransferJob = null;
-        pending.updatedAtTick = resolvePlayerRuntimeTick(learner, 0);
-        learner.techniques.revision += 1;
-        markPlayerDirtyDomains(learner, ['technique']);
-        this.bumpPersistentRevision(learner);
+        const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+        const result = pipeline.cancel(learner, 'transmission', ctx);
+        if (!result.ok) {
+            throw new BadRequestException(result.error ?? '取消传法失败');
+        }
         return learner;
     }
     normalizePendingTechniqueComprehensionsForRuntime(value) {
@@ -979,36 +924,10 @@ export class PlayerRuntimeService {
         if (!learner) {
             return false;
         }
-        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-        const normalizedReason = normalizeTechniqueTransmissionInterruptReason(reason);
-        let changed = false;
-        for (const pending of learner.pendingTechniqueComprehensions ?? []) {
-            const job = pending?.activeTransferJob;
-            if (!job || job.status === 'blocked') {
-                continue;
-            }
-            const currentRemaining = resolveTechniqueTransmissionInterruptWait(job);
-            if (currentRemaining >= TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS) {
-                continue;
-            }
-            job.interruptWaitRemainingTicks = TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS;
-            job.interruptState = {
-                ...(job.interruptState ?? {}),
-                reason: normalizedReason,
-                waitTotalTicks: TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS,
-                waitRemainingTicks: TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS,
-                startedAtTick: normalizedTick,
-            };
-            pending.updatedAtTick = normalizedTick;
-            changed = true;
-        }
-        if (!changed) {
-            return false;
-        }
-        learner.techniques.revision += 1;
-        markPlayerDirtyDomains(learner, ['technique']);
-        this.bumpPersistentRevision(learner);
-        return true;
+        learner.lifeElapsedTicks = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+        const result = pipeline.interrupt(learner, 'transmission', normalizeTechniqueTransmissionInterruptReason(reason), ctx);
+        return result.panelChanged === true;
     }
     /**
  * getSessionFence：读取当前运行态 session fencing 信息。
@@ -2129,7 +2048,6 @@ export class PlayerRuntimeService {
                     category: technique.category ?? undefined,
                     createdAtTick: currentTick,
                     updatedAtTick: currentTick,
-                    activeTransferJob: null,
                 });
             }
             player.pendingTechniqueComprehensions = pending;
@@ -2782,9 +2700,6 @@ export class PlayerRuntimeService {
             this.playerAttributesService.recalculate(player);
             markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
             this.bumpPersistentRevision(player);
-        }
-        if (input.interruptCultivation === true) {
-            this.interruptTechniqueTransmissionForPlayer(playerId, input.reason ?? 'cultivate', normalizedTick);
         }
         return player;
     }
@@ -3607,9 +3522,6 @@ export class PlayerRuntimeService {
                 });
                 this.applyProgressionResult(player, result, playerTick);
             }
-            if (player.hp > 0) {
-                this.advanceTechniqueTransmissionForPlayer(player, playerTick);
-            }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
                 const result = this.playerProgressionService.autoRefineRootFoundation(player);
                 this.applyProgressionResult(player, result, playerTick, true);
@@ -3624,136 +3536,14 @@ export class PlayerRuntimeService {
             this.emitPlayerStateDeltaIfChanged(player, _prevHp, _prevMp, _prevExp, _prevLevel, buffTickResult);
     }
 
-    /** 推进挂在学习者身上的传法 job。传授者只作为距离与功法掌握校验来源，不占用传授者行动。 */
+    /** 传法推进由 TransmissionStrategy 通过通用技艺 job pipeline 驱动。 */
     advanceTechniqueTransmissionForPlayer(player, playerTick) {
-        const pendingList = Array.isArray(player.pendingTechniqueComprehensions)
-            ? player.pendingTechniqueComprehensions
-            : [];
-        if (pendingList.length === 0) {
+        if (!player) {
             return;
         }
-        let changed = false;
-        let completed = false;
-        let professionChanged = false;
-        for (const pending of [...pendingList]) {
-            const job = pending?.activeTransferJob;
-            if (!job) {
-                continue;
-            }
-            if (!isCreatedTechniqueId(pending.techId)) {
-                if (job.status !== 'blocked' || job.blockedReason !== 'not_created_technique') {
-                    job.status = 'blocked';
-                    job.blockedReason = 'not_created_technique';
-                    pending.updatedAtTick = playerTick;
-                    changed = true;
-                }
-                continue;
-            }
-            const interruptWaitRemainingTicks = resolveTechniqueTransmissionInterruptWait(job);
-            if (interruptWaitRemainingTicks > 0) {
-                const nextRemaining = Math.max(0, interruptWaitRemainingTicks - 1);
-                job.interruptWaitRemainingTicks = nextRemaining;
-                if (job.interruptState) {
-                    job.interruptState = {
-                        ...job.interruptState,
-                        waitRemainingTicks: nextRemaining,
-                    };
-                }
-                if (nextRemaining <= 0) {
-                    job.interruptWaitRemainingTicks = 0;
-                    job.interruptState = null;
-                }
-                pending.updatedAtTick = playerTick;
-                changed = true;
-                continue;
-            }
-            const teacher = this.getPlayer(job.teacherPlayerId);
-            const teacherTechnique = teacher?.techniques?.techniques?.find((entry) => entry?.techId === pending.techId) ?? null;
-            if (!teacher || !teacherTechnique || !isPlayerInTransmissionRange(teacher, player)) {
-                if (job.status !== 'blocked' || job.blockedReason !== 'teacher_out_of_range') {
-                    job.status = 'blocked';
-                    job.blockedReason = 'teacher_out_of_range';
-                    pending.updatedAtTick = playerTick;
-                    changed = true;
-                }
-                continue;
-            }
-            if (job.status !== 'running' || job.blockedReason !== undefined) {
-                job.status = 'running';
-                delete job.blockedReason;
-                changed = true;
-            }
-            if (this.refreshPendingTechniqueComprehensionRequirement(pending, teacherTechnique)) {
-                pending.updatedAtTick = playerTick;
-                changed = true;
-            }
-            const previousProgress = Math.max(0, Number(pending.progress) || 0);
-            const requiredProgress = Math.max(1, Number(pending.requiredProgress) || 1);
-            const progressGain = calculateTechniqueComprehensionProgressGain({
-                baseProgress: 1,
-                techniqueRealmLv: pending.realmLv ?? teacherTechnique.realmLv,
-                learnerRealmLv: player.realm?.realmLv ?? 1,
-                learnerTransmissionLevel: player.transmissionSkill?.level ?? 1,
-                teacherTransmissionLevel: teacher.transmissionSkill?.level ?? 1,
-            });
-            pending.progress = Math.min(requiredProgress, previousProgress + progressGain);
-            pending.updatedAtTick = playerTick;
-            changed = true;
-            professionChanged = applyTransmissionSkillExpFromTicks(
-                player,
-                Math.max(0, pending.progress - previousProgress),
-                pending.realmLv,
-                (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level),
-            ) || professionChanged;
-            if (pending.progress < requiredProgress) {
-                continue;
-            }
-            const technique = this.contentTemplateRepository.createTechniqueState(pending.techId);
-            if (!technique) {
-                job.status = 'blocked';
-                job.blockedReason = 'teacher_out_of_range';
-                this.queuePlayerStructuredNotice(player, {
-                    kind: 'warn',
-                    text: `功法 ${pending.name ?? pending.techId} 已无法找到，传法进度保留。`,
-                    structured: {
-                        key: 'notice.progression.technique-comprehension-template-missing',
-                        vars: { techName: pending.name ?? pending.techId },
-                        pills: [{ key: 'techName', style: 'skill' }],
-                    },
-                });
-                continue;
-            }
-            const learnedEntry = toTechniqueUpdateEntry(technique);
-            if (!player.techniques.techniques.some((entry) => entry.techId === learnedEntry.techId)) {
-                player.techniques.techniques.push(learnedEntry);
-                player.techniques.techniques.sort((left, right) => (left.realmLv ?? 0) - (right.realmLv ?? 0) || left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
-            }
-            player.pendingTechniqueComprehensions = (player.pendingTechniqueComprehensions ?? []).filter((entry) => entry?.techId !== pending.techId);
-            completed = true;
-            this.queuePlayerStructuredNotice(player, {
-                kind: 'success',
-                text: `${pending.name ?? pending.techId} 已领悟完成。`,
-                structured: {
-                    key: 'notice.progression.technique-comprehension-complete',
-                    vars: { techName: pending.name ?? pending.techId },
-                    pills: [{ key: 'techName', style: 'skill' }],
-                },
-            });
-        }
-        if (!changed) {
-            return;
-        }
-        player.techniques.revision += 1;
-        if (completed) {
-            this.playerAttributesService.recalculate(player);
-            this.rebuildActionState(player, playerTick);
-            this.playerProgressionService.refreshPreview(player);
-            markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr', ...(professionChanged ? ['profession'] : [])]);
-        }
-        else {
-            markPlayerDirtyDomains(player, ['technique', ...(professionChanged ? ['profession'] : [])]);
-        }
-        this.bumpPersistentRevision(player);
+        player.lifeElapsedTicks = Math.max(0, Math.trunc(Number(playerTick) || 0));
+        const { pipeline, ctx } = createTransmissionCompatPipeline(this);
+        pipeline.tick(player, 'transmission', ctx);
     }
 
     /** 比较 tick 前后关键数值，有变化时向 EventBus 发射 stateDelta。 */
@@ -4371,6 +4161,10 @@ export class PlayerRuntimeService {
         );
 
         const pendingComprehensions = this.normalizePendingTechniqueComprehensionsForRuntime(snapshot.techniques?.pendingComprehensions);
+        const legacyTransmissionJob = normalizeLegacyTransmissionJobFromPending(
+            snapshot.techniques?.pendingComprehensions,
+            pendingComprehensions.entries,
+        );
         const player = {
             playerId,
             sessionId,
@@ -4419,6 +4213,7 @@ export class PlayerRuntimeService {
             miningSkill: normalizeCraftSkillState(snapshot.progression?.miningSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             formationSkill: normalizeCraftSkillState(snapshot.progression?.formationSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
             transmissionSkill: normalizeCraftSkillState(snapshot.progression?.transmissionSkill, (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level)),
+            transmissionJob: normalizeTransmissionJob(snapshot.progression?.transmissionJob) ?? legacyTransmissionJob,
             gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             buildingJob: normalizeBuildingJob(snapshot.progression?.buildingJob),
             miningJob: normalizeMiningJob(snapshot.progression?.miningJob),
@@ -4544,6 +4339,10 @@ export class PlayerRuntimeService {
         this.playerProgressionService.initializePlayer(player);
         if (pendingComprehensions.changed) {
             markPlayerDirtyDomains(player, ['technique']);
+            this.bumpPersistentRevision(player);
+        }
+        if (legacyTransmissionJob) {
+            markPlayerDirtyDomains(player, ['technique', 'active_job']);
             this.bumpPersistentRevision(player);
         }
         syncWalletCacheFromInventory(player);
@@ -5215,6 +5014,7 @@ function cloneRuntimePlayerState(player) {
         miningSkill: cloneCraftSkillState(player.miningSkill),
         formationSkill: cloneCraftSkillState(player.formationSkill),
         transmissionSkill: cloneCraftSkillState(player.transmissionSkill),
+        transmissionJob: player.transmissionJob ? cloneTransmissionJob(player.transmissionJob) : null,
         gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
         buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
         miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
@@ -6549,6 +6349,7 @@ function buildRuntimePlayerPersistenceSnapshot(player, mapTemplateRepository = n
             miningSkill: cloneCraftSkillState(player.miningSkill),
             formationSkill: cloneCraftSkillState(player.formationSkill),
             transmissionSkill: cloneCraftSkillState(player.transmissionSkill),
+            transmissionJob: player.transmissionJob ? cloneTransmissionJob(player.transmissionJob) : null,
             gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
             buildingJob: player.buildingJob ? cloneBuildingJob(player.buildingJob) : null,
             miningJob: player.miningJob ? cloneMiningJob(player.miningJob) : null,
@@ -6725,8 +6526,6 @@ function cloneCraftSkillState(value) {
     return value ? { ...normalizeCraftSkillState(value) } : undefined;
 }
 
-const TECHNIQUE_TRANSMISSION_INTERRUPT_WAIT_TICKS = 10;
-
 function applyTransmissionSkillExpFromTicks(player, elapsedTicks, targetLevel, getExpToNextByLevel) {
     const skill = player?.transmissionSkill;
     if (!skill) {
@@ -6768,14 +6567,6 @@ function applyCraftSkillExpLocal(skill, amount, getExpToNextByLevel) {
     return changed || gain > 0;
 }
 
-function resolveTechniqueTransmissionInterruptWait(job) {
-    return Math.max(0, Math.floor(Number(
-        job?.interruptWaitRemainingTicks
-            ?? job?.interruptState?.waitRemainingTicks
-            ?? 0,
-    ) || 0));
-}
-
 function normalizeTechniqueTransmissionInterruptReason(reason) {
     return reason === 'move'
         || reason === 'attack'
@@ -6786,6 +6577,31 @@ function normalizeTechniqueTransmissionInterruptReason(reason) {
         : 'attack';
 }
 
+function createTransmissionCompatPipeline(playerRuntimeService) {
+    const pipeline = new TechniqueActivityPipelineService();
+    pipeline.register(new TransmissionStrategy());
+    return {
+        pipeline,
+        ctx: {
+            contentTemplateRepository: {
+                ...playerRuntimeService.contentTemplateRepository,
+                getItemName: typeof playerRuntimeService.contentTemplateRepository?.getItemName === 'function'
+                    ? playerRuntimeService.contentTemplateRepository.getItemName.bind(playerRuntimeService.contentTemplateRepository)
+                    : () => null,
+                normalizeItem: typeof playerRuntimeService.contentTemplateRepository?.normalizeItem === 'function'
+                    ? playerRuntimeService.contentTemplateRepository.normalizeItem.bind(playerRuntimeService.contentTemplateRepository)
+                    : (item) => item,
+                createTechniqueState: typeof playerRuntimeService.contentTemplateRepository?.createTechniqueState === 'function'
+                    ? playerRuntimeService.contentTemplateRepository.createTechniqueState.bind(playerRuntimeService.contentTemplateRepository)
+                    : () => null,
+            },
+            resolveExpToNextByLevel: (level) => resolveCraftSkillExpToNextByLevel(playerRuntimeService.playerProgressionService, level),
+            getInstanceRuntime: () => null,
+            deps: { playerRuntimeService },
+        },
+    };
+}
+
 function clonePendingTechniqueComprehensions(value) {
     if (!Array.isArray(value)) {
         return [];
@@ -6794,8 +6610,59 @@ function clonePendingTechniqueComprehensions(value) {
         .filter((entry) => entry && typeof entry === 'object' && typeof entry.techId === 'string' && entry.techId.trim())
         .map((entry) => ({
             ...entry,
-            activeTransferJob: entry.activeTransferJob ? { ...entry.activeTransferJob } : null,
+            activeTransferJob: null,
         }));
+}
+
+function normalizeLegacyTransmissionJobFromPending(sourcePendingList, normalizedPendingList) {
+    if (!Array.isArray(sourcePendingList)) {
+        return null;
+    }
+    for (const source of sourcePendingList) {
+        const transfer = source?.activeTransferJob;
+        const techId = typeof source?.techId === 'string' && source.techId.trim() ? source.techId.trim() : '';
+        if (!techId || !transfer || typeof transfer !== 'object') {
+            continue;
+        }
+        const pending = Array.isArray(normalizedPendingList)
+            ? normalizedPendingList.find((entry) => entry?.techId === techId)
+            : null;
+        const requiredProgress = Math.max(1, Math.floor(Number(pending?.requiredProgress ?? source.requiredProgress) || 1));
+        const progress = Math.max(0, Number(pending?.progress ?? source.progress) || 0);
+        const remaining = Math.max(0, Math.ceil(requiredProgress - Math.min(requiredProgress, progress)));
+        const normalized = normalizeTransmissionJob({
+            jobRunId: typeof transfer.jobId === 'string' && transfer.jobId.trim() ? transfer.jobId.trim() : undefined,
+            jobType: 'transmission',
+            jobVersion: 1,
+            techniqueId: techId,
+            techniqueName: pending?.name ?? source.name ?? techId,
+            teacherPlayerId: transfer.teacherPlayerId,
+            teacherName: transfer.teacherName,
+            range: transfer.range ?? 2,
+            realmLv: pending?.realmLv ?? source.realmLv ?? 1,
+            grade: pending?.grade ?? source.grade,
+            category: pending?.category ?? source.category,
+            status: transfer.status,
+            blockedReason: transfer.blockedReason,
+            phase: Number(transfer.interruptWaitRemainingTicks ?? transfer.interruptState?.waitRemainingTicks ?? 0) > 0
+                ? 'paused'
+                : 'transmitting',
+            startedAt: transfer.startedAtTick ?? 0,
+            totalTicks: requiredProgress,
+            remainingTicks: remaining,
+            workTotalTicks: requiredProgress,
+            workRemainingTicks: remaining,
+            pausedTicks: transfer.interruptWaitRemainingTicks ?? transfer.interruptState?.waitRemainingTicks ?? 0,
+            interruptWaitRemainingTicks: transfer.interruptWaitRemainingTicks,
+            interruptState: transfer.interruptState ?? null,
+            successRate: 1,
+            spiritStoneCost: 0,
+        });
+        if (normalized && Number(normalized.remainingTicks) > 0) {
+            return normalized;
+        }
+    }
+    return null;
 }
 function isPlayerInTransmissionRange(teacher, learner) {
     if (!teacher || !learner || teacher.instanceId !== learner.instanceId) {
@@ -6964,6 +6831,55 @@ function normalizeFormationJob(value) {
     };
 }
 /**
+ * normalizeTransmissionJob：规范化传法 Job。
+ * @param value 参数说明。
+ * @returns 规范化后的传法 Job。
+ */
+
+function normalizeTransmissionJob(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!value || typeof value !== 'object' || typeof value.techniqueId !== 'string') {
+        return null;
+    }
+    const techniqueId = String(value.techniqueId).trim();
+    const teacherPlayerId = typeof value.teacherPlayerId === 'string' ? value.teacherPlayerId.trim() : '';
+    if (!techniqueId || !teacherPlayerId) {
+        return null;
+    }
+    const totalTicks = Math.max(1, Math.floor(Number(value.totalTicks ?? value.workTotalTicks) || 1));
+    const remainingTicks = Math.max(0, Math.floor(Number(value.remainingTicks ?? value.workRemainingTicks) || 0));
+    const workTotalTicks = Math.max(1, Math.floor(Number(value.workTotalTicks ?? totalTicks) || totalTicks));
+    const workRemainingTicks = Math.max(0, Math.floor(Number(value.workRemainingTicks ?? remainingTicks) || remainingTicks));
+    return {
+        ...value,
+        jobRunId: typeof value.jobRunId === 'string' && value.jobRunId.trim() ? value.jobRunId.trim() : undefined,
+        jobType: 'transmission',
+        jobVersion: Math.max(1, Math.floor(Number(value.jobVersion) || 1)),
+        techniqueId,
+        techniqueName: typeof value.techniqueName === 'string' && value.techniqueName.trim() ? value.techniqueName.trim() : techniqueId,
+        teacherPlayerId,
+        teacherName: typeof value.teacherName === 'string' && value.teacherName.trim() ? value.teacherName.trim() : undefined,
+        range: Math.max(1, Math.floor(Number(value.range) || 2)),
+        realmLv: Math.max(1, Math.floor(Number(value.realmLv) || 1)),
+        status: value.status === 'blocked' ? 'blocked' : 'running',
+        blockedReason: value.blockedReason === 'teacher_out_of_range' || value.blockedReason === 'not_created_technique'
+            ? value.blockedReason
+            : undefined,
+        phase: value.phase === 'paused' ? 'paused' : 'transmitting',
+        startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
+        totalTicks,
+        remainingTicks,
+        workTotalTicks,
+        workRemainingTicks,
+        pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),
+        interruptWaitRemainingTicks: Math.max(0, Math.floor(Number(value.interruptWaitRemainingTicks ?? value.pausedTicks) || 0)),
+        interruptState: value.interruptState && typeof value.interruptState === 'object' ? { ...value.interruptState } : null,
+        successRate: Math.max(0, Math.min(1, Number(value.successRate) || 1)),
+        spiritStoneCost: Math.max(0, Math.floor(Number(value.spiritStoneCost) || 0)),
+    };
+}
+/**
  * cloneGatherJob：构建采集 Job。
  * @param entry 参数说明。
  * @returns 无返回值，直接更新采集 Job 相关状态。
@@ -7011,12 +6927,22 @@ function cloneFormationJob(entry) {
     };
 }
 
+function cloneTransmissionJob(entry) {
+    return {
+        ...entry,
+        interruptState: entry?.interruptState && typeof entry.interruptState === 'object'
+            ? { ...entry.interruptState }
+            : entry?.interruptState ?? null,
+    };
+}
+
 function normalizeTechniqueActivityKind(value) {
     return value === 'forging'
         || value === 'enhancement'
         || value === 'gather'
         || value === 'building'
         || value === 'mining'
+        || value === 'transmission'
         || value === 'formation'
         ? value
         : 'alchemy';
@@ -8540,6 +8466,7 @@ function hasDetachedRuntimeActivity(player) {
     return hasRemainingRuntimeJob(player.alchemyJob)
         || hasRemainingRuntimeJob(player.forgingJob)
         || hasRemainingRuntimeJob(player.enhancementJob)
+        || hasRemainingRuntimeJob(player.transmissionJob)
         || hasRemainingRuntimeJob(player.gatherJob)
         || hasRemainingRuntimeJob(player.buildingJob)
         || hasRemainingRuntimeJob(player.miningJob)
@@ -8550,6 +8477,7 @@ function hasAnyRemainingTechniqueJob(player) {
     return hasRemainingRuntimeJob(player?.alchemyJob)
         || hasRemainingRuntimeJob(player?.forgingJob)
         || hasRemainingRuntimeJob(player?.enhancementJob)
+        || hasRemainingRuntimeJob(player?.transmissionJob)
         || hasRemainingRuntimeJob(player?.gatherJob)
         || hasRemainingRuntimeJob(player?.buildingJob)
         || hasRemainingRuntimeJob(player?.miningJob)

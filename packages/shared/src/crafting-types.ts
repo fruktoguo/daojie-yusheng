@@ -7,7 +7,7 @@
  * 炼制与强化共享类型：承接面板、任务运行态与同步视图结构。
  */
 import type { TechniqueActivityCancelRef, TechniqueActivityInterruptState, TechniqueActivityJobBase, TechniqueActivityTaskKind } from './technique-activity-types';
-import type { TechniqueGrade } from './cultivation-types';
+import type { TechniqueCategory, TechniqueGrade, TechniqueTransmissionBlockedReason, TechniqueTransmissionJobStatus } from './cultivation-types';
 import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
 
 /** 制造型技艺任务的启动排队策略。 */
@@ -645,6 +645,80 @@ export interface PlayerMiningJob extends TechniqueActivityJobBase {
  */
 
   phase: 'mining' | 'paused';
+}
+
+/** 玩家当前传法任务的最小持久化运行态。 */
+export interface PlayerTransmissionJob extends TechniqueActivityJobBase {
+  /**
+   * jobRunId：任务运行 ID。
+   */
+
+  jobRunId?: string;
+  /**
+   * jobType：任务类型。
+   */
+
+  jobType?: 'transmission';
+  /**
+   * jobVersion：任务版本号。
+   */
+
+  jobVersion?: number;
+  /**
+   * techniqueId：被传授功法 ID。
+   */
+
+  techniqueId: string;
+  /**
+   * techniqueName：被传授功法显示名。
+   */
+
+  techniqueName: string;
+  /**
+   * teacherPlayerId：传授者玩家 ID。
+   */
+
+  teacherPlayerId: string;
+  /**
+   * teacherName：传授者显示名。
+   */
+
+  teacherName?: string;
+  /**
+   * range：传授有效距离。
+   */
+
+  range: number;
+  /**
+   * realmLv：功法境界等级。
+   */
+
+  realmLv: number;
+  /**
+   * grade：功法品阶。
+   */
+
+  grade?: TechniqueGrade;
+  /**
+   * category：功法类型。
+   */
+
+  category?: TechniqueCategory;
+  /**
+   * status：传法运行状态。
+   */
+
+  status?: TechniqueTransmissionJobStatus;
+  /**
+   * blockedReason：传法阻塞原因。
+   */
+
+  blockedReason?: TechniqueTransmissionBlockedReason;
+  /**
+   * phase：phase相关字段。
+   */
+
+  phase: 'transmitting' | 'paused';
 }
 
 /** 玩家当前阵法维护任务的最小持久化运行态。 */

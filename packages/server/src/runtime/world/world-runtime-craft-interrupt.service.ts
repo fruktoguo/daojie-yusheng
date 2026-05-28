@@ -16,6 +16,7 @@ import { TechniqueActivityQueueService } from '../craft/pipeline/technique-activ
 import { AlchemyStrategy } from '../craft/pipeline/strategies/alchemy.strategy';
 import { ForgingStrategy } from '../craft/pipeline/strategies/forging.strategy';
 import { EnhancementStrategy } from '../craft/pipeline/strategies/enhancement.strategy';
+import { TransmissionStrategy } from '../craft/pipeline/strategies/transmission.strategy';
 import { GatherStrategy } from '../craft/pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from '../craft/pipeline/strategies/building.strategy';
 import { FormationStrategy } from '../craft/pipeline/strategies/formation.strategy';
@@ -38,6 +39,11 @@ interface CraftPlayerLike {
     remainingTicks?: number;
     formationInstanceId?: string;
     formationName?: string;
+  } | null;
+  transmissionJob?: {
+    remainingTicks?: number;
+    techniqueId?: string;
+    techniqueName?: string;
   } | null;
   miningJob?: {
     remainingTicks?: number;
@@ -62,14 +68,6 @@ interface CraftInterruptDeps<TPlayer = CraftPlayerLike> {
   worldRuntimeLootContainerService: {
     interruptGather(playerId: string, player: TPlayer, reason: string, deps: CraftInterruptDeps<TPlayer>): unknown;
   };
-  playerRuntimeService?: {
-    interruptTechniqueTransmissionForPlayer?(
-      playerId: string,
-      reason: string,
-      currentTick?: number,
-    ): boolean;
-  };
-  resolveCurrentTickForPlayerId?: (playerId: string) => number;
   worldRuntimeCraftMutationService?: {
     emitTechniqueActivityTaskUpdate?(playerId: string): void;
   };
@@ -92,6 +90,7 @@ export class WorldRuntimeCraftInterruptService {
     this.pipeline.register(new AlchemyStrategy(craftPanelRuntimeService));
     this.pipeline.register(new ForgingStrategy(craftPanelRuntimeService));
     this.pipeline.register(new EnhancementStrategy(craftPanelRuntimeService));
+    this.pipeline.register(new TransmissionStrategy());
     this.pipeline.register(new GatherStrategy());
     this.pipeline.register(new MiningStrategy());
     this.pipeline.register(new BuildingStrategy());
@@ -107,14 +106,6 @@ export class WorldRuntimeCraftInterruptService {
   ): void {
     if ((player as { suppressImmediateDomainPersistence?: boolean } | null)?.suppressImmediateDomainPersistence === true) {
       return;
-    }
-    const interruptedTransmission = deps.playerRuntimeService?.interruptTechniqueTransmissionForPlayer?.(
-      playerId,
-      reason,
-      deps.resolveCurrentTickForPlayerId?.(playerId) ?? 0,
-    ) === true;
-    if (interruptedTransmission) {
-      deps.worldRuntimeCraftMutationService?.emitTechniqueActivityTaskUpdate?.(playerId);
     }
     for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
       if (kind === 'formation' && reason === 'move') {

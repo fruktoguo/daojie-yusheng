@@ -25,29 +25,18 @@ type LegacyTechniqueJob = {
   buildingName?: string;
   formationName?: string;
   miningNodeName?: string;
+  techniqueId?: string;
+  techniqueName?: string;
+  status?: string;
+  blockedReason?: string;
   totalTicks?: number;
   remainingTicks?: number;
   workTotalTicks?: number;
   workRemainingTicks?: number;
   pausedTicks?: number;
   interruptWaitRemainingTicks?: number;
-  interruptState?: { waitRemainingTicks?: number } | null;
+  interruptState?: { waitRemainingTicks?: number; [key: string]: unknown } | null;
   queuedJobs?: CraftQueueItemView[];
-};
-
-type PendingTechniqueComprehensionTask = {
-  techId?: string;
-  name?: string;
-  progress?: number;
-  requiredProgress?: number;
-  activeTransferJob?: {
-    jobId?: string;
-    status?: string;
-    blockedReason?: string;
-    teacherName?: string;
-    interruptWaitRemainingTicks?: number;
-    interruptState?: { waitRemainingTicks?: number; [key: string]: unknown } | null;
-  } | null;
 };
 
 type TechniqueActivityTaskPlayerView = {
@@ -59,14 +48,15 @@ type TechniqueActivityTaskPlayerView = {
   buildingJob?: LegacyTechniqueJob | null;
   formationJob?: LegacyTechniqueJob | null;
   miningJob?: LegacyTechniqueJob | null;
+  transmissionJob?: LegacyTechniqueJob | null;
   techniqueActivityQueue?: TechniqueActivityQueueItem[];
-  pendingTechniqueComprehensions?: PendingTechniqueComprehensionTask[];
 };
 
 const LEGACY_ACTIVE_JOB_SLOTS = [
   ['alchemy', 'alchemyJob'],
   ['forging', 'forgingJob'],
   ['enhancement', 'enhancementJob'],
+  ['transmission', 'transmissionJob'],
   ['gather', 'gatherJob'],
   ['building', 'buildingJob'],
   ['formation', 'formationJob'],
@@ -91,10 +81,6 @@ export function buildTechniqueActivityTaskListView(
     tasks.push(buildActiveJobTaskView(player, kind, job));
   }
 
-  for (const pending of listActiveTransmissionJobs(player)) {
-    tasks.push(buildTransmissionTaskView(player, pending));
-  }
-
   for (const item of listLegacyCraftQueueItems(player)) {
     tasks.push(buildLegacyQueueTaskView(item));
   }
@@ -108,13 +94,6 @@ export function buildTechniqueActivityTaskListView(
   }
 
   return serverTick == null ? { tasks } : { tasks, serverTick };
-}
-
-function listActiveTransmissionJobs(player: TechniqueActivityTaskPlayerView): PendingTechniqueComprehensionTask[] {
-  const pendingList = Array.isArray(player.pendingTechniqueComprehensions)
-    ? player.pendingTechniqueComprehensions
-    : [];
-  return pendingList.filter((entry) => entry?.activeTransferJob && typeof entry.activeTransferJob === 'object');
 }
 
 /** 构建统一技艺任务列表增量；迁移期先用全量 upsert 表达，后续再做签名差分。 */
@@ -152,6 +131,9 @@ function buildActiveJobTaskView(
   if (interruptWaitRemainingTicks > 0) {
     task.interruptWaitRemainingTicks = interruptWaitRemainingTicks;
   }
+  if (task.state === 'blocked') {
+    task.sleepReason = resolveTransmissionBlockedReason(job.blockedReason);
+  }
   return task;
 }
 
@@ -187,41 +169,6 @@ function buildTechniqueQueueTaskView(item: TechniqueActivityQueueItem): Techniqu
   const sleepReason = normalizeText(item.sleepReason);
   if (sleepReason) {
     task.sleepReason = sleepReason;
-  }
-  return task;
-}
-
-function buildTransmissionTaskView(
-  player: TechniqueActivityTaskPlayerView,
-  pending: PendingTechniqueComprehensionTask,
-): TechniqueActivityTaskView {
-  const techId = normalizeText(pending.techId) || 'unknown';
-  const job = pending.activeTransferJob ?? {};
-  const jobRunId = normalizeText(job.jobId) || `active:transmission:${normalizeText(player.playerId) || 'unknown'}:${techId}`;
-  const required = Math.max(1, resolveNonNegativeNumber(pending.requiredProgress));
-  const progress = Math.min(required, resolveNonNegativeNumber(pending.progress));
-  const interruptWaitRemainingTicks = resolveTransmissionInterruptWaitRemainingTicks(job);
-  const state: TechniqueActivityTaskState = interruptWaitRemainingTicks > 0
-    ? 'interrupt_wait'
-    : job.status === 'blocked'
-      ? 'blocked'
-      : 'running';
-  const task: TechniqueActivityTaskView = {
-    id: `job:transmission:${jobRunId}`,
-    kind: 'transmission',
-    label: '传法',
-    targetLabel: normalizeText(pending.name) || techId,
-    state,
-    workTotalTicks: required,
-    workRemainingTicks: Math.max(0, required - progress),
-    canCancel: true,
-    cancelRef: { kind: 'transmission', jobRunId, techId },
-  };
-  if (interruptWaitRemainingTicks > 0) {
-    task.interruptWaitRemainingTicks = interruptWaitRemainingTicks;
-  }
-  if (state === 'blocked') {
-    task.sleepReason = resolveTransmissionBlockedReason(job.blockedReason);
   }
   return task;
 }
@@ -268,6 +215,9 @@ function resolveActiveJobState(
   if (interruptWaitRemainingTicks > 0 || job.phase === 'paused') {
     return 'interrupt_wait';
   }
+  if (job.status === 'blocked') {
+    return 'blocked';
+  }
   if (job.phase === 'completing') {
     return 'completing';
   }
@@ -283,6 +233,9 @@ function resolveInterruptWaitRemainingTicks(job: LegacyTechniqueJob): number {
 }
 
 function resolveJobLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTechniqueJob): string {
+  if (kind === 'transmission') {
+    return normalizeText(job.label) || resolveKindLabel(kind);
+  }
   return normalizeText(job.label)
     || normalizeText(job.recipeName)
     || normalizeText(job.outputItemId)
@@ -306,6 +259,9 @@ function resolveJobTargetLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTe
   if (kind === 'mining') {
     return normalizeText(job.miningNodeName);
   }
+  if (kind === 'transmission') {
+    return normalizeText(job.techniqueName) || normalizeText(job.techniqueId);
+  }
   return normalizeText(job.outputItemId);
 }
 
@@ -327,6 +283,7 @@ function normalizeCancelRef(
 function normalizeKind(kind: unknown): RuntimeTechniqueActivityKind {
   return kind === 'forging'
     || kind === 'enhancement'
+    || kind === 'transmission'
     || kind === 'gather'
     || kind === 'building'
     || kind === 'mining'
@@ -343,6 +300,8 @@ function resolveKindLabel(kind: RuntimeTechniqueActivityKind): string {
       return '炼器任务';
     case 'enhancement':
       return '强化任务';
+    case 'transmission':
+      return '传法';
     case 'gather':
       return '采集任务';
     case 'building':
@@ -364,27 +323,12 @@ function resolveTransmissionBlockedReason(reason: unknown): string {
   return '等待传授条件恢复';
 }
 
-function resolveTransmissionInterruptWaitRemainingTicks(job: {
-  interruptWaitRemainingTicks?: number;
-  interruptState?: { waitRemainingTicks?: number; [key: string]: unknown } | null;
-}): number {
-  return resolveNonNegativeInteger(job.interruptWaitRemainingTicks ?? job.interruptState?.waitRemainingTicks);
-}
-
 function resolveNonNegativeInteger(value: unknown): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
     return 0;
   }
   return Math.max(0, Math.trunc(numeric));
-}
-
-function resolveNonNegativeNumber(value: unknown): number {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) {
-    return 0;
-  }
-  return Math.max(0, numeric);
 }
 
 function normalizeText(value: unknown): string | undefined {

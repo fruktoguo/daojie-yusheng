@@ -19,12 +19,14 @@ export type TechniqueActivityStartEventName =
   | typeof C2S.StartAlchemy
   | typeof C2S.StartEnhancement
   | typeof C2S.StartGather
+  | typeof C2S.StartTechniqueTransmission
   | null;
 
 export type TechniqueActivityCancelEventName =
   | typeof C2S.CancelAlchemy
   | typeof C2S.CancelEnhancement
   | typeof C2S.CancelGather
+  | typeof C2S.CancelTechniqueTransmission
   | null;
 
 export type TechniqueActivityPanelEventName =
@@ -39,6 +41,8 @@ export type TechniqueActivityCommandKind =
   | 'cancelForging'
   | 'startEnhancement'
   | 'cancelEnhancement'
+  | 'startTechniqueTransmission'
+  | 'cancelTechniqueTransmission'
   | 'startGather'
   | 'cancelGather'
   | 'startBuilding'
@@ -57,6 +61,7 @@ export type TechniqueActivityStartErrorCode =
   | 'START_ALCHEMY_FAILED'
   | 'START_FORGING_FAILED'
   | 'START_ENHANCEMENT_FAILED'
+  | 'START_TRANSMISSION_FAILED'
   | 'START_GATHER_FAILED'
   | 'START_BUILDING_FAILED'
   | 'START_MINING_FAILED'
@@ -66,6 +71,7 @@ export type TechniqueActivityCancelErrorCode =
   | 'CANCEL_ALCHEMY_FAILED'
   | 'CANCEL_FORGING_FAILED'
   | 'CANCEL_ENHANCEMENT_FAILED'
+  | 'CANCEL_TRANSMISSION_FAILED'
   | 'CANCEL_GATHER_FAILED'
   | 'CANCEL_BUILDING_FAILED'
   | 'CANCEL_MINING_FAILED'
@@ -122,6 +128,18 @@ export const TECHNIQUE_ACTIVITY_METADATA = {
     requestPanelErrorCode: 'REQUEST_ENHANCEMENT_PANEL_FAILED',
     startErrorCode: 'START_ENHANCEMENT_FAILED',
     cancelErrorCode: 'CANCEL_ENHANCEMENT_FAILED',
+  },
+  transmission: {
+    kind: 'transmission',
+    requestEvent: null,
+    startEvent: C2S.StartTechniqueTransmission,
+    cancelEvent: C2S.CancelTechniqueTransmission,
+    panelEvent: null,
+    startCommandKind: 'startTechniqueTransmission',
+    cancelCommandKind: 'cancelTechniqueTransmission',
+    requestPanelErrorCode: null,
+    startErrorCode: 'START_TRANSMISSION_FAILED',
+    cancelErrorCode: 'CANCEL_TRANSMISSION_FAILED',
   },
   gather: {
     kind: 'gather',
@@ -196,6 +214,8 @@ export function resolveTechniqueActivityStartCommandKind(kind: TechniqueActivity
       return 'startForging';
     case 'enhancement':
       return 'startEnhancement';
+    case 'transmission':
+      return 'startTechniqueTransmission';
     case 'gather':
       return 'startGather';
     case 'building':
@@ -215,6 +235,8 @@ export function resolveTechniqueActivityCancelCommandKind(kind: TechniqueActivit
       return 'cancelForging';
     case 'enhancement':
       return 'cancelEnhancement';
+    case 'transmission':
+      return 'cancelTechniqueTransmission';
     case 'gather':
       return 'cancelGather';
     case 'building':

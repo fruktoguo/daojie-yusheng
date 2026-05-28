@@ -18,6 +18,7 @@ import type {
   PlayerForgingJob,
   PlayerGatherJob,
   PlayerMiningJob,
+  PlayerTransmissionJob,
 } from './crafting-types';
 import type { EquipmentSlots, Inventory } from './item-runtime-types';
 import type { TechniqueActivityQueueItem } from './technique-activity-pipeline-types';
@@ -507,8 +508,13 @@ export interface PlayerState {
 
   transmissionSkill?: AlchemySkillState;
   /**
- * buildingJob：building Job 相关字段。
- */
+   * transmissionJob：传法 Job 相关字段。
+   */
+
+  transmissionJob?: PlayerTransmissionJob | null;
+  /**
+   * buildingJob：building Job 相关字段。
+   */
 
   buildingJob?: PlayerBuildingJob | null;
   /**

@@ -34,6 +34,9 @@ export interface PipelineContext {
 /** 持久化脏域标识。 */
 export type PersistenceDomain =
   | 'active_job'
+  | 'technique'
+  | 'auto_battle_skill'
+  | 'attr'
   | 'inventory'
   | 'equipment'
   | 'enhancement_record'

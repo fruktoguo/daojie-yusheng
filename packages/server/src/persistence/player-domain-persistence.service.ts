@@ -461,7 +461,7 @@ interface AutoUseItemRuleRow {
 
 interface ActiveJobRow {
   jobRunId: string;
-  jobType: 'alchemy' | 'forging' | 'enhancement' | 'formation' | 'gather' | 'mining' | 'building';
+  jobType: 'alchemy' | 'forging' | 'enhancement' | 'formation' | 'transmission' | 'gather' | 'mining' | 'building';
   status: string;
   phase: string;
   startedAt: number;
@@ -6504,6 +6504,17 @@ function buildActiveJobRow(
     };
   }
 
+  const transmissionJob = asRecord(progression?.transmissionJob);
+  if (transmissionJob && Object.keys(transmissionJob).length > 0) {
+    return buildGenericTechniqueActiveJobRow(playerId, transmissionJob, 'transmission', versionSeed, {
+      phase: 'transmitting',
+      totalTicks: 1,
+      remainingTicks: 0,
+      successRate: 1,
+      speedRate: 1,
+    });
+  }
+
   const gatherJob = asRecord(progression?.gatherJob);
   if (gatherJob && Object.keys(gatherJob).length > 0) {
     return buildGenericTechniqueActiveJobRow(playerId, gatherJob, 'gather', versionSeed, {
@@ -6597,7 +6608,7 @@ function buildTechniqueActivityQueueRows(snapshot: PersistedPlayerSnapshot): Tec
 function buildGenericTechniqueActiveJobRow(
   playerId: string,
   job: Record<string, unknown>,
-  jobType: 'gather' | 'mining' | 'building',
+  jobType: 'gather' | 'mining' | 'building' | 'transmission',
   versionSeed: number,
   defaults: {
     phase: string;
@@ -7445,6 +7456,7 @@ function applyProjectedActiveJob(
     snapshot.progression.miningJob = null;
     snapshot.progression.buildingJob = null;
     snapshot.progression.formationJob = null;
+    snapshot.progression.transmissionJob = null;
     return;
   }
   const detail = asRecord(decodeJsonValue(row.detail_jsonb)) ?? {};
@@ -7471,6 +7483,7 @@ function applyProjectedActiveJob(
     snapshot.progression.miningJob = null;
     snapshot.progression.buildingJob = null;
     snapshot.progression.formationJob = null;
+    snapshot.progression.transmissionJob = null;
     return;
   }
   if (jobType === 'formation') {
@@ -7481,6 +7494,18 @@ function applyProjectedActiveJob(
     snapshot.progression.gatherJob = null;
     snapshot.progression.miningJob = null;
     snapshot.progression.buildingJob = null;
+    snapshot.progression.transmissionJob = null;
+    return;
+  }
+  if (jobType === 'transmission') {
+    snapshot.progression.transmissionJob = { ...normalizedJob, jobType: 'transmission' };
+    snapshot.progression.alchemyJob = null;
+    snapshot.progression.forgingJob = null;
+    snapshot.progression.enhancementJob = null;
+    snapshot.progression.gatherJob = null;
+    snapshot.progression.miningJob = null;
+    snapshot.progression.buildingJob = null;
+    snapshot.progression.formationJob = null;
     return;
   }
   if (jobType === 'gather') {
@@ -7491,6 +7516,7 @@ function applyProjectedActiveJob(
     snapshot.progression.miningJob = null;
     snapshot.progression.buildingJob = null;
     snapshot.progression.formationJob = null;
+    snapshot.progression.transmissionJob = null;
     return;
   }
   if (jobType === 'mining') {
@@ -7501,6 +7527,7 @@ function applyProjectedActiveJob(
     snapshot.progression.gatherJob = null;
     snapshot.progression.buildingJob = null;
     snapshot.progression.formationJob = null;
+    snapshot.progression.transmissionJob = null;
     return;
   }
   if (jobType === 'building') {
@@ -7511,6 +7538,7 @@ function applyProjectedActiveJob(
     snapshot.progression.gatherJob = null;
     snapshot.progression.miningJob = null;
     snapshot.progression.formationJob = null;
+    snapshot.progression.transmissionJob = null;
     return;
   }
   if (jobType === 'forging') {
@@ -7525,6 +7553,7 @@ function applyProjectedActiveJob(
   snapshot.progression.miningJob = null;
   snapshot.progression.buildingJob = null;
   snapshot.progression.formationJob = null;
+  snapshot.progression.transmissionJob = null;
 }
 
 function applyProjectedTechniqueActivityQueue(

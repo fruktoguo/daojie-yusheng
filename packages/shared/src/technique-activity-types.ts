@@ -4,13 +4,13 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 /** 可并入统一技艺活动框架的技艺键。 */
-export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation';
+export type TechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'gather' | 'building' | 'mining' | 'formation';
 
 /** 当前已经接入 runtime 活动主链的技艺键。 */
-export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation';
+export type RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'gather' | 'building' | 'mining' | 'formation';
 
-/** 统一任务列表可展示的任务键；传法由学习者身上的 job 驱动，不进入制造 pipeline。 */
-export type TechniqueActivityTaskKind = RuntimeTechniqueActivityKind | 'transmission';
+/** 统一任务列表可展示的任务键。 */
+export type TechniqueActivityTaskKind = RuntimeTechniqueActivityKind;
 
 /** 技艺活动通用中断原因。 */
 export type TechniqueActivityInterruptReason = 'move' | 'attack' | 'cancel' | 'cultivate' | 'defeat';
@@ -104,6 +104,7 @@ export const RUNTIME_TECHNIQUE_ACTIVITY_KINDS = [
   'alchemy',
   'forging',
   'enhancement',
+  'transmission',
   'formation',
   'gather',
   'mining',

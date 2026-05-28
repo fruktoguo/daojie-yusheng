@@ -24,6 +24,7 @@ import { TechniqueActivityPipelineService } from './pipeline/technique-activity-
 import { AlchemyStrategy } from './pipeline/strategies/alchemy.strategy';
 import { ForgingStrategy } from './pipeline/strategies/forging.strategy';
 import { EnhancementStrategy } from './pipeline/strategies/enhancement.strategy';
+import { TransmissionStrategy } from './pipeline/strategies/transmission.strategy';
 import { GatherStrategy } from './pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from './pipeline/strategies/building.strategy';
 import { FormationStrategy } from './pipeline/strategies/formation.strategy';
@@ -192,6 +193,9 @@ export class CraftPanelRuntimeService {
         if (kind === 'enhancement') {
             return this.hasActiveEnhancementJob(player);
         }
+        if (kind === 'transmission') {
+            return hasTechniqueActivityJob(player.transmissionJob);
+        }
         if (kind === 'formation') {
             return hasTechniqueActivityJob(player.formationJob);
         }
@@ -267,6 +271,7 @@ export class CraftPanelRuntimeService {
         this.pipeline.register(new AlchemyStrategy(this));
         this.pipeline.register(new ForgingStrategy(this));
         this.pipeline.register(new EnhancementStrategy(this));
+        this.pipeline.register(new TransmissionStrategy());
         this.pipeline.register(new GatherStrategy());
         this.pipeline.register(new MiningStrategy());
         this.pipeline.register(new BuildingStrategy());
@@ -2744,6 +2749,9 @@ function buildActiveJobSnapshotFromPlayer(player) {
     }
     if (player?.miningJob) {
         return buildActiveJobSnapshot(player.miningJob, 'mining');
+    }
+    if (player?.transmissionJob) {
+        return buildActiveJobSnapshot(player.transmissionJob, 'transmission');
     }
     if (player?.gatherJob) {
         return buildActiveJobSnapshot(player.gatherJob, 'gather');

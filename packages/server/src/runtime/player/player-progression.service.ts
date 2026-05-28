@@ -2009,7 +2009,8 @@ export class PlayerProgressionService {
     }
     advancePendingTechniqueComprehensionInternal(player, pending, amount, options: any = {}) {
         const resolved = createEmptyMutation();
-        if (pending.activeTransferJob) {
+        if (pending.activeTransferJob
+            || (player.transmissionJob?.techniqueId === pending.techId && Number(player.transmissionJob?.remainingTicks) > 0)) {
             return resolved;
         }
         const baseProgress = Object.prototype.hasOwnProperty.call(options ?? {}, 'pendingComprehensionTicks')

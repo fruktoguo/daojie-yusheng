@@ -65,7 +65,7 @@ while (exp >= expToNext && expToNext > 0):
 ### 已接入种类
 
 ```ts
-RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'gather' | 'building' | 'mining' | 'formation'
+RuntimeTechniqueActivityKind = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | 'gather' | 'building' | 'mining' | 'formation'
 ```
 
 ### 管线生命周期
@@ -83,10 +83,13 @@ cancel → [computeRefund → 清理job]
 
 - 配方型：炼丹、锻造。
 - 装备型：强化。
+- 学习型：传法。
 - 条件型：采集、建造、阵法维护/持续补充灵力。
 - 破坏/采矿型：挖矿。
 
 “表现为 job”必须表示服务端权威生命周期由 job 管线控制，而不是只在客户端任务列表中投影一条记录。凡是跨 tick 推进、可以被打断或取消、会授予技艺经验、会占用外部对象、会延迟产出或持续消耗资源的技艺动作，都必须通过技艺 job 的 start、tick、interrupt、cancel、resolve 流程，并由同一条 lifecycle 产出经验、产出/消耗、外部占用释放、持久化 dirty 和面板 patch。
+
+技艺 job 框架按抽象类/模板方法口径维护：通用骨架统一负责 job 注册、活跃槽位、任务列表排序、`jobRunId/cancelRef`、打断等待、取消入口、持久化和 patch；具体技艺只在 strategy 钩子中实现自己的 `validateStart/createJob/onTick/checkContinue/onCancel/onComplete` 等领域差异。新增技艺不得在玩家对象或 pending 数据中私挂“类 job”状态来绕过通用 lifecycle。
 
 任务列表必须展示当前 job、排队任务、条件休眠任务和打断等待状态，并为可取消项提供取消按钮。取消只提交服务端意图，资源退还、外部占用释放、资产结算和拒绝条件都由服务端权威裁定。
 
@@ -105,6 +108,7 @@ cancel → [computeRefund → 清理job]
 | 炼丹 | 是 | 跨 tick 制作、可打断、可取消、延迟产出、授予炼丹经验 |
 | 锻造 | 是 | 跨 tick 制作、可打断、可取消、延迟产出、授予锻造经验 |
 | 强化 | 是 | 跨 tick 冲级、锁定装备、消耗灵石/保护物、写强化记录 |
+| 传法 | 是 | 学习者身上的正式技艺 job；传授者只是条件来源，开始、推进、暂停 10 息、取消、完成和传法经验都走通用 job lifecycle |
 | 采集 | 是 | 跨 tick 搜寻、占用容器目标、可休眠/取消、授予采集经验 |
 | 挖矿 | 是 | 对矿脉持续发起锁定强制攻击，由战斗/自动战斗链路选择普攻或技能；命中后产出矿物、授予挖矿经验、可打断/取消 |
 | 建造 | 是 | 跨 tick 推进建筑状态、占用 `activeBuilderPlayerId`、授予建造经验 |

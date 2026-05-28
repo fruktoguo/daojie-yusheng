@@ -27,6 +27,7 @@ import type {
   NumericRatioDivisors,
   NumericStats,
   PlayerSpecialStats,
+  PlayerTransmissionJob,
   PlayerWalletState,
   PendingTechniqueComprehensionState,
   S2C_PanelAttrDelta,
@@ -376,6 +377,7 @@ export interface ProjectorPlayerLike {
   miningSkill?: S2C_PanelAttrDelta['miningSkill'];
   formationSkill?: S2C_PanelAttrDelta['formationSkill'];
   transmissionSkill?: S2C_PanelAttrDelta['transmissionSkill'];
+  transmissionJob?: PlayerTransmissionJob | null;
   attrs: {
     revision: number;
     stage: S2C_PanelAttrDelta['stage'];

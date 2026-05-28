@@ -90,7 +90,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     },
     equipment: buildEquipmentRecord(player.equipment.slots),
     techniques: player.techniques.techniques.map((entry) => toBootstrapTechniqueState(entry)),
-    pendingTechniqueComprehensions: clonePendingComprehensions(player.pendingTechniqueComprehensions),
+    pendingTechniqueComprehensions: clonePendingComprehensions(player.pendingTechniqueComprehensions, player.transmissionJob),
     bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : undefined,
     alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
     forgingSkill: player.forgingSkill ? { ...player.forgingSkill } : undefined,
@@ -136,11 +136,37 @@ function cloneAutoBattleSkills(source) {
   return cloned;
 }
 
-function clonePendingComprehensions(source) {
+function clonePendingComprehensions(source, transmissionJob = null) {
   return (Array.isArray(source) ? source : []).map((entry) => ({
     ...entry,
-    activeTransferJob: entry.activeTransferJob ? { ...entry.activeTransferJob } : null,
+    activeTransferJob: buildProjectedTransmissionJob(entry, transmissionJob),
   }));
+}
+
+function buildProjectedTransmissionJob(entry, transmissionJob = null) {
+  if (!entry || !transmissionJob || transmissionJob.techniqueId !== entry.techId || Number(transmissionJob.remainingTicks) <= 0) {
+    return null;
+  }
+  const waitRemaining = Math.max(0, Math.floor(Number(
+    transmissionJob.interruptWaitRemainingTicks
+      ?? transmissionJob.interruptState?.waitRemainingTicks
+      ?? 0,
+  ) || 0));
+  return {
+    jobId: typeof transmissionJob.jobRunId === 'string' && transmissionJob.jobRunId.trim()
+      ? transmissionJob.jobRunId
+      : `transmission:${entry.techId}`,
+    teacherPlayerId: transmissionJob.teacherPlayerId,
+    teacherName: transmissionJob.teacherName,
+    startedAtTick: Math.max(0, Math.floor(Number(transmissionJob.startedAt) || 0)),
+    status: transmissionJob.status === 'blocked' ? 'blocked' : 'running',
+    blockedReason: transmissionJob.blockedReason,
+    range: Math.max(1, Math.floor(Number(transmissionJob.range) || 2)),
+    interruptWaitRemainingTicks: waitRemaining,
+    interruptState: transmissionJob.interruptState && typeof transmissionJob.interruptState === 'object'
+      ? { ...transmissionJob.interruptState }
+      : null,
+  };
 }
 
 function cloneAutoUsePills(source) {
