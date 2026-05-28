@@ -974,9 +974,6 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'enhancement') {
       this.lastEnhancementRenderKey = this.buildEnhancementPanelRenderKey();
     }
-    if (this.activeMode === 'transmission') {
-      this.lastTransmissionRenderKey = this.buildTransmissionRenderKey();
-    }
     if (this.useReactPanel()) {
       this.renderReact(definition);
       return;
@@ -1100,15 +1097,17 @@ export class CraftWorkbenchModal {
     const current = getReactCraftWorkbenchState();
     const nextTabsKey = this.buildCraftTabsKey();
     const nextHeaderKey = this.buildCraftHeaderKey();
+    const nextContentKey = this.buildCraftContentKey();
+    const shouldReplaceContent = includeContent && current.contentKey !== nextContentKey;
     syncReactCraftWorkbenchState({
       activeMode: this.activeMode,
       tabsKey: nextTabsKey,
       ...(current.tabsKey !== nextTabsKey ? { tabsHtml: this.renderCraftModeTabs() } : {}),
       headerKey: nextHeaderKey,
       ...(current.headerKey !== nextHeaderKey ? { headerHtml: this.renderCraftHeader() } : {}),
-      ...(includeContent
+      ...(shouldReplaceContent
         ? {
-          contentKey: this.buildCraftContentKey(),
+          contentKey: nextContentKey,
           contentHtml: this.renderCraftActiveBody(),
         }
         : {}),
@@ -1208,6 +1207,9 @@ export class CraftWorkbenchModal {
     if ((this.activeMode === 'alchemy' || this.activeMode === 'forging') && this.tryPatchAlchemyBody(body)) {
       return true;
     }
+    if (this.activeMode === 'transmission' && this.tryPatchTransmissionBody(body)) {
+      return true;
+    }
     if (this.activeMode === 'enhancement' && this.tryPatchEnhancementBody(body)) {
       return true;
     }
@@ -1255,6 +1257,9 @@ export class CraftWorkbenchModal {
       if (this.activeMode === 'enhancement') {
         this.tryPatchEnhancementBody(body);
       }
+      if (this.activeMode === 'transmission') {
+        this.tryPatchTransmissionBody(body);
+      }
       return;
     }
     if (!detailModalHost.patch({
@@ -1275,11 +1280,72 @@ export class CraftWorkbenchModal {
       return;
     }
     if (this.activeMode === 'transmission') {
-      const content = body.querySelector<HTMLElement>('[data-craft-workbench-content="true"]');
-      const nextKey = this.buildTransmissionRenderKey();
-      if (content && this.lastTransmissionRenderKey !== nextKey && !this.shouldDeferTransmissionContentPatch(content)) {
-        this.lastTransmissionRenderKey = nextKey;
-        replaceElementHtml(content, this.renderTransmissionBody());
+      this.tryPatchTransmissionBody(body);
+    }
+  }
+
+  private tryPatchTransmissionBody(body: HTMLElement): boolean {
+    if (this.activeMode !== 'transmission') {
+      return false;
+    }
+    const content = body.querySelector<HTMLElement>('[data-craft-workbench-content="true"]');
+    if (!content) {
+      return false;
+    }
+    const nextKey = this.buildTransmissionRenderKey();
+    const hasTransmissionPanel = content.querySelector('[data-transmission-panel="true"]') !== null;
+    if (!hasTransmissionPanel || this.lastTransmissionRenderKey !== nextKey) {
+      if (this.shouldDeferTransmissionContentPatch(content)) {
+        this.patchTransmissionProgress(content);
+        return true;
+      }
+      this.lastTransmissionRenderKey = nextKey;
+      replaceElementHtml(content, this.renderTransmissionBody());
+      this.patchTransmissionProgress(content);
+      return true;
+    }
+    this.patchTransmissionProgress(content);
+    return true;
+  }
+
+  private patchTransmissionProgress(content: HTMLElement): void {
+    const expToNext = Math.max(0, Math.floor(this.transmissionSkillExpToNext || 0));
+    const exp = Math.max(0, Math.floor(this.transmissionSkillExp || 0));
+    const progressRatio = expToNext > 0 ? Math.max(0, Math.min(1, exp / expToNext)) : 1;
+    const expNode = content.querySelector<HTMLElement>('[data-transmission-skill-exp="true"]');
+    if (expNode) {
+      expNode.textContent = `${formatDisplayInteger(exp)} / ${formatDisplayInteger(expToNext)}`;
+    }
+    const progressTextNode = content.querySelector<HTMLElement>('[data-transmission-skill-progress-text="true"]');
+    if (progressTextNode) {
+      progressTextNode.textContent = formatDisplayPercent(progressRatio * 100, { maximumFractionDigits: 1 });
+    }
+    const progressFillNode = content.querySelector<HTMLElement>('[data-transmission-skill-progress-fill="true"]');
+    if (progressFillNode) {
+      progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
+    }
+    for (const entry of this.pendingTechniqueComprehensions ?? []) {
+      const escapedTechId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(entry.techId)
+        : entry.techId.replaceAll('"', '\\"');
+      const card = content.querySelector<HTMLElement>(`[data-transmission-pending="${escapedTechId}"]`);
+      if (!card) {
+        continue;
+      }
+      const required = Math.max(1, Math.floor(Number(entry.requiredProgress) || 1));
+      const progress = Math.max(0, Math.floor(Number(entry.progress) || 0));
+      const ratio = Math.max(0, Math.min(1, progress / required));
+      const job = entry.activeTransferJob ?? null;
+      const status = job
+        ? (job.status === 'blocked' ? '等待传授' : '传授中')
+        : '自行领悟';
+      const pendingTextNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-text="true"]');
+      if (pendingTextNode) {
+        pendingTextNode.textContent = `${status} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}`;
+      }
+      const pendingFillNode = card.querySelector<HTMLElement>('[data-transmission-pending-progress-fill="true"]');
+      if (pendingFillNode) {
+        pendingFillNode.style.width = `${(ratio * 100).toFixed(2)}%`;
       }
     }
   }
@@ -1415,6 +1481,7 @@ export class CraftWorkbenchModal {
       return this.renderEnhancementBody();
     }
     if (this.activeMode === 'transmission') {
+      this.lastTransmissionRenderKey = this.buildTransmissionRenderKey();
       return this.renderTransmissionBody();
     }
     return this.renderForgingPlaceholder();
@@ -1563,11 +1630,9 @@ export class CraftWorkbenchModal {
   private buildTransmissionRenderKey(): string {
     return [
       this.transmissionSkillLevel,
-      this.transmissionSkillExp,
-      this.transmissionSkillExpToNext,
       this.transmissionTechniques.map((tech) => tech.techId).join(','),
       (this.pendingTechniqueComprehensions ?? [])
-        .map((entry) => `${entry.techId}:${Math.floor(entry.progress ?? 0)}/${Math.floor(entry.requiredProgress ?? 1)}:${entry.activeTransferJob?.status ?? 'self'}`)
+        .map((entry) => `${entry.techId}:${entry.activeTransferJob?.status ?? 'self'}:${entry.activeTransferJob?.blockedReason ?? ''}`)
         .join(','),
       this.getTransmissionTargets().map((target) => target.playerId).join(','),
     ].join('|');
@@ -1596,11 +1661,11 @@ export class CraftWorkbenchModal {
           <div class="alchemy-summary-metrics">
             <div class="alchemy-summary-metric">
               <span class="alchemy-summary-metric-label">经验</span>
-              <strong class="alchemy-summary-metric-value">${formatDisplayInteger(exp)} / ${formatDisplayInteger(expToNext)}</strong>
+              <strong class="alchemy-summary-metric-value" data-transmission-skill-exp="true">${formatDisplayInteger(exp)} / ${formatDisplayInteger(expToNext)}</strong>
             </div>
             <div class="alchemy-summary-metric">
               <span class="alchemy-summary-metric-label">进度</span>
-              <strong class="alchemy-summary-metric-value">${formatDisplayPercent(progressRatio * 100, { maximumFractionDigits: 1 })}</strong>
+              <strong class="alchemy-summary-metric-value" data-transmission-skill-progress-text="true">${formatDisplayPercent(progressRatio * 100, { maximumFractionDigits: 1 })}</strong>
             </div>
             <div class="alchemy-summary-metric">
               <span class="alchemy-summary-metric-label">附近玩家</span>
@@ -1609,7 +1674,7 @@ export class CraftWorkbenchModal {
           </div>
           <div class="attr-craft-exp">
             <div class="attr-craft-exp-track" aria-hidden="true">
-              <span class="attr-craft-exp-fill" style="width:${(progressRatio * 100).toFixed(2)}%"></span>
+              <span class="attr-craft-exp-fill" data-transmission-skill-progress-fill="true" style="width:${(progressRatio * 100).toFixed(2)}%"></span>
             </div>
           </div>
         </div>
@@ -1657,11 +1722,11 @@ export class CraftWorkbenchModal {
       <div class="enhancement-candidate-card" data-transmission-pending="${escapeHtmlAttr(entry.techId)}">
         <div class="enhancement-candidate-main">
           <strong>${escapeHtml(entry.name ?? entry.techId)}</strong>
-          <span>${escapeHtml(status)} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}</span>
+          <span data-transmission-pending-progress-text="true">${escapeHtml(status)} · ${formatDisplayInteger(progress)} / ${formatDisplayInteger(required)}</span>
         </div>
         <div class="attr-craft-exp">
           <div class="attr-craft-exp-track" aria-hidden="true">
-            <span class="attr-craft-exp-fill" style="width:${(ratio * 100).toFixed(2)}%"></span>
+            <span class="attr-craft-exp-fill" data-transmission-pending-progress-fill="true" style="width:${(ratio * 100).toFixed(2)}%"></span>
           </div>
         </div>
         ${job ? `<button class="small-btn danger" type="button" data-craft-action="transmission-cancel" data-tech-id="${escapeHtmlAttr(entry.techId)}">取消传法</button>` : ''}
