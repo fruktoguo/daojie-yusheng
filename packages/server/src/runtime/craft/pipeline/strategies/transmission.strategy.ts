@@ -19,7 +19,7 @@ import type { TechniqueActivityStrategy, PipelineContext, PersistenceDomain } fr
 import { advanceTechniqueActivityPause } from '../../technique-activity-runtime.helpers';
 
 type TransmissionValidatedPayload = {
-  mode?: 'transmission' | 'scripture_recording';
+  mode?: 'transmission' | 'scripture_recording' | 'scripture_contemplation';
   learnerPlayerId: string;
   teacherPlayerId: string;
   techniqueId: string;
@@ -67,10 +67,7 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     const deps = resolveTransmissionDeps(ctx);
     const runtime = deps?.playerRuntimeService;
     const learner = resolveLearner(player, payload, runtime);
-    const mode = normalizeText((payload as { mode?: unknown } | null)?.mode) === 'scripture_recording'
-      || normalizeText((payload as { jobType?: unknown } | null)?.jobType) === 'scripture_recording'
-      ? 'scripture_recording'
-      : 'transmission';
+    const mode = resolveTransmissionMode(payload);
     const teacherPlayerId = normalizeText((payload as { teacherPlayerId?: unknown } | null)?.teacherPlayerId);
     const techniqueId = normalizeText((payload as { techniqueId?: unknown; techId?: unknown } | null)?.techniqueId)
       || normalizeText((payload as { techId?: unknown } | null)?.techId);
@@ -85,6 +82,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     }
     if (mode === 'scripture_recording') {
       return validateScriptureRecordingStart(learner, techniqueId, payload, ctx);
+    }
+    if (mode === 'scripture_contemplation') {
+      return validateScriptureContemplationStart(learner, payload, ctx);
     }
     if (!teacherPlayerId) {
       return { ok: false, error: '传授者不能为空。' };
@@ -135,6 +135,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
   createJob(player: unknown, validated: TransmissionValidatedPayload, ctx: PipelineContext): PlayerTransmissionJob {
     if (validated.mode === 'scripture_recording') {
       return createScriptureRecordingJob(player as any, validated, ctx);
+    }
+    if (validated.mode === 'scripture_contemplation') {
+      return createScriptureContemplationJob(player as any, validated, ctx);
     }
     const learner = player as any;
     const pending = ensurePendingComprehension(learner, validated);
@@ -193,6 +196,14 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
         pills: [{ key: 'techniqueName', style: 'skill' }],
       }];
     }
+    if (job.jobType === 'scripture_contemplation') {
+      return [{
+        kind: 'info',
+        key: 'notice.craft.scripture-contemplation.start',
+        vars: { techniqueName: job.techniqueName },
+        pills: [{ key: 'techniqueName', style: 'skill' }],
+      }];
+    }
     return [{
       kind: 'info',
       key: 'notice.craft.transmission.start',
@@ -213,6 +224,9 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
     }
     if (job.jobType === 'scripture_recording') {
       return executeScriptureRecordingTick(learner, job, ctx);
+    }
+    if (job.jobType === 'scripture_contemplation') {
+      return executeScriptureContemplationTick(learner, job, ctx);
     }
     if (job.phase === 'paused') {
       const resumed = advanceTechniqueActivityPause(job, 'transmitting');
@@ -320,6 +334,18 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
         }],
       };
     }
+    if (job.jobType === 'scripture_contemplation') {
+      return {
+        items: [],
+        spiritStones: 0,
+        messages: [{
+          kind: 'system',
+          key: 'notice.craft.scripture-contemplation.cancelled',
+          vars: { techniqueName: job.techniqueName },
+          pills: [{ key: 'techniqueName', style: 'skill' }],
+        }],
+      };
+    }
     return {
       items: [],
       spiritStones: 0,
@@ -339,6 +365,15 @@ export class TransmissionStrategy implements TechniqueActivityStrategy<PlayerTra
 
 function resolveTransmissionDeps(ctx: PipelineContext): TransmissionDepsPort | null {
   return ctx.deps as TransmissionDepsPort | null;
+}
+
+function resolveTransmissionMode(payload: unknown): 'transmission' | 'scripture_recording' | 'scripture_contemplation' {
+  const mode = normalizeText((payload as { mode?: unknown } | null)?.mode)
+    || normalizeText((payload as { jobType?: unknown } | null)?.jobType);
+  if (mode === 'scripture_recording' || mode === 'scripture_contemplation') {
+    return mode;
+  }
+  return 'transmission';
 }
 
 function resolveLearner(player: unknown, payload: unknown, runtime: TransmissionDepsPort['playerRuntimeService']): any | null {
@@ -414,6 +449,60 @@ function validateScriptureRecordingStart(
   };
 }
 
+function validateScriptureContemplationStart(
+  learner: any,
+  payload: unknown,
+  ctx: PipelineContext,
+): TechniqueActivityStartValidationResult<TransmissionValidatedPayload> {
+  const buildingId = normalizeText((payload as { buildingId?: unknown } | null)?.buildingId);
+  if (!buildingId) {
+    return { ok: false, error: '藏经台不能为空。' };
+  }
+  const { building } = resolveScriptureBuilding(ctx, learner, buildingId);
+  if (!building || building.defId !== 'scripture_platform') {
+    return { ok: false, error: '藏经台不存在。' };
+  }
+  if (building.state !== 'active') {
+    return { ok: false, error: '藏经台尚未完工。' };
+  }
+  if (!isPlayerNearBuilding(learner, building, 1)) {
+    return { ok: false, error: '不在藏经台 1 格范围内。' };
+  }
+  const techniqueId = normalizeText(building.scriptureTechniqueId);
+  if (!techniqueId || Number(building.scriptureRecordedAtTick) <= 0) {
+    return { ok: false, error: '藏经台尚未录入藏书。' };
+  }
+  if (learner.techniques?.techniques?.some((entry: any) => entry?.techId === techniqueId)) {
+    return { ok: false, error: '已经掌握该功法。' };
+  }
+  const requiredProgress = Math.max(
+    1,
+    Number(building.scriptureRequiredProgress) || calculateTechniqueComprehensionRequiredProgress({
+      sourceKind: 'created',
+      techniqueRealmLv: building.scriptureRealmLv,
+      grade: building.scriptureGrade,
+      learnerRealmLv: learner.realm?.realmLv ?? 1,
+      learnerTransmissionLevel: learner.transmissionSkill?.level ?? 1,
+    }),
+  );
+  return {
+    ok: true,
+    validated: {
+      mode: 'scripture_contemplation',
+      learnerPlayerId: learner.playerId,
+      teacherPlayerId: learner.playerId,
+      techniqueId,
+      techniqueName: normalizeText(building.scriptureTechniqueName) || techniqueId,
+      requiredProgress,
+      realmLv: Math.max(1, Math.floor(Number(building.scriptureRealmLv) || 1)),
+      grade: building.scriptureGrade ?? undefined,
+      category: building.scriptureCategory ?? undefined,
+      teacherName: learner.displayName ?? learner.name ?? learner.playerId,
+      buildingId,
+    },
+  };
+}
+
 function createScriptureRecordingJob(recorder: any, validated: TransmissionValidatedPayload, ctx: PipelineContext): PlayerTransmissionJob {
   const { instance, building } = resolveScriptureBuilding(ctx, recorder, validated.buildingId);
   const required = Math.max(1, Number(validated.requiredProgress) || 1);
@@ -443,6 +532,51 @@ function createScriptureRecordingJob(recorder: any, validated: TransmissionValid
     techniqueId: validated.techniqueId,
     techniqueName: validated.techniqueName,
     teacherPlayerId: recorder.playerId,
+    teacherName: validated.teacherName,
+    range: 1,
+    realmLv: validated.realmLv,
+    grade: validated.grade,
+    category: validated.category,
+    buildingId: validated.buildingId,
+    status: 'running',
+    phase: 'transmitting',
+    startedAt: Date.now(),
+    totalTicks: required,
+    remainingTicks: remaining > 0 ? Math.max(1, Math.ceil(remaining)) : 0,
+    workTotalTicks: required,
+    workRemainingTicks: remaining,
+    ...(progressBreakdown.progressGain > 0
+      ? {
+        progressGainPerTick: progressBreakdown.progressGain,
+        estimatedRemainingTicks: remaining > 0 ? Math.max(1, Math.ceil(remaining / progressBreakdown.progressGain)) : 0,
+        progressBreakdown,
+      }
+      : {}),
+    pausedTicks: 0,
+    interruptWaitRemainingTicks: 0,
+    interruptState: null,
+    successRate: 1,
+    spiritStoneCost: 0,
+  };
+}
+
+function createScriptureContemplationJob(learner: any, validated: TransmissionValidatedPayload, ctx: PipelineContext): PlayerTransmissionJob {
+  const pending = ensurePendingComprehension(learner, validated);
+  pending.selfComprehensionAllowed = false;
+  const progress = Math.max(0, Number(pending.progress) || 0);
+  const required = Math.max(1, Number(validated.requiredProgress) || 1);
+  const remaining = Math.max(0, required - Math.min(required, progress));
+  const currentTick = resolvePlayerRuntimeTick(learner);
+  const progressBreakdown = resolveScriptureContemplationProgressBreakdown(learner, validated.realmLv);
+  markTransmissionDirty(learner, ctx, ['technique', 'active_job']);
+  return {
+    jobRunId: `scripture_contemplation:${validated.buildingId}:${validated.techniqueId}:${currentTick}`,
+    jobType: 'scripture_contemplation',
+    jobVersion: 1,
+    label: '藏经参悟',
+    techniqueId: validated.techniqueId,
+    techniqueName: validated.techniqueName,
+    teacherPlayerId: learner.playerId,
     teacherName: validated.teacherName,
     range: 1,
     realmLv: validated.realmLv,
@@ -656,6 +790,92 @@ function executeScriptureRecordingTick(recorder: any, job: PlayerTransmissionJob
   };
 }
 
+function executeScriptureContemplationTick(learner: any, job: PlayerTransmissionJob, ctx: PipelineContext): unknown {
+  if (job.phase === 'paused') {
+    const resumed = advanceTechniqueActivityPause(job, 'transmitting');
+    markTransmissionDirty(learner, ctx, ['active_job']);
+    return { ...emptyTransmissionTickResult(), panelChanged: resumed.resumed };
+  }
+  const { building } = resolveScriptureBuilding(ctx, learner, job.buildingId);
+  if (!building || building.defId !== 'scripture_platform' || building.state !== 'active') {
+    return blockScriptureContemplation(learner, job, 'scripture_platform_unavailable', ctx);
+  }
+  if (!isPlayerNearBuilding(learner, building, 1)) {
+    return blockScriptureContemplation(learner, job, 'scripture_platform_out_of_range', ctx);
+  }
+  const currentTechniqueId = normalizeText(building.scriptureTechniqueId);
+  if (!currentTechniqueId || currentTechniqueId !== job.techniqueId || Number(building.scriptureRecordedAtTick) <= 0) {
+    return blockScriptureContemplation(learner, job, 'scripture_platform_unavailable', ctx);
+  }
+  if (learner.techniques?.techniques?.some((entry: any) => entry?.techId === job.techniqueId)) {
+    learner.transmissionJob = null;
+    markTransmissionDirty(learner, ctx, ['active_job']);
+    return { ...emptyTransmissionTickResult(), panelChanged: true };
+  }
+  let pending = findPendingComprehension(learner, job.techniqueId);
+  if (!pending) {
+    pending = ensurePendingComprehension(learner, {
+      mode: 'scripture_contemplation',
+      learnerPlayerId: learner.playerId,
+      teacherPlayerId: learner.playerId,
+      techniqueId: job.techniqueId,
+      techniqueName: job.techniqueName,
+      requiredProgress: Math.max(1, Number(building.scriptureRequiredProgress ?? job.workTotalTicks ?? job.totalTicks) || 1),
+      realmLv: Math.max(1, Math.floor(Number(building.scriptureRealmLv ?? job.realmLv) || 1)),
+      grade: building.scriptureGrade ?? job.grade,
+      category: building.scriptureCategory ?? job.category,
+      teacherName: job.teacherName,
+      buildingId: job.buildingId,
+    });
+  }
+  if (job.status !== 'running' || job.blockedReason !== undefined) {
+    job.status = 'running';
+    delete job.blockedReason;
+  }
+  pending.selfComprehensionAllowed = false;
+  delete pending.activeTransferJob;
+  const requiredProgress = Math.max(1, Number(building.scriptureRequiredProgress ?? pending.requiredProgress ?? job.workTotalTicks ?? job.totalTicks) || 1);
+  const previousProgress = Math.max(0, Math.min(requiredProgress, Number(pending.progress) || 0));
+  pending.name = normalizeText(building.scriptureTechniqueName) || job.techniqueName || pending.name || job.techniqueId;
+  pending.sourceKind = 'created';
+  pending.requiredProgress = requiredProgress;
+  pending.realmLv = Math.max(1, Math.floor(Number(building.scriptureRealmLv ?? job.realmLv ?? pending.realmLv) || 1));
+  pending.grade = building.scriptureGrade ?? job.grade ?? pending.grade;
+  pending.category = building.scriptureCategory ?? job.category ?? pending.category;
+  pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
+  const progressBreakdown = resolveScriptureContemplationProgressBreakdown(learner, pending.realmLv);
+  pending.progress = Math.min(requiredProgress, previousProgress + progressBreakdown.progressGain);
+  job.techniqueName = pending.name;
+  job.realmLv = pending.realmLv;
+  job.grade = pending.grade;
+  job.category = pending.category;
+  updateJobProgress(job, requiredProgress, pending.progress, progressBreakdown);
+  const professionChanged = applyTransmissionSkillExpFromTicks(
+    learner,
+    1,
+    pending.realmLv,
+    ctx.resolveExpToNextByLevel,
+  );
+  if (pending.progress < requiredProgress) {
+    learner.techniques.revision += 1;
+    markTransmissionDirty(learner, ctx, ['active_job', 'technique', ...(professionChanged ? ['profession'] : [])]);
+    return { ...emptyTransmissionTickResult(), panelChanged: true, attrChanged: professionChanged };
+  }
+  completeTransmission(learner, pending, job, ctx, professionChanged);
+  learner.transmissionJob = null;
+  return {
+    ...emptyTransmissionTickResult(),
+    panelChanged: true,
+    attrChanged: true,
+    messages: [{
+      kind: 'success',
+      key: 'notice.progression.technique-comprehension-complete',
+      vars: { techName: pending.name ?? pending.techId },
+      pills: [{ key: 'techName', style: 'skill' }],
+    }],
+  };
+}
+
 function blockScriptureRecording(
   recorder: any,
   job: PlayerTransmissionJob,
@@ -670,6 +890,28 @@ function blockScriptureRecording(
   }
   if (changed) {
     markTransmissionDirty(recorder, ctx, ['active_job']);
+  }
+  return { ...emptyTransmissionTickResult(), panelChanged: changed };
+}
+
+function blockScriptureContemplation(
+  learner: any,
+  job: PlayerTransmissionJob,
+  reason: PlayerTransmissionJob['blockedReason'],
+  ctx: PipelineContext,
+): unknown {
+  let changed = false;
+  if (job.status !== 'blocked' || job.blockedReason !== reason) {
+    job.status = 'blocked';
+    job.blockedReason = reason;
+    changed = true;
+  }
+  const pending = findPendingComprehension(learner, job.techniqueId);
+  if (pending) {
+    pending.updatedAtTick = resolvePlayerRuntimeTick(learner);
+  }
+  if (changed) {
+    markTransmissionDirty(learner, ctx, ['active_job', ...(pending ? ['technique'] : [])]);
   }
   return { ...emptyTransmissionTickResult(), panelChanged: changed };
 }
@@ -733,6 +975,15 @@ function resolveScriptureRecordingProgressBreakdown(recorder: any, techniqueReal
     techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
     learnerRealmLv: recorder?.realm?.realmLv ?? 1,
     learnerTransmissionLevel: recorder?.transmissionSkill?.level ?? 1,
+  });
+}
+
+function resolveScriptureContemplationProgressBreakdown(learner: any, techniqueRealmLv: unknown): ReturnType<typeof calculateTechniqueComprehensionProgressBreakdown> {
+  return calculateTechniqueComprehensionProgressBreakdown({
+    baseProgress: 1,
+    techniqueRealmLv: Math.max(1, Math.floor(Number(techniqueRealmLv) || 1)),
+    learnerRealmLv: learner?.realm?.realmLv ?? 1,
+    learnerTransmissionLevel: learner?.transmissionSkill?.level ?? 1,
   });
 }
 

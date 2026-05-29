@@ -2,8 +2,8 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimeActionExecutionService } = require("../runtime/world/world-runtime-action-execution.service");
-const { WorldRuntimePendingCommandService } = require("../runtime/world/world-runtime-pending-command.service");
+const { WorldRuntimeActionExecutionService } = require("../runtime/world/command/world-runtime-action-execution.service");
+const { WorldRuntimePendingCommandService } = require("../runtime/world/command/world-runtime-pending-command.service");
 const { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_INFUSION_BUFF_ID } = require("../constants/gameplay/pvp");
 /**
  * createService：构建并返回目标对象。
@@ -680,6 +680,30 @@ function testStartBuildingQueuesPendingCommand() {
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
 }
+
+function testScriptureContemplateQueuesPendingCommand() {
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        combat: {},
+    };
+    const service = createService(player, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'scripture:contemplate:building%3Ascripture', null, deps);
+    assert.equal(result.kind, 'queued');
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'startTechniqueTransmission',
+            mode: 'scripture_contemplation',
+            learnerPlayerId: 'player:1',
+            buildingId: 'building:scripture',
+            techniqueId: 'scripture:building:scripture',
+        }],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
 /**
  * testLegacyNpcActionDelegates：执行testLegacyNPCActionDelegate相关逻辑。
  * @returns 无返回值，直接更新testLegacyNPCActionDelegate相关状态。
@@ -754,7 +778,7 @@ async function testInvalidManualCastClearsPendingCommand() {
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['clearManualEngagePending', 'player:1'],
         ['clearCombatTarget', 'player:1', 88],
-        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（目标无效）'],
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（目标无效） debug=auto=0 manual=1 skill=skill.test playerState=missing'],
         ['queuePlayerNotice', 'player:1', '目标无效', 'warn'],
     ]);
 }
@@ -777,6 +801,7 @@ async function run() {
     testStopCultivationKeepsMainTechnique();
     testNpcShopView();
     testNpcQuestActionDelegates();
+    testScriptureContemplateQueuesPendingCommand();
     testLegacyNpcActionDelegates();
     testStartBuildingQueuesPendingCommand();
     await testInvalidManualCastClearsPendingCommand();

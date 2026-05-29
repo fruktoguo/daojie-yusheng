@@ -290,6 +290,13 @@ export class WorldRuntimeActionExecutionService {
             if (!buildingId) {
                 throw new BadRequestException('藏经台目标不能为空');
             }
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'startTechniqueTransmission',
+                mode: 'scripture_contemplation',
+                learnerPlayerId: playerId,
+                buildingId,
+                techniqueId: `scripture:${buildingId}`,
+            });
             return {
                 kind: 'queued',
                 view: deps.getPlayerViewOrThrow(playerId),

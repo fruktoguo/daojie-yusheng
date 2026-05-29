@@ -6894,10 +6894,14 @@ function normalizeTransmissionJob(value) {
     const remainingTicks = Math.max(0, Math.floor(Number(value.remainingTicks ?? value.workRemainingTicks) || 0));
     const workTotalTicks = Math.max(1, Math.floor(Number(value.workTotalTicks ?? totalTicks) || totalTicks));
     const workRemainingTicks = Math.max(0, Math.floor(Number(value.workRemainingTicks ?? remainingTicks) || remainingTicks));
+    const rawJobType = typeof value.jobType === 'string' ? value.jobType.trim() : '';
+    const jobType = rawJobType === 'scripture_recording' || rawJobType === 'scripture_contemplation'
+        ? rawJobType
+        : 'transmission';
     return {
         ...value,
         jobRunId: typeof value.jobRunId === 'string' && value.jobRunId.trim() ? value.jobRunId.trim() : undefined,
-        jobType: 'transmission',
+        jobType,
         jobVersion: Math.max(1, Math.floor(Number(value.jobVersion) || 1)),
         techniqueId,
         techniqueName: typeof value.techniqueName === 'string' && value.techniqueName.trim() ? value.techniqueName.trim() : techniqueId,
@@ -6907,6 +6911,9 @@ function normalizeTransmissionJob(value) {
         realmLv: Math.max(1, Math.floor(Number(value.realmLv) || 1)),
         status: value.status === 'blocked' ? 'blocked' : 'running',
         blockedReason: value.blockedReason === 'teacher_out_of_range' || value.blockedReason === 'not_created_technique'
+            || value.blockedReason === 'scripture_platform_unavailable'
+            || value.blockedReason === 'scripture_platform_out_of_range'
+            || value.blockedReason === 'scripture_recording_locked'
             ? value.blockedReason
             : undefined,
         phase: value.phase === 'paused' ? 'paused' : 'transmitting',

@@ -241,6 +241,12 @@ function resolveInterruptWaitRemainingTicks(job: LegacyTechniqueJob): number {
 
 function resolveJobLabel(kind: RuntimeTechniqueActivityKind, job: LegacyTechniqueJob): string {
   if (kind === 'transmission') {
+    if (job.jobType === 'scripture_contemplation') {
+      return normalizeText(job.label) || '藏经参悟';
+    }
+    if (job.jobType === 'scripture_recording') {
+      return normalizeText(job.label) || '藏经录入';
+    }
     return normalizeText(job.label) || resolveKindLabel(kind);
   }
   return normalizeText(job.label)

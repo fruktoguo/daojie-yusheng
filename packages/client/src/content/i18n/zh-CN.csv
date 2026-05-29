@@ -2312,6 +2312,8 @@ notice.craft.transmission.cancelled,通知,已取消传法：{techniqueName},
 notice.craft.scripture-recording.start,通知,开始录入 {techniqueName},
 notice.craft.scripture-recording.cancelled,通知,已取消录入：{techniqueName},
 notice.craft.scripture-recording.complete,通知,{techniqueName} 已录入藏经台,
+notice.craft.scripture-contemplation.start,通知,开始参悟 {techniqueName},
+notice.craft.scripture-contemplation.cancelled,通知,已取消参悟：{techniqueName},
 notice.cultivation.cleared,通知,已取消主修功法,
 notice.cultivation.set-primary,通知,已将 {techniqueName} 设为主修功法,
 notice.enum.off,通知,关闭,结构化通知枚举值翻译

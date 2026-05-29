@@ -659,7 +659,7 @@ export interface PlayerTransmissionJob extends TechniqueActivityJobBase {
    * jobType：任务类型。
    */
 
-  jobType?: 'transmission' | 'scripture_recording';
+  jobType?: 'transmission' | 'scripture_recording' | 'scripture_contemplation';
   /**
    * jobVersion：任务版本号。
    */

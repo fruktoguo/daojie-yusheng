@@ -734,6 +734,64 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   assert.equal(publicBuilding.scriptureRecorderPlayerId, visitor.playerId);
 }
 
+function testScriptureContemplationStartsJobAndCompletesTechnique() {
+  const { runtimeService } = createRuntimeService();
+  const learner = createPlayer('learner:scripture', 0, 0);
+  learner.realm.realmLv = 2;
+  learner.transmissionSkill.level = 2;
+  learner.transmissionSkill.expToNext = resolveExpToNextByLevel();
+  runtimeService.players.set(learner.playerId, learner);
+  const building: any = {
+    id: 'building:scripture:contemplate',
+    defId: 'scripture_platform',
+    instanceId: learner.instanceId,
+    x: 0,
+    y: 0,
+    state: 'active',
+    ownerPlayerId: 'player:other',
+    ownerSectId: 'sect:other',
+    scriptureTechniqueId: createdTechnique.techId,
+    scriptureTechniqueName: createdTechnique.name,
+    scriptureProgress: 600,
+    scriptureRequiredProgress: 600,
+    scriptureRealmLv: 1,
+    scriptureGrade: 'mortal',
+    scriptureCategory: 'internal',
+    scriptureRecorderPlayerId: 'player:other',
+    scriptureRecordingJobRunId: null,
+    scriptureRecordedAtTick: 1,
+    revision: 1,
+    updatedAtTick: 0,
+  };
+  const instance: any = {
+    buildingById: new Map([[building.id, building]]),
+    localBuildingViewCacheById: new Map(),
+    markPersistenceDirtyDomainsHighPriority() {},
+    persistentRevision: 0,
+  };
+  const { pipeline, ctx } = createTransmissionPipelineWithInstance(runtimeService, instance);
+  const startResult = pipeline.start(learner, 'transmission', {
+    mode: 'scripture_contemplation',
+    learnerPlayerId: learner.playerId,
+    techniqueId: 'ignored-by-scripture-platform',
+    buildingId: building.id,
+  }, ctx as never);
+  assert.equal(startResult.ok, true, startResult.error);
+  assert.equal(learner.transmissionJob?.jobType, 'scripture_contemplation');
+  assert.equal(learner.transmissionJob?.label, '藏经参悟');
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.techId, createdTechnique.techId);
+  assert.equal(learner.pendingTechniqueComprehensions[0]?.selfComprehensionAllowed, false);
+  assert.equal(startResult.messages?.[0]?.key, 'notice.craft.scripture-contemplation.start');
+
+  for (let tick = 1; tick <= 600 && learner.transmissionJob; tick += 1) {
+    learner.lifeElapsedTicks = tick;
+    pipeline.tick(learner, 'transmission', ctx as never);
+  }
+  assert.equal(learner.transmissionJob, null);
+  assert.equal(learner.pendingTechniqueComprehensions.length, 0);
+  assert.equal(learner.techniques.techniques.some((entry) => entry.techId === createdTechnique.techId), true);
+}
+
 testSelfComprehensionProgressesOnlyWithoutTransmission();
 testTransmittedPendingCannotSelfComprehendWithoutActiveJob();
 testTransmittedPendingCannotBeSetAsMainTechnique();
@@ -747,5 +805,6 @@ testPendingTechniqueNameResolvesDisplayName();
 testTransmissionRefreshesStaleRequiredProgress();
 testTransmissionBlocksCancelsAndContinues();
 testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
+testScriptureContemplationStartsJobAndCompletesTechnique();
 
 console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));

@@ -6655,6 +6655,11 @@ function buildGenericTechniqueActiveJobRow(
   const jobRunId =
     normalizeOptionalString(job.jobRunId)
     ?? `job:${playerId}:${jobType}:${startedAt}`;
+  const rawJobType = normalizeOptionalString(job.jobType);
+  const persistedJobType = jobType === 'transmission'
+    && (rawJobType === 'scripture_recording' || rawJobType === 'scripture_contemplation')
+    ? rawJobType
+    : jobType;
   const jobVersion = Math.max(
     1,
     Math.trunc(Number(normalizeOptionalInteger(job.jobVersion) ?? versionSeed)),
@@ -6675,7 +6680,7 @@ function buildGenericTechniqueActiveJobRow(
     detailJson: {
       ...job,
       jobRunId,
-      jobType,
+      jobType: persistedJobType,
       jobVersion,
     },
   };
@@ -7561,7 +7566,13 @@ function applyProjectedActiveJob(
     return;
   }
   if (jobType === 'transmission') {
-    snapshot.progression.transmissionJob = { ...normalizedJob, jobType: 'transmission' };
+    const detailJobType = normalizeOptionalString(detail.jobType);
+    snapshot.progression.transmissionJob = {
+      ...normalizedJob,
+      jobType: detailJobType === 'scripture_recording' || detailJobType === 'scripture_contemplation'
+        ? detailJobType
+        : 'transmission',
+    };
     snapshot.progression.alchemyJob = null;
     snapshot.progression.forgingJob = null;
     snapshot.progression.enhancementJob = null;
