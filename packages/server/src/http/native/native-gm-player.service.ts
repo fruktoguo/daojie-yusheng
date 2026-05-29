@@ -8,7 +8,7 @@
  * 提供玩家详情查询、快照修改、重置、炼体/底蕴/战斗经验调整、
  * 机器人生成/移除、批量回城、无效物品清理和补偿等 GM 操作。
  */
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   DEFAULT_BASE_ATTRS,
   DEFAULT_INVENTORY_CAPACITY,
@@ -18,12 +18,14 @@ import {
   getBodyTrainingExpToNext,
   normalizeBodyTrainingState,
 } from '@mud/shared';
+import { resolveCraftSkillExpToNextByLevel } from '../../runtime/craft/craft-skill-exp.helpers';
 import { isLegacyItemInstanceId, reassignItemInstanceId } from '../../runtime/world/item-instance-id.helpers';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { GmAuditLogPersistenceService, type GmAuditLogEntry } from '../../persistence/gm-audit-log-persistence.service';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
+import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
@@ -236,6 +238,24 @@ interface MarketRuntimeServiceLike {
   setStorage(playerId: string, storage: { items: any[] }, context: any): void;
   ensureStorageHydrated?(playerId: string): Promise<void>;
 }
+
+interface ActivityPersistenceServiceLike {
+  isEnabled(): boolean;
+  loadMonthCard(playerId: string): Promise<{
+    startAt: number;
+    expireAt: number;
+    totalPoolMerit: number;
+    remainingPoolMerit: number;
+    lastClaimDate: string | null;
+  } | null>;
+  setMonthCardPool(playerId: string, totalPoolMerit: number, remainingPoolMerit: number): Promise<{
+    startAt: number;
+    expireAt: number;
+    totalPoolMerit: number;
+    remainingPoolMerit: number;
+    lastClaimDate: string | null;
+  }>;
+}
 /**
  * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -273,6 +293,8 @@ const GM_PLAYER_DATABASE_TABLES = [
   'player_attr_state',
   'player_body_training_state',
   'player_wallet',
+  'player_merit_month_card',
+  'player_merit_month_card_claim',
   'player_inventory_item',
   'player_market_storage_item',
   'player_map_unlock',
@@ -296,6 +318,7 @@ const GM_PLAYER_DATABASE_TABLES = [
 
 const GM_PLAYER_DATABASE_TABLE_ORDER_BY: Partial<Record<(typeof GM_PLAYER_DATABASE_TABLES)[number], string>> = {
   player_wallet: 'ORDER BY wallet_type ASC',
+  player_merit_month_card_claim: 'ORDER BY claim_date DESC',
   player_inventory_item: 'ORDER BY slot_index ASC NULLS LAST, item_id ASC',
   player_market_storage_item: 'ORDER BY slot_index ASC NULLS LAST, storage_item_id ASC NULLS LAST, item_id ASC',
   player_map_unlock: 'ORDER BY unlocked_at ASC NULLS LAST, map_id ASC',
@@ -312,6 +335,15 @@ const GM_PLAYER_DATABASE_TABLE_ORDER_BY: Partial<Record<(typeof GM_PLAYER_DATABA
   player_mail: 'ORDER BY created_at DESC NULLS LAST, mail_id ASC',
   player_mail_attachment: 'ORDER BY mail_id ASC, attachment_id ASC',
 };
+
+const GM_CRAFT_SKILL_KEYS = [
+  'alchemySkill',
+  'forgingSkill',
+  'gatherSkill',
+  'miningSkill',
+  'formationSkill',
+  'enhancementSkill',
+] as const;
 /**
  * NativeGmPlayerService：封装该能力的入口与生命周期，承载运行时核心协作。
  */
@@ -352,7 +384,9 @@ export class NativeGmPlayerService {
     private readonly databasePoolProvider: DatabasePoolProvider | null = null,
     @Inject(GmAuditLogPersistenceService)
     private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
-  ) {}  
+    @Optional() @Inject(ActivityPersistenceService)
+    private readonly activityPersistenceService: ActivityPersistenceServiceLike | null = null,
+  ) {}
   /**
  * hasRuntimePlayer：判断运行态玩家是否满足条件。
  * @param playerId string 玩家 ID。
@@ -544,7 +578,7 @@ export class NativeGmPlayerService {
 
   resetPlayer(playerId: string) {
     this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmResetPlayer(playerId);
-  }  
+  }
   /**
  * resetPersistedPlayer：判断resetPersisted玩家是否满足条件。
  * @param playerId string 玩家 ID。
@@ -604,7 +638,7 @@ export class NativeGmPlayerService {
       success: true,
       errorMessage: null,
     });
-  }  
+  }
   /**
  * resetHeavenGate：执行resetHeavenGate相关逻辑。
  * @param playerId string 玩家 ID。
@@ -687,7 +721,7 @@ export class NativeGmPlayerService {
       success: true,
       errorMessage: null,
     });
-  }  
+  }
   /**
  * setPlayerBodyTrainingLevel：设置玩家炼体等级。
  * @param playerId string 玩家 ID。
@@ -757,7 +791,7 @@ export class NativeGmPlayerService {
       success: true,
       errorMessage: null,
     });
-  }  
+  }
   /**
  * addPlayerFoundation：调整玩家底蕴。
  * @param playerId string 玩家 ID。
@@ -784,7 +818,7 @@ export class NativeGmPlayerService {
         describeDelta: () => ({ amount }),
       },
     });
-  }  
+  }
   /**
  * addPlayerCombatExp：调整玩家战斗经验。
  * @param playerId string 玩家 ID。
@@ -811,7 +845,44 @@ export class NativeGmPlayerService {
         describeDelta: () => ({ amount }),
       },
     });
-  }  
+  }
+  /**
+ * setPlayerMonthCardPool：设置玩家功德月卡池。
+ * @param playerId string 玩家 ID。
+ * @param requestedTotalPool unknown 总池。
+ * @param requestedRemainingPool unknown 剩余池。
+ * @returns 无返回值，直接更新功德月卡池真源。
+ */
+
+
+  async setPlayerMonthCardPool(
+    playerId: string,
+    requestedTotalPool: unknown,
+    requestedRemainingPool: unknown,
+    actor?: GmActorContext | null,
+  ) {
+    if (!this.activityPersistenceService?.isEnabled()) {
+      throw new BadRequestException('活动持久化不可用，无法修改功德月卡池');
+    }
+    const totalPoolMerit = this.parseNonNegativeInteger(requestedTotalPool, '月卡功德总池');
+    const remainingPoolMerit = this.parseNonNegativeInteger(requestedRemainingPool, '月卡剩余功德');
+    const before = await this.activityPersistenceService.loadMonthCard(playerId);
+    const record = await this.activityPersistenceService.setMonthCardPool(playerId, totalPoolMerit, remainingPoolMerit);
+    await this.recordGmAuditEntry({
+      op: 'gm.player.set_month_card_pool',
+      targetType: 'player',
+      targetId: playerId,
+      actor: actor ?? { tokenRev: null, ip: null, userAgent: null, receivedAt: Date.now() },
+      before: before ? this.toManagedMonthCardView(before) : null,
+      after: this.toManagedMonthCardView(record),
+      delta: {
+        totalPoolMerit,
+        remainingPoolMerit: Math.min(totalPoolMerit, remainingPoolMerit),
+      },
+      success: true,
+      errorMessage: null,
+    });
+  }
   /**
  * spawnBots：执行spawnBot相关逻辑。
  * @param anchorPlayerId string anchorPlayer ID。
@@ -822,7 +893,7 @@ export class NativeGmPlayerService {
 
   spawnBots(anchorPlayerId: string, count: number) {
     this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmSpawnBots(anchorPlayerId, count);
-  }  
+  }
   /**
  * removeBots：处理Bot并更新相关状态。
  * @param playerIds string[] player ID 集合。
@@ -833,7 +904,7 @@ export class NativeGmPlayerService {
 
   removeBots(playerIds: string[], all: boolean) {
     this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmRemoveBots(playerIds, all);
-  }  
+  }
   /**
  * returnAllPlayersToDefaultSpawn：执行returnAll玩家To默认Spawn相关逻辑。
  * @returns 无返回值，直接更新returnAll玩家ToDefaultSpawn相关状态。
@@ -891,7 +962,7 @@ export class NativeGmPlayerService {
       targetX: template.spawnX,
       targetY: template.spawnY,
     };
-  }  
+  }
   /**
  * cleanupAllPlayersInvalidItems：清理全部非机器人的无效物品。
  * @returns 无返回值，直接更新全部无效物品清理相关状态。
@@ -967,7 +1038,7 @@ export class NativeGmPlayerService {
       totalInvalidMarketStorageStacksRemoved,
       totalInvalidEquipmentRemoved,
     };
-  }  
+  }
   /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
  * @returns 无返回值，直接更新全部战斗经验补偿相关状态。
@@ -1037,7 +1108,7 @@ export class NativeGmPlayerService {
       updatedOfflinePlayers,
       totalCombatExpGranted,
     };
-  }  
+  }
   /**
  * compensateAllPlayersFoundation：补偿全部非机器人的底蕴。
  * @returns 无返回值，直接更新全部底蕴补偿相关状态。
@@ -1107,7 +1178,7 @@ export class NativeGmPlayerService {
       updatedOfflinePlayers,
       totalFoundationGranted,
     };
-  }  
+  }
 
   private normalizeGmInventoryItemForSave(currentItem: unknown, submittedItem: unknown): Record<string, unknown> | null {
     const submitted = asGmItemRecord(submittedItem);
@@ -1308,6 +1379,10 @@ export class NativeGmPlayerService {
       }
     }
 
+    if (section === 'craftSkills') {
+      this.applyCraftSkillSnapshotMutation(next, snapshot);
+    }
+
     if (section === 'items') {
       if (snapshot.inventory && typeof snapshot.inventory === 'object') {
         if (Number.isFinite(snapshot.inventory.capacity)) {
@@ -1352,7 +1427,7 @@ export class NativeGmPlayerService {
       }));
       next.quests.revision += 1;
     }
-  }  
+  }
   /**
  * applyPositionToPersistenceSnapshot：判断位置ToPersistence快照是否满足条件。
  * @param persisted 参数说明。
@@ -1385,7 +1460,7 @@ export class NativeGmPlayerService {
     if (typeof snapshot.autoBattle === 'boolean') {
       persisted.combat.autoBattle = snapshot.autoBattle;
     }
-  }  
+  }
   /**
  * applyPlayerSnapshotMutationToPersistence：判断玩家快照MutationToPersistence是否满足条件。
  * @param persisted 参数说明。
@@ -1519,6 +1594,10 @@ export class NativeGmPlayerService {
       }
     }
 
+    if (section === 'craftSkills') {
+      this.applyCraftSkillSnapshotMutationToPersistence(persisted, snapshot);
+    }
+
     if (section === 'items') {
       if (snapshot.inventory && typeof snapshot.inventory === 'object') {
         if (Number.isFinite(snapshot.inventory.capacity)) {
@@ -1562,7 +1641,46 @@ export class NativeGmPlayerService {
       }));
       persisted.quests.revision = Math.max(1, (persisted.quests.revision ?? 1) + 1);
     }
-  }  
+  }
+
+  private applyCraftSkillSnapshotMutation(next, snapshot): void {
+    for (const key of GM_CRAFT_SKILL_KEYS) {
+      if (snapshot?.[key] === undefined) {
+        continue;
+      }
+      next[key] = this.normalizeGmCraftSkillState(snapshot[key], next[key]);
+      if (key === 'enhancementSkill') {
+        next.enhancementSkillLevel = next.enhancementSkill.level;
+      }
+    }
+  }
+
+  private applyCraftSkillSnapshotMutationToPersistence(persisted, snapshot): void {
+    persisted.progression = persisted.progression ?? {};
+    for (const key of GM_CRAFT_SKILL_KEYS) {
+      if (snapshot?.[key] === undefined) {
+        continue;
+      }
+      persisted.progression[key] = this.normalizeGmCraftSkillState(snapshot[key], persisted.progression[key]);
+      if (key === 'enhancementSkill') {
+        persisted.progression.enhancementSkillLevel = persisted.progression.enhancementSkill.level;
+      }
+    }
+  }
+
+  private normalizeGmCraftSkillState(value: unknown, fallback: unknown) {
+    const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+    const fallbackRecord = fallback && typeof fallback === 'object' ? fallback as Record<string, unknown> : {};
+    const rawLevel = record.level ?? fallbackRecord.level;
+    const level = Math.max(1, Math.trunc(Number(rawLevel) || 1));
+    const expToNext = resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level);
+    const exp = Math.min(
+      Math.max(0, Math.trunc(Number(record.exp ?? fallbackRecord.exp) || 0)),
+      Math.max(0, expToNext - 1),
+    );
+    return { level, exp, expToNext };
+  }
+
   /**
  * repairRuntimeSnapshot：执行repair运行态快照相关逻辑。
  * @param snapshot 参数说明。
@@ -1586,7 +1704,7 @@ export class NativeGmPlayerService {
     }
     this.playerProgressionService.initializePlayer(snapshot);
     this.playerRuntimeService.rebuildActionState(snapshot, 0);
-  }  
+  }
   /**
  * hydrateGmTechniqueSnapshot：用服务端模板补全 GM 低频功法快照。
  * @param entry 功法快照。
@@ -1687,6 +1805,8 @@ export class NativeGmPlayerService {
       if (Array.isArray(snapshot?.autoBattleSkills)) {
         domains.add('auto_battle_skill');
       }
+    } else if (section === 'craftSkills') {
+      domains.add('progression');
     } else if (section === 'items') {
       domains.add('inventory');
       domains.add('equipment');
@@ -1854,7 +1974,7 @@ export class NativeGmPlayerService {
     } catch {
       // service 内部已 catch 并打日志；额外保护一层避免 audit 异常冒泡破坏 GM 写流程。
     }
-  }  
+  }
   /**
  * cleanupManagedPlayerInvalidItems：清理单个玩家的无效物品与托管仓。
  * @param playerId string 玩家 ID。
@@ -1897,7 +2017,7 @@ export class NativeGmPlayerService {
     const storageSummary = await this.cleanupInvalidMarketStorage(playerId);
     summary.marketStorageStacksRemoved = storageSummary.marketStorageStacksRemoved;
     return summary;
-  }  
+  }
   /**
  * cleanupInvalidItemsFromSnapshot：清理背包与装备中的无效物品。
  * @param snapshot 参数说明。
@@ -1934,7 +2054,7 @@ export class NativeGmPlayerService {
       marketStorageStacksRemoved: 0,
       equipmentRemoved,
     };
-  }  
+  }
   /**
  * cleanupInvalidMarketStorage：清理坊市托管仓中的无效物品。
  * @param playerId string 玩家 ID。
@@ -1959,7 +2079,7 @@ export class NativeGmPlayerService {
       return { ok: true };
     });
     return { marketStorageStacksRemoved };
-  }  
+  }
   /**
  * isManagedPlayerMissingError：批量快捷执行期间，玩家在枚举后被回收时直接跳过，避免整批 404。
  * @param error 参数说明。
@@ -1982,7 +2102,7 @@ export class NativeGmPlayerService {
 
   private isValidItem(itemId: unknown) {
     return typeof itemId === 'string' && itemId.trim().length > 0 && this.contentTemplateRepository.getItemName(itemId.trim()) !== null;
-  }  
+  }
   /**
  * buildBodyTrainingState：构建炼体状态。
  * @param current 参数说明。
@@ -2000,7 +2120,7 @@ export class NativeGmPlayerService {
       level: normalizedLevel,
       exp: Math.min(preservedExp, Math.max(0, expToNext - 1)),
     });
-  }  
+  }
   /**
  * parseBodyTrainingLevel：解析炼体等级输入。
  * @param value 参数说明。
@@ -2014,7 +2134,7 @@ export class NativeGmPlayerService {
       return null;
     }
     return Math.trunc(numeric);
-  }  
+  }
   /**
  * parseCounterDelta：解析整数增量。
  * @param value 参数说明。
@@ -2029,7 +2149,22 @@ export class NativeGmPlayerService {
       throw new BadRequestException(`${label}必须是整数`);
     }
     return Math.trunc(numeric);
-  }  
+  }
+  /**
+ * parseNonNegativeInteger：解析非负整数。
+ * @param value 参数说明。
+ * @param label string 标签。
+ * @returns 返回归一化后的非负整数。
+ */
+
+
+  private parseNonNegativeInteger(value: unknown, label: string) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || !Number.isInteger(numeric) || numeric < 0) {
+      throw new BadRequestException(`${label}必须是非负整数`);
+    }
+    return Math.trunc(numeric);
+  }
   /**
  * applyCounterDelta：把整数增量应用到计数值。
  * @param currentValue 参数说明。
@@ -2040,7 +2175,7 @@ export class NativeGmPlayerService {
 
   private applyCounterDelta(currentValue: unknown, amount: number) {
     return Math.max(0, this.normalizeNonNegativeInt(currentValue) + amount);
-  }  
+  }
   /**
  * normalizeNonNegativeInt：归一化非负整数。
  * @param value 参数说明。
@@ -2050,7 +2185,7 @@ export class NativeGmPlayerService {
 
   private normalizeNonNegativeInt(value: unknown) {
     return Math.max(0, Math.trunc(Number(value) || 0));
-  }  
+  }
   /**
  * calculateCombatExpCompensationForRuntime：计算运行态战斗经验补偿。
  * @param player 参数说明。
@@ -2062,7 +2197,7 @@ export class NativeGmPlayerService {
     const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext);
     const bodyTrainingExpToNext = normalizeBodyTrainingState(player.bodyTraining).expToNext;
     return realmExpToNext + this.normalizeNonNegativeInt(bodyTrainingExpToNext);
-  }  
+  }
   /**
  * calculateCombatExpCompensationForPersistence：计算持久化快照战斗经验补偿。
  * @param snapshot 参数说明。
@@ -2077,7 +2212,7 @@ export class NativeGmPlayerService {
     );
     const bodyTraining = normalizeBodyTrainingState(snapshot.progression?.bodyTraining);
     return this.normalizeNonNegativeInt(realm.progressToNext) + this.normalizeNonNegativeInt(bodyTraining.expToNext);
-  }  
+  }
   /**
  * calculateFoundationCompensationForRuntime：计算运行态底蕴补偿。
  * @param player 参数说明。
@@ -2087,7 +2222,7 @@ export class NativeGmPlayerService {
 
   private calculateFoundationCompensationForRuntime(player) {
     return this.normalizeNonNegativeInt(player.realm?.progressToNext) * 5;
-  }  
+  }
   /**
  * calculateFoundationCompensationForPersistence：计算持久化快照底蕴补偿。
  * @param snapshot 参数说明。
@@ -2101,7 +2236,7 @@ export class NativeGmPlayerService {
       snapshot.progression?.realm?.progress ?? 0,
     );
     return this.normalizeNonNegativeInt(realm.progressToNext) * 5;
-  }  
+  }
   /**
  * hasInvalidItems：判断是否存在无效物品清理结果。
  * @param summary 参数说明。
@@ -2113,7 +2248,7 @@ export class NativeGmPlayerService {
     return summary.inventoryStacksRemoved > 0
       || summary.marketStorageStacksRemoved > 0
       || summary.equipmentRemoved > 0;
-  }  
+  }
   /**
  * toManagedPlayerSummary：执行toManaged玩家摘要相关逻辑。
  * @param snapshot 参数说明。
@@ -2169,7 +2304,7 @@ export class NativeGmPlayerService {
       isRiskAdmin: riskView.isRiskAdmin,
       meta,
     };
-  }  
+  }
   /**
  * toManagedPlayerRecord：执行toManaged玩家Record相关逻辑。
  * @param snapshot 参数说明。
@@ -2181,6 +2316,7 @@ export class NativeGmPlayerService {
 
   private async toManagedPlayerRecord(snapshot, persistedSnapshot, account = null, databaseTables: GmPlayerDatabaseTableViewLike[] = []) {
     const summary = await this.toManagedPlayerSummary(snapshot, account);
+    const monthCard = await this.loadManagedMonthCardView(snapshot.playerId);
 
     return {
       ...summary,
@@ -2189,8 +2325,9 @@ export class NativeGmPlayerService {
       snapshot: this.toLegacyPlayerState(snapshot),
       persistedSnapshot: persistedSnapshot ?? null,
       databaseTables,
+      monthCard,
     };
-  }  
+  }
   /**
  * toManagedPlayerRecordFromPersistence：判断toManaged玩家RecordFromPersistence是否满足条件。
  * @param playerId 玩家 ID。
@@ -2207,6 +2344,7 @@ export class NativeGmPlayerService {
     databaseTables: GmPlayerDatabaseTableViewLike[] = [],
   ) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
+    const monthCard = await this.loadManagedMonthCardView(playerId);
     const roleName = resolveManagedPlayerName(player, account, playerId);
     const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
     const meta = {
@@ -2256,8 +2394,33 @@ export class NativeGmPlayerService {
       snapshot: player,
       persistedSnapshot,
       databaseTables,
+      monthCard,
     };
-  }  
+  }
+
+  private async loadManagedMonthCardView(playerId: string) {
+    if (!this.activityPersistenceService?.isEnabled()) {
+      return null;
+    }
+    const record = await this.activityPersistenceService.loadMonthCard(playerId);
+    return record ? this.toManagedMonthCardView(record) : null;
+  }
+
+  private toManagedMonthCardView(record: {
+    startAt: number;
+    expireAt: number;
+    totalPoolMerit: number;
+    remainingPoolMerit: number;
+    lastClaimDate: string | null;
+  }) {
+    return {
+      totalPoolMerit: Math.max(0, Math.trunc(Number(record.totalPoolMerit) || 0)),
+      remainingPoolMerit: Math.max(0, Math.trunc(Number(record.remainingPoolMerit) || 0)),
+      startAt: record.startAt > 0 ? Math.trunc(record.startAt) : null,
+      expireAt: record.expireAt > 0 ? Math.trunc(record.expireAt) : null,
+      lastClaimDate: record.lastClaimDate ?? null,
+    };
+  }
 
   private async loadPlayerDatabaseTables(playerId: string): Promise<GmPlayerDatabaseTableViewLike[]> {
     const pool = this.databasePoolProvider?.getPool('gm-player-detail');
@@ -2349,6 +2512,13 @@ export class NativeGmPlayerService {
       comprehension: snapshot.comprehension ?? 0,
       luck: snapshot.luck ?? 0,
       bodyTraining: normalizeBodyTrainingState(snapshot.bodyTraining),
+      alchemySkill: this.normalizeGmCraftSkillState(snapshot.alchemySkill, undefined),
+      forgingSkill: this.normalizeGmCraftSkillState(snapshot.forgingSkill, undefined),
+      gatherSkill: this.normalizeGmCraftSkillState(snapshot.gatherSkill, undefined),
+      miningSkill: this.normalizeGmCraftSkillState(snapshot.miningSkill, undefined),
+      formationSkill: this.normalizeGmCraftSkillState(snapshot.formationSkill, undefined),
+      enhancementSkill: this.normalizeGmCraftSkillState(snapshot.enhancementSkill, { level: snapshot.enhancementSkillLevel ?? 1 }),
+      enhancementSkillLevel: Math.max(1, Math.trunc(Number(snapshot.enhancementSkill?.level ?? snapshot.enhancementSkillLevel) || 1)),
       baseAttrs: normalizeRawBaseAttrs(snapshot.attrs.rawBaseAttrs),
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry)),
@@ -2390,7 +2560,7 @@ export class NativeGmPlayerService {
           }
         : undefined,
     };
-  }  
+  }
   /**
  * toLegacyPlayerStateFromPersistence：判断toLegacy玩家状态FromPersistence是否满足条件。
  * @param playerId 玩家 ID。
@@ -2442,6 +2612,13 @@ export class NativeGmPlayerService {
       comprehension: snapshot.progression.comprehension ?? 0,
       luck: snapshot.progression.luck ?? 0,
       bodyTraining: normalizeBodyTrainingState(snapshot.progression.bodyTraining),
+      alchemySkill: this.normalizeGmCraftSkillState(snapshot.progression.alchemySkill, undefined),
+      forgingSkill: this.normalizeGmCraftSkillState(snapshot.progression.forgingSkill, undefined),
+      gatherSkill: this.normalizeGmCraftSkillState(snapshot.progression.gatherSkill, undefined),
+      miningSkill: this.normalizeGmCraftSkillState(snapshot.progression.miningSkill, undefined),
+      formationSkill: this.normalizeGmCraftSkillState(snapshot.progression.formationSkill, undefined),
+      enhancementSkill: this.normalizeGmCraftSkillState(snapshot.progression.enhancementSkill, { level: snapshot.progression.enhancementSkillLevel ?? 1 }),
+      enhancementSkillLevel: Math.max(1, Math.trunc(Number(snapshot.progression.enhancementSkill?.level ?? snapshot.progression.enhancementSkillLevel) || 1)),
       baseAttrs: decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs),
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => materializeRuntimeTemporaryBuff(entry)),
@@ -2466,7 +2643,7 @@ export class NativeGmPlayerService {
         : [],
       realm,
     };
-  }  
+  }
   /**
  * resolveMapName：规范化或转换地图名称。
  * @param mapId string 地图 ID。

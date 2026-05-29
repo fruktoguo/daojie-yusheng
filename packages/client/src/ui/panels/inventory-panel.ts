@@ -14,6 +14,7 @@ import {
   Inventory,
   InventoryItemCooldownState,
   ItemStack,
+  MERIT_ITEM_ID,
   PlayerState,
   PlayerRealmState,
   BUILTIN_FORMATION_TEMPLATES,
@@ -252,6 +253,7 @@ export class InventoryPanel {
   private pane = document.getElementById('pane-inventory')!;
   /** onUseItem：on使用物品。 */
   private onUseItem: ((itemInstanceId: string, count?: number, options?: UseItemOptions) => void) | null = null;
+  private onOpenHeavenlyDaoShop: (() => void) | null = null;
   private onRepairInventoryItemInstanceIds: (() => void) | null = null;
   /** onDropItem：on掉落物品。 */
   private onDropItem: ((itemInstanceId: string, count: number) => void) | null = null;
@@ -419,6 +421,7 @@ export class InventoryPanel {
 
   setCallbacks(
     onUse: (itemInstanceId: string, count?: number, options?: UseItemOptions) => void,
+    onOpenHeavenlyDaoShop: () => void,
     onDrop: (itemInstanceId: string, count: number) => void,
     onDestroy: (itemInstanceId: string, count: number) => void,
     onEquip: (itemInstanceId: string) => void,
@@ -428,6 +431,7 @@ export class InventoryPanel {
     onPreviewFormationRange?: (payload: FormationRangePreviewPayload) => void,
   ): void {
     this.onUseItem = onUse;
+    this.onOpenHeavenlyDaoShop = onOpenHeavenlyDaoShop;
     this.onDropItem = onDrop;
     this.onDestroyItem = onDestroy;
     this.onEquipItem = onEquip;
@@ -621,6 +625,13 @@ export class InventoryPanel {
     }
     if (this.isSectFoundingTokenItem(item)) {
       this.openSectFoundingDialog(slotIndex);
+      return;
+    }
+    if (item.itemId === MERIT_ITEM_ID) {
+      this.onOpenHeavenlyDaoShop?.();
+      if (options.closeModal) {
+        this.closeModal();
+      }
       return;
     }
     if (this.requiresUseConfirmation(item)) {
@@ -2872,6 +2883,9 @@ export class InventoryPanel {
     }
     if (this.isSectFoundingTokenItem(item)) {
       return { label: t('inventory.action.label.sect-founding', undefined), kind: 'use' };
+    }
+    if (item.itemId === MERIT_ITEM_ID) {
+      return { label: '天道商店', kind: 'use' };
     }
     if (item.type === 'skill_book') {
       return { label: t('inventory.action.label.learn', undefined), kind: 'use' };

@@ -37,6 +37,7 @@ import {
   type GmRedeemCodeGroupDetailRes,
   type GmRedeemCodeGroupListRes,
   type GmSetPlayerBodyTrainingLevelReq,
+  type GmSetPlayerMonthCardPoolReq,
   type GmCpuSectionSnapshot,
   type GmHeapSnapshotRes,
   type GmHeapSnapshotSummaryRes,
@@ -226,6 +227,7 @@ const editorTabRealmBtn = document.getElementById('editor-tab-realm') as HTMLBut
 const editorTabBuffsBtn = document.getElementById('editor-tab-buffs') as HTMLButtonElement;
 /** editorTabTechniquesBtn：编辑器Tab Techniques Btn。 */
 const editorTabTechniquesBtn = document.getElementById('editor-tab-techniques') as HTMLButtonElement;
+const editorTabCraftSkillsBtn = document.getElementById('editor-tab-craft-skills') as HTMLButtonElement;
 /** editorTabShortcutsBtn：编辑器Tab Shortcuts Btn。 */
 const editorTabShortcutsBtn = document.getElementById('editor-tab-shortcuts') as HTMLButtonElement;
 /** editorTabItemsBtn：编辑器Tab物品Btn。 */
@@ -2254,7 +2256,12 @@ function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerSta
     ensureArray(draft.inventory.items).length,
     ensureArray(draft.autoBattleSkills).length,
     ensureArray(draft.techniques).length,
+    GM_CRAFT_SKILL_EDITOR_ENTRIES.map((entry) => {
+      const skill = getCraftSkillDraft(draft, entry.key);
+      return `${entry.key}:${skill.level}:${skill.exp}:${skill.expToNext}`;
+    }).join(','),
     ensureArray(draft.quests).length,
+    `${detail.monthCard?.totalPoolMerit ?? 0}:${detail.monthCard?.remainingPoolMerit ?? 0}`,
   ].join('|');
 }
 
@@ -2775,6 +2782,8 @@ function getEditorTabLabel(tab: GmEditorTab): string {
       return '增益';
     case 'techniques':
       return '功法';
+    case 'craftSkills':
+      return '技艺';
     case 'shortcuts':
       return '快捷操作';
     case 'items':
@@ -2801,6 +2810,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   editorTabRealmBtn.classList.toggle('active', tab === 'realm');
   editorTabBuffsBtn.classList.toggle('active', tab === 'buffs');
   editorTabTechniquesBtn.classList.toggle('active', tab === 'techniques');
+  editorTabCraftSkillsBtn.classList.toggle('active', tab === 'craftSkills');
   editorTabShortcutsBtn.classList.toggle('active', tab === 'shortcuts');
   editorTabItemsBtn.classList.toggle('active', tab === 'items');
   editorTabQuestsBtn.classList.toggle('active', tab === 'quests');
@@ -5770,6 +5780,13 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     combatExp: 0,
     comprehension: 0,
     luck: 0,
+    alchemySkill: { level: 1, exp: 0, expToNext: 0 },
+    forgingSkill: { level: 1, exp: 0, expToNext: 0 },
+    gatherSkill: { level: 1, exp: 0, expToNext: 0 },
+    miningSkill: { level: 1, exp: 0, expToNext: 0 },
+    formationSkill: { level: 1, exp: 0, expToNext: 0 },
+    enhancementSkill: { level: 1, exp: 0, expToNext: 0 },
+    enhancementSkillLevel: 1,
     baseAttrs: { ...DEFAULT_BASE_ATTRS },
     bonuses: [],
     temporaryBuffs: [],
@@ -6300,6 +6317,44 @@ function renderEditorTabSection(tab: GmEditorTab, content: string): string {
   return `<div data-editor-tab="${tab}">${content}</div>`;
 }
 
+const GM_CRAFT_SKILL_EDITOR_ENTRIES = [
+  { key: 'alchemySkill', label: '炼丹' },
+  { key: 'forgingSkill', label: '炼器' },
+  { key: 'gatherSkill', label: '采集' },
+  { key: 'miningSkill', label: '挖矿' },
+  { key: 'formationSkill', label: '阵法' },
+  { key: 'enhancementSkill', label: '强化' },
+] as const;
+
+function getCraftSkillDraft(draft: PlayerState, key: (typeof GM_CRAFT_SKILL_EDITOR_ENTRIES)[number]['key']): NonNullable<PlayerState['alchemySkill']> {
+  const value = draft[key] as PlayerState['alchemySkill'] | undefined;
+  return buildCraftSkillSaveSnapshot(value);
+}
+
+function renderCraftSkillEditorCards(draft: PlayerState): string {
+  return GM_CRAFT_SKILL_EDITOR_ENTRIES.map((entry) => {
+    const skill = getCraftSkillDraft(draft, entry.key);
+    return `
+      <div class="editor-card">
+        <div class="editor-card-head">
+          <div>
+            <div class="editor-card-title">${escapeHtml(entry.label)}</div>
+            <div class="editor-card-meta">当前 ${skill.level} 级，经验 ${skill.exp} / ${skill.expToNext}</div>
+          </div>
+        </div>
+        <div class="editor-grid compact">
+          ${numberField('等级', `${entry.key}.level`, skill.level)}
+          ${numberField('经验', `${entry.key}.exp`, skill.exp)}
+          <div class="editor-field">
+            <span>升级所需经验</span>
+            <div class="editor-code">${escapeHtml(String(skill.expToNext))}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 /** renderVisualEditor：渲染Visual编辑器。 */
 function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): string {
   const equipment = draft.equipment as EquipmentSlots;
@@ -6311,6 +6366,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
   const inventoryItems = ensureArray(draft.inventory.items);
   const account = player.account;
   const activity = getManagedAccountActivityMeta(player);
+  const monthCardTotalPoolMerit = Math.max(0, Math.trunc(Number(player.monthCard?.totalPoolMerit) || 0));
+  const monthCardRemainingPoolMerit = Math.max(0, Math.trunc(Number(player.monthCard?.remainingPoolMerit) || 0));
   const catalogFallbackNote = getEditorCatalogFallbackNote();
   const catalogActionDisabled = hasServerEditorCatalog() ? '' : ' disabled';
 
@@ -6743,6 +6800,18 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
     </section>
     `)}
 
+    ${renderEditorTabSection('craftSkills', `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">技艺等级与经验</div>
+          <div class="editor-section-note">统一管理炼丹、炼器、采集、挖矿、阵法和强化技艺；保存后服务端会按等级重算升级所需经验并同步强化等级。</div>
+        </div>
+      </div>
+      <div class="editor-card-list">${renderCraftSkillEditorCards(draft)}</div>
+    </section>
+    `)}
+
     ${renderEditorTabSection('shortcuts', `
     <section class="editor-section">
       <div class="editor-section-head">
@@ -6871,6 +6940,25 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
                 <input id="shortcut-combat-exp-amount" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="例如 -100 / 100" value="0" />
               </label>
               <button class="small-btn primary" type="button" data-action="add-combat-exp">确认调整</button>
+            </div>
+          </div>
+        </div>
+        <div class="editor-card">
+          <div class="editor-card-head">
+            <div>
+              <div class="editor-card-title">功德月卡池</div>
+              <div class="editor-card-meta">当前总池 ${monthCardTotalPoolMerit}，剩余 ${monthCardRemainingPoolMerit}。保存后若原本无有效领取窗口且剩余大于 0，会自动给 30 天领取窗口。</div>
+            </div>
+            <div class="button-row">
+              <label class="editor-field" style="min-width: 160px;">
+                <span>月卡功德总池</span>
+                <input id="shortcut-month-card-total-pool" type="number" min="0" step="1" value="${monthCardTotalPoolMerit}" />
+              </label>
+              <label class="editor-field" style="min-width: 160px;">
+                <span>剩余功德</span>
+                <input id="shortcut-month-card-remaining-pool" type="number" min="0" step="1" value="${monthCardRemainingPoolMerit}" />
+              </label>
+              <button class="small-btn primary" type="button" data-action="set-month-card-pool">确认修改</button>
             </div>
           </div>
         </div>
@@ -9125,6 +9213,14 @@ function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
   };
 }
 
+function buildCraftSkillSaveSnapshot(skill: PlayerState['alchemySkill'] | undefined): NonNullable<PlayerState['alchemySkill']> {
+  return {
+    level: Math.max(1, Math.trunc(Number(skill?.level) || 1)),
+    exp: Math.max(0, Math.trunc(Number(skill?.exp) || 0)),
+    expToNext: Math.max(0, Math.trunc(Number(skill?.expToNext) || 0)),
+  };
+}
+
 /** buildInventoryItemSaveSnapshot：构建背包物品保存快照。 */
 function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -9214,6 +9310,16 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
         techniques: ensureArray(draft.techniques).map((technique) => buildTechniqueSaveSnapshot(technique)),
         autoBattleSkills: clone(ensureArray(draft.autoBattleSkills)),
         cultivatingTechId: draft.cultivatingTechId,
+      };
+    case 'craftSkills':
+      return {
+        alchemySkill: buildCraftSkillSaveSnapshot(draft.alchemySkill),
+        forgingSkill: buildCraftSkillSaveSnapshot(draft.forgingSkill),
+        gatherSkill: buildCraftSkillSaveSnapshot(draft.gatherSkill),
+        miningSkill: buildCraftSkillSaveSnapshot(draft.miningSkill),
+        formationSkill: buildCraftSkillSaveSnapshot(draft.formationSkill),
+        enhancementSkill: buildCraftSkillSaveSnapshot(draft.enhancementSkill),
+        enhancementSkillLevel: Math.max(1, Math.trunc(Number(draft.enhancementSkill?.level ?? draft.enhancementSkillLevel) || 1)),
       };
     case 'items':
       return {
@@ -9385,6 +9491,42 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
     /** editorDirty：编辑器Dirty。 */
     editorDirty = false;
     await delayRefresh(t('gm.player.combat-exp.updated', { name: detail.name, amount: amount > 0 ? `+${amount}` : `${amount}` }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function setSelectedPlayerMonthCardPool(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail) {
+    setStatus(t('gm.player.choose'), true);
+    return;
+  }
+
+  const totalInput = editorContentEl.querySelector<HTMLInputElement>('#shortcut-month-card-total-pool');
+  const remainingInput = editorContentEl.querySelector<HTMLInputElement>('#shortcut-month-card-remaining-pool');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="set-month-card-pool"]');
+  const totalPoolMerit = Number(totalInput?.value ?? '');
+  const remainingPoolMerit = Number(remainingInput?.value ?? '');
+  if (!Number.isInteger(totalPoolMerit) || totalPoolMerit < 0 || !Number.isInteger(remainingPoolMerit) || remainingPoolMerit < 0) {
+    setStatus('月卡功德总池和剩余功德必须是非负整数', true);
+    return;
+  }
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(`正在修改 ${detail.name} 的功德月卡池...`);
+    await request<BasicOkRes>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/month-card/pool`, {
+      method: 'POST',
+      body: JSON.stringify({ totalPoolMerit, remainingPoolMerit } satisfies GmSetPlayerMonthCardPoolReq),
+    });
+    editorDirty = false;
+    await delayRefresh(`已修改 ${detail.name} 的功德月卡池`);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
   } finally {
@@ -10597,6 +10739,12 @@ editorContentEl.addEventListener('click', (event) => {
     });
     return;
   }
+  if (action === 'set-month-card-pool') {
+    setSelectedPlayerMonthCardPool().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+    });
+    return;
+  }
   if (
     action === 'grant-all-unlearned-technique-books'
     || action === 'max-all-techniques'
@@ -11078,6 +11226,7 @@ editorTabPositionBtn.addEventListener('click', () => switchEditorTab('position')
 editorTabRealmBtn.addEventListener('click', () => switchEditorTab('realm'));
 editorTabBuffsBtn.addEventListener('click', () => switchEditorTab('buffs'));
 editorTabTechniquesBtn.addEventListener('click', () => switchEditorTab('techniques'));
+editorTabCraftSkillsBtn.addEventListener('click', () => switchEditorTab('craftSkills'));
 editorTabShortcutsBtn.addEventListener('click', () => switchEditorTab('shortcuts'));
 editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));

@@ -36,7 +36,7 @@ export const NATIVE_GM_MAIL_RECIPIENT_CONTRACT = Object.freeze({
 /** GM 玩家变更契约：哪些 section 走运行时队列，哪些直接写快照。 */
 export const NATIVE_GM_PLAYER_MUTATION_CONTRACT = Object.freeze({
   runtimeQueueSection: 'position',
-  directSnapshotSections: ['basic', 'realm', 'buffs', 'techniques', 'items', 'quests', 'mail', 'persisted', null],
+  directSnapshotSections: ['basic', 'realm', 'buffs', 'techniques', 'craftSkills', 'items', 'quests', 'mail', 'persisted', null],
 });
 
 /** GM Socket 推送契约：变更后是否主动推送状态。 */

@@ -223,6 +223,68 @@ export class ActivityPersistenceService {
     }
   }
 
+  async setMonthCardPool(
+    playerId: string,
+    totalPoolMerit: number,
+    remainingPoolMerit: number,
+    nowMs = Date.now(),
+  ): Promise<ActivityMonthCardRecord> {
+    const normalizedPlayerId = normalizePlayerId(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      throw new Error('activity_persistence_unavailable');
+    }
+    const normalizedTotalPool = Math.max(0, Math.trunc(Number(totalPoolMerit) || 0));
+    const normalizedRemainingPool = Math.min(
+      normalizedTotalPool,
+      Math.max(0, Math.trunc(Number(remainingPoolMerit) || 0)),
+    );
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const current = await client.query(
+        `SELECT player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit, last_claim_date
+           FROM ${MONTH_CARD_TABLE}
+          WHERE player_id = $1
+          FOR UPDATE`,
+        [normalizedPlayerId],
+      );
+      const existing = normalizeMonthCardRow(current.rows[0], normalizedPlayerId);
+      const startAt = existing?.startAt && existing.startAt > 0 ? existing.startAt : Math.trunc(nowMs);
+      const shouldCreateActiveWindow = normalizedRemainingPool > 0 && (!existing || existing.expireAt <= nowMs);
+      const expireAt = shouldCreateActiveWindow
+        ? Math.trunc(nowMs) + MERIT_MONTH_CARD_DURATION_DAYS * DAY_MS
+        : existing?.expireAt ?? Math.trunc(nowMs);
+      const lastClaimDate = existing?.lastClaimDate ?? null;
+      await client.query(
+        `INSERT INTO ${MONTH_CARD_TABLE}(player_id, start_at_ms, expire_at_ms, total_pool_merit, remaining_pool_merit, last_claim_date, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now(), now())
+         ON CONFLICT (player_id)
+         DO UPDATE SET
+           start_at_ms = EXCLUDED.start_at_ms,
+           expire_at_ms = EXCLUDED.expire_at_ms,
+           total_pool_merit = EXCLUDED.total_pool_merit,
+           remaining_pool_merit = EXCLUDED.remaining_pool_merit,
+           last_claim_date = EXCLUDED.last_claim_date,
+           updated_at = now()`,
+        [normalizedPlayerId, startAt, expireAt, normalizedTotalPool, normalizedRemainingPool, lastClaimDate],
+      );
+      await client.query('COMMIT');
+      return {
+        playerId: normalizedPlayerId,
+        startAt,
+        expireAt,
+        totalPoolMerit: normalizedTotalPool,
+        remainingPoolMerit: normalizedRemainingPool,
+        lastClaimDate,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async claimDailySignIn(playerId: string, claimDate: string, rewardPayload: unknown): Promise<ActivityDailySignInRecord> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     const normalizedClaimDate = normalizeDateKey(claimDate);

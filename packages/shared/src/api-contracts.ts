@@ -651,6 +651,17 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
  */
 
   databaseTables: GmPlayerDatabaseTableView[];
+  /** 功德月卡池状态，来自活动持久化真源。 */
+  monthCard?: GmManagedPlayerMonthCardView | null;
+}
+
+/** GM 玩家详情里的功德月卡池视图。 */
+export interface GmManagedPlayerMonthCardView {
+  totalPoolMerit: number;
+  remainingPoolMerit: number;
+  startAt: number | null;
+  expireAt: number | null;
+  lastClaimDate: string | null;
 }
 
 /** GM 玩家列表的排序方式。 */
@@ -2236,6 +2247,7 @@ export type GmPlayerUpdateSection =
   | 'realm'
   | 'buffs'
   | 'techniques'
+  | 'craftSkills'
   | 'items'
   | 'quests';
 
@@ -2284,6 +2296,12 @@ export interface GmAddPlayerCombatExpReq {
  */
 
   amount: number;
+}
+
+/** GM 设置玩家功德月卡池请求。 */
+export interface GmSetPlayerMonthCardPoolReq {
+  totalPoolMerit: number;
+  remainingPoolMerit: number;
 }
 
 /** GM 生成机器人请求。 */

@@ -870,6 +870,10 @@ export class MarketPanel {
     this.openAuctionConsignModal();
   }
 
+  openHeavenlyDaoShopFromInventory(): void {
+    this.openHeavenlyDaoShopModal();
+  }
+
   private openHeavenlyDaoShopFromPane(): void {
     this.openHeavenlyDaoShopModal();
   }

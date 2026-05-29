@@ -9,7 +9,7 @@
  * 性能计数器重置等 GM 面板所需的全部 HTTP 端点。所有路由需 GM 鉴权。
  */
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Optional, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmTechniqueGenerationJobListQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
+import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmGeneratedTechniqueListQuery, type GmListPlayersQuery, type GmSetPlayerMonthCardPoolReq, type GmTechniqueGenerationJobListQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import {
@@ -98,6 +98,8 @@ interface AddPlayerCounterBody {
 
   amount?: number;
 }
+
+interface SetPlayerMonthCardPoolBody extends Partial<GmSetPlayerMonthCardPoolReq> {}
 /**
  * SpawnBotsBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -751,6 +753,18 @@ export class NativeGmController {
   @Post('players/:playerId/combat-exp/add')
   async addPlayerCombatExp(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody, @Req() request: unknown) {
     await this.nextGmPlayerService.addPlayerCombatExp(playerId, body?.amount, extractGmActor(request));
+    this.nextGmWorldService.invalidatePlayerListCaches();
+    return { ok: true };
+  }
+
+  @Post('players/:playerId/month-card/pool')
+  async setPlayerMonthCardPool(@Param('playerId') playerId: string, @Body() body: SetPlayerMonthCardPoolBody, @Req() request: unknown) {
+    await this.nextGmPlayerService.setPlayerMonthCardPool(
+      playerId,
+      body?.totalPoolMerit,
+      body?.remainingPoolMerit,
+      extractGmActor(request),
+    );
     this.nextGmWorldService.invalidatePlayerListCaches();
     return { ok: true };
   }
