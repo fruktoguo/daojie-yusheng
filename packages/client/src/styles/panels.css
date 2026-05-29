@@ -10840,6 +10840,9 @@
     .transmission-teach-picker .small-btn {
       min-height: 39px;
     }
+    .scripture-record-picker {
+      grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.5fr) auto;
+    }
     .alchemy-ingredient-role {
       min-width: 34px;
       padding: 2px 6px;
@@ -11612,6 +11615,9 @@
         justify-content: flex-start;
       }
       .transmission-teach-picker {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .scripture-record-picker {
         grid-template-columns: minmax(0, 1fr);
       }
       .enhancement-layout,

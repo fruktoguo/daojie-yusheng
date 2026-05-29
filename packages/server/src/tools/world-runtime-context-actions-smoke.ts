@@ -289,10 +289,56 @@ function testReturnActionShowsCooldownLeft() {
     assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.cooldownLeft, 1800);
 }
 
+function testScripturePlatformActionsAreSingleEntrypoints() {
+    const log = [];
+    const player = {
+        playerId: 'player:scripture',
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+        alchemyJob: null,
+        enhancementJob: null,
+    };
+    const service = createService(player, log);
+    const building = {
+        id: 'building:scripture',
+        defId: 'scripture_platform',
+        state: 'active',
+        ownerPlayerId: 'player:scripture',
+    };
+    const baseView = {
+        playerId: 'player:scripture',
+        self: { x: 1, y: 1 },
+        instance: { instanceId: 'instance:scripture' },
+        localBuildings: [{ id: 'building:scripture', x: 1, y: 1 }],
+        localPortals: [],
+        localNpcs: [],
+    };
+    const deps = {
+        getInstanceRuntimeOrThrow() {
+            return {
+                buildingById: new Map([[building.id, building]]),
+            };
+        },
+    };
+    let actions = service.buildContextActions(baseView, deps);
+    assert.deepEqual(actions.filter((entry) => entry.id.startsWith('scripture:')).map((entry) => [entry.id, entry.name]), [
+        ['scripture:record:building%3Ascripture', '录入'],
+    ]);
+    building.scriptureTechniqueId = 'tech.scripture';
+    building.scriptureTechniqueName = '藏经试炼功法';
+    building.scriptureRecordedAtTick = 12;
+    actions = service.buildContextActions(baseView, deps);
+    assert.deepEqual(actions.filter((entry) => entry.id.startsWith('scripture:')).map((entry) => [entry.id, entry.name]), [
+        ['scripture:contemplate:building%3Ascripture', '参悟'],
+    ]);
+}
+
 testBuildContextActions();
 testSectEntrancePortalTravelIsNotMemberGated();
 testEquippedContextActionsAreConfigDriven();
 testReturnActionShowsBoundRespawnTarget();
 testReturnActionShowsCooldownLeft();
+testScripturePlatformActionsAreSingleEntrypoints();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-context-actions' }, null, 2));

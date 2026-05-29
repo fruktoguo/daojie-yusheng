@@ -267,9 +267,9 @@ export class WorldRuntimeActionExecutionService {
         if (actionId.startsWith('scripture:record:')) {
             const rest = actionId.slice('scripture:record:'.length);
             const separator = rest.indexOf(':');
-            const buildingId = separator >= 0 ? rest.slice(0, separator).trim() : '';
+            const buildingId = separator >= 0 ? safeDecodeActionPart(rest.slice(0, separator).trim()) : '';
             const encodedTechniqueId = separator >= 0 ? rest.slice(separator + 1).trim() : '';
-            const techniqueId = encodedTechniqueId ? decodeURIComponent(encodedTechniqueId) : '';
+            const techniqueId = encodedTechniqueId ? safeDecodeActionPart(encodedTechniqueId) : '';
             if (!buildingId || !techniqueId) {
                 throw new BadRequestException('藏经录入目标不能为空');
             }
@@ -280,6 +280,16 @@ export class WorldRuntimeActionExecutionService {
                 buildingId,
                 techniqueId,
             });
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
+        }
+        if (actionId.startsWith('scripture:contemplate:')) {
+            const buildingId = safeDecodeActionPart(actionId.slice('scripture:contemplate:'.length).trim());
+            if (!buildingId) {
+                throw new BadRequestException('藏经台目标不能为空');
+            }
             return {
                 kind: 'queued',
                 view: deps.getPlayerViewOrThrow(playerId),
@@ -425,6 +435,19 @@ function hasNearbyManualPortal(view) {
 function resolveLinePresetFromInstanceId(instanceId) {
     const descriptor = parseRuntimeInstanceDescriptor(typeof instanceId === 'string' ? instanceId : '');
     return descriptor?.linePreset === 'real' ? 'real' : 'peaceful';
+}
+
+function safeDecodeActionPart(value) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized) {
+        return '';
+    }
+    try {
+        return decodeURIComponent(normalized).trim();
+    }
+    catch {
+        return normalized;
+    }
 }
 
 function buildWorldMigrationNotice(linePreset, alreadyThere) {

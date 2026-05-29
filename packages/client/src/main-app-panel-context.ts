@@ -24,6 +24,7 @@ import { createMainWorldSummaryStateSource } from './main-world-summary-state-so
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
 import { getCraftOpenActionId } from './constants/ui/action';
 import { openWorldMigrationModal } from './ui/world-migration-modal';
+import { openScripturePlatformRecordingModal } from './ui/scripture-platform-modal';
 import { resolveNearbyTransmissionTargets } from './main-transmission-targets';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
@@ -123,6 +124,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openTechniqueActivity: (kind) => techniqueActivityOpeners[kind](),
     openBuildingPanel: () => buildingFengShuiStateSource.openBuildingPanel(),
     openTransmissionPanel: () => craftWorkbenchModal.openTransmission(),
+    openScripturePlatformRecordingModal: (buildingId) => openScripturePlatformRecordingModal({ buildingId, getPlayer: () => rootRuntimeSource.getPlayer(), sendAction: (actionId) => runtimeSender.sendAction(actionId), showToast: (message, kind) => callbacks.showToast(message, kind) }),
     openWorldMigrationModal: () => openWorldMigrationModal({
       getPlayer: () => rootRuntimeSource.getPlayer(),
       sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),

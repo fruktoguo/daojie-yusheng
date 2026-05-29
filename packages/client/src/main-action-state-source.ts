@@ -84,6 +84,11 @@ type MainActionStateSourceOptions = {
 
   openTransmissionPanel: () => void;
   /**
+ * openScripturePlatformRecordingModal：打开藏经台录入弹层。
+ */
+
+  openScripturePlatformRecordingModal: (buildingId: string) => void;
+  /**
  * openWorldMigrationModal：打开世界迁移弹窗。
  */
 
@@ -162,6 +167,15 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.hideObserveModal();
         options.openTransmissionPanel();
         return;
+      }
+      if (actionId.startsWith('scripture:record:')) {
+        const encodedBuildingId = actionId.slice('scripture:record:'.length).trim();
+        if (encodedBuildingId && !encodedBuildingId.includes(':')) {
+          options.cancelTargeting();
+          options.hideObserveModal();
+          options.openScripturePlatformRecordingModal(safeDecodeActionPart(encodedBuildingId));
+          return;
+        }
       }
       if (actionId === 'world:migrate') {
         options.cancelTargeting();
@@ -257,4 +271,16 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
       options.actionPanel.clear();
     },
   };
+}
+
+function safeDecodeActionPart(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    return '';
+  }
+  try {
+    return decodeURIComponent(normalized).trim();
+  } catch {
+    return normalized;
+  }
 }

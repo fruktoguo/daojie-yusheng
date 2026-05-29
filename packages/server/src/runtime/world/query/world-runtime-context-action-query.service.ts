@@ -4,7 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable } from '@nestjs/common';
-import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, getTechniqueMaxLevel } from '@mud/shared';
+import { RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS } from '@mud/shared';
 import { MapTemplateRepository } from '../../map/map-template.repository';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
@@ -201,7 +201,7 @@ export class WorldRuntimeContextActionQueryService {
                 const building = instance?.buildingById?.get?.(entry.id);
                 if (!building || building.state !== 'building') {
                     if (building?.defId === 'scripture_platform' && building?.state === 'active') {
-                        actions.push(...buildScripturePlatformActions(view, player, building));
+                        actions.push(...buildScripturePlatformActions(player, building));
                     }
                     continue;
                 }
@@ -296,45 +296,27 @@ export class WorldRuntimeContextActionQueryService {
     }
 };
 
-function buildScripturePlatformActions(view, player, building) {
+function buildScripturePlatformActions(player, building) {
     if (!player || !canPlayerUseScripturePlatform(player, building)) {
         return [];
     }
     const existingTechniqueId = normalizeText(building.scriptureTechniqueId);
     if (existingTechniqueId && Number(building.scriptureRecordedAtTick) > 0) {
-        return [];
-    }
-    const maxedTechniques = (player.techniques?.techniques ?? [])
-        .filter((technique) => isTechniqueMaxedForScripture(technique))
-        .sort((left, right) => {
-            const leftRealm = Math.max(0, Math.trunc(Number(left?.realmLv) || 0));
-            const rightRealm = Math.max(0, Math.trunc(Number(right?.realmLv) || 0));
-            return leftRealm - rightRealm || compareStableStrings(String(left?.techId ?? ''), String(right?.techId ?? ''));
-        });
-    const candidates = existingTechniqueId
-        ? maxedTechniques.filter((technique) => technique?.techId === existingTechniqueId)
-        : maxedTechniques;
-    return candidates.map((technique) => {
-        const name = normalizeText(technique?.name) || normalizeText(technique?.techId) || '功法';
-        const continuing = existingTechniqueId === technique.techId && Number(building.scriptureProgress) > 0;
-        return {
-            id: `scripture:record:${building.id}:${encodeURIComponent(technique.techId)}`,
-            name: `${continuing ? '继续录入' : '录入'}：${name}`,
+        return [{
+            id: `scripture:contemplate:${encodeURIComponent(building.id)}`,
+            name: '参悟',
             type: 'interact',
-            desc: '将已练满功法写入藏经台；藏经台已有藏书后不能修改。',
+            desc: `参悟藏经台内的${normalizeText(building.scriptureTechniqueName) || '功法'}。`,
             cooldownLeft: 0,
-        };
-    });
-}
-
-function isTechniqueMaxedForScripture(technique) {
-    const techId = normalizeText(technique?.techId);
-    if (!techId) {
-        return false;
+        }];
     }
-    const level = Math.max(1, Math.trunc(Number(technique?.level) || 1));
-    const maxLevel = getTechniqueMaxLevel(Array.isArray(technique?.layers) ? technique.layers : undefined, level);
-    return level >= maxLevel || Number(technique?.expToNext ?? 0) <= 0;
+    return [{
+        id: `scripture:record:${encodeURIComponent(building.id)}`,
+        name: Number(building.scriptureProgress) > 0 ? '继续录入' : '录入',
+        type: 'interact',
+        desc: '打开藏经台录入界面，选择自身已经练满的功法写入藏经台。',
+        cooldownLeft: 0,
+    }];
 }
 
 function canPlayerUseScripturePlatform(player, building) {
