@@ -2451,6 +2451,27 @@ class MapInstanceRuntime {
         }
         return toGroundPileView(this.groundPilesByTile.get(this.toTileIndex(x, y)) ?? null);
     }
+    /** getBuildingsAtTile：低频观察查询同格建筑，返回运行态和编译定义。 */
+    getBuildingsAtTile(x, y) {
+        if (!this.isInBounds(x, y)) {
+            return [];
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        const result = [];
+        for (const [buildingId, cells] of this.buildingCellsById.entries()) {
+            if (!Array.isArray(cells) || !cells.includes(tileIndex)) {
+                continue;
+            }
+            const building = this.buildingById.get(buildingId);
+            if (!building || building.state === 'destroyed') {
+                continue;
+            }
+            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            result.push({ building, compiled });
+        }
+        result.sort((left, right) => String(left.building?.id ?? '').localeCompare(String(right.building?.id ?? ''), 'zh-CN'));
+        return result;
+    }
     /** getActiveBuildingCombatStateAtCellIndex：动态建筑优先作为地块战斗真源。 */
     getActiveBuildingCombatStateAtCellIndex(cellIndex) {
         const ids = this.buildingIdByCell.get(cellIndex);

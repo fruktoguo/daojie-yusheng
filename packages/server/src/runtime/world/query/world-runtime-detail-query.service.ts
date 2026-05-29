@@ -23,6 +23,7 @@ const {
     buildPortalTileEntityDetail,
     buildGroundTileEntityDetail,
     buildContainerTileEntityDetail,
+    buildBuildingTileEntityDetail,
     buildPortalId,
 } = world_runtime_observation_helpers_1;
 
@@ -285,7 +286,11 @@ export class WorldRuntimeDetailQueryService {
         const blocksSight = instance.isTileSightBlocked?.(x, y);
         const movementCost = instance.getTileTraversalCost?.(x, y, viewer.playerId);
         const qiDrainPerTick = instance.getTileQiDrainPerTick?.(x, y);
+        const playerOverlap = instance.isPlayerOverlapTile?.(x, y);
         const container = instance.getContainerAtTile(x, y);
+        const buildings = typeof instance.getBuildingsAtTile === 'function'
+            ? instance.getBuildingsAtTile(x, y)
+            : [];
         const npcs = view.localNpcs.filter((entry) => entry.x === x && entry.y === y);
         const monsters = view.localMonsters.filter((entry) => entry.x === x && entry.y === y);
         const players = [
@@ -304,6 +309,12 @@ export class WorldRuntimeDetailQueryService {
         }
         if (groundPile) {
             entities.push(buildGroundTileEntityDetail(groundPile));
+        }
+        for (const entry of buildings) {
+            if (!entry?.building) {
+                continue;
+            }
+            entities.push(buildBuildingTileEntityDetail(entry.building, entry.compiled));
         }
         for (const targetPlayerId of players) {
             const target = this.playerRuntimeService.getPlayer(targetPlayerId);
@@ -366,6 +377,7 @@ export class WorldRuntimeDetailQueryService {
             blocksSight: typeof blocksSight === 'boolean' ? blocksSight : undefined,
             movementCost: Number.isFinite(movementCost) ? Math.trunc(movementCost) : undefined,
             qiDrainPerTick: Number.isFinite(qiDrainPerTick) && qiDrainPerTick > 0 ? Math.trunc(qiDrainPerTick) : undefined,
+            playerOverlap: playerOverlap === true ? true : undefined,
             terrainType: tileLayerState?.terrain,
             surfaceType: tileLayerState ? tileLayerState.surface ?? null : undefined,
             structureType: tileLayerState ? tileLayerState.structure ?? null : undefined,

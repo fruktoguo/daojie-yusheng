@@ -467,6 +467,33 @@ export function buildContainerTileEntityDetail(container) {
         },
     };
 }
+/** 生成建筑实体详情与基础状态。 */
+export function buildBuildingTileEntityDetail(building, compiled) {
+    const name = compiled?.name ?? building?.defId ?? '建筑';
+    const maxHp = Math.max(1, Math.trunc(Number(building?.maxHp ?? compiled?.maxHp ?? 1) || 1));
+    const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(building?.hp ?? maxHp) || maxHp)));
+    const lines = [
+        { label: '类别', value: '建筑' },
+        { label: '名称', value: name },
+        { label: '状态', value: buildBuildingStateLabel(building?.state) },
+        { label: '生命', value: formatCurrentMaxObservation(hp, maxHp) },
+    ];
+    if (typeof building?.scriptureTechniqueName === 'string' && building.scriptureTechniqueName.trim()) {
+        lines.push({ label: '藏书', value: building.scriptureTechniqueName.trim() });
+    }
+    return {
+        id: building.id,
+        name,
+        kind: 'building',
+        hp,
+        maxHp,
+        observation: {
+            clarity: 'clear',
+            verdict: `此处立有${name}。`,
+            lines,
+        },
+    };
+}
 /** 构建可见度层级文本与详情条目。 */
 export function buildObservationInsight(viewerSpirit, targetSpirit, lines, selfView = false) {
 
@@ -540,6 +567,24 @@ export function buildObservationVerdict(progress, selfView) {
 /** 输出“当前值/最大值”数值文本。 */
 export function formatCurrentMaxObservation(current, max) {
     return formatDisplayCurrentMax(Math.max(0, normalizeObservationNumber(current)), Math.max(0, normalizeObservationNumber(max)));
+}
+function buildBuildingStateLabel(state) {
+    switch (state) {
+        case 'planned':
+            return '规划中';
+        case 'building':
+            return '建造中';
+        case 'active':
+            return '已启用';
+        case 'damaged':
+            return '受损';
+        case 'destroyed':
+            return '已毁坏';
+        case 'deconstructing':
+            return '拆除中';
+        default:
+            return '建筑';
+    }
 }
 /** 组合可读的传送点显示名。 */
 export function buildPortalDisplayName(portal, targetMapName) {

@@ -302,6 +302,32 @@ function escapeHtml(input: string): string {
 function isCrowdEntityKind(kind: string | null | undefined): boolean {
   return kind === 'crowd';
 }
+
+function isCharacterObserveEntityKind(kind: string | null | undefined): boolean {
+  return kind === 'player' || kind === 'monster' || kind === 'npc' || kind === 'crowd';
+}
+
+function isStructureObserveEntityKind(kind: string | null | undefined): boolean {
+  return kind === 'building' || kind === 'formation';
+}
+
+function isContainerObserveEntityKind(kind: string | null | undefined): boolean {
+  return kind === 'container';
+}
+
+function getObserveEntityNames(entities: ObserveEntityCardData[]): string[] {
+  return entities
+    .map((entity) => entity.name?.trim() || getEntityKindLabel(entity.kind, ''))
+    .filter((name) => name.length > 0);
+}
+
+function formatMovementPointCost(tile: Tile): string {
+  const movementCost = tile.movementCost;
+  const cost = typeof movementCost === 'number' && Number.isFinite(movementCost) && movementCost > 0
+    ? Math.trunc(movementCost)
+    : getTileTraversalCost(tile.type);
+  return t('observe.tile.traversal.cost', { cost });
+}
 /**
  * getTileTypeName：读取TileType名称。
  * @param type TileType 参数说明。
@@ -325,26 +351,6 @@ function getObservedTilePrimaryTypeLabel(tile: Tile): string {
   }
   return getTileTypeName(tile.type);
 }
-/**
- * formatTraversalCost：规范化或转换Traversal消耗。
- * @param tile Tile 参数说明。
- * @returns 返回Traversal消耗。
- */
-
-
-function formatTraversalCost(tile: Tile): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!tile.walkable) {
-    return t('observe.tile.traversal.blocked', undefined);
-  }
-  const movementCost = tile.movementCost;
-  const cost = typeof movementCost === 'number' && Number.isFinite(movementCost) && movementCost > 0
-    ? Math.trunc(movementCost)
-    : getTileTraversalCost(tile.type);
-  return t('observe.tile.traversal.cost', { cost });
-}
-
 function mergeObservedTileWithDetail(tile: Tile, detail: S2C_TileDetail | null): Tile {
   if (!detail) {
     return tile;
@@ -433,62 +439,6 @@ function formatSignedInteger(value: number): string {
   return normalized > 0 ? `+${normalized}` : String(normalized);
 }
 
-function buildObservedFengShuiSectionHtml(info: BuildingSenseQiRoomInfo | null): string {
-  const baseRows = info
-    ? [
-      { label: t('observe.fengshui.label.room', undefined), value: info.roomLabel },
-      { label: t('observe.fengshui.label.area', undefined), value: typeof info.area === 'number' ? formatDisplayInteger(Math.max(0, Math.round(info.area))) : t('observe.value.unknown', undefined) },
-      { label: t('observe.fengshui.label.enclosure', undefined), value: typeof info.enclosed === 'boolean' ? (info.enclosed ? t('observe.fengshui.enclosed', undefined) : t('observe.fengshui.open', undefined)) : t('observe.value.unknown', undefined) },
-      { label: t('observe.fengshui.label.doors-windows', undefined), value: `${formatDisplayInteger(Math.max(0, Math.round(info.doorCount ?? 0)))}/${formatDisplayInteger(Math.max(0, Math.round(info.windowCount ?? 0)))}` },
-      { label: t('observe.fengshui.label.score', undefined), value: `${info.fengShuiLabel} ${Math.round(info.score)}` },
-      { label: t('observe.fengshui.label.luck', undefined), value: formatSignedInteger(Math.trunc(Math.round(info.score) / 10)) },
-    ]
-    : [
-      { label: t('observe.fengshui.label.room', undefined), value: t('observe.fengshui.room.none', undefined) },
-      { label: t('observe.fengshui.label.score', undefined), value: t('observe.fengshui.neutral-score', undefined) },
-      { label: t('observe.fengshui.label.luck', undefined), value: '+0' },
-    ];
-  const detail = info?.detail;
-  const dimensionHtml = detail
-    ? `
-      <div class="observe-modal-grid">
-        ${buildObservationRows([
-          { label: t('observe.fengshui.dimension.shape', undefined), value: formatSignedInteger(detail.shapeScore) },
-          { label: t('observe.fengshui.dimension.enclosure', undefined), value: formatSignedInteger(detail.enclosureScore) },
-          { label: t('observe.fengshui.dimension.qi', undefined), value: formatSignedInteger(detail.qiScore) },
-          { label: t('observe.fengshui.dimension.sha', undefined), value: formatSignedInteger(detail.shaScore) },
-          { label: t('observe.fengshui.dimension.comfort', undefined), value: formatSignedInteger(detail.comfortScore) },
-          { label: t('observe.fengshui.dimension.element', undefined), value: formatSignedInteger(detail.elementScore) },
-          { label: t('observe.fengshui.dimension.formation', undefined), value: formatSignedInteger(detail.formationScore) },
-          { label: t('observe.fengshui.dimension.integrity', undefined), value: formatSignedInteger(detail.integrityScore) },
-        ])}
-      </div>
-    `
-    : `<div class="observe-entity-empty">${t('observe.fengshui.detail.loading', undefined)}</div>`;
-  const visibleReasons = detail?.reasons
-    .filter((reason) => reason.delta !== 0)
-    .slice()
-    .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
-    .slice(0, 12) ?? [];
-  const reasonsHtml = detail
-    ? visibleReasons.length > 0
-      ? `<div class="fengshui-detail-reasons">${visibleReasons.map((reason) => `
-          <div class="fengshui-detail-reason is-${escapeHtml(reason.severity)}">
-            <span class="fengshui-detail-reason-value">${formatSignedInteger(reason.delta)}</span>
-            <span class="fengshui-detail-reason-label">${escapeHtml(reason.code)}</span>
-          </div>
-        `).join('')}</div>`
-      : `<div class="observe-entity-empty">${t('observe.fengshui.reasons.empty', undefined)}</div>`
-    : '';
-  return `
-    <section class="observe-modal-section">
-      <div class="observe-modal-section-title">${t('observe.fengshui.section.title', undefined)}</div>
-      <div class="observe-modal-grid">${buildObservationRows(baseRows)}</div>
-      ${dimensionHtml}
-      ${reasonsHtml}
-    </section>
-  `;
-}
 /**
  * formatBuffDuration：规范化或转换Buff耗时。
  * @param buff VisibleBuffState 参数说明。
@@ -1038,11 +988,12 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
 
   function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): string {
+    if (entities.length === 0) {
+      return '';
+    }
     return `<section class="observe-modal-section">
       <div class="observe-modal-section-title">${t('observe.entity.section.title', undefined)}</div>
-      ${entities.length > 0
-        ? `<div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>`
-        : `<div class="observe-entity-empty">${t('observe.entity.empty', undefined)}</div>`}
+      <div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>
     </section>`;
   }  
   /**
@@ -1205,6 +1156,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     if (wangQiActive) {
       options.requestWangQiFengShuiOverlay?.(targetX, targetY);
     }
+    const wangQiRoomInfo = wangQiActive ? options.getWangQiRoomInfoAt?.(targetX, targetY) ?? null : null;
     const observedTileDetail = isMatchingObservedTile(targetX, targetY) ? activeObservedTileDetail : null;
     const observeError = isMatchingObservedTile(targetX, targetY) ? activeObservedTileError : null;
     const observedTile = mergeObservedTileWithDetail(tile, observedTileDetail);
@@ -1217,15 +1169,32 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       const order = (kind?: string): number => (kind === 'crowd' ? 0 : kind === 'player' ? 1 : kind === 'container' ? 2 : kind === 'npc' ? 3 : kind === 'monster' ? 4 : 5);
       return order(left.kind) - order(right.kind);
     });
+    const characterEntities = sortedEntities.filter((entity) => isCharacterObserveEntityKind(entity.kind));
+    const structureEntities = sortedEntities.filter((entity) => isStructureObserveEntityKind(entity.kind));
+    const containerEntities = sortedEntities.filter((entity) => isContainerObserveEntityKind(entity.kind));
+    const structureNames = getObserveEntityNames(structureEntities);
+    const containerNames = getObserveEntityNames(containerEntities);
+    const baseStructureLabel = getStructureTypeLabel(observedTile.structureType, '');
+    const structureValueParts = [
+      ...(baseStructureLabel ? [baseStructureLabel] : []),
+      ...structureNames,
+    ];
     const terrainRows = [
       { label: t('observe.tile.label.type', undefined), value: getObservedTilePrimaryTypeLabel(observedTile) },
       { label: t('observe.tile.label.terrain', undefined), value: getTerrainTypeLabel(observedTile.terrainType, getObservedTilePrimaryTypeLabel(observedTile)) },
       { label: t('observe.tile.label.surface', undefined), value: getSurfaceTypeLabel(observedTile.surfaceType, t('observe.value.none', undefined)) },
-      { label: t('observe.tile.label.structure', undefined), value: getStructureTypeLabel(observedTile.structureType, t('observe.value.none', undefined)) },
-      { label: t('observe.tile.label.walkable', undefined), value: observedTile.walkable ? t('observe.tile.walkable.yes', undefined) : t('observe.tile.walkable.no', undefined) },
-      { label: t('observe.tile.label.traversal-cost', undefined), value: formatTraversalCost(observedTile) },
-      { label: t('observe.tile.label.blocks-sight', undefined), value: observedTile.blocksSight ? t('observe.tile.blocks-sight.yes', undefined) : t('observe.tile.blocks-sight.no', undefined) },
+      { label: t('observe.tile.label.structure', undefined), value: structureValueParts.length > 0 ? structureValueParts.join('、') : t('observe.value.none', undefined) },
+      { label: t('observe.tile.label.traversal-cost', undefined), value: formatMovementPointCost(observedTile) },
     ];
+    if (!observedTile.walkable) {
+      terrainRows.push({ label: t('observe.tile.label.access', undefined), value: t('observe.tile.traversal.blocked', undefined) });
+    }
+    if (observedTile.blocksSight) {
+      terrainRows.push({ label: t('observe.tile.label.visibility', undefined), value: t('observe.tile.blocks-sight.yes', undefined) });
+    }
+    if (observedTileDetail?.playerOverlap === true) {
+      terrainRows.push({ label: t('observe.tile.label.overlap', undefined), value: t('observe.tile.overlap.player', undefined) });
+    }
     if (Number.isFinite(observedTile.qiDrainPerTick) && (observedTile.qiDrainPerTick ?? 0) > 0) {
       terrainRows.push({ label: t('observe.tile.label.qi-drain', undefined), value: `${Math.trunc(observedTile.qiDrainPerTick ?? 0)}` });
     }
@@ -1235,20 +1204,32 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         value: observedTile.interactableKinds.map((kind) => getInteractableKindLabel(kind)).join('、'),
       });
     }
+    if (containerNames.length > 0) {
+      terrainRows.push({
+        label: t('observe.tile.label.container', undefined),
+        value: containerNames.join('、'),
+      });
+    }
     const observedTileHp = typeof observedTileDetail?.hp === 'number'
       && typeof observedTileDetail?.maxHp === 'number'
       ? { hp: observedTileDetail.hp, maxHp: observedTileDetail.maxHp }
       : typeof observedTile.hp === 'number' && typeof observedTile.maxHp === 'number'
         ? { hp: observedTile.hp, maxHp: observedTile.maxHp }
         : null;
+    const structureEntityHp = structureEntities.find((entity) => typeof entity.hp === 'number' && typeof entity.maxHp === 'number');
     if (observedTileHp) {
       terrainRows.push({
-        label: observedTile.type === TileType.Wall ? t('observe.tile.label.wall-hp', undefined) : t('observe.tile.label.tile-hp', undefined),
+        label: structureValueParts.length > 0 ? t('observe.tile.label.structure-hp', undefined) : observedTile.type === TileType.Wall ? t('observe.tile.label.wall-hp', undefined) : t('observe.tile.label.tile-hp', undefined),
         value: formatCurrentMax(observedTileHp.hp, observedTileHp.maxHp),
       });
+    } else if (structureEntityHp) {
+      terrainRows.push({
+        label: t('observe.tile.label.structure-hp', undefined),
+        value: formatCurrentMax(structureEntityHp.hp, structureEntityHp.maxHp),
+      });
     }
-    if (sortedEntities.length > 0) {
-      terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: sortedEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind)).join('、') });
+    if (characterEntities.length > 0) {
+      terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: characterEntities.map((entity) => entity.name ?? getEntityKindLabel(entity.kind)).join('、') });
     } else if (observedTile.occupiedBy) {
       terrainRows.push({ label: t('observe.tile.label.presence', undefined), value: t('observe.tile.presence.unknown', undefined) });
     }
@@ -1283,6 +1264,47 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         });
       }
     }
+    if (wangQiActive) {
+      if (wangQiRoomInfo) {
+        terrainRows.push(
+          { label: t('observe.fengshui.label.room', undefined), value: wangQiRoomInfo.roomLabel },
+          { label: t('observe.fengshui.label.area', undefined), value: typeof wangQiRoomInfo.area === 'number' ? formatDisplayInteger(Math.max(0, Math.round(wangQiRoomInfo.area))) : t('observe.value.unknown', undefined) },
+          { label: t('observe.fengshui.label.enclosure', undefined), value: typeof wangQiRoomInfo.enclosed === 'boolean' ? (wangQiRoomInfo.enclosed ? t('observe.fengshui.enclosed', undefined) : t('observe.fengshui.open', undefined)) : t('observe.value.unknown', undefined) },
+          { label: t('observe.fengshui.label.doors-windows', undefined), value: `${formatDisplayInteger(Math.max(0, Math.round(wangQiRoomInfo.doorCount ?? 0)))}/${formatDisplayInteger(Math.max(0, Math.round(wangQiRoomInfo.windowCount ?? 0)))}` },
+          { label: t('observe.fengshui.label.score', undefined), value: `${wangQiRoomInfo.fengShuiLabel} ${Math.round(wangQiRoomInfo.score)}` },
+          { label: t('observe.fengshui.label.luck', undefined), value: formatSignedInteger(Math.trunc(Math.round(wangQiRoomInfo.score) / 10)) },
+        );
+        const detail = wangQiRoomInfo.detail;
+        if (detail) {
+          terrainRows.push(
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.shape', undefined)}`, value: formatSignedInteger(detail.shapeScore) },
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.enclosure', undefined)}`, value: formatSignedInteger(detail.enclosureScore) },
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.qi', undefined)}`, value: formatSignedInteger(detail.qiScore) },
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.sha', undefined)}`, value: formatSignedInteger(detail.shaScore) },
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.comfort', undefined)}`, value: formatSignedInteger(detail.comfortScore) },
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.element', undefined)}`, value: formatSignedInteger(detail.elementScore) },
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.formation', undefined)}`, value: formatSignedInteger(detail.formationScore) },
+            { label: `${t('observe.fengshui.section.title', undefined)}·${t('observe.fengshui.dimension.integrity', undefined)}`, value: formatSignedInteger(detail.integrityScore) },
+          );
+          const reasonSummary = detail.reasons
+            .filter((reason) => reason.delta !== 0)
+            .slice()
+            .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
+            .slice(0, 12)
+            .map((reason) => `${formatSignedInteger(reason.delta)} ${reason.code}`)
+            .join('、');
+          if (reasonSummary) {
+            terrainRows.push({ label: t('observe.fengshui.label.score', undefined), value: reasonSummary });
+          }
+        }
+      } else {
+        terrainRows.push(
+          { label: t('observe.fengshui.label.room', undefined), value: t('observe.fengshui.room.none', undefined) },
+          { label: t('observe.fengshui.label.score', undefined), value: t('observe.fengshui.neutral-score', undefined) },
+          { label: t('observe.fengshui.label.luck', undefined), value: '+0' },
+        );
+      }
+    }
     if (hasGroundDetail) {
       terrainRows.push({
         label: t('observe.ground.section.title', undefined),
@@ -1292,6 +1314,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const portalTargetMapName = portalDetail?.targetMapName?.trim() || UNKNOWN_PORTAL_TARGET_MAP_NAME;
     if (portalDetail) {
       terrainRows.push({ label: t('observe.portal.destination', undefined), value: portalTargetMapName });
+      terrainRows.push({ label: t('observe.portal.label.trigger', undefined), value: portalDetail.trigger === 'auto' ? t('observe.portal.trigger.auto', undefined) : t('observe.portal.trigger.manual', undefined) });
+      terrainRows.push({ label: t('observe.portal.label.direction', undefined), value: portalDetail.direction === 'one_way' ? t('observe.portal.direction.one-way', undefined) : t('observe.portal.direction.two-way', undefined) });
     }
 
     observeModalController.setSubtitle(targetX, targetY);
@@ -1306,60 +1330,11 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         : observedTileDetail?.ground
           ? `<div class="observe-entity-empty">${t('observe.ground.empty.takeable', undefined)}</div>`
           : `<div class="observe-entity-empty">${t('observe.ground.empty', undefined)}</div>`;
-      const safeZoneHtml = safeZone
-        ? `
-          <section class="observe-modal-section">
-            <div class="observe-modal-section-title">${t('observe.safe-zone.section.title', undefined)}</div>
-            <div class="observe-entity-list">
-              <div class="observe-modal-row">
-                <span class="observe-modal-label">${t('observe.safe-zone.center', undefined)}</span>
-                <span class="observe-modal-value">(${safeZone.x}, ${safeZone.y})</span>
-              </div>
-              <div class="observe-modal-row">
-                <span class="observe-modal-label">${t('observe.safe-zone.radius', undefined)}</span>
-                <span class="observe-modal-value">${t('observe.safe-zone.radius-value', { radius: safeZone.radius })}</span>
-              </div>
-            </div>
-          </section>
-        `
-        : '';
-      const portalHtml = portalDetail
-        ? `
-          <section class="observe-modal-section">
-            <div class="observe-modal-section-title">${t('observe.portal.section.title', undefined)}</div>
-            <div class="observe-entity-list">
-              <div class="observe-modal-row">
-                <span class="observe-modal-label">${t('observe.portal.label.type', undefined)}</span>
-                <span class="observe-modal-value">${escapeHtml(portalDetail.kind === 'stairs' ? t('observe.portal.kind.stairs', undefined) : portalDetail.kind === 'gate' ? t('observe.portal.kind.gate', undefined) : t('observe.portal.kind.portal', undefined))}</span>
-              </div>
-              <div class="observe-modal-row">
-                <span class="observe-modal-label">${t('observe.portal.label.target-map', undefined)}</span>
-                <span class="observe-modal-value">${escapeHtml(portalTargetMapName)}</span>
-              </div>
-              <div class="observe-modal-row">
-                <span class="observe-modal-label">${t('observe.portal.label.target-coordinate', undefined)}</span>
-                <span class="observe-modal-value">${typeof portalDetail.targetX === 'number' && typeof portalDetail.targetY === 'number' ? `(${portalDetail.targetX}, ${portalDetail.targetY})` : t('observe.value.unknown', undefined)}</span>
-              </div>
-              <div class="observe-modal-row">
-                <span class="observe-modal-label">${t('observe.portal.label.direction', undefined)}</span>
-                <span class="observe-modal-value">${portalDetail.direction === 'one_way' ? t('observe.portal.direction.one-way', undefined) : t('observe.portal.direction.two-way', undefined)}</span>
-              </div>
-              <div class="observe-modal-row">
-                <span class="observe-modal-label">${t('observe.portal.label.trigger', undefined)}</span>
-                <span class="observe-modal-value">${escapeHtml(portalDetail.trigger === 'auto' ? t('observe.portal.trigger.auto', undefined) : t('observe.portal.trigger.manual', undefined))}</span>
-              </div>
-            </div>
-          </section>
-        `
-        : '';
       const groundMetaHtml = hasGroundDetail
         ? `<div class="observe-entity-empty">${escapeHtml(t('entity-detail.count.items', { count: formatDisplayInteger(groundItems.length) }))}</div>`
         : '';
       const errorHtml = observeError
         ? `<section class="observe-modal-section"><div class="observe-modal-section-title">${t('observe.error.section.title', undefined)}</div><div class="observe-entity-empty">${escapeHtml(observeError)}</div></section>`
-        : '';
-      const fengShuiHtml = wangQiActive
-        ? buildObservedFengShuiSectionHtml(options.getWangQiRoomInfoAt?.(targetX, targetY) ?? null)
         : '';
       observeModalController.renderBody(`
         <div class="observe-modal-top">
@@ -1368,28 +1343,13 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
             <div class="observe-modal-section-title">${t('observe.tile.section.title', undefined)}</div>
             <div class="observe-modal-grid">${buildObservationRows(terrainRows)}</div>
           </section>
-          ${fengShuiHtml}
-          ${safeZoneHtml}
-          ${tile.hiddenEntrance ? `
-            <section class="observe-modal-section">
-              <div class="observe-modal-section-title">${t('observe.hidden.section.title', undefined)}</div>
-              <div class="observe-entity-list">
-                <div class="observe-modal-row">
-                  <span class="observe-modal-label">${t('observe.hidden.trace', undefined)}</span>
-                  <span class="observe-modal-value">${escapeHtml(tile.hiddenEntrance.title)}</span>
-                </div>
-                <div class="observe-entity-empty">${escapeHtml(tile.hiddenEntrance.desc ?? t('observe.hidden.default-desc', undefined))}</div>
-              </div>
-            </section>
-          ` : ''}
-          ${portalHtml}
           <section class="observe-modal-section">
             <div class="observe-modal-section-title">${t('observe.ground.section.title', undefined)}</div>
             ${groundMetaHtml}
             ${groundHtml}
           </section>
         </div>
-        ${buildObservedEntitySectionHtml(sortedEntities)}
+        ${buildObservedEntitySectionHtml(characterEntities)}
       `);
       bindObserveModalDelegatedEvents(options.observeModalBodyEl);
       if (observeBuffTooltipTarget && !observeBuffTooltipTarget.isConnected) {

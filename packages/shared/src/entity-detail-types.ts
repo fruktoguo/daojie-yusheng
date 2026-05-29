@@ -390,6 +390,11 @@ export interface TileDetailView {
 
   qiDrainPerTick?: number;  
   /**
+ * playerOverlap：该地块是否允许玩家重叠站立。
+ */
+
+  playerOverlap?: boolean;
+  /**
  * terrainType：服务端权威底层地形。
  */
 
