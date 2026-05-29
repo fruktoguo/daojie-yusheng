@@ -352,6 +352,11 @@ function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): Ac
     autoBattleEnabled: action.autoBattleEnabled,
     autoBattleOrder: action.autoBattleOrder,
     skillEnabled: action.skillEnabled,
+    scriptureTechniqueId: action.scriptureTechniqueId,
+    scriptureTechniqueName: action.scriptureTechniqueName,
+    scriptureTechniqueRealmLv: action.scriptureTechniqueRealmLv,
+    scriptureTechniqueGrade: action.scriptureTechniqueGrade,
+    scriptureTechniqueCategory: action.scriptureTechniqueCategory,
   };
 }
 
