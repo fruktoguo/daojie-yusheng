@@ -257,6 +257,10 @@ interface PlayerDomainPruneOptions {
   allowEmptyOverwrite?: boolean;
 }
 
+interface TechniqueComprehensionReplaceOptions {
+  completedTechniqueIds?: ReadonlySet<string>;
+}
+
 export interface PlayerWorldAnchorUpsertInput {
   respawnTemplateId: string;
   respawnInstanceId?: string | null;
@@ -3198,8 +3202,14 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   }
 
   if (rawDomains.has('technique')) {
-    await replacePlayerTechniqueStates(client, normalizedPlayerId, buildTechniqueStateRows(snapshot));
-    await replacePlayerTechniqueComprehensions(client, normalizedPlayerId, buildTechniqueComprehensionRows(snapshot));
+    const techniqueRows = buildTechniqueStateRows(snapshot);
+    await replacePlayerTechniqueStates(client, normalizedPlayerId, techniqueRows);
+    await replacePlayerTechniqueComprehensions(
+      client,
+      normalizedPlayerId,
+      buildTechniqueComprehensionRows(snapshot),
+      { completedTechniqueIds: new Set(techniqueRows.map((row) => row.techId)) },
+    );
     watermarkPatch.technique_version = versionSeed;
   }
 
@@ -5134,6 +5144,7 @@ async function replacePlayerTechniqueComprehensions(
   client: PoolClient,
   playerId: string,
   rows: TechniqueComprehensionRow[],
+  options: TechniqueComprehensionReplaceOptions = {},
 ): Promise<void> {
   const normalizedRows = rows.map((row) => ({
     tech_id: row.techId,
@@ -5213,6 +5224,9 @@ async function replacePlayerTechniqueComprehensions(
       [playerId, JSON.stringify(normalizedRows)],
     );
   }
+  const allowCompletedEmptyOverwrite = normalizedRows.length === 0
+    ? await canPruneCompletedTechniqueComprehensions(client, playerId, options.completedTechniqueIds)
+    : false;
   await prunePlayerRowsBySnapshotKeys(
     client,
     PLAYER_TECHNIQUE_COMPREHENSION_TABLE,
@@ -5220,7 +5234,27 @@ async function replacePlayerTechniqueComprehensions(
     normalizedRows.map(({ tech_id }) => ({ tech_id })),
     'tech_id varchar(120)',
     'incoming.tech_id = target.tech_id',
+    { allowEmptyOverwrite: allowCompletedEmptyOverwrite },
   );
+}
+
+async function canPruneCompletedTechniqueComprehensions(
+  client: PoolClient,
+  playerId: string,
+  completedTechniqueIds: ReadonlySet<string> | undefined,
+): Promise<boolean> {
+  if (!completedTechniqueIds || completedTechniqueIds.size === 0) {
+    return false;
+  }
+  const result = await client.query<{ tech_id: string }>(
+    `SELECT tech_id FROM ${PLAYER_TECHNIQUE_COMPREHENSION_TABLE} WHERE player_id = $1`,
+    [playerId],
+  );
+  const existingTechIds = result.rows
+    .map((row) => normalizeRequiredString(row.tech_id))
+    .filter((techId) => techId.length > 0);
+  return existingTechIds.length > 0
+    && existingTechIds.every((techId) => completedTechniqueIds.has(techId));
 }
 
 async function replacePlayerPersistentBuffStates(

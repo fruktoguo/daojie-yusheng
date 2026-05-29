@@ -10,6 +10,7 @@ import {
   PLAYER_DOMAIN_PROJECTED_TABLES,
   PlayerDomainPersistenceService,
 } from '../persistence/player-domain-persistence.service';
+import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 
 /**
  * 玩家分域整表清空事故修复（详见 docs/plans/玩家分域整表清空事故修复.md）的纵深防御回归 smoke。
@@ -217,6 +218,21 @@ interface CaseResult {
   rowCountUnchanged: boolean;
 }
 
+interface CompletedComprehensionPruneResult {
+  playerId: string;
+  techniqueStateRows: number;
+  techniqueComprehensionRows: number;
+  completedPendingDeleted: boolean;
+}
+
+interface BlockedComprehensionPruneResult {
+  playerId: string;
+  threwExpectedError: boolean;
+  errorMessage: string | null;
+  techniqueComprehensionRows: number;
+  pendingPreserved: boolean;
+}
+
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
     console.log(
@@ -249,6 +265,8 @@ async function main(): Promise<void> {
 
   const results: CaseResult[] = [];
   const failures: string[] = [];
+  let completedComprehensionPrune: CompletedComprehensionPruneResult | null = null;
+  let blockedComprehensionPrune: BlockedComprehensionPruneResult | null = null;
 
   try {
     for (const domainCase of DOMAIN_CASES) {
@@ -309,6 +327,17 @@ async function main(): Promise<void> {
       }
     }
 
+    completedComprehensionPrune = await assertCompletedTechniqueComprehensionCanPrune(
+      service,
+      pool,
+      `${playerIdBase}_technique_comprehension_completed`,
+    );
+    blockedComprehensionPrune = await assertUnmatchedTechniqueComprehensionStillBlocked(
+      service,
+      pool,
+      `${playerIdBase}_technique_comprehension_blocked`,
+    );
+
     if (failures.length > 0) {
       throw new Error(`empty-overwrite guard failures:\n  - ${failures.join('\n  - ')}`);
     }
@@ -319,8 +348,10 @@ async function main(): Promise<void> {
           ok: true,
           case: 'player-domain-empty-overwrite-guard',
           domainResults: results,
+          completedComprehensionPrune,
+          blockedComprehensionPrune,
           answers:
-            '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。',
+            '玩家分域 cleanup DELETE 在 incoming=[] + PG 已有 row 时，已被 refuseEmptyOverwriteIfRowsExist 守卫拒绝；withTransaction rollback 后 PG 中 row 数与 seed 一致。未领悟功法完成后 pendingComprehensions 合法归零时允许删除旧 pending 行；tech_id 未匹配已学功法时仍拒绝清空 pending。',
           excludes:
             '不证明 ensureNativeStarterSnapshot 入口的 load 失败拒绝写 starter / hasRecoveryWatermark guard，这两层由 world-player-snapshot.service 自身的逻辑路径覆盖。',
           completionMapping: 'release:proof:with-db.player-domain-empty-overwrite-guard',
@@ -334,6 +365,206 @@ async function main(): Promise<void> {
     await service.onModuleDestroy().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
   }
+}
+
+async function assertUnmatchedTechniqueComprehensionStillBlocked(
+  service: PlayerDomainPersistenceService,
+  pool: Pool,
+  playerId: string,
+): Promise<BlockedComprehensionPruneResult> {
+  await cleanupPlayer(pool, playerId);
+  const pendingTechId = 'guard_unmatched_pending_technique';
+  const seedSnapshot = buildTechniqueProjectionSnapshot(playerId, [], [
+    {
+      techId: pendingTechId,
+      sourceKind: 'created',
+      selfComprehensionAllowed: true,
+      progress: 12,
+      requiredProgress: 100,
+      realmLv: 1,
+      grade: 'mortal',
+      category: 'internal',
+      createdAtTick: 10,
+      updatedAtTick: 20,
+    },
+  ]);
+  await service.savePlayerSnapshotProjectionDomains(playerId, seedSnapshot, ['technique']);
+
+  let threwExpectedError = false;
+  let errorMessage: string | null = null;
+  try {
+    await service.savePlayerSnapshotProjectionDomains(
+      playerId,
+      buildTechniqueProjectionSnapshot(
+        playerId,
+        [
+          {
+            techId: 'guard_unrelated_learned_technique',
+            level: 1,
+            exp: 0,
+            expToNext: 100,
+            realmLv: 1,
+            skillsEnabled: true,
+          },
+        ],
+        [],
+      ),
+      ['technique'],
+    );
+  } catch (error) {
+    errorMessage = error instanceof Error ? error.message : String(error);
+    threwExpectedError = errorMessage.includes('replace_technique_comprehension_refused_empty_overwrite');
+  }
+
+  const techniqueComprehensionRows = await countDomainRows(pool, 'player_technique_comprehension', playerId);
+  const result = {
+    playerId,
+    threwExpectedError,
+    errorMessage,
+    techniqueComprehensionRows,
+    pendingPreserved: threwExpectedError && techniqueComprehensionRows === 1,
+  };
+  await cleanupPlayer(pool, playerId).catch(() => undefined);
+  if (!result.pendingPreserved) {
+    throw new Error(
+      `unmatched comprehension prune was not blocked: errorMessage=${errorMessage ?? '<none>'} rows=${techniqueComprehensionRows}`,
+    );
+  }
+  return result;
+}
+
+async function assertCompletedTechniqueComprehensionCanPrune(
+  service: PlayerDomainPersistenceService,
+  pool: Pool,
+  playerId: string,
+): Promise<CompletedComprehensionPruneResult> {
+  await cleanupPlayer(pool, playerId);
+  const pendingTechId = 'guard_completed_pending_technique';
+  const seedSnapshot = buildTechniqueProjectionSnapshot(playerId, [], [
+    {
+      techId: pendingTechId,
+      sourceKind: 'created',
+      selfComprehensionAllowed: true,
+      progress: 99,
+      requiredProgress: 100,
+      realmLv: 1,
+      grade: 'mortal',
+      category: 'internal',
+      createdAtTick: 10,
+      updatedAtTick: 20,
+    },
+  ]);
+  await service.savePlayerSnapshotProjectionDomains(playerId, seedSnapshot, ['technique']);
+  const seedPendingRows = await countDomainRows(pool, 'player_technique_comprehension', playerId);
+  if (seedPendingRows !== 1) {
+    await cleanupPlayer(pool, playerId).catch(() => undefined);
+    throw new Error(`completed comprehension prune seed expected 1 pending row, got ${seedPendingRows}`);
+  }
+
+  const completedSnapshot = buildTechniqueProjectionSnapshot(
+    playerId,
+    [
+      {
+        techId: pendingTechId,
+        level: 1,
+        exp: 0,
+        expToNext: 100,
+        realmLv: 1,
+        skillsEnabled: true,
+      },
+    ],
+    [],
+  );
+  await service.savePlayerSnapshotProjectionDomains(playerId, completedSnapshot, ['technique']);
+
+  const techniqueStateRows = await countDomainRows(pool, 'player_technique_state', playerId);
+  const techniqueComprehensionRows = await countDomainRows(pool, 'player_technique_comprehension', playerId);
+  const result = {
+    playerId,
+    techniqueStateRows,
+    techniqueComprehensionRows,
+    completedPendingDeleted: techniqueStateRows === 1 && techniqueComprehensionRows === 0,
+  };
+  await cleanupPlayer(pool, playerId).catch(() => undefined);
+  if (!result.completedPendingDeleted) {
+    throw new Error(
+      `completed comprehension prune failed: techniqueStateRows=${techniqueStateRows} techniqueComprehensionRows=${techniqueComprehensionRows}`,
+    );
+  }
+  return result;
+}
+
+function buildTechniqueProjectionSnapshot(
+  playerId: string,
+  techniques: unknown[],
+  pendingComprehensions: unknown[],
+): PersistedPlayerSnapshot {
+  return {
+    version: 1,
+    savedAt: Date.now(),
+    placement: {
+      instanceId: `public:guard:${playerId}`,
+      templateId: 'yunlai_town',
+      x: 0,
+      y: 0,
+      facing: 1,
+    },
+    respawn: {
+      instanceId: `public:guard:${playerId}`,
+      templateId: 'yunlai_town',
+      x: 0,
+      y: 0,
+      facing: 1,
+    },
+    vitals: { hp: 100, maxHp: 100, qi: 100, maxQi: 100 },
+    progression: {
+      foundation: 0,
+      rootFoundation: 0,
+      combatExp: 0,
+      bodyTraining: null,
+      alchemySkill: null,
+      gatherSkill: null,
+      gatherJob: null,
+      alchemyPresets: [],
+      alchemyJob: null,
+      enhancementSkill: null,
+      enhancementSkillLevel: 1,
+      enhancementJob: null,
+      enhancementRecords: [],
+      boneAgeBaseYears: 18,
+      lifeElapsedTicks: 0,
+      lifespanYears: null,
+      realm: null,
+      heavenGate: null,
+      spiritualRoots: null,
+    },
+    unlockedMapIds: [],
+    inventory: { revision: 1, capacity: 20, items: [], lockedItems: [] },
+    equipment: { revision: 1, slots: [] },
+    techniques: {
+      revision: 1,
+      techniques,
+      cultivatingTechId: techniques.length > 0 ? 'guard_completed_pending_technique' : null,
+      pendingComprehensions,
+    },
+    buffs: { revision: 1, buffs: [] },
+    quests: { revision: 1, entries: [] },
+    combat: {
+      autoBattle: false,
+      autoRetaliate: true,
+      autoBattleStationary: false,
+      combatTargetId: null,
+      combatTargetLocked: false,
+      allowAoePlayerHit: false,
+      autoIdleCultivation: true,
+      autoSwitchCultivation: false,
+      autoRootFoundation: false,
+      senseQiActive: false,
+      autoBattleSkills: [],
+    },
+    pendingLogbookMessages: [],
+    runtimeBonuses: [],
+  };
 }
 
 async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {
