@@ -17,7 +17,6 @@ import {
   type S2C_MapStatic,
   type TickRenderEntity,
   type Tile,
-  type VisibleBuffState,
   TileType,
   type VisibleTile,
   type VisibleTilePatch,
@@ -44,6 +43,7 @@ import {
   getCachedUnlockedMapSnapshot,
   syncCachedUnlockedMapIds,
 } from '../../map-static-cache';
+import { resolvePresentationScaleFromBuffs } from '../../buff-presentation';
 import { TILE_HIDDEN_FADE_MS } from '../../constants/visuals/time-atmosphere';
 import { t } from '../../ui/i18n';
 import type {
@@ -109,32 +109,6 @@ function isDemonizedBuffCarrier(buffs: readonly { buffId: string; stacks: number
     buff.buffId === PVP_SHA_INFUSION_BUFF_ID
     && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
   ));
-}
-
-function resolvePresentationScaleFromBuffs(buffs: readonly VisibleBuffState[] | null | undefined): number | undefined {
-  let scale = 1;
-  for (const buff of buffs ?? []) {
-    const remaining = estimateBuffRemainingTicksLocal(buff);
-    if (remaining <= 0 || (buff.stacks ?? 0) <= 0) {
-      continue;
-    }
-    const presentationScale = Number(buff.presentationScale);
-    if (Number.isFinite(presentationScale) && presentationScale > scale) {
-      scale = presentationScale;
-    }
-  }
-  return scale > 1 ? scale : undefined;
-}
-
-/** 本地估算 buff 剩余 ticks：基于收到时间戳按 1Hz 递减。 */
-function estimateBuffRemainingTicksLocal(buff: VisibleBuffState): number {
-  const remaining = buff.remainingTicks ?? 0;
-  const baseTime = (buff as unknown as Record<string, unknown>)._remainingTicksReceivedAt;
-  if (typeof baseTime !== 'number' || baseTime <= 0) {
-    return remaining;
-  }
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - baseTime) / 1000));
-  return Math.max(0, remaining - elapsedSeconds);
 }
 
 function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState | null): ObservedMapEntity {

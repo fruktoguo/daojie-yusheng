@@ -4,6 +4,7 @@
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
 import { clonePlainValue, type Direction, type PlayerState } from '@mud/shared';
+import { resolvePresentationScaleFromBuffs } from './buff-presentation';
 import type { ObservedMapEntity } from './game-map/types';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 import { t } from './ui/i18n';
@@ -33,32 +34,6 @@ function isDemonizedPlayerEntity(entity: Pick<MainRuntimeObservedEntity, 'kind' 
     buff.buffId === PVP_SHA_INFUSION_BUFF_ID
     && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
   ));
-}
-
-function resolvePresentationScaleFromBuffs(buffs: MainRuntimeObservedEntity['buffs']): number | undefined {
-  let scale = 1;
-  for (const buff of buffs ?? []) {
-    const remaining = estimateBuffRemainingTicksLocal(buff);
-    if (remaining <= 0 || (buff.stacks ?? 0) <= 0) {
-      continue;
-    }
-    const presentationScale = Number(buff.presentationScale);
-    if (Number.isFinite(presentationScale) && presentationScale > scale) {
-      scale = presentationScale;
-    }
-  }
-  return scale > 1 ? scale : undefined;
-}
-
-/** 本地估算 buff 剩余 ticks：基于收到时间戳按 1Hz 递减。 */
-function estimateBuffRemainingTicksLocal(buff: { remainingTicks?: number }): number {
-  const remaining = Number(buff.remainingTicks ?? 0);
-  const baseTime = (buff as unknown as Record<string, unknown>)._remainingTicksReceivedAt;
-  if (typeof baseTime !== 'number' || baseTime <= 0) {
-    return remaining;
-  }
-  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - baseTime) / 1000));
-  return Math.max(0, remaining - elapsedSeconds);
 }
 
 function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: PlayerState | null): MainRuntimeObservedEntity {
