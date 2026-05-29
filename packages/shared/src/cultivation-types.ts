@@ -496,7 +496,12 @@ export type TechniqueComprehensionSourceKind = 'normal' | 'created';
 
 export type TechniqueTransmissionJobStatus = 'running' | 'blocked';
 
-export type TechniqueTransmissionBlockedReason = 'teacher_out_of_range' | 'not_created_technique';
+export type TechniqueTransmissionBlockedReason =
+  | 'teacher_out_of_range'
+  | 'not_created_technique'
+  | 'scripture_platform_unavailable'
+  | 'scripture_platform_out_of_range'
+  | 'scripture_recording_locked';
 
 export interface TechniqueTransmissionJobState {
   jobId: string;

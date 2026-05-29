@@ -405,6 +405,10 @@ function resolveProjectedBuildMaxHp(entry: BuildingCatalogEntry, buildStrength: 
   return Math.max(1, calculateTerrainDurability(builderSkillLevel, baseMultiplier) * resolveProjectedBuildDurationTicks(buildStrength));
 }
 
+function resolveBuildingBaseBuildTicks(entry: BuildingCatalogEntry | null): number {
+  return Math.max(1, Math.trunc(Number(entry?.buildTicks) || 1));
+}
+
 function normalizeMaterialFailure(reason: string | undefined): string {
   if (!reason) {
     return '建造失败';
@@ -522,6 +526,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       selectedDefId = selectedEntry.id;
       latestBuildResult = null;
       selectedMaterialItemIdsBySlot = new Map();
+      buildStrength = resolveBuildingBaseBuildTicks(selectedEntry);
     }
     return {
       filteredEntries,
@@ -661,7 +666,8 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
       },
       onChangeBuildStrength: (value) => {
         resetPendingPlacement(true);
-        buildStrength = Math.max(1, Math.min(9999, Math.trunc(value)));
+        const minBuildStrength = resolveBuildingBaseBuildTicks(selectedEntry);
+        buildStrength = Math.max(minBuildStrength, Math.min(9999, Math.trunc(value)));
         latestBuildResult = null;
         syncActiveBuildMode(true);
       },
@@ -669,6 +675,7 @@ export function createMainBuildingFengShuiStateSource(options: MainBuildingFengS
         resetPendingPlacement(true);
         selectedDefId = defId;
         selectedCategory = resolveBuildCategoryForLayer(findBuildingDefById(defId)?.layer);
+        buildStrength = resolveBuildingBaseBuildTicks(findBuildingDefById(defId));
         latestBuildResult = null;
         selectedMaterialItemIdsBySlot = new Map();
         syncActiveBuildMode(true);
@@ -1039,7 +1046,7 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   strengthInputWrap.className = 'building-mode-strength-input-wrap';
   const strengthInput = document.createElement('input');
   strengthInput.type = 'number';
-  strengthInput.min = '1';
+  strengthInput.min = String(resolveBuildingBaseBuildTicks(selected));
   strengthInput.max = '9999';
   strengthInput.step = '1';
   strengthInput.value = String(options.buildStrength);
@@ -1047,7 +1054,7 @@ function renderBuildModeToolbar(options: BuildModeToolbarOptions): void {
   strengthInput.dataset.action = 'build-strength';
   strengthInput.inputMode = 'numeric';
   const strengthUnit = document.createElement('span');
-  strengthUnit.textContent = '最低 1';
+  strengthUnit.textContent = `最低 ${resolveBuildingBaseBuildTicks(selected)}`;
   strengthInputWrap.replaceChildren(strengthInput, strengthUnit);
   const strengthHint = document.createElement('div');
   strengthHint.className = 'building-mode-strength-hint';

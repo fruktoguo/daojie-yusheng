@@ -1962,6 +1962,17 @@ class MapInstanceRuntime {
                 buildCompleteTick: Number.isFinite(Number(entry?.buildCompleteTick)) ? Math.max(0, Math.trunc(Number(entry.buildCompleteTick))) : undefined,
                 buildRemainingTicks: Number.isFinite(Number(entry?.buildRemainingTicks)) ? Math.max(0, Math.trunc(Number(entry.buildRemainingTicks))) : undefined,
                 activeBuilderPlayerId: normalizeBuildingId(entry?.activeBuilderPlayerId) || null,
+                scriptureTechniqueId: normalizeBuildingId(entry?.scriptureTechniqueId) || null,
+                scriptureTechniqueName: typeof entry?.scriptureTechniqueName === 'string' && entry.scriptureTechniqueName.trim() ? entry.scriptureTechniqueName.trim() : null,
+                scriptureProgress: Number.isFinite(Number(entry?.scriptureProgress)) ? Math.max(0, Number(entry.scriptureProgress)) : undefined,
+                scriptureRequiredProgress: Number.isFinite(Number(entry?.scriptureRequiredProgress)) ? Math.max(1, Number(entry.scriptureRequiredProgress)) : undefined,
+                scriptureRealmLv: Number.isFinite(Number(entry?.scriptureRealmLv)) ? Math.max(1, Math.trunc(Number(entry.scriptureRealmLv))) : undefined,
+                scriptureGrade: typeof entry?.scriptureGrade === 'string' && entry.scriptureGrade.trim() ? entry.scriptureGrade.trim() : undefined,
+                scriptureCategory: typeof entry?.scriptureCategory === 'string' && entry.scriptureCategory.trim() ? entry.scriptureCategory.trim() : undefined,
+                scriptureRecorderPlayerId: normalizeBuildingId(entry?.scriptureRecorderPlayerId) || null,
+                scriptureRecordingJobRunId: normalizeBuildingId(entry?.scriptureRecordingJobRunId) || null,
+                scriptureRecordedAtTick: Number.isFinite(Number(entry?.scriptureRecordedAtTick)) ? Math.max(0, Math.trunc(Number(entry.scriptureRecordedAtTick))) : undefined,
+                scriptureUpdatedAtTick: Number.isFinite(Number(entry?.scriptureUpdatedAtTick)) ? Math.max(0, Math.trunc(Number(entry.scriptureUpdatedAtTick))) : undefined,
             };
             this.buildingById.set(id, building);
             const cells = resolvePersistedBuildingCells(this, building, entry?.cells, compiled);

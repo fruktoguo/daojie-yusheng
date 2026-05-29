@@ -659,12 +659,17 @@ export interface PlayerTransmissionJob extends TechniqueActivityJobBase {
    * jobType：任务类型。
    */
 
-  jobType?: 'transmission';
+  jobType?: 'transmission' | 'scripture_recording';
   /**
    * jobVersion：任务版本号。
    */
 
   jobVersion?: number;
+  /**
+   * label：任务列表显示名。
+   */
+
+  label?: string;
   /**
    * techniqueId：被传授功法 ID。
    */
@@ -726,6 +731,11 @@ export interface PlayerTransmissionJob extends TechniqueActivityJobBase {
    */
 
   phase: 'transmitting' | 'paused';
+  /**
+   * buildingId：藏经录入目标建筑 ID。
+   */
+
+  buildingId?: string;
 }
 
 /** 玩家当前阵法维护任务的最小持久化运行态。 */

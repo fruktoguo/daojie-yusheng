@@ -27,6 +27,7 @@ const catalog = buildings.map((building) => ({
   durabilityMultiplier: Number.isFinite(Number(building.economy?.durabilityMultiplier))
     ? Number(building.economy.durabilityMultiplier)
     : undefined,
+  buildTicks: Math.max(1, Math.trunc(Number(building.economy?.buildTicks) || 1)),
   maxHp: Math.max(1, Math.trunc(Number(building.economy?.maxHp) || 1)),
   stability: Math.trunc(Number(building.fengShui?.stability) || 0),
   comfort: Math.trunc(Number(building.fengShui?.comfort) || 0),

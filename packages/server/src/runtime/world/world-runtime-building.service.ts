@@ -62,7 +62,7 @@ export function handleBuildPlaceIntent(runtime, playerId, payload) {
     if (!costResolution.ok) {
         return recordBuildingOperation(runtime, operationKey, { requestId, ok: false, reason: costResolution.reason }, { action: 'place', playerId, instanceId: context.instance.meta.instanceId, defId });
     }
-    const buildStrength = normalizeBuildStrength(payload?.buildStrength);
+    const buildStrength = normalizeBuildStrength(payload?.buildStrength, compiled.buildTicks);
     const buildingSkillLevel = resolveBuildingSkillLevel(context.player);
     const finalMaxHp = resolvePlacedBuildingMaxHp(compiled, buildingSkillLevel, buildStrength);
     const result = context.instance.placeBuildingInstance({
@@ -358,9 +358,10 @@ function resolveSelectedBuildingCost(player, compiled, selectedMaterialItemIds) 
         consumedItems,
     };
 }
-function normalizeBuildStrength(value) {
+function normalizeBuildStrength(value, baseBuildTicks = 1) {
     const normalized = Math.trunc(Number(value) || 1);
-    return Math.max(1, normalized);
+    const base = Math.max(1, Math.trunc(Number(baseBuildTicks) || 1));
+    return Math.max(base, normalized);
 }
 function resolveBuildingSkillLevel(player) {
     return Math.max(1, Math.trunc(Number(player?.buildingSkill?.level ?? 1) || 1));

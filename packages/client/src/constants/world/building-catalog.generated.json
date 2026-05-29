@@ -25,6 +25,7 @@
       "earth": 10
     },
     "durabilityMultiplier": 50,
+    "buildTicks": 1,
     "maxHp": 120,
     "stability": 6,
     "comfort": 0,
@@ -57,6 +58,7 @@
       "wood": 4
     },
     "durabilityMultiplier": 14,
+    "buildTicks": 1,
     "maxHp": 80,
     "stability": 0,
     "comfort": 0,
@@ -89,6 +91,7 @@
       "wood": 3
     },
     "durabilityMultiplier": 10,
+    "buildTicks": 1,
     "maxHp": 60,
     "stability": 0,
     "comfort": 2,
@@ -119,6 +122,7 @@
     ],
     "elementVector": {},
     "durabilityMultiplier": 1,
+    "buildTicks": 1,
     "maxHp": 80,
     "stability": 2,
     "comfort": 0,
@@ -152,6 +156,7 @@
       "wood": 4
     },
     "durabilityMultiplier": 0.4,
+    "buildTicks": 1,
     "maxHp": 40,
     "stability": 4,
     "comfort": 8,
@@ -184,6 +189,7 @@
       "earth": 4
     },
     "durabilityMultiplier": 10,
+    "buildTicks": 1,
     "maxHp": 90,
     "stability": 6,
     "comfort": 16,
@@ -216,6 +222,7 @@
       "earth": 6
     },
     "durabilityMultiplier": 50,
+    "buildTicks": 1,
     "maxHp": 150,
     "stability": 4,
     "comfort": -2,
@@ -248,9 +255,44 @@
       "metal": 5
     },
     "durabilityMultiplier": 10,
+    "buildTicks": 1,
     "maxHp": 90,
     "stability": 8,
     "comfort": 0,
+    "opening": "none",
+    "blocksMove": true,
+    "blocksSight": false
+  },
+  {
+    "id": "scripture_platform",
+    "name": "藏经台",
+    "layer": "facility",
+    "allowRotate": true,
+    "footprint": [
+      {
+        "dx": 0,
+        "dy": 0
+      }
+    ],
+    "cost": [
+      {
+        "itemId": "wood",
+        "count": 8
+      }
+    ],
+    "traits": [
+      "facility.scripture_platform",
+      "storage.scripture"
+    ],
+    "elementVector": {
+      "wood": 18,
+      "earth": 4
+    },
+    "durabilityMultiplier": 18,
+    "buildTicks": 3600,
+    "maxHp": 120,
+    "stability": 10,
+    "comfort": 3,
     "opening": "none",
     "blocksMove": true,
     "blocksSight": false
@@ -279,6 +321,7 @@
       "earth": 8
     },
     "durabilityMultiplier": 50,
+    "buildTicks": 1,
     "maxHp": 100,
     "stability": 5,
     "comfort": 0,
@@ -311,6 +354,7 @@
       "wood": 5
     },
     "durabilityMultiplier": 1,
+    "buildTicks": 1,
     "maxHp": 80,
     "stability": 0,
     "comfort": 4,

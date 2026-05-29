@@ -119,6 +119,10 @@ function createRuntimeService() {
 }
 
 function createTransmissionPipeline(runtimeService: PlayerRuntimeService) {
+  return createTransmissionPipelineWithInstance(runtimeService, null);
+}
+
+function createTransmissionPipelineWithInstance(runtimeService: PlayerRuntimeService, instance: any | null) {
   const pipeline = new TechniqueActivityPipelineService();
   pipeline.register(new TransmissionStrategy());
   const ctx = {
@@ -133,9 +137,15 @@ function createTransmissionPipeline(runtimeService: PlayerRuntimeService) {
     },
     resolveExpToNextByLevel,
     getInstanceRuntime() {
-      return null;
+      return instance;
     },
-    deps: { playerRuntimeService: runtimeService },
+    deps: {
+      playerRuntimeService: runtimeService,
+      getInstanceRuntime() {
+        return instance;
+      },
+      refreshPlayerContextActions() {},
+    },
   };
   return { pipeline, ctx };
 }
@@ -589,6 +599,87 @@ function testTransmissionBlocksCancelsAndContinues() {
   assert.equal(teacherB.transmissionSkill.exp, getExpectedTransmissionExpGain(1, 1, 1));
 }
 
+function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
+  const { runtimeService } = createRuntimeService();
+  const recorder = createPlayer('recorder:scripture', 0, 0);
+  recorder.realm.realmLv = 2;
+  recorder.transmissionSkill.level = 2;
+  recorder.transmissionSkill.expToNext = resolveExpToNextByLevel();
+  const scriptureTechnique = {
+    ...technique,
+    techId: 'tech.scripture',
+    name: '藏经试炼功法',
+    realmLv: 2,
+    grade: 'yellow',
+    level: 1,
+    expToNext: 0,
+    layers: [{ level: 1, expToNext: 0, attrs: {} }],
+  };
+  recorder.techniques.techniques.push(scriptureTechnique);
+  runtimeService.players.set(recorder.playerId, recorder);
+  const building: any = {
+    id: 'building:scripture',
+    defId: 'scripture_platform',
+    instanceId: recorder.instanceId,
+    x: 0,
+    y: 0,
+    state: 'active',
+    ownerPlayerId: recorder.playerId,
+    ownerSectId: null,
+    revision: 1,
+    updatedAtTick: 0,
+  };
+  const dirtyDomains: string[] = [];
+  const instance: any = {
+    buildingById: new Map([[building.id, building]]),
+    localBuildingViewCacheById: new Map(),
+    markPersistenceDirtyDomainsHighPriority(domains: string[]) {
+      dirtyDomains.push(...domains);
+    },
+    persistentRevision: 0,
+  };
+  const { pipeline, ctx } = createTransmissionPipelineWithInstance(runtimeService, instance);
+  const startResult = pipeline.start(recorder, 'transmission', {
+    mode: 'scripture_recording',
+    learnerPlayerId: recorder.playerId,
+    techniqueId: scriptureTechnique.techId,
+    buildingId: building.id,
+  }, ctx as never);
+  assert.equal(startResult.ok, true, startResult.error);
+  assert.equal(recorder.transmissionJob?.jobType, 'scripture_recording');
+  assert.equal(recorder.transmissionJob?.progressBreakdown?.baseProgress, 10);
+  assert.equal(building.scriptureTechniqueId, scriptureTechnique.techId);
+  assert.equal(building.scriptureProgress, 0);
+  assert.equal(building.scriptureRequiredProgress, 40);
+
+  recorder.lifeElapsedTicks = 1;
+  pipeline.tick(recorder, 'transmission', ctx as never);
+  assert.equal(building.scriptureProgress, 10);
+  assert.equal(recorder.transmissionSkill.exp, getExpectedTransmissionExpGain(2, 2, 1));
+  assert.equal(recorder.transmissionJob?.remainingTicks, 30);
+
+  const otherTechnique = { ...scriptureTechnique, techId: 'tech.scripture.other', name: '另一门功法' };
+  recorder.techniques.techniques.push(otherTechnique);
+  const lockedResult = pipeline.start(recorder, 'transmission', {
+    mode: 'scripture_recording',
+    learnerPlayerId: recorder.playerId,
+    techniqueId: otherTechnique.techId,
+    buildingId: building.id,
+  }, ctx as never);
+  assert.equal(lockedResult.ok, false);
+  assert.match(lockedResult.error ?? '', /已有进行中的技艺任务|已有藏书/);
+
+  for (let tick = 2; tick <= 4; tick += 1) {
+    recorder.lifeElapsedTicks = tick;
+    pipeline.tick(recorder, 'transmission', ctx as never);
+  }
+  assert.equal(building.scriptureProgress, 40);
+  assert.equal(building.scriptureRecordingJobRunId, null);
+  assert.equal(building.scriptureRecordedAtTick, 4);
+  assert.equal(recorder.transmissionJob, null);
+  assert.ok(dirtyDomains.includes('building'));
+}
+
 testSelfComprehensionProgressesOnlyWithoutTransmission();
 testTransmittedPendingCannotSelfComprehendWithoutActiveJob();
 testTransmittedPendingCannotBeSetAsMainTechnique();
@@ -601,5 +692,6 @@ testCultivationCanStoreFractionalComprehensionProgress();
 testPendingTechniqueNameResolvesDisplayName();
 testTransmissionRefreshesStaleRequiredProgress();
 testTransmissionBlocksCancelsAndContinues();
+testScriptureRecordingUsesTransmissionJobAndLocksBuilding();
 
 console.log(JSON.stringify({ ok: true, case: 'technique-comprehension' }, null, 2));

@@ -327,6 +327,15 @@ function resolveTransmissionBlockedReason(reason: unknown): string {
   if (reason === 'not_created_technique') {
     return '只能传授自创功法';
   }
+  if (reason === 'scripture_platform_unavailable') {
+    return '藏经台不可用';
+  }
+  if (reason === 'scripture_platform_out_of_range') {
+    return '不在藏经台 1 格范围内';
+  }
+  if (reason === 'scripture_recording_locked') {
+    return '藏经台已有藏书';
+  }
   return '等待传授条件恢复';
 }
 

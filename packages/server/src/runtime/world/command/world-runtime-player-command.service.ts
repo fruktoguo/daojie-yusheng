@@ -638,6 +638,19 @@ export class WorldRuntimePlayerCommandService {
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startTechniqueTransmission':
+                if (command.mode === 'scripture_recording') {
+                    return this.dispatchStartTechniqueActivity(
+                        playerId,
+                        'transmission',
+                        {
+                            mode: 'scripture_recording',
+                            learnerPlayerId: playerId,
+                            techniqueId: command.techniqueId,
+                            buildingId: command.buildingId,
+                        },
+                        deps,
+                    );
+                }
                 return this.dispatchStartTechniqueActivity(
                     command.learnerPlayerId,
                     'transmission',

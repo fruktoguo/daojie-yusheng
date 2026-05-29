@@ -264,6 +264,27 @@ export class WorldRuntimeActionExecutionService {
                 view: deps.getPlayerViewOrThrow(playerId),
             };
         }
+        if (actionId.startsWith('scripture:record:')) {
+            const rest = actionId.slice('scripture:record:'.length);
+            const separator = rest.indexOf(':');
+            const buildingId = separator >= 0 ? rest.slice(0, separator).trim() : '';
+            const encodedTechniqueId = separator >= 0 ? rest.slice(separator + 1).trim() : '';
+            const techniqueId = encodedTechniqueId ? decodeURIComponent(encodedTechniqueId) : '';
+            if (!buildingId || !techniqueId) {
+                throw new BadRequestException('藏经录入目标不能为空');
+            }
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'startTechniqueTransmission',
+                mode: 'scripture_recording',
+                learnerPlayerId: playerId,
+                buildingId,
+                techniqueId,
+            });
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
+        }
         if (actionId === 'mining:start') {
             const targetRef = typeof targetInput === 'string' ? targetInput.trim() : '';
             if (!targetRef) {

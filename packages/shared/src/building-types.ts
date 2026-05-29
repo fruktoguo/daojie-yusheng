@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { CellLayerTarget } from './map-layer-types';
+import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 import type { TileType } from './world-core-types';
 
 export type FiveElement = 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'neutral';
@@ -152,4 +153,15 @@ export interface BuildingInstance {
   buildCompleteTick?: number;
   buildRemainingTicks?: number;
   activeBuilderPlayerId?: string | null;
+  scriptureTechniqueId?: string | null;
+  scriptureTechniqueName?: string | null;
+  scriptureProgress?: number;
+  scriptureRequiredProgress?: number;
+  scriptureRealmLv?: number;
+  scriptureGrade?: TechniqueGrade;
+  scriptureCategory?: TechniqueCategory;
+  scriptureRecorderPlayerId?: string | null;
+  scriptureRecordingJobRunId?: string | null;
+  scriptureRecordedAtTick?: number;
+  scriptureUpdatedAtTick?: number;
 }
