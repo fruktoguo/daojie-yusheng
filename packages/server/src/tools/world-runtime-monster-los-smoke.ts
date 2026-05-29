@@ -424,6 +424,9 @@ function testInstantMonsterSkillCommitsResourceCooldownAndDirtyRuntime() {
   assert.equal(result.monsterActions.length, 1);
   assert.equal(result.monsterActions[0]?.kind, 'skill');
   assert.equal(result.monsterActions[0]?.skillId, skillId);
+  assert.equal(result.monsterActions[0]?.targetX, 3);
+  assert.equal(result.monsterActions[0]?.targetY, 1);
+  assert.deepEqual(result.monsterActions[0]?.warningCells, [{ x: 3, y: 1 }]);
   assert.equal(instance.worldRevision, revisionBeforeCast + 1);
   assert.equal(monster.qi, 18);
   assert.equal(monster.cooldownReadyTickBySkillId[skillId], 4);
@@ -512,6 +515,40 @@ function testMonsterSkillInsufficientQiDoesNotEmitActionOrCommitCooldown() {
   assert.deepEqual(delta.deletes, []);
 }
 
+function testInstantTargetedMonsterAoeCarriesAnchorAndCells() {
+  const skillId = 'monster:instant_ice_web';
+  const instance = createInstance({
+    tier: 'demon_king',
+    skills: [{
+      id: skillId,
+      name: '瞬发冰网',
+      range: 5,
+      cooldown: 3,
+      cost: 0,
+      targeting: { shape: 'box', range: 5, width: 3, height: 3, maxTargets: 9 },
+      monsterCast: { windupTicks: 0 },
+      effects: [],
+    }],
+  });
+  connectTargetPlayer(instance);
+  assert.equal(instance.damageTile(2, 1, Number.MAX_SAFE_INTEGER)?.destroyed, true);
+
+  const result = instance.tickOnce();
+  const action = result.monsterActions[0];
+
+  assert.equal(result.monsterActions.length, 1);
+  assert.equal(action?.kind, 'skill');
+  assert.equal(action?.skillId, skillId);
+  assert.equal(action?.targetX, 3);
+  assert.equal(action?.targetY, 1);
+  assert.equal(Array.isArray(action?.warningCells), true);
+  assert.ok(action.warningCells.length > 1, `expected targeted instant aoe cells, action=${JSON.stringify(action)}`);
+  assert.ok(
+    action.warningCells.some((cell) => cell.x === 3 && cell.y === 1),
+    `expected targeted instant aoe cells to include anchor, action=${JSON.stringify(action)}`,
+  );
+}
+
 testMonsterDoesNotAcquireTargetBehindWall();
 testMonsterAcquiresTargetAfterWallDestroyed();
 testDynamicBarrierBlocksMovementButNotSight();
@@ -525,9 +562,10 @@ testMonsterPendingCastNotPersistedAndClearedOnHydrate();
 testInstantMonsterSkillCommitsResourceCooldownAndDirtyRuntime();
 testChantedMonsterSkillCommitsOnceAndCarriesResourceCooldownSnapshots();
 testMonsterSkillInsufficientQiDoesNotEmitActionOrCommitCooldown();
+testInstantTargetedMonsterAoeCarriesAnchorAndCells();
 
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-monster-los',
-  answers: '妖兽不会隔墙索敌或攻击；遮挡地块被摧毁后才会按视野重新索敌；动态阵法边界挡通行但不遮挡视线；吟唱完成时原目标断开也不会静默丢弃技能 action；空实例休眠怪物主动 AI 时仍推进复活倒计时、清理追击态并取消残留吟唱；怪物 pending cast 死亡、过期和配置版本不匹配会产出取消 action；怪物 pending cast 不持久化且 hydrate 时显式清空；怪物瞬发/吟唱技能在 tick 生产阶段预提交元气与冷却，吟唱完成不重复扣元气，元气不足不产出技能 action 或冷却提交。',
+  answers: '妖兽不会隔墙索敌或攻击；遮挡地块被摧毁后才会按视野重新索敌；动态阵法边界挡通行但不遮挡视线；吟唱完成时原目标断开也不会静默丢弃技能 action；空实例休眠怪物主动 AI 时仍推进复活倒计时、清理追击态并取消残留吟唱；怪物 pending cast 死亡、过期和配置版本不匹配会产出取消 action；怪物 pending cast 不持久化且 hydrate 时显式清空；怪物瞬发/吟唱技能在 tick 生产阶段预提交元气与冷却，吟唱完成不重复扣元气，元气不足不产出技能 action 或冷却提交；目标型瞬发范围技能 action 会携带目标锚点和影响格。',
 }, null, 2));

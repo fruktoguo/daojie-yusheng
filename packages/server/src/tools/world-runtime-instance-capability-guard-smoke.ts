@@ -384,7 +384,7 @@ async function testRealLineAllowsPlayerBasicAttack() {
   assert.equal(typeof log[3][5], 'string');
   assert.deepEqual(log[4], ['setRetaliatePlayerTarget', 'player:target', 'player:attacker', 8]);
   assert.deepEqual(log[5], ['applyDamage', 'player:target', 9]);
-  assert.deepEqual(log[6], ['recordActivity', 'player:target', 8, { interruptCultivation: true }]);
+  assert.deepEqual(log[6], ['recordActivity', 'player:target', 8, { interruptCultivation: true, reason: 'attack' }]);
   assert.deepEqual(log[7].slice(0, 2), ['queuePlayerNotice', 'player:attacker']);
   assert.match(log[7][2], /发起攻击/);
   assert.match(log[7][2], /原始 14 - 实际 9 - 法术/);

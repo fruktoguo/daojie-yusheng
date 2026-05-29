@@ -5524,12 +5524,10 @@ class MapInstanceRuntime {
                     targetPlayerId: target.playerId,
                     kind: 'skill',
                     skillId: skill.id,
+                    targetX: skillAnchor.x,
+                    targetY: skillAnchor.y,
+                    warningCells,
                 };
-                if (resolveSkillRequiresTarget(skill) === false) {
-                    instantSkillAction.targetX = skillAnchor.x;
-                    instantSkillAction.targetY = skillAnchor.y;
-                    instantSkillAction.warningCells = warningCells;
-                }
                 monsterActions.push(instantSkillAction);
                 continue;
             }
