@@ -16,7 +16,6 @@ type ActivityPanelSocket = Pick<
 type ActivityPanelOptions = {
   socket: ActivityPanelSocket;
   isConnected: () => boolean;
-  sendUseItem: (itemInstanceId: string) => void;
 };
 type ActivityTab = 'month-card' | 'sign-in';
 
@@ -143,17 +142,7 @@ export class ActivityPanel {
       () => this.options.socket.sendClaimMeritMonthCard(),
       !status.canClaimToday,
     );
-    const useButton = this.createActionButton(
-      status.itemCount > 0 ? '叠加月卡' : '无月卡道具',
-      () => {
-        if (status.firstItemInstanceId) {
-          this.options.sendUseItem(status.firstItemInstanceId);
-          window.setTimeout(() => this.requestStatus(), 600);
-        }
-      },
-      !status.firstItemInstanceId,
-    );
-    actions.append(claimButton, useButton);
+    actions.append(claimButton);
     card.append(actions);
     return card;
   }

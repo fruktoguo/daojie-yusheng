@@ -101,7 +101,6 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const activityStateSource = createMainActivityStateSource({
     socket: socialEconomySender,
     isSocketConnected: () => socket.connected,
-    sendUseItem: (itemInstanceId) => panelSender.sendUseItem(itemInstanceId),
   });
 
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;

@@ -10,14 +10,12 @@ import type { SocketSocialEconomySender } from './network/socket-send-social-eco
 type MainActivityStateSourceOptions = {
   socket: Pick<SocketSocialEconomySender, 'sendRequestActivityStatus' | 'sendClaimMeritMonthCard' | 'sendClaimDailySignIn'>;
   isSocketConnected: () => boolean;
-  sendUseItem: (itemInstanceId: string) => void;
 };
 
 export function createMainActivityStateSource(options: MainActivityStateSourceOptions) {
   const activityPanel = new ActivityPanel({
     socket: options.socket,
     isConnected: options.isSocketConnected,
-    sendUseItem: options.sendUseItem,
   });
   return {
     init(): void {

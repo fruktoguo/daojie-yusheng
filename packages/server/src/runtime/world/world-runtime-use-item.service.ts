@@ -100,7 +100,7 @@ export class WorldRuntimeUseItemService {
             return;
         }
         if (item.useBehavior === MERIT_MONTH_CARD_USE_BEHAVIOR) {
-            await this.handleMeritMonthCardItem(playerId, itemInstanceId, item, deps);
+            await this.handleMeritMonthCardItem(playerId, itemInstanceId, item, deps, count);
             return;
         }
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
@@ -138,19 +138,25 @@ export class WorldRuntimeUseItemService {
         const n = buildStructuredNotice('success', 'notice.item.used', `使用 ${itemName}`, { vars: { itemName }, pills: [{ key: 'itemName', style: 'target' }] });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
     }    
-    async handleMeritMonthCardItem(playerId, itemInstanceId, item, deps) {
-        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, 1);
+    async handleMeritMonthCardItem(playerId, itemInstanceId, item, deps, count = 1) {
+        const normalizedCount = normalizeUseItemCount(count, item);
+        this.playerRuntimeService.consumeInventoryItemByInstanceId(playerId, itemInstanceId, normalizedCount);
         try {
-            await this.activityRuntimeService.activateMeritMonthCard(playerId);
+            await this.activityRuntimeService.activateMeritMonthCard(playerId, Date.now(), normalizedCount);
         }
         catch (error) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, { ...item, count: 1 });
+            this.playerRuntimeService.receiveInventoryItem(playerId, { ...item, count: normalizedCount });
             throw normalizeActivityError(error);
         }
         deps.refreshQuestStates(playerId);
         const itemName = getItemDisplayName(item);
         const n = buildStructuredNotice('success', 'notice.activity.month-card-activated', '已激活功德月卡，月卡总池已增加，领取时间已重置', {
-            vars: { itemName, merit: MERIT_MONTH_CARD_POOL_GRANT, days: MERIT_MONTH_CARD_DURATION_DAYS },
+            vars: {
+                itemName,
+                count: normalizedCount,
+                merit: MERIT_MONTH_CARD_POOL_GRANT * normalizedCount,
+                days: MERIT_MONTH_CARD_DURATION_DAYS,
+            },
             pills: [{ key: 'itemName', style: 'target' }],
         });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);

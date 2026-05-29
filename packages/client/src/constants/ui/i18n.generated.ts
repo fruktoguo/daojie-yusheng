@@ -2240,7 +2240,7 @@ export const CLIENT_I18N_MESSAGES = {
   "notice.action.compass-required": "需要装备铜罗盘才能望气",
   "notice.action.cultivation-toggled": "修炼已{state}",
   "notice.action.qi-sense-toggled": "望气视角已{state}",
-  "notice.activity.month-card-activated": "已激活{itemName}，月卡总池增加 {merit} 功德，领取时间重置为 {days} 天",
+  "notice.activity.month-card-activated": "已使用{itemName} x{count}，月卡总池增加 {merit} 功德，领取时间重置为 {days} 天",
   "notice.channel.combat": "战斗",
   "notice.channel.grudge": "情仇",
   "notice.channel.loot": "掉落",

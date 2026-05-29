@@ -11,6 +11,7 @@ import {
   MERIT_MONTH_CARD_DURATION_DAYS,
   MERIT_MONTH_CARD_ITEM_ID,
   MERIT_MONTH_CARD_OFFLINE_MAX_HOURS,
+  MERIT_MONTH_CARD_POOL_GRANT,
   type ActivityStatusView,
 } from '@mud/shared';
 import { ActivityPersistenceService, calculateMonthCardDailyReward } from '../../persistence/activity-persistence.service';
@@ -63,12 +64,13 @@ export class ActivityRuntimeService {
         today,
         rewardMerit: DAILY_SIGN_IN_REWARD_MERIT,
       },
-      hasRedDot: monthCardCanClaim || dailyCanClaim || inventory.itemCount > 0,
+      hasRedDot: monthCardCanClaim || dailyCanClaim,
     };
   }
 
-  async activateMeritMonthCard(playerId: string, nowMs = Date.now()) {
-    return this.activityPersistenceService.activateMonthCard(playerId, nowMs);
+  async activateMeritMonthCard(playerId: string, nowMs = Date.now(), count = 1) {
+    const normalizedCount = Math.max(1, Math.trunc(Number(count) || 1));
+    return this.activityPersistenceService.activateMonthCard(playerId, nowMs, normalizedCount * MERIT_MONTH_CARD_POOL_GRANT);
   }
 
   async claimMeritMonthCard(playerId: string, nowMs = Date.now()): Promise<void> {
