@@ -87,6 +87,17 @@ function calculateRuntimeThreatDelta(baseThreat, distance, extraAggroRate) {
     }
     return Math.min(MAX_THREAT_VALUE, delta);
 }
+function shouldExpireLegacyTemporaryTileByWallClock(state, expiresAtTick, currentTick, nowMs) {
+    const sourceSkillId = typeof state?.sourceSkillId === 'string' ? state.sourceSkillId.trim() : '';
+    if (!LEGACY_YI_KUNLUN_TEMPORARY_TILE_SKILL_IDS.has(sourceSkillId)) {
+        return false;
+    }
+    if (expiresAtTick - currentTick <= LEGACY_TEMPORARY_TILE_SUSPECT_REMAINING_TICKS) {
+        return false;
+    }
+    const createdAt = Math.max(0, Math.trunc(Number(state?.createdAt) || 0));
+    return createdAt > 0 && nowMs - createdAt >= LEGACY_TEMPORARY_TILE_WALL_CLOCK_DURATION_MS;
+}
 function compareRuntimeThreatEntry(left, right) {
     return right.value - left.value
         || right.lastUpdatedAt - left.lastUpdatedAt
@@ -103,6 +114,13 @@ const TERRAIN_MOLTEN_POOL_BURN_BUFF_ID = 'terrain_molten_pool_burn';
 /** MAP_TIME_PERSISTENCE_DOMAIN：实例当前时间的持久化脏域。 */
 const MAP_TIME_PERSISTENCE_DOMAIN = 'time';
 const MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS = normalizePositiveInteger(readTrimmedEnv('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_TICKS', 'MAP_TIME_CHECKPOINT_INTERVAL_TICKS'), 300, 30, 86_400);
+const LEGACY_YI_KUNLUN_TEMPORARY_TILE_SKILL_IDS = new Set([
+    'skill.yi_kunlun_point_stone',
+    'skill.yi_kunlun_hollow_square',
+    'skill.yi_kunlun_horizontal_wall',
+]);
+const LEGACY_TEMPORARY_TILE_WALL_CLOCK_DURATION_MS = 60_000;
+const LEGACY_TEMPORARY_TILE_SUSPECT_REMAINING_TICKS = 600;
 
 /** DEFAULT_TERRAIN_DURABILITY_BY_TILE：真正 terrain 层的默认耐久配置；structure 耐久见 shared structure profile。 */
 const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
@@ -2796,6 +2814,7 @@ class MapInstanceRuntime {
             return false;
         }
         const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        const nowMs = Date.now();
         let changed = false;
         let topologyChangedCellCount = 0;
         const toDelete: number[] = [];
@@ -2812,7 +2831,8 @@ class MapInstanceRuntime {
                 continue;
             }
             const expiresAtTick = Math.max(0, Math.trunc(Number(state.expiresAtTick) || 0));
-            if (expiresAtTick > 0 && normalizedTick >= expiresAtTick) {
+            if (expiresAtTick > 0 && (normalizedTick >= expiresAtTick
+                || shouldExpireLegacyTemporaryTileByWallClock(state, expiresAtTick, normalizedTick, nowMs))) {
                 if (this.shouldRecalculateRoomsForTileMutation(tileIndex, state.tileType, this.getBaseTileType(x, y))) {
                     topologyChangedCellCount += 1;
                 }

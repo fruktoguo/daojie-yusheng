@@ -140,6 +140,46 @@ function main(): void {
   assert.equal(instance.advanceTemporaryTiles(70), true);
   assert.equal(instance.getEffectiveTileType(2, 1), TileType.Floor);
 
+  const legacyCreatedAt = Date.now() - 61_000;
+  const legacyInstance = createInstance();
+  legacyInstance.hydrateTemporaryTiles([
+    {
+      tileIndex: 5,
+      x: 2,
+      y: 1,
+      tileType: TileType.Stone,
+      hp: 10,
+      maxHp: 10,
+      expiresAtTick: 5060,
+      ownerPlayerId: attacker.playerId,
+      sourceSkillId: SKILL_ID,
+      createdAt: legacyCreatedAt,
+      modifiedAt: legacyCreatedAt,
+    },
+  ]);
+  assert.equal(legacyInstance.getEffectiveTileType(2, 1), TileType.Stone);
+  assert.equal(legacyInstance.advanceTemporaryTiles(10), true);
+  assert.equal(legacyInstance.getEffectiveTileType(2, 1), TileType.Floor);
+
+  const stabilizedLegacyInstance = createInstance();
+  stabilizedLegacyInstance.hydrateTemporaryTiles([
+    {
+      tileIndex: 5,
+      x: 2,
+      y: 1,
+      tileType: TileType.Stone,
+      hp: 10,
+      maxHp: 10,
+      expiresAtTick: 5060,
+      ownerPlayerId: attacker.playerId,
+      sourceSkillId: SKILL_ID,
+      createdAt: legacyCreatedAt,
+      modifiedAt: legacyCreatedAt,
+    },
+  ]);
+  assert.equal(stabilizedLegacyInstance.advanceTemporaryTiles(10, () => true), false);
+  assert.equal(stabilizedLegacyInstance.getEffectiveTileType(2, 1), TileType.Stone);
+
   console.log(JSON.stringify({ ok: true, case: 'world-runtime-temporary-tile-skill' }, null, 2));
 }
 
