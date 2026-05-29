@@ -1886,9 +1886,6 @@ export class ActionPanel {
         lines.push(`术法：${formatDisplayInteger(skillCount)} 个`);
       }
     }
-    if (techniqueId) {
-      lines.push(`功法ID：${techniqueId}`);
-    }
     return { title, lines };
   }
 
