@@ -726,9 +726,10 @@ export class WorldRuntimePlayerSkillDispatchService {
             },
         });
         let created = 0;
+        const temporaryTileStartTick = Math.max(0, Math.trunc(Number(instance.tick ?? currentTick) || 0));
         for (const plan of plans) {
             for (const cell of plan.cells) {
-                const result = instance.createTemporaryTile?.(cell.x, cell.y, plan.tileType, plan.hp, plan.durationTicks, currentTick, {
+                const result = instance.createTemporaryTile?.(cell.x, cell.y, plan.tileType, plan.hp, plan.durationTicks, temporaryTileStartTick, {
                     ownerPlayerId: attacker.playerId,
                     sourceSkillId: skill.id,
                 });

@@ -112,6 +112,7 @@ const smokeCases = [
     { name: 'world-runtime-combat-outcome-variants', scriptFile: 'world-runtime-combat-outcome-variants-smoke.js', standalone: true },
   { name: 'world-runtime-auto-combat', scriptFile: 'world-runtime-auto-combat-smoke.js', standalone: true },
   { name: 'world-runtime-damageable-tile', scriptFile: 'world-runtime-damageable-tile-smoke.js', standalone: true },
+  { name: 'world-runtime-temporary-tile-skill', scriptFile: 'world-runtime-temporary-tile-skill-smoke.js', standalone: true },
   { name: 'world-runtime-formation', scriptFile: 'world-runtime-formation-smoke.js', standalone: true },
     { name: 'world-runtime-loot-container', scriptFile: 'world-runtime-loot-container-smoke.js', standalone: true },
     { name: 'world-runtime-monster-los', scriptFile: 'world-runtime-monster-los-smoke.js', standalone: true },
