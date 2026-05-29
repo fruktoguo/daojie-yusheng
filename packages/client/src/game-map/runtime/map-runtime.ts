@@ -233,8 +233,8 @@ export class MapRuntime implements MapRuntimeApi {
  /**
  * y：y相关字段。
  */
- y: number }>, options?: { previewFirstStep?: boolean }): void {
-    this.store.setPathCells(cells, options);
+ y: number }>): void {
+    this.store.setPathCells(cells);
     this.syncSceneFromStore();
   }
 
@@ -356,9 +356,6 @@ export class MapRuntime implements MapRuntimeApi {
       this.nextFrameAt += minFrameIntervalMs;
       while (this.nextFrameAt <= now) {
         this.nextFrameAt += minFrameIntervalMs;
-      }
-      if (this.store.clearExpiredLocalMovePreview(now)) {
-        this.syncSceneFromStore();
       }
       this.camera.update(dt);
       const timing = this.store.getTickTiming();

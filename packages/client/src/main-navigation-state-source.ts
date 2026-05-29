@@ -181,7 +181,7 @@ type MainNavigationStateSourceOptions = {
  /**
  * y：y相关字段。
  */
- y: number }>, options?: { previewFirstStep?: boolean }) => void;
+ y: number }>) => void;  
  /**
  * sendMove：sendMove相关字段。
  */
@@ -862,7 +862,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       pathTarget = { x: target.x, y: target.y, mapId: targetMapId };
       const preview = sameMap ? buildClientPreviewPath(player.x, player.y, target.x, target.y) : null;
       pathCells = sameMap ? (preview?.cells ?? [{ x: target.x, y: target.y }]) : [];
-      options.setRuntimePathCells(pathCells, { previewFirstStep: sameMap });
+      options.setRuntimePathCells(pathCells);
       logMovement('client.intent.moveTo', {
         playerId: player.id,
         from: { x: player.x, y: player.y, mapId: player.mapId },

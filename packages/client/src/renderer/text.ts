@@ -1535,11 +1535,6 @@ export class TextRenderer implements IRenderer {
     settleMotion = false,
     settleEntityId?: string,
     motionSyncToken?: number,
-    previewMotion = false,
-    previewFromX?: number,
-    previewFromY?: number,
-    previewToX?: number,
-    previewToY?: number,
   ) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -1560,23 +1555,10 @@ export class TextRenderer implements IRenderer {
         const sameGrid = anim.gridX === e.wx && anim.gridY === e.wy;
         const sameTarget = anim.targetWX === twx && anim.targetWY === twy;
         if (e.id === movedId) {
-          if (
-            previewMotion
-            && Number.isFinite(previewFromX)
-            && Number.isFinite(previewFromY)
-            && Number.isFinite(previewToX)
-            && Number.isFinite(previewToY)
-          ) {
-            anim.oldWX = Number(previewFromX) * cellSize;
-            anim.oldWY = Number(previewFromY) * cellSize;
-            anim.targetWX = Number(previewToX) * cellSize;
-            anim.targetWY = Number(previewToY) * cellSize;
-          } else {
-            anim.oldWX = (e.wx - shiftX) * cellSize;
-            anim.oldWY = (e.wy - shiftY) * cellSize;
-            anim.targetWX = twx;
-            anim.targetWY = twy;
-          }
+          anim.oldWX = (e.wx - shiftX) * cellSize;
+          anim.oldWY = (e.wy - shiftY) * cellSize;
+          anim.targetWX = twx;
+          anim.targetWY = twy;
         } else if (settleMotion && e.id === settleEntityId) {
           anim.oldWX = twx;
           anim.oldWY = twy;
