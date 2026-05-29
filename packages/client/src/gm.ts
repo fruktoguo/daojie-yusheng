@@ -5782,9 +5782,11 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     luck: 0,
     alchemySkill: { level: 1, exp: 0, expToNext: 0 },
     forgingSkill: { level: 1, exp: 0, expToNext: 0 },
+    buildingSkill: { level: 1, exp: 0, expToNext: 0 },
     gatherSkill: { level: 1, exp: 0, expToNext: 0 },
     miningSkill: { level: 1, exp: 0, expToNext: 0 },
     formationSkill: { level: 1, exp: 0, expToNext: 0 },
+    transmissionSkill: { level: 1, exp: 0, expToNext: 0 },
     enhancementSkill: { level: 1, exp: 0, expToNext: 0 },
     enhancementSkillLevel: 1,
     baseAttrs: { ...DEFAULT_BASE_ATTRS },
@@ -6320,10 +6322,12 @@ function renderEditorTabSection(tab: GmEditorTab, content: string): string {
 const GM_CRAFT_SKILL_EDITOR_ENTRIES = [
   { key: 'alchemySkill', label: '炼丹' },
   { key: 'forgingSkill', label: '炼器' },
+  { key: 'enhancementSkill', label: '强化' },
+  { key: 'transmissionSkill', label: '传法' },
+  { key: 'formationSkill', label: '阵法' },
   { key: 'gatherSkill', label: '采集' },
   { key: 'miningSkill', label: '挖矿' },
-  { key: 'formationSkill', label: '阵法' },
-  { key: 'enhancementSkill', label: '强化' },
+  { key: 'buildingSkill', label: '营造' },
 ] as const;
 
 function getCraftSkillDraft(draft: PlayerState, key: (typeof GM_CRAFT_SKILL_EDITOR_ENTRIES)[number]['key']): NonNullable<PlayerState['alchemySkill']> {
@@ -9315,10 +9319,12 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
       return {
         alchemySkill: buildCraftSkillSaveSnapshot(draft.alchemySkill),
         forgingSkill: buildCraftSkillSaveSnapshot(draft.forgingSkill),
+        enhancementSkill: buildCraftSkillSaveSnapshot(draft.enhancementSkill),
+        transmissionSkill: buildCraftSkillSaveSnapshot(draft.transmissionSkill),
+        formationSkill: buildCraftSkillSaveSnapshot(draft.formationSkill),
         gatherSkill: buildCraftSkillSaveSnapshot(draft.gatherSkill),
         miningSkill: buildCraftSkillSaveSnapshot(draft.miningSkill),
-        formationSkill: buildCraftSkillSaveSnapshot(draft.formationSkill),
-        enhancementSkill: buildCraftSkillSaveSnapshot(draft.enhancementSkill),
+        buildingSkill: buildCraftSkillSaveSnapshot(draft.buildingSkill),
         enhancementSkillLevel: Math.max(1, Math.trunc(Number(draft.enhancementSkill?.level ?? draft.enhancementSkillLevel) || 1)),
       };
     case 'items':
