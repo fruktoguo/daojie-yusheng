@@ -7,6 +7,9 @@ import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import { resolveProjectPath } from '../../common/project-path';
 import {
+  resolveCanonicalItemTemplateId,
+} from '@mud/shared';
+import {
   collectJsonFiles,
   createItemInstanceFromTemplate,
   normalizeItemTemplate,
@@ -20,10 +23,6 @@ type ItemTemplateRecord = Record<string, unknown> & {
   name: string;
   type?: string;
 };
-
-const ITEM_TEMPLATE_ALIASES = new Map<string, string>([
-  ['equip.copper_array_plate', 'formation_disk.mortal'],
-]);
 
 @Injectable()
 export class ItemTemplateRegistry {
@@ -160,6 +159,5 @@ export class ItemTemplateRegistry {
 }
 
 function resolveItemTemplateId(itemId: unknown): string {
-  const normalized = String(itemId ?? '').trim();
-  return ITEM_TEMPLATE_ALIASES.get(normalized) ?? normalized;
+  return resolveCanonicalItemTemplateId(itemId);
 }

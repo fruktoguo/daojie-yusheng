@@ -16,12 +16,34 @@ const hydratedJadeSlip = contentTemplateRepository.normalizeItem({
   itemInstanceId: 'jade-slip-template-smoke',
   count: 1,
 });
+const hydratedLegacyQizhenFateStone = contentTemplateRepository.normalizeItem({
+  itemId: 'fate_stone.qizhen_crossing',
+  itemInstanceId: 'legacy-qizhen-fate-stone-template-smoke',
+  count: 1,
+});
+const hydratedLegacyYunlaiFateStone = contentTemplateRepository.normalizeItem({
+  itemId: 'fate_stone.yunlai_town',
+  itemInstanceId: 'legacy-yunlai-fate-stone-template-smoke',
+  count: 1,
+});
+const hydratedLegacyArrayPlate = contentTemplateRepository.normalizeItem({
+  itemId: 'equip.copper_array_plate',
+  itemInstanceId: 'legacy-array-plate-template-smoke',
+  count: 1,
+});
 
 assert.equal(
   hydratedJadeSlip?.useBehavior,
   'open_technique_generation',
   '悟道玉简应能从物品模板恢复特殊使用行为',
 );
+assert.equal(hydratedLegacyQizhenFateStone?.itemId, 'fate_stone');
+assert.equal(hydratedLegacyQizhenFateStone?.name, '命石');
+assert.equal(hydratedLegacyQizhenFateStone?.useBehavior, 'bind_current_respawn');
+assert.equal(hydratedLegacyYunlaiFateStone?.itemId, 'fate_stone');
+assert.equal(hydratedLegacyYunlaiFateStone?.name, '命石');
+assert.equal(hydratedLegacyArrayPlate?.itemId, 'formation_disk.mortal');
+assert.equal(hydratedLegacyArrayPlate?.name, '凡品阵盘');
 
 let normalUseCalled = false;
 const notices: Array<{
