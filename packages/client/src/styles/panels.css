@@ -7057,6 +7057,28 @@
       line-height: 1.45;
       color: var(--ink-grey);
     }
+    .action-technique-chip {
+      display: inline-flex;
+      align-items: center;
+      max-width: min(100%, 220px);
+      margin: 0 2px;
+      padding: 1px 7px;
+      border: 1px solid rgba(120, 70, 34, 0.28);
+      background: rgba(160, 94, 48, 0.1);
+      color: #7c3f19;
+      font-weight: 700;
+      border-radius: 999px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: baseline;
+      white-space: nowrap;
+      cursor: help;
+    }
+    :root[data-color-mode="dark"] .action-technique-chip {
+      border-color: rgba(236, 184, 118, 0.34);
+      background: rgba(236, 184, 118, 0.12);
+      color: #f0c58b;
+    }
     .action-skill-affinity-chip {
       left: 0;
       bottom: -2px;

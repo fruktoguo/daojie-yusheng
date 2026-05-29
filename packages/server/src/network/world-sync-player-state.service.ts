@@ -393,6 +393,21 @@ function toActionDefinition(entry) {
   if (typeof normalizedEntry.targetMode === 'string' && normalizedEntry.targetMode.trim()) {
     action.targetMode = normalizedEntry.targetMode;
   }
+  if (typeof normalizedEntry.scriptureTechniqueId === 'string' && normalizedEntry.scriptureTechniqueId.trim()) {
+    action.scriptureTechniqueId = normalizedEntry.scriptureTechniqueId.trim();
+  }
+  if (typeof normalizedEntry.scriptureTechniqueName === 'string' && normalizedEntry.scriptureTechniqueName.trim()) {
+    action.scriptureTechniqueName = normalizedEntry.scriptureTechniqueName.trim();
+  }
+  if (Number.isFinite(Number(normalizedEntry.scriptureTechniqueRealmLv))) {
+    action.scriptureTechniqueRealmLv = Math.max(1, Math.trunc(Number(normalizedEntry.scriptureTechniqueRealmLv)));
+  }
+  if (typeof normalizedEntry.scriptureTechniqueGrade === 'string' && normalizedEntry.scriptureTechniqueGrade.trim()) {
+    action.scriptureTechniqueGrade = normalizedEntry.scriptureTechniqueGrade.trim();
+  }
+  if (typeof normalizedEntry.scriptureTechniqueCategory === 'string' && normalizedEntry.scriptureTechniqueCategory.trim()) {
+    action.scriptureTechniqueCategory = normalizedEntry.scriptureTechniqueCategory.trim();
+  }
   return action;
 }
 

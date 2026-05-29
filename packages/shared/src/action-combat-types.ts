@@ -4,6 +4,7 @@
  * 维护时应保持无副作用、可在浏览器与 Node 环境同时使用，不引入单端专属依赖。
  */
 import type { GridPoint } from './targeting';
+import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
 
 /**
  * 行动定义与战斗表现相关的共享类型。
@@ -74,6 +75,16 @@ export interface ActionDef {
  */
 
   skillEnabled?: boolean;
+  /** 藏经台参悟目标功法 ID。 */
+  scriptureTechniqueId?: string;
+  /** 藏经台参悟目标功法名称。 */
+  scriptureTechniqueName?: string;
+  /** 藏经台参悟目标功法境界等级。 */
+  scriptureTechniqueRealmLv?: number;
+  /** 藏经台参悟目标功法品阶。 */
+  scriptureTechniqueGrade?: TechniqueGrade;
+  /** 藏经台参悟目标功法类别。 */
+  scriptureTechniqueCategory?: TechniqueCategory;
 }
 
 /** 战斗攻击特效。 */

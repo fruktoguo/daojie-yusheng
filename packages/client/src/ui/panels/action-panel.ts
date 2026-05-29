@@ -15,6 +15,7 @@ import {
   ItemStack,
   PlayerState,
   SkillDef,
+  getTechniqueMaxLevel,
   resolveSkillRequiresTarget,
   resolveSkillUnlockLevel,
   type ElementKey,
@@ -26,7 +27,7 @@ import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPrevi
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { getLocalItemTemplate, getLocalRealmLevelEntry, resolvePreviewItem } from '../../content/local-templates';
-import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
+import { getActionTypeLabel, getElementKeyLabel, getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../../domain-labels';
 import {
   ACTION_SHORTCUTS_CHANGED_EVENT,
   ACTION_SHORTCUTS_KEY,
@@ -34,7 +35,7 @@ import {
   RETURN_TO_SPAWN_ACTION_ID,
   getStaticClientActionDef,
 } from '../../constants/ui/action';
-import { formatDisplayNumber } from '../../utils/number';
+import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { t } from '../i18n';
 import {
   appendUnique,
@@ -225,6 +226,10 @@ const DEFAULT_SECT_MANAGEMENT_PERMISSIONS: SectManagementPermission[] = [
 
 function stripSectManagementData(desc: string | undefined): string {
   return (desc ?? '').replace(SECT_MANAGEMENT_DATA_PATTERN, '').trim();
+}
+
+function normalizeActionText(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
 }
 
 function parseSectManagementData(desc: string | undefined, player: PlayerState | null): SectManagementData {
@@ -955,6 +960,11 @@ export class ActionPanel {
         action.type,
         action.name,
         action.desc,
+        action.scriptureTechniqueId ?? '',
+        action.scriptureTechniqueName ?? '',
+        action.scriptureTechniqueRealmLv ?? '',
+        action.scriptureTechniqueGrade ?? '',
+        action.scriptureTechniqueCategory ?? '',
         action.range ?? '',
         action.requiresTarget ? 'target' : '',
         action.targetMode ?? '',
@@ -1166,6 +1176,46 @@ export class ActionPanel {
           allowHtml: rich,
           asideCards: tooltip.asideCards,
         });
+      }, { signal });
+      node.addEventListener('pointermove', (event) => {
+        if (tapMode && this.tooltip.isPinned()) {
+          return;
+        }
+        this.tooltip.move(event.clientX, event.clientY);
+      }, { signal });
+      node.addEventListener('pointerleave', () => {
+        this.tooltip.hide();
+      }, { signal });
+    });
+    root.querySelectorAll<HTMLElement>('[data-action-technique-tooltip="true"]').forEach((node) => {
+      const showTechniqueTooltip = (event: MouseEvent, pinned = false): void => {
+        const tooltip = this.buildActionTechniqueTooltip(node);
+        if (!tooltip) {
+          return;
+        }
+        if (pinned) {
+          this.tooltip.showPinned(node, tooltip.title, tooltip.lines, event.clientX, event.clientY);
+          return;
+        }
+        this.tooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY);
+      };
+      node.addEventListener('click', (event) => {
+        if (!tapMode || !(event instanceof MouseEvent)) {
+          return;
+        }
+        if (this.tooltip.isPinnedTo(node)) {
+          this.tooltip.hide(true);
+          return;
+        }
+        showTechniqueTooltip(event, true);
+        event.preventDefault();
+        event.stopPropagation();
+      }, { capture: true, signal });
+      node.addEventListener('pointerenter', (event) => {
+        if (tapMode && this.tooltip.isPinned()) {
+          return;
+        }
+        showTechniqueTooltip(event);
       }, { signal });
       node.addEventListener('pointermove', (event) => {
         if (tapMode && this.tooltip.isPinned()) {
@@ -1798,6 +1848,57 @@ export class ActionPanel {
     return fallback.map((action) => fallbackMap.get(action.id) ?? action);
   }
 
+  private renderActionDescription(action: ActionDef): string {
+    if (!action.id.startsWith('scripture:contemplate:')) {
+      return escapeHtml(stripSectManagementData(action.desc));
+    }
+    const techniqueId = normalizeActionText(action.scriptureTechniqueId);
+    const techniqueName = normalizeActionText(action.scriptureTechniqueName) || this.resolveKnownTechniqueName(techniqueId) || '功法';
+    const chip = `<span class="action-technique-chip" data-action-technique-tooltip="true">${escapeHtml(techniqueName)}</span>`;
+    return `参悟藏经台内的${chip}。`;
+  }
+
+  private buildActionTechniqueTooltip(node: HTMLElement): { title: string; lines: string[] } | null {
+    const actionId = node.closest<HTMLElement>('[data-action-row]')?.dataset.actionRow ?? '';
+    const action = this.currentActions.find((entry) => entry.id === actionId);
+    if (!action) {
+      return null;
+    }
+    const techniqueId = normalizeActionText(action.scriptureTechniqueId);
+    const knownTechnique = techniqueId
+      ? this.previewPlayer?.techniques?.find((entry) => entry.techId === techniqueId)
+      : undefined;
+    const title = normalizeActionText(knownTechnique?.name) || normalizeActionText(action.scriptureTechniqueName) || techniqueId || '功法';
+    const grade = knownTechnique?.grade ?? action.scriptureTechniqueGrade;
+    const category = knownTechnique?.category ?? action.scriptureTechniqueCategory;
+    const realmLv = Math.max(1, Math.trunc(Number(knownTechnique?.realmLv ?? action.scriptureTechniqueRealmLv) || 1));
+    const lines = [
+      `品阶：${getTechniqueGradeLabel(grade)}`,
+      `类别：${getTechniqueCategoryLabel(category)}`,
+      `境界：${getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`}`,
+    ];
+    if (knownTechnique) {
+      const level = Math.max(1, Math.trunc(Number(knownTechnique.level) || 1));
+      const maxLevel = getTechniqueMaxLevel(Array.isArray(knownTechnique.layers) ? knownTechnique.layers : undefined, level);
+      lines.push(`层数：第 ${formatDisplayInteger(level)}/${formatDisplayInteger(maxLevel)} 层`);
+      const skillCount = Array.isArray(knownTechnique.skills) ? knownTechnique.skills.length : 0;
+      if (skillCount > 0) {
+        lines.push(`术法：${formatDisplayInteger(skillCount)} 个`);
+      }
+    }
+    if (techniqueId) {
+      lines.push(`功法ID：${techniqueId}`);
+    }
+    return { title, lines };
+  }
+
+  private resolveKnownTechniqueName(techniqueId: string): string {
+    if (!techniqueId) {
+      return '';
+    }
+    return normalizeActionText(this.previewPlayer?.techniques?.find((entry) => entry.techId === techniqueId)?.name);
+  }
+
   /** 渲染单条动作或技能卡片。 */
   private renderActionItem(
     action: ActionDef,
@@ -1854,7 +1955,7 @@ export class ActionPanel {
             : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
-        <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
+        <div class="action-desc">${this.renderActionDescription(action)}</div>
         ${affinityChip}
       </div>
       <div class="action-cta ui-action-row ui-action-row--end">

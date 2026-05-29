@@ -901,6 +901,11 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       targetMode: applyNullablePatch(patch.targetMode, previousSameAction?.targetMode ?? staticAction?.targetMode)
         ?? skillTemplate?.targetMode
         ?? (isSkillAction ? 'any' : undefined),
+      scriptureTechniqueId: applyNullablePatch(patch.scriptureTechniqueId, previousSameAction?.scriptureTechniqueId),
+      scriptureTechniqueName: applyNullablePatch(patch.scriptureTechniqueName, previousSameAction?.scriptureTechniqueName),
+      scriptureTechniqueRealmLv: applyNullablePatch(patch.scriptureTechniqueRealmLv, previousSameAction?.scriptureTechniqueRealmLv),
+      scriptureTechniqueGrade: applyNullablePatch(patch.scriptureTechniqueGrade, previousSameAction?.scriptureTechniqueGrade),
+      scriptureTechniqueCategory: applyNullablePatch(patch.scriptureTechniqueCategory, previousSameAction?.scriptureTechniqueCategory),
     };
   }  
   /**
@@ -991,6 +996,11 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         || previous.range !== next.range
         || previous.requiresTarget !== next.requiresTarget
         || previous.targetMode !== next.targetMode
+        || previous.scriptureTechniqueId !== next.scriptureTechniqueId
+        || previous.scriptureTechniqueName !== next.scriptureTechniqueName
+        || previous.scriptureTechniqueRealmLv !== next.scriptureTechniqueRealmLv
+        || previous.scriptureTechniqueGrade !== next.scriptureTechniqueGrade
+        || previous.scriptureTechniqueCategory !== next.scriptureTechniqueCategory
         || previous.autoBattleEnabled !== next.autoBattleEnabled
         || previous.skillEnabled !== next.skillEnabled
       ) {

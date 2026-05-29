@@ -327,11 +327,20 @@ function testScripturePlatformActionsAreSingleEntrypoints() {
     ]);
     building.scriptureTechniqueId = 'tech.scripture';
     building.scriptureTechniqueName = '藏经试炼功法';
+    building.scriptureRealmLv = 3;
+    building.scriptureGrade = 'mystic';
+    building.scriptureCategory = 'internal';
     building.scriptureRecordedAtTick = 12;
     actions = service.buildContextActions(baseView, deps);
     assert.deepEqual(actions.filter((entry) => entry.id.startsWith('scripture:')).map((entry) => [entry.id, entry.name]), [
         ['scripture:contemplate:building%3Ascripture', '参悟'],
     ]);
+    const contemplateAction = actions.find((entry) => entry.id === 'scripture:contemplate:building%3Ascripture');
+    assert.equal(contemplateAction?.scriptureTechniqueId, 'tech.scripture');
+    assert.equal(contemplateAction?.scriptureTechniqueName, '藏经试炼功法');
+    assert.equal(contemplateAction?.scriptureTechniqueRealmLv, 3);
+    assert.equal(contemplateAction?.scriptureTechniqueGrade, 'mystic');
+    assert.equal(contemplateAction?.scriptureTechniqueCategory, 'internal');
 }
 
 testBuildContextActions();

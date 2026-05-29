@@ -261,6 +261,16 @@ export interface ActionUpdateEntryView {
  */
 
   targetMode?: 'any' | 'entity' | 'tile' | null;
+  /** 藏经台参悟目标功法 ID。 */
+  scriptureTechniqueId?: string | null;
+  /** 藏经台参悟目标功法名称。 */
+  scriptureTechniqueName?: string | null;
+  /** 藏经台参悟目标功法境界等级。 */
+  scriptureTechniqueRealmLv?: number | null;
+  /** 藏经台参悟目标功法品阶。 */
+  scriptureTechniqueGrade?: TechniqueGrade | null;
+  /** 藏经台参悟目标功法类别。 */
+  scriptureTechniqueCategory?: TechniqueCategory | null;
 }
 
 /** 属性面板增量视图。 */

@@ -104,6 +104,11 @@ export function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unkn
   setNullableWireValue(wire, 'range', 'clearRange', entry.range);
   setNullableWireValue(wire, 'requiresTarget', 'clearRequiresTarget', entry.requiresTarget);
   setNullableWireValue(wire, 'targetMode', 'clearTargetMode', entry.targetMode);
+  setNullableWireValue(wire, 'scriptureTechniqueId', 'clearScriptureTechniqueId', entry.scriptureTechniqueId);
+  setNullableWireValue(wire, 'scriptureTechniqueName', 'clearScriptureTechniqueName', entry.scriptureTechniqueName);
+  setNullableWireValue(wire, 'scriptureTechniqueRealmLv', 'clearScriptureTechniqueRealmLv', entry.scriptureTechniqueRealmLv);
+  setNullableWireValue(wire, 'scriptureTechniqueGrade', 'clearScriptureTechniqueGrade', entry.scriptureTechniqueGrade);
+  setNullableWireValue(wire, 'scriptureTechniqueCategory', 'clearScriptureTechniqueCategory', entry.scriptureTechniqueCategory);
   return wire;
 }
 
@@ -134,6 +139,16 @@ export function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdate
   if (requiresTarget !== undefined) patch.requiresTarget = requiresTarget;
   const targetMode = readNullableWireValue<ActionDef['targetMode']>(wire, 'targetMode', 'clearTargetMode');
   if (targetMode !== undefined) patch.targetMode = targetMode;
+  const scriptureTechniqueId = readNullableWireValue<string>(wire, 'scriptureTechniqueId', 'clearScriptureTechniqueId');
+  if (scriptureTechniqueId !== undefined) patch.scriptureTechniqueId = scriptureTechniqueId;
+  const scriptureTechniqueName = readNullableWireValue<string>(wire, 'scriptureTechniqueName', 'clearScriptureTechniqueName');
+  if (scriptureTechniqueName !== undefined) patch.scriptureTechniqueName = scriptureTechniqueName;
+  const scriptureTechniqueRealmLv = readNullableWireValue<number>(wire, 'scriptureTechniqueRealmLv', 'clearScriptureTechniqueRealmLv');
+  if (scriptureTechniqueRealmLv !== undefined) patch.scriptureTechniqueRealmLv = scriptureTechniqueRealmLv === null ? null : Number(scriptureTechniqueRealmLv);
+  const scriptureTechniqueGrade = readNullableWireValue<ActionDef['scriptureTechniqueGrade']>(wire, 'scriptureTechniqueGrade', 'clearScriptureTechniqueGrade');
+  if (scriptureTechniqueGrade !== undefined) patch.scriptureTechniqueGrade = scriptureTechniqueGrade;
+  const scriptureTechniqueCategory = readNullableWireValue<ActionDef['scriptureTechniqueCategory']>(wire, 'scriptureTechniqueCategory', 'clearScriptureTechniqueCategory');
+  if (scriptureTechniqueCategory !== undefined) patch.scriptureTechniqueCategory = scriptureTechniqueCategory;
   return patch;
 }
 

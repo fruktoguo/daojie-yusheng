@@ -307,6 +307,11 @@ function buildScripturePlatformActions(player, building) {
             name: '参悟',
             type: 'interact',
             desc: `参悟藏经台内的${normalizeText(building.scriptureTechniqueName) || '功法'}。`,
+            scriptureTechniqueId: existingTechniqueId,
+            scriptureTechniqueName: normalizeText(building.scriptureTechniqueName) || existingTechniqueId,
+            scriptureTechniqueRealmLv: Math.max(1, Math.trunc(Number(building.scriptureRealmLv) || 1)),
+            scriptureTechniqueGrade: normalizeText(building.scriptureGrade) || undefined,
+            scriptureTechniqueCategory: normalizeText(building.scriptureCategory) || undefined,
             cooldownLeft: 0,
         }];
     }

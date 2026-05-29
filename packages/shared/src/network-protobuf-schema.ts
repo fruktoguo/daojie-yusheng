@@ -249,6 +249,16 @@ message ActionUpdateEntryPayload {
   optional bool clearRequiresTarget = 18;
   optional string targetMode = 19;
   optional bool clearTargetMode = 20;
+  optional string scriptureTechniqueId = 21;
+  optional bool clearScriptureTechniqueId = 22;
+  optional string scriptureTechniqueName = 23;
+  optional bool clearScriptureTechniqueName = 24;
+  optional uint32 scriptureTechniqueRealmLv = 25;
+  optional bool clearScriptureTechniqueRealmLv = 26;
+  optional string scriptureTechniqueGrade = 27;
+  optional bool clearScriptureTechniqueGrade = 28;
+  optional string scriptureTechniqueCategory = 29;
+  optional bool clearScriptureTechniqueCategory = 30;
 }
 
 message AttrUpdatePayload {
