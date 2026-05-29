@@ -140,7 +140,6 @@ function main(): void {
   assert.equal(instance.advanceTemporaryTiles(70), true);
   assert.equal(instance.getEffectiveTileType(2, 1), TileType.Floor);
 
-  const legacyCreatedAt = Date.now() - 61_000;
   const legacyInstance = createInstance();
   legacyInstance.hydrateTemporaryTiles([
     {
@@ -153,16 +152,18 @@ function main(): void {
       expiresAtTick: 5060,
       ownerPlayerId: attacker.playerId,
       sourceSkillId: SKILL_ID,
-      createdAt: legacyCreatedAt,
-      modifiedAt: legacyCreatedAt,
+      createdAt: Date.now(),
+      modifiedAt: Date.now(),
     },
   ]);
   assert.equal(legacyInstance.getEffectiveTileType(2, 1), TileType.Stone);
-  assert.equal(legacyInstance.advanceTemporaryTiles(10), true);
+  assert.equal(legacyInstance.advanceTemporaryTiles(10), false);
+  assert.equal(legacyInstance.getEffectiveTileType(2, 1), TileType.Stone);
+  assert.deepEqual(legacyInstance.removeAbnormalTemporaryTiles(10), { scanned: 1, removed: 1 });
   assert.equal(legacyInstance.getEffectiveTileType(2, 1), TileType.Floor);
 
-  const stabilizedLegacyInstance = createInstance();
-  stabilizedLegacyInstance.hydrateTemporaryTiles([
+  const normalInstance = createInstance();
+  normalInstance.hydrateTemporaryTiles([
     {
       tileIndex: 5,
       x: 2,
@@ -173,12 +174,12 @@ function main(): void {
       expiresAtTick: 5060,
       ownerPlayerId: attacker.playerId,
       sourceSkillId: SKILL_ID,
-      createdAt: legacyCreatedAt,
-      modifiedAt: legacyCreatedAt,
+      createdAt: Date.now(),
+      modifiedAt: Date.now(),
     },
   ]);
-  assert.equal(stabilizedLegacyInstance.advanceTemporaryTiles(10, () => true), false);
-  assert.equal(stabilizedLegacyInstance.getEffectiveTileType(2, 1), TileType.Stone);
+  assert.deepEqual(normalInstance.removeAbnormalTemporaryTiles(4500), { scanned: 1, removed: 0 });
+  assert.equal(normalInstance.getEffectiveTileType(2, 1), TileType.Stone);
 
   console.log(JSON.stringify({ ok: true, case: 'world-runtime-temporary-tile-skill' }, null, 2));
 }

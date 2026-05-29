@@ -2394,6 +2394,26 @@ export interface GmShortcutRunRes {
 
   totalFoundationGranted?: number;
   /**
+ * scannedInstances：扫描实例数。
+ */
+
+  scannedInstances?: number;
+  /**
+ * affectedInstances：发生清理的实例数。
+ */
+
+  affectedInstances?: number;
+  /**
+ * removedTemporaryTiles：移除异常临时地块数。
+ */
+
+  removedTemporaryTiles?: number;
+  /**
+ * flushedInstances：已同步刷盘的实例数。
+ */
+
+  flushedInstances?: number;
+  /**
  * targetMapId：目标地图ID标识。
  */
 

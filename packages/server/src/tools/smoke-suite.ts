@@ -183,6 +183,7 @@ const smokeCases = [
   { name: 'gm-world-outbox-retry-queue', scriptFile: 'gm-world-outbox-retry-queue-smoke.js', standalone: true },
   { name: 'gm-world-dirty-backlog', scriptFile: 'gm-world-dirty-backlog-smoke.js', standalone: true },
   { name: 'gm-world-nodes', scriptFile: 'gm-world-nodes-smoke.js', standalone: true },
+  { name: 'gm-world-abnormal-temporary-tile-cleanup', scriptFile: 'gm-world-abnormal-temporary-tile-cleanup-smoke.js', standalone: true },
   { name: 'mail-expiration-cleanup-worker', scriptFile: 'mail-expiration-cleanup-worker-smoke.js', standalone: true },
   { name: 'mail-expiration-archive-worker', scriptFile: 'mail-expiration-archive-worker-smoke.js', standalone: true },
   { name: 'mail-soft-delete-purge-worker', scriptFile: 'mail-soft-delete-purge-worker-smoke.js', standalone: true },
@@ -279,6 +280,7 @@ const SMOKE_CASE_GROUPS = Object.freeze({
     'gm-world-outbox-retry-queue',
     'gm-world-dirty-backlog',
     'gm-world-nodes',
+    'gm-world-abnormal-temporary-tile-cleanup',
   ],
   'mail-outbox-flush': [
     'mail-expiration-cleanup-worker',

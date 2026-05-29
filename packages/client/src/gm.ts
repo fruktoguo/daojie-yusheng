@@ -10186,6 +10186,35 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
   }
 }
 
+/** cleanupAbnormalTemporaryTiles：处理cleanup Abnormal Temporary Tiles。 */
+async function cleanupAbnormalTemporaryTiles(): Promise<void> {
+  if (!window.confirm(t('gm.shortcut.cleanup-abnormal-temp.confirm'))) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-cleanup-abnormal-temporary-tiles') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/world/cleanup-abnormal-temporary-tiles`, {
+      method: 'POST',
+    });
+    await delayRefresh(t('gm.shortcut.cleanup-abnormal-temp.done', {
+      scannedInstances: Math.floor(result.scannedInstances ?? 0),
+      affectedInstances: Math.floor(result.affectedInstances ?? 0),
+      removedTemporaryTiles: Math.floor(result.removedTemporaryTiles ?? 0),
+      flushedInstances: Math.floor(result.flushedInstances ?? 0),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** compensateAllPlayersCombatExp：处理compensate All Players战斗Exp。 */
 async function compensateAllPlayersCombatExp(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -11274,6 +11303,9 @@ document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListene
 });
 document.getElementById('shortcut-cleanup-invalid-items')?.addEventListener('click', () => {
   cleanupAllPlayersInvalidItems().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-cleanup-abnormal-temporary-tiles')?.addEventListener('click', () => {
+  cleanupAbnormalTemporaryTiles().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-compensate-combat-exp-2026-04-09')?.addEventListener('click', () => {
   compensateAllPlayersCombatExp().catch((e) => console.error('[GM]', e));

@@ -196,6 +196,7 @@ interface WorldRuntimeServiceLike {
   getPlayerLocation(playerId: string): { instanceId: string } | null;
   createInstance(input: unknown): { snapshot(): unknown };
   listInstanceRuntimes(): Iterable<Record<string, unknown>>;
+  listInstanceEntries(): Iterable<[string, Record<string, unknown>]>;
   getInstanceCount(): number;
   playerRuntimeService: PlayerRuntimeQueryLike;
   worldRuntimeGmQueueService: WorldRuntimeGmQueueLike;
@@ -420,6 +421,48 @@ export class NativeGmWorldService {
   async flushInstancePersistence(instanceId: string) {
     await this.mapPersistenceFlushService.flushInstance(instanceId);
     return { ok: true };
+  }
+
+  async cleanupAbnormalTemporaryTiles() {
+    let scannedInstances = 0;
+    let affectedInstances = 0;
+    let removedTemporaryTiles = 0;
+    let flushedInstances = 0;
+    for (const [entryInstanceId, instance] of this.worldRuntimeService.listInstanceEntries()) {
+      const runtime = instance as Record<string, unknown> & {
+        tick?: number;
+        meta?: { instanceId?: string; persistent?: boolean };
+        removeAbnormalTemporaryTiles?: (currentTick?: number) => { scanned?: number; removed?: number };
+      };
+      if (typeof runtime.removeAbnormalTemporaryTiles !== 'function') {
+        continue;
+      }
+      scannedInstances += 1;
+      const result = runtime.removeAbnormalTemporaryTiles(Number.isFinite(Number(runtime.tick)) ? Math.trunc(Number(runtime.tick)) : 0);
+      const removed = Math.max(0, Math.trunc(Number(result?.removed) || 0));
+      if (removed <= 0) {
+        continue;
+      }
+      affectedInstances += 1;
+      removedTemporaryTiles += removed;
+      const instanceId = typeof runtime.meta?.instanceId === 'string' && runtime.meta.instanceId.trim()
+        ? runtime.meta.instanceId.trim()
+        : entryInstanceId;
+      if (runtime.meta?.persistent === true) {
+        await this.mapPersistenceFlushService.flushInstance(instanceId);
+        flushedInstances += 1;
+      }
+    }
+    return {
+      ok: true,
+      totalPlayers: 0,
+      queuedRuntimePlayers: 0,
+      updatedOfflinePlayers: 0,
+      scannedInstances,
+      affectedInstances,
+      removedTemporaryTiles,
+      flushedInstances,
+    };
   }
   /**
  * rebuildPersistentInstance：强制重建某实例。

@@ -832,6 +832,16 @@ export class NativeGmController {
     return result;
   }
   /**
+ * cleanupAbnormalTemporaryTiles：清理异常临时石头。
+ * @returns 清理结果。
+ */
+
+
+  @Post('shortcuts/world/cleanup-abnormal-temporary-tiles')
+  async cleanupAbnormalTemporaryTiles() {
+    return this.nextGmWorldService.cleanupAbnormalTemporaryTiles();
+  }
+  /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
  * @returns 无返回值，直接更新全部战斗经验补偿相关状态。
  */

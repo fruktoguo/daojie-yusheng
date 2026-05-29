@@ -41,6 +41,7 @@
 | GET world/summary | 世界摘要 |
 | GET world/objects | 世界对象 |
 | POST world/instances/:id/freeze | 冻结实例 |
+| POST shortcuts/world/cleanup-abnormal-temporary-tiles | 扫描运行时地图并清理异常临时石头 |
 | GET database/state | 数据库状态 |
 | POST database/backup | 数据库备份 |
 | POST database/restore | 数据库恢复 |

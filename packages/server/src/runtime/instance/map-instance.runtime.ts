@@ -87,7 +87,7 @@ function calculateRuntimeThreatDelta(baseThreat, distance, extraAggroRate) {
     }
     return Math.min(MAX_THREAT_VALUE, delta);
 }
-function shouldExpireLegacyTemporaryTileByWallClock(state, expiresAtTick, currentTick, nowMs) {
+function isAbnormalTemporaryTileState(state, expiresAtTick, currentTick) {
     const sourceSkillId = typeof state?.sourceSkillId === 'string' ? state.sourceSkillId.trim() : '';
     if (!LEGACY_YI_KUNLUN_TEMPORARY_TILE_SKILL_IDS.has(sourceSkillId)) {
         return false;
@@ -95,8 +95,7 @@ function shouldExpireLegacyTemporaryTileByWallClock(state, expiresAtTick, curren
     if (expiresAtTick - currentTick <= LEGACY_TEMPORARY_TILE_SUSPECT_REMAINING_TICKS) {
         return false;
     }
-    const createdAt = Math.max(0, Math.trunc(Number(state?.createdAt) || 0));
-    return createdAt > 0 && nowMs - createdAt >= LEGACY_TEMPORARY_TILE_WALL_CLOCK_DURATION_MS;
+    return state?.tileType === TileType.Stone;
 }
 function compareRuntimeThreatEntry(left, right) {
     return right.value - left.value
@@ -119,7 +118,6 @@ const LEGACY_YI_KUNLUN_TEMPORARY_TILE_SKILL_IDS = new Set([
     'skill.yi_kunlun_hollow_square',
     'skill.yi_kunlun_horizontal_wall',
 ]);
-const LEGACY_TEMPORARY_TILE_WALL_CLOCK_DURATION_MS = 60_000;
 const LEGACY_TEMPORARY_TILE_SUSPECT_REMAINING_TICKS = 600;
 
 /** DEFAULT_TERRAIN_DURABILITY_BY_TILE：真正 terrain 层的默认耐久配置；structure 耐久见 shared structure profile。 */
@@ -2835,7 +2833,6 @@ class MapInstanceRuntime {
             return false;
         }
         const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
-        const nowMs = Date.now();
         let changed = false;
         let topologyChangedCellCount = 0;
         const toDelete: number[] = [];
@@ -2852,8 +2849,7 @@ class MapInstanceRuntime {
                 continue;
             }
             const expiresAtTick = Math.max(0, Math.trunc(Number(state.expiresAtTick) || 0));
-            if (expiresAtTick > 0 && (normalizedTick >= expiresAtTick
-                || shouldExpireLegacyTemporaryTileByWallClock(state, expiresAtTick, normalizedTick, nowMs))) {
+            if (expiresAtTick > 0 && normalizedTick >= expiresAtTick) {
                 if (this.shouldRecalculateRoomsForTileMutation(tileIndex, state.tileType, this.getBaseTileType(x, y))) {
                     topologyChangedCellCount += 1;
                 }
@@ -2875,6 +2871,47 @@ class MapInstanceRuntime {
             this.persistentRevision += 1;
         }
         return changed;
+    }
+    /** removeAbnormalTemporaryTiles：GM 手动清理旧版本异常临时石头。 */
+    removeAbnormalTemporaryTiles(currentTick = this.tick) {
+        if (this.temporaryTileByTile.size === 0) {
+            return { scanned: 0, removed: 0 };
+        }
+        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        let scanned = 0;
+        let topologyChangedCellCount = 0;
+        const toDelete: number[] = [];
+        for (const [tileIndex, state] of this.temporaryTileByTile) {
+            if (!state || !Number.isFinite(Number(tileIndex))) {
+                continue;
+            }
+            scanned += 1;
+            const expiresAtTick = Math.max(0, Math.trunc(Number(state.expiresAtTick) || 0));
+            if (!isAbnormalTemporaryTileState(state, expiresAtTick, normalizedTick)) {
+                continue;
+            }
+            const normalizedTileIndex = Math.trunc(Number(tileIndex));
+            const x = this.tilePlane.getX(normalizedTileIndex);
+            const y = this.tilePlane.getY(normalizedTileIndex);
+            if (this.shouldRecalculateRoomsForTileMutation(normalizedTileIndex, state.tileType, this.getBaseTileType(x, y))) {
+                topologyChangedCellCount += 1;
+            }
+            toDelete.push(normalizedTileIndex);
+            this.markStaticTileSyncDirtyByIndex(normalizedTileIndex);
+        }
+        for (const key of toDelete) {
+            this.temporaryTileByTile.delete(key);
+        }
+        if (toDelete.length > 0) {
+            if (topologyChangedCellCount > 0) {
+                this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'gm_abnormal_temporary_tile_cleanup', dirtyCellCount: topologyChangedCellCount });
+                this.markPersistenceDirtyDomains(['room', 'fengshui']);
+            }
+            this.worldRevision += 1;
+            this.markPersistenceDirtyDomains(['temporary_tile']);
+            this.persistentRevision += 1;
+        }
+        return { scanned, removed: toDelete.length };
     }
     /** advanceTileRecovery：推进可破坏地块的自然修复与复生。 */
     advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider) {
