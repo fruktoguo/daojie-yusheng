@@ -55,6 +55,7 @@ export class ActivityPanel {
 
   clear(): void {
     this.status = null;
+    this.syncBadge();
     if (detailModalHost.isOpenFor(ActivityPanel.MODAL_OWNER)) {
       detailModalHost.close(ActivityPanel.MODAL_OWNER);
     }
@@ -242,7 +243,12 @@ export class ActivityPanel {
 
   private syncBadge(): void {
     const button = document.getElementById('hud-open-activity');
-    button?.classList.toggle('has-unread', this.status?.hasRedDot === true);
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    const hasRedDot = this.status?.hasRedDot === true;
+    button.classList.toggle('has-unread', hasRedDot);
+    button.dataset.hasUnread = hasRedDot ? 'true' : 'false';
   }
 }
 
