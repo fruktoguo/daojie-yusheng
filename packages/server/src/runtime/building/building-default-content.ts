@@ -95,7 +95,7 @@ const DEFAULT_BUILDING_DEFS: BuildingDef[] = [
       stability: 10,
       qiAffinity: 2,
     },
-    economy: { buildTicks: 3600, durabilityMultiplier: 18, maxHp: 120, cost: [{ itemId: 'wood', count: 8 }] },
+    economy: { buildTicks: 3600, durabilityMultiplier: 100, maxHp: 120, cost: [{ itemId: 'wood', count: 8 }] },
   },
   {
     id: 'spirit_screen',

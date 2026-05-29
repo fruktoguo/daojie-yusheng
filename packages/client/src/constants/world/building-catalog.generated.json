@@ -288,7 +288,7 @@
       "wood": 18,
       "earth": 4
     },
-    "durabilityMultiplier": 18,
+    "durabilityMultiplier": 100,
     "buildTicks": 3600,
     "maxHp": 120,
     "stability": 10,

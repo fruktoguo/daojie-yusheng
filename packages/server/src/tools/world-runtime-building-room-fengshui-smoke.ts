@@ -78,6 +78,7 @@ function main() {
         comfort: 3,
         stability: 10,
       },
+      economy: { durabilityMultiplier: 100 },
     },
     {
       id: "jade_bed_extensible",
@@ -961,6 +962,8 @@ function assertScripturePlatformProjectsAfterCompletion(catalog, rules) {
     state: "active",
   });
   assert.equal(result.ok, true);
+  assert.equal(catalog.defById.get("scripture_platform")?.durabilityMultiplier, 100);
+  assert.equal(instance.isWalkable(1, 1), false);
   const projected = instance.collectLocalBuildings(1, 1, 5);
   assert.equal(projected.some((entry) => entry.id === "building:scripture:projection" && entry.name === "藏经台"), true);
 }

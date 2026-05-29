@@ -71,7 +71,7 @@
     "placement": { "layer": "facility", "footprint": [{ "dx": 0, "dy": 0 }] },
     "topology": { "blocksMove": true },
     "fengShui": { "elementVector": { "wood": 18, "earth": 4 }, "traits": ["facility.scripture_platform", "storage.scripture"], "comfort": 3, "stability": 10, "qiAffinity": 2 },
-    "economy": { "buildTicks": 3600, "durabilityMultiplier": 18, "maxHp": 120, "cost": [{ "itemId": "wood", "count": 8 }] }
+    "economy": { "buildTicks": 3600, "durabilityMultiplier": 100, "maxHp": 120, "cost": [{ "itemId": "wood", "count": 8 }] }
   },
   {
     "id": "spirit_screen",
