@@ -90,6 +90,11 @@ export class CanvasTextRendererAdapter {
       transition?.settleMotion === true,
       settleEntityId,
       motionSyncToken,
+      transition?.previewMotion === true,
+      transition?.previewFromX,
+      transition?.previewFromY,
+      transition?.previewToX,
+      transition?.previewToY,
     );
   }
 

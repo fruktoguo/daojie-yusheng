@@ -430,6 +430,11 @@ export interface MapEntityTransition {
  */
 
   settleMotion?: boolean;
+  previewMotion?: boolean;
+  previewFromX?: number;
+  previewFromY?: number;
+  previewToX?: number;
+  previewToY?: number;
 }
 
 /** tick 流逝与插值时长。 */
@@ -886,7 +891,7 @@ export interface MapRuntimeApi {
   reset(): void;
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void;
   setMoveHandler(handler: ((x: number, y: number, mapId?: string) => void) | null): void;
-  setPathCells(cells: GridPoint[]): void;
+  setPathCells(cells: GridPoint[], options?: { previewFirstStep?: boolean }): void;
   setTargetingOverlay(state: MapTargetingOverlayState | null): void;
   setFormationRangeOverlay(state: MapFormationRangeOverlayState | null): void;
   setSenseQiOverlay(state: MapSenseQiOverlayState | null): void;

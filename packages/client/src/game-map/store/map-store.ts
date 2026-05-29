@@ -417,6 +417,14 @@ export class MapStore {
   };
   /** 本地实体运动过渡信息，用于下一次插值渲染。 */
   private entityTransition: MapEntityTransition | null = null;
+  private localMovePreview: {
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+    startedAt: number;
+    durationMs: number;
+  } | null = null;
   /** 记录已由 WorldDelta 预加载的新图实体 mapId，避免后续 SelfDelta 再清掉。 */
   private preloadedEntityMapId: string | null = null;
 
@@ -679,6 +687,7 @@ export class MapStore {
       }
     }
     const moved = this.player.x !== oldX || this.player.y !== oldY;
+    const matchedLocalPreview = moved && this.consumeMatchingLocalMovePreview(oldX, oldY, this.player.x, this.player.y);
     const hasVisibilityUpdate = !preloadingDifferentMap
       && (
         Array.isArray(data.visibleTiles)
@@ -712,13 +721,17 @@ export class MapStore {
       || data.playerPatches.some((patch) => hasSpatialTickEntityDelta(patch))
       || data.entityPatches.some((patch) => hasSpatialTickEntityDelta(patch));
     if (hasSpatialEntityDelta) {
-      this.entityTransition = moved
-        ? {
-            movedId: this.player.id,
-            shiftX: this.player.x - oldX,
-            shiftY: this.player.y - oldY,
-          }
-        : { settleMotion: true };
+      this.entityTransition = matchedLocalPreview
+        ? { settleMotion: true }
+        : (
+            moved
+              ? {
+                  movedId: this.player.id,
+                  shiftX: this.player.x - oldX,
+                  shiftY: this.player.y - oldY,
+                }
+              : { settleMotion: true }
+          );
       this.tickTiming.startedAt = transitionStartedAt;
     }
   }
@@ -794,19 +807,26 @@ export class MapStore {
     }
 
     const moved = !mapChanged && (this.player.x !== oldX || this.player.y !== oldY);
+    const matchedLocalPreview = moved && this.consumeMatchingLocalMovePreview(oldX, oldY, this.player.x, this.player.y);
     if (mapChanged) {
+      this.localMovePreview = null;
       this.entityTransition = { snapCamera: true };
       this.tickTiming.startedAt = performance.now();
       return;
     }
     if (moved) {
-      this.entityTransition = {
-        movedId: this.player.id,
-        shiftX: this.player.x - oldX,
-        shiftY: this.player.y - oldY,
-      };
+      this.entityTransition = matchedLocalPreview
+        ? { settleMotion: true }
+        : {
+            movedId: this.player.id,
+            shiftX: this.player.x - oldX,
+            shiftY: this.player.y - oldY,
+          };
       this.tickTiming.startedAt = performance.now();
       return;
+    }
+    if (this.localMovePreview && (data.x !== undefined || data.y !== undefined)) {
+      this.localMovePreview = null;
     }
     this.entityTransition = null;
   }
@@ -834,8 +854,25 @@ export class MapStore {
  /**
  * y：y相关字段。
  */
- y: number }>): void {
+ y: number }>, options?: { previewFirstStep?: boolean }): void {
     this.pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
+    if (options?.previewFirstStep === true) {
+      this.startLocalMovePreview(this.pathCells);
+    }
+  }
+
+  clearExpiredLocalMovePreview(now = performance.now()): boolean {
+    if (!this.localMovePreview) {
+      return false;
+    }
+    const durationMs = Math.max(1, this.localMovePreview.durationMs);
+    if (now - this.localMovePreview.startedAt <= durationMs + 150) {
+      return false;
+    }
+    this.localMovePreview = null;
+    this.entityTransition = { settleMotion: true };
+    this.tickTiming.startedAt = now;
+    return true;
   }
 
   /** 更新瞄准叠加层状态。 */
@@ -885,6 +922,7 @@ export class MapStore {
     this.minimapMemoryVersion = 0;
     this.awaitingFullVisibilityMapId = null;
     this.entityTransition = null;
+    this.localMovePreview = null;
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
     this.tickTiming.durationMs = DEFAULT_MOTION_DURATION_MS;
@@ -1249,6 +1287,55 @@ export class MapStore {
       startedAt: now,
       durationMs: TILE_HIDDEN_FADE_MS,
     };
+  }
+
+  private startLocalMovePreview(cells: Array<{ x: number; y: number }>): void {
+    if (!this.player || cells.length === 0) {
+      return;
+    }
+    const first = cells[0];
+    if (!first || Math.abs(first.x - this.player.x) + Math.abs(first.y - this.player.y) !== 1) {
+      return;
+    }
+    const now = performance.now();
+    const durationMs = Math.max(1, Math.round(this.tickTiming.durationMs || DEFAULT_MOTION_DURATION_MS));
+    const activeAuthoritativeMotion = this.entityTransition?.movedId === this.player.id
+      && now - this.tickTiming.startedAt >= 0
+      && now - this.tickTiming.startedAt < durationMs;
+    if (activeAuthoritativeMotion) {
+      return;
+    }
+    this.localMovePreview = {
+      fromX: this.player.x,
+      fromY: this.player.y,
+      toX: first.x,
+      toY: first.y,
+      startedAt: now,
+      durationMs,
+    };
+    this.entityTransition = {
+      movedId: this.player.id,
+      previewMotion: true,
+      previewFromX: this.player.x,
+      previewFromY: this.player.y,
+      previewToX: first.x,
+      previewToY: first.y,
+    };
+    this.tickTiming.startedAt = now;
+    this.tickTiming.durationMs = durationMs;
+  }
+
+  private consumeMatchingLocalMovePreview(oldX: number, oldY: number, nextX: number, nextY: number): boolean {
+    const preview = this.localMovePreview;
+    if (!preview) {
+      return false;
+    }
+    const matched = preview.fromX === oldX
+      && preview.fromY === oldY
+      && preview.toX === nextX
+      && preview.toY === nextY;
+    this.localMovePreview = null;
+    return matched;
   }
 }
 

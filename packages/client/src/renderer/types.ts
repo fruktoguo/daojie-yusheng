@@ -236,6 +236,11 @@ export interface IRenderer {
     settleMotion?: boolean,
     settleEntityId?: string,
     motionSyncToken?: number,
+    previewMotion?: boolean,
+    previewFromX?: number,
+    previewFromY?: number,
+    previewToX?: number,
+    previewToY?: number,
   ): void;
   renderEntities(camera: Camera, progress?: number, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number, localPlayerChar?: string): void;
   addFloatingText(

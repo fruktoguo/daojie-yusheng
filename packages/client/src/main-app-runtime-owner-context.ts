@@ -194,7 +194,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     getLatestEntityById: (id) => rootRuntimeSource.getLatestEntityById(id),
     getMapMeta: () => mapRuntime.getMapMeta(),
     getKnownTileAt: (x, y) => mapRuntimeBridgeSource.getKnownTileAt(x, y),
-    setRuntimePathCells: (cells) => mapRuntime.setPathCells(cells),
+    setRuntimePathCells: (cells, options) => mapRuntime.setPathCells(cells, options),
     sendMove: (direction) => runtimeSender.sendMove(direction),
     sendMoveTo: (x, y, opts) => runtimeSender.sendMoveTo(x, y, opts),
     sendAction: (actionId) => runtimeSender.sendAction(actionId),
