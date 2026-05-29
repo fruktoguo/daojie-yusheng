@@ -144,7 +144,7 @@ function testMoveBranch() {
     }, deps);
     assert.deepEqual(log, [
         ['setPlayerMoveSpeed', 'player:1', 12],
-        ['recordActivity', 'player:1', 33, { interruptCultivation: true }],
+        ['recordActivity', 'player:1', 33, { interruptCultivation: true, reason: 'move' }],
         ['interruptCraftForReason', 'player:1', 'move'],
         ['enqueueMove', {
             playerId: 'player:1',
@@ -168,7 +168,7 @@ function testPortalBranch() {
     const deps = buildDeps(log);
     service.dispatchInstanceCommand('player:1', { kind: 'portal' }, deps);
     assert.deepEqual(log, [
-        ['recordActivity', 'player:1', 33, { interruptCultivation: true }],
+        ['recordActivity', 'player:1', 33, { interruptCultivation: true, reason: 'move' }],
         ['interruptCraftForReason', 'player:1', 'move'],
         ['tryPortalTransfer', 'player:1', 'manual_portal'],
         ['enqueuePortalUse', { playerId: 'player:1' }],
@@ -202,7 +202,7 @@ function testMiningJobMoveDoesNotInterruptCraft() {
     }, deps);
     assert.deepEqual(log, [
         ['setPlayerMoveSpeed', 'player:1', 12],
-        ['recordActivity', 'player:1', 33, { interruptCultivation: true }],
+        ['recordActivity', 'player:1', 33, { interruptCultivation: true, reason: 'move' }],
         ['enqueueMove', {
             playerId: 'player:1',
             direction: 2,
@@ -278,6 +278,113 @@ function testManualNavigationMoveKeepsBudget() {
             resetBudget: false,
         }],
     ]);
+}
+
+function testMoveToQueuesInitialInstanceMoveImmediately() {
+    const log = [];
+    const templateRepository = new MapTemplateRepository();
+    templateRepository.registerRuntimeMapTemplate({
+        id: 'move_to_initial_step_smoke',
+        name: '寻路首步烟测',
+        width: 4,
+        height: 3,
+        routeDomain: 'system',
+        tiles: [
+            '....',
+            '....',
+            '....',
+        ],
+        spawnPoint: { x: 0, y: 1 },
+        portals: [],
+        npcs: [],
+        monsters: [],
+        safeZones: [],
+        landmarks: [],
+        containers: [],
+        auras: [],
+        tileEffects: [],
+    });
+    const instance = new MapInstanceRuntime({
+        instanceId: 'smoke:move_to_initial_step',
+        template: templateRepository.getOrThrow('move_to_initial_step_smoke'),
+        monsterSpawns: [],
+        kind: 'public',
+        persistent: false,
+        createdAt: Date.now(),
+        displayName: '寻路首步烟测',
+        linePreset: 'peaceful',
+        lineIndex: 1,
+        instanceOrigin: 'smoke',
+        defaultEntry: true,
+        canDamageTile: false,
+    });
+    const runtimePlayer = instance.connectPlayer({
+        playerId: 'player:move-to',
+        sessionId: 'session:move-to',
+        preferredX: 0,
+        preferredY: 1,
+    });
+    const service = new WorldRuntimeNavigationService(templateRepository, {
+        getPlayer(playerId) {
+            assert.equal(playerId, runtimePlayer.playerId);
+            return { playerId, templateId: instance.template.mapId, x: runtimePlayer.x, y: runtimePlayer.y };
+        },
+        getPlayerOrThrow(playerId) {
+            assert.equal(playerId, runtimePlayer.playerId);
+            return { playerId, templateId: instance.template.mapId, x: runtimePlayer.x, y: runtimePlayer.y };
+        },
+        updateCombatSettings(playerId, settings, tick) {
+            log.push(['updateCombatSettings', playerId, settings, tick]);
+        },
+        recordActivity(playerId, tick, payload) {
+            log.push(['recordActivity', playerId, tick, payload]);
+        },
+    });
+    service.enqueueMoveTo(runtimePlayer.playerId, 2, 1, false, null, null, null, null, {
+        getPlayerLocationOrThrow(playerId) {
+            assert.equal(playerId, runtimePlayer.playerId);
+            return { instanceId: instance.meta.instanceId, sessionId: runtimePlayer.sessionId };
+        },
+        getInstanceRuntimeOrThrow(instanceId) {
+            assert.equal(instanceId, instance.meta.instanceId);
+            return instance;
+        },
+        dispatchInstanceCommand(playerId, command) {
+            log.push(['dispatchInstanceCommand', playerId, command]);
+            instance.enqueueMove({ playerId, ...command });
+        },
+        enqueuePendingCommand(playerId, command) {
+            log.push(['enqueuePendingCommand', playerId, command]);
+        },
+        getPlayerViewOrThrow(playerId) {
+            assert.equal(playerId, runtimePlayer.playerId);
+            return {};
+        },
+        resolveCurrentTickForPlayerId(playerId) {
+            assert.equal(playerId, runtimePlayer.playerId);
+            return 11;
+        },
+        cancelPendingInstanceCommand(playerId) {
+            log.push(['cancelPendingInstanceCommand', playerId]);
+            return false;
+        },
+        logger: null,
+    });
+    assert.equal(service.hasNavigationIntent(runtimePlayer.playerId), true);
+    assert.equal(service.navigationIntents.get(runtimePlayer.playerId)?.mapId, 'move_to_initial_step_smoke');
+    assert.equal(log.some((entry) => entry[0] === 'enqueuePendingCommand'), false);
+    assert.deepEqual(log.filter((entry) => entry[0] === 'dispatchInstanceCommand'), [
+        ['dispatchInstanceCommand', runtimePlayer.playerId, {
+            kind: 'move',
+            direction: Direction.East,
+            continuous: true,
+            maxSteps: 2,
+            path: [{ x: 1, y: 1 }, { x: 2, y: 1 }],
+            resetBudget: false,
+        }],
+    ]);
+    instance.tickOnce();
+    assert.deepEqual(instance.getPlayerPosition(runtimePlayer.playerId), { x: 1, y: 1 });
 }
 
 function testHighCostTileAccumulatesMoveBudget() {
@@ -417,6 +524,7 @@ testPortalBranch();
 testMiningJobMoveDoesNotInterruptCraft();
 testStaleMiningJobMoveIsIgnored();
 testManualNavigationMoveKeepsBudget();
+testMoveToQueuesInitialInstanceMoveImmediately();
 testHighCostTileAccumulatesMoveBudget();
 testCrossMapPointNavigationSurvivesTransfer();
 

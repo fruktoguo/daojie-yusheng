@@ -30,6 +30,21 @@ const {
     directionFromStep,
 } = world_runtime_path_planning_helpers_1;
 
+function resolvePlayerMapId(player, instance = null) {
+    const playerMapId = typeof player?.templateId === 'string' && player.templateId.trim()
+        ? player.templateId.trim()
+        : '';
+    if (playerMapId) {
+        return playerMapId;
+    }
+    const instanceMapId = typeof instance?.template?.id === 'string' && instance.template.id.trim()
+        ? instance.template.id.trim()
+        : typeof instance?.template?.mapId === 'string' && instance.template.mapId.trim()
+            ? instance.template.mapId.trim()
+            : '';
+    return instanceMapId || null;
+}
+
 /** movement/navigation 状态域服务：承接导航意图状态与路径物化。 */
 @Injectable()
 export class WorldRuntimeNavigationService {
@@ -160,29 +175,34 @@ export class WorldRuntimeNavigationService {
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const x = normalizeCoordinate(xInput, 'x');
         const y = normalizeCoordinate(yInput, 'y');
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        const currentMapId = resolvePlayerMapId(player, instance);
+        if (!currentMapId) {
+            throw new BadRequestException('当前地图状态异常');
+        }
         const targetMapId = typeof targetMapIdInput === 'string' && targetMapIdInput.trim()
             ? targetMapIdInput.trim()
-            : instance.template.mapId;
-        if (targetMapId === instance.template.mapId && instance.isInBounds?.(x, y) !== true) {
+            : currentMapId;
+        if (targetMapId === currentMapId && instance.isInBounds?.(x, y) !== true) {
             throw new BadRequestException('目标超出地图范围');
         }
-        if (targetMapId !== instance.template.mapId) {
+        if (targetMapId !== currentMapId) {
             const targetTemplate = this.templateRepository.getOrThrow(targetMapId);
             if (!isInBounds(x, y, targetTemplate.width, targetTemplate.height)) {
                 throw new BadRequestException('目标超出地图范围');
             }
         }
-        const player = this.playerRuntimeService.getPlayer(playerId);
         this.interruptManualNavigation(playerId, deps);
         const clientPathHint = decodeClientPathHint(packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput);
-        deps.enqueuePendingCommand(playerId, {
-            kind: 'moveTo',
+        const intent = {
+            kind: 'point',
             mapId: targetMapId,
             x,
             y,
             allowNearestReachable: allowNearestReachableInput === true,
             clientPathHint,
-        });
+        };
+        this.queueInitialNavigationStep(playerId, intent, deps);
         logServerNextMovement(deps.logger ?? this.logger, 'runtime.enqueue.moveTo', {
             playerId,
             from: player ? { mapId: player.templateId, x: player.x, y: player.y } : null,
@@ -195,6 +215,35 @@ export class WorldRuntimeNavigationService {
             } : null,
         });
         return deps.getPlayerViewOrThrow(playerId);
+    }
+
+    queueInitialNavigationStep(playerId, intent, deps) {
+        this.navigationIntents.set(playerId, intent);
+        let initialStep;
+        try {
+            initialStep = this.resolveNavigationStep(playerId, intent, deps);
+        }
+        catch (error) {
+            this.navigationIntents.delete(playerId);
+            throw error;
+        }
+        logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.initialStep', { playerId, intent, step: initialStep });
+        if (initialStep.kind === 'done') {
+            this.navigationIntents.delete(playerId);
+            return;
+        }
+        if (initialStep.kind === 'portal') {
+            deps.dispatchInstanceCommand(playerId, { kind: 'portal' });
+            return;
+        }
+        deps.dispatchInstanceCommand(playerId, {
+            kind: 'move',
+            direction: initialStep.direction,
+            continuous: true,
+            maxSteps: initialStep.maxSteps,
+            path: initialStep.path ?? undefined,
+            resetBudget: false,
+        });
     }
     /**
  * usePortal：执行use传送门相关逻辑。
@@ -268,9 +317,13 @@ export class WorldRuntimeNavigationService {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
             const location = deps.getPlayerLocationOrThrow(playerId);
             const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+            const currentMapId = resolvePlayerMapId(player, instance);
+            if (!currentMapId) {
+                return [];
+            }
             const destination = this.resolveNavigationDestination(playerId, intent, deps);
-            if (destination.mapId !== player.templateId) {
-                const route = this.findMapRoute(player.templateId, destination.mapId);
+            if (destination.mapId !== currentMapId) {
+                const route = this.findMapRoute(currentMapId, destination.mapId);
                 if (!route || route.length < 2) {
                     return [];
                 }
@@ -453,7 +506,7 @@ export class WorldRuntimeNavigationService {
             ? targetMapId.trim()
             : player.templateId;
         const intent = { kind: 'point', mapId: normalizedTargetMapId, x, y, allowNearestReachable, clientPathHint };
-        this.navigationIntents.set(playerId, intent);
+        this.queueInitialNavigationStep(playerId, intent, deps);
         logServerNextMovement(deps.logger ?? this.logger, 'runtime.dispatch.moveTo', {
             playerId,
             from: { mapId: player.templateId, x: player.x, y: player.y },
@@ -465,24 +518,6 @@ export class WorldRuntimeNavigationService {
                 startY: clientPathHint.startY,
                 points: clientPathHint.points,
             } : null,
-        });
-        const initialStep = this.resolveNavigationStep(playerId, intent, deps);
-        logServerNextMovement(deps.logger ?? this.logger, 'runtime.dispatch.moveTo.initialStep', { playerId, intent, step: initialStep });
-        if (initialStep.kind === 'done') {
-            this.navigationIntents.delete(playerId);
-            return;
-        }
-        if (initialStep.kind === 'portal') {
-            deps.dispatchInstanceCommand(playerId, { kind: 'portal' });
-            return;
-        }
-        deps.dispatchInstanceCommand(playerId, {
-            kind: 'move',
-            direction: initialStep.direction,
-            continuous: true,
-            maxSteps: initialStep.maxSteps,
-            path: initialStep.path ?? undefined,
-            resetBudget: false,
         });
     }
     /**
@@ -499,9 +534,13 @@ export class WorldRuntimeNavigationService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const location = deps.getPlayerLocationOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const currentMapId = resolvePlayerMapId(player, instance);
+        if (!currentMapId) {
+            throw new BadRequestException('当前地图状态异常');
+        }
         const destination = this.resolveNavigationDestination(playerId, intent, deps);
-        if (destination.mapId !== player.templateId) {
-            const route = this.findMapRoute(player.templateId, destination.mapId);
+        if (destination.mapId !== currentMapId) {
+            const route = this.findMapRoute(currentMapId, destination.mapId);
             if (!route || route.length < 2) {
                 throw new BadRequestException(`无法规划前往 ${destination.mapId} 的跨图路线`);
             }
@@ -512,7 +551,7 @@ export class WorldRuntimeNavigationService {
             }
             if (player.x === portal.x && player.y === portal.y) {
                 logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.crossMap.atPortal', {
-                    playerId, fromMapId: player.templateId, destinationMapId: destination.mapId, route, portal,
+                    playerId, fromMapId: currentMapId, destinationMapId: destination.mapId, route, portal,
                 });
                 return { kind: 'portal' };
             }
@@ -526,7 +565,7 @@ export class WorldRuntimeNavigationService {
                 throw new BadRequestException('前往界门的路径不可达');
             }
             logServerNextMovement(deps.logger ?? this.logger, 'runtime.navigation.crossMap.path', {
-                playerId, fromMapId: player.templateId, destinationMapId: destination.mapId, from: { x: player.x, y: player.y }, route, portal, direction,
+                playerId, fromMapId: currentMapId, destinationMapId: destination.mapId, from: { x: player.x, y: player.y }, route, portal, direction,
                 previewPath: previewPath ? previewPath.map((entry) => ({ x: entry.x, y: entry.y })) : null,
                 pathCost: pathResult.cost,
             });
@@ -567,8 +606,12 @@ export class WorldRuntimeNavigationService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const location = deps.getPlayerLocationOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const currentMapId = resolvePlayerMapId(player, instance);
+        if (!currentMapId) {
+            throw new BadRequestException('当前地图状态异常');
+        }
         const destination = this.resolveNavigationDestination(playerId, intent, deps);
-        if (destination.mapId !== player.templateId) {
+        if (destination.mapId !== currentMapId) {
             return this.resolveNavigationStep(playerId, intent, deps);
         }
         if (destination.goals.some((goal) => goal.x === player.x && goal.y === player.y)) {
@@ -627,10 +670,14 @@ export class WorldRuntimeNavigationService {
 
         if (intent.kind === 'point') {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-            const goals = intent.mapId === player.templateId
+            const location = deps.getPlayerLocationOrThrow(playerId);
+            const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+            const currentMapId = resolvePlayerMapId(player, instance);
+            if (!currentMapId) {
+                throw new BadRequestException('当前地图状态异常');
+            }
+            const goals = intent.mapId === currentMapId
                 ? (() => {
-                    const location = deps.getPlayerLocationOrThrow(playerId);
-                    const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
                     return buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable, playerId);
                 })()
                 : buildGoalPointsFromTemplate(
