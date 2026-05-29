@@ -28,7 +28,6 @@ import type {
   S2C_ContentTemplates,
   SkillDef,
 } from '@mud/shared';
-import { resolveCanonicalItemTemplateId } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 
 // ─── 内部类型 ────────────────────────────────────────────────────────────────
@@ -174,9 +173,8 @@ export class ContentResolver {
 
   /** 查询物品模板（同步，L1+L2）。 */
   getItem(itemId: string): GmEditorItemOption | null {
-    const canonicalItemId = resolveCanonicalItemTemplateId(itemId);
-    return this.staticItems.get(canonicalItemId)
-      ?? this.dynamicItems.get(canonicalItemId)?.data
+    return this.staticItems.get(itemId)
+      ?? this.dynamicItems.get(itemId)?.data
       ?? null;
   }
 
@@ -222,12 +220,11 @@ export class ContentResolver {
 
   /** 异步获取物品完整模板。L1+L2(full) 命中立即返回，否则触发 L3。 */
   fetchItem(itemId: string): Promise<GmEditorItemOption | null> {
-    const canonicalItemId = resolveCanonicalItemTemplateId(itemId);
-    const cached = this.getItem(canonicalItemId);
+    const cached = this.getItem(itemId);
     if (cached) {
       return Promise.resolve(cached);
     }
-    return this.enqueue(this.pendingItems, canonicalItemId, true);
+    return this.enqueue(this.pendingItems, itemId, true);
   }
 
   /** 异步获取功法完整模板。 */
@@ -329,13 +326,12 @@ export class ContentResolver {
    * 用于从服务端高频下发数据中提取最小展示字段，不覆盖已有的完整模板。
    */
   injectItemSummary(itemId: string, partial: Partial<GmEditorItemOption>): void {
-    const canonicalItemId = resolveCanonicalItemTemplateId(itemId);
-    const existing = this.dynamicItems.get(canonicalItemId);
+    const existing = this.dynamicItems.get(itemId);
     if (existing?.complete) {
       return; // 已有完整模板，不降级
     }
-    this.dynamicItems.set(canonicalItemId, {
-      data: { itemId: canonicalItemId, name: '', type: 'misc', ...partial } as GmEditorItemOption,
+    this.dynamicItems.set(itemId, {
+      data: { itemId, name: '', type: 'misc', ...partial } as GmEditorItemOption,
       complete: false,
     });
   }
