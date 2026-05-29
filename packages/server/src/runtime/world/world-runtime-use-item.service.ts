@@ -8,7 +8,7 @@
  * 处理丹药、技能书、传送符、灵石等各类物品的使用逻辑分支
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_MONTH_CARD_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
+import { DEFAULT_QI_RESOURCE_DESCRIPTOR, MERIT_MONTH_CARD_DURATION_DAYS, MERIT_MONTH_CARD_POOL_GRANT, MERIT_MONTH_CARD_USE_BEHAVIOR, buildQiResourceKey, getItemDisplayName } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { REFINED_SHA_RESOURCE_KEY } from '../../constants/gameplay/pvp';
 import { ActivityRuntimeService, normalizeActivityError } from '../activity/activity-runtime.service';
@@ -149,8 +149,8 @@ export class WorldRuntimeUseItemService {
         }
         deps.refreshQuestStates(playerId);
         const itemName = getItemDisplayName(item);
-        const n = buildStructuredNotice('success', 'notice.activity.month-card-activated', `已激活${itemName}，有效期增加 30 天`, {
-            vars: { itemName, days: 30 },
+        const n = buildStructuredNotice('success', 'notice.activity.month-card-activated', '已激活功德月卡，月卡总池已增加，领取时间已重置', {
+            vars: { itemName, merit: MERIT_MONTH_CARD_POOL_GRANT, days: MERIT_MONTH_CARD_DURATION_DAYS },
             pills: [{ key: 'itemName', style: 'target' }],
         });
         deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);

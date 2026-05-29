@@ -8,12 +8,12 @@ import {
   BASE_OFFLINE_MAX_HOURS,
   DAILY_SIGN_IN_REWARD_MERIT,
   MERIT_ITEM_ID,
-  MERIT_MONTH_CARD_DAILY_REWARD,
+  MERIT_MONTH_CARD_DURATION_DAYS,
   MERIT_MONTH_CARD_ITEM_ID,
   MERIT_MONTH_CARD_OFFLINE_MAX_HOURS,
   type ActivityStatusView,
 } from '@mud/shared';
-import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
+import { ActivityPersistenceService, calculateMonthCardDailyReward } from '../../persistence/activity-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 
 const CHINA_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -33,8 +33,9 @@ export class ActivityRuntimeService {
       this.activityPersistenceService.loadDailySignIn(playerId),
     ]);
     const inventory = this.resolveMonthCardInventory(playerId);
-    const active = Boolean(monthCard && monthCard.expireAt > nowMs);
-    const monthCardCanClaim = active && monthCard?.lastClaimDate !== today;
+    const active = Boolean(monthCard && monthCard.expireAt > nowMs && monthCard.remainingPoolMerit > 0);
+    const dailyRewardMerit = monthCard && active ? calculateMonthCardDailyReward(monthCard) : 0;
+    const monthCardCanClaim = active && dailyRewardMerit > 0 && monthCard?.lastClaimDate !== today;
     const dailyCanClaim = dailySignIn?.lastClaimDate !== today;
     return {
       serverNow: nowMs,
@@ -43,7 +44,10 @@ export class ActivityRuntimeService {
         startAt: monthCard?.startAt ?? null,
         expireAt: monthCard?.expireAt ?? null,
         remainingDays: active && monthCard ? Math.max(1, Math.ceil((monthCard.expireAt - nowMs) / DAY_MS)) : 0,
-        dailyRewardMerit: MERIT_MONTH_CARD_DAILY_REWARD,
+        dailyRewardMerit,
+        poolTotalMerit: monthCard?.totalPoolMerit ?? 0,
+        poolRemainingMerit: monthCard?.remainingPoolMerit ?? 0,
+        claimWindowDays: MERIT_MONTH_CARD_DURATION_DAYS,
         offlineMaxHours: active ? MERIT_MONTH_CARD_OFFLINE_MAX_HOURS : BASE_OFFLINE_MAX_HOURS,
         canClaimToday: monthCardCanClaim,
         lastClaimDate: monthCard?.lastClaimDate ?? null,
@@ -64,14 +68,14 @@ export class ActivityRuntimeService {
   }
 
   async activateMeritMonthCard(playerId: string, nowMs = Date.now()) {
-    return this.activityPersistenceService.extendMonthCard(playerId, nowMs);
+    return this.activityPersistenceService.activateMonthCard(playerId, nowMs);
   }
 
   async claimMeritMonthCard(playerId: string, nowMs = Date.now()): Promise<void> {
     this.playerRuntimeService.getPlayerOrThrow(playerId);
     const today = getChinaDateKey(nowMs);
-    await this.activityPersistenceService.claimMonthCard(playerId, today, nowMs, MERIT_MONTH_CARD_DAILY_REWARD);
-    this.grantMerit(playerId, MERIT_MONTH_CARD_DAILY_REWARD);
+    const claim = await this.activityPersistenceService.claimMonthCard(playerId, today, nowMs);
+    this.grantMerit(playerId, claim.rewardMerit);
   }
 
   async claimDailySignIn(playerId: string, nowMs = Date.now()): Promise<void> {

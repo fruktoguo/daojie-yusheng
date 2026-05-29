@@ -126,12 +126,14 @@ export class ActivityPanel {
       return card;
     }
     card.append(
-      this.createHeader('功德月卡', status.active ? `剩余 ${status.remainingDays} 天` : '未激活'),
+      this.createHeader('功德月卡', status.active ? `剩余 ${status.remainingDays} 天` : status.poolRemainingMerit > 0 ? '待激活' : '未激活'),
       this.createMetricGrid([
         ['每日领取', `${status.dailyRewardMerit} 功德`],
+        ['月卡总池', `${status.poolTotalMerit} 功德`],
+        ['当前剩余', `${status.poolRemainingMerit} 功德`],
         ['离线时长', `${status.offlineMaxHours} 小时`],
         ['月卡道具', `${status.itemCount} 个`],
-        ['到期时间', status.expireAt ? formatTime(status.expireAt) : '未激活'],
+        ['领取期限', status.expireAt && status.active ? formatTime(status.expireAt) : '未激活'],
       ]),
     );
     const actions = document.createElement('div');
@@ -142,7 +144,7 @@ export class ActivityPanel {
       !status.canClaimToday,
     );
     const useButton = this.createActionButton(
-      status.itemCount > 0 ? '使用月卡' : '无月卡道具',
+      status.itemCount > 0 ? '叠加月卡' : '无月卡道具',
       () => {
         if (status.firstItemInstanceId) {
           this.options.sendUseItem(status.firstItemInstanceId);
@@ -242,7 +244,9 @@ export class ActivityPanel {
     if (!this.status) {
       return t('activity.modal.subtitle.loading', undefined, '功德月卡与每日签到');
     }
-    const monthCard = this.status.monthCard.active ? `月卡剩余 ${this.status.monthCard.remainingDays} 天` : '月卡未激活';
+    const monthCard = this.status.monthCard.active
+      ? `月卡剩余 ${this.status.monthCard.remainingDays} 天，池 ${this.status.monthCard.poolRemainingMerit} 功德`
+      : '月卡未激活';
     const signIn = this.status.dailySignIn.canClaimToday ? '今日可签到' : '今日已签到';
     return `${monthCard} · ${signIn}`;
   }
