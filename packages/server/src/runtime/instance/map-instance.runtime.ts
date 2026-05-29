@@ -4944,12 +4944,12 @@ class MapInstanceRuntime {
         containers.sort(compareLocalContainers);
         return containers;
     }
-    /** collectLocalBuildings：收集视野内未完工的半成品建筑。 */
+    /** collectLocalBuildings：收集视野内需要以建筑实体形式展示/交互的建筑。 */
     collectLocalBuildings(centerX, centerY, radius, visibleTileVisibility = null) {
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const buildings = [];
         for (const building of this.buildingById.values()) {
-            if (building?.state !== 'building') {
+            if (!shouldProjectLocalBuilding(building)) {
                 continue;
             }
             if (!this.isTileInsideViewRadius(centerX, centerY, radius, building.x, building.y)) {
@@ -7644,6 +7644,12 @@ function resolveBuildingRemainingTicks(building) {
         return Math.max(1, Math.trunc(Number(building.buildStrength)));
     }
     return 1;
+}
+function shouldProjectLocalBuilding(building) {
+    if (building?.state === 'building') {
+        return true;
+    }
+    return building?.defId === 'scripture_platform' && building?.state === 'active';
 }
 function resolveBuildingCatalogRevision(catalog) {
     if (!Array.isArray(catalog?.defs)) {

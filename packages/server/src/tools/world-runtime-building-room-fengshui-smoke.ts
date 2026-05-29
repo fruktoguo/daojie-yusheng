@@ -68,6 +68,18 @@ function main() {
       },
     },
     {
+      id: "scripture_platform",
+      name: "藏经台",
+      placement: { layer: "facility", footprint: [{ dx: 0, dy: 0 }] },
+      topology: { blocksMove: true },
+      fengShui: {
+        elementVector: { wood: 18, earth: 4 },
+        traits: ["facility.scripture_platform", "storage.scripture"],
+        comfort: 3,
+        stability: 10,
+      },
+    },
+    {
       id: "jade_bed_extensible",
       name: "玉床",
       placement: { layer: "furniture", footprint: [{ dx: 0, dy: 0 }] },
@@ -80,9 +92,10 @@ function main() {
     },
   ]);
 
-  assert.equal(catalog.defs.length, 6);
+  assert.equal(catalog.defs.length, 7);
   assert.ok(catalog.traitIdsByKey.get("facility.alchemy.heat_source") > 0);
   assert.ok(catalog.traitIdsByKey.get("comfort.rest") > 0);
+  assert.ok(catalog.traitIdsByKey.get("facility.scripture_platform") > 0);
 
   const plane = new RuntimeTilePlane(25, 64);
   const topology = new BuildingTopologyIndex(plane.getCellCapacity());
@@ -195,6 +208,7 @@ function main() {
   addCompiledContribution(mixedAggregate, catalog.defById.get("alchemy_furnace"), catalog);
   addCompiledContribution(mixedAggregate, catalog.defById.get("jade_bed_extensible"), catalog);
   assert.equal(inferRoomRole(catalog, room, mixedAggregate).role, "generic");
+  assertScripturePlatformProjectsAfterCompletion(catalog, rules);
 
   const leakingAggregate = createAggregate(room.id);
   addCompiledContribution(leakingAggregate, catalog.defById.get("alchemy_furnace"), catalog);
@@ -900,6 +914,55 @@ function createFengShuiSnapshot(roomId, score) {
     revision: 1,
     updatedAtTick: 1,
   };
+}
+
+function assertScripturePlatformProjectsAfterCompletion(catalog, rules) {
+  const templateRepository = new MapTemplateRepository();
+  templateRepository.registerRuntimeMapTemplate({
+    id: "scripture_platform_projection_smoke",
+    name: "藏经台投影烟测",
+    width: 3,
+    height: 3,
+    routeDomain: "system",
+    tiles: [
+      "...",
+      "...",
+      "...",
+    ],
+    spawnPoint: { x: 1, y: 1 },
+    portals: [],
+    npcs: [],
+    monsters: [],
+    safeZones: [],
+    landmarks: [],
+    containers: [],
+    auras: [],
+  });
+  const instance = new MapInstanceRuntime({
+    instanceId: "real:scripture_platform_projection_smoke",
+    template: templateRepository.getOrThrow("scripture_platform_projection_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "藏经台投影烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  instance.configureBuildingRuntime(catalog, rules);
+  const result = instance.placeBuildingInstance({
+    buildingId: "building:scripture:projection",
+    defId: "scripture_platform",
+    x: 1,
+    y: 1,
+    state: "active",
+  });
+  assert.equal(result.ok, true);
+  const projected = instance.collectLocalBuildings(1, 1, 5);
+  assert.equal(projected.some((entry) => entry.id === "building:scripture:projection" && entry.name === "藏经台"), true);
 }
 
 function createAggregate(roomId) {
