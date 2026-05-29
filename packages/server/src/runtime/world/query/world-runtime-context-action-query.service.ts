@@ -297,7 +297,7 @@ export class WorldRuntimeContextActionQueryService {
 };
 
 function buildScripturePlatformActions(player, building) {
-    if (!player || !canPlayerUseScripturePlatform(player, building)) {
+    if (!player) {
         return [];
     }
     const existingTechniqueId = normalizeText(building.scriptureTechniqueId);
@@ -322,15 +322,6 @@ function buildScripturePlatformActions(player, building) {
         desc: '打开藏经台录入界面，选择自身已经练满的自创功法写入藏经台。',
         cooldownLeft: 0,
     }];
-}
-
-function canPlayerUseScripturePlatform(player, building) {
-    const ownerPlayerId = normalizeText(building?.ownerPlayerId);
-    if (ownerPlayerId && ownerPlayerId !== normalizeText(player?.playerId)) {
-        return false;
-    }
-    const ownerSectId = normalizeText(building?.ownerSectId);
-    return !ownerSectId || ownerSectId === normalizeText(player?.sectId);
 }
 
 function normalizeText(value) {

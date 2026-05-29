@@ -341,6 +341,15 @@ function testScripturePlatformActionsAreSingleEntrypoints() {
     assert.equal(contemplateAction?.scriptureTechniqueRealmLv, 3);
     assert.equal(contemplateAction?.scriptureTechniqueGrade, 'mystic');
     assert.equal(contemplateAction?.scriptureTechniqueCategory, 'internal');
+
+    const visitorView = {
+        ...baseView,
+        playerId: 'player:visitor',
+    };
+    actions = service.buildContextActions(visitorView, deps);
+    assert.deepEqual(actions.filter((entry) => entry.id.startsWith('scripture:')).map((entry) => [entry.id, entry.name]), [
+        ['scripture:contemplate:building%3Ascripture', '参悟'],
+    ]);
 }
 
 testBuildContextActions();

@@ -366,9 +366,6 @@ function validateScriptureRecordingStart(
   if (building.state !== 'active') {
     return { ok: false, error: '藏经台尚未完工。' };
   }
-  if (!canPlayerUseScriptureBuilding(recorder, building)) {
-    return { ok: false, error: '没有该藏经台的录入权限。' };
-  }
   if (!isPlayerNearBuilding(recorder, building, 1)) {
     return { ok: false, error: '不在藏经台 1 格范围内。' };
   }
@@ -818,15 +815,6 @@ function isTechniqueEntryMaxed(technique: any): boolean {
   const level = Math.max(1, Math.floor(Number(technique?.level) || 1));
   const maxLevel = getTechniqueMaxLevel(Array.isArray(technique?.layers) ? technique.layers : undefined, level);
   return level >= maxLevel || Number(technique?.expToNext ?? 0) <= 0;
-}
-
-function canPlayerUseScriptureBuilding(player: any, building: any): boolean {
-  const ownerPlayerId = normalizeText(building?.ownerPlayerId);
-  if (ownerPlayerId && ownerPlayerId !== normalizeText(player?.playerId)) {
-    return false;
-  }
-  const ownerSectId = normalizeText(building?.ownerSectId);
-  return !ownerSectId || ownerSectId === normalizeText(player?.sectId);
 }
 
 function isPlayerNearBuilding(player: any, building: any, range: number): boolean {

@@ -702,6 +702,36 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   assert.ok(Number(building.scriptureRecordedAtTick) > 0 && Number(building.scriptureRecordedAtTick) <= 121);
   assert.equal(recorder.transmissionJob, null);
   assert.ok(dirtyDomains.includes('building'));
+
+  const visitor = createPlayer('visitor:scripture', 0, 0);
+  const visitorTechnique = {
+    ...scriptureTechnique,
+    techId: 'gen_scripture_visitor',
+    name: '访客藏经功法',
+  };
+  visitor.techniques.techniques.push(visitorTechnique);
+  runtimeService.players.set(visitor.playerId, visitor);
+  const publicBuilding: any = {
+    ...building,
+    id: 'building:scripture:public',
+    scriptureTechniqueId: null,
+    scriptureTechniqueName: null,
+    scriptureProgress: 0,
+    scriptureRequiredProgress: undefined,
+    scriptureRecordingJobRunId: null,
+    scriptureRecordedAtTick: 0,
+    ownerPlayerId: recorder.playerId,
+    ownerSectId: 'sect:owner',
+  };
+  instance.buildingById.set(publicBuilding.id, publicBuilding);
+  const visitorResult = pipeline.start(visitor, 'transmission', {
+    mode: 'scripture_recording',
+    learnerPlayerId: visitor.playerId,
+    techniqueId: visitorTechnique.techId,
+    buildingId: publicBuilding.id,
+  }, ctx as never);
+  assert.equal(visitorResult.ok, true, visitorResult.error);
+  assert.equal(publicBuilding.scriptureRecorderPlayerId, visitor.playerId);
 }
 
 testSelfComprehensionProgressesOnlyWithoutTransmission();
