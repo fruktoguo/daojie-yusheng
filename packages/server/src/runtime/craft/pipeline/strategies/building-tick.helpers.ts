@@ -33,11 +33,14 @@ export function executeBuildingTick(
     player.buildingJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
     runtime.refreshPlayerContextActions?.(playerId);
+    if (building.state === 'active' && resolveBuildingRemainingTicksForView(building) <= 0) {
+      return buildBuildingTickResult(true, [buildBuildingCompletionNotice(runtime, building)]);
+    }
     return buildBuildingTickResult(true, [buildBuildingNotice('warn', 'notice.craft.building.unavailable')]);
   }
 
-  if (building.activeBuilderPlayerId !== playerId) {
-    const sleepPayload = buildBuildingSleepPayload(job, building, '建筑正在由其他玩家施工。');
+  if (!isPlayerNearBuilding(player, building, 1)) {
+    const sleepPayload = buildBuildingSleepPayload(job, building, '需要靠近半成品后才能继续建造。');
     player.buildingJob = null;
     markPlayerActiveJobDirty(playerRuntimeService, player);
     runtime.refreshPlayerContextActions?.(playerId);
@@ -182,6 +185,15 @@ function applyCraftSkillExp(source: unknown, skill: { level: number; exp: number
 function normalizeBuildStrength(value: unknown): number {
   const normalized = Math.trunc(Number(value) || 1);
   return Math.max(1, normalized);
+}
+
+function isPlayerNearBuilding(player: Record<string, any>, building: Record<string, any>, range: number): boolean {
+  if (!player || !building) {
+    return false;
+  }
+  const dx = Math.abs(Math.floor(Number(player.x) || 0) - Math.floor(Number(building.x) || 0));
+  const dy = Math.abs(Math.floor(Number(player.y) || 0) - Math.floor(Number(building.y) || 0));
+  return Math.max(dx, dy) <= Math.max(0, Math.floor(Number(range) || 0));
 }
 
 function buildBuildingCompletionNotice(runtime: BuildingTickRuntimePort, building: Record<string, any>): TechniqueActivityNoticeMessage {

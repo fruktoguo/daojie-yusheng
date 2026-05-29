@@ -205,9 +205,6 @@ export class WorldRuntimeContextActionQueryService {
                     }
                     continue;
                 }
-                if (building.ownerPlayerId && building.ownerPlayerId !== view.playerId) {
-                    continue;
-                }
                 const remainingTicks = Math.max(1, Math.trunc(Number(entry?.remainingTicks ?? building.buildRemainingTicks ?? building.buildStrength ?? 1)));
                 const buildingName = typeof entry?.name === 'string' && entry.name.trim()
                     ? entry.name.trim()

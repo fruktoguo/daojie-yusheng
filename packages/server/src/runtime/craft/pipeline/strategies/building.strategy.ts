@@ -145,9 +145,6 @@ export class BuildingStrategy implements TechniqueActivityStrategy {
     if (building.state !== 'building') {
       return { satisfied: false, reason: '建筑当前不可继续施工。', shouldCancel: true };
     }
-    if (building.activeBuilderPlayerId && building.activeBuilderPlayerId !== playerId) {
-      return { satisfied: false, reason: '建筑正在由其他玩家施工。' };
-    }
     return { satisfied: true };
   }
 
@@ -231,12 +228,15 @@ function releaseBuildingActiveBuilder(player: unknown, job: unknown, ctx: Pipeli
     ? deps.getInstanceRuntime(instanceId)
     : null;
   const building = instance?.buildingById?.get?.(buildingId);
-  if (!playerId || !buildingId || !instance || !building || building.activeBuilderPlayerId !== playerId) {
+  if (!playerId || !buildingId || !instance || !building) {
     return;
   }
   if (building.state === 'building' && typeof instance.stopBuildingConstruction === 'function') {
     instance.stopBuildingConstruction(buildingId, playerId);
     deps?.refreshPlayerContextActions?.(playerId);
+    return;
+  }
+  if (building.activeBuilderPlayerId !== playerId) {
     return;
   }
   building.activeBuilderPlayerId = null;

@@ -1186,18 +1186,12 @@ class MapInstanceRuntime {
         if (building.state !== 'building') {
             return { ok: false, reason: 'building_not_under_construction' };
         }
-        if (building.ownerPlayerId && building.ownerPlayerId !== playerId) {
-            return { ok: false, reason: 'building_owner_mismatch' };
-        }
         const player = playerId ? this.playersById.get(playerId) : null;
         if (!player) {
             return { ok: false, reason: 'player_not_found' };
         }
         if (chebyshevDistance(player.x, player.y, building.x, building.y) > 1) {
             return { ok: false, reason: 'building_too_far' };
-        }
-        if (building.activeBuilderPlayerId && building.activeBuilderPlayerId !== playerId) {
-            return { ok: false, reason: 'building_active_builder_mismatch' };
         }
         let changed = false;
         for (const entry of this.buildingById.values()) {
@@ -1238,10 +1232,7 @@ class MapInstanceRuntime {
         if (building.state !== 'building') {
             return { ok: false, reason: 'building_not_under_construction' };
         }
-        if (playerId && building.activeBuilderPlayerId && building.activeBuilderPlayerId !== playerId) {
-            return { ok: false, reason: 'building_owner_mismatch' };
-        }
-        if (!building.activeBuilderPlayerId) {
+        if (!building.activeBuilderPlayerId || (playerId && building.activeBuilderPlayerId !== playerId)) {
             return { ok: true, building, changed: false };
         }
         building.activeBuilderPlayerId = null;

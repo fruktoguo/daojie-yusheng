@@ -109,8 +109,8 @@ function main(): void {
   );
   assertContains(
     miningSource,
-    /tickInstance\.damageCalls, 1[\s\S]*?inventory\.length, 1[\s\S]*?mat\.black_iron_ore[\s\S]*?miningSkill\.exp > beforeExp/,
-    'mining completion tick must apply one tile damage result, one drop grant and mining exp',
+    /tickResult\.inventoryChanged, false[\s\S]*?tickInstance\.damageCalls, 0[\s\S]*?inventory\.length, 0[\s\S]*?tickPlayer\.miningSkill\.exp, beforeExp[\s\S]*?pendingCommands, \[\{[\s\S]*?kind: 'engageBattle'[\s\S]*?miningTargetRef: 'tile:1:0'/,
+    'mining tick must enqueue locked tile combat and leave damage, drops and exp to the combat resolution chain',
   );
   assertContains(
     craftSource,
@@ -141,7 +141,7 @@ function main(): void {
       '强化覆盖成功、失败、保护失败、灵石不足、锁定物缺失、取消、队列不预锁定和分域恢复资产边界。',
       '采集覆盖完成入包 dirty domain、永久失效恢复释放 activeSearch。',
       '建造覆盖取消/完成/异常恢复释放 activeBuilder。',
-      '挖矿覆盖取消无伤害/无掉落/无经验，完成 tick 单次伤害、单次掉落和经验。',
+      '挖矿覆盖取消无伤害/无掉落/无经验，tick 只发起锁定地块战斗，资产由战斗链路结算。',
       '阵法维护覆盖每息灵力转入预算、灵力不足停止和异常恢复清队列。',
     ],
   }, null, 2));

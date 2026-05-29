@@ -43,7 +43,8 @@ async function main(): Promise<void> {
   testGenericPipelinePauseAdvancesInterruptWaitState();
   await testGatherActiveSearchRejectsCompetingPlayers();
   await testGatherPermanentLossReleasesStaleActiveSearch();
-  testBuildingActiveBuilderRejectsCompetingPlayers();
+  testBuildingActiveBuilderAllowsCooperativePlayers();
+  testBuildingConstructionCooperativeTicksAccelerateSharedProgress();
   testBuildingStrategyConditionFailureReleasesActiveBuilder();
   testBuildingPermanentInvalidTickReleasesActiveBuilder();
   await testGatherStrategyTickUsesStrategyHelper();
@@ -74,7 +75,8 @@ async function main(): Promise<void> {
       '重复打断不会叠加等待或污染实际工作进度，等待结束会恢复原 phase。',
       '采集 activeSearch 带 owner，其他玩家不能覆盖同一采集目标的 job 进度。',
       '采集目标永久消失时会释放遗留 container activeSearch。',
-      '建造 activeBuilder 不会被其他玩家重入覆盖。',
+      '建造 activeBuilder 仅作为兼容/最近启动者字段，其他玩家可同时加入同一半成品。',
+      '多个玩家同时建造同一半成品时，各自 buildingJob 会共同扣减共享 buildRemainingTicks。',
       '建造条件永久失效时会释放当前玩家遗留 activeBuilder。',
       '采集/建造 strategy tick 规则已迁入 strategy helper。',
       '建造 start/completion 通知由 strategy result 返回结构化 key/vars，再交给统一 flush 分发。',
@@ -1671,7 +1673,7 @@ async function testGatherPermanentLossReleasesStaleActiveSearch(): Promise<void>
   assert.equal(service.getDirtyInstanceIds().has(instanceId), true);
 }
 
-function testBuildingActiveBuilderRejectsCompetingPlayers(): void {
+function testBuildingActiveBuilderAllowsCooperativePlayers(): void {
   const instance = Object.create(MapInstanceRuntime.prototype) as any;
   instance.tick = 10;
   instance.worldRevision = 1;
@@ -1697,18 +1699,131 @@ function testBuildingActiveBuilderRejectsCompetingPlayers(): void {
     dirtyDomains.push(domains);
   };
 
-  const rejected = instance.startBuildingConstruction('building-1', 'player:builder-b');
-  assert.equal(rejected.ok, false);
-  assert.equal(rejected.reason, 'building_active_builder_mismatch');
+  const joinedByOtherPlayer = instance.startBuildingConstruction('building-1', 'player:builder-b');
+  assert.equal(joinedByOtherPlayer.ok, true);
   const building = instance.buildingById.get('building-1');
-  assert.equal(building.activeBuilderPlayerId, 'player:builder-a');
-  assert.equal(building.buildCompleteTick, undefined);
-  assert.equal(instance.worldRevision, 1);
-  assert.deepEqual(dirtyDomains, []);
+  assert.equal(building.activeBuilderPlayerId, 'player:builder-b');
+  assert.equal(building.buildCompleteTick, 15);
+  assert.equal(instance.worldRevision, 2);
+  assert.deepEqual(dirtyDomains, [['building']]);
 
   const resumedByOwner = instance.startBuildingConstruction('building-1', 'player:builder-a');
   assert.equal(resumedByOwner.ok, true);
   assert.equal(building.activeBuilderPlayerId, 'player:builder-a');
+  assert.equal(building.buildCompleteTick, 15);
+  assert.equal(instance.worldRevision, 3);
+  assert.deepEqual(dirtyDomains, [['building'], ['building']]);
+}
+
+function testBuildingConstructionCooperativeTicksAccelerateSharedProgress(): void {
+  const building = {
+    id: 'building-1',
+    defId: 'workshop',
+    state: 'building',
+    x: 5,
+    y: 5,
+    activeBuilderPlayerId: 'player:builder-b',
+    buildRemainingTicks: 2,
+    buildStrength: 2,
+    revision: 1,
+  };
+  const instance = {
+    tick: 20,
+    meta: { instanceId: 'instance:cooperative-building' },
+    worldRevision: 1,
+    persistentRevision: 1,
+    buildingById: new Map<string, any>([['building-1', building]]),
+    dirtyDomains: [] as string[][],
+    activatePlacedBuildingTopologyAndVisual(target: typeof building): string[] {
+      assert.equal(target.id, building.id);
+      return ['building', 'room'];
+    },
+    markPersistenceDirtyDomainsHighPriority(domains: string[]): void {
+      this.dirtyDomains.push(domains);
+    },
+  };
+  const players = new Map<string, any>([
+    ['player:builder-a', createCooperativeBuildingPlayer('player:builder-a')],
+    ['player:builder-b', createCooperativeBuildingPlayer('player:builder-b')],
+  ]);
+  const playerDirtyDomains: Record<string, string[][]> = {};
+  const refreshed: string[] = [];
+  const runtime = {
+    playerRuntimeService: {
+      getPlayer(playerId: string): unknown {
+        return players.get(playerId) ?? null;
+      },
+      markPersistenceDirtyDomains(player: { playerId: string }, domains: string[]): void {
+        playerDirtyDomains[player.playerId] ??= [];
+        playerDirtyDomains[player.playerId].push(domains);
+      },
+      bumpPersistentRevision(player: { persistentRevision?: number }): void {
+        player.persistentRevision = Math.max(0, Math.trunc(Number(player.persistentRevision) || 0)) + 1;
+      },
+    },
+    getInstanceRuntime(instanceId: string): unknown {
+      assert.equal(instanceId, instance.meta.instanceId);
+      return instance;
+    },
+    refreshPlayerContextActions(playerId: string): void {
+      refreshed.push(playerId);
+    },
+    resolveBuildingDisplayName(): string {
+      return '工坊';
+    },
+    resolveBuildingDisplayNameByRuntime(): string {
+      return '工坊';
+    },
+  };
+
+  const firstTick = tickBuildingConstruction(runtime, 'player:builder-a') as { ok?: boolean; attrChanged?: boolean; messages?: Array<{ key?: string }> };
+  assert.equal(firstTick.ok, true);
+  assert.equal(firstTick.attrChanged, true);
+  assert.deepEqual(firstTick.messages, []);
+  assert.equal(building.state, 'building');
+  assert.equal(building.buildRemainingTicks, 1);
+  assert.equal(players.get('player:builder-a').buildingJob?.remainingTicks, 1);
+
+  const secondTick = tickBuildingConstruction(runtime, 'player:builder-b') as { ok?: boolean; attrChanged?: boolean; messages?: Array<{ key?: string }> };
+  assert.equal(secondTick.ok, true);
+  assert.equal(secondTick.attrChanged, true);
+  assert.equal(secondTick.messages?.[0]?.key, 'notice.craft.building.completed');
+  assert.equal(building.state, 'active');
+  assert.equal(building.activeBuilderPlayerId, null);
+  assert.equal(building.buildRemainingTicks, 0);
+  assert.equal(players.get('player:builder-b').buildingJob, null);
+
+  const staleParticipantTick = tickBuildingConstruction(runtime, 'player:builder-a') as { ok?: boolean; messages?: Array<{ key?: string }> };
+  assert.equal(staleParticipantTick.ok, true);
+  assert.equal(staleParticipantTick.messages?.[0]?.key, 'notice.craft.building.completed');
+  assert.equal(players.get('player:builder-a').buildingJob, null);
+  assert.deepEqual(instance.dirtyDomains, [['building'], ['building'], ['building', 'room']]);
+  assert.deepEqual(playerDirtyDomains['player:builder-a'], [['active_job', 'profession'], ['active_job']]);
+  assert.deepEqual(playerDirtyDomains['player:builder-b'], [['active_job', 'profession']]);
+  assert.deepEqual(refreshed, ['player:builder-b', 'player:builder-a']);
+  assert.equal(players.get('player:builder-a').buildingSkill.exp, 1);
+  assert.equal(players.get('player:builder-b').buildingSkill.exp, 1);
+}
+
+function createCooperativeBuildingPlayer(playerId: string): any {
+  return {
+    playerId,
+    instanceId: 'instance:cooperative-building',
+    x: 5,
+    y: 5,
+    persistentRevision: 1,
+    buildingSkill: { level: 1, exp: 0, expToNext: 60 },
+    buildingJob: {
+      buildingId: 'building-1',
+      buildingName: '工坊',
+      instanceId: 'instance:cooperative-building',
+      remainingTicks: 2,
+      totalTicks: 2,
+      workRemainingTicks: 2,
+      workTotalTicks: 2,
+      phase: 'building',
+    },
+  };
 }
 
 function testBuildingStrategyConditionFailureReleasesActiveBuilder(): void {

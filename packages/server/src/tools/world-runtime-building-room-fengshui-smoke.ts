@@ -521,6 +521,8 @@ function main() {
   assert.equal(replacement.building.buildRemainingTicks, 1);
   const replacePlayer = {
     playerId: "player:replace-wall",
+    x: replaceX,
+    y: replaceY - 1,
     dirtyDomains: new Set(),
     buildingSkill: { level: 1, exp: 0, expToNext: 60 },
     buildingJob: {
@@ -651,6 +653,8 @@ function main() {
   const commandPlayer = {
     playerId: "player:building:1",
     sectId: "sect:building:1",
+    x: 2,
+    y: 2,
     hp: 100,
     dirtyDomains: new Set(),
     buildingSkill: {
