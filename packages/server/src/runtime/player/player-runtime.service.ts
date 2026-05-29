@@ -4880,7 +4880,7 @@ function cloneQuestRuntimeEntry(entry) {
         line: entry.line === 'main' || entry.line === 'daily' || entry.line === 'encounter' ? entry.line : 'side',
         status,
         objectiveType,
-        progress: status === 'completed' ? required : Math.max(0, Math.trunc(Number(entry.progress ?? 0))),
+        progress: status === 'completed' ? required : normalizeQuestProgressNumber(entry.progress),
         required,
         targetMonsterId: typeof entry.targetMonsterId === 'string' ? entry.targetMonsterId : '',
     };
@@ -4918,6 +4918,10 @@ function cloneQuestRuntimeEntry(entry) {
         cloned.submitMapId = entry.submitMapId.trim();
     }
     return cloned;
+}
+function normalizeQuestProgressNumber(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
 }
 
 function cloneQuestRuntimeEntries(entries) {

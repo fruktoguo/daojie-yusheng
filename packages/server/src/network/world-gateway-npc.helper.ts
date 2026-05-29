@@ -156,8 +156,13 @@ function toQuestRuntimeState(source: any) {
     return {
         id: source.id,
         status: source.status,
-        progress: Math.max(0, Math.trunc(Number(source.progress ?? 0))),
+        progress: normalizeQuestProgressNumber(source.progress),
     };
+}
+
+function normalizeQuestProgressNumber(value: unknown): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
 }
 
 export { WorldGatewayNpcHelper };

@@ -119,6 +119,16 @@ function resolveRequiredItemProgress(quest: QuestState, inventory: Inventory | n
   };
 }
 
+function normalizeQuestProgressNumber(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+}
+
+function normalizeQuestRequiredNumber(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
+}
+
 function resolveProgressText(quest: QuestState, inventory: Inventory | null): string {
   return resolveProgressTextWithItemProgress(quest, resolveRequiredItemProgress(quest, inventory));
 }
@@ -127,25 +137,27 @@ function resolveProgressTextWithItemProgress(
   quest: QuestState,
   requiredItemProgress: { itemName: string; current: number; required: number } | null,
 ): string {
+  const progress = normalizeQuestProgressNumber(quest.progress);
+  const required = normalizeQuestRequiredNumber(quest.required);
   if (quest.objectiveType === 'talk') {
-    return quest.progress >= quest.required
+    return progress >= required
       ? t('quest.progress.talk.done', undefined)
       : t('quest.progress.talk.pending', undefined);
   }
   if (quest.objectiveType === 'learn_technique') {
-    return quest.progress >= quest.required
+    return progress >= required
       ? t('quest.progress.learn.done', { targetName: quest.targetName })
       : t('quest.progress.learn.pending', { targetName: quest.targetName });
   }
   if (quest.objectiveType === 'realm_stage') {
-    return quest.progress >= quest.required
+    return progress >= required
       ? t('quest.progress.realm-stage.done', { targetName: quest.targetName })
       : t('quest.progress.realm-stage.pending', { targetName: quest.targetName });
   }
   if (quest.objectiveType === 'kill' && requiredItemProgress) {
-    return `${quest.targetName} ${quest.progress}/${quest.required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
+    return `${quest.targetName} ${progress}/${required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
   }
-  return `${quest.targetName} ${quest.progress}/${quest.required}`;
+  return `${quest.targetName} ${progress}/${required}`;
 }
 
 function resolveNextStep(quest: QuestState, inventory: Inventory | null): string {
@@ -195,7 +207,7 @@ function resolveNextStepWithItemProgress(
     return t('quest.next.realm-stage', { targetName: quest.targetName });
   }
   if (quest.objectiveType === 'kill' && requiredItemProgress) {
-    if (quest.progress >= quest.required && requiredItemProgress.current < requiredItemProgress.required) {
+    if (normalizeQuestProgressNumber(quest.progress) >= normalizeQuestRequiredNumber(quest.required) && requiredItemProgress.current < requiredItemProgress.required) {
       return t('quest.next.collect-item', requiredItemProgress);
     }
     const targetLocation = formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
@@ -410,8 +422,10 @@ const QuestCard = memo(function QuestCard({
   onClick: (questId: string) => void;
   onNavigate: (questId: string) => void;
 }) {
-  const percent = quest.required > 0
-    ? Math.min(100, Math.floor((quest.progress / quest.required) * 100))
+  const progress = normalizeQuestProgressNumber(quest.progress);
+  const required = normalizeQuestRequiredNumber(quest.required);
+  const percent = required > 0
+    ? Math.min(100, Math.floor((progress / required) * 100))
     : 0;
 
   const requiredItemProgress = useMemo(() => {

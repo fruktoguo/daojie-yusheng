@@ -7258,7 +7258,7 @@ function applyProjectedQuestProgress(
         status,
       };
       if (status !== 'completed') {
-        (entry as Record<string, unknown>).progress = progress ?? {};
+        (entry as Record<string, unknown>).progress = normalizeQuestProgressValue(progress);
       }
       return {
         ...entry,
@@ -7769,6 +7769,32 @@ function normalizeQuestProgressPayload(value: unknown): Record<string, unknown> 
   }
   const normalized = asRecord(decoded);
   return normalized ? { ...normalized } : null;
+}
+
+function normalizeQuestProgressValue(value: unknown): number {
+  const decoded = decodeJsonValue(value);
+  const direct = Number(decoded);
+  if (Number.isFinite(direct)) {
+    return Math.max(0, Math.trunc(direct));
+  }
+  const record = asRecord(decoded);
+  if (!record) {
+    return 0;
+  }
+  const candidates = [
+    record.progress,
+    record.current,
+    record.count,
+    record.kills,
+    record.value,
+  ];
+  for (const candidate of candidates) {
+    const numeric = Number(candidate);
+    if (Number.isFinite(numeric)) {
+      return Math.max(0, Math.trunc(numeric));
+    }
+  }
+  return 0;
 }
 
 function decodeJsonValue(value: unknown): unknown {

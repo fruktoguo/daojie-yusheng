@@ -232,8 +232,13 @@ function toQuestRuntimeState(source) {
     return {
         id: source.id,
         status: source.status,
-        progress: Math.max(0, Math.trunc(Number(source.progress ?? 0))),
+        progress: normalizeQuestProgressNumber(source.progress),
     };
+}
+
+function normalizeQuestProgressNumber(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
 }
 
 export { WorldGatewayClientEmitHelper };

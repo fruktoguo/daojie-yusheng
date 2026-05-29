@@ -178,7 +178,12 @@ function toQuestRuntimeState(source) {
         status: source.status,
     };
     if (source.status !== 'completed') {
-        entry.progress = Math.max(0, Math.trunc(Number(source.progress ?? 0)));
+        entry.progress = normalizeQuestProgressNumber(source.progress);
     }
     return entry;
+}
+
+function normalizeQuestProgressNumber(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
 }

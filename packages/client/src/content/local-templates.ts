@@ -206,10 +206,10 @@ function stripInvalidPreviewInstanceId(item: ItemStack): ItemStack {
 /** 用本地模板补齐任务展示字段，保留服务端运行态字段。 */
 export function resolvePreviewQuest(quest: QuestState): QuestState {
   const template = getLocalQuestTemplate(quest.id);
-  const required = quest.required ?? template?.required ?? 1;
+  const required = normalizeQuestPreviewNumber(quest.required ?? template?.required, 1, 1);
   const progress = quest.status === 'completed'
     ? required
-    : quest.progress ?? template?.progress ?? 0;
+    : normalizeQuestPreviewNumber(quest.progress ?? template?.progress, 0, 0);
   const merged = template
     ? {
       ...template,
@@ -228,6 +228,14 @@ export function resolvePreviewQuest(quest: QuestState): QuestState {
     rewardItemIds: Array.isArray(merged.rewardItemIds) ? merged.rewardItemIds.slice() : [],
     rewards: (merged.rewards ?? []).map((item) => resolvePreviewItem(item)),
   };
+}
+
+function normalizeQuestPreviewNumber(value: unknown, fallback: number, minimum: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.max(minimum, Math.trunc(numeric));
 }
 
 /** 批量补齐任务展示字段。 */

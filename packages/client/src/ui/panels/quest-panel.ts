@@ -608,7 +608,9 @@ export class QuestPanel {
       return false;
     }
 
-    const percent = quest.required > 0 ? Math.min(100, Math.floor((quest.progress / quest.required) * 100)) : 0;
+    const progress = this.normalizeQuestProgressNumber(quest.progress);
+    const required = this.normalizeQuestRequiredNumber(quest.required);
+    const percent = required > 0 ? Math.min(100, Math.floor((progress / required) * 100)) : 0;
     card.dataset.questId = quest.id;
     titleNode.textContent = quest.title;
     statusNode.textContent = getQuestStatusLabel(quest.status);
@@ -890,26 +892,28 @@ export class QuestPanel {
   private resolveProgressText(quest: QuestState): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const progress = this.normalizeQuestProgressNumber(quest.progress);
+    const required = this.normalizeQuestRequiredNumber(quest.required);
     if (quest.objectiveType === 'talk') {
-      return quest.progress >= quest.required
+      return progress >= required
         ? t('quest.progress.talk.done', undefined)
         : t('quest.progress.talk.pending', undefined);
     }
     if (quest.objectiveType === 'learn_technique') {
-      return quest.progress >= quest.required
+      return progress >= required
         ? t('quest.progress.learn.done', { targetName: quest.targetName })
         : t('quest.progress.learn.pending', { targetName: quest.targetName });
     }
     if (quest.objectiveType === 'realm_stage') {
-      return quest.progress >= quest.required
+      return progress >= required
         ? t('quest.progress.realm-stage.done', { targetName: quest.targetName })
         : t('quest.progress.realm-stage.pending', { targetName: quest.targetName });
     }
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
-      return `${quest.targetName} ${quest.progress}/${quest.required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
+      return `${quest.targetName} ${progress}/${required}，${requiredItemProgress.itemName} ${requiredItemProgress.current}/${requiredItemProgress.required}`;
     }
-    return `${quest.targetName} ${quest.progress}/${quest.required}`;
+    return `${quest.targetName} ${progress}/${required}`;
   }
 
   /** resolveNextStep：解析新版Step。 */
@@ -956,7 +960,7 @@ export class QuestPanel {
     }
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (quest.objectiveType === 'kill' && requiredItemProgress) {
-      if (quest.progress >= quest.required && requiredItemProgress.current < requiredItemProgress.required) {
+      if (this.normalizeQuestProgressNumber(quest.progress) >= this.normalizeQuestRequiredNumber(quest.required) && requiredItemProgress.current < requiredItemProgress.required) {
         return t('quest.next.collect-item', requiredItemProgress);
       }
       const targetLocation = this.formatQuestLocation(quest.targetMapName ?? quest.giverMapName, quest.targetX, quest.targetY);
@@ -996,6 +1000,16 @@ export class QuestPanel {
       current,
       required,
     };
+  }
+
+  private normalizeQuestProgressNumber(value: unknown): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
+  }
+
+  private normalizeQuestRequiredNumber(value: unknown): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(1, Math.trunc(numeric)) : 1;
   }
 
   /** getInventoryItemCount：读取背包物品数量。 */

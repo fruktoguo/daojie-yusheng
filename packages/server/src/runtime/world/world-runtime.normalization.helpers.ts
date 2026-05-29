@@ -503,7 +503,7 @@ export function cloneQuestState(quest, status = quest.status) {
         line: normalizeQuestLine(quest.line),
         status,
         objectiveType: normalizeQuestObjectiveType(quest.objectiveType),
-        progress: Math.max(0, Math.trunc(Number(quest.progress ?? 0))),
+        progress: normalizeQuestProgressNumber(quest.progress),
         required: normalizeQuestRequired(quest, normalizeQuestObjectiveType(quest.objectiveType)),
         targetMonsterId: typeof quest.targetMonsterId === 'string' ? quest.targetMonsterId : '',
     };
@@ -542,6 +542,11 @@ export function cloneQuestState(quest, status = quest.status) {
         cloned.giverId = quest.giverId.trim();
     }
     return cloned;
+}
+
+function normalizeQuestProgressNumber(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
 }
 /** 任务列表稳定排序比较器。 */
 export function compareQuestViews(left, right) {
