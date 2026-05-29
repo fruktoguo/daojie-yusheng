@@ -314,7 +314,7 @@ function buildScripturePlatformActions(player, building) {
         id: `scripture:record:${encodeURIComponent(building.id)}`,
         name: Number(building.scriptureProgress) > 0 ? '继续录入' : '录入',
         type: 'interact',
-        desc: '打开藏经台录入界面，选择自身已经练满的功法写入藏经台。',
+        desc: '打开藏经台录入界面，选择自身已经练满的自创功法写入藏经台。',
         cooldownLeft: 0,
     }];
 }

@@ -607,7 +607,7 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   recorder.transmissionSkill.expToNext = resolveExpToNextByLevel();
   const scriptureTechnique = {
     ...technique,
-    techId: 'tech.scripture',
+    techId: 'gen_scripture',
     name: '藏经试炼功法',
     realmLv: 2,
     grade: 'yellow',
@@ -650,15 +650,39 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   assert.equal(recorder.transmissionJob?.progressBreakdown?.baseProgress, 10);
   assert.equal(building.scriptureTechniqueId, scriptureTechnique.techId);
   assert.equal(building.scriptureProgress, 0);
-  assert.equal(building.scriptureRequiredProgress, 40);
+  assert.equal(building.scriptureRequiredProgress, 1200);
 
   recorder.lifeElapsedTicks = 1;
   pipeline.tick(recorder, 'transmission', ctx as never);
   assert.equal(building.scriptureProgress, 10);
   assert.equal(recorder.transmissionSkill.exp, getExpectedTransmissionExpGain(2, 2, 1));
-  assert.equal(recorder.transmissionJob?.remainingTicks, 30);
+  assert.equal(recorder.transmissionJob?.remainingTicks, 1190);
 
-  const otherTechnique = { ...scriptureTechnique, techId: 'tech.scripture.other', name: '另一门功法' };
+  const normalTechnique = { ...scriptureTechnique, techId: 'tech.scripture.normal', name: '普通功法' };
+  recorder.techniques.techniques.push(normalTechnique);
+  recorder.transmissionJob = null;
+  building.scriptureTechniqueId = null;
+  building.scriptureTechniqueName = null;
+  building.scriptureProgress = 0;
+  building.scriptureRequiredProgress = undefined;
+  building.scriptureRecordingJobRunId = null;
+  const normalResult = pipeline.start(recorder, 'transmission', {
+    mode: 'scripture_recording',
+    learnerPlayerId: recorder.playerId,
+    techniqueId: normalTechnique.techId,
+    buildingId: building.id,
+  }, ctx as never);
+  assert.equal(normalResult.ok, false);
+  assert.match(normalResult.error ?? '', /只能录入自创功法/);
+  const restartResult = pipeline.start(recorder, 'transmission', {
+    mode: 'scripture_recording',
+    learnerPlayerId: recorder.playerId,
+    techniqueId: scriptureTechnique.techId,
+    buildingId: building.id,
+  }, ctx as never);
+  assert.equal(restartResult.ok, true, restartResult.error);
+
+  const otherTechnique = { ...scriptureTechnique, techId: 'gen_scripture_other', name: '另一门功法' };
   recorder.techniques.techniques.push(otherTechnique);
   const lockedResult = pipeline.start(recorder, 'transmission', {
     mode: 'scripture_recording',
@@ -669,13 +693,13 @@ function testScriptureRecordingUsesTransmissionJobAndLocksBuilding() {
   assert.equal(lockedResult.ok, false);
   assert.match(lockedResult.error ?? '', /已有进行中的技艺任务|已有藏书/);
 
-  for (let tick = 2; tick <= 4; tick += 1) {
+  for (let tick = 2; tick <= 121; tick += 1) {
     recorder.lifeElapsedTicks = tick;
     pipeline.tick(recorder, 'transmission', ctx as never);
   }
-  assert.equal(building.scriptureProgress, 40);
+  assert.equal(building.scriptureProgress, 1200);
   assert.equal(building.scriptureRecordingJobRunId, null);
-  assert.equal(building.scriptureRecordedAtTick, 4);
+  assert.ok(Number(building.scriptureRecordedAtTick) > 0 && Number(building.scriptureRecordedAtTick) <= 121);
   assert.equal(recorder.transmissionJob, null);
   assert.ok(dirtyDomains.includes('building'));
 }

@@ -1,7 +1,7 @@
 /**
  * 本文件是客户端藏经台弹层模块。UI 只负责选择与发送意图，录入合法性由服务端权威校验。
  */
-import { getTechniqueMaxLevel, type PlayerState } from '@mud/shared';
+import { getTechniqueMaxLevel, isCreatedTechniqueId, type PlayerState } from '@mud/shared';
 import { getLocalRealmLevelEntry } from '../content/local-templates';
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
@@ -35,7 +35,7 @@ export function openScripturePlatformRecordingModal(options: ScripturePlatformRe
   detailModalHost.open({
     ownerId: MODAL_OWNER,
     title: '藏经台录入',
-    subtitle: '选择一门已圆满功法',
+    subtitle: '选择一门已圆满自创功法',
     variantClass: 'detail-modal--craft detail-modal--craft-transmission',
     size: 'md',
     bodyHtml: renderRecordingBody(techniques),
@@ -50,7 +50,7 @@ function getRecordableTechniques(player: PlayerState): ScriptureTechniqueOption[
   return [...(Array.isArray(player.techniques) ? player.techniques : [])]
     .filter((technique) => {
       const techId = normalizeText(technique.techId);
-      if (!techId) {
+      if (!techId || !isCreatedTechniqueId(techId)) {
         return false;
       }
       const level = Math.max(1, Math.trunc(Number(technique.level) || 1));
@@ -77,10 +77,10 @@ function renderRecordingBody(techniques: ScriptureTechniqueOption[]): string {
       <div class="alchemy-tab-stack" data-scripture-record-panel="true">
         <section class="alchemy-summary-card">
           <div class="alchemy-summary-head">
-            <div class="alchemy-summary-title">可录入功法</div>
+            <div class="alchemy-summary-title">可录入自创功法</div>
             <span class="alchemy-summary-mode">0 门</span>
           </div>
-          <div class="empty-hint">当前没有已圆满的功法</div>
+          <div class="empty-hint">当前没有已圆满的自创功法</div>
         </section>
       </div>
     `;
@@ -94,11 +94,11 @@ function renderRecordingBody(techniques: ScriptureTechniqueOption[]): string {
     <div class="alchemy-tab-stack" data-scripture-record-panel="true">
       <section class="alchemy-summary-card">
         <div class="alchemy-summary-head">
-          <div class="alchemy-summary-title">可录入功法</div>
+          <div class="alchemy-summary-title">可录入自创功法</div>
           <span class="alchemy-summary-mode">${formatDisplayInteger(techniques.length)} 门</span>
         </div>
         <div class="transmission-teach-picker scripture-record-picker">
-          <input class="ui-search-input" type="search" data-scripture-tech-search="true" placeholder="搜索已圆满功法">
+          <input class="ui-search-input" type="search" data-scripture-tech-search="true" placeholder="搜索已圆满自创功法">
           <select class="ui-input" data-scripture-tech-select="true">
             ${optionsHtml}
           </select>

@@ -383,14 +383,16 @@ function validateScriptureRecordingStart(
   if (!technique) {
     return { ok: false, error: '尚未掌握该功法。' };
   }
+  if (!isCreatedTechniqueId(techniqueId)) {
+    return { ok: false, error: '只能录入自创功法。' };
+  }
   if (!isTechniqueEntryMaxed(technique)) {
     return { ok: false, error: '只有练满的功法可以录入藏经台。' };
   }
-  const sourceKind = isCreatedTechniqueId(techniqueId) ? 'created' : 'normal';
   const requiredProgress = Math.max(
     1,
     Number(existingTechniqueId === techniqueId ? building.scriptureRequiredProgress : 0) || calculateTechniqueComprehensionRequiredProgress({
-      sourceKind,
+      sourceKind: 'created',
       techniqueRealmLv: technique.realmLv,
       grade: technique.grade,
       learnerRealmLv: recorder.realm?.realmLv ?? 1,
