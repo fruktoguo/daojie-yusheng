@@ -970,13 +970,10 @@ shell.password,静态HTML-主界面,密码,静态 HTML：packages/client/index.h
 shell.password.placeholder,静态HTML-主界面,输入密码,静态 HTML：packages/client/index.html
 shell.optional,静态HTML-主界面,(可选),静态 HTML：packages/client/index.html
 shell.quest,静态HTML-主界面,任务,静态 HTML：packages/client/index.html
-shell.register.account.help,静态HTML-主界面,账号用于登录，不能包含空格。,静态 HTML：packages/client/index.html
-shell.register.display-icon.help,静态HTML-主界面,显示图标用于头顶的一字标识，除“人”外仍按唯一性校验。,静态 HTML：packages/client/index.html
 shell.register.display-icon.label,静态HTML-主界面,显示图标,静态 HTML：packages/client/index.html
-shell.register.display-icon.placeholder,静态HTML-主界面,输入 1 个可见字符,静态 HTML：packages/client/index.html
+shell.register.display-icon.placeholder,静态HTML-主界面,1 字,静态 HTML：packages/client/index.html
 shell.register.invitation-code.label,静态HTML-主界面,邀请码,静态 HTML：packages/client/index.html
 shell.register.invitation-code.placeholder,静态HTML-主界面,邀请链接会自动填入,静态 HTML：packages/client/index.html
-shell.register.username.help,静态HTML-主界面,用户名是游戏内完整名称，登录时也可直接输入当前用户名。,静态 HTML：packages/client/index.html
 shell.register.username.label,静态HTML-主界面,用户名,静态 HTML：packages/client/index.html
 shell.register.username.placeholder,静态HTML-主界面,输入游戏内用户名,静态 HTML：packages/client/index.html
 shell.role-name,静态HTML-主界面,角色名,静态 HTML：packages/client/index.html

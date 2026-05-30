@@ -47,12 +47,10 @@ export class LoginUI {
   private registerAccountGroup = document.getElementById('register-account-group') as HTMLElement;
   /** accountNameInput：账号名称输入。 */
   private accountNameInput = document.getElementById('input-account-name') as HTMLInputElement;
-  /** roleNameGroup：角色名称分组。 */
-  private roleNameGroup = document.getElementById('register-role-name-group') as HTMLElement;
+  /** registerNameRow：注册用户名与显示图标行。 */
+  private registerNameRow = document.getElementById('register-name-row') as HTMLElement;
   /** roleNameInput：角色名称输入。 */
   private roleNameInput = document.getElementById('input-role-name') as HTMLInputElement;
-  /** displayNameGroup：显示名称分组。 */
-  private displayNameGroup = document.getElementById('register-display-name-group') as HTMLElement;
   /** displayNameInput：显示名称输入。 */
   private displayNameInput = document.getElementById('input-display-name') as HTMLInputElement;
   /** displayNameStatus：显示名称状态。 */
@@ -386,8 +384,7 @@ export class LoginUI {
     this.registerTab.setAttribute('aria-selected', String(isRegister));
     this.loginNameGroup.classList.toggle('hidden', isRegister);
     this.registerAccountGroup.classList.toggle('hidden', !isRegister);
-    this.roleNameGroup.classList.toggle('hidden', !isRegister);
-    this.displayNameGroup.classList.toggle('hidden', !isRegister);
+    this.registerNameRow.classList.toggle('hidden', !isRegister);
     this.invitationCodeGroup.classList.toggle('hidden', !isRegister);
     this.passwordInput.autocomplete = isRegister ? 'new-password' : 'current-password';
     this.loginTab.textContent = t('login.mode.login', undefined);

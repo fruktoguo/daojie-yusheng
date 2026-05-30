@@ -94,6 +94,11 @@
         gap: 5px;
         margin-bottom: 12px;
       }
+      .login-register-name-row {
+        grid-template-columns: minmax(0, 1fr) minmax(82px, 96px);
+        gap: 8px;
+        margin-bottom: 12px;
+      }
       .form-group label {
         font-size: var(--font-size-role-body-14);
       }

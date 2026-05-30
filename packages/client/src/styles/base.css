@@ -152,6 +152,20 @@
     .form-group.hidden {
       display: none;
     }
+    .login-register-name-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(88px, 108px);
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+    .login-register-name-row.hidden {
+      display: none;
+    }
+    .login-register-name-row .form-group {
+      min-width: 0;
+      margin-bottom: 0;
+    }
     .form-group label {
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-16);
@@ -169,6 +183,9 @@
     }
     .form-group input:focus {
       border-color: var(--ink-black);
+    }
+    #register-display-name-group input {
+      text-align: center;
     }
     .form-group input::placeholder {
       color: var(--light-ink);
