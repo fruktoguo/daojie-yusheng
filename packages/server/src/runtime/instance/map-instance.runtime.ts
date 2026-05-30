@@ -2380,7 +2380,7 @@ class MapInstanceRuntime {
         });
         const view = {
             visiblePlayers: supportsPvp ? this.collectVisiblePlayers(player, normalizedRadius, visibleTileVisibility) : [],
-            localMonsters: this.collectLocalMonsters(player.x, player.y, normalizedRadius, visibleTileVisibility),
+            localMonsters: this.collectAutoCombatMonsters(player.x, player.y, normalizedRadius, visibleTileVisibility),
         };
         this.autoCombatViewCacheByPlayerId.set(playerId, {
             worldRevision: this.worldRevision,
@@ -5488,6 +5488,43 @@ class MapInstanceRuntime {
             monsters.push(this.getLocalMonsterViewEntry(monster));
         }
         monsters.sort(compareLocalMonsters);
+        return monsters;
+    }
+    /** collectAutoCombatMonsters：自动战斗只读 runtimeId/x/y/hp，跳过客户端投影缓存校验和排序。 */
+    collectAutoCombatMonsters(centerX, centerY, radius, visibleTileVisibility = null) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
+        const monsters = [];
+        if (visibility.indices instanceof Set) {
+            for (const tileIndex of visibility.indices) {
+                const runtimeId = this.monsterRuntimeIdByTile.get(tileIndex);
+                if (!runtimeId) {
+                    continue;
+                }
+                const monster = this.monstersByRuntimeId.get(runtimeId);
+                if (!monster?.alive) {
+                    continue;
+                }
+                if (!this.isTileInsideViewRadius(centerX, centerY, radius, monster.x, monster.y)) {
+                    continue;
+                }
+                monsters.push(monster);
+            }
+            return monsters;
+        }
+        for (const monster of this.monstersByRuntimeId.values()) {
+            if (!monster.alive) {
+                continue;
+            }
+            if (!this.isTileInsideViewRadius(centerX, centerY, radius, monster.x, monster.y)) {
+                continue;
+            }
+            if (!this.isTileVisibleByFilter(monster.x, monster.y, visibility)) {
+                continue;
+            }
+            monsters.push(monster);
+        }
         return monsters;
     }
     /** getLocalMonsterViewEntry：复用未变化的本地妖兽视野条目。 */
