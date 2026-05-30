@@ -787,6 +787,35 @@ function resolveCultivationAuraMultiplier(instance, player, position) {
 }
 
 function resolveTileCultivationAura(instance, player, x, y) {
+    if (typeof instance.visitTileResources === 'function') {
+        let rawQiValue = 0;
+        let projectedQiValue = 0;
+        let hasQiResource = false;
+        const visited = instance.visitTileResources(x, y, (resourceKey, raw) => {
+            const value = Math.max(0, Number(raw) || 0);
+            const projected = resolveCultivationResourceValue(player, resourceKey, value);
+            if (!projected.contributes) {
+                return;
+            }
+            hasQiResource = true;
+            rawQiValue += projected.rawValue;
+            projectedQiValue += projected.effectiveValue;
+        });
+        if (visited === true) {
+            if (hasQiResource) {
+                return {
+                    rawValue: rawQiValue,
+                    effectiveValue: projectedQiValue,
+                    rawLevel: getAuraLevel(rawQiValue, DEFAULT_AURA_LEVEL_BASE_VALUE),
+                };
+            }
+            return {
+                rawValue: 0,
+                effectiveValue: 0,
+                rawLevel: 0,
+            };
+        }
+    }
     const resources = typeof instance.listTileResources === 'function'
         ? instance.listTileResources(x, y)
         : null;

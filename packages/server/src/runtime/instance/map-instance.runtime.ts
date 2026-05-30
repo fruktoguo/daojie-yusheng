@@ -2520,6 +2520,24 @@ class MapInstanceRuntime {
         });
         return entries;
     }
+    /** visitTileResources：无排序/无数组分配地遍历指定地块有效资源，供 tick 热路径使用。 */
+    visitTileResources(x, y, visitor) {
+        if (typeof visitor !== 'function') {
+            return false;
+        }
+        if (!this.isInBounds(x, y)) {
+            return this.isSectVirtualBoundaryTile(x, y);
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        for (const [resourceKey, bucket] of this.tileResourceBuckets.entries()) {
+            const value = bucket[tileIndex] ?? 0;
+            if (value <= 0) {
+                continue;
+            }
+            visitor(resourceKey, value);
+        }
+        return true;
+    }
     /** getTileGroundPile：读取指定地块地面物品堆。 */
     getTileGroundPile(x, y) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
