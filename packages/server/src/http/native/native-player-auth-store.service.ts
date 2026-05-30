@@ -779,8 +779,8 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
       .map(cloneUser);
   }
 
-  /** 检查某注册 IP 是否已产生过账号，供注册冷路径执行同 IP 激活码门禁。 */
-  async hasRegisteredIp(ip: string): Promise<boolean> {
+  /** 检查某 IP 是否已在账号库出现过注册或登录记录，供注册冷路径执行同 IP 激活码门禁。 */
+  async hasObservedAuthIp(ip: string): Promise<boolean> {
     const normalizedIp = normalizeOptionalString(ip, 64);
     if (!normalizedIp) {
       return false;
@@ -791,7 +791,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         SELECT EXISTS(
           SELECT 1
           FROM ${PLAYER_AUTH_TABLE}
-          WHERE register_ip = $1
+          WHERE register_ip = $1 OR last_login_ip = $1
           LIMIT 1
         ) AS exists
       `, [normalizedIp]);
@@ -799,7 +799,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     }
 
     for (const user of this.usersById.values()) {
-      if (user.registerIp === normalizedIp) {
+      if (user.registerIp === normalizedIp || user.lastLoginIp === normalizedIp) {
         return true;
       }
     }

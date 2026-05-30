@@ -1,6 +1,6 @@
 /**
  * 注册激活码冷路径 smoke。
- * 覆盖同 IP 二次注册的激活码门禁，以及邀请链接带入的邀请码持久化字段。
+ * 覆盖注册/登录共用账号库的同 IP 激活码门禁，以及邀请链接带入的邀请码持久化字段。
  */
 import { strict as assert } from 'node:assert';
 
@@ -28,14 +28,22 @@ async function main(): Promise<void> {
       'password123',
       '甲',
       '激活码烟测甲',
-      { ip: '203.0.113.91', deviceId: 'device-a', userAgent: 'registration-smoke' },
+      { ip: '198.51.100.40', deviceId: 'device-a', userAgent: 'registration-smoke' },
       { invitationCode: 'INVITE-A' },
     );
     assert.ok(first.accessToken);
 
     const firstUser = await authStore.findUserByUsername('regact1');
     assert.equal(firstUser?.registerInvitationCode, 'INVITE-A');
-    assert.equal(await authStore.hasRegisteredIp('203.0.113.91'), true);
+    assert.equal(await authStore.hasObservedAuthIp('198.51.100.40'), true);
+    assert.equal(await authStore.hasObservedAuthIp('203.0.113.91'), false);
+
+    await service.login(
+      'regact1',
+      'password123',
+      { ip: '203.0.113.91', deviceId: 'device-login', userAgent: 'registration-smoke' },
+    );
+    assert.equal(await authStore.hasObservedAuthIp('203.0.113.91'), true);
 
     await assert.rejects(
       () => service.register(
@@ -74,8 +82,9 @@ async function main(): Promise<void> {
       ok: true,
       case: 'registration-activation',
       assertions: [
-        'first same-ip registration is allowed',
-        'second same-ip registration requires activation code',
+        'first registration records register_ip in the shared auth store',
+        'login records last_login_ip in the same auth store',
+        'registration from a previously logged-in IP requires activation code',
         'invalid activation code is rejected',
         'valid activation code allows registration',
         'invitation code is stored on the auth user',

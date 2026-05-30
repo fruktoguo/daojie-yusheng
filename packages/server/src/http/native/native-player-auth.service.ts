@@ -612,8 +612,8 @@ export class NativePlayerAuthService {
     if (!registerIp) {
       return false;
     }
-    const hasRegisteredIp = await this.authStore.hasRegisteredIp(registerIp);
-    if (!hasRegisteredIp) {
+    const hasObservedAuthIp = await this.authStore.hasObservedAuthIp(registerIp);
+    if (!hasObservedAuthIp) {
       return false;
     }
     return !isValidRegistrationActivationCode(activationCode);
