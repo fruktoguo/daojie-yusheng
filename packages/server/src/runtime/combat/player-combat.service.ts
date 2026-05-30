@@ -155,14 +155,22 @@ export class PlayerCombatService {
         };
     }
 
+    /** 解析怪物技能；同一次怪物多目标施法可复用该结果。 */
+    resolveMonsterSkillForCast(attacker, skillId) {
+        return resolveMonsterSkill(attacker, skillId);
+    }
+
     /**
      * 妖兽对玩家施放技能。
      * 怪物侧跳过元气和冷却检查（由 AI 层保证），伤害直接应用到玩家。
      */
     castMonsterSkill(attacker, target, skillId, currentTick, distance, applySelfBuff, applyTargetBuff, spendQi, options = undefined) {
-        const resolved = resolveMonsterSkill(attacker, skillId);
+        const resolved = options?.resolvedSkill?.skill?.id === skillId
+            ? options.resolvedSkill
+            : resolveMonsterSkill(attacker, skillId);
+        const attackerState = options?.attackerCombatState ?? attacker;
 
-        const result = this.executeResolvedSkillCast(attacker, toCombatPlayerState(target), resolved, currentTick, distance, {
+        const result = this.executeResolvedSkillCast(attackerState, toCombatPlayerState(target), resolved, currentTick, distance, {
             setCooldownReadyTick: () => undefined,
             spendQi,
             applySelfBuff,

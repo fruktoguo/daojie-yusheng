@@ -95,6 +95,8 @@ export class WorldRuntimeMonsterActionApplyService {
 
     worldRuntimeCombatActionService;
     worldRuntimeThreatService;
+    monsterOutcomeAdapters = createCombatOutcomeApplyAdapters();
+    monsterCombatStateCache = new WeakMap();
     /**
  * logger：日志器引用。
  */
@@ -120,6 +122,12 @@ export class WorldRuntimeMonsterActionApplyService {
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService;
         this.worldRuntimeThreatService = worldRuntimeThreatService ?? new WorldRuntimeThreatService();
+    }
+    resolveMonsterCombatExpEquivalent(monster) {
+        return resolveCachedMonsterCombatState(monster, this.playerRuntimeService, this.monsterCombatStateCache).combatExp;
+    }
+    resolveMonsterCombatState(monster) {
+        return resolveCachedMonsterCombatState(monster, this.playerRuntimeService, this.monsterCombatStateCache);
     }
     /**
  * applyMonsterAction：处理怪物Action并更新相关状态。
@@ -222,7 +230,7 @@ export class WorldRuntimeMonsterActionApplyService {
             attackerStats: monster.numericStats,
             attackerRatios: monster.ratioDivisors,
             attackerRealmLv: Math.max(1, Math.floor(monster.level ?? 1)),
-            attackerCombatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
+            attackerCombatExp: this.resolveMonsterCombatExpEquivalent(monster),
             targetStats: player.attrs.numericStats,
             targetRatios: player.attrs.ratioDivisors,
             targetRealmLv: Math.max(1, Math.floor(player.realm?.realmLv ?? 1)),
@@ -233,10 +241,7 @@ export class WorldRuntimeMonsterActionApplyService {
         const effectColor = getDamageTrailColor(damageKind);
         const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);
         let updated = player;
-        this.applyMonsterCombatOutcome({
-            ...deps,
-            currentTick,
-        }, action, {
+        this.applyMonsterCombatOutcome(deps, action, {
             kind: CombatTargetKind.Player,
             id: action.targetPlayerId,
         }, {
@@ -253,6 +258,8 @@ export class WorldRuntimeMonsterActionApplyService {
             autoRetaliate: resolvedDamage.damage > 0,
             defeated: projectDamageDefeated(player, resolvedDamage.damage),
             applyDefeat: false,
+        }, {
+            currentTick,
         });
         emitCombatPresentation({
             deps,
@@ -313,6 +320,10 @@ export class WorldRuntimeMonsterActionApplyService {
             let qiSpent = false;
             let resolvedTargetCount = 0;
             const skippedTargets = [];
+            const monsterCombatState = this.resolveMonsterCombatState(monster);
+            const resolvedSkill = typeof this.playerCombatService.resolveMonsterSkillForCast === 'function'
+                ? this.playerCombatService.resolveMonsterSkillForCast(monster, action.skillId)
+                : undefined;
             for (let index = 0; index < targetEntries.length; index += 1) {
                 const entry = targetEntries[index];
                 const applyTarget = this.revalidateMonsterSkillTargetForApply(deps, instance, action, entry, targetEntries.length);
@@ -331,24 +342,7 @@ export class WorldRuntimeMonsterActionApplyService {
                 const player = applyTarget.player;
                 const targetPosition = applyTarget.position;
                 resolvedTargetCount += 1;
-                const result = this.playerCombatService.castMonsterSkill({
-                    runtimeId: monster.runtimeId,
-                    monsterId: monster.monsterId,
-                    hp: monster.hp,
-                    maxHp: monster.maxHp,
-                    qi: monster.qi,
-                    maxQi: monster.maxQi,
-                    level: monster.level,
-                    combatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
-                    skills: monster.skills,
-                    cooldownReadyTickBySkillId: monster.cooldownReadyTickBySkillId,
-                    attrs: {
-                        finalAttrs: monster.attrs,
-                        numericStats: monster.numericStats,
-                        ratioDivisors: monster.ratioDivisors,
-                    },
-                    buffs: monster.buffs,
-                }, player, action.skillId, currentTick, actionPlan.distance, (buff) => {
+                const result = this.playerCombatService.castMonsterSkill(monster, player, action.skillId, currentTick, actionPlan.distance, (buff) => {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, (buff) => {
                     this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
@@ -364,6 +358,8 @@ export class WorldRuntimeMonsterActionApplyService {
                     skipSelfEffects: index > 0,
                     skipTargetDamageApplication: true,
                     targetCount: Math.max(1, targetEntries.length),
+                    resolvedSkill,
+                    attackerCombatState: monsterCombatState,
                 });
                 if (skill && !labelPushed) {
                     emitCombatPresentation({
@@ -382,10 +378,7 @@ export class WorldRuntimeMonsterActionApplyService {
                     continue;
                 }
                 const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
-                this.applyMonsterCombatOutcome({
-                    ...deps,
-                    currentTick,
-                }, action, {
+                this.applyMonsterCombatOutcome(deps, action, {
                     kind: CombatTargetKind.Player,
                     id: player.playerId,
                 }, {
@@ -405,6 +398,8 @@ export class WorldRuntimeMonsterActionApplyService {
                     autoRetaliate: result.totalDamage > 0,
                     defeated: projectDamageDefeated(player, result.totalDamage),
                     applyDefeat: false,
+                }, {
+                    currentTick,
                 });
                 this.worldRuntimeThreatService.addThreat(
                     this.worldRuntimeThreatService.buildPlayerOwnerId(player.playerId),
@@ -567,7 +562,7 @@ export class WorldRuntimeMonsterActionApplyService {
             },
         };
     }
-    applyMonsterCombatOutcome(deps, action, target, result = {}) {
+    applyMonsterCombatOutcome(deps, action, target, result = {}, options = undefined) {
         if (!this.worldRuntimeCombatActionService?.applyCombatOutcome) {
             return null;
         }
@@ -591,14 +586,22 @@ export class WorldRuntimeMonsterActionApplyService {
                 skillId: action?.skillId,
                 ...result,
             },
-            deps: {
-                ...deps,
-                playerRuntimeService: this.playerRuntimeService,
-            },
-            adapters: createCombatOutcomeApplyAdapters(),
+            deps: this.resolveMonsterOutcomeDeps(deps, options?.currentTick),
+            adapters: this.monsterOutcomeAdapters,
             mergeAdapterResultToOutcome: true,
             record: true,
         });
+    }
+    resolveMonsterOutcomeDeps(deps, currentTick = undefined) {
+        if (deps?.playerRuntimeService === this.playerRuntimeService
+            && (currentTick === undefined || deps?.currentTick === currentTick)) {
+            return deps;
+        }
+        return {
+            ...deps,
+            ...(currentTick === undefined ? {} : { currentTick }),
+            playerRuntimeService: this.playerRuntimeService,
+        };
     }
 };
 
@@ -702,6 +705,48 @@ function resolveMonsterSkillCancelRejectReason(reason) {
     if (reason === 'expired') return CombatRejectReason.PendingCastExpired;
     if (reason === 'config_revision_mismatch') return CombatRejectReason.PendingCastConfigRevisionMismatch;
     return CombatRejectReason.PendingCastCancelled;
+}
+
+function resolveCachedMonsterCombatState(monster, playerRuntimeService, cache) {
+    const cached = cache.get(monster);
+    if (cached
+        && cached.attrsRef === monster.attrs
+        && cached.numericStatsRef === monster.numericStats
+        && cached.ratioDivisorsRef === monster.ratioDivisors
+        && cached.level === monster.level
+        && cached.tier === monster.tier) {
+        cached.state.hp = monster.hp;
+        cached.state.maxHp = monster.maxHp;
+        cached.state.qi = monster.qi;
+        cached.state.maxQi = monster.maxQi;
+        cached.state.buffs = monster.buffs;
+        return cached.state;
+    }
+    const state = {
+        runtimeId: monster.runtimeId,
+        monsterId: monster.monsterId,
+        hp: monster.hp,
+        maxHp: monster.maxHp,
+        qi: monster.qi,
+        maxQi: monster.maxQi,
+        level: monster.level,
+        combatExp: resolveMonsterCombatExpEquivalent(monster, playerRuntimeService),
+        attrs: {
+            finalAttrs: monster.attrs,
+            numericStats: monster.numericStats,
+            ratioDivisors: monster.ratioDivisors,
+        },
+        buffs: monster.buffs,
+    };
+    cache.set(monster, {
+        attrsRef: monster.attrs,
+        numericStatsRef: monster.numericStats,
+        ratioDivisorsRef: monster.ratioDivisors,
+        level: monster.level,
+        tier: monster.tier,
+        state,
+    });
+    return state;
 }
 
 function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
