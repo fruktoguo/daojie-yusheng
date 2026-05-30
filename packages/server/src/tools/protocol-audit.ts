@@ -791,6 +791,7 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
           password: password,
           displayName: buildUniqueDisplayName('protocol-audit:' + suffix + ":" + attempt),
           roleName: buildUniqueAuditRoleName(suffix, attempt),
+          activationCode: 'PROTOCOL-AUDIT',
         },
       });
       process.stdout.write("[protocol audit] login begin " + suffix + " attempt=" + attempt + "\n");
@@ -1488,6 +1489,7 @@ async function craftPanelCase(runtime) {
 /**
  * 记录玩家。
  */
+  await runtime.api.grantItem(playerId, "book.qingmu_sword", 1);
   var player = (await runtime.api.fetchState(playerId)).player;
   socket.emit(C2S.Equip, { itemRef: itemRef(player, "equip.copper_pill_furnace") });
   await lib.waitForState(runtime.api, playerId, function (current) {
