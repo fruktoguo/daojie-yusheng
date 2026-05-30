@@ -1310,7 +1310,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                 resolvedSkill,
             };
             if (target.kind === 'self') {
+                const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSelfSkill(attacker, skillId, currentTick, options);
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
+                const outcomeApplyStartedAt = performance.now();
                 this.recordPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                     kind: CombatTargetKind.Self,
                     id: attacker.playerId,
@@ -1320,6 +1323,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     targetX: attacker.x,
                     targetY: attacker.y,
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
                 castIndex += 1;
                 const selfHeal = Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 const buffs = Array.isArray(result.selfBuffs) ? result.selfBuffs : [];
@@ -1332,6 +1336,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     const parts = [];
                     if (selfHeal > 0) parts.push(`恢复生命 ${selfHeal}`);
                     if (buffs.length > 0) parts.push(`获得 ${buffs.map(b => b.name).join('、')}`);
+                    const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
@@ -1342,7 +1347,9 @@ export class WorldRuntimePlayerSkillDispatchService {
                             combat: buildCombatNoticePayload({ caster: '你', target: '自身', skill: skill.name, effects }),
                         }],
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 } else {
+                    const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
@@ -1353,6 +1360,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                             combat: buildCombatNoticePayload({ caster: '你', target: '自身', skill: skill.name }),
                         }],
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 }
                 continue;
             }
@@ -1369,6 +1377,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     continue;
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y);
+                const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSkillToMonster(attacker, {
                     runtimeId: monster.runtimeId,
                     monsterId: monster.monsterId,
@@ -1388,6 +1397,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }, skillId, currentTick, distance, (buff) => {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, options);
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
@@ -1395,6 +1405,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }
                 const primaryRoll = resolvePrimaryDamageRoll(result, damageKind, damageElement);
                 if (result.totalDamage <= 0) {
+                    const outcomeApplyStartedAt = performance.now();
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                         kind: CombatTargetKind.Monster,
                         id: monster.runtimeId,
@@ -1414,6 +1425,8 @@ export class WorldRuntimePlayerSkillDispatchService {
                         defeated: false,
                         applyKillReward: false,
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                    const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
@@ -1426,8 +1439,10 @@ export class WorldRuntimePlayerSkillDispatchService {
                             combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: monster.hp, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement } }),
                         }],
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                     continue;
                 }
+                const outcomeApplyStartedAt = performance.now();
                 const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
                     kind: CombatTargetKind.Monster,
                     id: monster.runtimeId,
@@ -1446,10 +1461,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                     broken: primaryRoll.broken === true,
                     applyKillReward: false,
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
                 const outcome = appliedOutcome?.adapterResult;
                 if (outcome?.defeated) {
+                    const killRewardStartedAt = performance.now();
                     await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.killRewardMs', killRewardStartedAt);
                 }
+                const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
@@ -1463,6 +1482,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         combat: buildCombatNoticePayload({ caster: '你', target: monster.name ?? monster.monsterId ?? monster.runtimeId, targetHp: outcome?.hp ?? 0, targetMaxHp: monster.maxHp, skill: skill.name, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? damageKind, element: primaryRoll.element ?? damageElement }, effects: Array.isArray(result.targetBuffs) && result.targetBuffs.length > 0 ? result.targetBuffs.map(b => ({ type: b.category === 'debuff' ? 'debuff' : 'buff', buffId: b.buffId, name: b.name, category: b.category, duration: b.duration })) : undefined }),
                     }],
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 continue;
             }
             if (target.kind === 'player') {
@@ -1489,10 +1509,12 @@ export class WorldRuntimePlayerSkillDispatchService {
                     continue;
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, targetPlayer.x, targetPlayer.y);
+                const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSkill(attacker, targetPlayer, skillId, currentTick, distance, {
                     ...options,
                     skipTargetDamageApplication: true,
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
@@ -1500,6 +1522,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }
                 const primaryRoll = resolvePrimaryDamageRoll(result, damageKind, damageElement);
                 const projectedDefeated = Math.max(0, Math.round(Number(targetPlayer.hp) || 0)) - Math.max(0, Math.round(Number(result.totalDamage) || 0)) <= 0;
+                const outcomeApplyStartedAt = performance.now();
                 const appliedOutcome = this.applyPlayerSkillOutcome({
                     ...outcomeDeps,
                     currentTick,
@@ -1523,6 +1546,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     defeated: projectedDefeated,
                     applyDefeat: false,
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
                 this.worldRuntimeThreatService.addThreat(
                     this.worldRuntimeThreatService.buildPlayerOwnerId(targetPlayer.playerId),
                     this.worldRuntimeThreatService.buildPlayerTargetId(attacker.playerId),
@@ -1536,8 +1560,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                 this.playerRuntimeService.recordActivity(targetPlayer.playerId, currentTick, { interruptCultivation: true, reason: 'attack' });
                 const updatedTarget = this.playerRuntimeService.getPlayer(targetPlayer.playerId);
                 if (updatedTarget && updatedTarget.hp <= 0 && appliedOutcome?.adapterResult?.handledDefeat !== true) {
+                    const killRewardStartedAt = performance.now();
                     await deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.killRewardMs', killRewardStartedAt);
                 }
+                const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
@@ -1558,6 +1585,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         },
                     ],
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 continue;
             }
             if (target.kind === 'formation') {
@@ -1574,6 +1602,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, formation.x, formation.y);
                 const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(formation.remainingAuraBudget * formation.damagePerAura)));
+                const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSkillToMonster(attacker, {
                     runtimeId: formation.id,
                     monsterId: formation.id,
@@ -1588,12 +1617,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                     },
                     buffs: [],
                 }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
                 }
                 if (result.totalDamage <= 0) {
+                    const outcomeApplyStartedAt = performance.now();
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                         kind: CombatTargetKind.Formation,
                         id: formation.id,
@@ -1607,13 +1638,17 @@ export class WorldRuntimePlayerSkillDispatchService {
                         damage: 0,
                         rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                    const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
                         attack: { fromX: attacker.x, fromY: attacker.y, toX: formation.x, toY: formation.y, color: effectColor },
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                     continue;
                 }
+                const outcomeApplyStartedAt = performance.now();
                 const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
                     kind: CombatTargetKind.Formation,
                     id: formation.id,
@@ -1627,9 +1662,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     damage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
                 const adapterResult = appliedOutcome?.adapterResult ?? {};
                 const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, result.totalDamage);
                 const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
+                const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
@@ -1642,6 +1679,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         combat: buildCombatNoticePayload({ caster: '你', target: formation.name, skill: '攻击', formationResolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind: result.damageKind ?? 'spell', element: result.damageElement, auraDamage } }),
                     }],
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 continue;
             }
             if (target.kind === 'formation_boundary') {
@@ -1660,6 +1698,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
                 const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(boundary.remainingAuraBudget * boundary.damagePerAura)));
+                const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSkillToMonster(attacker, {
                     runtimeId: `formation-boundary:${boundary.formationId}:${target.x}:${target.y}`,
                     monsterId: boundary.formationId,
@@ -1674,12 +1713,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                     },
                     buffs: [],
                 }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
                 }
                 if (result.totalDamage <= 0) {
+                    const outcomeApplyStartedAt = performance.now();
                     this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                         kind: CombatTargetKind.Formation,
                         id: boundary.formationId,
@@ -1694,13 +1735,17 @@ export class WorldRuntimePlayerSkillDispatchService {
                         rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                         formationBoundary: true,
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                    const presentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
                         instanceId: attacker.instanceId,
                         attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
                     });
+                    recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                     continue;
                 }
+                const outcomeApplyStartedAt = performance.now();
                 const appliedOutcome = this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                     kind: CombatTargetKind.Formation,
                     id: boundary.formationId,
@@ -1715,9 +1760,11 @@ export class WorldRuntimePlayerSkillDispatchService {
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                     formationBoundary: true,
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
                 const adapterResult = appliedOutcome?.adapterResult ?? {};
                 const appliedDamage = normalizeAppliedDamage(adapterResult.appliedDamage, result.totalDamage);
                 const auraDamage = Math.max(0, Number(adapterResult.auraDamage) || 0);
+                const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
@@ -1730,6 +1777,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                         combat: buildCombatNoticePayload({ caster: '你', target: boundary.name, skill: '攻击', formationResolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind: result.damageKind ?? 'spell', element: result.damageElement, auraDamage } }),
                     }],
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 continue;
             }
             const tileState = instance.getTileCombatState(target.x, target.y);
@@ -1746,6 +1794,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 continue;
             }
             const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
+            const combatResolveStartedAt = performance.now();
             const result = this.playerCombatService.castSkillToMonster(attacker, {
                 runtimeId: `tile:${target.x}:${target.y}`,
                 monsterId: `tile:${tileState.tileType}`,
@@ -1760,12 +1809,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                 },
                 buffs: [],
                 }, skillId, currentTick, distance, () => undefined, { ...options, isTileTarget: true });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
                 totalSkillHeal += Math.max(0, Math.round(Number(result.totalHeal) || 0));
                 if (selfBuffs.length === 0 && Array.isArray(result.selfBuffs) && result.selfBuffs.length > 0) {
                     selfBuffs = result.selfBuffs;
                 }
                 if (result.totalDamage <= 0) {
+                const outcomeApplyStartedAt = performance.now();
                 this.applyPlayerSkillOutcome(outcomeDeps, attacker, skill, {
                     kind: CombatTargetKind.Tile,
                     x: target.x,
@@ -1777,11 +1828,14 @@ export class WorldRuntimePlayerSkillDispatchService {
                     damage: 0,
                     rawDamage: Math.max(0, Math.round(Number(result.totalDamage) || 0)),
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
+                const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
                     instanceId: attacker.instanceId,
                     attack: { fromX: attacker.x, fromY: attacker.y, toX: target.x, toY: target.y, color: effectColor },
                 });
+                recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
                 continue;
             }
             const effectiveTileDamage = resolveMiningAdjustedTileDamage({
@@ -1792,6 +1846,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
                 ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, effectiveTileDamage)
                 : effectiveTileDamage;
+            const outcomeApplyStartedAt = performance.now();
             const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
                 kind: CombatTargetKind.Tile,
                 x: target.x,
@@ -1804,6 +1859,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 rawDamage: Math.max(0, Math.round(Number(effectiveTileDamage) || 0)),
                 mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
             });
+            recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
             const tileDamageResult = appliedOutcome?.adapterResult;
             const appliedDamage = normalizeAppliedDamage(tileDamageResult?.appliedDamage, mitigatedDamage);
             spawnTileDrops({
@@ -1821,6 +1877,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 this.playerRuntimeService.markPersistenceDirtyDomains(attacker, ['profession']);
                 this.playerRuntimeService.bumpPersistentRevision(attacker);
             }
+            const presentationStartedAt = performance.now();
             emitCombatPresentation({
                 deps,
                 instanceId: attacker.instanceId,
@@ -1833,6 +1890,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     combat: buildCombatNoticePayload({ caster: '你', target: uiLabels.TILE_TYPE_LABELS[tileState.tileType] ?? '地块', targetHp: tileDamageResult?.hp ?? 0, targetMaxHp: tileState.maxHp, skill: skill.name, resolution: { rawDamage: result.totalDamage, damage: appliedDamage, damageKind, element: damageElement } }),
                 }],
             });
+            recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.presentationMs', presentationStartedAt);
             if (tileDamageResult?.destroyed === true) {
                 destroyedTiles.push({ x: target.x, y: target.y });
             }
