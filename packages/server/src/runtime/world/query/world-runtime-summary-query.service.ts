@@ -43,6 +43,18 @@ export class WorldRuntimeSummaryQueryService {
                 phaseSummaries: summarizePhaseDurations(input.tickPhaseDurationHistoryMs),
                 sections: input.lastTickSectionDurations ?? {},
                 sectionSummaries: summarizeSectionDurations(input.tickSectionDurationHistoryMs),
+                cumulative: {
+                    totalMs: {
+                        totalMs: roundDurationMs(Math.max(0, Number(input.cumulativeTickDurationMs) || 0)),
+                        count: Math.max(0, Math.trunc(Number(input.cumulativeTickFrameCount) || 0)),
+                    },
+                    syncFlushMs: {
+                        totalMs: roundDurationMs(Math.max(0, Number(input.cumulativeSyncFlushDurationMs) || 0)),
+                        count: Math.max(0, Math.trunc(Number(input.cumulativeSyncFlushCount) || 0)),
+                    },
+                    phaseSummaries: normalizeCumulativeSummaries(input.cumulativeTickPhaseSummaries),
+                    sectionSummaries: normalizeCumulativeSummaries(input.cumulativeTickSectionSummaries),
+                },
             },
             instances: input.instances,
         };
@@ -113,6 +125,30 @@ function summarizeSectionDurations(historyByKey) {
             avgMs: count > 0 ? roundDurationMs(totalMs / count) : 0,
             frameAvgMs: history.length > 0 ? roundDurationMs(totalMs / history.length) : 0,
             maxMs: roundDurationMs(maxMs),
+        };
+    }
+    return summaries;
+}
+
+function normalizeCumulativeSummaries(input) {
+    if (!input || typeof input !== 'object') {
+        return {};
+    }
+    const summaries = {};
+    for (const [key, rawSummary] of Object.entries(input)) {
+        const summary = rawSummary && typeof rawSummary === 'object'
+            ? rawSummary as Record<string, unknown>
+            : {};
+        const totalMs = roundDurationMs(Math.max(0, Number(summary.totalMs) || 0));
+        const count = Math.max(0, Math.trunc(Number(summary.count) || 0));
+        const sampleCount = Math.max(0, Math.trunc(Number(summary.sampleCount) || 0));
+        summaries[key] = {
+            count,
+            sampleCount,
+            totalMs,
+            avgMs: count > 0 ? roundDurationMs(totalMs / count) : 0,
+            frameAvgMs: sampleCount > 0 ? roundDurationMs(totalMs / sampleCount) : 0,
+            maxMs: 0,
         };
     }
     return summaries;

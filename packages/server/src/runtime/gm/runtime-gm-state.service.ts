@@ -215,6 +215,8 @@ export class RuntimeGmStateService {
     manualGcInProgress = false;
     /** 最近 60 次同步广播内部阶段耗时，用于拆出同步热点。 */
     syncFlushBreakdownHistoryByKey = createSyncFlushBreakdownHistoryByKey();
+    /** 自 CPU 画像重置以来的同步广播内部阶段累计值。 */
+    syncFlushBreakdownCumulativeByKey = createSyncFlushBreakdownCumulativeByKey();
     /** 缓存依赖并接入 GM 状态推送链路。 */
     constructor(
         mapTemplateRepository: MapTemplateRepository,
@@ -333,6 +335,12 @@ export class RuntimeGmStateService {
                 Number(sample?.[def.key] ?? 0),
                 Number(sample?.[def.countKey] ?? 0),
             );
+            addSyncFlushBreakdownCumulativeMetric(
+                this.syncFlushBreakdownCumulativeByKey,
+                def.key,
+                Number(sample?.[def.key] ?? 0),
+                Number(sample?.[def.countKey] ?? 0),
+            );
         }
     }
     /** GM 网络性能统计是热路径诊断能力，生产默认关闭，需要显式开关。 */
@@ -418,6 +426,9 @@ export class RuntimeGmStateService {
         this.lastWorkerDurationTotalsByPool.clear();
         this.lastWorkerCompletedTotalsByPool.clear();
         this.lastWorkerFallbackTotalsByPool.clear();
+        this.syncFlushBreakdownHistoryByKey = createSyncFlushBreakdownHistoryByKey();
+        this.syncFlushBreakdownCumulativeByKey = createSyncFlushBreakdownCumulativeByKey();
+        this.worldRuntimeService?.resetCpuPerfCounters?.();
     }
     /** 构建运行态内存估算画像，供 GM 面板定位主要占用来源。 */
     buildMemoryEstimate(summary, rssBytes) {
@@ -842,7 +853,7 @@ export class RuntimeGmStateService {
         const workerPool = this.workerPoolMetricsService?.getAllMetrics() ?? null;
         const threading = this.buildCpuThreadingSnapshot(eventLoopUtilization, workerPool);
         const flushDiagnostics = this.flushDiagnosticsService?.getSnapshot() ?? null;
-        const cpuBreakdown = buildCpuBreakdown(summary, this.syncFlushBreakdownHistoryByKey, flushDiagnostics);
+        const cpuBreakdown = buildCpuBreakdown(summary, this.syncFlushBreakdownCumulativeByKey, flushDiagnostics);
         const memoryEstimate = includeMemoryEstimate
             ? this.buildMemoryEstimate(summary, rssBytes)
             : buildSkippedMemoryEstimate(rssBytes);
@@ -1495,8 +1506,13 @@ function collectGarbageWithInspector(): Promise<void> {
 }
 
 function buildCpuBreakdown(summary, syncFlushBreakdownHistoryByKey = null, flushDiagnostics = null) {
-    const phaseSummaries = summary?.tickPerf?.phaseSummaries;
-    const totalWindowMs = Number(summary?.tickPerf?.totalMs?.avg60 ?? 0) * Number(phaseSummaries?.pendingCommandsMs?.sampleCount ?? 0);
+    const cumulative = summary?.tickPerf?.cumulative;
+    const phaseSummaries = cumulative?.phaseSummaries ?? summary?.tickPerf?.phaseSummaries;
+    const sectionSummaries = cumulative?.sectionSummaries ?? summary?.tickPerf?.sectionSummaries;
+    const cumulativeTotalMs = Number(cumulative?.totalMs?.totalMs ?? 0);
+    const totalWindowMs = cumulativeTotalMs > 0
+        ? cumulativeTotalMs
+        : Number(summary?.tickPerf?.totalMs?.avg60 ?? 0) * Number(phaseSummaries?.pendingCommandsMs?.sampleCount ?? 0);
     const rows = [];
     let coveredTotalMs = 0;
     for (const key of [
@@ -1525,11 +1541,13 @@ function buildCpuBreakdown(summary, syncFlushBreakdownHistoryByKey = null, flush
             percent: totalWindowMs > 0 ? roundMetric((totalMs / totalWindowMs) * 100) : 0,
         });
     }
-    rows.push(...buildTickSectionBreakdownRows(summary?.tickPerf?.sectionSummaries, totalWindowMs));
+    rows.push(...buildTickSectionBreakdownRows(sectionSummaries, totalWindowMs));
     rows.push(...buildPersistenceBreakdownRows(flushDiagnostics, totalWindowMs));
     const syncFlushSummary = summary?.tickPerf?.syncFlushMs;
-    const syncFlushCount = Number(syncFlushSummary?.count ?? 0);
-    const syncFlushTotalMs = roundMetric(Number(syncFlushSummary?.avg60 ?? 0) * syncFlushCount);
+    const syncFlushCount = Number(cumulative?.syncFlushMs?.count ?? syncFlushSummary?.count ?? 0);
+    const syncFlushTotalMs = roundMetric(Number(cumulative?.syncFlushMs?.totalMs ?? 0) > 0
+        ? Number(cumulative.syncFlushMs.totalMs)
+        : Number(syncFlushSummary?.avg60 ?? 0) * syncFlushCount);
     if (syncFlushTotalMs > 0) {
         coveredTotalMs += syncFlushTotalMs;
         rows.push({
@@ -1631,6 +1649,14 @@ function createSyncFlushBreakdownHistoryByKey() {
     return result;
 }
 
+function createSyncFlushBreakdownCumulativeByKey() {
+    const result = new Map();
+    for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
+        result.set(def.key, { totalMs: 0, count: 0, sampleCount: 0 });
+    }
+    return result;
+}
+
 function pushSyncFlushBreakdownMetric(history, totalMs, count) {
     history.push({
         totalMs: roundMetric(Math.max(0, Number(totalMs) || 0)),
@@ -1641,6 +1667,17 @@ function pushSyncFlushBreakdownMetric(history, totalMs, count) {
     }
 }
 
+function addSyncFlushBreakdownCumulativeMetric(cumulativeByKey, key, totalMs, count) {
+    if (!(cumulativeByKey instanceof Map)) {
+        return;
+    }
+    const current = cumulativeByKey.get(key) ?? { totalMs: 0, count: 0, sampleCount: 0 };
+    current.totalMs = roundMetric(Math.max(0, Number(current.totalMs) || 0) + Math.max(0, Number(totalMs) || 0));
+    current.count = Math.max(0, Math.trunc(Number(current.count) || 0)) + Math.max(0, Math.trunc(Number(count) || 0));
+    current.sampleCount = Math.max(0, Math.trunc(Number(current.sampleCount) || 0)) + 1;
+    cumulativeByKey.set(key, current);
+}
+
 function buildSyncFlushBreakdownRows(syncFlushBreakdownHistoryByKey, totalWindowMs) {
     if (!(syncFlushBreakdownHistoryByKey instanceof Map)) {
         return [];
@@ -1648,14 +1685,23 @@ function buildSyncFlushBreakdownRows(syncFlushBreakdownHistoryByKey, totalWindow
     const rows = [];
     for (const def of SYNC_FLUSH_BREAKDOWN_DEFS) {
         const history = syncFlushBreakdownHistoryByKey.get(def.key);
-        if (!Array.isArray(history) || history.length === 0) {
-            continue;
-        }
         let totalMs = 0;
         let count = 0;
-        for (const entry of history) {
-            totalMs += Number(entry?.totalMs ?? 0);
-            count += Number(entry?.count ?? 0);
+        if (Array.isArray(history)) {
+            if (history.length === 0) {
+                continue;
+            }
+            for (const entry of history) {
+                totalMs += Number(entry?.totalMs ?? 0);
+                count += Number(entry?.count ?? 0);
+            }
+        }
+        else if (history && typeof history === 'object') {
+            totalMs = Number(history.totalMs ?? 0);
+            count = Number(history.count ?? 0);
+        }
+        else {
+            continue;
         }
         if (!(totalMs > 0) && count <= 0) {
             continue;

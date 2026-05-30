@@ -2724,6 +2724,10 @@ function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdown
 }
 
 function resolveCpuBreakdownWindowSec(data: GmStateRes): number {
+  const elapsedSec = Math.max(0, Number(data.perf.cpu.profileElapsedSec) || 0);
+  if (elapsedSec > 0) {
+    return elapsedSec;
+  }
   const topLevelCounts = data.perf.cpu.breakdown
     .filter((section) => CPU_BREAKDOWN_TOP_LEVEL_KEYS.has(section.key))
     .map((section) => Math.max(0, Math.trunc(Number(section.count) || 0)))

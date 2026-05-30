@@ -554,6 +554,34 @@ export class WorldRuntimeService {
         return this.worldRuntimeMetricsService.tickSectionDurationHistoryMs;
     }
 
+    get cumulativeTickDurationMs() {
+        return this.worldRuntimeMetricsService.cumulativeTickDurationMs;
+    }
+
+    get cumulativeTickFrameCount() {
+        return this.worldRuntimeMetricsService.cumulativeTickFrameCount;
+    }
+
+    get cumulativeSyncFlushDurationMs() {
+        return this.worldRuntimeMetricsService.cumulativeSyncFlushDurationMs;
+    }
+
+    get cumulativeSyncFlushCount() {
+        return this.worldRuntimeMetricsService.cumulativeSyncFlushCount;
+    }
+
+    get cumulativeTickPhaseSummaries() {
+        return this.worldRuntimeMetricsService.cumulativeTickPhaseSummaries;
+    }
+
+    get cumulativeTickSectionSummaries() {
+        return this.worldRuntimeMetricsService.cumulativeTickSectionSummaries;
+    }
+
+    resetCpuPerfCounters() {
+        this.worldRuntimeMetricsService.resetCpuPerfCounters();
+    }
+
     get instanceTickProgressById() {
         return this.worldRuntimeTickProgressService.instanceTickProgressById;
     }

@@ -170,6 +170,7 @@ interface WorldRuntimeServiceLike {
   rebuildPersistentInstance(instanceId: string): Promise<unknown>;
   migrateInstanceToNode(instanceId: string, targetNodeId: string): Promise<{ ok: boolean; reason?: string }>;
   migratePlayerToNode(playerId: string, targetNodeId: string): Promise<{ ok: boolean; reason?: string }>;
+  resetCpuPerfCounters?(): void;
   listInstances(): Array<{
     instanceId: string;
     displayName?: string;

@@ -82,6 +82,12 @@ export class WorldRuntimeWorldAccessService {
             tickPhaseDurationHistoryMs: deps.tickPhaseDurationHistoryMs,
             lastTickSectionDurations: deps.lastTickSectionDurations,
             tickSectionDurationHistoryMs: deps.tickSectionDurationHistoryMs,
+            cumulativeTickDurationMs: deps.cumulativeTickDurationMs,
+            cumulativeTickFrameCount: deps.cumulativeTickFrameCount,
+            cumulativeSyncFlushDurationMs: deps.cumulativeSyncFlushDurationMs,
+            cumulativeSyncFlushCount: deps.cumulativeSyncFlushCount,
+            cumulativeTickPhaseSummaries: deps.cumulativeTickPhaseSummaries,
+            cumulativeTickSectionSummaries: deps.cumulativeTickSectionSummaries,
             instances,
             dirtyBacklog: {
                 players: dirtyPlayerDomains.size,

@@ -32,6 +32,7 @@ export interface TickSectionDurationSample {
 
 export type TickSectionDurations = Record<string, TickSectionDurationSample>;
 export type TickSectionDurationHistory = Record<string, TickSectionDurationSample[]>;
+export type TickMetricSummaryByKey = Record<string, { totalMs: number; count: number; sampleCount: number }>;
 
 const TICK_PHASE_KEYS: ReadonlyArray<keyof TickPhaseDurations> = [
   'resetFrameEffectsMs',
@@ -57,7 +58,7 @@ const EMPTY_TICK_PHASE_DURATIONS: Readonly<TickPhaseDurations> = Object.freeze({
   playerAdvanceMs: 0,
 });
 
-/** 帧性能指标收集器，维护最近 60 帧的耗时滑动窗口 */
+/** 帧性能指标收集器，同时维护最近 60 帧窗口和自重置以来累计值。 */
 @Injectable()
 export class WorldRuntimeMetricsService {
   lastTickDurationMs = 0;
@@ -68,6 +69,26 @@ export class WorldRuntimeMetricsService {
   tickPhaseDurationHistoryMs: TickPhaseDurationHistory = createTickPhaseDurationHistory();
   lastTickSectionDurations: TickSectionDurations = {};
   tickSectionDurationHistoryMs: TickSectionDurationHistory = {};
+  cumulativeTickDurationMs = 0;
+  cumulativeTickFrameCount = 0;
+  cumulativeSyncFlushDurationMs = 0;
+  cumulativeSyncFlushCount = 0;
+  cumulativeTickPhaseSummaries: TickMetricSummaryByKey = createTickPhaseCumulativeSummaries();
+  cumulativeTickSectionSummaries: TickMetricSummaryByKey = {};
+
+  resetCpuPerfCounters(): void {
+    this.tickDurationHistoryMs = [];
+    this.syncFlushDurationHistoryMs = [];
+    this.tickPhaseDurationHistoryMs = createTickPhaseDurationHistory();
+    this.lastTickSectionDurations = {};
+    this.tickSectionDurationHistoryMs = {};
+    this.cumulativeTickDurationMs = 0;
+    this.cumulativeTickFrameCount = 0;
+    this.cumulativeSyncFlushDurationMs = 0;
+    this.cumulativeSyncFlushCount = 0;
+    this.cumulativeTickPhaseSummaries = createTickPhaseCumulativeSummaries();
+    this.cumulativeTickSectionSummaries = {};
+  }
 
   recordIdleFrame(startedAt: number): void {
     this.lastTickPhaseDurations = { ...EMPTY_TICK_PHASE_DURATIONS };
@@ -75,6 +96,9 @@ export class WorldRuntimeMetricsService {
     this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
     pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
+    this.cumulativeTickDurationMs = roundDurationMs(this.cumulativeTickDurationMs + this.lastTickDurationMs);
+    this.cumulativeTickFrameCount += 1;
+    addTickPhaseCumulativeSummaries(this.cumulativeTickPhaseSummaries, this.lastTickPhaseDurations);
   }
 
   recordFrameResult(
@@ -98,11 +122,17 @@ export class WorldRuntimeMetricsService {
     pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
     pushTickSectionDurationHistory(this.tickSectionDurationHistoryMs, this.lastTickSectionDurations);
+    this.cumulativeTickDurationMs = roundDurationMs(this.cumulativeTickDurationMs + this.lastTickDurationMs);
+    this.cumulativeTickFrameCount += 1;
+    addTickPhaseCumulativeSummaries(this.cumulativeTickPhaseSummaries, this.lastTickPhaseDurations);
+    addTickSectionCumulativeSummaries(this.cumulativeTickSectionSummaries, this.lastTickSectionDurations);
   }
 
   recordSyncFlushDuration(durationMs: number): void {
     this.lastSyncFlushDurationMs = roundDurationMs(durationMs);
     pushDurationMetric(this.syncFlushDurationHistoryMs, this.lastSyncFlushDurationMs);
+    this.cumulativeSyncFlushDurationMs = roundDurationMs(this.cumulativeSyncFlushDurationMs + this.lastSyncFlushDurationMs);
+    this.cumulativeSyncFlushCount += 1;
   }
 }
 
@@ -131,6 +161,14 @@ function createTickPhaseDurationHistory(): TickPhaseDurationHistory {
   };
 }
 
+function createTickPhaseCumulativeSummaries(): TickMetricSummaryByKey {
+  const result: TickMetricSummaryByKey = {};
+  for (const key of TICK_PHASE_KEYS) {
+    result[key] = { totalMs: 0, count: 0, sampleCount: 0 };
+  }
+  return result;
+}
+
 function pushTickPhaseDurationHistory(history: TickPhaseDurationHistory, durations: TickPhaseDurations): void {
   for (const key of TICK_PHASE_KEYS) {
     pushDurationMetric(history[key], durations[key]);
@@ -148,6 +186,31 @@ function normalizeSectionDurations(input: TickSectionDurations): TickSectionDura
     normalized[key] = { totalMs, count };
   }
   return normalized;
+}
+
+function addTickPhaseCumulativeSummaries(summaries: TickMetricSummaryByKey, durations: TickPhaseDurations): void {
+  for (const key of TICK_PHASE_KEYS) {
+    const value = roundDurationMs(Math.max(0, Number(durations[key]) || 0));
+    const current = summaries[key] ?? { totalMs: 0, count: 0, sampleCount: 0 };
+    current.totalMs = roundDurationMs(current.totalMs + value);
+    current.sampleCount += 1;
+    if (value > 0) {
+      current.count += 1;
+    }
+    summaries[key] = current;
+  }
+}
+
+function addTickSectionCumulativeSummaries(summaries: TickMetricSummaryByKey, durations: TickSectionDurations): void {
+  for (const [key, sample] of Object.entries(durations)) {
+    const totalMs = roundDurationMs(Math.max(0, Number(sample?.totalMs) || 0));
+    const count = Math.max(0, Math.trunc(Number(sample?.count) || 0));
+    const current = summaries[key] ?? { totalMs: 0, count: 0, sampleCount: 0 };
+    current.totalMs = roundDurationMs(current.totalMs + totalMs);
+    current.count += count;
+    current.sampleCount += 1;
+    summaries[key] = current;
+  }
 }
 
 function pushTickSectionDurationHistory(history: TickSectionDurationHistory, durations: TickSectionDurations): void {
