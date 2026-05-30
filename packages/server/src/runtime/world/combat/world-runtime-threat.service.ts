@@ -120,7 +120,7 @@ export class WorldRuntimeThreatService {
         return entry?.value ?? 0;
     }
 
-    getThreatEntries(ownerId: string, threshold = 0): RuntimeThreatEntry[] {
+    getThreatEntries(ownerId: string, threshold = 0, options: { sort?: boolean } = {}): RuntimeThreatEntry[] {
         const table = this.threatByOwnerId.get(ownerId);
         if (!table) {
             return [];
@@ -132,7 +132,9 @@ export class WorldRuntimeThreatService {
                 entries.push(entry);
             }
         }
-        entries.sort(compareThreatEntries);
+        if (options.sort !== false) {
+            entries.sort(compareThreatEntries);
+        }
         return entries;
     }
 

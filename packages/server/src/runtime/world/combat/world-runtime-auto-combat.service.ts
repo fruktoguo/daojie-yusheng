@@ -220,6 +220,18 @@ function hasMissingConsumableBuff(player, item) {
     return buffs.some((buff) => !isBuffActive(player, buff?.buffId));
 }
 
+function findVisibleMonsterInAutoCombatView(view, runtimeId) {
+    if (typeof runtimeId !== 'string' || runtimeId.length === 0) {
+        return null;
+    }
+    for (const monster of view?.localMonsters ?? []) {
+        if (monster?.runtimeId === runtimeId) {
+            return monster;
+        }
+    }
+    return null;
+}
+
 function isAutoUsePillConditionMet(player, item, condition) {
     if (condition?.type === 'buff_missing') {
         return hasMissingConsumableBuff(player, item);
@@ -856,22 +868,27 @@ export class WorldRuntimeAutoCombatService {
     selectAutoCombatTarget(instance, player, view, deps, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const retaliateStartedAt = performance.now();
         const retaliateTarget = this.resolveRetaliatePlayerOverrideTarget(instance, player, deps);
+        recordAutoCombatPerf(deps, 'tick.autoCombat.retargetOverrideMs', retaliateStartedAt);
         if (retaliateTarget) {
             return retaliateTarget;
         }
         const shouldPreferTrackedTarget = player.combat.combatTargetLocked === true
             || player.combat.manualEngagePending === true;
         if (shouldPreferTrackedTarget && options?.retargetingAfterUnreachable !== true) {
+            const trackedStartedAt = performance.now();
             const trackedTarget = this.resolveTrackedAutoCombatTarget(instance, player, view, deps);
+            recordAutoCombatPerf(deps, 'tick.autoCombat.trackedTargetMs', trackedStartedAt);
             if (trackedTarget) {
                 return trackedTarget;
             }
         }
-        const candidates = this.collectThreatTargetCandidates(instance, player, view);
+        const candidates = this.collectThreatTargetCandidates(instance, player, view, deps);
         if (candidates.length === 0) {
             return null;
         }
+        const scoreStartedAt = performance.now();
         const metrics = {
             nearestDistance: candidates.reduce((min, candidate) => Math.min(min, candidate.distance), Number.POSITIVE_INFINITY),
             lowestHpRatio: candidates.reduce((min, candidate) => Math.min(min, candidate.hpRatio), Number.POSITIVE_INFINITY),
@@ -893,21 +910,27 @@ export class WorldRuntimeAutoCombatService {
                 bestScore = score;
             }
         }
+        recordAutoCombatPerf(deps, 'tick.autoCombat.candidateScoreMs', scoreStartedAt, candidates.length);
         if (!bestCandidate) {
             return null;
         }
         if (player.combat.autoBattle && player.combat.combatTargetId !== bestCandidate.target.targetRef) {
+            const setTargetStartedAt = performance.now();
             this.unreachableThreatReductionByPlayerId.delete(player.playerId);
             this.playerRuntimeService.setCombatTarget(player.playerId, bestCandidate.target.targetRef, false, deps.resolveCurrentTickForPlayerId(player.playerId));
+            recordAutoCombatPerf(deps, 'tick.autoCombat.setTargetMs', setTargetStartedAt);
         }
         return bestCandidate.target;
     }
-    collectThreatTargetCandidates(instance, player, view) {
+    collectThreatTargetCandidates(instance, player, view, deps = undefined) {
         const ownerId = this.worldRuntimeThreatService.buildPlayerOwnerId(player.playerId);
-        const entries = this.worldRuntimeThreatService.getThreatEntries(ownerId, DEFAULT_AGGRO_THRESHOLD);
+        const threatEntriesStartedAt = performance.now();
+        const entries = this.worldRuntimeThreatService.getThreatEntries(ownerId, DEFAULT_AGGRO_THRESHOLD, { sort: false });
+        recordAutoCombatPerf(deps, 'tick.autoCombat.threatEntriesMs', threatEntriesStartedAt);
         if (entries.length === 0) {
             return [];
         }
+        const candidateBuildStartedAt = performance.now();
         const supportsPvp = instanceSupportsPvp(instance);
         const visibleMonstersById = new Map();
         for (const monster of view.localMonsters ?? []) {
@@ -1006,6 +1029,7 @@ export class WorldRuntimeAutoCombatService {
                 threatValue: entry.value,
             });
         }
+        recordAutoCombatPerf(deps, 'tick.autoCombat.candidateBuildMs', candidateBuildStartedAt, entries.length);
         return candidates;
     }
     /** 被玩家攻击时，临时抢占非玩家锁定目标，但不改写原锁定目标。 */
@@ -1057,6 +1081,15 @@ export class WorldRuntimeAutoCombatService {
         const radius = isMiningJobTargetRef(player, targetRuntimeId)
             ? undefined
             : Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+        const visibleMonster = Number.isFinite(radius)
+            ? findVisibleMonsterInAutoCombatView(view, targetRuntimeId)
+            : null;
+        if (visibleMonster) {
+            const liveMonster = typeof instance?.getMonster === 'function' ? instance.getMonster(targetRuntimeId) : null;
+            if (liveMonster?.alive && isHostileRelation(resolveCombatRelation(player, { kind: 'monster' }))) {
+                return this.normalizeAutoCombatMonsterTarget(visibleMonster);
+            }
+        }
         const trackedTarget = resolveAttackableTargetRef(
             instance,
             this.playerRuntimeService,
