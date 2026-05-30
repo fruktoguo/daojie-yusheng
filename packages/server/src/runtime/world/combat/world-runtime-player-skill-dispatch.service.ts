@@ -1325,23 +1325,26 @@ export class WorldRuntimePlayerSkillDispatchService {
         const attackerCombatState = typeof this.playerCombatService.createCombatPlayerState === 'function'
             ? this.playerCombatService.createCombatPlayerState(attacker)
             : undefined;
+        const recordSkillCastSectionDuration = (sectionKey, durationMs, count = 1) => {
+            const normalizedKey = typeof sectionKey === 'string' && sectionKey
+                ? sectionKey
+                : 'unknownMs';
+            recordPlayerSkillDispatchDuration(deps, `pendingCommands.castSkill.${normalizedKey}`, durationMs, count);
+        };
+        const options = {
+            targetCount: targets.length,
+            skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true,
+            skipSelfEffects: false,
+            skipRangeValidation: true,
+            range: effectiveRange,
+            resolvedSkill,
+            attackerCombatState,
+            recordSkillCastSectionDuration,
+        };
         const targetApplyStartedAt = performance.now();
         for (const target of targets) {
-            const options = {
-                targetCount: targets.length,
-                skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true || castIndex > 0,
-                skipSelfEffects: castIndex > 0,
-                skipRangeValidation: true,
-                range: effectiveRange,
-                resolvedSkill,
-                attackerCombatState,
-                recordSkillCastSectionDuration: (sectionKey, durationMs, count = 1) => {
-                    const normalizedKey = typeof sectionKey === 'string' && sectionKey
-                        ? sectionKey
-                        : 'unknownMs';
-                    recordPlayerSkillDispatchDuration(deps, `pendingCommands.castSkill.${normalizedKey}`, durationMs, count);
-                },
-            };
+            options.skipResourceAndCooldown = castOptions?.skipResourceAndCooldown === true || castIndex > 0;
+            options.skipSelfEffects = castIndex > 0;
             if (target.kind === 'self') {
                 const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSelfSkill(attacker, skillId, currentTick, options);
