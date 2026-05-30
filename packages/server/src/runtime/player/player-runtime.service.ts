@@ -5393,19 +5393,20 @@ function buildOfflineGainDeltaParts(before, after, resolveProfessionExpToNext = 
 }
 function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot) {
     const before = normalizeOfflineGainSnapshot(beforeSnapshot);
-    const afterSnapshot = buildOfflineGainProgressionOnlySnapshot(player, before);
+    const techniqueResult = buildOfflineGainProgressionTechniqueSnapshotAndDelta(player?.techniques?.techniques, before.techniques);
+    const afterSnapshot = buildOfflineGainProgressionOnlySnapshot(player, before, techniqueResult.snapshot);
     return {
         afterSnapshot,
         delta: {
             spiritStones: { gained: 0, lost: 0, net: 0 },
             items: [],
             progress: diffOfflineGainProgress(before, afterSnapshot),
-            techniques: diffOfflineGainTechniques(before.techniques, afterSnapshot.techniques),
+            techniques: techniqueResult.delta,
             professions: [],
         },
     };
 }
-function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot) {
+function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot, techniqueSnapshot = undefined) {
     return {
         snapshotAt: Date.now(),
         playerId: normalizeOfflineGainString(player?.playerId),
@@ -5427,7 +5428,9 @@ function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot) {
                 ? getBodyTrainingExpToNext(level)
                 : normalizeOfflineGainCount(player?.bodyTraining?.expToNext),
         }),
-        techniques: buildOfflineGainProgressionTechniqueSnapshot(player?.techniques?.techniques, previousSnapshot.techniques),
+        techniques: Array.isArray(techniqueSnapshot)
+            ? techniqueSnapshot
+            : buildOfflineGainProgressionTechniqueSnapshot(player?.techniques?.techniques, previousSnapshot.techniques),
         professions: previousSnapshot.professions,
     };
 }
@@ -6045,6 +6048,44 @@ function buildOfflineGainProgressionTechniqueSnapshot(techniques, previousTechni
             };
         })
         .filter((entry) => Boolean(entry));
+}
+function buildOfflineGainProgressionTechniqueSnapshotAndDelta(techniques, previousTechniques) {
+    const previousById = new Map((Array.isArray(previousTechniques) ? previousTechniques : [])
+        .map((entry) => [entry?.techniqueId, entry]));
+    const snapshot = [];
+    const delta = [];
+    for (const entry of Array.isArray(techniques) ? techniques : []) {
+        const techniqueId = normalizeOfflineGainString(entry?.techId);
+        if (!techniqueId) {
+            continue;
+        }
+        const previous = previousById.get(techniqueId);
+        const after = {
+            techniqueId,
+            name: normalizeOfflineGainString(entry?.name) || techniqueId,
+            level: Math.max(1, Math.trunc(Number(entry?.level ?? 1) || 1)),
+            exp: normalizeOfflineGainCount(entry?.exp),
+            expToNext: normalizeOfflineGainCount(entry?.expToNext),
+            expToNextByLevel: previous?.expToNextByLevel ?? buildOfflineGainTechniqueExpTable(entry),
+        };
+        snapshot.push(after);
+        const changed = calculateOfflineGainExpChange(previous ?? {}, after);
+        if (changed.expGained <= 0 && changed.expLost <= 0 && changed.levelGain <= 0 && changed.levelLoss <= 0) {
+            continue;
+        }
+        delta.push({
+            techniqueId: after.techniqueId,
+            name: normalizeOfflineGainString(after.name) || undefined,
+            expGained: changed.expGained,
+            expLost: changed.expLost,
+            netExp: changed.netExp,
+            expGain: changed.expGained,
+            levelGain: changed.levelGain > 0 ? changed.levelGain : undefined,
+            levelLoss: changed.levelLoss > 0 ? changed.levelLoss : undefined,
+            currentLevel: normalizeOfflineGainCount(after.level),
+        });
+    }
+    return { snapshot, delta };
 }
 function buildOfflineGainTechniqueExpTable(technique) {
     const byLevel: Record<string, number> = {};
