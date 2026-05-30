@@ -21,6 +21,7 @@ export class PlayerAttributesService {
     flatBuffAttrsScratch = createEmptyAttributes();
     techniqueStatesScratch = [];
     enhancedEquipmentScratch = [];
+    techniqueBonusCache = new WeakMap();
 
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
@@ -95,12 +96,13 @@ export class PlayerAttributesService {
 
         const rawBaseAttrs = normalizeRawBaseAttributes(player.attrs?.rawBaseAttrs);
 
-        const techniques = resolveTechniqueStatesForCalculation(
-            Array.isArray(player.techniques?.techniques) ? player.techniques.techniques : [],
+        const techniqueBonuses = resolveTechniqueBonusesForCalculation(
+            player.techniques,
             this.techniqueStatesScratch,
+            this.techniqueBonusCache,
         );
-        const techniqueAttrBonus = calcTechniqueFinalAttrBonus(techniques);
-        const techniqueMaxAttrPercentBonus = calcTechniqueMaxAttrPercentBonus(techniques);
+        const techniqueAttrBonus = techniqueBonuses.attrBonus;
+        const techniqueMaxAttrPercentBonus = techniqueBonuses.maxAttrPercentBonus;
 
         const bodyTrainingLevel = Math.max(0, Math.trunc(Number(player.bodyTraining?.level ?? 0) || 0));
 
@@ -175,7 +177,7 @@ export class PlayerAttributesService {
             applyAttrWeight(numericStats, key, value);
             accumulateAttrPercentBonus(percentBonuses, key, value);
         }
-        applySpecialStatWeights(numericStats, player, resolveTechniqueSpecialStatBonus(player.techniques.techniques), enhancedEquipment);
+        applySpecialStatWeights(numericStats, player, techniqueBonuses.specialStatBonus, enhancedEquipment);
         for (const enhancedItem of enhancedEquipment) {
             addPartialNumericStats(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
             for (const effect of resolveActiveEquipmentProgressEffects(enhancedItem, player)) {
@@ -848,6 +850,31 @@ function resolveTechniqueStatesForCalculation(techniques, scratch) {
     return scratch;
 }
 
+function resolveTechniqueBonusesForCalculation(techniqueState, scratch, cache) {
+    const holder = techniqueState && typeof techniqueState === 'object' ? techniqueState : null;
+    const revision = Math.max(0, Math.trunc(Number(holder?.revision ?? 0) || 0));
+    if (holder) {
+        const cached = cache.get(holder);
+        if (cached?.revision === revision) {
+            return cached;
+        }
+    }
+    const techniques = resolveTechniqueStatesForCalculation(
+        Array.isArray(holder?.techniques) ? holder.techniques : [],
+        scratch,
+    );
+    const next = {
+        revision,
+        attrBonus: calcTechniqueFinalAttrBonus(techniques),
+        maxAttrPercentBonus: calcTechniqueMaxAttrPercentBonus(techniques),
+        specialStatBonus: calcTechniqueFinalSpecialStatBonus(techniques),
+    };
+    if (holder) {
+        cache.set(holder, next);
+    }
+    return next;
+}
+
 /**
  * collectProjectedRuntimeBonuses：执行Projected运行态Bonuse相关逻辑。
  * @param bonuses 参数说明。
@@ -871,9 +898,6 @@ function collectProjectedRuntimeBonuses(bonuses) {
         }
         return Boolean(entry.attrs || entry.stats);
     });
-}
-function resolveTechniqueSpecialStatBonus(techniques) {
-    return calcTechniqueFinalSpecialStatBonus(techniques);
 }
 /**
  * resolveVitalBaselineBonus：规范化或转换VitalBaselineBonu。
