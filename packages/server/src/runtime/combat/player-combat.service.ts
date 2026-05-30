@@ -309,14 +309,14 @@ export class PlayerCombatService {
                 if (options?.skipSelfEffects !== true) {
                     const applyStartedAt = sectionRecorder ? performance.now() : 0;
                     handlers.applySelfBuff?.(buff);
-                    sectionRecorder?.('buffApplyMs', performance.now() - applyStartedAt);
+                    sectionRecorder?.('buffApplySelfMs', performance.now() - applyStartedAt);
                     selfBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
                 }
             }
             else {
                 const applyStartedAt = sectionRecorder ? performance.now() : 0;
                 handlers.applyTargetBuff?.(buff);
-                sectionRecorder?.('buffApplyMs', performance.now() - applyStartedAt);
+                sectionRecorder?.('buffApplyTargetMs', performance.now() - applyStartedAt);
                 targetBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
             }
         }
@@ -512,6 +512,8 @@ function resolveCombatantCombatExp(combatant) {
  * 从技能效果生成临时 buff 对象。
  * 包含名称、描述、持续时间、层数、属性加成、元气投影等。
  */
+const temporaryBuffCompiledStatsCache = new WeakMap();
+
 function toTemporaryBuff(effect, skill) {
     const fallbackName = typeof effect.name === 'string' && effect.name.trim()
         ? effect.name.trim()
@@ -530,18 +532,33 @@ function toTemporaryBuff(effect, skill) {
         sourceSkillId: skill.id,
         sourceSkillName: skill.name,
         color: effect.color,
-        attrs: effect.attrs ? { ...effect.attrs } : undefined,
+        attrs: effect.attrs || undefined,
         attrMode: effect.attrMode,
-        stats: effect.stats
-            ? { ...effect.stats }
-            : (effect.valueStats
-                ? (effect.statMode === 'flat' ? compileValueStatsToActualStats(effect.valueStats) : { ...effect.valueStats })
-                : undefined),
+        stats: resolveTemporaryBuffStats(effect),
         statMode: effect.statMode,
-        qiProjection: effect.qiProjection ? effect.qiProjection.map((entry) => ({ ...entry })) : undefined,
+        qiProjection: effect.qiProjection || undefined,
         persistOnDeath: effect.persistOnDeath === true,
         persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     };
+}
+
+function resolveTemporaryBuffStats(effect) {
+    if (effect.stats) {
+        return effect.stats;
+    }
+    if (!effect.valueStats) {
+        return undefined;
+    }
+    if (effect.statMode !== 'flat') {
+        return effect.valueStats;
+    }
+    const cached = temporaryBuffCompiledStatsCache.get(effect);
+    if (cached) {
+        return cached;
+    }
+    const compiled = compileValueStatsToActualStats(effect.valueStats);
+    temporaryBuffCompiledStatsCache.set(effect, compiled);
+    return compiled;
 }
 
 /**

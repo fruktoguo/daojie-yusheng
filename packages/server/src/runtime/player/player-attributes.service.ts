@@ -20,6 +20,7 @@ export class PlayerAttributesService {
     attrPercentBonusAccumulatorScratch = createAttributePercentBonusAccumulator();
     flatBuffAttrsScratch = createEmptyAttributes();
     techniqueStatesScratch = [];
+    enhancedEquipmentScratch = [];
 
     /** 创建默认属性快照，供新角色和重建场景使用。 */
     createInitialState() {
@@ -112,6 +113,8 @@ export class PlayerAttributesService {
         clampAttributes(baseAttrs);
 
         const finalAttrs = cloneAttributes(baseAttrs);
+        const enhancedEquipment = this.enhancedEquipmentScratch;
+        enhancedEquipment.length = 0;
         for (const entry of player.equipment.slots) {
             const item = entry?.item;
             if (!item || typeof item !== 'object') {
@@ -121,6 +124,7 @@ export class PlayerAttributesService {
             if (!enhancedItem) {
                 continue;
             }
+            enhancedEquipment.push(enhancedItem);
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
         }
         const attrPercentBonuses = resetAttributePercentBonusAccumulator(this.attrPercentBonusAccumulatorScratch);
@@ -133,7 +137,11 @@ export class PlayerAttributesService {
         }
         accumulateAttributePercentBonus(attrPercentBonuses.techniqueMax, techniqueMaxAttrPercentBonus);
         const flatBuffAttrs = resetAttributes(this.flatBuffAttrsScratch);
-        for (const buff of getActiveBuffs(player.buffs.buffs)) {
+        const activeBuffs = Array.isArray(player.buffs?.buffs) ? player.buffs.buffs : [];
+        for (const buff of activeBuffs) {
+            if (!isActiveRuntimeBuff(buff)) {
+                continue;
+            }
             const effectFactor = getBuffEffectFactor(buff, realmLv);
             if (effectFactor === 0 || !buff.attrs) {
                 continue;
@@ -167,16 +175,8 @@ export class PlayerAttributesService {
             applyAttrWeight(numericStats, key, value);
             accumulateAttrPercentBonus(percentBonuses, key, value);
         }
-        applySpecialStatWeights(numericStats, player, resolveTechniqueSpecialStatBonus(player.techniques.techniques));
-        for (const entry of player.equipment.slots) {
-            const item = entry?.item;
-            if (!item || typeof item !== 'object') {
-                continue;
-            }
-            const enhancedItem = applyEquipmentAttributeEffectivenessToItemStack(item, realmLv);
-            if (!enhancedItem) {
-                continue;
-            }
+        applySpecialStatWeights(numericStats, player, resolveTechniqueSpecialStatBonus(player.techniques.techniques), enhancedEquipment);
+        for (const enhancedItem of enhancedEquipment) {
             addPartialNumericStats(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
             for (const effect of resolveActiveEquipmentProgressEffects(enhancedItem, player)) {
                 const effectStats = resolveItemStats(effect.stats, effect.valueStats);
@@ -191,7 +191,10 @@ export class PlayerAttributesService {
                 }
             }
         }
-        for (const buff of getActiveBuffs(player.buffs.buffs)) {
+        for (const buff of activeBuffs) {
+            if (!isActiveRuntimeBuff(buff)) {
+                continue;
+            }
             if (!buff.stats) {
                 continue;
             }
@@ -544,8 +547,8 @@ function accumulateAttrPercentBonus(target, key, value) {
     addScaledPartialNumericStats(target, weight, value);
 }
 
-function applySpecialStatWeights(target, player, techniqueSpecialStats) {
-    const equipmentSpecialStats = resolveEquipmentSpecialStats(player);
+function applySpecialStatWeights(target, player, techniqueSpecialStats, enhancedEquipment = undefined) {
+    const equipmentSpecialStats = resolveEquipmentSpecialStats(player, enhancedEquipment);
     const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0))
         + Math.max(0, Math.trunc(Number(equipmentSpecialStats.comprehension ?? 0) || 0));
@@ -563,8 +566,15 @@ function applySpecialStatWeights(target, player, techniqueSpecialStats) {
     }
 }
 
-function resolveEquipmentSpecialStats(player) {
+function resolveEquipmentSpecialStats(player, enhancedEquipment = undefined) {
     const result = { comprehension: 0, luck: 0 };
+    if (Array.isArray(enhancedEquipment)) {
+        for (const enhancedItem of enhancedEquipment) {
+            result.comprehension += Math.max(0, Math.trunc(Number(enhancedItem?.equipSpecialStats?.comprehension ?? 0) || 0));
+            result.luck += Math.max(0, Math.trunc(Number(enhancedItem?.equipSpecialStats?.luck ?? 0) || 0));
+        }
+        return result;
+    }
     const realmLv = Math.max(1, Math.floor(Number(player?.realm?.realmLv ?? 1) || 1));
     for (const entry of player?.equipment?.slots ?? []) {
         const item = entry?.item;
@@ -624,10 +634,8 @@ function resolveBuffModifierMode(mode) {
     return mode === 'flat' ? 'flat' : 'percent';
 }
 
-function getActiveBuffs(buffs) {
-    return Array.isArray(buffs)
-        ? buffs.filter((buff) => buff && buff.remainingTicks > 0 && buff.stacks > 0)
-        : [];
+function isActiveRuntimeBuff(buff) {
+    return Boolean(buff && buff.remainingTicks > 0 && buff.stacks > 0);
 }
 
 function getBuffEffectFactor(buff, targetRealmLv) {
