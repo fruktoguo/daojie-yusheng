@@ -321,11 +321,23 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         }
         const autoCombatStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'materialize_auto_combat_commands', { worldTick: deps.tick }, () => {
-            if (typeof deps.worldRuntimeAutoCombatService?.materializeAutoCombatCommands === 'function') {
-                deps.worldRuntimeAutoCombatService.materializeAutoCombatCommands(deps);
-                return;
+            const previousAutoCombatRecorder = deps.recordAutoCombatSectionDuration;
+            deps.recordAutoCombatSectionDuration = (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count);
+            try {
+                if (typeof deps.worldRuntimeAutoCombatService?.materializeAutoCombatCommands === 'function') {
+                    deps.worldRuntimeAutoCombatService.materializeAutoCombatCommands(deps);
+                    return;
+                }
+                deps.materializeAutoCombatCommands?.();
             }
-            deps.materializeAutoCombatCommands?.();
+            finally {
+                if (previousAutoCombatRecorder) {
+                    deps.recordAutoCombatSectionDuration = previousAutoCombatRecorder;
+                }
+                else {
+                    delete deps.recordAutoCombatSectionDuration;
+                }
+            }
         });
         addMeasuredTickSection(sectionDurations, 'tick.materializeAutoCombatCommandsMs', autoCombatStartedAt);
         const preTickMaterializationMs = performance.now() - preTickMaterializationStartedAt;

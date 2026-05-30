@@ -96,6 +96,21 @@ function isAutoCombatActionCommand(command) {
     return AUTO_COMBAT_ACTION_COMMAND_KINDS.has(command?.kind);
 }
 
+function recordAutoCombatDuration(deps, key, durationMs, count = 1) {
+    const recorder = deps?.recordAutoCombatSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    recorder(key, durationMs, count);
+}
+
+function recordAutoCombatPerf(deps, key, startedAt, count = 1) {
+    if (typeof deps?.recordAutoCombatSectionDuration !== 'function') {
+        return;
+    }
+    recordAutoCombatDuration(deps, key, performance.now() - startedAt, count);
+}
+
 function resolveMiningJobTargetRef(player) {
     const job = player?.miningJob;
     if (!job || !Number.isFinite(Number(job.targetX)) || !Number.isFinite(Number(job.targetY))) {
@@ -579,17 +594,23 @@ export class WorldRuntimeAutoCombatService {
 
         const inSafeZone = instance.isPointInSafeZone(player.x, player.y);
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
+        const viewStartedAt = performance.now();
         const view = typeof instance.buildAutoCombatView === 'function'
             ? instance.buildAutoCombatView(player.playerId, radius)
             : instance.buildPlayerView(player.playerId, radius);
+        recordAutoCombatPerf(deps, 'tick.autoCombat.viewMs', viewStartedAt);
         if (!view) {
             return null;
         }
         if (!instanceSupportsPvp(instance) && isPlayerTargetRef(player.combat?.combatTargetId)) {
             this.playerRuntimeService.clearCombatTarget(player.playerId, deps.resolveCurrentTickForPlayerId(player.playerId));
         }
+        const threatRefreshStartedAt = performance.now();
         this.refreshPlayerThreats(instance, player, view, deps);
+        recordAutoCombatPerf(deps, 'tick.autoCombat.threatRefreshMs', threatRefreshStartedAt);
+        const targetSelectStartedAt = performance.now();
         const target = this.selectAutoCombatTarget(instance, player, view, deps, options);
+        recordAutoCombatPerf(deps, 'tick.autoCombat.targetSelectMs', targetSelectStartedAt);
         if (!target) {
             return null;
         }
@@ -600,9 +621,11 @@ export class WorldRuntimeAutoCombatService {
             return null;
         }
         const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
+        const skillChoiceStartedAt = performance.now();
         const skillChoice = target.supportsSkill === false
             ? null
             : this.resolveAutoBattleSkillChoice(player, distance, options);
+        recordAutoCombatPerf(deps, 'tick.autoCombat.skillChoiceMs', skillChoiceStartedAt);
         if (skillChoice?.skillId) {
             // selfCast（以自身为中心的 AOE）不需要对目标做 LOS 检查
             if (skillChoice.selfCast) {
@@ -617,13 +640,18 @@ export class WorldRuntimeAutoCombatService {
             }
             // LOS 预检：避免对视线被遮挡的目标发出必然失败的 castSkill 指令
             const losRange = Math.max(1, Math.round(skillChoice.range ?? 1));
-            if (typeof instance.canSeeTileFrom === 'function' &&
-                instance.canSeeTileFrom(player.x, player.y, target.x, target.y, losRange) === false) {
+            const losStartedAt = performance.now();
+            const hasLineOfSight = typeof instance.canSeeTileFrom !== 'function'
+                || instance.canSeeTileFrom(player.x, player.y, target.x, target.y, losRange) !== false;
+            recordAutoCombatPerf(deps, 'tick.autoCombat.losCheckMs', losStartedAt);
+            if (!hasLineOfSight) {
                 // 视线不通 → 尝试寻路靠近；stationary 模式直接放弃
                 if (player.combat.autoBattleStationary) {
                     return null;
                 }
+                const losPathStartedAt = performance.now();
                 const losPathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, losRange, false, (x, y) => instance.canSeeTileFrom(x, y, target.x, target.y, losRange) !== false);
+                recordAutoCombatPerf(deps, 'tick.autoCombat.losPathMs', losPathStartedAt);
                 if (!losPathResult || losPathResult.points.length === 0) {
                     return this.handleUnreachableAutoCombatTarget(instance, player, target, deps, options);
                 }
@@ -662,8 +690,11 @@ export class WorldRuntimeAutoCombatService {
         }
         if (distance <= 1) {
             // 近战基础攻击也做 LOS 预检
-            if (typeof instance.canSeeTileFrom === 'function' &&
-                instance.canSeeTileFrom(player.x, player.y, target.x, target.y, 1) === false) {
+            const meleeLosStartedAt = performance.now();
+            const meleeHasLineOfSight = typeof instance.canSeeTileFrom !== 'function'
+                || instance.canSeeTileFrom(player.x, player.y, target.x, target.y, 1) !== false;
+            recordAutoCombatPerf(deps, 'tick.autoCombat.losCheckMs', meleeLosStartedAt);
+            if (!meleeHasLineOfSight) {
                 return null;
             }
             return attachMiningJobCommandMarker(buildBasicAttackCommandFromAttackableTarget(target), player, target);
@@ -672,7 +703,9 @@ export class WorldRuntimeAutoCombatService {
             return null;
         }
         const desiredRange = Math.max(1, Math.round(skillChoice?.range ?? 1));
+        const pathStartedAt = performance.now();
         const pathResult = this.findPathWithCache(instance, player, target.x, target.y, desiredRange);
+        recordAutoCombatPerf(deps, 'tick.autoCombat.pathMs', pathStartedAt);
         if (!pathResult || pathResult.points.length === 0) {
             return this.handleUnreachableAutoCombatTarget(instance, player, target, deps, options);
         }

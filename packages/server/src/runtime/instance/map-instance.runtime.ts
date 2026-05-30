@@ -2362,9 +2362,12 @@ class MapInstanceRuntime {
             return cached.view;
         }
 
-        const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, normalizedRadius);
+        const supportsPvp = this.meta?.supportsPvp === true;
+        const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, normalizedRadius, {
+            includeKeys: supportsPvp,
+        });
         const view = {
-            visiblePlayers: this.collectVisiblePlayers(player, normalizedRadius, visibleTileVisibility),
+            visiblePlayers: supportsPvp ? this.collectVisiblePlayers(player, normalizedRadius, visibleTileVisibility) : [],
             localMonsters: this.collectLocalMonsters(player.x, player.y, normalizedRadius, visibleTileVisibility),
         };
         this.autoCombatViewCacheByPlayerId.set(playerId, {
@@ -5835,16 +5838,17 @@ class MapInstanceRuntime {
         return this.collectVisibleTileVisibility(originX, originY, radius).indices;
     }
     /** collectVisibleTileVisibility：收集本图索引和跨图坐标视野。 */
-    collectVisibleTileVisibility(originX, originY, radius) {
+    collectVisibleTileVisibility(originX, originY, radius, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const visibleTileIndices = new Set();
-        const visibleTileKeys = new Set();
+        const includeKeys = options?.includeKeys !== false;
+        const visibleTileKeys = includeKeys ? new Set() : null;
         if (!this.isInBounds(originX, originY)) {
             return { indices: visibleTileIndices, keys: visibleTileKeys };
         }
         visibleTileIndices.add(this.toTileIndex(originX, originY));
-        visibleTileKeys.add(`${originX},${originY}`);
+        visibleTileKeys?.add(`${originX},${originY}`);
 
         const octants = [
             [1, 0, 0, 1],
