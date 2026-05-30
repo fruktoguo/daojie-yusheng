@@ -40,6 +40,7 @@ const descriptors: RuntimeEnvDescriptor[] = [
   { key: 'SERVER_CORS_ORIGINS', label: 'CORS 允许来源', description: '允许访问接口的前端来源列表。', category: '基础运行', restartRequired: true },
   { key: 'SERVER_TRUST_PROXY', label: '信任代理', description: '是否信任反向代理头。', category: '基础运行', restartRequired: false },
   { key: 'SERVER_TRUSTED_PROXIES', label: '可信代理列表', description: '可信代理地址列表。', category: '基础运行', restartRequired: false },
+  { key: 'SERVER_REGISTRATION_ACTIVATION_CODES', label: '注册激活码', description: '同 IP 二次注册可用激活码，多个值用逗号分隔。', category: '基础运行', sensitive: true, restartRequired: false },
 
   { key: 'SERVER_DATABASE_URL', label: '数据库 URL', description: '主数据库连接串。', category: '数据存储', sensitive: true, restartRequired: true },
   { key: 'DATABASE_URL', label: '数据库 URL（兼容）', description: '主数据库连接串兼容别名。', category: '数据存储', sensitive: true, restartRequired: true },

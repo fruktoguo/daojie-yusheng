@@ -160,6 +160,13 @@ login.display-name.required,登录,注册时必填,显示名必填状态
 login.display-name.taken,登录,此道号已被占用,显示名占用兜底
 login.error.login-failed,登录,登录失败,登录接口异常兜底
 login.error.register-failed,登录,注册失败,注册接口异常兜底
+login.activation.code.label,登录,激活码,同 IP 二次注册激活码输入标签
+login.activation.empty,登录,请输入激活码,激活码弹窗空输入提示
+login.activation.qq-action,登录,加入 QQ 群 {qqGroupNumber},激活码弹窗 QQ 群按钮
+login.activation.required,登录,当前网络已有账号注册，请输入激活码继续注册。,同 IP 二次注册默认提示
+login.activation.submit,登录,提交激活码,激活码弹窗确认按钮
+login.activation.subtitle,登录,当前 Wi-Fi 或出口 IP 已注册过账号。请加入 QQ 群 {qqGroupNumber} 获取激活码。,激活码弹窗副标题
+login.activation.title,登录,需要激活码,激活码弹窗标题
 login.login-name.label,登录,账号 / 角色名,登录名标签
 login.login-name.placeholder,登录,输入账号或角色名,登录名输入框占位
 login.mode.login,登录,登录,登录模式按钮和提交按钮
@@ -959,12 +966,19 @@ shell.open-mail,静态HTML-主界面,飞书,静态 HTML：packages/client/index.
 shell.open-settings,静态HTML-主界面,设置,静态 HTML：packages/client/index.html
 shell.open-tutorial.aria-label,静态HTML-主界面,打开机制百科,静态 HTML：packages/client/index.html
 shell.open-tutorial.title,静态HTML-主界面,机制百科,静态 HTML：packages/client/index.html
-shell.password,静态HTML-主界面,口令,静态 HTML：packages/client/index.html
+shell.password,静态HTML-主界面,密码,静态 HTML：packages/client/index.html
 shell.password.placeholder,静态HTML-主界面,输入密码,静态 HTML：packages/client/index.html
+shell.optional,静态HTML-主界面,(可选),静态 HTML：packages/client/index.html
 shell.quest,静态HTML-主界面,任务,静态 HTML：packages/client/index.html
-shell.register.account.help,静态HTML-主界面,账号用于登录，不能包含空格，且只能与其他账号比较唯一性。,静态 HTML：packages/client/index.html
-shell.register.display.help,静态HTML-主界面,注册时必须选择 1 个可见显示字。除“人”外，显示名仍按唯一性校验；未设置的旧账号默认取账号首个可见字。,静态 HTML：packages/client/index.html
-shell.register.role.help,静态HTML-主界面,角色名保留为游戏内完整名称，登录时也可直接输入当前角色名，且只能与其他角色名比较唯一性。,静态 HTML：packages/client/index.html
+shell.register.account.help,静态HTML-主界面,账号用于登录，不能包含空格。,静态 HTML：packages/client/index.html
+shell.register.display-icon.help,静态HTML-主界面,显示图标用于头顶的一字标识，除“人”外仍按唯一性校验。,静态 HTML：packages/client/index.html
+shell.register.display-icon.label,静态HTML-主界面,显示图标,静态 HTML：packages/client/index.html
+shell.register.display-icon.placeholder,静态HTML-主界面,输入 1 个可见字符,静态 HTML：packages/client/index.html
+shell.register.invitation-code.label,静态HTML-主界面,邀请码,静态 HTML：packages/client/index.html
+shell.register.invitation-code.placeholder,静态HTML-主界面,邀请链接会自动填入,静态 HTML：packages/client/index.html
+shell.register.username.help,静态HTML-主界面,用户名是游戏内完整名称，登录时也可直接输入当前用户名。,静态 HTML：packages/client/index.html
+shell.register.username.label,静态HTML-主界面,用户名,静态 HTML：packages/client/index.html
+shell.register.username.placeholder,静态HTML-主界面,输入游戏内用户名,静态 HTML：packages/client/index.html
 shell.role-name,静态HTML-主界面,角色名,静态 HTML：packages/client/index.html
 shell.role-name.placeholder,静态HTML-主界面,输入角色名称,静态 HTML：packages/client/index.html
 shell.send,静态HTML-主界面,发送,静态 HTML：packages/client/index.html

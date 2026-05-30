@@ -25,6 +25,8 @@ import type { GameTimeState, MapRouteDomain, MapTimeConfig, MonsterAggroMode, Mo
 import type { GmPerformanceSnapshot } from './gm-runtime-types';
 import type { InteractableKind, StructureType, SurfaceType, TerrainType } from './map-layer-types';
 
+export const AUTH_REGISTER_ACTIVATION_REQUIRED_CODE = 'REGISTRATION_ACTIVATION_REQUIRED';
+
 /** 注册请求 */
 export interface AuthRegisterReq {
 /**
@@ -47,6 +49,10 @@ export interface AuthRegisterReq {
  */
 
   roleName: string;
+  /** 邀请码，来自注册页可选输入或邀请链接预填。 */
+  invitationCode?: string;
+  /** 同 IP 已注册时要求输入的激活码。 */
+  activationCode?: string;
 }
 
 /** 登录请求 */

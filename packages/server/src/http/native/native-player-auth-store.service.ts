@@ -77,6 +77,7 @@ interface PersistedAuthRow {
   register_ip?: unknown;
   last_login_ip?: unknown;
   last_login_at?: unknown;
+  register_invitation_code?: unknown;
   register_device_id?: unknown;
   last_login_device_id?: unknown;
   last_user_agent?: unknown;
@@ -154,6 +155,7 @@ interface AuthRecordCandidate {
   registerIp?: unknown;
   lastLoginIp?: unknown;
   lastLoginAt?: unknown;
+  registerInvitationCode?: unknown;
   registerDeviceId?: unknown;
   lastLoginDeviceId?: unknown;
   lastUserAgent?: unknown;
@@ -300,6 +302,7 @@ export interface NativePlayerAuthUser {
   registerIp: string | null;
   lastLoginIp: string | null;
   lastLoginAt: string | null;
+  registerInvitationCode: string | null;
   registerDeviceId: string | null;
   lastLoginDeviceId: string | null;
   lastUserAgent: string | null;
@@ -326,6 +329,7 @@ const CREATE_PLAYER_AUTH_TABLE_SQL = `
     register_ip varchar(64),
     last_login_ip varchar(64),
     last_login_at timestamptz,
+    register_invitation_code varchar(80),
     register_device_id varchar(64),
     last_login_device_id varchar(64),
     last_user_agent varchar(255),
@@ -363,6 +367,12 @@ const CREATE_PLAYER_AUTH_LAST_LOGIN_IP_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS server_player_auth_last_login_ip_idx
   ON ${PLAYER_AUTH_TABLE}(last_login_ip)
   WHERE last_login_ip IS NOT NULL
+`;
+
+const CREATE_PLAYER_AUTH_REGISTER_INVITATION_CODE_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_player_auth_register_invitation_code_idx
+  ON ${PLAYER_AUTH_TABLE}(register_invitation_code)
+  WHERE register_invitation_code IS NOT NULL
 `;
 
 const CREATE_PLAYER_AUTH_REGISTER_DEVICE_INDEX_SQL = `
@@ -492,6 +502,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         register_ip,
         last_login_ip,
         last_login_at,
+        register_invitation_code,
         register_device_id,
         last_login_device_id,
         last_user_agent,
@@ -554,6 +565,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           register_ip,
           last_login_ip,
           last_login_at,
+          register_invitation_code,
           register_device_id,
           last_login_device_id,
           last_user_agent,
@@ -580,12 +592,13 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           $13,
           $14,
           $15,
-          $16::timestamptz,
-          $17,
+          $16,
+          $17::timestamptz,
           $18,
-          $19::timestamptz,
+          $19,
+          $20::timestamptz,
           now(),
-          jsonb_set($20::jsonb, '{playerNo}', to_jsonb(input_player_no.value), true)
+          jsonb_set($21::jsonb, '{playerNo}', to_jsonb(input_player_no.value), true)
         FROM input_player_no
         ON CONFLICT (user_id)
         DO UPDATE SET
@@ -600,6 +613,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           register_ip = EXCLUDED.register_ip,
           last_login_ip = EXCLUDED.last_login_ip,
           last_login_at = EXCLUDED.last_login_at,
+          register_invitation_code = EXCLUDED.register_invitation_code,
           register_device_id = EXCLUDED.register_device_id,
           last_login_device_id = EXCLUDED.last_login_device_id,
           last_user_agent = EXCLUDED.last_user_agent,
@@ -623,6 +637,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         normalized.registerIp,
         normalized.lastLoginIp,
         normalized.lastLoginAt,
+        normalized.registerInvitationCode,
         normalized.registerDeviceId,
         normalized.lastLoginDeviceId,
         normalized.lastUserAgent,
@@ -667,6 +682,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         register_ip,
         last_login_ip,
         last_login_at,
+        register_invitation_code,
         register_device_id,
         last_login_device_id,
         last_user_agent,
@@ -761,6 +777,33 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
       .map((userId) => this.usersById.get(userId) ?? null)
       .filter((entry): entry is NativePlayerAuthUser => entry !== null)
       .map(cloneUser);
+  }
+
+  /** 检查某注册 IP 是否已产生过账号，供注册冷路径执行同 IP 激活码门禁。 */
+  async hasRegisteredIp(ip: string): Promise<boolean> {
+    const normalizedIp = normalizeOptionalString(ip, 64);
+    if (!normalizedIp) {
+      return false;
+    }
+
+    if (this.pool && this.enabled) {
+      const result = await this.pool.query<{ exists: boolean }>(`
+        SELECT EXISTS(
+          SELECT 1
+          FROM ${PLAYER_AUTH_TABLE}
+          WHERE register_ip = $1
+          LIMIT 1
+        ) AS exists
+      `, [normalizedIp]);
+      return result.rows[0]?.exists === true;
+    }
+
+    for (const user of this.usersById.values()) {
+      if (user.registerIp === normalizedIp) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** 校验候选值是否可用，返回可读冲突说明。 */
@@ -951,6 +994,7 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NativePlayerAu
     registerIp: normalizeOptionalString(row.register_ip),
     lastLoginIp: normalizeOptionalString(row.last_login_ip),
     lastLoginAt,
+    registerInvitationCode: normalizeOptionalString(row.register_invitation_code, 80),
     registerDeviceId: normalizeOptionalString(row.register_device_id),
     lastLoginDeviceId: normalizeOptionalString(row.last_login_device_id),
     lastUserAgent: normalizeOptionalString(row.last_user_agent),
@@ -1003,6 +1047,7 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
     registerIp: normalizeOptionalString(raw.registerIp),
     lastLoginIp: normalizeOptionalString(raw.lastLoginIp),
     lastLoginAt: normalizeDateTime(raw.lastLoginAt),
+    registerInvitationCode: normalizeOptionalString(raw.registerInvitationCode, 80),
     registerDeviceId: normalizeOptionalString(raw.registerDeviceId),
     lastLoginDeviceId: normalizeOptionalString(raw.lastLoginDeviceId),
     lastUserAgent: normalizeOptionalString(raw.lastUserAgent),
@@ -1043,6 +1088,7 @@ function toPersistedUser(user: NativePlayerAuthUser): Omit<NativePlayerAuthUser,
     registerIp: user.registerIp,
     lastLoginIp: user.lastLoginIp,
     lastLoginAt: user.lastLoginAt,
+    registerInvitationCode: user.registerInvitationCode,
     registerDeviceId: user.registerDeviceId,
     lastLoginDeviceId: user.lastLoginDeviceId,
     lastUserAgent: user.lastUserAgent,
@@ -1339,6 +1385,7 @@ export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
       ADD COLUMN IF NOT EXISTS register_ip varchar(64),
       ADD COLUMN IF NOT EXISTS last_login_ip varchar(64),
       ADD COLUMN IF NOT EXISTS last_login_at timestamptz,
+      ADD COLUMN IF NOT EXISTS register_invitation_code varchar(80),
       ADD COLUMN IF NOT EXISTS register_device_id varchar(64),
       ADD COLUMN IF NOT EXISTS last_login_device_id varchar(64),
       ADD COLUMN IF NOT EXISTS last_user_agent varchar(255),
@@ -1351,6 +1398,7 @@ export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
     await client.query(CREATE_PLAYER_AUTH_USERNAME_PREFIX_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_REGISTER_IP_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_LAST_LOGIN_IP_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_REGISTER_INVITATION_CODE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_REGISTER_DEVICE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_LAST_LOGIN_DEVICE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_PLAYER_NO_INDEX_SQL);

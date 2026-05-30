@@ -3,7 +3,8 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { BadRequestException, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { AUTH_REGISTER_ACTIVATION_REQUIRED_CODE } from '@mud/shared';
 import { randomUUID } from 'node:crypto';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName, validateDisplayName, validatePassword, validateRoleName, validateUsername } from '../../auth/account-validation';
@@ -135,6 +136,13 @@ interface AuthRequestContext {
   userAgent?: string;
 }
 
+interface RegisterOptions {
+  invitationCode?: string;
+  activationCode?: string;
+}
+
+const REGISTRATION_ACTIVATION_REQUIRED_MESSAGE = '当前网络已有账号注册，请输入激活码继续注册。';
+
 /** 主线玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
 @Injectable()
 export class NativePlayerAuthService {
@@ -184,7 +192,14 @@ export class NativePlayerAuthService {
   }
 
   /** 注册新账号，并完成建档、持久化与令牌签发。 */
-  async register(accountName: string, password: string, displayName: string, roleName: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
+  async register(
+    accountName: string,
+    password: string,
+    displayName: string,
+    roleName: string,
+    context: AuthRequestContext = {},
+    options: RegisterOptions = {},
+  ): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const normalizedUsername = normalizeUsername(accountName);
@@ -226,6 +241,11 @@ export class NativePlayerAuthService {
       throw new BadRequestException(roleNameConflict);
     }
 
+    const registerIp = normalizeContextString(context.ip, 64);
+    if (await this.shouldRequireActivationCode(registerIp, options.activationCode)) {
+      throwRegistrationActivationRequired();
+    }
+
     const userId = randomUUID();
     const createdAt = new Date().toISOString();
     const user = await this.authStore.saveUser({
@@ -239,9 +259,10 @@ export class NativePlayerAuthService {
       passwordHash: await hashPassword(password),
       totalOnlineSeconds: 0,
       currentOnlineStartedAt: null,
-      registerIp: normalizeContextString(context.ip, 64),
-      lastLoginIp: normalizeContextString(context.ip, 64),
+      registerIp,
+      lastLoginIp: registerIp,
       lastLoginAt: createdAt,
+      registerInvitationCode: normalizeContextString(options.invitationCode, 80),
       registerDeviceId: normalizeContextString(context.deviceId, 64),
       lastLoginDeviceId: normalizeContextString(context.deviceId, 64),
       lastUserAgent: normalizeContextString(context.userAgent, 255),
@@ -586,6 +607,17 @@ export class NativePlayerAuthService {
       : '';
     throw new UnauthorizedException(reason ? `账号已封禁：${reason}` : '账号已封禁，请联系 GM 处理');
   }
+
+  private async shouldRequireActivationCode(registerIp: string | null, activationCode: unknown): Promise<boolean> {
+    if (!registerIp) {
+      return false;
+    }
+    const hasRegisteredIp = await this.authStore.hasRegisteredIp(registerIp);
+    if (!hasRegisteredIp) {
+      return false;
+    }
+    return !isValidRegistrationActivationCode(activationCode);
+  }
   /**
  * syncRuntimeDisplayName：判断运行态显示名称是否满足条件。
  * @param user NativePlayerAuthUser 参数说明。
@@ -642,4 +674,37 @@ function normalizeContextString(value: unknown, maxLength: number): string | nul
   }
   const normalized = value.trim();
   return normalized ? normalized.slice(0, maxLength) : null;
+}
+
+function throwRegistrationActivationRequired(): never {
+  throw new HttpException({
+    code: AUTH_REGISTER_ACTIVATION_REQUIRED_CODE,
+    message: REGISTRATION_ACTIVATION_REQUIRED_MESSAGE,
+  }, HttpStatus.CONFLICT);
+}
+
+function isValidRegistrationActivationCode(value: unknown): boolean {
+  const normalized = normalizeRegistrationCode(value);
+  if (!normalized) {
+    return false;
+  }
+  return getRegistrationActivationCodes().has(normalized);
+}
+
+function getRegistrationActivationCodes(): Set<string> {
+  const raw = process.env.SERVER_REGISTRATION_ACTIVATION_CODES
+    ?? process.env.REGISTRATION_ACTIVATION_CODES
+    ?? '';
+  return new Set(
+    raw
+      .split(/[,\n\r\t ]+/)
+      .map((entry) => normalizeRegistrationCode(entry))
+      .filter(Boolean),
+  );
+}
+
+function normalizeRegistrationCode(value: unknown): string {
+  return typeof value === 'string'
+    ? value.normalize('NFC').trim().toUpperCase().slice(0, 80)
+    : '';
 }

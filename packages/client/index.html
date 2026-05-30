@@ -52,25 +52,29 @@
         <label id="login-name-label" data-i18n="shell.login-name-label">账号 / 角色名</label>
         <input id="input-login-name" type="text" data-i18n-placeholder="shell.login-name.placeholder" placeholder="输入账号或角色名" />
       </div>
-      <div class="form-group">
-        <label data-i18n="shell.password">口令</label>
-        <input id="input-password" type="password" data-i18n-placeholder="shell.password.placeholder" placeholder="输入密码" />
-      </div>
       <div class="form-group hidden" id="register-account-group">
         <label data-i18n="shell.account">账号</label>
-        <input id="input-account-name" type="text" data-i18n-placeholder="shell.account-name.placeholder" placeholder="输入登录账号" />
-        <div class="form-help" data-i18n="shell.register.account.help">账号用于登录，不能包含空格，且只能与其他账号比较唯一性。</div>
+        <input id="input-account-name" type="text" data-i18n-placeholder="shell.account-name.placeholder" placeholder="输入登录账号" autocomplete="username" />
+        <div class="form-help" data-i18n="shell.register.account.help">账号用于登录，不能包含空格。</div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="shell.password">密码</label>
+        <input id="input-password" type="password" data-i18n-placeholder="shell.password.placeholder" placeholder="输入密码" autocomplete="current-password" />
       </div>
       <div class="form-group hidden" id="register-role-name-group">
-        <label data-i18n="shell.role-name">角色名</label>
-        <input id="input-role-name" type="text" data-i18n-placeholder="shell.role-name.placeholder" placeholder="输入角色名称" />
-        <div class="form-help" data-i18n="shell.register.role.help">角色名保留为游戏内完整名称，登录时也可直接输入当前角色名，且只能与其他角色名比较唯一性。</div>
+        <label data-i18n="shell.register.username.label">用户名</label>
+        <input id="input-role-name" type="text" data-i18n-placeholder="shell.register.username.placeholder" placeholder="输入游戏内用户名" />
+        <div class="form-help" data-i18n="shell.register.username.help">用户名是游戏内完整名称，登录时也可直接输入当前用户名。</div>
       </div>
       <div class="form-group hidden" id="register-display-name-group">
-        <label data-i18n="shell.display-name">显示名</label>
-        <input id="input-display-name" type="text" data-i18n-placeholder="shell.display-name.placeholder" placeholder="注册时必填，仅 1 个字" />
-        <div class="form-help" data-i18n="shell.register.display.help">注册时必须选择 1 个可见显示字。除“人”外，显示名仍按唯一性校验；未设置的旧账号默认取账号首个可见字。</div>
+        <label data-i18n="shell.register.display-icon.label">显示图标</label>
+        <input id="input-display-name" type="text" data-i18n-placeholder="shell.register.display-icon.placeholder" placeholder="输入 1 个可见字符" />
+        <div class="form-help" data-i18n="shell.register.display-icon.help">显示图标用于头顶的一字标识，除“人”外仍按唯一性校验。</div>
         <div class="field-status" id="display-name-status" data-i18n="shell.display-name-status">注册时必填</div>
+      </div>
+      <div class="form-group hidden" id="register-invitation-code-group">
+        <label data-i18n="shell.register.invitation-code.label">邀请码 <span class="optional-label" data-i18n="shell.optional">(可选)</span></label>
+        <input id="input-invitation-code" type="text" data-i18n-placeholder="shell.register.invitation-code.placeholder" placeholder="邀请链接会自动填入" autocomplete="off" />
       </div>
       <div class="login-actions">
         <button class="action-btn primary-btn" id="btn-auth-submit">

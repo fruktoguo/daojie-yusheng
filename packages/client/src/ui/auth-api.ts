@@ -41,7 +41,7 @@ export class RequestError extends Error {
  * @returns 无返回值，完成实例初始化。
  */
 
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly data: Record<string, unknown> | null = null) {
     super(message);
   }
 }
@@ -183,7 +183,8 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
   });
 
   if (!res.ok) {
-    throw new RequestError(await readError(res), res.status);
+    const errorData = await readErrorData(res);
+    throw new RequestError(readErrorMessage(errorData), res.status, errorData);
   }
 
   if (res.status === 204) {
@@ -253,24 +254,28 @@ export function updateRoleName(
   });
 }
 
-/** readError：处理read错误。 */
-async function readError(res: Response): Promise<string> {
+async function readErrorData(res: Response): Promise<Record<string, unknown> | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   try {
-    const data = await res.json() as {    
-    /**
- * message：message相关字段。
- */
- message?: string | string[] };
-    if (Array.isArray(data.message)) {
-      return data.message.join('，');
-    }
-    if (data.message) {
-      return data.message;
-    }
+    const data = await res.json() as unknown;
+    return data && typeof data === 'object' && !Array.isArray(data)
+      ? data as Record<string, unknown>
+      : null;
   } catch {
     // noop
+  }
+  return null;
+}
+
+/** readErrorMessage：处理read错误。 */
+function readErrorMessage(data: Record<string, unknown> | null): string {
+  const message = data?.message;
+  if (Array.isArray(message)) {
+    return message.map((entry) => String(entry)).join('，');
+  }
+  if (typeof message === 'string' && message.trim()) {
+    return message;
   }
   return '请求失败';
 }

@@ -8,7 +8,7 @@
  * 管理登录、注册表单切换，显示名称可用性检测，以及 token 会话恢复
  */
 
-import { AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared';
+import { AUTH_REGISTER_ACTIVATION_REQUIRED_CODE, AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared';
 import { SocketManager } from '../network/socket';
 import {
   checkDisplayNameAvailability,
@@ -20,6 +20,7 @@ import {
   storeTokens,
 } from './auth-api';
 import { AUTH_API_BASE_PATH } from '../constants/api';
+import { QQ_GROUP_NUMBER } from '../main-dom-elements';
 import { validateAccountName, validateDisplayName, validatePassword, validateRoleName } from './account-rules';
 import { t } from './i18n';
 
@@ -56,6 +57,10 @@ export class LoginUI {
   private displayNameInput = document.getElementById('input-display-name') as HTMLInputElement;
   /** displayNameStatus：显示名称状态。 */
   private displayNameStatus = document.getElementById('display-name-status')!;
+  /** invitationCodeGroup：邀请码输入分组。 */
+  private invitationCodeGroup = document.getElementById('register-invitation-code-group') as HTMLElement;
+  /** invitationCodeInput：邀请码输入。 */
+  private invitationCodeInput = document.getElementById('input-invitation-code') as HTMLInputElement;
   /** submitBtn：submit按钮。 */
   private submitBtn = document.getElementById('btn-auth-submit') as HTMLButtonElement;
   /** submitText：submit文本。 */
@@ -72,6 +77,10 @@ export class LoginUI {
   private mode: AuthMode | null = null;
   /** restoreSessionPromise：restore会话异步结果。 */
   private restoreSessionPromise: Promise<boolean> | null = null;  
+  private activationModal: HTMLElement | null = null;
+  private activationCodeInput: HTMLInputElement | null = null;
+  private activationStatus: HTMLElement | null = null;
+  private activationResolve: ((value: string | null) => void) | null = null;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param socket SocketManager 参数说明。
@@ -88,7 +97,11 @@ export class LoginUI {
     this.displayNameInput.addEventListener('input', () => {
       void this.scheduleDisplayNameCheck();
     });
-    this.setMode('login');
+    const invitationCode = resolveInvitationCodeFromUrl();
+    if (invitationCode) {
+      this.invitationCodeInput.value = invitationCode.slice(0, 80);
+    }
+    this.setMode(invitationCode ? 'register' : 'login');
   }
 
   /** 尝试用当前会话里的 refreshToken 恢复登录态 */
@@ -193,10 +206,15 @@ export class LoginUI {
   private async handleRegister(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    await this.handleRegisterWithActivationCode();
+  }
+
+  private async handleRegisterWithActivationCode(activationCode?: string): Promise<void> {
     const accountName = this.accountNameInput.value.normalize('NFC');
     const password = this.passwordInput.value;
     const roleName = this.roleNameInput.value.normalize('NFC').trim();
     const displayName = this.displayNameInput.value.normalize('NFC');
+    const invitationCode = this.invitationCodeInput.value.normalize('NFC').trim();
 
     const accountNameError = validateAccountName(accountName);
     if (accountNameError) {
@@ -230,6 +248,8 @@ export class LoginUI {
       password,
       displayName,
       roleName,
+      ...(invitationCode ? { invitationCode: invitationCode.slice(0, 80) } : {}),
+      ...(activationCode ? { activationCode: activationCode.slice(0, 80) } : {}),
     };
 
     try {
@@ -239,6 +259,13 @@ export class LoginUI {
       });
       this.onSuccess(data);
     } catch (error) {
+      if (isRegistrationActivationRequired(error)) {
+        const code = await this.openActivationCodeModal(error instanceof Error ? error.message : '');
+        if (code) {
+          await this.handleRegisterWithActivationCode(code);
+        }
+        return;
+      }
       this.setError(error instanceof Error ? error.message : t('login.error.register-failed', undefined));
     }
   }
@@ -361,6 +388,8 @@ export class LoginUI {
     this.registerAccountGroup.classList.toggle('hidden', !isRegister);
     this.roleNameGroup.classList.toggle('hidden', !isRegister);
     this.displayNameGroup.classList.toggle('hidden', !isRegister);
+    this.invitationCodeGroup.classList.toggle('hidden', !isRegister);
+    this.passwordInput.autocomplete = isRegister ? 'new-password' : 'current-password';
     this.loginTab.textContent = t('login.mode.login', undefined);
     this.registerTab.textContent = t('login.mode.register', undefined);
     this.loginNameLabel.textContent = t('login.login-name.label', undefined);
@@ -391,4 +420,131 @@ export class LoginUI {
     this.displayNameAvailable = false;
     this.setDisplayNameStatus(t('login.display-name.required', undefined), '');
   }
+
+  private openActivationCodeModal(initialError: string): Promise<string | null> {
+    this.ensureActivationCodeModal();
+    if (!this.activationModal || !this.activationCodeInput || !this.activationStatus) {
+      return Promise.resolve(null);
+    }
+
+    this.activationCodeInput.value = '';
+    this.activationStatus.textContent = initialError || t('login.activation.required', undefined);
+    this.activationModal.classList.remove('hidden');
+    this.activationModal.setAttribute('aria-hidden', 'false');
+    window.setTimeout(() => this.activationCodeInput?.focus(), 0);
+    return new Promise((resolve) => {
+      this.activationResolve = resolve;
+    });
+  }
+
+  private ensureActivationCodeModal(): void {
+    if (this.activationModal) {
+      return;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal-layer hidden login-activation-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="confirm-modal-backdrop" data-login-activation-cancel="true"></div>
+      <div class="confirm-modal-card" role="dialog" aria-modal="true" aria-labelledby="login-activation-title">
+        <div class="confirm-modal-head">
+          <div>
+            <div class="confirm-modal-title" id="login-activation-title">${escapeHtml(t('login.activation.title', undefined))}</div>
+            <div class="confirm-modal-subtitle">${escapeHtml(t('login.activation.subtitle', { qqGroupNumber: QQ_GROUP_NUMBER }))}</div>
+          </div>
+        </div>
+        <div class="confirm-modal-body">
+          <label class="login-activation-field">
+            <span>${escapeHtml(t('login.activation.code.label', undefined))}</span>
+            <input class="login-activation-input" type="text" autocomplete="off" data-login-activation-code="true" />
+          </label>
+          <div class="login-activation-status" data-login-activation-status="true"></div>
+          <a class="small-btn ghost login-activation-qq" href="#" data-qq-group-link="true">
+            ${escapeHtml(t('login.activation.qq-action', { qqGroupNumber: QQ_GROUP_NUMBER }))}
+          </a>
+        </div>
+        <div class="confirm-modal-actions">
+          <button class="small-btn ghost" type="button" data-login-activation-cancel="true">${escapeHtml(t('modal.confirm.cancel', undefined))}</button>
+          <button class="small-btn" type="button" data-login-activation-confirm="true">${escapeHtml(t('login.activation.submit', undefined))}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    this.activationModal = modal;
+    this.activationCodeInput = modal.querySelector<HTMLInputElement>('[data-login-activation-code="true"]');
+    this.activationStatus = modal.querySelector<HTMLElement>('[data-login-activation-status="true"]');
+
+    const close = (value: string | null) => {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+      const resolve = this.activationResolve;
+      this.activationResolve = null;
+      resolve?.(value);
+    };
+    const confirm = () => {
+      const value = this.activationCodeInput?.value.normalize('NFC').trim() ?? '';
+      if (!value) {
+        if (this.activationStatus) {
+          this.activationStatus.textContent = t('login.activation.empty', undefined);
+        }
+        this.activationCodeInput?.focus();
+        return;
+      }
+      close(value);
+    };
+
+    modal.querySelectorAll<HTMLElement>('[data-login-activation-cancel="true"]').forEach((entry) => {
+      entry.addEventListener('click', () => close(null));
+    });
+    modal.querySelector<HTMLElement>('[data-login-activation-confirm="true"]')?.addEventListener('click', confirm);
+    this.activationCodeInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        confirm();
+      }
+    });
+    window.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || modal.classList.contains('hidden')) {
+        return;
+      }
+      event.preventDefault();
+      close(null);
+    }, true);
+  }
+}
+
+function isRegistrationActivationRequired(error: unknown): boolean {
+  return error instanceof RequestError
+    && error.data?.code === AUTH_REGISTER_ACTIVATION_REQUIRED_CODE;
+}
+
+function resolveInvitationCodeFromUrl(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const candidates = new URLSearchParams(window.location.search);
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+  const hashParams = new URLSearchParams(hash.includes('=') ? hash : '');
+  for (const key of ['invite', 'inviteCode', 'invitationCode', '邀请码']) {
+    const value = candidates.get(key) ?? hashParams.get(key);
+    if (value?.trim()) {
+      return value.normalize('NFC').trim();
+    }
+  }
+  return '';
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return char;
+    }
+  });
 }
