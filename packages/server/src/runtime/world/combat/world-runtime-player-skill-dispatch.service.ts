@@ -148,6 +148,17 @@ function normalizeAppliedDamage(value, fallback = 0) {
     return Math.max(0, Math.round(Number(fallback) || 0));
 }
 
+function recordPlayerSkillDispatchPerf(deps, key, startedAt, count = 1) {
+    const recorder = deps?.recordPendingCommandSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    const durationMs = performance.now() - startedAt;
+    if (Number.isFinite(durationMs) && durationMs >= 0) {
+        recorder(key, durationMs, count);
+    }
+}
+
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
     return buildEffectiveTargetingGeometry({
         range: resolveRuntimeSkillRange(skill),
@@ -674,7 +685,11 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (getPlayerSkillWindupTicks(skill) > 0) {
             return this.beginPlayerSkillCast(attacker, skill, { x: target.x, y: target.y }, `player:${target.playerId}`, deps);
         }
-        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps, {
+            prevalidatedTargets: true,
+            targetX: target.x,
+            targetY: target.y,
+        });
     }    
     async dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, primaryTarget, deps) {
         let targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
@@ -686,7 +701,12 @@ export class WorldRuntimePlayerSkillDispatchService {
                 throw new BadRequestException('没有可命中的目标');
             }
         }
-        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps, {
+            prevalidatedTargets: true,
+            targetRef: primaryTarget?.targetRef,
+            targetX: anchor.x,
+            targetY: anchor.y,
+        });
     }
     dispatchTemporaryTileSkill(attacker, skill, targetX, targetY, currentTick, deps) {
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -952,9 +972,13 @@ export class WorldRuntimePlayerSkillDispatchService {
             return true;
         }
         await this.dispatchSkillTargets(attacker, skill.id, skill, targets, deps, {
+            prevalidatedTargets: true,
             skipResourceAndCooldown: true,
             showActionLabel: false,
             combatActionPhase: CombatActionPhase.ChantResolve,
+            targetRef: pendingCast.targetRef,
+            targetX: anchor.x,
+            targetY: anchor.y,
         });
         return true;
     }
@@ -1171,6 +1195,7 @@ export class WorldRuntimePlayerSkillDispatchService {
     }
 
     collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget = null) {
+        const startedAt = performance.now();
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? deps.resolveCurrentTickForPlayerId(attacker.playerId)
@@ -1185,6 +1210,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             maxTargets: resolveSkillTargetLimit(skill),
             skipResourceAndCooldown: true,
         }, instance, deps);
+        recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetPlanMs', startedAt);
         if (!actionPlan?.ok) {
             this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
             return [];
@@ -1226,28 +1252,32 @@ export class WorldRuntimePlayerSkillDispatchService {
         const damageElement = resolveSkillDamageElement(skill);
         const effectiveGeometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const effectiveRange = effectiveGeometry.range;
-        const actionPlan = this.resolvePlayerSkillActionPlanForDispatch(attacker, skill, {
-            targetRef: castOptions?.targetRef,
-            targetX: castOptions?.targetX,
-            targetY: castOptions?.targetY,
-            resolvedTargets: targets,
-            phase: castOptions?.combatActionPhase ?? CombatActionPhase.Instant,
-            skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true,
-            skipResolvedTargetRangeValidation: true,
-            currentTick,
-            effectiveGeometry,
-            maxTargets: resolveSkillTargetLimit(skill),
-        }, instance, deps);
-        if (!actionPlan?.ok) {
+        if (castOptions?.prevalidatedTargets !== true) {
+            const targetPlanStartedAt = performance.now();
+            const actionPlan = this.resolvePlayerSkillActionPlanForDispatch(attacker, skill, {
+                targetRef: castOptions?.targetRef,
+                targetX: castOptions?.targetX,
+                targetY: castOptions?.targetY,
+                resolvedTargets: targets,
+                phase: castOptions?.combatActionPhase ?? CombatActionPhase.Instant,
+                skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true,
+                skipResolvedTargetRangeValidation: true,
+                currentTick,
+                effectiveGeometry,
+                maxTargets: resolveSkillTargetLimit(skill),
+            }, instance, deps);
+            recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetPlanMs', targetPlanStartedAt);
+            if (!actionPlan?.ok) {
+                this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
+                throw this.createPlayerSkillActionRejectException(actionPlan, skill);
+            }
             this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
-            throw this.createPlayerSkillActionRejectException(actionPlan, skill);
+            const plannedTargets = this.toLegacyPlayerSkillTargets(actionPlan.selectedTargets ?? [], attacker);
+            if (plannedTargets.length === 0) {
+                throw new BadRequestException('没有可命中的目标');
+            }
+            targets = plannedTargets;
         }
-        this.recordRejectedPlayerSkillPlanTargets(deps, attacker, skill, actionPlan);
-        const plannedTargets = this.toLegacyPlayerSkillTargets(actionPlan.selectedTargets ?? [], attacker);
-        if (plannedTargets.length === 0) {
-            throw new BadRequestException('没有可命中的目标');
-        }
-        targets = plannedTargets;
         const outcomeDeps = castOptions?.combatActionPhase
             ? { ...deps, combatActionPhase: castOptions.combatActionPhase }
             : deps;
@@ -1266,6 +1296,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         let totalSkillHeal = 0;
         let selfBuffs = [];
         const destroyedTiles = [];
+        const targetApplyStartedAt = performance.now();
         for (const target of targets) {
             const options = {
                 targetCount: targets.length,
@@ -1805,6 +1836,8 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (castIndex === 0) {
             throw new BadRequestException('没有可命中的目标');
         }
+        recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.targetApplyMs', targetApplyStartedAt, targets.length);
+        const postEffectsStartedAt = performance.now();
         if (totalSkillHeal > 0 || selfBuffs.length > 0) {
             const effects = [];
             if (totalSkillHeal > 0) {
@@ -1830,6 +1863,7 @@ export class WorldRuntimePlayerSkillDispatchService {
         for (const tile of destroyedTiles) {
             deps.worldRuntimeSectService?.expandSectForDestroyedTile?.(attacker.instanceId, tile.x, tile.y, deps);
         }
+        recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.postEffectsMs', postEffectsStartedAt);
     }
     resolvePlayerSkillActionPlanForDispatch(attacker, skill, input, instance, deps) {
         if (!this.worldRuntimeCombatActionService?.resolvePlayerSkillActionPlan) {
@@ -2191,7 +2225,11 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (targets.length === 0) {
             throw new BadRequestException('没有可命中的目标');
         }
-        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps, {
+            prevalidatedTargets: true,
+            targetX: formation.x,
+            targetY: formation.y,
+        });
     }    
     /**
  * dispatchCastSkillToMonster：判断Cast技能To怪物是否满足条件。
@@ -2225,7 +2263,11 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (targets.length === 0) {
             throw new BadRequestException('没有可命中的目标');
         }
-        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps, {
+            prevalidatedTargets: true,
+            targetX: target.x,
+            targetY: target.y,
+        });
     }    
     /**
  * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
@@ -2260,7 +2302,11 @@ export class WorldRuntimePlayerSkillDispatchService {
             if (targets.length === 0) {
                 throw new BadRequestException('没有可命中的目标');
             }
-            await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+            await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps, {
+                prevalidatedTargets: true,
+                targetX,
+                targetY,
+            });
             return;
         }
         ensureInstanceSupportsTileDamage(instance);
@@ -2281,7 +2327,11 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (targets.length === 0) {
             throw new BadRequestException('没有可命中的目标');
         }
-        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps, {
+            prevalidatedTargets: true,
+            targetX,
+            targetY,
+        });
     }
 };
 

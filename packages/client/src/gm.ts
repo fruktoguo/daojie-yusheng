@@ -2628,7 +2628,14 @@ const CPU_BREAKDOWN_GROUPS: CpuBreakdownGroupDef[] = [
       { key: 'instance.playerTickAdvanceMs', childPrefixes: ['playerTick.'], fallbackLabel: '玩家 tick 推进' },
     ],
   },
-  { key: 'pendingCommandsMs', childPrefixes: ['pendingCommands.'], fallbackLabel: '待处理命令' },
+  {
+    key: 'pendingCommandsMs',
+    childPrefixes: ['pendingCommands.'],
+    fallbackLabel: '待处理命令',
+    groups: [
+      { key: 'pendingCommands.castSkillMs', childPrefixes: ['pendingCommands.castSkill.'], fallbackLabel: '技能施放' },
+    ],
+  },
   { key: 'syncFlushMs', childPrefixes: ['syncFlush.'], fallbackLabel: '同步广播' },
   { key: 'preTickMaterializationMs', childPrefixes: ['tick.'], fallbackLabel: '预 tick 物化' },
   { key: 'workerPrecomputeMs', childPrefixes: ['worker.'], fallbackLabel: 'Worker 预计算' },

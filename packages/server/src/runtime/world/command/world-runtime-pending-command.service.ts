@@ -505,6 +505,10 @@ export class WorldRuntimePendingCommandService {
         for (const [playerId, command] of this.pendingCommands) {
             const commandDispatchStartedAt = performance.now();
             let commandDispatchRecorded = false;
+            const previousRecorder = deps?.recordPendingCommandSectionDuration;
+            if (typeof recordTickSectionDuration === 'function') {
+                deps.recordPendingCommandSectionDuration = recordTickSectionDuration;
+            }
             try {
                 await this.dispatchCommand(playerId, command, deps);
                 recordPendingCommandPerf(recordTickSectionDuration, resolvePendingCommandPerfKey(command), commandDispatchStartedAt);
@@ -555,6 +559,16 @@ export class WorldRuntimePendingCommandService {
                     deps.queuePlayerNotice(playerId, noticeMessage, 'warn');
                 }
                 recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.failureHandlingMs', failureHandlingStartedAt);
+            }
+            finally {
+                if (typeof recordTickSectionDuration === 'function') {
+                    if (previousRecorder) {
+                        deps.recordPendingCommandSectionDuration = previousRecorder;
+                    }
+                    else {
+                        delete deps.recordPendingCommandSectionDuration;
+                    }
+                }
             }
         }
         this.pendingCommands.clear();
