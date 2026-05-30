@@ -75,10 +75,7 @@ export class PlayerCombatService {
         if (options?.skipTargetDamageApplication !== true && result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
-        return {
-            ...result,
-            targetPlayerId: target.playerId,
-        };
+        return Object.assign(result, { targetPlayerId: target.playerId });
     }
 
     /**
@@ -182,10 +179,7 @@ export class PlayerCombatService {
         if (options?.skipTargetDamageApplication !== true && result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
         }
-        return {
-            ...result,
-            targetPlayerId: target.playerId,
-        };
+        return Object.assign(result, { targetPlayerId: target.playerId });
     }
 
     /**
@@ -464,7 +458,9 @@ function resolveEffectDamage(effect, baseDamage, context) {
         damageKind,
         element: effect.element,
     });
-    return { ...outcome, damageKind, element: effect.element };
+    outcome.damageKind = damageKind;
+    outcome.element = effect.element;
+    return outcome;
 }
 
 /** 推断伤害类型：法攻 >= 物攻时为 spell，否则 physical。 */
@@ -542,6 +538,9 @@ const constantZeroSkillFormulaEvaluator = () => 0;
 const compiledSkillFormulaCache = new WeakMap();
 
 function evaluateSkillFormula(formula, context) {
+    if (typeof formula === 'number') {
+        return formula;
+    }
     return getCompiledSkillFormula(formula)(context);
 }
 

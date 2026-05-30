@@ -70,6 +70,13 @@ function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
 function projectDamageDefeated(target, damage) {
     return Math.max(0, Math.round(Number(target?.hp) || 0)) - Math.max(0, Math.round(Number(damage) || 0)) <= 0;
 }
+function recordMonsterActionPerf(deps, key, startedAt, count = 1) {
+    const recorder = deps?.recordMonsterActionSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    recorder(key, performance.now() - startedAt, count);
+}
 
 /** 妖兽动作落地服务：承接 monster action apply 与 monster skill apply。 */
 @Injectable()
@@ -166,10 +173,12 @@ export class WorldRuntimeMonsterActionApplyService {
     }
 
     applyMonsterSkillChant(action, deps) {
+        const planStartedAt = performance.now();
         const instance = deps.getInstanceRuntime(action.instanceId);
         const monster = instance?.getMonster?.(action.runtimeId) ?? null;
         const skill = monster?.skills?.find((entry) => entry.id === action.skillId) ?? null;
         const actionPlan = this.resolveMonsterSkillChantStartPlan(instance, action, skill, monster);
+        recordMonsterActionPerf(deps, 'monsterActions.chantPlanMs', planStartedAt);
         if (!actionPlan.ok) {
             this.recordMonsterActionReject(deps, action, actionPlan.reason, actionPlan.details ?? {}, { severity: actionPlan.severity ?? 'warn' });
             return;
@@ -179,6 +188,7 @@ export class WorldRuntimeMonsterActionApplyService {
             ? resolveTickScaledChantDurationMs(Math.max(0, Math.trunc(Number(action.windupTicks) || 0)), instance?.tickSpeed)
             : rawDurationMs;
         const warningCells = actionPlan.warningCells;
+        const presentationStartedAt = performance.now();
         emitCombatPresentation({
             deps,
             effectsService: this.worldRuntimeCombatEffectsService,
@@ -202,6 +212,7 @@ export class WorldRuntimeMonsterActionApplyService {
                 durationMs,
             }] : [],
         });
+        recordMonsterActionPerf(deps, 'monsterActions.chantPresentationMs', presentationStartedAt);
     }
     /**
  * applyMonsterBasicAttack：处理怪物BasicAttack并更新相关状态。
@@ -213,7 +224,9 @@ export class WorldRuntimeMonsterActionApplyService {
     applyMonsterBasicAttack(action, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const targetPlanStartedAt = performance.now();
         const targetResolution = this.resolveMonsterBasicAttackPlayerTarget(deps, action);
+        recordMonsterActionPerf(deps, 'monsterActions.basicTargetPlanMs', targetPlanStartedAt);
         if (!targetResolution.ok) {
             this.recordMonsterActionReject(deps, action, targetResolution.reason, targetResolution.details, { severity: targetResolution.severity });
             return;
@@ -226,6 +239,7 @@ export class WorldRuntimeMonsterActionApplyService {
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
             ? monster.numericStats.spellAtk
             : monster.numericStats.physAtk));
+        const combatResolveStartedAt = performance.now();
         const resolvedDamage = resolveCombatDamage({
             attackerStats: monster.numericStats,
             attackerRatios: monster.ratioDivisors,
@@ -238,9 +252,11 @@ export class WorldRuntimeMonsterActionApplyService {
             baseDamage,
             damageKind,
         });
+        recordMonsterActionPerf(deps, 'monsterActions.basicCombatResolveMs', combatResolveStartedAt);
         const effectColor = getDamageTrailColor(damageKind);
         const currentTick = deps.resolveCurrentTickForPlayerId(action.targetPlayerId);
         let updated = player;
+        const outcomeApplyStartedAt = performance.now();
         this.applyMonsterCombatOutcome(deps, action, {
             kind: CombatTargetKind.Player,
             id: action.targetPlayerId,
@@ -261,6 +277,8 @@ export class WorldRuntimeMonsterActionApplyService {
         }, {
             currentTick,
         });
+        recordMonsterActionPerf(deps, 'monsterActions.basicOutcomeApplyMs', outcomeApplyStartedAt);
+        const presentationStartedAt = performance.now();
         emitCombatPresentation({
             deps,
             effectsService: this.worldRuntimeCombatEffectsService,
@@ -275,6 +293,7 @@ export class WorldRuntimeMonsterActionApplyService {
                 combat: buildCombatNoticePayload({ caster: monster.name ?? monster.monsterId ?? action.runtimeId, target: '你', skill: '攻击', resolution: { ...resolvedDamage, damageKind } }),
             }],
         });
+        recordMonsterActionPerf(deps, 'monsterActions.basicPresentationMs', presentationStartedAt);
         updated = this.playerRuntimeService.getPlayer(action.targetPlayerId) ?? player;
         if (updated.hp <= 0) {
             deps.handlePlayerDefeat(updated.playerId);
@@ -290,11 +309,13 @@ export class WorldRuntimeMonsterActionApplyService {
     applyMonsterSkill(action, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const planStartedAt = performance.now();
         const instance = deps.getInstanceRuntime(action.instanceId);
         const monster = instance?.getMonster?.(action.runtimeId) ?? null;
         const skill = monster?.skills?.find((entry) => entry.id === action.skillId) ?? null;
         const actionPlan = this.resolveMonsterSkillActionPlan(instance, deps, action, skill, monster);
         const effectColor = skill ? getSkillEffectColor(skill) : getDamageTrailColor('spell');
+        recordMonsterActionPerf(deps, 'monsterActions.skillPlanMs', planStartedAt);
         if (!actionPlan.ok) {
             if (actionPlan.reason === CombatRejectReason.NoRuntimeTargetsInWarningCells
                 && (actionPlan.hasAnchoredCast || actionPlan.warningCells?.length > 0)
@@ -326,7 +347,9 @@ export class WorldRuntimeMonsterActionApplyService {
                 : undefined;
             for (let index = 0; index < targetEntries.length; index += 1) {
                 const entry = targetEntries[index];
+                const targetApplyStartedAt = performance.now();
                 const applyTarget = this.revalidateMonsterSkillTargetForApply(deps, instance, action, entry, targetEntries.length);
+                recordMonsterActionPerf(deps, 'monsterActions.skillTargetApplyMs', targetApplyStartedAt);
                 if (!applyTarget.ok) {
                     const skippedTarget = {
                         reason: applyTarget.reason,
@@ -342,6 +365,7 @@ export class WorldRuntimeMonsterActionApplyService {
                 const player = applyTarget.player;
                 const targetPosition = applyTarget.position;
                 resolvedTargetCount += 1;
+                const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castMonsterSkill(monster, player, action.skillId, currentTick, actionPlan.distance, (buff) => {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, (buff) => {
@@ -361,7 +385,9 @@ export class WorldRuntimeMonsterActionApplyService {
                     resolvedSkill,
                     attackerCombatState: monsterCombatState,
                 });
+                recordMonsterActionPerf(deps, 'monsterActions.skillCombatResolveMs', combatResolveStartedAt);
                 if (skill && !labelPushed) {
+                    const labelPresentationStartedAt = performance.now();
                     emitCombatPresentation({
                         deps,
                         effectsService: this.worldRuntimeCombatEffectsService,
@@ -373,11 +399,13 @@ export class WorldRuntimeMonsterActionApplyService {
                         },
                     });
                     labelPushed = true;
+                    recordMonsterActionPerf(deps, 'monsterActions.skillPresentationMs', labelPresentationStartedAt);
                 }
                 if (isMonsterSelfOnlySkill(skill)) {
                     continue;
                 }
                 const primaryRoll = resolvePrimaryDamageRoll(result, result.damageKind ?? 'spell', result.damageElement);
+                const outcomeApplyStartedAt = performance.now();
                 this.applyMonsterCombatOutcome(deps, action, {
                     kind: CombatTargetKind.Player,
                     id: player.playerId,
@@ -401,6 +429,8 @@ export class WorldRuntimeMonsterActionApplyService {
                 }, {
                     currentTick,
                 });
+                recordMonsterActionPerf(deps, 'monsterActions.skillOutcomeApplyMs', outcomeApplyStartedAt);
+                const threatStartedAt = performance.now();
                 this.worldRuntimeThreatService.addThreat(
                     this.worldRuntimeThreatService.buildPlayerOwnerId(player.playerId),
                     action.runtimeId,
@@ -411,6 +441,8 @@ export class WorldRuntimeMonsterActionApplyService {
                         now: currentTick,
                     },
                 );
+                recordMonsterActionPerf(deps, 'monsterActions.skillThreatMs', threatStartedAt);
+                const presentationStartedAt = performance.now();
                 emitCombatPresentation({
                     deps,
                     effectsService: this.worldRuntimeCombatEffectsService,
@@ -425,6 +457,7 @@ export class WorldRuntimeMonsterActionApplyService {
                         combat: buildCombatNoticePayload({ caster: monster.name ?? monster.monsterId ?? action.runtimeId, target: '你', skill: skill?.name ?? action.skillId, resolution: { ...primaryRoll, damageKind: primaryRoll.damageKind ?? result.damageKind ?? 'spell', element: primaryRoll.element ?? result.damageElement } }),
                     }],
                 });
+                recordMonsterActionPerf(deps, 'monsterActions.skillPresentationMs', presentationStartedAt);
                 const updatedPlayer = this.playerRuntimeService.getPlayer(player.playerId);
                 if (updatedPlayer && updatedPlayer.hp <= 0) {
                     deps.handlePlayerDefeat(updatedPlayer.playerId);

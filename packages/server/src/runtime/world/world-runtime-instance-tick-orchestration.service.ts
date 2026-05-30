@@ -480,14 +480,26 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 }
                 addMeasuredTickSection(sectionDurations, 'instance.applyTransfersMs', transferApplyStartedAt, result.transfers.length);
                 const monsterActionApplyStartedAt = performance.now();
-                for (const action of result.monsterActions) {
-                    this.runIsolatedSyncOperation(deps, 'monster_action_apply', {
-                        instanceId: action?.instanceId ?? instance.meta.instanceId,
-                        monsterId: action?.runtimeId ?? action?.monsterId,
-                        actionKind: action?.kind,
-                        targetPlayerId: action?.targetPlayerId,
-                        worldTick: deps.tick,
-                    }, () => deps.applyMonsterAction(action));
+                const previousMonsterActionSectionDuration = deps.recordMonsterActionSectionDuration;
+                deps.recordMonsterActionSectionDuration = (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count);
+                try {
+                    for (const action of result.monsterActions) {
+                        this.runIsolatedSyncOperation(deps, 'monster_action_apply', {
+                            instanceId: action?.instanceId ?? instance.meta.instanceId,
+                            monsterId: action?.runtimeId ?? action?.monsterId,
+                            actionKind: action?.kind,
+                            targetPlayerId: action?.targetPlayerId,
+                            worldTick: deps.tick,
+                        }, () => deps.applyMonsterAction(action));
+                    }
+                }
+                finally {
+                    if (previousMonsterActionSectionDuration === undefined) {
+                        delete deps.recordMonsterActionSectionDuration;
+                    }
+                    else {
+                        deps.recordMonsterActionSectionDuration = previousMonsterActionSectionDuration;
+                    }
                 }
                 addMeasuredTickSection(sectionDurations, 'instance.applyMonsterActionsMs', monsterActionApplyStartedAt, result.monsterActions.length);
                 let currentPlayerIds = [];

@@ -33,51 +33,54 @@ export function createPlayerOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) 
     const damage = normalizeDamage(result);
     // 设置反击目标
     if (targetPlayerId && result?.retaliatePlayerTargetId) {
-      callFirstDefined([
-        () => handlers.setRetaliatePlayerTarget?.({ playerId: targetPlayerId, targetPlayerId: result.retaliatePlayerTargetId, outcome, result, application, deps }),
-        () => deps?.playerRuntimeService?.setRetaliatePlayerTarget?.(targetPlayerId, result.retaliatePlayerTargetId, deps?.currentTick ?? deps?.tick ?? 0),
-      ]);
+      let applied = handlers.setRetaliatePlayerTarget?.({ playerId: targetPlayerId, targetPlayerId: result.retaliatePlayerTargetId, outcome, result, application, deps });
+      if (applied === null || applied === undefined) {
+        applied = deps?.playerRuntimeService?.setRetaliatePlayerTarget?.(targetPlayerId, result.retaliatePlayerTargetId, deps?.currentTick ?? deps?.tick ?? 0);
+      }
     }
     // 应用伤害
-    const appliedDamageResult = targetPlayerId && damage > 0
-      ? callFirstDefined([
-        () => handlers.applyPlayerDamage?.({ playerId: targetPlayerId, damage, outcome, result, application, deps }),
-        () => deps?.playerRuntimeService?.applyDamage?.(targetPlayerId, damage, outcome?.actor?.id),
-        () => deps?.applyPlayerDamage?.(targetPlayerId, damage, outcome, result),
-      ])
-      : 0;
+    let appliedDamageResult = 0;
+    if (targetPlayerId && damage > 0) {
+      appliedDamageResult = handlers.applyPlayerDamage?.({ playerId: targetPlayerId, damage, outcome, result, application, deps });
+      if (appliedDamageResult === null || appliedDamageResult === undefined) {
+        appliedDamageResult = deps?.playerRuntimeService?.applyDamage?.(targetPlayerId, damage, outcome?.actor?.id);
+      }
+      if (appliedDamageResult === null || appliedDamageResult === undefined) {
+        appliedDamageResult = deps?.applyPlayerDamage?.(targetPlayerId, damage, outcome, result);
+      }
+    }
     const appliedDamage = damage > 0
       ? normalizeAppliedDamage(appliedDamageResult, damage)
       : 0;
     // 应用 buff
     if (targetPlayerId && result?.buff) {
-      callFirstDefined([
-        () => handlers.applyPlayerBuff?.({ playerId: targetPlayerId, buff: result.buff, outcome, result, application, deps }),
-        () => deps?.playerRuntimeService?.applyTemporaryBuff?.(targetPlayerId, result.buff),
-      ]);
+      let applied = handlers.applyPlayerBuff?.({ playerId: targetPlayerId, buff: result.buff, outcome, result, application, deps });
+      if (applied === null || applied === undefined) {
+        applied = deps?.playerRuntimeService?.applyTemporaryBuff?.(targetPlayerId, result.buff);
+      }
     }
     // 记录活动（打断修炼等）
     if (targetPlayerId && result?.recordActivity !== false) {
-      callFirstDefined([
-        () => handlers.recordPlayerActivity?.({ playerId: targetPlayerId, outcome, result, application, deps }),
-        () => deps?.playerRuntimeService?.recordActivity?.(targetPlayerId, deps?.currentTick, { interruptCultivation: true, reason: 'attack' }),
-      ]);
+      let applied = handlers.recordPlayerActivity?.({ playerId: targetPlayerId, outcome, result, application, deps });
+      if (applied === null || applied === undefined) {
+        applied = deps?.playerRuntimeService?.recordActivity?.(targetPlayerId, deps?.currentTick, { interruptCultivation: true, reason: 'attack' });
+      }
     }
     // 激活自动反击
     if (targetPlayerId && result?.autoRetaliate === true) {
-      callFirstDefined([
-        () => handlers.activateAutoRetaliate?.({ playerId: targetPlayerId, outcome, result, application, deps }),
-        () => deps?.playerRuntimeService?.activateAutoRetaliate?.(targetPlayerId, deps?.currentTick),
-      ]);
+      let applied = handlers.activateAutoRetaliate?.({ playerId: targetPlayerId, outcome, result, application, deps });
+      if (applied === null || applied === undefined) {
+        applied = deps?.playerRuntimeService?.activateAutoRetaliate?.(targetPlayerId, deps?.currentTick);
+      }
       deps?.worldRuntimeNavigationService?.clearNavigationIntent?.(targetPlayerId);
     }
     // 击败处理
     let handledDefeat = false;
     if (targetPlayerId && result?.defeated === true && result?.applyDefeat !== false) {
-      const defeatResult = callFirstDefined([
-        () => handlers.handlePlayerDefeat?.({ playerId: targetPlayerId, attackerId: outcome?.actor?.id, outcome, result, application, deps }),
-        () => deps?.handlePlayerDefeat?.(targetPlayerId, result.attackerPlayerId ?? outcome?.actor?.id),
-      ]);
+      let defeatResult = handlers.handlePlayerDefeat?.({ playerId: targetPlayerId, attackerId: outcome?.actor?.id, outcome, result, application, deps });
+      if (defeatResult === null || defeatResult === undefined) {
+        defeatResult = deps?.handlePlayerDefeat?.(targetPlayerId, result.attackerPlayerId ?? outcome?.actor?.id);
+      }
       handledDefeat = defeatResult !== null && defeatResult !== undefined;
     }
     return {

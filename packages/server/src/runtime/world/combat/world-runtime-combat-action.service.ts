@@ -1852,24 +1852,25 @@ export class WorldRuntimeCombatActionService {
         targetCollection: { targets: [], rejected: [] },
       };
     }
-    const location = typeof input.deps?.getPlayerLocation === 'function'
-      ? input.deps.getPlayerLocation(action.targetPlayerId)
-      : null;
     const runtimeTargetPosition = typeof instance?.getPlayerPosition === 'function'
       ? instance.getPlayerPosition(action.targetPlayerId)
       : null;
     const targetRuntimeState = playerRuntimeService?.getPlayer?.(action.targetPlayerId) ?? null;
-    const locationPosition = location
-      && location.instanceId === action.instanceId
-      && Number.isFinite(Number(location.x))
-      && Number.isFinite(Number(location.y))
-      ? { x: Math.trunc(Number(location.x)), y: Math.trunc(Number(location.y)) }
-      : null;
     const playerStatePosition = targetRuntimeState
       && targetRuntimeState.instanceId === action.instanceId
       && Number.isFinite(Number(targetRuntimeState.x))
       && Number.isFinite(Number(targetRuntimeState.y))
       ? { x: Math.trunc(Number(targetRuntimeState.x)), y: Math.trunc(Number(targetRuntimeState.y)) }
+      : null;
+    const needsLocationFallback = !runtimeTargetPosition && !playerStatePosition;
+    const location = needsLocationFallback && typeof input.deps?.getPlayerLocation === 'function'
+      ? input.deps.getPlayerLocation(action.targetPlayerId)
+      : null;
+    const locationPosition = location
+      && location.instanceId === action.instanceId
+      && Number.isFinite(Number(location.x))
+      && Number.isFinite(Number(location.y))
+      ? { x: Math.trunc(Number(location.x)), y: Math.trunc(Number(location.y)) }
       : null;
     const fallbackTargetPosition = normalizeCombatCell(runtimeTargetPosition ?? locationPosition ?? playerStatePosition);
     const requiresTarget = resolveSkillRequiresTarget(skill);
