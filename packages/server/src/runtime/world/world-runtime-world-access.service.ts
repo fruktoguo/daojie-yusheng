@@ -80,6 +80,8 @@ export class WorldRuntimeWorldAccessService {
             syncFlushDurationHistoryMs: deps.syncFlushDurationHistoryMs,
             lastTickPhaseDurations: deps.lastTickPhaseDurations,
             tickPhaseDurationHistoryMs: deps.tickPhaseDurationHistoryMs,
+            lastTickSectionDurations: deps.lastTickSectionDurations,
+            tickSectionDurationHistoryMs: deps.tickSectionDurationHistoryMs,
             instances,
             dirtyBacklog: {
                 players: dirtyPlayerDomains.size,

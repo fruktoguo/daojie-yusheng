@@ -211,6 +211,14 @@ export interface WorkerPoolMetrics {
   p50Ms: number;
   /** 最近 100 个任务的 p95 耗时（ms） */
   p95Ms: number;
+  /** 累计完成任务墙钟耗时（ms，包含同步 fallback 完成路径） */
+  totalDurationMs: number;
+  /** 最近窗口任务总耗时（ms） */
+  recentTotalDurationMs: number;
+  /** 最近窗口任务数量 */
+  recentTaskCount: number;
+  /** 最近窗口任务平均耗时（ms） */
+  avgMs: number;
   /** 当前 in-flight 任务数 */
   inFlight: number;
   /** 池中活跃 worker 数 */

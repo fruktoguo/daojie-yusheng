@@ -9,11 +9,14 @@ const TICK_METRIC_WINDOW_SIZE = 60;
 
 /** 单帧各阶段耗时（毫秒） */
 export interface TickPhaseDurations {
+  resetFrameEffectsMs: number;
+  planInstanceStepsMs: number;
+  preTickMaterializationMs: number;
   pendingCommandsMs: number;
   systemCommandsMs: number;
+  workerPrecomputeMs: number;
   instanceTicksMs: number;
-  transfersMs: number;
-  monsterActionsMs: number;
+  postTickCleanupMs: number;
   playerAdvanceMs: number;
 }
 
@@ -21,21 +24,36 @@ export type TickPhaseDurationHistory = {
   [Key in keyof TickPhaseDurations]: number[];
 };
 
+/** 单帧内更细粒度 tick 段统计。count 表示本帧执行次数。 */
+export interface TickSectionDurationSample {
+  totalMs: number;
+  count: number;
+}
+
+export type TickSectionDurations = Record<string, TickSectionDurationSample>;
+export type TickSectionDurationHistory = Record<string, TickSectionDurationSample[]>;
+
 const TICK_PHASE_KEYS: ReadonlyArray<keyof TickPhaseDurations> = [
+  'resetFrameEffectsMs',
+  'planInstanceStepsMs',
+  'preTickMaterializationMs',
   'pendingCommandsMs',
   'systemCommandsMs',
+  'workerPrecomputeMs',
   'instanceTicksMs',
-  'transfersMs',
-  'monsterActionsMs',
+  'postTickCleanupMs',
   'playerAdvanceMs',
 ];
 
 const EMPTY_TICK_PHASE_DURATIONS: Readonly<TickPhaseDurations> = Object.freeze({
+  resetFrameEffectsMs: 0,
+  planInstanceStepsMs: 0,
+  preTickMaterializationMs: 0,
   pendingCommandsMs: 0,
   systemCommandsMs: 0,
+  workerPrecomputeMs: 0,
   instanceTicksMs: 0,
-  transfersMs: 0,
-  monsterActionsMs: 0,
+  postTickCleanupMs: 0,
   playerAdvanceMs: 0,
 });
 
@@ -48,26 +66,38 @@ export class WorldRuntimeMetricsService {
   tickDurationHistoryMs: number[] = [];
   syncFlushDurationHistoryMs: number[] = [];
   tickPhaseDurationHistoryMs: TickPhaseDurationHistory = createTickPhaseDurationHistory();
+  lastTickSectionDurations: TickSectionDurations = {};
+  tickSectionDurationHistoryMs: TickSectionDurationHistory = {};
 
   recordIdleFrame(startedAt: number): void {
     this.lastTickPhaseDurations = { ...EMPTY_TICK_PHASE_DURATIONS };
+    this.lastTickSectionDurations = {};
     this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
     pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
   }
 
-  recordFrameResult(startedAt: number, phaseDurations: TickPhaseDurations): void {
+  recordFrameResult(
+    startedAt: number,
+    phaseDurations: TickPhaseDurations,
+    sectionDurations: TickSectionDurations = {},
+  ): void {
     this.lastTickPhaseDurations = {
+      resetFrameEffectsMs: roundDurationMs(phaseDurations.resetFrameEffectsMs),
+      planInstanceStepsMs: roundDurationMs(phaseDurations.planInstanceStepsMs),
+      preTickMaterializationMs: roundDurationMs(phaseDurations.preTickMaterializationMs),
       pendingCommandsMs: roundDurationMs(phaseDurations.pendingCommandsMs),
       systemCommandsMs: roundDurationMs(phaseDurations.systemCommandsMs),
+      workerPrecomputeMs: roundDurationMs(phaseDurations.workerPrecomputeMs),
       instanceTicksMs: roundDurationMs(phaseDurations.instanceTicksMs),
-      transfersMs: roundDurationMs(phaseDurations.transfersMs),
-      monsterActionsMs: roundDurationMs(phaseDurations.monsterActionsMs),
+      postTickCleanupMs: roundDurationMs(phaseDurations.postTickCleanupMs),
       playerAdvanceMs: roundDurationMs(phaseDurations.playerAdvanceMs),
     };
+    this.lastTickSectionDurations = normalizeSectionDurations(sectionDurations);
     this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
     pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
+    pushTickSectionDurationHistory(this.tickSectionDurationHistoryMs, this.lastTickSectionDurations);
   }
 
   recordSyncFlushDuration(durationMs: number): void {
@@ -89,11 +119,14 @@ function pushDurationMetric(history: number[], value: number): void {
 
 function createTickPhaseDurationHistory(): TickPhaseDurationHistory {
   return {
+    resetFrameEffectsMs: [],
+    planInstanceStepsMs: [],
+    preTickMaterializationMs: [],
     pendingCommandsMs: [],
     systemCommandsMs: [],
+    workerPrecomputeMs: [],
     instanceTicksMs: [],
-    transfersMs: [],
-    monsterActionsMs: [],
+    postTickCleanupMs: [],
     playerAdvanceMs: [],
   };
 }
@@ -101,5 +134,29 @@ function createTickPhaseDurationHistory(): TickPhaseDurationHistory {
 function pushTickPhaseDurationHistory(history: TickPhaseDurationHistory, durations: TickPhaseDurations): void {
   for (const key of TICK_PHASE_KEYS) {
     pushDurationMetric(history[key], durations[key]);
+  }
+}
+
+function normalizeSectionDurations(input: TickSectionDurations): TickSectionDurations {
+  const normalized: TickSectionDurations = {};
+  for (const [key, sample] of Object.entries(input)) {
+    const totalMs = roundDurationMs(Math.max(0, Number(sample?.totalMs) || 0));
+    const count = Math.max(0, Math.trunc(Number(sample?.count) || 0));
+    if (totalMs <= 0 && count <= 0) {
+      continue;
+    }
+    normalized[key] = { totalMs, count };
+  }
+  return normalized;
+}
+
+function pushTickSectionDurationHistory(history: TickSectionDurationHistory, durations: TickSectionDurations): void {
+  for (const [key, sample] of Object.entries(durations)) {
+    const bucket = history[key] ?? [];
+    bucket.push(sample);
+    if (bucket.length > TICK_METRIC_WINDOW_SIZE) {
+      bucket.splice(0, bucket.length - TICK_METRIC_WINDOW_SIZE);
+    }
+    history[key] = bucket;
   }
 }

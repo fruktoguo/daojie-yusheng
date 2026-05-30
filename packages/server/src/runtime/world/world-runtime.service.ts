@@ -546,6 +546,14 @@ export class WorldRuntimeService {
         return this.worldRuntimeMetricsService.tickPhaseDurationHistoryMs;
     }
 
+    get lastTickSectionDurations() {
+        return this.worldRuntimeMetricsService.lastTickSectionDurations;
+    }
+
+    get tickSectionDurationHistoryMs() {
+        return this.worldRuntimeMetricsService.tickSectionDurationHistoryMs;
+    }
+
     get instanceTickProgressById() {
         return this.worldRuntimeTickProgressService.instanceTickProgressById;
     }

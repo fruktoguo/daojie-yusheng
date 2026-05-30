@@ -14,6 +14,7 @@ import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from 
 import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-pool.service';
+import type { TickSectionDurations } from './world-runtime-metrics.service';
 
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
@@ -237,8 +238,15 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const startedAt = performance.now();
+        const sectionDurations = createTickSectionDurations();
+        const resetFrameEffectsStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'reset_frame_effects', { worldTick: deps.tick }, () => deps.worldRuntimeCombatEffectsService.resetFrameEffects());
+        const resetFrameEffectsMs = performance.now() - resetFrameEffectsStartedAt;
+        addTickSectionDuration(sectionDurations, 'tick.resetFrameEffectsMs', resetFrameEffectsMs);
+        const reconcileStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'reconcile_defeated_players_before_tick', { worldTick: deps.tick }, () => this.reconcileDefeatedPlayersBeforeTick(deps));
+        addMeasuredTickSection(sectionDurations, 'tick.reconcileDefeatedPlayersMs', reconcileStartedAt);
+        const planInstanceStepsStartedAt = performance.now();
         const instanceStepPlans = [];
         let plannedLogicalTicks = 0;
         for (const instance of deps.listInstanceRuntimes()) {
@@ -292,17 +300,26 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             instanceStepPlans.push({ instance, steps, speed, sleepMonsterAi });
             plannedLogicalTicks += steps;
         }
+        const planInstanceStepsMs = performance.now() - planInstanceStepsStartedAt;
         if (plannedLogicalTicks <= 0) {
             this.runIsolatedSyncOperation(deps, 'record_idle_frame', {
                 worldTick: deps.tick,
             }, () => deps.worldRuntimeMetricsService.recordIdleFrame(startedAt));
             return 0;
         }
+        const preTickMaterializationStartedAt = performance.now();
+        const respawnsStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'process_pending_respawns', { worldTick: deps.tick }, () => deps.processPendingRespawns());
+        addMeasuredTickSection(sectionDurations, 'tick.processPendingRespawnsMs', respawnsStartedAt);
+        const navigationMaterializeStartedAt = performance.now();
         await this.runIsolatedOperation(deps, 'materialize_navigation_commands', { worldTick: deps.tick }, () => deps.materializeNavigationCommands());
+        addMeasuredTickSection(sectionDurations, 'tick.materializeNavigationCommandsMs', navigationMaterializeStartedAt);
         if (typeof deps.materializeAutoUsePills === 'function') {
+            const autoUsePillsStartedAt = performance.now();
             this.runIsolatedSyncOperation(deps, 'materialize_auto_use_pills', { worldTick: deps.tick }, () => deps.materializeAutoUsePills());
+            addMeasuredTickSection(sectionDurations, 'tick.materializeAutoUsePillsMs', autoUsePillsStartedAt);
         }
+        const autoCombatStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'materialize_auto_combat_commands', { worldTick: deps.tick }, () => {
             if (typeof deps.worldRuntimeAutoCombatService?.materializeAutoCombatCommands === 'function') {
                 deps.worldRuntimeAutoCombatService.materializeAutoCombatCommands(deps);
@@ -310,13 +327,18 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             }
             deps.materializeAutoCombatCommands?.();
         });
+        addMeasuredTickSection(sectionDurations, 'tick.materializeAutoCombatCommandsMs', autoCombatStartedAt);
+        const preTickMaterializationMs = performance.now() - preTickMaterializationStartedAt;
         const pendingCommandsStartedAt = performance.now();
         await this.runIsolatedOperation(deps, 'dispatch_pending_commands', { worldTick: deps.tick }, () => deps.dispatchPendingCommands());
         const pendingCommandsMs = performance.now() - pendingCommandsStartedAt;
         const systemCommandsStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'dispatch_pending_system_commands', { worldTick: deps.tick }, () => deps.dispatchPendingSystemCommands());
         const systemCommandsMs = performance.now() - systemCommandsStartedAt;
+        const workerPrecomputeStartedAt = performance.now();
         const workerProposals = await this.precomputeInstanceWorkerIntents(instanceStepPlans, deps.tick, deps);
+        const workerPrecomputeMs = performance.now() - workerPrecomputeStartedAt;
+        addTickSectionDuration(sectionDurations, 'worker.instancePrecomputeMs', workerPrecomputeMs, instanceStepPlans.length);
         const steppedPlayerIds = new Set();
         let totalLogicalTicks = 0;
         // T-19: 预分配 tickOnce 返回值容器，循环内复用
@@ -326,6 +348,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             for (let index = 0; index < steps; index += 1) {
                 // 加速 tick 补偿：对于后续逻辑 tick，为当前实例的玩家重新物化命令
                 if (index > 0) {
+                    const instanceStepMaterializationStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'materialize_navigation_commands_for_instance', {
                         instanceId: instance.meta.instanceId,
                         worldTick: deps.tick,
@@ -342,11 +365,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         instanceId: instance.meta.instanceId,
                         worldTick: deps.tick,
                     }, () => deps.dispatchPendingCommands());
+                    addMeasuredTickSection(sectionDurations, 'instance.stepCommandMaterializationMs', instanceStepMaterializationStartedAt);
                 }
                 let blockedPlayerIds = new Set();
+                const blockedPlayerLookupStartedAt = performance.now();
                 this.runIsolatedSyncOperation(deps, 'get_blocked_player_ids', { worldTick: deps.tick }, () => {
                     blockedPlayerIds = deps.worldRuntimeNavigationService.getBlockedPlayerIds();
                 });
+                addMeasuredTickSection(sectionDurations, 'instance.blockedPlayerLookupMs', blockedPlayerLookupStartedAt);
                 deps.tick += 1;
                 totalLogicalTicks += 1;
                 if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
@@ -357,12 +383,14 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 }
                 let isFormationTerrainStabilized = null;
                 if (typeof deps.worldRuntimeFormationService?.createTerrainStabilizationChecker === 'function') {
+                    const terrainStabilizationStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'create_terrain_stabilization_checker', {
                         instanceId: instance.meta.instanceId,
                         worldTick: deps.tick,
                     }, () => {
                         isFormationTerrainStabilized = deps.worldRuntimeFormationService.createTerrainStabilizationChecker(instance.meta.instanceId);
                     });
+                    addMeasuredTickSection(sectionDurations, 'instance.terrainStabilizationCheckerMs', terrainStabilizationStartedAt);
                 }
                 const terrainStabilizationChecker = typeof isFormationTerrainStabilized === 'function'
                     ? isFormationTerrainStabilized
@@ -377,6 +405,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 reusableTickResult.transfers.length = 0;
                 reusableTickResult.monsterActions.length = 0;
                 let result = reusableTickResult;
+                const coreTickStartedAt = performance.now();
                 this.runIsolatedSyncOperation(deps, 'instance_tick_once', {
                     instanceId: instance.meta.instanceId,
                     instanceTick: instance.tick,
@@ -384,28 +413,36 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 }, () => {
                     result = instance.tickOnce(instanceIntents, { sleepMonsterAi: sleepMonsterAi === true }) ?? result;
                 });
+                addMeasuredTickSection(sectionDurations, 'instance.coreTickMs', coreTickStartedAt);
                 if (typeof instance.advanceTileResourceFlow === 'function') {
+                    const tileResourceFlowStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'instance_tile_resource_flow', {
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
                     }, () => instance.advanceTileResourceFlow());
+                    addMeasuredTickSection(sectionDurations, 'instance.tileResourceFlowMs', tileResourceFlowStartedAt);
                 }
                 if (typeof deps.worldRuntimeFormationService?.advanceInstanceFormations === 'function') {
+                    const formationAdvanceStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'instance_formations', {
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
                     }, () => deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps));
+                    addMeasuredTickSection(sectionDurations, 'instance.formationAdvanceMs', formationAdvanceStartedAt);
                 }
                 if (typeof instance.advanceTemporaryTiles === 'function') {
+                    const temporaryTilesStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'instance_temporary_tiles', {
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
                     }, () => instance.advanceTemporaryTiles(instance.tick, isTerrainStabilized));
+                    addMeasuredTickSection(sectionDurations, 'instance.temporaryTileAdvanceMs', temporaryTilesStartedAt);
                 }
                 if (typeof instance.advanceTileRecovery === 'function') {
+                    const tileRecoveryStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'instance_tile_recovery', {
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
@@ -414,8 +451,10 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         const tileRecoveryProvider = resolveTileRecoveryProvider(instance);
                         instance.advanceTileRecovery(isTerrainStabilized, tileRecoveryProvider);
                     });
+                    addMeasuredTickSection(sectionDurations, 'instance.tileRecoveryMs', tileRecoveryStartedAt);
                 }
                 if (Array.isArray(result.completedBuildings) && result.completedBuildings.length > 0) {
+                    const buildingCompletionStartedAt = performance.now();
                     for (const building of result.completedBuildings) {
                         this.runIsolatedSyncOperation(deps, 'building_completion_notice', {
                             instanceId: instance.meta.instanceId,
@@ -424,7 +463,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             worldTick: deps.tick,
                         }, () => notifyBuildingConstructionCompletion(deps, building));
                     }
+                    addMeasuredTickSection(sectionDurations, 'instance.buildingCompletionMs', buildingCompletionStartedAt, result.completedBuildings.length);
                 }
+                const transferApplyStartedAt = performance.now();
                 for (const transfer of result.transfers) {
                     this.runIsolatedSyncOperation(deps, 'transfer_apply', {
                         instanceId: instance.meta.instanceId,
@@ -433,6 +474,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         worldTick: deps.tick,
                     }, () => deps.applyTransfer(transfer));
                 }
+                addMeasuredTickSection(sectionDurations, 'instance.applyTransfersMs', transferApplyStartedAt, result.transfers.length);
+                const monsterActionApplyStartedAt = performance.now();
                 for (const action of result.monsterActions) {
                     this.runIsolatedSyncOperation(deps, 'monster_action_apply', {
                         instanceId: action?.instanceId ?? instance.meta.instanceId,
@@ -442,7 +485,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         worldTick: deps.tick,
                     }, () => deps.applyMonsterAction(action));
                 }
+                addMeasuredTickSection(sectionDurations, 'instance.applyMonsterActionsMs', monsterActionApplyStartedAt, result.monsterActions.length);
                 let currentPlayerIds = [];
+                const listPlayerIdsStartedAt = performance.now();
                 this.runIsolatedSyncOperation(deps, 'instance_list_player_ids', {
                     instanceId: instance.meta.instanceId,
                     instanceTick: instance.tick,
@@ -450,15 +495,19 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                 }, () => {
                     currentPlayerIds = instance.listPlayerIds();
                 });
+                addMeasuredTickSection(sectionDurations, 'instance.listPlayerIdsMs', listPlayerIdsStartedAt);
                 if (currentPlayerIds.length > 0) {
                     // T-16: 合并为批量调用，减少逐玩家隔离开销
+                    const worldTimeVisionStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'player_world_time_vision_batch', () => ({
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
                         playerCount: currentPlayerIds.length,
                     }), () => syncWorldTimeVisionForPlayers(instance, currentPlayerIds, deps.playerRuntimeService, speed));
+                    addMeasuredTickSection(sectionDurations, 'instance.playerWorldTimeVisionMs', worldTimeVisionStartedAt, currentPlayerIds.length);
                     const cultivationAuraMultiplierByPlayerId = new Map();
+                    const cultivationAuraProjectionStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'player_cultivation_aura_projection_batch', () => ({
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
@@ -470,6 +519,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             cultivationAuraMultiplierByPlayerId.set(id, value);
                         }
                     });
+                    addMeasuredTickSection(sectionDurations, 'instance.cultivationAuraProjectionMs', cultivationAuraProjectionStartedAt, currentPlayerIds.length);
+                    const terrainTickEffectsStartedAt = performance.now();
                     for (const playerId of currentPlayerIds) {
                         this.runIsolatedSyncOperation(deps, 'player_tile_terrain_effects', {
                             instanceId: instance.meta.instanceId,
@@ -478,6 +529,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             worldTick: deps.tick,
                         }, () => applyTerrainTickEffectsForPlayers(instance, [playerId], deps));
                     }
+                    addMeasuredTickSection(sectionDurations, 'instance.terrainTickEffectsMs', terrainTickEffectsStartedAt, currentPlayerIds.length);
+                    const playerTickAdvanceStartedAt = performance.now();
                     for (const playerId of currentPlayerIds) {
                         this.runIsolatedSyncOperation(deps, 'player_tick_advance', {
                             instanceId: instance.meta.instanceId,
@@ -490,6 +543,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             markPlayerDefeated: (defeatedPlayerId) => this.markPlayerDefeated(defeatedPlayerId),
                         }));
                     }
+                    addMeasuredTickSection(sectionDurations, 'instance.playerTickAdvanceMs', playerTickAdvanceStartedAt, currentPlayerIds.length);
+                    const tileQiDrainStartedAt = performance.now();
                     for (const playerId of currentPlayerIds) {
                         this.runIsolatedSyncOperation(deps, 'player_tile_qi_drain', {
                             instanceId: instance.meta.instanceId,
@@ -498,7 +553,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             worldTick: deps.tick,
                         }, () => applyTileQiDrainForPlayers(instance, [playerId], deps));
                     }
+                    addMeasuredTickSection(sectionDurations, 'instance.tileQiDrainMs', tileQiDrainStartedAt, currentPlayerIds.length);
                     if (typeof deps.worldRuntimePlayerSkillDispatchService?.resolvePendingPlayerSkillCast === 'function') {
+                        const pendingSkillCastStartedAt = performance.now();
                         for (const playerId of currentPlayerIds) {
                             await this.runIsolatedOperation(deps, 'player_pending_skill_cast', {
                                 instanceId: instance.meta.instanceId,
@@ -507,7 +564,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                                 worldTick: deps.tick,
                             }, () => deps.worldRuntimePlayerSkillDispatchService.resolvePendingPlayerSkillCast(playerId, deps));
                         }
+                        addMeasuredTickSection(sectionDurations, 'instance.resolvePendingSkillCastMs', pendingSkillCastStartedAt, currentPlayerIds.length);
                     }
+                    const craftJobAdvanceStartedAt = performance.now();
                     for (const playerId of currentPlayerIds) {
                         await this.runIsolatedOperation(deps, 'player_craft_jobs', {
                             instanceId: instance.meta.instanceId,
@@ -516,28 +575,32 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             worldTick: deps.tick,
                         }, () => deps.worldRuntimeCraftTickService.advanceCraftJobs([playerId], deps));
                     }
+                    addMeasuredTickSection(sectionDurations, 'instance.craftJobAdvanceMs', craftJobAdvanceStartedAt, currentPlayerIds.length);
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);
                     }
                 }
                 if (typeof deps.worldRuntimeTongtianTowerService?.advanceInstance === 'function') {
+                    const tongtianTowerAdvanceStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'tongtian_tower_instance', {
                         instanceId: instance.meta.instanceId,
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
                     }, () => deps.worldRuntimeTongtianTowerService.advanceInstance(instance, deps));
+                    addMeasuredTickSection(sectionDurations, 'instance.tongtianTowerAdvanceMs', tongtianTowerAdvanceStartedAt);
                 }
             }
         }
+        const postTickCleanupStartedAt = performance.now();
         if (typeof deps.worldRuntimeTongtianTowerService?.cleanupIdleInstances === 'function') {
             await this.runIsolatedOperation(deps, 'tongtian_tower_cleanup_idle_instances', {
                 worldTick: deps.tick,
             }, () => deps.worldRuntimeTongtianTowerService.cleanupIdleInstances(deps));
         }
+        const postTickCleanupMs = performance.now() - postTickCleanupStartedAt;
         const instanceTicksMs = performance.now() - instanceTicksStartedAt;
-        const transfersMs = 0;
-        const monsterActionsMs = 0;
         const playerAdvanceStartedAt = performance.now();
+        const lootContainerSearchStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'loot_container_searches', {
             worldTick: deps.tick,
         }, () => deps.worldRuntimeLootContainerService.advanceContainerSearches({
@@ -546,26 +609,52 @@ export class WorldRuntimeInstanceTickOrchestrationService {
             listConnectedPlayerIds: () => deps.listConnectedPlayerIds(),
             getPlayerLocation: (playerId) => deps.getPlayerLocation(playerId),
         }, deps.tick));
+        addMeasuredTickSection(sectionDurations, 'postTick.lootContainerSearchesMs', lootContainerSearchStartedAt);
+        const questRefreshStartedAt = performance.now();
         for (const playerId of steppedPlayerIds) {
             this.runIsolatedSyncOperation(deps, 'player_quest_refresh', {
                 playerId,
                 worldTick: deps.tick,
             }, () => deps.refreshQuestStates(playerId));
         }
+        addMeasuredTickSection(sectionDurations, 'postTick.playerQuestRefreshMs', questRefreshStartedAt, steppedPlayerIds.size);
         const playerAdvanceMs = performance.now() - playerAdvanceStartedAt;
         this.runIsolatedSyncOperation(deps, 'record_frame_result', {
             worldTick: deps.tick,
         }, () => deps.worldRuntimeMetricsService.recordFrameResult(startedAt, {
+            resetFrameEffectsMs,
+            planInstanceStepsMs,
+            preTickMaterializationMs,
             pendingCommandsMs,
             systemCommandsMs,
+            workerPrecomputeMs,
             instanceTicksMs,
-            transfersMs,
-            monsterActionsMs,
+            postTickCleanupMs,
             playerAdvanceMs,
-        }));
+        }, sectionDurations));
         return totalLogicalTicks;
     }
 };
+
+function createTickSectionDurations(): TickSectionDurations {
+    return Object.create(null) as TickSectionDurations;
+}
+
+function addMeasuredTickSection(sections: TickSectionDurations, key: string, startedAt: number, count = 1): void {
+    addTickSectionDuration(sections, key, performance.now() - startedAt, count);
+}
+
+function addTickSectionDuration(sections: TickSectionDurations, key: string, durationMs: number, count = 1): void {
+    const normalizedDuration = Math.max(0, Number(durationMs) || 0);
+    const normalizedCount = Math.max(0, Math.trunc(Number(count) || 0));
+    if (normalizedDuration <= 0 && normalizedCount <= 0) {
+        return;
+    }
+    const current = sections[key] ?? { totalMs: 0, count: 0 };
+    current.totalMs += normalizedDuration;
+    current.count += normalizedCount;
+    sections[key] = current;
+}
 
 function computeFallbackInstanceIntentProposal(payload) {
     const mirror = payload?.mirror ?? {};

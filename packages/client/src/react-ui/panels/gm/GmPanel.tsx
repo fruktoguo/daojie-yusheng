@@ -201,11 +201,18 @@ const GmPerfSection = memo(function GmPerfSection({ perf }: { perf: S2C_GmState[
   const pgPool = flushDiagnostics?.pgPool ?? null;
   const pgPools = flushDiagnostics?.pgPools ?? null;
   const pgLockWait = flushDiagnostics?.pgLockWait ?? null;
+  const threading = perf.cpu.threading ?? null;
 
   return (
     <div className="panel-section ui-surface-pane ui-surface-pane--stack">
       <div className="panel-section-title">服务端性能</div>
       <div className="panel-row"><span className="panel-label">CPU 压力</span><span className="panel-value">{Math.round(perf.cpuPercent)}%</span></div>
+      {threading && (
+        <>
+          <div className="panel-row"><span className="panel-label">主线程事件循环</span><span className="panel-value">{Math.round(threading.mainThread.utilizationPercent)}% · active {threading.mainThread.activeMs.toFixed(1)}ms</span></div>
+          <div className="panel-row"><span className="panel-label">Worker 窗口耗时</span><span className="panel-value">{Math.round(threading.workerThreads.windowDurationMs)}ms · {threading.workerThreads.completedTasks} 任务 · 活跃 {threading.workerThreads.activeWorkers}</span></div>
+        </>
+      )}
       <div className="panel-row"><span className="panel-label">内存占用</span><span className="panel-value">{Math.round(perf.memoryMb)} MB</span></div>
       <div className="panel-row"><span className="panel-label">最近单图 tick</span><span className="panel-value">{tickLabel}</span></div>
       {pgPools ? (

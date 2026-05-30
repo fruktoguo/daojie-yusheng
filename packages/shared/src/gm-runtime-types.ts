@@ -179,6 +179,23 @@ export interface GmCpuSectionSnapshot {
   avgMs: number;
 }
 
+/** GM 主线程 / Worker 窗口占用估算。 */
+export interface GmCpuThreadingSnapshot {
+  mainThread: {
+    utilizationPercent: number;
+    activeMs: number;
+    idleMs: number;
+  };
+  workerThreads: {
+    activeWorkers: number;
+    inFlight: number;
+    completedTasks: number;
+    fallbackTasks: number;
+    windowDurationMs: number;
+    windowAvgMs: number;
+  };
+}
+
 /** GM CPU / 内存 / 负载快照。 */
 export interface GmCpuSnapshot {
 /**
@@ -256,6 +273,7 @@ export interface GmCpuSnapshot {
  */
 
   breakdown: GmCpuSectionSnapshot[];
+  threading?: GmCpuThreadingSnapshot;
 }
 
 /** GM 运行态内存域估算项。 */
@@ -893,6 +911,10 @@ export interface GmWorkerPoolMetrics {
   totalFallback: number;
   p50Ms: number;
   p95Ms: number;
+  totalDurationMs?: number;
+  recentTotalDurationMs?: number;
+  recentTaskCount?: number;
+  avgMs?: number;
   inFlight: number;
   activeWorkers: number;
 }

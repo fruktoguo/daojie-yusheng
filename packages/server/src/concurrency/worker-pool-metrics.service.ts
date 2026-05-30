@@ -23,6 +23,7 @@ interface PoolMetricsState {
   totalFallback: number;
   inFlight: number;
   activeWorkers: number;
+  totalDurationMs: number;
   /** 最近 N 个任务耗时（用于计算 p50/p95） */
   recentDurations: number[];
 }
@@ -51,6 +52,7 @@ export class WorkerPoolMetricsService {
     const state = this.getState(pool);
     state.totalCompleted += 1;
     state.inFlight = Math.max(0, state.inFlight - 1);
+    state.totalDurationMs += Math.max(0, Number(durationMs) || 0);
     this.pushDuration(state, durationMs);
   }
 
@@ -83,6 +85,8 @@ export class WorkerPoolMetricsService {
   getMetrics(pool: PoolKind): WorkerPoolMetrics {
     const state = this.getState(pool);
     const sorted = [...state.recentDurations].sort((a, b) => a - b);
+    const recentTotalDurationMs = state.recentDurations.reduce((total, value) => total + Math.max(0, Number(value) || 0), 0);
+    const recentTaskCount = state.recentDurations.length;
     return {
       totalSubmitted: state.totalSubmitted,
       totalCompleted: state.totalCompleted,
@@ -91,6 +95,10 @@ export class WorkerPoolMetricsService {
       totalFallback: state.totalFallback,
       p50Ms: this.percentile(sorted, 0.5),
       p95Ms: this.percentile(sorted, 0.95),
+      totalDurationMs: this.roundMs(state.totalDurationMs),
+      recentTotalDurationMs: this.roundMs(recentTotalDurationMs),
+      recentTaskCount,
+      avgMs: recentTaskCount > 0 ? this.roundMs(recentTotalDurationMs / recentTaskCount) : 0,
       inFlight: state.inFlight,
       activeWorkers: state.activeWorkers,
     };
@@ -121,6 +129,7 @@ export class WorkerPoolMetricsService {
       totalFallback: 0,
       inFlight: 0,
       activeWorkers: 0,
+      totalDurationMs: 0,
       recentDurations: [],
     };
   }
@@ -136,5 +145,9 @@ export class WorkerPoolMetricsService {
     if (sorted.length === 0) return 0;
     const index = Math.ceil(sorted.length * p) - 1;
     return sorted[Math.max(0, Math.min(index, sorted.length - 1))];
+  }
+
+  private roundMs(value: number): number {
+    return Math.round(value * 1000) / 1000;
   }
 }

@@ -9,6 +9,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { C2S, S2C } from '@mud/shared';
 import { Session } from 'node:inspector';
 import { cpus, loadavg, uptime } from 'os';
+import { performance as nodePerformance } from 'node:perf_hooks';
 import { getHeapSnapshot, getHeapSpaceStatistics } from 'v8';
 import { NATIVE_GM_SOCKET_CONTRACT } from '../../http/native/native-gm-contract';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
@@ -26,6 +27,7 @@ import {
   type HeapSnapshotSummary,
 } from '../../tools/heap-snapshot-summary';
 import { WorkerPoolMetricsService } from '../../concurrency/worker-pool-metrics.service';
+import type { WorkerPoolMetrics } from '../../concurrency/worker-task.types';
 import { FlushDiagnosticsService } from '../../persistence/flush-diagnostics.service';
 
 const EMPTY_CPU_BREAKDOWN = [];
@@ -36,6 +38,11 @@ const EMPTY_PATHFINDING_FAILURES = [];
 const EMPTY_MEMORY_ESTIMATE_DOMAINS = [];
 const EMPTY_MEMORY_ESTIMATE_INSTANCES = [];
 const EMPTY_HEAP_SPACE_SNAPSHOTS = [];
+type WorkerPoolMetricsByPool = Record<string, WorkerPoolMetrics>;
+interface TickSectionSummary {
+    totalMs?: number;
+    count?: number;
+}
 const MEMORY_ESTIMATE_CACHE_TTL_MS = 5000;
 const MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT = 8;
 const MANUAL_GC_COOLDOWN_MS = 60_000;
@@ -71,12 +78,53 @@ const NETWORK_PAYLOAD_ESTIMATE_MAX_DEPTH = 16;
 const DEVELOPMENT_LIKE_ENVS = new Set(['development', 'dev', 'local', 'test']);
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
 const CPU_BREAKDOWN_LABELS = Object.freeze({
+    resetFrameEffectsMs: '重置帧效果',
+    planInstanceStepsMs: '规划实例步进',
+    preTickMaterializationMs: '预 tick 物化',
     pendingCommandsMs: '待处理命令',
     systemCommandsMs: '系统命令',
+    workerPrecomputeMs: 'Worker 预计算',
     instanceTicksMs: '实例 tick',
-    transfersMs: '跨图迁移',
-    monsterActionsMs: '怪物行为',
+    postTickCleanupMs: 'tick 后清理',
     playerAdvanceMs: '玩家推进',
+    'tick.resetFrameEffectsMs': 'tick·重置帧效果',
+    'tick.reconcileDefeatedPlayersMs': 'tick·死亡玩家收敛',
+    'tick.processPendingRespawnsMs': 'tick·复活队列',
+    'tick.materializeNavigationCommandsMs': 'tick·寻路意图物化',
+    'tick.materializeAutoUsePillsMs': 'tick·自动嗑药物化',
+    'tick.materializeAutoCombatCommandsMs': 'tick·自动战斗物化',
+    'worker.instancePrecomputeMs': 'Worker·实例预计算',
+    'instance.stepCommandMaterializationMs': '实例·加速步命令物化',
+    'instance.blockedPlayerLookupMs': '实例·阻塞玩家查询',
+    'instance.terrainStabilizationCheckerMs': '实例·地形稳定检查器',
+    'instance.coreTickMs': '实例·核心 tickOnce',
+    'instance.tileResourceFlowMs': '实例·地块灵气流转',
+    'instance.formationAdvanceMs': '实例·阵法推进',
+    'instance.temporaryTileAdvanceMs': '实例·临时地块',
+    'instance.tileRecoveryMs': '实例·地块生命恢复',
+    'instance.buildingCompletionMs': '实例·建筑完工通知',
+    'instance.applyTransfersMs': '实例·传送执行',
+    'instance.applyMonsterActionsMs': '实例·怪物动作执行',
+    'instance.listPlayerIdsMs': '实例·玩家列表',
+    'instance.playerWorldTimeVisionMs': '实例·世界时间/视野',
+    'instance.cultivationAuraProjectionMs': '实例·修炼灵气投影',
+    'instance.terrainTickEffectsMs': '实例·地形 tick 效果',
+    'instance.playerTickAdvanceMs': '实例·玩家 tick 推进',
+    'instance.tileQiDrainMs': '实例·地块灵力消耗',
+    'instance.resolvePendingSkillCastMs': '实例·技能施放结算',
+    'instance.craftJobAdvanceMs': '实例·制作任务推进',
+    'instance.tongtianTowerAdvanceMs': '实例·通天塔推进',
+    'postTick.lootContainerSearchesMs': '后 tick·掉落容器搜索',
+    'postTick.playerQuestRefreshMs': '后 tick·任务刷新',
+    'persistence.player.totalMs': '持久化·玩家刷盘总计',
+    'persistence.player.buildSnapshotMs': '持久化·玩家快照构造',
+    'persistence.player.workerSubmitMs': '持久化·玩家 Worker 提交',
+    'persistence.player.dbWriteMs': '持久化·玩家 DB 写入',
+    'persistence.player.markPersistedMs': '持久化·玩家落盘标记',
+    'persistence.map.totalMs': '持久化·地图刷盘总计',
+    'persistence.map.deltaConstructMs': '持久化·地图 delta 构造',
+    'persistence.map.dbWriteMs': '持久化·地图 DB 写入',
+    'persistence.map.watermarkMs': '持久化·地图水位推进',
     syncFlushMs: '同步广播',
     'syncFlush.getSocketMs': '同步·取连接',
     'syncFlush.getViewMs': '同步·取视野',
@@ -147,6 +195,12 @@ export class RuntimeGmStateService {
     lastCpuUsage = process.cpuUsage();
     /** 最近一次 CPU 百分比采样的单调时钟基线。 */
     lastCpuTime = process.hrtime.bigint();
+    /** 最近一次主线程事件循环利用率采样基线。 */
+    lastEventLoopUtilization = nodePerformance.eventLoopUtilization();
+    /** 最近一次 Worker 累计耗时基线，用于构造窗口多线程占用估算。 */
+    lastWorkerDurationTotalsByPool = new Map();
+    lastWorkerCompletedTotalsByPool = new Map();
+    lastWorkerFallbackTotalsByPool = new Map();
     /** 最近一次运行态内存画像缓存。 */
     lastMemoryEstimate = null;
     /** 运行态内存画像缓存过期时间。 */
@@ -360,6 +414,10 @@ export class RuntimeGmStateService {
     resetCpuPerfCounters() {
         this.lastCpuUsage = process.cpuUsage();
         this.lastCpuTime = process.hrtime.bigint();
+        this.lastEventLoopUtilization = nodePerformance.eventLoopUtilization();
+        this.lastWorkerDurationTotalsByPool.clear();
+        this.lastWorkerCompletedTotalsByPool.clear();
+        this.lastWorkerFallbackTotalsByPool.clear();
     }
     /** 构建运行态内存估算画像，供 GM 面板定位主要占用来源。 */
     buildMemoryEstimate(summary, rssBytes) {
@@ -770,6 +828,7 @@ export class RuntimeGmStateService {
         const processUptimeSec = process.uptime();
         const cpuNow = process.hrtime.bigint();
         const cpuUsage = process.cpuUsage(this.lastCpuUsage);
+        const eventLoopUtilization = nodePerformance.eventLoopUtilization(this.lastEventLoopUtilization);
         const elapsedMicros = Number(cpuNow - this.lastCpuTime) / 1000;
         const cpuMicros = cpuUsage.user + cpuUsage.system;
 
@@ -780,7 +839,10 @@ export class RuntimeGmStateService {
         const networkOutBuckets = buildSortedNetworkBuckets(this.networkOutBucketByKey);
         const networkInBytes = sumBucketBytes(networkInBuckets);
         const networkOutBytes = sumBucketBytes(networkOutBuckets);
-        const cpuBreakdown = buildCpuBreakdown(summary, this.syncFlushBreakdownHistoryByKey);
+        const workerPool = this.workerPoolMetricsService?.getAllMetrics() ?? null;
+        const threading = this.buildCpuThreadingSnapshot(eventLoopUtilization, workerPool);
+        const flushDiagnostics = this.flushDiagnosticsService?.getSnapshot() ?? null;
+        const cpuBreakdown = buildCpuBreakdown(summary, this.syncFlushBreakdownHistoryByKey, flushDiagnostics);
         const memoryEstimate = includeMemoryEstimate
             ? this.buildMemoryEstimate(summary, rssBytes)
             : buildSkippedMemoryEstimate(rssBytes);
@@ -790,6 +852,7 @@ export class RuntimeGmStateService {
 
         this.lastCpuUsage = process.cpuUsage();
         this.lastCpuTime = cpuNow;
+        this.lastEventLoopUtilization = nodePerformance.eventLoopUtilization();
 
         const tickAvgMs = summary.tickPerf?.totalMs?.avg60 ?? summary.lastTickDurationMs;
         return {
@@ -821,6 +884,7 @@ export class RuntimeGmStateService {
                 profileStartedAt: Math.max(0, now - Math.round(processUptimeSec * 1000)),
                 profileElapsedSec: roundMetric(processUptimeSec),
                 breakdown: cpuBreakdown.length > 0 ? cpuBreakdown : EMPTY_CPU_BREAKDOWN,
+                threading,
             },
             memoryEstimate,
             pathfinding: {
@@ -856,14 +920,64 @@ export class RuntimeGmStateService {
                 barrier: this.startupBarrierService?.getSnapshot() ?? null,
             } : null,
             shutdown: this.shutdownStatusService ? this.shutdownStatusService.getSnapshot() : null,
-            workerPool: this.workerPoolMetricsService?.getAllMetrics() ?? null,
-            flushDiagnostics: this.flushDiagnosticsService?.getSnapshot() ?? null,
+            workerPool,
+            flushDiagnostics,
             flushStats: this.flushDiagnosticsService ? {
                 player: this.flushDiagnosticsService.getPlayerStats(),
                 map: this.flushDiagnosticsService.getMapStats(),
             } : null,
         };
-    }    
+    }
+    /**
+ * buildCpuThreadingSnapshot：构造主线程事件循环与 Worker 窗口耗时估算。
+ * @param eventLoopUtilization Node 主线程事件循环采样差值。
+ * @param workerPool Worker Pool 当前累计指标。
+ * @returns 返回 GM CPU threading 快照。
+ */
+
+    buildCpuThreadingSnapshot(eventLoopUtilization, workerPool: WorkerPoolMetricsByPool | null) {
+        const mainThreadActiveMs = Math.max(0, Number(eventLoopUtilization?.active) || 0);
+        const mainThreadIdleMs = Math.max(0, Number(eventLoopUtilization?.idle) || 0);
+        let activeWorkers = 0;
+        let inFlight = 0;
+        let completedTasks = 0;
+        let fallbackTasks = 0;
+        let windowDurationMs = 0;
+        const poolEntries = workerPool && typeof workerPool === 'object'
+            ? Object.entries(workerPool)
+            : [];
+        for (const [pool, metrics] of poolEntries) {
+            const totalDurationMs = Math.max(0, Number(metrics?.totalDurationMs) || 0);
+            const totalCompleted = Math.max(0, Math.trunc(Number(metrics?.totalCompleted) || 0));
+            const totalFallback = Math.max(0, Math.trunc(Number(metrics?.totalFallback) || 0));
+            const previousDuration = Math.max(0, Number(this.lastWorkerDurationTotalsByPool.get(pool)) || 0);
+            const previousCompleted = Math.max(0, Math.trunc(Number(this.lastWorkerCompletedTotalsByPool.get(pool)) || 0));
+            const previousFallback = Math.max(0, Math.trunc(Number(this.lastWorkerFallbackTotalsByPool.get(pool)) || 0));
+            windowDurationMs += Math.max(0, totalDurationMs - previousDuration);
+            completedTasks += Math.max(0, totalCompleted - previousCompleted);
+            fallbackTasks += Math.max(0, totalFallback - previousFallback);
+            activeWorkers += Math.max(0, Math.trunc(Number(metrics?.activeWorkers) || 0));
+            inFlight += Math.max(0, Math.trunc(Number(metrics?.inFlight) || 0));
+            this.lastWorkerDurationTotalsByPool.set(pool, totalDurationMs);
+            this.lastWorkerCompletedTotalsByPool.set(pool, totalCompleted);
+            this.lastWorkerFallbackTotalsByPool.set(pool, totalFallback);
+        }
+        return {
+            mainThread: {
+                utilizationPercent: roundMetric(Math.max(0, Math.min(100, Number(eventLoopUtilization?.utilization ?? 0) * 100))),
+                activeMs: roundMetric(mainThreadActiveMs),
+                idleMs: roundMetric(mainThreadIdleMs),
+            },
+            workerThreads: {
+                activeWorkers,
+                inFlight,
+                completedTasks,
+                fallbackTasks,
+                windowDurationMs: roundMetric(windowDurationMs),
+                windowAvgMs: completedTasks > 0 ? roundMetric(windowDurationMs / completedTasks) : 0,
+            },
+        };
+    }
     /**
  * buildSharedGmStatePerf：构建并返回目标对象。
  * @returns 无返回值，直接更新SharedGM状态Perf相关状态。
@@ -1380,17 +1494,20 @@ function collectGarbageWithInspector(): Promise<void> {
     });
 }
 
-function buildCpuBreakdown(summary, syncFlushBreakdownHistoryByKey = null) {
+function buildCpuBreakdown(summary, syncFlushBreakdownHistoryByKey = null, flushDiagnostics = null) {
     const phaseSummaries = summary?.tickPerf?.phaseSummaries;
     const totalWindowMs = Number(summary?.tickPerf?.totalMs?.avg60 ?? 0) * Number(phaseSummaries?.pendingCommandsMs?.sampleCount ?? 0);
     const rows = [];
     let coveredTotalMs = 0;
     for (const key of [
+        'resetFrameEffectsMs',
+        'planInstanceStepsMs',
+        'preTickMaterializationMs',
         'pendingCommandsMs',
         'systemCommandsMs',
+        'workerPrecomputeMs',
         'instanceTicksMs',
-        'transfersMs',
-        'monsterActionsMs',
+        'postTickCleanupMs',
         'playerAdvanceMs',
     ]) {
         const phaseSummary = phaseSummaries?.[key];
@@ -1408,6 +1525,8 @@ function buildCpuBreakdown(summary, syncFlushBreakdownHistoryByKey = null) {
             percent: totalWindowMs > 0 ? roundMetric((totalMs / totalWindowMs) * 100) : 0,
         });
     }
+    rows.push(...buildTickSectionBreakdownRows(summary?.tickPerf?.sectionSummaries, totalWindowMs));
+    rows.push(...buildPersistenceBreakdownRows(flushDiagnostics, totalWindowMs));
     const syncFlushSummary = summary?.tickPerf?.syncFlushMs;
     const syncFlushCount = Number(syncFlushSummary?.count ?? 0);
     const syncFlushTotalMs = roundMetric(Number(syncFlushSummary?.avg60 ?? 0) * syncFlushCount);
@@ -1434,6 +1553,71 @@ function buildCpuBreakdown(summary, syncFlushBreakdownHistoryByKey = null) {
                 ? roundMetric(otherTotalMs / Number(phaseSummaries.pendingCommandsMs.sampleCount))
                 : 0,
             percent: totalWindowMs > 0 ? roundMetric((otherTotalMs / totalWindowMs) * 100) : 0,
+        });
+    }
+    return rows;
+}
+
+function buildPersistenceBreakdownRows(flushDiagnostics, totalWindowMs) {
+    if (!flushDiagnostics || typeof flushDiagnostics !== 'object') {
+        return [];
+    }
+    const rows = [];
+    appendPersistenceRows(rows, 'persistence.player', flushDiagnostics.player, [
+        'totalMs',
+        'buildSnapshotMs',
+        'workerSubmitMs',
+        'dbWriteMs',
+        'markPersistedMs',
+    ], totalWindowMs);
+    appendPersistenceRows(rows, 'persistence.map', flushDiagnostics.map, [
+        'totalMs',
+        'deltaConstructMs',
+        'dbWriteMs',
+        'watermarkMs',
+    ], totalWindowMs);
+    return rows;
+}
+
+function appendPersistenceRows(rows, prefix, source, keys, totalWindowMs) {
+    if (!source || typeof source !== 'object') {
+        return;
+    }
+    for (const key of keys) {
+        const totalMs = Number(source[key] ?? 0);
+        if (!(totalMs > 0)) {
+            continue;
+        }
+        const rowKey = `${prefix}.${key}`;
+        rows.push({
+            key: rowKey,
+            label: CPU_BREAKDOWN_LABELS[rowKey] ?? rowKey,
+            totalMs: roundMetric(totalMs),
+            count: 1,
+            avgMs: roundMetric(totalMs),
+            percent: totalWindowMs > 0 ? roundMetric((totalMs / totalWindowMs) * 100) : 0,
+        });
+    }
+}
+
+function buildTickSectionBreakdownRows(sectionSummaries: Record<string, TickSectionSummary> | null | undefined, totalWindowMs) {
+    if (!sectionSummaries || typeof sectionSummaries !== 'object') {
+        return [];
+    }
+    const rows = [];
+    for (const [key, summary] of Object.entries(sectionSummaries)) {
+        const totalMs = Number(summary?.totalMs ?? 0);
+        const count = Math.max(0, Math.trunc(Number(summary?.count ?? 0)));
+        if (!(totalMs > 0) && count <= 0) {
+            continue;
+        }
+        rows.push({
+            key,
+            label: CPU_BREAKDOWN_LABELS[key] ?? key,
+            totalMs: roundMetric(totalMs),
+            count,
+            avgMs: count > 0 ? roundMetric(totalMs / count) : 0,
+            percent: totalWindowMs > 0 ? roundMetric((totalMs / totalWindowMs) * 100) : 0,
         });
     }
     return rows;

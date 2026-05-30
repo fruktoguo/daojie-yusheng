@@ -41,6 +41,8 @@ export class WorldRuntimeSummaryQueryService {
                 syncFlushMs: summarizeDurations(input.lastSyncFlushDurationMs, input.syncFlushDurationHistoryMs),
                 phases: input.lastTickPhaseDurations,
                 phaseSummaries: summarizePhaseDurations(input.tickPhaseDurationHistoryMs),
+                sections: input.lastTickSectionDurations ?? {},
+                sectionSummaries: summarizeSectionDurations(input.tickSectionDurationHistoryMs),
             },
             instances: input.instances,
         };
@@ -76,6 +78,41 @@ function summarizePhaseDurations(historyByKey) {
             totalMs: roundDurationMs(total),
             avgMs: nonZeroCount > 0 ? roundDurationMs(total / nonZeroCount) : 0,
             maxMs: roundDurationMs(max),
+        };
+    }
+    return summaries;
+}
+
+function summarizeSectionDurations(historyByKey) {
+    if (!historyByKey || typeof historyByKey !== 'object') {
+        return {};
+    }
+
+    const summaries = {};
+    for (const [key, history] of Object.entries(historyByKey)) {
+        if (!Array.isArray(history)) {
+            continue;
+        }
+        let totalMs = 0;
+        let maxMs = 0;
+        let count = 0;
+        for (const rawEntry of history) {
+            const entry = rawEntry ?? {};
+            const entryTotalMs = Math.max(0, Number(entry.totalMs) || 0);
+            const entryCount = Math.max(0, Math.trunc(Number(entry.count) || 0));
+            totalMs += entryTotalMs;
+            count += entryCount;
+            if (entryTotalMs > maxMs) {
+                maxMs = entryTotalMs;
+            }
+        }
+        summaries[key] = {
+            count,
+            sampleCount: history.length,
+            totalMs: roundDurationMs(totalMs),
+            avgMs: count > 0 ? roundDurationMs(totalMs / count) : 0,
+            frameAvgMs: history.length > 0 ? roundDurationMs(totalMs / history.length) : 0,
+            maxMs: roundDurationMs(maxMs),
         };
     }
     return summaries;

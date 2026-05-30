@@ -410,6 +410,14 @@ const cpuCurrentPercentEl = document.getElementById('cpu-current-percent') as HT
 const cpuTickWindowPercentEl = document.getElementById('cpu-tick-window-percent') as HTMLDivElement;
 /** cpuTickWindowNoteEl：cpu Tick窗口Note El。 */
 const cpuTickWindowNoteEl = document.getElementById('cpu-tick-window-note') as HTMLDivElement;
+/** cpuMainThreadPercentEl：主线程事件循环占用。 */
+const cpuMainThreadPercentEl = document.getElementById('cpu-main-thread-percent') as HTMLDivElement;
+/** cpuMainThreadNoteEl：主线程事件循环说明。 */
+const cpuMainThreadNoteEl = document.getElementById('cpu-main-thread-note') as HTMLDivElement;
+/** cpuWorkerThreadMsEl：Worker窗口耗时。 */
+const cpuWorkerThreadMsEl = document.getElementById('cpu-worker-thread-ms') as HTMLDivElement;
+/** cpuWorkerThreadNoteEl：Worker窗口耗时说明。 */
+const cpuWorkerThreadNoteEl = document.getElementById('cpu-worker-thread-note') as HTMLDivElement;
 /** cpuProfileMetaEl：cpu Profile元数据El。 */
 const cpuProfileMetaEl = document.getElementById('cpu-profile-meta') as HTMLDivElement;
 /** cpuCoreCountEl：cpu Core数量El。 */
@@ -2624,7 +2632,7 @@ function getSortedCpuSections(data: GmStateRes): GmCpuSectionSnapshot[] {
     }
     return left.label.localeCompare(right.label, 'zh-CN');
   });
-  return sections.slice(0, 12);
+  return sections.slice(0, 40);
 }
 
 /** getCpuSectionMeta：读取Cpu Section元数据。 */
@@ -3496,6 +3504,8 @@ function renderWorkerPoolSection(wp: any): void {
       <div class="stats-card"><div class="stats-card-label">进行中</div><div class="stats-card-value">${m.inFlight}</div></div>
       <div class="stats-card"><div class="stats-card-label">P50</div><div class="stats-card-value">${m.p50Ms.toFixed(1)} ms</div></div>
       <div class="stats-card"><div class="stats-card-label">P95</div><div class="stats-card-value">${m.p95Ms.toFixed(1)} ms</div></div>
+      <div class="stats-card"><div class="stats-card-label">最近总耗时</div><div class="stats-card-value">${(m.recentTotalDurationMs ?? 0).toFixed(1)} ms</div><div class="stats-card-note">${m.recentTaskCount ?? 0} 个任务 · 均次 ${(m.avgMs ?? 0).toFixed(2)} ms</div></div>
+      <div class="stats-card"><div class="stats-card-label">累计耗时</div><div class="stats-card-value">${Math.round(m.totalDurationMs ?? 0)} ms</div></div>
     </div>`;
   }).join('');
 }
@@ -7116,6 +7126,17 @@ function renderSummary(data: GmStateRes): void {
     : tickPerf.windowBusyPercent > 0
       ? `兼容口径估算 · 最近 tick 约 ${tickPerf.windowAvgMs.toFixed(1)} ms`
       : '最近采样窗口内暂无 tick 记录';
+  const threading = data.perf.cpu.threading;
+  const mainThread = threading?.mainThread;
+  const workerThreads = threading?.workerThreads;
+  cpuMainThreadPercentEl.textContent = `${Math.round(mainThread?.utilizationPercent ?? 0)}%`;
+  cpuMainThreadNoteEl.textContent = mainThread
+    ? `active ${mainThread.activeMs.toFixed(1)} ms · idle ${mainThread.idleMs.toFixed(1)} ms`
+    : '主线程事件循环尚未采样';
+  cpuWorkerThreadMsEl.textContent = `${Math.round(workerThreads?.windowDurationMs ?? 0)} ms`;
+  cpuWorkerThreadNoteEl.textContent = workerThreads
+    ? `${workerThreads.completedTasks} 个任务 · 均次 ${workerThreads.windowAvgMs.toFixed(2)} ms · 活跃 ${workerThreads.activeWorkers} · 进行中 ${workerThreads.inFlight} · fallback ${workerThreads.fallbackTasks}`
+    : 'Worker 窗口尚未采样';
   cpuProfileMetaEl.textContent = data.perf.cpu.profileStartedAt > 0
     ? `CPU 画像起点：${new Date(data.perf.cpu.profileStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.cpu.profileElapsedSec)}`
     : 'CPU 画像尚未开始。';
