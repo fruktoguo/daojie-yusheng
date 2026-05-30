@@ -44,13 +44,18 @@ interface QiProjectionBonusState {
 
 interface QiProjectionPlayerView {
   techniques?: {
-    techniques?: QiProjectionTechniqueState[];
+    revision?: number;
+    techniques?: QiProjectionTechniqueState[] | null;
   };
   buffs?: {
-    buffs?: QiProjectionBuffState[];
+    revision?: number;
+    buffs?: QiProjectionBuffState[] | null;
   };
-  attrBonuses?: QiProjectionBonusState[];
-  runtimeBonuses?: QiProjectionBonusState[];
+  attrs?: {
+    revision?: number;
+  };
+  attrBonuses?: QiProjectionBonusState[] | null;
+  runtimeBonuses?: QiProjectionBonusState[] | null;
 }
 
 /** 玩家对单个灵气资源的投影结果 */
@@ -59,6 +64,24 @@ export interface PlayerQiResourceProjection {
   visibility: QiVisibilityLevel;
   efficiencyBp: number;
 }
+
+interface PlayerQiProjectionCacheSignature {
+  techniquesRevision: number;
+  techniquesRef: QiProjectionTechniqueState[] | null | undefined;
+  buffsRevision: number;
+  buffsRef: QiProjectionBuffState[] | null | undefined;
+  attrsRevision: number;
+  attrBonusesRef: QiProjectionBonusState[] | null | undefined;
+  runtimeBonusesRef: QiProjectionBonusState[] | null | undefined;
+}
+
+interface PlayerQiProjectionCacheEntry {
+  signature: PlayerQiProjectionCacheSignature;
+  modifiers: QiProjectionModifier[];
+  projections: Map<string, PlayerQiResourceProjection | null>;
+}
+
+const playerQiProjectionCache = new WeakMap<object, PlayerQiProjectionCacheEntry>();
 
 /** 计算玩家对指定灵气资源的实际吸收值（不可吸收返回 0） */
 export function projectPlayerQiResourceValue(
@@ -78,14 +101,19 @@ export function resolvePlayerQiResourceProjection(
   player: QiProjectionPlayerView | null | undefined,
   resourceKey: string,
 ): PlayerQiResourceProjection | null {
+  const cache = getPlayerQiProjectionCache(player);
+  if (cache?.projections.has(resourceKey)) {
+    return cache.projections.get(resourceKey) ?? null;
+  }
   const descriptor = parseQiResourceKey(resourceKey);
   if (!descriptor) {
+    cache?.projections.set(resourceKey, null);
     return null;
   }
   const defaultVisible = DEFAULT_PLAYER_QI_RESOURCE_KEYS.includes(resourceKey);
   let visibility: QiVisibilityLevel = defaultVisible ? 'absorbable' : 'hidden';
   let efficiencyBp = defaultVisible ? DEFAULT_QI_EFFICIENCY_BP : 0;
-  for (const modifier of collectPlayerQiProjectionModifiers(player)) {
+  for (const modifier of cache?.modifiers ?? collectPlayerQiProjectionModifiers(player)) {
     if (!matchesQiProjectionSelector(descriptor, resourceKey, modifier.selector)) {
       continue;
     }
@@ -98,11 +126,13 @@ export function resolvePlayerQiResourceProjection(
         : Math.max(0, efficiencyBp + modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP);
     }
   }
-  return {
+  const projection = {
     descriptor,
     visibility,
     efficiencyBp,
   };
+  cache?.projections.set(resourceKey, projection);
+  return projection;
 }
 
 function collectPlayerQiProjectionModifiers(player: QiProjectionPlayerView | null | undefined): QiProjectionModifier[] {
@@ -127,4 +157,53 @@ function collectPlayerQiProjectionModifiers(player: QiProjectionPlayerView | nul
     }
   }
   return modifiers;
+}
+
+function getPlayerQiProjectionCache(
+  player: QiProjectionPlayerView | null | undefined,
+): PlayerQiProjectionCacheEntry | null {
+  if (!player || typeof player !== 'object') {
+    return null;
+  }
+  const signature = buildPlayerQiProjectionCacheSignature(player);
+  const cached = playerQiProjectionCache.get(player);
+  if (cached && isSamePlayerQiProjectionCacheSignature(cached.signature, signature)) {
+    return cached;
+  }
+  const entry: PlayerQiProjectionCacheEntry = {
+    signature,
+    modifiers: collectPlayerQiProjectionModifiers(player),
+    projections: new Map(),
+  };
+  playerQiProjectionCache.set(player, entry);
+  return entry;
+}
+
+function buildPlayerQiProjectionCacheSignature(player: QiProjectionPlayerView): PlayerQiProjectionCacheSignature {
+  return {
+    techniquesRevision: normalizeRevision(player.techniques?.revision),
+    techniquesRef: player.techniques?.techniques,
+    buffsRevision: normalizeRevision(player.buffs?.revision),
+    buffsRef: player.buffs?.buffs,
+    attrsRevision: normalizeRevision(player.attrs?.revision),
+    attrBonusesRef: player.attrBonuses,
+    runtimeBonusesRef: player.runtimeBonuses,
+  };
+}
+
+function isSamePlayerQiProjectionCacheSignature(
+  left: PlayerQiProjectionCacheSignature,
+  right: PlayerQiProjectionCacheSignature,
+): boolean {
+  return left.techniquesRevision === right.techniquesRevision
+    && left.techniquesRef === right.techniquesRef
+    && left.buffsRevision === right.buffsRevision
+    && left.buffsRef === right.buffsRef
+    && left.attrsRevision === right.attrsRevision
+    && left.attrBonusesRef === right.attrBonusesRef
+    && left.runtimeBonusesRef === right.runtimeBonusesRef;
+}
+
+function normalizeRevision(value: unknown): number {
+  return Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0;
 }

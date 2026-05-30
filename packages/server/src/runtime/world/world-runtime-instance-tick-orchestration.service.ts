@@ -9,7 +9,7 @@
  * Phase 4: 实例级独立子阶段可外移到 InstanceWorkerPool，默认 always-on
  */
 import { Injectable, Optional, Inject, Logger } from '@nestjs/common';
-import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, resolveGameTimeState } from '@mud/shared';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE, getAuraLevel, getQiResourceDefaultLevel, parseQiResourceKey, projectQiValue, resolveGameTimeState } from '@mud/shared';
 import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from './world-runtime-qi-projection.helpers';
 import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -881,7 +881,7 @@ function resolveCultivationResourceValue(player, resourceKey, value) {
     return {
         contributes: true,
         rawValue: value,
-        effectiveValue: projectPlayerQiResourceValue(player, resourceKey, value),
+        effectiveValue: projectQiValue(value, projection.efficiencyBp),
     };
 }
 
