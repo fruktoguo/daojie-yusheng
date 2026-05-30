@@ -230,6 +230,11 @@ export class PlayerCombatService {
         let totalHeal = 0;
         const selfBuffs = [];
         const targetBuffs = [];
+        let anyCrit = false;
+        let allDodged = true;
+        let anyResolved = false;
+        let anyBroken = false;
+        let hasDamageRoll = false;
 
         let hitCount = 0;
         const targetCount = Math.max(1, Math.round(options?.targetCount ?? 1));
@@ -240,13 +245,25 @@ export class PlayerCombatService {
             targetCount,
         };
         const combatContext = createEffectDamageContext(attacker, target, options?.isTileTarget === true);
+        const sectionRecorder = typeof options?.recordSkillCastSectionDuration === 'function'
+            ? options.recordSkillCastSectionDuration
+            : null;
         for (const effect of resolved.skill.effects) {
             if (effect.type === 'damage') {
                 // 伤害效果：求值公式 → 结算命中/暴击/防御
+                const formulaStartedAt = sectionRecorder ? performance.now() : 0;
                 const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, formulaContext)));
+                sectionRecorder?.('formulaEvalMs', performance.now() - formulaStartedAt);
 
+                const damageStartedAt = sectionRecorder ? performance.now() : 0;
                 const damageRoll = resolveEffectDamage(effect, baseDamage, combatContext);
+                sectionRecorder?.('damagePipelineMs', performance.now() - damageStartedAt);
                 damageRolls.push(damageRoll);
+                hasDamageRoll = true;
+                anyCrit ||= damageRoll.crit === true;
+                allDodged &&= damageRoll.dodged === true;
+                anyResolved ||= damageRoll.resolved === true;
+                anyBroken ||= damageRoll.broken === true;
                 totalRawDamage += Math.max(0, Math.round(damageRoll.rawDamage ?? 0));
                 if (!primaryDamageKind) {
                     primaryDamageKind = damageRoll.damageKind;
@@ -265,10 +282,14 @@ export class PlayerCombatService {
                 if (options?.skipSelfEffects === true) {
                     continue;
                 }
+                const formulaStartedAt = sectionRecorder ? performance.now() : 0;
                 const healAmount = Math.max(0, Math.round(evaluateSkillFormula(effect.formula, formulaContext)));
+                sectionRecorder?.('formulaEvalMs', performance.now() - formulaStartedAt);
                 if (healAmount > 0) {
                     totalHeal += healAmount;
+                    const applyStartedAt = sectionRecorder ? performance.now() : 0;
                     handlers.applySelfHeal?.(healAmount);
+                    sectionRecorder?.('healApplyMs', performance.now() - applyStartedAt);
                 }
                 continue;
             }
@@ -281,15 +302,21 @@ export class PlayerCombatService {
                 continue;
             }
             // buff 效果：生成临时 buff 并应用到自身或目标
+            const buildStartedAt = sectionRecorder ? performance.now() : 0;
             const buff = toTemporaryBuff(effect, resolved.skill);
+            sectionRecorder?.('buffBuildMs', performance.now() - buildStartedAt);
             if (effect.target === 'self' || effect.target === 'allies') {
                 if (options?.skipSelfEffects !== true) {
+                    const applyStartedAt = sectionRecorder ? performance.now() : 0;
                     handlers.applySelfBuff?.(buff);
+                    sectionRecorder?.('buffApplyMs', performance.now() - applyStartedAt);
                     selfBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
                 }
             }
             else {
+                const applyStartedAt = sectionRecorder ? performance.now() : 0;
                 handlers.applyTargetBuff?.(buff);
+                sectionRecorder?.('buffApplyMs', performance.now() - applyStartedAt);
                 targetBuffs.push({ buffId: buff.buffId, name: buff.name, category: buff.category, duration: buff.duration });
             }
         }
@@ -305,10 +332,10 @@ export class PlayerCombatService {
             damageRolls,
             selfBuffs,
             targetBuffs,
-            crit: damageRolls.some((entry) => entry.crit),
-            dodged: damageRolls.length > 0 && damageRolls.every((entry) => entry.dodged),
-            resolved: damageRolls.some((entry) => entry.resolved),
-            broken: damageRolls.some((entry) => entry.broken),
+            crit: anyCrit,
+            dodged: hasDamageRoll && allDodged,
+            resolved: anyResolved,
+            broken: anyBroken,
         };
     }
 };
@@ -691,19 +718,19 @@ function compileSkillFormulaVarResolver(variable) {
     }
     if (typeof variable === 'string' && variable.startsWith('caster.attr.')) {
         const key = variable.slice('caster.attr.'.length);
-        return (context) => Object.hasOwn(context.attacker.attrs.finalAttrs, key) ? context.attacker.attrs.finalAttrs[key] : 0;
+        return (context) => context.attacker.attrs.finalAttrs[key] ?? 0;
     }
     if (typeof variable === 'string' && variable.startsWith('target.attr.')) {
         const key = variable.slice('target.attr.'.length);
-        return (context) => Object.hasOwn(context.target.attrs.finalAttrs, key) ? context.target.attrs.finalAttrs[key] : 0;
+        return (context) => context.target.attrs.finalAttrs[key] ?? 0;
     }
     if (typeof variable === 'string' && variable.startsWith('caster.stat.')) {
         const key = variable.slice('caster.stat.'.length);
-        return (context) => Object.hasOwn(context.attacker.attrs.numericStats, key) ? context.attacker.attrs.numericStats[key] : 0;
+        return (context) => context.attacker.attrs.numericStats[key] ?? 0;
     }
     if (typeof variable === 'string' && variable.startsWith('target.stat.')) {
         const key = variable.slice('target.stat.'.length);
-        return (context) => Object.hasOwn(context.target.attrs.numericStats, key) ? context.target.attrs.numericStats[key] : 0;
+        return (context) => context.target.attrs.numericStats[key] ?? 0;
     }
     if (typeof variable === 'string' && variable.startsWith('caster.buff.') && variable.endsWith('.stacks')) {
         const buffId = variable.slice('caster.buff.'.length, -'.stacks'.length);

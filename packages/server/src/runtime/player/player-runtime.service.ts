@@ -3259,7 +3259,22 @@ export class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         const existing = player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
+        let changed = false;
+        let attrRelevantChanged = false;
         if (existing) {
+            const previousRemainingTicks = existing.remainingTicks;
+            const previousDuration = existing.duration;
+            const previousStacks = existing.stacks;
+            const previousMaxStacks = existing.maxStacks;
+            const previousRealmLv = existing.realmLv;
+            const previousInfiniteDuration = existing.infiniteDuration === true;
+            const previousSustainTicksElapsed = existing.sustainTicksElapsed;
+            const previousPersistOnDeath = existing.persistOnDeath === true;
+            const previousPersistOnReturnToSpawn = existing.persistOnReturnToSpawn === true;
+            const previousActive = isRuntimeBuffActive(existing);
+            const affectsAttributes = doesTemporaryBuffAffectAttributes(existing) || doesTemporaryBuffAffectAttributes(buff);
+            const sameAttributePayload = isSameTemporaryBuffAttributePayload(existing, buff);
+            const samePrototypePayload = isSameTemporaryBuffPrototypePayload(existing, buff);
             if (isConsumableBuffSource(buff)) {
                 if (buff.infiniteDuration === true) {
                     existing.duration = Math.max(1, Math.round(buff.duration));
@@ -3283,19 +3298,45 @@ export class PlayerRuntimeService {
             existing.sustainTicksElapsed = buff.sustainCost ? Math.max(0, Math.floor(Number(existing.sustainTicksElapsed ?? buff.sustainTicksElapsed ?? 0) || 0)) : undefined;
             existing.persistOnDeath = buff.persistOnDeath === true;
             existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
-            refreshRuntimeTemporaryBuffPrototype(existing, buff);
+            if (!samePrototypePayload) {
+                refreshRuntimeTemporaryBuffPrototype(existing, buff);
+            }
+            changed = previousRemainingTicks !== existing.remainingTicks
+                || previousDuration !== existing.duration
+                || previousStacks !== existing.stacks
+                || previousMaxStacks !== existing.maxStacks
+                || previousRealmLv !== existing.realmLv
+                || previousInfiniteDuration !== (existing.infiniteDuration === true)
+                || previousSustainTicksElapsed !== existing.sustainTicksElapsed
+                || previousPersistOnDeath !== (existing.persistOnDeath === true)
+                || previousPersistOnReturnToSpawn !== (existing.persistOnReturnToSpawn === true)
+                || !samePrototypePayload;
+            attrRelevantChanged = affectsAttributes
+                && (previousActive !== isRuntimeBuffActive(existing)
+                    || previousStacks !== existing.stacks
+                    || previousRealmLv !== existing.realmLv
+                    || !sameAttributePayload);
         }
         else {
             player.buffs.buffs.push(createRuntimeTemporaryBuff(buff));
+            changed = true;
+            attrRelevantChanged = doesTemporaryBuffAffectAttributes(buff);
         }
-        player.buffs.buffs.sort((left, right) => {
-            const a = String(left.buffId ?? '');
-            const b = String(right.buffId ?? '');
-            return a < b ? -1 : a > b ? 1 : 0;
-        });
+        if (!changed) {
+            return player;
+        }
+        if (!existing) {
+            player.buffs.buffs.sort((left, right) => {
+                const a = String(left.buffId ?? '');
+                const b = String(right.buffId ?? '');
+                return a < b ? -1 : a > b ? 1 : 0;
+            });
+        }
         player.buffs.revision += 1;
-        this.playerAttributesService.recalculate(player);
-        markPlayerDirtyDomains(player, ['buff', 'attr']);
+        if (attrRelevantChanged) {
+            this.playerAttributesService.recalculate(player);
+        }
+        markPlayerDirtyDomains(player, attrRelevantChanged ? ['buff', 'attr'] : ['buff']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -4887,6 +4928,89 @@ function markPlayerDirtyDomains(player, domains) {
             player.dirtyDomains.add(domain.trim());
         }
     }
+}
+
+const TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS = [
+    'buffId',
+    'name',
+    'desc',
+    'baseDesc',
+    'shortMark',
+    'category',
+    'visibility',
+    'sourceSkillId',
+    'sourceSkillName',
+    'color',
+    'presentationScale',
+    'sustainCost',
+    'expireWithBuffId',
+    'sourceCasterId',
+];
+
+function isRuntimeBuffActive(buff) {
+    return Boolean(buff && buff.remainingTicks > 0 && buff.stacks > 0);
+}
+
+function doesTemporaryBuffAffectAttributes(buff) {
+    return Boolean(buff && (buff.attrs || buff.stats));
+}
+
+function isSameTemporaryBuffAttributePayload(left, right) {
+    return (left?.buffId ?? undefined) === (right?.buffId ?? undefined)
+        && (left?.sourceSkillId ?? undefined) === (right?.sourceSkillId ?? undefined)
+        && (left?.attrMode ?? undefined) === (right?.attrMode ?? undefined)
+        && (left?.statMode ?? undefined) === (right?.statMode ?? undefined)
+        && (left?.realmLv ?? undefined) === (right?.realmLv ?? undefined)
+        && isSamePlainObjectValue(left?.attrs, right?.attrs)
+        && isSamePlainObjectValue(left?.stats, right?.stats);
+}
+
+function isSameTemporaryBuffPrototypePayload(left, right) {
+    if (!isSameTemporaryBuffAttributePayload(left, right)
+        || !isSamePlainObjectValue(left?.qiProjection, right?.qiProjection)
+        || !isSamePlainObjectValue(left?.tickEffects, right?.tickEffects)) {
+        return false;
+    }
+    for (const key of TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS) {
+        if ((left?.[key] ?? undefined) !== (right?.[key] ?? undefined)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isSamePlainObjectValue(left, right) {
+    if (left === right) {
+        return true;
+    }
+    if (left === undefined || left === null || right === undefined || right === null) {
+        return left === right;
+    }
+    if (typeof left !== 'object' || typeof right !== 'object') {
+        return left === right;
+    }
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
+        for (let index = 0; index < left.length; index += 1) {
+            if (!isSamePlainObjectValue(left[index], right[index])) {
+                return false;
+            }
+        }
+        return true;
+    }
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) {
+        return false;
+    }
+    for (const key of leftKeys) {
+        if (!Object.hasOwn(right, key) || !isSamePlainObjectValue(left[key], right[key])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function resolveSpiritualRootSeedTier(item) {

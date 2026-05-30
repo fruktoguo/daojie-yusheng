@@ -384,6 +384,12 @@ export class WorldRuntimeMonsterActionApplyService {
                     targetCount: Math.max(1, targetEntries.length),
                     resolvedSkill,
                     attackerCombatState: monsterCombatState,
+                    recordSkillCastSectionDuration: (sectionKey, durationMs, count = 1) => {
+                        const normalizedKey = typeof sectionKey === 'string' && sectionKey
+                            ? sectionKey
+                            : 'unknownMs';
+                        deps?.recordMonsterActionSectionDuration?.(`monsterActions.skill.${normalizedKey}`, durationMs, count);
+                    },
                 });
                 recordMonsterActionPerf(deps, 'monsterActions.skillCombatResolveMs', combatResolveStartedAt);
                 if (skill && !labelPushed) {
