@@ -1252,6 +1252,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         const damageElement = resolveSkillDamageElement(skill);
         const effectiveGeometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const effectiveRange = effectiveGeometry.range;
+        const resolvedSkill = typeof this.playerCombatService.resolvePlayerSkillForCast === 'function'
+            ? this.playerCombatService.resolvePlayerSkillForCast(attacker, skillId, currentTick)
+            : undefined;
         if (castOptions?.prevalidatedTargets !== true) {
             const targetPlanStartedAt = performance.now();
             const actionPlan = this.resolvePlayerSkillActionPlanForDispatch(attacker, skill, {
@@ -1304,6 +1307,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 skipSelfEffects: castIndex > 0,
                 skipRangeValidation: true,
                 range: effectiveRange,
+                resolvedSkill,
             };
             if (target.kind === 'self') {
                 const result = this.playerCombatService.castSelfSkill(attacker, skillId, currentTick, options);

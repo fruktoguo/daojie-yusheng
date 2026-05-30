@@ -20,6 +20,13 @@ export class PlayerCombatService {
         this.playerRuntimeService = playerRuntimeService;
     }
 
+    /** 解析并规范化玩家技能；同一次多目标施法可复用该结果，避免按目标重复扫描功法列表。 */
+    resolvePlayerSkillForCast(attacker, skillId, currentTick) {
+        const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
+        normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
+        return resolved;
+    }
+
     /**
      * 玩家对目标玩家施放技能。
      * 流程：校验自攻击 → 解析技能 → 执行结算 → 设置反击目标 → 应用伤害。
@@ -29,8 +36,9 @@ export class PlayerCombatService {
             throw new BadRequestException('不能以自己为攻击目标');
         }
 
-        const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
-        normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
+        const resolved = options?.resolvedSkill?.skill?.id === skillId
+            ? options.resolvedSkill
+            : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
 
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), toCombatPlayerState(target), resolved, currentTick, distance, {
             spendQi: (amount) => {
@@ -71,8 +79,9 @@ export class PlayerCombatService {
      * 玩家对自身施放 buff 技能（无目标校验）。
      */
     castSelfSkill(attacker, skillId, currentTick, options = undefined) {
-        const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
-        normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
+        const resolved = options?.resolvedSkill?.skill?.id === skillId
+            ? options.resolvedSkill
+            : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
         const selfState = toCombatPlayerState(attacker);
         const result = this.executeResolvedSkillCast(selfState, selfState, resolved, currentTick, 0, {
             spendQi: (amount) => {
@@ -108,8 +117,9 @@ export class PlayerCombatService {
      * 与 castSkill 类似，但目标 buff 通过外部回调应用（怪物 buff 系统不同）。
      */
     castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff, options = undefined) {
-        const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
-        normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick);
+        const resolved = options?.resolvedSkill?.skill?.id === skillId
+            ? options.resolvedSkill
+            : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
 
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), target, resolved, currentTick, distance, {
             spendQi: (amount) => {
@@ -337,7 +347,7 @@ function normalizeResolvedPlayerSkillCooldown(attacker, resolved, currentTick) {
     }
     const normalizedCurrentTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
     const remainingTicks = readyTick - normalizedCurrentTick;
-    const maxCooldownTicks = resolveSkillCooldownTicks(toCombatPlayerState(attacker), resolved.skill.cooldown);
+    const maxCooldownTicks = resolveSkillCooldownTicks(attacker, resolved.skill.cooldown);
     if (remainingTicks <= 0 || remainingTicks > maxCooldownTicks) {
         delete cooldowns[resolved.skill.id];
         resolved.readyTick = 0;
