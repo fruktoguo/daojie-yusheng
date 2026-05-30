@@ -62,6 +62,8 @@ const AUTO_TARGETING_PREFERENCE_MULTIPLIER = PLAYER_TARGETING_PREFERENCE_THREAT_
 const AUTO_UNREACHABLE_TARGET_THREAT_MULTIPLIER = 0.2;
 const AUTO_COMBAT_ACTION_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
 const AUTO_USE_PILL_SLOT_LIMIT = 12;
+const autoBattleSkillLookupCacheByTechniqueState = new WeakMap();
+const autoSelfBuffEffectsBySkill = new WeakMap();
 
 function resolveActionsPerTurn(player) {
     const rawValue = Number(player?.attrs?.numericStats?.actionsPerTurn ?? 1);
@@ -155,18 +157,35 @@ function isBuffActive(player, buffId) {
 }
 
 function getAutoSelfBuffEffects(skill) {
+    if (skill && typeof skill === 'object') {
+        const cached = autoSelfBuffEffectsBySkill.get(skill);
+        if (cached) {
+            return cached;
+        }
+    }
+    let result = [];
     if (resolveSkillRequiresTarget(skill) !== false) {
-        return [];
+        if (skill && typeof skill === 'object') {
+            autoSelfBuffEffectsBySkill.set(skill, result);
+        }
+        return result;
     }
     const effects = Array.isArray(skill?.effects) ? skill.effects : [];
     if (effects.length === 0) {
-        return [];
+        if (skill && typeof skill === 'object') {
+            autoSelfBuffEffectsBySkill.set(skill, result);
+        }
+        return result;
     }
     const selfBuffEffects = effects.filter((effect) => effect?.type === 'buff'
         && (effect.target === 'self' || effect.target === 'allies')
         && typeof effect.buffId === 'string'
         && effect.buffId.trim().length > 0);
-    return selfBuffEffects.length === effects.length ? selfBuffEffects : [];
+    result = selfBuffEffects.length === effects.length ? selfBuffEffects : [];
+    if (skill && typeof skill === 'object') {
+        autoSelfBuffEffectsBySkill.set(skill, result);
+    }
+    return result;
 }
 
 function isAutoSelfBuffSkill(skill) {
@@ -234,11 +253,21 @@ function resolveAutoBattleEffectiveSkillRange(player, skill, action) {
 }
 
 function buildAutoBattleSkillLookup(player) {
-    if (!Array.isArray(player?.techniques?.techniques) || player.techniques.techniques.length === 0) {
+    const techniqueState = player?.techniques;
+    if (!techniqueState || typeof techniqueState !== 'object') {
+        return null;
+    }
+    const revision = Math.max(0, Math.trunc(Number(techniqueState.revision ?? 0) || 0));
+    const cached = autoBattleSkillLookupCacheByTechniqueState.get(techniqueState);
+    if (cached?.revision === revision) {
+        return cached.lookup;
+    }
+    if (!Array.isArray(techniqueState.techniques) || techniqueState.techniques.length === 0) {
+        autoBattleSkillLookupCacheByTechniqueState.set(techniqueState, { revision, lookup: null });
         return null;
     }
     const lookup = new Map();
-    for (const technique of player.techniques.techniques) {
+    for (const technique of techniqueState.techniques) {
         for (const skill of technique.skills ?? []) {
             const skillId = skill?.id;
             if (typeof skillId !== 'string' || skillId.length === 0 || lookup.has(skillId)) {
@@ -247,6 +276,7 @@ function buildAutoBattleSkillLookup(player) {
             lookup.set(skillId, skill);
         }
     }
+    autoBattleSkillLookupCacheByTechniqueState.set(techniqueState, { revision, lookup });
     return lookup;
 }
 
