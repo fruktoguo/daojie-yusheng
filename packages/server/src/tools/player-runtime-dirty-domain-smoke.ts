@@ -1276,8 +1276,15 @@ function testAdvanceSinglePlayerTickDirtyDomain(): void {
   service.advanceSinglePlayerTick(player, 1, {});
 
   assert.equal(player.lifeElapsedTicks, previousLifeElapsedTicks + 1);
+  assertDirtyDomains(service, playerId, ['progression', 'buff'], ['snapshot', 'attr']);
+  assert.equal(player.buffs.buffs[0]?.remainingTicks, 1);
+  assert.ok(player.persistentRevision > player.persistedRevision, 'expected chronology and buff duration tick to bump persistentRevision');
+  service.markPersisted(playerId);
+
+  service.advanceSinglePlayerTick(player, 2, {});
+
+  assert.equal(player.buffs.buffs.length, 0);
   assertDirtyDomains(service, playerId, ['progression', 'buff', 'attr'], ['snapshot']);
-  assert.ok(player.persistentRevision > player.persistedRevision, 'expected chronology and buff tick to bump persistentRevision');
 }
 
 function testAdvanceSinglePlayerTickAutoRefinesRootFoundation(): void {

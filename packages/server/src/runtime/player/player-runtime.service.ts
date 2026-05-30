@@ -3525,8 +3525,15 @@ export class PlayerRuntimeService {
             const buffTickResult = tickTemporaryBuffs(player.buffs.buffs, player);
             if (buffTickResult.changed) {
                 player.buffs.revision += 1;
-                this.playerAttributesService.recalculate(player);
-                markPlayerDirtyDomains(player, buffTickResult.vitalsChanged ? ['buff', 'attr', 'vitals'] : ['buff', 'attr']);
+                const dirtyDomains = ['buff'];
+                if (buffTickResult.attrChanged) {
+                    this.playerAttributesService.recalculate(player);
+                    dirtyDomains.push('attr');
+                }
+                if (buffTickResult.vitalsChanged) {
+                    dirtyDomains.push('vitals');
+                }
+                markPlayerDirtyDomains(player, dirtyDomains);
                 this.bumpPersistentRevision(player);
             }
             if (buffTickResult.defeated === true && typeof options.markPlayerDefeated === 'function') {
@@ -8252,19 +8259,25 @@ function isSameAutoBattleSkillList(previous, current) {
 function tickTemporaryBuffs(buffs, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    let changed = false;
+    let durationChanged = false;
+    let attrChanged = false;
+    let listChanged = false;
     let vitalsChanged = false;
     let defeated = false;
-    const activeBuffIds = new Set(buffs
-        .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
-        .map((entry) => entry.buffId));
+    const hasDependentBuff = buffs.some((entry) => entry?.remainingTicks > 0 && entry.stacks > 0 && entry.expireWithBuffId);
+    const activeBuffIds = hasDependentBuff
+        ? new Set(buffs
+            .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
+            .map((entry) => entry.buffId))
+        : null;
     for (const buff of buffs) {
         if (buff.remainingTicks <= 0) {
             continue;
         }
-        if (buff.expireWithBuffId && !activeBuffIds.has(buff.expireWithBuffId)) {
+        if (activeBuffIds && buff.expireWithBuffId && !activeBuffIds.has(buff.expireWithBuffId)) {
             buff.remainingTicks = 0;
-            changed = true;
+            attrChanged = true;
+            listChanged = true;
             continue;
         }
         const tickEffectResult = applyBuffTickEffects(player, buff);
@@ -8280,42 +8293,46 @@ function tickTemporaryBuffs(buffs, player = null) {
                 vitalsChanged = vitalsChanged || sustainResult.vitalsChanged;
                 if (!sustainResult.sustained) {
                     buff.remainingTicks = 0;
-                    changed = true;
+                    attrChanged = true;
+                    listChanged = true;
                     continue;
                 }
             }
             const nextRemainingTicks = Math.max(1, Math.round(Number(buff.remainingTicks) || 1));
             if (buff.remainingTicks !== nextRemainingTicks) {
                 buff.remainingTicks = nextRemainingTicks;
-                changed = true;
+                durationChanged = true;
             }
             continue;
         }
         buff.remainingTicks -= 1;
-        changed = true;
+        durationChanged = true;
         if (buff.remainingTicks <= 0 && isDecayStackBuff(buff)) {
             if (buff.stacks > 1) {
                 buff.stacks -= 1;
                 buff.remainingTicks = Math.max(1, Math.round(buff.duration || 1));
+                attrChanged = true;
+            }
+        }
+        if (buff.remainingTicks <= 0 || buff.stacks <= 0) {
+            attrChanged = true;
+            listChanged = true;
+        }
+    }
+
+    if (hasDependentBuff && (attrChanged || listChanged)) {
+        const finalActiveBuffIds = new Set(buffs
+            .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
+            .map((entry) => entry.buffId));
+        for (const buff of buffs) {
+            if (buff.remainingTicks > 0 && buff.expireWithBuffId && !finalActiveBuffIds.has(buff.expireWithBuffId)) {
+                buff.remainingTicks = 0;
+                attrChanged = true;
+                listChanged = true;
             }
         }
     }
-
-    const finalActiveBuffIds = new Set(buffs
-        .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
-        .map((entry) => entry.buffId));
-    for (const buff of buffs) {
-        if (buff.remainingTicks > 0 && buff.expireWithBuffId && !finalActiveBuffIds.has(buff.expireWithBuffId)) {
-            buff.remainingTicks = 0;
-            changed = true;
-        }
-    }
-    const nextLength = buffs.filter((entry) => entry.remainingTicks > 0 && entry.stacks > 0).length;
-    if (nextLength !== buffs.length) {
-        changed = true;
-    }
-    if (changed) {
-
+    if (listChanged) {
         let writeIndex = 0;
         for (const buff of buffs) {
             if (buff.remainingTicks > 0 && buff.stacks > 0) {
@@ -8325,7 +8342,8 @@ function tickTemporaryBuffs(buffs, player = null) {
         }
         buffs.length = writeIndex;
     }
-    return { changed: changed || vitalsChanged, vitalsChanged, defeated };
+    const changed = durationChanged || attrChanged || listChanged || vitalsChanged;
+    return { changed, durationChanged, attrChanged, listChanged, vitalsChanged, defeated };
 }
 
 function applyBuffTickEffects(player, buff) {
