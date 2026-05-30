@@ -574,21 +574,59 @@
       background: rgba(255,255,255,0.54);
     }
 
-    .cpu-breakdown-child-row th span {
+    .cpu-breakdown-group-row[data-depth="1"] th,
+    .cpu-breakdown-group-row[data-depth="1"] td,
+    .cpu-breakdown-group-row[data-depth="2"] th,
+    .cpu-breakdown-group-row[data-depth="2"] td {
+      background: rgba(255,255,255,0.68);
+    }
+
+    .cpu-breakdown-table tbody tr th span {
       display: inline-block;
-      padding-left: 18px;
       position: relative;
     }
 
-    .cpu-breakdown-child-row th span::before {
+    .cpu-breakdown-table tr[data-depth="1"] th span {
+      padding-left: 18px;
+    }
+
+    .cpu-breakdown-table tr[data-depth="2"] th span {
+      padding-left: 36px;
+    }
+
+    .cpu-breakdown-table tr[data-depth="3"] th span {
+      padding-left: 54px;
+    }
+
+    .cpu-breakdown-table tr[data-depth="4"] th span {
+      padding-left: 72px;
+    }
+
+    .cpu-breakdown-table tr[data-depth]:not([data-depth="0"]) th span::before {
       content: "";
       position: absolute;
-      left: 4px;
+      left: calc(var(--cpu-breakdown-depth-left, 0px) + 4px);
       top: 50%;
       width: 7px;
       height: 1px;
       background: currentColor;
       opacity: 0.62;
+    }
+
+    .cpu-breakdown-table tr[data-depth="1"] th span {
+      --cpu-breakdown-depth-left: 0px;
+    }
+
+    .cpu-breakdown-table tr[data-depth="2"] th span {
+      --cpu-breakdown-depth-left: 18px;
+    }
+
+    .cpu-breakdown-table tr[data-depth="3"] th span {
+      --cpu-breakdown-depth-left: 36px;
+    }
+
+    .cpu-breakdown-table tr[data-depth="4"] th span {
+      --cpu-breakdown-depth-left: 54px;
     }
 
     .network-row-label {

@@ -2490,7 +2490,8 @@ interface CpuBreakdownGroup {
   key: string;
   label: string;
   summary: GmCpuSectionSnapshot;
-  children: GmCpuSectionSnapshot[];
+  children: CpuBreakdownGroup[];
+  grouped: boolean;
 }
 
 /** patchStatRow：处理patch Stat Row。 */
@@ -2611,14 +2612,23 @@ function openNetworkPayloadModal(bucket: GmNetworkBucket): void {
   document.body.appendChild(modal);
 }
 
-const CPU_BREAKDOWN_GROUPS: Array<{
+interface CpuBreakdownGroupDef {
   key: string;
   childPrefixes: string[];
   fallbackLabel: string;
-}> = [
+  groups?: CpuBreakdownGroupDef[];
+}
+
+const CPU_BREAKDOWN_GROUPS: CpuBreakdownGroupDef[] = [
+  {
+    key: 'instanceTicksMs',
+    childPrefixes: ['instance.'],
+    fallbackLabel: '实例 tick',
+    groups: [
+      { key: 'instance.playerTickAdvanceMs', childPrefixes: ['playerTick.'], fallbackLabel: '玩家 tick 推进' },
+    ],
+  },
   { key: 'pendingCommandsMs', childPrefixes: ['pendingCommands.'], fallbackLabel: '待处理命令' },
-  { key: 'instance.playerTickAdvanceMs', childPrefixes: ['playerTick.'], fallbackLabel: '玩家 tick 推进' },
-  { key: 'instanceTicksMs', childPrefixes: ['instance.'], fallbackLabel: '实例 tick' },
   { key: 'syncFlushMs', childPrefixes: ['syncFlush.'], fallbackLabel: '同步广播' },
   { key: 'preTickMaterializationMs', childPrefixes: ['tick.'], fallbackLabel: '预 tick 物化' },
   { key: 'workerPrecomputeMs', childPrefixes: ['worker.'], fallbackLabel: 'Worker 预计算' },
@@ -2676,39 +2686,71 @@ function stripCpuChildLabel(label: string): string {
   return label.replace(/^(实例|同步|tick|Worker|后 tick|持久化|玩家 tick|命令)[· ]/, '');
 }
 
+function createCpuFallbackSummary(def: CpuBreakdownGroupDef, children: CpuBreakdownGroup[]): GmCpuSectionSnapshot {
+  const totalMs = children.reduce((sum, child) => sum + child.summary.totalMs, 0);
+  const count = children.reduce((sum, child) => sum + child.summary.count, 0);
+  return {
+    key: def.key,
+    label: def.fallbackLabel,
+    totalMs,
+    count,
+    avgMs: count > 0 ? totalMs / count : 0,
+    percent: children.reduce((sum, child) => sum + child.summary.percent, 0),
+  };
+}
+
+function buildCpuBreakdownGroupNode(
+  def: CpuBreakdownGroupDef,
+  sections: GmCpuSectionSnapshot[],
+  byKey: Map<string, GmCpuSectionSnapshot>,
+  consumed: Set<string>,
+): CpuBreakdownGroup | null {
+  const nestedGroups: CpuBreakdownGroup[] = [];
+  for (const nestedDef of def.groups ?? []) {
+    const nested = buildCpuBreakdownGroupNode(nestedDef, sections, byKey, consumed);
+    if (nested) {
+      nestedGroups.push(nested);
+    }
+  }
+  const leaves = sections
+    .filter((section) => !consumed.has(section.key) && section.key !== def.key && def.childPrefixes.some((prefix) => section.key.startsWith(prefix)))
+    .map((section) => ({
+      key: section.key,
+      label: section.label,
+      summary: section,
+      children: [],
+      grouped: false,
+    }));
+  const children = [...nestedGroups, ...leaves].sort((left, right) => compareCpuBreakdownSections(left.summary, right.summary));
+  const explicitSummary = byKey.get(def.key);
+  if (!explicitSummary && children.length === 0) {
+    return null;
+  }
+  consumed.add(def.key);
+  for (const child of children) {
+    consumed.add(child.key);
+  }
+  const summary = explicitSummary
+    ? { ...explicitSummary, label: def.fallbackLabel }
+    : createCpuFallbackSummary(def, children);
+  return {
+    key: def.key,
+    label: def.fallbackLabel,
+    summary,
+    children,
+    grouped: true,
+  };
+}
+
 function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdownGroup[] {
   const byKey = new Map(sections.map((section) => [section.key, section]));
   const consumed = new Set<string>();
   const groups: CpuBreakdownGroup[] = [];
   for (const def of CPU_BREAKDOWN_GROUPS) {
-    const explicitSummary = byKey.get(def.key);
-    const children = sections
-      .filter((section) => !consumed.has(section.key) && section.key !== def.key && def.childPrefixes.some((prefix) => section.key.startsWith(prefix)));
-    if (!explicitSummary && children.length === 0) {
-      continue;
+    const group = buildCpuBreakdownGroupNode(def, sections, byKey, consumed);
+    if (group) {
+      groups.push(group);
     }
-    const summary = explicitSummary ?? {
-      key: def.key,
-      label: def.fallbackLabel,
-      totalMs: children.reduce((sum, section) => sum + section.totalMs, 0),
-      count: children.reduce((sum, section) => sum + section.count, 0),
-      avgMs: 0,
-      percent: children.reduce((sum, section) => sum + section.percent, 0),
-    };
-    consumed.add(def.key);
-    for (const child of children) {
-      consumed.add(child.key);
-    }
-    const normalizedSummary = {
-      ...summary,
-      label: def.fallbackLabel,
-    };
-    groups.push({
-      key: def.key,
-      label: normalizedSummary.label,
-      summary: normalizedSummary,
-      children: children.slice().sort(compareCpuBreakdownSections),
-    });
   }
   for (const section of sections) {
     if (consumed.has(section.key)) {
@@ -2719,6 +2761,7 @@ function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdown
       label: section.label,
       summary: section,
       children: [],
+      grouped: false,
     });
   }
   groups.sort((left, right) => compareCpuBreakdownSections(left.summary, right.summary));
@@ -2767,6 +2810,26 @@ function getCpuMetricCells(section: GmCpuSectionSnapshot, windowSec: number): st
   `;
 }
 
+function buildCpuBreakdownStructureKey(groups: CpuBreakdownGroup[]): string {
+  return groups
+    .map((group) => `${group.key}[${buildCpuBreakdownStructureKey(group.children)}]`)
+    .join(',');
+}
+
+function renderCpuBreakdownRows(groups: CpuBreakdownGroup[], windowSec: number, depth = 0): string {
+  return groups.map((group) => {
+    const rowClass = group.grouped ? 'cpu-breakdown-group-row' : 'cpu-breakdown-child-row';
+    const label = depth <= 0 ? group.label : stripCpuChildLabel(group.label);
+    return `
+      <tr class="${rowClass}" data-key="${escapeHtml(group.key)}" data-depth="${depth}">
+        <th scope="row"><span>${escapeHtml(label)}</span></th>
+        ${getCpuMetricCells(group.summary, windowSec)}
+      </tr>
+      ${renderCpuBreakdownRows(group.children, windowSec, depth + 1)}
+    `;
+  }).join('');
+}
+
 function renderCpuBreakdownList(data: GmStateRes): string {
   const sections = Array.isArray(data.perf.cpu.breakdown) ? data.perf.cpu.breakdown : [];
   if (sections.length === 0) {
@@ -2777,23 +2840,11 @@ function renderCpuBreakdownList(data: GmStateRes): string {
   }
   const groups = buildCpuBreakdownGroups(sections);
   const windowSec = resolveCpuBreakdownWindowSec(data);
-  const structureKey = groups
-    .map((group) => `${group.key}[${group.children.map((child) => child.key).join(',')}]`)
-    .join('|');
+  const structureKey = buildCpuBreakdownStructureKey(groups);
   const rows = groups.map((group) => {
-    const childRows = group.children.map((child) => `
-      <tr class="cpu-breakdown-child-row" data-key="${escapeHtml(child.key)}">
-        <th scope="row"><span>${escapeHtml(stripCpuChildLabel(child.label))}</span></th>
-        ${getCpuMetricCells(child, windowSec)}
-      </tr>
-    `).join('');
     return `
       <tbody class="cpu-breakdown-group" data-key="${escapeHtml(group.key)}">
-        <tr class="cpu-breakdown-group-row">
-          <th scope="row">${escapeHtml(group.label)}</th>
-          ${getCpuMetricCells(group.summary, windowSec)}
-        </tr>
-        ${childRows}
+        ${renderCpuBreakdownRows([group], windowSec)}
       </tbody>
     `;
   }).join('');
