@@ -2634,10 +2634,10 @@ export class WorldRuntimeCombatActionService {
       this.mergeAdapterResultToOutcome(outcome, adapterResult);
     }
     if (shouldRecord && adapterResult?.ok !== false) {
-      this.recordAppliedCombatOutcome(input.deps, {
-        ...outcome,
-        application,
-      }, input.recordOptions ?? input.options);
+      if (outcome.application !== application) {
+        outcome.application = application;
+      }
+      this.recordAppliedCombatOutcome(input.deps, outcome, input.recordOptions ?? input.options);
     }
     return {
       ok: adapterResult?.ok !== false,
