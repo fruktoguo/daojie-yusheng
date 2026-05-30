@@ -313,7 +313,9 @@ async function main(): Promise<void> {
   assert.equal(success.player.inventory.items[0]?.itemId, 'rat_tail');
   assert.equal(success.player.inventory.items[0]?.count, 2);
   assert.equal(success.notices.length, 1);
-  assert.equal(success.logbookMessages.length, 1);
+  const redeemNoticeStructured = success.notices[0]?.structured as { key?: string } | undefined;
+  assert.equal(redeemNoticeStructured?.key, 'notice.redeem.success');
+  assert.equal(success.logbookMessages.length, 0);
   assert.equal(success.persistedDocuments.length, 1);
   assert.equal((success as any).service.codes[0]?.status, 'used');
   assert.equal(success.receivedInventories.length, 0);

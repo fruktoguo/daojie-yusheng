@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     delete process.env.SERVER_GM_NETWORK_PERF_ENABLED;
     delete process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS;
 
-    assert.equal(service.shouldRecordNetworkPerf(), false);
+    assert.equal(service.shouldRecordNetworkPerf(), true);
     assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
     process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS = 'true';
     assert.equal(service.shouldCaptureNetworkPayloadBody(), false);
@@ -32,6 +32,15 @@ async function main(): Promise<void> {
     assert.equal(service.shouldCaptureNetworkPayloadBody(), true);
     delete process.env.SERVER_GM_NETWORK_CAPTURE_PAYLOADS;
     JSON.stringify = throwIfStringifyUsed as typeof JSON.stringify;
+    service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
+    assert.equal(service.networkOutBucketByKey.size, 1);
+    const [defaultBucket] = Array.from(service.networkOutBucketByKey.values());
+    assert.ok(defaultBucket.bytes > 0);
+    assert.equal(defaultBucket.count, 1);
+    assert.equal(defaultBucket.largePayloadSamples, undefined);
+    process.env.SERVER_GM_NETWORK_PERF_ENABLED = 'false';
+    assert.equal(service.shouldRecordNetworkPerf(), false);
+    service.resetNetworkPerfCounters();
     service.recordNetworkOut(S2C.WorldDelta, createLargeWorldDeltaPayload());
     assert.equal(service.networkOutBucketByKey.size, 0);
 
@@ -85,7 +94,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     answers:
-      'GM network perf 默认关闭；显式开启网络统计时只记录字节桶，不开启大包 body 采样；只有单独开启采样后才允许 JSON.stringify 完整留样。',
+      'GM network perf 默认开启聚合字节桶且不依赖打开 GM 流量页；显式关闭后停止记录；只有单独开启采样后才允许 JSON.stringify 完整留样。',
     excludes:
       '不证明正式服真实 RSS 曲线，只证明 GM 网络统计的默认开关语义和包体测量热路径不再依赖 JSON.stringify。',
   }, null, 2));

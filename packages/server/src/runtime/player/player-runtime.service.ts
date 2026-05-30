@@ -7706,6 +7706,9 @@ function normalizePendingLogbookMessages(input) {
         if (!candidate) {
             continue;
         }
+        if (isRetiredRedeemSuccessLogbookMessage(candidate)) {
+            continue;
+        }
 
         const existingIndex = indexById.get(candidate.id);
         if (existingIndex !== undefined) {
@@ -7753,6 +7756,12 @@ function normalizePendingLogbookMessage(input) {
         from,
         at,
     };
+}
+
+function isRetiredRedeemSuccessLogbookMessage(entry) {
+    const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+    const text = typeof entry?.text === 'string' ? entry.text.trim() : '';
+    return id.startsWith('redeem:') && text.startsWith('兑换成功：');
 }
 /**
  * isSamePendingLogbookMessages：判断Same待处理LogbookMessage是否满足条件。

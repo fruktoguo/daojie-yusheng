@@ -59,7 +59,7 @@ const descriptors: GameConfigDescriptor[] = [
   { key: 'SERVER_NODE_DEAD_AFTER_MS', label: '节点死亡超时', description: '节点进入死亡态的时间阈值（毫秒）。', category: '节点注册', valueType: 'number', defaultValue: '30000', min: 5000, max: 300000 },
 
   // ─── 调试与限制 ───
-  { key: 'SERVER_GM_NETWORK_PERF_ENABLED', label: 'GM 网络性能统计', description: '启用 GM 网络性能统计。', category: '调试与限制', valueType: 'boolean', defaultValue: 'false' },
+  { key: 'SERVER_GM_NETWORK_PERF_ENABLED', label: 'GM 网络性能统计', description: '启用 GM 网络性能聚合统计。', category: '调试与限制', valueType: 'boolean', defaultValue: 'true' },
   { key: 'SERVER_GM_NETWORK_PERF_RESET_INTERVAL_MS', label: 'GM 网络统计重置间隔', description: 'GM 网络统计重置间隔（毫秒）。', category: '调试与限制', valueType: 'number', defaultValue: '60000', min: 5000, max: 600000 },
   { key: 'SERVER_DEBUG_MOVEMENT', label: '移动调试', description: '开启移动调试日志。', category: '调试与限制', valueType: 'boolean', defaultValue: 'false' },
   { key: 'SERVER_HEAP_SNAPSHOT_TOP_LIMIT', label: 'Heap Snapshot 上限', description: 'Heap snapshot 排名前列保留数量。', category: '调试与限制', valueType: 'number', defaultValue: '20', min: 1, max: 200 },

@@ -534,7 +534,7 @@ type MainBootstrapAssemblyOptions = {
  * loginUI：loginUI相关字段。
  */
 
-  loginUI: Pick<LoginUI, 'restoreSession'>;
+  loginUI: Pick<LoginUI, 'restoreSession' | 'hide'>;
   /**
  * showToast：showToast相关字段。
  */
@@ -702,7 +702,10 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
 
   bindMainHighFrequencySocketEvents({
     socket: options.socket,
-    onBootstrap: (data) => options.runtimeStateSource.handleBootstrap(data),
+    onBootstrap: (data) => {
+      options.loginUI.hide();
+      options.runtimeStateSource.handleBootstrap(data);
+    },
     onInitSession: (data) => options.runtimeStateSource.handleInitSession(data),
     onMapEnter: (data) => options.runtimeStateSource.handleMapEnter(data),
     onRealm: (data) => options.runtimeStateSource.handleRealm(data),

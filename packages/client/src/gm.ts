@@ -7483,7 +7483,7 @@ function renderSummary(data: GmStateRes): void {
   summaryPathWorkersEl.textContent = `${data.perf.pathfinding.runningWorkers} / ${data.perf.pathfinding.workerCount}`;
   summaryPathCancelledEl.textContent = `${data.perf.pathfinding.cancelled}`;
   trafficResetMetaEl.textContent = data.perf.networkStatsEnabled === false
-    ? '流量统计尚未启动，打开本页或点击重置后开始采集。'
+    ? '流量统计已被服务器配置关闭，点击重置可临时开启采集。'
     : startedAt
     ? `统计起点：${startedAt.toLocaleString()} · 已累计 ${formatDurationSeconds(elapsedSec)} · 大包采样${data.perf.networkPayloadCaptureEnabled === true ? '开启' : '关闭'}`
     : '统计区间尚未开始。';

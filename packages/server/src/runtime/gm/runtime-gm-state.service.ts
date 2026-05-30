@@ -218,7 +218,7 @@ export class RuntimeGmStateService {
     networkInBucketByKey = new Map();
     /** 网络下行事件累计桶。 */
     networkOutBucketByKey = new Map();
-    /** GM 手动启动的网络诊断开关；环境变量开启时不依赖此状态。 */
+    /** GM 手动启动的网络诊断开关；聚合统计默认开启，可用环境变量显式关闭。 */
     networkPerfManuallyEnabled = false;
     /** GM 手动覆盖的大包包体采样开关；null 时才回退环境变量。 */
     networkPayloadCaptureManualOverride: boolean | null = null;
@@ -378,7 +378,7 @@ export class RuntimeGmStateService {
             );
         }
     }
-    /** GM 网络性能统计是热路径诊断能力，生产默认关闭，需要显式开关。 */
+    /** GM 网络性能统计默认记录聚合字节桶；大包 body 采样仍需显式开启。 */
     shouldRecordNetworkPerf() {
         return this.networkPerfManuallyEnabled || isNetworkPerfRecordingEnabled();
     }
@@ -389,7 +389,7 @@ export class RuntimeGmStateService {
         }
         return isNetworkPayloadBodyCaptureEnabled();
     }
-    /** 由 GM 面板显式启动网络性能统计；只记录事件字节桶，不默认抓取大包 body。 */
+    /** 由 GM 面板显式重置/启动网络性能统计；只记录事件字节桶，不默认抓取大包 body。 */
     enableNetworkPerfCounters() {
         this.networkPerfManuallyEnabled = true;
         this.ensureNetworkPerfRollingReset();
@@ -440,7 +440,7 @@ export class RuntimeGmStateService {
             this.networkPerfRollingResetTimer.unref();
         }
     }
-    /** NestJS 启动钩子：env 显式开启网络诊断时自动起 rolling reset。 */
+    /** NestJS 启动钩子：网络聚合统计启用时自动起 rolling reset。 */
     onModuleInit() {
         if (isNetworkPerfRecordingEnabled()) {
             this.ensureNetworkPerfRollingReset();
@@ -1451,7 +1451,7 @@ function estimateNetworkPayloadValueBytes(value, depth, seen) {
 }
 
 function isNetworkPerfRecordingEnabled() {
-    return isTruthyEnvValue(process.env.SERVER_GM_NETWORK_PERF_ENABLED);
+    return !isExplicitFalseEnvValue(process.env.SERVER_GM_NETWORK_PERF_ENABLED);
 }
 
 function isNetworkPayloadBodyCaptureEnabled() {
@@ -1466,6 +1466,11 @@ function isDevelopmentLikeEnv() {
 function isTruthyEnvValue(value) {
     const normalized = String(value ?? '').trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function isExplicitFalseEnvValue(value) {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off';
 }
 
 function buildMemoryUsageBytesSnapshot() {

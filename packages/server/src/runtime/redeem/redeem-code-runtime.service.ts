@@ -13,6 +13,7 @@ import { PlayerDomainPersistenceService } from '../../persistence/player-domain-
 import { RedeemCodePersistenceService } from '../../persistence/redeem-code-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
+import { buildStructuredNotice } from '../world/structured-notice.helpers';
 
 /** 兑换码运行时：负责分组、码表、兑换与持久化。 */
 const REDEEM_CODE_LENGTH = 36;
@@ -368,16 +369,14 @@ export class RedeemCodeRuntimeService {
                 if (group) {
                     group.updatedAt = nowIso;
                 }
-                this.playerRuntimeService.queuePendingLogbookMessage(playerId, {
-                    id: `redeem:${playerId}:${submittedCode}`,
-                    kind: 'grudge',
-                    text: `兑换成功：${group?.name ?? submittedCode}`,
-                    from: '司命台',
-                    at: Date.now(),
+                const redeemNotice = buildStructuredNotice('success', 'notice.redeem.success', '兑换成功', {
+                    vars: { groupName: group?.name ?? submittedCode },
+                    pills: [{ key: 'groupName', style: 'target' }],
                 });
                 this.playerRuntimeService.enqueueNotice(playerId, {
-                    text: `兑换成功：${group?.name ?? submittedCode}`,
-                    kind: 'success',
+                    text: redeemNotice.text,
+                    kind: redeemNotice.kind,
+                    structured: redeemNotice.structured,
                 });
                 results.push({
                     code: submittedCode,

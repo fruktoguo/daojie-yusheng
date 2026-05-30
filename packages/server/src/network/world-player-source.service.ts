@@ -728,6 +728,9 @@ function normalizePendingLogbookMessages(value) {
         if (!candidate.id || !candidate.text) {
             continue;
         }
+        if (isRetiredRedeemSuccessLogbookMessage(candidate)) {
+            continue;
+        }
 
         const existingIndex = indexById.get(candidate.id);
         if (existingIndex !== undefined) {
@@ -760,6 +763,12 @@ function normalizePendingLogbookKind(value) {
         default:
             return 'grudge';
     }
+}
+
+function isRetiredRedeemSuccessLogbookMessage(entry) {
+    const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+    const text = typeof entry?.text === 'string' ? entry.text.trim() : '';
+    return id.startsWith('redeem:') && text.startsWith('兑换成功：');
 }
 /**
  * normalizeRuntimeBonuses：规范化或转换运行态Bonuse。
