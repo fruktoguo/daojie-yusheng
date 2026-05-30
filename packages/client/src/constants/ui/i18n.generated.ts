@@ -1086,7 +1086,7 @@ export const CLIENT_I18N_MESSAGES = {
   "gm.memory-rss-heap-ratio-note": "倍率越高，非堆占比越大",
   "gm.memory-snapshot-meta": "内存明细显示当前进程快照，建议配合“立即刷新”观察变化。",
   "gm.memory-usage": "内存占用",
-  "gm.network-breakdown-subtitle-cpu-breakdown-hint": "点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高",
+  "gm.network-breakdown-subtitle-cpu-breakdown-hint": "按消耗分组展示；组内按当前排序口径排列，并显示总耗时、均秒耗时、均次耗时、总次数、均秒次数和总占比",
   "gm.network-breakdown-subtitle-heavy-instance-ranking-note": "按实例元数据 + 怪物快照估算排序，优先看最重的图",
   "gm.network-breakdown-subtitle-object-domain-profile-note": "按玩家 / 怪物 / 实例快照估算，便于先定位优化方向",
   "gm.network-in-page-meta": "第 1 / 1 页 · 共 0 条",

@@ -1071,7 +1071,7 @@ gm.memory-heap-usage-note,静态HTML-GM,已用 0 MB / 总量 0 MB,静态 HTML：
 gm.memory-rss-heap-ratio-note,静态HTML-GM,倍率越高，非堆占比越大,静态 HTML：packages/client/gm.html
 gm.memory-snapshot-meta,静态HTML-GM,内存明细显示当前进程快照，建议配合“立即刷新”观察变化。,静态 HTML：packages/client/gm.html
 gm.memory-usage,静态HTML-GM,内存占用,静态 HTML：packages/client/gm.html
-gm.network-breakdown-subtitle-cpu-breakdown-hint,静态HTML-GM,点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高,静态 HTML：packages/client/gm.html
+gm.network-breakdown-subtitle-cpu-breakdown-hint,静态HTML-GM,按消耗分组展示；组内按当前排序口径排列，并显示总耗时、均秒耗时、均次耗时、总次数、均秒次数和总占比,静态 HTML：packages/client/gm.html
 gm.network-breakdown-subtitle-heavy-instance-ranking-note,静态HTML-GM,按实例元数据 + 怪物快照估算排序，优先看最重的图,静态 HTML：packages/client/gm.html
 gm.network-breakdown-subtitle-object-domain-profile-note,静态HTML-GM,按玩家 / 怪物 / 实例快照估算，便于先定位优化方向,静态 HTML：packages/client/gm.html
 gm.network-in-page-meta,静态HTML-GM,第 1 / 1 页 · 共 0 条,静态 HTML：packages/client/gm.html

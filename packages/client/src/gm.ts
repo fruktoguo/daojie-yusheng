@@ -751,7 +751,7 @@ let currentTab: GmMainTab = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
-let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
+let currentCpuBreakdownSort: CpuBreakdownSortMode = 'total';
 /** currentEditorTab：当前编辑器Tab。 */
 let currentEditorTab: GmEditorTab = 'basic';
 /** currentDatabaseTable：当前数据库表标签。 */
@@ -2484,6 +2484,15 @@ type StructuredStatListItem = {
   largePayloadSamples?: GmNetworkBucket['largePayloadSamples'];
 };
 
+type CpuBreakdownSortMode = 'total' | 'count' | 'avg';
+
+interface CpuBreakdownGroup {
+  key: string;
+  label: string;
+  summary: GmCpuSectionSnapshot;
+  children: GmCpuSectionSnapshot[];
+}
+
 /** patchStatRow：处理patch Stat Row。 */
 function patchStatRow(row: HTMLElement, item: StructuredStatListItem): void {
   const { label, meta } = item;
@@ -2602,42 +2611,205 @@ function openNetworkPayloadModal(bucket: GmNetworkBucket): void {
   document.body.appendChild(modal);
 }
 
-/** getSortedCpuSections：读取Sorted Cpu Sections。 */
-function getSortedCpuSections(data: GmStateRes): GmCpuSectionSnapshot[] {
-  const sections = [...data.perf.cpu.breakdown];
-  sections.sort((left, right) => {
-    if (currentCpuBreakdownSort === 'count') {
-      if (right.count !== left.count) {
-        return right.count - left.count;
-      }
-      if (right.totalMs !== left.totalMs) {
-        return right.totalMs - left.totalMs;
-      }
-      return left.label.localeCompare(right.label, 'zh-CN');
-    }
-    if (currentCpuBreakdownSort === 'avg') {
-      if (right.avgMs !== left.avgMs) {
-        return right.avgMs - left.avgMs;
-      }
-      if (right.totalMs !== left.totalMs) {
-        return right.totalMs - left.totalMs;
-      }
-      return left.label.localeCompare(right.label, 'zh-CN');
+const CPU_BREAKDOWN_GROUPS: Array<{
+  key: string;
+  childPrefixes: string[];
+  fallbackLabel: string;
+}> = [
+  { key: 'instanceTicksMs', childPrefixes: ['instance.'], fallbackLabel: '实例 tick' },
+  { key: 'syncFlushMs', childPrefixes: ['syncFlush.'], fallbackLabel: '同步广播' },
+  { key: 'preTickMaterializationMs', childPrefixes: ['tick.'], fallbackLabel: '预 tick 物化' },
+  { key: 'workerPrecomputeMs', childPrefixes: ['worker.'], fallbackLabel: 'Worker 预计算' },
+  { key: 'postTickCleanupMs', childPrefixes: ['postTick.'], fallbackLabel: 'tick 后清理' },
+  { key: 'persistence.player.totalMs', childPrefixes: ['persistence.player.'], fallbackLabel: '持久化·玩家刷盘' },
+  { key: 'persistence.map.totalMs', childPrefixes: ['persistence.map.'], fallbackLabel: '持久化·地图刷盘' },
+];
+
+const CPU_BREAKDOWN_TOP_LEVEL_KEYS = new Set([
+  'resetFrameEffectsMs',
+  'planInstanceStepsMs',
+  'preTickMaterializationMs',
+  'pendingCommandsMs',
+  'systemCommandsMs',
+  'workerPrecomputeMs',
+  'instanceTicksMs',
+  'postTickCleanupMs',
+  'playerAdvanceMs',
+  'syncFlushMs',
+  'otherMs',
+]);
+
+function compareCpuBreakdownSections(
+  left: Pick<GmCpuSectionSnapshot, 'totalMs' | 'count' | 'avgMs' | 'label'>,
+  right: Pick<GmCpuSectionSnapshot, 'totalMs' | 'count' | 'avgMs' | 'label'>,
+): number {
+  if (currentCpuBreakdownSort === 'count') {
+    if (right.count !== left.count) {
+      return right.count - left.count;
     }
     if (right.totalMs !== left.totalMs) {
       return right.totalMs - left.totalMs;
     }
-    if (right.count !== left.count) {
-      return right.count - left.count;
+    return left.label.localeCompare(right.label, 'zh-CN');
+  }
+  if (currentCpuBreakdownSort === 'avg') {
+    if (right.avgMs !== left.avgMs) {
+      return right.avgMs - left.avgMs;
+    }
+    if (right.totalMs !== left.totalMs) {
+      return right.totalMs - left.totalMs;
     }
     return left.label.localeCompare(right.label, 'zh-CN');
-  });
-  return sections.slice(0, 40);
+  }
+  if (right.totalMs !== left.totalMs) {
+    return right.totalMs - left.totalMs;
+  }
+  if (right.count !== left.count) {
+    return right.count - left.count;
+  }
+  return left.label.localeCompare(right.label, 'zh-CN');
 }
 
-/** getCpuSectionMeta：读取Cpu Section元数据。 */
-function getCpuSectionMeta(section: GmCpuSectionSnapshot): string {
-  return `${section.totalMs.toFixed(2)} ms · ${section.percent.toFixed(1)}% · ${section.count} 次 · 均次 ${section.avgMs.toFixed(3)} ms`;
+function stripCpuChildLabel(label: string): string {
+  return label.replace(/^(实例|同步|tick|Worker|后 tick|持久化)[· ]/, '');
+}
+
+function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdownGroup[] {
+  const byKey = new Map(sections.map((section) => [section.key, section]));
+  const consumed = new Set<string>();
+  const groups: CpuBreakdownGroup[] = [];
+  for (const def of CPU_BREAKDOWN_GROUPS) {
+    const explicitSummary = byKey.get(def.key);
+    const children = sections
+      .filter((section) => section.key !== def.key && def.childPrefixes.some((prefix) => section.key.startsWith(prefix)));
+    if (!explicitSummary && children.length === 0) {
+      continue;
+    }
+    const summary = explicitSummary ?? {
+      key: def.key,
+      label: def.fallbackLabel,
+      totalMs: children.reduce((sum, section) => sum + section.totalMs, 0),
+      count: children.reduce((sum, section) => sum + section.count, 0),
+      avgMs: 0,
+      percent: children.reduce((sum, section) => sum + section.percent, 0),
+    };
+    consumed.add(def.key);
+    for (const child of children) {
+      consumed.add(child.key);
+    }
+    const normalizedSummary = {
+      ...summary,
+      label: explicitSummary?.label ?? def.fallbackLabel,
+    };
+    groups.push({
+      key: def.key,
+      label: normalizedSummary.label,
+      summary: normalizedSummary,
+      children: children.slice().sort(compareCpuBreakdownSections),
+    });
+  }
+  for (const section of sections) {
+    if (consumed.has(section.key)) {
+      continue;
+    }
+    groups.push({
+      key: section.key,
+      label: section.label,
+      summary: section,
+      children: [],
+    });
+  }
+  groups.sort((left, right) => compareCpuBreakdownSections(left.summary, right.summary));
+  return groups;
+}
+
+function resolveCpuBreakdownWindowSec(data: GmStateRes): number {
+  const topLevelCounts = data.perf.cpu.breakdown
+    .filter((section) => CPU_BREAKDOWN_TOP_LEVEL_KEYS.has(section.key))
+    .map((section) => Math.max(0, Math.trunc(Number(section.count) || 0)))
+    .filter((count) => count > 0);
+  const inferredWindowSec = topLevelCounts.length > 0 ? Math.max(...topLevelCounts) : 0;
+  if (inferredWindowSec > 0) {
+    return inferredWindowSec;
+  }
+  return Math.max(1, Number(data.perf.cpu.profileElapsedSec) || 1);
+}
+
+function formatCpuMs(value: number, digits = 2): string {
+  return `${Math.max(0, Number(value) || 0).toFixed(digits)} ms`;
+}
+
+function formatCpuCount(value: number, digits = 2): string {
+  const normalized = Math.max(0, Number(value) || 0);
+  if (normalized >= 100) {
+    return normalized.toFixed(1).replace(/\.0$/, '');
+  }
+  return normalized.toFixed(digits).replace(/\.00$/, '');
+}
+
+function getCpuMetricCells(section: GmCpuSectionSnapshot, windowSec: number): string {
+  const elapsedSec = Math.max(1, windowSec);
+  const perSecondMs = section.totalMs / elapsedSec;
+  const perSecondCount = section.count / elapsedSec;
+  return `
+    <td>${escapeHtml(formatCpuMs(section.totalMs))}</td>
+    <td>${escapeHtml(formatCpuMs(perSecondMs, 3))}</td>
+    <td>${escapeHtml(formatCpuMs(section.avgMs, 3))}</td>
+    <td>${escapeHtml(formatCpuCount(section.count, 0))}</td>
+    <td>${escapeHtml(formatCpuCount(perSecondCount, 2))}</td>
+    <td>${escapeHtml(`${section.percent.toFixed(1)}%`)}</td>
+  `;
+}
+
+function renderCpuBreakdownList(data: GmStateRes): string {
+  const sections = Array.isArray(data.perf.cpu.breakdown) ? data.perf.cpu.breakdown : [];
+  if (sections.length === 0) {
+    if (lastCpuBreakdownStructureKey !== 'empty') {
+      cpuBreakdownListEl.innerHTML = '<div class="empty-hint">当前还没有 CPU 分项数据。</div>';
+    }
+    return 'empty';
+  }
+  const groups = buildCpuBreakdownGroups(sections);
+  const windowSec = resolveCpuBreakdownWindowSec(data);
+  const structureKey = groups
+    .map((group) => `${group.key}[${group.children.map((child) => child.key).join(',')}]`)
+    .join('|');
+  const rows = groups.map((group) => {
+    const childRows = group.children.map((child) => `
+      <tr class="cpu-breakdown-child-row" data-key="${escapeHtml(child.key)}">
+        <th scope="row"><span>${escapeHtml(stripCpuChildLabel(child.label))}</span></th>
+        ${getCpuMetricCells(child, windowSec)}
+      </tr>
+    `).join('');
+    return `
+      <tbody class="cpu-breakdown-group" data-key="${escapeHtml(group.key)}">
+        <tr class="cpu-breakdown-group-row">
+          <th scope="row">${escapeHtml(group.label)}</th>
+          ${getCpuMetricCells(group.summary, windowSec)}
+        </tr>
+        ${childRows}
+      </tbody>
+    `;
+  }).join('');
+  cpuBreakdownListEl.innerHTML = `
+    <div class="cpu-breakdown-table-wrap">
+      <table class="cpu-breakdown-table">
+        <thead>
+          <tr>
+            <th scope="col">分组 / 步骤</th>
+            <th scope="col">总耗时</th>
+            <th scope="col">均秒耗时</th>
+            <th scope="col">均次耗时</th>
+            <th scope="col">总次数</th>
+            <th scope="col">均秒次数</th>
+            <th scope="col">总占比</th>
+          </tr>
+        </thead>
+        ${rows}
+      </table>
+    </div>
+  `;
+  return structureKey;
 }
 
 /** getMemoryDomainMeta：读取Memory Domain元数据。 */
@@ -2695,11 +2867,6 @@ function renderPerfLists(data: GmStateRes): void {
         largePayloadSamples: bucket.largePayloadSamples,
       }))
     : [];
-  const cpuItems = getSortedCpuSections(data).map((section) => ({
-    key: section.key,
-    label: section.label,
-    meta: getCpuSectionMeta(section),
-  }));
   const totalRssBytes = Math.max(0, data.perf.memoryEstimate?.rssBytes ?? 0);
   const memoryDomainItems = Array.isArray(data.perf.memoryEstimate?.domains)
     ? data.perf.memoryEstimate.domains.map((domain) => ({
@@ -2745,12 +2912,7 @@ function renderPerfLists(data: GmStateRes): void {
     networkOutItems,
     '当前还没有累计下行事件。',
   );
-  lastCpuBreakdownStructureKey = renderStructuredStatList(
-    cpuBreakdownListEl,
-    lastCpuBreakdownStructureKey,
-    cpuItems,
-    '当前还没有 CPU 分项数据。',
-  );
+  lastCpuBreakdownStructureKey = renderCpuBreakdownList(data);
   lastMemoryDomainStructureKey = renderStructuredStatList(
     memoryDomainListEl,
     lastMemoryDomainStructureKey,
@@ -4966,7 +5128,7 @@ async function restoreDatabaseBackup(
 }
 
 /** setCpuBreakdownSort：处理set Cpu Breakdown排序。 */
-function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
+function setCpuBreakdownSort(sort: CpuBreakdownSortMode): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */

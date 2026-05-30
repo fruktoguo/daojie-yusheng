@@ -518,6 +518,79 @@
       white-space: nowrap;
     }
 
+    .cpu-breakdown-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .cpu-breakdown-table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: separate;
+      border-spacing: 0 6px;
+      font-size: 12px;
+    }
+
+    .cpu-breakdown-table th,
+    .cpu-breakdown-table td {
+      padding: 7px 8px;
+      text-align: right;
+      white-space: nowrap;
+      border-top: 1px solid rgba(17, 17, 17, 0.08);
+      border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+      background: rgba(255,255,255,0.68);
+    }
+
+    .cpu-breakdown-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      font-weight: 600;
+      color: var(--ink-grey);
+      background: rgba(250,250,250,0.96);
+    }
+
+    .cpu-breakdown-table th:first-child,
+    .cpu-breakdown-table td:first-child {
+      text-align: left;
+      border-left: 1px solid rgba(17, 17, 17, 0.08);
+    }
+
+    .cpu-breakdown-table th:last-child,
+    .cpu-breakdown-table td:last-child {
+      border-right: 1px solid rgba(17, 17, 17, 0.08);
+    }
+
+    .cpu-breakdown-group-row th,
+    .cpu-breakdown-group-row td {
+      font-weight: 600;
+      color: var(--ink-black);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .cpu-breakdown-child-row th,
+    .cpu-breakdown-child-row td {
+      color: var(--ink-grey);
+      background: rgba(255,255,255,0.54);
+    }
+
+    .cpu-breakdown-child-row th span {
+      display: inline-block;
+      padding-left: 18px;
+      position: relative;
+    }
+
+    .cpu-breakdown-child-row th span::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      width: 7px;
+      height: 1px;
+      background: currentColor;
+      opacity: 0.62;
+    }
+
     .network-row-label {
       font-family: var(--font-heading-sub);
       font-size: 15px;
@@ -2461,7 +2534,7 @@
                 <button id="cpu-breakdown-sort-avg" class="small-btn" type="button" data-i18n="gm.cpu-breakdown-sort-avg">单次</button>
               </div>
             </div>
-            <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-cpu-breakdown-hint">点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高</div>
+            <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-cpu-breakdown-hint">按消耗分组展示；组内按当前排序口径排列，并显示总耗时、均秒耗时、均次耗时、总次数、均秒次数和总占比</div>
             <div id="cpu-breakdown-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-cpu-breakdown">当前还没有 CPU 分项数据。</div></div>
           </div>
         </div>
