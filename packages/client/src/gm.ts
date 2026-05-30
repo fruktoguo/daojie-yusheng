@@ -488,12 +488,6 @@ const pathfindingDropNoteEl = document.getElementById('pathfinding-drop-note') a
 const pathfindingFailureListEl = document.getElementById('pathfinding-failure-list') as HTMLDivElement;
 /** cpuBreakdownListEl：cpu Breakdown列表El。 */
 const cpuBreakdownListEl = document.getElementById('cpu-breakdown-list') as HTMLDivElement;
-/** cpuBreakdownSortTotalBtn：cpu Breakdown排序总量Btn。 */
-const cpuBreakdownSortTotalBtn = document.getElementById('cpu-breakdown-sort-total') as HTMLButtonElement;
-/** cpuBreakdownSortCountBtn：cpu Breakdown排序数量Btn。 */
-const cpuBreakdownSortCountBtn = document.getElementById('cpu-breakdown-sort-count') as HTMLButtonElement;
-/** cpuBreakdownSortAvgBtn：cpu Breakdown排序Avg Btn。 */
-const cpuBreakdownSortAvgBtn = document.getElementById('cpu-breakdown-sort-avg') as HTMLButtonElement;
 /** gmPasswordForm：GM密码Form。 */
 const gmPasswordForm = document.getElementById('gm-password-form') as HTMLFormElement;
 /** gmPasswordCurrentInput：GM密码当前输入。 */
@@ -751,7 +745,11 @@ let currentTab: GmMainTab = 'server';
 /** currentServerTab：当前服务端Tab。 */
 let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
-let currentCpuBreakdownSort: CpuBreakdownSortMode = 'total';
+let currentCpuBreakdownSort: CpuBreakdownSortMode = 'totalMs';
+/** currentCpuBreakdownSortDirection：当前Cpu Breakdown排序方向。 */
+let currentCpuBreakdownSortDirection: MetricTreeSortDirection = 'desc';
+/** collapsedCpuBreakdownGroupKeys：已折叠的Cpu Breakdown分组。 */
+const collapsedCpuBreakdownGroupKeys = new Set<string>();
 /** currentEditorTab：当前编辑器Tab。 */
 let currentEditorTab: GmEditorTab = 'basic';
 /** currentDatabaseTable：当前数据库表标签。 */
@@ -2484,7 +2482,35 @@ type StructuredStatListItem = {
   largePayloadSamples?: GmNetworkBucket['largePayloadSamples'];
 };
 
-type CpuBreakdownSortMode = 'total' | 'count' | 'avg';
+type MetricTreeSortDirection = 'asc' | 'desc';
+
+interface MetricTreeColumn<TNode, TContext> {
+  key: string;
+  label: string;
+  sortable?: boolean;
+  render: (node: TNode, context: TContext) => string;
+  sortValue?: (node: TNode, context: TContext) => number | string;
+}
+
+interface MetricTreeTableOptions<TNode, TContext> {
+  columns: MetricTreeColumn<TNode, TContext>[];
+  context: TContext;
+  sortKey: string;
+  sortDirection: MetricTreeSortDirection;
+  collapsedKeys: ReadonlySet<string>;
+  getKey: (node: TNode) => string;
+  getLabel: (node: TNode) => string;
+  getDisplayLabel?: (node: TNode, depth: number) => string;
+  getChildren: (node: TNode) => TNode[];
+  isGroup: (node: TNode) => boolean;
+  firstColumnLabel: string;
+  tableClassName: string;
+  groupClassName: string;
+  groupRowClassName: string;
+  childRowClassName: string;
+}
+
+type CpuBreakdownSortMode = 'totalMs' | 'perSecondMs' | 'avgMs' | 'count' | 'perSecondCount' | 'percent';
 
 interface CpuBreakdownGroup {
   key: string;
@@ -2658,39 +2684,59 @@ const CPU_BREAKDOWN_TOP_LEVEL_KEYS = new Set([
   'otherMs',
 ]);
 
-function compareCpuBreakdownSections(
-  left: Pick<GmCpuSectionSnapshot, 'totalMs' | 'count' | 'avgMs' | 'label'>,
-  right: Pick<GmCpuSectionSnapshot, 'totalMs' | 'count' | 'avgMs' | 'label'>,
+function resolveMetricTreeSortColumn<TNode, TContext>(
+  columns: MetricTreeColumn<TNode, TContext>[],
+  sortKey: string,
+): MetricTreeColumn<TNode, TContext> | null {
+  return columns.find((column) => column.key === sortKey && column.sortable === true && column.sortValue) ?? null;
+}
+
+function compareMetricTreeSortValues(left: number | string, right: number | string): number {
+  if (typeof left === 'number' && typeof right === 'number') {
+    return left - right;
+  }
+  return String(left).localeCompare(String(right), 'zh-CN');
+}
+
+function compareMetricTreeNodes<TNode, TContext>(
+  left: TNode,
+  right: TNode,
+  options: Pick<MetricTreeTableOptions<TNode, TContext>, 'columns' | 'context' | 'sortKey' | 'sortDirection' | 'getLabel'>,
 ): number {
-  if (currentCpuBreakdownSort === 'count') {
-    if (right.count !== left.count) {
-      return right.count - left.count;
+  const column = resolveMetricTreeSortColumn(options.columns, options.sortKey);
+  if (column?.sortValue) {
+    const leftValue = column.sortValue(left, options.context);
+    const rightValue = column.sortValue(right, options.context);
+    const compared = compareMetricTreeSortValues(leftValue, rightValue);
+    if (compared !== 0) {
+      return options.sortDirection === 'desc' ? -compared : compared;
     }
-    if (right.totalMs !== left.totalMs) {
-      return right.totalMs - left.totalMs;
-    }
-    return left.label.localeCompare(right.label, 'zh-CN');
   }
-  if (currentCpuBreakdownSort === 'avg') {
-    if (right.avgMs !== left.avgMs) {
-      return right.avgMs - left.avgMs;
-    }
-    if (right.totalMs !== left.totalMs) {
-      return right.totalMs - left.totalMs;
-    }
-    return left.label.localeCompare(right.label, 'zh-CN');
-  }
-  if (right.totalMs !== left.totalMs) {
-    return right.totalMs - left.totalMs;
-  }
-  if (right.count !== left.count) {
-    return right.count - left.count;
-  }
-  return left.label.localeCompare(right.label, 'zh-CN');
+  return options.getLabel(left).localeCompare(options.getLabel(right), 'zh-CN');
 }
 
 function stripCpuChildLabel(label: string): string {
   return label.replace(/^(实例|同步|tick|Worker|后 tick|持久化|玩家 tick|命令)[· ]/, '');
+}
+
+function compareCpuBreakdownGroups(left: CpuBreakdownGroup, right: CpuBreakdownGroup, windowSec: number): number {
+  const compared = compareMetricTreeNodes(left, right, {
+    columns: CPU_BREAKDOWN_COLUMNS,
+    context: { windowSec },
+    sortKey: currentCpuBreakdownSort,
+    sortDirection: currentCpuBreakdownSortDirection,
+    getLabel: (group) => group.label,
+  });
+  if (compared !== 0) {
+    return compared;
+  }
+  if (right.summary.totalMs !== left.summary.totalMs) {
+    return right.summary.totalMs - left.summary.totalMs;
+  }
+  if (right.summary.count !== left.summary.count) {
+    return right.summary.count - left.summary.count;
+  }
+  return left.label.localeCompare(right.label, 'zh-CN');
 }
 
 function createCpuFallbackSummary(def: CpuBreakdownGroupDef, children: CpuBreakdownGroup[]): GmCpuSectionSnapshot {
@@ -2711,10 +2757,11 @@ function buildCpuBreakdownGroupNode(
   sections: GmCpuSectionSnapshot[],
   byKey: Map<string, GmCpuSectionSnapshot>,
   consumed: Set<string>,
+  windowSec: number,
 ): CpuBreakdownGroup | null {
   const nestedGroups: CpuBreakdownGroup[] = [];
   for (const nestedDef of def.groups ?? []) {
-    const nested = buildCpuBreakdownGroupNode(nestedDef, sections, byKey, consumed);
+    const nested = buildCpuBreakdownGroupNode(nestedDef, sections, byKey, consumed, windowSec);
     if (nested) {
       nestedGroups.push(nested);
     }
@@ -2728,7 +2775,7 @@ function buildCpuBreakdownGroupNode(
       children: [],
       grouped: false,
     }));
-  const children = [...nestedGroups, ...leaves].sort((left, right) => compareCpuBreakdownSections(left.summary, right.summary));
+  const children = [...nestedGroups, ...leaves].sort((left, right) => compareCpuBreakdownGroups(left, right, windowSec));
   const explicitSummary = byKey.get(def.key);
   if (!explicitSummary && children.length === 0) {
     return null;
@@ -2749,12 +2796,12 @@ function buildCpuBreakdownGroupNode(
   };
 }
 
-function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdownGroup[] {
+function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[], windowSec: number): CpuBreakdownGroup[] {
   const byKey = new Map(sections.map((section) => [section.key, section]));
   const consumed = new Set<string>();
   const groups: CpuBreakdownGroup[] = [];
   for (const def of CPU_BREAKDOWN_GROUPS) {
-    const group = buildCpuBreakdownGroupNode(def, sections, byKey, consumed);
+    const group = buildCpuBreakdownGroupNode(def, sections, byKey, consumed, windowSec);
     if (group) {
       groups.push(group);
     }
@@ -2771,7 +2818,7 @@ function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdown
       grouped: false,
     });
   }
-  groups.sort((left, right) => compareCpuBreakdownSections(left.summary, right.summary));
+  groups.sort((left, right) => compareCpuBreakdownGroups(left, right, windowSec));
   return groups;
 }
 
@@ -2803,17 +2850,134 @@ function formatCpuCount(value: number, digits = 2): string {
   return normalized.toFixed(digits).replace(/\.00$/, '');
 }
 
-function getCpuMetricCells(section: GmCpuSectionSnapshot, windowSec: number): string {
-  const elapsedSec = Math.max(1, windowSec);
-  const perSecondMs = section.totalMs / elapsedSec;
-  const perSecondCount = section.count / elapsedSec;
+interface CpuBreakdownTableContext {
+  windowSec: number;
+}
+
+const CPU_BREAKDOWN_COLUMNS: MetricTreeColumn<CpuBreakdownGroup, CpuBreakdownTableContext>[] = [
+  {
+    key: 'totalMs',
+    label: '总耗时',
+    sortable: true,
+    render: (group) => formatCpuMs(group.summary.totalMs),
+    sortValue: (group) => group.summary.totalMs,
+  },
+  {
+    key: 'perSecondMs',
+    label: '均秒耗时',
+    sortable: true,
+    render: (group, context) => formatCpuMs(group.summary.totalMs / Math.max(1, context.windowSec), 3),
+    sortValue: (group, context) => group.summary.totalMs / Math.max(1, context.windowSec),
+  },
+  {
+    key: 'avgMs',
+    label: '均次耗时',
+    sortable: true,
+    render: (group) => formatCpuMs(group.summary.avgMs, 3),
+    sortValue: (group) => group.summary.avgMs,
+  },
+  {
+    key: 'count',
+    label: '总次数',
+    sortable: true,
+    render: (group) => formatCpuCount(group.summary.count, 0),
+    sortValue: (group) => group.summary.count,
+  },
+  {
+    key: 'perSecondCount',
+    label: '均秒次数',
+    sortable: true,
+    render: (group, context) => formatCpuCount(group.summary.count / Math.max(1, context.windowSec), 2),
+    sortValue: (group, context) => group.summary.count / Math.max(1, context.windowSec),
+  },
+  {
+    key: 'percent',
+    label: '总占比',
+    sortable: true,
+    render: (group) => `${group.summary.percent.toFixed(1)}%`,
+    sortValue: (group) => group.summary.percent,
+  },
+];
+
+function isCpuBreakdownSortMode(value: string | undefined): value is CpuBreakdownSortMode {
+  return typeof value === 'string' && CPU_BREAKDOWN_COLUMNS.some((column) => column.key === value);
+}
+
+function renderMetricTreeHeader<TNode, TContext>(options: MetricTreeTableOptions<TNode, TContext>): string {
+  const metricHeaders = options.columns.map((column) => {
+    if (!column.sortable) {
+      return `<th scope="col">${escapeHtml(column.label)}</th>`;
+    }
+    const active = column.key === options.sortKey;
+    const ariaSort = active
+      ? (options.sortDirection === 'desc' ? 'descending' : 'ascending')
+      : 'none';
+    const mark = active ? (options.sortDirection === 'desc' ? 'v' : '^') : '';
+    return `
+      <th scope="col" aria-sort="${ariaSort}">
+        <button class="metric-tree-sort-btn" type="button" data-metric-tree-sort-key="${escapeHtml(column.key)}" aria-sort="${ariaSort}">
+          <span>${escapeHtml(column.label)}</span>
+          <span class="metric-tree-sort-mark">${escapeHtml(mark)}</span>
+        </button>
+      </th>
+    `;
+  }).join('');
   return `
-    <td>${escapeHtml(formatCpuMs(section.totalMs))}</td>
-    <td>${escapeHtml(formatCpuMs(perSecondMs, 3))}</td>
-    <td>${escapeHtml(formatCpuMs(section.avgMs, 3))}</td>
-    <td>${escapeHtml(formatCpuCount(section.count, 0))}</td>
-    <td>${escapeHtml(formatCpuCount(perSecondCount, 2))}</td>
-    <td>${escapeHtml(`${section.percent.toFixed(1)}%`)}</td>
+    <thead>
+      <tr>
+        <th scope="col">${escapeHtml(options.firstColumnLabel)}</th>
+        ${metricHeaders}
+      </tr>
+    </thead>
+  `;
+}
+
+function renderMetricTreeRows<TNode, TContext>(
+  nodes: TNode[],
+  options: MetricTreeTableOptions<TNode, TContext>,
+  depth = 0,
+): string {
+  return nodes.map((node) => {
+    const key = options.getKey(node);
+    const children = options.getChildren(node);
+    const isGroup = options.isGroup(node);
+    const canToggle = isGroup && children.length > 0;
+    const collapsed = canToggle && options.collapsedKeys.has(key);
+    const rowClass = isGroup ? options.groupRowClassName : options.childRowClassName;
+    const displayLabel = options.getDisplayLabel?.(node, depth) ?? options.getLabel(node);
+    const labelMarkup = canToggle
+      ? `<button class="metric-tree-toggle" type="button" data-metric-tree-toggle-key="${escapeHtml(key)}" aria-expanded="${collapsed ? 'false' : 'true'}"><span class="metric-tree-toggle-mark">${collapsed ? '+' : '-'}</span><span class="metric-tree-label">${escapeHtml(displayLabel)}</span></button>`
+      : `<span class="metric-tree-label">${escapeHtml(displayLabel)}</span>`;
+    const cells = options.columns
+      .map((column) => `<td>${escapeHtml(column.render(node, options.context))}</td>`)
+      .join('');
+    const childRows = collapsed ? '' : renderMetricTreeRows(children, options, depth + 1);
+    return `
+      <tr class="${rowClass}" data-key="${escapeHtml(key)}" data-depth="${depth}"${canToggle ? ` data-metric-tree-toggle-key="${escapeHtml(key)}"` : ''}>
+        <th scope="row">${labelMarkup}</th>
+        ${cells}
+      </tr>
+      ${childRows}
+    `;
+  }).join('');
+}
+
+function renderMetricTreeTable<TNode, TContext>(
+  roots: TNode[],
+  options: MetricTreeTableOptions<TNode, TContext>,
+): string {
+  const body = roots.map((root) => `
+    <tbody class="${options.groupClassName}" data-key="${escapeHtml(options.getKey(root))}">
+      ${renderMetricTreeRows([root], options)}
+    </tbody>
+  `).join('');
+  return `
+    <div class="${options.tableClassName}-wrap">
+      <table class="${options.tableClassName}">
+        ${renderMetricTreeHeader(options)}
+        ${body}
+      </table>
+    </div>
   `;
 }
 
@@ -2821,20 +2985,6 @@ function buildCpuBreakdownStructureKey(groups: CpuBreakdownGroup[]): string {
   return groups
     .map((group) => `${group.key}[${buildCpuBreakdownStructureKey(group.children)}]`)
     .join(',');
-}
-
-function renderCpuBreakdownRows(groups: CpuBreakdownGroup[], windowSec: number, depth = 0): string {
-  return groups.map((group) => {
-    const rowClass = group.grouped ? 'cpu-breakdown-group-row' : 'cpu-breakdown-child-row';
-    const label = depth <= 0 || group.grouped ? group.label : stripCpuChildLabel(group.label);
-    return `
-      <tr class="${rowClass}" data-key="${escapeHtml(group.key)}" data-depth="${depth}">
-        <th scope="row"><span>${escapeHtml(label)}</span></th>
-        ${getCpuMetricCells(group.summary, windowSec)}
-      </tr>
-      ${renderCpuBreakdownRows(group.children, windowSec, depth + 1)}
-    `;
-  }).join('');
 }
 
 function renderCpuBreakdownList(data: GmStateRes): string {
@@ -2845,34 +2995,26 @@ function renderCpuBreakdownList(data: GmStateRes): string {
     }
     return 'empty';
   }
-  const groups = buildCpuBreakdownGroups(sections);
   const windowSec = resolveCpuBreakdownWindowSec(data);
+  const groups = buildCpuBreakdownGroups(sections, windowSec);
   const structureKey = buildCpuBreakdownStructureKey(groups);
-  const rows = groups.map((group) => {
-    return `
-      <tbody class="cpu-breakdown-group" data-key="${escapeHtml(group.key)}">
-        ${renderCpuBreakdownRows([group], windowSec)}
-      </tbody>
-    `;
-  }).join('');
-  cpuBreakdownListEl.innerHTML = `
-    <div class="cpu-breakdown-table-wrap">
-      <table class="cpu-breakdown-table">
-        <thead>
-          <tr>
-            <th scope="col">分组 / 步骤</th>
-            <th scope="col">总耗时</th>
-            <th scope="col">均秒耗时</th>
-            <th scope="col">均次耗时</th>
-            <th scope="col">总次数</th>
-            <th scope="col">均秒次数</th>
-            <th scope="col">总占比</th>
-          </tr>
-        </thead>
-        ${rows}
-      </table>
-    </div>
-  `;
+  cpuBreakdownListEl.innerHTML = renderMetricTreeTable(groups, {
+    columns: CPU_BREAKDOWN_COLUMNS,
+    context: { windowSec },
+    sortKey: currentCpuBreakdownSort,
+    sortDirection: currentCpuBreakdownSortDirection,
+    collapsedKeys: collapsedCpuBreakdownGroupKeys,
+    getKey: (group) => group.key,
+    getLabel: (group) => group.label,
+    getDisplayLabel: (group, depth) => (depth <= 0 || group.grouped ? group.label : stripCpuChildLabel(group.label)),
+    getChildren: (group) => group.children,
+    isGroup: (group) => group.grouped,
+    firstColumnLabel: '分组 / 步骤',
+    tableClassName: 'cpu-breakdown-table',
+    groupClassName: 'cpu-breakdown-group',
+    groupRowClassName: 'cpu-breakdown-group-row',
+    childRowClassName: 'cpu-breakdown-child-row',
+  });
   return structureKey;
 }
 
@@ -5195,13 +5337,25 @@ async function restoreDatabaseBackup(
 function setCpuBreakdownSort(sort: CpuBreakdownSortMode): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
+  if (currentCpuBreakdownSort === sort) {
+    currentCpuBreakdownSortDirection = currentCpuBreakdownSortDirection === 'desc' ? 'asc' : 'desc';
+  } else {
+    currentCpuBreakdownSortDirection = 'desc';
+  }
   currentCpuBreakdownSort = sort;
-  cpuBreakdownSortTotalBtn.classList.toggle('primary', sort === 'total');
-  cpuBreakdownSortCountBtn.classList.toggle('primary', sort === 'count');
-  cpuBreakdownSortAvgBtn.classList.toggle('primary', sort === 'avg');
   if (state) {
-    /** lastCpuBreakdownStructureKey：last Cpu Breakdown Structure Key。 */
+    lastCpuBreakdownStructureKey = null;
+    renderPerfLists(state);
+  }
+}
+
+function toggleCpuBreakdownGroup(groupKey: string): void {
+  if (collapsedCpuBreakdownGroupKeys.has(groupKey)) {
+    collapsedCpuBreakdownGroupKeys.delete(groupKey);
+  } else {
+    collapsedCpuBreakdownGroupKeys.add(groupKey);
+  }
+  if (state) {
     lastCpuBreakdownStructureKey = null;
     renderPerfLists(state);
   }
@@ -8052,6 +8206,7 @@ function logout(message?: string): void {
   lastNetworkOutStructureKey = null;
   /** lastCpuBreakdownStructureKey：last Cpu Breakdown Structure Key。 */
   lastCpuBreakdownStructureKey = null;
+  collapsedCpuBreakdownGroupKeys.clear();
   /** lastMemoryDomainStructureKey：last Memory Domain Structure Key。 */
   lastMemoryDomainStructureKey = null;
   /** lastMemoryInstanceStructureKey：last Memory Instance Structure Key。 */
@@ -11496,9 +11651,25 @@ restartServerBtn.addEventListener('click', () => {
     setStatus(err instanceof Error ? err.message : '重启服务器失败', true);
   });
 });
-cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));
-cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('count'));
-cpuBreakdownSortAvgBtn.addEventListener('click', () => setCpuBreakdownSort('avg'));
+cpuBreakdownListEl.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+  const sortButton = target.closest<HTMLElement>('[data-metric-tree-sort-key]');
+  if (sortButton) {
+    const sortKey = sortButton.dataset.metricTreeSortKey;
+    if (isCpuBreakdownSortMode(sortKey)) {
+      setCpuBreakdownSort(sortKey);
+    }
+    return;
+  }
+  const toggleTarget = target.closest<HTMLElement>('[data-metric-tree-toggle-key]');
+  const groupKey = toggleTarget?.dataset.metricTreeToggleKey;
+  if (groupKey) {
+    toggleCpuBreakdownGroup(groupKey);
+  }
+});
 loginForm.addEventListener('submit', (event) => {
   event.preventDefault();
   login().catch((e) => console.error('[GM]', e));
@@ -12032,7 +12203,6 @@ if (token) {
   showShell();
   switchTab('server');
   switchServerTab(currentServerTab);
-  setCpuBreakdownSort(currentCpuBreakdownSort);
   switchEditorTab(currentEditorTab);
   loadEditorCatalog()
     .then(() => loadState())

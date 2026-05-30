@@ -550,6 +550,67 @@
       background: rgba(250,250,250,0.96);
     }
 
+    .metric-tree-sort-btn,
+    .metric-tree-toggle {
+      border: 0;
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      font: inherit;
+    }
+
+    .metric-tree-sort-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      width: 100%;
+      min-height: 24px;
+      cursor: pointer;
+    }
+
+    .metric-tree-sort-btn[aria-sort="descending"],
+    .metric-tree-sort-btn[aria-sort="ascending"] {
+      color: var(--stamp-red);
+    }
+
+    .metric-tree-sort-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      color: currentColor;
+      opacity: 0.82;
+    }
+
+    .metric-tree-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      min-height: 26px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .metric-tree-toggle:focus-visible,
+    .metric-tree-sort-btn:focus-visible {
+      outline: 2px solid var(--stamp-red);
+      outline-offset: 2px;
+    }
+
+    .metric-tree-toggle-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 18px;
+      width: 18px;
+      height: 18px;
+      border: 1px solid rgba(17, 17, 17, 0.16);
+      color: var(--ink-grey);
+      background: rgba(255,255,255,0.7);
+    }
+
     .cpu-breakdown-table th:first-child,
     .cpu-breakdown-table td:first-child {
       text-align: left;
@@ -581,28 +642,28 @@
       background: rgba(255,255,255,0.68);
     }
 
-    .cpu-breakdown-table tbody tr th span {
+    .cpu-breakdown-table tbody tr th .metric-tree-label {
       display: inline-block;
       position: relative;
     }
 
-    .cpu-breakdown-table tr[data-depth="1"] th span {
+    .cpu-breakdown-table tr[data-depth="1"] th .metric-tree-label {
       padding-left: 18px;
     }
 
-    .cpu-breakdown-table tr[data-depth="2"] th span {
+    .cpu-breakdown-table tr[data-depth="2"] th .metric-tree-label {
       padding-left: 36px;
     }
 
-    .cpu-breakdown-table tr[data-depth="3"] th span {
+    .cpu-breakdown-table tr[data-depth="3"] th .metric-tree-label {
       padding-left: 54px;
     }
 
-    .cpu-breakdown-table tr[data-depth="4"] th span {
+    .cpu-breakdown-table tr[data-depth="4"] th .metric-tree-label {
       padding-left: 72px;
     }
 
-    .cpu-breakdown-table tr[data-depth]:not([data-depth="0"]) th span::before {
+    .cpu-breakdown-table tr[data-depth]:not([data-depth="0"]) th .metric-tree-label::before {
       content: "";
       position: absolute;
       left: calc(var(--cpu-breakdown-depth-left, 0px) + 4px);
@@ -613,19 +674,19 @@
       opacity: 0.62;
     }
 
-    .cpu-breakdown-table tr[data-depth="1"] th span {
+    .cpu-breakdown-table tr[data-depth="1"] th .metric-tree-label {
       --cpu-breakdown-depth-left: 0px;
     }
 
-    .cpu-breakdown-table tr[data-depth="2"] th span {
+    .cpu-breakdown-table tr[data-depth="2"] th .metric-tree-label {
       --cpu-breakdown-depth-left: 18px;
     }
 
-    .cpu-breakdown-table tr[data-depth="3"] th span {
+    .cpu-breakdown-table tr[data-depth="3"] th .metric-tree-label {
       --cpu-breakdown-depth-left: 36px;
     }
 
-    .cpu-breakdown-table tr[data-depth="4"] th span {
+    .cpu-breakdown-table tr[data-depth="4"] th .metric-tree-label {
       --cpu-breakdown-depth-left: 54px;
     }
 
@@ -2566,13 +2627,8 @@
           <div class="network-breakdown">
             <div class="network-breakdown-head">
               <div class="panel-title" data-i18n="gm.cpu-breakdown">CPU 热点分项</div>
-              <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <button id="cpu-breakdown-sort-total" class="small-btn primary" type="button" data-i18n="gm.cpu-breakdown-sort-total">总耗时</button>
-                <button id="cpu-breakdown-sort-count" class="small-btn" type="button" data-i18n="gm.cpu-breakdown-sort-count">次数</button>
-                <button id="cpu-breakdown-sort-avg" class="small-btn" type="button" data-i18n="gm.cpu-breakdown-sort-avg">单次</button>
-              </div>
             </div>
-            <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-cpu-breakdown-hint">按消耗分组展示；组内按当前排序口径排列，并显示总耗时、均秒耗时、均次耗时、总次数、均秒次数和总占比</div>
+            <div class="network-breakdown-subtitle" data-i18n="gm.network-breakdown-subtitle-cpu-breakdown-hint">按消耗分组展示；点击表头切换排序，点击分组展开或折叠。</div>
             <div id="cpu-breakdown-list" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-cpu-breakdown">当前还没有 CPU 分项数据。</div></div>
           </div>
         </div>
