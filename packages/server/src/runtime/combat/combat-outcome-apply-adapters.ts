@@ -104,26 +104,27 @@ export function createMonsterOutcomeApplyAdapter(handlers: OutcomeHandlers = {})
     const damage = normalizeDamage(result);
     const instance = resolveInstance(deps, outcome?.instanceId);
     // 应用伤害到怪物
-    const applied = targetMonsterId && damage >= 0
-      ? callFirstDefined([
-        () => handlers.applyMonsterDamage?.({ runtimeId: targetMonsterId, damage, attackerId: outcome?.actor?.id, outcome, result, application, deps, instance }),
-        () => instance?.applyDamageToMonster?.(targetMonsterId, damage, outcome?.actor?.id),
-      ])
-      : null;
+    let applied = null;
+    if (targetMonsterId && damage >= 0) {
+      applied = handlers.applyMonsterDamage?.({ runtimeId: targetMonsterId, damage, attackerId: outcome?.actor?.id, outcome, result, application, deps, instance });
+      if (applied === null || applied === undefined) {
+        applied = instance?.applyDamageToMonster?.(targetMonsterId, damage, outcome?.actor?.id);
+      }
+    }
     // 应用 buff 到怪物
     if (targetMonsterId && result?.buff) {
-      callFirstDefined([
-        () => handlers.applyMonsterBuff?.({ runtimeId: targetMonsterId, buff: result.buff, outcome, result, application, deps, instance }),
-        () => instance?.applyTemporaryBuffToMonster?.(targetMonsterId, result.buff),
-      ]);
+      let buffApplied = handlers.applyMonsterBuff?.({ runtimeId: targetMonsterId, buff: result.buff, outcome, result, application, deps, instance });
+      if (buffApplied === null || buffApplied === undefined) {
+        buffApplied = instance?.applyTemporaryBuffToMonster?.(targetMonsterId, result.buff);
+      }
     }
     // 击杀处理
     const defeated = result?.defeated === true || applied?.defeated === true;
     if (targetMonsterId && defeated) {
-      callFirstDefined([
-        () => handlers.handleMonsterDefeat?.({ runtimeId: targetMonsterId, attackerId: outcome?.actor?.id, outcome, result, application, deps, instance, applied }),
-        () => deps?.handlePlayerMonsterKill?.(instance, applied?.monster, outcome?.actor?.id),
-      ]);
+      let defeatHandled = handlers.handleMonsterDefeat?.({ runtimeId: targetMonsterId, attackerId: outcome?.actor?.id, outcome, result, application, deps, instance, applied });
+      if (defeatHandled === null || defeatHandled === undefined) {
+        defeatHandled = deps?.handlePlayerMonsterKill?.(instance, applied?.monster, outcome?.actor?.id);
+      }
     }
     return {
       ok: true,

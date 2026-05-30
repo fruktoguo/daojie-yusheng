@@ -1307,6 +1307,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         const outcomeDeps = castOptions?.combatActionPhase
             ? { ...deps, combatActionPhase: castOptions.combatActionPhase }
             : deps;
+        const outcomeDepsWithInstance = outcomeDeps?.instance === instance
+            ? outcomeDeps
+            : { ...outcomeDeps, instance };
         if (castOptions?.showActionLabel !== false) {
             emitCombatPresentation({
                 deps,
@@ -1464,7 +1467,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     continue;
                 }
                 const outcomeApplyStartedAt = performance.now();
-                const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
+                const appliedOutcome = this.applyPlayerSkillOutcome(outcomeDepsWithInstance, attacker, skill, {
                     kind: CombatTargetKind.Monster,
                     id: monster.runtimeId,
                 }, {
@@ -1670,7 +1673,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     continue;
                 }
                 const outcomeApplyStartedAt = performance.now();
-                const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
+                const appliedOutcome = this.applyPlayerSkillOutcome(outcomeDepsWithInstance, attacker, skill, {
                     kind: CombatTargetKind.Formation,
                     id: formation.id,
                     x: formation.x,
@@ -1868,7 +1871,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, effectiveTileDamage)
                 : effectiveTileDamage;
             const outcomeApplyStartedAt = performance.now();
-            const appliedOutcome = this.applyPlayerSkillOutcome({ ...outcomeDeps, instance }, attacker, skill, {
+            const appliedOutcome = this.applyPlayerSkillOutcome(outcomeDepsWithInstance, attacker, skill, {
                 kind: CombatTargetKind.Tile,
                 x: target.x,
                 y: target.y,
