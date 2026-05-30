@@ -3688,10 +3688,10 @@ export class PlayerRuntimeService {
     }
     /** accumulateOfflineGainAfterTick：累计玩家tick内实际收支；在线即时排队，离线归入挂机片段。 */
     accumulateOfflineGainAfterTick(player, beforeSnapshot, statisticChanged = true, options: any = {}) {
-        if (!beforeSnapshot || !normalizeOfflineGainString(player?.playerId)) {
+        const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
+        if (!beforeSnapshot || !normalizedPlayerId) {
             return;
         }
-        const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
         const offlineSession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
         const offline = offlineSession && !normalizeOfflineGainString(player?.sessionId);
         if (statisticChanged !== true) {
@@ -3731,7 +3731,7 @@ export class PlayerRuntimeService {
         if (offlineSession && !normalizeOfflineGainString(player?.sessionId)) {
             const offlineMergeStartedAt = performance.now();
             offlineSession.accumulatedDurationMs = normalizeOfflineGainCount(offlineSession.accumulatedDurationMs) + 1000;
-            if (!hasOfflineGainReportParts(delta)) {
+            if (!hasOfflineGainReportPartsFast(delta)) {
                 recordPlayerTickPerf(options, 'playerTick.offlineGainOfflineMergeMs', offlineMergeStartedAt);
                 return;
             }
@@ -3742,7 +3742,7 @@ export class PlayerRuntimeService {
             recordPlayerTickPerf(options, 'playerTick.offlineGainOfflineMergeMs', offlineMergeStartedAt);
             return;
         }
-        if (!hasOfflineGainReportParts(delta)) {
+        if (!hasOfflineGainReportPartsFast(delta)) {
             return;
         }
         if (!normalizeOfflineGainString(player?.sessionId)) {
@@ -5443,6 +5443,18 @@ function hasOfflineGainReportParts(parts) {
         || normalized.techniques.length > 0
         || normalized.professions.length > 0;
 }
+function hasOfflineGainReportPartsFast(parts) {
+    if (!parts || typeof parts !== 'object') {
+        return false;
+    }
+    const spiritStones = parts.spiritStones;
+    return normalizeOfflineGainCount(spiritStones?.gained) > 0
+        || normalizeOfflineGainCount(spiritStones?.lost) > 0
+        || (Array.isArray(parts.items) && parts.items.length > 0)
+        || (Array.isArray(parts.progress) && parts.progress.length > 0)
+        || (Array.isArray(parts.techniques) && parts.techniques.length > 0)
+        || (Array.isArray(parts.professions) && parts.professions.length > 0);
+}
 function buildEmptyPlayerStatisticTotals(now = Date.now()) {
     const generatedAt = Math.max(0, Math.trunc(Number(now) || Date.now()));
     return {
@@ -5492,12 +5504,27 @@ function buildPlayerStatisticLocalDayStart(timestamp = Date.now()) {
     const date = new Date(normalized);
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
+const PLAYER_STATISTIC_DAY_KEY_CACHE = {
+    startMs: -1,
+    endMs: -1,
+    key: '',
+};
 function buildPlayerStatisticLocalDayKey(timestamp = Date.now()) {
+    const normalized = Math.max(0, Math.trunc(Number(timestamp) || Date.now()));
+    if (normalized >= PLAYER_STATISTIC_DAY_KEY_CACHE.startMs && normalized < PLAYER_STATISTIC_DAY_KEY_CACHE.endMs) {
+        return PLAYER_STATISTIC_DAY_KEY_CACHE.key;
+    }
     const dayStart = buildPlayerStatisticLocalDayStart(timestamp);
     const year = dayStart.getFullYear();
     const month = String(dayStart.getMonth() + 1).padStart(2, '0');
     const day = String(dayStart.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const nextDayStart = new Date(dayStart.getTime());
+    nextDayStart.setDate(dayStart.getDate() + 1);
+    const key = `${year}-${month}-${day}`;
+    PLAYER_STATISTIC_DAY_KEY_CACHE.startMs = dayStart.getTime();
+    PLAYER_STATISTIC_DAY_KEY_CACHE.endMs = nextDayStart.getTime();
+    PLAYER_STATISTIC_DAY_KEY_CACHE.key = key;
+    return key;
 }
 function buildPlayerStatisticTotalsView(persistedByDay, runtimeByDay, now = Date.now()) {
     const keys = buildPlayerStatisticPeriodDayKeys(now);
@@ -8598,11 +8625,13 @@ function tickTemporaryBuffs(buffs, player = null) {
             listChanged = true;
             continue;
         }
-        const tickEffectResult = applyBuffTickEffects(player, buff);
-        if (tickEffectResult.vitalsChanged) {
-            vitalsChanged = true;
-            if (player && player.hp <= 0) {
-                defeated = true;
+        if (player && Array.isArray(buff.tickEffects) && buff.tickEffects.length > 0) {
+            const tickEffectResult = applyBuffTickEffects(player, buff);
+            if (tickEffectResult.vitalsChanged) {
+                vitalsChanged = true;
+                if (player.hp <= 0) {
+                    defeated = true;
+                }
             }
         }
         if (buff.infiniteDuration === true) {
@@ -8616,8 +8645,8 @@ function tickTemporaryBuffs(buffs, player = null) {
                     continue;
                 }
             }
-            const nextRemainingTicks = Math.max(1, Math.round(Number(buff.remainingTicks) || 1));
-            if (buff.remainingTicks !== nextRemainingTicks) {
+            if (!Number.isInteger(buff.remainingTicks) || buff.remainingTicks < 1) {
+                const nextRemainingTicks = Math.max(1, Math.round(Number(buff.remainingTicks) || 1));
                 buff.remainingTicks = nextRemainingTicks;
                 durationChanged = true;
             }
