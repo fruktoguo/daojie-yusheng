@@ -2819,7 +2819,7 @@ function buildCpuBreakdownStructureKey(groups: CpuBreakdownGroup[]): string {
 function renderCpuBreakdownRows(groups: CpuBreakdownGroup[], windowSec: number, depth = 0): string {
   return groups.map((group) => {
     const rowClass = group.grouped ? 'cpu-breakdown-group-row' : 'cpu-breakdown-child-row';
-    const label = depth <= 0 ? group.label : stripCpuChildLabel(group.label);
+    const label = depth <= 0 || group.grouped ? group.label : stripCpuChildLabel(group.label);
     return `
       <tr class="${rowClass}" data-key="${escapeHtml(group.key)}" data-depth="${depth}">
         <th scope="row"><span>${escapeHtml(label)}</span></th>
