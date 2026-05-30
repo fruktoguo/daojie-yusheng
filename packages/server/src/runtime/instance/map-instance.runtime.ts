@@ -295,6 +295,8 @@ class MapInstanceRuntime {
     worldRevision = 0;    
     /** 玩家视野快照缓存；同一玩家在世界/自身 revision 未变时复用视野数组，降低空 tick 分配。 */
     playerViewCacheByPlayerId = new Map();
+    /** 自动战斗轻量视野缓存；只包含目标选择需要的玩家和妖兽。 */
+    autoCombatViewCacheByPlayerId = new Map();
     /** 可见玩家视野条目缓存；同一玩家展示字段未变时复用条目对象。 */
     localPlayerViewCacheByPlayerId = new Map();
     /** NPC 视野条目缓存；静态 NPC 不再为每个玩家重复创建条目对象。 */
@@ -626,6 +628,7 @@ class MapInstanceRuntime {
         if (existing) {
             existing.sessionId = request.sessionId;
             this.playerViewCacheByPlayerId.delete(request.playerId);
+            this.autoCombatViewCacheByPlayerId.delete(request.playerId);
             return existing;
         }
 
@@ -711,6 +714,7 @@ class MapInstanceRuntime {
         this.playersByHandle.delete(player.handle);
         this.pendingCommands.delete(playerId);
         this.playerViewCacheByPlayerId.delete(playerId);
+        this.autoCombatViewCacheByPlayerId.delete(playerId);
         // P0-4 entry cache 跟随 entity lifecycle 释放：玩家从实例移除时清理 view 条目，避免单实例 cache 累积曾路过玩家。
         this.localPlayerViewCacheByPlayerId.delete(playerId);
         this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
@@ -2331,6 +2335,39 @@ class MapInstanceRuntime {
             localBuildings,
         };
         this.playerViewCacheByPlayerId.set(playerId, {
+            worldRevision: this.worldRevision,
+            selfRevision: player.selfRevision,
+            x: player.x,
+            y: player.y,
+            radius: normalizedRadius,
+            view,
+        });
+        return view;
+    }
+    /** buildAutoCombatView：构建自动战斗目标选择需要的轻量视野。 */
+    buildAutoCombatView(playerId, radius = DEFAULT_VIEW_RADIUS) {
+        // 自动战斗只需要可见玩家和妖兽，不构造完整客户端视野包。
+        const player = this.playersById.get(playerId);
+        if (!player) {
+            return null;
+        }
+        const normalizedRadius = Math.max(1, Math.trunc(Number(radius) || DEFAULT_VIEW_RADIUS));
+        const cached = this.autoCombatViewCacheByPlayerId.get(playerId);
+        if (cached
+            && cached.worldRevision === this.worldRevision
+            && cached.selfRevision === player.selfRevision
+            && cached.x === player.x
+            && cached.y === player.y
+            && cached.radius === normalizedRadius) {
+            return cached.view;
+        }
+
+        const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, normalizedRadius);
+        const view = {
+            visiblePlayers: this.collectVisiblePlayers(player, normalizedRadius, visibleTileVisibility),
+            localMonsters: this.collectLocalMonsters(player.x, player.y, normalizedRadius, visibleTileVisibility),
+        };
+        this.autoCombatViewCacheByPlayerId.set(playerId, {
             worldRevision: this.worldRevision,
             selfRevision: player.selfRevision,
             x: player.x,
@@ -5333,6 +5370,27 @@ class MapInstanceRuntime {
 
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const monsters = [];
+        if (visibility.indices instanceof Set) {
+            for (const tileIndex of visibility.indices) {
+                const runtimeId = this.monsterRuntimeIdByTile.get(tileIndex);
+                if (!runtimeId) {
+                    continue;
+                }
+                const monster = this.monstersByRuntimeId.get(runtimeId);
+                if (!monster?.alive) {
+                    if (monster?.runtimeId) {
+                        this.localMonsterViewCacheByRuntimeId.delete(monster.runtimeId);
+                    }
+                    continue;
+                }
+                if (!this.isTileInsideViewRadius(centerX, centerY, radius, monster.x, monster.y)) {
+                    continue;
+                }
+                monsters.push(this.getLocalMonsterViewEntry(monster));
+            }
+            monsters.sort(compareLocalMonsters);
+            return monsters;
+        }
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
                 this.localMonsterViewCacheByRuntimeId.delete(monster.runtimeId);

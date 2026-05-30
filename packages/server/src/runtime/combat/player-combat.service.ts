@@ -20,6 +20,11 @@ export class PlayerCombatService {
         this.playerRuntimeService = playerRuntimeService;
     }
 
+    /** 构建单次施法可复用的施法者战斗态，避免 AOE 多目标重复包装玩家属性。 */
+    createCombatPlayerState(player) {
+        return toCombatPlayerState(player);
+    }
+
     /** 解析并规范化玩家技能；同一次多目标施法可复用该结果，避免按目标重复扫描功法列表。 */
     resolvePlayerSkillForCast(attacker, skillId, currentTick) {
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
@@ -39,8 +44,9 @@ export class PlayerCombatService {
         const resolved = options?.resolvedSkill?.skill?.id === skillId
             ? options.resolvedSkill
             : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
+        const attackerState = options?.attackerCombatState ?? toCombatPlayerState(attacker);
 
-        const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), toCombatPlayerState(target), resolved, currentTick, distance, {
+        const result = this.executeResolvedSkillCast(attackerState, toCombatPlayerState(target), resolved, currentTick, distance, {
             spendQi: (amount) => {
                 if (options?.skipResourceAndCooldown === true) {
                     return;
@@ -82,7 +88,7 @@ export class PlayerCombatService {
         const resolved = options?.resolvedSkill?.skill?.id === skillId
             ? options.resolvedSkill
             : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
-        const selfState = toCombatPlayerState(attacker);
+        const selfState = options?.attackerCombatState ?? toCombatPlayerState(attacker);
         const result = this.executeResolvedSkillCast(selfState, selfState, resolved, currentTick, 0, {
             spendQi: (amount) => {
                 if (options?.skipResourceAndCooldown === true) {
@@ -120,8 +126,9 @@ export class PlayerCombatService {
         const resolved = options?.resolvedSkill?.skill?.id === skillId
             ? options.resolvedSkill
             : this.resolvePlayerSkillForCast(attacker, skillId, currentTick);
+        const attackerState = options?.attackerCombatState ?? toCombatPlayerState(attacker);
 
-        const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), target, resolved, currentTick, distance, {
+        const result = this.executeResolvedSkillCast(attackerState, target, resolved, currentTick, distance, {
             spendQi: (amount) => {
                 if (options?.skipResourceAndCooldown === true) {
                     return;

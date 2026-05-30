@@ -510,6 +510,7 @@ export class WorldRuntimePlayerSkillDispatchService {
     worldRuntimeCombatActionService;
     worldRuntimeThreatService;
     playerSkillOutcomeAdapters;
+    monsterCombatStateCache = new WeakMap();
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -531,6 +532,10 @@ export class WorldRuntimePlayerSkillDispatchService {
             handleMonsterDefeat: () => ({ deferred: true }),
         });
     }    
+    /** resolveMonsterCombatTargetState：复用妖兽稳定战斗字段，避免多目标施法重复包装。 */
+    resolveMonsterCombatTargetState(monster) {
+        return resolveCachedMonsterCombatTargetState(monster, this.playerRuntimeService, this.monsterCombatStateCache);
+    }
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
  * @param playerId 玩家 ID。
@@ -1307,6 +1312,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         let totalSkillHeal = 0;
         let selfBuffs = [];
         const destroyedTiles = [];
+        const attackerCombatState = typeof this.playerCombatService.createCombatPlayerState === 'function'
+            ? this.playerCombatService.createCombatPlayerState(attacker)
+            : undefined;
         const targetApplyStartedAt = performance.now();
         for (const target of targets) {
             const options = {
@@ -1316,6 +1324,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 skipRangeValidation: true,
                 range: effectiveRange,
                 resolvedSkill,
+                attackerCombatState,
             };
             if (target.kind === 'self') {
                 const combatResolveStartedAt = performance.now();
@@ -1385,24 +1394,9 @@ export class WorldRuntimePlayerSkillDispatchService {
                     continue;
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y);
+                const monsterCombatState = this.resolveMonsterCombatTargetState(monster);
                 const combatResolveStartedAt = performance.now();
-                const result = this.playerCombatService.castSkillToMonster(attacker, {
-                    runtimeId: monster.runtimeId,
-                    monsterId: monster.monsterId,
-                    hp: monster.hp,
-                    maxHp: monster.maxHp,
-                    qi: 0,
-                    maxQi: 0,
-                    level: monster.level,
-                    realmLv: monster.level,
-                    combatExp: resolveMonsterCombatExpEquivalent(monster, this.playerRuntimeService),
-                    attrs: {
-                        finalAttrs: monster.attrs,
-                        numericStats: monster.numericStats,
-                        ratioDivisors: monster.ratioDivisors,
-                    },
-                    buffs: monster.buffs,
-                }, skillId, currentTick, distance, (buff) => {
+                const result = this.playerCombatService.castSkillToMonster(attacker, monsterCombatState, skillId, currentTick, distance, (buff) => {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
                 }, options);
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
@@ -2408,6 +2402,50 @@ export class WorldRuntimePlayerSkillDispatchService {
         });
     }
 };
+
+function resolveCachedMonsterCombatTargetState(monster, playerRuntimeService, cache) {
+    const cached = cache.get(monster);
+    if (cached
+        && cached.attrsRef === monster.attrs
+        && cached.numericStatsRef === monster.numericStats
+        && cached.ratioDivisorsRef === monster.ratioDivisors
+        && cached.level === monster.level
+        && cached.tier === monster.tier) {
+        cached.state.hp = monster.hp;
+        cached.state.maxHp = monster.maxHp;
+        cached.state.qi = monster.qi ?? 0;
+        cached.state.maxQi = monster.maxQi ?? 0;
+        cached.state.buffs = monster.buffs;
+        return cached.state;
+    }
+    const attrs = {
+        finalAttrs: monster.attrs,
+        numericStats: monster.numericStats,
+        ratioDivisors: monster.ratioDivisors,
+    };
+    const state = {
+        runtimeId: monster.runtimeId,
+        monsterId: monster.monsterId,
+        level: monster.level,
+        realmLv: monster.level,
+        combatExp: resolveMonsterCombatExpEquivalent(monster, playerRuntimeService),
+        attrs,
+        hp: monster.hp,
+        maxHp: monster.maxHp,
+        qi: monster.qi ?? 0,
+        maxQi: monster.maxQi ?? 0,
+        buffs: monster.buffs,
+    };
+    cache.set(monster, {
+        attrsRef: monster.attrs,
+        numericStatsRef: monster.numericStats,
+        ratioDivisorsRef: monster.ratioDivisors,
+        level: monster.level,
+        tier: monster.tier,
+        state,
+    });
+    return state;
+}
 
 function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
     const progressionService = playerRuntimeService?.playerProgressionService;

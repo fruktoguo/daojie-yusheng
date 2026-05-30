@@ -549,7 +549,9 @@ export class WorldRuntimeAutoCombatService {
 
         const inSafeZone = instance.isPointInSafeZone(player.x, player.y);
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-        const view = instance.buildPlayerView(player.playerId, radius);
+        const view = typeof instance.buildAutoCombatView === 'function'
+            ? instance.buildAutoCombatView(player.playerId, radius)
+            : instance.buildPlayerView(player.playerId, radius);
         if (!view) {
             return null;
         }

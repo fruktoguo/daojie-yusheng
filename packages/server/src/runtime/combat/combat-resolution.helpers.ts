@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { COMBAT_EXPERIENCE_ADVANTAGE_BASELINE, COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD, DEFAULT_RATIO_DIVISOR, ratioValue } from '@mud/shared';
-import { randomInt } from 'node:crypto';
+import { randomFillSync } from 'node:crypto';
 
 type CombatRng = (() => number) | null;
 
@@ -12,10 +12,24 @@ type CombatRng = (() => number) | null;
 const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
 /** 防御减伤公式中基础值。 */
 const DEFENSE_REDUCTION_BASELINE = 100;
+const COMBAT_RANDOM_POOL_SIZE = 4096;
+const COMBAT_RANDOM_UINT32_SCALE = 0x100000000;
 
 // ─── 随机源管理 ───
 
 let combatRngOverride: CombatRng = null;
+let combatRandomPool = new Uint32Array(0);
+let combatRandomPoolIndex = 0;
+
+function nextCryptoRandomUnit() {
+    if (combatRandomPoolIndex >= combatRandomPool.length) {
+        combatRandomPool = randomFillSync(new Uint32Array(COMBAT_RANDOM_POOL_SIZE));
+        combatRandomPoolIndex = 0;
+    }
+    const value = combatRandomPool[combatRandomPoolIndex] ?? 0;
+    combatRandomPoolIndex += 1;
+    return value / COMBAT_RANDOM_UINT32_SCALE;
+}
 
 /**
  * 战斗随机数生成器。
@@ -29,7 +43,7 @@ function cryptoRandom() {
             return Math.min(1, Math.max(0, value));
         }
     }
-    return randomInt(0, 2147483647) / 2147483647;
+    return nextCryptoRandomUnit();
 }
 
 /** 导出供 combat-pipeline 环节使用的随机源引用。 */
