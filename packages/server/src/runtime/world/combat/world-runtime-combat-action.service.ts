@@ -747,7 +747,7 @@ export class WorldRuntimeCombatActionService {
           ? getMonsterAtTile(cell.x, cell.y)
           : monsterByTile?.get(buildCombatTileKey(cell.x, cell.y));
         if (monster?.runtimeId) {
-          pushCandidate({ kind: CombatTargetKind.Monster, id: monster.runtimeId, source: 'affected_cell' });
+          pushCandidate({ kind: CombatTargetKind.Monster, id: monster.runtimeId, x: monster.x, y: monster.y, runtime: monster, source: 'affected_cell' });
         }
       }
       if (targets.length >= definition.maxTargets) {
@@ -1331,9 +1331,10 @@ export class WorldRuntimeCombatActionService {
     }
     if (kind === CombatTargetKind.Monster) {
       const monsterId = target.id;
-      const monster = typeof instance?.getMonster === 'function'
-        ? instance.getMonster(monsterId)
-        : input.monstersById?.get?.(monsterId) ?? target.runtime ?? null;
+      const monster = target.runtime
+        ?? (typeof instance?.getMonster === 'function'
+          ? instance.getMonster(monsterId)
+          : input.monstersById?.get?.(monsterId) ?? null);
       if (!monster) {
         return {
           ok: false,

@@ -3279,6 +3279,18 @@ class MapInstanceRuntime {
         return Array.from(this.monstersByRuntimeId.values(), (monster) => snapshotMonster(monster))
             .sort((left, right) => left.runtimeId.localeCompare(right.runtimeId, 'zh-Hans-CN'));
     }
+    /** getMonsterAtTile：按地块读取存活妖兽，供战斗规划避免全量列怪建索引。 */
+    getMonsterAtTile(x, y) {
+        if (!this.isInBounds(x, y)) {
+            return null;
+        }
+        const runtimeId = this.monsterRuntimeIdByTile.get(this.toTileIndex(x, y));
+        if (!runtimeId) {
+            return null;
+        }
+        const monster = this.monstersByRuntimeId.get(runtimeId);
+        return monster?.alive ? snapshotMonster(monster) : null;
+    }
     /** addRuntimeMonster：添加运行时动态妖兽，不绑定普通地图刷新点持久化。 */
     addRuntimeMonster(monster) {
         if (!monster || typeof monster.runtimeId !== 'string' || !monster.runtimeId.trim()) {
