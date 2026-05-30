@@ -509,6 +509,7 @@ export class WorldRuntimePlayerSkillDispatchService {
     playerCombatService;    
     worldRuntimeCombatActionService;
     worldRuntimeThreatService;
+    playerSkillOutcomeAdapters;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
@@ -526,6 +527,9 @@ export class WorldRuntimePlayerSkillDispatchService {
         this.playerCombatService = playerCombatService;
         this.worldRuntimeCombatActionService = worldRuntimeCombatActionService ?? new WorldRuntimeCombatActionService();
         this.worldRuntimeThreatService = worldRuntimeThreatService ?? new WorldRuntimeThreatService();
+        this.playerSkillOutcomeAdapters = createCombatOutcomeApplyAdapters({
+            handleMonsterDefeat: () => ({ deferred: true }),
+        });
     }    
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -2155,16 +2159,20 @@ export class WorldRuntimePlayerSkillDispatchService {
                 skillId: skill?.id ?? result?.skillId,
                 ...result,
             },
-            deps: {
-                ...deps,
-                playerRuntimeService: this.playerRuntimeService,
-            },
-            adapters: createCombatOutcomeApplyAdapters({
-                handleMonsterDefeat: () => ({ deferred: true }),
-            }),
+            deps: this.resolvePlayerSkillOutcomeDeps(deps),
+            adapters: this.playerSkillOutcomeAdapters,
             mergeAdapterResultToOutcome: true,
             record: true,
         });
+    }
+    resolvePlayerSkillOutcomeDeps(deps) {
+        if (deps?.playerRuntimeService === this.playerRuntimeService) {
+            return deps;
+        }
+        return {
+            ...deps,
+            playerRuntimeService: this.playerRuntimeService,
+        };
     }
 
     recordPlayerSkillOutcome(deps, attacker, skill, target, result: AnyRecord = {}, details: AnyRecord = {}) {

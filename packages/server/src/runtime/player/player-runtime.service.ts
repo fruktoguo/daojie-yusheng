@@ -3516,6 +3516,7 @@ export class PlayerRuntimeService {
             const offlineGainBefore = this.captureOfflineGainBeforeTick(player);
             let statisticChangedThisTick = false;
             recordPlayerTickPerf(options, 'playerTick.offlineGainSnapshotMs', offlineGainSnapshotStartedAt);
+            let statisticProgressionOnlyThisTick = true;
             const chronologyStartedAt = performance.now();
             if (advancePlayerChronology(player)) {
                 markPlayerDirtyDomains(player, ['progression']);
@@ -3567,6 +3568,7 @@ export class PlayerRuntimeService {
                 });
                 this.applyProgressionResult(player, result, playerTick);
                 statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;
+                statisticProgressionOnlyThisTick = statisticProgressionOnlyThisTick && isProgressionOnlyStatisticResult(result);
                 recordPlayerTickPerf(options, 'playerTick.cultivationAdvanceMs', cultivationAdvanceStartedAt);
             }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
@@ -3574,6 +3576,7 @@ export class PlayerRuntimeService {
                 const result = this.playerProgressionService.autoRefineRootFoundation(player);
                 this.applyProgressionResult(player, result, playerTick, true);
                 statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;
+                statisticProgressionOnlyThisTick = statisticProgressionOnlyThisTick && isProgressionOnlyStatisticResult(result);
                 this.disableAutoRootFoundationAtCap(player, playerTick);
                 recordPlayerTickPerf(options, 'playerTick.rootFoundationMs', rootFoundationStartedAt);
             }
@@ -3583,7 +3586,9 @@ export class PlayerRuntimeService {
                 recordPlayerTickPerf(options, 'playerTick.cooldownActionStateMs', cooldownActionStateStartedAt);
             }
             const offlineGainAccumulateStartedAt = performance.now();
-            this.accumulateOfflineGainAfterTick(player, offlineGainBefore, statisticChangedThisTick);
+            this.accumulateOfflineGainAfterTick(player, offlineGainBefore, statisticChangedThisTick, {
+                progressionOnly: statisticProgressionOnlyThisTick,
+            });
             recordPlayerTickPerf(options, 'playerTick.offlineGainAccumulateMs', offlineGainAccumulateStartedAt);
 
             // stateDelta 发射：仅在数值实际变化时入队
@@ -3640,7 +3645,7 @@ export class PlayerRuntimeService {
         return snapshot;
     }
     /** accumulateOfflineGainAfterTick：累计玩家tick内实际收支；在线即时排队，离线归入挂机片段。 */
-    accumulateOfflineGainAfterTick(player, beforeSnapshot, statisticChanged = true) {
+    accumulateOfflineGainAfterTick(player, beforeSnapshot, statisticChanged = true, options: any = {}) {
         if (!beforeSnapshot || !normalizeOfflineGainString(player?.playerId)) {
             return;
         }
@@ -3653,20 +3658,28 @@ export class PlayerRuntimeService {
             }
             return;
         }
-        this.recordPlayerStatisticMutation(player, beforeSnapshot);
+        this.recordPlayerStatisticMutation(player, beforeSnapshot, Date.now(), {
+            progressionOnly: options?.progressionOnly === true,
+        });
     }
     /** recordPlayerStatisticMutation：把一次权威变更按发生时刻记入全局收支；离线时先归入离线会话。 */
-    recordPlayerStatisticMutation(player, beforeSnapshot, endedAt = Date.now()) {
+    recordPlayerStatisticMutation(player, beforeSnapshot, endedAt = Date.now(), options: any = {}) {
         if (!beforeSnapshot || !normalizeOfflineGainString(player?.playerId)) {
             return;
         }
         const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
-        const afterSnapshot = buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
-        const delta = buildOfflineGainDeltaParts(
-            normalizeOfflineGainSnapshot(beforeSnapshot),
-            normalizeOfflineGainSnapshot(afterSnapshot),
-            (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level),
-        );
+        const progressionOnly = options?.progressionOnly === true;
+        const resolved = progressionOnly
+            ? buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot)
+            : null;
+        const afterSnapshot = resolved?.afterSnapshot
+            ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
+        const delta = resolved?.delta
+            ?? buildOfflineGainDeltaParts(
+                normalizeOfflineGainSnapshot(beforeSnapshot),
+                normalizeOfflineGainSnapshot(afterSnapshot),
+                (level) => resolveCraftSkillExpToNextByLevel(this.playerProgressionService, level),
+            );
         this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, afterSnapshot);
         const offlineSession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
         if (offlineSession && !normalizeOfflineGainString(player?.sessionId)) {
@@ -4727,7 +4740,9 @@ export class PlayerRuntimeService {
     applyProgressionResultWithStatistics(player, result, beforeSnapshot, currentTick = 0, rebuildActions = false) {
         this.applyProgressionResult(player, result, currentTick, rebuildActions);
         if (result?.changed) {
-            this.recordPlayerStatisticMutation(player, beforeSnapshot);
+            this.recordPlayerStatisticMutation(player, beforeSnapshot, Date.now(), {
+                progressionOnly: isProgressionOnlyStatisticResult(result),
+            });
         }
         return player;
     }
@@ -5173,6 +5188,23 @@ function createEmptyOfflineGainReportParts() {
         professions: [],
     };
 }
+const PROGRESSION_ONLY_STATISTIC_DOMAINS = new Set([
+    'progression',
+    'attr',
+    'technique',
+    'body_training',
+    'vitals',
+]);
+function isProgressionOnlyStatisticResult(result) {
+    if (result?.changed !== true) {
+        return true;
+    }
+    const dirtyDomains = Array.isArray(result?.dirtyDomains) ? result.dirtyDomains : [];
+    if (dirtyDomains.length === 0) {
+        return true;
+    }
+    return dirtyDomains.every((domain) => PROGRESSION_ONLY_STATISTIC_DOMAINS.has(domain));
+}
 function mergeOfflineGainSessionRecords(persistedSession, memorySession) {
     if (!persistedSession && !memorySession) {
         return null;
@@ -5223,6 +5255,47 @@ function buildOfflineGainDeltaParts(before, after, resolveProfessionExpToNext = 
         progress: diffOfflineGainProgress(before, after),
         techniques: diffOfflineGainTechniques(before.techniques, after.techniques),
         professions: diffOfflineGainProfessions(before.professions, after.professions, resolveProfessionExpToNext),
+    };
+}
+function buildOfflineGainProgressionOnlyMutation(player, beforeSnapshot) {
+    const before = normalizeOfflineGainSnapshot(beforeSnapshot);
+    const afterSnapshot = buildOfflineGainProgressionOnlySnapshot(player, before);
+    const after = normalizeOfflineGainSnapshot(afterSnapshot);
+    return {
+        afterSnapshot,
+        delta: {
+            spiritStones: { gained: 0, lost: 0, net: 0 },
+            items: [],
+            progress: diffOfflineGainProgress(before, after),
+            techniques: diffOfflineGainTechniques(before.techniques, after.techniques),
+            professions: [],
+        },
+    };
+}
+function buildOfflineGainProgressionOnlySnapshot(player, previousSnapshot) {
+    return {
+        snapshotAt: Date.now(),
+        playerId: normalizeOfflineGainString(player?.playerId),
+        inventoryItems: previousSnapshot.inventoryItems,
+        realm: {
+            realmLv: normalizeOfflineGainCount(player?.realm?.realmLv),
+            level: normalizeOfflineGainCount(player?.realm?.realmLv),
+            progress: normalizeOfflineGainCount(player?.realm?.progress),
+            exp: normalizeOfflineGainCount(player?.realm?.progress),
+            progressToNext: normalizeOfflineGainCount(player?.realm?.progressToNext),
+            expToNext: normalizeOfflineGainCount(player?.realm?.progressToNext),
+        },
+        foundation: normalizeOfflineGainCount(player?.foundation),
+        rootFoundation: normalizeOfflineGainCount(player?.rootFoundation),
+        combatExp: normalizeOfflineGainCount(player?.combatExp),
+        bodyTraining: buildOfflineGainExpStateSnapshot(player?.bodyTraining, {
+            minLevel: 0,
+            resolveExpToNext: (level) => typeof getBodyTrainingExpToNext === 'function'
+                ? getBodyTrainingExpToNext(level)
+                : normalizeOfflineGainCount(player?.bodyTraining?.expToNext),
+        }),
+        techniques: buildOfflineGainTechniqueSnapshot(player?.techniques?.techniques),
+        professions: previousSnapshot.professions.map((entry) => ({ ...entry })),
     };
 }
 function hasOfflineGainReportParts(parts) {
