@@ -9,6 +9,7 @@ import { canMergeItemStack, createItemStackSignature } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { DurableOperationService } from '../../persistence/durable-operation.service';
 import { InstanceCatalogService } from '../../persistence/instance-catalog.service';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { RedeemCodePersistenceService } from '../../persistence/redeem-code-persistence.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
@@ -49,6 +50,8 @@ export class RedeemCodeRuntimeService {
     durableOperationService;
     /** instanceCatalogService：实例 lease 查询服务引用。 */
     instanceCatalogService;
+    /** playerDomainPersistenceService：玩家 presence fence 真源。 */
+    playerDomainPersistenceService;
     _redeemRateMap = new Map();
     /** 当前全部兑换码分组。 */
     groups = [];
@@ -65,12 +68,14 @@ export class RedeemCodeRuntimeService {
         @Inject(RedeemCodePersistenceService) redeemCodePersistenceService: any,
         @Inject(DurableOperationService) durableOperationService: any = null,
         @Inject(InstanceCatalogService) instanceCatalogService: any = null,
+        @Inject(PlayerDomainPersistenceService) playerDomainPersistenceService: any = null,
     ) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.redeemCodePersistenceService = redeemCodePersistenceService;
         this.durableOperationService = durableOperationService;
         this.instanceCatalogService = instanceCatalogService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
     }
     /** 模块初始化时从持久化回填兑换码数据。 */
     async onModuleInit() {
@@ -124,7 +129,7 @@ export class RedeemCodeRuntimeService {
         const normalizedRewards = this.normalizeRewardsForMutation(rewards);
 
         const normalizedCount = normalizeCreateCount(count);
-        return this.runExclusive(async () => {
+        return this.runExclusiveWithRedeemCatalogRollback(async () => {
             if (this.groups.some((entry) => entry.name === normalizedName)) {
                 throw new BadRequestException('兑换码分组名称已存在');
             }
@@ -155,7 +160,7 @@ export class RedeemCodeRuntimeService {
         const normalizedName = normalizeGroupName(name);
 
         const normalizedRewards = this.normalizeRewardsForMutation(rewards);
-        return this.runExclusive(async () => {
+        return this.runExclusiveWithRedeemCatalogRollback(async () => {
 
             const group = this.requireGroup(groupId);
 
@@ -174,7 +179,7 @@ export class RedeemCodeRuntimeService {
     async appendCodes(groupId, count) {
 
         const normalizedCount = normalizeCreateCount(count);
-        return this.runExclusive(async () => {
+        return this.runExclusiveWithRedeemCatalogRollback(async () => {
 
             const group = this.requireGroup(groupId);
 
@@ -200,7 +205,7 @@ export class RedeemCodeRuntimeService {
         if (!normalizedCodeId) {
             throw new BadRequestException('目标兑换码不存在');
         }
-        return this.runExclusive(async () => {
+        return this.runExclusiveWithRedeemCatalogRollback(async () => {
 
             const code = this.codes.find((entry) => entry.id === normalizedCodeId);
             if (!code) {
@@ -545,34 +550,46 @@ export class RedeemCodeRuntimeService {
         if (normalizedItems.length === 0) {
             return;
         }
-        const durableContext = await this.resolveDurableInventoryGrantContext(player);
-        if (!durableContext) {
-            throw new ServiceUnavailableException('redeem_code_inventory_durable_context_required');
-        }
+        await this.syncCurrentPresenceFence(player.playerId);
         const nextInventoryItems = buildNextInventorySnapshots(player.inventory?.items ?? [], normalizedItems);
-        const rollbackState = captureInventoryGrantRollbackState(player);
-        player.suppressImmediateDomainPersistence = true;
-        try {
-            await this.durableOperationService.grantInventoryItems({
-                operationId: `op:${player.playerId}:redeem-code:${submittedCode}`,
-                playerId: player.playerId,
-                expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
-                expectedSessionEpoch: durableContext.sessionEpoch,
-                expectedInstanceId: durableContext.expectedInstanceId,
-                expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
-                expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
-                sourceType: 'redeem_code',
-                sourceRefId: submittedCode,
-                grantedItems: buildGrantedInventorySnapshots(normalizedItems),
-                nextInventoryItems,
-            });
+        let finalError = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            const durableContext = await this.resolveDurableInventoryGrantContext(player);
+            if (!durableContext) {
+                throw new ServiceUnavailableException('redeem_code_inventory_durable_context_required');
+            }
+            const rollbackState = captureInventoryGrantRollbackState(player);
+            player.suppressImmediateDomainPersistence = true;
+            try {
+                await this.durableOperationService.grantInventoryItems({
+                    operationId: `op:${player.playerId}:redeem-code:${submittedCode}`,
+                    playerId: player.playerId,
+                    expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
+                    expectedSessionEpoch: durableContext.sessionEpoch,
+                    expectedInstanceId: durableContext.expectedInstanceId,
+                    expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
+                    expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
+                    sourceType: 'redeem_code',
+                    sourceRefId: submittedCode,
+                    grantedItems: buildGrantedInventorySnapshots(normalizedItems),
+                    nextInventoryItems,
+                });
+                finalError = null;
+                player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+                break;
+            }
+            catch (error) {
+                finalError = error;
+                restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
+                player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+                if (attempt === 0 && shouldRetryRedeemSessionFence(error) && await this.syncCurrentPresenceFence(player.playerId)) {
+                    continue;
+                }
+                break;
+            }
         }
-        catch (error) {
-            restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
-            throw error;
-        }
-        finally {
-            player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+        if (finalError) {
+            throw finalError;
         }
         this.playerRuntimeService.replaceInventoryItems(player.playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
     }
@@ -600,26 +617,44 @@ export class RedeemCodeRuntimeService {
     }
     /** 兑换码钱包奖励必须走 durable 钱包事务，禁止 direct runtime fallback。 */
     async grantWalletReward(player, item, submittedCode) {
-        const durableContext = await this.resolveDurableInventoryGrantContext(player);
-        if (!durableContext || !this.durableOperationService?.isEnabled?.() || typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
-            throw new ServiceUnavailableException('redeem_code_wallet_durable_context_required');
-        }
         const walletType = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
         const amount = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
         const nextWalletBalances = buildNextWalletBalances(player.wallet?.balances ?? [], walletType, amount);
-        await this.durableOperationService.mutatePlayerWallet({
-            operationId: `op:${player.playerId}:redeem-code-wallet:${submittedCode}:${walletType}`,
-            playerId: player.playerId,
-            expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
-            expectedSessionEpoch: durableContext.sessionEpoch,
-            expectedInstanceId: durableContext.expectedInstanceId,
-            expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
-            expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
-            walletType,
-            action: 'credit',
-            delta: amount,
-            nextWalletBalances,
-        });
+        await this.syncCurrentPresenceFence(player.playerId);
+        let finalError = null;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+            const durableContext = await this.resolveDurableInventoryGrantContext(player);
+            if (!durableContext || !this.durableOperationService?.isEnabled?.() || typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
+                throw new ServiceUnavailableException('redeem_code_wallet_durable_context_required');
+            }
+            try {
+                await this.durableOperationService.mutatePlayerWallet({
+                    operationId: `op:${player.playerId}:redeem-code-wallet:${submittedCode}:${walletType}`,
+                    playerId: player.playerId,
+                    expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
+                    expectedSessionEpoch: durableContext.sessionEpoch,
+                    expectedInstanceId: durableContext.expectedInstanceId,
+                    expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
+                    expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
+                    walletType,
+                    action: 'credit',
+                    delta: amount,
+                    nextWalletBalances,
+                });
+                finalError = null;
+                break;
+            }
+            catch (error) {
+                finalError = error;
+                if (attempt === 0 && shouldRetryRedeemSessionFence(error) && await this.syncCurrentPresenceFence(player.playerId)) {
+                    continue;
+                }
+                break;
+            }
+        }
+        if (finalError) {
+            throw finalError;
+        }
         this.playerRuntimeService.creditWallet(player.playerId, walletType, amount);
     }
     /** 解析兑换码 durable 发物所需的 session/lease 上下文。 */
@@ -647,15 +682,61 @@ export class RedeemCodeRuntimeService {
             expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
         };
     }
+    async syncCurrentPresenceFence(playerId) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return false;
+        }
+        const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
+            ? await this.playerDomainPersistenceService.loadPlayerPresence(playerId)
+            : null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        const persistedSessionEpoch = Number.isFinite(persistedPresence?.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
+        const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
+            ? persistedPresence.runtimeOwnerId.trim()
+            : '';
+        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+        const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
+        if (
+            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+            && persistedSessionEpoch > 0
+            && (
+                runtimeSessionEpoch <= persistedSessionEpoch
+                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+            )
+        ) {
+            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+            ...presence,
+            versionSeed: Date.now(),
+        });
+        return true;
+    }
     /** 持久化当前分组和码表快照。 */
     async persist() {
         this.revision += 1;
-        await this.redeemCodePersistenceService.saveDocument({
+        const saveFn = this.redeemCodePersistenceService?.saveDocument;
+        if (typeof saveFn !== 'function') {
+            throw new ServiceUnavailableException('redeem_code_persistence_unavailable');
+        }
+        const result = await saveFn.call(this.redeemCodePersistenceService, {
             version: 1,
             revision: this.revision,
             groups: this.groups.map((entry) => cloneGroup(entry)),
             codes: this.codes.map((entry) => cloneCode(entry)),
         });
+        if (result === false) {
+            throw new ServiceUnavailableException('redeem_code_persistence_unavailable');
+        }
     }
     /** 清理兑换频率缓存，避免长期运行后按历史玩家数永久增长。 */
     pruneRedeemRateMap(now = Date.now()) {
@@ -696,6 +777,23 @@ export class RedeemCodeRuntimeService {
         finally {
             release();
         }
+    }
+    /** GM 分组/码表变更必须先成功落库；失败时撤回本次内存态，避免重启后“成功但丢失”。 */
+    async runExclusiveWithRedeemCatalogRollback(action) {
+        return this.runExclusive(async () => {
+            const previousGroups = this.groups.map((entry) => cloneGroup(entry));
+            const previousCodes = this.codes.map((entry) => cloneCode(entry));
+            const previousRevision = this.revision;
+            try {
+                return await action();
+            }
+            catch (error) {
+                this.groups = previousGroups;
+                this.codes = previousCodes;
+                this.revision = previousRevision;
+                throw error;
+            }
+        });
     }
 };
 /**
@@ -944,6 +1042,10 @@ async function resolveInstanceLeaseContext(instanceId, instanceCatalogService) {
 }
 function isWalletRewardItemId(itemId) {
     return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
+}
+function shouldRetryRedeemSessionFence(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return message.startsWith('player_session_fencing_conflict');
 }
 /**
  * generateRedeemCode：执行generateRedeemCode相关逻辑。

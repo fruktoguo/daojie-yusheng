@@ -26,7 +26,7 @@ function nextTick(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-function buildHarness(code: string, options: { persistentClaim?: boolean } = {}) {
+function buildHarness(code: string, options: { persistentClaim?: boolean; persistedPresenceAhead?: boolean } = {}) {
   const playerId = 'player:redeem-durable-smoke';
   const nowIso = '2026-04-23T00:00:00.000Z';
   const player = {
@@ -57,6 +57,20 @@ function buildHarness(code: string, options: { persistentClaim?: boolean } = {})
   const logbookMessages: Array<Record<string, unknown>> = [];
   const persistedDocuments: Array<Record<string, unknown>> = [];
   const claimCalls: Array<Record<string, unknown>> = [];
+  const savedPresences: Array<Record<string, unknown>> = [];
+  const persistedPresence = options.persistedPresenceAhead === true
+    ? {
+        playerId,
+        online: true,
+        inWorld: true,
+        lastHeartbeatAt: 1000,
+        offlineSinceAt: null,
+        runtimeOwnerId: `runtime-owner:${playerId}:persisted`,
+        sessionEpoch: 28,
+        transferState: null,
+        transferTargetNodeId: null,
+      }
+    : null;
   const deferred = createDeferred<{ ok: boolean; alreadyCommitted: boolean; grantedCount: number; sourceType: string }>();
   const persistenceService: Record<string, unknown> = {
     async loadDocument() {
@@ -146,6 +160,32 @@ function buildHarness(code: string, options: { persistentClaim?: boolean } = {})
       enqueueNotice(_requestedPlayerId: string, payload: Record<string, unknown>) {
         notices.push(payload);
       },
+      describePersistencePresence(requestedPlayerId: string) {
+        assert.equal(requestedPlayerId, playerId);
+        return {
+          playerId,
+          online: true,
+          inWorld: true,
+          lastHeartbeatAt: 1000,
+          offlineSinceAt: null,
+          runtimeOwnerId: player.runtimeOwnerId,
+          sessionEpoch: player.sessionEpoch,
+          transferState: null,
+          transferTargetNodeId: null,
+        };
+      },
+      ensureRuntimeSessionFenceAtLeast(requestedPlayerId: string, sessionEpochFloor: number) {
+        assert.equal(requestedPlayerId, playerId);
+        const normalizedFloor = Math.max(1, Math.trunc(Number(sessionEpochFloor)));
+        if (Math.trunc(Number(player.sessionEpoch ?? 0)) <= normalizedFloor) {
+          player.sessionEpoch = normalizedFloor;
+          player.runtimeOwnerId = `runtime-owner:${playerId}:synced:${normalizedFloor}`;
+        }
+        return {
+          runtimeOwnerId: player.runtimeOwnerId,
+          sessionEpoch: player.sessionEpoch,
+        };
+      },
       playerProgressionService: {
         refreshPreview() {},
       },
@@ -174,6 +214,19 @@ function buildHarness(code: string, options: { persistentClaim?: boolean } = {})
           assigned_node_id: 'node:redeem-smoke',
           ownership_epoch: 12,
         };
+      },
+    } as never,
+    {
+      isEnabled() {
+        return options.persistedPresenceAhead === true;
+      },
+      async loadPlayerPresence(requestedPlayerId: string) {
+        assert.equal(requestedPlayerId, playerId);
+        return persistedPresence;
+      },
+      async savePlayerPresence(requestedPlayerId: string, presence: Record<string, unknown>) {
+        assert.equal(requestedPlayerId, playerId);
+        savedPresences.push(presence);
       },
     } as never,
   );
@@ -215,6 +268,7 @@ function buildHarness(code: string, options: { persistentClaim?: boolean } = {})
     logbookMessages,
     persistedDocuments,
     claimCalls,
+    savedPresences,
     deferred,
   };
 }
@@ -288,6 +342,23 @@ async function main(): Promise<void> {
   assert.equal(persistentClaimFailure.claimCalls[0]?.playerId, persistentClaimFailure.player.playerId);
   assert.equal(persistentClaimFailure.claimCalls[0]?.code, persistentClaimFailure.code);
   assert.equal((persistentClaimFailure as any).service.codes[0]?.status, 'used');
+
+  const staleFence = buildHarness('REDEEM-DURABLE-CODE-004', { persistedPresenceAhead: true });
+  const staleFencePromise = staleFence.service.redeemCodes(staleFence.player.playerId, [staleFence.code]);
+  await nextTick();
+  assert.equal(staleFence.savedPresences.length, 1);
+  assert.equal(staleFence.savedPresences[0]?.sessionEpoch, 28);
+  assert.equal(staleFence.durableCalls.length, 1);
+  assert.equal(staleFence.durableCalls[0]?.expectedSessionEpoch, 28);
+  assert.equal(staleFence.durableCalls[0]?.expectedRuntimeOwnerId, `runtime-owner:${staleFence.player.playerId}:synced:28`);
+  staleFence.deferred.resolve({
+    ok: true,
+    alreadyCommitted: false,
+    grantedCount: 2,
+    sourceType: 'redeem_code',
+  });
+  const staleFenceResult = await staleFencePromise;
+  assert.equal(staleFenceResult.results[0]?.ok, true);
   assert.equal(persistentClaimFailure.durableCalls.length, 1);
   persistentClaimFailure.deferred.reject(new Error('redeem durable failed after claim'));
   await assert.rejects(() => persistentClaimFailurePromise, /redeem durable failed after claim/);
@@ -303,10 +374,10 @@ async function main(): Promise<void> {
     JSON.stringify(
       {
         ok: true,
-        durableCallCount: success.durableCalls.length + failure.durableCalls.length + persistentClaimFailure.durableCalls.length,
+        durableCallCount: success.durableCalls.length + failure.durableCalls.length + persistentClaimFailure.durableCalls.length + staleFence.durableCalls.length,
         persistentClaimCount: persistentClaimFailure.claimCalls.length,
         answers:
-          'RedeemCodeRuntimeService 的非钱包奖励会走 grantInventoryItems durable 主链；持久化兑换码会在发奖前先通过 claimCodeForUse 条件更新抢占核销，durable 失败时不发物、不发钱包、不发 notice，并且不会把已抢占的码回退成 active',
+          'RedeemCodeRuntimeService 的非钱包奖励会走 grantInventoryItems durable 主链；持久化兑换码会在发奖前先通过 claimCodeForUse 条件更新抢占核销，durable 失败时不发物、不发钱包、不发 notice，并且不会把已抢占的码回退成 active；兑换发奖前会同步数据库 player_presence fence',
         excludes: '不证明 live socket 兑换码链路、真实 PostgreSQL 并发条件更新或任务奖励库存抽象已统一切换到同一 durable 主链',
         completionMapping: 'release:proof:redeem-code-runtime-durable',
       },

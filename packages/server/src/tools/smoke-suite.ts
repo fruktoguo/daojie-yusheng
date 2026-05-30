@@ -125,6 +125,8 @@ const smokeCases = [
     { name: 'auth-bootstrap-legacy-import', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
+    { name: 'redeem-code-persistence-startup', scriptFile: 'redeem-code-persistence-startup-smoke.js', standalone: true },
+    { name: 'redeem-code-persistence-claim-db', scriptFile: 'redeem-code-persistence-claim-db-smoke.js', standalone: true },
     { name: 'monster-runtime', scriptFile: 'monster-runtime-smoke.js' },
     { name: 'monster-combat', scriptFile: 'monster-combat-smoke.js' },
     { name: 'monster-combat-lease-matrix', scriptFile: 'monster-combat-lease-matrix-smoke.js', standalone: true },

@@ -10,7 +10,7 @@
  */
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Pool } from 'pg';
-import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { resolveServerDatabasePoolerUrl, resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from './database-pool.provider';
 
 const REDEEM_CODE_STATE_TABLE = 'server_redeem_code_state';
@@ -38,6 +38,7 @@ export class RedeemCodePersistenceService {
     enabled = false;
 
     databasePoolProvider;
+    initializationPromise = null;
 
     constructor(@Inject(DatabasePoolProvider) databasePoolProvider: any = undefined) {
         this.databasePoolProvider = databasePoolProvider;
@@ -49,11 +50,33 @@ export class RedeemCodePersistenceService {
  */
 
     async onModuleInit() {
+        await this.ensureReady();
+    }
+
+    async ensureReady() {
+        if (this.enabled && this.pool) {
+            return true;
+        }
+        if (this.initializationPromise) {
+            await this.initializationPromise;
+            return this.enabled === true && Boolean(this.pool);
+        }
+        this.initializationPromise = this.initializePersistence();
+        try {
+            await this.initializationPromise;
+        }
+        finally {
+            this.initializationPromise = null;
+        }
+        return this.enabled === true && Boolean(this.pool);
+    }
+
+    async initializePersistence() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const databaseUrl = resolveServerDatabaseUrl();
+        const databaseUrl = resolveRedeemCodeDatabaseUrl();
         if (!databaseUrl.trim()) {
-            this.logger.log('兑换码持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
+            this.logger.log('兑换码持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL/SERVER_DATABASE_POOLER_URL/DATABASE_POOLER_URL');
             return;
         }
         const sharedPool = this.databasePoolProvider?.getPool?.('redeem-code');
@@ -72,6 +95,9 @@ export class RedeemCodePersistenceService {
             this.releasePoolReference();
         }
     }
+    isEnabled() {
+        return this.enabled === true && Boolean(this.pool);
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -88,7 +114,11 @@ export class RedeemCodePersistenceService {
     async loadDocument() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.ensureReady();
         if (!this.pool || !this.enabled) {
+            if (isRedeemCodeDatabaseConfigured()) {
+                throw new Error('redeem_code_persistence_unavailable');
+            }
             return null;
         }
 
@@ -149,12 +179,13 @@ export class RedeemCodePersistenceService {
     async saveDocument(document) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.ensureReady();
         if (!this.pool || !this.enabled) {
-            return;
+            return false;
         }
         const normalized = normalizeRedeemCodeDocument(document);
         if (!normalized) {
-            return;
+            return false;
         }
         const client = await this.pool.connect();
         try {
@@ -265,6 +296,7 @@ export class RedeemCodePersistenceService {
                 );
             }
             await client.query('COMMIT');
+            return true;
         }
         catch (error) {
             await client.query('ROLLBACK').catch(() => undefined);
@@ -278,7 +310,11 @@ export class RedeemCodePersistenceService {
     async claimCodeForUse(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.ensureReady();
         if (!this.pool || !this.enabled) {
+            if (isRedeemCodeDatabaseConfigured()) {
+                return { ok: false, reason: 'persistence_unavailable' };
+            }
             return { ok: true, skipped: true };
         }
         const code = typeof input?.code === 'string' ? input.code.trim().toUpperCase() : '';
@@ -303,15 +339,15 @@ export class RedeemCodePersistenceService {
                     raw_payload = raw_payload
                       || jsonb_build_object(
                         'status', 'used',
-                        'usedByPlayerId', $2,
-                        'usedByRoleName', $3,
-                        'usedAt', $4,
-                        'updatedAt', $4
+                        'usedByPlayerId', $5::text,
+                        'usedByRoleName', $6::text,
+                        'usedAt', $7::text,
+                        'updatedAt', $7::text
                       )
                   WHERE code = $1 AND status = 'active'
                   RETURNING code_id, group_id, code, status, used_by_player_id, used_by_role_name, used_at, updated_at
                 `,
-                [code, playerId, playerName || playerId, usedAt],
+                [code, playerId, playerName || playerId, usedAt, playerId, playerName || playerId, usedAt],
             );
             if ((result.rowCount ?? 0) !== 1) {
                 await client.query('ROLLBACK');
@@ -323,10 +359,10 @@ export class RedeemCodePersistenceService {
                   UPDATE ${REDEEM_CODE_GROUP_TABLE}
                   SET
                     updated_at = $2::timestamptz,
-                    raw_payload = jsonb_set(raw_payload, '{updatedAt}', to_jsonb($2::text), true)
+                    raw_payload = jsonb_set(raw_payload, '{updatedAt}', to_jsonb($3::text), true)
                   WHERE group_id = $1
                 `,
-                [row.group_id, usedAt],
+                [row.group_id, usedAt, usedAt],
             );
             await client.query(
                 `
@@ -507,4 +543,12 @@ function normalizeNullableDbTimestamp(value) {
         return null;
     }
     return normalizeDbTimestamp(value);
+}
+
+function resolveRedeemCodeDatabaseUrl() {
+    return resolveServerDatabasePoolerUrl() || resolveServerDatabaseUrl();
+}
+
+function isRedeemCodeDatabaseConfigured() {
+    return Boolean(resolveRedeemCodeDatabaseUrl().trim());
 }
