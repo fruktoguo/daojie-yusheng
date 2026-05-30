@@ -8558,6 +8558,8 @@ const TICK_TEMPORARY_BUFFS_UNCHANGED = Object.freeze({
     vitalsChanged: false,
     defeated: false,
 });
+const BUFF_TICK_EFFECTS_UNCHANGED = Object.freeze({ vitalsChanged: false });
+const BUFF_SUSTAIN_COST_UNCHANGED = Object.freeze({ sustained: true, vitalsChanged: false });
 
 function tickTemporaryBuffs(buffs, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -8573,17 +8575,18 @@ function tickTemporaryBuffs(buffs, player = null) {
     let hasDependentBuff = false;
     let activeBuffIds = null;
     for (const entry of buffs) {
-        if (!entry || entry.remainingTicks <= 0 || entry.stacks <= 0) {
-            continue;
+        if (entry && entry.remainingTicks > 0 && entry.stacks > 0 && entry.expireWithBuffId) {
+            hasDependentBuff = true;
+            break;
         }
-        if (!activeBuffIds) {
-            activeBuffIds = new Set();
-        }
-        activeBuffIds.add(entry.buffId);
-        hasDependentBuff ||= Boolean(entry.expireWithBuffId);
     }
-    if (!hasDependentBuff) {
-        activeBuffIds = null;
+    if (hasDependentBuff) {
+        activeBuffIds = new Set();
+        for (const entry of buffs) {
+            if (entry && entry.remainingTicks > 0 && entry.stacks > 0) {
+                activeBuffIds.add(entry.buffId);
+            }
+        }
     }
     for (const buff of buffs) {
         if (buff.remainingTicks <= 0) {
@@ -8669,7 +8672,7 @@ function tickTemporaryBuffs(buffs, player = null) {
 
 function applyBuffTickEffects(player, buff) {
     if (!player || !buff || !Array.isArray(buff.tickEffects) || buff.tickEffects.length === 0) {
-        return { vitalsChanged: false };
+        return BUFF_TICK_EFFECTS_UNCHANGED;
     }
     let vitalsChanged = false;
     for (const effect of buff.tickEffects) {
@@ -8716,7 +8719,7 @@ function resolveBuffTickDamage(player, buff, effect) {
 function applyBuffSustainCost(player, buff) {
     const cost = resolveBuffSustainCost(buff);
     if (!cost) {
-        return { sustained: true, vitalsChanged: false };
+        return BUFF_SUSTAIN_COST_UNCHANGED;
     }
     const elapsed = Math.max(0, Math.floor(Number(buff.sustainTicksElapsed ?? 0) || 0));
     if (cost.resource === 'qi') {
