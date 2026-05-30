@@ -207,8 +207,10 @@ export class PlayerCombatService {
                 handlers.spendQi?.(qiCost);
             }
         }
-        // 设置冷却（含冷却速度加成）
-        handlers.setCooldownReadyTick(currentTick + resolveSkillCooldownTicks(attacker, resolved.skill.cooldown));
+        // 设置冷却（含冷却速度加成）。AOE 后续目标和怪物技能已由调用方保证资源/冷却，不再重复计算。
+        if (options?.skipResourceAndCooldown !== true && !resolved.skipCooldownCheck) {
+            handlers.setCooldownReadyTick(currentTick + resolveSkillCooldownTicks(attacker, resolved.skill.cooldown));
+        }
 
         // 逐效果结算
         let totalDamage = 0;
@@ -221,6 +223,7 @@ export class PlayerCombatService {
         const targetBuffs = [];
 
         let hitCount = 0;
+        const targetCount = Math.max(1, Math.round(options?.targetCount ?? 1));
         for (const effect of resolved.skill.effects) {
             if (effect.type === 'damage') {
                 // 伤害效果：求值公式 → 结算命中/暴击/防御
@@ -228,7 +231,7 @@ export class PlayerCombatService {
                     attacker,
                     target,
                     techLevel: resolved.level,
-                    targetCount: Math.max(1, Math.round(options?.targetCount ?? 1)),
+                    targetCount,
                 })));
 
                 const damageRoll = resolveEffectDamage(attacker, target, effect, baseDamage, options?.isTileTarget === true);
@@ -255,7 +258,7 @@ export class PlayerCombatService {
                     attacker,
                     target,
                     techLevel: resolved.level,
-                    targetCount: Math.max(1, Math.round(options?.targetCount ?? 1)),
+                    targetCount,
                 })));
                 if (healAmount > 0) {
                     totalHeal += healAmount;
@@ -512,6 +515,9 @@ function evaluateSkillFormula(formula, context) {
     if (typeof formula === 'number') {
         return formula;
     }
+    if (!formula || typeof formula !== 'object') {
+        return 0;
+    }
     if ('var' in formula) {
         return resolveSkillFormulaVar(formula.var, context) * (formula.scale ?? 1);
     }
@@ -522,20 +528,65 @@ function evaluateSkillFormula(formula, context) {
         return Math.min(max, Math.max(min, value));
     }
 
-    const values = formula.args.map((entry) => evaluateSkillFormula(entry, context));
+    const args = Array.isArray(formula.args) ? formula.args : [];
     switch (formula.op) {
-        case 'add':
-            return values.reduce((sum, value) => sum + value, 0);
-        case 'sub':
-            return values.slice(1).reduce((sum, value) => sum - value, values[0] ?? 0);
-        case 'mul':
-            return values.reduce((product, value) => product * value, 1);
-        case 'div':
-            return values.slice(1).reduce((sum, value) => (value === 0 ? sum : sum / value), values[0] ?? 0);
-        case 'min':
-            return values.length > 0 ? Math.min(...values) : 0;
-        case 'max':
-            return values.length > 0 ? Math.max(...values) : 0;
+        case 'add': {
+            let sum = 0;
+            for (const entry of args) {
+                sum += evaluateSkillFormula(entry, context);
+            }
+            return sum;
+        }
+        case 'sub': {
+            if (args.length <= 0) {
+                return 0;
+            }
+            let value = evaluateSkillFormula(args[0], context);
+            for (let index = 1; index < args.length; index += 1) {
+                value -= evaluateSkillFormula(args[index], context);
+            }
+            return value;
+        }
+        case 'mul': {
+            let product = 1;
+            for (const entry of args) {
+                product *= evaluateSkillFormula(entry, context);
+            }
+            return product;
+        }
+        case 'div': {
+            if (args.length <= 0) {
+                return 0;
+            }
+            let value = evaluateSkillFormula(args[0], context);
+            for (let index = 1; index < args.length; index += 1) {
+                const divisor = evaluateSkillFormula(args[index], context);
+                if (divisor !== 0) {
+                    value /= divisor;
+                }
+            }
+            return value;
+        }
+        case 'min': {
+            if (args.length <= 0) {
+                return 0;
+            }
+            let value = evaluateSkillFormula(args[0], context);
+            for (let index = 1; index < args.length; index += 1) {
+                value = Math.min(value, evaluateSkillFormula(args[index], context));
+            }
+            return value;
+        }
+        case 'max': {
+            if (args.length <= 0) {
+                return 0;
+            }
+            let value = evaluateSkillFormula(args[0], context);
+            for (let index = 1; index < args.length; index += 1) {
+                value = Math.max(value, evaluateSkillFormula(args[index], context));
+            }
+            return value;
+        }
         default:
             return 0;
     }

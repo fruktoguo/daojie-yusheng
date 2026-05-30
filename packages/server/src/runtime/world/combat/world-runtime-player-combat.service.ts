@@ -64,25 +64,27 @@ export class WorldRuntimePlayerCombatService {
         });
         deps.queuePlayerNotice(killerPlayerId, killNotice.text, killNotice.kind, undefined, undefined, killNotice.structured);
         deps.advanceKillQuestProgress(killerPlayerId, monster.monsterId, monster.name);
-        this.recordCombatSemanticAudit('kill', {
-            instanceId: instance?.meta?.instanceId ?? null,
-            actor: { kind: 'player', id: killerPlayerId },
-            actionId: 'monster_kill',
-            target: buildMonsterAuditTarget(monster),
-            result: {
-                defeated: true,
-                monsterId: monster?.monsterId ?? null,
-                monsterName: monster?.name ?? null,
-                level: monster?.level ?? null,
-                tier: monster?.tier ?? null,
-            },
-            application: {
-                dirtyDomains: ['instance:monster_runtime', 'player:progression'],
-                persistenceTransfer: 'dirty_domain_flush',
-                writesDatabaseInTick: false,
-            },
-            tags: ['semantic', 'monster_defeat'],
-        });
+        if (this.isCombatSemanticAuditEnabled()) {
+            this.recordCombatSemanticAudit('kill', {
+                instanceId: instance?.meta?.instanceId ?? null,
+                actor: { kind: 'player', id: killerPlayerId },
+                actionId: 'monster_kill',
+                target: buildMonsterAuditTarget(monster),
+                result: {
+                    defeated: true,
+                    monsterId: monster?.monsterId ?? null,
+                    monsterName: monster?.name ?? null,
+                    level: monster?.level ?? null,
+                    tier: monster?.tier ?? null,
+                },
+                application: {
+                    dirtyDomains: ['instance:monster_runtime', 'player:progression'],
+                    persistenceTransfer: 'dirty_domain_flush',
+                    writesDatabaseInTick: false,
+                },
+                tags: ['semantic', 'monster_defeat'],
+            });
+        }
         this.incrementMonsterKillCounter(killerPlayerId, monster.tier);
         this.distributeMonsterKillProgress(instance, monster, killerPlayerId, deps);
         const killer = this.playerRuntimeService.getPlayer(killerPlayerId);
@@ -117,10 +119,13 @@ export class WorldRuntimePlayerCombatService {
         for (const participant of participants) {
             totalContribution += participant.contribution;
         }
+        const expMultiplier = this.resolveMonsterExpMultiplier(monster);
+        const auditEnabled = this.isCombatSemanticAuditEnabled();
         for (const participant of participants) {
             const contributionRatio = totalContribution > 0 ? participant.contribution / totalContribution : 1;
-            const expMultiplier = this.resolveMonsterExpMultiplier(monster);
-            const beforeProgression = capturePlayerProgressionAuditSnapshot(this.playerRuntimeService.getPlayer(participant.playerId));
+            const beforeProgression = auditEnabled
+                ? capturePlayerProgressionAuditSnapshot(this.playerRuntimeService.getPlayer(participant.playerId))
+                : null;
             const progressResult = this.playerRuntimeService.grantMonsterKillProgress(participant.playerId, {
                 monsterLevel: monster.level,
                 monsterName: monster.name,
@@ -130,9 +135,12 @@ export class WorldRuntimePlayerCombatService {
                 expAdjustmentRealmLv: Math.max(topContributionRealmLv, killerRealmLv, participant.realmLv),
                 isKiller: participant.playerId === killerPlayerId,
             }, deps.resolveCurrentTickForPlayerId(participant.playerId));
-            const afterProgression = capturePlayerProgressionAuditSnapshot(this.playerRuntimeService.getPlayer(participant.playerId));
-            const progressionDelta = diffPlayerProgressionAuditSnapshot(beforeProgression, afterProgression);
-            if (progressResult?.changed === true || hasPositiveProgressionDelta(progressionDelta)) {
+            if (auditEnabled) {
+                const afterProgression = capturePlayerProgressionAuditSnapshot(this.playerRuntimeService.getPlayer(participant.playerId));
+                const progressionDelta = diffPlayerProgressionAuditSnapshot(beforeProgression, afterProgression);
+                if (progressResult?.changed !== true && !hasPositiveProgressionDelta(progressionDelta)) {
+                    continue;
+                }
                 this.recordCombatSemanticAudit('exp_gain', {
                     instanceId: instance?.meta?.instanceId ?? null,
                     actor: { kind: 'player', id: participant.playerId },
@@ -343,44 +351,48 @@ export class WorldRuntimePlayerCombatService {
             : typeof killerPlayerId === 'string' && killerPlayerId.trim()
                 ? { kind: 'monster', id: killerPlayerId.trim() }
                 : { kind: 'system', id: null };
-        this.recordCombatSemanticAudit('death', {
-            instanceId: victim.instanceId ?? deathSite?.instance?.meta?.instanceId ?? null,
-            actor: deathActor,
-            actionId: 'player_death',
-            target: buildPlayerAuditTarget(victim),
-            result: {
-                defeated: true,
-                deathPenalty,
-                x: deathSite.x,
-                y: deathSite.y,
-            },
-            application: {
-                dirtyDomains: ['player:vitals', 'player:death', 'player:progression'],
-                persistenceTransfer: 'dirty_domain_flush',
-                writesDatabaseInTick: false,
-            },
-            tags: ['semantic', 'player_death'],
-        });
-        if (killer && killer.playerId !== victim.playerId) {
-            this.recordCombatSemanticAudit('kill', {
+        if (this.isCombatSemanticAuditEnabled()) {
+            this.recordCombatSemanticAudit('death', {
                 instanceId: victim.instanceId ?? deathSite?.instance?.meta?.instanceId ?? null,
-                actor: { kind: 'player', id: killer.playerId },
-                actionId: 'pvp_kill',
+                actor: deathActor,
+                actionId: 'player_death',
                 target: buildPlayerAuditTarget(victim),
                 result: {
                     defeated: true,
-                    victimPlayerId: victim.playerId,
-                    victimName: victim.name ?? null,
+                    deathPenalty,
                     x: deathSite.x,
                     y: deathSite.y,
                 },
                 application: {
-                    dirtyDomains: ['player:vitals', 'player:death'],
+                    dirtyDomains: ['player:vitals', 'player:death', 'player:progression'],
                     persistenceTransfer: 'dirty_domain_flush',
                     writesDatabaseInTick: false,
                 },
-                tags: ['semantic', 'pvp_kill'],
+                tags: ['semantic', 'player_death'],
             });
+        }
+        if (killer && killer.playerId !== victim.playerId) {
+            if (this.isCombatSemanticAuditEnabled()) {
+                this.recordCombatSemanticAudit('kill', {
+                    instanceId: victim.instanceId ?? deathSite?.instance?.meta?.instanceId ?? null,
+                    actor: { kind: 'player', id: killer.playerId },
+                    actionId: 'pvp_kill',
+                    target: buildPlayerAuditTarget(victim),
+                    result: {
+                        defeated: true,
+                        victimPlayerId: victim.playerId,
+                        victimName: victim.name ?? null,
+                        x: deathSite.x,
+                        y: deathSite.y,
+                    },
+                    application: {
+                        dirtyDomains: ['player:vitals', 'player:death'],
+                        persistenceTransfer: 'dirty_domain_flush',
+                        writesDatabaseInTick: false,
+                    },
+                    tags: ['semantic', 'pvp_kill'],
+                });
+            }
             if (typeof this.playerRuntimeService.clearRetaliatePlayerTargetIfMatches === 'function') {
                 this.playerRuntimeService.clearRetaliatePlayerTargetIfMatches(
                     killer.playerId,
@@ -443,6 +455,10 @@ export class WorldRuntimePlayerCombatService {
     }
 
     recordCombatSemanticAudit(action: string, input: any = {}) {
+        return false;
+    }
+
+    isCombatSemanticAuditEnabled(): boolean {
         return false;
     }
 
