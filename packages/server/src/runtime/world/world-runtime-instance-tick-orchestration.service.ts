@@ -163,12 +163,16 @@ export class WorldRuntimeInstanceTickOrchestrationService {
     }
     const results = await Promise.all(activeAiPlans.map(async ({ instance }) => {
       try {
+        const mirror = this.buildInstanceWorkerMirror(instance, worldTick);
+        if (!Array.isArray(mirror.monsters) || mirror.monsters.length <= 0) {
+          return null;
+        }
         return await this.instanceWorkerPool.submit(
           'instance-advance',
           {
             instanceId: instance.meta.instanceId,
             tick: worldTick,
-            mirror: this.buildInstanceWorkerMirror(instance, worldTick),
+            mirror,
           },
           (payload) => computeFallbackInstanceIntentProposal(payload),
           800,
@@ -194,11 +198,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
 
   /** 构造 worker 可结构化克隆的只读镜像，禁止传 MapInstanceRuntime class 实例。 */
   private buildInstanceWorkerMirror(instance, worldTick) {
-    const monsters = typeof instance.listMonsters === 'function' ? instance.listMonsters() : [];
-    return {
-      instanceId: instance.meta.instanceId,
-      tick: worldTick,
-      monsters: monsters.map((monster) => ({
+    const monsters = typeof instance.listMonsterAiWorkerMirrors === 'function'
+      ? instance.listMonsterAiWorkerMirrors()
+      : (typeof instance.listMonsters === 'function' ? instance.listMonsters() : []).map((monster) => ({
         monsterId: String(monster.runtimeId ?? monster.monsterId ?? ''),
         x: Math.trunc(Number(monster.x) || 0),
         y: Math.trunc(Number(monster.y) || 0),
@@ -210,9 +212,10 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         leashRange: Math.max(0, Math.trunc(Number(monster.leashRange) || 0)),
         spawnX: Math.trunc(Number(monster.spawnX) || 0),
         spawnY: Math.trunc(Number(monster.spawnY) || 0),
-        cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
-      })),
-      players: typeof instance.listPlayerIds === 'function'
+      }));
+    const players = typeof instance.listPlayerPositionWorkerMirrors === 'function'
+      ? instance.listPlayerPositionWorkerMirrors()
+      : (typeof instance.listPlayerIds === 'function'
         ? instance.listPlayerIds().map((playerId) => {
             const position = typeof instance.getPlayerPosition === 'function' ? instance.getPlayerPosition(playerId) : null;
             return position ? {
@@ -221,7 +224,12 @@ export class WorldRuntimeInstanceTickOrchestrationService {
               y: Math.trunc(Number(position.y) || 0),
             } : null;
           }).filter(Boolean)
-        : [],
+        : []);
+    return {
+      instanceId: instance.meta.instanceId,
+      tick: worldTick,
+      monsters,
+      players,
       resourceState: null,
       buildings: [],
     };

@@ -620,6 +620,18 @@ class MapInstanceRuntime {
     listPlayerIds() {
         return Array.from(this.playersById.keys());
     }
+    /** listPlayerPositionWorkerMirrors：列出 worker 预计算需要的玩家位置精简镜像。 */
+    listPlayerPositionWorkerMirrors() {
+        const players = [];
+        for (const player of this.playersById.values()) {
+            players.push({
+                playerId: player.playerId,
+                x: Math.trunc(Number(player.x) || 0),
+                y: Math.trunc(Number(player.y) || 0),
+            });
+        }
+        return players;
+    }
     /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
     connectPlayer(request) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3278,6 +3290,29 @@ class MapInstanceRuntime {
     listMonsters() {
         return Array.from(this.monstersByRuntimeId.values(), (monster) => snapshotMonster(monster))
             .sort((left, right) => left.runtimeId.localeCompare(right.runtimeId, 'zh-Hans-CN'));
+    }
+    /** listMonsterAiWorkerMirrors：列出 worker 预计算需要的存活妖兽精简镜像。 */
+    listMonsterAiWorkerMirrors() {
+        const monsters = [];
+        for (const monster of this.monstersByRuntimeId.values()) {
+            if (monster.alive === false) {
+                continue;
+            }
+            monsters.push({
+                monsterId: String(monster.runtimeId ?? monster.monsterId ?? ''),
+                x: Math.trunc(Number(monster.x) || 0),
+                y: Math.trunc(Number(monster.y) || 0),
+                hp: Math.trunc(Number(monster.hp) || 0),
+                maxHp: Math.trunc(Number(monster.maxHp) || 0),
+                alive: true,
+                aggroTargetId: typeof monster.aggroTargetPlayerId === 'string' ? monster.aggroTargetPlayerId : null,
+                aggroRange: Math.max(0, Math.trunc(Number(monster.aggroRange) || 0)),
+                leashRange: Math.max(0, Math.trunc(Number(monster.leashRange) || 0)),
+                spawnX: Math.trunc(Number(monster.spawnX) || 0),
+                spawnY: Math.trunc(Number(monster.spawnY) || 0),
+            });
+        }
+        return monsters;
     }
     /** getMonsterAtTile：按地块读取存活妖兽，供战斗规划避免全量列怪建索引。 */
     getMonsterAtTile(x, y) {
