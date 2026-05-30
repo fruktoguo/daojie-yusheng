@@ -497,6 +497,31 @@ export class ActivityPersistenceService {
     );
   }
 
+  async hasPendingInvitationRewards(playerId: string): Promise<boolean> {
+    const normalizedPlayerId = normalizePlayerId(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return false;
+    }
+    const result = await this.pool.query(
+      `SELECT 1
+         FROM ${INVITATION_TABLE}
+        WHERE invitee_player_id = $1
+          AND invitee_reward_claimed = false
+        UNION ALL
+       SELECT 1
+         FROM ${INVITATION_TABLE}
+        WHERE inviter_player_id = $1
+          AND (
+            inviter_base_reward_claimed = false
+            OR (invitee_highest_realm_lv >= $2 AND inviter_qi_reward_claimed = false)
+            OR (invitee_highest_realm_lv >= $3 AND inviter_foundation_reward_claimed = false)
+          )
+        LIMIT 1`,
+      [normalizedPlayerId, INVITATION_QI_REALM_MIN_LEVEL, INVITATION_FOUNDATION_REALM_MIN_LEVEL],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
   async claimPendingInvitationRewards(playerId: string): Promise<ActivityInvitationRewardClaimResult> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {

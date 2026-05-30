@@ -46,7 +46,7 @@ export class ActivityRuntimeService {
 
   async getStatus(playerId: string, nowMs = Date.now()): Promise<ActivityStatusView> {
     const today = getChinaDateKey(nowMs);
-    await this.processInvitationRewards(playerId);
+    const invitationHasPendingReward = await this.processInvitationRewards(playerId);
     const [monthCard, dailySignIn, invitation] = await Promise.all([
       this.activityPersistenceService.loadMonthCard(playerId),
       this.activityPersistenceService.loadDailySignIn(playerId),
@@ -84,7 +84,7 @@ export class ActivityRuntimeService {
         rewardMerit: DAILY_SIGN_IN_REWARD_MERIT,
       },
       invitation,
-      hasRedDot: monthCardCanClaim || dailyCanClaim,
+      hasRedDot: monthCardCanClaim || dailyCanClaim || invitationHasPendingReward,
     };
   }
 
@@ -140,14 +140,16 @@ export class ActivityRuntimeService {
     }
   }
 
-  private async processInvitationRewards(playerId: string): Promise<void> {
+  private async processInvitationRewards(playerId: string): Promise<boolean> {
     if (!this.activityPersistenceService.isEnabled()) {
-      return;
+      return false;
     }
     this.playerRuntimeService.getPlayerOrThrow(playerId);
     await this.refreshInvitationProgress(playerId);
+    const hasPendingReward = await this.activityPersistenceService.hasPendingInvitationRewards(playerId);
     const rewards = await this.activityPersistenceService.claimPendingInvitationRewards(playerId);
     this.grantInvitationRewards(playerId, rewards);
+    return hasPendingReward;
   }
 
   private async refreshInvitationProgress(playerId: string): Promise<void> {

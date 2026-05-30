@@ -26,6 +26,7 @@ async function main(): Promise<void> {
     updateInvitationInviteeHighestRealmLv: async (playerId: string, highestRealmLv: number) => {
       progressUpdates.push({ playerId, highestRealmLv });
     },
+    hasPendingInvitationRewards: async () => true,
     listInvitationInviteeProgress: async () => [
       { inviteePlayerId: 'p_invitee_qi', highestRealmLv: 1 },
       { inviteePlayerId: 'p_invitee_foundation', highestRealmLv: 19 },
@@ -90,6 +91,7 @@ async function main(): Promise<void> {
   assert.equal(status.invitation.totalInvitees, 2);
   assert.equal(status.invitation.qiReachedCount, 2);
   assert.equal(status.invitation.foundationReachedCount, 1);
+  assert.equal(status.hasRedDot, true);
   assert.deepEqual(granted, [
     { playerId: 'p_inviter', itemId: SPIRIT_STONE_ITEM_ID, count: INVITATION_INVITEE_SPIRIT_STONE_REWARD },
     { playerId: 'p_inviter', itemId: MERIT_ITEM_ID, count: INVITATION_INVITEE_MERIT_REWARD },
@@ -114,6 +116,7 @@ async function main(): Promise<void> {
     assertions: [
       'activity status exposes invite code and invite link path',
       'invitation stage counts are projected into the activity view',
+      'pending invitation rewards contribute to the activity red dot',
       'invitee and inviter merit/spirit-stone rewards are granted through runtime item paths',
       'invitee highest realm progress is refreshed before reward claims',
     ],
