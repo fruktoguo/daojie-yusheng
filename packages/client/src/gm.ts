@@ -2616,6 +2616,8 @@ const CPU_BREAKDOWN_GROUPS: Array<{
   childPrefixes: string[];
   fallbackLabel: string;
 }> = [
+  { key: 'pendingCommandsMs', childPrefixes: ['pendingCommands.'], fallbackLabel: '待处理命令' },
+  { key: 'instance.playerTickAdvanceMs', childPrefixes: ['playerTick.'], fallbackLabel: '玩家 tick 推进' },
   { key: 'instanceTicksMs', childPrefixes: ['instance.'], fallbackLabel: '实例 tick' },
   { key: 'syncFlushMs', childPrefixes: ['syncFlush.'], fallbackLabel: '同步广播' },
   { key: 'preTickMaterializationMs', childPrefixes: ['tick.'], fallbackLabel: '预 tick 物化' },
@@ -2671,7 +2673,7 @@ function compareCpuBreakdownSections(
 }
 
 function stripCpuChildLabel(label: string): string {
-  return label.replace(/^(实例|同步|tick|Worker|后 tick|持久化)[· ]/, '');
+  return label.replace(/^(实例|同步|tick|Worker|后 tick|持久化|玩家 tick|命令)[· ]/, '');
 }
 
 function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdownGroup[] {
@@ -2681,7 +2683,7 @@ function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdown
   for (const def of CPU_BREAKDOWN_GROUPS) {
     const explicitSummary = byKey.get(def.key);
     const children = sections
-      .filter((section) => section.key !== def.key && def.childPrefixes.some((prefix) => section.key.startsWith(prefix)));
+      .filter((section) => !consumed.has(section.key) && section.key !== def.key && def.childPrefixes.some((prefix) => section.key.startsWith(prefix)));
     if (!explicitSummary && children.length === 0) {
       continue;
     }
@@ -2699,7 +2701,7 @@ function buildCpuBreakdownGroups(sections: GmCpuSectionSnapshot[]): CpuBreakdown
     }
     const normalizedSummary = {
       ...summary,
-      label: explicitSummary?.label ?? def.fallbackLabel,
+      label: def.fallbackLabel,
     };
     groups.push({
       key: def.key,

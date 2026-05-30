@@ -330,7 +330,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
         addMeasuredTickSection(sectionDurations, 'tick.materializeAutoCombatCommandsMs', autoCombatStartedAt);
         const preTickMaterializationMs = performance.now() - preTickMaterializationStartedAt;
         const pendingCommandsStartedAt = performance.now();
-        await this.runIsolatedOperation(deps, 'dispatch_pending_commands', { worldTick: deps.tick }, () => deps.dispatchPendingCommands());
+        await this.runIsolatedOperation(deps, 'dispatch_pending_commands', { worldTick: deps.tick }, () => deps.dispatchPendingCommands(
+            (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
+        ));
         const pendingCommandsMs = performance.now() - pendingCommandsStartedAt;
         const systemCommandsStartedAt = performance.now();
         this.runIsolatedSyncOperation(deps, 'dispatch_pending_system_commands', { worldTick: deps.tick }, () => deps.dispatchPendingSystemCommands());
@@ -364,7 +366,9 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     await this.runIsolatedOperation(deps, 'dispatch_pending_commands_for_instance_step', {
                         instanceId: instance.meta.instanceId,
                         worldTick: deps.tick,
-                    }, () => deps.dispatchPendingCommands());
+                    }, () => deps.dispatchPendingCommands(
+                        (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
+                    ));
                     addMeasuredTickSection(sectionDurations, 'instance.stepCommandMaterializationMs', instanceStepMaterializationStartedAt);
                 }
                 let blockedPlayerIds = new Set();
@@ -541,6 +545,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                             idleCultivationBlockedPlayerIds: blockedPlayerIds,
                             cultivationAuraMultiplierByPlayerId,
                             markPlayerDefeated: (defeatedPlayerId) => this.markPlayerDefeated(defeatedPlayerId),
+                            recordTickSectionDuration: (key, durationMs, count = 1) => addTickSectionDuration(sectionDurations, key, durationMs, count),
                         }));
                     }
                     addMeasuredTickSection(sectionDurations, 'instance.playerTickAdvanceMs', playerTickAdvanceStartedAt, currentPlayerIds.length);

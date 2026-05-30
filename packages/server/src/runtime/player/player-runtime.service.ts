@@ -3505,16 +3505,23 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
             // stateDelta 快照：记录 tick 前的关键数值
+            const stateSnapshotStartedAt = performance.now();
             const _prevHp = player.hp;
             const _prevMp = player.mp;
             const _prevExp = player.exp;
             const _prevLevel = player.level;
+            recordPlayerTickPerf(options, 'playerTick.stateSnapshotMs', stateSnapshotStartedAt);
 
+            const offlineGainSnapshotStartedAt = performance.now();
             const offlineGainBefore = this.captureOfflineGainBeforeTick(player);
+            recordPlayerTickPerf(options, 'playerTick.offlineGainSnapshotMs', offlineGainSnapshotStartedAt);
+            const chronologyStartedAt = performance.now();
             if (advancePlayerChronology(player)) {
                 markPlayerDirtyDomains(player, ['progression']);
                 this.bumpPersistentRevision(player);
             }
+            recordPlayerTickPerf(options, 'playerTick.chronologyMs', chronologyStartedAt);
+            const buffTickStartedAt = performance.now();
             const buffTickResult = tickTemporaryBuffs(player.buffs.buffs, player);
             if (buffTickResult.changed) {
                 player.buffs.revision += 1;
@@ -3525,37 +3532,54 @@ export class PlayerRuntimeService {
             if (buffTickResult.defeated === true && typeof options.markPlayerDefeated === 'function') {
                 options.markPlayerDefeated(player.playerId);
             }
+            recordPlayerTickPerf(options, 'playerTick.buffTickMs', buffTickStartedAt);
+            const runtimeTickResolveStartedAt = performance.now();
             const playerTick = resolvePlayerRuntimeTick(player, currentTick);
+            recordPlayerTickPerf(options, 'playerTick.runtimeTickResolveMs', runtimeTickResolveStartedAt);
+            const vitalsRecoveryStartedAt = performance.now();
             if (recoverPlayerVitals(player, playerTick)) {
                 player.selfRevision += 1;
                 markPlayerDirtyDomains(player, ['vitals']);
                 this.bumpPersistentRevision(player);
             }
+            recordPlayerTickPerf(options, 'playerTick.vitalsRecoveryMs', vitalsRecoveryStartedAt);
+            const idleCultivationResumeStartedAt = performance.now();
             if (player.hp > 0 && shouldResumeIdleCultivation(player, playerTick, options.idleCultivationBlockedPlayerIds)) {
                 player.combat.cultivationActive = true;
                 this.playerAttributesService.recalculate(player);
                 markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
                 this.bumpPersistentRevision(player);
             }
+            recordPlayerTickPerf(options, 'playerTick.idleCultivationResumeMs', idleCultivationResumeStartedAt);
             if (player.hp > 0 && player.combat.cultivationActive) {
 
+                const cultivationAdvanceStartedAt = performance.now();
                 const result = this.playerProgressionService.advanceCultivation(player, 1, {
                     auraMultiplier: resolveCultivationAuraMultiplier(player, options),
                 });
                 this.applyProgressionResult(player, result, playerTick);
+                recordPlayerTickPerf(options, 'playerTick.cultivationAdvanceMs', cultivationAdvanceStartedAt);
             }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
+                const rootFoundationStartedAt = performance.now();
                 const result = this.playerProgressionService.autoRefineRootFoundation(player);
                 this.applyProgressionResult(player, result, playerTick, true);
                 this.disableAutoRootFoundationAtCap(player, playerTick);
+                recordPlayerTickPerf(options, 'playerTick.rootFoundationMs', rootFoundationStartedAt);
             }
             if (hasActiveSkillCooldown(player, playerTick)) {
+                const cooldownActionStateStartedAt = performance.now();
                 this.rebuildActionState(player, playerTick);
+                recordPlayerTickPerf(options, 'playerTick.cooldownActionStateMs', cooldownActionStateStartedAt);
             }
+            const offlineGainAccumulateStartedAt = performance.now();
             this.accumulateOfflineGainAfterTick(player, offlineGainBefore);
+            recordPlayerTickPerf(options, 'playerTick.offlineGainAccumulateMs', offlineGainAccumulateStartedAt);
 
             // stateDelta 发射：仅在数值实际变化时入队
+            const stateDeltaEmitStartedAt = performance.now();
             this.emitPlayerStateDeltaIfChanged(player, _prevHp, _prevMp, _prevExp, _prevLevel, buffTickResult);
+            recordPlayerTickPerf(options, 'playerTick.stateDeltaEmitMs', stateDeltaEmitStartedAt);
     }
 
     /** 传法推进由 TransmissionStrategy 通过通用技艺 job pipeline 驱动。 */
@@ -9075,6 +9099,14 @@ function canonicalizeRuntimeBonusSource(source) {
         return `equipment:${normalized.slice('equip:'.length)}`;
     }
     return normalized;
+}
+
+function recordPlayerTickPerf(options, key, startedAt, count = 1) {
+    const recorder = options?.recordTickSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    recorder(key, performance.now() - startedAt, count);
 }
 
 function normalizeEquipmentSlotsWithTemplates(slots, contentTemplateRepository) {

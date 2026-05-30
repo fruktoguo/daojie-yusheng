@@ -1020,8 +1020,8 @@ export class WorldRuntimeService {
         resolveAutoBattleDesiredRange(player) {
         return this.worldRuntimeTickDispatchService.resolveAutoBattleDesiredRange(player, this);
     }
-        async dispatchPendingCommands() {
-        return this.worldRuntimeTickDispatchService.dispatchPendingCommands(this);
+        async dispatchPendingCommands(recordTickSectionDuration = null) {
+        return this.worldRuntimeTickDispatchService.dispatchPendingCommands(this, recordTickSectionDuration);
     }
         dispatchPendingSystemCommands() {
         this.worldRuntimeTickDispatchService.dispatchPendingSystemCommands(this);

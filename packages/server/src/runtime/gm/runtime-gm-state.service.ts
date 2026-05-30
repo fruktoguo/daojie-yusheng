@@ -31,6 +31,7 @@ import type { WorkerPoolMetrics } from '../../concurrency/worker-task.types';
 import { FlushDiagnosticsService } from '../../persistence/flush-diagnostics.service';
 
 const EMPTY_CPU_BREAKDOWN = [];
+const REDUNDANT_TICK_SECTION_KEYS = new Set(['tick.resetFrameEffectsMs']);
 
 const EMPTY_NETWORK_BUCKETS = [];
 
@@ -109,11 +110,38 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     'instance.playerWorldTimeVisionMs': '实例·世界时间/视野',
     'instance.cultivationAuraProjectionMs': '实例·修炼灵气投影',
     'instance.terrainTickEffectsMs': '实例·地形 tick 效果',
-    'instance.playerTickAdvanceMs': '实例·玩家 tick 推进',
+    'instance.playerTickAdvanceMs': '玩家 tick 推进',
     'instance.tileQiDrainMs': '实例·地块灵力消耗',
     'instance.resolvePendingSkillCastMs': '实例·技能施放结算',
     'instance.craftJobAdvanceMs': '实例·制作任务推进',
     'instance.tongtianTowerAdvanceMs': '实例·通天塔推进',
+    'playerTick.stateSnapshotMs': '玩家 tick·状态快照',
+    'playerTick.offlineGainSnapshotMs': '玩家 tick·收益快照',
+    'playerTick.chronologyMs': '玩家 tick·生命历程',
+    'playerTick.buffTickMs': '玩家 tick·Buff 推进',
+    'playerTick.runtimeTickResolveMs': '玩家 tick·运行 tick 解析',
+    'playerTick.vitalsRecoveryMs': '玩家 tick·气血元气恢复',
+    'playerTick.idleCultivationResumeMs': '玩家 tick·自动修炼恢复',
+    'playerTick.cultivationAdvanceMs': '玩家 tick·修炼推进',
+    'playerTick.rootFoundationMs': '玩家 tick·自动凝根',
+    'playerTick.cooldownActionStateMs': '玩家 tick·冷却动作态',
+    'playerTick.offlineGainAccumulateMs': '玩家 tick·收益累计',
+    'playerTick.stateDeltaEmitMs': '玩家 tick·状态增量',
+    'pendingCommands.instanceMoveMs': '命令·实例移动/传送',
+    'pendingCommands.navigationMs': '命令·寻路',
+    'pendingCommands.basicAttackMs': '命令·基础攻击',
+    'pendingCommands.engageBattleMs': '命令·接战',
+    'pendingCommands.castSkillMs': '命令·技能施放',
+    'pendingCommands.itemMs': '命令·物品/装备',
+    'pendingCommands.formationMs': '命令·阵法',
+    'pendingCommands.techniqueActivityMs': '命令·技艺任务',
+    'pendingCommands.progressionMs': '命令·修炼/突破',
+    'pendingCommands.npcQuestMs': '命令·NPC/任务/商店',
+    'pendingCommands.redeemCodesMs': '命令·兑换码',
+    'pendingCommands.otherPlayerCommandMs': '命令·其他玩家指令',
+    'pendingCommands.manualEngageCleanupMs': '命令·手动接战清理',
+    'pendingCommands.autoCombatRetryMs': '命令·自动战斗重试',
+    'pendingCommands.failureHandlingMs': '命令·失败处理',
     'postTick.lootContainerSearchesMs': '后 tick·掉落容器搜索',
     'postTick.playerQuestRefreshMs': '后 tick·任务刷新',
     'persistence.player.totalMs': '持久化·玩家刷盘总计',
@@ -1624,6 +1652,9 @@ function buildTickSectionBreakdownRows(sectionSummaries: Record<string, TickSect
     }
     const rows = [];
     for (const [key, summary] of Object.entries(sectionSummaries)) {
+        if (REDUNDANT_TICK_SECTION_KEYS.has(key)) {
+            continue;
+        }
         const totalMs = Number(summary?.totalMs ?? 0);
         const count = Math.max(0, Math.trunc(Number(summary?.count ?? 0)));
         if (!(totalMs > 0) && count <= 0) {

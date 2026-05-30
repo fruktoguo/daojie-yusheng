@@ -255,6 +255,80 @@ function emitPendingCommandFailureLog(deps, line, command, message) {
     deps.logger?.log?.(line);
 }
 
+function resolvePendingCommandPerfKey(command) {
+    switch (command?.kind) {
+        case 'move':
+        case 'portal':
+            return 'pendingCommands.instanceMoveMs';
+        case 'moveTo':
+            return 'pendingCommands.navigationMs';
+        case 'basicAttack':
+            return 'pendingCommands.basicAttackMs';
+        case 'engageBattle':
+            return 'pendingCommands.engageBattleMs';
+        case 'castSkill':
+            return 'pendingCommands.castSkillMs';
+        case 'useItem':
+        case 'equip':
+        case 'unequip':
+        case 'dropItem':
+        case 'takeGround':
+        case 'takeGroundAll':
+            return 'pendingCommands.itemMs';
+        case 'createFormation':
+        case 'setFormationActive':
+        case 'refillFormation':
+            return 'pendingCommands.formationMs';
+        case 'startTechniqueTransmission':
+        case 'cancelTechniqueTransmission':
+        case 'startAlchemy':
+        case 'cancelAlchemy':
+        case 'startForging':
+        case 'cancelForging':
+        case 'saveAlchemyPreset':
+        case 'deleteAlchemyPreset':
+        case 'startEnhancement':
+        case 'cancelEnhancement':
+        case 'startGather':
+        case 'cancelGather':
+        case 'startMining':
+        case 'cancelMining':
+        case 'startBuilding':
+        case 'cancelBuilding':
+        case 'startFormationMaintenance':
+        case 'cancelFormationMaintenance':
+        case 'cancelTechniqueActivity':
+            return 'pendingCommands.techniqueActivityMs';
+        case 'cultivate':
+        case 'breakthrough':
+        case 'refineRootFoundation':
+        case 'heavenGateAction':
+            return 'pendingCommands.progressionMs';
+        case 'buyNpcShopItem':
+        case 'npcInteraction':
+        case 'interactNpcQuest':
+        case 'acceptNpcQuest':
+        case 'submitNpcQuest':
+            return 'pendingCommands.npcQuestMs';
+        case 'redeemCodes':
+            return 'pendingCommands.redeemCodesMs';
+        default:
+            return 'pendingCommands.otherPlayerCommandMs';
+    }
+}
+
+function recordPendingCommandPerf(recordTickSectionDuration, key, startedAt, count = 1) {
+    if (typeof recordTickSectionDuration !== 'function') {
+        return;
+    }
+    try {
+        recordTickSectionDuration(key, performance.now() - startedAt, count);
+    }
+    catch {
+        // 性能诊断不能影响权威命令执行。
+    }
+}
+
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
 @Injectable()
 export class WorldRuntimePendingCommandService {
@@ -425,23 +499,37 @@ export class WorldRuntimePendingCommandService {
  * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
-    async dispatchPendingCommands(deps) {
+    async dispatchPendingCommands(deps, recordTickSectionDuration = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         for (const [playerId, command] of this.pendingCommands) {
+            const commandDispatchStartedAt = performance.now();
+            let commandDispatchRecorded = false;
             try {
                 await this.dispatchCommand(playerId, command, deps);
+                recordPendingCommandPerf(recordTickSectionDuration, resolvePendingCommandPerfKey(command), commandDispatchStartedAt);
+                commandDispatchRecorded = true;
                 if (command?.manualEngage === true && command.kind !== 'move' && command.kind !== 'portal') {
+                    const manualCleanupStartedAt = performance.now();
                     this.clearManualEngageState(playerId, deps);
+                    recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.manualEngageCleanupMs', manualCleanupStartedAt);
                 }
             }
             catch (error) {
+                if (!commandDispatchRecorded) {
+                    recordPendingCommandPerf(recordTickSectionDuration, resolvePendingCommandPerfKey(command), commandDispatchStartedAt);
+                    commandDispatchRecorded = true;
+                }
                 if (command?.manualEngage === true) {
+                    const manualCleanupStartedAt = performance.now();
                     this.clearManualEngageState(playerId, deps);
+                    recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.manualEngageCleanupMs', manualCleanupStartedAt);
                 }
                 let failedCommandForDiagnostics = command;
                 if (this.isAutoCombatCommand(command)) {
+                    const retryStartedAt = performance.now();
                     const retryResult = await this.retryAutoCombatCommand(playerId, deps, command);
+                    recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.autoCombatRetryMs', retryStartedAt);
                     if (retryResult.handled) {
                         continue;
                     }
@@ -450,6 +538,7 @@ export class WorldRuntimePendingCommandService {
                         failedCommandForDiagnostics = retryResult.errorCommand ?? command;
                     }
                 }
+                const failureHandlingStartedAt = performance.now();
                 const message = error instanceof Error ? error.message : String(error);
                 if (this.isAutoCombatCommand(failedCommandForDiagnostics) && isTerminalAutoCombatTargetFailure(message)) {
                     this.clearAutoCombatTargetAfterFailure(playerId, deps, failedCommandForDiagnostics);
@@ -465,6 +554,7 @@ export class WorldRuntimePendingCommandService {
                 if (noticeMessage) {
                     deps.queuePlayerNotice(playerId, noticeMessage, 'warn');
                 }
+                recordPendingCommandPerf(recordTickSectionDuration, 'pendingCommands.failureHandlingMs', failureHandlingStartedAt);
             }
         }
         this.pendingCommands.clear();
