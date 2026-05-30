@@ -8200,12 +8200,11 @@ function buildActionEntries(player, currentTick) {
     let changed = false;
 
     const autoBattleSkills: any[] = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
-
-    const skillOrder = new Map(autoBattleSkills.map((entry, index) => [entry.skillId, index]));
-
-    const autoBattleEnabledMap = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.enabled]));
-
-    const skillEnabledMap = new Map(autoBattleSkills.map((entry) => [entry.skillId, entry.skillEnabled !== false]));
+    const autoBattleSkillById = new Map();
+    for (let index = 0; index < autoBattleSkills.length; index += 1) {
+        const entry = autoBattleSkills[index];
+        autoBattleSkillById.set(entry.skillId, { entry, order: index });
+    }
     for (const technique of player.techniques.techniques) {
         for (const skill of technique.skills ?? []) {
             const unlockLevel = typeof skill.unlockLevel === 'number' ? skill.unlockLevel : 1;
@@ -8219,6 +8218,7 @@ function buildActionEntries(player, currentTick) {
                 currentTick,
                 resolvePlayerSkillActionCooldownTicks(player, skill.cooldown),
             );
+            const autoBattleSkill = autoBattleSkillById.get(skill.id);
             const nextAction = reuseActionEntry(previousById.get(skill.id), {
                 id: skill.id,
                 name: skill.name,
@@ -8229,9 +8229,9 @@ function buildActionEntries(player, currentTick) {
                 range: skill.targeting?.range ?? skill.range,
                 requiresTarget: resolveSkillRequiresTarget(skill),
                 targetMode: skill.targetMode ?? 'entity',
-                autoBattleEnabled: autoBattleEnabledMap.get(skill.id) ?? true,
-                autoBattleOrder: skillOrder.get(skill.id),
-                skillEnabled: skillEnabledMap.get(skill.id) ?? true,
+                autoBattleEnabled: autoBattleSkill?.entry?.enabled ?? true,
+                autoBattleOrder: autoBattleSkill?.order,
+                skillEnabled: autoBattleSkill?.entry?.skillEnabled !== false,
             });
             if (nextAction.changed) {
                 changed = true;
@@ -8260,7 +8260,7 @@ function buildActionEntries(player, currentTick) {
     actions.sort((left, right) => {
         const leftId = typeof left.id === 'string' ? left.id : '';
         const rightId = typeof right.id === 'string' ? right.id : '';
-        return ((skillOrder.get(leftId) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(rightId) ?? Number.MAX_SAFE_INTEGER))
+        return ((autoBattleSkillById.get(leftId)?.order ?? Number.MAX_SAFE_INTEGER) - (autoBattleSkillById.get(rightId)?.order ?? Number.MAX_SAFE_INTEGER))
             || leftId.localeCompare(rightId, 'zh-Hans-CN');
     });
     if (!isSameActionIdOrder(player.actions.actions, actions)) {
@@ -8462,7 +8462,44 @@ function enforcePlayerSkillEnabledLimit(player, entries) {
  */
 
 function normalizePlayerAutoBattleSkills(player, input) {
-    return enforcePlayerSkillEnabledLimit(player, normalizeAutoBattleSkills(collectUnlockedSkillIds(player), input));
+    const skillIds = collectUnlockedSkillIds(player);
+    const skillLimit = resolvePlayerSkillSlotLimit(player);
+    if (isNormalizedAutoBattleSkillsForSkillIds(input, skillIds, skillLimit)) {
+        return input;
+    }
+    return enforceSkillEnabledLimit(normalizeAutoBattleSkills(skillIds, input), skillLimit);
+}
+function isNormalizedAutoBattleSkillsForSkillIds(input, skillIds, skillLimit) {
+    if (!Array.isArray(input) || input.length !== skillIds.length) {
+        return false;
+    }
+    const normalizedLimit = Number.isFinite(skillLimit) ? Math.max(0, Math.floor(skillLimit)) : 0;
+    let enabledCount = 0;
+    for (let index = 0; index < input.length; index += 1) {
+        const entry = input[index];
+        const skillId = typeof entry?.skillId === 'string' ? entry.skillId.trim() : '';
+        if (!skillId || entry.skillId !== skillId || entry.enabled !== (entry.enabled !== false) || entry.skillEnabled !== (entry.skillEnabled !== false)) {
+            return false;
+        }
+        if (!skillIds.includes(skillId)) {
+            return false;
+        }
+        for (let previousIndex = 0; previousIndex < index; previousIndex += 1) {
+            if (input[previousIndex]?.skillId === skillId) {
+                return false;
+            }
+        }
+        if (entry.autoBattleOrder !== index) {
+            return false;
+        }
+        if (entry.skillEnabled !== false) {
+            enabledCount += 1;
+            if (enabledCount > normalizedLimit) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 /**
  * normalizePersistedAutoBattleTargetingMode：读取PersistedAutoBattleTargetingMode并返回结果。
