@@ -367,7 +367,7 @@ export class WorldRuntimeMonsterActionApplyService {
                 resolvedTargetCount += 1;
                 const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castMonsterSkill(monster, player, action.skillId, currentTick, actionPlan.distance, (buff) => {
-                    instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
+                    instance.applyTemporaryBuffToMonster(monster.runtimeId, buff, { skipSnapshot: true });
                 }, (buff) => {
                     this.playerRuntimeService.applyTemporaryBuff(player.playerId, buff);
                 }, (amount) => {

@@ -3534,7 +3534,7 @@ class MapInstanceRuntime {
         };
     }
     /** applyTemporaryBuffToMonster：给妖兽应用临时 Buff。 */
-    applyTemporaryBuffToMonster(runtimeId, buff) {
+    applyTemporaryBuffToMonster(runtimeId, buff, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const monster = this.monstersByRuntimeId.get(runtimeId);
@@ -3543,7 +3543,14 @@ class MapInstanceRuntime {
         }
 
         const existing = monster.buffs.find((entry) => entry.buffId === buff.buffId);
+        let attrRelevantChanged = false;
         if (existing) {
+            const previousStacks = existing.stacks;
+            const previousRealmLv = existing.realmLv;
+            const previousActive = isRuntimeBuffActive(existing);
+            const affectsAttributes = doesTemporaryBuffAffectAttributes(existing) || doesTemporaryBuffAffectAttributes(buff);
+            const sameAttributePayload = isSameTemporaryBuffAttributePayload(existing, buff);
+            const samePrototypePayload = isSameTemporaryBuffPrototypePayload(existing, buff);
             existing.remainingTicks = Math.max(existing.remainingTicks, buff.remainingTicks);
             existing.duration = Math.max(existing.duration, buff.duration);
             existing.stacks = Math.min(existing.maxStacks, Math.max(existing.stacks, buff.stacks));
@@ -3551,16 +3558,24 @@ class MapInstanceRuntime {
             existing.sustainTicksElapsed = buff.sustainCost ? Math.max(0, Math.floor(Number(existing.sustainTicksElapsed ?? buff.sustainTicksElapsed ?? 0) || 0)) : undefined;
             existing.persistOnDeath = buff.persistOnDeath === true;
             existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
-            refreshRuntimeTemporaryBuffPrototype(existing, buff);
+            if (!samePrototypePayload) {
+                refreshRuntimeTemporaryBuffPrototype(existing, buff);
+            }
+            attrRelevantChanged = affectsAttributes
+                && (previousActive !== isRuntimeBuffActive(existing)
+                    || previousStacks !== existing.stacks
+                    || previousRealmLv !== existing.realmLv
+                    || !sameAttributePayload);
         }
         else {
             monster.buffs.push(createRuntimeTemporaryBuff(buff));
+            attrRelevantChanged = doesTemporaryBuffAffectAttributes(buff);
+            monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
         }
-        monster.buffs.sort((left, right) => String(left.buffId ?? '').localeCompare(String(right.buffId ?? ''), 'zh-Hans-CN'));
-        if (recalculateMonsterDerivedState(monster)) {
+        if (attrRelevantChanged && recalculateMonsterDerivedState(monster)) {
             this.worldRevision += 1;
         }
-        return snapshotMonster(monster);
+        return options?.skipSnapshot === true ? monster : snapshotMonster(monster);
     }
     /** defeatMonster：直接结算一只妖兽被击败后的占用释放。 */
     defeatMonster(runtimeId) {
@@ -7140,6 +7155,89 @@ function buildMonsterInitialBuffState(monster, effect) {
         persistOnDeath: effect.persistOnDeath === true,
         persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     };
+}
+
+const TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS = [
+    'buffId',
+    'name',
+    'desc',
+    'baseDesc',
+    'shortMark',
+    'category',
+    'visibility',
+    'sourceSkillId',
+    'sourceSkillName',
+    'color',
+    'presentationScale',
+    'sustainCost',
+    'expireWithBuffId',
+    'sourceCasterId',
+];
+
+function isRuntimeBuffActive(buff) {
+    return Boolean(buff && buff.remainingTicks > 0 && buff.stacks > 0);
+}
+
+function doesTemporaryBuffAffectAttributes(buff) {
+    return Boolean(buff && (buff.attrs || buff.stats));
+}
+
+function isSameTemporaryBuffAttributePayload(left, right) {
+    return (left?.buffId ?? undefined) === (right?.buffId ?? undefined)
+        && (left?.sourceSkillId ?? undefined) === (right?.sourceSkillId ?? undefined)
+        && (left?.attrMode ?? undefined) === (right?.attrMode ?? undefined)
+        && (left?.statMode ?? undefined) === (right?.statMode ?? undefined)
+        && (left?.realmLv ?? undefined) === (right?.realmLv ?? undefined)
+        && isSamePlainObjectValue(left?.attrs, right?.attrs)
+        && isSamePlainObjectValue(left?.stats, right?.stats);
+}
+
+function isSameTemporaryBuffPrototypePayload(left, right) {
+    if (!isSameTemporaryBuffAttributePayload(left, right)
+        || !isSamePlainObjectValue(left?.qiProjection, right?.qiProjection)
+        || !isSamePlainObjectValue(left?.tickEffects, right?.tickEffects)) {
+        return false;
+    }
+    for (const key of TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS) {
+        if ((left?.[key] ?? undefined) !== (right?.[key] ?? undefined)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isSamePlainObjectValue(left, right) {
+    if (left === right) {
+        return true;
+    }
+    if (left === undefined || left === null || right === undefined || right === null) {
+        return left === right;
+    }
+    if (typeof left !== 'object' || typeof right !== 'object') {
+        return left === right;
+    }
+    if (Array.isArray(left) || Array.isArray(right)) {
+        if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+            return false;
+        }
+        for (let index = 0; index < left.length; index += 1) {
+            if (!isSamePlainObjectValue(left[index], right[index])) {
+                return false;
+            }
+        }
+        return true;
+    }
+    const leftKeys = Object.keys(left);
+    const rightKeys = Object.keys(right);
+    if (leftKeys.length !== rightKeys.length) {
+        return false;
+    }
+    for (const key of leftKeys) {
+        if (!Object.hasOwn(right, key) || !isSamePlainObjectValue(left[key], right[key])) {
+            return false;
+        }
+    }
+    return true;
 }
 /** tickTemporaryBuffs：推进临时 Buff 计时。 */
 function tickTemporaryBuffs(buffs) {

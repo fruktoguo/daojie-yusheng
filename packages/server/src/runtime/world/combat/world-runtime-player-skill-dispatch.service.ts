@@ -159,6 +159,16 @@ function recordPlayerSkillDispatchPerf(deps, key, startedAt, count = 1) {
     }
 }
 
+function recordPlayerSkillDispatchDuration(deps, key, durationMs, count = 1) {
+    const recorder = deps?.recordPendingCommandSectionDuration;
+    if (typeof recorder !== 'function') {
+        return;
+    }
+    if (Number.isFinite(durationMs) && durationMs >= 0) {
+        recorder(key, durationMs, count);
+    }
+}
+
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
     return buildEffectiveTargetingGeometry({
         range: resolveRuntimeSkillRange(skill),
@@ -1325,6 +1335,12 @@ export class WorldRuntimePlayerSkillDispatchService {
                 range: effectiveRange,
                 resolvedSkill,
                 attackerCombatState,
+                recordSkillCastSectionDuration: (sectionKey, durationMs, count = 1) => {
+                    const normalizedKey = typeof sectionKey === 'string' && sectionKey
+                        ? sectionKey
+                        : 'unknownMs';
+                    recordPlayerSkillDispatchDuration(deps, `pendingCommands.castSkill.${normalizedKey}`, durationMs, count);
+                },
             };
             if (target.kind === 'self') {
                 const combatResolveStartedAt = performance.now();
@@ -1397,7 +1413,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 const monsterCombatState = this.resolveMonsterCombatTargetState(monster);
                 const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSkillToMonster(attacker, monsterCombatState, skillId, currentTick, distance, (buff) => {
-                    instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
+                    instance.applyTemporaryBuffToMonster(monster.runtimeId, buff, { skipSnapshot: true });
                 }, options);
                 recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.combatResolveMs', combatResolveStartedAt);
                 castIndex += 1;
