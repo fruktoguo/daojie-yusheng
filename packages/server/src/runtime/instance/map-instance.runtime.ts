@@ -188,6 +188,11 @@ class MapInstanceRuntime {
 
     playersById = new Map();    
     /**
+ * playerIdsByTile：按地块索引维护玩家集合，供 AOE/PvP 目标规划按格取人。
+ */
+
+    playerIdsByTile = new Map();
+    /**
  * playersByHandle：玩家ByHandle相关字段。
  */
 
@@ -647,6 +652,7 @@ class MapInstanceRuntime {
         };
         this.playersById.set(player.playerId, player);
         this.playersByHandle.set(player.handle, player);
+        this.addPlayerToTileIndex(player);
         this.setOccupied(player.x, player.y, player.handle);
         // T-04: 玩家进入降频实例时执行 catch-up 补偿
         if (this._throttledSinceMs != null) {
@@ -700,6 +706,7 @@ class MapInstanceRuntime {
         if (!player) {
             return false;
         }
+        this.removePlayerFromTileIndex(player.playerId, player.x, player.y);
         this.playersById.delete(playerId);
         this.playersByHandle.delete(player.handle);
         this.pendingCommands.delete(playerId);
@@ -710,6 +717,32 @@ class MapInstanceRuntime {
         this.freeHandles.push(player.handle);
         this.worldRevision += 1;
         return true;
+    }
+    addPlayerToTileIndex(player) {
+        if (!player?.playerId || !this.isInBounds(player.x, player.y)) {
+            return;
+        }
+        const tileIndex = this.toTileIndex(player.x, player.y);
+        let playerIds = this.playerIdsByTile.get(tileIndex);
+        if (!playerIds) {
+            playerIds = new Set();
+            this.playerIdsByTile.set(tileIndex, playerIds);
+        }
+        playerIds.add(player.playerId);
+    }
+    removePlayerFromTileIndex(playerId, x, y) {
+        if (!playerId || !this.isInBounds(x, y)) {
+            return;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        const playerIds = this.playerIdsByTile.get(tileIndex);
+        if (!playerIds) {
+            return;
+        }
+        playerIds.delete(playerId);
+        if (playerIds.size === 0) {
+            this.playerIdsByTile.delete(tileIndex);
+        }
     }
     /** relocatePlayer：把玩家强制迁到指定落点，仍然复用出生点占位逻辑。 */
     relocatePlayer(playerId, preferredX, preferredY) {
@@ -731,9 +764,11 @@ class MapInstanceRuntime {
             };
         }
         this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
+        this.removePlayerFromTileIndex(player.playerId, player.x, player.y);
         player.x = target.x;
         player.y = target.y;
         player.selfRevision += 1;
+        this.addPlayerToTileIndex(player);
         this.setOccupied(player.x, player.y, player.handle);
         this.worldRevision += 1;
         return {
@@ -853,6 +888,7 @@ class MapInstanceRuntime {
         this.changedTileResourceEntryCountByKey = new Map();
         this.changedAuraTileCount = 0;
         this.changedTileResourceEntryCount = 0;
+        this.playerIdsByTile.clear();
         this.npcIdByTile.clear();
         this.npcsById.clear();
         this.landmarkIdByTile.clear();
@@ -866,6 +902,7 @@ class MapInstanceRuntime {
             player.x = nextX;
             player.y = nextY;
             player.selfRevision += 1;
+            this.addPlayerToTileIndex(player);
             this.setOccupied(nextX, nextY, player.handle);
         }
         this.tileDamageByTile.clear();
@@ -3109,8 +3146,13 @@ class MapInstanceRuntime {
         }
 
         const results = [];
-        for (const player of this.playersById.values()) {
-            if (player.x === x && player.y === y) {
+        const playerIds = this.playerIdsByTile.get(this.toTileIndex(x, y));
+        if (!playerIds || playerIds.size === 0) {
+            return results;
+        }
+        for (const playerId of playerIds) {
+            const player = this.playersById.get(playerId);
+            if (player) {
                 results.push({ ...player });
             }
         }
@@ -4819,6 +4861,7 @@ class MapInstanceRuntime {
                 player.selfRevision += 1;
             }
             this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
+            this.removePlayerFromTileIndex(player.playerId, player.x, player.y);
             player.x = nextX;
             player.y = nextY;
             movePoints -= stepCost;
@@ -4827,6 +4870,7 @@ class MapInstanceRuntime {
             if (remainingPath) {
                 remainingPath.shift();
             }
+            this.addPlayerToTileIndex(player);
             this.setOccupied(player.x, player.y, player.handle);
             this.worldRevision += 1;
 

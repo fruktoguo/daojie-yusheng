@@ -1123,27 +1123,31 @@ export class WorldRuntimePlayerSkillDispatchService {
         if (affectedCells.length === 0) {
             return null;
         }
-        const monsters = instance.listMonsters()
-            .filter((entry) => entry.alive)
-            .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
+        const monsterByTile = typeof instance.getMonsterAtTile === 'function'
+            ? null
+            : buildLiveMonsterTileIndex(typeof instance.listMonsters === 'function' ? instance.listMonsters() : []);
         for (const cell of affectedCells) {
-            const monster = monsters.find((entry) => entry.x === cell.x && entry.y === cell.y);
+            const monster = typeof instance.getMonsterAtTile === 'function'
+                ? instance.getMonsterAtTile(cell.x, cell.y)
+                : monsterByTile.get(buildCombatTileKey(cell.x, cell.y));
             if (
-                monster
+                monster?.alive !== false
                 && isHostileCombatRelationResolution(resolveCombatRelation(attacker, { kind: 'monster' }))
             ) {
                 return { kind: 'monster', monsterId: monster.runtimeId };
             }
         }
-        const formations = typeof deps.worldRuntimeFormationService?.listRuntimeFormations === 'function'
-            ? deps.worldRuntimeFormationService.listRuntimeFormations(attacker.instanceId)
-                .filter((entry) => Number(entry.remainingAuraBudget) > 0)
-                .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y))
-            : [];
+        const formationByTile = typeof deps.worldRuntimeFormationService?.getFormationAtTile === 'function'
+            ? null
+            : buildRuntimeFormationTileIndex(typeof deps.worldRuntimeFormationService?.listRuntimeFormations === 'function'
+                ? deps.worldRuntimeFormationService.listRuntimeFormations(attacker.instanceId)
+                : []);
         for (const cell of affectedCells) {
-            const formation = formations.find((entry) => entry.x === cell.x && entry.y === cell.y);
+            const formation = typeof deps.worldRuntimeFormationService?.getFormationAtTile === 'function'
+                ? deps.worldRuntimeFormationService.getFormationAtTile(attacker.instanceId, cell.x, cell.y)
+                : formationByTile.get(buildCombatTileKey(cell.x, cell.y));
             if (
-                formation
+                formation?.id
                 && terrainHostile
             ) {
                 return { kind: 'formation', formationId: formation.id };
@@ -2414,4 +2418,42 @@ function resolveMonsterCombatExpEquivalent(monster, playerRuntimeService) {
         }
     }
     return resolveMonsterCombatExpEquivalentFallback(monster);
+}
+
+function buildCombatTileKey(x, y) {
+    return `${Math.trunc(Number(x))}:${Math.trunc(Number(y))}`;
+}
+
+function buildLiveMonsterTileIndex(monsters) {
+    const index = new Map();
+    if (!Array.isArray(monsters)) {
+        return index;
+    }
+    for (const monster of monsters) {
+        if (!monster?.runtimeId || monster.alive === false) {
+            continue;
+        }
+        const key = buildCombatTileKey(monster.x, monster.y);
+        if (!index.has(key)) {
+            index.set(key, monster);
+        }
+    }
+    return index;
+}
+
+function buildRuntimeFormationTileIndex(formations) {
+    const index = new Map();
+    if (!Array.isArray(formations)) {
+        return index;
+    }
+    for (const formation of formations) {
+        if (!formation?.id || Number(formation?.remainingAuraBudget) <= 0) {
+            continue;
+        }
+        const key = buildCombatTileKey(formation.x, formation.y);
+        if (!index.has(key)) {
+            index.set(key, formation);
+        }
+    }
+    return index;
 }

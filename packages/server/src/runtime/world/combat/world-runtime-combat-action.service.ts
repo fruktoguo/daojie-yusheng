@@ -678,6 +678,37 @@ export class WorldRuntimeCombatActionService {
     const targets = Array.isArray(input.targets) ? input.targets : [];
     const seen = new Set();
     const resolveCombatRelation = typeof input.resolveCombatRelation === 'function' ? input.resolveCombatRelation : null;
+    const allowedTargetKinds = definition.allowedTargetKinds ?? [];
+    const allowMonster = allowedTargetKinds.includes(CombatTargetKind.Monster);
+    const allowFormation = allowedTargetKinds.includes(CombatTargetKind.Formation);
+    const allowPlayer = allowedTargetKinds.includes(CombatTargetKind.Player);
+    const allowContainer = allowedTargetKinds.includes(CombatTargetKind.Container);
+    const allowTile = allowedTargetKinds.includes(CombatTargetKind.Tile);
+    const instanceId = input.action?.instanceId ?? input.instanceId;
+    const getMonsterAtTile = allowMonster && typeof instance?.getMonsterAtTile === 'function'
+      ? instance.getMonsterAtTile.bind(instance)
+      : null;
+    const monsterByTile = allowMonster && !getMonsterAtTile && typeof instance?.listMonsters === 'function'
+      ? indexLiveMonstersByTile(instance.listMonsters())
+      : null;
+    const getFormationAtTile = allowFormation && typeof input.formationService?.getFormationAtTile === 'function'
+      ? input.formationService.getFormationAtTile.bind(input.formationService)
+      : null;
+    const formationByTile = allowFormation && !getFormationAtTile && typeof input.formationService?.listRuntimeFormations === 'function'
+      ? indexRuntimeFormationsByTile(input.formationService.listRuntimeFormations(instanceId))
+      : null;
+    const getBoundaryBarrierCombatState = allowFormation && typeof input.formationService?.getBoundaryBarrierCombatState === 'function'
+      ? input.formationService.getBoundaryBarrierCombatState.bind(input.formationService)
+      : null;
+    const getPlayersAtTile = allowPlayer && typeof instance?.getPlayersAtTile === 'function'
+      ? instance.getPlayersAtTile.bind(instance)
+      : null;
+    const getContainerAtTile = allowContainer && typeof instance?.getContainerAtTile === 'function'
+      ? instance.getContainerAtTile.bind(instance)
+      : null;
+    const getTileCombatState = allowTile && typeof instance?.getTileCombatState === 'function'
+      ? instance.getTileCombatState.bind(instance)
+      : null;
     const pushCandidate = (candidate) => {
       if (!candidate || targets.length >= definition.maxTargets) {
         return;
@@ -707,37 +738,36 @@ export class WorldRuntimeCombatActionService {
       seen.add(key);
       push(resolved.target);
     };
-    const candidatesByCell = (cell) => {
-      const candidates = [];
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Monster) && typeof instance?.getMonsterAtTile === 'function') {
-        const monster = instance.getMonsterAtTile(cell.x, cell.y);
+    for (const cell of cells) {
+      if (targets.length >= definition.maxTargets) {
+        break;
+      }
+      if (allowMonster) {
+        const monster = getMonsterAtTile
+          ? getMonsterAtTile(cell.x, cell.y)
+          : monsterByTile?.get(buildCombatTileKey(cell.x, cell.y));
         if (monster?.runtimeId) {
-          candidates.push({ kind: CombatTargetKind.Monster, id: monster.runtimeId, source: 'affected_cell' });
+          pushCandidate({ kind: CombatTargetKind.Monster, id: monster.runtimeId, source: 'affected_cell' });
         }
       }
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Monster) && typeof instance?.listMonsters === 'function') {
-        const monster = instance.listMonsters().find((entry) => entry?.alive !== false && entry.x === cell.x && entry.y === cell.y);
-        if (monster?.runtimeId) {
-          candidates.push({ kind: CombatTargetKind.Monster, id: monster.runtimeId, source: 'affected_cell' });
-        }
+      if (targets.length >= definition.maxTargets) {
+        break;
       }
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Formation) && typeof input.formationService?.getFormationAtTile === 'function') {
-        const formation = input.formationService.getFormationAtTile(input.action?.instanceId ?? input.instanceId, cell.x, cell.y);
+      if (allowFormation) {
+        const formation = getFormationAtTile
+          ? getFormationAtTile(instanceId, cell.x, cell.y)
+          : formationByTile?.get(buildCombatTileKey(cell.x, cell.y));
         if (formation?.id) {
-          candidates.push({ kind: CombatTargetKind.Formation, id: formation.id, x: cell.x, y: cell.y, source: 'affected_cell' });
+          pushCandidate({ kind: CombatTargetKind.Formation, id: formation.id, x: cell.x, y: cell.y, source: 'affected_cell' });
         }
       }
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Formation) && typeof input.formationService?.listRuntimeFormations === 'function') {
-        const formation = input.formationService.listRuntimeFormations(input.action?.instanceId ?? input.instanceId)
-          .find((entry) => Number(entry?.remainingAuraBudget) > 0 && entry.x === cell.x && entry.y === cell.y);
-        if (formation?.id) {
-          candidates.push({ kind: CombatTargetKind.Formation, id: formation.id, x: cell.x, y: cell.y, source: 'affected_cell' });
-        }
+      if (targets.length >= definition.maxTargets) {
+        break;
       }
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Formation) && typeof input.formationService?.getBoundaryBarrierCombatState === 'function') {
-        const boundary = input.formationService.getBoundaryBarrierCombatState(input.action?.instanceId ?? input.instanceId, cell.x, cell.y);
+      if (getBoundaryBarrierCombatState) {
+        const boundary = getBoundaryBarrierCombatState(instanceId, cell.x, cell.y);
         if (boundary) {
-          candidates.push({
+          pushCandidate({
             kind: CombatTargetKind.Formation,
             id: boundary.formationId ?? boundary.id,
             x: cell.x,
@@ -747,37 +777,35 @@ export class WorldRuntimeCombatActionService {
           });
         }
       }
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Player) && typeof instance?.getPlayersAtTile === 'function') {
-        for (const player of instance.getPlayersAtTile(cell.x, cell.y) ?? []) {
-          if (player?.playerId) {
-            candidates.push({ kind: CombatTargetKind.Player, id: player.playerId, x: cell.x, y: cell.y, runtime: player, source: 'affected_cell' });
-          }
-        }
-      }
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Container) && typeof instance?.getContainerAtTile === 'function') {
-        const container = instance.getContainerAtTile(cell.x, cell.y);
-        if (container) {
-          candidates.push({ kind: CombatTargetKind.Container, id: container.id, x: cell.x, y: cell.y, runtime: container, source: 'affected_cell' });
-        }
-      }
-      if (definition.allowedTargetKinds?.includes(CombatTargetKind.Tile)) {
-        const tileState = typeof instance?.getTileCombatState === 'function'
-          ? instance.getTileCombatState(cell.x, cell.y)
-          : null;
-        if (tileState && tileState.destroyed !== true) {
-          candidates.push({ kind: CombatTargetKind.Tile, x: cell.x, y: cell.y, state: tileState, source: 'affected_cell' });
-        }
-      }
-      return candidates;
-    };
-    for (const cell of cells) {
       if (targets.length >= definition.maxTargets) {
         break;
       }
-      for (const candidate of candidatesByCell(cell)) {
-        pushCandidate(candidate);
-        if (targets.length >= definition.maxTargets) {
-          break;
+      if (getPlayersAtTile) {
+        for (const player of getPlayersAtTile(cell.x, cell.y) ?? []) {
+          if (player?.playerId) {
+            pushCandidate({ kind: CombatTargetKind.Player, id: player.playerId, x: cell.x, y: cell.y, runtime: player, source: 'affected_cell' });
+            if (targets.length >= definition.maxTargets) {
+              break;
+            }
+          }
+        }
+      }
+      if (targets.length >= definition.maxTargets) {
+        break;
+      }
+      if (getContainerAtTile) {
+        const container = getContainerAtTile(cell.x, cell.y);
+        if (container) {
+          pushCandidate({ kind: CombatTargetKind.Container, id: container.id, x: cell.x, y: cell.y, runtime: container, source: 'affected_cell' });
+        }
+      }
+      if (targets.length >= definition.maxTargets) {
+        break;
+      }
+      if (allowTile) {
+        const tileState = getTileCombatState ? getTileCombatState(cell.x, cell.y) : null;
+        if (tileState && tileState.destroyed !== true) {
+          pushCandidate({ kind: CombatTargetKind.Tile, x: cell.x, y: cell.y, state: tileState, source: 'affected_cell' });
         }
       }
     }
@@ -3328,6 +3356,44 @@ function buildCombatTargetKey(target: AnyRecord = {}) {
     return `${target.kind}:${target.id ?? ''}`;
   }
   return `${target.kind ?? 'target'}:${target.x ?? ''}:${target.y ?? ''}`;
+}
+
+function buildCombatTileKey(x, y) {
+  return `${Math.trunc(Number(x))}:${Math.trunc(Number(y))}`;
+}
+
+function indexLiveMonstersByTile(monsters) {
+  const index = new Map();
+  if (!Array.isArray(monsters)) {
+    return index;
+  }
+  for (const monster of monsters) {
+    if (!monster?.runtimeId || monster.alive === false) {
+      continue;
+    }
+    const key = buildCombatTileKey(monster.x, monster.y);
+    if (!index.has(key)) {
+      index.set(key, monster);
+    }
+  }
+  return index;
+}
+
+function indexRuntimeFormationsByTile(formations) {
+  const index = new Map();
+  if (!Array.isArray(formations)) {
+    return index;
+  }
+  for (const formation of formations) {
+    if (!formation?.id || Number(formation?.remainingAuraBudget) <= 0) {
+      continue;
+    }
+    const key = buildCombatTileKey(formation.x, formation.y);
+    if (!index.has(key)) {
+      index.set(key, formation);
+    }
+  }
+  return index;
 }
 
 function isPlayerLocatedInCombatActionInstance(deps, instance, playerId, instanceId) {

@@ -224,17 +224,19 @@ export class PlayerCombatService {
 
         let hitCount = 0;
         const targetCount = Math.max(1, Math.round(options?.targetCount ?? 1));
+        const formulaContext = {
+            attacker,
+            target,
+            techLevel: resolved.level,
+            targetCount,
+        };
+        const combatContext = createEffectDamageContext(attacker, target, options?.isTileTarget === true);
         for (const effect of resolved.skill.effects) {
             if (effect.type === 'damage') {
                 // 伤害效果：求值公式 → 结算命中/暴击/防御
-                const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, {
-                    attacker,
-                    target,
-                    techLevel: resolved.level,
-                    targetCount,
-                })));
+                const baseDamage = Math.max(1, Math.round(evaluateSkillFormula(effect.formula, formulaContext)));
 
-                const damageRoll = resolveEffectDamage(attacker, target, effect, baseDamage, options?.isTileTarget === true);
+                const damageRoll = resolveEffectDamage(effect, baseDamage, combatContext);
                 damageRolls.push(damageRoll);
                 totalRawDamage += Math.max(0, Math.round(damageRoll.rawDamage ?? 0));
                 if (!primaryDamageKind) {
@@ -254,12 +256,7 @@ export class PlayerCombatService {
                 if (options?.skipSelfEffects === true) {
                     continue;
                 }
-                const healAmount = Math.max(0, Math.round(evaluateSkillFormula(effect.formula, {
-                    attacker,
-                    target,
-                    techLevel: resolved.level,
-                    targetCount,
-                })));
+                const healAmount = Math.max(0, Math.round(evaluateSkillFormula(effect.formula, formulaContext)));
                 if (healAmount > 0) {
                     totalHeal += healAmount;
                     handlers.applySelfHeal?.(healAmount);
@@ -419,12 +416,10 @@ function normalizeSkillQiCost(rawCost) {
     return Math.max(0, Math.round(Number(rawCost)));
 }
 
-/** 单次技能效果伤害结算：战斗者走完整管线，地块走地块管线。 */
-function resolveEffectDamage(attacker, target, effect, baseDamage, isTile = false) {
+/** 构建单次施法可复用的伤害结算上下文，避免多段效果重复解析战斗者属性。 */
+function createEffectDamageContext(attacker, target, isTile = false) {
     const attackerStats = attacker.attrs.numericStats;
-    const damageKind = effect.damageKind ?? inferDamageKind(attackerStats);
-    const resolve = isTile ? resolveTileCombatDamage : resolveCombatDamage;
-    const outcome = resolve({
+    return {
         attackerStats,
         attackerRatios: attacker.attrs.ratioDivisors,
         attackerRealmLv: resolveCombatantRealmLv(attacker),
@@ -433,6 +428,23 @@ function resolveEffectDamage(attacker, target, effect, baseDamage, isTile = fals
         targetRatios: isTile ? {} : target.attrs.ratioDivisors,
         targetRealmLv: isTile ? 1 : resolveCombatantRealmLv(target),
         targetCombatExp: isTile ? 0 : resolveCombatantCombatExp(target),
+        inferredDamageKind: inferDamageKind(attackerStats),
+        resolve: isTile ? resolveTileCombatDamage : resolveCombatDamage,
+    };
+}
+
+/** 单次技能效果伤害结算：战斗者走完整管线，地块走地块管线。 */
+function resolveEffectDamage(effect, baseDamage, context) {
+    const damageKind = effect.damageKind ?? context.inferredDamageKind;
+    const outcome = context.resolve({
+        attackerStats: context.attackerStats,
+        attackerRatios: context.attackerRatios,
+        attackerRealmLv: context.attackerRealmLv,
+        attackerCombatExp: context.attackerCombatExp,
+        targetStats: context.targetStats,
+        targetRatios: context.targetRatios,
+        targetRealmLv: context.targetRealmLv,
+        targetCombatExp: context.targetCombatExp,
         baseDamage,
         damageKind,
         element: effect.element,
@@ -511,85 +523,183 @@ function resolveSkillCooldownTicks(attacker, cooldown) {
  * 递归求值技能伤害公式。
  * 支持：数值字面量、变量引用（var）、运算符（add/sub/mul/div/min/max/clamp）。
  */
+const constantZeroSkillFormulaEvaluator = () => 0;
+const compiledSkillFormulaCache = new WeakMap();
+
 function evaluateSkillFormula(formula, context) {
+    return getCompiledSkillFormula(formula)(context);
+}
+
+function getCompiledSkillFormula(formula) {
     if (typeof formula === 'number') {
-        return formula;
+        return () => formula;
     }
     if (!formula || typeof formula !== 'object') {
-        return 0;
+        return constantZeroSkillFormulaEvaluator;
     }
+    const cached = compiledSkillFormulaCache.get(formula);
+    if (cached) {
+        return cached;
+    }
+    const compiled = compileSkillFormula(formula);
+    compiledSkillFormulaCache.set(formula, compiled);
+    return compiled;
+}
+
+function compileSkillFormula(formula) {
     if ('var' in formula) {
-        return resolveSkillFormulaVar(formula.var, context) * (formula.scale ?? 1);
+        const resolveVar = compileSkillFormulaVarResolver(formula.var);
+        const scale = formula.scale ?? 1;
+        return (context) => resolveVar(context) * scale;
     }
     if (formula.op === 'clamp') {
-        const value = evaluateSkillFormula(formula.value, context);
-        const min = formula.min === undefined ? Number.NEGATIVE_INFINITY : evaluateSkillFormula(formula.min, context);
-        const max = formula.max === undefined ? Number.POSITIVE_INFINITY : evaluateSkillFormula(formula.max, context);
-        return Math.min(max, Math.max(min, value));
+        const evaluateValue = getCompiledSkillFormula(formula.value);
+        const evaluateMin = formula.min === undefined ? null : getCompiledSkillFormula(formula.min);
+        const evaluateMax = formula.max === undefined ? null : getCompiledSkillFormula(formula.max);
+        return (context) => {
+            const value = evaluateValue(context);
+            const min = evaluateMin ? evaluateMin(context) : Number.NEGATIVE_INFINITY;
+            const max = evaluateMax ? evaluateMax(context) : Number.POSITIVE_INFINITY;
+            return Math.min(max, Math.max(min, value));
+        };
     }
 
     const args = Array.isArray(formula.args) ? formula.args : [];
+    const evaluators = args.map((entry) => getCompiledSkillFormula(entry));
     switch (formula.op) {
         case 'add': {
-            let sum = 0;
-            for (const entry of args) {
-                sum += evaluateSkillFormula(entry, context);
-            }
-            return sum;
+            return (context) => {
+                let sum = 0;
+                for (const evaluate of evaluators) {
+                    sum += evaluate(context);
+                }
+                return sum;
+            };
         }
         case 'sub': {
             if (args.length <= 0) {
-                return 0;
+                return constantZeroSkillFormulaEvaluator;
             }
-            let value = evaluateSkillFormula(args[0], context);
-            for (let index = 1; index < args.length; index += 1) {
-                value -= evaluateSkillFormula(args[index], context);
-            }
-            return value;
+            return (context) => {
+                let value = evaluators[0](context);
+                for (let index = 1; index < evaluators.length; index += 1) {
+                    value -= evaluators[index](context);
+                }
+                return value;
+            };
         }
         case 'mul': {
-            let product = 1;
-            for (const entry of args) {
-                product *= evaluateSkillFormula(entry, context);
-            }
-            return product;
+            return (context) => {
+                let product = 1;
+                for (const evaluate of evaluators) {
+                    product *= evaluate(context);
+                }
+                return product;
+            };
         }
         case 'div': {
             if (args.length <= 0) {
-                return 0;
+                return constantZeroSkillFormulaEvaluator;
             }
-            let value = evaluateSkillFormula(args[0], context);
-            for (let index = 1; index < args.length; index += 1) {
-                const divisor = evaluateSkillFormula(args[index], context);
-                if (divisor !== 0) {
-                    value /= divisor;
+            return (context) => {
+                let value = evaluators[0](context);
+                for (let index = 1; index < evaluators.length; index += 1) {
+                    const divisor = evaluators[index](context);
+                    if (divisor !== 0) {
+                        value /= divisor;
+                    }
                 }
-            }
-            return value;
+                return value;
+            };
         }
         case 'min': {
             if (args.length <= 0) {
-                return 0;
+                return constantZeroSkillFormulaEvaluator;
             }
-            let value = evaluateSkillFormula(args[0], context);
-            for (let index = 1; index < args.length; index += 1) {
-                value = Math.min(value, evaluateSkillFormula(args[index], context));
-            }
-            return value;
+            return (context) => {
+                let value = evaluators[0](context);
+                for (let index = 1; index < evaluators.length; index += 1) {
+                    value = Math.min(value, evaluators[index](context));
+                }
+                return value;
+            };
         }
         case 'max': {
             if (args.length <= 0) {
-                return 0;
+                return constantZeroSkillFormulaEvaluator;
             }
-            let value = evaluateSkillFormula(args[0], context);
-            for (let index = 1; index < args.length; index += 1) {
-                value = Math.max(value, evaluateSkillFormula(args[index], context));
-            }
-            return value;
+            return (context) => {
+                let value = evaluators[0](context);
+                for (let index = 1; index < evaluators.length; index += 1) {
+                    value = Math.max(value, evaluators[index](context));
+                }
+                return value;
+            };
         }
         default:
-            return 0;
+            return constantZeroSkillFormulaEvaluator;
     }
+}
+
+function compileSkillFormulaVarResolver(variable) {
+    if (variable === 'techLevel') {
+        return (context) => context.techLevel;
+    }
+    if (variable === 'caster.realmLv') {
+        return (context) => context.attacker.realmLv ?? context.attacker.level ?? context.techLevel ?? 0;
+    }
+    if (variable === 'targetCount') {
+        return (context) => context.targetCount;
+    }
+    if (variable === 'caster.hp') {
+        return (context) => context.attacker.hp;
+    }
+    if (variable === 'caster.maxHp') {
+        return (context) => context.attacker.maxHp;
+    }
+    if (variable === 'caster.qi') {
+        return (context) => context.attacker.qi;
+    }
+    if (variable === 'caster.maxQi') {
+        return (context) => context.attacker.maxQi;
+    }
+    if (variable === 'target.hp') {
+        return (context) => context.target.hp;
+    }
+    if (variable === 'target.maxHp') {
+        return (context) => context.target.maxHp;
+    }
+    if (variable === 'target.qi') {
+        return (context) => context.target.qi;
+    }
+    if (variable === 'target.maxQi') {
+        return (context) => context.target.maxQi;
+    }
+    if (typeof variable === 'string' && variable.startsWith('caster.attr.')) {
+        const key = variable.slice('caster.attr.'.length);
+        return (context) => Object.hasOwn(context.attacker.attrs.finalAttrs, key) ? context.attacker.attrs.finalAttrs[key] : 0;
+    }
+    if (typeof variable === 'string' && variable.startsWith('target.attr.')) {
+        const key = variable.slice('target.attr.'.length);
+        return (context) => Object.hasOwn(context.target.attrs.finalAttrs, key) ? context.target.attrs.finalAttrs[key] : 0;
+    }
+    if (typeof variable === 'string' && variable.startsWith('caster.stat.')) {
+        const key = variable.slice('caster.stat.'.length);
+        return (context) => Object.hasOwn(context.attacker.attrs.numericStats, key) ? context.attacker.attrs.numericStats[key] : 0;
+    }
+    if (typeof variable === 'string' && variable.startsWith('target.stat.')) {
+        const key = variable.slice('target.stat.'.length);
+        return (context) => Object.hasOwn(context.target.attrs.numericStats, key) ? context.target.attrs.numericStats[key] : 0;
+    }
+    if (typeof variable === 'string' && variable.startsWith('caster.buff.') && variable.endsWith('.stacks')) {
+        const buffId = variable.slice('caster.buff.'.length, -'.stacks'.length);
+        return (context) => resolveBuffStacks(context.attacker.buffs, buffId);
+    }
+    if (typeof variable === 'string' && variable.startsWith('target.buff.') && variable.endsWith('.stacks')) {
+        const buffId = variable.slice('target.buff.'.length, -'.stacks'.length);
+        return (context) => resolveBuffStacks(context.target.buffs, buffId);
+    }
+    return constantZeroSkillFormulaEvaluator;
 }
 
 /**
