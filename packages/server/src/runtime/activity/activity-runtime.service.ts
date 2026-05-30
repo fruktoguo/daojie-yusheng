@@ -3,18 +3,29 @@
  *
  * 负责把低频活动持久化状态投影为玩家视图，并执行领取奖励的在线资产变更。
  */
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
 import {
   BASE_OFFLINE_MAX_HOURS,
   DAILY_SIGN_IN_REWARD_MERIT,
+  INVITATION_FOUNDATION_REALM_MIN_LEVEL,
+  INVITATION_INVITEE_MERIT_REWARD,
+  INVITATION_INVITEE_SPIRIT_STONE_REWARD,
+  INVITATION_INVITER_BASE_MERIT_REWARD,
+  INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+  INVITATION_INVITER_QI_REALM_MERIT_REWARD,
+  INVITATION_QI_REALM_MIN_LEVEL,
   MERIT_ITEM_ID,
   MERIT_MONTH_CARD_DURATION_DAYS,
   MERIT_MONTH_CARD_ITEM_ID,
   MERIT_MONTH_CARD_OFFLINE_MAX_HOURS,
   MERIT_MONTH_CARD_POOL_GRANT,
+  SPIRIT_STONE_ITEM_ID,
   type ActivityStatusView,
+  type InvitationStatusView,
 } from '@mud/shared';
 import { ActivityPersistenceService, calculateMonthCardDailyReward } from '../../persistence/activity-persistence.service';
+import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
+import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { PlayerRuntimeService } from '../player/player-runtime.service';
 
 const CHINA_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -25,13 +36,21 @@ export class ActivityRuntimeService {
   constructor(
     @Inject(ActivityPersistenceService) private readonly activityPersistenceService: ActivityPersistenceService,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeService,
+    @Optional()
+    @Inject(PlayerCountersPersistenceService)
+    private readonly playerCountersPersistenceService: PlayerCountersPersistenceService | null = null,
+    @Optional()
+    @Inject(NativePlayerAuthStoreService)
+    private readonly authStore: NativePlayerAuthStoreService | null = null,
   ) {}
 
   async getStatus(playerId: string, nowMs = Date.now()): Promise<ActivityStatusView> {
     const today = getChinaDateKey(nowMs);
-    const [monthCard, dailySignIn] = await Promise.all([
+    await this.processInvitationRewards(playerId);
+    const [monthCard, dailySignIn, invitation] = await Promise.all([
       this.activityPersistenceService.loadMonthCard(playerId),
       this.activityPersistenceService.loadDailySignIn(playerId),
+      this.buildInvitationStatus(playerId),
     ]);
     const inventory = this.resolveMonthCardInventory(playerId);
     const active = Boolean(monthCard && monthCard.expireAt > nowMs && monthCard.remainingPoolMerit > 0);
@@ -64,6 +83,7 @@ export class ActivityRuntimeService {
         today,
         rewardMerit: DAILY_SIGN_IN_REWARD_MERIT,
       },
+      invitation,
       hasRedDot: monthCardCanClaim || dailyCanClaim,
     };
   }
@@ -106,6 +126,86 @@ export class ActivityRuntimeService {
       type: 'consumable',
       count: Math.max(1, Math.trunc(count)),
     });
+  }
+
+  private grantInvitationRewards(playerId: string, rewards: { inviteeSpiritStone: number; inviteeMerit: number; inviterMerit: number }): void {
+    if (rewards.inviteeSpiritStone > 0) {
+      this.playerRuntimeService.grantItem(playerId, SPIRIT_STONE_ITEM_ID, rewards.inviteeSpiritStone);
+    }
+    if (rewards.inviteeMerit > 0) {
+      this.grantMerit(playerId, rewards.inviteeMerit);
+    }
+    if (rewards.inviterMerit > 0) {
+      this.grantMerit(playerId, rewards.inviterMerit);
+    }
+  }
+
+  private async processInvitationRewards(playerId: string): Promise<void> {
+    if (!this.activityPersistenceService.isEnabled()) {
+      return;
+    }
+    this.playerRuntimeService.getPlayerOrThrow(playerId);
+    await this.refreshInvitationProgress(playerId);
+    const rewards = await this.activityPersistenceService.claimPendingInvitationRewards(playerId);
+    this.grantInvitationRewards(playerId, rewards);
+  }
+
+  private async refreshInvitationProgress(playerId: string): Promise<void> {
+    const selfHighest = this.resolveHighestRealmLv(playerId);
+    await this.activityPersistenceService.updateInvitationInviteeHighestRealmLv(playerId, selfHighest);
+    const invitees = await this.activityPersistenceService.listInvitationInviteeProgress(playerId);
+    for (const invitee of invitees) {
+      const highest = Math.max(invitee.highestRealmLv, this.resolveHighestRealmLv(invitee.inviteePlayerId));
+      if (highest > invitee.highestRealmLv) {
+        await this.activityPersistenceService.updateInvitationInviteeHighestRealmLv(invitee.inviteePlayerId, highest);
+      }
+    }
+  }
+
+  private resolveHighestRealmLv(playerId: string): number {
+    const player = this.playerRuntimeService.getPlayer(playerId);
+    const currentRealmLv = Math.max(1, Math.trunc(Number(player?.realm?.realmLv) || 1));
+    const counterRealmLv = this.playerCountersPersistenceService?.get?.(playerId, 'highestRealmLv') ?? 0;
+    return Math.max(currentRealmLv, Math.trunc(Number(counterRealmLv) || 0), 1);
+  }
+
+  private async buildInvitationStatus(playerId: string): Promise<InvitationStatusView> {
+    const user = this.authStore?.getMemoryUserByPlayerId(playerId) ?? null;
+    const inviteCode = user?.inviteCode ?? '';
+    const invitePath = inviteCode ? `/?invite=${encodeURIComponent(inviteCode)}` : '';
+    const stats = await this.activityPersistenceService.loadInvitationStatus(playerId);
+    return {
+      inviteCode,
+      invitePath,
+      totalInvitees: stats.totalInvitees,
+      registeredRewardedCount: stats.registeredRewardedCount,
+      qiReachedCount: stats.qiReachedCount,
+      foundationReachedCount: stats.foundationReachedCount,
+      inviteeReward: {
+        spiritStone: INVITATION_INVITEE_SPIRIT_STONE_REWARD,
+        merit: INVITATION_INVITEE_MERIT_REWARD,
+      },
+      stages: [
+        {
+          key: 'registered',
+          label: '注册成功',
+          count: stats.totalInvitees,
+          rewardMerit: INVITATION_INVITER_BASE_MERIT_REWARD,
+        },
+        {
+          key: 'qi',
+          label: `达到练气(${INVITATION_QI_REALM_MIN_LEVEL}级)`,
+          count: stats.qiReachedCount,
+          rewardMerit: INVITATION_INVITER_QI_REALM_MERIT_REWARD,
+        },
+        {
+          key: 'foundation',
+          label: `达到筑基(${INVITATION_FOUNDATION_REALM_MIN_LEVEL}级)`,
+          count: stats.foundationReachedCount,
+          rewardMerit: INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+        },
+      ],
+    };
   }
 
   private resolveMonthCardInventory(playerId: string): { itemCount: number; firstItemInstanceId: string | null } {

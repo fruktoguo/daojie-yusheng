@@ -2942,6 +2942,46 @@
       color: var(--text-muted);
       cursor: not-allowed;
     }
+    .activity-invite-link-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .activity-invite-link-row input {
+      min-width: 0;
+      flex: 1;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      background: var(--surface-muted);
+      color: var(--text-primary);
+      font: inherit;
+    }
+    .activity-invite-stage-list {
+      display: grid;
+      gap: 8px;
+    }
+    .activity-invite-stage {
+      display: flex;
+      min-height: 42px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 12px;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      background: var(--surface-muted);
+    }
+    .activity-invite-stage span {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .activity-invite-stage strong {
+      color: var(--text-primary);
+      font-size: 13px;
+      white-space: nowrap;
+    }
     .activity-empty {
       padding: 24px;
       border: 1px dashed var(--border-soft);
@@ -2977,6 +3017,18 @@
       }
       .activity-tab {
         flex: 1;
+        min-width: 0;
+      }
+      .activity-invite-link-row {
+        flex-direction: column;
+      }
+      .activity-invite-stage {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .activity-invite-stage strong {
+        white-space: normal;
       }
     }
     .tutorial-modal-body {

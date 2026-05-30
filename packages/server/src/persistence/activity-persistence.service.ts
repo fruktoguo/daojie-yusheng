@@ -7,6 +7,13 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import type { Pool } from 'pg';
 import {
   DAILY_SIGN_IN_REWARD_MERIT,
+  INVITATION_FOUNDATION_REALM_MIN_LEVEL,
+  INVITATION_INVITEE_MERIT_REWARD,
+  INVITATION_INVITEE_SPIRIT_STONE_REWARD,
+  INVITATION_INVITER_BASE_MERIT_REWARD,
+  INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+  INVITATION_INVITER_QI_REALM_MERIT_REWARD,
+  INVITATION_QI_REALM_MIN_LEVEL,
   MERIT_ITEM_ID,
   MERIT_MONTH_CARD_DURATION_DAYS,
   MERIT_MONTH_CARD_POOL_GRANT,
@@ -18,6 +25,7 @@ const MONTH_CARD_TABLE = 'player_merit_month_card';
 const MONTH_CARD_CLAIM_TABLE = 'player_merit_month_card_claim';
 const DAILY_SIGN_IN_TABLE = 'player_daily_sign_in';
 const DAILY_SIGN_IN_CLAIM_TABLE = 'player_daily_sign_in_claim';
+const INVITATION_TABLE = 'player_invitation';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface ActivityMonthCardRecord {
@@ -39,6 +47,37 @@ export interface ActivityDailySignInRecord {
   lastClaimDate: string | null;
   streakDays: number;
   totalDays: number;
+}
+
+export interface ActivityInvitationRecord {
+  inviterUserId: string;
+  inviterPlayerId: string;
+  inviteeUserId: string;
+  inviteePlayerId: string;
+  invitationCode: string;
+  inviteeHighestRealmLv: number;
+  inviteeRewardClaimed: boolean;
+  inviterBaseRewardClaimed: boolean;
+  inviterQiRewardClaimed: boolean;
+  inviterFoundationRewardClaimed: boolean;
+}
+
+export interface ActivityInvitationStatusRecord {
+  totalInvitees: number;
+  registeredRewardedCount: number;
+  qiReachedCount: number;
+  foundationReachedCount: number;
+}
+
+export interface ActivityInvitationInviteeProgressRecord {
+  inviteePlayerId: string;
+  highestRealmLv: number;
+}
+
+export interface ActivityInvitationRewardClaimResult {
+  inviteeSpiritStone: number;
+  inviteeMerit: number;
+  inviterMerit: number;
 }
 
 @Injectable()
@@ -357,6 +396,173 @@ export class ActivityPersistenceService {
       .map((row) => normalizePlayerId(row?.player_id))
       .filter((playerId) => playerId.length > 0);
   }
+
+  async createInvitationRecord(input: {
+    inviterUserId: string;
+    inviterPlayerId: string;
+    inviteeUserId: string;
+    inviteePlayerId: string;
+    invitationCode: string;
+  }): Promise<ActivityInvitationRecord | null> {
+    if (!this.pool || !this.enabled) {
+      throw new Error('activity_persistence_unavailable');
+    }
+    const inviterUserId = normalizePlayerId(input.inviterUserId);
+    const inviterPlayerId = normalizePlayerId(input.inviterPlayerId);
+    const inviteeUserId = normalizePlayerId(input.inviteeUserId);
+    const inviteePlayerId = normalizePlayerId(input.inviteePlayerId);
+    const invitationCode = normalizeInvitationCode(input.invitationCode);
+    if (!inviterUserId || !inviterPlayerId || !inviteeUserId || !inviteePlayerId || !invitationCode || inviterPlayerId === inviteePlayerId) {
+      return null;
+    }
+    const result = await this.pool.query(
+      `INSERT INTO ${INVITATION_TABLE}(
+         inviter_user_id,
+         inviter_player_id,
+         invitee_user_id,
+         invitee_player_id,
+         invitation_code,
+         invitee_highest_realm_lv,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, 1, now(), now())
+       ON CONFLICT (invitee_player_id) DO NOTHING
+       RETURNING *`,
+      [inviterUserId, inviterPlayerId, inviteeUserId, inviteePlayerId, invitationCode],
+    );
+    return normalizeInvitationRow(result.rows[0]) ?? null;
+  }
+
+  async loadInvitationStatus(inviterPlayerId: string): Promise<ActivityInvitationStatusRecord> {
+    const normalizedPlayerId = normalizePlayerId(inviterPlayerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return {
+        totalInvitees: 0,
+        registeredRewardedCount: 0,
+        qiReachedCount: 0,
+        foundationReachedCount: 0,
+      };
+    }
+    const result = await this.pool.query(
+      `SELECT
+         COUNT(*)::integer AS total_invitees,
+         COUNT(*) FILTER (WHERE inviter_base_reward_claimed = true)::integer AS registered_rewarded_count,
+         COUNT(*) FILTER (WHERE invitee_highest_realm_lv >= $2)::integer AS qi_reached_count,
+         COUNT(*) FILTER (WHERE invitee_highest_realm_lv >= $3)::integer AS foundation_reached_count
+       FROM ${INVITATION_TABLE}
+       WHERE inviter_player_id = $1`,
+      [normalizedPlayerId, INVITATION_QI_REALM_MIN_LEVEL, INVITATION_FOUNDATION_REALM_MIN_LEVEL],
+    );
+    const row = result.rows[0] ?? {};
+    return {
+      totalInvitees: normalizeCount(row.total_invitees),
+      registeredRewardedCount: normalizeCount(row.registered_rewarded_count),
+      qiReachedCount: normalizeCount(row.qi_reached_count),
+      foundationReachedCount: normalizeCount(row.foundation_reached_count),
+    };
+  }
+
+  async listInvitationInviteeProgress(inviterPlayerId: string): Promise<ActivityInvitationInviteeProgressRecord[]> {
+    const normalizedPlayerId = normalizePlayerId(inviterPlayerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `SELECT invitee_player_id, invitee_highest_realm_lv
+       FROM ${INVITATION_TABLE}
+       WHERE inviter_player_id = $1`,
+      [normalizedPlayerId],
+    );
+    return result.rows
+      .map((row) => ({
+        inviteePlayerId: normalizePlayerId(row.invitee_player_id),
+        highestRealmLv: Math.max(1, Math.trunc(Number(row.invitee_highest_realm_lv) || 1)),
+      }))
+      .filter((row) => row.inviteePlayerId.length > 0);
+  }
+
+  async updateInvitationInviteeHighestRealmLv(inviteePlayerId: string, highestRealmLv: number): Promise<void> {
+    const normalizedPlayerId = normalizePlayerId(inviteePlayerId);
+    const normalizedHighest = Math.max(1, Math.trunc(Number(highestRealmLv) || 1));
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return;
+    }
+    await this.pool.query(
+      `UPDATE ${INVITATION_TABLE}
+          SET invitee_highest_realm_lv = GREATEST(invitee_highest_realm_lv, $2),
+              updated_at = now()
+        WHERE invitee_player_id = $1`,
+      [normalizedPlayerId, normalizedHighest],
+    );
+  }
+
+  async claimPendingInvitationRewards(playerId: string): Promise<ActivityInvitationRewardClaimResult> {
+    const normalizedPlayerId = normalizePlayerId(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return { inviteeSpiritStone: 0, inviteeMerit: 0, inviterMerit: 0 };
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const inviteeResult = await client.query(
+        `UPDATE ${INVITATION_TABLE}
+            SET invitee_reward_claimed = true,
+                updated_at = now()
+          WHERE invitee_player_id = $1
+            AND invitee_reward_claimed = false
+          RETURNING invitee_player_id`,
+        [normalizedPlayerId],
+      );
+      const baseResult = await client.query(
+        `UPDATE ${INVITATION_TABLE}
+            SET inviter_base_reward_claimed = true,
+                updated_at = now()
+          WHERE inviter_player_id = $1
+            AND inviter_base_reward_claimed = false
+          RETURNING invitee_player_id`,
+        [normalizedPlayerId],
+      );
+      const qiResult = await client.query(
+        `UPDATE ${INVITATION_TABLE}
+            SET inviter_qi_reward_claimed = true,
+                updated_at = now()
+          WHERE inviter_player_id = $1
+            AND invitee_highest_realm_lv >= $2
+            AND inviter_qi_reward_claimed = false
+          RETURNING invitee_player_id`,
+        [normalizedPlayerId, INVITATION_QI_REALM_MIN_LEVEL],
+      );
+      const foundationResult = await client.query(
+        `UPDATE ${INVITATION_TABLE}
+            SET inviter_foundation_reward_claimed = true,
+                updated_at = now()
+          WHERE inviter_player_id = $1
+            AND invitee_highest_realm_lv >= $2
+            AND inviter_foundation_reward_claimed = false
+          RETURNING invitee_player_id`,
+        [normalizedPlayerId, INVITATION_FOUNDATION_REALM_MIN_LEVEL],
+      );
+      await client.query('COMMIT');
+      const inviteeCount = inviteeResult.rowCount ?? 0;
+      const baseCount = baseResult.rowCount ?? 0;
+      const qiCount = qiResult.rowCount ?? 0;
+      const foundationCount = foundationResult.rowCount ?? 0;
+      return {
+        inviteeSpiritStone: inviteeCount * INVITATION_INVITEE_SPIRIT_STONE_REWARD,
+        inviteeMerit: inviteeCount * INVITATION_INVITEE_MERIT_REWARD,
+        inviterMerit:
+          baseCount * INVITATION_INVITER_BASE_MERIT_REWARD
+          + qiCount * INVITATION_INVITER_QI_REALM_MERIT_REWARD
+          + foundationCount * INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 async function ensureActivityTables(pool: Pool): Promise<void> {
@@ -426,7 +632,30 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
         PRIMARY KEY (player_id, claim_date)
       )
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${INVITATION_TABLE} (
+        invitee_player_id varchar(128) PRIMARY KEY,
+        inviter_user_id varchar(128) NOT NULL,
+        inviter_player_id varchar(128) NOT NULL,
+        invitee_user_id varchar(128) NOT NULL,
+        invitation_code varchar(32) NOT NULL,
+        invitee_highest_realm_lv integer NOT NULL DEFAULT 1,
+        invitee_reward_claimed boolean NOT NULL DEFAULT false,
+        inviter_base_reward_claimed boolean NOT NULL DEFAULT false,
+        inviter_qi_reward_claimed boolean NOT NULL DEFAULT false,
+        inviter_foundation_reward_claimed boolean NOT NULL DEFAULT false,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS invitee_highest_realm_lv integer NOT NULL DEFAULT 1`);
+    await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS invitee_reward_claimed boolean NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_base_reward_claimed boolean NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_qi_reward_claimed boolean NOT NULL DEFAULT false`);
+    await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_foundation_reward_claimed boolean NOT NULL DEFAULT false`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_${MONTH_CARD_TABLE}_expire_at ON ${MONTH_CARD_TABLE}(expire_at_ms)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_${INVITATION_TABLE}_inviter_player ON ${INVITATION_TABLE}(inviter_player_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_${INVITATION_TABLE}_invitation_code ON ${INVITATION_TABLE}(invitation_code)`);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -490,8 +719,44 @@ function normalizeDailySignInRow(row: any, fallbackPlayerId: string): ActivityDa
   };
 }
 
+function normalizeInvitationRow(row: any): ActivityInvitationRecord | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+  const inviterUserId = normalizePlayerId(row.inviter_user_id);
+  const inviterPlayerId = normalizePlayerId(row.inviter_player_id);
+  const inviteeUserId = normalizePlayerId(row.invitee_user_id);
+  const inviteePlayerId = normalizePlayerId(row.invitee_player_id);
+  const invitationCode = normalizeInvitationCode(row.invitation_code);
+  if (!inviterUserId || !inviterPlayerId || !inviteeUserId || !inviteePlayerId || !invitationCode) {
+    return null;
+  }
+  return {
+    inviterUserId,
+    inviterPlayerId,
+    inviteeUserId,
+    inviteePlayerId,
+    invitationCode,
+    inviteeHighestRealmLv: Math.max(1, Math.trunc(Number(row.invitee_highest_realm_lv) || 1)),
+    inviteeRewardClaimed: row.invitee_reward_claimed === true,
+    inviterBaseRewardClaimed: row.inviter_base_reward_claimed === true,
+    inviterQiRewardClaimed: row.inviter_qi_reward_claimed === true,
+    inviterFoundationRewardClaimed: row.inviter_foundation_reward_claimed === true,
+  };
+}
+
 function normalizePlayerId(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeInvitationCode(value: unknown): string {
+  return typeof value === 'string'
+    ? value.trim().toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 32)
+    : '';
+}
+
+function normalizeCount(value: unknown): number {
+  return Math.max(0, Math.trunc(Number(value) || 0));
 }
 
 function normalizeDateKey(value: unknown): string {

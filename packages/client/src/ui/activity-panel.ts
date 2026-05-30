@@ -17,7 +17,7 @@ type ActivityPanelOptions = {
   socket: ActivityPanelSocket;
   isConnected: () => boolean;
 };
-type ActivityTab = 'month-card' | 'sign-in';
+type ActivityTab = 'month-card' | 'sign-in' | 'invitation';
 
 export class ActivityPanel {
   private static readonly MODAL_OWNER = 'activity-panel';
@@ -101,6 +101,7 @@ export class ActivityPanel {
     tabs.setAttribute('role', 'tablist');
     tabs.append(
       this.createTabButton('sign-in', t('activity.tab.sign-in', undefined, '每日签到')),
+      this.createTabButton('invitation', '邀请'),
       this.createTabButton('month-card', t('activity.tab.month-card', undefined, '功德月卡')),
     );
     root.append(tabs);
@@ -114,8 +115,18 @@ export class ActivityPanel {
       return;
     }
 
-    root.append(this.activeTab === 'sign-in' ? this.renderSignIn() : this.renderMonthCard());
+    root.append(this.renderActiveTab());
     body.append(root);
+  }
+
+  private renderActiveTab(): HTMLElement {
+    if (this.activeTab === 'month-card') {
+      return this.renderMonthCard();
+    }
+    if (this.activeTab === 'invitation') {
+      return this.renderInvitation();
+    }
+    return this.renderSignIn();
   }
 
   private renderMonthCard(): HTMLElement {
@@ -173,6 +184,64 @@ export class ActivityPanel {
     ));
     card.append(actions);
     return card;
+  }
+
+  private renderInvitation(): HTMLElement {
+    const card = document.createElement('section');
+    card.className = 'activity-card activity-invitation';
+    const status = this.status?.invitation;
+    if (!status) {
+      return card;
+    }
+    card.append(
+      this.createHeader('邀请', `${status.totalInvitees} 人`),
+      this.createMetricGrid([
+        ['邀请码', status.inviteCode || '生成中'],
+        ['邀请人数', `${status.totalInvitees} 人`],
+        ['练气达成', `${status.qiReachedCount} 人`],
+        ['筑基达成', `${status.foundationReachedCount} 人`],
+        ['受邀奖励', `${status.inviteeReward.spiritStone} 灵石 / ${status.inviteeReward.merit} 功德`],
+        ['注册奖励', `${status.stages.find((stage) => stage.key === 'registered')?.rewardMerit ?? 0} 功德`],
+      ]),
+      this.renderInvitationLink(status.invitePath),
+      this.renderInvitationStages(status.stages),
+    );
+    return card;
+  }
+
+  private renderInvitationLink(invitePath: string): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'activity-invite-link-row';
+    const value = document.createElement('input');
+    value.type = 'text';
+    value.readOnly = true;
+    value.value = buildInvitationUrl(invitePath);
+    const copyButton = this.createActionButton('复制邀请链接', () => {
+      void copyText(value.value).then((ok) => {
+        copyButton.textContent = ok ? '已复制' : '复制失败';
+        window.setTimeout(() => {
+          copyButton.textContent = '复制邀请链接';
+        }, 1400);
+      });
+    }, !invitePath);
+    wrapper.append(value, copyButton);
+    return wrapper;
+  }
+
+  private renderInvitationStages(stages: NonNullable<ActivityStatusView['invitation']>['stages']): HTMLElement {
+    const list = document.createElement('div');
+    list.className = 'activity-invite-stage-list';
+    for (const stage of stages) {
+      const row = document.createElement('div');
+      row.className = 'activity-invite-stage';
+      const name = document.createElement('span');
+      name.textContent = stage.label;
+      const count = document.createElement('strong');
+      count.textContent = `${stage.count} 人 · ${stage.rewardMerit} 功德`;
+      row.append(name, count);
+      list.append(row);
+    }
+    return list;
   }
 
   private createHeader(title: string, state: string): HTMLElement {
@@ -238,7 +307,7 @@ export class ActivityPanel {
       ? `月卡剩余 ${this.status.monthCard.remainingDays} 天，池 ${this.status.monthCard.poolRemainingMerit} 功德`
       : '月卡未激活';
     const signIn = this.status.dailySignIn.canClaimToday ? '今日可签到' : '今日已签到';
-    return `${monthCard} · ${signIn}`;
+    return `${signIn} · 邀请 ${this.status.invitation.totalInvitees} 人 · ${monthCard}`;
   }
 
   private syncBadge(): void {
@@ -259,4 +328,37 @@ function formatTime(value: number): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function buildInvitationUrl(invitePath: string): string {
+  if (!invitePath) {
+    return '';
+  }
+  return `${window.location.origin}${invitePath}`;
+}
+
+async function copyText(text: string): Promise<boolean> {
+  if (!text) {
+    return false;
+  }
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to textarea fallback
+    }
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.append(textarea);
+  textarea.select();
+  try {
+    return document.execCommand('copy');
+  } finally {
+    textarea.remove();
+  }
 }

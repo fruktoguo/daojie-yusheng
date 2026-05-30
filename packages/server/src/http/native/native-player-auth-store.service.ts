@@ -77,6 +77,7 @@ interface PersistedAuthRow {
   register_ip?: unknown;
   last_login_ip?: unknown;
   last_login_at?: unknown;
+  invite_code?: unknown;
   register_invitation_code?: unknown;
   register_device_id?: unknown;
   last_login_device_id?: unknown;
@@ -155,6 +156,7 @@ interface AuthRecordCandidate {
   registerIp?: unknown;
   lastLoginIp?: unknown;
   lastLoginAt?: unknown;
+  inviteCode?: unknown;
   registerInvitationCode?: unknown;
   registerDeviceId?: unknown;
   lastLoginDeviceId?: unknown;
@@ -302,6 +304,7 @@ export interface NativePlayerAuthUser {
   registerIp: string | null;
   lastLoginIp: string | null;
   lastLoginAt: string | null;
+  inviteCode: string | null;
   registerInvitationCode: string | null;
   registerDeviceId: string | null;
   lastLoginDeviceId: string | null;
@@ -329,6 +332,7 @@ const CREATE_PLAYER_AUTH_TABLE_SQL = `
     register_ip varchar(64),
     last_login_ip varchar(64),
     last_login_at timestamptz,
+    invite_code varchar(32),
     register_invitation_code varchar(80),
     register_device_id varchar(64),
     last_login_device_id varchar(64),
@@ -373,6 +377,19 @@ const CREATE_PLAYER_AUTH_REGISTER_INVITATION_CODE_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS server_player_auth_register_invitation_code_idx
   ON ${PLAYER_AUTH_TABLE}(register_invitation_code)
   WHERE register_invitation_code IS NOT NULL
+`;
+
+const CREATE_PLAYER_AUTH_INVITE_CODE_INDEX_SQL = `
+  CREATE UNIQUE INDEX IF NOT EXISTS server_player_auth_invite_code_idx
+  ON ${PLAYER_AUTH_TABLE}(invite_code)
+  WHERE invite_code IS NOT NULL
+`;
+
+const BACKFILL_PLAYER_AUTH_INVITE_CODE_SQL = `
+  UPDATE ${PLAYER_AUTH_TABLE}
+     SET invite_code = UPPER(SUBSTRING(MD5(user_id || ':' || player_id) FROM 1 FOR 16))
+   WHERE invite_code IS NULL
+      OR BTRIM(invite_code) = ''
 `;
 
 const CREATE_PLAYER_AUTH_REGISTER_DEVICE_INDEX_SQL = `
@@ -427,6 +444,9 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
 
   /** 按玩家 ID 索引到 userId。 */
   private readonly userIdByPlayerId = new Map<string, string>();
+
+  /** 按邀请码索引到 userId。 */
+  private readonly userIdByInviteCode = new Map<string, string>();
 
   /** 按角色名索引到 userId 集合。 */
   private readonly userIdsByRoleName = new Map<string, Set<string>>();
@@ -502,6 +522,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         register_ip,
         last_login_ip,
         last_login_at,
+        invite_code,
         register_invitation_code,
         register_device_id,
         last_login_device_id,
@@ -565,6 +586,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           register_ip,
           last_login_ip,
           last_login_at,
+          invite_code,
           register_invitation_code,
           register_device_id,
           last_login_device_id,
@@ -593,12 +615,13 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           $14,
           $15,
           $16,
-          $17::timestamptz,
-          $18,
+          $17,
+          $18::timestamptz,
           $19,
-          $20::timestamptz,
+          $20,
+          $21::timestamptz,
           now(),
-          jsonb_set($21::jsonb, '{playerNo}', to_jsonb(input_player_no.value), true)
+          jsonb_set($22::jsonb, '{playerNo}', to_jsonb(input_player_no.value), true)
         FROM input_player_no
         ON CONFLICT (user_id)
         DO UPDATE SET
@@ -613,6 +636,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           register_ip = EXCLUDED.register_ip,
           last_login_ip = EXCLUDED.last_login_ip,
           last_login_at = EXCLUDED.last_login_at,
+          invite_code = EXCLUDED.invite_code,
           register_invitation_code = EXCLUDED.register_invitation_code,
           register_device_id = EXCLUDED.register_device_id,
           last_login_device_id = EXCLUDED.last_login_device_id,
@@ -637,6 +661,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         normalized.registerIp,
         normalized.lastLoginIp,
         normalized.lastLoginAt,
+        normalized.inviteCode,
         normalized.registerInvitationCode,
         normalized.registerDeviceId,
         normalized.lastLoginDeviceId,
@@ -682,6 +707,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         register_ip,
         last_login_ip,
         last_login_at,
+        invite_code,
         register_invitation_code,
         register_device_id,
         last_login_device_id,
@@ -743,6 +769,19 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
 
     const normalizedPlayerId = normalizeRequiredString(playerId);
     const userId = normalizedPlayerId ? this.userIdByPlayerId.get(normalizedPlayerId) ?? '' : '';
+    if (!userId) {
+      return null;
+    }
+
+    return this.findUserById(userId);
+  }
+
+  /** 按邀请码查询账号。 */
+  async findUserByInviteCode(inviteCode: string): Promise<NativePlayerAuthUser | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const normalizedInviteCode = normalizeInviteCode(inviteCode);
+    const userId = normalizedInviteCode ? this.userIdByInviteCode.get(normalizedInviteCode) ?? '' : '';
     if (!userId) {
       return null;
     }
@@ -874,6 +913,7 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     this.usersById.clear();
     this.userIdByUsername.clear();
     this.userIdByPlayerId.clear();
+    this.userIdByInviteCode.clear();
     this.userIdsByRoleName.clear();
     this.userIdsByDisplayName.clear();
   }
@@ -896,6 +936,9 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     this.usersById.set(user.id, user);
     this.userIdByUsername.set(user.username, user.id);
     this.userIdByPlayerId.set(user.playerId, user.id);
+    if (user.inviteCode) {
+      this.userIdByInviteCode.set(user.inviteCode, user.id);
+    }
     if (user.pendingRoleName) {
       addToSetMap(this.userIdsByRoleName, user.pendingRoleName, user.id);
     }
@@ -916,6 +959,9 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     }
     if (this.userIdByPlayerId.get(user.playerId) === user.id) {
       this.userIdByPlayerId.delete(user.playerId);
+    }
+    if (user.inviteCode && this.userIdByInviteCode.get(user.inviteCode) === user.id) {
+      this.userIdByInviteCode.delete(user.inviteCode);
     }
     if (user.pendingRoleName) {
       removeFromSetMap(this.userIdsByRoleName, user.pendingRoleName, user.id);
@@ -994,6 +1040,7 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NativePlayerAu
     registerIp: normalizeOptionalString(row.register_ip),
     lastLoginIp: normalizeOptionalString(row.last_login_ip),
     lastLoginAt,
+    inviteCode: normalizeInviteCode(row.invite_code) || null,
     registerInvitationCode: normalizeOptionalString(row.register_invitation_code, 80),
     registerDeviceId: normalizeOptionalString(row.register_device_id),
     lastLoginDeviceId: normalizeOptionalString(row.last_login_device_id),
@@ -1047,6 +1094,7 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
     registerIp: normalizeOptionalString(raw.registerIp),
     lastLoginIp: normalizeOptionalString(raw.lastLoginIp),
     lastLoginAt: normalizeDateTime(raw.lastLoginAt),
+    inviteCode: normalizeInviteCode(raw.inviteCode) || null,
     registerInvitationCode: normalizeOptionalString(raw.registerInvitationCode, 80),
     registerDeviceId: normalizeOptionalString(raw.registerDeviceId),
     lastLoginDeviceId: normalizeOptionalString(raw.lastLoginDeviceId),
@@ -1088,6 +1136,7 @@ function toPersistedUser(user: NativePlayerAuthUser): Omit<NativePlayerAuthUser,
     registerIp: user.registerIp,
     lastLoginIp: user.lastLoginIp,
     lastLoginAt: user.lastLoginAt,
+    inviteCode: user.inviteCode,
     registerInvitationCode: user.registerInvitationCode,
     registerDeviceId: user.registerDeviceId,
     lastLoginDeviceId: user.lastLoginDeviceId,
@@ -1163,6 +1212,13 @@ function normalizeOptionalString(value: unknown, maxLength = 255): string | null
   }
   const normalized = value.trim();
   return normalized ? normalized.slice(0, maxLength) : null;
+}
+
+function normalizeInviteCode(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim().toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 32);
 }
 
 function normalizeNonNegativeIntegerLike(value: unknown, fallback: number): number {
@@ -1385,6 +1441,7 @@ export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
       ADD COLUMN IF NOT EXISTS register_ip varchar(64),
       ADD COLUMN IF NOT EXISTS last_login_ip varchar(64),
       ADD COLUMN IF NOT EXISTS last_login_at timestamptz,
+      ADD COLUMN IF NOT EXISTS invite_code varchar(32),
       ADD COLUMN IF NOT EXISTS register_invitation_code varchar(80),
       ADD COLUMN IF NOT EXISTS register_device_id varchar(64),
       ADD COLUMN IF NOT EXISTS last_login_device_id varchar(64),
@@ -1393,11 +1450,13 @@ export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
       ADD COLUMN IF NOT EXISTS ban_reason varchar(255),
       ADD COLUMN IF NOT EXISTS banned_by varchar(64)
     `);
+    await client.query(BACKFILL_PLAYER_AUTH_INVITE_CODE_SQL);
     await client.query(CREATE_PLAYER_AUTH_ROLE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_USERNAME_PREFIX_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_REGISTER_IP_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_LAST_LOGIN_IP_INDEX_SQL);
+    await client.query(CREATE_PLAYER_AUTH_INVITE_CODE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_REGISTER_INVITATION_CODE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_REGISTER_DEVICE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_LAST_LOGIN_DEVICE_INDEX_SQL);

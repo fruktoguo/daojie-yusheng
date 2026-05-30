@@ -3,15 +3,16 @@
  *
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
-import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Inject, Injectable, Logger, Optional, UnauthorizedException } from '@nestjs/common';
 import { AUTH_REGISTER_ACTIVATION_REQUIRED_CODE } from '@mud/shared';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName, validateDisplayName, validatePassword, validateRoleName, validateUsername } from '../../auth/account-validation';
 import { hashPassword, isPasswordHashUpgradeRequired, verifyPassword } from '../../auth/password-hash';
 import { WorldPlayerSnapshotService } from '../../network/world-player-snapshot.service';
 import { WorldPlayerTokenCodecService } from '../../network/world-player-token-codec.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
+import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { NativePlayerAuthStoreService } from './native-player-auth-store.service';
 import type { NativePlayerAuthUser } from './native-player-auth-store.service';
@@ -127,6 +128,17 @@ interface WorldPlayerSnapshotPort {
  failureStage?: string | null }>;
 }
 
+interface ActivityPersistencePort {
+  isEnabled(): boolean;
+  createInvitationRecord(input: {
+    inviterUserId: string;
+    inviterPlayerId: string;
+    inviteeUserId: string;
+    inviteePlayerId: string;
+    invitationCode: string;
+  }): Promise<unknown>;
+}
+
 interface AuthRequestContext {
 /**
  * deviceId：客户端设备标识。
@@ -184,6 +196,9 @@ export class NativePlayerAuthService {
     playerRuntimeService: unknown,
     @Inject(WorldPlayerSnapshotService)
     worldPlayerSnapshotService: unknown,
+    @Optional()
+    @Inject(ActivityPersistenceService)
+    private readonly activityPersistenceService: ActivityPersistencePort | null = null,
   ) {
     this.worldPlayerTokenCodecService = worldPlayerTokenCodecService as WorldPlayerTokenCodecPort;
     this.playerIdentityPersistenceService = playerIdentityPersistenceService as PlayerIdentityPersistencePort;
@@ -246,8 +261,20 @@ export class NativePlayerAuthService {
       throwRegistrationActivationRequired();
     }
 
+    const requestedInvitationCode = normalizeInviteCode(options.invitationCode);
+    const inviterUser = requestedInvitationCode
+      ? await this.authStore.findUserByInviteCode(requestedInvitationCode)
+      : null;
+    if (requestedInvitationCode && !inviterUser) {
+      throw new BadRequestException('邀请码无效');
+    }
+    if (requestedInvitationCode && this.activityPersistenceService && !this.activityPersistenceService.isEnabled()) {
+      throw new BadRequestException('活动服务暂不可用，暂不能使用邀请码');
+    }
+
     const userId = randomUUID();
     const createdAt = new Date().toISOString();
+    const inviteCode = await this.generateUniqueInviteCode();
     const user = await this.authStore.saveUser({
       id: userId,
       userId,
@@ -262,7 +289,8 @@ export class NativePlayerAuthService {
       registerIp,
       lastLoginIp: registerIp,
       lastLoginAt: createdAt,
-      registerInvitationCode: normalizeContextString(options.invitationCode, 80),
+      inviteCode,
+      registerInvitationCode: requestedInvitationCode || null,
       registerDeviceId: normalizeContextString(context.deviceId, 64),
       lastLoginDeviceId: normalizeContextString(context.deviceId, 64),
       lastUserAgent: normalizeContextString(context.userAgent, 255),
@@ -275,7 +303,26 @@ export class NativePlayerAuthService {
 
     await this.persistIdentity(user);
     await this.ensureStarterSnapshot(user.playerId);
+    if (inviterUser && requestedInvitationCode && this.activityPersistenceService?.isEnabled()) {
+      await this.activityPersistenceService.createInvitationRecord({
+        inviterUserId: inviterUser.userId,
+        inviterPlayerId: inviterUser.playerId,
+        inviteeUserId: user.userId,
+        inviteePlayerId: user.playerId,
+        invitationCode: requestedInvitationCode,
+      });
+    }
     return this.issueTokens(user);
+  }
+
+  private async generateUniqueInviteCode(): Promise<string> {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const code = generateInviteCode();
+      if (!await this.authStore.findUserByInviteCode(code)) {
+        return code;
+      }
+    }
+    return `${generateInviteCode()}${Date.now().toString(36).toUpperCase().slice(-4)}`.slice(0, 32);
   }
 
   /** 登录现有账号，兼容账号名、角色名和旧 username 入口。 */
@@ -707,4 +754,20 @@ function normalizeRegistrationCode(value: unknown): string {
   return typeof value === 'string'
     ? value.normalize('NFC').trim().toUpperCase().slice(0, 80)
     : '';
+}
+
+function normalizeInviteCode(value: unknown): string {
+  return typeof value === 'string'
+    ? value.trim().toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 32)
+    : '';
+}
+
+function generateInviteCode(): string {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const bytes = randomBytes(10);
+  let code = '';
+  for (const byte of bytes) {
+    code += alphabet[byte % alphabet.length];
+  }
+  return code;
 }

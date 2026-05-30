@@ -29,14 +29,24 @@ async function main(): Promise<void> {
       '甲',
       '激活码烟测甲',
       { ip: '198.51.100.40', deviceId: 'device-a', userAgent: 'registration-smoke' },
-      { invitationCode: 'INVITE-A' },
     );
     assert.ok(first.accessToken);
 
     const firstUser = await authStore.findUserByUsername('regact1');
-    assert.equal(firstUser?.registerInvitationCode, 'INVITE-A');
+    assert.ok(firstUser?.inviteCode);
     assert.equal(await authStore.hasObservedAuthIp('198.51.100.40'), true);
     assert.equal(await authStore.hasObservedAuthIp('203.0.113.91'), false);
+
+    await service.register(
+      'regact-invited',
+      'password123',
+      '邀',
+      '激活码烟测邀',
+      { ip: '198.51.100.41', deviceId: 'device-invited', userAgent: 'registration-smoke' },
+      { invitationCode: firstUser?.inviteCode ?? '' },
+    );
+    const invitedUser = await authStore.findUserByUsername('regact-invited');
+    assert.equal(invitedUser?.registerInvitationCode, firstUser?.inviteCode);
 
     await service.login(
       'regact1',
@@ -87,7 +97,8 @@ async function main(): Promise<void> {
         'registration from a previously logged-in IP requires activation code',
         'invalid activation code is rejected',
         'valid activation code allows registration',
-        'invitation code is stored on the auth user',
+        'each registered user gets an invite code',
+        'a valid invitation code is stored on the invited auth user',
       ],
     }, null, 2));
   } finally {

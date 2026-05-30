@@ -12,6 +12,14 @@ export const MERIT_MONTH_CARD_POOL_GRANT = 3000;
 export const MERIT_MONTH_CARD_OFFLINE_MAX_HOURS = 72;
 export const BASE_OFFLINE_MAX_HOURS = 48;
 export const DAILY_SIGN_IN_REWARD_MERIT = 20;
+export const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
+export const INVITATION_INVITEE_SPIRIT_STONE_REWARD = 666;
+export const INVITATION_INVITEE_MERIT_REWARD = 100;
+export const INVITATION_INVITER_BASE_MERIT_REWARD = 100;
+export const INVITATION_INVITER_QI_REALM_MERIT_REWARD = 300;
+export const INVITATION_INVITER_FOUNDATION_REALM_MERIT_REWARD = 600;
+export const INVITATION_QI_REALM_MIN_LEVEL = 19;
+export const INVITATION_FOUNDATION_REALM_MIN_LEVEL = 31;
 
 export interface MeritMonthCardStatusView {
   active: boolean;
@@ -39,10 +47,34 @@ export interface DailySignInStatusView {
   rewardMerit: number;
 }
 
+export type InvitationStageKey = 'registered' | 'qi' | 'foundation';
+
+export interface InvitationStageStatusView {
+  key: InvitationStageKey;
+  label: string;
+  count: number;
+  rewardMerit: number;
+}
+
+export interface InvitationStatusView {
+  inviteCode: string;
+  invitePath: string;
+  totalInvitees: number;
+  registeredRewardedCount: number;
+  qiReachedCount: number;
+  foundationReachedCount: number;
+  inviteeReward: {
+    spiritStone: number;
+    merit: number;
+  };
+  stages: InvitationStageStatusView[];
+}
+
 export interface ActivityStatusView {
   serverNow: number;
   monthCard: MeritMonthCardStatusView;
   dailySignIn: DailySignInStatusView;
+  invitation: InvitationStatusView;
   hasRedDot: boolean;
 }
 
