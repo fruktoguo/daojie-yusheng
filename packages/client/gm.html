@@ -642,28 +642,38 @@
       background: rgba(255,255,255,0.68);
     }
 
-    .cpu-breakdown-table tbody tr th .metric-tree-label {
+    .cpu-breakdown-table tbody tr th .metric-tree-toggle,
+    .cpu-breakdown-table tbody tr th > .metric-tree-label {
       display: inline-block;
       position: relative;
     }
 
-    .cpu-breakdown-table tr[data-depth="1"] th .metric-tree-label {
+    .cpu-breakdown-table tbody tr th .metric-tree-toggle {
+      display: inline-flex;
+    }
+
+    .cpu-breakdown-table tr[data-depth="1"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="1"] th > .metric-tree-label {
       padding-left: 18px;
     }
 
-    .cpu-breakdown-table tr[data-depth="2"] th .metric-tree-label {
+    .cpu-breakdown-table tr[data-depth="2"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="2"] th > .metric-tree-label {
       padding-left: 36px;
     }
 
-    .cpu-breakdown-table tr[data-depth="3"] th .metric-tree-label {
+    .cpu-breakdown-table tr[data-depth="3"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="3"] th > .metric-tree-label {
       padding-left: 54px;
     }
 
-    .cpu-breakdown-table tr[data-depth="4"] th .metric-tree-label {
+    .cpu-breakdown-table tr[data-depth="4"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="4"] th > .metric-tree-label {
       padding-left: 72px;
     }
 
-    .cpu-breakdown-table tr[data-depth]:not([data-depth="0"]) th .metric-tree-label::before {
+    .cpu-breakdown-table tr[data-depth]:not([data-depth="0"]) th .metric-tree-toggle::before,
+    .cpu-breakdown-table tr[data-depth]:not([data-depth="0"]) th > .metric-tree-label::before {
       content: "";
       position: absolute;
       left: calc(var(--cpu-breakdown-depth-left, 0px) + 4px);
@@ -674,19 +684,23 @@
       opacity: 0.62;
     }
 
-    .cpu-breakdown-table tr[data-depth="1"] th .metric-tree-label {
+    .cpu-breakdown-table tr[data-depth="1"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="1"] th > .metric-tree-label {
       --cpu-breakdown-depth-left: 0px;
     }
 
-    .cpu-breakdown-table tr[data-depth="2"] th .metric-tree-label {
+    .cpu-breakdown-table tr[data-depth="2"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="2"] th > .metric-tree-label {
       --cpu-breakdown-depth-left: 18px;
     }
 
-    .cpu-breakdown-table tr[data-depth="3"] th .metric-tree-label {
+    .cpu-breakdown-table tr[data-depth="3"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="3"] th > .metric-tree-label {
       --cpu-breakdown-depth-left: 36px;
     }
 
-    .cpu-breakdown-table tr[data-depth="4"] th .metric-tree-label {
+    .cpu-breakdown-table tr[data-depth="4"] th .metric-tree-toggle,
+    .cpu-breakdown-table tr[data-depth="4"] th > .metric-tree-label {
       --cpu-breakdown-depth-left: 54px;
     }
 
