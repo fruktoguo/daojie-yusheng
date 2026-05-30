@@ -3514,6 +3514,7 @@ export class PlayerRuntimeService {
 
             const offlineGainSnapshotStartedAt = performance.now();
             const offlineGainBefore = this.captureOfflineGainBeforeTick(player);
+            let statisticChangedThisTick = false;
             recordPlayerTickPerf(options, 'playerTick.offlineGainSnapshotMs', offlineGainSnapshotStartedAt);
             const chronologyStartedAt = performance.now();
             if (advancePlayerChronology(player)) {
@@ -3565,12 +3566,14 @@ export class PlayerRuntimeService {
                     auraMultiplier: resolveCultivationAuraMultiplier(player, options),
                 });
                 this.applyProgressionResult(player, result, playerTick);
+                statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;
                 recordPlayerTickPerf(options, 'playerTick.cultivationAdvanceMs', cultivationAdvanceStartedAt);
             }
             if (player.hp > 0 && player.combat.autoRootFoundation === true) {
                 const rootFoundationStartedAt = performance.now();
                 const result = this.playerProgressionService.autoRefineRootFoundation(player);
                 this.applyProgressionResult(player, result, playerTick, true);
+                statisticChangedThisTick = statisticChangedThisTick || result?.changed === true;
                 this.disableAutoRootFoundationAtCap(player, playerTick);
                 recordPlayerTickPerf(options, 'playerTick.rootFoundationMs', rootFoundationStartedAt);
             }
@@ -3580,7 +3583,7 @@ export class PlayerRuntimeService {
                 recordPlayerTickPerf(options, 'playerTick.cooldownActionStateMs', cooldownActionStateStartedAt);
             }
             const offlineGainAccumulateStartedAt = performance.now();
-            this.accumulateOfflineGainAfterTick(player, offlineGainBefore);
+            this.accumulateOfflineGainAfterTick(player, offlineGainBefore, statisticChangedThisTick);
             recordPlayerTickPerf(options, 'playerTick.offlineGainAccumulateMs', offlineGainAccumulateStartedAt);
 
             // stateDelta 发射：仅在数值实际变化时入队
@@ -3628,12 +3631,26 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId) {
             return null;
         }
-        return this.playerStatisticSnapshotsByPlayerId.get(normalizedPlayerId)
-            ?? buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
+        const existing = this.playerStatisticSnapshotsByPlayerId.get(normalizedPlayerId);
+        if (existing) {
+            return existing;
+        }
+        const snapshot = buildOfflineGainSnapshot(player, this.contentTemplateRepository, this.playerProgressionService);
+        this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, snapshot);
+        return snapshot;
     }
     /** accumulateOfflineGainAfterTick：累计玩家tick内实际收支；在线即时排队，离线归入挂机片段。 */
-    accumulateOfflineGainAfterTick(player, beforeSnapshot) {
+    accumulateOfflineGainAfterTick(player, beforeSnapshot, statisticChanged = true) {
         if (!beforeSnapshot || !normalizeOfflineGainString(player?.playerId)) {
+            return;
+        }
+        const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
+        const offlineSession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
+        const offline = offlineSession && !normalizeOfflineGainString(player?.sessionId);
+        if (statisticChanged !== true) {
+            if (offline) {
+                offlineSession.accumulatedDurationMs = normalizeOfflineGainCount(offlineSession.accumulatedDurationMs) + 1000;
+            }
             return;
         }
         this.recordPlayerStatisticMutation(player, beforeSnapshot);
