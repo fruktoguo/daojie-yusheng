@@ -8509,20 +8509,41 @@ function isSameAutoBattleSkillList(previous, current) {
  * @returns 无返回值，直接更新tickTemporaryBuff相关状态。
  */
 
+const TICK_TEMPORARY_BUFFS_UNCHANGED = Object.freeze({
+    changed: false,
+    durationChanged: false,
+    attrChanged: false,
+    listChanged: false,
+    vitalsChanged: false,
+    defeated: false,
+});
+
 function tickTemporaryBuffs(buffs, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (!Array.isArray(buffs) || buffs.length === 0) {
+        return TICK_TEMPORARY_BUFFS_UNCHANGED;
+    }
     let durationChanged = false;
     let attrChanged = false;
     let listChanged = false;
     let vitalsChanged = false;
     let defeated = false;
-    const hasDependentBuff = buffs.some((entry) => entry?.remainingTicks > 0 && entry.stacks > 0 && entry.expireWithBuffId);
-    const activeBuffIds = hasDependentBuff
-        ? new Set(buffs
-            .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
-            .map((entry) => entry.buffId))
-        : null;
+    let hasDependentBuff = false;
+    let activeBuffIds = null;
+    for (const entry of buffs) {
+        if (!entry || entry.remainingTicks <= 0 || entry.stacks <= 0) {
+            continue;
+        }
+        if (!activeBuffIds) {
+            activeBuffIds = new Set();
+        }
+        activeBuffIds.add(entry.buffId);
+        hasDependentBuff ||= Boolean(entry.expireWithBuffId);
+    }
+    if (!hasDependentBuff) {
+        activeBuffIds = null;
+    }
     for (const buff of buffs) {
         if (buff.remainingTicks <= 0) {
             continue;
@@ -8574,9 +8595,12 @@ function tickTemporaryBuffs(buffs, player = null) {
     }
 
     if (hasDependentBuff && (attrChanged || listChanged)) {
-        const finalActiveBuffIds = new Set(buffs
-            .filter((entry) => entry && entry.remainingTicks > 0 && entry.stacks > 0)
-            .map((entry) => entry.buffId));
+        const finalActiveBuffIds = new Set();
+        for (const entry of buffs) {
+            if (entry && entry.remainingTicks > 0 && entry.stacks > 0) {
+                finalActiveBuffIds.add(entry.buffId);
+            }
+        }
         for (const buff of buffs) {
             if (buff.remainingTicks > 0 && buff.expireWithBuffId && !finalActiveBuffIds.has(buff.expireWithBuffId)) {
                 buff.remainingTicks = 0;
@@ -8596,6 +8620,9 @@ function tickTemporaryBuffs(buffs, player = null) {
         buffs.length = writeIndex;
     }
     const changed = durationChanged || attrChanged || listChanged || vitalsChanged;
+    if (!changed) {
+        return TICK_TEMPORARY_BUFFS_UNCHANGED;
+    }
     return { changed, durationChanged, attrChanged, listChanged, vitalsChanged, defeated };
 }
 
