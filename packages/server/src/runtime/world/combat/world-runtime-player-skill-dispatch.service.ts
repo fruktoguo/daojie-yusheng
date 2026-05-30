@@ -1956,10 +1956,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             return null;
         }
         const cooldownReadyTickByActionId = skill?.id
-            ? {
-                ...(attacker.combat?.cooldownReadyTickBySkillId ?? {}),
-                [skill.id]: normalizePlayerSkillCooldownReadyTick(attacker, skill, input.currentTick),
-            }
+            ? { [skill.id]: normalizePlayerSkillCooldownReadyTick(attacker, skill, input.currentTick) }
             : attacker.combat?.cooldownReadyTickBySkillId;
         return this.worldRuntimeCombatActionService.resolvePlayerSkillActionPlan({
             playerId: attacker.playerId,
