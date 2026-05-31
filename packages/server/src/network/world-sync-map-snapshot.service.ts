@@ -434,12 +434,18 @@ export class WorldSyncMapSnapshotService {
       type: tileType,
     };
     applyTileEffectProjection(tile, template, x, y, tileType);
-    tile.walkable = destroyed
+    const walkable = destroyed
       ? true
       : (typeof state.walkable === 'boolean' ? state.walkable : isTileTypeWalkable(tileType));
-    tile.blocksSight = destroyed
+    const blocksSight = destroyed
       ? false
       : (typeof state.blocksSight === 'boolean' ? state.blocksSight : doesTileTypeBlockSight(tileType));
+    if (walkable !== isTileTypeWalkable(tileType)) {
+      tile.walkable = walkable;
+    }
+    if (blocksSight !== doesTileTypeBlockSight(tileType)) {
+      tile.blocksSight = blocksSight;
+    }
     const layerState = state.layers ?? null;
     const fallbackLayerSeed = destroyed === true
       ? defaultLayerFallback

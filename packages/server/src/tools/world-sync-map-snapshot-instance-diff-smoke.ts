@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { TileType } from '@mud/shared';
+
 import { WorldSyncMapSnapshotService } from '../network/world-sync-map-snapshot.service';
 
 interface StaticTileDiffInstance {
@@ -8,15 +10,19 @@ interface StaticTileDiffInstance {
 }
 
 function createService(instance: StaticTileDiffInstance) {
-  return new WorldSyncMapSnapshotService(
-    {
-      getInstanceRuntime(instanceId: string) {
-        return instanceId === 'inst.a' ? instance : null;
-      },
-      getInstanceTileState() {
-        return null;
-      },
+  return createServiceWithRuntime({
+    getInstanceRuntime(instanceId: string) {
+      return instanceId === 'inst.a' ? instance : null;
     },
+    getInstanceTileState() {
+      return null;
+    },
+  });
+}
+
+function createServiceWithRuntime(worldRuntimeService: Record<string, unknown>) {
+  return new WorldSyncMapSnapshotService(
+    worldRuntimeService,
     {},
     {
       has() {
@@ -99,7 +105,46 @@ function testParentOverlayFallsBackToPlayerStaticDiff() {
   assert.equal(consumeCount, 0);
 }
 
+function testTileProjectionOmitsDefaultBlockingFields() {
+  const states = new Map<string, unknown>([
+    ['1,1', {
+      tileType: TileType.Floor,
+      walkable: true,
+      blocksSight: false,
+      aura: 0,
+      combat: null,
+    }],
+    ['2,1', {
+      tileType: TileType.Wall,
+      walkable: false,
+      blocksSight: true,
+      aura: 0,
+      combat: { destroyed: true },
+    }],
+  ]);
+  const service = createServiceWithRuntime({
+    getInstanceRuntime() {
+      return null;
+    },
+    getInstanceTileState(_instanceId: string, x: number, y: number) {
+      return states.get(`${x},${y}`) ?? null;
+    },
+  });
+  const template = { id: 'map.a', width: 4, height: 4 };
+
+  const floor = service.buildTileSyncState(template, 'inst.a', 1, 1);
+  const destroyedWall = service.buildTileSyncState(template, 'inst.a', 2, 1);
+
+  assert.equal(floor.type, TileType.Floor);
+  assert.equal(Object.prototype.hasOwnProperty.call(floor, 'walkable'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(floor, 'blocksSight'), false);
+  assert.equal(destroyedWall.type, TileType.Wall);
+  assert.equal(destroyedWall.walkable, true);
+  assert.equal(destroyedWall.blocksSight, false);
+}
+
 testInstanceDirtyPlanIsConsumedOnceAndReused();
 testParentOverlayFallsBackToPlayerStaticDiff();
+testTileProjectionOmitsDefaultBlockingFields();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-map-snapshot-instance-diff' }, null, 2));
