@@ -456,10 +456,25 @@ function testTimeOnlyDeltaSyncsTickInterval() {
   ]);
 }
 
+function testProgressOnlyRealmChangeDoesNotResendRealm() {
+  const log: unknown[] = [];
+  const { service } = createService(log, { deltaMapPatch: false });
+  const socket = { id: 'socket:realm-progress', emit() {} };
+
+  service.emitAuxInitialSync('player:realm-progress', socket, createView(50), createPlayer('炼气', 10));
+  service.emitAuxDeltaSync('player:realm-progress', socket, createView(51), createPlayer('炼气', 20));
+
+  assert.deepEqual(
+    log.filter((entry) => Array.isArray(entry) && entry[0] === 'sendRealm'),
+    [['sendRealm', 'socket:realm-progress', '炼气']],
+  );
+}
+
 testAuxStateSync();
 testMapChangeDoesNotAutoUnlockCurrentMap();
 testInitialSyncSendsCurrentUnlockedMinimap();
 testTimeOnlyDeltaSyncsTickInterval();
+testProgressOnlyRealmChangeDoesNotResendRealm();
 console.log(
   JSON.stringify({
     ok: true,

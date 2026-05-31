@@ -526,6 +526,8 @@ function isSameRealmState(left: PlayerRealmState | null, right: PlayerRealmState
     return left === right;
   }
 
+  // 修为进度、进度上限与突破可用状态已经通过 PanelDelta.attr 增量同步。
+  // Realm 只保留境界结构、文本、突破预览与天门状态，避免每次修炼进度变化都重发完整境界快照。
   return left.stage === right.stage
     && left.realmLv === right.realmLv
     && left.displayName === right.displayName
@@ -535,9 +537,6 @@ function isSameRealmState(left: PlayerRealmState | null, right: PlayerRealmState
     && left.narrative === right.narrative
     && left.review === right.review
     && left.lifespanYears === right.lifespanYears
-    && left.progress === right.progress
-    && left.progressToNext === right.progressToNext
-    && left.breakthroughReady === right.breakthroughReady
     && left.nextStage === right.nextStage
     && left.minTechniqueLevel === right.minTechniqueLevel
     && left.minTechniqueRealm === right.minTechniqueRealm
