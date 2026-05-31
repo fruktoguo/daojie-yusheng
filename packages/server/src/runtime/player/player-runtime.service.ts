@@ -3262,6 +3262,9 @@ export class PlayerRuntimeService {
         let changed = false;
         let attrRelevantChanged = false;
         if (existing) {
+            if (!isConsumableBuffSource(buff) && isNonConsumableTemporaryBuffReapplyNoop(existing, buff)) {
+                return player;
+            }
             const previousRemainingTicks = existing.remainingTicks;
             const previousDuration = existing.duration;
             const previousStacks = existing.stacks;
@@ -4979,6 +4982,42 @@ function isSameTemporaryBuffPrototypePayload(left, right) {
     if (!isSameTemporaryBuffAttributePayload(left, right)
         || !isSamePlainObjectValue(left?.qiProjection, right?.qiProjection)
         || !isSamePlainObjectValue(left?.tickEffects, right?.tickEffects)) {
+        return false;
+    }
+    for (const key of TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS) {
+        if ((left?.[key] ?? undefined) !== (right?.[key] ?? undefined)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isNonConsumableTemporaryBuffReapplyNoop(existing, buff) {
+    const nextStacks = Math.min(buff.maxStacks, existing.stacks + Math.max(1, buff.stacks));
+    const nextSustainTicksElapsed = buff.sustainCost
+        ? Math.max(0, Math.floor(Number(existing.sustainTicksElapsed ?? buff.sustainTicksElapsed ?? 0) || 0))
+        : undefined;
+    return existing.remainingTicks === buff.remainingTicks
+        && existing.duration === buff.duration
+        && existing.stacks === nextStacks
+        && existing.maxStacks === buff.maxStacks
+        && existing.realmLv === buff.realmLv
+        && (existing.infiniteDuration === true) === (buff.infiniteDuration === true)
+        && existing.sustainTicksElapsed === nextSustainTicksElapsed
+        && (existing.persistOnDeath === true) === (buff.persistOnDeath === true)
+        && (existing.persistOnReturnToSpawn === true) === (buff.persistOnReturnToSpawn === true)
+        && isSameTemporaryBuffReferencePayload(existing, buff);
+}
+
+function isSameTemporaryBuffReferencePayload(left, right) {
+    if ((left?.buffId ?? undefined) !== (right?.buffId ?? undefined)
+        || (left?.sourceSkillId ?? undefined) !== (right?.sourceSkillId ?? undefined)
+        || (left?.attrMode ?? undefined) !== (right?.attrMode ?? undefined)
+        || (left?.statMode ?? undefined) !== (right?.statMode ?? undefined)
+        || (left?.attrs ?? undefined) !== (right?.attrs ?? undefined)
+        || (left?.stats ?? undefined) !== (right?.stats ?? undefined)
+        || (left?.qiProjection ?? undefined) !== (right?.qiProjection ?? undefined)
+        || (left?.tickEffects ?? undefined) !== (right?.tickEffects ?? undefined)) {
         return false;
     }
     for (const key of TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS) {
