@@ -50,6 +50,7 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
   private readonly logger = new Logger(NativeGmSecretStoreService.name);
   private pool: Pool | null = null;
   private encryptionKey: Buffer | null = null;
+  private readonly unreadableSecretWarnedKeys = new Set<string>();
 
   constructor(
     @Inject(DatabasePoolProvider)
@@ -143,6 +144,7 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
                      updated_at = now()`,
       [key.trim(), encrypted, description.trim(), now],
     );
+    this.unreadableSecretWarnedKeys.delete(key.trim());
   }
 
   async delete(key: string): Promise<boolean> {
@@ -151,6 +153,7 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
       `DELETE FROM ${SECRET_TABLE} WHERE secret_key = $1`,
       [key],
     );
+    this.unreadableSecretWarnedKeys.delete(key);
     return (result.rowCount ?? 0) > 0;
   }
 
@@ -165,7 +168,10 @@ export class NativeGmSecretStoreService implements OnModuleInit, OnModuleDestroy
     try {
       return this.decrypt(result.rows[0]?.encrypted_value);
     } catch (error) {
-      this.logger.warn(`密钥 ${key} 解密失败，已按未配置处理：${error instanceof Error ? error.message : String(error)}`);
+      if (!this.unreadableSecretWarnedKeys.has(key)) {
+        this.unreadableSecretWarnedKeys.add(key);
+        this.logger.warn(`密钥 ${key} 解密失败，已按未配置处理：${error instanceof Error ? error.message : String(error)}`);
+      }
       return null;
     }
   }
