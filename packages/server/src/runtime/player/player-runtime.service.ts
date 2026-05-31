@@ -8638,7 +8638,8 @@ function tickTemporaryBuffs(buffs, player = null) {
     let defeated = false;
     let hasDependentBuff = false;
     let activeBuffIds = null;
-    for (const entry of buffs) {
+    for (let index = 0; index < buffs.length; index += 1) {
+        const entry = buffs[index];
         if (entry && entry.remainingTicks > 0 && entry.stacks > 0 && entry.expireWithBuffId) {
             hasDependentBuff = true;
             break;
@@ -8646,13 +8647,15 @@ function tickTemporaryBuffs(buffs, player = null) {
     }
     if (hasDependentBuff) {
         activeBuffIds = new Set();
-        for (const entry of buffs) {
+        for (let index = 0; index < buffs.length; index += 1) {
+            const entry = buffs[index];
             if (entry && entry.remainingTicks > 0 && entry.stacks > 0) {
                 activeBuffIds.add(entry.buffId);
             }
         }
     }
-    for (const buff of buffs) {
+    for (let index = 0; index < buffs.length; index += 1) {
+        const buff = buffs[index];
         if (buff.remainingTicks <= 0) {
             continue;
         }
@@ -8706,12 +8709,14 @@ function tickTemporaryBuffs(buffs, player = null) {
 
     if (hasDependentBuff && (attrChanged || listChanged)) {
         const finalActiveBuffIds = new Set();
-        for (const entry of buffs) {
+        for (let index = 0; index < buffs.length; index += 1) {
+            const entry = buffs[index];
             if (entry && entry.remainingTicks > 0 && entry.stacks > 0) {
                 finalActiveBuffIds.add(entry.buffId);
             }
         }
-        for (const buff of buffs) {
+        for (let index = 0; index < buffs.length; index += 1) {
+            const buff = buffs[index];
             if (buff.remainingTicks > 0 && buff.expireWithBuffId && !finalActiveBuffIds.has(buff.expireWithBuffId)) {
                 buff.remainingTicks = 0;
                 attrChanged = true;
@@ -8721,7 +8726,8 @@ function tickTemporaryBuffs(buffs, player = null) {
     }
     if (listChanged) {
         let writeIndex = 0;
-        for (const buff of buffs) {
+        for (let index = 0; index < buffs.length; index += 1) {
+            const buff = buffs[index];
             if (buff.remainingTicks > 0 && buff.stacks > 0) {
                 buffs[writeIndex] = buff;
                 writeIndex += 1;
