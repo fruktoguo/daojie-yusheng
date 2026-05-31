@@ -3,7 +3,7 @@
  *
  * 维护时要把用户意图、显示派生和服务端权威数据分清，避免为了展示便利复制业务规则。
  */
-import { S2C_AttrDetail, S2C_AttrUpdate, PlayerState } from '@mud/shared';
+import { S2C_AttrDetail, S2C_AttrUpdate, PlayerState, normalizeNumericStatBreakdownMap } from '@mud/shared';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { AttrPanel } from './ui/panels/attr-panel';
 
@@ -102,6 +102,8 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
         return;
       }
       const detail = options.cloneJson(data);
+      const numericStatBreakdowns = normalizeNumericStatBreakdownMap(detail.numericStatBreakdowns) ?? {};
+      detail.numericStatBreakdowns = numericStatBreakdowns;
       const latestAttrUpdate = options.getLatestAttrUpdate();
       const specialStats = latestAttrUpdate?.specialStats
         ? options.cloneJson(latestAttrUpdate.specialStats)
@@ -132,7 +134,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
       });
       const attrUpdate: S2C_AttrUpdate = {
         ...attrUpdateBase,
-        numericStatBreakdowns: options.cloneJson(detail.numericStatBreakdowns),
+        numericStatBreakdowns: options.cloneJson(numericStatBreakdowns),
       };
       options.setLatestAttrUpdate(attrUpdate);
 

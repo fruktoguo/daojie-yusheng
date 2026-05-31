@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, PLAYER_REALM_CONFIG, PLAYER_REALM_NUMERIC_TEMPLATES, PlayerRealmStage, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, calcTechniqueMaxAttrPercentBonus, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, getRealmAttributeMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } = require("@mud/shared");
+const { ATTR_KEYS, DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, PLAYER_REALM_CONFIG, PLAYER_REALM_NUMERIC_TEMPLATES, PlayerRealmStage, TECHNIQUE_MAX_ATTR_PERCENT_BONUS_SOURCE, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, calcTechniqueMaxAttrPercentBonus, compactNumericStatBreakdownMap, compileEquipmentBaselinePercentsToActualStats, compileValueStatsToActualStats, getRealmAttributeMultiplier, normalizeNumericStatBreakdownMap, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } = require("@mud/shared");
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
@@ -80,6 +80,11 @@ function testAttrDetailBuilders() {
     assert.equal(Array.isArray(bonuses), true);
     assert.equal(typeof breakdowns.maxHp.finalValue, 'number');
     assert.equal(breakdowns.maxHp.finalValue, 120);
+    const compactBreakdowns = compactNumericStatBreakdownMap(breakdowns);
+    const normalizedBreakdowns = normalizeNumericStatBreakdownMap(compactBreakdowns);
+    assert.deepEqual(normalizedBreakdowns, breakdowns);
+    assert.equal(Object.prototype.hasOwnProperty.call(compactBreakdowns.maxHp, 'flatBuffValue'), false);
+    assert.ok(Buffer.byteLength(JSON.stringify(compactBreakdowns), 'utf8') < Buffer.byteLength(JSON.stringify(breakdowns), 'utf8'));
 }
 
 function testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate() {

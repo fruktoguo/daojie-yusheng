@@ -303,6 +303,90 @@ export interface NumericStatBreakdownEntry {
 /** 具体属性乘区拆解映射 */
 export type NumericStatBreakdownMap = Partial<Record<NumericScalarStatKey, NumericStatBreakdownEntry>>;
 
+const NUMERIC_STAT_BREAKDOWN_DEFAULTS: NumericStatBreakdownEntry = Object.freeze({
+  realmBaseValue: 0,
+  bonusBaseValue: 0,
+  baseValue: 0,
+  flatBuffValue: 0,
+  preMultiplierValue: 0,
+  attrMultiplierPct: 0,
+  realmMultiplier: 1,
+  buffMultiplierPct: 0,
+  pillMultiplierPct: 0,
+  finalValue: 0,
+});
+
+/** 压缩数值拆解包：省略可由客户端恢复的 0 值和 1 倍乘区。 */
+export function compactNumericStatBreakdownMap(input: NumericStatBreakdownMap | null | undefined): NumericStatBreakdownMap | undefined {
+  if (!input) {
+    return undefined;
+  }
+  const result: NumericStatBreakdownMap = {};
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const entry = input[key];
+    if (!entry) {
+      continue;
+    }
+    const compact: Partial<NumericStatBreakdownEntry> = {};
+    appendNonDefaultBreakdownNumber(compact, 'realmBaseValue', entry.realmBaseValue);
+    appendNonDefaultBreakdownNumber(compact, 'bonusBaseValue', entry.bonusBaseValue);
+    appendNonDefaultBreakdownNumber(compact, 'baseValue', entry.baseValue);
+    appendNonDefaultBreakdownNumber(compact, 'flatBuffValue', entry.flatBuffValue);
+    appendNonDefaultBreakdownNumber(compact, 'preMultiplierValue', entry.preMultiplierValue);
+    appendNonDefaultBreakdownNumber(compact, 'attrMultiplierPct', entry.attrMultiplierPct);
+    appendNonDefaultBreakdownNumber(compact, 'realmMultiplier', entry.realmMultiplier);
+    appendNonDefaultBreakdownNumber(compact, 'buffMultiplierPct', entry.buffMultiplierPct);
+    appendNonDefaultBreakdownNumber(compact, 'pillMultiplierPct', entry.pillMultiplierPct);
+    appendNonDefaultBreakdownNumber(compact, 'finalValue', entry.finalValue);
+    result[key] = compact as NumericStatBreakdownEntry;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** 还原压缩后的数值拆解包，供现有 UI 继续按完整结构消费。 */
+export function normalizeNumericStatBreakdownMap(input: NumericStatBreakdownMap | null | undefined): NumericStatBreakdownMap | undefined {
+  if (!input) {
+    return undefined;
+  }
+  const result: NumericStatBreakdownMap = {};
+  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
+    const entry = input[key];
+    if (!entry) {
+      continue;
+    }
+    result[key] = {
+      realmBaseValue: normalizeBreakdownNumber(entry.realmBaseValue, 'realmBaseValue'),
+      bonusBaseValue: normalizeBreakdownNumber(entry.bonusBaseValue, 'bonusBaseValue'),
+      baseValue: normalizeBreakdownNumber(entry.baseValue, 'baseValue'),
+      flatBuffValue: normalizeBreakdownNumber(entry.flatBuffValue, 'flatBuffValue'),
+      preMultiplierValue: normalizeBreakdownNumber(entry.preMultiplierValue, 'preMultiplierValue'),
+      attrMultiplierPct: normalizeBreakdownNumber(entry.attrMultiplierPct, 'attrMultiplierPct'),
+      realmMultiplier: normalizeBreakdownNumber(entry.realmMultiplier, 'realmMultiplier'),
+      buffMultiplierPct: normalizeBreakdownNumber(entry.buffMultiplierPct, 'buffMultiplierPct'),
+      pillMultiplierPct: normalizeBreakdownNumber(entry.pillMultiplierPct, 'pillMultiplierPct'),
+      finalValue: normalizeBreakdownNumber(entry.finalValue, 'finalValue'),
+    };
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function appendNonDefaultBreakdownNumber(
+  target: Partial<NumericStatBreakdownEntry>,
+  key: keyof NumericStatBreakdownEntry,
+  value: unknown,
+): void {
+  const normalized = typeof value === 'number' && Number.isFinite(value) ? value : NUMERIC_STAT_BREAKDOWN_DEFAULTS[key];
+  if (normalized !== NUMERIC_STAT_BREAKDOWN_DEFAULTS[key]) {
+    target[key] = normalized;
+  }
+}
+
+function normalizeBreakdownNumber(value: unknown, key: keyof NumericStatBreakdownEntry): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : NUMERIC_STAT_BREAKDOWN_DEFAULTS[key];
+}
+
 /** 数值修改器（来源标识 + 属性/数值增量） */
 export interface NumericModifier {
 /**

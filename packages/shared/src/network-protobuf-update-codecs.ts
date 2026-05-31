@@ -6,6 +6,7 @@
 import type { ActionDef } from './action-combat-types';
 import type { AttrBonus } from './attribute-types';
 import type { BodyTrainingState, TechniqueCategory, TechniqueGrade, TechniqueLayerDef, TechniqueState } from './cultivation-types';
+import { compactNumericStatBreakdownMap, normalizeNumericStatBreakdownMap, type NumericStatBreakdownMap } from './numeric';
 import type { ActionUpdateEntryView as ActionUpdateEntry, TechniqueUpdateEntryView as TechniqueUpdateEntry } from './panel-update-types';
 import type { S2C_ActionsUpdate, S2C_AttrUpdate, S2C_TechniqueUpdate } from './protocol';
 import {
@@ -300,7 +301,7 @@ export function toWireAttrUpdate(payload: S2C_AttrUpdate): Record<string, unknow
   if (payload.finalAttrs) wire.finalAttrs = toWirePartialAttributes(payload.finalAttrs);
   if (payload.numericStats) wire.numericStats = toWirePartialNumericStats(payload.numericStats);
   if (payload.ratioDivisors) wire.ratioDivisors = toWirePartialRatioDivisors(payload.ratioDivisors);
-  if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(payload.numericStatBreakdowns);
+  if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(compactNumericStatBreakdownMap(payload.numericStatBreakdowns) ?? {});
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
   if (payload.specialStats) wire.specialStats = toWirePartialPlayerSpecialStats(payload.specialStats);
@@ -334,7 +335,9 @@ export function fromWireAttrUpdate(wire: Record<string, unknown>): S2C_AttrUpdat
   if (hasOwn(wire, 'finalAttrs')) payload.finalAttrs = fromWirePartialAttributes(wire.finalAttrs as Record<string, unknown>);
   if (hasOwn(wire, 'numericStats')) payload.numericStats = fromWirePartialNumericStats(wire.numericStats as Record<string, unknown>);
   if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWirePartialRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
-  if (typeof wire.numericStatBreakdownsJson === 'string') payload.numericStatBreakdowns = parseJson(wire.numericStatBreakdownsJson);
+  if (typeof wire.numericStatBreakdownsJson === 'string') {
+    payload.numericStatBreakdowns = normalizeNumericStatBreakdownMap(parseJson<NumericStatBreakdownMap>(wire.numericStatBreakdownsJson));
+  }
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
   if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePartialPlayerSpecialStats(wire.specialStats as Record<string, unknown>);

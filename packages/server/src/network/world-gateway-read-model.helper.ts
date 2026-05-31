@@ -9,7 +9,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { S2C, cloneNumericRatioDivisors, cloneNumericStats } from '@mud/shared';
+import { S2C, cloneNumericRatioDivisors, cloneNumericStats, compactNumericStatBreakdownMap } from '@mud/shared';
 import type { Socket } from 'socket.io';
 import { LeaderboardRuntimeService } from '../runtime/player/leaderboard-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
@@ -51,7 +51,7 @@ class WorldGatewayReadModelHelper {
             }
             this.worldClientEventService.markProtocol(client, 'mainline');
             const bonuses = buildAttrDetailBonuses(player);
-            const numericStatBreakdowns = buildAttrDetailNumericStatBreakdowns(player);
+            const numericStatBreakdowns = compactNumericStatBreakdownMap(buildAttrDetailNumericStatBreakdowns(player));
             client.emit(S2C.AttrDetail, {
                 baseAttrs: { ...player.attrs.baseAttrs },
                 bonuses,
