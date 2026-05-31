@@ -25,6 +25,8 @@
  */
 
 import {
+  COMBAT_EXPERIENCE_ADVANTAGE_BASELINE,
+  COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD,
   getRealmGapDamageMultiplier,
   percentModifierToMultiplier,
   ratioValue,
@@ -32,7 +34,6 @@ import {
 import {
   resolveOpposedCombatRate,
   resolveDefenseReductionRate,
-  resolveCombatExperienceAdvantage,
   __combatPipelineRandom as cryptoRandom,
 } from './combat-resolution.helpers';
 
@@ -143,9 +144,10 @@ export function resolveBreak(ctx: CombatResolveContext): void {
  * 破防成功时命中翻倍。闪避成功则 damage/rawDamage 归零并标记 dodged。
  */
 export function resolveHitDodge(ctx: CombatResolveContext): void {
-  const combatAdvantage = resolveCombatExperienceAdvantage(ctx.attackerCombatExp, ctx.targetCombatExp);
-  const hit = ((ctx.attackerStats as { hit?: number }).hit ?? 0) * (ctx.broken ? 2 : 1) * (1 + combatAdvantage.attackerBonus);
-  const dodge = ((ctx.targetStats as { dodge?: number }).dodge ?? 0) * (1 + combatAdvantage.defenderBonus);
+  const attackerBonus = resolveCombatExperienceBonusFast(ctx.attackerCombatExp, ctx.targetCombatExp);
+  const defenderBonus = resolveCombatExperienceBonusFast(ctx.targetCombatExp, ctx.attackerCombatExp);
+  const hit = ((ctx.attackerStats as { hit?: number }).hit ?? 0) * (ctx.broken ? 2 : 1) * (1 + attackerBonus);
+  const dodge = ((ctx.targetStats as { dodge?: number }).dodge ?? 0) * (1 + defenderBonus);
   const dodgeChance = resolveOpposedCombatRate(dodge, hit);
   if (dodgeChance > 0 && cryptoRandom() < dodgeChance) {
     ctx.dodged = true;
@@ -187,7 +189,9 @@ export function resolveCrit(ctx: CombatResolveContext): void {
 export function resolveElementBonus(ctx: CombatResolveContext): void {
   if (!ctx.element) return;
   const bonusMap = (ctx.attackerStats as { elementDamageBonus?: Record<string, number> }).elementDamageBonus;
-  const bonus = percentModifierToMultiplier(bonusMap?.[ctx.element] ?? 0);
+  const bonusValue = bonusMap?.[ctx.element] ?? 0;
+  if (bonusValue === 0) return;
+  const bonus = percentModifierToMultiplier(bonusValue);
   ctx.damage = Math.max(1, Math.round(ctx.damage * bonus));
   ctx.rawDamage = Math.max(1, Math.round(ctx.rawDamage * bonus));
 }
@@ -207,8 +211,11 @@ export function resolveDefense(ctx: CombatResolveContext): void {
   let reduction = resolveDefenseReductionRate(defense, defenseAttackBasis);
   if (ctx.element) {
     const tr = ctx.targetRatios as { elementDamageReduce?: Record<string, number> };
-    const elementReduce = Math.max(0, ratioValue(ts.elementDamageReduce?.[ctx.element] ?? 0, tr.elementDamageReduce?.[ctx.element] ?? 1));
-    reduction = 1 - (1 - reduction) * (1 - elementReduce);
+    const elementReduceValue = ts.elementDamageReduce?.[ctx.element] ?? 0;
+    if (elementReduceValue > 0) {
+      const elementReduce = Math.max(0, ratioValue(elementReduceValue, tr.elementDamageReduce?.[ctx.element] ?? 1));
+      reduction = 1 - (1 - reduction) * (1 - elementReduce);
+    }
   }
   ctx.damage = Math.max(1, Math.round(ctx.damage * Math.max(0, 1 - reduction)));
 }
@@ -227,6 +234,7 @@ export function resolveCritMultiplier(ctx: CombatResolveContext): void {
 
 /** 境界差乘区：高境界打低境界有额外伤害加成。 */
 export function resolveRealmGap(ctx: CombatResolveContext): void {
+  if (ctx.attackerRealmLv === ctx.targetRealmLv) return;
   const mult = getCachedRealmGapDamageMultiplier(ctx.attackerRealmLv, ctx.targetRealmLv);
   ctx.rawDamage = Math.max(1, Math.round(ctx.rawDamage * mult));
   ctx.damage = Math.max(1, Math.round(ctx.damage * mult));
@@ -260,4 +268,16 @@ function getCachedRealmGapDamageMultiplier(attackerRealmLv: number, targetRealmL
     return resolved;
   }
   return getRealmGapDamageMultiplier(attackerRealmLv, targetRealmLv);
+}
+
+function resolveCombatExperienceBonusFast(currentExp: number, oppositeExp: number): number {
+  const baseline = COMBAT_EXPERIENCE_ADVANTAGE_BASELINE;
+  const normalizedCurrent = currentExp + baseline;
+  const normalizedOpposite = oppositeExp + baseline;
+  if (normalizedCurrent <= normalizedOpposite) {
+    return 0;
+  }
+  const ratio = normalizedCurrent / normalizedOpposite;
+  const threshold = Math.max(2, COMBAT_EXPERIENCE_ADVANTAGE_THRESHOLD);
+  return Math.min(1, Math.max(0, (ratio - 1) / (threshold - 1)));
 }
