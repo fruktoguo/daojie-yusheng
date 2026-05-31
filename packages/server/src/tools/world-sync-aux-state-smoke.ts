@@ -11,6 +11,7 @@ function createService(
   } = {},
 ) {
   let tickIntervalMs = options.tickIntervalMs ?? 1000;
+  const mapStaticPayloads: Array<{ tiles?: unknown }> = [];
   let lootWindow = {
     tileX: 4,
     tileY: 5,
@@ -83,8 +84,11 @@ function createService(
     },
     {
       buildInitialMapStaticState() {
-        const matrix = [[{ type: 'floor' }]];
-        const visibleTiles = new Map([['3,4', { type: 'floor' }]]);
+        const matrix = [[{
+          type: 'floor',
+          resources: [{ key: 'aura.refined.neutral', label: '灵气', value: 100, effectiveValue: 100, level: 1, sourceValue: 100 }],
+        }]];
+        const visibleTiles = new Map([['3,4', matrix[0][0]]]);
         const visibleMinimapMarkers = [{ id: 'marker.a', kind: 'npc', x: 3, y: 4, label: '甲', detail: '乙' }];
         return {
           visibleTiles: { matrix, byKey: visibleTiles },
@@ -157,6 +161,7 @@ function createService(
         socket: { id: string },
         payload: { tiles?: unknown; minimap?: unknown; minimapLibrary?: Array<{ mapId: string }>; unlockedMapIds?: string[] },
       ) {
+        mapStaticPayloads.push(payload);
         log.push([
           'sendMapStatic',
           socket.id,
@@ -331,6 +336,9 @@ function createService(
     setLootWindow(nextLootWindow: typeof lootWindow) {
       lootWindow = nextLootWindow;
     },
+    getMapStaticPayloads() {
+      return mapStaticPayloads;
+    },
   };
 }
 
@@ -442,6 +450,25 @@ function testInitialSyncSendsCurrentUnlockedMinimap() {
     && entry[4].join(',') === 'map.a'));
 }
 
+function testMapStaticOmitsDefaultFloorTypeOnWire() {
+  const log: unknown[] = [];
+  const { service, getMapStaticPayloads } = createService(log);
+  const socket = { id: 'socket:compact-map-static', emit() {} };
+
+  service.emitAuxInitialSync('player:compact-map-static', socket, createView(60), createPlayer('炼气', 10));
+
+  const payload = getMapStaticPayloads()[0];
+  assert.ok(payload);
+  const rows = payload.tiles;
+  assert.ok(Array.isArray(rows));
+  const firstRow = rows[0];
+  assert.ok(Array.isArray(firstRow));
+  const firstTile = firstRow[0];
+  assert.ok(firstTile && typeof firstTile === 'object');
+  assert.equal(Object.prototype.hasOwnProperty.call(firstTile, 'type'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(firstTile, 'resources'), false);
+}
+
 function testTimeOnlyDeltaSyncsTickInterval() {
   const log: unknown[] = [];
   const { service, setTickIntervalMs } = createService(log, { deltaMapPatch: false });
@@ -473,6 +500,7 @@ function testProgressOnlyRealmChangeDoesNotResendRealm() {
 testAuxStateSync();
 testMapChangeDoesNotAutoUnlockCurrentMap();
 testInitialSyncSendsCurrentUnlockedMinimap();
+testMapStaticOmitsDefaultFloorTypeOnWire();
 testTimeOnlyDeltaSyncsTickInterval();
 testProgressOnlyRealmChangeDoesNotResendRealm();
 console.log(

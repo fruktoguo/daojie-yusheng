@@ -7,6 +7,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   S2C,
+  TileType,
   type BootstrapView,
   type GameTimeState,
   type HeavenGateRootValues,
@@ -383,7 +384,7 @@ export class WorldSyncAuxStateService {
       mapMeta: options.mapMeta,
       minimap: options.minimap,
       minimapLibrary: options.minimapLibrary,
-      tiles: options.tiles,
+      tiles: compactMapStaticVisibleTiles(options.tiles),
       tilesOriginX: options.tilesOriginX,
       tilesOriginY: options.tilesOriginY,
       visibleMinimapMarkers: options.visibleMinimapMarkers,
@@ -413,6 +414,59 @@ export class WorldSyncAuxStateService {
   ): RealmView {
     return { realm };
   }
+}
+
+function compactMapStaticVisibleTiles(tiles: MapStaticSyncOptions['tiles']): MapStaticSyncOptions['tiles'] {
+  if (!Array.isArray(tiles)) {
+    return tiles;
+  }
+  return tiles.map((row) => {
+    if (!Array.isArray(row)) {
+      return row;
+    }
+    return row.map((tile) => {
+      if (!tile) {
+        return tile;
+      }
+      let compactTile: typeof tile | null = null;
+      if (tile.type === TileType.Floor) {
+        compactTile = { ...tile };
+        delete (compactTile as { type?: unknown }).type;
+      }
+      if (Array.isArray(tile.resources)) {
+        compactTile ??= { ...tile };
+        const resources = compactTileResources(tile.resources);
+        if (resources && resources.length > 0) {
+          compactTile.resources = resources as typeof tile.resources;
+        } else {
+          delete (compactTile as { resources?: unknown }).resources;
+        }
+      }
+      return (compactTile ?? tile) as typeof tile;
+    });
+  }) as MapStaticSyncOptions['tiles'];
+}
+
+function compactTileResources(resources: unknown[]): Array<{ key: string; level?: number }> | undefined {
+  if (!Array.isArray(resources) || resources.length === 0) {
+    return undefined;
+  }
+  const compact: Array<{ key: string; level?: number }> = [];
+  for (const resource of resources) {
+    if (!resource || typeof resource !== 'object') {
+      continue;
+    }
+    const key = typeof (resource as { key?: unknown }).key === 'string' ? (resource as { key: string }).key : '';
+    if (!key || key === 'aura.refined.neutral') {
+      continue;
+    }
+    const level = Number((resource as { level?: unknown }).level);
+    compact.push({
+      key,
+      ...(Number.isFinite(level) ? { level } : {}),
+    });
+  }
+  return compact.length > 0 ? compact : undefined;
 }
 
 function resolveVisibleTilesOriginX(view: PlayerView, player: RuntimePlayer): number {

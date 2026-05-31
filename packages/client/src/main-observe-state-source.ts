@@ -742,7 +742,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     }
     const detailResources = getObservedTileRuntimeResources(targetX, targetY);
     if (!activeObservedTileDetail) {
-      const visibleTileResources = tile.resources?.filter((resource) => (resource.effectiveValue ?? resource.value) > 0) ?? [];
+      const visibleTileResources = tile.resources?.filter((resource) => (
+        (resource.effectiveValue ?? resource.value) > 0
+        || (typeof resource.level === 'number' && Number.isFinite(resource.level) && resource.level > 0)
+      )) ?? [];
       if (visibleTileResources.length === 0 && (tile.aura ?? 0) <= 0) {
         return [];
       }

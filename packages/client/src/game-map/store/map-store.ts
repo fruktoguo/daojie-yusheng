@@ -23,6 +23,7 @@ import {
   clonePlainValue,
   doesTileTypeBlockSight,
   getFirstGrapheme,
+  getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
   resolveTileLayerSeedFromTileType,
@@ -1239,7 +1240,22 @@ function normalizeVisibleTile(tile: VisibleTile): VisibleTile {
   const hasStructureType = Object.prototype.hasOwnProperty.call(tile, 'structureType');
   const hasInteractableKinds = Object.prototype.hasOwnProperty.call(tile, 'interactableKinds');
   const resources = Array.isArray(tile.resources) && tile.resources.length > 0
-    ? tile.resources.map((entry) => ({ ...entry }))
+    ? tile.resources
+      .filter((entry) => entry && typeof entry.key === 'string' && entry.key.length > 0)
+      .map((entry) => ({
+        ...entry,
+        label: typeof entry.label === 'string' && entry.label.length > 0
+          ? entry.label
+          : getQiResourceDisplayLabel(entry.key),
+        value: typeof entry.value === 'number' && Number.isFinite(entry.value) ? Math.max(0, entry.value) : 0,
+        effectiveValue: typeof entry.effectiveValue === 'number' && Number.isFinite(entry.effectiveValue)
+          ? Math.max(0, entry.effectiveValue)
+          : undefined,
+        level: typeof entry.level === 'number' && Number.isFinite(entry.level) ? Math.max(0, entry.level) : undefined,
+        sourceValue: typeof entry.sourceValue === 'number' && Number.isFinite(entry.sourceValue)
+          ? Math.max(0, entry.sourceValue)
+          : undefined,
+      }))
     : undefined;
   const normalized: Tile = {
     ...tile,
