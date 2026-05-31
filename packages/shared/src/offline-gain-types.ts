@@ -40,6 +40,17 @@ export interface PlayerStatisticTotalsView {
   generatedAt: number;
 }
 
+export type PlayerStatisticAmountPatchView = Partial<PlayerStatisticAmountView>;
+export type PlayerStatisticPeriodTotalPatchView = Partial<Record<keyof PlayerStatisticPeriodTotalView, PlayerStatisticAmountPatchView>>;
+
+/** 服务端权威累计总账增量，低频在线刷新只下发变化周期与指标。 */
+export interface PlayerStatisticTotalsPatchView {
+  today?: PlayerStatisticPeriodTotalPatchView;
+  yesterday?: PlayerStatisticPeriodTotalPatchView;
+  week?: PlayerStatisticPeriodTotalPatchView;
+  generatedAt?: number;
+}
+
 /** 统计记录里的物品收支。灵石会被单独摘出，不放在普通物品列表里。 */
 export interface OfflineGainItemView {
   itemId: string;
@@ -106,4 +117,5 @@ export interface OfflineGainReportView {
 export interface OfflineGainReportsView {
   reports: OfflineGainReportView[];
   totals?: PlayerStatisticTotalsView;
+  totalsPatch?: PlayerStatisticTotalsPatchView;
 }

@@ -3,7 +3,14 @@
  *
  * 维护时要区分“显示用派生数据”和“服务端权威数据”，注释只补充边界说明，不改变任何交互语义。
  */
-import type { OfflineGainReportView, PlayerStatisticPeriodTotalView, PlayerStatisticTotalsView } from '@mud/shared';
+import type {
+  OfflineGainReportView,
+  PlayerStatisticAmountPatchView,
+  PlayerStatisticPeriodTotalPatchView,
+  PlayerStatisticPeriodTotalView,
+  PlayerStatisticTotalsPatchView,
+  PlayerStatisticTotalsView,
+} from '@mud/shared';
 
 const OFFLINE_GAIN_STORAGE_PREFIX = 'mud:offline-gain-reports:v1:';
 const PLAYER_STATISTIC_TOTALS_STORAGE_PREFIX = 'mud:player-statistic-totals:v1:';
@@ -113,6 +120,21 @@ export function storePlayerStatisticTotalsInBrowser(
   } catch {
     return false;
   }
+}
+
+export function storePlayerStatisticTotalsPatchInBrowser(
+  playerId: string,
+  patch: PlayerStatisticTotalsPatchView | null | undefined,
+  windowRef: Window = window,
+): boolean {
+  const normalizedPatch = normalizePlayerStatisticTotalsPatch(patch);
+  if (!normalizedPatch) {
+    return false;
+  }
+  const current = readPlayerStatisticTotalsFromBrowser(playerId, windowRef)
+    ?? normalizePlayerStatisticTotals({});
+  const next = applyPlayerStatisticTotalsPatch(current, normalizedPatch);
+  return storePlayerStatisticTotalsInBrowser(playerId, next, windowRef);
 }
 
 export function readPlayerStatisticTotalsFromBrowser(
@@ -261,6 +283,83 @@ function normalizePlayerStatisticTotals(value: unknown): PlayerStatisticTotalsVi
     yesterday: normalizePlayerStatisticPeriodTotal(record.yesterday),
     week: normalizePlayerStatisticPeriodTotal(record.week),
     generatedAt: normalizeInteger(record.generatedAt) || Date.now(),
+  };
+}
+
+function normalizePlayerStatisticTotalsPatch(value: unknown): PlayerStatisticTotalsPatchView | null {
+  const record = value && typeof value === 'object' ? value as Partial<PlayerStatisticTotalsPatchView> : null;
+  if (!record) {
+    return null;
+  }
+  const patch: PlayerStatisticTotalsPatchView = {};
+  const today = normalizePlayerStatisticPeriodPatch(record.today);
+  const yesterday = normalizePlayerStatisticPeriodPatch(record.yesterday);
+  const week = normalizePlayerStatisticPeriodPatch(record.week);
+  if (today) patch.today = today;
+  if (yesterday) patch.yesterday = yesterday;
+  if (week) patch.week = week;
+  if (record.generatedAt !== undefined) patch.generatedAt = normalizeInteger(record.generatedAt) || Date.now();
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
+function normalizePlayerStatisticPeriodPatch(value: unknown): PlayerStatisticPeriodTotalPatchView | null {
+  const record = value && typeof value === 'object' ? value as Partial<PlayerStatisticPeriodTotalPatchView> : null;
+  if (!record) {
+    return null;
+  }
+  const patch: PlayerStatisticPeriodTotalPatchView = {};
+  const spiritStones = normalizeAmountPatch(record.spiritStones);
+  const progress = normalizeAmountPatch(record.progress);
+  const techniques = normalizeAmountPatch(record.techniques);
+  const professions = normalizeAmountPatch(record.professions);
+  if (spiritStones) patch.spiritStones = spiritStones;
+  if (progress) patch.progress = progress;
+  if (techniques) patch.techniques = techniques;
+  if (professions) patch.professions = professions;
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
+function normalizeAmountPatch(value: unknown): PlayerStatisticAmountPatchView | null {
+  const record = value && typeof value === 'object' ? value as PlayerStatisticAmountPatchView : null;
+  if (!record) {
+    return null;
+  }
+  const patch: PlayerStatisticAmountPatchView = {};
+  if (record.gained !== undefined) patch.gained = normalizePositiveInteger(record.gained);
+  if (record.lost !== undefined) patch.lost = normalizePositiveInteger(record.lost);
+  if (record.net !== undefined) patch.net = normalizeSignedInteger(record.net);
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
+function applyPlayerStatisticTotalsPatch(
+  previous: PlayerStatisticTotalsView | null,
+  patch: PlayerStatisticTotalsPatchView,
+): PlayerStatisticTotalsView {
+  const base = normalizePlayerStatisticTotals(previous ?? {}) as PlayerStatisticTotalsView;
+  return {
+    today: applyPlayerStatisticPeriodPatch(base.today, patch.today),
+    yesterday: applyPlayerStatisticPeriodPatch(base.yesterday, patch.yesterday),
+    week: applyPlayerStatisticPeriodPatch(base.week, patch.week),
+    generatedAt: patch.generatedAt ?? base.generatedAt,
+  };
+}
+
+function applyPlayerStatisticPeriodPatch(
+  previous: PlayerStatisticPeriodTotalView,
+  patch: PlayerStatisticPeriodTotalPatchView | null | undefined,
+): PlayerStatisticPeriodTotalView {
+  if (!patch) {
+    return previous;
+  }
+  const spiritStones = normalizeAmountPatch(patch.spiritStones);
+  const progress = normalizeAmountPatch(patch.progress);
+  const techniques = normalizeAmountPatch(patch.techniques);
+  const professions = normalizeAmountPatch(patch.professions);
+  return {
+    spiritStones: spiritStones ? { ...previous.spiritStones, ...spiritStones } : previous.spiritStones,
+    progress: progress ? { ...previous.progress, ...progress } : previous.progress,
+    techniques: techniques ? { ...previous.techniques, ...techniques } : previous.techniques,
+    professions: professions ? { ...previous.professions, ...professions } : previous.professions,
   };
 }
 

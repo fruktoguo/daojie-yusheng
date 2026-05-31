@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { S2C } from '@mud/shared';
+
 import { WorldSyncService } from '../network/world-sync.service';
 
 type LogEntry = unknown[];
@@ -7,6 +9,8 @@ type LogEntry = unknown[];
 interface DeltaOrderSmokeOptions {
     deferFirstAux?: boolean;
     trackRoomSync?: boolean;
+    statisticTotals?: Record<string, unknown> | null;
+    statisticTotalsPatch?: Record<string, unknown> | null;
     runtimeGmStateService?: {
         recordSyncFlushBreakdown(sample: Record<string, number>): void;
     };
@@ -14,7 +18,18 @@ interface DeltaOrderSmokeOptions {
 
 function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {}) {
     const binding = { playerId: 'player:1', sessionId: 'session:1' };
-    const socket = { id: 'socket:1', emit() {} };
+    const socket = {
+        id: 'socket:1',
+        emit(event: string, payload: Record<string, unknown>) {
+            log.push([
+                'socketEmit',
+                event,
+                Buffer.byteLength(JSON.stringify(payload)),
+                Boolean(payload?.totals),
+                Boolean(payload?.totalsPatch),
+            ]);
+        },
+    };
     const view = {
         tick: 9,
         worldRevision: 10,
@@ -44,8 +59,11 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
             getPendingPlayerStatisticRecords() {
                 return [];
             },
+            consumePlayerStatisticTotalsPatchForEmit() {
+                return options.statisticTotalsPatch ?? null;
+            },
             consumePlayerStatisticTotalsForEmit() {
-                return null;
+                return options.statisticTotals ?? null;
             },
             detachSession() {},
         },
@@ -180,8 +198,52 @@ function testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce() {
     assert.equal(records[0].statisticRecordsCount, 1);
 }
 
+function testStatisticTotalsPatchUsesCompactOfflineGainPayload() {
+    const log = [];
+    const totalsPatch = {
+        generatedAt: 123,
+        today: { progress: { gained: 10, lost: 0, net: 10 } },
+        week: { progress: { gained: 10, lost: 0, net: 10 } },
+    };
+    const fullTotals = {
+        generatedAt: 123,
+        today: {
+            spiritStones: { gained: 0, lost: 0, net: 0 },
+            progress: { gained: 10, lost: 0, net: 10 },
+            techniques: { gained: 0, lost: 0, net: 0 },
+            professions: { gained: 0, lost: 0, net: 0 },
+        },
+        yesterday: {
+            spiritStones: { gained: 0, lost: 0, net: 0 },
+            progress: { gained: 0, lost: 0, net: 0 },
+            techniques: { gained: 0, lost: 0, net: 0 },
+            professions: { gained: 0, lost: 0, net: 0 },
+        },
+        week: {
+            spiritStones: { gained: 0, lost: 0, net: 0 },
+            progress: { gained: 10, lost: 0, net: 10 },
+            techniques: { gained: 0, lost: 0, net: 0 },
+            professions: { gained: 0, lost: 0, net: 0 },
+        },
+    };
+    const { service } = createService(log, {
+        statisticTotals: fullTotals,
+        statisticTotalsPatch: totalsPatch,
+    });
+
+    service.emitDeltaSync('player:1');
+
+    const emitted = log.find((entry) => entry[0] === 'socketEmit');
+    assert.ok(emitted);
+    assert.equal(emitted[1], S2C.OfflineGainReports);
+    assert.equal(emitted[3], false);
+    assert.equal(emitted[4], true);
+    assert.ok(Number(emitted[2]) < Buffer.byteLength(JSON.stringify({ reports: [], totals: fullTotals })));
+}
+
 testAuxDeltaIsSentBeforeMovementEnvelope();
 testMapChangedAuxDeltaStaysAfterMovementEnvelope();
 testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce();
+testStatisticTotalsPatchUsesCompactOfflineGainPayload();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-delta-order' }, null, 2));

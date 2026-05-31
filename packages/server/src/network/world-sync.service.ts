@@ -231,11 +231,17 @@ export class WorldSyncService {
     private emitPendingPlayerStatisticRecords(playerId: string, socket: any) {
         const records = typeof this.playerRuntimeService.getPendingPlayerStatisticRecords === 'function'
             ? this.playerRuntimeService.getPendingPlayerStatisticRecords(playerId) : [];
-        const totals = typeof this.playerRuntimeService.consumePlayerStatisticTotalsForEmit === 'function'
+        const totalsPatch = typeof this.playerRuntimeService.consumePlayerStatisticTotalsPatchForEmit === 'function'
+            ? this.playerRuntimeService.consumePlayerStatisticTotalsPatchForEmit(playerId) : null;
+        const totals = !totalsPatch && typeof this.playerRuntimeService.consumePlayerStatisticTotalsForEmit === 'function'
             ? this.playerRuntimeService.consumePlayerStatisticTotalsForEmit(playerId) : null;
         if (typeof socket?.emit !== 'function') return;
-        if ((!Array.isArray(records) || records.length === 0) && !totals) return;
-        socket.emit(S2C.OfflineGainReports, { reports: Array.isArray(records) ? records : [], ...(totals ? { totals } : {}) });
+        if ((!Array.isArray(records) || records.length === 0) && !totals && !totalsPatch) return;
+        socket.emit(S2C.OfflineGainReports, {
+            reports: Array.isArray(records) ? records : [],
+            ...(totals ? { totals } : {}),
+            ...(totalsPatch ? { totalsPatch } : {}),
+        });
     }
 
     private syncPlayerInstanceRoom(playerId: string, view: any) {

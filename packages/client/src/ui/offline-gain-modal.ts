@@ -7,6 +7,7 @@ import { S2C, type ServerToClientEventPayload, type OfflineGainReportView } from
 import { detailModalHost } from './detail-modal-host';
 import {
   storePlayerStatisticTotalsInBrowser,
+  storePlayerStatisticTotalsPatchInBrowser,
   storeOfflineGainReportsInBrowser,
   type OfflineGainStoreResult,
 } from '../offline-gain-storage';
@@ -30,6 +31,8 @@ export function handleOfflineGainReports(
   const playerId = options.getPlayerId() ?? reports[0]?.playerId ?? 'anonymous';
   if (payload?.totals) {
     storePlayerStatisticTotalsInBrowser(playerId, payload.totals, options.windowRef ?? window);
+  } else if (payload?.totalsPatch) {
+    storePlayerStatisticTotalsPatchInBrowser(playerId, payload.totalsPatch, options.windowRef ?? window);
   }
   if (reports.length === 0) {
     return;

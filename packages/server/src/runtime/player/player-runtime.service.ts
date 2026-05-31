@@ -99,6 +99,8 @@ export class PlayerRuntimeService {
     private playerStatisticLedgerRetryCount = new Map<string, number>();
     /** 待单播给客户端刷新显示的总账玩家。 */
     pendingPlayerStatisticTotalsEmitPlayerIds = new Set();
+    /** 最近一次已发给客户端的统计总账，用于构建低频 totalsPatch。 */
+    playerStatisticLastEmittedTotalsByPlayerId = new Map();
     /** 数据库禁用时等待客户端归档的离线收益报告。 */
     pendingOfflineGainReportsByPlayerId = new Map();
     /** 仅在测试 harness fallback 路径首次触发时打印一次提示，避免刷屏。 */
@@ -528,7 +530,8 @@ export class PlayerRuntimeService {
             }
             this.playerStatisticPersistedDayTotalsByPlayerId.set(normalizedPlayerId, byDay);
         }
-        return this.getPlayerStatisticTotalsSync(normalizedPlayerId, now) ?? buildEmptyPlayerStatisticTotals(now);
+        const totals = this.getPlayerStatisticTotalsSync(normalizedPlayerId, now);
+        return totals && hasPlayerStatisticTotalsView(totals) ? totals : null;
     }
     /** 同步读取当前服务端已知统计总账，用于低频单播。 */
     getPlayerStatisticTotalsSync(playerId, now = Date.now()) {
@@ -551,6 +554,31 @@ export class PlayerRuntimeService {
         }
         this.pendingPlayerStatisticTotalsEmitPlayerIds.delete(normalizedPlayerId);
         return this.getPlayerStatisticTotalsSync(normalizedPlayerId, now) ?? buildEmptyPlayerStatisticTotals(now);
+    }
+    /** 消费待下发总账增量；在线 tick 只发变化周期与指标，避免每秒重复完整总账。 */
+    consumePlayerStatisticTotalsPatchForEmit(playerId, now = Date.now()) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId || !this.pendingPlayerStatisticTotalsEmitPlayerIds.has(normalizedPlayerId)) {
+            return null;
+        }
+        this.pendingPlayerStatisticTotalsEmitPlayerIds.delete(normalizedPlayerId);
+        const current = this.getPlayerStatisticTotalsSync(normalizedPlayerId, now);
+        if (!current || !hasPlayerStatisticTotalsView(current)) {
+            this.playerStatisticLastEmittedTotalsByPlayerId.delete(normalizedPlayerId);
+            return null;
+        }
+        const previous = this.playerStatisticLastEmittedTotalsByPlayerId.get(normalizedPlayerId) ?? null;
+        const patch = buildPlayerStatisticTotalsPatch(previous, current);
+        this.playerStatisticLastEmittedTotalsByPlayerId.set(normalizedPlayerId, current);
+        return hasPlayerStatisticTotalsPatch(patch) ? patch : null;
+    }
+    /** 记录已经完整下发给客户端的统计总账，后续在线刷新才能按真实差异发 totalsPatch。 */
+    markPlayerStatisticTotalsEmitted(playerId, totals) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId || !totals || !hasPlayerStatisticTotalsView(totals)) {
+            return;
+        }
+        this.playerStatisticLastEmittedTotalsByPlayerId.set(normalizedPlayerId, totals);
     }
     /** 客户端确认报告已经写入浏览器本地后，清掉云端待发副本。 */
     async acknowledgeOfflineGainReports(playerId, reportIds) {
@@ -623,6 +651,7 @@ export class PlayerRuntimeService {
         this.pendingPlayerStatisticDayTotalsByPlayerId.delete(playerId);
         this.scheduledPlayerStatisticLedgerFlushes.delete(playerId);
         this.pendingPlayerStatisticTotalsEmitPlayerIds.delete(playerId);
+        this.playerStatisticLastEmittedTotalsByPlayerId.delete(playerId);
         this.pendingOfflineGainReportsByPlayerId.delete(playerId);
         // 同步清理事件总线上该玩家的待发队列，避免历史 playerId 在 playerQueues 中持续残留。
         if (typeof this.runtimeEventBusService?.discardPlayer === 'function') {
@@ -5576,6 +5605,61 @@ function buildPlayerStatisticTotalsView(persistedByDay, runtimeByDay, now = Date
         ),
         generatedAt: Math.max(0, Math.trunc(Number(now) || Date.now())),
     };
+}
+function buildPlayerStatisticTotalsPatch(previous, current) {
+    const patch: any = { generatedAt: Math.max(0, Math.trunc(Number(current?.generatedAt) || Date.now())) };
+    const today = buildPlayerStatisticPeriodPatch(previous?.today, current?.today);
+    const yesterday = buildPlayerStatisticPeriodPatch(previous?.yesterday, current?.yesterday);
+    const week = buildPlayerStatisticPeriodPatch(previous?.week, current?.week);
+    if (today) {
+        patch.today = today;
+    }
+    if (yesterday) {
+        patch.yesterday = yesterday;
+    }
+    if (week) {
+        patch.week = week;
+    }
+    return patch;
+}
+function buildPlayerStatisticPeriodPatch(previous, current) {
+    const patch: any = {};
+    const hasPrevious = previous !== null && previous !== undefined;
+    const normalizedPrevious = normalizePlayerStatisticPeriodTotal(previous);
+    const normalizedCurrent = normalizePlayerStatisticPeriodTotal(current);
+    if (!isSamePlayerStatisticAmount(normalizedPrevious.spiritStones, normalizedCurrent.spiritStones)
+        && (hasPrevious || hasPlayerStatisticAmount(normalizedCurrent.spiritStones))) {
+        patch.spiritStones = normalizedCurrent.spiritStones;
+    }
+    if (!isSamePlayerStatisticAmount(normalizedPrevious.progress, normalizedCurrent.progress)
+        && (hasPrevious || hasPlayerStatisticAmount(normalizedCurrent.progress))) {
+        patch.progress = normalizedCurrent.progress;
+    }
+    if (!isSamePlayerStatisticAmount(normalizedPrevious.techniques, normalizedCurrent.techniques)
+        && (hasPrevious || hasPlayerStatisticAmount(normalizedCurrent.techniques))) {
+        patch.techniques = normalizedCurrent.techniques;
+    }
+    if (!isSamePlayerStatisticAmount(normalizedPrevious.professions, normalizedCurrent.professions)
+        && (hasPrevious || hasPlayerStatisticAmount(normalizedCurrent.professions))) {
+        patch.professions = normalizedCurrent.professions;
+    }
+    return Object.keys(patch).length > 0 ? patch : null;
+}
+function isSamePlayerStatisticAmount(left, right) {
+    return normalizeOfflineGainCount(left?.gained) === normalizeOfflineGainCount(right?.gained)
+        && normalizeOfflineGainCount(left?.lost) === normalizeOfflineGainCount(right?.lost)
+        && normalizeOfflineGainSignedCount(left?.net) === normalizeOfflineGainSignedCount(right?.net);
+}
+function hasPlayerStatisticAmount(value) {
+    return normalizeOfflineGainCount(value?.gained) > 0 || normalizeOfflineGainCount(value?.lost) > 0;
+}
+function hasPlayerStatisticTotalsView(totals) {
+    return hasPlayerStatisticPeriodTotal(totals?.today)
+        || hasPlayerStatisticPeriodTotal(totals?.yesterday)
+        || hasPlayerStatisticPeriodTotal(totals?.week);
+}
+function hasPlayerStatisticTotalsPatch(patch) {
+    return Boolean(patch?.today || patch?.yesterday || patch?.week);
 }
 function readPlayerStatisticDayTotal(persistedByDay, runtimeByDay, dayKey) {
     return mergePlayerStatisticPeriodTotals(
