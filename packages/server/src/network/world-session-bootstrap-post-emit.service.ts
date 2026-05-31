@@ -30,6 +30,7 @@ interface PlayerRuntimePort {
     loadPendingOfflineGainReports(playerId: string): Promise<unknown[]>;
     loadPlayerStatisticTotals?(playerId: string): Promise<unknown>;
     markPlayerStatisticTotalsEmitted?(playerId: string, totals: unknown): void;
+    markPendingOfflineGainReportsEmitted?(playerId: string, reports: unknown[]): void;
 }
 
 /** 负责 bootstrap 初始同步后的 notice、建议、邮件与日志书下发。 */
@@ -75,6 +76,9 @@ export class WorldSessionBootstrapPostEmitService {
                 reports: offlineGainReports,
                 ...(statisticTotals ? { totals: statisticTotals } : {}),
             });
+            if (offlineGainReports.length > 0) {
+                this.playerRuntimeService?.markPendingOfflineGainReportsEmitted?.(playerId, offlineGainReports);
+            }
             if (statisticTotals) {
                 this.playerRuntimeService?.markPlayerStatisticTotalsEmitted?.(playerId, statisticTotals);
             }

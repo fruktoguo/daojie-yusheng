@@ -47,7 +47,6 @@ export class WorldSyncService {
         this.emitAuxInitialSync(binding.playerId, socket, view, player);
         this.worldSyncQuestLootService.markQuestSyncBaseline(binding.playerId, player.quests.revision);
         this.emitPendingInitialNotices(binding.playerId, socket);
-        this.emitPendingPlayerStatisticRecords(binding.playerId, socket);
     }
 
     emitDeltaSync(playerId: string, socketOverride = undefined) {
@@ -229,8 +228,10 @@ export class WorldSyncService {
     }
 
     private emitPendingPlayerStatisticRecords(playerId: string, socket: any) {
-        const records = typeof this.playerRuntimeService.getPendingPlayerStatisticRecords === 'function'
-            ? this.playerRuntimeService.getPendingPlayerStatisticRecords(playerId) : [];
+        const records = typeof this.playerRuntimeService.consumePendingPlayerStatisticRecordsForEmit === 'function'
+            ? this.playerRuntimeService.consumePendingPlayerStatisticRecordsForEmit(playerId)
+            : (typeof this.playerRuntimeService.getPendingPlayerStatisticRecords === 'function'
+                ? this.playerRuntimeService.getPendingPlayerStatisticRecords(playerId) : []);
         const totalsPatch = typeof this.playerRuntimeService.consumePlayerStatisticTotalsPatchForEmit === 'function'
             ? this.playerRuntimeService.consumePlayerStatisticTotalsPatchForEmit(playerId) : null;
         const totals = !totalsPatch && typeof this.playerRuntimeService.consumePlayerStatisticTotalsForEmit === 'function'

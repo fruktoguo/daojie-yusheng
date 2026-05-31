@@ -9,6 +9,7 @@ type LogEntry = unknown[];
 interface DeltaOrderSmokeOptions {
     deferFirstAux?: boolean;
     trackRoomSync?: boolean;
+    pendingStatisticRecords?: Record<string, unknown>[];
     statisticTotals?: Record<string, unknown> | null;
     statisticTotalsPatch?: Record<string, unknown> | null;
     runtimeGmStateService?: {
@@ -18,6 +19,7 @@ interface DeltaOrderSmokeOptions {
 
 function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {}) {
     const binding = { playerId: 'player:1', sessionId: 'session:1' };
+    let statisticRecordsConsumed = false;
     const socket = {
         id: 'socket:1',
         emit(event: string, payload: Record<string, unknown>) {
@@ -27,6 +29,7 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
                 Buffer.byteLength(JSON.stringify(payload)),
                 Boolean(payload?.totals),
                 Boolean(payload?.totalsPatch),
+                Array.isArray(payload?.reports) ? payload.reports.length : 0,
             ]);
         },
     };
@@ -57,7 +60,14 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
                 return [];
             },
             getPendingPlayerStatisticRecords() {
-                return [];
+                return options.pendingStatisticRecords ?? [];
+            },
+            consumePendingPlayerStatisticRecordsForEmit() {
+                if (!options.pendingStatisticRecords || statisticRecordsConsumed) {
+                    return [];
+                }
+                statisticRecordsConsumed = true;
+                return options.pendingStatisticRecords;
             },
             consumePlayerStatisticTotalsPatchForEmit() {
                 return options.statisticTotalsPatch ?? null;
@@ -241,9 +251,34 @@ function testStatisticTotalsPatchUsesCompactOfflineGainPayload() {
     assert.ok(Number(emitted[2]) < Buffer.byteLength(JSON.stringify({ reports: [], totals: fullTotals })));
 }
 
+function testPendingStatisticRecordsEmitOnlyOncePerConnection() {
+    const log = [];
+    const { service } = createService(log, {
+        pendingStatisticRecords: [{
+            id: 'offline-report:1',
+            startedAt: 1,
+            endedAt: 2,
+            durationMs: 60_000,
+            generatedAt: 2,
+            items: [],
+            progress: [],
+            techniques: [],
+            professions: [],
+        }],
+    });
+
+    service.emitDeltaSync('player:1');
+    service.emitDeltaSync('player:1');
+
+    const emitted = log.filter((entry) => entry[0] === 'socketEmit' && entry[1] === S2C.OfflineGainReports);
+    assert.equal(emitted.length, 1);
+    assert.equal(emitted[0][5], 1);
+}
+
 testAuxDeltaIsSentBeforeMovementEnvelope();
 testMapChangedAuxDeltaStaysAfterMovementEnvelope();
 testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce();
 testStatisticTotalsPatchUsesCompactOfflineGainPayload();
+testPendingStatisticRecordsEmitOnlyOncePerConnection();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-delta-order' }, null, 2));

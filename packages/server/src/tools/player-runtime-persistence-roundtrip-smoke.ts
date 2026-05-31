@@ -651,6 +651,31 @@ function testPendingStatisticRecordsReuseReadonlyReferences() {
     assert.equal(records[0].professions, report.professions);
 }
 
+function testPendingStatisticRecordsEmitOnceUntilReconnect() {
+    const service = createPlayerRuntimeService();
+    const report = {
+        id: 'offline-report:emit-once',
+        startedAt: 1,
+        endedAt: 2,
+        items: [],
+        progress: [],
+        techniques: [],
+        professions: [],
+    };
+    service.pendingOfflineGainReportsByPlayerId.set('player:pending-stat', [report]);
+
+    const first = service.consumePendingPlayerStatisticRecordsForEmit('player:pending-stat');
+    const second = service.consumePendingPlayerStatisticRecordsForEmit('player:pending-stat');
+    service.detachSession('player:pending-stat');
+    const afterReconnect = service.consumePendingPlayerStatisticRecordsForEmit('player:pending-stat');
+
+    assert.equal(first.length, 1);
+    assert.equal(first[0], report);
+    assert.deepEqual(second, []);
+    assert.equal(afterReconnect.length, 1);
+    assert.equal(afterReconnect[0], report);
+}
+
     testGatherJobRoundtrip();
     testBuildingJobRoundtrip();
     testLegacyCraftQueuedJobsMigrateToUnifiedQueue();
@@ -668,5 +693,6 @@ testSnapshotAndRestoreKeepItemPrototypes();
 testTemporaryBuffRuntimeUsesPrototypeAndMaterializesJson();
 testDrainNoticesReturnsQueueReferenceAndResetsQueue();
 testPendingStatisticRecordsReuseReadonlyReferences();
+testPendingStatisticRecordsEmitOnceUntilReconnect();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));

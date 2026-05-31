@@ -103,6 +103,8 @@ export class PlayerRuntimeService {
     playerStatisticLastEmittedTotalsByPlayerId = new Map();
     /** 数据库禁用时等待客户端归档的离线收益报告。 */
     pendingOfflineGainReportsByPlayerId = new Map();
+    /** 当前连接期已经下发过的待确认离线收益报告，避免每个同步 tick 重复推送。 */
+    pendingOfflineGainReportEmittedIdsByPlayerId = new Map();
     /** 仅在测试 harness fallback 路径首次触发时打印一次提示，避免刷屏。 */
     noticeFallbackWarned = false;
     /** 注入基础仓库与成长/属性结算器，供玩家在线态统一管理。 */
@@ -457,6 +459,7 @@ export class PlayerRuntimeService {
     detachSession(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
         const player = this.players.get(playerId);
         if (player) {
             player.sessionId = null;
@@ -464,6 +467,9 @@ export class PlayerRuntimeService {
                 player.offlineSinceAt = Date.now();
             }
             markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
+        }
+        if (normalizedPlayerId) {
+            this.pendingOfflineGainReportEmittedIdsByPlayerId.delete(normalizedPlayerId);
         }
     }
     /** 记录离线挂机开始时的权威状态基线。 */
@@ -514,6 +520,49 @@ export class PlayerRuntimeService {
             return [];
         }
         return this.pendingOfflineGainReportsByPlayerId.get(normalizedPlayerId) ?? [];
+    }
+    /** 读取本连接期尚未下发过的待归档报告；报告仍保留到客户端 ack 后再删除。 */
+    consumePendingPlayerStatisticRecordsForEmit(playerId) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId) {
+            return [];
+        }
+        const reports = this.getPendingPlayerStatisticRecords(normalizedPlayerId);
+        if (reports.length === 0) {
+            this.pendingOfflineGainReportEmittedIdsByPlayerId.delete(normalizedPlayerId);
+            return [];
+        }
+        const emittedIds = this.pendingOfflineGainReportEmittedIdsByPlayerId.get(normalizedPlayerId) ?? new Set();
+        const nextReports = [];
+        for (const report of reports) {
+            const reportId = normalizeOfflineGainString(report?.id);
+            if (!reportId || emittedIds.has(reportId)) {
+                continue;
+            }
+            emittedIds.add(reportId);
+            nextReports.push(report);
+        }
+        if (emittedIds.size > 0) {
+            this.pendingOfflineGainReportEmittedIdsByPlayerId.set(normalizedPlayerId, emittedIds);
+        }
+        return nextReports;
+    }
+    /** 标记 bootstrap 后置链路已经下发过的报告，避免随后 tick 再重复推送同一批。 */
+    markPendingOfflineGainReportsEmitted(playerId, reports) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId || !Array.isArray(reports) || reports.length === 0) {
+            return;
+        }
+        const emittedIds = this.pendingOfflineGainReportEmittedIdsByPlayerId.get(normalizedPlayerId) ?? new Set();
+        for (const report of reports) {
+            const reportId = normalizeOfflineGainString(report?.id);
+            if (reportId) {
+                emittedIds.add(reportId);
+            }
+        }
+        if (emittedIds.size > 0) {
+            this.pendingOfflineGainReportEmittedIdsByPlayerId.set(normalizedPlayerId, emittedIds);
+        }
     }
     /** 从数据库回读并组合玩家统计总账。 */
     async loadPlayerStatisticTotals(playerId, now = Date.now()) {
@@ -597,6 +646,17 @@ export class PlayerRuntimeService {
         } else {
             this.pendingOfflineGainReportsByPlayerId.delete(normalizedPlayerId);
         }
+        const emittedIds = this.pendingOfflineGainReportEmittedIdsByPlayerId.get(normalizedPlayerId);
+        if (emittedIds) {
+            for (const reportId of normalizedReportIds) {
+                emittedIds.delete(reportId);
+            }
+            if (emittedIds.size > 0) {
+                this.pendingOfflineGainReportEmittedIdsByPlayerId.set(normalizedPlayerId, emittedIds);
+            } else {
+                this.pendingOfflineGainReportEmittedIdsByPlayerId.delete(normalizedPlayerId);
+            }
+        }
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
             await this.playerDomainPersistenceService.deletePlayerOfflineGainReports(normalizedPlayerId, normalizedReportIds);
         }
@@ -643,6 +703,7 @@ export class PlayerRuntimeService {
     }
     /** 从运行时中移除玩家，通常用于注销或彻底清理。 */
     removePlayerRuntime(playerId) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
         this.players.delete(playerId);
         this.offlineGainSessionsByPlayerId.delete(playerId);
         this.playerStatisticSnapshotsByPlayerId.delete(playerId);
@@ -653,6 +714,7 @@ export class PlayerRuntimeService {
         this.pendingPlayerStatisticTotalsEmitPlayerIds.delete(playerId);
         this.playerStatisticLastEmittedTotalsByPlayerId.delete(playerId);
         this.pendingOfflineGainReportsByPlayerId.delete(playerId);
+        this.pendingOfflineGainReportEmittedIdsByPlayerId.delete(normalizedPlayerId || playerId);
         // 同步清理事件总线上该玩家的待发队列，避免历史 playerId 在 playerQueues 中持续残留。
         if (typeof this.runtimeEventBusService?.discardPlayer === 'function') {
             this.runtimeEventBusService.discardPlayer(playerId);
