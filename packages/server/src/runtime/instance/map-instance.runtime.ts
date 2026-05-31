@@ -297,6 +297,8 @@ class MapInstanceRuntime {
     playerViewCacheByPlayerId = new Map();
     /** 自动战斗轻量视野缓存；只包含目标选择需要的玩家和妖兽。 */
     autoCombatViewCacheByPlayerId = new Map();
+    /** 自动战斗可见地块缓存；按玩家坐标/半径/视线遮挡 revision 复用 shadowcast 结果。 */
+    autoCombatTileVisibilityCacheByPlayerId = new Map();
     /** 可见玩家视野条目缓存；同一玩家展示字段未变时复用条目对象。 */
     localPlayerViewCacheByPlayerId = new Map();
     /** NPC 视野条目缓存；静态 NPC 不再为每个玩家重复创建条目对象。 */
@@ -319,6 +321,8 @@ class MapInstanceRuntime {
     tileProjectionByCoord = new Map();
     /** 地块静态同步 revision；只跟地块/结构/资源投影变化有关，不跟玩家/怪物移动混用。 */
     staticTileSyncRevision = 0;
+    /** 视线遮挡 revision；只在地形、建筑、临时地块或毁坏状态可能改变 LOS 时推进。 */
+    sightBlockingRevision = 0;
     /** 尚未被网络层消费的实例级地块静态脏坐标。 */
     staticTileSyncDirtyTileKeys = new Set();
     /** 当前脏坐标批次开始前的地块静态同步 revision。 */
@@ -641,6 +645,7 @@ class MapInstanceRuntime {
             existing.sessionId = request.sessionId;
             this.playerViewCacheByPlayerId.delete(request.playerId);
             this.autoCombatViewCacheByPlayerId.delete(request.playerId);
+            this.autoCombatTileVisibilityCacheByPlayerId.delete(request.playerId);
             return existing;
         }
 
@@ -727,6 +732,7 @@ class MapInstanceRuntime {
         this.pendingCommands.delete(playerId);
         this.playerViewCacheByPlayerId.delete(playerId);
         this.autoCombatViewCacheByPlayerId.delete(playerId);
+        this.autoCombatTileVisibilityCacheByPlayerId.delete(playerId);
         // P0-4 entry cache 跟随 entity lifecycle 释放：玩家从实例移除时清理 view 条目，避免单实例 cache 累积曾路过玩家。
         this.localPlayerViewCacheByPlayerId.delete(playerId);
         this.setOccupied(player.x, player.y, INVALID_OCCUPANCY);
@@ -1159,7 +1165,7 @@ class MapInstanceRuntime {
             clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
             for (const cellIndex of cells) {
                 this.applyBuildingVisualTileType(cellIndex, compiled);
-                this.markStaticTileSyncDirtyByIndex(cellIndex);
+                this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true });
             }
         }
         const building = {
@@ -1312,7 +1318,7 @@ class MapInstanceRuntime {
         const previousTileTypes = this.buildingPreviousTileTypeById.get(buildingId) ?? [];
         for (const [cellIndex, previousState] of previousTileTypes) {
             this.restoreBuildingPreviousTileState(cellIndex, previousState);
-            this.markStaticTileSyncDirtyByIndex(cellIndex);
+            this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true });
         }
         this.buildingPreviousTileTypeById.delete(buildingId);
         this.buildingById.delete(buildingId);
@@ -2194,7 +2200,7 @@ class MapInstanceRuntime {
             clearedTileDamage = this.clearTileDamageForBuildingVisualCells(cells);
             for (const cellIndex of cells) {
                 this.applyBuildingVisualTileType(cellIndex, compiled);
-                this.markStaticTileSyncDirtyByIndex(cellIndex);
+                this.markStaticTileSyncDirtyByIndex(cellIndex, { sightBlockingChanged: true });
             }
         }
         if (previousTileTypes.length > 0) {
@@ -2375,9 +2381,9 @@ class MapInstanceRuntime {
         }
 
         const supportsPvp = this.meta?.supportsPvp === true;
-        const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, normalizedRadius, {
-            includeKeys: supportsPvp,
-        });
+        const visibleTileVisibility = supportsPvp
+            ? this.collectVisibleTileVisibility(player.x, player.y, normalizedRadius)
+            : this.collectCachedAutoCombatTileVisibility(playerId, player.x, player.y, normalizedRadius);
         const view = {
             visiblePlayers: supportsPvp ? this.collectVisiblePlayers(player, normalizedRadius, visibleTileVisibility) : [],
             localMonsters: this.collectAutoCombatMonsters(player.x, player.y, normalizedRadius, visibleTileVisibility),
@@ -2391,6 +2397,36 @@ class MapInstanceRuntime {
             view,
         });
         return view;
+    }
+    /** collectCachedAutoCombatTileVisibility：复用自动战斗只读视野地块，妖兽列表仍每 tick 按最新位置重建。 */
+    collectCachedAutoCombatTileVisibility(playerId, originX, originY, radius) {
+        const normalizedX = Math.trunc(Number(originX) || 0);
+        const normalizedY = Math.trunc(Number(originY) || 0);
+        const normalizedRadius = Math.max(1, Math.trunc(Number(radius) || DEFAULT_VIEW_RADIUS));
+        if (normalizedX - normalizedRadius < 0
+            || normalizedY - normalizedRadius < 0
+            || normalizedX + normalizedRadius >= this.template.width
+            || normalizedY + normalizedRadius >= this.template.height) {
+            return this.collectVisibleTileVisibility(normalizedX, normalizedY, normalizedRadius, { includeKeys: false });
+        }
+        const sightRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0));
+        const cached = this.autoCombatTileVisibilityCacheByPlayerId.get(playerId);
+        if (cached
+            && cached.sightRevision === sightRevision
+            && cached.x === normalizedX
+            && cached.y === normalizedY
+            && cached.radius === normalizedRadius) {
+            return cached.visibility;
+        }
+        const visibility = this.collectVisibleTileVisibility(normalizedX, normalizedY, normalizedRadius, { includeKeys: false });
+        this.autoCombatTileVisibilityCacheByPlayerId.set(playerId, {
+            sightRevision,
+            x: normalizedX,
+            y: normalizedY,
+            radius: normalizedRadius,
+            visibility,
+        });
+        return visibility;
     }
     /** snapshot：构建地图实例快照。 */
     snapshot() {
@@ -2815,6 +2851,7 @@ class MapInstanceRuntime {
             this.applyDefaultTileLayerFallback(tileIndex);
             this.tileDamageByTile.delete(tileIndex);
             this.worldRevision += 1;
+            this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
             this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
             if (this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.resolveDefaultTileLayerFallbackForCell(tileIndex).legacyTileType)) {
                 this.recalculateRoomsAndFengShuiAfterTopologyChange({ reason: 'sect_boundary_opened', dirtyCellCount: 1 });
@@ -2839,7 +2876,7 @@ class MapInstanceRuntime {
             respawnLeft: destroyed ? calculateTileRestoreTicks(current.tileType) : 0,
             modifiedAt: Date.now(),
         });
-        this.markStaticTileSyncDirtyByIndex(tileIndex);
+        this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: destroyed === true });
         this.worldRevision += 1;
         this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
         if (affectsRoomTopology) {
@@ -2937,7 +2974,7 @@ class MapInstanceRuntime {
         for (const [tileIndex, state] of this.temporaryTileByTile) {
             if (!state || !Number.isFinite(Number(tileIndex))) {
                 toDelete.push(tileIndex);
-                this.markStaticTileSyncDirtyByIndex(tileIndex);
+                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
                 changed = true;
                 continue;
             }
@@ -2952,7 +2989,7 @@ class MapInstanceRuntime {
                     topologyChangedCellCount += 1;
                 }
                 toDelete.push(tileIndex);
-                this.markStaticTileSyncDirtyByIndex(tileIndex);
+                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
                 changed = true;
             }
         }
@@ -2995,7 +3032,7 @@ class MapInstanceRuntime {
                 topologyChangedCellCount += 1;
             }
             toDelete.push(normalizedTileIndex);
-            this.markStaticTileSyncDirtyByIndex(normalizedTileIndex);
+            this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true });
         }
         for (const key of toDelete) {
             this.temporaryTileByTile.delete(key);
@@ -3084,6 +3121,9 @@ class MapInstanceRuntime {
                         modifiedAt: now,
                     });
                 }
+                if (respawnLeft <= 1 && !this.hasBlockingEntityAt(x, y)) {
+                    this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true });
+                }
                 this.markTileDamagePersistenceDirty(tileIndex);
                 changed = true;
                 continue;
@@ -3092,6 +3132,7 @@ class MapInstanceRuntime {
             const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(current?.hp) || maxHp)));
             if (hp >= maxHp) {
                 this.tileDamageByTile.delete(tileIndex);
+                this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: true });
                 this.markTileDamagePersistenceDirty(tileIndex);
                 changed = true;
                 continue;
@@ -3112,6 +3153,9 @@ class MapInstanceRuntime {
                     respawnLeft: 0,
                     modifiedAt: now,
                 });
+            }
+            if (nextHp >= maxHp) {
+                this.markStaticTileSyncDirtyByIndex(normalizedTileIndex, { sightBlockingChanged: current?.destroyed === true });
             }
             this.markTileDamagePersistenceDirty(tileIndex);
             changed = true;
@@ -4685,7 +4729,7 @@ class MapInstanceRuntime {
         this.markStaticTileSyncDirtyByIndex(tileIndex);
     }
     /** markStaticTileSyncDirtyByIndex：记录实例级地块静态同步脏坐标。 */
-    markStaticTileSyncDirtyByIndex(tileIndexInput) {
+    markStaticTileSyncDirtyByIndex(tileIndexInput, options = undefined) {
         const tileIndex = Math.trunc(Number(tileIndexInput));
         if (!Number.isFinite(tileIndex) || tileIndex < 0 || tileIndex >= this.tilePlane.getCellCount()) {
             return false;
@@ -4698,10 +4742,16 @@ class MapInstanceRuntime {
         }
         const key = `${this.tilePlane.getX(tileIndex)},${this.tilePlane.getY(tileIndex)}`;
         if (this.staticTileSyncDirtyTileKeys.has(key)) {
+            if (options?.sightBlockingChanged === true) {
+                this.sightBlockingRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0)) + 1;
+            }
             return false;
         }
         this.staticTileSyncDirtyTileKeys.add(key);
         this.staticTileSyncRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0)) + 1;
+        if (options?.sightBlockingChanged === true) {
+            this.sightBlockingRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0)) + 1;
+        }
         return true;
     }
     /** getStaticTileSyncRevision：读取地块静态同步 revision。 */
