@@ -9,9 +9,9 @@ import { MarketPersistenceService } from '../persistence/market-persistence.serv
 async function main(): Promise<void> {
   const queries: Array<{ sql: string; params: unknown[] }> = [];
   const client = {
-    async query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[] }> {
+    async query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
       queries.push({ sql, params });
-      return { rows: [] };
+      return { rows: [], rowCount: 1 };
     },
   };
   const service = new MarketPersistenceService(null);
@@ -50,6 +50,19 @@ async function main(): Promise<void> {
     'market storage upsert path must use row-level ON CONFLICT updates',
   );
   assert.equal(
+    normalizedQueries.some((query) => query.includes('DELETE FROM player_market_storage_item')
+      && query.includes('slot_index = $2')
+      && query.includes('storage_item_id <> $3')),
+    true,
+    'market storage upsert path must prune same-slot legacy rows before insert',
+  );
+  assert.equal(
+    normalizedQueries.some((query) => query.includes('ON CONFLICT (storage_item_id)')
+      && query.includes('WHERE player_market_storage_item.player_id = EXCLUDED.player_id')),
+    true,
+    'market storage upsert path must not move storage_item_id rows across owners',
+  );
+  assert.equal(
     normalizedQueries.filter((query) => query.includes('DELETE FROM player_market_storage_item target')
       && query.includes('jsonb_to_recordset')
       && query.includes('NOT EXISTS')).length,
@@ -71,9 +84,37 @@ async function main(): Promise<void> {
     'explicit market storage deletion must keep whole-player clear semantics',
   );
 
+  const crossOwnerConflictClient = {
+    async query(sql: string, params: unknown[] = []): Promise<{ rows: unknown[]; rowCount: number }> {
+      queries.push({ sql, params });
+      return {
+        rows: [],
+        rowCount: sql.includes('ON CONFLICT (storage_item_id)') ? 0 : 1,
+      };
+    },
+  };
+  await assert.rejects(
+    service.persistStructuredStorages(
+      crossOwnerConflictClient,
+      [
+        {
+          playerId: 'player:market:conflict',
+          storage: {
+            items: [
+              { itemId: 'spirit_stone', count: 1 },
+            ],
+          },
+        },
+      ],
+      [],
+    ),
+    /persistStructuredStorages: storage_item_id conflict outside player scope/,
+    'market storage upsert must reject cross-owner storage_item_id conflicts',
+  );
+
   console.log(JSON.stringify({
     ok: true,
-    answers: '证明 MarketPersistenceService.persistStructuredStorages 的 upsert 玩家路径不再先 DELETE 整玩家托管仓，而是 storage_item_id 行级 UPSERT 后按当前 slot_index 快照删除 stale 行；显式 deleteStoragePlayerIds 仍保留整玩家清空语义。',
+    answers: '证明 MarketPersistenceService.persistStructuredStorages 的 upsert 玩家路径不再先 DELETE 整玩家托管仓，而是先清理同槽 legacy 行，再用带 owner guard 的 storage_item_id 行级 UPSERT，最后按当前 slot_index 快照删除 stale 行；显式 deleteStoragePlayerIds 仍保留整玩家清空语义；跨玩家 storage_item_id 冲突会被拒绝。',
     excludes: '不证明真实 PostgreSQL 回读，也不覆盖 PlayerDomainPersistenceService / DurableOperationService 内的同名 player_market_storage_item 写入路径。',
     completionMapping: 'release:proof:market-persistence-storage-prune',
   }, null, 2));

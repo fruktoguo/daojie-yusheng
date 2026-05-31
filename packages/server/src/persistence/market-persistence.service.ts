@@ -400,7 +400,9 @@ export class MarketPersistenceService {
  * 记录item。
  */
                 const item = items[slotIndex];
-                await client.query(`
+                const storageItemId = buildMarketStorageItemId(playerId, slotIndex);
+                await prunePlayerMarketStorageConflictingSlotRow(client, playerId, slotIndex, storageItemId);
+                const upsertResult = await client.query(`
                   INSERT INTO ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(
                     storage_item_id,
                     player_id,
@@ -421,8 +423,9 @@ export class MarketPersistenceService {
                     enhance_level = EXCLUDED.enhance_level,
                     raw_payload = EXCLUDED.raw_payload,
                     updated_at = now()
+                  WHERE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}.player_id = EXCLUDED.player_id
                 `, [
-                    buildMarketStorageItemId(playerId, slotIndex),
+                    storageItemId,
                     playerId,
                     slotIndex,
                     item.itemId,
@@ -430,6 +433,9 @@ export class MarketPersistenceService {
                     normalizeEnhanceLevel(item),
                     JSON.stringify(item),
                 ]);
+                if (upsertResult && typeof upsertResult.rowCount === 'number' && upsertResult.rowCount !== 1) {
+                    throw new Error(`persistStructuredStorages: storage_item_id conflict outside player scope playerId=${playerId} storageItemId=${storageItemId}`);
+                }
             }
             const slotIndicesJson = JSON.stringify(slotIndices);
             await client.query(`
@@ -969,6 +975,19 @@ async function upsertMarketStorageWatermarks(client, playerIds) {
  */
 function buildMarketStorageItemId(playerId, slotIndex) {
     return `market_storage:${playerId}:${Math.max(0, Math.trunc(Number(slotIndex ?? 0)))}`;
+}
+
+async function prunePlayerMarketStorageConflictingSlotRow(client, playerId, slotIndex, storageItemId) {
+    await client.query(`
+      DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+      WHERE player_id = $1
+        AND slot_index = $2
+        AND storage_item_id <> $3
+    `, [
+        playerId,
+        Math.max(0, Math.trunc(Number(slotIndex ?? 0))),
+        storageItemId,
+    ]);
 }
 
 /**
