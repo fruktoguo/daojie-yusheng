@@ -36,6 +36,10 @@ import {
   __combatPipelineRandom as cryptoRandom,
 } from './combat-resolution.helpers';
 
+const REALM_GAP_MULTIPLIER_CACHE_OFFSET = 256;
+const REALM_GAP_MULTIPLIER_CACHE_SIZE = REALM_GAP_MULTIPLIER_CACHE_OFFSET * 2 + 1;
+const realmGapDamageMultiplierCache = new Array<number | undefined>(REALM_GAP_MULTIPLIER_CACHE_SIZE);
+
 /** 战斗结算上下文：贯穿所有环节，由 createCombatResolveContext 初始化。 */
 export interface CombatResolveContext {
   // ─── 输入字段（由 createCombatResolveContext 写入） ───
@@ -223,7 +227,7 @@ export function resolveCritMultiplier(ctx: CombatResolveContext): void {
 
 /** 境界差乘区：高境界打低境界有额外伤害加成。 */
 export function resolveRealmGap(ctx: CombatResolveContext): void {
-  const mult = getRealmGapDamageMultiplier(ctx.attackerRealmLv, ctx.targetRealmLv);
+  const mult = getCachedRealmGapDamageMultiplier(ctx.attackerRealmLv, ctx.targetRealmLv);
   ctx.rawDamage = Math.max(1, Math.round(ctx.rawDamage * mult));
   ctx.damage = Math.max(1, Math.round(ctx.damage * mult));
 }
@@ -241,4 +245,19 @@ export function finalizeCombatResolveOutcome(ctx: CombatResolveContext): CombatR
     return { hit: false, rawDamage: 0, damage: 0, crit: false, dodged: true, resolved: false, broken: ctx.broken };
   }
   return { hit: true, rawDamage: ctx.rawDamage, damage: ctx.damage, crit: ctx.crit, dodged: false, resolved: ctx.resolved, broken: ctx.broken };
+}
+
+function getCachedRealmGapDamageMultiplier(attackerRealmLv: number, targetRealmLv: number): number {
+  const gap = attackerRealmLv - targetRealmLv;
+  const cacheIndex = gap + REALM_GAP_MULTIPLIER_CACHE_OFFSET;
+  if (cacheIndex >= 0 && cacheIndex < REALM_GAP_MULTIPLIER_CACHE_SIZE) {
+    const cached = realmGapDamageMultiplierCache[cacheIndex];
+    if (cached !== undefined) {
+      return cached;
+    }
+    const resolved = getRealmGapDamageMultiplier(attackerRealmLv, targetRealmLv);
+    realmGapDamageMultiplierCache[cacheIndex] = resolved;
+    return resolved;
+  }
+  return getRealmGapDamageMultiplier(attackerRealmLv, targetRealmLv);
 }
