@@ -15,6 +15,7 @@ import {
   PlayerState,
   TechniqueState,
   ActionDef,
+  SkillTargetingDef,
   resolveSkillRequiresTarget,
 } from '@mud/shared';
 import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
@@ -327,28 +328,53 @@ function hydrateBootstrapEquipment(equipment: PlayerState['equipment']): PlayerS
   };
 }
 
-function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): ActionDef {
+type BootstrapActionSkillTemplate = {
+  name?: string;
+  desc?: string;
+  range?: number;
+  requiresTarget?: boolean;
+  targetMode?: ActionDef['targetMode'];
+  targeting?: SkillTargetingDef;
+};
+
+function buildBootstrapActionSkillTemplates(techniques: PlayerState['techniques']): Map<string, BootstrapActionSkillTemplate> {
+  const templates = new Map<string, BootstrapActionSkillTemplate>();
+  for (const technique of techniques ?? []) {
+    for (const skill of technique.skills ?? []) {
+      if (typeof skill?.id === 'string' && skill.id.trim()) {
+        templates.set(skill.id, skill);
+      }
+    }
+  }
+  return templates;
+}
+
+function hydrateBootstrapAction(
+  action: Partial<ActionDef> & { id: string },
+  bootstrapSkillTemplates?: ReadonlyMap<string, BootstrapActionSkillTemplate>,
+): ActionDef {
   const skillTemplate = getLocalSkillTemplate(action.id);
+  const bootstrapSkillTemplate = bootstrapSkillTemplates?.get(action.id);
   const staticAction = getStaticClientActionDef(action.id);
-  const nextType = action.type ?? staticAction?.type ?? (skillTemplate ? 'skill' : 'interact');
-  const range = action.range ?? staticAction?.range ?? skillTemplate?.range;
-  const requiresTarget = action.requiresTarget ?? staticAction?.requiresTarget ?? skillTemplate?.requiresTarget;
+  const nextType = action.type ?? staticAction?.type ?? (skillTemplate || bootstrapSkillTemplate ? 'skill' : 'interact');
+  const range = action.range ?? staticAction?.range ?? skillTemplate?.range ?? bootstrapSkillTemplate?.range;
+  const requiresTarget = action.requiresTarget ?? staticAction?.requiresTarget ?? skillTemplate?.requiresTarget ?? bootstrapSkillTemplate?.requiresTarget;
   return {
     id: action.id,
-    name: String(action.name ?? staticAction?.name ?? skillTemplate?.name ?? '').trim() || '未知动作',
+    name: String(action.name ?? staticAction?.name ?? skillTemplate?.name ?? bootstrapSkillTemplate?.name ?? '').trim() || '未知动作',
     type: nextType,
-    desc: action.desc ?? staticAction?.desc ?? skillTemplate?.desc ?? '',
+    desc: action.desc ?? staticAction?.desc ?? skillTemplate?.desc ?? bootstrapSkillTemplate?.desc ?? '',
     cooldownLeft: action.cooldownLeft ?? 0,
     cooldownReadyTick: action.cooldownReadyTick,
     range,
     requiresTarget: nextType === 'skill'
       ? resolveSkillRequiresTarget({
         range,
-        targeting: skillTemplate?.targeting,
+        targeting: skillTemplate?.targeting ?? bootstrapSkillTemplate?.targeting,
         requiresTarget,
       })
       : requiresTarget,
-    targetMode: action.targetMode ?? staticAction?.targetMode ?? skillTemplate?.targetMode ?? (nextType === 'skill' ? 'any' : undefined),
+    targetMode: action.targetMode ?? staticAction?.targetMode ?? skillTemplate?.targetMode ?? bootstrapSkillTemplate?.targetMode ?? (nextType === 'skill' ? 'any' : undefined),
     autoBattleEnabled: action.autoBattleEnabled,
     autoBattleOrder: action.autoBattleOrder,
     skillEnabled: action.skillEnabled,
@@ -362,6 +388,8 @@ function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): Ac
 
 function hydrateBootstrapPlayer(rawPlayer: S2C_Bootstrap['self']): PlayerState {
   const player = rawPlayer as unknown as PlayerState;
+  const techniques = optionsResolvePreviewTechniquesSafe(player.techniques);
+  const bootstrapSkillTemplates = buildBootstrapActionSkillTemplates(techniques);
   const hydrated = {
     ...player,
     inventory: {
@@ -369,8 +397,8 @@ function hydrateBootstrapPlayer(rawPlayer: S2C_Bootstrap['self']): PlayerState {
       items: (player.inventory?.items ?? []).map((item) => hydrateBootstrapItem(item)),
     },
     equipment: hydrateBootstrapEquipment(player.equipment),
-    techniques: optionsResolvePreviewTechniquesSafe(player.techniques),
-    actions: (player.actions ?? []).map((action) => hydrateBootstrapAction(action as Partial<ActionDef> & { id: string })),
+    techniques,
+    actions: (player.actions ?? []).map((action) => hydrateBootstrapAction(action as Partial<ActionDef> & { id: string }, bootstrapSkillTemplates)),
     bonuses: [],
     quests: resolvePreviewQuests(player.quests),
   };

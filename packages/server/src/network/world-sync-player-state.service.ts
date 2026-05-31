@@ -369,12 +369,26 @@ function toActionDefinition(entry) {
   const normalizedEntry = normalizeActionEntry(entry);
   const action: Record<string, unknown> = {
     id: normalizedEntry.id,
-    cooldownLeft: normalizedEntry.cooldownLeft ?? 0,
-    cooldownReadyTick: normalizedEntry.cooldownReadyTick,
-    autoBattleEnabled: normalizedEntry.autoBattleEnabled !== false,
-    autoBattleOrder: normalizedEntry.autoBattleOrder ?? undefined,
-    skillEnabled: normalizedEntry.skillEnabled !== false,
   };
+  const cooldownLeft = Math.max(0, Math.trunc(Number(normalizedEntry.cooldownLeft ?? 0) || 0));
+  if (cooldownLeft > 0) {
+    action.cooldownLeft = cooldownLeft;
+  }
+  if (Number.isFinite(Number(normalizedEntry.cooldownReadyTick)) && Number(normalizedEntry.cooldownReadyTick) > 0) {
+    action.cooldownReadyTick = Math.max(0, Math.trunc(Number(normalizedEntry.cooldownReadyTick)));
+  }
+  if (normalizedEntry.autoBattleEnabled === false) {
+    action.autoBattleEnabled = false;
+  }
+  if (Number.isFinite(Number(normalizedEntry.autoBattleOrder))) {
+    action.autoBattleOrder = Math.max(0, Math.trunc(Number(normalizedEntry.autoBattleOrder)));
+  }
+  if (normalizedEntry.skillEnabled === false) {
+    action.skillEnabled = false;
+  }
+  if (normalizedEntry.type === 'skill') {
+    return action;
+  }
   if (typeof normalizedEntry.name === 'string' && normalizedEntry.name.trim()) {
     action.name = normalizedEntry.name;
   }

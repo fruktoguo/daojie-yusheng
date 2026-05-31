@@ -1,17 +1,15 @@
-// @ts-nocheck
+import assert from 'node:assert/strict';
 
-const assert = require("node:assert/strict");
-
-const { createNumericStats, createNumericRatioDivisors } = require("@mud/shared");
-const { WorldSyncPlayerStateService } = require("../network/world-sync-player-state.service");
-const { createRuntimeTemporaryBuff } = require("../runtime/player/runtime-buff-instance");
+import { createNumericRatioDivisors, createNumericStats } from '@mud/shared';
+import { WorldSyncPlayerStateService } from '../network/world-sync-player-state.service';
+import { createRuntimeTemporaryBuff } from '../runtime/player/runtime-buff-instance';
 /**
  * createPlayer：构建并返回目标对象。
  * @returns 无返回值，直接更新玩家相关状态。
  */
 
 
-function createPlayer() {
+function createPlayer(): any {
     return {
         playerId: 'player:1',
         name: '甲',
@@ -42,7 +40,24 @@ function createPlayer() {
             slots: [{ slot: 'weapon', item: { itemId: 'sword', itemInstanceId: 'sword-instance-id', name: '剑', type: 'weapon', count: 1, desc: 'weapon' } }],
         },
         techniques: {
-            techniques: [{ techId: 'tech.a', level: 1, exp: 0, expToNext: 10, realmLv: 1, realm: 'entry', skillsEnabled: true }],
+            techniques: [{
+                techId: 'tech.a',
+                level: 1,
+                exp: 0,
+                expToNext: 10,
+                realmLv: 1,
+                realm: 'entry',
+                skillsEnabled: true,
+                skills: [{
+                    id: 'skill.a',
+                    name: '青锋',
+                    type: 'skill',
+                    desc: '以青锋破敌。',
+                    range: 2,
+                    requiresTarget: true,
+                    targetMode: 'entity',
+                }],
+            }],
             cultivatingTechId: 'tech.a',
         },
         bodyTraining: { level: 1, exp: 2, expToNext: 3 },
@@ -52,6 +67,21 @@ function createPlayer() {
         enhancementSkillLevel: 3,
         actions: {
             actions: [
+                { id: 'skill.a', name: '青锋', type: 'skill', desc: '以青锋破敌。', range: 2, requiresTarget: true, targetMode: 'entity' },
+                {
+                    id: 'skill.disabled',
+                    name: '封脉',
+                    type: 'skill',
+                    desc: '封住敌脉。',
+                    cooldownLeft: 5,
+                    cooldownReadyTick: 35,
+                    range: 3,
+                    requiresTarget: true,
+                    targetMode: 'entity',
+                    autoBattleEnabled: false,
+                    autoBattleOrder: 2,
+                    skillEnabled: false,
+                },
                 { id: 'npc_quests:npc.a', name: '任务', type: 'interact', desc: 'desc' },
                 {
                     id: 'travel:return_spawn',
@@ -117,10 +147,24 @@ function testPlayerState() {
     assert.equal(state.inventory.items[0].itemInstanceId, 'potion-instance-id');
     assert.equal(state.equipment.weapon.itemId, 'sword');
     assert.equal(state.equipment.weapon.itemInstanceId, 'sword-instance-id');
-    assert.equal(state.actions[0].id, 'npc:npc.a');
-    assert.equal(state.actions[0].name, '任务');
-    assert.equal(state.actions[0].type, 'interact');
-    assert.equal(state.actions[0].desc, 'desc');
+    const templateBackedSkill = state.actions.find((action) => action.id === 'skill.a');
+    assert.deepEqual(templateBackedSkill, { id: 'skill.a' });
+    const dynamicSkill = state.actions.find((action) => action.id === 'skill.disabled');
+    assert.equal(dynamicSkill?.name, undefined);
+    assert.equal(dynamicSkill?.type, undefined);
+    assert.equal(dynamicSkill?.desc, undefined);
+    assert.equal(dynamicSkill?.range, undefined);
+    assert.equal(dynamicSkill?.requiresTarget, undefined);
+    assert.equal(dynamicSkill?.targetMode, undefined);
+    assert.equal(dynamicSkill?.cooldownLeft, 5);
+    assert.equal(dynamicSkill?.cooldownReadyTick, 35);
+    assert.equal(dynamicSkill?.autoBattleEnabled, false);
+    assert.equal(dynamicSkill?.autoBattleOrder, 2);
+    assert.equal(dynamicSkill?.skillEnabled, false);
+    const npcAction = state.actions.find((action) => action.id === 'npc:npc.a');
+    assert.equal(npcAction?.name, '任务');
+    assert.equal(npcAction?.type, 'interact');
+    assert.equal(npcAction?.desc, 'desc');
     assert.equal(state.actions.find((action) => action.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 云来镇，之后需调息 1800 息。');
     assert.deepEqual(state.unlockedMinimapIds, ['map.a', 'map.b']);
 }
