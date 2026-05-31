@@ -169,7 +169,59 @@ function main() {
   assert.equal(clearScaleDelta?.worldDelta?.p?.[0]?.id, "player:template-swap");
   assert.equal(clearScaleDelta?.worldDelta?.p?.[0]?.sc, null);
 
+  const monsterProjector = new WorldProjectorService(createTemplateRepository());
+  const monsterBinding = { playerId: "player:template-swap", sessionId: "session:monster-mid" };
+  const monsterPlayer = buildPlayer("sect:new", 2, 2, 20);
+  const monsterInitial = monsterProjector.createInitialEnvelope(
+    monsterBinding,
+    {
+      ...buildView("sect:new", 2, 2, 20, 20),
+      localMonsters: [buildMonster("monster:mid:1", "monster.template.old")],
+    },
+    monsterPlayer,
+  );
+  assert.equal(Object.prototype.hasOwnProperty.call(monsterInitial.worldDelta?.m?.[0] ?? {}, "mid"), false);
+
+  const monsterAdded = monsterProjector.createDeltaEnvelope(
+    {
+      ...buildView("sect:new", 2, 2, 21, 20),
+      localMonsters: [
+        buildMonster("monster:mid:1", "monster.template.old"),
+        buildMonster("monster:mid:2", "monster.template.new"),
+      ],
+    },
+    monsterPlayer,
+  );
+  assert.equal(Object.prototype.hasOwnProperty.call(monsterAdded?.worldDelta?.m?.[0] ?? {}, "mid"), false);
+
+  const onlyMonsterTemplateChanged = monsterProjector.createDeltaEnvelope(
+    {
+      ...buildView("sect:new", 2, 2, 22, 20),
+      localMonsters: [
+        buildMonster("monster:mid:1", "monster.template.changed"),
+        buildMonster("monster:mid:2", "monster.template.new"),
+      ],
+    },
+    monsterPlayer,
+  );
+  assert.equal(onlyMonsterTemplateChanged, null);
+
   console.log(JSON.stringify({ ok: true, case: "world-projector-template-swap" }, null, 2));
 }
 
 main();
+
+function buildMonster(runtimeId, monsterId) {
+  return {
+    runtimeId,
+    monsterId,
+    name: "投影傀儡",
+    char: "傀",
+    color: "#8c6f52",
+    tier: "mortal_blood",
+    x: 4,
+    y: 5,
+    hp: 18,
+    maxHp: 18,
+  };
+}
