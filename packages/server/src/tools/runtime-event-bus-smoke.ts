@@ -21,6 +21,10 @@ function createService(): RuntimeEventBusService {
   return new RuntimeEventBusService();
 }
 
+function byteLength(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
 function testQueuePlayerNoticeAppendMode(): void {
   const svc = createService();
   svc.queuePlayerNotice('p1', { kind: 'system', text: 'hello' });
@@ -86,14 +90,42 @@ function testQueuePlayerNoticeAggregatesLootObtained(): void {
 
 function testQueuePlayerNoticeGroupsCombatLines(): void {
   const svc = createService();
-  svc.queuePlayerNotice('p1', { kind: 'combat', text: '你对狼妖造成 10 点伤害', combat: { caster: '你', target: '狼妖', skill: '攻击' } });
-  svc.queuePlayerNotice('p1', { kind: 'combat', text: '你对虎妖造成 8 点伤害', combat: { caster: '你', target: '虎妖', skill: '攻击' } });
+  const wolfText = '你对狼妖‹90/100›施展青木剑诀，造成 原始 10 - 实际 10 - 木行法术 伤害';
+  const tigerText = '你对虎妖‹80/100›施展青木剑诀，造成 原始 8 - 实际 8 - 木行法术 伤害';
+  const wolfCombat = {
+    caster: '你',
+    target: '狼妖',
+    targetHp: 90,
+    targetMaxHp: 100,
+    skill: '青木剑诀',
+    resolution: { rawDamage: 10, damage: 10, damageKind: 'spell', element: 'wood' },
+  } as const;
+  const tigerCombat = {
+    caster: '你',
+    target: '虎妖',
+    targetHp: 80,
+    targetMaxHp: 100,
+    skill: '青木剑诀',
+    resolution: { rawDamage: 8, damage: 8, damageKind: 'spell', element: 'wood' },
+  } as const;
+
+  svc.queuePlayerNotice('p1', { kind: 'combat', text: wolfText, combat: wolfCombat });
+  svc.queuePlayerNotice('p1', { kind: 'combat', text: tigerText, combat: tigerCombat });
 
   const result = svc.drainPlayer('p1');
   assert.ok(result);
   assert.equal(result.notices.length, 1);
   assert.equal(result.notices[0]?.combatGroup?.length, 2);
-  assert.equal(result.notices[0]?.text.includes('\n'), true);
+  assert.equal(result.notices[0]?.text, 'combat');
+
+  const optimizedBytes = byteLength({ notices: result.notices });
+  const legacyBytes = byteLength({
+    notices: [{
+      ...result.notices[0],
+      text: `${wolfText}\n${tigerText}`,
+    }],
+  });
+  assert.ok(optimizedBytes < legacyBytes, `expected structured combat notice text compaction: optimized=${optimizedBytes} legacy=${legacyBytes}`);
 }
 
 function testQueuePlayerNoticeGroupsKillProgress(): void {

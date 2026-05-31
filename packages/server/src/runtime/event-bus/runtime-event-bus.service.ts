@@ -40,6 +40,8 @@ import {
 } from './runtime-event-bus.types';
 import { RuntimeEventBusMetricsService } from './runtime-event-bus-metrics.service';
 
+const STRUCTURED_COMBAT_NOTICE_WIRE_TEXT = 'combat';
+
 /** 创建空的玩家事件队列。 */
 function createPlayerQueue(): PlayerEventQueue {
   return {
@@ -95,10 +97,10 @@ export class RuntimeEventBusService {
    */
   queuePlayerNotice(playerId: string, notice: Omit<NoticeQueueEntry, 'id'> | NoticeQueueEntry): void {
     const queue = this.getOrCreatePlayerQueue(playerId);
-    const normalizedNotice = {
+    const normalizedNotice = normalizeNoticeWirePayload({
       ...notice,
       id: typeof (notice as NoticeQueueEntry).id === 'number' ? (notice as NoticeQueueEntry).id : ++this.noticeIdCounter,
-    };
+    });
     const noticePriority = NOTICE_KIND_PRIORITY[normalizedNotice.kind] ?? 0;
     const groupedResult = tryAggregateGroupedNotice(queue.notices, normalizedNotice);
     if (groupedResult.merged) {
@@ -725,13 +727,27 @@ function buildCombatGroupNotice(existing: NoticeQueueEntry, incoming: NoticeQueu
     ...incoming,
     id: existing.id,
     kind: existing.kind,
-    text: appendNoticeText(existing.text, incoming.text),
+    text: existingGroup.length > 0
+      ? STRUCTURED_COMBAT_NOTICE_WIRE_TEXT
+      : appendNoticeText(existing.text, incoming.text),
     castId: existing.castId ?? incoming.castId,
     combat: existingGroup[0] ?? existing.combat ?? incoming.combat,
     combatGroup: existingGroup,
     structured: existing.structured ?? incoming.structured,
     structuredGroup: existing.structuredGroup ?? incoming.structuredGroup,
   };
+}
+
+function normalizeNoticeWirePayload(notice: NoticeQueueEntry): NoticeQueueEntry {
+  if (isStructuredCombatWireNotice(notice)) {
+    return { ...notice, text: STRUCTURED_COMBAT_NOTICE_WIRE_TEXT };
+  }
+  return notice;
+}
+
+function isStructuredCombatWireNotice(notice: NoticeQueueEntry): boolean {
+  return notice.kind === 'combat'
+    && (Boolean(notice.combat) || (Array.isArray(notice.combatGroup) && notice.combatGroup.length > 0));
 }
 
 function canGroupStructuredNotice(notice: NoticeQueueEntry, key: string): boolean {

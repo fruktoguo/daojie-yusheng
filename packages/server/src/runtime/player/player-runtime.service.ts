@@ -1858,7 +1858,8 @@ export class PlayerRuntimeService {
             return player;
         }
 
-        const text = input.text.trim();
+        const rawText = input.text.trim();
+        const text = input.kind === 'combat' && input.combat ? 'combat' : rawText;
         if (!text) {
             return player;
         }
