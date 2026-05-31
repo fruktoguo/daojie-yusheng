@@ -186,7 +186,7 @@ export function diffGroundPiles(previous: Map<string, ProjectedGroundPileEntry>,
     }
     for (const [sourceId, entry] of previous) {
         if (!current.has(sourceId)) {
-            result.push({ sourceId, x: entry.x, y: entry.y, items: null });
+            result.push({ sourceId, items: null });
         }
     }
     return result;

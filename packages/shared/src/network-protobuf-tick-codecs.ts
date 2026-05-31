@@ -146,9 +146,9 @@ export function toWireTick(payload: S2C_Tick): Record<string, unknown> {
     wire.g = payload.g.map((patch) => {
       const encoded: Record<string, unknown> = {
         sourceId: patch.sourceId,
-        x: patch.x,
-        y: patch.y,
       };
+      if (typeof patch.x === 'number') encoded.x = patch.x;
+      if (typeof patch.y === 'number') encoded.y = patch.y;
       if (patch.items === null) {
         encoded.clearItems = true;
       } else if (patch.items) {
@@ -225,10 +225,8 @@ export function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   if (Array.isArray(wire.g)) {
     payload.g = wire.g.map((entry) => {
       const patch = entry as Record<string, unknown>;
-      return {
+      const groundPatch: GroundItemPilePatch = {
         sourceId: String(patch.sourceId ?? ''),
-        x: Number(patch.x ?? 0),
-        y: Number(patch.y ?? 0),
         items: patch.clearItems === true
           ? null
           : Array.isArray(patch.items)
@@ -249,7 +247,10 @@ export function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
                   : undefined,
               }))
             : undefined,
-      } as GroundItemPilePatch;
+      };
+      if (hasOwn(patch, 'x')) groundPatch.x = Number(patch.x ?? 0);
+      if (hasOwn(patch, 'y')) groundPatch.y = Number(patch.y ?? 0);
+      return groundPatch;
     });
   }
   if (Array.isArray(wire.fx)) payload.fx = cloneJson(wire.fx) as S2C_Tick['fx'];

@@ -91,8 +91,8 @@ message GroundItemEntryPayload {
 
 message GroundItemPilePatchPayload {
   required string sourceId = 1;
-  required sint32 x = 2;
-  required sint32 y = 3;
+  optional sint32 x = 2;
+  optional sint32 y = 3;
   repeated GroundItemEntryPayload items = 4;
   optional bool clearItems = 5;
 }

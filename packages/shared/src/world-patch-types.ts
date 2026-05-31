@@ -184,15 +184,15 @@ export interface GroundItemPilePatchView {
 
   sourceId: string;  
   /**
- * x：x相关字段。
+ * x：地面堆坐标。新增/更新必须携带，删除补丁可省略。
  */
 
-  x: number;  
+  x?: number;
   /**
- * y：y相关字段。
+ * y：地面堆坐标。新增/更新必须携带，删除补丁可省略。
  */
 
-  y: number;  
+  y?: number;
   /**
  * items：集合字段。
  */
@@ -433,15 +433,15 @@ export interface WorldGroundPatchView {
 
   sourceId: string;  
   /**
- * x：x相关字段。
+ * x：地面堆坐标。新增/更新必须携带，删除补丁可省略。
  */
 
-  x: number;  
+  x?: number;
   /**
- * y：y相关字段。
+ * y：地面堆坐标。新增/更新必须携带，删除补丁可省略。
  */
 
-  y: number;  
+  y?: number;
   /**
  * items：集合字段。
  */

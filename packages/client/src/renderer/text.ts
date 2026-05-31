@@ -902,6 +902,8 @@ export class TextRenderer implements IRenderer {
  targetId: string }> = [];
   /** 地面物品堆映射。 */
   private groundPiles = new Map<string, GroundItemPileView>();
+  /** 地面物品坐标索引，key 为 "x,y"。 */
+  private groundPileByTileKey = new Map<string, GroundItemPileView>();
   /** 容器地块键集合。 */
   private containerTileKeys = new Set<string>();  
   /**
@@ -1008,6 +1010,7 @@ export class TextRenderer implements IRenderer {
     this.entities.clear();
     this.threatArrows = [];
     this.groundPiles.clear();
+    this.groundPileByTileKey.clear();
     this.containerTileKeys.clear();
     this.floatingTexts = [];
     this.attackTrails = [];
@@ -1111,13 +1114,23 @@ export class TextRenderer implements IRenderer {
 
     if (piles instanceof Map) {
       this.groundPiles = piles;
+      this.rebuildGroundPileTileCache();
       return;
     }
     const nextPiles = new Map<string, GroundItemPileView>();
     for (const pile of piles as Iterable<GroundItemPileView>) {
-      nextPiles.set(`${pile.x},${pile.y}`, pile);
+      nextPiles.set(pile.sourceId, pile);
     }
     this.groundPiles = nextPiles;
+    this.rebuildGroundPileTileCache();
+  }
+
+  private rebuildGroundPileTileCache(): void {
+    const nextByTileKey = new Map<string, GroundItemPileView>();
+    for (const pile of this.groundPiles.values()) {
+      nextByTileKey.set(`${pile.x},${pile.y}`, pile);
+    }
+    this.groundPileByTileKey = nextByTileKey;
   }
 
   /** 绘制地图地块、路径高亮、瞄准叠加层和感气视角。 */
@@ -1279,7 +1292,7 @@ export class TextRenderer implements IRenderer {
           }
 
           if (isVisible) {
-            const pile = this.groundPiles.get(key);
+            const pile = this.groundPileByTileKey.get(key);
             if (pile && !this.containerTileKeys.has(key)) {
               this.drawGroundPileIndicator(sx, sy, cellSize, pile);
             }
@@ -2772,6 +2785,7 @@ export class TextRenderer implements IRenderer {
     this.entities.clear();
     this.threatArrows = [];
     this.groundPiles.clear();
+    this.groundPileByTileKey.clear();
     this.containerTileKeys.clear();
     this.pathKeys.clear();
     this.pathIndexByKey.clear();

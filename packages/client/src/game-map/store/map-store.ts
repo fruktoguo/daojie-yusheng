@@ -337,8 +337,10 @@ export class MapStore {
   private entities: ObservedMapEntity[] = [];
   /** 实体 ID 到实体快照索引。 */
   private entityMap = new Map<string, ObservedMapEntity>();
-  /** 地面物品堆叠索引，key 为 "x,y"。 */
+  /** 地面物品堆叠索引，key 为 sourceId。 */
   private groundPiles = new Map<string, GroundItemPileView>();  
+  /** 地面物品坐标到 sourceId 的索引，供点击与渲染按坐标读取。 */
+  private groundPileTileIndex = new Map<string, string>();
   /**
  * pathCells：路径Cell相关字段。
  */
@@ -511,7 +513,7 @@ export class MapStore {
     this.entities = [buildLocalPlayerEntity(player), ...renderPlayers.map(toObservedEntity).filter((entry) => entry.id !== player.id)];
     this.entityMap = new Map(this.entities.map((entry) => [entry.id, entry]));
     publishLatestObservedEntitiesSnapshot(this.entities);
-    this.groundPiles.clear();
+    this.clearGroundPiles();
     this.pathCells = [];
     this.threatArrows = [];
     this.entityTransition = { snapCamera: true };
@@ -599,7 +601,7 @@ export class MapStore {
       : undefined;
     const instanceChanged = Boolean(nextInstanceId && nextInstanceId !== this.player.instanceId);
     if (preloadingDifferentMap || instanceChanged) {
-      this.groundPiles.clear();
+      this.clearGroundPiles();
       this.entities = [];
       this.entityMap.clear();
       this.threatArrows = [];
@@ -719,7 +721,7 @@ export class MapStore {
       this.visibleMinimapMarkers = [];
       this.pathCells = [];
       if (this.preloadedEntityMapId !== nextMapId) {
-        this.groundPiles.clear();
+        this.clearGroundPiles();
         this.entities = [];
         this.entityMap.clear();
         this.threatArrows = [];
@@ -850,7 +852,7 @@ export class MapStore {
     this.visibleTiles.clear();
     this.entities = [];
     this.entityMap.clear();
-    this.groundPiles.clear();
+    this.clearGroundPiles();
     this.pathCells = [];
     this.targeting = null;
     this.formationRange = null;
@@ -909,7 +911,8 @@ export class MapStore {
 
   /** 按坐标读取地面物品堆。 */
   getGroundPileAt(x: number, y: number): GroundItemPileView | null {
-    return this.groundPiles.get(`${x},${y}`) ?? null;
+    const sourceId = this.groundPileTileIndex.get(`${x},${y}`);
+    return sourceId ? this.groundPiles.get(sourceId) ?? null : null;
   }
 
   /** 本地地图记忆被手动删除后，同步清理当前地图的记忆派生缓存。 */
@@ -1051,27 +1054,46 @@ export class MapStore {
     return decorated;
   }
 
+  /** 清空地面物品主索引与坐标索引。 */
+  private clearGroundPiles(): void {
+    this.groundPiles.clear();
+    this.groundPileTileIndex.clear();
+  }
+
   /** 合并地面物品增量，返回新 map 用于下发。 */
   private mergeGroundItemPatches(patches: GroundItemPilePatch[]): Map<string, GroundItemPileView> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const nextMap = new Map(this.groundPiles);
+    const nextTileIndex = new Map(this.groundPileTileIndex);
     for (const patch of patches) {
-      const key = `${patch.x},${patch.y}`;
       if (patch.items === null) {
-        nextMap.delete(key);
+        const previous = nextMap.get(patch.sourceId);
+        if (previous) {
+          nextTileIndex.delete(`${previous.x},${previous.y}`);
+        }
+        nextMap.delete(patch.sourceId);
         continue;
       }
       if (patch.items === undefined) {
         continue;
       }
-      nextMap.set(key, {
+      if (typeof patch.x !== 'number' || typeof patch.y !== 'number') {
+        continue;
+      }
+      const previous = nextMap.get(patch.sourceId);
+      if (previous) {
+        nextTileIndex.delete(`${previous.x},${previous.y}`);
+      }
+      nextMap.set(patch.sourceId, {
         sourceId: patch.sourceId,
         x: patch.x,
         y: patch.y,
         items: cloneJson(patch.items),
       });
+      nextTileIndex.set(`${patch.x},${patch.y}`, patch.sourceId);
     }
+    this.groundPileTileIndex = nextTileIndex;
     return nextMap;
   }  
   /**
