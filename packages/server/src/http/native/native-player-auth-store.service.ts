@@ -5,6 +5,7 @@
  */
 import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { isDuplicateFriendlyDisplayName } from '@mud/shared';
+import { randomBytes } from 'node:crypto';
 import { Pool } from 'pg';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName } from '../../auth/account-validation';
@@ -85,6 +86,19 @@ interface PersistedAuthRow {
   banned_at?: unknown;
   ban_reason?: unknown;
   banned_by?: unknown;
+}
+
+interface PersistedRegistrationActivationCodeRow {
+  activation_code?: unknown;
+  source_text?: unknown;
+  /** 旧版 QQ 专用字段，仅用于兼容已经创建过的本地表。 */
+  qq?: unknown;
+  used_by_user_id?: unknown;
+  used_by_player_id?: unknown;
+  used_at?: unknown;
+  created_at?: unknown;
+  updated_at?: unknown;
+  raw_payload?: unknown;
 }
 /**
  * AuthRecordCandidate：定义接口结构约束，明确可交付字段含义。
@@ -314,9 +328,22 @@ export interface NativePlayerAuthUser {
   bannedBy: string | null;
 }
 
+export interface RegistrationActivationCodeRecord {
+  activationCode: string;
+  sourceText: string | null;
+  usedByUserId: string | null;
+  usedByPlayerId: string | null;
+  usedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const PLAYER_AUTH_TABLE = 'server_player_auth';
+const REGISTRATION_ACTIVATION_CODE_TABLE = 'server_registration_activation_code';
 const PLAYER_AUTH_PLAYER_NO_SEQUENCE = 'server_player_auth_player_no_seq';
 const PLAYER_AUTH_PLAYER_NO_START = 1;
+const REGISTRATION_ACTIVATION_CODE_LENGTH = 20;
+const REGISTRATION_ACTIVATION_CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 const CREATE_PLAYER_AUTH_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_AUTH_TABLE} (
@@ -424,6 +451,49 @@ const CREATE_PLAYER_AUTH_PLAYER_NO_INDEX_SQL = `
   WHERE player_no IS NOT NULL
 `;
 
+const CREATE_REGISTRATION_ACTIVATION_CODE_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS ${REGISTRATION_ACTIVATION_CODE_TABLE} (
+    activation_code varchar(80) PRIMARY KEY,
+    source_text varchar(255),
+    qq varchar(32),
+    used_by_user_id varchar(100),
+    used_by_player_id varchar(100),
+    used_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb
+  )
+`;
+
+const ADD_REGISTRATION_ACTIVATION_SOURCE_TEXT_COLUMN_SQL = `
+  ALTER TABLE ${REGISTRATION_ACTIVATION_CODE_TABLE}
+  ADD COLUMN IF NOT EXISTS source_text varchar(255)
+`;
+
+const ADD_REGISTRATION_ACTIVATION_LEGACY_QQ_COLUMN_SQL = `
+  ALTER TABLE ${REGISTRATION_ACTIVATION_CODE_TABLE}
+  ADD COLUMN IF NOT EXISTS qq varchar(32)
+`;
+
+const BACKFILL_REGISTRATION_ACTIVATION_SOURCE_TEXT_SQL = `
+  UPDATE ${REGISTRATION_ACTIVATION_CODE_TABLE}
+     SET source_text = qq
+   WHERE source_text IS NULL
+     AND qq IS NOT NULL
+`;
+
+const CREATE_REGISTRATION_ACTIVATION_SOURCE_TEXT_INDEX_SQL = `
+  CREATE UNIQUE INDEX IF NOT EXISTS server_registration_activation_code_source_text_idx
+  ON ${REGISTRATION_ACTIVATION_CODE_TABLE}(source_text)
+  WHERE source_text IS NOT NULL
+`;
+
+const CREATE_REGISTRATION_ACTIVATION_USED_BY_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS server_registration_activation_code_used_by_idx
+  ON ${REGISTRATION_ACTIVATION_CODE_TABLE}(used_by_user_id)
+  WHERE used_by_user_id IS NOT NULL
+`;
+
 /** 主线玩家鉴权存储：维护账号索引、唯一性检查和持久化读写。 */
 @Injectable()
 export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestroy {
@@ -447,6 +517,12 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
 
   /** 按邀请码索引到 userId。 */
   private readonly userIdByInviteCode = new Map<string, string>();
+
+  /** 按来源文本索引注册激活码，供无数据库测试与回退模式使用。 */
+  private readonly registrationActivationCodeBySourceText = new Map<string, RegistrationActivationCodeRecord>();
+
+  /** 按激活码索引注册激活码，供注册绑定校验使用。 */
+  private readonly registrationActivationCodeByCode = new Map<string, RegistrationActivationCodeRecord>();
 
   /** 按角色名索引到 userId 集合。 */
   private readonly userIdsByRoleName = new Map<string, Set<string>>();
@@ -537,6 +613,21 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
       ORDER BY user_id ASC
     `);
 
+    const activationResult = await this.pool.query<PersistedRegistrationActivationCodeRow>(`
+      SELECT
+        activation_code,
+        source_text,
+        qq,
+        used_by_user_id,
+        used_by_player_id,
+        used_at,
+        created_at,
+        updated_at,
+        raw_payload
+      FROM ${REGISTRATION_ACTIVATION_CODE_TABLE}
+      ORDER BY created_at ASC, activation_code ASC
+    `);
+
     this.resetIndexes();
     for (const row of result.rows) {
       const normalized = normalizePersistedAuthRow(row);
@@ -544,6 +635,13 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         continue;
       }
       this.indexUser(normalized);
+    }
+    for (const row of activationResult.rows) {
+      const normalized = normalizePersistedRegistrationActivationCodeRow(row);
+      if (!normalized) {
+        continue;
+      }
+      this.indexRegistrationActivationCode(normalized);
     }
   }
 
@@ -569,7 +667,66 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     }
 
     if (this.pool && this.enabled) {
-      const saved = await this.pool.query<{ player_no?: unknown }>(`
+      normalized = await this.persistUserWithQueryRunner(this.pool, normalized);
+    }
+
+    this.replaceUser(normalized);
+    return cloneUser(normalized);
+  }
+
+  async saveUserWithRegistrationActivationCode(user: AuthRecordCandidate, activationCode: string): Promise<NativePlayerAuthUser | null> {
+    let normalized = normalizeAuthRecord(user);
+    if (!normalized) {
+      throw new BadRequestException('账号记录无效');
+    }
+    const normalizedActivationCode = normalizeRegistrationActivationCode(activationCode);
+    if (!normalizedActivationCode) {
+      return null;
+    }
+    const previous = this.usersById.get(normalized.id) ?? null;
+    if (normalized.playerNo === null && previous?.playerNo !== null && previous?.playerNo !== undefined) {
+      normalized = {
+        ...normalized,
+        playerNo: previous.playerNo,
+      };
+    }
+
+    if (this.pool && this.enabled) {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        normalized = await this.persistUserWithQueryRunner(client, normalized);
+        const claimed = await this.claimRegistrationActivationCodeWithQueryRunner(client, normalizedActivationCode, normalized);
+        if (!claimed) {
+          await client.query('ROLLBACK').catch(() => undefined);
+          return null;
+        }
+        await client.query('COMMIT');
+        this.replaceUser(normalized);
+        this.indexRegistrationActivationCode(claimed);
+        return cloneUser(normalized);
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    const claimed = this.claimMemoryRegistrationActivationCode(normalizedActivationCode, normalized);
+    if (!claimed) {
+      return null;
+    }
+    this.replaceUser(normalized);
+    this.indexRegistrationActivationCode(claimed);
+    return cloneUser(normalized);
+  }
+
+  private async persistUserWithQueryRunner(
+    runner: { query: <T = { player_no?: unknown }>(sql: string, values?: unknown[]) => Promise<{ rows: T[] }> },
+    normalized: NativePlayerAuthUser,
+  ): Promise<NativePlayerAuthUser> {
+    const saved = await runner.query<{ player_no?: unknown }>(`
         WITH input_player_no AS (
           SELECT COALESCE($4::bigint, nextval('${PLAYER_AUTH_PLAYER_NO_SEQUENCE}'::regclass)) AS value
         )
@@ -674,15 +831,208 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
       ]);
       const persistedPlayerNo = normalizeOptionalPlayerNo(saved.rows[0]?.player_no);
       if (persistedPlayerNo !== null) {
-        normalized = {
+        return {
           ...normalized,
           playerNo: persistedPlayerNo,
         };
       }
+      return normalized;
+  }
+
+  async getOrCreateRegistrationActivationCodeForSourceText(sourceText: string): Promise<RegistrationActivationCodeRecord> {
+    const normalizedSourceText = normalizeRegistrationActivationSourceText(sourceText);
+    if (!normalizedSourceText) {
+      throw new BadRequestException('注册激活码来源文本不能为空');
     }
 
-    this.replaceUser(normalized);
-    return cloneUser(normalized);
+    if (this.pool && this.enabled) {
+      const persisted = await this.findRegistrationActivationCodeBySourceTextFromPersistence(normalizedSourceText);
+      if (persisted) {
+        this.indexRegistrationActivationCode(persisted);
+        return cloneRegistrationActivationCodeRecord(persisted);
+      }
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const activationCode = generateRegistrationActivationCode();
+        const now = new Date().toISOString();
+        const rawPayload = JSON.stringify({
+          activationCode,
+          sourceText: normalizedSourceText,
+          usedByUserId: null,
+          usedByPlayerId: null,
+          usedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        const inserted = await this.pool.query<PersistedRegistrationActivationCodeRow>(`
+          INSERT INTO ${REGISTRATION_ACTIVATION_CODE_TABLE}(
+            activation_code,
+            source_text,
+            created_at,
+            updated_at,
+            raw_payload
+          )
+          VALUES ($1, $2, $3::timestamptz, $4::timestamptz, $5::jsonb)
+          ON CONFLICT DO NOTHING
+          RETURNING activation_code, source_text, qq, used_by_user_id, used_by_player_id, used_at, created_at, updated_at, raw_payload
+        `, [activationCode, normalizedSourceText, now, now, rawPayload]);
+        const insertedRecord = normalizePersistedRegistrationActivationCodeRow(inserted.rows[0] ?? null);
+        if (insertedRecord) {
+          this.indexRegistrationActivationCode(insertedRecord);
+          return cloneRegistrationActivationCodeRecord(insertedRecord);
+        }
+        const raced = await this.findRegistrationActivationCodeBySourceTextFromPersistence(normalizedSourceText);
+        if (raced) {
+          this.indexRegistrationActivationCode(raced);
+          return cloneRegistrationActivationCodeRecord(raced);
+        }
+      }
+      throw new BadRequestException('生成激活码失败，请重试');
+    }
+
+    const existing = this.registrationActivationCodeBySourceText.get(normalizedSourceText) ?? null;
+    if (existing) {
+      return cloneRegistrationActivationCodeRecord(existing);
+    }
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const activationCode = generateRegistrationActivationCode();
+      if (this.registrationActivationCodeByCode.has(activationCode)) {
+        continue;
+      }
+      const now = new Date().toISOString();
+      const record: RegistrationActivationCodeRecord = {
+        activationCode,
+        sourceText: normalizedSourceText,
+        usedByUserId: null,
+        usedByPlayerId: null,
+        usedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.indexRegistrationActivationCode(record);
+      return cloneRegistrationActivationCodeRecord(record);
+    }
+    throw new BadRequestException('生成激活码失败，请重试');
+  }
+
+  async findRegistrationActivationCode(activationCode: string): Promise<RegistrationActivationCodeRecord | null> {
+    const normalizedActivationCode = normalizeRegistrationActivationCode(activationCode);
+    if (!normalizedActivationCode) {
+      return null;
+    }
+    if (this.pool && this.enabled) {
+      const result = await this.pool.query<PersistedRegistrationActivationCodeRow>(`
+        SELECT activation_code, source_text, qq, used_by_user_id, used_by_player_id, used_at, created_at, updated_at, raw_payload
+        FROM ${REGISTRATION_ACTIVATION_CODE_TABLE}
+        WHERE activation_code = $1
+        LIMIT 1
+      `, [normalizedActivationCode]);
+      const record = normalizePersistedRegistrationActivationCodeRow(result.rows[0] ?? null);
+      if (record) {
+        this.indexRegistrationActivationCode(record);
+        return cloneRegistrationActivationCodeRecord(record);
+      }
+      return null;
+    }
+
+    const record = this.registrationActivationCodeByCode.get(normalizedActivationCode) ?? null;
+    return record ? cloneRegistrationActivationCodeRecord(record) : null;
+  }
+
+  private async findRegistrationActivationCodeBySourceTextFromPersistence(sourceText: string): Promise<RegistrationActivationCodeRecord | null> {
+    if (!this.pool || !this.enabled) {
+      return null;
+    }
+    const normalizedSourceText = normalizeRegistrationActivationSourceText(sourceText);
+    if (!normalizedSourceText) {
+      return null;
+    }
+    const result = await this.pool.query<PersistedRegistrationActivationCodeRow>(`
+      SELECT activation_code, source_text, qq, used_by_user_id, used_by_player_id, used_at, created_at, updated_at, raw_payload
+      FROM ${REGISTRATION_ACTIVATION_CODE_TABLE}
+      WHERE source_text = $1 OR qq = $1
+      LIMIT 1
+    `, [normalizedSourceText]);
+    return normalizePersistedRegistrationActivationCodeRow(result.rows[0] ?? null);
+  }
+
+  private async claimRegistrationActivationCodeWithQueryRunner(
+    runner: { query: <T = PersistedRegistrationActivationCodeRow>(sql: string, values?: unknown[]) => Promise<{ rows: T[] }> },
+    activationCode: string,
+    user: NativePlayerAuthUser,
+  ): Promise<RegistrationActivationCodeRecord | null> {
+    const normalizedActivationCode = normalizeRegistrationActivationCode(activationCode);
+    if (!normalizedActivationCode) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    const rawPayload = JSON.stringify({
+      activationCode: normalizedActivationCode,
+      sourceText: null,
+      usedByUserId: user.userId,
+      usedByPlayerId: user.playerId,
+      usedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const result = await runner.query<PersistedRegistrationActivationCodeRow>(`
+      INSERT INTO ${REGISTRATION_ACTIVATION_CODE_TABLE}(
+        activation_code,
+        source_text,
+        used_by_user_id,
+        used_by_player_id,
+        used_at,
+        created_at,
+        updated_at,
+        raw_payload
+      )
+      VALUES ($1, NULL, $2, $3, $4::timestamptz, $5::timestamptz, $6::timestamptz, $7::jsonb)
+      ON CONFLICT (activation_code)
+      DO UPDATE SET
+        used_by_user_id = EXCLUDED.used_by_user_id,
+        used_by_player_id = EXCLUDED.used_by_player_id,
+        used_at = EXCLUDED.used_at,
+        updated_at = EXCLUDED.updated_at,
+        raw_payload = jsonb_set(
+          jsonb_set(
+            jsonb_set(${REGISTRATION_ACTIVATION_CODE_TABLE}.raw_payload, '{usedByUserId}', to_jsonb(EXCLUDED.used_by_user_id), true),
+            '{usedByPlayerId}',
+            to_jsonb(EXCLUDED.used_by_player_id),
+            true
+          ),
+          '{usedAt}',
+          to_jsonb(EXCLUDED.used_at::text),
+          true
+        )
+      WHERE ${REGISTRATION_ACTIVATION_CODE_TABLE}.used_by_user_id IS NULL
+         OR ${REGISTRATION_ACTIVATION_CODE_TABLE}.used_by_user_id = EXCLUDED.used_by_user_id
+      RETURNING activation_code, source_text, qq, used_by_user_id, used_by_player_id, used_at, created_at, updated_at, raw_payload
+    `, [normalizedActivationCode, user.userId, user.playerId, now, now, now, rawPayload]);
+    return normalizePersistedRegistrationActivationCodeRow(result.rows[0] ?? null);
+  }
+
+  private claimMemoryRegistrationActivationCode(
+    activationCode: string,
+    user: NativePlayerAuthUser,
+  ): RegistrationActivationCodeRecord | null {
+    const normalizedActivationCode = normalizeRegistrationActivationCode(activationCode);
+    if (!normalizedActivationCode) {
+      return null;
+    }
+    const existing = this.registrationActivationCodeByCode.get(normalizedActivationCode) ?? null;
+    if (existing?.usedByUserId && existing.usedByUserId !== user.userId) {
+      return null;
+    }
+    const now = new Date().toISOString();
+    return {
+      activationCode: normalizedActivationCode,
+      sourceText: existing?.sourceText ?? null,
+      usedByUserId: user.userId,
+      usedByPlayerId: user.playerId,
+      usedAt: existing?.usedAt ?? now,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
   }
 
   /** 持久化启用时按 userId 回读正式真源，避免继续命中失效内存缓存。 */
@@ -914,8 +1264,17 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     this.userIdByUsername.clear();
     this.userIdByPlayerId.clear();
     this.userIdByInviteCode.clear();
+    this.registrationActivationCodeBySourceText.clear();
+    this.registrationActivationCodeByCode.clear();
     this.userIdsByRoleName.clear();
     this.userIdsByDisplayName.clear();
+  }
+
+  private indexRegistrationActivationCode(record: RegistrationActivationCodeRecord): void {
+    this.registrationActivationCodeByCode.set(record.activationCode, record);
+    if (record.sourceText) {
+      this.registrationActivationCodeBySourceText.set(record.sourceText, record);
+    }
   }
 
   /** 以 user.id 作为主键替换账号记录。 */
@@ -1052,6 +1411,34 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NativePlayerAu
     updatedAt,
   };
 }
+
+function normalizePersistedRegistrationActivationCodeRow(row: PersistedRegistrationActivationCodeRow | null): RegistrationActivationCodeRecord | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+  const activationCode = normalizeRegistrationActivationCode(row.activation_code);
+  if (!activationCode) {
+    return null;
+  }
+  const createdAt = row.created_at instanceof Date
+    ? row.created_at.toISOString()
+    : normalizeDateTime(row.created_at) ?? new Date(0).toISOString();
+  const updatedAt = row.updated_at instanceof Date
+    ? row.updated_at.toISOString()
+    : normalizeDateTime(row.updated_at) ?? createdAt;
+  const usedAt = row.used_at instanceof Date
+    ? row.used_at.toISOString()
+    : normalizeDateTime(row.used_at);
+  return {
+    activationCode,
+    sourceText: normalizeRegistrationActivationSourceText(row.source_text) || normalizeRegistrationActivationSourceText(row.qq) || null,
+    usedByUserId: normalizeOptionalString(row.used_by_user_id, 100),
+    usedByPlayerId: normalizeOptionalString(row.used_by_player_id, 100),
+    usedAt,
+    createdAt,
+    updatedAt,
+  };
+}
 /**
  * normalizeAuthRecord：规范化或转换认证Record。
  * @param raw AuthRecordCandidate | null | undefined 参数说明。
@@ -1160,6 +1547,10 @@ function cloneUser(user: NativePlayerAuthUser): NativePlayerAuthUser {
     ...user,
   };
 }
+
+function cloneRegistrationActivationCodeRecord(record: RegistrationActivationCodeRecord): RegistrationActivationCodeRecord {
+  return { ...record };
+}
 /**
  * normalizeRequiredString：规范化或转换RequiredString。
  * @param value unknown 参数说明。
@@ -1169,6 +1560,28 @@ function cloneUser(user: NativePlayerAuthUser): NativePlayerAuthUser {
 
 function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeRegistrationActivationCode(value: unknown): string {
+  return typeof value === 'string'
+    ? value.normalize('NFC').trim().toUpperCase().slice(0, 80)
+    : '';
+}
+
+function normalizeRegistrationActivationSourceText(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.normalize('NFC').trim().slice(0, 255);
+}
+
+function generateRegistrationActivationCode(): string {
+  const random = randomBytes(REGISTRATION_ACTIVATION_CODE_LENGTH);
+  let code = '';
+  for (let index = 0; index < REGISTRATION_ACTIVATION_CODE_LENGTH; index += 1) {
+    code += REGISTRATION_ACTIVATION_CODE_ALPHABET[random[index] % REGISTRATION_ACTIVATION_CODE_ALPHABET.length];
+  }
+  return code;
 }
 
 function normalizeOptionalPlayerNo(value: unknown): number | null {
@@ -1431,6 +1844,10 @@ export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(CREATE_PLAYER_AUTH_TABLE_SQL);
+    await client.query(CREATE_REGISTRATION_ACTIVATION_CODE_TABLE_SQL);
+    await client.query(ADD_REGISTRATION_ACTIVATION_SOURCE_TEXT_COLUMN_SQL);
+    await client.query(ADD_REGISTRATION_ACTIVATION_LEGACY_QQ_COLUMN_SQL);
+    await client.query(BACKFILL_REGISTRATION_ACTIVATION_SOURCE_TEXT_SQL);
     await client.query(CREATE_PLAYER_AUTH_PLAYER_NO_SEQUENCE_SQL);
     await client.query(ADD_PLAYER_AUTH_PLAYER_NO_COLUMN_SQL);
     await normalizeOffsetPlayerNoWithClient(client);
@@ -1461,6 +1878,8 @@ export async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
     await client.query(CREATE_PLAYER_AUTH_REGISTER_DEVICE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_LAST_LOGIN_DEVICE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_PLAYER_NO_INDEX_SQL);
+    await client.query(CREATE_REGISTRATION_ACTIVATION_SOURCE_TEXT_INDEX_SQL);
+    await client.query(CREATE_REGISTRATION_ACTIVATION_USED_BY_INDEX_SQL);
     await syncPlayerNoSequenceWithClient(client);
     await client.query('COMMIT');
   } catch (error) {

@@ -6,6 +6,8 @@ import { strict as assert } from 'node:assert';
 
 import { AUTH_REGISTER_ACTIVATION_REQUIRED_CODE } from '@mud/shared';
 
+import { NativeAuthRateLimitService } from '../http/native/native-auth-rate-limit.service';
+import { NativeGmAuthController } from '../http/native/native-gm-auth.controller';
 import { NativePlayerAuthService } from '../http/native/native-player-auth.service';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 
@@ -78,6 +80,51 @@ async function main(): Promise<void> {
       (error: unknown) => isActivationRequiredError(error),
     );
 
+    const textIssued = await service.getRegistrationActivationCode('玩家来源：群内申请-张三');
+    const textIssuedAgain = await service.getRegistrationActivationCode('玩家来源：群内申请-张三');
+    assert.equal(textIssued.activationCode, textIssuedAgain.activationCode);
+    assert.equal(textIssued.sourceText, '玩家来源：群内申请-张三');
+    assert.equal(textIssued.used, false);
+
+    const gmController = new NativeGmAuthController(
+      {
+        login: async (password: string) => {
+          if (password !== 'gm-pass-for-smoke') {
+            throw new Error('GM 密码错误');
+          }
+          return { accessToken: 'gm-smoke-token' };
+        },
+        changePassword: async () => ({ ok: true }),
+      },
+      service,
+      new NativeAuthRateLimitService(),
+    );
+    const apiIssued = await gmController.issueRegistrationActivationCode(
+      { password: 'gm-pass-for-smoke', text: '渠道A/Discord用户#2233' },
+      { headers: {}, ip: '127.0.0.1' },
+    );
+    const apiIssuedByQuery = await gmController.issueRegistrationActivationCodeByQuery(
+      'gm-pass-for-smoke',
+      '渠道A/Discord用户#2233',
+      '',
+      { headers: {}, ip: '127.0.0.1' },
+    );
+    assert.equal(apiIssued.ok, true);
+    assert.equal(apiIssued.activationCode, apiIssuedByQuery.activationCode);
+    assert.equal(apiIssued.sourceText, '渠道A/Discord用户#2233');
+    const legacyQqParamIssued = await gmController.issueRegistrationActivationCode(
+      { password: 'gm-pass-for-smoke', qq: '33445566' },
+      { headers: {}, ip: '127.0.0.1' },
+    );
+    assert.equal(legacyQqParamIssued.sourceText, '33445566');
+    await assert.rejects(
+      () => gmController.issueRegistrationActivationCode(
+        { password: 'wrong-gm-pass', text: '错误密码来源' },
+        { headers: {}, ip: '127.0.0.1' },
+      ),
+      /GM 密码错误/,
+    );
+
     const second = await service.register(
       'regact4',
       'password123',
@@ -88,6 +135,44 @@ async function main(): Promise<void> {
     );
     assert.ok(second.refreshToken);
 
+    const generatedCodeRegister = await service.register(
+      'regact5',
+      'password123',
+      '戊',
+      '激活码烟测戊',
+      { ip: '203.0.113.91', deviceId: 'device-e', userAgent: 'registration-smoke' },
+      { activationCode: textIssued.activationCode },
+    );
+    assert.ok(generatedCodeRegister.accessToken);
+
+    const usedIssued = await service.getRegistrationActivationCode('玩家来源：群内申请-张三');
+    assert.equal(usedIssued.activationCode, textIssued.activationCode);
+    assert.equal(usedIssued.used, true);
+
+    await assert.rejects(
+      () => service.register(
+        'regact6',
+        'password123',
+        '己',
+        '激活码烟测己',
+        { ip: '203.0.113.91', deviceId: 'device-f', userAgent: 'registration-smoke' },
+        { activationCode: textIssued.activationCode },
+      ),
+      (error: unknown) => isActivationRequiredError(error),
+    );
+
+    await assert.rejects(
+      () => service.register(
+        'regact7',
+        'password123',
+        '庚',
+        '激活码烟测庚',
+        { ip: '203.0.113.91', deviceId: 'device-g', userAgent: 'registration-smoke' },
+        { activationCode: 'open-sesame' },
+      ),
+      (error: unknown) => isActivationRequiredError(error),
+    );
+
     process.stdout.write(JSON.stringify({
       ok: true,
       case: 'registration-activation',
@@ -97,6 +182,12 @@ async function main(): Promise<void> {
         'registration from a previously logged-in IP requires activation code',
         'invalid activation code is rejected',
         'valid activation code allows registration',
+        'same source text always receives the same random activation code',
+        'GM-password API returns the fixed source-text activation code',
+        'GM-password API keeps legacy qq parameter as source text alias',
+        'GM-password API rejects wrong GM password',
+        'generated activation code is bound to exactly one account',
+        'legacy env activation code also becomes single-use after binding',
         'each registered user gets an invite code',
         'a valid invitation code is stored on the invited auth user',
       ],

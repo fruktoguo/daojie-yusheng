@@ -153,6 +153,15 @@ interface RegisterOptions {
   activationCode?: string;
 }
 
+export interface RegistrationActivationCodeIssueView {
+  sourceText: string;
+  activationCode: string;
+  used: boolean;
+  usedByUserId: string | null;
+  usedByPlayerId: string | null;
+  usedAt: string | null;
+}
+
 const REGISTRATION_ACTIVATION_REQUIRED_MESSAGE = '当前网络已有账号注册，请输入激活码继续注册。';
 
 /** 主线玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
@@ -257,9 +266,7 @@ export class NativePlayerAuthService {
     }
 
     const registerIp = normalizeContextString(context.ip, 64);
-    if (await this.shouldRequireActivationCode(registerIp, options.activationCode)) {
-      throwRegistrationActivationRequired();
-    }
+    const registrationActivationCode = await this.resolveRegistrationActivationCodeForRegister(registerIp, options.activationCode);
 
     const requestedInvitationCode = normalizeInviteCode(options.invitationCode);
     const inviterUser = requestedInvitationCode
@@ -273,15 +280,16 @@ export class NativePlayerAuthService {
     }
 
     const userId = randomUUID();
+    const playerId = buildPlayerId(userId);
     const createdAt = new Date().toISOString();
     const inviteCode = await this.generateUniqueInviteCode();
-    const user = await this.authStore.saveUser({
+    const userCandidate = {
       id: userId,
       userId,
       username: normalizedUsername,
       displayName: normalizedDisplayName,
       pendingRoleName: normalizedRoleName,
-      playerId: buildPlayerId(userId),
+      playerId,
       playerName: normalizedRoleName,
       passwordHash: await hashPassword(password),
       totalOnlineSeconds: 0,
@@ -299,7 +307,13 @@ export class NativePlayerAuthService {
       bannedBy: null,
       createdAt,
       updatedAt: Date.now(),
-    });
+    };
+    const user = registrationActivationCode
+      ? await this.authStore.saveUserWithRegistrationActivationCode(userCandidate, registrationActivationCode)
+      : await this.authStore.saveUser(userCandidate);
+    if (!user) {
+      throwRegistrationActivationRequired();
+    }
 
     await this.persistIdentity(user);
     await this.ensureStarterSnapshot(user.playerId);
@@ -313,6 +327,18 @@ export class NativePlayerAuthService {
       });
     }
     return this.issueTokens(user);
+  }
+
+  async getRegistrationActivationCode(sourceText: string): Promise<RegistrationActivationCodeIssueView> {
+    const record = await this.authStore.getOrCreateRegistrationActivationCodeForSourceText(sourceText);
+    return {
+      sourceText: record.sourceText ?? '',
+      activationCode: record.activationCode,
+      used: Boolean(record.usedByUserId),
+      usedByUserId: record.usedByUserId,
+      usedByPlayerId: record.usedByPlayerId,
+      usedAt: record.usedAt,
+    };
   }
 
   private async generateUniqueInviteCode(): Promise<string> {
@@ -655,15 +681,30 @@ export class NativePlayerAuthService {
     throw new UnauthorizedException(reason ? `账号已封禁：${reason}` : '账号已封禁，请联系 GM 处理');
   }
 
-  private async shouldRequireActivationCode(registerIp: string | null, activationCode: unknown): Promise<boolean> {
+  private async resolveRegistrationActivationCodeForRegister(registerIp: string | null, activationCode: unknown): Promise<string | null> {
     if (!registerIp) {
-      return false;
+      return null;
     }
     const hasObservedAuthIp = await this.authStore.hasObservedAuthIp(registerIp);
     if (!hasObservedAuthIp) {
-      return false;
+      return null;
     }
-    return !isValidRegistrationActivationCode(activationCode);
+
+    const normalizedCode = normalizeRegistrationCode(activationCode);
+    if (!normalizedCode) {
+      throwRegistrationActivationRequired();
+    }
+    const generatedRecord = await this.authStore.findRegistrationActivationCode(normalizedCode);
+    if (generatedRecord) {
+      if (generatedRecord.usedByUserId) {
+        throwRegistrationActivationRequired();
+      }
+      return normalizedCode;
+    }
+    if (getRegistrationActivationCodes().has(normalizedCode)) {
+      return normalizedCode;
+    }
+    throwRegistrationActivationRequired();
   }
   /**
  * syncRuntimeDisplayName：判断运行态显示名称是否满足条件。
@@ -728,14 +769,6 @@ function throwRegistrationActivationRequired(): never {
     code: AUTH_REGISTER_ACTIVATION_REQUIRED_CODE,
     message: REGISTRATION_ACTIVATION_REQUIRED_MESSAGE,
   }, HttpStatus.CONFLICT);
-}
-
-function isValidRegistrationActivationCode(value: unknown): boolean {
-  const normalized = normalizeRegistrationCode(value);
-  if (!normalized) {
-    return false;
-  }
-  return getRegistrationActivationCodes().has(normalized);
 }
 
 function getRegistrationActivationCodes(): Set<string> {
