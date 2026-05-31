@@ -107,6 +107,13 @@ function resolvePrimaryDamageRoll(result, fallbackDamageKind, fallbackElement) {
         ? result.damageRolls.find((entry) => entry && typeof entry === 'object')
         : null;
     if (firstRoll) {
+        if (Number.isFinite(firstRoll.rawDamage)
+            && Number.isFinite(firstRoll.damage)
+            && firstRoll.damageKind
+            && (firstRoll.element !== undefined || result?.damageElement === undefined)
+            && (firstRoll.damageKind === result?.damageKind || result?.damageKind === undefined)) {
+            return firstRoll;
+        }
         return {
             ...firstRoll,
             rawDamage: Number.isFinite(Number(firstRoll.rawDamage))
