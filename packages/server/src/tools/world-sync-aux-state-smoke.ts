@@ -397,7 +397,6 @@ function testAuxStateSync() {
     ['getTemplate', 'map.a'],
     ['sendBootstrap', 'socket:1', ['map.unlocked']],
     ['sendMapStatic', 'socket:1', true, false, ['map.unlocked']],
-    ['sendRealm', 'socket:1', '炼气'],
     ['sendLootWindow', 'socket:1', '初始拾取'],
     ['emitInitialThreatSync', 'socket:1', 10, 1],
     ['commitPlayerCache', 'player:1', 'initial'],
@@ -423,7 +422,6 @@ function testMapChangeDoesNotAutoUnlockCurrentMap() {
     ['getTemplate', 'map.a'],
     ['sendBootstrap', 'socket:2', ['map.unlocked']],
     ['sendMapStatic', 'socket:2', true, false, ['map.unlocked']],
-    ['sendRealm', 'socket:2', '炼气'],
     ['sendLootWindow', 'socket:2', '初始拾取'],
     ['emitInitialThreatSync', 'socket:2', 20, 1],
     ['commitPlayerCache', 'player:2', 'initial'],
@@ -493,7 +491,7 @@ function testProgressOnlyRealmChangeDoesNotResendRealm() {
 
   assert.deepEqual(
     log.filter((entry) => Array.isArray(entry) && entry[0] === 'sendRealm'),
-    [['sendRealm', 'socket:realm-progress', '炼气']],
+    [],
   );
 }
 

@@ -1184,7 +1184,6 @@ async function runAuthBootstrap(token, expectedIdentity = null, options = undefi
         const bootstrap = await successSocket.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         await waitFor(() => successSocket.mapEnterCount > 0
             && successSocket.mapStaticCount > 0
-            && successSocket.realmCount > 0
             && successSocket.worldDeltaCount > 0
             && successSocket.selfDeltaCount > 0
             && successSocket.panelDeltaCount > 0, 5000, 'nextAuthBootstrapEvents');

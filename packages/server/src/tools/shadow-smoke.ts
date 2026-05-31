@@ -231,7 +231,6 @@ async function main() {
             && mapEnterCount > 0
             && bootstrapCount > 0
             && mapStaticCount > 0
-            && realmCount > 0
             && worldDeltaCount > 0
             && selfDeltaCount > 0
             && panelDeltaCount > 0;

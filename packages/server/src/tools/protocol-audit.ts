@@ -1172,7 +1172,6 @@ async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
  */
   var bootstrap = await socket.waitForEvent(S2C.Bootstrap, function () { return true; }, timeoutMs);
   await socket.waitForEvent(S2C.MapStatic, function () { return true; }, timeoutMs);
-  await socket.waitForEvent(S2C.Realm, function () { return true; }, timeoutMs);
   await socket.waitForEvent(S2C.LootWindowUpdate, function () { return true; }, timeoutMs);
   assertBootstrapQuestsAreRuntimeOnly(bootstrap);
   return {

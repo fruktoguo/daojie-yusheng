@@ -169,7 +169,7 @@ export class WorldSyncAuxStateService {
     this.protocolAuxStateByPlayerId.delete(playerId);
   }
 
-  /** 首次进入或跨图后的全量辅助状态下发：bootstrap 包 + mapStatic + realm + loot + threat。 */
+  /** 首次进入或跨图后的全量辅助状态下发：bootstrap 包 + mapStatic + loot + threat；realm 已在 bootstrap.self 内携带。 */
   emitAuxInitialSync(
     playerId: string,
     socket: SocketLike,
@@ -221,8 +221,6 @@ export class WorldSyncAuxStateService {
         }),
       );
     }
-    this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player, realmState));
-
     const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
     this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
     this.worldSyncThreatService.emitInitialThreatSync(socket, view, threatArrows);
