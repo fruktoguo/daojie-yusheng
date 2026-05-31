@@ -53,8 +53,8 @@ async function main(): Promise<void> {
     normalizedQueries.some((query) => query.includes('DELETE FROM player_market_storage_item')
       && query.includes('slot_index = $2')
       && query.includes('storage_item_id <> $3')),
-    true,
-    'market storage upsert path must prune same-slot legacy rows before insert',
+    false,
+    'market storage upsert path must not keep runtime legacy storage_item_id repair logic',
   );
   assert.equal(
     normalizedQueries.some((query) => query.includes('ON CONFLICT (storage_item_id)')
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
 
   console.log(JSON.stringify({
     ok: true,
-    answers: '证明 MarketPersistenceService.persistStructuredStorages 的 upsert 玩家路径不再先 DELETE 整玩家托管仓，而是先清理同槽 legacy 行，再用带 owner guard 的 storage_item_id 行级 UPSERT，最后按当前 slot_index 快照删除 stale 行；显式 deleteStoragePlayerIds 仍保留整玩家清空语义；跨玩家 storage_item_id 冲突会被拒绝。',
+    answers: '证明 MarketPersistenceService.persistStructuredStorages 的 upsert 玩家路径不再先 DELETE 整玩家托管仓，也不在运行时自动修复 legacy storage_item_id；它只用带 owner guard 的 storage_item_id 行级 UPSERT，最后按当前 slot_index 快照删除 stale 行；显式 deleteStoragePlayerIds 仍保留整玩家清空语义；跨玩家 storage_item_id 冲突会被拒绝。',
     excludes: '不证明真实 PostgreSQL 回读，也不覆盖 PlayerDomainPersistenceService / DurableOperationService 内的同名 player_market_storage_item 写入路径。',
     completionMapping: 'release:proof:market-persistence-storage-prune',
   }, null, 2));

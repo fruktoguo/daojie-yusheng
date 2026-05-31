@@ -4760,9 +4760,10 @@ async function replacePlayerMarketStorageItems(
       );
     }
     const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
-    const storageItemId =
-      normalizeOptionalString(entry?.storageItemId)
-      ?? `market_storage:${playerId}:${slotIndex}`;
+    if (slotIndex < 0) {
+      throw new Error(`replacePlayerMarketStorageItems: invalid slot_index playerId=${playerId} slotIndex=${slotIndex}`);
+    }
+    const storageItemId = `market_storage:${playerId}:${slotIndex}`;
     const rawPayload = asRecord(entry?.rawPayload);
     const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);
     const enhanceLevel = normalizeOptionalInteger(entry?.enhanceLevel ?? rawPayload?.enhanceLevel ?? rawPayload?.enhancementLevel ?? rawPayload?.level);
@@ -4811,12 +4812,6 @@ async function replacePlayerMarketStorageItems(
     return;
   }
 
-  await prunePlayerMarketStorageConflictingSlotRows(
-    client,
-    playerId,
-    rows.map((row) => ({ storageItemId: row.storage_item_id, slotIndex: row.slot_index })),
-  );
-
   const result = await client.query(
     `
       WITH incoming AS (
@@ -4859,33 +4854,6 @@ async function replacePlayerMarketStorageItems(
     throw new Error(`replacePlayerMarketStorageItems: storage_item_id conflict outside player scope playerId=${playerId}`);
   }
   await prunePlayerMarketStorageStaleSlots(client, playerId, rows.map((entry) => entry.slot_index));
-}
-
-async function prunePlayerMarketStorageConflictingSlotRows(
-  client: PoolClient,
-  playerId: string,
-  entries: ReadonlyArray<{ storageItemId: string; slotIndex: number }>,
-): Promise<void> {
-  await client.query(
-    `
-      WITH incoming AS (
-        SELECT storage_item_id, slot_index
-        FROM jsonb_to_recordset($2::jsonb) AS entry(storage_item_id varchar(160), slot_index bigint)
-      )
-      DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target
-      USING incoming
-      WHERE target.player_id = $1
-        AND target.slot_index = incoming.slot_index
-        AND target.storage_item_id <> incoming.storage_item_id
-    `,
-    [
-      playerId,
-      JSON.stringify(entries.map((entry) => ({
-        storage_item_id: entry.storageItemId,
-        slot_index: Math.max(0, Math.trunc(Number(entry.slotIndex))),
-      }))),
-    ],
-  );
 }
 
 async function prunePlayerMarketStorageStaleSlots(

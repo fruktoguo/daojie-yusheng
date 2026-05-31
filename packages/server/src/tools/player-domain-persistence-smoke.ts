@@ -890,7 +890,7 @@ async function main(): Promise<void> {
       marketConflictOwnerId,
       [
         {
-          storageItemId: `market-shared-${playerId}`,
+          storageItemId: `market_storage:${marketConflictOwnerId}:0`,
           slotIndex: 0,
           itemId: 'foreign_storage_item',
           count: 1,
@@ -899,13 +899,34 @@ async function main(): Promise<void> {
       ],
       { versionSeed: directBaseVersion + 20 },
     );
+    await pool.query(
+      `
+        INSERT INTO player_market_storage_item(
+          storage_item_id,
+          player_id,
+          slot_index,
+          item_id,
+          count,
+          raw_payload,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, now())
+      `,
+      [
+        `market_storage:${directPlayerId}:9`,
+        marketConflictOwnerId,
+        9,
+        'foreign_storage_item',
+        1,
+        JSON.stringify({ itemId: 'foreign_storage_item', count: 1 }),
+      ],
+    );
     let marketStorageCrossOwnerConflictRejected = false;
     try {
       await service.savePlayerMarketStorageItems(
         directPlayerId,
         [
           {
-            storageItemId: `market-shared-${playerId}`,
             slotIndex: 9,
             itemId: 'foreign_storage_item',
             count: 1,
@@ -1228,7 +1249,7 @@ async function main(): Promise<void> {
     }
     if (
       directMarketStorageRows.length !== 1
-      || directMarketStorageRows[0]?.storage_item_id !== `market:${directPlayerId}:0-rekeyed`
+      || directMarketStorageRows[0]?.storage_item_id !== `market_storage:${directPlayerId}:0`
       || Number(directMarketStorageRows[0]?.slot_index ?? -1) !== 0
       || directMarketStorageRows[0]?.item_id !== 'spirit_stone'
       || Number(directMarketStorageRows[0]?.count ?? 0) !== 11
@@ -2271,16 +2292,15 @@ async function assertAssetDomainInvalidEntriesRefuseSilentPrune(): Promise<void>
       expected: 'replacePlayerMarketStorageItems: duplicate slot_index with conflicting payload',
     },
     {
-      name: 'market_storage_duplicate_storage_item',
+      name: 'market_storage_negative_slot',
       run: () => service.savePlayerMarketStorageItems(
-        'player:duplicate-market-storage-id',
+        'player:negative-market-storage-slot',
         [
-          { storageItemId: 'market-storage-duplicate-id', slotIndex: 0, itemId: 'ore_a', count: 1 },
-          { storageItemId: 'market-storage-duplicate-id', slotIndex: 1, itemId: 'ore_b', count: 1 },
+          { slotIndex: -1, itemId: 'ore_a', count: 1 },
         ] as never,
         { versionSeed: 1 },
       ),
-      expected: 'replacePlayerMarketStorageItems: duplicate storage_item_id with conflicting slot',
+      expected: 'replacePlayerMarketStorageItems: invalid slot_index',
     },
     {
       name: 'equipment_slot',

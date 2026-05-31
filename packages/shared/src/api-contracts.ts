@@ -2420,6 +2420,41 @@ export interface GmShortcutRunRes {
 
   flushedInstances?: number;
   /**
+ * repairedMarketStorageRows：修复坊市托管仓 storage_item_id 行数。
+ */
+
+  repairedMarketStorageRows?: number;
+  /**
+ * repairedMarketStoragePlayers：修复坊市托管仓涉及玩家数。
+ */
+
+  repairedMarketStoragePlayers?: number;
+  /**
+ * marketStorageMismatchedRowsBefore：修复前异常 storage_item_id 行数。
+ */
+
+  marketStorageMismatchedRowsBefore?: number;
+  /**
+ * marketStorageMismatchedRowsAfter：修复后异常 storage_item_id 行数。
+ */
+
+  marketStorageMismatchedRowsAfter?: number;
+  /**
+ * marketStorageInvalidSlotRowsBefore：修复前非法托管仓槽位行数。
+ */
+
+  marketStorageInvalidSlotRowsBefore?: number;
+  /**
+ * marketStorageInvalidSlotRowsAfter：修复后非法托管仓槽位行数。
+ */
+
+  marketStorageInvalidSlotRowsAfter?: number;
+  /**
+ * repairedAt：修复完成时间。
+ */
+
+  repairedAt?: string;
+  /**
  * targetMapId：目标地图ID标识。
  */
 

@@ -831,6 +831,11 @@ export class NativeGmController {
     this.nextGmWorldService.invalidatePlayerListCaches();
     return result;
   }
+
+  @Post('shortcuts/maintenance/repair-market-storage-item-ids')
+  async repairMarketStorageItemIds() {
+    return this.nextGmPlayerService.repairMarketStorageItemIds();
+  }
   /**
  * cleanupAbnormalTemporaryTiles：清理异常临时石头。
  * @returns 清理结果。

@@ -10588,6 +10588,35 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
   }
 }
 
+async function repairMarketStorageItemIds(): Promise<void> {
+  if (!window.confirm(t('gm.shortcut.repair-market-storage.confirm'))) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-repair-market-storage-item-ids') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/maintenance/repair-market-storage-item-ids`, {
+      method: 'POST',
+    });
+    await delayRefresh(t('gm.shortcut.repair-market-storage.done', {
+      before: Math.floor(result.marketStorageMismatchedRowsBefore ?? 0),
+      repairedRows: Math.floor(result.repairedMarketStorageRows ?? 0),
+      repairedPlayers: Math.floor(result.repairedMarketStoragePlayers ?? 0),
+      after: Math.floor(result.marketStorageMismatchedRowsAfter ?? 0),
+      invalidSlots: Math.floor(result.marketStorageInvalidSlotRowsAfter ?? 0),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** cleanupAbnormalTemporaryTiles：处理cleanup Abnormal Temporary Tiles。 */
 async function cleanupAbnormalTemporaryTiles(): Promise<void> {
   if (!window.confirm(t('gm.shortcut.cleanup-abnormal-temp.confirm'))) {
@@ -11721,6 +11750,9 @@ document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListene
 });
 document.getElementById('shortcut-cleanup-invalid-items')?.addEventListener('click', () => {
   cleanupAllPlayersInvalidItems().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-repair-market-storage-item-ids')?.addEventListener('click', () => {
+  repairMarketStorageItemIds().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-cleanup-abnormal-temporary-tiles')?.addEventListener('click', () => {
   cleanupAbnormalTemporaryTiles().catch((e) => console.error('[GM]', e));

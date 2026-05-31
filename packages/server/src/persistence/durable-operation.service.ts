@@ -3601,7 +3601,10 @@ async function replacePlayerMarketStorageItems(
       );
     }
     const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
-    const storageItemId = normalizeRequiredString(entry?.storageItemId) || `market_storage:${playerId}:${slotIndex}`;
+    if (slotIndex < 0) {
+      throw new Error(`replacePlayerMarketStorageItems: invalid slot_index playerId=${playerId} slotIndex=${slotIndex}`);
+    }
+    const storageItemId = `market_storage:${playerId}:${slotIndex}`;
     const count = Math.max(1, Math.trunc(Number(entry?.count ?? 1)));
     const enhanceLevel = normalizeOptionalInteger(entry?.enhanceLevel);
     const rawPayload =
@@ -3653,23 +3656,6 @@ async function replacePlayerMarketStorageItems(
   const rowsJson = JSON.stringify(rows);
 
   if (rows.length > 0) {
-    await client.query(
-      `
-        WITH incoming AS (
-          SELECT storage_item_id, slot_index
-          FROM jsonb_to_recordset($2::jsonb) AS entry(storage_item_id varchar(180), slot_index bigint)
-        )
-        DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} target
-        WHERE target.player_id = $1
-          AND EXISTS (
-            SELECT 1
-            FROM incoming
-            WHERE incoming.slot_index = target.slot_index
-              AND incoming.storage_item_id <> target.storage_item_id
-          )
-      `,
-      [playerId, rowsJson],
-    );
     const result = await client.query(
       `
         WITH incoming AS (

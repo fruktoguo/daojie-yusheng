@@ -24,6 +24,7 @@ import { ContentTemplateRepository } from '../../content/content-template.reposi
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { GmAuditLogPersistenceService, type GmAuditLogEntry } from '../../persistence/gm-audit-log-persistence.service';
+import { repairMarketStorageItemIds } from '../../persistence/market-storage-item-id-repair';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { ActivityPersistenceService } from '../../persistence/activity-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
@@ -1039,6 +1040,28 @@ export class NativeGmPlayerService {
       totalInvalidInventoryStacksRemoved,
       totalInvalidMarketStorageStacksRemoved,
       totalInvalidEquipmentRemoved,
+    };
+  }
+
+  async repairMarketStorageItemIds() {
+    const pool = this.databasePoolProvider?.getPool('gm-market-storage-item-id-repair') ?? null;
+    if (!pool) {
+      throw new BadRequestException('数据库未启用，无法修复坊市托管仓 storage_item_id');
+    }
+    const result = await repairMarketStorageItemIds(pool);
+    return {
+      ok: true,
+      totalPlayers: result.repairedPlayers,
+      queuedRuntimePlayers: 0,
+      updatedOfflinePlayers: result.repairedPlayers,
+      repairedMarketStorageRows: result.repairedRows,
+      repairedMarketStoragePlayers: result.repairedPlayers,
+      marketStorageMismatchedRowsBefore: result.before.mismatchedRows,
+      marketStorageMismatchedRowsAfter: result.after.mismatchedRows,
+      marketStorageInvalidSlotRowsBefore: result.before.invalidSlotRows,
+      marketStorageInvalidSlotRowsAfter: result.after.invalidSlotRows,
+      repairedMarketStorageSample: result.repairedSample,
+      repairedAt: result.repairedAt,
     };
   }
   /**

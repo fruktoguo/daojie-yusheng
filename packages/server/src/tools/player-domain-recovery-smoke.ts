@@ -58,7 +58,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, playerId);
     await cleanupPlayer(pool, presenceOnlyPlayerId);
 
-    const originalSnapshot = buildSnapshot(now);
+    const originalSnapshot = buildSnapshot(now, playerId);
     await snapshotPersistence.savePlayerSnapshot(playerId, originalSnapshot, {
       persistedSource: 'native',
       seededAt: now,
@@ -180,9 +180,9 @@ async function main(): Promise<void> {
       : [];
     if (
       recoveredMarketStorageItems.length !== 2
-      || recoveredMarketStorageItems[0]?.storageItemId !== 'storage:qi-pill'
+      || recoveredMarketStorageItems[0]?.storageItemId !== `market_storage:${playerId}:0`
       || recoveredMarketStorageItems[0]?.itemId !== 'qi_pill'
-      || recoveredMarketStorageItems[1]?.storageItemId !== 'storage:furnace'
+      || recoveredMarketStorageItems[1]?.storageItemId !== `market_storage:${playerId}:1`
       || recoveredMarketStorageItems[1]?.itemId !== 'equip.copper_pill_furnace'
     ) {
       throw new Error(`unexpected recovered market storage: ${JSON.stringify((snapshot as ProjectedRecoverySnapshot).marketStorage)}`);
@@ -453,7 +453,7 @@ function buildStarterSnapshot(playerId: string): ProjectedRecoverySnapshot {
   };
 }
 
-function buildSnapshot(now: number): ProjectedRecoverySnapshot {
+function buildSnapshot(now: number, playerId: string): ProjectedRecoverySnapshot {
   return {
     ...buildStarterSnapshot(`starter:${now}`),
     savedAt: now,
@@ -624,7 +624,7 @@ function buildSnapshot(now: number): ProjectedRecoverySnapshot {
     marketStorage: {
       items: [
         {
-          storageItemId: 'storage:qi-pill',
+          storageItemId: `market_storage:${playerId}:0`,
           itemId: 'qi_pill',
           count: 2,
           slotIndex: 0,
@@ -632,7 +632,7 @@ function buildSnapshot(now: number): ProjectedRecoverySnapshot {
           rawPayload: { tag: 'recovery-proof' },
         },
         {
-          storageItemId: 'storage:furnace',
+          storageItemId: `market_storage:${playerId}:1`,
           itemId: 'equip.copper_pill_furnace',
           count: 1,
           slotIndex: 1,
