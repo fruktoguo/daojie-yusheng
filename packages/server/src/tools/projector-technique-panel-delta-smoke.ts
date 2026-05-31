@@ -23,6 +23,10 @@ type TechniqueEntry = {
 
 type ProjectorPlayer = ReturnType<typeof createProjectorPlayer>;
 
+function byteLength(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), 'utf8');
+}
+
 function main(): void {
   const noCacheFullProof = proveNoCacheFullPanelKeepsTechniqueStaticDetails();
   const learnedTechniqueProof = proveLearnedTechniquePatchKeepsStaticDetails();
@@ -226,7 +230,10 @@ function proveActionCooldownReadyTickDelta(): {
   patchCarriesReadyTick: boolean;
   clearPatchCarriesAction: boolean;
   clearPatchHasNoReadyTick: boolean;
+  staticFieldsOmitted: boolean;
   stableControlsOmitted: boolean;
+  optimizedBytes: number;
+  legacyBytes: number;
 } {
   const service = createProjector();
   const player = createProjectorPlayer();
@@ -253,17 +260,38 @@ function proveActionCooldownReadyTickDelta(): {
   const patchCarriesReadyTick = activeAction?.cooldownReadyTick === 105;
   const clearPatchCarriesAction = clearAction?.cooldownLeft === 0;
   const clearPatchHasNoReadyTick = clearAction !== undefined && clearAction.cooldownReadyTick === undefined;
+  const staticFieldsOmitted = activeAction?.name === undefined
+    && activeAction?.desc === undefined
+    && activeAction?.type === undefined
+    && activeAction?.range === undefined
+    && activeAction?.requiresTarget === undefined
+    && activeAction?.targetMode === undefined;
   const stableControlsOmitted = activeEnvelope?.panelDelta?.act?.autoBattle === undefined
     && activeEnvelope?.panelDelta?.act?.autoUsePills === undefined
     && activeEnvelope?.panelDelta?.act?.combatTargetingRules === undefined
     && activeEnvelope?.panelDelta?.act?.autoBattleStationary === undefined
     && activeEnvelope?.panelDelta?.act?.autoIdleCultivation === undefined;
+  const optimizedBytes = byteLength(activeEnvelope?.panelDelta?.act);
+  const legacyBytes = byteLength({
+    ...activeEnvelope?.panelDelta?.act,
+    actions: [createAction('skill:cooldown-proof', 5, 105)],
+  });
 
   assert.equal(patchCarriesReadyTick, true);
   assert.equal(clearPatchCarriesAction, true);
   assert.equal(clearPatchHasNoReadyTick, true);
+  assert.equal(staticFieldsOmitted, true);
   assert.equal(stableControlsOmitted, true);
-  return { patchCarriesReadyTick, clearPatchCarriesAction, clearPatchHasNoReadyTick, stableControlsOmitted };
+  assert.ok(optimizedBytes < legacyBytes, `expected action cooldown patch compaction: optimized=${optimizedBytes} legacy=${legacyBytes}`);
+  return {
+    patchCarriesReadyTick,
+    clearPatchCarriesAction,
+    clearPatchHasNoReadyTick,
+    staticFieldsOmitted,
+    stableControlsOmitted,
+    optimizedBytes,
+    legacyBytes,
+  };
 }
 
 function proveAttrWidePatchAvoidsFullSnapshot(): {

@@ -1236,7 +1236,7 @@ function buildActionDeltaFromState(
     currentCursor: ProjectedPanelCursor,
 ): S2C_PanelActionDelta {
     const actionPatch = previousCursor.actionRevision !== currentCursor.actionRevision
-        ? diffActionEntriesFromCursor(previousCursor, currentCursor, currentAction.actions)
+        ? diffActionEntryPatches(previousAction.actions, currentAction.actions)
         : [];
     const removedActionIds = previousCursor.actionRevision !== currentCursor.actionRevision
         ? diffRemovedIds(previousCursor.actionIds, currentCursor.actionIds)
@@ -1515,16 +1515,64 @@ function diffEquipmentSlotsFromCursor(
     return patch;
 }
 
-function diffActionEntriesFromCursor(
-    previousCursor: ProjectedPanelCursor,
-    currentCursor: ProjectedPanelCursor,
+function diffActionEntryPatches(
+    previousActions: ProjectedActionEntry[],
     currentActions: ProjectedActionEntry[],
-): ProjectedActionEntry[] {
-    const previousSignatures = previousCursor.actionEntrySignatures ?? {};
-    const currentSignatures = currentCursor.actionEntrySignatures ?? {};
-    return currentActions.filter((entry) => (
-        (previousSignatures[entry.id] ?? '') !== (currentSignatures[entry.id] ?? '')
-    ));
+): NonNullable<S2C_PanelActionDelta['actions']> {
+    const previousById = new Map(previousActions.map((entry) => [entry.id, entry]));
+    const patches: NonNullable<S2C_PanelActionDelta['actions']> = [];
+    for (const entry of currentActions) {
+        const previous = previousById.get(entry.id);
+        if (!previous) {
+            patches.push(entry);
+            continue;
+        }
+        const patch = buildActionEntryPatch(previous, entry);
+        if (Object.keys(patch).length > 1) {
+            patches.push(patch);
+        }
+    }
+    return patches;
+}
+
+function buildActionEntryPatch(
+    previous: ProjectedActionEntry,
+    current: ProjectedActionEntry,
+): NonNullable<S2C_PanelActionDelta['actions']>[number] {
+    const patch: NonNullable<S2C_PanelActionDelta['actions']>[number] = { id: current.id };
+    if (previous.cooldownReadyTick !== current.cooldownReadyTick) {
+        patch.cooldownLeft = current.cooldownLeft ?? 0;
+        if (current.cooldownReadyTick !== undefined) {
+            patch.cooldownReadyTick = current.cooldownReadyTick;
+        }
+    }
+    setActionPatchField(patch, 'autoBattleEnabled', previous.autoBattleEnabled, current.autoBattleEnabled);
+    setActionPatchField(patch, 'autoBattleOrder', previous.autoBattleOrder, current.autoBattleOrder);
+    setActionPatchField(patch, 'skillEnabled', previous.skillEnabled, current.skillEnabled);
+    setActionPatchField(patch, 'name', previous.name, current.name);
+    setActionPatchField(patch, 'type', previous.type, current.type);
+    setActionPatchField(patch, 'desc', previous.desc, current.desc);
+    setActionPatchField(patch, 'range', previous.range, current.range);
+    setActionPatchField(patch, 'requiresTarget', previous.requiresTarget, current.requiresTarget);
+    setActionPatchField(patch, 'targetMode', previous.targetMode, current.targetMode);
+    setActionPatchField(patch, 'scriptureTechniqueId', previous.scriptureTechniqueId, current.scriptureTechniqueId);
+    setActionPatchField(patch, 'scriptureTechniqueName', previous.scriptureTechniqueName, current.scriptureTechniqueName);
+    setActionPatchField(patch, 'scriptureTechniqueRealmLv', previous.scriptureTechniqueRealmLv, current.scriptureTechniqueRealmLv);
+    setActionPatchField(patch, 'scriptureTechniqueGrade', previous.scriptureTechniqueGrade, current.scriptureTechniqueGrade);
+    setActionPatchField(patch, 'scriptureTechniqueCategory', previous.scriptureTechniqueCategory, current.scriptureTechniqueCategory);
+    return patch;
+}
+
+function setActionPatchField<K extends keyof NonNullable<S2C_PanelActionDelta['actions']>[number]>(
+    patch: NonNullable<S2C_PanelActionDelta['actions']>[number],
+    key: K,
+    previous: NonNullable<S2C_PanelActionDelta['actions']>[number][K] | undefined,
+    current: NonNullable<S2C_PanelActionDelta['actions']>[number][K] | undefined,
+): void {
+    if (previous === current) {
+        return;
+    }
+    patch[key] = (current ?? null) as NonNullable<S2C_PanelActionDelta['actions']>[number][K];
 }
 
 function diffBuffEntriesFromCursor(
