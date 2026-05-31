@@ -138,9 +138,14 @@ function testTileProjectionOmitsDefaultBlockingFields() {
   assert.equal(floor.type, TileType.Floor);
   assert.equal(Object.prototype.hasOwnProperty.call(floor, 'walkable'), false);
   assert.equal(Object.prototype.hasOwnProperty.call(floor, 'blocksSight'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(floor, 'terrainType'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(floor, 'surfaceType'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(floor, 'structureType'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(floor, 'interactableKinds'), false);
   assert.equal(destroyedWall.type, TileType.Wall);
   assert.equal(destroyedWall.walkable, true);
   assert.equal(destroyedWall.blocksSight, false);
+  assert.equal(destroyedWall.structureType, null);
 }
 
 testInstanceDirtyPlanIsConsumedOnceAndReused();

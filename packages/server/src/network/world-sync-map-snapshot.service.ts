@@ -450,26 +450,17 @@ export class WorldSyncMapSnapshotService {
     const fallbackLayerSeed = destroyed === true
       ? defaultLayerFallback
       : resolveTileLayerSeedFromTileType(tileType);
-    const terrainType = typeof layerState?.terrain === 'string' && destroyed !== true ? layerState.terrain : fallbackLayerSeed.terrain;
-    const surfaceType = layerState && destroyed !== true ? layerState.surface ?? null : fallbackLayerSeed.surface;
-    const structureType = destroyed === true ? null : (layerState ? layerState.structure ?? null : fallbackLayerSeed.structure);
-    const interactableKinds = destroyed === true
+    const layerSeed = {
+      terrain: typeof layerState?.terrain === 'string' && destroyed !== true ? layerState.terrain : fallbackLayerSeed.terrain,
+      surface: layerState && destroyed !== true ? layerState.surface ?? null : fallbackLayerSeed.surface,
+      structure: destroyed === true ? null : (layerState ? layerState.structure ?? null : fallbackLayerSeed.structure),
+      interactables: destroyed === true
       ? [...fallbackLayerSeed.interactables]
       : Array.isArray(layerState?.interactableKinds)
       ? layerState.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0)
-      : undefined;
-    if (terrainType) {
-      tile.terrainType = terrainType;
-    }
-    if (surfaceType !== undefined) {
-      tile.surfaceType = surfaceType;
-    }
-    if (structureType !== undefined || destroyed === true) {
-      tile.structureType = structureType;
-    }
-    if (interactableKinds && interactableKinds.length > 0) {
-      tile.interactableKinds = interactableKinds;
-    }
+      : fallbackLayerSeed.interactables,
+    };
+    applyCompactTileLayerProjection(tile, layerSeed, tileType);
     if (aura > 0) {
       tile.aura = aura;
     }
@@ -560,15 +551,47 @@ function buildStaticTileSyncState(template, x, y) {
   }
   const layerSeed = resolveTemplateLayerSeed(template, x, y);
   const type = layerSeed.legacyTileType;
-  const tile = {
-    type,
-    terrainType: layerSeed.terrain,
-    surfaceType: layerSeed.surface,
-    structureType: layerSeed.structure,
-    interactableKinds: [...layerSeed.interactables],
-  };
+  const tile = { type };
+  applyCompactTileLayerProjection(tile, layerSeed, type);
   applyTileEffectProjection(tile, template, x, y, type);
   return tile;
+}
+
+function applyCompactTileLayerProjection(tile, layerSeed, tileType) {
+  const defaultSeed = resolveTileLayerSeedFromTileType(tileType);
+  const terrainType = normalizeOptionalLayerString(layerSeed?.terrain);
+  if (terrainType && terrainType !== defaultSeed.terrain) {
+    tile.terrainType = terrainType;
+  }
+  const surfaceType = normalizeNullableLayerString(layerSeed?.surface);
+  const defaultSurfaceType = normalizeNullableLayerString(defaultSeed.surface);
+  if (surfaceType !== defaultSurfaceType) {
+    tile.surfaceType = surfaceType;
+  }
+  const structureType = normalizeNullableLayerString(layerSeed?.structure);
+  const defaultStructureType = normalizeNullableLayerString(defaultSeed.structure);
+  if (structureType !== defaultStructureType) {
+    tile.structureType = structureType;
+  }
+  const interactableKinds = normalizeInteractableKindList(layerSeed?.interactables);
+  const defaultInteractableKinds = normalizeInteractableKindList(defaultSeed.interactables);
+  if (interactableKinds.length > 0 && !isSameStringList(interactableKinds, defaultInteractableKinds)) {
+    tile.interactableKinds = interactableKinds;
+  }
+}
+
+function normalizeOptionalLayerString(value) {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function normalizeNullableLayerString(value) {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function normalizeInteractableKindList(value) {
+  return Array.isArray(value)
+    ? value.filter((kind) => typeof kind === 'string' && kind.length > 0)
+    : [];
 }
 
 function resolveTemplateLayerSeed(template, x, y) {

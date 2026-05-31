@@ -25,6 +25,7 @@ import {
   getFirstGrapheme,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
+  resolveTileLayerSeedFromTileType,
 } from '@mud/shared';
 import {
   deleteRememberedMap,
@@ -1231,8 +1232,12 @@ function normalizeVisibleTile(tile: VisibleTile): VisibleTile {
     return null;
   }
   const type = tile.type ?? TileType.Floor;
+  const defaultLayerSeed = resolveTileLayerSeedFromTileType(type);
   const movementCost = tile.movementCost;
   const qiDrainPerTick = tile.qiDrainPerTick;
+  const hasSurfaceType = Object.prototype.hasOwnProperty.call(tile, 'surfaceType');
+  const hasStructureType = Object.prototype.hasOwnProperty.call(tile, 'structureType');
+  const hasInteractableKinds = Object.prototype.hasOwnProperty.call(tile, 'interactableKinds');
   const resources = Array.isArray(tile.resources) && tile.resources.length > 0
     ? tile.resources.map((entry) => ({ ...entry }))
     : undefined;
@@ -1251,12 +1256,16 @@ function normalizeVisibleTile(tile: VisibleTile): VisibleTile {
     maxHp: typeof tile.maxHp === 'number' && Number.isFinite(tile.maxHp) ? tile.maxHp : undefined,
     hpVisible: tile.hpVisible === true ? true : undefined,
     hiddenEntrance: tile.hiddenEntrance ? { ...tile.hiddenEntrance } : undefined,
-    terrainType: typeof tile.terrainType === 'string' && tile.terrainType.length > 0 ? tile.terrainType : undefined,
-    surfaceType: typeof tile.surfaceType === 'string' && tile.surfaceType.length > 0 ? tile.surfaceType : undefined,
-    structureType: typeof tile.structureType === 'string' && tile.structureType.length > 0 ? tile.structureType : undefined,
-    interactableKinds: Array.isArray(tile.interactableKinds)
+    terrainType: typeof tile.terrainType === 'string' && tile.terrainType.length > 0 ? tile.terrainType : defaultLayerSeed.terrain,
+    surfaceType: hasSurfaceType
+      ? (typeof tile.surfaceType === 'string' && tile.surfaceType.length > 0 ? tile.surfaceType : undefined)
+      : defaultLayerSeed.surface ?? undefined,
+    structureType: hasStructureType
+      ? (typeof tile.structureType === 'string' && tile.structureType.length > 0 ? tile.structureType : undefined)
+      : defaultLayerSeed.structure ?? undefined,
+    interactableKinds: hasInteractableKinds && Array.isArray(tile.interactableKinds)
       ? tile.interactableKinds.filter((kind) => typeof kind === 'string' && kind.length > 0)
-      : undefined,
+      : defaultLayerSeed.interactables.length > 0 ? [...defaultLayerSeed.interactables] : undefined,
   };
   return normalized;
 }
