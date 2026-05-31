@@ -520,6 +520,8 @@ export interface PlayerStateSlice {
   selfRevision: number;
   self: ProjectedSelfState;
   panel?: ProjectedPanelState;
+  attrPanel?: ProjectedAttrPanelState;
+  actionPanel?: ProjectedActionPanelState;
   techniquePanel?: ProjectedPanelState['technique'];
   panelCursor: ProjectedPanelCursor;
 }

@@ -36,7 +36,7 @@ function runNoEventsProof(): { visibleSetBuilds: number; returnedSameEnvelope: b
   return { visibleSetBuilds: counters.visibleSetBuilds, returnedSameEnvelope: result === envelope };
 }
 
-function runSharedVisibleSetProof(): { visibleSetBuilds: number; combatEffects: number; aoiEffects: number } {
+function runSharedVisibleSetProof(): { visibleSetBuilds: number; combatEffects: number; aoiEffects: number; mirroredCombatEffects: number } {
   const counters = { visibleSetBuilds: 0, templateReads: 0 };
   const service = createService(
     counters,
@@ -47,12 +47,19 @@ function runSharedVisibleSetProof(): { visibleSetBuilds: number; combatEffects: 
   const result = service.appendEventBusPayload('player_1', {}, createView(), createPlayer(), { drainPlayer: true });
   const combatEffects = result?.worldDelta?.fx ?? [];
   const aoiEffects = result?.worldDelta?.eventBus?.aoiEffects ?? [];
+  const mirroredCombatEffects = result?.worldDelta?.eventBus?.combatEffects ?? [];
 
   assert.equal(counters.visibleSetBuilds, 1);
   assert.equal(counters.templateReads, 1);
   assert.equal(combatEffects.length, 1);
+  assert.equal(mirroredCombatEffects.length, 0);
   assert.equal(aoiEffects.length, 1);
-  return { visibleSetBuilds: counters.visibleSetBuilds, combatEffects: combatEffects.length, aoiEffects: aoiEffects.length };
+  return {
+    visibleSetBuilds: counters.visibleSetBuilds,
+    combatEffects: combatEffects.length,
+    aoiEffects: aoiEffects.length,
+    mirroredCombatEffects: mirroredCombatEffects.length,
+  };
 }
 
 function runClearCacheProof(): { projectorClears: number; eventBusDiscards: string[] } {

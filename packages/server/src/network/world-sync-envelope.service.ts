@@ -177,7 +177,6 @@ export class WorldSyncEnvelopeService {
         const nextEnvelope = envelope ?? {};
         const eventBus = {
             ...(playerDrain?.payload ?? {}),
-            ...(effects.length > 0 ? { combatEffects: effects } : {}),
             ...(aoiEffects.length > 0 ? { aoiEffects } : {}),
         };
         const worldDelta = nextEnvelope.worldDelta ?? {
@@ -191,7 +190,9 @@ export class WorldSyncEnvelopeService {
         if (effects.length > 0) {
             worldDelta.fx = effects;
         }
-        worldDelta.eventBus = eventBus;
+        if (Object.keys(eventBus).length > 0) {
+            worldDelta.eventBus = eventBus;
+        }
         nextEnvelope.worldDelta = worldDelta;
         if (playerDrain?.gmStatePush) {
             nextEnvelope.gmStatePush = true;

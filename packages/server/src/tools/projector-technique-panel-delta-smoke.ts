@@ -29,6 +29,7 @@ function main(): void {
   const expDeltaProof = proveTechniqueExpDeltaAvoidsStaticDetails();
   const levelDeltaProof = proveTechniqueLevelDeltaAvoidsStaticDetails();
   const attrPanelBonusProof = proveAttrPanelUsesProjectedTechniqueBonuses();
+  const attrWidePatchProof = proveAttrWidePatchAvoidsFullSnapshot();
   const actionCooldownProof = proveActionCooldownReadyTickDelta();
 
   console.log(JSON.stringify({
@@ -38,9 +39,10 @@ function main(): void {
     expDeltaProof,
     levelDeltaProof,
     attrPanelBonusProof,
+    attrWidePatchProof,
     actionCooldownProof,
     answers:
-      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影；行动面板会下发技能 cooldownReadyTick 的设置与清除差量。',
+      '功法面板首个全量包和新增功法仍可携带静态 skills/layers；每秒经验/等级动态变化只发字段级 patch，不再带 full/skills/layers/name 等模板详情；属性面板常驻 bonuses 使用投影后的功法加成，包含万法归元与凝气法灵脉投影；属性面板大范围数值变化仍发字段 patch，不回退 full；行动面板会下发技能 cooldownReadyTick 的设置与清除差量，并省略未变化的稳定开关。',
   }, null, 2));
 }
 
@@ -224,6 +226,7 @@ function proveActionCooldownReadyTickDelta(): {
   patchCarriesReadyTick: boolean;
   clearPatchCarriesAction: boolean;
   clearPatchHasNoReadyTick: boolean;
+  stableControlsOmitted: boolean;
 } {
   const service = createProjector();
   const player = createProjectorPlayer();
@@ -250,11 +253,71 @@ function proveActionCooldownReadyTickDelta(): {
   const patchCarriesReadyTick = activeAction?.cooldownReadyTick === 105;
   const clearPatchCarriesAction = clearAction?.cooldownLeft === 0;
   const clearPatchHasNoReadyTick = clearAction !== undefined && clearAction.cooldownReadyTick === undefined;
+  const stableControlsOmitted = activeEnvelope?.panelDelta?.act?.autoBattle === undefined
+    && activeEnvelope?.panelDelta?.act?.autoUsePills === undefined
+    && activeEnvelope?.panelDelta?.act?.combatTargetingRules === undefined
+    && activeEnvelope?.panelDelta?.act?.autoBattleStationary === undefined
+    && activeEnvelope?.panelDelta?.act?.autoIdleCultivation === undefined;
 
   assert.equal(patchCarriesReadyTick, true);
   assert.equal(clearPatchCarriesAction, true);
   assert.equal(clearPatchHasNoReadyTick, true);
-  return { patchCarriesReadyTick, clearPatchCarriesAction, clearPatchHasNoReadyTick };
+  assert.equal(stableControlsOmitted, true);
+  return { patchCarriesReadyTick, clearPatchCarriesAction, clearPatchHasNoReadyTick, stableControlsOmitted };
+}
+
+function proveAttrWidePatchAvoidsFullSnapshot(): {
+  attrIsPatch: boolean;
+  finalAttrsPatched: boolean;
+  numericStatsPatched: boolean;
+  stableLargeFieldsOmitted: boolean;
+} {
+  const service = createProjector();
+  const player = createProjectorPlayer();
+  service.createInitialEnvelope({ playerId: player.playerId, sessionId: 'projector_session' }, createProjectorView(), player);
+
+  player.attrs = {
+    ...player.attrs,
+    revision: 2,
+    finalAttrs: {
+      constitution: 11,
+      spirit: 12,
+      perception: 13,
+      talent: 14,
+      strength: 15,
+      meridians: 16,
+    },
+    numericStats: {
+      ...player.attrs.numericStats,
+      maxHp: 100,
+      maxQi: 101,
+      physAtk: 102,
+      spellAtk: 103,
+      physDef: 104,
+      spellDef: 105,
+      hit: 106,
+      dodge: 107,
+      crit: 108,
+      antiCrit: 109,
+      resolvePower: 110,
+    },
+  };
+  const envelope = service.createDeltaEnvelope({ ...createProjectorView(), tick: 2 }, player);
+  const attr = envelope?.panelDelta?.attr;
+
+  const attrIsPatch = attr?.full === undefined;
+  const finalAttrsPatched = attr?.finalAttrs?.constitution === 11 && attr.finalAttrs.meridians === 16;
+  const numericStatsPatched = attr?.numericStats?.maxHp === 100 && attr.numericStats.resolvePower === 110;
+  const stableLargeFieldsOmitted = attr?.baseAttrs === undefined
+    && attr?.bonuses === undefined
+    && attr?.ratioDivisors === undefined
+    && attr?.specialStats === undefined;
+
+  assert.equal(attrIsPatch, true);
+  assert.equal(finalAttrsPatched, true);
+  assert.equal(numericStatsPatched, true);
+  assert.equal(stableLargeFieldsOmitted, true);
+  return { attrIsPatch, finalAttrsPatched, numericStatsPatched, stableLargeFieldsOmitted };
 }
 
 function createProjector(): WorldProjectorService {

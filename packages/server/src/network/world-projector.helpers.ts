@@ -35,7 +35,6 @@ import {
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import {
-  ATTR_DELTA_PATCH_THRESHOLD,
   type ProjectorViewLike,
   type ProjectorPlayerLike,
   type ProjectorNpcLike,
@@ -133,6 +132,8 @@ type SpecialStatsCacheEntry = {
 type PanelDeltaBuildResult = {
     delta: S2C_PanelDelta | null;
     panelCursor: ProjectedPanelCursor;
+    attrPanel?: ProjectedAttrPanelState;
+    actionPanel?: ProjectedActionPanelState;
     techniquePanel?: ProjectedPanelState['technique'];
 };
 
@@ -707,6 +708,8 @@ function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
     return {
         selfRevision: player.selfRevision,
         self: captureSelfState(player),
+        attrPanel: captureAttrPanelSlice(player),
+        actionPanel: captureActionPanelSlice(player),
         techniquePanel: captureTechniquePanelSlice(player),
         panelCursor: buildPanelCursor(player),
     };
@@ -1150,6 +1153,8 @@ function combineProjectorState(worldState: WorldStateSlice, playerState: PlayerS
         formations: worldState.formations,
         selfRevision: playerState.selfRevision,
         self: playerState.self,
+        attrPanel: playerState.attrPanel,
+        actionPanel: playerState.actionPanel,
         techniquePanel: playerState.techniquePanel,
         panelCursor: playerState.panelCursor,
     };
@@ -1224,6 +1229,73 @@ function buildFullActionDeltaFromState(action: ProjectedActionPanelState): S2C_P
     };
 }
 
+function buildActionDeltaFromState(
+    previousAction: ProjectedActionPanelState,
+    currentAction: ProjectedActionPanelState,
+    previousCursor: ProjectedPanelCursor,
+    currentCursor: ProjectedPanelCursor,
+): S2C_PanelActionDelta {
+    const actionPatch = previousCursor.actionRevision !== currentCursor.actionRevision
+        ? diffActionEntriesFromCursor(previousCursor, currentCursor, currentAction.actions)
+        : [];
+    const removedActionIds = previousCursor.actionRevision !== currentCursor.actionRevision
+        ? diffRemovedIds(previousCursor.actionIds, currentCursor.actionIds)
+        : [];
+    const actionOrderChanged = !isSameStringList(previousCursor.actionIds, currentCursor.actionIds);
+    return {
+        r: currentAction.revision,
+        actions: actionPatch.length > 0 ? actionPatch : undefined,
+        removeActionIds: removedActionIds.length > 0 ? removedActionIds : undefined,
+        actionOrder: actionOrderChanged ? buildActionOrder(currentAction.actions) : undefined,
+        autoBattle: previousAction.autoBattle !== currentAction.autoBattle ? currentAction.autoBattle : undefined,
+        autoUsePills: !isSameAutoUsePillList(previousAction.autoUsePills ?? [], currentAction.autoUsePills ?? [])
+            ? currentAction.autoUsePills
+            : undefined,
+        combatTargetingRules: !isSameCombatTargetingRules(previousAction.combatTargetingRules ?? null, currentAction.combatTargetingRules ?? null)
+            ? currentAction.combatTargetingRules
+            : undefined,
+        autoBattleTargetingMode: previousAction.autoBattleTargetingMode !== currentAction.autoBattleTargetingMode
+            ? currentAction.autoBattleTargetingMode
+            : undefined,
+        retaliatePlayerTargetId: previousAction.retaliatePlayerTargetId !== currentAction.retaliatePlayerTargetId
+            ? currentAction.retaliatePlayerTargetId ?? null
+            : undefined,
+        combatTargetId: previousAction.combatTargetId !== currentAction.combatTargetId
+            ? currentAction.combatTargetId ?? null
+            : undefined,
+        combatTargetLocked: previousAction.combatTargetLocked !== currentAction.combatTargetLocked
+            ? currentAction.combatTargetLocked
+            : undefined,
+        autoRetaliate: previousAction.autoRetaliate !== currentAction.autoRetaliate
+            ? currentAction.autoRetaliate
+            : undefined,
+        autoBattleStationary: previousAction.autoBattleStationary !== currentAction.autoBattleStationary
+            ? currentAction.autoBattleStationary
+            : undefined,
+        allowAoePlayerHit: previousAction.allowAoePlayerHit !== currentAction.allowAoePlayerHit
+            ? currentAction.allowAoePlayerHit
+            : undefined,
+        autoIdleCultivation: previousAction.autoIdleCultivation !== currentAction.autoIdleCultivation
+            ? currentAction.autoIdleCultivation
+            : undefined,
+        autoSwitchCultivation: previousAction.autoSwitchCultivation !== currentAction.autoSwitchCultivation
+            ? currentAction.autoSwitchCultivation
+            : undefined,
+        autoRootFoundation: previousAction.autoRootFoundation !== currentAction.autoRootFoundation
+            ? currentAction.autoRootFoundation
+            : undefined,
+        cultivationActive: previousAction.cultivationActive !== currentAction.cultivationActive
+            ? currentAction.cultivationActive
+            : undefined,
+        senseQiActive: previousAction.senseQiActive !== currentAction.senseQiActive
+            ? currentAction.senseQiActive
+            : undefined,
+        wangQiActive: previousAction.wangQiActive !== currentAction.wangQiActive
+            ? currentAction.wangQiActive
+            : undefined,
+    };
+}
+
 function buildFullBuffDelta(player: ProjectorPlayerLike): S2C_PanelDelta['buff'] {
     return buildFullBuffDeltaFromState(captureBuffPanelSlice(player));
 }
@@ -1259,30 +1331,6 @@ function buildAttrDeltaFromState(previousAttr: ProjectedAttrPanelState, currentA
     const miningSkillChanged = !isSameCraftSkillState(previousAttr.miningSkill, currentAttr.miningSkill);
     const formationSkillChanged = !isSameCraftSkillState(previousAttr.formationSkill, currentAttr.formationSkill);
     const transmissionSkillChanged = !isSameCraftSkillState(previousAttr.transmissionSkill, currentAttr.transmissionSkill);
-    const totalChanges = (stageChanged ? 1 : 0)
-        + baseAttrsPatch.changes
-        + (bonusesChanged ? 1 : 0)
-        + finalAttrsPatch.changes
-        + numericStatsPatch.changes
-        + ratioDivisorsPatch.changes
-        + (specialStatsChanged ? 1 : 0)
-        + (boneAgeBaseYearsChanged ? 1 : 0)
-        + (lifeElapsedTicksChanged ? 1 : 0)
-        + (lifespanYearsChanged ? 1 : 0)
-        + (realmProgressChanged ? 1 : 0)
-        + (realmProgressToNextChanged ? 1 : 0)
-        + (realmBreakthroughReadyChanged ? 1 : 0)
-        + (alchemySkillChanged ? 1 : 0)
-        + (forgingSkillChanged ? 1 : 0)
-        + (buildingSkillChanged ? 1 : 0)
-        + (gatherSkillChanged ? 1 : 0)
-        + (enhancementSkillChanged ? 1 : 0)
-        + (miningSkillChanged ? 1 : 0)
-        + (formationSkillChanged ? 1 : 0)
-        + (transmissionSkillChanged ? 1 : 0);
-    if (totalChanges > ATTR_DELTA_PATCH_THRESHOLD) {
-        return buildFullAttrDeltaFromState(currentAttr);
-    }
     return {
         r: currentAttr.revision,
         stage: stageChanged ? currentAttr.stage : undefined,
@@ -1325,8 +1373,18 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
 
 function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLike): PanelDeltaBuildResult {
     const panelCursor = buildPanelCursor(player, previous.panelCursor);
+    const currentAttrPanel = previous.attrPanel && canReuseAttrPanelSlice(previous.attrPanel, player)
+        ? previous.attrPanel
+        : captureAttrPanelSlice(player);
+    const currentActionPanel = previous.actionPanel && canReuseActionPanelSlice(previous.actionPanel, player)
+        ? previous.actionPanel
+        : captureActionPanelSlice(player);
     const hasTechniqueCache = Boolean(previous.techniquePanel);
     const delta = buildPanelDeltaFromCursor(previous.panelCursor, panelCursor, player, {
+        previousAttr: previous.attrPanel,
+        currentAttr: currentAttrPanel,
+        previousAction: previous.actionPanel,
+        currentAction: currentActionPanel,
         skipTechnique: hasTechniqueCache,
     }) ?? {};
     let techniquePanel = previous.techniquePanel;
@@ -1350,14 +1408,25 @@ function buildPanelUpdate(previous: PlayerStateSlice, player: ProjectorPlayerLik
         techniquePanel = captureTechniquePanelSlice(player);
     }
     const finalDelta = delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
-    return { delta: finalDelta, panelCursor, techniquePanel };
+    return { delta: finalDelta, panelCursor, attrPanel: currentAttrPanel, actionPanel: currentActionPanel, techniquePanel };
 }
 
 function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): S2C_PanelDelta | null {
     return buildPanelUpdate(previous, player).delta;
 }
 
-function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, currentCursor: ProjectedPanelCursor, player: ProjectorPlayerLike, options: { skipTechnique?: boolean } = {}): S2C_PanelDelta | null {
+function buildPanelDeltaFromCursor(
+    previousCursor: ProjectedPanelCursor,
+    currentCursor: ProjectedPanelCursor,
+    player: ProjectorPlayerLike,
+    options: {
+        skipTechnique?: boolean;
+        previousAttr?: ProjectedAttrPanelState;
+        currentAttr?: ProjectedAttrPanelState;
+        previousAction?: ProjectedActionPanelState;
+        currentAction?: ProjectedActionPanelState;
+    } = {},
+): S2C_PanelDelta | null {
     const delta: S2C_PanelDelta = {};
     if (previousCursor.inventoryRevision !== currentCursor.inventoryRevision) {
         const inventory = captureInventoryPanelSlice(player);
@@ -1388,39 +1457,16 @@ function buildPanelDeltaFromCursor(previousCursor: ProjectedPanelCursor, current
         };
     }
     if (previousCursor.attrSignature !== currentCursor.attrSignature) {
-        delta.attr = buildFullAttrDelta(player);
+        const currentAttr = options.currentAttr ?? captureAttrPanelSlice(player);
+        delta.attr = options.previousAttr
+            ? buildAttrDeltaFromState(options.previousAttr, currentAttr)
+            : buildFullAttrDeltaFromState(currentAttr);
     }
     if (previousCursor.actionSignature !== currentCursor.actionSignature) {
-        const action = captureActionPanelSlice(player);
-        const actionPatch = previousCursor.actionRevision !== currentCursor.actionRevision
-            ? diffActionEntriesFromCursor(previousCursor, currentCursor, action.actions)
-            : [];
-        const removedActionIds = previousCursor.actionRevision !== currentCursor.actionRevision
-            ? diffRemovedIds(previousCursor.actionIds, currentCursor.actionIds)
-            : [];
-        const actionOrderChanged = !isSameStringList(previousCursor.actionIds, currentCursor.actionIds);
-        delta.act = {
-            r: action.revision,
-            actions: actionPatch.length > 0 ? actionPatch : undefined,
-            removeActionIds: removedActionIds.length > 0 ? removedActionIds : undefined,
-            actionOrder: actionOrderChanged ? buildActionOrder(action.actions) : undefined,
-            autoBattle: action.autoBattle,
-            autoUsePills: action.autoUsePills,
-            combatTargetingRules: action.combatTargetingRules,
-            autoBattleTargetingMode: action.autoBattleTargetingMode,
-            retaliatePlayerTargetId: action.retaliatePlayerTargetId,
-            combatTargetId: action.combatTargetId,
-            combatTargetLocked: action.combatTargetLocked,
-            autoRetaliate: action.autoRetaliate,
-            autoBattleStationary: action.autoBattleStationary,
-            allowAoePlayerHit: action.allowAoePlayerHit,
-            autoIdleCultivation: action.autoIdleCultivation,
-            autoSwitchCultivation: action.autoSwitchCultivation,
-            autoRootFoundation: action.autoRootFoundation,
-            cultivationActive: action.cultivationActive,
-            senseQiActive: action.senseQiActive,
-            wangQiActive: action.wangQiActive,
-        };
+        const currentAction = options.currentAction ?? captureActionPanelSlice(player);
+        delta.act = options.previousAction
+            ? buildActionDeltaFromState(options.previousAction, currentAction, previousCursor, currentCursor)
+            : buildFullActionDeltaFromState(currentAction);
     }
     if (previousCursor.buffSignature !== currentCursor.buffSignature) {
         const buff = captureBuffPanelSlice(player);
