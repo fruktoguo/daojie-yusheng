@@ -234,6 +234,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
     sendCancelTechniqueTransmission(techId: string): void {
       deps.emitEvent(C2S.CancelTechniqueTransmission, { techId });
     },
+    sendForgetTechnique(techId: string): void {
+      deps.emitEvent(C2S.ForgetTechnique, { techId });
+    },
     /**
  * sendCastSkill：执行sendCast技能相关逻辑。
  * @param skillId string skill ID。

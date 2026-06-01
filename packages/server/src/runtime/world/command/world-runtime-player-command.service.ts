@@ -637,6 +637,9 @@ export class WorldRuntimePlayerCommandService {
             case 'cultivate':
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
+            case 'forgetTechnique':
+                this.worldRuntimeCultivationService.dispatchForgetTechnique(playerId, command.techniqueId, deps);
+                return;
             case 'startTechniqueTransmission':
                 if (command.mode === 'scripture_recording' || command.mode === 'scripture_contemplation') {
                     return this.dispatchStartTechniqueActivity(

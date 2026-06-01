@@ -207,6 +207,9 @@ export class WorldRuntimeCommandIntakeFacadeService {
     enqueueCultivate(playerId, techniqueIdInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCultivate(playerId, techniqueIdInput, deps);
     }
+    enqueueForgetTechnique(playerId, techniqueIdInput, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueForgetTechnique(playerId, techniqueIdInput, deps);
+    }
     enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps);
     }

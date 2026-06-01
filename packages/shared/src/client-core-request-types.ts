@@ -178,6 +178,15 @@ export interface UpdateTechniqueSkillAvailabilityRequestView {
   enabled: boolean;
 }
 
+/** 遗忘已掌握功法。 */
+export interface ForgetTechniqueRequestView {
+/**
+ * techId：功法ID。
+ */
+
+  techId: string;
+}
+
 /** 开始传授功法。 */
 export interface StartTechniqueTransmissionRequestView {
 /**

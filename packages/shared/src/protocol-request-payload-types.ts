@@ -18,6 +18,7 @@ import type {
   NavigateQuestRequestView,
   PingRequestView,
   CancelTechniqueTransmissionRequestView,
+  ForgetTechniqueRequestView,
   UpdateAutoBattleSkillsRequestView,
   UpdateAutoBattleTargetingModeRequestView,
   UpdateAutoUsePillsRequestView,
@@ -142,6 +143,8 @@ export interface C2S_UpdateCombatTargetingRules extends UpdateCombatTargetingRul
 export interface C2S_UpdateAutoBattleTargetingMode extends UpdateAutoBattleTargetingModeRequestView {}
 /** 切换功法技能开关。 */
 export interface C2S_UpdateTechniqueSkillAvailability extends UpdateTechniqueSkillAvailabilityRequestView {}
+/** 遗忘已掌握功法。 */
+export interface C2S_ForgetTechnique extends ForgetTechniqueRequestView {}
 /** 开始传授功法。 */
 export interface C2S_StartTechniqueTransmission extends StartTechniqueTransmissionRequestView {}
 /** 取消传法。 */

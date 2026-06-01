@@ -21,7 +21,7 @@ type MainTechniqueStateSourceOptions = {
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketRuntimeSender, 'sendCultivate' | 'sendCancelTechniqueTransmission'>;
+  socket: Pick<SocketRuntimeSender, 'sendCultivate' | 'sendCancelTechniqueTransmission' | 'sendForgetTechnique'>;
 };
 /**
  * MainTechniqueStateSource：统一结构类型，保证协议与运行时一致性。
@@ -39,6 +39,7 @@ export type MainTechniqueStateSource = ReturnType<typeof createMainTechniqueStat
 export function createMainTechniqueStateSource(options: MainTechniqueStateSourceOptions) {
   options.techniquePanel.setCallbacks(
     (techId) => options.socket.sendCultivate(techId),
+    (techId) => options.socket.sendForgetTechnique(techId),
     undefined,
     (techId) => options.socket.sendCancelTechniqueTransmission(techId),
   );

@@ -3848,7 +3848,7 @@
     }
     .tech-modal-stack {
       display: grid;
-      grid-template-rows: auto minmax(0, 1.2fr) minmax(0, 0.9fr);
+      grid-template-rows: auto minmax(0, 1.2fr) minmax(0, 0.9fr) auto;
       gap: 8px;
       height: 100%;
       min-height: 0;
@@ -3894,6 +3894,15 @@
       padding-bottom: 4px;
       margin-bottom: 6px;
       border-bottom: 1px solid var(--wash-ink);
+    }
+    .tech-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding-top: 6px;
+      border-top: 1px solid var(--wash-ink);
     }
     .tech-starfield-shell {
       display: grid;

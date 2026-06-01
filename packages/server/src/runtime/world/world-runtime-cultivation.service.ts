@@ -15,6 +15,7 @@ import { buildStructuredNotice } from './structured-notice.helpers';
 interface CultivationPlayerRuntimePort<TPlayer = unknown> {
   getPlayerOrThrow(playerId: string): TPlayer;
   cultivateTechnique(playerId: string, techniqueId: string | null): void;
+  forgetTechnique(playerId: string, techniqueId: string | null): string;
   getTechniqueName(playerId: string, techniqueId: string): string | null | undefined;
 }
 
@@ -49,6 +50,15 @@ export class WorldRuntimeCultivationService {
     const n = buildStructuredNotice('success', 'notice.cultivation.set-primary', `已设为主修 ${techniqueName}`, {
       vars: { techniqueName },
       pills: [{ key: 'techniqueName', style: 'target' }],
+    });
+    deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
+  }
+
+  dispatchForgetTechnique(playerId: string, techniqueId: string | null, deps: CultivationDeps): void {
+    const techniqueName = this.playerRuntimeService.forgetTechnique(playerId, techniqueId);
+    const n = buildStructuredNotice('warn', 'notice.cultivation.technique-forgotten', '已遗忘功法', {
+      vars: { techniqueName },
+      pills: [{ key: 'techniqueName', style: 'skill' }],
     });
     deps.queuePlayerNotice(playerId, n.text, n.kind, undefined, undefined, n.structured);
   }

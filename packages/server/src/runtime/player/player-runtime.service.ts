@@ -2706,6 +2706,41 @@ export class PlayerRuntimeService {
         return player;
     }
     /**
+ * forgetTechnique：遗忘已掌握功法并清理派生技能状态。
+ * @param playerId 玩家 ID。
+ * @param techniqueId technique ID。
+ * @returns 返回被遗忘功法名称。
+ */
+
+    forgetTechnique(playerId, techniqueId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const player = this.getPlayerOrThrow(playerId);
+
+        const normalized = typeof techniqueId === 'string' && techniqueId.trim() ? techniqueId.trim() : '';
+        if (!normalized) {
+            throw new BadRequestException('缺少要遗忘的功法。');
+        }
+        const index = player.techniques.techniques.findIndex((entry) => entry.techId === normalized);
+        if (index < 0) {
+            throw new NotFoundException('尚未学会该功法。');
+        }
+        const [removed] = player.techniques.techniques.splice(index, 1);
+        const techniqueName = typeof removed?.name === 'string' && removed.name.trim() ? removed.name.trim() : normalized;
+        if (player.techniques.cultivatingTechId === normalized) {
+            player.techniques.cultivatingTechId = undefined;
+            player.combat.cultivationActive = false;
+        }
+        player.techniques.revision += 1;
+        const currentTick = resolvePlayerRuntimeTick(player, 0);
+        this.playerAttributesService.recalculate(player);
+        this.rebuildActionState(player, currentTick);
+        this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
+        this.bumpPersistentRevision(player);
+        return techniqueName;
+    }
+    /**
  * infuseBodyTraining：执行infuseBodyTraining相关逻辑。
  * @param playerId 玩家 ID。
  * @param foundationAmount 参数说明。

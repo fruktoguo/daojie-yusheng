@@ -95,6 +95,8 @@ transmissionSkillFactor:
 
 `self_comprehension_allowed` 表示是否允许通过主修修炼自行领悟。功法书开启的普通功法、自己创建的自创功法为 `true`；被其他玩家传授加入的 pending 功法为 `false`，只能由传法 job 推进，不能设为主修；客户端按钮必须置灰，服务端必须拒绝该主修切换。
 
+已掌握功法可以从功法详情底部发起遗忘。客户端必须使用独立确认弹窗收集二次确认；服务端收到遗忘意图后只删除 `player_technique_state` 中对应的已掌握功法，若它正是主修功法则同时清空主修并停止修炼，随后重算属性、技能行动和自动战斗技能列表并标记 `technique/auto_battle_skill/attr` 脏域。遗忘不删除同名未领悟进度，也不绕过服务端权威校验。
+
 ## 技能灵力消耗
 
 ```typescript

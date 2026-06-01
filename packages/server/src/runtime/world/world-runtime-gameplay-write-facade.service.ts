@@ -265,6 +265,10 @@ export class WorldRuntimeGameplayWriteFacadeService {
         this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, techniqueId, deps);
     }
+    dispatchForgetTechnique(playerId, techniqueId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        deps.worldRuntimeCultivationService.dispatchForgetTechnique(playerId, techniqueId, deps);
+    }
     /**
  * dispatchStartTechniqueActivity：统一开始技艺活动写侧入口。
  * @param playerId 玩家 ID。

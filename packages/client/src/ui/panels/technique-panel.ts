@@ -29,6 +29,7 @@ import {
 import { getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
+import { confirmModalHost } from '../confirm-modal-host';
 import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
@@ -386,6 +387,7 @@ export class TechniquePanel {
   private onCultivate: ((techId: string | null) => void) | null = null;
   /** onToggleTechniqueSkills：on Toggle Technique技能。 */
   private onToggleTechniqueSkills: ((techId: string, enabled: boolean) => void) | null = null;
+  private onForgetTechnique: ((techId: string) => void) | null = null;
   private onCancelTechniqueTransmission: ((techId: string) => void) | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip();
@@ -475,10 +477,12 @@ export class TechniquePanel {
 
   setCallbacks(
     onCultivate: (techId: string | null) => void,
+    onForgetTechnique?: (techId: string) => void,
     onToggleTechniqueSkills?: (techId: string, enabled: boolean) => void,
     onCancelTechniqueTransmission?: (techId: string) => void,
   ): void {
     this.onCultivate = onCultivate;
+    this.onForgetTechnique = onForgetTechnique ?? null;
     this.onToggleTechniqueSkills = onToggleTechniqueSkills ?? null;
     this.onCancelTechniqueTransmission = onCancelTechniqueTransmission ?? null;
   }
@@ -582,6 +586,26 @@ export class TechniquePanel {
       return;
     }
     this.onCancelTechniqueTransmission?.(techId);
+  }
+
+  private handleForgetTechnique(tech: TechniqueState): void {
+    const ownerId = `technique-forget:${tech.techId}`;
+    confirmModalHost.open({
+      ownerId,
+      title: t('technique.forget.confirm.title', { name: tech.name }),
+      subtitle: t('technique.forget.confirm.subtitle', undefined),
+      bodyHtml: `
+        <p>${escapeHtml(t('technique.forget.confirm.body-1', { name: tech.name }))}</p>
+        <p>${escapeHtml(t('technique.forget.confirm.body-2', undefined))}</p>
+      `,
+      confirmLabel: t('technique.forget.confirm.ok', undefined),
+      cancelLabel: t('technique.forget.confirm.cancel', undefined),
+      confirmButtonClass: 'danger',
+      onConfirm: () => {
+        this.onForgetTechnique?.(tech.techId);
+        this.closeModal();
+      },
+    });
   }
 
   private openTechniqueDetail(techId: string): void {
@@ -992,6 +1016,9 @@ export class TechniquePanel {
           <div class="tech-modal-section-title">${t('technique.modal.section.focus', undefined)}</div>
           <div class="tech-modal-pane-body" data-tech-modal-focus-shell="true">${focusHtml}</div>
         </section>
+        <section class="tech-modal-actions">
+          <button class="small-btn danger" data-tech-forget="${escapeHtml(tech.techId)}" type="button">${escapeHtml(t('technique.forget.action', undefined))}</button>
+        </section>
       </div>
     `,
       onClose: () => {
@@ -1004,6 +1031,7 @@ export class TechniquePanel {
         this.mountConstellation(body, tech, layers, selectedLevel, skillsByLevel, milestones);
         this.bindSkillTooltips(body, signal);
         this.bindTechniqueExpTooltip(body, signal);
+        this.bindForgetButton(body, signal);
       },
     });
   }
@@ -1502,6 +1530,26 @@ export class TechniquePanel {
       if (!this.tooltip.isPinnedTo(node)) {
         this.tooltip.hide();
       }
+    }, { signal });
+  }
+
+  private bindForgetButton(modalBody: HTMLElement, signal: AbortSignal): void {
+    modalBody.addEventListener('click', (event) => {
+      const target = event.target;
+      const button = target instanceof HTMLElement
+        ? target.closest<HTMLElement>('[data-tech-forget]')
+        : null;
+      if (!button || !modalBody.contains(button)) {
+        return;
+      }
+      const techId = button.dataset.techForget;
+      const tech = techId ? this.findPreviewTechnique(techId) : null;
+      if (!tech) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      this.handleForgetTechnique(tech);
     }, { signal });
   }
 

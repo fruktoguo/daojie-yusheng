@@ -224,6 +224,12 @@ export class WorldRuntimePlayerCommandEnqueueService {
             techniqueId: normalizeTechniqueId(techniqueIdInput),
         }, deps);
     }
+    enqueueForgetTechnique(playerId, techniqueIdInput, deps) {
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'forgetTechnique',
+            techniqueId: normalizeTechniqueId(techniqueIdInput),
+        }, deps);
+    }
     enqueueStartTechniqueTransmission(playerId, learnerPlayerIdInput, techniqueIdInput, deps) {
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'startTechniqueTransmission',
