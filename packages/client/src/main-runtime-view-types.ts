@@ -49,7 +49,7 @@ export type MainRuntimeObservedEntity = {
  * kind：kind相关字段。
  */
 
-  kind?: string;  
+  kind?: RenderEntity['kind'];
   /**
  * monsterScale：怪物Scale相关字段。
  */

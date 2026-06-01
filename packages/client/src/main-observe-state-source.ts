@@ -13,6 +13,9 @@ import {
   Tile,
   TileType,
   VisibleBuffState,
+  isGroundInteractableObjectKind,
+  isMobileEntityObjectKind,
+  resolveWorldObjectRenderOrder,
   type PartialNumericStats,
 } from '@mud/shared';
 import { getEntityBadgeClassName, getMonsterPresentation } from './monster-presentation';
@@ -85,7 +88,7 @@ type ObserveEntity = {
  * kind：kind相关字段。
  */
 
-  kind?: string;  
+  kind?: RenderEntity['kind'] | 'ground';
   /**
  * monsterTier：怪物Tier相关字段。
  */
@@ -304,15 +307,11 @@ function isCrowdEntityKind(kind: string | null | undefined): boolean {
 }
 
 function isCharacterObserveEntityKind(kind: string | null | undefined): boolean {
-  return kind === 'player' || kind === 'monster' || kind === 'npc' || kind === 'crowd';
+  return isMobileEntityObjectKind(kind);
 }
 
-function isStructureObserveEntityKind(kind: string | null | undefined): boolean {
-  return kind === 'building' || kind === 'formation';
-}
-
-function isContainerObserveEntityKind(kind: string | null | undefined): boolean {
-  return kind === 'container';
+function isGroundInteractableObserveEntityKind(kind: string | null | undefined): boolean {
+  return isGroundInteractableObjectKind(kind);
 }
 
 function getObserveEntityNames(entities: ObserveEntityCardData[]): string[] {
@@ -1168,25 +1167,18 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const hasGroundDetail = Boolean(observedTileDetail?.ground);
     const portalDetail = observedTileDetail?.portal ?? null;
     const safeZone = observedTileDetail?.safeZone ?? null;
-    const sortedEntities = [...resolveObserveEntities(targetX, targetY)].sort((left, right) => {
-      const order = (kind?: string): number => (kind === 'crowd' ? 0 : kind === 'player' ? 1 : kind === 'container' ? 2 : kind === 'npc' ? 3 : kind === 'monster' ? 4 : 5);
-      return order(left.kind) - order(right.kind);
-    });
+    const sortedEntities = [...resolveObserveEntities(targetX, targetY)].sort((left, right) => (
+      resolveWorldObjectRenderOrder(left.kind) - resolveWorldObjectRenderOrder(right.kind)
+    ));
     const characterEntities = sortedEntities.filter((entity) => isCharacterObserveEntityKind(entity.kind));
-    const structureEntities = sortedEntities.filter((entity) => isStructureObserveEntityKind(entity.kind));
-    const containerEntities = sortedEntities.filter((entity) => isContainerObserveEntityKind(entity.kind));
-    const structureNames = getObserveEntityNames(structureEntities);
-    const containerNames = getObserveEntityNames(containerEntities);
+    const groundInteractableEntities = sortedEntities.filter((entity) => isGroundInteractableObserveEntityKind(entity.kind));
+    const groundInteractableNames = getObserveEntityNames(groundInteractableEntities);
     const baseStructureLabel = getStructureTypeLabel(observedTile.structureType, '');
-    const structureValueParts = [
-      ...(baseStructureLabel ? [baseStructureLabel] : []),
-      ...structureNames,
-    ];
     const terrainRows = [
       { label: t('observe.tile.label.type', undefined), value: getObservedTilePrimaryTypeLabel(observedTile) },
       { label: t('observe.tile.label.terrain', undefined), value: getTerrainTypeLabel(observedTile.terrainType, getObservedTilePrimaryTypeLabel(observedTile)) },
       { label: t('observe.tile.label.surface', undefined), value: getSurfaceTypeLabel(observedTile.surfaceType, t('observe.value.none', undefined)) },
-      { label: t('observe.tile.label.structure', undefined), value: structureValueParts.length > 0 ? structureValueParts.join('、') : t('observe.value.none', undefined) },
+      { label: t('observe.tile.label.structure', undefined), value: baseStructureLabel || t('observe.value.none', undefined) },
       { label: t('observe.tile.label.traversal-cost', undefined), value: formatMovementPointCost(observedTile) },
     ];
     if (!observedTile.walkable) {
@@ -1201,16 +1193,16 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     if (Number.isFinite(observedTile.qiDrainPerTick) && (observedTile.qiDrainPerTick ?? 0) > 0) {
       terrainRows.push({ label: t('observe.tile.label.qi-drain', undefined), value: `${Math.trunc(observedTile.qiDrainPerTick ?? 0)}` });
     }
-    if (Array.isArray(observedTile.interactableKinds) && observedTile.interactableKinds.length > 0) {
+    const groundInteractableValueParts = [
+      ...(Array.isArray(observedTile.interactableKinds)
+        ? observedTile.interactableKinds.map((kind) => getInteractableKindLabel(kind))
+        : []),
+      ...groundInteractableNames,
+    ];
+    if (groundInteractableValueParts.length > 0) {
       terrainRows.push({
         label: t('observe.tile.label.interactable', undefined),
-        value: observedTile.interactableKinds.map((kind) => getInteractableKindLabel(kind)).join('、'),
-      });
-    }
-    if (containerNames.length > 0) {
-      terrainRows.push({
-        label: t('observe.tile.label.container', undefined),
-        value: containerNames.join('、'),
+        value: groundInteractableValueParts.join('、'),
       });
     }
     const observedTileHp = typeof observedTileDetail?.hp === 'number'
@@ -1219,16 +1211,16 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       : typeof observedTile.hp === 'number' && typeof observedTile.maxHp === 'number'
         ? { hp: observedTile.hp, maxHp: observedTile.maxHp }
         : null;
-    const structureEntityHp = structureEntities.find((entity) => typeof entity.hp === 'number' && typeof entity.maxHp === 'number');
+    const groundInteractableEntityHp = groundInteractableEntities.find((entity) => typeof entity.hp === 'number' && typeof entity.maxHp === 'number');
     if (observedTileHp) {
       terrainRows.push({
-        label: structureValueParts.length > 0 ? t('observe.tile.label.structure-hp', undefined) : observedTile.type === TileType.Wall ? t('observe.tile.label.wall-hp', undefined) : t('observe.tile.label.tile-hp', undefined),
+        label: baseStructureLabel ? t('observe.tile.label.structure-hp', undefined) : observedTile.type === TileType.Wall ? t('observe.tile.label.wall-hp', undefined) : t('observe.tile.label.tile-hp', undefined),
         value: formatCurrentMax(observedTileHp.hp, observedTileHp.maxHp),
       });
-    } else if (structureEntityHp) {
+    } else if (groundInteractableEntityHp) {
       terrainRows.push({
-        label: t('observe.tile.label.structure-hp', undefined),
-        value: formatCurrentMax(structureEntityHp.hp, structureEntityHp.maxHp),
+        label: t('observe.tile.label.interactable-hp', undefined),
+        value: formatCurrentMax(groundInteractableEntityHp.hp, groundInteractableEntityHp.maxHp),
       });
     }
     if (characterEntities.length > 0) {

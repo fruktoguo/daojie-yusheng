@@ -38,6 +38,8 @@ import {
   TechniqueGrade,
   TimePhaseId,
   VisibleBuffState,
+  isGroundInteractableObjectKind,
+  isMobileEntityObjectKind,
   resolveWorldObjectRenderOrder,
 } from '@mud/shared';
 import { Camera } from './camera';
@@ -409,7 +411,7 @@ interface AnimEntity {
  * kind：kind相关字段。
  */
 
-  kind?: string;  
+  kind?: RenderEntity['kind'];
   /**
  * monsterTier：怪物Tier相关字段。
  */
@@ -537,6 +539,71 @@ interface RenderedAnimEntity {
 
 function getEntityRenderLayer(kind: string | null | undefined): number {
   return resolveWorldObjectRenderOrder(kind);
+}
+
+function resolveEntityFallbackLabel(kind: string | null | undefined): string {
+  switch (kind) {
+    case 'crowd':
+      return translateUi('map-render.entity.crowd', undefined);
+    case 'monster':
+      return translateUi('map-render.entity.monster', undefined);
+    case 'player':
+      return translateUi('map-render.entity.player', undefined);
+    case 'container':
+      return translateUi('map-render.entity.container', undefined);
+    case 'building':
+      return translateUi('map-render.entity.building', undefined);
+    case 'formation':
+      return translateUi('map-render.entity.formation', undefined);
+    case 'portal':
+      return translateUi('map-render.entity.portal', undefined);
+    case 'mechanism':
+      return translateUi('map-render.entity.mechanism', undefined);
+    case 'npc':
+    default:
+      return translateUi('map-render.entity.npc', undefined);
+  }
+}
+
+function resolveEntityLabelColor(kind: string | null | undefined): string {
+  switch (kind) {
+    case 'crowd':
+      return '#f4dfaf';
+    case 'monster':
+      return '#ffddcc';
+    case 'player':
+      return '#d8f3c3';
+    case 'container':
+      return '#ffe3b8';
+    case 'building':
+      return '#d7e6f5';
+    case 'formation':
+      return '#9cc8ff';
+    case 'portal':
+      return '#a7f3d0';
+    case 'mechanism':
+      return '#f9a8d4';
+    default:
+      return '#cce7ff';
+  }
+}
+
+function resolveEntityHpBarColor(kind: string | null | undefined, hostile: boolean | undefined): string {
+  if (hostile === true || kind === 'monster') {
+    return '#d15252';
+  }
+  switch (kind) {
+    case 'npc':
+      return '#58a8ff';
+    case 'container':
+      return '#c18b46';
+    case 'building':
+      return '#7dd3fc';
+    case 'formation':
+      return '#9cc8ff';
+    default:
+      return '#63c46b';
+  }
 }
 
 function isTileInsideFormationRange(anim: AnimEntity, gx: number, gy: number): boolean {
@@ -884,8 +951,8 @@ export class TextRenderer implements IRenderer {
   private groundPiles = new Map<string, GroundItemPileView>();
   /** 地面物品坐标索引，key 为 "x,y"。 */
   private groundPileByTileKey = new Map<string, GroundItemPileView>();
-  /** 容器地块键集合。 */
-  private containerTileKeys = new Set<string>();  
+  /** 会自行显示掉落状态的容器地块键集合，用于避免重复绘制地面物品堆。 */
+  private lootContainerTileKeys = new Set<string>();
   /**
  * pathCells：路径Cell相关字段。
  */
@@ -991,7 +1058,7 @@ export class TextRenderer implements IRenderer {
     this.threatArrows = [];
     this.groundPiles.clear();
     this.groundPileByTileKey.clear();
-    this.containerTileKeys.clear();
+    this.lootContainerTileKeys.clear();
     this.floatingTexts = [];
     this.attackTrails = [];
     this.warningZones = [];
@@ -1273,7 +1340,7 @@ export class TextRenderer implements IRenderer {
 
           if (isVisible) {
             const pile = this.groundPileByTileKey.get(key);
-            if (pile && !this.containerTileKeys.has(key)) {
+            if (pile && !this.lootContainerTileKeys.has(key)) {
               this.drawGroundPileIndicator(sx, sy, cellSize, pile);
             }
           }
@@ -1473,7 +1540,7 @@ export class TextRenderer implements IRenderer {
  /**
  * kind：kind相关字段。
  */
- kind?: string;    
+ kind?: RenderEntity['kind'];
  /**
  * monsterTier：怪物Tier相关字段。
  */
@@ -1534,7 +1601,7 @@ export class TextRenderer implements IRenderer {
     const seen = new Set<string>();
     const cellSize = getCellSize();
     const sameMotionSync = motionSyncToken !== undefined && motionSyncToken === this.lastMotionSyncToken;
-    this.containerTileKeys = new Set(
+    this.lootContainerTileKeys = new Set(
       list
         .filter((entry) => entry.kind === 'container')
         .map((entry) => `${entry.wx},${entry.wy}`),
@@ -1753,8 +1820,8 @@ export class TextRenderer implements IRenderer {
       const motionDx = anim.targetWX - anim.oldWX;
       const motionDy = anim.targetWY - anim.oldWY;
       const motionDistance = Math.hypot(motionDx, motionDy);
-      const isMoving = motionDistance > 0.5 && motionProgress < 1;
-      const isBuilding = anim.kind === 'building';
+      const isMoving = isMobileEntityObjectKind(anim.kind) && motionDistance > 0.5 && motionProgress < 1;
+      const isConstructionBuilding = anim.kind === 'building' && (anim.respawnTotalTicks ?? 0) > 0;
       const travelPulse = isMoving ? Math.sin(Math.PI * motionProgress) : 0;
       const landPhase = isMoving && motionProgress > 0.62
         ? Math.max(0, Math.min(1, (motionProgress - 0.62) / 0.38))
@@ -1768,7 +1835,7 @@ export class TextRenderer implements IRenderer {
       const impactScaleY = 1 - travelPulse * 0.06 - landPulse * 0.12;
 
       ctx.save();
-      if (isBuilding) {
+      if (isConstructionBuilding) {
         ctx.globalAlpha *= 0.58;
       }
       if (isMoving) {
@@ -1796,31 +1863,15 @@ export class TextRenderer implements IRenderer {
       ctx.restore();
 
       if (anim.kind) {
-        const isMonster = anim.kind === 'monster';
-        const isPlayer = anim.kind === 'player';
         const isNpc = anim.kind === 'npc';
-        const isContainer = anim.kind === 'container';
-        const isBuilding = anim.kind === 'building';
         const isFormation = anim.kind === 'formation';
-        const label = monsterPresentation?.label ?? anim.name ?? (
-          isCrowd
-            ? translateUi('map-render.entity.crowd', undefined)
-            : isMonster
-              ? translateUi('map-render.entity.monster', undefined)
-              : isPlayer
-                ? translateUi('map-render.entity.player', undefined)
-                : isContainer
-                  ? translateUi('map-render.entity.container', undefined)
-                  : isBuilding
-                    ? translateUi('map-render.entity.building', undefined)
-                    : isFormation
-                      ? translateUi('map-render.entity.formation', undefined)
-                      : translateUi('map-render.entity.npc', undefined)
-        );
+        const isGroundInteractable = isGroundInteractableObjectKind(anim.kind);
+        const isMobileEntity = isMobileEntityObjectKind(anim.kind);
+        const label = monsterPresentation?.label ?? anim.name ?? resolveEntityFallbackLabel(anim.kind);
         ctx.textBaseline = 'alphabetic';
         ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
-        const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : isBuilding ? '#d7e6f5' : isFormation ? '#9cc8ff' : '#cce7ff';
+        const labelColor = resolveEntityLabelColor(anim.kind);
         const badge = anim.badge ?? monsterPresentation?.badge;
         if (!isFormation || anim.formationShowText !== false) {
           if (badge) {
@@ -1843,30 +1894,22 @@ export class TextRenderer implements IRenderer {
           }
         }
 
-        if (!isCrowd && !isBuilding) {
+        if (!isCrowd && isMobileEntity) {
           this.drawBuffRows(sx, visualSy, renderedCellSize, anim.buffs);
         }
 
-        if (!isCrowd && !isBuilding && (anim.maxHp ?? 0) > 0) {
+        if (!isCrowd && !isConstructionBuilding && (isMobileEntity || isGroundInteractable) && (anim.maxHp ?? 0) > 0) {
           const ratio = Math.max(0, Math.min(1, (anim.hp ?? 0) / (anim.maxHp ?? 1)));
           const barX = visualSx + 3;
           const barY = visualSy + visualCellSize - 5;
           const barW = visualCellSize - 6;
           ctx.fillStyle = 'rgba(0,0,0,0.45)';
           ctx.fillRect(barX, barY, barW, 3);
-          ctx.fillStyle = anim.hostile === true
-            ? '#d15252'
-            : isMonster
-              ? '#d15252'
-              : isNpc
-                ? '#58a8ff'
-                : isContainer
-                  ? '#c18b46'
-                  : '#63c46b';
+          ctx.fillStyle = resolveEntityHpBarColor(anim.kind, anim.hostile);
           ctx.fillRect(barX, barY, barW * ratio, 3);
         }
 
-        if (isBuilding && (anim.respawnTotalTicks ?? 0) > 0) {
+        if (isConstructionBuilding) {
           const remaining = Math.max(0, Math.trunc(Number(anim.respawnRemainingTicks) || 0));
           const total = Math.max(1, Math.trunc(Number(anim.respawnTotalTicks) || 1));
           const ratio = Math.max(0, Math.min(1, 1 - (remaining / total)));
@@ -1880,7 +1923,7 @@ export class TextRenderer implements IRenderer {
           ctx.fillRect(barX, barY, Math.max(0, barW * ratio), barH);
         }
 
-        if (isContainer && (anim.respawnRemainingTicks ?? 0) > 0) {
+        if (anim.kind === 'container' && (anim.respawnRemainingTicks ?? 0) > 0) {
           ctx.textBaseline = 'top';
           ctx.font = buildCanvasFont('label', renderedCellSize * 0.22);
           this.drawOutlinedText(
@@ -2766,7 +2809,7 @@ export class TextRenderer implements IRenderer {
     this.threatArrows = [];
     this.groundPiles.clear();
     this.groundPileByTileKey.clear();
-    this.containerTileKeys.clear();
+    this.lootContainerTileKeys.clear();
     this.pathKeys.clear();
     this.pathIndexByKey.clear();
     this.pathTargetKey = null;

@@ -70,7 +70,7 @@ export interface ObservedTileEntityDetail {
  * kind：kind相关字段。
  */
 
-  kind?: EntityKind | 'player' | 'portal' | 'ground' | null;
+  kind?: EntityKind | 'ground' | null;
   /**
  * monsterTier：怪物Tier相关字段。
  */

@@ -52,7 +52,7 @@ export interface TickRenderEntityView {
  * kind：kind相关字段。
  */
 
-  kind?: EntityKind | 'player' | null;  
+  kind?: EntityKind | null;
   /**
  * monsterTier：怪物Tier相关字段。
  */

@@ -41,6 +41,13 @@ export const MOBILE_ENTITY_OBJECT_KINDS = [
 
 export type MobileEntityObjectKind = (typeof MOBILE_ENTITY_OBJECT_KINDS)[number];
 
+export const WORLD_OBJECT_KINDS = [
+  ...GROUND_INTERACTABLE_OBJECT_KINDS,
+  ...MOBILE_ENTITY_OBJECT_KINDS,
+] as const;
+
+export type WorldObjectKind = (typeof WORLD_OBJECT_KINDS)[number];
+
 export const PRESENTATION_LAYER_KINDS = [
   'preview',
   'overlay',
@@ -54,6 +61,11 @@ export type PresentationLayerKind = (typeof PRESENTATION_LAYER_KINDS)[number];
 
 const groundInteractableObjectKindSet = new Set<string>(GROUND_INTERACTABLE_OBJECT_KINDS);
 const mobileEntityObjectKindSet = new Set<string>(MOBILE_ENTITY_OBJECT_KINDS);
+const worldObjectKindSet = new Set<string>(WORLD_OBJECT_KINDS);
+
+export function isWorldObjectKind(kind: string | null | undefined): kind is WorldObjectKind {
+  return typeof kind === 'string' && worldObjectKindSet.has(kind);
+}
 
 export function isGroundInteractableObjectKind(kind: string | null | undefined): kind is GroundInteractableObjectKind {
   return typeof kind === 'string' && groundInteractableObjectKindSet.has(kind);
@@ -72,6 +84,10 @@ export function resolveWorldObjectSpaceLayer(kind: string | null | undefined): '
     return 'mobile_entity';
   }
   return 'ground_interactable';
+}
+
+export function isAttackableGroundInteractableObjectKind(kind: string | null | undefined): boolean {
+  return kind === 'container' || kind === 'formation' || kind === 'building';
 }
 
 export function resolveWorldObjectRenderOrder(kind: string | null | undefined): number {

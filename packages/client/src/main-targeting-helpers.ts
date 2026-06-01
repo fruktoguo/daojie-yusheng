@@ -9,10 +9,12 @@ import {
   FormationRangeShape,
   GridPoint,
   PlayerState,
+  RenderEntity,
   resolveTargetingGeometry,
   SkillDef,
   TargetingGeometrySpec,
   TargetingShape,
+  isAttackableGroundInteractableObjectKind,
 } from '@mud/shared';
 
 /** 记录当前待执行动作的目标参数，供落点、范围和目标解析复用。 */
@@ -94,7 +96,7 @@ export type TargetingEntityLike = {
  * kind：kind相关字段。
  */
 
-  kind?: string;
+  kind?: RenderEntity['kind'];
   /**
  * wx：wx相关字段。
  */
@@ -297,10 +299,21 @@ export function hasAffectableTargetInArea(
     });
   }
   return affectedCells.some((cell) => {
-    const hasMonster = args.entities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
-    const hasFormation = args.entities.some((entity) => entity.kind === 'formation' && entity.wx === cell.x && entity.wy === cell.y);
-    const hasPlayer = args.entities.some((entity) => args.isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
-    if (hasMonster || hasFormation || hasPlayer) {
+    const hasMobileTarget = args.entities.some((entity) => (
+      (entity.kind === 'monster' || args.isPlayerLikeEntityKind(entity.kind))
+      && entity.wx === cell.x
+      && entity.wy === cell.y
+    ));
+    const hasAttackableGroundInteractable = args.entities.some((entity) => (
+      isAttackableGroundInteractableObjectKind(entity.kind)
+      && entity.wx === cell.x
+      && entity.wy === cell.y
+      && (
+        entity.kind === 'formation'
+        || ((entity.hp ?? 0) > 0 && (entity.maxHp ?? 0) > 0)
+      )
+    ));
+    if (hasMobileTarget || hasAttackableGroundInteractable) {
       return true;
     }
     const hasFormationBoundary = args.entities.some((entity) => (
@@ -310,16 +323,6 @@ export function hasAffectableTargetInArea(
       && isCellOnFormationBoundary(entity, cell.x, cell.y)
     ));
     if (hasFormationBoundary) {
-      return true;
-    }
-    const hasAttackableContainer = args.entities.some((entity) => (
-      entity.kind === 'container'
-      && entity.wx === cell.x
-      && entity.wy === cell.y
-      && (entity.hp ?? 0) > 0
-      && (entity.maxHp ?? 0) > 0
-    ));
-    if (hasAttackableContainer) {
       return true;
     }
     const tile = args.getTile(cell.x, cell.y);

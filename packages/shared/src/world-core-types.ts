@@ -13,6 +13,7 @@ import type { FormationLifecycle } from './formation-types';
 import type { GridPoint } from './targeting';
 import type { NpcQuestMarker } from './world-view-types';
 import type { InteractableKind, StructureType, SurfaceType, TerrainType } from './map-layer-types';
+import type { WorldObjectKind } from './world-space-layers';
 
 /** 地形类型。 */
 export enum TileType {
@@ -469,7 +470,7 @@ export interface Portal {
 }
 
 /** 场景实体类型。 */
-export type EntityKind = 'npc' | 'monster' | 'container' | 'crowd' | 'formation' | 'building';
+export type EntityKind = WorldObjectKind;
 
 /** 怪物仇恨模式。 */
 export type MonsterAggroMode = 'always' | 'retaliate' | 'day_only' | 'night_only';
@@ -639,7 +640,7 @@ export interface RenderEntity {
  * kind：kind相关字段。
  */
 
-  kind?: EntityKind | 'player';
+  kind?: EntityKind;
   /**
  * monsterTier：怪物Tier相关字段。
  */

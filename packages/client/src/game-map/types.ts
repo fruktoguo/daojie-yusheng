@@ -99,7 +99,7 @@ export interface ObservedMapEntity {
  * kind：kind相关字段。
  */
 
-  kind?: string;  
+  kind?: RenderEntity['kind'];
   /**
  * monsterTier：怪物Tier相关字段。
  */

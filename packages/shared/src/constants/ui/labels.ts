@@ -157,7 +157,7 @@ export const NUMERIC_SCALAR_STAT_LABELS: Record<NumericScalarStatKey, string> = 
 };
 
 /** 实体类型中文标签 */
-export const ENTITY_KIND_LABELS: Record<EntityKind | 'player', string> = {
+export const ENTITY_KIND_LABELS: Record<EntityKind, string> = {
   player: '修士',
   monster: '妖兽',
   npc: '人物',
@@ -165,6 +165,8 @@ export const ENTITY_KIND_LABELS: Record<EntityKind | 'player', string> = {
   crowd: '人群',
   formation: '阵法',
   building: '建筑',
+  portal: '传送点',
+  mechanism: '机关',
 };
 
 /** 妖兽血脉层次中文标签 */
