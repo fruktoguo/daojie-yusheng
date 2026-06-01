@@ -62,7 +62,7 @@ function shouldAllowTask(definition: SchedulerTaskDefinition, snapshot: Schedule
   if (snapshot.flushPoolWaiting > 0 && definition.priority === 'low') {
     return false;
   }
-  if (snapshot.availableParallelism <= 2 && definition.priority === 'low') {
+  if (snapshot.availableParallelism <= 2 && definition.priority === 'low' && snapshot.backlogPressureLevel !== 'low') {
     return false;
   }
   return true;
@@ -81,7 +81,7 @@ function resolveDeferReason(definition: SchedulerTaskDefinition, snapshot: Sched
   if (snapshot.backlogPressureLevel === 'high' && definition.priority === 'low') {
     return 'backlog_pressure_high';
   }
-  if (snapshot.availableParallelism <= 2 && definition.priority === 'low') {
+  if (snapshot.availableParallelism <= 2 && definition.priority === 'low' && snapshot.backlogPressureLevel !== 'low') {
     return 'cpu_budget_exhausted';
   }
   return 'scheduler_governor_backpressure';
