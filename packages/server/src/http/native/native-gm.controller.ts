@@ -221,6 +221,7 @@ interface RedeemCodeRuntimeServicePort {
   createGroup(name: string, rewards: unknown[], count: number): Promise<unknown>;
   getGroupDetail(groupId: string): Promise<unknown>;
   updateGroup(groupId: string, name: string, rewards: unknown[]): Promise<unknown>;
+  deleteGroup(groupId: string): Promise<unknown>;
   appendCodes(groupId: string, count: number): Promise<unknown>;
   destroyCode(codeId: string): Promise<unknown>;
 }
@@ -1007,6 +1008,17 @@ export class NativeGmController {
   @Put('redeem-code-groups/:groupId')
   async updateRedeemCodeGroup(@Param('groupId') groupId: string, @Body() body: RedeemCodeGroupBody) {
     return this.redeemCodeRuntimeService.updateGroup(groupId, body?.name ?? '', body?.rewards ?? []);
+  }
+  /**
+ * deleteRedeemCodeGroup：删除未产生使用记录的兑换码分组。
+ * @param groupId string group ID。
+ * @returns 无返回值，直接更新RedeemCodeGroup相关状态。
+ */
+
+
+  @Delete('redeem-code-groups/:groupId')
+  async deleteRedeemCodeGroup(@Param('groupId') groupId: string) {
+    return this.redeemCodeRuntimeService.deleteGroup(groupId);
   }
   /**
  * appendRedeemCodes：执行appendRedeemCode相关逻辑。

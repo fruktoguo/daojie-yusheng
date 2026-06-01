@@ -306,6 +306,74 @@ export class RedeemCodePersistenceService {
             client.release();
         }
     }
+    /** 删除兑换码分组及其未使用码；数据库内已有使用记录时拒绝，保留核销审计。 */
+    async deleteGroup(groupId, revision) {
+        await this.ensureReady();
+        if (!this.pool || !this.enabled) {
+            return false;
+        }
+        const normalizedGroupId = typeof groupId === 'string' ? groupId.trim() : '';
+        const normalizedRevision = Math.max(1, Math.trunc(Number(revision) || 1));
+        if (!normalizedGroupId) {
+            return { ok: false, reason: 'invalid_group_id' };
+        }
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const groupResult = await client.query(
+                `
+                  SELECT group_id
+                  FROM ${REDEEM_CODE_GROUP_TABLE}
+                  WHERE group_id = $1
+                  FOR UPDATE
+                `,
+                [normalizedGroupId],
+            );
+            if ((groupResult.rowCount ?? 0) === 0) {
+                await client.query('COMMIT');
+                return { ok: true, deletedCodeCount: 0 };
+            }
+            const codeResult = await client.query(
+                `
+                  SELECT code_id, status
+                  FROM ${REDEEM_CODE_TABLE}
+                  WHERE group_id = $1
+                  FOR UPDATE
+                `,
+                [normalizedGroupId],
+            );
+            if (codeResult.rows.some((row) => row.status === 'used')) {
+                await client.query('ROLLBACK');
+                return { ok: false, reason: 'used_code_exists' };
+            }
+            const deletedCodes = await client.query(
+                `DELETE FROM ${REDEEM_CODE_TABLE} WHERE group_id = $1`,
+                [normalizedGroupId],
+            );
+            await client.query(
+                `DELETE FROM ${REDEEM_CODE_GROUP_TABLE} WHERE group_id = $1`,
+                [normalizedGroupId],
+            );
+            await client.query(
+                `
+                  INSERT INTO ${REDEEM_CODE_STATE_TABLE}(state_key, revision, updated_at)
+                  VALUES ($1, $2, now())
+                  ON CONFLICT (state_key)
+                  DO UPDATE SET revision = EXCLUDED.revision, updated_at = now()
+                `,
+                [REDEEM_CODE_STATE_KEY, normalizedRevision],
+            );
+            await client.query('COMMIT');
+            return { ok: true, deletedCodeCount: deletedCodes.rowCount ?? 0 };
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
+        finally {
+            client.release();
+        }
+    }
     /** 原子核销兑换码：只有 active 状态能被置为 used，跨节点并发只有一个调用成功。 */
     async claimCodeForUse(input) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

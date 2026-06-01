@@ -4882,6 +4882,7 @@ function renderRedeemPanel(): void {
       <div class="button-row" style="margin-top: 12px;">
         <button class="small-btn primary" type="button" data-action="${editingExisting ? 'save-redeem-group' : 'create-redeem-group'}">${editingExisting ? '保存分组' : '创建分组并生成兑换码'}</button>
         ${editingExisting ? '<button class="small-btn" type="button" data-action="append-redeem-codes">追加兑换码</button>' : ''}
+        ${editingExisting ? '<button class="small-btn danger" type="button" data-action="delete-redeem-group">删除分组</button>' : ''}
         <button class="small-btn" type="button" data-action="refresh-redeem-groups">刷新</button>
       </div>
       ${redeemLatestGeneratedCodes.length > 0 ? `
@@ -5112,6 +5113,28 @@ async function saveRedeemGroup(): Promise<void> {
   redeemLatestGeneratedCodes = [];
   await loadRedeemGroups(true);
   setStatus(t('gm.redeem.saved'));
+}
+
+/** deleteRedeemGroup：删除当前兑换分组。 */
+async function deleteRedeemGroup(): Promise<void> {
+  if (!selectedRedeemGroupId) {
+    throw new Error(t('gm.redeem.selected-group-required'));
+  }
+  const groupName = redeemGroupDetailState?.group.name
+    ?? redeemGroupsState.find((group) => group.id === selectedRedeemGroupId)?.name
+    ?? selectedRedeemGroupId;
+  if (!window.confirm(t('gm.redeem.delete.confirm', { groupName }))) {
+    return;
+  }
+  await request<BasicOkRes>(`${GM_API_BASE_PATH}/redeem-code-groups/${encodeURIComponent(selectedRedeemGroupId)}`, {
+    method: 'DELETE',
+  });
+  selectedRedeemGroupId = null;
+  redeemGroupDetailState = null;
+  redeemDraft = createDefaultRedeemGroupDraft();
+  redeemLatestGeneratedCodes = [];
+  await loadRedeemGroups(true);
+  setStatus(t('gm.redeem.deleted', { groupName }));
 }
 
 /** appendRedeemCodes：处理append兑换兑换码。 */
@@ -11901,6 +11924,12 @@ redeemWorkspaceEl?.addEventListener('click', (event) => {
   if (action === 'append-redeem-codes') {
     appendRedeemCodes().catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : t('gm.redeem.append.failed'), true);
+    });
+    return;
+  }
+  if (action === 'delete-redeem-group') {
+    deleteRedeemGroup().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : t('gm.redeem.delete.failed'), true);
     });
     return;
   }

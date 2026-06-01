@@ -198,6 +198,42 @@ export class RedeemCodeRuntimeService {
             };
         });
     }
+    /** 删除未产生使用记录的兑换码分组，并同步移除该分组下的码。 */
+    async deleteGroup(groupId) {
+        const normalizedGroupId = typeof groupId === 'string' ? groupId.trim() : '';
+        if (!normalizedGroupId) {
+            throw new BadRequestException('兑换码分组不存在');
+        }
+        return this.runExclusiveWithRedeemCatalogRollback(async () => {
+            const group = this.requireGroup(normalizedGroupId);
+            const groupCodes = this.codes.filter((entry) => entry.groupId === group.id);
+            if (groupCodes.some((entry) => entry.status === 'used')) {
+                throw new BadRequestException('已有使用记录的兑换码分组不能删除');
+            }
+            const deleteFn = this.redeemCodePersistenceService?.deleteGroup;
+            if (typeof deleteFn !== 'function') {
+                throw new ServiceUnavailableException('redeem_code_persistence_unavailable');
+            }
+            const nextRevision = this.revision + 1;
+            const result = await deleteFn.call(this.redeemCodePersistenceService, group.id, nextRevision);
+            if (result === false) {
+                throw new ServiceUnavailableException('redeem_code_persistence_unavailable');
+            }
+            if (result && typeof result === 'object' && result.ok === false) {
+                if (result.reason === 'used_code_exists') {
+                    throw new BadRequestException('已有使用记录的兑换码分组不能删除');
+                }
+                throw new BadRequestException('兑换码分组删除失败');
+            }
+            this.groups = this.groups.filter((entry) => entry.id !== group.id);
+            this.codes = this.codes.filter((entry) => entry.groupId !== group.id);
+            this.revision = nextRevision;
+            return {
+                ok: true,
+                deletedCodeCount: groupCodes.length,
+            };
+        });
+    }
     /** 销毁单个未使用兑换码。 */
     async destroyCode(codeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
