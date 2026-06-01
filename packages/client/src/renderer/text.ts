@@ -69,6 +69,7 @@ import { buildCanvasFont } from '../constants/ui/text';
 import { getEntityBadgeClassName, getMonsterPresentation } from '../monster-presentation';
 import { TextMeasureCache } from './text-measure-cache';
 import { TileSpriteCache } from './tile-sprite-cache';
+import { runtimeImagePack } from './runtime-image-pack';
 import { t as translateUi } from '../ui/i18n';
 
 /** 时间氛围过渡状态。 */
@@ -1011,6 +1012,8 @@ export class TextRenderer implements IRenderer {
   private previousVisibleTileKeys = new Set<string>();
   /** 上一版可见地块修订号。 */
   private previousVisibleTileRevision = -1;
+  /** 上一次运行时图包修订号。 */
+  private previousRuntimeImagePackRevision = -1;
   /** 不可见地块淡入淡出起始时间。 */
   private hiddenTileFadeStartedAt = new Map<string, TileVisibilityFadeState>();
   /** 可见地块淡入起始时间。 */
@@ -1074,6 +1077,7 @@ export class TextRenderer implements IRenderer {
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileKeys.clear();
     this.previousVisibleTileRevision = -1;
+    this.previousRuntimeImagePackRevision = -1;
     this.hiddenTileFadeStartedAt.clear();
     this.visibleTileFadeStartedAt.clear();
     this.textMeasureCache.clear();
@@ -1208,9 +1212,15 @@ export class TextRenderer implements IRenderer {
       || this.terrainCacheCamera.offsetY !== camera.offsetY;
     const sizeChanged = this.terrainCacheWidth !== sw || this.terrainCacheHeight !== sh;
     const tileRevisionChanged = visibleTileRevision !== this.previousVisibleTileRevision;
-    const needsTerrainRedraw = this.terrainDirty || cameraChanged || sizeChanged || tileRevisionChanged;
+    const imagePackRevision = runtimeImagePack.getRevision();
+    const imagePackChanged = imagePackRevision !== this.previousRuntimeImagePackRevision;
+    const needsTerrainRedraw = this.terrainDirty || cameraChanged || sizeChanged || tileRevisionChanged || imagePackChanged;
 
     if (needsTerrainRedraw && this.terrainCanvas && this.terrainCtx) {
+      if (imagePackChanged) {
+        this.tileSpriteCache.clear();
+        this.previousRuntimeImagePackRevision = imagePackRevision;
+      }
       // 同步离屏 canvas 尺寸
       if (sizeChanged) {
         this.terrainCanvas.width = sw;
@@ -1233,7 +1243,7 @@ export class TextRenderer implements IRenderer {
       this.renderWorldCore(
         camera, tileCache, visibleTiles, visibleTileRevision,
         visibleTileTransitionStartedAt, visibleTileTransitionDurationMs,
-        playerX, playerY, displayRangeX, displayRangeY, time,
+        playerX, playerY, displayRangeX, displayRangeY, time, imagePackRevision,
       );
       this.ctx = savedCtx;
     }
@@ -1257,6 +1267,7 @@ export class TextRenderer implements IRenderer {
     displayRangeX: number,
     displayRangeY: number,
     time: GameTimeState | null,
+    imagePackRevision: number,
   ) {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -1305,7 +1316,7 @@ export class TextRenderer implements IRenderer {
         if (!tile && !isVisible) continue;
 
         if (tile) {
-          this.tileSpriteCache.drawSprite(ctx, tile.type, cellSize, sx, sy);
+          this.tileSpriteCache.drawTile(ctx, tile, cellSize, sx, sy, imagePackRevision);
 
           if (
             this.fadingPath
@@ -1859,7 +1870,10 @@ export class TextRenderer implements IRenderer {
         ctx.rotate(glyphLean);
         ctx.scale(impactScaleX, impactScaleY);
       }
-      this.drawOutlinedText(anim.char, 0, 0, anim.color, 'rgba(15,12,10,0.9)');
+      const drewEntityImage = runtimeImagePack.drawEntity(ctx, anim, -visualCellSize / 2, -visualCellSize / 2, visualCellSize);
+      if (!drewEntityImage) {
+        this.drawOutlinedText(anim.char, 0, 0, anim.color, 'rgba(15,12,10,0.9)');
+      }
       ctx.restore();
 
       if (anim.kind) {

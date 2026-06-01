@@ -7,9 +7,11 @@ import {
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPHS,
   TILE_VISUAL_GLYPH_COLORS,
+  type Tile,
   type TileType,
 } from '@mud/shared';
 import { buildCanvasFont } from '../constants/ui/text';
+import { runtimeImagePack } from './runtime-image-pack';
 
 /** 地块精灵对象，用于命中率高的像素绘制缓存。 */
 export interface TileSprite {
@@ -68,7 +70,20 @@ function normalizeCellSize(cellSize: number): number {
 
 /** 以地块类型与像素大小生成精灵键。 */
 function buildSpriteKey(tileType: TileType, cellSize: number): string {
-  return `${tileType}:${cellSize}`;
+  return `legacy:${tileType}:${cellSize}`;
+}
+
+function buildLayeredSpriteKey(tile: Tile, cellSize: number, imagePackRevision: number): string {
+  return [
+    'tile',
+    tile.type,
+    tile.terrainType ?? '',
+    tile.surfaceType ?? '',
+    tile.structureType ?? '',
+    Array.isArray(tile.interactableKinds) ? tile.interactableKinds.join('+') : '',
+    cellSize,
+    imagePackRevision,
+  ].join(':');
 }
 
 /** 创建用于缓存绘制结果的离屏画布。 */
@@ -113,6 +128,20 @@ function renderTileSprite(canvas: HTMLCanvasElement, tileType: TileType, cellSiz
   }
 }
 
+/** 按完整分层地块绘制单张地块贴图，优先使用运行时图包。 */
+function renderLayeredTileSprite(canvas: HTMLCanvasElement, tile: Tile, cellSize: number): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return;
+  }
+
+  ctx.clearRect(0, 0, cellSize, cellSize);
+  if (runtimeImagePack.drawTile(ctx, tile, 0, 0, cellSize)) {
+    return;
+  }
+  renderTileSprite(canvas, tile.type, cellSize);
+}
+
 /** 地块 Sprite LRU 缓存，避免每帧重复重绘。 */
 export class TileSpriteCache {
   /** 精灵缓存 Map，键为 tileType:size。 */
@@ -153,6 +182,29 @@ export class TileSpriteCache {
     this.evictIfNeeded();
     return created;
   }  
+
+  getTileSprite(tile: Tile, cellSize: number, imagePackRevision: number): TileSprite {
+    const normalizedSize = normalizeCellSize(cellSize);
+    const key = buildLayeredSpriteKey(tile, normalizedSize, imagePackRevision);
+    const hit = this.cache.get(key);
+    if (hit) {
+      hit.lastAccess = this.accessSerial++;
+      return hit;
+    }
+
+    const canvas = createSpriteCanvas(normalizedSize);
+    renderLayeredTileSprite(canvas, tile, normalizedSize);
+    const created: TileSpriteCacheEntry = {
+      key,
+      tileType: tile.type,
+      cellSize: normalizedSize,
+      canvas,
+      lastAccess: this.accessSerial++,
+    };
+    this.cache.set(key, created);
+    this.evictIfNeeded();
+    return created;
+  }
   /**
  * drawSprite：执行drawSprite相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
@@ -172,6 +224,19 @@ export class TileSpriteCache {
     sy: number,
   ): TileSprite {
     const sprite = this.getSprite(tileType, cellSize);
+    ctx.drawImage(sprite.canvas, sx, sy);
+    return sprite;
+  }
+
+  drawTile(
+    ctx: CanvasRenderingContext2D,
+    tile: Tile,
+    cellSize: number,
+    sx: number,
+    sy: number,
+    imagePackRevision: number,
+  ): TileSprite {
+    const sprite = this.getTileSprite(tile, cellSize, imagePackRevision);
     ctx.drawImage(sprite.canvas, sx, sy);
     return sprite;
   }
@@ -227,6 +292,5 @@ export class TileSpriteCache {
     }
   }
 }
-
 
 

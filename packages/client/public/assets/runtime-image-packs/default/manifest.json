@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "tiles": {
+    "terrain:grass": {
+      "src": "tiles/grass.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "cover"
+    }
+  },
+  "legacyTiles": {
+    "grass": "terrain:grass"
+  },
+  "entities": {}
+}
