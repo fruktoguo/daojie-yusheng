@@ -1,5 +1,25 @@
 # 建筑系统
 
+## 世界空间分层口径
+
+建筑显示和交互按三类世界空间层理解：
+
+1. 基础空间层：服务端权威的 cell 真源，包含 `terrain`、`surface`、`structure`、`ground_interactable`。
+2. 活体/移动实体层：玩家、NPC、妖兽等会移动、占位、战斗或 AI 推进的对象。
+3. 表现层：建造预览、风水覆盖、选中/hover、范围提示、飘字和遮罩，只影响视觉，不进入权威规则。
+
+建筑 `placement.layer` 映射到基础空间层：
+
+| 建筑层 | 基础空间落点 | 说明 |
+|----|----|----|
+| structure | structure | 墙、门、窗等会改变结构层的建筑 |
+| floor | surface | 地板、回廊等地表覆盖 |
+| facility | ground_interactable | 丹炉、藏经台等地面交互物 |
+| furniture | ground_interactable | 蒲团、木床、储物架等地面交互物 |
+| decoration | ground_interactable | 装饰类地面交互物 |
+
+`ground_interactable` 不是旧 `TileType`。它承载地面对象语义，建筑、容器、阵法、传送点、机关都属于这一类，但来源、能力和持久化真源可以不同。
+
 ## 建筑层级（BuildingPlacementLayer）
 
 | 层 | ID | 说明 |

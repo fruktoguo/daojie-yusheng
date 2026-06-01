@@ -95,6 +95,7 @@ export * from './runtime-event-bus.types';
 export * from './template-registry-types';
 export * from './offline-gain-types';
 export * from './world-core-types';
+export * from './world-space-layers';
 export * from './leaderboard-types';
 export * from './panel-update-types';
 export * from './synced-panel-types';

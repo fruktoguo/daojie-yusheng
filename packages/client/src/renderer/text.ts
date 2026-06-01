@@ -38,6 +38,7 @@ import {
   TechniqueGrade,
   TimePhaseId,
   VisibleBuffState,
+  resolveWorldObjectRenderOrder,
 } from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
@@ -535,28 +536,7 @@ interface RenderedAnimEntity {
 }
 
 function getEntityRenderLayer(kind: string | null | undefined): number {
-  if (kind === 'formation') {
-    return 0;
-  }
-  if (kind === 'building') {
-    return 1;
-  }
-  if (kind === 'container') {
-    return 2;
-  }
-  if (kind === 'npc') {
-    return 3;
-  }
-  if (kind === 'monster') {
-    return 4;
-  }
-  if (kind === 'crowd') {
-    return 5;
-  }
-  if (kind === 'player') {
-    return 6;
-  }
-  return 2;
+  return resolveWorldObjectRenderOrder(kind);
 }
 
 function isTileInsideFormationRange(anim: AnimEntity, gx: number, gy: number): boolean {
