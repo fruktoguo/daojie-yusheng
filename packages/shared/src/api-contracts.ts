@@ -2471,6 +2471,33 @@ export interface GmShortcutRunRes {
   targetY?: number;
 }
 
+/** GM 数据兼容转换模式。 */
+export type GmCompatConversionMode = 'dry-run' | 'apply';
+
+/** GM 数据兼容转换样本差异摘要。 */
+export interface GmCompatConversionSample {
+  id: string;
+  name: string;
+  status: string;
+  before: unknown;
+  after: unknown;
+}
+
+/** GM 数据兼容转换执行结果。 */
+export interface GmCompatConversionRunRes {
+  ok: true;
+  conversionId: string;
+  mode: GmCompatConversionMode;
+  matchedRows: number;
+  convertedRows: number;
+  skippedRows: number;
+  failedRows: number;
+  verifiedRows: number;
+  samples: GmCompatConversionSample[];
+  errors: string[];
+  appliedAt?: string;
+}
+
 /** GM 地图传送点记录。 */
 export interface GmMapPortalRecord {
 /**

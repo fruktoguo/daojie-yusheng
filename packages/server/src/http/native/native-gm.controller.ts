@@ -28,6 +28,7 @@ import { NativeGmMarketTradeService } from './native-gm-market-trade.service';
 import { NativeGmPlayerService } from './native-gm-player.service';
 import { NativeGmWorldService } from './native-gm-world.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
+import { AiArtsStrengthV1ToV2Conversion } from '../../gm/compat-conversions/conversions/technique/ai-arts-strength-v1-to-v2';
 /**
  * UpdatePlayerPasswordBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -259,6 +260,7 @@ export class NativeGmController {
     @Inject(GmConfigPersistenceService) private readonly gmConfigService: GmConfigPersistenceService,
     @Inject(NativeGmGeneratedTechniqueService) private readonly nextGmGeneratedTechniqueService: NativeGmGeneratedTechniqueService,
     @Inject(NativeGmMarketTradeService) private readonly nextGmMarketTradeService: NativeGmMarketTradeService,
+    @Inject(AiArtsStrengthV1ToV2Conversion) private readonly aiArtsStrengthV1ToV2Conversion: AiArtsStrengthV1ToV2Conversion,
 
   ) {
     this.redeemCodeRuntimeService = redeemCodeRuntimeService;
@@ -836,6 +838,22 @@ export class NativeGmController {
   @Post('shortcuts/maintenance/repair-market-storage-item-ids')
   async repairMarketStorageItemIds() {
     return this.nextGmPlayerService.repairMarketStorageItemIds();
+  }
+
+  @Post('shortcuts/compat/ai-arts-strength-v1-to-v2/dry-run')
+  async dryRunAiArtsStrengthV1ToV2(@Req() request: unknown) {
+    return this.aiArtsStrengthV1ToV2Conversion.run({
+      mode: 'dry-run',
+      actor: extractGmActor(request),
+    });
+  }
+
+  @Post('shortcuts/compat/ai-arts-strength-v1-to-v2/apply')
+  async applyAiArtsStrengthV1ToV2(@Req() request: unknown) {
+    return this.aiArtsStrengthV1ToV2Conversion.run({
+      mode: 'apply',
+      actor: extractGmActor(request),
+    });
   }
   /**
  * cleanupAbnormalTemporaryTiles：清理异常临时石头。

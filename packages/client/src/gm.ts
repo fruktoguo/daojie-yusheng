@@ -71,6 +71,7 @@ import {
   type GmManagedPlayerRecord,
   type GmPlayerAccountStatusFilter,
   type GmPlayerSortMode,
+  type GmCompatConversionRunRes,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
   type GmServerLogEntry,
@@ -10640,6 +10641,50 @@ async function repairMarketStorageItemIds(): Promise<void> {
   }
 }
 
+async function migrateAiArtsStrengthDraftsV1ToV2(): Promise<void> {
+  const button = document.getElementById('shortcut-migrate-ai-arts-strength-v1-to-v2') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(t('gm.shortcut.migrate-ai-arts.dry-run-started'));
+    const preview = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/ai-arts-strength-v1-to-v2/dry-run`, {
+      method: 'POST',
+    });
+    if (preview.convertedRows <= 0) {
+      setStatus(t('gm.shortcut.migrate-ai-arts.noop', {
+        skippedRows: Math.floor(preview.skippedRows),
+      }), preview.failedRows > 0);
+      return;
+    }
+    if (!window.confirm(t('gm.shortcut.migrate-ai-arts.confirm', {
+      matchedRows: Math.floor(preview.matchedRows),
+      convertedRows: Math.floor(preview.convertedRows),
+      skippedRows: Math.floor(preview.skippedRows),
+      failedRows: Math.floor(preview.failedRows),
+    }))) {
+      setStatus(t('gm.shortcut.migrate-ai-arts.cancelled'));
+      return;
+    }
+    const result = await request<GmCompatConversionRunRes>(`${GM_API_BASE_PATH}/shortcuts/compat/ai-arts-strength-v1-to-v2/apply`, {
+      method: 'POST',
+    });
+    await delayRefresh(t('gm.shortcut.migrate-ai-arts.done', {
+      matchedRows: Math.floor(result.matchedRows),
+      convertedRows: Math.floor(result.convertedRows),
+      skippedRows: Math.floor(result.skippedRows),
+      failedRows: Math.floor(result.failedRows),
+      verifiedRows: Math.floor(result.verifiedRows),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** cleanupAbnormalTemporaryTiles：处理cleanup Abnormal Temporary Tiles。 */
 async function cleanupAbnormalTemporaryTiles(): Promise<void> {
   if (!window.confirm(t('gm.shortcut.cleanup-abnormal-temp.confirm'))) {
@@ -11776,6 +11821,9 @@ document.getElementById('shortcut-cleanup-invalid-items')?.addEventListener('cli
 });
 document.getElementById('shortcut-repair-market-storage-item-ids')?.addEventListener('click', () => {
   repairMarketStorageItemIds().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-migrate-ai-arts-strength-v1-to-v2')?.addEventListener('click', () => {
+  migrateAiArtsStrengthDraftsV1ToV2().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-cleanup-abnormal-temporary-tiles')?.addEventListener('click', () => {
   cleanupAbnormalTemporaryTiles().catch((e) => console.error('[GM]', e));
