@@ -151,10 +151,10 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       element: ARTS_ELEMENT_ENUM,
       target: {
         type: ARTS_TARGET_TYPE_ENUM,
-        range: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，施法距离权重/倾向，不是真实格数`,
-        width: `integer，可选，line/box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}，横向覆盖权重/倾向，不是真实宽度`,
-        height: `integer，可选，box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}，纵向覆盖权重/倾向，不是真实高度`,
-        radius: `integer，可选，area 使用，${constants.structure.minRadius}到${constants.structure.maxRadius}，范围覆盖权重/倾向，不是真实半径`,
+        range: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，施法距离权重/倾向，不是真实格数；真实施法距离由服务端按预算反推，常规上限${constants.structure.maxCastRange}格，line 上限${constants.structure.maxLineCastRange}格`,
+        width: `integer，可选，line/box 使用，${constants.structure.minRange}到${constants.structure.maxRange}，横向覆盖权重/倾向，不是真实宽度`,
+        height: `integer，可选，box 使用，${constants.structure.minRange}到${constants.structure.maxRange}，纵向覆盖权重/倾向，不是真实高度`,
+        radius: `integer，可选，area 使用，${constants.structure.minRange}到${constants.structure.maxRange}，范围覆盖权重/倾向，不是真实半径`,
         targetMode: ARTS_TARGET_MODE_ENUM,
       },
       structureStrength: Object.fromEntries(ARTS_STRUCTURE_STRENGTH_KEYS.map((key) => [
@@ -173,8 +173,8 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       budgetOwnership: '禁止输出 totalBudget/inputBudget/targetBudget；总预算由服务端按品阶、境界等级和玉简数量动态计算，并按各项权重分配。',
       structureMeaning: [
         'structureStrength.cost 是灵力消耗权重；正数代表更低灵力消耗，负数代表更高灵力消耗，0表示基础消耗倍率1。',
-        `structureStrength.cooldown 是冷却权重；正数代表更短冷却，负数代表更长冷却，0表示${constants.structure.baseCooldownTicks}息。`,
-        `结构权重直接作为指数参与预算换算：正数按 ${constants.structure.positiveBudgetPerStrength}^权重，负数按 ${constants.structure.negativeBudgetPerStrength}^绝对值，不再做额外缩放。`,
+        `structureStrength.cooldown 是冷却权重；正数代表更短冷却，负数代表更长冷却，0预算的基础冷却为 ${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv 息。`,
+        'structureStrength 字段只参与总权重分配；服务端会先按总预算分给每一项，再用各项独立公式换算真实消耗、冷却或吟唱。',
         'structureStrength.chant 预留给吟唱强度；当前可写0。',
         '结构权重、范围权重、距离权重都会和伤害权重竞争总预算。',
         'structureStrength 里的字段都只是强度权重，不是真实运行时数值；不要输出 costMultiplier/cooldown/cooldownTicks。',
@@ -190,12 +190,13 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       rangeMeaning: [
         'target.range/radius/width/height 都是服务端展开真实 targeting 前的范围权重或覆盖倾向，不是真实格数、真实半径或真实宽高。',
         '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是 radius=32；请把它压缩为允许区间内的覆盖权重，由服务端换算真实半径。',
-        'range 表示施法距离倾向：数值越大越偏远程，0表示贴身或自身，最大值表示尽量远；不要把它当作最终施法距离。',
+        `range 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
+        `影响范围按预算换算覆盖格：每1点实际范围预算约增加${constants.structure.coverageCellsPerBudget}格，line/box/area 会按各自形状向下取整成真实宽度、边长或半径。`,
         'single 视为0覆盖强度；line/box/area 只选择形状和覆盖倾向，真实覆盖格数由服务端展开。',
       ],
     },
     forbiddenFields: [
-      'id', 'cost', 'costMultiplier', 'cooldown', 'range', 'targeting',
+      'id', 'cost', 'costMultiplier', 'cooldown', 'targeting',
       'effects', 'value', 'formula', 'buff', 'buffId', 'heal',
       'maxTargets', 'totalBudget', 'inputBudget', 'targetBudget',
       'damageValue', 'baseDamage',

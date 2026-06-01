@@ -1,6 +1,6 @@
 # AI 功法生成方案
 
-通过占比预算制 + JSON Schema 约束，让 AI 生成合法、平衡、可运营的功法。AI 与策划共用同一条战斗结算路径，数值安全由归一化机制保证而非人工审核。
+通过占比预算制 + JSON Schema 约束，让 AI 生成合法、平衡、可运营的功法。AI 与策划共用同一条战斗结算路径，数值安全由预算分配与真实值反推保证，而非人工审核。
 
 ---
 
@@ -12,8 +12,8 @@
 
 - 每个功法/技能有一份**固定预算**，由品阶 × 境界决定
 - AI 写的数值只是"权重"，不是最终值
-- 结算时所有效果项的权重按总预算归一化
-- AI 写 `+100000%` 也只是抢占预算里更大的份额，最终实际值被压回预算内
+- 结算时所有效果项的权重先切成分项预算，再按各项公式反推真实值
+- AI 写 `+100000%` 或“1 息冷却”也只是表达倾向，最终实际值仍由预算和转换公式决定
 
 ### 2.2 三层防线
 
@@ -21,9 +21,9 @@
 |------|------|------|
 | 结构合法性 | 字段缺失、类型错误、枚举越界 | JSON Schema + ajv 校验 |
 | 语义合法性 | `var` 引用、`buffId` 合法、AST 深度上限 | 白名单 + 运行时解析器试跑 |
-| 数值合法性 | 预算归一化 | 公式自动缩放，无需审核 |
+| 数值合法性 | 预算分配与真实值反推 | 权重自动压回预算，无需审核 |
 
-因为归一化兜底，**不再需要沙盒战斗对标作为硬门槛**，可降级为异常监控。
+因为预算系统兜底，**不再需要沙盒战斗对标作为硬门槛**，可降级为异常监控。
 
 ---
 
@@ -45,7 +45,7 @@
 ### 3.2 每类的预算机制概述
 
 - **内功**：六维总量由公式给出，AI 只填"分配到哪几维"和"小幅浮动"
-- **术法**：技能总预算由公式给出，AI 填效果结构和权重，服务端归一化
+- **术法**：技能总预算由公式给出，AI 填效果结构和权重，服务端展开真实值
 - **神通/秘术**：不经 AI，保留 formula 完整表达力供策划/GM 手配
 
 ---
@@ -118,11 +118,12 @@ meridians  = 235 × 0.32 = 75
 ### 5.1 单技能预算公式
 
 ```
-BUDGET_max = 3 + (realmLv × 0.1 + stage × 1) × 1.2^(g - 1)
+BUDGET_max = 3 + (realmLv × 0.1 + realmStage × 1) × 1.4^(g - 1) × majorRealmMultiplier
 
 realmLv = 1~127
-stage   = PLAYER_REALM_STAGE_LEVEL_RANGES 的索引，1~33
+realmStage = PLAYER_REALM_STAGE_LEVEL_RANGES 的境界阶段索引，1~33
 g       = 品阶索引，1~8
+majorRealmMultiplier = 大境界额外增幅，未配置时为 1
 ```
 
 **每层预算按 realmLv 线性缩放**：
@@ -133,19 +134,19 @@ BUDGET(layer) = BUDGET_max × layer / maxLayer
 
 完整境界对照（每技能满层预算）：
 
-| 品阶/境界 | realmLv | stage | BUDGET_max |
+| 品阶/境界 | realmLv | realmStage | BUDGET_max |
 |---|---:|---:|---:|
 | 凡阶凡俗境 | 1 | 1 | 4.1 |
 | 凡阶通脉境 | 12 | 4 | 8.2 |
-| 黄阶练气中期 | 23 | 7 | 14.2 |
-| 玄阶练气后期 | 30 | 8 | 18.8 |
-| 地阶金丹初期 | 46 | 12 | 31.7 |
-| 天阶元婴初期 | 60 | 15 | 46.5 |
-| 灵阶化神后期 | 78 | 20 | 72.2 |
-| 圣阶合体中期 | 96 | 25 | 106.3 |
-| 帝阶飞升 | 127 | 33 | 166.8 |
+| 黄阶练气中期 | 23 | 7 | 17.4 |
+| 玄阶练气后期 | 30 | 8 | 26.5 |
+| 地阶金丹初期 | 46 | 12 | 48.6 |
+| 天阶元婴初期 | 60 | 15 | 87.5 |
+| 灵阶化神后期 | 78 | 20 | 152.5 |
+| 圣阶合体中期 | 96 | 25 | 263.5 |
+| 帝阶飞升 | 127 | 33 | 484.7 |
 
-**技能数量**：AI 每个功法自选 1~2 个技能，每技能独立享受一份预算。
+**技能数量**：AI 首版每个术法功法只生成 1 个技能，该技能独立享受一份预算。
 
 ### 5.2 效果项消耗公式
 
@@ -188,52 +189,48 @@ chance           = 施放附加概率 [0, 1]
 stacksPerApply   = 单次命中附加层数，默认 1
 ```
 
-### 5.4 归一化
+### 5.4 预算分配与真实值反推
 
 ```
-RAW_TOTAL  = Σ 所有效果项 cost
-scale      = BUDGET(layer) / RAW_TOTAL
-每项实际值 = 原始权重 × scale
+totalWeight = Σ abs(itemWeight)
+itemBudget  = BUDGET(layer) × itemWeight / totalWeight
+真实值       = convert(itemBudget)
 ```
 
-**关键保证**：AI 写 `+100000%` 攻击、`+99%` 概率 `+60 秒` 永久眩晕，只要结构合法，归一化后都会被压缩进该层预算内。
+每个项目都有独立转换公式：属性基底按属性成本换成倍率，冷却预算换成真实冷却，消耗预算换成灵力消耗倍率，施法距离和范围预算换成真实 targeting 几何。
 
-### 5.5 样例（玄阶金丹期单技能，BUDGET_max = 18.2，满层）
+**关键保证**：AI 输出的是权重，不是最终数值。玩家写“1 息”“范围 32 格”只表示倾向，服务端仍按预算分配和转换公式反推真实值。
+
+有上下限的项目先算真实值再钳制；触顶/触底后多出的正预算回流给仍可增长的项目，最终兜底补给无上限的属性基底。
+
+### 5.5 样例（地阶金丹期单技能，BUDGET_max = 47.73，满层）
 
 AI 输出：
 
 ```json
 {
-  "base":          { "attr": "attack", "multiplier": 400 },
-  "layerAmp":      { "per": 15 },
-  "buffsApplied": [
-    {
-      "attr": "crit_rate",
-      "percent": 30,
-      "duration": 20,
-      "maxStack": 2,
-      "chance": 0.75,
-      "stacksPerApply": 1
-    }
-  ]
+  "target": { "type": "area", "range": 6, "radius": 6, "targetMode": "tile" },
+  "structureStrength": { "cost": -20, "cooldown": 80 },
+  "formulaStrength": { "attributeBases": { "spellAtk": 1 } }
 }
 ```
 
-计算：
+预算分配示意：
 
 ```
-倍率消耗        = 400 / 100                                  = 4.0
-layerAmp 消耗   = 15 × 0.1                                   = 1.5
-buff 消耗       = 30 × 0.1 × 1.5 × 1.5 × √0.75 × 1.0         ≈ 5.85
-────────────────────────────────────────────────────────
-RAW_TOTAL       = 11.35
-scale           = 18.2 / 11.35                               ≈ 1.604
+totalWeight = abs(6) + abs(6) + abs(-20) + abs(80) + abs(1) = 113
 
-实际：
-  攻击 × 641.6%
-  +24.1% × 功法层数 伤害
-  暴击 +48.1% 持续 20 秒 (2 层上限, 75% 概率)
+castRangeBudget = 47.73 × 6 / 113      ≈ 2.53
+shapeBudget     = 47.73 × 6 / 113      ≈ 2.53
+costBudget      = 47.73 × -20 / 113    ≈ -8.45
+cooldownBudget  = 47.73 × 80 / 113     ≈ 33.79
+spellAtkBudget  = 47.73 × 1 / 113      ≈ 0.42
+
+rangeBudget 2.53 可购买施法距离 2 格（距离 3 需要 2.88 预算）
+shapeBudget 2.53 可购买 area 半径 1（5 格，已用 2.00 预算）
 ```
+
+实际冷却会先按 `3 * realmLv * 0.95^cooldownBudget` 计算，再被最小 1 息钳制；多出的正预算回流到范围或属性基底，不会继续制造 `1.2^80` 级别的预算倍率。
 
 ---
 
@@ -474,7 +471,7 @@ function expandTechnique(def: TechniqueTemplate): TechniqueRuntime {
   // 技能展开（仅 arts）
   if (def.category === 'arts') {
     for (const skill of def.skills ?? []) {
-      // 按 BUDGET(layer) 归一化技能效果
+      // 按 BUDGET(layer) 分配预算并反推真实技能效果
       expandSkillWithBudget(skill, g, def.realmLv, maxLayer);
     }
   }
@@ -500,10 +497,10 @@ function expandTechnique(def: TechniqueTemplate): TechniqueRuntime {
      ↓
 5. 三层校验
    a. 结构 (ajv 按 schema)
-   b. 语义 (白名单引用、AST 深度 ≤ 6、预算归一可执行)
+   b. 语义 (白名单引用、AST 深度 ≤ 6、预算分配可执行)
    c. 业务 (类别不是 divine/secret、浮动在 ±15%/+10% 内)
      ↓
-6. 归一化解算 → 按预算公式生成运行时数据
+6. 预算展开 → 按预算公式生成运行时数据
      ↓
 7. 写入 draft 草稿表
      ↓
@@ -548,7 +545,7 @@ user:
   主题：{playerContext}
 ```
 
-**不注入策划 few-shot**：归一化已兜数值，Prompt 只需描述结构即可。
+**不注入策划 few-shot**：预算展开已兜数值，Prompt 只需描述结构即可。
 
 ### 8.4 三层校验
 
@@ -573,7 +570,7 @@ for (const skill of json.skills ?? []) {
 
 // 3. 业务
 const runtime = expandTechnique(json);
-// 归一化过程里已经自动把超额权重压回预算，不会失败
+// 预算展开过程里已经自动把超额权重压回预算，不会失败
 // 但若完全没有有效效果（全 0），拒绝
 if (runtime.effectiveBudgetUsed < 0.1) reject('empty technique');
 ```
@@ -763,7 +760,7 @@ function migrateInternal(old: LegacyTechnique): TechniqueTemplate {
 
 ### 11.3 术法迁移逻辑
 
-术法的 `skills[]` 结构保留，但需要重新归一化到新预算：
+术法的 `skills[]` 结构保留，但需要按新预算重新展开：
 
 ```ts
 function migrateArts(old: LegacyTechnique): TechniqueTemplate {
@@ -823,8 +820,9 @@ function migrateArts(old: LegacyTechnique): TechniqueTemplate {
   - `POWER_BUDGET_ATTR_COEF`（属性系数表）
   - `POWER_BUDGET_STAGE_WEIGHT = [1, 2, 4]`
   - `CAT_EXP_FACTOR`
-- 预算归一化解析器：
-  - 技能 RAW → scale → 实际值
+- 预算分配解析器：
+  - 技能权重 → itemBudget → 真实值
+  - 触顶/触底预算回流
   - Buff 系数链
 - UI 反向渲染：`attrRatio + attrFloat → 显示值`
 - 战斗路径接入新运行时结构，不改变 `SkillDef` 外形
@@ -872,13 +870,13 @@ function migrateArts(old: LegacyTechnique): TechniqueTemplate {
 | 内功属性公式 | `T = (g²·(realmLv+25) + 50) × (1 + attrFloat)` |
 | 属性浮动 r | 默认 0，范围 `[-0.15, +0.10]` |
 | 六维分配 | `attrRatio` 权重，服务端归一 |
-| 技能预算公式 | `BUDGET_max = 3 + (realmLv·0.1 + stage)·1.2^(g-1)` |
-| 技能数量 | 每功法 1~2 个（AI 自选） |
+| 技能预算公式 | `BUDGET_max = 3 + (realmLv·0.1 + realmStage)·1.4^(g-1)·majorRealmMultiplier` |
+| 技能数量 | 首版每功法 1 个 |
 | 技能倍率 | 每 100% = 1 点 |
 | 技能修饰乘数白名单 | 移速 10 / 境界 0.05 / 功法层 0.1 / 技艺 0.2 点/% |
 | Buff 公式 | `percent × 0.1 × 叠层 × duration × √chance × 应用层数` |
 | Buff 目标 | 任意战斗属性（不受白名单约束） |
-| 归一化 | 原始权重 × (BUDGET / RAW_TOTAL) |
+| 术法预算展开 | 权重切分为 itemBudget，再按各项转换公式反推真实值 |
 | 经验 BASE | `g² × (realmLv + 5)` |
 | 经验 K | 1.10 |
 | catFactor | `internal:1.0, arts:0.5, secret:1.0, divine:1.0` |
@@ -901,7 +899,7 @@ function migrateArts(old: LegacyTechnique): TechniqueTemplate {
 T = (g² × (realmLv + 25) + 50) × (1 + attrFloat)
 
 # 技能总预算（满层）
-BUDGET_max = 3 + (realmLv × 0.1 + stage × 1) × 1.2^(g - 1)
+BUDGET_max = 3 + (realmLv × 0.1 + realmStage × 1) × 1.4^(g - 1) × majorRealmMultiplier
 BUDGET(L)  = BUDGET_max × L / maxLayer
 
 # Buff 消耗
@@ -919,9 +917,9 @@ cost_per_percent = {
   技艺等级:      0.2,
 }
 
-# 技能归一化
-scale          = BUDGET(L) / Σ effect_costs
-实际效果值      = 原始权重 × scale
+# 技能预算分配
+itemBudget(i) = BUDGET(L) × itemWeight(i) / Σ abs(itemWeight)
+真实效果值       = convertByItem(itemBudget)
 
 # 经验
 BASE      = g² × (realmLv + 5)
@@ -975,5 +973,5 @@ craftLv.fengshui
 - [功法加成设计](./功法加成设计.md) — 策划人工调配数据（本方案的历史输入）
 - [基准基础属性值](../balance/基准基础属性值.md) — 指数属性曲线验证
 - [境界等级基准期望六维公式](../balance/境界等级基准期望六维公式.md) — 内功公式依据
-- `packages/shared/src/constants/gameplay/realm.ts` — `PLAYER_REALM_STAGE_LEVEL_RANGES`（大境界索引来源）
+- `packages/shared/src/constants/gameplay/realm.ts` — `PLAYER_REALM_STAGE_LEVEL_RANGES`（境界阶段索引来源）
 - `packages/shared/src/constants/gameplay/technique.ts` — `TECHNIQUE_GRADE_ORDER`（品阶索引来源）

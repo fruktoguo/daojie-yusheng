@@ -4,7 +4,7 @@
 
 通过 AI 动态生成合法、平衡、可运营的功法。核心保证：
 
-- **数值安全**：占比预算制 + 归一化，AI 输出权重而非绝对值
+- **数值安全**：占比预算制 + 分项转换，AI 输出权重而非绝对值
 - **结构安全**：JSON Schema + 白名单校验，拒绝非法结构
 - **热路径零开销**：生成后一次性展开，运行时走与静态功法完全相同的代码路径
 - **可复用**：AI 服务层抽象为通用基础设施，后续 AI 功能（NPC 对话、任务生成等）可直接复用
@@ -166,7 +166,7 @@ packages/server/src/runtime/technique-generation/
 ├── technique-generation-roll.ts          # 品阶/境界随机逻辑
 ├── technique-prompt-builder.ts           # Prompt 构造器
 ├── technique-candidate-validator.ts      # 三层校验器
-├── technique-budget-normalizer.ts        # 术法预算归一化
+├── technique-budget-normalizer.ts        # 术法预算分配与真实值反推
 ├── technique-generation-constants.ts     # 业务常量
 └── technique-generation-outbox.ts        # 审计日志
 ```
@@ -357,7 +357,7 @@ executeGeneration(jobId)  [异步 Worker / setImmediate]
   ├─ TechniqueCandidateValidator.validate(candidate)
   │     ├─ Layer 1: 结构校验（ajv schema）
   │     ├─ Layer 2: 语义校验（白名单/AST 深度）
-  │     └─ Layer 3: 数值校验（归一化可执行性）
+  │     └─ Layer 3: 数值校验（预算分配可执行性）
   ├─ TechniqueBudgetNormalizer.normalize(candidate)  [仅 arts]
   ├─ 组装 TechniqueTemplate
   ├─ INSERT generated_technique (status=draft)
@@ -391,14 +391,16 @@ class TechniqueCandidateValidator {
 |---|---|
 | 结构 | ajv schema 校验、字段类型、必填项 |
 | 语义 | category 限制（仅 internal/arts）、attrFloat 范围、SkillFormulaVar 白名单、buffId 合法、AST 深度 ≤ 6 |
-| 数值 | attrRatio 权重和 > 0、expDifficulty 范围、归一化可执行（非全零效果） |
+| 数值 | attrRatio 权重和 > 0、expDifficulty 范围、预算分配可执行（非全零效果） |
 
-### 4.6 术法预算归一化
+### 4.6 术法预算分配
 
-公式（详见 `AI功法生成方案.md §5`）：
-- `BUDGET_max = 3 + (realmLv × 0.1 + stage) × 1.2^(g-1)`
-- `scale = BUDGET(layer) / RAW_TOTAL`
-- 每项实际值 = 原始权重 × scale
+公式（详见 `docs/design/balance/术法预算量化设计.md`）：
+- `BUDGET_max = 3 + (realmLv × 0.1 + realmStage) × 1.4^(g-1) × majorRealmMultiplier`
+- `BUDGET(layer) = BUDGET_max × layer / maxLayer`
+- `itemBudget = BUDGET(layer) × itemWeight / Σ abs(itemWeight)`
+- 每项真实值由该项转换公式反推，冷却、消耗、施法距离、范围覆盖和公式基底各自处理上下限。
+- 每个转换方法返回真实值、已使用预算和未使用预算；触顶/触底后多出的正预算由上层预算分配器统一回流到仍可增长的项目，最终兜底补给无上限的属性基底。
 
 ---
 
@@ -707,7 +709,7 @@ type TechniquePreview = {
 
 - 展开后的 `layers` / `skills` 与静态功法结构相同
 - `calcTechniqueFinalAttrBonus()` 无需区分来源
-- 术法预算归一化保证数值在品阶预算内
+- 术法预算分配与真实值反推保证数值在品阶预算内
 
 ### 8.3 道具系统
 
@@ -727,7 +729,7 @@ type TechniquePreview = {
 |---|---|---|
 | 0 | 通用 AI 服务层（TokenMeter / Sanitizer / RetryPolicy / TaskExecution） | 1 周 |
 | 1 | 数据层（两张表 + preflight + 缓存服务 + Registry 合并） | 0.5 周 |
-| 2 | 校验与归一化（三层校验 + 术法预算 + Schema 导出） | 1 周 |
+| 2 | 校验与预算展开（三层校验 + 术法预算 + Schema 导出） | 1 周 |
 | 3 | 生成业务层（Service + PromptBuilder + 品阶随机 + 异步执行） | 1.5 周 |
 | 4 | 协议与前端（handler + 功法领悟界面 + 三端适配） | 1 周 |
 | 5 | 运营工具（GM 查询/禁用 + token 报表） | 0.5 周 |

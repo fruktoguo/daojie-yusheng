@@ -7,13 +7,11 @@ import assert from 'node:assert/strict';
 import type { Pool } from 'pg';
 import {
   S2C,
-  calculateTechniqueArtsStrengthBudgetMultiplier,
-  calculateTechniqueArtsStrengthEffectBudget,
-  calculateTechniqueArtsStrengthTotalBudget,
   calcTechniqueAttrValues,
   expandTechniqueArtsStrengthSkill,
   normalizeTechniqueArtsStrengthSkill,
 } from '@mud/shared';
+import type { SkillFormula, SkillFormulaVar } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
 import { TechniqueGenerationService } from '../runtime/technique-generation/technique-generation.service';
@@ -26,6 +24,7 @@ import {
 } from '../persistence/generated-technique-persistence.service';
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
+import { calcArtsBudgetMax } from '../runtime/technique-generation/technique-budget-normalizer';
 import { projectBootstrapTechniqueStateForSync } from '../network/world-sync-player-state.service';
 
 type QueryRecord = {
@@ -565,7 +564,7 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
   assert.equal(result.valid, true);
 }
 
-async function testZeroRangeArtsStrengthExpandsAsNoTargetSkill(): Promise<void> {
+async function testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill(): Promise<void> {
   const normalized = normalizeTechniqueArtsStrengthSkill({
     name: '雷环诀',
     desc: '雷光绕身成环，震荡近处妖邪。',
@@ -585,31 +584,77 @@ async function testZeroRangeArtsStrengthExpandsAsNoTargetSkill(): Promise<void> 
     realmLv: 31,
     skill: normalized,
   });
-  assert.equal(expanded.skill.range, 0);
-  assert.equal(expanded.skill.requiresTarget, false);
-  assert.equal(expanded.skill.targeting?.range, 0);
-  assert.equal(expanded.skill.targeting?.requiresTarget, false);
-  assert.equal(expanded.skill.targeting?.radius, 4);
+  assert.equal(expanded.skill.range, 1);
+  assert.equal(expanded.skill.requiresTarget, undefined);
+  assert.equal(expanded.skill.targeting?.range, 1);
+  assert.ok((expanded.skill.targeting?.radius ?? 0) >= 0);
 }
 
-async function testArtsStrengthBudgetUsesDirectWeights(): Promise<void> {
-  assert.equal(roundForSmoke(calculateTechniqueArtsStrengthBudgetMultiplier(-8)), 0.430467);
-  assert.equal(roundForSmoke(calculateTechniqueArtsStrengthBudgetMultiplier(1)), 1.2);
+async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> {
+  const normalized = normalizeTechniqueArtsStrengthSkill({
+    name: '散星诀',
+    desc: '催动灵力化作漫天星芒，覆盖广域却威能稀薄。',
+    unlockLevel: 1,
+    damageKind: 'spell',
+    element: 'water',
+    target: { type: 'area', range: 6, radius: 6, targetMode: 'tile' },
+    structureStrength: { cost: -20, cooldown: 80, chant: 0 },
+    formulaStrength: {
+      attributeBases: { spellAtk: 1 },
+    },
+  });
+  const expanded = expandTechniqueArtsStrengthSkill({
+    techniqueId: 'gen_scattered_star_arts_smoke',
+    grade: 'earth',
+    realmLv: 43,
+    skill: normalized,
+    targetBudget: calcArtsBudgetMax('earth', 43),
+  });
 
-  const structureBudgetMultiplier = calculateTechniqueArtsStrengthBudgetMultiplier(-8)
-    * calculateTechniqueArtsStrengthBudgetMultiplier(1)
-    * calculateTechniqueArtsStrengthBudgetMultiplier(1);
-  const totalBudget = calculateTechniqueArtsStrengthTotalBudget(4, structureBudgetMultiplier);
-  assert.equal(roundForSmoke(totalBudget), 2.4795);
-  assertApprox(calculateTechniqueArtsStrengthEffectBudget(totalBudget, structureBudgetMultiplier), 4, 0.0001);
-}
-
-function roundForSmoke(value: number): number {
-  return Math.round(value * 1_000_000) / 1_000_000;
+  assertApprox(expanded.totalBudget, 47.7272, 0.0001);
+  assert.equal(expanded.budgetBreakdown.totalWeight, 113);
+  assert.equal(expanded.skill.range, 2);
+  assert.equal(expanded.skill.targeting?.range, 2);
+  assert.equal(expanded.skill.targeting?.radius, 1);
+  assert.equal(expanded.skill.cooldown, 23);
+  assertApprox(expanded.skill.costMultiplier ?? 0, 4.6652, 0.0001);
+  const formula = extractSkillEffectFormula(expanded.skill.effects[0]);
+  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 2.4631, 0.001);
+  assert.equal(extractFormulaVarScale(formula, 'techLevel'), 0.1);
 }
 
 function assertApprox(actual: number, expected: number, epsilon: number): void {
   assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} is not within ${epsilon} of ${expected}`);
+}
+
+function extractFormulaVarScale(formula: SkillFormula | undefined, varName: SkillFormulaVar): number {
+  if (formula === undefined) {
+    return 0;
+  }
+  if (typeof formula === 'number') {
+    return 0;
+  }
+  if ('var' in formula && formula.var === varName) {
+    return Number(formula.scale ?? 1);
+  }
+  if ('args' in formula && Array.isArray(formula.args)) {
+    for (const child of formula.args) {
+      const scale = extractFormulaVarScale(child, varName);
+      if (scale !== 0) {
+        return scale;
+      }
+    }
+  }
+  if ('value' in formula) {
+    return extractFormulaVarScale(formula.value, varName);
+  }
+  return 0;
+}
+
+function extractSkillEffectFormula(effect: unknown): SkillFormula | undefined {
+  return effect && typeof effect === 'object' && 'formula' in effect
+    ? (effect as { formula?: SkillFormula }).formula
+    : undefined;
 }
 
 async function testArtsCandidateRejectsLegacyEffectsShape(): Promise<void> {
@@ -645,8 +690,8 @@ async function main(): Promise<void> {
   await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
-  await testZeroRangeArtsStrengthExpandsAsNoTargetSkill();
-  await testArtsStrengthBudgetUsesDirectWeights();
+  await testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill();
+  await testArtsStrengthBudgetAllocatesAndRefundsByItem();
   await testArtsCandidateRejectsLegacyEffectsShape();
   console.log('technique-generation-initialization-smoke ok');
 }

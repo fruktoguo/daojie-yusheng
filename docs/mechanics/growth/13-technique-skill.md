@@ -129,19 +129,20 @@ cost = costMultiplier × gradeQiCostMultiplier × realmLv × realmAttributeMulti
 内容和 AI 草稿只写权重，不直接写运行时 `effects[].formula`、`cost`、`cooldown`、`targeting`。
 伤害/治疗的效果强度只来自属性基底或变量基底，不再支持固定基础伤害值。
 
+目标展开口径：
+
 ```typescript
-structureBudgetMultiplier =
-  product(structureStrength.cost/cooldown/chant/area/range 对应的预算乘数)
-
-weight >= 0: multiplier = 1.2^weight
-weight < 0:  multiplier = 0.9^abs(weight)
-
-totalBudget = effectStrength * structureBudgetMultiplier
-effectBudget = totalBudget / structureBudgetMultiplier
-effectScale = effectBudget / effectStrength
+itemBudget = BUDGET(layer) * itemWeight / sum(abs(itemWeight))
+realValue = convertByItem(itemBudget)
 ```
 
-`totalBudget` 是结构折算后的技能总预算；运行时公式效果预算由服务端反推。多效果技能使用 `effectsStrength[].effectBudget` 表示单个伤害/治疗效果预算，纯 buff 不消耗效果预算。
+- `target.range/radius/width/height` 是施法距离和覆盖范围权重，不是真实格数。
+- `structureStrength.cost/cooldown/chant` 是结构权重，不是真实消耗、冷却或吟唱。
+- 冷却、消耗、施法距离、范围覆盖、属性基底和百分比组各自使用独立转换公式。
+- 有最小值或最大值的项目先展开真实值，再按真实可生效值反推已使用预算。
+- 每个转换方法返回真实值、已使用预算和未使用预算；触顶/触底后多出的正预算回流到仍可增长的项目，最终兜底补给无上限的属性基底。
+
+详细公式见 `docs/design/balance/术法预算量化设计.md`。正式运行时仍保存展开后的 `SkillDef`，战斗 tick 不读取 AI 权重草稿。
 
 ## 炼体系统
 
