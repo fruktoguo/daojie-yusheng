@@ -34,29 +34,54 @@
           "version": 1,
           "target": {
             "type": "box",
-            "maxTargets": 25,
-            "castRangeWeight": 8,
-            "areaWeight": 5
+            "castRangeWeight": 25.082266,
+            "areaWeight": 12,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 5,
+              "height": 5,
+              "maxTargets": 25
+            },
+            "rawRange": 8
           },
           "structureStrength": {
-            "cost": -11.406,
-            "cooldown": -20,
-            "cooldownTicks": 1800
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 1800,
+            "costMultiplier": 8
           },
-          "playerCast": {
-            "windupTicks": 3,
-            "warningColor": "#ffb14a"
-          },
-          "damageKind": "physical",
-          "formulaStrength": {
-            "attributeBases": {
-              "physAtk": 30
-            },
-            "percentBonuses": {
-              "techLevel": 1
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 30
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.2
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
             }
-          },
-          "totalBudget": 9.2233
+          ],
+          "totalBudget": 37.082266
+        },
+        "playerCast": {
+          "windupTicks": 3,
+          "warningColor": "#ffb14a"
         }
       }
     ]
@@ -96,30 +121,55 @@
           "version": 1,
           "target": {
             "type": "box",
-            "maxTargets": 49,
-            "castRangeWeight": 9,
-            "areaWeight": 7
+            "castRangeWeight": 34.398536,
+            "areaWeight": 24,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 7,
+              "height": 7,
+              "maxTargets": 49
+            },
+            "rawRange": 9
           },
           "structureStrength": {
-            "cost": -11.406,
-            "cooldown": -20,
-            "cooldownTicks": 1800
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 1800,
+            "costMultiplier": 8
           },
-          "playerCast": {
-            "windupTicks": 3,
-            "warningColor": "#ff8c42"
-          },
-          "damageKind": "spell",
-          "element": "fire",
-          "formulaStrength": {
-            "attributeBases": {
-              "spellAtk": 30
-            },
-            "percentBonuses": {
-              "techLevel": 1
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "fire",
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 30
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.2
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
             }
-          },
-          "totalBudget": 43.4437
+          ],
+          "totalBudget": 58.398536
+        },
+        "playerCast": {
+          "windupTicks": 3,
+          "warningColor": "#ff8c42"
         }
       }
     ]

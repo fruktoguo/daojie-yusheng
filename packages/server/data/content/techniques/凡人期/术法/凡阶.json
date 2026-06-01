@@ -18,22 +18,44 @@
           "version": 1,
           "target": {
             "type": "single",
-            "castRangeWeight": 1
+            "castRangeWeight": 0,
+            "rawTargeting": null,
+            "rawRange": 1
           },
           "structureStrength": {
-            "cooldown": 6.578,
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 10,
             "costMultiplier": 0
           },
-          "damageKind": "physical",
-          "formulaStrength": {
-            "attributeBases": {
-              "physAtk": 1
-            },
-            "extraPercentBonuses": {
-              "caster.realmLv": 0.5
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.physAtk",
+                      "scale": 1
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "caster.realmLv",
+                          "scale": 0.5
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
             }
-          },
-          "totalBudget": 4.9767
+          ],
+          "totalBudget": 0.000001
         }
       }
     ]
@@ -57,20 +79,51 @@
           "version": 1,
           "target": {
             "type": "single",
-            "castRangeWeight": 2
+            "castRangeWeight": 1.2,
+            "rawTargeting": null,
+            "rawRange": 2
           },
           "structureStrength": {
-            "cost": -7.604,
-            "cooldown": 6.578
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 10,
+            "costMultiplier": 4
           },
-          "damageKind": "physical",
-          "element": "wood",
-          "formulaStrength": {
-            "attributeBases": {
-              "physAtk": 3
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "element": "wood",
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "op": "add",
+                      "args": [
+                        30,
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 3
+                        }
+                      ]
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
             }
-          },
-          "totalBudget": 4.4672
+          ],
+          "totalBudget": 1.2
         }
       }
     ]

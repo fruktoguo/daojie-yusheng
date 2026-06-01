@@ -21,6 +21,7 @@ export interface TechniqueArtsStrengthTargetInput {
   type?: TechniqueArtsStrengthTargetType;
   castRangeWeight?: number;
   areaWeight?: number;
+  rawRange?: number;
   innerRadius?: number;
   checkerParity?: 'even' | 'odd';
   maxTargets?: number;
@@ -91,6 +92,7 @@ export interface NormalizedTechniqueArtsStrengthTarget {
   maxTargets?: number;
   targetMode?: 'any' | 'entity' | 'tile';
   rawTargeting?: SkillTargetingDef | null;
+  rawRange?: number;
   coveredCells: number;
   areaStrength: number;
   rangeStrength: number;
@@ -104,6 +106,8 @@ export interface NormalizedTechniqueArtsStrengthStructure {
   budgetWeight: number;
   costMultiplier: number;
   cooldownTicks: number;
+  costMultiplierOverride?: number;
+  cooldownTicksOverride?: number;
 }
 
 export interface NormalizedTechniqueArtsStrengthFormula {
@@ -245,32 +249,35 @@ function normalizeTarget(raw: unknown): NormalizedTechniqueArtsStrengthTarget {
   const rawTargeting = Object.prototype.hasOwnProperty.call(source, 'rawTargeting')
     ? normalizeRawTargeting(source.rawTargeting)
     : undefined;
+  const rawRange = Number.isFinite(Number(source.rawRange))
+    ? Math.max(0, Math.floor(Number(source.rawRange)))
+    : undefined;
   const maxTargets = Number.isFinite(Number(source.maxTargets)) && Number(source.maxTargets) > 0
     ? Math.max(1, Math.floor(Number(source.maxTargets)))
     : undefined;
 
   if (type === 'line') {
-    return buildTargetWithStrength({ type, range, width: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'box') {
-    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'orientedBox') {
-    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'checkerboard') {
     const checkerParity = source.checkerParity === 'odd' ? 'odd' : 'even';
-    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, checkerParity, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, checkerParity, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'area') {
-    return buildTargetWithStrength({ type, range, radius: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
+    return buildTargetWithStrength({ type, range, radius: areaWeight, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'ring') {
     const radius = areaWeight;
     const innerRadius = normalizePositiveWeight(source.innerRadius);
-    return buildTargetWithStrength({ type, range, radius, innerRadius, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(radius));
+    return buildTargetWithStrength({ type, range, radius, innerRadius, maxTargets, targetMode, rawTargeting, rawRange }, estimateCoveredCellsFromWeight(radius));
   }
-  return buildTargetWithStrength({ type: 'single', range, maxTargets, targetMode, rawTargeting }, 1);
+  return buildTargetWithStrength({ type: 'single', range, maxTargets, targetMode, rawTargeting, rawRange }, 1);
 }
 
 function normalizePositiveWeight(value: unknown): number {
@@ -358,6 +365,8 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
     budgetWeight,
     costMultiplier,
     cooldownTicks,
+    costMultiplierOverride: Object.prototype.hasOwnProperty.call(source, 'costMultiplier') ? costMultiplier : undefined,
+    cooldownTicksOverride: Object.prototype.hasOwnProperty.call(source, 'cooldownTicks') ? cooldownTicks : undefined,
   };
 }
 
@@ -693,7 +702,13 @@ function convertTargetBudget(
 } {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
   const maxRange = target.type === 'line' ? constants.maxLineCastRange : constants.maxCastRange;
-  const range = convertCastRangeBudget(rangeBudget, maxRange);
+  const range = target.rawRange !== undefined
+    ? {
+      value: target.rawRange,
+      usedBudget: roundTo(rangeBudget, 6),
+      refundBudget: 0,
+    }
+    : convertCastRangeBudget(rangeBudget, maxRange);
   const positiveShapeBudget = Math.max(0, shapeBudget);
   const maxCoveredCells = 1 + positiveShapeBudget * constants.coverageCellsPerBudget;
   const baseTarget = {
@@ -713,7 +728,7 @@ function convertTargetBudget(
         usedShapeBudget = (cells - lineLength) / constants.coverageCellsPerBudget;
       }
     }
-    converted = buildTargetWithStrength({ ...baseTarget, type: 'line', range: range.value, width }, lineLength * width);
+    converted = buildTargetWithStrength({ ...baseTarget, type: 'line', range: range.value, width, rawRange: target.rawRange }, lineLength * width);
   } else if (target.type === 'box' || target.type === 'orientedBox' || target.type === 'checkerboard') {
     let side = constants.minWidth;
     for (let candidate = constants.minWidth; candidate <= constants.maxBoxSide; candidate += 2) {
@@ -731,6 +746,7 @@ function convertTargetBudget(
       width: side,
       height: side,
       checkerParity: target.checkerParity,
+      rawRange: target.rawRange,
     }, type === 'checkerboard' ? Math.ceil(side * side / 2) : side * side);
   } else if (target.type === 'area' || target.type === 'ring') {
     let radius = constants.minRadius;
@@ -744,12 +760,12 @@ function convertTargetBudget(
     if (target.type === 'ring') {
       const innerRadius = Math.max(0, Math.min(radius, Math.floor(target.innerRadius ?? Math.max(radius - 1, 0))));
       const coveredCells = countRingCells(innerRadius, radius);
-      converted = buildTargetWithStrength({ ...baseTarget, type: 'ring', range: range.value, radius, innerRadius }, coveredCells);
+      converted = buildTargetWithStrength({ ...baseTarget, type: 'ring', range: range.value, radius, innerRadius, rawRange: target.rawRange }, coveredCells);
     } else {
-      converted = buildTargetWithStrength({ ...baseTarget, type: 'area', range: range.value, radius }, countCircleCells(radius));
+      converted = buildTargetWithStrength({ ...baseTarget, type: 'area', range: range.value, radius, rawRange: target.rawRange }, countCircleCells(radius));
     }
   } else {
-    converted = buildTargetWithStrength({ ...baseTarget, type: 'single', range: range.value }, 1);
+    converted = buildTargetWithStrength({ ...baseTarget, type: 'single', range: range.value, rawRange: target.rawRange }, 1);
   }
   return {
     target: converted,
@@ -774,6 +790,17 @@ function convertCostBudget(budget: number): BudgetConversionResult<number> {
   };
 }
 
+function convertCostBudgetWithOverride(budget: number, override: number | undefined): BudgetConversionResult<number> {
+  if (override !== undefined) {
+    return {
+      value: override,
+      usedBudget: roundTo(budget, 6),
+      refundBudget: 0,
+    };
+  }
+  return convertCostBudget(budget);
+}
+
 function convertCooldownBudget(budget: number, realmLv: number | undefined): BudgetConversionResult<number> {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
   const baseCooldown = Math.max(constants.minCooldownTicks, (Math.max(1, Math.floor(realmLv ?? 1)) * constants.cooldownBaseRealmLvMultiplier));
@@ -795,6 +822,21 @@ function convertCooldownBudget(budget: number, realmLv: number | undefined): Bud
     usedBudget: roundTo(usedBudget, 6),
     refundBudget: roundTo(Math.max(0, budget - usedBudget), 6),
   };
+}
+
+function convertCooldownBudgetWithOverride(
+  budget: number,
+  realmLv: number | undefined,
+  override: number | undefined,
+): BudgetConversionResult<number> {
+  if (override !== undefined) {
+    return {
+      value: override,
+      usedBudget: roundTo(budget, 6),
+      refundBudget: 0,
+    };
+  }
+  return convertCooldownBudget(budget, realmLv);
 }
 
 function convertChantBudget(budget: number): BudgetConversionResult<number> {
@@ -913,8 +955,15 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
     readAllocatedBudget(allocations, 'target.castRangeWeight'),
     readAllocatedBudget(allocations, 'target.areaWeight'),
   );
-  const costConversion = convertCostBudget(readAllocatedBudget(allocations, 'structure.cost'));
-  const cooldownConversion = convertCooldownBudget(readAllocatedBudget(allocations, 'structure.cooldown'), params.realmLv);
+  const costConversion = convertCostBudgetWithOverride(
+    readAllocatedBudget(allocations, 'structure.cost'),
+    params.skill.structure.costMultiplierOverride,
+  );
+  const cooldownConversion = convertCooldownBudgetWithOverride(
+    readAllocatedBudget(allocations, 'structure.cooldown'),
+    params.realmLv,
+    params.skill.structure.cooldownTicksOverride,
+  );
   const chantConversion = convertChantBudget(readAllocatedBudget(allocations, 'structure.chant'));
   const positiveRefundBudget = targetConversion.range.refundBudget
     + targetConversion.shape.refundBudget

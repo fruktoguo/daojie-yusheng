@@ -18,11 +18,15 @@
           "version": 1,
           "target": {
             "type": "single",
-            "castRangeWeight": 1
+            "castRangeWeight": 0,
+            "rawTargeting": null,
+            "rawRange": 1
           },
           "structureStrength": {
-            "cost": -9.828,
-            "cooldown": -14.854
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 300,
+            "costMultiplier": 6
           },
           "effectsStrength": [
             {
@@ -69,18 +73,19 @@
               "statMode": "flat"
             }
           ],
-          "requiresTarget": false,
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.75
-                }
-              ]
-            }
+          "totalBudget": 0.000001
+        },
+        "requiresTarget": false,
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.75
+              }
+            ]
           }
         }
       },
@@ -93,12 +98,18 @@
           "version": 1,
           "target": {
             "type": "single",
-            "maxTargets": 1,
-            "castRangeWeight": 6
+            "castRangeWeight": 12.4416,
+            "rawTargeting": {
+              "shape": "single",
+              "maxTargets": 1
+            },
+            "rawRange": 6
           },
           "structureStrength": {
-            "cost": -8.828,
-            "cooldown": -3.07
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 35,
+            "costMultiplier": 5
           },
           "effectsStrength": [
             {
@@ -106,15 +117,34 @@
               "damageKind": "spell",
               "element": "earth",
               "formulaStrength": {
-                "attributeBases": {
-                  "spellAtk": 10
-                },
-                "extraPercentBonuses": {
-                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
-                  "target.buff.terrain_molten_pool_burn.stacks": 0.1
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 10
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                          "scale": 0.05
+                        },
+                        {
+                          "var": "target.buff.terrain_molten_pool_burn.stacks",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
                 }
-              },
-              "effectBudget": 10.15
+              }
             },
             {
               "type": "buff",
@@ -138,21 +168,21 @@
               "color": "#ff8a54"
             }
           ],
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 1
-                }
-              ]
-            },
-            "windupTicks": 1,
-            "warningColor": "#ff2a2a"
+          "totalBudget": 12.4416
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 1
+              }
+            ]
           },
-          "totalBudget": 3.809
+          "windupTicks": 1,
+          "warningColor": "#ff2a2a"
         }
       },
       {
@@ -164,13 +194,19 @@
           "version": 1,
           "target": {
             "type": "line",
-            "maxTargets": 6,
-            "castRangeWeight": 6,
-            "areaWeight": 1
+            "castRangeWeight": 12.4416,
+            "rawTargeting": {
+              "shape": "line",
+              "width": 1,
+              "maxTargets": 6
+            },
+            "rawRange": 6
           },
           "structureStrength": {
-            "cost": -8.828,
-            "cooldown": -6.026
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 60,
+            "costMultiplier": 5
           },
           "effectsStrength": [
             {
@@ -178,14 +214,30 @@
               "damageKind": "spell",
               "element": "fire",
               "formulaStrength": {
-                "attributeBases": {
-                  "spellAtk": 10.5
-                },
-                "extraPercentBonuses": {
-                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 10.5
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                          "scale": 0.05
+                        }
+                      ]
+                    }
+                  ]
                 }
-              },
-              "effectBudget": 10.55
+              }
             },
             {
               "type": "buff",
@@ -229,25 +281,25 @@
               ]
             }
           ],
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.5
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
-                }
-              ]
-            },
-            "windupTicks": 1,
-            "warningColor": "#ff7a33"
+          "totalBudget": 12.4416
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.5
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
           },
-          "totalBudget": 4.1755
+          "windupTicks": 1,
+          "warningColor": "#ff7a33"
         }
       },
       {
@@ -259,13 +311,21 @@
           "version": 1,
           "target": {
             "type": "box",
-            "maxTargets": 9,
-            "castRangeWeight": 5,
-            "areaWeight": 3
+            "castRangeWeight": 8.2944,
+            "areaWeight": 4,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 3,
+              "height": 3,
+              "maxTargets": 9
+            },
+            "rawRange": 5
           },
           "structureStrength": {
-            "cost": -8.828,
-            "cooldown": -5.548
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 55,
+            "costMultiplier": 5
           },
           "effectsStrength": [
             {
@@ -273,11 +333,26 @@
               "damageKind": "spell",
               "element": "fire",
               "formulaStrength": {
-                "attributeBases": {
-                  "spellAtk": 10.2
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 10.2
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
                 }
-              },
-              "effectBudget": 10.2
+              }
             },
             {
               "type": "buff",
@@ -324,25 +399,25 @@
               ]
             }
           ],
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.75
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
-                }
-              ]
-            },
-            "windupTicks": 1,
-            "warningColor": "#ff6a2f"
+          "totalBudget": 12.2944
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.75
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
           },
-          "totalBudget": 4.6507
+          "windupTicks": 1,
+          "warningColor": "#ff6a2f"
         }
       },
       {
@@ -354,13 +429,21 @@
           "version": 1,
           "target": {
             "type": "checkerboard",
-            "maxTargets": 13,
-            "castRangeWeight": 5,
-            "areaWeight": 5
+            "castRangeWeight": 8.2944,
+            "areaWeight": 6,
+            "rawTargeting": {
+              "shape": "checkerboard",
+              "width": 5,
+              "height": 5,
+              "maxTargets": 13
+            },
+            "rawRange": 5
           },
           "structureStrength": {
-            "cost": -8.828,
-            "cooldown": -4.448
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 45,
+            "costMultiplier": 5
           },
           "effectsStrength": [
             {
@@ -368,14 +451,30 @@
               "damageKind": "spell",
               "element": "earth",
               "formulaStrength": {
-                "attributeBases": {
-                  "spellAtk": 10.8
-                },
-                "extraPercentBonuses": {
-                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 10.8
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                          "scale": 0.05
+                        }
+                      ]
+                    }
+                  ]
                 }
-              },
-              "effectBudget": 10.85
+              }
             },
             {
               "type": "buff",
@@ -399,25 +498,25 @@
               "color": "#ff8a54"
             }
           ],
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.5
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
-                }
-              ]
-            },
-            "windupTicks": 1,
-            "warningColor": "#ffc16f"
+          "totalBudget": 14.2944
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.5
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
           },
-          "totalBudget": 7.9991
+          "windupTicks": 1,
+          "warningColor": "#ffc16f"
         }
       },
       {
@@ -429,14 +528,21 @@
           "version": 1,
           "target": {
             "type": "ring",
-            "innerRadius": 1,
-            "maxTargets": 8,
-            "castRangeWeight": 5,
-            "areaWeight": 2
+            "castRangeWeight": 8.2944,
+            "areaWeight": 6,
+            "rawTargeting": {
+              "shape": "ring",
+              "innerRadius": 1,
+              "radius": 2,
+              "maxTargets": 8
+            },
+            "rawRange": 5
           },
           "structureStrength": {
-            "cost": -8.828,
-            "cooldown": -5.026
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 50,
+            "costMultiplier": 5
           },
           "effectsStrength": [
             {
@@ -444,15 +550,34 @@
               "damageKind": "spell",
               "element": "earth",
               "formulaStrength": {
-                "attributeBases": {
-                  "spellAtk": 11
-                },
-                "extraPercentBonuses": {
-                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
-                  "target.buff.terrain_molten_pool_burn.stacks": 0.1
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 11
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                          "scale": 0.05
+                        },
+                        {
+                          "var": "target.buff.terrain_molten_pool_burn.stacks",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
                 }
-              },
-              "effectBudget": 11.15
+              }
             },
             {
               "type": "buff",
@@ -473,25 +598,25 @@
               "statMode": "percent"
             }
           ],
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.25
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
-                }
-              ]
-            },
-            "windupTicks": 1,
-            "warningColor": "#ff9c64"
+          "totalBudget": 14.2944
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
           },
-          "totalBudget": 5.3713
+          "windupTicks": 1,
+          "warningColor": "#ff9c64"
         }
       },
       {
@@ -503,14 +628,21 @@
           "version": 1,
           "target": {
             "type": "ring",
-            "innerRadius": 3,
-            "maxTargets": 18,
-            "castRangeWeight": 6,
-            "areaWeight": 5
+            "castRangeWeight": 12.4416,
+            "areaWeight": 40,
+            "rawTargeting": {
+              "shape": "ring",
+              "innerRadius": 3,
+              "radius": 5,
+              "maxTargets": 18
+            },
+            "rawRange": 6
           },
           "structureStrength": {
-            "cost": -8.828,
-            "cooldown": -6.026
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 60,
+            "costMultiplier": 5
           },
           "effectsStrength": [
             {
@@ -518,15 +650,34 @@
               "damageKind": "spell",
               "element": "fire",
               "formulaStrength": {
-                "attributeBases": {
-                  "spellAtk": 11.5
-                },
-                "extraPercentBonuses": {
-                  "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
-                  "target.buff.terrain_molten_pool_burn.stacks": 0.1
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 11.5
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                          "scale": 0.05
+                        },
+                        {
+                          "var": "target.buff.terrain_molten_pool_burn.stacks",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
                 }
-              },
-              "effectBudget": 11.65
+              }
             },
             {
               "type": "buff",
@@ -550,25 +701,25 @@
               "color": "#ff8a54"
             }
           ],
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.25
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
-                }
-              ]
-            },
-            "windupTicks": 2,
-            "warningColor": "#ff4d36"
+          "totalBudget": 52.4416
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
           },
-          "totalBudget": 85.2469
+          "windupTicks": 2,
+          "warningColor": "#ff4d36"
         }
       },
       {
@@ -580,44 +731,77 @@
           "version": 1,
           "target": {
             "type": "box",
-            "maxTargets": 9,
-            "castRangeWeight": 5,
-            "areaWeight": 3
+            "castRangeWeight": 8.2944,
+            "areaWeight": 4,
+            "rawTargeting": {
+              "shape": "box",
+              "width": 3,
+              "height": 3,
+              "maxTargets": 9
+            },
+            "rawRange": 5
           },
           "structureStrength": {
-            "cost": -8.828,
-            "cooldown": -5.548
+            "cost": 0,
+            "cooldown": 0,
+            "cooldownTicks": 55,
+            "costMultiplier": 5
           },
-          "monsterCast": {
-            "conditions": {
-              "mode": "all",
-              "items": [
-                {
-                  "type": "hp_ratio",
-                  "op": "<=",
-                  "value": 0.25
-                },
-                {
-                  "type": "has_buff",
-                  "buffId": "buff.huanling_candan_faxiang"
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "spell",
+              "element": "earth",
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "var": "caster.stat.spellAtk",
+                      "scale": 12
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        },
+                        {
+                          "var": "target.buff.buff.huanling_rongmai_yin.stacks",
+                          "scale": 0.05
+                        },
+                        {
+                          "var": "target.buff.terrain_molten_pool_burn.stacks",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
                 }
-              ]
-            },
-            "windupTicks": 1,
-            "warningColor": "#ff3838"
-          },
-          "damageKind": "spell",
-          "element": "earth",
-          "formulaStrength": {
-            "attributeBases": {
-              "spellAtk": 12
-            },
-            "extraPercentBonuses": {
-              "target.buff.buff.huanling_rongmai_yin.stacks": 0.05,
-              "target.buff.terrain_molten_pool_burn.stacks": 0.1
+              }
             }
+          ],
+          "totalBudget": 12.2944
+        },
+        "monsterCast": {
+          "conditions": {
+            "mode": "all",
+            "items": [
+              {
+                "type": "hp_ratio",
+                "op": "<=",
+                "value": 0.25
+              },
+              {
+                "type": "has_buff",
+                "buffId": "buff.huanling_candan_faxiang"
+              }
+            ]
           },
-          "totalBudget": 5.5398
+          "windupTicks": 1,
+          "warningColor": "#ff3838"
         }
       },
       {
@@ -629,26 +813,60 @@
           "version": 1,
           "target": {
             "type": "single",
-            "maxTargets": 1,
-            "castRangeWeight": 5
+            "castRangeWeight": 8.2944,
+            "rawTargeting": {
+              "shape": "single",
+              "maxTargets": 1
+            },
+            "rawRange": 5
           },
           "structureStrength": {
-            "cooldown": 20,
+            "cost": 0,
+            "cooldown": 0,
             "cooldownTicks": 0,
             "costMultiplier": 0
           },
-          "monsterCast": {
-            "windupTicks": 1,
-            "warningColor": "#dca06a"
-          },
-          "damageKind": "physical",
-          "formulaStrength": {
-            "attributeBases": {
-              "physAtk": 5,
-              "spellAtk": 5
+          "effectsStrength": [
+            {
+              "type": "damage",
+              "damageKind": "physical",
+              "formulaStrength": {
+                "rawFormula": {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "var": "caster.stat.physAtk",
+                          "scale": 5
+                        },
+                        {
+                          "var": "caster.stat.spellAtk",
+                          "scale": 5
+                        }
+                      ]
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        1,
+                        {
+                          "var": "techLevel",
+                          "scale": 0.1
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
             }
-          },
-          "totalBudget": 460.0512
+          ],
+          "totalBudget": 8.2944
+        },
+        "monsterCast": {
+          "windupTicks": 1,
+          "warningColor": "#dca06a"
         }
       }
     ]
