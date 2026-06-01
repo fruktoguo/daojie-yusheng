@@ -154,6 +154,7 @@ export class TechniqueGenerationService {
         realmLv: rolledRealmLv,
         playerContext: sanitizedContext,
         playerId: params.playerId,
+        itemSpend,
         modelConfig,
       }).catch(() => undefined);
     });
@@ -168,6 +169,7 @@ export class TechniqueGenerationService {
     realmLv: number;
     playerContext: string;
     playerId: string;
+    itemSpend?: number;
     modelConfig?: AiTextModelConfig;
   }): Promise<GenerationExecutionResult> {
     const pool = this.pool;
@@ -190,6 +192,7 @@ export class TechniqueGenerationService {
       realmLv: params.realmLv,
       maxLayer,
       playerContext: params.playerContext,
+      itemSpend: params.itemSpend,
     });
 
     let candidate: Record<string, unknown> | null = null;
@@ -466,6 +469,7 @@ export class TechniqueGenerationService {
           realmLv: job.realmLv,
           playerContext: job.playerContext,
           playerId: job.playerId,
+          itemSpend: job.itemSpend,
           modelConfig,
         }).catch(() => undefined);
       });

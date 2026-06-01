@@ -25,6 +25,7 @@ import {
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
 import { calcArtsBudgetMax } from '../runtime/technique-generation/technique-budget-normalizer';
+import { buildTechniquePrompt } from '../runtime/technique-generation/technique-prompt-builder';
 import { projectBootstrapTechniqueStateForSync } from '../network/world-sync-player-state.service';
 
 type QueryRecord = {
@@ -564,6 +565,42 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
   assert.equal(result.valid, true);
 }
 
+async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
+  const artsPrompt = buildTechniquePrompt({
+    category: 'arts',
+    grade: 'earth',
+    realmLv: 43,
+    maxLayer: 9,
+    itemSpend: 3,
+    playerContext: '伤害范围32格,冷却1息,伤害特别低',
+  });
+  const artsPayload = JSON.parse(artsPrompt.userMessage) as {
+    generationContext?: Record<string, unknown>;
+    budgetContext?: Record<string, unknown>;
+    strengthRules?: { calculationFormulas?: string[] };
+  };
+  assert.equal(artsPayload.generationContext?.grade, 'earth');
+  assert.equal(artsPayload.generationContext?.realmLv, 43);
+  assert.equal(artsPayload.generationContext?.realmStageLabel, '金丹前期');
+  assert.equal(artsPayload.generationContext?.itemSpend, 3);
+  assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43), 0.0001);
+  assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
+
+  const internalPrompt = buildTechniquePrompt({
+    category: 'internal',
+    grade: 'mortal',
+    realmLv: 31,
+    maxLayer: 9,
+    playerContext: '稳固根基',
+  });
+  const internalPayload = JSON.parse(internalPrompt.userMessage) as {
+    generationContext?: { toneGuidance?: string[] };
+    budgetContext?: Record<string, unknown>;
+  };
+  assert.equal(internalPayload.budgetContext?.budgetType, 'internal_attr_ratio');
+  assert.ok((internalPayload.generationContext?.toneGuidance ?? []).some((entry) => entry.includes('不使用灭世')));
+}
+
 async function testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill(): Promise<void> {
   const normalized = normalizeTechniqueArtsStrengthSkill({
     name: '雷环诀',
@@ -690,6 +727,7 @@ async function main(): Promise<void> {
   await testGeneratedArtsTechniqueRecoversDraftSkillShape();
   await testInternalCandidateRejectsUnknownAttrRatioKeys();
   await testArtsCandidateAcceptsStrengthShape();
+  await testTechniquePromptIncludesRolledBudgetContext();
   await testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill();
   await testArtsStrengthBudgetAllocatesAndRefundsByItem();
   await testArtsCandidateRejectsLegacyEffectsShape();

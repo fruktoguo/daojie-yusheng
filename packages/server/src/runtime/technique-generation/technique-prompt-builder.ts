@@ -11,12 +11,22 @@
  * 不注入 few-shot（归一化已兜数值），只描述结构约束。
  */
 
-import type { TechniqueCategory, TechniqueGrade } from '@mud/shared';
+import type { PlayerRealmStage, TechniqueCategory, TechniqueGrade } from '@mud/shared';
 import {
+  PLAYER_REALM_ORDER,
+  PLAYER_REALM_STAGE_LEVEL_RANGES,
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
   TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
   TECHNIQUE_ARTS_STRENGTH_CONSTANTS,
+  TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE,
+  TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE,
+  TECHNIQUE_INTERNAL_STAGE_WEIGHT,
+  calcInternalTechniqueAttrTotal,
+  calcInternalTechniqueTotalExp,
+  getTechniqueGradeIndex,
+  resolveTechniqueStageLayers,
 } from '@mud/shared';
+import { calcArtsBudgetMax } from './technique-budget-normalizer';
 
 export interface TechniquePromptParams {
   category: TechniqueCategory;
@@ -24,6 +34,7 @@ export interface TechniquePromptParams {
   realmLv: number;
   maxLayer: number;
   playerContext: string;
+  itemSpend?: number;
 }
 
 export interface TechniquePromptOutput {
@@ -68,7 +79,7 @@ const ARTS_STRUCTURE_STRENGTH_KEYS = ['cost', 'cooldown', 'chant'] as const;
 const ARTS_PERCENT_BONUS_KEYS = ['techLevel', 'moveSpeed'] as const;
 
 export function buildTechniquePrompt(params: TechniquePromptParams): TechniquePromptOutput {
-  const { category, grade, realmLv, maxLayer, playerContext } = params;
+  const { category } = params;
 
   const systemMessage = category === 'internal' ? INTERNAL_SYSTEM_PROMPT : ARTS_SYSTEM_PROMPT;
   if (category === 'arts') {
@@ -78,22 +89,9 @@ export function buildTechniquePrompt(params: TechniquePromptParams): TechniquePr
     };
   }
 
-  const userParts: string[] = [
-    `生成一个${gradeLabel(grade)}${categoryLabel(category)}功法。`,
-    `品阶: ${grade}`,
-    `境界等级: ${realmLv}`,
-    `总层数: ${maxLayer}`,
-  ];
-
-  if (playerContext) {
-    userParts.push(`玩家主题描述: ${playerContext}`);
-  }
-
-  userParts.push('请直接输出 JSON，不要包含代码块标记或解释文本。');
-
   return {
     systemMessage,
-    userMessage: userParts.join('\n'),
+    userMessage: JSON.stringify(buildInternalPromptInput(params), null, 2),
   };
 }
 
@@ -123,8 +121,12 @@ export function buildRetryPrompt(
 
 function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<string, unknown> {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS;
+  const generationContext = buildGenerationContext(params);
+  const artsBudgetContext = buildArtsBudgetContext(params);
   return {
     task: '生成一个 AI 术法功法强度草稿',
+    generationContext,
+    budgetContext: artsBudgetContext,
     fixedInputs: {
       grade: params.grade,
       gradeLabel: gradeLabel(params.grade),
@@ -170,7 +172,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
     attributeBaseCostBy100Percent: TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
     allowedPercentBonusKeys: [...ARTS_PERCENT_BONUS_KEYS],
     strengthRules: {
-      budgetOwnership: '禁止输出 totalBudget/inputBudget/targetBudget；总预算由服务端按品阶、境界等级和玉简数量动态计算，并按各项权重分配。',
+      budgetOwnership: '禁止输出 totalBudget/inputBudget/targetBudget；本次实际总预算已在 budgetContext.actualTotalBudget 给出，服务端按各项权重分配并展开真实 SkillDef。',
       structureMeaning: [
         'structureStrength.cost 是灵力消耗权重；正数代表更低灵力消耗，负数代表更高灵力消耗，0表示基础消耗倍率1。',
         `structureStrength.cooldown 是冷却权重；正数代表更短冷却，负数代表更长冷却，0预算的基础冷却为 ${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv 息。`,
@@ -194,6 +196,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         `影响范围按预算换算覆盖格：每1点实际范围预算约增加${constants.structure.coverageCellsPerBudget}格，line/box/area 会按各自形状向下取整成真实宽度、边长或半径。`,
         'single 视为0覆盖强度；line/box/area 只选择形状和覆盖倾向，真实覆盖格数由服务端展开。',
       ],
+      calculationFormulas: artsBudgetContext.formulas,
     },
     forbiddenFields: [
       'id', 'cost', 'costMultiplier', 'cooldown', 'targeting',
@@ -212,6 +215,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       'target.range/radius/width/height 只填写权重意图，不填写真实施法距离、真实半径、真实宽高或真实覆盖格数。',
       '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
       '不要为了凑强度写过多文本；描述保持修仙风格。',
+      '名称、描述、威势措辞必须贴合 generationContext 的品阶、境界阶段和命名尺度，低境界不要写毁天灭地，高境界不要写成凡俗小术。',
     ],
     outputExample: {
       name: '分光诀',
@@ -237,6 +241,237 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       ],
     },
   };
+}
+
+function buildInternalPromptInput(params: TechniquePromptParams): Record<string, unknown> {
+  const generationContext = buildGenerationContext(params);
+  const internalBudgetContext = buildInternalBudgetContext(params);
+  return {
+    task: '生成一个 AI 内功功法强度草稿',
+    generationContext,
+    budgetContext: internalBudgetContext,
+    fixedInputs: {
+      grade: params.grade,
+      gradeLabel: gradeLabel(params.grade),
+      category: 'internal',
+      realmLv: params.realmLv,
+      maxLayer: params.maxLayer,
+      playerTheme: params.playerContext || undefined,
+    },
+    outputTopLevelSchema: {
+      name: 'string，中文，2到8字',
+      grade: `必须严格等于 ${params.grade}`,
+      category: '必须严格等于 internal',
+      realmLv: `必须严格等于 ${params.realmLv}`,
+      maxLayer: `必须严格等于 ${params.maxLayer}`,
+      expDifficulty: `number，可选，${TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE[0]}到${TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE[1]}，默认1`,
+      desc: 'string，可选，20到60字',
+      attrRatio: 'Record<AttrKey, number>，六维分配权重，正数，服务端归一化',
+      attrFloat: `number，可选，${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[0]}到${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[1]}，默认0`,
+    },
+    attrKeys: {
+      constitution: '体魄/肉身/生命承载',
+      spirit: '神识/元神/法术根基',
+      perception: '感知/身法/灵觉',
+      talent: '根骨/资质/悟性',
+      strength: '力道/气力/近战根基',
+      meridians: '经脉/真元/灵力运转',
+    },
+    strengthRules: {
+      budgetOwnership: '不要输出真实 layers、逐层属性或总属性；服务端按 attrRatio 和 attrFloat 展开。',
+      formulaMeaning: [
+        'attrRatio 是六维分配权重，不是最终属性数值；权重和不需要凑整。',
+        `attrFloat 只允许 ${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[0]} 到 ${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[1]}，通常保持0；只有主题明确偏弱或偏强时才微调。`,
+        '至少分配2个维度；主题偏拳掌可重 strength/constitution，玄妙法术可重 spirit/meridians，身法感知可重 perception/talent。',
+      ],
+      calculationFormulas: internalBudgetContext.formulas,
+    },
+    forbiddenFields: [
+      'id', 'layers', 'layerGains', 'skills', 'effects', 'totalBudget',
+      'inputBudget', 'targetBudget', 'attrTotal', 'totalExp',
+    ],
+    outputChecklist: [
+      '只输出单个 JSON 对象，必须可被 JSON.parse 解析。',
+      'grade/category/realmLv/maxLayer 必须严格等于 fixedInputs。',
+      'attrRatio 至少包含2个合法 attrKeys，值必须为正数。',
+      '不要输出真实 layers、逐层属性、技能公式或预算字段。',
+      '名称、描述、威势措辞必须贴合 generationContext 的品阶、境界阶段和命名尺度，低境界不要写毁天灭地，高境界不要写成凡俗小术。',
+    ],
+    outputExample: {
+      name: '玄息诀',
+      grade: params.grade,
+      category: 'internal',
+      realmLv: params.realmLv,
+      maxLayer: params.maxLayer,
+      expDifficulty: 1,
+      desc: '纳息归元，温养经脉，使灵力流转更为绵密。',
+      attrRatio: { spirit: 3, meridians: 2, perception: 1 },
+      attrFloat: 0,
+    },
+  };
+}
+
+function buildGenerationContext(params: TechniquePromptParams): Record<string, unknown> {
+  const realmStage = resolveRealmStageInfo(params.realmLv);
+  return {
+    rolled: true,
+    grade: params.grade,
+    gradeLabel: gradeLabel(params.grade),
+    gradeIndex: getTechniqueGradeIndex(params.grade),
+    category: params.category,
+    categoryLabel: categoryLabel(params.category),
+    realmLv: params.realmLv,
+    realmStage: realmStage.stage,
+    realmStageIndex: realmStage.stageIndex,
+    realmStageLabel: realmStage.label,
+    realmStageLevelRange: realmStage.levelRange,
+    maxLayer: params.maxLayer,
+    itemSpend: params.itemSpend,
+    playerTheme: params.playerContext || undefined,
+    toneGuidance: buildToneGuidance(params.grade, realmStage.label),
+  };
+}
+
+function buildInternalBudgetContext(params: TechniquePromptParams): Record<string, unknown> {
+  const attrFloatMin = TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[0];
+  const attrFloatMax = TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[1];
+  const attrTotalAtDefaultFloat = calcInternalTechniqueAttrTotal(params.grade, params.realmLv, 0);
+  const attrTotalMin = calcInternalTechniqueAttrTotal(params.grade, params.realmLv, attrFloatMin);
+  const attrTotalMax = calcInternalTechniqueAttrTotal(params.grade, params.realmLv, attrFloatMax);
+  const totalExpAtDefaultDifficulty = calcInternalTechniqueTotalExp(
+    params.grade,
+    params.realmLv,
+    params.maxLayer,
+    1,
+    'internal',
+  );
+  return {
+    budgetType: 'internal_attr_ratio',
+    attrTotalAtDefaultFloat: roundPromptNumber(attrTotalAtDefaultFloat),
+    attrTotalRangeByAttrFloat: {
+      minAttrFloat: attrFloatMin,
+      maxAttrFloat: attrFloatMax,
+      min: roundPromptNumber(attrTotalMin),
+      max: roundPromptNumber(attrTotalMax),
+    },
+    totalExpAtDefaultDifficulty: Math.round(totalExpAtDefaultDifficulty),
+    stageLayers: resolveTechniqueStageLayers(params.maxLayer),
+    stageWeight: TECHNIQUE_INTERNAL_STAGE_WEIGHT,
+    formulas: [
+      'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
+      '满层六维总属性 T = (gradeIndex^2 * (realmLv + 25) + 50) * (1 + attrFloat)',
+      '阶段层数按 maxLayer 切为 [入门, 小成, 大成]；阶段属性权重为 [1, 2, 4]',
+      '每层每维属性 = 阶段该维总属性 / 阶段层数 * attrRatio[维] / sum(attrRatio)',
+      '总经验 = gradeIndex^2 * (realmLv + 5) * categoryFactor * ((1.10^maxLayer - 1) / (1.10 - 1)) * expDifficulty * TECHNIQUE_EXP_BASE * realmLv',
+    ],
+  };
+}
+
+function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, unknown> {
+  const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS;
+  return {
+    budgetType: 'arts_weight_allocation',
+    actualTotalBudget: roundPromptNumber(calcArtsBudgetMax(params.grade, params.realmLv)),
+    budgetAtMaxLayer: roundPromptNumber(calcArtsBudgetMax(params.grade, params.realmLv)),
+    formulas: [
+      'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
+      '术法满层总预算 BUDGET_max = 3 + (realmLv * 0.1 + realmStageIndex) * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
+      '每项实际预算 itemBudget = actualTotalBudget * itemWeight / sum(abs(itemWeight))',
+      `灵力消耗倍率 costMultiplier = costBudget >= 0 ? ${constants.structure.costPositivePerBudget}^costBudget : ${constants.structure.costNegativePerBudget}^abs(costBudget)`,
+      `冷却 cooldownTicks = round(${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv * (cooldownBudget >= 0 ? ${constants.structure.cooldownPositivePerBudget}^cooldownBudget : ${constants.structure.cooldownNegativePerBudget}^abs(cooldownBudget)))，最小1息`,
+      `施法距离：1格为0预算；r格消耗 (r - 1) * ${constants.structure.castRangeBudgetGrowth}^(r - 1)，常规最大${constants.structure.maxCastRange}格，line最大${constants.structure.maxLineCastRange}格`,
+      `影响范围：每1点范围预算约增加${constants.structure.coverageCellsPerBudget}个覆盖格，按 single/line/box/area 各自形状向下取整`,
+      '属性基底倍率 = 属性实际预算 / 每100%基底成本；spellAtk/physAtk等成本见 attributeBaseCostBy100Percent',
+      `层数加成 techLevel 每层比例 = max(0, ${constants.percentBonuses.techLevelScaleBase} * (1 + techLevelBudget))`,
+      `移速加成 = caster.stat.moveSpeed * max(0, moveSpeedBudget) * ${constants.percentBonuses.moveSpeedScalePerStrength}`,
+      '触顶或触底后未用的正预算会回流到属性基底；不要输出预算字段，服务端自动展开',
+    ],
+  };
+}
+
+function resolveRealmStageInfo(realmLv: number): {
+  stage: PlayerRealmStage;
+  stageIndex: number;
+  label: string;
+  levelRange: { from: number; to: number };
+} {
+  for (let i = PLAYER_REALM_ORDER.length - 1; i >= 0; i -= 1) {
+    const stage = PLAYER_REALM_ORDER[i];
+    const range = PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
+    if (range && realmLv >= range.levelFrom) {
+      return {
+        stage,
+        stageIndex: i + 1,
+        label: realmStageLabel(stage),
+        levelRange: { from: range.levelFrom, to: range.levelTo },
+      };
+    }
+  }
+  const fallback = PLAYER_REALM_ORDER[0];
+  const range = PLAYER_REALM_STAGE_LEVEL_RANGES[fallback];
+  return {
+    stage: fallback,
+    stageIndex: 1,
+    label: realmStageLabel(fallback),
+    levelRange: { from: range.levelFrom, to: range.levelTo },
+  };
+}
+
+function realmStageLabel(stage: PlayerRealmStage): string {
+  const labels: Record<PlayerRealmStage, string> = {
+    0: '凡人',
+    1: '淬体',
+    2: '锻骨',
+    3: '通脉',
+    4: '先天',
+    5: '练气前期',
+    7: '练气中期',
+    8: '练气后期',
+    6: '筑基前期',
+    9: '筑基中期',
+    10: '筑基后期',
+    11: '金丹前期',
+    12: '金丹中期',
+    13: '金丹后期',
+    14: '元婴前期',
+    15: '元婴中期',
+    16: '元婴后期',
+    17: '化神前期',
+    18: '化神中期',
+    19: '化神后期',
+    20: '炼虚前期',
+    21: '炼虚中期',
+    22: '炼虚后期',
+    23: '合体前期',
+    24: '合体中期',
+    25: '合体后期',
+    26: '大乘前期',
+    27: '大乘中期',
+    28: '大乘后期',
+    29: '渡劫前期',
+    30: '渡劫中期',
+    31: '渡劫后期',
+    32: '飞升',
+  };
+  return labels[stage] ?? `境界阶段${stage}`;
+}
+
+function buildToneGuidance(grade: TechniqueGrade, realmStageLabelText: string): string[] {
+  const gradeIndex = getTechniqueGradeIndex(grade);
+  const scale = gradeIndex <= 2
+    ? '低阶：名称和描述应偏朴素、基础、可修炼，不使用灭世、碎星、焚天、万劫等过强词。'
+    : gradeIndex <= 4
+      ? '中阶：可以写灵压、剑光、丹火、阵纹、山河之势，但仍避免宇宙级、毁天灭地级措辞。'
+      : '高阶：可以使用天象、法则、虚空、圣意、帝威等强势意象，名称要显得稀有而厚重。';
+  return [
+    `本次抽中 ${gradeLabel(grade)} / ${realmStageLabelText}，名称和描述必须匹配这个强度层级。`,
+    scale,
+    '玩家主题只决定风格倾向，不得覆盖 fixedInputs 中的品阶、境界等级和服务端预算。',
+  ];
+}
+
+function roundPromptNumber(value: number): number {
+  return Math.round(value * 10_000) / 10_000;
 }
 
 function gradeLabel(grade: TechniqueGrade): string {
