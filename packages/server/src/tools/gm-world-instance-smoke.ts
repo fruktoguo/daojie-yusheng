@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 
 const { NativeGmWorldService } = require('../http/native/native-gm-world.service');
+const { NativeGmMapRuntimeQueryService } = require('../http/native/native-gm-map-runtime-query.service');
 
 function createService(log = [], overrides = {}) {
   const templates = new Map([
@@ -71,6 +72,15 @@ function createService(log = [], overrides = {}) {
   const onlinePlayers = new Map([
     ['player:online', { instanceId: 'public:yunlai_town', sessionId: 'session:online' }],
   ]);
+  const runtimeInstances = overrides.runtimeInstances ?? instances.map((entry) => ({
+    template: { id: entry.templateId },
+    meta: { instanceId: entry.instanceId, persistent: entry.persistent === true },
+    tickSpeed: 1,
+    paused: false,
+    markPersistenceDirtyDomains(domains) {
+      log.push(['markPersistenceDirtyDomains', entry.instanceId, domains]);
+    },
+  }));
   const runtimeResponse = overrides.runtimeResponse ?? {
     instanceId: 'line:yunlai_town:real:2',
     instanceName: '云来镇·真实二线',
@@ -121,6 +131,10 @@ function createService(log = [], overrides = {}) {
         },
       };
     },
+    listInstanceRuntimes() {
+      log.push(['listInstanceRuntimes']);
+      return runtimeInstances;
+    },
     playerRuntimeService: {
       getPlayer(playerId) {
         log.push(['getRuntimePlayer', playerId]);
@@ -162,8 +176,11 @@ function createService(log = [], overrides = {}) {
         return Array.from(templates.values()).map((entry) => ({ id: entry.id }));
       },
     },
-    { markCompleted() { return false; }, addReply() { return false; }, remove() { return false; } },
-    { updateMapTick() {}, updateMapTime() {}, pruneMapConfigs() {} },
+    {
+      updateMapTick(mapId, body) { log.push(['updateMapTick', mapId, body]); },
+      updateMapTime() {},
+      pruneMapConfigs() {},
+    },
     {
       getState() { return {}; },
       invalidatePlayerListCaches() {
@@ -186,12 +203,17 @@ function createService(log = [], overrides = {}) {
       },
     },
     { listNodes() { return []; }, isEnabled() { return true; }, getNodeId() { return 'node:test'; } },
-    { ensureInitialized() {}, isEnabled() { return true; }, mergeMapConfig() {}, pruneMapConfigs() {} },
     { listRetryQueue() { return []; }, getPool() { return null; }, listInstances() { return []; } },
     { getOperationReplay() { return {}; }, getPool() { return null; }, listInstances() { return []; } },
     { flushPlayer() {}, getPool() { return null; }, listInstances() { return []; } },
-    { flushInstance() {}, getPool() { return null; }, listInstances() { return []; } },
-    worldRuntimeService,
+    {
+      flushInstance(instanceId) {
+        log.push(['flushInstance', instanceId]);
+      },
+      getPool() { return null; },
+      listInstances() { return []; },
+    },
+    { getPool() { return null; } },
     worldRuntimeService,
   );
 }
@@ -320,6 +342,93 @@ function testTransferPlayerToInstanceRejectsOfflinePlayer() {
   }, /目标玩家未在线/);
 }
 
+async function testUpdateMapTickPersistsAffectedInstanceCheckpoints() {
+  const log = [];
+  const service = createService(log);
+  await service.updateMapTick('yunlai_town', { speed: 5, paused: false });
+  assert.deepEqual(
+    log.filter((entry) => Array.isArray(entry) && entry[0] === 'markPersistenceDirtyDomains'),
+    [
+      ['markPersistenceDirtyDomains', 'real:yunlai_town', ['time']],
+      ['markPersistenceDirtyDomains', 'line:yunlai_town:real:2', ['time']],
+      ['markPersistenceDirtyDomains', 'public:yunlai_town', ['time']],
+      ['markPersistenceDirtyDomains', 'line:yunlai_town:peaceful:2', ['time']],
+    ],
+  );
+  assert.deepEqual(
+    log.filter((entry) => Array.isArray(entry) && entry[0] === 'flushInstance'),
+    [
+      ['flushInstance', 'real:yunlai_town'],
+      ['flushInstance', 'line:yunlai_town:real:2'],
+      ['flushInstance', 'public:yunlai_town'],
+      ['flushInstance', 'line:yunlai_town:peaceful:2'],
+    ],
+  );
+}
+
+function testMapRuntimeQueryUsesInstanceTickSpeedAfterRestart() {
+  const template = {
+    id: 'yunlai_town',
+    name: '云来镇',
+    width: 1,
+    height: 1,
+    baseAuraByTile: [0],
+    source: {
+      tiles: ['.'],
+      time: { scale: 1 },
+    },
+    npcs: [],
+    containers: [],
+  };
+  const query = new NativeGmMapRuntimeQueryService(
+    {
+      getOrThrow(mapId) {
+        assert.equal(mapId, 'yunlai_town');
+        return template;
+      },
+    },
+    { getPlayer() { return null; } },
+    {
+      getInstance(instanceId) {
+        assert.equal(instanceId, 'public:yunlai_town');
+        return {
+          instanceId,
+          displayName: '云来镇·和平',
+          templateId: 'yunlai_town',
+          players: [],
+          tick: 900,
+          playerCount: 0,
+        };
+      },
+      getInstanceRuntime(instanceId) {
+        assert.equal(instanceId, 'public:yunlai_town');
+        return {
+          tickSpeed: 7,
+          paused: false,
+          getTileAura() { return 0; },
+          listMonsters() { return []; },
+        };
+      },
+      getRuntimeSummary() {
+        return { tick: 1 };
+      },
+      worldRuntimeFormationService: {
+        listRuntimeFormations() {
+          return [];
+        },
+      },
+    },
+    {
+      getMapTickSpeed() { return 1; },
+      getMapTimeConfig(_mapId, fallback) { return fallback; },
+      isMapPaused() { return false; },
+    },
+  );
+  const runtime = query.getInstanceRuntime('public:yunlai_town', 0, 0, 1, 1);
+  assert.equal(runtime.tickSpeed, 7);
+  assert.equal(runtime.tickPaused, false);
+}
+
 void (async () => {
   await testGetWorldInstancesSortsByPresetAndIndex();
   await testGetWorldInstanceRuntimeDelegatesToInstanceQuery();
@@ -328,5 +437,7 @@ void (async () => {
   testTransferPlayerToInstanceEnqueuesExplicitInstanceId();
   testCreateWorldInstanceRejectsInvalidInput();
   testTransferPlayerToInstanceRejectsOfflinePlayer();
+  await testUpdateMapTickPersistsAffectedInstanceCheckpoints();
+  testMapRuntimeQueryUsesInstanceTickSpeedAfterRestart();
   console.log(JSON.stringify({ ok: true, case: 'gm-world-instance' }, null, 2));
 })();

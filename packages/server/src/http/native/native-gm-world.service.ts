@@ -910,12 +910,13 @@ export class NativeGmWorldService {
     // Phase 6：不再写入旧表 server_gm_map_config，tickSpeed 已迁移到实例 checkpoint。
     // 保留 RuntimeMapConfigService 内存缓存更新用于 GM 查询兼容。
     this.runtimeMapConfigService.updateMapTick(mapId, body);
-    // 同步更新所有使用该模板的实例的 tickSpeed（真源）
-    this.applyTickSpeedToInstancesByTemplate(mapId, normalizedSpeed, paused);
+    // 同步更新所有使用该模板的实例的 tickSpeed（真源），并立即落 time checkpoint。
+    const affectedInstanceIds = this.applyTickSpeedToInstancesByTemplate(mapId, normalizedSpeed, paused);
+    await this.flushTickSpeedCheckpoints(affectedInstanceIds);
   }
 
   /** 按 instanceId 更新单个实例的 tickSpeed。 */
-  updateInstanceTick(instanceId: string, body: { speed?: unknown; paused?: unknown }): { ok: boolean; reason?: string } {
+  async updateInstanceTick(instanceId: string, body: { speed?: unknown; paused?: unknown }): Promise<{ ok: boolean; reason?: string }> {
     if (typeof this.worldRuntimeService.listInstanceRuntimes !== 'function') {
       return { ok: false, reason: 'runtime_not_available' };
     }
@@ -954,18 +955,26 @@ export class NativeGmWorldService {
     if (typeof targetInstance.markPersistenceDirtyDomains === 'function') {
       targetInstance.markPersistenceDirtyDomains(['time']);
     }
+    await this.flushTickSpeedCheckpoints([instanceId]);
     return { ok: true };
   }
 
   /** 将 tickSpeed 应用到所有使用指定模板的实例。 */
-  private applyTickSpeedToInstancesByTemplate(templateId: string, speed: number | undefined, paused: boolean | undefined): void {
+  private applyTickSpeedToInstancesByTemplate(templateId: string, speed: number | undefined, paused: boolean | undefined): string[] {
+    const affectedInstanceIds: string[] = [];
     if (typeof this.worldRuntimeService.listInstanceRuntimes !== 'function') {
-      return;
+      return affectedInstanceIds;
     }
     for (const instance of this.worldRuntimeService.listInstanceRuntimes()) {
       const inst = instance as any;
       if (inst?.template?.id !== templateId) {
         continue;
+      }
+      const instanceId = typeof inst?.meta?.instanceId === 'string' && inst.meta.instanceId.trim()
+        ? inst.meta.instanceId.trim()
+        : '';
+      if (instanceId) {
+        affectedInstanceIds.push(instanceId);
       }
       if (paused === true) {
         inst.tickSpeed = 0;
@@ -984,6 +993,19 @@ export class NativeGmWorldService {
       if (typeof inst.markPersistenceDirtyDomains === 'function') {
         inst.markPersistenceDirtyDomains(['time']);
       }
+    }
+    return affectedInstanceIds;
+  }
+
+  /** GM 改速是运维显式写入，必须立即落 checkpoint，避免重启窗口丢失。 */
+  private async flushTickSpeedCheckpoints(instanceIds: string[]): Promise<void> {
+    const uniqueInstanceIds = Array.from(new Set(
+      instanceIds
+        .filter((instanceId) => typeof instanceId === 'string' && instanceId.trim())
+        .map((instanceId) => instanceId.trim()),
+    ));
+    for (const instanceId of uniqueInstanceIds) {
+      await this.mapPersistenceFlushService.flushInstance(instanceId);
     }
   }
   /**

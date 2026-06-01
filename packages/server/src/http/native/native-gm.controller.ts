@@ -1047,7 +1047,7 @@ export class NativeGmController {
 
   /** 按 instanceId 更新单个实例的 tickSpeed。 */
   @Put('instances/:instanceId/tick')
-  updateInstanceTick(@Param('instanceId') instanceId: string, @Body() body: MapConfigBody) {
+  async updateInstanceTick(@Param('instanceId') instanceId: string, @Body() body: MapConfigBody) {
     return this.nextGmWorldService.updateInstanceTick(instanceId, body ?? {});
   }
   /**

@@ -242,6 +242,9 @@ interface RuntimeInstanceLike {
 
 
 interface InternalRuntimeInstanceLike {
+  tick?: number;
+  tickSpeed?: number;
+  paused?: boolean;
   getTileAura(x: number, y: number): number | undefined;
   getEffectiveTileType?(x: number, y: number): unknown;
   getTileLayerState?(x: number, y: number): unknown;
@@ -922,7 +925,9 @@ export class NativeGmMapRuntimeQueryService {
       });
     }
 
-    const tickSpeed = this.runtimeMapConfigService.getMapTickSpeed(mapId);
+    const fallbackTickSpeed = this.runtimeMapConfigService.getMapTickSpeed(mapId);
+    const tickSpeed = resolveInstanceTickSpeed(internalInstance, fallbackTickSpeed);
+    const tickPaused = resolveInstanceTickPaused(internalInstance, tickSpeed, this.runtimeMapConfigService.isMapPaused(mapId));
     const timeConfigFallback: Record<string, unknown> = isRecord(template.source.time) ? template.source.time : {};
     const timeConfig = this.runtimeMapConfigService.getMapTimeConfig(mapId, timeConfigFallback);
 
@@ -956,9 +961,33 @@ export class NativeGmMapRuntimeQueryService {
       ),
       timeConfig,
       tickSpeed,
-      tickPaused: this.runtimeMapConfigService.isMapPaused(mapId),
+      tickPaused,
     };
   }
+}
+
+function resolveInstanceTickSpeed(
+  instance: InternalRuntimeInstanceLike | null,
+  fallbackTickSpeed: number,
+): number {
+  if (instance?.paused === true) {
+    return 0;
+  }
+  if (Number.isFinite(Number(instance?.tickSpeed))) {
+    return Math.max(0, Number(instance?.tickSpeed));
+  }
+  return Number.isFinite(Number(fallbackTickSpeed)) ? Math.max(0, Number(fallbackTickSpeed)) : 1;
+}
+
+function resolveInstanceTickPaused(
+  instance: InternalRuntimeInstanceLike | null,
+  tickSpeed: number,
+  fallbackPaused: boolean,
+): boolean {
+  if (typeof instance?.paused === 'boolean') {
+    return instance.paused === true || tickSpeed === 0;
+  }
+  return fallbackPaused === true || tickSpeed === 0;
 }
 
 function resolveRuntimeTileBounds(
