@@ -108,8 +108,8 @@ async function testRestoreAndRebuild() {
     const persistentInstance = {
         meta: { persistent: true },
         template: { id: 'yunlai_town' },
-        hydrateTime(tick) {
-            log.push(['hydrateTime', tick]);
+        hydrateTime(tick, options) {
+            log.push(['hydrateTime', tick, options]);
         },
         hydrateTileResources(entries) {
             log.push(['hydrateTileResources', entries]);
@@ -178,6 +178,8 @@ async function testRestoreAndRebuild() {
                     domains: ['time'],
                     snapshot: {
                         tick: 1234,
+                        tickSpeed: 7,
+                        paused: false,
                         // These stale dynamic fields intentionally must not be restored from checkpoint.
                         tileResourceEntries: [{ resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 }],
                         groundPileEntries: [{ tileIndex: 11, items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }] }],
@@ -230,7 +232,11 @@ async function testRestoreAndRebuild() {
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadOverlayChunks'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateOverlayChunks'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceCheckpoint'));
-    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTime' && entry[1] === 1234));
+    assert.ok(log.some((entry) => Array.isArray(entry)
+        && entry[0] === 'hydrateTime'
+        && entry[1] === 1234
+        && entry[2]?.tickSpeed === 7
+        && entry[2]?.paused === false));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'patchTileResources' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 1));
     assert.ok(!log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTileResources'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateGroundPiles' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 9));
@@ -242,8 +248,8 @@ async function testRestoreAndRebuild() {
     const domainInstance = {
         meta: { persistent: true, instanceId: 'public:yunlai_town' },
         template: { id: 'yunlai_town' },
-        hydrateTime(tick) {
-            domainRestoreLog.push(['hydrateTime', tick]);
+        hydrateTime(tick, options) {
+            domainRestoreLog.push(['hydrateTime', tick, options]);
         },
         hydrateTileResources(entries) {
             domainRestoreLog.push(['hydrateTileResources', entries]);
@@ -293,6 +299,8 @@ async function testRestoreAndRebuild() {
                     domains: ['time', 'tile_resource', 'ground_item', 'container_state'],
                     snapshot: {
                         tick: 5678,
+                        tickSpeed: 9,
+                        paused: false,
                         // Dynamic payload here is historical residue; domain tables are the runtime truth.
                         tileResourceEntries: [
                             { resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 },
@@ -375,10 +383,16 @@ async function testRestoreAndRebuild() {
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadOverlayChunks'));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateOverlayChunks'));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceCheckpoint'));
-    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTime' && entry[1] === 5678));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry)
+        && entry[0] === 'hydrateTime'
+        && entry[1] === 5678
+        && entry[2]?.tickSpeed === 9
+        && entry[2]?.paused === false));
     assert.ok(!domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTileResources'));
     assert.ok(!domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateGroundPiles' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 11));
-    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'log' && entry[1] === '实例分域恢复已回填：public:yunlai_town'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry)
+        && entry[0] === 'log'
+        && entry[1] === '实例持久化恢复完成：分域回填 1 个实例，阵法恢复 0 个 / 0 个实例'));
 
     const resetLog = [];
     await service.rebuildPersistentRuntimeAfterRestore({

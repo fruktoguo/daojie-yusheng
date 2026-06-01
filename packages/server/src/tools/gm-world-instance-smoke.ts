@@ -366,6 +366,25 @@ async function testUpdateMapTickPersistsAffectedInstanceCheckpoints() {
   );
 }
 
+async function testUpdateInstanceTickPersistsSelectedInstanceCheckpoint() {
+  const log = [];
+  const service = createService(log);
+  const result = await service.updateInstanceTick('line:yunlai_town:real:2', { speed: 8, paused: false });
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(
+    log.filter((entry) => Array.isArray(entry) && entry[0] === 'markPersistenceDirtyDomains'),
+    [
+      ['markPersistenceDirtyDomains', 'line:yunlai_town:real:2', ['time']],
+    ],
+  );
+  assert.deepEqual(
+    log.filter((entry) => Array.isArray(entry) && entry[0] === 'flushInstance'),
+    [
+      ['flushInstance', 'line:yunlai_town:real:2'],
+    ],
+  );
+}
+
 function testMapRuntimeQueryUsesInstanceTickSpeedAfterRestart() {
   const template = {
     id: 'yunlai_town',
@@ -438,6 +457,7 @@ void (async () => {
   testCreateWorldInstanceRejectsInvalidInput();
   testTransferPlayerToInstanceRejectsOfflinePlayer();
   await testUpdateMapTickPersistsAffectedInstanceCheckpoints();
+  await testUpdateInstanceTickPersistsSelectedInstanceCheckpoint();
   testMapRuntimeQueryUsesInstanceTickSpeedAfterRestart();
   console.log(JSON.stringify({ ok: true, case: 'gm-world-instance' }, null, 2));
 })();

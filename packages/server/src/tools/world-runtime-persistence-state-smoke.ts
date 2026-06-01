@@ -505,6 +505,8 @@ async function testFlushTimeDomainCheckpoint() {
         meta: { persistent: true },
         template: { id: 'yunlai_town' },
         tick: 9876,
+        tickSpeed: 7,
+        paused: false,
         getPersistenceRevision() { return 12; },
         buildAuraPersistenceEntries() { throw new Error('time checkpoint should not build full aura snapshot'); },
         buildTileResourcePersistenceEntries() { throw new Error('time checkpoint should not build full tile resource snapshot'); },
@@ -524,7 +526,14 @@ async function testFlushTimeDomainCheckpoint() {
                 assert.equal(payload.snapshot.templateId, 'yunlai_town');
                 assert.equal(payload.snapshot.persistenceRevision, 12);
                 assert.equal(payload.snapshot.tileResourceEntries, undefined);
-                log.push(['saveInstanceCheckpoint', instanceId, payload.kind, payload.snapshot.tick]);
+                log.push([
+                    'saveInstanceCheckpoint',
+                    instanceId,
+                    payload.kind,
+                    payload.snapshot.tick,
+                    payload.snapshot.tickSpeed,
+                    payload.snapshot.paused,
+                ]);
             },
             async saveInstanceRecoveryWatermark(instanceId, payload) {
                 log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
@@ -536,7 +545,7 @@ async function testFlushTimeDomainCheckpoint() {
         },
     });
     assert.deepEqual(log, [
-        ['saveInstanceCheckpoint', 'public:yunlai_town', 'time_checkpoint', 9876],
+        ['saveInstanceCheckpoint', 'public:yunlai_town', 'time_checkpoint', 9876, 7, false],
         ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 9876, 12, ['time']],
         ['markPersistenceDomainsPersisted', ['time']],
     ]);

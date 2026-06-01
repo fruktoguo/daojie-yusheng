@@ -1353,15 +1353,15 @@ export class GmWorldViewer {
   private async setWorldSpeed(speed: number): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const mapId = this.getCurrentTemplateMapId();
-    if (!mapId) return;
+    const instanceId = this.currentInstanceId;
+    if (!instanceId) return;
     const clamped = Math.max(0, Math.min(100, speed));
     try {
       await this.request<{      
       /**
  * ok：ok相关字段。
  */
- ok: true }>(`${GM_API_BASE_PATH}/maps/${encodeURIComponent(mapId)}/tick`, {
+ ok: true }>(`${GM_API_BASE_PATH}/instances/${encodeURIComponent(instanceId)}/tick`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ speed: clamped } satisfies GmUpdateMapTickReq),
