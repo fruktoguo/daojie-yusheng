@@ -89,7 +89,7 @@ import * as world_runtime_normalization_helpers_1 from './world-runtime.normaliz
 import * as world_runtime_observation_helpers_1 from './query/world-runtime.observation.helpers';
 import * as world_runtime_path_planning_helpers_1 from './world-runtime.path-planning.helpers';
 import { buildCurrentRoomSummaryPatch, buildFengShuiObserveView, dispatchStartBuildingConstruction, handleBuildDeconstructIntent, handleBuildPlaceIntent, handleRoomSetRoleIntent, handleStartBuildingConstruction, interruptBuildingConstruction, listBuildingOperationAudit, tickBuildingConstruction } from './world-runtime-building.service';
-import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, syncManagedInstanceRegistration, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
+import { claimRecoverableCatalogInstances, fenceInstanceRuntime, getInstanceLeaseStatus, hydratePersistentInstanceSnapshot, isInstanceLeaseWritable, migrateInstanceToNode, migratePlayerToNode, rebuildPersistentInstance, releaseLocalInstanceLeasesForShutdown, syncAllInstanceLeases, syncInstanceLease, syncManagedInstanceRegistration, unfreezeInstanceWriting } from './world-runtime-instance-lease.helpers';
 
 const {
     buildPublicInstanceId,
@@ -710,46 +710,7 @@ export class WorldRuntimeService {
     }
 
     async migratePlayerToNode(playerId, targetNodeId) {
-        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-        const normalizedTargetNodeId = typeof targetNodeId === 'string' ? targetNodeId.trim() : '';
-        if (!normalizedPlayerId) {
-            return { ok: false, reason: 'player_required' };
-        }
-        if (!normalizedTargetNodeId) {
-            return { ok: false, reason: 'target_node_required' };
-        }
-        const player = this.playerRuntimeService?.getPlayer?.(normalizedPlayerId);
-        if (!player) {
-            return { ok: false, reason: 'player_not_found' };
-        }
-        if (typeof this.playerPersistenceFlushService?.flushPlayer === 'function') {
-            await this.playerPersistenceFlushService.flushPlayer(normalizedPlayerId);
-        }
-        if (!this.playerRuntimeService?.beginTransfer) {
-            player.transferState = 'in_transfer';
-            player.transferTargetNodeId = normalizedTargetNodeId;
-            player.transferStartedAt = new Date().toISOString();
-            return { ok: true };
-        }
-        this.playerRuntimeService.beginTransfer(player, normalizedTargetNodeId);
-        const routeSessionEpoch = Number.isFinite(player.sessionEpoch)
-            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
-            : 0;
-        if (routeSessionEpoch > 0 && typeof this.worldSessionService?.rememberSessionEpoch === 'function') {
-            this.worldSessionService.rememberSessionEpoch(normalizedPlayerId, routeSessionEpoch);
-        }
-        if (routeSessionEpoch > 0 && typeof this.worldRuntimePlayerSessionService?.assignPlayerRoute === 'function') {
-            await this.worldRuntimePlayerSessionService.assignPlayerRoute({
-                playerId: normalizedPlayerId,
-                nodeId: normalizedTargetNodeId,
-                sessionEpoch: routeSessionEpoch,
-                routeStatus: 'assigned',
-            });
-        }
-        if (typeof this.playerRuntimeService?.beginTransfer === 'function') {
-            return { ok: true };
-        }
-        return { ok: true };
+        return migratePlayerToNode(this, playerId, targetNodeId);
     }
 
     listInstanceRuntimes() {

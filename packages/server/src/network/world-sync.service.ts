@@ -1,5 +1,4 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { S2C } from '@mud/shared';
 import { RuntimeGmStateService } from '../runtime/gm/runtime-gm-state.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
@@ -17,6 +16,7 @@ import {
     incrementSyncFlushCount,
     runMeasuredAuxSync,
 } from './world-sync-flush-breakdown';
+import { emitPendingPlayerStatisticRecords } from './world-sync-player-statistic-records';
 
 @Injectable()
 export class WorldSyncService {
@@ -100,7 +100,7 @@ export class WorldSyncService {
                                 }
                                 this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, playerId, player?.quests?.revision);
                                 this.emitPendingRuntimeEvents(playerId, socket, envelope);
-                                this.emitPendingPlayerStatisticRecords(playerId, socket);
+                                emitPendingPlayerStatisticRecords(this.playerRuntimeService, playerId, socket);
                             },
                         });
                     }
@@ -179,7 +179,7 @@ export class WorldSyncService {
         incrementSyncFlushCount(breakdown, 'questSyncCount');
         this.emitPendingRuntimeEvents(playerId, socket, envelope);
         incrementSyncFlushCount(breakdown, 'runtimeEventsCount');
-        this.emitPendingPlayerStatisticRecords(playerId, socket);
+        emitPendingPlayerStatisticRecords(this.playerRuntimeService, playerId, socket);
         incrementSyncFlushCount(breakdown, 'statisticRecordsCount');
     }
 
@@ -225,24 +225,6 @@ export class WorldSyncService {
         if (items.length > 0) {
             this.worldSyncProtocolService.sendNotices(socket, items);
         }
-    }
-
-    private emitPendingPlayerStatisticRecords(playerId: string, socket: any) {
-        const records = typeof this.playerRuntimeService.consumePendingPlayerStatisticRecordsForEmit === 'function'
-            ? this.playerRuntimeService.consumePendingPlayerStatisticRecordsForEmit(playerId)
-            : (typeof this.playerRuntimeService.getPendingPlayerStatisticRecords === 'function'
-                ? this.playerRuntimeService.getPendingPlayerStatisticRecords(playerId) : []);
-        const totalsPatch = typeof this.playerRuntimeService.consumePlayerStatisticTotalsPatchForEmit === 'function'
-            ? this.playerRuntimeService.consumePlayerStatisticTotalsPatchForEmit(playerId) : null;
-        const totals = !totalsPatch && typeof this.playerRuntimeService.consumePlayerStatisticTotalsForEmit === 'function'
-            ? this.playerRuntimeService.consumePlayerStatisticTotalsForEmit(playerId) : null;
-        if (typeof socket?.emit !== 'function') return;
-        if ((!Array.isArray(records) || records.length === 0) && !totals && !totalsPatch) return;
-        socket.emit(S2C.OfflineGainReports, {
-            reports: Array.isArray(records) ? records : [],
-            ...(totals ? { totals } : {}),
-            ...(totalsPatch ? { totalsPatch } : {}),
-        });
     }
 
     private syncPlayerInstanceRoom(playerId: string, view: any) {

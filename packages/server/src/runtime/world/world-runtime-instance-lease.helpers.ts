@@ -560,6 +560,46 @@ export async function migrateInstanceToNode(runtime, instanceId, targetNodeId) {
   return { ok: true };
 }
 
+export async function migratePlayerToNode(runtime, playerId, targetNodeId) {
+  const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+  const normalizedTargetNodeId = typeof targetNodeId === 'string' ? targetNodeId.trim() : '';
+  if (!normalizedPlayerId) {
+    return { ok: false, reason: 'player_required' };
+  }
+  if (!normalizedTargetNodeId) {
+    return { ok: false, reason: 'target_node_required' };
+  }
+  const player = runtime.playerRuntimeService?.getPlayer?.(normalizedPlayerId);
+  if (!player) {
+    return { ok: false, reason: 'player_not_found' };
+  }
+  if (typeof runtime.playerPersistenceFlushService?.flushPlayer === 'function') {
+    await runtime.playerPersistenceFlushService.flushPlayer(normalizedPlayerId);
+  }
+  if (!runtime.playerRuntimeService?.beginTransfer) {
+    player.transferState = 'in_transfer';
+    player.transferTargetNodeId = normalizedTargetNodeId;
+    player.transferStartedAt = new Date().toISOString();
+    return { ok: true };
+  }
+  runtime.playerRuntimeService.beginTransfer(player, normalizedTargetNodeId);
+  const routeSessionEpoch = Number.isFinite(player.sessionEpoch)
+    ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+    : 0;
+  if (routeSessionEpoch > 0 && typeof runtime.worldSessionService?.rememberSessionEpoch === 'function') {
+    runtime.worldSessionService.rememberSessionEpoch(normalizedPlayerId, routeSessionEpoch);
+  }
+  if (routeSessionEpoch > 0 && typeof runtime.worldRuntimePlayerSessionService?.assignPlayerRoute === 'function') {
+    await runtime.worldRuntimePlayerSessionService.assignPlayerRoute({
+      playerId: normalizedPlayerId,
+      nodeId: normalizedTargetNodeId,
+      sessionEpoch: routeSessionEpoch,
+      routeStatus: 'assigned',
+    });
+  }
+  return { ok: true };
+}
+
 export async function getInstanceLeaseStatus(runtime, instanceId) {
   const instance = runtime.getInstanceRuntime(instanceId);
   const catalog = runtime.instanceCatalogService?.isEnabled?.()
