@@ -58,7 +58,7 @@ AttrKey 枚举：constitution / spirit / perception / talent / strength / meridi
 
 const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
 你只能填写强度导向的术法草稿，服务端会把强度草稿归一化并展开成正式 SkillDef。
-不要输出约束里没有列出的字段；不要输出真实伤害值、总预算、effects、buff、heal 或技能公式。`;
+不要输出约束里没有列出的字段；不要输出真实伤害值、真实灵力消耗、真实冷却、真实施法距离、真实影响半径、总预算、effects、buff、heal 或技能公式。`;
 
 const ARTS_TARGET_TYPE_ENUM = ['single', 'line', 'box', 'area'] as const;
 const ARTS_DAMAGE_KIND_ENUM = ['physical', 'spell'] as const;
@@ -151,10 +151,10 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       element: ARTS_ELEMENT_ENUM,
       target: {
         type: ARTS_TARGET_TYPE_ENUM,
-        range: `integer，${constants.structure.minRange}到${constants.structure.maxRange}`,
-        width: `integer，可选，line/box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}`,
-        height: `integer，可选，box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}`,
-        radius: `integer，可选，area 使用，${constants.structure.minRadius}到${constants.structure.maxRadius}`,
+        range: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，施法距离权重/倾向，不是真实格数`,
+        width: `integer，可选，line/box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}，横向覆盖权重/倾向，不是真实宽度`,
+        height: `integer，可选，box 使用，${constants.structure.minWidth}到${constants.structure.maxWidth}，纵向覆盖权重/倾向，不是真实高度`,
+        radius: `integer，可选，area 使用，${constants.structure.minRadius}到${constants.structure.maxRadius}，范围覆盖权重/倾向，不是真实半径`,
         targetMode: ARTS_TARGET_MODE_ENUM,
       },
       structureStrength: Object.fromEntries(ARTS_STRUCTURE_STRENGTH_KEYS.map((key) => [
@@ -177,6 +177,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         `结构权重直接作为指数参与预算换算：正数按 ${constants.structure.positiveBudgetPerStrength}^权重，负数按 ${constants.structure.negativeBudgetPerStrength}^绝对值，不再做额外缩放。`,
         'structureStrength.chant 预留给吟唱强度；当前可写0。',
         '结构权重、范围权重、距离权重都会和伤害权重竞争总预算。',
+        'structureStrength 里的字段都只是强度权重，不是真实运行时数值；不要输出 costMultiplier/cooldown/cooldownTicks。',
       ],
       formulaMeaning: [
         'attributeBases 是伤害固定值基底的分配权重，不是最终伤害数值。',
@@ -187,9 +188,10 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         `moveSpeed: 1 表示额外加入 caster.stat.moveSpeed * ${constants.percentBonuses.moveSpeedScalePerStrength} 的总百分比加成。`,
       ],
       rangeMeaning: [
-        `single 视为0范围强度。`,
-        `line/box/area 按覆盖格数约每${constants.structure.areaCellsPerStrength}格折算1点范围强度。`,
-        `施法距离超过${constants.structure.baseCastRange}格后，每额外1格折算${constants.structure.rangeStrengthPerExtraTile}强度。`,
+        'target.range/radius/width/height 都是服务端展开真实 targeting 前的范围权重或覆盖倾向，不是真实格数、真实半径或真实宽高。',
+        '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是 radius=32；请把它压缩为允许区间内的覆盖权重，由服务端换算真实半径。',
+        'range 表示施法距离倾向：数值越大越偏远程，0表示贴身或自身，最大值表示尽量远；不要把它当作最终施法距离。',
+        'single 视为0覆盖强度；line/box/area 只选择形状和覆盖倾向，真实覆盖格数由服务端展开。',
       ],
     },
     forbiddenFields: [
@@ -206,6 +208,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       '不得输出 forbiddenFields 中的任何字段。',
       'formulaStrength.attributeBases 至少1个、最多5个 key，key 必须来自 allowedAttributeBaseStats。',
       'formulaStrength.attributeBases 的值必须是正权重；最低伤害也要写 1，不能写 0 或负数。',
+      'target.range/radius/width/height 只填写权重意图，不填写真实施法距离、真实半径、真实宽高或真实覆盖格数。',
       '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
       '不要为了凑强度写过多文本；描述保持修仙风格。',
     ],
