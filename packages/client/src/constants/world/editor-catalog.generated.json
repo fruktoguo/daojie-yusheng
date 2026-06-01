@@ -30,15 +30,14 @@
           "id": "skill.wildsunder_fall",
           "name": "崩界天陨",
           "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；功法层数越高，塌势越重。",
-          "cooldown": 81,
-          "cost": 831,
-          "costMultiplier": 1.289638,
-          "range": 1,
+          "cooldown": 1800,
+          "cost": 5158,
+          "costMultiplier": 8,
+          "range": 8,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 5,
+            "height": 5,
             "maxTargets": 25
           },
           "effects": [
@@ -50,7 +49,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 5.259554
+                    "scale": 30
                   },
                   {
                     "op": "add",
@@ -58,7 +57,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.112232
+                        "scale": 0.2
                       }
                     ]
                   }
@@ -88,17 +87,15 @@
           "id": "skill.baihong_duanyue",
           "name": "断影",
           "desc": "白虹横掠，断势裂甲。",
-          "cooldown": 69,
-          "cost": 701,
-          "costMultiplier": 1.248934,
+          "cooldown": 20,
+          "cost": 3932,
+          "costMultiplier": 7,
           "range": 1,
           "targeting": {
             "shape": "orientedBox",
-            "range": 1,
-            "width": 1,
+            "width": 3,
             "height": 1,
-            "maxTargets": 3,
-            "targetMode": "tile"
+            "maxTargets": 3
           },
           "effects": [
             {
@@ -109,8 +106,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4
+                    "op": "add",
+                    "args": [
+                      100,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 4
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -167,15 +170,10 @@
           "id": "skill.huanling_candan_faxiang",
           "name": "残丹法相虚影",
           "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，借此把整座洞府重新拖回自己的残丹脉路里。",
-          "cooldown": 6,
+          "cooldown": 300,
           "cost": 24,
-          "costMultiplier": 6.000581,
+          "costMultiplier": 6,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
           "effects": [
             {
               "type": "buff",
@@ -240,13 +238,12 @@
           "id": "skill.huanling_duanhun_ding",
           "name": "断魂灵钉",
           "desc": "认准被熔池烙开的裂口，把残丹灵识压成一根钉，沿着伤脉直接钉穿神魂。",
-          "cooldown": 3,
-          "cost": 6,
-          "costMultiplier": 1.408516,
-          "range": 2,
+          "cooldown": 35,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 6,
           "targeting": {
             "shape": "single",
-            "range": 2,
             "maxTargets": 1
           },
           "effects": [
@@ -324,13 +321,12 @@
           "id": "skill.huanling_ronghe_guanmai",
           "name": "熔河贯脉",
           "desc": "把洞府残脉拧成一条赤河直贯出去，整线被拖开的地面都会化作熔流；被卷中的人脚下会被残脉绊住，下一轮更难脱出杀域。",
-          "cooldown": 3,
-          "cost": 5,
-          "costMultiplier": 1.360052,
-          "range": 1,
+          "cooldown": 60,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 6,
           "targeting": {
             "shape": "line",
-            "range": 1,
             "width": 1,
             "maxTargets": 6
           },
@@ -429,15 +425,14 @@
           "id": "skill.huanling_lieqi_zhixian",
           "name": "移脉熔宫",
           "desc": "拖着裂丹把洞府残脉猛然拽偏，落点一带尽数熔成赤池，后续杀招都会顺着熔痕灌进去。",
-          "cooldown": 3,
-          "cost": 6,
-          "costMultiplier": 1.397285,
-          "range": 1,
+          "cooldown": 55,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -534,16 +529,14 @@
           "id": "skill.huanling_xingluo_canpan",
           "name": "星罗残盘",
           "desc": "借洞府残阵把落点周围拆成明灭交错的棋盘，错踩一格便会被残火与阴脉同时点穿。",
-          "cooldown": 3,
-          "cost": 7,
-          "costMultiplier": 1.7387,
-          "range": 2,
+          "cooldown": 45,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "checkerboard",
-            "range": 2,
-            "width": 1,
-            "height": 1,
-            "checkerParity": "even",
+            "width": 5,
+            "height": 5,
             "maxTargets": 13
           },
           "effects": [
@@ -621,15 +614,14 @@
           "id": "skill.huanling_suogong_neihuan",
           "name": "锁宫内环",
           "desc": "先把目标脚边一圈地脉瞬间勒紧，贴得太近的人会被内环直接绞住，必须立刻改步离位。",
-          "cooldown": 3,
-          "cost": 6,
-          "costMultiplier": 1.513709,
-          "range": 2,
+          "cooldown": 50,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "ring",
-            "range": 2,
-            "radius": 0,
-            "innerRadius": 0,
+            "innerRadius": 1,
+            "radius": 2,
             "maxTargets": 8
           },
           "effects": [
@@ -708,15 +700,14 @@
           "id": "skill.huanling_liefu_waihuan",
           "name": "裂府外环",
           "desc": "把更外层的洞府残脉整圈掀起，外环会晚半拍一齐压落；若前面已经沾了阴痕或灼伤，被卷入这一圈时伤势会被整片放大。",
-          "cooldown": 8,
-          "cost": 807,
-          "costMultiplier": 201.749284,
-          "range": 7,
+          "cooldown": 60,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 6,
           "targeting": {
             "shape": "ring",
-            "range": 7,
-            "radius": 3,
             "innerRadius": 3,
+            "radius": 5,
             "maxTargets": 18
           },
           "effects": [
@@ -798,15 +789,14 @@
           "id": "skill.huanling_difu_chenyin",
           "name": "地府沉印",
           "desc": "借洞府残阵把熔开的地脉整片往下按，阴痕越多、灼得越深，塌下去的那一刻就越重。",
-          "cooldown": 3,
-          "cost": 5,
-          "costMultiplier": 1.294668,
-          "range": 1,
+          "cooldown": 55,
+          "cost": 20,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -819,7 +809,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 3.20906
+                    "scale": 12
                   },
                   {
                     "op": "add",
@@ -831,11 +821,11 @@
                       },
                       {
                         "var": "target.buff.buff.huanling_rongmai_yin.stacks",
-                        "scale": 0.008022649597404856
+                        "scale": 0.05
                       },
                       {
                         "var": "target.buff.terrain_molten_pool_burn.stacks",
-                        "scale": 0.016045299194809712
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -867,13 +857,12 @@
           "id": "skill.huanling_canpo_zhang",
           "name": "残魄掌",
           "desc": "随手把残丹余魄拍出一掌，当作最基础的索命手段。",
-          "cooldown": 1,
-          "cost": 4,
-          "costMultiplier": 1,
-          "range": 11,
+          "cooldown": 0,
+          "cost": 0,
+          "costMultiplier": 0,
+          "range": 5,
           "targeting": {
             "shape": "single",
-            "range": 11,
             "maxTargets": 1
           },
           "effects": [
@@ -888,11 +877,11 @@
                     "args": [
                       {
                         "var": "caster.stat.physAtk",
-                        "scale": 188.357796
+                        "scale": 5
                       },
                       {
                         "var": "caster.stat.spellAtk",
-                        "scale": 188.357796
+                        "scale": 5
                       }
                     ]
                   },
@@ -932,14 +921,10 @@
           "id": "skill.soul_wail",
           "name": "噬魂哀鸣",
           "desc": "哀鸣先钉住心神，魂缚随后顺势缠上，让后手更容易压进识海。",
-          "cooldown": 3,
-          "cost": 4,
-          "costMultiplier": 1.274336,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 22,
+          "cost": 9,
+          "costMultiplier": 3,
+          "range": 3,
           "effects": [
             {
               "type": "damage",
@@ -990,14 +975,12 @@
           "id": "skill.nether_chain",
           "name": "阴锁缠身",
           "desc": "顺着魂缚破口把阴锁压成一线，越被缠住的人越难从这道锁里挣开。",
-          "cooldown": 3,
-          "cost": 4,
-          "costMultiplier": 1.258792,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 9,
+          "costMultiplier": 3,
+          "range": 3,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
             "maxTargets": 3
           },
           "effects": [
@@ -1097,17 +1080,15 @@
           "id": "skill.redflame_art",
           "name": "赤焰诀",
           "desc": "离火化网罩落，灼脉缠身不绝。",
-          "cooldown": 28,
-          "cost": 71,
-          "costMultiplier": 1.501182,
-          "range": 1,
+          "cooldown": 12,
+          "cost": 236,
+          "costMultiplier": 5,
+          "range": 3,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 9,
-            "targetMode": "tile"
+            "width": 3,
+            "height": 3
           },
           "effects": [
             {
@@ -1118,8 +1099,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3
+                    "op": "add",
+                    "args": [
+                      50,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -1173,17 +1160,15 @@
           "id": "skill.chiyao_fenmai",
           "name": "赤曜焚界",
           "desc": "赤曜凝火，三息之后焚界而落。",
-          "cooldown": 70,
-          "cost": 790,
-          "costMultiplier": 1.406675,
-          "range": 1,
+          "cooldown": 26,
+          "cost": 2808,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 9,
-            "targetMode": "tile"
+            "width": 3,
+            "height": 3
           },
           "effects": [
             {
@@ -1194,8 +1179,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.5
+                    "op": "add",
+                    "args": [
+                      400,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -1333,14 +1324,10 @@
           "id": "skill.flame_pounce",
           "name": "焰扑",
           "desc": "焰尾狐裹火扑击，命中后灼入经络。",
-          "cooldown": 99,
-          "cost": 5124,
-          "costMultiplier": 1.432563,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 14,
+          "cost": 10730,
+          "costMultiplier": 3,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -1388,14 +1375,13 @@
           "id": "skill.fire_tail_sweep",
           "name": "火尾横扫",
           "desc": "焰尾拖出扇形火线，扫开近身敌人。",
-          "cooldown": 104,
-          "cost": 4600,
-          "costMultiplier": 1.28614,
+          "cooldown": 18,
+          "cost": 14307,
+          "costMultiplier": 4,
           "range": 1,
           "targeting": {
             "shape": "orientedBox",
-            "range": 1,
-            "width": 1,
+            "width": 3,
             "height": 1,
             "maxTargets": 3
           },
@@ -1415,10 +1401,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.fire_burn_mark.stacks",
                         "scale": 0.04
@@ -1450,13 +1432,12 @@
           "id": "skill.root_bind",
           "name": "焦根缠足",
           "desc": "焦黑树根从地缝里钻出，缠住敌人的脚步。",
-          "cooldown": 105,
-          "cost": 4384,
-          "costMultiplier": 1.225785,
-          "range": 1,
+          "cooldown": 20,
+          "cost": 10730,
+          "costMultiplier": 3,
+          "range": 4,
           "targeting": {
             "shape": "single",
-            "range": 1,
             "maxTargets": 1
           },
           "effects": [
@@ -1509,14 +1490,10 @@
           "id": "skill.charwood_slam",
           "name": "焦木重砸",
           "desc": "枯木行者抡起焦木臂，凭厚重身躯砸碎防线。",
-          "cooldown": 104,
-          "cost": 5004,
-          "costMultiplier": 1.399134,
+          "cooldown": 18,
+          "cost": 14307,
+          "costMultiplier": 4,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -1533,10 +1510,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.monster_charwood_root_bind.stacks",
                         "scale": 0.12
@@ -1571,13 +1544,12 @@
           "id": "skill.flame_breath",
           "name": "烈焰吐息",
           "desc": "烈焰蜥喷出一道高温火流，持续灼烧前方敌人。",
-          "cooldown": 105,
-          "cost": 4752,
-          "costMultiplier": 1.328532,
-          "range": 1,
+          "cooldown": 22,
+          "cost": 17883,
+          "costMultiplier": 5,
+          "range": 4,
           "targeting": {
             "shape": "line",
-            "range": 1,
             "width": 1,
             "maxTargets": 4
           },
@@ -1628,13 +1600,12 @@
           "id": "skill.molten_charge",
           "name": "熔鳞冲撞",
           "desc": "烈焰蜥以熔鳞护身冲锋，撞碎被火势逼退的目标。",
-          "cooldown": 106,
-          "cost": 4482,
-          "costMultiplier": 1.253133,
-          "range": 1,
+          "cooldown": 24,
+          "cost": 17883,
+          "costMultiplier": 5,
+          "range": 3,
           "targeting": {
             "shape": "line",
-            "range": 1,
             "width": 1,
             "maxTargets": 3
           },
@@ -1654,10 +1625,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.fire_burn_mark.stacks",
                         "scale": 0.05
@@ -1693,15 +1660,10 @@
           "id": "skill.fire_regeneration",
           "name": "浴火再生",
           "desc": "烈焰蜥借火势回补气血，并让熔鳞重新发亮。",
-          "cooldown": 105,
-          "cost": 3614,
-          "costMultiplier": 1.010371,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 32,
+          "cost": 10730,
+          "costMultiplier": 3,
+          "range": 0,
           "effects": [
             {
               "type": "heal",
@@ -1717,10 +1679,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "caster.buff.buff.monster_molten_scales.stacks",
                         "scale": 0.08
@@ -1757,14 +1715,10 @@
           "id": "skill.vine_constrict",
           "name": "藤焰绞缠",
           "desc": "藤焰蟒以燃藤勒住目标，限制行动。",
-          "cooldown": 105,
-          "cost": 4470,
-          "costMultiplier": 1.249793,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 20,
+          "cost": 14307,
+          "costMultiplier": 4,
+          "range": 3,
           "effects": [
             {
               "type": "damage",
@@ -1832,14 +1786,10 @@
           "id": "skill.flame_venom",
           "name": "焰毒入脉",
           "desc": "藤焰蟒喷出带火的毒涎，灼伤并削弱敌身。",
-          "cooldown": 106,
-          "cost": 4330,
-          "costMultiplier": 1.21051,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 24,
+          "cost": 17883,
+          "costMultiplier": 5,
+          "range": 4,
           "effects": [
             {
               "type": "damage",
@@ -1856,10 +1806,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.monster_vine_constrict.stacks",
                         "scale": 0.12
@@ -1909,15 +1855,14 @@
           "id": "skill.wood_fire_burst",
           "name": "木火爆燃",
           "desc": "木火相激，在目标身侧爆燃成一片。",
-          "cooldown": 106,
-          "cost": 4716,
-          "costMultiplier": 1.318593,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 21460,
+          "costMultiplier": 6,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -1936,10 +1881,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.fire_burn_mark.stacks",
                         "scale": 0.03
@@ -1979,17 +1920,15 @@
           "id": "skill.inferno_roar",
           "name": "焚王怒吼",
           "desc": "焚木妖王怒吼引燃四周，震散敌胆。",
-          "cooldown": 109,
-          "cost": 7119,
-          "costMultiplier": 1.990387,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 17883,
+          "costMultiplier": 5,
+          "range": 0,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
-            "maxTargets": 25,
-            "requiresTarget": false
+            "width": 5,
+            "height": 5,
+            "maxTargets": 25
           },
           "effects": [
             {
@@ -2062,15 +2001,14 @@
           "id": "skill.root_prison",
           "name": "焚根囚牢",
           "desc": "焚木妖王催生焦根，围成囚牢锁住敌人。",
-          "cooldown": 107,
-          "cost": 4444,
-          "costMultiplier": 1.242576,
-          "range": 1,
+          "cooldown": 32,
+          "cost": 17883,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -2144,15 +2082,14 @@
           "id": "skill.wood_fire_storm",
           "name": "木火妖岚",
           "desc": "木火同燃，妖岚席卷大片区域。",
-          "cooldown": 111,
-          "cost": 6808,
-          "costMultiplier": 1.90331,
-          "range": 2,
+          "cooldown": 38,
+          "cost": 25037,
+          "costMultiplier": 7,
+          "range": 6,
           "targeting": {
             "shape": "box",
-            "range": 2,
-            "width": 1,
-            "height": 1,
+            "width": 5,
+            "height": 5,
             "maxTargets": 25
           },
           "effects": [
@@ -2171,10 +2108,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.fire_burn_mark.stacks",
                         "scale": 0.03
@@ -2214,15 +2147,10 @@
           "id": "skill.phoenix_rebirth",
           "name": "余烬返生",
           "desc": "焚木妖王以余烬护住心木，回补气血并抬升防御。",
-          "cooldown": 105,
-          "cost": 3598,
-          "costMultiplier": 1.005912,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 60,
+          "cost": 17883,
+          "costMultiplier": 5,
+          "range": 0,
           "effects": [
             {
               "type": "heal",
@@ -2238,10 +2166,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "caster.buff.buff.monster_phoenix_ember.stacks",
                         "scale": 0.08
@@ -2290,16 +2214,13 @@
           "id": "skill.genghua_ningfeng",
           "name": "分光",
           "desc": "锋炁成线，直破前方三步。",
-          "cooldown": 56,
-          "cost": 287,
-          "costMultiplier": 1.35866,
-          "range": 1,
+          "cooldown": 18,
+          "cost": 1056,
+          "costMultiplier": 5,
+          "range": 3,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
-            "maxTargets": 3,
-            "targetMode": "tile"
+            "maxTargets": 3
           },
           "effects": [
             {
@@ -2310,8 +2231,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 4
+                    "op": "add",
+                    "args": [
+                      100,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 4
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -2384,14 +2311,10 @@
           "id": "skill.guicang_hemai",
           "name": "归藏",
           "desc": "归藏摄杂，目标减益越多，收束越狠。",
-          "cooldown": 57,
-          "cost": 246,
-          "costMultiplier": 1.164335,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 20,
+          "cost": 1056,
+          "costMultiplier": 5,
+          "range": 5,
           "effects": [
             {
               "type": "damage",
@@ -2400,8 +2323,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 0.779878
+                    "op": "add",
+                    "args": [
+                      150,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.25
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -2413,7 +2342,7 @@
                       },
                       {
                         "var": "target.debuffCount",
-                        "scale": 0.018906123393911334
+                        "scale": 0.2
                       }
                     ]
                   }
@@ -2439,17 +2368,15 @@
           "id": "skill.frost_sutra",
           "name": "寒魄经",
           "desc": "寒魄化霜，一念封身。",
-          "cooldown": 46,
-          "cost": 300,
-          "costMultiplier": 1.494923,
-          "range": 1,
+          "cooldown": 14,
+          "cost": 1003,
+          "costMultiplier": 5,
+          "range": 3,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 9,
-            "targetMode": "tile"
+            "width": 3,
+            "height": 3
           },
           "effects": [
             {
@@ -2460,8 +2387,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.5
+                    "op": "add",
+                    "args": [
+                      50,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -2518,14 +2451,10 @@
           "id": "skill.hanxi_ximai",
           "name": "凝",
           "desc": "寒汐入体，凝潮压敌。",
-          "cooldown": 55,
-          "cost": 293,
-          "costMultiplier": 1.388076,
+          "cooldown": 16,
+          "cost": 634,
+          "costMultiplier": 3,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -2535,8 +2464,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.5
+                    "op": "add",
+                    "args": [
+                      300,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -2608,14 +2543,10 @@
           "id": "skill.houtu_chengyuan",
           "name": "承岳",
           "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
-          "cooldown": 57,
-          "cost": 267,
-          "costMultiplier": 1.262675,
+          "cooldown": 18,
+          "cost": 845,
+          "costMultiplier": 4,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -2625,8 +2556,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3
+                    "op": "add",
+                    "args": [
+                      200,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 3
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -2678,14 +2615,10 @@
           "id": "skill.huangting_zaishan",
           "name": "载山",
           "desc": "黄庭借山成势，以厚土重压敌身。",
-          "cooldown": 81,
-          "cost": 1506,
-          "costMultiplier": 1.17014,
+          "cooldown": 24,
+          "cost": 9010,
+          "costMultiplier": 7,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -2695,8 +2628,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.5
+                    "op": "add",
+                    "args": [
+                      400,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -2783,14 +2722,10 @@
           "id": "skill.thunder_palm",
           "name": "惊雷掌",
           "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
-          "cooldown": 41,
-          "cost": 195,
-          "costMultiplier": 1.347379,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 14,
+          "cost": 725,
+          "costMultiplier": 5,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -2800,8 +2735,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.5
+                    "op": "add",
+                    "args": [
+                      50,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -2857,14 +2798,10 @@
           "id": "skill.core_smash",
           "name": "矿核重击",
           "desc": "先以矿核重击压住正面，自身岩壳也会在这一击后继续增厚。",
-          "cooldown": 3,
-          "cost": 4,
-          "costMultiplier": 1.316404,
+          "cooldown": 15,
+          "cost": 9,
+          "costMultiplier": 3,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -2914,14 +2851,13 @@
           "id": "skill.guardian_quake",
           "name": "镇域震荡",
           "desc": "把矿核和岩壳一并轰进地面，近身敌群都会吃到这道镇域余震。",
-          "cooldown": 3,
-          "cost": 4,
-          "costMultiplier": 1.225282,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 9,
+          "costMultiplier": 3,
+          "range": 2,
           "targeting": {
             "shape": "area",
-            "range": 1,
-            "radius": 0,
+            "radius": 1,
             "maxTargets": 5
           },
           "effects": [
@@ -2989,14 +2925,10 @@
           "id": "skill.kunyue_zhenhai",
           "name": "镇海",
           "desc": "坤岳重压，护体更进一步。",
-          "cooldown": 69,
-          "cost": 693,
-          "costMultiplier": 1.233641,
+          "cooldown": 20,
+          "cost": 2808,
+          "costMultiplier": 5,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -3006,8 +2938,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 3.25
+                    "op": "add",
+                    "args": [
+                      300,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.25
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -3059,17 +2997,15 @@
           "id": "skill.liyan_duanxi",
           "name": "炽息天罗",
           "desc": "离炎成网，烈息罩身。",
-          "cooldown": 57,
-          "cost": 272,
-          "costMultiplier": 1.286747,
-          "range": 1,
+          "cooldown": 22,
+          "cost": 1056,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 9,
-            "targetMode": "tile"
+            "width": 3,
+            "height": 3
           },
           "effects": [
             {
@@ -3080,8 +3016,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.5
+                    "op": "add",
+                    "args": [
+                      200,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -3135,17 +3077,15 @@
           "id": "skill.cloud_blade",
           "name": "流云刀谱",
           "desc": "身随刀走，刀随风掠，一线截开前路。",
-          "cooldown": 37,
-          "cost": 113,
-          "costMultiplier": 1.387612,
-          "range": 1,
+          "cooldown": 12,
+          "cost": 408,
+          "costMultiplier": 5,
+          "range": 3,
           "targeting": {
             "shape": "orientedBox",
-            "range": 1,
-            "width": 1,
+            "width": 3,
             "height": 1,
-            "maxTargets": 3,
-            "targetMode": "tile"
+            "maxTargets": 3
           },
           "effects": [
             {
@@ -3155,8 +3095,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 1.882631
+                    "op": "add",
+                    "args": [
+                      50,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 3.25
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -3168,7 +3114,7 @@
                       },
                       {
                         "var": "caster.stat.moveSpeed",
-                        "scale": 0.000204
+                        "scale": 0.001
                       }
                     ]
                   }
@@ -3404,14 +3350,10 @@
           "id": "skill.qingmu_sword",
           "name": "青木剑诀",
           "desc": "青木剑气凝作一线，专取单体破敌。",
-          "cooldown": 3,
-          "cost": 1,
-          "costMultiplier": 1.38108,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 10,
+          "cost": 4,
+          "costMultiplier": 4,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -3421,8 +3363,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 2.696343
+                    "op": "add",
+                    "args": [
+                      30,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 3
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -3456,17 +3404,15 @@
           "id": "skill.qingmu_yangmai",
           "name": "回春",
           "desc": "木脉铺展，友方回生，敌者受创。",
-          "cooldown": 58,
-          "cost": 431,
-          "costMultiplier": 2.041774,
-          "range": 2,
+          "cooldown": 24,
+          "cost": 1056,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 2,
-            "width": 1,
-            "height": 1,
             "maxTargets": 25,
-            "targetMode": "tile"
+            "width": 5,
+            "height": 5
           },
           "effects": [
             {
@@ -3476,8 +3422,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 1
+                    "op": "add",
+                    "args": [
+                      100,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 1
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -3500,8 +3452,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3
+                    "op": "add",
+                    "args": [
+                      100,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -3569,14 +3527,10 @@
           "id": "skill.scythe_limb",
           "name": "裂刃前肢",
           "desc": "前肢先切出一道刃口，自身刃势也会顺着这次扑杀一起提起来。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.57528,
+          "cooldown": 10,
+          "cost": 6,
+          "costMultiplier": 3,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -3625,14 +3579,13 @@
           "id": "skill.whirl_scythe",
           "name": "回旋碎叶",
           "desc": "借刃势把前肢轮成一圈碎叶，贴身敌群会被一口气卷进斩击里。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.444623,
-          "range": 1,
+          "cooldown": 17,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 2,
           "targeting": {
             "shape": "area",
-            "range": 1,
-            "radius": 0,
+            "radius": 1,
             "maxTargets": 5
           },
           "effects": [
@@ -3699,14 +3652,10 @@
           "id": "skill.star_maw",
           "name": "噬星咬",
           "desc": "獠口先把残星煞意咬进目标体内，自身也会因此积起更凶的噬意。",
-          "cooldown": 3,
-          "cost": 4,
-          "costMultiplier": 1.270214,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 19,
+          "cost": 9,
+          "costMultiplier": 3,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -3756,14 +3705,13 @@
           "id": "skill.void_burst",
           "name": "裂空残啸",
           "desc": "把噬入口中的残意轰成一团裂空乱流，周围都会像被星砂刮过。",
-          "cooldown": 3,
-          "cost": 4,
-          "costMultiplier": 1.195073,
-          "range": 1,
+          "cooldown": 30,
+          "cost": 9,
+          "costMultiplier": 3,
+          "range": 3,
           "targeting": {
             "shape": "area",
-            "range": 1,
-            "radius": 0,
+            "radius": 1,
             "maxTargets": 4
           },
           "effects": [
@@ -3776,7 +3724,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 1.362505
+                    "scale": 4.4
                   },
                   {
                     "op": "add",
@@ -3788,7 +3736,7 @@
                       },
                       {
                         "var": "caster.buff.buff.monster_star_hunger.stacks",
-                        "scale": 0.016220298507462688
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -3814,14 +3762,10 @@
           "id": "skill.frost_fang",
           "name": "霜牙",
           "desc": "霜鳞蛇咬入寒气，令敌身迟滞。",
-          "cooldown": 88,
-          "cost": 3175,
-          "costMultiplier": 1.467598,
+          "cooldown": 14,
+          "cost": 6491,
+          "costMultiplier": 3,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -3872,14 +3816,10 @@
           "id": "skill.coiling_strike",
           "name": "盘鳞绞击",
           "desc": "霜鳞蛇盘身绞杀，借冰霜迟滞放大伤势。",
-          "cooldown": 92,
-          "cost": 2718,
-          "costMultiplier": 1.256001,
+          "cooldown": 18,
+          "cost": 8655,
+          "costMultiplier": 4,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -3890,19 +3830,15 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 0.83849
+                    "scale": 4.1
                   },
                   {
                     "op": "add",
                     "args": [
                       1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
                         "var": "target.buff.buff.frost_mark.stacks",
-                        "scale": 0.019729166666666673
+                        "scale": 0.12
                       }
                     ]
                   }
@@ -3916,14 +3852,10 @@
           "id": "skill.iron_tail_sting",
           "name": "寒铁尾针",
           "desc": "寒铁蝎以尾针刺入寒毒。",
-          "cooldown": 92,
-          "cost": 2868,
-          "costMultiplier": 1.325321,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 18,
+          "cost": 8655,
+          "costMultiplier": 4,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -3975,15 +3907,10 @@
           "id": "skill.frost_armor",
           "name": "霜甲",
           "desc": "寒铁蝎凝霜覆甲，抵住后续攻势。",
-          "cooldown": 98,
-          "cost": 4328,
-          "costMultiplier": 2.000079,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 24,
+          "cost": 4327,
+          "costMultiplier": 2,
+          "range": 0,
           "effects": [
             {
               "type": "buff",
@@ -4012,15 +3939,14 @@
           "id": "skill.ice_web",
           "name": "冰晶蛛网",
           "desc": "冰晶蜘蛛吐出结霜蛛网，封住敌人步法。",
-          "cooldown": 93,
-          "cost": 2820,
-          "costMultiplier": 1.303496,
-          "range": 1,
+          "cooldown": 22,
+          "cost": 8655,
+          "costMultiplier": 4,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -4090,15 +4016,14 @@
           "id": "skill.crystal_burst",
           "name": "冰晶爆裂",
           "desc": "蛛网中的冰晶猛然炸开，寒芒割裂周身。",
-          "cooldown": 95,
-          "cost": 2894,
-          "costMultiplier": 1.337509,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 10819,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -4117,10 +4042,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.monster_ice_web.stacks",
                         "scale": 0.25
@@ -4163,15 +4084,10 @@
           "id": "skill.iron_shell_guard",
           "name": "玄龟铁壳",
           "desc": "铁甲玄龟缩壳固守，短时极难撼动。",
-          "cooldown": 104,
-          "cost": 6492,
-          "costMultiplier": 3.000172,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 30,
+          "cost": 6491,
+          "costMultiplier": 3,
+          "range": 0,
           "effects": [
             {
               "type": "buff",
@@ -4200,14 +4116,13 @@
           "id": "skill.frost_breath",
           "name": "玄龟寒息",
           "desc": "铁甲玄龟吐出寒息，压低敌人的攻势。",
-          "cooldown": 94,
-          "cost": 2907,
-          "costMultiplier": 1.343454,
-          "range": 1,
+          "cooldown": 24,
+          "cost": 10819,
+          "costMultiplier": 5,
+          "range": 4,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
+            "width": 2,
             "maxTargets": 6
           },
           "effects": [
@@ -4226,10 +4141,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
                         "scale": 0.12
@@ -4264,17 +4175,15 @@
           "id": "skill.tidal_slam",
           "name": "寒潮重踏",
           "desc": "铁甲玄龟重踏地面，寒潮沿地面爆开。",
-          "cooldown": 98,
-          "cost": 4283,
-          "costMultiplier": 1.979314,
-          "range": 1,
+          "cooldown": 32,
+          "cost": 12982,
+          "costMultiplier": 6,
+          "range": 0,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
-            "maxTargets": 25,
-            "requiresTarget": false
+            "width": 5,
+            "height": 5,
+            "maxTargets": 25
           },
           "effects": [
             {
@@ -4292,10 +4201,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "caster.buff.buff.monster_iron_shell_guard.stacks",
                         "scale": 0.15
@@ -4347,15 +4252,10 @@
           "id": "skill.wind_step",
           "name": "踏风步",
           "desc": "借风提身，轻灵游走。",
-          "cooldown": 26,
+          "cooldown": 12,
           "cost": 57,
           "costMultiplier": 1,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "range": 0,
           "effects": [
             {
               "target": "self",
@@ -4395,14 +4295,10 @@
           "id": "skill.taibai_zhuxing",
           "name": "诛形",
           "desc": "裂甲既成，贴身诛形。",
-          "cooldown": 81,
-          "cost": 1526,
-          "costMultiplier": 1.185452,
+          "cooldown": 24,
+          "cost": 7723,
+          "costMultiplier": 6,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -4412,20 +4308,22 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 0.522186
+                    "op": "add",
+                    "args": [
+                      200,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 4.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
                     "args": [
                       1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
                         "var": "target.buff.buff.metal_edge_mark.stacks",
-                        "scale": 0.047471476111243166
+                        "scale": 0.5
                       }
                     ]
                   }
@@ -4451,15 +4349,10 @@
           "id": "skill.taichu_baoyuan",
           "name": "抱元",
           "desc": "抱元守一，短时拔升双抗。",
-          "cooldown": 89,
-          "cost": 3862,
-          "costMultiplier": 3.000172,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 28,
+          "cost": 3861,
+          "costMultiplier": 3,
+          "range": 0,
           "effects": [
             {
               "target": "self",
@@ -4515,15 +4408,14 @@
           "id": "skill.voidflame_cataclysm",
           "name": "劫光灭域",
           "desc": "引太虚劫光覆落成域，功法层数越高，劫光越盛。",
-          "cooldown": 124,
-          "cost": 2041,
-          "costMultiplier": 3.165325,
-          "range": 3,
+          "cooldown": 1800,
+          "cost": 5158,
+          "costMultiplier": 8,
+          "range": 9,
           "targeting": {
             "shape": "box",
-            "range": 3,
-            "width": 1,
-            "height": 1,
+            "width": 7,
+            "height": 7,
             "maxTargets": 49
           },
           "effects": [
@@ -4536,7 +4428,7 @@
                 "args": [
                   {
                     "var": "caster.stat.spellAtk",
-                    "scale": 22.607976
+                    "scale": 30
                   },
                   {
                     "op": "add",
@@ -4544,7 +4436,7 @@
                       1,
                       {
                         "var": "techLevel",
-                        "scale": 0.155409
+                        "scale": 0.2
                       }
                     ]
                   }
@@ -4574,16 +4466,13 @@
           "id": "skill.taiyin_guichao",
           "name": "潮",
           "desc": "归潮成线，借己身潮势压垮敌体。",
-          "cooldown": 81,
-          "cost": 1569,
-          "costMultiplier": 1.218708,
-          "range": 1,
+          "cooldown": 24,
+          "cost": 6436,
+          "costMultiplier": 5,
+          "range": 3,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
-            "maxTargets": 3,
-            "targetMode": "tile"
+            "maxTargets": 3
           },
           "effects": [
             {
@@ -4594,8 +4483,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3.5
+                    "op": "add",
+                    "args": [
+                      300,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -4652,15 +4547,10 @@
           "id": "skill.iron_bone_art",
           "name": "铁骨功",
           "desc": "铁息贯骨，护体续命。",
-          "cooldown": 28,
+          "cooldown": 12,
           "cost": 68,
           "costMultiplier": 1,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "range": 0,
           "effects": [
             {
               "target": "self",
@@ -4701,15 +4591,10 @@
           "id": "skill.tingmai_dingxi",
           "name": "定息",
           "desc": "调息定脉，净去缠身邪扰。",
-          "cooldown": 60,
+          "cooldown": 24,
           "cost": 211,
           "costMultiplier": 1,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "range": 0,
           "effects": [
             {
               "type": "cleanse",
@@ -4737,14 +4622,10 @@
           "id": "skill.tongtian_shadow_strike",
           "name": "虚影重击",
           "desc": "虚影以自身境界压下重击，造成随境界等级提升的物理伤害。",
-          "cooldown": 2,
-          "cost": 1,
-          "costMultiplier": 1,
+          "cooldown": 10,
+          "cost": 0,
+          "costMultiplier": 0,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -4754,19 +4635,15 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.09643
+                    "scale": 1
                   },
                   {
                     "op": "add",
                     "args": [
                       1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
                         "var": "caster.realmLv",
-                        "scale": 0.2741077329808328
+                        "scale": 0.5
                       }
                     ]
                   }
@@ -4792,14 +4669,10 @@
           "id": "skill.wanzhi_huichun",
           "name": "束魂",
           "desc": "木意锁魂，直压单敌。",
-          "cooldown": 69,
-          "cost": 666,
-          "costMultiplier": 1.186439,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 20,
+          "cost": 2808,
+          "costMultiplier": 5,
+          "range": 5,
           "effects": [
             {
               "type": "damage",
@@ -4809,8 +4682,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 0.955935
+                    "op": "add",
+                    "args": [
+                      200,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -4862,17 +4741,15 @@
           "id": "skill.xuanjin_huilan",
           "name": "涌",
           "desc": "回澜自起，近身震散敌势。",
-          "cooldown": 68,
-          "cost": 764,
-          "costMultiplier": 1.360588,
-          "range": 1,
+          "cooldown": 18,
+          "cost": 2808,
+          "costMultiplier": 5,
+          "range": 0,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 9,
-            "requiresTarget": false
+            "width": 3,
+            "height": 3
           },
           "effects": [
             {
@@ -4883,8 +4760,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 3
+                    "op": "add",
+                    "args": [
+                      200,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 3
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -4973,15 +4856,10 @@
           "id": "skill.earth_shell",
           "name": "玄土甲壳",
           "desc": "玄土甲虫收束厚土之力，甲壳愈发坚硬。",
-          "cooldown": 123,
+          "cooldown": 24,
           "cost": 14588,
-          "costMultiplier": 2.000079,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "costMultiplier": 2,
+          "range": 0,
           "effects": [
             {
               "target": "self",
@@ -5028,13 +4906,12 @@
           "id": "skill.burrowing_charge",
           "name": "潜地冲",
           "desc": "玄土甲虫潜入地层后破土冲出。",
-          "cooldown": 117,
-          "cost": 8754,
-          "costMultiplier": 1.200147,
-          "range": 1,
+          "cooldown": 22,
+          "cost": 29175,
+          "costMultiplier": 4,
+          "range": 3,
           "targeting": {
             "shape": "line",
-            "range": 1,
             "width": 1,
             "maxTargets": 3
           },
@@ -5048,19 +4925,15 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.065944
+                    "scale": 4.1
                   },
                   {
                     "op": "add",
                     "args": [
                       1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
                         "var": "caster.buff.buff.monster_darksoil_shell.stacks",
-                        "scale": 0.015791753334149027
+                        "scale": 0.12
                       }
                     ]
                   }
@@ -5074,14 +4947,13 @@
           "id": "skill.earth_rend",
           "name": "裂地",
           "desc": "裂地蜈蚣撕开地脉，令前方敌人立足不稳。",
-          "cooldown": 118,
-          "cost": 9853,
-          "costMultiplier": 1.350824,
-          "range": 1,
+          "cooldown": 24,
+          "cost": 36469,
+          "costMultiplier": 5,
+          "range": 4,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
+            "width": 2,
             "maxTargets": 8
           },
           "effects": [
@@ -5134,14 +5006,10 @@
           "id": "skill.venom_mandible",
           "name": "毒颚",
           "desc": "裂地蜈蚣以毒颚撕咬，伤口难以闭合。",
-          "cooldown": 116,
-          "cost": 10032,
-          "costMultiplier": 1.375404,
+          "cooldown": 18,
+          "cost": 29175,
+          "costMultiplier": 4,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -5158,10 +5026,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.monster_earth_rend.stacks",
                         "scale": 0.1
@@ -5197,15 +5061,14 @@
           "id": "skill.burrow_ambush",
           "name": "潜伏伏击",
           "desc": "裂地蜈蚣钻入地缝，再从目标脚下爆起。",
-          "cooldown": 118,
-          "cost": 9051,
-          "costMultiplier": 1.240915,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 43763,
+          "costMultiplier": 6,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -5218,19 +5081,15 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.541901
+                    "scale": 4.8
                   },
                   {
                     "op": "add",
                     "args": [
                       1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
                         "var": "target.buff.buff.monster_deep_earth_venom.stacks",
-                        "scale": 0.00963688197442372
+                        "scale": 0.08
                       }
                     ]
                   }
@@ -5248,14 +5107,13 @@
           "id": "skill.mixed_element_spit",
           "name": "混元吐息",
           "desc": "混元石蟾吐出五行浊浆，侵蚀敌人的术防。",
-          "cooldown": 118,
-          "cost": 9786,
-          "costMultiplier": 1.341625,
-          "range": 1,
+          "cooldown": 24,
+          "cost": 36469,
+          "costMultiplier": 5,
+          "range": 4,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
+            "width": 2,
             "maxTargets": 8
           },
           "effects": [
@@ -5308,15 +5166,10 @@
           "id": "skill.stone_skin",
           "name": "石蟾硬皮",
           "desc": "混元石蟾鼓起石皮，硬吃正面攻势。",
-          "cooldown": 126,
+          "cooldown": 26,
           "cost": 14588,
-          "costMultiplier": 2.000079,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "costMultiplier": 2,
+          "range": 0,
           "effects": [
             {
               "type": "buff",
@@ -5345,17 +5198,15 @@
           "id": "skill.earth_quake_stomp",
           "name": "地震踏",
           "desc": "混元石蟾重踏地面，震开周围敌人。",
-          "cooldown": 122,
-          "cost": 14741,
-          "costMultiplier": 2.02103,
-          "range": 1,
+          "cooldown": 30,
+          "cost": 43763,
+          "costMultiplier": 6,
+          "range": 0,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
-            "maxTargets": 25,
-            "requiresTarget": false
+            "width": 5,
+            "height": 5,
+            "maxTargets": 25
           },
           "effects": [
             {
@@ -5373,10 +5224,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "caster.buff.buff.monster_stone_skin.stacks",
                         "scale": 0.12
@@ -5416,15 +5263,14 @@
           "id": "skill.earth_dragon_dive",
           "name": "地龙潜跃",
           "desc": "玄壤地龙潜入地脉，再破土撕咬。",
-          "cooldown": 119,
-          "cost": 9719,
-          "costMultiplier": 1.332501,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 43763,
+          "costMultiplier": 6,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
+            "width": 3,
+            "height": 3,
             "maxTargets": 9
           },
           "effects": [
@@ -5481,17 +5327,15 @@
           "id": "skill.tectonic_slam",
           "name": "地脉重压",
           "desc": "玄壤地龙引动地脉，向周围重压而下。",
-          "cooldown": 123,
-          "cost": 14803,
-          "costMultiplier": 2.02957,
-          "range": 1,
+          "cooldown": 34,
+          "cost": 51057,
+          "costMultiplier": 7,
+          "range": 0,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
-            "maxTargets": 25,
-            "requiresTarget": false
+            "width": 5,
+            "height": 5,
+            "maxTargets": 25
           },
           "effects": [
             {
@@ -5509,10 +5353,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.buff.buff.monster_dragon_earthbind.stacks",
                         "scale": 0.18
@@ -5553,14 +5393,13 @@
           "id": "skill.dragon_spine_sweep",
           "name": "龙脊横扫",
           "desc": "玄壤地龙以脊骨横扫前方，摧折防线。",
-          "cooldown": 118,
-          "cost": 8848,
-          "costMultiplier": 1.213136,
+          "cooldown": 24,
+          "cost": 43763,
+          "costMultiplier": 6,
           "range": 1,
           "targeting": {
             "shape": "orientedBox",
-            "range": 1,
-            "width": 1,
+            "width": 5,
             "height": 1,
             "maxTargets": 5
           },
@@ -5574,19 +5413,15 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.186086
+                    "scale": 5
                   },
                   {
                     "op": "add",
                     "args": [
                       1,
                       {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
-                      {
                         "var": "target.buff.buff.monster_tectonic_pressure.stacks",
-                        "scale": 0.016173901173901176
+                        "scale": 0.15
                       }
                     ]
                   }
@@ -5600,15 +5435,10 @@
           "id": "skill.earth_armor_fortify",
           "name": "地甲固化",
           "desc": "玄壤地龙让厚土地甲彻底固化。",
-          "cooldown": 141,
-          "cost": 21883,
-          "costMultiplier": 3.000172,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 40,
+          "cost": 21882,
+          "costMultiplier": 3,
+          "range": 0,
           "effects": [
             {
               "target": "self",
@@ -5656,14 +5486,10 @@
           "id": "skill.fivephase_devour",
           "name": "五行吞脉",
           "desc": "五行噬脉兽咬住灵脉，吞噬目标气机。",
-          "cooldown": 118,
-          "cost": 8744,
-          "costMultiplier": 1.198845,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 28,
+          "cost": 51057,
+          "costMultiplier": 7,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -5680,10 +5506,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "target.debuffCount",
                         "scale": 0.06
@@ -5719,15 +5541,10 @@
           "id": "skill.element_shift",
           "name": "五行转相",
           "desc": "五行噬脉兽转动体内五行，短时补齐弱处。",
-          "cooldown": 130,
-          "cost": 21883,
-          "costMultiplier": 3.000172,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 30,
+          "cost": 21882,
+          "costMultiplier": 3,
+          "range": 0,
           "effects": [
             {
               "type": "buff",
@@ -5758,15 +5575,14 @@
           "id": "skill.mixed_element_storm",
           "name": "混元五行暴",
           "desc": "五行噬脉兽搅动五行浊流，覆盖大片区域。",
-          "cooldown": 124,
-          "cost": 13619,
-          "costMultiplier": 1.867184,
-          "range": 2,
+          "cooldown": 40,
+          "cost": 58351,
+          "costMultiplier": 8,
+          "range": 6,
           "targeting": {
             "shape": "box",
-            "range": 2,
-            "width": 1,
-            "height": 1,
+            "width": 5,
+            "height": 5,
             "maxTargets": 25
           },
           "effects": [
@@ -5785,10 +5601,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "caster.buff.buff.monster_element_shift.stacks",
                         "scale": 0.12
@@ -5833,15 +5645,10 @@
           "id": "skill.vein_drain",
           "name": "汲脉回元",
           "desc": "五行噬脉兽抽回散逸气机，修补自身。",
-          "cooldown": 117,
-          "cost": 7341,
-          "costMultiplier": 1.00648,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1,
-            "requiresTarget": false
-          },
+          "cooldown": 48,
+          "cost": 36469,
+          "costMultiplier": 5,
+          "range": 0,
           "effects": [
             {
               "type": "heal",
@@ -5857,10 +5664,6 @@
                     "op": "add",
                     "args": [
                       1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      },
                       {
                         "var": "caster.buff.buff.monster_element_shift.stacks",
                         "scale": 0.08
@@ -6235,14 +6038,10 @@
           "id": "skill.venom_fang",
           "name": "毒牙噬",
           "desc": "毒牙先把毒蚀送进经络，后续每一口瘴气都会更容易顺着伤处发作。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.635759,
+          "cooldown": 9,
+          "cost": 6,
+          "costMultiplier": 3,
           "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
           "effects": [
             {
               "type": "damage",
@@ -6293,14 +6092,12 @@
           "id": "skill.miasma_spray",
           "name": "瘴雾喷吐",
           "desc": "把先前灌入的毒意化成瘴雾一路压过去，毒蚀越深，后劲越狠。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.334464,
-          "range": 1,
+          "cooldown": 18,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 3,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
             "maxTargets": 3
           },
           "effects": [
@@ -6369,14 +6166,10 @@
           "id": "skill.predator_pounce",
           "name": "裂喉扑杀",
           "desc": "压低妖躯后猛扑夺位，先抢到贴身节奏，再把凶奔一并提起来。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.450915,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 12,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -6426,14 +6219,12 @@
           "id": "skill.rending_claw",
           "name": "裂骨爪",
           "desc": "借扑势把爪锋拖成一道撕骨长痕，凶奔越盛，这一下越难硬吃。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.44426,
-          "range": 1,
+          "cooldown": 17,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 2,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
             "maxTargets": 3
           },
           "effects": [
@@ -6489,14 +6280,10 @@
           "id": "skill.brutal_ram",
           "name": "蛮骨冲",
           "desc": "把筋骨、体重和凶奔余势全压进一撞里，最适合强行开路撞穿前排。",
-          "cooldown": 3,
-          "cost": 2,
-          "costMultiplier": 1.213257,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 17,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 2,
           "effects": [
             {
               "type": "damage",
@@ -6506,7 +6293,7 @@
                 "args": [
                   {
                     "var": "caster.stat.physAtk",
-                    "scale": 1.168644
+                    "scale": 3.1
                   },
                   {
                     "op": "add",
@@ -6518,7 +6305,7 @@
                       },
                       {
                         "var": "caster.buff.buff.monster_bloodrush.stacks",
-                        "scale": 0.01759476817042607
+                        "scale": 0.1
                       }
                     ]
                   }
@@ -6560,15 +6347,14 @@
           "id": "skill.yi_kunlun_point_stone",
           "name": "叩地成岳",
           "desc": "叩定一处地脉，搬山成岳，生成一块可被攻击拆除的临时石头。",
-          "cooldown": 7,
-          "cost": 19440,
-          "costMultiplier": 34.609655,
-          "range": 8,
+          "cooldown": 8,
+          "cost": 1123,
+          "costMultiplier": 2,
+          "range": 6,
           "targeting": {
             "shape": "single",
-            "range": 8,
-            "maxTargets": 1,
-            "targetMode": "tile"
+            "targetMode": "tile",
+            "maxTargets": 1
           },
           "effects": [
             {
@@ -6576,38 +6362,30 @@
               "tileType": "stone",
               "durationTicks": 60,
               "hpFormula": {
-                "op": "mul",
+                "op": "add",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 10
+                        "op": "add",
+                        "args": [
+                          {
+                            "var": "caster.stat.physAtk"
+                          },
+                          {
+                            "var": "caster.stat.spellAtk"
+                          }
+                        ]
                       },
-                      {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 10
-                      },
-                      {
-                        "var": "caster.hp",
-                        "scale": 1
-                      },
-                      {
-                        "var": "caster.qi",
-                        "scale": 1
-                      }
+                      10
                     ]
                   },
                   {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
+                    "var": "caster.hp"
+                  },
+                  {
+                    "var": "caster.qi"
                   }
                 ]
               }
@@ -6621,17 +6399,16 @@
           "id": "skill.yi_kunlun_hollow_square",
           "name": "八荒锁岳",
           "desc": "牵动八方地脉，在目标周围叠起三乘三外环石阵，中宫留空。",
-          "cooldown": 59,
-          "cost": 5835,
-          "costMultiplier": 10.38826,
-          "range": 5,
+          "cooldown": 16,
+          "cost": 2808,
+          "costMultiplier": 5,
+          "range": 6,
           "targeting": {
             "shape": "box",
-            "range": 5,
             "width": 3,
             "height": 3,
-            "maxTargets": 8,
-            "targetMode": "tile"
+            "targetMode": "tile",
+            "maxTargets": 8
           },
           "effects": [
             {
@@ -6640,38 +6417,30 @@
               "durationTicks": 60,
               "excludeAnchor": true,
               "hpFormula": {
-                "op": "mul",
+                "op": "add",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 10
+                        "op": "add",
+                        "args": [
+                          {
+                            "var": "caster.stat.physAtk"
+                          },
+                          {
+                            "var": "caster.stat.spellAtk"
+                          }
+                        ]
                       },
-                      {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 10
-                      },
-                      {
-                        "var": "caster.hp",
-                        "scale": 1
-                      },
-                      {
-                        "var": "caster.qi",
-                        "scale": 1
-                      }
+                      10
                     ]
                   },
                   {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
+                    "var": "caster.hp"
+                  },
+                  {
+                    "var": "caster.qi"
                   }
                 ]
               }
@@ -6685,17 +6454,16 @@
           "id": "skill.yi_kunlun_horizontal_wall",
           "name": "横断天关",
           "desc": "横移昆仑一线，生成三块相连的临时石头，截断通路。",
-          "cooldown": 45,
-          "cost": 6420,
-          "costMultiplier": 11.429923,
-          "range": 5,
+          "cooldown": 12,
+          "cost": 2247,
+          "costMultiplier": 4,
+          "range": 6,
           "targeting": {
             "shape": "box",
-            "range": 5,
             "width": 3,
-            "height": 3,
-            "maxTargets": 3,
-            "targetMode": "tile"
+            "height": 1,
+            "targetMode": "tile",
+            "maxTargets": 3
           },
           "effects": [
             {
@@ -6703,38 +6471,30 @@
               "tileType": "stone",
               "durationTicks": 60,
               "hpFormula": {
-                "op": "mul",
+                "op": "add",
                 "args": [
                   {
-                    "op": "add",
+                    "op": "mul",
                     "args": [
                       {
-                        "var": "caster.stat.physAtk",
-                        "scale": 10
+                        "op": "add",
+                        "args": [
+                          {
+                            "var": "caster.stat.physAtk"
+                          },
+                          {
+                            "var": "caster.stat.spellAtk"
+                          }
+                        ]
                       },
-                      {
-                        "var": "caster.stat.spellAtk",
-                        "scale": 10
-                      },
-                      {
-                        "var": "caster.hp",
-                        "scale": 1
-                      },
-                      {
-                        "var": "caster.qi",
-                        "scale": 1
-                      }
+                      10
                     ]
                   },
                   {
-                    "op": "add",
-                    "args": [
-                      1,
-                      {
-                        "var": "techLevel",
-                        "scale": 0.1
-                      }
-                    ]
+                    "var": "caster.hp"
+                  },
+                  {
+                    "var": "caster.qi"
                   }
                 ]
               }
@@ -6760,14 +6520,10 @@
           "id": "skill.plume_shot",
           "name": "裂羽攒射",
           "desc": "羽翎离弦时先校准高空身位，命中后自身也会顺势维持凌空压制。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.336471,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 13,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 3,
           "effects": [
             {
               "type": "damage",
@@ -6817,14 +6573,12 @@
           "id": "skill.echo_screech",
           "name": "裂空尖啸",
           "desc": "以尖啸震乱前排后，再借凌空余势把回音一路压进整条战线。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.300061,
-          "range": 1,
+          "cooldown": 24,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 4,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
             "maxTargets": 4
           },
           "effects": [
@@ -6880,14 +6634,10 @@
           "id": "skill.frost_plume",
           "name": "霜羽坠",
           "desc": "把高空积起的寒意压进羽锋，坠下时会连霜痕一起钉进目标体表。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.306762,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 19,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 3,
           "effects": [
             {
               "type": "damage",
@@ -6954,14 +6704,12 @@
           "id": "skill.starfall_spear",
           "name": "贯星",
           "desc": "枪势贯空，距离越远，星坠越重。",
-          "cooldown": 53,
-          "cost": 379,
-          "costMultiplier": 1.389936,
-          "range": 1,
+          "cooldown": 16,
+          "cost": 1365,
+          "costMultiplier": 5,
+          "range": 4,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
             "maxTargets": 4
           },
           "effects": [
@@ -6972,8 +6720,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.physAtk",
-                    "scale": 1.705395
+                    "op": "add",
+                    "args": [
+                      100,
+                      {
+                        "var": "caster.stat.physAtk",
+                        "scale": 4
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -6985,7 +6739,7 @@
                       },
                       {
                         "var": "target.distance",
-                        "scale": 0.06137015483736881
+                        "scale": 0.3
                       }
                     ]
                   }
@@ -7027,17 +6781,15 @@
           "id": "skill.changsheng_chanyuan",
           "name": "枯荣禁脉",
           "desc": "枯荣逆转，断其回息。",
-          "cooldown": 82,
-          "cost": 1624,
-          "costMultiplier": 1.261349,
-          "range": 1,
+          "cooldown": 28,
+          "cost": 6436,
+          "costMultiplier": 5,
+          "range": 5,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 9,
-            "targetMode": "tile"
+            "width": 3,
+            "height": 3
           },
           "effects": [
             {
@@ -7048,8 +6800,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4
+                    "op": "add",
+                    "args": [
+                      300,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -7133,17 +6891,15 @@
           "id": "skill.spirit_anchor",
           "name": "镇灵篇",
           "desc": "镇灵真意铺开，封镇大片气机。",
-          "cooldown": 50,
-          "cost": 386,
-          "costMultiplier": 1.645021,
-          "range": 1,
+          "cooldown": 18,
+          "cost": 1406,
+          "costMultiplier": 6,
+          "range": 0,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 25,
-            "requiresTarget": false
+            "width": 5,
+            "height": 5
           },
           "effects": [
             {
@@ -7153,8 +6909,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 2
+                    "op": "add",
+                    "args": [
+                      20,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 2
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -7257,17 +7019,15 @@
           "id": "skill.zhuming_jintian",
           "name": "朱明劫焰",
           "desc": "朱明火势归于己身，三息之后覆压四方。",
-          "cooldown": 86,
-          "cost": 2977,
-          "costMultiplier": 2.313204,
-          "range": 1,
+          "cooldown": 32,
+          "cost": 6436,
+          "costMultiplier": 5,
+          "range": 0,
           "targeting": {
             "shape": "box",
-            "range": 1,
-            "width": 1,
-            "height": 1,
             "maxTargets": 25,
-            "requiresTarget": false
+            "width": 5,
+            "height": 5
           },
           "effects": [
             {
@@ -7278,8 +7038,14 @@
                 "op": "mul",
                 "args": [
                   {
-                    "var": "caster.stat.spellAtk",
-                    "scale": 4.5
+                    "op": "add",
+                    "args": [
+                      400,
+                      {
+                        "var": "caster.stat.spellAtk",
+                        "scale": 4.5
+                      }
+                    ]
                   },
                   {
                     "op": "add",
@@ -7337,14 +7103,10 @@
           "id": "skill.bamboo_whip",
           "name": "竹影抽",
           "desc": "先用竹影抽乱步点，再把草木青缠顺着这一抽一起缠上去。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.349036,
-          "range": 1,
-          "targeting": {
-            "shape": "single",
-            "range": 1
-          },
+          "cooldown": 13,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 3,
           "effects": [
             {
               "type": "damage",
@@ -7394,14 +7156,12 @@
           "id": "skill.leaf_storm",
           "name": "青叶乱雨",
           "desc": "把缠在敌身上的草叶一口气搅成乱雨，青缠越深，落下时越密。",
-          "cooldown": 3,
-          "cost": 3,
-          "costMultiplier": 1.340393,
-          "range": 1,
+          "cooldown": 19,
+          "cost": 6,
+          "costMultiplier": 3,
+          "range": 3,
           "targeting": {
             "shape": "line",
-            "range": 1,
-            "width": 1,
             "maxTargets": 3
           },
           "effects": [
