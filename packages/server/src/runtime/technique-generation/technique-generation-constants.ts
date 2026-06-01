@@ -29,6 +29,15 @@ export const TECHNIQUE_GENERATION_HIGH_DIRECTION_RATIO = 0.25;
 /** 单次领悟最多投入的悟道玉简数量 */
 export const TECHNIQUE_GENERATION_MAX_ITEM_SPEND = 10;
 
+/** 生成时随机的总预算百分比下限。 */
+export const TECHNIQUE_GENERATION_BUDGET_PERCENT_MIN = 0.8;
+
+/** 生成时随机的总预算百分比上限。 */
+export const TECHNIQUE_GENERATION_BUDGET_PERCENT_MAX = 1.2;
+
+/** 未提供总预算百分比时的默认值。 */
+export const TECHNIQUE_GENERATION_BUDGET_PERCENT_DEFAULT = 1;
+
 /** 悟道玉简道具 ID */
 export const TECHNIQUE_GENERATION_ITEM_ID = 'wudao_yujian';
 

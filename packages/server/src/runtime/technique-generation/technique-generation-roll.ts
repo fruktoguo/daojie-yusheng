@@ -16,6 +16,9 @@
 import type { TechniqueGrade } from '@mud/shared';
 import { TECHNIQUE_GRADE_ORDER } from '@mud/shared';
 import {
+  TECHNIQUE_GENERATION_BUDGET_PERCENT_DEFAULT,
+  TECHNIQUE_GENERATION_BUDGET_PERCENT_MAX,
+  TECHNIQUE_GENERATION_BUDGET_PERCENT_MIN,
   TECHNIQUE_GENERATION_REALM_LV_OFFSET,
   TECHNIQUE_GENERATION_GRADE_OFFSET,
   TECHNIQUE_GENERATION_CENTER_PROBABILITY,
@@ -175,6 +178,22 @@ export function normalizeTechniqueGenerationItemSpend(value: unknown): number {
     return 1;
   }
   return Math.max(1, Math.min(TECHNIQUE_GENERATION_MAX_ITEM_SPEND, Math.trunc(numeric)));
+}
+
+export function normalizeTechniqueGenerationBudgetPercent(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return TECHNIQUE_GENERATION_BUDGET_PERCENT_DEFAULT;
+  }
+  return Math.max(
+    TECHNIQUE_GENERATION_BUDGET_PERCENT_MIN,
+    Math.min(TECHNIQUE_GENERATION_BUDGET_PERCENT_MAX, numeric),
+  );
+}
+
+export function rollTechniqueBudgetPercent(): number {
+  const span = TECHNIQUE_GENERATION_BUDGET_PERCENT_MAX - TECHNIQUE_GENERATION_BUDGET_PERCENT_MIN;
+  return Math.round((TECHNIQUE_GENERATION_BUDGET_PERCENT_MIN + Math.random() * span) * 10_000) / 10_000;
 }
 
 export function rollBoostedTechniqueOutcome(playerRealmLv: number, itemSpend: number): TechniqueGenerationRollOutcome {

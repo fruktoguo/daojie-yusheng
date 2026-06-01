@@ -145,9 +145,13 @@ async function testInitializedServiceConsumesRequestedItemSpend(): Promise<void>
 
   assert.equal(result.success, true);
   assert.equal(result.itemSpend, 4);
+  assert.ok((result.budgetPercent ?? 0) >= 0.8 && (result.budgetPercent ?? 0) <= 1.2);
+  assert.ok((result.totalBudget ?? 0) > 0);
   assert.equal(consumedCount, 4);
   const insertJobQuery = queries.find((entry) => entry.sql.includes('INSERT INTO technique_generation_job'));
   assert.equal(insertJobQuery?.params?.[6], 4);
+  assert.equal(insertJobQuery?.params?.[7], result.budgetPercent);
+  assert.equal(insertJobQuery?.params?.[8], result.totalBudget);
   assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_consumed = true')));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(executedJobId, result.jobId);
@@ -572,6 +576,8 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
     realmLv: 43,
     maxLayer: 9,
     itemSpend: 3,
+    budgetPercent: 1.1,
+    totalBudget: Math.round(calcArtsBudgetMax('earth', 43) * 1.1 * 10_000) / 10_000,
     playerContext: '伤害范围32格,冷却1息,伤害特别低',
   });
   const artsPayload = JSON.parse(artsPrompt.userMessage) as {
@@ -583,7 +589,8 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
   assert.equal(artsPayload.generationContext?.realmLv, 43);
   assert.equal(artsPayload.generationContext?.realmStageLabel, '金丹前期');
   assert.equal(artsPayload.generationContext?.itemSpend, 3);
-  assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43), 0.0001);
+  assert.equal(artsPayload.generationContext?.budgetPercent, 1.1);
+  assertApprox(Number(artsPayload.budgetContext?.actualTotalBudget), calcArtsBudgetMax('earth', 43) * 1.1, 0.0001);
   assert.ok(artsPayload.strengthRules?.calculationFormulas?.some((entry) => entry.includes('itemBudget')));
 
   const internalPrompt = buildTechniquePrompt({
@@ -591,6 +598,7 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
     grade: 'mortal',
     realmLv: 31,
     maxLayer: 9,
+    budgetPercent: 0.9,
     playerContext: '稳固根基',
   });
   const internalPayload = JSON.parse(internalPrompt.userMessage) as {
@@ -598,6 +606,7 @@ async function testTechniquePromptIncludesRolledBudgetContext(): Promise<void> {
     budgetContext?: Record<string, unknown>;
   };
   assert.equal(internalPayload.budgetContext?.budgetType, 'internal_attr_ratio');
+  assert.equal(internalPayload.budgetContext?.budgetPercent, 0.9);
   assert.ok((internalPayload.generationContext?.toneGuidance ?? []).some((entry) => entry.includes('不使用灭世')));
 }
 

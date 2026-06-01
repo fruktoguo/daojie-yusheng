@@ -24,6 +24,8 @@ export interface GenerationJobResult {
   rolledGrade?: TechniqueGrade;
   rolledRealmLv?: number;
   itemSpend?: number;
+  budgetPercent?: number;
+  totalBudget?: number;
   error?: string;
   errorCode?: string;
 }
@@ -53,6 +55,8 @@ export interface TechniquePreview {
   skills?: SkillDef[];
   maxLayer: number;
   expDifficulty: number;
+  budgetPercent?: number;
+  totalBudget?: number;
 }
 
 export interface GenerationStatus {

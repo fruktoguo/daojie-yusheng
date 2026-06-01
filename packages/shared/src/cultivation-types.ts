@@ -153,6 +153,15 @@ export interface TechniqueTemplate {
    */
   attrFloat?: number;
   /**
+   * 服务端生成时确定的总预算百分比。
+   *
+   * - AI 生成功法时由服务端随机，默认 1。
+   * - 新生成模板优先使用该字段决定总预算；`attrFloat` 仅保留兼容旧模板。
+   */
+  budgetPercent?: number;
+  /** 服务端生成时确定的总预算快照，用于审计和 AI prompt 回放。 */
+  totalBudget?: number;
+  /**
    * 总层数（量化格式）。
    *
    * - 默认 9，范围 `[3, 49]`。

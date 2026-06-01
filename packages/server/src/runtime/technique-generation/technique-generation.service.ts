@@ -16,6 +16,7 @@ import { Injectable } from '@nestjs/common';
 import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplate } from '@mud/shared';
 import {
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
+  calcInternalTechniqueAttrTotalByBudgetPercent,
   calcTechniqueAttrValues,
   expandTechniqueArtsStrengthSkill,
   expandTechniqueAttrRatio,
@@ -50,6 +51,7 @@ import { buildTechniquePrompt, buildRetryPrompt } from './technique-prompt-build
 import { calcArtsBudgetMax } from './technique-budget-normalizer';
 import {
   normalizeTechniqueGenerationItemSpend,
+  rollTechniqueBudgetPercent,
   rollBoostedTechniqueOutcome,
 } from './technique-generation-roll';
 import {
@@ -116,6 +118,8 @@ export class TechniqueGenerationService {
     const roll = rollBoostedTechniqueOutcome(params.playerRealmLv, itemSpend);
     const rolledRealmLv = roll.realmLv;
     const rolledGrade = roll.grade;
+    const budgetPercent = rollTechniqueBudgetPercent();
+    const totalBudget = calculateGenerationTotalBudget(params.category, rolledGrade, rolledRealmLv, budgetPercent);
 
     // 4. 先创建 job 审计，再消耗道具；数据库不可写时不能扣玩家资产。
     const jobId = randomUUID();
@@ -129,6 +133,8 @@ export class TechniqueGenerationService {
       rolledRealmLv,
       playerContext: sanitizedContext,
       itemSpend,
+      budgetPercent,
+      totalBudget,
     });
 
     // 5. 模型未配置属于系统不可用，不消耗玩家资产。
@@ -155,11 +161,13 @@ export class TechniqueGenerationService {
         playerContext: sanitizedContext,
         playerId: params.playerId,
         itemSpend,
+        budgetPercent,
+        totalBudget,
         modelConfig,
       }).catch(() => undefined);
     });
 
-    return { success: true, jobId, rolledGrade, rolledRealmLv, itemSpend };
+    return { success: true, jobId, rolledGrade, rolledRealmLv, itemSpend, budgetPercent, totalBudget };
   }
 
   /** 执行生成（异步） */
@@ -170,6 +178,8 @@ export class TechniqueGenerationService {
     playerContext: string;
     playerId: string;
     itemSpend?: number;
+    budgetPercent?: number;
+    totalBudget?: number;
     modelConfig?: AiTextModelConfig;
   }): Promise<GenerationExecutionResult> {
     const pool = this.pool;
@@ -186,6 +196,12 @@ export class TechniqueGenerationService {
     }
 
     const maxLayer = TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
+    const budgetPercent = Number.isFinite(params.budgetPercent)
+      ? Number(params.budgetPercent)
+      : 1;
+    const totalBudget = Number.isFinite(params.totalBudget) && Number(params.totalBudget) > 0
+      ? Number(params.totalBudget)
+      : calculateGenerationTotalBudget(params.category as TechniqueCategory, params.grade as any, params.realmLv, budgetPercent);
     const basePrompt = buildTechniquePrompt({
       category: params.category as TechniqueCategory,
       grade: params.grade as any,
@@ -193,6 +209,8 @@ export class TechniqueGenerationService {
       maxLayer,
       playerContext: params.playerContext,
       itemSpend: params.itemSpend,
+      budgetPercent,
+      totalBudget,
     });
 
     let candidate: Record<string, unknown> | null = null;
@@ -230,14 +248,22 @@ export class TechniqueGenerationService {
         continue;
       }
 
-      const validation = validateTechniqueCandidate(parsed, params.category as TechniqueCategory);
+      const fixedCandidate = applyServerFixedTechniqueFields(parsed, {
+        category: params.category as TechniqueCategory,
+        grade: params.grade,
+        realmLv: params.realmLv,
+        maxLayer,
+        budgetPercent,
+        totalBudget,
+      });
+      const validation = validateTechniqueCandidate(fixedCandidate, params.category as TechniqueCategory);
       if (!validation.valid) {
         lastFailureReason = validation.errors.map((e) => `${e.field}: ${e.message}`).join('; ');
         lastFailureCode = 'VALIDATION_FAILED';
         continue;
       }
 
-      candidate = parsed;
+      candidate = fixedCandidate;
       successfulAiResult = { ...aiResult, attemptCount: attempt };
       break;
     }
@@ -262,7 +288,7 @@ export class TechniqueGenerationService {
         await updateGenerationJobStatus(pool, jobId, 'failed', 'VALIDATION_FAILED', reason);
         return { success: false, error: reason };
       }
-      const targetBudget = calcArtsBudgetMax(params.grade as any, params.realmLv);
+      const targetBudget = totalBudget;
       const expandedArts = normalizedArts.template.skills.map((skill, index) => (
         expandTechniqueArtsStrengthSkill({
           techniqueId,
@@ -288,6 +314,8 @@ export class TechniqueGenerationService {
       grade: params.grade as any,
       category: params.category,
       realmLv: params.realmLv,
+      budgetPercent,
+      totalBudget,
       attrRatio: params.category === 'internal'
         ? normalizeTechniqueAttrRatio(candidate.attrRatio as Record<string, unknown>)
         : undefined,
@@ -360,6 +388,8 @@ export class TechniqueGenerationService {
       skills: Array.isArray(template.skills) ? template.skills : undefined,
       maxLayer,
       expDifficulty: template.expDifficulty ?? 1,
+      budgetPercent: template.budgetPercent,
+      totalBudget: template.totalBudget,
     };
   }
 
@@ -470,6 +500,8 @@ export class TechniqueGenerationService {
           playerContext: job.playerContext,
           playerId: job.playerId,
           itemSpend: job.itemSpend,
+          budgetPercent: job.budgetPercent,
+          totalBudget: job.totalBudget,
           modelConfig,
         }).catch(() => undefined);
       });
@@ -540,6 +572,41 @@ function normalizePositiveAttrs(attrs: Partial<Attributes>): Partial<Attributes>
     }
   }
   return Object.keys(result).length > 0 ? result : {};
+}
+
+function calculateGenerationTotalBudget(
+  category: TechniqueCategory,
+  grade: TechniqueTemplate['grade'],
+  realmLv: number,
+  budgetPercent: number,
+): number {
+  const normalizedBudgetPercent = Number.isFinite(budgetPercent) ? Math.max(0, budgetPercent) : 1;
+  const totalBudget = category === 'arts'
+    ? calcArtsBudgetMax(grade, realmLv) * normalizedBudgetPercent
+    : calcInternalTechniqueAttrTotalByBudgetPercent(grade, realmLv, normalizedBudgetPercent);
+  return Math.round(totalBudget * 10_000) / 10_000;
+}
+
+function applyServerFixedTechniqueFields(
+  candidate: Record<string, unknown>,
+  fixed: {
+    category: TechniqueCategory;
+    grade: string;
+    realmLv: number;
+    maxLayer: number;
+    budgetPercent: number;
+    totalBudget: number;
+  },
+): Record<string, unknown> {
+  return {
+    ...candidate,
+    grade: fixed.grade,
+    category: fixed.category,
+    realmLv: fixed.realmLv,
+    maxLayer: fixed.maxLayer,
+    budgetPercent: fixed.budgetPercent,
+    totalBudget: fixed.totalBudget,
+  };
 }
 
 interface ArtsStrengthGenerationReport {

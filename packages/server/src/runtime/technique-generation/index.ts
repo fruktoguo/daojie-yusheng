@@ -9,6 +9,8 @@ export { TechniqueGenerationService } from './technique-generation.service';
 export {
   rollTechniqueRealmLv,
   rollTechniqueGrade,
+  rollTechniqueBudgetPercent,
+  normalizeTechniqueGenerationBudgetPercent,
   resolveBaseGrade,
   rollAsymmetricOffset,
   TECHNIQUE_GRADE_REALM_BANDS,

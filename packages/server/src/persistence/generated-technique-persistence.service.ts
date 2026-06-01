@@ -93,6 +93,8 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
         rolled_grade          VARCHAR(16),
         rolled_realm_lv       INT,
         player_context        VARCHAR(200),
+        rolled_budget_percent NUMERIC NOT NULL DEFAULT 1,
+        rolled_total_budget   NUMERIC NOT NULL DEFAULT 0,
 
         draft_technique_id    VARCHAR(64),
         model_name            VARCHAR(64),
@@ -135,6 +137,14 @@ export async function ensureGeneratedTechniqueTables(pool: Pool): Promise<void> 
     await client.query(`
       ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
       ADD COLUMN IF NOT EXISTS item_spend INT NOT NULL DEFAULT 1
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ADD COLUMN IF NOT EXISTS rolled_budget_percent NUMERIC NOT NULL DEFAULT 1
+    `);
+    await client.query(`
+      ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
+      ADD COLUMN IF NOT EXISTS rolled_total_budget NUMERIC NOT NULL DEFAULT 0
     `);
     await client.query(`
       ALTER TABLE ${TECHNIQUE_GENERATION_JOB_TABLE}
@@ -248,6 +258,8 @@ interface TechniqueGenerationJobGmRow {
   attempt_count?: number | string | null;
   item_consumed?: boolean | null;
   item_spend?: number | string | null;
+  rolled_budget_percent?: number | string | null;
+  rolled_total_budget?: number | string | null;
   consumed_at?: Date | string | null;
   item_refunded?: boolean | null;
   refunded_at?: Date | string | null;
@@ -471,6 +483,8 @@ export interface RecoverableGenerationJob {
   realmLv: number;
   playerContext: string;
   itemSpend: number;
+  budgetPercent: number;
+  totalBudget: number;
 }
 
 export interface RefundableGenerationJob {
@@ -487,7 +501,9 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
             rolled_grade,
             rolled_realm_lv,
             player_context,
-            item_spend
+            item_spend,
+            rolled_budget_percent,
+            rolled_total_budget
        FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
       WHERE status IN ('pending', 'running')
         AND item_consumed = true
@@ -505,6 +521,8 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
       realmLv: normalizeInteger(row.rolled_realm_lv, 0),
       playerContext: row.player_context ?? '',
       itemSpend: normalizeInteger(row.item_spend, 1),
+      budgetPercent: normalizeNumber(row.rolled_budget_percent, 1),
+      totalBudget: normalizeNumber(row.rolled_total_budget, 0),
     }))
     .filter((row) => (row.category === 'internal' || row.category === 'arts') && row.grade && row.realmLv > 0);
 }
@@ -712,17 +730,21 @@ export interface InsertGenerationJobParams {
   rolledRealmLv: number;
   playerContext: string;
   itemSpend: number;
+  budgetPercent: number;
+  totalBudget: number;
 }
 
 export async function insertGenerationJob(pool: Pool, params: InsertGenerationJobParams): Promise<void> {
   await pool.query(
     `INSERT INTO ${TECHNIQUE_GENERATION_JOB_TABLE} (
       id, player_id, status, requested_category,
-      rolled_grade, rolled_realm_lv, player_context, item_spend
-    ) VALUES ($1,$2,'pending',$3,$4,$5,$6,$7)`,
+      rolled_grade, rolled_realm_lv, player_context, item_spend,
+      rolled_budget_percent, rolled_total_budget
+    ) VALUES ($1,$2,'pending',$3,$4,$5,$6,$7,$8,$9)`,
     [
       params.id, params.playerId, params.requestedCategory,
       params.rolledGrade, params.rolledRealmLv, params.playerContext, params.itemSpend,
+      params.budgetPercent, params.totalBudget,
     ],
   );
 }
@@ -791,6 +813,11 @@ function normalizeInteger(value: unknown, fallback: number): number {
     return fallback;
   }
   return Math.trunc(numeric);
+}
+
+function normalizeNumber(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
 }
 
 function normalizeNullableInteger(value: unknown): number | null {

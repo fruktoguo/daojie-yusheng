@@ -32,6 +32,9 @@ export const TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE: readonly [number, number] = [-
 /** 经验难度系数 `expDifficulty` 允许范围（含端点）。 */
 export const TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE: readonly [number, number] = [0.5, 2.0];
 
+/** 生成模板的服务端总预算百分比范围。 */
+export const TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE: readonly [number, number] = [0.8, 1.2];
+
 /** 每层经验增长公比（阶段内部平滑递增基底）。 */
 export const TECHNIQUE_INTERNAL_K = 1.10 as const;
 
@@ -116,6 +119,22 @@ export function calcInternalTechniqueAttrTotal(
     TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[1],
   );
   return (g * g * (normalizedRealmLv + 25) + 50) * (1 + normalizedFloat);
+}
+
+/** 按服务端确定的预算百分比计算内功六维总量。 */
+export function calcInternalTechniqueAttrTotalByBudgetPercent(
+  grade: TechniqueGrade,
+  realmLv: number,
+  budgetPercent = 1,
+): number {
+  const g = getTechniqueGradeIndex(grade);
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.trunc(realmLv)) : 1;
+  const normalizedBudgetPercent = clampRange(
+    Number(budgetPercent ?? 1),
+    TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[0],
+    TECHNIQUE_INTERNAL_BUDGET_PERCENT_RANGE[1],
+  );
+  return (g * g * (normalizedRealmLv + 25) + 50) * normalizedBudgetPercent;
 }
 
 /**
@@ -285,6 +304,8 @@ export function expandTechniqueAttrRatio(template: TechniqueTemplate): InternalT
   const grade = template.grade;
   const category = template.category ?? 'internal';
   const realmLv = Number.isFinite(template.realmLv) ? Math.max(1, Math.trunc(template.realmLv)) : 1;
+  const rawBudgetPercent = Number(template.budgetPercent);
+  const hasBudgetPercent = Number.isFinite(rawBudgetPercent);
   const attrFloat = clampRange(
     Number(template.attrFloat ?? 0),
     TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[0],
@@ -303,7 +324,9 @@ export function expandTechniqueAttrRatio(template: TechniqueTemplate): InternalT
     TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE[1],
   );
 
-  const attrTotal = calcInternalTechniqueAttrTotal(grade, realmLv, attrFloat);
+  const attrTotal = hasBudgetPercent
+    ? calcInternalTechniqueAttrTotalByBudgetPercent(grade, realmLv, rawBudgetPercent)
+    : calcInternalTechniqueAttrTotal(grade, realmLv, attrFloat);
   const expCurve = expandTechniqueExpCurve(grade, realmLv, maxLayer, expDifficulty, category);
   const totalExp = expCurve.totalExp;
 

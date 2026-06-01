@@ -18,10 +18,9 @@ import {
   TECHNIQUE_ARTS_STRENGTH_ALLOWED_ATTRIBUTE_BASE_STATS,
   TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS,
   TECHNIQUE_ARTS_STRENGTH_CONSTANTS,
-  TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE,
   TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE,
   TECHNIQUE_INTERNAL_STAGE_WEIGHT,
-  calcInternalTechniqueAttrTotal,
+  calcInternalTechniqueAttrTotalByBudgetPercent,
   calcInternalTechniqueTotalExp,
   getTechniqueGradeIndex,
   resolveTechniqueStageLayers,
@@ -35,6 +34,8 @@ export interface TechniquePromptParams {
   maxLayer: number;
   playerContext: string;
   itemSpend?: number;
+  budgetPercent?: number;
+  totalBudget?: number;
 }
 
 export interface TechniquePromptOutput {
@@ -49,27 +50,25 @@ const INTERNAL_SYSTEM_PROMPT = `你是修仙游戏的功法设计师。根据玩
 
 必填字段：
 - name: string（中文，2~8字）
-- grade: string（品阶，必须等于指定值）
 - category: "internal"
-- realmLv: number（必须等于指定值）
 - attrRatio: Record<AttrKey, number>（六维分配权重，正数，服务端归一化）
 - maxLayer: number（层数，3~49）
 - expDifficulty: number（经验难度，0.5~2.0，默认 1.0）
 
 可选字段：
 - desc: string（功法描述，20~60字）
-- attrFloat: number（属性浮动，-0.15~0.10，默认 0）
 
 AttrKey 枚举：constitution / spirit / perception / talent / strength / meridians
 
 规则：
 - attrRatio 的值只是权重比例，服务端会自动归一化，不需要凑整
 - 至少分配 2 个维度的权重
+- grade、realmLv、budgetPercent、totalBudget 由服务端随机后注入，不要输出
 - 功法名称和描述要有修仙风格，避免现代用语`;
 
 const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
 你只能填写强度导向的术法草稿，服务端会把强度草稿归一化并展开成正式 SkillDef。
-不要输出约束里没有列出的字段；不要输出真实伤害值、真实灵力消耗、真实冷却、真实施法距离、真实影响半径、总预算、effects、buff、heal 或技能公式。`;
+不要输出约束里没有列出的字段；不要输出 grade、realmLv、budgetPercent、totalBudget、真实伤害值、真实灵力消耗、真实冷却、真实施法距离、真实影响半径、effects、buff、heal 或技能公式。`;
 
 const ARTS_TARGET_TYPE_ENUM = ['single', 'line', 'box', 'area'] as const;
 const ARTS_DAMAGE_KIND_ENUM = ['physical', 'spell'] as const;
@@ -132,14 +131,20 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       gradeLabel: gradeLabel(params.grade),
       category: 'arts',
       realmLv: params.realmLv,
+      budgetPercent: normalizePromptBudgetPercent(params.budgetPercent),
+      totalBudget: artsBudgetContext.actualTotalBudget,
       maxLayer: params.maxLayer,
       playerTheme: params.playerContext || undefined,
     },
+    serverInjectedFields: {
+      grade: params.grade,
+      realmLv: params.realmLv,
+      budgetPercent: normalizePromptBudgetPercent(params.budgetPercent),
+      totalBudget: artsBudgetContext.actualTotalBudget,
+    },
     outputTopLevelSchema: {
       name: 'string，中文，2到8字',
-      grade: `必须严格等于 ${params.grade}`,
       category: '必须严格等于 arts',
-      realmLv: `必须严格等于 ${params.realmLv}`,
       maxLayer: `必须严格等于 ${params.maxLayer}`,
       expDifficulty: 'number，可选，0.5到2.0，默认1',
       desc: 'string，可选，20到60字',
@@ -199,14 +204,16 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       calculationFormulas: artsBudgetContext.formulas,
     },
     forbiddenFields: [
-      'id', 'cost', 'costMultiplier', 'cooldown', 'targeting',
+      'id', 'grade', 'realmLv', 'budgetPercent', 'totalBudget',
+      'cost', 'costMultiplier', 'cooldown', 'targeting',
       'effects', 'value', 'formula', 'buff', 'buffId', 'heal',
-      'maxTargets', 'totalBudget', 'inputBudget', 'targetBudget',
+      'maxTargets', 'inputBudget', 'targetBudget',
       'damageValue', 'baseDamage',
     ],
     outputChecklist: [
       '只输出单个 JSON 对象，必须可被 JSON.parse 解析。',
-      `grade/category/realmLv/maxLayer 必须严格等于 fixedInputs。`,
+      'category/maxLayer 必须严格等于 fixedInputs。',
+      '不要输出 grade、realmLv、budgetPercent、totalBudget；这些字段由服务端注入。',
       'skills.length 必须等于1。',
       'skills[0] 只能描述一个 damage 术法，不允许 heal/buff/debuff/control。',
       '不得输出 forbiddenFields 中的任何字段。',
@@ -219,9 +226,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
     ],
     outputExample: {
       name: '分光诀',
-      grade: params.grade,
       category: 'arts',
-      realmLv: params.realmLv,
       maxLayer: params.maxLayer,
       expDifficulty: 1,
       desc: '凝锋成线，催动金行锐气直贯前方，破敌护体真元。',
@@ -255,19 +260,24 @@ function buildInternalPromptInput(params: TechniquePromptParams): Record<string,
       gradeLabel: gradeLabel(params.grade),
       category: 'internal',
       realmLv: params.realmLv,
+      budgetPercent: normalizePromptBudgetPercent(params.budgetPercent),
+      totalBudget: internalBudgetContext.actualTotalBudget,
       maxLayer: params.maxLayer,
       playerTheme: params.playerContext || undefined,
     },
+    serverInjectedFields: {
+      grade: params.grade,
+      realmLv: params.realmLv,
+      budgetPercent: normalizePromptBudgetPercent(params.budgetPercent),
+      totalBudget: internalBudgetContext.actualTotalBudget,
+    },
     outputTopLevelSchema: {
       name: 'string，中文，2到8字',
-      grade: `必须严格等于 ${params.grade}`,
       category: '必须严格等于 internal',
-      realmLv: `必须严格等于 ${params.realmLv}`,
       maxLayer: `必须严格等于 ${params.maxLayer}`,
       expDifficulty: `number，可选，${TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE[0]}到${TECHNIQUE_INTERNAL_EXP_DIFFICULTY_RANGE[1]}，默认1`,
       desc: 'string，可选，20到60字',
       attrRatio: 'Record<AttrKey, number>，六维分配权重，正数，服务端归一化',
-      attrFloat: `number，可选，${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[0]}到${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[1]}，默认0`,
     },
     attrKeys: {
       constitution: '体魄/肉身/生命承载',
@@ -278,35 +288,34 @@ function buildInternalPromptInput(params: TechniquePromptParams): Record<string,
       meridians: '经脉/真元/灵力运转',
     },
     strengthRules: {
-      budgetOwnership: '不要输出真实 layers、逐层属性或总属性；服务端按 attrRatio 和 attrFloat 展开。',
+      budgetOwnership: '不要输出真实 layers、逐层属性或总属性；服务端按 attrRatio 和 serverInjectedFields.totalBudget 展开。',
       formulaMeaning: [
         'attrRatio 是六维分配权重，不是最终属性数值；权重和不需要凑整。',
-        `attrFloat 只允许 ${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[0]} 到 ${TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[1]}，通常保持0；只有主题明确偏弱或偏强时才微调。`,
+        '总预算由 serverInjectedFields.budgetPercent 和 serverInjectedFields.totalBudget 决定，不要输出 attrFloat 或其他总量字段。',
         '至少分配2个维度；主题偏拳掌可重 strength/constitution，玄妙法术可重 spirit/meridians，身法感知可重 perception/talent。',
       ],
       calculationFormulas: internalBudgetContext.formulas,
     },
     forbiddenFields: [
-      'id', 'layers', 'layerGains', 'skills', 'effects', 'totalBudget',
-      'inputBudget', 'targetBudget', 'attrTotal', 'totalExp',
+      'id', 'grade', 'realmLv', 'budgetPercent', 'totalBudget',
+      'layers', 'layerGains', 'skills', 'effects',
+      'inputBudget', 'targetBudget', 'attrFloat', 'attrTotal', 'totalExp',
     ],
     outputChecklist: [
       '只输出单个 JSON 对象，必须可被 JSON.parse 解析。',
-      'grade/category/realmLv/maxLayer 必须严格等于 fixedInputs。',
+      'category/maxLayer 必须严格等于 fixedInputs。',
+      '不要输出 grade、realmLv、budgetPercent、totalBudget；这些字段由服务端注入。',
       'attrRatio 至少包含2个合法 attrKeys，值必须为正数。',
       '不要输出真实 layers、逐层属性、技能公式或预算字段。',
       '名称、描述、威势措辞必须贴合 generationContext 的品阶、境界阶段和命名尺度，低境界不要写毁天灭地，高境界不要写成凡俗小术。',
     ],
     outputExample: {
       name: '玄息诀',
-      grade: params.grade,
       category: 'internal',
-      realmLv: params.realmLv,
       maxLayer: params.maxLayer,
       expDifficulty: 1,
       desc: '纳息归元，温养经脉，使灵力流转更为绵密。',
       attrRatio: { spirit: 3, meridians: 2, perception: 1 },
-      attrFloat: 0,
     },
   };
 }
@@ -327,17 +336,17 @@ function buildGenerationContext(params: TechniquePromptParams): Record<string, u
     realmStageLevelRange: realmStage.levelRange,
     maxLayer: params.maxLayer,
     itemSpend: params.itemSpend,
+    budgetPercent: normalizePromptBudgetPercent(params.budgetPercent),
+    totalBudget: normalizePromptTotalBudget(params),
     playerTheme: params.playerContext || undefined,
     toneGuidance: buildToneGuidance(params.grade, realmStage.label),
   };
 }
 
 function buildInternalBudgetContext(params: TechniquePromptParams): Record<string, unknown> {
-  const attrFloatMin = TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[0];
-  const attrFloatMax = TECHNIQUE_INTERNAL_ATTR_FLOAT_RANGE[1];
-  const attrTotalAtDefaultFloat = calcInternalTechniqueAttrTotal(params.grade, params.realmLv, 0);
-  const attrTotalMin = calcInternalTechniqueAttrTotal(params.grade, params.realmLv, attrFloatMin);
-  const attrTotalMax = calcInternalTechniqueAttrTotal(params.grade, params.realmLv, attrFloatMax);
+  const budgetPercent = normalizePromptBudgetPercent(params.budgetPercent);
+  const baseAttrTotal = calcInternalTechniqueAttrTotalByBudgetPercent(params.grade, params.realmLv, 1);
+  const actualTotalBudget = normalizePromptTotalBudget(params);
   const totalExpAtDefaultDifficulty = calcInternalTechniqueTotalExp(
     params.grade,
     params.realmLv,
@@ -347,19 +356,16 @@ function buildInternalBudgetContext(params: TechniquePromptParams): Record<strin
   );
   return {
     budgetType: 'internal_attr_ratio',
-    attrTotalAtDefaultFloat: roundPromptNumber(attrTotalAtDefaultFloat),
-    attrTotalRangeByAttrFloat: {
-      minAttrFloat: attrFloatMin,
-      maxAttrFloat: attrFloatMax,
-      min: roundPromptNumber(attrTotalMin),
-      max: roundPromptNumber(attrTotalMax),
-    },
+    budgetPercent,
+    baseTotalBudgetAt100Percent: roundPromptNumber(baseAttrTotal),
+    actualTotalBudget,
+    budgetPercentRange: { min: 0.8, max: 1.2, default: 1 },
     totalExpAtDefaultDifficulty: Math.round(totalExpAtDefaultDifficulty),
     stageLayers: resolveTechniqueStageLayers(params.maxLayer),
     stageWeight: TECHNIQUE_INTERNAL_STAGE_WEIGHT,
     formulas: [
       'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
-      '满层六维总属性 T = (gradeIndex^2 * (realmLv + 25) + 50) * (1 + attrFloat)',
+      '满层六维总属性 totalBudget = (gradeIndex^2 * (realmLv + 25) + 50) * budgetPercent',
       '阶段层数按 maxLayer 切为 [入门, 小成, 大成]；阶段属性权重为 [1, 2, 4]',
       '每层每维属性 = 阶段该维总属性 / 阶段层数 * attrRatio[维] / sum(attrRatio)',
       '总经验 = gradeIndex^2 * (realmLv + 5) * categoryFactor * ((1.10^maxLayer - 1) / (1.10 - 1)) * expDifficulty * TECHNIQUE_EXP_BASE * realmLv',
@@ -369,13 +375,17 @@ function buildInternalBudgetContext(params: TechniquePromptParams): Record<strin
 
 function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, unknown> {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS;
+  const budgetPercent = normalizePromptBudgetPercent(params.budgetPercent);
   return {
     budgetType: 'arts_weight_allocation',
-    actualTotalBudget: roundPromptNumber(calcArtsBudgetMax(params.grade, params.realmLv)),
-    budgetAtMaxLayer: roundPromptNumber(calcArtsBudgetMax(params.grade, params.realmLv)),
+    budgetPercent,
+    baseTotalBudgetAt100Percent: roundPromptNumber(calcArtsBudgetMax(params.grade, params.realmLv)),
+    actualTotalBudget: normalizePromptTotalBudget(params),
+    budgetPercentRange: { min: 0.8, max: 1.2, default: 1 },
     formulas: [
       'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
-      '术法满层总预算 BUDGET_max = 3 + (realmLv * 0.1 + realmStageIndex) * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
+      '术法基础满层预算 BUDGET_base = 3 + (realmLv * 0.1 + realmStageIndex) * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
+      '术法本次实际总预算 actualTotalBudget = BUDGET_base * budgetPercent',
       '每项实际预算 itemBudget = actualTotalBudget * itemWeight / sum(abs(itemWeight))',
       `灵力消耗倍率 costMultiplier = costBudget >= 0 ? ${constants.structure.costPositivePerBudget}^costBudget : ${constants.structure.costNegativePerBudget}^abs(costBudget)`,
       `冷却 cooldownTicks = round(${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv * (cooldownBudget >= 0 ? ${constants.structure.cooldownPositivePerBudget}^cooldownBudget : ${constants.structure.cooldownNegativePerBudget}^abs(cooldownBudget)))，最小1息`,
@@ -472,6 +482,26 @@ function buildToneGuidance(grade: TechniqueGrade, realmStageLabelText: string): 
 
 function roundPromptNumber(value: number): number {
   return Math.round(value * 10_000) / 10_000;
+}
+
+function normalizePromptBudgetPercent(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 1;
+  }
+  return roundPromptNumber(Math.max(0.8, Math.min(1.2, numeric)));
+}
+
+function normalizePromptTotalBudget(params: TechniquePromptParams): number {
+  const numeric = Number(params.totalBudget);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return roundPromptNumber(numeric);
+  }
+  const budgetPercent = normalizePromptBudgetPercent(params.budgetPercent);
+  const base = params.category === 'arts'
+    ? calcArtsBudgetMax(params.grade, params.realmLv)
+    : calcInternalTechniqueAttrTotalByBudgetPercent(params.grade, params.realmLv, 1);
+  return roundPromptNumber(base * budgetPercent);
 }
 
 function gradeLabel(grade: TechniqueGrade): string {
