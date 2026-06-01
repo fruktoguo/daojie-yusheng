@@ -63,10 +63,8 @@ const ARTS_STRENGTH_FORMULA_KEYS = new Set<string>(['attributeBases', 'percentBo
 const ARTS_STRENGTH_PERCENT_BONUS_KEYS = new Set<string>(['techLevel', 'moveSpeed']);
 const ARTS_STRENGTH_TARGET_KEYS = new Set<string>([
   'type',
-  'range',
-  'width',
-  'height',
-  'radius',
+  'castRangeWeight',
+  'areaWeight',
   'targetMode',
 ]);
 
@@ -266,6 +264,8 @@ function validateArtsStrengthTarget(raw: unknown, skillIndex: number, errors: Va
   if (target.targetMode !== undefined && !ARTS_STRENGTH_TARGET_MODES.has(String(target.targetMode))) {
     errors.push({ layer: 2, field: `skills[${skillIndex}].target.targetMode`, message: 'targetMode 不在允许范围' });
   }
+  validateOptionalArtsPositiveWeight(target.castRangeWeight, `skills[${skillIndex}].target.castRangeWeight`, errors);
+  validateOptionalArtsPositiveWeight(target.areaWeight, `skills[${skillIndex}].target.areaWeight`, errors);
 }
 
 function validateArtsStrengthStructure(raw: unknown, skillIndex: number, errors: ValidationError[]): void {
@@ -345,4 +345,20 @@ function isValidArtsWeight(value: number): boolean {
   return Number.isFinite(value)
     && value >= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights.min
     && value <= TECHNIQUE_ARTS_STRENGTH_CONSTANTS.weights.max;
+}
+
+function validateOptionalArtsPositiveWeight(raw: unknown, field: string, errors: ValidationError[]): void {
+  if (raw === undefined) return;
+  const value = Number(raw);
+  if (
+    !Number.isFinite(value)
+    || value < TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure.minRange
+    || value > TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure.maxRange
+  ) {
+    errors.push({
+      layer: 2,
+      field,
+      message: `target 权重必须在 [${TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure.minRange}, ${TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure.maxRange}]`,
+    });
+  }
 }

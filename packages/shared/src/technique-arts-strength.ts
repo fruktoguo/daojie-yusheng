@@ -19,10 +19,8 @@ export type TechniqueArtsStrengthTargetType = 'single' | 'line' | 'box' | 'area'
 
 export interface TechniqueArtsStrengthTargetInput {
   type?: TechniqueArtsStrengthTargetType;
-  range?: number;
-  width?: number;
-  height?: number;
-  radius?: number;
+  castRangeWeight?: number;
+  areaWeight?: number;
   innerRadius?: number;
   checkerParity?: 'even' | 'odd';
   maxTargets?: number;
@@ -235,12 +233,12 @@ export function calculateTechniqueArtsStrengthBudgetMultiplier(weight: number): 
 }
 
 function normalizeTarget(raw: unknown): NormalizedTechniqueArtsStrengthTarget {
-  const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
   const source = isRecord(raw) ? raw : {};
   const type = TARGET_TYPES.includes(source.type as TechniqueArtsStrengthTargetType)
     ? source.type as TechniqueArtsStrengthTargetType
     : 'single';
-  const range = normalizePositiveWeight(source.range);
+  const range = normalizePositiveWeight(source.castRangeWeight);
+  const areaWeight = normalizePositiveWeight(source.areaWeight);
   const targetMode = source.targetMode === 'any' || source.targetMode === 'entity' || source.targetMode === 'tile'
     ? source.targetMode
     : undefined;
@@ -252,31 +250,23 @@ function normalizeTarget(raw: unknown): NormalizedTechniqueArtsStrengthTarget {
     : undefined;
 
   if (type === 'line') {
-    const width = normalizePositiveWeight(source.width);
-    return buildTargetWithStrength({ type, range, width, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(width));
+    return buildTargetWithStrength({ type, range, width: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'box') {
-    const width = normalizePositiveWeight(source.width);
-    const height = normalizePositiveWeight(source.height);
-    return buildTargetWithStrength({ type, range, width, height, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(Math.max(width, height)));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'orientedBox') {
-    const width = normalizePositiveWeight(source.width);
-    const height = normalizePositiveWeight(source.height);
-    return buildTargetWithStrength({ type, range, width, height, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(Math.max(width, height)));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'checkerboard') {
-    const width = normalizePositiveWeight(source.width);
-    const height = normalizePositiveWeight(source.height);
     const checkerParity = source.checkerParity === 'odd' ? 'odd' : 'even';
-    return buildTargetWithStrength({ type, range, width, height, checkerParity, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(Math.max(width, height)));
+    return buildTargetWithStrength({ type, range, width: areaWeight, height: areaWeight, checkerParity, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'area') {
-    const radius = normalizePositiveWeight(source.radius);
-    return buildTargetWithStrength({ type, range, radius, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(radius));
+    return buildTargetWithStrength({ type, range, radius: areaWeight, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(areaWeight));
   }
   if (type === 'ring') {
-    const radius = normalizePositiveWeight(source.radius);
+    const radius = areaWeight;
     const innerRadius = normalizePositiveWeight(source.innerRadius);
     return buildTargetWithStrength({ type, range, radius, innerRadius, maxTargets, targetMode, rawTargeting }, estimateCoveredCellsFromWeight(radius));
   }
@@ -580,11 +570,11 @@ interface ConvertedFormulaBudget {
 function buildBudgetItems(skill: NormalizedTechniqueArtsStrengthSkill): BudgetItem[] {
   const items: BudgetItem[] = [];
   if (skill.target.range > 0) {
-    items.push({ key: 'target.range', kind: 'castRange', weight: skill.target.range });
+    items.push({ key: 'target.castRangeWeight', kind: 'castRange', weight: skill.target.range });
   }
   const shapeWeight = resolveTargetShapeWeight(skill.target);
   if (shapeWeight > 0) {
-    items.push({ key: 'target.shape', kind: 'shape', weight: shapeWeight });
+    items.push({ key: 'target.areaWeight', kind: 'shape', weight: shapeWeight });
   }
   if (skill.structure.cost !== 0) {
     items.push({ key: 'structure.cost', kind: 'cost', weight: skill.structure.cost });
@@ -920,8 +910,8 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
   const allocations = allocateBudgets(budgetItems, fullTotalBudget);
   const targetConversion = convertTargetBudget(
     params.skill.target,
-    readAllocatedBudget(allocations, 'target.range'),
-    readAllocatedBudget(allocations, 'target.shape'),
+    readAllocatedBudget(allocations, 'target.castRangeWeight'),
+    readAllocatedBudget(allocations, 'target.areaWeight'),
   );
   const costConversion = convertCostBudget(readAllocatedBudget(allocations, 'structure.cost'));
   const cooldownConversion = convertCooldownBudget(readAllocatedBudget(allocations, 'structure.cooldown'), params.realmLv);
@@ -982,8 +972,8 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       refundedBudget: roundTo(positiveRefundBudget, 6),
       redistributedBudget: formulaConversion.redistributedBudget,
       items: [
-        buildBreakdownItem({ key: 'target.range', kind: 'castRange', weight: params.skill.target.range }, readAllocatedBudget(allocations, 'target.range'), targetConversion.range.usedBudget, targetConversion.range.refundBudget, targetConversion.target.range),
-        buildBreakdownItem({ key: 'target.shape', kind: 'shape', weight: resolveTargetShapeWeight(params.skill.target) }, readAllocatedBudget(allocations, 'target.shape'), targetConversion.shape.usedBudget, targetConversion.shape.refundBudget, `${targetConversion.target.type}:${targetConversion.target.coveredCells}`),
+        buildBreakdownItem({ key: 'target.castRangeWeight', kind: 'castRange', weight: params.skill.target.range }, readAllocatedBudget(allocations, 'target.castRangeWeight'), targetConversion.range.usedBudget, targetConversion.range.refundBudget, targetConversion.target.range),
+        buildBreakdownItem({ key: 'target.areaWeight', kind: 'shape', weight: resolveTargetShapeWeight(params.skill.target) }, readAllocatedBudget(allocations, 'target.areaWeight'), targetConversion.shape.usedBudget, targetConversion.shape.refundBudget, `${targetConversion.target.type}:${targetConversion.target.coveredCells}`),
         buildBreakdownItem({ key: 'structure.cost', kind: 'cost', weight: params.skill.structure.cost }, readAllocatedBudget(allocations, 'structure.cost'), costConversion.usedBudget, costConversion.refundBudget, costConversion.value),
         buildBreakdownItem({ key: 'structure.cooldown', kind: 'cooldown', weight: params.skill.structure.cooldown }, readAllocatedBudget(allocations, 'structure.cooldown'), cooldownConversion.usedBudget, cooldownConversion.refundBudget, cooldownConversion.value),
         buildBreakdownItem({ key: 'structure.chant', kind: 'chant', weight: params.skill.structure.chant }, readAllocatedBudget(allocations, 'structure.chant'), chantConversion.usedBudget, chantConversion.refundBudget, chantConversion.value),

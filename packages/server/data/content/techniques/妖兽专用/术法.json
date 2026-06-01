@@ -18,7 +18,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 2
+            "castRangeWeight": 2
           },
           "structureStrength": {
             "cost": -6.026,
@@ -57,10 +57,9 @@
           "version": 1,
           "target": {
             "type": "orientedBox",
-            "range": 1,
-            "width": 3,
-            "height": 1,
-            "maxTargets": 3
+            "maxTargets": 3,
+            "castRangeWeight": 1,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -7.604,
@@ -99,8 +98,8 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 4,
-            "maxTargets": 1
+            "maxTargets": 1,
+            "castRangeWeight": 4
           },
           "structureStrength": {
             "cost": -6.026
@@ -151,7 +150,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 1
+            "castRangeWeight": 1
           },
           "structureStrength": {
             "cost": -7.604,
@@ -189,9 +188,9 @@
           "version": 1,
           "target": {
             "type": "line",
-            "range": 4,
-            "width": 1,
-            "maxTargets": 4
+            "maxTargets": 4,
+            "castRangeWeight": 4,
+            "areaWeight": 1
           },
           "structureStrength": {
             "cost": -8.828,
@@ -227,9 +226,9 @@
           "version": 1,
           "target": {
             "type": "line",
-            "range": 3,
-            "width": 1,
-            "maxTargets": 3
+            "maxTargets": 3,
+            "castRangeWeight": 3,
+            "areaWeight": 1
           },
           "structureStrength": {
             "cost": -8.828,
@@ -282,7 +281,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -6.026,
@@ -335,7 +334,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 3
+            "castRangeWeight": 3
           },
           "structureStrength": {
             "cost": -7.604
@@ -390,7 +389,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 4
+            "castRangeWeight": 4
           },
           "structureStrength": {
             "cost": -8.828,
@@ -447,10 +446,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -9.828,
@@ -494,10 +492,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 0,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "castRangeWeight": 0,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -8.828,
@@ -560,10 +557,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -8.828,
@@ -620,10 +616,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 6,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "castRangeWeight": 6,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -10.672,
@@ -667,7 +662,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -8.828,
@@ -732,7 +727,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 1
+            "castRangeWeight": 1
           },
           "structureStrength": {
             "cost": -6.026,
@@ -770,7 +765,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 1
+            "castRangeWeight": 1
           },
           "structureStrength": {
             "cost": -7.604,
@@ -798,7 +793,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 2
+            "castRangeWeight": 2
           },
           "structureStrength": {
             "cost": -7.604,
@@ -851,7 +846,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -3.802,
@@ -890,10 +885,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -7.604,
@@ -948,10 +942,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -8.828,
@@ -994,7 +987,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -6.026,
@@ -1033,9 +1026,9 @@
           "version": 1,
           "target": {
             "type": "line",
-            "range": 4,
-            "width": 2,
-            "maxTargets": 6
+            "maxTargets": 6,
+            "castRangeWeight": 4,
+            "areaWeight": 2
           },
           "structureStrength": {
             "cost": -8.828,
@@ -1073,10 +1066,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 0,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "castRangeWeight": 0,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -9.828,
@@ -1131,7 +1123,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -3.802,
@@ -1174,9 +1166,9 @@
           "version": 1,
           "target": {
             "type": "line",
-            "range": 3,
-            "width": 1,
-            "maxTargets": 3
+            "maxTargets": 3,
+            "castRangeWeight": 3,
+            "areaWeight": 1
           },
           "structureStrength": {
             "cost": -7.604,
@@ -1204,9 +1196,9 @@
           "version": 1,
           "target": {
             "type": "line",
-            "range": 4,
-            "width": 2,
-            "maxTargets": 8
+            "maxTargets": 8,
+            "castRangeWeight": 4,
+            "areaWeight": 2
           },
           "structureStrength": {
             "cost": -8.828,
@@ -1255,7 +1247,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 1
+            "castRangeWeight": 1
           },
           "structureStrength": {
             "cost": -7.604,
@@ -1308,10 +1300,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -9.828,
@@ -1343,9 +1334,9 @@
           "version": 1,
           "target": {
             "type": "line",
-            "range": 4,
-            "width": 2,
-            "maxTargets": 8
+            "maxTargets": 8,
+            "castRangeWeight": 4,
+            "areaWeight": 2
           },
           "structureStrength": {
             "cost": -8.828,
@@ -1394,7 +1385,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -3.802,
@@ -1433,10 +1424,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 0,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "castRangeWeight": 0,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -9.828,
@@ -1493,10 +1483,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -9.828,
@@ -1552,10 +1541,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 0,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "castRangeWeight": 0,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -10.672,
@@ -1613,10 +1601,9 @@
           "version": 1,
           "target": {
             "type": "orientedBox",
-            "range": 1,
-            "width": 5,
-            "height": 1,
-            "maxTargets": 5
+            "maxTargets": 5,
+            "castRangeWeight": 1,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -9.828,
@@ -1644,7 +1631,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -6.026,
@@ -1688,7 +1675,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 2
+            "castRangeWeight": 2
           },
           "structureStrength": {
             "cost": -10.672,
@@ -1741,7 +1728,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -6.026,
@@ -1782,10 +1769,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 6,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "castRangeWeight": 6,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -11.406,
@@ -1844,7 +1830,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 0
+            "castRangeWeight": 0
           },
           "structureStrength": {
             "cost": -8.828,

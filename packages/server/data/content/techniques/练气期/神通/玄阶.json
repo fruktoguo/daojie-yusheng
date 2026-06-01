@@ -34,10 +34,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 8,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 25
+            "maxTargets": 25,
+            "castRangeWeight": 8,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -11.406,
@@ -97,10 +96,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 9,
-            "width": 7,
-            "height": 7,
-            "maxTargets": 49
+            "maxTargets": 49,
+            "castRangeWeight": 9,
+            "areaWeight": 7
           },
           "structureStrength": {
             "cost": -11.406,

@@ -18,7 +18,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 1
+            "castRangeWeight": 1
           },
           "structureStrength": {
             "cooldown": 6.578,
@@ -57,7 +57,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 2
+            "castRangeWeight": 2
           },
           "structureStrength": {
             "cost": -7.604,

@@ -239,14 +239,17 @@ export class TechniqueGenerationService {
         continue;
       }
 
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(aiResult.content) as Record<string, unknown>;
-      } catch {
-        lastFailureReason = 'JSON 解析失败，请只输出单个合法 JSON 对象，不要包含代码块标记或解释文本';
+      const parsedResult = parseAiJsonObject(aiResult.content);
+      if (parsedResult.ok === false) {
+        lastFailureReason = [
+          'JSON 解析失败，请只输出单个合法 JSON 对象，不要包含代码块标记或解释文本',
+          parsedResult.error ? `解析错误：${parsedResult.error}` : '',
+          parsedResult.excerpt ? `原始返回片段：${parsedResult.excerpt}` : '',
+        ].filter(Boolean).join('；');
         lastFailureCode = 'PARSE_FAILED';
         continue;
       }
+      const parsed = parsedResult.value;
 
       const fixedCandidate = applyServerFixedTechniqueFields(parsed, {
         category: params.category as TechniqueCategory,
@@ -607,6 +610,176 @@ function applyServerFixedTechniqueFields(
     budgetPercent: fixed.budgetPercent,
     totalBudget: fixed.totalBudget,
   };
+}
+
+type ParseAiJsonObjectResult =
+  | { ok: true; value: Record<string, unknown> }
+  | { ok: false; error: string; excerpt: string };
+
+function parseAiJsonObject(content: string): ParseAiJsonObjectResult {
+  const candidates = uniqueNonEmptyStrings([
+    content.trim(),
+    extractFirstJsonObjectText(content),
+  ]);
+  let lastError = '';
+  for (const candidate of candidates) {
+    const direct = tryParseJsonRecord(candidate);
+    if (direct.ok) return direct;
+    if (direct.ok === false) {
+      lastError = direct.error;
+    }
+    const repaired = repairMissingCommasBeforeObjectKeys(candidate);
+    if (repaired !== candidate) {
+      const repairedResult = tryParseJsonRecord(repaired);
+      if (repairedResult.ok) return repairedResult;
+      if (repairedResult.ok === false) {
+        lastError = repairedResult.error;
+      }
+    }
+  }
+  return {
+    ok: false,
+    error: lastError || '未找到合法 JSON 对象',
+    excerpt: truncateAiContentExcerpt(content, 1000),
+  };
+}
+
+function tryParseJsonRecord(content: string): ParseAiJsonObjectResult {
+  try {
+    const parsed = JSON.parse(content) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, error: 'JSON 根节点必须是对象', excerpt: truncateAiContentExcerpt(content, 1000) };
+    }
+    return { ok: true, value: parsed as Record<string, unknown> };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      excerpt: truncateAiContentExcerpt(content, 1000),
+    };
+  }
+}
+
+function extractFirstJsonObjectText(content: string): string {
+  const start = content.indexOf('{');
+  if (start < 0) return '';
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < content.length; index += 1) {
+    const char = content[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+      continue;
+    }
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return content.slice(start, index + 1).trim();
+      }
+    }
+  }
+  return '';
+}
+
+function repairMissingCommasBeforeObjectKeys(content: string): string {
+  let result = '';
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    if (inString) {
+      result += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      const closingQuote = findStringClosingQuote(content, index);
+      const nextNonWhitespace = findNextNonWhitespaceIndex(content, closingQuote + 1);
+      const previousNonWhitespace = findPreviousNonWhitespaceChar(result);
+      if (
+        closingQuote > index
+        && content[nextNonWhitespace] === ':'
+        && previousNonWhitespace
+        && previousNonWhitespace !== '{'
+        && previousNonWhitespace !== '['
+        && previousNonWhitespace !== ','
+        && previousNonWhitespace !== ':'
+      ) {
+        result += ',';
+      }
+      inString = true;
+    }
+    result += char;
+  }
+  return result;
+}
+
+function findStringClosingQuote(content: string, start: number): number {
+  let escaped = false;
+  for (let index = start + 1; index < content.length; index += 1) {
+    const char = content[index];
+    if (escaped) {
+      escaped = false;
+    } else if (char === '\\') {
+      escaped = true;
+    } else if (char === '"') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function findNextNonWhitespaceIndex(content: string, start: number): number {
+  for (let index = Math.max(0, start); index < content.length; index += 1) {
+    if (!/\s/.test(content[index])) return index;
+  }
+  return -1;
+}
+
+function findPreviousNonWhitespaceChar(content: string): string {
+  for (let index = content.length - 1; index >= 0; index -= 1) {
+    if (!/\s/.test(content[index])) return content[index];
+  }
+  return '';
+}
+
+function uniqueNonEmptyStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const normalized = value.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function truncateAiContentExcerpt(content: string, limit: number): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, Math.max(0, limit - 3))}...`;
 }
 
 interface ArtsStrengthGenerationReport {

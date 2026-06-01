@@ -18,7 +18,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 1
+            "castRangeWeight": 1
           },
           "structureStrength": {
             "cost": -9.828,
@@ -93,8 +93,8 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 6,
-            "maxTargets": 1
+            "maxTargets": 1,
+            "castRangeWeight": 6
           },
           "structureStrength": {
             "cost": -8.828,
@@ -164,9 +164,9 @@
           "version": 1,
           "target": {
             "type": "line",
-            "range": 6,
-            "width": 1,
-            "maxTargets": 6
+            "maxTargets": 6,
+            "castRangeWeight": 6,
+            "areaWeight": 1
           },
           "structureStrength": {
             "cost": -8.828,
@@ -259,10 +259,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -8.828,
@@ -355,10 +354,9 @@
           "version": 1,
           "target": {
             "type": "checkerboard",
-            "range": 5,
-            "width": 5,
-            "height": 5,
-            "maxTargets": 13
+            "maxTargets": 13,
+            "castRangeWeight": 5,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -8.828,
@@ -431,10 +429,10 @@
           "version": 1,
           "target": {
             "type": "ring",
-            "range": 5,
-            "radius": 2,
             "innerRadius": 1,
-            "maxTargets": 8
+            "maxTargets": 8,
+            "castRangeWeight": 5,
+            "areaWeight": 2
           },
           "structureStrength": {
             "cost": -8.828,
@@ -505,10 +503,10 @@
           "version": 1,
           "target": {
             "type": "ring",
-            "range": 6,
-            "radius": 5,
             "innerRadius": 3,
-            "maxTargets": 18
+            "maxTargets": 18,
+            "castRangeWeight": 6,
+            "areaWeight": 5
           },
           "structureStrength": {
             "cost": -8.828,
@@ -582,10 +580,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -8.828,
@@ -632,8 +629,8 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 5,
-            "maxTargets": 1
+            "maxTargets": 1,
+            "castRangeWeight": 5
           },
           "structureStrength": {
             "cooldown": 20,

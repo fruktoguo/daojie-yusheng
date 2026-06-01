@@ -61,6 +61,7 @@ export async function executeAiTask(request: AiTaskRequest): Promise<AiTaskResul
       return callTextModelWithConfig(request.modelConfig, {
         systemMessage: request.systemMessage,
         userMessage: request.userMessage,
+        responseFormat: request.responseFormat,
         temperature: request.temperature,
         timeoutMs: request.timeoutMs,
       });

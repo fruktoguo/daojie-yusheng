@@ -18,11 +18,10 @@
           "version": 1,
           "target": {
             "type": "orientedBox",
-            "range": 1,
-            "width": 3,
-            "height": 1,
             "targetMode": "tile",
-            "maxTargets": 3
+            "maxTargets": 3,
+            "castRangeWeight": 1,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -10.672
@@ -72,11 +71,10 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 5,
-            "width": 3,
-            "height": 3,
             "targetMode": "tile",
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 5,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -8.828,
@@ -135,7 +133,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 1
+            "castRangeWeight": 1
           },
           "structureStrength": {
             "cost": -8.828
@@ -181,7 +179,7 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 5
+            "castRangeWeight": 5
           },
           "structureStrength": {
             "cost": -8.828
@@ -217,10 +215,9 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 0,
-            "width": 3,
-            "height": 3,
-            "maxTargets": 9
+            "maxTargets": 9,
+            "castRangeWeight": 0,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -8.828,
@@ -272,9 +269,9 @@
           "version": 1,
           "target": {
             "type": "single",
-            "range": 6,
             "targetMode": "tile",
-            "maxTargets": 1
+            "maxTargets": 1,
+            "castRangeWeight": 6
           },
           "structureStrength": {
             "cost": -3.802,
@@ -312,11 +309,10 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 6,
-            "width": 3,
-            "height": 3,
             "targetMode": "tile",
-            "maxTargets": 8
+            "maxTargets": 8,
+            "castRangeWeight": 6,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -8.828,
@@ -355,11 +351,10 @@
           "version": 1,
           "target": {
             "type": "box",
-            "range": 6,
-            "width": 3,
-            "height": 1,
             "targetMode": "tile",
-            "maxTargets": 3
+            "maxTargets": 3,
+            "castRangeWeight": 6,
+            "areaWeight": 3
           },
           "structureStrength": {
             "cost": -7.604,

@@ -25,6 +25,7 @@ export type AiTextCallParams = {
   systemMessage?: string;
   userMessage: string;
   previousResponseId?: string;
+  responseFormat?: 'json_object' | 'text';
   temperature?: number;
   timeoutMs?: number;
 };
@@ -56,6 +57,7 @@ const buildOpenAIResponsesPayload = (
   if (params.systemMessage) payload.instructions = params.systemMessage;
   if (params.previousResponseId) payload.previous_response_id = params.previousResponseId;
   if (typeof params.temperature === 'number') payload.temperature = params.temperature;
+  if (params.responseFormat === 'json_object') payload.text = { format: { type: 'json_object' } };
   return payload;
 };
 
@@ -94,6 +96,7 @@ const buildOpenAICompatiblePayload = (
     messages,
   };
   if (typeof params.temperature === 'number') payload.temperature = params.temperature;
+  if (params.responseFormat === 'json_object') payload.response_format = { type: 'json_object' };
   return payload;
 };
 

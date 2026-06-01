@@ -558,7 +558,7 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
       unlockLevel: 1,
       damageKind: 'spell',
       element: 'wood',
-      target: { type: 'line', range: 3, width: 1, targetMode: 'tile' },
+      target: { type: 'line', castRangeWeight: 3, areaWeight: 1, targetMode: 'tile' },
       structureStrength: { cost: 0, cooldown: 1, chant: 0 },
       formulaStrength: {
         attributeBases: { spellAtk: 4, resolvePower: 1 },
@@ -617,7 +617,7 @@ async function testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill(): Promis
     unlockLevel: 1,
     damageKind: 'spell',
     element: 'metal',
-    target: { type: 'area', range: 0, radius: 4, targetMode: 'tile' },
+    target: { type: 'area', castRangeWeight: 0, areaWeight: 4, targetMode: 'tile' },
     structureStrength: { cost: 0, cooldown: 0, chant: 0 },
     formulaStrength: {
       attributeBases: { spellAtk: 1 },
@@ -643,7 +643,7 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
     unlockLevel: 1,
     damageKind: 'spell',
     element: 'water',
-    target: { type: 'area', range: 6, radius: 6, targetMode: 'tile' },
+    target: { type: 'area', castRangeWeight: 6, areaWeight: 6, targetMode: 'tile' },
     structureStrength: { cost: -20, cooldown: 80, chant: 0 },
     formulaStrength: {
       attributeBases: { spellAtk: 1 },

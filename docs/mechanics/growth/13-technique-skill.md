@@ -138,7 +138,7 @@ itemBudget = BUDGET(layer) * itemWeight / sum(abs(itemWeight))
 realValue = convertByItem(itemBudget)
 ```
 
-- `target.range/radius/width/height` 是施法距离和覆盖范围权重，不是真实格数。
+- `target.castRangeWeight` 是施法距离权重，`target.areaWeight` 是覆盖范围权重，都不是真实格数、半径、宽度或边长。
 - `structureStrength.cost/cooldown/chant` 是结构权重，不是真实消耗、冷却或吟唱。
 - 冷却、消耗、施法距离、范围覆盖、属性基底和百分比组各自使用独立转换公式。
 - 有最小值或最大值的项目先展开真实值，再按真实可生效值反推已使用预算。

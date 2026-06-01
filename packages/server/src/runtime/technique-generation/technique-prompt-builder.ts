@@ -158,10 +158,8 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       element: ARTS_ELEMENT_ENUM,
       target: {
         type: ARTS_TARGET_TYPE_ENUM,
-        range: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，施法距离权重/倾向，不是真实格数；真实施法距离由服务端按预算反推，常规上限${constants.structure.maxCastRange}格，line 上限${constants.structure.maxLineCastRange}格`,
-        width: `integer，可选，line/box 使用，${constants.structure.minRange}到${constants.structure.maxRange}，横向覆盖权重/倾向，不是真实宽度`,
-        height: `integer，可选，box 使用，${constants.structure.minRange}到${constants.structure.maxRange}，纵向覆盖权重/倾向，不是真实高度`,
-        radius: `integer，可选，area 使用，${constants.structure.minRange}到${constants.structure.maxRange}，范围覆盖权重/倾向，不是真实半径`,
+        castRangeWeight: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，施法距离权重/倾向，不是真实格数；真实施法距离由服务端按预算反推，常规上限${constants.structure.maxCastRange}格，line 上限${constants.structure.maxLineCastRange}格`,
+        areaWeight: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，影响范围/覆盖格权重；line 会换算宽度，box 会换算边长，area 会换算半径；不是真实宽度、边长或半径`,
         targetMode: ARTS_TARGET_MODE_ENUM,
       },
       structureStrength: Object.fromEntries(ARTS_STRUCTURE_STRENGTH_KEYS.map((key) => [
@@ -195,9 +193,10 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
         `moveSpeed: 1 表示额外加入 caster.stat.moveSpeed * ${constants.percentBonuses.moveSpeedScalePerStrength} 的总百分比加成。`,
       ],
       rangeMeaning: [
-        'target.range/radius/width/height 都是服务端展开真实 targeting 前的范围权重或覆盖倾向，不是真实格数、真实半径或真实宽高。',
-        '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是 radius=32；请把它压缩为允许区间内的覆盖权重，由服务端换算真实半径。',
-        `range 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
+        'target.castRangeWeight 是施法距离预算倾向，不是真实施法距离。',
+        'target.areaWeight 是影响范围预算倾向，不是真实半径、宽度、边长或覆盖格数。',
+        '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是 areaWeight=32 的固定真实半径；请用 areaWeight 表达覆盖倾向，由服务端按预算换算真实覆盖。',
+        `castRangeWeight 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
         `影响范围按预算换算覆盖格：每1点实际范围预算约增加${constants.structure.coverageCellsPerBudget}格，line/box/area 会按各自形状向下取整成真实宽度、边长或半径。`,
         'single 视为0覆盖强度；line/box/area 只选择形状和覆盖倾向，真实覆盖格数由服务端展开。',
       ],
@@ -208,6 +207,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       'cost', 'costMultiplier', 'cooldown', 'targeting',
       'effects', 'value', 'formula', 'buff', 'buffId', 'heal',
       'maxTargets', 'inputBudget', 'targetBudget',
+      'range', 'radius', 'width', 'height',
       'damageValue', 'baseDamage',
     ],
     outputChecklist: [
@@ -219,7 +219,8 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       '不得输出 forbiddenFields 中的任何字段。',
       'formulaStrength.attributeBases 至少1个、最多5个 key，key 必须来自 allowedAttributeBaseStats。',
       'formulaStrength.attributeBases 的值必须是正权重；最低伤害也要写 1，不能写 0 或负数。',
-      'target.range/radius/width/height 只填写权重意图，不填写真实施法距离、真实半径、真实宽高或真实覆盖格数。',
+      'target 只允许 type/castRangeWeight/areaWeight/targetMode；不要输出 range/radius/width/height。',
+      'castRangeWeight/areaWeight 只填写权重意图，不填写真实施法距离、真实半径、真实宽高或真实覆盖格数。',
       '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
       '不要为了凑强度写过多文本；描述保持修仙风格。',
       '名称、描述、威势措辞必须贴合 generationContext 的品阶、境界阶段和命名尺度，低境界不要写毁天灭地，高境界不要写成凡俗小术。',
@@ -237,7 +238,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
           unlockLevel: 1,
           damageKind: 'physical',
           element: 'metal',
-          target: { type: 'line', range: 3, width: 1, targetMode: 'tile' },
+          target: { type: 'line', castRangeWeight: 3, areaWeight: 1, targetMode: 'tile' },
           structureStrength: { cooldown: 1 },
           formulaStrength: {
             attributeBases: { physAtk: 4 },
