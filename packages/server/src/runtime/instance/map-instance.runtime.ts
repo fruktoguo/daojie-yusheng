@@ -5232,7 +5232,8 @@ class MapInstanceRuntime {
         const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const buildings = [];
         for (const building of this.buildingById.values()) {
-            if (!shouldProjectLocalBuilding(building)) {
+            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
+            if (!shouldProjectLocalBuilding(building, compiled)) {
                 continue;
             }
             if (!this.isTileInsideViewRadius(centerX, centerY, radius, building.x, building.y)) {
@@ -5241,7 +5242,6 @@ class MapInstanceRuntime {
             if (!this.isTileVisibleByFilter(building.x, building.y, visibility)) {
                 continue;
             }
-            const compiled = this.buildingCatalog?.defByHandle?.[building.defHandle] ?? this.buildingCatalog?.defById?.get?.(building.defId);
             buildings.push(this.getLocalBuildingViewEntry(building, compiled));
         }
         buildings.sort((left, right) => left.id.localeCompare(right.id, 'zh-CN'));
@@ -5408,8 +5408,9 @@ class MapInstanceRuntime {
     }
     /** getLocalBuildingViewEntry：复用未变化的建筑视野条目。 */
     getLocalBuildingViewEntry(building, compiled) {
-        const remainingTicks = resolveBuildingRemainingTicks(building);
-        const totalTicks = Math.max(remainingTicks, Math.trunc(Number(building.buildStrength) || 1), 1);
+        const isUnderConstruction = building?.state === 'building';
+        const remainingTicks = isUnderConstruction ? resolveBuildingRemainingTicks(building) : undefined;
+        const totalTicks = isUnderConstruction ? Math.max(remainingTicks, Math.trunc(Number(building.buildStrength) || 1), 1) : undefined;
         const char = typeof compiled?.glyph === 'string' && compiled.glyph.trim()
             ? compiled.glyph.trim()[0] ?? '筑'
             : (compiled?.name?.trim()?.[0] ?? '筑');
@@ -8071,11 +8072,16 @@ function resolveBuildingRemainingTicks(building) {
     }
     return 1;
 }
-function shouldProjectLocalBuilding(building) {
+function shouldProjectLocalBuilding(building, compiled) {
     if (building?.state === 'building') {
         return true;
     }
-    return building?.defId === 'scripture_platform' && building?.state === 'active';
+    if (building?.state !== 'active') {
+        return false;
+    }
+    return building?.defId === 'scripture_platform'
+        || compiled?.cellLayerTarget === 'interactable'
+        || !compiled?.visualTileType;
 }
 function resolveBuildingCatalogRevision(catalog) {
     if (!Array.isArray(catalog?.defs)) {

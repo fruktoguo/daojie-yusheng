@@ -81,6 +81,18 @@ function main() {
       economy: { durabilityMultiplier: 100 },
     },
     {
+      id: "spirit_screen",
+      name: "影壁",
+      placement: { layer: "structure", footprint: [{ dx: 0, dy: 0 }] },
+      topology: { blocksMove: true, blocksSight: true, roomBoundary: 70, shaShield: 60 },
+      fengShui: {
+        elementVector: { earth: 8 },
+        traits: ["sha.screen"],
+        stability: 5,
+        shaReduce: 10,
+      },
+    },
+    {
       id: "jade_bed_extensible",
       name: "玉床",
       placement: { layer: "furniture", footprint: [{ dx: 0, dy: 0 }] },
@@ -93,7 +105,7 @@ function main() {
     },
   ]);
 
-  assert.equal(catalog.defs.length, 7);
+  assert.equal(catalog.defs.length, 8);
   assert.ok(catalog.traitIdsByKey.get("facility.alchemy.heat_source") > 0);
   assert.ok(catalog.traitIdsByKey.get("comfort.rest") > 0);
   assert.ok(catalog.traitIdsByKey.get("facility.scripture_platform") > 0);
@@ -209,7 +221,7 @@ function main() {
   addCompiledContribution(mixedAggregate, catalog.defById.get("alchemy_furnace"), catalog);
   addCompiledContribution(mixedAggregate, catalog.defById.get("jade_bed_extensible"), catalog);
   assert.equal(inferRoomRole(catalog, room, mixedAggregate).role, "generic");
-  assertScripturePlatformProjectsAfterCompletion(catalog, rules);
+  assertActiveInteractableBuildingsProjectAfterCompletion(catalog, rules);
 
   const leakingAggregate = createAggregate(room.id);
   addCompiledContribution(leakingAggregate, catalog.defById.get("alchemy_furnace"), catalog);
@@ -921,20 +933,22 @@ function createFengShuiSnapshot(roomId, score) {
   };
 }
 
-function assertScripturePlatformProjectsAfterCompletion(catalog, rules) {
+function assertActiveInteractableBuildingsProjectAfterCompletion(catalog, rules) {
   const templateRepository = new MapTemplateRepository();
   templateRepository.registerRuntimeMapTemplate({
-    id: "scripture_platform_projection_smoke",
-    name: "藏经台投影烟测",
-    width: 3,
-    height: 3,
+    id: "active_interactable_building_projection_smoke",
+    name: "完工交互建筑投影烟测",
+    width: 5,
+    height: 5,
     routeDomain: "system",
     tiles: [
-      "...",
-      "...",
-      "...",
+      ".....",
+      ".....",
+      ".....",
+      ".....",
+      ".....",
     ],
-    spawnPoint: { x: 1, y: 1 },
+    spawnPoint: { x: 2, y: 2 },
     portals: [],
     npcs: [],
     monsters: [],
@@ -944,13 +958,13 @@ function assertScripturePlatformProjectsAfterCompletion(catalog, rules) {
     auras: [],
   });
   const instance = new MapInstanceRuntime({
-    instanceId: "real:scripture_platform_projection_smoke",
-    template: templateRepository.getOrThrow("scripture_platform_projection_smoke"),
+    instanceId: "real:active_interactable_building_projection_smoke",
+    template: templateRepository.getOrThrow("active_interactable_building_projection_smoke"),
     monsterSpawns: [],
     kind: "public",
     persistent: true,
     createdAt: Date.now(),
-    displayName: "藏经台投影烟测",
+    displayName: "完工交互建筑投影烟测",
     linePreset: "real",
     lineIndex: 1,
     instanceOrigin: "smoke",
@@ -958,18 +972,64 @@ function assertScripturePlatformProjectsAfterCompletion(catalog, rules) {
     canDamageTile: true,
   });
   instance.configureBuildingRuntime(catalog, rules);
-  const result = instance.placeBuildingInstance({
-    buildingId: "building:scripture:projection",
-    defId: "scripture_platform",
+  const wallResult = instance.placeBuildingInstance({
+    buildingId: "building:wall:projection",
+    defId: "stone_wall",
+    x: 0,
+    y: 0,
+    state: "active",
+  });
+  assert.equal(wallResult.ok, true);
+  const shelfResult = instance.placeBuildingInstance({
+    buildingId: "building:shelf:projection",
+    defId: "spirit_wood_shelf",
     x: 1,
     y: 1,
     state: "active",
   });
-  assert.equal(result.ok, true);
+  assert.equal(shelfResult.ok, true);
+  const furnaceResult = instance.placeBuildingInstance({
+    buildingId: "building:furnace:projection",
+    defId: "alchemy_furnace",
+    x: 2,
+    y: 1,
+    state: "active",
+  });
+  assert.equal(furnaceResult.ok, true);
+  const bedResult = instance.placeBuildingInstance({
+    buildingId: "building:bed:projection",
+    defId: "jade_bed_extensible",
+    x: 1,
+    y: 2,
+    state: "active",
+  });
+  assert.equal(bedResult.ok, true);
+  const scriptureResult = instance.placeBuildingInstance({
+    buildingId: "building:scripture:projection",
+    defId: "scripture_platform",
+    x: 3,
+    y: 1,
+    state: "active",
+  });
+  assert.equal(scriptureResult.ok, true);
+  const screenResult = instance.placeBuildingInstance({
+    buildingId: "building:screen:projection",
+    defId: "spirit_screen",
+    x: 2,
+    y: 3,
+    state: "active",
+  });
+  assert.equal(screenResult.ok, true);
   assert.equal(catalog.defById.get("scripture_platform")?.durabilityMultiplier, 100);
-  assert.equal(instance.isWalkable(1, 1), false);
-  const projected = instance.collectLocalBuildings(1, 1, 5);
+  assert.equal(instance.isWalkable(3, 1), false);
+  const projected = instance.collectLocalBuildings(2, 2, 5);
+  assert.equal(projected.some((entry) => entry.id === "building:wall:projection"), false);
+  assert.equal(projected.some((entry) => entry.id === "building:shelf:projection" && entry.name === "灵木架"), true);
+  assert.equal(projected.some((entry) => entry.id === "building:furnace:projection" && entry.name === "丹炉"), true);
+  assert.equal(projected.some((entry) => entry.id === "building:bed:projection" && entry.name === "玉床"), true);
   assert.equal(projected.some((entry) => entry.id === "building:scripture:projection" && entry.name === "藏经台"), true);
+  assert.equal(projected.some((entry) => entry.id === "building:screen:projection" && entry.name === "影壁"), true);
+  assert.equal(projected.every((entry) => entry.remainingTicks === undefined && entry.totalTicks === undefined), true);
 }
 
 function createAggregate(roomId) {
