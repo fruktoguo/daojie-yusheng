@@ -31,6 +31,23 @@ function logOfflineRestoreMissingInstance(deps, instanceId, playerId) {
     deps.logger?.warn?.(message);
 }
 
+async function persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersistenceService, instanceId, instance, hydrateResult) {
+    const skippedCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedUnknownDefCount) || 0));
+    if (skippedCount <= 0 || typeof domainPersistenceService?.saveBuildingRoomFengShuiState !== 'function') {
+        return;
+    }
+    const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
+        ? instance.buildBuildingRoomFengShuiPersistenceState()
+        : {
+            buildings: typeof instance?.buildBuildingPersistenceEntries === 'function' ? instance.buildBuildingPersistenceEntries() : [],
+            rooms: typeof instance?.listRoomSummaries === 'function' ? instance.listRoomSummaries() : [],
+            roomCells: [],
+            fengShui: [],
+        };
+    await domainPersistenceService.saveBuildingRoomFengShuiState(instanceId, state);
+    deps.logger?.warn?.(`启动清理了 ${skippedCount} 个未知建筑定义实例：${instanceId}`);
+}
+
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
 @Injectable()
 export class WorldRuntimeLifecycleService {
@@ -159,7 +176,8 @@ export class WorldRuntimeLifecycleService {
                         || buildingRoomFengShuiState.rooms?.length > 0
                         || buildingRoomFengShuiState.fengShui?.length > 0)
                     && typeof instance.hydrateBuildingRoomFengShuiState === 'function') {
-                    instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState);
+                    const hydrateResult = instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState);
+                    await persistBuildingRoomStateAfterUnknownDefPrune(deps, domainPersistenceService, instanceId, instance, hydrateResult);
                 }
                 const checkpoint = await domainPersistenceService.loadInstanceCheckpoint(instanceId);
                 if (checkpoint) {

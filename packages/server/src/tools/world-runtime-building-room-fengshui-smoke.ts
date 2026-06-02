@@ -339,6 +339,41 @@ function main() {
   assert.equal(recoveredInstance.buildingById.size, instance.buildingById.size);
   assert.equal(recoveredInstance.listRoomSummaries().length, 1);
   assert.ok(recoveredInstance.getFengShuiSnapshotAt(2, 2));
+  const staleBuildingState = {
+    ...persistenceState,
+    buildings: [
+      ...persistenceState.buildings,
+      {
+        id: "building:removed:def",
+        defId: "removed_building_def",
+        x: 3,
+        y: 3,
+        state: "active",
+        hp: 1,
+        maxHp: 1,
+        cells: [{ tileIndex: recoveredInstance.toTileIndex(3, 3), x: 3, y: 3 }],
+      },
+    ],
+  };
+  const staleRecoveredInstance = new MapInstanceRuntime({
+    instanceId: "real:building_room_runtime_stale_def_smoke",
+    template: templateRepository.getOrThrow("building_room_runtime_smoke"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "建筑未知定义清理烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  staleRecoveredInstance.configureBuildingRuntime(catalog, rules);
+  const staleHydrateResult = staleRecoveredInstance.hydrateBuildingRoomFengShuiState(staleBuildingState);
+  assert.equal(staleHydrateResult.skippedUnknownDefCount, 1);
+  assert.equal(staleRecoveredInstance.buildingById.has("building:removed:def"), false);
+  assert.equal(staleRecoveredInstance.buildBuildingRoomFengShuiPersistenceState().buildings.some((entry) => entry.defId === "removed_building_def"), false);
   const recoveredDamagedWall = recoveredInstance.buildBuildingPersistenceEntries()
     .find((entry) => entry.defId === "stone_wall" && entry.x === 0 && entry.y === 1);
   assert.ok(recoveredDamagedWall);

@@ -103,7 +103,7 @@ function placeSmallRoom(instance, x0, y0) {
     instance.placeBuildingInstance({ defId: "stone_wall", x: x0, y, buildingId: `bench:wall:${x0}:${y}` });
     instance.placeBuildingInstance({ defId: "stone_wall", x: x0 + 4, y, buildingId: `bench:wall:${x0 + 4}:${y}` });
   }
-  instance.placeBuildingInstance({ defId: "meditation_mat", x: x0 + 2, y: y0 + 2, buildingId: `bench:mat:${x0}:${y0}` });
+  instance.placeBuildingInstance({ defId: "scripture_platform", x: x0 + 2, y: y0 + 2, buildingId: `bench:scripture:${x0}:${y0}` });
 }
 
 function buildOverlaySample(instance, centerX, centerY, radius) {

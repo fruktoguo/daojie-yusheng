@@ -13,9 +13,9 @@
 | 建筑层 | 基础空间落点 | 说明 |
 |----|----|----|
 | structure | structure | 墙、门、窗等会改变结构层的建筑 |
-| floor | surface | 地板、回廊等地表覆盖 |
-| facility | ground_interactable | 丹炉、藏经台等地面交互物 |
-| furniture | ground_interactable | 蒲团、木床、储物架等地面交互物 |
+| floor | surface | 地板等地表覆盖 |
+| facility | ground_interactable | 藏经台等地面交互物 |
+| furniture | ground_interactable | 家具类地面交互物，当前正式建筑目录未启用 |
 | decoration | ground_interactable | 装饰类地面交互物 |
 
 `ground_interactable` 不是旧 `TileType`。它承载地面对象语义，建筑、容器、阵法、传送点、机关都属于这一类，但来源、能力和持久化真源可以不同。

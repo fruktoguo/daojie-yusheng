@@ -4,13 +4,8 @@
   { "id": "no_door", "when": [{ "metricLte": ["doorCount", 0] }, { "enclosedIs": true }], "scoreDelta": -80, "reasonCode": "enclosure.no_door", "severity": "warning" },
   { "id": "balanced_area", "when": [{ "metricGte": ["area", 6] }, { "metricLte": ["area", 64] }], "scoreDelta": 40, "reasonCode": "shape.area_balanced", "severity": "good" },
   { "id": "roof_covered", "when": [{ "metricGte": ["roofCoverage", 80] }], "scoreDelta": 30, "reasonCode": "shape.roof_covered", "severity": "good" },
-  { "id": "alchemy_heat_source", "when": [{ "roomRoleIs": "alchemy" }, { "traitAtLeast": ["facility.alchemy.heat_source", 1] }], "scoreDelta": 60, "reasonCode": "trait.alchemy_heat_source", "severity": "good" },
-  { "id": "meditation_facility", "when": [{ "roomRoleIs": "meditation" }, { "traitAtLeast": ["facility.meditation", 1] }], "scoreDelta": 50, "reasonCode": "trait.meditation_facility", "severity": "good" },
-  { "id": "rest_comfort", "when": [{ "roomRoleIs": "bedroom" }, { "traitAtLeast": ["comfort.rest", 1] }], "scoreDelta": 50, "reasonCode": "trait.rest_comfort", "severity": "good" },
-  { "id": "storage_shelf", "when": [{ "roomRoleIs": "storage" }, { "traitAtLeast": ["storage.shelf", 1] }], "scoreDelta": 45, "reasonCode": "trait.storage_shelf", "severity": "good" },
   { "id": "element_generates_function", "when": [{ "elementGeneratesFunction": true }], "scoreDelta": 45, "reasonCode": "element.generates_function", "severity": "good" },
   { "id": "element_conflicts_function", "when": [{ "elementConflictsFunction": true }], "scoreDelta": -60, "reasonCode": "element.conflicts_function", "severity": "bad" },
   { "id": "qi_dense", "when": [{ "metricGte": ["qiDensity", 80] }], "scoreDelta": 40, "reasonCode": "qi.dense", "severity": "good" },
-  { "id": "comfort_good", "when": [{ "metricGte": ["comfort", 12] }], "scoreDelta": 30, "reasonCode": "comfort.good", "severity": "good" },
-  { "id": "sha_screen", "when": [{ "traitAtLeast": ["sha.screen", 1] }], "scoreDelta": 20, "reasonCode": "sha.screen", "severity": "good" }
+  { "id": "comfort_good", "when": [{ "metricGte": ["comfort", 12] }], "scoreDelta": 30, "reasonCode": "comfort.good", "severity": "good" }
 ]

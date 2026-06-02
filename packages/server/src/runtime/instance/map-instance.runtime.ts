@@ -1998,6 +1998,7 @@ class MapInstanceRuntime {
         this.buildingById = new Map();
         this.buildingCellsById = new Map();
         this.buildingPreviousTileTypeById = new Map();
+        let skippedUnknownDefCount = 0;
         for (const entry of buildings) {
             const id = normalizeBuildingId(entry?.id ?? entry?.buildingId);
             const defId = normalizeBuildingId(entry?.defId);
@@ -2005,6 +2006,10 @@ class MapInstanceRuntime {
                 continue;
             }
             const compiled = this.buildingCatalog?.defById?.get?.(defId);
+            if (this.buildingCatalog?.defById && !compiled) {
+                skippedUnknownDefCount += 1;
+                continue;
+            }
             const defHandle = Math.max(0, Math.trunc(Number(entry?.defHandle) || compiled?.handle || 0));
             const building = {
                 id,
@@ -2055,9 +2060,14 @@ class MapInstanceRuntime {
                 }
             }
         }
+        if (skippedUnknownDefCount > 0) {
+            this.worldRevision += 1;
+            this.persistentRevision += 1;
+            this.markPersistenceDirtyDomains(['building', 'room', 'fengshui']);
+        }
         if (this.buildingCatalog?.defByHandle) {
             this.rebuildBuildingRoomFengShuiState();
-            return { buildingCount: this.buildingById.size, rebuilt: true };
+            return { buildingCount: this.buildingById.size, rebuilt: true, skippedUnknownDefCount };
         }
         this.roomsById = new Map();
         this.roomIdsByHandle = [];
@@ -2102,7 +2112,7 @@ class MapInstanceRuntime {
                 this.fengShuiByRoomId.set(roomId, snapshot);
             }
         }
-        return { buildingCount: this.buildingById.size, rebuilt: false };
+        return { buildingCount: this.buildingById.size, rebuilt: false, skippedUnknownDefCount };
     }
     /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {

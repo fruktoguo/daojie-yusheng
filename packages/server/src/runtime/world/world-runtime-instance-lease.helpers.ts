@@ -23,6 +23,23 @@ const LOCAL_LEASE_DEGRADED_REASONS = new Set([
   'flush_instance_domains_lease_check_failed',
 ]);
 
+async function persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersistenceService, instanceId, instance, hydrateResult) {
+  const skippedCount = Math.max(0, Math.trunc(Number(hydrateResult?.skippedUnknownDefCount) || 0));
+  if (skippedCount <= 0 || typeof domainPersistenceService?.saveBuildingRoomFengShuiState !== 'function') {
+    return;
+  }
+  const state = typeof instance?.buildBuildingRoomFengShuiPersistenceState === 'function'
+    ? instance.buildBuildingRoomFengShuiPersistenceState()
+    : {
+      buildings: typeof instance?.buildBuildingPersistenceEntries === 'function' ? instance.buildBuildingPersistenceEntries() : [],
+      rooms: typeof instance?.listRoomSummaries === 'function' ? instance.listRoomSummaries() : [],
+      roomCells: [],
+      fengShui: [],
+    };
+  await domainPersistenceService.saveBuildingRoomFengShuiState(instanceId, state);
+  runtime.logger?.warn?.(`启动清理了 ${skippedCount} 个未知建筑定义实例：${instanceId}`);
+}
+
 export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
@@ -836,7 +853,8 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
       || buildingRoomFengShuiState.rooms?.length > 0
       || buildingRoomFengShuiState.fengShui?.length > 0)
     && typeof instance.hydrateBuildingRoomFengShuiState === 'function') {
-    instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState);
+    const hydrateResult = instance.hydrateBuildingRoomFengShuiState(buildingRoomFengShuiState);
+    await persistBuildingRoomStateAfterUnknownDefPrune(runtime, domainPersistenceService, instanceId, instance, hydrateResult);
   }
   const checkpoint = await domainPersistenceService.loadInstanceCheckpoint(instanceId);
   if (checkpoint) {
