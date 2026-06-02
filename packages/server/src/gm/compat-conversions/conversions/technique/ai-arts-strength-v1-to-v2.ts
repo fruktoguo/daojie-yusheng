@@ -335,14 +335,6 @@ function expandMigratedTemplate(
 
 function resolveMigrationTargetBudget(row: CandidateRow, grade: TechniqueGrade, realmLv: number): number {
   const template = asRecord(row.template);
-  const report = asRecord(row.validation_report);
-  const artsStrength = asRecord(report?.artsStrength);
-  const expansion = Array.isArray(artsStrength?.expansion) ? artsStrength.expansion : [];
-  const firstExpansion = asRecord(expansion[0]);
-  const reportBudget = toFiniteNumber(firstExpansion?.totalBudget, Number.NaN);
-  if (Number.isFinite(reportBudget) && reportBudget > 0) {
-    return reportBudget;
-  }
   const templateBudget = toFiniteNumber(template?.totalBudget, Number.NaN);
   if (Number.isFinite(templateBudget) && templateBudget > 0) {
     return templateBudget;
