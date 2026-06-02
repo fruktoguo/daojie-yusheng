@@ -30,7 +30,15 @@ import {
 import { parseQiResourceKey } from './qi';
 import { resolveMapGroupInfo } from './map-groups';
 import { getTileTypeFromMapChar, getMapCharFromTileType, isTileTypeWalkable } from './terrain';
-import { TERRAIN_CHAR_TO_TYPE, STRUCTURE_CHAR_TO_TYPE, SURFACE_CHAR_TO_TYPE, LAYER_EMPTY_CHAR } from './constants/gameplay/map-layer-chars';
+import {
+  TERRAIN_CHAR_TO_TYPE,
+  TERRAIN_TYPE_TO_CHAR,
+  STRUCTURE_CHAR_TO_TYPE,
+  STRUCTURE_TYPE_TO_CHAR,
+  SURFACE_CHAR_TO_TYPE,
+  SURFACE_TYPE_TO_CHAR,
+  LAYER_EMPTY_CHAR,
+} from './constants/gameplay/map-layer-chars';
 import { HOUSE_DECOR_TILE_MAP_CHARS } from './constants/gameplay/house-terrain';
 import {
   InteractableKind,
@@ -1582,6 +1590,112 @@ export function buildEditableMapList(documents: GmMapDocument[]): GmMapListRes {
       .map((document) => buildEditableMapSummary(document))
       .sort((left, right) => left.id.localeCompare(right.id, 'zh-CN')),
   };
+}
+
+/** 将编辑器内部地图文档序列化为服务器地图文件使用的 format:2 分层字符图。 */
+export function serializeEditableMapDocumentToFormatV2(document: GmMapDocument): Record<string, unknown> {
+  const normalized = normalizeEditableMapDocument(document);
+  const terrain: string[] = [];
+  const structure: string[] = [];
+  const surface: string[] = [];
+  let hasSurface = false;
+
+  for (let y = 0; y < normalized.height; y += 1) {
+    let terrainLine = '';
+    let structureLine = '';
+    let surfaceLine = '';
+    for (let x = 0; x < normalized.width; x += 1) {
+      const terrainType = normalized.terrainRows?.[y]?.[x] ?? TerrainType.Floor;
+      const structureType = normalized.structureRows?.[y]?.[x] ?? null;
+      const surfaceType = normalized.surfaceRows?.[y]?.[x] ?? null;
+      terrainLine += TERRAIN_TYPE_TO_CHAR.get(terrainType) ?? TERRAIN_TYPE_TO_CHAR.get(TerrainType.Floor) ?? '地';
+      structureLine += structureType ? (STRUCTURE_TYPE_TO_CHAR.get(structureType) ?? LAYER_EMPTY_CHAR) : LAYER_EMPTY_CHAR;
+      const surfaceChar = surfaceType ? (SURFACE_TYPE_TO_CHAR.get(surfaceType) ?? LAYER_EMPTY_CHAR) : LAYER_EMPTY_CHAR;
+      surfaceLine += surfaceChar;
+      if (surfaceType) {
+        hasSurface = true;
+      }
+    }
+    terrain.push(terrainLine);
+    structure.push(structureLine);
+    surface.push(surfaceLine);
+  }
+
+  const output: Record<string, unknown> = {
+    format: 2,
+    id: normalized.id,
+    name: normalized.name,
+  };
+  if (normalized.mapGroupId) output.mapGroupId = normalized.mapGroupId;
+  if (normalized.mapGroupName) output.mapGroupName = normalized.mapGroupName;
+  if (normalized.mapGroupOrder !== undefined) output.mapGroupOrder = normalized.mapGroupOrder;
+  if (normalized.mapGroupMemberOrder !== undefined) output.mapGroupMemberOrder = normalized.mapGroupMemberOrder;
+  output.width = normalized.width;
+  output.height = normalized.height;
+  if (normalized.routeDomain) output.routeDomain = normalized.routeDomain;
+  if (normalized.mapLv !== undefined) output.mapLv = normalized.mapLv;
+  if (normalized.spaceVisionMode) output.spaceVisionMode = normalized.spaceVisionMode;
+  if (normalized.parentMapId) output.parentMapId = normalized.parentMapId;
+  if (normalized.parentOriginX !== undefined) output.parentOriginX = normalized.parentOriginX;
+  if (normalized.parentOriginY !== undefined) output.parentOriginY = normalized.parentOriginY;
+  if (normalized.floorLevel !== undefined) output.floorLevel = normalized.floorLevel;
+  if (normalized.floorName) output.floorName = normalized.floorName;
+  if (normalized.description) output.description = normalized.description;
+  output.terrain = terrain;
+  output.structure = structure;
+  if (hasSurface) output.surface = surface;
+
+  const auras = (normalized.auras ?? []).map((aura) => [aura.x, aura.y, aura.value]);
+  if (auras.length > 0) output.auras = auras;
+  const monsterSpawns = (normalized.monsterSpawns ?? []).map((spawn) => serializeMonsterSpawnForFormatV2(spawn));
+  if (monsterSpawns.length > 0) output.monsterSpawns = monsterSpawns;
+  const portals = normalized.portals ?? [];
+  if (portals.length > 0) output.portals = portals;
+  output.spawnPoint = normalized.spawnPoint;
+  if (normalized.time) output.time = normalized.time;
+  const resources = normalized.resources ?? [];
+  if (resources.length > 0) output.resources = resources;
+  const safeZones = normalized.safeZones ?? [];
+  if (safeZones.length > 0) output.safeZones = safeZones;
+  const landmarks = normalized.landmarks ?? [];
+  if (landmarks.length > 0) output.landmarks = landmarks;
+  const npcs = normalized.npcs ?? [];
+  if (npcs.length > 0) output.npcs = npcs;
+  const tileEffects = normalized.tileEffects ?? [];
+  if (tileEffects.length > 0) output.tileEffects = tileEffects;
+  const resourceNodeGroups = normalized.resourceNodeGroups ?? [];
+  if (resourceNodeGroups.length > 0) output.resourceNodeGroups = resourceNodeGroups;
+
+  return output;
+}
+
+function serializeMonsterSpawnForFormatV2(spawn: GmMapMonsterSpawnRecord): unknown {
+  const persisted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(spawn)) {
+    if (value === undefined) {
+      continue;
+    }
+    if ((key === 'hp' || key === 'attack') && value === 0) {
+      continue;
+    }
+    if (typeof value === 'string' && value.length === 0) {
+      continue;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      continue;
+    }
+    persisted[key] = value;
+  }
+  const keys = Object.keys(persisted);
+  const onlySimpleFields = keys.every((key) => key === 'id' || key === 'x' || key === 'y' || key === 'grade')
+    && persisted.id !== undefined
+    && persisted.x !== undefined
+    && persisted.y !== undefined
+    && (persisted.grade === undefined || persisted.grade === 'mortal');
+  if (onlySimpleFields) {
+    return [persisted.x, persisted.y, persisted.id];
+  }
+  return persisted;
 }
 
 /** format:2 预处理：将分层中文字符图解码为内部结构。非 format:2 原样返回。 */

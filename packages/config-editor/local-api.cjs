@@ -24,6 +24,7 @@ const {
   normalizeEditableMapDocument,
   resolveMonsterExpMultiplier,
   resolveMonsterTemplateRecord,
+  serializeEditableMapDocumentToFormatV2,
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
   TECHNIQUE_GRADE_ORDER,
@@ -850,13 +851,13 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
  */
 function dehydrateMapDocument(document) {
   const monsterTemplates = loadMonsterTemplates();
-  return {
+  return serializeEditableMapDocumentToFormatV2({
     ...document,
     layeredCells: undefined,
     monsterSpawns: Array.isArray(document.monsterSpawns)
       ? document.monsterSpawns.map((spawn) => dehydrateMonsterSpawnRecord(spawn, monsterTemplates))
       : [],
-  };
+  });
 }
 
 /**
