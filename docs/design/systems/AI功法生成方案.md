@@ -118,10 +118,10 @@ meridians  = 235 × 0.32 = 75
 ### 5.1 单技能预算公式
 
 ```
-BUDGET_max = 3 + (realmLv × 0.1 + realmStage × 1) × 1.4^(g - 1) × majorRealmMultiplier
+BUDGET_max = 3 + realmLv × 1.4^(g - 1) × majorRealmMultiplier
 
 realmLv = 1~127
-realmStage = PLAYER_REALM_STAGE_LEVEL_RANGES 的境界阶段索引，1~33
+realmStage = PLAYER_REALM_STAGE_LEVEL_RANGES 的境界阶段索引，1~33，仅用于命名和境界描述
 g       = 品阶索引，1~8
 majorRealmMultiplier = 大境界额外增幅，未配置时为 1
 ```
@@ -136,15 +136,16 @@ BUDGET(layer) = BUDGET_max × layer / maxLayer
 
 | 品阶/境界 | realmLv | realmStage | BUDGET_max |
 |---|---:|---:|---:|
-| 凡阶凡俗境 | 1 | 1 | 4.1 |
-| 凡阶通脉境 | 12 | 4 | 8.2 |
-| 黄阶练气中期 | 23 | 7 | 17.4 |
-| 玄阶练气后期 | 30 | 8 | 26.5 |
-| 地阶金丹初期 | 46 | 12 | 48.6 |
-| 天阶元婴初期 | 60 | 15 | 87.5 |
-| 灵阶化神后期 | 78 | 20 | 152.5 |
-| 圣阶合体中期 | 96 | 25 | 263.5 |
-| 帝阶飞升 | 127 | 33 | 484.7 |
+| 凡阶凡俗境 | 1 | 1 | 4.0 |
+| 凡阶通脉境 | 12 | 4 | 15.0 |
+| 黄阶练气中期 | 23 | 7 | 35.2 |
+| 玄阶练气后期 | 30 | 8 | 61.8 |
+| 玄阶筑基中期 | 36 | 10 | 73.6 |
+| 地阶金丹初期 | 46 | 12 | 129.2 |
+| 天阶元婴初期 | 60 | 15 | 233.5 |
+| 灵阶化神后期 | 78 | 20 | 422.5 |
+| 圣阶合体中期 | 96 | 25 | 725.8 |
+| 帝阶飞升 | 127 | 33 | 1341.8 |
 
 **技能数量**：AI 首版每个术法功法只生成 1 个技能，该技能独立享受一份预算。
 
@@ -203,7 +204,7 @@ itemBudget  = BUDGET(layer) × itemWeight / totalWeight
 
 有上下限的项目先算真实值再钳制；触顶/触底后多出的正预算回流给仍可增长的项目，最终兜底补给无上限的属性基底。
 
-### 5.5 样例（地阶金丹期单技能，BUDGET_max = 47.73，满层）
+### 5.5 样例（地阶金丹期单技能，BUDGET_max = 120.99，满层）
 
 AI 输出：
 
@@ -220,14 +221,14 @@ AI 输出：
 ```
 totalWeight = abs(6) + abs(6) + abs(-20) + abs(80) + abs(1) = 113
 
-castRangeBudget = 47.73 × 6 / 113      ≈ 2.53
-shapeBudget     = 47.73 × 6 / 113      ≈ 2.53
-costBudget      = 47.73 × -20 / 113    ≈ -8.45
-cooldownBudget  = 47.73 × 80 / 113     ≈ 33.79
-spellAtkBudget  = 47.73 × 1 / 113      ≈ 0.42
+castRangeBudget = 120.99 × 6 / 113      ≈ 6.42
+shapeBudget     = 120.99 × 6 / 113      ≈ 6.42
+costBudget      = 120.99 × -20 / 113    ≈ -21.41
+cooldownBudget  = 120.99 × 80 / 113     ≈ 85.66
+spellAtkBudget  = 120.99 × 1 / 113      ≈ 1.07
 
-rangeBudget 2.53 可购买施法距离 2 格（距离 3 需要 2.88 预算）
-shapeBudget 2.53 可购买 area 半径 1（5 格，已用 2.00 预算）
+rangeBudget 6.42 可购买施法距离 4 格（距离 5 需要 8.29 预算）
+shapeBudget 6.42 可购买 area 半径 1（5 格，已用 2.00 预算）
 ```
 
 实际冷却会先按 `3 * realmLv * 0.95^cooldownBudget` 计算，再被最小 1 息钳制；多出的正预算回流到范围或属性基底，不会继续制造 `1.2^80` 级别的预算倍率。
@@ -870,7 +871,7 @@ function migrateArts(old: LegacyTechnique): TechniqueTemplate {
 | 内功属性公式 | `T = (g²·(realmLv+25) + 50) × (1 + attrFloat)` |
 | 属性浮动 r | 默认 0，范围 `[-0.15, +0.10]` |
 | 六维分配 | `attrRatio` 权重，服务端归一 |
-| 技能预算公式 | `BUDGET_max = 3 + (realmLv·0.1 + realmStage)·1.4^(g-1)·majorRealmMultiplier` |
+| 技能预算公式 | `BUDGET_max = 3 + realmLv·1.4^(g-1)·majorRealmMultiplier` |
 | 技能数量 | 首版每功法 1 个 |
 | 技能倍率 | 每 100% = 1 点 |
 | 技能修饰乘数白名单 | 移速 10 / 境界 0.05 / 功法层 0.1 / 技艺 0.2 点/% |
@@ -899,7 +900,7 @@ function migrateArts(old: LegacyTechnique): TechniqueTemplate {
 T = (g² × (realmLv + 25) + 50) × (1 + attrFloat)
 
 # 技能总预算（满层）
-BUDGET_max = 3 + (realmLv × 0.1 + realmStage × 1) × 1.4^(g - 1) × majorRealmMultiplier
+BUDGET_max = 3 + realmLv × 1.4^(g - 1) × majorRealmMultiplier
 BUDGET(L)  = BUDGET_max × L / maxLayer
 
 # Buff 消耗

@@ -13,17 +13,16 @@
 
 import type { SkillDamageKind, SkillFormula, TechniqueGrade } from '@mud/shared';
 import { getTechniqueGradeIndex } from '@mud/shared';
-import { PLAYER_REALM_ORDER, PLAYER_REALM_STAGE_LEVEL_RANGES } from '@mud/shared';
 
 /**
  * 计算术法单技能满层预算。
  *
- * BUDGET_max = 3 + (realmLv × 0.1 + stage × 1) × 1.4^(g - 1) × majorRealmMultiplier
+ * BUDGET_max = 3 + realmLv × 1.4^(g - 1) × majorRealmMultiplier
  */
 export function calcArtsBudgetMax(grade: TechniqueGrade, realmLv: number, majorRealmMultiplier = 1): number {
   const g = getTechniqueGradeIndex(grade);
-  const stage = resolveStageIndex(realmLv);
-  return 3 + (realmLv * 0.1 + stage) * Math.pow(1.4, g - 1) * Math.max(0, majorRealmMultiplier);
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv)) : 1;
+  return 3 + normalizedRealmLv * Math.pow(1.4, g - 1) * Math.max(0, majorRealmMultiplier);
 }
 
 /**
@@ -91,17 +90,6 @@ export function normalizeArtsSkills(params: {
 
     return { ...skill, effects: normalizedEffects };
   });
-}
-
-/** 根据 realmLv 推导大境界索引（1-based） */
-function resolveStageIndex(realmLv: number): number {
-  for (let i = PLAYER_REALM_ORDER.length - 1; i >= 0; i -= 1) {
-    const range = PLAYER_REALM_STAGE_LEVEL_RANGES[PLAYER_REALM_ORDER[i]];
-    if (range && realmLv >= range.levelFrom) {
-      return i + 1;
-    }
-  }
-  return 1;
 }
 
 function buildGeneratedDamageFormula(value: number, damageKind: unknown): SkillFormula {

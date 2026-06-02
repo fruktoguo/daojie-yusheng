@@ -396,7 +396,7 @@ class TechniqueCandidateValidator {
 ### 4.6 术法预算分配
 
 公式（详见 `docs/design/balance/术法预算量化设计.md`）：
-- `BUDGET_max = 3 + (realmLv × 0.1 + realmStage) × 1.4^(g-1) × majorRealmMultiplier`
+- `BUDGET_max = 3 + realmLv × 1.4^(g-1) × majorRealmMultiplier`
 - `BUDGET(layer) = BUDGET_max × layer / maxLayer`
 - `itemBudget = BUDGET(layer) × itemWeight / Σ abs(itemWeight)`
 - 每项真实值由该项转换公式反推，冷却、消耗、施法距离、范围覆盖和公式基底各自处理上下限。
