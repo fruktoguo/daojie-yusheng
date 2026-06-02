@@ -3389,7 +3389,7 @@ export const CLIENT_I18N_MESSAGES = {
   "gm.shortcut.foundation.confirm": "这会给所有非机器人角色补偿底蕴。每个角色获得的数值 = 当前境界升级所需经验的五倍。在线角色下一息生效，离线和离线挂机角色会直接改存档。确认继续吗？",
   "gm.shortcut.foundation.done": "已提交底蕴补偿，共 {totalPlayers} 个角色，在线 {queuedRuntimePlayers} 个，离线 {updatedOfflinePlayers} 个，累计补偿 {foundation} 点底蕴",
   "gm.shortcut.migrate-ai-arts.cancelled": "已取消旧版 AI 术法草稿迁移。",
-  "gm.shortcut.migrate-ai-arts.confirm": "将迁移旧版 AI 术法草稿：命中 {matchedRows} 条，可转换 {convertedRows} 条，跳过 {skippedRows} 条，失败 {failedRows} 条。正式 SkillDef 不会被重算。确认写入吗？",
+  "gm.shortcut.migrate-ai-arts.confirm": "将迁移旧版 AI 术法草稿并重算正式技能：命中 {matchedRows} 条，可转换 {convertedRows} 条，跳过 {skippedRows} 条，失败 {failedRows} 条。确认写入吗？",
   "gm.shortcut.migrate-ai-arts.done": "旧版 AI 术法草稿迁移完成：命中 {matchedRows} 条，转换 {convertedRows} 条，跳过 {skippedRows} 条，失败 {failedRows} 条，验证 {verifiedRows} 条",
   "gm.shortcut.migrate-ai-arts.dry-run-started": "正在预览旧版 AI 术法草稿迁移影响范围...",
   "gm.shortcut.migrate-ai-arts.noop": "没有需要迁移的旧版 AI 术法草稿。扫描跳过 {skippedRows} 条。",

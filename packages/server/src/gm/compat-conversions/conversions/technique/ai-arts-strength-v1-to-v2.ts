@@ -1,11 +1,14 @@
 /**
  * AI 术法强度草稿 v1 -> v2 兼容转换。
  *
- * 只迁移 GM 可审计的 AI 原始权重草稿，不改正式运行时 SkillDef。
+ * 迁移 GM 可审计的 AI 原始权重草稿，并按当前量化口径重算正式运行时 SkillDef。
  */
 import { Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import {
+  expandTechniqueArtsStrengthSkill,
   normalizeTechniqueArtsStrengthTemplate,
+  type ExpandedTechniqueArtsStrengthSkill,
+  type TechniqueGrade,
   type TechniqueArtsStrengthTargetType,
 } from '@mud/shared';
 import type { Pool, PoolClient } from 'pg';
@@ -16,6 +19,8 @@ import {
   ensureGeneratedTechniqueTables,
   GENERATED_TECHNIQUE_TABLE,
 } from '../../../../persistence/generated-technique-persistence.service';
+import { GeneratedTechniqueStoreService } from '../../../../runtime/technique-generation/generated-technique-store.service';
+import { calcArtsBudgetMax } from '../../../../runtime/technique-generation/technique-budget-normalizer';
 import type {
   GmCompatConversionRunOptions,
   GmCompatConversionRunResult,
@@ -39,6 +44,8 @@ interface CandidateRow {
   id: string;
   status: string;
   display_name?: string | null;
+  grade?: string | null;
+  realm_lv?: number | string | null;
   template: unknown;
   validation_report: unknown;
 }
@@ -47,6 +54,8 @@ interface MigrationAnalysis {
   changed: boolean;
   migratedRawCandidate?: Record<string, unknown>;
   normalizedTemplate?: unknown;
+  updatedTemplate?: Record<string, unknown>;
+  expandedSkills?: ExpandedTechniqueArtsStrengthSkill[];
   beforeSummary?: unknown;
   afterSummary?: unknown;
   error?: string;
@@ -63,6 +72,9 @@ export class AiArtsStrengthV1ToV2Conversion {
     @Optional()
     @Inject(GmAuditLogPersistenceService)
     private readonly gmAuditLogPersistenceService: GmAuditLogPersistenceService | null = null,
+    @Optional()
+    @Inject(GeneratedTechniqueStoreService)
+    private readonly generatedTechniqueStoreService: GeneratedTechniqueStoreService | null = null,
   ) {}
 
   async run(options: GmCompatConversionRunOptions): Promise<GmCompatConversionRunResult> {
@@ -73,7 +85,7 @@ export class AiArtsStrengthV1ToV2Conversion {
     await this.ensureSchema(pool);
     const rows = await this.loadRows(pool);
     const result = createEmptyResult(options.mode);
-    const updates: Array<{ id: string; validationReport: unknown }> = [];
+    const updates: Array<{ id: string; template: unknown; validationReport: unknown }> = [];
 
     for (const row of rows) {
       const analysis = analyzeRow(row);
@@ -102,6 +114,7 @@ export class AiArtsStrengthV1ToV2Conversion {
       if (options.mode === 'apply') {
         updates.push({
           id: row.id,
+          template: analysis.updatedTemplate,
           validationReport: buildUpdatedValidationReport(row.validation_report, analysis),
         });
       }
@@ -109,6 +122,7 @@ export class AiArtsStrengthV1ToV2Conversion {
 
     if (options.mode === 'apply' && updates.length > 0) {
       await this.applyUpdates(pool, updates);
+      await this.generatedTechniqueStoreService?.refreshAfterPublish();
       result.appliedAt = new Date().toISOString();
     }
 
@@ -131,6 +145,8 @@ export class AiArtsStrengthV1ToV2Conversion {
       `SELECT id,
               status,
               display_name,
+              grade,
+              realm_lv,
               template,
               validation_report
          FROM ${GENERATED_TECHNIQUE_TABLE}
@@ -141,12 +157,12 @@ export class AiArtsStrengthV1ToV2Conversion {
     return result.rows as CandidateRow[];
   }
 
-  private async applyUpdates(pool: Pool, updates: Array<{ id: string; validationReport: unknown }>): Promise<void> {
+  private async applyUpdates(pool: Pool, updates: Array<{ id: string; template: unknown; validationReport: unknown }>): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       for (const update of updates) {
-        await updateValidationReport(client, update.id, update.validationReport);
+        await updateGeneratedTechniqueMigration(client, update.id, update.template, update.validationReport);
       }
       await client.query('COMMIT');
     } catch (error) {
@@ -205,13 +221,14 @@ function createEmptyResult(mode: GmCompatConversionRunOptions['mode']): GmCompat
   };
 }
 
-function updateValidationReport(client: PoolClient, id: string, validationReport: unknown): Promise<unknown> {
+function updateGeneratedTechniqueMigration(client: PoolClient, id: string, template: unknown, validationReport: unknown): Promise<unknown> {
   return client.query(
     `UPDATE ${GENERATED_TECHNIQUE_TABLE}
-        SET validation_report = $2::jsonb,
+        SET template = $2::jsonb,
+            validation_report = $3::jsonb,
             updated_at = NOW()
       WHERE id = $1`,
-    [id, JSON.stringify(validationReport)],
+    [id, JSON.stringify(template), JSON.stringify(validationReport)],
   );
 }
 
@@ -223,9 +240,6 @@ function analyzeRow(row: CandidateRow): MigrationAnalysis {
     return { changed: false };
   }
   const migratedRawCandidate = migrateRawCandidate(rawCandidate);
-  if (!migratedRawCandidate.changed) {
-    return { changed: false };
-  }
   const normalized = normalizeTechniqueArtsStrengthTemplate(migratedRawCandidate.value);
   if (!normalized.ok || !normalized.template) {
     return {
@@ -233,12 +247,43 @@ function analyzeRow(row: CandidateRow): MigrationAnalysis {
       error: normalized.errors.join('; ') || '迁移后无法通过当前术法强度 schema',
     };
   }
+  const expansion = expandMigratedTemplate(row, normalized.template);
+  if (expansion.ok === false) {
+    return {
+      changed: false,
+      error: expansion.error,
+    };
+  }
+  const currentTemplate = asRecord(row.template);
+  if (!currentTemplate) {
+    return {
+      changed: false,
+      error: '缺少 generated_technique.template，无法重算正式 SkillDef',
+    };
+  }
+  const updatedTemplate = {
+    ...cloneRecord(currentTemplate),
+    skills: expansion.expandedSkills.map((entry) => entry.skill),
+  };
+  const skillDefChanged = !isJsonEqual(asRecord(row.template)?.skills, updatedTemplate.skills);
+  const reportChanged = !isJsonEqual(artsStrength?.rawCandidate, migratedRawCandidate.value)
+    || !isJsonEqual(artsStrength?.normalizedTemplate, normalized.template)
+    || !isJsonEqual(artsStrength?.expansion, buildExpansionReport(expansion.expandedSkills));
+  const changed = migratedRawCandidate.changed || skillDefChanged || reportChanged;
+  if (!changed) {
+    return { changed: false };
+  }
   return {
     changed: true,
     migratedRawCandidate: migratedRawCandidate.value,
     normalizedTemplate: normalized.template,
+    updatedTemplate,
+    expandedSkills: expansion.expandedSkills,
     beforeSummary: buildSummary(rawCandidate),
-    afterSummary: buildSummary(migratedRawCandidate.value),
+    afterSummary: {
+      ...asRecord(buildSummary(migratedRawCandidate.value)),
+      skillDefChanged,
+    },
   };
 }
 
@@ -247,6 +292,7 @@ function buildUpdatedValidationReport(validationReport: unknown, analysis: Migra
   const artsStrength = cloneRecord(report.artsStrength);
   artsStrength.rawCandidate = analysis.migratedRawCandidate;
   artsStrength.normalizedTemplate = analysis.normalizedTemplate;
+  artsStrength.expansion = buildExpansionReport(analysis.expandedSkills ?? []);
   artsStrength.version = Math.max(toFiniteNumber(artsStrength.version, 1), 2);
   artsStrength.migration = {
     ...(asRecord(artsStrength.migration) ?? {}),
@@ -257,6 +303,89 @@ function buildUpdatedValidationReport(validationReport: unknown, analysis: Migra
   };
   report.artsStrength = artsStrength;
   return report;
+}
+
+function expandMigratedTemplate(
+  row: CandidateRow,
+  normalizedTemplate: NonNullable<ReturnType<typeof normalizeTechniqueArtsStrengthTemplate>['template']>,
+): { ok: true; expandedSkills: ExpandedTechniqueArtsStrengthSkill[] } | { ok: false; error: string } {
+  const template = asRecord(row.template);
+  const rawCandidate = asRecord(asRecord(asRecord(row.validation_report)?.artsStrength)?.rawCandidate);
+  const grade = normalizeTechniqueGrade(template?.grade ?? rawCandidate?.grade ?? row.grade);
+  if (!grade) {
+    return { ok: false, error: '无法确定功法品阶，不能重算术法 SkillDef' };
+  }
+  const realmLv = Math.max(1, Math.floor(toFiniteNumber(template?.realmLv ?? rawCandidate?.realmLv ?? row.realm_lv, 1)));
+  const techniqueId = typeof template?.id === 'string' && template.id.trim()
+    ? template.id.trim()
+    : row.id;
+  const targetBudget = resolveMigrationTargetBudget(row, grade, realmLv);
+  return {
+    ok: true,
+    expandedSkills: normalizedTemplate.skills.map((skill, index) => expandTechniqueArtsStrengthSkill({
+      techniqueId,
+      grade,
+      realmLv,
+      skillIndex: index,
+      skill,
+      targetBudget,
+    })),
+  };
+}
+
+function resolveMigrationTargetBudget(row: CandidateRow, grade: TechniqueGrade, realmLv: number): number {
+  const template = asRecord(row.template);
+  const report = asRecord(row.validation_report);
+  const artsStrength = asRecord(report?.artsStrength);
+  const expansion = Array.isArray(artsStrength?.expansion) ? artsStrength.expansion : [];
+  const firstExpansion = asRecord(expansion[0]);
+  const reportBudget = toFiniteNumber(firstExpansion?.totalBudget, Number.NaN);
+  if (Number.isFinite(reportBudget) && reportBudget > 0) {
+    return reportBudget;
+  }
+  const templateBudget = toFiniteNumber(template?.totalBudget, Number.NaN);
+  if (Number.isFinite(templateBudget) && templateBudget > 0) {
+    return templateBudget;
+  }
+  const budgetPercent = Math.max(0, toFiniteNumber(template?.budgetPercent, 1));
+  return calcArtsBudgetMax(grade, realmLv) * budgetPercent;
+}
+
+function buildExpansionReport(expandedSkills: ExpandedTechniqueArtsStrengthSkill[]): Array<{
+  skillId: string;
+  inputBudget: number;
+  totalBudget: number;
+  targetBudget: number;
+  effectScale: number;
+  structureBudgetMultiplier: number;
+  budgetBreakdown: ExpandedTechniqueArtsStrengthSkill['budgetBreakdown'];
+}> {
+  return expandedSkills.map((entry) => ({
+    skillId: entry.skill.id,
+    inputBudget: entry.inputBudget,
+    totalBudget: entry.totalBudget,
+    targetBudget: entry.targetBudget,
+    effectScale: entry.effectScale,
+    structureBudgetMultiplier: entry.structureBudgetMultiplier,
+    budgetBreakdown: entry.budgetBreakdown,
+  }));
+}
+
+function normalizeTechniqueGrade(value: unknown): TechniqueGrade | null {
+  const text = typeof value === 'string' ? value : '';
+  if (
+    text === 'mortal'
+    || text === 'yellow'
+    || text === 'mystic'
+    || text === 'earth'
+    || text === 'heaven'
+    || text === 'spirit'
+    || text === 'saint'
+    || text === 'emperor'
+  ) {
+    return text;
+  }
+  return null;
 }
 
 function migrateRawCandidate(rawCandidate: Record<string, unknown>): { changed: boolean; value: Record<string, unknown> } {
@@ -394,4 +523,8 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 function toFiniteNumber(value: unknown, fallback: number): number {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function isJsonEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
