@@ -65,6 +65,7 @@ import {
   PAINT_LAYER_OPTIONS,
 } from './constants/editor/map-editor';
 import { buildCanvasFont } from './constants/ui/text';
+import { runtimeImagePack, type RuntimeTileVisualSource } from './renderer/runtime-image-pack';
 import { formatMapRecommendedRealmLabel } from './utils/map-level-display';
 import {
   clone,
@@ -3582,6 +3583,17 @@ export class GmMapEditor {
       }
     }
 
+    runtimeImagePack.drawDualGridTiles(ctx, {
+      startGX,
+      startGY,
+      endGX,
+      endGY,
+      cellSize,
+      offsetX: -this.viewCenterX + screenW / 2,
+      offsetY: -this.viewCenterY + screenH / 2,
+      tileAt: (x, y) => this.getTileVisualSourceAt(x, y),
+    });
+
     this.drawComposePieces(ctx, screenW, screenH, cellSize);
     this.drawEntities(ctx, screenW, screenH, cellSize);
   }
@@ -4716,6 +4728,25 @@ export class GmMapEditor {
       );
     }
     return getTileTypeFromMapChar(this.draft.tiles[y]?.[x] ?? '.');
+  }
+
+  private getTileVisualSourceAt(x: number, y: number): RuntimeTileVisualSource | null {
+    if (!this.draft || x < 0 || y < 0 || x >= this.draft.width || y >= this.draft.height) {
+      return null;
+    }
+    const layers = this.getLayerStateAt(x, y);
+    return {
+      type: composeTileTypeFromLayers(
+        layers.terrain,
+        layers.surface,
+        layers.structure,
+        layers.interactableKinds,
+      ),
+      terrainType: layers.terrain,
+      surfaceType: layers.surface,
+      structureType: layers.structure,
+      interactableKinds: layers.interactableKinds,
+    };
   }
 
   /** findEntityAt：查找实体At。 */

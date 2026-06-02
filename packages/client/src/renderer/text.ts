@@ -1446,6 +1446,27 @@ export class TextRenderer implements IRenderer {
       }
     }
 
+    runtimeImagePack.drawDualGridTiles(ctx, {
+      startGX,
+      startGY,
+      endGX,
+      endGY,
+      cellSize,
+      offsetX: screenOffsetX,
+      offsetY: screenOffsetY,
+      tileAt: (x, y) => {
+        const key = `${x},${y}`;
+        const tile = tileCache.get(key);
+        if (!tile) {
+          return null;
+        }
+        const isVisible = visibleTiles.has(key);
+        if (!isVisible && Math.abs(x - playerX) > displayRangeX) return null;
+        if (!isVisible && Math.abs(y - playerY) > displayRangeY) return null;
+        return tile;
+      },
+    });
+
     this.renderPathArrows(camera, visibleTiles, playerX, playerY, displayRangeX, displayRangeY);
     this.renderTimeOverlay(time);
   }
