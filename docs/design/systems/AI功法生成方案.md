@@ -193,14 +193,19 @@ stacksPerApply   = 单次命中附加层数，默认 1
 ### 5.4 预算分配与真实值反推
 
 ```
-totalWeight = Σ abs(itemWeight)
-itemBudget  = BUDGET(layer) × itemWeight / totalWeight
-真实值       = convert(itemBudget)
+totalWeight    = Σ abs(itemWeight)
+positiveWeight = Σ max(itemWeight, 0)
+
+正权重 itemBudget = BUDGET(layer) × itemWeight / positiveWeight
+负权重 itemBudget = BUDGET(layer) × itemWeight / totalWeight
+真实值            = convert(itemBudget)
 ```
 
 每个项目都有独立转换公式：属性基底按属性成本换成倍率，冷却预算换成真实冷却，消耗预算换成灵力消耗倍率，施法距离和范围预算换成真实 targeting 几何。
 
 **关键保证**：AI 输出的是权重，不是最终数值。玩家写“1 息”“范围 32 格”只表示倾向，服务端仍按预算分配和转换公式反推真实值。
+
+正权重瓜分完整正向预算；负权重只折算为对应项目的负预算，不进入正向分母，也不会额外兑换成其它项的正预算。
 
 有上下限的项目先算真实值再钳制；触顶/触底后多出的正预算回流给仍可增长的项目，最终兜底补给无上限的属性基底。
 
@@ -220,18 +225,19 @@ AI 输出：
 
 ```
 totalWeight = abs(6) + abs(6) + abs(-20) + abs(80) + abs(1) = 113
+positiveWeight = 6 + 6 + 80 + 1 = 93
 
-castRangeBudget = 120.99 × 6 / 113      ≈ 6.42
-shapeBudget     = 120.99 × 6 / 113      ≈ 6.42
+castRangeBudget = 120.99 × 6 / 93       ≈ 7.81
+shapeBudget     = 120.99 × 6 / 93       ≈ 7.81
 costBudget      = 120.99 × -20 / 113    ≈ -21.41
-cooldownBudget  = 120.99 × 80 / 113     ≈ 85.66
-spellAtkBudget  = 120.99 × 1 / 113      ≈ 1.07
+cooldownBudget  = 120.99 × 80 / 93      ≈ 104.08
+spellAtkBudget  = 120.99 × 1 / 93       ≈ 1.30
 
-rangeBudget 6.42 可购买施法距离 4 格（距离 5 需要 8.29 预算）
-shapeBudget 6.42 可购买 area 半径 1（5 格，已用 2.00 预算）
+rangeBudget 7.81 可购买施法距离 4 格（距离 5 需要 8.29 预算）
+shapeBudget 7.81 可购买 area 半径 2（13 格，已用 6.00 预算）
 ```
 
-实际冷却会先按 `3 * realmLv * 0.95^cooldownBudget` 计算，再被最小 1 息钳制；多出的正预算回流到范围或属性基底，不会继续制造 `1.2^80` 级别的预算倍率。
+实际冷却会先按 `3 * realmLv * 0.95^cooldownBudget` 计算，再被最小 1 息钳制；多出的正预算回流到范围或属性基底，样例中最终 `spellAtkBudget` 约为 `15.06`，不会继续制造 `1.2^80` 级别的预算倍率。
 
 ---
 
@@ -919,8 +925,11 @@ cost_per_percent = {
 }
 
 # 技能预算分配
-itemBudget(i) = BUDGET(L) × itemWeight(i) / Σ abs(itemWeight)
-真实效果值       = convertByItem(itemBudget)
+totalWeight    = Σ abs(itemWeight)
+positiveWeight = Σ max(itemWeight, 0)
+正权重 itemBudget(i) = BUDGET(L) × itemWeight(i) / positiveWeight
+负权重 itemBudget(i) = BUDGET(L) × itemWeight(i) / totalWeight
+真实效果值            = convertByItem(itemBudget)
 
 # 经验
 BASE      = g² × (realmLv + 5)

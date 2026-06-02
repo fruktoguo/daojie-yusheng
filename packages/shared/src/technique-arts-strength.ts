@@ -175,6 +175,8 @@ export interface ExpandedTechniqueArtsStrengthSkill {
 
 export interface TechniqueArtsStrengthBudgetBreakdown {
   totalWeight: number;
+  positiveWeight: number;
+  negativeWeight: number;
   refundedBudget: number;
   redistributedBudget: number;
   items: TechniqueArtsStrengthBudgetBreakdownItem[];
@@ -645,12 +647,17 @@ function resolveTargetShapeWeight(target: NormalizedTechniqueArtsStrengthTarget)
 
 function allocateBudgets(items: BudgetItem[], totalBudget: number): Map<string, number> {
   const totalWeight = items.reduce((sum, item) => sum + Math.abs(item.weight), 0);
+  const positiveWeight = items.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   const allocations = new Map<string, number>();
   if (totalWeight <= 0 || totalBudget <= 0) {
     return allocations;
   }
   for (const item of items) {
-    allocations.set(item.key, totalBudget * item.weight / totalWeight);
+    if (item.weight > 0 && positiveWeight > 0) {
+      allocations.set(item.key, totalBudget * item.weight / positiveWeight);
+    } else if (item.weight < 0) {
+      allocations.set(item.key, totalBudget * item.weight / totalWeight);
+    }
   }
   return allocations;
 }
@@ -949,6 +956,8 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
         : params.skill.inputBudget;
   const budgetItems = buildBudgetItems(params.skill);
   const totalWeight = budgetItems.reduce((sum, item) => sum + Math.abs(item.weight), 0);
+  const positiveWeight = budgetItems.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
+  const negativeWeight = budgetItems.reduce((sum, item) => sum + Math.max(0, -item.weight), 0);
   const allocations = allocateBudgets(budgetItems, fullTotalBudget);
   const targetConversion = convertTargetBudget(
     params.skill.target,
@@ -1018,6 +1027,8 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
     structureBudgetMultiplier: 1,
     budgetBreakdown: {
       totalWeight: roundTo(totalWeight, 6),
+      positiveWeight: roundTo(positiveWeight, 6),
+      negativeWeight: roundTo(negativeWeight, 6),
       refundedBudget: roundTo(positiveRefundBudget, 6),
       redistributedBudget: formulaConversion.redistributedBudget,
       items: [

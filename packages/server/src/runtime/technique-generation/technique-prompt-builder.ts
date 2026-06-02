@@ -179,9 +179,9 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       structureMeaning: [
         'structureStrength.cost 是灵力消耗权重；正数代表更低灵力消耗，负数代表更高灵力消耗，0表示基础消耗倍率1。',
         `structureStrength.cooldown 是冷却权重；正数代表更短冷却，负数代表更长冷却，0预算的基础冷却为 ${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv 息。`,
-        'structureStrength 字段只参与总权重分配；服务端会先按总预算分给每一项，再用各项独立公式换算真实消耗、冷却或吟唱。',
+        'structureStrength 字段只参与权重分配；正权重瓜分完整正向预算，负权重只折算为本项负预算，再用各项独立公式换算真实消耗、冷却或吟唱。',
         'structureStrength.chant 预留给吟唱强度；当前可写0。',
-        '结构权重、范围权重、距离权重都会和伤害权重竞争总预算。',
+        '正向结构权重、范围权重、距离权重会和伤害权重竞争正向预算；负权重不进入正向分母，也不会额外兑换成其它项正预算。',
         'structureStrength 里的字段都只是强度权重，不是真实运行时数值；不要输出 costMultiplier/cooldown/cooldownTicks。',
       ],
       formulaMeaning: [
@@ -387,7 +387,9 @@ function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, u
       'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
       '术法基础满层预算 BUDGET_base = 3 + realmLv * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
       '术法本次实际总预算 actualTotalBudget = BUDGET_base * budgetPercent',
-      '每项实际预算 itemBudget = actualTotalBudget * itemWeight / sum(abs(itemWeight))',
+      'totalWeight = sum(abs(itemWeight)); positiveWeight = sum(max(itemWeight, 0))',
+      '正权重 itemBudget = actualTotalBudget * itemWeight / positiveWeight；负权重 itemBudget = actualTotalBudget * itemWeight / totalWeight',
+      '负权重只折算本项负预算，不进入正向分母，也不会额外兑换成其它项正预算',
       `灵力消耗倍率 costMultiplier = costBudget >= 0 ? ${constants.structure.costPositivePerBudget}^costBudget : ${constants.structure.costNegativePerBudget}^abs(costBudget)`,
       `冷却 cooldownTicks = round(${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv * (cooldownBudget >= 0 ? ${constants.structure.cooldownPositivePerBudget}^cooldownBudget : ${constants.structure.cooldownNegativePerBudget}^abs(cooldownBudget)))，最小1息`,
       `施法距离：1格为0预算；r格消耗 (r - 1) * ${constants.structure.castRangeBudgetGrowth}^(r - 1)，常规最大${constants.structure.maxCastRange}格，line最大${constants.structure.maxLineCastRange}格`,

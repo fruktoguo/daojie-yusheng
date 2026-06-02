@@ -398,8 +398,11 @@ class TechniqueCandidateValidator {
 公式（详见 `docs/design/balance/术法预算量化设计.md`）：
 - `BUDGET_max = 3 + realmLv × 1.4^(g-1) × majorRealmMultiplier`
 - `BUDGET(layer) = BUDGET_max × layer / maxLayer`
-- `itemBudget = BUDGET(layer) × itemWeight / Σ abs(itemWeight)`
+- `totalWeight = Σ abs(itemWeight)`，`positiveWeight = Σ max(itemWeight, 0)`
+- 正权重：`itemBudget = BUDGET(layer) × itemWeight / positiveWeight`
+- 负权重：`itemBudget = BUDGET(layer) × itemWeight / totalWeight`
 - 每项真实值由该项转换公式反推，冷却、消耗、施法距离、范围覆盖和公式基底各自处理上下限。
+- 负权重只折算本项负预算，不进入正向分母，也不额外兑换成其它项正预算。
 - 每个转换方法返回真实值、已使用预算和未使用预算；触顶/触底后多出的正预算由上层预算分配器统一回流到仍可增长的项目，最终兜底补给无上限的属性基底。
 
 ---
