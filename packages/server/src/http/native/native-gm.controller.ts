@@ -840,6 +840,11 @@ export class NativeGmController {
     return this.nextGmPlayerService.repairMarketStorageItemIds();
   }
 
+  @Post('shortcuts/players/refresh-online-technique-templates')
+  async refreshOnlinePlayerTechniqueTemplates() {
+    return this.nextGmPlayerService.refreshOnlinePlayerTechniqueTemplates();
+  }
+
   @Post('shortcuts/compat/ai-arts-strength-v1-to-v2/dry-run')
   async dryRunAiArtsStrengthV1ToV2(@Req() request: unknown) {
     return this.aiArtsStrengthV1ToV2Conversion.run({

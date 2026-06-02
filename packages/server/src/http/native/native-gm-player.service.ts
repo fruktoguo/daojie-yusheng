@@ -225,6 +225,7 @@ interface PlayerRuntimeServiceLike {
   restoreSnapshot(snapshot: any): void;
   listPlayerSnapshots(): any[];
   rebuildActionState(snapshot: any, tick: number): void;
+  refreshOnlineTechniqueTemplates(): any;
   markPersisted(playerId: string): void;
   setManagedBodyTrainingLevel(playerId: string, level: number): any;
 }
@@ -1063,6 +1064,10 @@ export class NativeGmPlayerService {
       repairedMarketStorageSample: result.repairedSample,
       repairedAt: result.repairedAt,
     };
+  }
+
+  refreshOnlinePlayerTechniqueTemplates() {
+    return this.playerRuntimeService.refreshOnlineTechniqueTemplates();
   }
   /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。

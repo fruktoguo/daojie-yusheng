@@ -10685,6 +10685,34 @@ async function migrateAiArtsStrengthDraftsV1ToV2(): Promise<void> {
   }
 }
 
+async function refreshOnlineTechniqueTemplates(): Promise<void> {
+  if (!window.confirm(t('gm.shortcut.refresh-online-technique-templates.confirm'))) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-refresh-online-technique-templates') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/refresh-online-technique-templates`, {
+      method: 'POST',
+    });
+    await delayRefresh(t('gm.shortcut.refresh-online-technique-templates.done', {
+      totalPlayers: Math.floor(result.totalPlayers ?? 0),
+      refreshedOnlinePlayers: Math.floor(result.refreshedOnlinePlayers ?? 0),
+      refreshedTechniques: Math.floor(result.refreshedTechniques ?? 0),
+      missingTechniqueTemplates: Math.floor(result.missingTechniqueTemplates ?? 0),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** cleanupAbnormalTemporaryTiles：处理cleanup Abnormal Temporary Tiles。 */
 async function cleanupAbnormalTemporaryTiles(): Promise<void> {
   if (!window.confirm(t('gm.shortcut.cleanup-abnormal-temp.confirm'))) {
@@ -11824,6 +11852,9 @@ document.getElementById('shortcut-repair-market-storage-item-ids')?.addEventList
 });
 document.getElementById('shortcut-migrate-ai-arts-strength-v1-to-v2')?.addEventListener('click', () => {
   migrateAiArtsStrengthDraftsV1ToV2().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-refresh-online-technique-templates')?.addEventListener('click', () => {
+  refreshOnlineTechniqueTemplates().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-cleanup-abnormal-temporary-tiles')?.addEventListener('click', () => {
   cleanupAbnormalTemporaryTiles().catch((e) => console.error('[GM]', e));

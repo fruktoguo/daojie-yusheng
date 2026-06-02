@@ -2455,6 +2455,21 @@ export interface GmShortcutRunRes {
 
   repairedAt?: string;
   /**
+ * refreshedOnlinePlayers：刷新功法模板的在线玩家数。
+ */
+
+  refreshedOnlinePlayers?: number;
+  /**
+ * refreshedTechniques：刷新功法模板的已学功法数。
+ */
+
+  refreshedTechniques?: number;
+  /**
+ * missingTechniqueTemplates：刷新时找不到模板的已学功法数。
+ */
+
+  missingTechniqueTemplates?: number;
+  /**
  * targetMapId：目标地图ID标识。
  */
 

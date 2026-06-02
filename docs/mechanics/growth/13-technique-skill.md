@@ -134,12 +134,16 @@ cost = costMultiplier × gradeQiCostMultiplier × realmLv × realmAttributeMulti
 目标展开口径：
 
 ```typescript
-itemBudget = BUDGET(layer) * itemWeight / sum(abs(itemWeight))
+totalWeight = sum(abs(itemWeight))
+positiveWeight = sum(max(itemWeight, 0))
+positive itemBudget = BUDGET(layer) * itemWeight / positiveWeight
+negative itemBudget = BUDGET(layer) * itemWeight / totalWeight
 realValue = convertByItem(itemBudget)
 ```
 
 - `target.castRangeWeight` 是施法距离权重，`target.areaWeight` 是覆盖范围权重，都不是真实格数、半径、宽度或边长。
 - `structureStrength.cost/cooldown/chant` 是结构权重，不是真实消耗、冷却或吟唱。
+- 正权重瓜分完整正向预算；负权重只折算本项负预算，不进入正向分母。
 - 冷却、消耗、施法距离、范围覆盖、属性基底和百分比组各自使用独立转换公式。
 - 有最小值或最大值的项目先展开真实值，再按真实可生效值反推已使用预算。
 - 每个转换方法返回真实值、已使用预算和未使用预算；触顶/触底后多出的正预算回流到仍可增长的项目，最终兜底补给无上限的属性基底。

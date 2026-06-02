@@ -870,6 +870,55 @@ export class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return true;
     }
+    /** 按当前模板刷新所有在线玩家已学功法的静态投影。 */
+    refreshOnlineTechniqueTemplates() {
+        const onlinePlayers = Array.from(this.players.values())
+            .filter((player) => !isNativeGmBotPlayerId(player?.playerId));
+        const result = {
+            ok: true,
+            totalPlayers: onlinePlayers.length,
+            queuedRuntimePlayers: 0,
+            updatedOfflinePlayers: 0,
+            refreshedOnlinePlayers: 0,
+            refreshedTechniques: 0,
+            missingTechniqueTemplates: 0,
+        };
+        for (const player of onlinePlayers) {
+            const techniques = Array.isArray(player?.techniques?.techniques) ? player.techniques.techniques : [];
+            if (techniques.length <= 0) {
+                continue;
+            }
+            let playerChanged = false;
+            let missingForPlayer = 0;
+            const nextTechniques = techniques.map((entry) => {
+                const hydrated = this.contentTemplateRepository.hydrateTechniqueState(entry);
+                if (!hydrated || typeof hydrated !== 'object') {
+                    missingForPlayer += 1;
+                    return entry;
+                }
+                if (hasTechniqueTemplateProjectionChanged(entry, hydrated)) {
+                    playerChanged = true;
+                    result.refreshedTechniques += 1;
+                }
+                return hydrated;
+            });
+            result.missingTechniqueTemplates += missingForPlayer;
+            if (!playerChanged) {
+                continue;
+            }
+            player.techniques.techniques = nextTechniques;
+            player.techniques.revision += 1;
+            const currentTick = resolvePlayerRuntimeTick(player, 0);
+            this.playerAttributesService.recalculate(player);
+            this.rebuildActionState(player, currentTick);
+            this.playerProgressionService.refreshPreview(player);
+            markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill', 'attr']);
+            this.bumpPersistentRevision(player);
+            result.refreshedOnlinePlayers += 1;
+            result.queuedRuntimePlayers += 1;
+        }
+        return result;
+    }
     /** 将功法加入未领悟列表，不直接学会。 */
     addPendingTechniqueComprehensionById(playerId, techniqueId, sourceKind = 'normal', creatorPlayerId = null) {
         const player = this.getPlayer(playerId);
@@ -5068,6 +5117,15 @@ function markPlayerDirtyDomains(player, domains) {
             player.dirtyDomains.add(domain.trim());
         }
     }
+}
+
+function hasTechniqueTemplateProjectionChanged(current, hydrated) {
+    return current?.name !== hydrated?.name
+        || current?.grade !== hydrated?.grade
+        || current?.category !== hydrated?.category
+        || current?.realmLv !== hydrated?.realmLv
+        || current?.skills !== hydrated?.skills
+        || current?.layers !== hydrated?.layers;
 }
 
 const TEMPORARY_BUFF_PROTOTYPE_COMPARE_KEYS = [
