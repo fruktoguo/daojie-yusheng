@@ -16,6 +16,7 @@ const { PlayerPersistenceService } = require('../persistence/player-persistence.
 const { PlayerDomainPersistenceService } = require('../persistence/player-domain-persistence.service');
 const { InstanceDomainPersistenceService } = require('../persistence/instance-domain-persistence.service');
 const { MailPersistenceService } = require('../persistence/mail-persistence.service');
+const { cleanupPostgresRestoreOrphanSectState } = require('../http/native/native-postgres-restore-cleanup');
 
 const SUPPORTED_DOMAINS = new Set(['player-domain', 'instance-domain', 'mail-domain']);
 const INSTANCE_DOMAIN_SOURCE_SCOPES = ['server_next_map_aura_v1', 'server_map_aura_v1'];
@@ -224,6 +225,9 @@ async function main() {
         });
       }
     }
+    const restoreCleanup = apply && domains.includes('instance-domain')
+      ? await cleanupPostgresRestoreOrphanSectState(databaseUrl)
+      : null;
 
     process.stdout.write(JSON.stringify({
       ok: true,
@@ -233,6 +237,7 @@ async function main() {
       limit,
       processed: dryRun ? dryRunChecks.length : migrated.length,
       totalSnapshots: snapshots.length,
+      restoreCleanup,
       projectedDomains: PLAYER_DOMAIN_PROJECTION_TARGETS,
       dryRunChecks: dryRun ? dryRunChecks : undefined,
       migrated: dryRun ? undefined : migrated,

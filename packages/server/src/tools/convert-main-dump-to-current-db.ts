@@ -11,6 +11,8 @@ const { existsSync } = require('node:fs');
 const path = require('node:path');
 const { Pool } = require('pg');
 
+const { cleanupPostgresRestoreOrphanSectState } = require('../http/native/native-postgres-restore-cleanup');
+
 const DEFAULT_DUMP_PATH = '参考/Test/上个版本.dump';
 const DEFAULT_TARGET_DB_PREFIX = 'mud_mmo_next_converted_main';
 const GM_AUTH_RECORD_KEY = 'gm_auth';
@@ -223,6 +225,7 @@ async function main() {
       market: args.include.has('market') ? await convertMarket(sourcePool, services, args.limit) : null,
       gmAuth: args.include.has('gm-auth') ? await convertGmAuth(sourcePool, targetPool) : null,
     };
+    const restoreCleanup = await cleanupPostgresRestoreOrphanSectState(targetDatabaseUrl);
     const targetChecks = await inspectTarget(targetPool);
     process.stdout.write(JSON.stringify({
       ok: true,
@@ -233,6 +236,7 @@ async function main() {
       stagingDatabaseName: restoredStaging ? stagingDatabaseName : null,
       sourceSummary,
       converted,
+      restoreCleanup,
       targetChecks,
       skippedLegacyScopes: sourceSummary.persistentDocumentScopes
         .filter((entry) => !['runtime_state', 'server_config'].includes(entry.scope))

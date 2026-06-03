@@ -944,8 +944,22 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
     playerRuntimeService,
     databasePoolProvider,
   );
+  const orphanGuardianId = `formation:sect_guardian:orphan:${persistenceInstanceId}`;
   try {
     await pool.query("DELETE FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]).catch(() => undefined);
+    await pool.query("DELETE FROM server_sect WHERE sect_id = 'sect:smoke'").catch(() => undefined);
+    await pool.query(`
+      INSERT INTO server_sect(
+        sect_id, name, mark, founder_player_id, leader_player_id, status,
+        entrance_instance_id, entrance_template_id, entrance_x, entrance_y,
+        sect_instance_id, sect_template_id, created_at_ms, updated_at_ms, raw_payload, updated_at
+      )
+      VALUES (
+        'sect:smoke', '阵法恢复验证宗', '阵', $1, $1, 'active',
+        $2, 'formation_smoke', 7, 8,
+        'sect:smoke:inner', 'sect_domain:smoke', 1, 1, '{}'::jsonb, now()
+      )
+    `, [detachedOwnerPlayerId, persistenceInstanceId]);
     const template = saveService.resolveFormationTemplate("spirit_gathering");
     const allocation = { effectPercent: 80, rangePercent: 10, durationPercent: 10 };
     const stats = require("@mud/shared").resolveFormationStats(template, 100, 4, allocation);
@@ -999,8 +1013,18 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
       active: true,
     });
     await guardianStartupService.saveInstanceFormations(persistenceInstanceId);
+    await pool.query(`
+      INSERT INTO instance_formation_state(
+        instance_id, formation_instance_id, owner_player_id, owner_sect_id, formation_id, lifecycle,
+        disk_item_id, disk_tier, disk_multiplier, spirit_stone_count, qi_cost,
+        x, y, eye_instance_id, eye_x, eye_y, allocation_payload, active,
+        remaining_aura_budget, created_at_ms, updated_at_ms, updated_at
+      )
+      VALUES ($1, $2, $3, 'sect:smoke:orphan', 'sect_guardian_barrier', 'persistent',
+        '', 'mortal', 1, 1, 0, 9, 9, $1, 9, 9, '{}'::jsonb, true, 100000, 1, 1, now())
+    `, [persistenceInstanceId, orphanGuardianId, detachedOwnerPlayerId]);
     const rowsAfterGuardianStartup = await pool.query("SELECT formation_instance_id, formation_id, lifecycle, x, y FROM instance_formation_state WHERE instance_id = $1 ORDER BY formation_instance_id ASC", [persistenceInstanceId]);
-    assert.equal(rowsAfterGuardianStartup.rowCount, 2);
+    assert.equal(rowsAfterGuardianStartup.rowCount, 3);
     assert.ok(rowsAfterGuardianStartup.rows.some((row) => row.formation_instance_id === formationId && row.formation_id === "spirit_gathering" && row.lifecycle === "deployed"));
     assert.ok(rowsAfterGuardianStartup.rows.some((row) => row.formation_instance_id === guardian.id && row.formation_id === "sect_guardian_barrier" && row.lifecycle === "persistent"));
     const restoredCount = await restoreService.restoreInstanceFormations(persistenceInstanceId);
@@ -1014,6 +1038,8 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
     const restoredGuardian = restoreService.findFormationInInstance(persistenceInstanceId, guardian.id);
     assert.equal(restoredGuardian.lifecycle, "persistent");
     assert.equal(restoredGuardian.eyeInstanceId, "sect:smoke:inner");
+    assert.equal(restoreService.findFormationInInstance(persistenceInstanceId, orphanGuardianId), null);
+    assert.equal(await countRows(pool, "SELECT count(*)::int AS count FROM instance_formation_state WHERE formation_instance_id = $1", [orphanGuardianId]), 0);
     return restoredCount;
   } finally {
     await saveService.closePersistencePool().catch(() => undefined);
@@ -1021,8 +1047,14 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
     await guardianStartupService.closePersistencePool().catch(() => undefined);
     await databasePoolProvider.onModuleDestroy().catch(() => undefined);
     await pool.query("DELETE FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]).catch(() => undefined);
+    await pool.query("DELETE FROM server_sect WHERE sect_id = 'sect:smoke'").catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
+}
+
+async function countRows(pool, sql, params = []) {
+  const result = await pool.query(sql, params);
+  return Number(result.rows?.[0]?.count ?? 0);
 }
 
 main().catch((error) => {

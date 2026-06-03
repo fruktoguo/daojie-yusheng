@@ -1237,7 +1237,27 @@ class WorldRuntimeFormationService {
                 updated_at_ms
             FROM ${INSTANCE_FORMATION_STATE_TABLE}
             WHERE instance_id = $1
+              AND (
+                formation_id <> 'sect_guardian_barrier'
+                OR NULLIF(btrim(owner_sect_id), '') IS NULL
+                OR EXISTS (
+                  SELECT 1
+                  FROM server_sect
+                  WHERE server_sect.sect_id = btrim(${INSTANCE_FORMATION_STATE_TABLE}.owner_sect_id)
+                )
+              )
             ORDER BY formation_instance_id ASC
+        `, [instanceId]);
+        await pool.query(`
+            DELETE FROM ${INSTANCE_FORMATION_STATE_TABLE}
+            WHERE instance_id = $1
+              AND formation_id = 'sect_guardian_barrier'
+              AND NULLIF(btrim(owner_sect_id), '') IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1
+                FROM server_sect
+                WHERE server_sect.sect_id = btrim(${INSTANCE_FORMATION_STATE_TABLE}.owner_sect_id)
+              )
         `, [instanceId]);
         return {
             formations: (result.rows ?? []).map((row) => ({
