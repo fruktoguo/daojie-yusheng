@@ -113,6 +113,10 @@ import { GM_API_BASE_PATH } from './constants/api';
 const RUNTIME_IMAGE_PACK_WATCH_INTERVAL_MS = 120;
 const RUNTIME_IMAGE_PACK_WATCH_TICKS = 40;
 
+function makeGridPointKey(x: number, y: number, width: number): number {
+  return y * width + x;
+}
+
 function createRuntimePreviewTile(source: RuntimeTileVisualSource): Tile {
   return {
     type: source.type,
@@ -746,6 +750,17 @@ export class GmMapEditor {
     }
     this.runtimeImagePackWatchTicksRemaining = RUNTIME_IMAGE_PACK_WATCH_TICKS;
     this.scheduleRuntimeImagePackWatch();
+  }
+
+  private ensureRuntimeImagePackWatch(): void {
+    if (
+      !this.dualGridRenderingEnabled
+      || this.runtimeImagePackWatchTimerId !== null
+      || this.runtimeImagePackWatchTicksRemaining > 0
+    ) {
+      return;
+    }
+    this.startRuntimeImagePackWatch();
   }
 
   private scheduleRuntimeImagePackWatch(): void {
@@ -3607,9 +3622,18 @@ export class GmMapEditor {
     const startGY = Math.floor(camWorldY / cellSize) - 1;
     const endGX = Math.ceil((camWorldX + screenW) / cellSize) + 1;
     const endGY = Math.ceil((camWorldY + screenH) / cellSize) + 1;
-    const auraPointKeys = new Set((this.draft.auras ?? []).map((point) => `${point.x},${point.y}`));
+    const visualSourceStartGX = startGX - 1;
+    const visualSourceStartGY = startGY - 1;
+    const visualSourceRows = this.dualGridRenderingEnabled
+      ? this.buildVisibleTileVisualSourceRows(visualSourceStartGX, visualSourceStartGY, endGX + 1, endGY + 1)
+      : [];
+    const visibleTileTypes = this.dualGridRenderingEnabled
+      ? []
+      : this.buildVisibleTileTypeRows(startGX, startGY, endGX, endGY);
+    const auraPointKeys = buildGridPointKeySet(this.draft.auras, this.draft.width);
+    const resourcePointKeys = buildGridPointKeySet(this.draft.resources, this.draft.width);
     if (this.dualGridRenderingEnabled) {
-      this.startRuntimeImagePackWatch();
+      this.ensureRuntimeImagePackWatch();
     }
 
     ctx.textAlign = 'center';
@@ -3630,8 +3654,10 @@ export class GmMapEditor {
           continue;
         }
 
-        const source = this.getTileVisualSourceAt(gx, gy);
-        const type = source?.type ?? this.getTileTypeAt(gx, gy);
+        const source = this.dualGridRenderingEnabled
+          ? this.getCachedTileVisualSource(visualSourceRows, visualSourceStartGX, visualSourceStartGY, gx, gy)
+          : null;
+        const type = source?.type ?? visibleTileTypes[gy - startGY]?.[gx - startGX] ?? TileType.Floor;
         const runtimeTileDrawn = this.dualGridRenderingEnabled && source !== null
           ? runtimeImagePack.drawTile(ctx, createRuntimePreviewTile(source), sx, sy, cellSize)
           : false;
@@ -3649,12 +3675,13 @@ export class GmMapEditor {
           ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
         }
 
-        if (auraPointKeys.has(`${gx},${gy}`)) {
+        const pointKey = makeGridPointKey(gx, gy, this.draft.width);
+        if (auraPointKeys.has(pointKey)) {
           ctx.fillStyle = 'rgba(90, 170, 255, 0.18)';
           ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
         }
 
-        if (this.getResourcesAt(gx, gy).length > 0) {
+        if (resourcePointKeys.has(pointKey)) {
           ctx.fillStyle = 'rgba(247, 208, 96, 0.16)';
           ctx.fillRect(sx + 3, sy + 3, cellSize - 6, cellSize - 6);
         }
@@ -3689,12 +3716,119 @@ export class GmMapEditor {
         cellSize,
         offsetX: -this.viewCenterX + screenW / 2,
         offsetY: -this.viewCenterY + screenH / 2,
-        tileAt: (x, y) => this.getTileVisualSourceAt(x, y),
+        tileAt: (x, y) => this.getCachedTileVisualSource(visualSourceRows, visualSourceStartGX, visualSourceStartGY, x, y),
       });
     }
 
     this.drawComposePieces(ctx, screenW, screenH, cellSize);
     this.drawEntities(ctx, screenW, screenH, cellSize);
+  }
+
+  private buildVisibleTileTypeRows(startGX: number, startGY: number, endGX: number, endGY: number): TileType[][] {
+    if (!this.draft) {
+      return [];
+    }
+    const rowCount = Math.max(0, endGY - startGY + 1);
+    const columnCount = Math.max(0, endGX - startGX + 1);
+    const rows: TileType[][] = new Array(rowCount);
+    const hasLayerRows = Boolean(
+      this.draft.terrainRows
+      || this.draft.surfaceRows
+      || this.draft.structureRows
+      || this.draft.interactableRows,
+    );
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+      const y = startGY + rowIndex;
+      const row: TileType[] = new Array(columnCount);
+      if (y < 0 || y >= this.draft.height) {
+        row.fill(TileType.Floor);
+        rows[rowIndex] = row;
+        continue;
+      }
+      const legacyRow = this.draft.tiles[y] ?? '';
+      const terrainRow = this.draft.terrainRows?.[y];
+      const surfaceRow = this.draft.surfaceRows?.[y];
+      const structureRow = this.draft.structureRows?.[y];
+      const interactableRow = this.draft.interactableRows?.[y];
+      for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+        const x = startGX + columnIndex;
+        if (x < 0 || x >= this.draft.width) {
+          row[columnIndex] = TileType.Floor;
+          continue;
+        }
+        row[columnIndex] = hasLayerRows
+          ? composeTileTypeFromLayers(
+            terrainRow?.[x],
+            surfaceRow?.[x] ?? null,
+            structureRow?.[x] ?? null,
+            interactableRow?.[x] ?? [],
+          )
+          : getTileTypeFromMapChar(legacyRow[x] ?? '.');
+      }
+      rows[rowIndex] = row;
+    }
+    return rows;
+  }
+
+  private buildVisibleTileVisualSourceRows(
+    startGX: number,
+    startGY: number,
+    endGX: number,
+    endGY: number,
+  ): Array<Array<RuntimeTileVisualSource | null>> {
+    if (!this.draft) {
+      return [];
+    }
+    const rowCount = Math.max(0, endGY - startGY + 1);
+    const columnCount = Math.max(0, endGX - startGX + 1);
+    const rows: Array<Array<RuntimeTileVisualSource | null>> = new Array(rowCount);
+
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+      const y = startGY + rowIndex;
+      const row: Array<RuntimeTileVisualSource | null> = new Array(columnCount);
+      if (y < 0 || y >= this.draft.height) {
+        row.fill(null);
+        rows[rowIndex] = row;
+        continue;
+      }
+      const legacyRow = this.draft.tiles[y] ?? '';
+      const terrainRow = this.draft.terrainRows?.[y];
+      const surfaceRow = this.draft.surfaceRows?.[y];
+      const structureRow = this.draft.structureRows?.[y];
+      const interactableRow = this.draft.interactableRows?.[y];
+      for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+        const x = startGX + columnIndex;
+        if (x < 0 || x >= this.draft.width) {
+          row[columnIndex] = null;
+          continue;
+        }
+        const fallback = resolveTileLayerSeedFromTileType(getTileTypeFromMapChar(legacyRow[x] ?? '.'));
+        const terrain = terrainRow?.[x] ?? fallback.terrain;
+        const surface = surfaceRow?.[x] ?? fallback.surface;
+        const structure = structureRow?.[x] ?? fallback.structure;
+        const interactableKinds = interactableRow?.[x] ?? fallback.interactables;
+        row[columnIndex] = {
+          type: composeTileTypeFromLayers(terrain, surface, structure, interactableKinds),
+          terrainType: terrain,
+          surfaceType: surface,
+          structureType: structure,
+          interactableKinds: [...interactableKinds],
+        };
+      }
+      rows[rowIndex] = row;
+    }
+    return rows;
+  }
+
+  private getCachedTileVisualSource(
+    rows: Array<Array<RuntimeTileVisualSource | null>>,
+    startGX: number,
+    startGY: number,
+    x: number,
+    y: number,
+  ): RuntimeTileVisualSource | null {
+    return rows[y - startGY]?.[x - startGX] ?? null;
   }
 
   /** drawComposePieces：处理draw Compose Pieces。 */
@@ -5023,4 +5157,18 @@ export class GmMapEditor {
     window.removeEventListener('blur', this._windowBlurHandler);
     window.removeEventListener('resize', this._windowResizeHandler);
   }
+}
+
+function buildGridPointKeySet(
+  points: readonly GridPoint[] | undefined,
+  width: number,
+): Set<number> {
+  const keys = new Set<number>();
+  if (!points) {
+    return keys;
+  }
+  for (const point of points) {
+    keys.add(makeGridPointKey(point.x, point.y, width));
+  }
+  return keys;
 }
