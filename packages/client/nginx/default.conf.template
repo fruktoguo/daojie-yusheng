@@ -35,6 +35,8 @@ server {
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /api/account {
@@ -42,6 +44,8 @@ server {
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /api/gm {
@@ -49,6 +53,8 @@ server {
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         # GM 诊断接口（如 heap snapshot 摘要解析）会阻塞数十秒到数分钟，nginx 默认 60s read timeout 不够用。
         # 放宽到 5 分钟以容纳 GB 级 heap 在服务端 V8 stream 解析期间的等待。
         proxy_connect_timeout 30s;
@@ -61,6 +67,8 @@ server {
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location /socket.io {
@@ -71,5 +79,7 @@ server {
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }

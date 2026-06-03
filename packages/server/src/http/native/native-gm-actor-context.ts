@@ -18,6 +18,7 @@
  */
 
 import type { GmAuthValidationResult } from '../../runtime/gm/runtime-gm-auth.service';
+import { resolveNativeRequestIp } from './native-request-ip';
 
 /** GM actor 上下文：用于 audit_log 的 actor 字段。 */
 export interface GmActorContext {
@@ -67,13 +68,7 @@ export function attachGmActor(
 function buildActorFromRequest(req: GmActorRequestLike | null): GmActorContext {
   const headers = (req?.headers ?? {}) as Record<string, unknown>;
   const userAgent = pickString(headers['user-agent']).slice(0, 255) || null;
-  const forwardedFor = pickString(headers['x-forwarded-for']);
-  const trustedProxies = (process.env.SERVER_TRUSTED_PROXIES ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const useForwardedFor = trustedProxies.length > 0
-    || process.env.SERVER_TRUST_PROXY === '1'
-    || process.env.SERVER_TRUST_PROXY === 'true';
-  const forwardedIp = useForwardedFor && forwardedFor ? forwardedFor.split(',')[0]?.trim() : '';
-  const ip = (forwardedIp || pickString(req?.ip) || pickString(headers['x-real-ip']) || '').slice(0, 80) || null;
+  const ip = resolveNativeRequestIp(req).slice(0, 80) || null;
   return {
     tokenRev: null,
     ip,

@@ -647,7 +647,7 @@ services:
       - target: 80
         published: ${CLIENT_PUBLISHED_PORT:-11921}
         protocol: tcp
-        mode: ingress
+        mode: host
     networks:
       - daojie_net
     healthcheck:
@@ -684,6 +684,7 @@ services:
       SERVER_SECRET_ENCRYPTION_KEY: ${SERVER_SECRET_ENCRYPTION_KEY}
       SERVER_GM_PASSWORD: ${GM_PASSWORD}
       GM_PASSWORD: ${GM_PASSWORD}
+      SERVER_TRUSTED_PROXIES: ${SERVER_TRUSTED_PROXIES:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
       SERVER_DATABASE_BACKUP_WORKER_ROOT_DIR: /var/lib/server
@@ -705,7 +706,7 @@ services:
       - target: 13001
         published: ${SERVER_PUBLISHED_PORT:-11922}
         protocol: tcp
-        mode: ingress
+        mode: host
     healthcheck:
       test:
         - CMD

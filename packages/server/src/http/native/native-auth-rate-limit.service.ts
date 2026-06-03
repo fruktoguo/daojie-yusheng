@@ -8,8 +8,10 @@
  * 基于内存滑动窗口实现 IP + 主体（账号名哈希）双维度限流，
  * 覆盖注册、登录、刷新和 GM 登录四个场景。
  */
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { resolveNativeRequestIp } from './native-request-ip';
 
 /** 限流作用域：对应不同认证入口。 */
 type RateLimitScope = 'register' | 'login' | 'refresh' | 'gmLogin';
@@ -81,13 +83,7 @@ export class NativeAuthRateLimitService {
 
   /** 从请求头和 socket 信息中提取客户端 IP。 */
   private resolveRequestIp(request: any): string {
-
-    const forwardedFor = request?.headers?.['x-forwarded-for'];
-    if (typeof forwardedFor === 'string' && forwardedFor.trim()) return forwardedFor.split(',')[0]?.trim() || 'unknown';
-    if (Array.isArray(forwardedFor) && forwardedFor.length > 0) return String(forwardedFor[0] ?? '').trim() || 'unknown';
-    const candidates = [request?.ip, request?.socket?.remoteAddress, request?.connection?.remoteAddress];
-    for (const value of candidates) if (typeof value === 'string' && value.trim()) return value.trim();
-    return 'unknown';
+    return resolveNativeRequestIp(request, { fallback: 'unknown' }) || 'unknown';
   }  
   /** 检查指定桶是否处于封禁状态。 */
   private assertBucketAllowed(key: string, config: RateLimitConfig): void {

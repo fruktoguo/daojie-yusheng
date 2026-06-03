@@ -12,6 +12,7 @@ import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 
 import { NativeAuthRateLimitService } from './native-auth-rate-limit.service';
 import { NativePlayerAuthService } from './native-player-auth.service';
+import { resolveNativeRequestIp } from './native-request-ip';
 
 /** 注册/登录请求体。 */
 
@@ -156,12 +157,7 @@ function pickString(value: unknown) {
 function pickAuthRequestContext(request: RequestLike, body: AuthBody): AuthRequestContext {
   const headers = request.headers as Record<string, unknown> | undefined;
   const headerDeviceId = headers?.['x-device-id'] ?? headers?.['X-Device-Id'];
-  const forwardedFor = pickString(headers?.['x-forwarded-for']);
-  const trustedProxies = (process.env.SERVER_TRUSTED_PROXIES ?? '').split(',').map(s => s.trim()).filter(Boolean);
-  const useForwardedFor = trustedProxies.length > 0 || process.env.SERVER_TRUST_PROXY === '1' || process.env.SERVER_TRUST_PROXY === 'true';
-  const ip = (useForwardedFor && forwardedFor ? forwardedFor.split(',')[0]?.trim() : '')
-    || pickString((request as { ip?: unknown }).ip)
-    || pickString(headers?.['x-real-ip']);
+  const ip = resolveNativeRequestIp(request);
   const userAgent = pickString(headers?.['user-agent']).slice(0, 255);
   const deviceId = pickString(body?.deviceId) || pickString(headerDeviceId);
   return {
