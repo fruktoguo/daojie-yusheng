@@ -66,6 +66,7 @@ import {
   type TimeAtmosphereProfile,
 } from '../constants/visuals/time-atmosphere';
 import { buildCanvasFont } from '../constants/ui/text';
+import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../constants/ui/performance';
 import { getEntityBadgeClassName, getMonsterPresentation } from '../monster-presentation';
 import { TextMeasureCache } from './text-measure-cache';
 import { TileSpriteCache } from './tile-sprite-cache';
@@ -538,6 +539,13 @@ interface RenderedAnimEntity {
   visualCellSize: number;
 }
 
+type FormationRangeVisual = {
+  highlightColor: string;
+  boundary: boolean;
+  boundaryChar?: string;
+  boundaryColor: string;
+};
+
 function getEntityRenderLayer(kind: string | null | undefined): number {
   return resolveWorldObjectRenderOrder(kind);
 }
@@ -642,6 +650,33 @@ function isTileOnFormationBoundary(anim: AnimEntity, gx: number, gy: number): bo
   return Math.abs(dx) === radius || Math.abs(dy) === radius;
 }
 
+function buildFormationRangeSignature(entities: Iterable<AnimEntity>): string {
+  let count = 0;
+  let signature = '';
+  for (const anim of entities) {
+    if (anim.kind !== 'formation' || !Number.isFinite(Number(anim.formationRadius)) || anim.formationActive === false) {
+      continue;
+    }
+    count += 1;
+    signature += [
+      '',
+      anim.id,
+      anim.gridX,
+      anim.gridY,
+      anim.formationRadius ?? '',
+      anim.formationRangeShape ?? '',
+      anim.formationRangeHighlightColor ?? '',
+      anim.formationBoundaryChar ?? '',
+      anim.formationBoundaryColor ?? '',
+      anim.formationBoundaryRangeHighlightColor ?? '',
+      anim.formationRangeVisibleWithoutSenseQi === true ? 1 : 0,
+      anim.formationBoundaryVisibleWithoutSenseQi === true ? 1 : 0,
+      anim.formationBlocksBoundary === true ? 1 : 0,
+    ].join('|');
+  }
+  return `${count}${signature}`;
+}
+
 function colorWithAlpha(color: string | undefined, alpha: number): string {
   const fallback = `rgba(59, 130, 246, ${alpha})`;
   const value = typeof color === 'string' ? color.trim() : '';
@@ -696,6 +731,107 @@ function getFengShuiOverlayStroke(cell: FengShuiOverlayState['cells'][number]): 
   return score > 0
     ? `rgba(74, 222, 128, ${alpha.toFixed(3)})`
     : `rgba(248, 113, 113, ${alpha.toFixed(3)})`;
+}
+
+function buildGridPointSignature(cells: readonly { x: number; y: number }[] | null | undefined): string {
+  if (!cells || cells.length === 0) {
+    return '0';
+  }
+  let signature = String(cells.length);
+  for (const cell of cells) {
+    signature += `|${cell.x},${cell.y}`;
+  }
+  return signature;
+}
+
+function buildTargetingOverlaySignature(state: TargetingOverlayState | null): string {
+  if (!state) {
+    return 'null';
+  }
+  return [
+    state.originX,
+    state.originY,
+    state.range,
+    state.visibleOnly === true ? 1 : 0,
+    state.shape ?? '',
+    state.radius ?? '',
+    state.hoverX ?? '',
+    state.hoverY ?? '',
+    buildGridPointSignature(state.affectedCells),
+  ].join('|');
+}
+
+function buildFormationRangeOverlaySignature(state: FormationRangeOverlayState | null): string {
+  if (!state) {
+    return 'null';
+  }
+  return `${state.rangeHighlightColor ?? ''}|${buildGridPointSignature(state.affectedCells)}`;
+}
+
+function buildSenseQiOverlaySignature(state: SenseQiOverlayState | null): string {
+  if (!state) {
+    return 'null';
+  }
+  return `${state.hoverX ?? ''}|${state.hoverY ?? ''}|${state.levelBaseValue ?? ''}`;
+}
+
+function buildBuildPreviewOverlaySignature(state: BuildPreviewOverlayState | null): string {
+  if (!state || state.cells.length === 0) {
+    return state ? '0' : 'null';
+  }
+  let signature = String(state.cells.length);
+  for (const cell of state.cells) {
+    signature += `|${cell.x},${cell.y},${cell.ok ? 1 : 0},${cell.warning === true ? 1 : 0}`;
+  }
+  return signature;
+}
+
+function buildFengShuiOverlaySignature(state: FengShuiOverlayState | null): string {
+  if (!state || state.cells.length === 0) {
+    return state ? '0' : 'null';
+  }
+  let signature = String(state.cells.length);
+  for (const cell of state.cells) {
+    signature += `|${cell.x},${cell.y},${cell.roomId},${cell.score},${cell.grade},${cell.revision}`;
+  }
+  return signature;
+}
+
+function buildThreatArrowSignature(arrows: readonly { ownerId: string; targetId: string }[]): string {
+  if (arrows.length === 0) {
+    return '0';
+  }
+  let signature = String(arrows.length);
+  for (const arrow of arrows) {
+    signature += `|${arrow.ownerId}>${arrow.targetId}`;
+  }
+  return signature;
+}
+
+function buildGroundPileSignature(piles: Iterable<GroundItemPileView>): string {
+  let count = 0;
+  let signature = '';
+  for (const pile of piles) {
+    count += 1;
+    signature += `|${pile.sourceId}@${pile.x},${pile.y}:${pile.items.length}`;
+    for (const item of pile.items) {
+      signature += `/${item.itemKey},${item.itemId},${item.type},${item.count},${item.grade ?? ''},${item.enhanceLevel ?? ''},${item.groundLabel ?? ''},${item.name}`;
+    }
+  }
+  return `${count}${signature}`;
+}
+
+function buildLootContainerSignature(list: readonly { kind?: RenderEntity['kind']; wx: number; wy: number }[]): string {
+  let count = 0;
+  let signature = '';
+  for (const entry of list) {
+    if (entry.kind !== 'container') {
+      continue;
+    }
+    count += 1;
+    signature += `|${entry.wx},${entry.wy}`;
+  }
+  return `${count}${signature}`;
 }
 
 /** 浮动文字实例。 */
@@ -920,6 +1056,13 @@ const MAX_ATTACK_TRAILS = 192;
 const MAX_WARNING_ZONES = 64;
 /** 预警区域默认持续时长。 */
 const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
+/** 地形缓存边缘预绘格数，覆盖相机追随平移时露出的边，避免每跨一格重绘 dual-grid。 */
+const TERRAIN_CACHE_OVERSCAN_CELLS = 10;
+/** 缩放活跃期使用较小预绘范围，降低连续缩放时的重建成本。 */
+const TERRAIN_CACHE_ZOOM_OVERSCAN_CELLS = 2;
+const TERRAIN_CACHE_ZOOM_SETTLE_MS = 220;
+
+type CameraProjection = Pick<Camera, 'x' | 'y' | 'offsetX' | 'offsetY'>;
 
 /** 地图/实体/特效的 Canvas 文字渲染器。 */
 export class TextRenderer implements IRenderer {
@@ -930,9 +1073,15 @@ export class TextRenderer implements IRenderer {
   private terrainCtx: CanvasRenderingContext2D | null = null;
   /** T-11: 地形缓存脏标记（相机移动或地块变化时置脏）。 */
   private terrainDirty = true;
-  private terrainCacheCamera = { x: 0, y: 0, offsetX: 0, offsetY: 0 };
   private terrainCacheWidth = 0;
   private terrainCacheHeight = 0;
+  private terrainCacheCanvasWidth = 0;
+  private terrainCacheCanvasHeight = 0;
+  private terrainCacheCellSize = 0;
+  private terrainCacheVisibleTileRevision = -1;
+  private terrainCacheOriginX = Number.NaN;
+  private terrainCacheOriginY = Number.NaN;
+  private terrainZoomCompactUntil = 0;
   /** 实体动画状态表。 */
   private entities: Map<string, AnimEntity> = new Map();  
   /**
@@ -954,6 +1103,7 @@ export class TextRenderer implements IRenderer {
   private groundPileByTileKey = new Map<string, GroundItemPileView>();
   /** 会自行显示掉落状态的容器地块键集合，用于避免重复绘制地面物品堆。 */
   private lootContainerTileKeys = new Set<string>();
+  private lastLootContainerSignature = '';
   /**
  * pathCells：路径Cell相关字段。
  */
@@ -991,6 +1141,23 @@ export class TextRenderer implements IRenderer {
   private formationRangeAffectedKeys = new Set<string>();
   private buildPreviewCellByKey = new Map<string, BuildPreviewOverlayState['cells'][number]>();
   private fengShuiCellByKey = new Map<string, FengShuiOverlayState['cells'][number]>();
+  private formationRangeVisuals = new Map<string, FormationRangeVisual>();
+  private formationRangeSenseQiVisuals = new Map<string, FormationRangeVisual>();
+  private formationRangeSignature = '';
+  private lastPathSignature = '';
+  private lastThreatArrowSignature = '';
+  private lastTargetingOverlaySignature = '';
+  private lastFormationRangeOverlaySignature = '';
+  private lastSenseQiOverlaySignature = '';
+  private lastBuildPreviewOverlaySignature = '';
+  private lastFengShuiOverlaySignature = '';
+  private lastGroundPileSignature = '';
+  private readonly renderedEntitiesScratch: RenderedAnimEntity[] = [];
+  private readonly renderedEntityByIdScratch = new Map<string, RenderedAnimEntity>();
+  private readonly crowdedTileKeysScratch = new Set<string>();
+  private readonly seenEntityIdsScratch = new Set<string>();
+  private readonly dualGridCoveredCellsScratch = new Set<string>();
+  private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   /** 当前浮动文字列表。 */
   private floatingTexts: FloatingText[] = [];
   /** 当前攻击拖尾列表。 */
@@ -1062,6 +1229,7 @@ export class TextRenderer implements IRenderer {
     this.groundPiles.clear();
     this.groundPileByTileKey.clear();
     this.lootContainerTileKeys.clear();
+    this.lastLootContainerSignature = '';
     this.floatingTexts = [];
     this.attackTrails = [];
     this.warningZones = [];
@@ -1074,15 +1242,49 @@ export class TextRenderer implements IRenderer {
     this.buildPreviewCellByKey.clear();
     this.fengShuiOverlay = null;
     this.fengShuiCellByKey.clear();
+    this.formationRangeVisuals.clear();
+    this.formationRangeSenseQiVisuals.clear();
+    this.formationRangeSignature = '';
+    this.lastPathSignature = '';
+    this.lastThreatArrowSignature = '';
+    this.lastTargetingOverlaySignature = '';
+    this.lastFormationRangeOverlaySignature = '';
+    this.lastSenseQiOverlaySignature = '';
+    this.lastBuildPreviewOverlaySignature = '';
+    this.lastFengShuiOverlaySignature = '';
+    this.lastGroundPileSignature = '';
+    this.renderedEntitiesScratch.length = 0;
+    this.renderedEntityByIdScratch.clear();
+    this.crowdedTileKeysScratch.clear();
+    this.seenEntityIdsScratch.clear();
+    this.dualGridCoveredCellsScratch.clear();
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileKeys.clear();
     this.previousVisibleTileRevision = -1;
     this.previousRuntimeImagePackRevision = -1;
+    this.terrainCacheWidth = 0;
+    this.terrainCacheHeight = 0;
+    this.terrainCacheCanvasWidth = 0;
+    this.terrainCacheCanvasHeight = 0;
+    this.terrainCacheCellSize = 0;
+    this.terrainCacheVisibleTileRevision = -1;
+    this.terrainCacheOriginX = Number.NaN;
+    this.terrainCacheOriginY = Number.NaN;
+    this.terrainZoomCompactUntil = 0;
     this.hiddenTileFadeStartedAt.clear();
     this.visibleTileFadeStartedAt.clear();
     this.textMeasureCache.clear();
     this.timeAtmosphere.initialized = false;
     this.fadingPath = null;
+  }
+
+  setPerformanceConfig(config: MapPerformanceConfig): void {
+    this.performanceConfig = { ...config };
+    runtimeImagePack.setPerformanceConfig(config);
+    this.tileSpriteCache.clear();
+    this.dualGridCoveredCellsScratch.clear();
+    this.previousRuntimeImagePackRevision = -1;
+    this.terrainDirty = true;
   }
 
   /** 更新路径高亮状态并构建旧路径过渡。 */
@@ -1097,6 +1299,11 @@ export class TextRenderer implements IRenderer {
  y: number }[], fadeDurationMs = DEFAULT_PATH_TRAIL_FADE_MS) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const signature = buildGridPointSignature(cells);
+    if (signature === this.lastPathSignature) {
+      return;
+    }
+    this.lastPathSignature = signature;
     if (this.pathCells.length > 0 && !this.arePathCellsEqual(this.pathCells, cells)) {
       this.fadingPath = {
         cells: this.pathCells.map((cell) => ({ x: cell.x, y: cell.y })),
@@ -1108,8 +1315,14 @@ export class TextRenderer implements IRenderer {
       };
     }
     this.pathCells = cells;
-    this.pathKeys = new Set(cells.map((cell) => `${cell.x},${cell.y}`));
-    this.pathIndexByKey = new Map(cells.map((cell, index) => [`${cell.x},${cell.y}`, index]));
+    this.pathKeys.clear();
+    this.pathIndexByKey.clear();
+    for (let index = 0; index < cells.length; index += 1) {
+      const cell = cells[index]!;
+      const key = `${cell.x},${cell.y}`;
+      this.pathKeys.add(key);
+      this.pathIndexByKey.set(key, index);
+    }
     this.pathTargetKey = cells.length > 0 ? `${cells[cells.length - 1].x},${cells[cells.length - 1].y}` : null;
     this.terrainDirty = true;
   }
@@ -1124,38 +1337,80 @@ export class TextRenderer implements IRenderer {
  * targetId：目标ID标识。
  */
  targetId: string }>) {
+    const signature = buildThreatArrowSignature(arrows);
+    if (signature === this.lastThreatArrowSignature) {
+      return;
+    }
+    this.lastThreatArrowSignature = signature;
     this.threatArrows = arrows.map((entry) => ({ ownerId: entry.ownerId, targetId: entry.targetId }));
   }
 
   /** 设置瞄准叠加层，并同步受影响格子索引。 */
   setTargetingOverlay(state: TargetingOverlayState | null) {
+    const signature = buildTargetingOverlaySignature(state);
+    if (signature === this.lastTargetingOverlaySignature) {
+      return;
+    }
+    this.lastTargetingOverlaySignature = signature;
     this.targetingOverlay = state;
-    this.targetingAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
+    this.targetingAffectedKeys.clear();
+    for (const cell of state?.affectedCells ?? []) {
+      this.targetingAffectedKeys.add(`${cell.x},${cell.y}`);
+    }
     this.terrainDirty = true;
   }
 
   /** 设置阵法范围叠加层，并同步受影响格子索引。 */
   setFormationRangeOverlay(state: FormationRangeOverlayState | null) {
+    const signature = buildFormationRangeOverlaySignature(state);
+    if (signature === this.lastFormationRangeOverlaySignature) {
+      return;
+    }
+    this.lastFormationRangeOverlaySignature = signature;
     this.formationRangeOverlay = state;
-    this.formationRangeAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
+    this.formationRangeAffectedKeys.clear();
+    for (const cell of state?.affectedCells ?? []) {
+      this.formationRangeAffectedKeys.add(`${cell.x},${cell.y}`);
+    }
     this.terrainDirty = true;
   }
 
   /** 设置感气视角叠加层。 */
   setSenseQiOverlay(state: SenseQiOverlayState | null) {
+    const signature = buildSenseQiOverlaySignature(state);
+    if (signature === this.lastSenseQiOverlaySignature) {
+      return;
+    }
+    this.lastSenseQiOverlaySignature = signature;
     this.senseQiOverlay = state;
     this.terrainDirty = true;
   }
 
   setBuildPreviewOverlay(state: BuildPreviewOverlayState | null) {
+    const signature = buildBuildPreviewOverlaySignature(state);
+    if (signature === this.lastBuildPreviewOverlaySignature) {
+      return;
+    }
+    this.lastBuildPreviewOverlaySignature = signature;
     this.buildPreviewOverlay = state;
-    this.buildPreviewCellByKey = new Map((state?.cells ?? []).map((cell) => [`${cell.x},${cell.y}`, cell]));
+    this.buildPreviewCellByKey.clear();
+    for (const cell of state?.cells ?? []) {
+      this.buildPreviewCellByKey.set(`${cell.x},${cell.y}`, cell);
+    }
     this.terrainDirty = true;
   }
 
   setFengShuiOverlay(state: FengShuiOverlayState | null) {
+    const signature = buildFengShuiOverlaySignature(state);
+    if (signature === this.lastFengShuiOverlaySignature) {
+      return;
+    }
+    this.lastFengShuiOverlaySignature = signature;
     this.fengShuiOverlay = state;
-    this.fengShuiCellByKey = new Map((state?.cells ?? []).map((cell) => [`${cell.x},${cell.y}`, cell]));
+    this.fengShuiCellByKey.clear();
+    for (const cell of state?.cells ?? []) {
+      this.fengShuiCellByKey.set(`${cell.x},${cell.y}`, cell);
+    }
     this.terrainDirty = true;
   }
 
@@ -1164,16 +1419,28 @@ export class TextRenderer implements IRenderer {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (piles instanceof Map) {
+      const signature = buildGroundPileSignature(piles.values());
+      if (signature === this.lastGroundPileSignature) {
+        return;
+      }
+      this.lastGroundPileSignature = signature;
       this.groundPiles = piles;
       this.rebuildGroundPileTileCache();
+      this.terrainDirty = true;
       return;
     }
     const nextPiles = new Map<string, GroundItemPileView>();
     for (const pile of piles as Iterable<GroundItemPileView>) {
       nextPiles.set(pile.sourceId, pile);
     }
+    const signature = buildGroundPileSignature(nextPiles.values());
+    if (signature === this.lastGroundPileSignature) {
+      return;
+    }
+    this.lastGroundPileSignature = signature;
     this.groundPiles = nextPiles;
     this.rebuildGroundPileTileCache();
+    this.terrainDirty = true;
   }
 
   private rebuildGroundPileTileCache(): void {
@@ -1204,17 +1471,54 @@ export class TextRenderer implements IRenderer {
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
+    const cellSize = getCellSize();
+    const nowMs = performance.now();
+    if (visibleTileRevision !== this.previousVisibleTileRevision) {
+      this.syncTileVisibilityTransitions(
+        visibleTiles,
+        tileCache,
+        nowMs,
+        visibleTileTransitionStartedAt,
+        visibleTileTransitionDurationMs,
+      );
+      this.previousVisibleTileRevision = visibleTileRevision;
+    }
+    const cellSizeChanged = this.terrainCacheCellSize !== cellSize;
+    if (cellSizeChanged) {
+      this.terrainZoomCompactUntil = nowMs + TERRAIN_CACHE_ZOOM_SETTLE_MS;
+    }
+    const overscanCells = nowMs < this.terrainZoomCompactUntil
+      ? TERRAIN_CACHE_ZOOM_OVERSCAN_CELLS
+      : TERRAIN_CACHE_OVERSCAN_CELLS;
+    const cacheMargin = cellSize * overscanCells;
+    const viewportOriginX = camera.x - camera.offsetX - sw / 2;
+    const viewportOriginY = camera.y - camera.offsetY - sh / 2;
+    const cacheWidth = Math.ceil(sw + cacheMargin * 2);
+    const cacheHeight = Math.ceil(sh + cacheMargin * 2);
+    const desiredCacheOriginX = Math.floor(viewportOriginX / cellSize) * cellSize - cacheMargin;
+    const desiredCacheOriginY = Math.floor(viewportOriginY / cellSize) * cellSize - cacheMargin;
+    const cacheHasValidAnchor = Number.isFinite(this.terrainCacheOriginX) && Number.isFinite(this.terrainCacheOriginY);
 
-    // T-11: 检测地形缓存是否需要重绘
-    const cameraChanged = this.terrainCacheCamera.x !== camera.x
-      || this.terrainCacheCamera.y !== camera.y
-      || this.terrainCacheCamera.offsetX !== camera.offsetX
-      || this.terrainCacheCamera.offsetY !== camera.offsetY;
+    // 地形缓存使用滑动窗口。视口仍落在预绘范围内时只移动缓存图像，不重算 dual-grid。
+    const viewportOutsideCache = !cacheHasValidAnchor
+      || viewportOriginX < this.terrainCacheOriginX
+      || viewportOriginY < this.terrainCacheOriginY
+      || viewportOriginX + sw > this.terrainCacheOriginX + this.terrainCacheCanvasWidth
+      || viewportOriginY + sh > this.terrainCacheOriginY + this.terrainCacheCanvasHeight;
     const sizeChanged = this.terrainCacheWidth !== sw || this.terrainCacheHeight !== sh;
-    const tileRevisionChanged = visibleTileRevision !== this.previousVisibleTileRevision;
+    const cacheCanvasChanged = this.terrainCacheCanvasWidth !== cacheWidth || this.terrainCacheCanvasHeight !== cacheHeight;
+    const tileRevisionChanged = visibleTileRevision !== this.terrainCacheVisibleTileRevision;
     const imagePackRevision = runtimeImagePack.getRevision();
     const imagePackChanged = imagePackRevision !== this.previousRuntimeImagePackRevision;
-    const needsTerrainRedraw = this.terrainDirty || cameraChanged || sizeChanged || tileRevisionChanged || imagePackChanged;
+    const visibilityFadeActive = this.hiddenTileFadeStartedAt.size > 0 || this.visibleTileFadeStartedAt.size > 0;
+    const needsTerrainRedraw = this.terrainDirty
+      || viewportOutsideCache
+      || sizeChanged
+      || cacheCanvasChanged
+      || cellSizeChanged
+      || tileRevisionChanged
+      || visibilityFadeActive
+      || imagePackChanged;
 
     if (needsTerrainRedraw && this.terrainCanvas && this.terrainCtx) {
       if (imagePackChanged) {
@@ -1222,41 +1526,52 @@ export class TextRenderer implements IRenderer {
         this.previousRuntimeImagePackRevision = imagePackRevision;
       }
       // 同步离屏 canvas 尺寸
-      if (sizeChanged) {
-        this.terrainCanvas.width = sw;
-        this.terrainCanvas.height = sh;
+      if (cacheCanvasChanged || this.terrainCanvas.width !== cacheWidth || this.terrainCanvas.height !== cacheHeight) {
+        this.terrainCanvas.width = cacheWidth;
+        this.terrainCanvas.height = cacheHeight;
       }
       this.terrainCacheWidth = sw;
       this.terrainCacheHeight = sh;
-      this.terrainCacheCamera.x = camera.x;
-      this.terrainCacheCamera.y = camera.y;
-      this.terrainCacheCamera.offsetX = camera.offsetX;
-      this.terrainCacheCamera.offsetY = camera.offsetY;
+      this.terrainCacheCanvasWidth = cacheWidth;
+      this.terrainCacheCanvasHeight = cacheHeight;
+      this.terrainCacheCellSize = cellSize;
+      this.terrainCacheVisibleTileRevision = visibleTileRevision;
+      this.terrainCacheOriginX = desiredCacheOriginX;
+      this.terrainCacheOriginY = desiredCacheOriginY;
       this.terrainDirty = false;
 
       // 在离屏 canvas 上绘制地形
       const terrainCtx = this.terrainCtx;
       terrainCtx.fillStyle = '#1a1816';
-      terrainCtx.fillRect(0, 0, sw, sh);
+      terrainCtx.fillRect(0, 0, cacheWidth, cacheHeight);
       const savedCtx = this.ctx;
+      const cacheCamera: CameraProjection = {
+        x: desiredCacheOriginX + cacheWidth / 2,
+        y: desiredCacheOriginY + cacheHeight / 2,
+        offsetX: 0,
+        offsetY: 0,
+      };
       this.ctx = terrainCtx;
       this.renderWorldCore(
-        camera, tileCache, visibleTiles, visibleTileRevision,
+        cacheCamera, tileCache, visibleTiles, visibleTileRevision,
         visibleTileTransitionStartedAt, visibleTileTransitionDurationMs,
-        playerX, playerY, displayRangeX, displayRangeY, time, imagePackRevision,
+        playerX, playerY, displayRangeX, displayRangeY, imagePackRevision,
       );
       this.ctx = savedCtx;
     }
 
     // T-11: 将地形缓存层绘制到主 canvas
     if (this.terrainCanvas) {
-      ctx.drawImage(this.terrainCanvas, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.terrainCanvas, this.terrainCacheOriginX - viewportOriginX, this.terrainCacheOriginY - viewportOriginY);
     }
+    this.renderPathArrows(camera, visibleTiles, playerX, playerY, displayRangeX, displayRangeY);
+    this.renderTimeOverlay(time);
   }
 
   /** 地形绘制核心逻辑（绘制到当前 this.ctx）。 */
   private renderWorldCore(
-    camera: Camera,
+    camera: CameraProjection,
     tileCache: ReadonlyMap<string, Tile>,
     visibleTiles: ReadonlySet<string>,
     visibleTileRevision: number,
@@ -1266,7 +1581,6 @@ export class TextRenderer implements IRenderer {
     playerY: number,
     displayRangeX: number,
     displayRangeY: number,
-    time: GameTimeState | null,
     imagePackRevision: number,
   ) {
     if (!this.ctx) return;
@@ -1280,17 +1594,6 @@ export class TextRenderer implements IRenderer {
     const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(this.senseQiOverlay?.levelBaseValue);
     const fadingPathAlpha = this.getFadingPathAlpha(now);
 
-    if (visibleTileRevision !== this.previousVisibleTileRevision) {
-      this.syncTileVisibilityTransitions(
-        visibleTiles,
-        tileCache,
-        now,
-        visibleTileTransitionStartedAt,
-        visibleTileTransitionDurationMs,
-      );
-      this.previousVisibleTileRevision = visibleTileRevision;
-    }
-
     // 屏幕可见格子范围
     const camWorldX = camera.x - sw / 2;
     const camWorldY = camera.y - sh / 2;
@@ -1298,6 +1601,41 @@ export class TextRenderer implements IRenderer {
     const startGY = Math.floor(camWorldY / cellSize) - 1;
     const endGX = Math.ceil((camWorldX + sw) / cellSize) + 1;
     const endGY = Math.ceil((camWorldY + sh) / cellSize) + 1;
+    const dualGridCoveredCells = this.dualGridCoveredCellsScratch;
+    dualGridCoveredCells.clear();
+
+    for (let gy = startGY; gy <= endGY; gy++) {
+      for (let gx = startGX; gx <= endGX; gx++) {
+        const sx = gx * cellSize + screenOffsetX;
+        const sy = gy * cellSize + screenOffsetY;
+        if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
+        const tile = tileCache.get(`${gx},${gy}`);
+        if (tile) {
+          this.tileSpriteCache.drawTile(ctx, tile, cellSize, sx, sy, imagePackRevision);
+        }
+      }
+    }
+
+    if (this.performanceConfig.renderRuntimeTileSprites && this.performanceConfig.renderDualGridTiles) {
+      runtimeImagePack.drawDualGridTiles(ctx, {
+        startGX,
+        startGY,
+        endGX,
+        endGY,
+        cellSize,
+        offsetX: screenOffsetX,
+        offsetY: screenOffsetY,
+        coveredCells: this.performanceConfig.skipLegacyTileOverlayWhenDualGridCovered ? dualGridCoveredCells : undefined,
+        tileAt: (x, y) => {
+          const key = `${x},${y}`;
+          const tile = tileCache.get(key);
+          if (!tile) {
+            return null;
+          }
+          return tile;
+        },
+      });
+    }
 
     for (let gy = startGY; gy <= endGY; gy++) {
       for (let gx = startGX; gx <= endGX; gx++) {
@@ -1311,13 +1649,9 @@ export class TextRenderer implements IRenderer {
         const hiddenFade = this.getHiddenTileFade(key, now);
         const visibleFade = this.getVisibleTileFade(key, now);
 
-        if (!isVisible && Math.abs(gx - playerX) > displayRangeX) continue;
-        if (!isVisible && Math.abs(gy - playerY) > displayRangeY) continue;
         if (!tile && !isVisible) continue;
 
         if (tile) {
-          this.tileSpriteCache.drawTile(ctx, tile, cellSize, sx, sy, imagePackRevision);
-
           if (
             this.fadingPath
             && fadingPathAlpha > 0
@@ -1445,30 +1779,6 @@ export class TextRenderer implements IRenderer {
         }
       }
     }
-
-    runtimeImagePack.drawDualGridTiles(ctx, {
-      startGX,
-      startGY,
-      endGX,
-      endGY,
-      cellSize,
-      offsetX: screenOffsetX,
-      offsetY: screenOffsetY,
-      tileAt: (x, y) => {
-        const key = `${x},${y}`;
-        const tile = tileCache.get(key);
-        if (!tile) {
-          return null;
-        }
-        const isVisible = visibleTiles.has(key);
-        if (!isVisible && Math.abs(x - playerX) > displayRangeX) return null;
-        if (!isVisible && Math.abs(y - playerY) > displayRangeY) return null;
-        return tile;
-      },
-    });
-
-    this.renderPathArrows(camera, visibleTiles, playerX, playerY, displayRangeX, displayRangeY);
-    this.renderTimeOverlay(time);
   }
 
   /** 根据可见性变化更新地块淡入淡出状态。 */
@@ -1512,7 +1822,10 @@ export class TextRenderer implements IRenderer {
         this.visibleTileFadeStartedAt.delete(key);
       }
     }
-    this.previousVisibleTileKeys = new Set(visibleTiles);
+    this.previousVisibleTileKeys.clear();
+    for (const key of visibleTiles) {
+      this.previousVisibleTileKeys.add(key);
+    }
   }
 
   /** 计算已记忆但当前不可见地块的淡出进度。 */
@@ -1630,14 +1943,21 @@ export class TextRenderer implements IRenderer {
   ) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const seen = new Set<string>();
+    const seen = this.seenEntityIdsScratch;
+    seen.clear();
     const cellSize = getCellSize();
     const sameMotionSync = motionSyncToken !== undefined && motionSyncToken === this.lastMotionSyncToken;
-    this.lootContainerTileKeys = new Set(
-      list
-        .filter((entry) => entry.kind === 'container')
-        .map((entry) => `${entry.wx},${entry.wy}`),
-    );
+    const lootContainerSignature = buildLootContainerSignature(list);
+    if (lootContainerSignature !== this.lastLootContainerSignature) {
+      this.lastLootContainerSignature = lootContainerSignature;
+      this.lootContainerTileKeys.clear();
+      for (const entry of list) {
+        if (entry.kind === 'container') {
+          this.lootContainerTileKeys.add(`${entry.wx},${entry.wy}`);
+        }
+      }
+      this.terrainDirty = true;
+    }
     for (const e of list) {
       seen.add(e.id);
       const twx = e.wx * cellSize;
@@ -1746,6 +2066,7 @@ export class TextRenderer implements IRenderer {
     if (motionSyncToken !== undefined) {
       this.lastMotionSyncToken = motionSyncToken;
     }
+    this.rebuildFormationRangeVisualCacheIfNeeded();
   }
 
   /** 绘制所有实体（角色/怪物/NPC），含位置插值动画 */
@@ -1757,12 +2078,14 @@ export class TextRenderer implements IRenderer {
     const sw = ctx.canvas.width;
     const sh = ctx.canvas.height;
     const cellSize = getCellSize();
-    const renderedEntities: RenderedAnimEntity[] = [];
+    const renderedEntities = this.renderedEntitiesScratch;
+    renderedEntities.length = 0;
     const motionProgress = Math.max(0, Math.min(1, progress));
     const t = easeOutCubic(motionProgress);
     const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
     const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
-    let crowdedTileKeys: Set<string> | null = null;
+    const crowdedTileKeys = this.crowdedTileKeysScratch;
+    crowdedTileKeys.clear();
     let localPlayerInRenderedEntities = false;
     for (const anim of this.entities.values()) {
       if (anim.kind === 'formation'
@@ -1796,7 +2119,6 @@ export class TextRenderer implements IRenderer {
         visualCellSize,
       });
       if (anim.kind === 'crowd') {
-        crowdedTileKeys ??= new Set<string>();
         crowdedTileKeys.add(`${anim.gridX},${anim.gridY}`);
       }
       if (anim.id === localPlayerId) {
@@ -1845,7 +2167,7 @@ export class TextRenderer implements IRenderer {
       const { anim, presentation: monsterPresentation, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
       const isCrowd = anim.kind === 'crowd';
 
-      if (!isCrowd && anim.kind === 'player' && crowdedTileKeys?.has(`${anim.gridX},${anim.gridY}`)) {
+      if (!isCrowd && anim.kind === 'player' && crowdedTileKeys.has(`${anim.gridX},${anim.gridY}`)) {
         continue;
       }
 
@@ -2041,6 +2363,56 @@ export class TextRenderer implements IRenderer {
     }
   }
 
+  private rebuildFormationRangeVisualCacheIfNeeded(): void {
+    const signature = buildFormationRangeSignature(this.entities.values());
+    if (signature === this.formationRangeSignature) {
+      return;
+    }
+    this.formationRangeSignature = signature;
+    this.formationRangeVisuals.clear();
+    this.formationRangeSenseQiVisuals.clear();
+
+    for (const anim of this.entities.values()) {
+      if (anim.kind !== 'formation' || !Number.isFinite(Number(anim.formationRadius)) || anim.formationActive === false) {
+        continue;
+      }
+      const radius = Math.max(1, Math.trunc(Number(anim.formationRadius) || 0));
+      for (let gy = anim.gridY - radius; gy <= anim.gridY + radius; gy += 1) {
+        for (let gx = anim.gridX - radius; gx <= anim.gridX + radius; gx += 1) {
+          if (!isTileInsideFormationRange(anim, gx, gy)) {
+            continue;
+          }
+          const key = `${gx},${gy}`;
+          if (anim.formationBlocksBoundary === true && isTileOnFormationBoundary(anim, gx, gy)) {
+            const boundaryVisual: FormationRangeVisual = {
+              highlightColor: anim.formationBoundaryRangeHighlightColor ?? anim.formationBoundaryColor ?? anim.formationRangeHighlightColor ?? anim.color,
+              boundary: true,
+              boundaryChar: anim.formationBoundaryChar,
+              boundaryColor: anim.formationBoundaryColor ?? anim.color,
+            };
+            this.formationRangeSenseQiVisuals.set(key, boundaryVisual);
+            if (anim.formationBoundaryVisibleWithoutSenseQi === true) {
+              this.formationRangeVisuals.set(key, boundaryVisual);
+            }
+            continue;
+          }
+          const rangeVisual: FormationRangeVisual = {
+            highlightColor: anim.formationRangeHighlightColor ?? anim.color,
+            boundary: false,
+            boundaryColor: anim.color,
+          };
+          if (!this.formationRangeSenseQiVisuals.has(key)) {
+            this.formationRangeSenseQiVisuals.set(key, rangeVisual);
+          }
+          if (anim.formationRangeVisibleWithoutSenseQi === true && !this.formationRangeVisuals.has(key)) {
+            this.formationRangeVisuals.set(key, rangeVisual);
+          }
+        }
+      }
+    }
+    this.terrainDirty = true;
+  }
+
   /** 根据当前可见阵法实体解析某格子的范围高亮表现。 */
   private resolveFormationRangeVisual(gx: number, gy: number, senseQiVisible: boolean): {
     highlightColor: string;
@@ -2048,36 +2420,10 @@ export class TextRenderer implements IRenderer {
     boundaryChar?: string;
     boundaryColor: string;
   } | null {
-    let rangeVisual: { highlightColor: string; boundary: boolean; boundaryChar?: string; boundaryColor: string } | null = null;
-    for (const anim of this.entities.values()) {
-      if (anim.kind !== 'formation' || !Number.isFinite(Number(anim.formationRadius))) {
-        continue;
-      }
-      if (anim.formationActive === false) {
-        continue;
-      }
-      if (isTileInsideFormationRange(anim, gx, gy)) {
-        if (anim.formationBlocksBoundary === true && isTileOnFormationBoundary(anim, gx, gy)) {
-          if (senseQiVisible || anim.formationBoundaryVisibleWithoutSenseQi === true) {
-            return {
-              highlightColor: anim.formationBoundaryRangeHighlightColor ?? anim.formationBoundaryColor ?? anim.formationRangeHighlightColor ?? anim.color,
-              boundary: true,
-              boundaryChar: anim.formationBoundaryChar,
-              boundaryColor: anim.formationBoundaryColor ?? anim.color,
-            };
-          }
-        }
-        if (!senseQiVisible && anim.formationRangeVisibleWithoutSenseQi !== true) {
-          continue;
-        }
-        rangeVisual = rangeVisual ?? {
-          highlightColor: anim.formationRangeHighlightColor ?? anim.color,
-          boundary: false,
-          boundaryColor: anim.color,
-        };
-      }
-    }
-    return rangeVisual;
+    const key = `${gx},${gy}`;
+    return senseQiVisible
+      ? this.formationRangeSenseQiVisuals.get(key) ?? null
+      : this.formationRangeVisuals.get(key) ?? null;
   }
 
   /** 绘制威胁关系箭头。 */
@@ -2088,7 +2434,8 @@ export class TextRenderer implements IRenderer {
       return;
     }
     const ctx = this.ctx;
-    const renderedById = new Map<string, RenderedAnimEntity>();
+    const renderedById = this.renderedEntityByIdScratch;
+    renderedById.clear();
     for (const entry of renderedEntities) {
       renderedById.set(entry.anim.id, entry);
     }
@@ -2840,6 +3187,15 @@ export class TextRenderer implements IRenderer {
     this.terrainCanvas = null;
     this.terrainCtx = null;
     this.terrainDirty = true;
+    this.terrainCacheWidth = 0;
+    this.terrainCacheHeight = 0;
+    this.terrainCacheCanvasWidth = 0;
+    this.terrainCacheCanvasHeight = 0;
+    this.terrainCacheCellSize = 0;
+    this.terrainCacheVisibleTileRevision = -1;
+    this.terrainCacheOriginX = Number.NaN;
+    this.terrainCacheOriginY = Number.NaN;
+    this.terrainZoomCompactUntil = 0;
     this.entities.clear();
     this.threatArrows = [];
     this.groundPiles.clear();

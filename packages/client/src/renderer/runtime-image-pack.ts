@@ -4,6 +4,7 @@
  * 维护时保持非侵入式：manifest 缺失、图片未加载或条目未命中时，调用方必须继续走原字符渲染。
  */
 import type { InteractableKind, RenderEntity, StructureType, SurfaceType, TerrainType, Tile, TileType } from '@mud/shared';
+import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../constants/ui/performance';
 
 type SpriteFit = 'cover' | 'contain';
 type ManifestState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -27,6 +28,7 @@ export interface RuntimeDualGridDrawOptions {
   offsetX: number;
   offsetY: number;
   tileAt: (x: number, y: number) => RuntimeTileVisualSource | null;
+  coveredCells?: Set<string>;
 }
 
 interface DualGridEdgeOptions {
@@ -62,6 +64,8 @@ interface AtlasSpriteRef {
   insetRatio?: number;
   fit?: SpriteFit;
   dualGrid?: DualGridOptions;
+  zIndex: number;
+  order: number;
 }
 
 interface ImageCacheEntry {
@@ -74,6 +78,22 @@ interface DrawTarget {
   dy: number;
   dw: number;
   dh: number;
+}
+
+interface DualGridCellScan {
+  minX: number;
+  minY: number;
+  width: number;
+  height: number;
+  occupied: Uint8Array;
+  keysByCell: Array<readonly string[] | null>;
+  activeKeys: string[];
+}
+
+interface DualGridTileKeyCacheEntry {
+  revision: number;
+  keys: readonly string[];
+  topDualGridReady: boolean;
 }
 
 const DEFAULT_MANIFEST_URL = '/assets/runtime-image-packs/default/manifest.json';
@@ -90,7 +110,7 @@ const DUAL_GRID_QUADS = [
   { mask: 8, x: 0.5, y: 0.5 },
 ] as const;
 const DEFAULT_DUAL_GRID_EDGE: DualGridEdgeOptions = Object.freeze({
-  range: 40,
+  range: 20,
   fade: 100,
   fadeStart: 33,
   fadeCurve: 'ease-in',
@@ -99,7 +119,11 @@ const DEFAULT_DUAL_GRID_EDGE: DualGridEdgeOptions = Object.freeze({
   noiseScale: 20,
   noiseAmount: 50,
 });
-const MAX_DUAL_GRID_EDGE_CACHE_ENTRIES = 768;
+const DUAL_GRID_EDGE_FRAME_SIZE = 32;
+const DUAL_GRID_EDGE_NOISE_VARIANTS = 8;
+const DUAL_GRID_EDGE_NOISE_VARIANT_STRIDE = 53;
+const MAX_DUAL_GRID_EDGE_CACHE_ENTRIES = 2048;
+const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -117,6 +141,21 @@ function normalizeNonNegativeInteger(value: unknown, fallback: number): number {
 
 function normalizeSpriteFit(value: unknown): SpriteFit | undefined {
   return value === 'cover' || value === 'contain' ? value : undefined;
+}
+
+function getDefaultTileZIndex(key: string): number {
+  if (key.startsWith('terrain:')) return 100;
+  if (key.startsWith('surface:')) return 200;
+  if (key.startsWith('structure:')) return 300;
+  if (key.startsWith('interactable:')) return 400;
+  return 500;
+}
+
+function normalizeSpriteZIndex(value: unknown, key: string): number {
+  const source = isRecord(value) && isRecord(value.meta) ? value.meta : value;
+  const rawZIndex = isRecord(source) ? source.zIndex : undefined;
+  const numeric = Number(rawZIndex);
+  return Number.isFinite(numeric) ? numeric : getDefaultTileZIndex(key);
 }
 
 function normalizePercent(value: unknown, fallback: number): number {
@@ -175,7 +214,7 @@ function resolveManifestAssetUrl(manifestUrl: string, src: string): string {
   }
 }
 
-function normalizeSpriteRef(value: unknown, manifestUrl: string): AtlasSpriteRef | null {
+function normalizeSpriteRef(value: unknown, manifestUrl: string, key: string, order: number): AtlasSpriteRef | null {
   if (!isRecord(value) || typeof value.src !== 'string' || value.src.trim().length === 0) {
     return null;
   }
@@ -190,6 +229,8 @@ function normalizeSpriteRef(value: unknown, manifestUrl: string): AtlasSpriteRef
     insetRatio: Number.isFinite(Number(value.insetRatio)) ? Math.max(0, Math.min(0.4, Number(value.insetRatio))) : undefined,
     fit: normalizeSpriteFit(value.fit),
     dualGrid: normalizeDualGridOptions(value),
+    zIndex: normalizeSpriteZIndex(value, key),
+    order,
   };
 }
 
@@ -198,9 +239,11 @@ function normalizeSpriteMap(value: unknown, manifestUrl: string): Map<string, At
   if (!isRecord(value)) {
     return result;
   }
+  let order = 0;
   for (const [key, rawRef] of Object.entries(value)) {
     const normalizedKey = key.trim();
-    const ref = normalizeSpriteRef(rawRef, manifestUrl);
+    const ref = normalizeSpriteRef(rawRef, manifestUrl, normalizedKey, order);
+    order += 1;
     if (normalizedKey && ref) {
       result.set(normalizedKey, ref);
     }
@@ -255,10 +298,6 @@ function resolveTopTileSpriteKey(tile: Tile, legacyTileKeys: ReadonlyMap<string,
   return legacyTileKeys.get(tile.type) ?? null;
 }
 
-function resolveTileSpriteKey(tile: RuntimeTileVisualSource, legacyTileKeys: ReadonlyMap<string, string>): string | null {
-  return resolveTopTileSpriteKey(tile as Tile, legacyTileKeys);
-}
-
 function normalizeEntityName(value: string | null | undefined): string | null {
   const normalized = value?.trim().toLowerCase().replace(/[^a-z0-9_\-\u3400-\u9fff]+/gu, '_').replace(/^_+|_+$/g, '');
   return normalized ? normalized : null;
@@ -301,6 +340,12 @@ function calculateDrawTarget(dx: number, dy: number, size: number, image: HTMLIm
   };
 }
 
+function disableImageSmoothing(ctx: CanvasRenderingContext2D): void {
+  if (ctx.imageSmoothingEnabled) {
+    ctx.imageSmoothingEnabled = false;
+  }
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -316,6 +361,21 @@ function lerp(left: number, right: number, t: number): number {
 function hashNoise(x: number, y: number): number {
   const value = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
   return value - Math.floor(value);
+}
+
+function resolveDualGridNoiseVariant(worldX: number, worldY: number, size: number): number {
+  const safeSize = Math.max(1, size);
+  const vertexX = Math.floor(worldX / safeSize);
+  const vertexY = Math.floor(worldY / safeSize);
+  return Math.floor(hashNoise(vertexX, vertexY) * DUAL_GRID_EDGE_NOISE_VARIANTS);
+}
+
+function getDualGridNoiseVariantOffset(variant: number): { x: number; y: number } {
+  const normalized = Math.max(0, Math.min(DUAL_GRID_EDGE_NOISE_VARIANTS - 1, Math.trunc(variant)));
+  return {
+    x: (normalized + 1) * DUAL_GRID_EDGE_NOISE_VARIANT_STRIDE,
+    y: (normalized * 3 + 5) * DUAL_GRID_EDGE_NOISE_VARIANT_STRIDE,
+  };
 }
 
 function valueNoise(x: number, y: number): number {
@@ -427,6 +487,10 @@ class RuntimeImagePack {
   private legacyTileKeys = new Map<string, string>();
   private entitySprites = new Map<string, AtlasSpriteRef>();
   private dualGridTileKeys: string[] = [];
+  private readonly dualGridTileKeyCache = new WeakMap<RuntimeTileVisualSource, DualGridTileKeyCacheEntry>();
+  private readonly dualGridMasksByKey = new Map<string, number>();
+  private readonly dualGridScanActiveKeySet = new Set<string>();
+  private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   private revision = 0;
 
   constructor(manifestUrl = DEFAULT_MANIFEST_URL) {
@@ -437,48 +501,84 @@ class RuntimeImagePack {
     return this.revision;
   }
 
+  setPerformanceConfig(config: MapPerformanceConfig): void {
+    const previousConfig = this.performanceConfig;
+    this.performanceConfig = { ...config };
+    if (
+      previousConfig.renderRuntimeTileSprites !== config.renderRuntimeTileSprites
+      || previousConfig.renderDualGridTiles !== config.renderDualGridTiles
+      || previousConfig.renderDualGridEdgeMask !== config.renderDualGridEdgeMask
+      || previousConfig.renderDualGridEdgeNoise !== config.renderDualGridEdgeNoise
+      || previousConfig.skipLegacyTileOverlayWhenDualGridCovered !== config.skipLegacyTileOverlayWhenDualGridCovered
+    ) {
+      this.dualGridEdgeCache.clear();
+      this.revision += 1;
+    }
+  }
+
   drawTile(ctx: CanvasRenderingContext2D, tile: Tile, dx: number, dy: number, size: number): boolean {
+    if (!this.performanceConfig.renderRuntimeTileSprites) {
+      return false;
+    }
     this.ensureManifestRequested();
     const key = resolveTopTileSpriteKey(tile, this.legacyTileKeys);
     const ref = key ? this.tileSprites.get(key) : undefined;
-    if (ref?.dualGrid?.enabled) {
-      return false;
+    if (ref?.dualGrid?.enabled === true && this.performanceConfig.renderDualGridTiles) {
+      return this.drawDualGridAtlasSprite(ctx, ref, dx, dy, dx, dy, size, 15, 15, false);
     }
     return ref ? this.drawAtlasSprite(ctx, ref, dx, dy, size) : false;
   }
 
+  isTopTileDualGridReady(tile: RuntimeTileVisualSource): boolean {
+    if (!this.performanceConfig.renderRuntimeTileSprites || !this.performanceConfig.renderDualGridTiles) {
+      return false;
+    }
+    if (this.manifestState !== 'loaded') {
+      return false;
+    }
+    const key = resolveTopTileSpriteKey(tile as Tile, this.legacyTileKeys);
+    const ref = key ? this.tileSprites.get(key) : undefined;
+    if (ref?.dualGrid?.enabled !== true) {
+      return false;
+    }
+    const entry = this.getImage(ref.src);
+    return entry?.state === 'loaded';
+  }
+
   drawDualGridTiles(ctx: CanvasRenderingContext2D, options: RuntimeDualGridDrawOptions): boolean {
+    if (!this.performanceConfig.renderRuntimeTileSprites || !this.performanceConfig.renderDualGridTiles) {
+      return false;
+    }
     this.ensureManifestRequested();
     if (this.dualGridTileKeys.length === 0) {
       return false;
     }
 
+    const scan = this.scanDualGridCells(options);
+    if (scan.activeKeys.length === 0) {
+      return false;
+    }
+
     let drewAny = false;
-    const masksByKey = new Map<string, number>();
+    const masksByKey = this.dualGridMasksByKey;
     let occupiedMask = 0;
     for (let vertexY = options.startGY; vertexY <= options.endGY + 1; vertexY += 1) {
       for (let vertexX = options.startGX; vertexX <= options.endGX + 1; vertexX += 1) {
         masksByKey.clear();
         occupiedMask = 0;
-        const topLeft = options.tileAt(vertexX - 1, vertexY - 1);
-        const bottomLeft = options.tileAt(vertexX - 1, vertexY);
-        const topRight = options.tileAt(vertexX, vertexY - 1);
-        const bottomRight = options.tileAt(vertexX, vertexY);
-        this.collectDualGridCorner(masksByKey, topLeft, 1);
-        if (topLeft) occupiedMask |= 1;
-        this.collectDualGridCorner(masksByKey, bottomLeft, 2);
-        if (bottomLeft) occupiedMask |= 2;
-        this.collectDualGridCorner(masksByKey, topRight, 4);
-        if (topRight) occupiedMask |= 4;
-        this.collectDualGridCorner(masksByKey, bottomRight, 8);
-        if (bottomRight) occupiedMask |= 8;
+        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX - 1, vertexY - 1, 1);
+        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX - 1, vertexY, 2);
+        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX, vertexY - 1, 4);
+        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX, vertexY, 8);
         if (masksByKey.size === 0) {
           continue;
         }
 
-        const dx = (vertexX - 0.5) * options.cellSize + options.offsetX;
-        const dy = (vertexY - 0.5) * options.cellSize + options.offsetY;
-        for (const key of this.dualGridTileKeys) {
+        const worldDx = (vertexX - 0.5) * options.cellSize;
+        const worldDy = (vertexY - 0.5) * options.cellSize;
+        const dx = worldDx + options.offsetX;
+        const dy = worldDy + options.offsetY;
+        for (const key of scan.activeKeys) {
           const targetMask = masksByKey.get(key) ?? 0;
           if (!targetMask) {
             continue;
@@ -489,10 +589,13 @@ class RuntimeImagePack {
           if (!ref?.dualGrid?.enabled) {
             continue;
           }
-          if (backgroundMask && mergedMask !== targetMask) {
-            drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, options.cellSize, targetMask, mergedMask, true) || drewAny;
+          if (targetMask === 15 && backgroundMask === 0) {
+            continue;
           }
-          drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, options.cellSize, targetMask, targetMask, false) || drewAny;
+          if (backgroundMask && mergedMask !== targetMask && this.performanceConfig.renderDualGridEdgeMask) {
+            drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, worldDx, worldDy, options.cellSize, targetMask, mergedMask, true) || drewAny;
+          }
+          drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, worldDx, worldDy, options.cellSize, targetMask, targetMask, false) || drewAny;
         }
       }
     }
@@ -534,6 +637,7 @@ class RuntimeImagePack {
         this.entitySprites = normalizeSpriteMap(manifest.entities, this.manifestUrl);
         this.dualGridTileKeys = [...this.tileSprites.entries()]
           .filter(([, ref]) => ref.dualGrid?.enabled === true)
+          .sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order)
           .map(([key]) => key);
         this.dualGridEdgeCache.clear();
         this.manifestState = 'loaded';
@@ -559,23 +663,86 @@ class RuntimeImagePack {
     const sw = cellW * Math.max(1, ref.colSpan ?? 1);
     const sh = cellH * Math.max(1, ref.rowSpan ?? 1);
     const target = calculateDrawTarget(dx, dy, size, image, ref);
+    disableImageSmoothing(ctx);
     ctx.drawImage(image, sx, sy, sw, sh, target.dx, target.dy, target.dw, target.dh);
     return true;
   }
 
-  private collectDualGridCorner(masksByKey: Map<string, number>, tile: RuntimeTileVisualSource | null, mask: number): void {
-    if (!tile) {
-      return;
+  private scanDualGridCells(options: RuntimeDualGridDrawOptions): DualGridCellScan {
+    const minX = options.startGX - 1;
+    const minY = options.startGY - 1;
+    const maxX = options.endGX + 1;
+    const maxY = options.endGY + 1;
+    const width = Math.max(0, maxX - minX + 1);
+    const height = Math.max(0, maxY - minY + 1);
+    const occupied = new Uint8Array(width * height);
+    const keysByCell: Array<readonly string[] | null> = new Array(width * height).fill(null);
+    const activeKeySet = this.dualGridScanActiveKeySet;
+    activeKeySet.clear();
+
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const index = (y - minY) * width + (x - minX);
+        const tile = options.tileAt(x, y);
+        if (!tile) {
+          continue;
+        }
+        occupied[index] = 1;
+        const resolved = this.resolveDualGridTileKeys(tile);
+        if (options.coveredCells && this.performanceConfig.skipLegacyTileOverlayWhenDualGridCovered && resolved.topDualGridReady) {
+          options.coveredCells.add(`${x},${y}`);
+        }
+        const keys = resolved.keys;
+        if (keys.length === 0) {
+          continue;
+        }
+        keysByCell[index] = keys;
+        for (const key of keys) {
+          activeKeySet.add(key);
+        }
+      }
     }
-    const key = resolveTileSpriteKey(tile, this.legacyTileKeys);
-    if (!key) {
-      return;
+
+    const activeKeys = this.dualGridTileKeys.filter((key) => activeKeySet.has(key));
+    return { minX, minY, width, height, occupied, keysByCell, activeKeys };
+  }
+
+  private resolveDualGridTileKeys(tile: RuntimeTileVisualSource): DualGridTileKeyCacheEntry {
+    const hit = this.dualGridTileKeyCache.get(tile);
+    if (hit?.revision === this.revision) {
+      return hit;
     }
-    const ref = this.tileSprites.get(key);
-    if (!ref?.dualGrid?.enabled) {
-      return;
+    const topKey = resolveTopTileSpriteKey(tile as Tile, this.legacyTileKeys);
+    const topRef = topKey ? this.tileSprites.get(topKey) : undefined;
+    const topDualGridReady = topRef?.dualGrid?.enabled === true
+      && this.getImage(topRef.src)?.state === 'loaded';
+    const keys = topRef?.dualGrid?.enabled === true && topKey ? [topKey] : [];
+    const entry = { revision: this.revision, keys, topDualGridReady };
+    this.dualGridTileKeyCache.set(tile, entry);
+    return entry;
+  }
+
+  private collectDualGridScanCorner(
+    scan: DualGridCellScan,
+    masksByKey: Map<string, number>,
+    x: number,
+    y: number,
+    mask: number,
+  ): number {
+    const localX = x - scan.minX;
+    const localY = y - scan.minY;
+    if (localX < 0 || localY < 0 || localX >= scan.width || localY >= scan.height) {
+      return 0;
     }
-    masksByKey.set(key, (masksByKey.get(key) ?? 0) | mask);
+    const index = localY * scan.width + localX;
+    const keys = scan.keysByCell[index];
+    if (keys) {
+      for (const key of keys) {
+        masksByKey.set(key, (masksByKey.get(key) ?? 0) | mask);
+      }
+      return mask;
+    }
+    return 0;
   }
 
   private drawDualGridAtlasSprite(
@@ -583,6 +750,8 @@ class RuntimeImagePack {
     ref: AtlasSpriteRef,
     dx: number,
     dy: number,
+    noiseOffsetX: number,
+    noiseOffsetY: number,
     size: number,
     sourceMask: number,
     clipMask: number,
@@ -602,38 +771,91 @@ class RuntimeImagePack {
     const cellH = image.naturalHeight / ref.rows;
     const sx = cellW * (ref.col + coords[0]);
     const sy = cellH * (ref.row + coords[1]);
-    const drawSize = Math.max(1, Math.round(size));
+    const cacheSize = DUAL_GRID_EDGE_FRAME_SIZE;
 
     if (etched) {
-      const edgeCanvas = this.getEtchedDualGridFrame(image, ref, sx, sy, cellW, cellH, drawSize, sourceMask, clipMask);
+      const noiseVariant = ref.dualGrid?.edge.noise && this.performanceConfig.renderDualGridEdgeNoise
+        ? resolveDualGridNoiseVariant(noiseOffsetX, noiseOffsetY, size)
+        : 0;
+      const edgeCanvas = this.getEtchedDualGridFrame(
+        image,
+        ref,
+        sx,
+        sy,
+        cellW,
+        cellH,
+        cacheSize,
+        noiseVariant,
+        sourceMask,
+        clipMask,
+      );
       if (!edgeCanvas) {
         return false;
       }
+      disableImageSmoothing(ctx);
       ctx.drawImage(edgeCanvas, dx, dy, size, size);
       return true;
     }
 
+    disableImageSmoothing(ctx);
     if (clipMask === 15) {
-      ctx.drawImage(image, sx, sy, cellW, cellH, dx, dy, size, size);
+      const overlap = Math.min(1, Math.max(0.5, size / Math.max(1, Math.max(cellW, cellH))));
+      ctx.drawImage(image, sx, sy, cellW, cellH, dx - overlap, dy - overlap, size + overlap * 2, size + overlap * 2);
       return true;
     }
     const halfSourceW = cellW / 2;
     const halfSourceH = cellH / 2;
     const halfDest = size / 2;
+    const sourceOverlapX = Math.min(DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX, halfSourceW);
+    const sourceOverlapY = Math.min(DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX, halfSourceH);
+    const destOverlapX = sourceOverlapX * size / Math.max(1, cellW);
+    const destOverlapY = sourceOverlapY * size / Math.max(1, cellH);
     for (const quad of DUAL_GRID_QUADS) {
       if ((clipMask & quad.mask) === 0) {
         continue;
       }
+      const overlapLeft = quad.x > 0 && (clipMask & (quad.mask >> 2)) !== 0;
+      const overlapRight = quad.x === 0 && (clipMask & (quad.mask << 2)) !== 0;
+      const overlapTop = quad.y > 0 && (clipMask & (quad.mask >> 1)) !== 0;
+      const overlapBottom = quad.y === 0 && (clipMask & (quad.mask << 1)) !== 0;
+      let sourceX = sx + quad.x * cellW;
+      let sourceY = sy + quad.y * cellH;
+      let sourceW = halfSourceW;
+      let sourceH = halfSourceH;
+      let destX = dx + quad.x * size;
+      let destY = dy + quad.y * size;
+      let destW = halfDest;
+      let destH = halfDest;
+      if (overlapRight) {
+        sourceW += sourceOverlapX;
+        destW += destOverlapX;
+      }
+      if (overlapLeft) {
+        sourceX -= sourceOverlapX;
+        sourceW += sourceOverlapX;
+        destX -= destOverlapX;
+        destW += destOverlapX;
+      }
+      if (overlapBottom) {
+        sourceH += sourceOverlapY;
+        destH += destOverlapY;
+      }
+      if (overlapTop) {
+        sourceY -= sourceOverlapY;
+        sourceH += sourceOverlapY;
+        destY -= destOverlapY;
+        destH += destOverlapY;
+      }
       ctx.drawImage(
         image,
-        sx + quad.x * cellW,
-        sy + quad.y * cellH,
-        halfSourceW,
-        halfSourceH,
-        dx + quad.x * size,
-        dy + quad.y * size,
-        halfDest,
-        halfDest,
+        sourceX,
+        sourceY,
+        sourceW,
+        sourceH,
+        destX,
+        destY,
+        destW,
+        destH,
       );
     }
     return true;
@@ -647,6 +869,7 @@ class RuntimeImagePack {
     sw: number,
     sh: number,
     size: number,
+    noiseVariant: number,
     sourceMask: number,
     clipMask: number,
   ): HTMLCanvasElement | null {
@@ -658,7 +881,7 @@ class RuntimeImagePack {
     if (range <= 0) {
       return null;
     }
-    const cacheKey = `${ref.src}:${sx}:${sy}:${sw}:${sh}:${size}:${sourceMask}:${clipMask}:${edgeSignature(edge)}`;
+    const cacheKey = `${ref.src}:${sx}:${sy}:${sw}:${sh}:${size}:${noiseVariant}:${sourceMask}:${clipMask}:${edgeSignature(edge)}`;
     const hit = this.dualGridEdgeCache.get(cacheKey);
     if (hit) {
       return hit;
@@ -670,6 +893,7 @@ class RuntimeImagePack {
     if (!tempCtx) {
       return null;
     }
+    disableImageSmoothing(tempCtx);
     tempCtx.clearRect(0, 0, size, size);
     tempCtx.drawImage(image, sx, sy, sw, sh, 0, 0, size, size);
     const sourceData = tempCtx.getImageData(0, 0, size, size);
@@ -677,6 +901,7 @@ class RuntimeImagePack {
     const fade = edge.fade / 100;
     const fadeStart = edge.fadeStart / 100;
     const noiseScale = edge.noise ? edge.noiseAmount / 100 : 0;
+    const noiseOffset = getDualGridNoiseVariantOffset(noiseVariant);
 
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
@@ -686,7 +911,7 @@ class RuntimeImagePack {
         }
         let distance = distanceToSourceMask(x + 0.5, y + 0.5, sourceMask, size);
         if (noiseScale > 0) {
-          const noise = edgeNoiseAt(x + Math.round(sx), y + Math.round(sy), edge.noiseType, edge.noiseScale);
+          const noise = edgeNoiseAt(x + noiseOffset.x, y + noiseOffset.y, edge.noiseType, edge.noiseScale);
           distance += (noise - 0.5) * 2 * range * 0.45 * noiseScale;
         }
         if (distance > range) {

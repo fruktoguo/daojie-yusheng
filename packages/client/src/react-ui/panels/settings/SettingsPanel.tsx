@@ -31,6 +31,38 @@ import { formatOfflineGainDuration, formatOfflineGainTime, formatSignedAmount, r
 import { MAP_TARGET_FPS_RANGE } from '../../../constants/ui/performance';
 import { t } from '../../../ui/i18n';
 
+const PERFORMANCE_RENDER_TOGGLES: Array<{
+  key: Exclude<keyof MapPerformanceConfig, 'showFpsMonitor' | 'targetFps'>;
+  labelKey: string;
+  descKey: string;
+}> = [
+  {
+    key: 'renderRuntimeTileSprites',
+    labelKey: 'settings.performance.label.render-runtime-tile-sprites',
+    descKey: 'settings.performance.desc.render-runtime-tile-sprites',
+  },
+  {
+    key: 'renderDualGridTiles',
+    labelKey: 'settings.performance.label.render-dual-grid-tiles',
+    descKey: 'settings.performance.desc.render-dual-grid-tiles',
+  },
+  {
+    key: 'renderDualGridEdgeMask',
+    labelKey: 'settings.performance.label.render-dual-grid-edge-mask',
+    descKey: 'settings.performance.desc.render-dual-grid-edge-mask',
+  },
+  {
+    key: 'renderDualGridEdgeNoise',
+    labelKey: 'settings.performance.label.render-dual-grid-edge-noise',
+    descKey: 'settings.performance.desc.render-dual-grid-edge-noise',
+  },
+  {
+    key: 'skipLegacyTileOverlayWhenDualGridCovered',
+    labelKey: 'settings.performance.label.skip-legacy-tile-overlay',
+    descKey: 'settings.performance.desc.skip-legacy-tile-overlay',
+  },
+];
+
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 interface SettingsPanelState {
@@ -526,6 +558,12 @@ const PerformanceTab = memo(function PerformanceTab() {
     setStatus(t('settings.status.target-fps-adjusted', { fps: next.targetFps }));
   }, []);
 
+  const handleRenderToggle = useCallback((key: Exclude<keyof MapPerformanceConfig, 'showFpsMonitor' | 'targetFps'>, value: boolean) => {
+    const next = updateMapPerformanceConfig({ [key]: value });
+    setConfig(next);
+    setStatus(t('settings.status.render-toggle-adjusted', undefined));
+  }, []);
+
   const handleReset = useCallback(() => {
     const next = resetMapPerformanceConfig();
     setConfig(next);
@@ -560,6 +598,18 @@ const PerformanceTab = memo(function PerformanceTab() {
             <span className="settings-performance-number-unit">FPS</span>
           </div>
         </div>
+        {PERFORMANCE_RENDER_TOGGLES.map((item) => (
+          <div key={item.key} className="settings-performance-row ui-data-table-row">
+            <div className="settings-performance-meta ui-data-table-meta">
+              <div className="settings-performance-name ui-data-table-name">{t(item.labelKey, undefined)}</div>
+              <div className="settings-performance-desc ui-data-table-desc">{t(item.descKey, undefined)}</div>
+            </div>
+            <div className="settings-performance-actions ui-inline-actions-end-wrap">
+              <button className={`small-btn ghost${!config[item.key] ? ' active' : ''}`} type="button" aria-pressed={!config[item.key] ? 'true' : 'false'} onClick={() => handleRenderToggle(item.key, false)}>{t('settings.common.action.off', undefined)}</button>
+              <button className={`small-btn ghost${config[item.key] ? ' active' : ''}`} type="button" aria-pressed={config[item.key] ? 'true' : 'false'} onClick={() => handleRenderToggle(item.key, true)}>{t('settings.common.action.on', undefined)}</button>
+            </div>
+          </div>
+        ))}
       </div>
       <div className="account-settings-status ui-status-text">{status}</div>
     </div>

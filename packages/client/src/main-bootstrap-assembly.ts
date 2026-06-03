@@ -142,18 +142,7 @@ type MainBootstrapAssemblyOptions = {
  * initialMapPerformanceConfig：initial地图Performance配置状态或数据块。
  */
 
-  initialMapPerformanceConfig: {
-  /**
- * showFpsMonitor：showFpMonitor相关字段。
- */
-
-    showFpsMonitor: boolean;
-    /**
- * targetFps：目标渲染帧率。
- */
-
-    targetFps: number;
-  };
+  initialMapPerformanceConfig: MapPerformanceConfig;
   /**
  * runtimeMonitorSource：运行态Monitor来源相关字段。
  */
@@ -412,6 +401,7 @@ type MainBootstrapAssemblyOptions = {
  */
 
     setTargetFps: (targetFps: number) => void;
+    setPerformanceConfig: (config: MapPerformanceConfig) => void;
     /**
  * setMoveHandler：MoveHandler相关字段。
  */
@@ -574,10 +564,12 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     options.runtimeMonitorSource.recordFpsMonitorFrame(frameAtMs);
   });
   options.mapRuntime.setTargetFps(options.initialMapPerformanceConfig.targetFps);
+  options.mapRuntime.setPerformanceConfig(options.initialMapPerformanceConfig);
   options.windowRef.addEventListener(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, (event) => {
     const config = (event as CustomEvent<MapPerformanceConfig>).detail;
     options.runtimeMonitorSource.syncFpsMonitorVisibility(config.showFpsMonitor);
     options.mapRuntime.setTargetFps(config.targetFps);
+    options.mapRuntime.setPerformanceConfig(config);
   });
 
   bindMainStartup({

@@ -28,6 +28,7 @@ import type {
   TickRenderEntity,
   FengShuiGrade,
 } from '@mud/shared';
+import type { MapPerformanceConfig } from '../constants/ui/performance';
 
 /** 地图安全区边距。 */
 export interface MapSafeAreaInsets {
@@ -874,6 +875,7 @@ export interface MapRuntimeApi {
   destroy(): void;
   setRenderFrameObserver(observer: ((frameAtMs: number) => void) | null): void;
   setTargetFps(targetFps: number): void;
+  setPerformanceConfig(config: MapPerformanceConfig): void;
   setViewportSize(width: number, height: number, dpr: number, viewportScale?: number): void;
   setSafeArea(insets: MapSafeAreaInsets): void;
   setZoom(level: number): void;

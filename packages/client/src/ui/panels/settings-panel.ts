@@ -57,6 +57,39 @@ import {
 } from '../../react-ui/panels/settings/mount-settings-panel';
 
 type SettingsTab = 'account' | 'redeem' | 'ui' | 'performance' | 'offlineGain';
+type MapPerformanceRenderToggleKey = Exclude<keyof MapPerformanceConfig, 'showFpsMonitor' | 'targetFps'>;
+
+const PERFORMANCE_RENDER_TOGGLES: Array<{
+  key: MapPerformanceRenderToggleKey;
+  labelKey: string;
+  descKey: string;
+}> = [
+  {
+    key: 'renderRuntimeTileSprites',
+    labelKey: 'settings.performance.label.render-runtime-tile-sprites',
+    descKey: 'settings.performance.desc.render-runtime-tile-sprites',
+  },
+  {
+    key: 'renderDualGridTiles',
+    labelKey: 'settings.performance.label.render-dual-grid-tiles',
+    descKey: 'settings.performance.desc.render-dual-grid-tiles',
+  },
+  {
+    key: 'renderDualGridEdgeMask',
+    labelKey: 'settings.performance.label.render-dual-grid-edge-mask',
+    descKey: 'settings.performance.desc.render-dual-grid-edge-mask',
+  },
+  {
+    key: 'renderDualGridEdgeNoise',
+    labelKey: 'settings.performance.label.render-dual-grid-edge-noise',
+    descKey: 'settings.performance.desc.render-dual-grid-edge-noise',
+  },
+  {
+    key: 'skipLegacyTileOverlayWhenDualGridCovered',
+    labelKey: 'settings.performance.label.skip-legacy-tile-overlay',
+    descKey: 'settings.performance.desc.skip-legacy-tile-overlay',
+  },
+];
 
 function replaceElementHtml(root: HTMLElement, html: string): void {
   root.innerHTML = html;
@@ -475,6 +508,21 @@ export class SettingsPanel {
       }, { signal });
     });
 
+    body.querySelectorAll<HTMLButtonElement>('[data-performance-render-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.performanceRenderToggle as MapPerformanceRenderToggleKey | undefined;
+        if (!key) {
+          return;
+        }
+        const nextValue = button.dataset.performanceToggleValue === 'on';
+        const nextConfig = updateMapPerformanceConfig({
+          [key]: nextValue,
+        });
+        this.syncPerformanceControls(body, nextConfig);
+        setStatus(statusEl, t('settings.status.render-toggle-adjusted', undefined), 'success');
+      }, { signal });
+    });
+
     if (fpsNumberInput) {
       const applyTargetFps = (rawValue: string) => {
         const parsed = Number.parseInt(rawValue, 10);
@@ -572,6 +620,15 @@ export class SettingsPanel {
   private syncPerformanceControls(body: HTMLElement, config: MapPerformanceConfig): void {
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
       const active = (button.dataset.performanceFpsToggle === 'on') === config.showFpsMonitor;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    body.querySelectorAll<HTMLButtonElement>('[data-performance-render-toggle]').forEach((button) => {
+      const key = button.dataset.performanceRenderToggle as MapPerformanceRenderToggleKey | undefined;
+      if (!key) {
+        return;
+      }
+      const active = (button.dataset.performanceToggleValue === 'on') === config[key];
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
@@ -802,6 +859,30 @@ export class SettingsPanel {
               <span class="settings-performance-number-unit">FPS</span>
             </div>
           </div>
+          ${PERFORMANCE_RENDER_TOGGLES.map((item) => `
+            <div class="settings-performance-row ui-data-table-row">
+              <div class="settings-performance-meta ui-data-table-meta">
+                <div class="settings-performance-name ui-data-table-name">${escapeHtml(t(item.labelKey, undefined))}</div>
+                <div class="settings-performance-desc ui-data-table-desc">${escapeHtml(t(item.descKey, undefined))}</div>
+              </div>
+              <div class="settings-performance-actions ui-inline-actions-end-wrap">
+                <button
+                  class="small-btn ghost${config[item.key] ? '' : ' active'}"
+                  type="button"
+                  data-performance-render-toggle="${item.key}"
+                  data-performance-toggle-value="off"
+                  aria-pressed="${config[item.key] ? 'false' : 'true'}"
+                >${escapeHtml(t('settings.common.action.off', undefined))}</button>
+                <button
+                  class="small-btn ghost${config[item.key] ? ' active' : ''}"
+                  type="button"
+                  data-performance-render-toggle="${item.key}"
+                  data-performance-toggle-value="on"
+                  aria-pressed="${config[item.key] ? 'true' : 'false'}"
+                >${escapeHtml(t('settings.common.action.on', undefined))}</button>
+              </div>
+            </div>
+          `).join('')}
         </div>
         <div id="settings-performance-status" class="account-settings-status ui-status-text">${escapeHtml(t('settings.ui.status.saved-local', undefined))}</div>
       </div>

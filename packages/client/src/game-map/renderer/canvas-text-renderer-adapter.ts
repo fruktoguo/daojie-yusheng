@@ -12,6 +12,7 @@ import type { CameraState } from '../camera/camera-controller';
 import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot } from '../types';
 import type { FloatingActionTextStyle } from '../../renderer/types';
+import type { MapPerformanceConfig } from '../../constants/ui/performance';
 
 /** Canvas 渲染适配器，连接地图场景数据与文本渲染器实现。 */
 export class CanvasTextRendererAdapter {
@@ -52,10 +53,24 @@ export class CanvasTextRendererAdapter {
     if (!this.canvas) {
       return;
     }
-    this.canvas.style.width = `${Math.max(1, width)}px`;
-    this.canvas.style.height = `${Math.max(1, height)}px`;
-    this.canvas.width = Math.max(1, Math.floor(backbufferWidth));
-    this.canvas.height = Math.max(1, Math.floor(backbufferHeight));
+    const cssWidth = Math.max(1, width);
+    const cssHeight = Math.max(1, height);
+    const nextBackbufferWidth = Math.max(1, Math.floor(backbufferWidth));
+    const nextBackbufferHeight = Math.max(1, Math.floor(backbufferHeight));
+    const nextStyleWidth = `${cssWidth}px`;
+    const nextStyleHeight = `${cssHeight}px`;
+    if (this.canvas.style.width !== nextStyleWidth) {
+      this.canvas.style.width = nextStyleWidth;
+    }
+    if (this.canvas.style.height !== nextStyleHeight) {
+      this.canvas.style.height = nextStyleHeight;
+    }
+    if (this.canvas.width !== nextBackbufferWidth) {
+      this.canvas.width = nextBackbufferWidth;
+    }
+    if (this.canvas.height !== nextBackbufferHeight) {
+      this.canvas.height = nextBackbufferHeight;
+    }
   }  
   /**
  * syncScene：处理Scene并更新相关状态。
@@ -133,6 +148,10 @@ export class CanvasTextRendererAdapter {
     this.renderer.setBuildPreviewOverlay(null);
     this.renderer.setFengShuiOverlay(null);
   }  
+
+  setPerformanceConfig(config: MapPerformanceConfig): void {
+    this.renderer.setPerformanceConfig(config);
+  }
   /**
  * render：执行render相关逻辑。
  * @param scene MapSceneSnapshot 参数说明。

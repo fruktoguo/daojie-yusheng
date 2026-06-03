@@ -6,6 +6,7 @@
 /** 渲染器能力约束，确保 TextRenderer 与其他实现保持一致。 */
 
 import { GameTimeState, GridPoint, NpcQuestMarker, RenderEntity, TargetingShape, Tile, VisibleBuffState, type FengShuiGrade } from '@mud/shared';
+import type { MapPerformanceConfig } from '../constants/ui/performance';
 import { Camera } from './camera';
 
 /** 浮动文本可选样式。 */
@@ -125,6 +126,7 @@ export interface IRenderer {
   setSenseQiOverlay(state: SenseQiOverlayState | null): void;
   setBuildPreviewOverlay(state: BuildPreviewOverlayState | null): void;
   setFengShuiOverlay(state: FengShuiOverlayState | null): void;
+  setPerformanceConfig(config: MapPerformanceConfig): void;
   renderWorld(
     camera: Camera,
     tileCache: ReadonlyMap<string, Tile>,

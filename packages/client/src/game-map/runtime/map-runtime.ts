@@ -22,7 +22,7 @@ import type {
 } from '../types';
 import { ViewportController } from '../viewport/viewport-controller';
 import { DEFAULT_SAFE_AREA } from '../../constants/world/map-runtime';
-import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
+import { MAP_TARGET_FPS_RANGE, type MapPerformanceConfig } from '../../constants/ui/performance';
 
 /** 地图运行时编排器，驱动 store、场景、投影、渲染、交互与小地图同步。 */
 export class MapRuntime implements MapRuntimeApi {
@@ -115,6 +115,10 @@ export class MapRuntime implements MapRuntimeApi {
     this.nextFrameAt = performance.now();
   }
 
+  setPerformanceConfig(config: MapPerformanceConfig): void {
+    this.renderer.setPerformanceConfig(config);
+  }
+
   /** 同步容器尺寸与 DPI，触发画布与小地图重排。 */
   setViewportSize(width: number, height: number, dpr: number, viewportScale = 1): void {
     this.viewport.setViewportSize(width, height, dpr, viewportScale);
@@ -133,7 +137,7 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 兼容旧接口：缩放变化时重算视口派生状态。 */
   setZoom(_level: number): void {
-    this.syncViewportDerivedState(true);
+    this.syncZoomDerivedState();
   }
 
   /** 当前仅支持 topdown 投影，保留协议位兼容。 */
@@ -320,6 +324,16 @@ export class MapRuntime implements MapRuntimeApi {
     }
     this.syncSceneFromStore();
     this.minimap.resize();
+  }
+
+  /** 缩放只影响显示度量和相机像素坐标，不重建场景与小地图。 */
+  private syncZoomDerivedState(): void {
+    this.viewport.syncDisplayMetrics(this.store.getViewRadius() || VIEW_RADIUS);
+    this.camera.setCellSize(getCellSize());
+    const player = this.store.getSnapshot().player;
+    if (player) {
+      this.camera.snap(player.x, player.y);
+    }
   }
 
   /** 从 Store 构建最新场景并推送到渲染器与小地图。 */
