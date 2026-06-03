@@ -24,6 +24,7 @@ import type { SkillDef } from './skill-types';
 import { TechniqueRealm as TechniqueRealmEnum } from './cultivation-types';
 import type { QiProjectionModifier } from './qi';
 import { getRealmAttributeMultiplier } from './combat';
+import playerFinalAttrBaselines from './constants/gameplay/player-final-attr-baselines.json';
 import { DEFAULT_QI_EFFICIENCY_BP } from './constants/gameplay/qi';
 import {
   BODY_TRAINING_ATTR_KEYS,
@@ -39,7 +40,6 @@ import {
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   TECHNIQUE_SKILL_QI_COST_BASELINE_RATIO,
   TECHNIQUE_SKILL_QI_COST_GRADE_POWER_BASE,
-  TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL,
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
 
@@ -166,12 +166,12 @@ export function getTechniqueGradeQiCostMultiplier(grade: TechniqueGrade | undefi
 
 export function getTechniqueStandardQiOutputBaseline(realmLv: number | undefined): number {
   const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv ?? 1)) : 1;
-  const exact = TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL[normalizedRealmLv - 1];
+  const exact = playerFinalAttrBaselines.levels[normalizedRealmLv - 1]?.stats.maxQiOutputPerTick;
   if (Number.isFinite(exact) && exact > 0) {
     return exact;
   }
-  const lastLevel = TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL.length;
-  const lastValue = TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL[lastLevel - 1] ?? 1;
+  const lastLevel = playerFinalAttrBaselines.levels.length;
+  const lastValue = playerFinalAttrBaselines.levels[lastLevel - 1]?.stats.maxQiOutputPerTick ?? 1;
   const extrapolated = lastValue * (getRealmAttributeMultiplier(normalizedRealmLv) / getRealmAttributeMultiplier(lastLevel));
   return Math.max(1, Math.round(extrapolated));
 }
