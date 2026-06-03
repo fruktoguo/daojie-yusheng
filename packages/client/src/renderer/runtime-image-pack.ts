@@ -516,13 +516,7 @@ class RuntimeImagePack {
   setPerformanceConfig(config: MapPerformanceConfig): void {
     const previousConfig = this.performanceConfig;
     this.performanceConfig = { ...config };
-    if (
-      previousConfig.renderRuntimeTileSprites !== config.renderRuntimeTileSprites
-      || previousConfig.renderDualGridTiles !== config.renderDualGridTiles
-      || previousConfig.renderDualGridEdgeMask !== config.renderDualGridEdgeMask
-      || previousConfig.renderDualGridEdgeNoise !== config.renderDualGridEdgeNoise
-      || previousConfig.skipLegacyTileOverlayWhenDualGridCovered !== config.skipLegacyTileOverlayWhenDualGridCovered
-    ) {
+    if (previousConfig.renderRuntimeTileSprites !== config.renderRuntimeTileSprites) {
       this.dualGridEdgeCache.clear();
       this.revision += 1;
     }
@@ -535,14 +529,14 @@ class RuntimeImagePack {
     this.ensureManifestRequested();
     const key = resolveTopTileSpriteKey(tile, this.legacyTileKeys);
     const ref = key ? this.tileSprites.get(key) : undefined;
-    if (ref?.dualGrid?.enabled === true && this.performanceConfig.renderDualGridTiles) {
+    if (ref?.dualGrid?.enabled === true) {
       return this.drawDualGridAtlasSprite(ctx, ref, dx, dy, dx, dy, size, 15, 15, false);
     }
     return ref ? this.drawAtlasSprite(ctx, ref, dx, dy, size) : false;
   }
 
   isTopTileDualGridReady(tile: RuntimeTileVisualSource): boolean {
-    if (!this.performanceConfig.renderRuntimeTileSprites || !this.performanceConfig.renderDualGridTiles) {
+    if (!this.performanceConfig.renderRuntimeTileSprites) {
       return false;
     }
     if (this.manifestState !== 'loaded') {
@@ -558,7 +552,7 @@ class RuntimeImagePack {
   }
 
   drawDualGridTiles(ctx: CanvasRenderingContext2D, options: RuntimeDualGridDrawOptions): boolean {
-    if (!this.performanceConfig.renderRuntimeTileSprites || !this.performanceConfig.renderDualGridTiles) {
+    if (!this.performanceConfig.renderRuntimeTileSprites) {
       return false;
     }
     this.ensureManifestRequested();
@@ -613,7 +607,7 @@ class RuntimeImagePack {
             continue;
           }
           const edgeInRange = this.isDualGridEdgeVertexInRange(vertexX, vertexY, options);
-          if (edgeInRange && backgroundMask && mergedMask !== targetMask && this.performanceConfig.renderDualGridEdgeMask) {
+          if (edgeInRange && backgroundMask && mergedMask !== targetMask) {
             drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, worldDx, worldDy, options.cellSize, targetMask, mergedMask, true) || drewAny;
           }
           drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, worldDx, worldDy, options.cellSize, targetMask, targetMask, false) || drewAny;
@@ -723,7 +717,7 @@ class RuntimeImagePack {
         }
         occupied[index] = 1;
         const resolved = this.resolveDualGridTileKeys(tile);
-        if (options.coveredCells && this.performanceConfig.skipLegacyTileOverlayWhenDualGridCovered && resolved.topDualGridReady) {
+        if (options.coveredCells && resolved.topDualGridReady) {
           options.coveredCells.add(`${x},${y}`);
         }
         const keys = resolved.keys;
@@ -808,7 +802,7 @@ class RuntimeImagePack {
     const cacheSize = DUAL_GRID_EDGE_FRAME_SIZE;
 
     if (etched) {
-      const noiseVariant = ref.dualGrid?.edge.noise && this.performanceConfig.renderDualGridEdgeNoise
+      const noiseVariant = ref.dualGrid?.edge.noise
         ? resolveDualGridNoiseVariant(noiseOffsetX, noiseOffsetY, size)
         : 0;
       const edgeCanvas = this.getEtchedDualGridFrame(

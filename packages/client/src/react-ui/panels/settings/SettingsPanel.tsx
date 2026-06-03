@@ -32,7 +32,7 @@ import { MAP_TARGET_FPS_RANGE } from '../../../constants/ui/performance';
 import { t } from '../../../ui/i18n';
 
 const PERFORMANCE_RENDER_TOGGLES: Array<{
-  key: Exclude<keyof MapPerformanceConfig, 'showFpsMonitor' | 'targetFps'>;
+  key: 'renderRuntimeTileSprites';
   labelKey: string;
   descKey: string;
 }> = [
@@ -40,26 +40,6 @@ const PERFORMANCE_RENDER_TOGGLES: Array<{
     key: 'renderRuntimeTileSprites',
     labelKey: 'settings.performance.label.render-runtime-tile-sprites',
     descKey: 'settings.performance.desc.render-runtime-tile-sprites',
-  },
-  {
-    key: 'renderDualGridTiles',
-    labelKey: 'settings.performance.label.render-dual-grid-tiles',
-    descKey: 'settings.performance.desc.render-dual-grid-tiles',
-  },
-  {
-    key: 'renderDualGridEdgeMask',
-    labelKey: 'settings.performance.label.render-dual-grid-edge-mask',
-    descKey: 'settings.performance.desc.render-dual-grid-edge-mask',
-  },
-  {
-    key: 'renderDualGridEdgeNoise',
-    labelKey: 'settings.performance.label.render-dual-grid-edge-noise',
-    descKey: 'settings.performance.desc.render-dual-grid-edge-noise',
-  },
-  {
-    key: 'skipLegacyTileOverlayWhenDualGridCovered',
-    labelKey: 'settings.performance.label.skip-legacy-tile-overlay',
-    descKey: 'settings.performance.desc.skip-legacy-tile-overlay',
   },
 ];
 
@@ -558,7 +538,7 @@ const PerformanceTab = memo(function PerformanceTab() {
     setStatus(t('settings.status.target-fps-adjusted', { fps: next.targetFps }));
   }, []);
 
-  const handleRenderToggle = useCallback((key: Exclude<keyof MapPerformanceConfig, 'showFpsMonitor' | 'targetFps'>, value: boolean) => {
+  const handleRenderToggle = useCallback((key: 'renderRuntimeTileSprites', value: boolean) => {
     const next = updateMapPerformanceConfig({ [key]: value });
     setConfig(next);
     setStatus(t('settings.status.render-toggle-adjusted', undefined));

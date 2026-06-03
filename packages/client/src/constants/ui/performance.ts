@@ -20,14 +20,6 @@ export type MapPerformanceConfig = {
   targetFps: number;
   /** 是否启用运行时图包地块贴图。 */
   renderRuntimeTileSprites: boolean;
-  /** 是否启用 dual-grid 顶层过渡绘制。 */
-  renderDualGridTiles: boolean;
-  /** 是否启用 dual-grid 边缘蚀刻 mask。 */
-  renderDualGridEdgeMask: boolean;
-  /** 是否启用 dual-grid 边缘噪声扰动。 */
-  renderDualGridEdgeNoise: boolean;
-  /** dual-grid 已覆盖的格子是否跳过旧地块叠加层。 */
-  skipLegacyTileOverlayWhenDualGridCovered: boolean;
 };
 
 /** 地图性能配置的本地存储键。 */
@@ -41,10 +33,6 @@ export const DEFAULT_MAP_PERFORMANCE_CONFIG: MapPerformanceConfig = {
   showFpsMonitor: false,
   targetFps: 60,
   renderRuntimeTileSprites: true,
-  renderDualGridTiles: true,
-  renderDualGridEdgeMask: true,
-  renderDualGridEdgeNoise: true,
-  skipLegacyTileOverlayWhenDualGridCovered: true,
 };
 
 /** 地图渲染帧率允许范围。 */

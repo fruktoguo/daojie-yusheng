@@ -57,7 +57,7 @@ import {
 } from '../../react-ui/panels/settings/mount-settings-panel';
 
 type SettingsTab = 'account' | 'redeem' | 'ui' | 'performance' | 'offlineGain';
-type MapPerformanceRenderToggleKey = Exclude<keyof MapPerformanceConfig, 'showFpsMonitor' | 'targetFps'>;
+type MapPerformanceRenderToggleKey = 'renderRuntimeTileSprites';
 
 const PERFORMANCE_RENDER_TOGGLES: Array<{
   key: MapPerformanceRenderToggleKey;
@@ -68,26 +68,6 @@ const PERFORMANCE_RENDER_TOGGLES: Array<{
     key: 'renderRuntimeTileSprites',
     labelKey: 'settings.performance.label.render-runtime-tile-sprites',
     descKey: 'settings.performance.desc.render-runtime-tile-sprites',
-  },
-  {
-    key: 'renderDualGridTiles',
-    labelKey: 'settings.performance.label.render-dual-grid-tiles',
-    descKey: 'settings.performance.desc.render-dual-grid-tiles',
-  },
-  {
-    key: 'renderDualGridEdgeMask',
-    labelKey: 'settings.performance.label.render-dual-grid-edge-mask',
-    descKey: 'settings.performance.desc.render-dual-grid-edge-mask',
-  },
-  {
-    key: 'renderDualGridEdgeNoise',
-    labelKey: 'settings.performance.label.render-dual-grid-edge-noise',
-    descKey: 'settings.performance.desc.render-dual-grid-edge-noise',
-  },
-  {
-    key: 'skipLegacyTileOverlayWhenDualGridCovered',
-    labelKey: 'settings.performance.label.skip-legacy-tile-overlay',
-    descKey: 'settings.performance.desc.skip-legacy-tile-overlay',
   },
 ];
 

@@ -64,10 +64,6 @@ export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>)
     previousConfig.showFpsMonitor !== currentConfig.showFpsMonitor
     || previousConfig.targetFps !== currentConfig.targetFps
     || previousConfig.renderRuntimeTileSprites !== currentConfig.renderRuntimeTileSprites
-    || previousConfig.renderDualGridTiles !== currentConfig.renderDualGridTiles
-    || previousConfig.renderDualGridEdgeMask !== currentConfig.renderDualGridEdgeMask
-    || previousConfig.renderDualGridEdgeNoise !== currentConfig.renderDualGridEdgeNoise
-    || previousConfig.skipLegacyTileOverlayWhenDualGridCovered !== currentConfig.skipLegacyTileOverlayWhenDualGridCovered
   ) {
     window.dispatchEvent(new CustomEvent<MapPerformanceConfig>(MAP_PERFORMANCE_CONFIG_CHANGE_EVENT, {
       detail: cloneConfig(currentConfig),
@@ -99,10 +95,6 @@ function normalizeConfig(raw: Partial<MapPerformanceConfig> | null | undefined):
       ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, parsedTargetFps))
       : MAP_TARGET_FPS_RANGE.defaultValue,
     renderRuntimeTileSprites: raw?.renderRuntimeTileSprites !== false,
-    renderDualGridTiles: raw?.renderDualGridTiles !== false,
-    renderDualGridEdgeMask: raw?.renderDualGridEdgeMask !== false,
-    renderDualGridEdgeNoise: raw?.renderDualGridEdgeNoise !== false,
-    skipLegacyTileOverlayWhenDualGridCovered: raw?.skipLegacyTileOverlayWhenDualGridCovered !== false,
   };
 }
 
@@ -138,11 +130,6 @@ function cloneConfig(config: MapPerformanceConfig): MapPerformanceConfig {
     showFpsMonitor: config.showFpsMonitor,
     targetFps: config.targetFps,
     renderRuntimeTileSprites: config.renderRuntimeTileSprites,
-    renderDualGridTiles: config.renderDualGridTiles,
-    renderDualGridEdgeMask: config.renderDualGridEdgeMask,
-    renderDualGridEdgeNoise: config.renderDualGridEdgeNoise,
-    skipLegacyTileOverlayWhenDualGridCovered: config.skipLegacyTileOverlayWhenDualGridCovered,
   };
 }
-
 
