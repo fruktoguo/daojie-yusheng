@@ -396,7 +396,7 @@ class TechniqueCandidateValidator {
 ### 4.6 术法预算分配
 
 公式（详见 `docs/design/balance/术法预算量化设计.md`）：
-- `BUDGET_max = 3 + realmLv × 1.4^(g-1) × majorRealmMultiplier`
+- `BUDGET_max = 3 + realmLv × 0.5 × 1.4^(g-1) × majorRealmMultiplier`
 - `BUDGET(layer) = BUDGET_max × layer / maxLayer`
 - `totalWeight = Σ abs(itemWeight)`，`positiveWeight = Σ max(itemWeight, 0)`
 - 正权重：`itemBudget = BUDGET(layer) × itemWeight / positiveWeight`

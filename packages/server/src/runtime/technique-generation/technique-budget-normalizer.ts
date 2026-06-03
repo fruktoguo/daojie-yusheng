@@ -17,12 +17,12 @@ import { getTechniqueGradeIndex } from '@mud/shared';
 /**
  * 计算术法单技能满层预算。
  *
- * BUDGET_max = 3 + realmLv × 1.4^(g - 1) × majorRealmMultiplier
+ * BUDGET_max = 3 + realmLv × 0.5 × 1.4^(g - 1) × majorRealmMultiplier
  */
 export function calcArtsBudgetMax(grade: TechniqueGrade, realmLv: number, majorRealmMultiplier = 1): number {
   const g = getTechniqueGradeIndex(grade);
   const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv)) : 1;
-  return 3 + normalizedRealmLv * Math.pow(1.4, g - 1) * Math.max(0, majorRealmMultiplier);
+  return 3 + normalizedRealmLv * 0.5 * Math.pow(1.4, g - 1) * Math.max(0, majorRealmMultiplier);
 }
 
 /**

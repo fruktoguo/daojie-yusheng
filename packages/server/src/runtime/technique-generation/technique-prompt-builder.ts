@@ -385,7 +385,7 @@ function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, u
     budgetPercentRange: { min: 0.8, max: 1.2, default: 1 },
     formulas: [
       'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
-      '术法基础满层预算 BUDGET_base = 3 + realmLv * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
+      '术法基础满层预算 BUDGET_base = 3 + realmLv * 0.5 * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
       '术法本次实际总预算 actualTotalBudget = BUDGET_base * budgetPercent',
       'totalWeight = sum(abs(itemWeight)); positiveWeight = sum(max(itemWeight, 0))',
       '正权重 itemBudget = actualTotalBudget * itemWeight / positiveWeight；负权重 itemBudget = actualTotalBudget * itemWeight / totalWeight',
