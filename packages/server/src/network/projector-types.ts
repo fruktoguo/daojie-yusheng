@@ -148,6 +148,10 @@ export interface ProjectorPortalLike {
   x: number;
   y: number;
   kind: string;
+  sectId?: string | null;
+  name?: string | null;
+  char?: string | null;
+  color?: string | null;
   targetMapId?: string | null;
   trigger?: string | null;
   direction?: string | null;
@@ -258,6 +262,9 @@ export interface ProjectedPortalEntry {
   tm?: string | null;
   tr: 0 | 1;
   d: 0 | 1;
+  k?: string | null;
+  sid?: string | null;
+  c?: string | null;
 }
 export interface ProjectedGroundPileEntry {
   x: number;

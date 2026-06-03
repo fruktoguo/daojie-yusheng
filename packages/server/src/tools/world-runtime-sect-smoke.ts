@@ -9,6 +9,7 @@ const { WorldRuntimePlayerSessionService } = require("../runtime/world/world-run
 const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-use-item.service");
 const { Direction } = require("@mud/shared");
 const { WorldSyncMapSnapshotService } = require("../network/world-sync-map-snapshot.service");
+const { buildFullWorldDelta } = require("../network/world-projector.helpers");
 const { WorldRuntimeDetailQueryService } = require("../runtime/world/query/world-runtime-detail-query.service");
 
 const playerId = "player:sect-smoke";
@@ -18,7 +19,7 @@ const laborPlayerId = "player:sect-labor";
 const offlinePlayerId = "player:sect-offline";
 const publicInstanceId = "real:sect_smoke_world";
 
-function main() {
+async function main() {
   const templateRepository = new MapTemplateRepository();
   templateRepository.registerRuntimeMapTemplate({
     id: "sect_smoke_world",
@@ -130,9 +131,17 @@ function main() {
       assert.equal(targetPlayerId, playerId);
       return player.inventory.items[slotIndex] ?? null;
     },
+    peekInventoryItemByInstanceId(targetPlayerId, itemInstanceId) {
+      assert.equal(targetPlayerId, playerId);
+      return player.inventory.items[Number(itemInstanceId)] ?? null;
+    },
     consumeInventoryItem(targetPlayerId, slotIndex, count) {
       assert.equal(targetPlayerId, playerId);
       player.inventory.items[slotIndex].count -= count;
+    },
+    consumeInventoryItemByInstanceId(targetPlayerId, itemInstanceId, count) {
+      assert.equal(targetPlayerId, playerId);
+      player.inventory.items[Number(itemInstanceId)].count -= count;
     },
     setPlayerSectId(targetPlayerId, sectId) {
       const target = players.get(targetPlayerId);
@@ -261,12 +270,12 @@ function main() {
     targetY: 0,
     name: "近邻界门",
   });
-  assert.throws(() => useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "近门宗", sectMark: "近" }), /五格阵基内不能有传送点/);
+  await assert.rejects(() => useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "近门宗", sectMark: "近" }), /五格阵基内不能有传送点/);
   publicInstance.runtimePortals = [];
   assert.equal(player.inventory.items[0].count, 1);
   assert.equal(player.sectId, null);
 
-  useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "青玄宗", sectMark: "玄" });
+  await useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "青玄宗", sectMark: "玄" });
   assert.ok(player.sectId?.startsWith("sect:"));
   assert.equal(player.inventory.items[0].count, 0);
   assert.equal(guardians.length, 1);
@@ -333,6 +342,14 @@ function main() {
   const deputyEntranceView = publicInstance.buildPlayerView(deputyPlayerId, 10);
   const projectedEntrance = deputyEntranceView.localPortals.find((portal) => portal.kind === "sect_entrance");
   assert.equal(projectedEntrance?.sectId, player.sectId);
+  const entranceDelta = buildFullWorldDelta({
+    ...deputyEntranceView,
+    localFormations: [],
+  });
+  const entrancePortalPatch = entranceDelta.o.find((portal) => portal.sid === player.sectId);
+  assert.equal(entrancePortalPatch.k, "sect_entrance");
+  assert.equal(entrancePortalPatch.ch, "玄");
+  assert.equal(entrancePortalPatch.c, "#c8a15a");
   const entranceActions = sectService.buildSectEntranceActions(deputyEntranceView, deps);
   const joinAction = entranceActions.find((action) => action.id.startsWith("sect:apply:"));
   assert.ok(joinAction);
@@ -534,11 +551,11 @@ function main() {
   assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).structure, null);
   const openedBoundaryTile = sectSnapshotService.buildTileSyncState(sectInstance.template, sectInstance.meta.instanceId, edgeX + 1, 2, player);
   assert.equal(openedBoundaryTile.type, "floor");
-  assert.equal(openedBoundaryTile.terrainType, "grass");
-  assert.equal(openedBoundaryTile.surfaceType, "floor");
-  assert.equal(openedBoundaryTile.structureType, null);
-  assert.equal(openedBoundaryTile.walkable, true);
-  assert.equal(openedBoundaryTile.blocksSight, false);
+  assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).terrain, "grass");
+  assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).surface, "floor");
+  assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).structure, null);
+  assert.equal(sectInstance.isWalkable(edgeX + 1, 2, playerId), true);
+  assert.equal(sectInstance.isTileSightBlocked(edgeX + 1, 2), false);
   const sectDetailService = new WorldRuntimeDetailQueryService(contentTemplateRepository, templateRepository, playerRuntimeService);
   const openedBoundaryDetail = sectDetailService.buildTileDetail({
     view: {
@@ -724,4 +741,7 @@ function main() {
   console.log("world-runtime-sect-smoke passed");
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

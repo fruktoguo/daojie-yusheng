@@ -418,6 +418,12 @@ export interface WorldPortalPatchView {
  */
 
   d?: 0 | 1;
+  /** 传送点运行时类型。 */
+  k?: string | null;
+  /** 所属宗门 ID，仅宗门入口使用。 */
+  sid?: string | null;
+  /** 传送点显示颜色。 */
+  c?: string | null;
   /**
  * rm：rm相关字段。
  */

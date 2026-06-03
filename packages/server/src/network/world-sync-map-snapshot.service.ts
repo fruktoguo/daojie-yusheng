@@ -253,6 +253,9 @@ export class WorldSyncMapSnapshotService {
     for (const formation of view.localFormations ?? []) {
       entities.set(formation.id, projectFormationRenderEntity(formation));
     }
+    for (const portal of view.localPortals ?? []) {
+      entities.set(buildPortalRenderEntityId(portal), projectPortalRenderEntity(portal));
+    }
     return entities;
   }
 
@@ -1005,6 +1008,34 @@ function projectFormationRenderEntity(formation) {
     formationRenderEntityCache.set(formation, projected);
   }
   return projected;
+}
+
+function projectPortalRenderEntity(portal) {
+  return {
+    id: buildPortalRenderEntityId(portal),
+    x: portal.x,
+    y: portal.y,
+    char: resolvePortalRenderChar(portal),
+    color: typeof portal.color === 'string' && portal.color.trim() ? portal.color.trim() : '#c8a15a',
+    name: typeof portal.name === 'string' && portal.name.trim() ? portal.name.trim() : '传送点',
+    kind: 'portal',
+  };
+}
+
+function buildPortalRenderEntityId(portal) {
+  const explicit = typeof portal.id === 'string' && portal.id.trim() ? portal.id.trim() : '';
+  if (explicit) {
+    return `portal:${explicit}`;
+  }
+  const kind = typeof portal.kind === 'string' && portal.kind.trim() ? portal.kind.trim() : 'portal';
+  return `portal:${kind}:${portal.x},${portal.y}`;
+}
+
+function resolvePortalRenderChar(portal) {
+  if (typeof portal.char === 'string' && portal.char.trim()) {
+    return portal.char.trim()[0] ?? '阵';
+  }
+  return portal.kind === 'stairs' ? '' : '阵';
 }
 
 function isSameNpcRenderEntity(projected, npc) {

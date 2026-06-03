@@ -119,7 +119,7 @@ export function diffPortalEntries(previous: Map<string, ProjectedPortalEntry>, c
     for (const [portalId, entry] of current) {
         const prev = previous.get(portalId);
         if (!prev) {
-            result.push({ id: portalId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, tm: entry.tm, tr: entry.tr, d: entry.d });
+            result.push({ id: portalId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, tm: entry.tm, tr: entry.tr, d: entry.d, k: entry.k, sid: entry.sid, c: entry.c });
             continue;
         }
         if (prev === entry) {
@@ -134,6 +134,9 @@ export function diffPortalEntries(previous: Map<string, ProjectedPortalEntry>, c
         if (prev.tm !== entry.tm) { delta.tm = entry.tm; changed = true; }
         if (prev.tr !== entry.tr) { delta.tr = entry.tr; changed = true; }
         if (prev.d !== entry.d) { delta.d = entry.d; changed = true; }
+        if (prev.k !== entry.k) { delta.k = entry.k; changed = true; }
+        if (prev.sid !== entry.sid) { delta.sid = entry.sid; changed = true; }
+        if (prev.c !== entry.c) { delta.c = entry.c; changed = true; }
         if (changed) { result.push(delta); }
     }
     for (const portalId of previous.keys()) {

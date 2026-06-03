@@ -422,6 +422,9 @@ function buildFullWorldDeltaFromState(
         tm: entry.tm,
         tr: entry.tr,
         d: entry.d,
+        k: entry.k,
+        sid: entry.sid,
+        c: entry.c,
     }));
     const ground: WorldGroundPatchView[] = Array.from(state.groundPiles, ([sourceId, entry]) => ({
         sourceId,
@@ -648,6 +651,7 @@ function projectPortalEntry(
     if (cached) { return cached; }
     const projected = freezeProjectedEntry({
         n: resolvePortalDisplayName(entry, resolveMapName), ch: resolvePortalRenderChar(entry), x: entry.x, y: entry.y, tm: entry.targetMapId, tr: entry.trigger === 'auto' ? 1 as const : 0 as const, d: entry.direction === 'one_way' ? 1 as const : 0 as const,
+        k: entry.kind || null, sid: entry.sectId ?? null, c: entry.color ?? null,
     });
     portalProjectionCache.set(entry, projected);
     return projected;
