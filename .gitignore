@@ -22,3 +22,5 @@ test-results/
 benchmarks/
 .narrafork/
 .worktrees/
+
+assets/generated/
