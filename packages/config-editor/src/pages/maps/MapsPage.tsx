@@ -62,7 +62,12 @@ export default function MapsPage() {
     );
     editorRef.current = editor;
     editor.ensureLoaded();
-  }, [setAppStatus, loadCatalogModes, dualGridRenderingEnabled]);
+    return () => {
+      editor.dispose();
+      editorRef.current = null;
+      mountedRef.current = false;
+    };
+  }, [setAppStatus, loadCatalogModes]);
 
   useEffect(() => {
     window.localStorage.setItem(MAP_EDITOR_DUAL_GRID_RENDERING_KEY, dualGridRenderingEnabled ? 'true' : 'false');

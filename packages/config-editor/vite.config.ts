@@ -7,8 +7,11 @@ import { defineConfig } from 'vite';
 import path from 'path';
 import react from '@vitejs/plugin-react';
 
+const clientPublicDir = path.resolve(__dirname, '../client/public');
+
 export default defineConfig({
   plugins: [react()],
+  publicDir: clientPublicDir,
   resolve: {
     alias: {
       '@mud/shared': path.resolve(__dirname, '../../packages/shared/src'),

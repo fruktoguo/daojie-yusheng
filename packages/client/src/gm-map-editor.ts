@@ -43,6 +43,7 @@ import {
   getTileTypeFromMapChar,
   resolveTileLayerSeedFromTileType,
   getAuraLevel,
+  doesTileTypeBlockSight,
   isOffsetInRange,
   isTileTypeWalkable,
   normalizeConfiguredAuraValue,
@@ -108,6 +109,24 @@ import {
   booleanField,
 } from './gm-map-editor-helpers';
 import { GM_API_BASE_PATH } from './constants/api';
+
+const RUNTIME_IMAGE_PACK_WATCH_INTERVAL_MS = 120;
+const RUNTIME_IMAGE_PACK_WATCH_TICKS = 40;
+
+function createRuntimePreviewTile(source: RuntimeTileVisualSource): Tile {
+  return {
+    type: source.type,
+    walkable: isTileTypeWalkable(source.type),
+    blocksSight: doesTileTypeBlockSight(source.type),
+    aura: 0,
+    occupiedBy: null,
+    modifiedAt: null,
+    terrainType: source.terrainType,
+    surfaceType: source.surfaceType,
+    structureType: source.structureType,
+    interactableKinds: source.interactableKinds,
+  };
+}
 
 /** RequestFn：地图编辑器的请求回调签名。 */
 type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -666,6 +685,12 @@ export class GmMapEditor {
   private undoStack: EditorUndoEntry[] = [];
   /** renderFrameId：渲染帧ID。 */
   private renderFrameId: number | null = null;  
+  /** runtimeImagePackWatchTimerId：runtime 图包异步加载后的刷新定时器。 */
+  private runtimeImagePackWatchTimerId: number | null = null;
+  /** runtimeImagePackWatchTicksRemaining：runtime 图包加载刷新剩余观察次数。 */
+  private runtimeImagePackWatchTicksRemaining = 0;
+  /** runtimeImagePackRevision：上次已渲染的 runtime 图包版本。 */
+  private runtimeImagePackRevision = runtimeImagePack.getRevision();
   /** 编辑器画布是否启用 dual-grid 地块预览。 */
   private dualGridRenderingEnabled = true;
   /**
@@ -689,6 +714,7 @@ export class GmMapEditor {
     this.bindEvents();
     this.renderToolControls();
     this.renderCanvas();
+    this.startRuntimeImagePackWatch();
     this.updateUndoButtonState();
   }
 
@@ -707,6 +733,51 @@ export class GmMapEditor {
     if (this.dualGridRenderingEnabled === enabled) return;
     this.dualGridRenderingEnabled = enabled;
     this.renderCanvas();
+    if (!enabled) {
+      this.stopRuntimeImagePackWatch();
+      return;
+    }
+    this.startRuntimeImagePackWatch();
+  }
+
+  private startRuntimeImagePackWatch(): void {
+    if (!this.dualGridRenderingEnabled) {
+      return;
+    }
+    this.runtimeImagePackWatchTicksRemaining = RUNTIME_IMAGE_PACK_WATCH_TICKS;
+    this.scheduleRuntimeImagePackWatch();
+  }
+
+  private scheduleRuntimeImagePackWatch(): void {
+    if (
+      !this.dualGridRenderingEnabled
+      || this.runtimeImagePackWatchTicksRemaining <= 0
+      || this.runtimeImagePackWatchTimerId !== null
+    ) {
+      return;
+    }
+    this.runtimeImagePackWatchTimerId = window.setTimeout(() => {
+      this.runtimeImagePackWatchTimerId = null;
+      this.refreshRuntimeImagePackRevision();
+    }, RUNTIME_IMAGE_PACK_WATCH_INTERVAL_MS);
+  }
+
+  private stopRuntimeImagePackWatch(): void {
+    this.runtimeImagePackWatchTicksRemaining = 0;
+    if (this.runtimeImagePackWatchTimerId !== null) {
+      window.clearTimeout(this.runtimeImagePackWatchTimerId);
+      this.runtimeImagePackWatchTimerId = null;
+    }
+  }
+
+  private refreshRuntimeImagePackRevision(): void {
+    const nextRevision = runtimeImagePack.getRevision();
+    if (this.runtimeImagePackRevision !== nextRevision) {
+      this.runtimeImagePackRevision = nextRevision;
+      this.renderCanvas();
+    }
+    this.runtimeImagePackWatchTicksRemaining -= 1;
+    this.scheduleRuntimeImagePackWatch();
   }
 
   /** 确保地图列表已加载，首次切换到地图 tab 时调用 */
@@ -725,6 +796,11 @@ export class GmMapEditor {
       window.cancelAnimationFrame(this.renderFrameId);
       this.renderFrameId = null;
     }
+    if (this.runtimeImagePackWatchTimerId !== null) {
+      window.clearTimeout(this.runtimeImagePackWatchTimerId);
+      this.runtimeImagePackWatchTimerId = null;
+    }
+    this.runtimeImagePackWatchTicksRemaining = 0;
     this.mapList = [];
     this.selectedMapId = null;
     this.draft = null;
@@ -3532,6 +3608,9 @@ export class GmMapEditor {
     const endGX = Math.ceil((camWorldX + screenW) / cellSize) + 1;
     const endGY = Math.ceil((camWorldY + screenH) / cellSize) + 1;
     const auraPointKeys = new Set((this.draft.auras ?? []).map((point) => `${point.x},${point.y}`));
+    if (this.dualGridRenderingEnabled) {
+      this.startRuntimeImagePackWatch();
+    }
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -3551,15 +3630,21 @@ export class GmMapEditor {
           continue;
         }
 
-        const type = this.getTileTypeAt(gx, gy);
-        ctx.fillStyle = TILE_VISUAL_BG_COLORS[type];
-        ctx.fillRect(sx, sy, cellSize, cellSize);
+        const source = this.getTileVisualSourceAt(gx, gy);
+        const type = source?.type ?? this.getTileTypeAt(gx, gy);
+        const runtimeTileDrawn = this.dualGridRenderingEnabled && source !== null
+          ? runtimeImagePack.drawTile(ctx, createRuntimePreviewTile(source), sx, sy, cellSize)
+          : false;
+        if (!runtimeTileDrawn) {
+          ctx.fillStyle = TILE_VISUAL_BG_COLORS[type];
+          ctx.fillRect(sx, sy, cellSize, cellSize);
+        }
         ctx.strokeStyle = 'rgba(0,0,0,0.1)';
         ctx.lineWidth = 0.5;
         ctx.strokeRect(sx, sy, cellSize, cellSize);
 
         const ch = TILE_VISUAL_GLYPHS[type];
-        if (ch) {
+        if (!runtimeTileDrawn && ch) {
           ctx.fillStyle = TILE_VISUAL_GLYPH_COLORS[type];
           ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
         }
@@ -4929,6 +5014,11 @@ export class GmMapEditor {
 
   /** 移除 window 事件监听器，释放全局引用。 */
   dispose(): void {
+    if (this.renderFrameId !== null) {
+      window.cancelAnimationFrame(this.renderFrameId);
+      this.renderFrameId = null;
+    }
+    this.stopRuntimeImagePackWatch();
     window.removeEventListener('keydown', this._windowKeydownHandler);
     window.removeEventListener('blur', this._windowBlurHandler);
     window.removeEventListener('resize', this._windowResizeHandler);
