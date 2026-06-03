@@ -11,10 +11,36 @@
       "meta": {
         "dualGrid": false
       }
+    },
+    "surface:floor": {
+      "src": "tiles/floor-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 190
+      }
+    },
+    "structure:stone": {
+      "src": "tiles/stone-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 300
+      }
     }
   },
   "legacyTiles": {
-    "grass": "terrain:grass"
+    "grass": "terrain:grass",
+    "floor": "surface:floor",
+    "stone": "structure:stone"
   },
   "entities": {}
 }
