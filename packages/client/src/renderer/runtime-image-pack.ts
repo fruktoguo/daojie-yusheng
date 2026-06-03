@@ -24,6 +24,10 @@ export interface RuntimeDualGridDrawOptions {
   startGY: number;
   endGX: number;
   endGY: number;
+  edgeStartGX?: number;
+  edgeStartGY?: number;
+  edgeEndGX?: number;
+  edgeEndGY?: number;
   cellSize: number;
   offsetX: number;
   offsetY: number;
@@ -96,6 +100,10 @@ interface DualGridTileKeyCacheEntry {
   topDualGridReady: boolean;
 }
 
+interface DualGridSourceFrame {
+  data: ImageData;
+}
+
 const DEFAULT_MANIFEST_URL = '/assets/runtime-image-packs/default/manifest.json';
 const DUAL_GRID_ATLAS_COORDS: ReadonlyArray<readonly [number, number]> = [
   [0, 3], [3, 3], [0, 0], [3, 2],
@@ -122,7 +130,8 @@ const DEFAULT_DUAL_GRID_EDGE: DualGridEdgeOptions = Object.freeze({
 const DUAL_GRID_EDGE_FRAME_SIZE = 32;
 const DUAL_GRID_EDGE_NOISE_VARIANTS = 8;
 const DUAL_GRID_EDGE_NOISE_VARIANT_STRIDE = 53;
-const MAX_DUAL_GRID_EDGE_CACHE_ENTRIES = 2048;
+const MAX_DUAL_GRID_EDGE_CACHE_ENTRIES = 768;
+const MAX_DUAL_GRID_SOURCE_FRAME_CACHE_ENTRIES = 256;
 const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -481,6 +490,7 @@ function edgeSignature(edge: DualGridEdgeOptions): string {
 class RuntimeImagePack {
   private readonly cache = new Map<string, ImageCacheEntry>();
   private readonly dualGridEdgeCache = new Map<string, HTMLCanvasElement>();
+  private readonly dualGridSourceFrameCache = new Map<string, DualGridSourceFrame>();
   private readonly manifestUrl: string;
   private manifestState: ManifestState = 'idle';
   private tileSprites = new Map<string, AtlasSpriteRef>();
@@ -489,7 +499,9 @@ class RuntimeImagePack {
   private dualGridTileKeys: string[] = [];
   private readonly dualGridTileKeyCache = new WeakMap<RuntimeTileVisualSource, DualGridTileKeyCacheEntry>();
   private readonly dualGridMasksByKey = new Map<string, number>();
+  private readonly dualGridTileKeyOrder = new Map<string, number>();
   private readonly dualGridScanActiveKeySet = new Set<string>();
+  private readonly dualGridVertexKeysScratch: string[] = [];
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   private revision = 0;
 
@@ -573,12 +585,20 @@ class RuntimeImagePack {
         if (masksByKey.size === 0) {
           continue;
         }
+        const vertexKeys = this.dualGridVertexKeysScratch;
+        vertexKeys.length = 0;
+        for (const key of masksByKey.keys()) {
+          vertexKeys.push(key);
+        }
+        if (vertexKeys.length > 1) {
+          vertexKeys.sort((left, right) => (this.dualGridTileKeyOrder.get(left) ?? 0) - (this.dualGridTileKeyOrder.get(right) ?? 0));
+        }
 
         const worldDx = (vertexX - 0.5) * options.cellSize;
         const worldDy = (vertexY - 0.5) * options.cellSize;
         const dx = worldDx + options.offsetX;
         const dy = worldDy + options.offsetY;
-        for (const key of scan.activeKeys) {
+        for (const key of vertexKeys) {
           const targetMask = masksByKey.get(key) ?? 0;
           if (!targetMask) {
             continue;
@@ -592,7 +612,8 @@ class RuntimeImagePack {
           if (targetMask === 15 && backgroundMask === 0) {
             continue;
           }
-          if (backgroundMask && mergedMask !== targetMask && this.performanceConfig.renderDualGridEdgeMask) {
+          const edgeInRange = this.isDualGridEdgeVertexInRange(vertexX, vertexY, options);
+          if (edgeInRange && backgroundMask && mergedMask !== targetMask && this.performanceConfig.renderDualGridEdgeMask) {
             drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, worldDx, worldDy, options.cellSize, targetMask, mergedMask, true) || drewAny;
           }
           drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, worldDx, worldDy, options.cellSize, targetMask, targetMask, false) || drewAny;
@@ -639,7 +660,12 @@ class RuntimeImagePack {
           .filter(([, ref]) => ref.dualGrid?.enabled === true)
           .sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order)
           .map(([key]) => key);
+        this.dualGridTileKeyOrder.clear();
+        for (let index = 0; index < this.dualGridTileKeys.length; index += 1) {
+          this.dualGridTileKeyOrder.set(this.dualGridTileKeys[index]!, index);
+        }
         this.dualGridEdgeCache.clear();
+        this.dualGridSourceFrameCache.clear();
         this.manifestState = 'loaded';
         this.revision += 1;
       })
@@ -666,6 +692,14 @@ class RuntimeImagePack {
     disableImageSmoothing(ctx);
     ctx.drawImage(image, sx, sy, sw, sh, target.dx, target.dy, target.dw, target.dh);
     return true;
+  }
+
+  private isDualGridEdgeVertexInRange(vertexX: number, vertexY: number, options: RuntimeDualGridDrawOptions): boolean {
+    const startGX = options.edgeStartGX ?? options.startGX;
+    const startGY = options.edgeStartGY ?? options.startGY;
+    const endGX = options.edgeEndGX ?? options.endGX;
+    const endGY = options.edgeEndGY ?? options.endGY;
+    return vertexX >= startGX && vertexY >= startGY && vertexX <= endGX + 1 && vertexY <= endGY + 1;
   }
 
   private scanDualGridCells(options: RuntimeDualGridDrawOptions): DualGridCellScan {
@@ -889,19 +923,21 @@ class RuntimeImagePack {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    const tempCtx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!tempCtx) {
+    const outputCtx = canvas.getContext('2d');
+    if (!outputCtx) {
       return null;
     }
-    disableImageSmoothing(tempCtx);
-    tempCtx.clearRect(0, 0, size, size);
-    tempCtx.drawImage(image, sx, sy, sw, sh, 0, 0, size, size);
-    const sourceData = tempCtx.getImageData(0, 0, size, size);
-    const outputData = tempCtx.createImageData(size, size);
+    const sourceFrame = this.getDualGridSourceFrame(image, ref, sx, sy, sw, sh, size);
+    if (!sourceFrame) {
+      return null;
+    }
+    const outputData = outputCtx.createImageData(size, size);
     const fade = edge.fade / 100;
     const fadeStart = edge.fadeStart / 100;
     const noiseScale = edge.noise ? edge.noiseAmount / 100 : 0;
     const noiseOffset = getDualGridNoiseVariantOffset(noiseVariant);
+    const sourcePixels = sourceFrame.data.data;
+    const outputPixels = outputData.data;
 
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
@@ -918,20 +954,20 @@ class RuntimeImagePack {
           continue;
         }
         const index = (y * size + x) * 4;
-        const alphaBase = sourceData.data[index + 3];
+        const alphaBase = sourcePixels[index + 3];
         if (alphaBase === 0) {
           continue;
         }
         const fadeAlpha = edgeFadeAlpha(distance, range, fadeStart, edge.fadeCurve);
         const alphaFactor = 1 - fade + fade * fadeAlpha;
-        outputData.data[index] = sourceData.data[index]!;
-        outputData.data[index + 1] = sourceData.data[index + 1]!;
-        outputData.data[index + 2] = sourceData.data[index + 2]!;
-        outputData.data[index + 3] = Math.round(alphaBase * alphaFactor);
+        outputPixels[index] = sourcePixels[index]!;
+        outputPixels[index + 1] = sourcePixels[index + 1]!;
+        outputPixels[index + 2] = sourcePixels[index + 2]!;
+        outputPixels[index + 3] = Math.round(alphaBase * alphaFactor);
       }
     }
 
-    tempCtx.putImageData(outputData, 0, 0);
+    outputCtx.putImageData(outputData, 0, 0);
     this.dualGridEdgeCache.set(cacheKey, canvas);
     if (this.dualGridEdgeCache.size > MAX_DUAL_GRID_EDGE_CACHE_ENTRIES) {
       const oldestKey = this.dualGridEdgeCache.keys().next().value;
@@ -940,6 +976,43 @@ class RuntimeImagePack {
       }
     }
     return canvas;
+  }
+
+  private getDualGridSourceFrame(
+    image: HTMLImageElement,
+    ref: AtlasSpriteRef,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    size: number,
+  ): DualGridSourceFrame | null {
+    const cacheKey = `${ref.src}:${sx}:${sy}:${sw}:${sh}:${size}`;
+    const hit = this.dualGridSourceFrameCache.get(cacheKey);
+    if (hit) {
+      return hit;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+      return null;
+    }
+    disableImageSmoothing(ctx);
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, size, size);
+    const frame: DualGridSourceFrame = {
+      data: ctx.getImageData(0, 0, size, size),
+    };
+    this.dualGridSourceFrameCache.set(cacheKey, frame);
+    if (this.dualGridSourceFrameCache.size > MAX_DUAL_GRID_SOURCE_FRAME_CACHE_ENTRIES) {
+      const oldestKey = this.dualGridSourceFrameCache.keys().next().value;
+      if (typeof oldestKey === 'string') {
+        this.dualGridSourceFrameCache.delete(oldestKey);
+      }
+    }
+    return frame;
   }
 
   private getImage(src: string): ImageCacheEntry | null {

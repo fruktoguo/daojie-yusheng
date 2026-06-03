@@ -1058,6 +1058,10 @@ const MAX_WARNING_ZONES = 64;
 const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 /** 地形缓存边缘预绘格数，覆盖相机追随平移时露出的边，避免每跨一格重绘 dual-grid。 */
 const TERRAIN_CACHE_OVERSCAN_CELLS = 10;
+/** dual-grid 顶点计算比普通色块更重，开启时降低预绘范围。 */
+const TERRAIN_CACHE_DUAL_GRID_OVERSCAN_CELLS = 4;
+/** edge mask 成本较高，开启时只保留较薄缓存边，避免屏幕外大范围逐像素 mask。 */
+const TERRAIN_CACHE_EDGE_MASK_OVERSCAN_CELLS = 3;
 /** 缩放活跃期使用较小预绘范围，降低连续缩放时的重建成本。 */
 const TERRAIN_CACHE_ZOOM_OVERSCAN_CELLS = 2;
 const TERRAIN_CACHE_ZOOM_SETTLE_MS = 220;
@@ -1487,9 +1491,15 @@ export class TextRenderer implements IRenderer {
     if (cellSizeChanged) {
       this.terrainZoomCompactUntil = nowMs + TERRAIN_CACHE_ZOOM_SETTLE_MS;
     }
+    const dualGridEnabled = this.performanceConfig.renderRuntimeTileSprites && this.performanceConfig.renderDualGridTiles;
+    const normalOverscanCells = dualGridEnabled
+      ? (this.performanceConfig.renderDualGridEdgeMask
+          ? TERRAIN_CACHE_EDGE_MASK_OVERSCAN_CELLS
+          : TERRAIN_CACHE_DUAL_GRID_OVERSCAN_CELLS)
+      : TERRAIN_CACHE_OVERSCAN_CELLS;
     const overscanCells = nowMs < this.terrainZoomCompactUntil
       ? TERRAIN_CACHE_ZOOM_OVERSCAN_CELLS
-      : TERRAIN_CACHE_OVERSCAN_CELLS;
+      : normalOverscanCells;
     const cacheMargin = cellSize * overscanCells;
     const viewportOriginX = camera.x - camera.offsetX - sw / 2;
     const viewportOriginY = camera.y - camera.offsetY - sh / 2;
@@ -1551,11 +1561,16 @@ export class TextRenderer implements IRenderer {
         offsetX: 0,
         offsetY: 0,
       };
+      const edgeStartGX = Math.floor(viewportOriginX / cellSize) - 1;
+      const edgeStartGY = Math.floor(viewportOriginY / cellSize) - 1;
+      const edgeEndGX = Math.ceil((viewportOriginX + sw) / cellSize) + 1;
+      const edgeEndGY = Math.ceil((viewportOriginY + sh) / cellSize) + 1;
       this.ctx = terrainCtx;
       this.renderWorldCore(
         cacheCamera, tileCache, visibleTiles, visibleTileRevision,
         visibleTileTransitionStartedAt, visibleTileTransitionDurationMs,
         playerX, playerY, displayRangeX, displayRangeY, imagePackRevision,
+        edgeStartGX, edgeStartGY, edgeEndGX, edgeEndGY,
       );
       this.ctx = savedCtx;
     }
@@ -1582,6 +1597,10 @@ export class TextRenderer implements IRenderer {
     displayRangeX: number,
     displayRangeY: number,
     imagePackRevision: number,
+    edgeStartGX?: number,
+    edgeStartGY?: number,
+    edgeEndGX?: number,
+    edgeEndGY?: number,
   ) {
     if (!this.ctx) return;
     const ctx = this.ctx;
@@ -1622,6 +1641,10 @@ export class TextRenderer implements IRenderer {
         startGY,
         endGX,
         endGY,
+        edgeStartGX,
+        edgeStartGY,
+        edgeEndGX,
+        edgeEndGY,
         cellSize,
         offsetX: screenOffsetX,
         offsetY: screenOffsetY,
