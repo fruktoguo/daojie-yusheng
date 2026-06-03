@@ -196,7 +196,29 @@ async function main(): Promise<void> {
     },
   };
   const marketRuntimeService = {
-    openOrders: [],
+    openOrders: [
+      {
+        ownerId: offlinePlayer.playerId,
+        side: 'buy',
+        status: 'open',
+        remainingQuantity: 2,
+        unitPrice: 100,
+      },
+      {
+        ownerId: onlinePlayer.playerId,
+        side: 'buy',
+        status: 'open',
+        remainingQuantity: 100,
+        unitPrice: 0.01,
+      },
+      {
+        ownerId: offlineIdlePlayer.playerId,
+        side: 'sell',
+        status: 'open',
+        remainingQuantity: 999,
+        unitPrice: 100,
+      },
+    ],
     buildMarketStorage() {
       return { items: [] };
     },
@@ -246,6 +268,17 @@ async function main(): Promise<void> {
     ['离线真名', '挂机真名', '在线真名'],
   );
   assert.deepEqual(
+    leaderboard.boards.spiritStones.map((entry) => ({
+      playerId: entry.playerId,
+      spiritStoneCount: entry.spiritStoneCount,
+    })),
+    [
+      { playerId: 'player:offline', spiritStoneCount: 200 },
+      { playerId: 'player:online', spiritStoneCount: 1 },
+      { playerId: 'player:offline-idle', spiritStoneCount: 0 },
+    ],
+  );
+  assert.deepEqual(
     leaderboard.boards.playerKills.map((entry) => entry.playerId),
     ['player:offline', 'player:offline-idle', 'player:online'],
   );
@@ -290,6 +323,22 @@ async function main(): Promise<void> {
   });
   assert.equal(locations.entries[2].mapName, '离线');
 
+  marketRuntimeService.openOrders = [
+    {
+      ownerId: offlinePlayer.playerId,
+      side: 'buy',
+      status: 'open',
+      remainingQuantity: 3,
+      unitPrice: 100,
+    },
+    {
+      ownerId: onlinePlayer.playerId,
+      side: 'buy',
+      status: 'open',
+      remainingQuantity: 100,
+      unitPrice: 0.01,
+    },
+  ];
   const worldSummary = await service.buildWorldSummary();
   assert.deepEqual(worldSummary.summary.realmCounts, {
     initial: 0,
@@ -303,6 +352,7 @@ async function main(): Promise<void> {
     playerKills: 17,
     playerDeaths: 2,
   });
+  assert.equal(worldSummary.summary.totalSpiritStones, 301);
   assert.equal(worldSummary.summary.actionCounts.cultivation, 2);
   assert.equal(worldSummary.summary.actionCounts.combat, 0);
   assert.equal(worldSummary.summary.actionCounts.alchemy, 1);

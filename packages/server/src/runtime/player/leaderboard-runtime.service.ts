@@ -231,16 +231,24 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         if (this.cachedLeaderboardSnapshotsByPlayerId.size > 0) {
             // 排行榜缓存已有全量 snapshot，直接复用；
             // 用运行态数据覆盖在线玩家的实时活动 flags
+            const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId();
             const runtimeSnapshots = this.collectRuntimeSnapshots()
                 .filter((p) => !isNativeGmBotPlayerId(p.playerId))
-                .map((player) => this.createSnapshot(player));
+                .map((player) => this.createSnapshot(
+                    player,
+                    null,
+                    reservedBuyOrdersByPlayerId.get(player.playerId) ?? 0,
+                ));
             // 离线玩家直接取缓存，在线玩家用实时数据
             const runtimePlayerIds = new Set(runtimeSnapshots.map((s) => s.playerId));
             snapshots = [
                 ...runtimeSnapshots,
                 ...[...this.cachedLeaderboardSnapshotsByPlayerId.values()]
                     .filter((s) => !runtimePlayerIds.has(s.playerId)),
-            ];
+            ].map((snapshot) => this.applyReservedBuyOrderSpiritStoneCount(
+                snapshot,
+                reservedBuyOrdersByPlayerId.get(snapshot.playerId) ?? 0,
+            ));
         } else {
             snapshots = await this.collectWorldSummarySnapshots();
         }
@@ -309,7 +317,12 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         for (const player of await this.collectPersistedOfflineSnapshots(playersByPlayerId)) {
             playersByPlayerId.set(player.playerId, player);
         }
-        return [...playersByPlayerId.values()].map((player) => this.createSnapshot(player));
+        const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId();
+        return [...playersByPlayerId.values()].map((player) => this.createSnapshot(
+            player,
+            null,
+            reservedBuyOrdersByPlayerId.get(player.playerId) ?? 0,
+        ));
     }
     /** 把缓存中的榜单裁剪到指定长度。 */
     sliceLeaderboard(source, limit) {
@@ -347,7 +360,12 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         const identitiesByPlayerId = await this.loadLeaderboardIdentities(playersByPlayerId.keys());
         // identity 查询完成后再让一次，给 world tick 留出 createSnapshot 之前的窗口。
         await yieldToEventLoop();
-        return [...playersByPlayerId.values()].map((player) => this.createSnapshot(player, identitiesByPlayerId.get(player.playerId) ?? null));
+        const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId();
+        return [...playersByPlayerId.values()].map((player) => this.createSnapshot(
+            player,
+            identitiesByPlayerId.get(player.playerId) ?? null,
+            reservedBuyOrdersByPlayerId.get(player.playerId) ?? 0,
+        ));
     }
     /** 采集当前运行态玩家快照，排除 bot；无 session 的离线挂机也保留给排行榜。 */
     collectRuntimeSnapshots() {
@@ -464,9 +482,10 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         return identityService.listPlayerIdentitiesByPlayerIds(playerIds);
     }
     /** 把单个玩家快照整理成排行榜所需的扁平结构。 */
-    createSnapshot(player, identity = null) {
+    createSnapshot(player, identity = null, reservedBuyOrderSpiritStoneCount = 0) {
 
         const finalAttrs = player.attrs?.finalAttrs ?? {};
+        const normalizedReservedBuyOrderSpiritStoneCount = toNonNegativeInteger(reservedBuyOrderSpiritStoneCount, 0);
         return {
             playerId: player.playerId,
             playerName: normalizePlayerName(player, identity),
@@ -488,7 +507,8 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             monsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'monsterKillCount'),
             eliteMonsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'eliteMonsterKillCount'),
             bossMonsterKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'bossMonsterKillCount'),
-            spiritStoneCount: this.getWalletBalance(player, MARKET_CURRENCY_ITEM_ID),
+            spiritStoneCount: this.getWalletBalance(player, MARKET_CURRENCY_ITEM_ID) + normalizedReservedBuyOrderSpiritStoneCount,
+            reservedBuyOrderSpiritStoneCount: normalizedReservedBuyOrderSpiritStoneCount,
             marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player, MARKET_CURRENCY_ITEM_ID),
             playerKillCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'playerKillCount'),
             deathCount: readPlayerCounterValue(this.playerCountersPersistenceService, player, 'deathCount'),
@@ -510,6 +530,17 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
                 alchemy: Boolean(player.alchemyJob),
                 enhancement: Boolean(player.enhancementJob),
             },
+        };
+    }
+    /** 以当前开放求购金额替换 snapshot 中可能过期的预留灵石。 */
+    applyReservedBuyOrderSpiritStoneCount(snapshot, reservedBuyOrderSpiritStoneCount) {
+        const previousReserved = toNonNegativeInteger(snapshot?.reservedBuyOrderSpiritStoneCount, 0);
+        const currentReserved = toNonNegativeInteger(reservedBuyOrderSpiritStoneCount, 0);
+        const visibleSpiritStones = Math.max(0, toNonNegativeInteger(snapshot?.spiritStoneCount, 0) - previousReserved);
+        return {
+            ...snapshot,
+            spiritStoneCount: visibleSpiritStones + currentReserved,
+            reservedBuyOrderSpiritStoneCount: currentReserved,
         };
     }
     /** 构造境界榜。 */
@@ -628,8 +659,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
     /** 构造世界在线分布与交易摘要。 */
     buildWorldBoard(snapshots) {
 
-        const totalSpiritStones = snapshots.reduce((total, snapshot) => total + snapshot.spiritStoneCount + snapshot.marketStorageSpiritStoneCount, 0)
-            + this.collectReservedSpiritStoneTotal();
+        const totalSpiritStones = snapshots.reduce((total, snapshot) => total + snapshot.spiritStoneCount + snapshot.marketStorageSpiritStoneCount, 0);
 
         const eliteMonsterKills = snapshots.reduce((total, snapshot) => total + snapshot.eliteMonsterKillCount, 0);
 
@@ -659,21 +689,31 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             },
         };
     }
-    /** 汇总坊市仓库里的灵石总量。 */
-    collectReservedSpiritStoneTotal() {
+    /** 按玩家汇总开放求购单里已预留、尚未成交的灵石。 */
+    collectReservedBuyOrderSpiritStonesByPlayerId() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const openOrders = Array.isArray(this.marketRuntimeService.openOrders) ? this.marketRuntimeService.openOrders : [];
-        let total = 0;
+        const totalsByPlayerId = new Map();
         for (const order of openOrders) {
             if (order?.status !== 'open' || order?.side !== 'buy') {
                 continue;
             }
+            const ownerId = typeof order.ownerId === 'string' ? order.ownerId.trim() : '';
+            if (!ownerId) {
+                continue;
+            }
 
-            const cost = calculateMarketTradeTotalCost(toNonNegativeInteger(order.remainingQuantity, 0), toNonNegativeInteger(order.unitPrice, 0));
-            total += cost ?? 0;
+            const cost = calculateMarketTradeTotalCost(
+                toNonNegativeInteger(order.remainingQuantity, 0),
+                normalizeMarketUnitPrice(order.unitPrice),
+            );
+            if (!cost) {
+                continue;
+            }
+            totalsByPlayerId.set(ownerId, (totalsByPlayerId.get(ownerId) ?? 0) + cost);
         }
-        return total;
+        return totalsByPlayerId;
     }
     /** 读取玩家钱包里某个货币类型的持有数量。 */
     getWalletBalance(player, walletType) {
@@ -743,6 +783,11 @@ function toNonNegativeInteger(input, fallback) {
 
     const normalized = Number.isFinite(input) ? Math.floor(Number(input)) : fallback;
     return Math.max(0, normalized);
+}
+
+function normalizeMarketUnitPrice(input) {
+    const value = Number(input);
+    return Number.isFinite(value) && value > 0 ? value : 0;
 }
 /**
  * normalizePlayerName：规范化或转换玩家名称。

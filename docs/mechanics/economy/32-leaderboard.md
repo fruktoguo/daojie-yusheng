@@ -8,7 +8,7 @@
 |------|----------|----------|
 | realm | 境界等级+进度+底蕴 | LeaderboardRealmEntry |
 | monsterKills | 总击杀/精英/Boss | LeaderboardMonsterKillEntry |
-| spiritStones | 灵石数量 | LeaderboardSpiritStoneEntry |
+| spiritStones | 可见灵石 + 未成交求购单预留灵石 | LeaderboardSpiritStoneEntry |
 | playerKills | 玩家击杀数 | LeaderboardPlayerKillEntry |
 | deaths | 死亡次数 | LeaderboardDeathEntry |
 | bodyTraining | 体修等级+经验 | LeaderboardBodyTrainingEntry |
@@ -31,12 +31,13 @@
 - 排除 GM Bot 玩家
 - 每 10 分钟刷新一次
 - 最多显示前 10 名
+- 灵石榜按玩家可见灵石加开放求购单中尚未成交的预留灵石排序，避免通过求购锁单隐藏财富
 
 ## 世界摘要统计
 
 ```typescript
 interface WorldSummary {
-  totalSpiritStones: number;      // 全服灵石总量
+  totalSpiritStones: number;      // 全服灵石总量（可见灵石 + 坊市托管灵石 + 未成交求购预留灵石）
   actionCounts: {
     cultivation: number;          // 修炼活跃
     combat: number;               // 战斗活跃
