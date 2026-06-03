@@ -397,7 +397,7 @@ function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, u
       '属性基底倍率 = 属性实际预算 / 每100%基底成本；spellAtk/physAtk等成本见 attributeBaseCostBy100Percent',
       `层数加成 techLevel 每层比例 = max(0, ${constants.percentBonuses.techLevelScaleBase} * (1 + techLevelBudget))`,
       `移速加成 = caster.stat.moveSpeed * max(0, moveSpeedBudget) * ${constants.percentBonuses.moveSpeedScalePerStrength}`,
-      '触顶或触底后未用的正预算会回流到属性基底；不要输出预算字段，服务端自动展开',
+      '触顶或离散档位暂时用不完的正预算会平均回流给仍可增长的正向项目；不要输出预算字段，服务端自动展开',
     ],
   };
 }

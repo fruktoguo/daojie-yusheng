@@ -661,13 +661,13 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
   assert.equal(expanded.budgetBreakdown.totalWeight, 113);
   assert.equal(expanded.budgetBreakdown.positiveWeight, 93);
   assert.equal(expanded.budgetBreakdown.negativeWeight, 20);
-  assert.equal(expanded.skill.range, 4);
-  assert.equal(expanded.skill.targeting?.range, 4);
+  assert.equal(expanded.skill.range, 5);
+  assert.equal(expanded.skill.targeting?.range, 5);
   assert.equal(expanded.skill.targeting?.radius, 2);
   assert.equal(expanded.skill.cooldown, 1);
   assertApprox(expanded.skill.costMultiplier ?? 0, 49.6167, 0.0001);
   const formula = extractSkillEffectFormula(expanded.skill.effects[0]);
-  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 15.0624, 0.001);
+  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 11.8819, 0.001);
   assert.equal(extractFormulaVarScale(formula, 'techLevel'), 0.1);
 }
 

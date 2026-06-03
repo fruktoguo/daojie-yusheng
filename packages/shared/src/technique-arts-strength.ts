@@ -570,6 +570,7 @@ interface BudgetConversionResult<T> {
   value: T;
   usedBudget: number;
   refundBudget: number;
+  canGrow?: boolean;
 }
 
 interface ConvertedFormulaBudget {
@@ -685,6 +686,7 @@ function convertCastRangeBudget(budget: number, maxRange: number): BudgetConvers
     value: range,
     usedBudget: roundTo(usedBudget, 6),
     refundBudget: roundTo(Math.max(0, positiveBudget - usedBudget), 6),
+    canGrow: range < cappedMaxRange,
   };
 }
 
@@ -714,6 +716,7 @@ function convertTargetBudget(
       value: target.rawRange,
       usedBudget: roundTo(rangeBudget, 6),
       refundBudget: 0,
+      canGrow: false,
     }
     : convertCastRangeBudget(rangeBudget, maxRange);
   const positiveShapeBudget = Math.max(0, shapeBudget);
@@ -725,6 +728,7 @@ function convertTargetBudget(
   };
   let converted: NormalizedTechniqueArtsStrengthTarget;
   let usedShapeBudget = 0;
+  let shapeCanGrow = false;
   if (target.type === 'line') {
     const lineLength = Math.max(1, range.value);
     let width = constants.minWidth;
@@ -735,6 +739,7 @@ function convertTargetBudget(
         usedShapeBudget = (cells - lineLength) / constants.coverageCellsPerBudget;
       }
     }
+    shapeCanGrow = width < constants.maxWidth;
     converted = buildTargetWithStrength({ ...baseTarget, type: 'line', range: range.value, width, rawRange: target.rawRange }, lineLength * width);
   } else if (target.type === 'box' || target.type === 'orientedBox' || target.type === 'checkerboard') {
     let side = constants.minWidth;
@@ -745,6 +750,7 @@ function convertTargetBudget(
         usedShapeBudget = (cells - 1) / constants.coverageCellsPerBudget;
       }
     }
+    shapeCanGrow = side < constants.maxBoxSide;
     const type = target.type === 'orientedBox' || target.type === 'checkerboard' ? target.type : 'box';
     converted = buildTargetWithStrength({
       ...baseTarget,
@@ -764,6 +770,7 @@ function convertTargetBudget(
         usedShapeBudget = (cells - 1) / constants.coverageCellsPerBudget;
       }
     }
+    shapeCanGrow = radius < constants.maxRadius;
     if (target.type === 'ring') {
       const innerRadius = Math.max(0, Math.min(radius, Math.floor(target.innerRadius ?? Math.max(radius - 1, 0))));
       const coveredCells = countRingCells(innerRadius, radius);
@@ -781,6 +788,7 @@ function convertTargetBudget(
       value: converted,
       usedBudget: roundTo(usedShapeBudget, 6),
       refundBudget: roundTo(Math.max(0, positiveShapeBudget - usedShapeBudget), 6),
+      canGrow: shapeCanGrow,
     },
   };
 }
@@ -794,6 +802,7 @@ function convertCostBudget(budget: number): BudgetConversionResult<number> {
     value: roundTo(Math.max(constants.minCostMultiplier, multiplier), 6),
     usedBudget: budget,
     refundBudget: 0,
+    canGrow: budget >= 0 && multiplier > constants.minCostMultiplier,
   };
 }
 
@@ -803,6 +812,7 @@ function convertCostBudgetWithOverride(budget: number, override: number | undefi
       value: override,
       usedBudget: roundTo(budget, 6),
       refundBudget: 0,
+      canGrow: false,
     };
   }
   return convertCostBudget(budget);
@@ -816,6 +826,7 @@ function convertCooldownBudget(budget: number, realmLv: number | undefined): Bud
       value: Math.max(constants.minCooldownTicks, Math.round(baseCooldown * (constants.cooldownNegativePerBudget ** Math.abs(budget)))),
       usedBudget: budget,
       refundBudget: 0,
+      canGrow: false,
     };
   }
   const rawTicks = baseCooldown * (constants.cooldownPositivePerBudget ** budget);
@@ -828,6 +839,7 @@ function convertCooldownBudget(budget: number, realmLv: number | undefined): Bud
     value: ticks,
     usedBudget: roundTo(usedBudget, 6),
     refundBudget: roundTo(Math.max(0, budget - usedBudget), 6),
+    canGrow: ticks > constants.minCooldownTicks,
   };
 }
 
@@ -841,6 +853,7 @@ function convertCooldownBudgetWithOverride(
       value: override,
       usedBudget: roundTo(budget, 6),
       refundBudget: 0,
+      canGrow: false,
     };
   }
   return convertCooldownBudget(budget, realmLv);
@@ -848,9 +861,135 @@ function convertCooldownBudgetWithOverride(
 
 function convertChantBudget(budget: number): BudgetConversionResult<number> {
   if (budget >= 0) {
-    return { value: 0, usedBudget: 0, refundBudget: roundTo(budget, 6) };
+    return { value: 0, usedBudget: 0, refundBudget: roundTo(budget, 6), canGrow: false };
   }
-  return { value: Math.round(Math.abs(budget)), usedBudget: budget, refundBudget: 0 };
+  return { value: Math.round(Math.abs(budget)), usedBudget: budget, refundBudget: 0, canGrow: false };
+}
+
+function convertAllocatedBudgets(
+  skill: NormalizedTechniqueArtsStrengthSkill,
+  allocations: Map<string, number>,
+  realmLv: number | undefined,
+) {
+  const targetConversion = convertTargetBudget(
+    skill.target,
+    readAllocatedBudget(allocations, 'target.castRangeWeight'),
+    readAllocatedBudget(allocations, 'target.areaWeight'),
+  );
+  const costConversion = convertCostBudgetWithOverride(
+    readAllocatedBudget(allocations, 'structure.cost'),
+    skill.structure.costMultiplierOverride,
+  );
+  const cooldownConversion = convertCooldownBudgetWithOverride(
+    readAllocatedBudget(allocations, 'structure.cooldown'),
+    realmLv,
+    skill.structure.cooldownTicksOverride,
+  );
+  const chantConversion = convertChantBudget(readAllocatedBudget(allocations, 'structure.chant'));
+  return {
+    target: targetConversion,
+    cost: costConversion,
+    cooldown: cooldownConversion,
+    chant: chantConversion,
+  };
+}
+
+function getConversionForBudgetItem(
+  item: BudgetItem,
+  conversions: ReturnType<typeof convertAllocatedBudgets>,
+): BudgetConversionResult<unknown> | null {
+  if (item.key === 'target.castRangeWeight') return conversions.target.range;
+  if (item.key === 'target.areaWeight') return conversions.target.shape;
+  if (item.key === 'structure.cost') return conversions.cost;
+  if (item.key === 'structure.cooldown') return conversions.cooldown;
+  if (item.key === 'structure.chant') return conversions.chant;
+  return null;
+}
+
+function canFormulaBudgetItemGrow(item: BudgetItem): boolean {
+  return item.kind === 'attributeBase'
+    || item.kind === 'extraBaseVar'
+    || item.kind === 'percentBonus'
+    || item.kind === 'extraPercentBonus';
+}
+
+function summarizePositiveRefunds(
+  items: BudgetItem[],
+  allocations: Map<string, number>,
+  conversions: ReturnType<typeof convertAllocatedBudgets>,
+): { refundBudget: number; growableKeys: string[] } {
+  let refundBudget = 0;
+  const growableKeys: string[] = [];
+  for (const item of items) {
+    if (item.weight <= 0) {
+      continue;
+    }
+    const conversion = getConversionForBudgetItem(item, conversions);
+    if (conversion) {
+      refundBudget += Math.max(0, readAllocatedBudget(allocations, item.key) - conversion.usedBudget);
+      if (conversion.canGrow === true) {
+        growableKeys.push(item.key);
+      }
+      continue;
+    }
+    if (canFormulaBudgetItemGrow(item)) {
+      growableKeys.push(item.key);
+    }
+  }
+  return {
+    refundBudget: roundTo(refundBudget, 6),
+    growableKeys,
+  };
+}
+
+function compactAllocationsToUsedBudgets(
+  items: BudgetItem[],
+  allocations: Map<string, number>,
+  conversions: ReturnType<typeof convertAllocatedBudgets>,
+): Map<string, number> {
+  const next = new Map(allocations);
+  for (const item of items) {
+    if (item.weight <= 0) {
+      continue;
+    }
+    const conversion = getConversionForBudgetItem(item, conversions);
+    if (conversion) {
+      next.set(item.key, conversion.usedBudget);
+    }
+  }
+  return next;
+}
+
+function redistributePositiveRefunds(
+  skill: NormalizedTechniqueArtsStrengthSkill,
+  items: BudgetItem[],
+  initialAllocations: Map<string, number>,
+  realmLv: number | undefined,
+): { allocations: Map<string, number>; initialRefundBudget: number; finalRefundBudget: number; redistributedBudget: number } {
+  let allocations = new Map(initialAllocations);
+  const initialSummary = summarizePositiveRefunds(items, allocations, convertAllocatedBudgets(skill, allocations, realmLv));
+  let previousRefund = Number.POSITIVE_INFINITY;
+  for (let iteration = 0; iteration < 12; iteration += 1) {
+    const conversions = convertAllocatedBudgets(skill, allocations, realmLv);
+    const summary = summarizePositiveRefunds(items, allocations, conversions);
+    if (summary.refundBudget <= 1e-6 || summary.growableKeys.length <= 0 || Math.abs(previousRefund - summary.refundBudget) <= 1e-6) {
+      break;
+    }
+    previousRefund = summary.refundBudget;
+    const share = summary.refundBudget / summary.growableKeys.length;
+    const next = compactAllocationsToUsedBudgets(items, allocations, conversions);
+    for (const key of summary.growableKeys) {
+      next.set(key, readAllocatedBudget(next, key) + share);
+    }
+    allocations = next;
+  }
+  const finalSummary = summarizePositiveRefunds(items, allocations, convertAllocatedBudgets(skill, allocations, realmLv));
+  return {
+    allocations,
+    initialRefundBudget: initialSummary.refundBudget,
+    finalRefundBudget: finalSummary.refundBudget,
+    redistributedBudget: roundTo(Math.max(0, initialSummary.refundBudget - finalSummary.refundBudget), 6),
+  };
 }
 
 function convertFormulaBudget(
@@ -958,27 +1097,15 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
   const totalWeight = budgetItems.reduce((sum, item) => sum + Math.abs(item.weight), 0);
   const positiveWeight = budgetItems.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   const negativeWeight = budgetItems.reduce((sum, item) => sum + Math.max(0, -item.weight), 0);
-  const allocations = allocateBudgets(budgetItems, fullTotalBudget);
-  const targetConversion = convertTargetBudget(
-    params.skill.target,
-    readAllocatedBudget(allocations, 'target.castRangeWeight'),
-    readAllocatedBudget(allocations, 'target.areaWeight'),
-  );
-  const costConversion = convertCostBudgetWithOverride(
-    readAllocatedBudget(allocations, 'structure.cost'),
-    params.skill.structure.costMultiplierOverride,
-  );
-  const cooldownConversion = convertCooldownBudgetWithOverride(
-    readAllocatedBudget(allocations, 'structure.cooldown'),
-    params.realmLv,
-    params.skill.structure.cooldownTicksOverride,
-  );
-  const chantConversion = convertChantBudget(readAllocatedBudget(allocations, 'structure.chant'));
-  const positiveRefundBudget = targetConversion.range.refundBudget
-    + targetConversion.shape.refundBudget
-    + cooldownConversion.refundBudget
-    + chantConversion.refundBudget;
-  const formulaConversion = convertFormulaBudget(params.skill.formula, budgetItems, allocations, positiveRefundBudget);
+  const initialAllocations = allocateBudgets(budgetItems, fullTotalBudget);
+  const redistribution = redistributePositiveRefunds(params.skill, budgetItems, initialAllocations, params.realmLv);
+  const allocations = redistribution.allocations;
+  const allocatedConversions = convertAllocatedBudgets(params.skill, allocations, params.realmLv);
+  const targetConversion = allocatedConversions.target;
+  const costConversion = allocatedConversions.cost;
+  const cooldownConversion = allocatedConversions.cooldown;
+  const chantConversion = allocatedConversions.chant;
+  const formulaConversion = convertFormulaBudget(params.skill.formula, budgetItems, allocations, 0);
   const targetBudget = formulaConversion.formula.effectStrength;
   const effectScale = 1;
   const skillIndex = Math.max(0, Math.floor(params.skillIndex ?? 0));
@@ -1029,8 +1156,8 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       totalWeight: roundTo(totalWeight, 6),
       positiveWeight: roundTo(positiveWeight, 6),
       negativeWeight: roundTo(negativeWeight, 6),
-      refundedBudget: roundTo(positiveRefundBudget, 6),
-      redistributedBudget: formulaConversion.redistributedBudget,
+      refundedBudget: roundTo(redistribution.finalRefundBudget, 6),
+      redistributedBudget: redistribution.redistributedBudget,
       items: [
         buildBreakdownItem({ key: 'target.castRangeWeight', kind: 'castRange', weight: params.skill.target.range }, readAllocatedBudget(allocations, 'target.castRangeWeight'), targetConversion.range.usedBudget, targetConversion.range.refundBudget, targetConversion.target.range),
         buildBreakdownItem({ key: 'target.areaWeight', kind: 'shape', weight: resolveTargetShapeWeight(params.skill.target) }, readAllocatedBudget(allocations, 'target.areaWeight'), targetConversion.shape.usedBudget, targetConversion.shape.refundBudget, `${targetConversion.target.type}:${targetConversion.target.coveredCells}`),
