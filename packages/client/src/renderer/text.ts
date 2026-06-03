@@ -1158,7 +1158,8 @@ export class TextRenderer implements IRenderer {
   private readonly renderedEntityByIdScratch = new Map<string, RenderedAnimEntity>();
   private readonly crowdedTileKeysScratch = new Set<string>();
   private readonly seenEntityIdsScratch = new Set<string>();
-  private readonly dualGridCoveredCellsScratch = new Set<string>();
+  private readonly terrainTileKeysScratch: string[] = [];
+  private readonly terrainTilesScratch: Array<Tile | null> = [];
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   /** 当前浮动文字列表。 */
   private floatingTexts: FloatingText[] = [];
@@ -1259,7 +1260,8 @@ export class TextRenderer implements IRenderer {
     this.renderedEntityByIdScratch.clear();
     this.crowdedTileKeysScratch.clear();
     this.seenEntityIdsScratch.clear();
-    this.dualGridCoveredCellsScratch.clear();
+    this.terrainTileKeysScratch.length = 0;
+    this.terrainTilesScratch.length = 0;
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileKeys.clear();
     this.previousVisibleTileRevision = -1;
@@ -1284,7 +1286,6 @@ export class TextRenderer implements IRenderer {
     this.performanceConfig = { ...config };
     runtimeImagePack.setPerformanceConfig(config);
     this.tileSpriteCache.clear();
-    this.dualGridCoveredCellsScratch.clear();
     this.previousRuntimeImagePackRevision = -1;
     this.terrainDirty = true;
   }
@@ -1615,22 +1616,43 @@ export class TextRenderer implements IRenderer {
     const startGY = Math.floor(camWorldY / cellSize) - 1;
     const endGX = Math.ceil((camWorldX + sw) / cellSize) + 1;
     const endGY = Math.ceil((camWorldY + sh) / cellSize) + 1;
-    const dualGridCoveredCells = this.dualGridCoveredCellsScratch;
-    dualGridCoveredCells.clear();
+    const runtimeTileSpritesEnabled = this.performanceConfig.renderRuntimeTileSprites;
+    const dualGridScanMargin = runtimeTileSpritesEnabled ? 1 : 0;
+    const tileGridStartGX = startGX - dualGridScanMargin;
+    const tileGridStartGY = startGY - dualGridScanMargin;
+    const tileGridEndGX = endGX + dualGridScanMargin;
+    const tileGridEndGY = endGY + dualGridScanMargin;
+    const tileGridWidth = Math.max(0, tileGridEndGX - tileGridStartGX + 1);
+    const tileGridHeight = Math.max(0, tileGridEndGY - tileGridStartGY + 1);
+    const tileGridCellCount = tileGridWidth * tileGridHeight;
+    const tileKeys = this.terrainTileKeysScratch;
+    const tiles = this.terrainTilesScratch;
+    tileKeys.length = tileGridCellCount;
+    tiles.length = tileGridCellCount;
 
-    for (let gy = startGY; gy <= endGY; gy++) {
-      for (let gx = startGX; gx <= endGX; gx++) {
+    for (let gy = tileGridStartGY; gy <= tileGridEndGY; gy++) {
+      for (let gx = tileGridStartGX; gx <= tileGridEndGX; gx++) {
+        const index = (gy - tileGridStartGY) * tileGridWidth + (gx - tileGridStartGX);
+        const inRenderRange = gx >= startGX && gx <= endGX && gy >= startGY && gy <= endGY;
         const sx = gx * cellSize + screenOffsetX;
         const sy = gy * cellSize + screenOffsetY;
-        if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
-        const tile = tileCache.get(`${gx},${gy}`);
+        const screenVisible = inRenderRange && sx + cellSize >= 0 && sx <= sw && sy + cellSize >= 0 && sy <= sh;
+        if (!runtimeTileSpritesEnabled && !screenVisible) {
+          continue;
+        }
+        const key = `${gx},${gy}`;
+        const tile = tileCache.get(key) ?? null;
+        tileKeys[index] = key;
+        tiles[index] = tile;
+
+        if (!screenVisible) continue;
         if (tile) {
           this.tileSpriteCache.drawTile(ctx, tile, cellSize, sx, sy, imagePackRevision);
         }
       }
     }
 
-    if (this.performanceConfig.renderRuntimeTileSprites) {
+    if (runtimeTileSpritesEnabled) {
       runtimeImagePack.drawDualGridTiles(ctx, {
         startGX,
         startGY,
@@ -1643,14 +1665,13 @@ export class TextRenderer implements IRenderer {
         cellSize,
         offsetX: screenOffsetX,
         offsetY: screenOffsetY,
-        coveredCells: dualGridCoveredCells,
         tileAt: (x, y) => {
-          const key = `${x},${y}`;
-          const tile = tileCache.get(key);
-          if (!tile) {
+          const localX = x - tileGridStartGX;
+          const localY = y - tileGridStartGY;
+          if (localX < 0 || localY < 0 || localX >= tileGridWidth || localY >= tileGridHeight) {
             return null;
           }
-          return tile;
+          return tiles[localY * tileGridWidth + localX] ?? null;
         },
       });
     }
@@ -1661,8 +1682,9 @@ export class TextRenderer implements IRenderer {
         const sy = gy * cellSize + screenOffsetY;
         if (sx + cellSize < 0 || sx > sw || sy + cellSize < 0 || sy > sh) continue;
 
-        const key = `${gx},${gy}`;
-        const tile = tileCache.get(key);
+        const tileIndex = (gy - tileGridStartGY) * tileGridWidth + (gx - tileGridStartGX);
+        const key = tileKeys[tileIndex] ?? `${gx},${gy}`;
+        const tile = tiles[tileIndex] ?? null;
         const isVisible = visibleTiles.has(key);
         const hiddenFade = this.getHiddenTileFade(key, now);
         const visibleFade = this.getVisibleTileFade(key, now);

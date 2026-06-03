@@ -32,7 +32,6 @@ export interface RuntimeDualGridDrawOptions {
   offsetX: number;
   offsetY: number;
   tileAt: (x: number, y: number) => RuntimeTileVisualSource | null;
-  coveredCells?: Set<string>;
 }
 
 interface DualGridEdgeOptions {
@@ -89,19 +88,21 @@ interface DualGridCellScan {
   minY: number;
   width: number;
   height: number;
-  occupied: Uint8Array;
-  keysByCell: Array<readonly string[] | null>;
-  activeKeys: string[];
+  keyIndexesByCell: Uint16Array;
+  hasActiveKey: boolean;
 }
 
 interface DualGridTileKeyCacheEntry {
   revision: number;
-  keys: readonly string[];
-  topDualGridReady: boolean;
+  keyIndex: number;
 }
 
 interface DualGridSourceFrame {
   data: ImageData;
+}
+
+interface DualGridEdgeAlphaMask {
+  factors: Uint8Array;
 }
 
 const DEFAULT_MANIFEST_URL = '/assets/runtime-image-packs/default/manifest.json';
@@ -131,6 +132,7 @@ const DUAL_GRID_EDGE_FRAME_SIZE = 32;
 const DUAL_GRID_EDGE_NOISE_VARIANTS = 8;
 const DUAL_GRID_EDGE_NOISE_VARIANT_STRIDE = 53;
 const MAX_DUAL_GRID_EDGE_CACHE_ENTRIES = 768;
+const MAX_DUAL_GRID_EDGE_ALPHA_MASK_CACHE_ENTRIES = 512;
 const MAX_DUAL_GRID_SOURCE_FRAME_CACHE_ENTRIES = 256;
 const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
 
@@ -497,11 +499,13 @@ class RuntimeImagePack {
   private legacyTileKeys = new Map<string, string>();
   private entitySprites = new Map<string, AtlasSpriteRef>();
   private dualGridTileKeys: string[] = [];
+  private dualGridTileRefs: AtlasSpriteRef[] = [];
   private readonly dualGridTileKeyCache = new WeakMap<RuntimeTileVisualSource, DualGridTileKeyCacheEntry>();
-  private readonly dualGridMasksByKey = new Map<string, number>();
-  private readonly dualGridTileKeyOrder = new Map<string, number>();
-  private readonly dualGridScanActiveKeySet = new Set<string>();
-  private readonly dualGridVertexKeysScratch: string[] = [];
+  private readonly dualGridTileKeyIndexes = new Map<string, number>();
+  private readonly dualGridEdgeAlphaMaskCache = new Map<string, DualGridEdgeAlphaMask>();
+  private dualGridScanKeyIndexesByCell = new Uint16Array(0);
+  private readonly dualGridVertexKeyIndexesScratch: number[] = [];
+  private readonly dualGridVertexMasksScratch: number[] = [];
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   private revision = 0;
 
@@ -518,6 +522,7 @@ class RuntimeImagePack {
     this.performanceConfig = { ...config };
     if (previousConfig.renderRuntimeTileSprites !== config.renderRuntimeTileSprites) {
       this.dualGridEdgeCache.clear();
+      this.dualGridEdgeAlphaMaskCache.clear();
       this.revision += 1;
     }
   }
@@ -561,52 +566,55 @@ class RuntimeImagePack {
     }
 
     const scan = this.scanDualGridCells(options);
-    if (scan.activeKeys.length === 0) {
+    if (!scan.hasActiveKey) {
       return false;
     }
 
     let drewAny = false;
-    const masksByKey = this.dualGridMasksByKey;
+    const vertexKeyIndexes = this.dualGridVertexKeyIndexesScratch;
+    const vertexMasks = this.dualGridVertexMasksScratch;
+    const edgeStartGX = options.edgeStartGX ?? options.startGX;
+    const edgeStartGY = options.edgeStartGY ?? options.startGY;
+    const edgeEndGX = options.edgeEndGX ?? options.endGX;
+    const edgeEndGY = options.edgeEndGY ?? options.endGY;
     let occupiedMask = 0;
     for (let vertexY = options.startGY; vertexY <= options.endGY + 1; vertexY += 1) {
       for (let vertexX = options.startGX; vertexX <= options.endGX + 1; vertexX += 1) {
-        masksByKey.clear();
+        vertexKeyIndexes.length = 0;
+        vertexMasks.length = 0;
         occupiedMask = 0;
-        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX - 1, vertexY - 1, 1);
-        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX - 1, vertexY, 2);
-        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX, vertexY - 1, 4);
-        occupiedMask |= this.collectDualGridScanCorner(scan, masksByKey, vertexX, vertexY, 8);
-        if (masksByKey.size === 0) {
+        occupiedMask |= this.collectDualGridScanCorner(scan, vertexKeyIndexes, vertexMasks, vertexX - 1, vertexY - 1, 1);
+        occupiedMask |= this.collectDualGridScanCorner(scan, vertexKeyIndexes, vertexMasks, vertexX - 1, vertexY, 2);
+        occupiedMask |= this.collectDualGridScanCorner(scan, vertexKeyIndexes, vertexMasks, vertexX, vertexY - 1, 4);
+        occupiedMask |= this.collectDualGridScanCorner(scan, vertexKeyIndexes, vertexMasks, vertexX, vertexY, 8);
+        if (vertexKeyIndexes.length === 0) {
           continue;
         }
-        const vertexKeys = this.dualGridVertexKeysScratch;
-        vertexKeys.length = 0;
-        for (const key of masksByKey.keys()) {
-          vertexKeys.push(key);
-        }
-        if (vertexKeys.length > 1) {
-          vertexKeys.sort((left, right) => (this.dualGridTileKeyOrder.get(left) ?? 0) - (this.dualGridTileKeyOrder.get(right) ?? 0));
-        }
+        this.sortDualGridVertexMasks(vertexKeyIndexes, vertexMasks);
 
         const worldDx = (vertexX - 0.5) * options.cellSize;
         const worldDy = (vertexY - 0.5) * options.cellSize;
         const dx = worldDx + options.offsetX;
         const dy = worldDy + options.offsetY;
-        for (const key of vertexKeys) {
-          const targetMask = masksByKey.get(key) ?? 0;
+        const edgeInRange = vertexX >= edgeStartGX
+          && vertexY >= edgeStartGY
+          && vertexX <= edgeEndGX + 1
+          && vertexY <= edgeEndGY + 1;
+        for (let index = 0; index < vertexKeyIndexes.length; index += 1) {
+          const keyIndex = vertexKeyIndexes[index]!;
+          const targetMask = vertexMasks[index] ?? 0;
           if (!targetMask) {
             continue;
           }
           const backgroundMask = occupiedMask & ~targetMask & 15;
           const mergedMask = targetMask | backgroundMask;
-          const ref = this.tileSprites.get(key);
+          const ref = this.dualGridTileRefs[keyIndex - 1];
           if (!ref?.dualGrid?.enabled) {
             continue;
           }
           if (targetMask === 15 && backgroundMask === 0) {
             continue;
           }
-          const edgeInRange = this.isDualGridEdgeVertexInRange(vertexX, vertexY, options);
           if (edgeInRange && backgroundMask && mergedMask !== targetMask) {
             drewAny = this.drawDualGridAtlasSprite(ctx, ref, dx, dy, worldDx, worldDy, options.cellSize, targetMask, mergedMask, true) || drewAny;
           }
@@ -654,11 +662,15 @@ class RuntimeImagePack {
           .filter(([, ref]) => ref.dualGrid?.enabled === true)
           .sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order)
           .map(([key]) => key);
-        this.dualGridTileKeyOrder.clear();
+        this.dualGridTileRefs = this.dualGridTileKeys
+          .map((key) => this.tileSprites.get(key))
+          .filter((ref): ref is AtlasSpriteRef => ref !== undefined);
+        this.dualGridTileKeyIndexes.clear();
         for (let index = 0; index < this.dualGridTileKeys.length; index += 1) {
-          this.dualGridTileKeyOrder.set(this.dualGridTileKeys[index]!, index);
+          this.dualGridTileKeyIndexes.set(this.dualGridTileKeys[index]!, index + 1);
         }
         this.dualGridEdgeCache.clear();
+        this.dualGridEdgeAlphaMaskCache.clear();
         this.dualGridSourceFrameCache.clear();
         this.manifestState = 'loaded';
         this.revision += 1;
@@ -688,14 +700,6 @@ class RuntimeImagePack {
     return true;
   }
 
-  private isDualGridEdgeVertexInRange(vertexX: number, vertexY: number, options: RuntimeDualGridDrawOptions): boolean {
-    const startGX = options.edgeStartGX ?? options.startGX;
-    const startGY = options.edgeStartGY ?? options.startGY;
-    const endGX = options.edgeEndGX ?? options.endGX;
-    const endGY = options.edgeEndGY ?? options.endGY;
-    return vertexX >= startGX && vertexY >= startGY && vertexX <= endGX + 1 && vertexY <= endGY + 1;
-  }
-
   private scanDualGridCells(options: RuntimeDualGridDrawOptions): DualGridCellScan {
     const minX = options.startGX - 1;
     const minY = options.startGY - 1;
@@ -703,10 +707,14 @@ class RuntimeImagePack {
     const maxY = options.endGY + 1;
     const width = Math.max(0, maxX - minX + 1);
     const height = Math.max(0, maxY - minY + 1);
-    const occupied = new Uint8Array(width * height);
-    const keysByCell: Array<readonly string[] | null> = new Array(width * height).fill(null);
-    const activeKeySet = this.dualGridScanActiveKeySet;
-    activeKeySet.clear();
+    const cellCount = width * height;
+    if (this.dualGridScanKeyIndexesByCell.length < cellCount) {
+      this.dualGridScanKeyIndexesByCell = new Uint16Array(cellCount);
+    } else {
+      this.dualGridScanKeyIndexesByCell.fill(0, 0, cellCount);
+    }
+    const keyIndexesByCell = this.dualGridScanKeyIndexesByCell;
+    let hasActiveKey = false;
 
     for (let y = minY; y <= maxY; y += 1) {
       for (let x = minX; x <= maxX; x += 1) {
@@ -715,24 +723,16 @@ class RuntimeImagePack {
         if (!tile) {
           continue;
         }
-        occupied[index] = 1;
         const resolved = this.resolveDualGridTileKeys(tile);
-        if (options.coveredCells && resolved.topDualGridReady) {
-          options.coveredCells.add(`${x},${y}`);
-        }
-        const keys = resolved.keys;
-        if (keys.length === 0) {
+        if (resolved.keyIndex === 0) {
           continue;
         }
-        keysByCell[index] = keys;
-        for (const key of keys) {
-          activeKeySet.add(key);
-        }
+        keyIndexesByCell[index] = resolved.keyIndex;
+        hasActiveKey = true;
       }
     }
 
-    const activeKeys = this.dualGridTileKeys.filter((key) => activeKeySet.has(key));
-    return { minX, minY, width, height, occupied, keysByCell, activeKeys };
+    return { minX, minY, width, height, keyIndexesByCell, hasActiveKey };
   }
 
   private resolveDualGridTileKeys(tile: RuntimeTileVisualSource): DualGridTileKeyCacheEntry {
@@ -742,17 +742,18 @@ class RuntimeImagePack {
     }
     const topKey = resolveTopTileSpriteKey(tile as Tile, this.legacyTileKeys);
     const topRef = topKey ? this.tileSprites.get(topKey) : undefined;
-    const topDualGridReady = topRef?.dualGrid?.enabled === true
-      && this.getImage(topRef.src)?.state === 'loaded';
-    const keys = topRef?.dualGrid?.enabled === true && topKey ? [topKey] : [];
-    const entry = { revision: this.revision, keys, topDualGridReady };
+    const keyIndex = topRef?.dualGrid?.enabled === true && topKey
+      ? this.dualGridTileKeyIndexes.get(topKey) ?? 0
+      : 0;
+    const entry = { revision: this.revision, keyIndex };
     this.dualGridTileKeyCache.set(tile, entry);
     return entry;
   }
 
   private collectDualGridScanCorner(
     scan: DualGridCellScan,
-    masksByKey: Map<string, number>,
+    keyIndexes: number[],
+    masks: number[],
     x: number,
     y: number,
     mask: number,
@@ -763,14 +764,37 @@ class RuntimeImagePack {
       return 0;
     }
     const index = localY * scan.width + localX;
-    const keys = scan.keysByCell[index];
-    if (keys) {
-      for (const key of keys) {
-        masksByKey.set(key, (masksByKey.get(key) ?? 0) | mask);
-      }
-      return mask;
+    const keyIndex = scan.keyIndexesByCell[index] ?? 0;
+    if (keyIndex === 0) {
+      return 0;
     }
-    return 0;
+    for (let existingIndex = 0; existingIndex < keyIndexes.length; existingIndex += 1) {
+      if (keyIndexes[existingIndex] === keyIndex) {
+        masks[existingIndex] = (masks[existingIndex] ?? 0) | mask;
+        return mask;
+      }
+    }
+    keyIndexes.push(keyIndex);
+    masks.push(mask);
+    return mask;
+  }
+
+  private sortDualGridVertexMasks(keyIndexes: number[], masks: number[]): void {
+    if (keyIndexes.length < 2) {
+      return;
+    }
+    for (let index = 1; index < keyIndexes.length; index += 1) {
+      const keyIndex = keyIndexes[index]!;
+      const mask = masks[index]!;
+      let target = index - 1;
+      while (target >= 0 && (keyIndexes[target] ?? 0) > keyIndex) {
+        keyIndexes[target + 1] = keyIndexes[target]!;
+        masks[target + 1] = masks[target]!;
+        target -= 1;
+      }
+      keyIndexes[target + 1] = keyIndex;
+      masks[target + 1] = mask;
+    }
   }
 
   private drawDualGridAtlasSprite(
@@ -905,10 +929,6 @@ class RuntimeImagePack {
     if (!edge) {
       return null;
     }
-    const range = (edge.range / 100) * (size / 2) * Math.SQRT2;
-    if (range <= 0) {
-      return null;
-    }
     const cacheKey = `${ref.src}:${sx}:${sy}:${sw}:${sh}:${size}:${noiseVariant}:${sourceMask}:${clipMask}:${edgeSignature(edge)}`;
     const hit = this.dualGridEdgeCache.get(cacheKey);
     if (hit) {
@@ -925,13 +945,64 @@ class RuntimeImagePack {
     if (!sourceFrame) {
       return null;
     }
+    const alphaMask = this.getDualGridEdgeAlphaMask(edge, size, noiseVariant, sourceMask, clipMask);
+    if (!alphaMask) {
+      return null;
+    }
     const outputData = outputCtx.createImageData(size, size);
+    const sourcePixels = sourceFrame.data.data;
+    const outputPixels = outputData.data;
+    const alphaFactors = alphaMask.factors;
+
+    for (let pixel = 0; pixel < alphaFactors.length; pixel += 1) {
+      const alphaFactor = alphaFactors[pixel] ?? 0;
+      if (alphaFactor === 0) {
+        continue;
+      }
+      const index = pixel * 4;
+      const alphaBase = sourcePixels[index + 3] ?? 0;
+      if (alphaBase === 0) {
+        continue;
+      }
+      outputPixels[index] = sourcePixels[index]!;
+      outputPixels[index + 1] = sourcePixels[index + 1]!;
+      outputPixels[index + 2] = sourcePixels[index + 2]!;
+      outputPixels[index + 3] = Math.round(alphaBase * alphaFactor / 255);
+    }
+
+    outputCtx.putImageData(outputData, 0, 0);
+    this.dualGridEdgeCache.set(cacheKey, canvas);
+    if (this.dualGridEdgeCache.size > MAX_DUAL_GRID_EDGE_CACHE_ENTRIES) {
+      const oldestKey = this.dualGridEdgeCache.keys().next().value;
+      if (typeof oldestKey === 'string') {
+        this.dualGridEdgeCache.delete(oldestKey);
+      }
+    }
+    return canvas;
+  }
+
+  private getDualGridEdgeAlphaMask(
+    edge: DualGridEdgeOptions,
+    size: number,
+    noiseVariant: number,
+    sourceMask: number,
+    clipMask: number,
+  ): DualGridEdgeAlphaMask | null {
+    const range = (edge.range / 100) * (size / 2) * Math.SQRT2;
+    if (range <= 0) {
+      return null;
+    }
+    const cacheKey = `${size}:${noiseVariant}:${sourceMask}:${clipMask}:${edgeSignature(edge)}`;
+    const hit = this.dualGridEdgeAlphaMaskCache.get(cacheKey);
+    if (hit) {
+      return hit;
+    }
+
+    const factors = new Uint8Array(size * size);
     const fade = edge.fade / 100;
     const fadeStart = edge.fadeStart / 100;
     const noiseScale = edge.noise ? edge.noiseAmount / 100 : 0;
     const noiseOffset = getDualGridNoiseVariantOffset(noiseVariant);
-    const sourcePixels = sourceFrame.data.data;
-    const outputPixels = outputData.data;
 
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
@@ -947,29 +1018,21 @@ class RuntimeImagePack {
         if (distance > range) {
           continue;
         }
-        const index = (y * size + x) * 4;
-        const alphaBase = sourcePixels[index + 3];
-        if (alphaBase === 0) {
-          continue;
-        }
         const fadeAlpha = edgeFadeAlpha(distance, range, fadeStart, edge.fadeCurve);
         const alphaFactor = 1 - fade + fade * fadeAlpha;
-        outputPixels[index] = sourcePixels[index]!;
-        outputPixels[index + 1] = sourcePixels[index + 1]!;
-        outputPixels[index + 2] = sourcePixels[index + 2]!;
-        outputPixels[index + 3] = Math.round(alphaBase * alphaFactor);
+        factors[y * size + x] = Math.max(0, Math.min(255, Math.round(alphaFactor * 255)));
       }
     }
 
-    outputCtx.putImageData(outputData, 0, 0);
-    this.dualGridEdgeCache.set(cacheKey, canvas);
-    if (this.dualGridEdgeCache.size > MAX_DUAL_GRID_EDGE_CACHE_ENTRIES) {
-      const oldestKey = this.dualGridEdgeCache.keys().next().value;
+    const mask = { factors };
+    this.dualGridEdgeAlphaMaskCache.set(cacheKey, mask);
+    if (this.dualGridEdgeAlphaMaskCache.size > MAX_DUAL_GRID_EDGE_ALPHA_MASK_CACHE_ENTRIES) {
+      const oldestKey = this.dualGridEdgeAlphaMaskCache.keys().next().value;
       if (typeof oldestKey === 'string') {
-        this.dualGridEdgeCache.delete(oldestKey);
+        this.dualGridEdgeAlphaMaskCache.delete(oldestKey);
       }
     }
-    return canvas;
+    return mask;
   }
 
   private getDualGridSourceFrame(
