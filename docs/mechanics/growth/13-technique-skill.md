@@ -99,11 +99,15 @@ transmissionSkillFactor:
 
 ## 技能灵力消耗
 
-```typescript
-cost = costMultiplier × gradeQiCostMultiplier × realmLv × realmAttributeMultiplier
+```text
+品阶序号：mortal=0, yellow=1, mystic=2, earth=3, heaven=4, spirit=5, saint=6, emperor=7
+品阶指数倍率 = 1.4 ^ 品阶序号
+标准灵力输出 = 当前功法境界等级对应的玩家最终基准灵力输出
+
+cost = round(标准灵力输出 × 0.2 × 品阶指数倍率 × costMultiplier)
 ```
 
-品阶消耗倍率: mortal:1, yellow:2, mystic:3, earth:4, heaven:5, spirit:6, saint:7, emperor:8
+实际施法扣灵还会再经过 `calcQiCostWithOutputLimit(cost, maxQiOutputPerTick)`，超过当前玩家每息灵力输出上限时递增惩罚。
 
 ## 技能定义（SkillDef）
 
@@ -149,6 +153,8 @@ realValue = convertByItem(itemBudget)
 - 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算按固定轮次平均回流到仍可增长的项目。
 
 详细公式见 `docs/design/balance/术法预算量化设计.md`。正式运行时仍保存展开后的 `SkillDef`，战斗 tick 不读取 AI 权重草稿。
+
+已发布 AI 术法的 `generated_technique.template.skills` 不会因公式代码更新而自动重算。公式调整后，运维需要先通过 GM 快捷指令“迁移旧版AI术法草稿”从 `rawCandidate` 重新展开模板，再通过“刷新在线玩家功法模板”让在线玩家已学技能重新水合；离线玩家下次登录时读取最新模板。
 
 系统自带功法为了迁移旧版手写 `SkillDef`，允许在 `artsStrength` 中使用显式还原参数：`target.rawRange/rawTargeting`、`structureStrength.costMultiplier/cooldownTicks` 和效果里的 `formulaStrength.rawFormula/hpFormulaStrength.rawFormula`。这些字段只用于静态系统内容等价还原旧数值，不进入 AI 生成提示词，也不改变预算公式本身。
 

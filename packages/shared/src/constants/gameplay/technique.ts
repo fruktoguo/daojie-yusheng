@@ -89,17 +89,35 @@ export const TECHNIQUE_GRADE_ORDER: TechniqueGrade[] = [
   'emperor',
 ];
 
-/** 技能灵力消耗中各功法品阶对应的倍率 */
+/** 技能灵力消耗中各功法品阶对应的指数倍率 */
 export const TECHNIQUE_GRADE_QI_COST_MULTIPLIERS: Record<TechniqueGrade, number> = {
   mortal: 1,
-  yellow: 2,
-  mystic: 3,
-  earth: 4,
-  heaven: 5,
-  spirit: 6,
-  saint: 7,
-  emperor: 8,
+  yellow: 1.4,
+  mystic: 1.96,
+  earth: 2.744,
+  heaven: 3.8416,
+  spirit: 5.37824,
+  saint: 7.529536,
+  emperor: 10.5413504,
 };
+
+/** 技能基础耗灵占当前境界标准灵力输出的基础比例。 */
+export const TECHNIQUE_SKILL_QI_COST_BASELINE_RATIO = 0.2;
+
+/** 技能基础耗灵按品阶序号指数放大的底数。 */
+export const TECHNIQUE_SKILL_QI_COST_GRADE_POWER_BASE = 1.4;
+
+/** 1-78 境界等级对应的玩家最终基准灵力输出。 */
+export const TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL = [
+  21, 26, 31, 37, 44, 55, 66, 80, 111, 140, 176, 259, 324, 405, 506, 709, 884, 1103,
+  1759, 2239, 2838, 3585, 5254, 6562, 9196, 11725, 16939, 21314, 26730, 33419,
+  54067, 68050, 85313, 106584, 147475, 182561, 226168, 279406, 387849, 475213,
+  580767, 708092, 927601, 1119591, 1349060, 1623052, 2111873, 2529582, 3026165,
+  3616028, 4672389, 5562586, 6632468, 7898347, 10129887, 11993960, 14189569,
+  16774293, 21360814, 25175119, 29643948, 34876705, 44072488, 57207363, 68113130,
+  81002953, 104115979, 122556853, 144036039, 169032653, 214430496, 250867423,
+  293148818, 342174840, 432660283, 503464160, 585325304, 679909607,
+] as const;
 
 /** 各品阶属性无衰减上限（超出后进入软衰减区间） */
 export const TECHNIQUE_GRADE_ATTR_FREE_LIMITS: Record<TechniqueGrade, Attributes> = {

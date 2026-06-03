@@ -37,7 +37,9 @@ import {
   TECHNIQUE_GRADE_ATTR_FREE_LIMITS,
   TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP,
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
-  TECHNIQUE_GRADE_QI_COST_MULTIPLIERS,
+  TECHNIQUE_SKILL_QI_COST_BASELINE_RATIO,
+  TECHNIQUE_SKILL_QI_COST_GRADE_POWER_BASE,
+  TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL,
   TECHNIQUE_GRADE_ORDER,
 } from './constants/gameplay/technique';
 
@@ -158,7 +160,20 @@ export function resolveSkillUnlockLevel(skill: Pick<SkillDef, 'unlockLevel' | 'u
 
 /** 获取功法品阶对应的灵力消耗倍率 */
 export function getTechniqueGradeQiCostMultiplier(grade: TechniqueGrade | undefined): number {
-  return grade ? TECHNIQUE_GRADE_QI_COST_MULTIPLIERS[grade] ?? 1 : 1;
+  const gradeIndex = grade ? TECHNIQUE_GRADE_ORDER.indexOf(grade) : 0;
+  return TECHNIQUE_SKILL_QI_COST_GRADE_POWER_BASE ** Math.max(0, gradeIndex);
+}
+
+export function getTechniqueStandardQiOutputBaseline(realmLv: number | undefined): number {
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv ?? 1)) : 1;
+  const exact = TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL[normalizedRealmLv - 1];
+  if (Number.isFinite(exact) && exact > 0) {
+    return exact;
+  }
+  const lastLevel = TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL.length;
+  const lastValue = TECHNIQUE_STANDARD_QI_OUTPUT_BY_REALM_LEVEL[lastLevel - 1] ?? 1;
+  const extrapolated = lastValue * (getRealmAttributeMultiplier(normalizedRealmLv) / getRealmAttributeMultiplier(lastLevel));
+  return Math.max(1, Math.round(extrapolated));
 }
 
 /** 根据当前层数推导功法境界（入门/小成/大成/圆满） */
@@ -190,15 +205,13 @@ export function calculateTechniqueSkillQiCost(
   realmLv: number | undefined,
 ): number {
   const normalizedMultiplier = Number.isFinite(costMultiplier) ? Math.max(0, costMultiplier) : 0;
-  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv ?? 1)) : 1;
-  const realmFactor = getRealmAttributeMultiplier(normalizedRealmLv);
   return Math.max(
     0,
     Math.round(
       normalizedMultiplier
+      * getTechniqueStandardQiOutputBaseline(realmLv)
+      * TECHNIQUE_SKILL_QI_COST_BASELINE_RATIO
       * getTechniqueGradeQiCostMultiplier(grade)
-      * normalizedRealmLv
-      * realmFactor,
     ),
   );
 }
