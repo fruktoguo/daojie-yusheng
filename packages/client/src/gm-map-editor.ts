@@ -159,6 +159,8 @@ type GmMapEditorOptions = {
  */
 
   syncedSummaryLabel?: string;  
+  /** 是否在编辑器画布中启用 dual-grid 地块预览。 */
+  dualGridRenderingEnabled?: boolean;
   /**
  * itemCatalog：道具目录相关字段。
  */
@@ -664,6 +666,8 @@ export class GmMapEditor {
   private undoStack: EditorUndoEntry[] = [];
   /** renderFrameId：渲染帧ID。 */
   private renderFrameId: number | null = null;  
+  /** 编辑器画布是否启用 dual-grid 地块预览。 */
+  private dualGridRenderingEnabled = true;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request RequestFn 请求参数。
@@ -680,6 +684,7 @@ export class GmMapEditor {
   ) {
     this.mapApiBasePath = options.mapApiBasePath ?? `${GM_API_BASE_PATH}/maps`;
     this.syncedSummaryLabel = options.syncedSummaryLabel ?? '已与服务端同步';
+    this.dualGridRenderingEnabled = options.dualGridRenderingEnabled !== false;
     this.itemCatalog = options.itemCatalog ? clone(options.itemCatalog) : [];
     this.bindEvents();
     this.renderToolControls();
@@ -695,6 +700,13 @@ export class GmMapEditor {
     if (this.currentInspectorTab === 'container') {
       this.renderInspector();
     }
+  }
+
+  /** 设置地图编辑器画布是否使用 dual-grid 地块预览。 */
+  setDualGridRenderingEnabled(enabled: boolean): void {
+    if (this.dualGridRenderingEnabled === enabled) return;
+    this.dualGridRenderingEnabled = enabled;
+    this.renderCanvas();
   }
 
   /** 确保地图列表已加载，首次切换到地图 tab 时调用 */
@@ -3583,16 +3595,18 @@ export class GmMapEditor {
       }
     }
 
-    runtimeImagePack.drawDualGridTiles(ctx, {
-      startGX,
-      startGY,
-      endGX,
-      endGY,
-      cellSize,
-      offsetX: -this.viewCenterX + screenW / 2,
-      offsetY: -this.viewCenterY + screenH / 2,
-      tileAt: (x, y) => this.getTileVisualSourceAt(x, y),
-    });
+    if (this.dualGridRenderingEnabled) {
+      runtimeImagePack.drawDualGridTiles(ctx, {
+        startGX,
+        startGY,
+        endGX,
+        endGY,
+        cellSize,
+        offsetX: -this.viewCenterX + screenW / 2,
+        offsetY: -this.viewCenterY + screenH / 2,
+        tileAt: (x, y) => this.getTileVisualSourceAt(x, y),
+      });
+    }
 
     this.drawComposePieces(ctx, screenW, screenH, cellSize);
     this.drawEntities(ctx, screenW, screenH, cellSize);

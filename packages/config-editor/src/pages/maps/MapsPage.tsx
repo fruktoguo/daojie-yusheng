@@ -4,7 +4,7 @@
  * 维护时要保持草稿、接口返回和发布数据的边界一致，避免把服务端导入校验提前写死在普通 UI 组件里。
  */
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { SectionPageLayout } from '../../ui';
+import { SectionPageLayout, Switch } from '../../ui';
 import { request } from '../../lib/api';
 import { toast } from '../../ui/Toast';
 import { GmMapEditor } from '../../../../client/src/gm-map-editor';
@@ -12,11 +12,19 @@ import { GmMapEditor } from '../../../../client/src/gm-map-editor';
 type SideTab = 'overview' | 'inspector' | 'json';
 type CatalogMode = 'main' | 'piece';
 
+const MAP_EDITOR_DUAL_GRID_RENDERING_KEY = 'mud.config-editor.map.dual-grid-rendering';
+
+function loadDualGridRenderingPreference(): boolean {
+  if (typeof window === 'undefined') return true;
+  return window.localStorage.getItem(MAP_EDITOR_DUAL_GRID_RENDERING_KEY) !== 'false';
+}
+
 export default function MapsPage() {
   const editorRef = useRef<GmMapEditor | null>(null);
   const mountedRef = useRef(false);
   const [sideTab, setSideTab] = useState<SideTab>('overview');
   const [catalogMode, setCatalogMode] = useState<CatalogMode>('main');
+  const [dualGridRenderingEnabled, setDualGridRenderingEnabled] = useState(loadDualGridRenderingPreference);
   const catalogMapRef = useRef<Map<string, CatalogMode>>(new Map());
 
   const setAppStatus = useCallback((message: string, isError?: boolean) => {
@@ -47,11 +55,19 @@ export default function MapsPage() {
     const editor = new GmMapEditor(
       request,
       setAppStatus,
-      { mapApiBasePath: '/api/maps' },
+      {
+        mapApiBasePath: '/api/maps',
+        dualGridRenderingEnabled,
+      },
     );
     editorRef.current = editor;
     editor.ensureLoaded();
-  }, [setAppStatus, loadCatalogModes]);
+  }, [setAppStatus, loadCatalogModes, dualGridRenderingEnabled]);
+
+  useEffect(() => {
+    window.localStorage.setItem(MAP_EDITOR_DUAL_GRID_RENDERING_KEY, dualGridRenderingEnabled ? 'true' : 'false');
+    editorRef.current?.setDualGridRenderingEnabled(dualGridRenderingEnabled);
+  }, [dualGridRenderingEnabled]);
 
   // Apply catalog mode filter via CSS whenever catalogMode or DOM changes
   useEffect(() => {
@@ -133,14 +149,24 @@ export default function MapsPage() {
           {/* Toolbar */}
           <div className="flex items-center gap-1 px-2 py-1 border-b border-border shrink-0 flex-wrap">
             <div id="map-tool-buttons" className="flex gap-1 flex-wrap"></div>
-            <div className="ml-auto flex gap-1">
-              <button id="map-undo" className="small-btn">撤销</button>
-              <button id="map-save" className="small-btn primary">保存</button>
-              <button id="map-reset" className="small-btn">重置</button>
-              <button id="map-reload" className="small-btn">重载</button>
-              <button id="map-center" className="small-btn">居中</button>
-              <button id="map-zoom-out" className="small-btn">-</button>
-              <button id="map-zoom-in" className="small-btn">+</button>
+            <div className="ml-auto flex items-center gap-2">
+              <label className="flex h-7 items-center gap-2 rounded-md border border-border bg-card px-2 text-xs text-muted-foreground">
+                <Switch
+                  checked={dualGridRenderingEnabled}
+                  onCheckedChange={setDualGridRenderingEnabled}
+                  aria-label="切换 dual-grid 地图预览"
+                />
+                <span className="whitespace-nowrap">Dual 地块</span>
+              </label>
+              <div className="flex gap-1">
+                <button id="map-undo" className="small-btn">撤销</button>
+                <button id="map-save" className="small-btn primary">保存</button>
+                <button id="map-reset" className="small-btn">重置</button>
+                <button id="map-reload" className="small-btn">重载</button>
+                <button id="map-center" className="small-btn">居中</button>
+                <button id="map-zoom-out" className="small-btn">-</button>
+                <button id="map-zoom-in" className="small-btn">+</button>
+              </div>
             </div>
           </div>
 
