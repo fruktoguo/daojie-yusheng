@@ -119,6 +119,8 @@ const smokeCases = [
     { name: 'pending-combat-cast-redis-recovery', scriptFile: 'pending-combat-cast-redis-recovery-smoke.js', standalone: true },
     { name: 'world-sync-envelope', scriptFile: 'world-sync-envelope-smoke.js', standalone: true },
     { name: 'leaderboard-offline-snapshots', scriptFile: 'leaderboard-offline-snapshots-smoke.js', standalone: true },
+    { name: 'market-runtime-ban-cancel-orders', scriptFile: 'market-runtime-ban-cancel-orders-smoke.js', standalone: true },
+    { name: 'native-managed-account-ban-market', scriptFile: 'native-managed-account-ban-market-smoke.js', standalone: true },
     { name: 'loot', scriptFile: 'loot-smoke.js' },
     { name: 'auth-bootstrap', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'auth-bootstrap-native', scriptFile: 'auth-bootstrap-smoke.js' },

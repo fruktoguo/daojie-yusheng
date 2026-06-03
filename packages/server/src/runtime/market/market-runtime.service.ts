@@ -1130,6 +1130,74 @@ export class MarketRuntimeService {
             return this.singleMessage(playerId, '订单已取消，剩余托管物已退回。', 'success');
         });
     }
+    /** GM 封禁联动：取消目标玩家全部开放求购/挂售/寄拍订单，并返还仍冻结的资产。 */
+    async cancelOpenOrdersForBannedPlayer(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return { affectedPlayerIds: [], notices: [], cancelledOrderIds: [] };
+        }
+        const result = await this.runExclusiveMarketMutation(normalizedPlayerId, async (context) => {
+            const targetOrders = this.openOrders.filter((order) => order?.ownerId === normalizedPlayerId
+                && order.status === 'open'
+                && order.remainingQuantity > 0);
+            if (targetOrders.length === 0) {
+                context.skipPersistence = true;
+                return { affectedPlayerIds: [], notices: [], cancelledOrderIds: [] };
+            }
+            const affectedPlayerIds = new Set([normalizedPlayerId]);
+            for (const order of targetOrders) {
+                if (order.side !== 'sell' || !this.isAuctionOrder(order)) {
+                    continue;
+                }
+                for (const bid of this.getSortedAuctionBids(this.buildAuctionLotKey(order))) {
+                    if (bid.reservedCost > 0) {
+                        affectedPlayerIds.add(bid.bidderId);
+                    }
+                }
+            }
+            await this.ensureStoragesHydrated(affectedPlayerIds);
+            const mutationResult = {
+                affectedPlayerIds: [],
+                notices: [],
+                cancelledOrderIds: [],
+            };
+            const now = Date.now();
+            for (const order of targetOrders) {
+                if (order.status !== 'open' || order.remainingQuantity <= 0 || order.ownerId !== normalizedPlayerId) {
+                    continue;
+                }
+                if (order.side === 'sell') {
+                    if (this.isAuctionOrder(order)) {
+                        const lotKey = this.buildAuctionLotKey(order);
+                        this.refundAuctionBidReserves(lotKey, context, mutationResult, '拍卖行拍品已被撤下，冻结灵石已退回。');
+                        this.clearAuctionStateForItemKey(lotKey, context);
+                    }
+                    this.deliverItemToPlayer(normalizedPlayerId, { ...order.item, count: order.remainingQuantity }, context);
+                }
+                else {
+                    const refund = calculateMarketTradeTotalCost(order.remainingQuantity, order.unitPrice);
+                    if (refund) {
+                        this.deliverMarketCurrencyToPlayer(normalizedPlayerId, refund, context);
+                    }
+                }
+                order.status = 'cancelled';
+                order.remainingQuantity = 0;
+                order.updatedAt = now;
+                this.deleteOrder(order.id, context);
+                mutationResult.cancelledOrderIds.push(order.id);
+                this.touchAffectedPlayer(mutationResult, normalizedPlayerId);
+            }
+            this.compactOpenOrders();
+            return mutationResult;
+        });
+        const stillOpen = this.openOrders.some((order) => order?.ownerId === normalizedPlayerId
+            && order.status === 'open'
+            && order.remainingQuantity > 0);
+        if (stillOpen) {
+            throw new Error('banned_player_market_cancel_incomplete');
+        }
+        return result;
+    }
     async syncCurrentPresenceFence(playerId) {
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return false;

@@ -903,26 +903,33 @@ class WorldRuntimeSectService {
             && Math.abs(Math.trunc(Number(y)) - sect.coreY) <= SECT_INNATE_STABILIZER_RADIUS;
     }
 
-    buildSectMemberCountLeaderboard(limit = 10) {
+    buildSectMemberCountLeaderboard(limit = 10, excludedPlayerIds = new Set()) {
         const effectiveLimit = Number.isFinite(Number(limit))
             ? Math.max(1, Math.floor(Number(limit)))
             : 10;
+        const excluded = excludedPlayerIds instanceof Set
+            ? excludedPlayerIds
+            : new Set(Array.isArray(excludedPlayerIds) ? excludedPlayerIds : []);
         return Array.from(this.sectsById.values())
             .filter((sect) => sect?.status === 'active')
             .map((sect) => {
                 ensureSectState(sect, this.playerRuntimeService);
-                const leader = sect.members.find((member) => member.playerId === sect.leaderPlayerId);
+                const visibleMembers = Array.isArray(sect.members)
+                    ? sect.members.filter((member) => !excluded.has(member.playerId))
+                    : [];
+                const leader = visibleMembers.find((member) => member.playerId === sect.leaderPlayerId) ?? visibleMembers[0] ?? null;
                 return {
                     rank: 0,
                     sectId: sect.sectId,
                     sectName: normalizeOptionalString(sect.name) || sect.sectId,
                     mark: normalizeOptionalString(sect.mark),
-                    memberCount: Array.isArray(sect.members) ? sect.members.length : 0,
-                    leaderPlayerId: normalizeOptionalString(sect.leaderPlayerId),
-                    leaderName: normalizeOptionalString(leader?.name) || normalizeOptionalString(sect.leaderPlayerId) || '未知宗主',
+                    memberCount: visibleMembers.length,
+                    leaderPlayerId: normalizeOptionalString(leader?.playerId),
+                    leaderName: normalizeOptionalString(leader?.name) || normalizeOptionalString(leader?.playerId) || '未知宗主',
                     createdAt: Number.isFinite(Number(sect.createdAt)) ? Number(sect.createdAt) : 0,
                 };
             })
+            .filter((entry) => entry.memberCount > 0)
             .sort((left, right) => (right.memberCount - left.memberCount
                 || left.createdAt - right.createdAt
                 || left.sectName.localeCompare(right.sectName, 'zh-Hans-CN')

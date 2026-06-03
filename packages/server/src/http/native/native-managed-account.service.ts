@@ -8,11 +8,13 @@
  * 为 GM 面板提供按 playerId 查询账号、修改密码、修改用户名、封禁/解封等管理操作，
  * 变更后同步持久化身份和运行时显示名。
  */
-import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { normalizeUsername, resolveDisplayName, validatePassword, validateUsername } from '../../auth/account-validation';
 import { hashPassword } from '../../auth/password-hash';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
+import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
+import { LeaderboardRuntimeService } from '../../runtime/player/leaderboard-runtime.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { GM_AUTH_CONTRACT } from './native-gm-contract';
 import { NativePlayerAuthStoreService } from './native-player-auth-store.service';
@@ -122,6 +124,14 @@ interface PlayerRuntimePort {
  displayName?: string }): unknown;
 }
 
+interface MarketRuntimePort {
+  cancelOpenOrdersForBannedPlayer(playerId: string): Promise<unknown>;
+}
+
+interface LeaderboardRuntimePort {
+  invalidateCaches(): void;
+}
+
 /** Next 托管账号服务：为 GM/管理入口提供账号查询、重命名和密码更新。 */
 @Injectable()
 export class NativeManagedAccountService {
@@ -139,6 +149,8 @@ export class NativeManagedAccountService {
 
 
   private readonly playerRuntimeService: PlayerRuntimePort;
+  private readonly marketRuntimeService: MarketRuntimePort | null;
+  private readonly leaderboardRuntimeService: LeaderboardRuntimePort | null;
 
   /** 账号索引与冲突检查入口。 */
   constructor(
@@ -147,9 +159,19 @@ export class NativeManagedAccountService {
     playerIdentityPersistenceService: unknown,
     @Inject(PlayerRuntimeService)
     playerRuntimeService: unknown,
+    @Optional() @Inject(MarketRuntimeService)
+    marketRuntimeService: unknown = null,
+    @Optional() @Inject(LeaderboardRuntimeService)
+    leaderboardRuntimeService: unknown = null,
   ) {
     this.playerIdentityPersistenceService = playerIdentityPersistenceService as PlayerIdentityPersistencePort;
     this.playerRuntimeService = playerRuntimeService as PlayerRuntimePort;
+    this.marketRuntimeService = marketRuntimeService && typeof (marketRuntimeService as MarketRuntimePort).cancelOpenOrdersForBannedPlayer === 'function'
+      ? marketRuntimeService as MarketRuntimePort
+      : null;
+    this.leaderboardRuntimeService = leaderboardRuntimeService && typeof (leaderboardRuntimeService as LeaderboardRuntimePort).invalidateCaches === 'function'
+      ? leaderboardRuntimeService as LeaderboardRuntimePort
+      : null;
   }
 
   /** 将多个 playerId 归一为托管账号索引结果，供 GM 面板使用。 */
@@ -298,13 +320,21 @@ export class NativeManagedAccountService {
   /** GM 快捷封禁托管账号，封禁状态落在账号真源表。 */
   async banManagedPlayerAccount(playerId: string, reason: string, bannedBy = 'gm'): Promise<void> {
     const user = await this.requireManagedUser(playerId);
-    await this.authStore.saveUser({
+    const nextUser = {
       ...user,
       bannedAt: new Date().toISOString(),
       banReason: normalizeModerationReason(reason),
       bannedBy: normalizeModerationActor(bannedBy),
       updatedAt: Date.now(),
-    });
+    };
+    await this.authStore.saveUser(nextUser);
+    try {
+      await this.cancelMarketOrdersForBannedPlayer(user.playerId);
+    } catch (error) {
+      await this.restoreManagedUserAfterFailedBan(user);
+      throw error;
+    }
+    this.leaderboardRuntimeService?.invalidateCaches();
   }
 
   /** GM 快捷解封托管账号。 */
@@ -317,6 +347,7 @@ export class NativeManagedAccountService {
       bannedBy: null,
       updatedAt: Date.now(),
     });
+    this.leaderboardRuntimeService?.invalidateCaches();
   }
 
   /** 确认托管目标存在，否则直接返回可读错误。 */
@@ -373,6 +404,40 @@ export class NativeManagedAccountService {
     this.playerRuntimeService.setIdentity(user.playerId, {
       displayName: resolveDisplayName(user.displayName, user.username),
     });
+  }
+
+  /** 封禁账号后撤销其仍开放的坊市/拍卖订单，资产沿市场托管返还链路回到玩家名下。 */
+  private async cancelMarketOrdersForBannedPlayer(playerId: string): Promise<void> {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    if (!normalizedPlayerId || !this.marketRuntimeService) {
+      return;
+    }
+    try {
+      await this.marketRuntimeService.cancelOpenOrdersForBannedPlayer(normalizedPlayerId);
+    } catch (error) {
+      this.logger.error(
+        `封禁账号后撤销坊市订单失败 playerId=${normalizedPlayerId}：${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
+  /** 封禁联动失败时回滚账号状态，避免封禁状态与市场资产状态半完成。 */
+  private async restoreManagedUserAfterFailedBan(previousUser: NativePlayerAuthUser): Promise<void> {
+    try {
+      await this.authStore.saveUser({
+        ...previousUser,
+        updatedAt: Date.now(),
+      });
+      this.leaderboardRuntimeService?.invalidateCaches();
+    } catch (rollbackError) {
+      this.logger.error(
+        `封禁失败后回滚账号状态失败 playerId=${previousUser.playerId} userId=${previousUser.id}：${rollbackError instanceof Error ? rollbackError.message : String(rollbackError)}`,
+        rollbackError instanceof Error ? rollbackError.stack : undefined,
+      );
+      throw rollbackError;
+    }
   }
 }
 

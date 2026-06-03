@@ -650,6 +650,18 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
     return Array.from(this.usersById.values()).map(cloneUser);
   }
 
+  /** 返回当前已封禁账号绑定的 playerId 集合，供低频统计/排行榜排除使用。 */
+  listBannedPlayerIds(): string[] {
+    const result: string[] = [];
+    for (const user of this.usersById.values()) {
+      const playerId = typeof user.playerId === 'string' ? user.playerId.trim() : '';
+      if (playerId && normalizeDateTime(user.bannedAt)) {
+        result.push(playerId);
+      }
+    }
+    return result;
+  }
+
   /** 保存账号并同步刷新所有内存索引。 */
   async saveUser(user: AuthRecordCandidate): Promise<NativePlayerAuthUser> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

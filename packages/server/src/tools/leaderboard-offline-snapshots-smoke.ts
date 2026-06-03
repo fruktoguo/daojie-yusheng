@@ -125,15 +125,43 @@ async function main(): Promise<void> {
     alchemyJob: { jobRunId: 'job:hanging:alchemy' },
     enhancementJob: { jobRunId: 'job:hanging:enhancement' },
   });
+  const bannedOnlinePlayer = createRuntimePlayer({
+    playerId: 'player:banned-online',
+    playerName: '封禁在线',
+    sessionId: 'session:banned-online',
+    templateId: 'yunlai_town',
+    x: 21,
+    y: 22,
+    realmLv: 99,
+    progress: 99,
+    playerKillCount: 999,
+    monsterKillCount: 999,
+    cultivationActive: true,
+  });
+  const bannedOfflinePlayer = createRuntimePlayer({
+    playerId: 'player:banned-offline',
+    playerName: '封禁离线',
+    sessionId: null,
+    templateId: 'black_mountain',
+    x: 31,
+    y: 32,
+    realmLv: 100,
+    progress: 100,
+    playerKillCount: 1000,
+    monsterKillCount: 1000,
+    deathCount: 1000,
+    cultivationActive: true,
+  });
 
   const projectedEntries: SnapshotEntry[] = [
     { playerId: offlinePlayer.playerId, snapshot: offlinePlayer },
     { playerId: offlineIdlePlayer.playerId, snapshot: offlineIdlePlayer },
+    { playerId: bannedOfflinePlayer.playerId, snapshot: bannedOfflinePlayer },
   ];
 
   const playerRuntimeService = {
     listLeaderboardPlayerProjections() {
-      return [onlinePlayer];
+      return [onlinePlayer, bannedOnlinePlayer];
     },
     listPlayerSnapshots() {
       throw new Error('leaderboard smoke should use listLeaderboardPlayerProjections instead of listPlayerSnapshots');
@@ -218,6 +246,13 @@ async function main(): Promise<void> {
         remainingQuantity: 999,
         unitPrice: 100,
       },
+      {
+        ownerId: bannedOnlinePlayer.playerId,
+        side: 'buy',
+        status: 'open',
+        remainingQuantity: 999,
+        unitPrice: 1000,
+      },
     ],
     buildMarketStorage() {
       return { items: [] };
@@ -248,6 +283,29 @@ async function main(): Promise<void> {
       return countersByPlayerId.get(playerId) ?? new Map<string, number>();
     },
   };
+  const authStore = {
+    listBannedPlayerIds() {
+      return [bannedOnlinePlayer.playerId, bannedOfflinePlayer.playerId];
+    },
+  };
+  const sectService = {
+    buildSectMemberCountLeaderboard(limit: number, excludedPlayerIds: Set<string>) {
+      assert.equal(limit, 10);
+      assert.equal(excludedPlayerIds.has(bannedOnlinePlayer.playerId), true);
+      assert.equal(excludedPlayerIds.has(bannedOfflinePlayer.playerId), true);
+      return [
+        {
+          rank: 1,
+          sectId: 'sect:visible',
+          sectName: '可见宗门',
+          mark: '可',
+          memberCount: 2,
+          leaderPlayerId: onlinePlayer.playerId,
+          leaderName: onlinePlayer.displayName,
+        },
+      ];
+    },
+  };
 
   const service = new LeaderboardRuntimeService(
     playerRuntimeService as never,
@@ -256,12 +314,18 @@ async function main(): Promise<void> {
     playerDomainPersistenceService as never,
     playerIdentityPersistenceService as never,
     playerCountersPersistenceService as never,
+    null,
+    authStore as never,
   );
 
-  const leaderboard = await service.buildLeaderboard(10, null);
+  const leaderboard = await service.buildLeaderboard(10, sectService);
   assert.deepEqual(
     leaderboard.boards.realm.map((entry) => entry.playerId),
     ['player:offline', 'player:offline-idle', 'player:online'],
+  );
+  assert.equal(
+    leaderboard.boards.realm.some((entry) => entry.playerId === bannedOnlinePlayer.playerId || entry.playerId === bannedOfflinePlayer.playerId),
+    false,
   );
   assert.deepEqual(
     leaderboard.boards.realm.map((entry) => entry.playerName),
@@ -299,6 +363,7 @@ async function main(): Promise<void> {
       { playerId: 'player:offline-idle', totalKills: 4, eliteKills: 0, bossKills: 0 },
     ],
   );
+  assert.deepEqual(leaderboard.boards.sects.map((entry) => entry.sectId), ['sect:visible']);
 
   const locations = await service.buildLeaderboardPlayerLocations([
     'player:offline',
@@ -337,6 +402,13 @@ async function main(): Promise<void> {
       status: 'open',
       remainingQuantity: 100,
       unitPrice: 0.01,
+    },
+    {
+      ownerId: bannedOfflinePlayer.playerId,
+      side: 'buy',
+      status: 'open',
+      remainingQuantity: 1000,
+      unitPrice: 1000,
     },
   ];
   const worldSummary = await service.buildWorldSummary();

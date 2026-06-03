@@ -6,6 +6,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { calculateMarketTradeTotalCost } from '@mud/shared';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
+import { NativePlayerAuthStoreService } from '../../http/native/native-player-auth-store.service';
 import { MARKET_CURRENCY_ITEM_ID } from '../../constants/gameplay/market';
 import { MarketRuntimeService } from '../market/market-runtime.service';
 import { MapTemplateRepository } from '../map/map-template.repository';
@@ -94,6 +95,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         @Inject(PlayerIdentityPersistenceService) playerIdentityPersistenceService: any,
         @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: any = null,
         @Optional() @Inject(LeaderboardWorkerPoolService) leaderboardWorkerPoolService: LeaderboardWorkerPoolService | null = null,
+        @Optional() @Inject(NativePlayerAuthStoreService) private readonly nativePlayerAuthStoreService: NativePlayerAuthStoreService | null = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
@@ -102,6 +104,12 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         this.playerIdentityPersistenceService = playerIdentityPersistenceService;
         this.playerCountersPersistenceService = playerCountersPersistenceService;
         this.leaderboardWorkerPoolService = leaderboardWorkerPoolService;
+    }
+    /** 外部运营状态变化后主动清空排行榜与世界摘要缓存，避免旧数据继续展示。 */
+    invalidateCaches() {
+        this.cachedLeaderboard = null;
+        this.cachedLeaderboardSnapshotsByPlayerId = new Map();
+        this.cachedWorldSummary = null;
     }
     /** 构造各榜单快照，按需截断返回。 */
     async buildLeaderboard(limit, sectService = null) {
@@ -231,9 +239,11 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         if (this.cachedLeaderboardSnapshotsByPlayerId.size > 0) {
             // 排行榜缓存已有全量 snapshot，直接复用；
             // 用运行态数据覆盖在线玩家的实时活动 flags
-            const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId();
+            const bannedPlayerIds = this.collectBannedPlayerIds();
+            const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId(bannedPlayerIds);
             const runtimeSnapshots = this.collectRuntimeSnapshots()
                 .filter((p) => !isNativeGmBotPlayerId(p.playerId))
+                .filter((p) => !bannedPlayerIds.has(p.playerId))
                 .map((player) => this.createSnapshot(
                     player,
                     null,
@@ -244,7 +254,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             snapshots = [
                 ...runtimeSnapshots,
                 ...[...this.cachedLeaderboardSnapshotsByPlayerId.values()]
-                    .filter((s) => !runtimePlayerIds.has(s.playerId)),
+                    .filter((s) => !runtimePlayerIds.has(s.playerId) && !bannedPlayerIds.has(s.playerId)),
             ].map((snapshot) => this.applyReservedBuyOrderSpiritStoneCount(
                 snapshot,
                 reservedBuyOrdersByPlayerId.get(snapshot.playerId) ?? 0,
@@ -310,14 +320,21 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
     }
     /** 采集世界摘要快照：运行态优先，离线玩家从分域持久化补齐；世界摘要不需要角色名回读。 */
     async collectWorldSummarySnapshots() {
+        const bannedPlayerIds = this.collectBannedPlayerIds();
         const playersByPlayerId = new Map();
         for (const player of this.collectRuntimeSnapshots()) {
+            if (bannedPlayerIds.has(player.playerId)) {
+                continue;
+            }
             playersByPlayerId.set(player.playerId, player);
         }
         for (const player of await this.collectPersistedOfflineSnapshots(playersByPlayerId)) {
+            if (bannedPlayerIds.has(player.playerId)) {
+                continue;
+            }
             playersByPlayerId.set(player.playerId, player);
         }
-        const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId();
+        const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId(bannedPlayerIds);
         return [...playersByPlayerId.values()].map((player) => this.createSnapshot(
             player,
             null,
@@ -348,11 +365,18 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
     }
     /** 采集排行榜快照：运行态优先，离线玩家从分域持久化补齐。 */
     async collectLeaderboardSnapshots() {
+        const bannedPlayerIds = this.collectBannedPlayerIds();
         const playersByPlayerId = new Map();
         for (const player of this.collectRuntimeSnapshots()) {
+            if (bannedPlayerIds.has(player.playerId)) {
+                continue;
+            }
             playersByPlayerId.set(player.playerId, player);
         }
         for (const player of await this.collectPersistedOfflineSnapshots(playersByPlayerId)) {
+            if (bannedPlayerIds.has(player.playerId)) {
+                continue;
+            }
             playersByPlayerId.set(player.playerId, player);
         }
         // 离线玩家投影装载完成后让一次事件循环，避免后续 identity 查询前的 CPU 占用过长。
@@ -360,7 +384,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         const identitiesByPlayerId = await this.loadLeaderboardIdentities(playersByPlayerId.keys());
         // identity 查询完成后再让一次，给 world tick 留出 createSnapshot 之前的窗口。
         await yieldToEventLoop();
-        const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId();
+        const reservedBuyOrdersByPlayerId = this.collectReservedBuyOrderSpiritStonesByPlayerId(bannedPlayerIds);
         return [...playersByPlayerId.values()].map((player) => this.createSnapshot(
             player,
             identitiesByPlayerId.get(player.playerId) ?? null,
@@ -376,6 +400,16 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         const players = source
             .filter((player) => !isNativeGmBotPlayerId(player.playerId));
         return players;
+    }
+    /** 从账号真源的内存索引读取封禁玩家，用于低频统计排除。 */
+    collectBannedPlayerIds() {
+        const authStore = this.nativePlayerAuthStoreService;
+        if (!authStore || typeof authStore.listBannedPlayerIds !== 'function') {
+            return new Set();
+        }
+        return new Set(authStore.listBannedPlayerIds()
+            .map((playerId) => typeof playerId === 'string' ? playerId.trim() : '')
+            .filter((playerId) => playerId.length > 0));
     }
     /** 从分域持久化读取不在运行态中的离线玩家，供低频排行榜使用。 */
     async collectPersistedOfflineSnapshots(existingSnapshotsByPlayerId) {
@@ -654,7 +688,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         if (typeof sectService?.buildSectMemberCountLeaderboard !== 'function') {
             return [];
         }
-        return sectService.buildSectMemberCountLeaderboard(limit);
+        return sectService.buildSectMemberCountLeaderboard(limit, this.collectBannedPlayerIds());
     }
     /** 构造世界在线分布与交易摘要。 */
     buildWorldBoard(snapshots) {
@@ -690,7 +724,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         };
     }
     /** 按玩家汇总开放求购单里已预留、尚未成交的灵石。 */
-    collectReservedBuyOrderSpiritStonesByPlayerId() {
+    collectReservedBuyOrderSpiritStonesByPlayerId(excludedPlayerIds = new Set()) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const openOrders = Array.isArray(this.marketRuntimeService.openOrders) ? this.marketRuntimeService.openOrders : [];
@@ -701,6 +735,9 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             }
             const ownerId = typeof order.ownerId === 'string' ? order.ownerId.trim() : '';
             if (!ownerId) {
+                continue;
+            }
+            if (excludedPlayerIds.has(ownerId)) {
                 continue;
             }
 
