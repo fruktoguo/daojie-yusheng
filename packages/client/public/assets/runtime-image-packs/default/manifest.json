@@ -1,15 +1,148 @@
 {
   "version": 1,
   "tiles": {
-    "terrain:grass": {
-      "src": "tiles/grass.png",
-      "cols": 1,
-      "rows": 1,
+    "terrain:floor": {
+      "src": "tiles/terrain-floor-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
       "col": 0,
       "row": 0,
       "fit": "cover",
       "meta": {
-        "dualGrid": false
+        "dualGrid": true,
+        "zIndex": 90
+      }
+    },
+    "terrain:grass": {
+      "src": "tiles/grass-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 100
+      }
+    },
+    "terrain:hill": {
+      "src": "tiles/hill-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 110
+      }
+    },
+    "terrain:water": {
+      "src": "tiles/water-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 120
+      }
+    },
+    "terrain:mud": {
+      "src": "tiles/mud-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 130
+      }
+    },
+    "terrain:swamp": {
+      "src": "tiles/swamp-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 140
+      }
+    },
+    "terrain:cold_bog": {
+      "src": "tiles/cold-bog-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 150
+      }
+    },
+    "terrain:molten_pool": {
+      "src": "tiles/molten-pool-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 160
+      }
+    },
+    "terrain:cloud_floor": {
+      "src": "tiles/cloud-floor-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 170
+      }
+    },
+    "terrain:cloud": {
+      "src": "tiles/cloud-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 180
+      }
+    },
+    "terrain:void": {
+      "src": "tiles/void-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 185
+      }
+    },
+    "terrain:cliff": {
+      "src": "tiles/cliff-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 188
       }
     },
     "surface:floor": {
@@ -24,8 +157,56 @@
         "zIndex": 190
       }
     },
-    "structure:stone": {
-      "src": "tiles/stone-dual-grid.png",
+    "surface:trail": {
+      "src": "tiles/trail-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 200
+      }
+    },
+    "surface:road": {
+      "src": "tiles/road-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 210
+      }
+    },
+    "surface:veranda": {
+      "src": "tiles/veranda-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 220
+      }
+    },
+    "surface:stone_stairs": {
+      "src": "tiles/stone-stairs-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 230
+      }
+    },
+    "structure:wall": {
+      "src": "tiles/wall-dual-grid.png",
       "cols": 4,
       "rows": 4,
       "col": 0,
@@ -35,12 +216,169 @@
         "dualGrid": true,
         "zIndex": 300
       }
+    },
+    "structure:door": {
+      "src": "tiles/door-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 310
+      }
+    },
+    "structure:window": {
+      "src": "tiles/window-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 315
+      }
+    },
+    "structure:house_eave": {
+      "src": "tiles/house-eave-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 320
+      }
+    },
+    "structure:house_corner": {
+      "src": "tiles/house-corner-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 325
+      }
+    },
+    "structure:screen_wall": {
+      "src": "tiles/screen-wall-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 330
+      }
+    },
+    "structure:tree": {
+      "src": "tiles/tree-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 340
+      }
+    },
+    "structure:bamboo": {
+      "src": "tiles/bamboo-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 345
+      }
+    },
+    "structure:stone": {
+      "src": "tiles/stone-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 350
+      }
+    },
+    "structure:spirit_ore": {
+      "src": "tiles/spirit-ore-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 360
+      }
+    },
+    "structure:black_iron_ore": {
+      "src": "tiles/black-iron-ore-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 365
+      }
+    },
+    "structure:broken_sword_heap": {
+      "src": "tiles/broken-sword-heap-dual-grid.png",
+      "cols": 4,
+      "rows": 4,
+      "col": 0,
+      "row": 0,
+      "fit": "cover",
+      "meta": {
+        "dualGrid": true,
+        "zIndex": 370
+      }
     }
   },
   "legacyTiles": {
-    "grass": "terrain:grass",
     "floor": "surface:floor",
-    "stone": "structure:stone"
+    "grass": "terrain:grass",
+    "hill": "terrain:hill",
+    "cliff": "terrain:cliff",
+    "mud": "terrain:mud",
+    "swamp": "terrain:swamp",
+    "cold_bog": "terrain:cold_bog",
+    "molten_pool": "terrain:molten_pool",
+    "water": "terrain:water",
+    "cloud": "terrain:cloud",
+    "cloud_floor": "terrain:cloud_floor",
+    "void": "terrain:void",
+    "trail": "surface:trail",
+    "road": "surface:road",
+    "veranda": "surface:veranda",
+    "stone_stairs": "surface:stone_stairs",
+    "wall": "structure:wall",
+    "door": "structure:door",
+    "window": "structure:window",
+    "house_eave": "structure:house_eave",
+    "house_corner": "structure:house_corner",
+    "screen_wall": "structure:screen_wall",
+    "tree": "structure:tree",
+    "bamboo": "structure:bamboo",
+    "stone": "structure:stone",
+    "spirit_ore": "structure:spirit_ore",
+    "black_iron_ore": "structure:black_iron_ore",
+    "broken_sword_heap": "structure:broken_sword_heap"
   },
   "entities": {}
 }
