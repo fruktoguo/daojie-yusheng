@@ -292,5 +292,3 @@ export class TileSpriteCache {
     }
   }
 }
-
-

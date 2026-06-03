@@ -785,6 +785,19 @@ function migrateArts(old: LegacyTechnique): TechniqueTemplate {
 }
 ```
 
+AI 已发布术法的生产真源分两层：
+
+- `validation_report.artsStrength.rawCandidate` 保留 AI 原始权重草稿，用于后续重新展开。
+- `generated_technique.template.skills` 保存已经展开成真实 `cooldown/cost/targeting/effects.formula` 的运行时 `SkillDef`，战斗和已学技能水合读取这一层。
+
+因此，预算公式、冷却缩放、施法距离或范围覆盖换算发生变化后，已有功法不会因为代码更新而自动变更。运营同步顺序：
+
+1. 在 GM 快捷指令执行“迁移旧版AI术法草稿”，批量读取 `rawCandidate`，按当前公式重新展开并写回 `template.skills` 和校验报告。
+2. 执行“刷新在线玩家功法模板”，让在线玩家已学功法重新从最新模板水合，刷新技能、操作、属性和自动战斗技能投影。
+3. 离线玩家等待下次登录恢复即可读取最新模板，不需要在玩家存档里做旧格式兼容或懒升级。
+
+这两个 GM 快捷按钮是公式变更后的统一运维入口；只调整公式常量或转换算法时通常不需要改按钮代码。只有 AI 草稿 schema、迁移输入来源或水合职责变化时，才需要同步调整按钮实现。
+
 ### 11.4 经验曲线重置
 
 **不复刻现有 expFactor**，统一用新公式生成。影响：
@@ -891,7 +904,7 @@ function migrateArts(old: LegacyTechnique): TechniqueTemplate {
 | 阶段划分 | 1/3 切分，余数归大成 |
 | 阶段权重 | `[1, 2, 4]` |
 | expDifficulty | 默认 1.0，范围 `[0.5, 2.0]` |
-| 存量迁移 | 属性反算 attrFloat+attrRatio；经验曲线重置 |
+| 存量迁移 | 内功属性反算 attrFloat+attrRatio；术法从 rawCandidate 重新展开；经验曲线重置 |
 | tradeable | 初期锁 `player_only` |
 | schema_version | 从 1 起步，升级时批量迁移 |
 

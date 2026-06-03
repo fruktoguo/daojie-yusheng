@@ -99,7 +99,7 @@ export function updateDisplayMetrics(viewportWidth: number, viewportHeight: numb
   const desiredCellSize = BASE_CELL_SIZE * (zoom / DEFAULT_ZOOM);
   const fitCellSize = Math.min(safeWidth, safeHeight) / diameter;
   /** 根据窗口和缩放回算每格像素。 */
-  cellSize = Math.max(1, Math.min(desiredCellSize, fitCellSize));
+  cellSize = Math.max(1, Math.round(Math.min(desiredCellSize, fitCellSize)));
   /** 窗口宽度限制下的横向可见半径。 */
   displayRangeX = Math.max(targetRadius, Math.ceil(safeWidth / (cellSize * 2)));
   /** 窗口高度限制下的纵向可见半径。 */
@@ -115,6 +115,5 @@ export function getDisplayRangeX(): number {
 export function getDisplayRangeY(): number {
   return displayRangeY;
 }
-
 
 

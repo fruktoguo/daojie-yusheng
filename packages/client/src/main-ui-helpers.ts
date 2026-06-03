@@ -230,16 +230,48 @@ export function bindZoomControls(options: {
     applyZoomChange,
     showToast,
   } = options;
+  const zoomInputApplyDelayMs = 120;
+  let pendingZoom: number | null = null;
+  let zoomInputTimer: number | null = null;
+  const flushZoomInput = () => {
+    if (zoomInputTimer !== null) {
+      window.clearTimeout(zoomInputTimer);
+      zoomInputTimer = null;
+    }
+    if (pendingZoom === null) {
+      return applyZoomChange(Number(zoomSlider?.value ?? 2));
+    }
+    const nextZoom = pendingZoom;
+    pendingZoom = null;
+    return applyZoomChange(nextZoom);
+  };
   zoomSlider?.setAttribute('min', String(minZoom));
   zoomSlider?.setAttribute('max', String(maxZoom));
   zoomSlider?.addEventListener('input', () => {
-    applyZoomChange(Number(zoomSlider.value));
+    pendingZoom = Number(zoomSlider.value);
+    if (zoomInputTimer !== null) {
+      return;
+    }
+    zoomInputTimer = window.setTimeout(() => {
+      zoomInputTimer = null;
+      if (pendingZoom !== null) {
+        const nextZoom = pendingZoom;
+        pendingZoom = null;
+        applyZoomChange(nextZoom);
+      }
+    }, zoomInputApplyDelayMs);
   });
   zoomSlider?.addEventListener('change', () => {
-    const zoom = applyZoomChange(Number(zoomSlider.value));
+    pendingZoom = Number(zoomSlider.value);
+    const zoom = flushZoomInput();
     showToast(t('ui.zoom.adjusted', { zoom: formatZoom(zoom) }));
   });
   zoomResetBtn?.addEventListener('click', () => {
+    pendingZoom = null;
+    if (zoomInputTimer !== null) {
+      window.clearTimeout(zoomInputTimer);
+      zoomInputTimer = null;
+    }
     const zoom = applyZoomChange(2);
     showToast(t('ui.zoom.reset', { zoom: formatZoom(zoom) }));
   });

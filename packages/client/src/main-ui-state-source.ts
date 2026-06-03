@@ -259,7 +259,6 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       const zoom = setZoom(nextZoom);
       syncZoomChrome(zoom, options.zoomSlider, options.zoomLevelEl);
       if (zoom !== previous) {
-        options.resizeCanvas();
         options.mapRuntime.setZoom(getZoom());
       }
       return zoom;

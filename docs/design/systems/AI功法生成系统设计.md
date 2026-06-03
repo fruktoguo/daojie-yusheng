@@ -696,6 +696,9 @@ type TechniquePreview = {
 - `schema_version` 跟踪规则版本
 - 升级时可按版本批量重新展开/下架/迁移
 - GM 命令支持按 `schema_version` 批量操作
+- 已发布 AI 术法的数据库模板保存的是展开后的 `SkillDef`，不是每次读取时动态按权重重算；预算、冷却、范围等公式变更只影响之后的新生成和重新展开。
+- 存量术法公式同步的运营顺序固定为：先点 GM 快捷指令“迁移旧版AI术法草稿”，按当前代码从 `validation_report.artsStrength.rawCandidate` 重新展开并回写 `generated_technique.template.skills`；再点“刷新在线玩家功法模板”，让在线玩家身上的已学功法重新水合为最新技能。
+- 离线玩家在下次登录恢复功法时读取最新模板，不需要单独批量修改玩家存档。公式常量调整时，GM 按钮本身不需要随公式改动而改动，除非草稿 schema 或按钮职责发生变化。
 
 ---
 
