@@ -92,17 +92,28 @@ interface TerrainChunkView {
   key: string;
   cx: number;
   cy: number;
-  container: Container;
-  signature: string;
-  signatureDeps: TerrainChunkSignatureDeps | null;
+  baseContainer: Container;
+  spriteContainer: Container;
+  edgeContainer: Container;
+  glyphContainer: Container;
+  overlayContainer: Container;
+  staticSignature: string;
+  overlaySignature: string;
+  staticSignatureDeps: TerrainChunkStaticSignatureDeps | null;
+  overlaySignatureDeps: TerrainChunkOverlaySignatureDeps | null;
   lastSeenFrame: number;
 }
 
-interface TerrainChunkSignatureDeps {
+interface TerrainChunkStaticSignatureDeps {
   cellSize: number;
-  terrainOverlaySignature: string;
   renderRuntimeTileSprites: boolean;
   runtimeTileSpriteRevision: number;
+  visibleTileRevision: number;
+}
+
+interface TerrainChunkOverlaySignatureDeps {
+  cellSize: number;
+  terrainOverlaySignature: string;
   visibleTileRevision: number;
 }
 
@@ -593,7 +604,11 @@ function getSenseQiOverlayStyle(tile: Tile | null | undefined, levelBaseValue = 
 export class PixiMapRendererAdapter {
   private readonly app = new Application<PixiRenderer>();
   private readonly world = new Container();
-  private readonly terrainLayer = new Container();
+  private readonly terrainBaseLayer = new Container();
+  private readonly terrainSpriteLayer = new Container();
+  private readonly terrainEdgeLayer = new Container();
+  private readonly terrainGlyphLayer = new Container();
+  private readonly terrainOverlayLayer = new Container();
   private readonly terrainFogLayer = new Graphics();
   private readonly pathLayer = new Container();
   private readonly groundLayer = new Container();
@@ -654,10 +669,13 @@ export class PixiMapRendererAdapter {
     this.threatArrowGraphics.name = 'threat-arrows';
     this.effectLayer.addChild(this.threatArrowGraphics);
     this.screenLayer.addChild(this.timeOverlayGraphics);
-    this.terrainLayer.sortableChildren = true;
     this.app.stage.addChild(this.world, this.screenLayer);
     this.world.addChild(
-      this.terrainLayer,
+      this.terrainBaseLayer,
+      this.terrainSpriteLayer,
+      this.terrainEdgeLayer,
+      this.terrainGlyphLayer,
+      this.terrainOverlayLayer,
       this.terrainFogLayer,
       this.pathLayer,
       this.groundLayer,
@@ -781,7 +799,7 @@ export class PixiMapRendererAdapter {
   }
 
   resetScene(): void {
-    for (const chunk of this.terrainChunks.values()) chunk.container.destroy({ children: true });
+    for (const chunk of this.terrainChunks.values()) this.destroyTerrainChunk(chunk);
     this.terrainChunks.clear();
     for (const view of this.entities.values()) view.root.destroy({ children: true });
     this.entities.clear();
@@ -871,7 +889,10 @@ export class PixiMapRendererAdapter {
   }
 
   private invalidateTerrainChunks(): void {
-    for (const chunk of this.terrainChunks.values()) chunk.signature = '';
+    for (const chunk of this.terrainChunks.values()) {
+      chunk.staticSignature = '';
+      chunk.overlaySignature = '';
+    }
   }
 
   private setProfileEnabled(enabled: boolean): void {
@@ -1203,28 +1224,68 @@ export class PixiMapRendererAdapter {
         const key = `${cx},${cy}`;
         let chunk = this.terrainChunks.get(key);
         if (!chunk) {
-          chunk = { key, cx, cy, container: new Container(), signature: '', signatureDeps: null, lastSeenFrame: this.chunkFrame };
-          chunk.container.label = `terrain-chunk:${key}`;
+          chunk = this.createTerrainChunk(key, cx, cy);
           this.terrainChunks.set(key, chunk);
-          this.terrainLayer.addChild(chunk.container);
         }
         chunk.lastSeenFrame = this.chunkFrame;
-        const signature = this.resolveTerrainChunkSignature(chunk, scene, cellSize);
-        if (signature !== chunk.signature) {
+        const staticSignature = this.resolveTerrainChunkStaticSignature(chunk, scene, cellSize);
+        if (staticSignature !== chunk.staticSignature) {
           this.profileCount('terrainChunkRebuilds');
-          this.profileMeasure('terrainRebuild', () => this.rebuildTerrainChunk(chunk, scene, cellSize, signature));
+          this.profileMeasure('terrainRebuild', () => this.rebuildTerrainChunkStaticLayers(chunk, scene, cellSize, staticSignature));
+        }
+        const overlaySignature = this.resolveTerrainChunkOverlaySignature(chunk, scene, cellSize);
+        if (overlaySignature !== chunk.overlaySignature) {
+          this.profileMeasure('terrainRebuild', () => this.rebuildTerrainChunkOverlayLayer(chunk, scene, cellSize, overlaySignature));
         }
       }
     }
     for (const [key, chunk] of this.terrainChunks) {
       if (this.chunkFrame - chunk.lastSeenFrame > 4) {
-        chunk.container.destroy({ children: true });
+        this.destroyTerrainChunk(chunk);
         this.terrainChunks.delete(key);
       }
     }
     this.profileSetCounter('visibleChunks', visibleChunkCount);
     this.rebuildTerrainFogLayer(scene, startCX, startCY, endCX, endCY, cellSize);
     this.profileMeasure('pathLayer', () => this.rebuildPathLayer(scene));
+  }
+
+  private createTerrainChunk(key: string, cx: number, cy: number): TerrainChunkView {
+    const chunk: TerrainChunkView = {
+      key,
+      cx,
+      cy,
+      baseContainer: new Container(),
+      spriteContainer: new Container(),
+      edgeContainer: new Container(),
+      glyphContainer: new Container(),
+      overlayContainer: new Container(),
+      staticSignature: '',
+      overlaySignature: '',
+      staticSignatureDeps: null,
+      overlaySignatureDeps: null,
+      lastSeenFrame: this.chunkFrame,
+    };
+    chunk.baseContainer.label = `terrain-base-chunk:${key}`;
+    chunk.spriteContainer.label = `terrain-sprite-chunk:${key}`;
+    chunk.edgeContainer.label = `terrain-edge-chunk:${key}`;
+    chunk.glyphContainer.label = `terrain-glyph-chunk:${key}`;
+    chunk.overlayContainer.label = `terrain-overlay-chunk:${key}`;
+    chunk.overlayContainer.sortableChildren = true;
+    this.terrainBaseLayer.addChild(chunk.baseContainer);
+    this.terrainSpriteLayer.addChild(chunk.spriteContainer);
+    this.terrainEdgeLayer.addChild(chunk.edgeContainer);
+    this.terrainGlyphLayer.addChild(chunk.glyphContainer);
+    this.terrainOverlayLayer.addChild(chunk.overlayContainer);
+    return chunk;
+  }
+
+  private destroyTerrainChunk(chunk: TerrainChunkView): void {
+    chunk.baseContainer.destroy({ children: true });
+    chunk.spriteContainer.destroy({ children: true });
+    chunk.edgeContainer.destroy({ children: true });
+    chunk.glyphContainer.destroy({ children: true });
+    chunk.overlayContainer.destroy({ children: true });
   }
 
   private rebuildTerrainFogLayer(
@@ -1288,38 +1349,56 @@ export class PixiMapRendererAdapter {
     }
   }
 
-  private resolveTerrainChunkSignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
-    const deps: TerrainChunkSignatureDeps = {
+  private resolveTerrainChunkStaticSignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
+    const deps: TerrainChunkStaticSignatureDeps = {
       cellSize,
-      terrainOverlaySignature: this.terrainOverlaySignature,
       renderRuntimeTileSprites: this.performanceConfig.renderRuntimeTileSprites,
       runtimeTileSpriteRevision: this.runtimeTileSpriteRevision,
       visibleTileRevision: scene.terrain.visibleTileRevision,
     };
-    if (chunk.signature && chunk.signatureDeps && this.isSameTerrainChunkSignatureDeps(chunk.signatureDeps, deps)) {
+    if (chunk.staticSignature && chunk.staticSignatureDeps && this.isSameTerrainChunkStaticSignatureDeps(chunk.staticSignatureDeps, deps)) {
       this.profileCount('terrainChunkSignatureHits');
-      return chunk.signature;
+      return chunk.staticSignature;
     }
-    const signature = this.profileMeasure('terrainSignature', () => this.buildTerrainChunkSignature(scene, chunk.cx, chunk.cy, cellSize));
+    const signature = this.profileMeasure('terrainSignature', () => this.buildTerrainChunkStaticSignature(scene, chunk.cx, chunk.cy, cellSize));
     this.profileCount('terrainChunkSignatures');
-    chunk.signatureDeps = deps;
+    chunk.staticSignatureDeps = deps;
     return signature;
   }
 
-  private isSameTerrainChunkSignatureDeps(previous: TerrainChunkSignatureDeps, next: TerrainChunkSignatureDeps): boolean {
+  private resolveTerrainChunkOverlaySignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
+    const deps: TerrainChunkOverlaySignatureDeps = {
+      cellSize,
+      terrainOverlaySignature: this.terrainOverlaySignature,
+      visibleTileRevision: scene.terrain.visibleTileRevision,
+    };
+    if (chunk.overlaySignature && chunk.overlaySignatureDeps && this.isSameTerrainChunkOverlaySignatureDeps(chunk.overlaySignatureDeps, deps)) {
+      return chunk.overlaySignature;
+    }
+    const signature = this.profileMeasure('terrainSignature', () => this.buildTerrainChunkOverlaySignature(scene, chunk.cx, chunk.cy, cellSize));
+    chunk.overlaySignatureDeps = deps;
+    return signature;
+  }
+
+  private isSameTerrainChunkStaticSignatureDeps(previous: TerrainChunkStaticSignatureDeps, next: TerrainChunkStaticSignatureDeps): boolean {
     return previous.cellSize === next.cellSize
-      && previous.terrainOverlaySignature === next.terrainOverlaySignature
       && previous.renderRuntimeTileSprites === next.renderRuntimeTileSprites
       && previous.runtimeTileSpriteRevision === next.runtimeTileSpriteRevision
       && previous.visibleTileRevision === next.visibleTileRevision;
   }
 
-  private buildTerrainChunkSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
+  private isSameTerrainChunkOverlaySignatureDeps(previous: TerrainChunkOverlaySignatureDeps, next: TerrainChunkOverlaySignatureDeps): boolean {
+    return previous.cellSize === next.cellSize
+      && previous.terrainOverlaySignature === next.terrainOverlaySignature
+      && previous.visibleTileRevision === next.visibleTileRevision;
+  }
+
+  private buildTerrainChunkStaticSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
     const startX = cx * CHUNK_SIZE;
     const startY = cy * CHUNK_SIZE;
-    let signature = `${cellSize}|${this.terrainOverlaySignature}|${this.performanceConfig.renderRuntimeTileSprites ? 1 : 0}|${this.runtimeTileSpriteRevision}`;
-    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
-      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+    let signature = `${cellSize}|${this.performanceConfig.renderRuntimeTileSprites ? 1 : 0}|${this.runtimeTileSpriteRevision}`;
+    for (let y = startY - 1; y <= startY + CHUNK_SIZE; y += 1) {
+      for (let x = startX - 1; x <= startX + CHUNK_SIZE; x += 1) {
         const key = `${x},${y}`;
         const tile = scene.terrain.tileCache.get(key);
         if (!tile) continue;
@@ -1336,21 +1415,86 @@ export class PixiMapRendererAdapter {
           tile.hpVisible === false ? 0 : 1,
           tile.aura ?? '',
           tile.resources?.length ?? 0,
-          scene.terrain.visibleTiles.has(key) ? 1 : 0,
         ].join(':');
       }
     }
     return signature;
   }
 
-  private rebuildTerrainChunk(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
-    this.disableTerrainChunkCache(chunk.container);
-    this.clearContainer(chunk.container);
-    chunk.container.sortableChildren = true;
+  private buildTerrainChunkOverlaySignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
+    const startX = cx * CHUNK_SIZE;
+    const startY = cy * CHUNK_SIZE;
+    let signature = `${cellSize}|${this.terrainOverlaySignature}|${scene.terrain.visibleTileRevision}`;
+    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+        const key = `${x},${y}`;
+        const tile = scene.terrain.tileCache.get(key);
+        signature += [
+          '',
+          key,
+          scene.terrain.visibleTiles.has(key) ? 1 : 0,
+          tile?.type ?? '',
+          tile?.hp ?? '',
+          tile?.maxHp ?? '',
+          tile?.hpVisible === false ? 0 : 1,
+          tile?.aura ?? '',
+        ].join(':');
+      }
+    }
+    return signature;
+  }
+
+  private rebuildTerrainChunkStaticLayers(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
+    this.disableTerrainChunkCache(chunk.baseContainer);
+    this.disableTerrainChunkCache(chunk.spriteContainer);
+    this.disableTerrainChunkCache(chunk.edgeContainer);
+    this.disableTerrainChunkCache(chunk.glyphContainer);
+    this.clearContainer(chunk.baseContainer);
+    this.clearContainer(chunk.spriteContainer);
+    this.clearContainer(chunk.edgeContainer);
+    this.clearContainer(chunk.glyphContainer);
     const baseGraphics = new Graphics();
+    const startX = chunk.cx * CHUNK_SIZE;
+    const startY = chunk.cy * CHUNK_SIZE;
+    for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+      for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+        const key = `${x},${y}`;
+        const tile = scene.terrain.tileCache.get(key);
+        const sx = x * cellSize;
+        const sy = y * cellSize;
+        if (tile) {
+          const bg = parseColor(TILE_VISUAL_BG_COLORS[tile.type], 0x333333);
+          baseGraphics.rect(sx, sy, cellSize, cellSize).fill({ color: bg });
+          baseGraphics.rect(sx, sy, cellSize, cellSize).stroke({ color: 0x000000, alpha: 0.1, width: 0.5 });
+          this.drawRuntimeTileSprite(chunk.spriteContainer, tile, sx, sy, cellSize);
+        }
+        const glyph = tile ? TILE_VISUAL_GLYPHS[tile.type] : null;
+        const hasRuntimeSprite = tile ? this.resolveRuntimeTileSpriteRef(tile) !== null : false;
+        if (tile && glyph && !hasRuntimeSprite) {
+          const label = new Text({
+            text: glyph,
+            style: textStyle('tileGlyph', cellSize * 0.6, TILE_VISUAL_GLYPH_COLORS[tile.type] ?? 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)', 0),
+            anchor: 0.5,
+          });
+          label.position.set(sx + cellSize / 2, sy + cellSize / 2 + 1);
+          chunk.glyphContainer.addChild(label);
+        }
+      }
+    }
+    this.drawRuntimeDualGridEdges(chunk.edgeContainer, scene, startX, startY, cellSize);
+    chunk.baseContainer.addChild(baseGraphics);
+    chunk.staticSignature = signature;
+    this.enableTerrainChunkCache(chunk.baseContainer);
+    this.enableTerrainChunkCache(chunk.spriteContainer);
+    this.enableTerrainChunkCache(chunk.edgeContainer);
+    this.enableTerrainChunkCache(chunk.glyphContainer);
+  }
+
+  private rebuildTerrainChunkOverlayLayer(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
+    this.disableTerrainChunkCache(chunk.overlayContainer);
+    this.clearContainer(chunk.overlayContainer);
     const overlayGraphics = new Graphics();
-    baseGraphics.zIndex = 0;
-    overlayGraphics.zIndex = 600;
+    overlayGraphics.zIndex = 0;
     const startX = chunk.cx * CHUNK_SIZE;
     const startY = chunk.cy * CHUNK_SIZE;
     const senseQiLevelBaseValue = normalizeAuraLevelBaseValue(scene.overlays.senseQi?.levelBaseValue);
@@ -1366,36 +1510,17 @@ export class PixiMapRendererAdapter {
         const tile = scene.terrain.tileCache.get(key);
         const sx = x * cellSize;
         const sy = y * cellSize;
-        if (tile) {
-          const bg = parseColor(TILE_VISUAL_BG_COLORS[tile.type], 0x333333);
-          baseGraphics.rect(sx, sy, cellSize, cellSize).fill({ color: bg });
-          baseGraphics.rect(sx, sy, cellSize, cellSize).stroke({ color: 0x000000, alpha: 0.1, width: 0.5 });
-          this.drawRuntimeTileSprite(chunk.container, tile, sx, sy, cellSize);
-        }
-        this.drawTerrainOverlays(overlayGraphics, chunk.container, scene, tile, key, x, y, sx, sy, cellSize, senseQiLevelBaseValue, {
+        this.drawTerrainOverlays(overlayGraphics, chunk.overlayContainer, scene, tile, key, x, y, sx, sy, cellSize, senseQiLevelBaseValue, {
           buildPreviewCellByKey,
           fengShuiCellByKey,
           targetingAffectedKeys,
           formationAffectedKeys,
         });
-        const glyph = tile ? TILE_VISUAL_GLYPHS[tile.type] : null;
-        const hasRuntimeSprite = tile ? this.resolveRuntimeTileSpriteRef(tile) !== null : false;
-        if (tile && glyph && !hasRuntimeSprite) {
-          const label = new Text({
-            text: glyph,
-            style: textStyle('tileGlyph', cellSize * 0.6, TILE_VISUAL_GLYPH_COLORS[tile.type] ?? 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)', 0),
-            anchor: 0.5,
-          });
-          label.position.set(sx + cellSize / 2, sy + cellSize / 2 + 1);
-          label.zIndex = 700;
-          chunk.container.addChild(label);
-        }
       }
     }
-    this.drawRuntimeDualGridEdges(chunk.container, scene, startX, startY, cellSize);
-    chunk.container.addChild(baseGraphics, overlayGraphics);
-    chunk.signature = signature;
-    this.enableTerrainChunkCache(chunk.container);
+    chunk.overlayContainer.addChild(overlayGraphics);
+    chunk.overlaySignature = signature;
+    this.enableTerrainChunkCache(chunk.overlayContainer);
   }
 
   private enableTerrainChunkCache(container: Container): void {
@@ -2266,8 +2391,17 @@ export class PixiMapRendererAdapter {
     let cachedTerrainChunks = 0;
     let terrainChunkChildren = 0;
     for (const chunk of this.terrainChunks.values()) {
-      terrainChunkChildren += chunk.container.children.length;
-      if (chunk.container.isCachedAsTexture) cachedTerrainChunks += 1;
+      const containers = [
+        chunk.baseContainer,
+        chunk.spriteContainer,
+        chunk.edgeContainer,
+        chunk.glyphContainer,
+        chunk.overlayContainer,
+      ];
+      for (const container of containers) {
+        terrainChunkChildren += container.children.length;
+        if (container.isCachedAsTexture) cachedTerrainChunks += 1;
+      }
     }
     return {
       terrainChunks: this.terrainChunks.size,
