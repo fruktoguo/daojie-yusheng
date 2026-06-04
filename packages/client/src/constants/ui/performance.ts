@@ -13,6 +13,8 @@ export type MapPerformanceConfig = {
  */
 
   showFpsMonitor: boolean;
+  /** 是否显示 Pixi 渲染分析器窗口。 */
+  showPixiProfiler: boolean;
   /**
  * targetFps：targetFp相关字段。
  */
@@ -31,6 +33,7 @@ export const MAP_PERFORMANCE_CONFIG_CHANGE_EVENT = 'mud:map-performance-config-c
 /** 默认地图性能配置。 */
 export const DEFAULT_MAP_PERFORMANCE_CONFIG: MapPerformanceConfig = {
   showFpsMonitor: false,
+  showPixiProfiler: false,
   targetFps: 60,
   renderRuntimeTileSprites: true,
 };

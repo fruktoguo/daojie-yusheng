@@ -73,11 +73,9 @@ import {
   createPixiProfileFrameCounters,
   createPixiProfileFrameMetrics,
   createPixiProfileMetrics,
-  isPixiProfilingEnabled,
   PIXI_PROFILE_COUNTER_KEYS,
   PIXI_PROFILE_LOG_INTERVAL_MS,
   PIXI_PROFILE_METRIC_KEYS,
-  PIXI_PROFILE_STORAGE_KEY,
   PixiProfilerWindow,
   type PixiProfileCounterKey,
   type PixiProfileFrameSample,
@@ -646,7 +644,6 @@ export class PixiMapRendererAdapter {
     const canvas = host.querySelector<HTMLCanvasElement>('#game-canvas') ?? host.querySelector<HTMLCanvasElement>('canvas');
     if (!canvas) throw new Error('地图宿主节点缺少 canvas');
     this.canvas = canvas;
-    this.profileEnabled = isPixiProfilingEnabled();
     this.refreshProfileState();
     this.pathLayer.addChild(this.pathGraphics);
     this.threatArrowGraphics.name = 'threat-arrows';
@@ -717,6 +714,7 @@ export class PixiMapRendererAdapter {
   setPerformanceConfig(config: MapPerformanceConfig): void {
     const previousRenderRuntimeTileSprites = this.performanceConfig.renderRuntimeTileSprites;
     this.performanceConfig = { ...config };
+    this.setProfileEnabled(config.showPixiProfiler);
     if (!previousRenderRuntimeTileSprites && this.performanceConfig.renderRuntimeTileSprites) {
       this.ensureRuntimeTileSpritesRequested();
     }
@@ -839,6 +837,22 @@ export class PixiMapRendererAdapter {
 
   private invalidateTerrainChunks(): void {
     for (const chunk of this.terrainChunks.values()) chunk.signature = '';
+  }
+
+  private setProfileEnabled(enabled: boolean): void {
+    if (this.profileEnabled === enabled) return;
+    this.profileEnabled = enabled;
+    if (enabled) {
+      this.refreshProfileState();
+      return;
+    }
+    this.profileState = null;
+    this.profileWindow?.destroy();
+    this.profileWindow = null;
+    if (typeof window !== 'undefined') {
+      delete window.__mudPixiProfile;
+      delete window.__mudPixiProfileReset;
+    }
   }
 
   private ensureRuntimeTileSpritesRequested(): void {

@@ -528,6 +528,12 @@ const PerformanceTab = memo(function PerformanceTab() {
     setStatus(next.showFpsMonitor ? t('settings.status.fps-shown', undefined) : t('settings.status.fps-hidden', undefined));
   }, []);
 
+  const handleProfilerToggle = useCallback((on: boolean) => {
+    const next = updateMapPerformanceConfig({ showPixiProfiler: on });
+    setConfig(next);
+    setStatus(next.showPixiProfiler ? t('settings.status.pixi-profiler-shown', undefined) : t('settings.status.pixi-profiler-hidden', undefined));
+  }, []);
+
   const handleTargetFps = useCallback((raw: string) => {
     const parsed = Number.parseInt(raw, 10);
     const value = Number.isFinite(parsed)
@@ -576,6 +582,16 @@ const PerformanceTab = memo(function PerformanceTab() {
           <div className="settings-performance-actions ui-inline-actions-end-wrap settings-performance-actions--numeric">
             <input className="settings-performance-number-input ui-input" type="number" inputMode="numeric" min={MAP_TARGET_FPS_RANGE.min} max={MAP_TARGET_FPS_RANGE.max} step={1} value={config.targetFps} onChange={(e) => handleTargetFps(e.target.value)} />
             <span className="settings-performance-number-unit">FPS</span>
+          </div>
+        </div>
+        <div className="settings-performance-row ui-data-table-row">
+          <div className="settings-performance-meta ui-data-table-meta">
+            <div className="settings-performance-name ui-data-table-name">{t('settings.performance.label.pixi-profiler', undefined)}</div>
+            <div className="settings-performance-desc ui-data-table-desc">{t('settings.performance.desc.pixi-profiler', undefined)}</div>
+          </div>
+          <div className="settings-performance-actions ui-inline-actions-end-wrap">
+            <button className={`small-btn ghost${!config.showPixiProfiler ? ' active' : ''}`} type="button" aria-pressed={!config.showPixiProfiler ? 'true' : 'false'} onClick={() => handleProfilerToggle(false)}>{t('settings.common.action.off', undefined)}</button>
+            <button className={`small-btn ghost${config.showPixiProfiler ? ' active' : ''}`} type="button" aria-pressed={config.showPixiProfiler ? 'true' : 'false'} onClick={() => handleProfilerToggle(true)}>{t('settings.common.action.show', undefined)}</button>
           </div>
         </div>
         {PERFORMANCE_RENDER_TOGGLES.map((item) => (

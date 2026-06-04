@@ -8,7 +8,8 @@
       bottom: 14px;
       z-index: 9500;
       width: min(720px, calc(100vw - 28px));
-      max-height: min(640px, calc(100vh - 28px));
+      height: min(560px, calc(100vh - 28px));
+      min-height: 420px;
       display: grid;
       grid-template-rows: auto auto auto minmax(0, 1fr);
       border: 1px solid rgba(15, 23, 42, 0.72);
@@ -51,9 +52,17 @@
       color: #67e8f9;
       font-weight: 700;
     }
+    .pixi-profiler-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+      flex: 0 0 auto;
+    }
     .pixi-profiler-actions button {
-      min-width: 58px;
+      min-width: 52px;
       min-height: 24px;
+      padding: 2px 7px;
       border: 1px solid rgba(148, 163, 184, 0.36);
       border-radius: 4px;
       background: rgba(15, 23, 42, 0.72);
@@ -66,16 +75,34 @@
       border-color: rgba(103, 232, 249, 0.72);
       color: #f8fafc;
     }
+    .pixi-profiler-actions button:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+    }
+    .pixi-profiler-actions button[aria-pressed="true"] {
+      border-color: rgba(250, 204, 21, 0.72);
+      color: #fef9c3;
+    }
+    .pixi-profiler-actions button.is-copy-ok {
+      border-color: rgba(34, 197, 94, 0.72);
+      color: #bbf7d0;
+    }
+    .pixi-profiler-actions button.is-copy-failed {
+      border-color: rgba(248, 113, 113, 0.72);
+      color: #fecaca;
+    }
     .pixi-profiler-graph-shell {
       padding: 8px 8px 6px;
       background: rgba(2, 6, 23, 0.72);
+      min-height: 150px;
     }
     .pixi-profiler-graph {
       display: block;
       width: 100%;
       aspect-ratio: 4 / 1;
-      min-height: 132px;
-      max-height: 190px;
+      height: 160px;
+      min-height: 160px;
+      max-height: 160px;
       border: 1px solid rgba(148, 163, 184, 0.18);
       border-radius: 4px;
       cursor: crosshair;
@@ -86,6 +113,7 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 5px;
       padding: 7px 8px;
+      min-height: 64px;
       border-top: 1px solid rgba(148, 163, 184, 0.14);
       border-bottom: 1px solid rgba(148, 163, 184, 0.14);
       background: rgba(15, 23, 42, 0.82);
@@ -111,6 +139,7 @@
       min-height: 0;
       overflow: auto;
       background: rgba(15, 23, 42, 0.92);
+      overscroll-behavior: contain;
     }
     .pixi-profiler-detail table {
       width: 100%;

@@ -488,6 +488,19 @@ export class SettingsPanel {
       }, { signal });
     });
 
+    body.querySelectorAll<HTMLButtonElement>('[data-performance-profiler-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const nextValue = button.dataset.performanceProfilerToggle === 'on';
+        const nextConfig = updateMapPerformanceConfig({
+          showPixiProfiler: nextValue,
+        });
+        this.syncPerformanceControls(body, nextConfig);
+        setStatus(statusEl, nextConfig.showPixiProfiler
+          ? t('settings.status.pixi-profiler-shown', undefined)
+          : t('settings.status.pixi-profiler-hidden', undefined), 'success');
+      }, { signal });
+    });
+
     body.querySelectorAll<HTMLButtonElement>('[data-performance-render-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
         const key = button.dataset.performanceRenderToggle as MapPerformanceRenderToggleKey | undefined;
@@ -600,6 +613,11 @@ export class SettingsPanel {
   private syncPerformanceControls(body: HTMLElement, config: MapPerformanceConfig): void {
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
       const active = (button.dataset.performanceFpsToggle === 'on') === config.showFpsMonitor;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    body.querySelectorAll<HTMLButtonElement>('[data-performance-profiler-toggle]').forEach((button) => {
+      const active = (button.dataset.performanceProfilerToggle === 'on') === config.showPixiProfiler;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
@@ -837,6 +855,26 @@ export class SettingsPanel {
                 data-performance-target-fps-number="1"
               />
               <span class="settings-performance-number-unit">FPS</span>
+            </div>
+          </div>
+          <div class="settings-performance-row ui-data-table-row">
+            <div class="settings-performance-meta ui-data-table-meta">
+              <div class="settings-performance-name ui-data-table-name">${escapeHtml(t('settings.performance.label.pixi-profiler', undefined))}</div>
+              <div class="settings-performance-desc ui-data-table-desc">${escapeHtml(t('settings.performance.desc.pixi-profiler', undefined))}</div>
+            </div>
+            <div class="settings-performance-actions ui-inline-actions-end-wrap">
+              <button
+                class="small-btn ghost${config.showPixiProfiler ? '' : ' active'}"
+                type="button"
+                data-performance-profiler-toggle="off"
+                aria-pressed="${config.showPixiProfiler ? 'false' : 'true'}"
+              >${escapeHtml(t('settings.common.action.off', undefined))}</button>
+              <button
+                class="small-btn ghost${config.showPixiProfiler ? ' active' : ''}"
+                type="button"
+                data-performance-profiler-toggle="on"
+                aria-pressed="${config.showPixiProfiler ? 'true' : 'false'}"
+              >${escapeHtml(t('settings.common.action.show', undefined))}</button>
             </div>
           </div>
           ${PERFORMANCE_RENDER_TOGGLES.map((item) => `

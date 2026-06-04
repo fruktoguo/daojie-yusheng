@@ -62,6 +62,7 @@ export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>)
   persistConfig(currentConfig);
   if (
     previousConfig.showFpsMonitor !== currentConfig.showFpsMonitor
+    || previousConfig.showPixiProfiler !== currentConfig.showPixiProfiler
     || previousConfig.targetFps !== currentConfig.targetFps
     || previousConfig.renderRuntimeTileSprites !== currentConfig.renderRuntimeTileSprites
   ) {
@@ -91,6 +92,7 @@ function normalizeConfig(raw: Partial<MapPerformanceConfig> | null | undefined):
   const parsedTargetFps = Number.parseInt(String(raw?.targetFps ?? ''), 10);
   return {
     showFpsMonitor: raw?.showFpsMonitor === true,
+    showPixiProfiler: raw?.showPixiProfiler === true,
     targetFps: Number.isFinite(parsedTargetFps)
       ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, parsedTargetFps))
       : MAP_TARGET_FPS_RANGE.defaultValue,
@@ -128,8 +130,8 @@ function readStoredConfig(): Partial<MapPerformanceConfig> | null {
 function cloneConfig(config: MapPerformanceConfig): MapPerformanceConfig {
   return {
     showFpsMonitor: config.showFpsMonitor,
+    showPixiProfiler: config.showPixiProfiler,
     targetFps: config.targetFps,
     renderRuntimeTileSprites: config.renderRuntimeTileSprites,
   };
 }
-
