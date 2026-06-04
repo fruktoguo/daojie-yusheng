@@ -103,8 +103,6 @@ interface TerrainChunkSignatureDeps {
   renderRuntimeTileSprites: boolean;
   runtimeTileSpriteRevision: number;
   visibleTileRevision: number;
-  tileCache: ReadonlyMap<string, Tile>;
-  visibleTiles: ReadonlySet<string>;
 }
 
 interface AnimEntity extends ObservedMapEntity {
@@ -1202,8 +1200,6 @@ export class PixiMapRendererAdapter {
       renderRuntimeTileSprites: this.performanceConfig.renderRuntimeTileSprites,
       runtimeTileSpriteRevision: this.runtimeTileSpriteRevision,
       visibleTileRevision: scene.terrain.visibleTileRevision,
-      tileCache: scene.terrain.tileCache,
-      visibleTiles: scene.terrain.visibleTiles,
     };
     if (chunk.signature && chunk.signatureDeps && this.isSameTerrainChunkSignatureDeps(chunk.signatureDeps, deps)) {
       this.profileCount('terrainChunkSignatureHits');
@@ -1220,9 +1216,7 @@ export class PixiMapRendererAdapter {
       && previous.terrainOverlaySignature === next.terrainOverlaySignature
       && previous.renderRuntimeTileSprites === next.renderRuntimeTileSprites
       && previous.runtimeTileSpriteRevision === next.runtimeTileSpriteRevision
-      && previous.visibleTileRevision === next.visibleTileRevision
-      && previous.tileCache === next.tileCache
-      && previous.visibleTiles === next.visibleTiles;
+      && previous.visibleTileRevision === next.visibleTileRevision;
   }
 
   private buildTerrainChunkSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
