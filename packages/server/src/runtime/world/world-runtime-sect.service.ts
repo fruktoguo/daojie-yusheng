@@ -236,6 +236,8 @@ class WorldRuntimeSectService {
     }
 
     attachSectPortals(sect, entranceInstance, sectInstance) {
+        removeSectRuntimePortals(entranceInstance, sect.sectId);
+        removeSectRuntimePortals(sectInstance, sect.sectId);
         entranceInstance.addRuntimePortal?.({
             x: sect.entranceX,
             y: sect.entranceY,
@@ -1232,7 +1234,8 @@ class WorldRuntimeSectService {
         if (!pool) {
             return;
         }
-        const sects = Array.from(this.sectsById.values(), (sect) => ({ ...sect }))
+        const sects = Array.from(this.sectsById.values(), (sect) => normalizeSectEntry(sect))
+            .filter((sect) => sect !== null)
             .sort((left, right) => left.sectId.localeCompare(right.sectId, 'zh-Hans-CN'));
         const client = await pool.connect();
         try {
@@ -1983,7 +1986,7 @@ function normalizeSectEntry(entry) {
             mark: normalizeSectMark(entry.mark, normalizeOptionalString(entry.name) || sectId),
             founderPlayerId: normalizeOptionalString(entry.founderPlayerId) || leaderPlayerId,
         leaderPlayerId,
-        status: entry.status === 'dissolved' ? 'dissolved' : 'active',
+        status: entry.status === 'dissolved' || entry.status === 'locked' ? entry.status : 'active',
         entranceInstanceId,
         entranceTemplateId: normalizeOptionalString(entry.entranceTemplateId) || 'yunlai_town',
         entranceX: Math.trunc(Number(entry.entranceX) || 0),
