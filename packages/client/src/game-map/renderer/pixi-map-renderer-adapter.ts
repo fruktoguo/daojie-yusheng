@@ -593,6 +593,7 @@ export class PixiMapRendererAdapter {
   private readonly app = new Application<PixiRenderer>();
   private readonly world = new Container();
   private readonly terrainLayer = new Container();
+  private readonly terrainFogLayer = new Graphics();
   private readonly pathLayer = new Container();
   private readonly groundLayer = new Container();
   private readonly entityLayer = new Container();
@@ -656,6 +657,7 @@ export class PixiMapRendererAdapter {
     this.app.stage.addChild(this.world, this.screenLayer);
     this.world.addChild(
       this.terrainLayer,
+      this.terrainFogLayer,
       this.pathLayer,
       this.groundLayer,
       this.entityLayer,
@@ -786,6 +788,7 @@ export class PixiMapRendererAdapter {
     this.fadingPath = null;
     this.threatArrows = [];
     this.pathGraphics.clear();
+    this.terrainFogLayer.clear();
     this.clearContainer(this.groundLayer);
     for (const child of this.effectLayer.children.slice()) {
       if (child !== this.threatArrowGraphics) child.destroy({ children: true });
@@ -1219,7 +1222,45 @@ export class PixiMapRendererAdapter {
       }
     }
     this.profileSetCounter('visibleChunks', visibleChunkCount);
+    this.rebuildTerrainFogLayer(scene, startCX, startCY, endCX, endCY, cellSize);
     this.profileMeasure('pathLayer', () => this.rebuildPathLayer(scene));
+  }
+
+  private rebuildTerrainFogLayer(
+    scene: MapSceneSnapshot,
+    startCX: number,
+    startCY: number,
+    endCX: number,
+    endCY: number,
+    cellSize: number,
+  ): void {
+    this.terrainFogLayer.clear();
+    const now = performance.now();
+    for (let cy = startCY; cy <= endCY; cy += 1) {
+      for (let cx = startCX; cx <= endCX; cx += 1) {
+        const startX = cx * CHUNK_SIZE;
+        const startY = cy * CHUNK_SIZE;
+        for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
+          for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
+            const key = `${x},${y}`;
+            const tile = scene.terrain.tileCache.get(key);
+            const sx = x * cellSize;
+            const sy = y * cellSize;
+            if (!scene.terrain.visibleTiles.has(key)) {
+              const hiddenFade = this.resolveTileFade(this.hiddenTileFadeStartedAt.get(key), now, false);
+              this.terrainFogLayer.rect(sx, sy, cellSize, cellSize).fill({ color: tile ? 0x0c0a08 : 0x080605, alpha: (tile ? 0.72 : 0.94) * hiddenFade });
+              continue;
+            }
+            const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
+            if (visibleFade > 0) {
+              this.terrainFogLayer.rect(sx, sy, cellSize, cellSize).fill({ color: 0x0c0a08, alpha: 0.72 * visibleFade });
+            } else {
+              this.visibleTileFadeStartedAt.delete(key);
+            }
+          }
+        }
+      }
+    }
   }
 
   private resolveTerrainChunkSignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
@@ -1362,9 +1403,6 @@ export class PixiMapRendererAdapter {
     },
   ): void {
     const isVisible = scene.terrain.visibleTiles.has(key);
-    const now = performance.now();
-    const hiddenFade = this.resolveTileFade(this.hiddenTileFadeStartedAt.get(key), now, false);
-    const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
     const targeting = scene.overlays.targeting;
     if (targeting && (!targeting.visibleOnly || isVisible)) {
       const dx = gx - targeting.originX;
@@ -1415,11 +1453,6 @@ export class PixiMapRendererAdapter {
     const buildCell = indexes.buildPreviewCellByKey.get(key);
     if (buildCell) {
       this.drawCellHighlight(graphics, sx, sy, cellSize, buildCell.ok ? (buildCell.warning ? 'rgba(217,119,6,0.24)' : 'rgba(22,163,74,0.24)') : 'rgba(220,38,38,0.30)', buildCell.ok ? (buildCell.warning ? 'rgba(245,158,11,0.92)' : 'rgba(34,197,94,0.92)') : 'rgba(248,113,113,0.96)', false);
-    }
-    if (!isVisible) {
-      graphics.rect(sx, sy, cellSize, cellSize).fill({ color: tile ? 0x0c0a08 : 0x080605, alpha: (tile ? 0.72 : 0.94) * hiddenFade });
-    } else if (visibleFade > 0) {
-      graphics.rect(sx, sy, cellSize, cellSize).fill({ color: 0x0c0a08, alpha: 0.72 * visibleFade });
     }
   }
 
