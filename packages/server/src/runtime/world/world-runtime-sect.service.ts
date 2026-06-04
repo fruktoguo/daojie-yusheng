@@ -1331,6 +1331,10 @@ class WorldRuntimeSectService {
         }
         try {
             await ensureSectTable(sharedPool);
+            const repairReport = await repairPersistedSectCoreState(sharedPool);
+            if (repairReport.sectRowsUpdated > 0 || repairReport.overlayRowsUpdated > 0) {
+                this.logger.log(`宗门核心坐标持久化自愈完成：sects=${repairReport.sectRowsUpdated}, overlays=${repairReport.overlayRowsUpdated}`);
+            }
             this.persistencePool = sharedPool;
             this.persistenceReady = true;
         } catch (error) {
@@ -1365,7 +1369,7 @@ class WorldRuntimeSectService {
         return isSectMember(sect, playerId);
     }
 }
-export { WorldRuntimeSectService };
+export { WorldRuntimeSectService, repairPersistedSectCoreStateWithClient };
 
 async function ensureSectTable(pool) {
     const client = await pool.connect();
@@ -1401,6 +1405,132 @@ async function ensureSectTable(pool) {
     } finally {
         client.release();
     }
+}
+
+async function repairPersistedSectCoreState(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const report = await repairPersistedSectCoreStateWithClient(client);
+        await client.query('COMMIT');
+        return report;
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function repairPersistedSectCoreStateWithClient(client) {
+    const sectResult = await client.query(`
+        WITH patched AS (
+            SELECT
+                sect_id,
+                ('${SECT_TEMPLATE_PREFIX}' || sect_id) AS stable_template_id,
+                jsonb_set(
+                    jsonb_set(
+                        jsonb_set(COALESCE(raw_payload, '{}'::jsonb), '{coreX}', '0'::jsonb, true),
+                        '{coreY}', '0'::jsonb,
+                        true
+                    ),
+                    '{sectTemplateId}',
+                    to_jsonb('${SECT_TEMPLATE_PREFIX}' || sect_id),
+                    true
+                ) AS next_payload
+            FROM ${SECT_TABLE}
+        )
+        UPDATE ${SECT_TABLE} target
+        SET
+            sect_template_id = patched.stable_template_id,
+            raw_payload = patched.next_payload,
+            updated_at = now()
+        FROM patched
+        WHERE target.sect_id = patched.sect_id
+          AND (
+              target.sect_template_id IS DISTINCT FROM patched.stable_template_id
+              OR target.raw_payload IS DISTINCT FROM patched.next_payload
+          )
+    `);
+
+    const overlayTableResult = await client.query("SELECT to_regclass('instance_overlay_chunk') AS table_name");
+    if (!overlayTableResult.rows?.[0]?.table_name) {
+        return { sectRowsUpdated: sectResult.rowCount ?? 0, overlayRowsUpdated: 0 };
+    }
+
+    const overlayResult = await client.query(`
+        WITH canonical AS (
+            SELECT
+                sect_id,
+                sect_instance_id AS instance_id,
+                jsonb_build_object(
+                    'id', 'sect_core:0,0',
+                    'x', 0,
+                    'y', 0,
+                    'targetMapId', COALESCE(NULLIF(btrim(entrance_template_id), ''), NULLIF(btrim(raw_payload->>'entranceTemplateId'), ''), 'yunlai_town'),
+                    'targetInstanceId', COALESCE(NULLIF(btrim(entrance_instance_id), ''), NULLIF(btrim(raw_payload->>'entranceInstanceId'), ''), NULL),
+                    'targetX', entrance_x,
+                    'targetY', entrance_y,
+                    'direction', 'two_way',
+                    'kind', 'sect_core',
+                    'trigger', 'manual',
+                    'hidden', false,
+                    'name', name || '宗门核心',
+                    'char', '${SECT_CORE_CHAR}',
+                    'color', '#d8c37a',
+                    'sectId', sect_id
+                ) AS portal
+            FROM ${SECT_TABLE}
+            WHERE COALESCE(status, 'active') <> 'dissolved'
+              AND NULLIF(btrim(sect_instance_id), '') IS NOT NULL
+        )
+        INSERT INTO instance_overlay_chunk(
+            instance_id,
+            patch_kind,
+            chunk_key,
+            patch_version,
+            patch_payload,
+            updated_at
+        )
+        SELECT
+            instance_id,
+            'portal',
+            'runtime_portals',
+            1,
+            jsonb_build_object('version', 1, 'portals', jsonb_build_array(portal)),
+            now()
+        FROM canonical
+        ON CONFLICT (instance_id, patch_kind, chunk_key)
+        DO UPDATE SET
+            patch_version = instance_overlay_chunk.patch_version + 1,
+            patch_payload = jsonb_build_object(
+                'version',
+                COALESCE((instance_overlay_chunk.patch_payload->>'version')::bigint, 1),
+                'portals',
+                COALESCE(
+                    (
+                        SELECT jsonb_agg(entry)
+                        FROM jsonb_array_elements(COALESCE(instance_overlay_chunk.patch_payload->'portals', '[]'::jsonb)) AS entry
+                        WHERE COALESCE(entry->>'sectId', '') <> (EXCLUDED.patch_payload->'portals'->0->>'sectId')
+                    ),
+                    '[]'::jsonb
+                ) || (EXCLUDED.patch_payload->'portals')
+            ),
+            updated_at = now()
+        WHERE EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(COALESCE(instance_overlay_chunk.patch_payload->'portals', '[]'::jsonb)) AS entry
+            WHERE COALESCE(entry->>'sectId', '') = (EXCLUDED.patch_payload->'portals'->0->>'sectId')
+              AND entry IS DISTINCT FROM (EXCLUDED.patch_payload->'portals'->0)
+        )
+        OR NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(COALESCE(instance_overlay_chunk.patch_payload->'portals', '[]'::jsonb)) AS entry
+            WHERE entry = (EXCLUDED.patch_payload->'portals'->0)
+        )
+    `);
+
+    return { sectRowsUpdated: sectResult.rowCount ?? 0, overlayRowsUpdated: overlayResult.rowCount ?? 0 };
 }
 
 function buildSectId(playerId) {
