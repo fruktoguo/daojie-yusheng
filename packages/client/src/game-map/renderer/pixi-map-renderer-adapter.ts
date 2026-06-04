@@ -1786,7 +1786,9 @@ export class PixiMapRendererAdapter {
       cellSize,
       anim.char, anim.color, anim.name ?? '', anim.kind ?? '', anim.hp ?? '', anim.maxHp ?? '',
       anim.respawnRemainingTicks ?? '', anim.respawnTotalTicks ?? '',
+      anim.monsterTier ?? '',
       anim.badge?.text ?? '', anim.badge?.tone ?? '', anim.hostile ? 1 : 0,
+      anim.monsterScale ?? '',
       anim.buffs?.map((buff) => `${buff.buffId}:${buff.remainingTicks}:${buff.stacks}`).join(',') ?? '',
       anim.npcQuestMarker ? `${anim.npcQuestMarker.line}:${anim.npcQuestMarker.state}` : '',
       anim.formationShowText === false ? 1 : 0,
@@ -1796,12 +1798,12 @@ export class PixiMapRendererAdapter {
     const presentation = anim.kind === 'monster' ? getMonsterPresentation(anim.name, anim.monsterTier) : null;
     const visualScale = (presentation?.scale ?? 1) * Math.max(1, anim.monsterScale ?? 1);
     const visualCellSize = cellSize * visualScale;
-    const visualOffset = (cellSize - visualCellSize) / 2;
-    view.visualRoot.position.set(visualOffset, cellSize - visualCellSize);
-    view.shadow.clear().ellipse(cellSize / 2, cellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1)).fill({ color: 0x000000, alpha: 0.3 });
+    view.visualRoot.pivot.set(visualCellSize / 2, visualCellSize - 3);
+    view.visualRoot.position.set(cellSize / 2, cellSize - 3);
+    view.shadow.clear().ellipse(visualCellSize / 2, visualCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1)).fill({ color: 0x000000, alpha: 0.3 });
     view.glyph.text = anim.char;
     view.glyph.style = textStyle('entityGlyph', visualCellSize * 0.75, anim.color);
-    view.glyph.position.set(cellSize / 2, cellSize / 2);
+    view.glyph.position.set(visualCellSize / 2, visualCellSize / 2);
     const label = presentation?.label ?? anim.name ?? resolveEntityFallbackLabel(anim.kind);
     const shouldShowLabel = anim.kind !== 'formation' || anim.formationShowText !== false;
     view.label.visible = shouldShowLabel;
@@ -1958,10 +1960,11 @@ export class PixiMapRendererAdapter {
     const glyphLean = (motionUnitX - motionUnitY) * travelPulse * 0.1;
     const impactScaleX = 1 + travelPulse * 0.08 + landPulse * 0.1;
     const impactScaleY = 1 - travelPulse * 0.06 - landPulse * 0.12;
+    const visualCellSize = Math.max(1, view.visualRoot.pivot.x * 2);
     view.visualRoot.scale.set(isMoving ? 1 + travelPulse * 0.24 : 1, isMoving ? 1 - travelPulse * 0.16 : 1);
     view.glyph.rotation = isMoving ? glyphLean : 0;
     view.glyph.scale.set(isMoving ? impactScaleX : 1, isMoving ? impactScaleY : 1);
-    view.glyph.y = getCellSize() / 2 - travelPulse * getCellSize() * 0.08;
+    view.glyph.y = visualCellSize / 2 - travelPulse * getCellSize() * 0.08;
   }
 
   private ensureLocalPlayerFallback(localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string, exists: boolean): void {
