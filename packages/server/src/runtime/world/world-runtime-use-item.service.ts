@@ -302,6 +302,18 @@ export class WorldRuntimeUseItemService {
         if (!isAllowedPublicMap && !isOwnSectMap) {
             return { allowed: false };
         }
+        if (isOwnSectMap) {
+            return {
+                allowed: true,
+                mapName: typeof instance?.template?.name === 'string' && instance.template.name.trim() ? instance.template.name.trim() : templateId,
+                placement: {
+                    templateId: instanceSectId ? `sect_domain:${instanceSectId}` : templateId,
+                    instanceId,
+                    x: 0,
+                    y: 0,
+                },
+            };
+        }
         const spawnX = Number.isFinite(instance?.template?.spawnX) ? Math.trunc(Number(instance.template.spawnX)) : undefined;
         const spawnY = Number.isFinite(instance?.template?.spawnY) ? Math.trunc(Number(instance.template.spawnY)) : undefined;
         return {

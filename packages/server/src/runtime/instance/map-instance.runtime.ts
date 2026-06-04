@@ -966,6 +966,94 @@ class MapInstanceRuntime {
         this.markPersistenceDirtyDomainsHighPriority(['overlay', 'tile_damage', 'tile_cell']);
         return true;
     }
+    /** rebaseSectTemplateToStableCoordinates：旧宗门模板迁移到核心(0,0)稳定坐标，之后扩展不再平移。 */
+    rebaseSectTemplateToStableCoordinates(nextTemplate) {
+        if (!nextTemplate || !Number.isFinite(Number(nextTemplate.width)) || !Number.isFinite(Number(nextTemplate.height))) {
+            return false;
+        }
+        const previousTemplate = this.template;
+        const previousTilePlane = this.tilePlane;
+        const previousDirtyDomains = Array.from(this.getDirtyDomains());
+        const previousHighPriorityDirtyDomains = this.dirtyDomainHighPriority instanceof Set
+            ? Array.from(this.dirtyDomainHighPriority)
+            : [];
+        const previousCenterX = Number.isFinite(Number(previousTemplate.source?.sectCoreX)) ? Math.trunc(Number(previousTemplate.source.sectCoreX)) : 0;
+        const previousCenterY = Number.isFinite(Number(previousTemplate.source?.sectCoreY)) ? Math.trunc(Number(previousTemplate.source.sectCoreY)) : 0;
+        const previousCellEntries = [];
+        const previousCellCount = typeof previousTilePlane?.getCellCount === 'function' ? previousTilePlane.getCellCount() : 0;
+        for (let tileIndex = 0; tileIndex < previousCellCount; tileIndex += 1) {
+            const layerState = typeof previousTilePlane.getTileLayerState === 'function'
+                ? previousTilePlane.getTileLayerState(tileIndex)
+                : null;
+            previousCellEntries.push({
+                x: previousTilePlane.getX(tileIndex) - previousCenterX,
+                y: previousTilePlane.getY(tileIndex) - previousCenterY,
+                tileType: previousTilePlane.getTileType(tileIndex),
+                terrainType: layerState?.terrain,
+                surfaceType: layerState?.surface ?? null,
+                structureType: layerState?.structure ?? null,
+                interactableKinds: Array.isArray(layerState?.interactableKinds) ? layerState.interactableKinds : [],
+            });
+        }
+        const tileDamageEntries = this.buildTileDamagePersistenceEntries().map((entry) => ({
+            ...entry,
+            x: Math.trunc(Number(entry.x) || 0) - previousCenterX,
+            y: Math.trunc(Number(entry.y) || 0) - previousCenterY,
+        }));
+        const temporaryTileEntries = this.buildTemporaryTilePersistenceEntries().map((entry) => ({
+            ...entry,
+            x: Math.trunc(Number(entry.x) || 0) - previousCenterX,
+            y: Math.trunc(Number(entry.y) || 0) - previousCenterY,
+        }));
+        const players = Array.from(this.playersById.values());
+        this.template = nextTemplate;
+        this.tilePlane = RuntimeTilePlane.fromTemplate(nextTemplate);
+        this.meta.templateId = nextTemplate.id;
+        const nextCellCapacity = this.tilePlane.getCellCapacity();
+        this.occupancy = new Uint32Array(nextCellCapacity);
+        this.auraByTile = new Float64Array(nextCellCapacity);
+        this.auraByTile.set(nextTemplate.baseAuraByTile);
+        this.tileResourceBuckets = new Map([[DEFAULT_TILE_AURA_RESOURCE_KEY, this.auraByTile]]);
+        const baseAuraByTile = new Float64Array(nextCellCapacity);
+        baseAuraByTile.set(nextTemplate.baseAuraByTile);
+        this.baseTileResourceBuckets = new Map([[DEFAULT_TILE_AURA_RESOURCE_KEY, baseAuraByTile]]);
+        this.tileResourceFlowRemainderBuckets = new Map();
+        this.tileResourceFlowIndicesByKey = new Map();
+        this.changedTileResourceEntryCountByKey = new Map();
+        this.changedAuraTileCount = 0;
+        this.changedTileResourceEntryCount = 0;
+        this.playerIdsByTile.clear();
+        this.npcIdByTile.clear();
+        this.npcsById.clear();
+        this.landmarkIdByTile.clear();
+        this.landmarksById.clear();
+        this.containerIdByTile.clear();
+        this.containersById.clear();
+        this.runtimePortals = [];
+        this.buildingTopologyIndex = new BuildingTopologyIndex(nextCellCapacity);
+        this.roomIdByCell = new Int32Array(nextCellCapacity);
+        this.tileDamageByTile.clear();
+        this.temporaryTileByTile.clear();
+        this.hydrateRuntimeTiles(previousCellEntries);
+        this.hydrateTileDamage(tileDamageEntries);
+        this.hydrateTemporaryTiles(temporaryTileEntries);
+        for (const player of players) {
+            const nextX = Math.trunc(Number(player.x) || 0) - previousCenterX;
+            const nextY = Math.trunc(Number(player.y) || 0) - previousCenterY;
+            player.x = this.isInBounds(nextX, nextY) ? nextX : this.template.spawnX;
+            player.y = this.isInBounds(nextX, nextY) ? nextY : this.template.spawnY;
+            player.selfRevision += 1;
+            this.addPlayerToTileIndex(player);
+            this.setOccupied(player.x, player.y, player.handle);
+        }
+        this.rebuildTileResourceFlowIndices();
+        this.markPersistenceDirtyDomains(previousDirtyDomains);
+        markMapInstanceDirtyDomainHighPriority(this, previousHighPriorityDirtyDomains);
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomainsHighPriority(['overlay', 'tile_damage', 'tile_cell']);
+        return true;
+    }
     /** activateRuntimeTile：按坐标激活一个运行时地块，已存在坐标不会被覆盖。 */
     activateRuntimeTile(x, y, tileType, options: any = {}) {
         if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
@@ -5855,8 +5943,8 @@ class MapInstanceRuntime {
         const candidates = [];
         if (preferredX !== undefined && preferredY !== undefined) {
             candidates.push({
-                x: clampCoordinate(preferredX, this.template.width),
-                y: clampCoordinate(preferredY, this.template.height),
+                x: this.clampToRuntimeTileBounds(preferredX, 'x'),
+                y: this.clampToRuntimeTileBounds(preferredY, 'y'),
             });
         }
         candidates.push({
@@ -5879,14 +5967,18 @@ class MapInstanceRuntime {
             return { x: originX, y: originY };
         }
 
-        const maxRadius = Math.max(this.template.width, this.template.height);
+        const minBoundX = Number.isFinite(Number(this.tilePlane?.minX)) ? Math.trunc(Number(this.tilePlane.minX)) : 0;
+        const maxBoundX = Number.isFinite(Number(this.tilePlane?.maxX)) ? Math.trunc(Number(this.tilePlane.maxX)) : this.template.width - 1;
+        const minBoundY = Number.isFinite(Number(this.tilePlane?.minY)) ? Math.trunc(Number(this.tilePlane.minY)) : 0;
+        const maxBoundY = Number.isFinite(Number(this.tilePlane?.maxY)) ? Math.trunc(Number(this.tilePlane.maxY)) : this.template.height - 1;
+        const maxRadius = Math.max(maxBoundX - minBoundX + 1, maxBoundY - minBoundY + 1);
         for (let radius = 1; radius <= maxRadius; radius += 1) {
-            const minX = Math.max(0, originX - radius);
-            const maxX = Math.min(this.template.width - 1, originX + radius);
+            const minX = Math.max(minBoundX, originX - radius);
+            const maxX = Math.min(maxBoundX, originX + radius);
 
-            const minY = Math.max(0, originY - radius);
+            const minY = Math.max(minBoundY, originY - radius);
 
-            const maxY = Math.min(this.template.height - 1, originY + radius);
+            const maxY = Math.min(maxBoundY, originY + radius);
             for (let y = minY; y <= maxY; y += 1) {
                 for (let x = minX; x <= maxX; x += 1) {
                     if (Math.abs(x - originX) !== radius && Math.abs(y - originY) !== radius) {
@@ -5899,6 +5991,16 @@ class MapInstanceRuntime {
             }
         }
         return null;
+    }
+    /** clampToRuntimeTileBounds：按真实稀疏地块边界夹取坐标，支持宗门 signed 坐标。 */
+    clampToRuntimeTileBounds(value, axis) {
+        const normalized = Math.trunc(Number(value) || 0);
+        const minKey = axis === 'y' ? 'minY' : 'minX';
+        const maxKey = axis === 'y' ? 'maxY' : 'maxX';
+        const fallbackMax = axis === 'y' ? this.template.height - 1 : this.template.width - 1;
+        const min = Number.isFinite(Number(this.tilePlane?.[minKey])) ? Math.trunc(Number(this.tilePlane[minKey])) : 0;
+        const max = Number.isFinite(Number(this.tilePlane?.[maxKey])) ? Math.trunc(Number(this.tilePlane[maxKey])) : fallbackMax;
+        return Math.max(min, Math.min(max, normalized));
     }
     /** isOpenTile：判断地块是否可占用。 */
     isOpenTile(x, y, playerId = null) {

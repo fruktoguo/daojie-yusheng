@@ -355,7 +355,7 @@ function testCurrentRespawnBindAllowsOwnSectMap() {
     });
     service.dispatchUseItem('player:1', 6, deps);
     assert.deepEqual(log, [
-        ['bindRespawnPointToPlacement', 'player:1', 'sect_domain:sect:alpha:x-1_1:y-1_1', 'sect:alpha:main', 1, 1],
+        ['bindRespawnPointToPlacement', 'player:1', 'sect_domain:sect:alpha', 'sect:alpha:main', 0, 0],
         ['consumeInventoryItem', 'player:1', 6, 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '复活点与遁返落点已绑定：青岚宗', 'success'],

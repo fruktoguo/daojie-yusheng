@@ -61,6 +61,24 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         desc: '切换感气视角，观察地块灵气层次与变化。',
     }];
 const WANG_QI_COMPASS_ITEM_ID = 'equip.copper_luopan';
+const SECT_TEMPLATE_PREFIX = 'sect_domain:';
+
+function resolveStableSectTemplateId(templateId) {
+    if (typeof templateId !== 'string' || !templateId.trim().startsWith(SECT_TEMPLATE_PREFIX)) {
+        return null;
+    }
+    const normalized = templateId.trim();
+    const body = normalized.slice(SECT_TEMPLATE_PREFIX.length);
+    const boundsMatch = /:x-?\d+_-?\d+:y-?\d+_-?\d+$/.exec(body);
+    if (boundsMatch) {
+        return `${SECT_TEMPLATE_PREFIX}${body.slice(0, boundsMatch.index)}`;
+    }
+    const radiusMatch = /:r\d+$/.exec(body);
+    if (radiusMatch) {
+        return `${SECT_TEMPLATE_PREFIX}${body.slice(0, radiusMatch.index)}`;
+    }
+    return normalized;
+}
 
 /** 世界运行时上下文动作查询服务：承接 contextActions 的只读组装。 */
 @Injectable()
@@ -129,6 +147,13 @@ export class WorldRuntimeContextActionQueryService {
         let respawnTargetName = respawnTargetMapId || '默认复活点';
         if (respawnTargetMapId && this.templateRepository.has(respawnTargetMapId)) {
             respawnTargetName = this.templateRepository.getOrThrow(respawnTargetMapId).name || respawnTargetMapId;
+        } else {
+            const stableSectTemplateId = resolveStableSectTemplateId(respawnTargetMapId);
+            if (stableSectTemplateId && this.templateRepository.has(stableSectTemplateId)) {
+                respawnTargetName = this.templateRepository.getOrThrow(stableSectTemplateId).name || '所属宗门';
+            } else if (stableSectTemplateId) {
+                respawnTargetName = '所属宗门';
+            }
         }
         const returnReadyTick = normalizeReturnToSpawnReadyTick(player, currentTick);
         const returnCooldownLeft = Math.max(0, returnReadyTick - currentTick);

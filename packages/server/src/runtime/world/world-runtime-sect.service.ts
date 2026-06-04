@@ -19,6 +19,8 @@ const SECT_ENTRANCE_INTERACTION_RADIUS = 2;
 const SECT_INITIAL_STONE_MARGIN = 1;
 const SECT_EXPAND_CHUNK = 8;
 const SECT_INNATE_STABILIZER_RADIUS = 8;
+const SECT_CORE_X = 0;
+const SECT_CORE_Y = 0;
 const SECT_CORE_CHAR = '宗';
 const SECT_ENTRANCE_CHAR = '门';
 const SECT_GUARDIAN_INITIAL_AURA = 100000;
@@ -94,10 +96,10 @@ class WorldRuntimeSectService {
         }
         assertSectFoundingAreaClear(Array.from(this.sectsById.values()), entranceInstance, location.instanceId, player.x, player.y);
         const bounds = buildInitialSectBounds();
-        const templateId = buildSectTemplateId(sectId, bounds);
+        const templateId = buildSectTemplateId(sectId);
         const instanceId = buildSectInstanceId(sectId);
-        const coreX = -bounds.minX;
-        const coreY = -bounds.minY;
+        const coreX = SECT_CORE_X;
+        const coreY = SECT_CORE_Y;
         const now = Date.now();
         const sect = {
             sectId,
@@ -177,13 +179,18 @@ class WorldRuntimeSectService {
     ensureSectRuntimeInstance(sect, deps, options: { allowCreate?: boolean } = {}) {
         const existing = deps.getInstanceRuntime(sect.sectInstanceId);
         if (existing) {
+            const template = this.registerSectTemplate(sect);
+            if (existing.meta?.templateId !== template.id && typeof existing.rebaseSectTemplateToStableCoordinates === 'function') {
+                existing.rebaseSectTemplateToStableCoordinates(template);
+            }
+            syncSectRuntimeDomainTiles(sect, existing);
             return existing;
         }
         if (options.allowCreate === false) {
             return null;
         }
         this.registerSectTemplate(sect);
-        return deps.createInstance({
+        const instance = deps.createInstance({
             instanceId: sect.sectInstanceId,
             templateId: sect.sectTemplateId,
             kind: 'sect',
@@ -199,9 +206,17 @@ class WorldRuntimeSectService {
             routeDomain: `sect:${sect.sectId}`,
             shardKey: sect.sectInstanceId,
         });
+        syncSectRuntimeDomainTiles(sect, instance);
+        return instance;
     }
 
     registerSectTemplate(sect) {
+        const stableTemplateId = buildSectTemplateId(sect.sectId);
+        if (sect.sectTemplateId !== stableTemplateId) {
+            sect.sectTemplateId = stableTemplateId;
+        }
+        sect.coreX = SECT_CORE_X;
+        sect.coreY = SECT_CORE_Y;
         if (this.templateRepository.has(sect.sectTemplateId)) {
             return this.templateRepository.getOrThrow(sect.sectTemplateId);
         }
@@ -209,14 +224,13 @@ class WorldRuntimeSectService {
     }
 
     refreshSectTemplateForBounds(sect, deps) {
-        const bounds = normalizeSectBounds(sect);
-        sect.sectTemplateId = buildSectTemplateId(sect.sectId, bounds);
-        sect.coreX = -bounds.minX;
-        sect.coreY = -bounds.minY;
-        const template = this.templateRepository.registerRuntimeMapTemplate(buildSectMapDocument(sect));
+        const template = this.registerSectTemplate(sect);
         const sectInstance = deps.getInstanceRuntime?.(sect.sectInstanceId);
-        if (sectInstance && typeof sectInstance.replaceTemplateForSectExpansion === 'function') {
-            sectInstance.replaceTemplateForSectExpansion(template);
+        if (sectInstance) {
+            if (sectInstance.meta?.templateId !== template.id && typeof sectInstance.rebaseSectTemplateToStableCoordinates === 'function') {
+                sectInstance.rebaseSectTemplateToStableCoordinates(template);
+            }
+            syncSectRuntimeDomainTiles(sect, sectInstance);
         }
         return template;
     }
@@ -1056,8 +1070,9 @@ class WorldRuntimeSectService {
         if (!normalized) {
             return null;
         }
+        const parsed = parseSectTemplateDescriptor(normalized);
         for (const sect of this.sectsById.values()) {
-            if (sect.sectTemplateId === normalized) {
+            if (sect.sectTemplateId === normalized || (parsed?.sectId && sect.sectId === parsed.sectId)) {
                 return sect;
             }
         }
@@ -1158,8 +1173,8 @@ class WorldRuntimeSectService {
             entranceY: 0,
             sectInstanceId: normalizeOptionalString(entry?.instance_id) || buildSectInstanceId(parsed.sectId),
             sectTemplateId: templateId,
-            coreX: -parsed.bounds.minX,
-            coreY: -parsed.bounds.minY,
+            coreX: SECT_CORE_X,
+            coreY: SECT_CORE_Y,
             expansionRadius: Math.max(Math.abs(parsed.bounds.minX), Math.abs(parsed.bounds.maxX), Math.abs(parsed.bounds.minY), Math.abs(parsed.bounds.maxY)),
             mapMinX: parsed.bounds.minX,
             mapMaxX: parsed.bounds.maxX,
@@ -1170,13 +1185,13 @@ class WorldRuntimeSectService {
         };
         this.templateRepository.registerRuntimeMapTemplate(buildSectMapDocument({
             ...sect,
-            sectTemplateId: templateId,
+            sectTemplateId: buildSectTemplateId(parsed.sectId),
             mapMinX: parsed.bounds.minX,
             mapMaxX: parsed.bounds.maxX,
             mapMinY: parsed.bounds.minY,
             mapMaxY: parsed.bounds.maxY,
-            coreX: -parsed.bounds.minX,
-            coreY: -parsed.bounds.minY,
+            coreX: SECT_CORE_X,
+            coreY: SECT_CORE_Y,
         }));
         return true;
     }
@@ -1189,6 +1204,9 @@ class WorldRuntimeSectService {
             this.registerSectTemplate(sect);
             const entranceInstance = deps.getInstanceRuntime(sect.entranceInstanceId);
             const sectInstance = this.ensureSectRuntimeInstance(sect, deps);
+            if (sectInstance) {
+                syncSectRuntimeDomainTiles(sect, sectInstance);
+            }
             if (entranceInstance && sectInstance) {
                 this.attachSectPortals(sect, entranceInstance, sectInstance);
                 this.ensureGuardianFormation(sect, deps);
@@ -1391,19 +1409,12 @@ function buildSectInstanceId(sectId) {
     return `${SECT_INSTANCE_PREFIX}${sectId}:main`;
 }
 
-function buildSectTemplateId(sectId, boundsInput) {
-    const bounds = normalizeBoundsObject(boundsInput) ?? buildInitialSectBounds();
-    return `${SECT_TEMPLATE_PREFIX}${sectId}:x${bounds.minX}_${bounds.maxX}:y${bounds.minY}_${bounds.maxY}`;
+function buildSectTemplateId(sectId, _boundsInput = null) {
+    return `${SECT_TEMPLATE_PREFIX}${sectId}`;
 }
 
-function resolveSectTemplateIdForBounds(sectId, candidateTemplateId, boundsInput) {
-    const bounds = normalizeBoundsObject(boundsInput) ?? buildInitialSectBounds();
-    const candidate = normalizeOptionalString(candidateTemplateId);
-    const parsed = parseSectTemplateDescriptor(candidate);
-    if (parsed?.sectId === sectId && areSectBoundsEqual(parsed.bounds, bounds)) {
-        return candidate;
-    }
-    return buildSectTemplateId(sectId, bounds);
+function resolveSectTemplateIdForBounds(sectId, _candidateTemplateId, _boundsInput) {
+    return buildSectTemplateId(sectId);
 }
 
 function buildDefaultSectName(player) {
@@ -1885,47 +1896,51 @@ function removeSectRuntimePortals(instance, sectId) {
     return true;
 }
 
-function buildSectMapDocument(sect) {
+function syncSectRuntimeDomainTiles(sect, instance) {
+    if (!sect || !instance || typeof instance.activateRuntimeTile !== 'function') {
+        return false;
+    }
     const bounds = normalizeSectBounds(sect);
-    const width = bounds.maxX - bounds.minX + 1;
-    const height = bounds.maxY - bounds.minY + 1;
-    const centerX = -bounds.minX;
-    const centerY = -bounds.minY;
-    const tiles = [];
-    for (let y = 0; y < height; y += 1) {
-        let row = '';
-        for (let x = 0; x < width; x += 1) {
-            const logicalX = bounds.minX + x;
-            const logicalY = bounds.minY + y;
-            if (x === centerX && y === centerY) {
-                row += 'P';
-            } else if (Math.abs(logicalX) <= SECT_BASE_CLEAR_RADIUS && Math.abs(logicalY) <= SECT_BASE_CLEAR_RADIUS) {
-                row += '.';
-            } else {
-                row += 'o';
+    let changed = false;
+    for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+        for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+            const tileType = Math.abs(x - SECT_CORE_X) <= SECT_BASE_CLEAR_RADIUS
+                && Math.abs(y - SECT_CORE_Y) <= SECT_BASE_CLEAR_RADIUS
+                ? TileType.Floor
+                : TileType.Stone;
+            const activated = instance.activateRuntimeTile(x, y, tileType);
+            if (activated?.created === true && activated.tileIndex >= 0 && typeof instance.markStaticTileSyncDirtyByIndex === 'function') {
+                instance.markStaticTileSyncDirtyByIndex(activated.tileIndex, { sightBlockingChanged: activated.created === true && tileType === TileType.Stone });
+            }
+            if (activated?.created === true) {
+                changed = true;
             }
         }
-        tiles.push(row);
     }
+    return changed;
+}
+
+function buildSectMapDocument(sect) {
+    const bounds = normalizeSectBounds(sect);
     return {
         id: resolveSectTemplateIdForBounds(sect.sectId, sect.sectTemplateId, bounds),
         name: sect.name,
-        width,
-        height,
+        width: 1,
+        height: 1,
         routeDomain: `sect:${sect.sectId}`,
         terrainProfileId: 'sect_stone_domain',
         mapLv: 1,
         sectMap: true,
         sectId: sect.sectId,
         sectMark: normalizeOptionalString(sect.mark) || SECT_CORE_CHAR,
-        sectCoreX: centerX,
-        sectCoreY: centerY,
+        sectCoreX: SECT_CORE_X,
+        sectCoreY: SECT_CORE_Y,
         sectMapMinX: bounds.minX,
         sectMapMaxX: bounds.maxX,
         sectMapMinY: bounds.minY,
         sectMapMaxY: bounds.maxY,
-        tiles,
-        spawnPoint: { x: centerX, y: centerY },
+        tiles: ['P'],
+        spawnPoint: { x: SECT_CORE_X, y: SECT_CORE_Y },
         portals: [],
         npcs: [],
         monsters: [],
@@ -1975,8 +1990,8 @@ function normalizeSectEntry(entry) {
         entranceY: Math.trunc(Number(entry.entranceY) || 0),
         sectInstanceId,
         sectTemplateId: templateId,
-        coreX: Math.trunc(Number(entry.coreX) || -bounds.minX),
-        coreY: Math.trunc(Number(entry.coreY) || -bounds.minY),
+        coreX: SECT_CORE_X,
+        coreY: SECT_CORE_Y,
         expansionRadius: Math.max(Math.abs(bounds.minX), Math.abs(bounds.maxX), Math.abs(bounds.minY), Math.abs(bounds.maxY)),
         mapMinX: bounds.minX,
         mapMaxX: bounds.maxX,
@@ -2058,7 +2073,7 @@ function parseSectTemplateDescriptor(templateId) {
         const radius = Math.max(1, Math.trunc(Number(radiusMatch[1]) || 1));
         return sectId ? { sectId, bounds: { minX: -radius, maxX: radius, minY: -radius, maxY: radius } } : null;
     }
-    return null;
+    return body ? { sectId: body, bounds: buildInitialSectBounds() } : null;
 }
 
 function formatSectTileCountLabel(sect, view, deps) {
