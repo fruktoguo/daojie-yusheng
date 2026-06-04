@@ -131,6 +131,7 @@ async function testOfflineAccumulatedGainWinsOverSnapshotLoss() {
   service.players.set(player.playerId, player);
 
   service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
   await service.beginOfflineGainSession(player.playerId, 1_000);
   service.advanceSinglePlayerTick(player, 1);
   service.advanceSinglePlayerTick(player, 2);
@@ -144,6 +145,8 @@ async function testOfflineAccumulatedGainWinsOverSnapshotLoss() {
   assert.equal(realmRow.lost, 0);
   assert.equal(realmRow.net, 240);
   assert.equal(report.durationMs, 2_000);
+  assert.equal(report.startedAt, 1_000);
+  assert.equal(report.endedAt, 3_000);
 }
 
 async function testOfflineGlobalStatisticsKeepGainAndLossSeparated() {
@@ -152,6 +155,7 @@ async function testOfflineGlobalStatisticsKeepGainAndLossSeparated() {
   service.players.set(player.playerId, player);
 
   service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
   await service.beginOfflineGainSession(player.playerId, 1_000);
 
   service.gainRealmProgress(player.playerId, 100);
@@ -165,6 +169,7 @@ async function testOfflineGlobalStatisticsKeepGainAndLossSeparated() {
   assert.equal(realmRow.lost, 100);
   assert.equal(realmRow.net, 0);
   assert.equal(report.durationMs, 2_000);
+  assert.equal(report.endedAt, report.startedAt + report.durationMs);
 }
 
 async function testOfflineSnapshotFallbackDoesNotFabricateStoppedServerChanges() {
@@ -173,6 +178,7 @@ async function testOfflineSnapshotFallbackDoesNotFabricateStoppedServerChanges()
   service.players.set(player.playerId, player);
 
   service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
   await service.beginOfflineGainSession(player.playerId, 1_000);
 
   player.realm.progress = 35_900;
@@ -194,6 +200,7 @@ async function testOfflineDurationIncludesNoGainTicks() {
   service.players.set(player.playerId, player);
 
   service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
   await service.beginOfflineGainSession(player.playerId, 1_000);
   service.advanceSinglePlayerTick(player, 1);
   player.combat.cultivationActive = true;
@@ -207,6 +214,7 @@ async function testOfflineDurationIncludesNoGainTicks() {
   assert.equal(realmRow.lost, 0);
   assert.equal(realmRow.net, 120);
   assert.equal(report.durationMs, 2_000);
+  assert.equal(report.endedAt, report.startedAt + report.durationMs);
 }
 
 async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
@@ -215,6 +223,7 @@ async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
   service.players.set(player.playerId, player);
 
   service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
   await service.beginOfflineGainSession(player.playerId, 1_000);
   for (let tick = 1; tick <= 60; tick += 1) {
     service.advanceSinglePlayerTick(player, tick);
@@ -222,7 +231,9 @@ async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
   const firstReport = await service.finalizeOfflineGainSessionForPlayer(player, 70_000);
 
   player.sessionId = "sid:reconnected";
+  player.offlineSinceAt = null;
   service.detachSession(player.playerId);
+  player.offlineSinceAt = 80_000;
   await service.beginOfflineGainSession(player.playerId, 80_000);
   for (let tick = 61; tick <= 120; tick += 1) {
     service.advanceSinglePlayerTick(player, tick);
@@ -233,8 +244,8 @@ async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
   assert.equal(records.length, 1);
   assert.equal(records[0].id, firstReport.id);
   assert.equal(records[0].startedAt, firstReport.startedAt);
-  assert.equal(records[0].endedAt, secondReport.endedAt);
   assert.equal(records[0].durationMs, firstReport.durationMs + secondReport.durationMs);
+  assert.equal(records[0].endedAt, records[0].startedAt + records[0].durationMs);
 
   const realmRow = records[0].progress.find((entry) => entry.kind === "realmExp");
   assert.ok(realmRow, "expected merged realm progress row");

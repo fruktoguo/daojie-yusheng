@@ -5937,6 +5937,7 @@ function buildPlayerStatisticRecordFromParts(player, session, endedAt, parts, sc
     const startedAt = normalizeOfflineGainCount(session?.startedAt ?? session?.baselinePayload?.snapshotAt ?? endedAt);
     const normalizedEndedAt = Math.max(startedAt, normalizeOfflineGainCount(endedAt));
     const accumulatedDurationMs = normalizeOfflineGainCount(session?.accumulatedDurationMs);
+    const durationMs = accumulatedDurationMs > 0 ? accumulatedDurationMs : Math.max(0, normalizedEndedAt - startedAt);
     const normalizedScope = scope === 'online' ? 'online' : 'offline';
     return {
         id: normalizeOfflineGainString(session?.sessionId) || buildPlayerStatisticRecordId(player?.playerId, normalizedEndedAt, normalizedScope),
@@ -5944,8 +5945,8 @@ function buildPlayerStatisticRecordFromParts(player, session, endedAt, parts, sc
         scope: normalizedScope,
         source: resolvePlayerStatisticSource(normalizedParts, normalizedScope),
         startedAt,
-        endedAt: normalizedEndedAt,
-        durationMs: accumulatedDurationMs > 0 ? accumulatedDurationMs : Math.max(0, normalizedEndedAt - startedAt),
+        endedAt: startedAt + durationMs,
+        durationMs,
         generatedAt: Date.now(),
         spiritStones: normalizedParts.spiritStones,
         items: normalizedParts.items,
@@ -5984,14 +5985,15 @@ function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
         normalizeOfflineGainReportParts(report),
     ), createEmptyOfflineGainReportParts());
     const durationMs = normalizedReports.reduce((total, report) => total + normalizeOfflineGainCount(report?.durationMs), 0);
+    const startedAt = normalizeOfflineGainCount(first.startedAt);
     return {
         ...first,
         id: normalizeOfflineGainString(first.id),
         playerId: normalizedPlayerId || normalizeOfflineGainString(first.playerId) || undefined,
         scope: 'offline',
         source: 'cultivation',
-        startedAt: normalizeOfflineGainCount(first.startedAt),
-        endedAt: Math.max(normalizeOfflineGainCount(first.startedAt), normalizeOfflineGainCount(last?.endedAt)),
+        startedAt,
+        endedAt: startedAt + durationMs,
         durationMs,
         generatedAt: Date.now(),
         spiritStones: mergedParts.spiritStones,
