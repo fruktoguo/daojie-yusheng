@@ -84,6 +84,7 @@ import {
   type PixiProfileSnapshot,
   type PixiProfileState,
 } from './pixi-profiler-window';
+import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from '../../renderer/runtime-image-pack-url';
 
 type PixiRenderer = Renderer<HTMLCanvasElement>;
 type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
@@ -209,6 +210,7 @@ interface PixiTileSpriteRef {
 }
 
 type RuntimeTileSpriteManifest = {
+  version?: unknown;
   tiles?: Record<string, unknown>;
   legacyTiles?: Record<string, unknown>;
 };
@@ -365,21 +367,11 @@ function normalizeTileSpriteDualGrid(value: unknown): boolean {
   return rawDualGrid === true || (isRecord(rawDualGrid) && rawDualGrid.enabled !== false);
 }
 
-function resolveRuntimeImagePackAssetUrl(manifestUrl: string, src: string): string {
-  if (src.startsWith('/') || /^[a-z][a-z0-9+.-]*:/i.test(src)) return src;
-  try {
-    return new URL(src, new URL(manifestUrl, window.location.href)).toString();
-  } catch {
-    const base = manifestUrl.slice(0, manifestUrl.lastIndexOf('/') + 1);
-    return `${base}${src}`;
-  }
-}
-
-function normalizePixiTileSpriteRef(value: unknown, manifestUrl: string, key: string, order: number): PixiTileSpriteRef | null {
+function normalizePixiTileSpriteRef(value: unknown, manifestUrl: string, version: string, key: string, order: number): PixiTileSpriteRef | null {
   if (!isRecord(value) || typeof value.src !== 'string' || value.src.trim().length === 0) return null;
   return {
     key,
-    src: resolveRuntimeImagePackAssetUrl(manifestUrl, value.src.trim()),
+    src: resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version),
     cols: normalizePositiveInteger(value.cols, 1),
     rows: normalizePositiveInteger(value.rows, 1),
     col: normalizeNonNegativeInteger(value.col, 0),
@@ -406,13 +398,13 @@ function resolveTopTileSpriteKey(tile: Tile, legacyTileKeys: ReadonlyMap<string,
   return legacyTileKeys.get(tile.type) ?? null;
 }
 
-function normalizePixiTileSpriteMap(value: unknown, manifestUrl: string): Map<string, PixiTileSpriteRef> {
+function normalizePixiTileSpriteMap(value: unknown, manifestUrl: string, version: string): Map<string, PixiTileSpriteRef> {
   const result = new Map<string, PixiTileSpriteRef>();
   if (!isRecord(value)) return result;
   let order = 0;
   for (const [key, rawRef] of Object.entries(value)) {
     const normalizedKey = key.trim();
-    const ref = normalizePixiTileSpriteRef(rawRef, manifestUrl, normalizedKey, order);
+    const ref = normalizePixiTileSpriteRef(rawRef, manifestUrl, version, normalizedKey, order);
     order += 1;
     if (normalizedKey && ref) result.set(normalizedKey, ref);
   }
@@ -925,7 +917,8 @@ export class PixiMapRendererAdapter {
       const response = await fetch(DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL, { cache: 'no-cache' });
       if (!response.ok) throw new Error(`runtime_tile_sprite_manifest_http_${response.status}`);
       const manifest = await response.json() as RuntimeTileSpriteManifest;
-      const refs = normalizePixiTileSpriteMap(manifest.tiles, DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL);
+      const version = normalizeRuntimeImagePackVersion(manifest.version);
+      const refs = normalizePixiTileSpriteMap(manifest.tiles, DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL, version);
       this.runtimeTileSpriteRefs = new Map([...refs.entries()].sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order));
       this.runtimeLegacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
       this.runtimeTileManifestState = 'loaded';

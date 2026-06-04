@@ -5,6 +5,7 @@
  */
 import type { InteractableKind, RenderEntity, StructureType, SurfaceType, TerrainType, Tile, TileType } from '@mud/shared';
 import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../constants/ui/performance';
+import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from './runtime-image-pack-url';
 
 type SpriteFit = 'cover' | 'contain';
 type ManifestState = 'idle' | 'loading' | 'loaded' | 'error';
@@ -51,6 +52,7 @@ interface DualGridOptions {
 }
 
 interface RuntimeImagePackManifest {
+  version?: unknown;
   tiles?: Record<string, unknown>;
   legacyTiles?: Record<string, unknown>;
   entities?: Record<string, unknown>;
@@ -213,24 +215,12 @@ function normalizeDualGridOptions(value: unknown): DualGridOptions | undefined {
   };
 }
 
-function resolveManifestAssetUrl(manifestUrl: string, src: string): string {
-  if (src.startsWith('/') || /^[a-z][a-z0-9+.-]*:/i.test(src)) {
-    return src;
-  }
-  try {
-    return new URL(src, new URL(manifestUrl, window.location.href)).toString();
-  } catch {
-    const base = manifestUrl.slice(0, manifestUrl.lastIndexOf('/') + 1);
-    return `${base}${src}`;
-  }
-}
-
-function normalizeSpriteRef(value: unknown, manifestUrl: string, key: string, order: number): AtlasSpriteRef | null {
+function normalizeSpriteRef(value: unknown, manifestUrl: string, version: string, key: string, order: number): AtlasSpriteRef | null {
   if (!isRecord(value) || typeof value.src !== 'string' || value.src.trim().length === 0) {
     return null;
   }
   return {
-    src: resolveManifestAssetUrl(manifestUrl, value.src.trim()),
+    src: resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version),
     cols: normalizePositiveInteger(value.cols, 1),
     rows: normalizePositiveInteger(value.rows, 1),
     col: normalizeNonNegativeInteger(value.col, 0),
@@ -245,7 +235,7 @@ function normalizeSpriteRef(value: unknown, manifestUrl: string, key: string, or
   };
 }
 
-function normalizeSpriteMap(value: unknown, manifestUrl: string): Map<string, AtlasSpriteRef> {
+function normalizeSpriteMap(value: unknown, manifestUrl: string, version: string): Map<string, AtlasSpriteRef> {
   const result = new Map<string, AtlasSpriteRef>();
   if (!isRecord(value)) {
     return result;
@@ -253,7 +243,7 @@ function normalizeSpriteMap(value: unknown, manifestUrl: string): Map<string, At
   let order = 0;
   for (const [key, rawRef] of Object.entries(value)) {
     const normalizedKey = key.trim();
-    const ref = normalizeSpriteRef(rawRef, manifestUrl, normalizedKey, order);
+    const ref = normalizeSpriteRef(rawRef, manifestUrl, version, normalizedKey, order);
     order += 1;
     if (normalizedKey && ref) {
       result.set(normalizedKey, ref);
@@ -655,9 +645,10 @@ class RuntimeImagePack {
         return response.json() as Promise<RuntimeImagePackManifest>;
       })
       .then((manifest) => {
-        this.tileSprites = normalizeSpriteMap(manifest.tiles, this.manifestUrl);
+        const version = normalizeRuntimeImagePackVersion(manifest.version);
+        this.tileSprites = normalizeSpriteMap(manifest.tiles, this.manifestUrl, version);
         this.legacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
-        this.entitySprites = normalizeSpriteMap(manifest.entities, this.manifestUrl);
+        this.entitySprites = normalizeSpriteMap(manifest.entities, this.manifestUrl, version);
         this.dualGridTileKeys = [...this.tileSprites.entries()]
           .filter(([, ref]) => ref.dualGrid?.enabled === true)
           .sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order)

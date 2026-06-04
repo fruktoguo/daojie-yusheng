@@ -9,6 +9,21 @@ server {
         try_files $uri =404;
     }
 
+    location ~ ^/assets/runtime-image-packs/[^/]+/manifest\.json$ {
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate" always;
+        try_files $uri =404;
+    }
+
+    location ~ ^/assets/(attr-icons|craft-icons)/ {
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        try_files $uri =404;
+    }
+
+    location = /logo.png {
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        try_files /logo.png =404;
+    }
+
     location = / {
         add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate" always;
         try_files /index.html =404;
