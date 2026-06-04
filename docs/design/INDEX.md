@@ -6,6 +6,7 @@
 
 - `systems/` — 系统设计（战斗、经济、成长等）
 - `balance/` — 数值设计与平衡分析
+- `art-style.md` — 美术风格与资产生成规范
 
 ## 系统设计
 
@@ -22,6 +23,7 @@
 | 材料出处 | [材料出处表](systems/材料出处表.md) |
 | 分身/宠物/机器人 | [分身宠物机器人系统设计](systems/分身宠物机器人系统设计.md) |
 | GM 运行时开关 | [gm-runtime-flag](gm-runtime-flag.md) |
+| 美术风格 | [art-style](art-style.md) |
 
 ## 数值设计
 

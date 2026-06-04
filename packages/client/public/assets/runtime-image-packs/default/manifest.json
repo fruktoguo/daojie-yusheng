@@ -380,5 +380,474 @@
     "black_iron_ore": "structure:black_iron_ore",
     "broken_sword_heap": "structure:broken_sword_heap"
   },
-  "entities": {}
+  "entities": {
+    "npc:npc_bamboo_hermit": {
+      "src": "npcs/npc_bamboo_hermit.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_bamboo_scout": {
+      "src": "npcs/npc_bamboo_scout.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_blacksmith_han": {
+      "src": "npcs/npc_blacksmith_han.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_blazewood_hermit": {
+      "src": "npcs/npc_blazewood_hermit.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_broken_cart": {
+      "src": "npcs/npc_broken_cart.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.08
+    },
+    "npc:npc_cleft_array_mender": {
+      "src": "npcs/npc_cleft_array_mender.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_cleft_old_banner": {
+      "src": "npcs/npc_cleft_old_banner.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_cold_ferry_guide": {
+      "src": "npcs/npc_cold_ferry_guide.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_cold_vein_watcher": {
+      "src": "npcs/npc_cold_vein_watcher.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_darksoil_veteran": {
+      "src": "npcs/npc_darksoil_veteran.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_deepvein_old_steward": {
+      "src": "npcs/npc_deepvein_old_steward.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_deepvein_pick_foreman": {
+      "src": "npcs/npc_deepvein_pick_foreman.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_ember_forge_drifter": {
+      "src": "npcs/npc_ember_forge_drifter.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_ember_old_keeper": {
+      "src": "npcs/npc_ember_old_keeper.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_frostblade_scout": {
+      "src": "npcs/npc_frostblade_scout.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_gate_guard_a": {
+      "src": "npcs/npc_gate_guard_a.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_gu_hui": {
+      "src": "npcs/npc_gu_hui.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_guizang_broken_recorder": {
+      "src": "npcs/npc_guizang_broken_recorder.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_guizang_gate_watcher": {
+      "src": "npcs/npc_guizang_gate_watcher.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_guo_huo": {
+      "src": "npcs/npc_guo_huo.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_healer_su": {
+      "src": "npcs/npc_healer_su.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_herbalist_lan": {
+      "src": "npcs/npc_herbalist_lan.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_hunter_luo": {
+      "src": "npcs/npc_hunter_luo.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_ji_mi_xuan": {
+      "src": "npcs/npc_ji_mi_xuan.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_lu_wei": {
+      "src": "npcs/npc_lu_wei.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_ma_huitou": {
+      "src": "npcs/npc_ma_huitou.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_map_seller_qiu_shou": {
+      "src": "npcs/npc_map_seller_qiu_shou.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_map_seller_yan_bo": {
+      "src": "npcs/npc_map_seller_yan_bo.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_mine_overseer_ghost": {
+      "src": "npcs/npc_mine_overseer_ghost.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_mine_smith": {
+      "src": "npcs/npc_mine_smith.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_old_gate_guard": {
+      "src": "npcs/npc_old_gate_guard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_qingxuan": {
+      "src": "npcs/npc_qingxuan.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_ridge_sage": {
+      "src": "npcs/npc_ridge_sage.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_ruin_scholar_spirit": {
+      "src": "npcs/npc_ruin_scholar_spirit.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_rune_keeper": {
+      "src": "npcs/npc_rune_keeper.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_shen_qiniang": {
+      "src": "npcs/npc_shen_qiniang.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_shi_gu": {
+      "src": "npcs/npc_shi_gu.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_sky_observer": {
+      "src": "npcs/npc_sky_observer.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_su_jian": {
+      "src": "npcs/npc_su_jian.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_watchman": {
+      "src": "npcs/npc_watchman.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_wenji": {
+      "src": "npcs/npc_wenji.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_wild_recluse": {
+      "src": "npcs/npc_wild_recluse.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_wounded_patrol": {
+      "src": "npcs/npc_wounded_patrol.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_wounded_stranger": {
+      "src": "npcs/npc_wounded_stranger.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_xu_deng": {
+      "src": "npcs/npc_xu_deng.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_yunxu_alchemist": {
+      "src": "npcs/npc_yunxu_alchemist.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_yunxu_material_trader": {
+      "src": "npcs/npc_yunxu_material_trader.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_yunxu_pill_trader": {
+      "src": "npcs/npc_yunxu_pill_trader.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_yunxu_refiner": {
+      "src": "npcs/npc_yunxu_refiner.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_yunxu_sect_guide": {
+      "src": "npcs/npc_yunxu_sect_guide.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_yunxu_sundry": {
+      "src": "npcs/npc_yunxu_sundry.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "npc:npc_zhao_laoliu": {
+      "src": "npcs/npc_zhao_laoliu.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    }
+  }
 }
