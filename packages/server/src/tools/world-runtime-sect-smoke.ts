@@ -118,6 +118,7 @@ async function main() {
   const mails = [];
   const transfers = [];
   const guardians = [];
+  const pendingCommands = [];
   const playerRuntimeService = {
     getPlayerOrThrow(targetPlayerId) {
       const target = players.get(targetPlayerId);
@@ -222,6 +223,9 @@ async function main() {
     },
     applyTransfer(transfer) {
       transfers.push(transfer);
+    },
+    enqueuePendingCommand(targetPlayerId, command) {
+      pendingCommands.push({ playerId: targetPlayerId, command });
     },
     refreshQuestStates() {},
     refreshPlayerContextActions() {},
@@ -722,6 +726,30 @@ async function main() {
   assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
   sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
   assert.equal(guardians.find((entry) => entry.id === `formation:sect_guardian:${expandedSect.sectId}`).active, false);
+  sectService.executeSectAction(deputyPlayerId, "sect:guardian:maintain", deps);
+  assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
+    playerId: deputyPlayerId,
+    command: {
+      kind: "startFormationMaintenance",
+      payload: { formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}` },
+    },
+  });
+  deputyPlayer.formationJob = {
+    formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}`,
+    formationName: "护宗大阵",
+    remainingTicks: 1,
+  };
+  const maintainingManageDesc = sectService.buildSectCoreActions({
+    playerId: deputyPlayerId,
+    self: { x: expandedSect.coreX, y: expandedSect.coreY },
+    instance: { instanceId: sectInstance.meta.instanceId },
+  }, deps).find((action) => action.id === "sect:manage").desc;
+  assert.match(decodeURIComponent(/@@sect:(.*)@@/.exec(maintainingManageDesc)?.[1] ?? ""), /"maintaining":true/);
+  sectService.executeSectAction(deputyPlayerId, "sect:guardian:cancel_maintain", deps);
+  assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
+    playerId: deputyPlayerId,
+    command: { kind: "cancelFormationMaintenance" },
+  });
   assert.throws(() => sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:supreme_elder`, deps), /太上长老暂时无法任命/);
   sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
   assert.equal(expandedSect.members.some((entry) => entry.playerId === elderPlayerId), false);

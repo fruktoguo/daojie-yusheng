@@ -83,7 +83,7 @@ async function main() {
       throw new Error(`unknown player ${targetPlayerId}`);
     },
     spendQi(targetPlayerId, amount) {
-      assert.equal(targetPlayerId, playerId);
+      assert.ok(targetPlayerId === playerId || targetPlayerId === sectPlayerId);
       player.qi -= amount;
     },
     canAffordWallet(targetPlayerId, itemId, count) {
@@ -451,8 +451,8 @@ async function main() {
   const qiBeforeMaintenance = player.qi;
   const maintenanceTick = maintenancePipeline.tick(player, "formation", maintenanceCtx);
   assert.equal(maintenanceTick.ok, true);
-  assert.equal(qiBeforeMaintenance - player.qi, 4);
-  assert.equal(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeMaintenance, 4);
+  assert.equal(qiBeforeMaintenance - player.qi, 16);
+  assert.equal(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeMaintenance, 16);
   assert.ok(player.formationSkill.exp > 0);
   player.x = 5;
   const maintenanceCancel = maintenancePipeline.tick(player, "formation", maintenanceCtx);
@@ -730,6 +730,49 @@ async function main() {
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, 9, 8, sectPlayerId), false);
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, 9, 8, detachedOwnerPlayerId), false);
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, 8, 8, outsiderPlayerId), false);
+  const guardianMaintenanceCtx = {
+    contentTemplateRepository: { getItemName: () => null, normalizeItem: (item) => item },
+    resolveExpToNextByLevel: () => 60,
+    getInstanceRuntime: () => ({ worldRevision: 1 }),
+    deps: {
+      worldRuntimeFormationService: service,
+      worldRuntimeSectService: {
+        canPlayerMaintainGuardianFormation(targetPlayerId, targetFormation) {
+          return targetPlayerId === sectPlayerId && targetFormation?.id === guardian.id;
+        },
+      },
+      playerRuntimeService,
+      tick: 101,
+    },
+  };
+  player.playerId = sectPlayerId;
+  player.instanceId = "sect:smoke:inner";
+  player.x = 3;
+  player.y = 4;
+  player.qi = 100;
+  const guardianMaintenanceStart = maintenancePipeline.start(player, "formation", { formationInstanceId: guardian.id }, guardianMaintenanceCtx);
+  assert.equal(guardianMaintenanceStart.ok, true);
+  const guardianAuraBeforeMaintenance = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
+  const guardianMaintenanceTick = maintenancePipeline.tick(player, "formation", guardianMaintenanceCtx);
+  assert.equal(guardianMaintenanceTick.ok, true);
+  assert.equal(player.qi, 84);
+  assert.equal(service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget - guardianAuraBeforeMaintenance, 16);
+  player.formationJob = null;
+  assert.throws(() => maintenancePipeline.start(player, "formation", { formationInstanceId: guardian.id }, {
+    ...guardianMaintenanceCtx,
+    deps: {
+      ...guardianMaintenanceCtx.deps,
+      worldRuntimeSectService: {
+        canPlayerMaintainGuardianFormation() {
+          return false;
+        },
+      },
+    },
+  }), /不能操作他人的阵法/);
+  player.playerId = playerId;
+  player.instanceId = instanceId;
+  player.x = 4;
+  player.y = 5;
   const spawnTemplateRepository = new MapTemplateRepository();
   spawnTemplateRepository.registerRuntimeMapTemplate({
     id: "formation_guard_spawn",

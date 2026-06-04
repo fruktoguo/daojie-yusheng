@@ -337,6 +337,25 @@ class WorldRuntimeSectService {
             }, deps);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
+        if (actionId === 'sect:guardian:maintain') {
+            assertSectPermission(sect, playerId, 'guardian');
+            const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
+                ?? this.ensureGuardianFormation(sect, deps);
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'startFormationMaintenance',
+                payload: { formationInstanceId: formation?.id ?? guardianId },
+            });
+            deps.refreshPlayerContextActions?.(playerId);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId === 'sect:guardian:cancel_maintain') {
+            assertSectPermission(sect, playerId, 'guardian');
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'cancelFormationMaintenance',
+            });
+            deps.refreshPlayerContextActions?.(playerId);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
         if (actionId.startsWith('sect:guardian:inject:')) {
             assertSectPermission(sect, playerId, 'guardian');
             const [, , , stoneText = '0', qiText = '0'] = actionId.split(':');
@@ -1287,6 +1306,22 @@ class WorldRuntimeSectService {
         this.persistencePool = null;
         this.persistenceReady = false;
     }
+
+    canPlayerMaintainGuardianFormation(playerId, formation) {
+        if (!formation || formation.formationId !== 'sect_guardian_barrier') {
+            return false;
+        }
+        const sectId = normalizeOptionalString(formation.ownerSectId);
+        if (!sectId) {
+            return false;
+        }
+        const sect = this.sectsById.get(sectId);
+        if (!sect || sect.status === 'dissolved') {
+            return false;
+        }
+        ensureSectState(sect, this.playerRuntimeService);
+        return hasSectPermission(sect, playerId, 'guardian');
+    }
 }
 export { WorldRuntimeSectService };
 
@@ -1441,15 +1476,20 @@ function formatSectGuardianAuraLabel(formation) {
     return `${formatInteger(qiValue)} / 灵石 ${formatInteger(stoneValue)}`;
 }
 
-function buildSectGuardianManagementData(formation, formationService = null) {
+function buildSectGuardianManagementData(formation, formationService = null, player = null) {
     const remainingQi = Math.max(0, Math.floor(Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0));
     const remainingSpiritStone = Math.max(0, Math.floor(Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0));
     const strength = Math.max(1, Math.floor(Number(formation?.allocation?.effectValue ?? formation?.stats?.effectValue) || 1));
     const dailySpiritStoneCost = Math.max(0, Number(formationService?.resolveFormationDailySpiritStoneCost?.(formation)) || strength);
     const damageReduction = Math.max(0, Math.min(0.999999, Number(formationService?.resolveFormationDamageReduction?.(formation)) || 0));
     const remainingDays = dailySpiritStoneCost > 0 ? remainingSpiritStone / dailySpiritStoneCost : null;
+    const maintaining = Boolean(player?.formationJob
+        && Number(player.formationJob.remainingTicks) > 0
+        && formation?.id
+        && player.formationJob.formationInstanceId === formation.id);
     return {
         active: formation ? formation.active !== false : false,
+        maintaining,
         strength,
         remainingQi,
         remainingSpiritStone,
@@ -1476,6 +1516,7 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
     const canEditPermissions = sect.leaderPlayerId === selfPlayerId;
     const canReviewApplications = hasSectPermission(sect, selfPlayerId, 'member_role');
     const canLeave = selfPlayerId !== '' && sect.leaderPlayerId !== selfPlayerId && isSectMember(sect, selfPlayerId);
+    const selfPlayer = selfPlayerId ? playerRuntimeService?.getPlayer?.(selfPlayerId) : null;
     return {
         v: 1,
         selfPlayerId,
@@ -1485,7 +1526,7 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null, gu
         canLeave,
         canReviewApplications,
         canManageGuardian: hasSectPermission(sect, selfPlayerId, 'guardian'),
-        guardian: buildSectGuardianManagementData(guardian, formationService),
+        guardian: buildSectGuardianManagementData(guardian, formationService, selfPlayer),
         canRemoveMembers: hasSectPermission(sect, selfPlayerId, 'member_remove'),
         canChangeRoles: hasSectPermission(sect, selfPlayerId, 'member_role'),
         roles: SECT_ROLES,

@@ -330,7 +330,7 @@ class WorldRuntimeFormationService {
 
     createFormationMaintenanceJob(player, validated, ctx) {
         const playerId = normalizePlayerId(player);
-        const formation = this.findOwnedFormation(playerId, validated?.formationInstanceId);
+        const formation = this.resolveMaintainableFormation(playerId, validated?.formationInstanceId, ctx);
         const rate = resolveFormationMaintenanceRate(player);
         return {
             jobRunId: `job:${playerId}:formation:${Date.now()}`,
@@ -365,7 +365,7 @@ class WorldRuntimeFormationService {
         }
         let formation = null;
         try {
-            formation = this.findOwnedFormation(playerId, formationInstanceId);
+            formation = this.resolveMaintainableFormation(playerId, formationInstanceId, _ctx);
         } catch (_error) {
             return { satisfied: false, reason: '阵法已不存在或不属于你。', shouldCancel: true };
         }
@@ -382,6 +382,23 @@ class WorldRuntimeFormationService {
             return { satisfied: false, reason: '离开阵法控制点位。' };
         }
         return { satisfied: true };
+    }
+
+    resolveMaintainableFormation(playerId, formationInstanceId, ctx = null) {
+        try {
+            return this.findOwnedFormation(playerId, formationInstanceId);
+        }
+        catch (ownedError) {
+            const formation = this.findFormationByInstanceOrId(null, formationInstanceId);
+            const sectService = ctx?.deps?.worldRuntimeSectService ?? ctx?.worldRuntimeSectService ?? null;
+            if (formation
+                && isPersistentFormation(formation)
+                && typeof sectService?.canPlayerMaintainGuardianFormation === 'function'
+                && sectService.canPlayerMaintainGuardianFormation(playerId, formation)) {
+                return formation;
+            }
+            throw ownedError;
+        }
     }
 
     resolveFormationRemainingQiBudget(formation) {
@@ -2053,7 +2070,7 @@ function normalizePlayerId(player) {
 
 function resolveFormationMaintenanceRate(player) {
     const output = Math.max(0, Number(player?.attrs?.numericStats?.maxQiOutputPerTick ?? player?.numericStats?.maxQiOutputPerTick) || 0);
-    return Math.max(1, Math.floor(Math.sqrt(output)));
+    return Math.max(1, Math.floor(output));
 }
 
 function markPlayerRuntimeDirty(player, domains, playerRuntimeService) {

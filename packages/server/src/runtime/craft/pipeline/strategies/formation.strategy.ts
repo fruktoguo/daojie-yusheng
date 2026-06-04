@@ -39,7 +39,10 @@ export class FormationStrategy implements TechniqueActivityStrategy<PlayerFormat
       return { ok: false, error: '阵法实例 ID 不能为空。' };
     }
     const formationService = resolveFormationService(ctx);
-    const formation = formationService.findOwnedFormation(resolvePlayerId(player), formationInstanceId);
+    const playerId = resolvePlayerId(player);
+    const formation = typeof formationService?.resolveMaintainableFormation === 'function'
+      ? formationService.resolveMaintainableFormation(playerId, formationInstanceId, ctx)
+      : formationService.findOwnedFormation(playerId, formationInstanceId);
     const activeJob = this.getActiveJob(player);
     if (activeJob && Number(activeJob.remainingTicks) > 0 && activeJob.formationInstanceId === formationInstanceId) {
       return { ok: true, validated: { formationInstanceId, formationName: normalizeFormationName(formation?.name), alreadyMaintaining: true } };

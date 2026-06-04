@@ -15,7 +15,9 @@ export function resolveFormationMaintenanceTick(
     return buildFormationResolveResult(true, []);
   }
   const formationService = resolveFormationService(ctx);
-  const formation = formationService.findOwnedFormation(playerId, job.formationInstanceId);
+  const formation = typeof formationService.resolveMaintainableFormation === 'function'
+    ? formationService.resolveMaintainableFormation(playerId, job.formationInstanceId, ctx)
+    : formationService.findOwnedFormation(playerId, job.formationInstanceId);
   const rate = resolveFormationMaintenanceRate(player);
   const transfer = Math.min(rate, Math.max(0, Math.floor(Number((player as { qi?: unknown } | null)?.qi) || 0)));
   if (transfer <= 0) {
@@ -67,6 +69,7 @@ export function resolveFormationMaintenanceTick(
 
 function resolveFormationService(ctx: PipelineContext): {
   findOwnedFormation(playerId: string, formationInstanceId: string): Record<string, any>;
+  resolveMaintainableFormation?(playerId: string, formationInstanceId: string, ctx: PipelineContext): Record<string, any>;
   resolveFormationRemainingQiBudget(formation: Record<string, any>): number;
   resolveFormationRemainingSpiritStoneBudget(formation: Record<string, any>): number;
   setFormationRemainingQiBudget(formation: Record<string, any>, value: number): void;
@@ -106,7 +109,7 @@ function resolveFormationMaintenanceRate(player: unknown): number {
       ?? (player as { numericStats?: { maxQiOutputPerTick?: unknown } } | null)?.numericStats?.maxQiOutputPerTick,
     ) || 0,
   );
-  return Math.max(1, Math.floor(Math.sqrt(output)));
+  return Math.max(1, Math.floor(output));
 }
 
 function resolvePlayerId(player: unknown): string {

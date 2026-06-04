@@ -1384,14 +1384,14 @@ function testFormationMaintenanceTickUsesStrategyHelper(): void {
   const result = pipeline.tick(player, 'formation', ctx);
 
   assert.equal(result.ok, true);
-  assert.equal(player.qi, 46);
-  assert.equal(formation.remainingQiBudget, 14);
-  assert.equal(formation.remainingAuraBudget, 14);
+  assert.equal(player.qi, 34);
+  assert.equal(formation.remainingQiBudget, 26);
+  assert.equal(formation.remainingAuraBudget, 26);
   assert.equal(formation.active, true);
   assert.equal(instance.worldRevision, 2);
   assert.equal(player.formationJob.remainingTicks, 1);
   assert.equal(player.formationJob.workRemainingTicks, 1);
-  assert.equal(player.formationJob.maintenanceRate, 4);
+  assert.equal(player.formationJob.maintenanceRate, 16);
   assert.equal(player.formationJob.jobVersion, 2);
   assert.equal(player.dirtyDomains.has('active_job'), true);
   assert.deepEqual(dirtyDomains, [['active_job'], ['profession']]);

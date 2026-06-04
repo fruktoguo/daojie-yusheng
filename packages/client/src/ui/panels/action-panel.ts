@@ -176,6 +176,7 @@ interface SectManagementApplication {
 }
 interface SectManagementGuardianData {
   active: boolean;
+  maintaining: boolean;
   strength: number;
   remainingQi: number;
   remainingSpiritStone: number;
@@ -367,6 +368,7 @@ function normalizeSectManagementApplication(input: unknown): SectManagementAppli
 function normalizeSectManagementGuardianData(input: unknown): SectManagementGuardianData {
   const source = input && typeof input === 'object' ? input as Partial<SectManagementGuardianData> : {};
   const active = source.active === true;
+  const maintaining = source.maintaining === true;
   const strength = Math.max(1, Math.floor(Number(source.strength) || 1));
   const remainingQi = Math.max(0, Math.floor(Number(source.remainingQi) || 0));
   const remainingSpiritStone = Math.max(0, Math.floor(Number(source.remainingSpiritStone) || 0));
@@ -374,7 +376,7 @@ function normalizeSectManagementGuardianData(input: unknown): SectManagementGuar
   const damageReduction = Math.max(0, Math.min(0.999999, Number(source.damageReduction) || 0));
   const remainingDaysRaw = Number(source.remainingDays);
   const remainingDays = Number.isFinite(remainingDaysRaw) && remainingDaysRaw >= 0 ? remainingDaysRaw : null;
-  return { active, strength, remainingQi, remainingSpiritStone, dailySpiritStoneCost, damageReduction, remainingDays };
+  return { active, maintaining, strength, remainingQi, remainingSpiritStone, dailySpiritStoneCost, damageReduction, remainingDays };
 }
 
 function formatSectTimestamp(timestamp: number): string {
