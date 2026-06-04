@@ -221,6 +221,7 @@ const TERRAIN_CHUNK_CACHE_OPTIONS = {
   resolution: 1,
   scaleMode: 'nearest',
 } as const;
+const TERRAIN_VISIBLE_EDGE_FOG_ALPHA = 0.72;
 const DUAL_GRID_ATLAS_COORDS: ReadonlyArray<readonly [number, number]> = [
   [0, 3], [3, 3], [0, 0], [3, 2],
   [0, 2], [1, 2], [2, 3], [3, 1],
@@ -1257,9 +1258,33 @@ export class PixiMapRendererAdapter {
             } else {
               this.visibleTileFadeStartedAt.delete(key);
             }
+            this.drawVisibleTileEdgeFog(scene.terrain.visibleTiles, x, y, sx, sy, cellSize);
           }
         }
       }
+    }
+  }
+
+  private drawVisibleTileEdgeFog(
+    visibleTiles: ReadonlySet<string>,
+    x: number,
+    y: number,
+    sx: number,
+    sy: number,
+    cellSize: number,
+  ): void {
+    const half = cellSize / 2;
+    if (!visibleTiles.has(`${x - 1},${y}`)) {
+      this.terrainFogLayer.rect(sx, sy, half, cellSize).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
+    }
+    if (!visibleTiles.has(`${x + 1},${y}`)) {
+      this.terrainFogLayer.rect(sx + half, sy, half, cellSize).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
+    }
+    if (!visibleTiles.has(`${x},${y - 1}`)) {
+      this.terrainFogLayer.rect(sx, sy, cellSize, half).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
+    }
+    if (!visibleTiles.has(`${x},${y + 1}`)) {
+      this.terrainFogLayer.rect(sx, sy + half, cellSize, half).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
     }
   }
 
