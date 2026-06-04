@@ -45,6 +45,7 @@ export interface PixiProfileMetric {
 export interface PixiProfileState {
   startedAt: number;
   lastPublishedAt: number;
+  lastFrameAt: number;
   frameIndex: number;
   metrics: Record<PixiProfileMetricKey, PixiProfileMetric>;
   counters: Record<PixiProfileCounterKey, number>;
@@ -76,6 +77,8 @@ export interface PixiProfileRendererState {
 export interface PixiProfileFrameSample {
   index: number;
   atMs: number;
+  frameIntervalMs: number;
+  frameFps: number | null;
   totalMs: number;
   metrics: Record<PixiProfileMetricKey, number>;
   counters: Record<PixiProfileCounterKey, number>;
@@ -370,12 +373,27 @@ export class PixiProfilerWindow {
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, width, height);
+    ctx.font = '11px monospace';
+    ctx.fillStyle = '#facc15';
+    ctx.fillText('frame', width - 92, 13);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText('render', width - 48, 13);
     const samples = this.samples;
     const selected = this.selectedSample;
-    const maxMs = Math.max(16.7, 33.3, ...samples.map((sample) => sample.totalMs));
+    const maxMs = Math.max(16.7, 33.3, ...samples.map((sample) => Math.max(sample.totalMs, sample.frameIntervalMs)));
     this.drawReferenceLine(ctx, width, height, maxMs, 16.7, '#334155', '16.7');
     this.drawReferenceLine(ctx, width, height, maxMs, 33.3, '#475569', '33.3');
     if (samples.length > 1) {
+      ctx.beginPath();
+      samples.forEach((sample, index) => {
+        const x = index * width / Math.max(1, samples.length - 1);
+        const y = height - (sample.frameIntervalMs / maxMs) * (height - 20) - 10;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.stroke();
       ctx.beginPath();
       samples.forEach((sample, index) => {
         const x = index * width / Math.max(1, samples.length - 1);
@@ -389,8 +407,8 @@ export class PixiProfilerWindow {
       for (let index = 0; index < samples.length; index += 1) {
         const sample = samples[index];
         const x = index * width / Math.max(1, samples.length - 1);
-        const y = height - (sample.totalMs / maxMs) * (height - 20) - 10;
-        const hot = sample.totalMs >= 33.3;
+        const y = height - (sample.frameIntervalMs / maxMs) * (height - 20) - 10;
+        const hot = sample.frameIntervalMs >= 33.3;
         ctx.fillStyle = hot ? '#f97316' : '#22c55e';
         ctx.fillRect(x - 1, y - 1, 2, 2);
       }
@@ -429,7 +447,8 @@ export class PixiProfilerWindow {
       return;
     }
     const suffix = this.paused ? `paused #${selected.index}` : (this.followLatest || selected === latest ? 'live' : `#${selected.index}`);
-    this.summaryEl.textContent = `${formatMs(selected.totalMs)} ${suffix}`;
+    const frameFps = selected.frameFps === null ? '--fps' : `${formatNumber(selected.frameFps)}fps`;
+    this.summaryEl.textContent = `${formatMs(selected.totalMs)} render / ${formatMs(selected.frameIntervalMs)} frame ${frameFps} ${suffix}`;
   }
 
   private renderActionState(): void {
@@ -461,6 +480,7 @@ export class PixiProfilerWindow {
       ['cached', sample.renderer.cachedTerrainChunks],
       ['children', sample.renderer.terrainChunkChildren],
       ['textures', sample.renderer.runtimeTileTextures],
+      ['fps', sample.frameFps ?? 0],
     ];
     this.counterEl.innerHTML = entries
       .map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${formatNumber(value)}</span>`)
@@ -483,6 +503,8 @@ export class PixiProfilerWindow {
       .filter((entry) => entry.value > 0);
     this.detailBodyEl.innerHTML = [
       `<tr class="pixi-profiler-selected-row"><td>frame #${sample.index}</td><td>${formatMs(sample.totalMs)}</td></tr>`,
+      `<tr><td>frame interval</td><td>${formatMs(sample.frameIntervalMs)}</td></tr>`,
+      `<tr><td>frame fps</td><td>${sample.frameFps === null ? '--' : formatNumber(sample.frameFps)}</td></tr>`,
       ...metricRows.map((entry) => `<tr><td>${escapeHtml(METRIC_LABELS[entry.key])}</td><td>${formatMs(entry.value)}</td></tr>`),
       ...counterRows.map((entry) => `<tr class="pixi-profiler-counter-row"><td>${escapeHtml(COUNTER_LABELS[entry.key])}</td><td>${formatNumber(entry.value)}</td></tr>`),
     ].join('');
@@ -536,6 +558,8 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
   return [
     `frame\t${sample.index}`,
     `atMs\t${Number(sample.atMs.toFixed(3))}`,
+    `frameIntervalMs\t${Number(sample.frameIntervalMs.toFixed(3))}`,
+    `frameFps\t${sample.frameFps === null ? '' : Number(sample.frameFps.toFixed(3))}`,
     `totalMs\t${Number(sample.totalMs.toFixed(3))}`,
     '',
     'metric\tms',

@@ -376,7 +376,7 @@ export class MapRuntime implements MapRuntimeApi {
       const progress = timing.durationMs > 0
         ? Math.min((now - timing.startedAt) / timing.durationMs, 1)
         : 1;
-      this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress);
+      this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress, now);
       this.renderFrameObserver?.(now);
     };
     this.frameHandle = requestAnimationFrame(frame);

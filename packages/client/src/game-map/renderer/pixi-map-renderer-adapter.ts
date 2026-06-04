@@ -806,7 +806,7 @@ export class PixiMapRendererAdapter {
     this.resetProfileState();
   }
 
-  render(scene: MapSceneSnapshot, camera: CameraState, projection: TopdownProjection, progress: number): void {
+  render(scene: MapSceneSnapshot, camera: CameraState, projection: TopdownProjection, progress: number, frameAtMs = performance.now()): void {
     void projection;
     const player = scene.player;
     if (!this.ready || !player) return;
@@ -821,7 +821,7 @@ export class PixiMapRendererAdapter {
     this.profileMeasure('timeOverlay', () => this.renderTimeOverlay(scene.terrain.time));
     this.profileMeasure('appRender', () => this.app.render());
     this.profileEnd('renderFrame', frameStartedAt);
-    this.recordProfileFrame();
+    this.recordProfileFrame(frameAtMs);
     this.publishProfileIfNeeded();
   }
 
@@ -2079,6 +2079,7 @@ export class PixiMapRendererAdapter {
     this.profileState = {
       startedAt: performance.now(),
       lastPublishedAt: 0,
+      lastFrameAt: 0,
       frameIndex: 0,
       metrics: createPixiProfileMetrics(),
       counters: createPixiProfileCounters(),
@@ -2098,6 +2099,7 @@ export class PixiMapRendererAdapter {
     this.profileState = {
       startedAt: performance.now(),
       lastPublishedAt: 0,
+      lastFrameAt: 0,
       frameIndex: 0,
       metrics: createPixiProfileMetrics(),
       counters: createPixiProfileCounters(),
@@ -2147,14 +2149,19 @@ export class PixiMapRendererAdapter {
     state.frameCounters[key] = count;
   }
 
-  private recordProfileFrame(): void {
+  private recordProfileFrame(frameAtMs: number): void {
     const state = this.profileState;
     if (!state) return;
     state.frameIndex += 1;
+    const previousFrameAt = state.lastFrameAt;
+    const frameIntervalMs = previousFrameAt > 0 ? Math.max(0, frameAtMs - previousFrameAt) : 0;
+    state.lastFrameAt = frameAtMs;
     const renderer = this.buildProfileRendererState();
     const sample: PixiProfileFrameSample = {
       index: state.frameIndex,
-      atMs: performance.now(),
+      atMs: frameAtMs,
+      frameIntervalMs,
+      frameFps: frameIntervalMs > 0 ? 1000 / frameIntervalMs : null,
       totalMs: state.frameMetrics.renderFrame,
       metrics: { ...state.frameMetrics },
       counters: { ...state.frameCounters },
