@@ -78,7 +78,18 @@ interface TerrainChunkView {
   cy: number;
   container: Container;
   signature: string;
+  signatureDeps: TerrainChunkSignatureDeps | null;
   lastSeenFrame: number;
+}
+
+interface TerrainChunkSignatureDeps {
+  cellSize: number;
+  terrainOverlaySignature: string;
+  renderRuntimeTileSprites: boolean;
+  runtimeTileSpriteRevision: number;
+  visibleTileRevision: number;
+  tileCache: ReadonlyMap<string, Tile>;
+  visibleTiles: ReadonlySet<string>;
 }
 
 interface AnimEntity extends ObservedMapEntity {
@@ -198,6 +209,7 @@ type PixiProfileCounterKey =
   | 'frames'
   | 'syncScenes'
   | 'visibleChunks'
+  | 'terrainChunkSignatureHits'
   | 'terrainChunkSignatures'
   | 'terrainChunkRebuilds'
   | 'runtimeTileSprites'
@@ -273,6 +285,7 @@ const PIXI_PROFILE_COUNTER_KEYS: PixiProfileCounterKey[] = [
   'frames',
   'syncScenes',
   'visibleChunks',
+  'terrainChunkSignatureHits',
   'terrainChunkSignatures',
   'terrainChunkRebuilds',
   'runtimeTileSprites',
@@ -1234,13 +1247,12 @@ export class PixiMapRendererAdapter {
         const key = `${cx},${cy}`;
         let chunk = this.terrainChunks.get(key);
         if (!chunk) {
-          chunk = { key, cx, cy, container: new Container(), signature: '', lastSeenFrame: this.chunkFrame };
+          chunk = { key, cx, cy, container: new Container(), signature: '', signatureDeps: null, lastSeenFrame: this.chunkFrame };
           this.terrainChunks.set(key, chunk);
           this.terrainLayer.addChild(chunk.container);
         }
         chunk.lastSeenFrame = this.chunkFrame;
-        const signature = this.profileMeasure('terrainSignature', () => this.buildTerrainChunkSignature(scene, cx, cy, cellSize));
-        this.profileCount('terrainChunkSignatures');
+        const signature = this.resolveTerrainChunkSignature(chunk, scene, cellSize);
         if (signature !== chunk.signature) {
           this.profileCount('terrainChunkRebuilds');
           this.profileMeasure('terrainRebuild', () => this.rebuildTerrainChunk(chunk, scene, cellSize, signature));
@@ -1255,6 +1267,36 @@ export class PixiMapRendererAdapter {
     }
     this.profileSetCounter('visibleChunks', visibleChunkCount);
     this.profileMeasure('pathLayer', () => this.rebuildPathLayer(scene));
+  }
+
+  private resolveTerrainChunkSignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
+    const deps: TerrainChunkSignatureDeps = {
+      cellSize,
+      terrainOverlaySignature: this.terrainOverlaySignature,
+      renderRuntimeTileSprites: this.performanceConfig.renderRuntimeTileSprites,
+      runtimeTileSpriteRevision: this.runtimeTileSpriteRevision,
+      visibleTileRevision: scene.terrain.visibleTileRevision,
+      tileCache: scene.terrain.tileCache,
+      visibleTiles: scene.terrain.visibleTiles,
+    };
+    if (chunk.signature && chunk.signatureDeps && this.isSameTerrainChunkSignatureDeps(chunk.signatureDeps, deps)) {
+      this.profileCount('terrainChunkSignatureHits');
+      return chunk.signature;
+    }
+    const signature = this.profileMeasure('terrainSignature', () => this.buildTerrainChunkSignature(scene, chunk.cx, chunk.cy, cellSize));
+    this.profileCount('terrainChunkSignatures');
+    chunk.signatureDeps = deps;
+    return signature;
+  }
+
+  private isSameTerrainChunkSignatureDeps(previous: TerrainChunkSignatureDeps, next: TerrainChunkSignatureDeps): boolean {
+    return previous.cellSize === next.cellSize
+      && previous.terrainOverlaySignature === next.terrainOverlaySignature
+      && previous.renderRuntimeTileSprites === next.renderRuntimeTileSprites
+      && previous.runtimeTileSpriteRevision === next.runtimeTileSpriteRevision
+      && previous.visibleTileRevision === next.visibleTileRevision
+      && previous.tileCache === next.tileCache
+      && previous.visibleTiles === next.visibleTiles;
   }
 
   private buildTerrainChunkSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
