@@ -8,6 +8,7 @@ type LogEntry = unknown[];
 
 interface DeltaOrderSmokeOptions {
     deferFirstAux?: boolean;
+    offlineGainBlocking?: boolean;
     trackRoomSync?: boolean;
     pendingStatisticRecords?: Record<string, unknown>[];
     statisticTotals?: Record<string, unknown> | null;
@@ -74,6 +75,9 @@ function createService(log: LogEntry[] = [], options: DeltaOrderSmokeOptions = {
             },
             consumePlayerStatisticTotalsForEmit() {
                 return options.statisticTotals ?? null;
+            },
+            hasLoadedActiveOfflineGainSession() {
+                return options.offlineGainBlocking === true;
             },
             detachSession() {},
         },
@@ -275,10 +279,38 @@ function testPendingStatisticRecordsEmitOnlyOncePerConnection() {
     assert.equal(emitted[0][5], 1);
 }
 
+function testOfflineGainBlockingSkipsWorldSync() {
+    const log = [];
+    const records: Record<string, number>[] = [];
+    const { service } = createService(log, {
+        offlineGainBlocking: true,
+        runtimeGmStateService: {
+            recordSyncFlushBreakdown(sample: Record<string, number>) {
+                records.push(sample);
+                log.push(['recordSyncFlushBreakdown', sample.processedPlayerCount, sample.skippedPlayerCount]);
+            },
+        },
+    });
+
+    service.emitInitialSync('player:1');
+    service.emitDeltaSync('player:1');
+    service.flushConnectedPlayers();
+
+    assert.ok(!log.some((entry) => entry[0] === 'syncFromWorldView'));
+    assert.ok(!log.some((entry) => entry[0] === 'sendEnvelope'));
+    assert.ok(!log.some((entry) => entry[0] === 'emitAuxDeltaSync'));
+    assert.ok(!log.some((entry) => entry[0] === 'getPlayerView'));
+    assert.equal(records.length, 1);
+    assert.equal(records[0].playerCount, 1);
+    assert.equal(records[0].processedPlayerCount, 0);
+    assert.equal(records[0].skippedPlayerCount, 1);
+}
+
 testAuxDeltaIsSentBeforeMovementEnvelope();
 testMapChangedAuxDeltaStaysAfterMovementEnvelope();
 testFlushConnectedPlayersRecordsBreakdownAndSyncsRoomOnce();
 testStatisticTotalsPatchUsesCompactOfflineGainPayload();
 testPendingStatisticRecordsEmitOnlyOncePerConnection();
+testOfflineGainBlockingSkipsWorldSync();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-delta-order' }, null, 2));

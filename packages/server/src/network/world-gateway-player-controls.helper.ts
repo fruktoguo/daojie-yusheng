@@ -43,6 +43,9 @@ interface WorldGatewayPlayerControlsDeps {
       allowCreateFallback?: boolean;
     }): unknown;
   };
+  worldSyncService?: {
+    emitInitialSync(playerId: string, socketOverride?: Socket): void;
+  };
   playerRuntimeService: {
     getPlayer(playerId: string): {
       instanceId?: string | null;
@@ -117,6 +120,7 @@ export class WorldGatewayPlayerControlsHelper {
           preferredY: Number.isFinite(Number(player.y)) ? Number(player.y) : undefined,
           allowCreateFallback: false,
         });
+        this.gateway.worldSyncService?.emitInitialSync(playerId, client);
       }
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'ACK_OFFLINE_GAIN_REPORTS_FAILED', error);

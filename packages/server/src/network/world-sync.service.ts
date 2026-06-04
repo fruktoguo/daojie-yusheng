@@ -35,6 +35,7 @@ export class WorldSyncService {
     emitInitialSync(playerId: string, socketOverride = undefined) {
         const binding = this.worldSessionService.getBinding(playerId);
         if (!binding) return;
+        if (this.isOfflineGainBlocking(playerId)) return;
         const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
         const view = this.worldRuntimeService.getPlayerView(playerId);
         if (!socket || !view) return;
@@ -52,6 +53,7 @@ export class WorldSyncService {
     emitDeltaSync(playerId: string, socketOverride = undefined) {
         const binding = this.worldSessionService.getBinding(playerId);
         if (!binding) return;
+        if (this.isOfflineGainBlocking(playerId)) return;
         const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
         const view = this.worldRuntimeService.getPlayerView(playerId);
         if (!socket || !view) return;
@@ -72,6 +74,10 @@ export class WorldSyncService {
             const pendingEmits: PendingEnvelopeEmit[] = [];
 
             for (const binding of bindings) {
+                if (this.isOfflineGainBlocking(binding.playerId)) {
+                    breakdown.skippedPlayerCount += 1;
+                    continue;
+                }
                 const getSocketStartedAt = performance.now();
                 const socket = this.worldSessionService.getSocketByPlayerId(binding.playerId);
                 addSyncFlushDuration(breakdown, 'getSocketMs', getSocketStartedAt);
@@ -205,6 +211,11 @@ export class WorldSyncService {
 
     private emitAuxDeltaSync(playerId: string, socket: any, view: any, player: any, options: any = undefined) {
         return this.worldSyncAuxStateService.emitAuxDeltaSync(playerId, socket, view, player, options);
+    }
+
+    private isOfflineGainBlocking(playerId: string): boolean {
+        return typeof this.playerRuntimeService.hasLoadedActiveOfflineGainSession === 'function'
+            && this.playerRuntimeService.hasLoadedActiveOfflineGainSession(playerId) === true;
     }
 
     private emitPendingRuntimeEvents(playerId: string, socket: any, envelope: any) {

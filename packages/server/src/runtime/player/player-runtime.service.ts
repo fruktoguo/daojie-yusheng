@@ -571,6 +571,11 @@ export class PlayerRuntimeService {
     async hasActiveOfflineGainSession(playerId) {
         return this.ensureOfflineGainSessionLoaded(playerId);
     }
+    /** 同步热路径只读内存态：bootstrap/请求刷新会负责先恢复持久化 session。 */
+    hasLoadedActiveOfflineGainSession(playerId) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        return Boolean(normalizedPlayerId && this.offlineGainSessionsByPlayerId.has(normalizedPlayerId));
+    }
     /** 生成当前离线收益预览；不结算、不删除 session、不写入 pending 报告。 */
     async loadOfflineGainPreviewReports(playerId) {
         const normalizedPlayerId = normalizeOfflineGainString(playerId);
