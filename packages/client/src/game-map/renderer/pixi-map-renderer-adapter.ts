@@ -2175,14 +2175,17 @@ export class PixiMapRendererAdapter {
       }
       zone.graphics.clear();
       const revealDistance = progress * (zone.maxExpandDistance + 1);
+      const lifetimeFade = 1 - progress * 0.62;
       for (const cell of zone.cells) {
+        const localReveal = clamp01(revealDistance - cell.expandDistance);
+        if (localReveal <= 0) continue;
+        const revealEase = easeOutCubic(localReveal);
+        const edgePulse = 1 - Math.abs(localReveal - 0.5) * 2;
         const sx = cell.x * cellSize;
         const sy = cell.y * cellSize;
-        zone.graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(zone.baseColor), alpha: 0.1 });
-        if (cell.expandDistance <= revealDistance) {
-          zone.graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(zone.color), alpha: 0.18 * (1 - progress * 0.7) });
-          zone.graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ color: parseColor(zone.color), alpha: 0.72 * (1 - progress * 0.7), width: Math.max(1.35, cellSize * 0.09) });
-        }
+        zone.graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(zone.baseColor), alpha: 0.08 * revealEase * lifetimeFade });
+        zone.graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(zone.color), alpha: (0.10 + edgePulse * 0.12) * revealEase * lifetimeFade });
+        zone.graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ color: parseColor(zone.color), alpha: (0.42 + edgePulse * 0.34) * revealEase * lifetimeFade, width: Math.max(1.35, cellSize * (0.06 + edgePulse * 0.04)) });
       }
       return true;
     });
