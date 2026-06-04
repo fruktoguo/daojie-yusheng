@@ -60,6 +60,8 @@ export class MapRuntime implements MapRuntimeApi {
   private frameHandle: number | null = null;
   /** 上一帧时间戳，计算插值推进进度。 */
   private lastFrameAt = performance.now();
+  private lastRafCallbackAt = 0;
+  private rafCallbacksSinceRender = 0;
   private nextFrameAt = performance.now();
   private targetFps = MAP_TARGET_FPS_RANGE.defaultValue;
   private renderFrameObserver: ((frameAtMs: number) => void) | null = null;
@@ -359,10 +361,15 @@ export class MapRuntime implements MapRuntimeApi {
       return;
     }
     this.lastFrameAt = performance.now();
+    this.lastRafCallbackAt = 0;
+    this.rafCallbacksSinceRender = 0;
     this.nextFrameAt = this.lastFrameAt;
     const frame = () => {
       this.frameHandle = requestAnimationFrame(frame);
       const now = performance.now();
+      const rafIntervalMs = this.lastRafCallbackAt > 0 ? Math.max(0, now - this.lastRafCallbackAt) : 0;
+      this.lastRafCallbackAt = now;
+      this.rafCallbacksSinceRender += 1;
       const minFrameIntervalMs = 1000 / Math.max(MAP_TARGET_FPS_RANGE.min, this.targetFps);
       const scheduleToleranceMs = Math.min(MAP_FRAME_SCHEDULE_MAX_EARLY_TOLERANCE_MS, minFrameIntervalMs * 0.1);
       if (now + scheduleToleranceMs < this.nextFrameAt) {
@@ -370,6 +377,9 @@ export class MapRuntime implements MapRuntimeApi {
       }
       const dt = (now - this.lastFrameAt) / 1000;
       this.lastFrameAt = now;
+      const scheduleLateMs = now - this.nextFrameAt;
+      const rafCallbacks = this.rafCallbacksSinceRender;
+      this.rafCallbacksSinceRender = 0;
       this.nextFrameAt += minFrameIntervalMs;
       while (this.nextFrameAt <= now) {
         this.nextFrameAt += minFrameIntervalMs;
@@ -379,7 +389,12 @@ export class MapRuntime implements MapRuntimeApi {
       const progress = timing.durationMs > 0
         ? Math.min((now - timing.startedAt) / timing.durationMs, 1)
         : 1;
-      this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress, now);
+      this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress, now, {
+        rafIntervalMs,
+        rafCallbacks,
+        targetIntervalMs: minFrameIntervalMs,
+        scheduleLateMs,
+      });
       this.renderFrameObserver?.(now);
     };
     this.frameHandle = requestAnimationFrame(frame);

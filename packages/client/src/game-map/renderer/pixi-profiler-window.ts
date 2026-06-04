@@ -74,11 +74,19 @@ export interface PixiProfileRendererState {
   backbufferPixels: number;
 }
 
+export interface PixiProfileFrameSchedule {
+  rafIntervalMs: number;
+  rafCallbacks: number;
+  targetIntervalMs: number;
+  scheduleLateMs: number;
+}
+
 export interface PixiProfileFrameSample {
   index: number;
   atMs: number;
   frameIntervalMs: number;
   frameFps: number | null;
+  schedule: PixiProfileFrameSchedule;
   totalMs: number;
   metrics: Record<PixiProfileMetricKey, number>;
   counters: Record<PixiProfileCounterKey, number>;
@@ -481,6 +489,7 @@ export class PixiProfilerWindow {
       ['children', sample.renderer.terrainChunkChildren],
       ['textures', sample.renderer.runtimeTileTextures],
       ['fps', sample.frameFps ?? 0],
+      ['raf', sample.schedule.rafCallbacks],
     ];
     this.counterEl.innerHTML = entries
       .map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${formatNumber(value)}</span>`)
@@ -505,6 +514,10 @@ export class PixiProfilerWindow {
       `<tr class="pixi-profiler-selected-row"><td>frame #${sample.index}</td><td>${formatMs(sample.totalMs)}</td></tr>`,
       `<tr><td>frame interval</td><td>${formatMs(sample.frameIntervalMs)}</td></tr>`,
       `<tr><td>frame fps</td><td>${sample.frameFps === null ? '--' : formatNumber(sample.frameFps)}</td></tr>`,
+      `<tr><td>raw rAF interval</td><td>${formatMs(sample.schedule.rafIntervalMs)}</td></tr>`,
+      `<tr><td>rAF callbacks</td><td>${formatNumber(sample.schedule.rafCallbacks)}</td></tr>`,
+      `<tr><td>target interval</td><td>${formatMs(sample.schedule.targetIntervalMs)}</td></tr>`,
+      `<tr><td>schedule late</td><td>${formatMs(sample.schedule.scheduleLateMs)}</td></tr>`,
       ...metricRows.map((entry) => `<tr><td>${escapeHtml(METRIC_LABELS[entry.key])}</td><td>${formatMs(entry.value)}</td></tr>`),
       ...counterRows.map((entry) => `<tr class="pixi-profiler-counter-row"><td>${escapeHtml(COUNTER_LABELS[entry.key])}</td><td>${formatNumber(entry.value)}</td></tr>`),
     ].join('');
@@ -560,6 +573,10 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     `atMs\t${Number(sample.atMs.toFixed(3))}`,
     `frameIntervalMs\t${Number(sample.frameIntervalMs.toFixed(3))}`,
     `frameFps\t${sample.frameFps === null ? '' : Number(sample.frameFps.toFixed(3))}`,
+    `rawRafIntervalMs\t${Number(sample.schedule.rafIntervalMs.toFixed(3))}`,
+    `rafCallbacks\t${sample.schedule.rafCallbacks}`,
+    `targetIntervalMs\t${Number(sample.schedule.targetIntervalMs.toFixed(3))}`,
+    `scheduleLateMs\t${Number(sample.schedule.scheduleLateMs.toFixed(3))}`,
     `totalMs\t${Number(sample.totalMs.toFixed(3))}`,
     '',
     'metric\tms',

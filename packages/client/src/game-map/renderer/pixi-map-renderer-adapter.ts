@@ -79,6 +79,7 @@ import {
   PixiProfilerWindow,
   type PixiProfileCounterKey,
   type PixiProfileFrameSample,
+  type PixiProfileFrameSchedule,
   type PixiProfileMetricKey,
   type PixiProfileSnapshot,
   type PixiProfileState,
@@ -806,7 +807,19 @@ export class PixiMapRendererAdapter {
     this.resetProfileState();
   }
 
-  render(scene: MapSceneSnapshot, camera: CameraState, projection: TopdownProjection, progress: number, frameAtMs = performance.now()): void {
+  render(
+    scene: MapSceneSnapshot,
+    camera: CameraState,
+    projection: TopdownProjection,
+    progress: number,
+    frameAtMs = performance.now(),
+    schedule: PixiProfileFrameSchedule = {
+      rafIntervalMs: 0,
+      rafCallbacks: 1,
+      targetIntervalMs: 0,
+      scheduleLateMs: 0,
+    },
+  ): void {
     void projection;
     const player = scene.player;
     if (!this.ready || !player) return;
@@ -821,7 +834,7 @@ export class PixiMapRendererAdapter {
     this.profileMeasure('timeOverlay', () => this.renderTimeOverlay(scene.terrain.time));
     this.profileMeasure('appRender', () => this.app.render());
     this.profileEnd('renderFrame', frameStartedAt);
-    this.recordProfileFrame(frameAtMs);
+    this.recordProfileFrame(frameAtMs, schedule);
     this.publishProfileIfNeeded();
   }
 
@@ -2149,7 +2162,7 @@ export class PixiMapRendererAdapter {
     state.frameCounters[key] = count;
   }
 
-  private recordProfileFrame(frameAtMs: number): void {
+  private recordProfileFrame(frameAtMs: number, schedule: PixiProfileFrameSchedule): void {
     const state = this.profileState;
     if (!state) return;
     state.frameIndex += 1;
@@ -2162,6 +2175,7 @@ export class PixiMapRendererAdapter {
       atMs: frameAtMs,
       frameIntervalMs,
       frameFps: frameIntervalMs > 0 ? 1000 / frameIntervalMs : null,
+      schedule,
       totalMs: state.frameMetrics.renderFrame,
       metrics: { ...state.frameMetrics },
       counters: { ...state.frameCounters },
