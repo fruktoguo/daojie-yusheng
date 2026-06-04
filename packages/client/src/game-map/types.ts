@@ -404,6 +404,13 @@ export interface MinimapSourceSnapshot {
   memoryVersion: number;
 }
 
+export interface MapKnownTileBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
 /** 实体运动过渡信息。 */
 export interface MapEntityTransition {
 /**
@@ -899,6 +906,7 @@ export interface MapRuntimeApi {
     transition?: MapEntityTransition | null,
   ): void;
   getMapMeta(): MapMeta | null;
+  getKnownTileBounds(): MapKnownTileBounds | null;
   getKnownTileAt(x: number, y: number): Tile | null;
   getVisibleTileAt(x: number, y: number): Tile | null;
   getGroundPileAt(x: number, y: number): GroundItemPileView | null;

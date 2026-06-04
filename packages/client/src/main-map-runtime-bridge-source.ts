@@ -13,6 +13,7 @@ import type {
   Tile,
 } from '@mud/shared';
 import { KeyboardInput } from './input/keyboard';
+import type { MapKnownTileBounds } from './game-map/types';
 import type { MainNavigationObservedEntity } from './main-navigation-state-source';
 /**
  * PendingTargetedAction：统一结构类型，保证协议与运行时一致性。
@@ -117,6 +118,7 @@ type MainMapRuntimeBridgeSourceOptions = {
  */
 
     getMapMeta: () => MapMeta | null;    
+    getKnownTileBounds: () => MapKnownTileBounds | null;
  /**
  * setViewportSize：数量或计量字段。
  */
@@ -659,6 +661,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
     getKnownTileAt(x: number, y: number): Tile | null {
       return options.mapRuntime.getKnownTileAt(x, y);
     },    
+    getKnownTileBounds(): MapKnownTileBounds | null {
+      return options.mapRuntime.getKnownTileBounds();
+    },
     /**
  * isPointInsideCurrentMap：判断PointInside当前地图是否满足条件。
  * @param x number X 坐标。

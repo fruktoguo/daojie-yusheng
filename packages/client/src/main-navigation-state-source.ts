@@ -11,11 +11,13 @@ import {
   isPointInRange,
   isTerrainTypeWalkable,
   isTileTypeWalkable,
+  PATHFINDING_PLAYER_MAX_EXPANDED_NODES,
   type MapMeta,
   type NpcQuestMarker,
   packDirections,
   type Tile,
 } from '@mud/shared';
+import type { MapKnownTileBounds } from './game-map/types';
 import { logMovement } from './debug/movement-debug';
 import { findPath } from './pathfinding';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
@@ -167,6 +169,7 @@ type MainNavigationStateSourceOptions = {
  */
 
   getMapMeta: () => MapMeta | null;  
+  getKnownTileBounds: () => MapKnownTileBounds | null;
   /**
  * getKnownTileAt：KnownTileAt相关字段。
  */
@@ -381,6 +384,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
   function isCellInsideCurrentMap(x: number, y: number): boolean {
     const mapMeta = options.getMapMeta();
+    if (options.getKnownTileAt(x, y)) {
+      return true;
+    }
     return Boolean(mapMeta && x >= 0 && x < mapMeta.width && y >= 0 && y < mapMeta.height);
   }  
   /**
@@ -453,11 +459,13 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     if (!mapMeta) {
       return null;
     }
-    if (
-      startX < 0 || startY < 0 || targetX < 0 || targetY < 0
-      || startX >= mapMeta.width || targetX >= mapMeta.width
-      || startY >= mapMeta.height || targetY >= mapMeta.height
-    ) {
+    const tileBounds = resolvePreviewTileBounds(mapMeta, startX, startY, targetX, targetY);
+    if (!tileBounds) {
+      return null;
+    }
+    const gridWidth = tileBounds.maxX - tileBounds.minX + 1;
+    const gridHeight = tileBounds.maxY - tileBounds.minY + 1;
+    if (gridWidth <= 0 || gridHeight <= 0 || gridWidth * gridHeight > PATHFINDING_PLAYER_MAX_EXPANDED_NODES) {
       return null;
     }
     const playerOverlapPointKeys = createPlayerOverlapPointKeySet(mapMeta);
@@ -468,7 +476,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         appendFormationBoundaryPositions(
           canCurrentPlayerPassFormationBoundary(entity) ? passableFormationBoundaryPositions : visibleBlockingPositions,
           entity,
-          mapMeta,
+          tileBounds,
         );
       }
       if (!isPathPreviewBlockingEntity(entity)) {
@@ -485,9 +493,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     }
 
     const tiles: Tile[][] = [];
-    for (let y = 0; y < mapMeta.height; y += 1) {
+    for (let y = tileBounds.minY; y <= tileBounds.maxY; y += 1) {
       const row: Tile[] = [];
-      for (let x = 0; x < mapMeta.width; x += 1) {
+      for (let x = tileBounds.minX; x <= tileBounds.maxX; x += 1) {
         const tile = options.getKnownTileAt(x, y);
         const baseTile = tile ?? ({ type: 'wall', walkable: false } as Tile);
         const coordKey = `${x},${y}`;
@@ -512,7 +520,13 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       tiles.push(row);
     }
 
-    const previewDirections = findPath(tiles, startX, startY, targetX, targetY);
+    const previewDirections = findPath(
+      tiles,
+      startX - tileBounds.minX,
+      startY - tileBounds.minY,
+      targetX - tileBounds.minX,
+      targetY - tileBounds.minY,
+    );
     if (!previewDirections) {
       return null;
     }
@@ -691,6 +705,32 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       && isBaseTileWalkableIgnoringFormationBoundary(tile);
   }
 
+  function resolvePreviewTileBounds(
+    mapMeta: MapMeta,
+    startX: number,
+    startY: number,
+    targetX: number,
+    targetY: number,
+  ): MapKnownTileBounds | null {
+    const knownBounds = options.getKnownTileBounds();
+    if (knownBounds && isPointInsideBounds(startX, startY, knownBounds) && isPointInsideBounds(targetX, targetY, knownBounds)) {
+      return knownBounds;
+    }
+    const zeroBasedBounds = {
+      minX: 0,
+      maxX: mapMeta.width - 1,
+      minY: 0,
+      maxY: mapMeta.height - 1,
+    };
+    return isPointInsideBounds(startX, startY, zeroBasedBounds) && isPointInsideBounds(targetX, targetY, zeroBasedBounds)
+      ? zeroBasedBounds
+      : null;
+  }
+
+  function isPointInsideBounds(x: number, y: number, bounds: MapKnownTileBounds): boolean {
+    return x >= bounds.minX && x <= bounds.maxX && y >= bounds.minY && y <= bounds.maxY;
+  }
+
   function canCurrentPlayerPassFormationBoundary(entity: MainNavigationObservedEntity): boolean {
     const playerId = options.getPlayer()?.id;
     if (playerId && normalizePlayerId(entity.formationOwnerPlayerId) === playerId) {
@@ -709,12 +749,12 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     return typeof value === 'string' && value.trim() ? value.trim() : null;
   }
 
-  function appendFormationBoundaryPositions(target: Set<string>, entity: MainNavigationObservedEntity, mapMeta: MapMeta): void {
+  function appendFormationBoundaryPositions(target: Set<string>, entity: MainNavigationObservedEntity, bounds: MapKnownTileBounds): void {
     const radius = Math.max(1, Math.trunc(Number(entity.formationRadius) || 0));
-    const minX = Math.max(0, entity.wx - radius);
-    const maxX = Math.min(mapMeta.width - 1, entity.wx + radius);
-    const minY = Math.max(0, entity.wy - radius);
-    const maxY = Math.min(mapMeta.height - 1, entity.wy + radius);
+    const minX = Math.max(bounds.minX, entity.wx - radius);
+    const maxX = Math.min(bounds.maxX, entity.wx + radius);
+    const minY = Math.max(bounds.minY, entity.wy - radius);
+    const maxY = Math.min(bounds.maxY, entity.wy + radius);
     for (let y = minY; y <= maxY; y += 1) {
       for (let x = minX; x <= maxX; x += 1) {
         if (isCellOnFormationBoundary(entity, x, y)) {

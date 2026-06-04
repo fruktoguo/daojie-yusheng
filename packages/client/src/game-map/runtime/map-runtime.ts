@@ -295,6 +295,10 @@ export class MapRuntime implements MapRuntimeApi {
     return this.store.getMapMeta();
   }
 
+  getKnownTileBounds() {
+    return this.store.getKnownTileBounds();
+  }
+
   /** 获取指定坐标的已知地块。 */
   getKnownTileAt(x: number, y: number) {
     return this.store.getKnownTileAt(x, y);

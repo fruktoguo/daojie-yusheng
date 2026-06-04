@@ -56,6 +56,7 @@ import type {
   MapFengShuiOverlayState,
   MapSelfDeltaInput,
   MapWorldDeltaInput,
+  MapKnownTileBounds,
   MapSenseQiOverlayState,
   MapStoreSnapshot,
   MapTargetingOverlayState,
@@ -891,6 +892,30 @@ export class MapStore {
   /** 获取当前地图元数据。 */
   getMapMeta(): MapMeta | null {
     return this.mapMeta;
+  }
+
+  getKnownTileBounds(): MapKnownTileBounds | null {
+    let bounds: MapKnownTileBounds | null = null;
+    for (const key of this.renderTileCache.keys()) {
+      const separatorIndex = key.indexOf(',');
+      if (separatorIndex <= 0) {
+        continue;
+      }
+      const x = Number(key.slice(0, separatorIndex));
+      const y = Number(key.slice(separatorIndex + 1));
+      if (!Number.isInteger(x) || !Number.isInteger(y)) {
+        continue;
+      }
+      if (!bounds) {
+        bounds = { minX: x, maxX: x, minY: y, maxY: y };
+        continue;
+      }
+      if (x < bounds.minX) bounds.minX = x;
+      if (x > bounds.maxX) bounds.maxX = x;
+      if (y < bounds.minY) bounds.minY = y;
+      if (y > bounds.maxY) bounds.maxY = y;
+    }
+    return bounds;
   }
 
   /** 按坐标读取已知地块（不考虑可见性）。 */
