@@ -561,9 +561,13 @@ async function main() {
   const edgeX = 2;
   const edgeY = 0;
   const stableSectTemplateId = sectInstance.meta.templateId;
+  sectInstance.consumeStaticTileSyncDirtyTiles();
   const destroyedEdge = sectInstance.damageTile(edgeX, edgeY, Number.MAX_SAFE_INTEGER);
   assert.equal(destroyedEdge.destroyed, true);
   assert.equal(sectService.expandSectForDestroyedTile(sectInstance.meta.instanceId, edgeX, edgeY, deps), true);
+  const boundaryOpenSyncPlan = sectInstance.consumeStaticTileSyncDirtyTiles();
+  assert.ok(boundaryOpenSyncPlan.tileKeys.includes(`${edgeX},${edgeY}`));
+  assert.ok(boundaryOpenSyncPlan.tileKeys.includes(`${edgeX + 1},${edgeY}`));
   assert.equal(sectInstance.template.width, 1);
   assert.equal(sectInstance.template.height, 1);
   assert.equal(sectInstance.tilePlane.getCellCount(), 30);

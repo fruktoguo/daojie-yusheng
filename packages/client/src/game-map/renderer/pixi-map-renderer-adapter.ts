@@ -1559,6 +1559,9 @@ export class PixiMapRendererAdapter {
       const visibleFormationRangeVisual = this.resolveFormationRangeVisual(gx, gy, false);
       if (visibleFormationRangeVisual) this.drawFormationRangeVisual(graphics, chunkContainer, sx, sy, cellSize, visibleFormationRangeVisual);
     }
+    if (tile && isVisible) {
+      this.drawTileHpBar(graphics, tile, sx, sy, cellSize);
+    }
     if (scene.overlays.senseQi) {
       const style = isVisible ? getSenseQiOverlayStyle(tile, senseQiLevelBaseValue) : { color: 0x000000, alpha: 0.34 };
       graphics.rect(sx, sy, cellSize, cellSize).fill(style);
@@ -1572,6 +1575,19 @@ export class PixiMapRendererAdapter {
     if (buildCell) {
       this.drawCellHighlight(graphics, sx, sy, cellSize, buildCell.ok ? (buildCell.warning ? 'rgba(217,119,6,0.24)' : 'rgba(22,163,74,0.24)') : 'rgba(220,38,38,0.30)', buildCell.ok ? (buildCell.warning ? 'rgba(245,158,11,0.92)' : 'rgba(34,197,94,0.92)') : 'rgba(248,113,113,0.96)', false);
     }
+  }
+
+  private drawTileHpBar(graphics: Graphics, tile: Tile, sx: number, sy: number, cellSize: number): void {
+    const maxHp = typeof tile.maxHp === 'number' && Number.isFinite(tile.maxHp) ? tile.maxHp : 0;
+    const hp = typeof tile.hp === 'number' && Number.isFinite(tile.hp) ? tile.hp : maxHp;
+    const hpVisible = tile.hpVisible ?? (hp > 0 && hp < maxHp);
+    if (maxHp <= 0 || !hpVisible) {
+      return;
+    }
+    const ratio = clamp01(hp / Math.max(maxHp, 1));
+    const barW = Math.max(4, cellSize - 6);
+    graphics.rect(sx + 3, sy + 2, barW, 3).fill({ color: 0x000000, alpha: 0.5 });
+    graphics.rect(sx + 3, sy + 2, barW * ratio, 3).fill({ color: 0xd6c8ae });
   }
 
   private resolveTileFade(state: { startedAt: number; durationMs: number } | undefined, now: number, entering: boolean): number {

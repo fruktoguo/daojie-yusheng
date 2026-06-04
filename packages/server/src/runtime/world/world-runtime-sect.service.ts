@@ -955,6 +955,7 @@ class WorldRuntimeSectService {
         }
         sect.updatedAt = Date.now();
         this.refreshSectTemplateForBounds(sect, deps);
+        markSectExpansionTilesForSync(instance, previousBounds, nextBounds, tx, ty);
         const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
         if (entranceInstance) {
             this.attachSectPortals(sect, entranceInstance, instance);
@@ -2372,6 +2373,29 @@ function updateSectRuntimeBoundsForTile(sect, x, y) {
         Math.abs(sect.mapMinY),
         Math.abs(sect.mapMaxY),
     );
+}
+
+function markSectExpansionTilesForSync(instance, previousBounds, nextBounds, openedX, openedY) {
+    if (!instance || typeof instance.markStaticTileSyncDirtyByIndex !== 'function' || typeof instance.toTileIndex !== 'function') {
+        return;
+    }
+    markRuntimeTileForStaticSync(instance, openedX, openedY, true);
+    for (let y = nextBounds.minY; y <= nextBounds.maxY; y += 1) {
+        for (let x = nextBounds.minX; x <= nextBounds.maxX; x += 1) {
+            if (x >= previousBounds.minX && x <= previousBounds.maxX && y >= previousBounds.minY && y <= previousBounds.maxY) {
+                continue;
+            }
+            markRuntimeTileForStaticSync(instance, x, y, true);
+        }
+    }
+}
+
+function markRuntimeTileForStaticSync(instance, x, y, sightBlockingChanged = false) {
+    const tileIndex = instance.toTileIndex(Math.trunc(Number(x)), Math.trunc(Number(y)));
+    if (!Number.isFinite(tileIndex) || tileIndex < 0) {
+        return;
+    }
+    instance.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged });
 }
 
 function areSectBoundsEqual(left, right) {
