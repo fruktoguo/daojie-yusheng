@@ -713,6 +713,7 @@ async function main() {
     instance: { instanceId: sectInstance.meta.instanceId },
   }, deps);
   assert.ok(memberCoreActions.some((action) => action.id === "sect:manage"));
+  assert.ok(memberCoreActions.some((action) => action.id === "sect:guardian:maintain"));
   const memberManageDesc = memberCoreActions.find((action) => action.id === "sect:manage").desc;
   assert.match(memberManageDesc, /@@sect:/);
   const memberManageData = decodeURIComponent(/@@sect:(.*)@@/.exec(memberManageDesc)?.[1] ?? "");
@@ -722,29 +723,53 @@ async function main() {
   assert.match(memberManageData, /"realmLv":7/);
   assert.match(memberManageData, /"realmLv":6/);
   assert.throws(() => sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
-  sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
-  assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
-  sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
-  assert.equal(guardians.find((entry) => entry.id === `formation:sect_guardian:${expandedSect.sectId}`).active, false);
-  sectService.executeSectAction(deputyPlayerId, "sect:guardian:maintain", deps);
+  assert.throws(() => sectService.executeSectAction(laborPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
+  const laborCoreActions = sectService.buildSectCoreActions({
+    playerId: laborPlayerId,
+    self: { x: expandedSect.coreX, y: expandedSect.coreY },
+    instance: { instanceId: sectInstance.meta.instanceId },
+  }, deps);
+  assert.ok(laborCoreActions.some((action) => action.id === "sect:guardian:maintain"));
+  sectService.executeSectAction(laborPlayerId, "sect:guardian:maintain", deps);
   assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
-    playerId: deputyPlayerId,
+    playerId: laborPlayerId,
     command: {
       kind: "startFormationMaintenance",
       payload: { formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}` },
     },
   });
+  laborPlayer.formationJob = {
+    formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}`,
+    formationName: "护宗大阵",
+    remainingTicks: 1,
+  };
+  const laborMaintainingCoreActions = sectService.buildSectCoreActions({
+    playerId: laborPlayerId,
+    self: { x: expandedSect.coreX, y: expandedSect.coreY },
+    instance: { instanceId: sectInstance.meta.instanceId },
+  }, deps);
+  assert.ok(laborMaintainingCoreActions.some((action) => action.id === "sect:guardian:cancel_maintain"));
+  sectService.executeSectAction(laborPlayerId, "sect:guardian:cancel_maintain", deps);
+  assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
+    playerId: laborPlayerId,
+    command: { kind: "cancelFormationMaintenance" },
+  });
+  laborPlayer.formationJob = null;
+  sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
+  assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
+  sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
+  assert.equal(guardians.find((entry) => entry.id === `formation:sect_guardian:${expandedSect.sectId}`).active, false);
   deputyPlayer.formationJob = {
     formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}`,
     formationName: "护宗大阵",
     remainingTicks: 1,
   };
-  const maintainingManageDesc = sectService.buildSectCoreActions({
+  const deputyMaintainingCoreActions = sectService.buildSectCoreActions({
     playerId: deputyPlayerId,
     self: { x: expandedSect.coreX, y: expandedSect.coreY },
     instance: { instanceId: sectInstance.meta.instanceId },
-  }, deps).find((action) => action.id === "sect:manage").desc;
-  assert.match(decodeURIComponent(/@@sect:(.*)@@/.exec(maintainingManageDesc)?.[1] ?? ""), /"maintaining":true/);
+  }, deps);
+  assert.ok(deputyMaintainingCoreActions.some((action) => action.id === "sect:guardian:cancel_maintain"));
   sectService.executeSectAction(deputyPlayerId, "sect:guardian:cancel_maintain", deps);
   assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
     playerId: deputyPlayerId,

@@ -159,7 +159,6 @@ function normalizeSectManagementRolePermissions(
 function normalizeSectManagementGuardianData(input: unknown): SectManagementGuardianData {
   const source = isRecord(input) ? input : {};
   const active = source.active === true;
-  const maintaining = source.maintaining === true;
   const strength = Math.max(1, Math.floor(Number(source.strength) || 1));
   const remainingQi = Math.max(0, Math.floor(Number(source.remainingQi) || 0));
   const remainingSpiritStone = Math.max(0, Math.floor(Number(source.remainingSpiritStone) || 0));
@@ -167,7 +166,7 @@ function normalizeSectManagementGuardianData(input: unknown): SectManagementGuar
   const damageReduction = Math.max(0, Math.min(0.999999, Number(source.damageReduction) || 0));
   const remainingDaysRaw = Number(source.remainingDays);
   const remainingDays = Number.isFinite(remainingDaysRaw) && remainingDaysRaw >= 0 ? remainingDaysRaw : null;
-  return { active, maintaining, strength, remainingQi, remainingSpiritStone, dailySpiritStoneCost, damageReduction, remainingDays };
+  return { active, strength, remainingQi, remainingSpiritStone, dailySpiritStoneCost, damageReduction, remainingDays };
 }
 
 function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
@@ -387,13 +386,6 @@ export class SectManagementSubpanel {
         this.p.onAction?.(`sect:guardian:active:${active ? '1' : '0'}`, false, undefined, undefined, formatGuardianStateLabel(active));
       }, options);
     });
-    root.querySelector<HTMLElement>('[data-sect-guardian-maintain]')?.addEventListener('click', (event) => {
-      const button = event.currentTarget as HTMLElement;
-      const actionId = button.dataset.sectGuardianMaintain === '1'
-        ? 'sect:guardian:cancel_maintain'
-        : 'sect:guardian:maintain';
-      this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || t('action.sect.manage.guardian.maintain', undefined));
-    }, options);
     root.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
       select.addEventListener('change', () => {
         const playerId = select.dataset.sectMemberRoleSelect;
@@ -473,7 +465,6 @@ export class SectManagementSubpanel {
 
   private renderSectGuardianPanel(summary: SectManagementSummary): string {
     const active = summary.data.guardian.active;
-    const maintaining = summary.data.guardian.maintaining;
     return `
       <div class="panel-section" data-sect-guardian-panel data-sect-guardian-state="${active ? '1' : '0'}">
         <div class="panel-section-head">
@@ -500,7 +491,6 @@ export class SectManagementSubpanel {
             <output data-sect-guardian-daily-cost>${formatDisplayNumber(summary.data.guardian.dailySpiritStoneCost)} / 天</output>
           </div>
           <button class="small-btn" data-sect-guardian-strength-apply data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.apply-strength', undefined)}</button>
-          <button class="small-btn ghost" data-sect-guardian-maintain="${maintaining ? '1' : '0'}" data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${maintaining ? t('action.sect.manage.guardian.stop-maintain', undefined) : t('action.sect.manage.guardian.maintain', undefined)}</button>
         </div>
         <div class="action-section-hint">${t('action.sect.manage.guardian.copy', undefined)}</div>
       </div>`;
@@ -525,14 +515,6 @@ export class SectManagementSubpanel {
     this.setText(root, '[data-sect-guardian-stat="stones"]', t('action.sect.manage.guardian.current-stones', { stones: formatDisplayNumber(summary.data.guardian.remainingSpiritStone) }));
     this.setText(root, '[data-sect-guardian-stat="days"]', t('action.sect.manage.guardian.remaining-days', { days: formatGuardianDays(summary.data.guardian.remainingDays) }));
     this.setText(root, '[data-sect-guardian-daily-cost]', `${formatDisplayNumber(summary.data.guardian.dailySpiritStoneCost)} / 天`);
-    const maintainButton = root.querySelector<HTMLButtonElement>('[data-sect-guardian-maintain]');
-    if (maintainButton) {
-      maintainButton.dataset.sectGuardianMaintain = summary.data.guardian.maintaining ? '1' : '0';
-      maintainButton.textContent = summary.data.guardian.maintaining
-        ? t('action.sect.manage.guardian.stop-maintain', undefined)
-        : t('action.sect.manage.guardian.maintain', undefined);
-      maintainButton.disabled = !summary.data.canManageGuardian;
-    }
     const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-strength-input]');
     if (input && document.activeElement !== input) {
       input.value = String(summary.data.guardian.strength);

@@ -279,13 +279,26 @@ class WorldRuntimeSectService {
             this.playerSectId.set(view.playerId, sect.sectId);
         }
         const guardian = resolveSectGuardianFormation(sect, deps);
-        return [{
+        const actions = [{
             id: 'sect:manage',
             name: '管理宗门',
             type: 'interact',
             desc: buildSectManagementActionDesc(sect, view, deps, guardian),
             cooldownLeft: 0,
         }];
+        const maintainingGuardian = player?.formationJob
+            && Number(player.formationJob.remainingTicks) > 0
+            && player.formationJob.formationInstanceId === `formation:sect_guardian:${sect.sectId}`;
+        actions.push({
+            id: maintainingGuardian ? 'sect:guardian:cancel_maintain' : 'sect:guardian:maintain',
+            name: maintainingGuardian ? '停止补充：护宗大阵' : '补充灵力：护宗大阵',
+            type: 'interact',
+            desc: maintainingGuardian
+                ? '停止持续向护宗大阵注入自身灵力。'
+                : '持续向护宗大阵注入自身灵力，每息获得阵法技艺经验。',
+            cooldownLeft: 0,
+        });
+        return actions;
     }
 
     executeSectAction(playerId, actionId, deps) {
@@ -338,7 +351,6 @@ class WorldRuntimeSectService {
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sect:guardian:maintain') {
-            assertSectPermission(sect, playerId, 'guardian');
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
                 ?? this.ensureGuardianFormation(sect, deps);
             deps.enqueuePendingCommand(playerId, {
@@ -349,7 +361,6 @@ class WorldRuntimeSectService {
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sect:guardian:cancel_maintain') {
-            assertSectPermission(sect, playerId, 'guardian');
             deps.enqueuePendingCommand(playerId, {
                 kind: 'cancelFormationMaintenance',
             });
@@ -1320,7 +1331,7 @@ class WorldRuntimeSectService {
             return false;
         }
         ensureSectState(sect, this.playerRuntimeService);
-        return hasSectPermission(sect, playerId, 'guardian');
+        return isSectMember(sect, playerId);
     }
 }
 export { WorldRuntimeSectService };
@@ -1483,13 +1494,8 @@ function buildSectGuardianManagementData(formation, formationService = null, pla
     const dailySpiritStoneCost = Math.max(0, Number(formationService?.resolveFormationDailySpiritStoneCost?.(formation)) || strength);
     const damageReduction = Math.max(0, Math.min(0.999999, Number(formationService?.resolveFormationDamageReduction?.(formation)) || 0));
     const remainingDays = dailySpiritStoneCost > 0 ? remainingSpiritStone / dailySpiritStoneCost : null;
-    const maintaining = Boolean(player?.formationJob
-        && Number(player.formationJob.remainingTicks) > 0
-        && formation?.id
-        && player.formationJob.formationInstanceId === formation.id);
     return {
         active: formation ? formation.active !== false : false,
-        maintaining,
         strength,
         remainingQi,
         remainingSpiritStone,
