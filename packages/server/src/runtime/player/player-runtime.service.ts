@@ -61,6 +61,7 @@ const PENDING_LOGBOOK_KINDS = new Set([
 ]);
 const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
 const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
+const OFFLINE_GAIN_REPORT_MIN_DURATION_MS = 60_000;
 const pvpSoulInjuryBuffByRealmLv = new Map();
 const pvpShaInfusionBuffByRealmLv = new Map();
 const pvpShaBacklashBuffByRealmLv = new Map();
@@ -129,7 +130,7 @@ export class PlayerRuntimeService {
 
         const existing = this.players.get(playerId);
         if (existing) {
-            if (options?.deferOfflineGainSettlement === true && await this.ensureOfflineGainSessionLoaded(playerId)) {
+            if (options?.deferOfflineGainSettlement === true && await this.shouldBlockOfflineGainSession(playerId)) {
                 existing.sessionId = null;
                 if (!Number.isFinite(existing.offlineSinceAt)) {
                     const session = this.offlineGainSessionsByPlayerId.get(playerId);
@@ -174,7 +175,7 @@ export class PlayerRuntimeService {
         }
         const lateExisting = this.players.get(playerId);
         if (lateExisting) {
-            if (options?.deferOfflineGainSettlement === true && await this.ensureOfflineGainSessionLoaded(playerId)) {
+            if (options?.deferOfflineGainSettlement === true && await this.shouldBlockOfflineGainSession(playerId)) {
                 lateExisting.sessionId = null;
                 if (!Number.isFinite(lateExisting.offlineSinceAt)) {
                     const session = this.offlineGainSessionsByPlayerId.get(playerId);
@@ -219,7 +220,7 @@ export class PlayerRuntimeService {
             : this.createFreshPlayer(playerId, sessionId);
         // 标记玩家数据来源：从持久化恢复 vs 凭空创建，供 flush 防御使用
         (player as any)._hydratedFromPersistence = Boolean(snapshot);
-        if (deferOfflineGainSettlement && await this.ensureOfflineGainSessionLoaded(playerId)) {
+        if (deferOfflineGainSettlement && await this.shouldBlockOfflineGainSession(playerId)) {
             player.sessionId = null;
             const session = this.offlineGainSessionsByPlayerId.get(playerId);
             if (!Number.isFinite(player.offlineSinceAt)) {
@@ -302,7 +303,7 @@ export class PlayerRuntimeService {
                 startedAt: persistedSession.startedAt,
                 baselinePayload: persistedSession.baselinePayload,
                 accumulatedPayload: persistedSession.accumulatedPayload ?? createEmptyOfflineGainReportParts(),
-                accumulatedDurationMs: persistedSession.accumulatedDurationMs ?? 0,
+                accumulatedDurationMs: persistedSession.accumulatedDurationMs,
             });
         }
         return player;
@@ -563,18 +564,26 @@ export class PlayerRuntimeService {
             startedAt: persistedSession.startedAt,
             baselinePayload: persistedSession.baselinePayload,
             accumulatedPayload: persistedSession.accumulatedPayload ?? createEmptyOfflineGainReportParts(),
-            accumulatedDurationMs: persistedSession.accumulatedDurationMs ?? 0,
+            accumulatedDurationMs: persistedSession.accumulatedDurationMs,
         });
         return true;
     }
     /** 判断玩家是否仍有待确认的离线收益会话。 */
     async hasActiveOfflineGainSession(playerId) {
-        return this.ensureOfflineGainSessionLoaded(playerId);
+        return this.shouldBlockOfflineGainSession(playerId);
     }
     /** 同步热路径只读内存态：bootstrap/请求刷新会负责先恢复持久化 session。 */
     hasLoadedActiveOfflineGainSession(playerId) {
         const normalizedPlayerId = normalizeOfflineGainString(playerId);
-        return Boolean(normalizedPlayerId && this.offlineGainSessionsByPlayerId.has(normalizedPlayerId));
+        const session = normalizedPlayerId ? this.offlineGainSessionsByPlayerId.get(normalizedPlayerId) : null;
+        return shouldBlockOfflineGainSessionRecord(session);
+    }
+    async shouldBlockOfflineGainSession(playerId) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId || !await this.ensureOfflineGainSessionLoaded(normalizedPlayerId)) {
+            return false;
+        }
+        return shouldBlockOfflineGainSessionRecord(this.offlineGainSessionsByPlayerId.get(normalizedPlayerId));
     }
     /** 生成当前离线收益预览；不结算、不删除 session、不写入 pending 报告。 */
     async loadOfflineGainPreviewReports(playerId) {
@@ -583,7 +592,7 @@ export class PlayerRuntimeService {
             return [];
         }
         const pendingReports = await this.loadPendingOfflineGainReports(normalizedPlayerId);
-        const hasSession = await this.ensureOfflineGainSessionLoaded(normalizedPlayerId);
+        const hasSession = await this.shouldBlockOfflineGainSession(normalizedPlayerId);
         const player = this.players.get(normalizedPlayerId);
         if (!hasSession || !player) {
             return pendingReports;
@@ -809,7 +818,7 @@ export class PlayerRuntimeService {
         );
         this.recordPlayerStatisticTotals(normalizedPlayerId, report, report.endedAt);
         this.offlineGainSessionsByPlayerId.delete(normalizedPlayerId);
-        const shouldSaveOfflineHistory = report.durationMs >= 60_000 && hasOfflineGainReportParts(report);
+        const shouldSaveOfflineHistory = report.durationMs >= OFFLINE_GAIN_REPORT_MIN_DURATION_MS && hasOfflineGainReportParts(report);
         if (shouldSaveOfflineHistory) {
             if (this.playerDomainPersistenceService?.isEnabled?.()) {
                 const existing = await this.playerDomainPersistenceService.loadPlayerOfflineGainReports(normalizedPlayerId);
@@ -5670,6 +5679,17 @@ function createEmptyOfflineGainReportParts() {
         techniques: [],
         professions: [],
     };
+}
+function shouldBlockOfflineGainSessionRecord(session, now = Date.now()) {
+    if (!session || typeof session !== 'object') {
+        return false;
+    }
+    if (session.accumulatedDurationMs !== undefined && session.accumulatedDurationMs !== null && Number.isFinite(Number(session.accumulatedDurationMs))) {
+        const accumulatedDurationMs = normalizeOfflineGainCount(session.accumulatedDurationMs);
+        return accumulatedDurationMs >= OFFLINE_GAIN_REPORT_MIN_DURATION_MS;
+    }
+    const startedAt = normalizeOfflineGainCount(session.startedAt);
+    return startedAt > 0 && Math.max(0, normalizeOfflineGainCount(now) - startedAt) >= OFFLINE_GAIN_REPORT_MIN_DURATION_MS;
 }
 const PROGRESSION_ONLY_STATISTIC_DOMAINS = new Set([
     'progression',

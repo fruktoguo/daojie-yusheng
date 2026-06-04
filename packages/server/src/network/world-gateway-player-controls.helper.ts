@@ -54,6 +54,7 @@ interface WorldGatewayPlayerControlsDeps {
       y?: number;
     } | null | undefined;
     loadOfflineGainPreviewReports(playerId: string): Promise<unknown[]>;
+    hasActiveOfflineGainSession?(playerId: string): Promise<boolean>;
     updateAutoBattleSkills(playerId: string, skills: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleSkills>['skills']): void;
     updateAutoUsePills(playerId: string, pills: ClientToServerEventPayload<typeof C2S.UpdateAutoUsePills>['pills']): void;
     updateCombatTargetingRules(
@@ -136,11 +137,11 @@ export class WorldGatewayPlayerControlsHelper {
       return;
     }
     try {
+      const blocking = await this.gateway.playerRuntimeService.hasActiveOfflineGainSession?.(playerId) === true;
       const reports = await this.gateway.playerRuntimeService.loadOfflineGainPreviewReports(playerId);
       client.emit(S2C.OfflineGainReports, {
         reports,
-        preview: true,
-        blocking: true,
+        ...(blocking ? { preview: true, blocking: true } : {}),
       });
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_OFFLINE_GAIN_REPORTS_FAILED', error);

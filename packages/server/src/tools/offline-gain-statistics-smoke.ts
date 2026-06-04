@@ -294,24 +294,48 @@ async function testBlockingOfflineGainReconnectDoesNotResetSession() {
   service.detachSession(player.playerId);
   player.offlineSinceAt = 1_000;
   await service.beginOfflineGainSession(player.playerId, 1_000);
-  for (let tick = 1; tick <= 4; tick += 1) {
+  for (let tick = 1; tick <= 60; tick += 1) {
     service.advanceSinglePlayerTick(player, tick);
   }
 
   const previewBeforeReconnect = await service.loadOfflineGainPreviewReports(player.playerId);
   assert.equal(previewBeforeReconnect.length, 1);
-  assert.equal(previewBeforeReconnect[0].durationMs, 4_000);
+  assert.equal(previewBeforeReconnect[0].durationMs, 60_000);
   const sessionId = previewBeforeReconnect[0].id;
 
   player.sessionId = null;
-  await service.beginOfflineGainSession(player.playerId, 5_000);
-  service.advanceSinglePlayerTick(player, 5);
+  await service.beginOfflineGainSession(player.playerId, 61_000);
+  service.advanceSinglePlayerTick(player, 61);
 
   const previewAfterReconnect = await service.loadOfflineGainPreviewReports(player.playerId);
   assert.equal(previewAfterReconnect.length, 1);
   assert.equal(previewAfterReconnect[0].id, sessionId);
   assert.equal(previewAfterReconnect[0].startedAt, previewBeforeReconnect[0].startedAt);
-  assert.equal(previewAfterReconnect[0].durationMs, 5_000);
+  assert.equal(previewAfterReconnect[0].durationMs, 61_000);
+}
+
+async function testShortOfflineGainDoesNotBlockReconnect() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  for (let tick = 1; tick <= 4; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+
+  assert.equal(await service.hasActiveOfflineGainSession(player.playerId), false);
+  assert.deepEqual(await service.loadOfflineGainPreviewReports(player.playerId), []);
+
+  await service.loadOrCreatePlayer(player.playerId, "sid:return", async () => null, {
+    deferOfflineGainSettlement: true,
+  });
+
+  assert.equal(player.sessionId, "sid:return");
+  assert.equal(await service.hasActiveOfflineGainSession(player.playerId), false);
+  assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
 }
 
 async function main() {
@@ -322,6 +346,7 @@ async function main() {
   await testUnconfirmedOfflineReportsMergeIntoOnePendingRecord();
   await testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck();
   await testBlockingOfflineGainReconnectDoesNotResetSession();
+  await testShortOfflineGainDoesNotBlockReconnect();
   console.log("offline-gain-statistics-smoke passed");
 }
 

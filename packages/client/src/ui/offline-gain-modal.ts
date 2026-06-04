@@ -111,6 +111,10 @@ function patchOrOpenOfflineGainModal(
   const variantClass = blocking
     ? 'detail-modal--offline-gain detail-modal--offline-gain-blocking'
     : 'detail-modal--offline-gain';
+  const subtitle = t('offline-gain.modal.subtitle', { count: reports.length, duration: formatOfflineGainDuration(totalDurationMs) });
+  if (blocking && patchOpenOfflineGainBlockingReports(reports, variantClass, subtitle)) {
+    return;
+  }
   const bodyHtml = renderOfflineGainReportsWithConfirm(reports, blocking);
   const bindConfirm = (body: HTMLElement) => {
     const confirmBtn = body.querySelector<HTMLButtonElement>('.offline-gain-confirm-btn');
@@ -124,6 +128,7 @@ function patchOrOpenOfflineGainModal(
       if (reportIds.length === 0) {
         return;
       }
+      const toastCount = blocking ? blockingReports.length : reports.length;
       options.ackOfflineGainReports(reportIds);
       stopBlockingRefresh(options);
       detailModalHost.patch({
@@ -131,7 +136,7 @@ function patchOrOpenOfflineGainModal(
         onRequestClose: null,
       });
       detailModalHost.close(OFFLINE_GAIN_MODAL_OWNER);
-      options.showToast(t('offline-gain.toast.saved', { count: reports.length }), 'success');
+      options.showToast(t('offline-gain.toast.saved', { count: toastCount }), 'success');
     });
   };
 
@@ -140,7 +145,7 @@ function patchOrOpenOfflineGainModal(
     variantClass,
     size: 'lg',
     title: t('offline-gain.modal.title'),
-    subtitle: t('offline-gain.modal.subtitle', { count: reports.length, duration: formatOfflineGainDuration(totalDurationMs) }),
+    subtitle,
     hint: t('offline-gain.modal.hint.confirm'),
     bodyHtml,
     onRequestClose: () => false,
@@ -155,12 +160,51 @@ function patchOrOpenOfflineGainModal(
     variantClass,
     size: 'lg',
     title: t('offline-gain.modal.title'),
-    subtitle: t('offline-gain.modal.subtitle', { count: reports.length, duration: formatOfflineGainDuration(totalDurationMs) }),
+    subtitle,
     hint: t('offline-gain.modal.hint.confirm'),
     bodyHtml,
     onRequestClose: () => false,
     onAfterRender: bindConfirm,
   });
+}
+
+function patchOpenOfflineGainBlockingReports(
+  reports: readonly OfflineGainReportView[],
+  variantClass: string,
+  subtitle: string,
+): boolean {
+  if (!detailModalHost.isOpenFor(OFFLINE_GAIN_MODAL_OWNER)) {
+    return false;
+  }
+  const body = document.getElementById('detail-modal-body');
+  const currentReportsRoot = body?.querySelector<HTMLElement>('.offline-gain-modal');
+  if (!body || !currentReportsRoot) {
+    return false;
+  }
+  const nextReportsRoot = createOfflineGainReportsRoot(reports);
+  currentReportsRoot.replaceChildren(...Array.from(nextReportsRoot.childNodes));
+  detailModalHost.patch({
+    ownerId: OFFLINE_GAIN_MODAL_OWNER,
+    variantClass,
+    size: 'lg',
+    title: t('offline-gain.modal.title'),
+    subtitle,
+    hint: t('offline-gain.modal.hint.confirm'),
+    onRequestClose: () => false,
+  });
+  return true;
+}
+
+function createOfflineGainReportsRoot(reports: readonly OfflineGainReportView[]): HTMLElement {
+  const template = document.createElement('template');
+  template.innerHTML = renderOfflineGainReports(reports).trim();
+  const root = template.content.firstElementChild;
+  if (root instanceof HTMLElement && root.classList.contains('offline-gain-modal')) {
+    return root;
+  }
+  const fallback = document.createElement('div');
+  fallback.className = 'offline-gain-modal';
+  return fallback;
 }
 
 function confirmBlockingOfflineGainReports(options: OfflineGainReportHandlerOptions): string[] {
