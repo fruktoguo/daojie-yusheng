@@ -1153,7 +1153,8 @@ export class WorldRuntimePlayerSkillDispatchService {
                 ? instance.getMonsterAtTile(cell.x, cell.y)
                 : monsterByTile.get(buildCombatTileKey(cell.x, cell.y));
             if (
-                monster?.alive !== false
+                monster?.runtimeId
+                && monster.alive !== false
                 && isHostileCombatRelationResolution(resolveCombatRelation(attacker, { kind: 'monster' }))
             ) {
                 return { kind: 'monster', monsterId: monster.runtimeId };

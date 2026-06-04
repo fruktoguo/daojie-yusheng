@@ -2211,6 +2211,67 @@ async function run() {
     && entry.phase === CombatActionPhase.ChantResolve
   )), true);
 
+  const emptyTileManualChantPlayer = {
+    playerId: 'player:empty-tile-chant',
+    name: '空地块吟唱者',
+    instanceId: 'instance:test',
+    x: 0,
+    y: 0,
+    hp: 100,
+    qi: 100,
+    attrs: { numericStats: { maxQiOutputPerTick: 999 }, ratioDivisors: {} },
+    combat: { cooldownReadyTickBySkillId: {}, autoBattle: false },
+    actions: {
+      actions: [{
+        id: 'skill:empty-tile-chant',
+        type: 'skill',
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        level: 1,
+        skills: [{
+          id: 'skill:empty-tile-chant',
+          name: '空地块预警术',
+          range: 4,
+          targeting: { shape: 'area', radius: 1, maxTargets: 3 },
+          playerCast: { windupTicks: 1 },
+          effects: [{ type: 'damage', formula: 1 }],
+        }],
+      }],
+    },
+  };
+  const emptyTileManualChantDispatch = new WorldRuntimePlayerSkillDispatchService(
+    {
+      getPlayer: (playerId) => (playerId === emptyTileManualChantPlayer.playerId ? emptyTileManualChantPlayer : null),
+      getPlayerOrThrow: (playerId) => {
+        if (playerId === emptyTileManualChantPlayer.playerId) return emptyTileManualChantPlayer;
+        throw new Error(`unexpected player ${playerId}`);
+      },
+      listPlayerSnapshots: () => [],
+      recordActivity: () => {},
+    },
+    {},
+    service,
+  );
+  await assert.rejects(
+    () => emptyTileManualChantDispatch.dispatchCastSkill(emptyTileManualChantPlayer.playerId, 'skill:empty-tile-chant', null, null, 'tile:1:0', {
+      resolveCurrentTickForPlayerId: () => 24,
+      worldRuntimeCraftInterruptService: { interruptCraftForReason: () => {} },
+      ensureAttackAllowed: () => {},
+      getInstanceRuntimeOrThrow: () => ({
+        meta: { canDamageTile: false, supportsPvp: false },
+        getMonsterAtTile: () => null,
+        listMonsters: () => [],
+        getTileCombatState: () => null,
+        getPlayersAtTile: () => [],
+      }),
+    }),
+    /没有可命中的目标/,
+  );
+  assert.equal(emptyTileManualChantPlayer.combat.pendingSkillCast, undefined);
+
   const missingSkillPendingPlayer = {
     playerId: 'player:missing-skill',
     name: '缺技能施法者',
