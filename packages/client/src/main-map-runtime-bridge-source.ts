@@ -235,6 +235,7 @@ type MainMapRuntimeBridgeSourceOptions = {
  * y：y相关字段。
  */
  y: number }, tile: Tile) => boolean;
+    isCellReachableForCurrentPlayer: (x: number, y: number) => boolean;
   };  
   /**
  * targeting：targeting相关字段。
@@ -520,7 +521,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
  */
  y: number }, tile: Tile): boolean {
       return options.navigation.handlePortalClickTarget(target, tile);
-    },    
+    },
+    isCellReachableForCurrentPlayer(x: number, y: number): boolean {
+      return options.navigation.isCellReachableForCurrentPlayer(x, y);
+    },
     /**
  * syncTargetingOverlay：读取TargetingOverlay并返回结果。
  * @returns 无返回值，直接更新TargetingOverlay相关状态。

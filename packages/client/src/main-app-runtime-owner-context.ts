@@ -131,6 +131,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
       findObservedEntityAt: (x, y, kind) => navigationStateSource.findObservedEntityAt(x, y, kind),
       handleNpcClickTarget: (npc) => navigationStateSource.handleNpcClickTarget(npc),
       handlePortalClickTarget: (target, tile) => navigationStateSource.handlePortalClickTarget(target, tile),
+      isCellReachableForCurrentPlayer: (x, y) => navigationStateSource.isCellReachableForCurrentPlayer(x, y),
     },
     targeting: {
       syncTargetingOverlay: () => targetingStateSource.syncTargetingOverlay(),

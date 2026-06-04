@@ -358,6 +358,7 @@ type MainMapInteractionBindingsOptions = {
  * y：y相关字段。
  */
  y: number }, tile: Tile) => boolean;
+  isCellReachableForCurrentPlayer: (x: number, y: number) => boolean;
  /**
  * clearCurrentPath：clearCurrent路径相关字段。
  */
@@ -499,7 +500,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
       if (options.handlePortalClickTarget(target, knownTile)) {
         return;
       }
-      if (!knownTile.walkable) {
+      if (!options.isCellReachableForCurrentPlayer(target.x, target.y)) {
         options.showToast(t('map-interaction.toast.unreachable'));
         return;
       }

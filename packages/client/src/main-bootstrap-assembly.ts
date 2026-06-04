@@ -194,6 +194,7 @@ type MainBootstrapAssemblyOptions = {
     | 'getKnownTileAt'
     | 'handleNpcClickTarget'
     | 'handlePortalClickTarget'
+    | 'isCellReachableForCurrentPlayer'
     | 'clearCurrentPath'
     | 'syncSenseQiOverlay'
     | 'syncWangQiOverlay'
@@ -685,6 +686,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     getKnownTileAt: (x, y) => options.mapRuntimeBridgeSource.getKnownTileAt(x, y),
     handleNpcClickTarget: (npc) => options.mapRuntimeBridgeSource.handleNpcClickTarget(npc),
     handlePortalClickTarget: (target, tile) => options.mapRuntimeBridgeSource.handlePortalClickTarget(target, tile),
+    isCellReachableForCurrentPlayer: (x, y) => options.mapRuntimeBridgeSource.isCellReachableForCurrentPlayer(x, y),
     clearCurrentPath: () => options.mapRuntimeBridgeSource.clearCurrentPath(),
     syncTargetingOverlay: options.syncTargetingOverlay,
     syncSenseQiOverlay: () => options.mapRuntimeBridgeSource.syncSenseQiOverlay(),

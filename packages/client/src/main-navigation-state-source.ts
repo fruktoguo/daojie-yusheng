@@ -5,9 +5,12 @@
  */
 import {
   type Direction,
+  doesStructureTypeBlockMove,
   directionToDelta,
   gridDistance,
   isPointInRange,
+  isTerrainTypeWalkable,
+  isTileTypeWalkable,
   type MapMeta,
   type NpcQuestMarker,
   packDirections,
@@ -395,11 +398,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       return false;
     }
     const mapMeta = options.getMapMeta();
-    const tile = options.getKnownTileAt(x, y);
-    if (!tile?.walkable) {
-      return false;
-    }
-    if (isFormationBoundaryBlockedAt(x, y)) {
+    if (!isCellReachableForCurrentPlayer(x, y)) {
       return false;
     }
     return !isVisibleBlockingEntityAt(x, y, { allowSelf: true, mapMeta });
@@ -463,9 +462,14 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     }
     const playerOverlapPointKeys = createPlayerOverlapPointKeySet(mapMeta);
     const visibleBlockingPositions = new Set<string>();
+    const passableFormationBoundaryPositions = new Set<string>();
     for (const entity of options.getLatestEntities()) {
-      if (entity.kind === 'formation' && entity.formationBlocksBoundary === true && !canCurrentPlayerPassFormationBoundary(entity)) {
-        appendFormationBoundaryPositions(visibleBlockingPositions, entity, mapMeta);
+      if (entity.kind === 'formation' && entity.formationBlocksBoundary === true) {
+        appendFormationBoundaryPositions(
+          canCurrentPlayerPassFormationBoundary(entity) ? passableFormationBoundaryPositions : visibleBlockingPositions,
+          entity,
+          mapMeta,
+        );
       }
       if (!isPathPreviewBlockingEntity(entity)) {
         continue;
@@ -486,14 +490,24 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       for (let x = 0; x < mapMeta.width; x += 1) {
         const tile = options.getKnownTileAt(x, y);
         const baseTile = tile ?? ({ type: 'wall', walkable: false } as Tile);
-        const occupiedByVisibleEntity = visibleBlockingPositions.has(`${x},${y}`);
+        const coordKey = `${x},${y}`;
+        const occupiedByVisibleEntity = visibleBlockingPositions.has(coordKey);
+        const reachableForCurrentPlayer = isCellReachableForCurrentPlayerByProjection(
+          x,
+          y,
+          baseTile,
+          visibleBlockingPositions,
+          passableFormationBoundaryPositions,
+        );
         row.push(occupiedByVisibleEntity
           ? {
               ...baseTile,
               walkable: false,
               occupiedBy: 'visible_entity',
             }
-          : baseTile);
+          : reachableForCurrentPlayer === baseTile.walkable
+            ? baseTile
+            : { ...baseTile, walkable: reachableForCurrentPlayer });
       }
       tiles.push(row);
     }
@@ -624,6 +638,57 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       && !canCurrentPlayerPassFormationBoundary(entity)
       && isCellOnFormationBoundary(entity, x, y)
     ));
+  }
+
+  function isCurrentPlayerPassableFormationBoundaryAt(x: number, y: number): boolean {
+    return options.getLatestEntities().some((entity) => (
+      entity.kind === 'formation'
+      && entity.formationBlocksBoundary === true
+      && canCurrentPlayerPassFormationBoundary(entity)
+      && isCellOnFormationBoundary(entity, x, y)
+    ));
+  }
+
+  function isBaseTileWalkableIgnoringFormationBoundary(tile: Tile | null): boolean {
+    if (!tile) {
+      return false;
+    }
+    if (typeof tile.terrainType === 'string' || Object.prototype.hasOwnProperty.call(tile, 'structureType')) {
+      return isTerrainTypeWalkable(tile.terrainType ?? tile.type) && !doesStructureTypeBlockMove(tile.structureType);
+    }
+    return isTileTypeWalkable(tile.type);
+  }
+
+  function isCellReachableForCurrentPlayer(x: number, y: number): boolean {
+    return isCellReachableForCurrentPlayerByProjection(x, y, null, null, null);
+  }
+
+  function isCellReachableForCurrentPlayerByProjection(
+    x: number,
+    y: number,
+    projectedTile: Tile | null,
+    blockedFormationBoundaryPositions: ReadonlySet<string> | null,
+    passableFormationBoundaryPositions: ReadonlySet<string> | null,
+  ): boolean {
+    if (!options.getPlayer() || !isCellInsideCurrentMap(x, y)) {
+      return false;
+    }
+    const tile = projectedTile ?? options.getKnownTileAt(x, y);
+    if (!tile) {
+      return false;
+    }
+    const coordKey = `${x},${y}`;
+    if (blockedFormationBoundaryPositions ? blockedFormationBoundaryPositions.has(coordKey) : isFormationBoundaryBlockedAt(x, y)) {
+      return false;
+    }
+    if (tile.walkable) {
+      return true;
+    }
+    const passableFormationBoundary = passableFormationBoundaryPositions
+      ? passableFormationBoundaryPositions.has(coordKey)
+      : isCurrentPlayerPassableFormationBoundaryAt(x, y);
+    return passableFormationBoundary
+      && isBaseTileWalkableIgnoringFormationBoundary(tile);
   }
 
   function canCurrentPlayerPassFormationBoundary(entity: MainNavigationObservedEntity): boolean {
@@ -893,7 +958,8 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
     findObservedEntityAt(x: number, y: number, kind?: string): MainNavigationObservedEntity | null {
       return options.getLatestEntities().find((entry) => entry.wx === x && entry.wy === y && (kind ? entry.kind === kind : true)) ?? null;
-    },    
+    },
+    isCellReachableForCurrentPlayer,
     /**
  * triggerAutoInteractionIfReady：读取triggerAutoInteractionIfReady并返回结果。
  * @returns 返回是否满足triggerAutoInteractionIfReady条件。
