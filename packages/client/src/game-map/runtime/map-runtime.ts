@@ -330,7 +330,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.minimap.resize();
   }
 
-  /** 缩放只影响显示度量和相机像素坐标，不重建场景与小地图。 */
+  /** 缩放会改变格子像素尺寸，需要同步重算渲染器内的像素坐标缓存。 */
   private syncZoomDerivedState(): void {
     this.viewport.syncDisplayMetrics(this.store.getViewRadius() || VIEW_RADIUS);
     this.camera.setCellSize(getCellSize());
@@ -338,6 +338,8 @@ export class MapRuntime implements MapRuntimeApi {
     if (player) {
       this.camera.snap(player.x, player.y);
     }
+    this.syncSceneFromStore();
+    this.renderer.syncDisplayMetrics();
   }
 
   /** 从 Store 构建最新场景并推送到渲染器与小地图。 */

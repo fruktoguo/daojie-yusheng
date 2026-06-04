@@ -807,6 +807,22 @@ export class PixiMapRendererAdapter {
     this.resetProfileState();
   }
 
+  syncDisplayMetrics(): void {
+    const cellSize = getCellSize();
+    this.invalidateTerrainChunks();
+    for (const view of this.entities.values()) {
+      const targetWX = view.anim.gridX * cellSize;
+      const targetWY = view.anim.gridY * cellSize;
+      view.anim.oldWX = targetWX;
+      view.anim.oldWY = targetWY;
+      view.anim.targetWX = targetWX;
+      view.anim.targetWY = targetWY;
+      view.root.position.set(targetWX, targetWY);
+      view.staticSignature = '';
+      this.patchEntityStatic(view);
+    }
+  }
+
   render(
     scene: MapSceneSnapshot,
     camera: CameraState,
@@ -1282,22 +1298,23 @@ export class PixiMapRendererAdapter {
       for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
         const key = `${x},${y}`;
         const tile = scene.terrain.tileCache.get(key);
-        if (!tile) continue;
         const sx = x * cellSize;
         const sy = y * cellSize;
-        const bg = parseColor(TILE_VISUAL_BG_COLORS[tile.type], 0x333333);
-        baseGraphics.rect(sx, sy, cellSize, cellSize).fill({ color: bg });
-        baseGraphics.rect(sx, sy, cellSize, cellSize).stroke({ color: 0x000000, alpha: 0.1, width: 0.5 });
-        this.drawRuntimeTileSprite(chunk.container, tile, sx, sy, cellSize);
+        if (tile) {
+          const bg = parseColor(TILE_VISUAL_BG_COLORS[tile.type], 0x333333);
+          baseGraphics.rect(sx, sy, cellSize, cellSize).fill({ color: bg });
+          baseGraphics.rect(sx, sy, cellSize, cellSize).stroke({ color: 0x000000, alpha: 0.1, width: 0.5 });
+          this.drawRuntimeTileSprite(chunk.container, tile, sx, sy, cellSize);
+        }
         this.drawTerrainOverlays(overlayGraphics, chunk.container, scene, tile, key, x, y, sx, sy, cellSize, senseQiLevelBaseValue, {
           buildPreviewCellByKey,
           fengShuiCellByKey,
           targetingAffectedKeys,
           formationAffectedKeys,
         });
-        const glyph = TILE_VISUAL_GLYPHS[tile.type];
-        const hasRuntimeSprite = this.resolveRuntimeTileSpriteRef(tile) !== null;
-        if (glyph && !hasRuntimeSprite) {
+        const glyph = tile ? TILE_VISUAL_GLYPHS[tile.type] : null;
+        const hasRuntimeSprite = tile ? this.resolveRuntimeTileSpriteRef(tile) !== null : false;
+        if (tile && glyph && !hasRuntimeSprite) {
           const label = new Text({
             text: glyph,
             style: textStyle('tileGlyph', cellSize * 0.6, TILE_VISUAL_GLYPH_COLORS[tile.type] ?? 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)', 0),
@@ -1329,7 +1346,7 @@ export class PixiMapRendererAdapter {
     graphics: Graphics,
     chunkContainer: Container,
     scene: MapSceneSnapshot,
-    tile: Tile,
+    tile: Tile | null | undefined,
     key: string,
     gx: number,
     gy: number,
@@ -1615,6 +1632,7 @@ export class PixiMapRendererAdapter {
     const anim = view.anim;
     const cellSize = getCellSize();
     const signature = [
+      cellSize,
       anim.char, anim.color, anim.name ?? '', anim.kind ?? '', anim.hp ?? '', anim.maxHp ?? '',
       anim.respawnRemainingTicks ?? '', anim.respawnTotalTicks ?? '',
       anim.badge?.text ?? '', anim.badge?.tone ?? '', anim.hostile ? 1 : 0,
