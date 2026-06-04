@@ -208,6 +208,19 @@ class WorldRuntimeSectService {
         return this.templateRepository.registerRuntimeMapTemplate(buildSectMapDocument(sect));
     }
 
+    refreshSectTemplateForBounds(sect, deps) {
+        const bounds = normalizeSectBounds(sect);
+        sect.sectTemplateId = buildSectTemplateId(sect.sectId, bounds);
+        sect.coreX = -bounds.minX;
+        sect.coreY = -bounds.minY;
+        const template = this.templateRepository.registerRuntimeMapTemplate(buildSectMapDocument(sect));
+        const sectInstance = deps.getInstanceRuntime?.(sect.sectInstanceId);
+        if (sectInstance && typeof sectInstance.replaceTemplateForSectExpansion === 'function') {
+            sectInstance.replaceTemplateForSectExpansion(template);
+        }
+        return template;
+    }
+
     attachSectPortals(sect, entranceInstance, sectInstance) {
         entranceInstance.addRuntimePortal?.({
             x: sect.entranceX,
@@ -875,6 +888,7 @@ class WorldRuntimeSectService {
             Math.abs(nextBounds.maxY),
         );
         sect.updatedAt = Date.now();
+        this.refreshSectTemplateForBounds(sect, deps);
         const sectInstance = deps.getInstanceRuntime(sect.sectInstanceId);
         if (sectInstance) {
             const entranceInstance = deps.getInstanceRuntime(sect.entranceInstanceId);
@@ -924,6 +938,7 @@ class WorldRuntimeSectService {
             return false;
         }
         sect.updatedAt = Date.now();
+        this.refreshSectTemplateForBounds(sect, deps);
         const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
         if (entranceInstance) {
             this.attachSectPortals(sect, entranceInstance, instance);
@@ -1379,6 +1394,16 @@ function buildSectInstanceId(sectId) {
 function buildSectTemplateId(sectId, boundsInput) {
     const bounds = normalizeBoundsObject(boundsInput) ?? buildInitialSectBounds();
     return `${SECT_TEMPLATE_PREFIX}${sectId}:x${bounds.minX}_${bounds.maxX}:y${bounds.minY}_${bounds.maxY}`;
+}
+
+function resolveSectTemplateIdForBounds(sectId, candidateTemplateId, boundsInput) {
+    const bounds = normalizeBoundsObject(boundsInput) ?? buildInitialSectBounds();
+    const candidate = normalizeOptionalString(candidateTemplateId);
+    const parsed = parseSectTemplateDescriptor(candidate);
+    if (parsed?.sectId === sectId && areSectBoundsEqual(parsed.bounds, bounds)) {
+        return candidate;
+    }
+    return buildSectTemplateId(sectId, bounds);
 }
 
 function buildDefaultSectName(player) {
@@ -1862,17 +1887,16 @@ function removeSectRuntimePortals(instance, sectId) {
 
 function buildSectMapDocument(sect) {
     const bounds = normalizeSectBounds(sect);
-    const templateBounds = buildInitialSectBounds();
-    const width = templateBounds.maxX - templateBounds.minX + 1;
-    const height = templateBounds.maxY - templateBounds.minY + 1;
-    const centerX = -templateBounds.minX;
-    const centerY = -templateBounds.minY;
+    const width = bounds.maxX - bounds.minX + 1;
+    const height = bounds.maxY - bounds.minY + 1;
+    const centerX = -bounds.minX;
+    const centerY = -bounds.minY;
     const tiles = [];
     for (let y = 0; y < height; y += 1) {
         let row = '';
         for (let x = 0; x < width; x += 1) {
-            const logicalX = templateBounds.minX + x;
-            const logicalY = templateBounds.minY + y;
+            const logicalX = bounds.minX + x;
+            const logicalY = bounds.minY + y;
             if (x === centerX && y === centerY) {
                 row += 'P';
             } else if (Math.abs(logicalX) <= SECT_BASE_CLEAR_RADIUS && Math.abs(logicalY) <= SECT_BASE_CLEAR_RADIUS) {
@@ -1884,7 +1908,7 @@ function buildSectMapDocument(sect) {
         tiles.push(row);
     }
     return {
-        id: normalizeOptionalString(sect.sectTemplateId) || buildSectTemplateId(sect.sectId, bounds),
+        id: resolveSectTemplateIdForBounds(sect.sectId, sect.sectTemplateId, bounds),
         name: sect.name,
         width,
         height,
@@ -1937,7 +1961,7 @@ function normalizeSectEntry(entry) {
         minY: entry.mapMinY,
         maxY: entry.mapMaxY,
     }) ?? fallbackBounds;
-    const templateId = normalizeOptionalString(entry.sectTemplateId) || buildSectTemplateId(sectId, bounds);
+    const templateId = resolveSectTemplateIdForBounds(sectId, entry.sectTemplateId, bounds);
         return {
             sectId,
             name: normalizeOptionalString(entry.name) || `${sectId}宗`,

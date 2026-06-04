@@ -12,6 +12,7 @@ const { WorldSyncMapSnapshotService } = require("../network/world-sync-map-snaps
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
 const { WorldRuntimeDetailQueryService } = require("../runtime/world/query/world-runtime-detail-query.service");
 const { buildTechniqueActivityTaskListView } = require("../runtime/craft/technique-activity-task-view.helpers");
+const { findOptimalPathOnMap } = require("../runtime/world/world-runtime.path-planning.helpers");
 
 const playerId = "player:sect-smoke";
 const deputyPlayerId = "player:sect-deputy";
@@ -557,9 +558,14 @@ async function main() {
   const destroyedEdge = sectInstance.damageTile(edgeX, 2, Number.MAX_SAFE_INTEGER);
   assert.equal(destroyedEdge.destroyed, true);
   assert.equal(sectService.expandSectForDestroyedTile(sectInstance.meta.instanceId, edgeX, 2, deps), true);
-  assert.equal(sectInstance.template.width, 5);
+  assert.equal(sectInstance.template.width, 6);
   assert.equal(sectInstance.template.height, 5);
-  assert.equal(sectInstance.tilePlane.getCellCount(), 25);
+  assert.equal(sectInstance.tilePlane.getCellCount(), 30);
+  assert.match(sectInstance.meta.templateId, /:x-2_3:y-2_2$/);
+  assert.equal(sectInstance.isInBounds(edgeX + 1, 2), true);
+  assert.equal(sectInstance.isWalkable(edgeX, 2, playerId), true);
+  assert.equal(sectInstance.isWalkable(edgeX + 1, 2, playerId), false);
+  assert.ok(findOptimalPathOnMap(sectInstance, playerId, 3, 2, [{ x: edgeX, y: 2 }]));
   const boundaryViewPlayer = sectInstance.connectPlayer({ playerId, sessionId: "session:sect-smoke", preferredX: 3, preferredY: 2 });
   assert.equal(boundaryViewPlayer.x, 3);
   assert.equal(boundaryViewPlayer.y, 2);
@@ -597,14 +603,14 @@ async function main() {
   sectInstance.disconnectPlayer(playerId);
   const damagedBoundary = sectInstance.damageTile(edgeX + 1, 2, 1);
   assert.equal(damagedBoundary.destroyed, false);
-  assert.equal(sectInstance.template.width, 5);
+  assert.equal(sectInstance.template.width, 6);
   assert.equal(sectInstance.template.height, 5);
   assert.equal(sectInstance.isInBounds(edgeX + 1, 2), true);
   assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).terrain, "grass");
   assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).surface, "floor");
   assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).structure, "stone");
   assert.equal(sectInstance.isWalkable(edgeX + 1, 2, playerId), false);
-  assert.equal(sectInstance.tilePlane.getCellCount(), 26);
+  assert.equal(sectInstance.tilePlane.getCellCount(), 30);
   assert.equal(sectInstance.getTileCombatState(edgeX + 1, 2).hp, damagedBoundary.maxHp - 1);
   const damagedBoundaryTile = sectSnapshotService.buildTileSyncState(sectInstance.template, sectInstance.meta.instanceId, edgeX + 1, 2, player);
   assert.equal(damagedBoundaryTile.hpVisible, true);
@@ -612,7 +618,7 @@ async function main() {
   assert.equal(sectInstance.getTileCombatState(edgeX + 1, 2).hp, damagedBoundary.maxHp);
   const destroyed = sectInstance.damageTile(edgeX + 1, 2, Number.MAX_SAFE_INTEGER);
   assert.equal(destroyed.destroyed, true);
-  assert.equal(sectInstance.getTileCombatState(edgeX + 1, 2), null);
+  assert.equal(sectInstance.getTileCombatState(edgeX + 1, 2).destroyed, true);
   assert.equal(sectInstance.getEffectiveTileType(edgeX + 1, 2), "floor");
   assert.equal(sectInstance.getTileLayerState(edgeX + 1, 2).structure, null);
   const openedBoundaryTile = sectSnapshotService.buildTileSyncState(sectInstance.template, sectInstance.meta.instanceId, edgeX + 1, 2, player);
@@ -649,19 +655,25 @@ async function main() {
   assert.equal(openedBoundaryDetail.structureType, null);
   assert.equal(openedBoundaryDetail.walkable, true);
   assert.equal(sectService.expandSectForDestroyedTile(sectInstance.meta.instanceId, edgeX + 1, 2, deps), true);
-  assert.equal(sectInstance.template.width, 5);
+  assert.equal(sectInstance.template.width, 7);
   assert.equal(sectInstance.template.height, 5);
+  assert.match(sectInstance.meta.templateId, /:x-2_4:y-2_2$/);
+  assert.equal(sectInstance.tilePlane.getCellCount(), 35);
+  assert.equal(sectInstance.isInBounds(edgeX + 2, 2), true);
+  assert.equal(sectInstance.isWalkable(edgeX + 1, 2, playerId), true);
+  assert.equal(sectInstance.isWalkable(edgeX + 2, 2, playerId), false);
+  assert.ok(findOptimalPathOnMap(sectInstance, playerId, 3, 2, [{ x: edgeX + 1, y: 2 }]));
+  const expandedSectAfterBoundaryOpen = sectService.findSectById(player.sectId);
   const expandedCoreActions = sectService.buildSectCoreActions({
     playerId,
-    self: { x: 2, y: 2 },
+    self: { x: expandedSectAfterBoundaryOpen.coreX, y: expandedSectAfterBoundaryOpen.coreY },
     instance: { instanceId: sectInstance.meta.instanceId },
   }, deps);
-  assert.match(expandedCoreActions.find((action) => action.id === "sect:manage").desc, /地域\s+26格/);
+  assert.match(expandedCoreActions.find((action) => action.id === "sect:manage").desc, /地域\s+35格/);
   const dynamicRuntimeTileEntries = sectInstance.buildRuntimeTilePersistenceEntries();
   const dynamicTileDamageEntries = sectInstance.buildTileDamagePersistenceEntries();
-  assert.equal(dynamicRuntimeTileEntries.length, 1);
-  assert.equal(dynamicRuntimeTileEntries[0].tileType, "floor");
-  assert.equal(dynamicTileDamageEntries.some((entry) => entry.x === edgeX + 1 && entry.y === 2), false);
+  assert.equal(dynamicRuntimeTileEntries.length, 0);
+  assert.equal(dynamicTileDamageEntries.some((entry) => entry.x === edgeX + 1 && entry.y === 2 && entry.destroyed === true), true);
   const rehydratedSectInstance = new MapInstanceRuntime({
     instanceId: `${sectInstance.meta.instanceId}:rehydrated`,
     template: sectInstance.template,
@@ -678,7 +690,7 @@ async function main() {
   });
   rehydratedSectInstance.hydrateRuntimeTiles([...dynamicRuntimeTileEntries].reverse());
   rehydratedSectInstance.hydrateTileDamage(dynamicTileDamageEntries);
-  assert.equal(rehydratedSectInstance.getTileCombatState(edgeX + 1, 2), null);
+  assert.equal(rehydratedSectInstance.getTileCombatState(edgeX + 1, 2).destroyed, true);
   assert.equal(rehydratedSectInstance.getEffectiveTileType(edgeX + 1, 2), "floor");
   assert.equal(rehydratedSectInstance.getTileLayerState(edgeX + 1, 2).terrain, "grass");
   assert.equal(rehydratedSectInstance.getTileLayerState(edgeX + 1, 2).surface, "floor");
@@ -698,7 +710,8 @@ async function main() {
     canDamageTile: true,
   });
   legacyDirtySectInstance.hydrateRuntimeTiles([{
-    ...dynamicRuntimeTileEntries[0],
+    x: edgeX + 1,
+    y: 2,
     tileType: "floor",
     terrainType: "stone_ground",
     surfaceType: null,
@@ -749,15 +762,19 @@ async function main() {
   const secondBoundaryStone = sectInstance.damageTile(edgeX + 2, 2, Number.MAX_SAFE_INTEGER);
   assert.equal(secondBoundaryStone.destroyed, true);
   assert.equal(sectService.expandSectForDestroyedTile(sectInstance.meta.instanceId, edgeX + 2, 2, deps), true);
-  assert.equal(sectInstance.getTileCombatState(edgeX + 3, 2).virtualBoundary, true);
-  assert.equal(sectInstance.template.width, 5);
+  assert.equal(sectInstance.getTileCombatState(edgeX + 3, 2).virtualBoundary, undefined);
+  assert.equal(sectInstance.getTileCombatState(edgeX + 3, 2).tileType, "stone");
+  assert.equal(sectInstance.template.width, 8);
   assert.equal(sectInstance.template.height, 5);
-  assert.equal(sectInstance.tilePlane.getCellCount(), 27);
+  assert.equal(sectInstance.tilePlane.getCellCount(), 40);
+  assert.match(sectInstance.meta.templateId, /:x-2_5:y-2_2$/);
   const expandedSect = sectService.findSectById(player.sectId);
   assert.equal(sectService.expandSect(expandedSect, deps), true);
-  assert.equal(sectInstance.template.width, 5);
-  assert.equal(sectInstance.template.height, 5);
-  assert.equal(sectInstance.tilePlane.getCellCount(), 27);
+  assert.equal(sectInstance.template.width, 24);
+  assert.equal(sectInstance.template.height, 21);
+  assert.equal(sectInstance.tilePlane.getCellCount(), 504);
+  assert.match(sectInstance.meta.templateId, /:x-10_13:y-10_10$/);
+  assert.equal(sectInstance.isInBounds(expandedSect.coreX + 9, expandedSect.coreY), true);
 
   expandedSect.members.push(
     { playerId: elderPlayerId, name: "长老", roleId: "elder", joinedAt: Date.now() },

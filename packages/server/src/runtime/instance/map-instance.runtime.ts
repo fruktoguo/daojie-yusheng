@@ -886,6 +886,12 @@ class MapInstanceRuntime {
         }
         const previousTemplate = this.template;
         const previousTilePlane = this.tilePlane;
+        const previousDirtyDomains = Array.from(this.getDirtyDomains());
+        const previousHighPriorityDirtyDomains = this.dirtyDomainHighPriority instanceof Set
+            ? Array.from(this.dirtyDomainHighPriority)
+            : [];
+        const runtimeTileEntries = this.buildRuntimeTilePersistenceEntries();
+        const temporaryTileEntries = this.buildTemporaryTilePersistenceEntries();
         const previousCenterX = Number.isFinite(Number(previousTemplate.source?.sectCoreX)) ? Math.trunc(Number(previousTemplate.source.sectCoreX)) : Math.trunc(previousTemplate.width / 2);
         const previousCenterY = Number.isFinite(Number(previousTemplate.source?.sectCoreY)) ? Math.trunc(Number(previousTemplate.source.sectCoreY)) : Math.trunc(previousTemplate.height / 2);
         const nextCenterX = Number.isFinite(Number(nextTemplate.source?.sectCoreX)) ? Math.trunc(Number(nextTemplate.source.sectCoreX)) : Math.trunc(nextTemplate.width / 2);
@@ -918,6 +924,8 @@ class MapInstanceRuntime {
         this.containerIdByTile.clear();
         this.containersById.clear();
         this.runtimePortals = [];
+        this.buildingTopologyIndex = new BuildingTopologyIndex(nextCellCapacity);
+        this.roomIdByCell = new Int32Array(nextCellCapacity);
         for (const player of players) {
             const nextX = Math.max(0, Math.min(nextTemplate.width - 1, Math.trunc(Number(player.x) || 0) + offsetX));
             const nextY = Math.max(0, Math.min(nextTemplate.height - 1, Math.trunc(Number(player.y) || 0) + offsetY));
@@ -940,9 +948,22 @@ class MapInstanceRuntime {
             }
             this.tileDamageByTile.set(this.toTileIndex(nextX, nextY), { ...state });
         }
+        this.hydrateRuntimeTiles(runtimeTileEntries.map((entry) => ({
+            ...entry,
+            x: Math.trunc(Number(entry.x) || 0) + offsetX,
+            y: Math.trunc(Number(entry.y) || 0) + offsetY,
+        })));
+        this.hydrateTemporaryTiles(temporaryTileEntries.map((entry) => ({
+            ...entry,
+            x: Math.trunc(Number(entry.x) || 0) + offsetX,
+            y: Math.trunc(Number(entry.y) || 0) + offsetY,
+        })));
+        this.rebuildTileResourceFlowIndices();
+        this.markPersistenceDirtyDomains(previousDirtyDomains);
+        markMapInstanceDirtyDomainHighPriority(this, previousHighPriorityDirtyDomains);
         this.worldRevision += 1;
         this.persistentRevision += 1;
-        this.markPersistenceDirtyDomainsHighPriority(['overlay', 'tile_damage']);
+        this.markPersistenceDirtyDomainsHighPriority(['overlay', 'tile_damage', 'tile_cell']);
         return true;
     }
     /** activateRuntimeTile：按坐标激活一个运行时地块，已存在坐标不会被覆盖。 */
