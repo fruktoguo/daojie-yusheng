@@ -2762,6 +2762,7 @@ class MapInstanceRuntime {
                 this.applyDefaultTileLayerFallback(tileIndex);
                 this.tileDamageByTile.delete(tileIndex);
                 this.markTileDamagePersistenceDirtyHighPriority(tileIndex);
+                this.markStaticTileSyncDirtyByIndex(tileIndex, { sightBlockingChanged: true });
             }
             this.worldRevision += 1;
             this.persistentRevision += 1;
