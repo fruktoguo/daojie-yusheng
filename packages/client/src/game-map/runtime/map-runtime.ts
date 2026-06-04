@@ -9,7 +9,7 @@ import { CameraController } from '../camera/camera-controller';
 import { InteractionController } from '../interaction/interaction-controller';
 import { MinimapRuntime } from '../minimap/minimap-runtime';
 import { TopdownProjection } from '../projection/topdown-projection';
-import { CanvasTextRendererAdapter } from '../renderer/canvas-text-renderer-adapter';
+import { PixiMapRendererAdapter } from '../renderer/pixi-map-renderer-adapter';
 import { MapScene } from '../scene/map-scene';
 import { MapStore } from '../store/map-store';
 import type {
@@ -36,8 +36,8 @@ export class MapRuntime implements MapRuntimeApi {
   private readonly camera = new CameraController();
   /** 坐标系转换层，提供世界坐标与屏幕坐标映射。 */
   private readonly projection = new TopdownProjection();
-  /** 具体渲染器适配层（当前挂接 TextRenderer）。 */
-  private readonly renderer = new CanvasTextRendererAdapter();
+  /** 具体渲染器适配层（主世界 Pixi/WebGL2 后端）。 */
+  private readonly renderer = new PixiMapRendererAdapter();
   /** 小地图运行时视图。 */
   private readonly minimap = new MinimapRuntime();
   /**
