@@ -511,6 +511,21 @@ export class PlayerRuntimeService {
         if (!player || !normalizedPlayerId) {
             return;
         }
+        if (await this.ensureOfflineGainSessionLoaded(normalizedPlayerId)) {
+            const existingSession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
+            if (!Number.isFinite(player.offlineSinceAt)) {
+                player.offlineSinceAt = Number.isFinite(Number(existingSession?.startedAt))
+                    ? Math.max(0, Math.trunc(Number(existingSession.startedAt)))
+                    : Math.max(0, Math.trunc(Number(startedAt) || Date.now()));
+            }
+            if (existingSession?.baselinePayload) {
+                this.playerStatisticSnapshotsByPlayerId.set(normalizedPlayerId, existingSession.baselinePayload);
+            }
+            if (this.playerDomainPersistenceService?.isEnabled?.() && existingSession) {
+                await this.playerDomainPersistenceService.savePlayerOfflineGainSession(normalizedPlayerId, existingSession);
+            }
+            return;
+        }
         const normalizedStartedAt = Number.isFinite(player.offlineSinceAt)
             ? Math.max(0, Math.trunc(Number(player.offlineSinceAt)))
             : Math.max(0, Math.trunc(Number(startedAt) || Date.now()));

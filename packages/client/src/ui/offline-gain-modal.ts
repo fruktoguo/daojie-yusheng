@@ -41,11 +41,15 @@ export function handleOfflineGainReports(
   } else if (payload?.totalsPatch) {
     storePlayerStatisticTotalsPatchInBrowser(playerId, payload.totalsPatch, options.windowRef ?? window);
   }
+  const blockingPreview = payload?.preview === true || payload?.blocking === true;
   if (reports.length === 0) {
+    if (blockingPreview) {
+      keepOfflineGainBlockingPreviewAlive(playerId, options);
+    }
     return;
   }
 
-  if (payload?.preview === true || payload?.blocking === true) {
+  if (blockingPreview) {
     openOfflineGainBlockingPreview(playerId, reports, options);
     return;
   }
@@ -71,6 +75,17 @@ function openOfflineGainBlockingPreview(
   blockingPlayerId = playerId;
   blockingReports = [...reports];
   patchOrOpenOfflineGainModal(blockingReports, options, true);
+  startBlockingRefresh(options);
+}
+
+function keepOfflineGainBlockingPreviewAlive(
+  playerId: string,
+  options: OfflineGainReportHandlerOptions,
+): void {
+  blockingPlayerId = playerId || blockingPlayerId;
+  if (blockingReports.length === 0 || !detailModalHost.isOpenFor(OFFLINE_GAIN_MODAL_OWNER)) {
+    return;
+  }
   startBlockingRefresh(options);
 }
 

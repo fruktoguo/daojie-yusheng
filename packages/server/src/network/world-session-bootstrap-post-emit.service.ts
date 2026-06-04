@@ -76,7 +76,7 @@ export class WorldSessionBootstrapPostEmitService {
             ? await this.playerRuntimeService?.loadOfflineGainPreviewReports?.(playerId) ?? []
             : await this.playerRuntimeService?.loadPendingOfflineGainReports(playerId) ?? [];
         const statisticTotals = await this.playerRuntimeService?.loadPlayerStatisticTotals?.(playerId) ?? null;
-        if ((offlineGainReports.length > 0 || statisticTotals) && typeof (client as BootstrapClientLike & { emit?: (event: string, payload: unknown) => void }).emit === 'function') {
+        if ((offlineGainBlocking || offlineGainReports.length > 0 || statisticTotals) && typeof (client as BootstrapClientLike & { emit?: (event: string, payload: unknown) => void }).emit === 'function') {
             (client as BootstrapClientLike & { emit: (event: string, payload: unknown) => void }).emit(S2C.OfflineGainReports, {
                 reports: offlineGainReports,
                 ...(offlineGainBlocking ? { preview: true, blocking: true } : {}),
