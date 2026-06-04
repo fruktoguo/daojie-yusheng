@@ -24,6 +24,8 @@ import { ViewportController } from '../viewport/viewport-controller';
 import { DEFAULT_SAFE_AREA } from '../../constants/world/map-runtime';
 import { MAP_TARGET_FPS_RANGE, type MapPerformanceConfig } from '../../constants/ui/performance';
 
+const MAP_FRAME_SCHEDULE_MAX_EARLY_TOLERANCE_MS = 2;
+
 /** 地图运行时编排器，驱动 store、场景、投影、渲染、交互与小地图同步。 */
 export class MapRuntime implements MapRuntimeApi {
   /** 全局游戏状态快照与增量计算来源。 */
@@ -362,7 +364,8 @@ export class MapRuntime implements MapRuntimeApi {
       this.frameHandle = requestAnimationFrame(frame);
       const now = performance.now();
       const minFrameIntervalMs = 1000 / Math.max(MAP_TARGET_FPS_RANGE.min, this.targetFps);
-      if (now < this.nextFrameAt) {
+      const scheduleToleranceMs = Math.min(MAP_FRAME_SCHEDULE_MAX_EARLY_TOLERANCE_MS, minFrameIntervalMs * 0.1);
+      if (now + scheduleToleranceMs < this.nextFrameAt) {
         return;
       }
       const dt = (now - this.lastFrameAt) / 1000;
