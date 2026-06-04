@@ -132,6 +132,7 @@ interface EntityView {
   root: Container;
   visualRoot: Container;
   shadow: Graphics;
+  image: Sprite;
   glyph: Text;
   label: Text;
   badge: Text;
@@ -204,6 +205,8 @@ interface PixiTileSpriteRef {
   row: number;
   colSpan: number;
   rowSpan: number;
+  insetRatio: number;
+  fit: 'cover' | 'contain';
   zIndex: number;
   order: number;
   dualGrid: boolean;
@@ -216,6 +219,7 @@ type RuntimeTileSpriteManifest = {
   };
   tiles?: Record<string, unknown>;
   legacyTiles?: Record<string, unknown>;
+  entities?: Record<string, unknown>;
 };
 
 declare global {
@@ -388,6 +392,10 @@ function normalizeTileSpriteDualGrid(value: Record<string, unknown>, defaults: R
   return rawDualGrid === true || (isRecord(rawDualGrid) && rawDualGrid.enabled !== false);
 }
 
+function normalizeSpriteFit(value: unknown): 'cover' | 'contain' {
+  return value === 'contain' ? 'contain' : 'cover';
+}
+
 function normalizePixiTileSpriteRef(
   value: unknown,
   manifestUrl: string,
@@ -406,6 +414,10 @@ function normalizePixiTileSpriteRef(
     row: normalizeNonNegativeInteger(readPixiSpriteField(value, defaults, 'row'), 0),
     colSpan: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'colSpan'), 1),
     rowSpan: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'rowSpan'), 1),
+    insetRatio: Number.isFinite(Number(readPixiSpriteField(value, defaults, 'insetRatio')))
+      ? Math.max(0, Math.min(0.4, Number(readPixiSpriteField(value, defaults, 'insetRatio'))))
+      : 0,
+    fit: normalizeSpriteFit(readPixiSpriteField(value, defaults, 'fit')),
     zIndex: normalizeTileSpriteZIndexWithDefaults(value, defaults, key),
     order,
     dualGrid: normalizeTileSpriteDualGrid(value, defaults),
@@ -453,6 +465,27 @@ function normalizeLegacyTileMap(value: unknown): Map<string, string> {
     if (normalizedKey && mappedKey) result.set(normalizedKey, mappedKey);
   }
   return result;
+}
+
+function normalizeEntitySpriteKey(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase().replace(/[^a-z0-9_\-\u3400-\u9fff]+/gu, '_').replace(/^_+|_+$/g, '');
+  return normalized ? normalized : null;
+}
+
+function resolveEntitySpriteKeys(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char'>): string[] {
+  const id = normalizeEntitySpriteKey(entity.id);
+  const name = normalizeEntitySpriteKey(entity.name);
+  const char = normalizeEntitySpriteKey(entity.char);
+  switch (entity.kind) {
+    case 'monster':
+      return [id && `monster:${id}`, name && `monster:${name}`, char && `monster:${char}`, 'monster:default'].filter(Boolean) as string[];
+    case 'npc':
+      return [id && `npc:${id}`, name && `npc:${name}`, char && `npc:${char}`, 'npc:default'].filter(Boolean) as string[];
+    case 'player':
+      return [id && `player:${id}`, name && `player:${name}`, 'player:default'].filter(Boolean) as string[];
+    default:
+      return [];
+  }
 }
 
 function resolveGroundItemLabel(entry: GroundItemEntryView): string {
@@ -671,6 +704,9 @@ export class PixiMapRendererAdapter {
   private runtimeLegacyTileKeys = new Map<string, string>();
   private runtimeTileTextures = new Map<string, Texture>();
   private runtimeTileTextureRequests = new Set<string>();
+  private runtimeEntitySpriteRefs = new Map<string, PixiTileSpriteRef>();
+  private runtimeEntityTextures = new Map<string, Texture>();
+  private runtimeEntityTextureRequests = new Set<string>();
   private runtimeTileManifestState: 'idle' | 'loading' | 'loaded' | 'error' = 'idle';
   private runtimeTileSpriteRevision = 0;
   private profileEnabled = false;
@@ -959,15 +995,29 @@ export class PixiMapRendererAdapter {
       );
       this.runtimeTileSpriteRefs = new Map([...refs.entries()].sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order));
       this.runtimeLegacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
+      this.runtimeEntitySpriteRefs = normalizePixiTileSpriteMap(
+        manifest.entities,
+        DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL,
+        version,
+      );
       this.runtimeTileManifestState = 'loaded';
       this.runtimeTileTextures.clear();
+      this.runtimeEntityTextures.clear();
       this.runtimeTileSpriteRevision += 1;
       this.invalidateTerrainChunks();
+      this.invalidateEntityStaticViews();
     } catch (error) {
       this.runtimeTileManifestState = 'error';
       this.runtimeTileSpriteRevision += 1;
       this.invalidateTerrainChunks();
+      this.invalidateEntityStaticViews();
       console.warn('[map] failed to load Pixi runtime tile sprites', error);
+    }
+  }
+
+  private invalidateEntityStaticViews(): void {
+    for (const view of this.entities.values()) {
+      view.staticSignature = '';
     }
   }
 
@@ -1018,6 +1068,53 @@ export class PixiMapRendererAdapter {
     }).catch((error) => {
       this.runtimeTileTextureRequests.delete(ref.src);
       console.warn('[map] failed to load Pixi runtime tile texture', ref.src, error);
+    });
+  }
+
+  private resolveRuntimeEntitySpriteRef(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char'>): PixiTileSpriteRef | null {
+    if (this.runtimeTileManifestState !== 'loaded') return null;
+    for (const key of resolveEntitySpriteKeys(entity)) {
+      const ref = this.runtimeEntitySpriteRefs.get(key);
+      if (ref) return ref;
+    }
+    return null;
+  }
+
+  private getRuntimeEntityTexture(ref: PixiTileSpriteRef): Texture | null {
+    const frameCol = Math.min(ref.cols - 1, ref.col);
+    const frameRow = Math.min(ref.rows - 1, ref.row);
+    const cacheKey = `${ref.key}:${ref.src}:${frameCol}:${frameRow}:${ref.colSpan}:${ref.rowSpan}`;
+    const cached = this.runtimeEntityTextures.get(cacheKey);
+    if (cached && !cached.destroyed) return cached;
+    const atlas = Assets.get<Texture>(ref.src) ?? Texture.from(ref.src);
+    if (!atlas || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) return null;
+    const cellW = atlas.width / ref.cols;
+    const cellH = atlas.height / ref.rows;
+    const sourceX = cellW * frameCol;
+    const sourceY = cellH * frameRow;
+    const sourceW = cellW * Math.max(1, Math.min(ref.colSpan, ref.cols - frameCol));
+    const sourceH = cellH * Math.max(1, Math.min(ref.rowSpan, ref.rows - frameRow));
+    const frame = new Rectangle(sourceX, sourceY, Math.max(1, sourceW), Math.max(1, sourceH));
+    const texture = new Texture({
+      source: atlas.source,
+      frame,
+      orig: new Rectangle(0, 0, frame.width, frame.height),
+      label: `runtime-entity:${ref.key}`,
+    });
+    this.runtimeEntityTextures.set(cacheKey, texture);
+    return texture;
+  }
+
+  private requestRuntimeEntityTexture(ref: PixiTileSpriteRef): void {
+    if (this.runtimeEntityTextureRequests.has(ref.src)) return;
+    this.runtimeEntityTextureRequests.add(ref.src);
+    void Assets.load(ref.src).then(() => {
+      this.runtimeEntityTextureRequests.delete(ref.src);
+      this.runtimeTileSpriteRevision += 1;
+      this.invalidateEntityStaticViews();
+    }).catch((error) => {
+      this.runtimeEntityTextureRequests.delete(ref.src);
+      console.warn('[map] failed to load Pixi runtime entity texture', ref.src, error);
     });
   }
 
@@ -1816,6 +1913,7 @@ export class PixiMapRendererAdapter {
       root,
       visualRoot,
       shadow: new Graphics(),
+      image: new Sprite(Texture.EMPTY),
       glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
       label: new Text({ text: '', style: textStyle('label', getCellSize() * 0.3, '#cce7ff'), anchor: 0.5 }),
       badge: new Text({ text: '', style: textStyle('badge', getCellSize() * 0.2, '#fff6eb'), anchor: 0.5 }),
@@ -1828,7 +1926,9 @@ export class PixiMapRendererAdapter {
       staticSignature: '',
       hiddenByFormation: false,
     };
-    visualRoot.addChild(view.shadow, view.glyph);
+    view.image.anchor.set(0.5);
+    view.image.visible = false;
+    visualRoot.addChild(view.shadow, view.image, view.glyph);
     root.addChild(view.formationMarker, visualRoot, view.label, view.badge, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
     return view;
   }
@@ -1843,6 +1943,7 @@ export class PixiMapRendererAdapter {
       anim.monsterTier ?? '',
       anim.badge?.text ?? '', anim.badge?.tone ?? '', anim.hostile ? 1 : 0,
       anim.monsterScale ?? '',
+      this.runtimeTileSpriteRevision,
       anim.buffs?.map((buff) => `${buff.buffId}:${buff.remainingTicks}:${buff.stacks}`).join(',') ?? '',
       anim.npcQuestMarker ? `${anim.npcQuestMarker.line}:${anim.npcQuestMarker.state}` : '',
       anim.formationShowText === false ? 1 : 0,
@@ -1855,8 +1956,10 @@ export class PixiMapRendererAdapter {
     view.visualRoot.pivot.set(visualCellSize / 2, visualCellSize - 3);
     view.visualRoot.position.set(cellSize / 2, cellSize - 3);
     view.shadow.clear().ellipse(visualCellSize / 2, visualCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1)).fill({ color: 0x000000, alpha: 0.3 });
+    const drewEntityImage = this.patchRuntimeEntitySprite(view, visualCellSize);
     view.glyph.text = anim.char;
     view.glyph.style = textStyle('entityGlyph', visualCellSize * 0.75, anim.color);
+    view.glyph.visible = !drewEntityImage;
     view.glyph.position.set(visualCellSize / 2, visualCellSize / 2);
     const label = presentation?.label ?? anim.name ?? resolveEntityFallbackLabel(anim.kind);
     const shouldShowLabel = anim.kind !== 'formation' || anim.formationShowText !== false;
@@ -1876,6 +1979,36 @@ export class PixiMapRendererAdapter {
     view.root.zIndex = resolveWorldObjectRenderOrder(anim.kind);
     view.root.alpha = anim.kind === 'building' && (anim.respawnTotalTicks ?? 0) > 0 ? 0.58 : 1;
     view.staticSignature = signature;
+  }
+
+  private patchRuntimeEntitySprite(view: EntityView, visualCellSize: number): boolean {
+    const ref = this.resolveRuntimeEntitySpriteRef(view.anim);
+    if (!ref) {
+      view.image.visible = false;
+      return false;
+    }
+    const texture = this.getRuntimeEntityTexture(ref);
+    if (!texture) {
+      this.requestRuntimeEntityTexture(ref);
+      view.image.visible = false;
+      return false;
+    }
+    const inset = Math.max(0, Math.min(0.4, ref.insetRatio)) * visualCellSize;
+    const maxW = Math.max(1, visualCellSize - inset * 2);
+    const maxH = Math.max(1, visualCellSize - inset * 2);
+    let targetW = maxW;
+    let targetH = maxH;
+    if (ref.fit === 'contain') {
+      const scale = Math.min(maxW / Math.max(1, texture.width), maxH / Math.max(1, texture.height));
+      targetW = Math.max(1, texture.width * scale);
+      targetH = Math.max(1, texture.height * scale);
+    }
+    view.image.texture = texture;
+    view.image.width = targetW;
+    view.image.height = targetH;
+    view.image.position.set(visualCellSize / 2, visualCellSize / 2);
+    view.image.visible = true;
+    return true;
   }
 
   private drawEntityBars(view: EntityView, visualCellSize: number): void {
