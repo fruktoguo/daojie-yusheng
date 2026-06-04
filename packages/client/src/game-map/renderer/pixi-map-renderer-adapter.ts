@@ -169,6 +169,7 @@ interface PixiTileSpriteRef {
   rowSpan: number;
   zIndex: number;
   order: number;
+  dualGrid: boolean;
 }
 
 type RuntimeTileSpriteManifest = {
@@ -190,6 +191,13 @@ const DUAL_GRID_ATLAS_COORDS: ReadonlyArray<readonly [number, number]> = [
   [1, 3], [0, 1], [3, 0], [2, 0],
   [1, 0], [2, 2], [1, 1], [2, 1],
 ] as const;
+const DUAL_GRID_QUADS = [
+  { mask: 1, x: 0, y: 0 },
+  { mask: 2, x: 0, y: 0.5 },
+  { mask: 4, x: 0.5, y: 0 },
+  { mask: 8, x: 0.5, y: 0.5 },
+] as const;
+const DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX = 1;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -304,6 +312,12 @@ function normalizeTileSpriteZIndex(value: unknown, key: string): number {
   return 500;
 }
 
+function normalizeTileSpriteDualGrid(value: unknown): boolean {
+  const source = isRecord(value) && isRecord(value.meta) ? value.meta : value;
+  const rawDualGrid = isRecord(source) ? source.dualGrid : undefined;
+  return rawDualGrid === true || (isRecord(rawDualGrid) && rawDualGrid.enabled !== false);
+}
+
 function resolveRuntimeImagePackAssetUrl(manifestUrl: string, src: string): string {
   if (src.startsWith('/') || /^[a-z][a-z0-9+.-]*:/i.test(src)) return src;
   try {
@@ -327,6 +341,7 @@ function normalizePixiTileSpriteRef(value: unknown, manifestUrl: string, key: st
     rowSpan: normalizePositiveInteger(value.rowSpan, 1),
     zIndex: normalizeTileSpriteZIndex(value, key),
     order,
+    dualGrid: normalizeTileSpriteDualGrid(value),
   };
 }
 
@@ -568,8 +583,6 @@ export class PixiMapRendererAdapter {
   private formationRangeSignature = '';
   private terrainOverlaySignature = '';
   private pathCells: GridPoint[] = [];
-  private pathCellKeys = new Set<string>();
-  private pathTargetKey: string | null = null;
   private fadingPath: FadingPathState | null = null;
   private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
   private floatingTexts: FloatingTextEffect[] = [];
@@ -694,7 +707,6 @@ export class PixiMapRendererAdapter {
         scene.terrain.visibleTileTransitionDurationMs,
       );
       this.lastVisibleTileRevision = scene.terrain.visibleTileRevision;
-      this.invalidateTerrainChunks();
     }
     this.rebuildWorldOverlays(scene);
   }
@@ -725,8 +737,6 @@ export class PixiMapRendererAdapter {
     for (const view of this.entities.values()) view.root.destroy({ children: true });
     this.entities.clear();
     this.pathCells = [];
-    this.pathCellKeys.clear();
-    this.pathTargetKey = null;
     this.fadingPath = null;
     this.threatArrows = [];
     this.pathGraphics.clear();
@@ -814,21 +824,26 @@ export class PixiMapRendererAdapter {
     return key ? this.runtimeTileSpriteRefs.get(key) ?? null : null;
   }
 
-  private getRuntimeTileTexture(ref: PixiTileSpriteRef): Texture | null {
-    const frameCol = Math.min(ref.cols - 1, ref.col + (ref.cols === 4 && ref.rows === 4 ? DUAL_GRID_ATLAS_COORDS[15]?.[0] ?? 0 : 0));
-    const frameRow = Math.min(ref.rows - 1, ref.row + (ref.cols === 4 && ref.rows === 4 ? DUAL_GRID_ATLAS_COORDS[15]?.[1] ?? 0 : 0));
-    const cacheKey = `${ref.key}:${ref.src}:${frameCol}:${frameRow}:${ref.colSpan}:${ref.rowSpan}`;
+  private getRuntimeTileTexture(ref: PixiTileSpriteRef, sourceMask = 15, quad?: { x: number; y: number; sourceW: number; sourceH: number }): Texture | null {
+    const coords = ref.dualGrid ? DUAL_GRID_ATLAS_COORDS[sourceMask] : undefined;
+    const frameCol = Math.min(ref.cols - 1, ref.col + (coords?.[0] ?? 0));
+    const frameRow = Math.min(ref.rows - 1, ref.row + (coords?.[1] ?? 0));
+    const cacheKey = `${ref.key}:${ref.src}:${frameCol}:${frameRow}:${ref.colSpan}:${ref.rowSpan}:${sourceMask}:${quad?.x ?? ''}:${quad?.y ?? ''}:${quad?.sourceW ?? ''}:${quad?.sourceH ?? ''}`;
     const cached = this.runtimeTileTextures.get(cacheKey);
     if (cached && !cached.destroyed) return cached;
     const atlas = Assets.get<Texture>(ref.src) ?? Texture.from(ref.src);
     if (!atlas || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) return null;
     const cellW = atlas.width / ref.cols;
     const cellH = atlas.height / ref.rows;
+    const sourceX = cellW * frameCol + (quad?.x ?? 0);
+    const sourceY = cellH * frameRow + (quad?.y ?? 0);
+    const sourceW = quad?.sourceW ?? (cellW * Math.max(1, Math.min(ref.colSpan, ref.cols - frameCol)));
+    const sourceH = quad?.sourceH ?? (cellH * Math.max(1, Math.min(ref.rowSpan, ref.rows - frameRow)));
     const frame = new Rectangle(
-      cellW * frameCol,
-      cellH * frameRow,
-      cellW * Math.max(1, Math.min(ref.colSpan, ref.cols - frameCol)),
-      cellH * Math.max(1, Math.min(ref.rowSpan, ref.rows - frameRow)),
+      sourceX,
+      sourceY,
+      Math.max(1, sourceW),
+      Math.max(1, sourceH),
     );
     const texture = new Texture({
       source: atlas.source,
@@ -840,21 +855,25 @@ export class PixiMapRendererAdapter {
     return texture;
   }
 
+  private requestRuntimeTileTexture(ref: PixiTileSpriteRef): void {
+    if (this.runtimeTileTextureRequests.has(ref.src)) return;
+    this.runtimeTileTextureRequests.add(ref.src);
+    void Assets.load(ref.src).then(() => {
+      this.runtimeTileTextureRequests.delete(ref.src);
+      this.runtimeTileSpriteRevision += 1;
+      this.invalidateTerrainChunks();
+    }).catch((error) => {
+      this.runtimeTileTextureRequests.delete(ref.src);
+      console.warn('[map] failed to load Pixi runtime tile texture', ref.src, error);
+    });
+  }
+
   private drawRuntimeTileSprite(chunkContainer: Container, tile: Tile, sx: number, sy: number, cellSize: number): void {
     const ref = this.resolveRuntimeTileSpriteRef(tile);
     if (!ref) return;
     const texture = this.getRuntimeTileTexture(ref);
     if (!texture) {
-      if (this.runtimeTileTextureRequests.has(ref.src)) return;
-      this.runtimeTileTextureRequests.add(ref.src);
-      void Assets.load(ref.src).then(() => {
-        this.runtimeTileTextureRequests.delete(ref.src);
-        this.runtimeTileSpriteRevision += 1;
-        this.invalidateTerrainChunks();
-      }).catch((error) => {
-        this.runtimeTileTextureRequests.delete(ref.src);
-        console.warn('[map] failed to load Pixi runtime tile texture', ref.src, error);
-      });
+      this.requestRuntimeTileTexture(ref);
       return;
     }
     const sprite = new Sprite(texture);
@@ -865,9 +884,154 @@ export class PixiMapRendererAdapter {
     chunkContainer.addChild(sprite);
   }
 
+  private resolveRuntimeTileSpriteKey(tile: Tile | null | undefined): string | null {
+    if (!tile || !this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'loaded') return null;
+    return resolveTopTileSpriteKey(tile, this.runtimeLegacyTileKeys);
+  }
+
+  private drawDualGridSprite(
+    chunkContainer: Container,
+    ref: PixiTileSpriteRef,
+    dx: number,
+    dy: number,
+    cellSize: number,
+    sourceMask: number,
+    clipMask: number,
+  ): void {
+    if (!ref.dualGrid) return;
+    const atlas = Assets.get<Texture>(ref.src) ?? Texture.from(ref.src);
+    if (!atlas || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) {
+      this.requestRuntimeTileTexture(ref);
+      return;
+    }
+    const cellW = atlas.width / ref.cols;
+    const cellH = atlas.height / ref.rows;
+    const coords = DUAL_GRID_ATLAS_COORDS[sourceMask];
+    if (!coords) return;
+    if (clipMask === 15) {
+      const texture = this.getRuntimeTileTexture(ref, sourceMask);
+      if (!texture) {
+        this.requestRuntimeTileTexture(ref);
+        return;
+      }
+      const overlap = Math.min(1, Math.max(0.5, cellSize / Math.max(1, Math.max(cellW, cellH))));
+      const sprite = new Sprite(texture);
+      sprite.position.set(dx - overlap, dy - overlap);
+      sprite.width = cellSize + overlap * 2;
+      sprite.height = cellSize + overlap * 2;
+      sprite.zIndex = ref.zIndex + 0.1;
+      chunkContainer.addChild(sprite);
+      return;
+    }
+    const halfSourceW = cellW / 2;
+    const halfSourceH = cellH / 2;
+    const halfDest = cellSize / 2;
+    const sourceOverlapX = Math.min(DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX, halfSourceW);
+    const sourceOverlapY = Math.min(DUAL_GRID_QUARTER_SOURCE_OVERLAP_PX, halfSourceH);
+    const destOverlapX = sourceOverlapX * cellSize / Math.max(1, cellW);
+    const destOverlapY = sourceOverlapY * cellSize / Math.max(1, cellH);
+    for (const quad of DUAL_GRID_QUADS) {
+      if ((clipMask & quad.mask) === 0) continue;
+      const overlapLeft = quad.x > 0 && (clipMask & (quad.mask >> 2)) !== 0;
+      const overlapRight = quad.x === 0 && (clipMask & (quad.mask << 2)) !== 0;
+      const overlapTop = quad.y > 0 && (clipMask & (quad.mask >> 1)) !== 0;
+      const overlapBottom = quad.y === 0 && (clipMask & (quad.mask << 1)) !== 0;
+      let sourceX = quad.x * cellW;
+      let sourceY = quad.y * cellH;
+      let sourceW = halfSourceW;
+      let sourceH = halfSourceH;
+      let destX = dx + quad.x * cellSize;
+      let destY = dy + quad.y * cellSize;
+      let destW = halfDest;
+      let destH = halfDest;
+      if (overlapRight) {
+        sourceW += sourceOverlapX;
+        destW += destOverlapX;
+      }
+      if (overlapLeft) {
+        sourceX -= sourceOverlapX;
+        sourceW += sourceOverlapX;
+        destX -= destOverlapX;
+        destW += destOverlapX;
+      }
+      if (overlapBottom) {
+        sourceH += sourceOverlapY;
+        destH += destOverlapY;
+      }
+      if (overlapTop) {
+        sourceY -= sourceOverlapY;
+        sourceH += sourceOverlapY;
+        destY -= destOverlapY;
+        destH += destOverlapY;
+      }
+      const texture = this.getRuntimeTileTexture(ref, sourceMask, { x: sourceX, y: sourceY, sourceW, sourceH });
+      if (!texture) {
+        this.requestRuntimeTileTexture(ref);
+        continue;
+      }
+      const sprite = new Sprite(texture);
+      sprite.position.set(destX, destY);
+      sprite.width = destW;
+      sprite.height = destH;
+      sprite.zIndex = ref.zIndex + 0.1;
+      chunkContainer.addChild(sprite);
+    }
+  }
+
+  private drawRuntimeDualGridEdges(
+    chunkContainer: Container,
+    scene: MapSceneSnapshot,
+    startX: number,
+    startY: number,
+    cellSize: number,
+  ): void {
+    if (!this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'loaded') return;
+    const refs = this.runtimeTileSpriteRefs;
+    if (refs.size === 0) return;
+    const keyOrder = new Map<string, number>();
+    let keyOrderIndex = 0;
+    for (const key of refs.keys()) keyOrder.set(key, keyOrderIndex++);
+    const vertexEntries: Array<{ key: string; mask: number }> = [];
+    for (let vertexY = startY; vertexY <= startY + CHUNK_SIZE; vertexY += 1) {
+      for (let vertexX = startX; vertexX <= startX + CHUNK_SIZE; vertexX += 1) {
+        vertexEntries.length = 0;
+        let occupiedMask = 0;
+        const corners = [
+          { x: vertexX - 1, y: vertexY - 1, mask: 1 },
+          { x: vertexX - 1, y: vertexY, mask: 2 },
+          { x: vertexX, y: vertexY - 1, mask: 4 },
+          { x: vertexX, y: vertexY, mask: 8 },
+        ] as const;
+        for (const corner of corners) {
+          const tile = scene.terrain.tileCache.get(`${corner.x},${corner.y}`);
+          const key = this.resolveRuntimeTileSpriteKey(tile);
+          if (!key || !refs.get(key)?.dualGrid) continue;
+          occupiedMask |= corner.mask;
+          const existing = vertexEntries.find((entry) => entry.key === key);
+          if (existing) {
+            existing.mask |= corner.mask;
+          } else {
+            vertexEntries.push({ key, mask: corner.mask });
+          }
+        }
+        if (vertexEntries.length === 0) continue;
+        vertexEntries.sort((left, right) => (keyOrder.get(left.key) ?? 0) - (keyOrder.get(right.key) ?? 0));
+        const dx = (vertexX - 0.5) * cellSize;
+        const dy = (vertexY - 0.5) * cellSize;
+        for (const entry of vertexEntries) {
+          const ref = refs.get(entry.key);
+          if (!ref?.dualGrid) continue;
+          const targetMask = entry.mask & 15;
+          const backgroundMask = occupiedMask & ~targetMask & 15;
+          if (targetMask === 15 && backgroundMask === 0) continue;
+          this.drawDualGridSprite(chunkContainer, ref, dx, dy, cellSize, targetMask, targetMask);
+        }
+      }
+    }
+  }
+
   private buildTerrainOverlaySignature(scene: MapSceneSnapshot): string {
     return [
-      buildGridPointSignature(this.pathCells),
       buildTargetingSignature(scene),
       buildGridPointSignature(scene.overlays.formationRange?.affectedCells),
       scene.overlays.formationRange?.rangeHighlightColor ?? '',
@@ -888,9 +1052,6 @@ export class PixiMapRendererAdapter {
       };
     }
     this.pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
-    this.pathCellKeys = new Set(this.pathCells.map((cell) => `${cell.x},${cell.y}`));
-    const target = this.pathCells[this.pathCells.length - 1];
-    this.pathTargetKey = target ? `${target.x},${target.y}` : null;
   }
 
   private syncTileVisibilityTransitions(
@@ -958,7 +1119,7 @@ export class PixiMapRendererAdapter {
   private buildTerrainChunkSignature(scene: MapSceneSnapshot, cx: number, cy: number, cellSize: number): string {
     const startX = cx * CHUNK_SIZE;
     const startY = cy * CHUNK_SIZE;
-    let signature = `${cellSize}|${scene.terrain.visibleTileRevision}|${this.terrainOverlaySignature}|${this.performanceConfig.renderRuntimeTileSprites ? 1 : 0}|${this.runtimeTileSpriteRevision}`;
+    let signature = `${cellSize}|${this.terrainOverlaySignature}|${this.performanceConfig.renderRuntimeTileSprites ? 1 : 0}|${this.runtimeTileSpriteRevision}`;
     for (let y = startY; y < startY + CHUNK_SIZE; y += 1) {
       for (let x = startX; x < startX + CHUNK_SIZE; x += 1) {
         const key = `${x},${y}`;
@@ -1018,7 +1179,8 @@ export class PixiMapRendererAdapter {
           formationAffectedKeys,
         });
         const glyph = TILE_VISUAL_GLYPHS[tile.type];
-        if (glyph) {
+        const hasRuntimeSprite = this.resolveRuntimeTileSpriteRef(tile) !== null;
+        if (glyph && !hasRuntimeSprite) {
           const label = new Text({
             text: glyph,
             style: textStyle('tileGlyph', cellSize * 0.6, TILE_VISUAL_GLYPH_COLORS[tile.type] ?? 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0)', 0),
@@ -1030,6 +1192,7 @@ export class PixiMapRendererAdapter {
         }
       }
     }
+    this.drawRuntimeDualGridEdges(chunk.container, scene, startX, startY, cellSize);
     chunk.container.addChild(baseGraphics, overlayGraphics);
     chunk.signature = signature;
   }
@@ -1057,10 +1220,6 @@ export class PixiMapRendererAdapter {
     const now = performance.now();
     const hiddenFade = this.resolveTileFade(this.hiddenTileFadeStartedAt.get(key), now, false);
     const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
-    if (this.pathCellKeys.has(key)) {
-      const isTarget = this.pathTargetKey === key;
-      this.drawCellHighlight(graphics, sx, sy, cellSize, isTarget ? PATH_TARGET_FILL_COLOR : PATH_FILL_COLOR, isTarget ? PATH_TARGET_STROKE_COLOR : PATH_STROKE_COLOR, isTarget);
-    }
     const targeting = scene.overlays.targeting;
     if (targeting && (!targeting.visibleOnly || isVisible)) {
       const dx = gx - targeting.originX;
@@ -1125,10 +1284,11 @@ export class PixiMapRendererAdapter {
     return entering ? 1 - progress : progress;
   }
 
-  private drawCellHighlight(graphics: Graphics, sx: number, sy: number, cellSize: number, fill: string, stroke: string, core: boolean): void {
-    graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(fill), alpha: parseAlpha(fill, 1) });
-    graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ color: parseColor(stroke), alpha: parseAlpha(stroke, 1), width: core ? 2 : 1.5 });
-    if (core) graphics.circle(sx + cellSize / 2, sy + cellSize / 2, Math.max(3, cellSize * 0.12)).fill({ color: parseColor(PATH_TARGET_CORE_COLOR), alpha: parseAlpha(PATH_TARGET_CORE_COLOR, 1) });
+  private drawCellHighlight(graphics: Graphics, sx: number, sy: number, cellSize: number, fill: string, stroke: string, core: boolean, alphaMultiplier = 1): void {
+    const alpha = clamp01(alphaMultiplier);
+    graphics.rect(sx + 1, sy + 1, cellSize - 2, cellSize - 2).fill({ color: parseColor(fill), alpha: parseAlpha(fill, 1) * alpha });
+    graphics.rect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3).stroke({ color: parseColor(stroke), alpha: parseAlpha(stroke, 1) * alpha, width: core ? 2 : 1.5 });
+    if (core) graphics.circle(sx + cellSize / 2, sy + cellSize / 2, Math.max(3, cellSize * 0.12)).fill({ color: parseColor(PATH_TARGET_CORE_COLOR), alpha: parseAlpha(PATH_TARGET_CORE_COLOR, 1) * alpha });
   }
 
   private drawFormationRangeVisual(graphics: Graphics, chunkContainer: Container, sx: number, sy: number, cellSize: number, visual: FormationRangeVisual): void {
@@ -1191,9 +1351,31 @@ export class PixiMapRendererAdapter {
 
   private rebuildPathLayer(scene: MapSceneSnapshot): void {
     this.pathGraphics.clear();
-    this.drawPathArrows(this.pathGraphics, scene.player?.x ?? 0, scene.player?.y ?? 0, this.pathCells, 1);
+    this.drawPathCells(this.pathGraphics, this.pathCells, 1);
     const fadingAlpha = this.getFadingPathAlpha(performance.now());
+    if (this.fadingPath && fadingAlpha > 0) this.drawPathCells(this.pathGraphics, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
+    this.drawPathArrows(this.pathGraphics, scene.player?.x ?? 0, scene.player?.y ?? 0, this.pathCells, 1);
     if (this.fadingPath && fadingAlpha > 0) this.drawPathArrows(this.pathGraphics, scene.player?.x ?? 0, scene.player?.y ?? 0, this.fadingPath.cells, fadingAlpha * PATH_TRAIL_FADE_ALPHA);
+  }
+
+  private drawPathCells(graphics: Graphics, cells: GridPoint[], alpha: number): void {
+    const cellSize = getCellSize();
+    const target = cells[cells.length - 1];
+    const targetKey = target ? `${target.x},${target.y}` : null;
+    for (const cell of cells) {
+      const key = `${cell.x},${cell.y}`;
+      const isTarget = key === targetKey;
+      this.drawCellHighlight(
+        graphics,
+        cell.x * cellSize,
+        cell.y * cellSize,
+        cellSize,
+        isTarget ? PATH_TARGET_FILL_COLOR : PATH_FILL_COLOR,
+        isTarget ? PATH_TARGET_STROKE_COLOR : PATH_STROKE_COLOR,
+        isTarget,
+        alpha,
+      );
+    }
   }
 
   private drawPathArrows(graphics: Graphics, playerX: number, playerY: number, cells: GridPoint[], alpha: number): void {
