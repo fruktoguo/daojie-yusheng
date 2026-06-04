@@ -1460,10 +1460,10 @@ export class InventoryPanel {
           </div>
         </label>
         <label class="formation-config-field formation-config-field--slider ui-detail-field">
-          <strong>${t('inventory.formation.field.duration', undefined)} <span>${t('inventory.formation.default-duration', undefined)} <output data-formation-default-duration>120 ${t('common.unit.minute', undefined)}</output></span></strong>
+          <strong>${t('inventory.formation.field.duration', undefined)} <span>${t('inventory.formation.default-duration', undefined)} <output data-formation-default-duration>1440 ${t('common.unit.minute', undefined)}</output></span></strong>
           <div class="formation-config-slider-row">
-            <input class="formation-config-slider" data-formation-input data-formation-duration-slider type="range" min="${FORMATION_SETUP_MIN_DURATION_MINUTES}" max="${FORMATION_SETUP_MAX_DURATION_MINUTES}" step="1" value="120">
-            <input class="ui-input formation-config-input formation-config-number-input" data-formation-input data-formation-duration-input type="number" min="${FORMATION_SETUP_MIN_DURATION_MINUTES}" max="${FORMATION_SETUP_MAX_DURATION_MINUTES}" step="1" value="120">
+            <input class="formation-config-slider" data-formation-input data-formation-duration-slider type="range" min="${FORMATION_SETUP_MIN_DURATION_MINUTES}" max="${FORMATION_SETUP_MAX_DURATION_MINUTES}" step="1" value="1440">
+            <input class="ui-input formation-config-input formation-config-number-input" data-formation-input data-formation-duration-input type="number" min="${FORMATION_SETUP_MIN_DURATION_MINUTES}" max="${FORMATION_SETUP_MAX_DURATION_MINUTES}" step="1" value="1440">
           </div>
         </label>
         <label class="formation-config-field ui-detail-field">

@@ -20,7 +20,7 @@ export const FORMATION_AURA_PER_SPIRIT_STONE = 100;
 export const FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE = 100;
 
 /** 阵法默认持续时长（小时） */
-export const FORMATION_DEFAULT_DURATION_HOURS = 2;
+export const FORMATION_DEFAULT_DURATION_HOURS = 24;
 
 /** 阵法持续时长步进（小时） */
 export const FORMATION_DEFAULT_DURATION_STEP_HOURS = 2;

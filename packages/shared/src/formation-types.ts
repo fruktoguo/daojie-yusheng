@@ -211,7 +211,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
     cost: {
       defaultRadius: 1,
-      defaultDurationHours: 2,
+      defaultDurationHours: 24,
       durationStepHours: 2,
       minDurationMinutes: 1,
       minDurationCostMultiplier: 1 / 8,
@@ -255,7 +255,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
     cost: {
       defaultRadius: 1,
-      defaultDurationHours: 2,
+      defaultDurationHours: 24,
       durationStepHours: 2,
       minDurationMinutes: 1,
       minDurationCostMultiplier: 1 / 8,
@@ -299,7 +299,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     damagePerAura: 100,
     cost: {
       defaultRadius: 1,
-      defaultDurationHours: 2,
+      defaultDurationHours: 24,
       durationStepHours: 2,
       minDurationMinutes: 1,
       minDurationCostMultiplier: 1 / 8,
@@ -353,7 +353,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
     cost: {
       defaultRadius: 1,
-      defaultDurationHours: 2,
+      defaultDurationHours: 24,
       durationStepHours: 2,
       minDurationMinutes: 1,
       minDurationCostMultiplier: 1 / 8,

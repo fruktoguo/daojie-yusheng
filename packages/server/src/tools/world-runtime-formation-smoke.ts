@@ -180,27 +180,27 @@ async function main() {
     setup: { radius: 2, durationHours: 2, effectValue: 1000 },
   }, deps);
 
-  assert.equal(player.qi, 947500);
-  assert.equal(player.wallet.spirit_stone, 99475);
+  assert.equal(player.qi, 983100);
+  assert.equal(player.wallet.spirit_stone, 99831);
   assert.equal(player.inventory.items[0].count, 1);
-  assert.equal(formation.spiritStoneCount, 525);
-  assert.equal(formation.qiCost, 52500);
+  assert.equal(formation.spiritStoneCount, 169);
+  assert.equal(formation.qiCost, 16900);
   assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.deployed");
   assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
     formationName: "聚灵阵",
     radius: 2,
     effectValue: "42万",
-    qiBudget: "6300",
-    spiritStoneBudget: "525",
+    qiBudget: "2024",
+    spiritStoneBudget: "169",
   });
-  assert.equal(formation.stats.totalAuraBudget, 6300);
+  assert.equal(formation.stats.totalAuraBudget, 2024);
   assert.equal(formation.stats.effectValue, 420000);
   assert.deepEqual(formation.allocation, { radius: 2, durationHours: 2, effectValue: 1000, formationSkillLevel: 1 });
   const formationTemplate = service.resolveFormationTemplate("spirit_gathering");
   assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 1 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 500);
-  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 5 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 565);
+  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 5 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 603);
   assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 10 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 667);
-  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 24, effectValue: 1000 }).stats.requiredAuraBudget, 48000);
+  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 24, effectValue: 1000 }).stats.requiredAuraBudget, 4000);
   assert.equal(instance.worldRevision, 11);
   assert.equal(deps.contextActionsRefreshed, true);
   assert.equal(notices.at(-1)?.kind, "success");
@@ -221,9 +221,9 @@ async function main() {
   const ownedAtEye = service.listOwnedFormationsAt(instanceId, playerId, 4, 5);
   assert.equal(ownedAtEye.length, 1);
   assert.equal(ownedAtEye[0].id, formation.id);
-  assert.equal(ownedAtEye[0].refillSpiritStoneCount, 525);
-  assert.equal(ownedAtEye[0].refillQiCost, 52500);
-  assert.equal(ownedAtEye[0].refillQiBudget, 52500);
+  assert.equal(ownedAtEye[0].refillSpiritStoneCount, 169);
+  assert.equal(ownedAtEye[0].refillQiCost, 16900);
+  assert.equal(ownedAtEye[0].refillQiBudget, 16900);
 
   const worldDelta = buildFullWorldDelta({
     tick: 1,

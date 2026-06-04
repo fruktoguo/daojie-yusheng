@@ -7,7 +7,7 @@
     "damagePerAura": 100,
     "cost": {
       "defaultRadius": 1,
-      "defaultDurationHours": 2,
+      "defaultDurationHours": 24,
       "durationStepHours": 2,
       "minDurationMinutes": 1,
       "minDurationCostMultiplier": 0.125,
@@ -51,7 +51,7 @@
     "damagePerAura": 100,
     "cost": {
       "defaultRadius": 1,
-      "defaultDurationHours": 2,
+      "defaultDurationHours": 24,
       "durationStepHours": 2,
       "minDurationMinutes": 1,
       "minDurationCostMultiplier": 0.125,
@@ -95,7 +95,7 @@
     "damagePerAura": 100,
     "cost": {
       "defaultRadius": 1,
-      "defaultDurationHours": 2,
+      "defaultDurationHours": 24,
       "durationStepHours": 2,
       "minDurationMinutes": 1,
       "minDurationCostMultiplier": 0.125,
@@ -149,7 +149,7 @@
     "damagePerAura": 100,
     "cost": {
       "defaultRadius": 1,
-      "defaultDurationHours": 2,
+      "defaultDurationHours": 24,
       "durationStepHours": 2,
       "minDurationMinutes": 1,
       "minDurationCostMultiplier": 0.125,
