@@ -84,6 +84,10 @@ function formatGuardianDays(value: number | null): string {
   return `${formatDisplayNumber(Number(value), { maximumFractionDigits: 2 })} 天`;
 }
 
+function formatGuardianStateLabel(active: boolean): string {
+  return active ? t('action.sect.manage.guardian.state-on', undefined) : t('action.sect.manage.guardian.state-off', undefined);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -154,6 +158,7 @@ function normalizeSectManagementRolePermissions(
 
 function normalizeSectManagementGuardianData(input: unknown): SectManagementGuardianData {
   const source = isRecord(input) ? input : {};
+  const active = source.active === true;
   const strength = Math.max(1, Math.floor(Number(source.strength) || 1));
   const remainingQi = Math.max(0, Math.floor(Number(source.remainingQi) || 0));
   const remainingSpiritStone = Math.max(0, Math.floor(Number(source.remainingSpiritStone) || 0));
@@ -161,7 +166,7 @@ function normalizeSectManagementGuardianData(input: unknown): SectManagementGuar
   const damageReduction = Math.max(0, Math.min(0.999999, Number(source.damageReduction) || 0));
   const remainingDaysRaw = Number(source.remainingDays);
   const remainingDays = Number.isFinite(remainingDaysRaw) && remainingDaysRaw >= 0 ? remainingDaysRaw : null;
-  return { strength, remainingQi, remainingSpiritStone, dailySpiritStoneCost, damageReduction, remainingDays };
+  return { active, strength, remainingQi, remainingSpiritStone, dailySpiritStoneCost, damageReduction, remainingDays };
 }
 
 function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
@@ -267,6 +272,11 @@ export class SectManagementSubpanel {
     if (this.p.sectManagementExternalRevision === nextRevision) {
       return;
     }
+    const body = document.getElementById('detail-modal-body');
+    if (body && this.patchSectManagementModal(body, summary)) {
+      this.p.sectManagementExternalRevision = nextRevision;
+      return;
+    }
     this.renderSectManagementModal();
   }
 
@@ -294,10 +304,10 @@ export class SectManagementSubpanel {
             </aside>
             <main class="sect-manage-main">
               <div class="skill-manage-summary sect-manage-summary">
-                <span>${escapeHtml(summary.name)}</span>
-                <span>${t('action.sect.manage.summary.mark', { mark: escapeHtml(summary.mark) })}</span>
-                <span>${t('action.sect.manage.summary.domain', { domain: escapeHtml(summary.domainLabel) })}</span>
-                <span>${escapeHtml(summary.sectIdLabel)}</span>
+                <span data-sect-summary-field="name">${escapeHtml(summary.name)}</span>
+                <span data-sect-summary-field="mark">${t('action.sect.manage.summary.mark', { mark: escapeHtml(summary.mark) })}</span>
+                <span data-sect-summary-field="domain">${t('action.sect.manage.summary.domain', { domain: escapeHtml(summary.domainLabel) })}</span>
+                <span data-sect-summary-field="sectId">${escapeHtml(summary.sectIdLabel)}</span>
               </div>
               <div class="sect-manage-content">
                 ${this.renderSectManagementTabPanel(summary)}
@@ -307,38 +317,89 @@ export class SectManagementSubpanel {
         `);
       },
       onAfterRender: (body, signal) => {
-        body.querySelectorAll<HTMLElement>('[data-sect-manage-tab]').forEach((button) => {
-          button.addEventListener('click', () => {
-            const tab = button.dataset.sectManageTab as SectManagementTab | undefined;
-            if (!tab || tab === this.p.sectManagementTab) return;
-            this.p.sectManagementTab = tab;
-            this.renderSectManagementModal();
-          }, { signal });
-        });
-        body.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
-          button.addEventListener('click', () => {
-            const actionId = button.dataset.sectAction;
-            if (!actionId) return;
-            if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
-            if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
-            this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || '未知行动');
-          }, { signal });
-        });
-        body.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
-          select.addEventListener('change', () => {
-            const playerId = select.dataset.sectMemberRoleSelect;
-            const roleId = select.value;
-            if (!playerId || !roleId) return;
-            this.p.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, t('action.sect.manage.action.update-role', undefined));
-          }, { signal });
-        });
-        body.querySelector<HTMLElement>('[data-sect-guardian-strength-apply]')?.addEventListener('click', () => {
-          const strength = this.readSectGuardianStrengthValue(body);
-          this.p.onAction?.(`sect:guardian:strength:${strength}`, false, undefined, undefined, t('action.sect.manage.guardian.control-strength', undefined));
-        }, { signal });
-        this.syncSectGuardianStrengthControl(body);
+        this.bindSectManagementActions(body, signal);
       },
     });
+  }
+
+  private patchSectManagementModal(body: HTMLElement, summary: SectManagementSummary): boolean {
+    const tabs = this.resolveSectManagementTabs(summary);
+    if (!tabs.some((entry) => entry.tab === this.p.sectManagementTab)) {
+      return false;
+    }
+    const existingTabs = Array.from(body.querySelectorAll<HTMLElement>('.sect-manage-subtabs [data-sect-manage-tab]')).map((entry) => entry.dataset.sectManageTab).filter(Boolean).join('|');
+    const nextTabs = tabs.map((entry) => entry.tab).join('|');
+    if (existingTabs && existingTabs !== nextTabs) {
+      return false;
+    }
+    this.setText(body, '[data-sect-summary-field="name"]', summary.name);
+    this.setText(body, '[data-sect-summary-field="mark"]', t('action.sect.manage.summary.mark', { mark: summary.mark }));
+    this.setText(body, '[data-sect-summary-field="domain"]', t('action.sect.manage.summary.domain', { domain: summary.domainLabel }));
+    this.setText(body, '[data-sect-summary-field="sectId"]', summary.sectIdLabel);
+    const content = body.querySelector<HTMLElement>('.sect-manage-content');
+    if (!content) {
+      return false;
+    }
+    if (this.p.sectManagementTab === 'guardian' && summary.data.canManageGuardian) {
+      const guardianPanel = content.querySelector<HTMLElement>('[data-sect-guardian-panel]');
+      if (guardianPanel) {
+        this.patchSectGuardianPanel(guardianPanel, summary);
+        return true;
+      }
+    }
+    replaceElementHtml(content, this.renderSectManagementTabPanel(summary));
+    this.bindSectManagementActions(content);
+    return true;
+  }
+
+  private setText(root: HTMLElement, selector: string, value: string): void {
+    const node = root.querySelector<HTMLElement>(selector);
+    if (node) {
+      node.textContent = value;
+    }
+  }
+
+  private bindSectManagementActions(root: HTMLElement, signal?: AbortSignal): void {
+    const options = signal ? { signal } : undefined;
+    root.querySelectorAll<HTMLElement>('[data-sect-manage-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.sectManageTab as SectManagementTab | undefined;
+        if (!tab || tab === this.p.sectManagementTab) return;
+        this.p.sectManagementTab = tab;
+        this.renderSectManagementModal();
+      }, options);
+    });
+    root.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const actionId = button.dataset.sectAction;
+        if (!actionId) return;
+        if (actionId === 'sect:dissolve' && !window.confirm(t('action.sect.manage.confirm.dissolve', undefined))) return;
+        if (actionId === 'sect:leave' && !window.confirm(t('action.sect.manage.confirm.leave', undefined))) return;
+        this.p.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || '未知行动');
+      }, options);
+    });
+    root.querySelectorAll<HTMLElement>('button[data-sect-guardian-active]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const active = button.dataset.sectGuardianActive === '1';
+        const current = button.closest<HTMLElement>('[data-sect-guardian-panel]')?.dataset.sectGuardianState === '1';
+        if (active === current) return;
+        this.p.onAction?.(`sect:guardian:active:${active ? '1' : '0'}`, false, undefined, undefined, formatGuardianStateLabel(active));
+      }, options);
+    });
+    root.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
+      select.addEventListener('change', () => {
+        const playerId = select.dataset.sectMemberRoleSelect;
+        const roleId = select.value;
+        if (!playerId || !roleId) return;
+        this.p.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, t('action.sect.manage.action.update-role', undefined));
+      }, options);
+    });
+    root.querySelector<HTMLElement>('[data-sect-guardian-strength-apply]')?.addEventListener('click', () => {
+      const scope = root.closest<HTMLElement>('[data-sect-guardian-panel]') ?? root;
+      const strength = this.readSectGuardianStrengthValue(scope);
+      this.p.onAction?.(`sect:guardian:strength:${strength}`, false, undefined, undefined, t('action.sect.manage.guardian.control-strength', undefined));
+    }, options);
+    this.syncSectGuardianStrengthControl(root);
   }
 
   resolveSectManagementTabs(summary: SectManagementSummary): Array<{ tab: SectManagementTab; label: string }> {
@@ -384,34 +445,7 @@ export class SectManagementSubpanel {
         if (!summary.data.canManageGuardian) {
           return this.renderSectManagementOverviewPanel(summary);
         }
-        return `
-          <div class="panel-section">
-            <div class="panel-section-head">
-              <div class="panel-section-title">${t('action.sect.manage.guardian.title', undefined)}</div>
-              <div class="action-section-actions">
-                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.toggle', undefined)}</button>
-              </div>
-            </div>
-            <div class="skill-manage-summary">
-              <span>${t('action.sect.manage.guardian.status', { status: escapeHtml(summary.guardianStatusLabel) })}</span>
-              <span>${t('action.sect.manage.guardian.current-qi', { qi: formatDisplayNumber(summary.data.guardian.remainingQi) })}</span>
-              <span>${t('action.sect.manage.guardian.current-reduction', { reduction: formatGuardianPercent(summary.data.guardian.damageReduction) })}</span>
-              <span>${t('action.sect.manage.guardian.current-stones', { stones: formatDisplayNumber(summary.data.guardian.remainingSpiritStone) })}</span>
-              <span>${t('action.sect.manage.guardian.remaining-days', { days: formatGuardianDays(summary.data.guardian.remainingDays) })}</span>
-            </div>
-            <div class="formation-config-grid">
-              <label class="formation-config-field ui-detail-field">
-                <strong>${t('action.sect.manage.guardian.control-strength', undefined)}</strong>
-                <input class="ui-input formation-config-input" data-sect-guardian-strength-input type="number" min="1" step="1" value="${summary.data.guardian.strength}">
-              </label>
-              <div class="formation-cost-card ui-detail-field" data-sect-guardian-strength-cost>
-                <strong>${t('action.sect.manage.guardian.daily-stone-cost', undefined)}</strong>
-                <output>${formatDisplayNumber(summary.data.guardian.dailySpiritStoneCost)} / 天</output>
-              </div>
-              <button class="small-btn" data-sect-guardian-strength-apply data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.apply-strength', undefined)}</button>
-            </div>
-            <div class="action-section-hint">${t('action.sect.manage.guardian.copy', undefined)}</div>
-          </div>`;
+        return this.renderSectGuardianPanel(summary);
       case 'domain':
       default:
         return `
@@ -427,6 +461,65 @@ export class SectManagementSubpanel {
             <div class="action-section-hint">${t('action.sect.manage.domain.copy', undefined)}</div>
           </div>`;
     }
+  }
+
+  private renderSectGuardianPanel(summary: SectManagementSummary): string {
+    const active = summary.data.guardian.active;
+    return `
+      <div class="panel-section" data-sect-guardian-panel data-sect-guardian-state="${active ? '1' : '0'}">
+        <div class="panel-section-head">
+          <div class="panel-section-title">${t('action.sect.manage.guardian.title', undefined)}</div>
+          <div class="sect-guardian-tab-toggle" data-sect-guardian-toggle data-guardian-active="${active ? '1' : '0'}" role="tablist" aria-label="${t('action.sect.manage.guardian.toggle', undefined)}">
+            <button class="sect-guardian-tab-toggle-btn ${active ? '' : 'active'}" data-sect-guardian-active="0" type="button" role="tab" aria-selected="${active ? 'false' : 'true'}"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.state-off', undefined)}</button>
+            <button class="sect-guardian-tab-toggle-btn ${active ? 'active' : ''}" data-sect-guardian-active="1" type="button" role="tab" aria-selected="${active ? 'true' : 'false'}"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.state-on', undefined)}</button>
+          </div>
+        </div>
+        <div class="skill-manage-summary" data-sect-guardian-summary>
+          <span data-sect-guardian-stat="status">${t('action.sect.manage.guardian.status', { status: escapeHtml(summary.guardianStatusLabel) })}</span>
+          <span data-sect-guardian-stat="qi">${t('action.sect.manage.guardian.current-qi', { qi: formatDisplayNumber(summary.data.guardian.remainingQi) })}</span>
+          <span data-sect-guardian-stat="reduction">${t('action.sect.manage.guardian.current-reduction', { reduction: formatGuardianPercent(summary.data.guardian.damageReduction) })}</span>
+          <span data-sect-guardian-stat="stones">${t('action.sect.manage.guardian.current-stones', { stones: formatDisplayNumber(summary.data.guardian.remainingSpiritStone) })}</span>
+          <span data-sect-guardian-stat="days">${t('action.sect.manage.guardian.remaining-days', { days: formatGuardianDays(summary.data.guardian.remainingDays) })}</span>
+        </div>
+        <div class="formation-config-grid">
+          <label class="formation-config-field ui-detail-field">
+            <strong>${t('action.sect.manage.guardian.control-strength', undefined)}</strong>
+            <input class="ui-input formation-config-input" data-sect-guardian-strength-input type="number" min="1" step="1" value="${summary.data.guardian.strength}">
+          </label>
+          <div class="formation-cost-card ui-detail-field" data-sect-guardian-strength-cost>
+            <strong>${t('action.sect.manage.guardian.daily-stone-cost', undefined)}</strong>
+            <output data-sect-guardian-daily-cost>${formatDisplayNumber(summary.data.guardian.dailySpiritStoneCost)} / 天</output>
+          </div>
+          <button class="small-btn" data-sect-guardian-strength-apply data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.apply-strength', undefined)}</button>
+        </div>
+        <div class="action-section-hint">${t('action.sect.manage.guardian.copy', undefined)}</div>
+      </div>`;
+  }
+
+  private patchSectGuardianPanel(root: HTMLElement, summary: SectManagementSummary): void {
+    const active = summary.data.guardian.active;
+    root.dataset.sectGuardianState = active ? '1' : '0';
+    const toggle = root.querySelector<HTMLElement>('[data-sect-guardian-toggle]');
+    if (toggle) {
+      toggle.dataset.guardianActive = active ? '1' : '0';
+    }
+    root.querySelectorAll<HTMLButtonElement>('button[data-sect-guardian-active]').forEach((button) => {
+      const buttonActive = button.dataset.sectGuardianActive === (active ? '1' : '0');
+      button.classList.toggle('active', buttonActive);
+      button.setAttribute('aria-selected', buttonActive ? 'true' : 'false');
+      button.disabled = !summary.data.canManageGuardian;
+    });
+    this.setText(root, '[data-sect-guardian-stat="status"]', t('action.sect.manage.guardian.status', { status: summary.guardianStatusLabel }));
+    this.setText(root, '[data-sect-guardian-stat="qi"]', t('action.sect.manage.guardian.current-qi', { qi: formatDisplayNumber(summary.data.guardian.remainingQi) }));
+    this.setText(root, '[data-sect-guardian-stat="reduction"]', t('action.sect.manage.guardian.current-reduction', { reduction: formatGuardianPercent(summary.data.guardian.damageReduction) }));
+    this.setText(root, '[data-sect-guardian-stat="stones"]', t('action.sect.manage.guardian.current-stones', { stones: formatDisplayNumber(summary.data.guardian.remainingSpiritStone) }));
+    this.setText(root, '[data-sect-guardian-stat="days"]', t('action.sect.manage.guardian.remaining-days', { days: formatGuardianDays(summary.data.guardian.remainingDays) }));
+    this.setText(root, '[data-sect-guardian-daily-cost]', `${formatDisplayNumber(summary.data.guardian.dailySpiritStoneCost)} / 天`);
+    const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-strength-input]');
+    if (input && document.activeElement !== input) {
+      input.value = String(summary.data.guardian.strength);
+    }
+    this.syncSectGuardianStrengthControl(root);
   }
 
   readSectGuardianStrengthValue(root: HTMLElement): number {
@@ -711,6 +804,21 @@ export class SectManagementSubpanel {
   }
 
   buildSectManagementRevision(summary: SectManagementSummary): string {
-    return `${this.p.sectManagementTab}|${summary.name}|${summary.mark}|${summary.domainLabel}|${summary.guardianStatusLabel}|${summary.guardianAuraLabel}|${summary.sectIdLabel}|${summary.leaderName}|${summary.realmLabel}|${summary.memberCountLabel}|${JSON.stringify(summary.data)}`;
+    const tabKeys = this.resolveSectManagementTabs(summary).map((entry) => entry.tab).join('|');
+    const base = `${this.p.sectManagementTab}|${tabKeys}|${summary.name}|${summary.mark}|${summary.domainLabel}|${summary.sectIdLabel}|${summary.leaderName}|${summary.realmLabel}|${summary.memberCountLabel}`;
+    switch (this.p.sectManagementTab) {
+      case 'members':
+        return `${base}|${summary.data.canRemoveMembers}|${summary.data.canChangeRoles}|${JSON.stringify(summary.data.members)}|${JSON.stringify(summary.data.roles)}`;
+      case 'roles':
+        return `${base}|${summary.data.canEditPermissions}|${JSON.stringify(summary.data.roles)}|${JSON.stringify(summary.data.permissions)}|${JSON.stringify(summary.data.rolePermissions)}`;
+      case 'manage':
+        return `${base}|${summary.data.canReviewApplications}|${summary.data.canTransfer}|${summary.data.canDissolve}|${summary.data.canLeave}|${JSON.stringify(summary.data.applications)}|${JSON.stringify(summary.data.members)}`;
+      case 'guardian':
+        return `${base}|${summary.guardianStatusLabel}|${JSON.stringify(summary.data.guardian)}|${summary.data.canManageGuardian}`;
+      case 'overview':
+      case 'domain':
+      default:
+        return base;
+    }
   }
 }

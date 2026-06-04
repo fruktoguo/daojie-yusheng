@@ -324,6 +324,19 @@ class WorldRuntimeSectService {
             deps.queuePlayerNotice(playerId, nToggled.text, nToggled.kind, undefined, undefined, nToggled.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
+        if (actionId.startsWith('sect:guardian:active:')) {
+            assertSectPermission(sect, playerId, 'guardian');
+            const activeText = actionId.slice('sect:guardian:active:'.length);
+            const active = activeText === '1' || activeText === 'true' || activeText === 'on';
+            const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
+                ?? this.ensureGuardianFormation(sect, deps);
+            deps.worldRuntimeFormationService.dispatchSetPersistentFormationActive(playerId, {
+                instanceId: sect.entranceInstanceId,
+                formationInstanceId: formation?.id ?? guardianId,
+                active,
+            }, deps);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
         if (actionId.startsWith('sect:guardian:inject:')) {
             assertSectPermission(sect, playerId, 'guardian');
             const [, , , stoneText = '0', qiText = '0'] = actionId.split(':');
@@ -1429,13 +1442,14 @@ function formatSectGuardianAuraLabel(formation) {
 }
 
 function buildSectGuardianManagementData(formation, formationService = null) {
-    const strength = Math.max(1, Math.floor(Number(formation?.allocation?.effectValue ?? formation?.stats?.effectValue) || 1));
     const remainingQi = Math.max(0, Math.floor(Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0));
     const remainingSpiritStone = Math.max(0, Math.floor(Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0));
+    const strength = Math.max(1, Math.floor(Number(formation?.allocation?.effectValue ?? formation?.stats?.effectValue) || 1));
     const dailySpiritStoneCost = Math.max(0, Number(formationService?.resolveFormationDailySpiritStoneCost?.(formation)) || strength);
     const damageReduction = Math.max(0, Math.min(0.999999, Number(formationService?.resolveFormationDamageReduction?.(formation)) || 0));
     const remainingDays = dailySpiritStoneCost > 0 ? remainingSpiritStone / dailySpiritStoneCost : null;
     return {
+        active: formation ? formation.active !== false : false,
         strength,
         remainingQi,
         remainingSpiritStone,

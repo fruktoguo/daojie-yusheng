@@ -111,6 +111,7 @@ export interface SectManagementApplication {
 }
 
 export interface SectManagementGuardianData {
+  active: boolean;
   strength: number;
   remainingQi: number;
   remainingSpiritStone: number;
