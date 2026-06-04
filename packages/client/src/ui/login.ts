@@ -386,6 +386,8 @@ export class LoginUI {
     this.registerAccountGroup.classList.toggle('hidden', !isRegister);
     this.registerNameRow.classList.toggle('hidden', !isRegister);
     this.invitationCodeGroup.classList.toggle('hidden', !isRegister);
+    this.loginNameInput.autocomplete = isRegister ? 'off' : 'username';
+    this.accountNameInput.autocomplete = isRegister ? 'username' : 'off';
     this.passwordInput.autocomplete = isRegister ? 'new-password' : 'current-password';
     this.loginTab.textContent = t('login.mode.login', undefined);
     this.registerTab.textContent = t('login.mode.register', undefined);
