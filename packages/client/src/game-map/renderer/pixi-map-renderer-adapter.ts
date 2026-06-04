@@ -1313,40 +1313,47 @@ export class PixiMapRendererAdapter {
               this.terrainFogLayer.rect(sx, sy, cellSize, cellSize).fill({ color: tile ? 0x0c0a08 : 0x080605, alpha: (tile ? 0.72 : 0.94) * hiddenFade });
               continue;
             }
-            const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
-            if (visibleFade > 0) {
-              this.terrainFogLayer.rect(sx, sy, cellSize, cellSize).fill({ color: 0x0c0a08, alpha: 0.72 * visibleFade });
-            } else {
-              this.visibleTileFadeStartedAt.delete(key);
-            }
-            this.drawVisibleTileEdgeFog(scene.terrain.visibleTiles, x, y, sx, sy, cellSize);
+            this.drawVisibleTileFog(scene.terrain.visibleTiles, key, x, y, sx, sy, cellSize, now);
           }
         }
       }
     }
   }
 
-  private drawVisibleTileEdgeFog(
+  private drawVisibleTileFog(
     visibleTiles: ReadonlySet<string>,
+    key: string,
     x: number,
     y: number,
     sx: number,
     sy: number,
     cellSize: number,
+    now: number,
   ): void {
     const half = cellSize / 2;
-    if (!visibleTiles.has(`${x - 1},${y}`)) {
-      this.terrainFogLayer.rect(sx, sy, half, cellSize).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
+    const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
+    const baseAlpha = 0.72 * visibleFade;
+    if (visibleFade <= 0) this.visibleTileFadeStartedAt.delete(key);
+    const leftAlpha = this.resolveVisibleTileEdgeFogAlpha(visibleTiles, `${x - 1},${y}`, now);
+    const rightAlpha = this.resolveVisibleTileEdgeFogAlpha(visibleTiles, `${x + 1},${y}`, now);
+    const topAlpha = this.resolveVisibleTileEdgeFogAlpha(visibleTiles, `${x},${y - 1}`, now);
+    const bottomAlpha = this.resolveVisibleTileEdgeFogAlpha(visibleTiles, `${x},${y + 1}`, now);
+    this.drawFogQuadrant(sx, sy, half, Math.max(baseAlpha, leftAlpha, topAlpha));
+    this.drawFogQuadrant(sx + half, sy, half, Math.max(baseAlpha, rightAlpha, topAlpha));
+    this.drawFogQuadrant(sx, sy + half, half, Math.max(baseAlpha, leftAlpha, bottomAlpha));
+    this.drawFogQuadrant(sx + half, sy + half, half, Math.max(baseAlpha, rightAlpha, bottomAlpha));
+  }
+
+  private resolveVisibleTileEdgeFogAlpha(visibleTiles: ReadonlySet<string>, neighborKey: string, now: number): number {
+    if (visibleTiles.has(neighborKey)) {
+      return TERRAIN_VISIBLE_EDGE_FOG_ALPHA * this.resolveTileFade(this.visibleTileFadeStartedAt.get(neighborKey), now, true);
     }
-    if (!visibleTiles.has(`${x + 1},${y}`)) {
-      this.terrainFogLayer.rect(sx + half, sy, half, cellSize).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
-    }
-    if (!visibleTiles.has(`${x},${y - 1}`)) {
-      this.terrainFogLayer.rect(sx, sy, cellSize, half).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
-    }
-    if (!visibleTiles.has(`${x},${y + 1}`)) {
-      this.terrainFogLayer.rect(sx, sy + half, cellSize, half).fill({ color: 0x0c0a08, alpha: TERRAIN_VISIBLE_EDGE_FOG_ALPHA });
-    }
+    return TERRAIN_VISIBLE_EDGE_FOG_ALPHA * this.resolveTileFade(this.hiddenTileFadeStartedAt.get(neighborKey), now, false);
+  }
+
+  private drawFogQuadrant(x: number, y: number, size: number, alpha: number): void {
+    if (alpha <= 0) return;
+    this.terrainFogLayer.rect(x, y, size, size).fill({ color: 0x0c0a08, alpha: clamp01(alpha) });
   }
 
   private resolveTerrainChunkStaticSignature(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number): string {
