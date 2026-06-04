@@ -110,6 +110,15 @@ export interface SectManagementApplication {
   appliedAt: number;
 }
 
+export interface SectManagementGuardianData {
+  strength: number;
+  remainingQi: number;
+  remainingSpiritStone: number;
+  dailySpiritStoneCost: number;
+  damageReduction: number;
+  remainingDays: number | null;
+}
+
 export interface SectManagementData {
   selfPlayerId: string;
   canEditPermissions: boolean;
@@ -118,6 +127,7 @@ export interface SectManagementData {
   canLeave: boolean;
   canReviewApplications: boolean;
   canManageGuardian: boolean;
+  guardian: SectManagementGuardianData;
   canRemoveMembers: boolean;
   canChangeRoles: boolean;
   roles: SectManagementRole[];

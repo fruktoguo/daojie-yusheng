@@ -18,6 +18,7 @@ import type { ActionPanel } from './action-panel';
 import type {
   ActionPanelInternal,
   SectManagementData,
+  SectManagementGuardianData,
   SectManagementMember,
   SectManagementPermission,
   SectManagementRole,
@@ -70,6 +71,17 @@ function formatSectMemberRealmLabel(member: SectManagementMember, fallback = t('
   }
   const realmLv = Math.trunc(Number(member.realmLv));
   return getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${realmLv}`;
+}
+
+function formatGuardianPercent(value: number): string {
+  return `${(Math.max(0, Math.min(0.999999, Number(value) || 0)) * 100).toFixed(2)}%`;
+}
+
+function formatGuardianDays(value: number | null): string {
+  if (!Number.isFinite(Number(value)) || value === null) {
+    return t('common.value.unknown', undefined);
+  }
+  return `${formatDisplayNumber(Number(value), { maximumFractionDigits: 2 })} 天`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -140,6 +152,18 @@ function normalizeSectManagementRolePermissions(
   return next;
 }
 
+function normalizeSectManagementGuardianData(input: unknown): SectManagementGuardianData {
+  const source = isRecord(input) ? input : {};
+  const strength = Math.max(1, Math.floor(Number(source.strength) || 1));
+  const remainingQi = Math.max(0, Math.floor(Number(source.remainingQi) || 0));
+  const remainingSpiritStone = Math.max(0, Math.floor(Number(source.remainingSpiritStone) || 0));
+  const dailySpiritStoneCost = Math.max(0, Number(source.dailySpiritStoneCost) || 0);
+  const damageReduction = Math.max(0, Math.min(0.999999, Number(source.damageReduction) || 0));
+  const remainingDaysRaw = Number(source.remainingDays);
+  const remainingDays = Number.isFinite(remainingDaysRaw) && remainingDaysRaw >= 0 ? remainingDaysRaw : null;
+  return { strength, remainingQi, remainingSpiritStone, dailySpiritStoneCost, damageReduction, remainingDays };
+}
+
 function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
   const playerId = player?.id ?? '';
   const name = player?.name || player?.displayName || t('action.sect.fallback.current-leader', undefined);
@@ -152,6 +176,7 @@ function buildFallbackSectManagementData(player: PlayerState | null): SectManage
     canLeave: false,
     canReviewApplications: true,
     canManageGuardian: true,
+    guardian: normalizeSectManagementGuardianData(null),
     canRemoveMembers: true,
     canChangeRoles: true,
     roles: DEFAULT_SECT_MANAGEMENT_ROLES,
@@ -199,6 +224,7 @@ function parseSectManagementData(desc: string | undefined, player: PlayerState |
       canLeave: parsed.canLeave === true,
       canReviewApplications: parsed.canReviewApplications === true,
       canManageGuardian: parsed.canManageGuardian === true,
+      guardian: normalizeSectManagementGuardianData(parsed.guardian),
       canRemoveMembers: parsed.canRemoveMembers === true,
       canChangeRoles: parsed.canChangeRoles === true,
       roles,
@@ -306,14 +332,11 @@ export class SectManagementSubpanel {
             this.p.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, t('action.sect.manage.action.update-role', undefined));
           }, { signal });
         });
-        body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
-          const inject = this.readSectGuardianInjectValue(body);
-          this.p.onAction?.(`sect:guardian:inject:${inject.stones}:${inject.qi}`, false, undefined, undefined, t('action.sect.manage.action.inject-aura', undefined));
+        body.querySelector<HTMLElement>('[data-sect-guardian-strength-apply]')?.addEventListener('click', () => {
+          const strength = this.readSectGuardianStrengthValue(body);
+          this.p.onAction?.(`sect:guardian:strength:${strength}`, false, undefined, undefined, t('action.sect.manage.guardian.control-strength', undefined));
         }, { signal });
-        const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
-        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview, { signal });
-        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="qi"]')?.addEventListener('input', syncGuardianInjectPreview, { signal });
-        syncGuardianInjectPreview();
+        this.syncSectGuardianStrengthControl(body);
       },
     });
   }
@@ -371,24 +394,21 @@ export class SectManagementSubpanel {
             </div>
             <div class="skill-manage-summary">
               <span>${t('action.sect.manage.guardian.status', { status: escapeHtml(summary.guardianStatusLabel) })}</span>
-              <span>${t('action.sect.manage.guardian.aura', { aura: escapeHtml(summary.guardianAuraLabel) })}</span>
-              <span>${t('action.sect.manage.guardian.core', undefined)}</span>
-              <span>${t('action.sect.manage.guardian.guard', undefined)}</span>
+              <span>${t('action.sect.manage.guardian.current-qi', { qi: formatDisplayNumber(summary.data.guardian.remainingQi) })}</span>
+              <span>${t('action.sect.manage.guardian.current-reduction', { reduction: formatGuardianPercent(summary.data.guardian.damageReduction) })}</span>
+              <span>${t('action.sect.manage.guardian.current-stones', { stones: formatDisplayNumber(summary.data.guardian.remainingSpiritStone) })}</span>
+              <span>${t('action.sect.manage.guardian.remaining-days', { days: formatGuardianDays(summary.data.guardian.remainingDays) })}</span>
             </div>
             <div class="formation-config-grid">
               <label class="formation-config-field ui-detail-field">
-                <strong>${t('action.sect.manage.guardian.inject-stones', undefined)}</strong>
-                <input class="ui-input formation-config-input" data-sect-guardian-inject-input="stones" type="number" min="0" step="1" value="1000">
+                <strong>${t('action.sect.manage.guardian.control-strength', undefined)}</strong>
+                <input class="ui-input formation-config-input" data-sect-guardian-strength-input type="number" min="1" step="1" value="${summary.data.guardian.strength}">
               </label>
-              <label class="formation-config-field ui-detail-field">
-                <strong>${t('action.sect.manage.guardian.inject-qi', undefined)}</strong>
-                <input class="ui-input formation-config-input" data-sect-guardian-inject-input="qi" type="number" min="0" step="1" value="100000">
-              </label>
-              <div class="formation-cost-card ui-detail-field" data-sect-guardian-inject-cost>
-                <strong>${t('action.sect.manage.guardian.cost', undefined)}</strong>
-                <output data-sect-guardian-inject-qi-cost>100,000</output>
+              <div class="formation-cost-card ui-detail-field" data-sect-guardian-strength-cost>
+                <strong>${t('action.sect.manage.guardian.daily-stone-cost', undefined)}</strong>
+                <output>${formatDisplayNumber(summary.data.guardian.dailySpiritStoneCost)} / 天</output>
               </div>
-              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.action.inject-aura', undefined)}</button>
+              <button class="small-btn" data-sect-guardian-strength-apply data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>${t('action.sect.manage.guardian.apply-strength', undefined)}</button>
             </div>
             <div class="action-section-hint">${t('action.sect.manage.guardian.copy', undefined)}</div>
           </div>`;
@@ -409,32 +429,23 @@ export class SectManagementSubpanel {
     }
   }
 
-  readSectGuardianInjectValue(root: HTMLElement): { stones: number; qi: number } {
-    const stoneInput = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]');
-    const qiInput = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="qi"]');
-    const stones = Math.trunc(Number(stoneInput?.value ?? 0));
-    const qi = Math.trunc(Number(qiInput?.value ?? 0));
-    return {
-      stones: Number.isFinite(stones) ? Math.max(0, stones) : 0,
-      qi: Number.isFinite(qi) ? Math.max(0, qi) : 0,
-    };
+  readSectGuardianStrengthValue(root: HTMLElement): number {
+    const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-strength-input]');
+    const strength = Math.trunc(Number(input?.value ?? 1));
+    return Number.isFinite(strength) ? Math.max(1, strength) : 1;
   }
 
-  syncSectGuardianInjectPreview(root: HTMLElement): void {
-    const inject = this.readSectGuardianInjectValue(root);
-    const output = root.querySelector<HTMLOutputElement>('[data-sect-guardian-inject-qi-cost]');
-    if (output) {
-      const text = `${formatDisplayNumber(inject.stones)} 灵石 / ${formatDisplayNumber(inject.qi)} 灵力`;
-      output.value = text;
-      output.textContent = text;
+  syncSectGuardianStrengthControl(root: HTMLElement): void {
+    const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-strength-input]');
+    if (input) {
+      input.min = '1';
+      input.step = '1';
     }
-    const button = root.querySelector<HTMLButtonElement>('[data-sect-guardian-inject]');
+    const button = root.querySelector<HTMLButtonElement>('[data-sect-guardian-strength-apply]');
     if (button) {
       const allowed = button.dataset.sectGuardianAllowed !== '0';
-      button.disabled = (inject.stones <= 0 && inject.qi <= 0) || !allowed;
-      button.textContent = allowed
-        ? (inject.stones > 0 || inject.qi > 0 ? t('action.sect.manage.action.inject-aura', undefined) : t('action.sect.manage.guardian.inject-stones-short', undefined))
-        : t('action.sect.manage.guardian.no-permission', undefined);
+      button.disabled = !allowed;
+      button.textContent = allowed ? t('action.sect.manage.guardian.apply-strength', undefined) : t('action.sect.manage.guardian.no-permission', undefined);
     }
   }
 

@@ -339,6 +339,18 @@ class WorldRuntimeSectService {
             deps.queuePlayerNotice(playerId, nCharged.text, nCharged.kind, undefined, undefined, nCharged.structured);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
+        if (actionId.startsWith('sect:guardian:strength:')) {
+            assertSectPermission(sect, playerId, 'guardian');
+            const strengthText = actionId.slice('sect:guardian:strength:'.length);
+            const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
+                ?? this.ensureGuardianFormation(sect, deps);
+            deps.worldRuntimeFormationService.dispatchSetPersistentFormationStrength(playerId, {
+                instanceId: sect.entranceInstanceId,
+                formationInstanceId: formation?.id ?? guardianId,
+                strength: normalizePositiveInteger(strengthText, '大阵强度'),
+            }, deps);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
         if (actionId === 'sect:guardian:refill') {
             assertSectPermission(sect, playerId, 'guardian');
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId);
@@ -1375,6 +1387,14 @@ function normalizeNonNegativeInteger(input) {
     return value;
 }
 
+function normalizePositiveInteger(input, label = '数值') {
+    const value = Math.trunc(Number(input));
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new BadRequestException(`${label}必须大于 0`);
+    }
+    return value;
+}
+
 function normalizeIntegerWithDefault(input, fallback) {
     const value = Math.trunc(Number(input));
     if (Number.isFinite(value)) {
@@ -1408,6 +1428,23 @@ function formatSectGuardianAuraLabel(formation) {
     return `${formatInteger(qiValue)} / 灵石 ${formatInteger(stoneValue)}`;
 }
 
+function buildSectGuardianManagementData(formation, formationService = null) {
+    const strength = Math.max(1, Math.floor(Number(formation?.allocation?.effectValue ?? formation?.stats?.effectValue) || 1));
+    const remainingQi = Math.max(0, Math.floor(Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0));
+    const remainingSpiritStone = Math.max(0, Math.floor(Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0));
+    const dailySpiritStoneCost = Math.max(0, Number(formationService?.resolveFormationDailySpiritStoneCost?.(formation)) || strength);
+    const damageReduction = Math.max(0, Math.min(0.999999, Number(formationService?.resolveFormationDamageReduction?.(formation)) || 0));
+    const remainingDays = dailySpiritStoneCost > 0 ? remainingSpiritStone / dailySpiritStoneCost : null;
+    return {
+        strength,
+        remainingQi,
+        remainingSpiritStone,
+        dailySpiritStoneCost,
+        damageReduction,
+        remainingDays,
+    };
+}
+
 function formatInteger(value) {
     const normalized = Math.max(0, Math.floor(Number(value) || 0));
     return formatDisplayInteger(normalized);
@@ -1415,11 +1452,11 @@ function formatInteger(value) {
 
 function buildSectManagementActionDesc(sect, view, deps, guardian) {
     const base = `${sect.name} · 印记 ${normalizeOptionalString(sect.mark) || '无'} · 地域 ${formatSectTileCountLabel(sect, view, deps)} · 大阵 ${formatSectGuardianStatusLabel(guardian)} · 灵力 ${formatSectGuardianAuraLabel(guardian)}。`;
-    const data = buildSectManagementData(sect, view?.playerId, deps?.playerRuntimeService);
+    const data = buildSectManagementData(sect, view?.playerId, deps?.playerRuntimeService, guardian, deps?.worldRuntimeFormationService);
     return `${base}\n${SECT_MANAGEMENT_DATA_MARKER}${encodeURIComponent(JSON.stringify(data))}${SECT_MANAGEMENT_DATA_MARKER_END}`;
 }
 
-function buildSectManagementData(sect, playerId, playerRuntimeService = null) {
+function buildSectManagementData(sect, playerId, playerRuntimeService = null, guardian = null, formationService = null) {
     ensureSectState(sect, playerRuntimeService);
     const selfPlayerId = normalizeOptionalString(playerId) || '';
     const canEditPermissions = sect.leaderPlayerId === selfPlayerId;
@@ -1434,6 +1471,7 @@ function buildSectManagementData(sect, playerId, playerRuntimeService = null) {
         canLeave,
         canReviewApplications,
         canManageGuardian: hasSectPermission(sect, selfPlayerId, 'guardian'),
+        guardian: buildSectGuardianManagementData(guardian, formationService),
         canRemoveMembers: hasSectPermission(sect, selfPlayerId, 'member_remove'),
         canChangeRoles: hasSectPermission(sect, selfPlayerId, 'member_role'),
         roles: SECT_ROLES,

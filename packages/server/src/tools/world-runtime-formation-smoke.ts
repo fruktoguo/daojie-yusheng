@@ -35,7 +35,7 @@ async function main() {
     instanceId,
     x: 4,
     y: 5,
-    qi: 20000,
+    qi: 1000000,
     attrs: { numericStats: { maxQiOutputPerTick: 16 } },
     formationSkill: { level: 1, exp: 0, expToNext: 60 },
     dirtyDomains: new Set(),
@@ -52,7 +52,7 @@ async function main() {
       ],
     },
     wallet: {
-      spirit_stone: 1000,
+      spirit_stone: 100000,
     },
   };
   const tileResources = new Map();
@@ -152,8 +152,8 @@ async function main() {
       return targetInstanceId === "public:formation_smoke" ? virtualInstance : null;
     },
   }), /虚境不能布置阵法/);
-  assert.equal(player.qi, 20000);
-  assert.equal(player.wallet.spirit_stone, 1000);
+  assert.equal(player.qi, 1000000);
+  assert.equal(player.wallet.spirit_stone, 100000);
   assert.equal(player.inventory.items[0].count, 2);
 
   assert.throws(() => service.dispatchCreateFormation(playerId, {
@@ -163,8 +163,8 @@ async function main() {
     qiCost: 1,
     allocation: { effectPercent: 80, rangePercent: 10, durationPercent: 10 },
   }, deps), /至少需要投入 100 灵石/);
-  assert.equal(player.qi, 20000);
-  assert.equal(player.wallet.spirit_stone, 1000);
+  assert.equal(player.qi, 1000000);
+  assert.equal(player.wallet.spirit_stone, 100000);
   assert.equal(player.inventory.items[0].count, 2);
   assert.throws(() => service.dispatchCreateFormation(playerId, {
     itemInstanceId: "formation-disk:mystic:1",
@@ -180,27 +180,27 @@ async function main() {
     setup: { radius: 2, durationHours: 2, effectValue: 1000 },
   }, deps);
 
-  assert.equal(player.qi, 19600);
-  assert.equal(player.wallet.spirit_stone, 996);
+  assert.equal(player.qi, 947500);
+  assert.equal(player.wallet.spirit_stone, 99475);
   assert.equal(player.inventory.items[0].count, 1);
-  assert.equal(formation.spiritStoneCount, 4);
-  assert.equal(formation.qiCost, 400);
+  assert.equal(formation.spiritStoneCount, 525);
+  assert.equal(formation.qiCost, 52500);
   assert.equal(notices[notices.length - 1]?.structured?.key, "notice.formation.deployed");
   assert.deepEqual(notices[notices.length - 1]?.structured?.vars, {
     formationName: "聚灵阵",
     radius: 2,
-    effectValue: "4200",
-    qiBudget: "1500",
-    spiritStoneBudget: "4",
+    effectValue: "42万",
+    qiBudget: "6300",
+    spiritStoneBudget: "525",
   });
-  assert.equal(formation.stats.totalAuraBudget, 1500);
-  assert.equal(formation.stats.effectValue, 4200);
+  assert.equal(formation.stats.totalAuraBudget, 6300);
+  assert.equal(formation.stats.effectValue, 420000);
   assert.deepEqual(formation.allocation, { radius: 2, durationHours: 2, effectValue: 1000, formationSkillLevel: 1 });
   const formationTemplate = service.resolveFormationTemplate("spirit_gathering");
-  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 1 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 125);
-  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 5 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 142);
-  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 10 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 167);
-  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 24, effectValue: 1000 }).stats.requiredAuraBudget, 12000);
+  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 1 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 500);
+  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 5 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 565);
+  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 10 / 60, effectValue: 1000 }).stats.requiredAuraBudget, 667);
+  assert.equal(resolveFormationSetupPlan(formationTemplate, 4, { radius: 1, durationHours: 24, effectValue: 1000 }).stats.requiredAuraBudget, 48000);
   assert.equal(instance.worldRevision, 11);
   assert.equal(deps.contextActionsRefreshed, true);
   assert.equal(notices.at(-1)?.kind, "success");
@@ -221,9 +221,9 @@ async function main() {
   const ownedAtEye = service.listOwnedFormationsAt(instanceId, playerId, 4, 5);
   assert.equal(ownedAtEye.length, 1);
   assert.equal(ownedAtEye[0].id, formation.id);
-  assert.equal(ownedAtEye[0].refillSpiritStoneCount, 4);
-  assert.equal(ownedAtEye[0].refillQiCost, 400);
-  assert.equal(ownedAtEye[0].refillQiBudget, 400);
+  assert.equal(ownedAtEye[0].refillSpiritStoneCount, 525);
+  assert.equal(ownedAtEye[0].refillQiCost, 52500);
+  assert.equal(ownedAtEye[0].refillQiBudget, 52500);
 
   const worldDelta = buildFullWorldDelta({
     tick: 1,
@@ -273,7 +273,7 @@ async function main() {
   assert.equal(service.listRuntimeFormations(instanceId).length, 1);
   assert.ok(tileResources.size > 0);
   const firstAuraGain = Array.from(tileResources.values())[0];
-  assert.ok(firstAuraGain > 0 && firstAuraGain < 1);
+  assert.ok(Math.abs(firstAuraGain - (formation.stats.effectValue / FORMATION_TICKS_PER_DAY)) < 0.000001);
   const wireTick = toWireTick({
     p: [],
     e: [],
@@ -472,7 +472,7 @@ async function main() {
   assert.equal(earthFormation.stats.effectValue, 336000);
   assert.equal(service.isTerrainStabilized(instanceId, 4, 5), true);
   const reduction = service.resolveTerrainDamageReduction(instanceId, 4, 5);
-  const expectedReduction = earthFormation.stats.effectValue / (earthFormation.stats.effectValue + 100000);
+  const expectedReduction = earthFormation.stats.effectValue / (earthFormation.stats.effectValue + 1000);
   assert.ok(Math.abs(reduction - expectedReduction) < 0.000001);
   assert.equal(Math.round(service.mitigateTerrainDamage(instanceId, 4, 5, 1000)), Math.round(1000 * (1 - expectedReduction)));
   assert.equal(service.mitigateTerrainDamage(instanceId, 15, 15, 1000), 1000);
@@ -588,9 +588,11 @@ async function main() {
     const stabilizedAtTickStart = service.createTerrainStabilizationChecker(snapshotInstanceId);
     assert.equal(stabilizedAtTickStart(3, 3), true);
     service.advanceInstanceFormations(snapshotInstance, 7, deps);
-    assert.equal(service.isTerrainStabilized(snapshotInstanceId, 3, 3), false);
+    assert.equal(service.isTerrainStabilized(snapshotInstanceId, 3, 3), true);
     assert.equal(snapshotInstance.advanceTileRecovery(stabilizedAtTickStart), false);
     assert.equal(snapshotInstance.getTileCombatState(3, 3)?.destroyed, true);
+    service.applyDamageToFormation(snapshotInstanceId, "formation:snapshot:earth-stabilizing", 999999, playerId, deps);
+    assert.equal(service.isTerrainStabilized(snapshotInstanceId, 3, 3), false);
     assert.equal(snapshotInstance.advanceTileRecovery((x, y) => service.isTerrainStabilized(snapshotInstanceId, x, y)), true);
     assert.equal(snapshotInstance.getTileCombatState(3, 3)?.destroyed, false);
   }
@@ -680,7 +682,7 @@ async function main() {
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, boundaryX, boundaryY), true);
   const beforeBoundaryDamage = service.getFormationCombatState(instanceId, barrierFormation.id).remainingAuraBudget;
   const boundaryDamageResult = service.applyDamageToBoundaryBarrier(instanceId, boundaryX, boundaryY, 25000, playerId, deps);
-  const expectedBoundaryReduction = barrierFormation.stats.effectValue / (barrierFormation.stats.effectValue + 100000);
+  const expectedBoundaryReduction = barrierFormation.stats.effectValue / (barrierFormation.stats.effectValue + 1000);
   const expectedBoundaryAuraDamage = 25000 * (1 - expectedBoundaryReduction) / 100;
   assert.equal(boundaryDamageResult.destroyed, false);
   assert.ok(Math.abs(boundaryDamageResult.selfDamageReduction - expectedBoundaryReduction) < 0.000001);
@@ -710,6 +712,8 @@ async function main() {
   assert.equal(guardian.eyeX, 3);
   assert.equal(guardian.eyeY, 4);
   assert.equal(guardian.stats.radius, 1);
+  assert.equal(guardian.allocation.effectValue, 1);
+  assert.equal(guardian.stats.effectValue, 1);
   const restoredGuardian = service.restoreFormationEntry(instanceId, {
     id: "formation:sect_guardian:restored",
     formationId: "sect_guardian_barrier",
@@ -825,7 +829,32 @@ async function main() {
   const guardianInactiveAuraBeforeTick = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
   service.advanceInstanceFormations(instance, 6, deps);
   const guardianInactiveAuraAfterTick = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
-  assert.ok(Math.abs((guardianInactiveAuraBeforeTick - guardianInactiveAuraAfterTick) - (guardianInactiveAuraBeforeTick * guardianActiveDecayRate / 10)) < 0.000001);
+  assert.ok(Math.abs((guardianInactiveAuraBeforeTick - guardianInactiveAuraAfterTick) - (guardianInactiveAuraBeforeTick * guardianActiveDecayRate)) < 0.000001);
+  service.dispatchSetPersistentFormationStrength(detachedOwnerPlayerId, {
+    instanceId,
+    formationInstanceId: guardian.id,
+    strength: 25,
+  }, deps);
+  assert.equal(service.findFormationInInstance(instanceId, guardian.id).active, false);
+  assert.equal(service.findFormationInInstance(instanceId, guardian.id).allocation.effectValue, 25);
+  assert.equal(service.findFormationInInstance(instanceId, guardian.id).stats.effectValue, 25);
+  assert.ok(Math.abs(service.resolveFormationDamageReduction(service.findFormationInInstance(instanceId, guardian.id)) - (25 / 125)) < 0.000001);
+  service.upsertSectGuardianFormation({
+    formationId: "sect_guardian_barrier",
+    id: guardian.id,
+    ownerSectId: "sect:smoke",
+    ownerPlayerId: detachedOwnerPlayerId,
+    instanceId,
+    x: 8,
+    y: 8,
+    eyeInstanceId: "sect:smoke:inner",
+    eyeX: 3,
+    eyeY: 4,
+    radius: 1,
+    spiritStoneCount: 1000,
+    active: false,
+  }, deps);
+  assert.equal(service.findFormationInInstance(instanceId, guardian.id).allocation.effectValue, 25);
   service.dispatchSetPersistentFormationActive(detachedOwnerPlayerId, {
     instanceId,
     formationInstanceId: guardian.id,

@@ -64,6 +64,9 @@ export const FORMATION_DAILY_DURATION_BASE_PERCENT = FORMATION_DEFAULT_ALLOCATIO
 /** 每日 tick 数 */
 export const FORMATION_TICKS_PER_DAY = 86_400;
 
+/** 阵法灵力统一半衰期：三天。 */
+export const FORMATION_QI_HALF_LIFE_TICKS = FORMATION_TICKS_PER_DAY * 3;
+
 /** 默认阵眼显示字符 */
 export const DEFAULT_FORMATION_VISUAL_CHAR = '◎';
 
@@ -75,6 +78,12 @@ export const DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR = '#3b82f6';
 
 /** 默认每灵气伤害值 */
 export const FORMATION_DEFAULT_DAMAGE_PER_AURA = 100;
+
+/** 普通减伤阵法的强度分母：10 强度约 1% 减伤。 */
+export const FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR = 1_000;
+
+/** 护宗大阵的强度分母：1 强度约 1% 减伤。 */
+export const FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR = 100;
 
 /** 阵法技艺每级提供的强度指数增幅 */
 export const FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL = 0.05;

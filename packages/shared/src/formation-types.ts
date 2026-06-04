@@ -65,6 +65,7 @@ export interface FormationEffectConfig {
   conversionRatio: number;
   resourceKey?: string;
   convergenceHalfLifeTicks?: number;
+  damageReductionDenominator?: number;
 }
 
 export interface FormationAccessConfig {
@@ -175,10 +176,13 @@ import {
   FORMATION_DEFAULT_ALLOCATION_PERCENT,
   FORMATION_DAILY_DURATION_BASE_PERCENT,
   FORMATION_TICKS_PER_DAY,
+  FORMATION_QI_HALF_LIFE_TICKS,
   DEFAULT_FORMATION_VISUAL_CHAR,
   DEFAULT_FORMATION_VISUAL_COLOR,
   DEFAULT_FORMATION_RANGE_HIGHLIGHT_COLOR,
   FORMATION_DEFAULT_DAMAGE_PER_AURA,
+  FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
+  FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR,
   FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL,
 } from './constants/gameplay/formation';
 
@@ -215,7 +219,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
       shortDurationReferenceCostMultiplier: 1 / 6,
       rangeCostRatio: 1.5,
       durationCostRatio: 1,
-      minEffectValue: 1000,
+      minEffectValue: 1,
       effectCostRatio: 1,
       auraPerSpiritStone: 100,
       qiPerSpiritStone: 100,
@@ -232,7 +236,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     },
     effect: {
       kind: 'tile_aura_source',
-      conversionRatio: 1,
+      conversionRatio: 100,
       resourceKey: DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY,
       convergenceHalfLifeTicks: FORMATION_TICKS_PER_DAY,
     },
@@ -259,7 +263,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
       shortDurationReferenceCostMultiplier: 1 / 6,
       rangeCostRatio: 1.5,
       durationCostRatio: 1,
-      minEffectValue: 100_000,
+      minEffectValue: 1,
       effectCostRatio: 1,
       auraPerSpiritStone: 100,
       qiPerSpiritStone: 100,
@@ -278,6 +282,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     effect: {
       kind: 'terrain_stabilizer',
       conversionRatio: 1,
+      damageReductionDenominator: FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
     },
     visual: {
       char: '◇',
@@ -302,7 +307,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
       shortDurationReferenceCostMultiplier: 1 / 6,
       rangeCostRatio: 1.5,
       durationCostRatio: 1,
-      minEffectValue: 10_000,
+      minEffectValue: 1,
       effectCostRatio: 1,
       auraPerSpiritStone: 100,
       qiPerSpiritStone: 100,
@@ -320,6 +325,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     effect: {
       kind: 'boundary_barrier',
       conversionRatio: 1,
+      damageReductionDenominator: FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR,
     },
     visual: {
       char: '玄',
@@ -355,7 +361,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
       shortDurationReferenceCostMultiplier: 1 / 6,
       rangeCostRatio: 1.5,
       durationCostRatio: 1,
-      minEffectValue: 10_000,
+      minEffectValue: 1,
       effectCostRatio: 1,
       auraPerSpiritStone: 100,
       qiPerSpiritStone: 100,
@@ -373,6 +379,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     effect: {
       kind: 'boundary_barrier',
       conversionRatio: 1,
+      damageReductionDenominator: FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR,
     },
     visual: {
       char: '宗',
@@ -515,13 +522,12 @@ export function resolveFormationStats(
   const effectValue = Math.max(0, Math.floor(effectAura * Math.max(0, Number(template.effect.conversionRatio) || 0) * strengthMultiplier));
   const radius = resolveFormationRadius(template.range, rangeAura);
   const durationScale = Math.max(0.01, allocation.durationPercent / FORMATION_DAILY_DURATION_BASE_PERCENT);
-  const dailyActiveCost = totalAuraBudget / durationScale;
-  const dailyInactiveCost = dailyActiveCost / 10;
+  const dailyActiveCost = resolveFormationDailyQiDecayEstimate(totalAuraBudget);
+  const dailyInactiveCost = dailyActiveCost;
   const tickActiveCost = dailyActiveCost / FORMATION_TICKS_PER_DAY;
-  const tickInactiveCost = dailyInactiveCost / FORMATION_TICKS_PER_DAY;
-  const spiritStoneCostDivisor = Math.max(1, FORMATION_AURA_PER_SPIRIT_STONE * normalizedMultiplier);
-  const dailyActiveSpiritStoneCost = dailyActiveCost / spiritStoneCostDivisor;
-  const dailyInactiveSpiritStoneCost = dailyInactiveCost / spiritStoneCostDivisor;
+  const tickInactiveCost = tickActiveCost;
+  const dailyActiveSpiritStoneCost = Math.max(0, effectAura * normalizedMultiplier * strengthMultiplier / Math.max(0.01, durationScale));
+  const dailyInactiveSpiritStoneCost = dailyActiveSpiritStoneCost;
   return {
     baseAuraBudget,
     totalAuraBudget,
@@ -559,27 +565,30 @@ export function resolveFormationSetupStats(
   const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
   const resolvedFormationSkillLevel = resolveFormationInputSkillLevel(formationSkillLevel, setupInput);
   const strengthMultiplier = normalizedMultiplier * resolveFormationSkillStrengthMultiplier(resolvedFormationSkillLevel);
+  const effectConversionRatio = Math.max(0, Number(template.effect.conversionRatio) || 0);
   const rangeSteps = Math.max(0, setup.radius - cost.defaultRadius);
   const rangeMultiplier = Math.pow(cost.rangeCostRatio, rangeSteps);
   const linearDurationMultiplier = setup.durationHours / cost.defaultDurationHours;
   const durationMultiplier = setup.durationHours >= cost.defaultDurationHours
     ? 1 + (linearDurationMultiplier - 1) * cost.durationCostRatio
     : resolveShortDurationCostMultiplier(cost, setup.durationHours);
-  const requiredAuraBudget = Math.max(1, Math.ceil(setup.effectValue * cost.effectCostRatio * rangeMultiplier * durationMultiplier));
+  const actualBaseStrength = Math.max(0, setup.effectValue * strengthMultiplier);
+  const effectValue = Math.max(0, Math.floor(actualBaseStrength * effectConversionRatio));
+  const requiredAuraBudget = Math.max(1, Math.ceil(setup.effectValue * strengthMultiplier * cost.effectCostRatio * rangeMultiplier * durationMultiplier));
+  const dailySpiritStoneCost = requiredAuraBudget;
   const spiritStoneCount = Math.max(
     FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
-    Math.ceil(requiredAuraBudget / Math.max(1, cost.auraPerSpiritStone * normalizedMultiplier)),
+    Math.ceil(dailySpiritStoneCost * Math.max(1, Math.round(setup.durationHours * 3_600)) / FORMATION_TICKS_PER_DAY),
   );
   const baseAuraBudget = Math.ceil(requiredAuraBudget / normalizedMultiplier);
   const totalAuraBudget = requiredAuraBudget;
   const durationTicks = Math.max(1, Math.round(setup.durationHours * 3_600));
-  const dailyActiveCost = totalAuraBudget * (FORMATION_TICKS_PER_DAY / durationTicks);
-  const dailyInactiveCost = dailyActiveCost / 10;
-  const tickActiveCost = totalAuraBudget / durationTicks;
-  const tickInactiveCost = tickActiveCost / 10;
-  const spiritStoneCostDivisor = Math.max(1, cost.auraPerSpiritStone * normalizedMultiplier);
-  const tickActiveSpiritStoneCost = tickActiveCost / spiritStoneCostDivisor;
-  const tickInactiveSpiritStoneCost = tickInactiveCost / spiritStoneCostDivisor;
+  const dailyActiveCost = resolveFormationDailyQiDecayEstimate(totalAuraBudget);
+  const dailyInactiveCost = dailyActiveCost;
+  const tickActiveCost = dailyActiveCost / FORMATION_TICKS_PER_DAY;
+  const tickInactiveCost = tickActiveCost;
+  const tickActiveSpiritStoneCost = dailySpiritStoneCost / FORMATION_TICKS_PER_DAY;
+  const tickInactiveSpiritStoneCost = tickActiveSpiritStoneCost;
   return {
     setup,
     requiredAuraBudget,
@@ -591,9 +600,9 @@ export function resolveFormationSetupStats(
     baseQiBudget: baseAuraBudget,
     totalQiBudget: totalAuraBudget,
     totalSpiritStoneBudget: spiritStoneCount,
-    effectAura: Math.max(0, Math.floor(setup.effectValue * strengthMultiplier)),
+    effectAura: effectValue,
     rangeAura: requiredAuraBudget,
-    effectValue: Math.max(0, Math.floor(setup.effectValue * strengthMultiplier)),
+    effectValue,
     radius: setup.radius,
     dailyActiveCost,
     dailyInactiveCost,
@@ -621,12 +630,10 @@ export function resolveFormationSetupPlan(
   spiritStoneCount: number;
   qiCost: number;
 } {
-  const cost = resolveFormationCostConfig(template);
   const stats = resolveFormationSetupStats(template, diskMultiplier, setupInput, formationSkillLevel);
-  const normalizedMultiplier = Number.isFinite(diskMultiplier) ? Math.max(1, Number(diskMultiplier)) : 1;
   const spiritStoneCount = Math.max(
     FORMATION_DEFAULT_MIN_SPIRIT_STONE_COUNT,
-    Math.ceil((stats.requiredAuraBudget ?? stats.totalAuraBudget) / Math.max(1, cost.auraPerSpiritStone * normalizedMultiplier)),
+    Math.ceil(stats.requiredSpiritStoneBudget ?? stats.totalSpiritStoneBudget),
   );
   return {
     setup: stats.setup ?? normalizeFormationSetup(template, setupInput),
@@ -639,6 +646,33 @@ export function resolveFormationSetupPlan(
 export function resolveFormationSkillStrengthMultiplier(formationSkillLevel: number | undefined): number {
   const normalizedLevel = Math.max(0, Math.floor(Number(formationSkillLevel) || 0));
   return Math.pow(1 + FORMATION_SKILL_STRENGTH_BONUS_PER_LEVEL, normalizedLevel);
+}
+
+export function resolveFormationDamageReductionDenominator(template: FormationTemplate | null | undefined): number {
+  const configured = Number(template?.effect?.damageReductionDenominator);
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  return template?.id === 'sect_guardian_barrier'
+    ? FORMATION_GUARDIAN_DAMAGE_REDUCTION_DENOMINATOR
+    : FORMATION_DEFAULT_DAMAGE_REDUCTION_DENOMINATOR;
+}
+
+export function resolveFormationDamageReduction(template: FormationTemplate | null | undefined, effectValue: number): number {
+  const normalizedValue = Math.max(0, Number(effectValue) || 0);
+  if (normalizedValue <= 0) {
+    return 0;
+  }
+  const denominator = resolveFormationDamageReductionDenominator(template);
+  return Math.max(0, Math.min(0.999999, normalizedValue / (normalizedValue + denominator)));
+}
+
+export function resolveFormationDailyQiDecayEstimate(totalQiBudget: number): number {
+  const normalizedBudget = Math.max(0, Number(totalQiBudget) || 0);
+  if (normalizedBudget <= 0) {
+    return 0;
+  }
+  return normalizedBudget * (1 - Math.pow(0.5, FORMATION_TICKS_PER_DAY / FORMATION_QI_HALF_LIFE_TICKS));
 }
 
 function resolveFormationInputSkillLevel(

@@ -25,6 +25,7 @@ import {
   normalizeFormationSetup,
   resolveFormationCostConfig,
   resolveFormationDamagePerAura,
+  resolveFormationDamageReduction,
   resolveFormationSetupPlan,
   resolveFormationVisual,
   type FormationEffectKind,
@@ -101,8 +102,6 @@ const FORMATION_SETUP_MIN_RADIUS = 1;
 const FORMATION_SETUP_MAX_RADIUS = 10;
 const FORMATION_SETUP_MIN_DURATION_MINUTES = 1;
 const FORMATION_SETUP_MAX_DURATION_MINUTES = 24 * 60;
-const FORMATION_DAMAGE_REDUCTION_DENOMINATOR = 100_000;
-
 type UseItemOptions = {
   sectName?: string;
   sectMark?: string;
@@ -1642,13 +1641,13 @@ export class InventoryPanel {
       ];
     }
     if (template.effect.kind === 'terrain_stabilizer') {
-      const reduction = this.resolveFormationDamageReduction(stats.effectValue);
+      const reduction = resolveFormationDamageReduction(template, stats.effectValue);
       return [
         { label: '地块受击减伤', value: this.formatFormationPercent(reduction) },
         { label: '实际承伤比例', value: this.formatFormationPercent(1 - reduction) },
       ];
     }
-    const selfDamageReduction = this.resolveFormationDamageReduction(stats.effectValue);
+    const selfDamageReduction = resolveFormationDamageReduction(template, stats.effectValue);
     const damagePerAura = resolveFormationDamagePerAura(template);
     const rawDurability = Math.max(1, Math.ceil((stats.totalQiBudget ?? stats.totalAuraBudget) * damagePerAura));
     const effectiveDurability = Math.max(1, Math.ceil(rawDurability / Math.max(0.000001, 1 - selfDamageReduction)));
@@ -1656,14 +1655,6 @@ export class InventoryPanel {
       { label: '预计承受伤害', value: this.formatFormationDecimal(effectiveDurability) },
       { label: '阵法减伤', value: this.formatFormationPercent(selfDamageReduction) },
     ];
-  }
-
-  private resolveFormationDamageReduction(effectValue: number): number {
-    const normalizedValue = Math.max(0, Number(effectValue) || 0);
-    if (normalizedValue <= 0) {
-      return 0;
-    }
-    return Math.max(0, Math.min(0.999999, normalizedValue / (normalizedValue + FORMATION_DAMAGE_REDUCTION_DENOMINATOR)));
   }
 
   private formatFormationPercent(value: number): string {
@@ -1688,9 +1679,9 @@ export class InventoryPanel {
     if (kind === 'tile_aura_source') {
       return {
         kindLabel: '灵气增幅',
-        fallbackDesc: '持续抬升范围内地块灵气，使地块资源逐步接近阵法强度。',
+        fallbackDesc: '持续抬升范围内地块灵气，使地块资源逐步接近目标灵气。',
         target: '范围内地块',
-        scaling: `目标灵气 ${effectValue}，逐步抬升至强度值`,
+        scaling: `基础强度按阵盘与技艺增幅后，每 1 强度对应 100 灵气，当前目标 ${effectValue}`,
         visibility: '感气后可查看范围与阵眼',
       };
     }
@@ -1699,7 +1690,7 @@ export class InventoryPanel {
         kindLabel: '地脉稳固',
         fallbackDesc: '稳固范围内地脉，抑制地块复生、消散与被拆损耗。',
         target: '可攻击地块与临时地块',
-        scaling: `强度 ${effectValue}，越高越能降低地块受击伤害`,
+        scaling: `实际强度 ${effectValue}，每 10 强度约降低 1% 地块受击伤害`,
         visibility: '范围内自动生效',
       };
     }
@@ -1707,7 +1698,7 @@ export class InventoryPanel {
       kindLabel: '边界封锁',
       fallbackDesc: '在阵法边界形成阻挡，封锁通行与视线。',
       target: '阵法边界与阵眼',
-      scaling: `强度 ${effectValue}，越高越能降低边界受击损耗`,
+      scaling: `实际强度 ${effectValue}，每 10 强度约降低 1% 边界受击损耗`,
       visibility: '边界可见并阻挡，归属方按规则通行',
     };
   }

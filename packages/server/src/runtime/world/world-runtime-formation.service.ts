@@ -4,7 +4,7 @@
  * 维护时要保持状态变更受控，所有影响资产或位置的结果都应能被持久化与恢复链覆盖。
  */
 import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
-import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
+import { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_AURA_PER_SPIRIT_STONE, FORMATION_DISK_TIER_MULTIPLIERS, FORMATION_QI_HALF_LIFE_TICKS, FORMATION_SPIRIT_STONE_ITEM_ID, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled, formatDisplayInteger, getFormationTemplateById, isFormationSetupInput, normalizeFormationAllocation, normalizeFormationSetup, resolveFormationCostConfig, resolveFormationDamagePerAura, resolveFormationDamageReduction, resolveFormationLifecycle as resolveSharedFormationLifecycle, resolveFormationMinSpiritStoneCount, resolveFormationQiCost, resolveFormationSetupPlan, resolveFormationStats, resolveFormationVisual } from '@mud/shared';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensureBigintColumnType, ensureDoubleColumnType } from '../../persistence/schema-bigint-migration';
@@ -28,12 +28,9 @@ const INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS = [
     'remaining_qi_budget',
     'remaining_spirit_stone_budget',
 ];
-const TERRAIN_DAMAGE_REDUCTION_DENOMINATOR = 100000;
 const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
 const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
-const PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS = FORMATION_TICKS_PER_DAY * 3;
-const PERSISTENT_FORMATION_INACTIVE_DECAY_DIVISOR = 10;
-const PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(PERSISTENT_FORMATION_ACTIVE_HALF_LIFE_TICKS);
+const FORMATION_QI_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(FORMATION_QI_HALF_LIFE_TICKS);
 const runtimeFormationProjectionCache = new WeakMap();
 
 /** world-runtime formation：阵法权威运行时，承接布阵、开关、补充与 tick 效果。 */
@@ -195,16 +192,26 @@ class WorldRuntimeFormationService {
             : resolveFormationMinSpiritStoneCount(template);
         const spiritStoneCount = Math.max(1, inputSpiritStoneCount > 0 ? inputSpiritStoneCount : fallbackSpiritStoneCount);
         const diskMultiplier = Number.isFinite(Number(input?.diskMultiplier)) ? Math.max(1, Number(input.diskMultiplier)) : 1;
-        const allocation = normalizeFormationAllocation(input?.allocation);
+        const list = this.getFormationList(instanceId);
+        const formationId = normalizeOptionalString(input?.id)
+            || `formation:sect_guardian:${ownerSectId || 'public'}:${instanceId}:${x}:${y}`;
+        const existing = list.find((entry) => entry.id === formationId);
+        const existingSetup = typeof isFormationSetupInput === 'function' && isFormationSetupInput(existing?.allocation)
+            ? existing.allocation
+            : null;
+        const allocationSeed = typeof isFormationSetupInput === 'function' && isFormationSetupInput(input?.allocation)
+            ? input.allocation
+            : {
+                radius: Math.max(1, Math.trunc(Number(input?.radius ?? existingSetup?.radius ?? 1) || 1)),
+                durationHours: Math.max(1 / 60, Number(existingSetup?.durationHours ?? 24) || 24),
+                effectValue: Math.max(1, Math.trunc(Number(existingSetup?.effectValue ?? 1) || 1)),
+            };
+        const allocation = normalizeFormationSetup(template, allocationSeed);
         const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
         if (Number.isFinite(Number(input?.radius))) {
             stats.radius = Math.max(1, Math.trunc(Number(input.radius)));
         }
         const now = Date.now();
-        const formationId = normalizeOptionalString(input?.id)
-            || `formation:sect_guardian:${ownerSectId || 'public'}:${instanceId}:${x}:${y}`;
-        const list = this.getFormationList(instanceId);
-        const existing = list.find((entry) => entry.id === formationId);
         const remainingQiBudget = existing
             ? resolveFormationRemainingQiBudget(existing)
             : explicitRemainingQiBudget !== null ? explicitRemainingQiBudget : stats.totalQiBudget ?? stats.totalAuraBudget;
@@ -385,8 +392,61 @@ class WorldRuntimeFormationService {
         return resolveFormationRemainingSpiritStoneBudget(formation);
     }
 
+    resolveFormationDailySpiritStoneCost(formation) {
+        return resolveFormationDailySpiritStoneCost(formation);
+    }
+
+    resolveFormationDamageReduction(formation) {
+        return resolveFormationDamageReduction(formation?.template, formation?.stats?.effectValue);
+    }
+
     setFormationRemainingQiBudget(formation, value) {
         setFormationRemainingQiBudget(formation, value);
+    }
+
+    dispatchSetPersistentFormationStrength(playerId, payload, deps = null) {
+        const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
+        if (!formation) {
+            throw new NotFoundException('阵法不存在');
+        }
+        if (!isPersistentFormation(formation)) {
+            throw new BadRequestException('该阵法不是持续性阵法');
+        }
+        const strength = normalizePositiveInteger(payload?.strength ?? payload?.effectValue ?? 1, '阵法强度');
+        const setup = normalizeFormationSetup(formation.template, {
+            ...(typeof isFormationSetupInput === 'function' && isFormationSetupInput(formation.allocation) ? formation.allocation : {}),
+            radius: Math.max(1, Math.trunc(Number(formation.stats?.radius ?? formation.allocation?.radius ?? 1) || 1)),
+            durationHours: Math.max(1 / 60, Number(formation.allocation?.durationHours ?? 24) || 24),
+            effectValue: strength,
+        });
+        formation.allocation = {
+            ...setup,
+            formationSkillLevel: 0,
+        };
+        formation.stats = resolveFormationStats(
+            formation.template,
+            Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1)),
+            Number.isFinite(Number(formation.diskMultiplier)) ? Math.max(1, Number(formation.diskMultiplier)) : 1,
+            formation.allocation,
+            0,
+        );
+        if (Number.isFinite(Number(setup.radius))) {
+            formation.stats.radius = Math.max(1, Math.trunc(Number(setup.radius)));
+        }
+        formation.updatedAt = Date.now();
+        touchRuntimeInstanceRevision(deps, formation.instanceId);
+        if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
+            touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
+        }
+        this.persistFormationSnapshotSoon(formation);
+        this.enqueueFormationNotice(
+            playerId,
+            'success',
+            'notice.formation.strength-set',
+            `${formation.name}强度已调整为 ${formatInteger(strength)}。`,
+            { formationName: formation.name, strength: formatInteger(strength) },
+        );
+        return formation;
     }
 
     dispatchSetPersistentFormationActive(playerId, payload, deps = null) {
@@ -465,9 +525,7 @@ class WorldRuntimeFormationService {
         let persistenceDirty = false;
         for (let index = formations.length - 1; index >= 0; index -= 1) {
             const formation = formations[index];
-            const tickCost = isPersistentFormation(formation)
-                ? resolvePersistentFormationTickCost(formation)
-                : resolveFormationTickCost(formation);
+            const tickCost = resolveFormationTickCost(formation);
             const spiritStoneBefore = resolveFormationRemainingSpiritStoneBudget(formation);
             const qiBefore = resolveFormationRemainingQiBudget(formation);
             const lacksSpiritStone = tickCost.spiritStoneCost > 0 && spiritStoneBefore < tickCost.spiritStoneCost;
@@ -593,11 +651,11 @@ class WorldRuntimeFormationService {
             if (!this.containsTile(formation, x, y)) {
                 continue;
             }
-            const effectValue = Math.max(0, Number(formation.stats?.effectValue) || 0);
-            if (effectValue <= 0) {
+            const formationReduction = resolveFormationDamageReduction(formation.template, formation.stats?.effectValue);
+            if (formationReduction <= 0) {
                 continue;
             }
-            reduction = Math.max(reduction, effectValue / (effectValue + TERRAIN_DAMAGE_REDUCTION_DENOMINATOR));
+            reduction = Math.max(reduction, formationReduction);
         }
         return Math.max(0, Math.min(0.999999, reduction));
     }
@@ -620,11 +678,7 @@ class WorldRuntimeFormationService {
             || formation.template?.effect?.kind !== BOUNDARY_BARRIER_EFFECT_KIND) {
             return 0;
         }
-        const effectValue = Math.max(0, Number(formation.stats?.effectValue) || 0);
-        if (effectValue <= 0) {
-            return 0;
-        }
-        return Math.max(0, Math.min(0.999999, effectValue / (effectValue + TERRAIN_DAMAGE_REDUCTION_DENOMINATOR)));
+        return resolveFormationDamageReduction(formation.template, formation.stats?.effectValue);
     }
 
     isBoundaryBarrierBlocked(instanceId, x, y, playerId = null) {
@@ -1018,9 +1072,16 @@ class WorldRuntimeFormationService {
             : rawSpiritStoneCount;
         const allocationPayload = entry.allocation && typeof entry.allocation === 'object' ? entry.allocation : {};
         const formationSkillLevel = resolveFormationSkillLevel(entry);
-        const allocation = typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
-            ? { ...normalizeFormationSetup(template, allocationPayload), formationSkillLevel }
-            : { ...normalizeFormationAllocation(allocationPayload), formationSkillLevel };
+        const allocation = template.id === 'sect_guardian_barrier'
+            ? {
+                ...normalizeFormationSetup(template, typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
+                    ? allocationPayload
+                    : { radius: Number(entry.radius) || 1, durationHours: 24, effectValue: 1 }),
+                formationSkillLevel: 0,
+            }
+            : typeof isFormationSetupInput === 'function' && isFormationSetupInput(allocationPayload)
+                ? { ...normalizeFormationSetup(template, allocationPayload), formationSkillLevel }
+                : { ...normalizeFormationAllocation(allocationPayload), formationSkillLevel };
         const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation, formationSkillLevel);
         if (template.id === 'sect_guardian_barrier') {
             stats.radius = Math.max(1, Math.trunc(Number(entry.radius) || 1));
@@ -1656,30 +1717,23 @@ function isFormationAffectedCell(shape, centerX, centerY, x, y, radius) {
 }
 
 function resolveFormationTickCost(formation) {
-    const stats = formation?.stats ?? {};
-    if (formation?.active === false) {
-        return {
-            qiCost: Math.max(0, Number(stats.tickInactiveQiCost ?? stats.tickInactiveCost) || 0),
-            spiritStoneCost: Math.max(0, Number(stats.tickInactiveSpiritStoneCost) || 0),
-        };
-    }
+    const remainingQiBudget = resolveFormationRemainingQiBudget(formation);
+    const remainingSpiritStoneBudget = resolveFormationRemainingSpiritStoneBudget(formation);
+    const qiDecayRate = FORMATION_QI_DECAY_RATE_SCALED / QI_HALF_LIFE_RATE_SCALE;
+    const dailySpiritStoneCost = resolveFormationDailySpiritStoneCost(formation);
     return {
-        qiCost: Math.max(0, Number(stats.tickActiveQiCost ?? stats.tickActiveCost) || 0),
-        spiritStoneCost: Math.max(0, Number(stats.tickActiveSpiritStoneCost) || 0),
+        qiCost: remainingQiBudget <= 0 ? 0 : Math.min(remainingQiBudget, remainingQiBudget * qiDecayRate),
+        spiritStoneCost: remainingSpiritStoneBudget <= 0 ? 0 : Math.min(remainingSpiritStoneBudget, dailySpiritStoneCost / FORMATION_TICKS_PER_DAY),
     };
 }
 
-function resolvePersistentFormationTickCost(formation) {
-    const remainingQiBudget = resolveFormationRemainingQiBudget(formation);
-    const remainingSpiritStoneBudget = resolveFormationRemainingSpiritStoneBudget(formation);
-    const activeRate = PERSISTENT_FORMATION_ACTIVE_DECAY_RATE_SCALED / QI_HALF_LIFE_RATE_SCALE;
-    const rate = formation?.active === false
-        ? activeRate / PERSISTENT_FORMATION_INACTIVE_DECAY_DIVISOR
-        : activeRate;
-    return {
-        qiCost: remainingQiBudget <= 0 ? 0 : Math.min(remainingQiBudget, remainingQiBudget * rate),
-        spiritStoneCost: remainingSpiritStoneBudget <= 0 ? 0 : Math.min(remainingSpiritStoneBudget, remainingSpiritStoneBudget * rate),
-    };
+function resolveFormationDailySpiritStoneCost(formation) {
+    const stats = formation?.stats ?? {};
+    const configured = Number(stats.dailyActiveSpiritStoneCost ?? stats.dailySpiritStoneCost);
+    if (Number.isFinite(configured) && configured > 0) {
+        return configured;
+    }
+    return Math.max(1, Math.floor(Number(stats.effectValue) || 0));
 }
 
 function resolveFormationRemainingQiBudget(formation) {
