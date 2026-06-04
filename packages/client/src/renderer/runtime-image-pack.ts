@@ -53,6 +53,9 @@ interface DualGridOptions {
 
 interface RuntimeImagePackManifest {
   version?: unknown;
+  defaults?: {
+    tile?: Record<string, unknown>;
+  };
   tiles?: Record<string, unknown>;
   legacyTiles?: Record<string, unknown>;
   entities?: Record<string, unknown>;
@@ -156,6 +159,19 @@ function normalizeSpriteFit(value: unknown): SpriteFit | undefined {
   return value === 'cover' || value === 'contain' ? value : undefined;
 }
 
+function readSpriteField(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, field: string): unknown {
+  return value[field] !== undefined ? value[field] : defaults?.[field];
+}
+
+function readSpriteMetaField(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, field: string): unknown {
+  const valueMeta = isRecord(value.meta) ? value.meta : undefined;
+  if (valueMeta?.[field] !== undefined) return valueMeta[field];
+  if (value[field] !== undefined) return value[field];
+  const defaultMeta = defaults && isRecord(defaults.meta) ? defaults.meta : undefined;
+  if (defaultMeta?.[field] !== undefined) return defaultMeta[field];
+  return defaults?.[field];
+}
+
 function getDefaultTileZIndex(key: string): number {
   if (key.startsWith('terrain:')) return 100;
   if (key.startsWith('surface:')) return 200;
@@ -164,9 +180,8 @@ function getDefaultTileZIndex(key: string): number {
   return 500;
 }
 
-function normalizeSpriteZIndex(value: unknown, key: string): number {
-  const source = isRecord(value) && isRecord(value.meta) ? value.meta : value;
-  const rawZIndex = isRecord(source) ? source.zIndex : undefined;
+function normalizeSpriteZIndex(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, key: string): number {
+  const rawZIndex = readSpriteMetaField(value, defaults, 'zIndex');
   const numeric = Number(rawZIndex);
   return Number.isFinite(numeric) ? numeric : getDefaultTileZIndex(key);
 }
@@ -188,54 +203,68 @@ function normalizeNoiseType(value: unknown, fallback: DualGridNoiseType): DualGr
     : fallback;
 }
 
-function normalizeDualGridOptions(value: unknown): DualGridOptions | undefined {
-  const source = isRecord(value) && isRecord(value.meta) && value.meta.dualGrid !== undefined ? value.meta : value;
-  const rawDualGrid = isRecord(source) ? source.dualGrid : undefined;
+function normalizeDualGridOptions(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined): DualGridOptions | undefined {
+  const rawDualGrid = readSpriteMetaField(value, defaults, 'dualGrid');
   const enabled = rawDualGrid === true || (isRecord(rawDualGrid) && rawDualGrid.enabled !== false);
   if (!enabled) {
     return undefined;
   }
   const rawEdge = isRecord(rawDualGrid) && isRecord(rawDualGrid.edge)
     ? rawDualGrid.edge
-    : isRecord(source) && isRecord(source.edge)
-      ? source.edge
+    : readSpriteMetaField(value, defaults, 'edge');
+  const normalizedRawEdge = isRecord(rawEdge)
+      ? rawEdge
       : {};
   return {
     enabled: true,
     edge: {
-      range: normalizePercent(rawEdge.range, DEFAULT_DUAL_GRID_EDGE.range),
-      fade: normalizePercent(rawEdge.fade, DEFAULT_DUAL_GRID_EDGE.fade),
-      fadeStart: normalizePercent(rawEdge.fadeStart, DEFAULT_DUAL_GRID_EDGE.fadeStart),
-      fadeCurve: normalizeFadeCurve(rawEdge.fadeCurve, DEFAULT_DUAL_GRID_EDGE.fadeCurve),
-      noise: typeof rawEdge.noise === 'boolean' ? rawEdge.noise : DEFAULT_DUAL_GRID_EDGE.noise,
-      noiseType: normalizeNoiseType(rawEdge.noiseType, DEFAULT_DUAL_GRID_EDGE.noiseType),
-      noiseScale: normalizePercent(rawEdge.noiseScale, DEFAULT_DUAL_GRID_EDGE.noiseScale),
-      noiseAmount: normalizePercent(rawEdge.noiseAmount, DEFAULT_DUAL_GRID_EDGE.noiseAmount),
+      range: normalizePercent(normalizedRawEdge.range, DEFAULT_DUAL_GRID_EDGE.range),
+      fade: normalizePercent(normalizedRawEdge.fade, DEFAULT_DUAL_GRID_EDGE.fade),
+      fadeStart: normalizePercent(normalizedRawEdge.fadeStart, DEFAULT_DUAL_GRID_EDGE.fadeStart),
+      fadeCurve: normalizeFadeCurve(normalizedRawEdge.fadeCurve, DEFAULT_DUAL_GRID_EDGE.fadeCurve),
+      noise: typeof normalizedRawEdge.noise === 'boolean' ? normalizedRawEdge.noise : DEFAULT_DUAL_GRID_EDGE.noise,
+      noiseType: normalizeNoiseType(normalizedRawEdge.noiseType, DEFAULT_DUAL_GRID_EDGE.noiseType),
+      noiseScale: normalizePercent(normalizedRawEdge.noiseScale, DEFAULT_DUAL_GRID_EDGE.noiseScale),
+      noiseAmount: normalizePercent(normalizedRawEdge.noiseAmount, DEFAULT_DUAL_GRID_EDGE.noiseAmount),
     },
   };
 }
 
-function normalizeSpriteRef(value: unknown, manifestUrl: string, version: string, key: string, order: number): AtlasSpriteRef | null {
+function normalizeSpriteRef(
+  value: unknown,
+  manifestUrl: string,
+  version: string,
+  key: string,
+  order: number,
+  defaults?: Record<string, unknown>,
+): AtlasSpriteRef | null {
   if (!isRecord(value) || typeof value.src !== 'string' || value.src.trim().length === 0) {
     return null;
   }
   return {
     src: resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version),
-    cols: normalizePositiveInteger(value.cols, 1),
-    rows: normalizePositiveInteger(value.rows, 1),
-    col: normalizeNonNegativeInteger(value.col, 0),
-    row: normalizeNonNegativeInteger(value.row, 0),
-    colSpan: normalizePositiveInteger(value.colSpan, 1),
-    rowSpan: normalizePositiveInteger(value.rowSpan, 1),
-    insetRatio: Number.isFinite(Number(value.insetRatio)) ? Math.max(0, Math.min(0.4, Number(value.insetRatio))) : undefined,
-    fit: normalizeSpriteFit(value.fit),
-    dualGrid: normalizeDualGridOptions(value),
-    zIndex: normalizeSpriteZIndex(value, key),
+    cols: normalizePositiveInteger(readSpriteField(value, defaults, 'cols'), 1),
+    rows: normalizePositiveInteger(readSpriteField(value, defaults, 'rows'), 1),
+    col: normalizeNonNegativeInteger(readSpriteField(value, defaults, 'col'), 0),
+    row: normalizeNonNegativeInteger(readSpriteField(value, defaults, 'row'), 0),
+    colSpan: normalizePositiveInteger(readSpriteField(value, defaults, 'colSpan'), 1),
+    rowSpan: normalizePositiveInteger(readSpriteField(value, defaults, 'rowSpan'), 1),
+    insetRatio: Number.isFinite(Number(readSpriteField(value, defaults, 'insetRatio')))
+      ? Math.max(0, Math.min(0.4, Number(readSpriteField(value, defaults, 'insetRatio'))))
+      : undefined,
+    fit: normalizeSpriteFit(readSpriteField(value, defaults, 'fit')),
+    dualGrid: normalizeDualGridOptions(value, defaults),
+    zIndex: normalizeSpriteZIndex(value, defaults, key),
     order,
   };
 }
 
-function normalizeSpriteMap(value: unknown, manifestUrl: string, version: string): Map<string, AtlasSpriteRef> {
+function normalizeSpriteMap(
+  value: unknown,
+  manifestUrl: string,
+  version: string,
+  defaults?: Record<string, unknown>,
+): Map<string, AtlasSpriteRef> {
   const result = new Map<string, AtlasSpriteRef>();
   if (!isRecord(value)) {
     return result;
@@ -243,7 +272,7 @@ function normalizeSpriteMap(value: unknown, manifestUrl: string, version: string
   let order = 0;
   for (const [key, rawRef] of Object.entries(value)) {
     const normalizedKey = key.trim();
-    const ref = normalizeSpriteRef(rawRef, manifestUrl, version, normalizedKey, order);
+    const ref = normalizeSpriteRef(rawRef, manifestUrl, version, normalizedKey, order, defaults);
     order += 1;
     if (normalizedKey && ref) {
       result.set(normalizedKey, ref);
@@ -646,7 +675,7 @@ class RuntimeImagePack {
       })
       .then((manifest) => {
         const version = normalizeRuntimeImagePackVersion(manifest.version);
-        this.tileSprites = normalizeSpriteMap(manifest.tiles, this.manifestUrl, version);
+        this.tileSprites = normalizeSpriteMap(manifest.tiles, this.manifestUrl, version, manifest.defaults?.tile);
         this.legacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
         this.entitySprites = normalizeSpriteMap(manifest.entities, this.manifestUrl, version);
         this.dualGridTileKeys = [...this.tileSprites.entries()]

@@ -211,6 +211,9 @@ interface PixiTileSpriteRef {
 
 type RuntimeTileSpriteManifest = {
   version?: unknown;
+  defaults?: {
+    tile?: Record<string, unknown>;
+  };
   tiles?: Record<string, unknown>;
   legacyTiles?: Record<string, unknown>;
 };
@@ -350,8 +353,7 @@ function normalizeNonNegativeInteger(value: unknown, fallback: number): number {
 }
 
 function normalizeTileSpriteZIndex(value: unknown, key: string): number {
-  const source = isRecord(value) && isRecord(value.meta) ? value.meta : value;
-  const raw = isRecord(source) ? source.zIndex : undefined;
+  const raw = isRecord(value) ? readPixiSpriteMetaField(value, undefined, 'zIndex') : undefined;
   const numeric = Number(raw);
   if (Number.isFinite(numeric)) return numeric;
   if (key.startsWith('terrain:')) return 100;
@@ -361,26 +363,52 @@ function normalizeTileSpriteZIndex(value: unknown, key: string): number {
   return 500;
 }
 
-function normalizeTileSpriteDualGrid(value: unknown): boolean {
-  const source = isRecord(value) && isRecord(value.meta) ? value.meta : value;
-  const rawDualGrid = isRecord(source) ? source.dualGrid : undefined;
+function readPixiSpriteField(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, field: string): unknown {
+  return value[field] !== undefined ? value[field] : defaults?.[field];
+}
+
+function readPixiSpriteMetaField(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, field: string): unknown {
+  const valueMeta = isRecord(value.meta) ? value.meta : undefined;
+  if (valueMeta?.[field] !== undefined) return valueMeta[field];
+  if (value[field] !== undefined) return value[field];
+  const defaultMeta = defaults && isRecord(defaults.meta) ? defaults.meta : undefined;
+  if (defaultMeta?.[field] !== undefined) return defaultMeta[field];
+  return defaults?.[field];
+}
+
+function normalizeTileSpriteZIndexWithDefaults(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined, key: string): number {
+  const raw = readPixiSpriteMetaField(value, defaults, 'zIndex');
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) return numeric;
+  return normalizeTileSpriteZIndex(value, key);
+}
+
+function normalizeTileSpriteDualGrid(value: Record<string, unknown>, defaults: Record<string, unknown> | undefined): boolean {
+  const rawDualGrid = readPixiSpriteMetaField(value, defaults, 'dualGrid');
   return rawDualGrid === true || (isRecord(rawDualGrid) && rawDualGrid.enabled !== false);
 }
 
-function normalizePixiTileSpriteRef(value: unknown, manifestUrl: string, version: string, key: string, order: number): PixiTileSpriteRef | null {
+function normalizePixiTileSpriteRef(
+  value: unknown,
+  manifestUrl: string,
+  version: string,
+  key: string,
+  order: number,
+  defaults?: Record<string, unknown>,
+): PixiTileSpriteRef | null {
   if (!isRecord(value) || typeof value.src !== 'string' || value.src.trim().length === 0) return null;
   return {
     key,
     src: resolveRuntimeImagePackAssetUrl(manifestUrl, value.src, version),
-    cols: normalizePositiveInteger(value.cols, 1),
-    rows: normalizePositiveInteger(value.rows, 1),
-    col: normalizeNonNegativeInteger(value.col, 0),
-    row: normalizeNonNegativeInteger(value.row, 0),
-    colSpan: normalizePositiveInteger(value.colSpan, 1),
-    rowSpan: normalizePositiveInteger(value.rowSpan, 1),
-    zIndex: normalizeTileSpriteZIndex(value, key),
+    cols: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'cols'), 1),
+    rows: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'rows'), 1),
+    col: normalizeNonNegativeInteger(readPixiSpriteField(value, defaults, 'col'), 0),
+    row: normalizeNonNegativeInteger(readPixiSpriteField(value, defaults, 'row'), 0),
+    colSpan: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'colSpan'), 1),
+    rowSpan: normalizePositiveInteger(readPixiSpriteField(value, defaults, 'rowSpan'), 1),
+    zIndex: normalizeTileSpriteZIndexWithDefaults(value, defaults, key),
     order,
-    dualGrid: normalizeTileSpriteDualGrid(value),
+    dualGrid: normalizeTileSpriteDualGrid(value, defaults),
   };
 }
 
@@ -398,13 +426,18 @@ function resolveTopTileSpriteKey(tile: Tile, legacyTileKeys: ReadonlyMap<string,
   return legacyTileKeys.get(tile.type) ?? null;
 }
 
-function normalizePixiTileSpriteMap(value: unknown, manifestUrl: string, version: string): Map<string, PixiTileSpriteRef> {
+function normalizePixiTileSpriteMap(
+  value: unknown,
+  manifestUrl: string,
+  version: string,
+  defaults?: Record<string, unknown>,
+): Map<string, PixiTileSpriteRef> {
   const result = new Map<string, PixiTileSpriteRef>();
   if (!isRecord(value)) return result;
   let order = 0;
   for (const [key, rawRef] of Object.entries(value)) {
     const normalizedKey = key.trim();
-    const ref = normalizePixiTileSpriteRef(rawRef, manifestUrl, version, normalizedKey, order);
+    const ref = normalizePixiTileSpriteRef(rawRef, manifestUrl, version, normalizedKey, order, defaults);
     order += 1;
     if (normalizedKey && ref) result.set(normalizedKey, ref);
   }
@@ -918,7 +951,12 @@ export class PixiMapRendererAdapter {
       if (!response.ok) throw new Error(`runtime_tile_sprite_manifest_http_${response.status}`);
       const manifest = await response.json() as RuntimeTileSpriteManifest;
       const version = normalizeRuntimeImagePackVersion(manifest.version);
-      const refs = normalizePixiTileSpriteMap(manifest.tiles, DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL, version);
+      const refs = normalizePixiTileSpriteMap(
+        manifest.tiles,
+        DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL,
+        version,
+        manifest.defaults?.tile,
+      );
       this.runtimeTileSpriteRefs = new Map([...refs.entries()].sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order));
       this.runtimeLegacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
       this.runtimeTileManifestState = 'loaded';
