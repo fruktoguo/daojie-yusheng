@@ -129,6 +129,16 @@ export class PlayerRuntimeService {
 
         const existing = this.players.get(playerId);
         if (existing) {
+            if (options?.deferOfflineGainSettlement === true && await this.ensureOfflineGainSessionLoaded(playerId)) {
+                existing.sessionId = null;
+                if (!Number.isFinite(existing.offlineSinceAt)) {
+                    const session = this.offlineGainSessionsByPlayerId.get(playerId);
+                    existing.offlineSinceAt = Number.isFinite(Number(session?.startedAt))
+                        ? Math.max(0, Math.trunc(Number(session.startedAt)))
+                        : Date.now();
+                }
+                return existing;
+            }
             await this.finalizeOfflineGainSessionForPlayer(existing, Date.now());
             if (options?.forceRebind === true) {
                 this.bindRuntimeSession(existing, sessionId);
@@ -164,6 +174,16 @@ export class PlayerRuntimeService {
         }
         const lateExisting = this.players.get(playerId);
         if (lateExisting) {
+            if (options?.deferOfflineGainSettlement === true && await this.ensureOfflineGainSessionLoaded(playerId)) {
+                lateExisting.sessionId = null;
+                if (!Number.isFinite(lateExisting.offlineSinceAt)) {
+                    const session = this.offlineGainSessionsByPlayerId.get(playerId);
+                    lateExisting.offlineSinceAt = Number.isFinite(Number(session?.startedAt))
+                        ? Math.max(0, Math.trunc(Number(session.startedAt)))
+                        : Date.now();
+                }
+                return lateExisting;
+            }
             await this.finalizeOfflineGainSessionForPlayer(lateExisting, Date.now());
             if (options?.forceRebind === true) {
                 this.bindRuntimeSession(lateExisting, sessionId);
@@ -193,11 +213,23 @@ export class PlayerRuntimeService {
             }
         }
 
+        const deferOfflineGainSettlement = options?.deferOfflineGainSettlement === true;
         const player = snapshot
-            ? this.hydrateFromSnapshot(playerId, sessionId, snapshot)
+            ? this.hydrateFromSnapshot(playerId, deferOfflineGainSettlement ? null : sessionId, snapshot)
             : this.createFreshPlayer(playerId, sessionId);
         // 标记玩家数据来源：从持久化恢复 vs 凭空创建，供 flush 防御使用
         (player as any)._hydratedFromPersistence = Boolean(snapshot);
+        if (deferOfflineGainSettlement && await this.ensureOfflineGainSessionLoaded(playerId)) {
+            player.sessionId = null;
+            const session = this.offlineGainSessionsByPlayerId.get(playerId);
+            if (!Number.isFinite(player.offlineSinceAt)) {
+                player.offlineSinceAt = Number.isFinite(Number(session?.startedAt))
+                    ? Math.max(0, Math.trunc(Number(session.startedAt)))
+                    : Date.now();
+            }
+            this.players.set(playerId, player);
+            return player;
+        }
         await this.finalizeOfflineGainSessionForPlayer(player, Date.now());
         const sessionEpochFloor = Number.isFinite(options?.sessionEpochFloor)
             ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
@@ -495,6 +527,59 @@ export class PlayerRuntimeService {
             await this.playerDomainPersistenceService.savePlayerOfflineGainSession(normalizedPlayerId, session);
         }
     }
+    /** 确保离线收益会话从持久化恢复到内存。 */
+    async ensureOfflineGainSessionLoaded(playerId) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId) {
+            return false;
+        }
+        if (this.offlineGainSessionsByPlayerId.has(normalizedPlayerId)) {
+            return true;
+        }
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return false;
+        }
+        const persistedSession = await this.playerDomainPersistenceService.loadPlayerOfflineGainSession(normalizedPlayerId);
+        if (!persistedSession) {
+            return false;
+        }
+        this.offlineGainSessionsByPlayerId.set(normalizedPlayerId, {
+            sessionId: persistedSession.sessionId,
+            startedAt: persistedSession.startedAt,
+            baselinePayload: persistedSession.baselinePayload,
+            accumulatedPayload: persistedSession.accumulatedPayload ?? createEmptyOfflineGainReportParts(),
+            accumulatedDurationMs: persistedSession.accumulatedDurationMs ?? 0,
+        });
+        return true;
+    }
+    /** 判断玩家是否仍有待确认的离线收益会话。 */
+    async hasActiveOfflineGainSession(playerId) {
+        return this.ensureOfflineGainSessionLoaded(playerId);
+    }
+    /** 生成当前离线收益预览；不结算、不删除 session、不写入 pending 报告。 */
+    async loadOfflineGainPreviewReports(playerId) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId) {
+            return [];
+        }
+        const pendingReports = await this.loadPendingOfflineGainReports(normalizedPlayerId);
+        const hasSession = await this.ensureOfflineGainSessionLoaded(normalizedPlayerId);
+        const player = this.players.get(normalizedPlayerId);
+        if (!hasSession || !player) {
+            return pendingReports;
+        }
+        const session = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
+        if (!session) {
+            return pendingReports;
+        }
+        const previewReport = buildOfflineGainReportFromSession(
+            player,
+            session,
+            Date.now(),
+            this.contentTemplateRepository,
+        );
+        return mergePendingOfflineGainReportList(normalizedPlayerId, [...pendingReports, previewReport]);
+    }
     /** 读取当前还在云端等待浏览器本地归档的离线收益报告。 */
     async loadPendingOfflineGainReports(playerId) {
         const normalizedPlayerId = normalizeOfflineGainString(playerId);
@@ -630,13 +715,19 @@ export class PlayerRuntimeService {
         this.playerStatisticLastEmittedTotalsByPlayerId.set(normalizedPlayerId, totals);
     }
     /** 客户端确认报告已经写入浏览器本地后，清掉云端待发副本。 */
-    async acknowledgeOfflineGainReports(playerId, reportIds) {
+    async acknowledgeOfflineGainReports(playerId, reportIds, options = undefined) {
         const normalizedPlayerId = normalizeOfflineGainString(playerId);
         const normalizedReportIds = Array.from(new Set(Array.from(reportIds ?? [])
             .map((reportId) => normalizeOfflineGainString(reportId))
             .filter((reportId) => reportId.length > 0)));
         if (!normalizedPlayerId || normalizedReportIds.length === 0) {
             return;
+        }
+        if (await this.ensureOfflineGainSessionLoaded(normalizedPlayerId)) {
+            const player = this.players.get(normalizedPlayerId);
+            if (player) {
+                await this.finalizeOfflineGainSessionForPlayer(player, Date.now());
+            }
         }
         const existing = this.pendingOfflineGainReportsByPlayerId.get(normalizedPlayerId) ?? [];
         const reportIdSet = new Set(normalizedReportIds);
@@ -660,6 +751,20 @@ export class PlayerRuntimeService {
         if (this.playerDomainPersistenceService?.isEnabled?.()) {
             await this.playerDomainPersistenceService.deletePlayerOfflineGainReports(normalizedPlayerId, normalizedReportIds);
         }
+        const sessionId = normalizeOfflineGainString(options?.sessionId);
+        if (sessionId) {
+            this.activatePlayerRuntimeSession(normalizedPlayerId, sessionId);
+        }
+    }
+    /** 客户端确认离线收益后，把玩家从离线挂机态切回在线 session。 */
+    activatePlayerRuntimeSession(playerId, sessionId) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        const normalizedSessionId = normalizeOfflineGainString(sessionId);
+        const player = normalizedPlayerId ? this.players.get(normalizedPlayerId) : null;
+        if (!player || !normalizedSessionId) {
+            return null;
+        }
+        return this.bindRuntimeSession(player, normalizedSessionId);
     }
     /** 上线前把离线基线与当前权威态做差，生成待下发报告。 */
     async finalizeOfflineGainSessionForPlayer(player, endedAt = Date.now()) {

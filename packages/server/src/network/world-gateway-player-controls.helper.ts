@@ -8,7 +8,7 @@
  * 收敛聊天、自动战斗配置、修炼、天门和离线收益确认等玩家操作入口。
  */
 
-import { C2S, type ClientToServerEventPayload } from '@mud/shared';
+import { C2S, S2C, type ClientToServerEventPayload } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
 interface WorldGatewayPlayerControlsDeps {
@@ -32,7 +32,25 @@ interface WorldGatewayPlayerControlsDeps {
       ): void;
     };
   };
+  sessionBootstrapService: {
+    connectBootstrapRuntimePlayer(input: {
+      playerId: string;
+      sessionId?: string | null;
+      instanceId?: string | null;
+      mapId?: string | null;
+      preferredX?: number;
+      preferredY?: number;
+      allowCreateFallback?: boolean;
+    }): unknown;
+  };
   playerRuntimeService: {
+    getPlayer(playerId: string): {
+      instanceId?: string | null;
+      templateId?: string | null;
+      x?: number;
+      y?: number;
+    } | null | undefined;
+    loadOfflineGainPreviewReports(playerId: string): Promise<unknown[]>;
     updateAutoBattleSkills(playerId: string, skills: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleSkills>['skills']): void;
     updateAutoUsePills(playerId: string, pills: ClientToServerEventPayload<typeof C2S.UpdateAutoUsePills>['pills']): void;
     updateCombatTargetingRules(
@@ -44,7 +62,7 @@ interface WorldGatewayPlayerControlsDeps {
       mode: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleTargetingMode>['mode'],
     ): void;
     updateTechniqueSkillAvailability(playerId: string, techId: string, enabled: boolean): void;
-    acknowledgeOfflineGainReports(playerId: string, reportIds: string[]): Promise<void>;
+    acknowledgeOfflineGainReports(playerId: string, reportIds: string[], options?: { sessionId?: string | null }): Promise<void>;
   };
   gatewayClientEmitHelper: {
     emitQuests(client: Socket, payload: unknown): void;
@@ -86,9 +104,42 @@ export class WorldGatewayPlayerControlsHelper {
       return;
     }
     try {
-      await this.gateway.playerRuntimeService.acknowledgeOfflineGainReports(playerId, payload?.reportIds ?? []);
+      const sessionId = typeof client.data?.sessionId === 'string' ? client.data.sessionId : null;
+      await this.gateway.playerRuntimeService.acknowledgeOfflineGainReports(playerId, payload?.reportIds ?? [], { sessionId });
+      const player = this.gateway.playerRuntimeService.getPlayer(playerId);
+      if (sessionId && player) {
+        this.gateway.sessionBootstrapService.connectBootstrapRuntimePlayer({
+          playerId,
+          sessionId,
+          instanceId: player.instanceId ?? undefined,
+          mapId: player.templateId ?? undefined,
+          preferredX: Number.isFinite(Number(player.x)) ? Number(player.x) : undefined,
+          preferredY: Number.isFinite(Number(player.y)) ? Number(player.y) : undefined,
+          allowCreateFallback: false,
+        });
+      }
     } catch (error) {
       this.gateway.worldClientEventService.emitGatewayError(client, 'ACK_OFFLINE_GAIN_REPORTS_FAILED', error);
+    }
+  }
+
+  async handleRequestOfflineGainReports(
+    client: Socket,
+    _payload: ClientToServerEventPayload<typeof C2S.RequestOfflineGainReports>,
+  ): Promise<void> {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+    try {
+      const reports = await this.gateway.playerRuntimeService.loadOfflineGainPreviewReports(playerId);
+      client.emit(S2C.OfflineGainReports, {
+        reports,
+        preview: true,
+        blocking: true,
+      });
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_OFFLINE_GAIN_REPORTS_FAILED', error);
     }
   }
 

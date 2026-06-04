@@ -28,6 +28,7 @@ interface PlayerRuntimePort {
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>,
         options?: {
             forceRebind?: boolean;
+            deferOfflineGainSettlement?: boolean;
             buildStarterSnapshot?: (playerId: string) => PersistedPlayerSnapshot | null;
             onSnapshotLoaded?: (snapshot: PersistedPlayerSnapshot | null) => void;
             sessionEpochFloor?: number | null;
@@ -86,6 +87,7 @@ export class WorldSessionBootstrapPlayerInitService {
         displayName?: string | null;
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>;
         forceRuntimeSessionRebind?: boolean;
+        deferOfflineGainSettlement?: boolean;
         onSnapshotContextResolved?: (context: {
             source: string | null;
             persistedSource: string | null;
@@ -120,6 +122,7 @@ export class WorldSessionBootstrapPlayerInitService {
                 async () =>
                     this.playerRuntimeService!.loadOrCreatePlayer(input.playerId, input.sessionId, loadSnapshot, {
                         forceRebind: input.forceRuntimeSessionRebind === true,
+                        deferOfflineGainSettlement: input.deferOfflineGainSettlement === true,
                         buildStarterSnapshot: starterSnapshotBuilder ?? undefined,
                         onSnapshotLoaded: (snapshot) => {
                             loadedSnapshot = snapshot;

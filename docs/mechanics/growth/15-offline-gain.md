@@ -12,8 +12,18 @@
 2. 每 tick 执行 `captureOfflineGainBeforeTick` → 正常 tick → `accumulateOfflineGainAfterTick`
 3. 离线期间 tick 产生的境界修为、功法经验、底蕴等增量累积到 `accumulatedPayload`
 4. `accumulatedDurationMs += 1000`（每 tick 1 秒）
-5. 玩家上线时调用 `finalizeOfflineGainSessionForPlayer` 生成报告
-6. 报告持久化到 DB 或暂存内存，客户端确认后删除
+5. 玩家上线时先保持离线挂机态，不立即结算；服务端下发 `preview/blocking` 离线收益预览
+6. 客户端用不可关闭收益层遮住游戏界面，并每隔数秒请求刷新预览
+7. 玩家点击确认后调用 `finalizeOfflineGainSessionForPlayer` 生成最终报告
+8. 报告持久化到 DB 或暂存内存，客户端确认后删除，同时玩家切回在线 session
+
+## 确认前阻塞规则
+
+- 只要玩家没有确认收取，离线收益会话继续存在，角色仍按离线挂机 tick 累计收益
+- 预览报告只用于展示，不写入浏览器历史，不清理云端记录
+- 客户端确认时才把当前报告写入本地历史，并发送确认回执
+- 服务端收到确认后才结算离线收益、删除离线收益会话，并把玩家运行态切换为在线
+- 未确认的历史报告仍会与当前离线收益预览合并展示，云端保持一条累计记录
 
 ## 离线收益内容
 

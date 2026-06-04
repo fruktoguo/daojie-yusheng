@@ -28,6 +28,8 @@ interface ActivityRuntimePort {
 
 interface PlayerRuntimePort {
     loadPendingOfflineGainReports(playerId: string): Promise<unknown[]>;
+    loadOfflineGainPreviewReports?(playerId: string): Promise<unknown[]>;
+    hasActiveOfflineGainSession?(playerId: string): Promise<boolean>;
     loadPlayerStatisticTotals?(playerId: string): Promise<unknown>;
     markPlayerStatisticTotalsEmitted?(playerId: string, totals: unknown): void;
     markPendingOfflineGainReportsEmitted?(playerId: string, reports: unknown[]): void;
@@ -69,14 +71,18 @@ export class WorldSessionBootstrapPostEmitService {
         }
         await this.worldClientEventService?.emitMailSummaryForPlayer(client, playerId);
         this.worldClientEventService?.emitPendingLogbookMessages(client, playerId);
-        const offlineGainReports = await this.playerRuntimeService?.loadPendingOfflineGainReports(playerId) ?? [];
+        const offlineGainBlocking = await this.playerRuntimeService?.hasActiveOfflineGainSession?.(playerId) === true;
+        const offlineGainReports = offlineGainBlocking
+            ? await this.playerRuntimeService?.loadOfflineGainPreviewReports?.(playerId) ?? []
+            : await this.playerRuntimeService?.loadPendingOfflineGainReports(playerId) ?? [];
         const statisticTotals = await this.playerRuntimeService?.loadPlayerStatisticTotals?.(playerId) ?? null;
         if ((offlineGainReports.length > 0 || statisticTotals) && typeof (client as BootstrapClientLike & { emit?: (event: string, payload: unknown) => void }).emit === 'function') {
             (client as BootstrapClientLike & { emit: (event: string, payload: unknown) => void }).emit(S2C.OfflineGainReports, {
                 reports: offlineGainReports,
+                ...(offlineGainBlocking ? { preview: true, blocking: true } : {}),
                 ...(statisticTotals ? { totals: statisticTotals } : {}),
             });
-            if (offlineGainReports.length > 0) {
+            if (offlineGainReports.length > 0 && !offlineGainBlocking) {
                 this.playerRuntimeService?.markPendingOfflineGainReportsEmitted?.(playerId, offlineGainReports);
             }
             if (statisticTotals) {

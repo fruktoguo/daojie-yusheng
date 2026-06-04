@@ -246,6 +246,9 @@ export interface AckOfflineGainReportsRequestView {
   reportIds: string[];
 }
 
+/** 请求刷新当前离线收益预览，不确认、不停止离线挂机。 */
+export interface RequestOfflineGainReportsView {}
+
 /** 请求触发当前位置传送点。 */
 export interface UsePortalRequestView {}
 

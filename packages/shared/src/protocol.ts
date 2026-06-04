@@ -138,6 +138,7 @@ export const C2S = {
   Chat: 'n:c:chat',
   AckSystemMessages: 'n:c:ackSystemMessages',
   AckOfflineGainReports: 'n:c:ackOfflineGainReports',
+  RequestOfflineGainReports: 'n:c:requestOfflineGainReports',
   HeavenGateAction: 'n:c:heavenGateAction',
   Ping: 'n:c:ping',
   ReportMinimapVersions: 'n:c:reportMinimapVersions',
@@ -305,6 +306,7 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
   [C2S.Chat]: RequestPayloads.C2S_Chat;
   [C2S.AckSystemMessages]: RequestPayloads.C2S_AckSystemMessages;
   [C2S.AckOfflineGainReports]: RequestPayloads.C2S_AckOfflineGainReports;
+  [C2S.RequestOfflineGainReports]: RequestPayloads.C2S_RequestOfflineGainReports;
   [C2S.HeavenGateAction]: RequestPayloads.C2S_HeavenGateAction;
   [C2S.Ping]: RequestPayloads.C2S_Ping;
   [C2S.ReportMinimapVersions]: RequestPayloads.C2S_ReportMinimapVersions;

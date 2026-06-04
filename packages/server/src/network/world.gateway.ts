@@ -295,6 +295,8 @@ class WorldGateway implements WorldGatewayHelperContext {
     }
     @SubscribeMessage(C2S.AckOfflineGainReports)
     async handleAckOfflineGainReports(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayPlayerControlsHelper.handleAckOfflineGainReports(client, payload); }
+    @SubscribeMessage(C2S.RequestOfflineGainReports)
+    async handleRequestOfflineGainReports(@ConnectedSocket() client: Socket, @MessageBody() payload: any) { return this.gatewayPlayerControlsHelper.handleRequestOfflineGainReports(client, payload); }
     @SubscribeMessage(C2S.DebugResetSpawn)
     handleDebugResetSpawn(@ConnectedSocket() client: Socket, @MessageBody() _payload: any) {
         return this.gatewayPlayerControlsHelper.handleDebugResetSpawn(client, _payload);

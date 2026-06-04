@@ -19,9 +19,16 @@ type OfflineGainToastKind = 'success' | 'warn' | 'system';
 interface OfflineGainReportHandlerOptions {
   getPlayerId: () => string | null | undefined;
   ackOfflineGainReports: (reportIds: string[]) => void;
+  requestOfflineGainReports: () => void;
   showToast: (message: string, kind?: OfflineGainToastKind) => void;
   windowRef?: Window;
 }
+
+const OFFLINE_GAIN_MODAL_OWNER = 'offline-gain-reports';
+const OFFLINE_GAIN_REFRESH_INTERVAL_MS = 3_000;
+let blockingRefreshTimer: number | null = null;
+let blockingPlayerId = '';
+let blockingReports: OfflineGainReportView[] = [];
 
 export function handleOfflineGainReports(
   payload: ServerToClientEventPayload<typeof S2C.OfflineGainReports>,
@@ -38,6 +45,11 @@ export function handleOfflineGainReports(
     return;
   }
 
+  if (payload?.preview === true || payload?.blocking === true) {
+    openOfflineGainBlockingPreview(playerId, reports, options);
+    return;
+  }
+
   const storeResult = storeOfflineGainReportsInBrowser(playerId, reports, options.windowRef ?? window);
 
   if (storeResult.reports.length > 0) {
@@ -51,6 +63,17 @@ export function handleOfflineGainReports(
   }
 }
 
+function openOfflineGainBlockingPreview(
+  playerId: string,
+  reports: readonly OfflineGainReportView[],
+  options: OfflineGainReportHandlerOptions,
+): void {
+  blockingPlayerId = playerId;
+  blockingReports = [...reports];
+  patchOrOpenOfflineGainModal(blockingReports, options, true);
+  startBlockingRefresh(options);
+}
+
 function openOfflineGainReportsModal(
   storeResult: OfflineGainStoreResult,
   options: OfflineGainReportHandlerOptions,
@@ -59,40 +82,110 @@ function openOfflineGainReportsModal(
   if (reports.length === 0) {
     return;
   }
-  const totalDurationMs = reports.reduce((total, report) => total + Math.max(0, report.durationMs), 0);
-  const allReportIds = storeResult.storedReportIds;
+  patchOrOpenOfflineGainModal(reports, options, false, storeResult.storedReportIds);
+}
 
-  detailModalHost.open({
-    ownerId: 'offline-gain-reports',
-    variantClass: 'detail-modal--offline-gain',
+function patchOrOpenOfflineGainModal(
+  reports: readonly OfflineGainReportView[],
+  options: OfflineGainReportHandlerOptions,
+  blocking: boolean,
+  storedReportIds?: string[],
+): void {
+  const totalDurationMs = reports.reduce((total, report) => total + Math.max(0, report.durationMs), 0);
+  const allReportIds = storedReportIds ?? reports.map((report) => report.id).filter(Boolean);
+  const variantClass = blocking
+    ? 'detail-modal--offline-gain detail-modal--offline-gain-blocking'
+    : 'detail-modal--offline-gain';
+  const bodyHtml = renderOfflineGainReportsWithConfirm(reports, blocking);
+  const bindConfirm = (body: HTMLElement) => {
+    const confirmBtn = body.querySelector<HTMLButtonElement>('.offline-gain-confirm-btn');
+    if (!confirmBtn) {
+      return;
+    }
+    confirmBtn.addEventListener('click', () => {
+      const reportIds = blocking
+        ? confirmBlockingOfflineGainReports(options)
+        : allReportIds;
+      if (reportIds.length === 0) {
+        return;
+      }
+      options.ackOfflineGainReports(reportIds);
+      stopBlockingRefresh(options);
+      detailModalHost.patch({
+        ownerId: OFFLINE_GAIN_MODAL_OWNER,
+        onRequestClose: null,
+      });
+      detailModalHost.close(OFFLINE_GAIN_MODAL_OWNER);
+      options.showToast(t('offline-gain.toast.saved', { count: reports.length }), 'success');
+    });
+  };
+
+  const patched = detailModalHost.patch({
+    ownerId: OFFLINE_GAIN_MODAL_OWNER,
+    variantClass,
     size: 'lg',
     title: t('offline-gain.modal.title'),
     subtitle: t('offline-gain.modal.subtitle', { count: reports.length, duration: formatOfflineGainDuration(totalDurationMs) }),
     hint: t('offline-gain.modal.hint.confirm'),
-    bodyHtml: renderOfflineGainReportsWithConfirm(reports),
+    bodyHtml,
     onRequestClose: () => false,
-    onAfterRender: (body) => {
-      const confirmBtn = body.querySelector<HTMLButtonElement>('.offline-gain-confirm-btn');
-      if (confirmBtn) {
-        confirmBtn.addEventListener('click', () => {
-          if (allReportIds.length > 0) {
-            options.ackOfflineGainReports(allReportIds);
-          }
-          detailModalHost.patch({
-            ownerId: 'offline-gain-reports',
-            onRequestClose: null,
-          });
-          detailModalHost.close('offline-gain-reports');
-          options.showToast(t('offline-gain.toast.saved', { count: reports.length }), 'success');
-        });
-      }
-    },
+    onAfterRender: bindConfirm,
+  });
+  if (patched) {
+    return;
+  }
+
+  detailModalHost.open({
+    ownerId: OFFLINE_GAIN_MODAL_OWNER,
+    variantClass,
+    size: 'lg',
+    title: t('offline-gain.modal.title'),
+    subtitle: t('offline-gain.modal.subtitle', { count: reports.length, duration: formatOfflineGainDuration(totalDurationMs) }),
+    hint: t('offline-gain.modal.hint.confirm'),
+    bodyHtml,
+    onRequestClose: () => false,
+    onAfterRender: bindConfirm,
   });
 }
 
-function renderOfflineGainReportsWithConfirm(reports: readonly OfflineGainReportView[]): string {
+function confirmBlockingOfflineGainReports(options: OfflineGainReportHandlerOptions): string[] {
+  const reports = blockingReports;
+  if (reports.length === 0) {
+    return [];
+  }
+  const storeResult = storeOfflineGainReportsInBrowser(blockingPlayerId || 'anonymous', reports, options.windowRef ?? window);
+  if (!storeResult.storageOk) {
+    options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
+    return [];
+  }
+  return storeResult.storedReportIds;
+}
+
+function startBlockingRefresh(options: OfflineGainReportHandlerOptions): void {
+  if (blockingRefreshTimer !== null) {
+    return;
+  }
+  const windowRef = options.windowRef ?? window;
+  blockingRefreshTimer = windowRef.setInterval(() => {
+    options.requestOfflineGainReports();
+  }, OFFLINE_GAIN_REFRESH_INTERVAL_MS);
+}
+
+function stopBlockingRefresh(options: OfflineGainReportHandlerOptions): void {
+  if (blockingRefreshTimer === null) {
+    return;
+  }
+  const windowRef = options.windowRef ?? window;
+  windowRef.clearInterval(blockingRefreshTimer);
+  blockingRefreshTimer = null;
+  blockingPlayerId = '';
+  blockingReports = [];
+}
+
+function renderOfflineGainReportsWithConfirm(reports: readonly OfflineGainReportView[], blocking = false): string {
   return `
     ${renderOfflineGainReports(reports)}
+    ${blocking ? '<div class="offline-gain-blocking-note">确认前角色仍保持离线挂机，收益会自动刷新。</div>' : ''}
     <div class="offline-gain-confirm-area">
       <button class="offline-gain-confirm-btn ui-btn">${t('offline-gain.modal.confirm-btn')}</button>
     </div>

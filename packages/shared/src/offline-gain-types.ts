@@ -116,6 +116,8 @@ export interface OfflineGainReportView {
 /** 玩家收支统计记录批次。 */
 export interface OfflineGainReportsView {
   reports: OfflineGainReportView[];
+  preview?: boolean;
+  blocking?: boolean;
   totals?: PlayerStatisticTotalsView;
   totalsPatch?: PlayerStatisticTotalsPatchView;
 }

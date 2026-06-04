@@ -17,6 +17,7 @@ import type {
   MoveToRequestView,
   NavigateQuestRequestView,
   PingRequestView,
+  RequestOfflineGainReportsView,
   CancelTechniqueTransmissionRequestView,
   ForgetTechniqueRequestView,
   UpdateAutoBattleSkillsRequestView,
@@ -157,6 +158,8 @@ export interface C2S_Chat extends ChatRequestView {}
 export interface C2S_AckSystemMessages extends AckSystemMessagesRequestView {}
 /** 离线收益报告已存入浏览器本地的回执。 */
 export interface C2S_AckOfflineGainReports extends AckOfflineGainReportsRequestView {}
+/** 请求刷新离线收益预览。 */
+export interface C2S_RequestOfflineGainReports extends RequestOfflineGainReportsView {}
 /** 请求坊市首页数据。 */
 export interface C2S_RequestMarket extends RequestMarketView {}
 /** 请求坊市分页列表。 */

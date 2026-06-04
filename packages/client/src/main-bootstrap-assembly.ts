@@ -506,7 +506,7 @@ type MainBootstrapAssemblyOptions = {
  * socialEconomySender：socialEconomySender相关字段。
  */
 
-  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat' | 'ackOfflineGainReports'>;
+  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat' | 'ackOfflineGainReports' | 'requestOfflineGainReports'>;
   /**
  * adminSender：adminSender相关字段。
  */
@@ -736,6 +736,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onOfflineGainReports: (data) => handleOfflineGainReports(data, {
       getPlayerId: () => options.getPlayer()?.id,
       ackOfflineGainReports: (reportIds) => options.socialEconomySender.ackOfflineGainReports(reportIds),
+      requestOfflineGainReports: () => options.socialEconomySender.requestOfflineGainReports(),
       showToast: (message, kind) => options.showToast(message, kind),
       windowRef: options.windowRef,
     }),

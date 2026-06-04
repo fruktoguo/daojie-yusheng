@@ -254,12 +254,45 @@ async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
   assert.equal(realmRow.net, 14_400);
 }
 
+async function testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  for (let tick = 1; tick <= 60; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+
+  const previewBefore = await service.loadOfflineGainPreviewReports(player.playerId);
+  assert.equal(previewBefore.length, 1);
+  assert.equal(previewBefore[0].durationMs, 60_000);
+  assert.equal(await service.hasActiveOfflineGainSession(player.playerId), true);
+  assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
+
+  for (let tick = 61; tick <= 62; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+  const previewAfter = await service.loadOfflineGainPreviewReports(player.playerId);
+  assert.equal(previewAfter.length, 1);
+  assert.equal(previewAfter[0].id, previewBefore[0].id);
+  assert.equal(previewAfter[0].durationMs, 62_000);
+
+  await service.acknowledgeOfflineGainReports(player.playerId, [previewAfter[0].id], { sessionId: "sid:confirmed" });
+  assert.equal(await service.hasActiveOfflineGainSession(player.playerId), false);
+  assert.equal(player.sessionId, "sid:confirmed");
+  assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
+}
+
 async function main() {
   await testOfflineAccumulatedGainWinsOverSnapshotLoss();
   await testOfflineGlobalStatisticsKeepGainAndLossSeparated();
   await testOfflineSnapshotFallbackDoesNotFabricateStoppedServerChanges();
   await testOfflineDurationIncludesNoGainTicks();
   await testUnconfirmedOfflineReportsMergeIntoOnePendingRecord();
+  await testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck();
   console.log("offline-gain-statistics-smoke passed");
 }
 

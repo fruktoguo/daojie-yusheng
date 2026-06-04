@@ -59,6 +59,7 @@ interface PlayerRuntimeInitPort {
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>,
         options?: {
             forceRebind?: boolean;
+            deferOfflineGainSettlement?: boolean;
             buildStarterSnapshot?: (playerId: string) => PersistedPlayerSnapshot | null;
             onSnapshotLoaded?: (snapshot: PersistedPlayerSnapshot | null) => void;
         },
@@ -83,6 +84,7 @@ interface PlayerRuntimeInitPort {
         transferTargetNodeId?: string | null;
         versionSeed?: number | null;
     } | null;
+    hasActiveOfflineGainSession?(playerId: string): Promise<boolean>;
 }
 
 interface MailRuntimeInitPort {
@@ -207,6 +209,7 @@ export class WorldSessionBootstrapService {
             this.snapshotBootstrapService,
             activityRuntimeService as ActivityRuntimePort,
             worldClientEventService as WorldClientEventPort,
+            playerRuntimeService as never,
         );
         this.sessionBindBootstrapService = sessionBindBootstrapService ?? new WorldSessionBootstrapSessionBindService(
             this.contextHelper,
@@ -357,6 +360,7 @@ export class WorldSessionBootstrapService {
         displayName?: string | null;
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>;
         forceRuntimeSessionRebind?: boolean;
+        deferOfflineGainSettlement?: boolean;
         onSnapshotContextResolved?: (context: {
             source: string | null;
             persistedSource: string | null;
@@ -431,10 +435,12 @@ export class WorldSessionBootstrapService {
             name: input.name,
             displayName: input.displayName,
             loadSnapshot: input.loadSnapshot,
+            deferOfflineGainSettlement: true,
             onSnapshotContextResolved: (context) => {
                 this.rememberBootstrapSnapshotContext(client, context.source, context.persistedSource);
             },
         });
+        const offlineGainBlocking = await this.playerRuntimeService.hasActiveOfflineGainSession?.(binding.playerId) === true;
         const bindingSessionEpoch = Number(this.playerRuntimeService.describePersistencePresence?.(binding.playerId)?.sessionEpoch ?? 0);
         if (Number.isFinite(bindingSessionEpoch) && bindingSessionEpoch > 0) {
             this.worldSessionService.rememberSessionEpoch(binding.playerId, bindingSessionEpoch);
@@ -449,7 +455,7 @@ export class WorldSessionBootstrapService {
         );
         this.connectBootstrapRuntimePlayer({
             playerId: binding.playerId,
-            sessionId: binding.sessionId,
+            sessionId: offlineGainBlocking ? null : binding.sessionId,
             instanceId: bootstrapInstanceId,
             mapId: input.mapId ?? (player.templateId || undefined),
             preferredX: input.preferredX ?? (player.templateId ? player.x : undefined),

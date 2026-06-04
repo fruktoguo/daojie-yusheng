@@ -254,6 +254,17 @@
   max-height: min(78dvh, 720px);
 }
 
+.detail-modal.detail-modal--offline-gain-blocking {
+  z-index: 4200;
+  background: rgba(17, 16, 14, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.detail-modal-card.detail-modal--offline-gain-blocking {
+  width: min(760px, calc(100vw - 24px));
+  max-height: min(86dvh, 760px);
+}
+
 .detail-modal-card.detail-modal--offline-gain #detail-modal-body {
   overflow: auto;
 }
@@ -341,6 +352,16 @@
   display: flex;
   justify-content: center;
   padding: 16px 0 4px;
+}
+
+.offline-gain-blocking-note {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(34, 26, 19, 0.12);
+  background: var(--surface);
+  color: var(--color-role-body-muted);
+  font-size: var(--font-size-12);
+  text-align: center;
 }
 
 .offline-gain-confirm-btn {
