@@ -830,7 +830,10 @@ export class NativeGmWorldService {
     const persistentPolicy = normalizeRuntimeInstancePersistentPolicy(body?.persistentPolicy);
     const expireAt = normalizeOptionalFutureTimestamp(body?.expireAt);
     const lineIndex = resolveManualLineIndex(this.worldRuntimeService.listInstances(), templateId, linePreset);
+    const instanceId = buildManualLineInstanceId(templateId, linePreset, lineIndex);
     const presetMeta = buildRuntimeInstancePresetMeta({
+      instanceId,
+      kind: 'public',
       templateName: template.name,
       displayName: typeof body?.displayName === 'string' ? body.displayName.trim() : '',
       linePreset,
@@ -839,7 +842,7 @@ export class NativeGmWorldService {
       defaultEntry: false,
     });
     const created = this.worldRuntimeService.createInstance({
-      instanceId: buildManualLineInstanceId(templateId, linePreset, lineIndex),
+      instanceId,
       templateId,
       kind: 'public',
       persistent: persistentPolicy !== 'ephemeral',

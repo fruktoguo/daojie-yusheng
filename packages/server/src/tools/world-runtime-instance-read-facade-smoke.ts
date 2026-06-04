@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { WorldRuntimeInstanceReadFacadeService } = require("../runtime/world/world-runtime-instance-read-facade.service");
+const { WorldRuntimeInstanceReadFacadeService } = require("../runtime/world/query/world-runtime-instance-read-facade.service");
 /**
  * testInstanceReadFacade：读取testInstanceReadFacade并返回结果。
  * @returns 无返回值，直接更新testInstanceReadFacade相关状态。
@@ -228,6 +228,30 @@ function testInstanceReadFacade() {
     assert.equal(created.meta.defaultEntry, true);
     assert.equal(created.meta.supportsPvp, false);
     assert.equal(created.meta.canDamageTile, true);
+    const createdSect = service.createInstance({
+        instanceId: 'sect:smoke:main',
+        templateId: 'yunlai_town',
+        kind: 'sect',
+        persistent: true,
+        linePreset: 'peaceful',
+        defaultEntry: false,
+    }, deps);
+    assert.equal(createdSect.meta.instanceId, 'sect:smoke:main');
+    assert.equal(createdSect.meta.linePreset, 'peaceful');
+    assert.equal(createdSect.meta.defaultEntry, false);
+    assert.equal(createdSect.meta.supportsPvp, true);
+    assert.equal(createdSect.meta.canDamageTile, true);
+    const createdNoTileDamage = service.createInstance({
+        instanceId: 'tower:smoke:1',
+        templateId: 'yunlai_town',
+        kind: 'tower',
+        persistent: true,
+        linePreset: 'peaceful',
+        supportsPvp: false,
+        canDamageTile: false,
+    }, deps);
+    assert.equal(createdNoTileDamage.meta.supportsPvp, false);
+    assert.equal(createdNoTileDamage.meta.canDamageTile, false);
     const createdReal = service.createInstance({
         instanceId: 'real:yunlai_town',
         templateId: 'yunlai_town',

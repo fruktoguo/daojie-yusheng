@@ -192,6 +192,8 @@ class WorldRuntimeSectService {
             lineIndex: 1,
             instanceOrigin: 'sect',
             defaultEntry: false,
+            supportsPvp: true,
+            canDamageTile: true,
             ownerSectId: sect.sectId,
             displayName: sect.name,
             routeDomain: `sect:${sect.sectId}`,

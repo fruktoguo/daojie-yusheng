@@ -208,6 +208,7 @@ async function main() {
         lineIndex: input.lineIndex,
         instanceOrigin: input.instanceOrigin,
         defaultEntry: input.defaultEntry,
+        supportsPvp: input.supportsPvp,
         canDamageTile: true,
         ownerSectId: input.ownerSectId,
         routeDomain: input.routeDomain,
@@ -299,6 +300,8 @@ async function main() {
 
   const sectInstance = instances.get(entrance.targetInstanceId);
   assert.ok(sectInstance);
+  assert.equal(sectInstance.meta.supportsPvp, true);
+  assert.equal(sectInstance.meta.canDamageTile, true);
   const previousSectId = "sect:previous-smoke";
   const previousSect = {
     sectId: previousSectId,

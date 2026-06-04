@@ -131,13 +131,20 @@ export function buildRuntimeInstancePresetMeta(input) {
     const displayName = typeof input?.displayName === 'string' && input.displayName.trim()
         ? input.displayName.trim()
         : buildRuntimeInstanceDisplayName(input?.templateName, linePreset, lineIndex, defaultEntry);
+    const instanceId = typeof input?.instanceId === 'string' ? input.instanceId.trim() : '';
+    const kind = typeof input?.kind === 'string' ? input.kind.trim() : '';
+    const isPublicWorld = kind === 'public' || instanceId.startsWith('public:') || instanceId.startsWith('line:');
+    const isVirtualPublicWorld = isPublicWorld
+        && linePreset !== 'real'
+        && !instanceId.startsWith('real:')
+        && !instanceId.includes(':real:');
     return {
         displayName,
         linePreset,
         lineIndex,
         instanceOrigin: input?.instanceOrigin === 'gm_manual' ? 'gm_manual' : 'bootstrap',
-        supportsPvp: linePreset === 'real',
-        canDamageTile: true,
+        supportsPvp: typeof input?.supportsPvp === 'boolean' ? input.supportsPvp : !isVirtualPublicWorld,
+        canDamageTile: typeof input?.canDamageTile === 'boolean' ? input.canDamageTile : true,
         defaultEntry,
     };
 }

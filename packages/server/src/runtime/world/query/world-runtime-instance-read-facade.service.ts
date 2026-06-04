@@ -114,12 +114,16 @@ export class WorldRuntimeInstanceReadFacadeService {
         const template = deps.templateRepository.getOrThrow(input.templateId);
         const descriptor = parseRuntimeInstanceDescriptor(input.instanceId);
         const presetMeta = buildRuntimeInstancePresetMeta({
+            instanceId: input.instanceId,
+            kind: input.kind,
             templateName: template.name,
             displayName: input.displayName,
             linePreset: input.linePreset ?? descriptor?.linePreset ?? normalizeRuntimeInstanceLinePreset(undefined),
             lineIndex: input.lineIndex ?? descriptor?.lineIndex,
             instanceOrigin: input.instanceOrigin ?? descriptor?.instanceOrigin,
             defaultEntry: input.defaultEntry ?? descriptor?.defaultEntry,
+            supportsPvp: input.supportsPvp,
+            canDamageTile: input.canDamageTile,
         });
         const instance = new MapInstanceRuntime({
             instanceId: input.instanceId,
