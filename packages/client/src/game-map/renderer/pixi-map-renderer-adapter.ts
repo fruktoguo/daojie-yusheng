@@ -218,6 +218,10 @@ const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 const DEFAULT_PATH_TRAIL_FADE_MS = 500;
 const PATH_TRAIL_FADE_ALPHA = 0.7;
 const DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL = '/assets/runtime-image-packs/default/manifest.json';
+const TERRAIN_CHUNK_CACHE_OPTIONS = {
+  resolution: 1,
+  scaleMode: 'nearest',
+} as const;
 const DUAL_GRID_ATLAS_COORDS: ReadonlyArray<readonly [number, number]> = [
   [0, 3], [3, 3], [0, 0], [3, 2],
   [0, 2], [1, 2], [2, 3], [3, 1],
@@ -1169,6 +1173,7 @@ export class PixiMapRendererAdapter {
         let chunk = this.terrainChunks.get(key);
         if (!chunk) {
           chunk = { key, cx, cy, container: new Container(), signature: '', signatureDeps: null, lastSeenFrame: this.chunkFrame };
+          chunk.container.label = `terrain-chunk:${key}`;
           this.terrainChunks.set(key, chunk);
           this.terrainLayer.addChild(chunk.container);
         }
@@ -1250,6 +1255,7 @@ export class PixiMapRendererAdapter {
   }
 
   private rebuildTerrainChunk(chunk: TerrainChunkView, scene: MapSceneSnapshot, cellSize: number, signature: string): void {
+    this.disableTerrainChunkCache(chunk.container);
     this.clearContainer(chunk.container);
     chunk.container.sortableChildren = true;
     const baseGraphics = new Graphics();
@@ -1299,6 +1305,17 @@ export class PixiMapRendererAdapter {
     this.drawRuntimeDualGridEdges(chunk.container, scene, startX, startY, cellSize);
     chunk.container.addChild(baseGraphics, overlayGraphics);
     chunk.signature = signature;
+    this.enableTerrainChunkCache(chunk.container);
+  }
+
+  private enableTerrainChunkCache(container: Container): void {
+    if (container.children.length === 0) return;
+    container.cacheAsTexture(TERRAIN_CHUNK_CACHE_OPTIONS);
+  }
+
+  private disableTerrainChunkCache(container: Container): void {
+    if (!container.isCachedAsTexture) return;
+    container.cacheAsTexture(false);
   }
 
   private drawTerrainOverlays(
@@ -2155,11 +2172,22 @@ export class PixiMapRendererAdapter {
   }
 
   private buildProfileRendererState(): PixiProfileSnapshot['renderer'] {
+    let cachedTerrainChunks = 0;
+    let terrainChunkChildren = 0;
+    for (const chunk of this.terrainChunks.values()) {
+      terrainChunkChildren += chunk.container.children.length;
+      if (chunk.container.isCachedAsTexture) cachedTerrainChunks += 1;
+    }
     return {
       terrainChunks: this.terrainChunks.size,
+      cachedTerrainChunks,
+      terrainChunkChildren,
       entities: this.entities.size,
       runtimeTileTextures: this.runtimeTileTextures.size,
       runtimeTileManifestState: this.runtimeTileManifestState,
+      backbufferWidth: this.width,
+      backbufferHeight: this.height,
+      backbufferPixels: this.width * this.height,
     };
   }
 

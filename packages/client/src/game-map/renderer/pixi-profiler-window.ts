@@ -63,9 +63,14 @@ export interface PixiProfileSnapshot {
 
 export interface PixiProfileRendererState {
   terrainChunks: number;
+  cachedTerrainChunks: number;
+  terrainChunkChildren: number;
   entities: number;
   runtimeTileTextures: number;
   runtimeTileManifestState: 'idle' | 'loading' | 'loaded' | 'error';
+  backbufferWidth: number;
+  backbufferHeight: number;
+  backbufferPixels: number;
 }
 
 export interface PixiProfileFrameSample {
@@ -453,6 +458,8 @@ export class PixiProfilerWindow {
       ['dual', sample.counters.dualGridSprites],
       ['sprites', sample.counters.runtimeTileSprites],
       ['entities', sample.counters.entities],
+      ['cached', sample.renderer.cachedTerrainChunks],
+      ['children', sample.renderer.terrainChunkChildren],
       ['textures', sample.renderer.runtimeTileTextures],
     ];
     this.counterEl.innerHTML = entries
@@ -539,9 +546,14 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     '',
     'renderer\tvalue',
     `terrainChunks\t${sample.renderer.terrainChunks}`,
+    `cachedTerrainChunks\t${sample.renderer.cachedTerrainChunks}`,
+    `terrainChunkChildren\t${sample.renderer.terrainChunkChildren}`,
     `entities\t${sample.renderer.entities}`,
     `runtimeTileTextures\t${sample.renderer.runtimeTileTextures}`,
     `runtimeTileManifestState\t${sample.renderer.runtimeTileManifestState}`,
+    `backbufferWidth\t${sample.renderer.backbufferWidth}`,
+    `backbufferHeight\t${sample.renderer.backbufferHeight}`,
+    `backbufferPixels\t${sample.renderer.backbufferPixels}`,
   ].join('\n');
 }
 
