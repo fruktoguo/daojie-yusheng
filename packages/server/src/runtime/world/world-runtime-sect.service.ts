@@ -294,8 +294,8 @@ class WorldRuntimeSectService {
             name: maintainingGuardian ? '停止补充：护宗大阵' : '补充灵力：护宗大阵',
             type: 'interact',
             desc: maintainingGuardian
-                ? '停止持续向护宗大阵注入自身灵力。'
-                : '持续向护宗大阵注入自身灵力，每息获得阵法技艺经验。',
+                ? `停止持续向护宗大阵注入自身灵力。当前大阵灵力 ${formatInteger(resolveFormationQiBudget(guardian))}。`
+                : `持续向护宗大阵注入自身灵力，每息获得阵法技艺经验。当前大阵灵力 ${formatInteger(resolveFormationQiBudget(guardian))}。`,
             cooldownLeft: 0,
         });
         return actions;
@@ -353,17 +353,12 @@ class WorldRuntimeSectService {
         if (actionId === 'sect:guardian:maintain') {
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
                 ?? this.ensureGuardianFormation(sect, deps);
-            deps.enqueuePendingCommand(playerId, {
-                kind: 'startFormationMaintenance',
-                payload: { formationInstanceId: formation?.id ?? guardianId },
-            });
+            dispatchSectGuardianTechniqueActivity(playerId, 'start', formation?.id ?? guardianId, deps);
             deps.refreshPlayerContextActions?.(playerId);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
         if (actionId === 'sect:guardian:cancel_maintain') {
-            deps.enqueuePendingCommand(playerId, {
-                kind: 'cancelFormationMaintenance',
-            });
+            dispatchSectGuardianTechniqueActivity(playerId, 'cancel', guardianId, deps);
             deps.refreshPlayerContextActions?.(playerId);
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
@@ -1473,7 +1468,7 @@ function formatSectGuardianStatusLabel(formation) {
     if (!formation) {
         return '未建立';
     }
-    const qiBudget = Number(formation.remainingQiBudget ?? formation.remainingAuraBudget) || 0;
+    const qiBudget = resolveFormationQiBudget(formation);
     const spiritStoneBudget = Number(formation.remainingSpiritStoneBudget ?? formation.spiritStoneCount) || 0;
     if (formation.active === false || qiBudget <= 0 || spiritStoneBudget <= 0) {
         return '停摆';
@@ -1481,8 +1476,12 @@ function formatSectGuardianStatusLabel(formation) {
     return '开启';
 }
 
+function resolveFormationQiBudget(formation) {
+    return Math.max(0, Math.floor(Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0));
+}
+
 function formatSectGuardianAuraLabel(formation) {
-    const qiValue = Math.max(0, Math.floor(Number(formation?.remainingQiBudget ?? formation?.remainingAuraBudget) || 0));
+    const qiValue = resolveFormationQiBudget(formation);
     const stoneValue = Math.max(0, Math.floor(Number(formation?.remainingSpiritStoneBudget ?? formation?.spiritStoneCount) || 0));
     return `${formatInteger(qiValue)} / 灵石 ${formatInteger(stoneValue)}`;
 }
@@ -1508,6 +1507,39 @@ function buildSectGuardianManagementData(formation, formationService = null, pla
 function formatInteger(value) {
     const normalized = Math.max(0, Math.floor(Number(value) || 0));
     return formatDisplayInteger(normalized);
+}
+
+function dispatchSectGuardianTechniqueActivity(playerId, mode, formationInstanceId, deps) {
+    if (mode === 'start' && typeof deps?.craftPanelRuntimeService?.startTechniqueActivity === 'function'
+        && typeof deps?.worldRuntimeCraftMutationService?.flushCraftMutation === 'function') {
+        const result = deps.craftPanelRuntimeService.startTechniqueActivity(
+            deps.playerRuntimeService.getPlayerOrThrow(playerId),
+            'formation',
+            { formationInstanceId },
+            deps,
+        );
+        if (!result?.ok) {
+            throw new BadRequestException(result?.error ?? '启动护宗大阵维护失败');
+        }
+        deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+        return;
+    }
+    if (mode === 'cancel' && typeof deps?.craftPanelRuntimeService?.cancelTechniqueActivity === 'function'
+        && typeof deps?.worldRuntimeCraftMutationService?.flushCraftMutation === 'function') {
+        const result = deps.craftPanelRuntimeService.cancelTechniqueActivity(
+            deps.playerRuntimeService.getPlayerOrThrow(playerId),
+            'formation',
+            deps,
+        );
+        if (!result?.ok) {
+            throw new BadRequestException(result?.error ?? '停止护宗大阵维护失败');
+        }
+        deps.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'formation', deps);
+        return;
+    }
+    deps.enqueuePendingCommand?.(playerId, mode === 'start'
+        ? { kind: 'startFormationMaintenance', payload: { formationInstanceId } }
+        : { kind: 'cancelFormationMaintenance' });
 }
 
 function buildSectManagementActionDesc(sect, view, deps, guardian) {

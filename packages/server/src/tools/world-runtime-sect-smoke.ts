@@ -11,6 +11,7 @@ const { Direction } = require("@mud/shared");
 const { WorldSyncMapSnapshotService } = require("../network/world-sync-map-snapshot.service");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
 const { WorldRuntimeDetailQueryService } = require("../runtime/world/query/world-runtime-detail-query.service");
+const { buildTechniqueActivityTaskListView } = require("../runtime/craft/technique-activity-task-view.helpers");
 
 const playerId = "player:sect-smoke";
 const deputyPlayerId = "player:sect-deputy";
@@ -119,6 +120,7 @@ async function main() {
   const transfers = [];
   const guardians = [];
   const pendingCommands = [];
+  const craftMutationFlushes = [];
   const playerRuntimeService = {
     getPlayerOrThrow(targetPlayerId) {
       const target = players.get(targetPlayerId);
@@ -178,6 +180,63 @@ async function main() {
         const guardian = guardians.find((entry) => entry.id === payload.formationInstanceId);
         if (guardian) guardian.remainingAuraBudget = (guardian.remainingAuraBudget ?? 0) + (payload.spiritStoneCount * 100);
         return guardian;
+      },
+      checkFormationMaintenanceCondition() {
+        return { satisfied: true };
+      },
+    },
+    craftPanelRuntimeService: {
+      startTechniqueActivity(targetPlayer, kind, payload) {
+        assert.equal(kind, "formation");
+        const formation = guardians.find((entry) => entry.id === payload.formationInstanceId);
+        targetPlayer.formationJob = {
+          jobRunId: `job:${targetPlayer.playerId}:formation:test`,
+          jobType: "formation",
+          formationInstanceId: payload.formationInstanceId,
+          formationName: formation?.name ?? "护宗大阵",
+          instanceId: formation?.instanceId,
+          controlInstanceId: formation?.eyeInstanceId ?? formation?.instanceId,
+          controlX: formation?.eyeX ?? formation?.x,
+          controlY: formation?.eyeY ?? formation?.y,
+          phase: "maintaining",
+          totalTicks: 1,
+          remainingTicks: 1,
+          workTotalTicks: 1,
+          workRemainingTicks: 1,
+        };
+        return {
+          ok: true,
+          panelChanged: true,
+          messages: [{
+            kind: "quest",
+            key: "notice.craft.formation.start",
+            vars: { formationName: targetPlayer.formationJob.formationName },
+          }],
+          groundDrops: [],
+        };
+      },
+      cancelTechniqueActivity(targetPlayer, kind) {
+        assert.equal(kind, "formation");
+        const formationName = targetPlayer.formationJob?.formationName ?? "护宗大阵";
+        targetPlayer.formationJob = null;
+        return {
+          ok: true,
+          panelChanged: true,
+          messages: [{
+            kind: "system",
+            key: "notice.craft.formation.stopped",
+            vars: { formationName },
+          }],
+          groundDrops: [],
+        };
+      },
+    },
+    worldRuntimeCraftMutationService: {
+      flushCraftMutation(targetPlayerId, result, panel) {
+        craftMutationFlushes.push({ playerId: targetPlayerId, result, panel });
+        for (const message of result.messages ?? []) {
+          notices.push({ playerId: targetPlayerId, text: message.key, kind: message.kind, structured: message });
+        }
       },
     },
     getPlayerLocationOrThrow(targetPlayerId) {
@@ -729,41 +788,34 @@ async function main() {
     self: { x: expandedSect.coreX, y: expandedSect.coreY },
     instance: { instanceId: sectInstance.meta.instanceId },
   }, deps);
-  assert.ok(laborCoreActions.some((action) => action.id === "sect:guardian:maintain"));
+  const laborMaintainAction = laborCoreActions.find((action) => action.id === "sect:guardian:maintain");
+  assert.ok(laborMaintainAction);
+  assert.match(laborMaintainAction.desc, /当前大阵灵力\s+10万/);
   sectService.executeSectAction(laborPlayerId, "sect:guardian:maintain", deps);
-  assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
-    playerId: laborPlayerId,
-    command: {
-      kind: "startFormationMaintenance",
-      payload: { formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}` },
-    },
-  });
-  laborPlayer.formationJob = {
-    formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}`,
-    formationName: "护宗大阵",
-    remainingTicks: 1,
-  };
+  assert.equal(pendingCommands.length, 0);
+  assert.equal(laborPlayer.formationJob?.formationInstanceId, `formation:sect_guardian:${expandedSect.sectId}`);
+  assert.equal(craftMutationFlushes.at(-1)?.playerId, laborPlayerId);
+  assert.equal(craftMutationFlushes.at(-1)?.panel, "formation");
+  assert.equal(notices.at(-1)?.structured?.key, "notice.craft.formation.start");
+  const laborTaskList = buildTechniqueActivityTaskListView(laborPlayer).tasks;
+  assert.ok(laborTaskList.some((task) => task.kind === "formation" && task.state === "running" && task.label === "护宗大阵"));
   const laborMaintainingCoreActions = sectService.buildSectCoreActions({
     playerId: laborPlayerId,
     self: { x: expandedSect.coreX, y: expandedSect.coreY },
     instance: { instanceId: sectInstance.meta.instanceId },
   }, deps);
-  assert.ok(laborMaintainingCoreActions.some((action) => action.id === "sect:guardian:cancel_maintain"));
+  const laborCancelAction = laborMaintainingCoreActions.find((action) => action.id === "sect:guardian:cancel_maintain");
+  assert.ok(laborCancelAction);
+  assert.match(laborCancelAction.desc, /当前大阵灵力\s+10万/);
   sectService.executeSectAction(laborPlayerId, "sect:guardian:cancel_maintain", deps);
-  assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
-    playerId: laborPlayerId,
-    command: { kind: "cancelFormationMaintenance" },
-  });
-  laborPlayer.formationJob = null;
+  assert.equal(pendingCommands.length, 0);
+  assert.equal(laborPlayer.formationJob, null);
+  assert.equal(notices.at(-1)?.structured?.key, "notice.craft.formation.stopped");
   sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
   assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
   sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
   assert.equal(guardians.find((entry) => entry.id === `formation:sect_guardian:${expandedSect.sectId}`).active, false);
-  deputyPlayer.formationJob = {
-    formationInstanceId: `formation:sect_guardian:${expandedSect.sectId}`,
-    formationName: "护宗大阵",
-    remainingTicks: 1,
-  };
+  sectService.executeSectAction(deputyPlayerId, "sect:guardian:maintain", deps);
   const deputyMaintainingCoreActions = sectService.buildSectCoreActions({
     playerId: deputyPlayerId,
     self: { x: expandedSect.coreX, y: expandedSect.coreY },
@@ -771,10 +823,7 @@ async function main() {
   }, deps);
   assert.ok(deputyMaintainingCoreActions.some((action) => action.id === "sect:guardian:cancel_maintain"));
   sectService.executeSectAction(deputyPlayerId, "sect:guardian:cancel_maintain", deps);
-  assert.deepEqual(pendingCommands[pendingCommands.length - 1], {
-    playerId: deputyPlayerId,
-    command: { kind: "cancelFormationMaintenance" },
-  });
+  assert.equal(deputyPlayer.formationJob, null);
   assert.throws(() => sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:supreme_elder`, deps), /太上长老暂时无法任命/);
   sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
   assert.equal(expandedSect.members.some((entry) => entry.playerId === elderPlayerId), false);
