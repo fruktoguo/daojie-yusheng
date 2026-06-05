@@ -800,13 +800,24 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * finalizeMovementFrame：执行 movement 帧收尾。
  * @returns 无返回值，直接更新 movement 帧相关状态。
  */
-  function finalizeMovementFrame(): void {
+  function finalizeMovementFrame(state: {
+    observedEntitiesChanged?: boolean;
+    playerSpatialChanged?: boolean;
+    hudChanged?: boolean;
+  } = {}): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    syncLatestObservedEntitiesFromRuntime();
+    if (state.observedEntitiesChanged) {
+      syncLatestObservedEntitiesFromRuntime();
+    }
+    if (state.hudChanged || state.playerSpatialChanged) {
+      options.refreshHudChrome();
+    }
+    if (!state.playerSpatialChanged) {
+      return;
+    }
     options.targeting.syncSenseQiOverlay();
     options.targeting.syncTargetingOverlay();
-    options.refreshHudChrome();
 
     options.navigation.trimCurrentPathProgress();
     const autoInteractionTriggered = options.navigation.triggerAutoInteractionIfReady();
@@ -924,6 +935,19 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       };
       const runtimeInput = buildWorldDeltaRuntimeInput(data, mapIdHint, instanceIdHint);
       const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === player.id);
+      const observedEntitiesChanged = runtimeInput.playerPatches.length > 0
+        || runtimeInput.entityPatches.length > 0
+        || (runtimeInput.removedEntityIds?.length ?? 0) > 0;
+      const selfSpatialChanged = Boolean(selfPatch && (
+        (typeof selfPatch.x === 'number' && selfPatch.x !== previousState.x)
+        || (typeof selfPatch.y === 'number' && selfPatch.y !== previousState.y)
+      ));
+      const selfVitalsChanged = Boolean(selfPatch && (
+        typeof selfPatch.hp === 'number'
+        || typeof selfPatch.maxHp === 'number'
+        || typeof selfPatch.qi === 'number'
+        || typeof selfPatch.maxQi === 'number'
+      ));
       options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
       if (typeof data.dt === 'number') {
         options.syncCurrentTimeTickInterval(data.dt);
@@ -959,7 +983,11 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           pathCells: options.navigation.getPathCells(),
         });
       }
-      finalizeMovementFrame();
+      finalizeMovementFrame({
+        observedEntitiesChanged,
+        playerSpatialChanged: selfSpatialChanged,
+        hudChanged: selfVitalsChanged,
+      });
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。
@@ -985,6 +1013,14 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       applySelfVitalsMetadata(data);
       const previousMapId = player.mapId;
       const playerPatch = buildSelfRuntimePlayerPatch(data);
+      const playerSpatialChanged = (typeof data.mid === 'string' && previousMapId !== data.mid)
+        || typeof data.x === 'number'
+        || typeof data.y === 'number'
+        || data.f !== undefined;
+      const hudChanged = typeof data.hp === 'number'
+        || typeof data.maxHp === 'number'
+        || typeof data.qi === 'number'
+        || typeof data.maxQi === 'number';
       options.applySelfDeltaToRuntime({
         instanceId: data.iid,
         mapId: data.mid,
@@ -1060,7 +1096,11 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       if (player.instanceId !== previousInstanceId) {
         options.refreshUiChrome();
       }
-      finalizeMovementFrame();
+      finalizeMovementFrame({
+        observedEntitiesChanged: playerPatch !== null,
+        playerSpatialChanged,
+        hudChanged,
+      });
     },    
     /**
  * handlePanelDelta：处理面板增量并更新相关状态。
