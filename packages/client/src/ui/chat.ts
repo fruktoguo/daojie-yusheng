@@ -1088,6 +1088,9 @@ export class ChatUI {
     const normalizedScope = typeof scopeId === 'string' && scopeId.trim().length > 0
       ? scopeId.trim()
       : null;
+    if (normalizedScope === this.currentScopeId) {
+      return;
+    }
     this.currentScopeId = normalizedScope;
     this.input.value = '';
     this.persistedMessageKeys.clear();
