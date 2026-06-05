@@ -10,11 +10,23 @@ function createService() {
     getItemName(itemId) {
       return itemId;
     },
+    createItem(itemId, count = 1) {
+      const normalizedItemId = typeof itemId === "string" ? itemId.trim() : "";
+      const normalizedCount = Math.max(1, Math.trunc(Number(count) || 1));
+      if (!normalizedItemId) {
+        return null;
+      }
+      return {
+        itemId: normalizedItemId,
+        count: normalizedCount,
+      };
+    },
   };
   const playerAttributesService = {
     recalculate() {},
   };
   const playerProgressionService = {
+    refreshPreview() {},
     gainRealmProgress(player, amount) {
       const gain = Math.max(0, Math.trunc(Number(amount) || 0));
       player.realm.progress = Math.min(player.realm.progressToNext, player.realm.progress + gain);
@@ -100,6 +112,7 @@ function createPlayer(overrides = {}) {
       autoIdleCultivation: true,
       lastActiveTick: 0,
       cooldownReadyTickBySkillId: {},
+      autoBattleSkills: [],
     },
     attrs: {
       numericStats: {
@@ -338,6 +351,24 @@ async function testShortOfflineGainDoesNotBlockReconnect() {
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
 }
 
+async function testOnlineAssetMutationsCreateIndependentStatisticReports() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.creditWallet(player.playerId, "spirit_stone", 25);
+  service.debitWallet(player.playerId, "spirit_stone", 5);
+
+  const records = service.getPendingPlayerStatisticRecords(player.playerId);
+  assert.equal(records.length, 2);
+  assert.equal(records.every((entry) => entry.scope === "online"), true);
+
+  assert.equal(records[0].spiritStones.gained, 25);
+  assert.equal(records[0].spiritStones.lost, 0);
+  assert.equal(records[1].spiritStones.gained, 0);
+  assert.equal(records[1].spiritStones.lost, 5);
+}
+
 async function main() {
   await testOfflineAccumulatedGainWinsOverSnapshotLoss();
   await testOfflineGlobalStatisticsKeepGainAndLossSeparated();
@@ -347,6 +378,7 @@ async function main() {
   await testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck();
   await testBlockingOfflineGainReconnectDoesNotResetSession();
   await testShortOfflineGainDoesNotBlockReconnect();
+  await testOnlineAssetMutationsCreateIndependentStatisticReports();
   console.log("offline-gain-statistics-smoke passed");
 }
 
