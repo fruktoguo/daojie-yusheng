@@ -56,6 +56,8 @@ export class MapRuntime implements MapRuntimeApi {
   private host: HTMLElement | null = null;
   /** 当前帧渲染使用的场景快照。 */
   private currentScene: MapSceneSnapshot = this.sceneBuilder.build(this.store.getSnapshot());
+  /** 高频动态更新可能在同一帧内连续到达，合并到下一次绘制前同步。 */
+  private sceneSyncPending = false;
   /** requestAnimationFrame 循环句柄。 */
   private frameHandle: number | null = null;
   /** 上一帧时间戳，计算插值推进进度。 */
@@ -71,7 +73,7 @@ export class MapRuntime implements MapRuntimeApi {
   constructor() {
     this.minimap.setMemoryDeleteHandler((mapIds) => {
       this.store.handleRememberedMapsDeleted(mapIds);
-      this.syncSceneFromStore();
+      this.requestSceneSync();
     });
   }
 
@@ -183,7 +185,7 @@ export class MapRuntime implements MapRuntimeApi {
         this.camera.follow(snapshot.player.x, snapshot.player.y);
       }
     }
-    this.syncViewportDerivedState(false);
+    this.syncViewportDerivedState(false, { deferSceneSync: true, resizeMinimap: false });
   }
 
   /** 消化本体增量（移动、生命、地图切换）并同步场景。 */
@@ -193,7 +195,8 @@ export class MapRuntime implements MapRuntimeApi {
     const previousMapId = this.store.getSnapshot().player?.mapId ?? null;
     this.store.applySelfDelta(data);
     const snapshot = this.store.getSnapshot();
-    if (previousMapId && snapshot.player?.mapId !== previousMapId) {
+    const mapChanged = Boolean(previousMapId && snapshot.player?.mapId !== previousMapId);
+    if (mapChanged) {
       this.renderer.resetScene();
     }
     if (snapshot.player) {
@@ -203,7 +206,7 @@ export class MapRuntime implements MapRuntimeApi {
         this.camera.follow(snapshot.player.x, snapshot.player.y);
       }
     }
-    this.syncViewportDerivedState(false);
+    this.syncViewportDerivedState(false, { deferSceneSync: !mapChanged, resizeMinimap: false });
   }
 
   /** 重置运行时状态以支持新会话重连或切图。 */
@@ -214,6 +217,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.camera.setSafeArea(this.safeArea);
     this.renderer.resetScene();
     this.minimap.clear();
+    this.sceneSyncPending = false;
     this.currentScene = this.sceneBuilder.build(this.store.getSnapshot());
   }
 
@@ -243,35 +247,35 @@ export class MapRuntime implements MapRuntimeApi {
  */
  y: number }>): void {
     this.store.setPathCells(cells);
-    this.syncSceneFromStore();
+    this.requestSceneSync();
   }
 
   /** 设置瞄准叠加层并刷新场景。 */
   setTargetingOverlay(state: Parameters<MapRuntimeApi['setTargetingOverlay']>[0]): void {
     this.store.setTargetingOverlay(state);
-    this.syncSceneFromStore();
+    this.requestSceneSync();
   }
 
   /** 设置阵法范围叠加层并刷新场景。 */
   setFormationRangeOverlay(state: Parameters<MapRuntimeApi['setFormationRangeOverlay']>[0]): void {
     this.store.setFormationRangeOverlay(state);
-    this.syncSceneFromStore();
+    this.requestSceneSync();
   }
 
   /** 设置感气叠加层并刷新场景。 */
   setSenseQiOverlay(state: Parameters<MapRuntimeApi['setSenseQiOverlay']>[0]): void {
     this.store.setSenseQiOverlay(state);
-    this.syncSceneFromStore();
+    this.requestSceneSync();
   }
 
   setBuildPreviewOverlay(state: Parameters<MapRuntimeApi['setBuildPreviewOverlay']>[0]): void {
     this.store.setBuildPreviewOverlay(state);
-    this.syncSceneFromStore();
+    this.requestSceneSync();
   }
 
   setFengShuiOverlay(state: Parameters<MapRuntimeApi['setFengShuiOverlay']>[0]): void {
     this.store.setFengShuiOverlay(state);
-    this.syncSceneFromStore();
+    this.requestSceneSync();
   }
 
   /**
@@ -287,7 +291,7 @@ export class MapRuntime implements MapRuntimeApi {
     transition: Parameters<MapRuntimeApi['replaceVisibleEntities']>[1] = null,
   ): void {
     this.store.replaceVisibleEntities(entities, transition ?? null);
-    this.syncSceneFromStore();
+    this.requestSceneSync();
   }
 
   /** 获取当前地图元数据快照。 */
@@ -321,7 +325,10 @@ export class MapRuntime implements MapRuntimeApi {
   }
 
   /** 重新同步视口参数并重建场景快照。 */
-  private syncViewportDerivedState(resnapCamera: boolean): void {
+  private syncViewportDerivedState(
+    resnapCamera: boolean,
+    options: { deferSceneSync?: boolean; resizeMinimap?: boolean } = {},
+  ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.viewport.syncDisplayMetrics(this.store.getViewRadius() || VIEW_RADIUS);
@@ -330,8 +337,14 @@ export class MapRuntime implements MapRuntimeApi {
     if (resnapCamera && snapshot.player) {
       this.camera.snap(snapshot.player.x, snapshot.player.y);
     }
-    this.syncSceneFromStore();
-    this.minimap.resize();
+    if (options.deferSceneSync) {
+      this.requestSceneSync();
+    } else {
+      this.syncSceneFromStore();
+    }
+    if (options.resizeMinimap !== false) {
+      this.minimap.resize();
+    }
   }
 
   /** 缩放会改变格子像素尺寸，需要同步重算渲染器内的像素坐标缓存。 */
@@ -348,6 +361,7 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 从 Store 构建最新场景并推送到渲染器与小地图。 */
   private syncSceneFromStore(): void {
+    this.sceneSyncPending = false;
     const snapshot = this.store.getSnapshot();
     this.currentScene = this.sceneBuilder.build(snapshot);
     this.renderer.syncScene(
@@ -357,6 +371,19 @@ export class MapRuntime implements MapRuntimeApi {
       snapshot.tickTiming.durationMs,
     );
     this.minimap.update(snapshot);
+  }
+
+  /** 记录动态层已变化，由下一次实际绘制统一刷新场景。 */
+  private requestSceneSync(): void {
+    this.sceneSyncPending = true;
+  }
+
+  /** 绘制前只同步一次待处理动态层，避免攻击事件把场景重建放大成多次。 */
+  private flushPendingSceneSync(): void {
+    if (!this.sceneSyncPending) {
+      return;
+    }
+    this.syncSceneFromStore();
   }
 
   /** 启动浏览器 rAF 帧循环并驱动插值渲染。 */
@@ -390,6 +417,7 @@ export class MapRuntime implements MapRuntimeApi {
       while (this.nextFrameAt <= now) {
         this.nextFrameAt += minFrameIntervalMs;
       }
+      this.flushPendingSceneSync();
       this.camera.update(dt);
       const timing = this.store.getTickTiming();
       const progress = timing.durationMs > 0
