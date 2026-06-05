@@ -597,15 +597,17 @@ export class MapStore {
     if (!this.player) {
       return;
     }
-    const hintedMapId = typeof data.mapId === 'string' && data.mapId
-      ? data.mapId
+    const hintedMapId = typeof data.resetMapId === 'string' && data.resetMapId
+      ? data.resetMapId
       : this.player.mapId;
     const preloadingDifferentMap = hintedMapId !== this.player.mapId;
-    const nextInstanceId = typeof data.instanceId === 'string' && data.instanceId.trim()
-      ? data.instanceId.trim()
+    const nextInstanceId = typeof data.resetInstanceId === 'string' && data.resetInstanceId.trim()
+      ? data.resetInstanceId.trim()
       : undefined;
     const instanceChanged = Boolean(nextInstanceId && nextInstanceId !== this.player.instanceId);
-    if (preloadingDifferentMap || instanceChanged) {
+    const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
+    const shouldResetEntities = (preloadingDifferentMap || instanceChanged) && hasEntityPatch;
+    if (shouldResetEntities) {
       this.clearGroundPiles();
       this.entities = [];
       this.entityMap.clear();
@@ -685,7 +687,6 @@ export class MapStore {
         this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches ?? [], visibilityClock);
       }
     }
-    const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
     if (hasEntityPatch) {
       this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
       publishLatestObservedEntitiesSnapshot(this.entities);

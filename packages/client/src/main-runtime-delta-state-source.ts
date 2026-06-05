@@ -188,6 +188,16 @@ type MainRuntimeDeltaStateSourceOptions = {
  */
 
     instanceId?: string;
+    /**
+ * resetMapId：地图切换重建实体所需的地图 ID，仅由 MapEnter hint 传入。
+ */
+
+    resetMapId?: string;
+    /**
+ * resetInstanceId：实例切换重建实体所需的实例 ID，仅由 MapEnter hint 传入。
+ */
+
+    resetInstanceId?: string;
   }) => void;  
   /**
  * applySelfDeltaToRuntime：SelfDeltaTo运行态引用。
@@ -717,6 +727,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       groundPatches,
       instanceId: instanceIdHint ?? data.iid,
       mapId: mapIdHint ?? data.mid,
+      resetInstanceId: instanceIdHint,
+      resetMapId: mapIdHint,
       effects: data.fx ? cloneJson(data.fx) : undefined,
       threatArrows: Array.isArray(data.threatArrows)
         ? data.threatArrows

@@ -775,6 +775,16 @@ export interface MapWorldDeltaInput {
  */
 
   mapId?: string;
+  /**
+ * resetMapId：地图切换重建实体所需的地图 ID，仅由 MapEnter hint 传入。
+ */
+
+  resetMapId?: string;
+  /**
+ * resetInstanceId：实例切换重建实体所需的实例 ID，仅由 MapEnter hint 传入。
+ */
+
+  resetInstanceId?: string;
 }
 
 /** 本体增量入参。 */
