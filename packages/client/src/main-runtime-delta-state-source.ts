@@ -465,8 +465,11 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param patch NonNullable<S2C_WorldDelta['m']>[number] 参数说明。
  * @returns 返回怪物 tick 实体。
  */
-  function buildMonsterTickEntity(patch: NonNullable<S2C_WorldDelta['m']>[number], ignorePrevious = false): TickRenderEntity {
+  function buildMonsterTickEntity(patch: NonNullable<S2C_WorldDelta['m']>[number], ignorePrevious = false): TickRenderEntity | null {
     const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
+    if (!previous && (typeof patch.x !== 'number' || typeof patch.y !== 'number' || typeof patch.n !== 'string' || !patch.n.trim())) {
+      return null;
+    }
     const name = patch.n ?? previous?.name;
     return {
       id: patch.id,
@@ -652,7 +655,10 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         removedEntityIds.push(patch.id);
         continue;
       }
-      entityPatches.push(buildMonsterTickEntity(patch, ignorePreviousEntities));
+      const entity = buildMonsterTickEntity(patch, ignorePreviousEntities);
+      if (entity) {
+        entityPatches.push(entity);
+      }
     }
 
     for (const patch of data.n ?? []) {
