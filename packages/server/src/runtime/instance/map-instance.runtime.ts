@@ -4862,6 +4862,7 @@ class MapInstanceRuntime {
         }
         const key = `${this.tilePlane.getX(tileIndex)},${this.tilePlane.getY(tileIndex)}`;
         if (this.staticTileSyncDirtyTileKeys.has(key)) {
+            this.staticTileSyncRevision = Math.max(0, Math.trunc(Number(this.staticTileSyncRevision) || 0)) + 1;
             if (options?.sightBlockingChanged === true) {
                 this.sightBlockingRevision = Math.max(0, Math.trunc(Number(this.sightBlockingRevision) || 0)) + 1;
             }

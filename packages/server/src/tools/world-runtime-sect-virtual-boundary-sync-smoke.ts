@@ -69,6 +69,16 @@ function main() {
   const staticPlan = instance.consumeStaticTileSyncDirtyTiles();
   assert.ok(staticPlan.tileKeys.includes("3,1"));
 
+  const repeatedDirtyTileIndex = instance.toTileIndex(3, 1);
+  const repeatedDirtyBaselineRevision = instance.getStaticTileSyncRevision();
+  assert.equal(instance.markStaticTileSyncDirtyByIndex(repeatedDirtyTileIndex, { sightBlockingChanged: true }), true);
+  const repeatedDirtyFirstRevision = instance.getStaticTileSyncRevision();
+  assert.ok(repeatedDirtyFirstRevision > repeatedDirtyBaselineRevision);
+  assert.equal(instance.markStaticTileSyncDirtyByIndex(repeatedDirtyTileIndex, { sightBlockingChanged: true }), false);
+  assert.ok(instance.getStaticTileSyncRevision() > repeatedDirtyFirstRevision);
+  const repeatedDirtyPlan = instance.consumeStaticTileSyncDirtyTiles();
+  assert.equal(repeatedDirtyPlan.tileKeys.filter((key) => key === "3,1").length, 1);
+
   console.log("world-runtime-sect-virtual-boundary-sync-smoke passed");
 }
 
