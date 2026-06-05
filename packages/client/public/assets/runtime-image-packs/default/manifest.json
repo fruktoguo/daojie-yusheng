@@ -686,6 +686,15 @@
       "row": 0,
       "fit": "contain",
       "insetRatio": 0.02
+    },
+    "monster:m_spirit_wolf": {
+      "src": "monsters/m_spirit_wolf.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
     }
   }
 }
