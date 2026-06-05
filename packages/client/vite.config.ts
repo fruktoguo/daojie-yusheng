@@ -73,6 +73,9 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+            if (id.includes('vite/preload-helper')) {
+              return 'vite-preload-helper';
+            }
             if (id.includes('/node_modules/')) {
               return 'vendor';
             }

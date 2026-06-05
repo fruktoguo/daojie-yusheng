@@ -354,16 +354,50 @@ message ElementStatGroupPayload {
 }
 `;
 
-const root = protobuf.parse(PROTO_SCHEMA).root;
+let parsedSchemaRoot: protobuf.Root | null = null;
+
+function getParsedSchemaRoot(): protobuf.Root {
+  if (!parsedSchemaRoot) {
+    parsedSchemaRoot = protobuf.parse(PROTO_SCHEMA).root;
+  }
+  return parsedSchemaRoot;
+}
+
+function lookupPayloadType(messageName: string): protobuf.Type {
+  return getParsedSchemaRoot().lookupType(messageName);
+}
+
+function createLazyPayloadType(messageName: string): protobuf.Type {
+  return new Proxy({} as protobuf.Type, {
+    get(_target, property, receiver) {
+      const type = lookupPayloadType(messageName);
+      const value = Reflect.get(type, property, receiver);
+      return typeof value === 'function' ? value.bind(type) : value;
+    },
+    set(_target, property, value, receiver) {
+      return Reflect.set(lookupPayloadType(messageName), property, value, receiver);
+    },
+    has(_target, property) {
+      return property in lookupPayloadType(messageName);
+    },
+    ownKeys() {
+      return Reflect.ownKeys(lookupPayloadType(messageName));
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(lookupPayloadType(messageName), property);
+      return descriptor ? { ...descriptor, configurable: true } : undefined;
+    },
+  });
+}
 
 /** Tick 增量包的 protobuf 类型。 */
-export const tickPayloadType = root.lookupType('TickPayload');
+export const tickPayloadType = createLazyPayloadType('TickPayload');
 /** 功法增量包的 protobuf 类型。 */
-export const techniquePayloadType = root.lookupType('TechniqueUpdatePayload');
+export const techniquePayloadType = createLazyPayloadType('TechniqueUpdatePayload');
 /** 行动列表增量包的 protobuf 类型。 */
-export const actionsPayloadType = root.lookupType('ActionsUpdatePayload');
+export const actionsPayloadType = createLazyPayloadType('ActionsUpdatePayload');
 /** 属性面板增量包的 protobuf 类型。 */
-export const attrPayloadType = root.lookupType('AttrUpdatePayload');
+export const attrPayloadType = createLazyPayloadType('AttrUpdatePayload');
 
 /** 走 protobuf 二进制编码的 S2C 事件集合；包含高频 envelope 事件（JSON binary 模式）。 */
 export const PROTOBUF_S2C_EVENTS = new Set<string>([

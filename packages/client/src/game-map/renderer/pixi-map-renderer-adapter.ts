@@ -702,6 +702,7 @@ export class PixiMapRendererAdapter {
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   private runtimeTileSpriteRefs = new Map<string, PixiTileSpriteRef>();
   private runtimeLegacyTileKeys = new Map<string, string>();
+  private runtimeAtlasTextures = new Map<string, Texture>();
   private runtimeTileTextures = new Map<string, Texture>();
   private runtimeTileTextureRequests = new Set<string>();
   private runtimeEntitySpriteRefs = new Map<string, PixiTileSpriteRef>();
@@ -1001,6 +1002,7 @@ export class PixiMapRendererAdapter {
         version,
       );
       this.runtimeTileManifestState = 'loaded';
+      this.runtimeAtlasTextures.clear();
       this.runtimeTileTextures.clear();
       this.runtimeEntityTextures.clear();
       this.runtimeTileSpriteRevision += 1;
@@ -1013,6 +1015,25 @@ export class PixiMapRendererAdapter {
       this.invalidateEntityStaticViews();
       console.warn('[map] failed to load Pixi runtime tile sprites', error);
     }
+  }
+
+  private getRuntimeAtlasTexture(src: string): Texture | null {
+    const atlas = this.runtimeAtlasTextures.get(src);
+    if (!atlas) return null;
+    if (atlas.destroyed || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) {
+      this.runtimeAtlasTextures.delete(src);
+      return null;
+    }
+    return atlas;
+  }
+
+  private rememberRuntimeAtlasTexture(src: string, loaded: unknown): boolean {
+    if (!(loaded instanceof Texture) || loaded === Texture.EMPTY || loaded.width <= 0 || loaded.height <= 0) {
+      this.runtimeAtlasTextures.delete(src);
+      return false;
+    }
+    this.runtimeAtlasTextures.set(src, loaded);
+    return true;
   }
 
   private invalidateEntityStaticViews(): void {
@@ -1034,8 +1055,8 @@ export class PixiMapRendererAdapter {
     const cacheKey = `${ref.key}:${ref.src}:${frameCol}:${frameRow}:${ref.colSpan}:${ref.rowSpan}:${sourceMask}:${quad?.x ?? ''}:${quad?.y ?? ''}:${quad?.sourceW ?? ''}:${quad?.sourceH ?? ''}`;
     const cached = this.runtimeTileTextures.get(cacheKey);
     if (cached && !cached.destroyed) return cached;
-    const atlas = Assets.get<Texture>(ref.src) ?? Texture.from(ref.src);
-    if (!atlas || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) return null;
+    const atlas = this.getRuntimeAtlasTexture(ref.src);
+    if (!atlas) return null;
     const cellW = atlas.width / ref.cols;
     const cellH = atlas.height / ref.rows;
     const sourceX = cellW * frameCol + (quad?.x ?? 0);
@@ -1061,8 +1082,9 @@ export class PixiMapRendererAdapter {
   private requestRuntimeTileTexture(ref: PixiTileSpriteRef): void {
     if (this.runtimeTileTextureRequests.has(ref.src)) return;
     this.runtimeTileTextureRequests.add(ref.src);
-    void Assets.load(ref.src).then(() => {
+    void Assets.load<Texture>(ref.src).then((texture) => {
       this.runtimeTileTextureRequests.delete(ref.src);
+      this.rememberRuntimeAtlasTexture(ref.src, texture);
       this.runtimeTileSpriteRevision += 1;
       this.invalidateTerrainChunks();
     }).catch((error) => {
@@ -1086,8 +1108,8 @@ export class PixiMapRendererAdapter {
     const cacheKey = `${ref.key}:${ref.src}:${frameCol}:${frameRow}:${ref.colSpan}:${ref.rowSpan}`;
     const cached = this.runtimeEntityTextures.get(cacheKey);
     if (cached && !cached.destroyed) return cached;
-    const atlas = Assets.get<Texture>(ref.src) ?? Texture.from(ref.src);
-    if (!atlas || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) return null;
+    const atlas = this.getRuntimeAtlasTexture(ref.src);
+    if (!atlas) return null;
     const cellW = atlas.width / ref.cols;
     const cellH = atlas.height / ref.rows;
     const sourceX = cellW * frameCol;
@@ -1108,8 +1130,9 @@ export class PixiMapRendererAdapter {
   private requestRuntimeEntityTexture(ref: PixiTileSpriteRef): void {
     if (this.runtimeEntityTextureRequests.has(ref.src)) return;
     this.runtimeEntityTextureRequests.add(ref.src);
-    void Assets.load(ref.src).then(() => {
+    void Assets.load<Texture>(ref.src).then((texture) => {
       this.runtimeEntityTextureRequests.delete(ref.src);
+      this.rememberRuntimeAtlasTexture(ref.src, texture);
       this.runtimeTileSpriteRevision += 1;
       this.invalidateEntityStaticViews();
     }).catch((error) => {
@@ -1150,8 +1173,8 @@ export class PixiMapRendererAdapter {
     clipMask: number,
   ): void {
     if (!ref.dualGrid) return;
-    const atlas = Assets.get<Texture>(ref.src) ?? Texture.from(ref.src);
-    if (!atlas || atlas === Texture.EMPTY || atlas.width <= 0 || atlas.height <= 0) {
+    const atlas = this.getRuntimeAtlasTexture(ref.src);
+    if (!atlas) {
       this.requestRuntimeTileTexture(ref);
       return;
     }

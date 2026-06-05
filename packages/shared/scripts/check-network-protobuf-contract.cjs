@@ -188,14 +188,24 @@ function extractLookupTypeNames(sourceFile) {
       if (
         initializer
         && ts.isCallExpression(initializer)
-        && ts.isPropertyAccessExpression(initializer.expression)
-        && ts.isIdentifier(initializer.expression.expression)
-        && initializer.expression.expression.text === 'root'
-        && initializer.expression.name.text === 'lookupType'
         && initializer.arguments.length === 1
         && ts.isStringLiteral(initializer.arguments[0])
       ) {
-        result.push(initializer.arguments[0].text);
+        const expression = initializer.expression;
+        if (
+          ts.isPropertyAccessExpression(expression)
+          && ts.isIdentifier(expression.expression)
+          && expression.expression.text === 'root'
+          && expression.name.text === 'lookupType'
+        ) {
+          result.push(initializer.arguments[0].text);
+        }
+        if (
+          ts.isIdentifier(expression)
+          && expression.text === 'createLazyPayloadType'
+        ) {
+          result.push(initializer.arguments[0].text);
+        }
       }
     }
   });
