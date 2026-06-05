@@ -411,6 +411,75 @@ function testInstanceDirtyDiffFallsBackWhenVisibleKeysMissing() {
     assert.equal(buildCompositeTileSyncStateCount, 0);
 }
 
+function testFullVisibleDiffKeepsPreviousSnapshotBeforeRefresh() {
+    let buildVisibleTilesSnapshotCount = 0;
+    const sharedSnapshot: VisibleTilesSnapshot = {
+        matrix: [[]],
+        byKey: new Map(),
+    };
+    const service = new WorldSyncMapStaticAuxService(
+        {
+            buildVisibleTilesSnapshot() {
+                buildVisibleTilesSnapshotCount += 1;
+                sharedSnapshot.byKey.clear();
+                if (buildVisibleTilesSnapshotCount === 1) {
+                    sharedSnapshot.byKey.set('3,4', {
+                        type: 'stone',
+                        terrainType: 'grass',
+                        surfaceType: 'floor',
+                        structureType: 'stone',
+                        walkable: false,
+                        blocksSight: true,
+                    });
+                } else {
+                    sharedSnapshot.byKey.set('3,4', {
+                        type: 'floor',
+                        terrainType: 'grass',
+                        surfaceType: 'floor',
+                        structureType: null,
+                        walkable: true,
+                        blocksSight: false,
+                    });
+                }
+                return sharedSnapshot;
+            },
+            buildInstanceStaticTileDiffPlan() {
+                return null;
+            },
+        },
+        {
+            buildMinimapMarkers() {
+                return [];
+            },
+            buildVisibleMinimapMarkers() {
+                return [];
+            },
+            diffVisibleMinimapMarkers() {
+                return { adds: [], removes: [] };
+            },
+        },
+    );
+    const player = createPlayer();
+    const initial = service.buildInitialMapStaticState(createView(3, 4, 'inst.a', 1), player, {});
+    service.commitPlayerCache('player:1', initial.cacheState);
+
+    const plan: any = service.buildDeltaMapStaticPlan('player:1', createView(3, 4, 'inst.a', 2), player, {});
+
+    assert.equal(buildVisibleTilesSnapshotCount, 2);
+    assert.deepEqual(plan.tilePatches, [{
+        x: 3,
+        y: 4,
+        tile: {
+            type: 'floor',
+            walkable: true,
+            blocksSight: false,
+            terrainType: 'grass',
+            surfaceType: 'floor',
+            structureType: null,
+        },
+    }]);
+}
+
 testMovingVisibleWindowUsesTilePatchesNotMapStatic();
 testTilePatchKeepsOnlyCompactSpecialResourceSignal();
 testTilePatchKeepsTileEffectProjectionFields();
@@ -419,5 +488,6 @@ testInstanceChangeStillRequiresMapStatic();
 testUnchangedWorldRevisionSkipsVisibleTilePlan();
 testInstanceDirtyDiffOnlyProjectsDirtyVisibleTiles();
 testInstanceDirtyDiffFallsBackWhenVisibleKeysMissing();
+testFullVisibleDiffKeepsPreviousSnapshotBeforeRefresh();
 
 console.log(JSON.stringify({ ok: true, case: 'world-sync-map-static-aux' }, null, 2));

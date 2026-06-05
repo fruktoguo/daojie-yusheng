@@ -99,6 +99,9 @@ export class WorldSyncMapStaticAuxService {
             return instanceDirtyPlan;
         }
 
+        const previousVisibleTiles = previous?.visibleTiles instanceof Map
+            ? new Map(previous.visibleTiles)
+            : previous?.visibleTiles;
         const visibleTiles = this.worldSyncMapSnapshotService.buildVisibleTilesSnapshot(view, player, template);
 
         const allMinimapMarkers = this.worldSyncMinimapService.buildMinimapMarkers(template);
@@ -111,7 +114,7 @@ export class WorldSyncMapStaticAuxService {
 
         const tilePatches = mapChanged
             ? []
-            : diffVisibleTiles(previous.visibleTiles, visibleTiles.byKey);
+            : diffVisibleTiles(previousVisibleTiles, visibleTiles.byKey);
 
         const markerPatch = mapChanged
             ? { adds: [], removes: [] }
