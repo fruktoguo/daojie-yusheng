@@ -426,6 +426,13 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
   let pendingSelfDelta: S2C_SelfDelta | null = null;
   let pendingPanelDelta: S2C_PanelDelta | null = null;
   let pendingMapStatic: S2C_MapStatic | null = null;
+  let deferredSideEffectsScheduled = false;
+  let deferredSideEffectsRaf: number | null = null;
+  let deferredSideEffectsTimer: ReturnType<typeof setTimeout> | null = null;
+  const deferredRuntimeSideEffects: Array<
+    | { type: 'eventBus'; payload: NonNullable<S2C_WorldDelta['eventBus']> }
+    | { type: 'panelDelta'; payload: S2C_PanelDelta }
+  > = [];
 
   const resolveMapEnterHints = (player: PlayerState | null | undefined): { mapIdHint?: string; instanceIdHint?: string } => {
     return {
@@ -468,6 +475,64 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     applyMapStaticToCurrentRuntime(pending);
   };
 
+  const clearDeferredRuntimeSideEffects = (): void => {
+    deferredRuntimeSideEffects.length = 0;
+    deferredSideEffectsScheduled = false;
+    if (deferredSideEffectsRaf !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(deferredSideEffectsRaf);
+    }
+    deferredSideEffectsRaf = null;
+    if (deferredSideEffectsTimer !== null) {
+      clearTimeout(deferredSideEffectsTimer);
+    }
+    deferredSideEffectsTimer = null;
+  };
+
+  const flushDeferredRuntimeSideEffects = (): void => {
+    deferredSideEffectsScheduled = false;
+    deferredSideEffectsRaf = null;
+    deferredSideEffectsTimer = null;
+    while (deferredRuntimeSideEffects.length > 0) {
+      const item = deferredRuntimeSideEffects.shift();
+      if (!item) {
+        continue;
+      }
+      if (item.type === 'eventBus') {
+        applyEventBusPayload(item.payload);
+        continue;
+      }
+      options.applyPanelDelta(item.payload);
+    }
+  };
+
+  const scheduleDeferredRuntimeSideEffects = (): void => {
+    if (deferredSideEffectsScheduled) {
+      return;
+    }
+    deferredSideEffectsScheduled = true;
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      deferredSideEffectsTimer = setTimeout(flushDeferredRuntimeSideEffects, 0);
+      return;
+    }
+    deferredSideEffectsRaf = window.requestAnimationFrame(() => {
+      deferredSideEffectsRaf = null;
+      deferredSideEffectsTimer = setTimeout(flushDeferredRuntimeSideEffects, 0);
+    });
+  };
+
+  const deferEventBusPayload = (data: S2C_WorldDelta): void => {
+    if (!data.eventBus) {
+      return;
+    }
+    deferredRuntimeSideEffects.push({ type: 'eventBus', payload: data.eventBus });
+    scheduleDeferredRuntimeSideEffects();
+  };
+
+  const deferPanelDelta = (data: S2C_PanelDelta): void => {
+    deferredRuntimeSideEffects.push({ type: 'panelDelta', payload: data });
+    scheduleDeferredRuntimeSideEffects();
+  };
+
   const flushPendingBootstrapEnvelope = (): void => {
     if (!options.getPlayer()) {
       return;
@@ -477,7 +542,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       pendingWorldDelta = null;
       const hints = resolveMapEnterHints(options.getPlayer());
       options.applyWorldDelta(pending, hints.mapIdHint, hints.instanceIdHint);
-      applyEventBusPayload(pending);
+      deferEventBusPayload(pending);
     }
     if (pendingSelfDelta) {
       const pending = pendingSelfDelta;
@@ -487,16 +552,13 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     if (pendingPanelDelta) {
       const pending = pendingPanelDelta;
       pendingPanelDelta = null;
-      options.applyPanelDelta(pending);
+      deferPanelDelta(pending);
     }
     flushPendingMapStaticForCurrentMap();
   };
 
-  const applyEventBusPayload = (data: S2C_WorldDelta): void => {
-    if (!data.eventBus) {
-      return;
-    }
-    handleTickEventBusPayload(data.eventBus, {
+  const applyEventBusPayload = (eventBus: NonNullable<S2C_WorldDelta['eventBus']>): void => {
+    handleTickEventBusPayload(eventBus, {
       appendNotices: (items) => options.appendNotices?.(items),
       applyPanelPatches: (patches) => options.applyPanelPatch?.(patches),
       updateJobProgress: (jobs) => options.applyJobProgress?.(jobs),
@@ -519,6 +581,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       pendingSelfDelta = null;
       pendingPanelDelta = null;
       pendingMapStatic = null;
+      clearDeferredRuntimeSideEffects();
     },
     /** 获取当前会话的玩家序列号。 */
     getPlayerNo(): number | null {
@@ -562,7 +625,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       const player = options.getPlayer();
       const hints = resolveMapEnterHints(player);
       options.applyWorldDelta(data, hints.mapIdHint, hints.instanceIdHint);
-      applyEventBusPayload(data);
+      deferEventBusPayload(data);
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。
@@ -595,7 +658,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         pendingPanelDelta = data;
         return;
       }
-      options.applyPanelDelta(data);
+      deferPanelDelta(data);
     },    
     /**
  * handleRealm：处理Realm并更新相关状态。
