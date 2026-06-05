@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -4272,6 +4272,8 @@ class MapInstanceRuntime {
         this.persistentRevision = 1;
         this.persistedRevision = 1;
         this.clearDirtyDomains();
+        this.ensureGroundItemExpiryDefaults(this.tick);
+        this.advanceGroundItemExpiry(this.tick);
     }
     /** hydrateMonsterRuntimeStates：用持久化数据回填高价值妖兽运行态。 */
     hydrateMonsterRuntimeStates(entries) {
@@ -4903,6 +4905,78 @@ class MapInstanceRuntime {
         }
         addNumericDirtyKey(this.dirtyGroundItemTileIndices, tileIndex);
     }
+    /** ensureGroundItemExpiryDefaults：给旧版无过期元数据的地面物品补默认 TTL。 */
+    ensureGroundItemExpiryDefaults(currentTick = this.tick) {
+        if (this.groundPilesByTile.size === 0) {
+            return false;
+        }
+        let changed = false;
+        for (const [tileIndex, pile] of this.groundPilesByTile.entries()) {
+            if (!pile || !Array.isArray(pile.items)) {
+                continue;
+            }
+            let tileChanged = false;
+            for (const entry of pile.items) {
+                if (!entry?.item || getGroundItemExpiresAtTick(entry.item) > 0) {
+                    continue;
+                }
+                normalizeGroundRuntimeItemExpiry(entry.item, currentTick);
+                tileChanged = true;
+            }
+            if (tileChanged) {
+                this.markGroundItemPersistenceDirty(tileIndex);
+                changed = true;
+            }
+        }
+        if (changed) {
+            this.persistentRevision += 1;
+        }
+        return changed;
+    }
+    /** advanceGroundItemExpiry：推进地面物品过期并彻底移除。 */
+    advanceGroundItemExpiry(currentTick = this.tick) {
+        if (this.groundPilesByTile.size === 0) {
+            return false;
+        }
+        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        this.ensureGroundItemExpiryDefaults(normalizedTick);
+        let changed = false;
+        const toDelete = [];
+        for (const [tileIndex, pile] of this.groundPilesByTile.entries()) {
+            if (!pile || !Array.isArray(pile.items)) {
+                toDelete.push(tileIndex);
+                this.markGroundItemPersistenceDirty(tileIndex);
+                changed = true;
+                continue;
+            }
+            const before = pile.items.length;
+            pile.items = pile.items.filter((entry) => {
+                const expiresAtTick = getGroundItemExpiresAtTick(entry?.item);
+                return expiresAtTick <= 0 || normalizedTick < expiresAtTick;
+            });
+            if (pile.items.length === before) {
+                continue;
+            }
+            if (pile.items.length === 0) {
+                toDelete.push(tileIndex);
+                this.localGroundPileViewCacheBySourceId.delete(buildGroundSourceId(tileIndex));
+            }
+            else {
+                pile.items.sort(compareGroundEntries);
+            }
+            this.markGroundItemPersistenceDirty(tileIndex);
+            this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'ground_item_expired');
+            changed = true;
+        }
+        for (const tileIndex of toDelete) {
+            this.groundPilesByTile.delete(tileIndex);
+        }
+        if (changed) {
+            this.persistentRevision += 1;
+            this.worldRevision += 1;
+        }
+        return changed;
+    }
     /** markMonsterRuntimePersistenceDirty：记录妖兽运行态行级脏键。 */
     markMonsterRuntimePersistenceDirty(runtimeId) {
         markMapInstanceDirtyDomains(this, ['monster_runtime']);
@@ -4966,8 +5040,12 @@ class MapInstanceRuntime {
         }
 
         const normalizedCount = Math.max(1, Math.trunc(item.count));
+        const runtimeItem = createGroundRuntimeItem({
+            ...item,
+            count: normalizedCount,
+        }, this.tick);
 
-        const itemKey = buildGroundItemKey(item);
+        const itemKey = buildGroundItemKey(runtimeItem);
 
         const tileIndex = this.toTileIndex(x, y);
 
@@ -4977,8 +5055,7 @@ class MapInstanceRuntime {
         if (existingPile) {
 
             const mergeResult = mergeGroundItemEntry(existingPile.items, {
-                ...item,
-                count: normalizedCount,
+                ...runtimeItem,
             });
             if (!mergeResult.merged) {
                 existingPile.items.sort(compareGroundEntries);
@@ -5001,8 +5078,7 @@ class MapInstanceRuntime {
             items: [{
                     itemKey,
                     item: {
-                        ...item,
-                        count: normalizedCount,
+                        ...runtimeItem,
                     },
                 }],
         };
@@ -5072,9 +5148,7 @@ class MapInstanceRuntime {
         this.recalculateFengShuiAfterRoomInfluenceChange(tileIndex, 'ground_item_taken');
         this.persistentRevision += 1;
         this.worldRevision += 1;
-        return {
-            ...entry.item,
-        };
+        return toInventoryItemFromGroundItem(entry.item);
     }
     /** applyMove：应用一次玩家移动。 */
     applyMove(player, direction, transfers, continuous = false, maxSteps = undefined, path = undefined) {
@@ -7182,6 +7256,50 @@ function normalizePersistedGroundItem(item) {
     }
     return item;
 }
+function getGroundItemExpiresAtTick(item) {
+    const value = Number(item?.expiresAtTick);
+    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+}
+function getGroundItemExpiresAtMs(item) {
+    const value = Number(item?.groundExpiresAtMs);
+    return Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+}
+function resolveGroundItemExpiresAtTick(item, currentTick) {
+    const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+    const existing = getGroundItemExpiresAtTick(item);
+    if (existing > normalizedTick) {
+        return existing;
+    }
+    return normalizedTick + Math.max(1, Math.trunc(Number(GROUND_ITEM_EXPIRE_TICKS) || 1));
+}
+function resolveGroundItemExpiresAtMs(item, expiresAtTick, currentTick, nowMs = Date.now()) {
+    const existing = getGroundItemExpiresAtMs(item);
+    if (existing > nowMs) {
+        return existing;
+    }
+    const remainingTicks = Math.max(1, Math.trunc(Number(expiresAtTick) || 0) - Math.max(0, Math.trunc(Number(currentTick) || 0)));
+    return Math.max(0, Math.trunc(Number(nowMs) || 0)) + remainingTicks * 1000;
+}
+function normalizeGroundRuntimeItemExpiry(item, currentTick, nowMs = Date.now()) {
+    if (!item || typeof item !== 'object') {
+        return item;
+    }
+    const expiresAtTick = resolveGroundItemExpiresAtTick(item, currentTick);
+    item.expiresAtTick = expiresAtTick;
+    item.groundExpiresAtMs = resolveGroundItemExpiresAtMs(item, expiresAtTick, currentTick, nowMs);
+    return item;
+}
+function createGroundRuntimeItem(item, currentTick) {
+    const normalized = normalizeGroundRuntimeItemExpiry({ ...item }, currentTick);
+    normalized.count = Number.isFinite(Number(normalized.count)) ? Math.max(1, Math.trunc(Number(normalized.count))) : 1;
+    return normalized;
+}
+function toInventoryItemFromGroundItem(item) {
+    const next = { ...item };
+    delete next.expiresAtTick;
+    delete next.groundExpiresAtMs;
+    return next;
+}
 /** buildGroundItemKey：地面物品用共享堆叠签名区分实例态字段。 */
 function buildGroundItemKey(item) {
     return createItemStackSignature(item);
@@ -7198,6 +7316,16 @@ function mergeGroundItemEntry(entries, item) {
             }
             if (!targetItem.groundLabel && incomingItem.groundLabel) {
                 targetItem.groundLabel = incomingItem.groundLabel;
+            }
+            const targetExpiresAtTick = getGroundItemExpiresAtTick(targetItem);
+            const incomingExpiresAtTick = getGroundItemExpiresAtTick(incomingItem);
+            if (incomingExpiresAtTick > targetExpiresAtTick) {
+                targetItem.expiresAtTick = incomingExpiresAtTick;
+            }
+            const targetExpiresAtMs = getGroundItemExpiresAtMs(targetItem);
+            const incomingExpiresAtMs = getGroundItemExpiresAtMs(incomingItem);
+            if (incomingExpiresAtMs > targetExpiresAtMs) {
+                targetItem.groundExpiresAtMs = incomingExpiresAtMs;
             }
         },
     });

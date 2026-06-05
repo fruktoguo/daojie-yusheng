@@ -468,6 +468,15 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                     }, () => instance.advanceTemporaryTiles(instance.tick, isTerrainStabilized));
                     addMeasuredTickSection(sectionDurations, 'instance.temporaryTileAdvanceMs', temporaryTilesStartedAt);
                 }
+                if (typeof instance.advanceGroundItemExpiry === 'function') {
+                    const groundItemExpiryStartedAt = performance.now();
+                    this.runIsolatedSyncOperation(deps, 'instance_ground_item_expiry', {
+                        instanceId: instance.meta.instanceId,
+                        instanceTick: instance.tick,
+                        worldTick: deps.tick,
+                    }, () => instance.advanceGroundItemExpiry(instance.tick));
+                    addMeasuredTickSection(sectionDurations, 'instance.groundItemExpiryMs', groundItemExpiryStartedAt);
+                }
                 if (typeof instance.advanceTileRecovery === 'function') {
                     const tileRecoveryStartedAt = performance.now();
                     this.runIsolatedSyncOperation(deps, 'instance_tile_recovery', {

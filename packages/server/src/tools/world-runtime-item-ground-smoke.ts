@@ -279,6 +279,72 @@ function testLegacyBareItemKeyCompatibility() {
     assert.equal(ambiguous, null);
 }
 
+function testGroundItemsExpireAfterDefaultTtl() {
+    const instance = createGroundItemTestInstance();
+    instance.dropGroundItem(1, 1, { itemId: 'rat_tail', name: '鼠尾', type: 'material', count: 1 });
+    const pile = instance.getGroundPileBySourceId('g:4');
+    assert.equal(pile.items[0].item.expiresAtTick, 7200);
+    assert.equal(instance.advanceGroundItemExpiry(7199), false);
+    assert.ok(instance.getGroundPileBySourceId('g:4'));
+    assert.equal(instance.advanceGroundItemExpiry(7200), true);
+    assert.equal(instance.getGroundPileBySourceId('g:4'), null);
+    assert.equal(instance.takeGroundItem('g:4', 'rat_tail#0', 1, 1), null);
+}
+
+function testGroundItemMergeExtendsExpiryAndTakeStripsRuntimeFields() {
+    const instance = createGroundItemTestInstance();
+    instance.dropGroundItem(1, 1, { itemId: 'rat_tail', name: '鼠尾', type: 'material', count: 1 });
+    instance.tick = 10;
+    instance.dropGroundItem(1, 1, { itemId: 'rat_tail', name: '鼠尾', type: 'material', count: 1 });
+
+    const pile = instance.getGroundPileBySourceId('g:4');
+    assert.equal(pile.items.length, 1);
+    assert.equal(pile.items[0].item.count, 2);
+    assert.equal(pile.items[0].item.expiresAtTick, 7210);
+    assert.equal(instance.advanceGroundItemExpiry(7200), false);
+    assert.ok(instance.getGroundPileBySourceId('g:4'));
+
+    const taken = instance.takeGroundItem('g:4', 'rat_tail#0', 1, 1);
+    assert.equal(taken.itemId, 'rat_tail');
+    assert.equal(taken.count, 2);
+    assert.equal(taken.expiresAtTick, undefined);
+    assert.equal(taken.groundExpiresAtMs, undefined);
+}
+
+function testHydratedGroundItemExpiryUsesCheckpointTick() {
+    const instance = createGroundItemTestInstance();
+    instance.hydrateGroundPiles([
+        {
+            tileIndex: 4,
+            items: [
+                { itemId: 'rat_tail', name: '鼠尾', type: 'material', count: 1, expiresAtTick: 12 },
+            ],
+        },
+    ]);
+    assert.ok(instance.getGroundPileBySourceId('g:4'));
+    instance.hydrateTime(12);
+    assert.equal(instance.getGroundPileBySourceId('g:4'), null);
+}
+
+function testLegacyHydratedGroundItemExpiryStartsAfterCheckpointTick() {
+    const instance = createGroundItemTestInstance();
+    instance.hydrateGroundPiles([
+        {
+            tileIndex: 4,
+            items: [
+                { itemId: 'rat_tail', name: '鼠尾', type: 'material', count: 1 },
+            ],
+        },
+    ]);
+    instance.hydrateTime(1000);
+    const pile = instance.getGroundPileBySourceId('g:4');
+    assert.equal(pile.items[0].item.expiresAtTick, 8200);
+    assert.equal(instance.advanceGroundItemExpiry(8199), false);
+    assert.ok(instance.getGroundPileBySourceId('g:4'));
+    assert.equal(instance.advanceGroundItemExpiry(8200), true);
+    assert.equal(instance.getGroundPileBySourceId('g:4'), null);
+}
+
 Promise.resolve()
     .then(() => testDropItem())
     .then(() => testTakeGroundDelegation())
@@ -287,6 +353,10 @@ Promise.resolve()
     .then(() => testEnhancedGroundItemsDoNotMerge())
     .then(() => testHydratedEnhancedGroundItemsDoNotMerge())
     .then(() => testLegacyBareItemKeyCompatibility())
+    .then(() => testGroundItemsExpireAfterDefaultTtl())
+    .then(() => testGroundItemMergeExtendsExpiryAndTakeStripsRuntimeFields())
+    .then(() => testHydratedGroundItemExpiryUsesCheckpointTick())
+    .then(() => testLegacyHydratedGroundItemExpiryStartsAfterCheckpointTick())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-item-ground' }, null, 2));
 });

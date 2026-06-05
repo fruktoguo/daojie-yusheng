@@ -1880,7 +1880,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           instanceId,
           Math.trunc(Number(input.tileIndex ?? 0)),
           JSON.stringify(normalizePersistedItemPayload(input.itemPayload)),
-          input.expireAt ?? null,
+          input.expireAt ?? resolvePersistedGroundExpireAt(input.itemPayload),
         ],
       );
       await client.query('COMMIT');
@@ -1904,7 +1904,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
-    const normalizedEntries: Array<{ groundItemId: string; tileIndex: number; itemPayload: unknown }> = [];
+    const normalizedEntries: Array<{ groundItemId: string; tileIndex: number; itemPayload: unknown; expireAt: string | null }> = [];
     for (const entry of Array.isArray(entries) ? entries : []) {
       if (!entry || !Number.isFinite(Number(entry.tileIndex)) || !Array.isArray(entry.items)) {
         continue;
@@ -1915,6 +1915,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           groundItemId: buildStableDomainRowId('ground', normalizedInstanceId, `${tileIndex}:${index}`),
           tileIndex,
           itemPayload: itemPayload ?? {},
+          expireAt: resolvePersistedGroundExpireAt(itemPayload),
         });
       });
     }
@@ -1929,11 +1930,13 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               SELECT
                 ground_item_id,
                 tile_index,
-                COALESCE(item_instance_payload, '{}'::jsonb) AS item_instance_payload
+                COALESCE(item_instance_payload, '{}'::jsonb) AS item_instance_payload,
+                expire_at
               FROM jsonb_to_recordset($2::jsonb) AS entry(
                 ground_item_id varchar(100),
                 tile_index bigint,
-                item_instance_payload jsonb
+                item_instance_payload jsonb,
+                expire_at timestamptz
               )
             )
             INSERT INTO ${INSTANCE_GROUND_ITEM_TABLE}(
@@ -1944,7 +1947,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               expire_at,
               updated_at
             )
-            SELECT ground_item_id, $1, tile_index, item_instance_payload, NULL, now()
+            SELECT ground_item_id, $1, tile_index, item_instance_payload, expire_at, now()
             FROM incoming
             ON CONFLICT (ground_item_id)
             DO UPDATE SET
@@ -1960,6 +1963,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               ground_item_id: entry.groundItemId,
               tile_index: entry.tileIndex,
               item_instance_payload: normalizePersistedItemPayload(entry.itemPayload),
+              expire_at: entry.expireAt,
             }))),
           ],
         );
@@ -2014,7 +2018,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       return;
     }
     const dirtyTileIndexSet = new Set(normalizedTileIndices);
-    const normalizedEntries: Array<{ groundItemId: string; tileIndex: number; itemPayload: unknown }> = [];
+    const normalizedEntries: Array<{ groundItemId: string; tileIndex: number; itemPayload: unknown; expireAt: string | null }> = [];
     for (const entry of Array.isArray(entries) ? entries : []) {
       if (!entry || !Number.isFinite(Number(entry.tileIndex)) || !Array.isArray(entry.items)) {
         continue;
@@ -2028,6 +2032,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           groundItemId: buildStableDomainRowId('ground', normalizedInstanceId, `${tileIndex}:${index}`),
           tileIndex,
           itemPayload: itemPayload ?? {},
+          expireAt: resolvePersistedGroundExpireAt(itemPayload),
         });
       });
     }
@@ -2046,11 +2051,13 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               SELECT
                 ground_item_id,
                 tile_index,
-                COALESCE(item_instance_payload, '{}'::jsonb) AS item_instance_payload
+                COALESCE(item_instance_payload, '{}'::jsonb) AS item_instance_payload,
+                expire_at
               FROM jsonb_to_recordset($2::jsonb) AS entry(
                 ground_item_id varchar(100),
                 tile_index bigint,
-                item_instance_payload jsonb
+                item_instance_payload jsonb,
+                expire_at timestamptz
               )
             )
             INSERT INTO ${INSTANCE_GROUND_ITEM_TABLE}(
@@ -2061,7 +2068,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               expire_at,
               updated_at
             )
-            SELECT ground_item_id, $1, tile_index, item_instance_payload, NULL, now()
+            SELECT ground_item_id, $1, tile_index, item_instance_payload, expire_at, now()
             FROM incoming
             ON CONFLICT (ground_item_id)
             DO UPDATE SET
@@ -2077,6 +2084,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               ground_item_id: entry.groundItemId,
               tile_index: entry.tileIndex,
               item_instance_payload: normalizePersistedItemPayload(entry.itemPayload),
+              expire_at: entry.expireAt,
             }))),
           ],
         );
@@ -2135,7 +2143,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           instanceId: typeof row.instance_id === 'string' ? row.instance_id : '',
           tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
           itemPayload: row.item_instance_payload ?? null,
-          expireAt: typeof row.expire_at === 'string' ? row.expire_at : null,
+          expireAt: normalizeDbTimestamp(row.expire_at),
         }))
       : [];
   }
@@ -4413,6 +4421,30 @@ function normalizePersistedItemPayload(value: unknown): Record<string, unknown> 
   } catch {
     return {};
   }
+}
+
+function normalizeDbTimestamp(value: unknown): string | null {
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? value.toISOString() : null;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const time = new Date(value).getTime();
+    return Number.isFinite(time) ? new Date(time).toISOString() : null;
+  }
+  return null;
+}
+
+function resolvePersistedGroundExpireAt(itemPayload: unknown): string | null {
+  if (!itemPayload || typeof itemPayload !== 'object') {
+    return null;
+  }
+  const expiresAtMs = Number((itemPayload as { groundExpiresAtMs?: unknown }).groundExpiresAtMs);
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= 0) {
+    return null;
+  }
+  const date = new Date(Math.trunc(expiresAtMs));
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 function normalizeJsonObjectPayload(value: unknown): Record<string, unknown> {

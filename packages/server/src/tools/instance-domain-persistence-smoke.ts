@@ -307,12 +307,14 @@ async function main(): Promise<void> {
     assert.equal(removedGroundItem, true);
     const groundItemsAfterRemove = await service.loadGroundItems(instanceId);
     assert.equal(groundItemsAfterRemove.length, 0);
+    const groundExpireAtMs = Date.UTC(2100, 0, 1, 0, 0, 0, 0);
+    const groundExpireAtIso = new Date(groundExpireAtMs).toISOString();
     await service.replaceGroundItemTiles(instanceId, [18], [
       {
         tileIndex: 18,
         items: [
           createPrototypePayload(
-            { itemId: 'rat_tail', count: 4 },
+            { itemId: 'rat_tail', count: 4, groundExpiresAtMs: groundExpireAtMs },
             { name: '模板名不应落盘', desc: '模板描述不应落盘' },
           ),
           { itemId: 'spirit_stone', count: 1 },
@@ -330,8 +332,8 @@ async function main(): Promise<void> {
       {
         instanceId,
         tileIndex: 18,
-        itemPayload: { itemId: 'rat_tail', count: 4 },
-        expireAt: null,
+        itemPayload: { itemId: 'rat_tail', count: 4, groundExpiresAtMs: groundExpireAtMs },
+        expireAt: groundExpireAtIso,
       },
       {
         instanceId,
