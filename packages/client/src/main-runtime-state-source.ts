@@ -664,9 +664,15 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
 
 
     handleBootstrap(data: S2C_Bootstrap): void {
+      const currentPlayer = options.getPlayer();
+      const isRuntimeSameMapBootstrap = currentPlayer !== null
+        && currentPlayer.id === data.self.id
+        && currentPlayer.mapId === data.self.mapId;
       pendingMapStatic = null;
-      options.hideObserveModal();
-      options.clearTargetingState();
+      if (!isRuntimeSameMapBootstrap) {
+        options.hideObserveModal();
+        options.clearTargetingState();
+      }
       latestInitSession = latestInitSession?.pid === data.self.id ? latestInitSession : null;
       latestMapEnter = latestMapEnter?.mid === data.self.mapId ? latestMapEnter : null;
       if (typeof data.auraLevelBaseValue === 'number') {
@@ -696,12 +702,16 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.syncActionsBridgeState(player.actions, player.autoBattle, player.autoRetaliate !== false);
       options.syncBootstrapQuestState(player);
       options.syncTargetingOverlay();
-      options.applyBootstrapToMapRuntime({ ...data, self: player });
+      if (!isRuntimeSameMapBootstrap) {
+        options.applyBootstrapToMapRuntime({ ...data, self: player });
+      }
       options.syncSenseQiOverlay();
       options.syncWangQiOverlay?.();
-      options.resetObservedBaselinesFromPlayer(player);
-      options.clearCurrentPath();
-      options.setRuntimePathCells();
+      if (!isRuntimeSameMapBootstrap) {
+        options.resetObservedBaselinesFromPlayer(player);
+        options.clearCurrentPath();
+        options.setRuntimePathCells();
+      }
       options.showSidePanel();
       options.setChatPersistenceScope(player.id);
       options.showChat();
