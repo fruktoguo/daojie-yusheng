@@ -695,6 +695,870 @@
       "row": 0,
       "fit": "contain",
       "insetRatio": 0.02
+    },
+    "monster:m_bamboo_mantis": {
+      "src": "monsters/m_bamboo_mantis.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_bamboo_serpent": {
+      "src": "monsters/m_bamboo_serpent.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_bamboo_sprite": {
+      "src": "monsters/m_bamboo_sprite.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_blaze_lizard": {
+      "src": "monsters/m_blaze_lizard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_blazewood_king": {
+      "src": "monsters/m_blazewood_king.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_blood_crow": {
+      "src": "monsters/m_blood_crow.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_bone_owl": {
+      "src": "monsters/m_bone_owl.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_charwood_walker": {
+      "src": "monsters/m_charwood_walker.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cleft_banner_general": {
+      "src": "monsters/m_cleft_banner_general.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cleft_blade_sprite": {
+      "src": "monsters/m_cleft_blade_sprite.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cleft_blade_wraith": {
+      "src": "monsters/m_cleft_blade_wraith.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cleft_gate_lord": {
+      "src": "monsters/m_cleft_gate_lord.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cleft_iron_guard": {
+      "src": "monsters/m_cleft_iron_guard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cleft_sand_soldier": {
+      "src": "monsters/m_cleft_sand_soldier.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cleft_stele_puppet": {
+      "src": "monsters/m_cleft_stele_puppet.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_abyss_drake": {
+      "src": "monsters/m_cold_abyss_drake.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_bridge_patrol": {
+      "src": "monsters/m_cold_bridge_patrol.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_iron_scorpion": {
+      "src": "monsters/m_cold_iron_scorpion.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_marsh_wraith": {
+      "src": "monsters/m_cold_marsh_wraith.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_mirror_shade": {
+      "src": "monsters/m_cold_mirror_shade.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_moonscale": {
+      "src": "monsters/m_cold_moonscale.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_pattern_guard": {
+      "src": "monsters/m_cold_pattern_guard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_cold_tide_sprite": {
+      "src": "monsters/m_cold_tide_sprite.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_crystal_bat": {
+      "src": "monsters/m_crystal_bat.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_darksoil_beetle": {
+      "src": "monsters/m_darksoil_beetle.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_darksoil_dragon": {
+      "src": "monsters/m_darksoil_dragon.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_deepvein_armor_spirit": {
+      "src": "monsters/m_deepvein_armor_spirit.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_deepvein_croc": {
+      "src": "monsters/m_deepvein_croc.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_deepvein_earth_effigy": {
+      "src": "monsters/m_deepvein_earth_effigy.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_deepvein_heavy_guard": {
+      "src": "monsters/m_deepvein_heavy_guard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_deepvein_ridge_warden": {
+      "src": "monsters/m_deepvein_ridge_warden.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_deepvein_stele_bearer": {
+      "src": "monsters/m_deepvein_stele_bearer.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_deepvein_stonebound": {
+      "src": "monsters/m_deepvein_stonebound.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_dust_vulture": {
+      "src": "monsters/m_dust_vulture.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_earthsplit_centipede": {
+      "src": "monsters/m_earthsplit_centipede.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ember_attendant": {
+      "src": "monsters/m_ember_attendant.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ember_bone_patrol": {
+      "src": "monsters/m_ember_bone_patrol.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ember_flame_guard": {
+      "src": "monsters/m_ember_flame_guard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ember_furnace_lord": {
+      "src": "monsters/m_ember_furnace_lord.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ember_lizard": {
+      "src": "monsters/m_ember_lizard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ember_moth": {
+      "src": "monsters/m_ember_moth.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ember_whelp": {
+      "src": "monsters/m_ember_whelp.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_fallen_palace_lord": {
+      "src": "monsters/m_fallen_palace_lord.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_fivephase_devourer": {
+      "src": "monsters/m_fivephase_devourer.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_flame_tail_fox": {
+      "src": "monsters/m_flame_tail_fox.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_frost_crane": {
+      "src": "monsters/m_frost_crane.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_frost_scale_serpent": {
+      "src": "monsters/m_frost_scale_serpent.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_gale_bone_king": {
+      "src": "monsters/m_gale_bone_king.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_gate_thug": {
+      "src": "monsters/m_gate_thug.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ghost_scribe": {
+      "src": "monsters/m_ghost_scribe.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_green_emperor_mantis": {
+      "src": "monsters/m_green_emperor_mantis.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_guizang_chaos_sentry": {
+      "src": "monsters/m_guizang_chaos_sentry.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_guizang_dualphase_beast": {
+      "src": "monsters/m_guizang_dualphase_beast.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_guizang_failed_foundation": {
+      "src": "monsters/m_guizang_failed_foundation.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_guizang_fivephase_effigy": {
+      "src": "monsters/m_guizang_fivephase_effigy.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_guizang_reflux_attendant": {
+      "src": "monsters/m_guizang_reflux_attendant.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_guizang_ruined_relic": {
+      "src": "monsters/m_guizang_ruined_relic.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_guizang_tangled_wisp": {
+      "src": "monsters/m_guizang_tangled_wisp.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_huanling_zhenren": {
+      "src": "monsters/m_huanling_zhenren.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ice_crystal_spider": {
+      "src": "monsters/m_ice_crystal_spider.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_iron_devour_lord": {
+      "src": "monsters/m_iron_devour_lord.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ironshell_turtle": {
+      "src": "monsters/m_ironshell_turtle.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_mine_ghoul": {
+      "src": "monsters/m_mine_ghoul.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_mire_spider": {
+      "src": "monsters/m_mire_spider.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_mixed_stone_toad": {
+      "src": "monsters/m_mixed_stone_toad.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_night_blade": {
+      "src": "monsters/m_night_blade.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ore_colossus": {
+      "src": "monsters/m_ore_colossus.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ridge_ghost": {
+      "src": "monsters/m_ridge_ghost.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_ruin_guardian": {
+      "src": "monsters/m_ruin_guardian.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_rune_watcher": {
+      "src": "monsters/m_rune_watcher.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_sky_puppet": {
+      "src": "monsters/m_sky_puppet.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_soul_wolf_ancestor": {
+      "src": "monsters/m_soul_wolf_ancestor.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_spine_gate_lord": {
+      "src": "monsters/m_spine_gate_lord.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_spirit_tiger": {
+      "src": "monsters/m_spirit_tiger.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_star_devourer": {
+      "src": "monsters/m_star_devourer.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_stele_arbiter": {
+      "src": "monsters/m_stele_arbiter.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_swamp_lizard": {
+      "src": "monsters/m_swamp_lizard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_tongtian_shadow": {
+      "src": "monsters/m_tongtian_shadow.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_tongtian_shadow_elite": {
+      "src": "monsters/m_tongtian_shadow_elite.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_town_rat_refuse": {
+      "src": "monsters/m_town_rat_refuse.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_town_rat_south": {
+      "src": "monsters/m_town_rat_south.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_tunnel_stalker": {
+      "src": "monsters/m_tunnel_stalker.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_valley_alpha": {
+      "src": "monsters/m_valley_alpha.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_valley_emperor": {
+      "src": "monsters/m_valley_emperor.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_valley_serpent": {
+      "src": "monsters/m_valley_serpent.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_valley_wolf": {
+      "src": "monsters/m_valley_wolf.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_verdant_lesser_sprite": {
+      "src": "monsters/m_verdant_lesser_sprite.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_verdant_marrow_sprite": {
+      "src": "monsters/m_verdant_marrow_sprite.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_verdant_parasitic_child": {
+      "src": "monsters/m_verdant_parasitic_child.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_verdant_siphon_flower": {
+      "src": "monsters/m_verdant_siphon_flower.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_verdant_vein_mother": {
+      "src": "monsters/m_verdant_vein_mother.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_verdant_wither_guard": {
+      "src": "monsters/m_verdant_wither_guard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_vine_flame_serpent": {
+      "src": "monsters/m_vine_flame_serpent.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_void_hunter": {
+      "src": "monsters/m_void_hunter.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_wild_bandit": {
+      "src": "monsters/m_wild_bandit.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
+    },
+    "monster:m_wild_boar": {
+      "src": "monsters/m_wild_boar.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.02
     }
   }
 }

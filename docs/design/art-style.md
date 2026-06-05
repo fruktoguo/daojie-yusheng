@@ -56,13 +56,15 @@ single adult NPC, full-body front standing pose, restrained xianxia frontier tow
 - 普通怪默认尺寸：`64x64` 或 `128x128`，按战斗可读性决定。
 - 精英、Boss 默认尺寸：`128x128`，必要时允许更大但必须单独接入规则。
 - 模板：优先 `monster` 或带方向的像素怪物模板。
-- 设计方向：妖兽不是卡通宠物，要有“异变、残阵污染、地貌侵蚀”的局部特征。
+- 设计方向：妖兽不是卡通宠物，要克制、写实、仙侠，并带轻微克苏鲁污染感；局部特征来自“异变、残阵污染、地貌侵蚀”，不做全身触手堆叠。
+- 朝向：当前运行时怪物只区分 `left` / `right`。生产默认做左向全身图；竖向移动和待机不额外要求前后图。
+- 右向：无专用右向资源时，客户端会自动把基础图水平镜像。只有镜像后轮廓、武器、文字性符号或残阵结构明显不自然时，才补专用右向图。
 - 禁止：血腥写实、高清厚涂、过度 Q 版、复杂到小尺寸不可读。
 
 推荐生成词骨架：
 
 ```text
-single pixel monster sprite, restrained dark xianxia wilderness, corrupted by old array residue, readable silhouette, low saturation, clear dark outline, compact game sprite, transparent background, no text, no extra creatures
+single pixel monster sprite, full-body left-facing side view, restrained realistic xianxia monster, subtle eldritch corruption, corrupted by old array residue and weathered terrain, readable silhouette, low saturation, clear dark outline, compact game sprite, transparent background, no text, no extra creatures
 ```
 
 ### 道具和 Icon
@@ -117,6 +119,8 @@ single pixel monster sprite, restrained dark xianxia wilderness, corrupted by ol
 - 正式运行资产放 `packages/client/public/assets/runtime-image-packs/default/` 下对应目录。
 - NPC 放 `npcs/`，怪物放 `monsters/`，地图 tile 放 `tiles/`。
 - 文件名使用稳定业务 id，例如 `npc_qingxuan.png`、`m_bamboo_sprite.png`。
+- 怪物基础图在 `manifest.json` 的实体 key 使用 `monster:<id>`；可选方向覆盖使用 `monster:<id>:left`、`monster:<id>:right`。查找顺序优先方向 key，再回退基础 key。
+- 如果只有基础 key，右向显示会镜像基础图；因此基础图应按左向全身图制作，避免在图内放不可镜像的字形或强方向标识。
 
 ## MeowArt 生成规则
 
