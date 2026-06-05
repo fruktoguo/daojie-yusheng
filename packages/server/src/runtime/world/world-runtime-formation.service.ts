@@ -30,6 +30,7 @@ const INSTANCE_FORMATION_STATE_DOUBLE_COLUMNS = [
 ];
 const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
 const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
+const FORMATION_MAINTENANCE_CONTROL_RADIUS = 1;
 const FORMATION_QI_DECAY_RATE_SCALED = buildQiHalfLifeRateScaled(FORMATION_QI_HALF_LIFE_TICKS);
 const runtimeFormationProjectionCache = new WeakMap();
 
@@ -377,8 +378,7 @@ class WorldRuntimeFormationService {
         const controlY = firstFiniteInteger(formation.eyeY, formation.y);
         const playerInstanceId = normalizeInstanceId(player.instanceId);
         if (playerInstanceId !== controlInstanceId
-            || Math.trunc(Number(player.x)) !== controlX
-            || Math.trunc(Number(player.y)) !== controlY) {
+            || !isWithinFormationMaintenanceControlRange(player.x, player.y, controlX, controlY)) {
             return { satisfied: false, reason: '离开阵法控制点位。' };
         }
         return { satisfied: true };
@@ -901,8 +901,7 @@ class WorldRuntimeFormationService {
         return (this.formationsByInstanceId.get(instanceId) ?? [])
             .filter((formation) => formation.ownerPlayerId === ownerPlayerId
             && !isPersistentFormation(formation)
-            && formation.x === Math.trunc(x)
-            && formation.y === Math.trunc(y))
+            && isWithinFormationMaintenanceControlRange(x, y, formation.eyeX ?? formation.x, formation.eyeY ?? formation.y))
             .map((formation) => ({
             id: formation.id,
             name: formation.name,
@@ -1617,6 +1616,17 @@ function firstFiniteInteger(...values) {
         }
     }
     return Number.NaN;
+}
+
+function isWithinFormationMaintenanceControlRange(ax, ay, bx, by) {
+    const leftX = firstFiniteInteger(ax);
+    const leftY = firstFiniteInteger(ay);
+    const rightX = firstFiniteInteger(bx);
+    const rightY = firstFiniteInteger(by);
+    if (!Number.isFinite(leftX) || !Number.isFinite(leftY) || !Number.isFinite(rightX) || !Number.isFinite(rightY)) {
+        return false;
+    }
+    return Math.max(Math.abs(leftX - rightX), Math.abs(leftY - rightY)) <= FORMATION_MAINTENANCE_CONTROL_RADIUS;
 }
 
 function normalizeInstanceId(input) {

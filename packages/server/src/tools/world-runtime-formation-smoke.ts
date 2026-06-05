@@ -224,6 +224,10 @@ async function main() {
   assert.equal(ownedAtEye[0].refillSpiritStoneCount, 169);
   assert.equal(ownedAtEye[0].refillQiCost, 16900);
   assert.equal(ownedAtEye[0].refillQiBudget, 16900);
+  const ownedNearEye = service.listOwnedFormationsAt(instanceId, playerId, 5, 6);
+  assert.equal(ownedNearEye.length, 1);
+  assert.equal(ownedNearEye[0].id, formation.id);
+  assert.equal(service.listOwnedFormationsAt(instanceId, playerId, 6, 5).length, 0);
 
   const worldDelta = buildFullWorldDelta({
     tick: 1,
@@ -455,6 +459,10 @@ async function main() {
   assert.equal(service.getFormationCombatState(instanceId, formation.id).remainingAuraBudget - auraBeforeMaintenance, 16);
   assert.ok(player.formationSkill.exp > 0);
   player.x = 5;
+  const nearbyMaintenanceTick = maintenancePipeline.tick(player, "formation", maintenanceCtx);
+  assert.equal(nearbyMaintenanceTick.ok, true);
+  assert.equal(player.formationJob?.formationInstanceId, formation.id);
+  player.x = 6;
   const maintenanceCancel = maintenancePipeline.tick(player, "formation", maintenanceCtx);
   assert.equal(maintenanceCancel.ok, true);
   assert.equal(player.formationJob, null);
@@ -747,7 +755,7 @@ async function main() {
   };
   player.playerId = sectPlayerId;
   player.instanceId = "sect:smoke:inner";
-  player.x = 0;
+  player.x = 1;
   player.y = 0;
   player.qi = 100;
   const guardianMaintenanceStart = maintenancePipeline.start(player, "formation", { formationInstanceId: guardian.id }, guardianMaintenanceCtx);
@@ -759,6 +767,11 @@ async function main() {
   assert.equal(guardianMaintenanceTick.ok, true);
   assert.equal(player.qi, 84);
   assert.equal(service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget - guardianAuraBeforeMaintenance, 16);
+  player.x = 2;
+  player.y = 0;
+  const farGuardianMaintenanceCondition = service.checkFormationMaintenanceCondition(player, player.formationJob, guardianMaintenanceCtx);
+  assert.equal(farGuardianMaintenanceCondition.satisfied, false);
+  assert.match(farGuardianMaintenanceCondition.reason, /离开阵法控制点位/);
   player.formationJob = null;
   assert.throws(() => maintenancePipeline.start(player, "formation", { formationInstanceId: guardian.id }, {
     ...guardianMaintenanceCtx,
