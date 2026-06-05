@@ -10,6 +10,7 @@
 
 import {
   type BasicOkRes,
+  C2S,
   Direction,
   GM_MAIL_TEMPLATE_OPTIONS,
   type GmChangePasswordReq,
@@ -82,6 +83,7 @@ import {
   type GmWorkerRow,
   type GmWorkerStateRes,
   type GmEnvCheckResult,
+  S2C,
   type GmTriggerDatabaseBackupRes,
   type GmUpdateManagedPlayerAccountReq,
   type GmUpdateManagedPlayerPasswordReq,
@@ -296,20 +298,8 @@ const summaryPathWorkersEl = document.getElementById('summary-path-workers') as 
 const summaryPathCancelledEl = document.getElementById('summary-path-cancelled') as HTMLDivElement;
 /** summaryNetInBreakdownEl：摘要Net In Breakdown El。 */
 const summaryNetInBreakdownEl = document.getElementById('summary-net-in-breakdown') as HTMLDivElement;
-/** networkInPrevPageBtn：网络上行上一页Btn。 */
-const networkInPrevPageBtn = document.getElementById('network-in-page-prev') as HTMLButtonElement;
-/** networkInNextPageBtn：网络上行下一页Btn。 */
-const networkInNextPageBtn = document.getElementById('network-in-page-next') as HTMLButtonElement;
-/** networkInPageMetaEl：网络上行分页元数据。 */
-const networkInPageMetaEl = document.getElementById('network-in-page-meta') as HTMLDivElement;
 /** summaryNetOutBreakdownEl：摘要Net Out Breakdown El。 */
 const summaryNetOutBreakdownEl = document.getElementById('summary-net-out-breakdown') as HTMLDivElement;
-/** networkOutPrevPageBtn：网络下行上一页Btn。 */
-const networkOutPrevPageBtn = document.getElementById('network-out-page-prev') as HTMLButtonElement;
-/** networkOutNextPageBtn：网络下行下一页Btn。 */
-const networkOutNextPageBtn = document.getElementById('network-out-page-next') as HTMLButtonElement;
-/** networkOutPageMetaEl：网络下行分页元数据。 */
-const networkOutPageMetaEl = document.getElementById('network-out-page-meta') as HTMLDivElement;
 /** serverSubtabOverviewBtn：服务端Subtab Overview Btn。 */
 const serverSubtabOverviewBtn = document.getElementById('server-subtab-overview') as HTMLButtonElement;
 /** serverSubtabTrafficBtn：服务端Subtab Traffic Btn。 */
@@ -799,11 +789,22 @@ let generatedTechniqueDetailRequestNonce = 0;
 let techniqueGenerationJobListRequestNonce = 0;
 /** techniqueGenerationJobDetailRequestNonce：AI 生成任务详情请求 nonce。 */
 let techniqueGenerationJobDetailRequestNonce = 0;
-/** currentNetworkInPage：当前上行榜分页。 */
-let currentNetworkInPage = 1;
-/** currentNetworkOutPage：当前下行榜分页。 */
-let currentNetworkOutPage = 1;
 const networkLargePayloadBucketByKey = new Map<string, GmNetworkBucket>();
+type TrafficBreakdownSortMode = 'bytes' | 'percent' | 'count' | 'avgBytes' | 'bytesPerSecond' | 'countPerSecond';
+type TrafficBreakdownDirection = 'in' | 'out';
+interface TrafficBreakdownNode {
+  key: string;
+  label: string;
+  bucket: GmNetworkBucket | null;
+  children: TrafficBreakdownNode[];
+  grouped: boolean;
+}
+/** currentTrafficBreakdownSort：当前流量分项排序。 */
+let currentTrafficBreakdownSort: TrafficBreakdownSortMode = 'bytes';
+/** currentTrafficBreakdownSortDirection：当前流量分项排序方向。 */
+let currentTrafficBreakdownSortDirection: MetricTreeSortDirection = 'desc';
+/** collapsedTrafficBreakdownGroupKeys：已折叠的流量分组。 */
+const collapsedTrafficBreakdownGroupKeys = new Set<string>();
 type GmPositionMapCategory = 'void' | 'real' | 'sect' | 'secret' | 'map';
 const GM_POSITION_MAP_CATEGORY_OPTIONS: readonly { id: GmPositionMapCategory; label: string }[] = [
   { id: 'void', label: t('gm.client.position.category.void') },
@@ -2406,46 +2407,6 @@ function getVisibleNetworkBuckets(buckets: GmNetworkBucket[]): GmNetworkBucket[]
   return buckets;
 }
 
-const NETWORK_BUCKET_PAGE_SIZE = 20;
-
-/** getSortedNetworkBuckets：读取按均秒字节排序后的网络记录。 */
-function getSortedNetworkBuckets(
-  buckets: GmNetworkBucket[],
-  elapsedSec: number,
-): GmNetworkBucket[] {
-  const safeElapsedSec = elapsedSec > 0 ? elapsedSec : 1;
-  return [...getVisibleNetworkBuckets(buckets)].sort((left, right) => {
-    const rightBytesPerSecond = right.bytes / safeElapsedSec;
-    const leftBytesPerSecond = left.bytes / safeElapsedSec;
-    if (rightBytesPerSecond !== leftBytesPerSecond) {
-      return rightBytesPerSecond - leftBytesPerSecond;
-    }
-    if (right.bytes !== left.bytes) {
-      return right.bytes - left.bytes;
-    }
-    return left.label.localeCompare(right.label, 'zh-CN');
-  });
-}
-
-/** paginateNetworkBuckets：分页切片网络记录。 */
-function paginateNetworkBuckets(
-  buckets: GmNetworkBucket[],
-  currentPage: number,
-): {
-  page: number;
-  totalPages: number;
-  items: GmNetworkBucket[];
-} {
-  const totalPages = Math.max(1, Math.ceil(buckets.length / NETWORK_BUCKET_PAGE_SIZE));
-  const page = Math.min(totalPages, Math.max(1, currentPage));
-  const start = (page - 1) * NETWORK_BUCKET_PAGE_SIZE;
-  return {
-    page,
-    totalPages,
-    items: buckets.slice(start, start + NETWORK_BUCKET_PAGE_SIZE),
-  };
-}
-
 /** getNetworkBucketMeta：读取Network Bucket元数据。 */
 function getNetworkBucketMeta(
   totalBytes: number,
@@ -2502,6 +2463,7 @@ interface MetricTreeTableOptions<TNode, TContext> {
   getKey: (node: TNode) => string;
   getLabel: (node: TNode) => string;
   getDisplayLabel?: (node: TNode, depth: number) => string;
+  getLabelMarkup?: (node: TNode, depth: number) => string | null | undefined;
   getChildren: (node: TNode) => TNode[];
   isGroup: (node: TNode) => boolean;
   firstColumnLabel: string;
@@ -2855,6 +2817,11 @@ interface CpuBreakdownTableContext {
   windowSec: number;
 }
 
+interface TrafficBreakdownTableContext {
+  totalBytes: number;
+  elapsedSec: number;
+}
+
 const CPU_BREAKDOWN_COLUMNS: MetricTreeColumn<CpuBreakdownGroup, CpuBreakdownTableContext>[] = [
   {
     key: 'totalMs',
@@ -2900,8 +2867,80 @@ const CPU_BREAKDOWN_COLUMNS: MetricTreeColumn<CpuBreakdownGroup, CpuBreakdownTab
   },
 ];
 
+const C2S_PROTOCOL_NAME_BY_EVENT = new Map<string, string>(Object.entries(C2S).map(([name, event]) => [event, name]));
+const S2C_PROTOCOL_NAME_BY_EVENT = new Map<string, string>(Object.entries(S2C).map(([name, event]) => [event, name]));
+
+const TRAFFIC_PROTOCOL_GROUPS: Array<{ key: string; label: string; match: (protocolName: string) => boolean }> = [
+  { key: 'movement', label: '移动寻路', match: (name) => name === 'Move' || name === 'MoveTo' || name === 'NavigateQuest' || name === 'UsePortal' },
+  { key: 'worldSync', label: '世界同步', match: (name) => name === 'WorldDelta' || name === 'SyncEnvelope' || name === 'MapEnter' || name === 'MapStatic' || name === 'Bootstrap' || name === 'InitSession' || name === 'SelfDelta' },
+  { key: 'panelDetail', label: '面板详情', match: (name) => name.includes('Panel') || name.includes('Detail') || name === 'PanelDelta' || name === 'RequestDetail' || name === 'RequestTileDetail' },
+  { key: 'combatGrowth', label: '战斗成长', match: (name) => name.includes('Skill') || name.includes('Technique') || name.includes('Cultivate') || name.includes('Realm') || name.includes('Attr') || name.includes('Buff') || name.includes('Action') || name.includes('Combat') },
+  { key: 'socialEconomy', label: '社交经济', match: (name) => name.includes('Mail') || name.includes('Market') || name.includes('Auction') || name.includes('Trade') || name.includes('Leaderboard') || name.includes('Chat') || name.includes('Redeem') || name.includes('Shop') || name.includes('Quest') || name.includes('Npc') },
+  { key: 'craftBuilding', label: '技艺建造', match: (name) => name.includes('Alchemy') || name.includes('Enhancement') || name.includes('Build') || name.includes('Gather') || name.includes('Formation') || name.includes('FengShui') || name.includes('Room') },
+  { key: 'sessionOps', label: '会话运维', match: (name) => name === 'Hello' || name === 'Heartbeat' || name === 'Ping' || name === 'Pong' || name === 'Kick' || name === 'Error' || name.includes('OfflineGain') || name === 'ActivityStatus' || name === 'ActivityOperationResult' || name === 'Notice' },
+  { key: 'gm', label: 'GM 工具链', match: (name) => name.startsWith('Gm') },
+  { key: 'contentAi', label: '内容与 AI', match: (name) => name.includes('ContentTemplates') || name.includes('TechniqueGeneration') || name.includes('Minimap') || name === 'ReportMinimapVersions' },
+];
+
+const TRAFFIC_BREAKDOWN_COLUMNS: MetricTreeColumn<TrafficBreakdownNode, TrafficBreakdownTableContext>[] = [
+  {
+    key: 'bytes',
+    label: '总字节',
+    sortable: true,
+    render: (node) => formatBytes(node.bucket?.bytes ?? sumTrafficNodeBytes(node)),
+    sortValue: (node) => node.bucket?.bytes ?? sumTrafficNodeBytes(node),
+  },
+  {
+    key: 'percent',
+    label: '总占比',
+    sortable: true,
+    render: (node, context) => formatPercent(node.bucket?.bytes ?? sumTrafficNodeBytes(node), context.totalBytes),
+    sortValue: (node, context) => (node.bucket?.bytes ?? sumTrafficNodeBytes(node)) / Math.max(1, context.totalBytes),
+  },
+  {
+    key: 'count',
+    label: '总次数',
+    sortable: true,
+    render: (node) => formatTrafficCount(node.bucket?.count ?? sumTrafficNodeCount(node)),
+    sortValue: (node) => node.bucket?.count ?? sumTrafficNodeCount(node),
+  },
+  {
+    key: 'avgBytes',
+    label: '均次字节',
+    sortable: true,
+    render: (node) => {
+      const bytes = node.bucket?.bytes ?? sumTrafficNodeBytes(node);
+      const count = node.bucket?.count ?? sumTrafficNodeCount(node);
+      return formatAverageBytesPerEvent(bytes, count);
+    },
+    sortValue: (node) => {
+      const bytes = node.bucket?.bytes ?? sumTrafficNodeBytes(node);
+      const count = node.bucket?.count ?? sumTrafficNodeCount(node);
+      return count > 0 ? bytes / count : 0;
+    },
+  },
+  {
+    key: 'bytesPerSecond',
+    label: '均秒字节',
+    sortable: true,
+    render: (node, context) => formatBytesPerSecond(node.bucket?.bytes ?? sumTrafficNodeBytes(node), context.elapsedSec),
+    sortValue: (node, context) => (node.bucket?.bytes ?? sumTrafficNodeBytes(node)) / Math.max(1, context.elapsedSec),
+  },
+  {
+    key: 'countPerSecond',
+    label: '均秒次数',
+    sortable: true,
+    render: (node, context) => formatTrafficCount((node.bucket?.count ?? sumTrafficNodeCount(node)) / Math.max(1, context.elapsedSec), 2),
+    sortValue: (node, context) => (node.bucket?.count ?? sumTrafficNodeCount(node)) / Math.max(1, context.elapsedSec),
+  },
+];
+
 function isCpuBreakdownSortMode(value: string | undefined): value is CpuBreakdownSortMode {
   return typeof value === 'string' && CPU_BREAKDOWN_COLUMNS.some((column) => column.key === value);
+}
+
+function isTrafficBreakdownSortMode(value: string | undefined): value is TrafficBreakdownSortMode {
+  return typeof value === 'string' && TRAFFIC_BREAKDOWN_COLUMNS.some((column) => column.key === value);
 }
 
 function renderMetricTreeHeader<TNode, TContext>(options: MetricTreeTableOptions<TNode, TContext>): string {
@@ -2946,9 +2985,11 @@ function renderMetricTreeRows<TNode, TContext>(
     const collapsed = canToggle && options.collapsedKeys.has(key);
     const rowClass = isGroup ? options.groupRowClassName : options.childRowClassName;
     const displayLabel = options.getDisplayLabel?.(node, depth) ?? options.getLabel(node);
+    const labelMarkupContent = options.getLabelMarkup?.(node, depth);
+    const safeDisplayLabel = escapeHtml(displayLabel);
     const labelMarkup = canToggle
-      ? `<button class="metric-tree-toggle" type="button" data-metric-tree-toggle-key="${escapeHtml(key)}" aria-expanded="${collapsed ? 'false' : 'true'}"><span class="metric-tree-toggle-mark">${collapsed ? '+' : '-'}</span><span class="metric-tree-label">${escapeHtml(displayLabel)}</span></button>`
-      : `<span class="metric-tree-label">${escapeHtml(displayLabel)}</span>`;
+      ? `<button class="metric-tree-toggle" type="button" data-metric-tree-toggle-key="${escapeHtml(key)}" aria-expanded="${collapsed ? 'false' : 'true'}"><span class="metric-tree-toggle-mark">${collapsed ? '+' : '-'}</span><span class="metric-tree-label">${labelMarkupContent ?? safeDisplayLabel}</span></button>`
+      : `<span class="metric-tree-label">${labelMarkupContent ?? safeDisplayLabel}</span>`;
     const cells = options.columns
       .map((column) => `<td>${escapeHtml(column.render(node, options.context))}</td>`)
       .join('');
@@ -2986,6 +3027,169 @@ function buildCpuBreakdownStructureKey(groups: CpuBreakdownGroup[]): string {
   return groups
     .map((group) => `${group.key}[${buildCpuBreakdownStructureKey(group.children)}]`)
     .join(',');
+}
+
+function formatTrafficCount(value: number, digits = 0): string {
+  const normalized = Math.max(0, Number(value) || 0);
+  return digits > 0
+    ? normalized.toLocaleString('zh-Hans-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits })
+    : Math.round(normalized).toLocaleString('zh-Hans-CN');
+}
+
+function sumTrafficNodeBytes(node: TrafficBreakdownNode): number {
+  if (node.bucket) {
+    return node.bucket.bytes;
+  }
+  return node.children.reduce((sum, child) => sum + sumTrafficNodeBytes(child), 0);
+}
+
+function sumTrafficNodeCount(node: TrafficBreakdownNode): number {
+  if (node.bucket) {
+    return node.bucket.count;
+  }
+  return node.children.reduce((sum, child) => sum + sumTrafficNodeCount(child), 0);
+}
+
+function getTrafficEventProtocolName(direction: TrafficBreakdownDirection, bucket: GmNetworkBucket): string {
+  const rawKey = typeof bucket.key === 'string' ? bucket.key.trim() : '';
+  const protocolToken = rawKey.replace(/^(c2s|s2c)_/, '');
+  const worldDeltaMatch = protocolToken.match(/^WorldDelta(?:\((.+)\))?$/);
+  if (worldDeltaMatch) {
+    return worldDeltaMatch[1] ? `WorldDelta · ${worldDeltaMatch[1]}` : 'WorldDelta';
+  }
+  const protocolMap = direction === 'in' ? C2S_PROTOCOL_NAME_BY_EVENT : S2C_PROTOCOL_NAME_BY_EVENT;
+  const byEvent = protocolMap.get(protocolToken);
+  if (byEvent) {
+    return byEvent;
+  }
+  return protocolToken || bucket.label || 'unknown';
+}
+
+function getTrafficGroupDef(protocolName: string): { key: string; label: string } {
+  for (const group of TRAFFIC_PROTOCOL_GROUPS) {
+    if (group.match(protocolName)) {
+      return { key: group.key, label: group.label };
+    }
+  }
+  return { key: 'other', label: '其他流量' };
+}
+
+function buildTrafficBreakdownNodes(
+  direction: TrafficBreakdownDirection,
+  buckets: GmNetworkBucket[],
+  elapsedSec: number,
+): TrafficBreakdownNode[] {
+  const rootGroups = new Map<string, TrafficBreakdownNode>();
+  for (const bucket of getVisibleNetworkBuckets(buckets)) {
+    const protocolName = getTrafficEventProtocolName(direction, bucket);
+    const groupDef = getTrafficGroupDef(protocolName);
+    const rootKey = `${direction}:${groupDef.key}`;
+    const root = rootGroups.get(rootKey) ?? {
+      key: rootKey,
+      label: groupDef.label,
+      children: [],
+      bucket: null,
+      grouped: true,
+    };
+    if (!rootGroups.has(rootKey)) {
+      rootGroups.set(rootKey, root);
+    }
+    const nodeKey = `${direction}:${bucket.key}`;
+    root.children.push({
+      key: nodeKey,
+      label: protocolName,
+      bucket,
+      children: [],
+      grouped: false,
+    });
+  }
+  const groups = Array.from(rootGroups.values());
+  groups.forEach((group) => {
+    group.children.sort((left, right) => compareTrafficBreakdownNodes(left, right, {
+      totalBytes: Math.max(0, buckets.reduce((sum, bucket) => sum + bucket.bytes, 0)),
+      elapsedSec,
+    }));
+  });
+  groups.sort((left, right) => compareTrafficBreakdownNodes(left, right, {
+    totalBytes: Math.max(0, buckets.reduce((sum, bucket) => sum + bucket.bytes, 0)),
+    elapsedSec,
+  }));
+  return groups;
+}
+
+function renderTrafficNodeDisplayLabel(protocolName: string, bucket: GmNetworkBucket): string {
+  const sampleCount = bucket.largePayloadCount ?? 0;
+  const actionButton = sampleCount > 0
+    ? `<button class="small-btn network-payload-btn metric-tree-cell-trailing" type="button" data-network-large-payload-key="${escapeHtml(bucket.key)}">查看包体</button>`
+    : '';
+  return `
+    <span class="metric-tree-cell">
+      <span class="metric-tree-cell-main">${escapeHtml(protocolName)}</span>
+      ${actionButton}
+    </span>
+  `;
+}
+
+function compareTrafficBreakdownNodes(
+  left: TrafficBreakdownNode,
+  right: TrafficBreakdownNode,
+  context: TrafficBreakdownTableContext,
+): number {
+  const compared = compareMetricTreeNodes(left, right, {
+    columns: TRAFFIC_BREAKDOWN_COLUMNS,
+    context,
+    sortKey: currentTrafficBreakdownSort,
+    sortDirection: currentTrafficBreakdownSortDirection,
+    getLabel: (node) => node.label,
+  });
+  if (compared !== 0) {
+    return compared;
+  }
+  return left.label.localeCompare(right.label, 'zh-CN');
+}
+
+function buildTrafficBreakdownStructureKey(groups: TrafficBreakdownNode[]): string {
+  return groups
+    .map((group) => `${group.key}[${buildTrafficBreakdownStructureKey(group.children)}]`)
+    .join(',');
+}
+
+function renderTrafficBreakdownList(
+  container: HTMLElement,
+  structureKey: string | null,
+  direction: TrafficBreakdownDirection,
+  buckets: GmNetworkBucket[],
+  totalBytes: number,
+  elapsedSec: number,
+  emptyText: string,
+): string {
+  if (buckets.length === 0 || totalBytes <= 0) {
+    if (structureKey !== 'empty') {
+      container.innerHTML = `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
+    }
+    return 'empty';
+  }
+  const groups = buildTrafficBreakdownNodes(direction, buckets, elapsedSec);
+  const nextStructureKey = buildTrafficBreakdownStructureKey(groups);
+  const context = { totalBytes, elapsedSec };
+  container.innerHTML = renderMetricTreeTable(groups, {
+    columns: TRAFFIC_BREAKDOWN_COLUMNS,
+    context,
+    sortKey: currentTrafficBreakdownSort,
+    sortDirection: currentTrafficBreakdownSortDirection,
+    collapsedKeys: collapsedTrafficBreakdownGroupKeys,
+    getKey: (group) => group.key,
+    getLabel: (group) => group.label,
+    getLabelMarkup: (group) => group.grouped ? null : renderTrafficNodeDisplayLabel(group.label, group.bucket!),
+    getChildren: (group) => group.children,
+    isGroup: (group) => group.grouped,
+    firstColumnLabel: direction === 'in' ? '上行业务 / 事件' : '下行业务 / 事件',
+    tableClassName: 'cpu-breakdown-table',
+    groupClassName: 'cpu-breakdown-group',
+    groupRowClassName: 'cpu-breakdown-group-row',
+    childRowClassName: 'cpu-breakdown-child-row',
+  });
+  return nextStructureKey;
 }
 
 function renderCpuBreakdownList(data: GmStateRes): string {
@@ -3043,37 +3247,9 @@ function getPathfindingFailureMeta(totalFailures: number, count: number): string
 /** renderPerfLists：渲染性能Lists。 */
 function renderPerfLists(data: GmStateRes): void {
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
-  const sortedNetworkInBuckets = getSortedNetworkBuckets(data.perf.networkInBuckets, elapsedSec);
-  const pagedNetworkInBuckets = paginateNetworkBuckets(sortedNetworkInBuckets, currentNetworkInPage);
-  currentNetworkInPage = pagedNetworkInBuckets.page;
   networkLargePayloadBucketByKey.clear();
-  rememberNetworkLargePayloadBuckets(sortedNetworkInBuckets);
-  networkInPageMetaEl.textContent = `第 ${pagedNetworkInBuckets.page} / ${pagedNetworkInBuckets.totalPages} 页 · 共 ${sortedNetworkInBuckets.length} 条`;
-  networkInPrevPageBtn.disabled = pagedNetworkInBuckets.page <= 1;
-  networkInNextPageBtn.disabled = pagedNetworkInBuckets.page >= pagedNetworkInBuckets.totalPages;
-  const networkInItems = data.perf.networkInBytes > 0
-    ? pagedNetworkInBuckets.items.map((bucket) => ({
-        key: bucket.key,
-        label: bucket.label,
-        meta: getNetworkBucketMeta(data.perf.networkInBytes, bucket, elapsedSec),
-        largePayloadSamples: bucket.largePayloadSamples,
-      }))
-    : [];
-  const sortedNetworkOutBuckets = getSortedNetworkBuckets(data.perf.networkOutBuckets, elapsedSec);
-  const pagedNetworkOutBuckets = paginateNetworkBuckets(sortedNetworkOutBuckets, currentNetworkOutPage);
-  currentNetworkOutPage = pagedNetworkOutBuckets.page;
-  rememberNetworkLargePayloadBuckets(sortedNetworkOutBuckets);
-  networkOutPageMetaEl.textContent = `第 ${pagedNetworkOutBuckets.page} / ${pagedNetworkOutBuckets.totalPages} 页 · 共 ${sortedNetworkOutBuckets.length} 条`;
-  networkOutPrevPageBtn.disabled = pagedNetworkOutBuckets.page <= 1;
-  networkOutNextPageBtn.disabled = pagedNetworkOutBuckets.page >= pagedNetworkOutBuckets.totalPages;
-  const networkOutItems = data.perf.networkOutBytes > 0
-    ? pagedNetworkOutBuckets.items.map((bucket) => ({
-        key: bucket.key,
-        label: bucket.label,
-        meta: getNetworkBucketMeta(data.perf.networkOutBytes, bucket, elapsedSec),
-        largePayloadSamples: bucket.largePayloadSamples,
-      }))
-    : [];
+  rememberNetworkLargePayloadBuckets(data.perf.networkInBuckets);
+  rememberNetworkLargePayloadBuckets(data.perf.networkOutBuckets);
   const totalRssBytes = Math.max(0, data.perf.memoryEstimate?.rssBytes ?? 0);
   const memoryDomainItems = Array.isArray(data.perf.memoryEstimate?.domains)
     ? data.perf.memoryEstimate.domains.map((domain) => ({
@@ -3107,16 +3283,22 @@ function renderPerfLists(data: GmStateRes): void {
     meta: getPathfindingFailureMeta(totalFailures, bucket.count),
   }));
 
-  lastNetworkInStructureKey = renderStructuredStatList(
+  lastNetworkInStructureKey = renderTrafficBreakdownList(
     summaryNetInBreakdownEl,
     lastNetworkInStructureKey,
-    networkInItems,
+    'in',
+    data.perf.networkInBuckets,
+    data.perf.networkInBytes,
+    elapsedSec,
     '当前还没有累计上行事件。',
   );
-  lastNetworkOutStructureKey = renderStructuredStatList(
+  lastNetworkOutStructureKey = renderTrafficBreakdownList(
     summaryNetOutBreakdownEl,
     lastNetworkOutStructureKey,
-    networkOutItems,
+    'out',
+    data.perf.networkOutBuckets,
+    data.perf.networkOutBytes,
+    elapsedSec,
     '当前还没有累计下行事件。',
   );
   lastCpuBreakdownStructureKey = renderCpuBreakdownList(data);
@@ -5369,6 +5551,33 @@ function setCpuBreakdownSort(sort: CpuBreakdownSortMode): void {
   currentCpuBreakdownSort = sort;
   if (state) {
     lastCpuBreakdownStructureKey = null;
+    renderPerfLists(state);
+  }
+}
+
+function setTrafficBreakdownSort(sort: TrafficBreakdownSortMode): void {
+  if (currentTrafficBreakdownSort === sort) {
+    currentTrafficBreakdownSortDirection = currentTrafficBreakdownSortDirection === 'desc' ? 'asc' : 'desc';
+  } else {
+    currentTrafficBreakdownSortDirection = 'desc';
+  }
+  currentTrafficBreakdownSort = sort;
+  if (state) {
+    lastNetworkInStructureKey = null;
+    lastNetworkOutStructureKey = null;
+    renderPerfLists(state);
+  }
+}
+
+function toggleTrafficBreakdownGroup(groupKey: string): void {
+  if (collapsedTrafficBreakdownGroupKeys.has(groupKey)) {
+    collapsedTrafficBreakdownGroupKeys.delete(groupKey);
+  } else {
+    collapsedTrafficBreakdownGroupKeys.add(groupKey);
+  }
+  if (state) {
+    lastNetworkInStructureKey = null;
+    lastNetworkOutStructureKey = null;
     renderPerfLists(state);
   }
 }
@@ -8208,14 +8417,6 @@ function logout(message?: string): void {
   /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
   lastPlayerListStructureKey = null;
   clearEditorRenderCache();
-  currentNetworkInPage = 1;
-  currentNetworkOutPage = 1;
-  networkInPageMetaEl.textContent = '第 1 / 1 页 · 共 0 条';
-  networkOutPageMetaEl.textContent = '第 1 / 1 页 · 共 0 条';
-  networkInPrevPageBtn.disabled = true;
-  networkInNextPageBtn.disabled = true;
-  networkOutPrevPageBtn.disabled = true;
-  networkOutNextPageBtn.disabled = true;
   /** currentPlayerPage：当前玩家分页。 */
   currentPlayerPage = 1;
   /** currentPlayerTotalPages：当前玩家总量Pages。 */
@@ -8231,6 +8432,7 @@ function logout(message?: string): void {
   /** lastCpuBreakdownStructureKey：last Cpu Breakdown Structure Key。 */
   lastCpuBreakdownStructureKey = null;
   collapsedCpuBreakdownGroupKeys.clear();
+  collapsedTrafficBreakdownGroupKeys.clear();
   /** lastMemoryDomainStructureKey：last Memory Domain Structure Key。 */
   lastMemoryDomainStructureKey = null;
   /** lastMemoryInstanceStructureKey：last Memory Instance Structure Key。 */
@@ -10849,8 +11051,8 @@ async function toggleNetworkPayloadCapture(): Promise<void> {
 }
 
 async function activateNetworkStats(): Promise<void> {
-  currentNetworkInPage = 1;
-  currentNetworkOutPage = 1;
+  lastNetworkInStructureKey = null;
+  lastNetworkOutStructureKey = null;
   await request<{
     /**
  * ok：ok相关字段。
@@ -11558,38 +11760,6 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-networkInPrevPageBtn.addEventListener('click', () => {
-  if (currentNetworkInPage <= 1 || !state) {
-    return;
-  }
-  currentNetworkInPage -= 1;
-  renderPerfLists(state);
-});
-
-networkInNextPageBtn.addEventListener('click', () => {
-  if (!state) {
-    return;
-  }
-  currentNetworkInPage += 1;
-  renderPerfLists(state);
-});
-
-networkOutPrevPageBtn.addEventListener('click', () => {
-  if (currentNetworkOutPage <= 1 || !state) {
-    return;
-  }
-  currentNetworkOutPage -= 1;
-  renderPerfLists(state);
-});
-
-networkOutNextPageBtn.addEventListener('click', () => {
-  if (!state) {
-    return;
-  }
-  currentNetworkOutPage += 1;
-  renderPerfLists(state);
-});
-
 playerSearchInput.addEventListener('input', () => {
   /** currentPlayerPage：当前玩家分页。 */
   currentPlayerPage = 1;
@@ -12066,6 +12236,20 @@ toggleNetworkPayloadCaptureBtn.addEventListener('click', () => {
 serverPanelTrafficEl.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof Element)) {
+    return;
+  }
+  const sortButton = target.closest<HTMLElement>('[data-metric-tree-sort-key]');
+  if (sortButton) {
+    const sortKey = sortButton.dataset.metricTreeSortKey;
+    if (isTrafficBreakdownSortMode(sortKey)) {
+      setTrafficBreakdownSort(sortKey);
+    }
+    return;
+  }
+  const toggleTarget = target.closest<HTMLElement>('[data-metric-tree-toggle-key]');
+  const groupKey = toggleTarget?.dataset.metricTreeToggleKey;
+  if (groupKey) {
+    toggleTrafficBreakdownGroup(groupKey);
     return;
   }
   const button = target.closest<HTMLButtonElement>('[data-network-large-payload-key]');

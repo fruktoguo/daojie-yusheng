@@ -611,6 +611,23 @@
       background: rgba(255,255,255,0.7);
     }
 
+    .metric-tree-cell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .metric-tree-cell-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .metric-tree-cell-trailing {
+      flex: 0 0 auto;
+    }
+
     .cpu-breakdown-table th:first-child,
     .cpu-breakdown-table td:first-child {
       text-align: left;
@@ -2598,20 +2615,12 @@
           </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head"><div class="panel-title" data-i18n="gm.network-inbound-ranking">网络事件上行榜</div><div class="network-breakdown-subtitle" data-i18n="gm.traffic.client-to-server-bytes">客户端 -> 服务端累计字节</div></div>
-            <div class="button-row" style="margin-top: 8px;">
-              <button id="network-in-page-prev" class="small-btn" type="button" data-i18n="gm.network-in-page-prev">上一页</button>
-              <div id="network-in-page-meta" class="editor-note" style="margin: 0;" data-i18n="gm.network-in-page-meta">第 1 / 1 页 · 共 0 条</div>
-              <button id="network-in-page-next" class="small-btn" type="button" data-i18n="gm.network-in-page-next">下一页</button>
-            </div>
+            <div class="network-breakdown-subtitle">按业务分组展示；点击表头切换排序，点击分组展开或折叠。</div>
             <div id="summary-net-in-breakdown" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-inbound-events">当前还没有累计上行事件。</div></div>
           </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head"><div class="panel-title" data-i18n="gm.network-outbound-ranking">网络事件下行榜</div><div class="network-breakdown-subtitle" data-i18n="gm.traffic.server-to-client-bytes">服务端 -> 客户端累计字节</div></div>
-            <div class="button-row" style="margin-top: 8px;">
-              <button id="network-out-page-prev" class="small-btn" type="button" data-i18n="gm.network-in-page-prev">上一页</button>
-              <div id="network-out-page-meta" class="editor-note" style="margin: 0;" data-i18n="gm.network-in-page-meta">第 1 / 1 页 · 共 0 条</div>
-              <button id="network-out-page-next" class="small-btn" type="button" data-i18n="gm.network-in-page-next">下一页</button>
-            </div>
+            <div class="network-breakdown-subtitle">按业务分组展示；点击表头切换排序，点击分组展开或折叠。</div>
             <div id="summary-net-out-breakdown" class="network-breakdown-list"><div class="empty-hint" data-i18n="gm.no-outbound-events">当前还没有累计下行事件。</div></div>
           </div>
         </div>
