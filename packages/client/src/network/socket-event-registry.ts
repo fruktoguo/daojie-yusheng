@@ -4,7 +4,8 @@
  * 维护时要使用共享协议事件名和最小字段，避免把服务端权威判断下沉到客户端。
  */
 import type { Socket } from 'socket.io-client';
-import { decodeServerEventPayload, type ServerToClientEventPayload } from '@mud/shared';
+import { decodeServerEventPayload, S2C, type ServerToClientEventPayload } from '@mud/shared';
+import { endRuntimeProfileMetric, startRuntimeProfileMetric, type RuntimeProfileMetricKey } from '../debug/runtime-profiler';
 import {
   GAMEPLAY_SERVER_EVENTS,
   SESSION_SERVER_EVENTS,
@@ -62,7 +63,16 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
 
   function bindServerEvent<TEvent extends BoundServerEventName>(event: TEvent): void {
     const listener = ((raw: unknown) => {
-      const data = decodeServerEventPayload<ServerToClientEventPayload<TEvent>>(event, raw);
+      const decodeMetric = resolveSocketDecodeMetric(event);
+      const decodeStartedAt = decodeMetric ? startRuntimeProfileMetric() : 0;
+      let data: ServerToClientEventPayload<TEvent>;
+      try {
+        data = decodeServerEventPayload<ServerToClientEventPayload<TEvent>>(event, raw);
+      } finally {
+        if (decodeMetric) {
+          endRuntimeProfileMetric(decodeMetric, decodeStartedAt);
+        }
+      }
       for (const callback of getCallbacks(event)) {
         callback(data);
       }
@@ -110,4 +120,19 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
       }
     },
   };
+}
+
+function resolveSocketDecodeMetric(event: BoundServerEventName): RuntimeProfileMetricKey | null {
+  switch (event) {
+    case S2C.SyncEnvelope:
+      return 'socket.decodeSyncEnvelope';
+    case S2C.WorldDelta:
+      return 'socket.decodeEventWorldDelta';
+    case S2C.SelfDelta:
+      return 'socket.decodeEventSelfDelta';
+    case S2C.PanelDelta:
+      return 'socket.decodeEventPanelDelta';
+    default:
+      return null;
+  }
 }

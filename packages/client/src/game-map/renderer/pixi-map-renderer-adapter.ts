@@ -85,6 +85,7 @@ import {
   type PixiProfileState,
 } from './pixi-profiler-window';
 import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from '../../renderer/runtime-image-pack-url';
+import { consumeRuntimeProfileFrameMetrics, resetRuntimeProfileFrameMetrics, setRuntimeProfilerEnabled } from '../../debug/runtime-profiler';
 
 type PixiRenderer = Renderer<HTMLCanvasElement>;
 type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
@@ -778,6 +779,7 @@ export class PixiMapRendererAdapter {
     this.resetScene();
     this.profileWindow?.destroy();
     this.profileWindow = null;
+    setRuntimeProfilerEnabled(false);
     this.app.destroy(false, { children: true, texture: true, textureSource: true, context: true });
     this.ready = false;
     this.canvas = null;
@@ -959,6 +961,7 @@ export class PixiMapRendererAdapter {
   private setProfileEnabled(enabled: boolean): void {
     if (this.profileEnabled === enabled) return;
     this.profileEnabled = enabled;
+    setRuntimeProfilerEnabled(enabled);
     if (enabled) {
       this.refreshProfileState();
       return;
@@ -2504,6 +2507,7 @@ export class PixiMapRendererAdapter {
       frameMetrics: createPixiProfileFrameMetrics(),
       frameCounters: createPixiProfileFrameCounters(),
     };
+    resetRuntimeProfileFrameMetrics();
     this.profileWindow?.reset();
     this.publishProfileIfNeeded(true);
   }
@@ -2563,6 +2567,7 @@ export class PixiMapRendererAdapter {
       schedule,
       totalMs: state.frameMetrics.renderFrame,
       metrics: { ...state.frameMetrics },
+      runtimeMetrics: consumeRuntimeProfileFrameMetrics(),
       counters: { ...state.frameCounters },
       renderer,
     };

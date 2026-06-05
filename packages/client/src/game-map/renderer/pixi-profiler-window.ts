@@ -4,6 +4,12 @@
  * 诊断 UI 只在本地 profiling 开关启用时挂载，不参与服务端权威逻辑和正常渲染路径。
  */
 
+import {
+  RUNTIME_PROFILE_METRIC_KEYS,
+  type RuntimeProfileFrameMetrics,
+  type RuntimeProfileMetricKey,
+} from '../../debug/runtime-profiler';
+
 export type PixiProfileMetricKey =
   | 'syncScene'
   | 'syncEntities'
@@ -89,6 +95,7 @@ export interface PixiProfileFrameSample {
   schedule: PixiProfileFrameSchedule;
   totalMs: number;
   metrics: Record<PixiProfileMetricKey, number>;
+  runtimeMetrics: RuntimeProfileFrameMetrics;
   counters: Record<PixiProfileCounterKey, number>;
   renderer: PixiProfileRendererState;
 }
@@ -160,6 +167,37 @@ const COUNTER_LABELS: Record<PixiProfileCounterKey, string> = {
   fadingPathCells: 'fadingPathCells',
   groundPiles: 'groundPiles',
   entities: 'entities',
+};
+
+const RUNTIME_METRIC_LABELS: Record<RuntimeProfileMetricKey, string> = {
+  'socket.syncEnvelope': 'socket.syncEnvelope',
+  'socket.worldDelta': 'socket.worldDelta',
+  'socket.selfDelta': 'socket.selfDelta',
+  'socket.panelDelta': 'socket.panelDelta',
+  'socket.decodeSyncEnvelope': 'socket.decodeSyncEnvelope',
+  'socket.decodeEventWorldDelta': 'socket.decodeEventWorldDelta',
+  'socket.decodeEventSelfDelta': 'socket.decodeEventSelfDelta',
+  'socket.decodeEventPanelDelta': 'socket.decodeEventPanelDelta',
+  'socket.decodeWorldDelta': 'socket.decodeWorldDelta',
+  'socket.decodeSelfDelta': 'socket.decodeSelfDelta',
+  'socket.decodePanelDelta': 'socket.decodePanelDelta',
+  'socket.handleWorldDelta': 'socket.handleWorldDelta',
+  'socket.handleSelfDelta': 'socket.handleSelfDelta',
+  'socket.handlePanelDelta': 'socket.handlePanelDelta',
+  'runtime.handleWorldDelta': 'runtime.handleWorldDelta',
+  'runtime.applyWorldDelta': 'runtime.applyWorldDelta',
+  'runtime.deferEventBus': 'runtime.deferEventBus',
+  'runtime.handleSelfDelta': 'runtime.handleSelfDelta',
+  'runtime.handlePanelDelta': 'runtime.handlePanelDelta',
+  'runtime.flushDeferredSideEffects': 'runtime.flushDeferredSideEffects',
+  'runtime.delta.handleWorldDelta': 'runtime.delta.handleWorldDelta',
+  'runtime.delta.buildWorldDeltaInput': 'runtime.delta.buildWorldDeltaInput',
+  'runtime.delta.applyWorldDeltaToRuntime': 'runtime.delta.applyWorldDeltaToRuntime',
+  'runtime.delta.finalizeWorldDelta': 'runtime.delta.finalizeWorldDelta',
+  'runtime.delta.handleSelfDelta': 'runtime.delta.handleSelfDelta',
+  'runtime.delta.applySelfDeltaToRuntime': 'runtime.delta.applySelfDeltaToRuntime',
+  'runtime.delta.finalizeSelfDelta': 'runtime.delta.finalizeSelfDelta',
+  'runtime.delta.handlePanelDelta': 'runtime.delta.handlePanelDelta',
 };
 
 export function createPixiProfileMetric(): PixiProfileMetric {
@@ -507,9 +545,15 @@ export class PixiProfilerWindow {
       .map((key) => ({ key, value: sample.metrics[key] }))
       .filter((entry) => entry.value > 0)
       .sort((left, right) => right.value - left.value);
+    const runtimeRows = RUNTIME_PROFILE_METRIC_KEYS
+      .map((key) => ({ key, value: sample.runtimeMetrics[key] }))
+      .filter((entry) => entry.value > 0)
+      .sort((left, right) => right.value - left.value);
     const counterRows = PIXI_PROFILE_COUNTER_KEYS
       .map((key) => ({ key, value: sample.counters[key] }))
       .filter((entry) => entry.value > 0);
+    const runtimeTotalMs = getTopLevelRuntimeMs(sample);
+    const unprofiledScheduleLateMs = Math.max(0, sample.schedule.scheduleLateMs - runtimeTotalMs);
     this.detailBodyEl.innerHTML = [
       `<tr class="pixi-profiler-selected-row"><td>frame #${sample.index}</td><td>${formatMs(sample.totalMs)}</td></tr>`,
       `<tr><td>frame interval</td><td>${formatMs(sample.frameIntervalMs)}</td></tr>`,
@@ -518,7 +562,10 @@ export class PixiProfilerWindow {
       `<tr><td>rAF callbacks</td><td>${formatNumber(sample.schedule.rafCallbacks)}</td></tr>`,
       `<tr><td>target interval</td><td>${formatMs(sample.schedule.targetIntervalMs)}</td></tr>`,
       `<tr><td>schedule late</td><td>${formatMs(sample.schedule.scheduleLateMs)}</td></tr>`,
+      `<tr><td>runtime profiled</td><td>${formatMs(runtimeTotalMs)}</td></tr>`,
+      `<tr><td>schedule late unprofiled</td><td>${formatMs(unprofiledScheduleLateMs)}</td></tr>`,
       ...metricRows.map((entry) => `<tr><td>${escapeHtml(METRIC_LABELS[entry.key])}</td><td>${formatMs(entry.value)}</td></tr>`),
+      ...runtimeRows.map((entry) => `<tr><td>${escapeHtml(RUNTIME_METRIC_LABELS[entry.key])}</td><td>${formatMs(entry.value)}</td></tr>`),
       ...counterRows.map((entry) => `<tr class="pixi-profiler-counter-row"><td>${escapeHtml(COUNTER_LABELS[entry.key])}</td><td>${formatNumber(entry.value)}</td></tr>`),
     ].join('');
   }
@@ -565,8 +612,13 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
   const metricRows = PIXI_PROFILE_METRIC_KEYS
     .map((key) => ({ key, value: sample.metrics[key] }))
     .sort((left, right) => right.value - left.value);
+  const runtimeRows = RUNTIME_PROFILE_METRIC_KEYS
+    .map((key) => ({ key, value: sample.runtimeMetrics[key] }))
+    .sort((left, right) => right.value - left.value);
   const counterRows = PIXI_PROFILE_COUNTER_KEYS
     .map((key) => ({ key, value: sample.counters[key] }));
+  const runtimeTotalMs = getTopLevelRuntimeMs(sample);
+  const unprofiledScheduleLateMs = Math.max(0, sample.schedule.scheduleLateMs - runtimeTotalMs);
 
   return [
     `frame\t${sample.index}`,
@@ -578,9 +630,14 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     `targetIntervalMs\t${Number(sample.schedule.targetIntervalMs.toFixed(3))}`,
     `scheduleLateMs\t${Number(sample.schedule.scheduleLateMs.toFixed(3))}`,
     `totalMs\t${Number(sample.totalMs.toFixed(3))}`,
+    `runtimeProfiledMs\t${Number(runtimeTotalMs.toFixed(3))}`,
+    `scheduleLateUnprofiledMs\t${Number(unprofiledScheduleLateMs.toFixed(3))}`,
     '',
     'metric\tms',
     ...metricRows.map((entry) => `${METRIC_LABELS[entry.key]}\t${Number(entry.value.toFixed(3))}`),
+    '',
+    'runtime\tms',
+    ...runtimeRows.map((entry) => `${RUNTIME_METRIC_LABELS[entry.key]}\t${Number(entry.value.toFixed(3))}`),
     '',
     'counter\tvalue',
     ...counterRows.map((entry) => `${COUNTER_LABELS[entry.key]}\t${Math.round(entry.value)}`),
@@ -596,6 +653,18 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     `backbufferHeight\t${sample.renderer.backbufferHeight}`,
     `backbufferPixels\t${sample.renderer.backbufferPixels}`,
   ].join('\n');
+}
+
+function getTopLevelRuntimeMs(sample: PixiProfileFrameSample): number {
+  return (sample.runtimeMetrics['socket.decodeSyncEnvelope'] ?? 0)
+    + (sample.runtimeMetrics['socket.syncEnvelope'] ?? 0)
+    + (sample.runtimeMetrics['socket.decodeEventWorldDelta'] ?? 0)
+    + (sample.runtimeMetrics['socket.worldDelta'] ?? 0)
+    + (sample.runtimeMetrics['socket.decodeEventSelfDelta'] ?? 0)
+    + (sample.runtimeMetrics['socket.selfDelta'] ?? 0)
+    + (sample.runtimeMetrics['socket.decodeEventPanelDelta'] ?? 0)
+    + (sample.runtimeMetrics['socket.panelDelta'] ?? 0)
+    + (sample.runtimeMetrics['runtime.flushDeferredSideEffects'] ?? 0);
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {

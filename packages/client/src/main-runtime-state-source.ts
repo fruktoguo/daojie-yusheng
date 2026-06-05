@@ -21,6 +21,7 @@ import {
 import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
 import { getLocalSkillTemplate, resolvePreviewItem, resolvePreviewQuests } from './content/local-templates';
 import { getStaticClientActionDef } from './constants/ui/action';
+import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
 import { markPlayerLifeTickSynced } from './runtime/server-tick';
 import { handleTickEventBusPayload } from './network/event-bus-consumer';
 /**
@@ -489,19 +490,24 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
   };
 
   const flushDeferredRuntimeSideEffects = (): void => {
-    deferredSideEffectsScheduled = false;
-    deferredSideEffectsRaf = null;
-    deferredSideEffectsTimer = null;
-    while (deferredRuntimeSideEffects.length > 0) {
-      const item = deferredRuntimeSideEffects.shift();
-      if (!item) {
-        continue;
+    const startedAt = startRuntimeProfileMetric();
+    try {
+      deferredSideEffectsScheduled = false;
+      deferredSideEffectsRaf = null;
+      deferredSideEffectsTimer = null;
+      while (deferredRuntimeSideEffects.length > 0) {
+        const item = deferredRuntimeSideEffects.shift();
+        if (!item) {
+          continue;
+        }
+        if (item.type === 'eventBus') {
+          applyEventBusPayload(item.payload);
+          continue;
+        }
+        options.applyPanelDelta(item.payload);
       }
-      if (item.type === 'eventBus') {
-        applyEventBusPayload(item.payload);
-        continue;
-      }
-      options.applyPanelDelta(item.payload);
+    } finally {
+      endRuntimeProfileMetric('runtime.flushDeferredSideEffects', startedAt);
     }
   };
 
@@ -618,14 +624,29 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     handleWorldDelta(data: S2C_WorldDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      if (!options.getPlayer()) {
-        pendingWorldDelta = data;
-        return;
+      const startedAt = startRuntimeProfileMetric();
+      try {
+        if (!options.getPlayer()) {
+          pendingWorldDelta = data;
+          return;
+        }
+        const player = options.getPlayer();
+        const hints = resolveMapEnterHints(player);
+        const applyStartedAt = startRuntimeProfileMetric();
+        try {
+          options.applyWorldDelta(data, hints.mapIdHint, hints.instanceIdHint);
+        } finally {
+          endRuntimeProfileMetric('runtime.applyWorldDelta', applyStartedAt);
+        }
+        const deferStartedAt = startRuntimeProfileMetric();
+        try {
+          deferEventBusPayload(data);
+        } finally {
+          endRuntimeProfileMetric('runtime.deferEventBus', deferStartedAt);
+        }
+      } finally {
+        endRuntimeProfileMetric('runtime.handleWorldDelta', startedAt);
       }
-      const player = options.getPlayer();
-      const hints = resolveMapEnterHints(player);
-      options.applyWorldDelta(data, hints.mapIdHint, hints.instanceIdHint);
-      deferEventBusPayload(data);
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。
@@ -637,12 +658,17 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     handleSelfDelta(data: S2C_SelfDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      if (!options.getPlayer()) {
-        pendingSelfDelta = data;
-        return;
+      const startedAt = startRuntimeProfileMetric();
+      try {
+        if (!options.getPlayer()) {
+          pendingSelfDelta = data;
+          return;
+        }
+        options.applySelfDelta(data);
+        flushPendingMapStaticForCurrentMap();
+      } finally {
+        endRuntimeProfileMetric('runtime.handleSelfDelta', startedAt);
       }
-      options.applySelfDelta(data);
-      flushPendingMapStaticForCurrentMap();
     },    
     /**
  * handlePanelDelta：处理面板增量并更新相关状态。
@@ -654,11 +680,16 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     handlePanelDelta(data: S2C_PanelDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      if (!options.getPlayer()) {
-        pendingPanelDelta = data;
-        return;
+      const startedAt = startRuntimeProfileMetric();
+      try {
+        if (!options.getPlayer()) {
+          pendingPanelDelta = data;
+          return;
+        }
+        deferPanelDelta(data);
+      } finally {
+        endRuntimeProfileMetric('runtime.handlePanelDelta', startedAt);
       }
-      deferPanelDelta(data);
     },    
     /**
  * handleRealm：处理Realm并更新相关状态。

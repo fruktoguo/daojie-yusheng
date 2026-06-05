@@ -18,6 +18,7 @@ import {
   cloneJson,
 } from '@mud/shared';
 import { logMovement } from './debug/movement-debug';
+import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
 import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
 import { getMonsterPresentation } from './monster-presentation';
 import type { MainRuntimeObservedEntity as ObservedEntity } from './main-runtime-view-types';
@@ -923,71 +924,92 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     handleWorldDelta(data: S2C_WorldDelta, mapIdHint?: string, instanceIdHint?: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      const player = options.getPlayer();
-      if (!player) {
-        return;
+      const startedAt = startRuntimeProfileMetric();
+      try {
+        const player = options.getPlayer();
+        if (!player) {
+          return;
+        }
+        const previousState = {
+          mapId: player.mapId,
+          x: player.x,
+          y: player.y,
+          facing: player.facing,
+        };
+        const buildStartedAt = startRuntimeProfileMetric();
+        let runtimeInput: ReturnType<typeof buildWorldDeltaRuntimeInput>;
+        try {
+          runtimeInput = buildWorldDeltaRuntimeInput(data, mapIdHint, instanceIdHint);
+        } finally {
+          endRuntimeProfileMetric('runtime.delta.buildWorldDeltaInput', buildStartedAt);
+        }
+        const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === player.id);
+        const observedEntitiesChanged = runtimeInput.playerPatches.length > 0
+          || runtimeInput.entityPatches.length > 0
+          || (runtimeInput.removedEntityIds?.length ?? 0) > 0;
+        const selfSpatialChanged = Boolean(selfPatch && (
+          (typeof selfPatch.x === 'number' && selfPatch.x !== previousState.x)
+          || (typeof selfPatch.y === 'number' && selfPatch.y !== previousState.y)
+        ));
+        const selfVitalsChanged = Boolean(selfPatch && (
+          typeof selfPatch.hp === 'number'
+          || typeof selfPatch.maxHp === 'number'
+          || typeof selfPatch.qi === 'number'
+          || typeof selfPatch.maxQi === 'number'
+        ));
+        options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
+        if (typeof data.dt === 'number') {
+          options.syncCurrentTimeTickInterval(data.dt);
+        }
+        if (data.time) {
+          options.syncCurrentTimeState(data.time);
+        }
+        const applyStartedAt = startRuntimeProfileMetric();
+        try {
+          options.applyWorldDeltaToRuntime(runtimeInput);
+        } finally {
+          endRuntimeProfileMetric('runtime.delta.applyWorldDeltaToRuntime', applyStartedAt);
+        }
+        if (selfPatch?.name) {
+          player.name = selfPatch.name;
+        }
+        if (typeof selfPatch?.x === 'number') {
+          player.x = selfPatch.x;
+        }
+        if (typeof selfPatch?.y === 'number') {
+          player.y = selfPatch.y;
+        }
+        if (selfPatch && (typeof selfPatch.x === 'number' || typeof selfPatch.y === 'number')) {
+          logMovement('client.recv.worldDelta.selfPatch', {
+            playerId: player.id,
+            before: previousState,
+            patch: {
+              x: typeof selfPatch.x === 'number' ? selfPatch.x : null,
+              y: typeof selfPatch.y === 'number' ? selfPatch.y : null,
+            },
+            after: {
+              mapId: player.mapId,
+              x: player.x,
+              y: player.y,
+              facing: player.facing,
+            },
+            pathTarget: options.navigation.getPathTarget(),
+            pathCells: options.navigation.getPathCells(),
+          });
+        }
+        const finalizeStartedAt = startRuntimeProfileMetric();
+        try {
+          finalizeMovementFrame({
+            observedEntitiesChanged,
+            playerSpatialChanged: selfSpatialChanged,
+            hudChanged: selfVitalsChanged,
+          });
+        } finally {
+          endRuntimeProfileMetric('runtime.delta.finalizeWorldDelta', finalizeStartedAt);
+        }
+      } finally {
+        endRuntimeProfileMetric('runtime.delta.handleWorldDelta', startedAt);
       }
-      const previousState = {
-        mapId: player.mapId,
-        x: player.x,
-        y: player.y,
-        facing: player.facing,
-      };
-      const runtimeInput = buildWorldDeltaRuntimeInput(data, mapIdHint, instanceIdHint);
-      const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === player.id);
-      const observedEntitiesChanged = runtimeInput.playerPatches.length > 0
-        || runtimeInput.entityPatches.length > 0
-        || (runtimeInput.removedEntityIds?.length ?? 0) > 0;
-      const selfSpatialChanged = Boolean(selfPatch && (
-        (typeof selfPatch.x === 'number' && selfPatch.x !== previousState.x)
-        || (typeof selfPatch.y === 'number' && selfPatch.y !== previousState.y)
-      ));
-      const selfVitalsChanged = Boolean(selfPatch && (
-        typeof selfPatch.hp === 'number'
-        || typeof selfPatch.maxHp === 'number'
-        || typeof selfPatch.qi === 'number'
-        || typeof selfPatch.maxQi === 'number'
-      ));
-      options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
-      if (typeof data.dt === 'number') {
-        options.syncCurrentTimeTickInterval(data.dt);
-      }
-      if (data.time) {
-        options.syncCurrentTimeState(data.time);
-      }
-      options.applyWorldDeltaToRuntime(runtimeInput);
-      if (selfPatch?.name) {
-        player.name = selfPatch.name;
-      }
-      if (typeof selfPatch?.x === 'number') {
-        player.x = selfPatch.x;
-      }
-      if (typeof selfPatch?.y === 'number') {
-        player.y = selfPatch.y;
-      }
-      if (selfPatch && (typeof selfPatch.x === 'number' || typeof selfPatch.y === 'number')) {
-        logMovement('client.recv.worldDelta.selfPatch', {
-          playerId: player.id,
-          before: previousState,
-          patch: {
-            x: typeof selfPatch.x === 'number' ? selfPatch.x : null,
-            y: typeof selfPatch.y === 'number' ? selfPatch.y : null,
-          },
-          after: {
-            mapId: player.mapId,
-            x: player.x,
-            y: player.y,
-            facing: player.facing,
-          },
-          pathTarget: options.navigation.getPathTarget(),
-          pathCells: options.navigation.getPathCells(),
-        });
-      }
-      finalizeMovementFrame({
-        observedEntitiesChanged,
-        playerSpatialChanged: selfSpatialChanged,
-        hudChanged: selfVitalsChanged,
-      });
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。
@@ -999,108 +1021,123 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     handleSelfDelta(data: S2C_SelfDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      const player = options.getPlayer();
-      if (!player) {
-        return;
+      const startedAt = startRuntimeProfileMetric();
+      try {
+        const player = options.getPlayer();
+        if (!player) {
+          return;
+        }
+        const previousState = {
+          mapId: player.mapId,
+          x: player.x,
+          y: player.y,
+          facing: player.facing,
+        };
+        const previousInstanceId = player.instanceId;
+        applySelfVitalsMetadata(data);
+        const previousMapId = player.mapId;
+        const playerPatch = buildSelfRuntimePlayerPatch(data);
+        const playerSpatialChanged = (typeof data.mid === 'string' && previousMapId !== data.mid)
+          || typeof data.x === 'number'
+          || typeof data.y === 'number'
+          || data.f !== undefined;
+        const hudChanged = typeof data.hp === 'number'
+          || typeof data.maxHp === 'number'
+          || typeof data.qi === 'number'
+          || typeof data.maxQi === 'number';
+        const applyStartedAt = startRuntimeProfileMetric();
+        try {
+          options.applySelfDeltaToRuntime({
+            instanceId: data.iid,
+            mapId: data.mid,
+            x: data.x,
+            y: data.y,
+            facing: data.f,
+            hp: data.hp,
+            maxHp: data.maxHp,
+            qi: data.qi,
+            maxQi: data.maxQi,
+            playerPatch,
+          });
+        } finally {
+          endRuntimeProfileMetric('runtime.delta.applySelfDeltaToRuntime', applyStartedAt);
+        }
+        const mapChanged = typeof data.mid === 'string' && previousMapId !== data.mid;
+        if (mapChanged) {
+          options.navigation.clearCurrentPath();
+          options.targeting.setHoveredMapTile(null);
+          options.hideObserveModal();
+          options.clearLootPanel();
+          options.targeting.cancelTargeting();
+          player.mapId = data.mid!;
+          options.setPanelRuntimeMapId(player.mapId);
+          options.syncQuestMapId(player.mapId);
+        }
+        if (typeof data.hp === 'number') {
+          player.hp = data.hp;
+        }
+        if (typeof data.qi === 'number') {
+          player.qi = data.qi;
+        }
+        if (data.wallet !== undefined) {
+          player.wallet = data.wallet
+            ? {
+              balances: Array.isArray(data.wallet.balances)
+                ? data.wallet.balances.map((entry) => ({ ...entry }))
+                : [],
+            }
+            : undefined;
+          options.syncPlayerContext(player);
+          options.refreshUiChrome();
+        }
+        if (data.f !== undefined) {
+          player.facing = data.f;
+        }
+        if (typeof data.x === 'number') {
+          player.x = data.x;
+        }
+        if (typeof data.y === 'number') {
+          player.y = data.y;
+        }
+        if (typeof data.mid === 'string' || typeof data.x === 'number' || typeof data.y === 'number' || data.f !== undefined) {
+          logMovement('client.recv.selfDelta', {
+            playerId: player.id,
+            before: previousState,
+            delta: {
+              mapId: data.mid ?? null,
+              x: typeof data.x === 'number' ? data.x : null,
+              y: typeof data.y === 'number' ? data.y : null,
+              facing: data.f ?? null,
+            },
+            after: {
+              mapId: player.mapId,
+              x: player.x,
+              y: player.y,
+              facing: player.facing,
+            },
+            pathTarget: options.navigation.getPathTarget(),
+            pathCells: options.navigation.getPathCells(),
+          });
+        }
+        if (typeof data.iid === 'string' && data.iid.trim()) {
+          player.instanceId = data.iid.trim();
+        }
+        if (player.instanceId !== previousInstanceId) {
+          options.refreshUiChrome();
+        }
+        const finalizeStartedAt = startRuntimeProfileMetric();
+        try {
+          finalizeMovementFrame({
+            observedEntitiesChanged: playerPatch !== null,
+            playerSpatialChanged,
+            hudChanged,
+          });
+        } finally {
+          endRuntimeProfileMetric('runtime.delta.finalizeSelfDelta', finalizeStartedAt);
+        }
+      } finally {
+        endRuntimeProfileMetric('runtime.delta.handleSelfDelta', startedAt);
       }
-      const previousState = {
-        mapId: player.mapId,
-        x: player.x,
-        y: player.y,
-        facing: player.facing,
-      };
-      const previousInstanceId = player.instanceId;
-      applySelfVitalsMetadata(data);
-      const previousMapId = player.mapId;
-      const playerPatch = buildSelfRuntimePlayerPatch(data);
-      const playerSpatialChanged = (typeof data.mid === 'string' && previousMapId !== data.mid)
-        || typeof data.x === 'number'
-        || typeof data.y === 'number'
-        || data.f !== undefined;
-      const hudChanged = typeof data.hp === 'number'
-        || typeof data.maxHp === 'number'
-        || typeof data.qi === 'number'
-        || typeof data.maxQi === 'number';
-      options.applySelfDeltaToRuntime({
-        instanceId: data.iid,
-        mapId: data.mid,
-        x: data.x,
-        y: data.y,
-        facing: data.f,
-        hp: data.hp,
-        maxHp: data.maxHp,
-        qi: data.qi,
-        maxQi: data.maxQi,
-        playerPatch,
-      });
-      const mapChanged = typeof data.mid === 'string' && previousMapId !== data.mid;
-      if (mapChanged) {
-        options.navigation.clearCurrentPath();
-        options.targeting.setHoveredMapTile(null);
-        options.hideObserveModal();
-        options.clearLootPanel();
-        options.targeting.cancelTargeting();
-        player.mapId = data.mid!;
-        options.setPanelRuntimeMapId(player.mapId);
-        options.syncQuestMapId(player.mapId);
-      }
-      if (typeof data.hp === 'number') {
-        player.hp = data.hp;
-      }
-      if (typeof data.qi === 'number') {
-        player.qi = data.qi;
-      }
-      if (data.wallet !== undefined) {
-        player.wallet = data.wallet
-          ? {
-            balances: Array.isArray(data.wallet.balances)
-              ? data.wallet.balances.map((entry) => ({ ...entry }))
-              : [],
-          }
-          : undefined;
-        options.syncPlayerContext(player);
-        options.refreshUiChrome();
-      }
-      if (data.f !== undefined) {
-        player.facing = data.f;
-      }
-      if (typeof data.x === 'number') {
-        player.x = data.x;
-      }
-      if (typeof data.y === 'number') {
-        player.y = data.y;
-      }
-      if (typeof data.mid === 'string' || typeof data.x === 'number' || typeof data.y === 'number' || data.f !== undefined) {
-        logMovement('client.recv.selfDelta', {
-          playerId: player.id,
-          before: previousState,
-          delta: {
-            mapId: data.mid ?? null,
-            x: typeof data.x === 'number' ? data.x : null,
-            y: typeof data.y === 'number' ? data.y : null,
-            facing: data.f ?? null,
-          },
-          after: {
-            mapId: player.mapId,
-            x: player.x,
-            y: player.y,
-            facing: player.facing,
-          },
-          pathTarget: options.navigation.getPathTarget(),
-          pathCells: options.navigation.getPathCells(),
-        });
-      }
-      if (typeof data.iid === 'string' && data.iid.trim()) {
-        player.instanceId = data.iid.trim();
-      }
-      if (player.instanceId !== previousInstanceId) {
-        options.refreshUiChrome();
-      }
-      finalizeMovementFrame({
-        observedEntitiesChanged: playerPatch !== null,
-        playerSpatialChanged,
-        hudChanged,
-      });
     },    
     /**
  * handlePanelDelta：处理面板增量并更新相关状态。
@@ -1112,25 +1149,30 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     handlePanelDelta(data: S2C_PanelDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      if (data.attr) {
-        options.handleAttrUpdate(data.attr);
-      }
-      if (data.inv) {
-        options.handleInventoryUpdate(data.inv);
-      }
-      if (data.eq) {
-        options.handleEquipmentUpdate(data.eq);
-      }
-      if (data.tech) {
-        options.handleTechniqueUpdate(data.tech);
-      }
-      if (data.act) {
-        options.handleActionsUpdate(data.act);
-      }
-      const player = options.getPlayer();
-      if (data.buff && player) {
-        player.temporaryBuffs = mergeVisibleBuffStates(player.temporaryBuffs, data.buff);
-        options.refreshObservedDecorations();
+      const startedAt = startRuntimeProfileMetric();
+      try {
+        if (data.attr) {
+          options.handleAttrUpdate(data.attr);
+        }
+        if (data.inv) {
+          options.handleInventoryUpdate(data.inv);
+        }
+        if (data.eq) {
+          options.handleEquipmentUpdate(data.eq);
+        }
+        if (data.tech) {
+          options.handleTechniqueUpdate(data.tech);
+        }
+        if (data.act) {
+          options.handleActionsUpdate(data.act);
+        }
+        const player = options.getPlayer();
+        if (data.buff && player) {
+          player.temporaryBuffs = mergeVisibleBuffStates(player.temporaryBuffs, data.buff);
+          options.refreshObservedDecorations();
+        }
+      } finally {
+        endRuntimeProfileMetric('runtime.delta.handlePanelDelta', startedAt);
       }
     },
   };
