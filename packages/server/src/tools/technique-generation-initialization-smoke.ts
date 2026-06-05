@@ -558,8 +558,8 @@ async function testArtsCandidateAcceptsStrengthShape(): Promise<void> {
       unlockLevel: 1,
       damageKind: 'spell',
       element: 'wood',
-      target: { type: 'line', castRangeWeight: 3, areaWeight: 1, targetMode: 'tile' },
-      structureStrength: { cost: 0, cooldown: 1, chant: 0 },
+      target: { type: 'line', targetMode: 'tile' },
+      structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
       formulaStrength: {
         attributeBases: { spellAtk: 4, resolvePower: 1 },
         percentBonuses: { moveSpeed: 0 },
@@ -617,8 +617,8 @@ async function testZeroRangeArtsStrengthExpandsAsMinimumCastRangeSkill(): Promis
     unlockLevel: 1,
     damageKind: 'spell',
     element: 'metal',
-    target: { type: 'area', castRangeWeight: 0, areaWeight: 4, targetMode: 'tile' },
-    structureStrength: { cost: 0, cooldown: 0, chant: 0 },
+    target: { type: 'area', targetMode: 'tile' },
+    structureStrength: { damage: 1, cost: 0, cooldown: 0, chant: 0, castRange: 0, area: 4 },
     formulaStrength: {
       attributeBases: { spellAtk: 1 },
       percentBonuses: { techLevel: 0 },
@@ -643,8 +643,8 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
     unlockLevel: 1,
     damageKind: 'spell',
     element: 'water',
-    target: { type: 'area', castRangeWeight: 6, areaWeight: 6, targetMode: 'tile' },
-    structureStrength: { cost: -20, cooldown: 80, chant: 0 },
+    target: { type: 'area', targetMode: 'tile' },
+    structureStrength: { damage: 1, cost: -20, cooldown: 80, chant: 0, castRange: 6, area: 6 },
     formulaStrength: {
       attributeBases: { spellAtk: 1 },
     },
@@ -664,10 +664,10 @@ async function testArtsStrengthBudgetAllocatesAndRefundsByItem(): Promise<void> 
   assert.equal(expanded.skill.range, 3);
   assert.equal(expanded.skill.targeting?.range, 3);
   assert.equal(expanded.skill.targeting?.radius, 1);
-  assert.equal(expanded.skill.cooldown, 43);
-  assertApprox(expanded.skill.costMultiplier ?? 0, 7.3933, 0.0001);
+  assert.equal(expanded.skill.cooldown, 34);
+  assertApprox(expanded.skill.costMultiplier ?? 0, 9.5892, 0.0001);
   const formula = extractSkillEffectFormula(expanded.skill.effects[0]);
-  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 2.6877, 0.001);
+  assertApprox(extractFormulaVarScale(formula, 'caster.stat.spellAtk'), 3.4947, 0.001);
   assert.equal(extractFormulaVarScale(formula, 'techLevel'), 0.1);
 }
 

@@ -30,9 +30,12 @@ export interface TechniqueArtsStrengthTargetInput {
 }
 
 export interface TechniqueArtsStrengthStructureInput {
+  damage?: number;
   cost?: number;
   cooldown?: number;
   chant?: number;
+  castRange?: number;
+  area?: number;
   costMultiplier?: number;
   cooldownTicks?: number;
 }
@@ -99,9 +102,12 @@ export interface NormalizedTechniqueArtsStrengthTarget {
 }
 
 export interface NormalizedTechniqueArtsStrengthStructure {
+  damage: number;
   cost: number;
   cooldown: number;
   chant: number;
+  castRange: number;
+  area: number;
   budgetMultiplier: number;
   budgetWeight: number;
   costMultiplier: number;
@@ -177,6 +183,8 @@ export interface TechniqueArtsStrengthBudgetBreakdown {
   totalWeight: number;
   positiveWeight: number;
   negativeWeight: number;
+  positiveBudgetPool?: number;
+  sacrificeBudget?: number;
   refundedBudget: number;
   redistributedBudget: number;
   items: TechniqueArtsStrengthBudgetBreakdownItem[];
@@ -342,15 +350,28 @@ function countRingCells(innerRadius: number, outerRadius: number): number {
   return Math.max(1, cells);
 }
 
-function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengthTarget): NormalizedTechniqueArtsStrengthStructure {
+function normalizeStructure(
+  raw: unknown,
+  target: NormalizedTechniqueArtsStrengthTarget,
+  fallbackDamageWeight: number,
+): NormalizedTechniqueArtsStrengthStructure {
   const constants = TECHNIQUE_ARTS_STRENGTH_CONSTANTS.structure;
   const source = isRecord(raw) ? raw : {};
+  const damage = Object.prototype.hasOwnProperty.call(source, 'damage')
+    ? clampStrength(source.damage)
+    : clampStrength(fallbackDamageWeight);
   const cost = clampStrength(source.cost);
   const cooldown = clampStrength(source.cooldown);
   const chant = clampStrength(source.chant);
+  const castRange = Object.prototype.hasOwnProperty.call(source, 'castRange')
+    ? clampStrength(source.castRange)
+    : clampStrength(target.rangeStrength);
+  const area = Object.prototype.hasOwnProperty.call(source, 'area')
+    ? clampStrength(source.area)
+    : clampStrength(target.areaStrength);
   const budgetMultiplier = 1;
   const budgetWeight = roundTo(
-    Math.abs(cost) + Math.abs(cooldown) + Math.abs(chant) + target.areaStrength + target.rangeStrength,
+    Math.abs(damage) + Math.abs(cost) + Math.abs(cooldown) + Math.abs(chant) + Math.abs(castRange) + Math.abs(area),
     4,
   );
   const costMultiplier = Number.isFinite(Number(source.costMultiplier))
@@ -360,9 +381,12 @@ function normalizeStructure(raw: unknown, target: NormalizedTechniqueArtsStrengt
     ? Math.max(0, Math.round(Number(source.cooldownTicks)))
     : constants.minCooldownTicks;
   return {
+    damage,
     cost,
     cooldown,
     chant,
+    castRange,
+    area,
     budgetMultiplier,
     budgetWeight,
     costMultiplier,
@@ -493,9 +517,9 @@ export function normalizeTechniqueArtsStrengthTemplate(raw: unknown): TechniqueA
 export function normalizeTechniqueArtsStrengthSkill(raw: unknown): NormalizedTechniqueArtsStrengthSkill {
   const source = isRecord(raw) ? raw : {};
   const target = normalizeTarget(source.target);
-  const structure = normalizeStructure(source.structureStrength, target);
   const formula = normalizeFormula(source.formulaStrength);
-  const inputBudget = roundTo(formula.effectStrength + structure.budgetWeight, 4);
+  const structure = normalizeStructure(source.structureStrength, target, formula.effectStrength);
+  const inputBudget = roundTo(structure.budgetWeight, 4);
   return {
     id: typeof source.id === 'string' && source.id.trim() ? source.id.trim() : undefined,
     name: normalizeText(source.name, '未命名术法'),
@@ -548,12 +572,12 @@ function validateNormalizedSkill(skill: NormalizedTechniqueArtsStrengthSkill): s
 }
 
 type BudgetItemKind =
+  | 'damage'
   | 'castRange'
   | 'shape'
   | 'cost'
   | 'cooldown'
   | 'chant'
-  | 'attributeBase'
   | 'extraBaseVar'
   | 'percentBonus'
   | 'extraPercentBonus';
@@ -581,12 +605,14 @@ interface ConvertedFormulaBudget {
 
 function buildBudgetItems(skill: NormalizedTechniqueArtsStrengthSkill): BudgetItem[] {
   const items: BudgetItem[] = [];
-  if (skill.target.range > 0) {
-    items.push({ key: 'target.castRangeWeight', kind: 'castRange', weight: skill.target.range });
+  if (skill.structure.damage !== 0) {
+    items.push({ key: 'structure.damage', kind: 'damage', weight: skill.structure.damage });
   }
-  const shapeWeight = resolveTargetShapeWeight(skill.target);
-  if (shapeWeight > 0) {
-    items.push({ key: 'target.areaWeight', kind: 'shape', weight: shapeWeight });
+  if (skill.structure.castRange !== 0) {
+    items.push({ key: 'structure.castRange', kind: 'castRange', weight: skill.structure.castRange });
+  }
+  if (skill.structure.area !== 0) {
+    items.push({ key: 'structure.area', kind: 'shape', weight: skill.structure.area });
   }
   if (skill.structure.cost !== 0) {
     items.push({ key: 'structure.cost', kind: 'cost', weight: skill.structure.cost });
@@ -596,16 +622,6 @@ function buildBudgetItems(skill: NormalizedTechniqueArtsStrengthSkill): BudgetIt
   }
   if (skill.structure.chant !== 0) {
     items.push({ key: 'structure.chant', kind: 'chant', weight: skill.structure.chant });
-  }
-  for (const [stat, weight] of Object.entries(skill.formula.attributeBases)) {
-    if (weight > 0) {
-      items.push({
-        key: `formula.attributeBases.${stat}`,
-        kind: 'attributeBase',
-        weight,
-        stat: stat as TechniqueArtsStrengthAttributeBaseStat,
-      });
-    }
   }
   for (const [varName, weight] of Object.entries(skill.formula.extraBaseVars)) {
     if (weight !== 0) {
@@ -636,31 +652,31 @@ function buildBudgetItems(skill: NormalizedTechniqueArtsStrengthSkill): BudgetIt
   return items;
 }
 
-function resolveTargetShapeWeight(target: NormalizedTechniqueArtsStrengthTarget): number {
-  if (target.type === 'single') {
-    return 0;
-  }
-  if (target.type === 'area' || target.type === 'ring') {
-    return Math.max(0, target.radius ?? 0);
-  }
-  return Math.max(0, target.width ?? 0, target.height ?? 0);
-}
-
 function allocateBudgets(items: BudgetItem[], totalBudget: number): Map<string, number> {
-  const totalWeight = items.reduce((sum, item) => sum + Math.abs(item.weight), 0);
   const positiveWeight = items.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
+  const sacrificeBudget = calculateSacrificeBudget(items, totalBudget);
+  const positiveBudgetPool = totalBudget + sacrificeBudget;
   const allocations = new Map<string, number>();
-  if (totalWeight <= 0 || totalBudget <= 0) {
+  if (totalBudget <= 0) {
     return allocations;
   }
   for (const item of items) {
     if (item.weight > 0 && positiveWeight > 0) {
-      allocations.set(item.key, totalBudget * item.weight / positiveWeight);
+      allocations.set(item.key, positiveBudgetPool * item.weight / positiveWeight);
     } else if (item.weight < 0) {
-      allocations.set(item.key, totalBudget * item.weight / totalWeight);
+      allocations.set(item.key, -totalBudget * Math.abs(item.weight) / 100);
     }
   }
   return allocations;
+}
+
+function calculateSacrificeBudget(items: BudgetItem[], totalBudget: number): number {
+  if (!Number.isFinite(totalBudget) || totalBudget <= 0) {
+    return 0;
+  }
+  return items.reduce((sum, item) => (
+    item.weight < 0 ? sum + totalBudget * Math.abs(item.weight) / 100 : sum
+  ), 0);
 }
 
 function readAllocatedBudget(allocations: Map<string, number>, key: string): number {
@@ -866,6 +882,23 @@ function convertChantBudget(budget: number): BudgetConversionResult<number> {
   return { value: Math.round(Math.abs(budget)), usedBudget: budget, refundBudget: 0, canGrow: false };
 }
 
+function convertDamageBudget(budget: number): BudgetConversionResult<number> {
+  if (budget > 0) {
+    return {
+      value: roundTo(budget, 6),
+      usedBudget: roundTo(budget, 6),
+      refundBudget: 0,
+      canGrow: true,
+    };
+  }
+  return {
+    value: TECHNIQUE_ARTS_STRENGTH_CONSTANTS.attributeBases.minDamageScale,
+    usedBudget: roundTo(budget, 6),
+    refundBudget: 0,
+    canGrow: false,
+  };
+}
+
 function convertAllocatedBudgets(
   skill: NormalizedTechniqueArtsStrengthSkill,
   allocations: Map<string, number>,
@@ -873,9 +906,10 @@ function convertAllocatedBudgets(
 ) {
   const targetConversion = convertTargetBudget(
     skill.target,
-    readAllocatedBudget(allocations, 'target.castRangeWeight'),
-    readAllocatedBudget(allocations, 'target.areaWeight'),
+    readAllocatedBudget(allocations, 'structure.castRange'),
+    readAllocatedBudget(allocations, 'structure.area'),
   );
+  const damageConversion = convertDamageBudget(readAllocatedBudget(allocations, 'structure.damage'));
   const costConversion = convertCostBudgetWithOverride(
     readAllocatedBudget(allocations, 'structure.cost'),
     skill.structure.costMultiplierOverride,
@@ -888,6 +922,7 @@ function convertAllocatedBudgets(
   const chantConversion = convertChantBudget(readAllocatedBudget(allocations, 'structure.chant'));
   return {
     target: targetConversion,
+    damage: damageConversion,
     cost: costConversion,
     cooldown: cooldownConversion,
     chant: chantConversion,
@@ -898,8 +933,9 @@ function getConversionForBudgetItem(
   item: BudgetItem,
   conversions: ReturnType<typeof convertAllocatedBudgets>,
 ): BudgetConversionResult<unknown> | null {
-  if (item.key === 'target.castRangeWeight') return conversions.target.range;
-  if (item.key === 'target.areaWeight') return conversions.target.shape;
+  if (item.key === 'structure.damage') return conversions.damage;
+  if (item.key === 'structure.castRange') return conversions.target.range;
+  if (item.key === 'structure.area') return conversions.target.shape;
   if (item.key === 'structure.cost') return conversions.cost;
   if (item.key === 'structure.cooldown') return conversions.cooldown;
   if (item.key === 'structure.chant') return conversions.chant;
@@ -907,8 +943,7 @@ function getConversionForBudgetItem(
 }
 
 function canFormulaBudgetItemGrow(item: BudgetItem): boolean {
-  return item.kind === 'attributeBase'
-    || item.kind === 'extraBaseVar'
+  return item.kind === 'extraBaseVar'
     || item.kind === 'percentBonus'
     || item.kind === 'extraPercentBonus';
 }
@@ -996,14 +1031,9 @@ function convertFormulaBudget(
   formula: NormalizedTechniqueArtsStrengthFormula,
   items: BudgetItem[],
   allocations: Map<string, number>,
-  positiveRefundBudget: number,
+  damageConversion: BudgetConversionResult<number>,
 ): ConvertedFormulaBudget {
-  const attributeItems = items.filter((item) => item.kind === 'attributeBase' && item.stat);
-  const attributeWeight = attributeItems.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   const extraBaseItems = items.filter((item) => item.kind === 'extraBaseVar' && item.varName);
-  const fallbackItems = attributeWeight > 0 ? attributeItems : extraBaseItems;
-  const fallbackWeight = fallbackItems.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
-  let redistributedBudget = 0;
   const converted: NormalizedTechniqueArtsStrengthFormula = {
     attributeBases: {},
     extraBaseVars: {},
@@ -1016,26 +1046,26 @@ function convertFormulaBudget(
     effectStrength: 0,
   };
   const breakdownItems: TechniqueArtsStrengthBudgetBreakdownItem[] = [];
+  const attributeEntries = Object.entries(formula.attributeBases).filter((entry): entry is [string, number] => (
+    ALLOWED_ATTRIBUTE_BASE_STATS.has(entry[0]) && Number.isFinite(entry[1]) && entry[1] > 0
+  ));
+  const attributeWeight = attributeEntries.reduce((sum, [, weight]) => sum + Math.max(0, weight), 0);
 
-  for (const item of attributeItems) {
-    const allocatedBudget = readAllocatedBudget(allocations, item.key);
-    const refundShare = fallbackWeight > 0 && positiveRefundBudget > 0
-      ? positiveRefundBudget * Math.max(0, item.weight) / fallbackWeight
-      : 0;
-    redistributedBudget += refundShare;
-    const finalBudget = Math.max(0, allocatedBudget + refundShare);
-    const stat = item.stat!;
-    converted.attributeBases[stat] = roundTo(finalBudget / TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS[stat], 6);
-    breakdownItems.push(buildBreakdownItem(item, allocatedBudget, finalBudget, 0, converted.attributeBases[stat]));
+  if (attributeWeight > 0) {
+    const damageBudget = Math.max(0, damageConversion.value);
+    for (const [statKey, weight] of attributeEntries) {
+      const stat = statKey as TechniqueArtsStrengthAttributeBaseStat;
+      const ratio = Math.max(0, weight) / attributeWeight;
+      const scale = damageConversion.usedBudget > 0
+        ? damageBudget * ratio / TECHNIQUE_ARTS_STRENGTH_ATTRIBUTE_BASE_COSTS[stat]
+        : TECHNIQUE_ARTS_STRENGTH_CONSTANTS.attributeBases.minDamageScale * ratio;
+      converted.attributeBases[stat] = roundTo(scale, 6);
+    }
   }
 
   for (const item of extraBaseItems) {
     const allocatedBudget = readAllocatedBudget(allocations, item.key);
-    const refundShare = fallbackWeight > 0 && attributeWeight <= 0 && positiveRefundBudget > 0
-      ? positiveRefundBudget * Math.max(0, item.weight) / fallbackWeight
-      : 0;
-    redistributedBudget += refundShare;
-    const finalBudget = allocatedBudget + refundShare;
+    const finalBudget = allocatedBudget;
     converted.extraBaseVars[item.varName!] = roundTo(finalBudget, 6);
     breakdownItems.push(buildBreakdownItem(item, allocatedBudget, finalBudget, 0, converted.extraBaseVars[item.varName!]));
   }
@@ -1058,13 +1088,14 @@ function convertFormulaBudget(
   }
 
   converted.effectStrength = roundTo(
-    breakdownItems.reduce((sum, item) => sum + Math.max(0, item.usedBudget), 0),
+    Math.max(0, damageConversion.usedBudget)
+    + breakdownItems.reduce((sum, item) => sum + Math.max(0, item.usedBudget), 0),
     6,
   );
   return {
     formula: converted,
     items: breakdownItems,
-    redistributedBudget: roundTo(redistributedBudget, 6),
+    redistributedBudget: 0,
   };
 }
 
@@ -1097,15 +1128,18 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
   const totalWeight = budgetItems.reduce((sum, item) => sum + Math.abs(item.weight), 0);
   const positiveWeight = budgetItems.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   const negativeWeight = budgetItems.reduce((sum, item) => sum + Math.max(0, -item.weight), 0);
+  const sacrificeBudget = calculateSacrificeBudget(budgetItems, fullTotalBudget);
+  const positiveBudgetPool = fullTotalBudget + sacrificeBudget;
   const initialAllocations = allocateBudgets(budgetItems, fullTotalBudget);
   const redistribution = redistributePositiveRefunds(params.skill, budgetItems, initialAllocations, params.realmLv);
   const allocations = redistribution.allocations;
   const allocatedConversions = convertAllocatedBudgets(params.skill, allocations, params.realmLv);
   const targetConversion = allocatedConversions.target;
+  const damageConversion = allocatedConversions.damage;
   const costConversion = allocatedConversions.cost;
   const cooldownConversion = allocatedConversions.cooldown;
   const chantConversion = allocatedConversions.chant;
-  const formulaConversion = convertFormulaBudget(params.skill.formula, budgetItems, allocations, 0);
+  const formulaConversion = convertFormulaBudget(params.skill.formula, budgetItems, allocations, damageConversion);
   const targetBudget = formulaConversion.formula.effectStrength;
   const effectScale = 1;
   const skillIndex = Math.max(0, Math.floor(params.skillIndex ?? 0));
@@ -1156,11 +1190,14 @@ export function expandTechniqueArtsStrengthSkill(params: ExpandTechniqueArtsStre
       totalWeight: roundTo(totalWeight, 6),
       positiveWeight: roundTo(positiveWeight, 6),
       negativeWeight: roundTo(negativeWeight, 6),
+      positiveBudgetPool: roundTo(positiveBudgetPool, 6),
+      sacrificeBudget: roundTo(sacrificeBudget, 6),
       refundedBudget: roundTo(redistribution.finalRefundBudget, 6),
       redistributedBudget: redistribution.redistributedBudget,
       items: [
-        buildBreakdownItem({ key: 'target.castRangeWeight', kind: 'castRange', weight: params.skill.target.range }, readAllocatedBudget(allocations, 'target.castRangeWeight'), targetConversion.range.usedBudget, targetConversion.range.refundBudget, targetConversion.target.range),
-        buildBreakdownItem({ key: 'target.areaWeight', kind: 'shape', weight: resolveTargetShapeWeight(params.skill.target) }, readAllocatedBudget(allocations, 'target.areaWeight'), targetConversion.shape.usedBudget, targetConversion.shape.refundBudget, `${targetConversion.target.type}:${targetConversion.target.coveredCells}`),
+        buildBreakdownItem({ key: 'structure.damage', kind: 'damage', weight: params.skill.structure.damage }, readAllocatedBudget(allocations, 'structure.damage'), damageConversion.usedBudget, damageConversion.refundBudget, damageConversion.value),
+        buildBreakdownItem({ key: 'structure.castRange', kind: 'castRange', weight: params.skill.structure.castRange }, readAllocatedBudget(allocations, 'structure.castRange'), targetConversion.range.usedBudget, targetConversion.range.refundBudget, targetConversion.target.range),
+        buildBreakdownItem({ key: 'structure.area', kind: 'shape', weight: params.skill.structure.area }, readAllocatedBudget(allocations, 'structure.area'), targetConversion.shape.usedBudget, targetConversion.shape.refundBudget, `${targetConversion.target.type}:${targetConversion.target.coveredCells}`),
         buildBreakdownItem({ key: 'structure.cost', kind: 'cost', weight: params.skill.structure.cost }, readAllocatedBudget(allocations, 'structure.cost'), costConversion.usedBudget, costConversion.refundBudget, costConversion.value),
         buildBreakdownItem({ key: 'structure.cooldown', kind: 'cooldown', weight: params.skill.structure.cooldown }, readAllocatedBudget(allocations, 'structure.cooldown'), cooldownConversion.usedBudget, cooldownConversion.refundBudget, cooldownConversion.value),
         buildBreakdownItem({ key: 'structure.chant', kind: 'chant', weight: params.skill.structure.chant }, readAllocatedBudget(allocations, 'structure.chant'), chantConversion.usedBudget, chantConversion.refundBudget, chantConversion.value),

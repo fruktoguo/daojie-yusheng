@@ -138,16 +138,18 @@ cost = round(标准灵力输出 × 0.2 × 品阶指数倍率 × costMultiplier)
 目标展开口径：
 
 ```typescript
-totalWeight = sum(abs(itemWeight))
 positiveWeight = sum(max(itemWeight, 0))
-positive itemBudget = BUDGET(layer) * itemWeight / positiveWeight
-negative itemBudget = BUDGET(layer) * itemWeight / totalWeight
+sacrificeBudget = sum(BUDGET(layer) * abs(negativeWeight) / 100)
+positiveBudgetPool = BUDGET(layer) + sacrificeBudget
+positive itemBudget = positiveBudgetPool * itemWeight / positiveWeight
+negative itemBudget = -BUDGET(layer) * abs(itemWeight) / 100
 realValue = convertByItem(itemBudget)
 ```
 
-- `target.castRangeWeight` 是施法距离权重，`target.areaWeight` 是覆盖范围权重，都不是真实格数、半径、宽度或边长。
-- `structureStrength.cost/cooldown/chant` 是结构权重，不是真实消耗、冷却或吟唱。
-- 正权重瓜分完整正向预算；负权重只折算本项负预算，不进入正向分母。
+- `target.type/targetMode` 只描述目标形状和目标模式，不承载预算权重。
+- `structureStrength.damage/cost/cooldown/chant/castRange/area` 是强度权重，不是真实伤害、消耗、冷却、吟唱、距离或覆盖范围。
+- 旧草稿里的 `target.castRangeWeight/areaWeight` 仍可作为兼容输入读取；新 AI 生成入口应写 `structureStrength.castRange/area`。
+- 负权重会让本项变差，并按绝对权重折算牺牲预算加入正向预算池，由正权重项目继续瓜分。
 - 冷却、消耗、施法距离、范围覆盖、属性基底和百分比组各自使用独立转换公式。
 - 有最小值或最大值的项目先展开真实值，再按真实可生效值反推已使用预算。
 - 每个转换方法返回真实值、已使用预算和未使用预算；触顶或离散档位暂时用不完的正预算按固定轮次平均回流到仍可增长的项目。

@@ -58,7 +58,7 @@ const ARTS_STRENGTH_SKILL_FORBIDDEN_FIELDS = [
   'damageValue',
   'baseDamage',
 ] as const;
-const ARTS_STRENGTH_STRUCTURE_KEYS = new Set<string>(['cost', 'cooldown', 'chant']);
+const ARTS_STRENGTH_STRUCTURE_KEYS = new Set<string>(['damage', 'cost', 'cooldown', 'chant', 'castRange', 'area']);
 const ARTS_STRENGTH_FORMULA_KEYS = new Set<string>(['attributeBases', 'percentBonuses']);
 const ARTS_STRENGTH_PERCENT_BONUS_KEYS = new Set<string>(['techLevel', 'moveSpeed']);
 const ARTS_STRENGTH_TARGET_KEYS = new Set<string>([
@@ -277,7 +277,7 @@ function validateArtsStrengthStructure(raw: unknown, skillIndex: number, errors:
   for (const key of Object.keys(raw as Record<string, unknown>)) {
     const value = Number((raw as Record<string, unknown>)[key]);
     if (!ARTS_STRENGTH_STRUCTURE_KEYS.has(key)) {
-      errors.push({ layer: 2, field: `skills[${skillIndex}].structureStrength.${key}`, message: 'structureStrength 只允许 cost/cooldown/chant' });
+      errors.push({ layer: 2, field: `skills[${skillIndex}].structureStrength.${key}`, message: 'structureStrength 只允许 damage/cost/cooldown/chant/castRange/area' });
     } else if (!isValidArtsWeight(value)) {
       errors.push({ layer: 2, field: `skills[${skillIndex}].structureStrength.${key}`, message: 'structureStrength 权重必须在 [-100, 100]' });
     }

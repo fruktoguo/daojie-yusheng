@@ -48,6 +48,7 @@ export const TECHNIQUE_ARTS_STRENGTH_CONSTANTS = {
     minCount: 1,
     maxCount: 5,
     minScale: 0,
+    minDamageScale: 0.01,
     maxScale: 100,
     decimalPlaces: 2,
   },

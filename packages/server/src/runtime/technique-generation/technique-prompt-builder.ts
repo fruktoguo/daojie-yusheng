@@ -74,7 +74,7 @@ const ARTS_TARGET_TYPE_ENUM = ['single', 'line', 'box', 'area'] as const;
 const ARTS_DAMAGE_KIND_ENUM = ['physical', 'spell'] as const;
 const ARTS_ELEMENT_ENUM = ['metal', 'wood', 'water', 'fire', 'earth'] as const;
 const ARTS_TARGET_MODE_ENUM = ['any', 'entity', 'tile'] as const;
-const ARTS_STRUCTURE_STRENGTH_KEYS = ['cost', 'cooldown', 'chant'] as const;
+const ARTS_STRUCTURE_STRENGTH_KEYS = ['damage', 'cost', 'cooldown', 'chant', 'castRange', 'area'] as const;
 const ARTS_PERCENT_BONUS_KEYS = ['techLevel', 'moveSpeed'] as const;
 
 export function buildTechniquePrompt(params: TechniquePromptParams): TechniquePromptOutput {
@@ -158,8 +158,6 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       element: ARTS_ELEMENT_ENUM,
       target: {
         type: ARTS_TARGET_TYPE_ENUM,
-        castRangeWeight: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，施法距离权重/倾向，不是真实格数；真实施法距离由服务端按预算反推，常规上限${constants.structure.maxCastRange}格，line 上限${constants.structure.maxLineCastRange}格`,
-        areaWeight: `integer，${constants.structure.minRange}到${constants.structure.maxRange}，影响范围/覆盖格权重；line 会换算宽度，box 会换算边长，area 会换算半径；不是真实宽度、边长或半径`,
         targetMode: ARTS_TARGET_MODE_ENUM,
       },
       structureStrength: Object.fromEntries(ARTS_STRUCTURE_STRENGTH_KEYS.map((key) => [
@@ -177,26 +175,28 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
     strengthRules: {
       budgetOwnership: '禁止输出 totalBudget/inputBudget/targetBudget；本次实际总预算已在 budgetContext.actualTotalBudget 给出，服务端按各项权重分配并展开真实 SkillDef。',
       structureMeaning: [
+        'structureStrength.damage 是伤害预算权重；正数代表更高伤害，负数代表主动牺牲伤害，0表示最低可用伤害。',
         'structureStrength.cost 是灵力消耗权重；正数代表更低灵力消耗，负数代表更高灵力消耗，0表示基础消耗倍率1。',
         `structureStrength.cooldown 是冷却权重；正数代表更短冷却，负数代表更长冷却，0预算的基础冷却为 ${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv 息。`,
-        'structureStrength 字段只参与权重分配；正权重瓜分完整正向预算，负权重只折算为本项负预算，再用各项独立公式换算真实消耗、冷却或吟唱。',
+        'structureStrength.castRange 是施法距离预算权重，不是真实施法距离；1格为0预算。',
+        'structureStrength.area 是影响范围预算权重，不是真实半径、宽度、边长或覆盖格数；single 会视为0覆盖强度。',
         'structureStrength.chant 预留给吟唱强度；当前可写0。',
-        '正向结构权重、范围权重、距离权重会和伤害权重竞争正向预算；负权重不进入正向分母，也不会额外兑换成其它项正预算。',
+        'structureStrength 字段只参与权重分配；正权重瓜分正向预算池，负权重会让本项变差，并按绝对权重折算牺牲预算加入正向预算池。',
+        '正向预算池 = actualTotalBudget + sum(actualTotalBudget * abs(负权重) / 100)；正权重按权重比例瓜分该预算池。',
         'structureStrength 里的字段都只是强度权重，不是真实运行时数值；不要输出 costMultiplier/cooldown/cooldownTicks。',
       ],
       formulaMeaning: [
-        'attributeBases 是伤害固定值基底的分配权重，不是最终伤害数值。',
-        '伤害权重只允许正数；0或负数表示完全不参与，不要输出。',
-        '如果玩家主题要求最低伤害、威力分散、只要范围，伤害构成给一个最小正权重即可，例如 { spellAtk: 1 }，再把范围/距离/结构权重拉高。',
-        '如果玩家主题要求高伤害，才把主伤害属性权重提高到 60 到 100。',
+        'attributeBases 只表示伤害由哪些属性构成和构成比例，不再表示伤害强弱；伤害强弱必须写在 structureStrength.damage。',
+        'attributeBases 的值必须为正数；如果只要最低伤害，也要写一个属性构成，例如 { spellAtk: 1 }，并把 structureStrength.damage 写为0或负数。',
+        '如果玩家主题要求高伤害，才把 structureStrength.damage 提高到 60 到 100。',
         `techLevel 默认0，表示每层增加${Math.round(constants.percentBonuses.techLevelScaleBase * 100)}%总伤害；通常不要写正值。`,
         `moveSpeed: 1 表示额外加入 caster.stat.moveSpeed * ${constants.percentBonuses.moveSpeedScalePerStrength} 的总百分比加成。`,
       ],
       rangeMeaning: [
-        'target.castRangeWeight 是施法距离预算倾向，不是真实施法距离。',
-        'target.areaWeight 是影响范围预算倾向，不是真实半径、宽度、边长或覆盖格数。',
-        '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是 areaWeight=32 的固定真实半径；请用 areaWeight 表达覆盖倾向，由服务端按预算换算真实覆盖。',
-        `castRangeWeight 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
+        'target 只描述目标形状和目标模式，不承载任何预算权重。',
+        'target.type 选择 single/line/box/area；真实范围、距离和覆盖格数由 structureStrength.castRange / structureStrength.area 展开。',
+        '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是真实半径32；请用 structureStrength.area 表达覆盖倾向。',
+        `structureStrength.castRange 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
         `影响范围按预算换算覆盖格：每1点实际范围预算约增加${constants.structure.coverageCellsPerBudget}格，line/box/area 会按各自形状向下取整成真实宽度、边长或半径。`,
         'single 视为0覆盖强度；line/box/area 只选择形状和覆盖倾向，真实覆盖格数由服务端展开。',
       ],
@@ -218,9 +218,9 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       'skills[0] 只能描述一个 damage 术法，不允许 heal/buff/debuff/control。',
       '不得输出 forbiddenFields 中的任何字段。',
       'formulaStrength.attributeBases 至少1个、最多5个 key，key 必须来自 allowedAttributeBaseStats。',
-      'formulaStrength.attributeBases 的值必须是正权重；最低伤害也要写 1，不能写 0 或负数。',
-      'target 只允许 type/castRangeWeight/areaWeight/targetMode；不要输出 range/radius/width/height。',
-      'castRangeWeight/areaWeight 只填写权重意图，不填写真实施法距离、真实半径、真实宽高或真实覆盖格数。',
+      'formulaStrength.attributeBases 的值必须是正构成权重；最低伤害也要写 1，不能写 0 或负数。',
+      'target 只允许 type/targetMode；不要输出 castRangeWeight/areaWeight/range/radius/width/height。',
+      '施法距离和影响范围权重必须写在 structureStrength.castRange / structureStrength.area，不要写进 target。',
       '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
       '不要为了凑强度写过多文本；描述保持修仙风格。',
       '名称、描述、威势措辞必须贴合 generationContext 的品阶、境界阶段和命名尺度，低境界不要写毁天灭地，高境界不要写成凡俗小术。',
@@ -238,8 +238,8 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
           unlockLevel: 1,
           damageKind: 'physical',
           element: 'metal',
-          target: { type: 'line', castRangeWeight: 3, areaWeight: 1, targetMode: 'tile' },
-          structureStrength: { cooldown: 1 },
+          target: { type: 'line', targetMode: 'tile' },
+          structureStrength: { damage: 4, cost: 0, cooldown: 1, chant: 0, castRange: 3, area: 1 },
           formulaStrength: {
             attributeBases: { physAtk: 4 },
           },
@@ -387,9 +387,10 @@ function buildArtsBudgetContext(params: TechniquePromptParams): Record<string, u
       'gradeIndex: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8',
       '术法基础满层预算 BUDGET_base = 3 + realmLv * 0.5 * 1.4^(gradeIndex - 1) * majorRealmMultiplier',
       '术法本次实际总预算 actualTotalBudget = BUDGET_base * budgetPercent',
-      'totalWeight = sum(abs(itemWeight)); positiveWeight = sum(max(itemWeight, 0))',
-      '正权重 itemBudget = actualTotalBudget * itemWeight / positiveWeight；负权重 itemBudget = actualTotalBudget * itemWeight / totalWeight',
-      '负权重只折算本项负预算，不进入正向分母，也不会额外兑换成其它项正预算',
+      'positiveWeight = sum(max(itemWeight, 0)); sacrificeBudget = sum(actualTotalBudget * abs(negativeWeight) / 100)',
+      '正向预算池 positiveBudgetPool = actualTotalBudget + sacrificeBudget',
+      '正权重 itemBudget = positiveBudgetPool * itemWeight / positiveWeight；负权重 itemBudget = -actualTotalBudget * abs(itemWeight) / 100',
+      `伤害倍率预算 damageBudget <= 0 时按最低 ${constants.attributeBases.minDamageScale} 属性基底倍率展开`,
       `灵力消耗倍率 costMultiplier = costBudget >= 0 ? ${constants.structure.costPositivePerBudget}^costBudget : ${constants.structure.costNegativePerBudget}^abs(costBudget)`,
       `冷却 cooldownTicks = round(${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv * (cooldownBudget >= 0 ? ${constants.structure.cooldownPositivePerBudget}^cooldownBudget : ${constants.structure.cooldownNegativePerBudget}^abs(cooldownBudget)))，最小1息`,
       `施法距离：1格为0预算；r格消耗 (r - 1) * ${constants.structure.castRangeBudgetGrowth}^(r - 1)，常规最大${constants.structure.maxCastRange}格，line最大${constants.structure.maxLineCastRange}格`,
