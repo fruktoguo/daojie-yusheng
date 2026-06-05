@@ -1398,6 +1398,54 @@ function testRespawnPreservesActiveSkillCooldown(): void {
   assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 20);
 }
 
+function testActionCooldownCountdownDoesNotBumpRevision(): void {
+  const playerId = 'player:action-cooldown-revision';
+  const skillId = 'skill.cooldown.revision';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.techniques.techniques = [
+    {
+      techId: 'tech.cooldown.revision',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      realmLv: 1,
+      skillsEnabled: true,
+      name: '冷却刷新测试',
+      grade: null,
+      category: 'arts',
+      skills: [
+        {
+          id: skillId,
+          name: '冷却刷新术',
+          desc: '',
+          cooldown: 30,
+          range: 1,
+          requiresTarget: true,
+        },
+      ],
+    },
+  ] as never;
+
+  player.lifeElapsedTicks = 100;
+  service.rebuildActionState(player, 100);
+  service.setSkillCooldownReadyTick(playerId, skillId, 130, 100);
+  const revisionAfterCooldownStart = player.actions.revision;
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 30);
+
+  player.lifeElapsedTicks = 101;
+  service.rebuildActionState(player, 101);
+  assert.equal(player.actions.revision, revisionAfterCooldownStart);
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 29);
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownReadyTick, 130);
+
+  player.lifeElapsedTicks = 130;
+  service.rebuildActionState(player, 130);
+  assert.equal(player.actions.revision, revisionAfterCooldownStart + 1);
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownLeft, 0);
+  assert.equal(player.actions.actions.find((entry) => entry.id === skillId)?.cooldownReadyTick, undefined);
+}
+
 function testApplyProgressionResultDirtyDomains(): void {
   const playerId = 'player:progression-result';
   const service = createHydratedService(playerId);
@@ -1453,6 +1501,7 @@ testLogbookDirtyDomain();
   testEnableAutoRootFoundationStopsImmediatelyAtCap();
   testRespawnDirtyDomains();
   testRespawnPreservesActiveSkillCooldown();
+  testActionCooldownCountdownDoesNotBumpRevision();
   testApplyProgressionResultDirtyDomains();
   console.log(
     JSON.stringify(

@@ -1120,8 +1120,9 @@ export class PlayerRuntimeService {
             player.techniques.cultivatingTechId = normalizedTechId;
             player.combat.cultivationActive = true;
         }
+        const autoBattleSkillsChanged = syncTechniqueAutoBattleSkillCatalog(player, technique);
         player.techniques.revision += 1;
-        markPlayerDirtyDomains(player, ['technique']);
+        markPlayerDirtyDomains(player, autoBattleSkillsChanged ? ['technique', 'auto_battle_skill'] : ['technique']);
         this.bumpPersistentRevision(player);
         return true;
     }
@@ -2299,6 +2300,7 @@ export class PlayerRuntimeService {
         const learnTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
 
         let consumed = false;
+        let autoBattleSkillsChanged = false;
         const currentTick = resolvePlayerRuntimeTick(player, 0);
         if (learnTechniqueId) {
             if (player.techniques.techniques.some((entry) => entry.techId === learnTechniqueId)) {
@@ -2347,6 +2349,7 @@ export class PlayerRuntimeService {
                 player.techniques.cultivatingTechId = technique.techId;
                 player.combat.cultivationActive = true;
             }
+            autoBattleSkillsChanged = syncTechniqueAutoBattleSkillCatalog(player, technique);
             consumed = true;
         }
         else {
@@ -2363,7 +2366,9 @@ export class PlayerRuntimeService {
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, item.itemId);
         this.playerProgressionService.refreshPreview(player);
-        markPlayerDirtyDomains(player, learnTechniqueId ? ['inventory', 'technique'] : ['inventory']);
+        markPlayerDirtyDomains(player, learnTechniqueId
+            ? (autoBattleSkillsChanged ? ['inventory', 'technique', 'auto_battle_skill'] : ['inventory', 'technique'])
+            : ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -4147,6 +4152,10 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const currentTick = Math.max(0, Math.trunc(Number(input.currentTick) || 0));
+        if (player.lifeElapsedTicks !== currentTick) {
+            player.lifeElapsedTicks = currentTick;
+        }
 
         let changed = false;
         if (player.instanceId !== input.instanceId) {
@@ -4188,7 +4197,7 @@ export class PlayerRuntimeService {
             this.playerAttributesService.recalculate(player);
         }
         if (Object.keys(player.combat.cooldownReadyTickBySkillId).length > 0) {
-            this.rebuildActionState(player, input.currentTick);
+            this.rebuildActionState(player, currentTick);
         }
         if (player.combat.autoBattle) {
             player.combat.autoBattle = false;
@@ -4205,7 +4214,7 @@ export class PlayerRuntimeService {
             changed = true;
             this.playerAttributesService.recalculate(player);
         }
-        player.combat.lastActiveTick = Math.max(player.combat.lastActiveTick, Math.trunc(input.currentTick));
+        player.combat.lastActiveTick = Math.max(player.combat.lastActiveTick, currentTick);
         if (changed) {
             player.selfRevision += 1;
             markPlayerDirtyDomains(player, ['position_checkpoint', 'vitals', 'buff', 'combat_pref', 'attr']);
@@ -5154,16 +5163,20 @@ export class PlayerRuntimeService {
         const nextActions = nextActionResult.actions;
 
         const techniqueFlagsChanged = syncTechniqueSkillAvailability(player);
-        if (!nextActionResult.changed && !techniqueFlagsChanged) {
+        if (!nextActionResult.changed && !techniqueFlagsChanged && !nextActionResult.autoBattleSkillsChanged) {
+            player.actions.actions = nextActions;
             return;
         }
+        player.actions.actions = nextActions;
         if (nextActionResult.changed) {
-            player.actions.actions = nextActions;
             player.actions.revision += 1;
         }
         if (techniqueFlagsChanged) {
             player.techniques.revision += 1;
             markPlayerDirtyDomains(player, ['technique']);
+        }
+        if (nextActionResult.autoBattleSkillsChanged) {
+            markPlayerDirtyDomains(player, ['auto_battle_skill']);
         }
     }
     /**
@@ -8665,6 +8678,7 @@ function buildActionEntries(player, currentTick) {
             actions.push(nextAction.entry);
         }
     }
+    const autoBattleSkillsChanged = !isSameAutoBattleSkillList(player.combat.autoBattleSkills, autoBattleSkills);
     player.combat.autoBattleSkills = autoBattleSkills;
     for (const entry of player.actions.contextActions) {
         const readyTick = normalizeActionCooldownReadyTick(
@@ -8692,11 +8706,14 @@ function buildActionEntries(player, currentTick) {
     if (!isSameActionIdOrder(player.actions.actions, actions)) {
         changed = true;
     }
-    return { actions, changed };
+    return { actions, changed, autoBattleSkillsChanged };
 }
 
 function reuseActionEntry(previous, next) {
     if (previous && isSameActionEntry(previous, next)) {
+        if (previous.cooldownLeft !== next.cooldownLeft) {
+            return { entry: { ...previous, cooldownLeft: next.cooldownLeft }, changed: false };
+        }
         return { entry: previous, changed: false };
     }
     return { entry: next, changed: true };
@@ -8792,7 +8809,6 @@ function isSameActionEntry(left, right) {
         && left.name === right.name
         && left.type === right.type
         && left.desc === right.desc
-        && left.cooldownLeft === right.cooldownLeft
         && left.cooldownReadyTick === right.cooldownReadyTick
         && left.range === right.range
         && left.requiresTarget === right.requiresTarget
@@ -8960,6 +8976,28 @@ function collectUnlockedSkillIds(player) {
         }
     }
     return skillIds;
+}
+
+function syncTechniqueAutoBattleSkillCatalog(player, technique) {
+    const skillIds = collectUnlockedSkillIds(player);
+    const seen = new Set(skillIds);
+    for (const skill of technique?.skills ?? []) {
+        const skillId = typeof skill?.id === 'string' ? skill.id.trim() : '';
+        if (!skillId || seen.has(skillId)) {
+            continue;
+        }
+        skillIds.push(skillId);
+        seen.add(skillId);
+    }
+    const normalized = enforceSkillEnabledLimit(
+        normalizeAutoBattleSkills(skillIds, player.combat.autoBattleSkills),
+        resolvePlayerSkillSlotLimit(player),
+    );
+    if (isSameAutoBattleSkillList(player.combat.autoBattleSkills, normalized)) {
+        return false;
+    }
+    player.combat.autoBattleSkills = normalized;
+    return true;
 }
 /**
  * syncTechniqueSkillAvailability：处理功法技能Availability并更新相关状态。
