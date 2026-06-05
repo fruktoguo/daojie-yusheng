@@ -219,6 +219,10 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
   };
 }
 
+function isCompleteNewEntityPatch(patch: TickRenderEntity): boolean {
+  return typeof patch.kind === 'string' || typeof patch.name === 'string';
+}
+
 /** 从本地玩家状态构造高优先级实体快照。 */
 function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntity): ObservedMapEntity {
   return {
@@ -1045,6 +1049,9 @@ export class MapStore {
 
     const applyPatch = (patch: TickRenderEntity): void => {
       const previous = nextMap.get(patch.id);
+      if (!previous && !isCompleteNewEntityPatch(patch)) {
+        return;
+      }
       const next = mergeObservedEntityPatch(patch, previous);
       if (this.player && patch.id === this.player.id) {
         next.char = getFirstGrapheme(this.player.displayName ?? this.player.name ?? '') || next.char;
@@ -1076,7 +1083,17 @@ export class MapStore {
       decorated.push(next);
       this.entityMap.set(next.id, next);
     }
+    this.threatArrows = this.filterThreatArrowsByVisibleEntities(this.entityMap);
     return decorated;
+  }
+
+  private filterThreatArrowsByVisibleEntities(entityMap: Map<string, ObservedMapEntity>): Array<{ ownerId: string; targetId: string }> {
+    return this.threatArrows.filter((entry) => (
+      entry.ownerId
+      && entry.targetId
+      && entityMap.has(entry.ownerId)
+      && entityMap.has(entry.targetId)
+    ));
   }
 
   /** 清空地面物品主索引与坐标索引。 */

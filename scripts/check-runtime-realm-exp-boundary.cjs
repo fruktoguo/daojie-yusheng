@@ -16,6 +16,7 @@ const allowedRealmConfigReaders = new Set([
   normalizePath('packages/server/src/runtime/player/player-progression.service.ts'),
   normalizePath('packages/server/src/runtime/combat/monster-combat-exp-equivalent.helper.ts'),
   normalizePath('scripts/generate-editor-catalog.mjs'),
+  normalizePath('scripts/generate-player-final-attr-baselines.mjs'),
   normalizePath('scripts/check-runtime-realm-exp-boundary.cjs'),
 ]);
 

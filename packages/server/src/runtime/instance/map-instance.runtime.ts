@@ -6633,6 +6633,7 @@ class MapInstanceRuntime {
         this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
         this.handleMonsterRespawn(monster);
         this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+        this.worldRevision += 1;
     }
     /** resolveMonsterTarget：解析妖兽的当前目标。 */
     resolveMonsterTarget(monster) {
