@@ -59,6 +59,11 @@ export interface TickRenderEntityView {
 
   monsterTier?: MonsterTier | null;  
   /**
+ * monsterId：怪物模板 ID，用于客户端选择稳定视觉资源。
+ */
+
+  monsterId?: string | null;
+  /**
  * monsterScale：怪物Scale相关字段。
  */
 

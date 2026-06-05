@@ -107,6 +107,11 @@ export interface ObservedMapEntity {
 
   monsterTier?: MonsterTier;  
   /**
+ * monsterId：怪物模板 ID，用于选择稳定视觉资源。
+ */
+
+  monsterId?: string;
+  /**
  * monsterScale：怪物Scale相关字段。
  */
 

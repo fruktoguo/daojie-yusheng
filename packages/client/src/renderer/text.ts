@@ -420,6 +420,11 @@ interface AnimEntity {
 
   monsterTier?: MonsterTier;  
   /**
+ * monsterId：怪物模板 ID，用于选择稳定视觉资源。
+ */
+
+  monsterId?: string;
+  /**
  * monsterScale：怪物Scale相关字段。
  */
 
@@ -1932,6 +1937,10 @@ export class TextRenderer implements IRenderer {
  */
  kind?: RenderEntity['kind'];
  /**
+ * monsterId：怪物模板 ID，用于选择稳定视觉资源。
+ */
+ monsterId?: string;
+ /**
  * monsterTier：怪物Tier相关字段。
  */
  monsterTier?: MonsterTier;    
@@ -2050,6 +2059,7 @@ export class TextRenderer implements IRenderer {
         anim.badge = e.badge ?? undefined;
         anim.name = e.name;
         anim.kind = e.kind;
+        anim.monsterId = e.monsterId;
         anim.monsterTier = e.monsterTier;
         anim.monsterScale = e.monsterScale;
         anim.facing = e.facing;
@@ -2086,6 +2096,7 @@ export class TextRenderer implements IRenderer {
           badge: e.badge ?? undefined,
           name: e.name,
           kind: e.kind,
+          monsterId: e.monsterId,
           monsterTier: e.monsterTier,
           monsterScale: e.monsterScale,
           facing: e.facing,

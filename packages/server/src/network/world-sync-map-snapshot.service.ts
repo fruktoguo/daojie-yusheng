@@ -225,6 +225,7 @@ export class WorldSyncMapSnapshotService {
         color: monster.color,
         name: monster.name,
         kind: 'monster',
+        monsterId: monster.monsterId,
         monsterTier: monster.tier,
         monsterScale: getBuffPresentationScale(monster.buffs),
         facing: monster.facing,

@@ -152,6 +152,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     hostile: false,
     name: entity.name,
     kind,
+    monsterId: entity.monsterId,
     monsterTier: entity.monsterTier,
     monsterScale: entity.monsterScale,
     facing: kind === 'monster' ? resolveTwoWayMonsterFacing(entity.facing, undefined) : entity.facing,
@@ -195,6 +196,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     hostile: previous?.hostile,
     name: applyNullablePatch(patch.name, previous?.name),
     kind,
+    monsterId: applyNullablePatch(patch.monsterId, previous?.monsterId),
     monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
     monsterScale: applyNullablePatch(patch.monsterScale, previous?.monsterScale),
     facing: kind === 'monster'

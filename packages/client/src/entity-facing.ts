@@ -1,6 +1,6 @@
 import { Direction, type RenderEntity } from '@mud/shared';
 
-type SpriteLookupEntity = Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>;
+type SpriteLookupEntity = Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>;
 
 export type EntitySpriteLookupPlan = {
   keys: string[];
@@ -14,12 +14,13 @@ function normalizeEntitySpriteSegment(value: string | null | undefined): string 
 }
 
 function buildBaseEntitySpriteKeys(entity: SpriteLookupEntity): string[] {
+  const monsterId = normalizeEntitySpriteSegment(entity.monsterId);
   const id = normalizeEntitySpriteSegment(entity.id);
   const name = normalizeEntitySpriteSegment(entity.name);
   const char = normalizeEntitySpriteSegment(entity.char);
   switch (entity.kind) {
     case 'monster':
-      return [id && `monster:${id}`, name && `monster:${name}`, char && `monster:${char}`, 'monster:default'].filter(Boolean) as string[];
+      return [monsterId && `monster:${monsterId}`, id && `monster:${id}`, name && `monster:${name}`, char && `monster:${char}`, 'monster:default'].filter(Boolean) as string[];
     case 'npc':
       return [id && `npc:${id}`, name && `npc:${name}`, char && `npc:${char}`, 'npc:default'].filter(Boolean) as string[];
     case 'player':

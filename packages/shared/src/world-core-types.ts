@@ -647,6 +647,11 @@ export interface RenderEntity {
 
   monsterTier?: MonsterTier;
   /**
+ * monsterId：怪物模板 ID，用于客户端选择稳定视觉资源。
+ */
+
+  monsterId?: string;
+  /**
  * monsterScale：怪物Scale相关字段。
  */
 

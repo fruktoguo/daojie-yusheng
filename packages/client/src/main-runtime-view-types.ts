@@ -61,6 +61,11 @@ export type MainRuntimeObservedEntity = {
 
   monsterTier?: MonsterTier;  
   /**
+ * monsterId：怪物模板 ID，用于选择稳定视觉资源。
+ */
+
+  monsterId?: string;
+  /**
  * facing：渲染朝向，仅用于表现层。
  */
 

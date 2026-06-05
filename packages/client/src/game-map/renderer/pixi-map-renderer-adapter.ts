@@ -475,7 +475,7 @@ function normalizeLegacyTileMap(value: unknown): Map<string, string> {
 }
 
 function pickRuntimeEntitySpriteSelection(
-  entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>,
+  entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>,
   sprites: ReadonlyMap<string, PixiTileSpriteRef>,
 ): RuntimeEntitySpriteSelection | null {
   const plan = buildEntitySpriteLookupPlan(entity);
@@ -1098,7 +1098,7 @@ export class PixiMapRendererAdapter {
     });
   }
 
-  private resolveRuntimeEntitySpriteSelection(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>): RuntimeEntitySpriteSelection | null {
+  private resolveRuntimeEntitySpriteSelection(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>): RuntimeEntitySpriteSelection | null {
     if (this.runtimeTileManifestState !== 'loaded') return null;
     return pickRuntimeEntitySpriteSelection(entity, this.runtimeEntitySpriteRefs);
   }
@@ -1965,6 +1965,7 @@ export class PixiMapRendererAdapter {
       anim.char, anim.color, anim.name ?? '', anim.kind ?? '', anim.hp ?? '', anim.maxHp ?? '',
       anim.respawnRemainingTicks ?? '', anim.respawnTotalTicks ?? '',
       anim.monsterTier ?? '',
+      anim.monsterId ?? '',
       anim.badge?.text ?? '', anim.badge?.tone ?? '', anim.hostile ? 1 : 0,
       anim.monsterScale ?? '', anim.facing ?? '',
       this.runtimeTileSpriteRevision,

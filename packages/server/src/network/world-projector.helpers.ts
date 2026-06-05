@@ -393,6 +393,7 @@ function buildFullWorldDeltaFromState(
     }));
     const monsters: WorldMonsterPatchView[] = Array.from(state.monsters, ([id, entry]) => ({
         id,
+        mid: entry.mid,
         x: entry.x,
         y: entry.y,
         f: entry.f,

@@ -491,6 +491,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       color: patch.c ?? previous?.color ?? MONSTER_ENTITY_COLOR,
       name,
       kind: 'monster',
+      monsterId: patch.mid ?? previous?.monsterId,
       monsterTier: patch.tr ?? previous?.monsterTier,
       facing: resolveTwoWayMonsterFacing(patch.f, previous?.facing),
       hp: patch.hp ?? previous?.hp,

@@ -335,7 +335,7 @@ function resolveTopTileSpriteKey(tile: Tile, legacyTileKeys: ReadonlyMap<string,
 }
 
 function resolveEntitySpriteSelection(
-  entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>,
+  entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>,
   sprites: ReadonlyMap<string, AtlasSpriteRef>,
 ): EntitySpriteSelection | null {
   const plan = buildEntitySpriteLookupPlan(entity);
@@ -648,7 +648,7 @@ class RuntimeImagePack {
 
   drawEntity(
     ctx: CanvasRenderingContext2D,
-    entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>,
+    entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>,
     dx: number,
     dy: number,
     size: number,
