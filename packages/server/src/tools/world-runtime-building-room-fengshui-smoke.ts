@@ -612,6 +612,51 @@ function main() {
   assert.equal(yunlaiReplaceWallInstance.getTileLayerState(replaceX, replaceY)?.legacyTileType, TileType.Wall);
   assert.equal(yunlaiReplaceWallInstance.deconstructBuildingInstance(replacement.building.id).ok, true);
   assert.equal(yunlaiReplaceWallInstance.getEffectiveTileType(replaceX, replaceY), demolishedGroundType);
+
+  const legacyDirtyInstance = new MapInstanceRuntime({
+    instanceId: "real:legacy_building_deconstruct_dirty_smoke",
+    template: yunlaiRepository.getOrThrow("yunlai_town"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "旧建筑拆除地块同步烟测",
+    linePreset: "real",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  legacyDirtyInstance.configureBuildingRuntime(catalog, rules);
+  const legacyWall = catalog.defById.get("stone_wall");
+  const legacyDirtyX = 14;
+  const legacyDirtyY = 43;
+  const legacyDirtyCell = legacyDirtyInstance.toTileIndex(legacyDirtyX, legacyDirtyY);
+  legacyDirtyInstance.buildingById.set("building:legacy:dirty", {
+    id: "building:legacy:dirty",
+    defId: legacyWall.id,
+    defHandle: legacyWall.handle,
+    instanceId: legacyDirtyInstance.meta.instanceId,
+    x: legacyDirtyX,
+    y: legacyDirtyY,
+    rotation: 0,
+    ownerPlayerId: "player:legacy:dirty",
+    ownerSectId: null,
+    roomId: null,
+    hp: legacyWall.maxHp,
+    maxHp: legacyWall.maxHp,
+    state: "active",
+    createdAtTick: legacyDirtyInstance.tick,
+    updatedAtTick: legacyDirtyInstance.tick,
+    revision: 1,
+  });
+  legacyDirtyInstance.buildingCellsById.set("building:legacy:dirty", [legacyDirtyCell]);
+  legacyDirtyInstance.buildingPreviousTileTypeById.delete("building:legacy:dirty");
+  legacyDirtyInstance.consumeStaticTileSyncDirtyTiles();
+  assert.equal(legacyDirtyInstance.deconstructBuildingInstance("building:legacy:dirty").ok, true);
+  const legacyDirtyPlan = legacyDirtyInstance.consumeStaticTileSyncDirtyTiles();
+  assert.ok(legacyDirtyPlan.tileKeys.includes(`${legacyDirtyX},${legacyDirtyY}`));
+
   const yunlaiInstance = new MapInstanceRuntime({
     instanceId: "real:yunlai_room_guard_smoke",
     template: yunlaiRepository.getOrThrow("yunlai_town"),
