@@ -339,8 +339,8 @@ class WorldRuntimeFormationService {
             formationName: formation.name,
             instanceId: formation.instanceId,
             controlInstanceId: normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId,
-            controlX: Math.trunc(Number(formation.eyeX) || formation.x),
-            controlY: Math.trunc(Number(formation.eyeY) || formation.y),
+            controlX: firstFiniteInteger(formation.eyeX, formation.x),
+            controlY: firstFiniteInteger(formation.eyeY, formation.y),
             phase: 'maintaining',
             startedAt: Date.now(),
             totalTicks: 1,
@@ -373,8 +373,8 @@ class WorldRuntimeFormationService {
             return { satisfied: false, reason: '阵法灵石已耗尽。', shouldCancel: true };
         }
         const controlInstanceId = normalizeInstanceId(formation.eyeInstanceId) || formation.instanceId;
-        const controlX = Math.trunc(Number(formation.eyeX) || formation.x);
-        const controlY = Math.trunc(Number(formation.eyeY) || formation.y);
+        const controlX = firstFiniteInteger(formation.eyeX, formation.x);
+        const controlY = firstFiniteInteger(formation.eyeY, formation.y);
         const playerInstanceId = normalizeInstanceId(player.instanceId);
         if (playerInstanceId !== controlInstanceId
             || Math.trunc(Number(player.x)) !== controlX

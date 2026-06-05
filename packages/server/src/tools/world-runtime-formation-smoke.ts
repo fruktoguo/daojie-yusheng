@@ -699,8 +699,8 @@ async function main() {
     ownerSectId: "sect:smoke",
     ownerPlayerId: detachedOwnerPlayerId,
     eyeInstanceId: "sect:smoke:inner",
-    eyeX: 3,
-    eyeY: 4,
+    eyeX: 0,
+    eyeY: 0,
     radius: 1,
     remainingAuraBudget: 100000,
     active: true,
@@ -709,8 +709,8 @@ async function main() {
   assert.equal(guardian.spiritStoneCount, 1000);
   assert.equal(guardian.ownerSectId, "sect:smoke");
   assert.equal(guardian.eyeInstanceId, "sect:smoke:inner");
-  assert.equal(guardian.eyeX, 3);
-  assert.equal(guardian.eyeY, 4);
+  assert.equal(guardian.eyeX, 0);
+  assert.equal(guardian.eyeY, 0);
   assert.equal(guardian.stats.radius, 1);
   assert.equal(guardian.allocation.effectValue, 1);
   assert.equal(guardian.stats.effectValue, 1);
@@ -747,11 +747,13 @@ async function main() {
   };
   player.playerId = sectPlayerId;
   player.instanceId = "sect:smoke:inner";
-  player.x = 3;
-  player.y = 4;
+  player.x = 0;
+  player.y = 0;
   player.qi = 100;
   const guardianMaintenanceStart = maintenancePipeline.start(player, "formation", { formationInstanceId: guardian.id }, guardianMaintenanceCtx);
   assert.equal(guardianMaintenanceStart.ok, true);
+  assert.equal(player.formationJob.controlX, 0);
+  assert.equal(player.formationJob.controlY, 0);
   const guardianAuraBeforeMaintenance = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
   const guardianMaintenanceTick = maintenancePipeline.tick(player, "formation", guardianMaintenanceCtx);
   assert.equal(guardianMaintenanceTick.ok, true);
@@ -832,12 +834,12 @@ async function main() {
   assert.equal(guardianProjection.boundaryRangeHighlightColor, "#67e8f9");
   const guardianEyeProjection = service.listRuntimeFormations("sect:smoke:inner").find((entry) => entry.id === guardian.id);
   assert.equal(guardianEyeProjection.name, "护宗大阵阵眼");
-  assert.equal(guardianEyeProjection.x, 3);
-  assert.equal(guardianEyeProjection.y, 4);
+  assert.equal(guardianEyeProjection.x, 0);
+  assert.equal(guardianEyeProjection.y, 0);
   assert.equal(guardianEyeProjection.blocksBoundary, false);
   const guardianEyeCombatState = service.getFormationCombatState("sect:smoke:inner", guardian.id);
-  assert.equal(guardianEyeCombatState.x, 3);
-  assert.equal(guardianEyeCombatState.y, 4);
+  assert.equal(guardianEyeCombatState.x, 0);
+  assert.equal(guardianEyeCombatState.y, 0);
   assert.equal(service.getFormationCombatState(instanceId, guardian.id), null);
   const guardianDelta = buildFullWorldDelta({
     tick: 4,
