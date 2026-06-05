@@ -24,3 +24,10 @@ benchmarks/
 .worktrees/
 
 assets/generated/
+
+# Local agent/tool workspaces
+.agents/
+.codex/
+.kiro/
+.meowart-work/
+.planning/
