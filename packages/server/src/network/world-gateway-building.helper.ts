@@ -14,6 +14,7 @@ import type { Socket } from 'socket.io';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldClientEventService } from './world-client-event.service';
 import { WorldGatewayGuardHelper } from './world-gateway-guard.helper';
+import { WorldSyncService } from './world-sync.service';
 
 /** 建筑系统 helper：收敛放置、拆除、房间角色和风水观察入口 */
 @Injectable()
@@ -22,6 +23,7 @@ class WorldGatewayBuildingHelper {
         private readonly gatewayGuardHelper: WorldGatewayGuardHelper,
         private readonly worldRuntimeService: WorldRuntimeService,
         private readonly worldClientEventService: WorldClientEventService,
+        private readonly worldSyncService: WorldSyncService,
     ) {}
 
     handleBuildPlaceIntent(client: Socket, payload: any) {
@@ -34,6 +36,7 @@ class WorldGatewayBuildingHelper {
             client.emit(S2C.BuildResult, result);
             if (result?.ok === true) {
                 client.emit(S2C.RoomSummaryPatch, this.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+                this.worldSyncService.emitDeltaSync(playerId, client);
             }
         }
         catch (error) {
@@ -51,6 +54,7 @@ class WorldGatewayBuildingHelper {
             client.emit(S2C.BuildResult, result);
             if (result?.ok === true) {
                 client.emit(S2C.RoomSummaryPatch, this.worldRuntimeService.buildCurrentRoomSummaryPatch(playerId));
+                this.worldSyncService.emitDeltaSync(playerId, client);
             }
         }
         catch (error) {

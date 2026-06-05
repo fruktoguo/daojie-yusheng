@@ -165,6 +165,7 @@ const smokeCases = [
   { name: 'world-sync-map-static-aux', scriptFile: 'world-sync-map-static-aux-smoke.js', standalone: true },
   { name: 'world-sync-map-snapshot-instance-diff', scriptFile: 'world-sync-map-snapshot-instance-diff-smoke.js', standalone: true },
   { name: 'world-sync-envelope-eventbus-hotpath', scriptFile: 'world-sync-envelope-eventbus-hotpath-smoke.js', standalone: true },
+  { name: 'world-gateway-building-helper', scriptFile: 'world-gateway-building-helper-smoke.js', standalone: true },
   { name: 'player-runtime-projection-entry', scriptFile: 'player-runtime-projection-entry-smoke.js', standalone: true },
   { name: 'instance-resource-flush-worker', scriptFile: 'instance-resource-flush-worker-smoke.js', standalone: true },
   { name: 'instance-container-flush-worker', scriptFile: 'instance-container-flush-worker-smoke.js', standalone: true },
