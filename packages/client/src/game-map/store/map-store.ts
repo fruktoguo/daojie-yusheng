@@ -37,6 +37,7 @@ import {
   rememberVisibleTiles,
 } from '../../map-memory';
 import { resolveTwoWayMonsterFacing } from '../../entity-facing';
+import { hydrateClientGroundItemEntryName } from '../../content/item-display-name';
 import {
   cacheMapMeta,
   cacheMapSnapshot,
@@ -1139,7 +1140,7 @@ export class MapStore {
         sourceId: patch.sourceId,
         x: patch.x,
         y: patch.y,
-        items: cloneJson(patch.items),
+        items: cloneJson(patch.items).map((entry) => hydrateClientGroundItemEntryName(entry)),
       });
       nextTileIndex.set(`${patch.x},${patch.y}`, patch.sourceId);
     }

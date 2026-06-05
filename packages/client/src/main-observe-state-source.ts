@@ -19,6 +19,7 @@ import {
   type PartialNumericStats,
 } from '@mud/shared';
 import { getEntityBadgeClassName, getMonsterPresentation } from './monster-presentation';
+import { resolveClientItemDisplayName } from './content/item-display-name';
 import {
   getEntityKindLabel,
   getInteractableKindLabel,
@@ -1318,7 +1319,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       const groundHtml = groundItems.length > 0
         ? `<div class="observe-entity-list">${groundItems.map((entry) => `
             <div class="observe-modal-row">
-              <span class="observe-modal-label">${escapeHtml(entry.name)}</span>
+              <span class="observe-modal-label">${escapeHtml(resolveClientItemDisplayName(entry))}</span>
               <span class="observe-modal-value">${formatDisplayCountBadge(entry.count)}</span>
             </div>
           `).join('')}</div>`

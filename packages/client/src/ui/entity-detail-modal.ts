@@ -12,11 +12,11 @@ import {
   S2C_LeaderboardPlayerLocations,
   VisibleBuffState,
   MONSTER_TIER_LABELS,
-  getItemDisplayName,
   type PartialNumericStats,
   type NpcQuestMarker,
 } from '@mud/shared';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
+import { resolveClientItemDisplayName } from '../content/item-display-name';
 import { detailModalHost } from './detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
@@ -430,7 +430,7 @@ export class EntityDetailModal {
       return `<div class="empty-hint">${t('entity-detail.ground.empty', undefined)}</div>`;
     }
     const items = ground.items.length > 0
-      ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: getItemDisplayName(item), tone: 'reward' })).join('')}</div>`
+      ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: resolveClientItemDisplayName(item), tone: 'reward' })).join('')}</div>`
       : `<div class="inline-rich-text">${t('entity-detail.ground.no-visible-items', undefined)}</div>`;
     return `
       <div class="ui-title-block">
