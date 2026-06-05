@@ -2312,7 +2312,7 @@ export class PixiMapRendererAdapter {
       createdAt: performance.now(),
       duration: durationMs ?? (variant === 'action' ? 1000 : 850),
     });
-    if (this.floatingTexts.length > MAX_FLOATING_TEXTS) this.floatingTexts.splice(0, this.floatingTexts.length - MAX_FLOATING_TEXTS);
+    this.trimFloatingTextEffects();
   }
 
   private addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a'): void {
@@ -2325,7 +2325,7 @@ export class PixiMapRendererAdapter {
     graphics.moveTo(sx, sy).lineTo(ex, ey).stroke({ color: parseColor(color), width: Math.max(2, cellSize * 0.09) });
     this.effectLayer.addChild(graphics);
     this.attackTrails.push({ id: this.nextEffectId++, graphics, createdAt: performance.now(), duration: 260 });
-    if (this.attackTrails.length > MAX_ATTACK_TRAILS) this.attackTrails.splice(0, this.attackTrails.length - MAX_ATTACK_TRAILS);
+    this.trimAttackTrailEffects();
   }
 
   private addWarningZone(cells: GridPoint[], color = '#ff2a2a', durationMs = DEFAULT_WARNING_ZONE_DURATION_MS, baseColor?: string, originX?: number, originY?: number): void {
@@ -2349,7 +2349,7 @@ export class PixiMapRendererAdapter {
       maxExpandDistance: Math.max(...zoneCells.map((cell) => cell.expandDistance)),
       graphics,
     });
-    if (this.warningZones.length > MAX_WARNING_ZONES) this.warningZones.splice(0, this.warningZones.length - MAX_WARNING_ZONES);
+    this.trimWarningZoneEffects();
   }
 
   private updateEffects(camera: CameraState): void {
@@ -2359,7 +2359,7 @@ export class PixiMapRendererAdapter {
     this.floatingTexts = this.floatingTexts.filter((entry) => {
       const progress = (now - entry.createdAt) / entry.duration;
       if (progress >= 1) {
-        entry.text.destroy();
+        this.destroyFloatingTextEffect(entry);
         return false;
       }
       const rise = entry.variant === 'action' ? cellSize * (0.08 + progress * 0.46) : cellSize * (0.2 + progress * 0.8);
@@ -2370,7 +2370,7 @@ export class PixiMapRendererAdapter {
     this.attackTrails = this.attackTrails.filter((entry) => {
       const progress = (now - entry.createdAt) / entry.duration;
       if (progress >= 1) {
-        entry.graphics.destroy();
+        this.destroyAttackTrailEffect(entry);
         return false;
       }
       entry.graphics.alpha = 1 - progress * 0.85;
@@ -2379,7 +2379,7 @@ export class PixiMapRendererAdapter {
     this.warningZones = this.warningZones.filter((zone) => {
       const progress = (now - zone.createdAt) / zone.duration;
       if (progress >= 1) {
-        zone.graphics.destroy();
+        this.destroyWarningZoneEffect(zone);
         return false;
       }
       zone.graphics.clear();
@@ -2398,6 +2398,42 @@ export class PixiMapRendererAdapter {
       }
       return true;
     });
+  }
+
+  private trimFloatingTextEffects(): void {
+    const overflow = this.floatingTexts.length - MAX_FLOATING_TEXTS;
+    if (overflow <= 0) return;
+    for (const entry of this.floatingTexts.splice(0, overflow)) {
+      this.destroyFloatingTextEffect(entry);
+    }
+  }
+
+  private trimAttackTrailEffects(): void {
+    const overflow = this.attackTrails.length - MAX_ATTACK_TRAILS;
+    if (overflow <= 0) return;
+    for (const entry of this.attackTrails.splice(0, overflow)) {
+      this.destroyAttackTrailEffect(entry);
+    }
+  }
+
+  private trimWarningZoneEffects(): void {
+    const overflow = this.warningZones.length - MAX_WARNING_ZONES;
+    if (overflow <= 0) return;
+    for (const zone of this.warningZones.splice(0, overflow)) {
+      this.destroyWarningZoneEffect(zone);
+    }
+  }
+
+  private destroyFloatingTextEffect(entry: FloatingTextEffect): void {
+    entry.text.destroy();
+  }
+
+  private destroyAttackTrailEffect(entry: AttackTrailEffect): void {
+    entry.graphics.destroy();
+  }
+
+  private destroyWarningZoneEffect(zone: WarningZoneEffect): void {
+    zone.graphics.destroy();
   }
 
   private getFadingPathAlpha(now: number): number {
