@@ -767,6 +767,8 @@ export class ActionPanel {
   private autoUsePillTooltipNode: HTMLElement | null = null;
   /** 动作行节点缓存，供冷却、顺位和开关状态局部更新。 */
   private actionRowRefs = new Map<string, ActionRowRefs>();  
+  /** 最近一次完整渲染的结构指纹；秒级冷却变化不进入该指纹。 */
+  private lastRenderedContentKey = '';
   /** 当前面板主体这一轮 render 绑定的 DOM 监听，重绘前统一撤销。 */
   private paneRenderEvents: AbortController | null = null;
 
@@ -790,6 +792,7 @@ export class ActionPanel {
     this.paneRenderEvents?.abort();
     this.paneRenderEvents = null;
     this.actionRowRefs.clear();
+    this.lastRenderedContentKey = '';
     this.skillManagementDraft = null;
     this.autoUsePillDraft = null;
     this.combatTargetingDraft = null;
@@ -866,6 +869,14 @@ export class ActionPanel {
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
+    const contentKey = this.buildActionPanelContentKey(this.currentActions);
+    if (this.lastRenderedContentKey === contentKey && this.patchDynamicActionPanel()) {
+      this.renderSkillManagementModalIfOpen();
+      this.renderSkillPresetModalIfOpen();
+      this.renderCombatSettingsModalIfOpen();
+      this.renderSectManagementModalIfOpen();
+      return;
+    }
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
@@ -890,7 +901,8 @@ export class ActionPanel {
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
 
-    if (!this.patchToggleCards() || !this.patchActionRows()) {
+    const contentKey = this.buildActionPanelContentKey(this.currentActions);
+    if (this.lastRenderedContentKey !== contentKey || !this.patchDynamicActionPanel()) {
       this.render(this.currentActions);
     }
     this.renderSkillManagementModalIfOpen();
@@ -940,9 +952,11 @@ export class ActionPanel {
       return;
     }
 
+    const contentKey = this.buildActionPanelContentKey(actions);
     const html = this.buildActionPanelHtml(actions);
+    this.lastRenderedContentKey = contentKey;
     if (this.useReactPanel()) {
-      this.renderReactPanel(html, this.buildActionPanelContentKey(actions));
+      this.renderReactPanel(html, contentKey);
       return;
     }
 
@@ -991,6 +1005,7 @@ export class ActionPanel {
       this.autoIdleCultivation ? 'idle' : '',
       this.autoSwitchCultivation ? 'switch' : '',
       this.cultivationActive ? 'cultivation' : '',
+      this.previewPlayer?.autoBattleTargetingMode ?? '',
       actions.map((action) => [
         action.id,
         action.type,
@@ -1005,9 +1020,16 @@ export class ActionPanel {
         action.requiresTarget ? 'target' : '',
         action.targetMode ?? '',
         this.isSwitchAction(action) ? 'switch' : '',
+        action.autoBattleEnabled === false ? 'auto-off' : '',
+        action.skillEnabled === false ? 'skill-off' : '',
         this.shortcutBindings.get(action.id) ?? '',
       ].join('/')).join('|'),
     ].join('::');
+  }
+
+  /** patch 行动栏里随 tick 变化的节点，失败时由调用方回退到完整渲染。 */
+  private patchDynamicActionPanel(): boolean {
+    return this.patchToggleCards() && this.patchActionRows();
   }
 
   private buildActionPanelHtml(actions: ActionDef[]): string {
@@ -2185,6 +2207,9 @@ export class ActionPanel {
 
   /** 开关卡片只更新状态文本和高亮，避免自动化开关频繁触发整栏重建。 */
   private patchToggleCards(): boolean {
+    if (this.activeTab !== 'toggle') {
+      return true;
+    }
     for (const action of this.currentActions) {
       if (!this.isSwitchAction(action)) {
         continue;
@@ -2211,6 +2236,7 @@ export class ActionPanel {
         this.isSwitchAction(action)
         || action.id === 'client:observe'
         || action.type === 'breakthrough'
+        || !this.isActionVisibleInCurrentPane(action)
       ) {
         continue;
       }
@@ -2256,6 +2282,36 @@ export class ActionPanel {
     }
 
     return true;
+  }
+
+  /** 判断当前页签里是否实际渲染了这条行动。 */
+  private isActionVisibleInCurrentPane(action: ActionDef): boolean {
+    if (this.isSwitchAction(action)) {
+      return this.activeTab === 'toggle';
+    }
+    if (this.isUtilityAction(action) || (action.type === 'toggle' && !this.isSwitchAction(action))) {
+      return this.activeTab === 'utility';
+    }
+    switch (this.activeTab) {
+      case 'dialogue':
+        return ['quest', 'interact', 'travel', 'craft'].includes(action.type);
+      case 'skill':
+        if (action.type === 'skill') {
+          if (action.skillEnabled === false) {
+            return false;
+          }
+          return this.activeSkillTab === 'auto'
+            ? action.autoBattleEnabled !== false
+            : action.autoBattleEnabled === false;
+        }
+        return action.type === 'battle' || action.type === 'gather';
+      case 'toggle':
+        return this.isSwitchAction(action);
+      case 'utility':
+        return this.isUtilityAction(action) || (action.type === 'toggle' && !this.isSwitchAction(action));
+      default:
+        return false;
+    }
   }
 
   /** 渲染技能区主体，并按自动/手动给出不同说明。 */
