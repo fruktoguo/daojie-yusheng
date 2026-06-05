@@ -619,12 +619,18 @@ const OfflineGainTab = memo(function OfflineGainTab({ playerId }: { playerId: st
   const [totals, setTotals] = useState<PlayerStatisticTotalsView | null>(() => readPlayerStatisticTotalsFromBrowser(playerId));
   const [selectedId, setSelectedId] = useState('');
 
+  useEffect(() => {
+    setReports(readOfflineGainReportsFromBrowser(playerId));
+    setTotals(readPlayerStatisticTotalsFromBrowser(playerId));
+    setSelectedId('');
+  }, [playerId]);
+
   const refresh = useCallback(() => {
     setReports(readOfflineGainReportsFromBrowser(playerId));
     setTotals(readPlayerStatisticTotalsFromBrowser(playerId));
   }, [playerId]);
 
-  const selected = reports.find((r) => r.id === selectedId) ?? reports[0] ?? null;
+  const selected = reports.find((r) => r.id === selectedId) ?? null;
 
   return (
     <div className="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack settings-offline-gain-shell">
@@ -648,14 +654,18 @@ const OfflineGainTab = memo(function OfflineGainTab({ playerId }: { playerId: st
                 aria-selected={report.id === (selected?.id ?? '') ? 'true' : 'false'}
                 onClick={() => setSelectedId(report.id)}
               >
-                <span className="settings-offline-gain-record-time">{formatOfflineGainTime(report.startedAt)}</span>
+                <span className="settings-offline-gain-record-time">{formatOfflineGainTime(report.endedAt)}</span>
                 <span className="settings-offline-gain-record-duration">{formatOfflineGainDuration(report.durationMs)}</span>
               </button>
             ))}
           </div>
-          {selected && (
-            <div className="settings-offline-gain-detail" dangerouslySetInnerHTML={{ __html: renderOfflineGainReport(selected) }} />
-          )}
+          <div className="settings-offline-gain-detail">
+            {selected ? (
+              <div dangerouslySetInnerHTML={{ __html: renderOfflineGainReport(selected) }} />
+            ) : (
+              <div className="ui-empty-hint compact settings-offline-gain-empty">点击左侧记录查看详情</div>
+            )}
+          </div>
         </div>
       )}
       <div className="account-settings-status ui-status-text">{t('settings.offline-gain.status.source', undefined)}</div>

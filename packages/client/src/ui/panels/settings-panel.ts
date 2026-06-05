@@ -288,8 +288,12 @@ export class SettingsPanel {
           <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'performance' ? ' active' : ''}" data-settings-pane="performance">
             ${this.renderPerformanceTab()}
           </div>
-          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'offlineGain' ? ' active' : ''}" data-settings-pane="offlineGain">
-            ${this.renderOfflineGainTab()}
+          <div
+            class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'offlineGain' ? ' active' : ''}"
+            data-settings-pane="offlineGain"
+            data-offline-gain-hydrated="${this.activeTab === 'offlineGain' ? 'true' : 'false'}"
+          >
+            ${this.activeTab === 'offlineGain' ? this.renderOfflineGainTab() : ''}
           </div>
         </div>
     `);
@@ -323,10 +327,20 @@ export class SettingsPanel {
           entry.classList.toggle('active', entry.dataset.settingsPane === nextTab);
         });
         if (nextTab === 'offlineGain') {
+          this.ensureOfflineGainPaneRendered(body);
           this.refreshOfflineGainPane(body);
         }
       }, { signal });
     });
+  }
+
+  private ensureOfflineGainPaneRendered(body: HTMLElement): void {
+    const pane = body.querySelector<HTMLElement>('[data-settings-pane="offlineGain"]');
+    if (!pane || pane.dataset.offlineGainHydrated === 'true') {
+      return;
+    }
+    replaceElementHtml(pane, this.renderOfflineGainTab());
+    pane.dataset.offlineGainHydrated = 'true';
   }
 
   /** bindAccountSettings：绑定账号设置。 */
@@ -547,11 +561,13 @@ export class SettingsPanel {
 
   /** bindOfflineGainSettings：绑定收支统计设置。 */
   private bindOfflineGainSettings(body: HTMLElement, signal: AbortSignal): void {
-    body.querySelector<HTMLButtonElement>('#settings-offline-gain-refresh')?.addEventListener('click', () => {
-      this.refreshOfflineGainPane(body, t('settings.status.offline-gain-refreshed', undefined));
-    }, { signal });
-    body.querySelector<HTMLElement>('#settings-offline-gain-list')?.addEventListener('click', (event) => {
+    body.addEventListener('click', (event) => {
       const target = event.target instanceof HTMLElement ? event.target : null;
+      const refreshButton = target?.closest<HTMLButtonElement>('#settings-offline-gain-refresh');
+      if (refreshButton && body.contains(refreshButton)) {
+        this.refreshOfflineGainPane(body, t('settings.status.offline-gain-refreshed', undefined));
+        return;
+      }
       const button = target?.closest<HTMLButtonElement>('[data-offline-gain-report-id]');
       if (!button || !body.contains(button)) {
         return;
@@ -931,8 +947,12 @@ export class SettingsPanel {
 
   /** refreshOfflineGainPane：刷新收支统计Pane。 */
   private refreshOfflineGainPane(body: HTMLElement, statusMessage = ''): void {
+    this.ensureOfflineGainPaneRendered(body);
     const reports = this.readCurrentOfflineGainReports();
     const totals = this.readCurrentPlayerStatisticTotals();
+    if (!reports.some((report) => report.id === this.selectedOfflineGainReportId)) {
+      this.selectedOfflineGainReportId = '';
+    }
     const summaryEl = body.querySelector<HTMLElement>('#settings-offline-gain-summary');
     const listEl = body.querySelector<HTMLElement>('#settings-offline-gain-list');
     const statusEl = body.querySelector<HTMLElement>('#settings-offline-gain-status');
@@ -999,17 +1019,24 @@ export class SettingsPanel {
     if (reports.length === 0) {
       return `<div class="ui-empty-hint compact settings-offline-gain-empty">${escapeHtml(t('settings.offline-gain.empty.history', undefined))}</div>`;
     }
-    const selected = resolveSelectedOfflineGainReport(reports, this.selectedOfflineGainReportId) ?? reports[0];
+    const selected = resolveSelectedOfflineGainReport(reports, this.selectedOfflineGainReportId);
     return `
       <div class="settings-offline-gain-history-layout">
         <div class="settings-offline-gain-record-list" role="listbox" aria-label="${escapeHtml(t('settings.offline-gain.aria.history', undefined))}">
-          ${reports.map((report) => this.renderOfflineGainHistoryListItem(report, selected.id)).join('')}
+          ${reports.map((report) => this.renderOfflineGainHistoryListItem(report, selected?.id ?? '')).join('')}
         </div>
         <div id="settings-offline-gain-detail" class="settings-offline-gain-detail">
-          ${renderOfflineGainReport(selected)}
+          ${this.renderOfflineGainHistoryDetail(selected)}
         </div>
       </div>
     `;
+  }
+
+  private renderOfflineGainHistoryDetail(report: OfflineGainReportView | null): string {
+    if (!report) {
+      return '<div class="ui-empty-hint compact settings-offline-gain-empty">点击左侧记录查看详情</div>';
+    }
+    return renderOfflineGainReport(report);
   }
 
   /** renderOfflineGainHistoryListItem：渲染收支统计历史索引项。 */
@@ -1047,7 +1074,7 @@ export class SettingsPanel {
     });
     const detailEl = body.querySelector<HTMLElement>('#settings-offline-gain-detail');
     if (detailEl) {
-      replaceElementHtml(detailEl, renderOfflineGainReport(selected));
+      replaceElementHtml(detailEl, this.renderOfflineGainHistoryDetail(selected));
     }
   }
 
@@ -1377,7 +1404,7 @@ function resolveSelectedOfflineGainReport(reports: OfflineGainReportView[], sele
   if (reports.length === 0) {
     return null;
   }
-  return reports.find((report) => report.id === selectedReportId) ?? reports[0] ?? null;
+  return reports.find((report) => report.id === selectedReportId) ?? null;
 }
 
 function normalizeStatisticPeriodTotal(total: PlayerStatisticPeriodTotalView | null | undefined): PlayerStatisticPeriodTotalView {

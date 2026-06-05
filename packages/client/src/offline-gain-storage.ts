@@ -15,6 +15,7 @@ import type {
 const OFFLINE_GAIN_STORAGE_PREFIX = 'mud:offline-gain-reports:v1:';
 const PLAYER_STATISTIC_TOTALS_STORAGE_PREFIX = 'mud:player-statistic-totals:v1:';
 const OFFLINE_GAIN_HISTORY_MIN_DURATION_MS = 60_000;
+const OFFLINE_GAIN_HISTORY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface OfflineGainStoreResult {
   reports: OfflineGainReportView[];
@@ -30,13 +31,14 @@ export function storeOfflineGainReportsInBrowser(
 ): OfflineGainStoreResult {
   const normalizedPlayerId = normalizeStorageKeySegment(playerId);
   const normalizedReports = normalizeOfflineGainReports(reports);
+  const now = Date.now();
   if (normalizedReports.length === 0) {
     return { reports: [], storedReportIds: [], storageOk: true };
   }
-  const historyReports = normalizedReports.filter(isPlayerStatisticHistoryReport);
-  const displayReports = historyReports.filter(isOfflineGainDisplayReport);
+  const historyReports = filterOfflineGainHistoryReports(normalizedReports, now);
+  const displayReports = historyReports;
   const nonHistoryReportIds = normalizedReports
-    .filter((report) => !isPlayerStatisticHistoryReport(report))
+    .filter((report) => !isOfflineGainHistoryReport(report, now))
     .map((report) => report.id);
   if (historyReports.length === 0) {
     return {
@@ -60,11 +62,12 @@ export function storeOfflineGainReportsInBrowser(
     const existing = readOfflineGainReportsFromBrowser(normalizedPlayerId, windowRef);
     const byId = new Map<string, OfflineGainReportView>();
     for (const report of [...existing, ...historyReports]) {
-      byId.set(report.id, report);
+      if (isOfflineGainHistoryReport(report, now)) {
+        byId.set(report.id, report);
+      }
     }
-    const nextReports = Array.from(byId.values())
-      .sort((left, right) => right.endedAt - left.endedAt);
-    storage.setItem(buildStorageKey(normalizedPlayerId), JSON.stringify(nextReports));
+    const nextReports = sortOfflineGainHistoryReports(Array.from(byId.values()));
+    writeOfflineGainReportsToStorage(storage, normalizedPlayerId, nextReports);
     return {
       reports: displayReports,
       storedReportIds: normalizedReports.map((report) => report.id),
@@ -89,14 +92,18 @@ export function readOfflineGainReportsFromBrowser(
     return [];
   }
   try {
-    const raw = storage.getItem(buildStorageKey(normalizeStorageKeySegment(playerId)));
+    const normalizedPlayerId = normalizeStorageKeySegment(playerId);
+    const raw = storage.getItem(buildStorageKey(normalizedPlayerId));
     if (!raw) {
       return [];
     }
     const parsed = JSON.parse(raw);
-    return normalizeOfflineGainReports(Array.isArray(parsed) ? parsed : [])
-      .filter(isPlayerStatisticHistoryReport)
-      .sort((left, right) => right.endedAt - left.endedAt);
+    const currentReports = normalizeOfflineGainReports(Array.isArray(parsed) ? parsed : []);
+    const nextReports = sortOfflineGainHistoryReports(filterOfflineGainHistoryReports(currentReports, Date.now()));
+    if (shouldRewriteOfflineGainHistoryStorage(currentReports, nextReports)) {
+      writeOfflineGainReportsToStorage(storage, normalizedPlayerId, nextReports);
+    }
+    return nextReports;
   } catch {
     return [];
   }
@@ -188,17 +195,58 @@ function isOfflineGainDisplayReport(report: OfflineGainReportView): boolean {
   return report.scope === 'offline' && report.durationMs >= OFFLINE_GAIN_HISTORY_MIN_DURATION_MS;
 }
 
-function isPlayerStatisticHistoryReport(report: OfflineGainReportView): boolean {
-  return report.scope === 'online' ? hasOfflineGainReportParts(report) : isOfflineGainDisplayReport(report);
+function isOfflineGainHistoryReport(report: OfflineGainReportView, now = Date.now()): boolean {
+  return isOfflineGainDisplayReport(report) && resolveOfflineGainHistoryTimestamp(report) >= now - OFFLINE_GAIN_HISTORY_MAX_AGE_MS;
 }
 
-function hasOfflineGainReportParts(report: OfflineGainReportView): boolean {
-  return (report.spiritStones?.gained ?? 0) > 0
-    || (report.spiritStones?.lost ?? 0) > 0
-    || report.items.length > 0
-    || report.progress.length > 0
-    || report.techniques.length > 0
-    || report.professions.length > 0;
+function filterOfflineGainHistoryReports(reports: readonly OfflineGainReportView[], now = Date.now()): OfflineGainReportView[] {
+  return reports.filter((report) => isOfflineGainHistoryReport(report, now));
+}
+
+function sortOfflineGainHistoryReports(reports: readonly OfflineGainReportView[]): OfflineGainReportView[] {
+  return [...reports].sort((left, right) => right.endedAt - left.endedAt);
+}
+
+function resolveOfflineGainHistoryTimestamp(report: OfflineGainReportView): number {
+  return Math.max(
+    0,
+    Math.trunc(
+      Number(report.endedAt)
+      || Number(report.generatedAt)
+      || Number(report.startedAt)
+      || 0,
+    ),
+  );
+}
+
+function shouldRewriteOfflineGainHistoryStorage(
+  currentReports: readonly OfflineGainReportView[],
+  nextReports: readonly OfflineGainReportView[],
+): boolean {
+  if (currentReports.length !== nextReports.length) {
+    return true;
+  }
+  return currentReports.some((report, index) => {
+    const next = nextReports[index];
+    return !next
+      || next.id !== report.id
+      || next.endedAt !== report.endedAt
+      || next.durationMs !== report.durationMs
+      || next.scope !== report.scope;
+  });
+}
+
+function writeOfflineGainReportsToStorage(
+  storage: Storage,
+  playerId: string,
+  reports: readonly OfflineGainReportView[],
+): void {
+  const key = buildStorageKey(playerId);
+  if (reports.length === 0) {
+    storage.removeItem(key);
+    return;
+  }
+  storage.setItem(key, JSON.stringify(reports));
 }
 
 function normalizeOfflineGainReport(report: unknown): OfflineGainReportView | null {
