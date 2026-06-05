@@ -224,7 +224,10 @@ export class CraftPanelRuntimeService {
         this.ensurePipelineInitialized();
         if (this.pipeline?.hasStrategy(kind)) {
             const ctx = this.buildPipelineContext(deps);
-            return this.pipeline.start(player, kind, payload, ctx);
+            this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
+            const result = this.pipeline.start(player, kind, payload, ctx);
+            this.recordTechniqueActivityStatisticMutation(player, result);
+            return result;
         }
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
     }
@@ -233,7 +236,10 @@ export class CraftPanelRuntimeService {
         this.ensurePipelineInitialized();
         if (this.pipeline?.hasStrategy(kind)) {
             const ctx = this.buildPipelineContext(deps);
-            return this.pipeline.cancel(player, kind, ctx);
+            this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
+            const result = this.pipeline.cancel(player, kind, ctx);
+            this.recordTechniqueActivityStatisticMutation(player, result);
+            return result;
         }
         return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
     }
@@ -242,7 +248,10 @@ export class CraftPanelRuntimeService {
         this.ensurePipelineInitialized();
         if (this.pipeline?.hasStrategy(kind)) {
             const ctx = this.buildPipelineContext(deps);
-            return this.pipeline.interrupt(player, kind, reason, ctx);
+            this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
+            const result = this.pipeline.interrupt(player, kind, reason, ctx);
+            this.recordTechniqueActivityStatisticMutation(player, result);
+            return result;
         }
         return buildCraftTickResult();
     }
@@ -251,9 +260,20 @@ export class CraftPanelRuntimeService {
         this.ensurePipelineInitialized();
         if (this.pipeline?.hasStrategy(kind)) {
             const ctx = this.buildPipelineContext(deps);
-            return this.pipeline.tick(player, kind, ctx);
+            this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
+            const result = this.pipeline.tick(player, kind, ctx);
+            this.recordTechniqueActivityStatisticMutation(player, result);
+            return result;
         }
         return buildCraftTickResult();
+    }
+    /** 技艺 pipeline 入口补记直接改背包/技艺经验的收支；已由玩家运行时入口记录的部分会被当前快照过滤。 */
+    recordTechniqueActivityStatisticMutation(player, result) {
+        if (!result?.ok || !player) {
+            return;
+        }
+        const beforeSnapshot = this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
+        this.playerRuntimeService.recordAssetStatisticMutation?.(player, beforeSnapshot);
     }
     buildPipelineContext(deps = null) {
         return {
@@ -456,6 +476,7 @@ export class CraftPanelRuntimeService {
     startAlchemy(player, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
         const validation = this.validateAlchemyLikeStart(player, payload);
         if (!validation.ok) {
             return buildCraftMutationResult(validation.error);
@@ -470,12 +491,14 @@ export class CraftPanelRuntimeService {
         }
         this.createAlchemyLikeStartJob(player, validation.validated);
         this.finalizeAlchemyLikeStart(player);
-        return {
+        const result = {
             ok: true,
             panelChanged: true,
             inventoryChanged: true,
             messages: this.buildAlchemyLikeStartMessages(validation.validated),
         };
+        this.recordTechniqueActivityStatisticMutation(player, result);
+        return result;
     }
     /** 提交新炼器任务：复用炼丹成功率、加速、队列和打断规则。 */
     startForging(player, payload) {
@@ -496,6 +519,7 @@ export class CraftPanelRuntimeService {
         if (!job || job.remainingTicks <= 0) {
             return buildCraftMutationResult(normalizedJobKind === 'forging' ? '当前没有可取消的炼器任务。' : '当前没有可取消的炼丹任务。');
         }
+        this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
         const refundableBatchCount = Math.max(0, job.quantity - job.completedCount - (job.phase === 'brewing' ? 1 : 0));
         const groundDrops = [];
         let inventoryChanged = false;
@@ -531,7 +555,7 @@ export class CraftPanelRuntimeService {
             persistentOnly: true,
             dirtyDomains: ['active_job'],
         });
-        return {
+        const result = {
             ok: true,
             panelChanged: true,
             inventoryChanged,
@@ -543,6 +567,8 @@ export class CraftPanelRuntimeService {
                         : 'notice.craft.alchemy.cancel-no-refund',
                 }],
         };
+        this.recordTechniqueActivityStatisticMutation(player, result);
+        return result;
     }
     /** 取消炼器任务，退款规则与炼丹同构。 */
     cancelForging(player) {
@@ -1017,8 +1043,9 @@ export class CraftPanelRuntimeService {
         if (!job || job.remainingTicks <= 0) {
             return buildCraftMutationResult('当前没有可取消的强化任务。');
         }
+        this.playerRuntimeService.captureOfflineGainBeforeTick?.(player);
         const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'cancelled');
-        return {
+        const result = {
             ok: true,
             panelChanged: true,
             inventoryChanged: finishResult.inventoryChanged,
@@ -1030,6 +1057,8 @@ export class CraftPanelRuntimeService {
                     text: `你停止了 ${job.targetItemName} 的强化，已投入的本阶材料不会退回；保护物仅在失败且保护生效时扣除，灵石将在本阶成功后结算。`,
                 }],
         };
+        this.recordTechniqueActivityStatisticMutation(player, result);
+        return result;
     }
     /**
  * interruptEnhancement：执行interrupt强化相关逻辑。

@@ -33,9 +33,10 @@ export function storeOfflineGainReportsInBrowser(
   if (normalizedReports.length === 0) {
     return { reports: [], storedReportIds: [], storageOk: true };
   }
-  const historyReports = normalizedReports.filter(isOfflineGainHistoryReport);
+  const historyReports = normalizedReports.filter(isPlayerStatisticHistoryReport);
+  const displayReports = historyReports.filter(isOfflineGainDisplayReport);
   const nonHistoryReportIds = normalizedReports
-    .filter((report) => !isOfflineGainHistoryReport(report))
+    .filter((report) => !isPlayerStatisticHistoryReport(report))
     .map((report) => report.id);
   if (historyReports.length === 0) {
     return {
@@ -48,7 +49,7 @@ export function storeOfflineGainReportsInBrowser(
   const storage = getLocalStorage(windowRef);
   if (!storage) {
     return {
-      reports: historyReports,
+      reports: displayReports,
       storedReportIds: nonHistoryReportIds,
       storageOk: false,
       error: '浏览器本地存储不可用',
@@ -65,13 +66,13 @@ export function storeOfflineGainReportsInBrowser(
       .sort((left, right) => right.endedAt - left.endedAt);
     storage.setItem(buildStorageKey(normalizedPlayerId), JSON.stringify(nextReports));
     return {
-      reports: historyReports,
+      reports: displayReports,
       storedReportIds: normalizedReports.map((report) => report.id),
       storageOk: true,
     };
   } catch (error) {
     return {
-      reports: historyReports,
+      reports: displayReports,
       storedReportIds: nonHistoryReportIds,
       storageOk: false,
       error: error instanceof Error ? error.message : String(error),
@@ -94,7 +95,7 @@ export function readOfflineGainReportsFromBrowser(
     }
     const parsed = JSON.parse(raw);
     return normalizeOfflineGainReports(Array.isArray(parsed) ? parsed : [])
-      .filter(isOfflineGainHistoryReport)
+      .filter(isPlayerStatisticHistoryReport)
       .sort((left, right) => right.endedAt - left.endedAt);
   } catch {
     return [];
@@ -183,8 +184,21 @@ function normalizeOfflineGainReports(reports: readonly unknown[]): OfflineGainRe
     .filter((report): report is OfflineGainReportView => Boolean(report));
 }
 
-function isOfflineGainHistoryReport(report: OfflineGainReportView): boolean {
+function isOfflineGainDisplayReport(report: OfflineGainReportView): boolean {
   return report.scope === 'offline' && report.durationMs >= OFFLINE_GAIN_HISTORY_MIN_DURATION_MS;
+}
+
+function isPlayerStatisticHistoryReport(report: OfflineGainReportView): boolean {
+  return report.scope === 'online' ? hasOfflineGainReportParts(report) : isOfflineGainDisplayReport(report);
+}
+
+function hasOfflineGainReportParts(report: OfflineGainReportView): boolean {
+  return (report.spiritStones?.gained ?? 0) > 0
+    || (report.spiritStones?.lost ?? 0) > 0
+    || report.items.length > 0
+    || report.progress.length > 0
+    || report.techniques.length > 0
+    || report.professions.length > 0;
 }
 
 function normalizeOfflineGainReport(report: unknown): OfflineGainReportView | null {

@@ -102,6 +102,8 @@ export class PlayerRuntimeService {
     pendingPlayerStatisticTotalsEmitPlayerIds = new Set();
     /** 最近一次已发给客户端的统计总账，用于构建低频 totalsPatch。 */
     playerStatisticLastEmittedTotalsByPlayerId = new Map();
+    /** 当前玩家 tick 的统计上下文，tick 内资产变更只标记一次，tick 末统一 diff。 */
+    playerStatisticTickContextsByPlayerId = new Map();
     /** 数据库禁用时等待客户端归档的离线收益报告。 */
     pendingOfflineGainReportsByPlayerId = new Map();
     /** 当前连接期已经下发过的待确认离线收益报告，避免每个同步 tick 重复推送。 */
@@ -1128,6 +1130,7 @@ export class PlayerRuntimeService {
     }
     startTechniqueTransmission(teacherPlayerId, learnerPlayerId, techniqueId) {
         const learner = this.getPlayerOrThrow(learnerPlayerId);
+        this.captureOfflineGainBeforeTick(learner);
         const { pipeline, ctx } = createTransmissionCompatPipeline(this);
         const result = pipeline.start(learner, 'transmission', {
             learnerPlayerId,
@@ -1137,6 +1140,7 @@ export class PlayerRuntimeService {
         if (!result.ok) {
             throw new BadRequestException(result.error ?? '启动传法失败');
         }
+        this.recordAssetStatisticMutation(learner, this.captureOfflineGainBeforeTick(learner));
         return learner;
     }
     cancelTechniqueTransmission(learnerPlayerId, techniqueId) {
@@ -1145,11 +1149,13 @@ export class PlayerRuntimeService {
         if (normalizedTechId && learner.transmissionJob?.techniqueId !== normalizedTechId) {
             throw new BadRequestException('没有进行中的传授');
         }
+        this.captureOfflineGainBeforeTick(learner);
         const { pipeline, ctx } = createTransmissionCompatPipeline(this);
         const result = pipeline.cancel(learner, 'transmission', ctx);
         if (!result.ok) {
             throw new BadRequestException(result.error ?? '取消传法失败');
         }
+        this.recordAssetStatisticMutation(learner, this.captureOfflineGainBeforeTick(learner));
         return learner;
     }
     normalizePendingTechniqueComprehensionsForRuntime(value) {
@@ -1214,8 +1220,10 @@ export class PlayerRuntimeService {
             return false;
         }
         learner.lifeElapsedTicks = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        this.captureOfflineGainBeforeTick(learner);
         const { pipeline, ctx } = createTransmissionCompatPipeline(this);
         const result = pipeline.interrupt(learner, 'transmission', normalizeTechniqueTransmissionInterruptReason(reason), ctx);
+        this.recordAssetStatisticMutation(learner, this.captureOfflineGainBeforeTick(learner));
         return result.panelChanged === true;
     }
     /**
@@ -1302,6 +1310,7 @@ export class PlayerRuntimeService {
 
     replaceInventoryItems(playerId, items) {
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
         const nextItems = Array.isArray(items)
             ? items.map((entry) => this.contentTemplateRepository.normalizeItem(entry))
             : [];
@@ -1311,6 +1320,7 @@ export class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -1322,6 +1332,7 @@ export class PlayerRuntimeService {
 
     replaceWalletBalances(playerId, balances) {
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
         player.wallet = {
             balances: Array.isArray(balances)
                 ? balances
@@ -1337,6 +1348,7 @@ export class PlayerRuntimeService {
         player.selfRevision += 1;
         markPlayerDirtyDomains(player, ['wallet']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -1699,6 +1711,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
         const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
         const item = this.contentTemplateRepository.createItem(normalizedItemId, count);
         if (!item) {
@@ -1712,6 +1725,7 @@ export class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -1760,6 +1774,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
         const normalizedWalletType = normalizeWalletType(walletType);
         const normalizedAmount = Math.max(0, Math.trunc(amount));
         if (!normalizedWalletType || normalizedAmount <= 0) {
@@ -1785,6 +1800,7 @@ export class PlayerRuntimeService {
         player.selfRevision += 1;
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -1799,6 +1815,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
         const normalizedWalletType = normalizeWalletType(walletType);
         const normalizedAmount = Math.max(0, Math.trunc(amount));
         if (!normalizedWalletType || normalizedAmount <= 0) {
@@ -1815,6 +1832,7 @@ export class PlayerRuntimeService {
         player.selfRevision += 1;
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -2208,6 +2226,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
@@ -2233,6 +2252,7 @@ export class PlayerRuntimeService {
         syncWalletCacheFromInventory(player, item.itemId);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return extracted;
     }
     /**
@@ -2262,6 +2282,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
         const normalized = this.contentTemplateRepository.normalizeItem(item);
         // 装备类必须有稳定 itemInstanceId；缺失或处于迁移期 fallback 时分配新 UUID。
@@ -2278,6 +2299,7 @@ export class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -2291,6 +2313,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
@@ -2370,6 +2393,7 @@ export class PlayerRuntimeService {
             ? (autoBattleSkillsChanged ? ['inventory', 'technique', 'auto_battle_skill'] : ['inventory', 'technique'])
             : ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -2399,6 +2423,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
@@ -2410,6 +2435,7 @@ export class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -2441,10 +2467,16 @@ export class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
 
-        let remaining = Math.max(1, Math.trunc(count));
-        if (!Number.isFinite(remaining) || remaining <= 0) {
+        const normalizedCount = Math.max(1, Math.trunc(count));
+        if (!Number.isFinite(normalizedCount) || normalizedCount <= 0) {
             throw new NotFoundException(`使用数量无效：${itemId}`);
         }
+        const available = readInventoryItemCount(player, itemId);
+        if (available < normalizedCount) {
+            throw new NotFoundException(`背包物品不足：${itemId}`);
+        }
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
+        let remaining = normalizedCount;
         for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
             const item = player.inventory.items[slotIndex];
             if (!item || item.itemId !== itemId) {
@@ -2455,14 +2487,12 @@ export class PlayerRuntimeService {
             consumeInventoryItemAt(player.inventory.items, slotIndex, consumed);
             remaining -= consumed;
         }
-        if (remaining > 0) {
-            throw new NotFoundException(`背包物品不足：${itemId}`);
-        }
         player.inventory.revision += 1;
         syncWalletCacheFromInventory(player, itemId);
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return player;
     }
     /**
@@ -2477,6 +2507,7 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
+        const statisticBefore = this.captureOfflineGainBeforeTick(player);
 
         const item = player.inventory.items[slotIndex];
         if (!item) {
@@ -2495,6 +2526,7 @@ export class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        this.recordAssetStatisticMutation(player, statisticBefore);
         return destroyed;
     }
     /**
@@ -3273,7 +3305,6 @@ export class PlayerRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.getPlayerOrThrow(playerId);
-
         let changed = false;
         if (input.autoBattle === false) {
             player.combat.manualEngagePending = false;
@@ -3873,6 +3904,13 @@ export class PlayerRuntimeService {
 
             const offlineGainSnapshotStartedAt = performance.now();
             const offlineGainBefore = this.captureOfflineGainBeforeTick(player);
+            const statisticTickContext = {
+                beforeSnapshot: offlineGainBefore,
+                changed: false,
+                progressionOnly: true,
+            };
+            this.playerStatisticTickContextsByPlayerId.set(player.playerId, statisticTickContext);
+            try {
             let statisticChangedThisTick = false;
             recordPlayerTickPerf(options, 'playerTick.offlineGainSnapshotMs', offlineGainSnapshotStartedAt);
             let statisticProgressionOnlyThisTick = true;
@@ -3945,8 +3983,10 @@ export class PlayerRuntimeService {
                 recordPlayerTickPerf(options, 'playerTick.cooldownActionStateMs', cooldownActionStateStartedAt);
             }
             const offlineGainAccumulateStartedAt = performance.now();
-            this.accumulateOfflineGainAfterTick(player, offlineGainBefore, statisticChangedThisTick, {
-                progressionOnly: statisticProgressionOnlyThisTick,
+            const contextualStatisticChanged = statisticChangedThisTick || statisticTickContext.changed === true;
+            const contextualProgressionOnly = statisticProgressionOnlyThisTick && statisticTickContext.progressionOnly === true;
+            this.accumulateOfflineGainAfterTick(player, offlineGainBefore, contextualStatisticChanged, {
+                progressionOnly: contextualProgressionOnly,
                 recordTickSectionDuration: options.recordTickSectionDuration,
             });
             recordPlayerTickPerf(options, 'playerTick.offlineGainAccumulateMs', offlineGainAccumulateStartedAt);
@@ -3955,6 +3995,9 @@ export class PlayerRuntimeService {
             const stateDeltaEmitStartedAt = performance.now();
             this.emitPlayerStateDeltaIfChanged(player, _prevHp, _prevMp, _prevExp, _prevLevel, buffTickResult);
             recordPlayerTickPerf(options, 'playerTick.stateDeltaEmitMs', stateDeltaEmitStartedAt);
+            } finally {
+                this.playerStatisticTickContextsByPlayerId.delete(player.playerId);
+            }
     }
 
     /** 传法推进由 TransmissionStrategy 通过通用技艺 job pipeline 驱动。 */
@@ -3963,8 +4006,11 @@ export class PlayerRuntimeService {
             return;
         }
         player.lifeElapsedTicks = Math.max(0, Math.trunc(Number(playerTick) || 0));
+        this.captureOfflineGainBeforeTick(player);
         const { pipeline, ctx } = createTransmissionCompatPipeline(this);
-        pipeline.tick(player, 'transmission', ctx);
+        const result = pipeline.tick(player, 'transmission', ctx);
+        this.recordAssetStatisticMutation(player, this.captureOfflineGainBeforeTick(player));
+        return result;
     }
 
     /** 比较 tick 前后关键数值，有变化时向 EventBus 发射 stateDelta。 */
@@ -4048,7 +4094,9 @@ export class PlayerRuntimeService {
         const offlineSession = this.offlineGainSessionsByPlayerId.get(normalizedPlayerId);
         if (offlineSession && !normalizeOfflineGainString(player?.sessionId)) {
             const offlineMergeStartedAt = performance.now();
-            offlineSession.accumulatedDurationMs = normalizeOfflineGainCount(offlineSession.accumulatedDurationMs) + 1000;
+            if (options?.countOfflineDuration !== false) {
+                offlineSession.accumulatedDurationMs = normalizeOfflineGainCount(offlineSession.accumulatedDurationMs) + 1000;
+            }
             if (!hasOfflineGainReportPartsFast(delta)) {
                 recordPlayerTickPerf(options, 'playerTick.offlineGainOfflineMergeMs', offlineMergeStartedAt);
                 return;
@@ -4068,7 +4116,47 @@ export class PlayerRuntimeService {
         }
         const onlineTotalsStartedAt = performance.now();
         this.recordPlayerStatisticTotals(normalizedPlayerId, delta, endedAt);
+        if (!progressionOnly) {
+            this.queueOnlinePlayerStatisticReport(normalizedPlayerId, player, delta, endedAt);
+        }
         recordPlayerTickPerf(options, 'playerTick.offlineGainOnlineTotalsMs', onlineTotalsStartedAt);
+    }
+    /** 在线收支明细交给客户端本地归档；日总账仍走 recordPlayerStatisticTotals 的权威累计链路。 */
+    queueOnlinePlayerStatisticReport(playerId, player, parts, endedAt = Date.now()) {
+        const normalizedPlayerId = normalizeOfflineGainString(playerId);
+        if (!normalizedPlayerId || !hasOfflineGainReportPartsFast(parts)) {
+            return;
+        }
+        const endedAtMs = Math.max(0, Math.trunc(Number(endedAt) || Date.now()));
+        const report = buildPlayerStatisticRecordFromParts(player, {
+            startedAt: endedAtMs,
+            accumulatedDurationMs: 0,
+        }, endedAtMs, parts, 'online');
+        if (!normalizeOfflineGainString(report?.id)) {
+            return;
+        }
+        const existing = this.pendingOfflineGainReportsByPlayerId.get(normalizedPlayerId) ?? [];
+        this.pendingOfflineGainReportsByPlayerId.set(
+            normalizedPlayerId,
+            mergePendingOfflineGainReportList(normalizedPlayerId, [...existing, report]),
+        );
+    }
+    /** 资产入口成功变更后记录统计；tick 内延迟到 tick 末统一结算，避免重复累计离线时长。 */
+    recordAssetStatisticMutation(player, beforeSnapshot, endedAt = Date.now()) {
+        const normalizedPlayerId = normalizeOfflineGainString(player?.playerId);
+        if (!normalizedPlayerId || !beforeSnapshot) {
+            return;
+        }
+        const context = this.playerStatisticTickContextsByPlayerId.get(normalizedPlayerId);
+        if (context && context.beforeSnapshot) {
+            context.changed = true;
+            context.progressionOnly = false;
+            return;
+        }
+        this.recordPlayerStatisticMutation(player, beforeSnapshot, endedAt, {
+            progressionOnly: false,
+            countOfflineDuration: false,
+        });
     }
     /** recordPlayerStatisticTotals：把收支写入服务端权威日总账，数据库落盘异步调度。 */
     recordPlayerStatisticTotals(playerId, parts, endedAt = Date.now()) {
@@ -6120,7 +6208,14 @@ function mergePendingOfflineGainReportList(playerId, reports) {
     if (!normalizedPlayerId || normalizedReports.length <= 1) {
         return normalizedReports;
     }
-    return [mergePendingOfflineGainReport(normalizedPlayerId, normalizedReports)];
+    const offlineReports = normalizedReports.filter((report) => report?.scope !== 'online');
+    const onlineReports = normalizedReports.filter((report) => report?.scope === 'online');
+    const mergedOfflineReports = offlineReports.length > 1
+        ? [mergePendingOfflineGainReport(normalizedPlayerId, offlineReports)]
+        : offlineReports;
+    return [...mergedOfflineReports, ...onlineReports]
+        .filter((report) => normalizeOfflineGainString(report?.id).length > 0)
+        .sort((left, right) => normalizeOfflineGainCount(left?.startedAt) - normalizeOfflineGainCount(right?.startedAt));
 }
 function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
     const normalizedPlayerId = normalizeOfflineGainString(playerId);

@@ -127,6 +127,9 @@ function createPlayerRuntimeService() {
       async savePlayerLogbookMessages(playerId: string, messages: unknown[], options: { versionSeed?: number | null } = {}) {
         logbookWrites.push({ playerId, messages: [...messages], versionSeed: options.versionSeed ?? null });
       },
+      async incrementPlayerStatisticDayTotal() {
+        return undefined;
+      },
     } as never,
   );
   (service as unknown as {
@@ -513,6 +516,77 @@ function testDebitWalletFallsBackToInventory(): void {
   assertDirtyDomains(service, playerId, ['inventory'], ['snapshot']);
   assert.equal(service.getInventoryCountByItemId(playerId, 'spirit_stone'), 2);
   assert.equal(service.getWalletBalanceByType(playerId, 'spirit_stone'), 2);
+}
+
+function testOnlineItemStatisticRecordIsQueued(): void {
+  const playerId = 'player:stat-online-item';
+  const service = createHydratedService(playerId);
+
+  service.grantItem(playerId, 'rat_tail', 2);
+
+  const reports = service.consumePendingPlayerStatisticRecordsForEmit(playerId);
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].scope, 'online');
+  assert.equal(reports[0].items.length, 1);
+  assert.equal(reports[0].items[0].itemId, 'rat_tail');
+  assert.equal(reports[0].items[0].gained, 2);
+  assert.equal(reports[0].items[0].lost, 0);
+  assert.equal(reports[0].spiritStones.gained, 0);
+  assert.equal(service.consumePendingPlayerStatisticRecordsForEmit(playerId).length, 0);
+}
+
+function testOnlineSpiritStoneStatisticTotalsAndRecords(): void {
+  const playerId = 'player:stat-online-spirit';
+  const service = createHydratedService(playerId);
+
+  service.creditWallet(playerId, 'spirit_stone', 5);
+  service.debitWallet(playerId, 'spirit_stone', 2);
+
+  const reports = service.consumePendingPlayerStatisticRecordsForEmit(playerId);
+  assert.equal(reports.length, 2);
+  assert.equal(reports[0].scope, 'online');
+  assert.equal(reports[0].spiritStones.gained, 5);
+  assert.equal(reports[0].spiritStones.lost, 0);
+  assert.equal(reports[1].scope, 'online');
+  assert.equal(reports[1].spiritStones.gained, 0);
+  assert.equal(reports[1].spiritStones.lost, 2);
+
+  const totals = service.getPlayerStatisticTotalsSync(playerId);
+  assert.equal(totals.today.spiritStones.gained, 5);
+  assert.equal(totals.today.spiritStones.lost, 2);
+  assert.equal(totals.today.spiritStones.net, 3);
+}
+
+function testOfflineAssetStatisticMergesWithoutExtraDuration(): void {
+  const playerId = 'player:stat-offline-asset';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  const baselinePayload = service.captureOfflineGainBeforeTick(player);
+  player.sessionId = null;
+  service.offlineGainSessionsByPlayerId.set(playerId, {
+    sessionId: 'offline:stat-offline-asset',
+    startedAt: 1_000,
+    baselinePayload,
+    accumulatedPayload: {
+      spiritStones: { gained: 0, lost: 0, net: 0 },
+      items: [],
+      progress: [],
+      techniques: [],
+      professions: [],
+    },
+    accumulatedDurationMs: 0,
+  });
+
+  service.grantItem(playerId, 'rat_tail', 3);
+  service.creditWallet(playerId, 'spirit_stone', 7);
+
+  const session = service.offlineGainSessionsByPlayerId.get(playerId);
+  assert.equal(session.accumulatedDurationMs, 0);
+  assert.equal(session.accumulatedPayload.items.length, 1);
+  assert.equal(session.accumulatedPayload.items[0].itemId, 'rat_tail');
+  assert.equal(session.accumulatedPayload.items[0].gained, 3);
+  assert.equal(session.accumulatedPayload.spiritStones.gained, 7);
+  assert.equal(service.getPendingPlayerStatisticRecords(playerId).length, 0);
 }
 
 function testSplitInventoryItemDirtyDomain(): void {
@@ -1476,6 +1550,9 @@ testLogbookDirtyDomain();
   testReceiveWalletItemDirtyDomain();
   testCreditWalletUsesInventoryCache();
   testDebitWalletFallsBackToInventory();
+  testOnlineItemStatisticRecordIsQueued();
+  testOnlineSpiritStoneStatisticTotalsAndRecords();
+  testOfflineAssetStatisticMergesWithoutExtraDuration();
   testSplitInventoryItemDirtyDomain();
   testSetVitalsDirtyDomain();
   testUseTechniqueBookDirtyDomain();
