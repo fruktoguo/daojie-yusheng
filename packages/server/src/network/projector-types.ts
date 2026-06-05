@@ -133,6 +133,7 @@ export interface ProjectorMonsterLike {
   monsterId: string;
   x: number;
   y: number;
+  facing?: DirectionLike;
   hp: number;
   maxHp: number;
   qi?: number;
@@ -246,6 +247,7 @@ export interface ProjectedMonsterEntry {
   mid: string;
   x: number;
   y: number;
+  f?: DirectionLike;
   hp: number;
   maxHp: number;
   qi?: number;

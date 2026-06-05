@@ -61,6 +61,11 @@ export type MainRuntimeObservedEntity = {
 
   monsterTier?: MonsterTier;  
   /**
+ * facing：渲染朝向，仅用于表现层。
+ */
+
+  facing?: RenderEntity['facing'];
+  /**
  * hp：hp相关字段。
  */
 

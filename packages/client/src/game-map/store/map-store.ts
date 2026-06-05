@@ -36,6 +36,7 @@ import {
   rememberVisibleTilePatches,
   rememberVisibleTiles,
 } from '../../map-memory';
+import { resolveTwoWayMonsterFacing } from '../../entity-facing';
 import {
   cacheMapMeta,
   cacheMapSnapshot,
@@ -139,6 +140,7 @@ function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState |
 
 /** 将服务端渲染实体标准化为本地可观察实体快照。 */
 function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
+  const kind = entity.kind ?? 'player';
   return {
     id: entity.id,
     wx: entity.x,
@@ -148,9 +150,10 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     badge: entity.badge,
     hostile: false,
     name: entity.name,
-    kind: entity.kind ?? 'player',
+    kind,
     monsterTier: entity.monsterTier,
     monsterScale: entity.monsterScale,
+    facing: kind === 'monster' ? resolveTwoWayMonsterFacing(entity.facing, undefined) : entity.facing,
     hp: entity.hp,
     maxHp: entity.maxHp,
     respawnRemainingTicks: entity.respawnRemainingTicks,
@@ -180,6 +183,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
 
 /** 用增量 patch 覆盖已有实体字段，缺失值回退到旧值。 */
 function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMapEntity): ObservedMapEntity {
+  const kind = applyNullablePatch(patch.kind, previous?.kind);
   return {
     id: patch.id,
     wx: patch.x,
@@ -189,9 +193,12 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     badge: previous?.badge,
     hostile: previous?.hostile,
     name: applyNullablePatch(patch.name, previous?.name),
-    kind: applyNullablePatch(patch.kind, previous?.kind),
+    kind,
     monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
     monsterScale: applyNullablePatch(patch.monsterScale, previous?.monsterScale),
+    facing: kind === 'monster'
+      ? resolveTwoWayMonsterFacing(patch.facing, previous?.facing)
+      : (patch.facing ?? previous?.facing),
     hp: applyNullablePatch(patch.hp, previous?.hp),
     maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
     respawnRemainingTicks: applyNullablePatch(patch.respawnRemainingTicks, previous?.respawnRemainingTicks),

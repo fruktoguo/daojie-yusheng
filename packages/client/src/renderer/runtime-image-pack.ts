@@ -5,6 +5,7 @@
  */
 import type { InteractableKind, RenderEntity, StructureType, SurfaceType, TerrainType, Tile, TileType } from '@mud/shared';
 import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../constants/ui/performance';
+import { buildEntitySpriteLookupPlan } from '../entity-facing';
 import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from './runtime-image-pack-url';
 
 type SpriteFit = 'cover' | 'contain';
@@ -87,6 +88,11 @@ interface DrawTarget {
   dw: number;
   dh: number;
 }
+
+type EntitySpriteSelection = {
+  ref: AtlasSpriteRef;
+  flipX: boolean;
+};
 
 interface DualGridCellScan {
   minX: number;
@@ -328,25 +334,21 @@ function resolveTopTileSpriteKey(tile: Tile, legacyTileKeys: ReadonlyMap<string,
   return legacyTileKeys.get(tile.type) ?? null;
 }
 
-function normalizeEntityName(value: string | null | undefined): string | null {
-  const normalized = value?.trim().toLowerCase().replace(/[^a-z0-9_\-\u3400-\u9fff]+/gu, '_').replace(/^_+|_+$/g, '');
-  return normalized ? normalized : null;
-}
-
-function resolveEntitySpriteKeys(entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char'>): string[] {
-  const id = normalizeEntityName(entity.id);
-  const name = normalizeEntityName(entity.name);
-  const char = normalizeEntityName(entity.char);
-  switch (entity.kind) {
-    case 'monster':
-      return [id && `monster:${id}`, name && `monster:${name}`, char && `monster:${char}`, 'monster:default'].filter(Boolean) as string[];
-    case 'npc':
-      return [id && `npc:${id}`, name && `npc:${name}`, char && `npc:${char}`, 'npc:default'].filter(Boolean) as string[];
-    case 'player':
-      return [id && `player:${id}`, name && `player:${name}`, 'player:default'].filter(Boolean) as string[];
-    default:
-      return [];
+function resolveEntitySpriteSelection(
+  entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>,
+  sprites: ReadonlyMap<string, AtlasSpriteRef>,
+): EntitySpriteSelection | null {
+  const plan = buildEntitySpriteLookupPlan(entity);
+  for (let index = 0; index < plan.keys.length; index += 1) {
+    const ref = sprites.get(plan.keys[index]!);
+    if (ref) {
+      return {
+        ref,
+        flipX: plan.flipBaseX && index >= plan.directionalKeyCount,
+      };
+    }
   }
+  return null;
 }
 
 function calculateDrawTarget(dx: number, dy: number, size: number, image: HTMLImageElement, ref: AtlasSpriteRef): DrawTarget {
@@ -646,19 +648,17 @@ class RuntimeImagePack {
 
   drawEntity(
     ctx: CanvasRenderingContext2D,
-    entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char'>,
+    entity: Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>,
     dx: number,
     dy: number,
     size: number,
   ): boolean {
     this.ensureManifestRequested();
-    for (const key of resolveEntitySpriteKeys(entity)) {
-      const ref = this.entitySprites.get(key);
-      if (ref && this.drawAtlasSprite(ctx, ref, dx, dy, size)) {
-        return true;
-      }
+    const selection = resolveEntitySpriteSelection(entity, this.entitySprites);
+    if (!selection) {
+      return false;
     }
-    return false;
+    return this.drawAtlasSprite(ctx, selection.ref, dx, dy, size, selection.flipX);
   }
 
   private ensureManifestRequested(): void {
@@ -701,7 +701,7 @@ class RuntimeImagePack {
       });
   }
 
-  private drawAtlasSprite(ctx: CanvasRenderingContext2D, ref: AtlasSpriteRef, dx: number, dy: number, size: number): boolean {
+  private drawAtlasSprite(ctx: CanvasRenderingContext2D, ref: AtlasSpriteRef, dx: number, dy: number, size: number, flipX = false): boolean {
     const entry = this.getImage(ref.src);
     if (!entry || entry.state !== 'loaded') {
       return false;
@@ -716,7 +716,15 @@ class RuntimeImagePack {
     const sh = cellH * Math.max(1, ref.rowSpan ?? 1);
     const target = calculateDrawTarget(dx, dy, size, image, ref);
     disableImageSmoothing(ctx);
-    ctx.drawImage(image, sx, sy, sw, sh, target.dx, target.dy, target.dw, target.dh);
+    if (!flipX) {
+      ctx.drawImage(image, sx, sy, sw, sh, target.dx, target.dy, target.dw, target.dh);
+      return true;
+    }
+    ctx.save();
+    ctx.translate(target.dx + target.dw / 2, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(image, sx, sy, sw, sh, -target.dw / 2, target.dy, target.dw, target.dh);
+    ctx.restore();
     return true;
   }
 

@@ -42,6 +42,7 @@ export function toWireTickEntity(entity: TickRenderEntity): Record<string, unkno
   setNullableWireValue(wire, 'kind', 'clearKind', entity.kind);
   setNullableWireValue(wire, 'monsterTier', 'clearMonsterTier', entity.monsterTier);
   setNullableWireValue(wire, 'monsterScale', 'clearMonsterScale', entity.monsterScale);
+  if (entity.facing !== undefined) wire.facing = entity.facing;
   setNullableWireValue(wire, 'hp', 'clearHp', entity.hp);
   setNullableWireValue(wire, 'maxHp', 'clearMaxHp', entity.maxHp);
   setNullableWireValue(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks', entity.respawnRemainingTicks);
@@ -85,6 +86,7 @@ export function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEnt
   if (monsterTier !== undefined) patch.monsterTier = monsterTier;
   const monsterScale = readNullableWireValue<number>(wire, 'monsterScale', 'clearMonsterScale');
   if (monsterScale !== undefined) patch.monsterScale = monsterScale === null ? null : Number(monsterScale);
+  if (hasOwn(wire, 'facing')) patch.facing = Number(wire.facing ?? 0) as TickRenderEntity['facing'];
   const hp = readNullableWireValue<number>(wire, 'hp', 'clearHp');
   if (hp !== undefined) patch.hp = hp === null ? null : Number(hp);
   const maxHp = readNullableWireValue<number>(wire, 'maxHp', 'clearMaxHp');

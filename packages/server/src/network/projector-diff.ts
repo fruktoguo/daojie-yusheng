@@ -151,7 +151,7 @@ export function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>,
     for (const [runtimeId, entry] of current) {
         const prev = previous.get(runtimeId);
         if (!prev) {
-            result.push({ id: runtimeId, x: entry.x, y: entry.y, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.n, c: entry.c, tr: entry.tr });
+            result.push({ id: runtimeId, x: entry.x, y: entry.y, f: entry.f, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.n, c: entry.c, tr: entry.tr });
             continue;
         }
         if (prev === entry) {
@@ -161,6 +161,7 @@ export function diffMonsterEntries(previous: Map<string, ProjectedMonsterEntry>,
         let changed = false;
         if (prev.x !== entry.x) { delta.x = entry.x; changed = true; }
         if (prev.y !== entry.y) { delta.y = entry.y; changed = true; }
+        if (prev.f !== entry.f) { delta.f = entry.f; changed = true; }
         if (prev.hp !== entry.hp) { delta.hp = entry.hp; changed = true; }
         if (prev.maxHp !== entry.maxHp) { delta.maxHp = entry.maxHp; changed = true; }
         if (prev.qi !== entry.qi) { delta.qi = entry.qi; changed = true; }

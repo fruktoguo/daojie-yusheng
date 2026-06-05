@@ -652,6 +652,11 @@ export interface RenderEntity {
 
   monsterScale?: number;
   /**
+ * facing：朝向枚举。
+ */
+
+  facing?: Direction;
+  /**
  * hp：hp相关字段。
  */
 

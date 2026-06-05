@@ -64,6 +64,11 @@ export interface TickRenderEntityView {
 
   monsterScale?: number | null;  
   /**
+ * facing：实体朝向。
+ */
+
+  facing?: Direction;
+  /**
  * hp：hp相关字段。
  */
 
@@ -315,6 +320,11 @@ export interface WorldMonsterPatchView {
  */
 
   tr?: MonsterTier;  
+  /**
+ * f：朝向。
+ */
+
+  f?: Direction;
   /**
  * sc：sc相关字段。
  */

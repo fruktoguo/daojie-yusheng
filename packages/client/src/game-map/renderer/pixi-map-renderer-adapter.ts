@@ -62,6 +62,7 @@ import {
   TIME_ATMOSPHERE_PROFILES,
   TIME_FILTER_LERP,
 } from '../../constants/visuals/time-atmosphere';
+import { buildEntitySpriteLookupPlan } from '../../entity-facing';
 import { getMonsterPresentation } from '../../monster-presentation';
 import { formatDisplayInteger } from '../../utils/number';
 import { t as translateUi } from '../../ui/i18n';
@@ -127,6 +128,11 @@ interface AnimEntity extends ObservedMapEntity {
   targetWX: number;
   targetWY: number;
 }
+
+type RuntimeEntitySpriteSelection = {
+  ref: PixiTileSpriteRef;
+  flipX: boolean;
+};
 
 interface EntityView {
   anim: AnimEntity;
@@ -468,25 +474,21 @@ function normalizeLegacyTileMap(value: unknown): Map<string, string> {
   return result;
 }
 
-function normalizeEntitySpriteKey(value: string | null | undefined): string | null {
-  const normalized = value?.trim().toLowerCase().replace(/[^a-z0-9_\-\u3400-\u9fff]+/gu, '_').replace(/^_+|_+$/g, '');
-  return normalized ? normalized : null;
-}
-
-function resolveEntitySpriteKeys(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char'>): string[] {
-  const id = normalizeEntitySpriteKey(entity.id);
-  const name = normalizeEntitySpriteKey(entity.name);
-  const char = normalizeEntitySpriteKey(entity.char);
-  switch (entity.kind) {
-    case 'monster':
-      return [id && `monster:${id}`, name && `monster:${name}`, char && `monster:${char}`, 'monster:default'].filter(Boolean) as string[];
-    case 'npc':
-      return [id && `npc:${id}`, name && `npc:${name}`, char && `npc:${char}`, 'npc:default'].filter(Boolean) as string[];
-    case 'player':
-      return [id && `player:${id}`, name && `player:${name}`, 'player:default'].filter(Boolean) as string[];
-    default:
-      return [];
+function pickRuntimeEntitySpriteSelection(
+  entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>,
+  sprites: ReadonlyMap<string, PixiTileSpriteRef>,
+): RuntimeEntitySpriteSelection | null {
+  const plan = buildEntitySpriteLookupPlan(entity);
+  for (let index = 0; index < plan.keys.length; index += 1) {
+    const ref = sprites.get(plan.keys[index]!);
+    if (ref) {
+      return {
+        ref,
+        flipX: plan.flipBaseX && index >= plan.directionalKeyCount,
+      };
+    }
   }
+  return null;
 }
 
 function resolveGroundItemLabel(entry: GroundItemEntryView): string {
@@ -1096,13 +1098,9 @@ export class PixiMapRendererAdapter {
     });
   }
 
-  private resolveRuntimeEntitySpriteRef(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char'>): PixiTileSpriteRef | null {
+  private resolveRuntimeEntitySpriteSelection(entity: Pick<ObservedMapEntity, 'id' | 'kind' | 'name' | 'char' | 'facing'>): RuntimeEntitySpriteSelection | null {
     if (this.runtimeTileManifestState !== 'loaded') return null;
-    for (const key of resolveEntitySpriteKeys(entity)) {
-      const ref = this.runtimeEntitySpriteRefs.get(key);
-      if (ref) return ref;
-    }
-    return null;
+    return pickRuntimeEntitySpriteSelection(entity, this.runtimeEntitySpriteRefs);
   }
 
   private getRuntimeEntityTexture(ref: PixiTileSpriteRef): Texture | null {
@@ -1968,7 +1966,7 @@ export class PixiMapRendererAdapter {
       anim.respawnRemainingTicks ?? '', anim.respawnTotalTicks ?? '',
       anim.monsterTier ?? '',
       anim.badge?.text ?? '', anim.badge?.tone ?? '', anim.hostile ? 1 : 0,
-      anim.monsterScale ?? '',
+      anim.monsterScale ?? '', anim.facing ?? '',
       this.runtimeTileSpriteRevision,
       anim.buffs?.map((buff) => `${buff.buffId}:${buff.remainingTicks}:${buff.stacks}`).join(',') ?? '',
       anim.npcQuestMarker ? `${anim.npcQuestMarker.line}:${anim.npcQuestMarker.state}` : '',
@@ -2008,30 +2006,32 @@ export class PixiMapRendererAdapter {
   }
 
   private patchRuntimeEntitySprite(view: EntityView, visualCellSize: number): boolean {
-    const ref = this.resolveRuntimeEntitySpriteRef(view.anim);
-    if (!ref) {
+    const selection = this.resolveRuntimeEntitySpriteSelection(view.anim);
+    if (!selection) {
       view.image.visible = false;
       return false;
     }
-    const texture = this.getRuntimeEntityTexture(ref);
+    const texture = this.getRuntimeEntityTexture(selection.ref);
     if (!texture) {
-      this.requestRuntimeEntityTexture(ref);
+      this.requestRuntimeEntityTexture(selection.ref);
       view.image.visible = false;
       return false;
     }
-    const inset = Math.max(0, Math.min(0.4, ref.insetRatio)) * visualCellSize;
+    const inset = Math.max(0, Math.min(0.4, selection.ref.insetRatio)) * visualCellSize;
     const maxW = Math.max(1, visualCellSize - inset * 2);
     const maxH = Math.max(1, visualCellSize - inset * 2);
     let targetW = maxW;
     let targetH = maxH;
-    if (ref.fit === 'contain') {
+    if (selection.ref.fit === 'contain') {
       const scale = Math.min(maxW / Math.max(1, texture.width), maxH / Math.max(1, texture.height));
       targetW = Math.max(1, texture.width * scale);
       targetH = Math.max(1, texture.height * scale);
     }
     view.image.texture = texture;
-    view.image.width = targetW;
-    view.image.height = targetH;
+    view.image.scale.set(
+      (selection.flipX ? -1 : 1) * (targetW / Math.max(1, texture.width)),
+      targetH / Math.max(1, texture.height),
+    );
     view.image.position.set(visualCellSize / 2, visualCellSize / 2);
     view.image.visible = true;
     return true;

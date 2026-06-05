@@ -227,6 +227,7 @@ export class WorldSyncMapSnapshotService {
         kind: 'monster',
         monsterTier: monster.tier,
         monsterScale: getBuffPresentationScale(monster.buffs),
+        facing: monster.facing,
         hp: monster.hp,
         maxHp: monster.maxHp,
         qi: monster.qi,

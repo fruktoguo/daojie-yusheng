@@ -425,6 +425,11 @@ interface AnimEntity {
 
   monsterScale?: number;  
   /**
+ * facing：渲染朝向，仅用于表现层。
+ */
+
+  facing?: RenderEntity['facing'];
+  /**
  * hp：hp相关字段。
  */
 
@@ -1935,6 +1940,10 @@ export class TextRenderer implements IRenderer {
  */
  monsterScale?: number;    
  /**
+ * facing：渲染朝向，仅用于表现层。
+ */
+ facing?: RenderEntity['facing'];
+ /**
  * hp：hp相关字段。
  */
  hp?: number;    
@@ -2043,6 +2052,7 @@ export class TextRenderer implements IRenderer {
         anim.kind = e.kind;
         anim.monsterTier = e.monsterTier;
         anim.monsterScale = e.monsterScale;
+        anim.facing = e.facing;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
         anim.respawnRemainingTicks = e.respawnRemainingTicks;
@@ -2078,6 +2088,7 @@ export class TextRenderer implements IRenderer {
           kind: e.kind,
           monsterTier: e.monsterTier,
           monsterScale: e.monsterScale,
+          facing: e.facing,
           hp: e.hp,
           maxHp: e.maxHp,
           respawnRemainingTicks: e.respawnRemainingTicks,

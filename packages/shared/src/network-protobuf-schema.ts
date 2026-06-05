@@ -67,6 +67,7 @@ message TickRenderEntityPayload {
   optional bool clearRespawnRemainingTicks = 29;
   optional sint32 respawnTotalTicks = 30;
   optional bool clearRespawnTotalTicks = 31;
+  optional sint32 facing = 32;
 }
 
 message NpcQuestMarkerPayload {

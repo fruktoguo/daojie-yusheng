@@ -395,6 +395,7 @@ function buildFullWorldDeltaFromState(
         id,
         x: entry.x,
         y: entry.y,
+        f: entry.f,
         hp: entry.hp,
         maxHp: entry.maxHp,
         qi: entry.qi,
@@ -637,7 +638,7 @@ function projectMonsterEntry(entry: ProjectorMonsterLike): ProjectedMonsterEntry
     const cached = monsterProjectionCache.get(entry);
     if (cached) { return cached; }
     const projected = freezeProjectedEntry({
-        mid: entry.monsterId, x: entry.x, y: entry.y, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
+        mid: entry.monsterId, x: entry.x, y: entry.y, f: entry.facing, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
     });
     monsterProjectionCache.set(entry, projected);
     return projected;
