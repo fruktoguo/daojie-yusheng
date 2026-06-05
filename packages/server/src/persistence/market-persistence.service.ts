@@ -95,14 +95,25 @@ export class MarketPersistenceService {
             return [];
         }
         const result = await this.pool.query(`
-          SELECT raw_payload
+          SELECT
+            order_id,
+            owner_id,
+            side,
+            status,
+            item_key,
+            item_id,
+            remaining_quantity,
+            unit_price,
+            created_at_ms,
+            updated_at_ms,
+            raw_payload
           FROM ${MARKET_ORDER_TABLE}
           WHERE status = 'open'
           ORDER BY created_at_ms ASC, order_id ASC
         `);
         const rows = result.rows ?? [];
         return rows
-            .map((row) => normalizeMarketOrder(row.raw_payload))
+            .map((row) => normalizeMarketOrderRow(row))
             .filter((entry) => Boolean(entry))
             .sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
     }
@@ -761,6 +772,69 @@ function normalizeTradeRecord(raw) {
     };
 }
 
+/**
+ * normalizeMarketOrderRow：把 server_market_order 的 SQL 行规范化成运行时订单。
+ * 结构化列优先，raw_payload 只补充 item/auction 等详情，避免坏 raw_payload 把合法小数价洗成 1。
+ */
+function normalizeMarketOrderRow(row) {
+    if (!row || typeof row !== 'object') {
+        return null;
+    }
+    const rawPayload = row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : null;
+    const id = typeof row.order_id === 'string' && row.order_id.trim()
+        ? row.order_id.trim()
+        : (typeof rawPayload?.id === 'string' ? rawPayload.id.trim() : '');
+    const ownerId = typeof row.owner_id === 'string' && row.owner_id.trim()
+        ? row.owner_id.trim()
+        : (typeof rawPayload?.ownerId === 'string' ? rawPayload.ownerId.trim() : '');
+    const side = row.side === 'buy' || row.side === 'sell'
+        ? row.side
+        : (rawPayload?.side === 'buy' || rawPayload?.side === 'sell' ? rawPayload.side : null);
+    const status = row.status === 'open' || row.status === 'filled' || row.status === 'cancelled'
+        ? row.status
+        : (rawPayload?.status === 'open' || rawPayload?.status === 'filled' || rawPayload?.status === 'cancelled' ? rawPayload.status : null);
+    const itemKey = typeof row.item_key === 'string' && row.item_key.trim()
+        ? row.item_key.trim()
+        : (typeof rawPayload?.itemKey === 'string' ? rawPayload.itemKey.trim() : '');
+    const rawItem = rawPayload?.item && typeof rawPayload.item === 'object' ? rawPayload.item : null;
+    const itemId = typeof row.item_id === 'string' && row.item_id.trim()
+        ? row.item_id.trim()
+        : (typeof rawItem?.itemId === 'string' ? rawItem.itemId.trim() : '');
+    const unitPrice = resolveStructuredMarketUnitPrice(row.unit_price, rawPayload?.unitPrice);
+    if (!id || !ownerId || !side || !status || !itemKey || !itemId || unitPrice === null) {
+        return null;
+    }
+    return {
+        version: 1,
+        id,
+        ownerId,
+        side,
+        status,
+        itemKey,
+        item: rawItem
+            ? {
+                ...rawItem,
+                itemId,
+                count: 1,
+            }
+            : {
+                itemId,
+                count: 1,
+            },
+        remainingQuantity: Number.isFinite(Number(row.remaining_quantity ?? rawPayload?.remainingQuantity))
+            ? Math.max(0, Math.trunc(Number(row.remaining_quantity ?? rawPayload?.remainingQuantity ?? 0)))
+            : 0,
+        unitPrice,
+        createdAt: Number.isFinite(Number(row.created_at_ms ?? rawPayload?.createdAt))
+            ? Math.trunc(Number(row.created_at_ms ?? rawPayload?.createdAt ?? Date.now()))
+            : Date.now(),
+        updatedAt: Number.isFinite(Number(row.updated_at_ms ?? rawPayload?.updatedAt))
+            ? Math.trunc(Number(row.updated_at_ms ?? rawPayload?.updatedAt ?? Date.now()))
+            : Date.now(),
+        auction: normalizeAuctionPayload(rawPayload?.auction),
+    };
+}
+
 function normalizePlayerLabelText(value) {
     const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
     return normalized.length > 0 ? normalized : null;
@@ -811,6 +885,19 @@ function normalizeUnitPrice(value) {
         return 1;
     }
     return unitPrice;
+}
+
+function normalizeStructuredUnitPrice(value) {
+    const unitPrice = Number(value);
+    return isValidMarketPrice(unitPrice) ? unitPrice : null;
+}
+
+function resolveStructuredMarketUnitPrice(primaryValue, fallbackValue) {
+    const primary = normalizeStructuredUnitPrice(primaryValue);
+    if (primary !== null) {
+        return primary;
+    }
+    return normalizeStructuredUnitPrice(fallbackValue);
 }
 /**
  * normalizeStorage：规范化或转换Storage。
