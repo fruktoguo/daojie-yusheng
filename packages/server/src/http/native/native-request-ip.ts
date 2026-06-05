@@ -16,6 +16,16 @@ interface NormalizedCidr {
   mask: number;
 }
 
+const DEFAULT_TRUSTED_PROXY_ENTRIES = Object.freeze([
+  '127.0.0.0/8',
+  '10.0.0.0/8',
+  '172.16.0.0/12',
+  '192.168.0.0/16',
+  '::1',
+]);
+
+const DISABLED_TRUSTED_PROXY_VALUE_SET = new Set(['0', 'false', 'off', 'none']);
+
 /** 按可信代理配置解析玩家真实 IP；未命中可信代理时只使用直连来源。 */
 export function resolveNativeRequestIp(
   request: NativeRequestIpLike | null | undefined,
@@ -55,10 +65,15 @@ function shouldTrustProxyHeaders(directIp: string): boolean {
 function parseTrustedProxies(): { exact: Set<string>; cidrs: NormalizedCidr[] } {
   const exact = new Set<string>();
   const cidrs: NormalizedCidr[] = [];
-  const entries = (process.env.SERVER_TRUSTED_PROXIES ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  const configuredValue = typeof process.env.SERVER_TRUSTED_PROXIES === 'string'
+    ? process.env.SERVER_TRUSTED_PROXIES.trim()
+    : '';
+  const entries = configuredValue
+    ? configuredValue.split(',').map((entry) => entry.trim()).filter(Boolean)
+    : DEFAULT_TRUSTED_PROXY_ENTRIES;
+  if (entries.length === 1 && DISABLED_TRUSTED_PROXY_VALUE_SET.has(entries[0].toLowerCase())) {
+    return { exact, cidrs };
+  }
   for (const entry of entries) {
     const slashIndex = entry.indexOf('/');
     if (slashIndex > 0) {
