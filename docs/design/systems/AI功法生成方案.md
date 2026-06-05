@@ -601,7 +601,7 @@ CREATE TABLE generated_technique (
 
   created_by_player_id  INT,
   model_name            VARCHAR(64),
-  prompt_snapshot       TEXT,                    -- 审计用
+  prompt_snapshot       TEXT,                    -- 玩家自定义提示词快照
   validation_report     JSONB,                   -- 校验结果快照
 
   created_at            TIMESTAMP DEFAULT NOW(),
@@ -693,12 +693,12 @@ listTechniqueTemplates(): TechniqueTemplate[] {
 
 ### 10.3 Prompt 注入防御
 
-`playerContext` 进入 system prompt 前必须：
+`playerContext` 进入 AI prompt 前必须：
 
 - 长度截断（≤ 200 字）
 - 剥离控制字符、markdown 代码块标记
 - 拒绝角色扮演指令（`ignore previous instructions` / `you are now` 等）
-- 全量落审计日志
+- `prompt_snapshot` 只保存清洗后的玩家自定义提示词，不保存通用 system/user prompt 全量请求
 
 ### 10.4 使用范围分阶段
 
@@ -718,7 +718,7 @@ usage_scope = 'tradeable'    // 二阶段开放
 ### 10.6 审计日志
 
 - 生成、审核、发布、撤销、交易（二阶段）全部落 outbox
-- 内容：`playerId`, `modelName`, `promptSnapshot`, `validationReport`, 时间戳
+- 内容：`playerId`, `modelName`, `promptSnapshot`（仅玩家自定义提示词）, `validationReport`, 时间戳
 - 保留期：90 天
 
 ---

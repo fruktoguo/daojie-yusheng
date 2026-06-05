@@ -197,6 +197,7 @@ export interface GmGeneratedTechniqueDetailRes {
     schemaVersion: number;
     usageScope: string;
     modelName?: string | null;
+    /** 玩家自定义提示词快照，不包含通用 system/user prompt 全量请求。 */
     promptSnapshot?: string | null;
     validationReport?: unknown;
     template: unknown;

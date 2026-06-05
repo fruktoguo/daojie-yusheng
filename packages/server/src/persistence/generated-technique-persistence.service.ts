@@ -674,6 +674,7 @@ export interface InsertGeneratedTechniqueParams {
   schemaVersion: number;
   createdByPlayerId: string;
   modelName: string;
+  /** 只保存清洗后的玩家自定义提示词，不保存通用 system/user prompt 全量请求。 */
   promptSnapshot: string;
   validationReport: unknown;
   grade: string;

@@ -67,7 +67,8 @@ AttrKey 枚举：constitution / spirit / perception / talent / strength / meridi
 - 功法名称和描述要有修仙风格，避免现代用语`;
 
 const ARTS_SYSTEM_PROMPT = `你是修仙游戏的术法强度设计器。请严格输出单个 JSON 对象，不要输出代码块或解释文本。
-你只能填写强度导向的术法草稿，服务端会把强度草稿归一化并展开成正式 SkillDef。
+你只能填写强度导向的术法草稿，服务端会把 strength 权重归一化并展开成正式 SkillDef。
+所有强度预算权重只能写在 structureStrength；target 只写目标形状和点选模式；formulaStrength 只写伤害属性构成和可选百分比来源。
 不要输出约束里没有列出的字段；不要输出 grade、realmLv、budgetPercent、totalBudget、真实伤害值、真实灵力消耗、真实冷却、真实施法距离、真实影响半径、effects、buff、heal 或技能公式。`;
 
 const ARTS_TARGET_TYPE_ENUM = ['single', 'line', 'box', 'area'] as const;
@@ -162,10 +163,10 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       },
       structureStrength: Object.fromEntries(ARTS_STRUCTURE_STRENGTH_KEYS.map((key) => [
         key,
-        `number，权重，${constants.weights.min}到${constants.weights.max}，0表示默认`,
+        `number，强度权重，${constants.weights.min}到${constants.weights.max}；正数强化本项，负数牺牲本项并扩大正向预算池，0表示默认/最低可用`,
       ])),
       formulaStrength: {
-        attributeBases: `对象，key 必须来自 allowedAttributeBaseStats，数量 ${constants.attributeBases.minCount} 到 ${constants.attributeBases.maxCount} 个，value 为伤害构成权重，0到${constants.attributeBases.maxScale}；0或负数等于不参与`,
+        attributeBases: `对象，key 必须来自 allowedAttributeBaseStats，数量 ${constants.attributeBases.minCount} 到 ${constants.attributeBases.maxCount} 个，value 只表示伤害属性构成比例，必须为正数，不能写0或负数`,
         percentBonuses: `对象，可选，只允许 techLevel 和 moveSpeed；value 为权重，${constants.weights.min}到${constants.weights.max}；省略等于0`,
       },
     },
@@ -175,25 +176,27 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
     strengthRules: {
       budgetOwnership: '禁止输出 totalBudget/inputBudget/targetBudget；本次实际总预算已在 budgetContext.actualTotalBudget 给出，服务端按各项权重分配并展开真实 SkillDef。',
       structureMeaning: [
-        'structureStrength.damage 是伤害预算权重；正数代表更高伤害，负数代表主动牺牲伤害，0表示最低可用伤害。',
-        'structureStrength.cost 是灵力消耗权重；正数代表更低灵力消耗，负数代表更高灵力消耗，0表示基础消耗倍率1。',
-        `structureStrength.cooldown 是冷却权重；正数代表更短冷却，负数代表更长冷却，0预算的基础冷却为 ${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv 息。`,
-        'structureStrength.castRange 是施法距离预算权重，不是真实施法距离；1格为0预算。',
-        'structureStrength.area 是影响范围预算权重，不是真实半径、宽度、边长或覆盖格数；single 会视为0覆盖强度。',
-        'structureStrength.chant 预留给吟唱强度；当前可写0。',
-        'structureStrength 字段只参与权重分配；正权重瓜分正向预算池，负权重会让本项变差，并按绝对权重折算牺牲预算加入正向预算池。',
+        'structureStrength 必须作为唯一预算权重对象，建议写全 damage/cost/cooldown/chant/castRange/area 六个字段，未提到的项目写0。',
+        'damage：伤害强弱；正数提高属性基底倍率，负数牺牲伤害，0按最低可用伤害展开。',
+        'cost：灵力消耗；正数降低消耗，负数提高消耗。',
+        `cooldown：冷却；正数缩短冷却，负数拉长冷却，0预算的基础冷却为 ${constants.structure.cooldownBaseRealmLvMultiplier} * realmLv 息。`,
+        'castRange：施法距离；正数偏远程，负数一般不要写，0表示近身/基础距离。',
+        'area：覆盖范围；正数扩大覆盖，single 会视为0覆盖强度，0表示不追求范围。',
+        'chant：吟唱预留项；当前通常写0，除非玩家明确要求牺牲吟唱或强化吟唱相关设计。',
+        '正权重表示想强化的项目；负权重表示主动牺牲的项目，会让本项变差，并按绝对权重折算牺牲预算加入正向预算池。',
         '正向预算池 = actualTotalBudget + sum(actualTotalBudget * abs(负权重) / 100)；正权重按权重比例瓜分该预算池。',
-        'structureStrength 里的字段都只是强度权重，不是真实运行时数值；不要输出 costMultiplier/cooldown/cooldownTicks。',
+        '例如 damage=-100、cost=-100、cooldown=100 时，伤害和消耗各牺牲一份预算，cooldown 作为唯一正项可吃到约3份 actualTotalBudget。',
+        'structureStrength 里的字段都只是强度权重，不是真实运行时数值；不要输出 costMultiplier/cooldown/cooldownTicks/range/radius。',
       ],
       formulaMeaning: [
-        'attributeBases 只表示伤害由哪些属性构成和构成比例，不再表示伤害强弱；伤害强弱必须写在 structureStrength.damage。',
+        'attributeBases 只表示伤害由哪些属性构成和构成比例，不参与预算池正负权重分配；伤害强弱必须写在 structureStrength.damage。',
         'attributeBases 的值必须为正数；如果只要最低伤害，也要写一个属性构成，例如 { spellAtk: 1 }，并把 structureStrength.damage 写为0或负数。',
         '如果玩家主题要求高伤害，才把 structureStrength.damage 提高到 60 到 100。',
         `techLevel 默认0，表示每层增加${Math.round(constants.percentBonuses.techLevelScaleBase * 100)}%总伤害；通常不要写正值。`,
         `moveSpeed: 1 表示额外加入 caster.stat.moveSpeed * ${constants.percentBonuses.moveSpeedScalePerStrength} 的总百分比加成。`,
       ],
       rangeMeaning: [
-        'target 只描述目标形状和目标模式，不承载任何预算权重。',
+        'target 只描述目标形状和目标模式，不承载任何预算权重；不要在 target 里写 castRangeWeight、areaWeight 或真实范围字段。',
         'target.type 选择 single/line/box/area；真实范围、距离和覆盖格数由 structureStrength.castRange / structureStrength.area 展开。',
         '玩家主题中的“范围32格”表示希望覆盖强度接近32格，不是真实半径32；请用 structureStrength.area 表达覆盖倾向。',
         `structureStrength.castRange 表示施法距离预算倾向：1格为0预算，2格约消耗1*${constants.structure.castRangeBudgetGrowth}预算，3格约消耗2*${constants.structure.castRangeBudgetGrowth}^2预算；不要把它当作最终施法距离。`,
@@ -220,6 +223,7 @@ function buildArtsStrengthPromptInput(params: TechniquePromptParams): Record<str
       'formulaStrength.attributeBases 至少1个、最多5个 key，key 必须来自 allowedAttributeBaseStats。',
       'formulaStrength.attributeBases 的值必须是正构成权重；最低伤害也要写 1，不能写 0 或负数。',
       'target 只允许 type/targetMode；不要输出 castRangeWeight/areaWeight/range/radius/width/height。',
+      'structureStrength 必须只包含 damage/cost/cooldown/chant/castRange/area；为了表达玩家偏好，建议六个字段都写出来。',
       '施法距离和影响范围权重必须写在 structureStrength.castRange / structureStrength.area，不要写进 target。',
       '属性基底优先按主题选择，例如蛮力/拳掌偏 physAtk 或 breakPower，玄妙法术偏 spellAtk，身法风格可少量使用 dodge/moveSpeed。',
       '不要为了凑强度写过多文本；描述保持修仙风格。',

@@ -87,7 +87,7 @@ interface AiTaskResult {
   success: boolean;
   content: string;
   modelName: string;
-  promptSnapshot: string;
+  promptSnapshot: string;       // 玩家自定义提示词快照，非完整模型请求
   attemptCount: number;
   tokenUsage: { promptTokens: number; completionTokens: number };
   error?: string;
@@ -429,7 +429,7 @@ CREATE TABLE generated_technique (
 
   created_by_player_id  INT NOT NULL,
   model_name            VARCHAR(64),
-  prompt_snapshot       TEXT,
+  prompt_snapshot       TEXT,       -- 玩家自定义提示词快照
   validation_report     JSONB,
 
   grade                 VARCHAR(16),
@@ -678,7 +678,7 @@ type TechniquePreview = {
 - 长度截断 ≤ 200 字
 - 剥离控制字符、markdown 代码块
 - 正则拒绝角色扮演指令
-- 全量落审计日志（`prompt_snapshot` 字段）
+- `prompt_snapshot` 只保存清洗后的玩家自定义提示词，不保存通用 system/user prompt 全量请求
 
 ### 7.4 使用范围
 

@@ -336,7 +336,7 @@ export class TechniqueGenerationService {
       schemaVersion: TECHNIQUE_GENERATION_SCHEMA_VERSION,
       createdByPlayerId: params.playerId,
       modelName: successfulAiResult.modelName,
-      promptSnapshot: successfulAiResult.requestSnapshot,
+      promptSnapshot: params.playerContext,
       validationReport: {
         valid: true,
         errors: [],
