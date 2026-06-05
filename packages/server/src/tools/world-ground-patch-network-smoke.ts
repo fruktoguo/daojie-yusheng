@@ -8,6 +8,7 @@ import {
   fromWireTick,
   tickPayloadType,
   toWireTick,
+  TileType,
   type GroundItemEntryView,
 } from '@mud/shared';
 import { diffGroundPiles } from '../network/projector-diff';
@@ -76,6 +77,23 @@ function main(): void {
   const decodedAdd = fromWireTick(decodeMessage(tickPayloadType, encodeMessage(tickPayloadType, addWire)));
   assert.equal(decodedAdd.g?.[0]?.x, 7);
   assert.equal(decodedAdd.g?.[0]?.y, 8);
+
+  const sectTilePatchWire = toWireTick({
+    p: [],
+    e: [],
+    mid: 'sect_domain:test',
+    iid: 'sect:test',
+    t: [{
+      x: -1,
+      y: 0,
+      tile: { type: TileType.Floor, walkable: true, blocksSight: false, aura: 0, occupiedBy: null, modifiedAt: null },
+    }],
+  });
+  const decodedSectTilePatch = fromWireTick(decodeMessage(tickPayloadType, encodeMessage(tickPayloadType, sectTilePatchWire)));
+  assert.equal(decodedSectTilePatch.mid, 'sect_domain:test');
+  assert.equal(decodedSectTilePatch.iid, 'sect:test');
+  assert.equal(decodedSectTilePatch.t?.[0]?.x, -1);
+  assert.equal(decodedSectTilePatch.t?.[0]?.tile?.type, 'floor');
 
   console.log(JSON.stringify({
     ok: true,

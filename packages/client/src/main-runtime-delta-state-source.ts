@@ -709,7 +709,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       entityPatches,
       removedEntityIds,
       groundPatches,
-      instanceId: instanceIdHint,
+      instanceId: instanceIdHint ?? data.iid,
       mapId: mapIdHint ?? data.mid,
       effects: data.fx ? cloneJson(data.fx) : undefined,
       threatArrows: Array.isArray(data.threatArrows)

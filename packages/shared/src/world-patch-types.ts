@@ -744,6 +744,11 @@ export interface WorldDeltaView {
  */
 
   mid?: string;
+  /**
+ * iid：实例ID标识。
+ */
+
+  iid?: string;
 }
 
 /** 自身状态增量视图。 */
@@ -897,4 +902,14 @@ export interface TickView {
  */
 
   auraLevelBaseValue?: number;
+  /**
+ * mid：地图模板ID。
+ */
+
+  mid?: string;
+  /**
+ * iid：实例ID。
+ */
+
+  iid?: string;
 }

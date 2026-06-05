@@ -172,8 +172,8 @@ function createService(
           ),
         ]);
       },
-      sendWorldDelta(socket: { id: string }, payload: { tp?: unknown; vma?: unknown; vmr?: unknown; dt?: number; time?: unknown }) {
-        log.push(['sendWorldDelta', socket.id, Boolean(payload.tp), Boolean(payload.vma), Boolean(payload.vmr), payload.dt ?? null, Boolean(payload.time)]);
+      sendWorldDelta(socket: { id: string }, payload: { tp?: unknown; vma?: unknown; vmr?: unknown; dt?: number; time?: unknown; mid?: string; iid?: string }) {
+        log.push(['sendWorldDelta', socket.id, Boolean(payload.tp), Boolean(payload.vma), Boolean(payload.vmr), payload.dt ?? null, Boolean(payload.time), payload.mid ?? null, payload.iid ?? null]);
       },
       sendRealm(socket: { id: string }, payload: { realm?: { stage?: string | null } | null }) {
         log.push(['sendRealm', socket.id, payload.realm?.stage ?? null]);
@@ -401,7 +401,7 @@ function testAuxStateSync() {
     ['emitInitialThreatSync', 'socket:1', 10, 1],
     ['commitPlayerCache', 'player:1', 'initial'],
     ['getTemplate', 'map.a'],
-    ['sendWorldDelta', 'socket:1', true, true, true, null, false],
+    ['sendWorldDelta', 'socket:1', true, true, true, null, false, 'map.a', 'inst.a'],
     ['sendRealm', 'socket:1', '筑基'],
     ['sendLootWindow', 'socket:1', '增量拾取'],
     ['emitDeltaThreatSync', 'socket:1', 11, 1, false],
@@ -477,7 +477,7 @@ function testTimeOnlyDeltaSyncsTickInterval() {
   service.emitAuxDeltaSync('player:3', socket, createView(31), createPlayer('炼气', 10));
 
   assert.deepEqual(log.filter((entry) => Array.isArray(entry) && entry[0] === 'sendWorldDelta'), [
-    ['sendWorldDelta', 'socket:3', false, false, false, 500, true],
+    ['sendWorldDelta', 'socket:3', false, false, false, 500, true, 'map.a', 'inst.a'],
   ]);
 }
 

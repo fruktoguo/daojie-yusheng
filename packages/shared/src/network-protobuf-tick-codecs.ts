@@ -180,6 +180,8 @@ export function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   if (payload.f !== undefined) wire.f = payload.f;
   if (payload.time) wire.time = toWireGameTimeState(payload.time);
   if (payload.auraLevelBaseValue !== undefined) wire.auraLevelBaseValue = payload.auraLevelBaseValue;
+  if (payload.mid !== undefined) wire.mid = payload.mid;
+  if (payload.iid !== undefined) wire.iid = payload.iid;
   return wire;
 }
 
@@ -276,5 +278,7 @@ export function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   if (hasOwn(wire, 'auraLevelBaseValue')) {
     payload.auraLevelBaseValue = Number(wire.auraLevelBaseValue ?? 0);
   }
+  if (hasOwn(wire, 'mid')) payload.mid = String(wire.mid ?? '');
+  if (hasOwn(wire, 'iid')) payload.iid = String(wire.iid ?? '');
   return payload;
 }

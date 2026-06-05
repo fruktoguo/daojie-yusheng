@@ -31,6 +31,8 @@ message TickPayload {
   optional GameTimeStatePayload time = 15;
   optional uint32 auraLevelBaseValue = 19;
   repeated string r = 20;
+  optional string mid = 23;
+  optional string iid = 24;
 }
 
 message TickRenderEntityPayload {

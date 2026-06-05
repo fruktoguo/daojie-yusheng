@@ -398,6 +398,8 @@ export class WorldSyncAuxStateService {
       t: view.tick,
       wr: view.worldRevision,
       sr: view.selfRevision,
+      mid: view.instance.templateId,
+      iid: view.instance.instanceId,
       tp: options.tilePatches,
       dt: options.tickIntervalMs,
       time: options.time,
