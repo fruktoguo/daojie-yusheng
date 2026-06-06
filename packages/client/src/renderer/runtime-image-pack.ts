@@ -96,7 +96,6 @@ type EntitySpriteSelection = {
 
 const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
   flipX: false,
-  rotationTurns: 0,
 };
 
 interface DualGridCellScan {
@@ -728,18 +727,13 @@ class RuntimeImagePack {
     const sh = cellH * Math.max(1, ref.rowSpan ?? 1);
     const target = calculateDrawTarget(dx, dy, size, image, ref);
     disableImageSmoothing(ctx);
-    if (!transform.flipX && transform.rotationTurns === 0) {
+    if (!transform.flipX) {
       ctx.drawImage(image, sx, sy, sw, sh, target.dx, target.dy, target.dw, target.dh);
       return true;
     }
     ctx.save();
     ctx.translate(target.dx + target.dw / 2, target.dy + target.dh / 2);
-    if (transform.rotationTurns !== 0) {
-      ctx.rotate(transform.rotationTurns * Math.PI / 2);
-    }
-    if (transform.flipX) {
-      ctx.scale(-1, 1);
-    }
+    ctx.scale(-1, 1);
     ctx.drawImage(image, sx, sy, sw, sh, -target.dw / 2, -target.dh / 2, target.dw, target.dh);
     ctx.restore();
     return true;

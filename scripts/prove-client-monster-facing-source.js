@@ -19,12 +19,8 @@ const directionKeysBeforeTwoWayFallback = entityFacingSource.indexOf("`${key}:${
 const twoWayFallbackBeforeBaseFallback = entityFacingSource.indexOf("...sideKeys,") >= 0
   && entityFacingSource.indexOf("...sideKeys,") < entityFacingSource.indexOf("...baseKeys,");
 const baseFallbackTransformsKept = entityFacingSource.includes("function resolveMonsterBaseSpriteTransform")
-  && entityFacingSource.includes("case Direction.East:")
-  && entityFacingSource.includes("return { flipX: true, rotationTurns: 0 };")
-  && entityFacingSource.includes("case Direction.North:")
-  && entityFacingSource.includes("return { flipX: false, rotationTurns: 1 };")
-  && entityFacingSource.includes("case Direction.South:")
-  && entityFacingSource.includes("return { flipX: false, rotationTurns: 3 };")
+  && entityFacingSource.includes("return facing === Direction.West ? { flipX: true } : IDENTITY_SPRITE_TRANSFORM;")
+  && !entityFacingSource.includes("rotationTurns")
   && entityFacingSource.includes("...baseKeys.map(() => baseTransform)");
 const transformsAlignedWithKeys = entityFacingSource.includes("transforms: [")
   && entityFacingSource.indexOf("...directionKeys.map(() => IDENTITY_SPRITE_TRANSFORM),") < entityFacingSource.indexOf("...sideKeys.map(() => IDENTITY_SPRITE_TRANSFORM),")
@@ -32,12 +28,13 @@ const transformsAlignedWithKeys = entityFacingSource.includes("transforms: [")
 const canvasAppliesBaseFallbackTransform = canvasRendererSource.includes("type EntitySpriteSelection = {")
   && canvasRendererSource.includes("transform: EntitySpriteTransform;")
   && canvasRendererSource.includes("return this.drawAtlasSprite(ctx, selection.ref, dx, dy, size, selection.transform);")
-  && canvasRendererSource.includes("ctx.rotate(transform.rotationTurns * Math.PI / 2)")
+  && !canvasRendererSource.includes("ctx.rotate(transform.rotationTurns * Math.PI / 2)")
   && canvasRendererSource.includes("ctx.scale(-1, 1)");
 const pixiAppliesBaseFallbackTransform = pixiRendererSource.includes("type RuntimeEntitySpriteSelection = {")
   && pixiRendererSource.includes("transform: EntitySpriteTransform;")
   && pixiRendererSource.includes("(selection.transform.flipX ? -1 : 1)")
-  && pixiRendererSource.includes("view.image.rotation = selection.transform.rotationTurns * Math.PI / 2;");
+  && pixiRendererSource.includes("view.image.rotation = 0;")
+  && !pixiRendererSource.includes("view.image.rotation = selection.transform.rotationTurns * Math.PI / 2;");
 const defaultMonsterAssetsUseBaseKeys = Object.keys(defaultManifest.entities ?? {})
   .filter((key) => key.startsWith("monster:"))
   .every((key) => !/(?:\:left|\:right|\:north|\:south)$/.test(key));

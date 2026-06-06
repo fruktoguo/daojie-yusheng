@@ -141,7 +141,6 @@ type RuntimeEntitySpriteSelection = {
 
 const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
   flipX: false,
-  rotationTurns: 0,
 };
 
 interface EntityView {
@@ -2167,7 +2166,7 @@ export class PixiMapRendererAdapter {
       (selection.transform.flipX ? -1 : 1) * (targetW / Math.max(1, texture.width)),
       targetH / Math.max(1, texture.height),
     );
-    view.image.rotation = selection.transform.rotationTurns * Math.PI / 2;
+    view.image.rotation = 0;
     view.image.position.set(visualCellSize / 2, visualCellSize / 2);
     view.image.visible = true;
     return true;

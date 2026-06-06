@@ -5,18 +5,14 @@ type SpriteLookupEntity = Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | '
 export type EntitySpriteLookupPlan = {
   keys: string[];
   transforms: EntitySpriteTransform[];
-  directionalKeyCount: number;
-  flipBaseX: boolean;
 };
 
 export type EntitySpriteTransform = {
   flipX: boolean;
-  rotationTurns: 0 | 1 | 2 | 3;
 };
 
 const IDENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
   flipX: false,
-  rotationTurns: 0,
 };
 
 function normalizeEntitySpriteSegment(value: string | null | undefined): string | null {
@@ -85,23 +81,14 @@ function resolveTwoWayMonsterSide(facing: Direction | undefined): 'left' | 'righ
   if (facing === Direction.East) {
     return 'right';
   }
-  if (facing === Direction.West || facing === Direction.North || facing === Direction.South) {
+  if (facing === Direction.West) {
     return 'left';
   }
   return null;
 }
 
 function resolveMonsterBaseSpriteTransform(facing: Direction | undefined): EntitySpriteTransform {
-  switch (facing) {
-    case Direction.East:
-      return { flipX: true, rotationTurns: 0 };
-    case Direction.North:
-      return { flipX: false, rotationTurns: 1 };
-    case Direction.South:
-      return { flipX: false, rotationTurns: 3 };
-    default:
-      return IDENTITY_SPRITE_TRANSFORM;
-  }
+  return facing === Direction.West ? { flipX: true } : IDENTITY_SPRITE_TRANSFORM;
 }
 
 export function buildEntitySpriteLookupPlan(entity: SpriteLookupEntity): EntitySpriteLookupPlan {
@@ -110,8 +97,6 @@ export function buildEntitySpriteLookupPlan(entity: SpriteLookupEntity): EntityS
     return {
       keys: baseKeys,
       transforms: baseKeys.map(() => IDENTITY_SPRITE_TRANSFORM),
-      directionalKeyCount: 0,
-      flipBaseX: false,
     };
   }
 
@@ -134,7 +119,5 @@ export function buildEntitySpriteLookupPlan(entity: SpriteLookupEntity): EntityS
       ...sideKeys.map(() => IDENTITY_SPRITE_TRANSFORM),
       ...baseKeys.map(() => baseTransform),
     ],
-    directionalKeyCount: directionKeys.length + sideKeys.length,
-    flipBaseX: side === 'right',
   };
 }
