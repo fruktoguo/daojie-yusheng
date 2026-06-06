@@ -933,6 +933,7 @@ export class AttrPanel {
   private detailStale = false;
   /** detailRequested：是否已发出详情请求。 */
   private detailRequested = false;
+  private renderPendingWhileHidden = false;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -949,6 +950,7 @@ export class AttrPanel {
     });
     this.bindPaneEvents();
     this.bindTooltipEvents();
+    this.bindPaneVisibilityObserver();
     window.addEventListener(ACTION_SHORTCUTS_CHANGED_EVENT, () => this.patchCraftActionButtons());
   }
 
@@ -963,6 +965,7 @@ export class AttrPanel {
     this.detailData = null;
     this.detailStale = false;
     this.detailRequested = false;
+    this.renderPendingWhileHidden = false;
     this.lastSnapshot = null;
     this.lastStructureKey = null;
     this.tooltipTarget = null;
@@ -980,6 +983,13 @@ export class AttrPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.latestData = data;
+    if (this.deferRenderIfHidden()) {
+      return;
+    }
+    this.renderLatestData(data);
+  }
+
+  private renderLatestData(data: S2C_AttrUpdate): void {
     const baseAttrs = this.resolveCompleteAttrs(data.baseAttrs);
     if (!baseAttrs || !data.bonuses) {
       this.clear();
@@ -1758,6 +1768,38 @@ export class AttrPanel {
 
   private useReactPanel(): boolean {
     return shouldUseReactAttrPanel();
+  }
+
+  private isPaneVisible(): boolean {
+    return this.pane.isConnected && this.pane.classList.contains('active');
+  }
+
+  private deferRenderIfHidden(): boolean {
+    if (this.isPaneVisible()) {
+      return false;
+    }
+    this.tooltipTarget = null;
+    this.tooltip.hide(true);
+    this.renderPendingWhileHidden = true;
+    return true;
+  }
+
+  private bindPaneVisibilityObserver(): void {
+    const observer = new MutationObserver(() => {
+      if (this.renderPendingWhileHidden && this.isPaneVisible()) {
+        this.flushHiddenRender();
+      }
+    });
+    observer.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  private flushHiddenRender(): void {
+    const latestData = this.latestData;
+    if (!this.renderPendingWhileHidden || !latestData) {
+      return;
+    }
+    this.renderPendingWhileHidden = false;
+    this.renderLatestData(latestData);
   }
 
   private renderReact(snapshot: AttrPanelSnapshot): void {

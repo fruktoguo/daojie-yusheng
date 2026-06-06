@@ -405,6 +405,7 @@ export class TechniquePanel {
   private lastState: TechniquePanelState = { techniques: [] };
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
   private lastVisibleTechniqueIds: string[] | null = null;
+  private renderPendingWhileHidden = false;
   /** cardNodeRefs：缓存每张功法卡片的子节点引用，避免每 tick 重复 querySelector。 */
   private cardNodeRefs = new Map<string, TechniqueCardNodeRefs>();  
   /**
@@ -447,10 +448,13 @@ export class TechniquePanel {
       onCancelTransmission: (techId) => this.handleCancelTechniqueTransmission(techId),
     });
     this.bindPaneEvents();
+    this.bindPaneVisibilityObserver();
   }
 
   /** clear：清理clear。 */
   clear(): void {
+    this.renderPendingWhileHidden = false;
+    this.lastState = { techniques: [] };
     this.lastVisibleTechniqueIds = null;
     this.cardNodeRefs.clear();
     this.shellRefs = null;
@@ -490,6 +494,9 @@ export class TechniquePanel {
   /** 更新功法列表与主修状态 */
   update(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
     this.lastState = { techniques, cultivatingTechId, previewPlayer, pendingComprehensions: previewPlayer?.pendingTechniqueComprehensions };
+    if (this.deferRenderIfHidden()) {
+      return;
+    }
     this.syncReactState();
     if (this.useReactPanel()) {
       mountReactTechniquePanel();
@@ -505,6 +512,9 @@ export class TechniquePanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.lastState = { techniques, cultivatingTechId, previewPlayer, pendingComprehensions: previewPlayer?.pendingTechniqueComprehensions };
+    if (this.deferRenderIfHidden()) {
+      return;
+    }
     this.syncReactState();
     if (this.useReactPanel()) {
       mountReactTechniquePanel();
@@ -528,6 +538,48 @@ export class TechniquePanel {
 
   private useReactPanel(): boolean {
     return shouldUseReactTechniquePanel();
+  }
+
+  private isPaneVisible(): boolean {
+    return this.pane.isConnected && this.pane.classList.contains('active');
+  }
+
+  private deferRenderIfHidden(): boolean {
+    if (this.isPaneVisible() || detailModalHost.isOpenFor(TechniquePanel.MODAL_OWNER)) {
+      return false;
+    }
+    this.renderPendingWhileHidden = true;
+    return true;
+  }
+
+  private bindPaneVisibilityObserver(): void {
+    const observer = new MutationObserver(() => {
+      if (this.renderPendingWhileHidden && this.isPaneVisible()) {
+        this.flushHiddenRender();
+      }
+    });
+    observer.observe(this.pane, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  private flushHiddenRender(): void {
+    if (!this.renderPendingWhileHidden) {
+      return;
+    }
+    this.renderPendingWhileHidden = false;
+    this.syncReactState();
+    if (this.useReactPanel()) {
+      mountReactTechniquePanel();
+      if (!this.patchModal()) {
+        this.renderModal();
+      }
+      return;
+    }
+    if (!this.patchList()) {
+      this.renderList();
+    }
+    if (!this.patchModal()) {
+      this.renderModal();
+    }
   }
 
   private syncReactState(): void {
