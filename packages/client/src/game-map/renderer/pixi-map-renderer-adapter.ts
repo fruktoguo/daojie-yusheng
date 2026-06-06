@@ -693,6 +693,7 @@ export class PixiMapRendererAdapter {
   private readonly visibleTileFadeStartedAt = new Map<string, { startedAt: number; durationMs: number }>();
   private readonly hiddenTileFadeStartedAt = new Map<string, { startedAt: number; durationMs: number }>();
   private previousVisibleTileKeys = new Set<string>();
+  private terrainFogSignature = '';
   private canvas: HTMLCanvasElement | null = null;
   private ready = false;
   private width = 1;
@@ -900,6 +901,7 @@ export class PixiMapRendererAdapter {
     this.visibleTileFadeStartedAt.clear();
     this.hiddenTileFadeStartedAt.clear();
     this.previousVisibleTileKeys.clear();
+    this.terrainFogSignature = '';
     this.lastVisibleTileRevision = -1;
     this.timeAtmosphere.initialized = false;
     this.resetProfileState();
@@ -1490,7 +1492,7 @@ export class PixiMapRendererAdapter {
       }
     }
     this.profileSetCounter('visibleChunks', visibleChunkCount);
-    this.rebuildTerrainFogLayer(scene, startCX, startCY, endCX, endCY, cellSize);
+    this.profileMeasure('terrainFog', () => this.rebuildTerrainFogLayer(scene, startCX, startCY, endCX, endCY, cellSize));
     this.profileMeasure('pathLayer', () => this.rebuildPathLayer(scene));
   }
 
@@ -1540,8 +1542,23 @@ export class PixiMapRendererAdapter {
     endCY: number,
     cellSize: number,
   ): void {
-    this.terrainFogLayer.clear();
     const now = performance.now();
+    this.pruneCompletedTerrainFogTransitions(now);
+    const signature = [
+      cellSize,
+      startCX,
+      startCY,
+      endCX,
+      endCY,
+      scene.terrain.visibleTileRevision,
+      scene.terrain.tileCache.size,
+    ].join('|');
+    const hasActiveFogTransitions = this.visibleTileFadeStartedAt.size > 0 || this.hiddenTileFadeStartedAt.size > 0;
+    if (!hasActiveFogTransitions && signature === this.terrainFogSignature) {
+      return;
+    }
+    this.terrainFogSignature = hasActiveFogTransitions ? '' : signature;
+    this.terrainFogLayer.clear();
     for (let cy = startCY; cy <= endCY; cy += 1) {
       for (let cx = startCX; cx <= endCX; cx += 1) {
         const startX = cx * CHUNK_SIZE;
@@ -1555,6 +1572,9 @@ export class PixiMapRendererAdapter {
             if (!scene.terrain.visibleTiles.has(key)) {
               const hiddenFade = this.resolveTileFade(this.hiddenTileFadeStartedAt.get(key), now, false);
               this.terrainFogLayer.rect(sx, sy, cellSize, cellSize).fill({ color: tile ? 0x0c0a08 : 0x080605, alpha: (tile ? 0.72 : 0.94) * hiddenFade });
+              if (hiddenFade >= 1) {
+                this.hiddenTileFadeStartedAt.delete(key);
+              }
               continue;
             }
             const visibleFade = this.resolveTileFade(this.visibleTileFadeStartedAt.get(key), now, true);
@@ -1565,6 +1585,22 @@ export class PixiMapRendererAdapter {
             }
           }
         }
+      }
+    }
+    if (this.visibleTileFadeStartedAt.size === 0 && this.hiddenTileFadeStartedAt.size === 0) {
+      this.terrainFogSignature = signature;
+    }
+  }
+
+  private pruneCompletedTerrainFogTransitions(now: number): void {
+    for (const [key, state] of this.visibleTileFadeStartedAt) {
+      if (now - state.startedAt >= state.durationMs) {
+        this.visibleTileFadeStartedAt.delete(key);
+      }
+    }
+    for (const [key, state] of this.hiddenTileFadeStartedAt) {
+      if (now - state.startedAt >= state.durationMs) {
+        this.hiddenTileFadeStartedAt.delete(key);
       }
     }
   }

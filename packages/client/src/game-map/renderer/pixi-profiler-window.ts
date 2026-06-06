@@ -21,6 +21,7 @@ export type PixiProfileMetricKey =
   | 'terrainChunks'
   | 'terrainSignature'
   | 'terrainRebuild'
+  | 'terrainFog'
   | 'pathLayer'
   | 'entityViews'
   | 'threatArrows'
@@ -136,6 +137,7 @@ export const PIXI_PROFILE_METRIC_KEYS: PixiProfileMetricKey[] = [
   'terrainChunks',
   'terrainSignature',
   'terrainRebuild',
+  'terrainFog',
   'pathLayer',
   'entityViews',
   'threatArrows',
@@ -169,6 +171,7 @@ const METRIC_LABELS: Record<PixiProfileMetricKey, string> = {
   terrainChunks: 'terrainChunks',
   terrainSignature: 'terrainSignature',
   terrainRebuild: 'terrainRebuild',
+  terrainFog: 'terrainFog',
   pathLayer: 'pathLayer',
   entityViews: 'entityViews',
   threatArrows: 'threatArrows',
@@ -721,7 +724,7 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
 
   return [
     'meta\tvalue',
-    'profilerVersion\t4',
+    'profilerVersion\t5',
     `capturedAtMs\t${Number(performance.now().toFixed(3))}`,
     `devicePixelRatio\t${typeof window === 'undefined' ? '' : Number(window.devicePixelRatio.toFixed(3))}`,
     `viewport\t${typeof window === 'undefined' ? '' : `${window.innerWidth}x${window.innerHeight}`}`,
