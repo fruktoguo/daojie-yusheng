@@ -6,8 +6,10 @@ const assert = require("node:assert/strict");
 
 const repoRoot = path.resolve(__dirname, "..");
 const entityFacingSource = fs.readFileSync(path.join(repoRoot, "packages/client/src/entity-facing.ts"), "utf8");
+const mapStoreSource = fs.readFileSync(path.join(repoRoot, "packages/client/src/game-map/store/map-store.ts"), "utf8");
 const canvasRendererSource = fs.readFileSync(path.join(repoRoot, "packages/client/src/renderer/runtime-image-pack.ts"), "utf8");
 const pixiRendererSource = fs.readFileSync(path.join(repoRoot, "packages/client/src/game-map/renderer/pixi-map-renderer-adapter.ts"), "utf8");
+const mapInstanceSource = fs.readFileSync(path.join(repoRoot, "packages/server/src/runtime/instance/map-instance.runtime.ts"), "utf8");
 const sharedDirectionSource = fs.readFileSync(path.join(repoRoot, "packages/shared/src/direction.ts"), "utf8");
 const defaultManifest = JSON.parse(fs.readFileSync(path.join(repoRoot, "packages/client/public/assets/runtime-image-packs/default/manifest.json"), "utf8"));
 
@@ -32,6 +34,9 @@ const baseFallbackTransformsKept = entityFacingSource.includes("function resolve
 const playersAndMonstersUseHorizontalSpritePlan = entityFacingSource.includes("function supportsHorizontalFacingSprite")
   && entityFacingSource.includes("return entity.kind === 'monster' || entity.kind === 'player';")
   && entityFacingSource.includes("if (!supportsHorizontalFacingSprite(entity))");
+const mapStoreAppliesSelfFacingPatch = mapStoreSource.includes("patch.facing !== undefined")
+  && mapStoreSource.includes("if (selfPatch.facing !== undefined)")
+  && mapStoreSource.includes("this.player.facing = normalizeHorizontalFacing(selfPatch.facing, this.player.facing);");
 const transformsAlignedWithKeys = entityFacingSource.includes("transforms: [")
   && entityFacingSource.indexOf("...directionKeys.map(() => IDENTITY_SPRITE_TRANSFORM),") < entityFacingSource.indexOf("...sideKeys.map(() => IDENTITY_SPRITE_TRANSFORM),")
   && entityFacingSource.indexOf("...sideKeys.map(() => IDENTITY_SPRITE_TRANSFORM),") < entityFacingSource.indexOf("...baseKeys.map(() => baseTransform),");
@@ -48,6 +53,14 @@ const pixiAppliesBaseFallbackTransform = pixiRendererSource.includes("type Runti
 const defaultMonsterAssetsUseBaseKeys = Object.keys(defaultManifest.entities ?? {})
   .filter((key) => key.startsWith("monster:"))
   .every((key) => !/(?:\:left|\:right|\:north|\:south)$/.test(key));
+const monsterProjectionStart = mapInstanceSource.indexOf("getLocalMonsterViewEntry(monster)");
+const monsterProjectionEnd = mapInstanceSource.indexOf("/** advanceMonsters", monsterProjectionStart);
+const monsterProjectionSource = monsterProjectionStart >= 0 && monsterProjectionEnd > monsterProjectionStart
+  ? mapInstanceSource.slice(monsterProjectionStart, monsterProjectionEnd)
+  : "";
+const serverMonsterProjectionCarriesFacing = monsterProjectionSource.includes("&& cached.facing === monster.facing")
+  && monsterProjectionSource.includes("facing: monster.facing,")
+  && monsterProjectionSource.indexOf("&& cached.facing === monster.facing") < monsterProjectionSource.indexOf("facing: monster.facing,");
 
 assert.equal(normalizesMonsterFacingHorizontally, true);
 assert.equal(sharedHorizontalFacingRules, true);
@@ -55,10 +68,12 @@ assert.equal(directionKeysBeforeTwoWayFallback, true);
 assert.equal(twoWayFallbackBeforeBaseFallback, true);
 assert.equal(baseFallbackTransformsKept, true);
 assert.equal(playersAndMonstersUseHorizontalSpritePlan, true);
+assert.equal(mapStoreAppliesSelfFacingPatch, true);
 assert.equal(transformsAlignedWithKeys, true);
 assert.equal(canvasAppliesBaseFallbackTransform, true);
 assert.equal(pixiAppliesBaseFallbackTransform, true);
 assert.equal(defaultMonsterAssetsUseBaseKeys, true);
+assert.equal(serverMonsterProjectionCarriesFacing, true);
 
 console.log(JSON.stringify({
   ok: true,
@@ -69,8 +84,10 @@ console.log(JSON.stringify({
   twoWayFallbackBeforeBaseFallback,
   baseFallbackTransformsKept,
   playersAndMonstersUseHorizontalSpritePlan,
+  mapStoreAppliesSelfFacingPatch,
   transformsAlignedWithKeys,
   canvasAppliesBaseFallbackTransform,
   pixiAppliesBaseFallbackTransform,
   defaultMonsterAssetsUseBaseKeys,
+  serverMonsterProjectionCarriesFacing,
 }, null, 2));

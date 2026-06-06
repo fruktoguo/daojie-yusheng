@@ -295,7 +295,7 @@ function hasSpatialTickEntityDelta(patch: TickRenderEntity | undefined | null): 
   if (!patch) {
     return false;
   }
-  return typeof patch.x === 'number' || typeof patch.y === 'number';
+  return typeof patch.x === 'number' || typeof patch.y === 'number' || patch.facing !== undefined;
 }
 
 /** 全量比较两个小地图快照是否一致（元数据与标记）。 */
@@ -739,6 +739,9 @@ export class MapStore {
     if (selfPatch) {
       if (selfPatch.name) {
         this.player.name = selfPatch.name;
+      }
+      if (selfPatch.facing !== undefined) {
+        this.player.facing = normalizeHorizontalFacing(selfPatch.facing, this.player.facing);
       }
       this.player.x = selfPatch.x;
       this.player.y = selfPatch.y;

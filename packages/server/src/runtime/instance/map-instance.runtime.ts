@@ -5786,6 +5786,7 @@ class MapInstanceRuntime {
             && cached.tier === monster.tier
             && cached.x === monster.x
             && cached.y === monster.y
+            && cached.facing === monster.facing
             && cached.hp === monster.hp
             && cached.maxHp === monster.maxHp
             && cached.qi === monster.qi
@@ -5801,6 +5802,7 @@ class MapInstanceRuntime {
             tier: monster.tier,
             x: monster.x,
             y: monster.y,
+            facing: monster.facing,
             hp: monster.hp,
             maxHp: monster.maxHp,
             qi: monster.qi,
