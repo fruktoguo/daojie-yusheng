@@ -5,7 +5,7 @@
  */
 import type { InteractableKind, RenderEntity, StructureType, SurfaceType, TerrainType, Tile, TileType } from '@mud/shared';
 import { DEFAULT_MAP_PERFORMANCE_CONFIG, type MapPerformanceConfig } from '../constants/ui/performance';
-import { buildEntitySpriteLookupPlan } from '../entity-facing';
+import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../entity-facing';
 import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from './runtime-image-pack-url';
 
 type SpriteFit = 'cover' | 'contain';
@@ -91,7 +91,12 @@ interface DrawTarget {
 
 type EntitySpriteSelection = {
   ref: AtlasSpriteRef;
-  flipX: boolean;
+  transform: EntitySpriteTransform;
+};
+
+const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
+  flipX: false,
+  rotationTurns: 0,
 };
 
 interface DualGridCellScan {
@@ -344,7 +349,7 @@ function resolveEntitySpriteSelection(
     if (ref) {
       return {
         ref,
-        flipX: plan.flipBaseX && index >= plan.directionalKeyCount,
+        transform: plan.transforms[index] ?? IDENTITY_ENTITY_SPRITE_TRANSFORM,
       };
     }
   }
@@ -658,7 +663,7 @@ class RuntimeImagePack {
     if (!selection) {
       return false;
     }
-    return this.drawAtlasSprite(ctx, selection.ref, dx, dy, size, selection.flipX);
+    return this.drawAtlasSprite(ctx, selection.ref, dx, dy, size, selection.transform);
   }
 
   private ensureManifestRequested(): void {
@@ -701,7 +706,14 @@ class RuntimeImagePack {
       });
   }
 
-  private drawAtlasSprite(ctx: CanvasRenderingContext2D, ref: AtlasSpriteRef, dx: number, dy: number, size: number, flipX = false): boolean {
+  private drawAtlasSprite(
+    ctx: CanvasRenderingContext2D,
+    ref: AtlasSpriteRef,
+    dx: number,
+    dy: number,
+    size: number,
+    transform: EntitySpriteTransform = IDENTITY_ENTITY_SPRITE_TRANSFORM,
+  ): boolean {
     const entry = this.getImage(ref.src);
     if (!entry || entry.state !== 'loaded') {
       return false;
@@ -716,14 +728,19 @@ class RuntimeImagePack {
     const sh = cellH * Math.max(1, ref.rowSpan ?? 1);
     const target = calculateDrawTarget(dx, dy, size, image, ref);
     disableImageSmoothing(ctx);
-    if (!flipX) {
+    if (!transform.flipX && transform.rotationTurns === 0) {
       ctx.drawImage(image, sx, sy, sw, sh, target.dx, target.dy, target.dw, target.dh);
       return true;
     }
     ctx.save();
-    ctx.translate(target.dx + target.dw / 2, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(image, sx, sy, sw, sh, -target.dw / 2, target.dy, target.dw, target.dh);
+    ctx.translate(target.dx + target.dw / 2, target.dy + target.dh / 2);
+    if (transform.rotationTurns !== 0) {
+      ctx.rotate(transform.rotationTurns * Math.PI / 2);
+    }
+    if (transform.flipX) {
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(image, sx, sy, sw, sh, -target.dw / 2, -target.dh / 2, target.dw, target.dh);
     ctx.restore();
     return true;
   }

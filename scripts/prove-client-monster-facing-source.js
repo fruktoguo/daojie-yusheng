@@ -5,25 +5,61 @@ const path = require("node:path");
 const assert = require("node:assert/strict");
 
 const repoRoot = path.resolve(__dirname, "..");
-const source = fs.readFileSync(path.join(repoRoot, "packages/client/src/entity-facing.ts"), "utf8");
+const entityFacingSource = fs.readFileSync(path.join(repoRoot, "packages/client/src/entity-facing.ts"), "utf8");
+const canvasRendererSource = fs.readFileSync(path.join(repoRoot, "packages/client/src/renderer/runtime-image-pack.ts"), "utf8");
+const pixiRendererSource = fs.readFileSync(path.join(repoRoot, "packages/client/src/game-map/renderer/pixi-map-renderer-adapter.ts"), "utf8");
+const defaultManifest = JSON.parse(fs.readFileSync(path.join(repoRoot, "packages/client/public/assets/runtime-image-packs/default/manifest.json"), "utf8"));
 
-const keepsFourWayFacing = source.includes("export function resolveMonsterFacing")
-  && source.includes("nextFacing === Direction.North")
-  && source.includes("nextFacing === Direction.South")
-  && !source.includes("return Direction.West;\n  }\n  return undefined;");
-const directionKeysBeforeFallback = source.indexOf("`${key}:${directionKey}`") >= 0
-  && source.indexOf("`${key}:${directionKey}`") < source.indexOf("`${key}:${side}`");
-const twoWayFallbackKept = source.includes("side && side !== directionKey")
-  && source.includes("flipBaseX: side === 'right'");
+const keepsFourWayFacing = entityFacingSource.includes("export function resolveMonsterFacing")
+  && entityFacingSource.includes("nextFacing === Direction.North")
+  && entityFacingSource.includes("nextFacing === Direction.South")
+  && !entityFacingSource.includes("return Direction.West;\n  }\n  return undefined;");
+const directionKeysBeforeTwoWayFallback = entityFacingSource.indexOf("`${key}:${directionKey}`") >= 0
+  && entityFacingSource.indexOf("`${key}:${directionKey}`") < entityFacingSource.indexOf("`${key}:${side}`");
+const twoWayFallbackBeforeBaseFallback = entityFacingSource.indexOf("...sideKeys,") >= 0
+  && entityFacingSource.indexOf("...sideKeys,") < entityFacingSource.indexOf("...baseKeys,");
+const baseFallbackTransformsKept = entityFacingSource.includes("function resolveMonsterBaseSpriteTransform")
+  && entityFacingSource.includes("case Direction.East:")
+  && entityFacingSource.includes("return { flipX: true, rotationTurns: 0 };")
+  && entityFacingSource.includes("case Direction.North:")
+  && entityFacingSource.includes("return { flipX: false, rotationTurns: 1 };")
+  && entityFacingSource.includes("case Direction.South:")
+  && entityFacingSource.includes("return { flipX: false, rotationTurns: 3 };")
+  && entityFacingSource.includes("...baseKeys.map(() => baseTransform)");
+const transformsAlignedWithKeys = entityFacingSource.includes("transforms: [")
+  && entityFacingSource.indexOf("...directionKeys.map(() => IDENTITY_SPRITE_TRANSFORM),") < entityFacingSource.indexOf("...sideKeys.map(() => IDENTITY_SPRITE_TRANSFORM),")
+  && entityFacingSource.indexOf("...sideKeys.map(() => IDENTITY_SPRITE_TRANSFORM),") < entityFacingSource.indexOf("...baseKeys.map(() => baseTransform),");
+const canvasAppliesBaseFallbackTransform = canvasRendererSource.includes("type EntitySpriteSelection = {")
+  && canvasRendererSource.includes("transform: EntitySpriteTransform;")
+  && canvasRendererSource.includes("return this.drawAtlasSprite(ctx, selection.ref, dx, dy, size, selection.transform);")
+  && canvasRendererSource.includes("ctx.rotate(transform.rotationTurns * Math.PI / 2)")
+  && canvasRendererSource.includes("ctx.scale(-1, 1)");
+const pixiAppliesBaseFallbackTransform = pixiRendererSource.includes("type RuntimeEntitySpriteSelection = {")
+  && pixiRendererSource.includes("transform: EntitySpriteTransform;")
+  && pixiRendererSource.includes("(selection.transform.flipX ? -1 : 1)")
+  && pixiRendererSource.includes("view.image.rotation = selection.transform.rotationTurns * Math.PI / 2;");
+const defaultMonsterAssetsUseBaseKeys = Object.keys(defaultManifest.entities ?? {})
+  .filter((key) => key.startsWith("monster:"))
+  .every((key) => !/(?:\:left|\:right|\:north|\:south)$/.test(key));
 
 assert.equal(keepsFourWayFacing, true);
-assert.equal(directionKeysBeforeFallback, true);
-assert.equal(twoWayFallbackKept, true);
+assert.equal(directionKeysBeforeTwoWayFallback, true);
+assert.equal(twoWayFallbackBeforeBaseFallback, true);
+assert.equal(baseFallbackTransformsKept, true);
+assert.equal(transformsAlignedWithKeys, true);
+assert.equal(canvasAppliesBaseFallbackTransform, true);
+assert.equal(pixiAppliesBaseFallbackTransform, true);
+assert.equal(defaultMonsterAssetsUseBaseKeys, true);
 
 console.log(JSON.stringify({
   ok: true,
   case: "client-monster-facing-source",
   keepsFourWayFacing,
-  directionKeysBeforeFallback,
-  twoWayFallbackKept,
+  directionKeysBeforeTwoWayFallback,
+  twoWayFallbackBeforeBaseFallback,
+  baseFallbackTransformsKept,
+  transformsAlignedWithKeys,
+  canvasAppliesBaseFallbackTransform,
+  pixiAppliesBaseFallbackTransform,
+  defaultMonsterAssetsUseBaseKeys,
 }, null, 2));

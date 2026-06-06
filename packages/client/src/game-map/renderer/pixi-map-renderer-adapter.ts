@@ -62,7 +62,7 @@ import {
   TIME_ATMOSPHERE_PROFILES,
   TIME_FILTER_LERP,
 } from '../../constants/visuals/time-atmosphere';
-import { buildEntitySpriteLookupPlan } from '../../entity-facing';
+import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../../entity-facing';
 import { getMonsterPresentation } from '../../monster-presentation';
 import { formatDisplayInteger } from '../../utils/number';
 import { t as translateUi } from '../../ui/i18n';
@@ -136,7 +136,12 @@ interface AnimEntity extends ObservedMapEntity {
 
 type RuntimeEntitySpriteSelection = {
   ref: PixiTileSpriteRef;
-  flipX: boolean;
+  transform: EntitySpriteTransform;
+};
+
+const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
+  flipX: false,
+  rotationTurns: 0,
 };
 
 interface EntityView {
@@ -491,7 +496,7 @@ function pickRuntimeEntitySpriteSelection(
     if (ref) {
       return {
         ref,
-        flipX: plan.flipBaseX && index >= plan.directionalKeyCount,
+        transform: plan.transforms[index] ?? IDENTITY_ENTITY_SPRITE_TRANSFORM,
       };
     }
   }
@@ -2159,9 +2164,10 @@ export class PixiMapRendererAdapter {
     }
     view.image.texture = texture;
     view.image.scale.set(
-      (selection.flipX ? -1 : 1) * (targetW / Math.max(1, texture.width)),
+      (selection.transform.flipX ? -1 : 1) * (targetW / Math.max(1, texture.width)),
       targetH / Math.max(1, texture.height),
     );
+    view.image.rotation = selection.transform.rotationTurns * Math.PI / 2;
     view.image.position.set(visualCellSize / 2, visualCellSize / 2);
     view.image.visible = true;
     return true;
