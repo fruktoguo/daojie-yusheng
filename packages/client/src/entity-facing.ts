@@ -30,6 +30,8 @@ function buildBaseEntitySpriteKeys(entity: SpriteLookupEntity): string[] {
       return [monsterId && `monster:${monsterId}`, id && `monster:${id}`, name && `monster:${name}`, char && `monster:${char}`, 'monster:default'].filter(Boolean) as string[];
     case 'npc':
       return [id && `npc:${id}`, name && `npc:${name}`, char && `npc:${char}`, 'npc:default'].filter(Boolean) as string[];
+    case 'container':
+      return [id && `container:${id}`, name && `container:${name}`, char && `container:${char}`, 'container:default'].filter(Boolean) as string[];
     case 'player':
       return [id && `player:${id}`, name && `player:${name}`, 'player:default'].filter(Boolean) as string[];
     default:

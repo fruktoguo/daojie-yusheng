@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "defaults": {
     "tile": {
       "cols": 4,
@@ -1559,6 +1559,267 @@
       "row": 0,
       "fit": "contain",
       "insetRatio": 0.02
+    },
+    "container:月露草": {
+      "src": "containers/herb_moondew_grass.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:赤火叶": {
+      "src": "containers/herb_red_flame_leaf.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:青灵茎": {
+      "src": "containers/herb_green_spirit_stem.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:寒莲瓣": {
+      "src": "containers/herb_frost_lotus_petal.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:明心花": {
+      "src": "containers/herb_clear_mind_flower.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:赤芽果": {
+      "src": "containers/herb_bloodbud_fruit.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:破纹砂": {
+      "src": "containers/herb_breakarray_shard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:疾风苇": {
+      "src": "containers/herb_swiftwind_reed.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:苦心藤": {
+      "src": "containers/herb_bitterheart_vine.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:融阳子": {
+      "src": "containers/herb_sunmelt_seed.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:长脉藤": {
+      "src": "containers/herb_longvein_vine.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:回春叶": {
+      "src": "containers/herb_returnspring_leaf.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:寒髓苇": {
+      "src": "containers/herb_coldmarrow_reed.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:月井蕊": {
+      "src": "containers/herb_moonwell_stamen.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:灼心瓣": {
+      "src": "containers/herb_scorchheart_petal.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:炎穗芒": {
+      "src": "containers/herb_flamegrain_spike.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:承脉参": {
+      "src": "containers/herb_bearingroot_ginseng.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:岩髓芝": {
+      "src": "containers/herb_stonecore_lingzhi.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:金芒棘": {
+      "src": "containers/herb_goldthread_briar.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:铁脉蒺": {
+      "src": "containers/herb_ironvein_caltrop.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:霜刃晶": {
+      "src": "containers/herb_frostblade_frost_crystal.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:寒铁碎": {
+      "src": "containers/herb_frostblade_cold_iron_shard.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:渊水苔": {
+      "src": "containers/herb_frostblade_deepwater_moss.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:余烬枝": {
+      "src": "containers/herb_blazewood_ember_branch.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:焚灵种": {
+      "src": "containers/herb_blazewood_fire_seed.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:焦木心": {
+      "src": "containers/herb_blazewood_charwood_heart.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:玄壤精土": {
+      "src": "containers/herb_darksoil_vein_stone.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:混元脉石": {
+      "src": "containers/herb_darksoil_mixed_crystal.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
+    },
+    "container:深渊灵泥": {
+      "src": "containers/herb_darksoil_abyss_mud.png",
+      "cols": 1,
+      "rows": 1,
+      "col": 0,
+      "row": 0,
+      "fit": "contain",
+      "insetRatio": 0.04
     }
   }
 }
