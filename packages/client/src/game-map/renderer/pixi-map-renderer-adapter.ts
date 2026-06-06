@@ -111,7 +111,7 @@ interface TerrainChunkStaticSignatureDeps {
   cellSize: number;
   renderRuntimeTileSprites: boolean;
   runtimeTileSpriteRevision: number;
-  visibleTileRevision: number;
+  terrainChunkRevision: number;
 }
 
 interface TerrainChunkOverlaySignatureDeps {
@@ -216,6 +216,7 @@ interface PixiTileSpriteRef {
   fit: 'cover' | 'contain';
   zIndex: number;
   order: number;
+  renderOrder: number;
   dualGrid: boolean;
 }
 
@@ -427,6 +428,7 @@ function normalizePixiTileSpriteRef(
     fit: normalizeSpriteFit(readPixiSpriteField(value, defaults, 'fit')),
     zIndex: normalizeTileSpriteZIndexWithDefaults(value, defaults, key),
     order,
+    renderOrder: order,
     dualGrid: normalizeTileSpriteDualGrid(value, defaults),
   };
 }
@@ -705,6 +707,10 @@ export class PixiMapRendererAdapter {
   private performanceConfig: MapPerformanceConfig = { ...DEFAULT_MAP_PERFORMANCE_CONFIG };
   private runtimeTileSpriteRefs = new Map<string, PixiTileSpriteRef>();
   private runtimeLegacyTileKeys = new Map<string, string>();
+  private runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
+  private readonly dualGridCellRefsScratch: Array<PixiTileSpriteRef | null> = [];
+  private readonly dualGridVertexRefsScratch: Array<PixiTileSpriteRef | null> = [null, null, null, null];
+  private readonly dualGridVertexMasksScratch: number[] = [0, 0, 0, 0];
   private runtimeAtlasTextures = new Map<string, Texture>();
   private runtimeTileTextures = new Map<string, Texture>();
   private runtimeTileTextureRequests = new Set<string>();
@@ -999,8 +1005,13 @@ export class PixiMapRendererAdapter {
         version,
         manifest.defaults?.tile,
       );
-      this.runtimeTileSpriteRefs = new Map([...refs.entries()].sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order));
+      const sortedRefs = [...refs.entries()].sort(([, left], [, right]) => left.zIndex - right.zIndex || left.order - right.order);
+      for (let index = 0; index < sortedRefs.length; index += 1) {
+        sortedRefs[index]![1].renderOrder = index;
+      }
+      this.runtimeTileSpriteRefs = new Map(sortedRefs);
       this.runtimeLegacyTileKeys = normalizeLegacyTileMap(manifest.legacyTiles);
+      this.runtimeTileSpriteRefCache = new WeakMap<Tile, PixiTileSpriteRef | null>();
       this.runtimeEntitySpriteRefs = normalizePixiTileSpriteMap(
         manifest.entities,
         DEFAULT_RUNTIME_IMAGE_PACK_MANIFEST_URL,
@@ -1049,8 +1060,20 @@ export class PixiMapRendererAdapter {
 
   private resolveRuntimeTileSpriteRef(tile: Tile): PixiTileSpriteRef | null {
     if (!this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'loaded') return null;
+    const cached = this.runtimeTileSpriteRefCache.get(tile);
+    if (cached !== undefined) {
+      return cached;
+    }
     const key = resolveTopTileSpriteKey(tile, this.runtimeLegacyTileKeys);
-    return key ? this.runtimeTileSpriteRefs.get(key) ?? null : null;
+    const ref = key ? this.runtimeTileSpriteRefs.get(key) ?? null : null;
+    this.runtimeTileSpriteRefCache.set(tile, ref);
+    return ref;
+  }
+
+  private resolveRuntimeDualGridRef(tile: Tile | null | undefined): PixiTileSpriteRef | null {
+    if (!tile) return null;
+    const ref = this.resolveRuntimeTileSpriteRef(tile);
+    return ref?.dualGrid ? ref : null;
   }
 
   private getRuntimeTileTexture(ref: PixiTileSpriteRef, sourceMask = 15, quad?: { x: number; y: number; sourceW: number; sourceH: number }): Texture | null {
@@ -1159,11 +1182,6 @@ export class PixiMapRendererAdapter {
     this.profileCount('runtimeTileSprites');
   }
 
-  private resolveRuntimeTileSpriteKey(tile: Tile | null | undefined): string | null {
-    if (!tile || !this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'loaded') return null;
-    return resolveTopTileSpriteKey(tile, this.runtimeLegacyTileKeys);
-  }
-
   private drawDualGridSprite(
     chunkContainer: Container,
     ref: PixiTileSpriteRef,
@@ -1255,6 +1273,39 @@ export class PixiMapRendererAdapter {
     }
   }
 
+  private collectDualGridVertexRef(
+    refs: Array<PixiTileSpriteRef | null>,
+    masks: number[],
+    occupiedMask: number,
+    ref: PixiTileSpriteRef | null | undefined,
+    mask: number,
+  ): number {
+    if (!ref) return occupiedMask;
+    const nextOccupiedMask = occupiedMask | mask;
+    if (refs[0] === ref) {
+      masks[0] = (masks[0] ?? 0) | mask;
+    } else if (refs[1] === ref) {
+      masks[1] = (masks[1] ?? 0) | mask;
+    } else if (refs[2] === ref) {
+      masks[2] = (masks[2] ?? 0) | mask;
+    } else if (refs[3] === ref) {
+      masks[3] = (masks[3] ?? 0) | mask;
+    } else if (!refs[0]) {
+      refs[0] = ref;
+      masks[0] = mask;
+    } else if (!refs[1]) {
+      refs[1] = ref;
+      masks[1] = mask;
+    } else if (!refs[2]) {
+      refs[2] = ref;
+      masks[2] = mask;
+    } else {
+      refs[3] = ref;
+      masks[3] = mask;
+    }
+    return nextOccupiedMask;
+  }
+
   private drawRuntimeDualGridEdges(
     chunkContainer: Container,
     scene: MapSceneSnapshot,
@@ -1263,42 +1314,65 @@ export class PixiMapRendererAdapter {
     cellSize: number,
   ): void {
     if (!this.performanceConfig.renderRuntimeTileSprites || this.runtimeTileManifestState !== 'loaded') return;
-    const refs = this.runtimeTileSpriteRefs;
-    if (refs.size === 0) return;
-    const keyOrder = new Map<string, number>();
-    let keyOrderIndex = 0;
-    for (const key of refs.keys()) keyOrder.set(key, keyOrderIndex++);
-    const vertexEntries: Array<{ key: string; mask: number }> = [];
+    if (this.runtimeTileSpriteRefs.size === 0) return;
+    const scanSize = CHUNK_SIZE + 2;
+    const cellRefs = this.dualGridCellRefsScratch;
+    cellRefs.length = scanSize * scanSize;
+    for (let localY = 0; localY < scanSize; localY += 1) {
+      const y = startY - 1 + localY;
+      for (let localX = 0; localX < scanSize; localX += 1) {
+        const x = startX - 1 + localX;
+        cellRefs[localY * scanSize + localX] = this.resolveRuntimeDualGridRef(scene.terrain.tileCache.get(`${x},${y}`));
+      }
+    }
     for (let vertexY = startY; vertexY <= startY + CHUNK_SIZE; vertexY += 1) {
+      const localY = vertexY - startY;
       for (let vertexX = startX; vertexX <= startX + CHUNK_SIZE; vertexX += 1) {
-        vertexEntries.length = 0;
+        const localX = vertexX - startX;
+        const nw = cellRefs[localY * scanSize + localX];
+        const sw = cellRefs[(localY + 1) * scanSize + localX];
+        const ne = cellRefs[localY * scanSize + localX + 1];
+        const se = cellRefs[(localY + 1) * scanSize + localX + 1];
+        const refs = this.dualGridVertexRefsScratch;
+        const masks = this.dualGridVertexMasksScratch;
+        refs[0] = null;
+        refs[1] = null;
+        refs[2] = null;
+        refs[3] = null;
+        masks[0] = 0;
+        masks[1] = 0;
+        masks[2] = 0;
+        masks[3] = 0;
         let occupiedMask = 0;
-        const corners = [
-          { x: vertexX - 1, y: vertexY - 1, mask: 1 },
-          { x: vertexX - 1, y: vertexY, mask: 2 },
-          { x: vertexX, y: vertexY - 1, mask: 4 },
-          { x: vertexX, y: vertexY, mask: 8 },
-        ] as const;
-        for (const corner of corners) {
-          const tile = scene.terrain.tileCache.get(`${corner.x},${corner.y}`);
-          const key = this.resolveRuntimeTileSpriteKey(tile);
-          if (!key || !refs.get(key)?.dualGrid) continue;
-          occupiedMask |= corner.mask;
-          const existing = vertexEntries.find((entry) => entry.key === key);
-          if (existing) {
-            existing.mask |= corner.mask;
-          } else {
-            vertexEntries.push({ key, mask: corner.mask });
+        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, nw, 1);
+        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, sw, 2);
+        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, ne, 4);
+        occupiedMask = this.collectDualGridVertexRef(refs, masks, occupiedMask, se, 8);
+        if (!refs[0]) continue;
+
+        for (let index = 1; index < refs.length; index += 1) {
+          const ref = refs[index];
+          const mask = masks[index] ?? 0;
+          if (!ref) continue;
+          let target = index - 1;
+          while (target >= 0) {
+            const targetRef = refs[target];
+            if (!targetRef || targetRef.renderOrder <= ref.renderOrder) {
+              break;
+            }
+            refs[target + 1] = targetRef;
+            masks[target + 1] = masks[target] ?? 0;
+            target -= 1;
           }
+          refs[target + 1] = ref;
+          masks[target + 1] = mask;
         }
-        if (vertexEntries.length === 0) continue;
-        vertexEntries.sort((left, right) => (keyOrder.get(left.key) ?? 0) - (keyOrder.get(right.key) ?? 0));
         const dx = (vertexX - 0.5) * cellSize;
         const dy = (vertexY - 0.5) * cellSize;
-        for (const entry of vertexEntries) {
-          const ref = refs.get(entry.key);
-          if (!ref?.dualGrid) continue;
-          const targetMask = entry.mask & 15;
+        for (let index = 0; index < refs.length; index += 1) {
+          const ref = refs[index];
+          if (!ref) continue;
+          const targetMask = (masks[index] ?? 0) & 15;
           const backgroundMask = occupiedMask & ~targetMask & 15;
           if (targetMask === 15 && backgroundMask === 0) continue;
           this.drawDualGridSprite(chunkContainer, ref, dx, dy, cellSize, targetMask, targetMask);
@@ -1481,7 +1555,7 @@ export class PixiMapRendererAdapter {
       cellSize,
       renderRuntimeTileSprites: this.performanceConfig.renderRuntimeTileSprites,
       runtimeTileSpriteRevision: this.runtimeTileSpriteRevision,
-      visibleTileRevision: scene.terrain.visibleTileRevision,
+      terrainChunkRevision: scene.terrain.terrainChunkRevisions.get(chunk.key) ?? 0,
     };
     if (chunk.staticSignature && chunk.staticSignatureDeps && this.isSameTerrainChunkStaticSignatureDeps(chunk.staticSignatureDeps, deps)) {
       this.profileCount('terrainChunkSignatureHits');
@@ -1511,7 +1585,7 @@ export class PixiMapRendererAdapter {
     return previous.cellSize === next.cellSize
       && previous.renderRuntimeTileSprites === next.renderRuntimeTileSprites
       && previous.runtimeTileSpriteRevision === next.runtimeTileSpriteRevision
-      && previous.visibleTileRevision === next.visibleTileRevision;
+      && previous.terrainChunkRevision === next.terrainChunkRevision;
   }
 
   private isSameTerrainChunkOverlaySignatureDeps(previous: TerrainChunkOverlaySignatureDeps, next: TerrainChunkOverlaySignatureDeps): boolean {

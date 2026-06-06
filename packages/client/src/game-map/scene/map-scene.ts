@@ -15,6 +15,7 @@ export class MapScene {
       terrain: {
         tileCache: snapshot.tileCache,
         visibleTiles: snapshot.visibleTiles,
+        terrainChunkRevisions: snapshot.terrainChunkRevisions,
         visibleTileRevision: snapshot.visibleTileRevision,
         visibleTileTransitionStartedAt: snapshot.visibleTileTransitionStartedAt,
         visibleTileTransitionDurationMs: snapshot.visibleTileTransitionDurationMs,
@@ -26,5 +27,4 @@ export class MapScene {
     };
   }
 }
-
 

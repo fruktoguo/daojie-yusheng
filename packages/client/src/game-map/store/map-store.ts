@@ -72,6 +72,7 @@ const DEFAULT_MOTION_DURATION_MS = 320;
 const MIN_MOTION_DURATION_MS = 180;
 const MAX_MOTION_DURATION_MS = 420;
 const TICK_MOTION_DURATION_RATIO = 0.34;
+const TERRAIN_RENDER_CHUNK_SIZE = 16;
 
 /** 获取最近一次刷新后的可见实体快照，供 UI 和交互层读取。 */
 export function getLatestObservedEntitiesSnapshot(): readonly ObservedMapEntity[] {
@@ -114,6 +115,24 @@ function isDemonizedBuffCarrier(buffs: readonly { buffId: string; stacks: number
     buff.buffId === PVP_SHA_INFUSION_BUFF_ID
     && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
   ));
+}
+
+function buildTerrainTileRenderSignature(tile: Tile | null | undefined): string {
+  if (!tile) {
+    return 'null';
+  }
+  return [
+    tile.type,
+    tile.terrainType ?? '',
+    tile.surfaceType ?? '',
+    tile.structureType ?? '',
+    Array.isArray(tile.interactableKinds) ? tile.interactableKinds.join('+') : '',
+    tile.hp ?? '',
+    tile.maxHp ?? '',
+    tile.hpVisible === false ? 0 : 1,
+    tile.aura ?? '',
+    tile.resources?.length ?? 0,
+  ].join(':');
 }
 
 function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState | null): ObservedMapEntity {
@@ -348,6 +367,8 @@ export class MapStore {
   private visibleTiles = new Set<string>();
   /** 可见地块版本号，用于渲染层增量判断。 */
   private visibleTileRevision = 0;
+  /** 地形静态层按 chunk 拆分的版本号，用于避免少量地块更新打穿所有可见 chunk。 */
+  private terrainChunkRevisions = new Map<string, number>();
   /** 当前已知实体列表（含自身与其他可见对象）。 */
   private entities: ObservedMapEntity[] = [];
   /** 实体 ID 到实体快照索引。 */
@@ -416,8 +437,9 @@ export class MapStore {
   /** 设置当前地图完整舆图快照，并同步主视图渲染 fallback。 */
   private setMinimapSnapshot(snapshot: MapMinimapSnapshot | null): void {
     this.minimapSnapshot = snapshot;
+    this.minimapMemoryVersion += 1;
     this.rebuildSnapshotTileCache();
-    this.rebuildRenderTileCache();
+    this.rebuildRenderTileCache(true);
   }
 
   /** 从已解锁整图快照预建静态地形缓存，避免主视图视野外只能依赖记忆。 */
@@ -444,13 +466,81 @@ export class MapStore {
   }
 
   /** 叠合静态整图与本地记忆/当前视野，供主 Canvas 渲染和命中读取使用。 */
-  private rebuildRenderTileCache(): void {
-    this.renderTileCache = new Map<string, Tile>();
+  private rebuildRenderTileCache(markAllDirty = false): void {
+    this.renderTileCache.clear();
     for (const [key, tile] of this.snapshotTileCache.entries()) {
       this.renderTileCache.set(key, { ...tile });
     }
     for (const [key, tile] of this.tileCache.entries()) {
       this.renderTileCache.set(key, { ...tile });
+    }
+    if (markAllDirty) {
+      this.markAllKnownTerrainChunksDirty();
+    }
+  }
+
+  private updateRenderTileCacheAt(key: string): void {
+    const tile = this.tileCache.get(key) ?? this.snapshotTileCache.get(key) ?? null;
+    if (tile) {
+      this.renderTileCache.set(key, { ...tile });
+      return;
+    }
+    this.renderTileCache.delete(key);
+  }
+
+  private static parseTileKey(key: string): { x: number; y: number } | null {
+    const separatorIndex = key.indexOf(',');
+    if (separatorIndex <= 0) {
+      return null;
+    }
+    const x = Number(key.slice(0, separatorIndex));
+    const y = Number(key.slice(separatorIndex + 1));
+    if (!Number.isInteger(x) || !Number.isInteger(y)) {
+      return null;
+    }
+    return { x, y };
+  }
+
+  private buildTerrainChunkKey(cx: number, cy: number): string {
+    return `${cx},${cy}`;
+  }
+
+  private bumpTerrainChunkRevision(cx: number, cy: number): void {
+    const key = this.buildTerrainChunkKey(cx, cy);
+    this.terrainChunkRevisions.set(key, (this.terrainChunkRevisions.get(key) ?? 0) + 1);
+  }
+
+  private markTerrainTileDirty(x: number, y: number): void {
+    const minCX = Math.floor((x - 1) / TERRAIN_RENDER_CHUNK_SIZE);
+    const maxCX = Math.floor((x + 1) / TERRAIN_RENDER_CHUNK_SIZE);
+    const minCY = Math.floor((y - 1) / TERRAIN_RENDER_CHUNK_SIZE);
+    const maxCY = Math.floor((y + 1) / TERRAIN_RENDER_CHUNK_SIZE);
+    for (let cy = minCY; cy <= maxCY; cy += 1) {
+      for (let cx = minCX; cx <= maxCX; cx += 1) {
+        this.bumpTerrainChunkRevision(cx, cy);
+      }
+    }
+  }
+
+  private markAllKnownTerrainChunksDirty(): void {
+    const chunks = new Set<string>();
+    for (const key of this.renderTileCache.keys()) {
+      const point = MapStore.parseTileKey(key);
+      if (!point) {
+        continue;
+      }
+      const minCX = Math.floor((point.x - 1) / TERRAIN_RENDER_CHUNK_SIZE);
+      const maxCX = Math.floor((point.x + 1) / TERRAIN_RENDER_CHUNK_SIZE);
+      const minCY = Math.floor((point.y - 1) / TERRAIN_RENDER_CHUNK_SIZE);
+      const maxCY = Math.floor((point.y + 1) / TERRAIN_RENDER_CHUNK_SIZE);
+      for (let cy = minCY; cy <= maxCY; cy += 1) {
+        for (let cx = minCX; cx <= maxCX; cx += 1) {
+          chunks.add(this.buildTerrainChunkKey(cx, cy));
+        }
+      }
+    }
+    for (const key of chunks) {
+      this.terrainChunkRevisions.set(key, (this.terrainChunkRevisions.get(key) ?? 0) + 1);
     }
   }
 
@@ -470,7 +560,7 @@ export class MapStore {
       startedAt: performance.now(),
       durationMs: TILE_HIDDEN_FADE_MS,
     };
-    this.rebuildRenderTileCache();
+    this.rebuildRenderTileCache(true);
   }
 
   /** 首次接入/重连时初始化地图状态与基础缓存。 */
@@ -521,7 +611,7 @@ export class MapStore {
     if (visibleTiles.length > 0) {
       this.cacheVisibleTiles(player.mapId, visibleTiles, player.x - this.getViewRadius(), player.y - this.getViewRadius());
     } else {
-      this.rebuildRenderTileCache();
+      this.rebuildRenderTileCache(true);
     }
     this.awaitingFullVisibilityMapId = null;
 
@@ -630,7 +720,7 @@ export class MapStore {
       this.tileCache.clear();
       this.visibleTiles.clear();
       this.visibleTileRevision += 1;
-      this.rebuildRenderTileCache();
+      this.rebuildRenderTileCache(true);
       this.visibleMinimapMarkers = [];
       this.awaitingFullVisibilityMapId = this.player.mapId;
     }
@@ -747,7 +837,7 @@ export class MapStore {
         ? getCachedUnlockedMapSnapshot(this.player.mapId)
         : null);
       hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
-      this.rebuildRenderTileCache();
+      this.rebuildRenderTileCache(true);
       this.awaitingFullVisibilityMapId = this.player.mapId;
       this.preloadedEntityMapId = null;
     }
@@ -865,6 +955,7 @@ export class MapStore {
     this.tileCache.clear();
     this.snapshotTileCache.clear();
     this.renderTileCache.clear();
+    this.terrainChunkRevisions.clear();
     this.visibleTiles.clear();
     this.entities = [];
     this.entityMap.clear();
@@ -984,6 +1075,7 @@ export class MapStore {
       time: this.time,
       tileCache: this.renderTileCache,
       visibleTiles: this.visibleTiles,
+      terrainChunkRevisions: this.terrainChunkRevisions,
       visibleTileRevision: this.visibleTileRevision,
       visibleTileTransitionStartedAt: this.visibleTileTransition.startedAt,
       visibleTileTransitionDurationMs: this.visibleTileTransition.durationMs,
@@ -1224,19 +1316,28 @@ export class MapStore {
     if (!this.mapMeta?.hideMinimap) {
       rememberVisibleTilePatches(mapId, normalizedPatches);
     }
+    let terrainChanged = false;
     for (const patch of normalizedPatches) {
       const key = `${patch.x},${patch.y}`;
       if (patch.tile) {
+        const previousSignature = buildTerrainTileRenderSignature(this.tileCache.get(key) ?? this.snapshotTileCache.get(key));
+        const nextTile = cloneJson(patch.tile);
         this.visibleTiles.add(key);
-        this.tileCache.set(key, cloneJson(patch.tile));
+        this.tileCache.set(key, nextTile);
+        this.updateRenderTileCacheAt(key);
+        if (previousSignature !== buildTerrainTileRenderSignature(nextTile)) {
+          this.markTerrainTileDirty(patch.x, patch.y);
+          terrainChanged = true;
+        }
         continue;
       }
       this.visibleTiles.delete(key);
     }
-    this.minimapMemoryVersion += 1;
+    if (terrainChanged) {
+      this.minimapMemoryVersion += 1;
+    }
     this.visibleTileRevision += 1;
     this.visibleTileTransition = transitionClock;
-    this.rebuildRenderTileCache();
   }
 
   /** 重新缓存整块可见地块并重建可见集合。 */
@@ -1257,6 +1358,7 @@ export class MapStore {
     if (!this.mapMeta?.hideMinimap) {
       rememberVisibleTiles(mapId, normalizedTiles, originX, originY);
     }
+    let terrainChanged = false;
     for (let rowIndex = 0; rowIndex < normalizedTiles.length; rowIndex += 1) {
       for (let columnIndex = 0; columnIndex < normalizedTiles[rowIndex].length; columnIndex += 1) {
         const tile = normalizedTiles[rowIndex][columnIndex];
@@ -1264,14 +1366,24 @@ export class MapStore {
         if (!tile) {
           continue;
         }
+        const x = originX + columnIndex;
+        const y = originY + rowIndex;
+        const previousSignature = buildTerrainTileRenderSignature(this.tileCache.get(key) ?? this.snapshotTileCache.get(key));
+        const nextTile = cloneJson(tile);
         this.visibleTiles.add(key);
-        this.tileCache.set(key, cloneJson(tile));
+        this.tileCache.set(key, nextTile);
+        this.updateRenderTileCacheAt(key);
+        if (previousSignature !== buildTerrainTileRenderSignature(nextTile)) {
+          this.markTerrainTileDirty(x, y);
+          terrainChanged = true;
+        }
       }
     }
-    this.minimapMemoryVersion += 1;
+    if (terrainChanged) {
+      this.minimapMemoryVersion += 1;
+    }
     this.visibleTileRevision += 1;
     this.visibleTileTransition = transitionClock;
-    this.rebuildRenderTileCache();
     if (this.awaitingFullVisibilityMapId === mapId) {
       this.awaitingFullVisibilityMapId = null;
     }

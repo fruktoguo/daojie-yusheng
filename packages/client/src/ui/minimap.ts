@@ -1737,11 +1737,14 @@ export class Minimap {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const extent = buildMinimapDrawExtent(display);
+    if (display.isCurrent) {
+      const snapshotKey = display.snapshot
+        ? `snapshot:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}`
+        : 'memory';
+      return `current:${display.mapId}:${display.displayMode}:${snapshotKey}:${display.memoryVersion}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}`;
+    }
     if (display.snapshot) {
       return `snapshot:${display.mapId}:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}:${this.buildTileCacheHash(display.tileCache)}`;
-    }
-    if (display.isCurrent) {
-      return `memory:${display.mapId}:${display.memoryVersion}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}`;
     }
     return `memory:${display.mapId}:${this.buildTileCacheHash(display.tileCache)}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}`;
   }

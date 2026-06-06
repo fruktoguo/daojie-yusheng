@@ -527,6 +527,8 @@ export interface MapStoreSnapshot {
  */
 
   visibleTiles: ReadonlySet<string>;  
+  /** 地形静态层按 chunk 拆分的版本号，用于渲染层局部失效。 */
+  terrainChunkRevisions: ReadonlyMap<string, number>;
   /** 当前可见性过渡起始时间。 */
   visibleTileTransitionStartedAt: number;
   /** 当前可见性过渡持续时间。 */
@@ -658,6 +660,8 @@ export interface MapSceneSnapshot {
  */
 
     visibleTiles: ReadonlySet<string>;    
+    /** 地形静态层按 chunk 拆分的版本号，用于渲染层局部失效。 */
+    terrainChunkRevisions: ReadonlyMap<string, number>;
     /**
  * visibleTileRevision：可见TileRevision相关字段。
  */
