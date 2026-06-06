@@ -13,7 +13,7 @@
  * 3. 签名查询（供缓存层判断是否需要重载）
  */
 
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type {
   GmGeneratedTechniqueDetailRes,
   GmGeneratedTechniqueListPage,
@@ -493,6 +493,29 @@ export interface RefundableGenerationJob {
   itemSpend: number;
 }
 
+export interface TechniqueGenerationItemRefundSummary {
+  jobs: number;
+  players: number;
+  items: number;
+}
+
+export interface TechniqueGenerationItemRefundPreview extends TechniqueGenerationItemRefundSummary {
+  samples: Array<{ playerId: string; jobs: number; items: number }>;
+}
+
+export interface RefundFailedTechniqueGenerationItemsOptions {
+  batchSize?: number;
+  maxJobs?: number;
+  allowOnlinePlayers?: boolean;
+}
+
+const PLAYER_INVENTORY_ITEM_TABLE = 'player_inventory_item';
+const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
+const PLAYER_PRESENCE_TABLE = 'player_presence';
+const OUTBOX_EVENT_TABLE = 'outbox_event';
+const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
+const TECHNIQUE_GENERATION_REFUND_ITEM_ID = 'wudao_yujian';
+
 export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Promise<RecoverableGenerationJob[]> {
   const result = await pool.query(
     `SELECT id,
@@ -550,6 +573,366 @@ export async function loadRefundableFailedGenerationJobsForPlayer(
       itemSpend: clampInteger(row.item_spend, 1, 1_000, 1),
     }))
     .filter((row) => row.playerId === playerId && row.itemSpend > 0);
+}
+
+export async function previewFailedTechniqueGenerationItemRefunds(pool: Pool): Promise<TechniqueGenerationItemRefundPreview> {
+  const summaryResult = await pool.query(
+    `SELECT COUNT(*)::int AS jobs,
+            COUNT(DISTINCT player_id)::int AS players,
+            COALESCE(SUM(GREATEST(1, LEAST(1000, item_spend)))::int, 0) AS items
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      WHERE status = 'failed'
+        AND item_consumed = true
+        AND item_refunded = false`,
+  );
+  const sampleResult = await pool.query(
+    `SELECT player_id,
+            COUNT(*)::int AS jobs,
+            COALESCE(SUM(GREATEST(1, LEAST(1000, item_spend)))::int, 0) AS items
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      WHERE status = 'failed'
+        AND item_consumed = true
+        AND item_refunded = false
+      GROUP BY player_id
+      ORDER BY items DESC, player_id ASC
+      LIMIT 20`,
+  );
+  const row = summaryResult.rows[0] as { jobs?: unknown; players?: unknown; items?: unknown } | undefined;
+  return {
+    jobs: normalizeInteger(row?.jobs, 0),
+    players: normalizeInteger(row?.players, 0),
+    items: normalizeInteger(row?.items, 0),
+    samples: (sampleResult.rows as Array<{ player_id?: unknown; jobs?: unknown; items?: unknown }>).map((entry) => ({
+      playerId: typeof entry.player_id === 'string' ? entry.player_id : '',
+      jobs: normalizeInteger(entry.jobs, 0),
+      items: normalizeInteger(entry.items, 0),
+    })).filter((entry) => entry.playerId),
+  };
+}
+
+export async function refundFailedTechniqueGenerationItems(
+  pool: Pool,
+  options: RefundFailedTechniqueGenerationItemsOptions = {},
+): Promise<TechniqueGenerationItemRefundSummary> {
+  const batchSize = clampInteger(options.batchSize, 1, 500, 100);
+  const maxJobs = options.maxJobs === undefined
+    ? Number.POSITIVE_INFINITY
+    : clampInteger(options.maxJobs, 1, 100_000, 100_000);
+  const summary: TechniqueGenerationItemRefundSummary = { jobs: 0, players: 0, items: 0 };
+  const touchedPlayers = new Set<string>();
+
+  while (summary.jobs < maxJobs) {
+    const currentBatchSize = Math.min(batchSize, maxJobs - summary.jobs);
+    const batchResult = await refundFailedTechniqueGenerationItemBatch(pool, {
+      batchSize: currentBatchSize,
+      allowOnlinePlayers: options.allowOnlinePlayers === true,
+    });
+    if (batchResult.jobs <= 0) {
+      break;
+    }
+    summary.jobs += batchResult.jobs;
+    summary.items += batchResult.items;
+    for (const playerId of batchResult.playerIds) {
+      touchedPlayers.add(playerId);
+    }
+  }
+
+  summary.players = touchedPlayers.size;
+  return summary;
+}
+
+async function refundFailedTechniqueGenerationItemBatch(
+  pool: Pool,
+  options: { batchSize: number; allowOnlinePlayers: boolean },
+): Promise<{ jobs: number; items: number; playerIds: string[] }> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const jobs = await lockRefundableFailedTechniqueGenerationJobs(client, options.batchSize);
+    if (jobs.length === 0) {
+      await client.query('ROLLBACK');
+      return { jobs: 0, items: 0, playerIds: [] };
+    }
+
+    const jobsByPlayer = new Map<string, RefundableGenerationJob[]>();
+    for (const job of jobs) {
+      const list = jobsByPlayer.get(job.playerId) ?? [];
+      list.push(job);
+      jobsByPlayer.set(job.playerId, list);
+    }
+
+    const playerIds = Array.from(jobsByPlayer.keys());
+    const onlinePlayerIds = options.allowOnlinePlayers
+      ? []
+      : await loadOnlineTechniqueGenerationRefundPlayers(client, playerIds);
+    if (onlinePlayerIds.length > 0) {
+      throw new Error(`technique generation refund blocked: online players=${onlinePlayerIds.join(',')}; rerun during maintenance or pass --allow-online`);
+    }
+
+    for (const [playerId, playerJobs] of jobsByPlayer) {
+      await acquireTechniqueGenerationRefundPlayerLock(client, playerId);
+      const total = playerJobs.reduce((sum, job) => sum + job.itemSpend, 0);
+      const afterItemCount = await grantTechniqueGenerationRefundItem(client, playerId, total);
+      for (const job of playerJobs) {
+        await insertTechniqueGenerationRefundOutboxAndAudit(client, {
+          job,
+          afterItemCount,
+        });
+      }
+    }
+
+    const ids = jobs.map((job) => job.id);
+    const marked = await client.query(
+      `UPDATE ${TECHNIQUE_GENERATION_JOB_TABLE}
+          SET item_refunded = true,
+              refunded_at = COALESCE(refunded_at, NOW()),
+              updated_at = NOW()
+        WHERE id = ANY($1::varchar[])
+          AND status = 'failed'
+          AND item_consumed = true
+          AND item_refunded = false`,
+      [ids],
+    );
+    if ((marked.rowCount ?? 0) !== ids.length) {
+      throw new Error(`technique generation refund race: expected=${ids.length} marked=${marked.rowCount ?? 0}`);
+    }
+
+    await client.query('COMMIT');
+    return {
+      jobs: jobs.length,
+      items: jobs.reduce((sum, job) => sum + job.itemSpend, 0),
+      playerIds,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function loadOnlineTechniqueGenerationRefundPlayers(
+  client: PoolClient,
+  playerIds: string[],
+): Promise<string[]> {
+  if (playerIds.length === 0) {
+    return [];
+  }
+  const result = await client.query(
+    `SELECT player_id
+       FROM ${PLAYER_PRESENCE_TABLE}
+      WHERE player_id = ANY($1::varchar[])
+        AND online = true
+      ORDER BY player_id ASC`,
+    [playerIds],
+  );
+  return (result.rows as Array<{ player_id?: unknown }>)
+    .map((row) => typeof row.player_id === 'string' ? row.player_id : '')
+    .filter((playerId) => playerId.length > 0);
+}
+
+async function acquireTechniqueGenerationRefundPlayerLock(
+  client: PoolClient,
+  playerId: string,
+): Promise<void> {
+  await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7101, playerId]);
+}
+
+async function lockRefundableFailedTechniqueGenerationJobs(
+  client: PoolClient,
+  batchSize: number,
+): Promise<RefundableGenerationJob[]> {
+  const result = await client.query(
+    `SELECT id, player_id, item_spend
+       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+      WHERE status = 'failed'
+        AND item_consumed = true
+        AND item_refunded = false
+      ORDER BY created_at ASC, id ASC
+      LIMIT $1
+      FOR UPDATE SKIP LOCKED`,
+    [batchSize],
+  );
+  return (result.rows as TechniqueGenerationJobGmRow[])
+    .map((row) => ({
+      id: row.id,
+      playerId: row.player_id,
+      itemSpend: clampInteger(row.item_spend, 1, 1_000, 1),
+    }))
+    .filter((row) => row.id && row.playerId && row.itemSpend > 0);
+}
+
+async function grantTechniqueGenerationRefundItem(
+  client: PoolClient,
+  playerId: string,
+  count: number,
+): Promise<number> {
+  const normalizedCount = Math.max(1, Math.trunc(Number(count) || 0));
+  const existing = await client.query(
+    `SELECT item_instance_id, count
+       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+      WHERE player_id = $1
+        AND item_id = $2
+        AND locked_by IS NULL
+      ORDER BY slot_index ASC, item_instance_id ASC
+      LIMIT 1
+      FOR UPDATE`,
+    [playerId, TECHNIQUE_GENERATION_REFUND_ITEM_ID],
+  );
+  const existingRow = existing.rows[0] as { item_instance_id?: string; count?: unknown } | undefined;
+  if (existingRow?.item_instance_id) {
+    const nextCount = Math.max(0, Math.trunc(Number(existingRow.count ?? 0) || 0)) + normalizedCount;
+    await client.query(
+      `UPDATE ${PLAYER_INVENTORY_ITEM_TABLE}
+          SET count = $3,
+              raw_payload = jsonb_set(
+                jsonb_set(COALESCE(raw_payload, '{}'::jsonb), '{itemId}', to_jsonb($2::text), true),
+                '{count}',
+                to_jsonb($3::bigint),
+                true
+              ),
+              updated_at = NOW()
+        WHERE item_instance_id = $1
+          AND player_id = $4`,
+      [existingRow.item_instance_id, TECHNIQUE_GENERATION_REFUND_ITEM_ID, nextCount, playerId],
+    );
+    await touchTechniqueGenerationRefundInventoryWatermark(client, playerId);
+    return nextCount;
+  }
+
+  const slotResult = await client.query(
+    `SELECT slot_index
+       FROM ${PLAYER_INVENTORY_ITEM_TABLE}
+      WHERE player_id = $1
+        AND locked_by IS NULL
+      FOR UPDATE`,
+    [playerId],
+  );
+  const maxSlotIndex = (slotResult.rows as Array<{ slot_index?: unknown }>).reduce(
+    (max, row) => Math.max(max, normalizeInteger(row.slot_index, -1)),
+    -1,
+  );
+  const slotIndex = maxSlotIndex + 1;
+  const itemInstanceId = `techgen-refund:${playerId}:${Date.now().toString(36)}:${slotIndex}`;
+  await client.query(
+    `INSERT INTO ${PLAYER_INVENTORY_ITEM_TABLE}(
+        item_instance_id,
+        player_id,
+        slot_index,
+        item_id,
+        count,
+        raw_payload,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, NOW())`,
+    [
+      itemInstanceId,
+      playerId,
+      slotIndex,
+      TECHNIQUE_GENERATION_REFUND_ITEM_ID,
+      normalizedCount,
+      JSON.stringify({
+        itemId: TECHNIQUE_GENERATION_REFUND_ITEM_ID,
+        count: normalizedCount,
+      }),
+    ],
+  );
+  await touchTechniqueGenerationRefundInventoryWatermark(client, playerId);
+  return normalizedCount;
+}
+
+async function touchTechniqueGenerationRefundInventoryWatermark(
+  client: PoolClient,
+  playerId: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
+        player_id,
+        inventory_version,
+        updated_at
+      )
+      VALUES ($1, FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint, NOW())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        inventory_version = GREATEST(
+          ${PLAYER_RECOVERY_WATERMARK_TABLE}.inventory_version,
+          EXCLUDED.inventory_version
+        ),
+        updated_at = NOW()`,
+    [playerId],
+  );
+}
+
+async function insertTechniqueGenerationRefundOutboxAndAudit(
+  client: PoolClient,
+  input: {
+    job: RefundableGenerationJob;
+    afterItemCount: number;
+  },
+): Promise<void> {
+  const operationId = `op:technique-generation-refund:${input.job.id}`;
+  await client.query(
+    `INSERT INTO ${OUTBOX_EVENT_TABLE}(
+        event_id,
+        operation_id,
+        topic,
+        partition_key,
+        payload_jsonb,
+        status,
+        attempt_count,
+        next_retry_at,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, $5::jsonb, 'ready', 0, NOW(), NOW())
+      ON CONFLICT (event_id) DO NOTHING`,
+    [
+      `outbox:${operationId}`,
+      operationId,
+      'player.inventory.granted',
+      input.job.playerId,
+      JSON.stringify({
+        playerId: input.job.playerId,
+        sourceType: 'technique_generation_refund',
+        sourceRefId: input.job.id,
+        grantedItems: [{
+          itemId: TECHNIQUE_GENERATION_REFUND_ITEM_ID,
+          count: input.job.itemSpend,
+        }],
+      }),
+    ],
+  );
+  await client.query(
+    `INSERT INTO ${ASSET_AUDIT_LOG_TABLE}(
+        log_id,
+        operation_id,
+        player_id,
+        asset_type,
+        asset_ref_id,
+        action,
+        delta_jsonb,
+        before_jsonb,
+        after_jsonb,
+        created_at
+      )
+      VALUES ($1, $2, $3, 'inventory', $4, 'grant', $5::jsonb, $6::jsonb, $7::jsonb, NOW())
+      ON CONFLICT (log_id) DO NOTHING`,
+    [
+      `audit:${operationId}`,
+      operationId,
+      input.job.playerId,
+      input.job.id,
+      JSON.stringify({
+        sourceType: 'technique_generation_refund',
+        itemId: TECHNIQUE_GENERATION_REFUND_ITEM_ID,
+        count: input.job.itemSpend,
+      }),
+      JSON.stringify({ itemId: TECHNIQUE_GENERATION_REFUND_ITEM_ID }),
+      JSON.stringify({
+        itemId: TECHNIQUE_GENERATION_REFUND_ITEM_ID,
+        count: input.afterItemCount,
+      }),
+    ],
+  );
 }
 
 export async function markGenerationJobItemRefunded(pool: Pool, id: string): Promise<boolean> {

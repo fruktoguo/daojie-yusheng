@@ -2967,7 +2967,7 @@ async function acquirePlayerAssetLock(
   await client.query('SELECT pg_advisory_xact_lock($1::integer, hashtext($2))', [7101, playerId]);
 }
 
-async function ensureDurableOperationTables(pool: Pool): Promise<void> {
+export async function ensureDurableOperationTables(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

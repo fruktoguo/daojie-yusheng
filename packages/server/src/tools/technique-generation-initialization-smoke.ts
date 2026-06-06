@@ -20,7 +20,9 @@ import type { AiTextModelConfig } from '../ai/ai-model-config';
 import { WorldGatewayTechniqueGenerationHelper } from '../network/world-gateway-technique-generation.helper';
 import {
   ensureGeneratedTechniqueTables,
+  previewFailedTechniqueGenerationItemRefunds,
   publishGeneratedTechnique,
+  refundFailedTechniqueGenerationItems,
 } from '../persistence/generated-technique-persistence.service';
 import { TechniqueTemplateRegistry } from '../content/registries/technique-template.registry';
 import { validateTechniqueCandidate } from '../runtime/technique-generation/technique-candidate-validator';
@@ -48,6 +50,22 @@ function createFakeSchemaPool(records: QueryRecord[]): Pool {
       query: async (sql: unknown, params?: unknown[]) => {
         records.push({ sql: String(sql), params });
         return { rows: [], rowCount: 0 };
+      },
+      release: () => undefined,
+    }),
+  } as unknown as Pool;
+}
+
+function createFakeConnectedPool(
+  records: QueryRecord[],
+  handler: (sql: string, params: unknown[] | undefined) => { rows: unknown[]; rowCount?: number },
+): Pool {
+  return {
+    connect: async () => ({
+      query: async (sql: unknown, params?: unknown[]) => {
+        const text = String(sql);
+        records.push({ sql: text, params });
+        return handler(text, params);
       },
       release: () => undefined,
     }),
@@ -249,6 +267,115 @@ async function testFailedConsumedJobRefundsOnce(): Promise<void> {
   assert.equal(result, 10);
   assert.equal(refundedCount, 10);
   assert.ok(queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.params?.[0] === 'job_refund_smoke'));
+}
+
+async function testPreviewFailedTechniqueGenerationItemRefunds(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = {
+    query: async (sql: unknown) => {
+      const text = String(sql);
+      queries.push({ sql: text, params: undefined });
+      if (text.includes('COUNT(DISTINCT player_id)')) {
+        return { rows: [{ jobs: 3, players: 2, items: 8 }], rowCount: 1 };
+      }
+      if (text.includes('GROUP BY player_id')) {
+        return {
+          rows: [
+            { player_id: 'p_refund_a', jobs: 2, items: 5 },
+            { player_id: 'p_refund_b', jobs: 1, items: 3 },
+          ],
+          rowCount: 2,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+
+  const preview = await previewFailedTechniqueGenerationItemRefunds(pool);
+
+  assert.equal(preview.jobs, 3);
+  assert.equal(preview.players, 2);
+  assert.equal(preview.items, 8);
+  assert.deepEqual(preview.samples.map((entry) => entry.playerId), ['p_refund_a', 'p_refund_b']);
+  assert.equal(queries.length, 2);
+  for (const query of queries) {
+    assert.ok(query.sql.includes("status = 'failed'"));
+    assert.ok(query.sql.includes('item_consumed = true'));
+    assert.ok(query.sql.includes('item_refunded = false'));
+  }
+}
+
+async function testRefundFailedTechniqueGenerationItemsWritesInventoryAuditAndMarkers(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM technique_generation_job') && sql.includes('FOR UPDATE SKIP LOCKED')) {
+      return {
+        rows: [
+          { id: 'job_refund_history_1', player_id: 'p_history_refund', item_spend: 2 },
+          { id: 'job_refund_history_2', player_id: 'p_history_refund', item_spend: 5 },
+        ],
+        rowCount: 2,
+      };
+    }
+    if (sql.includes('FROM player_presence') && sql.includes('online = true')) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (sql.includes('FROM player_inventory_item') && sql.includes('item_id = $2')) {
+      return {
+        rows: [{ item_instance_id: 'item_existing_wudao_yujian', count: 3 }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('UPDATE technique_generation_job') && sql.includes('item_refunded = true')) {
+      return { rows: [], rowCount: 2 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+
+  const result = await refundFailedTechniqueGenerationItems(pool, { batchSize: 10, maxJobs: 2 });
+
+  assert.deepEqual(result, { jobs: 2, players: 1, items: 7 });
+  assert.ok(queries.some((entry) => entry.sql === 'BEGIN'));
+  assert.ok(queries.some((entry) => entry.sql === 'COMMIT'));
+  assert.ok(!queries.some((entry) => entry.sql === 'ROLLBACK'));
+  assert.ok(queries.some((entry) => entry.sql.includes('FOR UPDATE SKIP LOCKED')));
+  assert.ok(queries.some((entry) => entry.sql.includes('FROM player_presence') && entry.sql.includes('online = true')));
+  assert.ok(queries.some((entry) => entry.sql.includes('pg_advisory_xact_lock') && entry.params?.[1] === 'p_history_refund'));
+  const inventoryUpdate = queries.find((entry) => entry.sql.includes('UPDATE player_inventory_item'));
+  assert.ok(inventoryUpdate);
+  assert.equal(inventoryUpdate.params?.[0], 'item_existing_wudao_yujian');
+  assert.equal(inventoryUpdate.params?.[1], 'wudao_yujian');
+  assert.equal(inventoryUpdate.params?.[2], 10);
+  assert.ok(queries.some((entry) => entry.sql.includes('INSERT INTO player_recovery_watermark')));
+  assert.equal(queries.filter((entry) => entry.sql.includes('INSERT INTO outbox_event')).length, 2);
+  assert.equal(queries.filter((entry) => entry.sql.includes('INSERT INTO asset_audit_log')).length, 2);
+  const markerUpdate = queries.find((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.sql.includes('item_refunded = true'));
+  assert.ok(markerUpdate);
+  assert.deepEqual(markerUpdate.params?.[0], ['job_refund_history_1', 'job_refund_history_2']);
+}
+
+async function testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefault(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = createFakeConnectedPool(queries, (sql) => {
+    if (sql.includes('FROM technique_generation_job') && sql.includes('FOR UPDATE SKIP LOCKED')) {
+      return {
+        rows: [{ id: 'job_online_history', player_id: 'p_online_history', item_spend: 1 }],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('FROM player_presence') && sql.includes('online = true')) {
+      return { rows: [{ player_id: 'p_online_history' }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 0 };
+  });
+
+  await assert.rejects(
+    () => refundFailedTechniqueGenerationItems(pool, { batchSize: 10 }),
+    /online players=p_online_history/,
+  );
+  assert.ok(queries.some((entry) => entry.sql === 'ROLLBACK'));
+  assert.ok(!queries.some((entry) => entry.sql.includes('UPDATE player_inventory_item')));
+  assert.ok(!queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.sql.includes('UPDATE technique_generation_job')));
 }
 
 async function testSchemaMigratesPlayerIdsToVarchar(): Promise<void> {
@@ -757,6 +884,9 @@ async function main(): Promise<void> {
   await testItemShortageMarksJobFailedAfterAudit();
   await testExecuteGenerationFailureRefundsConsumedItems();
   await testFailedConsumedJobRefundsOnce();
+  await testPreviewFailedTechniqueGenerationItemRefunds();
+  await testRefundFailedTechniqueGenerationItemsWritesInventoryAuditAndMarkers();
+  await testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefault();
   await testSchemaMigratesPlayerIdsToVarchar();
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
   await testGatewayStatusEmitsRollRange();
