@@ -527,19 +527,18 @@ export async function loadRecoverableGenerationJobs(pool: Pool, limit = 20): Pro
     .filter((row) => (row.category === 'internal' || row.category === 'arts') && row.grade && row.realmLv > 0);
 }
 
-export async function loadRefundableNoModelGenerationJobsForPlayer(
+export async function loadRefundableFailedGenerationJobsForPlayer(
   pool: Pool,
   playerId: string,
   limit = 20,
 ): Promise<RefundableGenerationJob[]> {
   const result = await pool.query(
     `SELECT id, player_id, item_spend
-       FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
-      WHERE player_id = $1
-        AND status = 'failed'
-        AND error_code = 'NO_MODEL'
-        AND item_consumed = true
-        AND item_refunded = false
+      FROM ${TECHNIQUE_GENERATION_JOB_TABLE}
+     WHERE player_id = $1
+       AND status = 'failed'
+       AND item_consumed = true
+       AND item_refunded = false
       ORDER BY created_at ASC, id ASC
       LIMIT $2`,
     [playerId, clampInteger(limit, 1, 200, 20)],

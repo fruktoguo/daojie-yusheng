@@ -35,7 +35,7 @@ import {
   insertGeneratedTechnique,
   insertGenerationJob,
   loadRecoverableGenerationJobs,
-  loadRefundableNoModelGenerationJobsForPlayer,
+  loadRefundableFailedGenerationJobsForPlayer,
   markGenerationJobItemConsumed,
   markGenerationJobItemRefunded,
   markGenerationJobRunning,
@@ -57,7 +57,6 @@ import {
 import {
   TECHNIQUE_GENERATION_UNLOCK_REALM_LV,
   TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
-  TECHNIQUE_GENERATION_ITEM_ID,
   TECHNIQUE_GENERATION_SCHEMA_VERSION,
 } from './technique-generation-constants';
 import type {
@@ -97,6 +96,7 @@ export class TechniqueGenerationService {
     playerContext?: string;
     itemSpend?: number;
     consumeItem: (count: number) => Promise<boolean>;
+    refundItem?: (count: number) => Promise<boolean>;
   }): Promise<GenerationJobResult> {
     const pool = this.pool;
     if (!pool) {
@@ -164,6 +164,7 @@ export class TechniqueGenerationService {
         budgetPercent,
         totalBudget,
         modelConfig,
+        refundItem: params.refundItem,
       }).catch(() => undefined);
     });
 
@@ -181,181 +182,188 @@ export class TechniqueGenerationService {
     budgetPercent?: number;
     totalBudget?: number;
     modelConfig?: AiTextModelConfig;
+    refundItem?: (count: number) => Promise<boolean>;
   }): Promise<GenerationExecutionResult> {
     const pool = this.pool;
     if (!pool) {
       return { success: false, error: '功法领悟系统未就绪' };
     }
-    await markGenerationJobRunning(pool, jobId);
+    try {
+      await markGenerationJobRunning(pool, jobId);
 
-    // 获取模型配置
-    const modelConfig = params.modelConfig ?? await this.modelConfigResolver?.();
-    if (!modelConfig) {
-      await updateGenerationJobStatus(pool, jobId, 'failed', 'NO_MODEL', 'AI 模型未配置');
-      return { success: false, error: 'AI 模型未配置' };
-    }
-
-    const maxLayer = TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
-    const budgetPercent = Number.isFinite(params.budgetPercent)
-      ? Number(params.budgetPercent)
-      : 1;
-    const totalBudget = Number.isFinite(params.totalBudget) && Number(params.totalBudget) > 0
-      ? Number(params.totalBudget)
-      : calculateGenerationTotalBudget(params.category as TechniqueCategory, params.grade as any, params.realmLv, budgetPercent);
-    const basePrompt = buildTechniquePrompt({
-      category: params.category as TechniqueCategory,
-      grade: params.grade as any,
-      realmLv: params.realmLv,
-      maxLayer,
-      playerContext: params.playerContext,
-      itemSpend: params.itemSpend,
-      budgetPercent,
-      totalBudget,
-    });
-
-    let candidate: Record<string, unknown> | null = null;
-    let successfulAiResult: AiTaskResult | null = null;
-    let lastFailureReason = '';
-    let lastFailureCode: 'AI_FAILED' | 'PARSE_FAILED' | 'VALIDATION_FAILED' = 'VALIDATION_FAILED';
-    const maxAttempts = 3;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const prompt = lastFailureReason ? buildRetryPrompt(basePrompt, lastFailureReason) : basePrompt;
-      const taskRequest: AiTaskRequest = {
-        taskType: 'technique_generation',
-        modelConfig,
-        systemMessage: prompt.systemMessage,
-        userMessage: prompt.userMessage,
-        responseFormat: 'json_object',
-        temperature: lastFailureReason ? 0.7 : 0.9,
-        timeoutMs: 60_000,
-        maxAttempts: 1,
-      };
-
-      const aiResult = await executeAiTask(taskRequest);
-      if (!aiResult.success) {
-        lastFailureReason = aiResult.error || 'AI 调用失败';
-        lastFailureCode = 'AI_FAILED';
-        continue;
+      // 获取模型配置
+      const modelConfig = params.modelConfig ?? await this.modelConfigResolver?.();
+      if (!modelConfig) {
+        await this.failGenerationAndRefundItem(jobId, 'NO_MODEL', 'AI 模型未配置', params);
+        return { success: false, error: 'AI 模型未配置' };
       }
 
-      const parsedResult = parseAiJsonObject(aiResult.content);
-      if (parsedResult.ok === false) {
-        lastFailureReason = [
-          'JSON 解析失败，请只输出单个合法 JSON 对象，不要包含代码块标记或解释文本',
-          parsedResult.error ? `解析错误：${parsedResult.error}` : '',
-          parsedResult.excerpt ? `原始返回片段：${parsedResult.excerpt}` : '',
-        ].filter(Boolean).join('；');
-        lastFailureCode = 'PARSE_FAILED';
-        continue;
-      }
-      const parsed = parsedResult.value;
-
-      const fixedCandidate = applyServerFixedTechniqueFields(parsed, {
+      const maxLayer = TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER;
+      const budgetPercent = Number.isFinite(params.budgetPercent)
+        ? Number(params.budgetPercent)
+        : 1;
+      const totalBudget = Number.isFinite(params.totalBudget) && Number(params.totalBudget) > 0
+        ? Number(params.totalBudget)
+        : calculateGenerationTotalBudget(params.category as TechniqueCategory, params.grade as any, params.realmLv, budgetPercent);
+      const basePrompt = buildTechniquePrompt({
         category: params.category as TechniqueCategory,
-        grade: params.grade,
+        grade: params.grade as any,
         realmLv: params.realmLv,
         maxLayer,
+        playerContext: params.playerContext,
+        itemSpend: params.itemSpend,
         budgetPercent,
         totalBudget,
       });
-      const validation = validateTechniqueCandidate(fixedCandidate, params.category as TechniqueCategory);
-      if (!validation.valid) {
-        lastFailureReason = validation.errors.map((e) => `${e.field}: ${e.message}`).join('; ');
-        lastFailureCode = 'VALIDATION_FAILED';
-        continue;
+
+      let candidate: Record<string, unknown> | null = null;
+      let successfulAiResult: AiTaskResult | null = null;
+      let lastFailureReason = '';
+      let lastFailureCode: 'AI_FAILED' | 'PARSE_FAILED' | 'VALIDATION_FAILED' = 'VALIDATION_FAILED';
+      const maxAttempts = 3;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const prompt = lastFailureReason ? buildRetryPrompt(basePrompt, lastFailureReason) : basePrompt;
+        const taskRequest: AiTaskRequest = {
+          taskType: 'technique_generation',
+          modelConfig,
+          systemMessage: prompt.systemMessage,
+          userMessage: prompt.userMessage,
+          responseFormat: 'json_object',
+          temperature: lastFailureReason ? 0.7 : 0.9,
+          timeoutMs: 60_000,
+          maxAttempts: 1,
+        };
+
+        const aiResult = await executeAiTask(taskRequest);
+        if (!aiResult.success) {
+          lastFailureReason = aiResult.error || 'AI 调用失败';
+          lastFailureCode = 'AI_FAILED';
+          continue;
+        }
+
+        const parsedResult = parseAiJsonObject(aiResult.content);
+        if (parsedResult.ok === false) {
+          lastFailureReason = [
+            'JSON 解析失败，请只输出单个合法 JSON 对象，不要包含代码块标记或解释文本',
+            parsedResult.error ? `解析错误：${parsedResult.error}` : '',
+            parsedResult.excerpt ? `原始返回片段：${parsedResult.excerpt}` : '',
+          ].filter(Boolean).join('；');
+          lastFailureCode = 'PARSE_FAILED';
+          continue;
+        }
+        const parsed = parsedResult.value;
+
+        const fixedCandidate = applyServerFixedTechniqueFields(parsed, {
+          category: params.category as TechniqueCategory,
+          grade: params.grade,
+          realmLv: params.realmLv,
+          maxLayer,
+          budgetPercent,
+          totalBudget,
+        });
+        const validation = validateTechniqueCandidate(fixedCandidate, params.category as TechniqueCategory);
+        if (!validation.valid) {
+          lastFailureReason = validation.errors.map((e) => `${e.field}: ${e.message}`).join('; ');
+          lastFailureCode = 'VALIDATION_FAILED';
+          continue;
+        }
+
+        candidate = fixedCandidate;
+        successfulAiResult = { ...aiResult, attemptCount: attempt };
+        break;
       }
 
-      candidate = fixedCandidate;
-      successfulAiResult = { ...aiResult, attemptCount: attempt };
-      break;
-    }
-
-    if (!candidate || !successfulAiResult) {
-      const reason = lastFailureReason || '生成内容未通过校验';
-      await updateGenerationJobStatus(pool, jobId, 'failed', lastFailureCode, reason);
-      return { success: false, error: reason };
-    }
-
-    const rawCandidate = cloneJsonRecord(candidate);
-    let artsStrengthNormalizationReport: ArtsStrengthGenerationReport | undefined;
-
-    // 补全字段
-    const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-
-    // 术法归一化：把 AI 强度草稿展开成正式 SkillDef，避免恢复时被模板注册表过滤。
-    if (params.category === 'arts') {
-      const normalizedArts = normalizeTechniqueArtsStrengthTemplate(candidate);
-      if (!normalizedArts.ok || !normalizedArts.template) {
-        const reason = normalizedArts.errors.join('; ') || '术法强度草稿无法归一化';
-        await updateGenerationJobStatus(pool, jobId, 'failed', 'VALIDATION_FAILED', reason);
+      if (!candidate || !successfulAiResult) {
+        const reason = lastFailureReason || '生成内容未通过校验';
+        await this.failGenerationAndRefundItem(jobId, lastFailureCode, reason, params);
         return { success: false, error: reason };
       }
-      const targetBudget = totalBudget;
-      const expandedArts = normalizedArts.template.skills.map((skill, index) => (
-        expandTechniqueArtsStrengthSkill({
-          techniqueId,
-          grade: params.grade as any,
-          realmLv: params.realmLv,
-          skillIndex: index,
-          skill,
-          targetBudget,
-        })
-      ));
-      candidate.skills = expandedArts.map((entry) => entry.skill);
-      artsStrengthNormalizationReport = buildArtsStrengthGenerationReport({
-        rawCandidate,
-        normalizedTemplate: normalizedArts.template,
-        expandedSkills: expandedArts,
+
+      const rawCandidate = cloneJsonRecord(candidate);
+      let artsStrengthNormalizationReport: ArtsStrengthGenerationReport | undefined;
+
+      // 补全字段
+      const techniqueId = `gen_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+      // 术法归一化：把 AI 强度草稿展开成正式 SkillDef，避免恢复时被模板注册表过滤。
+      if (params.category === 'arts') {
+        const normalizedArts = normalizeTechniqueArtsStrengthTemplate(candidate);
+        if (!normalizedArts.ok || !normalizedArts.template) {
+          const reason = normalizedArts.errors.join('; ') || '术法强度草稿无法归一化';
+          await this.failGenerationAndRefundItem(jobId, 'VALIDATION_FAILED', reason, params);
+          return { success: false, error: reason };
+        }
+        const targetBudget = totalBudget;
+        const expandedArts = normalizedArts.template.skills.map((skill, index) => (
+          expandTechniqueArtsStrengthSkill({
+            techniqueId,
+            grade: params.grade as any,
+            realmLv: params.realmLv,
+            skillIndex: index,
+            skill,
+            targetBudget,
+          })
+        ));
+        candidate.skills = expandedArts.map((entry) => entry.skill);
+        artsStrengthNormalizationReport = buildArtsStrengthGenerationReport({
+          rawCandidate,
+          normalizedTemplate: normalizedArts.template,
+          expandedSkills: expandedArts,
+        });
+      }
+
+      const template: TechniqueTemplate = {
+        id: techniqueId,
+        name: String(candidate.name ?? '无名功法'),
+        desc: typeof candidate.desc === 'string' ? candidate.desc : undefined,
+        grade: params.grade as any,
+        category: params.category,
+        realmLv: params.realmLv,
+        budgetPercent,
+        totalBudget,
+        attrRatio: params.category === 'internal'
+          ? normalizeTechniqueAttrRatio(candidate.attrRatio as Record<string, unknown>)
+          : undefined,
+        attrFloat: typeof candidate.attrFloat === 'number' ? candidate.attrFloat : undefined,
+        maxLayer,
+        expDifficulty: typeof candidate.expDifficulty === 'number' ? candidate.expDifficulty : 1.0,
+        skills: params.category === 'arts' ? candidate.skills as any : undefined,
+      };
+
+      // 落库
+      await insertGeneratedTechnique(pool, {
+        id: techniqueId,
+        generationId: jobId,
+        template,
+        schemaVersion: TECHNIQUE_GENERATION_SCHEMA_VERSION,
+        createdByPlayerId: params.playerId,
+        modelName: successfulAiResult.modelName,
+        promptSnapshot: params.playerContext,
+        validationReport: {
+          valid: true,
+          errors: [],
+          ...(artsStrengthNormalizationReport ? { artsStrength: artsStrengthNormalizationReport } : {}),
+        },
+        grade: params.grade,
+        category: params.category,
+        realmLv: params.realmLv,
       });
+
+      await updateGenerationJobToDraft(pool, {
+        id: jobId,
+        draftTechniqueId: techniqueId,
+        modelName: successfulAiResult.modelName,
+        attemptCount: successfulAiResult.attemptCount,
+        draftExpireHours: TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
+      });
+
+      return { success: true, techniqueId };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '功法领悟失败';
+      await this.failGenerationAndRefundItem(jobId, 'GENERATION_FAILED', message, params).catch(() => undefined);
+      return { success: false, error: message };
     }
-
-    const template: TechniqueTemplate = {
-      id: techniqueId,
-      name: String(candidate.name ?? '无名功法'),
-      desc: typeof candidate.desc === 'string' ? candidate.desc : undefined,
-      grade: params.grade as any,
-      category: params.category,
-      realmLv: params.realmLv,
-      budgetPercent,
-      totalBudget,
-      attrRatio: params.category === 'internal'
-        ? normalizeTechniqueAttrRatio(candidate.attrRatio as Record<string, unknown>)
-        : undefined,
-      attrFloat: typeof candidate.attrFloat === 'number' ? candidate.attrFloat : undefined,
-      maxLayer,
-      expDifficulty: typeof candidate.expDifficulty === 'number' ? candidate.expDifficulty : 1.0,
-      skills: params.category === 'arts' ? candidate.skills as any : undefined,
-    };
-
-    // 落库
-    await insertGeneratedTechnique(pool, {
-      id: techniqueId,
-      generationId: jobId,
-      template,
-      schemaVersion: TECHNIQUE_GENERATION_SCHEMA_VERSION,
-      createdByPlayerId: params.playerId,
-      modelName: successfulAiResult.modelName,
-      promptSnapshot: params.playerContext,
-      validationReport: {
-        valid: true,
-        errors: [],
-        ...(artsStrengthNormalizationReport ? { artsStrength: artsStrengthNormalizationReport } : {}),
-      },
-      grade: params.grade,
-      category: params.category,
-      realmLv: params.realmLv,
-    });
-
-    await updateGenerationJobToDraft(pool, {
-      id: jobId,
-      draftTechniqueId: techniqueId,
-      modelName: successfulAiResult.modelName,
-      attemptCount: successfulAiResult.attemptCount,
-      draftExpireHours: TECHNIQUE_GENERATION_DRAFT_EXPIRE_HOURS,
-    });
-
-    return { success: true, techniqueId };
   }
 
   async getPreview(playerId: string, jobId: string): Promise<TechniquePreview | null> {
@@ -512,7 +520,7 @@ export class TechniqueGenerationService {
     return jobs.length;
   }
 
-  async refundNoModelFailedConsumedJobsForPlayer(params: {
+  async refundFailedConsumedJobsForPlayer(params: {
     playerId: string;
     refundItem: (count: number) => Promise<boolean>;
     limit?: number;
@@ -521,7 +529,7 @@ export class TechniqueGenerationService {
     if (!pool) {
       return 0;
     }
-    const jobs = await loadRefundableNoModelGenerationJobsForPlayer(pool, params.playerId, params.limit ?? 20);
+    const jobs = await loadRefundableFailedGenerationJobsForPlayer(pool, params.playerId, params.limit ?? 20);
     let refunded = 0;
     for (const job of jobs) {
       if (this.refundingJobIds.has(job.id)) {
@@ -542,6 +550,44 @@ export class TechniqueGenerationService {
       }
     }
     return refunded;
+  }
+
+  async refundNoModelFailedConsumedJobsForPlayer(params: {
+    playerId: string;
+    refundItem: (count: number) => Promise<boolean>;
+    limit?: number;
+  }): Promise<number> {
+    return this.refundFailedConsumedJobsForPlayer(params);
+  }
+
+  private async failGenerationAndRefundItem(
+    jobId: string,
+    errorCode: string,
+    errorMessage: string,
+    params: { itemSpend?: number; refundItem?: (count: number) => Promise<boolean> },
+  ): Promise<void> {
+    const pool = this.pool;
+    if (!pool) {
+      return;
+    }
+    await updateGenerationJobStatus(pool, jobId, 'failed', errorCode, errorMessage);
+    if (typeof params.refundItem !== 'function') {
+      return;
+    }
+    if (this.refundingJobIds.has(jobId)) {
+      return;
+    }
+    this.refundingJobIds.add(jobId);
+    try {
+      const itemSpend = normalizeRefundItemSpend(params.itemSpend);
+      const refundOk = await params.refundItem(itemSpend);
+      if (!refundOk) {
+        return;
+      }
+      await markGenerationJobItemRefunded(pool, jobId);
+    } finally {
+      this.refundingJobIds.delete(jobId);
+    }
   }
 }
 
@@ -588,6 +634,14 @@ function calculateGenerationTotalBudget(
     ? calcArtsBudgetMax(grade, realmLv) * normalizedBudgetPercent
     : calcInternalTechniqueAttrTotalByBudgetPercent(grade, realmLv, normalizedBudgetPercent);
   return Math.round(totalBudget * 10_000) / 10_000;
+}
+
+function normalizeRefundItemSpend(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 1;
+  }
+  return Math.max(1, Math.trunc(numeric));
 }
 
 function applyServerFixedTechniqueFields(

@@ -123,6 +123,14 @@ export class WorldGatewayTechniqueGenerationHelper {
         consumeItem: async (count) => {
           return this.deps.playerRuntimeService.consumeItemByItemId(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
         },
+        refundItem: async (count) => {
+          if (typeof this.deps.playerRuntimeService.grantItem !== 'function') {
+            return false;
+          }
+          this.deps.playerRuntimeService.grantItem(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
+          this.deps.worldSyncService?.emitDeltaSync(playerId, client);
+          return true;
+        },
       });
     } catch (error: unknown) {
       client.emit(S2C.TechniqueGenerationResult, {
@@ -177,10 +185,13 @@ export class WorldGatewayTechniqueGenerationHelper {
     if (!this.techniqueGenerationService || typeof this.deps.playerRuntimeService.grantItem !== 'function') {
       return;
     }
-    const refunded = await this.techniqueGenerationService.refundNoModelFailedConsumedJobsForPlayer({
+    const refunded = await this.techniqueGenerationService.refundFailedConsumedJobsForPlayer({
       playerId,
       refundItem: async (count) => {
-        this.deps.playerRuntimeService.grantItem?.(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
+        if (typeof this.deps.playerRuntimeService.grantItem !== 'function') {
+          return false;
+        }
+        this.deps.playerRuntimeService.grantItem(playerId, TECHNIQUE_GENERATION_ITEM_ID, count);
         return true;
       },
     });

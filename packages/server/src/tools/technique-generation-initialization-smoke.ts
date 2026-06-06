@@ -183,13 +183,42 @@ async function testItemShortageMarksJobFailedAfterAudit(): Promise<void> {
   assert.ok(insertIndex < failedIndex);
 }
 
-async function testNoModelConsumedJobRefundsOnce(): Promise<void> {
+async function testExecuteGenerationFailureRefundsConsumedItems(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool: createFakePool(queries),
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => null,
+  });
+
+  let refundedCount = 0;
+  const result = await service.executeGeneration('job_execute_refund_smoke', {
+    playerId: 'p_execute_refund_smoke',
+    category: 'internal',
+    grade: 'mystic',
+    realmLv: 31,
+    playerContext: '',
+    itemSpend: 7,
+    refundItem: async (count) => {
+      refundedCount += count;
+      return true;
+    },
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(refundedCount, 7);
+  assert.ok(queries.some((entry) => entry.sql.includes('UPDATE technique_generation_job') && entry.params?.[2] === 'NO_MODEL'));
+  assert.ok(queries.some((entry) => entry.sql.includes('item_refunded = true') && entry.params?.[0] === 'job_execute_refund_smoke'));
+}
+
+async function testFailedConsumedJobRefundsOnce(): Promise<void> {
   const queries: QueryRecord[] = [];
   const pool = {
     query: async (sql: unknown, params?: unknown[]) => {
       const text = String(sql);
       queries.push({ sql: text, params });
-      if (text.includes('FROM technique_generation_job') && text.includes("error_code = 'NO_MODEL'")) {
+      if (text.includes('FROM technique_generation_job') && text.includes("status = 'failed'")) {
         return {
           rows: [{ id: 'job_refund_smoke', player_id: 'p_refund_smoke', item_spend: 10 }],
           rowCount: 1,
@@ -209,7 +238,7 @@ async function testNoModelConsumedJobRefundsOnce(): Promise<void> {
   });
 
   let refundedCount = 0;
-  const result = await service.refundNoModelFailedConsumedJobsForPlayer({
+  const result = await service.refundFailedConsumedJobsForPlayer({
     playerId: 'p_refund_smoke',
     refundItem: async (count) => {
       refundedCount += count;
@@ -726,7 +755,8 @@ async function main(): Promise<void> {
   await testNoModelFailsWithoutConsumingItem();
   await testInitializedServiceConsumesRequestedItemSpend();
   await testItemShortageMarksJobFailedAfterAudit();
-  await testNoModelConsumedJobRefundsOnce();
+  await testExecuteGenerationFailureRefundsConsumedItems();
+  await testFailedConsumedJobRefundsOnce();
   await testSchemaMigratesPlayerIdsToVarchar();
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
   await testGatewayStatusEmitsRollRange();
