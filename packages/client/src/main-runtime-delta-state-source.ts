@@ -19,7 +19,7 @@ import {
 } from '@mud/shared';
 import { logMovement } from './debug/movement-debug';
 import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
-import { resolveTwoWayMonsterFacing } from './entity-facing';
+import { resolveMonsterFacing } from './entity-facing';
 import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
 import { getMonsterPresentation } from './monster-presentation';
 import type { MainRuntimeObservedEntity as ObservedEntity } from './main-runtime-view-types';
@@ -493,7 +493,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       kind: 'monster',
       monsterId: patch.mid ?? previous?.monsterId,
       monsterTier: patch.tr ?? previous?.monsterTier,
-      facing: resolveTwoWayMonsterFacing(patch.f, previous?.facing),
+      facing: resolveMonsterFacing(patch.f, previous?.facing),
       hp: patch.hp ?? previous?.hp,
       maxHp: patch.maxHp ?? previous?.maxHp,
       qi: patch.qi ?? previous?.qi,

@@ -30,20 +30,54 @@ function buildBaseEntitySpriteKeys(entity: SpriteLookupEntity): string[] {
   }
 }
 
-export function resolveTwoWayMonsterFacing(
+export function resolveMonsterFacing(
   nextFacing: Direction | null | undefined,
   previousFacing: Direction | null | undefined,
 ): Direction | undefined {
-  if (nextFacing === Direction.West || nextFacing === Direction.East) {
+  if (
+    nextFacing === Direction.West
+    || nextFacing === Direction.East
+    || nextFacing === Direction.North
+    || nextFacing === Direction.South
+  ) {
     return nextFacing;
   }
-  if (previousFacing === Direction.West || previousFacing === Direction.East) {
+  if (
+    previousFacing === Direction.West
+    || previousFacing === Direction.East
+    || previousFacing === Direction.North
+    || previousFacing === Direction.South
+  ) {
     return previousFacing;
   }
-  if (nextFacing === Direction.North || nextFacing === Direction.South) {
-    return Direction.West;
-  }
   return undefined;
+}
+
+export const resolveTwoWayMonsterFacing = resolveMonsterFacing;
+
+function resolveMonsterFacingKey(facing: Direction | undefined): string | null {
+  switch (facing) {
+    case Direction.North:
+      return 'north';
+    case Direction.South:
+      return 'south';
+    case Direction.East:
+      return 'right';
+    case Direction.West:
+      return 'left';
+    default:
+      return null;
+  }
+}
+
+function resolveTwoWayMonsterSide(facing: Direction | undefined): 'left' | 'right' | null {
+  if (facing === Direction.East) {
+    return 'right';
+  }
+  if (facing === Direction.West || facing === Direction.North || facing === Direction.South) {
+    return 'left';
+  }
+  return null;
 }
 
 export function buildEntitySpriteLookupPlan(entity: SpriteLookupEntity): EntitySpriteLookupPlan {
@@ -56,11 +90,13 @@ export function buildEntitySpriteLookupPlan(entity: SpriteLookupEntity): EntityS
     };
   }
 
-  const facing = resolveTwoWayMonsterFacing(entity.facing, undefined);
-  const side = facing === Direction.East ? 'right' : (facing === Direction.West ? 'left' : null);
-  const directionalKeys = side
-    ? baseKeys.map((key) => `${key}:${side}`)
-    : [];
+  const facing = resolveMonsterFacing(entity.facing, undefined);
+  const directionKey = resolveMonsterFacingKey(facing);
+  const side = resolveTwoWayMonsterSide(facing);
+  const directionalKeys = [
+    ...(directionKey ? baseKeys.map((key) => `${key}:${directionKey}`) : []),
+    ...(side && side !== directionKey ? baseKeys.map((key) => `${key}:${side}`) : []),
+  ];
 
   return {
     keys: [...directionalKeys, ...baseKeys],

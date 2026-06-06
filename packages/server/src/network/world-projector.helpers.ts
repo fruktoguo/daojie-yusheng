@@ -637,9 +637,22 @@ function projectNpcEntry(entry: ProjectorNpcLike): ProjectedNpcEntry {
 
 function projectMonsterEntry(entry: ProjectorMonsterLike): ProjectedMonsterEntry {
     const cached = monsterProjectionCache.get(entry);
-    if (cached) { return cached; }
+    if (cached
+        && cached.x === entry.x
+        && cached.y === entry.y
+        && cached.f === entry.facing
+        && cached.hp === entry.hp
+        && cached.maxHp === entry.maxHp
+        && cached.qi === entry.qi
+        && cached.maxQi === entry.maxQi
+        && cached.n === entry.name
+        && cached.c === entry.color
+        && cached.tr === entry.tier) {
+        return cached;
+    }
+    const monsterId = cached?.mid ?? entry.monsterId;
     const projected = freezeProjectedEntry({
-        mid: entry.monsterId, x: entry.x, y: entry.y, f: entry.facing, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
+        mid: monsterId, x: entry.x, y: entry.y, f: entry.facing, hp: entry.hp, maxHp: entry.maxHp, qi: entry.qi, maxQi: entry.maxQi, n: entry.name, c: entry.color, tr: entry.tier,
     });
     monsterProjectionCache.set(entry, projected);
     return projected;

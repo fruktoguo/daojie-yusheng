@@ -5924,6 +5924,12 @@ class MapInstanceRuntime {
             }
 
             const distance = chebyshevDistance(monster.x, monster.y, target.x, target.y);
+            const targetFacing = resolveFacingToward(monster.x, monster.y, target.x, target.y);
+            if (monster.facing !== targetFacing) {
+                monster.facing = targetFacing;
+                this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
+                changed = true;
+            }
 
             const skill = chooseMonsterSkill(monster, target, distance, this.tick);
             if (skill) {
@@ -5942,7 +5948,6 @@ class MapInstanceRuntime {
                         const warningOrigin = (geometry.shape ?? 'single') === 'line'
                             ? { x: monster.x, y: monster.y }
                             : skillAnchor;
-                        monster.facing = resolveFacingToward(monster.x, monster.y, target.x, target.y);
                         monster.pendingCast = createMonsterPendingCombatCast({
                             runtimeId: monster.runtimeId,
                             instanceId: this.meta.instanceId,

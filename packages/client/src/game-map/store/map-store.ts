@@ -36,7 +36,7 @@ import {
   rememberVisibleTilePatches,
   rememberVisibleTiles,
 } from '../../map-memory';
-import { resolveTwoWayMonsterFacing } from '../../entity-facing';
+import { resolveMonsterFacing } from '../../entity-facing';
 import { hydrateClientGroundItemEntryName } from '../../content/item-display-name';
 import {
   cacheMapMeta,
@@ -174,7 +174,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     monsterId: entity.monsterId,
     monsterTier: entity.monsterTier,
     monsterScale: entity.monsterScale,
-    facing: kind === 'monster' ? resolveTwoWayMonsterFacing(entity.facing, undefined) : entity.facing,
+    facing: kind === 'monster' ? resolveMonsterFacing(entity.facing, undefined) : entity.facing,
     hp: entity.hp,
     maxHp: entity.maxHp,
     respawnRemainingTicks: entity.respawnRemainingTicks,
@@ -219,7 +219,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
     monsterScale: applyNullablePatch(patch.monsterScale, previous?.monsterScale),
     facing: kind === 'monster'
-      ? resolveTwoWayMonsterFacing(patch.facing, previous?.facing)
+      ? resolveMonsterFacing(patch.facing, previous?.facing)
       : (patch.facing ?? previous?.facing),
     hp: applyNullablePatch(patch.hp, previous?.hp),
     maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
