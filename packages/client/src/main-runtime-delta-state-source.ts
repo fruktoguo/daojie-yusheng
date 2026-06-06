@@ -1155,24 +1155,54 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       const startedAt = startRuntimeProfileMetric();
       try {
         if (data.attr) {
-          options.handleAttrUpdate(data.attr);
+          const branchStartedAt = startRuntimeProfileMetric();
+          try {
+            options.handleAttrUpdate(data.attr);
+          } finally {
+            endRuntimeProfileMetric('runtime.delta.panel.attr', branchStartedAt);
+          }
         }
         if (data.inv) {
-          options.handleInventoryUpdate(data.inv);
+          const branchStartedAt = startRuntimeProfileMetric();
+          try {
+            options.handleInventoryUpdate(data.inv);
+          } finally {
+            endRuntimeProfileMetric('runtime.delta.panel.inventory', branchStartedAt);
+          }
         }
         if (data.eq) {
-          options.handleEquipmentUpdate(data.eq);
+          const branchStartedAt = startRuntimeProfileMetric();
+          try {
+            options.handleEquipmentUpdate(data.eq);
+          } finally {
+            endRuntimeProfileMetric('runtime.delta.panel.equipment', branchStartedAt);
+          }
         }
         if (data.tech) {
-          options.handleTechniqueUpdate(data.tech);
+          const branchStartedAt = startRuntimeProfileMetric();
+          try {
+            options.handleTechniqueUpdate(data.tech);
+          } finally {
+            endRuntimeProfileMetric('runtime.delta.panel.technique', branchStartedAt);
+          }
         }
         if (data.act) {
-          options.handleActionsUpdate(data.act);
+          const branchStartedAt = startRuntimeProfileMetric();
+          try {
+            options.handleActionsUpdate(data.act);
+          } finally {
+            endRuntimeProfileMetric('runtime.delta.panel.actions', branchStartedAt);
+          }
         }
         const player = options.getPlayer();
         if (data.buff && player) {
-          player.temporaryBuffs = mergeVisibleBuffStates(player.temporaryBuffs, data.buff);
-          options.refreshObservedDecorations();
+          const branchStartedAt = startRuntimeProfileMetric();
+          try {
+            player.temporaryBuffs = mergeVisibleBuffStates(player.temporaryBuffs, data.buff);
+            options.refreshObservedDecorations();
+          } finally {
+            endRuntimeProfileMetric('runtime.delta.panel.buff', branchStartedAt);
+          }
         }
       } finally {
         endRuntimeProfileMetric('runtime.delta.handlePanelDelta', startedAt);

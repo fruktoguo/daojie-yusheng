@@ -33,6 +33,12 @@ export const RUNTIME_PROFILE_METRIC_KEYS = [
   'runtime.delta.applySelfDeltaToRuntime',
   'runtime.delta.finalizeSelfDelta',
   'runtime.delta.handlePanelDelta',
+  'runtime.delta.panel.attr',
+  'runtime.delta.panel.inventory',
+  'runtime.delta.panel.equipment',
+  'runtime.delta.panel.technique',
+  'runtime.delta.panel.actions',
+  'runtime.delta.panel.buff',
 ] as const;
 
 export type RuntimeProfileMetricKey = typeof RUNTIME_PROFILE_METRIC_KEYS[number];
