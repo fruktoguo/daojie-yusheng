@@ -29,7 +29,6 @@ import type {
 } from '@mud/shared';
 import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
-  ALCHEMY_MAX_CRAFT_QUANTITY,
   EQUIP_SLOTS,
   MAX_ENHANCE_LEVEL,
   applyEquipmentAttributeEffectivenessToItemStack,
@@ -4277,7 +4276,6 @@ export class CraftWorkbenchModal {
       ? Math.floor(this.getAlchemySpiritStoneOwnedCount() / spiritStonePerBatch)
       : Number.POSITIVE_INFINITY;
     const maxQuantity = Math.min(
-      ALCHEMY_MAX_CRAFT_QUANTITY,
       spiritStoneCap,
       ...(ingredientCaps.length > 0 ? ingredientCaps : [0]),
     );
@@ -4421,7 +4419,6 @@ export class CraftWorkbenchModal {
                 type="number"
                 inputmode="numeric"
                 min="1"
-                max="${ALCHEMY_MAX_CRAFT_QUANTITY}"
                 step="1"
                 value="${escapeHtml(this.confirmQuantityDraft || '1')}"
               />

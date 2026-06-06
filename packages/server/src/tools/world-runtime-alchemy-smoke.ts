@@ -5,7 +5,6 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import type { AlchemyRecipeCatalogEntry, RuntimeTechniqueActivityKind } from '@mud/shared';
-import { ALCHEMY_MAX_CRAFT_QUANTITY } from '@mud/shared';
 import { WorldRuntimeAlchemyService } from '../runtime/world/world-runtime-alchemy.service';
 import { WorldRuntimeCraftMutationService } from '../runtime/world/world-runtime-craft-mutation.service';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
@@ -57,7 +56,7 @@ const FORGING_RECIPE: AlchemyRecipeCatalogEntry = {
 async function main(): Promise<void> {
   testAlchemyForgingCancelUsesPipelineLifecycle();
   await testDirectAlchemyJobNoPreparationAndSeparateInterruptWait();
-  await testAlchemyQuantityAcceptsThreeDigitsAndCapsExtremeInput();
+  await testAlchemyQuantityUsesResourceLimitsWithoutFixedCap();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
   await testAlchemyFailureDoesNotCreateOutput();
   await testAlchemyOutputDropsWhenInventoryFull();
@@ -72,7 +71,7 @@ async function main(): Promise<void> {
     answers: [
       '炼丹/炼器创建后直接进入实际制作 job，不再创建玩家可见准备阶段。',
       '打断等待独立于 workRemainingTicks/workTotalTicks。',
-      '炼丹/炼器单次任务数量不再卡 99，三位数批量可正常创建，异常超大输入会按共享上限收敛。',
+      '炼丹/炼器单次任务数量不再卡固定上限，资源足够时可创建 10000 批，资源不足时按材料/灵石校验失败。',
       '制造型队列写入 techniqueActivityQueue，当前任务完成后能启动下一项。',
       '炼丹/炼器入队不会提前消耗材料或灵石。',
       '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 物化退款。',
@@ -142,7 +141,7 @@ async function testDirectAlchemyJobNoPreparationAndSeparateInterruptWait(): Prom
   assert.equal((cancel.messages ?? []).some((message) => String(message.text ?? '').includes('炉')), false);
 }
 
-async function testAlchemyQuantityAcceptsThreeDigitsAndCapsExtremeInput(): Promise<void> {
+async function testAlchemyQuantityUsesResourceLimitsWithoutFixedCap(): Promise<void> {
   const player = createPlayer('player:alchemy:quantity:three-digits', [
     { itemId: 'herb.qi', count: 120 },
     { itemId: 'spirit_stone', count: 120 },
@@ -160,21 +159,39 @@ async function testAlchemyQuantityAcceptsThreeDigitsAndCapsExtremeInput(): Promi
   assert.equal(player.alchemyJob?.quantity, 100);
   assert.equal(player.alchemyJob?.workTotalTicks, ALCHEMY_RECIPE.baseBrewTicks * 100);
 
-  const cappedPlayer = createPlayer('player:alchemy:quantity:capped', [
-    { itemId: 'herb.qi', count: ALCHEMY_MAX_CRAFT_QUANTITY },
-    { itemId: 'spirit_stone', count: ALCHEMY_MAX_CRAFT_QUANTITY },
+  const highQuantity = 10000;
+  const highQuantityPlayer = createPlayer('player:alchemy:quantity:resource-limit', [
+    { itemId: 'herb.qi', count: highQuantity },
+    { itemId: 'spirit_stone', count: highQuantity },
   ]);
-  const { craftService: cappedCraftService } = createCraftHarness(cappedPlayer);
-  const cappedCtx = cappedCraftService.buildPipelineContext(createDeps([]));
+  const { craftService: highQuantityCraftService } = createCraftHarness(highQuantityPlayer);
+  const highQuantityCtx = highQuantityCraftService.buildPipelineContext(createDeps([]));
 
-  const cappedStart = cappedCraftService.startTechniqueActivity(cappedPlayer, 'alchemy', {
+  const highQuantityStart = highQuantityCraftService.startTechniqueActivity(highQuantityPlayer, 'alchemy', {
     recipeId: ALCHEMY_RECIPE.recipeId,
     ingredients: [{ itemId: 'herb.qi', count: 1 }],
-    quantity: ALCHEMY_MAX_CRAFT_QUANTITY + 1,
-  }, cappedCtx.deps);
+    quantity: highQuantity,
+  }, highQuantityCtx.deps);
 
-  assert.equal(cappedStart.ok, true);
-  assert.equal(cappedPlayer.alchemyJob?.quantity, ALCHEMY_MAX_CRAFT_QUANTITY);
+  assert.equal(highQuantityStart.ok, true);
+  assert.equal(highQuantityPlayer.alchemyJob?.quantity, highQuantity);
+
+  const overResourcePlayer = createPlayer('player:alchemy:quantity:over-resource', [
+    { itemId: 'herb.qi', count: highQuantity },
+    { itemId: 'spirit_stone', count: highQuantity },
+  ]);
+  const { craftService: overResourceCraftService } = createCraftHarness(overResourcePlayer);
+  const overResourceCtx = overResourceCraftService.buildPipelineContext(createDeps([]));
+
+  const overResourceStart = overResourceCraftService.startTechniqueActivity(overResourcePlayer, 'alchemy', {
+    recipeId: ALCHEMY_RECIPE.recipeId,
+    ingredients: [{ itemId: 'herb.qi', count: 1 }],
+    quantity: highQuantity + 1,
+  }, overResourceCtx.deps);
+
+  assert.equal(overResourceStart.ok, false);
+  assert.match(String(overResourceStart.error ?? ''), /数量不足|灵石不足/);
+  assert.equal(overResourcePlayer.alchemyJob, null);
 }
 
 async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {

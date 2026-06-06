@@ -7,7 +7,6 @@
 | 常量 | 值 | 说明 | 源文件 |
 |------|-----|------|--------|
 | ALCHEMY_FURNACE_OUTPUT_COUNT | 6 | 炼丹单次制作产出倍率 | craft.ts |
-| ALCHEMY_MAX_CRAFT_QUANTITY | 9999 | 单次炼丹/炼器任务最大批数 | craft.ts |
 | ALCHEMY_MAX_PRESET_COUNT | 24 | 预设最大数量 | craft-panel-runtime.service.ts |
 | ALCHEMY_INTERRUPT_PAUSE_TICKS | 10 | 被打断暂停息数 | craft-panel-runtime.service.ts |
 
@@ -80,6 +79,14 @@ totalTicks = adjustedBrewTicks × quantity
 ```typescript
 alchemySpiritStoneCost = recipeLevel × quantity  // consumesSpiritStone=true时
 ```
+
+## 单次炼制批量
+
+```typescript
+maxQuantity = min(材料可支持批数, 灵石可支持批数)
+```
+
+不设置额外固定批数上限。
 
 ## 产出数量
 
