@@ -20,7 +20,6 @@ import {
 } from 'pixi.js';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
-  Direction,
   getAuraLevel,
   isMobileEntityObjectKind,
   isOffsetInRange,
@@ -143,16 +142,13 @@ type RuntimeEntitySpriteSelection = {
 const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
   flipX: false,
 };
-const SHOW_MONSTER_FACING_DEBUG_LABEL = true;
+const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 
-function resolveMonsterFacingDebugLabel(facing: ObservedMapEntity['facing']): string {
-  if (facing === Direction.West) {
-    return '左';
-  }
-  if (facing === Direction.East) {
-    return '右';
-  }
-  return '?';
+function easeInOutCubic(t: number): number {
+  const value = clamp01(t);
+  return value < 0.5
+    ? 4 * value * value * value
+    : 1 - Math.pow(-2 * value + 2, 3) / 2;
 }
 
 interface EntityView {
@@ -163,7 +159,6 @@ interface EntityView {
   image: Sprite;
   glyph: Text;
   label: Text;
-  debugFacingLabel: Text;
   badge: Text;
   hpBar: Graphics;
   progressBar: Graphics;
@@ -173,6 +168,11 @@ interface EntityView {
   respawnLabel: Text;
   staticSignature: string;
   hiddenByFormation: boolean;
+  imageBaseScaleX: number;
+  imageBaseScaleY: number;
+  imageFlipSourceSign: number;
+  imageFlipTargetSign: number;
+  imageFlipStartedAt: number;
 }
 
 interface FloatingTextEffect {
@@ -2086,7 +2086,6 @@ export class PixiMapRendererAdapter {
       image: new Sprite(Texture.EMPTY),
       glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
       label: new Text({ text: '', style: textStyle('label', getCellSize() * 0.3, '#cce7ff'), anchor: 0.5 }),
-      debugFacingLabel: new Text({ text: '', style: textStyle('badge', getCellSize() * 0.24, '#fff36b', 'rgba(20,10,0,0.96)', 3), anchor: 0.5 }),
       badge: new Text({ text: '', style: textStyle('badge', getCellSize() * 0.2, '#fff6eb'), anchor: 0.5 }),
       hpBar: new Graphics(),
       progressBar: new Graphics(),
@@ -2096,11 +2095,16 @@ export class PixiMapRendererAdapter {
       respawnLabel: new Text({ text: '', style: textStyle('label', getCellSize() * 0.22, '#e7d5a7'), anchor: 0.5 }),
       staticSignature: '',
       hiddenByFormation: false,
+      imageBaseScaleX: 1,
+      imageBaseScaleY: 1,
+      imageFlipSourceSign: 1,
+      imageFlipTargetSign: 1,
+      imageFlipStartedAt: 0,
     };
     view.image.anchor.set(0.5);
     view.image.visible = false;
     visualRoot.addChild(view.shadow, view.image, view.glyph);
-    root.addChild(view.formationMarker, visualRoot, view.label, view.debugFacingLabel, view.badge, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
+    root.addChild(view.formationMarker, visualRoot, view.label, view.badge, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
     return view;
   }
 
@@ -2140,10 +2144,6 @@ export class PixiMapRendererAdapter {
     view.label.style = textStyle('label', cellSize * (anim.kind === 'crowd' ? 0.24 : 0.3), resolveEntityLabelColor(anim.kind));
     const labelY = cellSize - visualCellSize - Math.max(6, cellSize * 0.18);
     view.label.position.set(cellSize / 2, labelY);
-    view.debugFacingLabel.visible = SHOW_MONSTER_FACING_DEBUG_LABEL && anim.kind === 'monster';
-    view.debugFacingLabel.text = view.debugFacingLabel.visible ? resolveMonsterFacingDebugLabel(anim.facing) : '';
-    view.debugFacingLabel.style = textStyle('badge', cellSize * 0.24, '#fff36b', 'rgba(20,10,0,0.96)', 3);
-    view.debugFacingLabel.position.set(cellSize / 2, labelY - Math.max(10, cellSize * 0.3));
     const badge = anim.badge ?? presentation?.badge;
     view.badge.visible = shouldShowLabel && Boolean(badge);
     view.badge.text = badge?.text ?? '';
@@ -2181,14 +2181,44 @@ export class PixiMapRendererAdapter {
       targetH = Math.max(1, texture.height * scale);
     }
     view.image.texture = texture;
-    view.image.scale.set(
-      (selection.transform.flipX ? -1 : 1) * (targetW / Math.max(1, texture.width)),
-      targetH / Math.max(1, texture.height),
-    );
+    const baseScaleX = targetW / Math.max(1, texture.width);
+    const baseScaleY = targetH / Math.max(1, texture.height);
+    const nextFlipSign = selection.transform.flipX ? -1 : 1;
+    const now = performance.now();
+    const currentFlipSign = this.resolveCurrentImageFlipSign(view, now);
+    const shouldAnimateFlip = view.image.visible && view.imageFlipTargetSign !== nextFlipSign;
+    view.imageBaseScaleX = baseScaleX;
+    view.imageBaseScaleY = baseScaleY;
+    view.imageFlipSourceSign = shouldAnimateFlip ? currentFlipSign : nextFlipSign;
+    view.imageFlipTargetSign = nextFlipSign;
+    view.imageFlipStartedAt = shouldAnimateFlip ? now : 0;
+    this.applyEntityImageScale(view, now);
     view.image.rotation = 0;
     view.image.position.set(visualCellSize / 2, visualCellSize / 2);
     view.image.visible = true;
     return true;
+  }
+
+  private resolveCurrentImageFlipSign(view: EntityView, now: number): number {
+    if (view.imageFlipStartedAt <= 0) {
+      return view.imageFlipTargetSign;
+    }
+    const progress = clamp01((now - view.imageFlipStartedAt) / ENTITY_FACING_FLIP_TRANSITION_MS);
+    if (progress >= 1) {
+      return view.imageFlipTargetSign;
+    }
+    const eased = easeInOutCubic(progress);
+    return view.imageFlipSourceSign + (view.imageFlipTargetSign - view.imageFlipSourceSign) * eased;
+  }
+
+  private applyEntityImageScale(view: EntityView, now: number): void {
+    const sign = this.resolveCurrentImageFlipSign(view, now);
+    view.image.scale.set(view.imageBaseScaleX * sign, view.imageBaseScaleY);
+    if (view.imageFlipStartedAt > 0 && now - view.imageFlipStartedAt >= ENTITY_FACING_FLIP_TRANSITION_MS) {
+      view.imageFlipStartedAt = 0;
+      view.imageFlipSourceSign = view.imageFlipTargetSign;
+      view.image.scale.set(view.imageBaseScaleX * view.imageFlipTargetSign, view.imageBaseScaleY);
+    }
   }
 
   private drawEntityBars(view: EntityView, visualCellSize: number): void {
@@ -2329,6 +2359,7 @@ export class PixiMapRendererAdapter {
     const impactScaleY = 1 - travelPulse * 0.06 - landPulse * 0.12;
     const visualCellSize = Math.max(1, view.visualRoot.pivot.x * 2);
     view.visualRoot.scale.set(isMoving ? 1 + travelPulse * 0.24 : 1, isMoving ? 1 - travelPulse * 0.16 : 1);
+    this.applyEntityImageScale(view, performance.now());
     view.glyph.rotation = isMoving ? glyphLean : 0;
     view.glyph.scale.set(isMoving ? impactScaleX : 1, isMoving ? impactScaleY : 1);
     view.glyph.y = visualCellSize / 2 - travelPulse * getCellSize() * 0.08;

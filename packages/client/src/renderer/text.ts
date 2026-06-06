@@ -18,7 +18,6 @@ import {
 } from './types';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
-  Direction,
   GameTimeState,
   GroundItemEntryView,
   GroundItemPileView,
@@ -74,17 +73,7 @@ import { TileSpriteCache } from './tile-sprite-cache';
 import { runtimeImagePack } from './runtime-image-pack';
 import { t as translateUi } from '../ui/i18n';
 
-const SHOW_MONSTER_FACING_DEBUG_LABEL = true;
-
-function resolveMonsterFacingDebugLabel(facing: RenderEntity['facing']): string {
-  if (facing === Direction.West) {
-    return '左';
-  }
-  if (facing === Direction.East) {
-    return '右';
-  }
-  return '?';
-}
+const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 
 /** 时间氛围过渡状态。 */
 interface TimeAtmosphereState {
@@ -298,6 +287,13 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
+function easeInOutCubic(t: number): number {
+  const value = Math.max(0, Math.min(1, t));
+  return value < 0.5
+    ? 4 * value * value * value
+    : 1 - Math.pow(-2 * value + 2, 3) / 2;
+}
+
 /** 依据感气值计算叠加层 RGBA 样式。 */
 function getSenseQiOverlayStyle(
   aura: number,
@@ -402,6 +398,8 @@ interface AnimEntity {
  */
 
   targetWY: number;  
+  /** 朝向翻转过渡开始时间。 */
+  facingFlipStartedAt?: number;
   /**
  * char：char相关字段。
  */
@@ -2075,6 +2073,9 @@ export class TextRenderer implements IRenderer {
         anim.monsterId = e.monsterId;
         anim.monsterTier = e.monsterTier;
         anim.monsterScale = e.monsterScale;
+        if (anim.facing !== e.facing) {
+          anim.facingFlipStartedAt = performance.now();
+        }
         anim.facing = e.facing;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
@@ -2104,6 +2105,7 @@ export class TextRenderer implements IRenderer {
           oldWY: twy,
           targetWX: twx,
           targetWY: twy,
+          facingFlipStartedAt: 0,
           char: e.char,
           color: e.color,
           badge: e.badge ?? undefined,
@@ -2142,6 +2144,18 @@ export class TextRenderer implements IRenderer {
       this.lastMotionSyncToken = motionSyncToken;
     }
     this.rebuildFormationRangeVisualCacheIfNeeded();
+  }
+
+  private resolveFacingFlipScale(anim: AnimEntity, now: number): number {
+    if (!anim.facingFlipStartedAt) {
+      return 1;
+    }
+    const progress = Math.max(0, Math.min(1, (now - anim.facingFlipStartedAt) / ENTITY_FACING_FLIP_TRANSITION_MS));
+    if (progress >= 1) {
+      anim.facingFlipStartedAt = 0;
+      return 1;
+    }
+    return -1 + 2 * easeInOutCubic(progress);
   }
 
   /** 绘制所有实体（角色/怪物/NPC），含位置插值动画 */
@@ -2282,17 +2296,28 @@ export class TextRenderer implements IRenderer {
       ctx.font = buildCanvasFont('entityGlyph', visualCellSize * 0.75);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      const facingFlipScale = this.resolveFacingFlipScale(anim, performance.now());
       ctx.save();
       ctx.translate(visualSx + visualCellSize / 2, visualSy + visualCellSize / 2 - glyphLift);
+      if (facingFlipScale !== 1) {
+        ctx.scale(facingFlipScale, 1);
+      }
       if (isMoving) {
         ctx.rotate(glyphLean);
         ctx.scale(impactScaleX, impactScaleY);
       }
       const drewEntityImage = runtimeImagePack.drawEntity(ctx, anim, -visualCellSize / 2, -visualCellSize / 2, visualCellSize);
-      if (!drewEntityImage) {
-        this.drawOutlinedText(anim.char, 0, 0, anim.color, 'rgba(15,12,10,0.9)');
-      }
       ctx.restore();
+      if (!drewEntityImage) {
+        ctx.save();
+        ctx.translate(visualSx + visualCellSize / 2, visualSy + visualCellSize / 2 - glyphLift);
+        if (isMoving) {
+          ctx.rotate(glyphLean);
+          ctx.scale(impactScaleX, impactScaleY);
+        }
+        this.drawOutlinedText(anim.char, 0, 0, anim.color, 'rgba(15,12,10,0.9)');
+        ctx.restore();
+      }
 
       if (anim.kind) {
         const isNpc = anim.kind === 'npc';
@@ -2305,15 +2330,6 @@ export class TextRenderer implements IRenderer {
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
         const labelColor = resolveEntityLabelColor(anim.kind);
         const badge = anim.badge ?? monsterPresentation?.badge;
-        if (SHOW_MONSTER_FACING_DEBUG_LABEL && anim.kind === 'monster') {
-          this.drawOutlinedText(
-            resolveMonsterFacingDebugLabel(anim.facing),
-            sx + renderedCellSize / 2,
-            labelY - Math.max(10, renderedCellSize * 0.3),
-            '#fff36b',
-            'rgba(20,10,0,0.96)',
-          );
-        }
         if (!isFormation || anim.formationShowText !== false) {
           if (badge) {
             this.drawEntityBadgeLabel(
