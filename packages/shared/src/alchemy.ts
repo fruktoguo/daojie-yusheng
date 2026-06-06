@@ -16,6 +16,7 @@ import { computeAdjustedCraftTicks } from './craft-duration';
 import { computeCraftAdjustedSuccessRate } from './craft-success';
 
 import {
+  ALCHEMY_MAX_CRAFT_QUANTITY,
   ALCHEMY_MAX_PRESET_COUNT,
   ALCHEMY_FURNACE_OUTPUT_COUNT,
 } from './constants/gameplay/craft';
@@ -27,7 +28,7 @@ function normalizeAlchemyLevel(value: number | undefined): number {
 }
 
 export function normalizeAlchemyQuantity(value: number | undefined): number {
-  return Math.max(1, Math.floor(Number(value) || 1));
+  return Math.max(1, Math.min(ALCHEMY_MAX_CRAFT_QUANTITY, Math.floor(Number(value) || 1)));
 }
 
 export function computeAlchemyBatchOutputCount(outputCount: number | undefined): number {

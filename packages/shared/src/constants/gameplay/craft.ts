@@ -22,6 +22,9 @@ export const CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL = 20;
 /** 炼丹预设最大数量 */
 export const ALCHEMY_MAX_PRESET_COUNT = 24;
 
+/** 单次炼丹/炼器任务允许提交的最大批数。 */
+export const ALCHEMY_MAX_CRAFT_QUANTITY = 9999;
+
 /** 兼容旧存档字段；炼丹/炼器不再有玩家可见准备阶段。 */
 export const ALCHEMY_PREPARATION_TICKS = 0;
 

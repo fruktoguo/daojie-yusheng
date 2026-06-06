@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isExactAlchemyRecipe, isLegacyItemInstanceId } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ALCHEMY_MAX_CRAFT_QUANTITY, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isExactAlchemyRecipe, isLegacyItemInstanceId } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -336,7 +336,7 @@ export class CraftPanelRuntimeService {
         if ('error' in normalizedSelection) {
             return { ok: false, error: normalizedSelection.error };
         }
-        const quantity = normalizeQuantity(payload?.quantity, 1, 99);
+        const quantity = normalizeQuantity(payload?.quantity, 1, ALCHEMY_MAX_CRAFT_QUANTITY);
         const furnaceOutputCount = jobKind === 'forging' || recipe.category === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
         const baseSuccessRate = computeAlchemySuccessRate(recipe, normalizedSelection.ingredients);
         const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
@@ -3097,7 +3097,7 @@ function createAlchemyPresetId(recipeId) {
  * @returns 无返回值，直接更新Quantity相关状态。
  */
 
-function normalizeQuantity(value, fallback = 1, max = 99) {
+function normalizeQuantity(value, fallback = 1, max = ALCHEMY_MAX_CRAFT_QUANTITY) {
     return Math.max(1, Math.min(max, Math.floor(Number(value) || fallback)));
 }
 /**

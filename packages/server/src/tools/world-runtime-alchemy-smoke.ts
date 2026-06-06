@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import assert from 'node:assert/strict';
 
 import type { AlchemyRecipeCatalogEntry, RuntimeTechniqueActivityKind } from '@mud/shared';
+import { ALCHEMY_MAX_CRAFT_QUANTITY } from '@mud/shared';
 import { WorldRuntimeAlchemyService } from '../runtime/world/world-runtime-alchemy.service';
 import { WorldRuntimeCraftMutationService } from '../runtime/world/world-runtime-craft-mutation.service';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
@@ -56,6 +57,7 @@ const FORGING_RECIPE: AlchemyRecipeCatalogEntry = {
 async function main(): Promise<void> {
   testAlchemyForgingCancelUsesPipelineLifecycle();
   await testDirectAlchemyJobNoPreparationAndSeparateInterruptWait();
+  await testAlchemyQuantityAcceptsThreeDigitsAndCapsExtremeInput();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
   await testAlchemyFailureDoesNotCreateOutput();
   await testAlchemyOutputDropsWhenInventoryFull();
@@ -70,6 +72,7 @@ async function main(): Promise<void> {
     answers: [
       '炼丹/炼器创建后直接进入实际制作 job，不再创建玩家可见准备阶段。',
       '打断等待独立于 workRemainingTicks/workTotalTicks。',
+      '炼丹/炼器单次任务数量不再卡 99，三位数批量可正常创建，异常超大输入会按共享上限收敛。',
       '制造型队列写入 techniqueActivityQueue，当前任务完成后能启动下一项。',
       '炼丹/炼器入队不会提前消耗材料或灵石。',
       '炼丹/炼器取消不再暴露 strategy executeCancel，公共 cancelLifecycle 通过 computeRefund 物化退款。',
@@ -137,6 +140,41 @@ async function testDirectAlchemyJobNoPreparationAndSeparateInterruptWait(): Prom
   assert.equal(cancel.ok, true);
   assert.equal(player.alchemyJob, null);
   assert.equal((cancel.messages ?? []).some((message) => String(message.text ?? '').includes('炉')), false);
+}
+
+async function testAlchemyQuantityAcceptsThreeDigitsAndCapsExtremeInput(): Promise<void> {
+  const player = createPlayer('player:alchemy:quantity:three-digits', [
+    { itemId: 'herb.qi', count: 120 },
+    { itemId: 'spirit_stone', count: 120 },
+  ]);
+  const { craftService } = createCraftHarness(player);
+  const ctx = craftService.buildPipelineContext(createDeps([]));
+
+  const start = craftService.startTechniqueActivity(player, 'alchemy', {
+    recipeId: ALCHEMY_RECIPE.recipeId,
+    ingredients: [{ itemId: 'herb.qi', count: 1 }],
+    quantity: 100,
+  }, ctx.deps);
+
+  assert.equal(start.ok, true);
+  assert.equal(player.alchemyJob?.quantity, 100);
+  assert.equal(player.alchemyJob?.workTotalTicks, ALCHEMY_RECIPE.baseBrewTicks * 100);
+
+  const cappedPlayer = createPlayer('player:alchemy:quantity:capped', [
+    { itemId: 'herb.qi', count: ALCHEMY_MAX_CRAFT_QUANTITY },
+    { itemId: 'spirit_stone', count: ALCHEMY_MAX_CRAFT_QUANTITY },
+  ]);
+  const { craftService: cappedCraftService } = createCraftHarness(cappedPlayer);
+  const cappedCtx = cappedCraftService.buildPipelineContext(createDeps([]));
+
+  const cappedStart = cappedCraftService.startTechniqueActivity(cappedPlayer, 'alchemy', {
+    recipeId: ALCHEMY_RECIPE.recipeId,
+    ingredients: [{ itemId: 'herb.qi', count: 1 }],
+    quantity: ALCHEMY_MAX_CRAFT_QUANTITY + 1,
+  }, cappedCtx.deps);
+
+  assert.equal(cappedStart.ok, true);
+  assert.equal(cappedPlayer.alchemyJob?.quantity, ALCHEMY_MAX_CRAFT_QUANTITY);
 }
 
 async function testAlchemyQueueStartsNextJobFromUnifiedQueue(): Promise<void> {
@@ -483,6 +521,7 @@ function createCraftHarness(player: any): {
   persistedActiveJobs: any[];
 } {
   const persistedActiveJobs: any[] = [];
+  const persistedTechniqueActivityQueues: Array<readonly unknown[]> = [];
   const contentTemplateRepository = createContentTemplateRepository();
   const playerRuntimeService = createPlayerRuntimeService(player);
   const playerDomainPersistenceService = {
@@ -491,6 +530,9 @@ function createCraftHarness(player: any): {
     },
     async savePlayerActiveJob(_playerId: string, activeJob: unknown): Promise<void> {
       persistedActiveJobs.push(activeJob);
+    },
+    async savePlayerTechniqueActivityQueue(_playerId: string, rows: readonly unknown[]): Promise<void> {
+      persistedTechniqueActivityQueues.push(rows);
     },
   };
   const alchemyQueryService = {
