@@ -11,7 +11,7 @@
  * 产出 MonsterAdvancerResult 描述妖兽移动和目标变更。
  */
 
-import { Direction, isOffsetInRange } from '@mud/shared';
+import { Direction, horizontalFacingFromDelta, isOffsetInRange, normalizeHorizontalFacing } from '@mud/shared';
 
 /** 切比雪夫距离（4 参数本地版本）。 */
 function chebyshevDistance(ax: number, ay: number, bx: number, by: number): number {
@@ -260,6 +260,7 @@ function chooseMonsterStep(
   fromY: number,
   targetX: number,
   targetY: number,
+  previousFacing: Direction,
 ): Array<{ x: number; y: number; facing: Direction }> {
   const dx = Math.sign(targetX - fromX);
   const dy = Math.sign(targetY - fromY);
@@ -268,7 +269,7 @@ function chooseMonsterStep(
     candidates.push({ x: fromX + dx, y: fromY, facing: dx > 0 ? Direction.East : Direction.West });
   }
   if (dy !== 0) {
-    candidates.push({ x: fromX, y: fromY + dy, facing: dy > 0 ? Direction.South : Direction.North });
+    candidates.push({ x: fromX, y: fromY + dy, facing: normalizeHorizontalFacing(undefined, previousFacing) });
   }
   if (Math.abs(targetX - fromX) < Math.abs(targetY - fromY) && dx !== 0) {
     candidates.push({ x: fromX + dx, y: fromY, facing: dx > 0 ? Direction.East : Direction.West });
@@ -288,8 +289,8 @@ export function stepMonsterIdleRoam(
   const directions: Array<{ dx: number; dy: number; facing: Direction }> = [
     { dx: 1, dy: 0, facing: Direction.East },
     { dx: -1, dy: 0, facing: Direction.West },
-    { dx: 0, dy: 1, facing: Direction.South },
-    { dx: 0, dy: -1, facing: Direction.North },
+    { dx: 0, dy: 1, facing: normalizeHorizontalFacing(undefined, monster.facing) },
+    { dx: 0, dy: -1, facing: normalizeHorizontalFacing(undefined, monster.facing) },
   ];
   const startIndex = Math.floor(Math.random() * directions.length);
   for (let offset = 0; offset < directions.length; offset += 1) {
@@ -309,7 +310,7 @@ export function stepMonsterIdleRoam(
       fromY: monster.y,
       toX: nextX,
       toY: nextY,
-      facing: direction.facing,
+      facing: horizontalFacingFromDelta(direction.dx, monster.facing),
     };
   }
   return null;
@@ -322,7 +323,7 @@ export function tryMoveMonsterToward(
   targetY: number,
   ctx: MonsterAdvancerContext,
 ): MonsterMoveCommand | null {
-  const candidates = chooseMonsterStep(monster.x, monster.y, targetX, targetY);
+  const candidates = chooseMonsterStep(monster.x, monster.y, targetX, targetY, monster.facing);
   for (const candidate of candidates) {
     if (!ctx.isOpenTile(candidate.x, candidate.y)) {
       continue;

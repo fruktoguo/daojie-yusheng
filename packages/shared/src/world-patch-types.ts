@@ -257,6 +257,11 @@ export interface WorldPlayerPatchView {
 
   y?: number;  
   /**
+ * f：朝向。
+ */
+
+  f?: Direction;
+  /**
  * sc：sc相关字段。
  */
 

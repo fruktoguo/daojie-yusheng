@@ -8,7 +8,7 @@
  * 单张地图的全部运行态：地块平面、占位、妖兽 AI、战斗、建筑、
  * 资源刷新、灵气流动、AOI 广播和持久化脏域追踪。
  */
-import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, directionFromTo, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
+import { BUILDING_TOPOLOGY_BLOCKS_MOVE, BUILDING_TOPOLOGY_BLOCKS_SIGHT, DEFAULT_AGGRO_THRESHOLD, DEFAULT_PASSIVE_THREAT_PER_TICK, DEFAULT_QI_RESOURCE_DESCRIPTOR, Direction, GROUND_ITEM_EXPIRE_TICKS, LOST_TARGET_THREAT_DECAY_RATIO, LOST_TARGET_THREAT_FLAT_DECAY_HP_RATIO, MAX_THREAT_VALUE, QI_HALF_LIFE_RATE_SCALE, StructureType, TERRAIN_DESTROYED_RESTORE_TICKS, TERRAIN_REGEN_RATE_PER_TICK, TERRAIN_RESTORE_RETRY_DELAY_TICKS, THREAT_DISTANCE_FALLOFF_PER_TILE, TILE_AURA_HALF_LIFE_RATE_SCALE, TILE_AURA_HALF_LIFE_RATE_SCALED, TerrainType, TileType, buildEffectiveTargetingGeometry, buildQiResourceKey, calcQiCostWithOutputLimit, calculateTerrainDurability, composeTileTypeFromLayers, computeAffectedCellsFromAnchor, createItemStackSignature, createNumericStats, doesTileTypeBlockSight, getEffectiveMoveSpeed, getLayeredTileTraversalCost, getMaxStoredMovePoints, getMovePointsPerTick, getStructureDurabilityProfile, getTileTraversalCost, getTileTypeFromMapChar, horizontalFacingFromDelta, horizontalFacingFromTo, isGroundInteractableCellLayerTarget, isOffsetInRange, isTileTypeWalkable, mergeItemStackEntryInto, normalizeHorizontalFacing, normalizeStructureType, normalizeSurfaceType, normalizeTerrainType, parseQiResourceKey, percentModifierToMultiplier, resolveDefaultTileLayerFallback, resolveMonsterTemplateRecord, resolveSkillRequiresTarget, resolveTileLayerSeedFromTemplateContext, resolveTileLayerSeedFromTileType } from '@mud/shared';
 import { readTrimmedEnv } from '../../config/env-alias';
 import '../map/map-template.repository';
 import { RuntimeTilePlane } from '../map/runtime-tile-plane';
@@ -662,7 +662,7 @@ class MapInstanceRuntime {
             sessionId: request.sessionId,
             x: spawn.x,
             y: spawn.y,
-            facing: Direction.South,
+            facing: Direction.East,
             joinedAtTick: this.tick,
             lastResolvedTick: this.tick,
             moveSpeed: 0,
@@ -5168,8 +5168,8 @@ class MapInstanceRuntime {
         const remainingPath = Array.isArray(path) && path.length > 0 ? path : null;
         let rechargedMoveBudget = false;
         let requiredMovePoints = 0;
-        if (!remainingPath && player.facing !== direction) {
-            player.facing = direction;
+        if (!remainingPath && player.facing !== horizontalFacingFromDelta(offset.x, player.facing)) {
+            player.facing = horizontalFacingFromDelta(offset.x, player.facing);
             player.selfRevision += 1;
         }
         while (true) {
@@ -5181,7 +5181,7 @@ class MapInstanceRuntime {
 
             let nextY;
 
-            let stepDirection = direction;
+            let stepDirection = horizontalFacingFromDelta(offset.x, player.facing);
             if (remainingPath) {
 
                 const nextStep = remainingPath[0];
@@ -5191,11 +5191,7 @@ class MapInstanceRuntime {
                 nextX = nextStep.x;
                 nextY = nextStep.y;
 
-                const resolvedDirection = directionFromTo(player.x, player.y, nextX, nextY);
-                if (resolvedDirection === null) {
-                    break;
-                }
-                stepDirection = resolvedDirection;
+                stepDirection = horizontalFacingFromTo(player.x, player.y, nextX, nextY, player.facing);
             }
             else {
                 nextX = player.x + offset.x;
@@ -5508,6 +5504,7 @@ class MapInstanceRuntime {
             && cached.displayName === player.displayName
             && cached.x === player.x
             && cached.y === player.y
+            && cached.facing === player.facing
             && cached.buffs === player.buffs) {
             return cached;
         }
@@ -5517,6 +5514,7 @@ class MapInstanceRuntime {
             displayName: player.displayName,
             x: player.x,
             y: player.y,
+            facing: player.facing,
             buffs: player.buffs,
         });
         this.localPlayerViewCacheByPlayerId.set(player.playerId, entry);
@@ -5924,7 +5922,7 @@ class MapInstanceRuntime {
             }
 
             const distance = chebyshevDistance(monster.x, monster.y, target.x, target.y);
-            const targetFacing = resolveFacingToward(monster.x, monster.y, target.x, target.y);
+            const targetFacing = horizontalFacingFromTo(monster.x, monster.y, target.x, target.y, monster.facing);
             if (monster.facing !== targetFacing) {
                 monster.facing = targetFacing;
                 this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
@@ -6885,8 +6883,8 @@ class MapInstanceRuntime {
         const directions = [
             { dx: 1, dy: 0, facing: Direction.East },
             { dx: -1, dy: 0, facing: Direction.West },
-            { dx: 0, dy: 1, facing: Direction.South },
-            { dx: 0, dy: -1, facing: Direction.North },
+            { dx: 0, dy: 1, facing: normalizeHorizontalFacing(undefined, monster.facing) },
+            { dx: 0, dy: -1, facing: normalizeHorizontalFacing(undefined, monster.facing) },
         ];
         const startIndex = Math.floor(Math.random() * directions.length);
         for (let offset = 0; offset < directions.length; offset += 1) {
@@ -6905,7 +6903,7 @@ class MapInstanceRuntime {
             this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
             monster.x = nextX;
             monster.y = nextY;
-            monster.facing = direction.facing;
+            monster.facing = horizontalFacingFromDelta(direction.dx, monster.facing);
             this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
             this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
             return true;
@@ -6921,10 +6919,11 @@ class MapInstanceRuntime {
             if (!this.isOpenTile(candidate.x, candidate.y)) {
                 continue;
             }
+            const nextFacing = horizontalFacingFromTo(monster.x, monster.y, candidate.x, candidate.y, monster.facing);
             this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
             monster.x = candidate.x;
             monster.y = candidate.y;
-            monster.facing = candidate.facing;
+            monster.facing = nextFacing;
             this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
             this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
             return true;
@@ -8243,18 +8242,6 @@ function isMonsterTargetInsideSelfAnchoredSkillArea(monster, skill, target) {
     return buildMonsterSkillAffectedCells(monster, skill, anchor)
         .some((cell) => cell.x === target.x && cell.y === target.y);
 }
-function resolveFacingToward(fromX, fromY, toX, toY) {
-    if (toX > fromX) {
-        return Direction.East;
-    }
-    if (toX < fromX) {
-        return Direction.West;
-    }
-    if (toY > fromY) {
-        return Direction.South;
-    }
-    return Direction.North;
-}
 function buildMonsterSpawnKey(monsterId, spawnX, spawnY) {
     return `monster_spawn:${monsterId}:${spawnX}:${spawnY}`;
 }
@@ -8632,7 +8619,7 @@ function chooseMonsterStep(fromX, fromY, targetX, targetY) {
         candidates.push({
             x: fromX,
             y: fromY + dy,
-            facing: dy > 0 ? Direction.South : Direction.North,
+            facing: Direction.East,
         });
     }
     if (Math.abs(targetX - fromX) < Math.abs(targetY - fromY) && dx !== 0) {

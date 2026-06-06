@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Direction, TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, signedRatioValue, uiLabels } from '@mud/shared';
+import { TileType, buildEffectiveTargetingGeometry, calcQiCostWithOutputLimit, computeAffectedCellsFromAnchor, formatDisplayNumber, horizontalFacingFromTo, parseTileTargetRef, percentModifierToMultiplier, resolveSkillRequiresTarget, signedRatioValue, uiLabels } from '@mud/shared';
 import { PlayerCombatService } from '../../combat/player-combat.service';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
 import { resolveMonsterCombatExpEquivalentFallback } from '../../combat/monster-combat-exp-equivalent.helper';
@@ -290,17 +290,34 @@ function getPlayerSkillWarningColor(skill) {
         ? skill.playerCast.warningColor.trim()
         : undefined;
 }
-function resolveFacingToward(fromX, fromY, toX, toY) {
-    if (toX > fromX) {
-        return Direction.East;
+function resolvePlayerSkillFacingAnchor(attacker, targets, castOptions = undefined) {
+    const optionX = Number(castOptions?.targetX);
+    const optionY = Number(castOptions?.targetY);
+    if (Number.isFinite(optionX) && Number.isFinite(optionY)) {
+        return { x: Math.trunc(optionX), y: Math.trunc(optionY) };
     }
-    if (toX < fromX) {
-        return Direction.West;
+    const target = (Array.isArray(targets) ? targets : [])
+        .find((entry) => entry?.kind !== 'self' && Number.isFinite(Number(entry?.x)) && Number.isFinite(Number(entry?.y)));
+    if (!target) {
+        return null;
     }
-    if (toY > fromY) {
-        return Direction.South;
+    return { x: Math.trunc(Number(target.x)), y: Math.trunc(Number(target.y)) };
+}
+function applyPlayerHorizontalFacingToward(playerRuntimeService, instance, attacker, anchor) {
+    if (!anchor || !Number.isFinite(Number(anchor.x)) || !Number.isFinite(Number(anchor.y))) {
+        return;
     }
-    return Direction.North;
+    const nextFacing = horizontalFacingFromTo(attacker.x, attacker.y, anchor.x, anchor.y, attacker.facing);
+    if (attacker.facing === nextFacing) {
+        return;
+    }
+    attacker.facing = nextFacing;
+    attacker.selfRevision += 1;
+    if (instance) {
+        instance.worldRevision += 1;
+    }
+    playerRuntimeService.markPersistenceDirtyDomains?.(attacker, ['world_anchor', 'position_checkpoint']);
+    playerRuntimeService.bumpPersistentRevision?.(attacker);
 }
 function buildPlayerSkillAffectedCells(attacker, skill, anchor) {
     const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
@@ -769,6 +786,7 @@ export class WorldRuntimePlayerSkillDispatchService {
             throw new BadRequestException('没有可生成石头的地块');
         }
         spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
+        applyPlayerHorizontalFacingToward(this.playerRuntimeService, instance, attacker, anchor);
         emitCombatPresentation({
             deps,
             instanceId: attacker.instanceId,
@@ -830,7 +848,8 @@ export class WorldRuntimePlayerSkillDispatchService {
         const qiCost = spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
         const cooldownReadyTick = Math.max(0, Math.trunc(Number(attacker.combat?.cooldownReadyTickBySkillId?.[skill.id] ?? 0)));
         deps.worldRuntimeNavigationService?.clearNavigationIntent?.(attacker.playerId);
-        attacker.facing = resolveFacingToward(attacker.x, attacker.y, anchor.x, anchor.y);
+        const instance = deps.getInstanceRuntime?.(attacker.instanceId) ?? null;
+        applyPlayerHorizontalFacingToward(this.playerRuntimeService, instance, attacker, anchor);
         const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const warningOrigin = (geometry.shape ?? 'single') === 'line'
             ? { x: attacker.x, y: attacker.y }
@@ -860,7 +879,6 @@ export class WorldRuntimePlayerSkillDispatchService {
             configRevision: skill.version ?? skill.revision,
             skipProgressThisTick: attacker.combat?.autoBattle !== true,
         });
-        const instance = deps.getInstanceRuntime?.(attacker.instanceId) ?? null;
         const durationMs = resolveTickScaledChantDurationMs(windupTicks, instance?.tickSpeed);
         emitCombatPresentation({
             deps,
@@ -1319,6 +1337,12 @@ export class WorldRuntimePlayerSkillDispatchService {
             }
             targets = plannedTargets;
         }
+        applyPlayerHorizontalFacingToward(
+            this.playerRuntimeService,
+            instance,
+            attacker,
+            resolvePlayerSkillFacingAnchor(attacker, targets, castOptions),
+        );
         const outcomeDeps = castOptions?.combatActionPhase
             ? { ...deps, combatActionPhase: castOptions.combatActionPhase }
             : deps;

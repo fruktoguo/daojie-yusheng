@@ -273,7 +273,7 @@ export class WorldSyncEnvelopeService {
             || envelope?.selfDelta?.f !== undefined
             || (worldSelfPatch && (typeof worldSelfPatch.x === 'number'
                 || typeof worldSelfPatch.y === 'number'
-                || worldSelfPatch.facing !== undefined)));
+                || worldSelfPatch.f !== undefined)));
         if (!hasMovementSignal) {
             return;
         }
@@ -293,7 +293,7 @@ export class WorldSyncEnvelopeService {
                 ? {
                     x: typeof worldSelfPatch.x === 'number' ? worldSelfPatch.x : null,
                     y: typeof worldSelfPatch.y === 'number' ? worldSelfPatch.y : null,
-                    facing: worldSelfPatch.facing ?? null,
+                    facing: worldSelfPatch.f ?? null,
                 }
                 : null,
             selfDelta: envelope?.selfDelta

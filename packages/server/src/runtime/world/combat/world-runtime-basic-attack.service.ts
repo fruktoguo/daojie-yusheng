@@ -4,7 +4,7 @@
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要表现字段。
  */
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, uiLabels } from '@mud/shared';
+import { formatDisplayNumber, getBasicAttackCombatExperienceDamageMultiplier, getDamageTrailColor, horizontalFacingFromTo, uiLabels } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { resolveCombatDamage } from '../../combat/combat-pipeline-compose';
 import { createCombatOutcomeApplyAdapters } from '../../combat/combat-outcome-apply-adapters';
@@ -100,6 +100,22 @@ function buildBasicAttackNoticeResolution(resolvedDamage, damageKind) {
         resolution.resolved = true;
     }
     return resolution;
+}
+function applyPlayerBasicAttackFacing(playerRuntimeService, instance, attacker, targetX, targetY) {
+    if (!Number.isFinite(Number(targetX)) || !Number.isFinite(Number(targetY))) {
+        return;
+    }
+    const nextFacing = horizontalFacingFromTo(attacker.x, attacker.y, targetX, targetY, attacker.facing);
+    if (attacker.facing === nextFacing) {
+        return;
+    }
+    attacker.facing = nextFacing;
+    attacker.selfRevision += 1;
+    if (instance) {
+        instance.worldRevision += 1;
+    }
+    playerRuntimeService.markPersistenceDirtyDomains?.(attacker, ['world_anchor', 'position_checkpoint']);
+    playerRuntimeService.bumpPersistentRevision?.(attacker);
 }
 
 /** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
@@ -256,8 +272,10 @@ export class WorldRuntimeBasicAttackService {
         if (chebyshevDistance(attacker.x, attacker.y, formation.x, formation.y) > 1) {
             throw new BadRequestException('目标超出攻击距离');
         }
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, formation.x, formation.y);
         const effectColor = getDamageTrailColor(damageKind);
-        const appliedOutcome = this.applyPlayerBasicAttackOutcome(deps, attacker, {
+        const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
             kind: CombatTargetKind.Formation,
             id: formation.id,
             x: formation.x,
@@ -310,6 +328,7 @@ export class WorldRuntimeBasicAttackService {
         if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
             throw new BadRequestException('目标超出攻击距离');
         }
+        applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, monster.x, monster.y);
         const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps);
         const effectColor = getDamageTrailColor(damageKind);
         const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
@@ -387,6 +406,7 @@ export class WorldRuntimeBasicAttackService {
         if (typeof instance.canSeeTileFrom === 'function' && instance.canSeeTileFrom(attacker.x, attacker.y, target.x, target.y, 1) === false) {
             throw new BadRequestException('目标被遮挡');
         }
+        applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, target.x, target.y);
         const resolvedDamage = this.resolveBasicAttackDamageAgainstPlayer(attacker, target, baseDamage, damageKind);
         const effectColor = getDamageTrailColor(damageKind);
         emitCombatPresentation({
@@ -485,6 +505,7 @@ export class WorldRuntimeBasicAttackService {
             if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
                 throw new BadRequestException('目标超出攻击距离');
             }
+            applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, targetX, targetY);
             const effectColor = getDamageTrailColor(damageKind);
             const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
                 kind: CombatTargetKind.Formation,
@@ -525,6 +546,7 @@ export class WorldRuntimeBasicAttackService {
         if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
             throw new BadRequestException('目标超出攻击距离');
         }
+        applyPlayerBasicAttackFacing(this.playerRuntimeService, instance, attacker, targetX, targetY);
         const container = !planTargetsTile && !planTargetsBoundary && typeof instance.getContainerAtTile === 'function' ? instance.getContainerAtTile(targetX, targetY) : null;
         const lootContainerService = deps.worldRuntimeLootContainerService;
         const damageContainerAtTile = typeof lootContainerService?.damageAttackableContainerAtTile === 'function'

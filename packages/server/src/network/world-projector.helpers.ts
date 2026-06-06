@@ -389,6 +389,7 @@ function buildFullWorldDeltaFromState(
         ch: entry.ch,
         x: entry.x,
         y: entry.y,
+        f: entry.f,
         sc: entry.sc ?? undefined,
     }));
     const monsters: WorldMonsterPatchView[] = Array.from(state.monsters, ([id, entry]) => ({
@@ -601,6 +602,7 @@ function captureWorldState(
         n: resolvePlayerRenderLabel(view.self.name, view.self.displayName, view.playerId),
         ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
         x: view.self.x, y: view.self.y,
+        f: view.self.facing,
         sc: resolveBuffPresentationScale(view.self.buffs),
     });
     for (const entry of view.visiblePlayers) {
@@ -608,6 +610,7 @@ function captureWorldState(
             n: resolvePlayerRenderLabel(entry.name, entry.displayName, entry.playerId),
             ch: resolvePlayerRenderChar(entry.displayName, entry.name),
             x: entry.x, y: entry.y,
+            f: entry.facing,
             sc: resolveBuffPresentationScale(entry.buffs),
         });
     }

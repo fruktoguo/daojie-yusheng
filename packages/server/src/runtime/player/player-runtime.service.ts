@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeHorizontalFacing, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -353,7 +353,7 @@ export class PlayerRuntimeService {
             },
             x: 0,
             y: 0,
-            facing: Direction.South,
+            facing: Direction.East,
             hp: 100,
             maxHp: 100,
             qi: 0,
@@ -1558,8 +1558,9 @@ export class PlayerRuntimeService {
             player.y = view.self.y;
             anchorChanged = true;
         }
-        if (player.facing !== view.self.facing) {
-            player.facing = view.self.facing;
+        const nextFacing = normalizeHorizontalFacing(view.self.facing, player.facing);
+        if (player.facing !== nextFacing) {
+            player.facing = nextFacing;
             anchorChanged = true;
         }
         const nextFengShuiLuck = Math.trunc(Number(view.self.fengShuiLuck ?? 0) || 0);
@@ -1606,8 +1607,9 @@ export class PlayerRuntimeService {
             player.y = view.self.y;
             anchorChanged = true;
         }
-        if (player.facing !== view.self.facing) {
-            player.facing = view.self.facing;
+        const nextFacing = normalizeHorizontalFacing(view.self.facing, player.facing);
+        if (player.facing !== nextFacing) {
+            player.facing = nextFacing;
             anchorChanged = true;
         }
         const nextFengShuiLuck = Math.trunc(Number(view.self.fengShuiLuck ?? 0) || 0);
@@ -4262,8 +4264,9 @@ export class PlayerRuntimeService {
             player.y = input.y;
             changed = true;
         }
-        if (player.facing !== input.facing) {
-            player.facing = input.facing;
+        const nextFacing = normalizeHorizontalFacing(input.facing, player.facing);
+        if (player.facing !== nextFacing) {
+            player.facing = nextFacing;
             changed = true;
         }
         if (player.hp !== player.maxHp) {
@@ -4392,9 +4395,9 @@ export class PlayerRuntimeService {
         player.respawnY = Number.isFinite(placement?.y) ? Math.trunc(placement.y) : 0;
         player.x = Number.isFinite(placement?.x) ? Math.trunc(placement.x) : 0;
         player.y = Number.isFinite(placement?.y) ? Math.trunc(placement.y) : 0;
-        player.facing = Number.isFinite(placement?.facing)
+        player.facing = normalizeHorizontalFacing(Number.isFinite(placement?.facing)
             ? Math.trunc(placement.facing)
-            : Direction.South;
+            : undefined);
         player.unlockedMapIds = [templateId];
         return buildRuntimePlayerPersistenceSnapshot(player, this.mapTemplateRepository);
     }
@@ -4419,7 +4422,7 @@ export class PlayerRuntimeService {
             templateId: template.id,
             x: template.spawnX,
             y: template.spawnY,
-            facing: Direction.South,
+            facing: Direction.East,
         });
     }
     /**
@@ -4733,7 +4736,7 @@ export class PlayerRuntimeService {
             },
             x: snapshot.placement.x,
             y: snapshot.placement.y,
-            facing: snapshot.placement.facing,
+            facing: normalizeHorizontalFacing(snapshot.placement.facing),
             hp: snapshot.vitals.hp,
             maxHp: snapshot.vitals.maxHp,
             qi: snapshot.vitals.qi,

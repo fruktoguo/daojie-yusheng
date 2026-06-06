@@ -6,7 +6,6 @@
 // 地图存储：客户端地图状态管理，维护地块缓存、玩家状态、实体与增量更新
 import {
   VIEW_RADIUS,
-  type Direction,
   type GroundItemPilePatch,
   type GroundItemPileView,
   type MapMeta,
@@ -26,6 +25,7 @@ import {
   getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
+  normalizeHorizontalFacing,
   resolveTileLayerSeedFromTileType,
 } from '@mud/shared';
 import {
@@ -36,7 +36,6 @@ import {
   rememberVisibleTilePatches,
   rememberVisibleTiles,
 } from '../../map-memory';
-import { resolveMonsterFacing } from '../../entity-facing';
 import { hydrateClientGroundItemEntryName } from '../../content/item-display-name';
 import {
   cacheMapMeta,
@@ -110,6 +109,16 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
   return fallback;
 }
 
+function resolveObservedFacing(
+  kind: RenderEntity['kind'] | undefined,
+  nextFacing: RenderEntity['facing'] | null | undefined,
+  previousFacing?: RenderEntity['facing'] | null | undefined,
+): RenderEntity['facing'] | undefined {
+  return kind === 'monster' || kind === 'player'
+    ? normalizeHorizontalFacing(nextFacing, previousFacing)
+    : (nextFacing ?? previousFacing ?? undefined);
+}
+
 function isDemonizedBuffCarrier(buffs: readonly { buffId: string; stacks: number }[] | null | undefined): boolean {
   return (buffs ?? []).some((buff) => (
     buff.buffId === PVP_SHA_INFUSION_BUFF_ID
@@ -174,7 +183,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     monsterId: entity.monsterId,
     monsterTier: entity.monsterTier,
     monsterScale: entity.monsterScale,
-    facing: kind === 'monster' ? resolveMonsterFacing(entity.facing, undefined) : entity.facing,
+    facing: resolveObservedFacing(kind, entity.facing, undefined),
     hp: entity.hp,
     maxHp: entity.maxHp,
     respawnRemainingTicks: entity.respawnRemainingTicks,
@@ -218,9 +227,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     monsterId: applyNullablePatch(patch.monsterId, previous?.monsterId),
     monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
     monsterScale: applyNullablePatch(patch.monsterScale, previous?.monsterScale),
-    facing: kind === 'monster'
-      ? resolveMonsterFacing(patch.facing, previous?.facing)
-      : (patch.facing ?? previous?.facing),
+    facing: resolveObservedFacing(kind, patch.facing, previous?.facing),
     hp: applyNullablePatch(patch.hp, previous?.hp),
     maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
     respawnRemainingTicks: applyNullablePatch(patch.respawnRemainingTicks, previous?.respawnRemainingTicks),
@@ -268,6 +275,7 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     maxHp: player.maxHp,
     qi: player.qi,
     maxQi: player.numericStats?.maxQi,
+    facing: normalizeHorizontalFacing(player.facing, previous?.facing),
     npcQuestMarker: previous?.npcQuestMarker,
     observation: previous?.observation,
     buffs: player.temporaryBuffs ? cloneJson(player.temporaryBuffs) : previous?.buffs,
@@ -858,7 +866,7 @@ export class MapStore {
       this.player.numericStats.maxQi = data.maxQi;
     }
     if (data.facing !== undefined) {
-      this.player.facing = data.facing as Direction;
+      this.player.facing = normalizeHorizontalFacing(data.facing, this.player.facing);
     }
 
     const oldX = this.player.x;

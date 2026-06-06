@@ -1,4 +1,4 @@
-import { Direction, type RenderEntity } from '@mud/shared';
+import { Direction, normalizeHorizontalFacing, type RenderEntity } from '@mud/shared';
 
 type SpriteLookupEntity = Pick<RenderEntity, 'id' | 'kind' | 'name' | 'char' | 'facing' | 'monsterId'>;
 
@@ -41,33 +41,17 @@ export function resolveMonsterFacing(
   nextFacing: Direction | null | undefined,
   previousFacing: Direction | null | undefined,
 ): Direction | undefined {
-  if (
-    nextFacing === Direction.West
-    || nextFacing === Direction.East
-    || nextFacing === Direction.North
-    || nextFacing === Direction.South
-  ) {
-    return nextFacing;
-  }
-  if (
-    previousFacing === Direction.West
-    || previousFacing === Direction.East
-    || previousFacing === Direction.North
-    || previousFacing === Direction.South
-  ) {
-    return previousFacing;
-  }
-  return undefined;
+  return normalizeHorizontalFacing(nextFacing, previousFacing);
 }
 
 export const resolveTwoWayMonsterFacing = resolveMonsterFacing;
 
-function resolveMonsterFacingKey(facing: Direction | undefined): string | null {
+function supportsHorizontalFacingSprite(entity: SpriteLookupEntity): boolean {
+  return entity.kind === 'monster' || entity.kind === 'player';
+}
+
+function resolveHorizontalFacingKey(facing: Direction | undefined): string | null {
   switch (facing) {
-    case Direction.North:
-      return 'north';
-    case Direction.South:
-      return 'south';
     case Direction.East:
       return 'right';
     case Direction.West:
@@ -77,7 +61,7 @@ function resolveMonsterFacingKey(facing: Direction | undefined): string | null {
   }
 }
 
-function resolveTwoWayMonsterSide(facing: Direction | undefined): 'left' | 'right' | null {
+function resolveTwoWayHorizontalSide(facing: Direction | undefined): 'left' | 'right' | null {
   if (facing === Direction.East) {
     return 'right';
   }
@@ -87,13 +71,13 @@ function resolveTwoWayMonsterSide(facing: Direction | undefined): 'left' | 'righ
   return null;
 }
 
-function resolveMonsterBaseSpriteTransform(facing: Direction | undefined): EntitySpriteTransform {
+function resolveHorizontalBaseSpriteTransform(facing: Direction | undefined): EntitySpriteTransform {
   return facing === Direction.West ? { flipX: true } : IDENTITY_SPRITE_TRANSFORM;
 }
 
 export function buildEntitySpriteLookupPlan(entity: SpriteLookupEntity): EntitySpriteLookupPlan {
   const baseKeys = buildBaseEntitySpriteKeys(entity);
-  if (entity.kind !== 'monster') {
+  if (!supportsHorizontalFacingSprite(entity)) {
     return {
       keys: baseKeys,
       transforms: baseKeys.map(() => IDENTITY_SPRITE_TRANSFORM),
@@ -101,11 +85,11 @@ export function buildEntitySpriteLookupPlan(entity: SpriteLookupEntity): EntityS
   }
 
   const facing = resolveMonsterFacing(entity.facing, undefined);
-  const directionKey = resolveMonsterFacingKey(facing);
-  const side = resolveTwoWayMonsterSide(facing);
+  const directionKey = resolveHorizontalFacingKey(facing);
+  const side = resolveTwoWayHorizontalSide(facing);
   const directionKeys = directionKey ? baseKeys.map((key) => `${key}:${directionKey}`) : [];
   const sideKeys = side && side !== directionKey ? baseKeys.map((key) => `${key}:${side}`) : [];
-  const baseTransform = resolveMonsterBaseSpriteTransform(facing);
+  const baseTransform = resolveHorizontalBaseSpriteTransform(facing);
   const keys = [
     ...directionKeys,
     ...sideKeys,

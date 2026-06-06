@@ -56,3 +56,42 @@ export function directionFromTo(fromX: number, fromY: number, toX: number, toY: 
   if (toY > fromY) return Direction.South;
   return Direction.North;
 }
+
+/** 将渲染朝向收敛为左右两向，旧的上下值按默认朝右处理。 */
+export function normalizeHorizontalFacing(
+  nextFacing: Direction | null | undefined,
+  previousFacing?: Direction | null | undefined,
+): Direction {
+  if (nextFacing === Direction.East || nextFacing === Direction.West) {
+    return nextFacing;
+  }
+  if (previousFacing === Direction.East || previousFacing === Direction.West) {
+    return previousFacing;
+  }
+  return Direction.East;
+}
+
+/** 根据水平位移更新渲染朝向；纯垂直移动保持原有左右朝向。 */
+export function horizontalFacingFromDelta(
+  dx: number,
+  previousFacing?: Direction | null | undefined,
+): Direction {
+  if (dx > 0) {
+    return Direction.East;
+  }
+  if (dx < 0) {
+    return Direction.West;
+  }
+  return normalizeHorizontalFacing(undefined, previousFacing);
+}
+
+/** 根据目标位置更新渲染朝向；目标在同一列时保持原有左右朝向。 */
+export function horizontalFacingFromTo(
+  fromX: number,
+  _fromY: number,
+  toX: number,
+  _toY: number,
+  previousFacing?: Direction | null | undefined,
+): Direction {
+  return horizontalFacingFromDelta(toX - fromX, previousFacing);
+}

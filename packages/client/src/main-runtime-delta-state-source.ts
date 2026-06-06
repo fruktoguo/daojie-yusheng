@@ -16,6 +16,7 @@ import {
   type TemporaryBuffState,
   type TickRenderEntity,
   cloneJson,
+  normalizeHorizontalFacing,
 } from '@mud/shared';
 import { logMovement } from './debug/movement-debug';
 import { endRuntimeProfileMetric, startRuntimeProfileMetric } from './debug/runtime-profiler';
@@ -467,6 +468,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       maxHp: isSelf ? (player?.maxHp ?? previous?.maxHp) : previous?.maxHp,
       qi: isSelf ? (player?.qi ?? previous?.qi) : previous?.qi,
       maxQi: isSelf ? (player?.numericStats?.maxQi ?? previous?.maxQi) : previous?.maxQi,
+      facing: normalizeHorizontalFacing(patch.f, isSelf ? player?.facing : previous?.facing),
       npcQuestMarker: previous?.npcQuestMarker,
       observation: previous?.observation,
       buffs: previous?.buffs,
@@ -767,7 +769,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       || typeof data.hp === 'number'
       || typeof data.maxHp === 'number'
       || typeof data.qi === 'number'
-      || typeof data.maxQi === 'number';
+      || typeof data.maxQi === 'number'
+      || data.f !== undefined;
     if (!hasEntityVisibleDelta) {
       return null;
     }
@@ -784,6 +787,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       maxHp: data.maxHp ?? player.maxHp,
       qi: data.qi ?? player.qi,
       maxQi: data.maxQi ?? player.numericStats?.maxQi,
+      facing: normalizeHorizontalFacing(data.f, player.facing),
       npcQuestMarker: previous?.npcQuestMarker,
       observation: previous?.observation,
       buffs: previous?.buffs,
@@ -982,6 +986,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         if (typeof selfPatch?.y === 'number') {
           player.y = selfPatch.y;
         }
+        if (selfPatch?.facing !== undefined) {
+          player.facing = normalizeHorizontalFacing(selfPatch.facing, player.facing);
+        }
         if (selfPatch && (typeof selfPatch.x === 'number' || typeof selfPatch.y === 'number')) {
           logMovement('client.recv.worldDelta.selfPatch', {
             playerId: player.id,
@@ -1048,6 +1055,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           || typeof data.maxHp === 'number'
           || typeof data.qi === 'number'
           || typeof data.maxQi === 'number';
+        const selfFacing = normalizeHorizontalFacing(data.f, player.facing);
         const applyStartedAt = startRuntimeProfileMetric();
         try {
           options.applySelfDeltaToRuntime({
@@ -1055,7 +1063,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
             mapId: data.mid,
             x: data.x,
             y: data.y,
-            facing: data.f,
+            facing: selfFacing,
             hp: data.hp,
             maxHp: data.maxHp,
             qi: data.qi,
@@ -1094,7 +1102,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           options.refreshUiChrome();
         }
         if (data.f !== undefined) {
-          player.facing = data.f;
+          player.facing = selfFacing;
         }
         if (typeof data.x === 'number') {
           player.x = data.x;
