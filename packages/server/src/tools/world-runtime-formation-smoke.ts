@@ -17,7 +17,8 @@ const { FormationStrategy } = require("../runtime/craft/pipeline/strategies/form
 const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
-const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TileType, buildQiHalfLifeRateScaled, decodeMessage, encodeMessage, fromWireTick, resolveFormationSetupPlan, tickPayloadType, toWireTick } = require("@mud/shared");
+const { resolveFormationMonsterExpMultiplier, resolveSuppressedMonsterNumericStats } = require("../runtime/world/combat/formation-combat-effect.helpers");
+const { DEFAULT_FORMATION_TILE_AURA_RESOURCE_KEY, FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, TileType, buildQiHalfLifeRateScaled, createNumericStats, decodeMessage, encodeMessage, fromWireTick, resolveFormationSetupPlan, tickPayloadType, toWireTick } = require("@mud/shared");
 
 const playerId = "player:formation-smoke";
 const sectPlayerId = "player:formation-sect-member";
@@ -118,6 +119,7 @@ async function main() {
     playerRuntimeService,
   );
   service.ensurePersistencePool = async () => null;
+  testFormationSuppressionEffects(service);
   const deps = {
     getPlayerLocationOrThrow(targetPlayerId) {
       assert.equal(targetPlayerId, playerId);
@@ -1003,6 +1005,82 @@ async function testFormationShutdownFlushesUnrestoredRuntimeInstances() {
   assert.deepEqual(savedInstanceIds, [instanceId]);
   assert.equal(service.persistenceReady, false);
   assert.equal(service.persistencePool, null);
+}
+
+function testFormationSuppressionEffects(service) {
+  const suppressionInstanceId = "real:formation_suppression_smoke";
+  const demonTemplate = service.resolveFormationTemplate("demon_sealing");
+  const visionTemplate = service.resolveFormationTemplate("sky_veil");
+  const now = Date.now();
+  const makeFormation = (id, template, effectValue, active = true) => ({
+    instanceId: suppressionInstanceId,
+    id,
+    ownerPlayerId: playerId,
+    ownerSectId: "sect:smoke",
+    formationId: template.id,
+    lifecycle: "deployed",
+    name: template.name,
+    template,
+    diskItemId: "formation_disk.mortal",
+    diskTier: "mortal",
+    diskMultiplier: 1,
+    spiritStoneCount: 100,
+    qiCost: 0,
+    x: 10,
+    y: 10,
+    eyeInstanceId: suppressionInstanceId,
+    eyeX: 10,
+    eyeY: 10,
+    allocation: { radius: 3, durationHours: 24, effectValue },
+    stats: {
+      effectValue,
+      radius: 3,
+      totalAuraBudget: 1000,
+      totalQiBudget: 1000,
+      totalSpiritStoneBudget: 100,
+      tickActiveCost: 0,
+      tickInactiveCost: 0,
+      tickActiveQiCost: 0,
+      tickInactiveQiCost: 0,
+      tickActiveSpiritStoneCost: 0,
+      tickInactiveSpiritStoneCost: 0,
+    },
+    active,
+    remainingQiBudget: 1000,
+    remainingSpiritStoneBudget: 100,
+    remainingAuraBudget: 1000,
+    createdAt: now,
+    updatedAt: now,
+  });
+  service.getFormationList(suppressionInstanceId).push(
+    makeFormation("formation:suppression:50", demonTemplate, 50),
+    makeFormation("formation:suppression:200", demonTemplate, 200),
+    makeFormation("formation:suppression:inactive", demonTemplate, 500, false),
+    makeFormation("formation:vision:2", visionTemplate, 2),
+  );
+  assert.equal(service.resolveMonsterSuppressionLayersAt(suppressionInstanceId, 11, 10), 200);
+  assert.equal(service.resolveMonsterSuppressionLayersAt(suppressionInstanceId, 14, 10), 0);
+  assert.ok(Math.abs(resolveFormationMonsterExpMultiplier(service, suppressionInstanceId, 11, 10) - (1 / 3)) < 0.000001);
+  const monsterStats = createNumericStats();
+  monsterStats.maxHp = 300;
+  monsterStats.physAtk = 90;
+  monsterStats.spellAtk = 60;
+  monsterStats.dodge = 30;
+  monsterStats.antiCrit = 45;
+  const suppressed = resolveSuppressedMonsterNumericStats({
+    numericStats: monsterStats,
+    x: 11,
+    y: 10,
+  }, service, suppressionInstanceId);
+  assert.equal(suppressed.layers, 200);
+  assert.equal(suppressed.numericStats.maxHp, 100);
+  assert.equal(suppressed.numericStats.physAtk, 30);
+  assert.equal(suppressed.numericStats.spellAtk, 20);
+  assert.equal(suppressed.numericStats.dodge, 10);
+  assert.equal(suppressed.numericStats.antiCrit, 15);
+  assert.equal(monsterStats.physAtk, 90);
+  assert.equal(service.resolveVisionSuppressionPercentAt(suppressionInstanceId, 11, 10), 20);
+  assert.equal(service.resolveVisionSuppressionPercentAt(suppressionInstanceId, 14, 10), 0);
 }
 
 async function runFormationPersistenceSmoke(playerRuntimeService) {

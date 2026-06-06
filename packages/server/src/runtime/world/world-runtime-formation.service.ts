@@ -13,6 +13,9 @@ import { buildStructuredNotice } from './structured-notice.helpers';
 const TERRAIN_STABILIZER_EFFECT_KIND = 'terrain_stabilizer';
 const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
 const BOUNDARY_BARRIER_EFFECT_KIND = 'boundary_barrier';
+const MONSTER_SUPPRESSION_EFFECT_KIND = 'monster_suppression';
+const VISION_SUPPRESSION_EFFECT_KIND = 'vision_suppression';
+const DEFAULT_FORMATION_VISION_REDUCTION_PERCENT_PER_STRENGTH = 10;
 const INSTANCE_FORMATION_STATE_TABLE = 'instance_formation_state';
 const INSTANCE_FORMATION_STATE_BIGINT_COLUMNS = [
     'spirit_stone_count',
@@ -675,6 +678,56 @@ class WorldRuntimeFormationService {
             reduction = Math.max(reduction, formationReduction);
         }
         return Math.max(0, Math.min(0.999999, reduction));
+    }
+
+    resolveMonsterSuppressionLayersAt(instanceId, x, y) {
+        const tileX = Math.trunc(Number(x));
+        const tileY = Math.trunc(Number(y));
+        if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+            return 0;
+        }
+        const formations = this.formationsByInstanceId.get(instanceId);
+        if (!formations || formations.length <= 0) {
+            return 0;
+        }
+        let layers = 0;
+        for (const formation of formations) {
+            if (!isActiveFormationOfKind(formation, MONSTER_SUPPRESSION_EFFECT_KIND)) {
+                continue;
+            }
+            if (!this.containsTile(formation, tileX, tileY)) {
+                continue;
+            }
+            layers = Math.max(layers, Math.floor(Number(formation.stats?.effectValue) || 0));
+        }
+        return Math.max(0, layers);
+    }
+
+    resolveVisionSuppressionPercentAt(instanceId, x, y) {
+        const tileX = Math.trunc(Number(x));
+        const tileY = Math.trunc(Number(y));
+        if (!Number.isFinite(tileX) || !Number.isFinite(tileY)) {
+            return 0;
+        }
+        const formations = this.formationsByInstanceId.get(instanceId);
+        if (!formations || formations.length <= 0) {
+            return 0;
+        }
+        let percent = 0;
+        for (const formation of formations) {
+            if (!isActiveFormationOfKind(formation, VISION_SUPPRESSION_EFFECT_KIND)) {
+                continue;
+            }
+            if (!this.containsTile(formation, tileX, tileY)) {
+                continue;
+            }
+            const strength = Math.floor(Number(formation.stats?.effectValue) || 0);
+            const percentPerStrength = Number.isFinite(Number(formation.template?.effect?.visionReductionPercentPerStrength))
+                ? Math.max(0, Number(formation.template.effect.visionReductionPercentPerStrength))
+                : DEFAULT_FORMATION_VISION_REDUCTION_PERCENT_PER_STRENGTH;
+            percent = Math.max(percent, strength * percentPerStrength);
+        }
+        return Math.max(0, percent);
     }
 
     mitigateTerrainDamage(instanceId, x, y, damage) {
@@ -1694,8 +1747,12 @@ function isPersistentFormation(formation) {
 }
 
 function isActiveTerrainStabilizerFormation(formation) {
+    return isActiveFormationOfKind(formation, TERRAIN_STABILIZER_EFFECT_KIND);
+}
+
+function isActiveFormationOfKind(formation, kind) {
     return formation?.active === true
-        && formation?.template?.effect?.kind === TERRAIN_STABILIZER_EFFECT_KIND
+        && formation?.template?.effect?.kind === kind
         && resolveFormationRemainingQiBudget(formation) > 0
         && resolveFormationRemainingSpiritStoneBudget(formation) > 0;
 }

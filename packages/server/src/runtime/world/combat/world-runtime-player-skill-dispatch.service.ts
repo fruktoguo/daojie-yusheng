@@ -17,6 +17,7 @@ import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCo
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
+import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
@@ -550,8 +551,14 @@ export class WorldRuntimePlayerSkillDispatchService {
         });
     }    
     /** resolveMonsterCombatTargetState：复用妖兽稳定战斗字段，避免多目标施法重复包装。 */
-    resolveMonsterCombatTargetState(monster) {
-        return resolveCachedMonsterCombatTargetState(monster, this.playerRuntimeService, this.monsterCombatStateCache);
+    resolveMonsterCombatTargetState(monster, deps = null, instanceId = monster?.instanceId) {
+        return resolveCachedMonsterCombatTargetState(
+            monster,
+            this.playerRuntimeService,
+            this.monsterCombatStateCache,
+            deps?.worldRuntimeFormationService,
+            instanceId,
+        );
     }
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -1424,7 +1431,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                     continue;
                 }
                 const distance = chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y);
-                const monsterCombatState = this.resolveMonsterCombatTargetState(monster);
+                const monsterCombatState = this.resolveMonsterCombatTargetState(monster, deps, attacker.instanceId);
                 const combatResolveStartedAt = performance.now();
                 const result = this.playerCombatService.castSkillToMonster(attacker, monsterCombatState, skillId, currentTick, distance, (buff) => {
                     instance.applyTemporaryBuffToMonster(monster.runtimeId, buff, { skipSnapshot: true });
@@ -2430,14 +2437,16 @@ export class WorldRuntimePlayerSkillDispatchService {
     }
 };
 
-function resolveCachedMonsterCombatTargetState(monster, playerRuntimeService, cache) {
+function resolveCachedMonsterCombatTargetState(monster, playerRuntimeService, cache, formationService = null, instanceId = monster?.instanceId) {
+    const suppressed = resolveSuppressedMonsterNumericStats(monster, formationService, instanceId);
     const cached = cache.get(monster);
     if (cached
         && cached.attrsRef === monster.attrs
         && cached.numericStatsRef === monster.numericStats
         && cached.ratioDivisorsRef === monster.ratioDivisors
         && cached.level === monster.level
-        && cached.tier === monster.tier) {
+        && cached.tier === monster.tier
+        && cached.suppressionLayers === suppressed.layers) {
         cached.state.hp = monster.hp;
         cached.state.maxHp = monster.maxHp;
         cached.state.qi = monster.qi ?? 0;
@@ -2447,7 +2456,7 @@ function resolveCachedMonsterCombatTargetState(monster, playerRuntimeService, ca
     }
     const attrs = {
         finalAttrs: monster.attrs,
-        numericStats: monster.numericStats,
+        numericStats: suppressed.numericStats,
         ratioDivisors: monster.ratioDivisors,
     };
     const state = {
@@ -2469,6 +2478,7 @@ function resolveCachedMonsterCombatTargetState(monster, playerRuntimeService, ca
         ratioDivisorsRef: monster.ratioDivisors,
         level: monster.level,
         tier: monster.tier,
+        suppressionLayers: suppressed.layers,
         state,
     });
     return state;

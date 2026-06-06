@@ -9,6 +9,7 @@ import { BLOOD_ESSENCE_ITEM_ID, PVP_SOUL_INJURY_BUFF_ID } from '../../../constan
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { PlayerCountersPersistenceService } from '../../../persistence/player-counters-persistence.service';
 import { buildStructuredNotice } from '../structured-notice.helpers';
+import { resolveFormationMonsterExpMultiplier } from './formation-combat-effect.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 
 const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
@@ -119,7 +120,13 @@ export class WorldRuntimePlayerCombatService {
         for (const participant of participants) {
             totalContribution += participant.contribution;
         }
-        const expMultiplier = this.resolveMonsterExpMultiplier(monster);
+        const expMultiplier = this.resolveMonsterExpMultiplier(monster)
+            * resolveFormationMonsterExpMultiplier(
+                deps.worldRuntimeFormationService,
+                instance?.meta?.instanceId,
+                monster?.x,
+                monster?.y,
+            );
         const auditEnabled = this.isCombatSemanticAuditEnabled();
         for (const participant of participants) {
             const contributionRatio = totalContribution > 0 ? participant.contribution / totalContribution : 1;

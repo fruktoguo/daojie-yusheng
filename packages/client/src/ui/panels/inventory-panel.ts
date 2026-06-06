@@ -28,6 +28,7 @@ import {
   resolveFormationDamageReduction,
   resolveFormationSetupPlan,
   resolveFormationVisual,
+  percentModifierToMultiplier,
   type FormationEffectKind,
   type FormationResolvedStats,
   type FormationSetup,
@@ -1647,6 +1648,25 @@ export class InventoryPanel {
         { label: '实际承伤比例', value: this.formatFormationPercent(1 - reduction) },
       ];
     }
+    if (template.effect.kind === 'monster_suppression') {
+      const layers = Math.max(0, Math.floor(stats.effectValue));
+      const remainingMultiplier = percentModifierToMultiplier(-layers);
+      return [
+        { label: '压制层数', value: formatDisplayInteger(layers) },
+        { label: '经验剩余比例', value: this.formatFormationPercent(remainingMultiplier) },
+      ];
+    }
+    if (template.effect.kind === 'vision_suppression') {
+      const percentPerStrength = Number.isFinite(Number(template.effect.visionReductionPercentPerStrength))
+        ? Math.max(0, Number(template.effect.visionReductionPercentPerStrength))
+        : 10;
+      const reductionPercent = Math.max(0, Math.floor(stats.effectValue) * percentPerStrength);
+      const remainingMultiplier = percentModifierToMultiplier(-reductionPercent);
+      return [
+        { label: '视野削减', value: `${formatDisplayNumber(reductionPercent)}%` },
+        { label: '视野剩余比例', value: this.formatFormationPercent(remainingMultiplier) },
+      ];
+    }
     const selfDamageReduction = resolveFormationDamageReduction(template, stats.effectValue);
     const damagePerAura = resolveFormationDamagePerAura(template);
     const rawDurability = Math.max(1, Math.ceil((stats.totalQiBudget ?? stats.totalAuraBudget) * damagePerAura));
@@ -1692,6 +1712,24 @@ export class InventoryPanel {
         target: '可攻击地块与临时地块',
         scaling: `实际强度 ${effectValue}，每 10 强度约降低 1% 地块受击伤害`,
         visibility: '范围内自动生效',
+      };
+    }
+    if (kind === 'monster_suppression') {
+      return {
+        kindLabel: '封魔压制',
+        fallbackDesc: '压制范围内妖兽的主要战斗属性，并按实际压制幅度降低击杀经验。',
+        target: '范围内妖兽',
+        scaling: `实际强度 ${effectValue}，每 1 强度提供 1 层压制`,
+        visibility: '范围内自动生效，多阵重叠取最高压制层数',
+      };
+    }
+    if (kind === 'vision_suppression') {
+      return {
+        kindLabel: '视野压制',
+        fallbackDesc: '遮蔽范围内修士感知，降低服务端视野半径。',
+        target: '范围内玩家',
+        scaling: `实际强度 ${effectValue}，每 1 强度提供 10% 视野削减`,
+        visibility: '范围内自动生效，多阵重叠取最高视野削减',
       };
     }
     return {

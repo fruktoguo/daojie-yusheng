@@ -137,6 +137,92 @@
     }
   },
   {
+    "id": "demon_sealing",
+    "name": "封魔阵",
+    "desc": "压制范围内所有妖兽，每点强度提供一层压制；多座封魔阵重叠时只取最高层数，并按实际压制幅度同步降低击杀经验。",
+    "minSpiritStoneCount": 100,
+    "damagePerAura": 100,
+    "cost": {
+      "defaultRadius": 1,
+      "defaultDurationHours": 24,
+      "durationStepHours": 2,
+      "minDurationMinutes": 1,
+      "minDurationCostMultiplier": 0.125,
+      "shortDurationReferenceMinutes": 10,
+      "shortDurationReferenceCostMultiplier": 0.16666666666666666,
+      "rangeCostRatio": 1.5,
+      "durationCostRatio": 1,
+      "minEffectValue": 1,
+      "effectCostRatio": 100,
+      "auraPerSpiritStone": 100,
+      "qiPerSpiritStone": 100
+    },
+    "range": {
+      "shape": "circle",
+      "minRadius": 1,
+      "growth": {
+        "type": "geometric_radius",
+        "baseAura": 1000,
+        "baseRadius": 0,
+        "ratioPerStep": 2
+      }
+    },
+    "effect": {
+      "kind": "monster_suppression",
+      "conversionRatio": 1,
+      "expPenaltyFromSuppression": true
+    },
+    "visual": {
+      "char": "魔",
+      "color": "#ef4444",
+      "showText": true,
+      "rangeHighlightColor": "#b91c1c"
+    }
+  },
+  {
+    "id": "sky_veil",
+    "name": "遮天阵",
+    "desc": "遮蔽范围内修士感知，每点强度降低 10% 视野；多座遮天阵重叠时只取最高强度。",
+    "minSpiritStoneCount": 100,
+    "damagePerAura": 100,
+    "cost": {
+      "defaultRadius": 1,
+      "defaultDurationHours": 24,
+      "durationStepHours": 2,
+      "minDurationMinutes": 1,
+      "minDurationCostMultiplier": 0.125,
+      "shortDurationReferenceMinutes": 10,
+      "shortDurationReferenceCostMultiplier": 0.16666666666666666,
+      "rangeCostRatio": 1.5,
+      "durationCostRatio": 1,
+      "minEffectValue": 1,
+      "effectCostRatio": 100,
+      "auraPerSpiritStone": 100,
+      "qiPerSpiritStone": 100
+    },
+    "range": {
+      "shape": "circle",
+      "minRadius": 1,
+      "growth": {
+        "type": "geometric_radius",
+        "baseAura": 1000,
+        "baseRadius": 0,
+        "ratioPerStep": 2
+      }
+    },
+    "effect": {
+      "kind": "vision_suppression",
+      "conversionRatio": 1,
+      "visionReductionPercentPerStrength": 10
+    },
+    "visual": {
+      "char": "隐",
+      "color": "#64748b",
+      "showText": true,
+      "rangeHighlightColor": "#475569"
+    }
+  },
+  {
     "id": "sect_guardian_barrier",
     "name": "护宗大阵",
     "desc": "护持宗门山门的特殊大阵，阵眼位于宗门内部，主世界入口处形成默认一格封界；本宗门修士可自由通行。",

@@ -12,7 +12,12 @@ export type FormationDiskTier = 'mortal' | 'yellow' | 'mystic' | 'earth';
 
 export type FormationLifecycle = 'deployed' | 'persistent';
 
-export type FormationEffectKind = 'tile_aura_source' | 'terrain_stabilizer' | 'boundary_barrier';
+export type FormationEffectKind =
+  | 'tile_aura_source'
+  | 'terrain_stabilizer'
+  | 'boundary_barrier'
+  | 'monster_suppression'
+  | 'vision_suppression';
 
 export type FormationRangeShape = 'circle' | 'square' | 'checkerboard';
 
@@ -66,6 +71,8 @@ export interface FormationEffectConfig {
   resourceKey?: string;
   convergenceHalfLifeTicks?: number;
   damageReductionDenominator?: number;
+  expPenaltyFromSuppression?: boolean;
+  visionReductionPercentPerStrength?: number;
 }
 
 export interface FormationAccessConfig {
@@ -338,6 +345,92 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
       eyeVisibleWithoutSenseQi: false,
       rangeVisibleWithoutSenseQi: false,
       boundaryVisibleWithoutSenseQi: true,
+    },
+  },
+  {
+    id: 'demon_sealing',
+    name: '封魔阵',
+    desc: '压制范围内所有妖兽，每点强度提供一层压制；多座封魔阵重叠时只取最高层数，并按实际压制幅度同步降低击杀经验。',
+    minSpiritStoneCount: 100,
+    damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
+    cost: {
+      defaultRadius: 1,
+      defaultDurationHours: 24,
+      durationStepHours: 2,
+      minDurationMinutes: 1,
+      minDurationCostMultiplier: 1 / 8,
+      shortDurationReferenceMinutes: 10,
+      shortDurationReferenceCostMultiplier: 1 / 6,
+      rangeCostRatio: 1.5,
+      durationCostRatio: 1,
+      minEffectValue: 1,
+      effectCostRatio: 100,
+      auraPerSpiritStone: 100,
+      qiPerSpiritStone: 100,
+    },
+    range: {
+      shape: 'circle',
+      minRadius: 1,
+      growth: {
+        type: 'geometric_radius',
+        baseAura: 1000,
+        baseRadius: 0,
+        ratioPerStep: 2,
+      },
+    },
+    effect: {
+      kind: 'monster_suppression',
+      conversionRatio: 1,
+      expPenaltyFromSuppression: true,
+    },
+    visual: {
+      char: '魔',
+      color: '#ef4444',
+      showText: true,
+      rangeHighlightColor: '#b91c1c',
+    },
+  },
+  {
+    id: 'sky_veil',
+    name: '遮天阵',
+    desc: '遮蔽范围内修士感知，每点强度降低 10% 视野；多座遮天阵重叠时只取最高强度。',
+    minSpiritStoneCount: 100,
+    damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
+    cost: {
+      defaultRadius: 1,
+      defaultDurationHours: 24,
+      durationStepHours: 2,
+      minDurationMinutes: 1,
+      minDurationCostMultiplier: 1 / 8,
+      shortDurationReferenceMinutes: 10,
+      shortDurationReferenceCostMultiplier: 1 / 6,
+      rangeCostRatio: 1.5,
+      durationCostRatio: 1,
+      minEffectValue: 1,
+      effectCostRatio: 100,
+      auraPerSpiritStone: 100,
+      qiPerSpiritStone: 100,
+    },
+    range: {
+      shape: 'circle',
+      minRadius: 1,
+      growth: {
+        type: 'geometric_radius',
+        baseAura: 1000,
+        baseRadius: 0,
+        ratioPerStep: 2,
+      },
+    },
+    effect: {
+      kind: 'vision_suppression',
+      conversionRatio: 1,
+      visionReductionPercentPerStrength: 10,
+    },
+    visual: {
+      char: '隐',
+      color: '#64748b',
+      showText: true,
+      rangeHighlightColor: '#475569',
     },
   },
   {

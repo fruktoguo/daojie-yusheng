@@ -103,6 +103,8 @@ Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `
 | spirit_gathering | 聚灵阵 | tile_aura_source | 100 | 1 |
 | earth_stabilizing | 固脉阵 | terrain_stabilizer | 1000 | 1 |
 | warding_barrier | 太玄封界阵 | boundary_barrier | 100 | 1 |
+| demon_sealing | 封魔阵 | monster_suppression | 100 | 1 |
+| sky_veil | 遮天阵 | vision_suppression | 100 | 1 |
 | sect_guardian_barrier | 护宗大阵 | boundary_barrier | 1 | 1 |
 
 ## 阵法激活条件
@@ -130,3 +132,12 @@ Setup 模式中，输入框显示为“基础强度”，协议字段仍沿用 `
   - 每息注入量按 `(目标灵气 - 当前灵气) / convergenceHalfLifeTicks` 计算，地块灵气以 double 保存。
 - terrain_stabilizer: 稳定地形，防止破坏
 - boundary_barrier: 边界屏障，阻挡进入
+- monster_suppression: 封魔压制
+  - 范围内所有妖兽按最高封魔阵强度获得“压制”层数，每点强度增加 1 层。
+  - 每层对妖兽主要战斗属性提供 `-1%` 负向百分比修正，按共享 `percentModifierToMultiplier` 反比衰减结算；例如 200 层为 `1 / (1 + 200 / 100) = 1/3` 剩余属性。
+  - 多个封魔阵重叠只取最高层，不叠加。
+  - 击杀经验按同一实际剩余乘区结算；200 层压制时经验乘区为 `1/3`，即实际降低约 `66.6%`。
+- vision_suppression: 视野压制
+  - 范围内玩家按最高遮天阵强度降低视野，每点强度提供 `-10%` 视野修正。
+  - 视野修正同样按共享负向百分比反比衰减，最终视野半径最低为 1。
+  - 多个遮天阵重叠只取最高修正，不叠加。

@@ -16,6 +16,7 @@ import { emitCombatPresentation } from './world-runtime-combat-presentation.help
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
+import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
 
@@ -309,7 +310,7 @@ export class WorldRuntimeBasicAttackService {
         if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
             throw new BadRequestException('目标超出攻击距离');
         }
-        const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind);
+        const resolvedDamage = this.resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps);
         const effectColor = getDamageTrailColor(damageKind);
         const appliedOutcome = this.applyPlayerBasicAttackOutcome({ ...deps, instance }, attacker, {
             kind: CombatTargetKind.Monster,
@@ -682,15 +683,20 @@ export class WorldRuntimeBasicAttackService {
  * @returns 返回结算结果。
  */
 
-    resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind) {
+    resolveBasicAttackDamageAgainstMonster(attacker, monster, baseDamage, damageKind, deps = null) {
         const monsterCombatExp = this.resolveMonsterCombatExpEquivalent(monster);
         const combatExpMultiplier = getBasicAttackCombatExperienceDamageMultiplier(Math.max(1, attacker.combatExp ?? 0), Math.max(1, monsterCombatExp));
+        const monsterStats = resolveSuppressedMonsterNumericStats(
+            monster,
+            deps?.worldRuntimeFormationService,
+            attacker?.instanceId ?? monster?.instanceId,
+        ).numericStats;
         return this.resolveBasicAttackDamage(
             attacker.attrs.numericStats,
             attacker.attrs.ratioDivisors,
             Math.max(1, attacker.realm?.realmLv ?? 1),
             Math.max(1, attacker.combatExp ?? 0),
-            monster.numericStats,
+            monsterStats,
             monster.ratioDivisors,
             Math.max(1, Math.floor(monster.level ?? 1)),
             Math.max(1, monsterCombatExp),

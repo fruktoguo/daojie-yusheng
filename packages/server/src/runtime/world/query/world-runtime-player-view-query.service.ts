@@ -4,6 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable } from '@nestjs/common';
+import { percentModifierToMultiplier } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeLootContainerService } from '../world-runtime-loot-container.service';
 import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
@@ -63,9 +64,16 @@ export class WorldRuntimePlayerViewQueryService {
         if (!location) {
             return null;
         }
-        const derivedRadius = this.playerRuntimeService.getPlayer(playerId)?.attrs.numericStats.viewRange;
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        const derivedRadius = player?.attrs.numericStats.viewRange;
+        const visionSuppressionPercent = typeof runtime.worldRuntimeFormationService?.resolveVisionSuppressionPercentAt === 'function'
+            ? runtime.worldRuntimeFormationService.resolveVisionSuppressionPercentAt(location.instanceId, location.x ?? player?.x, location.y ?? player?.y)
+            : 0;
+        const radiusMultiplier = visionSuppressionPercent > 0
+            ? percentModifierToMultiplier(-visionSuppressionPercent)
+            : 1;
         const normalizedRadius = typeof derivedRadius === 'number' && Number.isFinite(derivedRadius)
-            ? Math.max(1, Math.round(derivedRadius))
+            ? Math.max(1, Math.round(derivedRadius * radiusMultiplier))
             : undefined;
         const effectiveRadius = radius ?? normalizedRadius;
         const view = runtime.getInstanceRuntime(location.instanceId)?.buildPlayerView(playerId, effectiveRadius) ?? null;

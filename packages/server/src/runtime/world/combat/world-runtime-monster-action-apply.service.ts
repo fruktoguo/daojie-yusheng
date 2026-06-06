@@ -15,6 +15,7 @@ import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.s
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
+import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
 import * as world_runtime_observation_helpers_1 from '../query/world-runtime.observation.helpers';
 
@@ -133,8 +134,14 @@ export class WorldRuntimeMonsterActionApplyService {
     resolveMonsterCombatExpEquivalent(monster) {
         return resolveCachedMonsterCombatState(monster, this.playerRuntimeService, this.monsterCombatStateCache).combatExp;
     }
-    resolveMonsterCombatState(monster) {
-        return resolveCachedMonsterCombatState(monster, this.playerRuntimeService, this.monsterCombatStateCache);
+    resolveMonsterCombatState(monster, deps = null, instanceId = monster?.instanceId) {
+        return resolveCachedMonsterCombatState(
+            monster,
+            this.playerRuntimeService,
+            this.monsterCombatStateCache,
+            deps?.worldRuntimeFormationService,
+            instanceId,
+        );
     }
     /**
  * applyMonsterAction：处理怪物Action并更新相关状态。
@@ -235,13 +242,18 @@ export class WorldRuntimeMonsterActionApplyService {
         const monster = targetResolution.monster;
         const player = targetResolution.player;
         const runtimeTargetPosition = targetResolution.position;
-        const damageKind = monster.numericStats.spellAtk > monster.numericStats.physAtk ? 'spell' : 'physical';
+        const monsterStats = resolveSuppressedMonsterNumericStats(
+            monster,
+            deps.worldRuntimeFormationService,
+            instance?.meta?.instanceId ?? action.instanceId,
+        ).numericStats;
+        const damageKind = monsterStats.spellAtk > monsterStats.physAtk ? 'spell' : 'physical';
         const baseDamage = Math.max(1, Math.round(damageKind === 'spell'
-            ? monster.numericStats.spellAtk
-            : monster.numericStats.physAtk));
+            ? monsterStats.spellAtk
+            : monsterStats.physAtk));
         const combatResolveStartedAt = performance.now();
         const resolvedDamage = resolveCombatDamage({
-            attackerStats: monster.numericStats,
+            attackerStats: monsterStats,
             attackerRatios: monster.ratioDivisors,
             attackerRealmLv: Math.max(1, Math.floor(monster.level ?? 1)),
             attackerCombatExp: this.resolveMonsterCombatExpEquivalent(monster),
@@ -341,7 +353,7 @@ export class WorldRuntimeMonsterActionApplyService {
             let qiSpent = false;
             let resolvedTargetCount = 0;
             const skippedTargets = [];
-            const monsterCombatState = this.resolveMonsterCombatState(monster);
+            const monsterCombatState = this.resolveMonsterCombatState(monster, deps, action.instanceId);
             const resolvedSkill = typeof this.playerCombatService.resolveMonsterSkillForCast === 'function'
                 ? this.playerCombatService.resolveMonsterSkillForCast(monster, action.skillId)
                 : undefined;
@@ -746,14 +758,16 @@ function resolveMonsterSkillCancelRejectReason(reason) {
     return CombatRejectReason.PendingCastCancelled;
 }
 
-function resolveCachedMonsterCombatState(monster, playerRuntimeService, cache) {
+function resolveCachedMonsterCombatState(monster, playerRuntimeService, cache, formationService = null, instanceId = monster?.instanceId) {
+    const suppressed = resolveSuppressedMonsterNumericStats(monster, formationService, instanceId);
     const cached = cache.get(monster);
     if (cached
         && cached.attrsRef === monster.attrs
         && cached.numericStatsRef === monster.numericStats
         && cached.ratioDivisorsRef === monster.ratioDivisors
         && cached.level === monster.level
-        && cached.tier === monster.tier) {
+        && cached.tier === monster.tier
+        && cached.suppressionLayers === suppressed.layers) {
         cached.state.hp = monster.hp;
         cached.state.maxHp = monster.maxHp;
         cached.state.qi = monster.qi;
@@ -772,7 +786,7 @@ function resolveCachedMonsterCombatState(monster, playerRuntimeService, cache) {
         combatExp: resolveMonsterCombatExpEquivalent(monster, playerRuntimeService),
         attrs: {
             finalAttrs: monster.attrs,
-            numericStats: monster.numericStats,
+            numericStats: suppressed.numericStats,
             ratioDivisors: monster.ratioDivisors,
         },
         buffs: monster.buffs,
@@ -783,6 +797,7 @@ function resolveCachedMonsterCombatState(monster, playerRuntimeService, cache) {
         ratioDivisorsRef: monster.ratioDivisors,
         level: monster.level,
         tier: monster.tier,
+        suppressionLayers: suppressed.layers,
         state,
     });
     return state;
