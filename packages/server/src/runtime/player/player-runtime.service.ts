@@ -6184,6 +6184,7 @@ function buildPlayerStatisticRecordFromParts(player, session, endedAt, parts, sc
     const normalizedEndedAt = Math.max(startedAt, normalizeOfflineGainCount(endedAt));
     const accumulatedDurationMs = normalizeOfflineGainCount(session?.accumulatedDurationMs);
     const durationMs = accumulatedDurationMs > 0 ? accumulatedDurationMs : Math.max(0, normalizedEndedAt - startedAt);
+    const reportEndedAt = resolveOfflineGainReportEndedAt(startedAt, durationMs, normalizedEndedAt);
     const normalizedScope = scope === 'online' ? 'online' : 'offline';
     return {
         id: normalizeOfflineGainString(session?.sessionId) || buildPlayerStatisticRecordId(player?.playerId, normalizedEndedAt, normalizedScope),
@@ -6191,7 +6192,7 @@ function buildPlayerStatisticRecordFromParts(player, session, endedAt, parts, sc
         scope: normalizedScope,
         source: resolvePlayerStatisticSource(normalizedParts, normalizedScope),
         startedAt,
-        endedAt: startedAt + durationMs,
+        endedAt: reportEndedAt,
         durationMs,
         generatedAt: Date.now(),
         spiritStones: normalizedParts.spiritStones,
@@ -6239,6 +6240,10 @@ function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
     ), createEmptyOfflineGainReportParts());
     const durationMs = normalizedReports.reduce((total, report) => total + normalizeOfflineGainCount(report?.durationMs), 0);
     const startedAt = normalizeOfflineGainCount(first.startedAt);
+    const endedAt = normalizedReports.reduce(
+        (latestEndedAt, report) => Math.max(latestEndedAt, resolveOfflineGainReportEndBoundary(report)),
+        startedAt,
+    );
     return {
         ...first,
         id: normalizeOfflineGainString(first.id),
@@ -6246,7 +6251,7 @@ function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
         scope: 'offline',
         source: 'cultivation',
         startedAt,
-        endedAt: startedAt + durationMs,
+        endedAt,
         durationMs,
         generatedAt: Date.now(),
         spiritStones: mergedParts.spiritStones,
@@ -6255,6 +6260,22 @@ function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
         techniques: mergedParts.techniques,
         professions: mergedParts.professions,
     };
+}
+function resolveOfflineGainReportEndedAt(startedAt, durationMs, endedAt) {
+    const normalizedStartedAt = normalizeOfflineGainCount(startedAt);
+    const normalizedDurationMs = normalizeOfflineGainCount(durationMs);
+    const normalizedEndedAt = Math.max(normalizedStartedAt, normalizeOfflineGainCount(endedAt));
+    if (normalizedDurationMs <= 0) {
+        return normalizedEndedAt;
+    }
+    return Math.min(normalizedEndedAt, normalizedStartedAt + normalizedDurationMs);
+}
+function resolveOfflineGainReportEndBoundary(report) {
+    const startedAt = normalizeOfflineGainCount(report?.startedAt);
+    const durationMs = normalizeOfflineGainCount(report?.durationMs);
+    const endedAt = normalizeOfflineGainCount(report?.endedAt);
+    const fallbackEndedAt = startedAt + durationMs;
+    return resolveOfflineGainReportEndedAt(startedAt, durationMs, endedAt > 0 ? endedAt : fallbackEndedAt);
 }
 function resolvePlayerStatisticSource(parts, scope) {
     if (scope === 'offline') {

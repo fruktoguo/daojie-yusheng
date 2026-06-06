@@ -258,7 +258,10 @@ async function testUnconfirmedOfflineReportsMergeIntoOnePendingRecord() {
   assert.equal(records[0].id, firstReport.id);
   assert.equal(records[0].startedAt, firstReport.startedAt);
   assert.equal(records[0].durationMs, firstReport.durationMs + secondReport.durationMs);
-  assert.equal(records[0].endedAt, records[0].startedAt + records[0].durationMs);
+  assert.equal(firstReport.endedAt, 61_000);
+  assert.equal(secondReport.endedAt, 140_000);
+  assert.equal(records[0].endedAt, secondReport.endedAt);
+  assert.ok(records[0].endedAt <= 160_000);
 
   const realmRow = records[0].progress.find((entry) => entry.kind === "realmExp");
   assert.ok(realmRow, "expected merged realm progress row");
