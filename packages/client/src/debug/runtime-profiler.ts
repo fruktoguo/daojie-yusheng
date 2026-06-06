@@ -66,6 +66,25 @@ export interface BrowserProfileAnimationFrameSummary {
   latestDurationMs: number;
 }
 
+export interface BrowserProfileEventLoopDelaySummary {
+  count: number;
+  totalDelayMs: number;
+  maxDelayMs: number;
+  latestStartMs: number;
+  latestDelayMs: number;
+}
+
+export interface BrowserProfileEventTimingSummary {
+  count: number;
+  totalDurationMs: number;
+  maxDurationMs: number;
+  totalProcessingMs: number;
+  maxProcessingMs: number;
+  latestStartMs: number;
+  latestDurationMs: number;
+  latestName: string;
+}
+
 export interface BrowserProfileResourceInitiatorSummary {
   type: string;
   count: number;
@@ -96,6 +115,8 @@ export interface BrowserProfileFrameDiagnostics {
   visibilityState: DocumentVisibilityState | 'unknown';
   longTasks: BrowserProfileLongTaskSummary;
   animationFrames: BrowserProfileAnimationFrameSummary;
+  eventLoopDelays: BrowserProfileEventLoopDelaySummary;
+  eventTimings: BrowserProfileEventTimingSummary;
   resources: BrowserProfileResourceSummary;
   memory: BrowserProfileMemorySnapshot | null;
 }
@@ -109,17 +130,24 @@ interface BrowserProfilerState {
   lastSampledAt: number;
   longTaskObserver: PerformanceObserver | null;
   animationFrameObserver: PerformanceObserver | null;
+  eventTimingObserver: PerformanceObserver | null;
+  eventLoopProbeTimer: number | null;
+  eventLoopProbeExpectedAt: number;
   pendingLongTasks: BrowserProfileObservedEntry[];
   pendingAnimationFrames: BrowserProfileObservedEntry[];
+  pendingEventLoopDelays: BrowserProfileObservedEntry[];
+  pendingEventTimings: BrowserProfileObservedEntry[];
   resourceCursor: number;
 }
 
 interface BrowserProfileObservedEntry {
   startTime: number;
   duration: number;
+  name?: string;
   blockingDuration?: number;
   scriptDuration?: number;
   styleLayoutDuration?: number;
+  processingDuration?: number;
 }
 
 interface PerformanceMemoryLike {
@@ -139,6 +167,9 @@ declare global {
 let state: RuntimeProfilerState | null = null;
 let browserState: BrowserProfilerState | null = null;
 let enabled = false;
+
+const EVENT_LOOP_PROBE_INTERVAL_MS = 8;
+const EVENT_LOOP_DELAY_THRESHOLD_MS = 8;
 
 export function createRuntimeProfileFrameMetrics(): RuntimeProfileFrameMetrics {
   return Object.fromEntries(RUNTIME_PROFILE_METRIC_KEYS.map((key) => [key, 0])) as RuntimeProfileFrameMetrics;
@@ -232,8 +263,12 @@ export function consumeBrowserProfileFrameDiagnostics(sampledAtMs = performance.
   activeState.lastSampledAt = now;
   const longTasks = summarizeLongTasks(activeState.pendingLongTasks);
   const animationFrames = summarizeAnimationFrames(activeState.pendingAnimationFrames);
+  const eventLoopDelays = summarizeEventLoopDelays(activeState.pendingEventLoopDelays);
+  const eventTimings = summarizeEventTimings(activeState.pendingEventTimings);
   activeState.pendingLongTasks = [];
   activeState.pendingAnimationFrames = [];
+  activeState.pendingEventLoopDelays = [];
+  activeState.pendingEventTimings = [];
   return {
     sampledAtMs: now,
     elapsedSinceLastSampleMs,
@@ -241,6 +276,8 @@ export function consumeBrowserProfileFrameDiagnostics(sampledAtMs = performance.
     visibilityState: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
     longTasks,
     animationFrames,
+    eventLoopDelays,
+    eventTimings,
     resources: consumeResourceSummary(activeState),
     memory: readMemorySnapshot(),
   };
@@ -253,8 +290,13 @@ function createBrowserProfilerState(): BrowserProfilerState {
     lastSampledAt: now,
     longTaskObserver: null,
     animationFrameObserver: null,
+    eventTimingObserver: null,
+    eventLoopProbeTimer: null,
+    eventLoopProbeExpectedAt: now + EVENT_LOOP_PROBE_INTERVAL_MS,
     pendingLongTasks: [],
     pendingAnimationFrames: [],
+    pendingEventLoopDelays: [],
+    pendingEventTimings: [],
     resourceCursor: getResourceTimingEntries().length,
   };
   nextState.longTaskObserver = createProfileObserver('longtask', (entry) => {
@@ -270,6 +312,12 @@ function createBrowserProfilerState(): BrowserProfilerState {
     if (!activeState || activeState.animationFrameObserver !== nextState.animationFrameObserver) return;
     activeState.pendingAnimationFrames.push(extractAnimationFrameEntry(entry));
   });
+  nextState.eventTimingObserver = createProfileObserver('event', (entry) => {
+    const activeState = browserState;
+    if (!activeState || activeState.eventTimingObserver !== nextState.eventTimingObserver) return;
+    activeState.pendingEventTimings.push(extractEventTimingEntry(entry));
+  }, { durationThreshold: 0 });
+  nextState.eventLoopProbeTimer = startEventLoopProbe(nextState);
   return nextState;
 }
 
@@ -283,6 +331,9 @@ function resetBrowserProfileDiagnostics(): void {
   activeState.lastSampledAt = now;
   activeState.pendingLongTasks = [];
   activeState.pendingAnimationFrames = [];
+  activeState.pendingEventLoopDelays = [];
+  activeState.pendingEventTimings = [];
+  activeState.eventLoopProbeExpectedAt = now + EVENT_LOOP_PROBE_INTERVAL_MS;
   activeState.resourceCursor = getResourceTimingEntries().length;
   browserState = activeState;
 }
@@ -290,10 +341,18 @@ function resetBrowserProfileDiagnostics(): void {
 function stopBrowserProfiler(): void {
   browserState?.longTaskObserver?.disconnect();
   browserState?.animationFrameObserver?.disconnect();
+  browserState?.eventTimingObserver?.disconnect();
+  if (browserState?.eventLoopProbeTimer !== null && browserState?.eventLoopProbeTimer !== undefined && typeof window !== 'undefined') {
+    window.clearInterval(browserState.eventLoopProbeTimer);
+  }
   browserState = null;
 }
 
-function createProfileObserver(type: string, consumeEntry: (entry: PerformanceEntryRecord) => void): PerformanceObserver | null {
+function createProfileObserver(
+  type: string,
+  consumeEntry: (entry: PerformanceEntryRecord) => void,
+  extraOptions?: Record<string, unknown>,
+): PerformanceObserver | null {
   if (typeof PerformanceObserver === 'undefined' || !isPerformanceEntryTypeSupported(type)) {
     return null;
   }
@@ -303,11 +362,33 @@ function createProfileObserver(type: string, consumeEntry: (entry: PerformanceEn
         consumeEntry(entry as PerformanceEntryRecord);
       }
     });
-    observer.observe({ type, buffered: true } as PerformanceObserverInit);
+    observer.observe({ type, buffered: true, ...extraOptions } as PerformanceObserverInit);
     return observer;
   } catch {
     return null;
   }
+}
+
+function startEventLoopProbe(ownerState: BrowserProfilerState): number | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  ownerState.eventLoopProbeExpectedAt = performance.now() + EVENT_LOOP_PROBE_INTERVAL_MS;
+  return window.setInterval(() => {
+    const activeState = browserState;
+    if (!activeState || activeState !== ownerState) {
+      return;
+    }
+    const now = performance.now();
+    const delay = Math.max(0, now - activeState.eventLoopProbeExpectedAt);
+    if (delay >= EVENT_LOOP_DELAY_THRESHOLD_MS) {
+      activeState.pendingEventLoopDelays.push({
+        startTime: activeState.eventLoopProbeExpectedAt,
+        duration: delay,
+      });
+    }
+    activeState.eventLoopProbeExpectedAt = now + EVENT_LOOP_PROBE_INTERVAL_MS;
+  }, EVENT_LOOP_PROBE_INTERVAL_MS);
 }
 
 function isPerformanceEntryTypeSupported(type: string): boolean {
@@ -330,6 +411,19 @@ function extractAnimationFrameEntry(entry: PerformanceEntryRecord): BrowserProfi
     blockingDuration: sanitizeProfileNumber(entry.blockingDuration),
     scriptDuration,
     styleLayoutDuration,
+  };
+}
+
+function extractEventTimingEntry(entry: PerformanceEntryRecord): BrowserProfileObservedEntry {
+  const startTime = sanitizeProfileNumber(entry.startTime);
+  const processingStart = sanitizeProfileNumber(entry.processingStart);
+  const processingEnd = sanitizeProfileNumber(entry.processingEnd);
+  const processingDuration = processingEnd > processingStart ? processingEnd - processingStart : 0;
+  return {
+    name: typeof entry.name === 'string' ? entry.name : '',
+    startTime,
+    duration: sanitizeProfileNumber(entry.duration),
+    processingDuration,
   };
 }
 
@@ -398,6 +492,55 @@ function summarizeAnimationFrames(entries: BrowserProfileObservedEntry[]): Brows
     }
   }
   return roundAnimationFrameSummary(summary);
+}
+
+function summarizeEventLoopDelays(entries: BrowserProfileObservedEntry[]): BrowserProfileEventLoopDelaySummary {
+  const summary: BrowserProfileEventLoopDelaySummary = {
+    count: 0,
+    totalDelayMs: 0,
+    maxDelayMs: 0,
+    latestStartMs: 0,
+    latestDelayMs: 0,
+  };
+  for (const entry of entries) {
+    const duration = sanitizeProfileNumber(entry.duration);
+    summary.count += 1;
+    summary.totalDelayMs += duration;
+    summary.maxDelayMs = Math.max(summary.maxDelayMs, duration);
+    if (entry.startTime >= summary.latestStartMs) {
+      summary.latestStartMs = entry.startTime;
+      summary.latestDelayMs = duration;
+    }
+  }
+  return roundEventLoopDelaySummary(summary);
+}
+
+function summarizeEventTimings(entries: BrowserProfileObservedEntry[]): BrowserProfileEventTimingSummary {
+  const summary: BrowserProfileEventTimingSummary = {
+    count: 0,
+    totalDurationMs: 0,
+    maxDurationMs: 0,
+    totalProcessingMs: 0,
+    maxProcessingMs: 0,
+    latestStartMs: 0,
+    latestDurationMs: 0,
+    latestName: '',
+  };
+  for (const entry of entries) {
+    const duration = sanitizeProfileNumber(entry.duration);
+    const processingDuration = sanitizeProfileNumber(entry.processingDuration);
+    summary.count += 1;
+    summary.totalDurationMs += duration;
+    summary.maxDurationMs = Math.max(summary.maxDurationMs, duration);
+    summary.totalProcessingMs += processingDuration;
+    summary.maxProcessingMs = Math.max(summary.maxProcessingMs, processingDuration);
+    if (entry.startTime >= summary.latestStartMs) {
+      summary.latestStartMs = entry.startTime;
+      summary.latestDurationMs = duration;
+      summary.latestName = entry.name ?? '';
+    }
+  }
+  return roundEventTimingSummary(summary);
 }
 
 function consumeResourceSummary(activeState: BrowserProfilerState): BrowserProfileResourceSummary {
@@ -474,6 +617,8 @@ function createEmptyBrowserProfileFrameDiagnostics(sampledAtMs: number, elapsedS
     visibilityState: 'unknown',
     longTasks: summarizeLongTasks([]),
     animationFrames: summarizeAnimationFrames([]),
+    eventLoopDelays: summarizeEventLoopDelays([]),
+    eventTimings: summarizeEventTimings([]),
     resources: {
       count: 0,
       totalDurationMs: 0,
@@ -511,6 +656,29 @@ function roundAnimationFrameSummary(summary: BrowserProfileAnimationFrameSummary
     maxStyleLayoutMs: roundProfileNumber(summary.maxStyleLayoutMs),
     latestStartMs: roundProfileNumber(summary.latestStartMs),
     latestDurationMs: roundProfileNumber(summary.latestDurationMs),
+  };
+}
+
+function roundEventLoopDelaySummary(summary: BrowserProfileEventLoopDelaySummary): BrowserProfileEventLoopDelaySummary {
+  return {
+    count: summary.count,
+    totalDelayMs: roundProfileNumber(summary.totalDelayMs),
+    maxDelayMs: roundProfileNumber(summary.maxDelayMs),
+    latestStartMs: roundProfileNumber(summary.latestStartMs),
+    latestDelayMs: roundProfileNumber(summary.latestDelayMs),
+  };
+}
+
+function roundEventTimingSummary(summary: BrowserProfileEventTimingSummary): BrowserProfileEventTimingSummary {
+  return {
+    count: summary.count,
+    totalDurationMs: roundProfileNumber(summary.totalDurationMs),
+    maxDurationMs: roundProfileNumber(summary.maxDurationMs),
+    totalProcessingMs: roundProfileNumber(summary.totalProcessingMs),
+    maxProcessingMs: roundProfileNumber(summary.maxProcessingMs),
+    latestStartMs: roundProfileNumber(summary.latestStartMs),
+    latestDurationMs: roundProfileNumber(summary.latestDurationMs),
+    latestName: summary.latestName,
   };
 }
 

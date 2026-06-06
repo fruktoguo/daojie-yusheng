@@ -636,6 +636,14 @@ export class PixiProfilerWindow {
       `<tr><td>animation frame blocking</td><td>${formatMs(sample.browser.animationFrames.totalBlockingMs)}</td></tr>`,
       `<tr><td>animation frame script</td><td>${formatMs(sample.browser.animationFrames.totalScriptMs)}</td></tr>`,
       `<tr><td>animation frame style/layout</td><td>${formatMs(sample.browser.animationFrames.totalStyleLayoutMs)}</td></tr>`,
+      `<tr><td>event loop delay count</td><td>${formatNumber(sample.browser.eventLoopDelays.count)}</td></tr>`,
+      `<tr><td>event loop delay total</td><td>${formatMs(sample.browser.eventLoopDelays.totalDelayMs)}</td></tr>`,
+      `<tr><td>event loop delay max</td><td>${formatMs(sample.browser.eventLoopDelays.maxDelayMs)}</td></tr>`,
+      `<tr><td>event timing count</td><td>${formatNumber(sample.browser.eventTimings.count)}</td></tr>`,
+      `<tr><td>event timing total</td><td>${formatMs(sample.browser.eventTimings.totalDurationMs)}</td></tr>`,
+      `<tr><td>event timing max</td><td>${formatMs(sample.browser.eventTimings.maxDurationMs)}</td></tr>`,
+      `<tr><td>event timing processing</td><td>${formatMs(sample.browser.eventTimings.totalProcessingMs)}</td></tr>`,
+      `<tr><td>latest event</td><td>${escapeHtml(sample.browser.eventTimings.latestName || '--')}</td></tr>`,
       `<tr class="pixi-profiler-section-row"><td colspan="2">resources & memory</td></tr>`,
       `<tr><td>resource count</td><td>${formatNumber(sample.browser.resources.count)}</td></tr>`,
       `<tr><td>resource total duration</td><td>${formatMs(sample.browser.resources.totalDurationMs)}</td></tr>`,
@@ -713,7 +721,7 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
 
   return [
     'meta\tvalue',
-    'profilerVersion\t3',
+    'profilerVersion\t4',
     `capturedAtMs\t${Number(performance.now().toFixed(3))}`,
     `devicePixelRatio\t${typeof window === 'undefined' ? '' : Number(window.devicePixelRatio.toFixed(3))}`,
     `viewport\t${typeof window === 'undefined' ? '' : `${window.innerWidth}x${window.innerHeight}`}`,
@@ -762,6 +770,17 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     `animationFrameBlockingMs\t${Number(sample.browser.animationFrames.totalBlockingMs.toFixed(3))}`,
     `animationFrameScriptMs\t${Number(sample.browser.animationFrames.totalScriptMs.toFixed(3))}`,
     `animationFrameStyleLayoutMs\t${Number(sample.browser.animationFrames.totalStyleLayoutMs.toFixed(3))}`,
+    `eventLoopDelayCount\t${sample.browser.eventLoopDelays.count}`,
+    `eventLoopDelayTotalMs\t${Number(sample.browser.eventLoopDelays.totalDelayMs.toFixed(3))}`,
+    `eventLoopDelayMaxMs\t${Number(sample.browser.eventLoopDelays.maxDelayMs.toFixed(3))}`,
+    `eventLoopDelayLatestMs\t${Number(sample.browser.eventLoopDelays.latestDelayMs.toFixed(3))}`,
+    `eventTimingCount\t${sample.browser.eventTimings.count}`,
+    `eventTimingTotalMs\t${Number(sample.browser.eventTimings.totalDurationMs.toFixed(3))}`,
+    `eventTimingMaxMs\t${Number(sample.browser.eventTimings.maxDurationMs.toFixed(3))}`,
+    `eventTimingProcessingMs\t${Number(sample.browser.eventTimings.totalProcessingMs.toFixed(3))}`,
+    `eventTimingMaxProcessingMs\t${Number(sample.browser.eventTimings.maxProcessingMs.toFixed(3))}`,
+    `eventTimingLatestName\t${sample.browser.eventTimings.latestName}`,
+    `eventTimingLatestDurationMs\t${Number(sample.browser.eventTimings.latestDurationMs.toFixed(3))}`,
     '',
     'resources\tvalue',
     `resourceCount\t${sample.browser.resources.count}`,
@@ -883,6 +902,24 @@ function buildTopOffenders(sample: PixiProfileFrameSample): ProfileOffenderRow[]
       name: 'animationFrame.blocking',
       value: sample.browser.animationFrames.totalBlockingMs,
       count: sample.browser.animationFrames.count,
+    });
+  }
+  if (sample.browser.eventLoopDelays.maxDelayMs > 0) {
+    offenders.push({
+      group: 'browser',
+      name: 'eventLoopDelay.max',
+      value: sample.browser.eventLoopDelays.maxDelayMs,
+      count: sample.browser.eventLoopDelays.count,
+    });
+  }
+  if (sample.browser.eventTimings.maxProcessingMs > 0) {
+    offenders.push({
+      group: 'browser',
+      name: sample.browser.eventTimings.latestName
+        ? `event.${sample.browser.eventTimings.latestName}.processing`
+        : 'event.processing',
+      value: sample.browser.eventTimings.maxProcessingMs,
+      count: sample.browser.eventTimings.count,
     });
   }
   if (sample.browser.resources.maxDurationMs > 0) {
