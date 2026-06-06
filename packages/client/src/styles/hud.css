@@ -9,7 +9,7 @@
       z-index: 9500;
       width: min(720px, calc(100vw - 28px));
       height: min(560px, calc(100vh - 28px));
-      min-height: 420px;
+      min-height: min(420px, calc(100vh - 28px));
       display: grid;
       grid-template-rows: auto auto auto minmax(0, 1fr);
       border: 1px solid rgba(15, 23, 42, 0.72);
@@ -28,6 +28,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
+      flex-wrap: wrap;
       min-height: 34px;
       padding: 7px 9px;
       background: rgba(30, 41, 59, 0.94);
@@ -43,6 +44,7 @@
       min-width: 0;
       color: #cbd5e1;
       white-space: nowrap;
+      overflow: hidden;
     }
     .pixi-profiler-title span {
       font-weight: 700;
@@ -51,6 +53,8 @@
     .pixi-profiler-title strong {
       color: #67e8f9;
       font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .pixi-profiler-actions {
       display: flex;
@@ -169,6 +173,52 @@
     .pixi-profiler-counter-row td {
       color: #cbd5e1;
       background: rgba(51, 65, 85, 0.18);
+    }
+    .pixi-profiler-section-row td {
+      color: #f8fafc;
+      background: rgba(14, 165, 233, 0.16);
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    @media (max-width: 560px), (max-height: 520px) {
+      .pixi-profiler-window {
+        right: 8px;
+        bottom: 8px;
+        width: calc(100vw - 16px);
+        height: calc(100vh - 16px);
+      }
+      .pixi-profiler-header {
+        align-items: flex-start;
+        gap: 6px;
+        padding: 6px;
+      }
+      .pixi-profiler-title {
+        flex: 1 1 100%;
+        width: 100%;
+      }
+      .pixi-profiler-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      .pixi-profiler-graph-shell {
+        min-height: 112px;
+        padding: 6px;
+      }
+      .pixi-profiler-graph {
+        height: 118px;
+        min-height: 118px;
+        max-height: 118px;
+      }
+      .pixi-profiler-counters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        min-height: 54px;
+      }
+      .pixi-profiler-detail th:last-child,
+      .pixi-profiler-detail td:last-child {
+        width: 84px;
+      }
     }
     .hud-panel {
       display: grid;

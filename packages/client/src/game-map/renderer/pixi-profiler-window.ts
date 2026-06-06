@@ -5,6 +5,7 @@
  */
 
 import {
+  type BrowserProfileFrameDiagnostics,
   RUNTIME_PROFILE_METRIC_KEYS,
   type RuntimeProfileFrameMetrics,
   type RuntimeProfileMetricKey,
@@ -57,6 +58,7 @@ export interface PixiProfileState {
   counters: Record<PixiProfileCounterKey, number>;
   frameMetrics: Record<PixiProfileMetricKey, number>;
   frameCounters: Record<PixiProfileCounterKey, number>;
+  lastFrameSample: PixiProfileFrameSample | null;
 }
 
 export interface PixiProfileSnapshot {
@@ -66,6 +68,7 @@ export interface PixiProfileSnapshot {
   metrics: Record<PixiProfileMetricKey, PixiProfileMetric & { avgMs: number }>;
   counters: Record<PixiProfileCounterKey, number>;
   renderer: PixiProfileRendererState;
+  latestFrame: PixiProfileFrameSample | null;
 }
 
 export interface PixiProfileRendererState {
@@ -73,7 +76,19 @@ export interface PixiProfileRendererState {
   cachedTerrainChunks: number;
   terrainChunkChildren: number;
   entities: number;
+  groundChildren: number;
+  entityChildren: number;
+  effectChildren: number;
+  screenChildren: number;
+  pathChildren: number;
+  floatingTexts: number;
+  attackTrails: number;
+  warningZones: number;
   runtimeTileTextures: number;
+  runtimeAtlasTextures: number;
+  runtimeEntityTextures: number;
+  runtimeTileTextureRequests: number;
+  runtimeEntityTextureRequests: number;
   runtimeTileManifestState: 'idle' | 'loading' | 'loaded' | 'error';
   backbufferWidth: number;
   backbufferHeight: number;
@@ -96,6 +111,7 @@ export interface PixiProfileFrameSample {
   totalMs: number;
   metrics: Record<PixiProfileMetricKey, number>;
   runtimeMetrics: RuntimeProfileFrameMetrics;
+  browser: BrowserProfileFrameDiagnostics;
   counters: Record<PixiProfileCounterKey, number>;
   renderer: PixiProfileRendererState;
 }
@@ -199,6 +215,13 @@ const RUNTIME_METRIC_LABELS: Record<RuntimeProfileMetricKey, string> = {
   'runtime.delta.finalizeSelfDelta': 'runtime.delta.finalizeSelfDelta',
   'runtime.delta.handlePanelDelta': 'runtime.delta.handlePanelDelta',
 };
+
+interface ProfileOffenderRow {
+  group: 'pixi' | 'runtime' | 'browser' | 'resource' | 'gap';
+  name: string;
+  value: number;
+  count: number;
+}
 
 export function createPixiProfileMetric(): PixiProfileMetric {
   return { count: 0, totalMs: 0, maxMs: 0, lastMs: 0 };
@@ -494,7 +517,10 @@ export class PixiProfilerWindow {
     }
     const suffix = this.paused ? `paused #${selected.index}` : (this.followLatest || selected === latest ? 'live' : `#${selected.index}`);
     const frameFps = selected.frameFps === null ? '--fps' : `${formatNumber(selected.frameFps)}fps`;
-    this.summaryEl.textContent = `${formatMs(selected.totalMs)} render / ${formatMs(selected.frameIntervalMs)} frame ${frameFps} ${suffix}`;
+    const budget = computeFrameBudget(selected);
+    const offender = buildTopOffenders(selected)[0];
+    const offenderText = offender ? `${offender.group}:${offender.name} ${formatMs(offender.value)}` : 'no offender';
+    this.summaryEl.textContent = `${formatMs(selected.frameIntervalMs)} frame / ${formatMs(budget.profiledMs)} profiled / ${formatMs(budget.unprofiledMs)} gap ${frameFps} ${offenderText} ${suffix}`;
   }
 
   private renderActionState(): void {
@@ -526,6 +552,10 @@ export class PixiProfilerWindow {
       ['cached', sample.renderer.cachedTerrainChunks],
       ['children', sample.renderer.terrainChunkChildren],
       ['textures', sample.renderer.runtimeTileTextures],
+      ['long', sample.browser.longTasks.count],
+      ['loaf', sample.browser.animationFrames.count],
+      ['res', sample.browser.resources.count],
+      ['heapMB', sample.browser.memory ? sample.browser.memory.usedJSHeapSizeBytes / 1024 / 1024 : 0],
       ['fps', sample.frameFps ?? 0],
       ['raf', sample.schedule.rafCallbacks],
     ];
@@ -553,20 +583,58 @@ export class PixiProfilerWindow {
       .map((key) => ({ key, value: sample.counters[key] }))
       .filter((entry) => entry.value > 0);
     const runtimeTotalMs = getTopLevelRuntimeMs(sample);
+    const budget = computeFrameBudget(sample);
+    const offenderRows = buildTopOffenders(sample);
+    const resourceInitiatorRows = sample.browser.resources.initiators;
+    const memory = sample.browser.memory;
     const unprofiledScheduleLateMs = Math.max(0, sample.schedule.scheduleLateMs - runtimeTotalMs);
     this.detailBodyEl.innerHTML = [
       `<tr class="pixi-profiler-selected-row"><td>frame #${sample.index}</td><td>${formatMs(sample.totalMs)}</td></tr>`,
       `<tr><td>frame interval</td><td>${formatMs(sample.frameIntervalMs)}</td></tr>`,
       `<tr><td>frame fps</td><td>${sample.frameFps === null ? '--' : formatNumber(sample.frameFps)}</td></tr>`,
+      `<tr><td>profiled total</td><td>${formatMs(budget.profiledMs)}</td></tr>`,
+      `<tr><td>profile coverage</td><td>${formatPercent(budget.coverageRatio)}</td></tr>`,
+      `<tr><td>frame unprofiled gap</td><td>${formatMs(budget.unprofiledMs)}</td></tr>`,
       `<tr><td>raw rAF interval</td><td>${formatMs(sample.schedule.rafIntervalMs)}</td></tr>`,
       `<tr><td>rAF callbacks</td><td>${formatNumber(sample.schedule.rafCallbacks)}</td></tr>`,
       `<tr><td>target interval</td><td>${formatMs(sample.schedule.targetIntervalMs)}</td></tr>`,
       `<tr><td>schedule late</td><td>${formatMs(sample.schedule.scheduleLateMs)}</td></tr>`,
       `<tr><td>runtime profiled</td><td>${formatMs(runtimeTotalMs)}</td></tr>`,
       `<tr><td>schedule late unprofiled</td><td>${formatMs(unprofiledScheduleLateMs)}</td></tr>`,
+      `<tr class="pixi-profiler-section-row"><td colspan="2">top offenders</td></tr>`,
+      ...offenderRows.map((entry) => `<tr><td>${escapeHtml(`${entry.group}.${entry.name}${entry.count > 1 ? ` x${entry.count}` : ''}`)}</td><td>${formatMs(entry.value)}</td></tr>`),
+      `<tr class="pixi-profiler-section-row"><td colspan="2">browser main thread</td></tr>`,
+      `<tr><td>document hidden</td><td>${sample.browser.documentHidden ? 'yes' : 'no'}</td></tr>`,
+      `<tr><td>visibility</td><td>${escapeHtml(sample.browser.visibilityState)}</td></tr>`,
+      `<tr><td>sample window</td><td>${formatMs(sample.browser.elapsedSinceLastSampleMs)}</td></tr>`,
+      `<tr><td>long task count</td><td>${formatNumber(sample.browser.longTasks.count)}</td></tr>`,
+      `<tr><td>long task total</td><td>${formatMs(sample.browser.longTasks.totalMs)}</td></tr>`,
+      `<tr><td>long task max</td><td>${formatMs(sample.browser.longTasks.maxMs)}</td></tr>`,
+      `<tr><td>animation frame count</td><td>${formatNumber(sample.browser.animationFrames.count)}</td></tr>`,
+      `<tr><td>animation frame total</td><td>${formatMs(sample.browser.animationFrames.totalMs)}</td></tr>`,
+      `<tr><td>animation frame max</td><td>${formatMs(sample.browser.animationFrames.maxMs)}</td></tr>`,
+      `<tr><td>animation frame blocking</td><td>${formatMs(sample.browser.animationFrames.totalBlockingMs)}</td></tr>`,
+      `<tr><td>animation frame script</td><td>${formatMs(sample.browser.animationFrames.totalScriptMs)}</td></tr>`,
+      `<tr><td>animation frame style/layout</td><td>${formatMs(sample.browser.animationFrames.totalStyleLayoutMs)}</td></tr>`,
+      `<tr class="pixi-profiler-section-row"><td colspan="2">resources & memory</td></tr>`,
+      `<tr><td>resource count</td><td>${formatNumber(sample.browser.resources.count)}</td></tr>`,
+      `<tr><td>resource total duration</td><td>${formatMs(sample.browser.resources.totalDurationMs)}</td></tr>`,
+      `<tr><td>resource max duration</td><td>${formatMs(sample.browser.resources.maxDurationMs)}</td></tr>`,
+      `<tr><td>resource transfer</td><td>${formatBytes(sample.browser.resources.transferSizeBytes)}</td></tr>`,
+      `<tr><td>resource decoded</td><td>${formatBytes(sample.browser.resources.decodedBodySizeBytes)}</td></tr>`,
+      `<tr><td>slowest resource</td><td title="${escapeHtml(sample.browser.resources.slowestName)}">${escapeHtml(sample.browser.resources.slowestInitiatorType || '--')}</td></tr>`,
+      ...resourceInitiatorRows.map((entry) => `<tr><td>${escapeHtml(`resource.${entry.type} x${entry.count}`)}</td><td>${formatMs(entry.totalDurationMs)}</td></tr>`),
+      `<tr><td>heap used</td><td>${memory ? formatBytes(memory.usedJSHeapSizeBytes) : '--'}</td></tr>`,
+      `<tr><td>heap total</td><td>${memory ? formatBytes(memory.totalJSHeapSizeBytes) : '--'}</td></tr>`,
+      `<tr><td>heap limit</td><td>${memory ? formatBytes(memory.jsHeapSizeLimitBytes) : '--'}</td></tr>`,
+      `<tr class="pixi-profiler-section-row"><td colspan="2">pixi render</td></tr>`,
       ...metricRows.map((entry) => `<tr><td>${escapeHtml(METRIC_LABELS[entry.key])}</td><td>${formatMs(entry.value)}</td></tr>`),
+      `<tr class="pixi-profiler-section-row"><td colspan="2">runtime/socket</td></tr>`,
       ...runtimeRows.map((entry) => `<tr><td>${escapeHtml(RUNTIME_METRIC_LABELS[entry.key])}</td><td>${formatMs(entry.value)}</td></tr>`),
+      `<tr class="pixi-profiler-section-row"><td colspan="2">counters</td></tr>`,
       ...counterRows.map((entry) => `<tr class="pixi-profiler-counter-row"><td>${escapeHtml(COUNTER_LABELS[entry.key])}</td><td>${formatNumber(entry.value)}</td></tr>`),
+      `<tr class="pixi-profiler-section-row"><td colspan="2">renderer state</td></tr>`,
+      ...buildRendererRows(sample.renderer).map(([key, value]) => `<tr class="pixi-profiler-counter-row"><td>${escapeHtml(key)}</td><td>${escapeHtml(value)}</td></tr>`),
     ].join('');
   }
 
@@ -618,13 +686,28 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
   const counterRows = PIXI_PROFILE_COUNTER_KEYS
     .map((key) => ({ key, value: sample.counters[key] }));
   const runtimeTotalMs = getTopLevelRuntimeMs(sample);
+  const budget = computeFrameBudget(sample);
+  const topOffenders = buildTopOffenders(sample);
+  const memory = sample.browser.memory;
   const unprofiledScheduleLateMs = Math.max(0, sample.schedule.scheduleLateMs - runtimeTotalMs);
 
   return [
+    'meta\tvalue',
+    'profilerVersion\t2',
+    `capturedAtMs\t${Number(performance.now().toFixed(3))}`,
+    `devicePixelRatio\t${typeof window === 'undefined' ? '' : Number(window.devicePixelRatio.toFixed(3))}`,
+    `viewport\t${typeof window === 'undefined' ? '' : `${window.innerWidth}x${window.innerHeight}`}`,
+    `userAgent\t${typeof navigator === 'undefined' ? '' : navigator.userAgent}`,
+    `visibilityState\t${sample.browser.visibilityState}`,
+    '',
+    'summary\tvalue',
     `frame\t${sample.index}`,
     `atMs\t${Number(sample.atMs.toFixed(3))}`,
     `frameIntervalMs\t${Number(sample.frameIntervalMs.toFixed(3))}`,
     `frameFps\t${sample.frameFps === null ? '' : Number(sample.frameFps.toFixed(3))}`,
+    `profiledMs\t${Number(budget.profiledMs.toFixed(3))}`,
+    `profileCoverageRatio\t${Number(budget.coverageRatio.toFixed(3))}`,
+    `frameUnprofiledMs\t${Number(budget.unprofiledMs.toFixed(3))}`,
     `rawRafIntervalMs\t${Number(sample.schedule.rafIntervalMs.toFixed(3))}`,
     `rafCallbacks\t${sample.schedule.rafCallbacks}`,
     `targetIntervalMs\t${Number(sample.schedule.targetIntervalMs.toFixed(3))}`,
@@ -632,6 +715,41 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     `totalMs\t${Number(sample.totalMs.toFixed(3))}`,
     `runtimeProfiledMs\t${Number(runtimeTotalMs.toFixed(3))}`,
     `scheduleLateUnprofiledMs\t${Number(unprofiledScheduleLateMs.toFixed(3))}`,
+    '',
+    'topOffenders',
+    'rank\tgroup\tname\tms\tcount',
+    ...topOffenders.map((entry, index) => `${index + 1}\t${entry.group}\t${entry.name}\t${Number(entry.value.toFixed(3))}\t${entry.count}`),
+    '',
+    'browser\tvalue',
+    `documentHidden\t${sample.browser.documentHidden ? 'true' : 'false'}`,
+    `sampleWindowMs\t${Number(sample.browser.elapsedSinceLastSampleMs.toFixed(3))}`,
+    `longTaskCount\t${sample.browser.longTasks.count}`,
+    `longTaskTotalMs\t${Number(sample.browser.longTasks.totalMs.toFixed(3))}`,
+    `longTaskMaxMs\t${Number(sample.browser.longTasks.maxMs.toFixed(3))}`,
+    `animationFrameCount\t${sample.browser.animationFrames.count}`,
+    `animationFrameTotalMs\t${Number(sample.browser.animationFrames.totalMs.toFixed(3))}`,
+    `animationFrameMaxMs\t${Number(sample.browser.animationFrames.maxMs.toFixed(3))}`,
+    `animationFrameBlockingMs\t${Number(sample.browser.animationFrames.totalBlockingMs.toFixed(3))}`,
+    `animationFrameScriptMs\t${Number(sample.browser.animationFrames.totalScriptMs.toFixed(3))}`,
+    `animationFrameStyleLayoutMs\t${Number(sample.browser.animationFrames.totalStyleLayoutMs.toFixed(3))}`,
+    '',
+    'resources\tvalue',
+    `resourceCount\t${sample.browser.resources.count}`,
+    `resourceTotalDurationMs\t${Number(sample.browser.resources.totalDurationMs.toFixed(3))}`,
+    `resourceMaxDurationMs\t${Number(sample.browser.resources.maxDurationMs.toFixed(3))}`,
+    `resourceTransferBytes\t${sample.browser.resources.transferSizeBytes}`,
+    `resourceDecodedBytes\t${sample.browser.resources.decodedBodySizeBytes}`,
+    `slowestResourceType\t${sample.browser.resources.slowestInitiatorType}`,
+    `slowestResourceName\t${sample.browser.resources.slowestName}`,
+    '',
+    'resourceInitiators',
+    'type\tcount\ttotalDurationMs',
+    ...sample.browser.resources.initiators.map((entry) => `${entry.type}\t${entry.count}\t${Number(entry.totalDurationMs.toFixed(3))}`),
+    '',
+    'memory\tbytes',
+    `usedJSHeapSize\t${memory?.usedJSHeapSizeBytes ?? ''}`,
+    `totalJSHeapSize\t${memory?.totalJSHeapSizeBytes ?? ''}`,
+    `jsHeapSizeLimit\t${memory?.jsHeapSizeLimitBytes ?? ''}`,
     '',
     'metric\tms',
     ...metricRows.map((entry) => `${METRIC_LABELS[entry.key]}\t${Number(entry.value.toFixed(3))}`),
@@ -643,15 +761,7 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     ...counterRows.map((entry) => `${COUNTER_LABELS[entry.key]}\t${Math.round(entry.value)}`),
     '',
     'renderer\tvalue',
-    `terrainChunks\t${sample.renderer.terrainChunks}`,
-    `cachedTerrainChunks\t${sample.renderer.cachedTerrainChunks}`,
-    `terrainChunkChildren\t${sample.renderer.terrainChunkChildren}`,
-    `entities\t${sample.renderer.entities}`,
-    `runtimeTileTextures\t${sample.renderer.runtimeTileTextures}`,
-    `runtimeTileManifestState\t${sample.renderer.runtimeTileManifestState}`,
-    `backbufferWidth\t${sample.renderer.backbufferWidth}`,
-    `backbufferHeight\t${sample.renderer.backbufferHeight}`,
-    `backbufferPixels\t${sample.renderer.backbufferPixels}`,
+    ...buildRendererRows(sample.renderer).map(([key, value]) => `${key}\t${value}`),
   ].join('\n');
 }
 
@@ -665,6 +775,92 @@ function getTopLevelRuntimeMs(sample: PixiProfileFrameSample): number {
     + (sample.runtimeMetrics['socket.decodeEventPanelDelta'] ?? 0)
     + (sample.runtimeMetrics['socket.panelDelta'] ?? 0)
     + (sample.runtimeMetrics['runtime.flushDeferredSideEffects'] ?? 0);
+}
+
+function computeFrameBudget(sample: PixiProfileFrameSample): { profiledMs: number; unprofiledMs: number; coverageRatio: number } {
+  const runtimeMs = getTopLevelRuntimeMs(sample);
+  const profiledMs = Math.max(0, sample.totalMs) + runtimeMs;
+  const frameMs = Math.max(0, sample.frameIntervalMs);
+  const unprofiledMs = Math.max(0, frameMs - profiledMs);
+  const coverageRatio = frameMs > 0 ? Math.min(1, profiledMs / frameMs) : 0;
+  return { profiledMs, unprofiledMs, coverageRatio };
+}
+
+function buildTopOffenders(sample: PixiProfileFrameSample): ProfileOffenderRow[] {
+  const offenders: ProfileOffenderRow[] = [
+    ...PIXI_PROFILE_METRIC_KEYS.map((key) => ({
+      group: 'pixi' as const,
+      name: METRIC_LABELS[key],
+      value: sample.metrics[key],
+      count: sample.metrics[key] > 0 ? 1 : 0,
+    })),
+    ...RUNTIME_PROFILE_METRIC_KEYS.map((key) => ({
+      group: 'runtime' as const,
+      name: RUNTIME_METRIC_LABELS[key],
+      value: sample.runtimeMetrics[key],
+      count: sample.runtimeMetrics[key] > 0 ? 1 : 0,
+    })),
+  ];
+  const budget = computeFrameBudget(sample);
+  if (budget.unprofiledMs > 0) {
+    offenders.push({ group: 'gap', name: 'frame.unprofiled', value: budget.unprofiledMs, count: 1 });
+  }
+  if (sample.browser.longTasks.totalMs > 0) {
+    offenders.push({
+      group: 'browser',
+      name: 'longTasks.total',
+      value: sample.browser.longTasks.totalMs,
+      count: sample.browser.longTasks.count,
+    });
+  }
+  if (sample.browser.animationFrames.totalBlockingMs > 0) {
+    offenders.push({
+      group: 'browser',
+      name: 'animationFrame.blocking',
+      value: sample.browser.animationFrames.totalBlockingMs,
+      count: sample.browser.animationFrames.count,
+    });
+  }
+  if (sample.browser.resources.maxDurationMs > 0) {
+    offenders.push({
+      group: 'resource',
+      name: sample.browser.resources.slowestInitiatorType || 'resource.max',
+      value: sample.browser.resources.maxDurationMs,
+      count: sample.browser.resources.count,
+    });
+  }
+  return offenders
+    .filter((entry) => entry.value > 0)
+    .sort((left, right) => right.value - left.value || right.count - left.count)
+    .slice(0, 10);
+}
+
+function buildRendererRows(renderer: PixiProfileRendererState): Array<[string, string]> {
+  return [
+    ['terrainChunks', formatNumber(renderer.terrainChunks)],
+    ['cachedTerrainChunks', formatNumber(renderer.cachedTerrainChunks)],
+    ['terrainCacheRatio', renderer.terrainChunks > 0 ? formatPercent(renderer.cachedTerrainChunks / renderer.terrainChunks) : '--'],
+    ['terrainChunkChildren', formatNumber(renderer.terrainChunkChildren)],
+    ['entities', formatNumber(renderer.entities)],
+    ['groundChildren', formatNumber(renderer.groundChildren)],
+    ['entityChildren', formatNumber(renderer.entityChildren)],
+    ['effectChildren', formatNumber(renderer.effectChildren)],
+    ['screenChildren', formatNumber(renderer.screenChildren)],
+    ['pathChildren', formatNumber(renderer.pathChildren)],
+    ['floatingTexts', formatNumber(renderer.floatingTexts)],
+    ['attackTrails', formatNumber(renderer.attackTrails)],
+    ['warningZones', formatNumber(renderer.warningZones)],
+    ['runtimeTileTextures', formatNumber(renderer.runtimeTileTextures)],
+    ['runtimeAtlasTextures', formatNumber(renderer.runtimeAtlasTextures)],
+    ['runtimeEntityTextures', formatNumber(renderer.runtimeEntityTextures)],
+    ['runtimeTileTextureRequests', formatNumber(renderer.runtimeTileTextureRequests)],
+    ['runtimeEntityTextureRequests', formatNumber(renderer.runtimeEntityTextureRequests)],
+    ['runtimeTileManifestState', renderer.runtimeTileManifestState],
+    ['backbufferWidth', formatNumber(renderer.backbufferWidth)],
+    ['backbufferHeight', formatNumber(renderer.backbufferHeight)],
+    ['backbufferPixels', formatNumber(renderer.backbufferPixels)],
+    ['backbufferBytes', formatBytes(renderer.backbufferPixels * 4)],
+  ];
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -700,6 +896,17 @@ function formatMs(value: number): string {
 
 function formatNumber(value: number): string {
   return String(Math.round(value));
+}
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0B';
+  if (value >= 1024 * 1024) return `${Number((value / 1024 / 1024).toFixed(1))}MB`;
+  if (value >= 1024) return `${Number((value / 1024).toFixed(1))}KB`;
+  return `${Math.round(value)}B`;
 }
 
 function escapeHtml(value: string): string {

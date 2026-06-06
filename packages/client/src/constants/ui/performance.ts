@@ -13,7 +13,7 @@ export type MapPerformanceConfig = {
  */
 
   showFpsMonitor: boolean;
-  /** 是否显示 Pixi 渲染分析器窗口。 */
+  /** 是否显示前端性能分析器窗口。 */
   showPixiProfiler: boolean;
   /**
  * targetFps：targetFp相关字段。

@@ -86,7 +86,12 @@ import {
   type PixiProfileState,
 } from './pixi-profiler-window';
 import { normalizeRuntimeImagePackVersion, resolveRuntimeImagePackAssetUrl } from '../../renderer/runtime-image-pack-url';
-import { consumeRuntimeProfileFrameMetrics, resetRuntimeProfileFrameMetrics, setRuntimeProfilerEnabled } from '../../debug/runtime-profiler';
+import {
+  consumeBrowserProfileFrameDiagnostics,
+  consumeRuntimeProfileFrameMetrics,
+  resetRuntimeProfileFrameMetrics,
+  setRuntimeProfilerEnabled,
+} from '../../debug/runtime-profiler';
 
 type PixiRenderer = Renderer<HTMLCanvasElement>;
 type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
@@ -2597,6 +2602,7 @@ export class PixiMapRendererAdapter {
       counters: createPixiProfileCounters(),
       frameMetrics: createPixiProfileFrameMetrics(),
       frameCounters: createPixiProfileFrameCounters(),
+      lastFrameSample: null,
     };
     if (typeof window !== 'undefined') {
       window.__mudPixiProfileReset = () => this.resetProfileState();
@@ -2617,6 +2623,7 @@ export class PixiMapRendererAdapter {
       counters: createPixiProfileCounters(),
       frameMetrics: createPixiProfileFrameMetrics(),
       frameCounters: createPixiProfileFrameCounters(),
+      lastFrameSample: null,
     };
     resetRuntimeProfileFrameMetrics();
     this.profileWindow?.reset();
@@ -2679,9 +2686,11 @@ export class PixiMapRendererAdapter {
       totalMs: state.frameMetrics.renderFrame,
       metrics: { ...state.frameMetrics },
       runtimeMetrics: consumeRuntimeProfileFrameMetrics(),
+      browser: consumeBrowserProfileFrameDiagnostics(),
       counters: { ...state.frameCounters },
       renderer,
     };
+    state.lastFrameSample = sample;
     this.profileWindow?.recordFrame(sample);
     state.frameMetrics = createPixiProfileFrameMetrics();
     state.frameCounters = createPixiProfileFrameCounters();
@@ -2708,7 +2717,19 @@ export class PixiMapRendererAdapter {
       cachedTerrainChunks,
       terrainChunkChildren,
       entities: this.entities.size,
+      groundChildren: this.groundLayer.children.length,
+      entityChildren: this.entityLayer.children.length,
+      effectChildren: this.effectLayer.children.length,
+      screenChildren: this.screenLayer.children.length,
+      pathChildren: this.pathLayer.children.length,
+      floatingTexts: this.floatingTexts.length,
+      attackTrails: this.attackTrails.length,
+      warningZones: this.warningZones.length,
       runtimeTileTextures: this.runtimeTileTextures.size,
+      runtimeAtlasTextures: this.runtimeAtlasTextures.size,
+      runtimeEntityTextures: this.runtimeEntityTextures.size,
+      runtimeTileTextureRequests: this.runtimeTileTextureRequests.size,
+      runtimeEntityTextureRequests: this.runtimeEntityTextureRequests.size,
       runtimeTileManifestState: this.runtimeTileManifestState,
       backbufferWidth: this.width,
       backbufferHeight: this.height,
@@ -2739,6 +2760,7 @@ export class PixiMapRendererAdapter {
       metrics,
       counters: { ...state.counters },
       renderer: this.buildProfileRendererState(),
+      latestFrame: state.lastFrameSample,
     };
     window.__mudPixiProfile = snapshot;
     console.table(Object.fromEntries(PIXI_PROFILE_METRIC_KEYS.map((key) => [key, metrics[key]])));
