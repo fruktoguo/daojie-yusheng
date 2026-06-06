@@ -20,6 +20,7 @@ import {
 } from 'pixi.js';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
+  Direction,
   getAuraLevel,
   isMobileEntityObjectKind,
   isOffsetInRange,
@@ -142,6 +143,17 @@ type RuntimeEntitySpriteSelection = {
 const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
   flipX: false,
 };
+const SHOW_MONSTER_FACING_DEBUG_LABEL = true;
+
+function resolveMonsterFacingDebugLabel(facing: ObservedMapEntity['facing']): string {
+  if (facing === Direction.West) {
+    return '左';
+  }
+  if (facing === Direction.East) {
+    return '右';
+  }
+  return '?';
+}
 
 interface EntityView {
   anim: AnimEntity;
@@ -151,6 +163,7 @@ interface EntityView {
   image: Sprite;
   glyph: Text;
   label: Text;
+  debugFacingLabel: Text;
   badge: Text;
   hpBar: Graphics;
   progressBar: Graphics;
@@ -2073,6 +2086,7 @@ export class PixiMapRendererAdapter {
       image: new Sprite(Texture.EMPTY),
       glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
       label: new Text({ text: '', style: textStyle('label', getCellSize() * 0.3, '#cce7ff'), anchor: 0.5 }),
+      debugFacingLabel: new Text({ text: '', style: textStyle('badge', getCellSize() * 0.24, '#fff36b', 'rgba(20,10,0,0.96)', 3), anchor: 0.5 }),
       badge: new Text({ text: '', style: textStyle('badge', getCellSize() * 0.2, '#fff6eb'), anchor: 0.5 }),
       hpBar: new Graphics(),
       progressBar: new Graphics(),
@@ -2086,7 +2100,7 @@ export class PixiMapRendererAdapter {
     view.image.anchor.set(0.5);
     view.image.visible = false;
     visualRoot.addChild(view.shadow, view.image, view.glyph);
-    root.addChild(view.formationMarker, visualRoot, view.label, view.badge, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
+    root.addChild(view.formationMarker, visualRoot, view.label, view.debugFacingLabel, view.badge, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
     return view;
   }
 
@@ -2124,7 +2138,12 @@ export class PixiMapRendererAdapter {
     view.label.visible = shouldShowLabel;
     view.label.text = label;
     view.label.style = textStyle('label', cellSize * (anim.kind === 'crowd' ? 0.24 : 0.3), resolveEntityLabelColor(anim.kind));
-    view.label.position.set(cellSize / 2, cellSize - visualCellSize - Math.max(6, cellSize * 0.18));
+    const labelY = cellSize - visualCellSize - Math.max(6, cellSize * 0.18);
+    view.label.position.set(cellSize / 2, labelY);
+    view.debugFacingLabel.visible = SHOW_MONSTER_FACING_DEBUG_LABEL && anim.kind === 'monster';
+    view.debugFacingLabel.text = view.debugFacingLabel.visible ? resolveMonsterFacingDebugLabel(anim.facing) : '';
+    view.debugFacingLabel.style = textStyle('badge', cellSize * 0.24, '#fff36b', 'rgba(20,10,0,0.96)', 3);
+    view.debugFacingLabel.position.set(cellSize / 2, labelY - Math.max(10, cellSize * 0.3));
     const badge = anim.badge ?? presentation?.badge;
     view.badge.visible = shouldShowLabel && Boolean(badge);
     view.badge.text = badge?.text ?? '';

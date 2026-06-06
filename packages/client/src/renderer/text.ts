@@ -18,6 +18,7 @@ import {
 } from './types';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
+  Direction,
   GameTimeState,
   GroundItemEntryView,
   GroundItemPileView,
@@ -72,6 +73,18 @@ import { TextMeasureCache } from './text-measure-cache';
 import { TileSpriteCache } from './tile-sprite-cache';
 import { runtimeImagePack } from './runtime-image-pack';
 import { t as translateUi } from '../ui/i18n';
+
+const SHOW_MONSTER_FACING_DEBUG_LABEL = true;
+
+function resolveMonsterFacingDebugLabel(facing: RenderEntity['facing']): string {
+  if (facing === Direction.West) {
+    return '左';
+  }
+  if (facing === Direction.East) {
+    return '右';
+  }
+  return '?';
+}
 
 /** 时间氛围过渡状态。 */
 interface TimeAtmosphereState {
@@ -2292,6 +2305,15 @@ export class TextRenderer implements IRenderer {
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
         const labelColor = resolveEntityLabelColor(anim.kind);
         const badge = anim.badge ?? monsterPresentation?.badge;
+        if (SHOW_MONSTER_FACING_DEBUG_LABEL && anim.kind === 'monster') {
+          this.drawOutlinedText(
+            resolveMonsterFacingDebugLabel(anim.facing),
+            sx + renderedCellSize / 2,
+            labelY - Math.max(10, renderedCellSize * 0.3),
+            '#fff36b',
+            'rgba(20,10,0,0.96)',
+          );
+        }
         if (!isFormation || anim.formationShowText !== false) {
           if (badge) {
             this.drawEntityBadgeLabel(
