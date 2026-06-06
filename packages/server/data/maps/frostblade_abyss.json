@@ -439,6 +439,21 @@
           "y": 25
         }
       ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.frostblade_deepwater_moss",
+      "idPrefix": "lm_deepwater_moss",
+      "name": "渊水苔",
+      "placements": [
+        {
+          "x": 17,
+          "y": 51
+        },
+        {
+          "x": 23,
+          "y": 51
+        }
+      ]
     }
   ]
 }

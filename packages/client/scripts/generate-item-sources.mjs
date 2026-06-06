@@ -360,6 +360,15 @@ function pushResourceNodeContainerSources(sourceByItemId, items, map, resourceNo
   }
 }
 
+function resolveMonsterSpawnTemplateId(spawn) {
+  if (Array.isArray(spawn)) {
+    return typeof spawn[2] === 'string' && spawn[2].trim() ? spawn[2].trim() : null;
+  }
+  return typeof spawn?.templateId === 'string'
+    ? spawn.templateId
+    : (typeof spawn?.id === 'string' ? spawn.id : null);
+}
+
 /**
  * 追加来源。
  */
@@ -384,9 +393,7 @@ function buildMonsterMapRefs(maps) {/**
   const mapRefsByMonsterId = new Map();
   for (const map of maps) {
     for (const spawn of map.monsterSpawns ?? []) {
-      const monsterId = typeof spawn?.templateId === 'string'
-        ? spawn.templateId
-        : (typeof spawn?.id === 'string' ? spawn.id : null);
+      const monsterId = resolveMonsterSpawnTemplateId(spawn);
       if (!monsterId) {
         continue;
       }
