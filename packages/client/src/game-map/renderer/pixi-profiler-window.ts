@@ -102,6 +102,8 @@ export interface PixiProfileFrameSchedule {
   skippedRafCallbacks: number;
   targetFps: number;
   targetIntervalMs: number;
+  rafCallbackPreRenderMs: number;
+  rafCallbackActiveMs: number;
   scheduleLateMs: number;
   rafTargetGapMs: number;
   missedTargetFrames: number;
@@ -531,7 +533,7 @@ export class PixiProfilerWindow {
     const budget = computeFrameBudget(selected);
     const offender = buildTopOffenders(selected)[0];
     const offenderText = offender ? `${offender.group}:${offender.name} ${formatMs(offender.value)}` : 'no offender';
-    this.summaryEl.textContent = `${formatMs(selected.frameIntervalMs)} frame / ${formatMs(budget.profiledMs)} profiled / ${formatMs(budget.unprofiledMs)} gap ${frameFps} ${offenderText} ${suffix}`;
+    this.summaryEl.textContent = `${formatMs(selected.frameIntervalMs)} frame / ${formatMs(budget.callbackActiveMs)} active / ${formatMs(budget.callbackUnprofiledMs)} callback gap / ${formatMs(budget.intervalUnattributedMs)} interval ${frameFps} ${offenderText} ${suffix}`;
   }
 
   private renderActionState(): void {
@@ -604,13 +606,16 @@ export class PixiProfilerWindow {
       `<tr><td>frame interval</td><td>${formatMs(sample.frameIntervalMs)}</td></tr>`,
       `<tr><td>frame fps</td><td>${sample.frameFps === null ? '--' : formatNumber(sample.frameFps)}</td></tr>`,
       `<tr><td>profiled total</td><td>${formatMs(budget.profiledMs)}</td></tr>`,
-      `<tr><td>profile coverage</td><td>${formatPercent(budget.coverageRatio)}</td></tr>`,
-      `<tr><td>frame unprofiled gap</td><td>${formatMs(budget.unprofiledMs)}</td></tr>`,
+      `<tr><td>callback active</td><td>${formatMs(budget.callbackActiveMs)}</td></tr>`,
+      `<tr><td>callback coverage</td><td>${formatPercent(budget.callbackCoverageRatio)}</td></tr>`,
+      `<tr><td>callback unprofiled gap</td><td>${formatMs(budget.callbackUnprofiledMs)}</td></tr>`,
+      `<tr><td>interval unattributed</td><td>${formatMs(budget.intervalUnattributedMs)}</td></tr>`,
       `<tr><td>raw rAF interval</td><td>${formatMs(sample.schedule.rafIntervalMs)}</td></tr>`,
       `<tr><td>rAF callbacks</td><td>${formatNumber(sample.schedule.rafCallbacks)}</td></tr>`,
       `<tr><td>skipped rAF callbacks</td><td>${formatNumber(sample.schedule.skippedRafCallbacks)}</td></tr>`,
       `<tr><td>target fps</td><td>${formatNumber(sample.schedule.targetFps)}</td></tr>`,
       `<tr><td>target interval</td><td>${formatMs(sample.schedule.targetIntervalMs)}</td></tr>`,
+      `<tr><td>rAF pre-render</td><td>${formatMs(sample.schedule.rafCallbackPreRenderMs)}</td></tr>`,
       `<tr><td>rAF target gap</td><td>${formatMs(sample.schedule.rafTargetGapMs)}</td></tr>`,
       `<tr><td>missed target frames</td><td>${formatNumber(sample.schedule.missedTargetFrames)}</td></tr>`,
       `<tr><td>schedule late</td><td>${formatMs(sample.schedule.scheduleLateMs)}</td></tr>`,
@@ -708,7 +713,7 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
 
   return [
     'meta\tvalue',
-    'profilerVersion\t2',
+    'profilerVersion\t3',
     `capturedAtMs\t${Number(performance.now().toFixed(3))}`,
     `devicePixelRatio\t${typeof window === 'undefined' ? '' : Number(window.devicePixelRatio.toFixed(3))}`,
     `viewport\t${typeof window === 'undefined' ? '' : `${window.innerWidth}x${window.innerHeight}`}`,
@@ -721,13 +726,19 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     `frameIntervalMs\t${Number(sample.frameIntervalMs.toFixed(3))}`,
     `frameFps\t${sample.frameFps === null ? '' : Number(sample.frameFps.toFixed(3))}`,
     `profiledMs\t${Number(budget.profiledMs.toFixed(3))}`,
-    `profileCoverageRatio\t${Number(budget.coverageRatio.toFixed(3))}`,
-    `frameUnprofiledMs\t${Number(budget.unprofiledMs.toFixed(3))}`,
+    `callbackActiveMs\t${Number(budget.callbackActiveMs.toFixed(3))}`,
+    `callbackCoverageRatio\t${Number(budget.callbackCoverageRatio.toFixed(3))}`,
+    `callbackUnprofiledMs\t${Number(budget.callbackUnprofiledMs.toFixed(3))}`,
+    `intervalUnattributedMs\t${Number(budget.intervalUnattributedMs.toFixed(3))}`,
+    `profileCoverageRatio\t${Number(budget.callbackCoverageRatio.toFixed(3))}`,
+    `frameUnprofiledMs\t${Number(budget.intervalUnattributedMs.toFixed(3))}`,
     `rawRafIntervalMs\t${Number(sample.schedule.rafIntervalMs.toFixed(3))}`,
     `rafCallbacks\t${sample.schedule.rafCallbacks}`,
     `skippedRafCallbacks\t${sample.schedule.skippedRafCallbacks}`,
     `targetFps\t${sample.schedule.targetFps}`,
     `targetIntervalMs\t${Number(sample.schedule.targetIntervalMs.toFixed(3))}`,
+    `rafCallbackPreRenderMs\t${Number(sample.schedule.rafCallbackPreRenderMs.toFixed(3))}`,
+    `rafCallbackActiveMs\t${Number(sample.schedule.rafCallbackActiveMs.toFixed(3))}`,
     `rafTargetGapMs\t${Number(sample.schedule.rafTargetGapMs.toFixed(3))}`,
     `missedTargetFrames\t${Number(sample.schedule.missedTargetFrames.toFixed(3))}`,
     `scheduleLateMs\t${Number(sample.schedule.scheduleLateMs.toFixed(3))}`,
@@ -796,13 +807,28 @@ function getTopLevelRuntimeMs(sample: PixiProfileFrameSample): number {
     + (sample.runtimeMetrics['runtime.flushDeferredSideEffects'] ?? 0);
 }
 
-function computeFrameBudget(sample: PixiProfileFrameSample): { profiledMs: number; unprofiledMs: number; coverageRatio: number } {
+function computeFrameBudget(sample: PixiProfileFrameSample): {
+  profiledMs: number;
+  callbackActiveMs: number;
+  callbackUnprofiledMs: number;
+  callbackCoverageRatio: number;
+  intervalUnattributedMs: number;
+} {
   const runtimeMs = getTopLevelRuntimeMs(sample);
   const profiledMs = Math.max(0, sample.totalMs) + runtimeMs;
+  const callbackActiveMs = Math.max(0, sample.schedule.rafCallbackActiveMs);
+  const pixiProfiledMs = Math.max(0, sample.totalMs);
+  const callbackUnprofiledMs = Math.max(0, callbackActiveMs - pixiProfiledMs);
+  const callbackCoverageRatio = callbackActiveMs > 0 ? Math.min(1, pixiProfiledMs / callbackActiveMs) : 0;
   const frameMs = Math.max(0, sample.frameIntervalMs);
-  const unprofiledMs = Math.max(0, frameMs - profiledMs);
-  const coverageRatio = frameMs > 0 ? Math.min(1, profiledMs / frameMs) : 0;
-  return { profiledMs, unprofiledMs, coverageRatio };
+  const intervalUnattributedMs = Math.max(0, frameMs - runtimeMs - callbackActiveMs);
+  return {
+    profiledMs,
+    callbackActiveMs,
+    callbackUnprofiledMs,
+    callbackCoverageRatio,
+    intervalUnattributedMs,
+  };
 }
 
 function buildTopOffenders(sample: PixiProfileFrameSample): ProfileOffenderRow[] {
@@ -821,8 +847,11 @@ function buildTopOffenders(sample: PixiProfileFrameSample): ProfileOffenderRow[]
     })),
   ];
   const budget = computeFrameBudget(sample);
-  if (budget.unprofiledMs > 0) {
-    offenders.push({ group: 'gap', name: 'frame.unprofiled', value: budget.unprofiledMs, count: 1 });
+  if (budget.callbackUnprofiledMs > 0) {
+    offenders.push({ group: 'gap', name: 'raf.callbackUnprofiled', value: budget.callbackUnprofiledMs, count: 1 });
+  }
+  if (budget.intervalUnattributedMs > 0) {
+    offenders.push({ group: 'gap', name: 'raf.intervalUnattributed', value: budget.intervalUnattributedMs, count: 1 });
   }
   if (sample.schedule.rafTargetGapMs > 0) {
     offenders.push({

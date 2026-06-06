@@ -402,6 +402,7 @@ export class MapRuntime implements MapRuntimeApi {
     const frame = () => {
       this.frameHandle = requestAnimationFrame(frame);
       const now = performance.now();
+      const rafCallbackStartedAt = now;
       const rafIntervalMs = this.lastRafCallbackAt > 0 ? Math.max(0, now - this.lastRafCallbackAt) : 0;
       this.lastRafCallbackAt = now;
       this.rafCallbacksSinceRender += 1;
@@ -428,12 +429,15 @@ export class MapRuntime implements MapRuntimeApi {
       const progress = timing.durationMs > 0
         ? Math.min((now - timing.startedAt) / timing.durationMs, 1)
         : 1;
+      const renderDispatchAt = performance.now();
       this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress, now, {
         rafIntervalMs,
         rafCallbacks,
         skippedRafCallbacks,
         targetFps: this.targetFps,
         targetIntervalMs: minFrameIntervalMs,
+        rafCallbackPreRenderMs: Math.max(0, renderDispatchAt - rafCallbackStartedAt),
+        rafCallbackActiveMs: 0,
         scheduleLateMs,
         rafTargetGapMs: Math.max(0, rafIntervalMs - minFrameIntervalMs),
         missedTargetFrames: minFrameIntervalMs > 0 ? Math.max(0, Math.floor(rafIntervalMs / minFrameIntervalMs) - 1) : 0,

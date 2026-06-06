@@ -933,6 +933,8 @@ export class PixiMapRendererAdapter {
       skippedRafCallbacks: 0,
       targetFps: 0,
       targetIntervalMs: 0,
+      rafCallbackPreRenderMs: 0,
+      rafCallbackActiveMs: 0,
       scheduleLateMs: 0,
       rafTargetGapMs: 0,
       missedTargetFrames: 0,
@@ -941,6 +943,7 @@ export class PixiMapRendererAdapter {
     void projection;
     const player = scene.player;
     if (!this.ready || !player) return;
+    const renderMethodStartedAt = performance.now();
     this.refreshProfileState();
     const frameStartedAt = this.profileStart();
     this.profileCount('frames');
@@ -952,7 +955,14 @@ export class PixiMapRendererAdapter {
     this.profileMeasure('timeOverlay', () => this.renderTimeOverlay(scene.terrain.time));
     this.profileMeasure('appRender', () => this.app.render());
     this.profileEnd('renderFrame', frameStartedAt);
-    this.recordProfileFrame(frameAtMs, schedule);
+    const activeSchedule: PixiProfileFrameSchedule = {
+      ...schedule,
+      rafCallbackActiveMs: Math.max(
+        schedule.rafCallbackPreRenderMs,
+        schedule.rafCallbackPreRenderMs + Math.max(0, performance.now() - renderMethodStartedAt),
+      ),
+    };
+    this.recordProfileFrame(frameAtMs, activeSchedule);
     this.publishProfileIfNeeded();
   }
 
