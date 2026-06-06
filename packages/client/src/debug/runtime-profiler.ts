@@ -215,13 +215,13 @@ export function consumeRuntimeProfileFrameMetrics(): RuntimeProfileFrameMetrics 
   return { ...activeState.frameMetrics };
 }
 
-export function consumeBrowserProfileFrameDiagnostics(): BrowserProfileFrameDiagnostics {
+export function consumeBrowserProfileFrameDiagnostics(sampledAtMs = performance.now()): BrowserProfileFrameDiagnostics {
   if (!enabled) {
-    return createEmptyBrowserProfileFrameDiagnostics(performance.now(), 0);
+    return createEmptyBrowserProfileFrameDiagnostics(sampledAtMs, 0);
   }
   const activeState = browserState ?? createBrowserProfilerState();
   browserState = activeState;
-  const now = performance.now();
+  const now = sampledAtMs;
   const elapsedSinceLastSampleMs = Math.max(0, now - activeState.lastSampledAt);
   activeState.lastSampledAt = now;
   const longTasks = summarizeLongTasks(activeState.pendingLongTasks);

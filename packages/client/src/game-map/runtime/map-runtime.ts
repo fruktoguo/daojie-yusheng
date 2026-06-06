@@ -64,6 +64,7 @@ export class MapRuntime implements MapRuntimeApi {
   private lastFrameAt = performance.now();
   private lastRafCallbackAt = 0;
   private rafCallbacksSinceRender = 0;
+  private skippedRafCallbacksSinceRender = 0;
   private nextFrameAt = performance.now();
   private targetFps = MAP_TARGET_FPS_RANGE.defaultValue;
   private renderFrameObserver: ((frameAtMs: number) => void) | null = null;
@@ -396,6 +397,7 @@ export class MapRuntime implements MapRuntimeApi {
     this.lastFrameAt = performance.now();
     this.lastRafCallbackAt = 0;
     this.rafCallbacksSinceRender = 0;
+    this.skippedRafCallbacksSinceRender = 0;
     this.nextFrameAt = this.lastFrameAt;
     const frame = () => {
       this.frameHandle = requestAnimationFrame(frame);
@@ -406,13 +408,16 @@ export class MapRuntime implements MapRuntimeApi {
       const minFrameIntervalMs = 1000 / Math.max(MAP_TARGET_FPS_RANGE.min, this.targetFps);
       const scheduleToleranceMs = Math.min(MAP_FRAME_SCHEDULE_MAX_EARLY_TOLERANCE_MS, minFrameIntervalMs * 0.1);
       if (now + scheduleToleranceMs < this.nextFrameAt) {
+        this.skippedRafCallbacksSinceRender += 1;
         return;
       }
       const dt = (now - this.lastFrameAt) / 1000;
       this.lastFrameAt = now;
       const scheduleLateMs = now - this.nextFrameAt;
       const rafCallbacks = this.rafCallbacksSinceRender;
+      const skippedRafCallbacks = this.skippedRafCallbacksSinceRender;
       this.rafCallbacksSinceRender = 0;
+      this.skippedRafCallbacksSinceRender = 0;
       this.nextFrameAt += minFrameIntervalMs;
       while (this.nextFrameAt <= now) {
         this.nextFrameAt += minFrameIntervalMs;
@@ -426,8 +431,12 @@ export class MapRuntime implements MapRuntimeApi {
       this.renderer.render(this.currentScene, this.camera.getState(), this.projection, progress, now, {
         rafIntervalMs,
         rafCallbacks,
+        skippedRafCallbacks,
+        targetFps: this.targetFps,
         targetIntervalMs: minFrameIntervalMs,
         scheduleLateMs,
+        rafTargetGapMs: Math.max(0, rafIntervalMs - minFrameIntervalMs),
+        missedTargetFrames: minFrameIntervalMs > 0 ? Math.max(0, Math.floor(rafIntervalMs / minFrameIntervalMs) - 1) : 0,
       });
       this.renderFrameObserver?.(now);
     };

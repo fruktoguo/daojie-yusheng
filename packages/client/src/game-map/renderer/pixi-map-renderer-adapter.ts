@@ -930,8 +930,12 @@ export class PixiMapRendererAdapter {
     schedule: PixiProfileFrameSchedule = {
       rafIntervalMs: 0,
       rafCallbacks: 1,
+      skippedRafCallbacks: 0,
+      targetFps: 0,
       targetIntervalMs: 0,
       scheduleLateMs: 0,
+      rafTargetGapMs: 0,
+      missedTargetFrames: 0,
     },
   ): void {
     void projection;
@@ -2686,7 +2690,7 @@ export class PixiMapRendererAdapter {
       totalMs: state.frameMetrics.renderFrame,
       metrics: { ...state.frameMetrics },
       runtimeMetrics: consumeRuntimeProfileFrameMetrics(),
-      browser: consumeBrowserProfileFrameDiagnostics(),
+      browser: consumeBrowserProfileFrameDiagnostics(frameAtMs),
       counters: { ...state.frameCounters },
       renderer,
     };
@@ -2698,8 +2702,10 @@ export class PixiMapRendererAdapter {
 
   private buildProfileRendererState(): PixiProfileSnapshot['renderer'] {
     let cachedTerrainChunks = 0;
+    let terrainCachedContainers = 0;
     let terrainChunkChildren = 0;
     for (const chunk of this.terrainChunks.values()) {
+      let chunkCached = false;
       const containers = [
         chunk.baseContainer,
         chunk.spriteContainer,
@@ -2709,12 +2715,17 @@ export class PixiMapRendererAdapter {
       ];
       for (const container of containers) {
         terrainChunkChildren += container.children.length;
-        if (container.isCachedAsTexture) cachedTerrainChunks += 1;
+        if (container.isCachedAsTexture) {
+          terrainCachedContainers += 1;
+          chunkCached = true;
+        }
       }
+      if (chunkCached) cachedTerrainChunks += 1;
     }
     return {
       terrainChunks: this.terrainChunks.size,
       cachedTerrainChunks,
+      terrainCachedContainers,
       terrainChunkChildren,
       entities: this.entities.size,
       groundChildren: this.groundLayer.children.length,

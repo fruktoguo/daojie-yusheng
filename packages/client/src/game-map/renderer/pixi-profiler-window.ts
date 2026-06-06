@@ -74,6 +74,7 @@ export interface PixiProfileSnapshot {
 export interface PixiProfileRendererState {
   terrainChunks: number;
   cachedTerrainChunks: number;
+  terrainCachedContainers: number;
   terrainChunkChildren: number;
   entities: number;
   groundChildren: number;
@@ -98,8 +99,12 @@ export interface PixiProfileRendererState {
 export interface PixiProfileFrameSchedule {
   rafIntervalMs: number;
   rafCallbacks: number;
+  skippedRafCallbacks: number;
+  targetFps: number;
   targetIntervalMs: number;
   scheduleLateMs: number;
+  rafTargetGapMs: number;
+  missedTargetFrames: number;
 }
 
 export interface PixiProfileFrameSample {
@@ -597,7 +602,11 @@ export class PixiProfilerWindow {
       `<tr><td>frame unprofiled gap</td><td>${formatMs(budget.unprofiledMs)}</td></tr>`,
       `<tr><td>raw rAF interval</td><td>${formatMs(sample.schedule.rafIntervalMs)}</td></tr>`,
       `<tr><td>rAF callbacks</td><td>${formatNumber(sample.schedule.rafCallbacks)}</td></tr>`,
+      `<tr><td>skipped rAF callbacks</td><td>${formatNumber(sample.schedule.skippedRafCallbacks)}</td></tr>`,
+      `<tr><td>target fps</td><td>${formatNumber(sample.schedule.targetFps)}</td></tr>`,
       `<tr><td>target interval</td><td>${formatMs(sample.schedule.targetIntervalMs)}</td></tr>`,
+      `<tr><td>rAF target gap</td><td>${formatMs(sample.schedule.rafTargetGapMs)}</td></tr>`,
+      `<tr><td>missed target frames</td><td>${formatNumber(sample.schedule.missedTargetFrames)}</td></tr>`,
       `<tr><td>schedule late</td><td>${formatMs(sample.schedule.scheduleLateMs)}</td></tr>`,
       `<tr><td>runtime profiled</td><td>${formatMs(runtimeTotalMs)}</td></tr>`,
       `<tr><td>schedule late unprofiled</td><td>${formatMs(unprofiledScheduleLateMs)}</td></tr>`,
@@ -710,7 +719,11 @@ function formatFrameSampleForClipboard(sample: PixiProfileFrameSample): string {
     `frameUnprofiledMs\t${Number(budget.unprofiledMs.toFixed(3))}`,
     `rawRafIntervalMs\t${Number(sample.schedule.rafIntervalMs.toFixed(3))}`,
     `rafCallbacks\t${sample.schedule.rafCallbacks}`,
+    `skippedRafCallbacks\t${sample.schedule.skippedRafCallbacks}`,
+    `targetFps\t${sample.schedule.targetFps}`,
     `targetIntervalMs\t${Number(sample.schedule.targetIntervalMs.toFixed(3))}`,
+    `rafTargetGapMs\t${Number(sample.schedule.rafTargetGapMs.toFixed(3))}`,
+    `missedTargetFrames\t${Number(sample.schedule.missedTargetFrames.toFixed(3))}`,
     `scheduleLateMs\t${Number(sample.schedule.scheduleLateMs.toFixed(3))}`,
     `totalMs\t${Number(sample.totalMs.toFixed(3))}`,
     `runtimeProfiledMs\t${Number(runtimeTotalMs.toFixed(3))}`,
@@ -805,6 +818,22 @@ function buildTopOffenders(sample: PixiProfileFrameSample): ProfileOffenderRow[]
   if (budget.unprofiledMs > 0) {
     offenders.push({ group: 'gap', name: 'frame.unprofiled', value: budget.unprofiledMs, count: 1 });
   }
+  if (sample.schedule.rafTargetGapMs > 0) {
+    offenders.push({
+      group: 'gap',
+      name: 'raf.targetGap',
+      value: sample.schedule.rafTargetGapMs,
+      count: Math.max(1, Math.round(sample.schedule.missedTargetFrames)),
+    });
+  }
+  if (sample.schedule.skippedRafCallbacks > 0) {
+    offenders.push({
+      group: 'gap',
+      name: 'mapRuntime.skippedRaf',
+      value: sample.schedule.skippedRafCallbacks * sample.schedule.targetIntervalMs,
+      count: sample.schedule.skippedRafCallbacks,
+    });
+  }
   if (sample.browser.longTasks.totalMs > 0) {
     offenders.push({
       group: 'browser',
@@ -840,6 +869,7 @@ function buildRendererRows(renderer: PixiProfileRendererState): Array<[string, s
     ['terrainChunks', formatNumber(renderer.terrainChunks)],
     ['cachedTerrainChunks', formatNumber(renderer.cachedTerrainChunks)],
     ['terrainCacheRatio', renderer.terrainChunks > 0 ? formatPercent(renderer.cachedTerrainChunks / renderer.terrainChunks) : '--'],
+    ['terrainCachedContainers', formatNumber(renderer.terrainCachedContainers)],
     ['terrainChunkChildren', formatNumber(renderer.terrainChunkChildren)],
     ['entities', formatNumber(renderer.entities)],
     ['groundChildren', formatNumber(renderer.groundChildren)],
