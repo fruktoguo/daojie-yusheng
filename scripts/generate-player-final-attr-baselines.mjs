@@ -45,12 +45,14 @@ const EXPONENTIAL_NUMERIC_KEYS = new Set([
   'maxQiOutputPerTick',
 ]);
 const LINEAR_NUMERIC_GROWTH_RATES = {
-  critDamage: 0.1,
   qiRegenRate: 0.02,
   hpRegenRate: 0.02,
   realmExpPerTick: 0.1,
   techniqueExpPerTick: 0.1,
 };
+const STANDARD_EQUIPMENT_BASELINE_EXCLUDED_STATS = new Set([
+  'critDamage',
+]);
 const ELEMENT_GROUP_KEYS = ['elementDamageBonus', 'elementDamageReduce'];
 
 function parseArgs(argv) {
@@ -127,6 +129,9 @@ function calculateStandardEquipmentSinglePool(realmLv) {
 
 function addStandardEquipmentPool(shared, stats, standardEquipmentSinglePool) {
   for (const key of shared.NUMERIC_SCALAR_STAT_KEYS) {
+    if (STANDARD_EQUIPMENT_BASELINE_EXCLUDED_STATS.has(key)) {
+      continue;
+    }
     const pointsPerValue = shared.NUMERIC_STAT_POINTS_PER_VALUE[key];
     if (typeof pointsPerValue !== 'number' || !Number.isFinite(pointsPerValue)) {
       continue;
@@ -212,7 +217,7 @@ function buildPlayerFinalBaselines(shared, realmLevels, realmAttrBaselines) {
     version: 1,
     formula: {
       base: 'final = round((realmTemplateBase + standardEquipmentSinglePool * statPointsPerValue) * sixDimMultiplier * realmMultiplier)',
-      standardEquipmentSinglePool: '8 + (realmLv - 1) * 0.5, then multiplied by expected enhancement multiplier from enhancement anchors',
+      standardEquipmentSinglePool: '8 + (realmLv - 1) * 0.5, then multiplied by expected enhancement multiplier from enhancement anchors; critDamage is excluded until an explicit source exists',
       sixDim: 'balanced singleAttr from realm-attr-baselines.json; numeric percent weights follow ATTR_TO_PERCENT_NUMERIC_WEIGHTS',
       realmMultiplier: 'exponential stats use 1.1^(realmLv - 1); listed linear stats use configured linear growth; other stats use 1',
     },

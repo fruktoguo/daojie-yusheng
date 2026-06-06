@@ -132,9 +132,10 @@ getRealmLinearGrowthMultiplier(lv, rate) = 1 + rate × (lv - 1)
 
 | 键 | 成长率 |
 |----|--------|
-| critDamage | 0.1 |
 | qiRegenRate | 0.02 |
 | hpRegenRate | 0.02 |
+
+`critDamage = 0` 表示基础暴击伤害为 200%；怪物默认倾向、等级、品阶和血脉倍率不额外生成暴伤。
 
 ## 怪物经验等价
 

@@ -108,13 +108,11 @@ const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
 ] as const satisfies readonly NumericScalarStatKey[];
 /** 怪物线性成长的数值键，随等级按线性曲线放大。 */
 const MONSTER_LINEAR_NUMERIC_KEYS = [
-  'critDamage',
   'qiRegenRate',
   'hpRegenRate',
 ] as const satisfies readonly NumericScalarStatKey[];
 /** 各线性数值键对应的等级成长倍率。 */
 const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_KEYS[number], number> = {
-  critDamage: 0.1,
   qiRegenRate: 0.02,
   hpRegenRate: 0.02,
 };
@@ -640,7 +638,6 @@ const MONSTER_TENDENCY_NUMERIC_KEYS = [
   'dodge',
   'crit',
   'antiCrit',
-  'critDamage',
   'breakPower',
   'resolvePower',
   'maxQiOutputPerTick',
@@ -1127,7 +1124,7 @@ export function computeMonsterBaseNumericStatsFromAttrs(
   };
   const stats = createNumericStats();
   addPartialNumericStats(stats, template.stats);
-  // 怪物只保留通用基础 200% 暴伤，不继承玩家境界模板里的额外暴伤。
+  // critDamage=0 对应通用基础 200% 暴击倍率；怪物默认属性不额外生成暴伤。
   stats.critDamage = 0;
   stats.hpRegenRate = MONSTER_BASE_HP_REGEN_RATE;
   applyAttrWeight(stats, normalizedAttrs);

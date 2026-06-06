@@ -95,11 +95,12 @@ getRealmLinearGrowthMultiplier(realmLv, rate) = 1 + rate × (realmLv - 1)
 
 | 属性 | 成长率 |
 |------|--------|
-| critDamage | 0.1 |
 | qiRegenRate | 0.02 |
 | hpRegenRate | 0.02 |
 | realmExpPerTick | 0.1 |
 | techniqueExpPerTick | 0.1 |
+
+`critDamage = 0` 表示基础暴击伤害为 200%；当前基准属性不分配额外暴伤，只有显式来源才会提高暴击倍率。
 
 ## 基础数值常量
 

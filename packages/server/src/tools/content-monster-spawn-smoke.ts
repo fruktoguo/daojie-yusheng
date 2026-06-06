@@ -156,6 +156,8 @@ function assertRuntimeMonsterStatsMatchGenerated(
   assert.equal(template.numericStats.hpRegenRate, Math.round(unscaledStats.hpRegenRate * (MONSTER_GLOBAL_STAT_PERCENTS.hpRegenRate ?? 100) / 100), 'monster hp regen should use the global monster multiplier');
   assert.equal(template.numericStats.dodge, Math.round(unscaledStats.dodge * (MONSTER_GLOBAL_STAT_PERCENTS.dodge ?? 100) / 100), 'monster dodge should use the global monster multiplier');
   assert.equal(template.numericStats.antiCrit, Math.round(unscaledStats.antiCrit * (MONSTER_GLOBAL_STAT_PERCENTS.antiCrit ?? 100) / 100), 'monster antiCrit should use the global monster multiplier');
+  assert.equal(unscaledStats.critDamage, 0, 'monster tendency baseline should not generate extra critDamage');
+  assert.equal(template.numericStats.critDamage, 0, 'monster runtime baseline should keep critDamage at 0 for 200% critical hits');
   assert.equal(template.numericStats.resolvePower, unscaledStats.resolvePower, 'monster resolvePower should not use the global defensive multiplier');
   assert.equal(Math.round(resolveMonsterMainCombatStatLevelModifierPercent(18)), 20, 'level 18 monster main combat stat modifier should reach 20%');
   assert.equal(Math.round(resolveMonsterMainCombatStatLevelModifierPercent(30)), 100, 'level 30 monster main combat stat modifier should reach 100%');
@@ -180,6 +182,7 @@ function assertRuntimeMonsterStatsMatchGenerated(
   assert.deepEqual(dynamicSpawn.baseAttrs, dynamicLevel2.resolvedAttrs, 'dynamic level spawn attrs should be recalculated from tendency formula');
   assert.equal(dynamicSpawn.baseNumericStats.maxHp, dynamicLevel2.computedStats.maxHp, 'dynamic level spawn maxHp should be recalculated from tendency formula');
   assert.equal(dynamicSpawn.baseNumericStats.physAtk, dynamicLevel2.computedStats.physAtk, 'dynamic level spawn physAtk should be recalculated from tendency formula');
+  assert.equal(dynamicSpawn.baseNumericStats.critDamage, 0, 'dynamic level spawn should not gain extra critDamage from level scaling');
 
   const instance = new MapInstanceRuntime({
     instanceId: 'smoke:dynamic_monster_level',

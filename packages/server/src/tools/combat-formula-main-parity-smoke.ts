@@ -98,6 +98,16 @@ withRandom(0.99, () => {
     assert.equal(combatExpScaled.damage, 200, '普攻战斗经验伤害乘区应作为独立最终乘区');
 });
 
+withRandom(0, () => {
+    const critical = resolve({
+        attackerStats: { physAtk: 100, crit: 100000, critDamage: 0 },
+        targetStats: { antiCrit: 0 },
+        baseDamage: 100,
+    });
+    assert.equal(critical.crit, true, 'critDamage=0 should still allow critical resolution');
+    assert.equal(critical.damage, 200, 'critDamage=0 should mean the base critical multiplier is exactly 200%');
+});
+
 withRandom(0.99, () => {
     const service = new PlayerCombatService({});
     const fallbackCombatExp = resolveMonsterCombatExpEquivalentFallback(12);
