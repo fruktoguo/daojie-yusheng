@@ -29,6 +29,7 @@ import {
 } from '@mud/shared';
 import { formatDisplayInteger, formatDisplaySignedNumber } from '../utils/number';
 import { getLocalItemTemplate } from '../content/local-templates';
+import { getTechniqueGradeLabel } from '../domain-labels';
 import { confirmModalHost } from './confirm-modal-host';
 import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
@@ -711,25 +712,23 @@ export class CraftAlchemyView {
     const metrics = this.buildAlchemyMetricSnapshot(selectedRecipe, this.parent.activeAlchemyTab);
     const currentElements = this.buildAlchemyInputAuxElements(selectedRecipe, activeIngredients);
     const isForging = this.parent.activeMode === 'forging';
+    const recipeGrade = selectedRecipe.grade ?? getLocalItemTemplate(selectedRecipe.outputItemId)?.grade ?? 'mortal';
     return `
       <div class="alchemy-detail-stack">
         <section class="alchemy-recipe-detail-head">
           <div>
             <div class="alchemy-detail-title">${this.renderAlchemyItemReference(selectedRecipe.outputItemId, selectedRecipe.outputName, 'reward')}</div>
-            <div class="alchemy-detail-subtitle">${escapeHtml(isForging ? '炼器五行匹配' : '炼丹五行匹配')}</div>
+          </div>
+          <div class="alchemy-detail-meta">
+            <span>等级 ${formatDisplayInteger(selectedRecipe.outputLevel)}</span>
+            <span>品阶 ${escapeHtml(getTechniqueGradeLabel(recipeGrade))}</span>
           </div>
         </section>
         <section class="alchemy-fivephase-panel">
           <div class="alchemy-fivephase-block">
-            <div class="alchemy-fivephase-title">需求五行</div>
-            ${this.renderAlchemyElementGrid(selectedRecipe.requiredAuxElements, false)}
+            <div class="alchemy-fivephase-title">五行 当前 / 需要</div>
+            ${this.renderAlchemyElementRatioGrid(currentElements, selectedRecipe.requiredAuxElements)}
           </div>
-          ${this.parent.activeAlchemyTab === 'simple' ? `
-            <div class="alchemy-fivephase-block">
-              <div class="alchemy-fivephase-title">当前配方五行</div>
-              ${this.renderAlchemyElementGrid(currentElements, true)}
-            </div>
-          ` : ''}
         </section>
         <section class="alchemy-summary-metrics alchemy-summary-metrics--detail">
           <div class="alchemy-summary-metric alchemy-summary-metric--time">
@@ -801,16 +800,20 @@ export class CraftAlchemyView {
     `;
   }
 
-  private renderAlchemyElementGrid(elements: CraftElementVector | undefined, signed: boolean): string {
+  private renderAlchemyElementRatioGrid(currentElements: CraftElementVector | undefined, requiredElements: CraftElementVector | undefined): string {
     const labels: Record<string, string> = { metal: '金', wood: '木', water: '水', fire: '火', earth: '土' };
     return `
       <div class="alchemy-element-grid">
         ${ELEMENT_KEYS.map((element) => {
-          const value = Number(elements?.[element]) || 0;
+          const current = Number(currentElements?.[element]) || 0;
+          const required = Number(requiredElements?.[element]) || 0;
+          const currentText = current < 0 ? `-${formatDisplayInteger(Math.abs(current))}` : formatDisplayInteger(current);
+          const requiredText = required === 0 ? '-' : formatDisplayInteger(required);
+          const valueText = required === 0 && current === 0 ? '-' : `${currentText}/${requiredText}`;
           return `
             <div class="alchemy-element-cell">
               <span class="alchemy-element-label">${labels[element]}</span>
-              <strong class="alchemy-element-value">${value === 0 ? '-' : escapeHtml(signed ? formatDisplaySignedNumber(value) : formatDisplayInteger(value))}</strong>
+              <strong class="alchemy-element-value">${escapeHtml(valueText)}</strong>
             </div>
           `;
         }).join('')}

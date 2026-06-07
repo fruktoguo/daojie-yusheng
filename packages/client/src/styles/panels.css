@@ -9405,6 +9405,9 @@
       flex-direction: column;
       gap: 14px;
     }
+    .confirm-modal-card:has(.alchemy-material-picker) {
+      width: min(1180px, calc(100vw - 32px));
+    }
     .confirm-modal-head {
       display: flex;
       align-items: flex-start;
@@ -9688,7 +9691,7 @@
       padding: 12px 0 0;
     }
     .craft-workbench-content .alchemy-layout {
-      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
       gap: 16px;
     }
     .craft-workbench-content .enhancement-layout,
@@ -10697,7 +10700,7 @@
     }
     .alchemy-layout {
       display: grid;
-      grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+      grid-template-columns: minmax(138px, 168px) minmax(0, 1fr);
       gap: 12px;
       flex: 1 1 auto;
       min-height: 360px;
@@ -10852,6 +10855,23 @@
       gap: 10px;
       padding: 12px 14px;
     }
+    .alchemy-detail-meta {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .alchemy-detail-meta span {
+      min-height: 24px;
+      padding: 2px 8px;
+      border: 1px solid rgba(111, 70, 37, 0.16);
+      background: rgba(255, 251, 244, 0.9);
+      color: #7e4b27;
+      white-space: nowrap;
+    }
     .alchemy-detail-title {
       color: var(--ink-black);
       font-size: var(--font-size-16);
@@ -10864,7 +10884,7 @@
     }
     .alchemy-fivephase-panel {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
       gap: 10px;
       padding: 12px;
     }
@@ -11118,7 +11138,7 @@
     .alchemy-material-picker {
       display: grid;
       gap: 10px;
-      width: min(860px, calc(100vw - 56px));
+      width: min(1120px, calc(100vw - 56px));
     }
     .alchemy-material-picker-search {
       width: 100%;
@@ -11139,7 +11159,7 @@
     .alchemy-material-picker-head,
     .alchemy-material-picker-row {
       display: grid;
-      grid-template-columns: minmax(130px, 1.4fr) 54px 64px repeat(5, 52px) 62px 58px;
+      grid-template-columns: minmax(180px, 1.6fr) 72px 82px repeat(5, 68px) 78px 74px;
       gap: 6px;
       align-items: center;
     }
@@ -11207,6 +11227,7 @@
     }
     :root[data-color-mode="dark"] .alchemy-topbar-value,
     :root[data-color-mode="dark"] .alchemy-level-badge,
+    :root[data-color-mode="dark"] .alchemy-detail-meta span,
     :root[data-color-mode="dark"] .alchemy-summary-mode,
     :root[data-color-mode="dark"] .alchemy-metric-chip,
     :root[data-color-mode="dark"] .alchemy-preset-chip {
@@ -11977,6 +11998,13 @@
         grid-template-columns: repeat(5, minmax(42px, 1fr));
         overflow-x: auto;
       }
+      .alchemy-recipe-detail-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .alchemy-detail-meta {
+        justify-content: flex-start;
+      }
       .alchemy-quantity-row {
         grid-template-columns: minmax(0, 1fr);
         justify-items: start;
@@ -12004,7 +12032,7 @@
       .alchemy-material-picker-head,
       .alchemy-material-picker-row {
         width: max-content;
-        min-width: 760px;
+        min-width: 900px;
       }
       .transmission-teach-picker {
         grid-template-columns: minmax(0, 1fr);
