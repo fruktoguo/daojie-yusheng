@@ -506,6 +506,43 @@ export class CraftAlchemyView {
     }
   }
 
+  bindAlchemyMaterialControls(body: HTMLElement, signal: AbortSignal): void {
+    if (body.dataset.alchemyMaterialControlsBound === '1') {
+      return;
+    }
+    body.dataset.alchemyMaterialControlsBound = '1';
+    signal.addEventListener('abort', () => {
+      delete body.dataset.alchemyMaterialControlsBound;
+    }, { once: true });
+    body.addEventListener('click', (event) => {
+      const eventTarget = event.target;
+      const source = eventTarget instanceof Element
+        ? eventTarget
+        : eventTarget instanceof Node
+          ? eventTarget.parentElement
+          : null;
+      const target = source?.closest<HTMLElement>('[data-craft-action]');
+      if (!target) {
+        return;
+      }
+      const action = target.dataset.craftAction ?? '';
+      if (action !== 'alchemy-increase-aux' && action !== 'alchemy-decrease-aux' && action !== 'alchemy-remove-aux') {
+        return;
+      }
+      const itemId = (target.dataset.itemId ?? '').trim();
+      if (!itemId) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (action === 'alchemy-remove-aux') {
+        this.handleAlchemyRemoveAux(itemId);
+        return;
+      }
+      this.handleAlchemyAdjustAux(itemId, action === 'alchemy-increase-aux' ? 1 : -1);
+    }, { signal, capture: true });
+  }
+
   // --- Patch ---
 
   tryPatchAlchemyBody(body: HTMLElement): boolean {
@@ -1588,6 +1625,22 @@ export class CraftAlchemyView {
     }
     this.parent.selectedAlchemyPresetId = null;
     this.adjustAlchemyAuxCount(recipeId, itemId, delta);
+    this.parent.render();
+  }
+
+  handleAlchemyRemoveAux(itemId: string): void {
+    const recipeId = this.parent.selectedAlchemyRecipeId;
+    if (!recipeId) {
+      return;
+    }
+    const recipe = this.parent.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
+    if (!recipe || this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
+      return;
+    }
+    const draft = this.parent.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
+    draft.delete(itemId);
+    this.parent.draftByRecipeId.set(recipeId, draft);
+    this.parent.selectedAlchemyPresetId = null;
     this.parent.render();
   }
 

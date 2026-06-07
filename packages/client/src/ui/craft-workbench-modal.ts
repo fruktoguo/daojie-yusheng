@@ -1242,6 +1242,9 @@ export class CraftWorkbenchModal {
         this.syncAlchemyConfirmModal();
       }
     });
+    if (this.activeMode === 'alchemy' || this.activeMode === 'forging') {
+      this.alchemyView.bindAlchemyMaterialControls(body, signal);
+    }
     if (body.dataset.reactCraftRootBound !== '1') {
       body.dataset.reactCraftRootBound = '1';
       signal.addEventListener('abort', () => {
@@ -1918,8 +1921,17 @@ export class CraftWorkbenchModal {
     if (this.activeMode === 'transmission') {
       this.bindTransmissionEvents(body, signal);
     }
+    if (this.activeMode === 'alchemy' || this.activeMode === 'forging') {
+      this.alchemyView.bindAlchemyMaterialControls(body, signal);
+    }
     body.addEventListener('click', (event) => {
-      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-craft-action]') : null;
+      const eventTarget = event.target;
+      const source = eventTarget instanceof Element
+        ? eventTarget
+        : eventTarget instanceof Node
+          ? eventTarget.parentElement
+          : null;
+      const target = source?.closest<HTMLElement>('[data-craft-action]') ?? null;
       if (!target) {
         return;
       }
