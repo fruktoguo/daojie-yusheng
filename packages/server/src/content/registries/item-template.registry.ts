@@ -23,6 +23,8 @@ type ItemTemplateRecord = Record<string, unknown> & {
 
 const ITEM_TEMPLATE_ALIASES = new Map<string, string>([
   ['equip.copper_array_plate', 'formation_disk.mortal'],
+  ['fate_stone.qizhen_crossing', 'fate_stone'],
+  ['fate_stone.yunlai_town', 'fate_stone'],
 ]);
 
 @Injectable()

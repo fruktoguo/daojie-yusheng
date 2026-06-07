@@ -51,6 +51,11 @@ const DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE: Record<TechniqueGrade, number> = {
   emperor: 85,
 };
 
+const CLIENT_ITEM_TEMPLATE_ALIASES = new Map<string, string>([
+  ['fate_stone.qizhen_crossing', 'fate_stone'],
+  ['fate_stone.yunlai_town', 'fate_stone'],
+]);
+
 /** 对目录条目做深拷贝，避免调用方修改原始常量。 */
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -94,7 +99,9 @@ for (const item of LOCAL_EDITOR_CATALOG.items) {
 
 /** 读取本地物品模板（委托给 ContentResolver）。 */
 export function getLocalItemTemplate(itemId: string): GmEditorItemOption | null {
-  return contentResolver.getItem(itemId);
+  const normalizedItemId = itemId.trim();
+  return contentResolver.getItem(normalizedItemId)
+    ?? contentResolver.getItem(CLIENT_ITEM_TEMPLATE_ALIASES.get(normalizedItemId) ?? '');
 }
 
 /** 读取本地功法模板（委托给 ContentResolver）。 */

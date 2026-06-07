@@ -14,8 +14,8 @@ contentTemplateRepository.onModuleInit();
 let marketStorage = {
   items: [
     { item: { itemId: 'fate_stone', count: 1, itemInstanceId: 'market-valid-fate-stone' } },
-    { item: { itemId: 'fate_stone.qizhen_crossing', count: 1, itemInstanceId: 'market-invalid-qizhen-fate-stone' } },
-    { item: { itemId: 'fate_stone.yunlai_town', count: 1, itemInstanceId: 'market-invalid-yunlai-fate-stone' } },
+    { item: { itemId: 'fate_stone.qizhen_crossing', count: 1, itemInstanceId: 'market-legacy-qizhen-fate-stone' } },
+    { item: { itemId: 'fate_stone.yunlai_town', count: 1, itemInstanceId: 'market-legacy-yunlai-fate-stone' } },
   ],
 };
 const marketRuntimeService = {
@@ -70,9 +70,10 @@ async function main(): Promise<void> {
       revision: 3,
       items: [
         { itemId: 'fate_stone', count: 1, itemInstanceId: 'valid-fate-stone' },
-        { itemId: 'fate_stone.qizhen_crossing', count: 1, itemInstanceId: 'invalid-qizhen-fate-stone' },
-        { itemId: 'fate_stone.yunlai_town', count: 1, itemInstanceId: 'invalid-yunlai-fate-stone' },
+        { itemId: 'fate_stone.qizhen_crossing', count: 1, itemInstanceId: 'legacy-qizhen-fate-stone' },
+        { itemId: 'fate_stone.yunlai_town', count: 1, itemInstanceId: 'legacy-yunlai-fate-stone' },
         { itemId: 'equip.copper_array_plate', count: 1, itemInstanceId: 'valid-legacy-array-plate' },
+        { itemId: 'missing.item', count: 1, itemInstanceId: 'invalid-missing-item' },
       ],
     },
     equipment: {
@@ -80,7 +81,7 @@ async function main(): Promise<void> {
       slots: [
         {
           slot: 'weapon',
-          item: { itemId: 'fate_stone.qizhen_crossing', count: 1, itemInstanceId: 'invalid-equipped-fate-stone' },
+          item: { itemId: 'missing.item', count: 1, itemInstanceId: 'invalid-equipped-item' },
         },
         {
           slot: 'accessory',
@@ -93,13 +94,13 @@ async function main(): Promise<void> {
   const summary = cleanupInvalidItemsFromSnapshot(snapshot);
 
   assert.deepEqual(summary, {
-    inventoryStacksRemoved: 2,
+    inventoryStacksRemoved: 1,
     marketStorageStacksRemoved: 0,
     equipmentRemoved: 1,
   });
   assert.deepEqual(
     (snapshot.inventory.items as Array<{ itemId: string }>).map((item) => item.itemId),
-    ['fate_stone', 'equip.copper_array_plate'],
+    ['fate_stone', 'fate_stone.qizhen_crossing', 'fate_stone.yunlai_town', 'equip.copper_array_plate'],
   );
   assert.equal(snapshot.inventory.revision, 4);
   assert.equal((snapshot.equipment.slots as Array<{ item: unknown }>)[0]?.item, null);
@@ -107,10 +108,10 @@ async function main(): Promise<void> {
   assert.equal(snapshot.equipment.revision, 6);
 
   const marketSummary = await cleanupInvalidMarketStorage('player:gm-cleanup-invalid-items-smoke');
-  assert.deepEqual(marketSummary, { marketStorageStacksRemoved: 2 });
+  assert.deepEqual(marketSummary, { marketStorageStacksRemoved: 0 });
   assert.deepEqual(
     marketStorage.items.map((entry) => entry.item.itemId),
-    ['fate_stone'],
+    ['fate_stone', 'fate_stone.qizhen_crossing', 'fate_stone.yunlai_town'],
   );
 
   console.log(JSON.stringify({
