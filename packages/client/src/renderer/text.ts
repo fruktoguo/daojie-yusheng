@@ -2593,6 +2593,8 @@ export class TextRenderer implements IRenderer {
     const glow = isSelfArrow ? SELF_THREAT_ARROW_GLOW : OTHER_THREAT_ARROW_GLOW;
     const baseWidth = Math.max(0.55, from.cellSize * 0.02);
     const glowWidth = baseWidth + Math.max(1.9, from.cellSize * 0.048);
+    const dashLength = Math.max(5, from.cellSize * 0.17);
+    const gapLength = Math.max(4, from.cellSize * 0.12);
     const tangentX = endX - this.getQuadraticPoint(startX, controlX, endX, 0.86);
     const tangentY = endY - this.getQuadraticPoint(startY, controlY, endY, 0.86);
     const tangentLength = Math.hypot(tangentX, tangentY);
@@ -2608,6 +2610,7 @@ export class TextRenderer implements IRenderer {
 
     ctx.strokeStyle = glow;
     ctx.lineWidth = glowWidth;
+    ctx.setLineDash([dashLength, gapLength]);
     ctx.beginPath();
     ctx.moveTo(startX, startY);
     ctx.quadraticCurveTo(controlX, controlY, endX, endY);
@@ -2615,10 +2618,12 @@ export class TextRenderer implements IRenderer {
 
     ctx.strokeStyle = color;
     ctx.lineWidth = baseWidth;
+    ctx.setLineDash([dashLength, gapLength]);
     ctx.beginPath();
     ctx.moveTo(startX, startY);
     ctx.quadraticCurveTo(controlX, controlY, endX, endY);
     ctx.stroke();
+    ctx.setLineDash([]);
 
     ctx.fillStyle = color;
     ctx.beginPath();

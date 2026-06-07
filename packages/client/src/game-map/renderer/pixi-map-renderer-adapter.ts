@@ -705,6 +705,7 @@ export class PixiMapRendererAdapter {
   private readonly terrainFogLayer = new Graphics();
   private readonly pathLayer = new Container();
   private readonly groundLayer = new Container();
+  private readonly threatArrowLayer = new Container();
   private readonly entityLayer = new Container();
   private readonly effectLayer = new Container();
   private readonly screenLayer = new Container();
@@ -769,7 +770,7 @@ export class PixiMapRendererAdapter {
     this.refreshProfileState();
     this.pathLayer.addChild(this.pathGraphics);
     this.threatArrowGraphics.name = 'threat-arrows';
-    this.effectLayer.addChild(this.threatArrowGraphics);
+    this.threatArrowLayer.addChild(this.threatArrowGraphics);
     this.screenLayer.addChild(this.timeOverlayGraphics);
     this.app.stage.addChild(this.world, this.screenLayer);
     this.world.addChild(
@@ -781,6 +782,7 @@ export class PixiMapRendererAdapter {
       this.terrainFogLayer,
       this.pathLayer,
       this.groundLayer,
+      this.threatArrowLayer,
       this.entityLayer,
       this.effectLayer,
     );
@@ -912,9 +914,7 @@ export class PixiMapRendererAdapter {
     this.pathGraphics.clear();
     this.terrainFogLayer.clear();
     this.clearContainer(this.groundLayer);
-    for (const child of this.effectLayer.children.slice()) {
-      if (child !== this.threatArrowGraphics) child.destroy({ children: true });
-    }
+    this.clearContainer(this.effectLayer);
     this.threatArrowGraphics.clear();
     this.timeOverlayGraphics.clear();
     this.floatingTexts = [];
@@ -2462,18 +2462,150 @@ export class PixiMapRendererAdapter {
       const from = this.resolveThreatEntityView(arrow.ownerId);
       const to = this.resolveThreatEntityView(arrow.targetId);
       if (!from || !to) continue;
-      const startX = from.root.x + cellSize / 2;
-      const startY = from.root.y + cellSize / 2;
-      const endX = to.root.x + cellSize / 2;
-      const endY = to.root.y + cellSize / 2;
+      const fromCenterX = from.root.x + cellSize / 2;
+      const fromCenterY = from.root.y + cellSize / 2;
+      const toCenterX = to.root.x + cellSize / 2;
+      const toCenterY = to.root.y + cellSize / 2;
+      const dx = toCenterX - fromCenterX;
+      const dy = toCenterY - fromCenterY;
+      const distance = Math.hypot(dx, dy);
+      if (distance < Math.max(10, cellSize * 0.45)) continue;
+      const ux = dx / distance;
+      const uy = dy / distance;
+      const startX = fromCenterX + ux * cellSize * 0.34;
+      const startY = fromCenterY + uy * cellSize * 0.34;
+      const endX = toCenterX - ux * cellSize * 0.34;
+      const endY = toCenterY - uy * cellSize * 0.34;
+      const curvature = Math.max(cellSize * 0.32, Math.min(distance * 0.18, cellSize * 0.76));
+      const controlX = (startX + endX) / 2;
+      const controlY = Math.min(startY, endY) - curvature;
       const self = from.anim.kind === 'player';
-      graphics.moveTo(startX, startY)
-        .quadraticCurveTo((startX + endX) / 2, Math.min(startY, endY) - cellSize * 0.5, endX, endY)
-        .stroke({ color: parseColor(self ? SELF_THREAT_ARROW_GLOW : OTHER_THREAT_ARROW_GLOW), alpha: parseAlpha(self ? SELF_THREAT_ARROW_GLOW : OTHER_THREAT_ARROW_GLOW, 1), width: Math.max(2, cellSize * 0.07) });
-      graphics.moveTo(startX, startY)
-        .quadraticCurveTo((startX + endX) / 2, Math.min(startY, endY) - cellSize * 0.5, endX, endY)
-        .stroke({ color: parseColor(self ? SELF_THREAT_ARROW_COLOR : OTHER_THREAT_ARROW_COLOR), alpha: 0.98, width: Math.max(0.75, cellSize * 0.02) });
+      const color = parseColor(self ? SELF_THREAT_ARROW_COLOR : OTHER_THREAT_ARROW_COLOR);
+      const glow = self ? SELF_THREAT_ARROW_GLOW : OTHER_THREAT_ARROW_GLOW;
+      const baseWidth = Math.max(0.55, cellSize * 0.02);
+      const dashLength = Math.max(5, cellSize * 0.17);
+      const gapLength = Math.max(4, cellSize * 0.12);
+
+      this.drawDashedQuadraticCurve(
+        graphics,
+        startX,
+        startY,
+        controlX,
+        controlY,
+        endX,
+        endY,
+        dashLength,
+        gapLength,
+        parseColor(glow),
+        parseAlpha(glow, 1),
+        baseWidth + Math.max(1.9, cellSize * 0.048),
+      );
+      this.drawDashedQuadraticCurve(
+        graphics,
+        startX,
+        startY,
+        controlX,
+        controlY,
+        endX,
+        endY,
+        dashLength,
+        gapLength,
+        color,
+        0.98,
+        baseWidth,
+      );
+      this.drawThreatArrowHead(graphics, startX, startY, controlX, controlY, endX, endY, cellSize, color, 0.98);
     }
+  }
+
+  private drawDashedQuadraticCurve(
+    graphics: Graphics,
+    startX: number,
+    startY: number,
+    controlX: number,
+    controlY: number,
+    endX: number,
+    endY: number,
+    dashLength: number,
+    gapLength: number,
+    color: number,
+    alpha: number,
+    width: number,
+  ): void {
+    const straightDistance = Math.hypot(endX - startX, endY - startY);
+    const segmentCount = Math.max(12, Math.min(48, Math.ceil(straightDistance / Math.max(4, dashLength))));
+    let previousX = startX;
+    let previousY = startY;
+    let drawingDash = true;
+    let remaining = dashLength;
+    for (let index = 1; index <= segmentCount; index += 1) {
+      const t = index / segmentCount;
+      const nextX = this.getQuadraticPoint(startX, controlX, endX, t);
+      const nextY = this.getQuadraticPoint(startY, controlY, endY, t);
+      const segmentLength = Math.hypot(nextX - previousX, nextY - previousY);
+      if (segmentLength < 0.001) {
+        previousX = nextX;
+        previousY = nextY;
+        continue;
+      }
+      const ux = (nextX - previousX) / segmentLength;
+      const uy = (nextY - previousY) / segmentLength;
+      let consumed = 0;
+      while (consumed < segmentLength) {
+        const take = Math.min(remaining, segmentLength - consumed);
+        if (drawingDash) {
+          const dashStartX = previousX + ux * consumed;
+          const dashStartY = previousY + uy * consumed;
+          const dashEndX = previousX + ux * (consumed + take);
+          const dashEndY = previousY + uy * (consumed + take);
+          graphics.moveTo(dashStartX, dashStartY).lineTo(dashEndX, dashEndY);
+        }
+        consumed += take;
+        remaining -= take;
+        if (remaining <= 0.001) {
+          drawingDash = !drawingDash;
+          remaining = drawingDash ? dashLength : gapLength;
+        }
+      }
+      previousX = nextX;
+      previousY = nextY;
+    }
+    graphics.stroke({ color, alpha, width });
+  }
+
+  private drawThreatArrowHead(
+    graphics: Graphics,
+    startX: number,
+    startY: number,
+    controlX: number,
+    controlY: number,
+    endX: number,
+    endY: number,
+    cellSize: number,
+    color: number,
+    alpha: number,
+  ): void {
+    const tangentX = endX - this.getQuadraticPoint(startX, controlX, endX, 0.86);
+    const tangentY = endY - this.getQuadraticPoint(startY, controlY, endY, 0.86);
+    const tangentLength = Math.hypot(tangentX, tangentY);
+    if (tangentLength < 0.001) return;
+    const arrowUx = tangentX / tangentLength;
+    const arrowUy = tangentY / tangentLength;
+    const headLength = Math.max(7, cellSize * 0.22);
+    const headWidth = Math.max(2.4, cellSize * 0.076);
+    const baseX = endX - arrowUx * headLength;
+    const baseY = endY - arrowUy * headLength;
+    graphics
+      .moveTo(endX, endY)
+      .lineTo(baseX + (-arrowUy) * headWidth, baseY + arrowUx * headWidth)
+      .lineTo(baseX - (-arrowUy) * headWidth, baseY - arrowUx * headWidth)
+      .closePath()
+      .fill({ color, alpha });
+  }
+
+  private getQuadraticPoint(start: number, control: number, end: number, t: number): number {
+    const invT = 1 - t;
+    return invT * invT * start + 2 * invT * t * control + t * t * end;
   }
 
   private resolveThreatEntityView(id: string): EntityView | undefined {
