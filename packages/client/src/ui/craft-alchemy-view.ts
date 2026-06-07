@@ -460,12 +460,19 @@ export class CraftAlchemyView {
       .join('|');
     const inventoryRevision = Number((this.parent.inventory as { revision?: number })?.revision ?? this.parent.inventory.items.length);
     const equipmentRevision = Number((this.parent.equipment as { revision?: number })?.revision ?? 0);
+    const draftSignature = selectedRecipe && this.parent.activeAlchemyTab === 'simple'
+      ? this.getAlchemyDraftIngredients(selectedRecipe.recipeId)
+        .map((ingredient) => `${ingredient.itemId}:${ingredient.count}`)
+        .sort()
+        .join('|')
+      : '';
     return [
       this.parent.alchemyCatalogVersion,
       this.parent.activeAlchemyRealm,
       this.parent.activeAlchemyCategory,
       this.parent.activeAlchemyTab,
       selectedRecipe?.recipeId ?? 'empty',
+      draftSignature,
       this.parent.alchemySkillLevel,
       this.parent.forgingSkillLevel,
       this.parent.gatherSkillLevel,
