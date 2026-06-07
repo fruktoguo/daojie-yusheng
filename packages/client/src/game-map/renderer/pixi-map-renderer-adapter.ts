@@ -188,6 +188,11 @@ interface FloatingTextEffect {
 
 interface AttackTrailEffect {
   id: number;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  color: string;
   graphics: Graphics;
   createdAt: number;
   duration: number;
@@ -262,6 +267,8 @@ declare global {
 const CHUNK_SIZE = 16;
 const MAX_FLOATING_TEXTS = 256;
 const MAX_ATTACK_TRAILS = 192;
+const ATTACK_TRAIL_REACH_MS = 110;
+const ATTACK_TRAIL_DURATION_MS = 240;
 const MAX_WARNING_ZONES = 64;
 const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 const DEFAULT_PATH_TRAIL_FADE_MS = 500;
@@ -2501,15 +2508,19 @@ export class PixiMapRendererAdapter {
   }
 
   private addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a'): void {
-    const cellSize = getCellSize();
     const graphics = new Graphics();
-    const sx = fromX * cellSize + cellSize / 2;
-    const sy = fromY * cellSize + cellSize / 2;
-    const ex = toX * cellSize + cellSize / 2;
-    const ey = toY * cellSize + cellSize / 2;
-    graphics.moveTo(sx, sy).lineTo(ex, ey).stroke({ color: parseColor(color), width: Math.max(2, cellSize * 0.09) });
     this.effectLayer.addChild(graphics);
-    this.attackTrails.push({ id: this.nextEffectId++, graphics, createdAt: performance.now(), duration: 260 });
+    this.attackTrails.push({
+      id: this.nextEffectId++,
+      fromX,
+      fromY,
+      toX,
+      toY,
+      color,
+      graphics,
+      createdAt: performance.now(),
+      duration: ATTACK_TRAIL_DURATION_MS,
+    });
     this.trimAttackTrailEffects();
   }
 
@@ -2553,12 +2564,13 @@ export class PixiMapRendererAdapter {
       return true;
     });
     this.attackTrails = this.attackTrails.filter((entry) => {
-      const progress = (now - entry.createdAt) / entry.duration;
+      const elapsed = now - entry.createdAt;
+      const progress = elapsed / entry.duration;
       if (progress >= 1) {
         this.destroyAttackTrailEffect(entry);
         return false;
       }
-      entry.graphics.alpha = 1 - progress * 0.85;
+      this.drawAttackTrailEffect(entry, cellSize, elapsed, clamp01(progress));
       return true;
     });
     this.warningZones = this.warningZones.filter((zone) => {
@@ -2619,6 +2631,46 @@ export class PixiMapRendererAdapter {
 
   private destroyWarningZoneEffect(zone: WarningZoneEffect): void {
     zone.graphics.destroy();
+  }
+
+  private drawAttackTrailEffect(entry: AttackTrailEffect, cellSize: number, elapsed: number, progress: number): void {
+    const sx = entry.fromX * cellSize + cellSize / 2;
+    const sy = entry.fromY * cellSize + cellSize / 2;
+    const ex = entry.toX * cellSize + cellSize / 2;
+    const ey = entry.toY * cellSize + cellSize / 2;
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const distance = Math.hypot(dx, dy);
+    entry.graphics.clear();
+    if (distance < 1) return;
+
+    const reachProgress = easeOutCubic(elapsed / ATTACK_TRAIL_REACH_MS);
+    const tipX = sx + dx * reachProgress;
+    const tipY = sy + dy * reachProgress;
+    const tailProgress = Math.max(0, reachProgress - 0.72);
+    const tailX = sx + dx * tailProgress;
+    const tailY = sy + dy * tailProgress;
+    const angle = Math.atan2(dy, dx);
+    const color = parseColor(entry.color);
+    const alpha = 1 - progress * 0.85;
+
+    entry.graphics
+      .moveTo(tailX, tailY)
+      .lineTo(tipX, tipY)
+      .stroke({ color, alpha, width: Math.max(2, cellSize * 0.09) });
+    const headLength = Math.min(distance * reachProgress * 0.6, Math.max(8, cellSize * 0.24));
+    if (headLength < 2) return;
+    const headWidth = Math.min(headLength * 0.62, Math.max(5, cellSize * 0.14));
+    const headBackX = tipX - headLength * Math.cos(angle);
+    const headBackY = tipY - headLength * Math.sin(angle);
+    const normalX = -Math.sin(angle);
+    const normalY = Math.cos(angle);
+    entry.graphics
+      .moveTo(tipX, tipY)
+      .lineTo(headBackX + normalX * headWidth, headBackY + normalY * headWidth)
+      .lineTo(headBackX - normalX * headWidth, headBackY - normalY * headWidth)
+      .closePath()
+      .fill({ color, alpha });
   }
 
   private getFadingPathAlpha(now: number): number {

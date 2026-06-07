@@ -1073,6 +1073,8 @@ const PATH_TRAIL_FADE_ALPHA = 0.7;
 const MAX_FLOATING_TEXTS = 256;
 /** 攻击拖尾缓存上限。 */
 const MAX_ATTACK_TRAILS = 192;
+const ATTACK_TRAIL_REACH_MS = 110;
+const ATTACK_TRAIL_DURATION_MS = 240;
 /** 预警区域缓存上限。 */
 const MAX_WARNING_ZONES = 64;
 /** 预警区域默认持续时长。 */
@@ -2963,7 +2965,7 @@ export class TextRenderer implements IRenderer {
       toY,
       color,
       createdAt: now,
-      duration: 260,
+      duration: ATTACK_TRAIL_DURATION_MS,
     });
     this.trimAttackTrails();
   }  
@@ -3184,29 +3186,45 @@ export class TextRenderer implements IRenderer {
     this.pruneExpiredAttackTrails(now);
 
     for (const entry of this.attackTrails) {
-      const progress = Math.min(1, (now - entry.createdAt) / entry.duration);
+      const elapsed = now - entry.createdAt;
+      const progress = Math.min(1, elapsed / entry.duration);
+      const reachProgress = easeOutCubic(Math.min(1, elapsed / ATTACK_TRAIL_REACH_MS));
       const alpha = 1 - progress * 0.85;
       const fromSx = entry.fromX * cellSize + cellSize / 2 + screenOffsetX;
       const fromSy = entry.fromY * cellSize + cellSize / 2 + screenOffsetY;
       const toSx = entry.toX * cellSize + cellSize / 2 + screenOffsetX;
       const toSy = entry.toY * cellSize + cellSize / 2 + screenOffsetY;
+      const dx = toSx - fromSx;
+      const dy = toSy - fromSy;
+      const distance = Math.hypot(dx, dy);
+      if (distance < 1) continue;
+      const tipSx = fromSx + dx * reachProgress;
+      const tipSy = fromSy + dy * reachProgress;
+      const tailProgress = Math.max(0, reachProgress - 0.72);
+      const tailSx = fromSx + dx * tailProgress;
+      const tailSy = fromSy + dy * tailProgress;
 
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.strokeStyle = entry.color;
       ctx.fillStyle = entry.color;
       ctx.lineWidth = Math.max(2, cellSize * 0.09);
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(fromSx, fromSy);
-      ctx.lineTo(toSx, toSy);
+      ctx.moveTo(tailSx, tailSy);
+      ctx.lineTo(tipSx, tipSy);
       ctx.stroke();
 
-      const angle = Math.atan2(toSy - fromSy, toSx - fromSx);
-      const head = Math.max(8, cellSize * 0.22);
+      const angle = Math.atan2(dy, dx);
+      const head = Math.min(distance * reachProgress * 0.6, Math.max(8, cellSize * 0.24));
+      if (head < 2) {
+        ctx.restore();
+        continue;
+      }
       ctx.beginPath();
-      ctx.moveTo(toSx, toSy);
-      ctx.lineTo(toSx - head * Math.cos(angle - Math.PI / 6), toSy - head * Math.sin(angle - Math.PI / 6));
-      ctx.lineTo(toSx - head * Math.cos(angle + Math.PI / 6), toSy - head * Math.sin(angle + Math.PI / 6));
+      ctx.moveTo(tipSx, tipSy);
+      ctx.lineTo(tipSx - head * Math.cos(angle - Math.PI / 6), tipSy - head * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(tipSx - head * Math.cos(angle + Math.PI / 6), tipSy - head * Math.sin(angle + Math.PI / 6));
       ctx.closePath();
       ctx.fill();
       ctx.restore();
