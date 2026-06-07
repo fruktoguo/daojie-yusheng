@@ -14,6 +14,7 @@ import type {
 } from '@mud/shared';
 import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
+  ELEMENT_KEYS,
   addCraftElementVector,
   buildAlchemyIngredientCountMap,
   compactCraftElementVector,
@@ -26,7 +27,7 @@ import {
   getAlchemySpiritStoneCost,
   normalizeAlchemyQuantity,
 } from '@mud/shared';
-import { formatDisplayInteger } from '../utils/number';
+import { formatDisplayInteger, formatDisplaySignedNumber } from '../utils/number';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { confirmModalHost } from './confirm-modal-host';
 import { t } from './i18n';
@@ -621,13 +622,13 @@ export class CraftAlchemyView {
   renderAlchemyTabButtons(): string {
     if (this.parent.activeMode === 'forging') {
       return `
-        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">${escapeHtml(t('craft.workbench.alchemy.tab.full-forging'))}</button>
-        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${escapeHtml(t('craft.workbench.alchemy.tab.simple-forging'))}</button>
+        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">基础器方</button>
+        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">自创器方</button>
       `;
     }
     return `
-      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">${escapeHtml(t('craft.workbench.alchemy.tab.full-alchemy'))}</button>
-      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${escapeHtml(t('craft.workbench.alchemy.tab.simple-alchemy'))}</button>
+      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">基础丹方</button>
+      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">自创丹方</button>
     `;
   }
 
@@ -692,11 +693,7 @@ export class CraftAlchemyView {
   renderAlchemyRecipeItem(recipe: AlchemyRecipeCatalogEntry, active: boolean): string {
     return `
       <button class="alchemy-recipe-item ${active ? 'active' : ''}" type="button" data-craft-action="alchemy-select-recipe" data-recipe-id="${escapeHtml(recipe.recipeId)}">
-        <span class="alchemy-recipe-head">
-          <span class="alchemy-recipe-name">${this.renderAlchemyItemReference(recipe.outputItemId, recipe.outputName, 'reward')}</span>
-          <span class="alchemy-level-badge">LV ${formatDisplayInteger(recipe.outputLevel)}</span>
-        </span>
-        <span class="alchemy-recipe-meta">${escapeHtml(this.buildAlchemyRecipeMetaText(recipe))}</span>
+        <span class="alchemy-recipe-name">${this.renderAlchemyItemReference(recipe.outputItemId, recipe.outputName, 'reward')}</span>
       </button>
     `;
   }
@@ -704,16 +701,61 @@ export class CraftAlchemyView {
   renderAlchemyDetailPanel(): string {
     const state = this.parent.alchemyPanel?.state ?? null;
     const selectedRecipe = this.getSelectedAlchemyRecipe();
-    const presets = selectedRecipe
-      ? state?.presets.filter((preset) => preset.recipeId === selectedRecipe.recipeId) ?? []
-      : [];
     if (!selectedRecipe) {
       const noun = this.parent.activeMode === 'forging' ? t('craft.workbench.alchemy.noun.forging-recipe') : t('craft.workbench.alchemy.noun.alchemy-recipe');
       return `<div class="alchemy-recipe-list-empty">${escapeHtml(this.parent.loading ? t('craft.workbench.alchemy.recipe-list.loading', { noun }) : (this.parent.alchemyPanel?.error ?? t('craft.workbench.alchemy.recipe-list.empty-current', { noun })))}</div>`;
     }
-    return this.parent.activeAlchemyTab === 'full'
-      ? this.renderAlchemyFullTab(selectedRecipe)
-      : this.renderAlchemySimpleTab(selectedRecipe, presets);
+    const activeIngredients = this.parent.activeAlchemyTab === 'full'
+      ? this.getFullAlchemyIngredients(selectedRecipe.recipeId)
+      : this.getAlchemyDraftIngredients(selectedRecipe.recipeId);
+    const metrics = this.buildAlchemyMetricSnapshot(selectedRecipe, this.parent.activeAlchemyTab);
+    const currentElements = this.buildAlchemyInputAuxElements(selectedRecipe, activeIngredients);
+    const isForging = this.parent.activeMode === 'forging';
+    return `
+      <div class="alchemy-detail-stack">
+        <section class="alchemy-recipe-detail-head">
+          <div>
+            <div class="alchemy-detail-title">${this.renderAlchemyItemReference(selectedRecipe.outputItemId, selectedRecipe.outputName, 'reward')}</div>
+            <div class="alchemy-detail-subtitle">${escapeHtml(isForging ? '炼器五行匹配' : '炼丹五行匹配')}</div>
+          </div>
+        </section>
+        <section class="alchemy-fivephase-panel">
+          <div class="alchemy-fivephase-block">
+            <div class="alchemy-fivephase-title">需求五行</div>
+            ${this.renderAlchemyElementGrid(selectedRecipe.requiredAuxElements, false)}
+          </div>
+          ${this.parent.activeAlchemyTab === 'simple' ? `
+            <div class="alchemy-fivephase-block">
+              <div class="alchemy-fivephase-title">当前配方五行</div>
+              ${this.renderAlchemyElementGrid(currentElements, true)}
+            </div>
+          ` : ''}
+        </section>
+        <section class="alchemy-summary-metrics alchemy-summary-metrics--detail">
+          <div class="alchemy-summary-metric alchemy-summary-metric--time">
+            <span class="alchemy-summary-metric-label">当前耗时 / 基础耗时</span>
+            <strong class="alchemy-summary-metric-value">${escapeHtml(metrics.brewTimeText)} / ${formatDisplayInteger(selectedRecipe.baseBrewTicks)} 息</strong>
+          </div>
+          <div class="alchemy-summary-metric alchemy-summary-metric--success">
+            <span class="alchemy-summary-metric-label">当前成功率</span>
+            <strong class="alchemy-summary-metric-value">${escapeHtml(metrics.successText)}</strong>
+          </div>
+          <div class="alchemy-summary-metric alchemy-summary-metric--power">
+            <span class="alchemy-summary-metric-label">${escapeHtml(isForging ? '当前成器数量' : '当前出丹数量')}</span>
+            <strong class="alchemy-summary-metric-value">${formatDisplayInteger(this.getAlchemyBatchOutputCount(selectedRecipe))}</strong>
+          </div>
+        </section>
+        <section class="alchemy-material-panel">
+          <div class="alchemy-modal-tabs alchemy-material-tabs" data-alchemy-tab-host="true">
+            ${this.renderAlchemyTabButtons()}
+          </div>
+          ${this.parent.activeAlchemyTab === 'full'
+            ? this.renderAlchemyBaseMaterialList(selectedRecipe)
+            : this.renderAlchemyCustomMaterialList(selectedRecipe)}
+        </section>
+        ${this.renderAlchemyActionSection(selectedRecipe, this.parent.activeAlchemyTab, activeIngredients)}
+      </div>
+    `;
   }
 
   private renderAlchemyItemReference(
@@ -730,34 +772,23 @@ export class CraftAlchemyView {
   // --- Main body render ---
 
   renderAlchemyBody(): string {
-    const recipeTypeLabel = this.parent.activeMode === 'forging'
-      ? t('craft.workbench.alchemy.control.recipe-type.forging')
-      : t('craft.workbench.alchemy.control.recipe-type.alchemy');
     return `
       <div class="alchemy-modal-shell" data-alchemy-shell="true" data-alchemy-stable-render-key="${escapeHtml(this.buildAlchemyStableRenderKey())}">
-        <div data-alchemy-job-card-host="true">${this.renderAlchemyJobCard(this.parent.alchemyPanel?.state?.job ?? null)}</div>
-        <div class="alchemy-topbar" data-alchemy-topbar="true">
-          ${this.renderAlchemyTopbar()}
-        </div>
+        <div data-alchemy-job-card-host="true">${this.parent.alchemyPanel?.state?.job ? this.renderAlchemyJobCard(this.parent.alchemyPanel.state.job) : ''}</div>
         <div class="alchemy-control-row" data-alchemy-control-row="true">
-          <div class="alchemy-control-group alchemy-control-group--realms">
-            <span class="alchemy-control-label">${escapeHtml(t('craft.workbench.alchemy.control.realm'))}</span>
+          <div class="alchemy-control-group alchemy-control-group--realms" aria-label="${escapeHtml(t('craft.workbench.alchemy.control.realm'))}">
             <div class="alchemy-realm-tabs" data-alchemy-realm-tabs="true">
               ${this.renderAlchemyRealmTabs()}
             </div>
           </div>
-          <div class="alchemy-control-group alchemy-control-group--tabs">
-            <span class="alchemy-control-label">${escapeHtml(recipeTypeLabel)}</span>
-            <div class="alchemy-modal-tabs" data-alchemy-tab-host="true">
-              ${this.renderAlchemyTabButtons()}
+          <div class="alchemy-control-group alchemy-control-group--categories" aria-label="${escapeHtml(this.parent.activeMode === 'forging' ? t('craft.workbench.alchemy.control.recipe-type.forging') : t('craft.workbench.alchemy.control.recipe-type.alchemy'))}">
+            <div class="alchemy-category-tabs alchemy-category-tabs--top" data-alchemy-category-tabs="true">
+              ${this.renderAlchemyCategoryTabs()}
             </div>
           </div>
         </div>
         <div class="alchemy-layout">
           <aside class="alchemy-recipe-sidebar">
-            <div class="alchemy-category-tabs" data-alchemy-category-tabs="true">
-              ${this.renderAlchemyCategoryTabs()}
-            </div>
             <div class="alchemy-recipe-list" data-alchemy-recipe-list="true">
               ${this.renderAlchemyRecipeList()}
             </div>
@@ -768,6 +799,118 @@ export class CraftAlchemyView {
         </div>
       </div>
     `;
+  }
+
+  private renderAlchemyElementGrid(elements: CraftElementVector | undefined, signed: boolean): string {
+    const labels: Record<string, string> = { metal: '金', wood: '木', water: '水', fire: '火', earth: '土' };
+    return `
+      <div class="alchemy-element-grid">
+        ${ELEMENT_KEYS.map((element) => {
+          const value = Number(elements?.[element]) || 0;
+          return `
+            <div class="alchemy-element-cell">
+              <span class="alchemy-element-label">${labels[element]}</span>
+              <strong class="alchemy-element-value">${value === 0 ? '-' : escapeHtml(signed ? formatDisplaySignedNumber(value) : formatDisplayInteger(value))}</strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  private renderAlchemyElementInline(elements: CraftElementVector | undefined): string {
+    const labels: Record<string, string> = { metal: '金', wood: '木', water: '水', fire: '火', earth: '土' };
+    const parts = ELEMENT_KEYS
+      .map((element) => {
+        const value = Number(elements?.[element]) || 0;
+        return value !== 0 ? `${labels[element]}${formatDisplaySignedNumber(value)}` : '';
+      })
+      .filter(Boolean);
+    return parts.length > 0 ? parts.join(' / ') : '-';
+  }
+
+  private renderAlchemyBaseMaterialList(recipe: AlchemyRecipeCatalogEntry): string {
+    return `
+      <div class="alchemy-material-table" data-alchemy-ingredients="true">
+        ${recipe.ingredients.map((ingredient) => this.renderAlchemyMaterialRow({
+          itemId: ingredient.itemId,
+          name: ingredient.name,
+          role: ingredient.role === 'main' ? 'main' : 'aux',
+          requiredCount: ingredient.count,
+          currentCount: this.getAlchemyInventoryCount(ingredient.itemId),
+          elements: this.getAlchemyMaterialElements(ingredient.itemId),
+          controls: 'none',
+        })).join('')}
+      </div>
+    `;
+  }
+
+  private renderAlchemyCustomMaterialList(recipe: AlchemyRecipeCatalogEntry): string {
+    const mainIngredients = this.getAlchemyMainIngredients(recipe);
+    const mainIds = new Set(mainIngredients.map((ingredient) => ingredient.itemId));
+    const draft = this.getAlchemyDraftIngredients(recipe.recipeId);
+    const auxIngredients = draft.filter((ingredient) => !mainIds.has(ingredient.itemId));
+    return `
+      <div class="alchemy-material-table" data-alchemy-ingredients="true">
+        ${mainIngredients.map((ingredient) => this.renderAlchemyMaterialRow({
+          itemId: ingredient.itemId,
+          name: this.resolveAlchemyMaterialName(recipe, ingredient.itemId),
+          role: 'main',
+          requiredCount: ingredient.count,
+          currentCount: this.getAlchemyInventoryCount(ingredient.itemId),
+          elements: this.getAlchemyMaterialElements(ingredient.itemId),
+          controls: 'none',
+        })).join('')}
+        ${auxIngredients.map((ingredient) => this.renderAlchemyMaterialRow({
+          itemId: ingredient.itemId,
+          name: this.resolveAlchemyMaterialName(recipe, ingredient.itemId),
+          role: 'aux',
+          requiredCount: ingredient.count,
+          currentCount: this.getAlchemyInventoryCount(ingredient.itemId),
+          elements: this.getAlchemyMaterialElements(ingredient.itemId),
+          controls: 'adjust',
+        })).join('')}
+      </div>
+      <div class="alchemy-material-add-row">
+        <button class="small-btn ghost" type="button" data-craft-action="alchemy-open-material-picker">增加一个材料</button>
+      </div>
+    `;
+  }
+
+  private renderAlchemyMaterialRow(options: {
+    itemId: string;
+    name: string;
+    role: 'main' | 'aux';
+    requiredCount: number;
+    currentCount: number;
+    elements: CraftElementVector | undefined;
+    controls: 'none' | 'adjust';
+  }): string {
+    const roleLabel = this.parent.activeMode === 'forging'
+      ? (options.role === 'main' ? '主材' : '辅材')
+      : (options.role === 'main' ? '主药' : '辅药');
+    return `
+      <div class="alchemy-material-row" data-alchemy-ingredient-item-id="${escapeHtml(options.itemId)}">
+        <div class="alchemy-material-name">${this.renderAlchemyItemReference(options.itemId, options.name, 'material')}</div>
+        <div><span class="alchemy-ingredient-role ${options.role}">${roleLabel}</span></div>
+        <div class="alchemy-material-count">${formatDisplayInteger(options.requiredCount)} / ${formatDisplayInteger(options.currentCount)}</div>
+        <div class="alchemy-material-elements">${escapeHtml(this.renderAlchemyElementInline(options.elements))}</div>
+        <div class="alchemy-material-controls">
+          ${options.controls === 'adjust'
+            ? `<button class="small-btn ghost" type="button" data-craft-action="alchemy-decrease-aux" data-item-id="${escapeHtml(options.itemId)}">-</button>
+               <button class="small-btn ghost" type="button" data-craft-action="alchemy-increase-aux" data-item-id="${escapeHtml(options.itemId)}">+</button>
+               <button class="small-btn danger" type="button" data-craft-action="alchemy-remove-aux" data-item-id="${escapeHtml(options.itemId)}">移除</button>`
+            : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  private resolveAlchemyMaterialName(recipe: AlchemyRecipeCatalogEntry, itemId: string): string {
+    const recipeIngredient = recipe.ingredients.find((ingredient) => ingredient.itemId === itemId);
+    return recipeIngredient?.name?.trim()
+      || getLocalItemTemplate(itemId)?.name?.trim()
+      || itemId;
   }
 
   renderAlchemyJobCard(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']> | null): string {

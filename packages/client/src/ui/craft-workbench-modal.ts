@@ -33,6 +33,7 @@ import {
   ELEMENT_KEYS,
   EQUIP_SLOTS,
   MAX_ENHANCE_LEVEL,
+  TECHNIQUE_GRADE_ORDER,
   addCraftElementVector,
   applyEquipmentAttributeEffectivenessToItemStack,
   buildAlchemyIngredientCountMap,
@@ -100,6 +101,7 @@ type CraftWorkbenchCallbacks = {
 type CraftMode = 'alchemy' | 'forging' | 'enhancement' | 'transmission' | null;
 type AlchemyTab = 'full' | 'simple';
 type AlchemyRealmTab = 'mortal' | 'qi' | 'foundation';
+type AlchemyMaterialPickerSortKey = 'name' | 'level' | 'grade' | 'metal' | 'wood' | 'water' | 'fire' | 'earth' | 'count';
 type EnhancementJobView = NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']>;
 type EnhancementItemView = SyncedEnhancementCandidateView['item'];
 type CraftQueueProgressView = {
@@ -512,6 +514,7 @@ function normalizeTechniqueActivityKind(value: string | undefined): RuntimeTechn
 export class CraftWorkbenchModal {
   private static readonly MODAL_OWNER = 'craft-workbench-modal';
   private static readonly ALCHEMY_CONFIRM_OWNER = 'craft-workbench-modal:alchemy-confirm';
+  private static readonly ALCHEMY_MATERIAL_PICKER_OWNER = 'craft-workbench-modal:alchemy-material-picker';
 
   private callbacks: CraftWorkbenchCallbacks | null = null;
   private transmissionCallbacks: Pick<CraftWorkbenchCallbacks, 'onStartTransmission' | 'onCancelTransmission' | 'getTransmissionTargets'> | null = null;
@@ -543,6 +546,9 @@ export class CraftWorkbenchModal {
   private draftByRecipeId = new Map<string, Map<string, number>>();
   private localCraftFormulaPresets = new Map<string, PlayerAlchemyPreset[]>();
   private localCraftFormulaPresetsLoaded = false;
+  private alchemyMaterialPickerQuery = '';
+  private alchemyMaterialPickerSortKey: AlchemyMaterialPickerSortKey = 'name';
+  private alchemyMaterialPickerSortDirection: 'asc' | 'desc' = 'asc';
   private quantityByRecipeId = new Map<string, number>();
   private confirmStartRequest: ConfirmStartRequest | null = null;
   private confirmQuantityDraft = '1';
@@ -2029,6 +2035,21 @@ export class CraftWorkbenchModal {
         this.selectedAlchemyPresetId = null;
         this.adjustAlchemyAuxCount(recipeId, itemId, action === 'alchemy-increase-aux' ? 1 : -1);
         this.render();
+        return;
+      }
+      if (action === 'alchemy-remove-aux') {
+        const recipeId = this.selectedAlchemyRecipeId;
+        const itemId = (target.dataset.itemId ?? '').trim();
+        if (!recipeId || !itemId) {
+          return;
+        }
+        this.selectedAlchemyPresetId = null;
+        this.removeAlchemyAuxItem(recipeId, itemId);
+        this.render();
+        return;
+      }
+      if (action === 'alchemy-open-material-picker') {
+        this.openAlchemyMaterialPickerModal();
         return;
       }
       if (action === 'alchemy-reset-draft') {
@@ -4371,6 +4392,16 @@ export class CraftWorkbenchModal {
     this.draftByRecipeId.set(recipeId, draft);
   }
 
+  private removeAlchemyAuxItem(recipeId: string, itemId: string): void {
+    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
+    if (!recipe || this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
+      return;
+    }
+    const draft = this.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
+    draft.delete(itemId);
+    this.draftByRecipeId.set(recipeId, draft);
+  }
+
   private getAlchemyInventoryCount(itemId: string): number {
     return this.inventory.items
       .filter((item) => item.itemId === itemId)
@@ -4401,6 +4432,189 @@ export class CraftWorkbenchModal {
       }
     }
     return compactCraftElementVector(result);
+  }
+
+  private openAlchemyMaterialPickerModal(): void {
+    const recipe = this.getSelectedAlchemyRecipe();
+    if (!recipe) {
+      return;
+    }
+    confirmModalHost.open({
+      ownerId: CraftWorkbenchModal.ALCHEMY_MATERIAL_PICKER_OWNER,
+      title: this.activeMode === 'forging' ? '选择辅材' : '选择辅药',
+      subtitle: recipe.outputName,
+      bodyHtml: this.renderAlchemyMaterialPickerBody(recipe),
+      hideActions: true,
+    });
+    this.bindAlchemyMaterialPickerEvents();
+  }
+
+  private renderAlchemyMaterialPickerBody(recipe: AlchemyRecipeCatalogEntry): string {
+    const candidates = this.getAlchemyMaterialPickerCandidates(recipe);
+    const sortButton = (key: AlchemyMaterialPickerSortKey, label: string) => `
+      <button class="alchemy-material-picker-sort ${this.alchemyMaterialPickerSortKey === key ? 'active' : ''}" type="button" data-alchemy-material-sort="${key}">
+        ${label}${this.alchemyMaterialPickerSortKey === key ? (this.alchemyMaterialPickerSortDirection === 'asc' ? ' ↑' : ' ↓') : ''}
+      </button>
+    `;
+    return `
+      <div class="alchemy-material-picker">
+        <input class="alchemy-material-picker-search" type="search" value="${escapeHtml(this.alchemyMaterialPickerQuery)}" placeholder="搜索材料" data-alchemy-material-search="true">
+        <div class="alchemy-material-picker-table">
+          <div class="alchemy-material-picker-head">
+            ${sortButton('name', '名称')}
+            ${sortButton('level', '等级')}
+            ${sortButton('grade', '品阶')}
+            ${sortButton('metal', '金')}
+            ${sortButton('wood', '木')}
+            ${sortButton('water', '水')}
+            ${sortButton('fire', '火')}
+            ${sortButton('earth', '土')}
+            ${sortButton('count', '数量')}
+            <span></span>
+          </div>
+          <div class="alchemy-material-picker-list">
+            ${candidates.length > 0 ? candidates.map((candidate) => `
+              <button class="alchemy-material-picker-row" type="button" data-alchemy-material-add="${escapeHtml(candidate.itemId)}">
+                <span>${this.renderAlchemyItemReference(candidate.itemId, candidate.name, 'material')}</span>
+                <span>${formatDisplayInteger(candidate.level)}</span>
+                <span>${escapeHtml(candidate.gradeLabel)}</span>
+                ${ELEMENT_KEYS.map((element) => `<span>${this.formatAlchemyPickerElementValue(candidate.elements[element])}</span>`).join('')}
+                <span>${formatDisplayInteger(candidate.count)}</span>
+                <span class="alchemy-material-picker-add">添加</span>
+              </button>
+            `).join('') : '<div class="alchemy-material-picker-empty">没有可用材料</div>'}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private getAlchemyMaterialPickerCandidates(recipe: AlchemyRecipeCatalogEntry): Array<{
+    itemId: string;
+    name: string;
+    level: number;
+    grade: string;
+    gradeLabel: string;
+    count: number;
+    elements: Record<AlchemyMaterialPickerSortKey, number>;
+  }> {
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
+    const byItemId = new Map<string, {
+      itemId: string;
+      name: string;
+      level: number;
+      grade: string;
+      gradeLabel: string;
+      count: number;
+      elements: Record<AlchemyMaterialPickerSortKey, number>;
+    }>();
+    for (const item of this.inventory.items) {
+      if (mainIds.has(item.itemId)) {
+        continue;
+      }
+      const template = getLocalItemTemplate(item.itemId);
+      if (item.type !== 'material' && template?.type !== 'material') {
+        continue;
+      }
+      const materialElements = this.getAlchemyMaterialElements(item.itemId);
+      if (!materialElements) {
+        continue;
+      }
+      const existing = byItemId.get(item.itemId);
+      if (existing) {
+        existing.count += item.count;
+        continue;
+      }
+      const grade = String(item.grade ?? template?.grade ?? 'mortal');
+      byItemId.set(item.itemId, {
+        itemId: item.itemId,
+        name: item.name ?? template?.name ?? item.itemId,
+        level: Math.max(1, Math.floor(Number(item.level ?? template?.level) || 1)),
+        grade,
+        gradeLabel: getTechniqueGradeLabel(grade as never),
+        count: Math.max(0, Math.floor(Number(item.count) || 0)),
+        elements: {
+          name: 0,
+          level: 0,
+          grade: 0,
+          count: 0,
+          metal: Number(materialElements.metal) || 0,
+          wood: Number(materialElements.wood) || 0,
+          water: Number(materialElements.water) || 0,
+          fire: Number(materialElements.fire) || 0,
+          earth: Number(materialElements.earth) || 0,
+        },
+      });
+    }
+    const query = this.alchemyMaterialPickerQuery.trim().toLocaleLowerCase();
+    const candidates = Array.from(byItemId.values())
+      .filter((candidate) => !query || candidate.name.toLocaleLowerCase().includes(query) || candidate.itemId.toLocaleLowerCase().includes(query));
+    const direction = this.alchemyMaterialPickerSortDirection === 'desc' ? -1 : 1;
+    const gradeOrder = (grade: string) => {
+      const index = TECHNIQUE_GRADE_ORDER.indexOf(grade as never);
+      return index >= 0 ? index : -1;
+    };
+    candidates.sort((left, right) => {
+      const key = this.alchemyMaterialPickerSortKey;
+      if (key === 'name') {
+        return left.name.localeCompare(right.name, 'zh-Hans-CN') * direction;
+      }
+      if (key === 'grade') {
+        return (gradeOrder(left.grade) - gradeOrder(right.grade)) * direction || left.name.localeCompare(right.name, 'zh-Hans-CN');
+      }
+      if (key === 'level' || key === 'count') {
+        return ((left[key] as number) - (right[key] as number)) * direction || left.name.localeCompare(right.name, 'zh-Hans-CN');
+      }
+      return ((left.elements[key] ?? 0) - (right.elements[key] ?? 0)) * direction || left.name.localeCompare(right.name, 'zh-Hans-CN');
+    });
+    return candidates;
+  }
+
+  private formatAlchemyPickerElementValue(value: number | undefined): string {
+    const numeric = Number(value) || 0;
+    return numeric === 0 ? '-' : escapeHtml(formatDisplaySignedNumber(numeric));
+  }
+
+  private bindAlchemyMaterialPickerEvents(): void {
+    const root = document.querySelector<HTMLElement>('.alchemy-material-picker');
+    if (!root) {
+      return;
+    }
+    const search = root.querySelector<HTMLInputElement>('[data-alchemy-material-search="true"]');
+    search?.focus();
+    search?.setSelectionRange(search.value.length, search.value.length);
+    search?.addEventListener('input', () => {
+      this.alchemyMaterialPickerQuery = search.value;
+      this.openAlchemyMaterialPickerModal();
+    });
+    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-material-sort]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const key = button.dataset.alchemyMaterialSort as AlchemyMaterialPickerSortKey | undefined;
+        if (!key) {
+          return;
+        }
+        if (this.alchemyMaterialPickerSortKey === key) {
+          this.alchemyMaterialPickerSortDirection = this.alchemyMaterialPickerSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          this.alchemyMaterialPickerSortKey = key;
+          this.alchemyMaterialPickerSortDirection = key === 'name' ? 'asc' : 'desc';
+        }
+        this.openAlchemyMaterialPickerModal();
+      });
+    });
+    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-material-add]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const recipeId = this.selectedAlchemyRecipeId;
+        const itemId = button.dataset.alchemyMaterialAdd?.trim() ?? '';
+        if (!recipeId || !itemId) {
+          return;
+        }
+        this.selectedAlchemyPresetId = null;
+        this.adjustAlchemyAuxCount(recipeId, itemId, 1);
+        this.render();
+        this.openAlchemyMaterialPickerModal();
+      });
+    });
   }
 
   private getAlchemySpiritStoneOwnedCount(): number {
