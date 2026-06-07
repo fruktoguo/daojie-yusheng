@@ -190,6 +190,11 @@ interface FloatingTextEffect {
   duration: number;
 }
 
+interface FloatingTextBurstOffset {
+  offsetX: number;
+  offsetY: number;
+}
+
 interface AttackTrailEffect {
   id: number;
   fromX: number;
@@ -2740,11 +2745,33 @@ export class PixiMapRendererAdapter {
         this.destroyFloatingTextEffect(entry);
         return false;
       }
-      const rise = entry.variant === 'action' ? cellSize * (0.08 + progress * 0.46) : cellSize * (0.2 + progress * 0.8);
-      entry.text.alpha = entry.actionStyle === 'divine' ? 1 - Math.max(0, (progress - 0.86) / 0.14) : 1 - progress;
-      entry.text.position.set(entry.x * cellSize + cellSize / 2, entry.y * cellSize - rise);
       return true;
     });
+    const groups = new Map<string, FloatingTextEffect[]>();
+    const burstMetaById = new Map<number, { index: number; total: number }>();
+    for (const entry of this.floatingTexts) {
+      const key = `${entry.x},${entry.y},${entry.variant}`;
+      const group = groups.get(key);
+      if (group) {
+        group.push(entry);
+      } else {
+        groups.set(key, [entry]);
+      }
+    }
+    for (const group of groups.values()) {
+      group.sort((left, right) => left.createdAt - right.createdAt || left.id - right.id);
+      for (let index = 0; index < group.length; index += 1) {
+        burstMetaById.set(group[index].id, { index, total: group.length });
+      }
+    }
+    for (const entry of this.floatingTexts) {
+      const progress = (now - entry.createdAt) / entry.duration;
+      const rise = entry.variant === 'action' ? cellSize * (0.08 + progress * 0.46) : cellSize * (0.2 + progress * 0.8);
+      const burstMeta = burstMetaById.get(entry.id) ?? { index: 0, total: 1 };
+      const burst = this.getFloatingTextBurstOffset(burstMeta.index, burstMeta.total, cellSize);
+      entry.text.alpha = entry.actionStyle === 'divine' ? 1 - Math.max(0, (progress - 0.86) / 0.14) : 1 - progress;
+      entry.text.position.set(entry.x * cellSize + cellSize / 2 + burst.offsetX, entry.y * cellSize - rise - burst.offsetY);
+    }
     this.attackTrails = this.attackTrails.filter((entry) => {
       const elapsed = now - entry.createdAt;
       const progress = elapsed / entry.duration;
@@ -2813,6 +2840,19 @@ export class PixiMapRendererAdapter {
 
   private destroyWarningZoneEffect(zone: WarningZoneEffect): void {
     zone.graphics.destroy();
+  }
+
+  private getFloatingTextBurstOffset(index: number, count: number, cellSize: number): FloatingTextBurstOffset {
+    if (count <= 1 || index < 0) {
+      return { offsetX: 0, offsetY: 0 };
+    }
+    const horizontalStep = cellSize * 0.3;
+    const verticalStep = cellSize * 0.12;
+    const centeredIndex = index - (count - 1) / 2;
+    return {
+      offsetX: centeredIndex * horizontalStep,
+      offsetY: Math.abs(centeredIndex) * verticalStep,
+    };
   }
 
   private drawAttackTrailEffect(entry: AttackTrailEffect, cellSize: number, elapsed: number): void {
