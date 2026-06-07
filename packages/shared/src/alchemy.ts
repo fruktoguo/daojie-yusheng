@@ -11,6 +11,10 @@ import type {
   PlayerAlchemyJob,
   PlayerAlchemyPreset,
 } from './crafting-types';
+import {
+  computeFivePhaseElementMatch,
+  type CraftElementMatchSnapshot,
+} from './craft-elements';
 import type { TechniqueGrade } from './cultivation-types';
 import { computeAdjustedCraftTicks } from './craft-duration';
 import { computeCraftAdjustedSuccessRate } from './craft-success';
@@ -171,6 +175,13 @@ export function computeAlchemySuccessRate(
   return Math.max(0, Math.min(1, ratio ** 2));
 }
 
+export function computeAlchemyFivePhaseSuccessSnapshot(
+  recipe: Pick<AlchemyRecipeCatalogEntry, 'requiredAuxElements'>,
+  inputAuxElements: CraftElementMatchSnapshot['inputElements'] | undefined,
+): CraftElementMatchSnapshot {
+  return computeFivePhaseElementMatch(inputAuxElements, recipe.requiredAuxElements);
+}
+
 export function computeAlchemyAdjustedSuccessRate(
   baseRate: number,
   recipeLevel: number | undefined,
@@ -182,12 +193,15 @@ export function computeAlchemyAdjustedSuccessRate(
 
 export function computeAlchemyBrewTicks(
   baseBrewTicks: number,
-  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients'>,
+  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'requiredAuxElements'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
   furnaceOutputCount = ALCHEMY_FURNACE_OUTPUT_COUNT,
 ): number {
   void furnaceOutputCount;
   const normalizedBase = Math.max(1, Math.floor(Number(baseBrewTicks) || 1));
+  if (recipe.requiredAuxElements) {
+    return normalizedBase;
+  }
   if (isExactAlchemyRecipe(recipe, submitted)) {
     return normalizedBase;
   }
@@ -217,7 +231,7 @@ export function computeAlchemySpeedRate(
 
 export function computeAlchemyAdjustedBrewTicks(
   baseBrewTicks: number,
-  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients'>,
+  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'requiredAuxElements'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
   recipeLevel: number | undefined,
   alchemyLevel: number | undefined,
@@ -303,6 +317,10 @@ export function normalizePlayerAlchemyJob(value: unknown): PlayerAlchemyJob | nu
   }
   const totalTicks = Math.max(1, Math.floor(Number(candidate.totalTicks) || 0));
   const remainingTicks = Math.max(0, Math.min(totalTicks, Math.floor(Number(candidate.remainingTicks) || 0)));
+  const elementMatchSnapshot = normalizeCraftElementMatchSnapshot(candidate.elementMatchSnapshot);
+  const baseElementSuccessRate = Number.isFinite(candidate.baseElementSuccessRate)
+    ? Math.max(0, Math.min(1, Number(candidate.baseElementSuccessRate)))
+    : undefined;
   return {
     recipeId,
     outputItemId,
@@ -312,6 +330,8 @@ export function normalizePlayerAlchemyJob(value: unknown): PlayerAlchemyJob | nu
     successCount: Math.max(0, Math.floor(Number(candidate.successCount) || 0)),
     failureCount: Math.max(0, Math.floor(Number(candidate.failureCount) || 0)),
     ingredients: normalizeAlchemyIngredientSelections(candidate.ingredients),
+    ...(elementMatchSnapshot ? { elementMatchSnapshot } : {}),
+    ...(baseElementSuccessRate !== undefined ? { baseElementSuccessRate } : {}),
     phase: candidate.phase === 'paused'
         ? 'paused'
         : 'brewing',
@@ -326,4 +346,16 @@ export function normalizePlayerAlchemyJob(value: unknown): PlayerAlchemyJob | nu
     exactRecipe: candidate.exactRecipe === true,
     startedAt: Math.max(0, Math.floor(Number(candidate.startedAt) || 0)),
   };
+}
+
+function normalizeCraftElementMatchSnapshot(value: unknown): CraftElementMatchSnapshot | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const snapshot = value as Partial<CraftElementMatchSnapshot>;
+  const normalized = computeFivePhaseElementMatch(snapshot.inputElements, snapshot.targetElements);
+  if (normalized.targetTotalAbs <= 0) {
+    return undefined;
+  }
+  return normalized;
 }

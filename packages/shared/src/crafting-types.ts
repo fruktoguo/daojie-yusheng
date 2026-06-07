@@ -8,6 +8,7 @@
  */
 import type { TechniqueActivityCancelRef, TechniqueActivityInterruptState, TechniqueActivityJobBase, TechniqueActivityTaskKind } from './technique-activity-types';
 import type { TechniqueCategory, TechniqueGrade, TechniqueTransmissionBlockedReason, TechniqueTransmissionJobStatus } from './cultivation-types';
+import type { CraftElementMatchSnapshot, CraftElementVector } from './craft-elements';
 import type { EquipSlot, ItemStack, ItemType } from './item-runtime-types';
 import type { TechniqueComprehensionProgressBreakdown } from './technique-comprehension';
 
@@ -93,6 +94,15 @@ export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
   powerPerUnit: number;
 }
 
+/** 标准丹方/器方中的主药/主材要求。 */
+export interface AlchemyRecipeMainIngredientDef extends AlchemyIngredientSelection {
+/**
+ * name：名称名称或显示文本。
+ */
+
+  name: string;
+}
+
 /** 炼制配方类别。 */
 export type AlchemyRecipeCategory = 'recovery' | 'buff' | 'special';
 
@@ -133,6 +143,26 @@ export interface AlchemyRecipeCatalogEntry {
  */
 
   baseBrewTicks: number;  
+  /**
+ * level：配方等级。
+ */
+
+  level?: number;
+  /**
+ * grade：配方品阶。
+ */
+
+  grade?: TechniqueGrade;
+  /**
+ * mainIngredients：必须投入的主药/主材。
+ */
+
+  mainIngredients?: AlchemyRecipeMainIngredientDef[];
+  /**
+ * requiredAuxElements：辅药/辅材目标五行。
+ */
+
+  requiredAuxElements?: CraftElementVector;
   /**
  * fullPower：fullPower相关字段。
  */
@@ -231,6 +261,16 @@ export interface PlayerAlchemyJob {
  */
 
   ingredients: AlchemyIngredientSelection[];  
+  /**
+ * elementMatchSnapshot：创建任务时固定下来的五行匹配快照。
+ */
+
+  elementMatchSnapshot?: CraftElementMatchSnapshot;
+  /**
+ * baseElementSuccessRate：创建任务时固定下来的五行基础成功率。
+ */
+
+  baseElementSuccessRate?: number;
   /**
  * phase：phase相关字段。
  */

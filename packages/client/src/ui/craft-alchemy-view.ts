@@ -7,24 +7,27 @@ import type {
   AlchemyIngredientSelection,
   AlchemyRecipeCatalogEntry,
   AlchemyRecipeCategory,
+  CraftElementVector,
   CraftQueueStartMode,
   PlayerAlchemyPreset,
   S2C_AlchemyPanel,
 } from '@mud/shared';
 import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
+  addCraftElementVector,
   buildAlchemyIngredientCountMap,
+  compactCraftElementVector,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyAdjustedSuccessRate,
   computeAlchemyBatchOutputCountWithSize,
-  computeAlchemyPowerRatio,
-  computeAlchemySuccessRate,
   computeAlchemyTotalJobTicks,
+  computeFivePhaseElementMatch,
+  createEmptyCraftElementVector,
   getAlchemySpiritStoneCost,
-  isExactAlchemyRecipe,
   normalizeAlchemyQuantity,
 } from '@mud/shared';
 import { formatDisplayInteger } from '../utils/number';
+import { getLocalItemTemplate } from '../content/local-templates';
 import { confirmModalHost } from './confirm-modal-host';
 import { t } from './i18n';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
@@ -208,10 +211,11 @@ export class CraftAlchemyView {
     if (!recipe) {
       return [];
     }
-    return recipe.ingredients.map((ingredient) => ({
-      itemId: ingredient.itemId,
-      count: ingredient.count,
-    }));
+    return this.getAlchemyMainIngredients(recipe).concat(
+      recipe.ingredients
+        .filter((ingredient) => ingredient.role !== 'main')
+        .map((ingredient) => ({ itemId: ingredient.itemId, count: ingredient.count })),
+    );
   }
 
   getAlchemyDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
@@ -223,11 +227,11 @@ export class CraftAlchemyView {
     if (!draft) {
       return this.getFullAlchemyIngredients(recipeId);
     }
-    const result: AlchemyIngredientSelection[] = [];
-    for (const ingredient of recipe.ingredients) {
-      const count = draft.get(ingredient.itemId) ?? 0;
-      if (count > 0) {
-        result.push({ itemId: ingredient.itemId, count });
+    const result: AlchemyIngredientSelection[] = this.getAlchemyMainIngredients(recipe);
+    const mainIds = new Set(result.map((entry) => entry.itemId));
+    for (const [itemId, count] of draft.entries()) {
+      if (!mainIds.has(itemId) && count > 0) {
+        result.push({ itemId, count });
       }
     }
     return result;
@@ -240,15 +244,23 @@ export class CraftAlchemyView {
     }
     const next = new Map<string, number>();
     const source = buildAlchemyIngredientCountMap(ingredients);
-    for (const ingredient of recipe.ingredients) {
-      next.set(
-        ingredient.itemId,
-        ingredient.role === 'main'
-          ? ingredient.count
-          : Math.max(0, Math.min(ingredient.count, source.get(ingredient.itemId) ?? 0)),
-      );
+    for (const ingredient of this.getAlchemyMainIngredients(recipe)) {
+      next.set(ingredient.itemId, ingredient.count);
+    }
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
+    for (const [itemId, count] of source.entries()) {
+      if (!mainIds.has(itemId) && count > 0) {
+        next.set(itemId, count);
+      }
     }
     this.parent.draftByRecipeId.set(recipeId, next);
+  }
+
+  private getAlchemyMainIngredients(recipe: AlchemyRecipeCatalogEntry): AlchemyIngredientSelection[] {
+    const source = (recipe.mainIngredients && recipe.mainIngredients.length > 0)
+      ? recipe.mainIngredients
+      : recipe.ingredients.filter((ingredient) => ingredient.role === 'main');
+    return source.map((ingredient) => ({ itemId: ingredient.itemId, count: ingredient.count }));
   }
 
   adjustAlchemyAuxCount(recipeId: string, itemId: string, delta: number): void {
@@ -256,13 +268,21 @@ export class CraftAlchemyView {
     if (!recipe) {
       return;
     }
-    const ingredient = recipe.ingredients.find((entry) => entry.itemId === itemId && entry.role === 'aux');
-    if (!ingredient) {
+    if (this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
+      return;
+    }
+    const ownedCount = this.getAlchemyInventoryCount(itemId);
+    if (ownedCount <= 0 || !this.getAlchemyMaterialElements(itemId)) {
       return;
     }
     const draft = this.parent.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
     const current = draft.get(itemId) ?? 0;
-    draft.set(itemId, Math.max(0, Math.min(ingredient.count, current + delta)));
+    const next = Math.max(0, Math.min(ownedCount, current + delta));
+    if (next > 0) {
+      draft.set(itemId, next);
+    } else {
+      draft.delete(itemId);
+    }
     this.parent.draftByRecipeId.set(recipeId, draft);
   }
 
@@ -270,6 +290,28 @@ export class CraftAlchemyView {
     return this.parent.inventory.items
       .filter((item) => item.itemId === itemId)
       .reduce((sum, item) => sum + item.count, 0);
+  }
+
+  private getAlchemyMaterialElements(itemId: string): CraftElementVector | undefined {
+    return getLocalItemTemplate(itemId)?.materialValues?.elements;
+  }
+
+  private buildAlchemyInputAuxElements(
+    recipe: AlchemyRecipeCatalogEntry,
+    ingredients: readonly AlchemyIngredientSelection[],
+  ): CraftElementVector {
+    const result = createEmptyCraftElementVector();
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
+    for (const ingredient of ingredients) {
+      if (mainIds.has(ingredient.itemId)) {
+        continue;
+      }
+      const elements = this.getAlchemyMaterialElements(ingredient.itemId);
+      if (elements) {
+        addCraftElementVector(result, elements, ingredient.count);
+      }
+    }
+    return compactCraftElementVector(result);
   }
 
   private getAlchemySpiritStoneOwnedCount(): number {
@@ -385,8 +427,11 @@ export class CraftAlchemyView {
     mode: AlchemyTab,
   ): { powerText: string; successText: string; brewTimeText: string } {
     const ingredients = mode === 'full' ? this.getFullAlchemyIngredients(recipe.recipeId) : this.getAlchemyDraftIngredients(recipe.recipeId);
-    const powerRatio = mode === 'full' ? 1 : computeAlchemyPowerRatio(recipe, ingredients);
-    const baseSuccessRate = mode === 'full' ? 1 : computeAlchemySuccessRate(recipe, ingredients);
+    const elementMatch = computeFivePhaseElementMatch(
+      this.buildAlchemyInputAuxElements(recipe, ingredients),
+      recipe.requiredAuxElements,
+    );
+    const baseSuccessRate = elementMatch.baseElementSuccessRate;
     const furnaceBonuses = this.getAlchemyFurnaceBonuses();
     const successRate = computeAlchemyAdjustedSuccessRate(
       baseSuccessRate,
@@ -396,7 +441,7 @@ export class CraftAlchemyView {
     );
     const brewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);
     return {
-      powerText: formatRate(powerRatio),
+      powerText: formatRate(baseSuccessRate),
       successText: formatRate(successRate),
       brewTimeText: `${brewTicks} 息`,
     };
@@ -803,7 +848,7 @@ export class CraftAlchemyView {
     const ingredients = this.getFullAlchemyIngredients(recipe.recipeId);
     const mainRoleLabel = this.parent.activeMode === 'forging' ? '主材' : '主药';
     const auxRoleLabel = this.parent.activeMode === 'forging' ? '辅材' : '辅药';
-    const powerLabel = this.parent.activeMode === 'forging' ? '单份契合' : '单份药力';
+    const powerLabel = '五行';
     return `
       <div class="alchemy-tab-stack">
         ${this.renderAlchemySummaryCard(recipe, 'full', metrics)}
@@ -817,7 +862,7 @@ export class CraftAlchemyView {
               </div>
               <div class="alchemy-ingredient-meta">
                 <span>数量 ${formatDisplayInteger(ingredient.count)}</span>
-                <span>${powerLabel} ${formatDisplayInteger(ingredient.powerPerUnit)}</span>
+                <span>${powerLabel}</span>
               </div>
             </div>
           `).join('')}
@@ -829,7 +874,10 @@ export class CraftAlchemyView {
 
   private renderAlchemySimpleTab(recipe: AlchemyRecipeCatalogEntry, presets: PlayerAlchemyPreset[]): string {
     const draftIngredients = this.getAlchemyDraftIngredients(recipe.recipeId);
-    const exactRecipe = isExactAlchemyRecipe(recipe, draftIngredients);
+    const exactRecipe = computeFivePhaseElementMatch(
+      this.buildAlchemyInputAuxElements(recipe, draftIngredients),
+      recipe.requiredAuxElements,
+    ).baseElementSuccessRate >= 1;
     const metrics = this.buildAlchemyMetricSnapshot(recipe, 'simple');
     const selectedPreset = this.parent.selectedAlchemyPresetId
       ? presets.find((preset) => preset.presetId === this.parent.selectedAlchemyPresetId) ?? null
@@ -901,7 +949,7 @@ export class CraftAlchemyView {
         </div>
         <div class="alchemy-summary-metrics">
           <div class="alchemy-summary-metric alchemy-summary-metric--power">
-            <span class="alchemy-summary-metric-label">${isForging ? '技艺契合度' : '药力百分比'}</span>
+            <span class="alchemy-summary-metric-label">五行匹配</span>
             <strong class="alchemy-summary-metric-value" data-alchemy-metric="power">${escapeHtml(metrics.powerText)}</strong>
           </div>
           <div class="alchemy-summary-metric alchemy-summary-metric--success">

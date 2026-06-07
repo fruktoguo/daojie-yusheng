@@ -23,6 +23,8 @@ const ALCHEMY_FURNACE_TAG = 'alchemy_furnace';
 function cloneAlchemyCatalogEntry(entry) {
     return {
         ...entry,
+        mainIngredients: Array.isArray(entry.mainIngredients) ? entry.mainIngredients.map((ingredient) => ({ ...ingredient })) : [],
+        requiredAuxElements: entry.requiredAuxElements ? { ...entry.requiredAuxElements } : undefined,
         ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
     };
 }
@@ -48,6 +50,14 @@ function cloneAlchemyJob(entry) {
     return {
         ...entry,
         ingredients: Array.isArray(entry.ingredients) ? entry.ingredients.map((ingredient) => ({ ...ingredient })) : [],
+        elementMatchSnapshot: entry.elementMatchSnapshot
+            ? {
+                ...entry.elementMatchSnapshot,
+                targetElements: { ...(entry.elementMatchSnapshot.targetElements ?? {}) },
+                inputElements: { ...(entry.elementMatchSnapshot.inputElements ?? {}) },
+                perElementScore: { ...(entry.elementMatchSnapshot.perElementScore ?? {}) },
+            }
+            : undefined,
     };
 }
 export {

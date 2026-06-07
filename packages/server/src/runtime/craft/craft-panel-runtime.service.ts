@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemySuccessRate, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isExactAlchemyRecipe, isLegacyItemInstanceId } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -332,13 +332,14 @@ export class CraftPanelRuntimeService {
         if (!recipe) {
             return { ok: false, error: jobKind === 'forging' ? '对应器方不存在。' : '对应丹方不存在。' };
         }
-        const normalizedSelection = validateAlchemySelection(recipe, normalizeIngredientSelections(payload?.ingredients));
+        const normalizedSelection = validateAlchemySelection(this.contentTemplateRepository, recipe, normalizeIngredientSelections(payload?.ingredients));
         if ('error' in normalizedSelection) {
             return { ok: false, error: normalizedSelection.error };
         }
         const quantity = normalizeQuantity(payload?.quantity, 1);
         const furnaceOutputCount = jobKind === 'forging' || recipe.category === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
-        const baseSuccessRate = computeAlchemySuccessRate(recipe, normalizedSelection.ingredients);
+        const elementMatchSnapshot = computeFivePhaseElementMatch(normalizedSelection.inputAuxElements, recipe.requiredAuxElements);
+        const baseSuccessRate = elementMatchSnapshot.baseElementSuccessRate;
         const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
         const batchBrewTicks = computeAlchemyAdjustedBrewTicks(
             recipe.baseBrewTicks,
@@ -350,7 +351,7 @@ export class CraftPanelRuntimeService {
             furnaceOutputCount
         );
         const totalTicks = computeAlchemyTotalJobTicks(batchBrewTicks, quantity, 0);
-        const exactRecipe = isExactAlchemyRecipe(recipe, normalizedSelection.ingredients);
+        const exactRecipe = baseSuccessRate >= 1;
         const successRate = computeAlchemyAdjustedSuccessRate(
             baseSuccessRate,
             recipe.outputLevel,
@@ -372,6 +373,8 @@ export class CraftPanelRuntimeService {
                 batchBrewTicks,
                 totalTicks,
                 exactRecipe,
+                baseElementSuccessRate: baseSuccessRate,
+                elementMatchSnapshot,
                 successRate,
                 batchOutputCount,
             },
@@ -434,6 +437,8 @@ export class CraftPanelRuntimeService {
             totalTicks: validated.totalTicks,
             remainingTicks: validated.totalTicks,
             successRate: validated.successRate,
+            baseElementSuccessRate: validated.baseElementSuccessRate,
+            elementMatchSnapshot: cloneCraftElementMatchSnapshot(validated.elementMatchSnapshot),
             jobVersion: 1,
             exactRecipe: validated.exactRecipe,
             outputLevel: recipe.outputLevel,
@@ -591,7 +596,7 @@ export class CraftPanelRuntimeService {
         if (!recipe) {
             return buildCraftMutationResult('对应丹方不存在。');
         }
-        const normalizedSelection = validateAlchemySelection(recipe, normalizeIngredientSelections(payload?.ingredients));
+        const normalizedSelection = validateAlchemySelection(this.contentTemplateRepository, recipe, normalizeIngredientSelections(payload?.ingredients));
         if ('error' in normalizedSelection) {
             return buildCraftMutationResult(normalizedSelection.error);
         }
@@ -2300,23 +2305,53 @@ export class CraftPanelRuntimeService {
         if (!recipeId || !outputItemId || !outputItem) {
             return null;
         }
-        const ingredients = Array.isArray(entry.ingredients)
+        const legacyIngredients = Array.isArray(entry.ingredients)
             ? entry.ingredients.map((ingredient) => toAlchemyIngredientDef(this.contentTemplateRepository, ingredient)).filter(Boolean)
             : [];
-        if (ingredients.length === 0) {
+        const mainIngredients = Array.isArray(entry.mainIngredients)
+            ? entry.mainIngredients.map((ingredient) => toAlchemyMainIngredientDef(this.contentTemplateRepository, ingredient)).filter(Boolean)
+            : legacyIngredients.filter((ingredient) => ingredient.role === 'main').map((ingredient) => ({
+                itemId: ingredient.itemId,
+                name: ingredient.name,
+                count: ingredient.count,
+            }));
+        if (mainIngredients.length < 1 || mainIngredients.length > 2) {
+            return null;
+        }
+        const requiredAuxElements = resolveRecipeRequiredAuxElements(
+            this.contentTemplateRepository,
+            entry.requiredAuxElements,
+            legacyIngredients,
+        );
+        if (sumCraftElementAbs(requiredAuxElements) <= 0) {
             return null;
         }
         const category = resolveAlchemyRecipeCategory(outputItem, recipeId);
+        const outputLevel = normalizePositiveInt(entry.level ?? outputItem.level, 1);
         return {
             recipeId,
             outputItemId,
             outputName: outputItem.name,
             category,
             outputCount: normalizePositiveInt(entry.outputCount, 1),
-            outputLevel: normalizePositiveInt(outputItem.level, 1),
+            outputLevel,
+            level: outputLevel,
+            grade: normalizeTechniqueGrade(entry.grade ?? outputItem.grade),
             baseBrewTicks: normalizePositiveInt(entry.baseBrewTicks, 1),
-            fullPower: ingredients.reduce((total, ingredient) => total + ingredient.powerPerUnit * ingredient.count, 0),
-            ingredients,
+            mainIngredients,
+            requiredAuxElements,
+            fullPower: legacyIngredients.reduce((total, ingredient) => total + ingredient.powerPerUnit * ingredient.count, 0),
+            ingredients: legacyIngredients.length > 0
+                ? legacyIngredients
+                : mainIngredients.map((ingredient) => ({
+                    itemId: ingredient.itemId,
+                    name: ingredient.name,
+                    count: ingredient.count,
+                    role: 'main',
+                    level: outputLevel,
+                    grade: normalizeTechniqueGrade(entry.grade ?? outputItem.grade),
+                    powerPerUnit: computeAlchemyMaterialPower(outputItem.level, outputItem.grade, 1),
+                })),
         };
     }
 };
@@ -2363,6 +2398,10 @@ function walkJsonFiles(root) {
 
 function normalizePositiveInt(value, fallback = 1) {
     return Math.max(1, Math.floor(Number(value) || fallback));
+}
+
+function normalizeTechniqueGrade(value) {
+    return TECHNIQUE_GRADE_ORDER.includes(value) ? value : 'mortal';
 }
 /**
  * normalizeCraftSkill：规范化或转换炼制技能。
@@ -2451,6 +2490,50 @@ function toAlchemyIngredientDef(contentTemplateRepository, ingredient) {
         grade: item.grade ?? 'mortal',
         powerPerUnit: computeAlchemyMaterialPower(item.level, item.grade, 1),
     };
+}
+
+function toAlchemyMainIngredientDef(contentTemplateRepository, ingredient) {
+    const itemId = typeof ingredient?.itemId === 'string' ? ingredient.itemId.trim() : '';
+    const item = contentTemplateRepository.createItem(itemId, 1);
+    if (!item) {
+        return null;
+    }
+    return {
+        itemId,
+        name: item.name,
+        count: normalizePositiveInt(ingredient?.count, 1),
+    };
+}
+
+function resolveRecipeRequiredAuxElements(contentTemplateRepository, rawRequiredAuxElements, legacyIngredients) {
+    const explicit = normalizeCraftElementVector(rawRequiredAuxElements);
+    if (sumCraftElementAbs(explicit) > 0) {
+        return explicit;
+    }
+    const auxElements = sumRecipeIngredientElements(
+        contentTemplateRepository,
+        legacyIngredients.filter((ingredient) => ingredient.role !== 'main'),
+    );
+    if (sumCraftElementAbs(auxElements) > 0) {
+        return auxElements;
+    }
+    return sumRecipeIngredientElements(contentTemplateRepository, legacyIngredients);
+}
+
+function sumRecipeIngredientElements(contentTemplateRepository, ingredients) {
+    const result = createEmptyCraftElementVector();
+    for (const ingredient of ingredients) {
+        const item = contentTemplateRepository.createItem(ingredient.itemId, 1);
+        if (!item?.materialValues?.elements) {
+            continue;
+        }
+        addCraftElementVector(result, item.materialValues.elements, ingredient.count);
+    }
+    return compactCraftElementVector(result);
+}
+
+function sumCraftElementAbs(elements) {
+    return ELEMENT_KEYS.reduce((total, element) => total + Math.abs(Number(elements?.[element]) || 0), 0);
 }
 /**
  * resolveAlchemyRecipeCategory：规范化或转换炼丹RecipeCategory。
@@ -3135,6 +3218,20 @@ function cloneAlchemyIngredientSelections(value) {
         }))
         : [];
 }
+
+function cloneCraftElementMatchSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+        return undefined;
+    }
+    return {
+        targetElements: compactCraftElementVector(snapshot.targetElements),
+        inputElements: compactCraftElementVector(snapshot.inputElements),
+        perElementScore: { ...snapshot.perElementScore },
+        targetTotalAbs: Number(snapshot.targetTotalAbs) || 0,
+        zeroBase: Number(snapshot.zeroBase) || 1,
+        baseElementSuccessRate: Math.max(0, Math.min(1, Number(snapshot.baseElementSuccessRate) || 0)),
+    };
+}
 /**
  * isExactSubmittedIngredients：判断ExactSubmittedIngredient是否满足条件。
  * @param recipeIngredients 参数说明。
@@ -3161,37 +3258,46 @@ function isExactSubmittedIngredients(recipeIngredients, submitted) {
     return true;
 }
 
-function validateAlchemySelection(recipe, submitted) {
-  const recipeIngredientMap = new Map();
-  for (const ingredient of recipe.ingredients ?? []) {
-    recipeIngredientMap.set(ingredient.itemId, ingredient);
+function validateAlchemySelection(contentTemplateRepository, recipe, submitted) {
+  const mainIngredients = Array.isArray(recipe.mainIngredients) && recipe.mainIngredients.length > 0
+      ? recipe.mainIngredients
+      : (recipe.ingredients ?? []).filter((entry) => entry.role === 'main');
+  const mainIngredientMap = new Map();
+  for (const ingredient of mainIngredients) {
+    mainIngredientMap.set(ingredient.itemId, ingredient);
   }
   const submittedMap = new Map(submitted.map((entry) => [entry.itemId, Number(entry.count)]));
-  for (const entry of submitted) {
-    if (!recipeIngredientMap.has(entry.itemId)) {
-      return { error: '投料中包含当前丹方未收录的药材。' };
-    }
-  }
   const normalizedIngredients = [];
-  for (const ingredient of recipe.ingredients ?? []) {
+  const inputAuxElements = createEmptyCraftElementVector();
+
+  for (const ingredient of mainIngredients) {
     const submittedCount = submittedMap.get(ingredient.itemId) ?? 0;
-    const normalizedSubmittedCount = Number(submittedCount);
-    if (ingredient.role === 'main') {
-      if (normalizedSubmittedCount !== ingredient.count) {
-        return { error: `${ingredient.name ?? ingredient.itemId} 属于主药，数量必须为 ${ingredient.count}。` };
-      }
-      normalizedIngredients.push({ itemId: ingredient.itemId, count: ingredient.count });
+    if (submittedCount !== ingredient.count) {
+      return { error: `${ingredient.name ?? ingredient.itemId} 属于主药/主材，数量必须为 ${ingredient.count}。` };
+    }
+    normalizedIngredients.push({ itemId: ingredient.itemId, count: ingredient.count });
+  }
+
+  for (const entry of submitted) {
+    if (mainIngredientMap.has(entry.itemId)) {
       continue;
     }
-    if (normalizedSubmittedCount < 0 || normalizedSubmittedCount > ingredient.count) {
-      return { error: `${ingredient.name ?? ingredient.itemId} 的辅药数量必须在 0 到 ${ingredient.count} 之间。` };
+    const count = Math.max(1, Math.floor(Number(entry.count) || 1));
+    const item = contentTemplateRepository.createItem(entry.itemId, 1);
+    if (!item || item.type !== 'material') {
+      return { error: '辅药/辅材必须是材料。' };
     }
-    if (normalizedSubmittedCount > 0) {
-      normalizedIngredients.push({ itemId: ingredient.itemId, count: normalizedSubmittedCount });
+    const elements = item.materialValues?.elements;
+    if (!elements || Object.keys(elements).length === 0) {
+      return { error: `${item.name ?? item.itemId} 没有五行值，不能作为辅药/辅材。` };
     }
+    addCraftElementVector(inputAuxElements, elements, count);
+    normalizedIngredients.push({ itemId: entry.itemId, count });
   }
+
   return {
     ingredients: normalizedIngredients.sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')),
+    inputAuxElements: compactCraftElementVector(inputAuxElements),
   };
 }
 /**

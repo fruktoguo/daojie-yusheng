@@ -8,8 +8,22 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
-    ]
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 6,
+      "earth": 3
+    }
   },
   {
     "recipeId": "forging.copper_pill_furnace",
@@ -20,8 +34,22 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
-    ]
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 6,
+      "earth": 3
+    }
   },
   {
     "recipeId": "forging.copper_forging_tool",
@@ -32,8 +60,22 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
-    ]
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 6,
+      "earth": 3
+    }
   },
   {
     "recipeId": "forging.copper_building_hammer",
@@ -44,8 +86,22 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
-    ]
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 6,
+      "earth": 3
+    }
   },
   {
     "recipeId": "forging.copper_array_plate",
@@ -56,8 +112,22 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
-    ]
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 6,
+      "earth": 3
+    }
   },
   {
     "recipeId": "forging.copper_luopan",
@@ -68,8 +138,22 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
-    ]
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 6,
+      "earth": 3
+    }
   },
   {
     "recipeId": "forging.copper_mining_pickaxe",
@@ -80,7 +164,21 @@
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
-      { "itemId": "black_iron_chunk", "count": 1, "role": "main" }
-    ]
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 6,
+      "earth": 3
+    }
   }
 ]

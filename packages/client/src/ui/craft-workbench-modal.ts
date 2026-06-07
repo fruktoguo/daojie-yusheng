@@ -9,6 +9,7 @@ import type {
   AlchemyRecipeCategory,
   C2S_SaveAlchemyPreset,
   C2S_StartEnhancement,
+  CraftElementVector,
   CraftQueueItemView,
   CraftQueueStartMode,
   EnhancementTargetRef,
@@ -29,22 +30,24 @@ import type {
 } from '@mud/shared';
 import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
+  ELEMENT_KEYS,
   EQUIP_SLOTS,
   MAX_ENHANCE_LEVEL,
+  addCraftElementVector,
   applyEquipmentAttributeEffectivenessToItemStack,
   buildAlchemyIngredientCountMap,
+  compactCraftElementVector,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyAdjustedSuccessRate,
   computeAlchemyBatchOutputCountWithSize,
   computeEnhancementAdjustedSuccessRate,
-  computeAlchemyPowerRatio,
-  computeAlchemySuccessRate,
   computeAlchemyTotalJobTicks,
+  computeFivePhaseElementMatch,
+  createEmptyCraftElementVector,
   calculateTechniqueComprehensionProgressBreakdown,
   getAlchemySpiritStoneCost,
   getItemDisplayName,
   isCreatedTechniqueId,
-  isExactAlchemyRecipe,
   normalizeEnhanceLevel,
   normalizeAlchemyQuantity,
   type TechniqueComprehensionProgressBreakdown,
@@ -451,6 +454,22 @@ function cloneAlchemyIngredients(
   return ingredients.map((ingredient) => ({ ...ingredient }));
 }
 
+function normalizeLocalAlchemyIngredients(value: unknown): AlchemyIngredientSelection[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const counts = new Map<string, number>();
+  for (const entry of value) {
+    const itemId = typeof entry?.itemId === 'string' ? entry.itemId.trim() : '';
+    const count = Math.max(1, Math.floor(Number(entry?.count) || 1));
+    if (!itemId) {
+      continue;
+    }
+    counts.set(itemId, (counts.get(itemId) ?? 0) + count);
+  }
+  return Array.from(counts.entries()).map(([itemId, count]) => ({ itemId, count }));
+}
+
 function getAlchemyRealmTab(level: number): AlchemyRealmTab {
   const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
   if (normalizedLevel >= 31) {
@@ -522,6 +541,8 @@ export class CraftWorkbenchModal {
   private selectedAlchemyRecipeId: string | null = null;
   private selectedAlchemyPresetId: string | null = null;
   private draftByRecipeId = new Map<string, Map<string, number>>();
+  private localCraftFormulaPresets = new Map<string, PlayerAlchemyPreset[]>();
+  private localCraftFormulaPresetsLoaded = false;
   private quantityByRecipeId = new Map<string, number>();
   private confirmStartRequest: ConfirmStartRequest | null = null;
   private confirmQuantityDraft = '1';
@@ -625,6 +646,7 @@ export class CraftWorkbenchModal {
   }
 
   openAlchemy(): void {
+    this.ensureLocalCraftFormulaPresetsLoaded();
     this.activeMode = 'alchemy';
     this.loading = true;
     this.alchemyCatalogVersion = 0;
@@ -635,6 +657,7 @@ export class CraftWorkbenchModal {
   }
 
   openForging(): void {
+    this.ensureLocalCraftFormulaPresetsLoaded();
     this.activeMode = 'forging';
     this.loading = true;
     this.alchemyCatalogVersion = 0;
@@ -680,6 +703,8 @@ export class CraftWorkbenchModal {
     if (Array.isArray(data.catalog)) {
       this.alchemyCatalog = data.catalog.map((entry) => ({
         ...entry,
+        mainIngredients: (entry.mainIngredients ?? []).map((ingredient) => ({ ...ingredient })),
+        requiredAuxElements: entry.requiredAuxElements ? { ...entry.requiredAuxElements } : undefined,
         ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
       }));
     }
@@ -707,6 +732,8 @@ export class CraftWorkbenchModal {
       this.alchemyCatalog = data.catalog.map((entry) => ({
         ...entry,
         category: 'special',
+        mainIngredients: (entry.mainIngredients ?? []).map((ingredient) => ({ ...ingredient })),
+        requiredAuxElements: entry.requiredAuxElements ? { ...entry.requiredAuxElements } : undefined,
         ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
       }));
     }
@@ -2015,32 +2042,22 @@ export class CraftWorkbenchModal {
         return;
       }
       if (action === 'alchemy-save-preset') {
-        if (this.activeMode === 'forging') {
-          return;
-        }
         const recipe = this.getSelectedAlchemyRecipe();
         if (!recipe) {
           return;
         }
-        const matchingPresets = this.getAlchemyRecipePresets(recipe.recipeId);
-        const selectedPreset = this.selectedAlchemyPresetId
-          ? matchingPresets.find((preset) => preset.presetId === this.selectedAlchemyPresetId) ?? null
-          : null;
-        this.callbacks?.onSaveAlchemyPreset({
-          presetId: selectedPreset?.presetId,
-          recipeId: recipe.recipeId,
-          name: selectedPreset?.name ?? `${recipe.outputName}简方${matchingPresets.length + 1}`,
-          ingredients: this.getAlchemyDraftIngredients(recipe.recipeId),
-        });
+        this.saveLocalCraftFormulaPreset(recipe);
+        this.render();
         return;
       }
       if (action === 'alchemy-delete-preset') {
-        if (this.activeMode === 'forging') {
-          return;
-        }
         const presetId = (target.dataset.presetId ?? '').trim();
-        if (presetId) {
-          this.callbacks?.onDeleteAlchemyPreset(presetId);
+        const recipeId = this.selectedAlchemyRecipeId;
+        if (presetId && recipeId) {
+          if (!this.deleteLocalCraftFormulaPreset(recipeId, presetId)) {
+            this.callbacks?.onDeleteAlchemyPreset(presetId);
+          }
+          this.render();
         }
         return;
       }
@@ -2800,7 +2817,7 @@ export class CraftWorkbenchModal {
     const ingredients = this.getFullAlchemyIngredients(recipe.recipeId);
     const mainRoleLabel = this.activeMode === 'forging' ? '主材' : '主药';
     const auxRoleLabel = this.activeMode === 'forging' ? '辅材' : '辅药';
-    const powerLabel = this.activeMode === 'forging' ? '单份契合' : '单份药力';
+    const powerLabel = '五行';
     return `
       <div class="alchemy-tab-stack">
         ${this.renderAlchemySummaryCard(recipe, 'full', metrics)}
@@ -2814,7 +2831,7 @@ export class CraftWorkbenchModal {
               </div>
               <div class="alchemy-ingredient-meta">
                 <span>数量 ${formatDisplayInteger(ingredient.count)}</span>
-                <span>${powerLabel} ${formatDisplayInteger(ingredient.powerPerUnit)}</span>
+                <span>${powerLabel} ${escapeHtml(this.formatAlchemyElementVector(this.getAlchemyMaterialElements(ingredient.itemId)))}</span>
               </div>
             </div>
           `).join('')}
@@ -2826,7 +2843,11 @@ export class CraftWorkbenchModal {
 
   private renderAlchemySimpleTab(recipe: AlchemyRecipeCatalogEntry, presets: PlayerAlchemyPreset[]): string {
     const draftIngredients = this.getAlchemyDraftIngredients(recipe.recipeId);
-    const exactRecipe = isExactAlchemyRecipe(recipe, draftIngredients);
+    const elementMatch = computeFivePhaseElementMatch(
+      this.buildAlchemyInputAuxElements(recipe, draftIngredients),
+      recipe.requiredAuxElements,
+    );
+    const exactRecipe = elementMatch.baseElementSuccessRate >= 1;
     const metrics = this.buildAlchemyMetricSnapshot(recipe, 'simple');
     const selectedPreset = this.selectedAlchemyPresetId
       ? presets.find((preset) => preset.presetId === this.selectedAlchemyPresetId) ?? null
@@ -2872,11 +2893,66 @@ export class CraftWorkbenchModal {
             </div>
           `).join('')}
         </div>
+        ${this.renderAlchemyAuxCandidateSection(recipe, draftIngredients)}
         ${this.renderAlchemyActionSection(recipe, 'simple', draftIngredients, {
           exactRecipe,
           selectedPresetId: selectedPreset?.presetId,
           hasSelectedPreset: Boolean(selectedPreset),
         })}
+      </div>
+    `;
+  }
+
+  private renderAlchemyAuxCandidateSection(
+    recipe: AlchemyRecipeCatalogEntry,
+    draftIngredients: readonly AlchemyIngredientSelection[],
+  ): string {
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
+    const draftMap = buildAlchemyIngredientCountMap(draftIngredients);
+    const candidates = this.inventory.items
+      .filter((item) => item.type === 'material' && !mainIds.has(item.itemId) && Boolean(this.getAlchemyMaterialElements(item.itemId)))
+      .reduce<Array<{ itemId: string; name: string; owned: number; elements: CraftElementVector }>>((result, item) => {
+        if (result.some((entry) => entry.itemId === item.itemId)) {
+          return result;
+        }
+        const elements = this.getAlchemyMaterialElements(item.itemId);
+        if (!elements) {
+          return result;
+        }
+        result.push({
+          itemId: item.itemId,
+          name: item.name ?? getItemDisplayName(item) ?? item.itemId,
+          owned: this.getAlchemyInventoryCount(item.itemId),
+          elements,
+        });
+        return result;
+      }, [])
+      .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hans-CN'));
+    if (candidates.length === 0) {
+      return '';
+    }
+    const roleLabel = this.activeMode === 'forging' ? '可用辅材' : '可用辅药';
+    return `
+      <div class="alchemy-ingredient-section alchemy-ingredient-section--candidates">
+        <div class="alchemy-ingredient-section-title">${roleLabel}</div>
+        ${candidates.map((candidate) => {
+          const selectedCount = draftMap.get(candidate.itemId) ?? 0;
+          return `
+            <div class="alchemy-ingredient-row" data-alchemy-ingredient-item-id="${escapeHtml(candidate.itemId)}">
+              <div class="alchemy-ingredient-main">
+                <span class="alchemy-ingredient-role aux">${this.activeMode === 'forging' ? '辅材' : '辅药'}</span>
+                <span class="alchemy-ingredient-name">${this.renderAlchemyItemReference(candidate.itemId, candidate.name, 'material')}</span>
+                <span class="alchemy-ingredient-owned" data-alchemy-owned="true">持有 ${formatDisplayInteger(candidate.owned)}</span>
+              </div>
+              <div class="alchemy-ingredient-editor">
+                <span class="alchemy-ingredient-count" data-alchemy-current-count="true">${formatDisplayInteger(selectedCount)}</span>
+                <span class="alchemy-ingredient-elements">${escapeHtml(this.formatAlchemyElementVector(candidate.elements))}</span>
+                <button class="small-btn ghost" type="button" data-craft-action="alchemy-decrease-aux" data-item-id="${escapeHtml(candidate.itemId)}">-</button>
+                <button class="small-btn ghost" type="button" data-craft-action="alchemy-increase-aux" data-item-id="${escapeHtml(candidate.itemId)}">+</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   }
@@ -2898,7 +2974,7 @@ export class CraftWorkbenchModal {
         </div>
         <div class="alchemy-summary-metrics">
           <div class="alchemy-summary-metric alchemy-summary-metric--power">
-            <span class="alchemy-summary-metric-label">${isForging ? '技艺契合度' : '药力百分比'}</span>
+            <span class="alchemy-summary-metric-label">五行匹配</span>
             <strong class="alchemy-summary-metric-value" data-alchemy-metric="power">${escapeHtml(metrics.powerText)}</strong>
           </div>
           <div class="alchemy-summary-metric alchemy-summary-metric--success">
@@ -2949,9 +3025,9 @@ export class CraftWorkbenchModal {
             ? `<button class="small-btn" type="button" data-craft-action="alchemy-start-full"${startDisabled ? ' disabled' : ''}>${fullStartLabel}</button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${simpleTabLabel}</button>`
             : `<button class="small-btn" type="button" data-craft-action="alchemy-start-draft"${startDisabled ? ' disabled' : ''}>${simpleStartLabel}</button>
-               ${isForging ? '' : `<button class="small-btn ghost" type="button" data-craft-action="alchemy-save-preset"> ${options?.hasSelectedPreset ? t('craft.workbench.alchemy.action.save-preset.overwrite') : t('craft.workbench.alchemy.action.save-preset.create')} </button>`}
+               <button class="small-btn ghost" type="button" data-craft-action="alchemy-save-preset"> ${options?.hasSelectedPreset ? t('craft.workbench.alchemy.action.save-preset.overwrite') : t('craft.workbench.alchemy.action.save-preset.create')} </button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-reset-draft">${escapeHtml(t('craft.workbench.alchemy.action.reset-draft'))}</button>
-               ${!isForging && options?.selectedPresetId ? `<button class="small-btn danger" type="button" data-craft-action="alchemy-delete-preset" data-preset-id="${escapeHtml(options.selectedPresetId)}">${escapeHtml(t('craft.workbench.alchemy.action.delete-preset'))}</button>` : ''}`}
+               ${options?.selectedPresetId ? `<button class="small-btn danger" type="button" data-craft-action="alchemy-delete-preset" data-preset-id="${escapeHtml(options.selectedPresetId)}">${escapeHtml(t('craft.workbench.alchemy.action.delete-preset'))}</button>` : ''}`}
           ${mode === 'full'
             ? ''
             : ''}
@@ -4103,7 +4179,111 @@ export class CraftWorkbenchModal {
   }
 
   private getAlchemyRecipePresets(recipeId: string): PlayerAlchemyPreset[] {
-    return (this.alchemyPanel?.state?.presets ?? []).filter((preset) => preset.recipeId === recipeId);
+    this.ensureLocalCraftFormulaPresetsLoaded();
+    const kind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
+    const localPresets = this.localCraftFormulaPresets.get(this.buildLocalCraftFormulaPresetKey(kind, recipeId)) ?? [];
+    return [
+      ...localPresets,
+      ...(this.alchemyPanel?.state?.presets ?? []).filter((preset) => preset.recipeId === recipeId),
+    ];
+  }
+
+  private buildLocalCraftFormulaPresetKey(kind: 'alchemy' | 'forging', recipeId: string): string {
+    return `${kind}:${recipeId}`;
+  }
+
+  private ensureLocalCraftFormulaPresetsLoaded(): void {
+    if (this.localCraftFormulaPresetsLoaded) {
+      return;
+    }
+    this.localCraftFormulaPresetsLoaded = true;
+    this.localCraftFormulaPresets.clear();
+    try {
+      const raw = window.localStorage.getItem('mud.craft.localFormulas.v1');
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+      for (const entry of parsed) {
+        const kind = entry?.kind === 'forging' ? 'forging' : 'alchemy';
+        const recipeId = typeof entry?.recipeId === 'string' ? entry.recipeId.trim() : '';
+        const presetId = typeof entry?.presetId === 'string' ? entry.presetId.trim() : '';
+        const name = typeof entry?.name === 'string' ? entry.name.trim() : '';
+        if (!recipeId || !presetId || !name) {
+          continue;
+        }
+        const key = this.buildLocalCraftFormulaPresetKey(kind, recipeId);
+        const list = this.localCraftFormulaPresets.get(key) ?? [];
+        list.push({
+          presetId,
+          recipeId,
+          name,
+          ingredients: normalizeLocalAlchemyIngredients(entry.ingredients),
+          updatedAt: Math.max(0, Math.floor(Number(entry.updatedAt) || 0)),
+        });
+        this.localCraftFormulaPresets.set(key, list);
+      }
+    } catch {
+      this.localCraftFormulaPresets.clear();
+    }
+  }
+
+  private persistLocalCraftFormulaPresets(): void {
+    const payload: Array<PlayerAlchemyPreset & { kind: 'alchemy' | 'forging' }> = [];
+    for (const [key, presets] of this.localCraftFormulaPresets.entries()) {
+      const [kind] = key.split(':');
+      for (const preset of presets) {
+        payload.push({
+          kind: kind === 'forging' ? 'forging' : 'alchemy',
+          ...preset,
+          ingredients: cloneAlchemyIngredients(preset.ingredients),
+        });
+      }
+    }
+    try {
+      window.localStorage.setItem('mud.craft.localFormulas.v1', JSON.stringify(payload));
+    } catch {
+      // localStorage 失败不影响服务端权威制造。
+    }
+  }
+
+  private saveLocalCraftFormulaPreset(recipe: AlchemyRecipeCatalogEntry): void {
+    const kind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
+    const key = this.buildLocalCraftFormulaPresetKey(kind, recipe.recipeId);
+    const list = this.localCraftFormulaPresets.get(key) ?? [];
+    const existingIndex = this.selectedAlchemyPresetId
+      ? list.findIndex((preset) => preset.presetId === this.selectedAlchemyPresetId)
+      : -1;
+    const now = Date.now();
+    const preset: PlayerAlchemyPreset = {
+      presetId: existingIndex >= 0 ? list[existingIndex].presetId : `local:${kind}:${recipe.recipeId}:${now.toString(36)}`,
+      recipeId: recipe.recipeId,
+      name: existingIndex >= 0 ? list[existingIndex].name : `${recipe.outputName}${kind === 'forging' ? '器方' : '丹方'}${list.length + 1}`,
+      ingredients: this.getAlchemyDraftIngredients(recipe.recipeId),
+      updatedAt: now,
+    };
+    if (existingIndex >= 0) {
+      list.splice(existingIndex, 1, preset);
+    } else {
+      list.unshift(preset);
+    }
+    this.localCraftFormulaPresets.set(key, list.slice(0, 24));
+    this.selectedAlchemyPresetId = preset.presetId;
+    this.persistLocalCraftFormulaPresets();
+  }
+
+  private deleteLocalCraftFormulaPreset(recipeId: string, presetId: string): boolean {
+    const kind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
+    const key = this.buildLocalCraftFormulaPresetKey(kind, recipeId);
+    const list = this.localCraftFormulaPresets.get(key) ?? [];
+    const next = list.filter((preset) => preset.presetId !== presetId);
+    if (next.length === list.length) {
+      return false;
+    }
+    this.localCraftFormulaPresets.set(key, next);
+    this.selectedAlchemyPresetId = null;
+    this.persistLocalCraftFormulaPresets();
+    return true;
   }
 
   private getFullAlchemyIngredients(recipeId: string): AlchemyIngredientSelection[] {
@@ -4111,10 +4291,11 @@ export class CraftWorkbenchModal {
     if (!recipe) {
       return [];
     }
-    return recipe.ingredients.map((ingredient) => ({
-      itemId: ingredient.itemId,
-      count: ingredient.count,
-    }));
+    return this.getAlchemyMainIngredients(recipe).concat(
+      recipe.ingredients
+        .filter((ingredient) => ingredient.role !== 'main')
+        .map((ingredient) => ({ itemId: ingredient.itemId, count: ingredient.count })),
+    );
   }
 
   private getAlchemyDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
@@ -4126,12 +4307,13 @@ export class CraftWorkbenchModal {
     if (!draft) {
       return this.getFullAlchemyIngredients(recipeId);
     }
-    const result: AlchemyIngredientSelection[] = [];
-    for (const ingredient of recipe.ingredients) {
-      const count = draft.get(ingredient.itemId) ?? 0;
-      if (count > 0) {
-        result.push({ itemId: ingredient.itemId, count });
+    const result: AlchemyIngredientSelection[] = this.getAlchemyMainIngredients(recipe);
+    const mainIds = new Set(result.map((entry) => entry.itemId));
+    for (const [itemId, count] of draft.entries()) {
+      if (mainIds.has(itemId) || count <= 0) {
+        continue;
       }
+      result.push({ itemId, count });
     }
     return result;
   }
@@ -4143,15 +4325,27 @@ export class CraftWorkbenchModal {
     }
     const next = new Map<string, number>();
     const source = buildAlchemyIngredientCountMap(ingredients);
-    for (const ingredient of recipe.ingredients) {
-      next.set(
-        ingredient.itemId,
-        ingredient.role === 'main'
-          ? ingredient.count
-          : Math.max(0, Math.min(ingredient.count, source.get(ingredient.itemId) ?? 0)),
-      );
+    for (const ingredient of this.getAlchemyMainIngredients(recipe)) {
+      next.set(ingredient.itemId, ingredient.count);
+    }
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
+    for (const [itemId, count] of source.entries()) {
+      if (mainIds.has(itemId) || count <= 0) {
+        continue;
+      }
+      next.set(itemId, count);
     }
     this.draftByRecipeId.set(recipeId, next);
+  }
+
+  private getAlchemyMainIngredients(recipe: AlchemyRecipeCatalogEntry): AlchemyIngredientSelection[] {
+    const source = (recipe.mainIngredients && recipe.mainIngredients.length > 0)
+      ? recipe.mainIngredients
+      : recipe.ingredients.filter((ingredient) => ingredient.role === 'main');
+    return source.map((ingredient) => ({
+      itemId: ingredient.itemId,
+      count: ingredient.count,
+    }));
   }
 
   private adjustAlchemyAuxCount(recipeId: string, itemId: string, delta: number): void {
@@ -4159,13 +4353,21 @@ export class CraftWorkbenchModal {
     if (!recipe) {
       return;
     }
-    const ingredient = recipe.ingredients.find((entry) => entry.itemId === itemId && entry.role === 'aux');
-    if (!ingredient) {
+    if (this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
+      return;
+    }
+    const ownedCount = this.getAlchemyInventoryCount(itemId);
+    if (ownedCount <= 0 || !this.getAlchemyMaterialElements(itemId)) {
       return;
     }
     const draft = this.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
     const current = draft.get(itemId) ?? 0;
-    draft.set(itemId, Math.max(0, Math.min(ingredient.count, current + delta)));
+    const next = Math.max(0, Math.min(ownedCount, current + delta));
+    if (next > 0) {
+      draft.set(itemId, next);
+    } else {
+      draft.delete(itemId);
+    }
     this.draftByRecipeId.set(recipeId, draft);
   }
 
@@ -4173,6 +4375,32 @@ export class CraftWorkbenchModal {
     return this.inventory.items
       .filter((item) => item.itemId === itemId)
       .reduce((sum, item) => sum + item.count, 0);
+  }
+
+  private getAlchemyMaterialElements(itemId: string): CraftElementVector | undefined {
+    const inventoryItem = this.inventory.items.find((item) => item.itemId === itemId && item.materialValues?.elements);
+    if (inventoryItem?.materialValues?.elements) {
+      return inventoryItem.materialValues.elements;
+    }
+    return getLocalItemTemplate(itemId)?.materialValues?.elements;
+  }
+
+  private buildAlchemyInputAuxElements(
+    recipe: AlchemyRecipeCatalogEntry,
+    ingredients: readonly AlchemyIngredientSelection[],
+  ): CraftElementVector {
+    const result = createEmptyCraftElementVector();
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
+    for (const ingredient of ingredients) {
+      if (mainIds.has(ingredient.itemId)) {
+        continue;
+      }
+      const elements = this.getAlchemyMaterialElements(ingredient.itemId);
+      if (elements) {
+        addCraftElementVector(result, elements, ingredient.count);
+      }
+    }
+    return compactCraftElementVector(result);
   }
 
   private getAlchemySpiritStoneOwnedCount(): number {
@@ -4242,8 +4470,11 @@ export class CraftWorkbenchModal {
     mode: AlchemyTab,
   ): { powerText: string; successText: string; brewTimeText: string } {
     const ingredients = mode === 'full' ? this.getFullAlchemyIngredients(recipe.recipeId) : this.getAlchemyDraftIngredients(recipe.recipeId);
-    const powerRatio = mode === 'full' ? 1 : computeAlchemyPowerRatio(recipe, ingredients);
-    const baseSuccessRate = mode === 'full' ? 1 : computeAlchemySuccessRate(recipe, ingredients);
+    const elementMatch = computeFivePhaseElementMatch(
+      this.buildAlchemyInputAuxElements(recipe, ingredients),
+      recipe.requiredAuxElements,
+    );
+    const baseSuccessRate = elementMatch.baseElementSuccessRate;
     const furnaceBonuses = this.getAlchemyFurnaceBonuses();
     const successRate = computeAlchemyAdjustedSuccessRate(
       baseSuccessRate,
@@ -4253,10 +4484,27 @@ export class CraftWorkbenchModal {
     );
     const brewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);
     return {
-      powerText: formatRate(powerRatio),
+      powerText: formatRate(baseSuccessRate),
       successText: formatRate(successRate),
       brewTimeText: `${brewTicks} 息`,
     };
+  }
+
+  private formatAlchemyElementVector(elements: CraftElementVector | undefined): string {
+    const labels: Record<string, string> = {
+      metal: '金',
+      wood: '木',
+      water: '水',
+      fire: '火',
+      earth: '土',
+    };
+    const parts = ELEMENT_KEYS
+      .map((element) => {
+        const value = Number(elements?.[element]) || 0;
+        return value !== 0 ? `${labels[element]}${formatDisplaySignedNumber(value)}` : '';
+      })
+      .filter(Boolean);
+    return parts.length > 0 ? parts.join(' / ') : '无';
   }
 
   private getAlchemyMaxCraftQuantity(

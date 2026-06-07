@@ -1181,7 +1181,7 @@ function normalizeStarterInventoryEntry(raw) {
 }
 
 function normalizeMaterialElementValues(raw) {
-  // 配置冷路径只保留正整数五行值，运行时直读已归一化结果。
+  // 配置冷路径只保留有限非零整数五行值，允许运营配置负五行。
 
     if (!raw || typeof raw !== 'object') {
         return undefined;
@@ -1189,10 +1189,14 @@ function normalizeMaterialElementValues(raw) {
     const result = {};
     for (const element of ELEMENT_KEYS) {
         const value = Number(raw[element]);
-        if (!Number.isFinite(value) || value <= 0) {
+        if (!Number.isFinite(value)) {
             continue;
         }
-        result[element] = Math.max(1, Math.trunc(value));
+        const normalized = Math.trunc(value);
+        if (normalized === 0) {
+            continue;
+        }
+        result[element] = normalized;
     }
     return Object.keys(result).length > 0 ? result : undefined;
 }
