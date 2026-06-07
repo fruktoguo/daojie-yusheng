@@ -1074,7 +1074,9 @@ const MAX_FLOATING_TEXTS = 256;
 /** 攻击拖尾缓存上限。 */
 const MAX_ATTACK_TRAILS = 192;
 const ATTACK_TRAIL_REACH_MS = 110;
-const ATTACK_TRAIL_DURATION_MS = 240;
+const ATTACK_TRAIL_HOLD_MS = 200;
+const ATTACK_TRAIL_FADE_MS = 170;
+const ATTACK_TRAIL_DURATION_MS = ATTACK_TRAIL_REACH_MS + ATTACK_TRAIL_HOLD_MS + ATTACK_TRAIL_FADE_MS;
 /** 预警区域缓存上限。 */
 const MAX_WARNING_ZONES = 64;
 /** 预警区域默认持续时长。 */
@@ -3187,9 +3189,9 @@ export class TextRenderer implements IRenderer {
 
     for (const entry of this.attackTrails) {
       const elapsed = now - entry.createdAt;
-      const progress = Math.min(1, elapsed / entry.duration);
       const reachProgress = easeOutCubic(Math.min(1, elapsed / ATTACK_TRAIL_REACH_MS));
-      const alpha = 1 - progress * 0.85;
+      const fadeProgress = Math.min(1, Math.max(0, (elapsed - ATTACK_TRAIL_REACH_MS - ATTACK_TRAIL_HOLD_MS) / ATTACK_TRAIL_FADE_MS));
+      const alpha = 1 - fadeProgress * 0.85;
       const fromSx = entry.fromX * cellSize + cellSize / 2 + screenOffsetX;
       const fromSy = entry.fromY * cellSize + cellSize / 2 + screenOffsetY;
       const toSx = entry.toX * cellSize + cellSize / 2 + screenOffsetX;
@@ -3208,7 +3210,7 @@ export class TextRenderer implements IRenderer {
       ctx.globalAlpha = alpha;
       ctx.strokeStyle = entry.color;
       ctx.fillStyle = entry.color;
-      ctx.lineWidth = Math.max(2, cellSize * 0.09);
+      ctx.lineWidth = Math.max(1.25, cellSize * 0.045);
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(tailSx, tailSy);
@@ -3216,7 +3218,7 @@ export class TextRenderer implements IRenderer {
       ctx.stroke();
 
       const angle = Math.atan2(dy, dx);
-      const head = Math.min(distance * reachProgress * 0.6, Math.max(8, cellSize * 0.24));
+      const head = Math.min(distance * reachProgress * 0.5, Math.max(6, cellSize * 0.18));
       if (head < 2) {
         ctx.restore();
         continue;

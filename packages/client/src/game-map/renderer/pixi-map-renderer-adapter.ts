@@ -268,7 +268,9 @@ const CHUNK_SIZE = 16;
 const MAX_FLOATING_TEXTS = 256;
 const MAX_ATTACK_TRAILS = 192;
 const ATTACK_TRAIL_REACH_MS = 110;
-const ATTACK_TRAIL_DURATION_MS = 240;
+const ATTACK_TRAIL_HOLD_MS = 200;
+const ATTACK_TRAIL_FADE_MS = 170;
+const ATTACK_TRAIL_DURATION_MS = ATTACK_TRAIL_REACH_MS + ATTACK_TRAIL_HOLD_MS + ATTACK_TRAIL_FADE_MS;
 const MAX_WARNING_ZONES = 64;
 const DEFAULT_WARNING_ZONE_DURATION_MS = 1240;
 const DEFAULT_PATH_TRAIL_FADE_MS = 500;
@@ -2570,7 +2572,7 @@ export class PixiMapRendererAdapter {
         this.destroyAttackTrailEffect(entry);
         return false;
       }
-      this.drawAttackTrailEffect(entry, cellSize, elapsed, clamp01(progress));
+      this.drawAttackTrailEffect(entry, cellSize, elapsed);
       return true;
     });
     this.warningZones = this.warningZones.filter((zone) => {
@@ -2633,7 +2635,7 @@ export class PixiMapRendererAdapter {
     zone.graphics.destroy();
   }
 
-  private drawAttackTrailEffect(entry: AttackTrailEffect, cellSize: number, elapsed: number, progress: number): void {
+  private drawAttackTrailEffect(entry: AttackTrailEffect, cellSize: number, elapsed: number): void {
     const sx = entry.fromX * cellSize + cellSize / 2;
     const sy = entry.fromY * cellSize + cellSize / 2;
     const ex = entry.toX * cellSize + cellSize / 2;
@@ -2652,15 +2654,16 @@ export class PixiMapRendererAdapter {
     const tailY = sy + dy * tailProgress;
     const angle = Math.atan2(dy, dx);
     const color = parseColor(entry.color);
-    const alpha = 1 - progress * 0.85;
+    const fadeProgress = Math.min(1, Math.max(0, (elapsed - ATTACK_TRAIL_REACH_MS - ATTACK_TRAIL_HOLD_MS) / ATTACK_TRAIL_FADE_MS));
+    const alpha = 1 - fadeProgress * 0.85;
 
     entry.graphics
       .moveTo(tailX, tailY)
       .lineTo(tipX, tipY)
-      .stroke({ color, alpha, width: Math.max(2, cellSize * 0.09) });
-    const headLength = Math.min(distance * reachProgress * 0.6, Math.max(8, cellSize * 0.24));
+      .stroke({ color, alpha, width: Math.max(1.25, cellSize * 0.045) });
+    const headLength = Math.min(distance * reachProgress * 0.5, Math.max(6, cellSize * 0.18));
     if (headLength < 2) return;
-    const headWidth = Math.min(headLength * 0.62, Math.max(5, cellSize * 0.14));
+    const headWidth = Math.min(headLength * 0.5, Math.max(3, cellSize * 0.09));
     const headBackX = tipX - headLength * Math.cos(angle);
     const headBackY = tipY - headLength * Math.sin(angle);
     const normalX = -Math.sin(angle);
