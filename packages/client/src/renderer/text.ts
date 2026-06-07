@@ -74,6 +74,7 @@ import { runtimeImagePack } from './runtime-image-pack';
 import { t as translateUi } from '../ui/i18n';
 
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
+const ATTACK_MOTION_DURATION_MS = 180;
 
 /** 时间氛围过渡状态。 */
 interface TimeAtmosphereState {
@@ -400,6 +401,9 @@ interface AnimEntity {
   targetWY: number;  
   /** 朝向翻转过渡开始时间。 */
   facingFlipStartedAt?: number;
+  attackMotionStartedAt?: number;
+  attackMotionUnitX?: number;
+  attackMotionUnitY?: number;
   /**
  * char：char相关字段。
  */
@@ -2177,6 +2181,7 @@ export class TextRenderer implements IRenderer {
     const t = easeOutCubic(motionProgress);
     const screenOffsetX = sw / 2 - camera.x + camera.offsetX;
     const screenOffsetY = sh / 2 - camera.y + camera.offsetY;
+    const frameNow = performance.now();
     const crowdedTileKeys = this.crowdedTileKeysScratch;
     crowdedTileKeys.clear();
     let localPlayerInRenderedEntities = false;
@@ -2277,22 +2282,39 @@ export class TextRenderer implements IRenderer {
       const motionUnitX = motionDistance > 0 ? motionDx / motionDistance : 0;
       const motionUnitY = motionDistance > 0 ? motionDy / motionDistance : 0;
       const glyphLift = travelPulse * renderedCellSize * 0.08;
-      const glyphLean = (motionUnitX - motionUnitY) * travelPulse * 0.1;
-      const impactScaleX = 1 + travelPulse * 0.08 + landPulse * 0.1;
-      const impactScaleY = 1 - travelPulse * 0.06 - landPulse * 0.12;
+      let attackPulse = 0;
+      if (anim.attackMotionStartedAt !== undefined) {
+        const attackProgress = Math.max(0, Math.min(1, (frameNow - anim.attackMotionStartedAt) / ATTACK_MOTION_DURATION_MS));
+        if (attackProgress >= 1) {
+          anim.attackMotionStartedAt = undefined;
+          anim.attackMotionUnitX = 0;
+          anim.attackMotionUnitY = 0;
+        } else {
+          attackPulse = Math.sin(Math.PI * attackProgress);
+        }
+      }
+      const attackUnitX = anim.attackMotionUnitX ?? 0;
+      const attackUnitY = anim.attackMotionUnitY ?? 0;
+      const attackOffsetX = attackUnitX * attackPulse * renderedCellSize * 0.08;
+      const attackOffsetY = attackUnitY * attackPulse * renderedCellSize * 0.08;
+      const glyphLean = (motionUnitX - motionUnitY) * travelPulse * 0.1 + (attackUnitX - attackUnitY) * attackPulse * 0.08;
+      const impactScaleX = (1 + travelPulse * 0.08 + landPulse * 0.1) * (1 + attackPulse * 0.1);
+      const impactScaleY = (1 - travelPulse * 0.06 - landPulse * 0.12) * (1 - attackPulse * 0.08);
+      const visualScaleX = (isMoving ? 1 + travelPulse * 0.24 : 1) * (1 + attackPulse * 0.16);
+      const visualScaleY = (isMoving ? 1 - travelPulse * 0.16 : 1) * (1 - attackPulse * 0.1);
 
       ctx.save();
       if (isConstructionBuilding) {
         ctx.globalAlpha *= 0.58;
       }
-      if (isMoving) {
-        ctx.translate(sx + renderedCellSize / 2, sy + renderedCellSize - 3);
-        ctx.scale(1 + travelPulse * 0.24, 1 - travelPulse * 0.16);
-        ctx.translate(-(sx + renderedCellSize / 2), -(sy + renderedCellSize - 3));
+      if (isMoving || attackPulse > 0) {
+        ctx.translate(sx + attackOffsetX + renderedCellSize / 2, sy + attackOffsetY + renderedCellSize - 3);
+        ctx.scale(visualScaleX, visualScaleY);
+        ctx.translate(-(sx + attackOffsetX + renderedCellSize / 2), -(sy + attackOffsetY + renderedCellSize - 3));
       }
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
-      ctx.ellipse(sx + renderedCellSize / 2, sy + renderedCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1), 0, 0, Math.PI * 2);
+      ctx.ellipse(sx + attackOffsetX + renderedCellSize / 2, sy + attackOffsetY + renderedCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1), 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -2302,11 +2324,11 @@ export class TextRenderer implements IRenderer {
       ctx.textBaseline = 'middle';
       const facingFlipScale = this.resolveFacingFlipScale(anim, performance.now());
       ctx.save();
-      ctx.translate(visualSx + visualCellSize / 2, visualSy + visualCellSize / 2 - glyphLift);
+      ctx.translate(visualSx + attackOffsetX + visualCellSize / 2, visualSy + attackOffsetY + visualCellSize / 2 - glyphLift);
       if (facingFlipScale !== 1) {
         ctx.scale(facingFlipScale, 1);
       }
-      if (isMoving) {
+      if (isMoving || attackPulse > 0) {
         ctx.rotate(glyphLean);
         ctx.scale(impactScaleX, impactScaleY);
       }
@@ -2314,8 +2336,8 @@ export class TextRenderer implements IRenderer {
       ctx.restore();
       if (!drewEntityImage) {
         ctx.save();
-        ctx.translate(visualSx + visualCellSize / 2, visualSy + visualCellSize / 2 - glyphLift);
-        if (isMoving) {
+        ctx.translate(visualSx + attackOffsetX + visualCellSize / 2, visualSy + attackOffsetY + visualCellSize / 2 - glyphLift);
+        if (isMoving || attackPulse > 0) {
           ctx.rotate(glyphLean);
           ctx.scale(impactScaleX, impactScaleY);
         }
@@ -2964,6 +2986,7 @@ export class TextRenderer implements IRenderer {
   addAttackTrail(fromX: number, fromY: number, toX: number, toY: number, color = '#ffd27a') {
     const now = performance.now();
     this.pruneExpiredAttackTrails(now);
+    this.triggerAttackMotion(fromX, fromY, toX, toY, now);
     this.attackTrails.push({
       id: this.nextAttackTrailId++,
       fromX,
@@ -2976,6 +2999,27 @@ export class TextRenderer implements IRenderer {
     });
     this.trimAttackTrails();
   }  
+
+  private triggerAttackMotion(fromX: number, fromY: number, toX: number, toY: number, now: number): void {
+    const anim = this.resolveAttackMotionEntity(fromX, fromY);
+    if (!anim) return;
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const distance = Math.hypot(dx, dy);
+    anim.attackMotionStartedAt = now;
+    anim.attackMotionUnitX = distance > 0 ? dx / distance : 0;
+    anim.attackMotionUnitY = distance > 0 ? dy / distance : 0;
+  }
+
+  private resolveAttackMotionEntity(fromX: number, fromY: number): AnimEntity | null {
+    const gridX = Math.round(fromX);
+    const gridY = Math.round(fromY);
+    for (const anim of this.entities.values()) {
+      if (!isMobileEntityObjectKind(anim.kind)) continue;
+      if (anim.gridX === gridX && anim.gridY === gridY) return anim;
+    }
+    return null;
+  }
   /**
  * addWarningZone：处理WarningZone并更新相关状态。
  * @param cells Array<{ x: number; y: number }> 参数说明。

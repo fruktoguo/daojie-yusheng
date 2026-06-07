@@ -143,6 +143,7 @@ const IDENTITY_ENTITY_SPRITE_TRANSFORM: EntitySpriteTransform = {
   flipX: false,
 };
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
+const ATTACK_MOTION_DURATION_MS = 180;
 
 function easeInOutCubic(t: number): number {
   const value = clamp01(t);
@@ -173,6 +174,9 @@ interface EntityView {
   imageFlipSourceSign: number;
   imageFlipTargetSign: number;
   imageFlipStartedAt: number;
+  attackMotionStartedAt?: number;
+  attackMotionUnitX?: number;
+  attackMotionUnitY?: number;
 }
 
 interface FloatingTextEffect {
@@ -885,6 +889,7 @@ export class PixiMapRendererAdapter {
 
   enqueueEffect(effect: CombatEffect): void {
     if (effect.type === 'attack') {
+      this.triggerAttackMotion(effect.fromX, effect.fromY, effect.toX, effect.toY);
       this.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
       return;
     }
@@ -2109,6 +2114,8 @@ export class PixiMapRendererAdapter {
       imageFlipSourceSign: 1,
       imageFlipTargetSign: 1,
       imageFlipStartedAt: 0,
+      attackMotionUnitX: 0,
+      attackMotionUnitY: 0,
     };
     view.image.anchor.set(0.5);
     view.image.visible = false;
@@ -2354,6 +2361,7 @@ export class PixiMapRendererAdapter {
 
   private patchEntityMotion(view: EntityView, motionProgress: number): void {
     const anim = view.anim;
+    const now = performance.now();
     const motionDx = anim.targetWX - anim.oldWX;
     const motionDy = anim.targetWY - anim.oldWY;
     const motionDistance = Math.hypot(motionDx, motionDy);
@@ -2363,15 +2371,34 @@ export class PixiMapRendererAdapter {
     const landPulse = landPhase > 0 ? Math.sin(Math.PI * landPhase) : 0;
     const motionUnitX = motionDistance > 0 ? motionDx / motionDistance : 0;
     const motionUnitY = motionDistance > 0 ? motionDy / motionDistance : 0;
-    const glyphLean = (motionUnitX - motionUnitY) * travelPulse * 0.1;
-    const impactScaleX = 1 + travelPulse * 0.08 + landPulse * 0.1;
-    const impactScaleY = 1 - travelPulse * 0.06 - landPulse * 0.12;
+    let attackPulse = 0;
+    if (view.attackMotionStartedAt !== undefined) {
+      const attackProgress = clamp01((now - view.attackMotionStartedAt) / ATTACK_MOTION_DURATION_MS);
+      if (attackProgress >= 1) {
+        view.attackMotionStartedAt = undefined;
+        view.attackMotionUnitX = 0;
+        view.attackMotionUnitY = 0;
+      } else {
+        attackPulse = Math.sin(Math.PI * attackProgress);
+      }
+    }
+    const attackUnitX = view.attackMotionUnitX ?? 0;
+    const attackUnitY = view.attackMotionUnitY ?? 0;
+    const glyphLean = (motionUnitX - motionUnitY) * travelPulse * 0.1 + (attackUnitX - attackUnitY) * attackPulse * 0.08;
+    const impactScaleX = (1 + travelPulse * 0.08 + landPulse * 0.1) * (1 + attackPulse * 0.1);
+    const impactScaleY = (1 - travelPulse * 0.06 - landPulse * 0.12) * (1 - attackPulse * 0.08);
     const visualCellSize = Math.max(1, view.visualRoot.pivot.x * 2);
-    view.visualRoot.scale.set(isMoving ? 1 + travelPulse * 0.24 : 1, isMoving ? 1 - travelPulse * 0.16 : 1);
-    this.applyEntityImageScale(view, performance.now());
-    view.glyph.rotation = isMoving ? glyphLean : 0;
-    view.glyph.scale.set(isMoving ? impactScaleX : 1, isMoving ? impactScaleY : 1);
-    view.glyph.y = visualCellSize / 2 - travelPulse * getCellSize() * 0.08;
+    const cellSize = getCellSize();
+    const attackLunge = attackPulse * cellSize * 0.08;
+    view.visualRoot.position.set(cellSize / 2 + attackUnitX * attackLunge, cellSize - 3 + attackUnitY * attackLunge);
+    view.visualRoot.scale.set(
+      (isMoving ? 1 + travelPulse * 0.24 : 1) * (1 + attackPulse * 0.16),
+      (isMoving ? 1 - travelPulse * 0.16 : 1) * (1 - attackPulse * 0.1),
+    );
+    this.applyEntityImageScale(view, now);
+    view.glyph.rotation = isMoving || attackPulse > 0 ? glyphLean : 0;
+    view.glyph.scale.set(isMoving || attackPulse > 0 ? impactScaleX : 1, isMoving || attackPulse > 0 ? impactScaleY : 1);
+    view.glyph.y = visualCellSize / 2 - travelPulse * cellSize * 0.08;
   }
 
   private ensureLocalPlayerFallback(localPlayerId: string, localPlayerX: number, localPlayerY: number, localPlayerChar: string, exists: boolean): void {
@@ -2656,6 +2683,27 @@ export class PixiMapRendererAdapter {
       duration: ATTACK_TRAIL_DURATION_MS,
     });
     this.trimAttackTrailEffects();
+  }
+
+  private triggerAttackMotion(fromX: number, fromY: number, toX: number, toY: number): void {
+    const view = this.resolveAttackMotionView(fromX, fromY);
+    if (!view) return;
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const distance = Math.hypot(dx, dy);
+    view.attackMotionStartedAt = performance.now();
+    view.attackMotionUnitX = distance > 0 ? dx / distance : 0;
+    view.attackMotionUnitY = distance > 0 ? dy / distance : 0;
+  }
+
+  private resolveAttackMotionView(fromX: number, fromY: number): EntityView | null {
+    const gridX = Math.round(fromX);
+    const gridY = Math.round(fromY);
+    for (const view of this.entities.values()) {
+      if (!isMobileEntityObjectKind(view.anim.kind)) continue;
+      if (view.anim.gridX === gridX && view.anim.gridY === gridY) return view;
+    }
+    return null;
   }
 
   private addWarningZone(cells: GridPoint[], color = '#ff2a2a', durationMs = DEFAULT_WARNING_ZONE_DURATION_MS, baseColor?: string, originX?: number, originY?: number): void {
