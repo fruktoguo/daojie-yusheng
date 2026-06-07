@@ -5,6 +5,11 @@
  */
 import { getItemDisplayName, type GroundItemEntryView } from '@mud/shared';
 import { getLocalItemTemplate } from './local-templates';
+import {
+  UNKNOWN_CLIENT_ITEM_NAME,
+  isUsableClientItemNameCandidate,
+  normalizeClientItemNameText,
+} from './item-name-utils';
 
 type ClientItemNameSource = {
   itemId?: string;
@@ -12,21 +17,14 @@ type ClientItemNameSource = {
   enhanceLevel?: number;
 };
 
-const UNKNOWN_CLIENT_ITEM_NAME = '未知物品';
-
-function normalizeDisplayText(value: string | undefined): string {
-  return value?.trim() ?? '';
-}
-
 export function resolveClientItemBaseName(itemId: string, ...candidates: Array<string | undefined>): string {
   const normalizedItemId = itemId.trim();
   for (const candidate of candidates) {
-    const trimmed = normalizeDisplayText(candidate);
-    if (trimmed && trimmed !== normalizedItemId) {
-      return trimmed;
+    if (isUsableClientItemNameCandidate(normalizedItemId, candidate)) {
+      return normalizeClientItemNameText(candidate);
     }
   }
-  const templateName = normalizeDisplayText(normalizedItemId ? getLocalItemTemplate(normalizedItemId)?.name : undefined);
+  const templateName = normalizeClientItemNameText(normalizedItemId ? getLocalItemTemplate(normalizedItemId)?.name : undefined);
   if (templateName && templateName !== normalizedItemId) {
     return templateName;
   }
@@ -34,7 +32,7 @@ export function resolveClientItemBaseName(itemId: string, ...candidates: Array<s
 }
 
 export function resolveClientItemDisplayName(item: ClientItemNameSource | null | undefined): string {
-  const itemId = normalizeDisplayText(item?.itemId);
+  const itemId = normalizeClientItemNameText(item?.itemId);
   const name = resolveClientItemBaseName(itemId, item?.name);
   return getItemDisplayName({ itemId, name, enhanceLevel: item?.enhanceLevel });
 }

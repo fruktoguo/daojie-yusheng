@@ -23,6 +23,7 @@ import {
 } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 import { contentResolver, type LocalBuffTemplate } from './content-resolver';
+import { isUsableClientItemNameCandidate } from './item-name-utils';
 
 // 本地目录只用于预览补齐与离线辅助，不参与正式玩法真源判定。
 // 以下 Map 保留用于 resolvePreview 系列函数中的功法层级展开等复杂逻辑。
@@ -151,13 +152,16 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
 
   const sourceItem = stripInvalidPreviewInstanceId(item);
   const template = getLocalItemTemplate(sourceItem.itemId);
+  const sourceName = isUsableClientItemNameCandidate(sourceItem.itemId, sourceItem.name)
+    ? sourceItem.name
+    : undefined;
   if (!template) {
-    return sourceItem;
+    return sourceName ? sourceItem : { ...sourceItem, name: sourceItem.itemId };
   }
   return {
     ...sourceItem,
     itemInstanceId: sourceItem.itemInstanceId,
-    name: sourceItem.name || template.name,
+    name: sourceName ?? template.name,
     type: sourceItem.type || template.type,
     desc: sourceItem.desc || template.desc || '',
     groundLabel: sourceItem.groundLabel ?? template.groundLabel,

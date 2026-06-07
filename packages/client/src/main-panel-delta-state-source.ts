@@ -37,6 +37,7 @@ import {
   getLocalTechniqueTemplate,
   resolvePreviewTechnique,
 } from './content/local-templates';
+import { resolveClientItemBaseName } from './content/item-display-name';
 import { getStaticClientActionDef } from './constants/ui/action';
 import { getEstimatedPlayerTick, getEstimatedServerTick, markPlayerLifeTickSynced } from './runtime/server-tick';
 
@@ -53,7 +54,6 @@ function refreshActionCooldownsFromReadyTick(actions: ActionDef[], player?: Play
   }
 }
 
-const UNKNOWN_ITEM_NAME = '未知物品';
 const UNKNOWN_TECHNIQUE_NAME = '未知功法';
 /**
  * MainPanelDeltaStateSourceOptions：统一结构类型，保证协议与运行时一致性。
@@ -289,13 +289,7 @@ function cloneJson<T>(value: T): T {
 }
 
 function resolveSyncedItemName(itemId: string, ...candidates: Array<string | undefined>): string {
-  for (const candidate of candidates) {
-    const trimmed = candidate?.trim();
-    if (trimmed && trimmed !== itemId) {
-      return trimmed;
-    }
-  }
-  return UNKNOWN_ITEM_NAME;
+  return resolveClientItemBaseName(itemId, ...candidates);
 }
 
 function resolveSyncedTechniqueName(techId: string, ...candidates: Array<string | undefined>): string {
