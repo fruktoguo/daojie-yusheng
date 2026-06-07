@@ -3,6 +3,11 @@
  *
  * 维护时要保证结算仍由服务端权威执行，客户端只接收结构化结果和必要的表现字段。
  */
+import {
+  formatCombatResolutionFloatText,
+  getCombatResolutionFloatColor,
+} from '../query/world-runtime.observation.helpers';
+
 let _castIdSeq = 0;
 function nextCastId(): string {
   return `c${(++_castIdSeq).toString(36)}`;
@@ -194,12 +199,28 @@ function emitCombatPresentation(input: CombatPresentationInput = {}): void {
     );
   }
 
+  emitCombatResolutionFloat(input);
   emitCombatNotices(deps, input.notices, input.castId);
 }
 
 function emitCombatResolutionFloat(input: CombatPresentationInput = {}): void {
-  void input;
-  return;
+  const effects = resolveCombatPresentationEffects(input);
+  if (!effects.pushCombatTextFloatEffect) return;
+  const instanceId = input.instanceId ?? input.resolutionFloat?.instanceId;
+  const resolutionFloat = input.resolutionFloat;
+  if (!instanceId || !resolutionFloat) return;
+  const x = Number(resolutionFloat.x);
+  const y = Number(resolutionFloat.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+  const text = formatCombatResolutionFloatText(resolutionFloat.resolution).trim();
+  if (!text) return;
+  effects.pushCombatTextFloatEffect(
+    resolutionFloat.instanceId ?? instanceId,
+    Math.round(x),
+    Math.round(y),
+    text,
+    getCombatResolutionFloatColor(resolutionFloat.resolution, resolutionFloat.fallbackColor ?? '#efe3c2'),
+  );
 }
 
 function emitCombatNotices(deps: CombatPresentationDeps | undefined, notices: CombatPresentationNotice[] | undefined, castId?: string): void {
