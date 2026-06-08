@@ -811,6 +811,7 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && left.healAmount === right.healAmount
     && left.healPercent === right.healPercent
     && left.baselineHealPercent === right.baselineHealPercent
+    && left.baselineQiPercent === right.baselineQiPercent
     && left.qiPercent === right.qiPercent
     && shallowEqualArray(left.consumeBuffs, right.consumeBuffs)
     && shallowEqualArray(left.tags, right.tags)

@@ -149,6 +149,7 @@ function isAutoUsePillCandidate(item) {
     return (item?.healAmount ?? 0) > 0
         || (item?.healPercent ?? 0) > 0
         || (item?.baselineHealPercent ?? 0) > 0
+        || (item?.baselineQiPercent ?? 0) > 0
         || (item?.qiPercent ?? 0) > 0
         || (Array.isArray(item?.consumeBuffs) && item.consumeBuffs.length > 0);
 }

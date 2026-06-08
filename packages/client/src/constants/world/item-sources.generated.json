@@ -5599,6 +5599,24 @@
       "recipeName": "五和丸丹方"
     }
   ],
+  "pill.foundation_coldmarrow_heal": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.foundation_coldmarrow_heal",
+      "recipeName": "寒髓回春丹丹方"
+    }
+  ],
+  "pill.foundation_frostspring_qi": [
+    {
+      "kind": "alchemy",
+      "mapId": "crafting",
+      "mapName": "炼丹",
+      "recipeId": "alchemy.pill.foundation_frostspring_qi",
+      "recipeName": "霜泉还灵丹丹方"
+    }
+  ],
   "pill.guiding_powder": [
     {
       "kind": "quest",

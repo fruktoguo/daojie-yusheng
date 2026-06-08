@@ -16,6 +16,8 @@ import {
   PlayerState,
   SkillDef,
   getTechniqueMaxLevel,
+  resolveTechniqueStandardMaxHpRecoveryAmount,
+  resolveTechniqueStandardMaxQiRecoveryAmount,
   resolveSkillRequiresTarget,
   resolveSkillUnlockLevel,
   type ElementKey,
@@ -424,9 +426,11 @@ interface AutoUsePillViewEntry {
   name: string;
   desc: string;
   count: number;
+  level?: number;
   healAmount?: number;
   healPercent?: number;
   baselineHealPercent?: number;
+  baselineQiPercent?: number;
   qiPercent?: number;
   consumeBuffs?: Array<{ buffId?: string; name?: string }>;
   selected: boolean;
@@ -2951,9 +2955,11 @@ export class ActionPanel {
         name: previewItem.name,
         desc: previewItem.desc || '',
         count: item.count,
+        level: previewItem.level,
         healAmount: previewItem.healAmount,
         healPercent: previewItem.healPercent,
         baselineHealPercent: previewItem.baselineHealPercent,
+        baselineQiPercent: previewItem.baselineQiPercent,
         qiPercent: previewItem.qiPercent,
         consumeBuffs: previewItem.consumeBuffs?.map((buff) => ({ buffId: buff.buffId, name: buff.name })),
         selected: Boolean(config),
@@ -2970,9 +2976,11 @@ export class ActionPanel {
         name: template?.name ?? UNKNOWN_AUTO_USE_PILL_NAME,
         desc: template?.desc ?? t('action.combat-settings.pill.missing-inventory-desc', undefined),
         count: 0,
+        level: template?.level,
         healAmount: template?.healAmount,
         healPercent: template?.healPercent,
         baselineHealPercent: template?.baselineHealPercent,
+        baselineQiPercent: template?.baselineQiPercent,
         qiPercent: template?.qiPercent,
         consumeBuffs: template?.consumeBuffs?.map((buff) => ({ buffId: buff.buffId, name: buff.name })),
         selected: true,
@@ -2995,7 +3003,7 @@ export class ActionPanel {
     if ((entry.consumeBuffs?.length ?? 0) > 0) {
       return [{ type: 'buff_missing' }];
     }
-    if ((entry.qiPercent ?? 0) > 0) {
+    if ((entry.baselineQiPercent ?? 0) > 0 || (entry.qiPercent ?? 0) > 0) {
       return [{ type: 'resource_ratio', resource: 'qi', op: 'lt', thresholdPct: 60 }];
     }
     return [{ type: 'resource_ratio', resource: 'hp', op: 'lt', thresholdPct: 60 }];
@@ -4295,7 +4303,14 @@ export class ActionPanel {
       parts.push(t('action.combat-settings.auto-pills.effect.heal-percent', { value: Math.round((entry.healPercent ?? 0) * 100) }));
     }
     if ((entry.baselineHealPercent ?? 0) > 0) {
-      parts.push(t('action.combat-settings.auto-pills.effect.baseline-heal-percent', { value: Math.round((entry.baselineHealPercent ?? 0) * 100) }));
+      parts.push(t('action.combat-settings.auto-pills.effect.baseline-heal-amount', {
+        value: formatDisplayNumber(resolveTechniqueStandardMaxHpRecoveryAmount(entry.level, entry.baselineHealPercent), { maximumFractionDigits: 2 }),
+      }));
+    }
+    if ((entry.baselineQiPercent ?? 0) > 0) {
+      parts.push(t('action.combat-settings.auto-pills.effect.baseline-qi-amount', {
+        value: formatDisplayNumber(resolveTechniqueStandardMaxQiRecoveryAmount(entry.level, entry.baselineQiPercent), { maximumFractionDigits: 2 }),
+      }));
     }
     if ((entry.qiPercent ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.qi-percent', { value: Math.round((entry.qiPercent ?? 0) * 100) }));

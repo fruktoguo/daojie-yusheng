@@ -68,6 +68,7 @@ export function isSameItem(left: SyncedItemStack | null | undefined, right: Sync
         && left.healAmount === right.healAmount
         && left.healPercent === right.healPercent
         && left.baselineHealPercent === right.baselineHealPercent
+        && left.baselineQiPercent === right.baselineQiPercent
         && left.qiPercent === right.qiPercent
         && isSameConsumableBuffList(left.consumeBuffs, right.consumeBuffs)
         && isSameStringList(left.tags, right.tags)

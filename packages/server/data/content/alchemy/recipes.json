@@ -819,5 +819,83 @@
       "fire": 36,
       "earth": 58
     }
+  },
+  {
+    "recipeId": "alchemy.pill.foundation_coldmarrow_heal",
+    "outputItemId": "pill.foundation_coldmarrow_heal",
+    "outputCount": 1,
+    "baseBrewTicks": 52,
+    "ingredients": [
+      {
+        "itemId": "mat.deepwater_moss",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.cold_serpent_gall",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.frost_scale",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "level": 31,
+    "grade": "earth",
+    "mainIngredients": [
+      {
+        "itemId": "mat.deepwater_moss",
+        "count": 1
+      },
+      {
+        "itemId": "mat.cold_serpent_gall",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 29,
+      "water": 54
+    }
+  },
+  {
+    "recipeId": "alchemy.pill.foundation_frostspring_qi",
+    "outputItemId": "pill.foundation_frostspring_qi",
+    "outputCount": 1,
+    "baseBrewTicks": 52,
+    "ingredients": [
+      {
+        "itemId": "mat.deepwater_moss",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.frost_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.frost_scale",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "level": 31,
+    "grade": "earth",
+    "mainIngredients": [
+      {
+        "itemId": "mat.deepwater_moss",
+        "count": 1
+      },
+      {
+        "itemId": "mat.frost_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 29,
+      "water": 54
+    }
   }
 ]

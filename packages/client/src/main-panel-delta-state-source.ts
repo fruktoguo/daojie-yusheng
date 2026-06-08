@@ -694,6 +694,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       healAmount: item.healAmount ?? previousSameItem?.healAmount ?? template?.healAmount,
       healPercent: item.healPercent ?? previousSameItem?.healPercent ?? template?.healPercent,
       baselineHealPercent: item.baselineHealPercent ?? previousSameItem?.baselineHealPercent ?? template?.baselineHealPercent,
+      baselineQiPercent: item.baselineQiPercent ?? previousSameItem?.baselineQiPercent ?? template?.baselineQiPercent,
       qiPercent: item.qiPercent ?? previousSameItem?.qiPercent ?? template?.qiPercent,
       enhanceLevel: item.enhanceLevel ?? previousSameItem?.enhanceLevel ?? template?.enhanceLevel,
       alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,

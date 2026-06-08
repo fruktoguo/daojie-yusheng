@@ -55,11 +55,12 @@ export function readBoolean(...values: unknown[]): boolean {
 
 /** 判断道具是否适合作为自动吃药候选。 */
 export function isAutoUseConsumableCandidate(
-  item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'baselineHealPercent' | 'qiPercent' | 'consumeBuffs'>,
+  item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'baselineHealPercent' | 'baselineQiPercent' | 'qiPercent' | 'consumeBuffs'>,
 ): boolean {
   return (item.healAmount ?? 0) > 0
     || (item.healPercent ?? 0) > 0
     || (item.baselineHealPercent ?? 0) > 0
+    || (item.baselineQiPercent ?? 0) > 0
     || (item.qiPercent ?? 0) > 0
     || (item.consumeBuffs?.length ?? 0) > 0;
 }
@@ -199,7 +200,6 @@ export function getSkillEnabledTechniques(player: PlayerState): PlayerState['tec
 export type ActionPanelAction = ActionDef;
 /** ActionPanelSkillDraft：动作面板里的自动战斗技能草稿。 */
 export type ActionPanelSkillDraft = AutoBattleSkillConfig;
-
 
 
 

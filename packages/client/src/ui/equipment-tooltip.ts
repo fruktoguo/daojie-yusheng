@@ -16,6 +16,8 @@ import {
   formatBuffMaxStacks,
   getEquipmentAttributeEffectivenessBreakdown,
   ItemStack,
+  resolveTechniqueStandardMaxHpRecoveryAmount,
+  resolveTechniqueStandardMaxQiRecoveryAmount,
   type MaterialCategory,
   parseQiResourceKey,
 } from '@mud/shared';
@@ -537,7 +539,14 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
     instantParts.push(t('equipment-tooltip.consumable.heal-percent', { percent: formatDisplayPercent(previewItem.healPercent * 100) }));
   }
   if (typeof previewItem.baselineHealPercent === 'number' && previewItem.baselineHealPercent > 0) {
-    instantParts.push(t('equipment-tooltip.consumable.baseline-heal-percent', { percent: formatDisplayPercent(previewItem.baselineHealPercent * 100) }));
+    instantParts.push(t('equipment-tooltip.consumable.baseline-heal-amount', {
+      amount: formatDisplayNumber(resolveTechniqueStandardMaxHpRecoveryAmount(previewItem.level, previewItem.baselineHealPercent), { maximumFractionDigits: 2 }),
+    }));
+  }
+  if (typeof previewItem.baselineQiPercent === 'number' && previewItem.baselineQiPercent > 0) {
+    instantParts.push(t('equipment-tooltip.consumable.baseline-qi-amount', {
+      amount: formatDisplayNumber(resolveTechniqueStandardMaxQiRecoveryAmount(previewItem.level, previewItem.baselineQiPercent), { maximumFractionDigits: 2 }),
+    }));
   }
   if (typeof previewItem.qiPercent === 'number' && previewItem.qiPercent > 0) {
     instantParts.push(t('equipment-tooltip.consumable.qi-percent', { percent: formatDisplayPercent(previewItem.qiPercent * 100) }));

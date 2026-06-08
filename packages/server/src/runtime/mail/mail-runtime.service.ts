@@ -643,6 +643,7 @@ export class MailRuntimeService {
                     healAmount: item.healAmount,
                     healPercent: item.healPercent,
                     baselineHealPercent: item.baselineHealPercent,
+                    baselineQiPercent: item.baselineQiPercent,
                     qiPercent: item.qiPercent,
                     consumeBuffs: item.consumeBuffs,
                     tags: item.tags,

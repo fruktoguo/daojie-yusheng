@@ -672,9 +672,10 @@ function normalizeItemTemplate(raw) {
     const healAmount = Number.isFinite(candidate.healAmount) ? Math.max(1, Math.trunc(candidate.healAmount ?? 0)) : undefined;
     const healPercent = Number.isFinite(candidate.healPercent) ? clampUnitRatio(candidate.healPercent ?? 0) : undefined;
     const baselineHealPercent = Number.isFinite(candidate.baselineHealPercent) ? clampPositiveRatio(candidate.baselineHealPercent ?? 0) : undefined;
+    const baselineQiPercent = Number.isFinite(candidate.baselineQiPercent) ? clampPositiveRatio(candidate.baselineQiPercent ?? 0) : undefined;
     const qiPercent = Number.isFinite(candidate.qiPercent) ? clampUnitRatio(candidate.qiPercent ?? 0) : undefined;
     const consumeBuffs = normalizeConsumableBuffs(raw.consumeBuffs);
-    const hasRecoveryEffect = (healAmount ?? 0) > 0 || (healPercent ?? 0) > 0 || (baselineHealPercent ?? 0) > 0 || (qiPercent ?? 0) > 0;
+    const hasRecoveryEffect = (healAmount ?? 0) > 0 || (healPercent ?? 0) > 0 || (baselineHealPercent ?? 0) > 0 || (baselineQiPercent ?? 0) > 0 || (qiPercent ?? 0) > 0;
     const cooldown = Number.isFinite(candidate.cooldown)
         ? (hasRecoveryEffect ? Math.max(0, Math.trunc(Number(candidate.cooldown))) : undefined)
         : hasRecoveryEffect
@@ -705,6 +706,7 @@ function normalizeItemTemplate(raw) {
         healAmount,
         healPercent,
         baselineHealPercent,
+        baselineQiPercent,
         qiPercent,
         cooldown,
         alchemySuccessRate: normalizeUtilityRate(candidate.alchemySuccessRate),

@@ -185,6 +185,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     healAmount: sourceItem.healAmount ?? template.healAmount,
     healPercent: sourceItem.healPercent ?? template.healPercent,
     baselineHealPercent: sourceItem.baselineHealPercent ?? template.baselineHealPercent,
+    baselineQiPercent: sourceItem.baselineQiPercent ?? template.baselineQiPercent,
     qiPercent: sourceItem.qiPercent ?? template.qiPercent,
     cooldown: sourceItem.cooldown ?? template.cooldown,
     enhanceLevel: sourceItem.enhanceLevel ?? template.enhanceLevel,

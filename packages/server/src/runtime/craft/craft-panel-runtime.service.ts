@@ -2576,14 +2576,15 @@ function resolveAlchemyRecipeCategory(outputItem, recipeId) {
     if (outputItem.type === 'equipment' && EQUIP_SLOTS.includes(outputItem.equipSlot)) {
         return outputItem.equipSlot;
     }
-    if ((outputItem.consumeBuffs?.length ?? 0) > 0) {
-        return 'buff';
-    }
     if (typeof outputItem.healAmount === 'number'
         || typeof outputItem.healPercent === 'number'
         || typeof outputItem.baselineHealPercent === 'number'
+        || typeof outputItem.baselineQiPercent === 'number'
         || typeof outputItem.qiPercent === 'number') {
         return 'recovery';
+    }
+    if ((outputItem.consumeBuffs?.length ?? 0) > 0) {
+        return 'buff';
     }
     return 'special';
 }
