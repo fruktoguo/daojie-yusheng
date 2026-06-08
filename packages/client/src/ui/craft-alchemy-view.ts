@@ -306,16 +306,30 @@ export class CraftAlchemyView {
     return getLocalItemTemplate(itemId)?.materialValues?.elements;
   }
 
-  private buildAlchemyInputAuxElements(
+  private buildAlchemyMainElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
+    const result = createEmptyCraftElementVector();
+    for (const ingredient of this.getAlchemyMainIngredients(recipe)) {
+      const elements = this.getAlchemyMaterialElements(ingredient.itemId);
+      if (elements) {
+        addCraftElementVector(result, elements, ingredient.count);
+      }
+    }
+    return compactCraftElementVector(result);
+  }
+
+  private buildAlchemyRequiredElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
+    const result = createEmptyCraftElementVector();
+    addCraftElementVector(result, recipe.requiredAuxElements, 1);
+    addCraftElementVector(result, this.buildAlchemyMainElements(recipe), 1);
+    return compactCraftElementVector(result);
+  }
+
+  private buildAlchemyInputElements(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
   ): CraftElementVector {
     const result = createEmptyCraftElementVector();
-    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
     for (const ingredient of ingredients) {
-      if (mainIds.has(ingredient.itemId)) {
-        continue;
-      }
       const elements = this.getAlchemyMaterialElements(ingredient.itemId);
       if (elements) {
         addCraftElementVector(result, elements, ingredient.count);
@@ -438,8 +452,8 @@ export class CraftAlchemyView {
   ): { powerText: string; successText: string; brewTimeText: string } {
     const ingredients = mode === 'full' ? this.getFullAlchemyIngredients(recipe.recipeId) : this.getAlchemyDraftIngredients(recipe.recipeId);
     const elementMatch = computeFivePhaseElementMatch(
-      this.buildAlchemyInputAuxElements(recipe, ingredients),
-      recipe.requiredAuxElements,
+      this.buildAlchemyInputElements(recipe, ingredients),
+      this.buildAlchemyRequiredElements(recipe),
     );
     const baseSuccessRate = elementMatch.baseElementSuccessRate;
     const furnaceBonuses = this.getAlchemyFurnaceBonuses();
@@ -762,7 +776,8 @@ export class CraftAlchemyView {
       ? this.getFullAlchemyIngredients(selectedRecipe.recipeId)
       : this.getAlchemyDraftIngredients(selectedRecipe.recipeId);
     const metrics = this.buildAlchemyMetricSnapshot(selectedRecipe, this.parent.activeAlchemyTab);
-    const currentElements = this.buildAlchemyInputAuxElements(selectedRecipe, activeIngredients);
+    const currentElements = this.buildAlchemyInputElements(selectedRecipe, activeIngredients);
+    const requiredElements = this.buildAlchemyRequiredElements(selectedRecipe);
     const isForging = this.parent.activeMode === 'forging';
     const recipeGrade = selectedRecipe.grade ?? getLocalItemTemplate(selectedRecipe.outputItemId)?.grade ?? 'mortal';
     return `
@@ -779,7 +794,7 @@ export class CraftAlchemyView {
         <section class="alchemy-fivephase-panel">
           <div class="alchemy-fivephase-block">
             <div class="alchemy-fivephase-title">五行 当前 / 需要</div>
-            ${this.renderAlchemyElementRatioGrid(currentElements, selectedRecipe.requiredAuxElements)}
+            ${this.renderAlchemyElementRatioGrid(currentElements, requiredElements)}
           </div>
         </section>
         <section class="alchemy-summary-metrics alchemy-summary-metrics--detail">
@@ -1073,8 +1088,8 @@ export class CraftAlchemyView {
   private renderAlchemySimpleTab(recipe: AlchemyRecipeCatalogEntry, presets: PlayerAlchemyPreset[]): string {
     const draftIngredients = this.getAlchemyDraftIngredients(recipe.recipeId);
     const exactRecipe = computeFivePhaseElementMatch(
-      this.buildAlchemyInputAuxElements(recipe, draftIngredients),
-      recipe.requiredAuxElements,
+      this.buildAlchemyInputElements(recipe, draftIngredients),
+      this.buildAlchemyRequiredElements(recipe),
     ).baseElementSuccessRate >= 1;
     const metrics = this.buildAlchemyMetricSnapshot(recipe, 'simple');
     const selectedPreset = this.parent.selectedAlchemyPresetId

@@ -2884,8 +2884,8 @@ export class CraftWorkbenchModal {
   private renderAlchemySimpleTab(recipe: AlchemyRecipeCatalogEntry, presets: PlayerAlchemyPreset[]): string {
     const draftIngredients = this.getAlchemyDraftIngredients(recipe.recipeId);
     const elementMatch = computeFivePhaseElementMatch(
-      this.buildAlchemyInputAuxElements(recipe, draftIngredients),
-      recipe.requiredAuxElements,
+      this.buildAlchemyInputElements(recipe, draftIngredients),
+      this.buildAlchemyRequiredElements(recipe),
     );
     const exactRecipe = elementMatch.baseElementSuccessRate >= 1;
     const metrics = this.buildAlchemyMetricSnapshot(recipe, 'simple');
@@ -4446,16 +4446,30 @@ export class CraftWorkbenchModal {
     return getLocalItemTemplate(itemId)?.materialValues?.elements;
   }
 
-  private buildAlchemyInputAuxElements(
+  private buildAlchemyMainElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
+    const result = createEmptyCraftElementVector();
+    for (const ingredient of this.getAlchemyMainIngredients(recipe)) {
+      const elements = this.getAlchemyMaterialElements(ingredient.itemId);
+      if (elements) {
+        addCraftElementVector(result, elements, ingredient.count);
+      }
+    }
+    return compactCraftElementVector(result);
+  }
+
+  private buildAlchemyRequiredElements(recipe: AlchemyRecipeCatalogEntry): CraftElementVector {
+    const result = createEmptyCraftElementVector();
+    addCraftElementVector(result, recipe.requiredAuxElements, 1);
+    addCraftElementVector(result, this.buildAlchemyMainElements(recipe), 1);
+    return compactCraftElementVector(result);
+  }
+
+  private buildAlchemyInputElements(
     recipe: AlchemyRecipeCatalogEntry,
     ingredients: readonly AlchemyIngredientSelection[],
   ): CraftElementVector {
     const result = createEmptyCraftElementVector();
-    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
     for (const ingredient of ingredients) {
-      if (mainIds.has(ingredient.itemId)) {
-        continue;
-      }
       const elements = this.getAlchemyMaterialElements(ingredient.itemId);
       if (elements) {
         addCraftElementVector(result, elements, ingredient.count);
@@ -4715,8 +4729,8 @@ export class CraftWorkbenchModal {
   ): { powerText: string; successText: string; brewTimeText: string } {
     const ingredients = mode === 'full' ? this.getFullAlchemyIngredients(recipe.recipeId) : this.getAlchemyDraftIngredients(recipe.recipeId);
     const elementMatch = computeFivePhaseElementMatch(
-      this.buildAlchemyInputAuxElements(recipe, ingredients),
-      recipe.requiredAuxElements,
+      this.buildAlchemyInputElements(recipe, ingredients),
+      this.buildAlchemyRequiredElements(recipe),
     );
     const baseSuccessRate = elementMatch.baseElementSuccessRate;
     const furnaceBonuses = this.getAlchemyFurnaceBonuses();

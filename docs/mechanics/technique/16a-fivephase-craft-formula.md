@@ -47,18 +47,16 @@ baseSuccessRate = exactRecipe ? 1 : powerRatio^2
 - 默认只有 1 个。
 - 少量特殊配方允许 2 个。
 - 主药/主材必须投入，数量必须满足配置。
-- 主药/主材默认不计入辅料五行匹配，避免同一物品同时承担“身份”和“五行”两套要求。
-
-如后续确实需要某个主材也参与五行，可给配方增加显式开关，不做隐式行为。
+- 主药/主材同时参与总五行匹配。主药/主材既承担身份校验，也把自身 `materialValues.elements * count` 计入配方目标和当前投入。
 
 ### 辅药/辅材
 
 辅药/辅材不再按固定物品 ID 校验。玩家可以投入任意拥有 `materialValues.elements` 的材料，包括正五行和负五行材料。
 
-服务端创建任务时汇总本次辅料五行：
+服务端创建任务时汇总本次总投入五行：
 
 ```ts
-inputAuxElements[e] = sum(material.materialValues.elements[e] * count)
+inputElements[e] = sum(submittedMaterial.materialValues.elements[e] * count)
 ```
 
 缺失的五行按 0 计。
@@ -90,13 +88,13 @@ inputAuxElements[e] = sum(material.materialValues.elements[e] * count)
 配方目标：
 
 ```ts
-targetElements[e] = recipe.requiredAuxElements[e] ?? 0
+targetElements[e] = mainIngredientElements[e] + (recipe.requiredAuxElements[e] ?? 0)
 ```
 
-玩家本次投入辅料：
+玩家本次总投入：
 
 ```ts
-inputElements[e] = submittedAuxElements[e] ?? 0
+inputElements[e] = submittedMainElements[e] + submittedAuxElements[e]
 ```
 
 目标总量使用绝对值求和，避免负五行互相抵消：
@@ -273,8 +271,8 @@ materialValues.elements[e] = finite integer, can be negative, zero omitted
 1. 校验 recipeId 存在。
 2. 校验主材选择满足 mainIngredients。
 3. 校验辅料均为拥有五行值的 material。
-4. 汇总 inputAuxElements。
-5. 根据 requiredAuxElements 计算 baseElementSuccessRate。
+4. 汇总 inputElements（主材 + 辅材）。
+5. 根据 targetElements（主材五行 + requiredAuxElements）计算 baseElementSuccessRate。
 6. 检查材料数量充足。
 7. 检查灵石充足。
 8. 扣除材料和灵石。
@@ -306,8 +304,8 @@ tick 中不能扫描材料、背包或重新统计五行。
 
 - 产物。
 - 主药/主材要求。
-- 目标辅料五行。
-- 当前投入辅料五行。
+- 目标总五行。
+- 当前投入总五行。
 - 五系匹配百分比。
 - 基础五行成功率。
 - 动态修正后的预计成功率。

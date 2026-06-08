@@ -338,7 +338,10 @@ export class CraftPanelRuntimeService {
         }
         const quantity = normalizeQuantity(payload?.quantity, 1);
         const furnaceOutputCount = jobKind === 'forging' || recipe.category === 'buff' ? 1 : ALCHEMY_FURNACE_OUTPUT_COUNT;
-        const elementMatchSnapshot = computeFivePhaseElementMatch(normalizedSelection.inputAuxElements, recipe.requiredAuxElements);
+        const elementMatchSnapshot = computeFivePhaseElementMatch(
+            normalizedSelection.inputElements,
+            buildAlchemyRecipeTargetElements(this.contentTemplateRepository, recipe)
+        );
         const baseSuccessRate = elementMatchSnapshot.baseElementSuccessRate;
         const craftSkillLevel = (jobKind === 'forging' ? player.forgingSkill?.level : player.alchemySkill?.level) ?? 1;
         const batchBrewTicks = computeAlchemyAdjustedBrewTicks(
@@ -2532,6 +2535,22 @@ function sumRecipeIngredientElements(contentTemplateRepository, ingredients) {
     return compactCraftElementVector(result);
 }
 
+function buildAlchemyRecipeTargetElements(contentTemplateRepository, recipe) {
+    const result = createEmptyCraftElementVector();
+    addCraftElementVector(result, recipe.requiredAuxElements, 1);
+    const mainIngredients = Array.isArray(recipe.mainIngredients) && recipe.mainIngredients.length > 0
+        ? recipe.mainIngredients
+        : (recipe.ingredients ?? []).filter((entry) => entry.role === 'main');
+    for (const ingredient of mainIngredients) {
+        const item = contentTemplateRepository.createItem(ingredient.itemId, 1);
+        if (!item?.materialValues?.elements) {
+            continue;
+        }
+        addCraftElementVector(result, item.materialValues.elements, ingredient.count);
+    }
+    return compactCraftElementVector(result);
+}
+
 function sumCraftElementAbs(elements) {
     return ELEMENT_KEYS.reduce((total, element) => total + Math.abs(Number(elements?.[element]) || 0), 0);
 }
@@ -3268,12 +3287,16 @@ function validateAlchemySelection(contentTemplateRepository, recipe, submitted) 
   }
   const submittedMap = new Map(submitted.map((entry) => [entry.itemId, Number(entry.count)]));
   const normalizedIngredients = [];
-  const inputAuxElements = createEmptyCraftElementVector();
+  const inputElements = createEmptyCraftElementVector();
 
   for (const ingredient of mainIngredients) {
     const submittedCount = submittedMap.get(ingredient.itemId) ?? 0;
     if (submittedCount !== ingredient.count) {
       return { error: `${ingredient.name ?? ingredient.itemId} 属于主药/主材，数量必须为 ${ingredient.count}。` };
+    }
+    const item = contentTemplateRepository.createItem(ingredient.itemId, 1);
+    if (item?.materialValues?.elements) {
+      addCraftElementVector(inputElements, item.materialValues.elements, ingredient.count);
     }
     normalizedIngredients.push({ itemId: ingredient.itemId, count: ingredient.count });
   }
@@ -3291,13 +3314,13 @@ function validateAlchemySelection(contentTemplateRepository, recipe, submitted) 
     if (!elements || Object.keys(elements).length === 0) {
       return { error: `${item.name ?? item.itemId} 没有五行值，不能作为辅药/辅材。` };
     }
-    addCraftElementVector(inputAuxElements, elements, count);
+    addCraftElementVector(inputElements, elements, count);
     normalizedIngredients.push({ itemId: entry.itemId, count });
   }
 
   return {
     ingredients: normalizedIngredients.sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')),
-    inputAuxElements: compactCraftElementVector(inputAuxElements),
+    inputElements: compactCraftElementVector(inputElements),
   };
 }
 /**

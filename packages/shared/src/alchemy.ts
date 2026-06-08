@@ -176,10 +176,10 @@ export function computeAlchemySuccessRate(
 }
 
 export function computeAlchemyFivePhaseSuccessSnapshot(
-  recipe: Pick<AlchemyRecipeCatalogEntry, 'requiredAuxElements'>,
-  inputAuxElements: CraftElementMatchSnapshot['inputElements'] | undefined,
+  targetElements: CraftElementMatchSnapshot['targetElements'] | undefined,
+  inputElements: CraftElementMatchSnapshot['inputElements'] | undefined,
 ): CraftElementMatchSnapshot {
-  return computeFivePhaseElementMatch(inputAuxElements, recipe.requiredAuxElements);
+  return computeFivePhaseElementMatch(inputElements, targetElements);
 }
 
 export function computeAlchemyAdjustedSuccessRate(
