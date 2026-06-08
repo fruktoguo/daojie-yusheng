@@ -8455,8 +8455,8 @@
       "type": "consumable",
       "level": 10,
       "grade": "mystic",
-      "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
-      "healPercent": 0.42
+      "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
+      "baselineHealPercent": 1.1
     },
     {
       "itemId": "map.black_iron_mine",
@@ -8497,8 +8497,8 @@
       "name": "厚土膏",
       "type": "consumable",
       "level": 27,
-      "desc": "药膏入口厚重，立刻恢复 60% 气血。",
-      "healPercent": 0.6,
+      "desc": "药膏入口厚重，立刻恢复标准 27 级修士最大气血的 110%。",
+      "baselineHealPercent": 1.1,
       "grade": "mystic"
     },
     {
@@ -8562,8 +8562,8 @@
       "tags": [
         "战斗丹药"
       ],
-      "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-      "healPercent": 0.22
+      "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+      "baselineHealPercent": 0.5
     },
     {
       "itemId": "mat.returnspring_leaf",
@@ -10684,8 +10684,8 @@
       "name": "养脉膏",
       "type": "consumable",
       "level": 24,
-      "desc": "膏体入口微苦，立刻恢复 54% 气血。",
-      "healPercent": 0.54,
+      "desc": "膏体入口微苦，立刻恢复标准 24 级修士最大气血的 110%。",
+      "baselineHealPercent": 1.1,
       "grade": "mystic"
     },
     {
@@ -11118,8 +11118,8 @@
       "name": "镇脉丸",
       "type": "consumable",
       "level": 22,
-      "desc": "药势会贴着经脉走一圈，先恢复 39% 气血。",
-      "healPercent": 0.39,
+      "desc": "药势会贴着经脉走一圈，立刻恢复标准 22 级修士最大气血的 85%。",
+      "baselineHealPercent": 0.85,
       "grade": "yellow"
     },
     {
@@ -14643,8 +14643,8 @@
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-          "healPercent": 0.22,
+          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+          "baselineHealPercent": 0.5,
           "count": 2
         }
       ],
@@ -14858,8 +14858,8 @@
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-          "healPercent": 0.22,
+          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+          "baselineHealPercent": 0.5,
           "count": 2
         }
       ],
@@ -15141,8 +15141,8 @@
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-          "healPercent": 0.22,
+          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+          "baselineHealPercent": 0.5,
           "count": 2
         }
       ],
@@ -15203,8 +15203,8 @@
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-          "healPercent": 0.22,
+          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+          "baselineHealPercent": 0.5,
           "count": 2
         }
       ],
@@ -15456,8 +15456,8 @@
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-          "healPercent": 0.22,
+          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+          "baselineHealPercent": 0.5,
           "count": 2
         }
       ],
@@ -15725,8 +15725,8 @@
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-          "healPercent": 0.22,
+          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+          "baselineHealPercent": 0.5,
           "count": 3
         }
       ],
@@ -16306,8 +16306,8 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
-          "healPercent": 0.42,
+          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
+          "baselineHealPercent": 1.1,
           "count": 2
         }
       ],
@@ -16454,8 +16454,8 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
-          "healPercent": 0.42,
+          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
+          "baselineHealPercent": 1.1,
           "count": 2
         },
         {
@@ -17013,8 +17013,8 @@
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-          "healPercent": 0.22,
+          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+          "baselineHealPercent": 0.5,
           "count": 2
         }
       ],
@@ -17267,8 +17267,8 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
-          "healPercent": 0.42,
+          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
+          "baselineHealPercent": 1.1,
           "count": 2
         },
         {
@@ -17352,8 +17352,8 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
-          "healPercent": 0.42,
+          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
+          "baselineHealPercent": 1.1,
           "count": 2
         },
         {

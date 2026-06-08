@@ -67,6 +67,7 @@ export function isSameItem(left: SyncedItemStack | null | undefined, right: Sync
         && isSameEquipmentEffectList(left.effects, right.effects)
         && left.healAmount === right.healAmount
         && left.healPercent === right.healPercent
+        && left.baselineHealPercent === right.baselineHealPercent
         && left.qiPercent === right.qiPercent
         && isSameConsumableBuffList(left.consumeBuffs, right.consumeBuffs)
         && isSameStringList(left.tags, right.tags)

@@ -5,8 +5,8 @@
     "type": "consumable",
     "level": 2,
     "tags": ["战斗丹药"],
-    "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
-    "healPercent": 0.22
+    "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
+    "baselineHealPercent": 0.5
   },
   {
     "itemId": "spirit_stone",
@@ -126,8 +126,8 @@
     "type": "consumable",
     "level": 10,
     "grade": "mystic",
-    "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
-    "healPercent": 0.42
+    "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
+    "baselineHealPercent": 1.1
   },
   {
     "itemId": "pill.crimson_bud_elixir",

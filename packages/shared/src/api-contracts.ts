@@ -2097,6 +2097,11 @@ export interface GmEditorItemOption {
 
   healPercent?: number;
   /**
+ * baselineHealPercent：按物品 level 对应标准玩家最大生命的比例恢复。
+ */
+
+  baselineHealPercent?: number;
+  /**
  * qiPercent：qiPercent相关字段。
  */
 

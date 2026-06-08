@@ -2838,6 +2838,7 @@ export class MarketRuntimeService {
             effects: normalized.effects,
             healAmount: normalized.healAmount,
             healPercent: normalized.healPercent,
+            baselineHealPercent: normalized.baselineHealPercent,
             qiPercent: normalized.qiPercent,
             consumeBuffs: normalized.consumeBuffs,
             tags: normalized.tags,

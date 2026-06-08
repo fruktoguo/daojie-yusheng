@@ -536,6 +536,9 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
   if (typeof previewItem.healPercent === 'number' && previewItem.healPercent > 0) {
     instantParts.push(t('equipment-tooltip.consumable.heal-percent', { percent: formatDisplayPercent(previewItem.healPercent * 100) }));
   }
+  if (typeof previewItem.baselineHealPercent === 'number' && previewItem.baselineHealPercent > 0) {
+    instantParts.push(t('equipment-tooltip.consumable.baseline-heal-percent', { percent: formatDisplayPercent(previewItem.baselineHealPercent * 100) }));
+  }
   if (typeof previewItem.qiPercent === 'number' && previewItem.qiPercent > 0) {
     instantParts.push(t('equipment-tooltip.consumable.qi-percent', { percent: formatDisplayPercent(previewItem.qiPercent * 100) }));
   }

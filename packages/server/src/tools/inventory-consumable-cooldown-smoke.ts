@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { BadRequestException } from '@nestjs/common';
+import { getTechniqueStandardMaxHpBaseline } from '@mud/shared';
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
@@ -9,6 +10,7 @@ repo.onModuleInit();
 
 const minorHeal = repo.createItem('pill.minor_heal', 2);
 assert.equal(minorHeal.cooldown, 5, '瞬回生命药应继承默认 5 息冷却');
+assert.equal(minorHeal.baselineHealPercent, 0.5, '回春散应按标准等级生命百分比配置恢复');
 const buffPill = repo.createItem('pill.crimson_bud_elixir', 2);
 assert.equal(buffPill.cooldown, undefined, '增益丹药不应继承恢复药冷却');
 
@@ -24,7 +26,7 @@ const player: any = {
   playerId,
   persistentRevision: 1,
   hp: 50,
-  maxHp: 100,
+  maxHp: 1000,
   qi: 0,
   maxQi: 100,
   lifeElapsedTicks: 10,
@@ -52,7 +54,11 @@ const player: any = {
 service.players.set(playerId, player);
 
 service.useItem(playerId, 0);
-assert.equal(player.hp, 72, '首次使用回春散应恢复气血');
+assert.equal(
+  player.hp,
+  50 + Math.round(getTechniqueStandardMaxHpBaseline(2) * 0.5),
+  '首次使用回春散应按标准 2 级最大生命的 50% 恢复，而不是按当前玩家上限恢复',
+);
 assert.equal(player.inventory.items[0].count, 1, '首次使用应消耗一枚回春散');
 assert.deepEqual(
   (player.inventory.cooldowns ?? []).map((entry: any) => entry.itemId).sort(),
@@ -82,7 +88,7 @@ assert.equal(
 
 player.lifeElapsedTicks = 15;
 service.useItem(playerId, 1);
-assert.equal(player.hp, 100, '冷却结束后生命回复药应可再次使用');
+assert.equal(player.hp, player.maxHp, '冷却结束后生命回复药应可再次使用并封顶到当前最大气血');
 
 const manualPlayerId = 'player:manual-use-item-cooldown-smoke';
 async function testManualUseItemBranch() {

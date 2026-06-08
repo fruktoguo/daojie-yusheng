@@ -2570,6 +2570,7 @@ function resolveAlchemyRecipeCategory(outputItem, recipeId) {
     }
     if (typeof outputItem.healAmount === 'number'
         || typeof outputItem.healPercent === 'number'
+        || typeof outputItem.baselineHealPercent === 'number'
         || typeof outputItem.qiPercent === 'number') {
         return 'recovery';
     }

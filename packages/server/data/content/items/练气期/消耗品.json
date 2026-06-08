@@ -35,8 +35,8 @@
     "name": "镇脉丸",
     "type": "consumable",
     "level": 22,
-    "desc": "药势会贴着经脉走一圈，先恢复 39% 气血。",
-    "healPercent": 0.39,
+    "desc": "药势会贴着经脉走一圈，立刻恢复标准 22 级修士最大气血的 85%。",
+    "baselineHealPercent": 0.85,
     "grade": "yellow"
   },
   {
@@ -67,8 +67,8 @@
     "name": "养脉膏",
     "type": "consumable",
     "level": 24,
-    "desc": "膏体入口微苦，立刻恢复 54% 气血。",
-    "healPercent": 0.54,
+    "desc": "膏体入口微苦，立刻恢复标准 24 级修士最大气血的 110%。",
+    "baselineHealPercent": 1.1,
     "grade": "mystic"
   },
   {
@@ -109,8 +109,8 @@
     "name": "厚土膏",
     "type": "consumable",
     "level": 27,
-    "desc": "药膏入口厚重，立刻恢复 60% 气血。",
-    "healPercent": 0.6,
+    "desc": "药膏入口厚重，立刻恢复标准 27 级修士最大气血的 110%。",
+    "baselineHealPercent": 1.1,
     "grade": "mystic"
   },
   {

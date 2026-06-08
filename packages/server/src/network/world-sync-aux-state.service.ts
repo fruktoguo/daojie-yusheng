@@ -810,6 +810,7 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && shallowEqualArray(left.effects, right.effects)
     && left.healAmount === right.healAmount
     && left.healPercent === right.healPercent
+    && left.baselineHealPercent === right.baselineHealPercent
     && left.qiPercent === right.qiPercent
     && shallowEqualArray(left.consumeBuffs, right.consumeBuffs)
     && shallowEqualArray(left.tags, right.tags)

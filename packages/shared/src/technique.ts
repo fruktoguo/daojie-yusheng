@@ -176,6 +176,18 @@ export function getTechniqueStandardQiOutputBaseline(realmLv: number | undefined
   return Math.max(1, Math.round(extrapolated));
 }
 
+export function getTechniqueStandardMaxHpBaseline(realmLv: number | undefined): number {
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv ?? 1)) : 1;
+  const exact = playerFinalAttrBaselines.levels[normalizedRealmLv - 1]?.stats.maxHp;
+  if (Number.isFinite(exact) && exact > 0) {
+    return exact;
+  }
+  const lastLevel = playerFinalAttrBaselines.levels.length;
+  const lastValue = playerFinalAttrBaselines.levels[lastLevel - 1]?.stats.maxHp ?? 1;
+  const extrapolated = lastValue * (getRealmAttributeMultiplier(normalizedRealmLv) / getRealmAttributeMultiplier(lastLevel));
+  return Math.max(1, Math.round(extrapolated));
+}
+
 /** 根据当前层数推导功法境界（入门/小成/大成/圆满） */
 export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[]): TechniqueRealm {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

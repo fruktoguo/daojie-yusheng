@@ -2547,6 +2547,7 @@ export class MarketPanel {
       effects: template.effects,
       healAmount: template.healAmount,
       healPercent: template.healPercent,
+      baselineHealPercent: template.baselineHealPercent,
       qiPercent: template.qiPercent,
       cooldown: template.cooldown,
       consumeBuffs: template.consumeBuffs,

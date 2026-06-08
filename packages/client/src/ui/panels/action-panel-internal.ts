@@ -67,6 +67,7 @@ export interface AutoUsePillViewEntry {
   count: number;
   healAmount?: number;
   healPercent?: number;
+  baselineHealPercent?: number;
   qiPercent?: number;
   consumeBuffs?: Array<{ buffId?: string; name?: string }>;
   selected: boolean;

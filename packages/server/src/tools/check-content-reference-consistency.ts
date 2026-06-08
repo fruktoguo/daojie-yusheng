@@ -401,6 +401,7 @@ function hasConsumableUseRuntimeEffect(item) {
   if (typeof item?.formationDiskTier === "string" && item.formationDiskTier.length > 0) return true;
   if (typeof item?.healAmount === "number" && item.healAmount > 0) return true;
   if (typeof item?.healPercent === "number" && item.healPercent > 0) return true;
+  if (typeof item?.baselineHealPercent === "number" && item.baselineHealPercent > 0) return true;
   if (typeof item?.qiPercent === "number" && item.qiPercent > 0) return true;
   if (Array.isArray(item?.consumeBuffs) && item.consumeBuffs.length > 0) return true;
   if (typeof item?.mapUnlockId === "string" && item.mapUnlockId.length > 0) return true;

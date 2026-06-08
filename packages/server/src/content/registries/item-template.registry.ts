@@ -133,6 +133,7 @@ export class ItemTemplateRegistry {
       effects: Array.isArray(template.effects) ? (template.effects as unknown[]).map((entry) => ({ ...(entry as object) })) : undefined,
       healAmount: template.healAmount,
       healPercent: template.healPercent,
+      baselineHealPercent: template.baselineHealPercent,
       qiPercent: template.qiPercent,
       cooldown: template.cooldown,
       alchemySuccessRate: template.alchemySuccessRate,

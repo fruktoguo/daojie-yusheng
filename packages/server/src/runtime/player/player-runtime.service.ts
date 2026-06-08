@@ -10,7 +10,7 @@
  */
 import { Inject, BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeHorizontalFacing, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
+import { ATTR_KEYS, AUTO_IDLE_CULTIVATION_DELAY_TICKS, BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER, DEFAULT_BASE_ATTRS, DEFAULT_BONE_AGE_YEARS, DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS, DEFAULT_INVENTORY_CAPACITY, DEFAULT_PLAYER_REALM_STAGE, Direction, EQUIP_SLOTS, PLAYER_REALM_CONFIG, PLAYER_REALM_ORDER, RETURN_TO_SPAWN_ACTION_ID, RETURN_TO_SPAWN_COOLDOWN_TICKS, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TechniqueRealm, calculateTechniqueComprehensionProgressGain, calculateTechniqueComprehensionRequiredProgress, canMergeItemStack, coalesceItemStackList, compileValueStatsToActualStats, computeCraftSkillExpGain, createItemStackSignature, enforceSkillEnabledLimit, getBodyTrainingExpToNext, getTechniqueStandardMaxHpBaseline, isCreatedTechniqueId, mergeItemStackInto, normalizeBodyTrainingState, normalizeHorizontalFacing, percentModifierToMultiplier, resolvePlayerSkillSlotLimit, resolveSkillRequiresTarget, signedRatioValue } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { isNativeGmBotPlayerId } from '../../http/native/native-gm.constants';
 import { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_BACKLASH_DECAY_TICKS, PVP_SHA_BACKLASH_PERCENT_PER_STACK, PVP_SHA_BACKLASH_SOURCE_ID, PVP_SHA_BACKLASH_STACK_DIVISOR, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID, PVP_SHA_INFUSION_DECAY_TICKS, PVP_SHA_INFUSION_SOURCE_ID, PVP_SOUL_INJURY_BUFF_ID, PVP_SOUL_INJURY_DURATION_TICKS, PVP_SOUL_INJURY_SOURCE_ID } from '../../constants/gameplay/pvp';
@@ -5288,10 +5288,16 @@ export class PlayerRuntimeService {
 
         const healPercent = typeof item.healPercent === 'number' ? Math.max(0, item.healPercent) : 0;
 
-        const qiPercent = typeof item.qiPercent === 'number' ? Math.max(0, item.qiPercent) : 0;
-        if (healAmount > 0 || healPercent > 0 || qiPercent > 0) {
+        const baselineHealPercent = typeof item.baselineHealPercent === 'number' ? Math.max(0, item.baselineHealPercent) : 0;
 
-            const nextHp = clamp(player.hp + healAmount + Math.round(player.maxHp * healPercent), 0, player.maxHp);
+        const qiPercent = typeof item.qiPercent === 'number' ? Math.max(0, item.qiPercent) : 0;
+        if (healAmount > 0 || healPercent > 0 || baselineHealPercent > 0 || qiPercent > 0) {
+
+            const baselineHealAmount = baselineHealPercent > 0
+                ? Math.round(getTechniqueStandardMaxHpBaseline(item.level) * baselineHealPercent)
+                : 0;
+
+            const nextHp = clamp(player.hp + healAmount + baselineHealAmount + Math.round(player.maxHp * healPercent), 0, player.maxHp);
 
             const nextQi = clamp(player.qi + Math.round(player.maxQi * qiPercent), 0, player.maxQi);
             if (nextHp !== player.hp || nextQi !== player.qi) {
@@ -8434,7 +8440,9 @@ function hasConsumableRecoveryCooldownEffect(item) {
 }
 
 function hasHpConsumableEffect(item) {
-    return Math.max(0, Number(item?.healAmount ?? 0)) > 0 || Math.max(0, Number(item?.healPercent ?? 0)) > 0;
+    return Math.max(0, Number(item?.healAmount ?? 0)) > 0
+        || Math.max(0, Number(item?.healPercent ?? 0)) > 0
+        || Math.max(0, Number(item?.baselineHealPercent ?? 0)) > 0;
 }
 
 function hasQiConsumableEffect(item) {

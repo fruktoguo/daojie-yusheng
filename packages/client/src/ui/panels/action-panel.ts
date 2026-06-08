@@ -426,6 +426,7 @@ interface AutoUsePillViewEntry {
   count: number;
   healAmount?: number;
   healPercent?: number;
+  baselineHealPercent?: number;
   qiPercent?: number;
   consumeBuffs?: Array<{ buffId?: string; name?: string }>;
   selected: boolean;
@@ -2952,6 +2953,7 @@ export class ActionPanel {
         count: item.count,
         healAmount: previewItem.healAmount,
         healPercent: previewItem.healPercent,
+        baselineHealPercent: previewItem.baselineHealPercent,
         qiPercent: previewItem.qiPercent,
         consumeBuffs: previewItem.consumeBuffs?.map((buff) => ({ buffId: buff.buffId, name: buff.name })),
         selected: Boolean(config),
@@ -2970,6 +2972,7 @@ export class ActionPanel {
         count: 0,
         healAmount: template?.healAmount,
         healPercent: template?.healPercent,
+        baselineHealPercent: template?.baselineHealPercent,
         qiPercent: template?.qiPercent,
         consumeBuffs: template?.consumeBuffs?.map((buff) => ({ buffId: buff.buffId, name: buff.name })),
         selected: true,
@@ -4290,6 +4293,9 @@ export class ActionPanel {
     }
     if ((entry.healPercent ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.heal-percent', { value: Math.round((entry.healPercent ?? 0) * 100) }));
+    }
+    if ((entry.baselineHealPercent ?? 0) > 0) {
+      parts.push(t('action.combat-settings.auto-pills.effect.baseline-heal-percent', { value: Math.round((entry.baselineHealPercent ?? 0) * 100) }));
     }
     if ((entry.qiPercent ?? 0) > 0) {
       parts.push(t('action.combat-settings.auto-pills.effect.qi-percent', { value: Math.round((entry.qiPercent ?? 0) * 100) }));
