@@ -2114,7 +2114,7 @@ export class CraftWorkbenchModal {
         if (!recipeId) {
           return;
         }
-        this.openAlchemyConfirm(recipeId, this.getAlchemyDraftIngredients(recipeId), 'simple');
+        this.openAlchemyConfirm(recipeId, this.getAlchemySubmittedDraftIngredients(recipeId), 'simple');
         return;
       }
       if (action === 'cancel-alchemy') {
@@ -4299,7 +4299,7 @@ export class CraftWorkbenchModal {
       presetId: existingIndex >= 0 ? list[existingIndex].presetId : `local:${kind}:${recipe.recipeId}:${now.toString(36)}`,
       recipeId: recipe.recipeId,
       name: existingIndex >= 0 ? list[existingIndex].name : `${recipe.outputName}${kind === 'forging' ? '器方' : '丹方'}${list.length + 1}`,
-      ingredients: this.getAlchemyDraftIngredients(recipe.recipeId),
+      ingredients: this.getAlchemySubmittedDraftIngredients(recipe.recipeId),
       updatedAt: now,
     };
     if (existingIndex >= 0) {
@@ -4350,12 +4350,23 @@ export class CraftWorkbenchModal {
     const result: AlchemyIngredientSelection[] = this.getAlchemyMainIngredients(recipe);
     const mainIds = new Set(result.map((entry) => entry.itemId));
     for (const [itemId, count] of draft.entries()) {
-      if (mainIds.has(itemId) || count <= 0) {
+      const normalizedItemId = itemId.trim();
+      const normalizedCount = Math.max(0, Math.floor(Number(count) || 0));
+      if (!normalizedItemId || mainIds.has(normalizedItemId)) {
         continue;
       }
-      result.push({ itemId, count });
+      result.push({ itemId: normalizedItemId, count: normalizedCount });
     }
     return result;
+  }
+
+  private getAlchemySubmittedDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
+    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
+    if (!recipe) {
+      return [];
+    }
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((entry) => entry.itemId));
+    return this.getAlchemyDraftIngredients(recipeId).filter((entry) => mainIds.has(entry.itemId) || entry.count > 0);
   }
 
   private setAlchemyDraft(recipeId: string, ingredients: readonly AlchemyIngredientSelection[]): void {
@@ -4364,16 +4375,18 @@ export class CraftWorkbenchModal {
       return;
     }
     const next = new Map<string, number>();
-    const source = buildAlchemyIngredientCountMap(ingredients);
-    for (const ingredient of this.getAlchemyMainIngredients(recipe)) {
+    const mainIngredients = this.getAlchemyMainIngredients(recipe);
+    for (const ingredient of mainIngredients) {
       next.set(ingredient.itemId, ingredient.count);
     }
-    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
-    for (const [itemId, count] of source.entries()) {
-      if (mainIds.has(itemId) || count <= 0) {
+    const mainIds = new Set(mainIngredients.map((ingredient) => ingredient.itemId));
+    for (const ingredient of ingredients) {
+      const itemId = typeof ingredient.itemId === 'string' ? ingredient.itemId.trim() : '';
+      if (!itemId || mainIds.has(itemId)) {
         continue;
       }
-      next.set(itemId, count);
+      const count = Math.max(0, Math.floor(Number(ingredient.count) || 0));
+      next.set(itemId, (next.get(itemId) ?? 0) + count);
     }
     this.draftByRecipeId.set(recipeId, next);
   }
@@ -4411,11 +4424,7 @@ export class CraftWorkbenchModal {
     const next = delta > 0
       ? Math.max(0, Math.min(ownedCount, current + delta))
       : Math.max(0, current + delta);
-    if (next > 0) {
-      draft.set(itemId, next);
-    } else {
-      draft.delete(itemId);
-    }
+    draft.set(itemId, next);
     this.draftByRecipeId.set(recipeId, draft);
   }
 
@@ -5100,9 +5109,10 @@ export class CraftWorkbenchModal {
     const start = this.activeMode === 'forging'
       ? this.callbacks?.onStartForging
       : this.callbacks?.onStartAlchemy;
+    const submittedIngredients = latestRequest.ingredients.filter((entry) => entry.count > 0);
     start?.(
       latestRequest.recipeId,
-      latestRequest.ingredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
+      submittedIngredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
       latestState.quantity,
       queueMode,
     );

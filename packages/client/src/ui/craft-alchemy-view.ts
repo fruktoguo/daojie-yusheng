@@ -16,7 +16,6 @@ import {
   ALCHEMY_FURNACE_OUTPUT_COUNT,
   ELEMENT_KEYS,
   addCraftElementVector,
-  buildAlchemyIngredientCountMap,
   compactCraftElementVector,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyAdjustedSuccessRate,
@@ -232,11 +231,22 @@ export class CraftAlchemyView {
     const result: AlchemyIngredientSelection[] = this.getAlchemyMainIngredients(recipe);
     const mainIds = new Set(result.map((entry) => entry.itemId));
     for (const [itemId, count] of draft.entries()) {
-      if (!mainIds.has(itemId) && count > 0) {
-        result.push({ itemId, count });
+      const normalizedItemId = itemId.trim();
+      const normalizedCount = Math.max(0, Math.floor(Number(count) || 0));
+      if (normalizedItemId && !mainIds.has(normalizedItemId)) {
+        result.push({ itemId: normalizedItemId, count: normalizedCount });
       }
     }
     return result;
+  }
+
+  getAlchemySubmittedDraftIngredients(recipeId: string): AlchemyIngredientSelection[] {
+    const recipe = this.parent.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
+    if (!recipe) {
+      return [];
+    }
+    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((entry) => entry.itemId));
+    return this.getAlchemyDraftIngredients(recipeId).filter((entry) => mainIds.has(entry.itemId) || entry.count > 0);
   }
 
   setAlchemyDraft(recipeId: string, ingredients: readonly AlchemyIngredientSelection[]): void {
@@ -245,15 +255,18 @@ export class CraftAlchemyView {
       return;
     }
     const next = new Map<string, number>();
-    const source = buildAlchemyIngredientCountMap(ingredients);
-    for (const ingredient of this.getAlchemyMainIngredients(recipe)) {
+    const mainIngredients = this.getAlchemyMainIngredients(recipe);
+    for (const ingredient of mainIngredients) {
       next.set(ingredient.itemId, ingredient.count);
     }
-    const mainIds = new Set(this.getAlchemyMainIngredients(recipe).map((ingredient) => ingredient.itemId));
-    for (const [itemId, count] of source.entries()) {
-      if (!mainIds.has(itemId) && count > 0) {
-        next.set(itemId, count);
+    const mainIds = new Set(mainIngredients.map((ingredient) => ingredient.itemId));
+    for (const ingredient of ingredients) {
+      const itemId = typeof ingredient.itemId === 'string' ? ingredient.itemId.trim() : '';
+      if (!itemId || mainIds.has(itemId)) {
+        continue;
       }
+      const count = Math.max(0, Math.floor(Number(ingredient.count) || 0));
+      next.set(itemId, (next.get(itemId) ?? 0) + count);
     }
     this.parent.draftByRecipeId.set(recipeId, next);
   }
@@ -288,11 +301,7 @@ export class CraftAlchemyView {
     const next = delta > 0
       ? Math.max(0, Math.min(ownedCount, current + delta))
       : Math.max(0, current + delta);
-    if (next > 0) {
-      draft.set(itemId, next);
-    } else {
-      draft.delete(itemId);
-    }
+    draft.set(itemId, next);
     this.parent.draftByRecipeId.set(recipeId, draft);
   }
 
@@ -1496,9 +1505,10 @@ export class CraftAlchemyView {
     const start = this.parent.activeMode === 'forging'
       ? this.parent.callbacks?.onStartForging
       : this.parent.callbacks?.onStartAlchemy;
+    const submittedIngredients = latestRequest.ingredients.filter((entry) => entry.count > 0);
     start?.(
       latestRequest.recipeId,
-      latestRequest.ingredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
+      submittedIngredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
       latestState.quantity,
       queueMode,
     );
@@ -1699,7 +1709,7 @@ export class CraftAlchemyView {
       presetId: selectedPreset?.presetId,
       recipeId: recipe.recipeId,
       name: selectedPreset?.name ?? `${recipe.outputName}简方${matchingPresets.length + 1}`,
-      ingredients: this.getAlchemyDraftIngredients(recipe.recipeId),
+      ingredients: this.getAlchemySubmittedDraftIngredients(recipe.recipeId),
     });
   }
 
@@ -1716,7 +1726,7 @@ export class CraftAlchemyView {
     if (!recipeId) {
       return;
     }
-    this.openAlchemyConfirm(recipeId, this.getAlchemyDraftIngredients(recipeId), 'simple');
+    this.openAlchemyConfirm(recipeId, this.getAlchemySubmittedDraftIngredients(recipeId), 'simple');
   }
 
   ensureAlchemyDraft(): void {
