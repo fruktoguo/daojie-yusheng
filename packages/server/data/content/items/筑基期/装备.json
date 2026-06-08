@@ -1,0 +1,427 @@
+[
+  {
+    "itemId": "equip.foundation_iron_soul_blade",
+    "name": "铁魄断山刃",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "以深铁魄纹压成的重刃，重在破甲与正面斩击。",
+    "equipSlot": "weapon",
+    "equipBaselinePercents": {
+      "physAtk": 115,
+      "hit": 65,
+      "breakPower": 70
+    }
+  },
+  {
+    "itemId": "equip.foundation_cold_abyss_spell_ruler",
+    "name": "寒渊法尺",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "尺身封寒渊细纹，适合牵引法术灵力直入敌脉。",
+    "equipSlot": "weapon",
+    "equipBaselinePercents": {
+      "spellAtk": 115,
+      "hit": 60,
+      "maxQiOutputPerTick": 70
+    }
+  },
+  {
+    "itemId": "equip.foundation_mixed_dual_sword",
+    "name": "混元双仪剑",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "剑脊分阴阳双槽，能同时承载体魄劲与法力劲。",
+    "equipSlot": "weapon",
+    "equipBaselinePercents": {
+      "physAtk": 85,
+      "spellAtk": 85,
+      "hit": 55,
+      "maxQiOutputPerTick": 45
+    }
+  },
+  {
+    "itemId": "equip.foundation_frostsplit_crit_blade",
+    "name": "霜裂爆锋",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "刃口覆霜晶裂纹，普通挥斩不算厚重，爆开时伤口极深。",
+    "equipSlot": "weapon",
+    "equipBaselinePercents": {
+      "physAtk": 75,
+      "hit": 45,
+      "crit": 65,
+      "critDamage": 35
+    }
+  },
+  {
+    "itemId": "equip.foundation_returnbreath_cooldown_staff",
+    "name": "归息玄杖",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "杖心一呼一吸，自行牵回散气，适合频繁运转术式。",
+    "equipSlot": "weapon",
+    "equipBaselinePercents": {
+      "spellAtk": 60,
+      "cooldownSpeed": 90,
+      "qiRegenRate": 70,
+      "hpRegenRate": 35
+    }
+  },
+  {
+    "itemId": "equip.foundation_coldiron_heavy_helm",
+    "name": "寒铁重盔",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "整顶盔由寒铁甲片压合，最擅长硬挡实打实的兵刃。",
+    "equipSlot": "head",
+    "equipBaselinePercents": {
+      "maxHp": 35,
+      "physDef": 115,
+      "antiCrit": 45
+    }
+  },
+  {
+    "itemId": "equip.foundation_iceheart_spell_crown",
+    "name": "冰心法冠",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "冰心纹贴着识海，能让外来法力冲击变得迟滞。",
+    "equipSlot": "head",
+    "equipBaselinePercents": {
+      "maxQi": 40,
+      "spellDef": 115,
+      "resolvePower": 60
+    }
+  },
+  {
+    "itemId": "equip.foundation_mixed_guard_crown",
+    "name": "混元护神冠",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "冠上五行轮转，不偏一门，胜在稳住双防。",
+    "equipSlot": "head",
+    "equipBaselinePercents": {
+      "physDef": 80,
+      "spellDef": 80,
+      "antiCrit": 45
+    }
+  },
+  {
+    "itemId": "equip.foundation_darksoil_life_helm",
+    "name": "玄土命盔",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "盔内覆玄壤生息纹，厚重但极能护住命门。",
+    "equipSlot": "head",
+    "equipBaselinePercents": {
+      "maxHp": 110,
+      "hpRegenRate": 60
+    }
+  },
+  {
+    "itemId": "equip.foundation_inverse_life_war_crown",
+    "name": "逆命战冠",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "以逆命纹强逼气血上攻，护身大损，攻势陡增。",
+    "equipSlot": "head",
+    "equipBaselinePercents": {
+      "maxHp": -45,
+      "physDef": -35,
+      "spellDef": -35,
+      "physAtk": 50,
+      "spellAtk": 50,
+      "crit": 35
+    }
+  },
+  {
+    "itemId": "equip.foundation_ironshell_plate",
+    "name": "铁甲玄胄",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "大片铁甲碎片层叠扣合，正面抗击极强。",
+    "equipSlot": "body",
+    "equipBaselinePercents": {
+      "maxHp": 60,
+      "physDef": 120,
+      "antiCrit": 45
+    }
+  },
+  {
+    "itemId": "equip.foundation_turtle_spell_robe",
+    "name": "玄龟法衣",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "玄龟寒髓浸过的法衣，专克法力冲刷。",
+    "equipSlot": "body",
+    "equipBaselinePercents": {
+      "maxQi": 50,
+      "spellDef": 120,
+      "resolvePower": 70
+    }
+  },
+  {
+    "itemId": "equip.foundation_mixed_body_armor",
+    "name": "混元护身甲",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "甲心嵌混元蟾珠，能把两类冲击分摊到五行纹路里。",
+    "equipSlot": "body",
+    "equipBaselinePercents": {
+      "maxHp": 40,
+      "physDef": 85,
+      "spellDef": 85
+    }
+  },
+  {
+    "itemId": "equip.foundation_abyss_life_armor",
+    "name": "深渊寿甲",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "甲片沉重如泥，行动不轻，却极能续命。",
+    "equipSlot": "body",
+    "equipBaselinePercents": {
+      "maxHp": 130,
+      "hpRegenRate": 60,
+      "qiRegenRate": 30
+    }
+  },
+  {
+    "itemId": "equip.foundation_devour_attack_armor",
+    "name": "蚀命攻甲",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "甲内噬脉纹持续压榨身躯，换来更凶的双攻。",
+    "equipSlot": "body",
+    "equipBaselinePercents": {
+      "maxHp": -60,
+      "physDef": -45,
+      "spellDef": -45,
+      "physAtk": 65,
+      "spellAtk": 65
+    }
+  },
+  {
+    "itemId": "equip.foundation_dragonstride_boots",
+    "name": "地龙疾履",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "靴底刻地龙脊纹，踏地时像被地脉向前推了一步。",
+    "equipSlot": "legs",
+    "equipBaselinePercents": {
+      "moveSpeed": 120,
+      "dodge": 45
+    }
+  },
+  {
+    "itemId": "equip.foundation_returnflow_boots",
+    "name": "回息玄履",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "鞋底回流纹不断收束散气，适合压短术式空窗。",
+    "equipSlot": "legs",
+    "equipBaselinePercents": {
+      "cooldownSpeed": 105,
+      "moveSpeed": 70
+    }
+  },
+  {
+    "itemId": "equip.foundation_returnflow_pendant",
+    "name": "归息玄佩",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "佩中寒髓缓缓回旋，能让气机周转更快。",
+    "equipSlot": "accessory",
+    "equipBaselinePercents": {
+      "cooldownSpeed": 90,
+      "qiRegenRate": 50
+    }
+  },
+  {
+    "itemId": "equip.foundation_mountainbreaker_ring",
+    "name": "断岳指环",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "指环沉重如小山，出手时更容易把劲打穿。",
+    "equipSlot": "accessory",
+    "equipBaselinePercents": {
+      "physAtk": 85,
+      "hit": 45,
+      "breakPower": 55
+    }
+  },
+  {
+    "itemId": "equip.foundation_flameheart_charm",
+    "name": "焚心法佩",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "法佩内火心不灭，催动法术时灵力吐出更急。",
+    "equipSlot": "accessory",
+    "equipBaselinePercents": {
+      "spellAtk": 85,
+      "hit": 45,
+      "maxQiOutputPerTick": 55
+    }
+  },
+  {
+    "itemId": "equip.foundation_fivephase_output_pendant",
+    "name": "五行出灵坠",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "坠中五行脉晶开阖有序，重在提高每息灵力输出。",
+    "equipSlot": "accessory",
+    "equipBaselinePercents": {
+      "maxQiOutputPerTick": 100,
+      "spellAtk": 45
+    }
+  },
+  {
+    "itemId": "equip.foundation_quiet_cultivation_pendant",
+    "name": "静玄修真佩",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "佩纹不入战斗，只在静修时缓缓牵引境界与功法成长。",
+    "equipSlot": "accessory",
+    "equipBaselinePercents": {
+      "realmExpPerTick": 110,
+      "techniqueExpPerTick": 110
+    }
+  },
+  {
+    "itemId": "equip.foundation_burning_origin_furnace",
+    "name": "焚元丹炉",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "炉心以焚王余烬压火，能承受筑基期更烈的药性冲突。",
+    "equipSlot": "weapon",
+    "tags": [
+      "alchemy_furnace"
+    ],
+    "contextActions": [
+      {
+        "id": "alchemy:open",
+        "name": "炼丹",
+        "type": "craft",
+        "desc": "查看当前丹炉、丹方目录与炼制状态。",
+        "cooldownLeft": 0
+      }
+    ],
+    "alchemySuccessRate": 0.24,
+    "alchemySpeedRate": 0.4
+  },
+  {
+    "itemId": "equip.foundation_deepiron_forging_tongs",
+    "name": "深铁炼器钳",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "钳身深铁纹路极稳，夹住高阶器胚时不易炸纹。",
+    "equipSlot": "weapon",
+    "tags": [
+      "forging_tool"
+    ],
+    "contextActions": [
+      {
+        "id": "forging:open",
+        "name": "炼器",
+        "type": "craft",
+        "desc": "查看当前炼器工具与器方目录。",
+        "cooldownLeft": 0
+      }
+    ],
+    "alchemySuccessRate": 0.24,
+    "alchemySpeedRate": 0.4
+  },
+  {
+    "itemId": "equip.foundation_darksoil_enhancement_hammer",
+    "name": "玄壤强化锤",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "锤面覆玄壤精土，落锤时能把强化余震压回器身。",
+    "equipSlot": "weapon",
+    "tags": [
+      "enhancement_hammer"
+    ],
+    "contextActions": [
+      {
+        "id": "enhancement:open",
+        "name": "强化",
+        "type": "craft",
+        "desc": "查看当前强化候选、保护材料与强化状态。",
+        "cooldownLeft": 0
+      }
+    ],
+    "enhancementSuccessRate": 0.035,
+    "enhancementSpeedRate": 0.35
+  },
+  {
+    "itemId": "equip.foundation_dragonspine_mining_pickaxe",
+    "name": "地龙矿镐",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "镐身带地龙脊骨纹，能顺着深层矿脉撬开厚壳。",
+    "equipSlot": "weapon",
+    "tags": [
+      "mining_pickaxe"
+    ],
+    "contextActions": [
+      {
+        "id": "mining:start",
+        "name": "挖矿",
+        "type": "craft",
+        "desc": "选择视野内矿脉，开始一个可在技艺任务列表中查看和取消的挖矿任务。",
+        "cooldownLeft": 0,
+        "requiresTarget": true,
+        "targetMode": "tile",
+        "range": 999
+      }
+    ],
+    "miningDamageRate": 1.2
+  },
+  {
+    "itemId": "equip.foundation_mixed_origin_building_hammer",
+    "name": "混元营造锤",
+    "type": "equipment",
+    "grade": "earth",
+    "level": 40,
+    "desc": "锤内混元脉石与木火精华相冲相合，适合压定筑基建筑地基。",
+    "equipSlot": "weapon",
+    "tags": [
+      "building_hammer"
+    ],
+    "contextActions": [
+      {
+        "id": "building:open",
+        "name": "营造",
+        "type": "craft",
+        "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
+        "cooldownLeft": 0
+      }
+    ]
+  }
+]

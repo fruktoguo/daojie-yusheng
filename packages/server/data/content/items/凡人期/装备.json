@@ -108,7 +108,7 @@
     "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
     "equipSlot": "accessory",
     "equipBaselinePercents": {
-      "maxQi": 70,
+      "realmExpPerTick": 70,
       "techniqueExpPerTick": 110
     }
   },
@@ -227,27 +227,6 @@
           "persistOnDeath": true,
           "color": "#6e4a3f",
           "maxStacks": 6442450941
-        }
-      },
-      {
-        "effectId": "soul-devour-feast",
-        "type": "timed_buff",
-        "trigger": "on_kill",
-        "target": "self",
-        "cooldown": 6,
-        "buff": {
-          "buffId": "equip.soul_devour_feast",
-          "name": "食煞回元",
-          "desc": "斩杀后残意反涌，短时间内灵力回复与功法运转更快。",
-          "duration": 8,
-          "shortMark": "煞",
-          "category": "buff",
-          "visibility": "public",
-          "color": "#8a3f2d",
-          "statMode": "flat",
-          "valueStats": {
-            "qiRegenRate": 0.5
-          }
         }
       }
     ],

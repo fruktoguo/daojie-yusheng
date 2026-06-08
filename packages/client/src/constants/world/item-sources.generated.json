@@ -1869,6 +1869,13 @@
       "monsterId": "m_stele_arbiter",
       "monsterName": "裂碑司命",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.broken_rune_blade",
+      "recipeName": "断碑纹剑器方"
     }
   ],
   "equip.chasing_edge_boots": [
@@ -1879,6 +1886,13 @@
       "monsterId": "m_cleft_blade_sprite",
       "monsterName": "金砂锋魈",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.chasing_edge_boots",
+      "recipeName": "逐锋履器方"
     }
   ],
   "equip.cleantide_robe": [
@@ -1921,6 +1935,13 @@
       "monsterId": "m_cold_pattern_guard",
       "monsterName": "冰纹水卒",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.cleantide_robe",
+      "recipeName": "净潮法衣器方"
     }
   ],
   "equip.cleft_blade_cloak": [
@@ -1931,6 +1952,13 @@
       "monsterId": "m_cleft_banner_general",
       "monsterName": "残兵鸣将",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.cleft_blade_cloak",
+      "recipeName": "裂锋披器方"
     }
   ],
   "equip.copper_building_hammer": [
@@ -2029,6 +2057,13 @@
       "mode": "direct",
       "chance": 0.1,
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.deepvein_core",
+      "recipeName": "厚脉核器方"
     }
   ],
   "equip.ember_scorch_spear": [
@@ -2079,6 +2114,13 @@
       "monsterId": "m_ember_whelp",
       "monsterName": "赤烬蜥幼",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.ember_scorch_spear",
+      "recipeName": "赤陨灼枪器方"
     }
   ],
   "equip.fallrock_maul": [
@@ -2089,6 +2131,256 @@
       "monsterId": "m_deepvein_armor_spirit",
       "monsterName": "坠岩甲灵",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.fallrock_maul",
+      "recipeName": "坠岩槌器方"
+    }
+  ],
+  "equip.foundation_abyss_life_armor": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_abyss_life_armor",
+      "recipeName": "深渊寿甲器方"
+    }
+  ],
+  "equip.foundation_burning_origin_furnace": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_burning_origin_furnace",
+      "recipeName": "焚元丹炉器方"
+    }
+  ],
+  "equip.foundation_cold_abyss_spell_ruler": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_cold_abyss_spell_ruler",
+      "recipeName": "寒渊法尺器方"
+    }
+  ],
+  "equip.foundation_coldiron_heavy_helm": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_coldiron_heavy_helm",
+      "recipeName": "寒铁重盔器方"
+    }
+  ],
+  "equip.foundation_darksoil_enhancement_hammer": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_darksoil_enhancement_hammer",
+      "recipeName": "玄壤强化锤器方"
+    }
+  ],
+  "equip.foundation_darksoil_life_helm": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_darksoil_life_helm",
+      "recipeName": "玄土命盔器方"
+    }
+  ],
+  "equip.foundation_deepiron_forging_tongs": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_deepiron_forging_tongs",
+      "recipeName": "深铁炼器钳器方"
+    }
+  ],
+  "equip.foundation_devour_attack_armor": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_devour_attack_armor",
+      "recipeName": "蚀命攻甲器方"
+    }
+  ],
+  "equip.foundation_dragonspine_mining_pickaxe": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_dragonspine_mining_pickaxe",
+      "recipeName": "地龙矿镐器方"
+    }
+  ],
+  "equip.foundation_dragonstride_boots": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_dragonstride_boots",
+      "recipeName": "地龙疾履器方"
+    }
+  ],
+  "equip.foundation_fivephase_output_pendant": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_fivephase_output_pendant",
+      "recipeName": "五行出灵坠器方"
+    }
+  ],
+  "equip.foundation_flameheart_charm": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_flameheart_charm",
+      "recipeName": "焚心法佩器方"
+    }
+  ],
+  "equip.foundation_frostsplit_crit_blade": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_frostsplit_crit_blade",
+      "recipeName": "霜裂爆锋器方"
+    }
+  ],
+  "equip.foundation_iceheart_spell_crown": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_iceheart_spell_crown",
+      "recipeName": "冰心法冠器方"
+    }
+  ],
+  "equip.foundation_inverse_life_war_crown": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_inverse_life_war_crown",
+      "recipeName": "逆命战冠器方"
+    }
+  ],
+  "equip.foundation_iron_soul_blade": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_iron_soul_blade",
+      "recipeName": "铁魄断山刃器方"
+    }
+  ],
+  "equip.foundation_ironshell_plate": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_ironshell_plate",
+      "recipeName": "铁甲玄胄器方"
+    }
+  ],
+  "equip.foundation_mixed_body_armor": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_mixed_body_armor",
+      "recipeName": "混元护身甲器方"
+    }
+  ],
+  "equip.foundation_mixed_dual_sword": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_mixed_dual_sword",
+      "recipeName": "混元双仪剑器方"
+    }
+  ],
+  "equip.foundation_mixed_guard_crown": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_mixed_guard_crown",
+      "recipeName": "混元护神冠器方"
+    }
+  ],
+  "equip.foundation_mixed_origin_building_hammer": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_mixed_origin_building_hammer",
+      "recipeName": "混元营造锤器方"
+    }
+  ],
+  "equip.foundation_mountainbreaker_ring": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_mountainbreaker_ring",
+      "recipeName": "断岳指环器方"
+    }
+  ],
+  "equip.foundation_quiet_cultivation_pendant": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_quiet_cultivation_pendant",
+      "recipeName": "静玄修真佩器方"
+    }
+  ],
+  "equip.foundation_returnbreath_cooldown_staff": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_returnbreath_cooldown_staff",
+      "recipeName": "归息玄杖器方"
+    }
+  ],
+  "equip.foundation_returnflow_boots": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_returnflow_boots",
+      "recipeName": "回息玄履器方"
+    }
+  ],
+  "equip.foundation_returnflow_pendant": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_returnflow_pendant",
+      "recipeName": "归息玄佩器方"
+    }
+  ],
+  "equip.foundation_turtle_spell_robe": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.foundation_turtle_spell_robe",
+      "recipeName": "玄龟法衣器方"
     }
   ],
   "equip.full_edge_blade": [
@@ -2099,6 +2391,13 @@
       "monsterId": "m_cleft_blade_sprite",
       "monsterName": "金砂锋魈",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.full_edge_blade",
+      "recipeName": "满锋刀器方"
     }
   ],
   "equip.furnace_red_ring": [
@@ -2158,6 +2457,13 @@
       "questTitle": "守岭的人没睡",
       "line": "main",
       "chapter": "第四章·兽谷问门"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.furnace_red_ring",
+      "recipeName": "炉心赤戒器方"
     }
   ],
   "equip.gate_headcloth": [
@@ -2168,6 +2474,13 @@
       "monsterId": "m_wild_bandit",
       "monsterName": "荒野匪徒",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.gate_headcloth",
+      "recipeName": "门丁裹头巾器方"
     }
   ],
   "equip.gather_qi_pendant": [
@@ -2187,6 +2500,13 @@
       "questTitle": "断道见闻",
       "line": "main",
       "chapter": "序章·断道入镇"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.gather_qi_pendant",
+      "recipeName": "采气木坠器方"
     }
   ],
   "equip.geng_gate_blade": [
@@ -2197,6 +2517,13 @@
       "monsterId": "m_cleft_gate_lord",
       "monsterName": "庚金镇门将",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.geng_gate_blade",
+      "recipeName": "庚门断锋器方"
     }
   ],
   "equip.guizang_conflux_blade": [
@@ -2239,6 +2566,13 @@
       "monsterId": "m_guizang_reflux_attendant",
       "monsterName": "逆流残侍",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.guizang_conflux_blade",
+      "recipeName": "归藏合流刃器方"
     }
   ],
   "equip.hanxi_flow_ruler": [
@@ -2281,6 +2615,13 @@
       "monsterId": "m_cold_tide_sprite",
       "monsterName": "寒汐蜉灵",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.hanxi_flow_ruler",
+      "recipeName": "寒汐引流尺器方"
     }
   ],
   "equip.herb_mist_robe": [
@@ -2300,6 +2641,13 @@
       "questTitle": "断道见闻",
       "line": "main",
       "chapter": "序章·断道入镇"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.herb_mist_robe",
+      "recipeName": "药烟轻袍器方"
     }
   ],
   "equip.mount_guard_helm": [
@@ -2310,6 +2658,13 @@
       "monsterId": "m_deepvein_heavy_guard",
       "monsterName": "裂岭重卫",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.mount_guard_helm",
+      "recipeName": "镇岭盔器方"
     }
   ],
   "equip.mountainseal_plate": [
@@ -2320,6 +2675,13 @@
       "monsterId": "m_deepvein_earth_effigy",
       "monsterName": "玄岳地傀",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.mountainseal_plate",
+      "recipeName": "封岳甲器方"
     }
   ],
   "equip.orebreak_hammer": [
@@ -2330,6 +2692,58 @@
       "monsterId": "m_ore_colossus",
       "monsterName": "玄矿巨像精英",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.orebreak_hammer",
+      "recipeName": "矿卫破岩锤器方"
+    }
+  ],
+  "equip.qi_crimson_pattern_furnace": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.qi_crimson_pattern_furnace",
+      "recipeName": "赤纹丹炉器方"
+    }
+  ],
+  "equip.qi_fengyue_forging_tongs": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.qi_fengyue_forging_tongs",
+      "recipeName": "锋岳炼器钳器方"
+    }
+  ],
+  "equip.qi_fivephase_enhancement_hammer": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.qi_fivephase_enhancement_hammer",
+      "recipeName": "五炁强化锤器方"
+    }
+  ],
+  "equip.qi_guizang_mining_pickaxe": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.qi_guizang_mining_pickaxe",
+      "recipeName": "归藏矿镐器方"
+    }
+  ],
+  "equip.qi_halfbase_building_hammer": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.qi_halfbase_building_hammer",
+      "recipeName": "半基营造锤器方"
     }
   ],
   "equip.returnarray_boots": [
@@ -2356,6 +2770,13 @@
       "monsterId": "m_guizang_fivephase_effigy",
       "monsterName": "五炁砂偶",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.returnarray_boots",
+      "recipeName": "回阵行履器方"
     }
   ],
   "equip.returnbreath_copper_pendant": [
@@ -2375,6 +2796,13 @@
       "questTitle": "叩门之前先成其身",
       "line": "main",
       "chapter": "第四章·兽谷问门"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.returnbreath_copper_pendant",
+      "recipeName": "归息铜佩器方"
     }
   ],
   "equip.ridgecleft_halberd": [
@@ -2385,6 +2813,13 @@
       "monsterId": "m_deepvein_heavy_guard",
       "monsterName": "裂岭重卫",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.ridgecleft_halberd",
+      "recipeName": "裂岭戟器方"
     }
   ],
   "equip.ridgewall_armor": [
@@ -2395,6 +2830,13 @@
       "monsterId": "m_deepvein_armor_spirit",
       "monsterName": "坠岩甲灵",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.ridgewall_armor",
+      "recipeName": "岭垣甲器方"
     }
   ],
   "equip.rift_guard_armor": [
@@ -2438,6 +2880,13 @@
       "questTitle": "把门钥从死人手里拿走",
       "line": "main",
       "chapter": "第三章·矿洞遗火"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.rift_guard_armor",
+      "recipeName": "镇煞护心甲器方"
     }
   ],
   "equip.sand_ghost_mask": [
@@ -2448,6 +2897,13 @@
       "monsterId": "m_cleft_blade_sprite",
       "monsterName": "金砂锋魈",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.sand_ghost_mask",
+      "recipeName": "砂魇面器方"
     }
   ],
   "equip.scar_tread_boots": [
@@ -2458,6 +2914,13 @@
       "monsterId": "m_cleft_blade_wraith",
       "monsterName": "断刃游魂",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.scar_tread_boots",
+      "recipeName": "裂痕踏靴器方"
     }
   ],
   "equip.sealed_path_token": [
@@ -2468,6 +2931,13 @@
       "monsterId": "m_cleft_gate_lord",
       "monsterName": "庚金镇门将",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.sealed_path_token",
+      "recipeName": "封路令器方"
     }
   ],
   "equip.shieldvein_stone": [
@@ -2478,6 +2948,13 @@
       "monsterId": "m_deepvein_armor_spirit",
       "monsterName": "坠岩甲灵",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.shieldvein_stone",
+      "recipeName": "护脉石器方"
     }
   ],
   "equip.soot_lamp_hood": [
@@ -2498,6 +2975,13 @@
       "mode": "direct",
       "chance": 0.14,
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.soot_lamp_hood",
+      "recipeName": "熄火矿灯冠器方"
     }
   ],
   "equip.soul_devour_token": [
@@ -2556,6 +3040,13 @@
       "questId": "q_ruin_keeper_side",
       "questTitle": "守纹残念",
       "line": "side"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.soul_devour_token",
+      "recipeName": "噬元骨牌器方"
     }
   ],
   "equip.trench_runner_boots": [
@@ -2585,6 +3076,13 @@
       "questTitle": "断道见闻",
       "line": "main",
       "chapter": "序章·断道入镇"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.trench_runner_boots",
+      "recipeName": "越沟快靴器方"
     }
   ],
   "equip.verdant_crown": [
@@ -2668,6 +3166,13 @@
       "questTitle": "拿到那块行令",
       "line": "main",
       "chapter": "第四章·兽谷问门"
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.verdant_crown",
+      "recipeName": "青萝束冠器方"
     }
   ],
   "equip.vineguide_staff": [
@@ -2726,6 +3231,13 @@
       "monsterId": "m_verdant_vein_mother",
       "monsterName": "噬脉藤母",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.vineguide_staff",
+      "recipeName": "养枝引脉杖器方"
     }
   ],
   "equip.yuetown_mask": [
@@ -2736,6 +3248,13 @@
       "monsterId": "m_deepvein_ridge_warden",
       "monsterName": "岳纹镇灵",
       "count": 1
+    },
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.yuetown_mask",
+      "recipeName": "御土面器方"
     }
   ],
   "fate_stone": [

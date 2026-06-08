@@ -7648,9 +7648,9 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 120,
-          "wood": 60,
-          "water": 40
+          "wood": 38,
+          "water": 25,
+          "earth": 64
         }
       },
       "desc": "旧阵把五炁压成半成品后遗下的灵胚，拿在手里都像要自行立基。",
@@ -7659,19 +7659,57 @@
       ]
     },
     {
+      "itemId": "equip.qi_halfbase_building_hammer",
+      "name": "半基营造锤",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 29,
+      "desc": "锤柄中藏半基灵胚，定柱、压梁时更容易把地气压稳。",
+      "equipSlot": "weapon",
+      "tags": [
+        "building_hammer"
+      ],
+      "contextActions": [
+        {
+          "id": "building:open",
+          "name": "营造",
+          "type": "craft",
+          "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
+          "cooldownLeft": 0
+        }
+      ]
+    },
+    {
       "itemId": "mat.ice_crystal_silk",
       "name": "冰晶丝",
       "type": "material",
       "grade": "mystic",
       "level": 33,
-      "materialCategory": "hide",
+      "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 8,
-          "wood": 4
+          "wood": 30,
+          "water": 57
         }
       },
-      "desc": "冰晶蜘蛛吐出的丝线，透明如冰，韧性极强。"
+      "desc": "冰晶蜘蛛吐出的丝线，透明如冰，韧性极强。",
+      "tags": [
+        "异材"
+      ]
+    },
+    {
+      "itemId": "equip.foundation_iceheart_spell_crown",
+      "name": "冰心法冠",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "冰心纹贴着识海，能让外来法力冲击变得迟滞。",
+      "equipSlot": "head",
+      "equipStats": {
+        "maxQi": 155,
+        "spellDef": 56,
+        "resolvePower": 29
+      }
     },
     {
       "itemId": "mat.frozen_spider_core",
@@ -7682,8 +7720,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 18,
-          "metal": 6
+          "metal": 41,
+          "water": 76
         }
       },
       "desc": "冰晶蜘蛛体内凝结的灵核，蕴含纯粹水行之力。",
@@ -7700,7 +7738,7 @@
       "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
       "equipSlot": "accessory",
       "equipStats": {
-        "maxQi": 64,
+        "realmExpPerTick": 8,
         "techniqueExpPerTick": 13
       }
     },
@@ -7713,8 +7751,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 20,
-          "earth": 10
+          "metal": 27,
+          "earth": 15
         }
       },
       "desc": "裂锋原旧兵器在风砂里磨剩下的铁片，边缘依旧带着细碎锋意。",
@@ -7732,8 +7770,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "earth": 20,
-          "wood": 10
+          "wood": 19,
+          "earth": 34
         }
       },
       "desc": "深扎裂岩的厚根，嚼之微涩，却最能稳住下沉地气。",
@@ -7750,8 +7788,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 20,
-          "water": 10
+          "water": 15,
+          "earth": 27
         }
       },
       "desc": "厚脉岭地气压出来的承重石，拿在手里就觉得气机往下沉。",
@@ -7769,14 +7807,37 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "fire": 2,
-          "wood": 1
+          "wood": 12,
+          "fire": 23
         }
       },
       "desc": "叶脉似有火线流过，微温不烈，常用来提振炉火药性。",
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "equip.qi_crimson_pattern_furnace",
+      "name": "赤纹丹炉",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 29,
+      "desc": "炉壁内嵌赤纹与净潮细槽，能把练气期药性收束得更稳。",
+      "equipSlot": "weapon",
+      "tags": [
+        "alchemy_furnace"
+      ],
+      "contextActions": [
+        {
+          "id": "alchemy:open",
+          "name": "炼丹",
+          "type": "craft",
+          "desc": "查看当前丹炉、丹方目录与炼制状态。",
+          "cooldownLeft": 0
+        }
+      ],
+      "alchemySuccessRate": 0.16,
+      "alchemySpeedRate": 0.3
     },
     {
       "itemId": "pill.crimson_bud_elixir",
@@ -7812,8 +7873,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "fire": 2,
-          "wood": 1
+          "wood": 6,
+          "fire": 12
         }
       },
       "desc": "果肉辛甜，药气偏热，最适合催发血气。",
@@ -7907,11 +7968,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "wood": 3,
-          "earth": 2
+          "wood": 7,
+          "earth": 4
         }
       },
       "desc": "竹灵聚气形成的核心髓结。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -7935,6 +7997,19 @@
       "formationDiskMultiplier": 8
     },
     {
+      "itemId": "equip.foundation_dragonstride_boots",
+      "name": "地龙疾履",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "靴底刻地龙脊纹，踏地时像被地脉向前推了一步。",
+      "equipSlot": "legs",
+      "equipStats": {
+        "dodge": 22,
+        "moveSpeed": 58
+      }
+    },
+    {
       "itemId": "mat.dragon_spine_bone",
       "name": "地龙脊骨",
       "type": "material",
@@ -7943,8 +8018,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 30,
-          "metal": 20
+          "metal": 66,
+          "earth": 124
         }
       },
       "desc": "玄壤地龙的脊骨，坚逾精钢，是炼制天阶重器的珍材。",
@@ -7952,6 +8027,31 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_dragonspine_mining_pickaxe",
+      "name": "地龙矿镐",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "镐身带地龙脊骨纹，能顺着深层矿脉撬开厚壳。",
+      "equipSlot": "weapon",
+      "tags": [
+        "mining_pickaxe"
+      ],
+      "contextActions": [
+        {
+          "id": "mining:start",
+          "name": "挖矿",
+          "type": "craft",
+          "desc": "选择视野内矿脉，开始一个可在技艺任务列表中查看和取消的挖矿任务。",
+          "cooldownLeft": 0,
+          "requiresTarget": true,
+          "targetMode": "tile",
+          "range": 999
+        }
+      ],
+      "miningDamageRate": 1.2
     },
     {
       "itemId": "mat.dragon_inner_core",
@@ -7962,8 +8062,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 40,
-          "metal": 20
+          "metal": 66,
+          "earth": 124
         }
       },
       "desc": "玄壤地龙修炼凝结的内丹，蕴含浓郁土行道韵，极为珍贵。",
@@ -7980,9 +8080,9 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 25,
-          "water": 15,
-          "metal": 10
+          "metal": 44,
+          "water": 66,
+          "earth": 110
         }
       },
       "desc": "裂地蜈蚣体内积蓄的地脉毒素，剧毒无比，是炼制毒性丹药的极品材料。",
@@ -8012,15 +8112,30 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 6,
-          "metal": 3
+          "metal": 7,
+          "earth": 13
         }
       },
       "desc": "遗迹傀儡体内剥落的残纹。",
+      "grade": "mortal",
       "tags": [
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_mountainbreaker_ring",
+      "name": "断岳指环",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "指环沉重如小山，出手时更容易把劲打穿。",
+      "equipSlot": "accessory",
+      "equipStats": {
+        "physAtk": 41,
+        "hit": 22,
+        "breakPower": 27
+      }
     },
     {
       "itemId": "formation_disk.mortal",
@@ -8039,11 +8154,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 1,
-          "earth": 1
+          "metal": 5,
+          "earth": 2
         }
       },
       "desc": "荒野匪徒身份的金属牌。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -8057,8 +8173,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "fire": 16,
-          "wood": 8
+          "wood": 44,
+          "fire": 82
         }
       },
       "desc": "焚木荒台深处的灵种，外壳焦黑但内蕴火行生机。",
@@ -8075,8 +8191,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 28,
-          "fire": 20
+          "wood": 115,
+          "fire": 62
         }
       },
       "desc": "焚木妖王核心处的心木，历经千年焚烧不朽，蕴含浓郁木火道韵。",
@@ -8093,14 +8209,51 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 35,
-          "wood": 15
+          "wood": 62,
+          "fire": 115
         }
       },
       "desc": "焚木妖王死后残留的余烬，火焰经久不灭，是炼制天阶火器的珍材。",
       "tags": [
         "异材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_flameheart_charm",
+      "name": "焚心法佩",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "法佩内火心不灭，催动法术时灵力吐出更急。",
+      "equipSlot": "accessory",
+      "equipStats": {
+        "spellAtk": 41,
+        "hit": 22,
+        "maxQiOutputPerTick": 27
+      }
+    },
+    {
+      "itemId": "equip.foundation_burning_origin_furnace",
+      "name": "焚元丹炉",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "炉心以焚王余烬压火，能承受筑基期更烈的药性冲突。",
+      "equipSlot": "weapon",
+      "tags": [
+        "alchemy_furnace"
+      ],
+      "contextActions": [
+        {
+          "id": "alchemy:open",
+          "name": "炼丹",
+          "type": "craft",
+          "desc": "查看当前丹炉、丹方目录与炼制状态。",
+          "cooldownLeft": 0
+        }
+      ],
+      "alchemySuccessRate": 0.24,
+      "alchemySpeedRate": 0.4
     },
     {
       "itemId": "equip.sealed_path_token",
@@ -8111,12 +8264,8 @@
       "desc": "旧时封山闭路的令牌，修炼时有股强行把气机压回主脉的蛮劲。",
       "equipSlot": "accessory",
       "equipStats": {
-        "maxQi": 104,
-        "spellAtk": 15,
-        "resolvePower": 15,
-        "maxQiOutputPerTick": 15,
-        "realmExpPerTick": 21,
-        "techniqueExpPerTick": 19
+        "realmExpPerTick": 28,
+        "techniqueExpPerTick": 26
       }
     },
     {
@@ -8164,8 +8313,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 52,
-          "fire": 26
+          "metal": 46,
+          "fire": 24
         }
       },
       "desc": "断兵锋气在碑纹与砂金间凝成的碎晶，常用于金行器胚重铸。",
@@ -8173,6 +8322,29 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.qi_fengyue_forging_tongs",
+      "name": "锋岳炼器钳",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 29,
+      "desc": "钳口一边开锋一边镇岳，夹住器胚时不容易让灵纹散开。",
+      "equipSlot": "weapon",
+      "tags": [
+        "forging_tool"
+      ],
+      "contextActions": [
+        {
+          "id": "forging:open",
+          "name": "炼器",
+          "type": "craft",
+          "desc": "查看当前炼器工具与器方目录。",
+          "cooldownLeft": 0
+        }
+      ],
+      "alchemySuccessRate": 0.16,
+      "alchemySpeedRate": 0.3
     },
     {
       "itemId": "equip.geng_gate_blade",
@@ -8250,11 +8422,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 6,
-          "metal": 3
+          "metal": 7,
+          "water": 12
         }
       },
       "desc": "兽谷异蛇的逆鳞碎片。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -8275,6 +8448,31 @@
       }
     },
     {
+      "itemId": "equip.qi_guizang_mining_pickaxe",
+      "name": "归藏矿镐",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 29,
+      "desc": "镐尖压着归藏脉纹，敲入矿脉时能顺着暗脉裂开。",
+      "equipSlot": "weapon",
+      "tags": [
+        "mining_pickaxe"
+      ],
+      "contextActions": [
+        {
+          "id": "mining:start",
+          "name": "挖矿",
+          "type": "craft",
+          "desc": "选择视野内矿脉，开始一个可在技艺任务列表中查看和取消的挖矿任务。",
+          "cooldownLeft": 0,
+          "requiresTarget": true,
+          "targetMode": "tile",
+          "range": 999
+        }
+      ],
+      "miningDamageRate": 0.8
+    },
+    {
       "itemId": "guizang_vein_core",
       "name": "归藏脉核",
       "type": "material",
@@ -8283,9 +8481,9 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 120,
-          "metal": 60,
-          "water": 40
+          "metal": 38,
+          "water": 25,
+          "earth": 64
         }
       },
       "desc": "混脉压到极处后凝出的硬核碎块，是练气后段少见的合脉炼材。",
@@ -8311,10 +8509,35 @@
       "desc": "听脉之后发下来的小铜佩，佩口虽旧，却很会把散出去的真气慢慢拢回来。",
       "equipSlot": "accessory",
       "equipStats": {
-        "maxQi": 84,
-        "maxQiOutputPerTick": 14,
-        "qiRegenRate": 11,
-        "techniqueExpPerTick": 16
+        "techniqueExpPerTick": 19
+      }
+    },
+    {
+      "itemId": "equip.foundation_returnflow_pendant",
+      "name": "归息玄佩",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "佩中寒髓缓缓回旋，能让气机周转更快。",
+      "equipSlot": "accessory",
+      "equipStats": {
+        "qiRegenRate": 24,
+        "cooldownSpeed": 44
+      }
+    },
+    {
+      "itemId": "equip.foundation_returnbreath_cooldown_staff",
+      "name": "归息玄杖",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "杖心一呼一吸，自行牵回散气，适合频繁运转术式。",
+      "equipSlot": "weapon",
+      "equipStats": {
+        "spellAtk": 29,
+        "qiRegenRate": 34,
+        "hpRegenRate": 17,
+        "cooldownSpeed": 44
       }
     },
     {
@@ -8326,8 +8549,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "water": 6,
-          "wood": 3
+          "wood": 13,
+          "water": 23
         }
       },
       "desc": "带着寒雾水汽的薄瓣，能压住燥烈药势。",
@@ -8344,8 +8567,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 20,
-          "metal": 10
+          "metal": 15,
+          "water": 27
         }
       },
       "desc": "寒汐泽夜露凝成的冷滴，入手清寒，常被拿去压杂气和做回灵药。",
@@ -8362,8 +8585,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 16,
-          "wood": 8
+          "wood": 38,
+          "water": 72
         }
       },
       "desc": "霜鳞蛇胆囊，内含凝寒灵液，是炼制寒性丹药的上品辅材。",
@@ -8380,8 +8603,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "water": 20,
-          "wood": 10
+          "wood": 17,
+          "water": 32
         }
       },
       "desc": "生在寒汐浅滩的青白苇芯，内里一缕冷意直入髓海。",
@@ -8398,8 +8621,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 8,
-          "water": 4
+          "metal": 55,
+          "water": 30
         }
       },
       "desc": "寒铁蝎背甲碎片，坚硬如铁且带寒气，可用于炼器。",
@@ -8417,8 +8640,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 14,
-          "water": 10
+          "metal": 73,
+          "water": 40
         }
       },
       "desc": "霜刃渊矿脉中采出的寒铁碎块，带着刺骨寒意。",
@@ -8426,6 +8649,20 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_coldiron_heavy_helm",
+      "name": "寒铁重盔",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "整顶盔由寒铁甲片压合，最擅长硬挡实打实的兵刃。",
+      "equipSlot": "head",
+      "equipStats": {
+        "maxHp": 203,
+        "physDef": 56,
+        "antiCrit": 22
+      }
     },
     {
       "itemId": "equip.hanxi_flow_ruler",
@@ -8459,6 +8696,20 @@
       "baselineHealPercent": 1.1
     },
     {
+      "itemId": "equip.foundation_cold_abyss_spell_ruler",
+      "name": "寒渊法尺",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "尺身封寒渊细纹，适合牵引法术灵力直入敌脉。",
+      "equipSlot": "weapon",
+      "equipStats": {
+        "spellAtk": 56,
+        "hit": 29,
+        "maxQiOutputPerTick": 34
+      }
+    },
+    {
       "itemId": "map.black_iron_mine",
       "name": "黑铁矿脉图",
       "type": "consumable",
@@ -8475,13 +8726,8 @@
       "desc": "像一枚被地气反复压实的脉核，行功时很会往主脉里聚劲。",
       "equipSlot": "accessory",
       "equipStats": {
-        "maxQi": 91,
-        "physDef": 13,
-        "spellDef": 15,
-        "resolvePower": 15,
-        "maxQiOutputPerTick": 13,
-        "realmExpPerTick": 21,
-        "techniqueExpPerTick": 19
+        "realmExpPerTick": 29,
+        "techniqueExpPerTick": 28
       }
     },
     {
@@ -8510,8 +8756,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 20,
-          "metal": 10
+          "metal": 15,
+          "earth": 27
         }
       },
       "desc": "厚石里最密最实的一截岩心，炼体和护甲都用得上。",
@@ -8529,12 +8775,8 @@
       "desc": "贴身佩着时，真气会不自觉绕着经脉走得更稳。",
       "equipSlot": "accessory",
       "equipStats": {
-        "maxQi": 75,
-        "physDef": 11,
-        "resolvePower": 12,
-        "maxQiOutputPerTick": 11,
-        "realmExpPerTick": 15,
-        "techniqueExpPerTick": 13
+        "realmExpPerTick": 19,
+        "techniqueExpPerTick": 18
       }
     },
     {
@@ -8574,8 +8816,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 20,
-          "water": 10
+          "wood": 30,
+          "water": 16
         }
       },
       "desc": "叶背常藏一线回生青气，晒干后仍能缓慢吐纳木息。",
@@ -8591,6 +8833,19 @@
       "desc": "把散乱灵气压回经脉，立刻恢复 56% 真气。",
       "qiPercent": 0.56,
       "grade": "yellow"
+    },
+    {
+      "itemId": "equip.foundation_returnflow_boots",
+      "name": "回息玄履",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "鞋底回流纹不断收束散气，适合压短术式空窗。",
+      "equipSlot": "legs",
+      "equipStats": {
+        "cooldownSpeed": 51,
+        "moveSpeed": 34
+      }
     },
     {
       "itemId": "equip.returnarray_boots",
@@ -8614,11 +8869,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 5,
-          "earth": 3
+          "water": 10,
+          "earth": 6
         }
       },
       "desc": "古碑残魂凝结出的墨色灵液。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -8632,15 +8888,43 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 12,
-          "water": 8,
-          "metal": 4
+          "metal": 32,
+          "water": 50,
+          "earth": 83
         }
       },
       "desc": "混元石蟾口中含养的灵珠，五行混杂，是炼制混元类丹药的辅材。",
       "tags": [
         "异材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_mixed_body_armor",
+      "name": "混元护身甲",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "甲心嵌混元蟾珠，能把两类冲击分摊到五行纹路里。",
+      "equipSlot": "body",
+      "equipStats": {
+        "maxHp": 232,
+        "physDef": 41,
+        "spellDef": 41
+      }
+    },
+    {
+      "itemId": "equip.foundation_mixed_guard_crown",
+      "name": "混元护神冠",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "冠上五行轮转，不偏一门，胜在稳住双防。",
+      "equipSlot": "head",
+      "equipStats": {
+        "physDef": 39,
+        "spellDef": 39,
+        "antiCrit": 22
+      }
     },
     {
       "itemId": "mat.mixed_vein_stone",
@@ -8651,17 +8935,53 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 20,
-          "metal": 15,
-          "water": 10,
-          "fire": 5,
-          "wood": 5
+          "metal": 55,
+          "wood": 55,
+          "water": 55,
+          "fire": 55,
+          "earth": 55
         }
       },
       "desc": "玄壤深渊混脉交汇处凝结的脉石，五行杂糅，是炼制混元类法器的基础材料。",
       "tags": [
         "矿石",
         "矿材"
+      ]
+    },
+    {
+      "itemId": "equip.foundation_mixed_dual_sword",
+      "name": "混元双仪剑",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "剑脊分阴阳双槽，能同时承载体魄劲与法力劲。",
+      "equipSlot": "weapon",
+      "equipStats": {
+        "physAtk": 41,
+        "spellAtk": 41,
+        "hit": 27,
+        "maxQiOutputPerTick": 22
+      }
+    },
+    {
+      "itemId": "equip.foundation_mixed_origin_building_hammer",
+      "name": "混元营造锤",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "锤内混元脉石与木火精华相冲相合，适合压定筑基建筑地基。",
+      "equipSlot": "weapon",
+      "tags": [
+        "building_hammer"
+      ],
+      "contextActions": [
+        {
+          "id": "building:open",
+          "name": "营造",
+          "type": "craft",
+          "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
+          "cooldownLeft": 0
+        }
       ]
     },
     {
@@ -8673,8 +8993,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 14,
-          "wood": 10
+          "wood": 44,
+          "fire": 82
         }
       },
       "desc": "枯木行者体内仍在燃烧的木炭，火焰不灭，是炼器的优质燃料。",
@@ -8691,8 +9011,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 6,
-          "metal": 3
+          "metal": 13,
+          "wood": 23
         }
       },
       "desc": "细长苇芯中藏着轻灵风息，常用来炼制轻身类丹药。",
@@ -8717,8 +9037,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 20,
-          "fire": 10
+          "metal": 27,
+          "fire": 15
         }
       },
       "desc": "断剑堆中凝出的锋气丸珠，是金行低阶炼材。",
@@ -8735,8 +9055,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 6,
-          "fire": 6
+          "wood": 62,
+          "fire": 33
         }
       },
       "desc": "枯木行者身上剥落的树皮，半焦半活，蕴含木火双行灵气。",
@@ -8753,8 +9073,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 16,
-          "fire": 8
+          "wood": 85,
+          "fire": 45
         }
       },
       "desc": "焦木深处未被烧尽的木心，蕴含顽强木行灵气。",
@@ -8771,8 +9091,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "metal": 20,
-          "wood": 10
+          "metal": 33,
+          "wood": 18
         }
       },
       "desc": "棘藤细刺泛着淡金光，轻折便能闻到锋锐药香。",
@@ -8788,11 +9108,12 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 3,
-          "water": 2
+          "metal": 8,
+          "water": 4
         }
       },
       "desc": "晶背蝠掉落的微光粉末。",
+      "grade": "mortal",
       "tags": [
         "矿石",
         "矿材"
@@ -8821,14 +9142,27 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 52,
-          "wood": 26
+          "wood": 24,
+          "water": 46
         }
       },
       "desc": "多层寒潮反复淘洗后留下的净水精华，是洗脉与寒性法衣的核心炼材。",
       "tags": [
         "异材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_quiet_cultivation_pendant",
+      "name": "静玄修真佩",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "佩纹不入战斗，只在静修时缓缓牵引境界与功法成长。",
+      "equipSlot": "accessory",
+      "equipStats": {
+        "realmExpPerTick": 53,
+        "techniqueExpPerTick": 53
+      }
     },
     {
       "itemId": "colossus_heart",
@@ -8845,8 +9179,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 16,
-          "earth": 8
+          "wood": 49,
+          "earth": 26
         }
       },
       "desc": "入口极苦，药劲却最能逼出修者经脉里的勤修之意。",
@@ -8911,11 +9245,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 4,
-          "earth": 2
+          "metal": 10,
+          "earth": 5
         }
       },
       "desc": "噬灵狼的利牙。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -8926,14 +9261,17 @@
       "type": "material",
       "grade": "earth",
       "level": 37,
-      "materialCategory": "hide",
+      "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 16,
-          "earth": 8
+          "fire": 85,
+          "earth": 45
         }
       },
-      "desc": "烈焰蜥身上的鳞片，耐高温且坚硬，是炼制火属性防具的好材料。"
+      "desc": "烈焰蜥身上的鳞片，耐高温且坚硬，是炼制火属性防具的好材料。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "mat.centipede_fang",
@@ -8944,8 +9282,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 14,
-          "metal": 10
+          "metal": 49,
+          "earth": 90
         }
       },
       "desc": "裂地蜈蚣的毒牙，锋利异常，可用于炼制穿刺类法器。",
@@ -9098,11 +9436,12 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 7,
-          "earth": 4
+          "metal": 15,
+          "earth": 8
         }
       },
       "desc": "蕴灵玄铁的碎片。",
+      "grade": "mortal",
       "tags": [
         "矿石",
         "矿材"
@@ -9116,11 +9455,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 6,
-          "earth": 3
+          "metal": 13,
+          "earth": 7
         }
       },
       "desc": "灵岭猛兽留下的巨大爪痕骨。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -9184,8 +9524,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "fire": 52,
-          "metal": 26
+          "metal": 24,
+          "fire": 46
         }
       },
       "desc": "炉心台深处结出的赤色晶核，常被拿来压成烈性器坠或爆发药引。",
@@ -9303,8 +9643,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 6,
-          "water": 3
+          "wood": 25,
+          "water": 14
         }
       },
       "desc": "花香清冽，炼入丹中常能扶正心神、澄明五感。",
@@ -9329,8 +9669,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "wood": 30,
-          "fire": 30
+          "wood": 115,
+          "fire": 62
         }
       },
       "desc": "焚木妖王体内凝结的道种，蕴含木火大道的一丝本源，极为罕见。",
@@ -9347,14 +9687,31 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "wood": 25,
-          "fire": 25
+          "wood": 112,
+          "fire": 61
         }
       },
       "desc": "藤焰蟒体内木火二行交融凝结的精华，极为珍稀。",
       "tags": [
         "异材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_inverse_life_war_crown",
+      "name": "逆命战冠",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "以逆命纹强逼气血上攻，护身大损，攻势陡增。",
+      "equipSlot": "head",
+      "equipStats": {
+        "maxHp": -261,
+        "physAtk": 24,
+        "spellAtk": 24,
+        "physDef": -17,
+        "spellDef": -17,
+        "crit": 17
+      }
     },
     {
       "itemId": "pill.ningxiang",
@@ -9447,8 +9804,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 6,
-          "fire": 3
+          "metal": 10,
+          "fire": 5
         }
       },
       "desc": "从旧阵裂缝里筛出的细砂，药性带着轻微撕裂感。",
@@ -9500,8 +9857,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 2,
-          "water": 1
+          "wood": 13,
+          "water": 7
         }
       },
       "desc": "蕴有淡薄灵机的草茎，常作聚气和缓冲药引。",
@@ -9533,9 +9890,7 @@
       "desc": "细藤束成的浅冠，戴久了能让人下意识放缓呼吸。",
       "equipSlot": "head",
       "equipStats": {
-        "spellDef": 15,
-        "resolvePower": 12,
-        "techniqueExpPerTick": 18
+        "techniqueExpPerTick": 20
       }
     },
     {
@@ -9547,8 +9902,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "wood": 20,
-          "water": 10
+          "wood": 27,
+          "water": 15
         }
       },
       "desc": "青萝谷深处长出的韧藤，内里带着温和却不断生发的木行气。",
@@ -9616,9 +9971,9 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "fire": 30,
-          "earth": 15,
-          "metal": 10
+          "metal": 40,
+          "fire": 103,
+          "earth": 62
         }
       },
       "desc": "烈焰蜥体内熔岩凝结的核心碎片，蕴含极纯火行精华。",
@@ -9636,8 +9991,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "fire": 16,
-          "earth": 8
+          "fire": 49,
+          "earth": 26
         }
       },
       "desc": "在炽热岩缝里长成的赤金种子，蕴着强横烈阳药引。",
@@ -9679,6 +10034,29 @@
       }
     },
     {
+      "itemId": "equip.foundation_deepiron_forging_tongs",
+      "name": "深铁炼器钳",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "钳身深铁纹路极稳，夹住高阶器胚时不易炸纹。",
+      "equipSlot": "weapon",
+      "tags": [
+        "forging_tool"
+      ],
+      "contextActions": [
+        {
+          "id": "forging:open",
+          "name": "炼器",
+          "type": "craft",
+          "desc": "查看当前炼器工具与器方目录。",
+          "cooldownLeft": 0
+        }
+      ],
+      "alchemySuccessRate": 0.24,
+      "alchemySpeedRate": 0.4
+    },
+    {
       "itemId": "mat.abyss_spirit_mud",
       "name": "深渊灵泥",
       "type": "material",
@@ -9687,8 +10065,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 25,
-          "water": 20
+          "water": 65,
+          "earth": 121
         }
       },
       "desc": "玄壤深渊最深处的灵泥，吸收了千年地脉灵气，是炼制土行丹药的极品辅材。",
@@ -9696,6 +10074,20 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_abyss_life_armor",
+      "name": "深渊寿甲",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "甲片沉重如泥，行动不轻，却极能续命。",
+      "equipSlot": "body",
+      "equipStats": {
+        "maxHp": 755,
+        "qiRegenRate": 15,
+        "hpRegenRate": 29
+      }
     },
     {
       "itemId": "mat.deep_iron_essence",
@@ -9706,9 +10098,9 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 30,
-          "water": 15,
-          "earth": 10
+          "metal": 95,
+          "water": 57,
+          "earth": 37
         }
       },
       "desc": "铁甲玄龟体内经年累月凝炼的铁行精华，极为稀有。",
@@ -9726,8 +10118,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 35,
-          "water": 15
+          "water": 66,
+          "earth": 124
         }
       },
       "desc": "玄壤地龙体内凝炼的土行精华，是炼制土属性天阶丹药的极品材料。",
@@ -9751,8 +10143,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "wood": 52,
-          "earth": 26
+          "wood": 46,
+          "earth": 24
         }
       },
       "desc": "老藤与木魅在地脉交汇处凝出的木心，最适合做续航与养脉法器。",
@@ -9772,14 +10164,33 @@
       "type": "material",
       "grade": "earth",
       "level": 40,
-      "materialCategory": "hide",
+      "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 18,
-          "water": 6
+          "water": 49,
+          "earth": 90
         }
       },
-      "desc": "混元石蟾的皮肤，粗糙如石，防御力极强。"
+      "desc": "混元石蟾的皮肤，粗糙如石，防御力极强。",
+      "tags": [
+        "异材"
+      ]
+    },
+    {
+      "itemId": "equip.foundation_devour_attack_armor",
+      "name": "蚀命攻甲",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "甲内噬脉纹持续压榨身躯，换来更凶的双攻。",
+      "equipSlot": "body",
+      "equipStats": {
+        "maxHp": -348,
+        "physAtk": 31,
+        "spellAtk": 31,
+        "physDef": -22,
+        "spellDef": -22
+      }
     },
     {
       "itemId": "mat.devourer_beast_core",
@@ -9790,11 +10201,11 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 20,
-          "metal": 15,
-          "water": 10,
-          "fire": 5,
-          "wood": 5
+          "metal": 58,
+          "wood": 58,
+          "water": 58,
+          "fire": 56,
+          "earth": 58
         }
       },
       "desc": "五行噬脉兽的核心，五行灵力交织其中，是炼制混元法器的极品材料。",
@@ -9842,27 +10253,6 @@
             "color": "#6e4a3f",
             "maxStacks": 6442450941
           }
-        },
-        {
-          "effectId": "soul-devour-feast",
-          "type": "timed_buff",
-          "trigger": "on_kill",
-          "target": "self",
-          "cooldown": 6,
-          "buff": {
-            "buffId": "equip.soul_devour_feast",
-            "name": "食煞回元",
-            "desc": "斩杀后残意反涌，短时间内灵力回复与功法运转更快。",
-            "duration": 8,
-            "shortMark": "煞",
-            "category": "buff",
-            "visibility": "public",
-            "color": "#8a3f2d",
-            "statMode": "flat",
-            "valueStats": {
-              "qiRegenRate": 0.5
-            }
-          }
         }
       ],
       "equipStats": {
@@ -9884,11 +10274,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 1,
-          "wood": 1
+          "wood": 5,
+          "water": 2
         }
       },
       "desc": "灰尾鼠的尾巴。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -9901,14 +10292,30 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 7,
-          "metal": 4
+          "metal": 8,
+          "water": 14
         }
       },
       "desc": "极寒灵气凝结的蓝白晶滴。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_frostsplit_crit_blade",
+      "name": "霜裂爆锋",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "刃口覆霜晶裂纹，普通挥斩不算厚重，爆开时伤口极深。",
+      "equipSlot": "weapon",
+      "equipStats": {
+        "physAtk": 36,
+        "hit": 22,
+        "crit": 31,
+        "critDamage": 17
+      }
     },
     {
       "itemId": "mat.frost_scale",
@@ -9916,14 +10323,17 @@
       "type": "material",
       "grade": "mystic",
       "level": 31,
-      "materialCategory": "hide",
+      "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 8,
-          "metal": 4
+          "metal": 29,
+          "water": 54
         }
       },
-      "desc": "霜鳞蛇脱落的鳞片，表面覆着一层薄冰，触手生寒。"
+      "desc": "霜鳞蛇脱落的鳞片，表面覆着一层薄冰，触手生寒。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "mat.frost_crystal",
@@ -9934,8 +10344,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "water": 14,
-          "metal": 10
+          "metal": 40,
+          "water": 73
         }
       },
       "desc": "霜刃渊深处结晶的寒冰矿石，内含凝固灵气。",
@@ -9959,11 +10369,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 5,
-          "wood": 3
+          "metal": 12,
+          "wood": 6
         }
       },
       "desc": "刃螳前臂外骨，可作刀坯。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -9974,14 +10385,17 @@
       "type": "material",
       "grade": "earth",
       "level": 37,
-      "materialCategory": "hide",
+      "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "wood": 14,
-          "fire": 10
+          "wood": 85,
+          "fire": 45
         }
       },
-      "desc": "藤焰蟒体内的筋腱，韧性极强，可用于炼制弓弦或绳索类法器。"
+      "desc": "藤焰蟒体内的筋腱，韧性极强，可用于炼制弓弦或绳索类法器。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "sky_seal_core",
@@ -10012,11 +10426,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 8,
-          "wood": 4
+          "metal": 17,
+          "wood": 9
         }
       },
       "desc": "记录古天宫阵纹的残页。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -10030,8 +10445,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 16,
-          "earth": 8
+          "metal": 78,
+          "earth": 42
         }
       },
       "desc": "铁甲玄龟龟壳碎片，质地极为坚硬，是上等炼器材料。",
@@ -10039,6 +10454,20 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_ironshell_plate",
+      "name": "铁甲玄胄",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "大片铁甲碎片层叠扣合，正面抗击极强。",
+      "equipSlot": "body",
+      "equipStats": {
+        "maxHp": 348,
+        "physDef": 58,
+        "antiCrit": 22
+      }
     },
     {
       "itemId": "mat.ironvein_caltrop",
@@ -10049,14 +10478,28 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "metal": 20,
-          "earth": 10
+          "metal": 31,
+          "earth": 16
         }
       },
       "desc": "生在埋锋砂地的硬刺草，药性紧收，最宜淬锋。",
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_iron_soul_blade",
+      "name": "铁魄断山刃",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "以深铁魄纹压成的重刃，重在破甲与正面斩击。",
+      "equipSlot": "weapon",
+      "equipStats": {
+        "physAtk": 56,
+        "hit": 31,
+        "breakPower": 34
+      }
     },
     {
       "itemId": "equip.copper_mining_pickaxe",
@@ -10194,8 +10637,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 20,
-          "metal": 8
+          "metal": 48,
+          "earth": 88
         }
       },
       "desc": "玄土甲虫体内的灵核，蕴含纯粹土行之力。",
@@ -10217,14 +10660,17 @@
       "type": "material",
       "grade": "earth",
       "level": 40,
-      "materialCategory": "hide",
+      "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 16,
-          "metal": 8
+          "metal": 49,
+          "earth": 90
         }
       },
-      "desc": "裂地蜈蚣的节甲，层层叠叠坚韧无比，是炼制甲胄的好材料。"
+      "desc": "裂地蜈蚣的节甲，层层叠叠坚韧无比，是炼制甲胄的好材料。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "pill.fivephase_harmony_pellet",
@@ -10258,11 +10704,11 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 58,
-          "wood": 58,
-          "water": 58,
-          "fire": 58,
-          "earth": 58
+          "metal": 31,
+          "wood": 31,
+          "water": 31,
+          "fire": 31,
+          "earth": 30
         }
       },
       "desc": "归藏脉窟里五行乱炁磨出来的细尘，握在掌心都会互相顶撞。",
@@ -10270,6 +10716,29 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.qi_fivephase_enhancement_hammer",
+      "name": "五炁强化锤",
+      "type": "equipment",
+      "grade": "mystic",
+      "level": 29,
+      "desc": "锤头嵌着五炁尘，落锤时能短暂调平器物五行。",
+      "equipSlot": "weapon",
+      "tags": [
+        "enhancement_hammer"
+      ],
+      "contextActions": [
+        {
+          "id": "enhancement:open",
+          "name": "强化",
+          "type": "craft",
+          "desc": "查看当前强化候选、保护材料与强化状态。",
+          "cooldownLeft": 0
+        }
+      ],
+      "enhancementSuccessRate": 0.02,
+      "enhancementSpeedRate": 0.25
     },
     {
       "itemId": "mat.fivephase_secretion",
@@ -10280,17 +10749,30 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 12,
-          "water": 12,
-          "metal": 10,
-          "fire": 8,
-          "wood": 8
+          "metal": 55,
+          "wood": 55,
+          "water": 55,
+          "fire": 55,
+          "earth": 55
         }
       },
       "desc": "混元石蟾分泌的五行灵液，五行俱全，是炼制混元丹药的珍稀主材。",
       "tags": [
         "异材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_fivephase_output_pendant",
+      "name": "五行出灵坠",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "坠中五行脉晶开阖有序，重在提高每息灵力输出。",
+      "equipSlot": "accessory",
+      "equipStats": {
+        "spellAtk": 22,
+        "maxQiOutputPerTick": 48
+      }
     },
     {
       "itemId": "mat.fivephase_mixed_essence",
@@ -10301,11 +10783,11 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 15,
-          "wood": 15,
-          "water": 15,
-          "fire": 15,
-          "earth": 15
+          "metal": 58,
+          "wood": 58,
+          "water": 58,
+          "fire": 58,
+          "earth": 56
         }
       },
       "desc": "五行噬脉兽体内五行交融凝结的精华，五行均衡，极为罕见。",
@@ -10322,11 +10804,11 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 20,
-          "wood": 20,
-          "water": 20,
-          "fire": 20,
-          "earth": 20
+          "metal": 58,
+          "wood": 58,
+          "water": 58,
+          "fire": 58,
+          "earth": 56
         }
       },
       "desc": "五行噬脉兽吞噬地脉后凝结的晶体，蕴含五行大道本源之力，是筑基期最珍稀的材料之一。",
@@ -10396,8 +10878,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 12,
-          "water": 12
+          "metal": 73,
+          "water": 40
         }
       },
       "desc": "寒铁蝎尾部毒囊，内含剧毒寒液，炼丹时可入毒性方剂。",
@@ -10413,11 +10895,12 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 8,
-          "fire": 4
+          "metal": 16,
+          "fire": 8
         }
       },
       "desc": "坠星坑深处采得的高纯灵金。",
+      "grade": "mortal",
       "tags": [
         "矿石",
         "矿材"
@@ -10431,14 +10914,29 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 7,
-          "earth": 4
+          "water": 15,
+          "earth": 8
         }
       },
       "desc": "虚空妖物躯壳剥落的暗晶。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_turtle_spell_robe",
+      "name": "玄龟法衣",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "玄龟寒髓浸过的法衣，专克法力冲刷。",
+      "equipSlot": "body",
+      "equipStats": {
+        "maxQi": 194,
+        "spellDef": 58,
+        "resolvePower": 34
+      }
     },
     {
       "itemId": "mat.turtle_cold_marrow",
@@ -10449,8 +10947,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 20,
-          "earth": 8
+          "water": 78,
+          "earth": 42
         }
       },
       "desc": "铁甲玄龟骨髓精华，寒气凝聚如膏，是炼制防御类丹药的珍贵材料。",
@@ -10476,8 +10974,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 30,
-          "metal": 15
+          "metal": 63,
+          "earth": 118
         }
       },
       "desc": "玄壤深渊地脉中提炼的精纯土行矿物，质地细腻如膏。",
@@ -10487,6 +10985,29 @@
       ]
     },
     {
+      "itemId": "equip.foundation_darksoil_enhancement_hammer",
+      "name": "玄壤强化锤",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "锤面覆玄壤精土，落锤时能把强化余震压回器身。",
+      "equipSlot": "weapon",
+      "tags": [
+        "enhancement_hammer"
+      ],
+      "contextActions": [
+        {
+          "id": "enhancement:open",
+          "name": "强化",
+          "type": "craft",
+          "desc": "查看当前强化候选、保护材料与强化状态。",
+          "cooldownLeft": 0
+        }
+      ],
+      "enhancementSuccessRate": 0.035,
+      "enhancementSpeedRate": 0.35
+    },
+    {
       "itemId": "black_iron_chunk",
       "name": "玄铁矿块",
       "type": "material",
@@ -10494,11 +11015,12 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "metal": 6,
-          "earth": 3
+          "metal": 12,
+          "earth": 7
         }
       },
       "desc": "可用于炼器的粗矿。",
+      "grade": "mortal",
       "tags": [
         "矿石",
         "矿材"
@@ -10513,8 +11035,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 16,
-          "metal": 8
+          "metal": 48,
+          "earth": 88
         }
       },
       "desc": "玄土甲虫的外壳，坚硬如石，带有浓郁土行灵气。",
@@ -10522,6 +11044,19 @@
         "矿石",
         "矿材"
       ]
+    },
+    {
+      "itemId": "equip.foundation_darksoil_life_helm",
+      "name": "玄土命盔",
+      "type": "equipment",
+      "grade": "earth",
+      "level": 40,
+      "desc": "盔内覆玄壤生息纹，厚重但极能护住命门。",
+      "equipSlot": "head",
+      "equipStats": {
+        "maxHp": 639,
+        "hpRegenRate": 29
+      }
     },
     {
       "itemId": "stone.blood_essence",
@@ -10547,11 +11082,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 9,
-          "wood": 5
+          "wood": 9,
+          "fire": 18
         }
       },
       "desc": "血羽鸦留下的邪异翎羽。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -10565,8 +11101,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "earth": 20,
-          "wood": 10
+          "wood": 18,
+          "earth": 33
         }
       },
       "desc": "贴石而生的灰芝，内蕴绵长土息，是护脉丹常见主材。",
@@ -10583,8 +11119,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 20,
-          "earth": 10
+          "fire": 27,
+          "earth": 15
         }
       },
       "desc": "火脉熬出来的深色炭芯，最适合做淬体和爆发类耗材。",
@@ -10601,8 +11137,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "fire": 20,
-          "wood": 10
+          "wood": 19,
+          "fire": 34
         }
       },
       "desc": "火穗结出的细芒，入炉后能把火行药势拉成一线。",
@@ -10619,8 +11155,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 12,
-          "wood": 12
+          "wood": 85,
+          "fire": 45
         }
       },
       "desc": "藤焰蟒的毒囊，内含灼热毒液，兼具木火双行之性。",
@@ -10637,8 +11173,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 18,
-          "wood": 6
+          "wood": 43,
+          "fire": 80
         }
       },
       "desc": "焰尾狐体内的火行灵核，温度极高，是炼制火性丹药的好材料。",
@@ -10652,14 +11188,17 @@
       "type": "material",
       "grade": "mystic",
       "level": 35,
-      "materialCategory": "hide",
+      "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 8,
-          "wood": 4
+          "wood": 32,
+          "fire": 60
         }
       },
-      "desc": "焰尾狐的皮毛，触手温热，带有淡淡火灵气息。"
+      "desc": "焰尾狐的皮毛，触手温热，带有淡淡火灵气息。",
+      "tags": [
+        "异材"
+      ]
     },
     {
       "itemId": "mat.fire_lizard_blood",
@@ -10670,8 +11209,8 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "fire": 20,
-          "earth": 8
+          "fire": 85,
+          "earth": 45
         }
       },
       "desc": "烈焰蜥的精血，温度极高，滴落即焦，是火行丹药的上品主材。",
@@ -10697,8 +11236,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 20,
-          "water": 10
+          "wood": 39,
+          "water": 21
         }
       },
       "desc": "晾干后仍能缓慢吐出草木气息，是养脉药最常用的底材。",
@@ -10750,11 +11289,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 8,
-          "fire": 4
+          "fire": 8,
+          "earth": 16
         }
       },
       "desc": "兽谷妖狼的坚骨。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -10767,11 +11307,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "earth": 1,
-          "wood": 1
+          "wood": 3,
+          "earth": 2
         }
       },
       "desc": "山野妖兽遗骨，可留作后用。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -10804,11 +11345,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 2,
-          "wood": 1
+          "wood": 3,
+          "water": 5
         }
       },
       "desc": "沼泽妖蛛吐出的坚韧蛛丝。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -10844,8 +11386,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "fire": 12,
-          "wood": 12
+          "wood": 82,
+          "fire": 44
         }
       },
       "desc": "焚木荒台上半焦的树枝，仍有微弱火灵残留。",
@@ -10896,8 +11438,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "water": 12,
-          "wood": 12
+          "wood": 76,
+          "water": 41
         }
       },
       "desc": "生长在霜刃渊深水处的灵苔，吸收了大量水行灵气。",
@@ -10914,8 +11456,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "water": 20,
-          "earth": 10
+          "water": 27,
+          "earth": 15
         }
       },
       "desc": "月井边结出的细砂，带着迟滞与收敛两种水性。",
@@ -10933,8 +11475,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "water": 20,
-          "wood": 10
+          "wood": 16,
+          "water": 31
         }
       },
       "desc": "月井寒莲退花后留下的细蕊，最善收束散乱水气。",
@@ -10951,8 +11493,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "water": 1,
-          "wood": 1
+          "wood": 5,
+          "water": 3
         }
       },
       "desc": "清晨叶尖常挂月白露珠，是最常见的温和药底。",
@@ -11032,8 +11574,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "fire": 20,
-          "earth": 10
+          "fire": 27,
+          "earth": 15
         }
       },
       "desc": "赤陨庭地火烤出的细砂，捏在指间都还能感到余烫。",
@@ -11050,11 +11592,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 2,
-          "earth": 1
+          "water": 6,
+          "earth": 3
         }
       },
       "desc": "泽鳞蜥脱落的鳞片。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -11068,8 +11611,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "wood": 20,
-          "water": 10
+          "wood": 33,
+          "water": 18
         }
       },
       "desc": "沿谷壁攀出的韧藤，藤芯温润，最擅长牵引木行药力深入经脉。",
@@ -11146,8 +11689,8 @@
       "materialCategory": "ore",
       "materialValues": {
         "elements": {
-          "earth": 52,
-          "water": 26
+          "water": 24,
+          "earth": 46
         }
       },
       "desc": "石胆久受土行重压而成，最适合做稳脉、镇岳一类的核心炼材。",
@@ -11164,11 +11707,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "metal": 2,
-          "earth": 1
+          "metal": 5,
+          "earth": 3
         }
       },
       "desc": "獠牙野彘的尖牙。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -11181,11 +11725,12 @@
       "materialCategory": "exotic",
       "materialValues": {
         "elements": {
-          "water": 3,
-          "wood": 2
+          "wood": 4,
+          "water": 8
         }
       },
       "desc": "青鳞竹蛇的胆囊。",
+      "grade": "mortal",
       "tags": [
         "异材"
       ]
@@ -11271,8 +11816,8 @@
       "materialCategory": "herb",
       "materialValues": {
         "elements": {
-          "fire": 20,
-          "wood": 10
+          "wood": 19,
+          "fire": 36
         }
       },
       "desc": "贴着地火边缘生出的赤瓣，药性炽而不躁，适合做烈性主药。",
@@ -12966,23 +13511,6 @@
       "statMode": "percent"
     },
     {
-      "buffId": "equip.soul_devour_feast",
-      "name": "食煞回元",
-      "desc": "斩杀后残意反涌，短时间内灵力回复与功法运转更快。",
-      "shortMark": "煞",
-      "category": "buff",
-      "visibility": "public",
-      "remainingTicks": 8,
-      "duration": 8,
-      "stacks": 1,
-      "maxStacks": 1,
-      "sourceSkillId": "equip:equip.soul_devour_token:soul-devour-feast",
-      "sourceSkillName": "噬元骨牌",
-      "realmLv": 1,
-      "color": "#8a3f2d",
-      "statMode": "flat"
-    },
-    {
       "buffId": "buff.monster_fivephase_devour",
       "name": "噬脉",
       "desc": "灵脉被噬，最大灵力输出与双攻下降。",
@@ -14256,7 +14784,7 @@
           "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
           "equipSlot": "accessory",
           "equipStats": {
-            "maxQi": 64,
+            "realmExpPerTick": 8,
             "techniqueExpPerTick": 13
           },
           "count": 1
@@ -14987,10 +15515,7 @@
           "desc": "听脉之后发下来的小铜佩，佩口虽旧，却很会把散出去的真气慢慢拢回来。",
           "equipSlot": "accessory",
           "equipStats": {
-            "maxQi": 84,
-            "maxQiOutputPerTick": 14,
-            "qiRegenRate": 11,
-            "techniqueExpPerTick": 16
+            "techniqueExpPerTick": 19
           },
           "count": 1
         },
@@ -15775,9 +16300,7 @@
           "desc": "细藤束成的浅冠，戴久了能让人下意识放缓呼吸。",
           "equipSlot": "head",
           "equipStats": {
-            "spellDef": 15,
-            "resolvePower": 12,
-            "techniqueExpPerTick": 18
+            "techniqueExpPerTick": 20
           },
           "count": 1
         }
@@ -16194,27 +16717,6 @@
                 "persistOnDeath": true,
                 "color": "#6e4a3f",
                 "maxStacks": 6442450941
-              }
-            },
-            {
-              "effectId": "soul-devour-feast",
-              "type": "timed_buff",
-              "trigger": "on_kill",
-              "target": "self",
-              "cooldown": 6,
-              "buff": {
-                "buffId": "equip.soul_devour_feast",
-                "name": "食煞回元",
-                "desc": "斩杀后残意反涌，短时间内灵力回复与功法运转更快。",
-                "duration": 8,
-                "shortMark": "煞",
-                "category": "buff",
-                "visibility": "public",
-                "color": "#8a3f2d",
-                "statMode": "flat",
-                "valueStats": {
-                  "qiRegenRate": 0.5
-                }
               }
             }
           ],
@@ -16908,11 +17410,12 @@
           "materialCategory": "ore",
           "materialValues": {
             "elements": {
-              "metal": 7,
-              "earth": 4
+              "metal": 15,
+              "earth": 8
             }
           },
           "desc": "蕴灵玄铁的碎片。",
+          "grade": "mortal",
           "tags": [
             "矿石",
             "矿材"

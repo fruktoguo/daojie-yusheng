@@ -30,9 +30,9 @@
       }
     ],
     "requiredAuxElements": {
-      "wood": 2,
-      "water": 1,
-      "earth": 1
+      "wood": 8,
+      "water": 2,
+      "earth": 2
     }
   },
   {
@@ -75,10 +75,10 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 4,
-      "wood": 2,
-      "water": 2,
-      "earth": 2
+      "metal": 10,
+      "wood": 10,
+      "water": 4,
+      "earth": 6
     }
   },
   {
@@ -121,9 +121,9 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 6,
-      "wood": 4,
-      "water": 10
+      "metal": 16,
+      "wood": 8,
+      "water": 24
     }
   },
   {
@@ -166,9 +166,9 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 9,
-      "wood": 6,
-      "water": 15
+      "metal": 24,
+      "wood": 12,
+      "water": 36
     }
   },
   {
@@ -216,9 +216,9 @@
       }
     ],
     "requiredAuxElements": {
-      "wood": 14,
-      "water": 22,
-      "earth": 9
+      "wood": 30,
+      "water": 62,
+      "earth": 23
     }
   },
   {
@@ -256,8 +256,8 @@
       }
     ],
     "requiredAuxElements": {
-      "water": 30,
-      "earth": 18
+      "water": 60,
+      "earth": 36
     }
   },
   {
@@ -300,9 +300,9 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 12,
-      "water": 23,
-      "earth": 9
+      "metal": 32,
+      "water": 46,
+      "earth": 18
     }
   },
   {
@@ -350,9 +350,9 @@
       }
     ],
     "requiredAuxElements": {
-      "wood": 13,
-      "water": 12,
-      "earth": 8
+      "wood": 33,
+      "water": 32,
+      "earth": 18
     }
   },
   {
@@ -395,10 +395,10 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 20,
-      "wood": 14,
-      "water": 21,
-      "earth": 10
+      "metal": 50,
+      "wood": 28,
+      "water": 56,
+      "earth": 25
     }
   },
   {
@@ -441,9 +441,9 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 24,
-      "water": 25,
-      "earth": 27
+      "metal": 60,
+      "water": 50,
+      "earth": 60
     }
   },
   {
@@ -481,8 +481,8 @@
       }
     ],
     "requiredAuxElements": {
-      "wood": 52,
-      "earth": 26
+      "wood": 46,
+      "earth": 24
     }
   },
   {
@@ -520,8 +520,8 @@
       }
     ],
     "requiredAuxElements": {
-      "wood": 26,
-      "water": 52
+      "wood": 24,
+      "water": 46
     }
   },
   {
@@ -559,8 +559,8 @@
       }
     ],
     "requiredAuxElements": {
-      "water": 26,
-      "earth": 52
+      "water": 24,
+      "earth": 46
     }
   },
   {
@@ -598,8 +598,8 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 52,
-      "fire": 26
+      "metal": 46,
+      "fire": 24
     }
   },
   {
@@ -637,8 +637,8 @@
       }
     ],
     "requiredAuxElements": {
-      "wood": 52,
-      "earth": 26
+      "wood": 46,
+      "earth": 24
     }
   },
   {
@@ -676,8 +676,8 @@
       }
     ],
     "requiredAuxElements": {
-      "wood": 26,
-      "water": 52
+      "wood": 24,
+      "water": 46
     }
   },
   {
@@ -715,8 +715,8 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 26,
-      "fire": 52
+      "metal": 24,
+      "fire": 46
     }
   },
   {
@@ -754,8 +754,8 @@
       }
     ],
     "requiredAuxElements": {
-      "water": 26,
-      "earth": 52
+      "water": 24,
+      "earth": 46
     }
   },
   {
@@ -813,11 +813,11 @@
       }
     ],
     "requiredAuxElements": {
-      "metal": 20,
-      "wood": 108,
-      "water": 52,
-      "fire": 20,
-      "earth": 46
+      "metal": 33,
+      "wood": 126,
+      "water": 46,
+      "fire": 36,
+      "earth": 58
     }
   }
 ]

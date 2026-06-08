@@ -152,5 +152,2076 @@
         "count": 1
       }
     ]
+  },
+  {
+    "recipeId": "forging.gate_headcloth",
+    "outputItemId": "equip.gate_headcloth",
+    "outputCount": 1,
+    "level": 2,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 14,
+    "ingredients": [
+      {
+        "itemId": "bandit_insignia",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "rat_tail",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "bandit_insignia",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 5,
+      "water": 2
+    }
+  },
+  {
+    "recipeId": "forging.trench_runner_boots",
+    "outputItemId": "equip.trench_runner_boots",
+    "outputCount": 1,
+    "level": 2,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 14,
+    "ingredients": [
+      {
+        "itemId": "rat_tail",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.beast_bone",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "rat_tail",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 3,
+      "earth": 2
+    }
+  },
+  {
+    "recipeId": "forging.herb_mist_robe",
+    "outputItemId": "equip.herb_mist_robe",
+    "outputCount": 1,
+    "level": 3,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 16,
+    "ingredients": [
+      {
+        "itemId": "spider_silk",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "lizard_scale",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "spider_silk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 6,
+      "earth": 3
+    }
+  },
+  {
+    "recipeId": "forging.gather_qi_pendant",
+    "outputItemId": "equip.gather_qi_pendant",
+    "outputCount": 1,
+    "level": 3,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 16,
+    "ingredients": [
+      {
+        "itemId": "mat.beast_bone",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "rat_tail",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.beast_bone",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 5,
+      "water": 2
+    }
+  },
+  {
+    "recipeId": "forging.orebreak_hammer",
+    "outputItemId": "equip.orebreak_hammer",
+    "outputCount": 1,
+    "level": 3,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 18,
+    "ingredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "crystal_dust",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 8,
+      "water": 4
+    }
+  },
+  {
+    "recipeId": "forging.soot_lamp_hood",
+    "outputItemId": "equip.soot_lamp_hood",
+    "outputCount": 1,
+    "level": 3,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 18,
+    "ingredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 10,
+      "earth": 6
+    }
+  },
+  {
+    "recipeId": "forging.broken_rune_blade",
+    "outputItemId": "equip.broken_rune_blade",
+    "outputCount": 1,
+    "level": 4,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 20,
+    "ingredients": [
+      {
+        "itemId": "rune_shard",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "black_iron_chunk",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "rune_shard",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 12,
+      "earth": 7
+    }
+  },
+  {
+    "recipeId": "forging.rift_guard_armor",
+    "outputItemId": "equip.rift_guard_armor",
+    "outputCount": 1,
+    "level": 4,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 22,
+    "ingredients": [
+      {
+        "itemId": "spirit_iron_fragment",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "rune_shard",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "spirit_iron_fragment",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 7,
+      "water": 10,
+      "earth": 19
+    }
+  },
+  {
+    "recipeId": "forging.soul_devour_token",
+    "outputItemId": "equip.soul_devour_token",
+    "outputCount": 1,
+    "level": 4,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 20,
+    "ingredients": [
+      {
+        "itemId": "soul_ink",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "void_shard",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "soul_ink",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 15,
+      "earth": 8
+    }
+  },
+  {
+    "recipeId": "forging.scar_tread_boots",
+    "outputItemId": "equip.scar_tread_boots",
+    "outputCount": 1,
+    "level": 19,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 15,
+      "earth": 27
+    }
+  },
+  {
+    "recipeId": "forging.returnbreath_copper_pendant",
+    "outputItemId": "equip.returnbreath_copper_pendant",
+    "outputCount": 1,
+    "level": 19,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "coldspirit_dew",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "moonwell_frost_sand",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "coldspirit_dew",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 27,
+      "earth": 15
+    }
+  },
+  {
+    "recipeId": "forging.vineguide_staff",
+    "outputItemId": "equip.vineguide_staff",
+    "outputCount": 1,
+    "level": 19,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "verdant_vine",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "verdant_vine",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 46,
+      "earth": 24
+    }
+  },
+  {
+    "recipeId": "forging.verdant_crown",
+    "outputItemId": "equip.verdant_crown",
+    "outputCount": 1,
+    "level": 19,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "verdant_vine",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "verdant_vine",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 46,
+      "earth": 24
+    }
+  },
+  {
+    "recipeId": "forging.hanxi_flow_ruler",
+    "outputItemId": "equip.hanxi_flow_ruler",
+    "outputCount": 1,
+    "level": 19,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "coldspirit_dew",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "moonwell_frost_sand",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "coldspirit_dew",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 27,
+      "earth": 15
+    }
+  },
+  {
+    "recipeId": "forging.ember_scorch_spear",
+    "outputItemId": "equip.ember_scorch_spear",
+    "outputCount": 1,
+    "level": 19,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 34,
+    "ingredients": [
+      {
+        "itemId": "embershard_char",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "ember_sand",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "embershard_char",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "fire": 27,
+      "earth": 15
+    }
+  },
+  {
+    "recipeId": "forging.cleantide_robe",
+    "outputItemId": "equip.cleantide_robe",
+    "outputCount": 1,
+    "level": 21,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 38,
+    "ingredients": [
+      {
+        "itemId": "cleantide_essence",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "coldspirit_dew",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "cleantide_essence",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 15,
+      "water": 27
+    }
+  },
+  {
+    "recipeId": "forging.full_edge_blade",
+    "outputItemId": "equip.full_edge_blade",
+    "outputCount": 1,
+    "level": 23,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 42,
+    "ingredients": [
+      {
+        "itemId": "sword_pellet",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "sword_pellet",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 27,
+      "earth": 15
+    }
+  },
+  {
+    "recipeId": "forging.sand_ghost_mask",
+    "outputItemId": "equip.sand_ghost_mask",
+    "outputCount": 1,
+    "level": 23,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 42,
+    "ingredients": [
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "coldspirit_dew",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 15,
+      "water": 27
+    }
+  },
+  {
+    "recipeId": "forging.chasing_edge_boots",
+    "outputItemId": "equip.chasing_edge_boots",
+    "outputCount": 1,
+    "level": 23,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 42,
+    "ingredients": [
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "sword_pellet",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 27,
+      "fire": 15
+    }
+  },
+  {
+    "recipeId": "forging.fallrock_maul",
+    "outputItemId": "equip.fallrock_maul",
+    "outputCount": 1,
+    "level": 23,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 42,
+    "ingredients": [
+      {
+        "itemId": "thickrock_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "thickrock_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 15,
+      "earth": 27
+    }
+  },
+  {
+    "recipeId": "forging.ridgewall_armor",
+    "outputItemId": "equip.ridgewall_armor",
+    "outputCount": 1,
+    "level": 23,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 42,
+    "ingredients": [
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "thickrock_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 15,
+      "earth": 27
+    }
+  },
+  {
+    "recipeId": "forging.shieldvein_stone",
+    "outputItemId": "equip.shieldvein_stone",
+    "outputCount": 1,
+    "level": 23,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 42,
+    "ingredients": [
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "coldspirit_dew",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 15,
+      "water": 27
+    }
+  },
+  {
+    "recipeId": "forging.cleft_blade_cloak",
+    "outputItemId": "equip.cleft_blade_cloak",
+    "outputCount": 1,
+    "level": 25,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 48,
+    "ingredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 27,
+      "earth": 15
+    }
+  },
+  {
+    "recipeId": "forging.yuetown_mask",
+    "outputItemId": "equip.yuetown_mask",
+    "outputCount": 1,
+    "level": 25,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 48,
+    "ingredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 15,
+      "earth": 27
+    }
+  },
+  {
+    "recipeId": "forging.furnace_red_ring",
+    "outputItemId": "equip.furnace_red_ring",
+    "outputCount": 1,
+    "level": 26,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 50,
+    "ingredients": [
+      {
+        "itemId": "furnace_red_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "ember_sand",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "furnace_red_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "fire": 27,
+      "earth": 15
+    }
+  },
+  {
+    "recipeId": "forging.geng_gate_blade",
+    "outputItemId": "equip.geng_gate_blade",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "sword_pellet",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "fivephase_dust",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 58,
+      "wood": 31,
+      "water": 31,
+      "fire": 46,
+      "earth": 30
+    }
+  },
+  {
+    "recipeId": "forging.sealed_path_token",
+    "outputItemId": "equip.sealed_path_token",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "earthbearing_stone",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 15,
+      "earth": 27
+    }
+  },
+  {
+    "recipeId": "forging.ridgecleft_halberd",
+    "outputItemId": "equip.ridgecleft_halberd",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "sword_pellet",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 27,
+      "fire": 15
+    }
+  },
+  {
+    "recipeId": "forging.mount_guard_helm",
+    "outputItemId": "equip.mount_guard_helm",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "thickrock_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 15,
+      "earth": 27
+    }
+  },
+  {
+    "recipeId": "forging.mountainseal_plate",
+    "outputItemId": "equip.mountainseal_plate",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "guizang_vein_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "stonegall_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 38,
+      "water": 25,
+      "earth": 64
+    }
+  },
+  {
+    "recipeId": "forging.deepvein_core",
+    "outputItemId": "equip.deepvein_core",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "guizang_vein_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "fivephase_dust",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "guizang_vein_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 31,
+      "wood": 31,
+      "water": 31,
+      "fire": 31,
+      "earth": 30
+    }
+  },
+  {
+    "recipeId": "forging.guizang_conflux_blade",
+    "outputItemId": "equip.guizang_conflux_blade",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "guizang_vein_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "fivephase_dust",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "guizang_vein_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 31,
+      "wood": 31,
+      "water": 31,
+      "fire": 31,
+      "earth": 30
+    }
+  },
+  {
+    "recipeId": "forging.returnarray_boots",
+    "outputItemId": "equip.returnarray_boots",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 56,
+    "ingredients": [
+      {
+        "itemId": "half_base_embryo",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "fivephase_dust",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "half_base_embryo",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 31,
+      "wood": 31,
+      "water": 31,
+      "fire": 31,
+      "earth": 30
+    }
+  },
+  {
+    "recipeId": "forging.qi_crimson_pattern_furnace",
+    "outputItemId": "equip.qi_crimson_pattern_furnace",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 58,
+    "ingredients": [
+      {
+        "itemId": "furnace_red_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "cleantide_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "furnace_red_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 24,
+      "water": 46
+    }
+  },
+  {
+    "recipeId": "forging.qi_fengyue_forging_tongs",
+    "outputItemId": "equip.qi_fengyue_forging_tongs",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 58,
+    "ingredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 24,
+      "earth": 46
+    }
+  },
+  {
+    "recipeId": "forging.qi_fivephase_enhancement_hammer",
+    "outputItemId": "equip.qi_fivephase_enhancement_hammer",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 58,
+    "ingredients": [
+      {
+        "itemId": "fivephase_dust",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "thickrock_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "fivephase_dust",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 15,
+      "earth": 27
+    }
+  },
+  {
+    "recipeId": "forging.qi_guizang_mining_pickaxe",
+    "outputItemId": "equip.qi_guizang_mining_pickaxe",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 58,
+    "ingredients": [
+      {
+        "itemId": "guizang_vein_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "cleft_iron_fragment",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "guizang_vein_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 27,
+      "earth": 15
+    }
+  },
+  {
+    "recipeId": "forging.qi_halfbase_building_hammer",
+    "outputItemId": "equip.qi_halfbase_building_hammer",
+    "outputCount": 1,
+    "level": 29,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 58,
+    "ingredients": [
+      {
+        "itemId": "half_base_embryo",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spiritwood_heart",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "half_base_embryo",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 46,
+      "earth": 24
+    }
+  },
+  {
+    "recipeId": "forging.foundation_iron_soul_blade",
+    "outputItemId": "equip.foundation_iron_soul_blade",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.deep_iron_essence",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.centipede_fang",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.deep_iron_essence",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 49,
+      "earth": 90
+    }
+  },
+  {
+    "recipeId": "forging.foundation_cold_abyss_spell_ruler",
+    "outputItemId": "equip.foundation_cold_abyss_spell_ruler",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.frozen_spider_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.cold_serpent_gall",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "mat.frost_crystal",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.frozen_spider_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 40,
+      "wood": 38,
+      "water": 145
+    }
+  },
+  {
+    "recipeId": "forging.foundation_mixed_dual_sword",
+    "outputItemId": "equip.foundation_mixed_dual_sword",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.devourer_beast_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 58,
+      "wood": 58,
+      "water": 58,
+      "fire": 56,
+      "earth": 58
+    }
+  },
+  {
+    "recipeId": "forging.foundation_frostsplit_crit_blade",
+    "outputItemId": "equip.foundation_frostsplit_crit_blade",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.frost_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.scorpion_venom_sac",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.frost_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 73,
+      "water": 40
+    }
+  },
+  {
+    "recipeId": "forging.foundation_returnbreath_cooldown_staff",
+    "outputItemId": "equip.foundation_returnbreath_cooldown_staff",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.turtle_cold_marrow",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.mixed_vein_stone",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.turtle_cold_marrow",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 55,
+      "wood": 55,
+      "water": 55,
+      "fire": 55,
+      "earth": 55
+    }
+  },
+  {
+    "recipeId": "forging.foundation_coldiron_heavy_helm",
+    "outputItemId": "equip.foundation_coldiron_heavy_helm",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.cold_iron_carapace",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.ironshell_fragment",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.cold_iron_carapace",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 78,
+      "earth": 42
+    }
+  },
+  {
+    "recipeId": "forging.foundation_iceheart_spell_crown",
+    "outputItemId": "equip.foundation_iceheart_spell_crown",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.ice_crystal_silk",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.frozen_spider_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.ice_crystal_silk",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 41,
+      "water": 76
+    }
+  },
+  {
+    "recipeId": "forging.foundation_mixed_guard_crown",
+    "outputItemId": "equip.foundation_mixed_guard_crown",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.mixed_vein_stone",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.fivephase_secretion",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.mixed_vein_stone",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 55,
+      "wood": 55,
+      "water": 55,
+      "fire": 55,
+      "earth": 55
+    }
+  },
+  {
+    "recipeId": "forging.foundation_darksoil_life_helm",
+    "outputItemId": "equip.foundation_darksoil_life_helm",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.earth_beetle_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.darksoil_carapace",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.earth_beetle_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 48,
+      "earth": 88
+    }
+  },
+  {
+    "recipeId": "forging.foundation_inverse_life_war_crown",
+    "outputItemId": "equip.foundation_inverse_life_war_crown",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.fire_fox_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.deep_earth_venom",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.fire_fox_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 44,
+      "water": 66,
+      "earth": 110
+    }
+  },
+  {
+    "recipeId": "forging.foundation_ironshell_plate",
+    "outputItemId": "equip.foundation_ironshell_plate",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.cold_iron_carapace",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.darksoil_carapace",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.cold_iron_carapace",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 48,
+      "earth": 88
+    }
+  },
+  {
+    "recipeId": "forging.foundation_turtle_spell_robe",
+    "outputItemId": "equip.foundation_turtle_spell_robe",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.turtle_cold_marrow",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.ice_crystal_silk",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.turtle_cold_marrow",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 30,
+      "water": 57
+    }
+  },
+  {
+    "recipeId": "forging.foundation_mixed_body_armor",
+    "outputItemId": "equip.foundation_mixed_body_armor",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.mixed_toad_pearl",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.fivephase_secretion",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.mixed_toad_pearl",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 55,
+      "wood": 55,
+      "water": 55,
+      "fire": 55,
+      "earth": 55
+    }
+  },
+  {
+    "recipeId": "forging.foundation_abyss_life_armor",
+    "outputItemId": "equip.foundation_abyss_life_armor",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.abyss_spirit_mud",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.stone_toad_skin",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.abyss_spirit_mud",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 49,
+      "earth": 90
+    }
+  },
+  {
+    "recipeId": "forging.foundation_devour_attack_armor",
+    "outputItemId": "equip.foundation_devour_attack_armor",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.devourer_beast_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.wood_fire_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.devourer_beast_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 112,
+      "fire": 61
+    }
+  },
+  {
+    "recipeId": "forging.foundation_dragonstride_boots",
+    "outputItemId": "equip.foundation_dragonstride_boots",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.dragon_spine_bone",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.deep_earth_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.dragon_spine_bone",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 66,
+      "earth": 124
+    }
+  },
+  {
+    "recipeId": "forging.foundation_returnflow_boots",
+    "outputItemId": "equip.foundation_returnflow_boots",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.frost_scale",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.frost_crystal",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.frost_scale",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 40,
+      "water": 73
+    }
+  },
+  {
+    "recipeId": "forging.foundation_returnflow_pendant",
+    "outputItemId": "equip.foundation_returnflow_pendant",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.turtle_cold_marrow",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.mixed_vein_stone",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.turtle_cold_marrow",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 55,
+      "wood": 55,
+      "water": 55,
+      "fire": 55,
+      "earth": 55
+    }
+  },
+  {
+    "recipeId": "forging.foundation_mountainbreaker_ring",
+    "outputItemId": "equip.foundation_mountainbreaker_ring",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.centipede_fang",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.dragon_inner_core",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.centipede_fang",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 66,
+      "earth": 124
+    }
+  },
+  {
+    "recipeId": "forging.foundation_flameheart_charm",
+    "outputItemId": "equip.foundation_flameheart_charm",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.fire_fox_core",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.wood_fire_dao_seed",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.fire_fox_core",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 115,
+      "fire": 62
+    }
+  },
+  {
+    "recipeId": "forging.foundation_fivephase_output_pendant",
+    "outputItemId": "equip.foundation_fivephase_output_pendant",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.fivephase_mixed_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 58,
+      "wood": 58,
+      "water": 58,
+      "fire": 58,
+      "earth": 56
+    }
+  },
+  {
+    "recipeId": "forging.foundation_quiet_cultivation_pendant",
+    "outputItemId": "equip.foundation_quiet_cultivation_pendant",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 72,
+    "ingredients": [
+      {
+        "itemId": "mat.darksoil_refined_earth",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.fivephase_mixed_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.darksoil_refined_earth",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 58,
+      "wood": 58,
+      "water": 58,
+      "fire": 58,
+      "earth": 56
+    }
+  },
+  {
+    "recipeId": "forging.foundation_burning_origin_furnace",
+    "outputItemId": "equip.foundation_burning_origin_furnace",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 70,
+    "ingredients": [
+      {
+        "itemId": "mat.blazewood_king_ember",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.fivephase_secretion",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.blazewood_king_ember",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 55,
+      "wood": 55,
+      "water": 55,
+      "fire": 55,
+      "earth": 55
+    }
+  },
+  {
+    "recipeId": "forging.foundation_deepiron_forging_tongs",
+    "outputItemId": "equip.foundation_deepiron_forging_tongs",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 70,
+    "ingredients": [
+      {
+        "itemId": "mat.deep_iron_essence",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.molten_core_shard",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.deep_iron_essence",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 40,
+      "fire": 103,
+      "earth": 62
+    }
+  },
+  {
+    "recipeId": "forging.foundation_darksoil_enhancement_hammer",
+    "outputItemId": "equip.foundation_darksoil_enhancement_hammer",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 70,
+    "ingredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.darksoil_refined_earth",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 63,
+      "earth": 118
+    }
+  },
+  {
+    "recipeId": "forging.foundation_dragonspine_mining_pickaxe",
+    "outputItemId": "equip.foundation_dragonspine_mining_pickaxe",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 70,
+    "ingredients": [
+      {
+        "itemId": "mat.dragon_spine_bone",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.deep_earth_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.dragon_spine_bone",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "water": 66,
+      "earth": 124
+    }
+  },
+  {
+    "recipeId": "forging.foundation_mixed_origin_building_hammer",
+    "outputItemId": "equip.foundation_mixed_origin_building_hammer",
+    "outputCount": 1,
+    "level": 40,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 70,
+    "ingredients": [
+      {
+        "itemId": "mat.mixed_vein_stone",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.wood_fire_essence",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.mixed_vein_stone",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "wood": 112,
+      "fire": 61
+    }
   }
 ]

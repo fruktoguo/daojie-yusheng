@@ -5,11 +5,11 @@
     "type": "material",
     "grade": "mystic",
     "level": 31,
-    "materialCategory": "hide",
+    "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "water": 8,
-        "metal": 4
+        "metal": 29,
+        "water": 54
       }
     },
     "desc": "霜鳞蛇脱落的鳞片，表面覆着一层薄冰，触手生寒。"
@@ -23,8 +23,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "water": 16,
-        "wood": 8
+        "wood": 38,
+        "water": 72
       }
     },
     "desc": "霜鳞蛇胆囊，内含凝寒灵液，是炼制寒性丹药的上品辅材。"
@@ -38,8 +38,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "metal": 8,
-        "water": 4
+        "metal": 55,
+        "water": 30
       }
     },
     "desc": "寒铁蝎背甲碎片，坚硬如铁且带寒气，可用于炼器。"
@@ -53,8 +53,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "metal": 12,
-        "water": 12
+        "metal": 73,
+        "water": 40
       }
     },
     "desc": "寒铁蝎尾部毒囊，内含剧毒寒液，炼丹时可入毒性方剂。"
@@ -65,11 +65,11 @@
     "type": "material",
     "grade": "mystic",
     "level": 33,
-    "materialCategory": "hide",
+    "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "water": 8,
-        "wood": 4
+        "wood": 30,
+        "water": 57
       }
     },
     "desc": "冰晶蜘蛛吐出的丝线，透明如冰，韧性极强。"
@@ -83,8 +83,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "water": 18,
-        "metal": 6
+        "metal": 41,
+        "water": 76
       }
     },
     "desc": "冰晶蜘蛛体内凝结的灵核，蕴含纯粹水行之力。"
@@ -98,8 +98,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "metal": 16,
-        "earth": 8
+        "metal": 78,
+        "earth": 42
       }
     },
     "desc": "铁甲玄龟龟壳碎片，质地极为坚硬，是上等炼器材料。"
@@ -113,8 +113,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "water": 20,
-        "earth": 8
+        "water": 78,
+        "earth": 42
       }
     },
     "desc": "铁甲玄龟骨髓精华，寒气凝聚如膏，是炼制防御类丹药的珍贵材料。"
@@ -128,9 +128,9 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "metal": 30,
-        "water": 15,
-        "earth": 10
+        "metal": 95,
+        "water": 57,
+        "earth": 37
       }
     },
     "desc": "铁甲玄龟体内经年累月凝炼的铁行精华，极为稀有。"
@@ -144,8 +144,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "water": 14,
-        "metal": 10
+        "metal": 40,
+        "water": 73
       }
     },
     "desc": "霜刃渊深处结晶的寒冰矿石，内含凝固灵气。"
@@ -159,8 +159,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "metal": 14,
-        "water": 10
+        "metal": 73,
+        "water": 40
       }
     },
     "desc": "霜刃渊矿脉中采出的寒铁碎块，带着刺骨寒意。"
@@ -174,8 +174,8 @@
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
-        "water": 12,
-        "wood": 12
+        "wood": 76,
+        "water": 41
       }
     },
     "desc": "生长在霜刃渊深水处的灵苔，吸收了大量水行灵气。"
@@ -186,11 +186,11 @@
     "type": "material",
     "grade": "mystic",
     "level": 35,
-    "materialCategory": "hide",
+    "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "fire": 8,
-        "wood": 4
+        "wood": 32,
+        "fire": 60
       }
     },
     "desc": "焰尾狐的皮毛，触手温热，带有淡淡火灵气息。"
@@ -204,8 +204,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "fire": 18,
-        "wood": 6
+        "wood": 43,
+        "fire": 80
       }
     },
     "desc": "焰尾狐体内的火行灵核，温度极高，是炼制火性丹药的好材料。"
@@ -219,8 +219,8 @@
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
-        "wood": 6,
-        "fire": 6
+        "wood": 62,
+        "fire": 33
       }
     },
     "desc": "枯木行者身上剥落的树皮，半焦半活，蕴含木火双行灵气。"
@@ -234,8 +234,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "fire": 14,
-        "wood": 10
+        "wood": 44,
+        "fire": 82
       }
     },
     "desc": "枯木行者体内仍在燃烧的木炭，火焰不灭，是炼器的优质燃料。"
@@ -246,11 +246,11 @@
     "type": "material",
     "grade": "earth",
     "level": 37,
-    "materialCategory": "hide",
+    "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "fire": 16,
-        "earth": 8
+        "fire": 85,
+        "earth": 45
       }
     },
     "desc": "烈焰蜥身上的鳞片，耐高温且坚硬，是炼制火属性防具的好材料。"
@@ -264,8 +264,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "fire": 20,
-        "earth": 8
+        "fire": 85,
+        "earth": 45
       }
     },
     "desc": "烈焰蜥的精血，温度极高，滴落即焦，是火行丹药的上品主材。"
@@ -279,9 +279,9 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "fire": 30,
-        "earth": 15,
-        "metal": 10
+        "metal": 40,
+        "fire": 103,
+        "earth": 62
       }
     },
     "desc": "烈焰蜥体内熔岩凝结的核心碎片，蕴含极纯火行精华。"
@@ -292,11 +292,11 @@
     "type": "material",
     "grade": "earth",
     "level": 37,
-    "materialCategory": "hide",
+    "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "wood": 14,
-        "fire": 10
+        "wood": 85,
+        "fire": 45
       }
     },
     "desc": "藤焰蟒体内的筋腱，韧性极强，可用于炼制弓弦或绳索类法器。"
@@ -310,8 +310,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "fire": 12,
-        "wood": 12
+        "wood": 85,
+        "fire": 45
       }
     },
     "desc": "藤焰蟒的毒囊，内含灼热毒液，兼具木火双行之性。"
@@ -325,8 +325,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "wood": 25,
-        "fire": 25
+        "wood": 112,
+        "fire": 61
       }
     },
     "desc": "藤焰蟒体内木火二行交融凝结的精华，极为珍稀。"
@@ -340,8 +340,8 @@
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
-        "wood": 28,
-        "fire": 20
+        "wood": 115,
+        "fire": 62
       }
     },
     "desc": "焚木妖王核心处的心木，历经千年焚烧不朽，蕴含浓郁木火道韵。"
@@ -355,8 +355,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "fire": 35,
-        "wood": 15
+        "wood": 62,
+        "fire": 115
       }
     },
     "desc": "焚木妖王死后残留的余烬，火焰经久不灭，是炼制天阶火器的珍材。"
@@ -370,8 +370,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "wood": 30,
-        "fire": 30
+        "wood": 115,
+        "fire": 62
       }
     },
     "desc": "焚木妖王体内凝结的道种，蕴含木火大道的一丝本源，极为罕见。"
@@ -385,8 +385,8 @@
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
-        "fire": 12,
-        "wood": 12
+        "wood": 82,
+        "fire": 44
       }
     },
     "desc": "焚木荒台上半焦的树枝，仍有微弱火灵残留。"
@@ -400,8 +400,8 @@
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
-        "fire": 16,
-        "wood": 8
+        "wood": 44,
+        "fire": 82
       }
     },
     "desc": "焚木荒台深处的灵种，外壳焦黑但内蕴火行生机。"
@@ -415,8 +415,8 @@
     "materialCategory": "herb",
     "materialValues": {
       "elements": {
-        "wood": 16,
-        "fire": 8
+        "wood": 85,
+        "fire": 45
       }
     },
     "desc": "焦木深处未被烧尽的木心，蕴含顽强木行灵气。"
@@ -430,8 +430,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "earth": 30,
-        "metal": 15
+        "metal": 63,
+        "earth": 118
       }
     },
     "desc": "玄壤深渊地脉中提炼的精纯土行矿物，质地细腻如膏。"
@@ -445,11 +445,11 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "earth": 20,
-        "metal": 15,
-        "water": 10,
-        "fire": 5,
-        "wood": 5
+        "metal": 55,
+        "wood": 55,
+        "water": 55,
+        "fire": 55,
+        "earth": 55
       }
     },
     "desc": "玄壤深渊混脉交汇处凝结的脉石，五行杂糅，是炼制混元类法器的基础材料。"
@@ -463,8 +463,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "earth": 25,
-        "water": 20
+        "water": 65,
+        "earth": 121
       }
     },
     "desc": "玄壤深渊最深处的灵泥，吸收了千年地脉灵气，是炼制土行丹药的极品辅材。"
@@ -478,8 +478,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "earth": 16,
-        "metal": 8
+        "metal": 48,
+        "earth": 88
       }
     },
     "desc": "玄土甲虫的外壳，坚硬如石，带有浓郁土行灵气。"
@@ -493,8 +493,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 20,
-        "metal": 8
+        "metal": 48,
+        "earth": 88
       }
     },
     "desc": "玄土甲虫体内的灵核，蕴含纯粹土行之力。"
@@ -508,8 +508,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 14,
-        "metal": 10
+        "metal": 49,
+        "earth": 90
       }
     },
     "desc": "裂地蜈蚣的毒牙，锋利异常，可用于炼制穿刺类法器。"
@@ -520,11 +520,11 @@
     "type": "material",
     "grade": "earth",
     "level": 40,
-    "materialCategory": "hide",
+    "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 16,
-        "metal": 8
+        "metal": 49,
+        "earth": 90
       }
     },
     "desc": "裂地蜈蚣的节甲，层层叠叠坚韧无比，是炼制甲胄的好材料。"
@@ -538,9 +538,9 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 25,
-        "water": 15,
-        "metal": 10
+        "metal": 44,
+        "water": 66,
+        "earth": 110
       }
     },
     "desc": "裂地蜈蚣体内积蓄的地脉毒素，剧毒无比，是炼制毒性丹药的极品材料。"
@@ -554,9 +554,9 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 12,
-        "water": 8,
-        "metal": 4
+        "metal": 32,
+        "water": 50,
+        "earth": 83
       }
     },
     "desc": "混元石蟾口中含养的灵珠，五行混杂，是炼制混元类丹药的辅材。"
@@ -567,11 +567,11 @@
     "type": "material",
     "grade": "earth",
     "level": 40,
-    "materialCategory": "hide",
+    "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 18,
-        "water": 6
+        "water": 49,
+        "earth": 90
       }
     },
     "desc": "混元石蟾的皮肤，粗糙如石，防御力极强。"
@@ -585,11 +585,11 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 12,
-        "water": 12,
-        "metal": 10,
-        "fire": 8,
-        "wood": 8
+        "metal": 55,
+        "wood": 55,
+        "water": 55,
+        "fire": 55,
+        "earth": 55
       }
     },
     "desc": "混元石蟾分泌的五行灵液，五行俱全，是炼制混元丹药的珍稀主材。"
@@ -603,8 +603,8 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "earth": 30,
-        "metal": 20
+        "metal": 66,
+        "earth": 124
       }
     },
     "desc": "玄壤地龙的脊骨，坚逾精钢，是炼制天阶重器的珍材。"
@@ -618,8 +618,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 40,
-        "metal": 20
+        "metal": 66,
+        "earth": 124
       }
     },
     "desc": "玄壤地龙修炼凝结的内丹，蕴含浓郁土行道韵，极为珍贵。"
@@ -633,8 +633,8 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 35,
-        "water": 15
+        "water": 66,
+        "earth": 124
       }
     },
     "desc": "玄壤地龙体内凝炼的土行精华，是炼制土属性天阶丹药的极品材料。"
@@ -648,11 +648,11 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "earth": 20,
-        "metal": 15,
-        "water": 10,
-        "fire": 5,
-        "wood": 5
+        "metal": 58,
+        "wood": 58,
+        "water": 58,
+        "fire": 56,
+        "earth": 58
       }
     },
     "desc": "五行噬脉兽的核心，五行灵力交织其中，是炼制混元法器的极品材料。"
@@ -666,11 +666,11 @@
     "materialCategory": "exotic",
     "materialValues": {
       "elements": {
-        "metal": 15,
-        "wood": 15,
-        "water": 15,
-        "fire": 15,
-        "earth": 15
+        "metal": 58,
+        "wood": 58,
+        "water": 58,
+        "fire": 58,
+        "earth": 56
       }
     },
     "desc": "五行噬脉兽体内五行交融凝结的精华，五行均衡，极为罕见。"
@@ -684,11 +684,11 @@
     "materialCategory": "ore",
     "materialValues": {
       "elements": {
-        "metal": 20,
-        "wood": 20,
-        "water": 20,
-        "fire": 20,
-        "earth": 20
+        "metal": 58,
+        "wood": 58,
+        "water": 58,
+        "fire": 58,
+        "earth": 56
       }
     },
     "desc": "五行噬脉兽吞噬地脉后凝结的晶体，蕴含五行大道本源之力，是筑基期最珍稀的材料之一。"
