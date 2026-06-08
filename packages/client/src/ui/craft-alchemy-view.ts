@@ -930,25 +930,17 @@ export class CraftAlchemyView {
     const draft = this.getAlchemyDraftIngredients(recipe.recipeId);
     const auxIngredients = draft.filter((ingredient) => !mainIds.has(ingredient.itemId));
     const presets = this.getAlchemyRecipePresets(recipe.recipeId);
-    const emptyPresetText = this.parent.activeMode === 'forging'
-      ? '当前器物还没有保存的自定义器方。'
-      : '当前丹药还没有保存的自定义丹方。';
+    const presetLabel = this.parent.activeMode === 'forging' ? '加载自定义器方' : '加载自定义丹方';
+    const selectedPreset = this.parent.selectedAlchemyPresetId
+      ? presets.find((preset) => preset.presetId === this.parent.selectedAlchemyPresetId) ?? null
+      : null;
+    const presetHint = selectedPreset
+      ? `当前：${selectedPreset.name}`
+      : `已保存 ${formatDisplayInteger(presets.length)} 个`;
     return `
       <div class="alchemy-preset-strip" data-alchemy-preset-strip="true">
-        ${presets.length > 0
-          ? presets.map((preset) => `
-            <span class="alchemy-preset-entry">
-              <button
-                class="alchemy-preset-chip ${this.parent.selectedAlchemyPresetId === preset.presetId ? 'active' : ''}"
-                type="button"
-                data-craft-action="alchemy-select-preset"
-                data-preset-id="${escapeHtml(preset.presetId)}">
-                ${escapeHtml(preset.name)}
-              </button>
-              <button class="small-btn ghost alchemy-preset-load-btn" type="button" data-craft-action="alchemy-select-preset" data-preset-id="${escapeHtml(preset.presetId)}">加载</button>
-            </span>
-          `).join('')
-          : `<span class="alchemy-preset-empty">${emptyPresetText}</span>`}
+        <button class="small-btn ghost alchemy-preset-load-btn" type="button" data-craft-action="alchemy-open-preset-picker">${escapeHtml(presetLabel)}</button>
+        <span class="alchemy-preset-empty">${escapeHtml(presetHint)}</span>
       </div>
       <div class="alchemy-material-table" data-alchemy-ingredients="true">
         ${mainIngredients.map((ingredient) => this.renderAlchemyMaterialRow({
@@ -1130,24 +1122,13 @@ export class CraftAlchemyView {
     const emptyPresetText = this.parent.activeMode === 'forging'
       ? '当前器物还没有保存的自定义器方。'
       : '当前丹药还没有保存的自定义丹方。';
+    const loadPresetLabel = this.parent.activeMode === 'forging' ? '加载自定义器方' : '加载自定义丹方';
     return `
       <div class="alchemy-tab-stack">
         ${this.renderAlchemySummaryCard(recipe, 'simple', metrics)}
         <div class="alchemy-preset-strip" data-alchemy-preset-strip="true">
-          ${presets.length > 0
-            ? presets.map((preset) => `
-              <span class="alchemy-preset-entry">
-                <button
-                  class="alchemy-preset-chip ${this.parent.selectedAlchemyPresetId === preset.presetId ? 'active' : ''}"
-                  type="button"
-                  data-craft-action="alchemy-select-preset"
-                  data-preset-id="${escapeHtml(preset.presetId)}">
-                  ${escapeHtml(preset.name)}
-                </button>
-                <button class="small-btn ghost alchemy-preset-load-btn" type="button" data-craft-action="alchemy-select-preset" data-preset-id="${escapeHtml(preset.presetId)}">加载</button>
-              </span>
-            `).join('')
-            : `<span class="alchemy-preset-empty">${emptyPresetText}</span>`}
+          <button class="small-btn ghost alchemy-preset-load-btn" type="button" data-craft-action="alchemy-open-preset-picker">${escapeHtml(loadPresetLabel)}</button>
+          <span class="alchemy-preset-empty">${selectedPreset ? `当前：${escapeHtml(selectedPreset.name)}` : escapeHtml(emptyPresetText)}</span>
         </div>
         <div class="alchemy-ingredient-section" data-alchemy-ingredients="true">
           ${recipe.ingredients.map((ingredient) => {

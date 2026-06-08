@@ -515,6 +515,7 @@ export class CraftWorkbenchModal {
   private static readonly MODAL_OWNER = 'craft-workbench-modal';
   private static readonly ALCHEMY_CONFIRM_OWNER = 'craft-workbench-modal:alchemy-confirm';
   private static readonly ALCHEMY_MATERIAL_PICKER_OWNER = 'craft-workbench-modal:alchemy-material-picker';
+  private static readonly ALCHEMY_PRESET_PICKER_OWNER = 'craft-workbench-modal:alchemy-preset-picker';
 
   private callbacks: CraftWorkbenchCallbacks | null = null;
   private transmissionCallbacks: Pick<CraftWorkbenchCallbacks, 'onStartTransmission' | 'onCancelTransmission' | 'getTransmissionTargets'> | null = null;
@@ -549,6 +550,7 @@ export class CraftWorkbenchModal {
   private alchemyMaterialPickerQuery = '';
   private alchemyMaterialPickerSortKey: AlchemyMaterialPickerSortKey = 'name';
   private alchemyMaterialPickerSortDirection: 'asc' | 'desc' = 'asc';
+  private alchemyPresetPickerSelectedId: string | null = null;
   private quantityByRecipeId = new Map<string, number>();
   private confirmStartRequest: ConfirmStartRequest | null = null;
   private confirmQuantityDraft = '1';
@@ -672,6 +674,7 @@ export class CraftWorkbenchModal {
     this.selectedAlchemyPresetId = null;
     this.confirmStartRequest = null;
     confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
+    confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
     this.render();
     this.callbacks?.onRequestForging(this.alchemyCatalogVersion || undefined);
   }
@@ -888,6 +891,7 @@ export class CraftWorkbenchModal {
     this.lastEnhancementRenderKey = null;
     this.lastEnhancementCandidateSourceKey = null;
     confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
+    confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
     confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
@@ -1072,6 +1076,7 @@ export class CraftWorkbenchModal {
       },
       onClose: () => {
         confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
+        confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
@@ -1110,6 +1115,7 @@ export class CraftWorkbenchModal {
       },
       onClose: () => {
         confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
+        confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-picker`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-list`);
         confirmModalHost.close(`${CraftWorkbenchModal.MODAL_OWNER}:enhancement-history-session`);
@@ -2071,6 +2077,10 @@ export class CraftWorkbenchModal {
         this.openAlchemyMaterialPickerModal();
         return;
       }
+      if (action === 'alchemy-open-preset-picker') {
+        this.openAlchemyPresetPickerModal();
+        return;
+      }
       if (action === 'alchemy-reset-draft') {
         const recipeId = this.selectedAlchemyRecipeId;
         if (!recipeId) {
@@ -2897,24 +2907,13 @@ export class CraftWorkbenchModal {
     const emptyPresetText = this.activeMode === 'forging'
       ? '当前器物还没有保存的自定义器方。'
       : '当前丹药还没有保存的自定义丹方。';
+    const loadPresetLabel = this.activeMode === 'forging' ? '加载自定义器方' : '加载自定义丹方';
     return `
       <div class="alchemy-tab-stack">
         ${this.renderAlchemySummaryCard(recipe, 'simple', metrics)}
         <div class="alchemy-preset-strip" data-alchemy-preset-strip="true">
-          ${presets.length > 0
-            ? presets.map((preset) => `
-              <span class="alchemy-preset-entry">
-                <button
-                  class="alchemy-preset-chip ${this.selectedAlchemyPresetId === preset.presetId ? 'active' : ''}"
-                  type="button"
-                  data-craft-action="alchemy-select-preset"
-                  data-preset-id="${escapeHtml(preset.presetId)}">
-                  ${escapeHtml(preset.name)}
-                </button>
-                <button class="small-btn ghost alchemy-preset-load-btn" type="button" data-craft-action="alchemy-select-preset" data-preset-id="${escapeHtml(preset.presetId)}">加载</button>
-              </span>
-            `).join('')
-            : `<span class="alchemy-preset-empty">${emptyPresetText}</span>`}
+          <button class="small-btn ghost alchemy-preset-load-btn" type="button" data-craft-action="alchemy-open-preset-picker">${escapeHtml(loadPresetLabel)}</button>
+          <span class="alchemy-preset-empty">${selectedPreset ? `当前：${escapeHtml(selectedPreset.name)}` : escapeHtml(emptyPresetText)}</span>
         </div>
         <div class="alchemy-ingredient-section" data-alchemy-ingredients="true">
           ${recipe.ingredients.map((ingredient) => {
@@ -3136,6 +3135,13 @@ export class CraftWorkbenchModal {
       tone,
       count,
     });
+  }
+
+  private resolveAlchemyMaterialName(recipe: AlchemyRecipeCatalogEntry, itemId: string): string {
+    const recipeIngredient = recipe.ingredients.find((ingredient) => ingredient.itemId === itemId);
+    return recipeIngredient?.name?.trim()
+      || getLocalItemTemplate(itemId)?.name?.trim()
+      || itemId;
   }
 
   private renderEnhancementBody(): string {
@@ -4635,6 +4641,195 @@ export class CraftWorkbenchModal {
   private formatAlchemyPickerElementValue(value: number | undefined): string {
     const numeric = Number(value) || 0;
     return numeric === 0 ? '-' : escapeHtml(formatDisplaySignedNumber(numeric));
+  }
+
+  private openAlchemyPresetPickerModal(presetId?: string): void {
+    const recipe = this.getSelectedAlchemyRecipe();
+    if (!recipe) {
+      return;
+    }
+    const presets = this.getAlchemyRecipePresets(recipe.recipeId);
+    const selectedId = presetId?.trim()
+      || this.alchemyPresetPickerSelectedId
+      || this.selectedAlchemyPresetId
+      || presets[0]?.presetId
+      || null;
+    this.alchemyPresetPickerSelectedId = presets.some((preset) => preset.presetId === selectedId)
+      ? selectedId
+      : presets[0]?.presetId ?? null;
+    confirmModalHost.open({
+      ownerId: CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER,
+      title: this.activeMode === 'forging' ? '加载自定义器方' : '加载自定义丹方',
+      subtitle: recipe.outputName,
+      bodyHtml: this.renderAlchemyPresetPickerBody(recipe),
+      hideActions: true,
+      onClose: () => {
+        this.alchemyPresetPickerSelectedId = null;
+      },
+    });
+    this.bindAlchemyPresetPickerEvents();
+  }
+
+  private renderAlchemyPresetPickerBody(recipe: AlchemyRecipeCatalogEntry): string {
+    const presets = this.getAlchemyRecipePresets(recipe.recipeId);
+    const selectedPreset = this.alchemyPresetPickerSelectedId
+      ? presets.find((preset) => preset.presetId === this.alchemyPresetPickerSelectedId) ?? null
+      : null;
+    const emptyText = this.activeMode === 'forging'
+      ? '当前器物还没有保存的自定义器方。'
+      : '当前丹药还没有保存的自定义丹方。';
+    return `
+      <div class="alchemy-preset-picker">
+        <div class="alchemy-preset-picker-list" data-alchemy-preset-picker-list="true">
+          ${presets.length > 0
+            ? presets.map((preset) => `
+              <button
+                class="alchemy-preset-picker-item ${selectedPreset?.presetId === preset.presetId ? 'active' : ''}"
+                type="button"
+                data-alchemy-preset-preview="${escapeHtmlAttr(preset.presetId)}">
+                <span class="alchemy-preset-picker-item-name">${escapeHtml(preset.name)}</span>
+                <span class="alchemy-preset-picker-item-meta">${escapeHtml(this.formatAlchemyPresetUpdatedAt(preset.updatedAt))}</span>
+              </button>
+            `).join('')
+            : `<div class="alchemy-preset-picker-empty">${escapeHtml(emptyText)}</div>`}
+        </div>
+        <div class="alchemy-preset-picker-detail" data-alchemy-preset-picker-detail="true">
+          ${selectedPreset ? this.renderAlchemyPresetPickerDetail(recipe, selectedPreset) : `
+            <div class="alchemy-preset-picker-empty alchemy-preset-picker-empty--detail">${escapeHtml(emptyText)}</div>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderAlchemyPresetPickerDetail(recipe: AlchemyRecipeCatalogEntry, preset: PlayerAlchemyPreset): string {
+    const ingredients = this.buildAlchemyPresetPreviewIngredients(recipe, preset);
+    const inputElements = this.buildAlchemyInputElements(recipe, ingredients);
+    const requiredElements = this.buildAlchemyRequiredElements(recipe);
+    return `
+      <div class="alchemy-preset-picker-detail-head">
+        <div>
+          <div class="alchemy-preset-picker-title">${escapeHtml(preset.name)}</div>
+          <div class="alchemy-preset-picker-subtitle">${escapeHtml(this.activeMode === 'forging' ? '自定义器方' : '自定义丹方')}</div>
+        </div>
+        <button class="small-btn" type="button" data-alchemy-preset-load="${escapeHtmlAttr(preset.presetId)}">${escapeHtml(this.activeMode === 'forging' ? '加载选中器方' : '加载选中丹方')}</button>
+      </div>
+      <section class="alchemy-fivephase-panel alchemy-preset-picker-fivephase">
+        <div class="alchemy-fivephase-block">
+          <div class="alchemy-fivephase-title">五行 当前 / 需要</div>
+          ${this.renderAlchemyElementRatioGrid(inputElements, requiredElements)}
+        </div>
+      </section>
+      <div class="alchemy-preset-picker-materials">
+        ${ingredients.map((ingredient) => {
+          const isMain = this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === ingredient.itemId);
+          return `
+            <div class="alchemy-preset-picker-material-row">
+              <span>${this.renderAlchemyItemReference(ingredient.itemId, this.resolveAlchemyMaterialName(recipe, ingredient.itemId), 'material')}</span>
+              <span class="alchemy-ingredient-role ${isMain ? 'main' : 'aux'}">${escapeHtml(this.activeMode === 'forging' ? (isMain ? '主材' : '辅材') : (isMain ? '主药' : '辅药'))}</span>
+              <span>${formatDisplayInteger(ingredient.count)}</span>
+              <span>${escapeHtml(this.formatAlchemyElementVector(this.getAlchemyMaterialElements(ingredient.itemId)))}</span>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  private buildAlchemyPresetPreviewIngredients(
+    recipe: AlchemyRecipeCatalogEntry,
+    preset: PlayerAlchemyPreset,
+  ): AlchemyIngredientSelection[] {
+    const mainIngredients = this.getAlchemyMainIngredients(recipe);
+    const mainIds = new Set(mainIngredients.map((ingredient) => ingredient.itemId));
+    const merged = new Map<string, number>();
+    for (const ingredient of mainIngredients) {
+      merged.set(ingredient.itemId, ingredient.count);
+    }
+    for (const ingredient of preset.ingredients) {
+      const itemId = typeof ingredient.itemId === 'string' ? ingredient.itemId.trim() : '';
+      const count = Math.max(0, Math.floor(Number(ingredient.count) || 0));
+      if (!itemId || mainIds.has(itemId) || count <= 0) {
+        continue;
+      }
+      merged.set(itemId, (merged.get(itemId) ?? 0) + count);
+    }
+    return Array.from(merged.entries()).map(([itemId, count]) => ({ itemId, count }));
+  }
+
+  private renderAlchemyElementRatioGrid(
+    currentElements: CraftElementVector | undefined,
+    requiredElements: CraftElementVector | undefined,
+  ): string {
+    const labels: Record<string, string> = { metal: '金', wood: '木', water: '水', fire: '火', earth: '土' };
+    return `
+      <div class="alchemy-element-grid">
+        ${ELEMENT_KEYS.map((element) => {
+          const current = Number(currentElements?.[element]) || 0;
+          const required = Number(requiredElements?.[element]) || 0;
+          const currentText = current < 0 ? `-${formatDisplayInteger(Math.abs(current))}` : formatDisplayInteger(current);
+          const requiredText = required === 0 ? '-' : formatDisplayInteger(required);
+          const valueText = required === 0 && current === 0 ? '-' : `${currentText}/${requiredText}`;
+          return `
+            <div class="alchemy-element-cell">
+              <span class="alchemy-element-label">${labels[element]}</span>
+              <strong class="alchemy-element-value">${escapeHtml(valueText)}</strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  private formatAlchemyPresetUpdatedAt(value: number | undefined): string {
+    const timestamp = Math.floor(Number(value) || 0);
+    if (timestamp <= 0) {
+      return '未记录时间';
+    }
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+      return '未记录时间';
+    }
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  private bindAlchemyPresetPickerEvents(): void {
+    const root = document.querySelector<HTMLElement>('.alchemy-preset-picker');
+    if (!root) {
+      return;
+    }
+    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-preset-preview]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const presetId = button.dataset.alchemyPresetPreview?.trim() ?? '';
+        if (!presetId) {
+          return;
+        }
+        this.openAlchemyPresetPickerModal(presetId);
+      });
+    });
+    root.querySelectorAll<HTMLButtonElement>('[data-alchemy-preset-load]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const recipeId = this.selectedAlchemyRecipeId;
+        const presetId = button.dataset.alchemyPresetLoad?.trim() ?? '';
+        if (!recipeId || !presetId) {
+          return;
+        }
+        const preset = this.getAlchemyRecipePresets(recipeId).find((entry) => entry.presetId === presetId);
+        if (!preset) {
+          return;
+        }
+        this.selectedAlchemyPresetId = presetId;
+        this.setAlchemyDraft(recipeId, preset.ingredients);
+        confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_PRESET_PICKER_OWNER);
+        this.render();
+      });
+    });
+    bindInlineItemTooltips(root);
   }
 
   private bindAlchemyMaterialPickerEvents(): void {

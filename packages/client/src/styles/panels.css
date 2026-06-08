@@ -11151,6 +11151,112 @@
       display: flex;
       justify-content: flex-start;
     }
+    .alchemy-preset-picker {
+      display: grid;
+      grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.5fr);
+      gap: 12px;
+      width: min(960px, calc(100vw - 56px));
+      min-height: min(56vh, 520px);
+    }
+    .alchemy-preset-picker-list,
+    .alchemy-preset-picker-detail {
+      min-width: 0;
+      border: 1px solid rgba(54, 42, 35, 0.1);
+      background: rgba(255, 251, 243, 0.76);
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
+    .alchemy-preset-picker-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px;
+    }
+    .alchemy-preset-picker-item {
+      display: grid;
+      gap: 3px;
+      width: 100%;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 1px solid rgba(54, 42, 35, 0.1);
+      background: rgba(255, 252, 246, 0.82);
+      color: var(--ink-black);
+      text-align: left;
+      cursor: pointer;
+    }
+    .alchemy-preset-picker-item:hover,
+    .alchemy-preset-picker-item.active {
+      border-color: rgba(111, 70, 37, 0.28);
+      background: rgba(255, 252, 246, 0.98);
+    }
+    .alchemy-preset-picker-item.active {
+      box-shadow: inset 3px 0 0 rgba(157, 91, 45, 0.8);
+    }
+    .alchemy-preset-picker-item-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: var(--font-weight-semibold);
+    }
+    .alchemy-preset-picker-item-meta,
+    .alchemy-preset-picker-subtitle {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .alchemy-preset-picker-detail {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 12px;
+    }
+    .alchemy-preset-picker-detail-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .alchemy-preset-picker-title {
+      font-size: var(--font-size-16);
+      font-weight: var(--font-weight-semibold);
+      color: var(--ink-black);
+      line-height: 1.35;
+    }
+    .alchemy-preset-picker-fivephase {
+      margin: 0;
+    }
+    .alchemy-preset-picker-materials {
+      display: grid;
+      gap: 6px;
+    }
+    .alchemy-preset-picker-material-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 1.4fr) 64px 54px minmax(160px, 1fr);
+      gap: 8px;
+      align-items: center;
+      min-height: 36px;
+      padding: 7px 8px;
+      border: 1px solid rgba(54, 42, 35, 0.08);
+      background: rgba(255, 252, 246, 0.66);
+      color: var(--ink-black);
+      font-size: var(--font-size-12);
+    }
+    .alchemy-preset-picker-material-row > span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .alchemy-preset-picker-empty {
+      padding: 16px;
+      border: 1px dashed rgba(84, 57, 35, 0.2);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      background: rgba(255, 251, 244, 0.7);
+    }
+    .alchemy-preset-picker-empty--detail {
+      align-self: start;
+    }
     .alchemy-material-picker {
       display: grid;
       gap: 10px;
@@ -11287,13 +11393,30 @@
       background: linear-gradient(180deg, rgba(86, 63, 41, 0.94), rgba(65, 50, 37, 0.96));
       box-shadow: inset 3px 0 0 rgba(211, 138, 76, 0.82);
     }
+    :root[data-color-mode="dark"] .alchemy-preset-picker-item:hover,
+    :root[data-color-mode="dark"] .alchemy-preset-picker-item.active {
+      border-color: rgba(212, 176, 137, 0.28);
+      background: rgba(55, 44, 35, 0.94);
+    }
+    :root[data-color-mode="dark"] .alchemy-preset-picker-title {
+      color: #f5e8d8;
+    }
+    :root[data-color-mode="dark"] .alchemy-preset-picker-empty {
+      border-color: rgba(212, 176, 137, 0.18);
+      background: rgba(42, 34, 28, 0.7);
+      color: #cbb49b;
+    }
     :root[data-color-mode="dark"] .alchemy-summary-card,
     :root[data-color-mode="dark"] .alchemy-recipe-detail-head,
     :root[data-color-mode="dark"] .alchemy-fivephase-panel,
     :root[data-color-mode="dark"] .alchemy-material-panel,
     :root[data-color-mode="dark"] .alchemy-element-cell,
     :root[data-color-mode="dark"] .alchemy-material-row,
-    :root[data-color-mode="dark"] .alchemy-ingredient-row {
+    :root[data-color-mode="dark"] .alchemy-ingredient-row,
+    :root[data-color-mode="dark"] .alchemy-preset-picker-list,
+    :root[data-color-mode="dark"] .alchemy-preset-picker-detail,
+    :root[data-color-mode="dark"] .alchemy-preset-picker-item,
+    :root[data-color-mode="dark"] .alchemy-preset-picker-material-row {
       border-color: rgba(212, 176, 137, 0.14);
       background: rgba(53, 43, 34, 0.84);
     }
@@ -12045,6 +12168,22 @@
       }
       .alchemy-material-picker {
         width: min(100%, calc(100vw - 32px));
+      }
+      .alchemy-preset-picker {
+        grid-template-columns: minmax(0, 1fr);
+        width: min(100%, calc(100vw - 32px));
+        min-height: auto;
+      }
+      .alchemy-preset-picker-list {
+        max-height: 220px;
+      }
+      .alchemy-preset-picker-detail-head {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .alchemy-preset-picker-material-row {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
       }
       .alchemy-material-picker-table {
         overflow-x: auto;
