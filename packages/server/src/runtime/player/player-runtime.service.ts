@@ -8401,8 +8401,8 @@ function resolveConsumableItemCooldownTicks(item) {
     if (!item) {
         return 0;
     }
-    const hasCooldownEffect = hasConsumableCooldownEffect(item);
-    if (!hasCooldownEffect && item.type !== 'consumable') {
+    const hasCooldownEffect = hasConsumableRecoveryCooldownEffect(item);
+    if (!hasCooldownEffect) {
         return 0;
     }
     if (Number.isFinite(Number(item.cooldown)) && Number(item.cooldown) > 0) {
@@ -8422,9 +8422,6 @@ function resolveConsumableItemCooldownGroups(item) {
     if (hasQiConsumableEffect(item)) {
         groups.push('qi');
     }
-    if (groups.length === 0 && resolveConsumableItemCooldownTicks(item) > 0 && typeof item.itemId === 'string' && item.itemId.trim()) {
-        groups.push(`item:${item.itemId.trim()}`);
-    }
     return groups;
 }
 
@@ -8432,9 +8429,8 @@ function hasInstantConsumableEffect(item) {
     return hasHpConsumableEffect(item) || hasQiConsumableEffect(item);
 }
 
-function hasConsumableCooldownEffect(item) {
-    return hasInstantConsumableEffect(item)
-        || (Array.isArray(item?.consumeBuffs) && item.consumeBuffs.length > 0);
+function hasConsumableRecoveryCooldownEffect(item) {
+    return hasInstantConsumableEffect(item);
 }
 
 function hasHpConsumableEffect(item) {

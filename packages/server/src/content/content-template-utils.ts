@@ -673,9 +673,10 @@ function normalizeItemTemplate(raw) {
     const healPercent = Number.isFinite(candidate.healPercent) ? clampUnitRatio(candidate.healPercent ?? 0) : undefined;
     const qiPercent = Number.isFinite(candidate.qiPercent) ? clampUnitRatio(candidate.qiPercent ?? 0) : undefined;
     const consumeBuffs = normalizeConsumableBuffs(raw.consumeBuffs);
+    const hasRecoveryEffect = (healAmount ?? 0) > 0 || (healPercent ?? 0) > 0 || (qiPercent ?? 0) > 0;
     const cooldown = Number.isFinite(candidate.cooldown)
-        ? Math.max(0, Math.trunc(Number(candidate.cooldown)))
-        : ((healAmount ?? 0) > 0 || (healPercent ?? 0) > 0 || (qiPercent ?? 0) > 0 || (consumeBuffs?.length ?? 0) > 0)
+        ? (hasRecoveryEffect ? Math.max(0, Math.trunc(Number(candidate.cooldown))) : undefined)
+        : hasRecoveryEffect
             ? DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS
             : undefined;
     return {
