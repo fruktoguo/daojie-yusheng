@@ -190,10 +190,33 @@ finalSuccessRate = applyDynamicCraftSuccessModifier(
 
 旧的 `powerRatio` 不再作为耗时基准。
 
-建议第一版：
+五行偏差只影响成功率，不直接影响基础耗时。基础耗时先按自定义投料的材料数量差修正，再应用炼丹/炼器等级、工具、装备、buff、建筑等动态速度修正。
+
+材料数量差使用标准配方 `ingredients` 的总数量作为基准；若新格式没有 `ingredients`，则退回 `mainIngredients` 总数量。
 
 ```ts
-baseTicks = recipe.baseBrewTicks
+baseMaterialCount = sum(recipe.ingredients.count ?? recipe.mainIngredients.count)
+inputMaterialCount = sum(submittedIngredients.count)
+materialDeltaPercentPoints = abs(inputMaterialCount - baseMaterialCount) / baseMaterialCount * 100
+tickDelta = floor(materialDeltaPercentPoints * 0.8)
+baseTicks =
+  inputMaterialCount > baseMaterialCount
+    ? recipe.baseBrewTicks + tickDelta
+    : recipe.baseBrewTicks - tickDelta
+baseTicks = max(1, baseTicks)
+```
+
+例：标准配方 10 个材料，自定义投料 9 个材料，基础耗时 50 息：
+
+```ts
+materialDeltaPercentPoints = 10
+tickDelta = floor(10 * 0.8) = 8
+baseTicks = 50 - 8 = 42
+```
+
+增加材料同理增加基础耗时；`tickDelta < 1` 时不足 1 息，不改变基础耗时。
+
+```ts
 adjustedTicks = applyDynamicCraftSpeedModifier(
   baseTicks,
   recipeLevel,
@@ -204,9 +227,7 @@ adjustedTicks = applyDynamicCraftSpeedModifier(
 )
 ```
 
-也就是说，五行偏差只影响成功率，不影响基础耗时。这样便于调平和解释。
-
-如果后续需要“五行越偏耗时越长”，应新增独立系数，不复用成功率，避免成功率和耗时双重惩罚。
+禁止复用五行成功率作为耗时系数，避免成功率和耗时双重惩罚。
 
 ## 标准配方配置结构
 
@@ -245,7 +266,7 @@ adjustedTicks = applyDynamicCraftSpeedModifier(
 
 - `mainIngredients.length` 必须为 1 或 2。
 - 主材 item 必须存在且为 material。
-- `requiredAuxElements` 至少一系非 0。
+- `requiredAuxElements` 可以全 0；但主材五行 + 辅材目标五行的总目标至少一系非 0。
 - `requiredAuxElements` 只允许有限整数，可以为负。
 - `baseBrewTicks`、`outputCount`、`level` 必须为正整数。
 - 输出物品必须存在。

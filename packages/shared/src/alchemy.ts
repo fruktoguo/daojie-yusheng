@@ -193,20 +193,44 @@ export function computeAlchemyAdjustedSuccessRate(
 
 export function computeAlchemyBrewTicks(
   baseBrewTicks: number,
-  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'requiredAuxElements'>,
+  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'mainIngredients' | 'requiredAuxElements'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
   furnaceOutputCount = ALCHEMY_FURNACE_OUTPUT_COUNT,
 ): number {
   void furnaceOutputCount;
   const normalizedBase = Math.max(1, Math.floor(Number(baseBrewTicks) || 1));
-  if (recipe.requiredAuxElements) {
+  const recipeMaterialCount = computeAlchemyRecipeMaterialCount(recipe);
+  const submittedMaterialCount = computeAlchemySubmittedMaterialCount(submitted);
+  if (recipeMaterialCount <= 0 || submittedMaterialCount <= 0 || submittedMaterialCount === recipeMaterialCount) {
     return normalizedBase;
   }
-  if (isExactAlchemyRecipe(recipe, submitted)) {
-    return normalizedBase;
+  const deltaPercentPoints = (Math.abs(submittedMaterialCount - recipeMaterialCount) / recipeMaterialCount) * 100;
+  const tickDelta = Math.floor(deltaPercentPoints * 0.8);
+  const signedTicks = submittedMaterialCount > recipeMaterialCount
+    ? normalizedBase + tickDelta
+    : normalizedBase - tickDelta;
+  return Math.max(1, signedTicks);
+}
+
+export function computeAlchemyRecipeMaterialCount(
+  recipe: Pick<AlchemyRecipeCatalogEntry, 'ingredients' | 'mainIngredients'>,
+): number {
+  const source = Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0
+    ? recipe.ingredients
+    : recipe.mainIngredients ?? [];
+  return source.reduce((total, ingredient) => {
+    return total + Math.max(0, Math.floor(Number(ingredient.count) || 0));
+  }, 0);
+}
+
+export function computeAlchemySubmittedMaterialCount(
+  submitted: readonly AlchemyIngredientSelection[] | undefined,
+): number {
+  let total = 0;
+  for (const count of buildAlchemyIngredientCountMap(submitted).values()) {
+    total += count;
   }
-  const ratio = computeAlchemyPowerRatio(recipe, submitted);
-  return Math.max(1, Math.ceil(normalizedBase * Math.max(0, ratio)));
+  return total;
 }
 
 export function computeAlchemySpeedRate(
@@ -231,7 +255,7 @@ export function computeAlchemySpeedRate(
 
 export function computeAlchemyAdjustedBrewTicks(
   baseBrewTicks: number,
-  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'requiredAuxElements'>,
+  recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'mainIngredients' | 'requiredAuxElements'>,
   submitted: readonly AlchemyIngredientSelection[] | undefined,
   recipeLevel: number | undefined,
   alchemyLevel: number | undefined,

@@ -14,21 +14,9 @@
 
 源文件: `packages/shared/src/alchemy.ts`, `packages/shared/src/craft-success.ts`
 
-### 1. 基础成功率
+炼丹基础成功率使用五行匹配公式，详见 `docs/mechanics/technique/16a-fivephase-craft-formula.md`。旧的 `powerRatio = submittedPower / recipe.fullPower` 不再作为基础成功率。
 
-```typescript
-powerRatio = submittedPower / recipe.fullPower  // [0,1]
-baseSuccessRate = isExactRecipe ? 1 : powerRatio²
-```
-
-### 2. 材料力量计算
-
-```typescript
-materialPower = level × (gradeValue²) × count
-// gradeValue: mortal=1, yellow=2, mystic=3, earth=4, heaven=5, spirit=6, saint=7, emperor=8
-```
-
-### 3. 等级修正（赔率空间）
+### 1. 等级修正（赔率空间）
 
 ```typescript
 levelModifier = (targetLevel > skillLevel)
@@ -38,7 +26,7 @@ levelModifier = (targetLevel > skillLevel)
     : 0
 ```
 
-### 4. 最终成功率（赔率空间渐近修正）
+### 2. 最终成功率（赔率空间渐近修正）
 
 ```typescript
 adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolSuccessModifier)
@@ -56,7 +44,7 @@ adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolSucc
 
 ```typescript
 // 1. 基础炼制时间
-brewTicks = isExactRecipe ? baseBrewTicks : ceil(baseBrewTicks × powerRatio)
+brewTicks = 按自定义投料材料总数相对标准配方材料总数修正 baseBrewTicks
 
 // 2. 速度修正
 speedRate = (recipeLevel > alchemyLevel) ? -0.1 × (recipeLevel - alchemyLevel)
@@ -73,6 +61,8 @@ adjustedBrewTicks = max(1, ceil(brewTicks × durationFactor))
 // 5. 总耗时
 totalTicks = adjustedBrewTicks × quantity
 ```
+
+材料数量修正规则详见 `docs/mechanics/technique/16a-fivephase-craft-formula.md`。
 
 ## 灵石消耗
 

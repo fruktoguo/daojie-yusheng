@@ -2895,8 +2895,8 @@ export class CraftWorkbenchModal {
     const mainRoleLabel = this.activeMode === 'forging' ? '主材' : '主药';
     const auxRoleLabel = this.activeMode === 'forging' ? '辅材' : '辅药';
     const emptyPresetText = this.activeMode === 'forging'
-      ? '当前器物还没有保存的简易器方。'
-      : '当前丹药还没有保存的简易丹方。';
+      ? '当前器物还没有保存的自定义器方。'
+      : '当前丹药还没有保存的自定义丹方。';
     return `
       <div class="alchemy-tab-stack">
         ${this.renderAlchemySummaryCard(recipe, 'simple', metrics)}
@@ -3009,8 +3009,8 @@ export class CraftWorkbenchModal {
   ): string {
     const isForging = this.activeMode === 'forging';
     const recipeLabel = isForging
-      ? (mode === 'simple' ? '简易器方' : '完整器方')
-      : (mode === 'simple' ? '简易丹方' : '完整丹方');
+      ? (mode === 'simple' ? '自创器方' : '完整器方')
+      : (mode === 'simple' ? '自创丹方' : '完整丹方');
     return `
       <div class="alchemy-summary-card" data-alchemy-summary-card="true">
         <div class="alchemy-summary-head">
@@ -3060,6 +3060,13 @@ export class CraftWorkbenchModal {
     const simpleStartLabel = isForging
       ? t('craft.workbench.alchemy.confirm.start', { modeLabel: t('craft.workbench.alchemy.confirm.mode.forging') })
       : t('craft.workbench.alchemy.confirm.start', { modeLabel: t('craft.workbench.alchemy.confirm.mode.alchemy') });
+    const savePresetLabel = isForging
+      ? (options?.hasSelectedPreset
+        ? t('craft.workbench.alchemy.action.save-preset.overwrite.forging')
+        : t('craft.workbench.alchemy.action.save-preset.create.forging'))
+      : (options?.hasSelectedPreset
+        ? t('craft.workbench.alchemy.action.save-preset.overwrite')
+        : t('craft.workbench.alchemy.action.save-preset.create'));
     const unit = isForging
       ? t('craft.workbench.alchemy.confirm.unit.forging')
       : t('craft.workbench.alchemy.confirm.unit.alchemy');
@@ -3070,7 +3077,7 @@ export class CraftWorkbenchModal {
             ? `<button class="small-btn" type="button" data-craft-action="alchemy-start-full"${startDisabled ? ' disabled' : ''}>${fullStartLabel}</button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${simpleTabLabel}</button>`
             : `<button class="small-btn" type="button" data-craft-action="alchemy-start-draft"${startDisabled ? ' disabled' : ''}>${simpleStartLabel}</button>
-               <button class="small-btn ghost" type="button" data-craft-action="alchemy-save-preset"> ${options?.hasSelectedPreset ? t('craft.workbench.alchemy.action.save-preset.overwrite') : t('craft.workbench.alchemy.action.save-preset.create')} </button>
+               <button class="small-btn ghost" type="button" data-craft-action="alchemy-save-preset"> ${savePresetLabel} </button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-reset-draft">${escapeHtml(t('craft.workbench.alchemy.action.reset-draft'))}</button>
                ${options?.selectedPresetId ? `<button class="small-btn danger" type="button" data-craft-action="alchemy-delete-preset" data-preset-id="${escapeHtml(options.selectedPresetId)}">${escapeHtml(t('craft.workbench.alchemy.action.delete-preset'))}</button>` : ''}`}
           ${mode === 'full'
@@ -4303,7 +4310,7 @@ export class CraftWorkbenchModal {
     const preset: PlayerAlchemyPreset = {
       presetId: existingIndex >= 0 ? list[existingIndex].presetId : `local:${kind}:${recipe.recipeId}:${now.toString(36)}`,
       recipeId: recipe.recipeId,
-      name: existingIndex >= 0 ? list[existingIndex].name : `${recipe.outputName}${kind === 'forging' ? '器方' : '丹方'}${list.length + 1}`,
+      name: existingIndex >= 0 ? list[existingIndex].name : `${recipe.outputName}${kind === 'forging' ? '自定义器方' : '自定义丹方'}${list.length + 1}`,
       ingredients: this.getAlchemySubmittedDraftIngredients(recipe.recipeId),
       updatedAt: now,
     };
@@ -4726,8 +4733,8 @@ export class CraftWorkbenchModal {
   private buildAlchemyRecipeMetaText(recipe: AlchemyRecipeCatalogEntry): string {
     const simpleCount = this.getAlchemyRecipePresets(recipe.recipeId).length;
     const unit = this.activeMode === 'forging' ? '件' : '枚';
-    const presetLabel = this.activeMode === 'forging' ? '器方' : '简方';
-    const presetText = this.activeMode === 'forging' ? presetLabel : `${presetLabel} ${simpleCount}`;
+    const presetLabel = this.activeMode === 'forging' ? '自定义器方' : '自定义丹方';
+    const presetText = `${presetLabel} ${simpleCount}`;
     return t('craft.workbench.alchemy-recipe-meta', { count: String(this.getAlchemyBatchOutputCount(recipe)), unit, ticks: String(recipe.baseBrewTicks), presetText });
   }
 

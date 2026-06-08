@@ -4,6 +4,7 @@ installSmokeTimeout(__filename);
 
 import assert from 'node:assert/strict';
 
+import { computeAlchemyBrewTicks, computeFivePhaseElementMatch } from '@mud/shared';
 import type { AlchemyRecipeCatalogEntry, RuntimeTechniqueActivityKind } from '@mud/shared';
 import { WorldRuntimeAlchemyService } from '../runtime/world/world-runtime-alchemy.service';
 import { WorldRuntimeCraftMutationService } from '../runtime/world/world-runtime-craft-mutation.service';
@@ -55,6 +56,8 @@ const FORGING_RECIPE: AlchemyRecipeCatalogEntry = {
 
 async function main(): Promise<void> {
   testAlchemyForgingCancelUsesPipelineLifecycle();
+  testAlchemyCustomFormulaMaterialCountAdjustsBrewTicks();
+  testMainOnlyForgingRecipeStartsWithFullFivePhaseMatch();
   await testDirectAlchemyJobNoPreparationAndSeparateInterruptWait();
   await testAlchemyQuantityUsesResourceLimitsWithoutFixedCap();
   await testAlchemyQueueStartsNextJobFromUnifiedQueue();
@@ -83,6 +86,68 @@ async function main(): Promise<void> {
       'WorldRuntimeAlchemyService 通过统一 technique activity 入口启动并刷新面板。',
     ],
   }, null, 2));
+}
+
+function testAlchemyCustomFormulaMaterialCountAdjustsBrewTicks(): void {
+  const recipe: Pick<AlchemyRecipeCatalogEntry, 'fullPower' | 'ingredients' | 'mainIngredients' | 'requiredAuxElements'> = {
+    fullPower: 0,
+    mainIngredients: [{ itemId: 'mat.main', name: '主材', count: 5 }],
+    requiredAuxElements: { wood: 5 },
+    ingredients: [
+      { itemId: 'mat.main', name: '主材', count: 5, role: 'main', level: 1, grade: 'mortal', powerPerUnit: 1 },
+      { itemId: 'mat.aux', name: '辅材', count: 5, role: 'aux', level: 1, grade: 'mortal', powerPerUnit: 1 },
+    ],
+  };
+
+  assert.equal(computeAlchemyBrewTicks(50, recipe, [
+    { itemId: 'mat.main', count: 5 },
+    { itemId: 'mat.aux', count: 4 },
+  ]), 42);
+  assert.equal(computeAlchemyBrewTicks(50, recipe, [
+    { itemId: 'mat.main', count: 5 },
+    { itemId: 'mat.aux', count: 6 },
+  ]), 58);
+  assert.equal(computeAlchemyBrewTicks(50, recipe, [
+    { itemId: 'mat.main', count: 5 },
+    { itemId: 'mat.aux', count: 5 },
+  ]), 50);
+}
+
+function testMainOnlyForgingRecipeStartsWithFullFivePhaseMatch(): void {
+  const player = createPlayer('player:forging:main-only-fivephase', [
+    { itemId: 'ore.copper', count: 1 },
+    { itemId: 'spirit_stone', count: 20 },
+  ]);
+  const { craftService } = createCraftHarness(player);
+  const normalized = (craftService as unknown as {
+    toAlchemyCatalogEntry?: (entry: unknown) => AlchemyRecipeCatalogEntry | null;
+  }).toAlchemyCatalogEntry?.({
+    recipeId: 'forging.main_only',
+    outputItemId: 'equip.copper_sword',
+    outputCount: 1,
+    level: 1,
+    grade: 'mortal',
+    baseBrewTicks: 3,
+    ingredients: [{ itemId: 'ore.copper', count: 1, role: 'main' }],
+    mainIngredients: [{ itemId: 'ore.copper', count: 1 }],
+  });
+  assert.ok(normalized);
+
+  const elementMatch = computeFivePhaseElementMatch(
+    { metal: 6, earth: 3 },
+    { metal: 6, earth: 3 },
+  );
+  assert.equal(elementMatch.baseElementSuccessRate, 1);
+
+  craftService.forgingCatalog = [normalized];
+  const start = craftService.startTechniqueActivity(player, 'forging', {
+    kind: 'forging',
+    recipeId: normalized.recipeId,
+    ingredients: [{ itemId: 'ore.copper', count: 1 }],
+    quantity: 1,
+  }, createDeps([]));
+  assert.equal(start.ok, true);
+  assert.equal(player.forgingJob?.baseElementSuccessRate, 1);
 }
 
 function testAlchemyForgingCancelUsesPipelineLifecycle(): void {
@@ -707,6 +772,7 @@ function createDeps(log: SmokeLog[]): any {
 }
 
 function createItemStack(itemId: string, count: number, name = resolveItemName(itemId)): any {
+  const materialValues = resolveMaterialValues(itemId);
   return {
     itemId,
     name,
@@ -714,7 +780,19 @@ function createItemStack(itemId: string, count: number, name = resolveItemName(i
     count,
     level: 1,
     grade: 'mortal',
+    ...(materialValues ? { materialValues } : {}),
   };
+}
+
+function resolveMaterialValues(itemId: string): { elements: Record<string, number> } | null {
+  switch (itemId) {
+    case 'herb.qi':
+      return { elements: { wood: 1 } };
+    case 'ore.copper':
+      return { elements: { metal: 6, earth: 3 } };
+    default:
+      return null;
+  }
 }
 
 function resolveItemName(itemId: string): string {

@@ -33,15 +33,14 @@ tickForging:
 
 - `furnaceOutputCount = 1`（锻造单次产出 1 件）
 - 炼丹 `furnaceOutputCount = 6`（炼丹单次制作产出倍率为 6）
-- 成功率公式共用（赔率空间渐近修正）
-- 耗时公式共用（速度修正）
+- 基础成功率共用五行匹配公式，动态成功率修正共用赔率空间渐近修正
+- 耗时公式共用材料数量基础耗时修正与速度修正
 
 ## 成功率公式
 
-与炼丹相同，使用 `applyAsymptoticSuccessModifier`：
+与炼丹相同，基础成功率使用五行匹配公式，详见 `docs/mechanics/technique/16a-fivephase-craft-formula.md`；动态修正使用 `applyAsymptoticSuccessModifier`：
 ```ts
-powerRatio = submittedPower / recipe.fullPower
-baseSuccessRate = isExactRecipe ? 1 : powerRatio²
+baseSuccessRate = computeFivePhaseElementMatch(inputElements, targetElements).baseElementSuccessRate
 adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolModifier)
 ```
 
@@ -49,10 +48,12 @@ adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolModi
 
 与炼丹相同：
 ```ts
-baseTicks = isExactRecipe ? baseBrewTicks : ceil(baseBrewTicks × powerRatio)
+baseTicks = 按自定义投料材料总数相对标准配方材料总数修正 baseBrewTicks
 speedRate = levelSpeedRate + toolSpeedRate
 totalTicks = max(1, ceil(baseTicks × durationFactor(speedRate)))
 ```
+
+材料数量修正规则详见 `docs/mechanics/technique/16a-fivephase-craft-formula.md`。
 
 ## 相关源文件
 

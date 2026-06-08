@@ -2326,7 +2326,8 @@ export class CraftPanelRuntimeService {
             entry.requiredAuxElements,
             legacyIngredients,
         );
-        if (sumCraftElementAbs(requiredAuxElements) <= 0) {
+        const mainElements = sumRecipeIngredientElements(this.contentTemplateRepository, mainIngredients);
+        if (sumCraftElementAbs(requiredAuxElements) <= 0 && sumCraftElementAbs(mainElements) <= 0) {
             return null;
         }
         const category = resolveAlchemyRecipeCategory(outputItem, recipeId);
@@ -2520,7 +2521,7 @@ function resolveRecipeRequiredAuxElements(contentTemplateRepository, rawRequired
     if (sumCraftElementAbs(auxElements) > 0) {
         return auxElements;
     }
-    return sumRecipeIngredientElements(contentTemplateRepository, legacyIngredients);
+    return createEmptyCraftElementVector();
 }
 
 function sumRecipeIngredientElements(contentTemplateRepository, ingredients) {

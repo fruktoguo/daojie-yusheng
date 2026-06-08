@@ -19,11 +19,7 @@
         "itemId": "black_iron_chunk",
         "count": 1
       }
-    ],
-    "requiredAuxElements": {
-      "metal": 6,
-      "earth": 3
-    }
+    ]
   },
   {
     "recipeId": "forging.copper_pill_furnace",
@@ -45,11 +41,7 @@
         "itemId": "black_iron_chunk",
         "count": 1
       }
-    ],
-    "requiredAuxElements": {
-      "metal": 6,
-      "earth": 3
-    }
+    ]
   },
   {
     "recipeId": "forging.copper_forging_tool",
@@ -71,11 +63,7 @@
         "itemId": "black_iron_chunk",
         "count": 1
       }
-    ],
-    "requiredAuxElements": {
-      "metal": 6,
-      "earth": 3
-    }
+    ]
   },
   {
     "recipeId": "forging.copper_building_hammer",
@@ -97,11 +85,7 @@
         "itemId": "black_iron_chunk",
         "count": 1
       }
-    ],
-    "requiredAuxElements": {
-      "metal": 6,
-      "earth": 3
-    }
+    ]
   },
   {
     "recipeId": "forging.copper_array_plate",
@@ -123,11 +107,7 @@
         "itemId": "black_iron_chunk",
         "count": 1
       }
-    ],
-    "requiredAuxElements": {
-      "metal": 6,
-      "earth": 3
-    }
+    ]
   },
   {
     "recipeId": "forging.copper_luopan",
@@ -149,11 +129,7 @@
         "itemId": "black_iron_chunk",
         "count": 1
       }
-    ],
-    "requiredAuxElements": {
-      "metal": 6,
-      "earth": 3
-    }
+    ]
   },
   {
     "recipeId": "forging.copper_mining_pickaxe",
@@ -175,10 +151,6 @@
         "itemId": "black_iron_chunk",
         "count": 1
       }
-    ],
-    "requiredAuxElements": {
-      "metal": 6,
-      "earth": 3
-    }
+    ]
   }
 ]
