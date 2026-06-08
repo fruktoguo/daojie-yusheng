@@ -2257,7 +2257,7 @@ export class CraftPanelRuntimeService {
         }
         const raw = JSON.parse(readFileSync(filePath, 'utf-8'));
         this.forgingCatalog = Array.isArray(raw)
-            ? raw.map((entry) => this.toAlchemyCatalogEntry({ ...entry, category: 'special' })).filter(Boolean)
+            ? raw.map((entry) => this.toAlchemyCatalogEntry(entry)).filter(Boolean)
             : [];
         this.forgingCatalog.sort((left, right) => {
             if (left.outputLevel !== right.outputLevel) {
@@ -2565,6 +2565,9 @@ function sumCraftElementAbs(elements) {
 function resolveAlchemyRecipeCategory(outputItem, recipeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (outputItem.type === 'equipment' && EQUIP_SLOTS.includes(outputItem.equipSlot)) {
+        return outputItem.equipSlot;
+    }
     if ((outputItem.consumeBuffs?.length ?? 0) > 0) {
         return 'buff';
     }

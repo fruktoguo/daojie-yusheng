@@ -128,10 +128,36 @@ function normalizeAlchemyRealm(value: string | undefined): AlchemyRealmTab {
 }
 
 function normalizeAlchemyCategory(value: string | undefined): AlchemyRecipeCategory {
-  if (value === 'buff' || value === 'special') {
+  if (
+    value === 'buff'
+    || value === 'special'
+    || value === 'weapon'
+    || value === 'head'
+    || value === 'body'
+    || value === 'legs'
+    || value === 'accessory'
+  ) {
     return value;
   }
   return 'recovery';
+}
+
+function getAlchemyCategoryTabs(isForging: boolean): Array<{ category: AlchemyRecipeCategory; label: string }> {
+  if (isForging) {
+    return [
+      { category: 'weapon', label: t('craft.workbench.alchemy.category.weapon') },
+      { category: 'head', label: t('craft.workbench.alchemy.category.head') },
+      { category: 'body', label: t('craft.workbench.alchemy.category.body') },
+      { category: 'legs', label: t('craft.workbench.alchemy.category.legs') },
+      { category: 'accessory', label: t('craft.workbench.alchemy.category.accessory') },
+      { category: 'special', label: t('craft.workbench.alchemy.category.forging-special') },
+    ];
+  }
+  return [
+    { category: 'recovery', label: t('craft.workbench.alchemy.category.recovery') },
+    { category: 'buff', label: t('craft.workbench.alchemy.category.buff') },
+    { category: 'special', label: t('craft.workbench.alchemy.category.special') },
+  ];
 }
 
 function cloneAlchemyIngredients(
@@ -182,9 +208,6 @@ export class CraftAlchemyView {
   // --- Helper accessors ---
 
   private getVisibleAlchemyRecipes(): AlchemyRecipeCatalogEntry[] {
-    if (this.parent.activeMode === 'forging') {
-      return this.parent.alchemyCatalog.filter((entry) => getAlchemyRealmTab(entry.outputLevel) === this.parent.activeAlchemyRealm);
-    }
     return this.parent.alchemyCatalog.filter((entry) => (
       entry.category === this.parent.activeAlchemyCategory
       && getAlchemyRealmTab(entry.outputLevel) === this.parent.activeAlchemyRealm
@@ -195,9 +218,6 @@ export class CraftAlchemyView {
     const recipe = this.parent.alchemyCatalog.find((entry) => entry.recipeId === this.parent.selectedAlchemyRecipeId) ?? null;
     if (!recipe) {
       return null;
-    }
-    if (this.parent.activeMode === 'forging') {
-      return getAlchemyRealmTab(recipe.outputLevel) === this.parent.activeAlchemyRealm ? recipe : null;
     }
     return recipe.category === this.parent.activeAlchemyCategory && getAlchemyRealmTab(recipe.outputLevel) === this.parent.activeAlchemyRealm
       ? recipe
@@ -704,20 +724,7 @@ export class CraftAlchemyView {
   }
 
   renderAlchemyCategoryTabs(): string {
-    if (this.parent.activeMode === 'forging') {
-      const count = this.parent.alchemyCatalog.filter((entry) => getAlchemyRealmTab(entry.outputLevel) === this.parent.activeAlchemyRealm).length;
-      return `
-        <button class="alchemy-category-btn active" type="button" data-craft-action="alchemy-switch-category" data-category="special">
-          ${escapeHtml(t('craft.workbench.alchemy.category.technique'))}
-          <span class="alchemy-category-count">${formatDisplayInteger(count)}</span>
-        </button>
-      `;
-    }
-    const categories: Array<{ category: AlchemyRecipeCategory; label: string }> = [
-      { category: 'recovery', label: t('craft.workbench.alchemy.category.recovery') },
-      { category: 'buff', label: t('craft.workbench.alchemy.category.buff') },
-      { category: 'special', label: t('craft.workbench.alchemy.category.special') },
-    ];
+    const categories = getAlchemyCategoryTabs(this.parent.activeMode === 'forging');
     return categories.map((tab) => {
       const count = this.parent.alchemyCatalog.filter((entry) => (
         entry.category === tab.category

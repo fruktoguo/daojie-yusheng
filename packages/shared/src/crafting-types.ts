@@ -103,8 +103,8 @@ export interface AlchemyRecipeMainIngredientDef extends AlchemyIngredientSelecti
   name: string;
 }
 
-/** 炼制配方类别。 */
-export type AlchemyRecipeCategory = 'recovery' | 'buff' | 'special';
+/** 炼制/炼器配方类别。炼器装备按装备槽位分类，工具和阵盘归入 special。 */
+export type AlchemyRecipeCategory = 'recovery' | 'buff' | 'special' | EquipSlot;
 
 /** 炼制配方目录条目。 */
 export interface AlchemyRecipeCatalogEntry {
