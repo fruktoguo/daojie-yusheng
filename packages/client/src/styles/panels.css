@@ -10602,6 +10602,12 @@
       flex-wrap: wrap;
       gap: 8px;
     }
+    .alchemy-preset-entry {
+      display: inline-flex;
+      align-items: stretch;
+      gap: 4px;
+      min-width: 0;
+    }
     .alchemy-control-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -10681,6 +10687,11 @@
       border-color: var(--ink-black);
       background: rgba(32, 24, 18, 0.9);
       color: #fff4e8;
+    }
+    .alchemy-preset-load-btn {
+      min-height: 28px;
+      padding: 4px 8px;
+      font-size: var(--font-size-12);
     }
     .alchemy-inline-note,
     .alchemy-preset-empty {

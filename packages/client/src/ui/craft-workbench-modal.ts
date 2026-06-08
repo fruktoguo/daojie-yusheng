@@ -2903,13 +2903,16 @@ export class CraftWorkbenchModal {
         <div class="alchemy-preset-strip" data-alchemy-preset-strip="true">
           ${presets.length > 0
             ? presets.map((preset) => `
-              <button
-                class="alchemy-preset-chip ${this.selectedAlchemyPresetId === preset.presetId ? 'active' : ''}"
-                type="button"
-                data-craft-action="alchemy-select-preset"
-                data-preset-id="${escapeHtml(preset.presetId)}">
-                ${escapeHtml(preset.name)}
-              </button>
+              <span class="alchemy-preset-entry">
+                <button
+                  class="alchemy-preset-chip ${this.selectedAlchemyPresetId === preset.presetId ? 'active' : ''}"
+                  type="button"
+                  data-craft-action="alchemy-select-preset"
+                  data-preset-id="${escapeHtml(preset.presetId)}">
+                  ${escapeHtml(preset.name)}
+                </button>
+                <button class="small-btn ghost alchemy-preset-load-btn" type="button" data-craft-action="alchemy-select-preset" data-preset-id="${escapeHtml(preset.presetId)}">加载</button>
+              </span>
             `).join('')
             : `<span class="alchemy-preset-empty">${emptyPresetText}</span>`}
         </div>
@@ -4230,7 +4233,7 @@ export class CraftWorkbenchModal {
     });
   }
 
-  private getAlchemyRecipePresets(recipeId: string): PlayerAlchemyPreset[] {
+  getAlchemyRecipePresets(recipeId: string): PlayerAlchemyPreset[] {
     this.ensureLocalCraftFormulaPresetsLoaded();
     const kind = this.activeMode === 'forging' ? 'forging' : 'alchemy';
     const localPresets = this.localCraftFormulaPresets.get(this.buildLocalCraftFormulaPresetKey(kind, recipeId)) ?? [];
