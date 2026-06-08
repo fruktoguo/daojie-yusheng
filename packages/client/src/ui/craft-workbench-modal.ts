@@ -513,7 +513,7 @@ function getAlchemyCategoryTabs(isForging: boolean): Array<{ category: AlchemyRe
       { category: 'body', label: t('craft.workbench.alchemy.category.body') },
       { category: 'legs', label: t('craft.workbench.alchemy.category.legs') },
       { category: 'accessory', label: t('craft.workbench.alchemy.category.accessory') },
-      { category: 'special', label: t('craft.workbench.alchemy.category.forging-special') },
+      { category: 'special', label: t('craft.workbench.alchemy.category.technique') },
     ];
   }
   return [
