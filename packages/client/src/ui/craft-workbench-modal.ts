@@ -2010,6 +2010,9 @@ export class CraftWorkbenchModal {
       }
       if (action === 'alchemy-switch-tab') {
         this.activeAlchemyTab = target.dataset.tab === 'simple' ? 'simple' : 'full';
+        if (this.activeAlchemyTab === 'simple') {
+          this.ensureAlchemyDraft();
+        }
         this.render();
         return;
       }
@@ -4390,12 +4393,20 @@ export class CraftWorkbenchModal {
       return;
     }
     const ownedCount = this.getAlchemyInventoryCount(itemId);
-    if (ownedCount <= 0 || !this.getAlchemyMaterialElements(itemId)) {
+    if (!this.getAlchemyMaterialElements(itemId)) {
       return;
+    }
+    if (!this.draftByRecipeId.has(recipeId)) {
+      this.setAlchemyDraft(recipeId, this.getFullAlchemyIngredients(recipeId));
     }
     const draft = this.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
     const current = draft.get(itemId) ?? 0;
-    const next = Math.max(0, Math.min(ownedCount, current + delta));
+    if (delta > 0 && ownedCount <= 0) {
+      return;
+    }
+    const next = delta > 0
+      ? Math.max(0, Math.min(ownedCount, current + delta))
+      : Math.max(0, current + delta);
     if (next > 0) {
       draft.set(itemId, next);
     } else {
@@ -4408,6 +4419,9 @@ export class CraftWorkbenchModal {
     const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === recipeId);
     if (!recipe || this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
       return;
+    }
+    if (!this.draftByRecipeId.has(recipeId)) {
+      this.setAlchemyDraft(recipeId, this.getFullAlchemyIngredients(recipeId));
     }
     const draft = this.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
     draft.delete(itemId);
