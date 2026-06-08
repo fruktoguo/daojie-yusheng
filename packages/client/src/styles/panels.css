@@ -11121,6 +11121,11 @@
       font-size: var(--font-size-12);
       line-height: 1.4;
     }
+    .alchemy-material-count.insufficient,
+    .alchemy-ingredient-count.insufficient {
+      color: #b7342d;
+      font-weight: 700;
+    }
     .alchemy-material-controls {
       display: flex;
       justify-content: flex-end;
@@ -11357,6 +11362,10 @@
     :root[data-color-mode="dark"] .alchemy-inline-note,
     :root[data-color-mode="dark"] .alchemy-preset-empty {
       color: rgba(235, 221, 201, 0.76);
+    }
+    :root[data-color-mode="dark"] .alchemy-material-count.insufficient,
+    :root[data-color-mode="dark"] .alchemy-ingredient-count.insufficient {
+      color: #ff8f84;
     }
     :root[data-color-mode="dark"] .alchemy-material-picker-search,
     :root[data-color-mode="dark"] .alchemy-material-picker-head {

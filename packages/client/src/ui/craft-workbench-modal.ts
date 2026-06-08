@@ -2914,24 +2914,28 @@ export class CraftWorkbenchModal {
             : `<span class="alchemy-preset-empty">${emptyPresetText}</span>`}
         </div>
         <div class="alchemy-ingredient-section" data-alchemy-ingredients="true">
-          ${recipe.ingredients.map((ingredient) => `
-            <div class="alchemy-ingredient-row" data-alchemy-ingredient-item-id="${escapeHtml(ingredient.itemId)}">
-              <div class="alchemy-ingredient-main">
-                <span class="alchemy-ingredient-role ${ingredient.role === 'main' ? 'main' : 'aux'}">${ingredient.role === 'main' ? mainRoleLabel : auxRoleLabel}</span>
-                <span class="alchemy-ingredient-name">${this.renderAlchemyItemReference(ingredient.itemId, ingredient.name, 'material')}</span>
-                <span class="alchemy-ingredient-owned" data-alchemy-owned="true">持有 ${formatDisplayInteger(this.getAlchemyInventoryCount(ingredient.itemId))}</span>
+          ${recipe.ingredients.map((ingredient) => {
+            const selectedCount = draftIngredients.find((entry) => entry.itemId === ingredient.itemId)?.count ?? 0;
+            const insufficient = ingredient.role !== 'main' && selectedCount > this.getAlchemyInventoryCount(ingredient.itemId);
+            return `
+              <div class="alchemy-ingredient-row" data-alchemy-ingredient-item-id="${escapeHtml(ingredient.itemId)}">
+                <div class="alchemy-ingredient-main">
+                  <span class="alchemy-ingredient-role ${ingredient.role === 'main' ? 'main' : 'aux'}">${ingredient.role === 'main' ? mainRoleLabel : auxRoleLabel}</span>
+                  <span class="alchemy-ingredient-name">${this.renderAlchemyItemReference(ingredient.itemId, ingredient.name, 'material')}</span>
+                  <span class="alchemy-ingredient-owned" data-alchemy-owned="true">持有 ${formatDisplayInteger(this.getAlchemyInventoryCount(ingredient.itemId))}</span>
+                </div>
+                <div class="alchemy-ingredient-editor">
+                  ${ingredient.role === 'main'
+                    ? `<span class="alchemy-ingredient-lock">固定 ${escapeHtml(String(ingredient.count))}</span>`
+                    : `
+                      <button class="small-btn ghost" type="button" data-craft-action="alchemy-decrease-aux" data-item-id="${escapeHtml(ingredient.itemId)}">-</button>
+                      <span class="alchemy-ingredient-count ${insufficient ? 'insufficient' : ''}" data-alchemy-current-count="true">${formatDisplayInteger(selectedCount)} / ${formatDisplayInteger(ingredient.count)}</span>
+                      <button class="small-btn ghost" type="button" data-craft-action="alchemy-increase-aux" data-item-id="${escapeHtml(ingredient.itemId)}">+</button>
+                    `}
+                </div>
               </div>
-              <div class="alchemy-ingredient-editor">
-                ${ingredient.role === 'main'
-                  ? `<span class="alchemy-ingredient-lock">固定 ${escapeHtml(String(ingredient.count))}</span>`
-                  : `
-                    <button class="small-btn ghost" type="button" data-craft-action="alchemy-decrease-aux" data-item-id="${escapeHtml(ingredient.itemId)}">-</button>
-                    <span class="alchemy-ingredient-count" data-alchemy-current-count="true">${formatDisplayInteger(draftIngredients.find((entry) => entry.itemId === ingredient.itemId)?.count ?? 0)} / ${formatDisplayInteger(ingredient.count)}</span>
-                    <button class="small-btn ghost" type="button" data-craft-action="alchemy-increase-aux" data-item-id="${escapeHtml(ingredient.itemId)}">+</button>
-                  `}
-              </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
         ${this.renderAlchemyAuxCandidateSection(recipe, draftIngredients)}
         ${this.renderAlchemyActionSection(recipe, 'simple', draftIngredients, {
@@ -2977,6 +2981,7 @@ export class CraftWorkbenchModal {
         <div class="alchemy-ingredient-section-title">${roleLabel}</div>
         ${candidates.map((candidate) => {
           const selectedCount = draftMap.get(candidate.itemId) ?? 0;
+          const insufficient = selectedCount > candidate.owned;
           return `
             <div class="alchemy-ingredient-row" data-alchemy-ingredient-item-id="${escapeHtml(candidate.itemId)}">
               <div class="alchemy-ingredient-main">
@@ -2985,7 +2990,7 @@ export class CraftWorkbenchModal {
                 <span class="alchemy-ingredient-owned" data-alchemy-owned="true">持有 ${formatDisplayInteger(candidate.owned)}</span>
               </div>
               <div class="alchemy-ingredient-editor">
-                <span class="alchemy-ingredient-count" data-alchemy-current-count="true">${formatDisplayInteger(selectedCount)}</span>
+                <span class="alchemy-ingredient-count ${insufficient ? 'insufficient' : ''}" data-alchemy-current-count="true">${formatDisplayInteger(selectedCount)}</span>
                 <span class="alchemy-ingredient-elements">${escapeHtml(this.formatAlchemyElementVector(candidate.elements))}</span>
                 <button class="small-btn ghost" type="button" data-craft-action="alchemy-decrease-aux" data-item-id="${escapeHtml(candidate.itemId)}">-</button>
                 <button class="small-btn ghost" type="button" data-craft-action="alchemy-increase-aux" data-item-id="${escapeHtml(candidate.itemId)}">+</button>
@@ -4409,7 +4414,6 @@ export class CraftWorkbenchModal {
     if (this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
       return;
     }
-    const ownedCount = this.getAlchemyInventoryCount(itemId);
     if (!this.getAlchemyMaterialElements(itemId)) {
       return;
     }
@@ -4418,12 +4422,7 @@ export class CraftWorkbenchModal {
     }
     const draft = this.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
     const current = draft.get(itemId) ?? 0;
-    if (delta > 0 && ownedCount <= 0) {
-      return;
-    }
-    const next = delta > 0
-      ? Math.max(0, Math.min(ownedCount, current + delta))
-      : Math.max(0, current + delta);
+    const next = Math.max(0, current + delta);
     draft.set(itemId, next);
     this.draftByRecipeId.set(recipeId, draft);
   }

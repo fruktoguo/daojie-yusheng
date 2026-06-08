@@ -286,7 +286,6 @@ export class CraftAlchemyView {
     if (this.getAlchemyMainIngredients(recipe).some((entry) => entry.itemId === itemId)) {
       return;
     }
-    const ownedCount = this.getAlchemyInventoryCount(itemId);
     if (!this.getAlchemyMaterialElements(itemId)) {
       return;
     }
@@ -295,12 +294,7 @@ export class CraftAlchemyView {
     }
     const draft = this.parent.draftByRecipeId.get(recipeId) ?? new Map<string, number>();
     const current = draft.get(itemId) ?? 0;
-    if (delta > 0 && ownedCount <= 0) {
-      return;
-    }
-    const next = delta > 0
-      ? Math.max(0, Math.min(ownedCount, current + delta))
-      : Math.max(0, current + delta);
+    const next = Math.max(0, current + delta);
     draft.set(itemId, next);
     this.parent.draftByRecipeId.set(recipeId, draft);
   }
@@ -968,11 +962,12 @@ export class CraftAlchemyView {
     const roleLabel = this.parent.activeMode === 'forging'
       ? (options.role === 'main' ? '主材' : '辅材')
       : (options.role === 'main' ? '主药' : '辅药');
+    const insufficient = options.requiredCount > options.currentCount;
     return `
       <div class="alchemy-material-row" data-alchemy-ingredient-item-id="${escapeHtml(options.itemId)}">
         <div class="alchemy-material-name">${this.renderAlchemyItemReference(options.itemId, options.name, 'material')}</div>
         <div><span class="alchemy-ingredient-role ${options.role}">${roleLabel}</span></div>
-        <div class="alchemy-material-count">${formatDisplayInteger(options.requiredCount)} / ${formatDisplayInteger(options.currentCount)}</div>
+        <div class="alchemy-material-count ${insufficient ? 'insufficient' : ''}">${formatDisplayInteger(options.requiredCount)} / ${formatDisplayInteger(options.currentCount)}</div>
         <div class="alchemy-material-elements">${escapeHtml(this.renderAlchemyElementInline(options.elements))}</div>
         <div class="alchemy-material-controls">
           ${options.controls === 'adjust'
@@ -1126,24 +1121,28 @@ export class CraftAlchemyView {
             : `<span class="alchemy-preset-empty">${emptyPresetText}</span>`}
         </div>
         <div class="alchemy-ingredient-section" data-alchemy-ingredients="true">
-          ${recipe.ingredients.map((ingredient) => `
-            <div class="alchemy-ingredient-row" data-alchemy-ingredient-item-id="${escapeHtml(ingredient.itemId)}">
-              <div class="alchemy-ingredient-main">
-                <span class="alchemy-ingredient-role ${ingredient.role === 'main' ? 'main' : 'aux'}">${ingredient.role === 'main' ? mainRoleLabel : auxRoleLabel}</span>
-                <span class="alchemy-ingredient-name">${this.renderAlchemyItemReference(ingredient.itemId, ingredient.name, 'material')}</span>
-                <span class="alchemy-ingredient-owned" data-alchemy-owned="true">持有 ${formatDisplayInteger(this.getAlchemyInventoryCount(ingredient.itemId))}</span>
+          ${recipe.ingredients.map((ingredient) => {
+            const selectedCount = draftIngredients.find((entry) => entry.itemId === ingredient.itemId)?.count ?? 0;
+            const insufficient = ingredient.role !== 'main' && selectedCount > this.getAlchemyInventoryCount(ingredient.itemId);
+            return `
+              <div class="alchemy-ingredient-row" data-alchemy-ingredient-item-id="${escapeHtml(ingredient.itemId)}">
+                <div class="alchemy-ingredient-main">
+                  <span class="alchemy-ingredient-role ${ingredient.role === 'main' ? 'main' : 'aux'}">${ingredient.role === 'main' ? mainRoleLabel : auxRoleLabel}</span>
+                  <span class="alchemy-ingredient-name">${this.renderAlchemyItemReference(ingredient.itemId, ingredient.name, 'material')}</span>
+                  <span class="alchemy-ingredient-owned" data-alchemy-owned="true">持有 ${formatDisplayInteger(this.getAlchemyInventoryCount(ingredient.itemId))}</span>
+                </div>
+                <div class="alchemy-ingredient-editor">
+                  ${ingredient.role === 'main'
+                    ? `<span class="alchemy-ingredient-lock">固定 ${escapeHtml(String(ingredient.count))}</span>`
+                    : `
+                      <button class="small-btn ghost" type="button" data-craft-action="alchemy-decrease-aux" data-item-id="${escapeHtml(ingredient.itemId)}">-</button>
+                      <span class="alchemy-ingredient-count ${insufficient ? 'insufficient' : ''}" data-alchemy-current-count="true">${formatDisplayInteger(selectedCount)} / ${formatDisplayInteger(ingredient.count)}</span>
+                      <button class="small-btn ghost" type="button" data-craft-action="alchemy-increase-aux" data-item-id="${escapeHtml(ingredient.itemId)}">+</button>
+                    `}
+                </div>
               </div>
-              <div class="alchemy-ingredient-editor">
-                ${ingredient.role === 'main'
-                  ? `<span class="alchemy-ingredient-lock">固定 ${escapeHtml(String(ingredient.count))}</span>`
-                  : `
-                    <button class="small-btn ghost" type="button" data-craft-action="alchemy-decrease-aux" data-item-id="${escapeHtml(ingredient.itemId)}">-</button>
-                    <span class="alchemy-ingredient-count" data-alchemy-current-count="true">${formatDisplayInteger(draftIngredients.find((entry) => entry.itemId === ingredient.itemId)?.count ?? 0)} / ${formatDisplayInteger(ingredient.count)}</span>
-                    <button class="small-btn ghost" type="button" data-craft-action="alchemy-increase-aux" data-item-id="${escapeHtml(ingredient.itemId)}">+</button>
-                  `}
-              </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
         ${this.renderAlchemyActionSection(recipe, 'simple', draftIngredients, {
           exactRecipe,
