@@ -92,7 +92,7 @@
     "outputItemId": "formation_disk.mortal",
     "outputCount": 1,
     "level": 1,
-    "grade": "yellow",
+    "grade": "mortal",
     "category": "special",
     "baseBrewTicks": 10,
     "ingredients": [
@@ -2222,6 +2222,121 @@
     "requiredAuxElements": {
       "wood": 112,
       "fire": 61
+    }
+  },
+  {
+    "recipeId": "forging.yellow_array_plate",
+    "outputItemId": "formation_disk.yellow",
+    "outputCount": 1,
+    "level": 13,
+    "grade": "yellow",
+    "category": "special",
+    "baseBrewTicks": 600,
+    "ingredients": [
+      {
+        "itemId": "rune_shard",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "spirit_iron_fragment",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "soul_ink",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "rune_shard",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 15,
+      "water": 10,
+      "earth": 14
+    }
+  },
+  {
+    "recipeId": "forging.mystic_array_plate",
+    "outputItemId": "formation_disk.mystic",
+    "outputCount": 1,
+    "level": 25,
+    "grade": "mystic",
+    "category": "special",
+    "baseBrewTicks": 900,
+    "ingredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "stonegall_core",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "fivephase_dust",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "blade_pattern_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 31,
+      "wood": 31,
+      "water": 55,
+      "fire": 31,
+      "earth": 76
+    }
+  },
+  {
+    "recipeId": "forging.earth_array_plate",
+    "outputItemId": "formation_disk.earth",
+    "outputCount": 1,
+    "level": 37,
+    "grade": "earth",
+    "category": "special",
+    "baseBrewTicks": 1200,
+    "ingredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1,
+        "role": "main"
+      },
+      {
+        "itemId": "mat.fivephase_mixed_essence",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "mat.fivephase_secretion",
+        "count": 1,
+        "role": "aux"
+      }
+    ],
+    "mainIngredients": [
+      {
+        "itemId": "mat.fivephase_vein_crystal",
+        "count": 1
+      }
+    ],
+    "requiredAuxElements": {
+      "metal": 113,
+      "wood": 113,
+      "water": 113,
+      "fire": 113,
+      "earth": 111
     }
   }
 ]

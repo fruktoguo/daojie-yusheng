@@ -7991,10 +7991,11 @@
       "itemId": "formation_disk.earth",
       "name": "地阶阵盘",
       "type": "consumable",
-      "grade": "地阶",
+      "grade": "earth",
       "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 8 倍。",
       "formationDiskTier": "earth",
-      "formationDiskMultiplier": 8
+      "formationDiskMultiplier": 8,
+      "level": 37
     },
     {
       "itemId": "equip.foundation_dragonstride_boots",
@@ -8141,10 +8142,11 @@
       "itemId": "formation_disk.mortal",
       "name": "凡品阵盘",
       "type": "consumable",
-      "grade": "凡品",
+      "grade": "mortal",
       "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 1 倍。",
       "formationDiskTier": "mortal",
-      "formationDiskMultiplier": 1
+      "formationDiskMultiplier": 1,
+      "level": 1
     },
     {
       "itemId": "bandit_insignia",
@@ -8791,10 +8793,11 @@
       "itemId": "formation_disk.yellow",
       "name": "黄阶阵盘",
       "type": "consumable",
-      "grade": "黄阶",
+      "grade": "yellow",
       "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 2 倍。",
       "formationDiskTier": "yellow",
-      "formationDiskMultiplier": 2
+      "formationDiskMultiplier": 2,
+      "level": 13
     },
     {
       "itemId": "pill.minor_heal",
@@ -10960,10 +10963,11 @@
       "itemId": "formation_disk.mystic",
       "name": "玄阶阵盘",
       "type": "consumable",
-      "grade": "玄阶",
+      "grade": "mystic",
       "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 4 倍。",
       "formationDiskTier": "mystic",
-      "formationDiskMultiplier": 4
+      "formationDiskMultiplier": 4,
+      "level": 25
     },
     {
       "itemId": "mat.darksoil_refined_earth",

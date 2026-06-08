@@ -4,7 +4,9 @@
     "name": "回春散",
     "type": "consumable",
     "level": 2,
-    "tags": ["战斗丹药"],
+    "tags": [
+      "战斗丹药"
+    ],
     "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
     "baselineHealPercent": 0.5
   },
@@ -35,37 +37,41 @@
     "itemId": "formation_disk.mortal",
     "name": "凡品阵盘",
     "type": "consumable",
-    "grade": "凡品",
+    "grade": "mortal",
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 1 倍。",
     "formationDiskTier": "mortal",
-    "formationDiskMultiplier": 1
+    "formationDiskMultiplier": 1,
+    "level": 1
   },
   {
     "itemId": "formation_disk.yellow",
     "name": "黄阶阵盘",
     "type": "consumable",
-    "grade": "黄阶",
+    "grade": "yellow",
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 2 倍。",
     "formationDiskTier": "yellow",
-    "formationDiskMultiplier": 2
+    "formationDiskMultiplier": 2,
+    "level": 13
   },
   {
     "itemId": "formation_disk.mystic",
     "name": "玄阶阵盘",
     "type": "consumable",
-    "grade": "玄阶",
+    "grade": "mystic",
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 4 倍。",
     "formationDiskTier": "mystic",
-    "formationDiskMultiplier": 4
+    "formationDiskMultiplier": 4,
+    "level": 25
   },
   {
     "itemId": "formation_disk.earth",
     "name": "地阶阵盘",
     "type": "consumable",
-    "grade": "地阶",
+    "grade": "earth",
     "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 8 倍。",
     "formationDiskTier": "earth",
-    "formationDiskMultiplier": 8
+    "formationDiskMultiplier": 8,
+    "level": 37
   },
   {
     "itemId": "sect_founding_token",
@@ -135,7 +141,9 @@
     "type": "consumable",
     "level": 7,
     "grade": "yellow",
-    "tags": ["战斗丹药"],
+    "tags": [
+      "战斗丹药"
+    ],
     "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
     "consumeBuffs": [
       {
@@ -158,7 +166,9 @@
     "type": "consumable",
     "level": 12,
     "grade": "mystic",
-    "tags": ["战斗丹药"],
+    "tags": [
+      "战斗丹药"
+    ],
     "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
     "consumeBuffs": [
       {
@@ -182,7 +192,9 @@
     "type": "consumable",
     "level": 13,
     "grade": "mystic",
-    "tags": ["战斗丹药"],
+    "tags": [
+      "战斗丹药"
+    ],
     "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
     "consumeBuffs": [
       {
@@ -206,7 +218,9 @@
     "type": "consumable",
     "level": 11,
     "grade": "mystic",
-    "tags": ["战斗丹药"],
+    "tags": [
+      "战斗丹药"
+    ],
     "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
     "consumeBuffs": [
       {

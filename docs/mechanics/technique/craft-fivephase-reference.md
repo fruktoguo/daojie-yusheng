@@ -14,11 +14,12 @@
 - 制造所需五行 = 主药/主材自身五行 * 数量 + 配方 `requiredAuxElements`。
 - 默认配方中的 `(主)` 为必须主药/主材，`(辅)` 为标准默认辅料；自定义配方可以替换辅料，但仍要匹配五行。
 - 炼器配方禁用药材辅材，筑基期生活工具不包含罗盘。
+- 阵盘等级按品阶段起点确定：黄阶 13、玄阶 25、地阶 37；进阶阵盘 600 息起，每阶增加 300 息。
 - `techniqueExpPerTick` / `techniqueExpRate` 在当前属性系统中表示功法经验，不是炼丹/炼器技艺经验。
 
 ## 丹药/装备制造表
 
-共 91 条：炼丹 19 条，炼器 72 条。
+共 94 条：炼丹 19 条，炼器 75 条。
 
 | 类型 | 名称 | itemId | 等级 | 品阶 | 制造所需五行 | 默认配方 | 基础耗时 | recipeId |
 |---|---|---|---:|---|---|---|---:|---|
@@ -28,7 +29,7 @@
 | 装备/器物 | 铜罗盘 | equip.copper_luopan | 1 | 黄阶 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_luopan |
 | 装备/器物 | 铜矿镐 | equip.copper_mining_pickaxe | 1 | 黄阶 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_mining_pickaxe |
 | 装备/器物 | 铜胎丹炉 | equip.copper_pill_furnace | 1 | 黄阶 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_pill_furnace |
-| 装备/器物 | 凡品阵盘 | formation_disk.mortal | 1 | 黄阶 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_array_plate |
+| 装备/器物 | 凡品阵盘 | formation_disk.mortal | 1 | 凡品 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_array_plate |
 | 装备/器物 | 门丁裹头巾 | equip.gate_headcloth | 2 | 黄阶 | 金+5 / 木+5 / 水+2 / 土+2 | 匪徒腰牌x1(主)；鼠尾x1(辅) | 14息 | forging.gate_headcloth |
 | 装备/器物 | 越沟快靴 | equip.trench_runner_boots | 2 | 黄阶 | 木+8 / 水+2 / 土+2 | 鼠尾x1(主)；妖兽骨x1(辅) | 14息 | forging.trench_runner_boots |
 | 丹药 | 回春散 | pill.minor_heal | 2 | 凡品 | 木+18 / 水+8 / 土+2 | 月露草x2(主)；妖兽骨x1(辅)；鼠尾x1(辅) | 12息 | alchemy.pill.minor_heal |
@@ -45,6 +46,7 @@
 | 丹药 | 寒心膏 | frost_heart_paste | 10 | 玄阶 | 木+68 / 水+99 / 土+23 | 寒莲瓣x1(主)；明心花x1(主)；翠竹心x2(辅)；竹蛇胆x4(辅)；泽鳞x5(辅) | 24息 | alchemy.frost_heart_paste |
 | 丹药 | 轻身丹 | pill.windstride_elixir | 11 | 玄阶 | 金+13 / 木+69 / 水+39 / 土+18 | 疾风苇x1(主)；青灵茎x1(主)；阴沼丝x4(辅)；泽鳞x2(辅)；翠竹心x3(辅) | 24息 | alchemy.pill.windstride_elixir |
 | 丹药 | 破阵丹 | pill.break_array_elixir | 12 | 玄阶 | 金+23 / 木+23 / 水+60 / 火+5 / 土+36 | 破纹砂x1(主)；疾风苇x1(主)；魂墨x6(辅) | 26息 | alchemy.pill.break_array_elixir |
+| 装备/器物 | 黄阶阵盘 | formation_disk.yellow | 13 | 黄阶 | 金+22 / 水+10 / 土+27 | 断纹石片x1(主)；灵铁碎片x1(辅)；魂墨x1(辅) | 600息 | forging.yellow_array_plate |
 | 丹药 | 明目丹 | pill.clear_eye_elixir | 13 | 玄阶 | 金+32 / 木+38 / 水+83 / 土+18 | 明心花x1(主)；寒莲瓣x1(主)；晶尘x4(辅)；魂墨x3(辅) | 24息 | alchemy.pill.clear_eye_elixir |
 | 装备/器物 | 赤陨灼枪 | equip.ember_scorch_spear | 19 | 黄阶 | 火+54 / 土+30 | 炎髓炭x1(主)；陨火砂x1(辅) | 34息 | forging.ember_scorch_spear |
 | 装备/器物 | 寒汐引流尺 | equip.hanxi_flow_ruler | 19 | 黄阶 | 金+15 / 水+54 / 土+15 | 寒魄露x1(主)；月井冰砂x1(辅) | 34息 | forging.hanxi_flow_ruler |
@@ -68,6 +70,7 @@
 | 丹药 | 养脉膏 | pill.nurturing_paste | 24 | 玄阶 | 木+142 / 水+52 / 土+24 | 长脉藤x2(主)；回春叶x1(主)；生灵木心x1(辅) | 40息 | alchemy.pill.nurturing_paste |
 | 装备/器物 | 裂锋披 | equip.cleft_blade_cloak | 25 | 玄阶 | 金+73 / 火+24 / 土+15 | 锋纹残晶x1(主)；残兵铁片x1(辅) | 48息 | forging.cleft_blade_cloak |
 | 装备/器物 | 御土面 | equip.yuetown_mask | 25 | 玄阶 | 水+39 / 土+73 | 镇岳石胆x1(主)；承脉石x1(辅) | 48息 | forging.yuetown_mask |
+| 装备/器物 | 玄阶阵盘 | formation_disk.mystic | 25 | 玄阶 | 金+77 / 木+31 / 水+55 / 火+55 / 土+76 | 锋纹残晶x1(主)；镇岳石胆x1(辅)；五炁尘x1(辅) | 900息 | forging.mystic_array_plate |
 | 丹药 | 清脉散 | pill.cleartide_powder | 25 | 玄阶 | 木+74 / 水+141 | 寒髓苇x2(主)；月井蕊x1(主)；净潮水精x1(辅) | 40息 | alchemy.pill.cleartide_powder |
 | 装备/器物 | 炉心赤戒 | equip.furnace_red_ring | 26 | 玄阶 | 金+24 / 火+73 / 土+15 | 炉心赤晶x1(主)；陨火砂x1(辅) | 50息 | forging.furnace_red_ring |
 | 丹药 | 赤阳液 | pill.chiyang_draught | 26 | 玄阶 | 金+24 / 木+57 / 火+152 | 灼心瓣x2(主)；炎穗芒x1(主)；炉心赤晶x1(辅) | 40息 | alchemy.pill.chiyang_draught |
@@ -86,6 +89,7 @@
 | 装备/器物 | 裂岭戟 | equip.ridgecleft_halberd | 29 | 玄阶 | 金+27 / 水+24 / 火+15 / 土+46 | 镇岳石胆x1(主)；剑丸x1(辅) | 56息 | forging.ridgecleft_halberd |
 | 装备/器物 | 封路令 | equip.sealed_path_token | 29 | 玄阶 | 金+46 / 水+15 / 火+24 / 土+27 | 锋纹残晶x1(主)；承脉石x1(辅) | 56息 | forging.sealed_path_token |
 | 丹药 | 五和丸 | pill.fivephase_harmony_pellet | 30 | 地阶 | 金+33 / 木+209 / 水+114 / 火+36 / 土+58 | 长脉藤x2(主)；寒髓苇x1(主)；灼心瓣x1(辅)；承脉参x1(辅)；金芒棘x1(辅)；生灵木心x1(辅)；净潮水精x1(辅) | 48息 | alchemy.pill.fivephase_harmony_pellet |
+| 装备/器物 | 地阶阵盘 | formation_disk.earth | 37 | 地阶 | 金+171 / 木+171 / 水+171 / 火+171 / 土+167 | 五行脉晶x1(主)；五行混元精x1(辅)；五行蟾液x1(辅) | 1200息 | forging.earth_array_plate |
 | 装备/器物 | 深渊寿甲 | equip.foundation_abyss_life_armor | 40 | 地阶 | 水+114 / 土+211 | 深渊灵泥x1(主)；石蟾皮x1(辅) | 72息 | forging.foundation_abyss_life_armor |
 | 装备/器物 | 焚元丹炉 | equip.foundation_burning_origin_furnace | 40 | 地阶 | 金+55 / 木+117 / 水+55 / 火+170 / 土+55 | 焚王余烬x1(主)；五行蟾液x1(辅) | 70息 | forging.foundation_burning_origin_furnace |
 | 装备/器物 | 寒渊法尺 | equip.foundation_cold_abyss_spell_ruler | 40 | 地阶 | 金+81 / 木+38 / 水+221 | 冰蛛内核x1(主)；寒蛇胆x1(辅)；霜刃晶x1(辅) | 72息 | forging.foundation_cold_abyss_spell_ruler |

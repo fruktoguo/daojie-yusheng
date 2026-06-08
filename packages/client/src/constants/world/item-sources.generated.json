@@ -3323,7 +3323,15 @@
       "count": 1
     }
   ],
-  "formation_disk.earth": [],
+  "formation_disk.earth": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.earth_array_plate",
+      "recipeName": "地阶阵盘器方"
+    }
+  ],
   "formation_disk.mortal": [
     {
       "kind": "shop",
@@ -3340,8 +3348,24 @@
       "recipeName": "凡品阵盘器方"
     }
   ],
-  "formation_disk.mystic": [],
-  "formation_disk.yellow": [],
+  "formation_disk.mystic": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.mystic_array_plate",
+      "recipeName": "玄阶阵盘器方"
+    }
+  ],
+  "formation_disk.yellow": [
+    {
+      "kind": "forging",
+      "mapId": "crafting",
+      "mapName": "炼器",
+      "recipeId": "forging.yellow_array_plate",
+      "recipeName": "黄阶阵盘器方"
+    }
+  ],
   "frost_essence": [
     {
       "kind": "monster_drop",
