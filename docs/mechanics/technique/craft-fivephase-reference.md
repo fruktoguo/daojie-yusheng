@@ -14,7 +14,7 @@
 - 制造所需五行 = 主药/主材自身五行 * 数量 + 配方 `requiredAuxElements`。
 - 默认配方中的 `(主)` 为必须主药/主材，`(辅)` 为标准默认辅料；自定义配方可以替换辅料，但仍要匹配五行。
 - 炼器配方禁用药材辅材，筑基期生活工具不包含罗盘。
-- 阵盘等级按品阶段起点确定：黄阶 13、玄阶 25、地阶 37；进阶阵盘 600 息起，每阶增加 300 息。
+- 阵盘等级按品阶段起点确定：黄阶 13、玄阶 25、地阶 37；阵盘炼制时间 600 息起，每阶增加 300 息。
 - `techniqueExpPerTick` / `techniqueExpRate` 在当前属性系统中表示功法经验，不是炼丹/炼器技艺经验。
 
 ## 丹药/装备制造表
@@ -29,7 +29,7 @@
 | 装备/器物 | 铜罗盘 | equip.copper_luopan | 1 | 黄阶 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_luopan |
 | 装备/器物 | 铜矿镐 | equip.copper_mining_pickaxe | 1 | 黄阶 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_mining_pickaxe |
 | 装备/器物 | 铜胎丹炉 | equip.copper_pill_furnace | 1 | 黄阶 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_pill_furnace |
-| 装备/器物 | 凡品阵盘 | formation_disk.mortal | 1 | 凡品 | 金+12 / 土+7 | 玄铁矿块x1(主) | 10息 | forging.copper_array_plate |
+| 装备/器物 | 凡品阵盘 | formation_disk.mortal | 1 | 凡品 | 金+12 / 土+7 | 玄铁矿块x1(主) | 600息 | forging.copper_array_plate |
 | 装备/器物 | 门丁裹头巾 | equip.gate_headcloth | 2 | 黄阶 | 金+5 / 木+5 / 水+2 / 土+2 | 匪徒腰牌x1(主)；鼠尾x1(辅) | 14息 | forging.gate_headcloth |
 | 装备/器物 | 越沟快靴 | equip.trench_runner_boots | 2 | 黄阶 | 木+8 / 水+2 / 土+2 | 鼠尾x1(主)；妖兽骨x1(辅) | 14息 | forging.trench_runner_boots |
 | 丹药 | 回春散 | pill.minor_heal | 2 | 凡品 | 木+18 / 水+8 / 土+2 | 月露草x2(主)；妖兽骨x1(辅)；鼠尾x1(辅) | 12息 | alchemy.pill.minor_heal |

@@ -94,7 +94,7 @@
     "level": 1,
     "grade": "mortal",
     "category": "special",
-    "baseBrewTicks": 10,
+    "baseBrewTicks": 600,
     "ingredients": [
       {
         "itemId": "black_iron_chunk",
