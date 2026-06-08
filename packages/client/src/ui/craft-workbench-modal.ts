@@ -1185,6 +1185,9 @@ export class CraftWorkbenchModal {
   }
 
   private buildCraftContentKey(): string {
+    const alchemyContentKey = (this.activeMode === 'alchemy' || this.activeMode === 'forging')
+      ? this.alchemyView.buildAlchemyStableRenderKey()
+      : '';
     return [
       this.activeMode ?? 'none',
       this.loading ? 'loading' : 'ready',
@@ -1193,6 +1196,7 @@ export class CraftWorkbenchModal {
       this.activeAlchemyTab,
       this.selectedAlchemyRecipeId ?? '',
       this.selectedAlchemyPresetId ?? '',
+      alchemyContentKey,
       this.selectedEnhancementTargetKey ?? '',
       this.selectedEnhancementTargetLevel ?? '',
       this.selectedEnhancementProtectionKey ?? '',
