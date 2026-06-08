@@ -9405,7 +9405,8 @@
       flex-direction: column;
       gap: 14px;
     }
-    .confirm-modal-card:has(.alchemy-material-picker) {
+    .confirm-modal-card:has(.alchemy-material-picker),
+    .confirm-modal-card:has(.alchemy-preset-picker) {
       width: min(1180px, calc(100vw - 32px));
     }
     .confirm-modal-head {
@@ -11153,9 +11154,9 @@
     }
     .alchemy-preset-picker {
       display: grid;
-      grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.5fr);
+      grid-template-columns: minmax(260px, 0.78fr) minmax(0, 1.72fr);
       gap: 12px;
-      width: min(960px, calc(100vw - 56px));
+      width: min(1120px, calc(100vw - 56px));
       min-height: min(56vh, 520px);
     }
     .alchemy-preset-picker-list,
