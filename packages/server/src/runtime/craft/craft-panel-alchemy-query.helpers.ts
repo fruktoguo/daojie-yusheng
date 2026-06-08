@@ -10,7 +10,7 @@
  */
 
 /** 炼丹目录版本，变化后需要把新目录同步给客户端。 */
-const ALCHEMY_CATALOG_VERSION = 1;
+const ALCHEMY_CATALOG_VERSION = 2;
 
 /** 丹炉能力判定使用的物品标签。 */
 const ALCHEMY_FURNACE_TAG = 'alchemy_furnace';
