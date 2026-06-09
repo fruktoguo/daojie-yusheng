@@ -1891,6 +1891,18 @@ export class NativeGmPlayerService {
     await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
   }
 
+  private async savePlayerPersistenceSnapshotDomains(
+    playerId: string,
+    snapshot: any,
+    domains: Iterable<string>,
+  ): Promise<void> {
+    if (typeof this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains === 'function') {
+      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(playerId, snapshot, domains);
+      return;
+    }
+    await this.savePlayerPersistenceSnapshot(playerId, snapshot);
+  }
+
   private async savePlayerPersistenceSnapshotForGmUpdate(
     playerId: string,
     snapshot: any,
@@ -2145,7 +2157,15 @@ export class NativeGmPlayerService {
 
     summary = this.cleanupInvalidItemsFromSnapshot(persisted);
     if (summary.inventoryStacksRemoved > 0 || summary.equipmentRemoved > 0) {
-      await this.savePlayerPersistenceSnapshot(playerId, persisted);
+      persisted.savedAt = Date.now();
+      const domains: string[] = [];
+      if (summary.inventoryStacksRemoved > 0) {
+        domains.push('inventory');
+      }
+      if (summary.equipmentRemoved > 0) {
+        domains.push('equipment');
+      }
+      await this.savePlayerPersistenceSnapshotDomains(playerId, persisted, domains);
       if (runtime) {
         const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
         if (refreshedRuntime) {
@@ -2179,7 +2199,15 @@ export class NativeGmPlayerService {
     const snapshotSummary = this.migrateRecoveryPillsFromSnapshot(persisted);
     addRecoveryPillMigrationSummary(summary, snapshotSummary);
     if (snapshotSummary.inventoryStacksMigrated > 0 || snapshotSummary.equipmentMigrated > 0) {
-      await this.savePlayerPersistenceSnapshot(playerId, persisted);
+      persisted.savedAt = Date.now();
+      const domains: string[] = [];
+      if (snapshotSummary.inventoryStacksMigrated > 0) {
+        domains.push('inventory');
+      }
+      if (snapshotSummary.equipmentMigrated > 0) {
+        domains.push('equipment');
+      }
+      await this.savePlayerPersistenceSnapshotDomains(playerId, persisted, domains);
       if (runtime) {
         const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
         if (refreshedRuntime) {

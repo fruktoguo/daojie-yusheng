@@ -47,6 +47,7 @@ const persistedSnapshots = new Map<string, any>([
   [runtimePlayerId, JSON.parse(JSON.stringify(runtimeSnapshot))],
   [offlinePlayerId, JSON.parse(JSON.stringify(offlineSnapshot))],
 ]);
+const projectionDomainSaves: Array<{ playerId: string; domains: string[] }> = [];
 const runtimeSnapshots = new Map<string, any>([
   [runtimePlayerId, JSON.parse(JSON.stringify(runtimeSnapshot))],
 ]);
@@ -89,6 +90,20 @@ const persistenceService = {
     return snapshot ? JSON.parse(JSON.stringify(snapshot)) : null;
   },
   async savePlayerSnapshotProjection(playerId: string, snapshot: any) {
+    throw new Error(`recovery pill migration should use scoped domain save, got full projection save for ${playerId}`);
+  },
+  async savePlayerSnapshotProjectionDomains(playerId: string, snapshot: any, domains: Iterable<string>) {
+    const domainList = Array.from(domains);
+    projectionDomainSaves.push({ playerId, domains: domainList });
+    assert.deepEqual(domainList.sort(), ['equipment', 'inventory'].filter((domain) => {
+      if (domain === 'inventory') {
+        return snapshot.inventory.items.some((entry: any) =>
+          entry?.itemId === 'recovery_powder'
+          || entry?.itemId === 'stabilizing_pellet',
+        );
+      }
+      return snapshot.equipment.slots.some((entry: any) => entry?.item?.itemId === 'stabilizing_pellet');
+    }).sort());
     persistedSnapshots.set(playerId, JSON.parse(JSON.stringify(snapshot)));
   },
   async listProjectedSnapshots() {
@@ -144,6 +159,15 @@ async function main(): Promise<void> {
   assert.equal(result.totalRecoveryPillMarketStorageStacksMigrated, 2, '托管仓旧药堆叠数应正确统计');
   assert.equal(result.totalRecoveryPillMarketStorageItemsMigrated, 9, '托管仓旧药总数应正确统计');
   assert.equal(result.totalRecoveryPillEquipmentMigrated, 1, '异常装备栏旧药应迁移');
+  assert.equal(projectionDomainSaves.length, 2, '迁移应使用分域保存在线和离线角色');
+  assert.deepEqual(
+    projectionDomainSaves.map((entry) => [entry.playerId, entry.domains.sort()]),
+    [
+      [runtimePlayerId, ['equipment', 'inventory']],
+      [offlinePlayerId, ['inventory']],
+    ],
+    '迁移只应保存实际改动的玩家分域',
+  );
 
   const runtimeAfter = runtimeSnapshots.get(runtimePlayerId)!;
   assert.equal(findCount(runtimeAfter.inventory.items, 'recovery_powder'), 5, '在线背包纯阳丹应合并到回灵散');
