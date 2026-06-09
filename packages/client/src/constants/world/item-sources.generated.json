@@ -5505,15 +5505,6 @@
       "recipeName": "明目丹丹方"
     }
   ],
-  "pill.cleartide_powder": [
-    {
-      "kind": "alchemy",
-      "mapId": "crafting",
-      "mapName": "炼丹",
-      "recipeId": "alchemy.pill.cleartide_powder",
-      "recipeName": "清脉散丹方"
-    }
-  ],
   "pill.crimson_bud_elixir": [
     {
       "kind": "shop",
@@ -5570,15 +5561,6 @@
       "mapName": "炼丹",
       "recipeId": "alchemy.pill.crimson_bud_elixir",
       "recipeName": "赤芽丹丹方"
-    }
-  ],
-  "pill.earthrest_paste": [
-    {
-      "kind": "alchemy",
-      "mapId": "crafting",
-      "mapName": "炼丹",
-      "recipeId": "alchemy.pill.earthrest_paste",
-      "recipeName": "厚土膏丹方"
     }
   ],
   "pill.edge_quenching_powder": [
@@ -5741,15 +5723,6 @@
       "currencyItemId": "merit"
     }
   ],
-  "pill.nurturing_paste": [
-    {
-      "kind": "alchemy",
-      "mapId": "crafting",
-      "mapName": "炼丹",
-      "recipeId": "alchemy.pill.nurturing_paste",
-      "recipeName": "养脉膏丹方"
-    }
-  ],
   "pill.shatter_spirit": [
     {
       "kind": "monster_drop",
@@ -5859,14 +5832,35 @@
       "recipeName": "轻身丹丹方"
     }
   ],
-  "pure_yang_pill": [
+  "quest.miner_token": [
     {
-      "kind": "shop",
+      "kind": "monster_drop",
+      "mapId": "black_iron_mine",
+      "mapName": "玄铁矿洞",
+      "monsterId": "m_ore_colossus",
+      "monsterName": "玄矿巨像精英",
+      "count": 1
+    }
+  ],
+  "rat_tail": [
+    {
+      "kind": "monster_drop",
       "mapId": "yunlai_town",
       "mapName": "云来镇",
-      "npcId": "npc_herbalist_lan",
-      "npcName": "兰药师"
+      "monsterId": "m_town_rat_refuse",
+      "monsterName": "废棚灰尾鼠",
+      "count": 1
     },
+    {
+      "kind": "monster_drop",
+      "mapId": "yunlai_town",
+      "mapName": "云来镇",
+      "monsterId": "m_town_rat_south",
+      "monsterName": "南沟灰尾鼠",
+      "count": 1
+    }
+  ],
+  "recovery_powder": [
     {
       "kind": "quest",
       "mapId": "guizang_vein_cavern",
@@ -5912,43 +5906,6 @@
       "line": "main",
       "chapter": "第五章·残宫封天"
     },
-    {
-      "kind": "alchemy",
-      "mapId": "crafting",
-      "mapName": "炼丹",
-      "recipeId": "alchemy.pure_yang_pill",
-      "recipeName": "纯阳丹丹方"
-    }
-  ],
-  "quest.miner_token": [
-    {
-      "kind": "monster_drop",
-      "mapId": "black_iron_mine",
-      "mapName": "玄铁矿洞",
-      "monsterId": "m_ore_colossus",
-      "monsterName": "玄矿巨像精英",
-      "count": 1
-    }
-  ],
-  "rat_tail": [
-    {
-      "kind": "monster_drop",
-      "mapId": "yunlai_town",
-      "mapName": "云来镇",
-      "monsterId": "m_town_rat_refuse",
-      "monsterName": "废棚灰尾鼠",
-      "count": 1
-    },
-    {
-      "kind": "monster_drop",
-      "mapId": "yunlai_town",
-      "mapName": "云来镇",
-      "monsterId": "m_town_rat_south",
-      "monsterName": "南沟灰尾鼠",
-      "count": 1
-    }
-  ],
-  "recovery_powder": [
     {
       "kind": "alchemy",
       "mapId": "crafting",

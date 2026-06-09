@@ -26,7 +26,7 @@ const player: any = {
   playerId,
   persistentRevision: 1,
   hp: 50,
-  maxHp: 1000,
+  maxHp: 10000,
   qi: 0,
   maxQi: 100,
   lifeElapsedTicks: 10,
@@ -56,8 +56,8 @@ service.players.set(playerId, player);
 service.useItem(playerId, 0);
 assert.equal(
   player.hp,
-  50 + resolveTechniqueStandardMaxHpRecoveryAmount(2, 1),
-  '首次使用回春散应按标准 2 级最大生命的 100% 恢复，而不是按当前玩家上限恢复',
+  50 + resolveTechniqueStandardMaxHpRecoveryAmount(10, 1),
+  '首次使用回春散应按标准 10 级最大生命的 100% 恢复，而不是按当前玩家上限恢复',
 );
 assert.equal(player.inventory.items[0].count, 1, '首次使用应消耗一枚回春散');
 assert.deepEqual(

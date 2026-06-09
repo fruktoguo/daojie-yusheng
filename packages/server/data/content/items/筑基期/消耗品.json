@@ -3,7 +3,7 @@
     "itemId": "pill.foundation_coldmarrow_heal",
     "name": "寒髓回春丹",
     "type": "consumable",
-    "level": 31,
+    "level": 42,
     "desc": "丹色如霜，入口却生温润春意，能把断续生机重新拢回经络。",
     "consumeBuffs": [
       {
@@ -13,20 +13,20 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 340
+          "hpRegenRate": 430
         },
         "statMode": "percent"
       }
     ],
     "grade": "earth",
-    "baselineHealPercent": 8,
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineHealPercent": 2.5
   },
   {
     "itemId": "pill.foundation_frostspring_qi",
     "name": "霜泉还灵丹",
     "type": "consumable",
-    "level": 31,
+    "level": 42,
     "desc": "霜泉凝作一丸，化开时如清流入海，能引散乱灵机重归气海。",
     "consumeBuffs": [
       {
@@ -36,14 +36,14 @@
         "shortMark": "灵",
         "duration": 120,
         "stats": {
-          "qiRegenRate": 340
+          "qiRegenRate": 430
         },
         "statMode": "percent"
       }
     ],
     "grade": "earth",
-    "baselineQiPercent": 8,
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineQiPercent": 2.5
   },
   {
     "itemId": "wudao_yujian",

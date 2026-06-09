@@ -2401,6 +2401,31 @@ export interface GmShortcutRunRes {
 
   totalInvalidEquipmentRemoved?: number;
   /**
+ * totalRecoveryPillInventoryStacksMigrated：恢复丹药迁移的背包堆叠数。
+ */
+
+  totalRecoveryPillInventoryStacksMigrated?: number;
+  /**
+ * totalRecoveryPillInventoryItemsMigrated：恢复丹药迁移的背包物品总数。
+ */
+
+  totalRecoveryPillInventoryItemsMigrated?: number;
+  /**
+ * totalRecoveryPillMarketStorageStacksMigrated：恢复丹药迁移的坊市托管仓堆叠数。
+ */
+
+  totalRecoveryPillMarketStorageStacksMigrated?: number;
+  /**
+ * totalRecoveryPillMarketStorageItemsMigrated：恢复丹药迁移的坊市托管仓物品总数。
+ */
+
+  totalRecoveryPillMarketStorageItemsMigrated?: number;
+  /**
+ * totalRecoveryPillEquipmentMigrated：恢复丹药迁移的装备栏条目数。
+ */
+
+  totalRecoveryPillEquipmentMigrated?: number;
+  /**
  * totalCombatExpGranted：total战斗ExpGranted相关字段。
  */
 

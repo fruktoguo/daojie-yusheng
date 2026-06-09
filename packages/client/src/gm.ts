@@ -10814,6 +10814,39 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
   }
 }
 
+async function migrateAllPlayersRecoveryPills(): Promise<void> {
+  if (!window.confirm(t('gm.shortcut.migrate-recovery-pills.confirm'))) {
+    return;
+  }
+
+  const button = document.getElementById('shortcut-migrate-recovery-pills') as HTMLButtonElement | null;
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    const result = await request<GmShortcutRunRes>(`${GM_API_BASE_PATH}/shortcuts/players/migrate-recovery-pills`, {
+      method: 'POST',
+    });
+    editorDirty = false;
+    await delayRefresh(t('gm.shortcut.migrate-recovery-pills.done', {
+      totalPlayers: Math.floor(result.totalPlayers ?? 0),
+      queuedRuntimePlayers: Math.floor(result.queuedRuntimePlayers ?? 0),
+      updatedOfflinePlayers: Math.floor(result.updatedOfflinePlayers ?? 0),
+      inventoryStacks: Math.floor(result.totalRecoveryPillInventoryStacksMigrated ?? 0),
+      inventoryItems: Math.floor(result.totalRecoveryPillInventoryItemsMigrated ?? 0),
+      marketStorageStacks: Math.floor(result.totalRecoveryPillMarketStorageStacksMigrated ?? 0),
+      marketStorageItems: Math.floor(result.totalRecoveryPillMarketStorageItemsMigrated ?? 0),
+      equipment: Math.floor(result.totalRecoveryPillEquipmentMigrated ?? 0),
+    }));
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : t('gm.request.failed'), true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 async function repairMarketStorageItemIds(): Promise<void> {
   if (!window.confirm(t('gm.shortcut.repair-market-storage.confirm'))) {
     return;
@@ -12016,6 +12049,9 @@ document.getElementById('shortcut-return-all-to-default-spawn')?.addEventListene
 });
 document.getElementById('shortcut-cleanup-invalid-items')?.addEventListener('click', () => {
   cleanupAllPlayersInvalidItems().catch((e) => console.error('[GM]', e));
+});
+document.getElementById('shortcut-migrate-recovery-pills')?.addEventListener('click', () => {
+  migrateAllPlayersRecoveryPills().catch((e) => console.error('[GM]', e));
 });
 document.getElementById('shortcut-repair-market-storage-item-ids')?.addEventListener('click', () => {
   repairMarketStorageItemIds().catch((e) => console.error('[GM]', e));

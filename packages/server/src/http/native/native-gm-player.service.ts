@@ -16,6 +16,7 @@ import {
   EQUIP_SLOTS,
   VIEW_RADIUS,
   getBodyTrainingExpToNext,
+  mergeItemStackInto,
   normalizeBodyTrainingState,
 } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../../runtime/craft/craft-skill-exp.helpers';
@@ -117,6 +118,7 @@ interface ManagedAccountEntryLike {
 
 
 interface ContentTemplateRepositoryLike {
+  createItem(itemId: string, count?: number): Record<string, unknown> | null;
   getItemName(itemId: string): string | null;
   normalizeItem(input: unknown): unknown;
   hydrateTechniqueState(input: unknown): unknown;
@@ -183,6 +185,48 @@ function safeDescribe<T>(fn: ((arg: T) => unknown) | undefined, arg: T): unknown
   } catch (error) {
     return { describeError: error instanceof Error ? error.message : String(error) };
   }
+}
+
+const RECOVERY_PILL_MIGRATION_TARGETS: Record<string, string> = {
+  pure_yang_pill: 'recovery_powder',
+  'pill.nurturing_paste': 'stabilizing_pellet',
+  'pill.cleartide_powder': 'recovery_powder',
+  'pill.earthrest_paste': 'stabilizing_pellet',
+};
+
+interface RecoveryPillMigrationSummary {
+  inventoryStacksMigrated: number;
+  inventoryItemsMigrated: number;
+  marketStorageStacksMigrated: number;
+  marketStorageItemsMigrated: number;
+  equipmentMigrated: number;
+}
+
+function createEmptyRecoveryPillMigrationSummary(): RecoveryPillMigrationSummary {
+  return {
+    inventoryStacksMigrated: 0,
+    inventoryItemsMigrated: 0,
+    marketStorageStacksMigrated: 0,
+    marketStorageItemsMigrated: 0,
+    equipmentMigrated: 0,
+  };
+}
+
+function hasRecoveryPillMigration(summary: RecoveryPillMigrationSummary): boolean {
+  return summary.inventoryStacksMigrated > 0
+    || summary.marketStorageStacksMigrated > 0
+    || summary.equipmentMigrated > 0;
+}
+
+function addRecoveryPillMigrationSummary(
+  target: RecoveryPillMigrationSummary,
+  source: RecoveryPillMigrationSummary,
+): void {
+  target.inventoryStacksMigrated += source.inventoryStacksMigrated;
+  target.inventoryItemsMigrated += source.inventoryItemsMigrated;
+  target.marketStorageStacksMigrated += source.marketStorageStacksMigrated;
+  target.marketStorageItemsMigrated += source.marketStorageItemsMigrated;
+  target.equipmentMigrated += source.equipmentMigrated;
 }
 /**
  * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -1041,6 +1085,73 @@ export class NativeGmPlayerService {
       totalInvalidInventoryStacksRemoved,
       totalInvalidMarketStorageStacksRemoved,
       totalInvalidEquipmentRemoved,
+    };
+  }
+
+  async migrateAllPlayersRecoveryPills(options?: GmPlayerScopeOptions) {
+    const scopedPlayerIds = this.normalizePlayerIdScope(options);
+    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
+    const runtimePlayers = this.playerRuntimeService
+      .listPlayerSnapshots()
+      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
+        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
+    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
+
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    const totals = createEmptyRecoveryPillMigrationSummary();
+
+    for (const runtime of runtimePlayers) {
+      let summary;
+      try {
+        summary = await this.migrateManagedPlayerRecoveryPills(runtime.playerId);
+      } catch (error) {
+        if (this.isManagedPlayerMissingError(error)) {
+          continue;
+        }
+        throw error;
+      }
+      if (!hasRecoveryPillMigration(summary)) {
+        continue;
+      }
+      queuedRuntimePlayers += 1;
+      addRecoveryPillMigrationSummary(totals, summary);
+    }
+
+    const persistedEntries = scopedPlayerIds.length > 0
+      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
+      : await this.listPlayerPersistenceSnapshots();
+    for (const entry of persistedEntries) {
+      if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
+        continue;
+      }
+
+      let summary;
+      try {
+        summary = await this.migrateManagedPlayerRecoveryPills(entry.playerId);
+      } catch (error) {
+        if (this.isManagedPlayerMissingError(error)) {
+          continue;
+        }
+        throw error;
+      }
+      if (!hasRecoveryPillMigration(summary)) {
+        continue;
+      }
+      updatedOfflinePlayers += 1;
+      addRecoveryPillMigrationSummary(totals, summary);
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalRecoveryPillInventoryStacksMigrated: totals.inventoryStacksMigrated,
+      totalRecoveryPillInventoryItemsMigrated: totals.inventoryItemsMigrated,
+      totalRecoveryPillMarketStorageStacksMigrated: totals.marketStorageStacksMigrated,
+      totalRecoveryPillMarketStorageItemsMigrated: totals.marketStorageItemsMigrated,
+      totalRecoveryPillEquipmentMigrated: totals.equipmentMigrated,
     };
   }
 
@@ -2047,6 +2158,141 @@ export class NativeGmPlayerService {
     const storageSummary = await this.cleanupInvalidMarketStorage(playerId);
     summary.marketStorageStacksRemoved = storageSummary.marketStorageStacksRemoved;
     return summary;
+  }
+
+  private async migrateManagedPlayerRecoveryPills(playerId: string): Promise<RecoveryPillMigrationSummary> {
+    const summary = createEmptyRecoveryPillMigrationSummary();
+
+    const runtime = this.playerRuntimeService.snapshot(playerId);
+    const persisted = runtime
+      ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
+      : await this.loadPlayerPersistenceSnapshot(playerId);
+    if (!persisted) {
+      throw new NotFoundException('目标玩家不存在');
+    }
+
+    const snapshotSummary = this.migrateRecoveryPillsFromSnapshot(persisted);
+    addRecoveryPillMigrationSummary(summary, snapshotSummary);
+    if (snapshotSummary.inventoryStacksMigrated > 0 || snapshotSummary.equipmentMigrated > 0) {
+      await this.savePlayerPersistenceSnapshot(playerId, persisted);
+      if (runtime) {
+        const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
+        if (refreshedRuntime) {
+          const runtimeSummary = this.migrateRecoveryPillsFromSnapshot(refreshedRuntime);
+          summary.inventoryStacksMigrated = Math.max(summary.inventoryStacksMigrated, runtimeSummary.inventoryStacksMigrated);
+          summary.inventoryItemsMigrated = Math.max(summary.inventoryItemsMigrated, runtimeSummary.inventoryItemsMigrated);
+          summary.equipmentMigrated = Math.max(summary.equipmentMigrated, runtimeSummary.equipmentMigrated);
+          this.repairRuntimeSnapshot(refreshedRuntime);
+          refreshedRuntime.selfRevision += 1;
+          refreshedRuntime.persistentRevision += 1;
+          this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
+        }
+      }
+    }
+
+    const storageSummary = await this.migrateRecoveryPillsFromMarketStorage(playerId);
+    addRecoveryPillMigrationSummary(summary, storageSummary);
+    return summary;
+  }
+
+  private migrateRecoveryPillsFromSnapshot(snapshot: any): RecoveryPillMigrationSummary {
+    const summary = createEmptyRecoveryPillMigrationSummary();
+
+    const inventoryItems = Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [];
+    const migratedInventory = this.migrateRecoveryPillItemArray(inventoryItems);
+    if (migratedInventory.changed && snapshot.inventory) {
+      snapshot.inventory.items = migratedInventory.items;
+      summary.inventoryStacksMigrated = migratedInventory.stacksMigrated;
+      summary.inventoryItemsMigrated = migratedInventory.itemsMigrated;
+      if (Number.isFinite(snapshot.inventory.revision)) {
+        snapshot.inventory.revision = Math.max(1, Math.trunc(snapshot.inventory.revision) + 1);
+      }
+    }
+
+    const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
+    for (const entry of equipmentSlots) {
+      if (!entry?.item) {
+        continue;
+      }
+      const migrated = this.createMigratedRecoveryPillItem(entry.item);
+      if (!migrated) {
+        continue;
+      }
+      entry.item = migrated;
+      summary.equipmentMigrated += 1;
+    }
+    if (summary.equipmentMigrated > 0 && snapshot.equipment && Number.isFinite(snapshot.equipment.revision)) {
+      snapshot.equipment.revision = Math.max(1, Math.trunc(snapshot.equipment.revision) + 1);
+    }
+
+    return summary;
+  }
+
+  private async migrateRecoveryPillsFromMarketStorage(playerId: string): Promise<RecoveryPillMigrationSummary> {
+    if (typeof this.marketRuntimeService.ensureStorageHydrated === 'function') {
+      await this.marketRuntimeService.ensureStorageHydrated(playerId);
+    }
+    const storage = this.marketRuntimeService.getStorage(playerId);
+    const items = Array.isArray(storage?.items) ? storage.items : [];
+    const migrated = this.migrateRecoveryPillItemArray(items);
+    const summary = createEmptyRecoveryPillMigrationSummary();
+    if (!migrated.changed) {
+      return summary;
+    }
+
+    await this.marketRuntimeService.runExclusiveMarketMutation(playerId, (context) => {
+      this.marketRuntimeService.setStorage(playerId, { items: migrated.items }, context);
+      return { ok: true };
+    });
+    summary.marketStorageStacksMigrated = migrated.stacksMigrated;
+    summary.marketStorageItemsMigrated = migrated.itemsMigrated;
+    return summary;
+  }
+
+  private migrateRecoveryPillItemArray(items: any[]) {
+    const nextItems: any[] = [];
+    let changed = false;
+    let stacksMigrated = 0;
+    let itemsMigrated = 0;
+    for (const item of items) {
+      const migrated = this.createMigratedRecoveryPillItem(item);
+      if (!migrated) {
+        mergeItemStackInto(nextItems, item);
+        continue;
+      }
+      changed = true;
+      stacksMigrated += 1;
+      itemsMigrated += Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+      mergeItemStackInto(nextItems, migrated);
+    }
+    return {
+      changed,
+      items: nextItems,
+      stacksMigrated,
+      itemsMigrated,
+    };
+  }
+
+  private createMigratedRecoveryPillItem(item: any): any | null {
+    const sourceItemId = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
+    const targetItemId = RECOVERY_PILL_MIGRATION_TARGETS[sourceItemId];
+    if (!targetItemId) {
+      return null;
+    }
+    const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+    const migrated = this.contentTemplateRepository.createItem(targetItemId, count)
+      ?? {
+        ...item,
+        itemId: targetItemId,
+        count,
+      };
+    if (typeof item?.itemInstanceId === 'string' && item.itemInstanceId.trim()) {
+      migrated.itemInstanceId = item.itemInstanceId.trim();
+    }
+    if (Number.isFinite(Number(item?.enhanceLevel))) {
+      migrated.enhanceLevel = Math.max(0, Math.trunc(Number(item.enhanceLevel)));
+    }
+    return migrated;
   }
   /**
  * cleanupInvalidItemsFromSnapshot：清理背包与装备中的无效物品。

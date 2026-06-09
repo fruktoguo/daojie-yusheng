@@ -32,7 +32,7 @@
 | 装备/器物 | 凡品阵盘 | formation_disk.mortal | 1 | 凡品 | 金+12 / 土+7 | 玄铁矿块x1(主) | 600息 | forging.copper_array_plate |
 | 装备/器物 | 门丁裹头巾 | equip.gate_headcloth | 2 | 黄阶 | 金+5 / 木+5 / 水+2 / 土+2 | 匪徒腰牌x1(主)；鼠尾x1(辅) | 14息 | forging.gate_headcloth |
 | 装备/器物 | 越沟快靴 | equip.trench_runner_boots | 2 | 黄阶 | 木+8 / 水+2 / 土+2 | 鼠尾x1(主)；妖兽骨x1(辅) | 14息 | forging.trench_runner_boots |
-| 丹药 | 回春散 | pill.minor_heal | 2 | 凡品 | 木+18 / 水+8 / 土+2 | 月露草x2(主)；妖兽骨x1(辅)；鼠尾x1(辅) | 12息 | alchemy.pill.minor_heal |
+| 丹药 | 回春散 | pill.minor_heal | 10 | 凡阶 | 木+18 / 水+8 / 土+2 | 月露草x2(主)；妖兽骨x1(辅)；鼠尾x1(辅) | 12息 | alchemy.pill.minor_heal |
 | 装备/器物 | 采气木坠 | equip.gather_qi_pendant | 3 | 黄阶 | 木+8 / 水+2 / 土+2 | 妖兽骨x1(主)；鼠尾x1(辅) | 16息 | forging.gather_qi_pendant |
 | 装备/器物 | 药烟轻袍 | equip.herb_mist_robe | 3 | 黄阶 | 木+3 / 水+11 / 土+3 | 阴沼丝x1(主)；泽鳞x1(辅) | 16息 | forging.herb_mist_robe |
 | 装备/器物 | 矿卫破岩锤 | equip.orebreak_hammer | 3 | 玄阶 | 金+20 / 水+4 / 土+7 | 玄铁矿块x1(主)；晶尘x1(辅) | 18息 | forging.orebreak_hammer |
@@ -40,10 +40,10 @@
 | 装备/器物 | 断碑纹剑 | equip.broken_rune_blade | 4 | 玄阶 | 金+19 / 土+20 | 断纹石片x1(主)；玄铁矿块x1(辅) | 20息 | forging.broken_rune_blade |
 | 装备/器物 | 镇煞护心甲 | equip.rift_guard_armor | 4 | 玄阶 | 金+22 / 水+10 / 土+27 | 灵铁碎片x1(主)；断纹石片x1(辅)；魂墨x1(辅) | 22息 | forging.rift_guard_armor |
 | 装备/器物 | 噬元骨牌 | equip.soul_devour_token | 4 | 玄阶 | 水+25 / 土+14 | 魂墨x1(主)；虚蚀碎片x1(辅) | 20息 | forging.soul_devour_token |
-| 丹药 | 小还灵丹 | minor_qi_pill | 4 | 凡品 | 金+10 / 木+33 / 水+17 / 土+6 | 月露草x2(主)；青灵茎x1(主)；鼠尾x2(辅)；彘牙x2(辅) | 16息 | alchemy.minor_qi_pill |
+| 丹药 | 小还灵丹 | minor_qi_pill | 10 | 凡阶 | 金+10 / 木+33 / 水+17 / 土+6 | 月露草x2(主)；青灵茎x1(主)；鼠尾x2(辅)；彘牙x2(辅) | 16息 | alchemy.minor_qi_pill |
 | 丹药 | 赤芽丹 | pill.crimson_bud_elixir | 7 | 黄阶 | 金+16 / 木+32 / 水+24 / 火+47 | 赤芽果x2(主)；赤火叶x1(主)；晶尘x2(辅)；竹蛇胆x2(辅) | 20息 | alchemy.pill.crimson_bud_elixir |
-| 丹药 | 大还灵丹 | major_qi_pill | 8 | 黄阶 | 金+24 / 木+50 / 水+57 | 青灵茎x1(主)；明心花x1(主)；晶尘x3(辅)；竹蛇胆x3(辅) | 22息 | alchemy.major_qi_pill |
-| 丹药 | 寒心膏 | frost_heart_paste | 10 | 玄阶 | 木+68 / 水+99 / 土+23 | 寒莲瓣x1(主)；明心花x1(主)；翠竹心x2(辅)；竹蛇胆x4(辅)；泽鳞x5(辅) | 24息 | alchemy.frost_heart_paste |
+| 丹药 | 大还灵丹 | major_qi_pill | 18 | 黄阶 | 金+24 / 木+50 / 水+57 | 青灵茎x1(主)；明心花x1(主)；晶尘x3(辅)；竹蛇胆x3(辅) | 22息 | alchemy.major_qi_pill |
+| 丹药 | 寒心膏 | frost_heart_paste | 18 | 黄阶 | 木+68 / 水+99 / 土+23 | 寒莲瓣x1(主)；明心花x1(主)；翠竹心x2(辅)；竹蛇胆x4(辅)；泽鳞x5(辅) | 24息 | alchemy.frost_heart_paste |
 | 丹药 | 轻身丹 | pill.windstride_elixir | 11 | 玄阶 | 金+13 / 木+69 / 水+39 / 土+18 | 疾风苇x1(主)；青灵茎x1(主)；阴沼丝x4(辅)；泽鳞x2(辅)；翠竹心x3(辅) | 24息 | alchemy.pill.windstride_elixir |
 | 丹药 | 破阵丹 | pill.break_array_elixir | 12 | 玄阶 | 金+23 / 木+23 / 水+60 / 火+5 / 土+36 | 破纹砂x1(主)；疾风苇x1(主)；魂墨x6(辅) | 26息 | alchemy.pill.break_array_elixir |
 | 装备/器物 | 黄阶阵盘 | formation_disk.yellow | 13 | 黄阶 | 金+22 / 水+10 / 土+27 | 断纹石片x1(主)；灵铁碎片x1(辅)；魂墨x1(辅) | 600息 | forging.yellow_array_plate |
@@ -56,10 +56,9 @@
 | 装备/器物 | 养枝引脉杖 | equip.vineguide_staff | 19 | 黄阶 | 木+73 / 水+15 / 土+24 | 青髓藤x1(主)；生灵木心x1(辅) | 34息 | forging.vineguide_staff |
 | 丹药 | 苦修丹 | pill.bitter_cultivation_elixir | 20 | 黄阶 | 金+60 / 木+74 / 水+64 / 土+86 | 苦心藤x1(主)；明心花x1(主)；狼牙x6(辅)；魂墨x5(辅) | 32息 | alchemy.pill.bitter_cultivation_elixir |
 | 丹药 | 引基散 | pill.guiding_powder | 20 | 黄阶 | 木+142 / 水+52 / 土+24 | 长脉藤x2(主)；回春叶x1(主)；生灵木心x1(辅) | 34息 | alchemy.pill.guiding_powder |
-| 丹药 | 纯阳丹 | pure_yang_pill | 20 | 黄阶 | 金+50 / 木+52 / 水+56 / 火+95 / 土+51 | 赤火叶x2(主)；融阳子x1(主)；狼牙x5(辅)；竹蛇胆x7(辅) | 30息 | alchemy.pure_yang_pill |
 | 装备/器物 | 净潮法衣 | equip.cleantide_robe | 21 | 黄阶 | 金+15 / 木+24 / 水+73 | 净潮水精x1(主)；寒魄露x1(辅) | 38息 | forging.cleantide_robe |
-| 丹药 | 回灵散 | recovery_powder | 21 | 黄阶 | 木+74 / 水+141 | 寒髓苇x2(主)；月井蕊x1(主)；净潮水精x1(辅) | 34息 | alchemy.recovery_powder |
-| 丹药 | 镇脉丸 | stabilizing_pellet | 22 | 黄阶 | 木+56 / 水+24 / 土+147 | 承脉参x2(主)；岩髓芝x1(主)；镇岳石胆x1(辅) | 38息 | alchemy.stabilizing_pellet |
+| 丹药 | 回灵散 | recovery_powder | 30 | 玄阶 | 木+74 / 水+141 | 寒髓苇x2(主)；月井蕊x1(主)；净潮水精x1(辅) | 34息 | alchemy.recovery_powder |
+| 丹药 | 镇脉丸 | stabilizing_pellet | 30 | 玄阶 | 木+56 / 水+24 / 土+147 | 承脉参x2(主)；岩髓芝x1(主)；镇岳石胆x1(辅) | 38息 | alchemy.stabilizing_pellet |
 | 装备/器物 | 逐锋履 | equip.chasing_edge_boots | 23 | 黄阶 | 金+54 / 火+15 / 土+15 | 残兵铁片x1(主)；剑丸x1(辅) | 42息 | forging.chasing_edge_boots |
 | 装备/器物 | 坠岩槌 | equip.fallrock_maul | 23 | 黄阶 | 金+15 / 水+15 / 土+54 | 厚岩核x1(主)；承脉石x1(辅) | 42息 | forging.fallrock_maul |
 | 装备/器物 | 满锋刀 | equip.full_edge_blade | 23 | 黄阶 | 金+54 / 火+15 / 土+15 | 剑丸x1(主)；残兵铁片x1(辅) | 42息 | forging.full_edge_blade |
@@ -67,14 +66,11 @@
 | 装备/器物 | 砂魇面 | equip.sand_ghost_mask | 23 | 黄阶 | 金+42 / 水+27 / 土+15 | 残兵铁片x1(主)；寒魄露x1(辅) | 42息 | forging.sand_ghost_mask |
 | 装备/器物 | 护脉石 | equip.shieldvein_stone | 23 | 黄阶 | 金+15 / 水+42 / 土+27 | 承脉石x1(主)；寒魄露x1(辅) | 42息 | forging.shieldvein_stone |
 | 丹药 | 淬锋散 | pill.edge_quenching_powder | 23 | 玄阶 | 金+143 / 木+36 / 火+24 / 土+16 | 金芒棘x2(主)；铁脉蒺x1(主)；锋纹残晶x1(辅) | 38息 | alchemy.pill.edge_quenching_powder |
-| 丹药 | 养脉膏 | pill.nurturing_paste | 24 | 玄阶 | 木+142 / 水+52 / 土+24 | 长脉藤x2(主)；回春叶x1(主)；生灵木心x1(辅) | 40息 | alchemy.pill.nurturing_paste |
 | 装备/器物 | 裂锋披 | equip.cleft_blade_cloak | 25 | 玄阶 | 金+73 / 火+24 / 土+15 | 锋纹残晶x1(主)；残兵铁片x1(辅) | 48息 | forging.cleft_blade_cloak |
 | 装备/器物 | 御土面 | equip.yuetown_mask | 25 | 玄阶 | 水+39 / 土+73 | 镇岳石胆x1(主)；承脉石x1(辅) | 48息 | forging.yuetown_mask |
 | 装备/器物 | 玄阶阵盘 | formation_disk.mystic | 25 | 玄阶 | 金+77 / 木+31 / 水+55 / 火+55 / 土+76 | 锋纹残晶x1(主)；镇岳石胆x1(辅)；五炁尘x1(辅) | 900息 | forging.mystic_array_plate |
-| 丹药 | 清脉散 | pill.cleartide_powder | 25 | 玄阶 | 木+74 / 水+141 | 寒髓苇x2(主)；月井蕊x1(主)；净潮水精x1(辅) | 40息 | alchemy.pill.cleartide_powder |
 | 装备/器物 | 炉心赤戒 | equip.furnace_red_ring | 26 | 玄阶 | 金+24 / 火+73 / 土+15 | 炉心赤晶x1(主)；陨火砂x1(辅) | 50息 | forging.furnace_red_ring |
 | 丹药 | 赤阳液 | pill.chiyang_draught | 26 | 玄阶 | 金+24 / 木+57 / 火+152 | 灼心瓣x2(主)；炎穗芒x1(主)；炉心赤晶x1(辅) | 40息 | alchemy.pill.chiyang_draught |
-| 丹药 | 厚土膏 | pill.earthrest_paste | 27 | 玄阶 | 木+56 / 水+24 / 土+147 | 承脉参x2(主)；岩髓芝x1(主)；镇岳石胆x1(辅) | 42息 | alchemy.pill.earthrest_paste |
 | 装备/器物 | 厚脉核 | equip.deepvein_core | 29 | 玄阶 | 金+69 / 木+31 / 水+56 / 火+31 / 土+94 | 归藏脉核x1(主)；五炁尘x1(辅) | 56息 | forging.deepvein_core |
 | 装备/器物 | 庚门断锋 | equip.geng_gate_blade | 29 | 玄阶 | 金+104 / 木+31 / 水+31 / 火+70 / 土+30 | 锋纹残晶x1(主)；剑丸x1(辅)；五炁尘x1(辅) | 56息 | forging.geng_gate_blade |
 | 装备/器物 | 归藏合流刃 | equip.guizang_conflux_blade | 29 | 玄阶 | 金+69 / 木+31 / 水+56 / 火+31 / 土+94 | 归藏脉核x1(主)；五炁尘x1(辅) | 56息 | forging.guizang_conflux_blade |

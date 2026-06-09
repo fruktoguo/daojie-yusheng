@@ -21,7 +21,7 @@
         "role": "aux"
       }
     ],
-    "level": 2,
+    "level": 10,
     "grade": "mortal",
     "mainIngredients": [
       {
@@ -62,7 +62,7 @@
         "role": "aux"
       }
     ],
-    "level": 4,
+    "level": 10,
     "grade": "mortal",
     "mainIngredients": [
       {
@@ -153,7 +153,7 @@
         "role": "aux"
       }
     ],
-    "level": 8,
+    "level": 18,
     "grade": "yellow",
     "mainIngredients": [
       {
@@ -203,8 +203,8 @@
         "role": "aux"
       }
     ],
-    "level": 10,
-    "grade": "mystic",
+    "level": 18,
+    "grade": "yellow",
     "mainIngredients": [
       {
         "itemId": "mat.frost_lotus_petal",
@@ -356,52 +356,6 @@
     }
   },
   {
-    "recipeId": "alchemy.pure_yang_pill",
-    "outputItemId": "pure_yang_pill",
-    "outputCount": 1,
-    "baseBrewTicks": 30,
-    "ingredients": [
-      {
-        "itemId": "mat.red_flame_leaf",
-        "count": 2,
-        "role": "main"
-      },
-      {
-        "itemId": "mat.sunmelt_seed",
-        "count": 1,
-        "role": "main"
-      },
-      {
-        "itemId": "wolf_fang",
-        "count": 5,
-        "role": "aux"
-      },
-      {
-        "itemId": "serpent_gall",
-        "count": 7,
-        "role": "aux"
-      }
-    ],
-    "level": 20,
-    "grade": "yellow",
-    "mainIngredients": [
-      {
-        "itemId": "mat.red_flame_leaf",
-        "count": 2
-      },
-      {
-        "itemId": "mat.sunmelt_seed",
-        "count": 1
-      }
-    ],
-    "requiredAuxElements": {
-      "metal": 50,
-      "wood": 28,
-      "water": 56,
-      "earth": 25
-    }
-  },
-  {
     "recipeId": "alchemy.pill.bitter_cultivation_elixir",
     "outputItemId": "pill.bitter_cultivation_elixir",
     "outputCount": 1,
@@ -507,8 +461,8 @@
         "role": "aux"
       }
     ],
-    "level": 21,
-    "grade": "yellow",
+    "level": 30,
+    "grade": "mystic",
     "mainIngredients": [
       {
         "itemId": "mat.coldmarrow_reed",
@@ -546,8 +500,8 @@
         "role": "aux"
       }
     ],
-    "level": 22,
-    "grade": "yellow",
+    "level": 30,
+    "grade": "mystic",
     "mainIngredients": [
       {
         "itemId": "mat.bearingroot_ginseng",
@@ -603,84 +557,6 @@
     }
   },
   {
-    "recipeId": "alchemy.pill.nurturing_paste",
-    "outputItemId": "pill.nurturing_paste",
-    "outputCount": 1,
-    "baseBrewTicks": 40,
-    "ingredients": [
-      {
-        "itemId": "mat.longvein_vine",
-        "count": 2,
-        "role": "main"
-      },
-      {
-        "itemId": "mat.returnspring_leaf",
-        "count": 1,
-        "role": "main"
-      },
-      {
-        "itemId": "spiritwood_heart",
-        "count": 1,
-        "role": "aux"
-      }
-    ],
-    "level": 24,
-    "grade": "mystic",
-    "mainIngredients": [
-      {
-        "itemId": "mat.longvein_vine",
-        "count": 2
-      },
-      {
-        "itemId": "mat.returnspring_leaf",
-        "count": 1
-      }
-    ],
-    "requiredAuxElements": {
-      "wood": 46,
-      "earth": 24
-    }
-  },
-  {
-    "recipeId": "alchemy.pill.cleartide_powder",
-    "outputItemId": "pill.cleartide_powder",
-    "outputCount": 1,
-    "baseBrewTicks": 40,
-    "ingredients": [
-      {
-        "itemId": "mat.coldmarrow_reed",
-        "count": 2,
-        "role": "main"
-      },
-      {
-        "itemId": "mat.moonwell_stamen",
-        "count": 1,
-        "role": "main"
-      },
-      {
-        "itemId": "cleantide_essence",
-        "count": 1,
-        "role": "aux"
-      }
-    ],
-    "level": 25,
-    "grade": "mystic",
-    "mainIngredients": [
-      {
-        "itemId": "mat.coldmarrow_reed",
-        "count": 2
-      },
-      {
-        "itemId": "mat.moonwell_stamen",
-        "count": 1
-      }
-    ],
-    "requiredAuxElements": {
-      "wood": 24,
-      "water": 46
-    }
-  },
-  {
     "recipeId": "alchemy.pill.chiyang_draught",
     "outputItemId": "pill.chiyang_draught",
     "outputCount": 1,
@@ -717,45 +593,6 @@
     "requiredAuxElements": {
       "metal": 24,
       "fire": 46
-    }
-  },
-  {
-    "recipeId": "alchemy.pill.earthrest_paste",
-    "outputItemId": "pill.earthrest_paste",
-    "outputCount": 1,
-    "baseBrewTicks": 42,
-    "ingredients": [
-      {
-        "itemId": "mat.bearingroot_ginseng",
-        "count": 2,
-        "role": "main"
-      },
-      {
-        "itemId": "mat.stonecore_lingzhi",
-        "count": 1,
-        "role": "main"
-      },
-      {
-        "itemId": "stonegall_core",
-        "count": 1,
-        "role": "aux"
-      }
-    ],
-    "level": 27,
-    "grade": "mystic",
-    "mainIngredients": [
-      {
-        "itemId": "mat.bearingroot_ginseng",
-        "count": 2
-      },
-      {
-        "itemId": "mat.stonecore_lingzhi",
-        "count": 1
-      }
-    ],
-    "requiredAuxElements": {
-      "water": 24,
-      "earth": 46
     }
   },
   {
@@ -842,7 +679,7 @@
         "role": "aux"
       }
     ],
-    "level": 31,
+    "level": 42,
     "grade": "earth",
     "mainIngredients": [
       {
@@ -881,7 +718,7 @@
         "role": "aux"
       }
     ],
-    "level": 31,
+    "level": 42,
     "grade": "earth",
     "mainIngredients": [
       {

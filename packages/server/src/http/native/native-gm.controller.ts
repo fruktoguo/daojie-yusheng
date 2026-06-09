@@ -835,6 +835,13 @@ export class NativeGmController {
     return result;
   }
 
+  @Post('shortcuts/players/migrate-recovery-pills')
+  async migrateAllPlayersRecoveryPills(@Body() body: GmPlayerScopeBody) {
+    const result = await this.nextGmPlayerService.migrateAllPlayersRecoveryPills(body ?? {});
+    this.nextGmWorldService.invalidatePlayerListCaches();
+    return result;
+  }
+
   @Post('shortcuts/maintenance/repair-market-storage-item-ids')
   async repairMarketStorageItemIds() {
     return this.nextGmPlayerService.repairMarketStorageItemIds();

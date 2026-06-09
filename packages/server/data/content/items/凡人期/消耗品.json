@@ -3,13 +3,12 @@
     "itemId": "pill.minor_heal",
     "name": "回春散",
     "type": "consumable",
-    "level": 2,
+    "level": 10,
     "grade": "mortal",
     "tags": [
       "战斗丹药"
     ],
     "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
-    "baselineHealPercent": 1,
     "consumeBuffs": [
       {
         "buffId": "item_buff.pill_minor_heal",
@@ -18,12 +17,13 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 100
+          "hpRegenRate": 110
         },
         "statMode": "percent"
       }
     ],
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineHealPercent": 1
   },
   {
     "itemId": "spirit_stone",
@@ -119,37 +119,13 @@
     "itemId": "minor_qi_pill",
     "name": "小还灵丹",
     "type": "consumable",
-    "level": 4,
+    "level": 10,
     "grade": "mortal",
     "desc": "丹气清薄如晨雾，入腹后沿经脉回旋，牵引散乱灵机归于气海。",
-    "baselineQiPercent": 1,
     "consumeBuffs": [
       {
         "buffId": "item_buff.minor_qi_pill",
         "name": "小还灵丹·回灵",
-        "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
-        "shortMark": "灵",
-        "duration": 120,
-        "stats": {
-          "qiRegenRate": 100
-        },
-        "statMode": "percent"
-      }
-    ],
-    "cooldown": 60
-  },
-  {
-    "itemId": "major_qi_pill",
-    "name": "大还灵丹",
-    "type": "consumable",
-    "level": 8,
-    "grade": "yellow",
-    "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
-    "baselineQiPercent": 2,
-    "consumeBuffs": [
-      {
-        "buffId": "item_buff.major_qi_pill",
-        "name": "大还灵丹·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
         "duration": 120,
@@ -159,39 +135,39 @@
         "statMode": "percent"
       }
     ],
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineQiPercent": 1
   },
   {
-    "itemId": "pure_yang_pill",
-    "name": "纯阳丹",
+    "itemId": "major_qi_pill",
+    "name": "大还灵丹",
     "type": "consumable",
-    "level": 20,
+    "level": 18,
     "grade": "yellow",
-    "desc": "丹火纯明，入腹如日照气海，能引阳和灵机迅速回流。",
-    "baselineQiPercent": 2,
+    "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
     "consumeBuffs": [
       {
-        "buffId": "item_buff.pure_yang_pill",
-        "name": "纯阳丹·回灵",
+        "buffId": "item_buff.major_qi_pill",
+        "name": "大还灵丹·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
         "duration": 120,
         "stats": {
-          "qiRegenRate": 140
+          "qiRegenRate": 130
         },
         "statMode": "percent"
       }
     ],
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineQiPercent": 1.5
   },
   {
     "itemId": "frost_heart_paste",
     "name": "寒心膏",
     "type": "consumable",
-    "level": 10,
-    "grade": "mystic",
+    "level": 18,
+    "grade": "yellow",
     "desc": "膏色微寒，贴脉而行，能以寒意镇住躁血并回护心脉。",
-    "baselineHealPercent": 4,
     "consumeBuffs": [
       {
         "buffId": "item_buff.frost_heart_paste",
@@ -200,12 +176,13 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 140
+          "hpRegenRate": 130
         },
         "statMode": "percent"
       }
     ],
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineHealPercent": 1.5
   },
   {
     "itemId": "pill.crimson_bud_elixir",

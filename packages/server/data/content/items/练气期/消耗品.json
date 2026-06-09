@@ -25,10 +25,9 @@
     "itemId": "recovery_powder",
     "name": "回灵散",
     "type": "consumable",
-    "level": 21,
+    "level": 30,
     "desc": "散末遇气即化，清凉灵意贴着经络回转，收拢散失灵机。",
-    "grade": "yellow",
-    "baselineQiPercent": 2,
+    "grade": "mystic",
     "consumeBuffs": [
       {
         "buffId": "item_buff.recovery_powder",
@@ -37,21 +36,21 @@
         "shortMark": "灵",
         "duration": 120,
         "stats": {
-          "qiRegenRate": 140
+          "qiRegenRate": 220
         },
         "statMode": "percent"
       }
     ],
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineQiPercent": 2
   },
   {
     "itemId": "stabilizing_pellet",
     "name": "镇脉丸",
     "type": "consumable",
-    "level": 22,
+    "level": 30,
     "desc": "丸体沉厚，药势贴脉而行，能压住乱血并稳住经络根基。",
-    "grade": "yellow",
-    "baselineHealPercent": 2,
+    "grade": "mystic",
     "consumeBuffs": [
       {
         "buffId": "item_buff.stabilizing_pellet",
@@ -60,12 +59,13 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 140
+          "hpRegenRate": 220
         },
         "statMode": "percent"
       }
     ],
-    "cooldown": 60
+    "cooldown": 60,
+    "baselineHealPercent": 2
   },
   {
     "itemId": "pill.edge_quenching_powder",
@@ -91,52 +91,6 @@
     "grade": "mystic"
   },
   {
-    "itemId": "pill.nurturing_paste",
-    "name": "养脉膏",
-    "type": "consumable",
-    "level": 24,
-    "desc": "膏香微苦，入脉后如春水养枝，缓缓托起枯损经络。",
-    "grade": "mystic",
-    "baselineHealPercent": 4,
-    "consumeBuffs": [
-      {
-        "buffId": "item_buff.pill_nurturing_paste",
-        "name": "养脉膏·回生",
-        "desc": "药力护住经络，生命回复暂时大幅提高。",
-        "shortMark": "生",
-        "duration": 120,
-        "stats": {
-          "hpRegenRate": 190
-        },
-        "statMode": "percent"
-      }
-    ],
-    "cooldown": 60
-  },
-  {
-    "itemId": "pill.cleartide_powder",
-    "name": "清脉散",
-    "type": "consumable",
-    "level": 25,
-    "desc": "药粉清澈如潮痕，能洗去经络浮浊，使灵机重新贯通。",
-    "grade": "mystic",
-    "baselineQiPercent": 4,
-    "consumeBuffs": [
-      {
-        "buffId": "item_buff.pill_cleartide_powder",
-        "name": "清脉散·回灵",
-        "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
-        "shortMark": "灵",
-        "duration": 120,
-        "stats": {
-          "qiRegenRate": 200
-        },
-        "statMode": "percent"
-      }
-    ],
-    "cooldown": 60
-  },
-  {
     "itemId": "pill.chiyang_draught",
     "name": "赤阳液",
     "type": "consumable",
@@ -159,29 +113,6 @@
       }
     ],
     "grade": "mystic"
-  },
-  {
-    "itemId": "pill.earthrest_paste",
-    "name": "厚土膏",
-    "type": "consumable",
-    "level": 27,
-    "desc": "膏质厚重如温土覆伤，能把外散生机重新压回血肉。",
-    "grade": "mystic",
-    "baselineHealPercent": 4,
-    "consumeBuffs": [
-      {
-        "buffId": "item_buff.pill_earthrest_paste",
-        "name": "厚土膏·回生",
-        "desc": "药力护住经络，生命回复暂时大幅提高。",
-        "shortMark": "生",
-        "duration": 120,
-        "stats": {
-          "hpRegenRate": 200
-        },
-        "statMode": "percent"
-      }
-    ],
-    "cooldown": 60
   },
   {
     "itemId": "pill.fivephase_harmony_pellet",
