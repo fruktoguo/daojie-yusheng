@@ -13,6 +13,9 @@ contentTemplateRepository.onModuleInit();
 
 let marketStorage = {
   items: [
+    { itemId: 'pill.minor_heal', count: 2, itemInstanceId: 'market-valid-minor-heal' },
+    { itemId: 'pure_yang_pill', count: 3, itemInstanceId: 'market-legacy-recovery-pill' },
+    { itemId: 'missing.item', count: 1, itemInstanceId: 'market-invalid-raw-item' },
     { item: { itemId: 'fate_stone', count: 1, itemInstanceId: 'market-valid-fate-stone' } },
     { item: { itemId: 'fate_stone.qizhen_crossing', count: 1, itemInstanceId: 'market-legacy-qizhen-fate-stone' } },
     { item: { itemId: 'fate_stone.yunlai_town', count: 1, itemInstanceId: 'market-legacy-yunlai-fate-stone' } },
@@ -73,6 +76,7 @@ async function main(): Promise<void> {
         { itemId: 'fate_stone.qizhen_crossing', count: 1, itemInstanceId: 'legacy-qizhen-fate-stone' },
         { itemId: 'fate_stone.yunlai_town', count: 1, itemInstanceId: 'legacy-yunlai-fate-stone' },
         { itemId: 'equip.copper_array_plate', count: 1, itemInstanceId: 'valid-legacy-array-plate' },
+        { itemId: 'pure_yang_pill', count: 1, itemInstanceId: 'legacy-recovery-pill' },
         { itemId: 'missing.item', count: 1, itemInstanceId: 'invalid-missing-item' },
       ],
     },
@@ -87,6 +91,10 @@ async function main(): Promise<void> {
           slot: 'accessory',
           item: { itemId: 'equip.copper_array_plate', count: 1, itemInstanceId: 'valid-equipped-array-plate' },
         },
+        {
+          slot: 'ring',
+          item: { itemId: 'pill.nurturing_paste', count: 1, itemInstanceId: 'legacy-equipped-recovery-pill' },
+        },
       ],
     },
   };
@@ -100,18 +108,19 @@ async function main(): Promise<void> {
   });
   assert.deepEqual(
     (snapshot.inventory.items as Array<{ itemId: string }>).map((item) => item.itemId),
-    ['fate_stone', 'fate_stone.qizhen_crossing', 'fate_stone.yunlai_town', 'equip.copper_array_plate'],
+    ['fate_stone', 'fate_stone.qizhen_crossing', 'fate_stone.yunlai_town', 'equip.copper_array_plate', 'pure_yang_pill'],
   );
   assert.equal(snapshot.inventory.revision, 4);
   assert.equal((snapshot.equipment.slots as Array<{ item: unknown }>)[0]?.item, null);
   assert.equal((snapshot.equipment.slots as Array<{ item: { itemId: string } | null }>)[1]?.item?.itemId, 'equip.copper_array_plate');
+  assert.equal((snapshot.equipment.slots as Array<{ item: { itemId: string } | null }>)[2]?.item?.itemId, 'pill.nurturing_paste');
   assert.equal(snapshot.equipment.revision, 6);
 
   const marketSummary = await cleanupInvalidMarketStorage('player:gm-cleanup-invalid-items-smoke');
-  assert.deepEqual(marketSummary, { marketStorageStacksRemoved: 0 });
+  assert.deepEqual(marketSummary, { marketStorageStacksRemoved: 1 });
   assert.deepEqual(
-    marketStorage.items.map((entry) => entry.item.itemId),
-    ['fate_stone', 'fate_stone.qizhen_crossing', 'fate_stone.yunlai_town'],
+    marketStorage.items.map((entry) => entry.item?.itemId ?? entry.itemId),
+    ['pill.minor_heal', 'pure_yang_pill', 'fate_stone', 'fate_stone.qizhen_crossing', 'fate_stone.yunlai_town'],
   );
 
   console.log(JSON.stringify({

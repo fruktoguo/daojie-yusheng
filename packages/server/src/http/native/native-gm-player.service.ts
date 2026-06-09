@@ -218,6 +218,11 @@ function hasRecoveryPillMigration(summary: RecoveryPillMigrationSummary): boolea
     || summary.equipmentMigrated > 0;
 }
 
+function isLegacyRecoveryPillItemId(itemId: unknown): boolean {
+  return typeof itemId === 'string'
+    && Object.prototype.hasOwnProperty.call(RECOVERY_PILL_MIGRATION_TARGETS, itemId.trim());
+}
+
 function addRecoveryPillMigrationSummary(
   target: RecoveryPillMigrationSummary,
   source: RecoveryPillMigrationSummary,
@@ -2344,7 +2349,7 @@ export class NativeGmPlayerService {
     }
     const storage = this.marketRuntimeService.getStorage(playerId);
     const items = Array.isArray(storage?.items) ? storage.items : [];
-    const nextItems = items.filter((entry) => this.isValidItem(entry?.item?.itemId));
+    const nextItems = items.filter((entry) => this.isValidItem(this.readMarketStorageCleanupItemId(entry)));
     const marketStorageStacksRemoved = items.length - nextItems.length;
     if (marketStorageStacksRemoved <= 0) {
       return { marketStorageStacksRemoved: 0 };
@@ -2377,7 +2382,16 @@ export class NativeGmPlayerService {
 
 
   private isValidItem(itemId: unknown) {
-    return typeof itemId === 'string' && itemId.trim().length > 0 && this.contentTemplateRepository.getItemName(itemId.trim()) !== null;
+    return typeof itemId === 'string'
+      && itemId.trim().length > 0
+      && (this.contentTemplateRepository.getItemName(itemId.trim()) !== null || isLegacyRecoveryPillItemId(itemId));
+  }
+
+  private readMarketStorageCleanupItemId(entry: any): unknown {
+    if (entry?.item && typeof entry.item === 'object') {
+      return entry.item.itemId;
+    }
+    return entry?.itemId;
   }
   /**
  * buildBodyTrainingState：构建炼体状态。
