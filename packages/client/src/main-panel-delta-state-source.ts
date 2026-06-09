@@ -702,6 +702,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       enhancementSuccessRate: item.enhancementSuccessRate ?? previousSameItem?.enhancementSuccessRate ?? template?.enhancementSuccessRate,
       enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate ?? template?.enhancementSpeedRate,
       miningDamageRate: item.miningDamageRate ?? previousSameItem?.miningDamageRate ?? template?.miningDamageRate,
+      miningDropRate: item.miningDropRate ?? previousSameItem?.miningDropRate ?? template?.miningDropRate,
+      buildingSpeedRate: item.buildingSpeedRate ?? previousSameItem?.buildingSpeedRate ?? template?.buildingSpeedRate,
       mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
       mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
       respawnBindMapId: item.respawnBindMapId ?? previousSameItem?.respawnBindMapId ?? template?.respawnBindMapId,

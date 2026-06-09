@@ -14,7 +14,7 @@ import { WorldRuntimeCombatActionService } from './world-runtime-combat-action.s
 import { CombatActionKind, CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKind } from './combat-action.types';
 import { emitCombatPresentation } from './world-runtime-combat-presentation.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
-import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
+import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import * as world_runtime_path_planning_helpers_1 from '../world-runtime.path-planning.helpers';
@@ -661,6 +661,7 @@ export class WorldRuntimeBasicAttackService {
             damage: mitigatedDamage,
             rawDamage: effectiveBaseDamage,
             mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
+            tileDropRateBonus: resolveMiningDropRateBonus(attacker),
         });
         const result = appliedOutcome?.adapterResult;
         if (!result) {

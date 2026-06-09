@@ -142,6 +142,8 @@ export class ItemTemplateRegistry {
       enhancementSuccessRate: template.enhancementSuccessRate,
       enhancementSpeedRate: template.enhancementSpeedRate,
       miningDamageRate: template.miningDamageRate,
+      miningDropRate: template.miningDropRate,
+      buildingSpeedRate: template.buildingSpeedRate,
       consumeBuffs: Array.isArray(template.consumeBuffs) ? (template.consumeBuffs as Array<Record<string, unknown>>).map((entry) => ({
         ...entry,
         attrs: entry.attrs ? { ...(entry.attrs as object) } : undefined,

@@ -31,6 +31,10 @@ const BASE_CHANT_TICK_DURATION_MS = 1000;
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
 
+type TileDropRollOptions = {
+    dropRateBonus?: number;
+};
+
 /** DEFAULT_VIEW_RADIUS：默认视野半径。 */
 const DEFAULT_VIEW_RADIUS = 10;
 
@@ -2824,7 +2828,7 @@ class MapInstanceRuntime {
         };
     }
     /** damageTile：对可破坏地块施加伤害。 */
-    damageTile(x, y, damage) {
+    damageTile(x, y, damage, options: TileDropRollOptions = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.meta.canDamageTile !== true) {
@@ -2965,7 +2969,7 @@ class MapInstanceRuntime {
 
         const nextHp = Math.max(0, current.hp - appliedDamage);
         const destroyed = nextHp <= 0;
-        const tileDrops = this.rollTileDrops(current, appliedDamage, destroyed);
+        const tileDrops = this.rollTileDrops(current, appliedDamage, destroyed, options);
         const affectsRoomTopology = destroyed === true
             && this.shouldRecalculateRoomsForTileMutation(tileIndex, current.tileType, this.getDestroyedTileLayerStateByCellIndex(tileIndex).tileType);
         const affectsRoomIntegrity = destroyed !== true
@@ -5090,15 +5094,16 @@ class MapInstanceRuntime {
         return toGroundPileView(pile);
     }
     /** rollTileDrops：按 structure/terrain 分层耐久配置结算本次伤害和拆除掉落。 */
-    rollTileDrops(tileState, appliedDamage, destroyed) {
+    rollTileDrops(tileState, appliedDamage, destroyed, options: TileDropRollOptions = {}) {
         const config = resolveTileDurabilityProfile(tileState?.tileType, tileState);
         if (!config) {
             return [];
         }
         const drops = [];
         const damageMultiplier = resolveTileDamageDropMultiplier(appliedDamage);
+        const dropRateMultiplier = 1 + Math.max(0, Number(options?.dropRateBonus) || 0);
         for (const entry of config.damageDrops ?? []) {
-            const chanceBps = Math.max(0, Math.min(10000, Math.trunc(Number(entry?.chanceBps) || 0) * damageMultiplier));
+            const chanceBps = Math.max(0, Math.min(10000, Math.trunc(Number(entry?.chanceBps) || 0) * damageMultiplier * dropRateMultiplier));
             if (chanceBps > 0 && Math.random() * 10000 < chanceBps) {
                 drops.push({ itemId: entry.itemId, count: Math.max(1, Math.trunc(Number(entry.count) || 1)), reason: 'damage' });
             }
@@ -8319,18 +8324,18 @@ function buildingUsesActiveTopology(buildingOrState) {
 }
 function normalizeBuildingRemainingTicks(value, fallbackValue = undefined) {
     const resolved = Number.isFinite(Number(value))
-        ? Math.trunc(Number(value))
+        ? Number(value)
         : Number.isFinite(Number(fallbackValue))
-            ? Math.trunc(Number(fallbackValue))
+            ? Number(fallbackValue)
             : 1;
     return Math.max(1, resolved);
 }
 function resolveBuildingRemainingTicks(building) {
     if (Number.isFinite(Number(building?.buildRemainingTicks))) {
-        return Math.max(0, Math.trunc(Number(building.buildRemainingTicks)));
+        return Math.max(0, Math.ceil(Number(building.buildRemainingTicks)));
     }
     if (Number.isFinite(Number(building?.buildStrength))) {
-        return Math.max(1, Math.trunc(Number(building.buildStrength)));
+        return Math.max(1, Math.ceil(Number(building.buildStrength)));
     }
     return 1;
 }

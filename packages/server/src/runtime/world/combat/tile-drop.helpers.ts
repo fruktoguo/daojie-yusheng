@@ -45,6 +45,14 @@ export function resolveMiningAdjustedTileDamage(input: {
   };
 }
 
+export function resolveMiningDropRateBonus(attacker: any): number {
+  const equippedWeapon = resolveEquippedWeapon(attacker);
+  const weapon = equippedWeapon
+    ? applyEquipmentAttributeEffectivenessToItemStack(equippedWeapon, attacker?.realm?.realmLv ?? attacker?.realmLv)
+    : null;
+  return Math.max(0, Number(weapon?.miningDropRate) || 0);
+}
+
 function resolveEquippedWeapon(attacker: any): any | null {
   const slotWeapon = Array.isArray(attacker?.equipment?.slots)
     ? attacker.equipment.slots.find((entry: any) => entry?.slot === 'weapon')?.item

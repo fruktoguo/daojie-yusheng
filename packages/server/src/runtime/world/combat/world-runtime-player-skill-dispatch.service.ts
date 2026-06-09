@@ -15,7 +15,7 @@ import { CombatActionPhase, CombatActorKind, CombatRejectReason, CombatTargetKin
 import { emitCombatPresentation, nextCastId } from './world-runtime-combat-presentation.helpers';
 import { CombatPendingCastCancelReason, CombatPendingCastStatus, cancelPendingCombatCast, createPlayerPendingCombatCast, createPlayerSkillActionFromPendingCast, resolvePendingCombatCastCancellation } from '../../combat/pending-combat-cast.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
-import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, spawnTileDrops } from './tile-drop.helpers';
+import { applyMiningExpForTileDamage, resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus, spawnTileDrops } from './tile-drop.helpers';
 import { WorldRuntimeThreatService } from './world-runtime-threat.service';
 import { resolveSuppressedMonsterNumericStats } from './formation-combat-effect.helpers';
 import * as world_runtime_normalization_helpers_1 from '../world-runtime.normalization.helpers';
@@ -1921,6 +1921,7 @@ export class WorldRuntimePlayerSkillDispatchService {
                 damage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
                 rawDamage: Math.max(0, Math.round(Number(effectiveTileDamage) || 0)),
                 mitigatedDamage: Math.max(0, Math.round(Number(mitigatedDamage) || 0)),
+                tileDropRateBonus: resolveMiningDropRateBonus(attacker),
             });
             recordPlayerSkillDispatchPerf(deps, 'pendingCommands.castSkill.outcomeApplyMs', outcomeApplyStartedAt);
             const tileDamageResult = appliedOutcome?.adapterResult;

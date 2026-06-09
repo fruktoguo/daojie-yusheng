@@ -144,6 +144,8 @@ function buildBaseEnhancementPreviewItem(item: EnhancementItemView): ItemStack {
     enhancementSuccessRate: template?.enhancementSuccessRate ?? source.enhancementSuccessRate,
     enhancementSpeedRate: template?.enhancementSpeedRate ?? source.enhancementSpeedRate,
     miningDamageRate: template?.miningDamageRate ?? source.miningDamageRate,
+    miningDropRate: template?.miningDropRate ?? source.miningDropRate,
+    buildingSpeedRate: template?.buildingSpeedRate ?? source.buildingSpeedRate,
     enhanceLevel: 0,
   };
 }

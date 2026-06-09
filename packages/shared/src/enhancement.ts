@@ -570,6 +570,8 @@ export function applyEnhancementToItemStack(item: ItemStack): ItemStack {
     enhancementSuccessRate: cloneScaledUtilityRate(flat.enhancementSuccessRate, enhanceLevel),
     enhancementSpeedRate: cloneScaledUtilityRate(flat.enhancementSpeedRate, enhanceLevel),
     miningDamageRate: cloneScaledUtilityRate(flat.miningDamageRate, enhanceLevel),
+    miningDropRate: cloneScaledUtilityRate(flat.miningDropRate, enhanceLevel),
+    buildingSpeedRate: cloneScaledUtilityRate(flat.buildingSpeedRate, enhanceLevel),
   };
 }
 
@@ -612,5 +614,7 @@ export function applyEquipmentAttributeEffectivenessToItemStack(
     enhancementSuccessRate: typeof enhancedItem.enhancementSuccessRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.enhancementSuccessRate, realmMultiplier) : enhancedItem.enhancementSuccessRate,
     enhancementSpeedRate: typeof enhancedItem.enhancementSpeedRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.enhancementSpeedRate, realmMultiplier) : enhancedItem.enhancementSpeedRate,
     miningDamageRate: typeof enhancedItem.miningDamageRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.miningDamageRate, realmMultiplier) : enhancedItem.miningDamageRate,
+    miningDropRate: typeof enhancedItem.miningDropRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.miningDropRate, realmMultiplier) : enhancedItem.miningDropRate,
+    buildingSpeedRate: typeof enhancedItem.buildingSpeedRate === 'number' ? scaleEquipmentEffectivenessUtilityRate(enhancedItem.buildingSpeedRate, realmMultiplier) : enhancedItem.buildingSpeedRate,
   };
 }

@@ -7677,7 +7677,8 @@
           "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
           "cooldownLeft": 0
         }
-      ]
+      ],
+      "buildingSpeedRate": 0.25
     },
     {
       "itemId": "mat.ice_crystal_silk",
@@ -8057,7 +8058,8 @@
           "range": 999
         }
       ],
-      "miningDamageRate": 1.2
+      "miningDamageRate": 1.2,
+      "miningDropRate": 0.2
     },
     {
       "itemId": "mat.dragon_inner_core",
@@ -8477,7 +8479,8 @@
           "range": 999
         }
       ],
-      "miningDamageRate": 0.8
+      "miningDamageRate": 0.8,
+      "miningDropRate": 0.15
     },
     {
       "itemId": "guizang_vein_core",
@@ -9047,7 +9050,8 @@
           "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
           "cooldownLeft": 0
         }
-      ]
+      ],
+      "buildingSpeedRate": 0.35
     },
     {
       "itemId": "mat.living_charcoal",
@@ -10603,7 +10607,8 @@
           "range": 999
         }
       ],
-      "miningDamageRate": 0.5
+      "miningDamageRate": 0.5,
+      "miningDropRate": 0.1
     },
     {
       "itemId": "equip.copper_forging_tool",
@@ -10705,7 +10710,8 @@
           "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
           "cooldownLeft": 0
         }
-      ]
+      ],
+      "buildingSpeedRate": 0.2
     },
     {
       "itemId": "mat.earth_beetle_core",
@@ -10816,7 +10822,7 @@
           "cooldownLeft": 0
         }
       ],
-      "enhancementSuccessRate": 0.02,
+      "enhancementSuccessRate": 0.015,
       "enhancementSpeedRate": 0.25
     },
     {
@@ -11099,7 +11105,7 @@
           "cooldownLeft": 0
         }
       ],
-      "enhancementSuccessRate": 0.035,
+      "enhancementSuccessRate": 0.02,
       "enhancementSpeedRate": 0.35
     },
     {

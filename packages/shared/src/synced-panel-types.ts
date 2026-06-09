@@ -176,6 +176,16 @@ export interface SyncedItemStack {
 
   miningDamageRate?: number;
   /**
+ * miningDropRate：挖矿出货概率增幅比率。
+ */
+
+  miningDropRate?: number;
+  /**
+ * buildingSpeedRate：每息建造进度增幅比率。
+ */
+
+  buildingSpeedRate?: number;
+  /**
  * mapUnlockId：地图UnlockID标识。
  */
 

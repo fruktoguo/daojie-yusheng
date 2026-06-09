@@ -153,7 +153,7 @@ export function createTileOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) {
     const applied = x !== null && y !== null && damage > 0
       ? callFirstDefined([
         () => handlers.applyTileDamage?.({ x, y, damage, outcome, result, application, deps, instance }),
-        () => instance?.damageTile?.(x, y, damage),
+        () => instance?.damageTile?.(x, y, damage, { dropRateBonus: result?.tileDropRateBonus }),
       ])
       : null;
     // 地块摧毁后触发宗门领地扩展

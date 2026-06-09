@@ -375,7 +375,7 @@
         "cooldownLeft": 0
       }
     ],
-    "enhancementSuccessRate": 0.035,
+    "enhancementSuccessRate": 0.02,
     "enhancementSpeedRate": 0.35
   },
   {
@@ -401,7 +401,8 @@
         "range": 999
       }
     ],
-    "miningDamageRate": 1.2
+    "miningDamageRate": 1.2,
+    "miningDropRate": 0.2
   },
   {
     "itemId": "equip.foundation_mixed_origin_building_hammer",
@@ -422,6 +423,7 @@
         "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
         "cooldownLeft": 0
       }
-    ]
+    ],
+    "buildingSpeedRate": 0.35
   }
 ]

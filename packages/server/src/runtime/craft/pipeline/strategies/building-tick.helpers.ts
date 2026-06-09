@@ -1,4 +1,4 @@
-import { computeCraftSkillExpGain, type TechniqueActivityNoticeMessage } from '@mud/shared';
+import { applyEquipmentAttributeEffectivenessToItemStack, computeCraftSkillExpGain, type TechniqueActivityNoticeMessage } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
 import {
   DEFAULT_CRAFT_EXP_TO_NEXT,
@@ -50,17 +50,20 @@ export function executeBuildingTick(
     };
   }
 
-  const previousRemainingTicks = resolveBuildingRemainingTicksForView(building);
-  const nextRemainingTicks = Math.max(0, previousRemainingTicks - 1);
-  building.buildRemainingTicks = nextRemainingTicks;
-  building.buildCompleteTick = nextRemainingTicks > 0 ? Number(instance.tick) + nextRemainingTicks : Number(instance.tick);
+  const progressPerTick = resolveBuildingProgressPerTick(player);
+  const previousRemainingProgress = resolveBuildingRemainingProgress(building);
+  const appliedProgress = Math.min(previousRemainingProgress, progressPerTick);
+  const nextRemainingProgress = Math.max(0, Number((previousRemainingProgress - progressPerTick).toFixed(6)));
+  const nextRemainingTicks = resolveBuildingRemainingTicksForView({ ...building, buildRemainingTicks: nextRemainingProgress }, progressPerTick);
+  building.buildRemainingTicks = nextRemainingProgress;
+  building.buildCompleteTick = nextRemainingProgress > 0 ? Number(instance.tick) + nextRemainingTicks : Number(instance.tick);
   building.updatedAtTick = instance.tick;
   building.revision = Math.max(1, Math.trunc(Number(building.revision) || 1)) + 1;
   instance.worldRevision = Math.max(0, Math.trunc(Number(instance.worldRevision) || 0)) + 1;
   instance.persistentRevision = Math.max(0, Math.trunc(Number(instance.persistentRevision) || 0)) + 1;
   instance.markPersistenceDirtyDomainsHighPriority?.(['building']);
 
-  const gainedExp = applyBuildingConstructionProgress(playerRuntimeService, player, 1);
+  const gainedExp = applyBuildingConstructionProgress(playerRuntimeService, player, appliedProgress);
   const skillChanged = gainedExp > 0;
 
   if (nextRemainingTicks <= 0) {
@@ -183,7 +186,7 @@ function applyCraftSkillExp(source: unknown, skill: { level: number; exp: number
 }
 
 function normalizeBuildStrength(value: unknown): number {
-  const normalized = Math.trunc(Number(value) || 1);
+  const normalized = Number(value) || 1;
   return Math.max(1, normalized);
 }
 
@@ -251,14 +254,36 @@ function buildBuildingSleepPayload(job: Record<string, any>, building: Record<st
   };
 }
 
-function resolveBuildingRemainingTicksForView(building: Record<string, any>): number {
+function resolveBuildingRemainingTicksForView(building: Record<string, any>, progressPerTick = 1): number {
+  const progress = Math.max(Number.MIN_VALUE, Number(progressPerTick) || 1);
   if (Number.isFinite(Number(building?.buildRemainingTicks))) {
-    return Math.max(0, Math.trunc(Number(building.buildRemainingTicks)));
+    return Math.max(0, Math.ceil(Number(building.buildRemainingTicks) / progress));
   }
   if (Number.isFinite(Number(building?.buildStrength))) {
-    return Math.max(1, Math.trunc(Number(building.buildStrength)));
+    return Math.max(1, Math.ceil(Number(building.buildStrength) / progress));
   }
   return 0;
+}
+
+function resolveBuildingRemainingProgress(building: Record<string, any>): number {
+  if (Number.isFinite(Number(building?.buildRemainingTicks))) {
+    return Math.max(0, Number(building.buildRemainingTicks));
+  }
+  if (Number.isFinite(Number(building?.buildStrength))) {
+    return Math.max(1, Number(building.buildStrength));
+  }
+  return 1;
+}
+
+function resolveBuildingProgressPerTick(player: Record<string, any>): number {
+  const weapon = Array.isArray(player?.equipment?.slots)
+    ? player.equipment.slots.find((entry: any) => entry?.slot === 'weapon')?.item
+    : player?.equipment?.weapon;
+  const effectiveWeapon = weapon
+    ? applyEquipmentAttributeEffectivenessToItemStack(weapon, player?.realm?.realmLv ?? player?.realmLv)
+    : null;
+  const speedRate = Math.max(0, Number(effectiveWeapon?.buildingSpeedRate) || 0);
+  return 1 + speedRate;
 }
 
 function releaseStaleBuildingActiveBuilder(instance: Record<string, any>, building: Record<string, any>, playerId: string): boolean {

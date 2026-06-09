@@ -678,7 +678,7 @@
         "cooldownLeft": 0
       }
     ],
-    "enhancementSuccessRate": 0.02,
+    "enhancementSuccessRate": 0.015,
     "enhancementSpeedRate": 0.25
   },
   {
@@ -704,7 +704,8 @@
         "range": 999
       }
     ],
-    "miningDamageRate": 0.8
+    "miningDamageRate": 0.8,
+    "miningDropRate": 0.15
   },
   {
     "itemId": "equip.qi_halfbase_building_hammer",
@@ -725,6 +726,7 @@
         "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
         "cooldownLeft": 0
       }
-    ]
+    ],
+    "buildingSpeedRate": 0.25
   }
 ]

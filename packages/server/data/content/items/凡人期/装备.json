@@ -323,7 +323,8 @@
         "desc": "打开营造菜单，并使用当前建造锤处理建造意图。",
         "cooldownLeft": 0
       }
-    ]
+    ],
+    "buildingSpeedRate": 0.2
   },
   {
     "itemId": "equip.copper_mining_pickaxe",
@@ -348,6 +349,7 @@
         "range": 999
       }
     ],
-    "miningDamageRate": 0.5
+    "miningDamageRate": 0.5,
+    "miningDropRate": 0.1
   }
 ]

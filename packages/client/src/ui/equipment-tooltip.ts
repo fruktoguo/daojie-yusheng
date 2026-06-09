@@ -621,6 +621,12 @@ export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
   if (typeof item.miningDamageRate === 'number' && item.miningDamageRate !== 0) {
     lines.push(t('equipment-tooltip.utility.mining-damage', { value: formatSignedRate(item.miningDamageRate) }));
   }
+  if (typeof item.miningDropRate === 'number' && item.miningDropRate !== 0) {
+    lines.push(t('equipment-tooltip.utility.mining-drop', { value: formatSignedRate(item.miningDropRate) }));
+  }
+  if (typeof item.buildingSpeedRate === 'number' && item.buildingSpeedRate !== 0) {
+    lines.push(t('equipment-tooltip.utility.building-speed', { value: formatSignedRate(item.buildingSpeedRate) }));
+  }
   return lines;
 }
 

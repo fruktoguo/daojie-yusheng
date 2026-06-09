@@ -194,6 +194,8 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     enhancementSuccessRate: sourceItem.enhancementSuccessRate ?? template.enhancementSuccessRate,
     enhancementSpeedRate: sourceItem.enhancementSpeedRate ?? template.enhancementSpeedRate,
     miningDamageRate: sourceItem.miningDamageRate ?? template.miningDamageRate,
+    miningDropRate: sourceItem.miningDropRate ?? template.miningDropRate,
+    buildingSpeedRate: sourceItem.buildingSpeedRate ?? template.buildingSpeedRate,
     consumeBuffs: sourceItem.consumeBuffs ?? template.consumeBuffs,
     tags: sourceItem.tags ?? template.tags,
     contextActions: sourceItem.contextActions ?? template.contextActions,

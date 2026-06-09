@@ -714,6 +714,8 @@ function normalizeItemTemplate(raw) {
         enhancementSuccessRate: normalizeUtilityRate(candidate.enhancementSuccessRate),
         enhancementSpeedRate: normalizeUtilityRate(candidate.enhancementSpeedRate),
         miningDamageRate: normalizeUtilityRate(candidate.miningDamageRate),
+        miningDropRate: normalizeUtilityRate(candidate.miningDropRate),
+        buildingSpeedRate: normalizeUtilityRate(candidate.buildingSpeedRate),
         consumeBuffs,
         tags: normalizeItemTags(candidate.tags, materialCategory),
         contextActions: normalizeItemContextActions(candidate.contextActions),
