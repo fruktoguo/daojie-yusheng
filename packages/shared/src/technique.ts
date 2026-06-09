@@ -203,7 +203,12 @@ export function getTechniqueStandardMaxQiBaseline(realmLv: number | undefined): 
 export function resolveTechniqueBaselineRecoveryAmount(baselineValue: number | undefined, percent: number | undefined): number {
   const baseline = Number.isFinite(baselineValue) ? Math.max(0, Number(baselineValue)) : 0;
   const ratio = Number.isFinite(percent) ? Math.max(0, Number(percent)) : 0;
-  return Math.round(baseline * ratio * 100) / 100;
+  const rawAmount = baseline * ratio;
+  if (rawAmount <= 0) {
+    return 0;
+  }
+  const magnitude = 10 ** Math.max(0, Math.floor(Math.log10(rawAmount)) - 1);
+  return Math.floor(rawAmount / magnitude) * magnitude;
 }
 
 export function resolveTechniqueStandardMaxHpRecoveryAmount(realmLv: number | undefined, percent: number | undefined): number {
