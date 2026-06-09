@@ -14,13 +14,10 @@ export const CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL = Math.log(0.9);
 /** 技艺等级高于目标等级时，每高 1 级施加的通用成功率修正。 */
 export const CRAFT_SUCCESS_HIGHER_LEVEL_MODIFIER_PER_LEVEL = Math.log(1 / 0.98);
 
-/** 技艺等级高于目标等级时，每高 1 级直接增加的成功率。 */
-export const CRAFT_SUCCESS_HIGHER_LEVEL_BONUS_PER_LEVEL = 0.01;
-
-/** 幸运每点提供的炼丹、炼器、强化成功率加成。 */
+/** 幸运每点提供的炼丹、炼器、强化成功率修正量。 */
 export const CRAFT_SUCCESS_RATE_BONUS_PER_LUCK = 0.01;
 
-/** 根据幸运值计算成功率加成。 */
+/** 根据幸运值计算成功率修正量。 */
 export function computeLuckSuccessRateBonus(luck: number | undefined): number {
   const normalizedLuck = Math.max(0, Math.floor(Number(luck) || 0));
   return normalizedLuck * CRAFT_SUCCESS_RATE_BONUS_PER_LUCK;
@@ -145,48 +142,16 @@ export function computeCraftLevelSuccessModifier(
   return 0;
 }
 
-export interface CraftLevelSuccessContribution {
-  /** 低于目标等级时保留赔率域衰减。 */
-  penaltyModifier: number;
-  /** 高于目标等级时直接加到成功率上的概率值。 */
-  increment: number;
-}
-
-export function computeCraftLevelSuccessContribution(
-  targetLevel: number | undefined,
-  craftSkillLevel: number | undefined,
-  lowerLevelModifierPerLevel = CRAFT_SUCCESS_LOWER_LEVEL_MODIFIER_PER_LEVEL,
-  higherLevelBonusPerLevel = CRAFT_SUCCESS_HIGHER_LEVEL_BONUS_PER_LEVEL,
-): CraftLevelSuccessContribution {
-  const normalizedTargetLevel = Math.max(1, Math.floor(Number(targetLevel) || 1));
-  const normalizedCraftSkillLevel = Math.max(1, Math.floor(Number(craftSkillLevel) || 1));
-  const levelDelta = normalizedCraftSkillLevel - normalizedTargetLevel;
-  if (levelDelta > 0) {
-    return {
-      penaltyModifier: 0,
-      increment: levelDelta * Math.max(0, Number(higherLevelBonusPerLevel) || 0),
-    };
-  }
-  if (levelDelta < 0) {
-    return {
-      penaltyModifier: Math.abs(levelDelta) * lowerLevelModifierPerLevel,
-      increment: 0,
-    };
-  }
-  return { penaltyModifier: 0, increment: 0 };
-}
-
-/** 统一技艺成功率修正：低等级惩罚先衰减基础值，正向等级差、工具、幸运等按概率值加算。 */
+/** 统一技艺成功率修正：等级差、工具、幸运等修正量先加算，再进入原赔率空间公式。 */
 export function computeCraftAdjustedSuccessRate(
   baseRate: number | undefined,
   targetLevel: number | undefined,
   craftSkillLevel: number | undefined,
   extraSuccessRate = 0,
 ): number {
-  const levelContribution = computeCraftLevelSuccessContribution(targetLevel, craftSkillLevel);
-  const levelAdjustedRate = applyAsymptoticSuccessModifier(baseRate, levelContribution.penaltyModifier);
+  const levelModifier = computeCraftLevelSuccessModifier(targetLevel, craftSkillLevel);
   const normalizedExtraSuccessRate = Number.isFinite(extraSuccessRate)
     ? Math.max(0, Number(extraSuccessRate))
     : 0;
-  return clampUnitSuccessRate(levelAdjustedRate + levelContribution.increment + normalizedExtraSuccessRate);
+  return applyAsymptoticSuccessModifier(baseRate, levelModifier + normalizedExtraSuccessRate);
 }
