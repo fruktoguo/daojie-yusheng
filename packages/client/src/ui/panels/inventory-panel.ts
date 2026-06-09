@@ -2991,17 +2991,67 @@ export class InventoryPanel {
 
   /** getCooldownStateMap：读取冷却状态地图。 */
   private getCooldownStateMap(inventory: Inventory): Map<string, InventoryItemCooldownState> {
-    return new Map(
+    const activeCooldowns = new Map(
       (inventory.cooldowns ?? [])
         .filter((entry) => this.getItemCooldownRemainingTicks(entry) > 0)
         .map((entry) => [entry.itemId, entry] as const),
     );
+    const cooldownsByItemId = new Map(activeCooldowns);
+    for (const item of inventory.items ?? []) {
+      if (!item?.itemId || cooldownsByItemId.has(item.itemId)) {
+        continue;
+      }
+      const groupedCooldown = this.resolveGroupedRecoveryCooldownState(item, activeCooldowns);
+      if (groupedCooldown) {
+        cooldownsByItemId.set(item.itemId, groupedCooldown);
+      }
+    }
+    return cooldownsByItemId;
   }
 
   /** getItemCooldownState：读取物品冷却状态。 */
   private getItemCooldownState(item: ItemStack, inventory: Inventory | null = this.lastInventory): InventoryItemCooldownState | null {
-    const cooldownState = inventory?.cooldowns?.find((entry) => entry.itemId === item.itemId) ?? null;
+    if (!inventory) {
+      return null;
+    }
+    const cooldownState = this.getCooldownStateMap(inventory).get(item.itemId) ?? null;
     return this.getItemCooldownRemainingTicks(cooldownState) > 0 ? cooldownState : null;
+  }
+
+  private resolveGroupedRecoveryCooldownState(
+    item: ItemStack,
+    activeCooldowns: Map<string, InventoryItemCooldownState>,
+  ): InventoryItemCooldownState | null {
+    let selected: InventoryItemCooldownState | null = null;
+    let maxRemainingTicks = 0;
+    for (const group of this.resolveRecoveryCooldownGroups(item)) {
+      const cooldownState = activeCooldowns.get(group) ?? null;
+      const remainingTicks = this.getItemCooldownRemainingTicks(cooldownState);
+      if (remainingTicks > maxRemainingTicks) {
+        selected = cooldownState;
+        maxRemainingTicks = remainingTicks;
+      }
+    }
+    return selected;
+  }
+
+  private resolveRecoveryCooldownGroups(item: ItemStack): Array<'hp' | 'qi'> {
+    const previewItem = resolvePreviewItem(item);
+    const groups: Array<'hp' | 'qi'> = [];
+    if (this.hasPositiveRecoveryValue(previewItem.healAmount)
+      || this.hasPositiveRecoveryValue(previewItem.healPercent)
+      || this.hasPositiveRecoveryValue(previewItem.baselineHealPercent)) {
+      groups.push('hp');
+    }
+    if (this.hasPositiveRecoveryValue(previewItem.baselineQiPercent)
+      || this.hasPositiveRecoveryValue(previewItem.qiPercent)) {
+      groups.push('qi');
+    }
+    return groups;
+  }
+
+  private hasPositiveRecoveryValue(value: unknown): boolean {
+    return Number.isFinite(Number(value)) && Number(value) > 0;
   }
 
   /** getItemCooldownRemainingTicks：读取物品冷却Remaining Ticks。 */
