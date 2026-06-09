@@ -75,7 +75,6 @@ import { describePreviewBonuses } from '../stat-preview';
 import { formatTechniqueCumulativeBonusSummary } from '../technique-bonus-summary';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
-import { resolveInventoryCooldownLeft } from '../../runtime/server-tick';
 import {
   INVENTORY_PANEL_TOOLTIP_STYLE_ID,
   INVENTORY_PANEL_USABLE_ITEM_TYPES,
@@ -319,6 +318,9 @@ export class InventoryPanel {
   private pendingLoadMoreFrame: number | null = null;
   /** cooldownRefreshTimer：冷却Refresh Timer。 */
   private cooldownRefreshTimer: number | null = null;
+  private inventoryCooldownBaseTick: number | null = null;
+  private inventoryCooldownBaseSourceTick: number | null = null;
+  private inventoryCooldownBaseSyncedAtMs = performance.now();
   /** shellRefs：shell Refs。 */
   private shellRefs: InventoryShellRefs | null = null;
   /** cellBySlotIndex：背包格子索引，避免每次更新扫描 grid。 */
@@ -387,6 +389,9 @@ export class InventoryPanel {
     this.playerQi = 0;
     this.lastPlayerContextKey = null;
     this.playerContextRevision = 0;
+    this.inventoryCooldownBaseTick = null;
+    this.inventoryCooldownBaseSourceTick = null;
+    this.inventoryCooldownBaseSyncedAtMs = performance.now();
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
     if (this.pendingLoadMoreFrame !== null) {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
@@ -445,6 +450,7 @@ export class InventoryPanel {
   update(inventory: Inventory): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.syncInventoryCooldownTickBase(inventory);
     this.lastInventory = inventory;
     if (this.useReactPanel()) {
       this.pendingVisibleRefresh = false;
@@ -3061,7 +3067,39 @@ export class InventoryPanel {
     if (!cooldownState) {
       return 0;
     }
-    return resolveInventoryCooldownLeft(cooldownState.cooldown, cooldownState.startedAtTick);
+    const cooldown = Math.max(0, Math.floor(Number(cooldownState.cooldown) || 0));
+    if (cooldown <= 0) {
+      return 0;
+    }
+    const currentTick = this.getEstimatedInventoryCooldownTick();
+    if (currentTick === null) {
+      return cooldown;
+    }
+    const startedAtTick = Math.max(0, Math.floor(Number(cooldownState.startedAtTick) || 0));
+    const elapsedTicks = Math.max(0, currentTick - startedAtTick);
+    return Math.max(0, cooldown - elapsedTicks);
+  }
+
+  private syncInventoryCooldownTickBase(inventory: Inventory): void {
+    const serverTick = Number(inventory.serverTick);
+    if (!Number.isFinite(serverTick)) {
+      return;
+    }
+    const normalizedTick = Math.max(0, Math.floor(serverTick));
+    if (this.inventoryCooldownBaseSourceTick === normalizedTick) {
+      return;
+    }
+    this.inventoryCooldownBaseTick = normalizedTick;
+    this.inventoryCooldownBaseSourceTick = normalizedTick;
+    this.inventoryCooldownBaseSyncedAtMs = performance.now();
+  }
+
+  private getEstimatedInventoryCooldownTick(now = performance.now()): number | null {
+    if (this.inventoryCooldownBaseTick === null) {
+      return null;
+    }
+    const elapsedTicks = Math.floor(Math.max(0, now - this.inventoryCooldownBaseSyncedAtMs) / 1000);
+    return this.inventoryCooldownBaseTick + elapsedTicks;
   }
 
   /** getItemTooltipCooldownState：读取物品提示冷却状态。 */
