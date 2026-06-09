@@ -357,7 +357,7 @@ export class CraftEnhancementView {
     const state = this.parent.enhancementPanel?.state ?? null;
     const job = state?.job ?? null;
     return job
-      ? '强化任务进行中，进度和取消请在上方任务队列操作。'
+      ? `强化队列进行中，剩余 ${formatTicks(resolveEnhancementWorkRemainingTicks(job))} / ${formatTicks(resolveEnhancementWorkTotalTicks(job))}`
       : `角色强化等级 Lv.${formatDisplayInteger(state?.enhancementSkillLevel ?? this.parent.enhancementSkillLevel)} · 当前可强化装备 ${formatDisplayInteger(state?.candidates.length ?? 0)} 件`;
   }
 
@@ -449,11 +449,7 @@ export class CraftEnhancementView {
     this.patchEnhancementToolbar(toolbar);
     const activeJob = this.getActiveEnhancementJob();
     const currentJobGrid = workbench.querySelector<HTMLElement>('[data-enhancement-job-key]');
-    const currentActiveNotice = workbench.querySelector<HTMLElement>('[data-enhancement-active-queue-notice="true"]');
     const nextJobKey = this.getEnhancementJobPatchKey(activeJob);
-    if (activeJob && currentActiveNotice) {
-      return true;
-    }
     if (activeJob && currentJobGrid?.dataset.enhancementJobKey === nextJobKey) {
       this.patchEnhancementActiveJob(workbench, activeJob);
       return true;
@@ -596,7 +592,7 @@ export class CraftEnhancementView {
         <div class="enhancement-layout enhancement-layout--single-slot">
           <section class="enhancement-workbench">
             ${activeJob
-              ? this.renderEnhancementActiveQueueNotice()
+              ? this.renderEnhancementActiveJob(activeJob, selected)
               : selected
                 ? this.renderEnhancementWorkbench(selected, selectedProtection)
                 : `
@@ -619,7 +615,7 @@ export class CraftEnhancementView {
     const selected = this.getSelectedEnhancementCandidate();
     const selectedProtection = this.getSelectedEnhancementProtection(selected);
     if (state?.job) {
-      return this.renderEnhancementActiveQueueNotice();
+      return this.renderEnhancementActiveJob(state.job, selected);
     }
     if (selected) {
       return this.renderEnhancementWorkbench(selected, selectedProtection);
@@ -629,16 +625,6 @@ export class CraftEnhancementView {
 
   private renderEnhancementFormulaPill(): string {
     return `<button class="enhancement-formula-pill" type="button" data-enhancement-formula-tooltip="1">${escapeHtml(t('craft.workbench.enhancement.formula-pill'))}</button>`;
-  }
-
-  private renderEnhancementActiveQueueNotice(): string {
-    return `
-      <div class="enhancement-workbench-grid" data-enhancement-active-queue-notice="true">
-        <div class="enhancement-workbench-main">
-          <div class="enhancement-empty-state">强化任务已进入上方任务队列，进度和取消请在任务队列操作。</div>
-        </div>
-      </div>
-    `;
   }
 
 
