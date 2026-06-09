@@ -52,7 +52,7 @@ function formatProgressRate(rate: number | undefined): string {
 /** @internal Minimal interface for accessing parent state needed by CraftQueueView */
 export interface CraftQueueParent {
   readonly activeMode: string | null;
-  readonly alchemyPanel: { state?: { job?: { recipeId: string; jobRunId?: string; startedAt: number; outputItemId: string; quantity: number; completedCount: number; remainingTicks: number; totalTicks: number; workRemainingTicks?: number; workTotalTicks?: number; pausedTicks?: number; interruptWaitRemainingTicks?: number; interruptState?: { waitTotalTicks?: number; waitRemainingTicks?: number } | null; phase: string; jobType?: string; queuedJobs?: CraftQueueItemView[] } | null; queue?: CraftQueueItemView[] } | null } | null;
+  readonly alchemyPanel: { state?: { job?: { recipeId: string; jobRunId?: string; startedAt: number; outputItemId: string; quantity: number; completedCount: number; outputCount?: number; remainingTicks: number; totalTicks: number; workRemainingTicks?: number; workTotalTicks?: number; batchBrewTicks?: number; currentBatchRemainingTicks?: number; pausedTicks?: number; interruptWaitRemainingTicks?: number; interruptState?: { waitTotalTicks?: number; waitRemainingTicks?: number } | null; phase: string; jobType?: string; queuedJobs?: CraftQueueItemView[] } | null; queue?: CraftQueueItemView[] } | null } | null;
   readonly enhancementPanel: { state?: { job?: { jobRunId?: string; startedAt: number; targetItemName: string; desiredTargetLevel: number; remainingTicks: number; totalTicks: number; workRemainingTicks?: number; workTotalTicks?: number; pausedTicks?: number; interruptWaitRemainingTicks?: number; interruptState?: { waitTotalTicks?: number; waitRemainingTicks?: number } | null; phase?: string; queuedJobs?: CraftQueueItemView[] } | null; queue?: CraftQueueItemView[] } | null } | null;
   readonly alchemyCatalog: Array<{ recipeId: string; outputName: string }>;
   readonly techniqueActivityTasksSynced: boolean;
@@ -204,6 +204,14 @@ export class CraftQueueView {
           activeAlchemyJob.workRemainingTicks ?? activeAlchemyJob.remainingTicks,
           activeAlchemyJob.workTotalTicks ?? activeAlchemyJob.totalTicks,
           activeAlchemyJob.phase,
+          {
+            batchRemainingTicks: activeAlchemyJob.currentBatchRemainingTicks,
+            batchTotalTicks: activeAlchemyJob.batchBrewTicks,
+            completedCount: activeAlchemyJob.completedCount,
+            quantity: activeAlchemyJob.quantity,
+            outputCount: activeAlchemyJob.outputCount,
+            kind: jobKind,
+          },
         ),
         interruptProgress: this.buildCraftQueueInterruptProgress(activeAlchemyJob),
       });
@@ -241,10 +249,11 @@ export class CraftQueueView {
     const isActive = task.state === 'running' || task.state === 'interrupt_wait' || task.state === 'completing';
     const taskLabel = resolveClientDisplayToken(task.label);
     const targetLabel = task.targetLabel ? resolveClientDisplayToken(task.targetLabel) : '';
+    const label = targetLabel && targetLabel !== taskLabel ? `${taskLabel} · ${targetLabel}` : (targetLabel || taskLabel);
     return {
       queueId: task.cancelRef.jobRunId ?? task.cancelRef.queueId ?? task.id,
       kind: task.kind,
-      label: targetLabel ? `${taskLabel} · ${targetLabel}` : taskLabel,
+      label,
       createdAt: 0,
       isActive,
       state: task.state === 'sleeping' ? 'sleeping' : 'pending',
@@ -262,8 +271,8 @@ export class CraftQueueView {
   }
 
   private buildTechniqueTaskProgress(task: TechniqueActivityTaskView): CraftQueueProgressView {
-    const total = Math.max(0, Math.floor(Number(task.workTotalTicks) || 0));
-    const remaining = Math.max(0, Math.floor(Number(task.workRemainingTicks) || 0));
+    const total = Math.max(0, Math.floor(Number(task.batchTotalTicks ?? task.workTotalTicks) || 0));
+    const remaining = Math.max(0, Math.floor(Number(task.batchRemainingTicks ?? task.workRemainingTicks) || 0));
     if (total <= 0) {
       return {
         ratio: 0,
@@ -283,10 +292,16 @@ export class CraftQueueView {
     const etaText = task.kind === 'transmission' && Number(task.estimatedRemainingTicks) > 0
       ? ` · 预计 ${formatTicks(task.estimatedRemainingTicks)}`
       : '';
+    const batchText = task.batchTotalTicks
+      ? this.buildBatchProgressDetail(task.kind, task.completedCount, task.quantity, task.outputCount)
+      : '';
+    const timeText = task.batchTotalTicks
+      ? `当前批剩余 ${formatTicks(remaining)} / 每批 ${formatTicks(total)}`
+      : `剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}`;
     return {
       ratio,
       label: `${formatDisplayInteger(Math.round(ratio * 100))}%`,
-      detail: `${stateLabel} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}${rateText}${etaText}`,
+      detail: `${stateLabel} · ${timeText}${batchText}${rateText}${etaText}`,
     };
   }
 
@@ -303,9 +318,26 @@ export class CraftQueueView {
     };
   }
 
-  buildCraftQueueTimeProgress(remainingTicks: number | undefined, totalTicks: number | undefined, phase?: string): CraftQueueProgressView {
-    const total = Math.max(0, Math.floor(Number(totalTicks) || 0));
-    const remaining = Math.max(0, Math.floor(Number(remainingTicks) || 0));
+  buildCraftQueueTimeProgress(
+    remainingTicks: number | undefined,
+    totalTicks: number | undefined,
+    phase?: string,
+    batch?: {
+      batchRemainingTicks?: number;
+      batchTotalTicks?: number;
+      completedCount?: number;
+      quantity?: number;
+      outputCount?: number;
+      kind?: string;
+    },
+  ): CraftQueueProgressView {
+    const hasBatchProgress = Math.max(0, Math.floor(Number(batch?.batchTotalTicks) || 0)) > 0;
+    const total = hasBatchProgress
+      ? Math.max(0, Math.floor(Number(batch?.batchTotalTicks) || 0))
+      : Math.max(0, Math.floor(Number(totalTicks) || 0));
+    const remaining = hasBatchProgress
+      ? Math.max(0, Math.floor(Number(batch?.batchRemainingTicks) || 0))
+      : Math.max(0, Math.floor(Number(remainingTicks) || 0));
     if (total <= 0) {
       return {
         ratio: 0,
@@ -325,8 +357,29 @@ export class CraftQueueView {
     return {
       ratio,
       label,
-      detail: `${phaseText} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}`,
+      detail: hasBatchProgress
+        ? `${phaseText} · 当前批剩余 ${formatTicks(remaining)} / 每批 ${formatTicks(total)}${this.buildBatchProgressDetail(batch?.kind, batch?.completedCount, batch?.quantity, batch?.outputCount)}`
+        : `${phaseText} · 剩余 ${formatTicks(remaining)} / 共 ${formatTicks(total)}`,
     };
+  }
+
+  private buildBatchProgressDetail(
+    kind: string | undefined,
+    completedCount: number | undefined,
+    quantity: number | undefined,
+    outputCount: number | undefined,
+  ): string {
+    const normalizedQuantity = Math.max(0, Math.floor(Number(quantity) || 0));
+    const normalizedCompleted = Math.max(0, Math.floor(Number(completedCount) || 0));
+    const normalizedOutputCount = Math.max(0, Math.floor(Number(outputCount) || 0));
+    const parts: string[] = [];
+    if (normalizedQuantity > 0) {
+      parts.push(`${formatDisplayInteger(Math.min(normalizedCompleted, normalizedQuantity))} / ${formatDisplayInteger(normalizedQuantity)} 批`);
+    }
+    if (normalizedOutputCount > 0) {
+      parts.push(`每批 ${formatDisplayInteger(normalizedOutputCount)} ${kind === 'alchemy' ? '枚' : '件'}`);
+    }
+    return parts.length > 0 ? ` · ${parts.join(' · ')}` : '';
   }
 
   buildCraftQueueInterruptProgress(job: {

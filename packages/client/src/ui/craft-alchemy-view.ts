@@ -97,6 +97,24 @@ function resolveWorkRemainingTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel
   return Math.max(0, Math.floor(Number(job.workRemainingTicks ?? job.remainingTicks) || 0));
 }
 
+function resolveBatchTotalTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']>): number {
+  const explicit = Math.max(0, Math.floor(Number(job.batchBrewTicks) || 0));
+  if (explicit > 0) {
+    return explicit;
+  }
+  const quantity = Math.max(1, Math.floor(Number(job.quantity) || 1));
+  return Math.max(1, Math.ceil(resolveWorkTotalTicks(job) / quantity));
+}
+
+function resolveBatchRemainingTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']>): number {
+  const total = resolveBatchTotalTicks(job);
+  const explicit = Math.max(0, Math.floor(Number(job.currentBatchRemainingTicks) || 0));
+  if (explicit > 0 || Number(job.currentBatchRemainingTicks) === 0) {
+    return Math.min(total, explicit);
+  }
+  return Math.min(total, resolveWorkRemainingTicks(job));
+}
+
 function resolveInterruptRemainingTicks(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']>): number {
   return Math.max(0, Math.floor(Number(
     job.interruptWaitRemainingTicks
@@ -644,9 +662,9 @@ export class CraftAlchemyView {
     if (!job) {
       return;
     }
-    const workRemainingTicks = resolveWorkRemainingTicks(job);
-    const workTotalTicks = resolveWorkTotalTicks(job);
-    const progressPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const batchRemainingTicks = resolveBatchRemainingTicks(job);
+    const batchTotalTicks = resolveBatchTotalTicks(job);
+    const progressPercent = Math.max(0, Math.min(100, (1 - (batchRemainingTicks / Math.max(1, batchTotalTicks))) * 100));
     const interruptRemainingTicks = resolveInterruptRemainingTicks(job);
     const interruptTotalTicks = resolveInterruptTotalTicks(job, interruptRemainingTicks);
     const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
@@ -658,10 +676,7 @@ export class CraftAlchemyView {
     const phaseChip = card.querySelector<HTMLElement>('.alchemy-job-phase-chip');
     const metaSpans = card.querySelectorAll<HTMLElement>(':scope .alchemy-job-meta > span');
     if (progressLabel) {
-      progressLabel.textContent = t('craft.workbench.alchemy.job.progress-value', {
-        completed: formatDisplayInteger(job.completedCount),
-        quantity: formatDisplayInteger(job.quantity),
-      });
+      progressLabel.textContent = `${formatTicks(batchRemainingTicks)} / ${formatTicks(batchTotalTicks)}`;
     }
     if (progressFill) {
       progressFill.style.width = `${progressPercent.toFixed(2)}%`;
@@ -681,10 +696,18 @@ export class CraftAlchemyView {
       phaseChip.classList.toggle('is-brewing', job.phase === 'brewing');
     }
     const metaText = [
-      t('craft.workbench.alchemy.job.remaining', { ticks: formatTicks(workRemainingTicks) }),
+      t('craft.workbench.alchemy.job.progress-value', {
+        completed: formatDisplayInteger(job.completedCount),
+        quantity: formatDisplayInteger(job.quantity),
+      }),
+      t('craft.workbench.alchemy.job.batch-output', {
+        count: formatDisplayInteger(job.outputCount),
+        unit: this.parent.activeMode === 'forging' || job.jobType === 'forging'
+          ? t('craft.workbench.unit.item')
+          : t('craft.workbench.unit.pill'),
+      }),
       t('craft.workbench.alchemy.job.success-count', { count: formatDisplayInteger(job.successCount) }),
       t('craft.workbench.alchemy.job.failure-count', { count: formatDisplayInteger(job.failureCount) }),
-      getAlchemyPhaseLabel(job.phase),
     ];
     metaSpans.forEach((span, index) => {
       if (metaText[index]) {
@@ -1020,18 +1043,23 @@ export class CraftAlchemyView {
     const isForging = this.parent.activeMode === 'forging' || job?.jobType === 'forging';
     const activityName = isForging ? t('craft.workbench.mode.forging') : t('craft.workbench.mode.alchemy');
     const unit = isForging ? t('craft.workbench.unit.item') : t('craft.workbench.unit.pill');
-    const successLabel = isForging ? t('craft.workbench.alchemy.metric.success.forging') : t('craft.workbench.alchemy.metric.success.alchemy');
     if (!job) {
       return `<section class="alchemy-job-card empty" data-alchemy-job-card="true" data-alchemy-job-key="empty"><div class="alchemy-job-title">${escapeHtml(t('craft.workbench.alchemy.job.title'))}</div><div class="alchemy-job-text">${escapeHtml(t('craft.workbench.alchemy.job.empty', { activityName }))}</div></section>`;
     }
     const recipe = this.parent.alchemyCatalog.find((entry) => entry.recipeId === job.recipeId) ?? null;
-    const workRemainingTicks = resolveWorkRemainingTicks(job);
-    const workTotalTicks = resolveWorkTotalTicks(job);
-    const progressPercent = Math.max(0, Math.min(100, (1 - (workRemainingTicks / Math.max(1, workTotalTicks))) * 100));
+    const batchRemainingTicks = resolveBatchRemainingTicks(job);
+    const batchTotalTicks = resolveBatchTotalTicks(job);
+    const progressPercent = Math.max(0, Math.min(100, (1 - (batchRemainingTicks / Math.max(1, batchTotalTicks))) * 100));
     const interruptRemainingTicks = resolveInterruptRemainingTicks(job);
     const interruptTotalTicks = resolveInterruptTotalTicks(job, interruptRemainingTicks);
     const interruptPercent = Math.max(0, Math.min(100, (1 - (interruptRemainingTicks / Math.max(1, interruptTotalTicks))) * 100));
     const phaseClass = job.phase === 'paused' ? 'is-paused' : 'is-brewing';
+    const successText = isForging
+      ? t('craft.workbench.alchemy.metric.success.forging', { rate: formatRate(job.successRate) })
+      : t('craft.workbench.alchemy.metric.success.alchemy', { rate: formatRate(job.successRate) });
+    const spiritStoneMetric = job.spiritStoneCost > 0
+      ? `<span class="alchemy-metric-chip">${escapeHtml(t('craft.workbench.alchemy.job.spirit-stone', { count: formatDisplayInteger(job.spiritStoneCost) }))}</span>`
+      : '';
     return `
       <section class="alchemy-job-card" data-alchemy-job-card="true" data-alchemy-job-key="${escapeHtml(this.getAlchemyJobPatchKey(job))}">
         <div class="alchemy-job-head">
@@ -1041,16 +1069,14 @@ export class CraftAlchemyView {
           </div>
           <div class="alchemy-job-metrics">
             <span class="alchemy-metric-chip alchemy-job-phase-chip ${phaseClass}">${escapeHtml(getAlchemyPhaseLabel(job.phase))}</span>
-            <span class="alchemy-metric-chip">${escapeHtml(t('craft.workbench.alchemy.job.quantity', { quantity: formatDisplayInteger(job.quantity) }))}</span>
-            <span class="alchemy-metric-chip">${escapeHtml(t('craft.workbench.alchemy.job.batch-output', { count: formatDisplayInteger(job.outputCount), unit }))}</span>
-            <span class="alchemy-metric-chip">${escapeHtml(t('craft.workbench.alchemy.job.spirit-stone', { count: formatDisplayInteger(job.spiritStoneCost) }))}</span>
-            <span class="alchemy-metric-chip">${successLabel} ${escapeHtml(formatRate(job.successRate))}</span>
+            ${spiritStoneMetric}
+            <span class="alchemy-metric-chip">${escapeHtml(successText)}</span>
           </div>
         </div>
         <div class="alchemy-job-progress">
           <div class="alchemy-job-progress-head">
-            <span>${escapeHtml(t('craft.workbench.alchemy.job.progress'))}</span>
-            <strong>${escapeHtml(t('craft.workbench.alchemy.job.progress-value', { completed: formatDisplayInteger(job.completedCount), quantity: formatDisplayInteger(job.quantity) }))}</strong>
+            <span>当前批进度</span>
+            <strong>${escapeHtml(`${formatTicks(batchRemainingTicks)} / ${formatTicks(batchTotalTicks)}`)}</strong>
           </div>
           <div class="alchemy-job-progress-bar">
             <div class="alchemy-job-progress-fill" data-alchemy-work-fill="true" style="width:${progressPercent.toFixed(2)}%"></div>
@@ -1066,10 +1092,10 @@ export class CraftAlchemyView {
           </div>
         </div>
         <div class="alchemy-job-meta">
-          <span>${escapeHtml(t('craft.workbench.alchemy.job.remaining', { ticks: formatTicks(workRemainingTicks) }))}</span>
+          <span>${escapeHtml(t('craft.workbench.alchemy.job.progress-value', { completed: formatDisplayInteger(job.completedCount), quantity: formatDisplayInteger(job.quantity) }))}</span>
+          <span>${escapeHtml(t('craft.workbench.alchemy.job.batch-output', { count: formatDisplayInteger(job.outputCount), unit }))}</span>
           <span>${escapeHtml(t('craft.workbench.alchemy.job.success-count', { count: formatDisplayInteger(job.successCount) }))}</span>
           <span>${escapeHtml(t('craft.workbench.alchemy.job.failure-count', { count: formatDisplayInteger(job.failureCount) }))}</span>
-          <span>${escapeHtml(getAlchemyPhaseLabel(job.phase))}</span>
           <div class="alchemy-job-ingredient-flow">
             ${job.ingredients.map((ingredient) => {
               const ingredientMeta = recipe?.ingredients.find((entry) => entry.itemId === ingredient.itemId);

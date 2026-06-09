@@ -998,12 +998,13 @@ export class CraftWorkbenchModal {
 
   private ensureAlchemySelection(): void {
     if (this.alchemyPanel?.state?.job) {
-      this.selectedAlchemyRecipeId = this.alchemyPanel.state.job.recipeId;
-      const jobRecipe = this.alchemyCatalog.find((entry) => entry.recipeId === this.alchemyPanel?.state?.job?.recipeId);
-      if (jobRecipe) {
-        this.activeAlchemyCategory = jobRecipe.category;
-        this.activeAlchemyRealm = getAlchemyRealmTab(jobRecipe.outputLevel);
+      const visibleRecipes = this.getVisibleAlchemyRecipes();
+      const visibleRecipeIds = new Set(visibleRecipes.map((entry) => entry.recipeId));
+      if (this.selectedAlchemyRecipeId && visibleRecipeIds.has(this.selectedAlchemyRecipeId)) {
+        return;
       }
+      this.selectedAlchemyRecipeId = visibleRecipes[0]?.recipeId ?? null;
+      this.selectedAlchemyPresetId = null;
       return;
     }
     const visibleRecipes = this.getVisibleAlchemyRecipes();
@@ -1011,11 +1012,9 @@ export class CraftWorkbenchModal {
     if (this.selectedAlchemyRecipeId && visibleRecipeIds.has(this.selectedAlchemyRecipeId)) {
       return;
     }
-    const nextRecipe = visibleRecipes[0] ?? this.alchemyCatalog[0] ?? null;
+    const nextRecipe = visibleRecipes[0] ?? null;
     this.selectedAlchemyRecipeId = nextRecipe?.recipeId ?? null;
     this.selectedAlchemyPresetId = null;
-    this.activeAlchemyCategory = nextRecipe?.category ?? 'recovery';
-    this.activeAlchemyRealm = nextRecipe ? getAlchemyRealmTab(nextRecipe.outputLevel) : 'mortal';
   }
 
   private ensureAlchemyDraft(): void {

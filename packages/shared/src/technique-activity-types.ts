@@ -82,6 +82,16 @@ export interface TechniqueActivityTaskView {
   state: TechniqueActivityTaskState;
   workTotalTicks?: number;
   workRemainingTicks?: number;
+  /** 当前批次工作总量，仅炼丹/炼器等批量制作任务使用。 */
+  batchTotalTicks?: number;
+  /** 当前批次剩余工作量，仅炼丹/炼器等批量制作任务使用。 */
+  batchRemainingTicks?: number;
+  /** 计划批次数，仅批量制作任务使用。 */
+  quantity?: number;
+  /** 已完成批次数，仅批量制作任务使用。 */
+  completedCount?: number;
+  /** 每批产出件数，仅批量制作任务使用。 */
+  outputCount?: number;
   /** 当前每息可推进的工作量，主要用于传法/领悟估算。 */
   progressGainPerTick?: number;
   /** 按当前速率估算的剩余完成息数。 */

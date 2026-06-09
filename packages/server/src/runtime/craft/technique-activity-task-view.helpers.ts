@@ -34,6 +34,11 @@ type LegacyTechniqueJob = {
   remainingTicks?: number;
   workTotalTicks?: number;
   workRemainingTicks?: number;
+  batchBrewTicks?: number;
+  currentBatchRemainingTicks?: number;
+  quantity?: number;
+  completedCount?: number;
+  outputCount?: number;
   progressGainPerTick?: number;
   estimatedRemainingTicks?: number;
   progressBreakdown?: TechniqueComprehensionProgressBreakdown;
@@ -134,6 +139,23 @@ function buildActiveJobTaskView(
   const targetLabel = resolveJobTargetLabel(kind, job);
   if (targetLabel) {
     task.targetLabel = targetLabel;
+  }
+  const batchTotalTicks = resolveNonNegativeInteger(job.batchBrewTicks);
+  if (batchTotalTicks > 0) {
+    task.batchTotalTicks = batchTotalTicks;
+    task.batchRemainingTicks = Math.min(
+      batchTotalTicks,
+      resolveNonNegativeInteger(job.currentBatchRemainingTicks),
+    );
+  }
+  const quantity = resolveNonNegativeInteger(job.quantity);
+  if (quantity > 0) {
+    task.quantity = quantity;
+    task.completedCount = Math.min(quantity, resolveNonNegativeInteger(job.completedCount));
+  }
+  const outputCount = resolveNonNegativeInteger(job.outputCount);
+  if (outputCount > 0) {
+    task.outputCount = outputCount;
   }
   if (interruptWaitRemainingTicks > 0) {
     task.interruptWaitRemainingTicks = interruptWaitRemainingTicks;
