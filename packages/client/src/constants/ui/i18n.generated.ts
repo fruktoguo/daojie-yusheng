@@ -3179,7 +3179,7 @@ export const CLIENT_I18N_MESSAGES = {
   "equipment-tooltip.utility.enhancement-speed": "强化速度 {value}",
   "equipment-tooltip.utility.enhancement-success": "强化成功修正 {value}",
   "equipment-tooltip.utility.mining-damage": "挖矿伤害 {value}",
-  "equipment-tooltip.utility.mining-drop": "挖矿出货 {value}",
+  "equipment-tooltip.utility.mining-drop": "矿物额外概率 {value}",
   "equipment-tooltip.utility.speed": "{craft}速度 {value}",
   "equipment-tooltip.utility.success": "{craft}成功 {value}",
   "equipment-tooltip.value.none": "无",
