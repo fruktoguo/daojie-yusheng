@@ -321,6 +321,7 @@ export class InventoryPanel {
   private inventoryCooldownBaseTick: number | null = null;
   private inventoryCooldownBaseSourceTick: number | null = null;
   private inventoryCooldownBaseSyncedAtMs = performance.now();
+  private inventoryCooldownStateCache = new Map<string, InventoryItemCooldownState>();
   /** shellRefs：shell Refs。 */
   private shellRefs: InventoryShellRefs | null = null;
   /** cellBySlotIndex：背包格子索引，避免每次更新扫描 grid。 */
@@ -392,6 +393,7 @@ export class InventoryPanel {
     this.inventoryCooldownBaseTick = null;
     this.inventoryCooldownBaseSourceTick = null;
     this.inventoryCooldownBaseSyncedAtMs = performance.now();
+    this.inventoryCooldownStateCache.clear();
     this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
     if (this.pendingLoadMoreFrame !== null) {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
@@ -451,6 +453,7 @@ export class InventoryPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.syncInventoryCooldownTickBase(inventory);
+    this.syncInventoryCooldownStateCache(inventory.cooldowns ?? []);
     this.lastInventory = inventory;
     if (this.useReactPanel()) {
       this.pendingVisibleRefresh = false;
@@ -2997,11 +3000,13 @@ export class InventoryPanel {
 
   /** getCooldownStateMap：读取冷却状态地图。 */
   private getCooldownStateMap(inventory: Inventory): Map<string, InventoryItemCooldownState> {
-    const activeCooldowns = new Map(
-      (inventory.cooldowns ?? [])
-        .filter((entry) => this.getItemCooldownRemainingTicks(entry) > 0)
-        .map((entry) => [entry.itemId, entry] as const),
-    );
+    this.pruneInventoryCooldownStateCache();
+    const activeCooldowns = new Map(this.inventoryCooldownStateCache);
+    for (const entry of inventory.cooldowns ?? []) {
+      if (this.getItemCooldownRemainingTicks(entry) > 0) {
+        activeCooldowns.set(entry.itemId, entry);
+      }
+    }
     const cooldownsByItemId = new Map(activeCooldowns);
     for (const item of inventory.items ?? []) {
       if (!item?.itemId || cooldownsByItemId.has(item.itemId)) {
@@ -3092,6 +3097,28 @@ export class InventoryPanel {
     this.inventoryCooldownBaseTick = normalizedTick;
     this.inventoryCooldownBaseSourceTick = normalizedTick;
     this.inventoryCooldownBaseSyncedAtMs = performance.now();
+  }
+
+  private syncInventoryCooldownStateCache(cooldowns: InventoryItemCooldownState[]): void {
+    for (const entry of cooldowns) {
+      if (!entry?.itemId) {
+        continue;
+      }
+      if (this.getItemCooldownRemainingTicks(entry) > 0) {
+        this.inventoryCooldownStateCache.set(entry.itemId, { ...entry });
+      } else {
+        this.inventoryCooldownStateCache.delete(entry.itemId);
+      }
+    }
+    this.pruneInventoryCooldownStateCache();
+  }
+
+  private pruneInventoryCooldownStateCache(): void {
+    for (const [itemId, entry] of this.inventoryCooldownStateCache) {
+      if (this.getItemCooldownRemainingTicks(entry) <= 0) {
+        this.inventoryCooldownStateCache.delete(itemId);
+      }
+    }
   }
 
   private getEstimatedInventoryCooldownTick(now = performance.now()): number | null {
@@ -3341,7 +3368,10 @@ export class InventoryPanel {
 
   /** hasActiveCooldowns：判断是否活跃Cooldowns。 */
   private hasActiveCooldowns(inventory: Inventory | null = this.lastInventory): boolean {
-    return (inventory?.cooldowns ?? []).some((entry) => this.getItemCooldownRemainingTicks(entry) > 0);
+    if (!inventory) {
+      return false;
+    }
+    return this.getCooldownStateMap(inventory).size > 0;
   }
 
   /** refreshTooltipContent：处理refresh提示Content。 */
