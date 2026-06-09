@@ -1362,7 +1362,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.deep_iron_essence",
@@ -1393,7 +1393,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.frozen_spider_core",
@@ -1430,7 +1430,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.fivephase_vein_crystal",
@@ -1464,7 +1464,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.frost_crystal",
@@ -1473,6 +1473,11 @@
       },
       {
         "itemId": "mat.scorpion_venom_sac",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "mat.cold_serpent_gall",
         "count": 1,
         "role": "aux"
       }
@@ -1495,7 +1500,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.turtle_cold_marrow",
@@ -1529,7 +1534,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.cold_iron_carapace",
@@ -1560,7 +1565,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.ice_crystal_silk",
@@ -1591,7 +1596,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.mixed_vein_stone",
@@ -1625,7 +1630,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.earth_beetle_core",
@@ -1656,7 +1661,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.fire_fox_core",
@@ -1688,7 +1693,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.cold_iron_carapace",
@@ -1719,7 +1724,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.turtle_cold_marrow",
@@ -1728,6 +1733,11 @@
       },
       {
         "itemId": "mat.ice_crystal_silk",
+        "count": 1,
+        "role": "aux"
+      },
+      {
+        "itemId": "mat.frost_scale",
         "count": 1,
         "role": "aux"
       }
@@ -1750,7 +1760,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.mixed_toad_pearl",
@@ -1784,7 +1794,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.abyss_spirit_mud",
@@ -1815,7 +1825,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.devourer_beast_core",
@@ -1846,7 +1856,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.dragon_spine_bone",
@@ -1877,7 +1887,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.frost_scale",
@@ -1908,7 +1918,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.turtle_cold_marrow",
@@ -1942,7 +1952,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.centipede_fang",
@@ -1973,7 +1983,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.fire_fox_core",
@@ -2004,7 +2014,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.fivephase_vein_crystal",
@@ -2038,7 +2048,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 72,
+    "baseBrewTicks": 96,
     "ingredients": [
       {
         "itemId": "mat.darksoil_refined_earth",
@@ -2072,7 +2082,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 70,
+    "baseBrewTicks": 108,
     "ingredients": [
       {
         "itemId": "mat.blazewood_king_ember",
@@ -2106,7 +2116,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 70,
+    "baseBrewTicks": 108,
     "ingredients": [
       {
         "itemId": "mat.deep_iron_essence",
@@ -2138,7 +2148,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 70,
+    "baseBrewTicks": 108,
     "ingredients": [
       {
         "itemId": "mat.fivephase_vein_crystal",
@@ -2169,7 +2179,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 70,
+    "baseBrewTicks": 108,
     "ingredients": [
       {
         "itemId": "mat.dragon_spine_bone",
@@ -2200,7 +2210,7 @@
     "level": 40,
     "grade": "earth",
     "category": "special",
-    "baseBrewTicks": 70,
+    "baseBrewTicks": 108,
     "ingredients": [
       {
         "itemId": "mat.mixed_vein_stone",
