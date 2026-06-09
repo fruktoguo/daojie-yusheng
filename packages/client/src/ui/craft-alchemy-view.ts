@@ -622,7 +622,7 @@ export class CraftAlchemyView {
     const tabHost = body.querySelector<HTMLElement>('[data-alchemy-tab-host="true"]');
     const recipeList = body.querySelector<HTMLElement>('[data-alchemy-recipe-list="true"]');
     const detailPanel = body.querySelector<HTMLElement>('[data-alchemy-detail-panel="true"]');
-    if (!shell || !jobHost || !topbar || !categoryTabs || !realmTabs || !tabHost || !recipeList || !detailPanel) {
+    if (!shell || !topbar || !categoryTabs || !realmTabs || !tabHost || !recipeList || !detailPanel) {
       return false;
     }
     const viewState = this.captureAlchemyViewState(body);
@@ -631,7 +631,9 @@ export class CraftAlchemyView {
     const preserveDetail = viewState.detailKey === nextDetailKey;
     const stableKey = this.buildAlchemyStableRenderKey();
 
-    this.patchAlchemyJobHost(jobHost);
+    if (jobHost) {
+      this.patchAlchemyJobHost(jobHost);
+    }
     replaceElementHtml(topbar, this.renderAlchemyTopbar());
     if (shell.dataset.alchemyStableRenderKey === stableKey && preserveDetail) {
       this.restoreAlchemyViewState(body, viewState, true);
@@ -883,7 +885,6 @@ export class CraftAlchemyView {
   renderAlchemyBody(): string {
     return `
       <div class="alchemy-modal-shell" data-alchemy-shell="true" data-alchemy-stable-render-key="${escapeHtml(this.buildAlchemyStableRenderKey())}">
-        <div data-alchemy-job-card-host="true">${this.parent.alchemyPanel?.state?.job ? this.renderAlchemyJobCard(this.parent.alchemyPanel.state.job) : ''}</div>
         <div class="alchemy-control-row" data-alchemy-control-row="true">
           <div class="alchemy-control-group alchemy-control-group--realms" aria-label="${escapeHtml(t('craft.workbench.alchemy.control.realm'))}">
             <div class="alchemy-realm-tabs" data-alchemy-realm-tabs="true">
@@ -1278,21 +1279,10 @@ export class CraftAlchemyView {
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-save-preset"> ${savePresetLabel} </button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-reset-draft">${escapeHtml(t('craft.workbench.alchemy.action.reset-draft'))}</button>
                ${options?.selectedPresetId ? `<button class="small-btn danger" type="button" data-craft-action="alchemy-delete-preset" data-preset-id="${escapeHtml(options.selectedPresetId)}">${escapeHtml(t('craft.workbench.alchemy.action.delete-preset'))}</button>` : ''}`}
-          ${state?.job
-            ? `<button class="small-btn ghost" type="button" data-craft-action="cancel-alchemy">${escapeHtml(t('craft.workbench.alchemy.action.cancel', {
-              modeLabel: isForging
-                ? t('craft.workbench.alchemy.confirm.mode.forging')
-                : t('craft.workbench.alchemy.confirm.mode.alchemy'),
-            }))}</button>`
-            : ''}
         </div>
         <div class="alchemy-action-note">${escapeHtml(
           state?.job
-            ? t('craft.workbench.alchemy.action.note.job-ready', {
-              recipeKind: isForging
-                ? t('craft.workbench.alchemy.confirm.recipe-kind.forging')
-                : t('craft.workbench.alchemy.confirm.recipe-kind.alchemy'),
-            })
+            ? '当前已有任务进行中，进度和取消请在上方任务队列操作。'
             : maxQuantity > 0
               ? t('craft.workbench.alchemy.action.note.batch', {
                 maxQuantity: formatDisplayInteger(maxQuantity),
