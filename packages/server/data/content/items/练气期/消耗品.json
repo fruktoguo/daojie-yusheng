@@ -37,7 +37,7 @@
         "shortMark": "灵",
         "duration": 120,
         "stats": {
-          "qiRegenRate": 280
+          "qiRegenRate": 140
         },
         "statMode": "percent"
       }
@@ -60,7 +60,7 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 280
+          "hpRegenRate": 140
         },
         "statMode": "percent"
       }
@@ -106,7 +106,7 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 390
+          "hpRegenRate": 190
         },
         "statMode": "percent"
       }
@@ -129,7 +129,7 @@
         "shortMark": "灵",
         "duration": 120,
         "stats": {
-          "qiRegenRate": 400
+          "qiRegenRate": 200
         },
         "statMode": "percent"
       }
@@ -176,7 +176,7 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 410
+          "hpRegenRate": 200
         },
         "statMode": "percent"
       }

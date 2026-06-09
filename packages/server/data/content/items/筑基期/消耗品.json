@@ -13,7 +13,7 @@
         "shortMark": "生",
         "duration": 120,
         "stats": {
-          "hpRegenRate": 690
+          "hpRegenRate": 340
         },
         "statMode": "percent"
       }
@@ -36,7 +36,7 @@
         "shortMark": "灵",
         "duration": 120,
         "stats": {
-          "qiRegenRate": 690
+          "qiRegenRate": 340
         },
         "statMode": "percent"
       }

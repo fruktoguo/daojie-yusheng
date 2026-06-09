@@ -7944,7 +7944,7 @@
           "shortMark": "灵",
           "duration": 120,
           "stats": {
-            "qiRegenRate": 280
+            "qiRegenRate": 140
           },
           "statMode": "percent"
         }
@@ -8008,7 +8008,7 @@
           "shortMark": "灵",
           "duration": 120,
           "stats": {
-            "qiRegenRate": 230
+            "qiRegenRate": 110
           },
           "statMode": "percent"
         }
@@ -8638,7 +8638,7 @@
           "shortMark": "生",
           "duration": 120,
           "stats": {
-            "hpRegenRate": 690
+            "hpRegenRate": 340
           },
           "statMode": "percent"
         }
@@ -8755,7 +8755,7 @@
           "shortMark": "生",
           "duration": 120,
           "stats": {
-            "hpRegenRate": 280
+            "hpRegenRate": 140
           },
           "statMode": "percent"
         }
@@ -8821,7 +8821,7 @@
           "shortMark": "生",
           "duration": 120,
           "stats": {
-            "hpRegenRate": 410
+            "hpRegenRate": 200
           },
           "statMode": "percent"
         }
@@ -8897,7 +8897,7 @@
           "shortMark": "生",
           "duration": 120,
           "stats": {
-            "hpRegenRate": 200
+            "hpRegenRate": 100
           },
           "statMode": "percent"
         }
@@ -8938,7 +8938,7 @@
           "shortMark": "灵",
           "duration": 120,
           "stats": {
-            "qiRegenRate": 280
+            "qiRegenRate": 140
           },
           "statMode": "percent"
         }
@@ -10072,7 +10072,7 @@
           "shortMark": "灵",
           "duration": 120,
           "stats": {
-            "qiRegenRate": 400
+            "qiRegenRate": 200
           },
           "statMode": "percent"
         }
@@ -10474,7 +10474,7 @@
           "shortMark": "灵",
           "duration": 120,
           "stats": {
-            "qiRegenRate": 690
+            "qiRegenRate": 340
           },
           "statMode": "percent"
         }
@@ -11025,7 +11025,7 @@
           "shortMark": "灵",
           "duration": 120,
           "stats": {
-            "qiRegenRate": 200
+            "qiRegenRate": 100
           },
           "statMode": "percent"
         }
@@ -11398,7 +11398,7 @@
           "shortMark": "生",
           "duration": 120,
           "stats": {
-            "hpRegenRate": 390
+            "hpRegenRate": 190
           },
           "statMode": "percent"
         }
@@ -11850,7 +11850,7 @@
           "shortMark": "生",
           "duration": 120,
           "stats": {
-            "hpRegenRate": 280
+            "hpRegenRate": 140
           },
           "statMode": "percent"
         }
@@ -13110,7 +13110,7 @@
       "sourceSkillName": "纯阳丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 280
+        "qiRegenRate": 140
       },
       "statMode": "percent"
     },
@@ -13150,7 +13150,7 @@
       "sourceSkillName": "大还灵丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 230
+        "qiRegenRate": 110
       },
       "statMode": "percent"
     },
@@ -13302,7 +13302,7 @@
       "sourceSkillName": "寒髓回春丹",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 690
+        "hpRegenRate": 340
       },
       "statMode": "percent"
     },
@@ -13338,7 +13338,7 @@
       "sourceSkillName": "寒心膏",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 280
+        "hpRegenRate": 140
       },
       "statMode": "percent"
     },
@@ -13357,7 +13357,7 @@
       "sourceSkillName": "厚土膏",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 410
+        "hpRegenRate": 200
       },
       "statMode": "percent"
     },
@@ -13393,7 +13393,7 @@
       "sourceSkillName": "回春散",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 200
+        "hpRegenRate": 100
       },
       "statMode": "percent"
     },
@@ -13412,7 +13412,7 @@
       "sourceSkillName": "回灵散",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 280
+        "qiRegenRate": 140
       },
       "statMode": "percent"
     },
@@ -13761,7 +13761,7 @@
       "sourceSkillName": "清脉散",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 400
+        "qiRegenRate": 200
       },
       "statMode": "percent"
     },
@@ -13951,7 +13951,7 @@
       "sourceSkillName": "霜泉还灵丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 690
+        "qiRegenRate": 340
       },
       "statMode": "percent"
     },
@@ -14096,7 +14096,7 @@
       "sourceSkillName": "小还灵丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 200
+        "qiRegenRate": 100
       },
       "statMode": "percent"
     },
@@ -14201,7 +14201,7 @@
       "sourceSkillName": "养脉膏",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 390
+        "hpRegenRate": 190
       },
       "statMode": "percent"
     },
@@ -14289,7 +14289,7 @@
       "sourceSkillName": "镇脉丸",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 280
+        "hpRegenRate": 140
       },
       "statMode": "percent"
     },
@@ -14568,7 +14568,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -14640,7 +14640,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -14769,7 +14769,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -15011,7 +15011,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -15158,7 +15158,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -15351,7 +15351,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 200
+                "qiRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -15687,7 +15687,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 200
+                "hpRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -15777,7 +15777,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -15866,7 +15866,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 200
+                "qiRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -15934,7 +15934,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 200
+                "qiRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -15961,7 +15961,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 200
+                "hpRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -16131,7 +16131,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -16192,7 +16192,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -16284,7 +16284,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 200
+                "hpRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -16361,7 +16361,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 200
+                "hpRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -16575,7 +16575,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -16643,7 +16643,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 200
+                "hpRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -16927,7 +16927,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 200
+                "hpRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -17163,7 +17163,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 200
+                "qiRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -17252,7 +17252,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -17394,7 +17394,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -17505,7 +17505,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -17556,7 +17556,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 280
+                "hpRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -17619,7 +17619,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -17732,7 +17732,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 280
+                "hpRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -17909,7 +17909,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -18008,7 +18008,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -18283,7 +18283,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -18349,7 +18349,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 200
+                "hpRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -18415,7 +18415,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 230
+                "qiRegenRate": 110
               },
               "statMode": "percent"
             }
@@ -18622,7 +18622,7 @@
               "shortMark": "灵",
               "duration": 120,
               "stats": {
-                "qiRegenRate": 200
+                "qiRegenRate": 100
               },
               "statMode": "percent"
             }
@@ -18646,7 +18646,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 280
+                "hpRegenRate": 140
               },
               "statMode": "percent"
             }
@@ -18745,7 +18745,7 @@
               "shortMark": "生",
               "duration": 120,
               "stats": {
-                "hpRegenRate": 280
+                "hpRegenRate": 140
               },
               "statMode": "percent"
             }
