@@ -2566,6 +2566,9 @@ function resolveAlchemyRecipeCategory(outputItem, recipeId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const outputTags = Array.isArray(outputItem.tags) ? outputItem.tags : [];
+    if (recipeId === 'forging.copper_luopan' || outputItem.itemId === 'equip.copper_luopan') {
+        return 'special';
+    }
     if (outputTags.some((tag) => tag === ALCHEMY_FURNACE_TAG
         || tag === 'forging_tool'
         || tag === ENHANCEMENT_HAMMER_TAG

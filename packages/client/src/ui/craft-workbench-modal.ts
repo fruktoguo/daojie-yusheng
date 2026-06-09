@@ -141,6 +141,7 @@ const FORGING_INITIAL_RECIPES = [
   { outputItemId: 'equip.copper_pill_furnace', outputName: t('craft.workbench.initial-copper-furnace'), note: t('craft.workbench.initial-copper-furnace-note') },
   { outputItemId: 'equip.copper_forging_tool', outputName: t('craft.workbench.initial-copper-forging-tool'), note: t('craft.workbench.initial-copper-forging-tool-note') },
   { outputItemId: 'equip.copper_building_hammer', outputName: t('craft.workbench.initial-copper-building-hammer'), note: t('craft.workbench.initial-copper-building-hammer-note') },
+  { outputItemId: 'equip.copper_luopan', outputName: t('craft.workbench.initial-copper-luopan'), note: t('craft.workbench.initial-copper-luopan-note') },
   { outputItemId: 'formation_disk.mortal', outputName: t('craft.workbench.initial-copper-array-plate'), note: t('craft.workbench.initial-copper-array-plate-note') },
 ];
 
