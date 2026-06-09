@@ -12,6 +12,7 @@ import type { Attributes, SkillDef, TechniqueCategory, TechniqueGrade } from '@m
 
 export type TechniqueGenerationJobStatus =
   | 'pending'
+  | 'running'
   | 'generated_draft'
   | 'learned'
   | 'discarded'

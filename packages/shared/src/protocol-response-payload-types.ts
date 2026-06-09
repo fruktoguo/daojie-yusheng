@@ -398,6 +398,26 @@ export interface S2C_TechniqueGenerationStatus {
       chance: number;
     }>;
   };
-  currentJob: null;
-  currentDraft: null;
+  currentJob: {
+    jobId: string;
+    status: 'pending' | 'running' | 'generated_draft';
+    category: string;
+    rolledGrade: TechniqueGrade;
+    rolledRealmLv: number;
+    createdAt: string;
+    draftExpireAt?: string;
+  } | null;
+  currentDraft: {
+    jobId: string;
+    techniqueId: string;
+    suggestedName: string;
+    grade: TechniqueGrade;
+    category: TechniqueCategory;
+    realmLv: number;
+    desc: string;
+    maxLayer: number;
+    expDifficulty?: number;
+    fullLevelAttrs?: Partial<Attributes>;
+    skills?: SkillDef[];
+  } | null;
 }

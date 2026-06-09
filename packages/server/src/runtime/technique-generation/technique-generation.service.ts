@@ -15,6 +15,7 @@ import type { Pool } from 'pg';
 import { Injectable } from '@nestjs/common';
 import type { Attributes, TechniqueCategory, TechniqueLayerDef, TechniqueTemplate } from '@mud/shared';
 import {
+  TECHNIQUE_GRADE_ORDER,
   TECHNIQUE_INTERNAL_DEFAULT_MAX_LAYER,
   calcInternalTechniqueAttrTotalByBudgetPercent,
   calcTechniqueAttrValues,
@@ -88,6 +89,26 @@ export class TechniqueGenerationService {
     return this.pool !== null && this.generatedStore !== null && this.modelConfigResolver !== null;
   }
 
+  async getCurrentStatusForPlayer(playerId: string): Promise<Pick<GenerationStatus, 'currentJob' | 'currentDraft'>> {
+    const job = await this.loadCurrentGenerationJobForPlayer(playerId);
+    if (!job) {
+      return { currentJob: null, currentDraft: null };
+    }
+    const currentJob = {
+      jobId: job.id,
+      status: job.status,
+      category: job.category,
+      rolledGrade: job.rolledGrade,
+      rolledRealmLv: job.rolledRealmLv,
+      createdAt: formatTechniqueGenerationTimestamp(job.createdAt),
+      draftExpireAt: job.draftExpireAt ? formatTechniqueGenerationTimestamp(job.draftExpireAt) : undefined,
+    };
+    const currentDraft = job.status === 'generated_draft'
+      ? await this.getPreview(playerId, job.id)
+      : null;
+    return { currentJob, currentDraft };
+  }
+
   /** 发起生成 */
   async requestGeneration(params: {
     playerId: string;
@@ -111,6 +132,11 @@ export class TechniqueGenerationService {
     // 2. category 限制
     if (params.category !== 'internal' && params.category !== 'arts') {
       return { success: false, error: '当前仅开放内功和术法', errorCode: 'CATEGORY_LOCKED' };
+    }
+
+    const activeJob = await this.loadCurrentGenerationJobForPlayer(params.playerId);
+    if (activeJob) {
+      return { success: false, error: '请先处理未完成的功法领悟', errorCode: 'ACTIVE_JOB_EXISTS' };
     }
 
     // 3. 随机 realmLv + 品阶；投入多个悟道玉简时，多次抽取并择优。
@@ -589,6 +615,111 @@ export class TechniqueGenerationService {
       this.refundingJobIds.delete(jobId);
     }
   }
+
+  private async loadCurrentGenerationJobForPlayer(playerId: string): Promise<LoadedCurrentGenerationJob | null> {
+    const pool = this.pool;
+    if (!pool) {
+      return null;
+    }
+    const result = await pool.query(
+      `SELECT id,
+              status,
+              requested_category,
+              rolled_grade,
+              rolled_realm_lv,
+              created_at,
+              draft_expire_at
+         FROM technique_generation_job
+        WHERE player_id = $1
+          AND (
+            status IN ('pending', 'running')
+            OR (
+              status = 'generated_draft'
+              AND (draft_expire_at IS NULL OR draft_expire_at > NOW())
+            )
+          )
+        ORDER BY CASE status
+                   WHEN 'generated_draft' THEN 0
+                   WHEN 'running' THEN 1
+                   ELSE 2
+                 END ASC,
+                 created_at ASC,
+                 id ASC
+        LIMIT 1`,
+      [playerId],
+    );
+    const row = result.rows[0] as CurrentGenerationJobRow | undefined;
+    if (!row || !isRecoverableGenerationJobStatus(row.status)) {
+      return null;
+    }
+    return {
+      id: row.id,
+      status: row.status,
+      category: typeof row.requested_category === 'string' ? row.requested_category : '',
+      rolledGrade: normalizeTechniqueGenerationGrade(row.rolled_grade),
+      rolledRealmLv: normalizePositiveInteger(row.rolled_realm_lv, 0),
+      createdAt: row.created_at,
+      draftExpireAt: row.draft_expire_at ?? null,
+    };
+  }
+}
+
+type CurrentGenerationJob = NonNullable<GenerationStatus['currentJob']>;
+
+interface LoadedCurrentGenerationJob {
+  id: string;
+  status: CurrentGenerationJob['status'];
+  category: string;
+  rolledGrade: CurrentGenerationJob['rolledGrade'];
+  rolledRealmLv: number;
+  createdAt: unknown;
+  draftExpireAt: unknown;
+}
+
+interface CurrentGenerationJobRow {
+  id: string;
+  status: unknown;
+  requested_category?: unknown;
+  rolled_grade?: unknown;
+  rolled_realm_lv?: unknown;
+  created_at?: unknown;
+  draft_expire_at?: unknown;
+}
+
+const RECOVERABLE_GENERATION_JOB_STATUSES = new Set<CurrentGenerationJob['status']>([
+  'pending',
+  'running',
+  'generated_draft',
+]);
+
+function isRecoverableGenerationJobStatus(value: unknown): value is CurrentGenerationJob['status'] {
+  return typeof value === 'string' && RECOVERABLE_GENERATION_JOB_STATUSES.has(value as CurrentGenerationJob['status']);
+}
+
+function normalizeTechniqueGenerationGrade(value: unknown): CurrentGenerationJob['rolledGrade'] {
+  const raw = typeof value === 'string' ? value : '';
+  return (TECHNIQUE_GRADE_ORDER as readonly string[]).includes(raw)
+    ? raw as CurrentGenerationJob['rolledGrade']
+    : 'mortal';
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.max(0, Math.trunc(numeric));
+}
+
+function formatTechniqueGenerationTimestamp(value: unknown): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+  }
+  return new Date(0).toISOString();
 }
 
 function resolvePreviewLayers(template: TechniqueTemplate): TechniqueLayerDef[] | undefined {

@@ -41,7 +41,10 @@ import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { bindMainHighFrequencySocketEvents } from './main-high-frequency-socket-bindings';
 import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bindings';
 import { contentResolver } from './content/content-resolver';
-import { syncTechniqueGenerationState } from './react-ui/panels/technique-generation/mount-technique-generation-panel';
+import {
+  syncTechniqueGenerationState,
+  techniqueGenerationStore,
+} from './react-ui/panels/technique-generation/mount-technique-generation-panel';
 import { cacheUnlockedMinimapLibrary, getCachedMinimapVersions } from './map-static-cache';
 import { bindMainMapInteractions } from './main-map-interaction-bindings';
 import { bindMainShellInteractions } from './main-shell-bindings';
@@ -763,13 +766,17 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onFengShuiDetail: (data) => options.buildingFengShuiStateSource.handleFengShuiDetail(data),
     onNotice: (payload) => options.noticeStateSource.handleNotice(payload),
     onTechniqueGenerationStatus: (data) => {
+      const jobIsGenerating = data.currentJob?.status === 'pending' || data.currentJob?.status === 'running';
       syncTechniqueGenerationState({
         available: data.available,
         unavailableReason: data.unavailableReason ?? '',
         rollRange: data.rollRange ?? null,
         currentJob: data.currentJob,
         currentDraft: data.currentDraft,
-        error: '',
+        generating: jobIsGenerating,
+        error: data.currentJob?.status === 'generated_draft' && !data.currentDraft
+          ? '功法草稿数据异常，请联系管理员处理'
+          : '',
       });
     },
     onTechniqueGenerationResult: (data) => {
@@ -783,6 +790,9 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           currentJob: null,
           error: '',
         });
+        if (techniqueGenerationStore.getState().visible) {
+          options.techniqueGenerationSender.sendGetStatus();
+        }
         return;
       }
       if (data.result === 'discarded') {
@@ -793,6 +803,9 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           currentJob: null,
           error: '',
         });
+        if (techniqueGenerationStore.getState().visible) {
+          options.techniqueGenerationSender.sendGetStatus();
+        }
         return;
       }
       if (data.result === 'success' && data.preview && grade && category) {
@@ -818,6 +831,10 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
       if (data.result === 'failed') {
         options.showToast(data.errorMessage ?? '功法领悟失败', 'warn');
       }
+      const currentGenerationState = techniqueGenerationStore.getState();
+      const shouldRefreshAfterFailure = data.result === 'failed'
+        && !currentGenerationState.currentDraft
+        && currentGenerationState.visible;
       syncTechniqueGenerationState({
         generating: false,
         currentJob: null,
@@ -825,6 +842,9 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
           ? (data.errorMessage ?? '功法领悟失败')
           : (data.preview && (!grade || !category) ? '功法领悟结果格式异常' : ''),
       });
+      if (shouldRefreshAfterFailure) {
+        options.techniqueGenerationSender.sendGetStatus();
+      }
     },
     onError: (data) => options.connectionStateSource.handleError(data),
     onKick: (data) => options.connectionStateSource.handleKick(data),

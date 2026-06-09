@@ -90,14 +90,23 @@ export class WorldGatewayTechniqueGenerationHelper {
     await this.refundNoModelFailedJobs(client, playerId);
     const realmLv = this.deps.playerRuntimeService.getPlayerRealmLv(playerId);
     const itemSpend = normalizeTechniqueGenerationItemSpend(request.itemSpend);
+    const currentStatus = await this.techniqueGenerationService!.getCurrentStatusForPlayer(playerId);
     const status = {
       available: (realmLv ?? 0) >= 31,
       unavailableReason: (realmLv ?? 0) < 31 ? '需筑基期方可领悟' : undefined,
       rollRange: realmLv && realmLv >= 31 ? buildTechniqueGenerationRollRange(realmLv, itemSpend) : undefined,
-      currentJob: null,
-      currentDraft: null,
+      currentJob: currentStatus.currentJob,
+      currentDraft: currentStatus.currentDraft && currentStatus.currentJob
+        ? { jobId: currentStatus.currentJob.jobId, ...currentStatus.currentDraft }
+        : null,
     };
     client.emit(S2C.TechniqueGenerationStatus, status);
+    if (currentStatus.currentJob && (currentStatus.currentJob.status === 'pending' || currentStatus.currentJob.status === 'running')) {
+      const activeJobId = currentStatus.currentJob.jobId;
+      setImmediate(() => {
+        this.emitGenerationResultWhenReady(client, playerId, activeJobId, 0).catch(() => undefined);
+      });
+    }
     return status;
   }
 

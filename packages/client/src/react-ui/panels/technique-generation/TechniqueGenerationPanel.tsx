@@ -40,7 +40,7 @@ export interface TechniqueGenerationPanelState {
   generating: boolean;
   currentJob: {
     jobId: string;
-    status: string;
+    status: 'pending' | 'running' | 'generated_draft';
     category: string;
     rolledGrade: TechniqueGrade;
     rolledRealmLv: number;
@@ -203,7 +203,7 @@ export const TechniqueGenerationPanel = memo(function TechniqueGenerationPanel()
         </div>
       )}
 
-      {state.available && !state.currentDraft && !state.generating && (
+      {state.available && !state.currentJob && !state.currentDraft && !state.generating && (
         <div className="technique-generation-panel__input">
           <aside className="technique-generation-panel__side technique-generation-panel__side--left">
             {renderRealmRange(state.rollRange)}

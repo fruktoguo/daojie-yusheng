@@ -406,6 +406,114 @@ async function testPublishGeneratedTechniqueCastsRepeatedNameParameter(): Promis
   assert.ok(sql.includes("template = jsonb_set(template, '{name}', to_jsonb($2::text), true)"));
 }
 
+async function testCurrentStatusRestoresGeneratedDraftPreview(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = {
+    query: async (sql: unknown, params?: unknown[]) => {
+      const text = String(sql);
+      queries.push({ sql: text, params });
+      if (text.includes('JOIN generated_technique')) {
+        return {
+          rows: [{
+            template: {
+              id: 'gen_restore_draft_smoke',
+              name: '烟霞诀',
+              grade: 'mystic',
+              category: 'internal',
+              realmLv: 31,
+              attrRatio: { strength: 1, physique: 1 },
+              maxLayer: 9,
+              expDifficulty: 1,
+            },
+          }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes('FROM technique_generation_job') && text.includes('requested_category')) {
+        return {
+          rows: [{
+            id: 'job_restore_draft_smoke',
+            status: 'generated_draft',
+            requested_category: 'internal',
+            rolled_grade: 'mystic',
+            rolled_realm_lv: 31,
+            created_at: '2026-06-09T00:00:00.000Z',
+            draft_expire_at: '2026-06-10T00:00:00.000Z',
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+  const service = new TechniqueGenerationService();
+  service.initialize({
+    pool,
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => createFakeTextModelConfig(),
+  });
+
+  const status = await service.getCurrentStatusForPlayer('p_restore_draft_smoke');
+
+  assert.equal(status.currentJob?.jobId, 'job_restore_draft_smoke');
+  assert.equal(status.currentJob?.status, 'generated_draft');
+  assert.equal(status.currentDraft?.techniqueId, 'gen_restore_draft_smoke');
+  assert.equal(status.currentDraft?.suggestedName, '烟霞诀');
+  assert.ok(queries.some((entry) => entry.sql.includes('ORDER BY CASE status')));
+}
+
+async function testRequestGenerationBlocksActiveDraftWithoutConsumingItem(): Promise<void> {
+  const queries: QueryRecord[] = [];
+  const pool = {
+    query: async (sql: unknown, params?: unknown[]) => {
+      const text = String(sql);
+      queries.push({ sql: text, params });
+      if (text.includes('FROM technique_generation_job') && text.includes('requested_category')) {
+        return {
+          rows: [{
+            id: 'job_active_draft_smoke',
+            status: 'generated_draft',
+            requested_category: 'arts',
+            rolled_grade: 'yellow',
+            rolled_realm_lv: 31,
+            created_at: '2026-06-09T00:00:00.000Z',
+            draft_expire_at: '2026-06-10T00:00:00.000Z',
+          }],
+          rowCount: 1,
+        };
+      }
+      return { rows: [], rowCount: 0 };
+    },
+  } as unknown as Pool;
+  const service = new TechniqueGenerationService();
+  let modelResolveCount = 0;
+  let consumedCount = 0;
+  service.initialize({
+    pool,
+    generatedStore: { refreshAfterPublish: async () => undefined } as unknown as GeneratedTechniqueStoreService,
+    modelConfigResolver: async () => {
+      modelResolveCount += 1;
+      return createFakeTextModelConfig();
+    },
+  });
+
+  const result = await service.requestGeneration({
+    playerId: 'p_active_draft_smoke',
+    playerRealmLv: 31,
+    category: 'internal',
+    consumeItem: async () => {
+      consumedCount += 1;
+      return true;
+    },
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.errorCode, 'ACTIVE_JOB_EXISTS');
+  assert.equal(modelResolveCount, 0);
+  assert.equal(consumedCount, 0);
+  assert.ok(!queries.some((entry) => entry.sql.includes('INSERT INTO technique_generation_job')));
+}
+
 async function testGatewayStatusEmitsRollRange(): Promise<void> {
   const emitted: Array<{ event: string; payload: unknown }> = [];
   const helper = new WorldGatewayTechniqueGenerationHelper({
@@ -423,7 +531,9 @@ async function testGatewayStatusEmitsRollRange(): Promise<void> {
       learnTechniqueById: () => true,
     },
   });
-  helper.setService({} as unknown as TechniqueGenerationService);
+  helper.setService({
+    getCurrentStatusForPlayer: async () => ({ currentJob: null, currentDraft: null }),
+  } as unknown as TechniqueGenerationService);
 
   const result = await helper.handleTechniqueGeneration({
     emit: (event: string, payload: unknown) => {
@@ -889,6 +999,8 @@ async function main(): Promise<void> {
   await testRefundFailedTechniqueGenerationItemsBlocksOnlinePlayersByDefault();
   await testSchemaMigratesPlayerIdsToVarchar();
   await testPublishGeneratedTechniqueCastsRepeatedNameParameter();
+  await testCurrentStatusRestoresGeneratedDraftPreview();
+  await testRequestGenerationBlocksActiveDraftWithoutConsumingItem();
   await testGatewayStatusEmitsRollRange();
   await testGatewayGenerateExceptionEmitsFailureResult();
   await testGatewayAdoptAndDiscardEmitResultEvents();
