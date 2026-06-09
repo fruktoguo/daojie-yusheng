@@ -8,7 +8,7 @@
 |------|-----|------|
 | DEFAULT_INVENTORY_CAPACITY | 200 | 默认背包容量 |
 | GROUND_ITEM_EXPIRE_TICKS | 7200 | 地面物品保留时间（息） |
-| DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS | 5 | 即时消耗品冷却 |
+| DEFAULT_INSTANT_CONSUMABLE_COOLDOWN_TICKS | 60 | 即时恢复类消耗品默认冷却 |
 
 ## 物品类型
 
@@ -57,3 +57,4 @@ signature = itemId + '#' + enhanceLevel
 - skill_book: 检查学习条件 → 消耗 → 学习功法/技能
 - 玩家主动使用、丢弃、摧毁、装备、布阵、强化、市场上架等资产操作必须以 `itemInstanceId` 定位背包目标；背包数组顺序和 UI 格子只用于展示、排序和面板 patch。
 - 自动用药: 背包前 12 格内的消耗品可被自动战斗系统使用
+- 恢复药冷却: 恢复气血和恢复灵力分别使用 `hp` / `qi` 两组通用冷却；当前恢复药配置为 60 息，同组 60 息内只能服用一枚。

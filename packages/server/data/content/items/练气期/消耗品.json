@@ -35,13 +35,14 @@
         "name": "回灵散·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "qiRegenRate": 410
+          "qiRegenRate": 280
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "stabilizing_pellet",
@@ -57,13 +58,14 @@
         "name": "镇脉丸·回生",
         "desc": "药力护住经络，生命回复暂时大幅提高。",
         "shortMark": "生",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "hpRegenRate": 420
+          "hpRegenRate": 280
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "pill.edge_quenching_powder",
@@ -102,13 +104,14 @@
         "name": "养脉膏·回生",
         "desc": "药力护住经络，生命回复暂时大幅提高。",
         "shortMark": "生",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "hpRegenRate": 680
+          "hpRegenRate": 390
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "pill.cleartide_powder",
@@ -124,13 +127,14 @@
         "name": "清脉散·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "qiRegenRate": 700
+          "qiRegenRate": 400
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "pill.chiyang_draught",
@@ -170,13 +174,14 @@
         "name": "厚土膏·回生",
         "desc": "药力护住经络，生命回复暂时大幅提高。",
         "shortMark": "生",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "hpRegenRate": 740
+          "hpRegenRate": 410
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "pill.fivephase_harmony_pellet",

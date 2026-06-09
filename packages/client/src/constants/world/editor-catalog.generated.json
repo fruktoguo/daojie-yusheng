@@ -7942,13 +7942,14 @@
           "name": "纯阳丹·回灵",
           "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
           "shortMark": "灵",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "qiRegenRate": 400
+            "qiRegenRate": 280
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "pill.edge_quenching_powder",
@@ -8005,13 +8006,14 @@
           "name": "大还灵丹·回灵",
           "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
           "shortMark": "灵",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "qiRegenRate": 280
+            "qiRegenRate": 230
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "formation_disk.earth",
@@ -8634,15 +8636,16 @@
           "name": "寒髓回春丹·回生",
           "desc": "药力护住经络，生命回复暂时大幅提高。",
           "shortMark": "生",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "hpRegenRate": 1400
+            "hpRegenRate": 690
           },
           "statMode": "percent"
         }
       ],
       "grade": "earth",
-      "baselineHealPercent": 8
+      "baselineHealPercent": 8,
+      "cooldown": 60
     },
     {
       "itemId": "mat.coldmarrow_reed",
@@ -8750,13 +8753,14 @@
           "name": "寒心膏·回生",
           "desc": "药力护住经络，生命回复暂时大幅提高。",
           "shortMark": "生",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "hpRegenRate": 400
+            "hpRegenRate": 280
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "equip.foundation_cold_abyss_spell_ruler",
@@ -8815,13 +8819,14 @@
           "name": "厚土膏·回生",
           "desc": "药力护住经络，生命回复暂时大幅提高。",
           "shortMark": "生",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "hpRegenRate": 740
+            "hpRegenRate": 410
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "thickrock_core",
@@ -8890,13 +8895,14 @@
           "name": "回春散·回生",
           "desc": "药力护住经络，生命回复暂时大幅提高。",
           "shortMark": "生",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "hpRegenRate": 210
+            "hpRegenRate": 200
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "mat.returnspring_leaf",
@@ -8930,13 +8936,14 @@
           "name": "回灵散·回灵",
           "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
           "shortMark": "灵",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "qiRegenRate": 410
+            "qiRegenRate": 280
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "equip.foundation_returnflow_boots",
@@ -10063,13 +10070,14 @@
           "name": "清脉散·回灵",
           "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
           "shortMark": "灵",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "qiRegenRate": 700
+            "qiRegenRate": 400
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "map.beast_valley",
@@ -10464,15 +10472,16 @@
           "name": "霜泉还灵丹·回灵",
           "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
           "shortMark": "灵",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "qiRegenRate": 1400
+            "qiRegenRate": 690
           },
           "statMode": "percent"
         }
       ],
       "grade": "earth",
-      "baselineQiPercent": 8
+      "baselineQiPercent": 8,
+      "cooldown": 60
     },
     {
       "itemId": "mat.frost_crystal",
@@ -11014,13 +11023,14 @@
           "name": "小还灵丹·回灵",
           "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
           "shortMark": "灵",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "qiRegenRate": 220
+            "qiRegenRate": 200
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "mat.scorpion_venom_sac",
@@ -11386,13 +11396,14 @@
           "name": "养脉膏·回生",
           "desc": "药力护住经络，生命回复暂时大幅提高。",
           "shortMark": "生",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "hpRegenRate": 680
+            "hpRegenRate": 390
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "nurturing_leaf",
@@ -11837,13 +11848,14 @@
           "name": "镇脉丸·回生",
           "desc": "药力护住经络，生命回复暂时大幅提高。",
           "shortMark": "生",
-          "duration": 600,
+          "duration": 120,
           "stats": {
-            "hpRegenRate": 420
+            "hpRegenRate": 280
           },
           "statMode": "percent"
         }
-      ]
+      ],
+      "cooldown": 60
     },
     {
       "itemId": "equip.rift_guard_armor",
@@ -13090,15 +13102,15 @@
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pure_yang_pill",
       "sourceSkillName": "纯阳丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 400
+        "qiRegenRate": 280
       },
       "statMode": "percent"
     },
@@ -13130,15 +13142,15 @@
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:major_qi_pill",
       "sourceSkillName": "大还灵丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 280
+        "qiRegenRate": 230
       },
       "statMode": "percent"
     },
@@ -13282,15 +13294,15 @@
       "shortMark": "生",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.foundation_coldmarrow_heal",
       "sourceSkillName": "寒髓回春丹",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 1400
+        "hpRegenRate": 690
       },
       "statMode": "percent"
     },
@@ -13318,15 +13330,15 @@
       "shortMark": "生",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:frost_heart_paste",
       "sourceSkillName": "寒心膏",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 400
+        "hpRegenRate": 280
       },
       "statMode": "percent"
     },
@@ -13337,15 +13349,15 @@
       "shortMark": "生",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.earthrest_paste",
       "sourceSkillName": "厚土膏",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 740
+        "hpRegenRate": 410
       },
       "statMode": "percent"
     },
@@ -13373,15 +13385,15 @@
       "shortMark": "生",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.minor_heal",
       "sourceSkillName": "回春散",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 210
+        "hpRegenRate": 200
       },
       "statMode": "percent"
     },
@@ -13392,15 +13404,15 @@
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:recovery_powder",
       "sourceSkillName": "回灵散",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 410
+        "qiRegenRate": 280
       },
       "statMode": "percent"
     },
@@ -13741,15 +13753,15 @@
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.cleartide_powder",
       "sourceSkillName": "清脉散",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 700
+        "qiRegenRate": 400
       },
       "statMode": "percent"
     },
@@ -13931,15 +13943,15 @@
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.foundation_frostspring_qi",
       "sourceSkillName": "霜泉还灵丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 1400
+        "qiRegenRate": 690
       },
       "statMode": "percent"
     },
@@ -14076,15 +14088,15 @@
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:minor_qi_pill",
       "sourceSkillName": "小还灵丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 220
+        "qiRegenRate": 200
       },
       "statMode": "percent"
     },
@@ -14181,15 +14193,15 @@
       "shortMark": "生",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:pill.nurturing_paste",
       "sourceSkillName": "养脉膏",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 680
+        "hpRegenRate": 390
       },
       "statMode": "percent"
     },
@@ -14269,15 +14281,15 @@
       "shortMark": "生",
       "category": "buff",
       "visibility": "public",
-      "remainingTicks": 600,
-      "duration": 600,
+      "remainingTicks": 120,
+      "duration": 120,
       "stacks": 1,
       "maxStacks": 1,
       "sourceSkillId": "item:stabilizing_pellet",
       "sourceSkillName": "镇脉丸",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 420
+        "hpRegenRate": 280
       },
       "statMode": "percent"
     },
@@ -14554,13 +14566,14 @@
               "name": "纯阳丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 400
+                "qiRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -14625,13 +14638,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -14753,13 +14767,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         },
         {
@@ -14994,13 +15009,14 @@
               "name": "纯阳丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 400
+                "qiRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         }
       ],
@@ -15140,13 +15156,14 @@
               "name": "纯阳丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 400
+                "qiRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -15332,13 +15349,14 @@
               "name": "小还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 220
+                "qiRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -15667,13 +15685,14 @@
               "name": "回春散·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 210
+                "hpRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -15756,13 +15775,14 @@
               "name": "纯阳丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 400
+                "qiRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         },
         {
@@ -15844,13 +15864,14 @@
               "name": "小还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 220
+                "qiRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -15911,13 +15932,14 @@
               "name": "小还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 220
+                "qiRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         },
         {
@@ -15937,13 +15959,14 @@
               "name": "回春散·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 210
+                "hpRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -16106,13 +16129,14 @@
               "name": "纯阳丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 400
+                "qiRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -16166,13 +16190,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         },
         {
@@ -16257,13 +16282,14 @@
               "name": "回春散·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 210
+                "hpRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -16333,13 +16359,14 @@
               "name": "回春散·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 210
+                "hpRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -16546,13 +16573,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -16613,13 +16641,14 @@
               "name": "回春散·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 210
+                "hpRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -16896,13 +16925,14 @@
               "name": "回春散·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 210
+                "hpRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 3
         }
       ],
@@ -17131,13 +17161,14 @@
               "name": "小还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 220
+                "qiRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -17219,13 +17250,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         }
       ],
@@ -17360,13 +17392,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         },
         {
@@ -17470,13 +17503,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -17520,13 +17554,14 @@
               "name": "寒心膏·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 400
+                "hpRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -17582,13 +17617,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         },
         {
@@ -17694,13 +17730,14 @@
               "name": "寒心膏·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 400
+                "hpRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -17870,13 +17907,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -17968,13 +18006,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         }
       ],
@@ -18242,13 +18281,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         }
       ],
@@ -18307,13 +18347,14 @@
               "name": "回春散·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 210
+                "hpRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         }
       ],
@@ -18372,13 +18413,14 @@
               "name": "大还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 280
+                "qiRegenRate": 230
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -18578,13 +18620,14 @@
               "name": "小还灵丹·回灵",
               "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
               "shortMark": "灵",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "qiRegenRate": 220
+                "qiRegenRate": 200
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 1
         },
         {
@@ -18601,13 +18644,14 @@
               "name": "寒心膏·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 400
+                "hpRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {
@@ -18699,13 +18743,14 @@
               "name": "寒心膏·回生",
               "desc": "药力护住经络，生命回复暂时大幅提高。",
               "shortMark": "生",
-              "duration": 600,
+              "duration": 120,
               "stats": {
-                "hpRegenRate": 400
+                "hpRegenRate": 280
               },
               "statMode": "percent"
             }
           ],
+          "cooldown": 60,
           "count": 2
         },
         {

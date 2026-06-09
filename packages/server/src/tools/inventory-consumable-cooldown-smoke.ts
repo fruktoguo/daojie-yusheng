@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { BadRequestException } from '@nestjs/common';
-import { getTechniqueStandardMaxHpBaseline } from '@mud/shared';
+import { resolveTechniqueStandardMaxHpRecoveryAmount } from '@mud/shared';
 import { ContentTemplateRepository } from '../content/content-template.repository';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeUseItemService } from '../runtime/world/world-runtime-use-item.service';
@@ -9,8 +9,8 @@ const repo = new ContentTemplateRepository();
 repo.onModuleInit();
 
 const minorHeal = repo.createItem('pill.minor_heal', 2);
-assert.equal(minorHeal.cooldown, 5, '瞬回生命药应继承默认 5 息冷却');
-assert.equal(minorHeal.baselineHealPercent, 0.5, '回春散应按标准等级生命百分比配置恢复');
+assert.equal(minorHeal.cooldown, 60, '瞬回生命药应使用 60 息通用冷却');
+assert.equal(minorHeal.baselineHealPercent, 1, '回春散应按标准等级生命 100% 配置恢复');
 const buffPill = repo.createItem('pill.crimson_bud_elixir', 2);
 assert.equal(buffPill.cooldown, undefined, '增益丹药不应继承恢复药冷却');
 
@@ -56,8 +56,8 @@ service.players.set(playerId, player);
 service.useItem(playerId, 0);
 assert.equal(
   player.hp,
-  50 + Math.round(getTechniqueStandardMaxHpBaseline(2) * 0.5),
-  '首次使用回春散应按标准 2 级最大生命的 50% 恢复，而不是按当前玩家上限恢复',
+  50 + resolveTechniqueStandardMaxHpRecoveryAmount(2, 1),
+  '首次使用回春散应按标准 2 级最大生命的 100% 恢复，而不是按当前玩家上限恢复',
 );
 assert.equal(player.inventory.items[0].count, 1, '首次使用应消耗一枚回春散');
 assert.deepEqual(
@@ -75,7 +75,7 @@ assert.throws(
 assert.equal(player.inventory.items[1].count, 1, '冷却拒绝不能消耗第二种生命药');
 
 service.useItem(playerId, 2);
-assert.equal(player.qi, 22, '生命回复组冷却不应阻塞灵力回复药');
+assert.equal(player.qi, 100, '生命回复组冷却不应阻塞灵力回复药，灵力恢复应封顶到当前最大灵力');
 
 service.useItem(playerId, 2);
 assert.equal(player.inventory.items[2].itemId, 'pill.crimson_bud_elixir', '灵力药消耗后增益丹药应位于当前槽位');
@@ -86,9 +86,9 @@ assert.equal(
   '增益丹药连续使用不应写入冷却投影',
 );
 
-player.lifeElapsedTicks = 15;
+player.lifeElapsedTicks = 70;
 service.useItem(playerId, 1);
-assert.equal(player.hp, player.maxHp, '冷却结束后生命回复药应可再次使用并封顶到当前最大气血');
+assert.equal(player.hp, player.maxHp, '60 息冷却结束后生命回复药应可再次使用并封顶到当前最大气血');
 
 const manualPlayerId = 'player:manual-use-item-cooldown-smoke';
 async function testManualUseItemBranch() {
@@ -178,8 +178,8 @@ service.useItem(legacyPlayerId, 0);
 assert.equal(legacyPlayer.inventory.items[0].count, 1, '旧实例首次使用应照常消耗');
 assert.deepEqual(
   legacyPlayer.inventory.cooldowns,
-  [{ itemId: 'pill.minor_heal', cooldown: 5, startedAtTick: 40 }],
-  '缺少 type 的旧瞬回药实例也必须写入冷却投影',
+  [{ itemId: 'pill.minor_heal', cooldown: 60, startedAtTick: 40 }],
+  '缺少 type 的旧瞬回药实例也必须写入 60 息冷却投影',
 );
 assert.throws(
   () => service.useItem(legacyPlayerId, 0),

@@ -16,13 +16,14 @@
         "name": "回春散·回生",
         "desc": "药力护住经络，生命回复暂时大幅提高。",
         "shortMark": "生",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "hpRegenRate": 210
+          "hpRegenRate": 200
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "spirit_stone",
@@ -128,13 +129,14 @@
         "name": "小还灵丹·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "qiRegenRate": 220
+          "qiRegenRate": 200
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "major_qi_pill",
@@ -150,13 +152,14 @@
         "name": "大还灵丹·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "qiRegenRate": 280
+          "qiRegenRate": 230
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "pure_yang_pill",
@@ -172,13 +175,14 @@
         "name": "纯阳丹·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "qiRegenRate": 400
+          "qiRegenRate": 280
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "frost_heart_paste",
@@ -194,13 +198,14 @@
         "name": "寒心膏·回生",
         "desc": "药力护住经络，生命回复暂时大幅提高。",
         "shortMark": "生",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "hpRegenRate": 400
+          "hpRegenRate": 280
         },
         "statMode": "percent"
       }
-    ]
+    ],
+    "cooldown": 60
   },
   {
     "itemId": "pill.crimson_bud_elixir",

@@ -11,15 +11,16 @@
         "name": "寒髓回春丹·回生",
         "desc": "药力护住经络，生命回复暂时大幅提高。",
         "shortMark": "生",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "hpRegenRate": 1400
+          "hpRegenRate": 690
         },
         "statMode": "percent"
       }
     ],
     "grade": "earth",
-    "baselineHealPercent": 8
+    "baselineHealPercent": 8,
+    "cooldown": 60
   },
   {
     "itemId": "pill.foundation_frostspring_qi",
@@ -33,15 +34,16 @@
         "name": "霜泉还灵丹·回灵",
         "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
-        "duration": 600,
+        "duration": 120,
         "stats": {
-          "qiRegenRate": 1400
+          "qiRegenRate": 690
         },
         "statMode": "percent"
       }
     ],
     "grade": "earth",
-    "baselineQiPercent": 8
+    "baselineQiPercent": 8,
+    "cooldown": 60
   },
   {
     "itemId": "wudao_yujian",
