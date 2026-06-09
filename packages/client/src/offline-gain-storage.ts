@@ -16,10 +16,16 @@ const OFFLINE_GAIN_STORAGE_PREFIX = 'mud:offline-gain-reports:v1:';
 const PLAYER_STATISTIC_TOTALS_STORAGE_PREFIX = 'mud:player-statistic-totals:v1:';
 const OFFLINE_GAIN_HISTORY_MIN_DURATION_MS = 60_000;
 const OFFLINE_GAIN_HISTORY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const OFFLINE_GAIN_HISTORY_MAX_REPORTS = 120;
+const OFFLINE_GAIN_HISTORY_TARGET_BYTES = 512 * 1024;
+
+const volatileOfflineGainReportsByPlayerId = new Map<string, OfflineGainReportView[]>();
 
 export interface OfflineGainStoreResult {
   reports: OfflineGainReportView[];
+  /** 可安全发送 ACK 的报告。localStorage 失败时至少已进入本页内存缓存。 */
   storedReportIds: string[];
+  /** 是否持久写入 localStorage；失败不影响服务端离线收益确认。 */
   storageOk: boolean;
   error?: string;
 }
@@ -37,22 +43,21 @@ export function storeOfflineGainReportsInBrowser(
   }
   const historyReports = filterOfflineGainHistoryReports(normalizedReports, now);
   const displayReports = historyReports;
-  const nonHistoryReportIds = normalizedReports
-    .filter((report) => !isOfflineGainHistoryReport(report, now))
-    .map((report) => report.id);
+  const normalizedReportIds = normalizedReports.map((report) => report.id);
   if (historyReports.length === 0) {
     return {
       reports: [],
-      storedReportIds: normalizedReports.map((report) => report.id),
+      storedReportIds: normalizedReportIds,
       storageOk: true,
     };
   }
 
   const storage = getLocalStorage(windowRef);
   if (!storage) {
+    rememberVolatileOfflineGainReports(normalizedPlayerId, displayReports, now);
     return {
       reports: displayReports,
-      storedReportIds: nonHistoryReportIds,
+      storedReportIds: normalizedReportIds,
       storageOk: false,
       error: '浏览器本地存储不可用',
     };
@@ -66,17 +71,19 @@ export function storeOfflineGainReportsInBrowser(
         byId.set(report.id, report);
       }
     }
-    const nextReports = sortOfflineGainHistoryReports(Array.from(byId.values()));
+    const nextReports = pruneOfflineGainHistoryReports(sortOfflineGainHistoryReports(Array.from(byId.values())));
+    rememberVolatileOfflineGainReports(normalizedPlayerId, nextReports, now);
     writeOfflineGainReportsToStorage(storage, normalizedPlayerId, nextReports);
     return {
       reports: displayReports,
-      storedReportIds: normalizedReports.map((report) => report.id),
+      storedReportIds: normalizedReportIds,
       storageOk: true,
     };
   } catch (error) {
+    rememberVolatileOfflineGainReports(normalizedPlayerId, displayReports, now);
     return {
       reports: displayReports,
-      storedReportIds: nonHistoryReportIds,
+      storedReportIds: normalizedReportIds,
       storageOk: false,
       error: error instanceof Error ? error.message : String(error),
     };
@@ -88,24 +95,25 @@ export function readOfflineGainReportsFromBrowser(
   windowRef: Window = window,
 ): OfflineGainReportView[] {
   const storage = getLocalStorage(windowRef);
+  const normalizedPlayerId = normalizeStorageKeySegment(playerId);
+  const volatileReports = readVolatileOfflineGainReports(normalizedPlayerId);
   if (!storage) {
-    return [];
+    return volatileReports;
   }
   try {
-    const normalizedPlayerId = normalizeStorageKeySegment(playerId);
     const raw = storage.getItem(buildStorageKey(normalizedPlayerId));
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
+    const parsed = raw ? JSON.parse(raw) : [];
     const currentReports = normalizeOfflineGainReports(Array.isArray(parsed) ? parsed : []);
-    const nextReports = sortOfflineGainHistoryReports(filterOfflineGainHistoryReports(currentReports, Date.now()));
+    const nextReports = pruneOfflineGainHistoryReports(
+      sortOfflineGainHistoryReports(filterOfflineGainHistoryReports([...currentReports, ...volatileReports], Date.now())),
+    );
+    rememberVolatileOfflineGainReports(normalizedPlayerId, nextReports);
     if (shouldRewriteOfflineGainHistoryStorage(currentReports, nextReports)) {
-      writeOfflineGainReportsToStorage(storage, normalizedPlayerId, nextReports);
+      tryWriteOfflineGainReportsToStorage(storage, normalizedPlayerId, nextReports);
     }
     return nextReports;
   } catch {
-    return [];
+    return volatileReports;
   }
 }
 
@@ -207,6 +215,38 @@ function sortOfflineGainHistoryReports(reports: readonly OfflineGainReportView[]
   return [...reports].sort((left, right) => right.endedAt - left.endedAt);
 }
 
+function pruneOfflineGainHistoryReports(reports: readonly OfflineGainReportView[]): OfflineGainReportView[] {
+  const nextReports = sortOfflineGainHistoryReports(reports).slice(0, OFFLINE_GAIN_HISTORY_MAX_REPORTS);
+  while (nextReports.length > 1 && JSON.stringify(nextReports).length > OFFLINE_GAIN_HISTORY_TARGET_BYTES) {
+    nextReports.pop();
+  }
+  return nextReports;
+}
+
+function rememberVolatileOfflineGainReports(
+  playerId: string,
+  reports: readonly OfflineGainReportView[],
+  now = Date.now(),
+): void {
+  const normalizedPlayerId = normalizeStorageKeySegment(playerId);
+  const merged = new Map<string, OfflineGainReportView>();
+  for (const report of [...readVolatileOfflineGainReports(normalizedPlayerId), ...reports]) {
+    if (isOfflineGainHistoryReport(report, now)) {
+      merged.set(report.id, report);
+    }
+  }
+  const nextReports = pruneOfflineGainHistoryReports(Array.from(merged.values()));
+  if (nextReports.length === 0) {
+    volatileOfflineGainReportsByPlayerId.delete(normalizedPlayerId);
+    return;
+  }
+  volatileOfflineGainReportsByPlayerId.set(normalizedPlayerId, nextReports);
+}
+
+function readVolatileOfflineGainReports(playerId: string): OfflineGainReportView[] {
+  return volatileOfflineGainReportsByPlayerId.get(normalizeStorageKeySegment(playerId)) ?? [];
+}
+
 function resolveOfflineGainHistoryTimestamp(report: OfflineGainReportView): number {
   return Math.max(
     0,
@@ -241,12 +281,26 @@ function writeOfflineGainReportsToStorage(
   playerId: string,
   reports: readonly OfflineGainReportView[],
 ): void {
+  const nextReports = pruneOfflineGainHistoryReports(reports);
   const key = buildStorageKey(playerId);
-  if (reports.length === 0) {
+  if (nextReports.length === 0) {
     storage.removeItem(key);
     return;
   }
-  storage.setItem(key, JSON.stringify(reports));
+  storage.setItem(key, JSON.stringify(nextReports));
+}
+
+function tryWriteOfflineGainReportsToStorage(
+  storage: Storage,
+  playerId: string,
+  reports: readonly OfflineGainReportView[],
+): boolean {
+  try {
+    writeOfflineGainReportsToStorage(storage, playerId, reports);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeOfflineGainReport(report: unknown): OfflineGainReportView | null {

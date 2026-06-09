@@ -745,7 +745,7 @@ export class PlayerRuntimeService {
         }
         this.playerStatisticLastEmittedTotalsByPlayerId.set(normalizedPlayerId, totals);
     }
-    /** 客户端确认报告已经写入浏览器本地后，清掉云端待发副本。 */
+    /** 客户端确认离线收益后，清掉云端待发副本；浏览器本地历史只是展示缓存。 */
     async acknowledgeOfflineGainReports(playerId, reportIds, options = undefined) {
         const normalizedPlayerId = normalizeOfflineGainString(playerId);
         const normalizedReportIds = Array.from(new Set(Array.from(reportIds ?? [])

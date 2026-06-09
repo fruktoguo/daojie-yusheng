@@ -24,6 +24,12 @@ interface OfflineGainReportHandlerOptions {
   windowRef?: Window;
 }
 
+interface OfflineGainConfirmResult {
+  reportIds: string[];
+  reportCount: number;
+  storageOk: boolean;
+}
+
 const OFFLINE_GAIN_MODAL_OWNER = 'offline-gain-reports';
 const OFFLINE_GAIN_REFRESH_INTERVAL_MS = 3_000;
 let blockingRefreshTimer: number | null = null;
@@ -58,9 +64,6 @@ export function handleOfflineGainReports(
 
   if (storeResult.reports.length > 0) {
     openOfflineGainReportsModal(storeResult, options);
-    if (!storeResult.storageOk) {
-      options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
-    }
   } else if (storeResult.storedReportIds.length > 0) {
     // 没有需要展示的历史报告（时长过短），直接 ack
     options.ackOfflineGainReports(storeResult.storedReportIds);
@@ -97,7 +100,7 @@ function openOfflineGainReportsModal(
   if (reports.length === 0) {
     return;
   }
-  patchOrOpenOfflineGainModal(reports, options, false, storeResult.storedReportIds);
+  patchOrOpenOfflineGainModal(reports, options, false, storeResult.storedReportIds, storeResult.storageOk);
 }
 
 function patchOrOpenOfflineGainModal(
@@ -105,6 +108,7 @@ function patchOrOpenOfflineGainModal(
   options: OfflineGainReportHandlerOptions,
   blocking: boolean,
   storedReportIds?: string[],
+  localStorageOk = true,
 ): void {
   const totalDurationMs = reports.reduce((total, report) => total + Math.max(0, report.durationMs), 0);
   const allReportIds = storedReportIds ?? reports.map((report) => report.id).filter(Boolean);
@@ -122,21 +126,24 @@ function patchOrOpenOfflineGainModal(
       return;
     }
     confirmBtn.addEventListener('click', () => {
-      const reportIds = blocking
+      const confirmResult = blocking
         ? confirmBlockingOfflineGainReports(options)
-        : allReportIds;
-      if (reportIds.length === 0) {
+        : { reportIds: allReportIds, reportCount: reports.length, storageOk: localStorageOk };
+      if (confirmResult.reportIds.length === 0) {
         return;
       }
-      const toastCount = blocking ? blockingReports.length : reports.length;
-      options.ackOfflineGainReports(reportIds);
+      options.ackOfflineGainReports(confirmResult.reportIds);
       stopBlockingRefresh(options);
       detailModalHost.patch({
         ownerId: OFFLINE_GAIN_MODAL_OWNER,
         onRequestClose: null,
       });
       detailModalHost.close(OFFLINE_GAIN_MODAL_OWNER);
-      options.showToast(t('offline-gain.toast.saved', { count: toastCount }), 'success');
+      if (confirmResult.storageOk) {
+        options.showToast(t('offline-gain.toast.saved', { count: confirmResult.reportCount }), 'success');
+      } else {
+        options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
+      }
     });
   };
 
@@ -146,7 +153,7 @@ function patchOrOpenOfflineGainModal(
     size: 'lg',
     title: t('offline-gain.modal.title'),
     subtitle,
-    hint: t('offline-gain.modal.hint.confirm'),
+    hint: localStorageOk ? t('offline-gain.modal.hint.confirm') : t('offline-gain.modal.hint.save-failed'),
     bodyHtml,
     onRequestClose: () => false,
     onAfterRender: bindConfirm,
@@ -161,7 +168,7 @@ function patchOrOpenOfflineGainModal(
     size: 'lg',
     title: t('offline-gain.modal.title'),
     subtitle,
-    hint: t('offline-gain.modal.hint.confirm'),
+    hint: localStorageOk ? t('offline-gain.modal.hint.confirm') : t('offline-gain.modal.hint.save-failed'),
     bodyHtml,
     onRequestClose: () => false,
     onAfterRender: bindConfirm,
@@ -207,17 +214,17 @@ function createOfflineGainReportsRoot(reports: readonly OfflineGainReportView[])
   return fallback;
 }
 
-function confirmBlockingOfflineGainReports(options: OfflineGainReportHandlerOptions): string[] {
+function confirmBlockingOfflineGainReports(options: OfflineGainReportHandlerOptions): OfflineGainConfirmResult {
   const reports = blockingReports;
   if (reports.length === 0) {
-    return [];
+    return { reportIds: [], reportCount: 0, storageOk: true };
   }
   const storeResult = storeOfflineGainReportsInBrowser(blockingPlayerId || 'anonymous', reports, options.windowRef ?? window);
-  if (!storeResult.storageOk) {
-    options.showToast(t('offline-gain.toast.local-save-failed'), 'warn');
-    return [];
-  }
-  return storeResult.storedReportIds;
+  return {
+    reportIds: storeResult.storedReportIds,
+    reportCount: reports.length,
+    storageOk: storeResult.storageOk,
+  };
 }
 
 function startBlockingRefresh(options: OfflineGainReportHandlerOptions): void {
