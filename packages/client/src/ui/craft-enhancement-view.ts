@@ -16,6 +16,7 @@ import {
   MAX_ENHANCE_LEVEL,
   applyEquipmentAttributeEffectivenessToItemStack,
   computeEnhancementAdjustedSuccessRate,
+  computeLuckSuccessRateBonus,
   getItemDisplayName,
   normalizeEnhanceLevel,
 } from '@mud/shared';
@@ -264,6 +265,7 @@ export interface CraftEnhancementParent {
   readonly enhancementPanel: S2C_EnhancementPanel | null;
   readonly enhancementSkillLevel: number;
   readonly playerRealmLv: number | null;
+  readonly playerLuck: number;
   readonly inventory: { items: Array<{ itemId: string; count: number }> };
   readonly equipment: { weapon?: ItemStack | null };
   selectedEnhancementTargetKey: string | null;
@@ -392,6 +394,7 @@ export class CraftEnhancementView {
       selectedTargetLevel ?? '',
       this.parent.selectedEnhancementProtectionKey ?? '',
       this.parent.selectedEnhancementProtectionStartLevel ?? '',
+      this.parent.playerLuck,
       this.parent.enhancementHistoryExpanded ? 'history-open' : 'history-closed',
       this.parent.enhancementProtectionExpanded ? 'protection-open' : 'protection-closed',
       protectionCandidatesKey,
@@ -428,6 +431,7 @@ export class CraftEnhancementView {
       this.parent.selectedEnhancementTargetLevel ?? '',
       this.parent.selectedEnhancementProtectionKey ?? '',
       this.parent.selectedEnhancementProtectionStartLevel ?? '',
+      this.parent.playerLuck,
       this.parent.enhancementHistoryExpanded ? 'history-open' : 'history-closed',
       this.parent.enhancementProtectionExpanded ? 'protection-open' : 'protection-closed',
       candidateKey,
@@ -1065,7 +1069,7 @@ export class CraftEnhancementView {
       rows.push(`
         <div class="enhancement-history-row">
           <span>+${formatDisplayInteger(level)}</span>
-          <span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, Number(referenceItem.level) || 1, hammerSuccessRate))}</span>
+          <span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, Number(referenceItem.level) || 1, hammerSuccessRate, computeLuckSuccessRateBonus(this.parent.playerLuck)))}</span>
           <span>成 ${formatDisplayInteger(current?.successCount ?? 0)}</span>
           <span>败 ${formatDisplayInteger(current?.failureCount ?? 0)}</span>
         </div>
@@ -1677,7 +1681,7 @@ export class CraftEnhancementView {
     const rows: string[] = [];
     for (let level = sessionRange.minLevel; level <= sessionRange.maxLevel; level += 1) {
       const current = levelMap.get(level);
-      rows.push(`<div class="enhancement-history-row"><span>+${formatDisplayInteger(level)}</span><span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, itemLevel, hammerSuccessRate))}</span><span>${escapeHtml(t('craft.workbench.enhancement.history.detail.row.success-value', { count: formatDisplayInteger(current?.successCount ?? 0) }))}</span><span>${escapeHtml(t('craft.workbench.enhancement.history.detail.row.failure-value', { count: formatDisplayInteger(current?.failureCount ?? 0) }))}</span></div>`);
+      rows.push(`<div class="enhancement-history-row"><span>+${formatDisplayInteger(level)}</span><span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, itemLevel, hammerSuccessRate, computeLuckSuccessRateBonus(this.parent.playerLuck)))}</span><span>${escapeHtml(t('craft.workbench.enhancement.history.detail.row.success-value', { count: formatDisplayInteger(current?.successCount ?? 0) }))}</span><span>${escapeHtml(t('craft.workbench.enhancement.history.detail.row.failure-value', { count: formatDisplayInteger(current?.failureCount ?? 0) }))}</span></div>`);
     }
     const endedAtText = detailRecord.actionEndedAt ? t('craft.workbench.enhancement.history.session.ended-at', { endedAt: formatHistoryDateTime(detailRecord.actionEndedAt) }) : t('craft.workbench.enhancement.history.session.ended-at-empty');
     const protectionText = typeof detailRecord.protectionStartLevel === 'number'

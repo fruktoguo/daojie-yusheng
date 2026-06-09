@@ -9,6 +9,7 @@ import {
   CRAFT_SKILL_FAILURE_EXP_RATE,
   CRAFT_SKILL_EXP_COMPENSATION_END_LEVEL,
   MINING_DAMAGE_BONUS_PER_LEVEL,
+  MINING_DROP_RATE_BONUS_PER_LEVEL,
 } from './constants/gameplay/craft';
 
 /** 统一技艺经验计算入参。 */
@@ -118,4 +119,10 @@ export function getMiningDamageMultiplier(miningLevel: number | undefined): numb
     return 1;
   }
   return Math.pow(1 + MINING_DAMAGE_BONUS_PER_LEVEL, level);
+}
+
+/** 根据挖矿技艺等级计算矿物额外概率，每级 +1%。 */
+export function getMiningDropRateBonus(miningLevel: number | undefined): number {
+  const level = Math.max(0, Math.floor(Number(miningLevel) || 0));
+  return level * MINING_DROP_RATE_BONUS_PER_LEVEL;
 }

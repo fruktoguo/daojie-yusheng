@@ -10,6 +10,8 @@
 - 自定义丹方/器方只保存在客户端本地，用于快捷复用、复制、导入、导出；服务端仍负责权威校验。
 - 创建任务时计算一次基础五行成功率，并写入 job/queue 快照；后续 tick 不再重复统计材料五行。
 - 炼丹等级、炼器等级、工具、装备、buff、建筑等动态成功率修正每次展示和结算时现算。
+- 炼丹、炼器、强化的正向成功率加成都按概率值加算；技艺等级高于目标等级、工具成功率与幸运成功率相加后再并入最终成功率。
+- 幸运每 1 点提供炼丹、炼器、强化成功率 `+1%`。
 
 ## 当前需要替换的旧口径
 
@@ -265,17 +267,19 @@ finalSuccessRate = applyDynamicCraftSuccessModifier(
   currentCraftSkillLevel,
   currentToolSuccessModifier,
   currentBuffSuccessModifier,
-  currentBuildingSuccessModifier
+  currentBuildingSuccessModifier,
+  currentLuckSuccessModifier
 )
 ```
 
 动态修正包括：
 
-- 炼丹等级 / 炼器等级。
+- 炼丹等级 / 炼器等级：低于目标等级时先衰减基础成功率；高于目标等级时每级作为正向成功率加成。
 - 丹炉 / 炼器工具。
 - 装备。
 - buff。
 - 建筑或环境加成。
+- 幸运。
 
 这些动态项不写入基础五行快照。玩家更换装备、buff 变化、建筑状态变化后，后续展示和结算应反映当前值。
 

@@ -100,7 +100,7 @@
 - `alchemy_furnace` + `alchemySuccessRate` / `alchemySpeedRate`：炼丹。
 - `forging_tool` + `alchemySuccessRate` / `alchemySpeedRate`：炼器暂复用同一组字段，靠标签区分玩法。
 - `enhancement_hammer` + `enhancementSuccessRate` / `enhancementSpeedRate`：强化。
-- `mining_pickaxe` + `miningDamageRate` / `miningDropRate`：挖矿伤害与出货概率。出货概率在伤害倍率结算完成后作为总出货概率倍率生效。
+- `mining_pickaxe` + `miningDamageRate` / `miningDropRate`：挖矿伤害与矿物额外概率。矿物额外概率在伤害倍率结算完成后作为总出货概率倍率生效；统一额外概率 = 矿镐 `miningDropRate` + 挖矿等级每级 `1%` + 幸运每点 `1%`。
 - `building_hammer` + `buildingSpeedRate`：每息建造进度增幅。
 
 ### 练气期生活工具

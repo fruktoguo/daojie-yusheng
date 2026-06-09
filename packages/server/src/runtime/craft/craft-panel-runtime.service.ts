@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -29,6 +29,7 @@ import { GatherStrategy } from './pipeline/strategies/gather.strategy';
 import { BuildingStrategy } from './pipeline/strategies/building.strategy';
 import { FormationStrategy } from './pipeline/strategies/formation.strategy';
 import { MiningStrategy } from './pipeline/strategies/mining.strategy';
+import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
 import {
     buildTechniqueActivityTaskListView,
     buildTechniqueActivityTaskPatchView,
@@ -359,7 +360,8 @@ export class CraftPanelRuntimeService {
             baseSuccessRate,
             recipe.outputLevel,
             craftSkillLevel,
-            this.getAlchemyLikeToolSuccessRate(player, jobKind)
+            this.getAlchemyLikeToolSuccessRate(player, jobKind),
+            this.getLuckSuccessRateBonus(player)
         );
         const batchOutputCount = computeAlchemyBatchOutputCountWithSize(recipe.outputCount, furnaceOutputCount);
         const spiritStoneCost = getAlchemySpiritStoneCost(recipe.outputLevel, recipe.category === 'buff') * quantity;
@@ -915,7 +917,7 @@ export class CraftPanelRuntimeService {
         const target = validated.target;
         const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, target.item.level);
-        const successRate = computeEnhancementAdjustedSuccessRate(validated.targetLevel, roleEnhancementLevel, target.item.level, this.getWeapon(player)?.enhancementSuccessRate);
+        const successRate = computeEnhancementAdjustedSuccessRate(validated.targetLevel, roleEnhancementLevel, target.item.level, this.getWeapon(player)?.enhancementSuccessRate, this.getLuckSuccessRateBonus(player));
         const totalTicks = computeEnhancementJobTicks(target.item.level, totalSpeedRate);
         const protectionItemId = validated.protection ? (validated.config?.protectionItemId ?? target.item.itemId) : undefined;
         const protectionItemName = protectionItemId
@@ -1227,6 +1229,9 @@ export class CraftPanelRuntimeService {
         }
         return Number.isFinite(weapon?.alchemySuccessRate) ? Number(weapon.alchemySuccessRate) : 0;
     }
+    getLuckSuccessRateBonus(player) {
+        return computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(player));
+    }
 
     /**
  * hasEquippedHammer：判断EquippedHammer是否满足条件。
@@ -1386,7 +1391,7 @@ export class CraftPanelRuntimeService {
             currentLevel,
             nextLevel,
             spiritStoneCost: getEnhancementSpiritStoneCost(item.level, requirements.length > 0),
-            successRate: computeEnhancementAdjustedSuccessRate(nextLevel, enhancementSkillLevel, item.level, hammer?.enhancementSuccessRate),
+            successRate: computeEnhancementAdjustedSuccessRate(nextLevel, enhancementSkillLevel, item.level, hammer?.enhancementSuccessRate, this.getLuckSuccessRateBonus(player)),
             durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
             materials: requirements.map((entry) => ({
                 itemId: entry.itemId,
@@ -1787,7 +1792,7 @@ export class CraftPanelRuntimeService {
         job.pausedTicks = 0;
         job.interruptWaitRemainingTicks = 0;
         job.interruptState = null;
-        job.successRate = computeEnhancementAdjustedSuccessRate(nextTargetLevel, roleEnhancementLevel, job.targetItemLevel, this.getWeapon(player)?.enhancementSuccessRate);
+        job.successRate = computeEnhancementAdjustedSuccessRate(nextTargetLevel, roleEnhancementLevel, job.targetItemLevel, this.getWeapon(player)?.enhancementSuccessRate, this.getLuckSuccessRateBonus(player));
         job.totalTicks = totalTicks;
         job.remainingTicks = totalTicks;
         job.workTotalTicks = totalTicks;

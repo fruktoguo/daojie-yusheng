@@ -22,6 +22,7 @@ import {
   computeAlchemyBatchOutputCountWithSize,
   computeAlchemyTotalJobTicks,
   computeFivePhaseElementMatch,
+  computeLuckSuccessRateBonus,
   createEmptyCraftElementVector,
   getAlchemySpiritStoneCost,
   normalizeAlchemyQuantity,
@@ -176,6 +177,7 @@ export interface CraftAlchemyParent {
   readonly alchemySkillLevel: number;
   readonly forgingSkillLevel: number;
   readonly gatherSkillLevel: number;
+  readonly playerLuck: number;
   readonly inventory: { items: Array<{ itemId: string; count: number }>; capacity: number; revision?: number };
   readonly equipment: { weapon?: { alchemySuccessRate?: number; alchemySpeedRate?: number; tags?: string[] } | null; revision?: number };
   activeAlchemyCategory: AlchemyRecipeCategory;
@@ -486,6 +488,7 @@ export class CraftAlchemyView {
       recipe.outputLevel,
       this.getCraftSkillLevelForActiveMode(),
       furnaceBonuses.successRate,
+      computeLuckSuccessRateBonus(this.parent.playerLuck),
     );
     const brewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);
     return {
@@ -522,6 +525,7 @@ export class CraftAlchemyView {
       this.parent.alchemySkillLevel,
       this.parent.forgingSkillLevel,
       this.parent.gatherSkillLevel,
+      this.parent.playerLuck,
       inventoryRevision,
       equipmentRevision,
       Boolean(this.parent.alchemyPanel?.state?.job),

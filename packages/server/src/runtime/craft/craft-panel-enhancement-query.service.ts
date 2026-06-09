@@ -4,9 +4,10 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable } from '@nestjs/common';
-import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate } from '@mud/shared';
+import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
+import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
 
 /** 强化面板只读查询服务：负责强化面板状态与候选列表构造。 */
 @Injectable()
@@ -143,7 +144,13 @@ export class CraftPanelEnhancementQueryService {
             currentLevel,
             nextLevel,
             spiritStoneCost: getEnhancementSpiritStoneCost(item.level, requirements.length > 0),
-            successRate: computeEnhancementAdjustedSuccessRate(nextLevel, enhancementSkillLevel, item.level, hammer?.enhancementSuccessRate),
+            successRate: computeEnhancementAdjustedSuccessRate(
+                nextLevel,
+                enhancementSkillLevel,
+                item.level,
+                hammer?.enhancementSuccessRate,
+                computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(player))
+            ),
             durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
             materials: requirements.map((entry) => ({
                 itemId: entry.itemId,

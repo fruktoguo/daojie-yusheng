@@ -19,6 +19,7 @@ import { ATTR_KEYS } from './constants/gameplay/attributes';
 import { computeAdjustedCraftTicks } from './craft-duration';
 import {
   applyAsymptoticSuccessModifier,
+  clampUnitSuccessRate,
   applyMultiplicativeSuccessModifier,
 } from './craft-success';
 
@@ -259,16 +260,17 @@ export function computeEnhancementAdjustedSuccessRate(
   roleEnhancementLevel: number | undefined,
   targetItemLevel: number | undefined,
   toolSuccessRateModifier = 0,
+  luckSuccessRateModifier = 0,
 ): number {
   const baseRate = getEnhancementTargetSuccessRate(targetEnhanceLevel);
   const maxRate = getEnhancementMaxSuccessRate(targetEnhanceLevel);
   const skillContribution = computeEnhancementLevelSuccessFactorContribution(targetItemLevel, roleEnhancementLevel);
   const toolIncrement = Number.isFinite(toolSuccessRateModifier) ? Math.max(0, Number(toolSuccessRateModifier)) : 0;
-  // 增益加算（技能差正、锤子贡献、未来幸运等）；减益乘算（技能差负、未来负向 buff 等）。
-  const incrementSum = skillContribution.increment + toolIncrement;
-  const decayProduct = skillContribution.decay;
-  const factor = (1 + incrementSum) * decayProduct;
-  return applyMultiplicativeSuccessFactor(baseRate, factor, maxRate);
+  const luckIncrement = Number.isFinite(luckSuccessRateModifier) ? Math.max(0, Number(luckSuccessRateModifier)) : 0;
+  // 增益按成功率概率值加算（技能差正、锤子、幸运等）；减益仍先乘算到基础成功率。
+  const penalizedBaseRate = applyMultiplicativeSuccessFactor(baseRate, skillContribution.decay, maxRate);
+  const incrementSum = skillContribution.increment + toolIncrement + luckIncrement;
+  return Math.min(maxRate, clampUnitSuccessRate(penalizedBaseRate + incrementSum));
 }
 
 function normalizeEnhancementRequirement(value: unknown): EnhancementMaterialRequirement | null {

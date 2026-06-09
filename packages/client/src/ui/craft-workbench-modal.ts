@@ -42,6 +42,7 @@ import {
   computeAlchemyAdjustedSuccessRate,
   computeAlchemyBatchOutputCountWithSize,
   computeEnhancementAdjustedSuccessRate,
+  computeLuckSuccessRateBonus,
   computeAlchemyTotalJobTicks,
   computeFivePhaseElementMatch,
   createEmptyCraftElementVector,
@@ -562,6 +563,7 @@ export class CraftWorkbenchModal {
   private gatherSkillLevel = 1;
   private enhancementSkillLevel = 1;
   private transmissionSkillLevel = 1;
+  private playerLuck = 0;
   private transmissionTechniques: PlayerState['techniques'] = [];
   private pendingTechniqueComprehensions: PlayerState['pendingTechniqueComprehensions'] = [];
   private lastTransmissionRenderKey: string | null = null;
@@ -622,6 +624,7 @@ export class CraftWorkbenchModal {
     this.gatherSkillLevel = Math.max(1, Math.floor(player.gatherSkill?.level ?? 1));
     this.enhancementSkillLevel = Math.max(1, Math.floor(player.enhancementSkill?.level ?? player.enhancementSkillLevel ?? 1));
     this.transmissionSkillLevel = Math.max(1, Math.floor(player.transmissionSkill?.level ?? 1));
+    this.playerLuck = Math.max(0, Math.floor(Number(player.luck ?? 0) || 0));
     this.transmissionTechniques = Array.isArray(player.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
     this.playerRealmLv = Number.isFinite(Number(player.realm?.realmLv ?? player.realmLv))
@@ -645,6 +648,9 @@ export class CraftWorkbenchModal {
     if (update.transmissionSkill) {
       this.transmissionSkillLevel = Math.max(1, Math.floor(update.transmissionSkill.level ?? this.transmissionSkillLevel));
     }
+    if (typeof update.specialStats?.luck === 'number') {
+      this.playerLuck = Math.max(0, Math.floor(Number(update.specialStats.luck) || 0));
+    }
     if (detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
@@ -654,12 +660,15 @@ export class CraftWorkbenchModal {
     const nextRealmLv = Number.isFinite(Number(player?.realm?.realmLv ?? player?.realmLv))
       ? Math.max(1, Math.floor(Number(player?.realm?.realmLv ?? player?.realmLv)))
       : null;
+    const nextLuck = Math.max(0, Math.floor(Number(player?.luck ?? this.playerLuck) || 0));
     this.transmissionTechniques = Array.isArray(player?.techniques) ? player.techniques : [];
     this.pendingTechniqueComprehensions = Array.isArray(player?.pendingTechniqueComprehensions) ? player.pendingTechniqueComprehensions : [];
     this.transmissionSkillLevel = Math.max(1, Math.floor(player?.transmissionSkill?.level ?? this.transmissionSkillLevel));
     const realmChanged = this.playerRealmLv !== nextRealmLv;
+    const luckChanged = this.playerLuck !== nextLuck;
     this.playerRealmLv = nextRealmLv;
-    if ((realmChanged || this.activeMode === 'transmission') && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
+    this.playerLuck = nextLuck;
+    if ((realmChanged || luckChanged || this.activeMode === 'transmission') && detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       this.patchOpenCraftShell();
     }
   }
@@ -1265,6 +1274,7 @@ export class CraftWorkbenchModal {
       this.selectedEnhancementTargetLevel ?? '',
       this.selectedEnhancementProtectionKey ?? '',
       this.selectedEnhancementProtectionStartLevel ?? '',
+      this.playerLuck,
       this.enhancementHistoryExpanded ? 'history-open' : 'history-closed',
       this.enhancementProtectionExpanded ? 'protection-open' : 'protection-closed',
     ].join('::');
@@ -2447,6 +2457,7 @@ export class CraftWorkbenchModal {
       this.alchemySkillLevel,
       this.forgingSkillLevel,
       this.gatherSkillLevel,
+      this.playerLuck,
       inventoryRevision,
       equipmentRevision,
       Boolean(this.alchemyPanel?.state?.job),
@@ -2645,6 +2656,7 @@ export class CraftWorkbenchModal {
       this.selectedEnhancementTargetLevel ?? '',
       this.selectedEnhancementProtectionKey ?? '',
       this.selectedEnhancementProtectionStartLevel ?? '',
+      this.playerLuck,
       this.enhancementHistoryExpanded ? 'history-open' : 'history-closed',
       this.enhancementProtectionExpanded ? 'protection-open' : 'protection-closed',
       candidateKey,
@@ -3635,7 +3647,7 @@ export class CraftWorkbenchModal {
       rows.push(`
         <div class="enhancement-history-row">
           <span>+${formatDisplayInteger(level)}</span>
-          <span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, Number(referenceItem.level) || 1, hammerSuccessRate))}</span>
+          <span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, Number(referenceItem.level) || 1, hammerSuccessRate, this.getLuckSuccessRateBonus()))}</span>
           <span>成 ${formatDisplayInteger(current?.successCount ?? 0)}</span>
           <span>败 ${formatDisplayInteger(current?.failureCount ?? 0)}</span>
         </div>
@@ -4128,7 +4140,7 @@ export class CraftWorkbenchModal {
       rows.push(`
         <div class="enhancement-history-row">
           <span>+${formatDisplayInteger(level)}</span>
-          <span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, itemLevel, hammerSuccessRate))}</span>
+          <span>${formatEnhancementPercent(computeEnhancementAdjustedSuccessRate(level, roleEnhancementLevel, itemLevel, hammerSuccessRate, this.getLuckSuccessRateBonus()))}</span>
           <span>${escapeHtml(t('craft.workbench.enhancement.history.detail.row.success-value', {
             count: formatDisplayInteger(current?.successCount ?? 0),
           }))}</span>
@@ -4898,6 +4910,10 @@ export class CraftWorkbenchModal {
     };
   }
 
+  private getLuckSuccessRateBonus(): number {
+    return computeLuckSuccessRateBonus(this.playerLuck);
+  }
+
   private getAlchemyBatchOutputSize(recipe: AlchemyRecipeCatalogEntry): number {
     if (this.activeMode === 'forging') {
       return 1;
@@ -4960,6 +4976,7 @@ export class CraftWorkbenchModal {
       recipe.outputLevel,
       this.getCraftSkillLevelForActiveMode(),
       furnaceBonuses.successRate,
+      this.getLuckSuccessRateBonus(),
     );
     const brewTicks = this.getAlchemyAdjustedBrewTicks(recipe, ingredients);
     return {

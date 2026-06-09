@@ -2254,7 +2254,7 @@ export const CLIENT_I18N_MESSAGES = {
   "attr.special.comprehension.label": "悟性",
   "attr.special.foundation.desc": "在能够获得境界修为时，优先把本次境界修为抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。",
   "attr.special.foundation.label": "底蕴",
-  "attr.special.luck.desc": "提高常规掉落与稀有掉落收益；不再提供命中、闪避、暴击等战斗属性。",
+  "attr.special.luck.desc": "提高挖矿矿物额外概率，并提高炼丹、炼器、强化成功率；不提供战斗属性。",
   "attr.special.luck.label": "幸运",
   "attr.special.root-foundation.desc": "每点根基提供 1% 六维境界乘区，可在境界圆满时消耗当前境界整条修为和对应材料凝练。",
   "attr.special.root-foundation.label": "根基",

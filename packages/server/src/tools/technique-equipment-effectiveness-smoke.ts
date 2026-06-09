@@ -4,18 +4,20 @@ import {
   applyEquipmentAttributeEffectivenessToItemStack,
   computeAlchemyAdjustedBrewTicks,
   computeAlchemyAdjustedSuccessRate,
+  computeLuckSuccessRateBonus,
   computeEnhancementJobTicks,
   computeEnhancementAdjustedSuccessRate,
   computeEnhancementToolSpeedRate,
   getEquipmentAttributeEffectivenessBreakdown,
   getEquipmentRealmEffectiveness,
+  getMiningDropRateBonus,
   getMiningDamageMultiplier,
   TileType,
 } from '@mud/shared';
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 import { CraftPanelAlchemyQueryService } from '../runtime/craft/craft-panel-alchemy-query.service';
 import { CraftPanelEnhancementQueryService } from '../runtime/craft/craft-panel-enhancement-query.service';
-import { resolveMiningAdjustedTileDamage } from '../runtime/world/combat/tile-drop.helpers';
+import { resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus } from '../runtime/world/combat/tile-drop.helpers';
 
 function createRepository() {
   return {
@@ -68,6 +70,7 @@ function createTechniqueTool(
     enhancementSuccessRate?: number;
     enhancementSpeedRate?: number;
     miningDamageRate?: number;
+    miningDropRate?: number;
   },
 ) {
   return {
@@ -88,6 +91,7 @@ function createPlayer(weapon: Record<string, unknown>) {
   return {
     playerId: 'player:technique-equipment-effectiveness',
     persistentRevision: 1,
+    luck: 0,
     realm: { realmLv: 1 },
     wallet: { balances: [] },
     inventory: {
@@ -103,6 +107,7 @@ function createPlayer(weapon: Record<string, unknown>) {
           level: 1,
           equipSlot: 'weapon',
           enhanceLevel: 0,
+          itemInstanceId: 'test-blade-instance',
         },
       ],
     },
@@ -131,12 +136,14 @@ function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
     enhancementSpeedRate: 0.5,
   });
   const player = createPlayer(hammer);
+  player.luck = 3;
   const effectiveHammer = applyEquipmentAttributeEffectivenessToItemStack(hammer as never, player.realm.realmLv);
   const expectedSuccessRate = computeEnhancementAdjustedSuccessRate(
     1,
     player.enhancementSkill.level,
     1,
     effectiveHammer.enhancementSuccessRate,
+    computeLuckSuccessRateBonus(player.luck),
   );
   const expectedTicks = computeEnhancementJobTicks(
     1,
@@ -150,7 +157,7 @@ function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
   assert.equal(candidate.durationTicks, expectedTicks);
 
   const result = service.startTechniqueActivity(player as never, 'enhancement', {
-    target: { source: 'inventory', slotIndex: 0 },
+    target: { source: 'inventory', itemInstanceId: 'test-blade-instance' },
   } as never);
   assert.equal(result.ok, true);
   assert.equal(player.enhancementJob?.successRate, expectedSuccessRate);
@@ -205,6 +212,7 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
       alchemySpeedRate: 0.5,
     });
     const player = createPlayer(tool);
+    player.luck = 4;
     const effectiveTool = applyEquipmentAttributeEffectivenessToItemStack(tool as never, player.realm.realmLv);
     const expectedTicks = computeAlchemyAdjustedBrewTicks(
       recipe.baseBrewTicks,
@@ -215,8 +223,6 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
       effectiveTool.alchemySpeedRate,
       1,
     );
-    const expectedSuccessRate = computeAlchemyAdjustedSuccessRate(1, recipe.outputLevel, 1, effectiveTool.alchemySuccessRate);
-
     const result = service.startTechniqueActivity(player as never, kind, {
       recipeId: recipe.recipeId,
       ingredients: [],
@@ -224,6 +230,14 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
     } as never);
     assert.equal(result.ok, true);
     const job = kind === 'forging' ? player.forgingJob : player.alchemyJob;
+    assert.ok(job, 'expected alchemy-like job');
+    const expectedSuccessRate = computeAlchemyAdjustedSuccessRate(
+      job.baseElementSuccessRate,
+      recipe.outputLevel,
+      1,
+      effectiveTool.alchemySuccessRate,
+      computeLuckSuccessRateBonus(player.luck),
+    );
     assert.equal(job?.batchBrewTicks, expectedTicks);
     assert.equal(job?.successRate, expectedSuccessRate);
   }
@@ -232,8 +246,11 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
 function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
   const pickaxe = createTechniqueTool('equip.test_pickaxe', ['mining_tool'], {
     miningDamageRate: 0.5,
+    miningDropRate: 0.15,
   });
   const player = createPlayer(pickaxe);
+  player.miningSkill.level = 7;
+  player.luck = 5;
   const effectivePickaxe = applyEquipmentAttributeEffectivenessToItemStack(pickaxe as never, player.realm.realmLv);
   const result = resolveMiningAdjustedTileDamage({
     attacker: player,
@@ -244,6 +261,10 @@ function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
   assert.equal(
     result.damage,
     Math.round(100 * getMiningDamageMultiplier(player.miningSkill.level) * (1 + Number(effectivePickaxe.miningDamageRate))),
+  );
+  assert.equal(
+    resolveMiningDropRateBonus(player),
+    Number(effectivePickaxe.miningDropRate) + getMiningDropRateBonus(player.miningSkill.level) + computeLuckSuccessRateBonus(player.luck),
   );
 }
 

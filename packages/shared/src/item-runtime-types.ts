@@ -775,7 +775,7 @@ export interface ItemStack {
 
   miningDamageRate?: number;
   /**
-   * miningDropRate：挖矿出货概率增幅比率。
+   * miningDropRate：矿物额外概率。
    */
 
   miningDropRate?: number;

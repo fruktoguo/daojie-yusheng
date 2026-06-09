@@ -122,13 +122,13 @@ function main() {
   assert.equal(computeAlchemyAdjustedSuccessRate(0.64, 30, 24, 0.15), expectedAlchemyRate, "forging reuses alchemy-like success modifier and must use common craft formula");
   const expectedEnhancementCombinedRate = applyMultiplicativeSuccessFactor(
     getEnhancementTargetSuccessRate(1),
-    (1 + 0.15) * Math.pow(ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL, 6),
+    Math.pow(ENHANCEMENT_LOWER_LEVEL_DECAY_PER_LEVEL, 6),
     1,
-  );
+  ) + 0.15;
   assert.equal(
     computeEnhancementAdjustedSuccessRate(1, 24, 30, 0.15),
     expectedEnhancementCombinedRate,
-    "enhancement success modifier must add positive modifiers and multiply level-decay modifiers in the shared odds formula",
+    "enhancement success modifier must add positive modifiers after multiplying level-decay modifiers",
   );
 
   const service = new CraftPanelEnhancementQueryService(repository);

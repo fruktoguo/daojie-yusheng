@@ -7,13 +7,16 @@ import {
   MINING_EXP_BASE_ACTION_TICKS,
   applyEquipmentAttributeEffectivenessToItemStack,
   computeCraftSkillExpGain,
+  computeLuckSuccessRateBonus,
   getOreMiningLevel,
   getMiningDamageMultiplier,
+  getMiningDropRateBonus,
   isOreMinableTileType,
 } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../../craft/craft-skill-exp.helpers';
 import { buildStructuredNotice } from '../structured-notice.helpers';
 import * as worldRuntimeNormalizationHelpers from '../world-runtime.normalization.helpers';
+import { resolvePlayerEffectiveLuck } from '../../player/player-special-stat.helpers';
 
 const { formatItemStackLabel } = worldRuntimeNormalizationHelpers;
 
@@ -46,11 +49,15 @@ export function resolveMiningAdjustedTileDamage(input: {
 }
 
 export function resolveMiningDropRateBonus(attacker: any): number {
+  const miningLevel = attacker?.miningSkill?.level ?? 0;
   const equippedWeapon = resolveEquippedWeapon(attacker);
   const weapon = equippedWeapon
     ? applyEquipmentAttributeEffectivenessToItemStack(equippedWeapon, attacker?.realm?.realmLv ?? attacker?.realmLv)
     : null;
-  return Math.max(0, Number(weapon?.miningDropRate) || 0);
+  const weaponBonus = Math.max(0, Number(weapon?.miningDropRate) || 0);
+  const skillBonus = getMiningDropRateBonus(miningLevel);
+  const luckBonus = computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(attacker));
+  return weaponBonus + skillBonus + luckBonus;
 }
 
 function resolveEquippedWeapon(attacker: any): any | null {

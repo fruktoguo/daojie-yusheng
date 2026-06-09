@@ -187,8 +187,9 @@ export function computeAlchemyAdjustedSuccessRate(
   recipeLevel: number | undefined,
   alchemyLevel: number | undefined,
   furnaceSuccessRate = 0,
+  luckSuccessRate = 0,
 ): number {
-  return computeCraftAdjustedSuccessRate(baseRate, recipeLevel, alchemyLevel, furnaceSuccessRate);
+  return computeCraftAdjustedSuccessRate(baseRate, recipeLevel, alchemyLevel, furnaceSuccessRate + luckSuccessRate);
 }
 
 export function computeAlchemyBrewTicks(

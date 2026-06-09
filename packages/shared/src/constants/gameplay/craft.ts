@@ -33,5 +33,8 @@ export const ALCHEMY_FURNACE_OUTPUT_COUNT = 6;
 /** 挖矿每级对地块伤害提升比率（指数底数 1.02，即每级 +2% 复利）。 */
 export const MINING_DAMAGE_BONUS_PER_LEVEL = 0.02;
 
+/** 挖矿每级增加的矿物额外概率。 */
+export const MINING_DROP_RATE_BONUS_PER_LEVEL = 0.01;
+
 /** 挖矿经验：每次对矿脉造成伤害视为 0.3 息动作。 */
 export const MINING_EXP_BASE_ACTION_TICKS = 0.3;
