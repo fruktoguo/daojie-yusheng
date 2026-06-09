@@ -7934,8 +7934,21 @@
       "type": "consumable",
       "level": 20,
       "grade": "yellow",
-      "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
-      "qiPercent": 0.72
+      "desc": "丹火纯明，入腹如日照气海，能引阳和灵机迅速回流。",
+      "baselineQiPercent": 2,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.pure_yang_pill",
+          "name": "纯阳丹·回灵",
+          "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+          "shortMark": "灵",
+          "duration": 600,
+          "stats": {
+            "qiRegenRate": 400
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "pill.edge_quenching_powder",
@@ -7984,8 +7997,21 @@
       "type": "consumable",
       "level": 8,
       "grade": "yellow",
-      "desc": "药力更浑厚，立刻恢复 32% 真气。",
-      "qiPercent": 0.32
+      "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+      "baselineQiPercent": 2,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.major_qi_pill",
+          "name": "大还灵丹·回灵",
+          "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+          "shortMark": "灵",
+          "duration": 600,
+          "stats": {
+            "qiRegenRate": 280
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "formation_disk.earth",
@@ -8602,21 +8628,21 @@
       "type": "consumable",
       "level": 31,
       "desc": "丹色如霜，入口却生温润春意，能把断续生机重新拢回经络。",
-      "baselineHealPercent": 0.845,
       "consumeBuffs": [
         {
-          "buffId": "item_buff.foundation_coldmarrow_heal",
-          "name": "寒髓回春",
-          "desc": "寒髓温意护住经络，生命回复暂时大幅提高。",
-          "shortMark": "春",
+          "buffId": "item_buff.pill_foundation_coldmarrow_heal",
+          "name": "寒髓回春丹·回生",
+          "desc": "药力护住经络，生命回复暂时大幅提高。",
+          "shortMark": "生",
           "duration": 600,
           "stats": {
-            "hpRegenRate": 169
+            "hpRegenRate": 1400
           },
           "statMode": "percent"
         }
       ],
-      "grade": "earth"
+      "grade": "earth",
+      "baselineHealPercent": 8
     },
     {
       "itemId": "mat.coldmarrow_reed",
@@ -8716,8 +8742,21 @@
       "type": "consumable",
       "level": 10,
       "grade": "mystic",
-      "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
-      "baselineHealPercent": 1.1
+      "desc": "膏色微寒，贴脉而行，能以寒意镇住躁血并回护心脉。",
+      "baselineHealPercent": 4,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.frost_heart_paste",
+          "name": "寒心膏·回生",
+          "desc": "药力护住经络，生命回复暂时大幅提高。",
+          "shortMark": "生",
+          "duration": 600,
+          "stats": {
+            "hpRegenRate": 400
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "equip.foundation_cold_abyss_spell_ruler",
@@ -8767,9 +8806,22 @@
       "name": "厚土膏",
       "type": "consumable",
       "level": 27,
-      "desc": "药膏入口厚重，立刻恢复标准 27 级修士最大气血的 110%。",
-      "baselineHealPercent": 1.1,
-      "grade": "mystic"
+      "desc": "膏质厚重如温土覆伤，能把外散生机重新压回血肉。",
+      "grade": "mystic",
+      "baselineHealPercent": 4,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.pill_earthrest_paste",
+          "name": "厚土膏·回生",
+          "desc": "药力护住经络，生命回复暂时大幅提高。",
+          "shortMark": "生",
+          "duration": 600,
+          "stats": {
+            "hpRegenRate": 740
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "thickrock_core",
@@ -8826,11 +8878,25 @@
       "name": "回春散",
       "type": "consumable",
       "level": 2,
+      "grade": "mortal",
       "tags": [
         "战斗丹药"
       ],
-      "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-      "baselineHealPercent": 0.5
+      "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+      "baselineHealPercent": 1,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.pill_minor_heal",
+          "name": "回春散·回生",
+          "desc": "药力护住经络，生命回复暂时大幅提高。",
+          "shortMark": "生",
+          "duration": 600,
+          "stats": {
+            "hpRegenRate": 210
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "mat.returnspring_leaf",
@@ -8855,9 +8921,22 @@
       "name": "回灵散",
       "type": "consumable",
       "level": 21,
-      "desc": "把散乱灵气压回经脉，立刻恢复 56% 真气。",
-      "qiPercent": 0.56,
-      "grade": "yellow"
+      "desc": "散末遇气即化，清凉灵意贴着经络回转，收拢散失灵机。",
+      "grade": "yellow",
+      "baselineQiPercent": 2,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.recovery_powder",
+          "name": "回灵散·回灵",
+          "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+          "shortMark": "灵",
+          "duration": 600,
+          "stats": {
+            "qiRegenRate": 410
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "equip.foundation_returnflow_boots",
@@ -9975,9 +10054,22 @@
       "name": "清脉散",
       "type": "consumable",
       "level": 25,
-      "desc": "药粉化开后会把杂气往外带，立刻恢复 60% 真气。",
-      "qiPercent": 0.6,
-      "grade": "mystic"
+      "desc": "药粉清澈如潮痕，能洗去经络浮浊，使灵机重新贯通。",
+      "grade": "mystic",
+      "baselineQiPercent": 4,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.pill_cleartide_powder",
+          "name": "清脉散·回灵",
+          "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+          "shortMark": "灵",
+          "duration": 600,
+          "stats": {
+            "qiRegenRate": 700
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "map.beast_valley",
@@ -10366,21 +10458,21 @@
       "type": "consumable",
       "level": 31,
       "desc": "霜泉凝作一丸，化开时如清流入海，能引散乱灵机重归气海。",
-      "baselineQiPercent": 0.845,
       "consumeBuffs": [
         {
-          "buffId": "item_buff.foundation_frostspring_qi",
-          "name": "霜泉回灵",
-          "desc": "霜泉清气盘绕气海，灵力回复暂时大幅提高。",
+          "buffId": "item_buff.pill_foundation_frostspring_qi",
+          "name": "霜泉还灵丹·回灵",
+          "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
           "shortMark": "灵",
           "duration": 600,
           "stats": {
-            "qiRegenRate": 169
+            "qiRegenRate": 1400
           },
           "statMode": "percent"
         }
       ],
-      "grade": "earth"
+      "grade": "earth",
+      "baselineQiPercent": 8
     },
     {
       "itemId": "mat.frost_crystal",
@@ -10913,8 +11005,22 @@
       "name": "小还灵丹",
       "type": "consumable",
       "level": 4,
-      "desc": "药力柔和，立刻恢复 22% 真气。",
-      "qiPercent": 0.22
+      "grade": "mortal",
+      "desc": "丹气清薄如晨雾，入腹后沿经脉回旋，牵引散乱灵机归于气海。",
+      "baselineQiPercent": 1,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.minor_qi_pill",
+          "name": "小还灵丹·回灵",
+          "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+          "shortMark": "灵",
+          "duration": 600,
+          "stats": {
+            "qiRegenRate": 220
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "mat.scorpion_venom_sac",
@@ -11271,9 +11377,22 @@
       "name": "养脉膏",
       "type": "consumable",
       "level": 24,
-      "desc": "膏体入口微苦，立刻恢复标准 24 级修士最大气血的 110%。",
-      "baselineHealPercent": 1.1,
-      "grade": "mystic"
+      "desc": "膏香微苦，入脉后如春水养枝，缓缓托起枯损经络。",
+      "grade": "mystic",
+      "baselineHealPercent": 4,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.pill_nurturing_paste",
+          "name": "养脉膏·回生",
+          "desc": "药力护住经络，生命回复暂时大幅提高。",
+          "shortMark": "生",
+          "duration": 600,
+          "stats": {
+            "hpRegenRate": 680
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "nurturing_leaf",
@@ -11709,9 +11828,22 @@
       "name": "镇脉丸",
       "type": "consumable",
       "level": 22,
-      "desc": "药势会贴着经脉走一圈，立刻恢复标准 22 级修士最大气血的 85%。",
-      "baselineHealPercent": 0.85,
-      "grade": "yellow"
+      "desc": "丸体沉厚，药势贴脉而行，能压住乱血并稳住经络根基。",
+      "grade": "yellow",
+      "baselineHealPercent": 2,
+      "consumeBuffs": [
+        {
+          "buffId": "item_buff.stabilizing_pellet",
+          "name": "镇脉丸·回生",
+          "desc": "药力护住经络，生命回复暂时大幅提高。",
+          "shortMark": "生",
+          "duration": 600,
+          "stats": {
+            "hpRegenRate": 420
+          },
+          "statMode": "percent"
+        }
+      ]
     },
     {
       "itemId": "equip.rift_guard_armor",
@@ -12952,6 +13084,25 @@
       "statMode": "percent"
     },
     {
+      "buffId": "item_buff.pure_yang_pill",
+      "name": "纯阳丹·回灵",
+      "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+      "shortMark": "灵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:pure_yang_pill",
+      "sourceSkillName": "纯阳丹",
+      "realmLv": 1,
+      "stats": {
+        "qiRegenRate": 400
+      },
+      "statMode": "percent"
+    },
+    {
       "buffId": "item_buff.edge_quenching_powder",
       "name": "淬锋",
       "desc": "锋势短暂拔高，3900 息内命中 +14%、暴击 +10%、破招 +15%。",
@@ -12969,6 +13120,25 @@
         "hit": 14,
         "crit": 10,
         "breakPower": 15
+      },
+      "statMode": "percent"
+    },
+    {
+      "buffId": "item_buff.major_qi_pill",
+      "name": "大还灵丹·回灵",
+      "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+      "shortMark": "灵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:major_qi_pill",
+      "sourceSkillName": "大还灵丹",
+      "realmLv": 1,
+      "stats": {
+        "qiRegenRate": 280
       },
       "statMode": "percent"
     },
@@ -13106,10 +13276,10 @@
       "statMode": "percent"
     },
     {
-      "buffId": "item_buff.foundation_coldmarrow_heal",
-      "name": "寒髓回春",
-      "desc": "寒髓温意护住经络，生命回复暂时大幅提高。",
-      "shortMark": "春",
+      "buffId": "item_buff.pill_foundation_coldmarrow_heal",
+      "name": "寒髓回春丹·回生",
+      "desc": "药力护住经络，生命回复暂时大幅提高。",
+      "shortMark": "生",
       "category": "buff",
       "visibility": "public",
       "remainingTicks": 600,
@@ -13120,7 +13290,7 @@
       "sourceSkillName": "寒髓回春丹",
       "realmLv": 1,
       "stats": {
-        "hpRegenRate": 169
+        "hpRegenRate": 1400
       },
       "statMode": "percent"
     },
@@ -13142,6 +13312,44 @@
       "statMode": "percent"
     },
     {
+      "buffId": "item_buff.frost_heart_paste",
+      "name": "寒心膏·回生",
+      "desc": "药力护住经络，生命回复暂时大幅提高。",
+      "shortMark": "生",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:frost_heart_paste",
+      "sourceSkillName": "寒心膏",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 400
+      },
+      "statMode": "percent"
+    },
+    {
+      "buffId": "item_buff.pill_earthrest_paste",
+      "name": "厚土膏·回生",
+      "desc": "药力护住经络，生命回复暂时大幅提高。",
+      "shortMark": "生",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:pill.earthrest_paste",
+      "sourceSkillName": "厚土膏",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 740
+      },
+      "statMode": "percent"
+    },
+    {
       "buffId": "buff.wood_bloom",
       "name": "回春",
       "desc": "木脉回春，生命自动回复大幅提高。",
@@ -13156,6 +13364,44 @@
       "sourceSkillName": "回春",
       "realmLv": 1,
       "color": "#6eb46a",
+      "statMode": "percent"
+    },
+    {
+      "buffId": "item_buff.pill_minor_heal",
+      "name": "回春散·回生",
+      "desc": "药力护住经络，生命回复暂时大幅提高。",
+      "shortMark": "生",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:pill.minor_heal",
+      "sourceSkillName": "回春散",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 210
+      },
+      "statMode": "percent"
+    },
+    {
+      "buffId": "item_buff.recovery_powder",
+      "name": "回灵散·回灵",
+      "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+      "shortMark": "灵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:recovery_powder",
+      "sourceSkillName": "回灵散",
+      "realmLv": 1,
+      "stats": {
+        "qiRegenRate": 410
+      },
       "statMode": "percent"
     },
     {
@@ -13489,6 +13735,25 @@
       "color": "#79b56b"
     },
     {
+      "buffId": "item_buff.pill_cleartide_powder",
+      "name": "清脉散·回灵",
+      "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+      "shortMark": "灵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:pill.cleartide_powder",
+      "sourceSkillName": "清脉散",
+      "realmLv": 1,
+      "stats": {
+        "qiRegenRate": 700
+      },
+      "statMode": "percent"
+    },
+    {
       "buffId": "buff.monster_blade_limb",
       "name": "刃势",
       "desc": "肢锋未止，下一式更容易撕开破绽。",
@@ -13660,9 +13925,9 @@
       "statMode": "percent"
     },
     {
-      "buffId": "item_buff.foundation_frostspring_qi",
-      "name": "霜泉回灵",
-      "desc": "霜泉清气盘绕气海，灵力回复暂时大幅提高。",
+      "buffId": "item_buff.pill_foundation_frostspring_qi",
+      "name": "霜泉还灵丹·回灵",
+      "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
       "shortMark": "灵",
       "category": "buff",
       "visibility": "public",
@@ -13674,7 +13939,7 @@
       "sourceSkillName": "霜泉还灵丹",
       "realmLv": 1,
       "stats": {
-        "qiRegenRate": 169
+        "qiRegenRate": 1400
       },
       "statMode": "percent"
     },
@@ -13805,6 +14070,25 @@
       "statMode": "percent"
     },
     {
+      "buffId": "item_buff.minor_qi_pill",
+      "name": "小还灵丹·回灵",
+      "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+      "shortMark": "灵",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:minor_qi_pill",
+      "sourceSkillName": "小还灵丹",
+      "realmLv": 1,
+      "stats": {
+        "qiRegenRate": 220
+      },
+      "statMode": "percent"
+    },
+    {
       "buffId": "buff.monster_bloodrush",
       "name": "凶奔",
       "desc": "血气翻涌，扑杀后更快更狠。",
@@ -13891,6 +14175,25 @@
       "statMode": "percent"
     },
     {
+      "buffId": "item_buff.pill_nurturing_paste",
+      "name": "养脉膏·回生",
+      "desc": "药力护住经络，生命回复暂时大幅提高。",
+      "shortMark": "生",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:pill.nurturing_paste",
+      "sourceSkillName": "养脉膏",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 680
+      },
+      "statMode": "percent"
+    },
+    {
       "buffId": "equip.vineguide_sustain",
       "name": "养枝",
       "shortMark": "养",
@@ -13957,6 +14260,25 @@
       "sourceSkillName": "镇灵篇",
       "realmLv": 1,
       "color": "#7c95c7",
+      "statMode": "percent"
+    },
+    {
+      "buffId": "item_buff.stabilizing_pellet",
+      "name": "镇脉丸·回生",
+      "desc": "药力护住经络，生命回复暂时大幅提高。",
+      "shortMark": "生",
+      "category": "buff",
+      "visibility": "public",
+      "remainingTicks": 600,
+      "duration": 600,
+      "stacks": 1,
+      "maxStacks": 1,
+      "sourceSkillId": "item:stabilizing_pellet",
+      "sourceSkillName": "镇脉丸",
+      "realmLv": 1,
+      "stats": {
+        "hpRegenRate": 420
+      },
       "statMode": "percent"
     },
     {
@@ -14224,8 +14546,21 @@
           "type": "consumable",
           "level": 20,
           "grade": "yellow",
-          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
-          "qiPercent": 0.72,
+          "desc": "丹火纯明，入腹如日照气海，能引阳和灵机迅速回流。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pure_yang_pill",
+              "name": "纯阳丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -14282,8 +14617,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -14397,8 +14745,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         },
         {
@@ -14625,8 +14986,21 @@
           "type": "consumable",
           "level": 20,
           "grade": "yellow",
-          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
-          "qiPercent": 0.72,
+          "desc": "丹火纯明，入腹如日照气海，能引阳和灵机迅速回流。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pure_yang_pill",
+              "name": "纯阳丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         }
       ],
@@ -14758,8 +15132,21 @@
           "type": "consumable",
           "level": 20,
           "grade": "yellow",
-          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
-          "qiPercent": 0.72,
+          "desc": "丹火纯明，入腹如日照气海，能引阳和灵机迅速回流。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pure_yang_pill",
+              "name": "纯阳丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -14936,8 +15323,22 @@
           "name": "小还灵丹",
           "type": "consumable",
           "level": 4,
-          "desc": "药力柔和，立刻恢复 22% 真气。",
-          "qiPercent": 0.22,
+          "grade": "mortal",
+          "desc": "丹气清薄如晨雾，入腹后沿经脉回旋，牵引散乱灵机归于气海。",
+          "baselineQiPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.minor_qi_pill",
+              "name": "小还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 220
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -15254,11 +15655,25 @@
           "name": "回春散",
           "type": "consumable",
           "level": 2,
+          "grade": "mortal",
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-          "baselineHealPercent": 0.5,
+          "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+          "baselineHealPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pill_minor_heal",
+              "name": "回春散·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 210
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -15333,8 +15748,21 @@
           "type": "consumable",
           "level": 20,
           "grade": "yellow",
-          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
-          "qiPercent": 0.72,
+          "desc": "丹火纯明，入腹如日照气海，能引阳和灵机迅速回流。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pure_yang_pill",
+              "name": "纯阳丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         },
         {
@@ -15407,8 +15835,22 @@
           "name": "小还灵丹",
           "type": "consumable",
           "level": 4,
-          "desc": "药力柔和，立刻恢复 22% 真气。",
-          "qiPercent": 0.22,
+          "grade": "mortal",
+          "desc": "丹气清薄如晨雾，入腹后沿经脉回旋，牵引散乱灵机归于气海。",
+          "baselineQiPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.minor_qi_pill",
+              "name": "小还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 220
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -15460,8 +15902,22 @@
           "name": "小还灵丹",
           "type": "consumable",
           "level": 4,
-          "desc": "药力柔和，立刻恢复 22% 真气。",
-          "qiPercent": 0.22,
+          "grade": "mortal",
+          "desc": "丹气清薄如晨雾，入腹后沿经脉回旋，牵引散乱灵机归于气海。",
+          "baselineQiPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.minor_qi_pill",
+              "name": "小还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 220
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         },
         {
@@ -15469,11 +15925,25 @@
           "name": "回春散",
           "type": "consumable",
           "level": 2,
+          "grade": "mortal",
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-          "baselineHealPercent": 0.5,
+          "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+          "baselineHealPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pill_minor_heal",
+              "name": "回春散·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 210
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -15628,8 +16098,21 @@
           "type": "consumable",
           "level": 20,
           "grade": "yellow",
-          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
-          "qiPercent": 0.72,
+          "desc": "丹火纯明，入腹如日照气海，能引阳和灵机迅速回流。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pure_yang_pill",
+              "name": "纯阳丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -15675,8 +16158,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         },
         {
@@ -15749,11 +16245,25 @@
           "name": "回春散",
           "type": "consumable",
           "level": 2,
+          "grade": "mortal",
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-          "baselineHealPercent": 0.5,
+          "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+          "baselineHealPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pill_minor_heal",
+              "name": "回春散·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 210
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -15811,11 +16321,25 @@
           "name": "回春散",
           "type": "consumable",
           "level": 2,
+          "grade": "mortal",
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-          "baselineHealPercent": 0.5,
+          "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+          "baselineHealPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pill_minor_heal",
+              "name": "回春散·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 210
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -16014,8 +16538,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -16064,11 +16601,25 @@
           "name": "回春散",
           "type": "consumable",
           "level": 2,
+          "grade": "mortal",
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-          "baselineHealPercent": 0.5,
+          "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+          "baselineHealPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pill_minor_heal",
+              "name": "回春散·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 210
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -16333,11 +16884,25 @@
           "name": "回春散",
           "type": "consumable",
           "level": 2,
+          "grade": "mortal",
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-          "baselineHealPercent": 0.5,
+          "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+          "baselineHealPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pill_minor_heal",
+              "name": "回春散·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 210
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 3
         }
       ],
@@ -16557,8 +17122,22 @@
           "name": "小还灵丹",
           "type": "consumable",
           "level": 4,
-          "desc": "药力柔和，立刻恢复 22% 真气。",
-          "qiPercent": 0.22,
+          "grade": "mortal",
+          "desc": "丹气清薄如晨雾，入腹后沿经脉回旋，牵引散乱灵机归于气海。",
+          "baselineQiPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.minor_qi_pill",
+              "name": "小还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 220
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -16632,8 +17211,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         }
       ],
@@ -16760,8 +17352,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         },
         {
@@ -16857,8 +17462,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -16894,8 +17512,21 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
-          "baselineHealPercent": 1.1,
+          "desc": "膏色微寒，贴脉而行，能以寒意镇住躁血并回护心脉。",
+          "baselineHealPercent": 4,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.frost_heart_paste",
+              "name": "寒心膏·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -16943,8 +17574,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         },
         {
@@ -17042,8 +17686,21 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
-          "baselineHealPercent": 1.1,
+          "desc": "膏色微寒，贴脉而行，能以寒意镇住躁血并回护心脉。",
+          "baselineHealPercent": 4,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.frost_heart_paste",
+              "name": "寒心膏·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -17205,8 +17862,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -17290,8 +17960,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         }
       ],
@@ -17551,8 +18234,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         }
       ],
@@ -17599,11 +18295,25 @@
           "name": "回春散",
           "type": "consumable",
           "level": 2,
+          "grade": "mortal",
           "tags": [
             "战斗丹药"
           ],
-          "desc": "草木药气温和，服下后立刻恢复标准 2 级修士最大气血的 50%。",
-          "baselineHealPercent": 0.5,
+          "desc": "细散如新叶初碎，入口温润，能把浅薄伤气缓缓拢回肌理。",
+          "baselineHealPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.pill_minor_heal",
+              "name": "回春散·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 210
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         }
       ],
@@ -17654,8 +18364,21 @@
           "type": "consumable",
           "level": 8,
           "grade": "yellow",
-          "desc": "药力更浑厚，立刻恢复 32% 真气。",
-          "qiPercent": 0.32,
+          "desc": "丹中灵潮沉稳，一经化开便如潮声回谷，续上枯竭气海。",
+          "baselineQiPercent": 2,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.major_qi_pill",
+              "name": "大还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 280
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -17846,8 +18569,22 @@
           "name": "小还灵丹",
           "type": "consumable",
           "level": 4,
-          "desc": "药力柔和，立刻恢复 22% 真气。",
-          "qiPercent": 0.22,
+          "grade": "mortal",
+          "desc": "丹气清薄如晨雾，入腹后沿经脉回旋，牵引散乱灵机归于气海。",
+          "baselineQiPercent": 1,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.minor_qi_pill",
+              "name": "小还灵丹·回灵",
+              "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+              "shortMark": "灵",
+              "duration": 600,
+              "stats": {
+                "qiRegenRate": 220
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 1
         },
         {
@@ -17856,8 +18593,21 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
-          "baselineHealPercent": 1.1,
+          "desc": "膏色微寒，贴脉而行，能以寒意镇住躁血并回护心脉。",
+          "baselineHealPercent": 4,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.frost_heart_paste",
+              "name": "寒心膏·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {
@@ -17941,8 +18691,21 @@
           "type": "consumable",
           "level": 10,
           "grade": "mystic",
-          "desc": "寒性药膏可稳住伤处，立刻恢复标准 10 级修士最大气血的 110%。",
-          "baselineHealPercent": 1.1,
+          "desc": "膏色微寒，贴脉而行，能以寒意镇住躁血并回护心脉。",
+          "baselineHealPercent": 4,
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.frost_heart_paste",
+              "name": "寒心膏·回生",
+              "desc": "药力护住经络，生命回复暂时大幅提高。",
+              "shortMark": "生",
+              "duration": 600,
+              "stats": {
+                "hpRegenRate": 400
+              },
+              "statMode": "percent"
+            }
+          ],
           "count": 2
         },
         {

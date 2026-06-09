@@ -26,18 +26,44 @@
     "name": "回灵散",
     "type": "consumable",
     "level": 21,
-    "desc": "把散乱灵气压回经脉，立刻恢复 56% 真气。",
-    "qiPercent": 0.56,
-    "grade": "yellow"
+    "desc": "散末遇气即化，清凉灵意贴着经络回转，收拢散失灵机。",
+    "grade": "yellow",
+    "baselineQiPercent": 2,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.recovery_powder",
+        "name": "回灵散·回灵",
+        "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+        "shortMark": "灵",
+        "duration": 600,
+        "stats": {
+          "qiRegenRate": 410
+        },
+        "statMode": "percent"
+      }
+    ]
   },
   {
     "itemId": "stabilizing_pellet",
     "name": "镇脉丸",
     "type": "consumable",
     "level": 22,
-    "desc": "药势会贴着经脉走一圈，立刻恢复标准 22 级修士最大气血的 85%。",
-    "baselineHealPercent": 0.85,
-    "grade": "yellow"
+    "desc": "丸体沉厚，药势贴脉而行，能压住乱血并稳住经络根基。",
+    "grade": "yellow",
+    "baselineHealPercent": 2,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.stabilizing_pellet",
+        "name": "镇脉丸·回生",
+        "desc": "药力护住经络，生命回复暂时大幅提高。",
+        "shortMark": "生",
+        "duration": 600,
+        "stats": {
+          "hpRegenRate": 420
+        },
+        "statMode": "percent"
+      }
+    ]
   },
   {
     "itemId": "pill.edge_quenching_powder",
@@ -67,18 +93,44 @@
     "name": "养脉膏",
     "type": "consumable",
     "level": 24,
-    "desc": "膏体入口微苦，立刻恢复标准 24 级修士最大气血的 110%。",
-    "baselineHealPercent": 1.1,
-    "grade": "mystic"
+    "desc": "膏香微苦，入脉后如春水养枝，缓缓托起枯损经络。",
+    "grade": "mystic",
+    "baselineHealPercent": 4,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.pill_nurturing_paste",
+        "name": "养脉膏·回生",
+        "desc": "药力护住经络，生命回复暂时大幅提高。",
+        "shortMark": "生",
+        "duration": 600,
+        "stats": {
+          "hpRegenRate": 680
+        },
+        "statMode": "percent"
+      }
+    ]
   },
   {
     "itemId": "pill.cleartide_powder",
     "name": "清脉散",
     "type": "consumable",
     "level": 25,
-    "desc": "药粉化开后会把杂气往外带，立刻恢复 60% 真气。",
-    "qiPercent": 0.6,
-    "grade": "mystic"
+    "desc": "药粉清澈如潮痕，能洗去经络浮浊，使灵机重新贯通。",
+    "grade": "mystic",
+    "baselineQiPercent": 4,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.pill_cleartide_powder",
+        "name": "清脉散·回灵",
+        "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
+        "shortMark": "灵",
+        "duration": 600,
+        "stats": {
+          "qiRegenRate": 700
+        },
+        "statMode": "percent"
+      }
+    ]
   },
   {
     "itemId": "pill.chiyang_draught",
@@ -109,9 +161,22 @@
     "name": "厚土膏",
     "type": "consumable",
     "level": 27,
-    "desc": "药膏入口厚重，立刻恢复标准 27 级修士最大气血的 110%。",
-    "baselineHealPercent": 1.1,
-    "grade": "mystic"
+    "desc": "膏质厚重如温土覆伤，能把外散生机重新压回血肉。",
+    "grade": "mystic",
+    "baselineHealPercent": 4,
+    "consumeBuffs": [
+      {
+        "buffId": "item_buff.pill_earthrest_paste",
+        "name": "厚土膏·回生",
+        "desc": "药力护住经络，生命回复暂时大幅提高。",
+        "shortMark": "生",
+        "duration": 600,
+        "stats": {
+          "hpRegenRate": 740
+        },
+        "statMode": "percent"
+      }
+    ]
   },
   {
     "itemId": "pill.fivephase_harmony_pellet",

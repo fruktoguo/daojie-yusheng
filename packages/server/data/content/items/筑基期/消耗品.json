@@ -5,21 +5,21 @@
     "type": "consumable",
     "level": 31,
     "desc": "丹色如霜，入口却生温润春意，能把断续生机重新拢回经络。",
-    "baselineHealPercent": 0.845,
     "consumeBuffs": [
       {
-        "buffId": "item_buff.foundation_coldmarrow_heal",
-        "name": "寒髓回春",
-        "desc": "寒髓温意护住经络，生命回复暂时大幅提高。",
-        "shortMark": "春",
+        "buffId": "item_buff.pill_foundation_coldmarrow_heal",
+        "name": "寒髓回春丹·回生",
+        "desc": "药力护住经络，生命回复暂时大幅提高。",
+        "shortMark": "生",
         "duration": 600,
         "stats": {
-          "hpRegenRate": 169
+          "hpRegenRate": 1400
         },
         "statMode": "percent"
       }
     ],
-    "grade": "earth"
+    "grade": "earth",
+    "baselineHealPercent": 8
   },
   {
     "itemId": "pill.foundation_frostspring_qi",
@@ -27,21 +27,21 @@
     "type": "consumable",
     "level": 31,
     "desc": "霜泉凝作一丸，化开时如清流入海，能引散乱灵机重归气海。",
-    "baselineQiPercent": 0.845,
     "consumeBuffs": [
       {
-        "buffId": "item_buff.foundation_frostspring_qi",
-        "name": "霜泉回灵",
-        "desc": "霜泉清气盘绕气海，灵力回复暂时大幅提高。",
+        "buffId": "item_buff.pill_foundation_frostspring_qi",
+        "name": "霜泉还灵丹·回灵",
+        "desc": "药力盘绕气海，灵力回复暂时大幅提高。",
         "shortMark": "灵",
         "duration": 600,
         "stats": {
-          "qiRegenRate": 169
+          "qiRegenRate": 1400
         },
         "statMode": "percent"
       }
     ],
-    "grade": "earth"
+    "grade": "earth",
+    "baselineQiPercent": 8
   },
   {
     "itemId": "wudao_yujian",

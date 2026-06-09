@@ -53,6 +53,7 @@ signature = itemId + '#' + enhanceLevel
   - `healPercent`: 按玩家当前最大气血比例瞬回。
   - `baselineHealPercent`: 按物品 `level` 对应标准玩家最大气血比例瞬回；配置保留百分比，运行时按 `player-final-attr-baselines.json` 计算实际数值。
   - `qiPercent`: 按玩家当前最大真气比例瞬回。
+  - `baselineQiPercent`: 按物品 `level` 对应标准玩家最大灵力比例瞬回；配置保留百分比，运行时按 `player-final-attr-baselines.json` 计算实际数值。
 - skill_book: 检查学习条件 → 消耗 → 学习功法/技能
 - 玩家主动使用、丢弃、摧毁、装备、布阵、强化、市场上架等资产操作必须以 `itemInstanceId` 定位背包目标；背包数组顺序和 UI 格子只用于展示、排序和面板 patch。
 - 自动用药: 背包前 12 格内的消耗品可被自动战斗系统使用
