@@ -302,6 +302,36 @@ async function testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck() {
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
 }
 
+async function testBlockingOfflineGainPreviewExcludesOnlineStatisticRecords() {
+  const service = createService();
+  const player = createPlayer();
+  service.players.set(player.playerId, player);
+
+  service.creditWallet(player.playerId, "spirit_stone", 25);
+  service.debitWallet(player.playerId, "spirit_stone", 5);
+  const onlineRecords = service.getPendingPlayerStatisticRecords(player.playerId);
+  assert.equal(onlineRecords.length, 2);
+  assert.equal(onlineRecords.every((entry) => entry.scope === "online"), true);
+
+  service.detachSession(player.playerId);
+  player.offlineSinceAt = 1_000;
+  await service.beginOfflineGainSession(player.playerId, 1_000);
+  for (let tick = 1; tick <= 60; tick += 1) {
+    service.advanceSinglePlayerTick(player, tick);
+  }
+
+  const previewReports = await service.loadOfflineGainPreviewReports(player.playerId);
+  assert.equal(previewReports.length, 1);
+  assert.equal(previewReports[0].scope, "offline");
+  assert.equal(previewReports[0].durationMs, 60_000);
+  assert.equal(previewReports[0].spiritStones.gained, 0);
+  assert.equal(previewReports[0].spiritStones.lost, 0);
+
+  const pendingRecords = service.getPendingPlayerStatisticRecords(player.playerId);
+  assert.equal(pendingRecords.length, 2);
+  assert.equal(pendingRecords.every((entry) => entry.scope === "online"), true);
+}
+
 async function testBlockingOfflineGainReconnectDoesNotResetSession() {
   const service = createService();
   const player = createPlayer();
@@ -379,6 +409,7 @@ async function main() {
   await testOfflineDurationIncludesNoGainTicks();
   await testUnconfirmedOfflineReportsMergeIntoOnePendingRecord();
   await testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck();
+  await testBlockingOfflineGainPreviewExcludesOnlineStatisticRecords();
   await testBlockingOfflineGainReconnectDoesNotResetSession();
   await testShortOfflineGainDoesNotBlockReconnect();
   await testOnlineAssetMutationsCreateIndependentStatisticReports();

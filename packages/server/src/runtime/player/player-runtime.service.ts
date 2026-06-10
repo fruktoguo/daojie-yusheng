@@ -593,7 +593,8 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId) {
             return [];
         }
-        const pendingReports = await this.loadPendingOfflineGainReports(normalizedPlayerId);
+        const pendingReports = (await this.loadPendingOfflineGainReports(normalizedPlayerId))
+            .filter((report) => report?.scope !== 'online');
         const hasSession = await this.shouldBlockOfflineGainSession(normalizedPlayerId);
         const player = this.players.get(normalizedPlayerId);
         if (!hasSession || !player) {
