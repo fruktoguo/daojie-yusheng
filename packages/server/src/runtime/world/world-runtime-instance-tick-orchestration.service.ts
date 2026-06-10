@@ -14,6 +14,7 @@ import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from 
 import { notifyBuildingConstructionCompletion } from './world-runtime-building.service';
 import { buildStructuredNotice } from './structured-notice.helpers';
 import { InstanceWorkerPoolService } from '../../concurrency/instance-worker-pool.service';
+import { RuntimeMapConfigService } from '../map/runtime-map-config.service';
 import type { TickSectionDurations } from './world-runtime-metrics.service';
 
 const INSTANCE_WORKER_PRECOMPUTE_ENABLED = process.env.SERVER_INSTANCE_WORKER_PRECOMPUTE_ENABLED === 'true'
@@ -29,6 +30,8 @@ export class WorldRuntimeInstanceTickOrchestrationService {
   constructor(
     @Optional() @Inject(InstanceWorkerPoolService)
     private readonly instanceWorkerPool?: InstanceWorkerPoolService,
+    @Optional() @Inject(RuntimeMapConfigService)
+    private readonly runtimeMapConfigService?: RuntimeMapConfigService,
   ) {}
 
   /** T-17: 外部标记玩家死亡，加入增量集合。 */
@@ -552,7 +555,7 @@ export class WorldRuntimeInstanceTickOrchestrationService {
                         instanceTick: instance.tick,
                         worldTick: deps.tick,
                         playerCount: currentPlayerIds.length,
-                    }), () => syncWorldTimeVisionForPlayers(instance, currentPlayerIds, deps.playerRuntimeService, speed));
+                    }), () => syncWorldTimeVisionForPlayers(instance, currentPlayerIds, deps.playerRuntimeService, speed, this.runtimeMapConfigService));
                     addMeasuredTickSection(sectionDurations, 'instance.playerWorldTimeVisionMs', worldTimeVisionStartedAt, currentPlayerIds.length);
                     const cultivationAuraMultiplierByPlayerId = new Map();
                     const cultivationAuraProjectionStartedAt = performance.now();
@@ -720,14 +723,15 @@ function computeFallbackInstanceIntentProposal(payload) {
     };
 }
 
-function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntimeService, tickSpeed = 1) {
+export function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntimeService, tickSpeed = 1, runtimeMapConfigService = null) {
     if (!playerRuntimeService || typeof playerRuntimeService.getPlayer !== 'function') {
         return;
     }
+    const timeConfig = resolveInstanceTimeConfig(instance, runtimeMapConfigService);
     const timeState = resolveGameTimeState(
         instance.tick,
         1,
-        instance.template?.source?.time,
+        timeConfig,
         tickSpeed,
     );
     for (const playerId of playerIds) {
@@ -743,6 +747,29 @@ function syncWorldTimeVisionForPlayers(instance, playerIds, playerRuntimeService
             playerRuntimeService.playerAttributesService.recalculate(player);
         }
     }
+}
+
+function resolveInstanceTimeConfig(instance, runtimeMapConfigService) {
+    const baseTimeConfig = instance?.template?.source?.time;
+    const mapId = resolveInstanceTemplateId(instance);
+    if (mapId && typeof runtimeMapConfigService?.getMapTimeConfig === 'function') {
+        return runtimeMapConfigService.getMapTimeConfig(mapId, baseTimeConfig ?? {});
+    }
+    return baseTimeConfig;
+}
+
+function resolveInstanceTemplateId(instance) {
+    const candidates = [
+        instance?.template?.id,
+        instance?.meta?.templateId,
+        instance?.templateId,
+    ];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim()) {
+            return candidate.trim();
+        }
+    }
+    return '';
 }
 
 function isSameWorldTimeVisionState(left, right) {
