@@ -35,6 +35,7 @@ import type { MainTargetingStateSource } from './main-targeting-state-source';
 import type { MainUiStateSource } from './main-ui-state-source';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
+import { GuidedTour } from './ui/guided-tour';
 import { startClientVersionReload } from './version-reload';
 import { mountReactUi } from './react-ui/app/mount';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
@@ -344,6 +345,9 @@ type MainBootstrapAssemblyOptions = {
     | 'setLayoutChangeCallback'
     | 'setTabChangeCallback'
     | 'isVisible'
+    | 'switchTab'
+    | 'setLayoutCollapsed'
+    | 'isMobileLayoutActive'
   >;
   /**
  * chatUI：chatUI相关字段。
@@ -631,6 +635,16 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     socialEconomySender: options.socialEconomySender,
     adminSender: options.adminSender,
   });
+
+  new GuidedTour({
+    documentRef: options.documentRef,
+    windowRef: options.windowRef,
+    controls: {
+      switchTab: (tabName) => options.sidePanel.switchTab(tabName),
+      setLayoutCollapsed: (target, collapsed, controlOptions) => options.sidePanel.setLayoutCollapsed(target, collapsed, controlOptions),
+      isMobileLayoutActive: () => options.sidePanel.isMobileLayoutActive(),
+    },
+  }).initialize();
 
   bindMainShellInteractions({
     sidePanel: options.sidePanel,
