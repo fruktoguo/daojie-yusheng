@@ -150,6 +150,7 @@ export class GuidedTour {
   private activeFlow: GuidedTourFlow | null = null;
   private activeStepIndex = -1;
   private activeTarget: ActiveTarget | null = null;
+  private targetAdvanceQueued = false;
   private repositionQueued = false;
   private initialized = false;
   private shellObserver: MutationObserver | null = null;
@@ -354,6 +355,7 @@ export class GuidedTour {
 
     this.ensureDom();
     this.activeTarget = null;
+    this.targetAdvanceQueued = false;
     await this.applyPrepareActions(step.prepare ?? []);
     const target = await this.resolveTarget(step);
     if (!target) {
@@ -666,18 +668,35 @@ export class GuidedTour {
   private handleDocumentClick(event: MouseEvent): void {
     const flow = this.activeFlow;
     const target = this.activeTarget;
-    if (!flow || !target) {
+    if (!flow || !target || !(event.target instanceof Node)) {
+      return;
+    }
+    if (this.host?.contains(event.target)) {
       return;
     }
     const step = flow.steps[this.activeStepIndex];
-    if (step?.advanceMode !== 'target-click') {
+    if (!step || !target.element.contains(event.target)) {
       return;
     }
-    if (event.target instanceof Node && target.element.contains(event.target)) {
-      this.windowRef.setTimeout(() => {
-        void this.goNext();
-      }, 80);
+
+    if (step.advanceMode === 'target-click') {
+      this.queueTargetAdvance(80);
+      return;
     }
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.queueTargetAdvance(0);
+  }
+
+  private queueTargetAdvance(delayMs: number): void {
+    if (this.targetAdvanceQueued) {
+      return;
+    }
+    this.targetAdvanceQueued = true;
+    this.windowRef.setTimeout(() => {
+      void this.goNext();
+    }, delayMs);
   }
 
   private async goNext(): Promise<void> {
@@ -719,6 +738,7 @@ export class GuidedTour {
     this.activeFlow = null;
     this.activeStepIndex = -1;
     this.activeTarget = null;
+    this.targetAdvanceQueued = false;
     this.setHostVisible(false);
   }
 
