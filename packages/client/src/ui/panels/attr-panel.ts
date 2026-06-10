@@ -570,7 +570,7 @@ function renderAttrMiniCard(
   },
 ): string {
   const iconHtml = renderAtlasIcon(card.key, 'attr-mini-icon');
-  return `<div class="attr-mini ${iconHtml ? 'attr-mini--with-icon' : ''}" ${options.cardAttr}="${escapeHtml(card.key)}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
+  return `<div class="attr-mini ${iconHtml ? 'attr-mini--with-icon' : ''}" ${options.cardAttr}="${escapeHtml(card.key)}" data-tooltip-key="${escapeHtml(card.key)}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
     <div class="attr-mini-main">
       ${iconHtml}
       <div class="attr-mini-value" ${options.valueAttr}="true">${card.value}</div>
@@ -919,6 +919,8 @@ export class AttrPanel {
   private lastStructureKey: string | null = null;
   /** tooltipTarget：提示目标。 */
   private tooltipTarget: Element | null = null;  
+  private tooltipTargetKey: string | null = null;
+  private tooltipRefreshFrame: number | null = null;
   /** tabButtons：属性页签节点缓存。 */
   private tabButtons = new Map<AttrTab, HTMLElement>();
   /** paneEls：属性分页节点缓存。 */
@@ -969,6 +971,8 @@ export class AttrPanel {
     this.lastSnapshot = null;
     this.lastStructureKey = null;
     this.tooltipTarget = null;
+    this.tooltipTargetKey = null;
+    this.cancelScheduledTooltipRefresh();
     this.tabButtons.clear();
     this.paneEls.clear();
     this.tooltip.hide(true);
@@ -1016,7 +1020,7 @@ export class AttrPanel {
     const structureKey = this.buildStructureKey(snapshot);
     if (this.useReactPanel()) {
       this.renderReact(snapshot);
-      this.refreshActiveTooltipContent();
+      this.scheduleActiveTooltipRefresh();
       if (this.tooltipTarget) {
         this.requestDetailIfNeeded();
       }
@@ -1086,6 +1090,7 @@ export class AttrPanel {
     );
     if (this.useReactPanel()) {
       this.renderReact(snapshot);
+      this.scheduleActiveTooltipRefresh();
       return;
     }
     this.render(snapshot);
@@ -1125,6 +1130,7 @@ export class AttrPanel {
     );
     if (this.useReactPanel()) {
       this.renderReact(snapshot);
+      this.scheduleActiveTooltipRefresh();
       return;
     }
     this.render(snapshot);
@@ -1778,7 +1784,7 @@ export class AttrPanel {
     if (this.isPaneVisible()) {
       return false;
     }
-    this.tooltipTarget = null;
+    this.clearTooltipTarget();
     this.tooltip.hide(true);
     this.renderPendingWhileHidden = true;
     return true;
@@ -1819,7 +1825,7 @@ export class AttrPanel {
     if (tab === this.activeTab) {
       return;
     }
-    this.tooltipTarget = null;
+    this.clearTooltipTarget();
     this.tooltip.hide(true);
     this.activeTab = tab;
     if (this.useReactPanel()) {
@@ -1835,13 +1841,13 @@ export class AttrPanel {
   }
 
   private openCraftSkill(key: string): void {
-    this.tooltipTarget = null;
+    this.clearTooltipTarget();
     this.tooltip.hide(true);
     this.callbacks?.onOpenCraftSkill?.(key);
   }
 
   private bindCraftSkill(key: string): void {
-    this.tooltipTarget = null;
+    this.clearTooltipTarget();
     this.tooltip.hide(true);
     this.callbacks?.onBindCraftSkill?.(key);
     this.patchCraftActionButtons();
@@ -2256,7 +2262,7 @@ export class AttrPanel {
       if (!key) {
         return;
       }
-      this.tooltipTarget = null;
+      this.clearTooltipTarget();
       this.tooltip.hide(true);
       this.callbacks?.onOpenCraftSkill?.(key);
       event.preventDefault();
@@ -2574,11 +2580,12 @@ export class AttrPanel {
       }
       this.requestDetailIfNeeded();
       if (this.tooltip.isPinnedTo(tooltipNode)) {
-        this.tooltipTarget = null;
+        this.clearTooltipTarget();
         this.tooltip.hide(true);
         return;
       }
       this.tooltipTarget = tooltipNode;
+      this.tooltipTargetKey = this.resolveTooltipTargetKey(tooltipNode);
       const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
       const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
       this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
@@ -2593,7 +2600,7 @@ export class AttrPanel {
       const target = event.target;
       if (!(target instanceof Element)) {
         if (this.tooltipTarget) {
-          this.tooltipTarget = null;
+          this.clearTooltipTarget();
           this.tooltip.hide();
         }
         return;
@@ -2602,7 +2609,7 @@ export class AttrPanel {
       const tooltipNode = target.closest('[data-tooltip-title]');
       if (!tooltipNode) {
         if (this.tooltipTarget) {
-          this.tooltipTarget = null;
+          this.clearTooltipTarget();
           this.tooltip.hide();
         }
         return;
@@ -2611,6 +2618,7 @@ export class AttrPanel {
 
       if (this.tooltipTarget !== tooltipNode) {
         this.tooltipTarget = tooltipNode;
+        this.tooltipTargetKey = this.resolveTooltipTargetKey(tooltipNode);
         const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
         const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
         this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
@@ -2621,7 +2629,7 @@ export class AttrPanel {
     });
 
     this.pane.addEventListener('pointerleave', () => {
-      this.tooltipTarget = null;
+      this.clearTooltipTarget();
       this.tooltip.hide();
     });
 
@@ -2629,7 +2637,7 @@ export class AttrPanel {
       if (!this.tooltipTarget) {
         return;
       }
-      this.tooltipTarget = null;
+      this.clearTooltipTarget();
       this.tooltip.hide();
     });
   }
@@ -2654,13 +2662,86 @@ export class AttrPanel {
     if (!this.tooltipTarget) {
       return;
     }
-    if (!this.tooltipTarget.isConnected) {
-      this.tooltipTarget = null;
+    const target = this.resolveCurrentTooltipTarget();
+    if (!target) {
+      this.clearTooltipTarget();
       this.tooltip.hide(true);
       return;
     }
-    const title = this.tooltipTarget.getAttribute('data-tooltip-title') ?? '';
-    const detail = this.tooltipTarget.getAttribute('data-tooltip-detail') ?? '';
+    this.tooltipTarget = target;
+    const title = target.getAttribute('data-tooltip-title') ?? '';
+    const detail = target.getAttribute('data-tooltip-detail') ?? '';
     this.tooltip.updateContent(title, splitTooltipLines(detail), { allowHtml: true });
+  }
+
+  private clearTooltipTarget(): void {
+    this.tooltipTarget = null;
+    this.tooltipTargetKey = null;
+    this.cancelScheduledTooltipRefresh();
+  }
+
+  private resolveTooltipTargetKey(target: Element): string | null {
+    const explicitKey = target.getAttribute('data-tooltip-key');
+    if (explicitKey) {
+      return explicitKey;
+    }
+    const attributes = [
+      'data-numeric-card',
+      'data-radar-extra-card',
+      'data-radar-summary-card',
+      'data-craft-skill',
+      'data-radar-icon-node',
+      'data-radar-node',
+    ];
+    for (const attr of attributes) {
+      const value = target.getAttribute(attr);
+      if (value) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  private resolveCurrentTooltipTarget(): Element | null {
+    if (this.tooltipTarget?.isConnected) {
+      return this.tooltipTarget;
+    }
+    if (!this.tooltipTargetKey) {
+      return null;
+    }
+    const activePane = this.pane.querySelector<HTMLElement>(`[data-attr-pane="${this.activeTab}"]`);
+    const scope = activePane ?? this.pane;
+    for (const candidate of scope.querySelectorAll<HTMLElement>('[data-tooltip-title]')) {
+      if (this.resolveTooltipTargetKey(candidate) === this.tooltipTargetKey) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private scheduleActiveTooltipRefresh(): void {
+    if (!this.tooltipTarget) {
+      return;
+    }
+    this.cancelScheduledTooltipRefresh();
+    const schedule = typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0);
+    this.tooltipRefreshFrame = schedule(() => {
+      this.tooltipRefreshFrame = null;
+      this.refreshActiveTooltipContent();
+    });
+  }
+
+  private cancelScheduledTooltipRefresh(): void {
+    if (this.tooltipRefreshFrame === null) {
+      return;
+    }
+    if (typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(this.tooltipRefreshFrame);
+    } else {
+      window.clearTimeout(this.tooltipRefreshFrame);
+    }
+    this.tooltipRefreshFrame = null;
   }
 }

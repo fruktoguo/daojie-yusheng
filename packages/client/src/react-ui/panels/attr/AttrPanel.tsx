@@ -183,6 +183,7 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
                 key={i}
                 className="attr-radar-node"
                 data-radar-node={i}
+                data-tooltip-key={node.key}
                 data-tooltip-title={node.tooltipTitle}
                 data-tooltip-detail={node.tooltipDetail}
               >
@@ -197,6 +198,7 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
               key={node.key}
               className="attr-radar-icon-node"
               data-radar-icon-node={i}
+              data-tooltip-key={node.key}
               style={{ left: formatRadarNodePercent(node.labelX), top: formatRadarNodePercent(node.labelY) }}
               data-tooltip-title={node.tooltipTitle}
               data-tooltip-detail={node.tooltipDetail}
@@ -210,6 +212,7 @@ const RadarPane = memo(function RadarPane({ pane }: { pane: AttrRadarPaneSnapsho
               key={card.key}
               className="attr-radar-floating-stat"
               data-radar-summary-card={card.key}
+              data-tooltip-key={card.key}
               data-tooltip-title={card.tooltipTitle}
               data-tooltip-detail={card.tooltipDetail}
             >
@@ -248,6 +251,7 @@ const NumericCard = memo(function NumericCard({ card }: { card: AttrNumericCardS
   return (
     <div
       className={`attr-mini${ATTR_ICON_ATLAS_CELLS[card.key] ? ' attr-mini--with-icon' : ''}`}
+      data-tooltip-key={card.key}
       data-tooltip-title={card.tooltipTitle}
       data-tooltip-detail={card.tooltipDetail}
     >
@@ -271,7 +275,7 @@ const CraftPane = memo(function CraftPane({ pane }: { pane: AttrCraftPaneSnapsho
   return (
     <div className="attr-craft-list">
       {pane.skills.map((skill) => (
-        <div key={skill.key} className="attr-craft-row" data-tooltip-title={skill.tooltipTitle} data-tooltip-detail={skill.tooltipDetail}>
+        <div key={skill.key} className="attr-craft-row" data-tooltip-key={skill.key} data-tooltip-title={skill.tooltipTitle} data-tooltip-detail={skill.tooltipDetail}>
           <span className="attr-craft-label">{skill.label}</span>
           <strong className="attr-craft-level">{skill.level}</strong>
           <div className="attr-craft-exp">
