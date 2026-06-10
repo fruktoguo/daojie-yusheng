@@ -2040,6 +2040,49 @@
       height: 100%;
       min-height: 0;
     }
+    .detail-modal-card.detail-modal--guided-tour-list {
+      width: min(560px, calc(100vw - 24px));
+      background:
+        radial-gradient(circle at top right, rgba(197, 60, 60, 0.08), transparent 28%),
+        var(--surface-gradient-paper);
+    }
+    .guided-tour-list-modal {
+      display: grid;
+      gap: 12px;
+    }
+    .guided-tour-list-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .guided-tour-list-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "title action"
+        "meta action";
+      align-items: center;
+      gap: 4px 12px;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      border-radius: 8px;
+      background: var(--surface-card);
+    }
+    .guided-tour-list-item-title {
+      grid-area: title;
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-15);
+      font-weight: var(--font-weight-strong);
+      line-height: 1.35;
+    }
+    .guided-tour-list-item-meta {
+      grid-area: meta;
+      color: var(--ink-grey);
+      font-size: var(--font-size-role-body-12);
+    }
+    .guided-tour-list-start {
+      grid-area: action;
+      min-width: 92px;
+    }
     @supports not (zoom: 1) {
     }
     .technique-generation-panel {

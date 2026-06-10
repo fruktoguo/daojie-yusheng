@@ -185,7 +185,7 @@ export function TutorialPanelContent() {
 
   return (
     <div className="tutorial-modal-body" ref={panelRef}>
-      {/* 直接展示机制百科内容，无需主 Tab 切换 */}
+      {/* 直接展示百科内容，无需主 Tab 切换 */}
       <div className="tutorial-modal-main-panes">
         <section
           className="tutorial-modal-main-pane tutorial-modal-main-pane--mechanics active"

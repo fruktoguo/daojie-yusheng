@@ -275,6 +275,14 @@ const HudLinkActions = memo(function HudLinkActions() {
       >
         <span className="hud-link-btn-text">{t('shell.hud-link-btn-text-simple-tutorial', undefined)}</span>
       </button>
+      <button
+        id="hud-open-guided-tour"
+        className="hud-corner-btn hud-link-btn hud-link-btn--tutorial"
+        type="button"
+        aria-label={t('shell.open-guided-tour.aria-label', undefined)}
+      >
+        <span className="hud-link-btn-text">{t('shell.hud-link-btn-text-guided-tour', undefined)}</span>
+      </button>
     </>
   );
 });

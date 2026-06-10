@@ -111,9 +111,9 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
         id: 'tutorial-book',
         targetSelector: '#hud-open-tutorial',
         titleKey: 'guided-tour.step.tutorial.title',
-        titleFallback: '机制百科随时可查',
+        titleFallback: '百科随时可查',
         bodyKey: 'guided-tour.step.tutorial.body',
-        bodyFallback: '不清楚系统规则时，可以从这里打开机制百科。导览完成后也能从设置或调试入口重新打开。',
+        bodyFallback: '不清楚系统规则时，可以从这里打开百科。导览完成后也能从设置或调试入口重新打开。',
         placement: 'bottom',
         prepare: [
           { type: 'set-layout-collapsed', target: 'left', collapsed: false, when: 'desktop' },

@@ -642,9 +642,9 @@
     }
     .hud-link-btn--tutorial {
       width: auto;
-      min-width: 116px;
+      min-width: 72px;
       height: 40px;
-      padding: 0 16px;
+      padding: 0 14px;
       border-radius: 12px;
       background:
         linear-gradient(180deg, rgba(214, 188, 142, 0.22), rgba(197, 60, 60, 0.08)),

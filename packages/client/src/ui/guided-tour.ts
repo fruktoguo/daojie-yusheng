@@ -12,6 +12,7 @@ import {
   type GuidedTourPrepareWhen,
   type GuidedTourStep,
 } from '../constants/ui/guided-tour';
+import { detailModalHost } from './detail-modal-host';
 import { t } from './i18n';
 
 type GuidedTourLayoutTarget = 'left' | 'right' | 'bottom';
@@ -65,6 +66,7 @@ const VIEWPORT_MARGIN = 12;
 const CARD_GAP = 16;
 const TARGET_WAIT_TIMEOUT_MS = 3200;
 const TARGET_WAIT_INTERVAL_MS = 80;
+const MODAL_OWNER = 'guided-tour-list';
 
 function emptyStorageState(): GuidedTourStorageState {
   return {
@@ -156,6 +158,7 @@ export class GuidedTour {
     }
     this.initialized = true;
     this.registerDebugApi();
+    this.bindEntryButton();
     this.bindGlobalEvents();
     this.scheduleAutoStart();
   }
@@ -195,6 +198,87 @@ export class GuidedTour {
       reset: (flowId) => this.reset(flowId),
       status: () => this.readStorageState(),
     };
+  }
+
+  private bindEntryButton(): void {
+    this.documentRef.addEventListener('click', (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('#hud-open-guided-tour')
+        : null;
+      if (!button) {
+        return;
+      }
+      event.preventDefault();
+      this.openFlowList();
+    });
+  }
+
+  private openFlowList(): void {
+    detailModalHost.open({
+      ownerId: MODAL_OWNER,
+      size: 'md',
+      variantClass: 'detail-modal--guided-tour-list',
+      title: t('guided-tour.list.title', undefined, '引导'),
+      subtitle: t('guided-tour.list.subtitle', undefined, '选择一组引导重新播放。'),
+      hint: t('guided-tour.list.close-hint', undefined, '点击空白处关闭'),
+      renderBody: (body) => {
+        body.replaceChildren(this.createFlowListBody());
+      },
+      onAfterRender: (body, signal) => {
+        body.querySelectorAll<HTMLButtonElement>('[data-guided-tour-flow]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const flowId = button.dataset.guidedTourFlow;
+            if (!flowId) {
+              return;
+            }
+            detailModalHost.close(MODAL_OWNER);
+            this.start(flowId, { force: true });
+          }, { signal });
+        });
+      },
+    });
+  }
+
+  private createFlowListBody(): DocumentFragment {
+    const fragment = this.documentRef.createDocumentFragment();
+    const shell = this.documentRef.createElement('div');
+    shell.className = 'guided-tour-list-modal';
+
+    if (this.flows.length <= 0) {
+      const empty = this.documentRef.createElement('div');
+      empty.className = 'empty-hint';
+      empty.textContent = t('guided-tour.list.empty', undefined, '暂无可用引导');
+      shell.append(empty);
+      fragment.append(shell);
+      return fragment;
+    }
+
+    const grid = this.documentRef.createElement('div');
+    grid.className = 'guided-tour-list-grid';
+    for (const flow of this.flows) {
+      const item = this.documentRef.createElement('article');
+      item.className = 'guided-tour-list-item';
+
+      const title = this.documentRef.createElement('div');
+      title.className = 'guided-tour-list-item-title';
+      title.textContent = resolveCopy(flow.titleKey, flow.titleFallback);
+
+      const meta = this.documentRef.createElement('div');
+      meta.className = 'guided-tour-list-item-meta';
+      meta.textContent = t('guided-tour.list.step-count', { count: flow.steps.length }, `${flow.steps.length} 步`);
+
+      const button = this.documentRef.createElement('button');
+      button.className = 'small-btn guided-tour-list-start';
+      button.type = 'button';
+      button.dataset.guidedTourFlow = flow.id;
+      button.textContent = t('guided-tour.list.start', undefined, '重新引导');
+
+      item.append(title, meta, button);
+      grid.append(item);
+    }
+    shell.append(grid);
+    fragment.append(shell);
+    return fragment;
   }
 
   private bindGlobalEvents(): void {
