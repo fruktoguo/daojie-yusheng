@@ -13,6 +13,7 @@ import {
   type GuidedTourStep,
 } from '../constants/ui/guided-tour';
 import { detailModalHost } from './detail-modal-host';
+import { GUIDED_TOUR_START_EVENT, type GuidedTourStartEventDetail } from './guided-tour-events';
 import { t } from './i18n';
 
 type GuidedTourLayoutTarget = 'left' | 'right' | 'bottom';
@@ -294,6 +295,13 @@ export class GuidedTour {
   private bindGlobalEvents(): void {
     this.windowRef.addEventListener('resize', () => this.queueReposition());
     this.windowRef.visualViewport?.addEventListener('resize', () => this.queueReposition());
+    this.windowRef.addEventListener(GUIDED_TOUR_START_EVENT, (event) => {
+      const flowId = (event as CustomEvent<GuidedTourStartEventDetail>).detail?.flowId;
+      if (!flowId) {
+        return;
+      }
+      this.start(flowId, { force: true });
+    });
     this.documentRef.addEventListener('scroll', () => this.queueReposition(), true);
     this.documentRef.addEventListener('click', (event) => this.handleDocumentClick(event), true);
     this.documentRef.addEventListener('keydown', (event) => {

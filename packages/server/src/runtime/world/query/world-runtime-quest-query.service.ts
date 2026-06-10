@@ -304,6 +304,7 @@ export class WorldRuntimeQuestQueryService {
             requiredItemId: typeof source.quest.requiredItemId === 'string' ? source.quest.requiredItemId : undefined,
             requiredItemCount: Number.isInteger(source.quest.requiredItemCount) ? Number(source.quest.requiredItemCount) : undefined,
             giverId: source.giverNpcId,
+            guideFlowId: typeof source.quest.guideFlowId === 'string' ? source.quest.guideFlowId : undefined,
             targetMapId: typeof source.quest.targetMapId === 'string' && source.quest.targetMapId.trim()
                 ? source.quest.targetMapId.trim()
                 : targetNpcLocation?.mapId,
@@ -565,6 +566,11 @@ export class WorldRuntimeQuestQueryService {
             submitX: Number.isInteger(sourceQuest.submitX) ? Number(sourceQuest.submitX) : submitNpcLocation?.x,
             submitY: Number.isInteger(sourceQuest.submitY) ? Number(sourceQuest.submitY) : submitNpcLocation?.y,
             relayMessage: typeof sourceQuest.relayMessage === 'string' ? sourceQuest.relayMessage : undefined,
+            guideFlowId: typeof quest.guideFlowId === 'string' && quest.guideFlowId.trim()
+                ? quest.guideFlowId.trim()
+                : typeof sourceQuest.guideFlowId === 'string' && sourceQuest.guideFlowId.trim()
+                    ? sourceQuest.guideFlowId.trim()
+                    : undefined,
         };
     }
 };

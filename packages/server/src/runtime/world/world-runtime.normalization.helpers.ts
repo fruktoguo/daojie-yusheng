@@ -548,6 +548,9 @@ export function cloneQuestState(quest, status = quest.status) {
     if (typeof quest.giverId === 'string' && quest.giverId.trim()) {
         cloned.giverId = quest.giverId.trim();
     }
+    if (typeof quest.guideFlowId === 'string' && quest.guideFlowId.trim()) {
+        cloned.guideFlowId = quest.guideFlowId.trim();
+    }
     return cloned;
 }
 

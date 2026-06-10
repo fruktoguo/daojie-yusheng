@@ -39,11 +39,13 @@ export const { store: questPanelStore, useStore: useQuestPanelStore } = createPa
 interface QuestPanelCallbacks {
   onNavigateQuest: ((questId: string) => void) | null;
   onOpenDetail: ((questId: string) => void) | null;
+  onOpenGuideFlow: ((flowId: string) => void) | null;
 }
 
 const callbacks: QuestPanelCallbacks = {
   onNavigateQuest: null,
   onOpenDetail: null,
+  onOpenGuideFlow: null,
 };
 
 export function setQuestPanelCallbacks(cbs: Partial<QuestPanelCallbacks>): void {
@@ -488,10 +490,11 @@ const QuestCard = memo(function QuestCard({
 
 // ─── 详情弹层内容（用于 detailModal） ────────────────────────────────────────
 
-export function QuestDetailContent({ quest, inventory, onNavigate }: {
+export function QuestDetailContent({ quest, inventory, onNavigate, onOpenGuideFlow }: {
   quest: QuestState;
   inventory: Inventory | null;
   onNavigate?: (questId: string) => void;
+  onOpenGuideFlow?: (flowId: string) => void;
 }) {
   const canNav = canNavigateQuest(quest);
   const navLabel = resolveNavigateLabel(quest);
@@ -519,6 +522,13 @@ export function QuestDetailContent({ quest, inventory, onNavigate }: {
       onNavigate?.(quest.id);
     }
   }, [canNav, onNavigate, quest.id]);
+
+  const handleOpenGuide = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (quest.guideFlowId) {
+      onOpenGuideFlow?.(quest.guideFlowId);
+    }
+  }, [onOpenGuideFlow, quest.guideFlowId]);
 
   return (
     <div className="quest-detail-body">
@@ -593,6 +603,22 @@ export function QuestDetailContent({ quest, inventory, onNavigate }: {
         <div className="ui-detail-field ui-detail-field--section">
           <strong>{t('quest.detail.objective-note', undefined)}</strong>
           <div><UiInlineReferenceText text={quest.objectiveText} references={references} /></div>
+        </div>
+      )}
+      {quest.guideFlowId && (
+        <div className="ui-detail-field ui-detail-field--section">
+          <strong>{t('quest.detail.guide', undefined, '相关引导')}</strong>
+          <div className="quest-detail-guide-row">
+            <span>{t('quest.detail.guide-desc', undefined, '打开这个任务关联的操作引导，不会改变任务进度。')}</span>
+            <button
+              className="small-btn quest-detail-guide-btn"
+              type="button"
+              data-quest-guide-flow={quest.guideFlowId}
+              onClick={handleOpenGuide}
+            >
+              {t('quest.action.open-guide', undefined, '打开引导')}
+            </button>
+          </div>
         </div>
       )}
       {quest.relayMessage && (

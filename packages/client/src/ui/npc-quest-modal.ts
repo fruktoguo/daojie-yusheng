@@ -7,6 +7,7 @@ import { Inventory, S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
+import { requestGuidedTour } from './guided-tour-events';
 import { bindInlineItemTooltips, renderInlineItemChip, renderInlineMonsterChip, renderTextWithInlineItemHighlights } from './item-inline-tooltip';
 import { t } from './i18n';
 
@@ -443,6 +444,18 @@ export class NpcQuestModal {
       </div>
       <div class="ui-detail-field ui-detail-field--section ${selected.story ? '' : 'hidden'}"><strong>${escapeHtml(t('quest.detail.story', undefined))}</strong><div>${escapeHtml(selected.story ?? '')}</div></div>
       <div class="ui-detail-field ui-detail-field--section ${selected.objectiveText ? '' : 'hidden'}"><strong>${escapeHtml(t('quest.detail.objective-note', undefined))}</strong><div>${this.renderQuestText(selected.objectiveText ?? '', selected)}</div></div>
+      <div class="ui-detail-field ui-detail-field--section ${selected.guideFlowId ? '' : 'hidden'}">
+        <strong>${escapeHtml(t('quest.detail.guide', undefined, '相关引导'))}</strong>
+        <div class="quest-detail-guide-row">
+          <span>${escapeHtml(t('quest.detail.guide-desc', undefined, '打开这个任务关联的操作引导，不会改变任务进度。'))}</span>
+          <button
+            class="small-btn quest-detail-guide-btn"
+            data-npc-quest-guide-flow="${escapeHtml(selected.guideFlowId ?? '')}"
+            type="button"
+            ${selected.guideFlowId ? '' : 'disabled'}
+          >${escapeHtml(t('quest.action.open-guide', undefined, '打开引导'))}</button>
+        </div>
+      </div>
       <div class="ui-detail-field ui-detail-field--section ${selected.relayMessage ? '' : 'hidden'}"><strong>${escapeHtml(t('quest.detail.relay', undefined))}</strong><div>${this.renderQuestText(selected.relayMessage ?? '', selected)}</div></div>
       <div class="quest-detail-actions ui-action-row ui-action-row--end">
         ${actionButton}
@@ -494,10 +507,28 @@ export class NpcQuestModal {
       return;
     }
 
+    const guideButton = target.closest<HTMLElement>('[data-npc-quest-guide-flow]');
+    if (guideButton) {
+      const flowId = guideButton.dataset.npcQuestGuideFlow;
+      if (flowId) {
+        this.openGuideFlow(flowId);
+      }
+      return;
+    }
+
     if (!target.closest('[data-npc-quest-navigate]') || !this.selectedQuestId) {
       return;
     }
     this.callbacks?.onNavigateQuest(this.selectedQuestId);
+  }
+
+  private openGuideFlow(flowId: string): void {
+    const normalizedFlowId = flowId.trim();
+    if (!normalizedFlowId) {
+      return;
+    }
+    detailModalHost.close(NpcQuestModal.MODAL_OWNER);
+    requestGuidedTour(normalizedFlowId);
   }
 
   /** patchBody：处理patch身体。 */
@@ -567,6 +598,9 @@ export class NpcQuestModal {
     }
     if (element.hasAttribute('data-npc-quest-submit')) {
       return '[data-npc-quest-submit]';
+    }
+    if (element.hasAttribute('data-npc-quest-guide-flow')) {
+      return '[data-npc-quest-guide-flow]';
     }
     if (element.hasAttribute('data-npc-quest-navigate')) {
       return '[data-npc-quest-navigate]';

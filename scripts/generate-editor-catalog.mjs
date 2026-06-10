@@ -423,6 +423,7 @@ function normalizeQuestTemplate(entry, context) {
     submitX: Number.isInteger(entry.submitX) ? Number(entry.submitX) : submitNpcLocation?.x,
     submitY: Number.isInteger(entry.submitY) ? Number(entry.submitY) : submitNpcLocation?.y,
     relayMessage: optionalText(entry.relayMessage),
+    guideFlowId: optionalText(entry.guideFlowId),
   };
 }
 

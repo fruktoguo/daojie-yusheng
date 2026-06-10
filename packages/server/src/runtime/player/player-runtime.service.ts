@@ -5588,6 +5588,9 @@ function cloneQuestRuntimeEntry(entry) {
     if (typeof entry.submitMapId === 'string' && entry.submitMapId.trim()) {
         cloned.submitMapId = entry.submitMapId.trim();
     }
+    if (typeof entry.guideFlowId === 'string' && entry.guideFlowId.trim()) {
+        cloned.guideFlowId = entry.guideFlowId.trim();
+    }
     return cloned;
 }
 function normalizeQuestProgressNumber(value) {

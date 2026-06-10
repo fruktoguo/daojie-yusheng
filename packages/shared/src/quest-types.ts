@@ -226,6 +226,11 @@ export interface QuestState {
  */
 
   relayMessage?: string;
+  /**
+ * guideFlowId：任务关联的新手引导组 ID，仅用于客户端展示与重新播放导览，不参与任务完成判定。
+ */
+
+  guideFlowId?: string;
 }
 
 /** 任务同步运行态：静态文本、奖励、位置等由客户端本地任务模板按 id 补齐。 */

@@ -447,6 +447,7 @@ function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefi
     submitX: normalizeOptionalInteger(quest.submitX),
     submitY: normalizeOptionalInteger(quest.submitY),
     relayMessage: normalizeOptionalTrimmedString(quest.relayMessage),
+    guideFlowId: normalizeOptionalTrimmedString(quest.guideFlowId),
     unlockBreakthroughRequirementIds,
   };
 }

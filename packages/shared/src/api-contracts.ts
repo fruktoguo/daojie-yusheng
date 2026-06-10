@@ -3106,6 +3106,11 @@ export interface GmMapQuestRecord {
 
   relayMessage?: string;
   /**
+ * guideFlowId：任务关联的新手引导组 ID，仅用于客户端展示与重新播放导览。
+ */
+
+  guideFlowId?: string;
+  /**
  * unlockBreakthroughRequirementIds：unlockBreakthroughRequirementID相关字段。
  */
 

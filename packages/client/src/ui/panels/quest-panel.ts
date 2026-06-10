@@ -30,6 +30,7 @@ import {
   syncReactQuestPanelState,
   unmountReactQuestPanel,
 } from '../../react-ui/panels/quest/mount-quest-panel';
+import { requestGuidedTour } from '../guided-tour-events';
 
 const UNKNOWN_QUEST_ITEM_NAME = '未知物品';
 
@@ -143,6 +144,7 @@ export class QuestPanel {
     this.onNavigateQuest = onNavigateQuest;
     setReactQuestPanelCallbacks({
       onNavigateQuest,
+      onOpenGuideFlow: (flowId) => this.openGuideFlow(flowId),
       onOpenDetail: (questId) => {
         this.selectedQuestId = questId;
         this.openQuestModal();
@@ -678,8 +680,25 @@ export class QuestPanel {
           if (!questId) return;
           this.onNavigateQuest?.(questId);
         }, { signal });
+        body.querySelector<HTMLElement>('[data-quest-guide-flow]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const button = event.currentTarget;
+          if (!(button instanceof HTMLElement)) return;
+          const flowId = button.dataset.questGuideFlow;
+          if (!flowId) return;
+          this.openGuideFlow(flowId);
+        }, { signal });
       },
     });
+  }
+
+  private openGuideFlow(flowId: string): void {
+    const normalizedFlowId = flowId.trim();
+    if (!normalizedFlowId) {
+      return;
+    }
+    detailModalHost.close(QuestPanel.MODAL_OWNER);
+    requestGuidedTour(normalizedFlowId);
   }
 
   /** renderQuestModalBody：渲染任务详情主体。 */
@@ -718,6 +737,18 @@ export class QuestPanel {
           <div class="ui-detail-field ui-detail-field--section ${quest.requiredItemId ? '' : 'hidden'}" data-quest-modal-required-item-section="true"><strong>${escapeHtml(t('quest.detail.requirement', undefined))}</strong><div data-quest-modal-required-item="true">${this.renderRequiredItemContent(quest)}</div></div>
           <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.progress', undefined))}</strong><div data-quest-modal-progress="true">${this.renderQuestText(this.resolveProgressText(quest), quest)}</div></div>
           <div class="ui-detail-field ui-detail-field--section"><strong>${escapeHtml(t('quest.detail.next-step', undefined))}</strong><div data-quest-modal-next-step="true">${this.renderQuestText(this.resolveNextStep(quest), quest)}</div></div>
+        </div>
+        <div class="ui-detail-field ui-detail-field--section ${quest.guideFlowId ? '' : 'hidden'}" data-quest-modal-guide-section="true">
+          <strong>${escapeHtml(t('quest.detail.guide', undefined, '相关引导'))}</strong>
+          <div class="quest-detail-guide-row">
+            <span data-quest-modal-guide-desc="true">${escapeHtml(t('quest.detail.guide-desc', undefined, '打开这个任务关联的操作引导，不会改变任务进度。'))}</span>
+            <button
+              class="small-btn quest-detail-guide-btn"
+              data-quest-guide-flow="${escapeHtml(quest.guideFlowId ?? '')}"
+              type="button"
+              ${quest.guideFlowId ? '' : 'disabled'}
+            >${escapeHtml(t('quest.action.open-guide', undefined, '打开引导'))}</button>
+          </div>
         </div>
         <div class="ui-detail-field ui-detail-field--section ${quest.objectiveText ? '' : 'hidden'}" data-quest-modal-objective-section="true"><strong>${escapeHtml(t('quest.detail.objective-note', undefined))}</strong><div data-quest-modal-objective="true">${this.renderQuestText(quest.objectiveText ?? '', quest)}</div></div>
         <div class="ui-detail-field ui-detail-field--section ${quest.relayMessage ? '' : 'hidden'}" data-quest-modal-relay-section="true"><strong>${escapeHtml(t('quest.detail.relay', undefined))}</strong><div data-quest-modal-relay="true">${this.renderQuestText(quest.relayMessage ?? '', quest)}</div></div>
@@ -760,6 +791,9 @@ export class QuestPanel {
     const requiredItemNode = document.querySelector<HTMLElement>('[data-quest-modal-required-item="true"]');
     const targetLocationNode = document.querySelector<HTMLElement>('[data-quest-modal-target-location="true"]');
     const submitLocationNode = document.querySelector<HTMLElement>('[data-quest-modal-submit-location="true"]');
+    const guideSection = document.querySelector<HTMLElement>('[data-quest-modal-guide-section="true"]');
+    const guideDescNode = document.querySelector<HTMLElement>('[data-quest-modal-guide-desc="true"]');
+    const guideButton = document.querySelector<HTMLButtonElement>('[data-quest-guide-flow]');
     const objectiveSection = document.querySelector<HTMLElement>('[data-quest-modal-objective-section="true"]');
     const objectiveNode = document.querySelector<HTMLElement>('[data-quest-modal-objective="true"]');
     const relaySection = document.querySelector<HTMLElement>('[data-quest-modal-relay-section="true"]');
@@ -782,6 +816,9 @@ export class QuestPanel {
       || !requiredItemNode
       || !targetLocationNode
       || !submitLocationNode
+      || !guideSection
+      || !guideDescNode
+      || !guideButton
       || !objectiveSection
       || !objectiveNode
       || !relaySection
@@ -819,6 +856,11 @@ export class QuestPanel {
     replaceRichContent(requiredItemNode, this.renderRequiredItemContent(quest));
     replaceRichContent(progressNode, this.renderQuestText(this.resolveProgressText(quest), quest));
     replaceRichContent(nextStepNode, this.renderQuestText(this.resolveNextStep(quest), quest));
+    guideSection.classList.toggle('hidden', !quest.guideFlowId);
+    guideDescNode.textContent = t('quest.detail.guide-desc', undefined, '打开这个任务关联的操作引导，不会改变任务进度。');
+    guideButton.disabled = !quest.guideFlowId;
+    guideButton.dataset.questGuideFlow = quest.guideFlowId ?? '';
+    guideButton.textContent = t('quest.action.open-guide', undefined, '打开引导');
     objectiveSection.classList.toggle('hidden', !quest.objectiveText);
     replaceRichContent(objectiveNode, this.renderQuestText(quest.objectiveText ?? '', quest));
     targetLocationNode.textContent = targetLocation;

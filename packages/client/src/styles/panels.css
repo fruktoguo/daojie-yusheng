@@ -5083,6 +5083,20 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    .quest-detail-guide-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .quest-detail-guide-row > span {
+      flex: 1 1 180px;
+      min-width: 0;
+    }
+    .quest-detail-guide-btn {
+      flex: 0 0 auto;
+    }
     .npc-quest-card.is-active {
       border-color: rgba(125, 27, 27, 0.42);
       background: var(--surface-hover);

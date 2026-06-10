@@ -14503,7 +14503,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "mining-guide"
     },
     {
       "id": "q_ruin_scholar_echo",
@@ -15734,7 +15735,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "cultivation-guide"
     },
     {
       "id": "q_shen_bunk_deposit",
@@ -16082,7 +16084,8 @@
       "submitMapId": "black_iron_mine",
       "submitMapName": "玄铁矿洞",
       "submitX": 26,
-      "submitY": 23
+      "submitY": 23,
+      "guideFlowId": "mining-guide"
     },
     {
       "id": "q_mine_overseer_echo",
@@ -16226,7 +16229,8 @@
       "submitMapId": "black_iron_mine",
       "submitMapName": "玄铁矿洞",
       "submitX": 26,
-      "submitY": 23
+      "submitY": 23,
+      "guideFlowId": "mining-guide"
     },
     {
       "id": "q_wildlands_old_gate_words",
@@ -16788,7 +16792,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 32,
-      "submitY": 47
+      "submitY": 47,
+      "guideFlowId": "force-attack-guide"
     },
     {
       "id": "q_ridge_sigil_main",
@@ -17869,7 +17874,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 31,
-      "submitY": 24
+      "submitY": 24,
+      "guideFlowId": "cultivation-guide"
     },
     {
       "id": "q_bamboo_wolf_fangs",
@@ -18214,7 +18220,8 @@
       "submitMapId": "yunlai_town",
       "submitMapName": "云来镇",
       "submitX": 16,
-      "submitY": 34
+      "submitY": 34,
+      "guideFlowId": "starter-basics"
     },
     {
       "id": "q_bamboo_serpent_gall",

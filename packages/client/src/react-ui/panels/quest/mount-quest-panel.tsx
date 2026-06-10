@@ -30,6 +30,7 @@ export function syncReactQuestPanelState(input: {
 export function setReactQuestPanelCallbacks(callbacks: {
   onNavigateQuest?: (questId: string) => void;
   onOpenDetail?: (questId: string) => void;
+  onOpenGuideFlow?: (flowId: string) => void;
 }): void {
   setQuestPanelCallbacks(callbacks);
 }
