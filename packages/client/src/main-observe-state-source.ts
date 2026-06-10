@@ -456,6 +456,9 @@ function formatBuffDuration(buff: VisibleBuffState): string {
 
 /** 本地估算 buff 剩余 ticks：基于收到时间戳按 1Hz 递减。 */
 function estimateBuffRemainingTicks(buff: VisibleBuffState): number {
+  if (buff.infiniteDuration === true) {
+    return buff.remainingTicks;
+  }
   const baseTime = (buff as unknown as Record<string, unknown>)._remainingTicksReceivedAt;
   if (typeof baseTime !== 'number' || baseTime <= 0) {
     return buff.remainingTicks;
