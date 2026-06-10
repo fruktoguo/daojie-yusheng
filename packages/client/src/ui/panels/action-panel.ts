@@ -1114,7 +1114,7 @@ export class ActionPanel {
             html += this.renderSkillSection(entries, autoBattleDisplayOrders);
             continue;
           }
-          html += `<div class="panel-section">
+          html += `<div class="panel-section" data-action-type-section="${escapeHtml(type)}">
       <div class="panel-section-title">${getActionTypeLabel(type)}</div>
       <div class="action-card-list">`;
           for (const action of entries) {

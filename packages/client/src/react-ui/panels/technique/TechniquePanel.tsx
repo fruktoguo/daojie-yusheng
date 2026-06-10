@@ -219,7 +219,11 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
         ? t('technique.action.cancel-cultivate', undefined)
         : '设为主修领悟';
   return (
-    <div className={`tech-card pending${isCultivating ? ' cultivating' : ''}`}>
+    <div
+      className={`tech-card pending${isCultivating ? ' cultivating' : ''}`}
+      data-pending-tech-card={pending.techId}
+      data-guided-tour-tech-card="pending"
+    >
       <button className="tech-card-main" type="button" onClick={handleCultivate} disabled={startDisabled}>
         <span className="tech-summary-main">
           <span className="tech-name">{pending.name}</span>
@@ -239,7 +243,13 @@ const PendingTechniqueCard = memo(function PendingTechniqueCard({ pending, isCul
         </span>
       </button>
       <div className="tech-card-actions">
-        <button className={`small-btn ${isCultivating ? 'danger' : 'ghost'}`} type="button" onClick={handleCultivate} disabled={startDisabled}>
+        <button
+          className={`small-btn ${isCultivating ? 'danger' : 'ghost'}`}
+          type="button"
+          onClick={handleCultivate}
+          disabled={startDisabled}
+          data-guided-tour-cultivate-button="true"
+        >
           {actionLabel}
         </button>
         {pending.activeTransferJob && (
@@ -289,7 +299,7 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
   }, [tech.techId]);
 
   return (
-    <div className={`tech-card${isCultivating ? ' cultivating' : ''}`}>
+    <div className={`tech-card${isCultivating ? ' cultivating' : ''}`} data-tech-card={tech.techId}>
       <button className="tech-card-main" type="button" onClick={handleOpen}>
         <span className="tech-summary-main">
           <span className="tech-name">{tech.name}</span>
@@ -319,6 +329,8 @@ const TechniqueCard = memo(function TechniqueCard({ tech, isCultivating, preview
           className={`small-btn${isCultivating ? ' danger' : ''}`}
           type="button"
           onClick={handleCultivate}
+          data-tech-cultivate-button={tech.techId}
+          data-guided-tour-cultivate-button="true"
         >
           {isCultivating ? t('technique.action.cancel-cultivate', undefined) : t('technique.action.set-cultivate', undefined)}
         </button>

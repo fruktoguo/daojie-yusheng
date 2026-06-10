@@ -1734,7 +1734,7 @@ export class CraftWorkbenchModal {
       { mode: 'transmission', label: '传法', note: '功法' },
     ];
     return tabs.map((tab) => `
-      <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}">
+      <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}" data-guided-tour-craft-mode="${tab.mode}">
         <span>${escapeHtml(tab.label)}</span>
         <em>${escapeHtml(tab.note)}</em>
       </button>
@@ -2548,13 +2548,13 @@ export class CraftWorkbenchModal {
   private renderAlchemyTabButtons(): string {
     if (this.activeMode === 'forging') {
       return `
-        <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">${escapeHtml(t('craft.workbench.alchemy.tab.full-forging'))}</button>
-        <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${escapeHtml(t('craft.workbench.alchemy.tab.simple-forging'))}</button>
+        <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full" data-guided-tour-alchemy-tab="full">${escapeHtml(t('craft.workbench.alchemy.tab.full-forging'))}</button>
+        <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple" data-guided-tour-alchemy-tab="simple">${escapeHtml(t('craft.workbench.alchemy.tab.simple-forging'))}</button>
       `;
     }
     return `
-      <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">${escapeHtml(t('craft.workbench.alchemy.tab.full-alchemy'))}</button>
-      <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${escapeHtml(t('craft.workbench.alchemy.tab.simple-alchemy'))}</button>
+      <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full" data-guided-tour-alchemy-tab="full">${escapeHtml(t('craft.workbench.alchemy.tab.full-alchemy'))}</button>
+      <button class="alchemy-tab-btn ${this.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple" data-guided-tour-alchemy-tab="simple">${escapeHtml(t('craft.workbench.alchemy.tab.simple-alchemy'))}</button>
     `;
   }
 
@@ -2771,7 +2771,7 @@ export class CraftWorkbenchModal {
         && getAlchemyRealmTab(entry.outputLevel) === this.activeAlchemyRealm
       )).length;
       return `
-        <button class="alchemy-category-btn ${this.activeAlchemyCategory === tab.category ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-category" data-category="${tab.category}">
+        <button class="alchemy-category-btn ${this.activeAlchemyCategory === tab.category ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-category" data-category="${tab.category}" data-guided-tour-alchemy-category="${tab.category}">
           ${escapeHtml(tab.label)}
           <span class="alchemy-category-count">${formatDisplayInteger(count)}</span>
         </button>
@@ -2788,7 +2788,7 @@ export class CraftWorkbenchModal {
     return realms.map((tab) => {
       const count = this.alchemyCatalog.filter((entry) => getAlchemyRealmTab(entry.outputLevel) === tab.realm).length;
       return `
-        <button class="alchemy-category-btn ${this.activeAlchemyRealm === tab.realm ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-realm" data-realm="${tab.realm}">
+        <button class="alchemy-category-btn ${this.activeAlchemyRealm === tab.realm ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-realm" data-realm="${tab.realm}" data-guided-tour-alchemy-realm="${tab.realm}">
           ${escapeHtml(tab.label)}
           <span class="alchemy-category-count">${formatDisplayInteger(count)}</span>
         </button>
@@ -2798,7 +2798,7 @@ export class CraftWorkbenchModal {
 
   private renderAlchemyRecipeItem(recipe: AlchemyRecipeCatalogEntry, active: boolean): string {
     return `
-      <button class="alchemy-recipe-item ${active ? 'active' : ''}" type="button" data-craft-action="alchemy-select-recipe" data-recipe-id="${escapeHtml(recipe.recipeId)}">
+      <button class="alchemy-recipe-item ${active ? 'active' : ''}" type="button" data-craft-action="alchemy-select-recipe" data-recipe-id="${escapeHtml(recipe.recipeId)}" data-guided-tour-alchemy-recipe="${escapeHtml(recipe.recipeId)}" data-guided-tour-alchemy-output="${escapeHtml(recipe.outputItemId)}">
         <span class="alchemy-recipe-head">
           <span class="alchemy-recipe-name">${this.renderAlchemyItemReference(recipe.outputItemId, recipe.outputName, 'reward')}</span>
           <span class="alchemy-level-badge">LV ${formatDisplayInteger(recipe.outputLevel)}</span>
@@ -3095,9 +3095,9 @@ export class CraftWorkbenchModal {
       <div class="alchemy-actions" data-alchemy-actions="true" data-tab-mode="${mode}">
         <div class="alchemy-action-buttons">
           ${mode === 'full'
-            ? `<button class="small-btn" type="button" data-craft-action="alchemy-start-full"${startDisabled ? ' disabled' : ''}>${fullStartLabel}</button>
-               <button class="small-btn ghost" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${simpleTabLabel}</button>`
-            : `<button class="small-btn" type="button" data-craft-action="alchemy-start-draft"${startDisabled ? ' disabled' : ''}>${simpleStartLabel}</button>
+            ? `<button class="small-btn" type="button" data-craft-action="alchemy-start-full" data-guided-tour-alchemy-start="full"${startDisabled ? ' disabled' : ''}>${fullStartLabel}</button>
+               <button class="small-btn ghost" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple" data-guided-tour-alchemy-tab="simple">${simpleTabLabel}</button>`
+            : `<button class="small-btn" type="button" data-craft-action="alchemy-start-draft" data-guided-tour-alchemy-start="simple"${startDisabled ? ' disabled' : ''}>${simpleStartLabel}</button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-save-preset"> ${savePresetLabel} </button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-reset-draft">${escapeHtml(t('craft.workbench.alchemy.action.reset-draft'))}</button>
                ${options?.selectedPresetId ? `<button class="small-btn danger" type="button" data-craft-action="alchemy-delete-preset" data-preset-id="${escapeHtml(options.selectedPresetId)}">${escapeHtml(t('craft.workbench.alchemy.action.delete-preset'))}</button>` : ''}`}

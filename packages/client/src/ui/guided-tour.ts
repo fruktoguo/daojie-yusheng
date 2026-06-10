@@ -120,6 +120,15 @@ function isElementVisible(element: HTMLElement): boolean {
   return rect.width > 0 && rect.height > 0;
 }
 
+function queryFirstVisibleElement(root: ParentNode, selector: string): HTMLElement | null {
+  for (const element of root.querySelectorAll<HTMLElement>(selector)) {
+    if (isElementVisible(element)) {
+      return element;
+    }
+  }
+  return null;
+}
+
 function getViewportSize(win: Window): { width: number; height: number } {
   return {
     width: Math.max(0, win.innerWidth || win.document.documentElement.clientWidth || 0),
@@ -344,6 +353,7 @@ export class GuidedTour {
     }
 
     this.ensureDom();
+    this.activeTarget = null;
     await this.applyPrepareActions(step.prepare ?? []);
     const target = await this.resolveTarget(step);
     if (!target) {
@@ -374,6 +384,20 @@ export class GuidedTour {
       } else if (action.type === 'set-layout-collapsed') {
         this.controls.setLayoutCollapsed(action.target, action.collapsed, { persist: false });
         changed = true;
+      } else if (action.type === 'click') {
+        const selector = this.controls.isMobileLayoutActive() && action.mobileSelector
+          ? action.mobileSelector
+          : action.selector;
+        const target = queryFirstVisibleElement(this.documentRef, selector);
+        if (target) {
+          target.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: this.windowRef,
+          }));
+          await sleep(Math.max(0, Math.floor(action.waitMs ?? 120)));
+          changed = true;
+        }
       }
     }
     if (changed) {
@@ -405,7 +429,7 @@ export class GuidedTour {
     const selector = this.controls.isMobileLayoutActive() && step.mobileTargetSelector
       ? step.mobileTargetSelector
       : step.targetSelector;
-    return this.documentRef.querySelector<HTMLElement>(selector);
+    return queryFirstVisibleElement(this.documentRef, selector);
   }
 
   private measureTarget(element: HTMLElement): ActiveTarget {

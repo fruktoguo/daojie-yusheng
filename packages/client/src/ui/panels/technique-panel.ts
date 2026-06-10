@@ -768,7 +768,7 @@ export class TechniquePanel {
     const realmLevelLabel = getTechniqueRealmLevelLabel(tech);
     const realmLabel = getTechniqueRealmLabel(getResolvedTechniqueRealm(tech));
     const categoryLabel = getTechniqueCategoryLabel(resolveTechniqueCategory(tech));
-    return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}">
+    return `<div class="tech-card ${isCultivating ? 'cultivating' : ''}" data-tech-card="${tech.techId}" data-guided-tour-tech-card="learned">
       <button class="tech-card-main" data-tech-open="${tech.techId}" type="button">
         <span class="tech-summary-main">
           <span class="tech-name">${escapeHtml(tech.name)}</span>
@@ -794,6 +794,7 @@ export class TechniquePanel {
         <button
           class="small-btn ${isCultivating ? 'danger' : ''}"
           data-tech-cultivate-button="${tech.techId}"
+          data-guided-tour-cultivate-button="true"
           data-cultivate="${isCultivating ? '' : tech.techId}"
           data-cultivate-stop="${isCultivating ? tech.techId : ''}"
           type="button"
@@ -833,7 +834,7 @@ export class TechniquePanel {
     const realmLv = Math.max(1, Math.floor(Number(pending.realmLv) || 1));
     const realmLabel = getLocalRealmLevelEntry(realmLv)?.displayName ?? `Lv.${formatDisplayInteger(realmLv)}`;
     const template = document.createElement('template');
-    template.innerHTML = `<div class="tech-card pending ${isCultivating ? 'cultivating' : ''}" data-pending-tech-card="${escapeHtml(pending.techId)}">
+    template.innerHTML = `<div class="tech-card pending ${isCultivating ? 'cultivating' : ''}" data-pending-tech-card="${escapeHtml(pending.techId)}" data-guided-tour-tech-card="pending">
       <button class="tech-card-main" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">
         <span class="tech-summary-main">
           <span class="tech-name">${escapeHtml(pending.name)}</span>
@@ -849,7 +850,7 @@ export class TechniquePanel {
         <span class="tech-progress-bar"><span class="tech-progress-fill" style="width:${(ratio * 100).toFixed(2)}%"></span></span>
       </button>
       <div class="tech-card-actions">
-        <button class="small-btn ${isCultivating ? 'danger' : 'ghost'}" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">${actionLabel}</button>
+        <button class="small-btn ${isCultivating ? 'danger' : 'ghost'}" data-guided-tour-cultivate-button="true" data-cultivate="${canStartCultivating && !isCultivating ? escapeHtml(pending.techId) : ''}" data-cultivate-stop="${isCultivating ? escapeHtml(pending.techId) : ''}" ${startDisabled ? 'disabled' : ''} type="button">${actionLabel}</button>
         ${transferLocked ? `<button class="small-btn danger" data-tech-transmission-cancel="${escapeHtml(pending.techId)}" type="button">取消传法</button>` : ''}
       </div>
     </div>`.trim();

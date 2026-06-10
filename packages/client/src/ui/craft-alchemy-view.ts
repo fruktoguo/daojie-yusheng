@@ -742,13 +742,13 @@ export class CraftAlchemyView {
   renderAlchemyTabButtons(): string {
     if (this.parent.activeMode === 'forging') {
       return `
-        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">基础器方</button>
-        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">自创器方</button>
+        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full" data-guided-tour-alchemy-tab="full">基础器方</button>
+        <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple" data-guided-tour-alchemy-tab="simple">自创器方</button>
       `;
     }
     return `
-      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full">基础丹方</button>
-      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">自创丹方</button>
+      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'full' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="full" data-guided-tour-alchemy-tab="full">基础丹方</button>
+      <button class="alchemy-tab-btn ${this.parent.activeAlchemyTab === 'simple' ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple" data-guided-tour-alchemy-tab="simple">自创丹方</button>
     `;
   }
 
@@ -760,7 +760,7 @@ export class CraftAlchemyView {
         && getAlchemyRealmTab(entry.outputLevel) === this.parent.activeAlchemyRealm
       )).length;
       return `
-        <button class="alchemy-category-btn ${this.parent.activeAlchemyCategory === tab.category ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-category" data-category="${tab.category}">
+        <button class="alchemy-category-btn ${this.parent.activeAlchemyCategory === tab.category ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-category" data-category="${tab.category}" data-guided-tour-alchemy-category="${tab.category}">
           ${escapeHtml(tab.label)}
           <span class="alchemy-category-count">${formatDisplayInteger(count)}</span>
         </button>
@@ -777,7 +777,7 @@ export class CraftAlchemyView {
     return realms.map((tab) => {
       const count = this.parent.alchemyCatalog.filter((entry) => getAlchemyRealmTab(entry.outputLevel) === tab.realm).length;
       return `
-        <button class="alchemy-category-btn ${this.parent.activeAlchemyRealm === tab.realm ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-realm" data-realm="${tab.realm}">
+        <button class="alchemy-category-btn ${this.parent.activeAlchemyRealm === tab.realm ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-realm" data-realm="${tab.realm}" data-guided-tour-alchemy-realm="${tab.realm}">
           ${escapeHtml(tab.label)}
           <span class="alchemy-category-count">${formatDisplayInteger(count)}</span>
         </button>
@@ -799,7 +799,7 @@ export class CraftAlchemyView {
 
   renderAlchemyRecipeItem(recipe: AlchemyRecipeCatalogEntry, active: boolean): string {
     return `
-      <button class="alchemy-recipe-item ${active ? 'active' : ''}" type="button" data-craft-action="alchemy-select-recipe" data-recipe-id="${escapeHtml(recipe.recipeId)}">
+      <button class="alchemy-recipe-item ${active ? 'active' : ''}" type="button" data-craft-action="alchemy-select-recipe" data-recipe-id="${escapeHtml(recipe.recipeId)}" data-guided-tour-alchemy-recipe="${escapeHtml(recipe.recipeId)}" data-guided-tour-alchemy-output="${escapeHtml(recipe.outputItemId)}">
         <span class="alchemy-recipe-name">${this.renderAlchemyItemReference(recipe.outputItemId, recipe.outputName, 'reward')}</span>
       </button>
     `;
@@ -1273,9 +1273,9 @@ export class CraftAlchemyView {
       <div class="alchemy-actions" data-alchemy-actions="true" data-tab-mode="${mode}">
         <div class="alchemy-action-buttons">
           ${mode === 'full'
-            ? `<button class="small-btn" type="button" data-craft-action="alchemy-start-full"${startDisabled ? ' disabled' : ''}>${fullStartLabel}</button>
-               <button class="small-btn ghost" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple">${simpleTabLabel}</button>`
-            : `<button class="small-btn" type="button" data-craft-action="alchemy-start-draft"${startDisabled ? ' disabled' : ''}>${simpleStartLabel}</button>
+            ? `<button class="small-btn" type="button" data-craft-action="alchemy-start-full" data-guided-tour-alchemy-start="full"${startDisabled ? ' disabled' : ''}>${fullStartLabel}</button>
+               <button class="small-btn ghost" type="button" data-craft-action="alchemy-switch-tab" data-tab="simple" data-guided-tour-alchemy-tab="simple">${simpleTabLabel}</button>`
+            : `<button class="small-btn" type="button" data-craft-action="alchemy-start-draft" data-guided-tour-alchemy-start="simple"${startDisabled ? ' disabled' : ''}>${simpleStartLabel}</button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-save-preset"> ${savePresetLabel} </button>
                <button class="small-btn ghost" type="button" data-craft-action="alchemy-reset-draft">${escapeHtml(t('craft.workbench.alchemy.action.reset-draft'))}</button>
                ${options?.selectedPresetId ? `<button class="small-btn danger" type="button" data-craft-action="alchemy-delete-preset" data-preset-id="${escapeHtml(options.selectedPresetId)}">${escapeHtml(t('craft.workbench.alchemy.action.delete-preset'))}</button>` : ''}`}
