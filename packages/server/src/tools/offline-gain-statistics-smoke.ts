@@ -302,7 +302,7 @@ async function testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck() {
   assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
 }
 
-async function testBlockingOfflineGainPreviewExcludesOnlineStatisticRecords() {
+async function testBlockingOfflineGainPreviewMergesOnlineStatisticRecords() {
   const service = createService();
   const player = createPlayer();
   service.players.set(player.playerId, player);
@@ -323,13 +323,20 @@ async function testBlockingOfflineGainPreviewExcludesOnlineStatisticRecords() {
   const previewReports = await service.loadOfflineGainPreviewReports(player.playerId);
   assert.equal(previewReports.length, 1);
   assert.equal(previewReports[0].scope, "offline");
+  assert.equal(previewReports[0].id.startsWith("offline:"), true);
+  assert.notEqual(previewReports[0].id, onlineRecords[0].id);
   assert.equal(previewReports[0].durationMs, 60_000);
-  assert.equal(previewReports[0].spiritStones.gained, 0);
-  assert.equal(previewReports[0].spiritStones.lost, 0);
+  assert.equal(previewReports[0].spiritStones.gained, 25);
+  assert.equal(previewReports[0].spiritStones.lost, 5);
 
   const pendingRecords = service.getPendingPlayerStatisticRecords(player.playerId);
   assert.equal(pendingRecords.length, 2);
   assert.equal(pendingRecords.every((entry) => entry.scope === "online"), true);
+
+  await service.acknowledgeOfflineGainReports(player.playerId, [previewReports[0].id], { sessionId: "sid:confirmed-merged" });
+  assert.equal(await service.hasActiveOfflineGainSession(player.playerId), false);
+  assert.equal(player.sessionId, "sid:confirmed-merged");
+  assert.equal(service.getPendingPlayerStatisticRecords(player.playerId).length, 0);
 }
 
 async function testBlockingOfflineGainReconnectDoesNotResetSession() {
@@ -409,7 +416,7 @@ async function main() {
   await testOfflineDurationIncludesNoGainTicks();
   await testUnconfirmedOfflineReportsMergeIntoOnePendingRecord();
   await testBlockingOfflineGainPreviewKeepsAccumulatingUntilAck();
-  await testBlockingOfflineGainPreviewExcludesOnlineStatisticRecords();
+  await testBlockingOfflineGainPreviewMergesOnlineStatisticRecords();
   await testBlockingOfflineGainReconnectDoesNotResetSession();
   await testShortOfflineGainDoesNotBlockReconnect();
   await testOnlineAssetMutationsCreateIndependentStatisticReports();

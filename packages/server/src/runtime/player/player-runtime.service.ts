@@ -593,8 +593,7 @@ export class PlayerRuntimeService {
         if (!normalizedPlayerId) {
             return [];
         }
-        const pendingReports = (await this.loadPendingOfflineGainReports(normalizedPlayerId))
-            .filter((report) => report?.scope !== 'online');
+        const pendingReports = await this.loadPendingOfflineGainReports(normalizedPlayerId);
         const hasSession = await this.shouldBlockOfflineGainSession(normalizedPlayerId);
         const player = this.players.get(normalizedPlayerId);
         if (!hasSession || !player) {
@@ -610,7 +609,7 @@ export class PlayerRuntimeService {
             Date.now(),
             this.contentTemplateRepository,
         );
-        return mergePendingOfflineGainReportList(normalizedPlayerId, [...pendingReports, previewReport]);
+        return [mergePendingOfflineGainReport(normalizedPlayerId, pendingReports, previewReport)];
     }
     /** 读取当前还在云端等待浏览器本地归档的离线收益报告。 */
     async loadPendingOfflineGainReports(playerId) {
@@ -6249,7 +6248,9 @@ function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
             playerId: normalizeOfflineGainString(first.playerId) || normalizedPlayerId || undefined,
         };
     }
-    const last = normalizedReports[normalizedReports.length - 1];
+    const firstOfflineReport = normalizedReports.find((report) => report?.scope !== 'online');
+    const idSource = firstOfflineReport ?? first;
+    const mergedScope = firstOfflineReport ? 'offline' : 'online';
     const mergedParts = normalizedReports.reduce((total, report) => mergeOfflineGainReportPartsBySum(
         total,
         normalizeOfflineGainReportParts(report),
@@ -6262,10 +6263,10 @@ function mergePendingOfflineGainReport(playerId, reports, nextReport = null) {
     );
     return {
         ...first,
-        id: normalizeOfflineGainString(first.id),
+        id: normalizeOfflineGainString(idSource.id),
         playerId: normalizedPlayerId || normalizeOfflineGainString(first.playerId) || undefined,
-        scope: 'offline',
-        source: 'cultivation',
+        scope: mergedScope,
+        source: resolvePlayerStatisticSource(mergedParts, mergedScope),
         startedAt,
         endedAt,
         durationMs,
