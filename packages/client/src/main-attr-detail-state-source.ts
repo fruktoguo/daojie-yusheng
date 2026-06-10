@@ -102,9 +102,14 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
         return;
       }
       const detail = options.cloneJson(data);
-      const numericStatBreakdowns = normalizeNumericStatBreakdownMap(detail.numericStatBreakdowns) ?? {};
-      detail.numericStatBreakdowns = numericStatBreakdowns;
       const latestAttrUpdate = options.getLatestAttrUpdate();
+      const normalizedBreakdowns = normalizeNumericStatBreakdownMap(detail.numericStatBreakdowns);
+      const numericStatBreakdowns = normalizedBreakdowns && Object.keys(normalizedBreakdowns).length > 0
+        ? normalizedBreakdowns
+        : latestAttrUpdate?.numericStatBreakdowns
+          ? options.cloneJson(latestAttrUpdate.numericStatBreakdowns)
+          : {};
+      detail.numericStatBreakdowns = numericStatBreakdowns;
       const specialStats = latestAttrUpdate?.specialStats
         ? options.cloneJson(latestAttrUpdate.specialStats)
         : {

@@ -1000,6 +1000,7 @@ export class AttrPanel {
       return;
     }
     const finalAttrs = this.resolveCompleteAttrs(data.finalAttrs) ?? this.mergeAttrs(baseAttrs, data.bonuses);
+    const numericStatBreakdowns = this.resolveRenderNumericStatBreakdowns(data.numericStatBreakdowns);
     const snapshot = this.buildSnapshot(
       baseAttrs,
       data.bonuses,
@@ -1011,7 +1012,7 @@ export class AttrPanel {
       data.buildingSkill,
       data.gatherSkill,
       data.enhancementSkill,
-      data.numericStatBreakdowns,
+      numericStatBreakdowns,
       data.forgingSkill,
       data.miningSkill,
       data.formationSkill,
@@ -1082,7 +1083,7 @@ export class AttrPanel {
       player.buildingSkill,
       player.gatherSkill,
       player.enhancementSkill,
-      this.latestData.numericStatBreakdowns,
+      this.resolveRenderNumericStatBreakdowns(this.latestData.numericStatBreakdowns),
       player.forgingSkill,
       player.miningSkill,
       player.formationSkill,
@@ -1134,6 +1135,19 @@ export class AttrPanel {
       return;
     }
     this.render(snapshot);
+  }
+
+  private resolveRenderNumericStatBreakdowns(
+    breakdowns?: NumericStatBreakdownMap,
+  ): NumericStatBreakdownMap | undefined {
+    if (breakdowns && Object.keys(breakdowns).length > 0) {
+      return breakdowns;
+    }
+    const detailBreakdowns = this.detailData?.numericStatBreakdowns;
+    if (detailBreakdowns && Object.keys(detailBreakdowns).length > 0) {
+      return detailBreakdowns;
+    }
+    return undefined;
   }
 
   /** mergeAttrs：合并属性。 */
