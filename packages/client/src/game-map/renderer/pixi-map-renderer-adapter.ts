@@ -63,7 +63,7 @@ import {
   TIME_FILTER_LERP,
 } from '../../constants/visuals/time-atmosphere';
 import { buildEntitySpriteLookupPlan, type EntitySpriteTransform } from '../../entity-facing';
-import { getMonsterPresentation } from '../../monster-presentation';
+import { getEntityBadgeClassName, getMonsterPresentation } from '../../monster-presentation';
 import { formatDisplayInteger } from '../../utils/number';
 import { t as translateUi } from '../../ui/i18n';
 import type { CameraState } from '../camera/camera-controller';
@@ -160,6 +160,7 @@ interface EntityView {
   image: Sprite;
   glyph: Text;
   label: Text;
+  badgePlate: Graphics;
   badge: Text;
   hpBar: Graphics;
   progressBar: Graphics;
@@ -388,6 +389,27 @@ function resolveEntityHpBarColor(kind: string | null | undefined, hostile: boole
     case 'formation': return '#9cc8ff';
     default: return '#63c46b';
   }
+}
+
+function resolveEntityBadgePalette(badge: NonNullable<ObservedMapEntity['badge']>): {
+  fill: string;
+  stroke: string;
+  text: string;
+} {
+  const badgeClassName = getEntityBadgeClassName(badge);
+  const fill = badgeClassName?.includes('--boss') || badge.tone === 'demonic'
+    ? 'rgba(120, 32, 24, 0.92)'
+    : 'rgba(42, 54, 91, 0.92)';
+  const stroke = badgeClassName?.includes('--boss')
+    ? 'rgba(255, 188, 156, 0.86)'
+    : badge.tone === 'demonic'
+      ? 'rgba(255, 151, 151, 0.84)'
+      : 'rgba(185, 211, 255, 0.82)';
+  return {
+    fill,
+    stroke,
+    text: '#fff6eb',
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2105,6 +2127,7 @@ export class PixiMapRendererAdapter {
       image: new Sprite(Texture.EMPTY),
       glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
       label: new Text({ text: '', style: textStyle('label', getCellSize() * 0.3, '#cce7ff'), anchor: 0.5 }),
+      badgePlate: new Graphics(),
       badge: new Text({ text: '', style: textStyle('badge', getCellSize() * 0.2, '#fff6eb'), anchor: 0.5 }),
       hpBar: new Graphics(),
       progressBar: new Graphics(),
@@ -2125,7 +2148,7 @@ export class PixiMapRendererAdapter {
     view.image.anchor.set(0.5);
     view.image.visible = false;
     visualRoot.addChild(view.shadow, view.image, view.glyph);
-    root.addChild(view.formationMarker, visualRoot, view.label, view.badge, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
+    root.addChild(view.formationMarker, visualRoot, view.badgePlate, view.badge, view.label, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
     return view;
   }
 
@@ -2160,15 +2183,9 @@ export class PixiMapRendererAdapter {
     view.glyph.position.set(visualCellSize / 2, visualCellSize / 2);
     const label = presentation?.label ?? anim.name ?? resolveEntityFallbackLabel(anim.kind);
     const shouldShowLabel = anim.kind !== 'formation' || anim.formationShowText !== false;
-    view.label.visible = shouldShowLabel;
-    view.label.text = label;
-    view.label.style = textStyle('label', cellSize * (anim.kind === 'crowd' ? 0.24 : 0.3), resolveEntityLabelColor(anim.kind));
     const labelY = cellSize - visualCellSize - Math.max(6, cellSize * 0.18);
-    view.label.position.set(cellSize / 2, labelY);
     const badge = anim.badge ?? presentation?.badge;
-    view.badge.visible = shouldShowLabel && Boolean(badge);
-    view.badge.text = badge?.text ?? '';
-    view.badge.position.set(cellSize / 2 - Math.max(16, (badge?.text.length ?? 0) * cellSize * 0.2) / 2 - 4, -Math.max(12, cellSize * 0.3));
+    this.patchEntityNameplate(view, label, badge, shouldShowLabel, labelY, cellSize);
     this.drawEntityBars(view, visualCellSize);
     this.drawBuffs(view, cellSize);
     this.drawNpcQuestMarker(view.questMarker, anim.npcQuestMarker ?? undefined, cellSize);
@@ -2240,6 +2257,56 @@ export class PixiMapRendererAdapter {
       view.imageFlipSourceSign = view.imageFlipTargetSign;
       view.image.scale.set(view.imageBaseScaleX * view.imageFlipTargetSign, view.imageBaseScaleY);
     }
+  }
+
+  private patchEntityNameplate(
+    view: EntityView,
+    label: string,
+    badge: ObservedMapEntity['badge'] | undefined,
+    shouldShowLabel: boolean,
+    labelY: number,
+    cellSize: number,
+  ): void {
+    const labelColor = resolveEntityLabelColor(view.anim.kind);
+    view.label.visible = shouldShowLabel;
+    view.label.text = label;
+    view.label.style = textStyle('label', cellSize * (view.anim.kind === 'crowd' ? 0.24 : 0.3), labelColor);
+
+    const visibleBadge = shouldShowLabel && badge?.text ? badge : undefined;
+    view.badgePlate.clear();
+    view.badgePlate.visible = Boolean(visibleBadge);
+    view.badge.visible = Boolean(visibleBadge);
+    view.badge.text = visibleBadge?.text ?? '';
+
+    if (!shouldShowLabel) {
+      return;
+    }
+    if (!visibleBadge) {
+      view.label.position.set(cellSize / 2, labelY);
+      return;
+    }
+
+    const badgeTextSize = Math.max(9, cellSize * 0.2);
+    const badgePaddingX = Math.max(4, cellSize * 0.1);
+    const badgeHeight = Math.max(12, cellSize * 0.28);
+    const badgeRadius = Math.max(4, badgeHeight * 0.38);
+    const gap = Math.max(4, cellSize * 0.08);
+    view.badge.style = textStyle('badge', badgeTextSize, resolveEntityBadgePalette(visibleBadge).text, 'rgba(0,0,0,0)', 0);
+
+    const labelWidth = Math.max(0, view.label.width);
+    const badgeWidth = Math.max(16, view.badge.width + badgePaddingX * 2);
+    const totalWidth = badgeWidth + gap + labelWidth;
+    const left = cellSize / 2 - totalWidth / 2;
+    const badgeY = labelY - badgeHeight / 2;
+    const palette = resolveEntityBadgePalette(visibleBadge);
+
+    view.badgePlate
+      .roundRect(0, 0, badgeWidth, badgeHeight, badgeRadius)
+      .fill({ color: parseColor(palette.fill), alpha: parseAlpha(palette.fill, 1) })
+      .stroke({ color: parseColor(palette.stroke), alpha: parseAlpha(palette.stroke, 1), width: 1 });
+    view.badgePlate.position.set(left, badgeY);
+    view.badge.position.set(left + badgeWidth / 2, labelY);
+    view.label.position.set(left + badgeWidth + gap + labelWidth / 2, labelY);
   }
 
   private drawEntityBars(view: EntityView, visualCellSize: number): void {
