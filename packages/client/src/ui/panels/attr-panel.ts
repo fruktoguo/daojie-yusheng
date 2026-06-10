@@ -1873,7 +1873,7 @@ export class AttrPanel {
   /** renderTabs：渲染标签页。 */
   private renderTabs(): string {
     return (Object.keys(ATTR_TAB_LABELS) as AttrTab[])
-      .map((tab) => `<button class="action-tab-btn ${this.activeTab === tab ? 'active' : ''}" data-attr-tab="${tab}" type="button">${ATTR_TAB_LABELS[tab]}</button>`)
+      .map((tab) => `<button class="action-tab-btn ${this.activeTab === tab ? 'active' : ''}" data-attr-tab="${tab}" data-guided-tour-attr-tab="${tab}" type="button">${ATTR_TAB_LABELS[tab]}</button>`)
       .join('');
   }
 
@@ -1898,9 +1898,9 @@ export class AttrPanel {
       </div>`;
     }
     if (snapshot.kind === 'craft') {
-      return `<div class="attr-craft-list" data-pane-kind="craft">
+      return `<div class="attr-craft-list" data-pane-kind="craft" data-guided-tour-craft-pane="true">
         ${snapshot.skills.map((skill) => `
-          <section class="attr-craft-row" data-craft-skill="${escapeHtml(skill.key)}" data-tooltip-title="${escapeHtml(skill.tooltipTitle)}" data-tooltip-detail="${escapeHtml(skill.tooltipDetail)}">
+          <section class="attr-craft-row" data-craft-skill="${escapeHtml(skill.key)}" data-guided-tour-craft-skill="${escapeHtml(skill.key)}" data-tooltip-title="${escapeHtml(skill.tooltipTitle)}" data-tooltip-detail="${escapeHtml(skill.tooltipDetail)}">
             <span class="attr-craft-label" data-craft-label="true">${escapeHtml(skill.label)}</span>
             <strong class="attr-craft-level" data-craft-level="true">${escapeHtml(skill.level)}</strong>
             <div class="attr-craft-exp">
@@ -1912,7 +1912,7 @@ export class AttrPanel {
             <span class="attr-craft-remain" data-craft-remain="true">${escapeHtml(skill.remain)}</span>
             ${skill.openable ? `
               <div class="attr-craft-actions" data-craft-actions="true">
-                <button class="small-btn" data-craft-open="${escapeHtml(skill.key)}" type="button">打开</button>
+                <button class="small-btn" data-craft-open="${escapeHtml(skill.key)}" data-guided-tour-craft-open="${escapeHtml(skill.key)}" type="button">打开</button>
                 <button class="small-btn ghost" data-craft-bind="${escapeHtml(skill.key)}" type="button">${escapeHtml(skill.bindLabel)}</button>
               </div>
             ` : ''}

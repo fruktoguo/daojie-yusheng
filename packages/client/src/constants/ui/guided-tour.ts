@@ -65,6 +65,16 @@ const OPEN_TECHNIQUE_PANEL_PREPARE: GuidedTourPrepareAction[] = [
   { type: 'switch-tab', tabName: 'technique' },
 ];
 
+const OPEN_ATTR_PANEL_PREPARE: GuidedTourPrepareAction[] = [
+  { type: 'set-layout-collapsed', target: 'left', collapsed: false, when: 'desktop' },
+  { type: 'switch-tab', tabName: 'mobile-attrs', when: 'mobile' },
+];
+
+const OPEN_ATTR_CRAFT_PANEL_PREPARE: GuidedTourPrepareAction[] = [
+  ...OPEN_ATTR_PANEL_PREPARE,
+  { type: 'click', selector: '[data-guided-tour-attr-tab="craft"]' },
+];
+
 export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
   {
     id: STARTER_GUIDED_TOUR_FLOW_ID,
@@ -148,52 +158,46 @@ export const GUIDED_TOUR_FLOWS: GuidedTourFlow[] = [
     titleFallback: '炼丹引导',
     steps: [
       {
-        id: 'alchemy-action-panel',
-        targetSelector: '#pane-action',
-        titleKey: 'guided-tour.step.alchemy-action-panel.title',
-        titleFallback: '先打开行动栏',
-        bodyKey: 'guided-tour.step.alchemy-action-panel.body',
-        bodyFallback: '炼丹入口在行动栏里。桌面端看右侧行动栏，手机端先切到行动页。',
-        placement: 'left',
-        prepare: OPEN_ACTION_PANEL_PREPARE,
+        id: 'alchemy-attr-panel',
+        targetSelector: '#pane-attr',
+        titleKey: 'guided-tour.step.alchemy-attr-panel.title',
+        titleFallback: '先看左侧修行卷',
+        bodyKey: 'guided-tour.step.alchemy-attr-panel.body',
+        bodyFallback: '炼丹入口在左侧修行卷的技艺页里。桌面端展开左侧，手机端先切到属性页。',
+        placement: 'right',
+        prepare: OPEN_ATTR_PANEL_PREPARE,
       },
       {
-        id: 'alchemy-dialogue-tab',
-        targetSelector: '[data-action-tab="dialogue"]',
-        titleKey: 'guided-tour.step.alchemy-dialogue-tab.title',
-        titleFallback: '切到交互页',
-        bodyKey: 'guided-tour.step.alchemy-dialogue-tab.body',
-        bodyFallback: '技艺分组在交互页里。点击这里切换到包含炼丹、炼器等入口的页面。',
+        id: 'alchemy-craft-tab',
+        targetSelector: '[data-guided-tour-attr-tab="craft"]',
+        titleKey: 'guided-tour.step.alchemy-craft-tab.title',
+        titleFallback: '切换到技艺',
+        bodyKey: 'guided-tour.step.alchemy-craft-tab.body',
+        bodyFallback: '点击技艺页，进入炼丹、炼器、强化、挖矿等技艺等级与入口列表。',
         placement: 'bottom',
         advanceMode: 'target-click',
-        prepare: OPEN_ACTION_PANEL_PREPARE,
+        prepare: OPEN_ATTR_PANEL_PREPARE,
       },
       {
-        id: 'alchemy-craft-section',
-        targetSelector: '[data-action-type-section="craft"]',
-        titleKey: 'guided-tour.step.alchemy-craft-section.title',
-        titleFallback: '找到技艺分组',
-        bodyKey: 'guided-tour.step.alchemy-craft-section.body',
-        bodyFallback: '这里集中放置技艺相关入口。炼丹、炼器、强化等生产操作都会从这里打开对应界面。',
-        placement: 'left',
-        prepare: [
-          ...OPEN_ACTION_PANEL_PREPARE,
-          { type: 'click', selector: '[data-action-tab="dialogue"]' },
-        ],
+        id: 'alchemy-craft-row',
+        targetSelector: '[data-guided-tour-craft-skill="alchemy"]',
+        titleKey: 'guided-tour.step.alchemy-craft-row.title',
+        titleFallback: '找到炼丹',
+        bodyKey: 'guided-tour.step.alchemy-craft-row.body',
+        bodyFallback: '这一行显示炼丹等级、经验进度和距离下一级还需经验。右侧打开按钮会进入炼丹操作界面。',
+        placement: 'right',
+        prepare: OPEN_ATTR_CRAFT_PANEL_PREPARE,
       },
       {
         id: 'alchemy-open',
-        targetSelector: '[data-action-exec="alchemy:open"]',
+        targetSelector: '[data-guided-tour-craft-open="alchemy"]',
         titleKey: 'guided-tour.step.alchemy-open.title',
         titleFallback: '打开炼丹',
         bodyKey: 'guided-tour.step.alchemy-open.body',
-        bodyFallback: '点击炼丹入口，打开对应的技艺操作界面。',
-        placement: 'left',
+        bodyFallback: '点击炼丹这一行的打开按钮，进入对应的炼丹操作界面。',
+        placement: 'right',
         advanceMode: 'target-click',
-        prepare: [
-          ...OPEN_ACTION_PANEL_PREPARE,
-          { type: 'click', selector: '[data-action-tab="dialogue"]' },
-        ],
+        prepare: OPEN_ATTR_CRAFT_PANEL_PREPARE,
       },
       {
         id: 'alchemy-workbench',

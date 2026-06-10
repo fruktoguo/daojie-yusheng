@@ -110,6 +110,7 @@ export const AttrPanel = memo(function AttrPanel() {
             className={`action-tab-btn${activeTab === tab ? ' active' : ''}`}
             type="button"
             data-attr-tab={tab}
+            data-guided-tour-attr-tab={tab}
             onClick={() => callbacks.onSwitchTab?.(tab)}
           >
             {ATTR_TAB_LABELS[tab]}
@@ -273,9 +274,16 @@ const CraftPane = memo(function CraftPane({ pane }: { pane: AttrCraftPaneSnapsho
   }, []);
 
   return (
-    <div className="attr-craft-list">
+    <div className="attr-craft-list" data-guided-tour-craft-pane="true">
       {pane.skills.map((skill) => (
-        <div key={skill.key} className="attr-craft-row" data-tooltip-key={skill.key} data-tooltip-title={skill.tooltipTitle} data-tooltip-detail={skill.tooltipDetail}>
+        <div
+          key={skill.key}
+          className="attr-craft-row"
+          data-guided-tour-craft-skill={skill.key}
+          data-tooltip-key={skill.key}
+          data-tooltip-title={skill.tooltipTitle}
+          data-tooltip-detail={skill.tooltipDetail}
+        >
           <span className="attr-craft-label">{skill.label}</span>
           <strong className="attr-craft-level">{skill.level}</strong>
           <div className="attr-craft-exp">
@@ -287,7 +295,12 @@ const CraftPane = memo(function CraftPane({ pane }: { pane: AttrCraftPaneSnapsho
           <span className="attr-craft-remain">{skill.remain}</span>
           {skill.openable && (
             <div className="attr-craft-actions">
-              <button className="small-btn" type="button" onClick={() => handleOpen(skill.key)}>
+              <button
+                className="small-btn"
+                type="button"
+                data-guided-tour-craft-open={skill.key}
+                onClick={() => handleOpen(skill.key)}
+              >
                 {t('attr.craft.open', undefined)}
               </button>
               <button className="small-btn ghost" type="button" onClick={() => callbacks.onBindCraftSkill?.(skill.key)}>
