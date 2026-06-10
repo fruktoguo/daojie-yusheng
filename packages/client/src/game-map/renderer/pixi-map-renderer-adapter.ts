@@ -134,6 +134,8 @@ interface AnimEntity extends ObservedMapEntity {
   targetWY: number;
 }
 
+type EntityNameplateBadge = NonNullable<ObservedMapEntity['badge']>;
+
 type RuntimeEntitySpriteSelection = {
   ref: PixiTileSpriteRef;
   transform: EntitySpriteTransform;
@@ -160,8 +162,7 @@ interface EntityView {
   image: Sprite;
   glyph: Text;
   label: Text;
-  badgePlate: Graphics;
-  badge: Text;
+  badgeLayer: Container;
   hpBar: Graphics;
   progressBar: Graphics;
   buffLayer: Container;
@@ -391,12 +392,19 @@ function resolveEntityHpBarColor(kind: string | null | undefined, hostile: boole
   }
 }
 
-function resolveEntityBadgePalette(badge: NonNullable<ObservedMapEntity['badge']>): {
+function resolveEntityBadgePalette(badge: EntityNameplateBadge): {
   fill: string;
   stroke: string;
   text: string;
 } {
   const badgeClassName = getEntityBadgeClassName(badge);
+  if (badge.tone === 'sect') {
+    return {
+      fill: 'rgba(151, 83, 28, 0.92)',
+      stroke: 'rgba(255, 198, 128, 0.86)',
+      text: '#fff6eb',
+    };
+  }
   const fill = badgeClassName?.includes('--boss') || badge.tone === 'demonic'
     ? 'rgba(120, 32, 24, 0.92)'
     : 'rgba(42, 54, 91, 0.92)';
@@ -410,6 +418,27 @@ function resolveEntityBadgePalette(badge: NonNullable<ObservedMapEntity['badge']
     stroke,
     text: '#fff6eb',
   };
+}
+
+function resolveNameplateBadges(
+  badges: ObservedMapEntity['badges'] | null | undefined,
+  badge: ObservedMapEntity['badge'] | null | undefined,
+  fallbackBadge: ObservedMapEntity['badge'] | null | undefined,
+): EntityNameplateBadge[] {
+  const source = Array.isArray(badges) && badges.length > 0
+    ? badges
+    : badge
+      ? [badge]
+      : fallbackBadge
+        ? [fallbackBadge]
+        : [];
+  return source.filter((entry): entry is EntityNameplateBadge => (
+    typeof entry?.text === 'string' && entry.text.trim().length > 0
+  ));
+}
+
+function buildNameplateBadgeSignature(badges: readonly EntityNameplateBadge[]): string {
+  return badges.map((badge) => `${badge.text}:${badge.tone ?? ''}`).join(',');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2127,8 +2156,7 @@ export class PixiMapRendererAdapter {
       image: new Sprite(Texture.EMPTY),
       glyph: new Text({ text: entity.char, style: textStyle('entityGlyph', getCellSize() * 0.75, entity.color), anchor: 0.5 }),
       label: new Text({ text: '', style: textStyle('label', getCellSize() * 0.3, '#cce7ff'), anchor: 0.5 }),
-      badgePlate: new Graphics(),
-      badge: new Text({ text: '', style: textStyle('badge', getCellSize() * 0.2, '#fff6eb'), anchor: 0.5 }),
+      badgeLayer: new Container(),
       hpBar: new Graphics(),
       progressBar: new Graphics(),
       buffLayer: new Container(),
@@ -2148,20 +2176,22 @@ export class PixiMapRendererAdapter {
     view.image.anchor.set(0.5);
     view.image.visible = false;
     visualRoot.addChild(view.shadow, view.image, view.glyph);
-    root.addChild(view.formationMarker, visualRoot, view.badgePlate, view.badge, view.label, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
+    root.addChild(view.formationMarker, visualRoot, view.badgeLayer, view.label, view.hpBar, view.progressBar, view.buffLayer, view.questMarker, view.respawnLabel);
     return view;
   }
 
   private patchEntityStatic(view: EntityView): void {
     const anim = view.anim;
     const cellSize = getCellSize();
+    const presentation = anim.kind === 'monster' ? getMonsterPresentation(anim.name, anim.monsterTier) : null;
+    const badges = resolveNameplateBadges(anim.badges, anim.badge, presentation?.badge);
     const signature = [
       cellSize,
       anim.char, anim.color, anim.name ?? '', anim.kind ?? '', anim.hp ?? '', anim.maxHp ?? '',
       anim.respawnRemainingTicks ?? '', anim.respawnTotalTicks ?? '',
       anim.monsterTier ?? '',
       anim.monsterId ?? '',
-      anim.badge?.text ?? '', anim.badge?.tone ?? '', anim.hostile ? 1 : 0,
+      buildNameplateBadgeSignature(badges), anim.hostile ? 1 : 0,
       anim.monsterScale ?? '', anim.facing ?? '',
       this.runtimeTileSpriteRevision,
       anim.buffs?.map((buff) => `${buff.buffId}:${buff.remainingTicks}:${buff.stacks}`).join(',') ?? '',
@@ -2170,7 +2200,6 @@ export class PixiMapRendererAdapter {
       anim.formationRangeHighlightColor ?? '',
     ].join('|');
     if (signature === view.staticSignature) return;
-    const presentation = anim.kind === 'monster' ? getMonsterPresentation(anim.name, anim.monsterTier) : null;
     const visualScale = (presentation?.scale ?? 1) * Math.max(1, anim.monsterScale ?? 1);
     const visualCellSize = cellSize * visualScale;
     view.visualRoot.pivot.set(visualCellSize / 2, visualCellSize - 3);
@@ -2184,8 +2213,7 @@ export class PixiMapRendererAdapter {
     const label = presentation?.label ?? anim.name ?? resolveEntityFallbackLabel(anim.kind);
     const shouldShowLabel = anim.kind !== 'formation' || anim.formationShowText !== false;
     const labelY = cellSize - visualCellSize - Math.max(6, cellSize * 0.18);
-    const badge = anim.badge ?? presentation?.badge;
-    this.patchEntityNameplate(view, label, badge, shouldShowLabel, labelY, cellSize);
+    this.patchEntityNameplate(view, label, badges, shouldShowLabel, labelY, cellSize);
     this.drawEntityBars(view, visualCellSize);
     this.drawBuffs(view, cellSize);
     this.drawNpcQuestMarker(view.questMarker, anim.npcQuestMarker ?? undefined, cellSize);
@@ -2262,7 +2290,7 @@ export class PixiMapRendererAdapter {
   private patchEntityNameplate(
     view: EntityView,
     label: string,
-    badge: ObservedMapEntity['badge'] | undefined,
+    badges: readonly EntityNameplateBadge[],
     shouldShowLabel: boolean,
     labelY: number,
     cellSize: number,
@@ -2272,16 +2300,14 @@ export class PixiMapRendererAdapter {
     view.label.text = label;
     view.label.style = textStyle('label', cellSize * (view.anim.kind === 'crowd' ? 0.24 : 0.3), labelColor);
 
-    const visibleBadge = shouldShowLabel && badge?.text ? badge : undefined;
-    view.badgePlate.clear();
-    view.badgePlate.visible = Boolean(visibleBadge);
-    view.badge.visible = Boolean(visibleBadge);
-    view.badge.text = visibleBadge?.text ?? '';
+    const visibleBadges = shouldShowLabel ? badges : [];
+    this.clearContainer(view.badgeLayer);
+    view.badgeLayer.visible = visibleBadges.length > 0;
 
     if (!shouldShowLabel) {
       return;
     }
-    if (!visibleBadge) {
+    if (visibleBadges.length === 0) {
       view.label.position.set(cellSize / 2, labelY);
       return;
     }
@@ -2290,23 +2316,41 @@ export class PixiMapRendererAdapter {
     const badgePaddingX = Math.max(4, cellSize * 0.1);
     const badgeHeight = Math.max(12, cellSize * 0.28);
     const badgeRadius = Math.max(4, badgeHeight * 0.38);
-    const gap = Math.max(4, cellSize * 0.08);
-    view.badge.style = textStyle('badge', badgeTextSize, resolveEntityBadgePalette(visibleBadge).text, 'rgba(0,0,0,0)', 0);
+    const badgeGap = Math.max(2, cellSize * 0.04);
+    const labelGap = Math.max(4, cellSize * 0.08);
 
     const labelWidth = Math.max(0, view.label.width);
-    const badgeWidth = Math.max(16, view.badge.width + badgePaddingX * 2);
-    const totalWidth = badgeWidth + gap + labelWidth;
+    const badgeEntries = visibleBadges.map((badge) => {
+      const palette = resolveEntityBadgePalette(badge);
+      const text = new Text({
+        text: badge.text,
+        style: textStyle('badge', badgeTextSize, palette.text, 'rgba(0,0,0,0)', 0),
+        anchor: 0.5,
+      });
+      return {
+        badge,
+        text,
+        width: Math.max(16, text.width + badgePaddingX * 2),
+      };
+    });
+    const badgesWidth = badgeEntries.reduce((sum, entry) => sum + entry.width, 0)
+      + Math.max(0, badgeEntries.length - 1) * badgeGap;
+    const totalWidth = badgesWidth + labelGap + labelWidth;
     const left = cellSize / 2 - totalWidth / 2;
     const badgeY = labelY - badgeHeight / 2;
-    const palette = resolveEntityBadgePalette(visibleBadge);
-
-    view.badgePlate
-      .roundRect(0, 0, badgeWidth, badgeHeight, badgeRadius)
-      .fill({ color: parseColor(palette.fill), alpha: parseAlpha(palette.fill, 1) })
-      .stroke({ color: parseColor(palette.stroke), alpha: parseAlpha(palette.stroke, 1), width: 1 });
-    view.badgePlate.position.set(left, badgeY);
-    view.badge.position.set(left + badgeWidth / 2, labelY);
-    view.label.position.set(left + badgeWidth + gap + labelWidth / 2, labelY);
+    let badgeX = left;
+    for (const entry of badgeEntries) {
+      const palette = resolveEntityBadgePalette(entry.badge);
+      const plate = new Graphics()
+        .roundRect(0, 0, entry.width, badgeHeight, badgeRadius)
+        .fill({ color: parseColor(palette.fill), alpha: parseAlpha(palette.fill, 1) })
+        .stroke({ color: parseColor(palette.stroke), alpha: parseAlpha(palette.stroke, 1), width: 1 });
+      plate.position.set(badgeX, badgeY);
+      entry.text.position.set(badgeX + entry.width / 2, labelY);
+      view.badgeLayer.addChild(plate, entry.text);
+      badgeX += entry.width + badgeGap;
+    }
+    view.label.position.set(left + badgesWidth + labelGap + labelWidth / 2, labelY);
   }
 
   private drawEntityBars(view: EntityView, visualCellSize: number): void {

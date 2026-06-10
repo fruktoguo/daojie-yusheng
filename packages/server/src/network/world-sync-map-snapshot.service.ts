@@ -194,7 +194,7 @@ export class WorldSyncMapSnapshotService {
   /** 构造视野内所有可渲染实体（玩家、怪物、NPC、传送门、容器、建筑、阵法）的快照。 */
   buildRenderEntitiesSnapshot(view, player) {
     const entities = new Map();
-    entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0', this.resolveAccountIdentityProjection(player.playerId, player)));
+    entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0', this.resolveAccountIdentityProjection(player.playerId, player), null, view?.self?.sectMark));
     for (const visible of view.visiblePlayers) {
       const target = this.playerRuntimeService.getPlayer(visible.playerId);
       if (!target) {
@@ -210,6 +210,7 @@ export class WorldSyncMapSnapshotService {
           '#0f0',
           this.resolveAccountIdentityProjection(target.playerId, target),
           visible.projectedFromParentMap === true ? { x: visible.x, y: visible.y } : null,
+          visible.sectMark,
         ),
       );
     }
@@ -899,7 +900,7 @@ function getBuffPresentationScale(buffs) {
   return scale;
 }
 
-function buildPlayerRenderEntity(player, color, identity = null, projectedPosition = null) {
+function buildPlayerRenderEntity(player, color, identity = null, projectedPosition = null, sectMark = undefined) {
   const playerId = normalizePlayerIdentityText(player.playerId);
   const displayName = normalizePlayerDisplayText(identity?.displayName ?? player.displayName, playerId);
   const name = normalizePlayerDisplayText(identity?.name ?? player.name, playerId);
@@ -916,6 +917,7 @@ function buildPlayerRenderEntity(player, color, identity = null, projectedPositi
     hp: player.hp,
     maxHp: player.maxHp,
     buffs: projectVisiblePlayerBuffs(player),
+    sectMark: normalizePlayerSectMark(sectMark) ?? undefined,
   };
 }
 
@@ -1118,6 +1120,11 @@ function isSameShallowRecord(left, right) {
 
 function normalizePlayerIdentityText(value) {
   return typeof value === 'string' ? value.trim().normalize('NFC') : '';
+}
+
+function normalizePlayerSectMark(value) {
+  const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
+  return normalized ? getFirstGrapheme(normalized) || null : null;
 }
 
 function normalizePlayerDisplayText(value, playerId = undefined) {

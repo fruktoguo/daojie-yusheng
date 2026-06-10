@@ -48,6 +48,7 @@ import {
 } from '../../map-static-cache';
 import { resolvePresentationScaleFromBuffs } from '../../buff-presentation';
 import { TILE_HIDDEN_FADE_MS } from '../../constants/visuals/time-atmosphere';
+import { buildEntityNameplateBadges } from '../../entity-nameplate-badges';
 import { t } from '../../ui/i18n';
 import type {
   MapBootstrapInput,
@@ -65,8 +66,6 @@ import type {
 } from '../types';
 
 let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
-const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
-const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
 const DEFAULT_MOTION_DURATION_MS = 320;
 const MIN_MOTION_DURATION_MS = 180;
 const MAX_MOTION_DURATION_MS = 420;
@@ -119,13 +118,6 @@ function resolveObservedFacing(
     : (nextFacing ?? previousFacing ?? undefined);
 }
 
-function isDemonizedBuffCarrier(buffs: readonly { buffId: string; stacks: number }[] | null | undefined): boolean {
-  return (buffs ?? []).some((buff) => (
-    buff.buffId === PVP_SHA_INFUSION_BUFF_ID
-    && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
-  ));
-}
-
 function buildTerrainTileRenderSignature(tile: Tile | null | undefined): string {
   if (!tile) {
     return 'null';
@@ -149,11 +141,7 @@ function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState |
   const buffs = isSelf && Array.isArray(player.temporaryBuffs)
     ? cloneJson(player.temporaryBuffs)
     : entity.buffs;
-  const badge = entity.badge ?? (
-    entity.kind === 'player' && isDemonizedBuffCarrier(buffs)
-      ? { text: t('entity.badge.demonic'), tone: 'demonic' as const }
-      : undefined
-  );
+  const badges = buildEntityNameplateBadges({ ...entity, buffs });
   const hostile = entity.kind === 'player'
     && player !== null
     && entity.id !== player.id
@@ -162,7 +150,8 @@ function decorateObservedEntity(entity: ObservedMapEntity, player: PlayerState |
     ...entity,
     buffs,
     monsterScale: isSelf ? resolvePresentationScaleFromBuffs(buffs) : entity.monsterScale,
-    badge,
+    badge: badges?.[0],
+    badges,
     hostile,
   };
 }
@@ -177,6 +166,8 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     char: entity.char,
     color: entity.color,
     badge: entity.badge,
+    badges: entity.badges,
+    sectMark: entity.sectMark,
     hostile: false,
     name: entity.name,
     kind,
@@ -221,6 +212,8 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     char: patch.char ?? previous?.char ?? '?',
     color: patch.color ?? previous?.color ?? '#fff',
     badge: previous?.badge,
+    badges: previous?.badges,
+    sectMark: applyNullablePatch(patch.sectMark, previous?.sectMark),
     hostile: previous?.hostile,
     name: applyNullablePatch(patch.name, previous?.name),
     kind,
@@ -268,6 +261,8 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     char: getFirstGrapheme(player.displayName ?? player.name ?? '') || previous?.char || t('entity.player.self-char'),
     color: previous?.color ?? '#7ee787',
     badge: previous?.badge,
+    badges: previous?.badges,
+    sectMark: previous?.sectMark,
     hostile: false,
     name: player.name,
     kind: 'player',

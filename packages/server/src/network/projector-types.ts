@@ -114,6 +114,7 @@ export interface ProjectorVisiblePlayerLike {
   playerId: string;
   name: string;
   displayName?: string | null;
+  sectMark?: string | null;
   x: number;
   y: number;
   facing: DirectionLike;
@@ -218,6 +219,7 @@ export interface ProjectorViewLike {
     facing: DirectionLike;
     name: string;
     displayName?: string | null;
+    sectMark?: string | null;
     buffs?: { buffs?: unknown[] | null } | unknown[] | null;
   };
   visiblePlayers: ProjectorVisiblePlayerLike[];
@@ -236,6 +238,7 @@ export interface ProjectedPlayerEntry {
   y: number;
   f: DirectionLike;
   sc?: number | null;
+  sm?: string | null;
 }
 export interface ProjectedNpcEntry {
   x: number;

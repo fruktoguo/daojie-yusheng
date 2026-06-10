@@ -4,7 +4,7 @@
  * 维护时应避免查询路径产生副作用，并控制返回字段，防止高频同步带出完整大对象。
  */
 import { Injectable } from '@nestjs/common';
-import { percentModifierToMultiplier } from '@mud/shared';
+import { getFirstGrapheme, percentModifierToMultiplier } from '@mud/shared';
 import { PlayerRuntimeService } from '../../player/player-runtime.service';
 import { WorldRuntimeLootContainerService } from '../world-runtime-loot-container.service';
 import { WorldRuntimeNpcQuestInteractionQueryService } from './world-runtime-npc-quest-interaction-query.service';
@@ -163,7 +163,60 @@ export class WorldRuntimePlayerViewQueryService {
                 localNpcs,
                 localFormations,
             };
-        return decorateOverlayParentView(runtime, decorated);
+        return this.decoratePlayerViewPresentation(runtime, decorateOverlayParentView(runtime, decorated));
+    }
+    /** decoratePlayerViewPresentation：只追加玩家名牌展示所需的短字段。 */
+    decoratePlayerViewPresentation(runtime, view) {
+        if (!view || !runtime?.worldRuntimeSectService) {
+            return view;
+        }
+        const self = this.getPlayerSectMarkEntry(runtime, view.self, view.playerId);
+        let visiblePlayers = view.visiblePlayers;
+        if (Array.isArray(view.visiblePlayers)) {
+            for (let index = 0; index < view.visiblePlayers.length; index += 1) {
+                const entry = view.visiblePlayers[index];
+                const nextEntry = this.getPlayerSectMarkEntry(runtime, entry, entry?.playerId);
+                if (nextEntry === entry) {
+                    if (visiblePlayers !== view.visiblePlayers) {
+                        visiblePlayers.push(entry);
+                    }
+                    continue;
+                }
+                if (visiblePlayers === view.visiblePlayers) {
+                    visiblePlayers = view.visiblePlayers.slice(0, index);
+                }
+                visiblePlayers.push(nextEntry);
+            }
+        }
+        return self !== view.self || visiblePlayers !== view.visiblePlayers
+            ? { ...view, self, visiblePlayers }
+            : view;
+    }
+    /** getPlayerSectMarkEntry：按玩家运行态宗门 ID 读取宗门单字印记。 */
+    getPlayerSectMarkEntry(runtime, entry, playerId) {
+        if (!entry) {
+            return entry;
+        }
+        const sectMark = resolvePlayerSectMark(runtime, this.playerRuntimeService, playerId);
+        if ((entry.sectMark ?? null) === sectMark) {
+            return entry;
+        }
+        if (typeof entry !== 'object') {
+            return freezeViewProjection({ ...entry, sectMark });
+        }
+        let byMark = sectMarkProjectionCache.get(entry);
+        if (!byMark) {
+            byMark = new Map();
+            sectMarkProjectionCache.set(entry, byMark);
+        }
+        const cacheKey = sectMark ?? '';
+        const cached = byMark.get(cacheKey);
+        if (cached) {
+            return cached;
+        }
+        const nextEntry = freezeViewProjection({ ...entry, sectMark });
+        byMark.set(cacheKey, nextEntry);
+        return nextEntry;
     }
     /** decorateLocalNpcQuestMarkers：只在 marker 非空或变化时创建 NPC 叠加条目。 */
     decorateLocalNpcQuestMarkers(runtime, playerId, localNpcs) {
@@ -212,6 +265,35 @@ export class WorldRuntimePlayerViewQueryService {
 };
 
 const overlayProjectionCache = new WeakMap<object, Map<string, unknown>>();
+const sectMarkProjectionCache = new WeakMap<object, Map<string, unknown>>();
+
+function resolvePlayerSectMark(runtime, playerRuntimeService, playerId) {
+    const normalizedPlayerId = normalizeOptionalString(playerId);
+    if (!normalizedPlayerId) {
+        return null;
+    }
+    const player = typeof playerRuntimeService.getPlayer === 'function'
+        ? playerRuntimeService.getPlayer(normalizedPlayerId)
+        : null;
+    const sectId = normalizeOptionalString(player?.sectId);
+    if (!sectId || typeof runtime.worldRuntimeSectService?.findSectById !== 'function') {
+        return null;
+    }
+    const sect = runtime.worldRuntimeSectService.findSectById(sectId);
+    if (!sect || normalizeOptionalString(sect.status) === 'dissolved') {
+        return null;
+    }
+    const mark = normalizeOptionalString(sect.mark) || normalizeOptionalString(sect.name);
+    return mark ? getFirstGrapheme(mark) || null : null;
+}
+
+function normalizeOptionalString(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const normalized = value.trim().normalize('NFC');
+    return normalized ? normalized : null;
+}
 
 function isFormationVisibleInView(view, formation) {
     const x = Math.trunc(Number(formation?.x));

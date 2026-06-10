@@ -76,6 +76,52 @@ import { t as translateUi } from '../ui/i18n';
 const ENTITY_FACING_FLIP_TRANSITION_MS = 160;
 const ATTACK_MOTION_DURATION_MS = 180;
 
+type EntityNameplateBadge = NonNullable<RenderEntity['badge']>;
+
+function resolveEntityNameplateBadgePalette(badge: EntityNameplateBadge): {
+  fill: string;
+  stroke: string;
+  text: string;
+} {
+  const badgeClassName = getEntityBadgeClassName(badge);
+  if (badge.tone === 'sect') {
+    return {
+      fill: 'rgba(151, 83, 28, 0.92)',
+      stroke: 'rgba(255, 198, 128, 0.86)',
+      text: '#fff6eb',
+    };
+  }
+  if (badgeClassName?.includes('--boss') || badge.tone === 'demonic') {
+    return {
+      fill: 'rgba(120, 32, 24, 0.92)',
+      stroke: badgeClassName?.includes('--boss') ? 'rgba(255, 188, 156, 0.86)' : 'rgba(255, 151, 151, 0.84)',
+      text: '#fff6eb',
+    };
+  }
+  return {
+    fill: 'rgba(42, 54, 91, 0.92)',
+    stroke: 'rgba(185, 211, 255, 0.82)',
+    text: '#fff6eb',
+  };
+}
+
+function resolveNameplateBadges(
+  badges: RenderEntity['badges'] | null | undefined,
+  badge: RenderEntity['badge'] | null | undefined,
+  fallbackBadge: RenderEntity['badge'] | null | undefined,
+): EntityNameplateBadge[] {
+  const source = Array.isArray(badges) && badges.length > 0
+    ? badges
+    : badge
+      ? [badge]
+      : fallbackBadge
+        ? [fallbackBadge]
+        : [];
+  return source.filter((entry): entry is EntityNameplateBadge => (
+    typeof entry?.text === 'string' && entry.text.trim().length > 0
+  ));
+}
+
 /** 时间氛围过渡状态。 */
 interface TimeAtmosphereState {
 /**
@@ -419,6 +465,10 @@ interface AnimEntity {
  */
 
   badge?: RenderEntity['badge'];  
+  /** 有序名牌徽记列表。 */
+  badges?: RenderEntity['badges'];
+  /** 玩家宗门单字印记。 */
+  sectMark?: RenderEntity['sectMark'];
   /**
  * name：名称名称或显示文本。
  */
@@ -1947,6 +1997,10 @@ export class TextRenderer implements IRenderer {
  * badge：badge相关字段。
  */
  badge?: RenderEntity['badge'] | null;    
+ /** 有序名牌徽记列表。 */
+ badges?: RenderEntity['badges'];
+ /** 玩家宗门单字印记。 */
+ sectMark?: RenderEntity['sectMark'];
  /**
  * name：名称名称或显示文本。
  */
@@ -2076,6 +2130,8 @@ export class TextRenderer implements IRenderer {
         anim.char = e.char;
         anim.color = e.color;
         anim.badge = e.badge ?? undefined;
+        anim.badges = e.badges ?? undefined;
+        anim.sectMark = e.sectMark ?? undefined;
         anim.name = e.name;
         anim.kind = e.kind;
         anim.monsterId = e.monsterId;
@@ -2117,6 +2173,8 @@ export class TextRenderer implements IRenderer {
           char: e.char,
           color: e.color,
           badge: e.badge ?? undefined,
+          badges: e.badges ?? undefined,
+          sectMark: e.sectMark,
           name: e.name,
           kind: e.kind,
           monsterId: e.monsterId,
@@ -2355,12 +2413,12 @@ export class TextRenderer implements IRenderer {
         ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
         const labelColor = resolveEntityLabelColor(anim.kind);
-        const badge = anim.badge ?? monsterPresentation?.badge;
+        const badges = resolveNameplateBadges(anim.badges, anim.badge, monsterPresentation?.badge);
         if (!isFormation || anim.formationShowText !== false) {
-          if (badge) {
-            this.drawEntityBadgeLabel(
+          if (badges.length > 0) {
+            this.drawEntityBadgeLabels(
               label,
-              badge,
+              badges,
               sx + renderedCellSize / 2,
               labelY,
               renderedCellSize,
@@ -2672,9 +2730,9 @@ export class TextRenderer implements IRenderer {
     return invT * invT * start + 2 * invT * t * control + t * t * end;
   }  
   /**
- * drawEntityBadgeLabel：执行draw实体BadgeLabel相关逻辑。
+ * drawEntityBadgeLabels：执行draw实体BadgeLabels相关逻辑。
  * @param label string 参数说明。
- * @param badge RenderEntity['badge'] 参数说明。
+ * @param badges RenderEntity['badges'] 参数说明。
  * @param centerX number 参数说明。
  * @param baselineY number 参数说明。
  * @param cellSize number 参数说明。
@@ -2683,9 +2741,9 @@ export class TextRenderer implements IRenderer {
  */
 
 
-  private drawEntityBadgeLabel(
+  private drawEntityBadgeLabels(
     label: string,
-    badge: NonNullable<RenderEntity['badge']>,
+    badges: readonly EntityNameplateBadge[],
     centerX: number,
     baselineY: number,
     cellSize: number,
@@ -2697,49 +2755,55 @@ export class TextRenderer implements IRenderer {
       return;
     }
     const ctx = this.ctx;
+    if (badges.length === 0) {
+      this.drawOutlinedText(label, centerX, baselineY, labelColor, 'rgba(15,12,10,0.9)');
+      return;
+    }
     const badgePaddingX = Math.max(4, cellSize * 0.1);
     const badgeHeight = Math.max(12, cellSize * 0.28);
     const badgeRadius = Math.max(4, badgeHeight * 0.38);
     const badgeTextSize = Math.max(9, cellSize * 0.2);
-    const badgeWidth = Math.max(16, badge.text.length * badgeTextSize + badgePaddingX * 2);
-    const gap = Math.max(4, cellSize * 0.08);
-    const badgeClassName = getEntityBadgeClassName(badge);
-    const fill = badgeClassName?.includes('--boss') || badge.tone === 'demonic'
-      ? 'rgba(120, 32, 24, 0.92)'
-      : 'rgba(42, 54, 91, 0.92)';
-    const stroke = badgeClassName?.includes('--boss')
-      ? 'rgba(255, 188, 156, 0.86)'
-      : badge.tone === 'demonic'
-        ? 'rgba(255, 151, 151, 0.84)'
-        : 'rgba(185, 211, 255, 0.82)';
-    const textColor = '#fff6eb';
+    const badgeGap = Math.max(2, cellSize * 0.04);
+    const labelGap = Math.max(4, cellSize * 0.08);
 
     ctx.save();
     const labelFont = buildCanvasFont('label', Math.max(10, cellSize * 0.3));
+    const badgeFont = buildCanvasFont('badge', badgeTextSize);
     ctx.font = labelFont;
     const labelWidth = this.textMeasureCache.measureWidth(ctx, labelFont, label);
-    const totalWidth = badgeWidth + gap + labelWidth;
+    ctx.font = badgeFont;
+    const badgeRects = badges.map((badge) => ({
+      badge,
+      width: Math.max(16, this.textMeasureCache.measureWidth(ctx, badgeFont, badge.text) + badgePaddingX * 2),
+    }));
+    const badgesWidth = badgeRects.reduce((sum, entry) => sum + entry.width, 0)
+      + Math.max(0, badgeRects.length - 1) * badgeGap;
+    const totalWidth = badgesWidth + labelGap + labelWidth;
     const left = centerX - totalWidth / 2;
     const badgeY = baselineY - badgeHeight + Math.max(1, cellSize * 0.02);
 
-    ctx.beginPath();
-    ctx.fillStyle = fill;
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1;
-    ctx.roundRect(left, badgeY, badgeWidth, badgeHeight, badgeRadius);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.font = buildCanvasFont('badge', badgeTextSize);
+    ctx.font = badgeFont;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = textColor;
-    ctx.fillText(badge.text, left + badgeWidth / 2, badgeY + badgeHeight / 2 + 0.5);
+    let badgeX = left;
+    for (const entry of badgeRects) {
+      const palette = resolveEntityNameplateBadgePalette(entry.badge);
+      ctx.beginPath();
+      ctx.fillStyle = palette.fill;
+      ctx.strokeStyle = palette.stroke;
+      ctx.lineWidth = 1;
+      ctx.roundRect(badgeX, badgeY, entry.width, badgeHeight, badgeRadius);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = palette.text;
+      ctx.fillText(entry.badge.text, badgeX + entry.width / 2, badgeY + badgeHeight / 2 + 0.5);
+      badgeX += entry.width + badgeGap;
+    }
     ctx.restore();
 
     this.drawOutlinedText(
       label,
-      left + badgeWidth + gap + labelWidth / 2,
+      left + badgesWidth + labelGap + labelWidth / 2,
       baselineY,
       labelColor,
       'rgba(15,12,10,0.9)',

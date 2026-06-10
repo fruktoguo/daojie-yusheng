@@ -464,6 +464,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       name: patch.n ?? previous?.name ?? fallbackName,
       kind: previous?.kind === 'crowd' ? 'crowd' : 'player',
       monsterScale: patch.sc === null ? null : (patch.sc ?? previous?.monsterScale),
+      sectMark: patch.sm === null ? null : (patch.sm ?? previous?.sectMark),
       hp: isSelf ? (player?.hp ?? previous?.hp) : previous?.hp,
       maxHp: isSelf ? (player?.maxHp ?? previous?.maxHp) : previous?.maxHp,
       qi: isSelf ? (player?.qi ?? previous?.qi) : previous?.qi,

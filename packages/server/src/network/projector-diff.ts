@@ -65,7 +65,7 @@ export function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, c
     for (const [playerId, entry] of current) {
         const prev = previous.get(playerId);
         if (!prev) {
-            result.push({ id: playerId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, f: entry.f, sc: entry.sc });
+            result.push({ id: playerId, n: entry.n, ch: entry.ch, x: entry.x, y: entry.y, f: entry.f, sc: entry.sc, sm: entry.sm });
             continue;
         }
         if (prev === entry) {
@@ -79,6 +79,7 @@ export function diffPlayerEntries(previous: Map<string, ProjectedPlayerEntry>, c
         if (prev.y !== entry.y) { delta.y = entry.y; changed = true; }
         if (prev.f !== entry.f) { delta.f = entry.f; changed = true; }
         if (prev.sc !== entry.sc) { delta.sc = entry.sc ?? null; changed = true; }
+        if (prev.sm !== entry.sm) { delta.sm = entry.sm ?? null; changed = true; }
         if (changed) { result.push(delta); }
     }
     for (const playerId of previous.keys()) {

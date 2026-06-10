@@ -86,6 +86,10 @@ export interface ObservedMapEntity {
  */
 
   badge?: RenderEntity['badge'];  
+  /** 有序名牌徽记列表。 */
+  badges?: RenderEntity['badges'];
+  /** 玩家宗门单字印记。 */
+  sectMark?: RenderEntity['sectMark'];
   /**
  * hostile：hostile相关字段。
  */

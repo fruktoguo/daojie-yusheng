@@ -263,6 +263,11 @@ function resolveBuffPresentationScale(source: { buffs?: unknown[] | null } | unk
     return scale > 1 ? scale : undefined;
 }
 
+function normalizeProjectedSectMark(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
+    return normalized ? getFirstGrapheme(normalized) || null : null;
+}
+
 function buildPortalId(portalOrX: ProjectorPortalLike | number, y?: number) {
     if (typeof portalOrX === 'object' && portalOrX !== null) {
         const explicit = typeof portalOrX.id === 'string' ? portalOrX.id.trim() : '';
@@ -391,6 +396,7 @@ function buildFullWorldDeltaFromState(
         y: entry.y,
         f: entry.f,
         sc: entry.sc ?? undefined,
+        sm: entry.sm ?? undefined,
     }));
     const monsters: WorldMonsterPatchView[] = Array.from(state.monsters, ([id, entry]) => ({
         id,
@@ -604,6 +610,7 @@ function captureWorldState(
         x: view.self.x, y: view.self.y,
         f: view.self.facing,
         sc: resolveBuffPresentationScale(view.self.buffs),
+        sm: normalizeProjectedSectMark(view.self.sectMark),
     });
     for (const entry of view.visiblePlayers) {
         players.set(entry.playerId, {
@@ -612,6 +619,7 @@ function captureWorldState(
             x: entry.x, y: entry.y,
             f: entry.facing,
             sc: resolveBuffPresentationScale(entry.buffs),
+            sm: normalizeProjectedSectMark(entry.sectMark),
         });
     }
     return {

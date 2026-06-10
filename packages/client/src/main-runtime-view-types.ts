@@ -40,6 +40,10 @@ export type MainRuntimeObservedEntity = {
  */
 
   badge?: RenderEntity['badge'];  
+  /** 有序名牌徽记列表。 */
+  badges?: RenderEntity['badges'];
+  /** 玩家宗门单字印记。 */
+  sectMark?: RenderEntity['sectMark'];
   /**
  * name：名称名称或显示文本。
  */

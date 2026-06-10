@@ -119,6 +119,11 @@ export interface TickRenderEntityView {
 
   buffs?: VisibleBuffState[] | null;
   /**
+ * sectMark：玩家宗门单字印记，仅用于实体名牌展示。
+ */
+
+  sectMark?: string | null;
+  /**
  * formationRadius：阵法影响半径。
  */
 
@@ -266,6 +271,11 @@ export interface WorldPlayerPatchView {
  */
 
   sc?: number | null;  
+  /**
+ * sm：玩家宗门单字印记。
+ */
+
+  sm?: string | null;
   /**
  * rm：rm相关字段。
  */

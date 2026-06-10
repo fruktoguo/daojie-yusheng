@@ -596,6 +596,12 @@ export interface VisibleBuffState {
   presentationScale?: number;
 }
 
+/** 渲染用实体徽记。 */
+export interface RenderEntityBadge {
+  text: string;
+  tone?: 'variant' | 'boss' | 'demonic' | 'sect';
+}
+
 /** 渲染用实体。 */
 export interface RenderEntity {
 /**
@@ -627,10 +633,17 @@ export interface RenderEntity {
  * badge：badge相关字段。
  */
 
-  badge?: {
-    text: string;
-    tone?: 'variant' | 'boss' | 'demonic';
-  };
+  badge?: RenderEntityBadge;
+  /**
+ * badges：有序前置徽记列表，旧客户端仍可读取 badge。
+ */
+
+  badges?: RenderEntityBadge[];
+  /**
+ * sectMark：宗门单字印记，仅用于客户端实体名牌展示。
+ */
+
+  sectMark?: string;
   /**
  * name：名称名称或显示文本。
  */

@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { S2C } from '@mud/shared';
+import { S2C, getFirstGrapheme } from '@mud/shared';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 
@@ -123,7 +123,7 @@ export class WorldProjectorService {
         }
         const currentWorld = previous.worldRevision === identityView.worldRevision
             && !hasDynamicContainerCountdown(identityView, previous.containers)
-            && !hasPlayerPresentationScaleChange(identityView, previous.players)
+            && !hasPlayerPresentationChange(identityView, previous.players)
             ? previous
             : captureWorldState(identityView, (mapId) => this.resolveMapName(mapId));
         const worldChanged = previous.worldRevision !== currentWorld.worldRevision || currentWorld !== previous;
@@ -306,14 +306,10 @@ function mergeWorldState(previous: any, worldState: any): any {
     };
 }
 
-function hasPlayerPresentationScaleChange(view: any, previousPlayers: Map<string, any>): boolean {
+function hasPlayerPresentationChange(view: any, previousPlayers: Map<string, any>): boolean {
     const selfPlayerId = typeof view?.playerId === 'string' ? view.playerId : '';
-    if (selfPlayerId) {
-        const nextScale = resolveBuffPresentationScale(view?.self?.buffs) ?? null;
-        const previousScale = previousPlayers.get(selfPlayerId)?.sc ?? null;
-        if (nextScale !== previousScale) {
-            return true;
-        }
+    if (selfPlayerId && hasPlayerPresentationEntryChange(selfPlayerId, view?.self, previousPlayers)) {
+        return true;
     }
     if (!Array.isArray(view?.visiblePlayers)) {
         return false;
@@ -323,13 +319,31 @@ function hasPlayerPresentationScaleChange(view: any, previousPlayers: Map<string
         if (!playerId) {
             continue;
         }
-        const nextScale = resolveBuffPresentationScale(entry?.buffs) ?? null;
-        const previousScale = previousPlayers.get(playerId)?.sc ?? null;
-        if (nextScale !== previousScale) {
+        if (hasPlayerPresentationEntryChange(playerId, entry, previousPlayers)) {
             return true;
         }
     }
     return false;
+}
+
+function hasPlayerPresentationEntryChange(playerId: string, entry: any, previousPlayers: Map<string, any>): boolean {
+    const previous = previousPlayers.get(playerId);
+    if (!previous) {
+        return false;
+    }
+    const nextScale = resolveBuffPresentationScale(entry?.buffs) ?? null;
+    const previousScale = previous.sc ?? null;
+    if (nextScale !== previousScale) {
+        return true;
+    }
+    const nextSectMark = normalizeProjectedSectMark(entry?.sectMark);
+    const previousSectMark = previous.sm ?? null;
+    return nextSectMark !== previousSectMark;
+}
+
+function normalizeProjectedSectMark(value: unknown): string | null {
+    const normalized = typeof value === 'string' ? value.trim().normalize('NFC') : '';
+    return normalized ? getFirstGrapheme(normalized) || null : null;
 }
 
 function resolveBuffPresentationScale(source: any): number | undefined {

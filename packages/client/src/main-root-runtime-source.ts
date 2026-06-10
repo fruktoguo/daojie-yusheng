@@ -5,9 +5,9 @@
  */
 import { clonePlainValue, normalizeHorizontalFacing, type Direction, type PlayerState } from '@mud/shared';
 import { resolvePresentationScaleFromBuffs } from './buff-presentation';
+import { buildEntityNameplateBadges } from './entity-nameplate-badges';
 import type { ObservedMapEntity } from './game-map/types';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
-import { t } from './ui/i18n';
 /**
  * MainRootRuntimeSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -26,16 +26,6 @@ type MainRootRuntimeSourceOptions = {
   getLatestObservedEntitiesSnapshot: () => readonly ObservedMapEntity[];
 };
 
-const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
-const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
-
-function isDemonizedPlayerEntity(entity: Pick<MainRuntimeObservedEntity, 'kind' | 'buffs'>): boolean {
-  return entity.kind === 'player' && (entity.buffs ?? []).some((buff) => (
-    buff.buffId === PVP_SHA_INFUSION_BUFF_ID
-    && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
-  ));
-}
-
 function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: PlayerState | null): MainRuntimeObservedEntity {
   const buffs = player !== null && entity.id === player.id
     ? (Array.isArray(player.temporaryBuffs) ? clonePlainValue(player.temporaryBuffs) : entity.buffs)
@@ -44,16 +34,15 @@ function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: Playe
     ...entity,
     buffs,
   };
-  const badge = nextEntity.badge ?? (isDemonizedPlayerEntity(nextEntity)
-    ? { text: t('entity.badge.demonic'), tone: 'demonic' as const }
-    : undefined);
+  const badges = buildEntityNameplateBadges(nextEntity);
   const hostile = nextEntity.kind === 'player'
     && player !== null
     && nextEntity.id !== player.id
     && (player.allowAoePlayerHit === true || player.retaliatePlayerTargetId === nextEntity.id);
   return {
     ...nextEntity,
-    badge,
+    badge: badges?.[0],
+    badges,
     hostile,
     monsterScale: player !== null && nextEntity.id === player.id
       ? resolvePresentationScaleFromBuffs(buffs)
@@ -126,6 +115,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
     const entities = options.getLatestObservedEntitiesSnapshot().map<MainRuntimeObservedEntity>((entity) => ({
       ...entity,
       badge: entity.badge ?? undefined,
+      badges: entity.badges ?? undefined,
+      sectMark: entity.sectMark ?? undefined,
       hostile: entity.hostile === true,
       monsterScale: entity.monsterScale,
       npcQuestMarker: entity.npcQuestMarker ?? undefined,
