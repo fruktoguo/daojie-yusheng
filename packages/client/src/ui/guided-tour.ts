@@ -151,6 +151,8 @@ export class GuidedTour {
   private activeFlow: GuidedTourFlow | null = null;
   private activeStepIndex = -1;
   private activeTarget: ActiveTarget | null = null;
+  private activeFlowAutoStarted = false;
+  private activeFlowSeenRecorded = false;
   private targetAdvanceQueued = false;
   private repositionQueued = false;
   private initialized = false;
@@ -174,7 +176,7 @@ export class GuidedTour {
     this.scheduleAutoStart();
   }
 
-  start(flowId = STARTER_GUIDED_TOUR_FLOW_ID, options: { force?: boolean } = {}): void {
+  start(flowId = STARTER_GUIDED_TOUR_FLOW_ID, options: { force?: boolean; autoStart?: boolean } = {}): void {
     const flow = this.flows.find((entry) => entry.id === flowId);
     if (!flow) {
       return;
@@ -188,6 +190,8 @@ export class GuidedTour {
     if (!options.force && this.isFlowClosed(flow)) {
       return;
     }
+    this.activeFlowAutoStarted = options.autoStart === true;
+    this.activeFlowSeenRecorded = false;
     void this.startFlow(flow);
   }
 
@@ -324,7 +328,7 @@ export class GuidedTour {
       if (!this.isShellVisible(shell) || this.isFlowClosed(autoFlow)) {
         return false;
       }
-      this.windowRef.setTimeout(() => this.start(autoFlow.id), 650);
+      this.windowRef.setTimeout(() => this.start(autoFlow.id, { autoStart: true }), 650);
       return true;
     };
     if (tryStart()) {
@@ -373,6 +377,7 @@ export class GuidedTour {
     }
     this.activeTarget = target;
     this.setHostVisible(true);
+    this.recordAutoStartedFlowSeen(flow);
     this.renderCard(flow, step);
     this.positionMask(target);
     this.positionCard(target, step.placement ?? 'auto');
@@ -742,10 +747,25 @@ export class GuidedTour {
     this.close();
   }
 
+  private recordAutoStartedFlowSeen(flow: GuidedTourFlow): void {
+    if (!this.activeFlowAutoStarted || this.activeFlowSeenRecorded) {
+      return;
+    }
+    this.activeFlowSeenRecorded = true;
+    const state = this.readStorageState();
+    if (state.completed[flow.id] === flow.storageVersion || state.dismissed[flow.id] === flow.storageVersion) {
+      return;
+    }
+    state.dismissed[flow.id] = flow.storageVersion;
+    this.writeStorageState(state);
+  }
+
   private close(): void {
     this.activeFlow = null;
     this.activeStepIndex = -1;
     this.activeTarget = null;
+    this.activeFlowAutoStarted = false;
+    this.activeFlowSeenRecorded = false;
     this.targetAdvanceQueued = false;
     this.setHostVisible(false);
   }
