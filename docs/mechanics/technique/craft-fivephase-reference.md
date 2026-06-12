@@ -112,7 +112,7 @@
 | 装备/器物 | 归息玄杖 | equip.foundation_returnbreath_cooldown_staff | 40 | 地阶 | 金+55 / 木+55 / 水+133 / 火+55 / 土+97 | 玄龟寒髓x1(主)；混元脉石x1(辅) | 72息 | forging.foundation_returnbreath_cooldown_staff |
 | 装备/器物 | 回息玄履 | equip.foundation_returnflow_boots | 40 | 地阶 | 金+69 / 水+127 | 霜鳞片x1(主)；霜刃晶x1(辅) | 72息 | forging.foundation_returnflow_boots |
 | 装备/器物 | 归息玄佩 | equip.foundation_returnflow_pendant | 40 | 地阶 | 金+55 / 木+55 / 水+133 / 火+55 / 土+97 | 玄龟寒髓x1(主)；混元脉石x1(辅) | 72息 | forging.foundation_returnflow_pendant |
-| 装备/器物 | 玄龟法衣 | equip.foundation_turtle_spell_robe | 40 | 地阶 | 木+30 / 水+135 / 土+42 | 玄龟寒髓x1(主)；冰晶丝x1(辅) | 72息 | forging.foundation_turtle_spell_robe |
+| 装备/器物 | 玄龟法衣 | equip.foundation_turtle_spell_robe | 40 | 地阶 | 金+29 / 木+30 / 水+189 / 土+42 | 玄龟寒髓x1(主)；冰晶丝x1(辅)；霜鳞片x1(辅) | 72息 | forging.foundation_turtle_spell_robe |
 
 ## 材料五行与出处
 

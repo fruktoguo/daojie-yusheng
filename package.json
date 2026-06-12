@@ -45,6 +45,7 @@
     "proof:craft-panel-responsive-theme": "node scripts/prove-craft-panel-responsive-theme.js",
     "proof:client-s2c-consumption": "node scripts/prove-client-s2c-consumption.js",
     "proof:craft-success-level-penalty": "node scripts/prove-craft-success-level-penalty.js",
+    "proof:turtle-spell-robe-forging-recipe": "node scripts/prove-turtle-spell-robe-forging-recipe.js",
     "proof:shared-types-source": "node scripts/prove-shared-types-source.js",
     "proof:protobuf-drift": "node scripts/prove-protobuf-drift.js",
     "proof:protocol-source": "node scripts/prove-protocol-source.js",

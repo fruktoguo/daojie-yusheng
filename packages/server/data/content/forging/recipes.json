@@ -1749,8 +1749,9 @@
       }
     ],
     "requiredAuxElements": {
+      "metal": 29,
       "wood": 30,
-      "water": 57
+      "water": 111
     }
   },
   {
