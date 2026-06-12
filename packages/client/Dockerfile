@@ -4,8 +4,12 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/client/package.json packages/client/
-RUN corepack enable
-RUN pnpm install --frozen-lockfile || pnpm install
+ARG PNPM_VERSION=10.29.1
+ARG NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
+RUN npm install -g "pnpm@${PNPM_VERSION}" --registry="${NPM_CONFIG_REGISTRY}" \
+  && pnpm --version
+RUN pnpm install --frozen-lockfile
 COPY scripts scripts
 COPY packages/shared packages/shared
 COPY packages/client packages/client

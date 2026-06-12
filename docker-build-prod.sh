@@ -9,6 +9,8 @@ VERSION="prod"
 MODE="all"
 VERSION_SET=1
 BUILD_CACHEBUST="${BUILD_CACHEBUST:-$(git rev-parse HEAD 2>/dev/null || date +%s)}"
+PNPM_VERSION="${PNPM_VERSION:-10.29.1}"
+NPM_CONFIG_REGISTRY="${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -26,6 +28,8 @@ usage() {
 
 环境变量:
   TENCENT_IMAGE_PREFIX  腾讯云 CCR 镜像命名空间，默认 ccr.ccs.tencentyun.com/tcb-100001011660-qtgo
+  NPM_CONFIG_REGISTRY   Docker 构建期 npm/pnpm registry，默认 https://registry.npmmirror.com
+  PNPM_VERSION          Docker 构建期 pnpm 版本，默认 10.29.1
 
 示例:
   docker login ccr.ccs.tencentyun.com
@@ -80,7 +84,12 @@ build_image() {
   local dockerfile="packages/${target}/Dockerfile"
 
   log_info "构建 ${target} 镜像: $(get_image_name "$target")"
-  docker build --build-arg "BUILD_CACHEBUST=${BUILD_CACHEBUST}" -t "$(get_image_name "$target")" -f "$dockerfile" .
+  docker build \
+    --build-arg "BUILD_CACHEBUST=${BUILD_CACHEBUST}" \
+    --build-arg "NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}" \
+    --build-arg "PNPM_VERSION=${PNPM_VERSION}" \
+    -t "$(get_image_name "$target")" \
+    -f "$dockerfile" .
 }
 
 push_image() {

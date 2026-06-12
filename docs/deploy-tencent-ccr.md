@@ -64,6 +64,14 @@ TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
   ./docker-build-prod.sh
 ```
 
+Docker 构建期默认使用 `https://registry.npmmirror.com` 安装固定版本 pnpm 和依赖，避免构建节点访问 `registry.npmjs.org` 不稳定导致 Corepack 拉取失败。需要切回官方源或私有源时可覆盖：
+
+```bash
+NPM_CONFIG_REGISTRY=https://registry.npmjs.org \
+  TENCENT_IMAGE_PREFIX=ccr.ccs.tencentyun.com/你的命名空间 \
+  ./docker-build-prod.sh
+```
+
 只推后端：
 
 ```bash
