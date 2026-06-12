@@ -68,11 +68,18 @@ export function createPlayerOutcomeApplyAdapter(handlers: OutcomeHandlers = {}) 
     }
     // 激活自动反击
     if (targetPlayerId && result?.autoRetaliate === true) {
+      const playerBeforeAutoRetaliate = deps?.playerRuntimeService?.getPlayer?.(targetPlayerId) ?? null;
+      const autoRetaliateEnabled = playerBeforeAutoRetaliate?.combat?.autoRetaliate !== false;
       let applied = handlers.activateAutoRetaliate?.({ playerId: targetPlayerId, outcome, result, application, deps });
       if (applied === null || applied === undefined) {
         applied = deps?.playerRuntimeService?.activateAutoRetaliate?.(targetPlayerId, deps?.currentTick);
       }
-      deps?.worldRuntimeNavigationService?.clearNavigationIntent?.(targetPlayerId);
+      const playerAfterAutoRetaliate = (applied && typeof applied === 'object')
+        ? applied
+        : deps?.playerRuntimeService?.getPlayer?.(targetPlayerId) ?? null;
+      if (shouldClearNavigationForAutoRetaliate(autoRetaliateEnabled, playerBeforeAutoRetaliate, playerAfterAutoRetaliate, applied)) {
+        deps?.worldRuntimeNavigationService?.clearNavigationIntent?.(targetPlayerId);
+      }
     }
     // 击败处理
     let handledDefeat = false;
@@ -313,4 +320,19 @@ function normalizeCoordinate(value: unknown) {
 /** 规范化数值，无效返回 0。 */
 function normalizeNumber(value: unknown) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function shouldClearNavigationForAutoRetaliate(
+  autoRetaliateEnabled: boolean,
+  playerBeforeAutoRetaliate: any,
+  playerAfterAutoRetaliate: any,
+  applied: any,
+) {
+  if (!autoRetaliateEnabled) {
+    return false;
+  }
+  if (playerAfterAutoRetaliate?.combat?.autoBattle === true) {
+    return true;
+  }
+  return !playerBeforeAutoRetaliate && applied === true;
 }

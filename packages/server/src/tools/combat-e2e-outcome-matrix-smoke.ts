@@ -22,6 +22,8 @@ function main(): void {
   const cases = [
     verifyMonsterKillLootProgress(service, adapters),
     verifyPlayerDeathRetaliate(service, adapters),
+    verifyAutoRetaliateDisabledKeepsNavigation(service, adapters),
+    verifyAutoRetaliateEnabledClearsNavigation(service, adapters),
     verifyTileDestroyPersistence(service, adapters),
     verifyFormationAuraDamage(service, adapters),
     verifyContainerConsumeRefresh(service, adapters),
@@ -140,6 +142,125 @@ function verifyPlayerDeathRetaliate(service, adapters) {
     name: 'death_retaliate',
     dirtyDomains: result.dirtyDomains,
     handledDefeat: events[0].auditEvent.result.handledDefeat,
+  };
+}
+
+function verifyAutoRetaliateDisabledKeepsNavigation(service, adapters) {
+  const calls = [];
+  const player = {
+    playerId: 'player:pathing',
+    hp: 100,
+    combat: {
+      autoBattle: false,
+      autoRetaliate: false,
+    },
+  };
+  const result = service.applyCombatOutcome({
+    actor: { kind: CombatActorKind.Monster, id: 'monster:ambusher' },
+    actionId: 'monster:claw',
+    phase: CombatActionPhase.Instant,
+    instanceId: 'instance:matrix',
+    target: { kind: CombatTargetKind.Player, id: player.playerId, x: 3, y: 4 },
+    result: {
+      damage: 1,
+      autoRetaliate: true,
+      defeated: false,
+      applyDefeat: false,
+    },
+    deps: {
+      playerRuntimeService: {
+        getPlayer(playerId) {
+          calls.push(['getPlayer', playerId]);
+          return player;
+        },
+        applyDamage(playerId, damage, attackerId) {
+          calls.push(['applyDamage', playerId, damage, attackerId]);
+          return damage;
+        },
+        recordActivity(playerId) {
+          calls.push(['recordActivity', playerId]);
+        },
+        activateAutoRetaliate(playerId) {
+          calls.push(['activateAutoRetaliate', playerId]);
+          return player;
+        },
+      },
+      worldRuntimeNavigationService: {
+        clearNavigationIntent(playerId) {
+          calls.push(['clearNavigationIntent', playerId]);
+        },
+      },
+    },
+    adapters,
+    mergeAdapterResultToOutcome: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(calls.some((entry) => entry[0] === 'activateAutoRetaliate'), true);
+  assert.equal(calls.some((entry) => entry[0] === 'clearNavigationIntent'), false);
+  return {
+    name: 'auto_retaliate_disabled_keeps_navigation',
+    navigationCleared: false,
+  };
+}
+
+function verifyAutoRetaliateEnabledClearsNavigation(service, adapters) {
+  const calls = [];
+  const player = {
+    playerId: 'player:retaliator',
+    hp: 100,
+    combat: {
+      autoBattle: false,
+      autoRetaliate: true,
+    },
+  };
+  const result = service.applyCombatOutcome({
+    actor: { kind: CombatActorKind.Monster, id: 'monster:ambusher' },
+    actionId: 'monster:claw',
+    phase: CombatActionPhase.Instant,
+    instanceId: 'instance:matrix',
+    target: { kind: CombatTargetKind.Player, id: player.playerId, x: 3, y: 4 },
+    result: {
+      damage: 1,
+      autoRetaliate: true,
+      defeated: false,
+      applyDefeat: false,
+    },
+    deps: {
+      playerRuntimeService: {
+        getPlayer(playerId) {
+          calls.push(['getPlayer', playerId]);
+          return player;
+        },
+        applyDamage(playerId, damage, attackerId) {
+          calls.push(['applyDamage', playerId, damage, attackerId]);
+          return damage;
+        },
+        recordActivity(playerId) {
+          calls.push(['recordActivity', playerId]);
+        },
+        activateAutoRetaliate(playerId) {
+          calls.push(['activateAutoRetaliate', playerId]);
+          player.combat.autoBattle = true;
+          return player;
+        },
+      },
+      worldRuntimeNavigationService: {
+        clearNavigationIntent(playerId) {
+          calls.push(['clearNavigationIntent', playerId]);
+        },
+      },
+    },
+    adapters,
+    mergeAdapterResultToOutcome: true,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(calls.some((entry) => entry[0] === 'activateAutoRetaliate'), true);
+  assert.equal(calls.some((entry) => entry[0] === 'clearNavigationIntent'), true);
+  return {
+    name: 'auto_retaliate_enabled_clears_navigation',
+    navigationCleared: true,
   };
 }
 
