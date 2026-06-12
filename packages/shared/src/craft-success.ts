@@ -153,5 +153,10 @@ export function computeCraftAdjustedSuccessRate(
   const normalizedExtraSuccessRate = Number.isFinite(extraSuccessRate)
     ? Math.max(0, Number(extraSuccessRate))
     : 0;
-  return applyAsymptoticSuccessModifier(baseRate, levelModifier + normalizedExtraSuccessRate);
+  const modifier = levelModifier + normalizedExtraSuccessRate;
+  const normalizedBaseRate = clampUnitSuccessRate(baseRate);
+  if (normalizedBaseRate >= 1 && modifier < 0) {
+    return Math.max(0, Math.min(1, Math.exp(modifier)));
+  }
+  return applyAsymptoticSuccessModifier(normalizedBaseRate, modifier);
 }

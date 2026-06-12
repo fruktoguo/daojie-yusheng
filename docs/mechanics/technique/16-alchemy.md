@@ -31,6 +31,10 @@ levelModifier = (targetLevel > skillLevel)
 ```typescript
 adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolSuccessModifier)
 
+// 基础成功率为 100% 且总修正为负时，不能因为满值直接免疫低等级惩罚:
+//   adjustedRate = e^(levelModifier + toolSuccessModifier)
+// 例如炼丹等级 10 炼目标等级 20，若没有工具/幸运抵消，则 100% → 0.9^10 ≈ 34.87%
+
 // 赔率变换:
 // modifier > 0 (增益):
 //   result = (rate × cap) / (rate + (cap - rate) × e^(-modifier))

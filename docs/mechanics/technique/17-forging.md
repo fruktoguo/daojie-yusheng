@@ -44,6 +44,8 @@ baseSuccessRate = computeFivePhaseElementMatch(inputElements, targetElements).ba
 adjustedRate = applyAsymptoticSuccessModifier(baseRate, levelModifier + toolModifier)
 ```
 
+基础成功率为 100% 且总等级/工具修正仍为负时，炼器不会免疫低等级强行制作惩罚，而是按 `e^(levelModifier + toolModifier)` 下调。例如炼器等级 10 制作目标等级 20 且无工具/幸运抵消时，`100% → 0.9^10 ≈ 34.87%`。
+
 ## 耗时公式
 
 与炼丹相同：

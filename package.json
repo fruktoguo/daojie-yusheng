@@ -44,6 +44,7 @@
     "proof:craft-panel-local-patch": "node scripts/prove-craft-panel-local-patch.js",
     "proof:craft-panel-responsive-theme": "node scripts/prove-craft-panel-responsive-theme.js",
     "proof:client-s2c-consumption": "node scripts/prove-client-s2c-consumption.js",
+    "proof:craft-success-level-penalty": "node scripts/prove-craft-success-level-penalty.js",
     "proof:shared-types-source": "node scripts/prove-shared-types-source.js",
     "proof:protobuf-drift": "node scripts/prove-protobuf-drift.js",
     "proof:protocol-source": "node scripts/prove-protocol-source.js",
