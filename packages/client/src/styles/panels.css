@@ -8931,6 +8931,30 @@
       color: var(--color-role-body-muted);
       line-height: 1.45;
     }
+    .leaderboard-invitation-board {
+      min-height: 0;
+      height: 100%;
+      overflow-y: auto;
+      display: grid;
+      gap: 14px;
+      padding-right: 4px;
+      align-content: start;
+    }
+    .leaderboard-invitation-section {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+    .leaderboard-invitation-section .leaderboard-list {
+      height: auto;
+      overflow: visible;
+      padding-right: 0;
+    }
+    .leaderboard-invitation-title {
+      font-family: var(--font-role-title);
+      font-size: var(--font-size-role-body-15);
+      color: var(--color-role-body-strong);
+    }
     .leaderboard-supreme-grid {
       min-height: 0;
       height: 100%;

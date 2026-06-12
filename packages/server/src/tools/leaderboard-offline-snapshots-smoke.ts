@@ -288,6 +288,48 @@ async function main(): Promise<void> {
       return [bannedOnlinePlayer.playerId, bannedOfflinePlayer.playerId];
     },
   };
+  const syncedInvitationHighestRealmLevels = new Map<string, number>();
+  const activityPersistenceService = {
+    isEnabled() {
+      return true;
+    },
+    async syncInvitationInviteeHighestRealmLevels(highestRealmLvByPlayerId: Map<string, number>) {
+      highestRealmLvByPlayerId.forEach((highestRealmLv, playerId) => {
+        syncedInvitationHighestRealmLevels.set(playerId, highestRealmLv);
+      });
+    },
+    async listInvitationLeaderboardRows(excludedPlayerIds: Iterable<string>) {
+      const excluded = new Set(excludedPlayerIds);
+      assert.equal(excluded.has(bannedOnlinePlayer.playerId), true);
+      assert.equal(excluded.has(bannedOfflinePlayer.playerId), true);
+      return [
+        {
+          inviterPlayerId: onlinePlayer.playerId,
+          totalInvitees: 4,
+          qiReachedCount: 2,
+          foundationReachedCount: 1,
+        },
+        {
+          inviterPlayerId: offlinePlayer.playerId,
+          totalInvitees: 3,
+          qiReachedCount: 3,
+          foundationReachedCount: 2,
+        },
+        {
+          inviterPlayerId: offlineIdlePlayer.playerId,
+          totalInvitees: 2,
+          qiReachedCount: 1,
+          foundationReachedCount: 0,
+        },
+        {
+          inviterPlayerId: bannedOnlinePlayer.playerId,
+          totalInvitees: 999,
+          qiReachedCount: 999,
+          foundationReachedCount: 999,
+        },
+      ];
+    },
+  };
   const sectService = {
     buildSectMemberCountLeaderboard(limit: number, excludedPlayerIds: Set<string>) {
       assert.equal(limit, 10);
@@ -316,6 +358,7 @@ async function main(): Promise<void> {
     playerCountersPersistenceService as never,
     null,
     authStore as never,
+    activityPersistenceService as never,
   );
 
   const leaderboard = await service.buildLeaderboard(10, sectService);
@@ -364,6 +407,40 @@ async function main(): Promise<void> {
     ],
   );
   assert.deepEqual(leaderboard.boards.sects.map((entry) => entry.sectId), ['sect:visible']);
+  assert.equal(syncedInvitationHighestRealmLevels.get(onlinePlayer.playerId), 3);
+  assert.equal(syncedInvitationHighestRealmLevels.get(offlinePlayer.playerId), 9);
+  assert.deepEqual(
+    leaderboard.boards.invitation.totalInvitees.map((entry) => ({
+      playerId: entry.playerId,
+      count: entry.count,
+    })),
+    [
+      { playerId: 'player:online', count: 4 },
+      { playerId: 'player:offline', count: 3 },
+      { playerId: 'player:offline-idle', count: 2 },
+    ],
+  );
+  assert.deepEqual(
+    leaderboard.boards.invitation.qiReached.map((entry) => ({
+      playerId: entry.playerId,
+      count: entry.count,
+    })),
+    [
+      { playerId: 'player:offline', count: 3 },
+      { playerId: 'player:online', count: 2 },
+      { playerId: 'player:offline-idle', count: 1 },
+    ],
+  );
+  assert.deepEqual(
+    leaderboard.boards.invitation.foundationReached.map((entry) => ({
+      playerId: entry.playerId,
+      count: entry.count,
+    })),
+    [
+      { playerId: 'player:offline', count: 2 },
+      { playerId: 'player:online', count: 1 },
+    ],
+  );
 
   const locations = await service.buildLeaderboardPlayerLocations([
     'player:offline',

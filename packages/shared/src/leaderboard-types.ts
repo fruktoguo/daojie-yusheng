@@ -224,6 +224,34 @@ export interface LeaderboardSectEntry {
   leaderName: string;
 }
 
+/** 引渡榜单条目。 */
+export interface LeaderboardInvitationEntry extends LeaderboardPlayerEntry {
+/**
+ * count：对应引渡人数。
+ */
+
+  count: number;
+}
+
+/** 引渡榜：分别展示总引渡、引气入道、筑基成道前三名。 */
+export interface LeaderboardInvitationBoard {
+/**
+ * totalInvitees：总引渡人数前三。
+ */
+
+  totalInvitees: LeaderboardInvitationEntry[];
+  /**
+ * qiReached：受引渡者达到炼气期前三。
+ */
+
+  qiReached: LeaderboardInvitationEntry[];
+  /**
+ * foundationReached：受引渡者达到筑基期前三。
+ */
+
+  foundationReached: LeaderboardInvitationEntry[];
+}
+
 /** 世界活跃行为统计。 */
 export interface LeaderboardWorldActionCounts {
 /**

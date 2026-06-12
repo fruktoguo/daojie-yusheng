@@ -95,7 +95,7 @@ docs/mechanics/
 | [29-market](./economy/29-market.md) | 市场交易 | 价格档位、拍卖行上架费、延时窗口 |
 | [30-mail](./economy/30-mail.md) | 邮件系统 | 分页、过期机制、LRU 邮箱缓存 |
 | [31-sect](./economy/31-sect.md) | 宗门系统 | 角色权限、护宗大阵、领地扩展 |
-| [32-leaderboard](./economy/32-leaderboard.md) | 排行榜 | 8 种榜单、10 分钟刷新、世界摘要 |
+| [32-leaderboard](./economy/32-leaderboard.md) | 排行榜 | 9 种榜单、10 分钟刷新、世界摘要 |
 
 ---
 

@@ -14,6 +14,7 @@ import { PlayerRuntimeService } from './player-runtime.service';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
 import { PlayerCountersPersistenceService } from '../../persistence/player-counters-persistence.service';
+import { ActivityPersistenceService, type ActivityInvitationLeaderboardRow } from '../../persistence/activity-persistence.service';
 import { LeaderboardWorkerPoolService } from '../../concurrency/leaderboard-worker-pool.service';
 import {
     buildAllLeaderboards,
@@ -29,6 +30,9 @@ const MAX_LEADERBOARD_LIMIT = 10;
 
 /** 排行榜定时刷新间隔（10 分钟）。排行榜数据不需要实时，定时后台刷新即可。 */
 const LEADERBOARD_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
+/** 引渡榜固定只展示前三名。 */
+const INVITATION_LEADERBOARD_LIMIT = 3;
 
 /** 世界摘要缓存时间（30 秒）。摘要含在线人数等稍实时的数据，TTL 短一些。 */
 const WORLD_SUMMARY_CACHE_TTL_MS = 30 * 1000;
@@ -96,6 +100,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         @Inject(PlayerCountersPersistenceService) playerCountersPersistenceService: any = null,
         @Optional() @Inject(LeaderboardWorkerPoolService) leaderboardWorkerPoolService: LeaderboardWorkerPoolService | null = null,
         @Optional() @Inject(NativePlayerAuthStoreService) private readonly nativePlayerAuthStoreService: NativePlayerAuthStoreService | null = null,
+        @Optional() @Inject(ActivityPersistenceService) private readonly activityPersistenceService: ActivityPersistenceService | null = null,
     ) {
         this.playerRuntimeService = playerRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
@@ -133,7 +138,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
 
         // 首次请求时同步计算一次（后续由定时器刷新）
         await this.refreshLeaderboardCache();
-        return this.sliceLeaderboard(this.cachedLeaderboard ?? { generatedAt: Date.now(), limit: 0, boards: { realm: [], monsterKills: [], spiritStones: [], playerKills: [], deaths: [], bodyTraining: [], supremeAttrs: [], sects: [] } }, effectiveLimit);
+        return this.sliceLeaderboard(this.cachedLeaderboard ?? { generatedAt: Date.now(), limit: 0, boards: { realm: [], monsterKills: [], spiritStones: [], playerKills: [], deaths: [], bodyTraining: [], supremeAttrs: [], sects: [], invitation: createEmptyInvitationBoard() } }, effectiveLimit);
     }
     /**
      * 启动后台定时刷新。首次请求时自动触发，之后每 10 分钟刷新。
@@ -168,11 +173,19 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
             const snapshots = await this.collectLeaderboardSnapshots();
             // snapshot 收集完成后让一次事件循环，给 world tick 回调留窗口。
             await yieldToEventLoop();
+            await this.syncInvitationHighestRealmLevels(snapshots);
+            await yieldToEventLoop();
             // 宗门榜依赖 NestJS sectService，必须在主线程算好后透传给 worker。
             const sects = this.buildSectBoard(this._sectServiceRef, MAX_LEADERBOARD_LIMIT);
             await yieldToEventLoop();
+            const invitation = await this.buildInvitationBoard(this.collectBannedPlayerIds());
+            await yieldToEventLoop();
             // 走 worker 卸载 8 个 board 排序；不可用或失败时 fallback 到分片同步路径。
-            const boards = await this.buildBoardsViaWorkerOrFallback(snapshots, sects, MAX_LEADERBOARD_LIMIT);
+            const playerBoards = await this.buildBoardsViaWorkerOrFallback(snapshots, sects, MAX_LEADERBOARD_LIMIT);
+            const boards = {
+                ...playerBoards,
+                invitation,
+            };
             const payload = {
                 generatedAt: Date.now(),
                 limit: MAX_LEADERBOARD_LIMIT,
@@ -360,6 +373,7 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
                 bodyTraining: source.boards.bodyTraining.slice(0, limit),
                 supremeAttrs: source.boards.supremeAttrs,
                 sects: source.boards.sects.slice(0, limit),
+                invitation: source.boards.invitation ?? createEmptyInvitationBoard(),
             },
         };
     }
@@ -690,6 +704,60 @@ export class LeaderboardRuntimeService implements OnModuleDestroy {
         }
         return sectService.buildSectMemberCountLeaderboard(limit, this.collectBannedPlayerIds());
     }
+    /** 刷新受邀玩家最高境界，避免引渡榜依赖活动面板打开时机。 */
+    async syncInvitationHighestRealmLevels(snapshots) {
+        const activityPersistence = this.activityPersistenceService;
+        if (typeof activityPersistence?.isEnabled !== 'function'
+            || !activityPersistence.isEnabled()
+            || typeof activityPersistence.syncInvitationInviteeHighestRealmLevels !== 'function') {
+            return;
+        }
+        const highestRealmLvByPlayerId = new Map();
+        for (const snapshot of snapshots) {
+            const playerId = typeof snapshot?.playerId === 'string' ? snapshot.playerId.trim() : '';
+            if (!playerId) {
+                continue;
+            }
+            highestRealmLvByPlayerId.set(playerId, Math.max(1, toNonNegativeInteger(snapshot.realmLv, 1)));
+        }
+        await activityPersistence.syncInvitationInviteeHighestRealmLevels(highestRealmLvByPlayerId);
+    }
+    /** 构造引渡榜。 */
+    async buildInvitationBoard(bannedPlayerIds) {
+        const activityPersistence = this.activityPersistenceService;
+        if (typeof activityPersistence?.isEnabled !== 'function'
+            || !activityPersistence.isEnabled()
+            || typeof activityPersistence.listInvitationLeaderboardRows !== 'function') {
+            return createEmptyInvitationBoard();
+        }
+        const rows = await activityPersistence.listInvitationLeaderboardRows(bannedPlayerIds);
+        const filteredRows = rows.filter((row) => !bannedPlayerIds.has(row.inviterPlayerId) && !isNativeGmBotPlayerId(row.inviterPlayerId));
+        const identitiesByPlayerId = await this.loadLeaderboardIdentities(filteredRows.map((row) => row.inviterPlayerId));
+        return {
+            totalInvitees: this.mapInvitationRows(filteredRows, 'totalInvitees', identitiesByPlayerId),
+            qiReached: this.mapInvitationRows(filteredRows, 'qiReachedCount', identitiesByPlayerId),
+            foundationReached: this.mapInvitationRows(filteredRows, 'foundationReachedCount', identitiesByPlayerId),
+        };
+    }
+    /** 把引渡聚合行按指定字段裁剪为前三。 */
+    mapInvitationRows(rows: ActivityInvitationLeaderboardRow[], countKey: 'totalInvitees' | 'qiReachedCount' | 'foundationReachedCount', identitiesByPlayerId) {
+        return [...rows]
+            .filter((row) => row[countKey] > 0)
+            .sort((left, right) => right[countKey] - left[countKey] || left.inviterPlayerId.localeCompare(right.inviterPlayerId, 'zh-Hans-CN'))
+            .slice(0, INVITATION_LEADERBOARD_LIMIT)
+            .map((row, index) => {
+            const identity = identitiesByPlayerId.get(row.inviterPlayerId) ?? null;
+            const playerName = typeof identity?.playerName === 'string' && identity.playerName.trim()
+                ? identity.playerName.trim()
+                : row.inviterPlayerId;
+            return {
+                rank: index + 1,
+                playerId: row.inviterPlayerId,
+                playerName,
+                count: row[countKey],
+            };
+        });
+    }
     /** 构造世界在线分布与交易摘要。 */
     buildWorldBoard(snapshots) {
 
@@ -798,6 +866,14 @@ function clampLeaderboardLimit(limit) {
         return DEFAULT_LEADERBOARD_LIMIT;
     }
     return Math.max(1, Math.min(MAX_LEADERBOARD_LIMIT, Math.floor(Number(limit))));
+}
+
+function createEmptyInvitationBoard() {
+    return {
+        totalInvitees: [],
+        qiReached: [],
+        foundationReached: [],
+    };
 }
 /**
  * compareName：执行compare名称相关逻辑。

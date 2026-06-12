@@ -182,6 +182,7 @@ export interface LeaderboardBuildResult {
     bodyTraining: unknown[];
     supremeAttrs: unknown[];
     sects: unknown[];
+    invitation?: unknown;
   };
 }
 

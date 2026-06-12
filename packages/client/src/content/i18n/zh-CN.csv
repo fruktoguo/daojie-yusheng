@@ -2115,8 +2115,12 @@ world-summary.leaderboard.location.online,世界信息,"坐标：{mapName} ({x},
 world-summary.leaderboard.meta.monster-kills,世界信息,精英 {elite} · Boss {boss},范围D固定前端可见文本
 world-summary.leaderboard.meta.sect-leader,世界信息,宗主 {leaderName},范围D固定前端可见文本
 world-summary.leaderboard.subtitle,世界信息,收录前 {limit} 名 · 十分钟一更 · {time},范围D固定前端可见文本
+world-summary.leaderboard.invitation.foundation-title,世界信息,筑基成道,范围D固定前端可见文本
+world-summary.leaderboard.invitation.qi-title,世界信息,引气入道,范围D固定前端可见文本
+world-summary.leaderboard.invitation.total-title,世界信息,引渡总数,范围D固定前端可见文本
 world-summary.leaderboard.tab.body-training,世界信息,炼体,范围D固定前端可见文本
 world-summary.leaderboard.tab.deaths,世界信息,身陨,范围D固定前端可见文本
+world-summary.leaderboard.tab.invitation,世界信息,引渡,范围D固定前端可见文本
 world-summary.leaderboard.tab.monster-kills,世界信息,斩妖,范围D固定前端可见文本
 world-summary.leaderboard.tab.player-kills,世界信息,杀伐,范围D固定前端可见文本
 world-summary.leaderboard.tab.realm,世界信息,境界,范围D固定前端可见文本
@@ -2126,6 +2130,9 @@ world-summary.leaderboard.tab.supreme-attrs,世界信息,六维最强,范围D固
 world-summary.leaderboard.title,世界信息,排行榜,范围D固定前端可见文本
 world-summary.leaderboard.value.body-training,世界信息,炼体 {level} 层,范围D固定前端可见文本
 world-summary.leaderboard.value.deaths,世界信息,死亡 {count},范围D固定前端可见文本
+world-summary.leaderboard.value.invitation-foundation,世界信息,{count} 人筑基,范围D固定前端可见文本
+world-summary.leaderboard.value.invitation-qi,世界信息,{count} 人炼气,范围D固定前端可见文本
+world-summary.leaderboard.value.invitation-total,世界信息,引渡 {count} 人,范围D固定前端可见文本
 world-summary.leaderboard.value.monster-kills,世界信息,击杀 {count},范围D固定前端可见文本
 world-summary.leaderboard.value.player-kills,世界信息,击杀玩家 {count},范围D固定前端可见文本
 world-summary.leaderboard.value.sect-members,世界信息,{count} 人,范围D固定前端可见文本

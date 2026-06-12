@@ -188,6 +188,7 @@ export function buildAllLeaderboards(
   bodyTraining: unknown[];
   supremeAttrs: unknown[];
   sects: unknown[];
+  invitation?: unknown;
 } {
   return {
     realm: buildRealmBoard(snapshots, limit),

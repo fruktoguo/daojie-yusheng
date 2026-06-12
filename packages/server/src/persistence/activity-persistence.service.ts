@@ -74,6 +74,13 @@ export interface ActivityInvitationInviteeProgressRecord {
   highestRealmLv: number;
 }
 
+export interface ActivityInvitationLeaderboardRow {
+  inviterPlayerId: string;
+  totalInvitees: number;
+  qiReachedCount: number;
+  foundationReachedCount: number;
+}
+
 export interface ActivityInvitationRewardClaimResult {
   inviteeSpiritStone: number;
   inviteeMerit: number;
@@ -497,6 +504,70 @@ export class ActivityPersistenceService {
     );
   }
 
+  async syncInvitationInviteeHighestRealmLevels(highestRealmLvByPlayerId: Map<string, number>): Promise<void> {
+    if (!this.pool || !this.enabled || highestRealmLvByPlayerId.size === 0) {
+      return;
+    }
+    const rows = [...highestRealmLvByPlayerId.entries()]
+      .map(([playerId, highestRealmLv]) => ({
+        playerId: normalizePlayerId(playerId),
+        highestRealmLv: Math.max(1, Math.trunc(Number(highestRealmLv) || 1)),
+      }))
+      .filter((row) => row.playerId.length > 0);
+    if (rows.length === 0) {
+      return;
+    }
+    const params: Array<string | number> = [];
+    const values = rows
+      .map((row, index) => {
+        const offset = index * 2;
+        params.push(row.playerId, row.highestRealmLv);
+        return `($${offset + 1}::varchar, $${offset + 2}::integer)`;
+      })
+      .join(', ');
+    await this.pool.query(
+      `UPDATE ${INVITATION_TABLE} AS invitation
+          SET invitee_highest_realm_lv = GREATEST(invitation.invitee_highest_realm_lv, incoming.highest_realm_lv),
+              updated_at = CASE
+                WHEN incoming.highest_realm_lv > invitation.invitee_highest_realm_lv THEN now()
+                ELSE invitation.updated_at
+              END
+         FROM (VALUES ${values}) AS incoming(invitee_player_id, highest_realm_lv)
+        WHERE invitation.invitee_player_id = incoming.invitee_player_id`,
+      params,
+    );
+  }
+
+  async listInvitationLeaderboardRows(excludedPlayerIds: Iterable<string> = []): Promise<ActivityInvitationLeaderboardRow[]> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const excluded = [...new Set([...excludedPlayerIds]
+      .map((playerId) => normalizePlayerId(playerId))
+      .filter((playerId) => playerId.length > 0))];
+    const result = await this.pool.query(
+      `SELECT
+         inviter_player_id,
+         COUNT(*)::integer AS total_invitees,
+         COUNT(*) FILTER (WHERE invitee_highest_realm_lv >= $1)::integer AS qi_reached_count,
+         COUNT(*) FILTER (WHERE invitee_highest_realm_lv >= $2)::integer AS foundation_reached_count
+       FROM ${INVITATION_TABLE}
+       WHERE NOT (inviter_player_id = ANY($3::varchar[]))
+         AND NOT (invitee_player_id = ANY($3::varchar[]))
+       GROUP BY inviter_player_id
+       ORDER BY total_invitees DESC, qi_reached_count DESC, foundation_reached_count DESC, inviter_player_id ASC`,
+      [INVITATION_QI_REALM_MIN_LEVEL, INVITATION_FOUNDATION_REALM_MIN_LEVEL, excluded],
+    );
+    return result.rows
+      .map((row) => ({
+        inviterPlayerId: normalizePlayerId(row.inviter_player_id),
+        totalInvitees: normalizeCount(row.total_invitees),
+        qiReachedCount: normalizeCount(row.qi_reached_count),
+        foundationReachedCount: normalizeCount(row.foundation_reached_count),
+      }))
+      .filter((row) => row.inviterPlayerId.length > 0);
+  }
+
   async hasPendingInvitationRewards(playerId: string): Promise<boolean> {
     const normalizedPlayerId = normalizePlayerId(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
@@ -680,6 +751,7 @@ async function ensureActivityTables(pool: Pool): Promise<void> {
     await client.query(`ALTER TABLE ${INVITATION_TABLE} ADD COLUMN IF NOT EXISTS inviter_foundation_reward_claimed boolean NOT NULL DEFAULT false`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_${MONTH_CARD_TABLE}_expire_at ON ${MONTH_CARD_TABLE}(expire_at_ms)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_${INVITATION_TABLE}_inviter_player ON ${INVITATION_TABLE}(inviter_player_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_${INVITATION_TABLE}_inviter_realm ON ${INVITATION_TABLE}(inviter_player_id, invitee_highest_realm_lv)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_${INVITATION_TABLE}_invitation_code ON ${INVITATION_TABLE}(invitation_code)`);
     await client.query('COMMIT');
   } catch (error) {

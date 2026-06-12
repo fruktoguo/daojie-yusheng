@@ -33,7 +33,7 @@ const WORLD_SUMMARY_MODAL_OWNER = 'world:summary';
 const LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS = 10_000;
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
 
-type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs' | 'sects';
+type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs' | 'sects' | 'invitation';
 
 const LEADERBOARD_LIMIT = 10;
 function getLeaderboardTabLabel(tab: LeaderboardTab): string {
@@ -54,10 +54,12 @@ function getLeaderboardTabLabel(tab: LeaderboardTab): string {
       return t('world-summary.leaderboard.tab.supreme-attrs', undefined);
     case 'sects':
       return t('world-summary.leaderboard.tab.sects', undefined);
+    case 'invitation':
+      return t('world-summary.leaderboard.tab.invitation', undefined);
   }
 }
 
-const LEADERBOARD_TABS: LeaderboardTab[] = ['realm', 'monsterKills', 'spiritStones', 'playerKills', 'deaths', 'bodyTraining', 'supremeAttrs', 'sects'];
+const LEADERBOARD_TABS: LeaderboardTab[] = ['realm', 'monsterKills', 'spiritStones', 'playerKills', 'deaths', 'bodyTraining', 'supremeAttrs', 'sects', 'invitation'];
 /**
  * cloneJson：构建Json。
  * @param value T 参数说明。
@@ -383,6 +385,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
             meta: t('world-summary.leaderboard.meta.sect-leader', { leaderName: entry.leaderName }),
           })),
         );
+      case 'invitation':
+        return renderInvitationBoard(data);
       default:
         return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
     }
@@ -550,6 +554,49 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
           </div>
         `).join('')}
       </div>
+    `;
+  }
+
+  function renderInvitationBoard(data: S2C_Leaderboard): string {
+    const board = data.boards.invitation;
+    if (!board || (board.totalInvitees.length === 0 && board.qiReached.length === 0 && board.foundationReached.length === 0)) {
+      return `<div class="empty-hint">${t('world-summary.leaderboard.empty', undefined)}</div>`;
+    }
+    return `
+      <div class="leaderboard-invitation-board">
+        ${renderInvitationSection(
+          t('world-summary.leaderboard.invitation.total-title', undefined),
+          board.totalInvitees,
+          'world-summary.leaderboard.value.invitation-total',
+        )}
+        ${renderInvitationSection(
+          t('world-summary.leaderboard.invitation.qi-title', undefined),
+          board.qiReached,
+          'world-summary.leaderboard.value.invitation-qi',
+        )}
+        ${renderInvitationSection(
+          t('world-summary.leaderboard.invitation.foundation-title', undefined),
+          board.foundationReached,
+          'world-summary.leaderboard.value.invitation-foundation',
+        )}
+      </div>
+    `;
+  }
+
+  function renderInvitationSection(
+    title: string,
+    entries: NonNullable<S2C_Leaderboard['boards']['invitation']>['totalInvitees'],
+    valueKey: string,
+  ): string {
+    return `
+      <section class="leaderboard-invitation-section">
+        <div class="leaderboard-invitation-title">${escapeHtml(title)}</div>
+        ${renderStandardLeaderboardList(entries.map((entry) => ({
+          rank: entry.rank,
+          name: entry.playerName,
+          value: t(valueKey, { count: formatDisplayInteger(entry.count) }),
+        })))}
+      </section>
     `;
   }
 

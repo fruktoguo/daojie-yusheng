@@ -14,6 +14,7 @@
 | bodyTraining | 体修等级+经验 | LeaderboardBodyTrainingEntry |
 | supremeAttrs | 六维属性最高者 | LeaderboardSupremeAttrEntry |
 | sects | 宗门成员数 | LeaderboardSectEntry |
+| invitation | 引渡总数、受引渡者达到炼气期、受引渡者达到筑基期各前三 | LeaderboardInvitationBoard |
 
 ## 运行时参数
 
@@ -31,8 +32,9 @@
 - 排除 GM Bot 玩家
 - 排除账号真源中已封禁的玩家；封禁玩家不进入个人榜、宗门榜成员计数、世界摘要统计，也不计入灵石榜的未成交求购预留灵石。
 - 每 10 分钟刷新一次
-- 最多显示前 10 名
+- 常规榜单最多显示前 10 名；引渡榜分为“引渡总数 / 引气入道 / 筑基成道”三组，每组固定显示前三名
 - 灵石榜按玩家可见灵石加开放求购单中尚未成交的预留灵石排序，避免通过求购锁单隐藏财富
+- 引渡榜使用活动持久化表 `player_invitation`，排行榜低频刷新时会先用玩家快照补齐受邀玩家最高境界，再聚合展示；封禁玩家不会进入引渡榜，也不会计入被引渡人数
 
 ## 世界摘要统计
 

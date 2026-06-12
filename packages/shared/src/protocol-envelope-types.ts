@@ -7,6 +7,7 @@ import type { PlayerRealmState } from './cultivation-types';
 import type {
   LeaderboardBodyTrainingEntry,
   LeaderboardDeathEntry,
+  LeaderboardInvitationBoard,
   LeaderboardMonsterKillEntry,
   LeaderboardPlayerKillEntry,
   LeaderboardPlayerLocationEntry,
@@ -83,6 +84,11 @@ export interface LeaderboardView {
  */
 
     sects: LeaderboardSectEntry[];
+    /**
+ * invitation：引渡排行榜字段。
+ */
+
+    invitation: LeaderboardInvitationBoard;
   };
 }
 
