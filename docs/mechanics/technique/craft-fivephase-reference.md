@@ -98,7 +98,7 @@
 | 装备/器物 | 地龙疾履 | equip.foundation_dragonstride_boots | 40 | 地阶 | 金+66 / 水+66 / 土+248 | 地龙脊骨x1(主)；深渊土精x1(辅) | 72息 | forging.foundation_dragonstride_boots |
 | 装备/器物 | 五行出灵坠 | equip.foundation_fivephase_output_pendant | 40 | 地阶 | 金+116 / 木+116 / 水+116 / 火+116 / 土+112 | 五行脉晶x1(主)；五行混元精x1(辅) | 72息 | forging.foundation_fivephase_output_pendant |
 | 装备/器物 | 焚心法佩 | equip.foundation_flameheart_charm | 40 | 地阶 | 木+158 / 火+142 | 焰狐火核x1(主)；木火道种x1(辅) | 72息 | forging.foundation_flameheart_charm |
-| 装备/器物 | 霜裂爆锋 | equip.foundation_frostsplit_crit_blade | 40 | 地阶 | 金+113 / 水+113 | 霜刃晶x1(主)；蝎毒囊x1(辅) | 72息 | forging.foundation_frostsplit_crit_blade |
+| 装备/器物 | 霜裂爆锋 | equip.foundation_frostsplit_crit_blade | 40 | 地阶 | 金+113 / 木+38 / 水+185 | 霜刃晶x1(主)；蝎毒囊x1(辅)；寒蛇胆x1(辅) | 72息 | forging.foundation_frostsplit_crit_blade |
 | 装备/器物 | 冰心法冠 | equip.foundation_iceheart_spell_crown | 40 | 地阶 | 金+41 / 木+30 / 水+133 | 冰晶丝x1(主)；冰蛛内核x1(辅) | 72息 | forging.foundation_iceheart_spell_crown |
 | 装备/器物 | 逆命战冠 | equip.foundation_inverse_life_war_crown | 40 | 地阶 | 金+44 / 木+43 / 水+66 / 火+80 / 土+110 | 焰狐火核x1(主)；地脉蜈毒x1(辅) | 72息 | forging.foundation_inverse_life_war_crown |
 | 装备/器物 | 铁魄断山刃 | equip.foundation_iron_soul_blade | 40 | 地阶 | 金+144 / 水+57 / 土+127 | 深渊铁精x1(主)；裂地蜈牙x1(辅) | 72息 | forging.foundation_iron_soul_blade |

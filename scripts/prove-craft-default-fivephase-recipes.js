@@ -48,7 +48,10 @@ function buildElementsForIngredients(recipe, itemById) {
 
 function buildTargetElements(recipe, itemById) {
   const elements = createEmptyCraftElementVector();
-  for (const ingredient of recipe.mainIngredients ?? []) {
+  const mainIngredients = Array.isArray(recipe.mainIngredients) && recipe.mainIngredients.length > 0
+    ? recipe.mainIngredients
+    : (recipe.ingredients ?? []).filter((ingredient) => ingredient?.role === 'main');
+  for (const ingredient of mainIngredients) {
     const item = itemById.get(ingredient.itemId);
     assert.ok(item, `missing main ingredient item: ${ingredient.itemId}`);
     addCraftElementVector(elements, item.materialValues?.elements, ingredient.count ?? 1);
@@ -57,23 +60,33 @@ function buildTargetElements(recipe, itemById) {
   return elements;
 }
 
-const recipes = readJson('packages/server/data/content/forging/recipes.json');
-const recipe = recipes.find((entry) => entry?.recipeId === 'forging.foundation_turtle_spell_robe');
-assert.ok(recipe, 'missing forging.foundation_turtle_spell_robe');
-
 const itemById = collectItems();
-const inputElements = buildElementsForIngredients(recipe, itemById);
-const targetElements = buildTargetElements(recipe, itemById);
-assert.deepEqual(inputElements, targetElements);
+let checked = 0;
+const failures = [];
 
-const match = computeFivePhaseElementMatch(inputElements, targetElements);
-assert.equal(match.baseElementSuccessRate, 1);
-assert.deepEqual(targetElements, {
-  metal: 29,
-  wood: 30,
-  water: 189,
-  fire: 0,
-  earth: 42,
-});
+for (const kind of ['alchemy', 'forging']) {
+  const recipes = readJson(`packages/server/data/content/${kind}/recipes.json`);
+  for (const recipe of Array.isArray(recipes) ? recipes : []) {
+    const inputElements = buildElementsForIngredients(recipe, itemById);
+    const targetElements = buildTargetElements(recipe, itemById);
+    const match = computeFivePhaseElementMatch(inputElements, targetElements);
+    checked += 1;
+    try {
+      assert.deepEqual(inputElements, targetElements);
+      assert.equal(match.baseElementSuccessRate, 1);
+    } catch {
+      failures.push({
+        kind,
+        recipeId: recipe.recipeId,
+        outputItemId: recipe.outputItemId,
+        inputElements,
+        targetElements,
+        baseElementSuccessRate: match.baseElementSuccessRate,
+      });
+    }
+  }
+}
 
-console.log('[proof:turtle-spell-robe-forging-recipe] ok');
+assert.equal(failures.length, 0, JSON.stringify(failures, null, 2));
+
+console.log(`[proof:craft-default-fivephase-recipes] ok checked=${checked}`);
