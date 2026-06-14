@@ -4,17 +4,18 @@
  * 维护时要保持它只处理前端表现和组件契约，不保存业务真源，也不绕过共享规则或服务端权威运行时。
  */
 import { useCallback, useMemo, useRef, memo } from 'react';
-import { EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared';
+import { EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { getEquipSlotLabel } from '../../../domain-labels';
-import { resolvePreviewItem } from '../../../content/local-templates';
-import { buildItemTooltipPayload, describeEquipmentBonuses, formatEquipmentConditionText } from '../../../ui/equipment-tooltip';
+import { buildItemTooltipPayload } from '../../../ui/equipment-tooltip';
 import { getItemDisplayMeta } from '../../../ui/item-display';
-import { describePreviewBonuses } from '../../../ui/stat-preview';
-import { formatDisplayInteger, formatDisplayPercent } from '../../../utils/number';
+import {
+  EQUIPMENT_PANEL_SLOT_ORDER,
+  formatEquipmentSlotCompactMeta,
+  isWideEquipmentPanelSlot,
+} from '../../../ui/equipment-panel-layout';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../../../ui/floating-tooltip';
 import { createPanelStore } from '../../stores/create-panel-store';
 import { t } from '../../../ui/i18n';
-import type { EquipmentEffectDef } from '@mud/shared';
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -52,72 +53,6 @@ export function syncEquipmentPanelState(input: {
   });
 }
 
-// ─── 纯逻辑（从原生面板搬入） ───────────────────────────────────────────────
-
-function formatEffectCondition(effect: EquipmentEffectDef): string {
-  const parts = formatEquipmentConditionText(effect);
-  if (parts.length === 0) return '';
-  return ` [${parts.join('，')}]`;
-}
-
-function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
-  const previewItem = item ? resolvePreviewItem(item) : null;
-  if (!previewItem?.effects?.length) return [];
-  return previewItem.effects.map((effect) => {
-    const conditionText = formatEffectCondition(effect);
-    switch (effect.type) {
-      case 'stat_aura':
-      case 'progress_boost': {
-        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
-        return t('equipment.effect.stat-aura', { effects: effectParts.join(' / ') || t('equipment.effect.no-value-change'), condition: conditionText });
-      }
-      case 'periodic_cost': {
-        const modeLabel = effect.mode === 'flat'
-          ? `${formatDisplayInteger(effect.value)}`
-          : effect.mode === 'max_ratio_bp'
-            ? t('equipment.effect.max-resource-cost', { percent: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment.resource.hp') : t('equipment.resource.qi') })
-            : t('equipment.effect.current-resource-cost', { percent: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment.resource.hp') : t('equipment.resource.qi') });
-        const triggerLabel = effect.trigger === 'on_cultivation_tick' ? t('equipment.trigger.cultivation-tick') : t('equipment.trigger.tick');
-        return t('equipment.effect.periodic-cost', { trigger: triggerLabel, mode: modeLabel, condition: conditionText });
-      }
-      case 'timed_buff': {
-        const triggerMap: Record<string, string> = {
-          on_equip: t('equipment.trigger.on-equip'),
-          on_unequip: t('equipment.trigger.on-unequip'),
-          on_tick: t('equipment.trigger.on-tick'),
-          on_move: t('equipment.trigger.on-move'),
-          on_attack: t('equipment.trigger.on-attack'),
-          on_hit: t('equipment.trigger.on-hit'),
-          on_kill: t('equipment.trigger.on-kill'),
-          on_skill_cast: t('equipment.trigger.on-skill-cast'),
-          on_cultivation_tick: t('equipment.trigger.on-cultivation-tick'),
-          on_time_segment_changed: t('equipment.trigger.on-time-segment-changed'),
-          on_enter_map: t('equipment.trigger.on-enter-map'),
-        };
-        const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
-        return t('equipment.effect.timed-buff', {
-          trigger: triggerMap[effect.trigger] ?? effect.trigger,
-          buffName: effect.buff.name,
-          duration: effect.buff.duration,
-          condition: conditionText,
-          effects: buffParts.length > 0 ? t('equipment.effect.timed-buff-effects', { effects: buffParts.join(' / ') }) : '',
-        });
-      }
-      default:
-        return '';
-    }
-  }).filter((line) => line.length > 0);
-}
-
-function formatItemBonuses(item: EquipmentSlots[EquipSlot], playerRealmLv?: number | null): string {
-  if (!item) return t('equipment.empty.affixes');
-  const previewItem = resolvePreviewItem(item);
-  const bonusParts = describeEquipmentBonuses(previewItem, playerRealmLv);
-  const effectParts = formatItemEffects(item);
-  const parts = [...bonusParts, ...effectParts];
-  return parts.length > 0 ? parts.join(' / ') : t('equipment.empty.affixes');
-}
-
 // ─── 组件 ────────────────────────────────────────────────────────────────────
 
 export function EquipmentPanel() {
@@ -137,7 +72,7 @@ export function EquipmentPanel() {
     return <div className="empty-hint">{t('equipment.empty.all')}</div>;
   }
 
-  const hasAnyEquipment = EQUIP_SLOTS.some((slot) => !!equipment[slot]);
+  const hasAnyEquipment = EQUIPMENT_PANEL_SLOT_ORDER.some((slot) => !!equipment[slot]);
 
   const handleUnequip = (slot: EquipSlot) => {
     onUnequipCallback?.(slot);
@@ -221,15 +156,16 @@ export function EquipmentPanel() {
     >
       <div className="panel-section-title">{t('equipment.title')}</div>
       {!hasAnyEquipment && <div className="empty-hint">{t('equipment.empty.all')}</div>}
-      {EQUIP_SLOTS.map((slot) => (
-        <EquipmentSlotRow
-          key={slot}
-          slot={slot}
-          item={equipment[slot]}
-          playerRealmLv={playerRealmLv}
-          onUnequip={handleUnequip}
-        />
-      ))}
+      <div className="equip-slot-grid">
+        {EQUIPMENT_PANEL_SLOT_ORDER.map((slot) => (
+          <EquipmentSlotRow
+            key={slot}
+            slot={slot}
+            item={equipment[slot]}
+            onUnequip={handleUnequip}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -237,21 +173,19 @@ export function EquipmentPanel() {
 const EquipmentSlotRow = memo(function EquipmentSlotRow({
   slot,
   item,
-  playerRealmLv,
   onUnequip,
 }: {
   slot: EquipSlot;
   item: EquipmentSlots[EquipSlot];
-  playerRealmLv: number | null;
   onUnequip: (slot: EquipSlot) => void;
 }) {
   const hasItem = !!item;
   const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
-  const metaText = item ? formatItemBonuses(item, playerRealmLv) : t('equipment.empty.slot-meta');
+  const metaText = item ? formatEquipmentSlotCompactMeta(item) : t('equipment.empty.slot-meta');
 
   return (
     <div
-      className="equip-slot"
+      className={`equip-slot${isWideEquipmentPanelSlot(slot) ? ' equip-slot--wide' : ''}`}
       data-equip-tooltip-slot={hasItem ? slot : undefined}
     >
       <div className="equip-copy">

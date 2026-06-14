@@ -967,26 +967,48 @@
     }
 
     /* 装备槽 */
+    .equip-slot-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
     .equip-slot {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
       padding: 10px;
-      margin-bottom: 6px;
+      min-width: 0;
       background: var(--paper-white);
       border: 1px solid var(--wash-ink);
+    }
+    .equip-slot--wide {
+      grid-column: 1 / -1;
     }
     .equip-copy {
       display: flex;
       flex-direction: column;
       gap: 3px;
+      flex: 1 1 auto;
       min-width: 0;
     }
     .equip-slot-name { font-family: var(--font-role-body); font-size: var(--font-size-role-body-14); color: var(--ink-grey); min-width: 40px; }
     .equip-slot-item { font-size: var(--font-size-13); color: var(--ink-black); }
     .equip-slot-empty { font-size: var(--font-size-13); color: var(--ink-light); font-style: italic; }
     .equip-slot-meta { font-size: var(--font-size-12); color: var(--ink-grey); }
+    .equip-slot-item,
+    .equip-slot-empty,
+    .equip-slot-meta {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .equip-slot .small-btn {
+      flex: 0 0 auto;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
 
     /* 功法卡片 */
     .tech-panel-shell {

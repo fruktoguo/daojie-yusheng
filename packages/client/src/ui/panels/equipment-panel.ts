@@ -5,17 +5,19 @@
  */
 /**
  * 装备面板
- * 展示 5 个装备槽位的当前装备与词条，支持卸下操作
+ * 展示装备槽位的当前装备，支持卸下操作
  */
-import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared';
+import { EquipmentSlots, EquipSlot, PlayerState } from '@mud/shared';
 import { getEquipSlotLabel } from '../../domain-labels';
-import { resolvePreviewItem } from '../../content/local-templates';
 import { preserveSelection } from '../selection-preserver';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload, describeEquipmentBonuses, formatEquipmentConditionText } from '../equipment-tooltip';
+import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { getItemDisplayMeta } from '../item-display';
-import { describePreviewBonuses } from '../stat-preview';
-import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
+import {
+  EQUIPMENT_PANEL_SLOT_ORDER,
+  formatEquipmentSlotCompactMeta,
+  isWideEquipmentPanelSlot,
+} from '../equipment-panel-layout';
 import { t } from '../i18n';
 import { setEquipmentPanelCallbacks, syncEquipmentPanelState } from '../../react-ui/panels/equipment/EquipmentPanel';
 import {
@@ -23,83 +25,6 @@ import {
   shouldUseReactEquipmentPanel,
   unmountReactEquipmentPanel,
 } from '../../react-ui/panels/equipment/mount-equipment-panel';
-
-/** formatEffectCondition：格式化效果条件。 */
-function formatEffectCondition(effect: EquipmentEffectDef): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const parts = formatEquipmentConditionText(effect);
-  if (parts.length === 0) {
-    return '';
-  }
-  return parts.length > 0 ? ` [${parts.join('，')}]` : '';
-}
-
-/** formatItemEffects：格式化物品效果。 */
-function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const previewItem = item ? resolvePreviewItem(item) : null;
-  if (!previewItem?.effects?.length) {
-    return [];
-  }
-  return previewItem.effects.map((effect) => {
-    const conditionText = formatEffectCondition(effect);
-    switch (effect.type) {
-      case 'stat_aura':
-      case 'progress_boost': {
-        const effectParts = describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
-        return t('equipment.effect.stat-aura', { effects: effectParts.join(' / ') || t('equipment.effect.no-value-change', undefined), condition: conditionText });
-      }
-      case 'periodic_cost': {
-        const modeLabel = effect.mode === 'flat'
-          ? `${formatDisplayInteger(effect.value)}`
-          : effect.mode === 'max_ratio_bp'
-            ? t('equipment.effect.max-resource-cost', { percent: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment.resource.hp', undefined) : t('equipment.resource.qi', undefined) })
-            : t('equipment.effect.current-resource-cost', { percent: formatDisplayPercent(effect.value / 100), resource: effect.resource === 'hp' ? t('equipment.resource.hp', undefined) : t('equipment.resource.qi', undefined) });
-        const triggerLabel = effect.trigger === 'on_cultivation_tick' ? t('equipment.trigger.cultivation-tick', undefined) : t('equipment.trigger.tick', undefined);
-        return t('equipment.effect.periodic-cost', { trigger: triggerLabel, mode: modeLabel, condition: conditionText });
-      }
-      case 'timed_buff': {
-        const triggerMap: Record<string, string> = {
-          on_equip: t('equipment.trigger.on-equip', undefined),
-          on_unequip: t('equipment.trigger.on-unequip', undefined),
-          on_tick: t('equipment.trigger.on-tick', undefined),
-          on_move: t('equipment.trigger.on-move', undefined),
-          on_attack: t('equipment.trigger.on-attack', undefined),
-          on_hit: t('equipment.trigger.on-hit', undefined),
-          on_kill: t('equipment.trigger.on-kill', undefined),
-          on_skill_cast: t('equipment.trigger.on-skill-cast', undefined),
-          on_cultivation_tick: t('equipment.trigger.on-cultivation-tick', undefined),
-          on_time_segment_changed: t('equipment.trigger.on-time-segment-changed', undefined),
-          on_enter_map: t('equipment.trigger.on-enter-map', undefined),
-        };
-        const buffParts = describePreviewBonuses(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
-        return t('equipment.effect.timed-buff', {
-          trigger: triggerMap[effect.trigger] ?? effect.trigger,
-          buffName: effect.buff.name,
-          duration: effect.buff.duration,
-          condition: conditionText,
-          effects: buffParts.length > 0 ? t('equipment.effect.timed-buff-effects', { effects: buffParts.join(' / ') }) : '',
-        });
-      }
-      default:
-        return '';
-    }
-  }).filter((line) => line.length > 0);
-}
-
-/** formatItemBonuses：格式化物品Bonuses。 */
-function formatItemBonuses(item: EquipmentSlots[EquipSlot], playerRealmLv?: number | null): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (!item) return t('equipment.empty.affixes', undefined);
-  const previewItem = resolvePreviewItem(item);
-  const bonusParts = describeEquipmentBonuses(previewItem, playerRealmLv);
-  const effectParts = formatItemEffects(item);
-  const parts = [...bonusParts, ...effectParts];
-  return parts.length > 0 ? parts.join(' / ') : t('equipment.empty.affixes', undefined);
-}
 
 /** EquipmentSlotView：装备槽位的渲染引用集合。 */
 type EquipmentSlotView = {
@@ -135,7 +60,7 @@ type EquipmentSlotView = {
   action: HTMLButtonElement;
 };
 
-/** 装备面板：显示5个装备槽位 */
+/** 装备面板：显示装备槽位 */
 export class EquipmentPanel {
   /** pane：pane。 */
   private pane = document.getElementById('pane-equipment')!;
@@ -269,7 +194,7 @@ export class EquipmentPanel {
     }
 
     let hasAnyEquipment = false;
-    for (const slot of EQUIP_SLOTS) {
+    for (const slot of EQUIPMENT_PANEL_SLOT_ORDER) {
       const slotView = this.slotViews.get(slot);
       if (!slotView) {
         continue;
@@ -278,7 +203,7 @@ export class EquipmentPanel {
       const hasItem = !!item;
       hasAnyEquipment ||= hasItem;
       const itemName = item ? getItemDisplayMeta(item).displayItem.name : '';
-      const metaText = item ? formatItemBonuses(item, this.playerRealmLv) : t('equipment.empty.slot-meta', undefined);
+      const metaText = item ? formatEquipmentSlotCompactMeta(item) : t('equipment.empty.slot-meta', undefined);
       const signature = this.buildSlotSignature(slot, hasItem, itemName, metaText);
       if (this.slotSignatures.get(slot) === signature) {
         continue;
@@ -309,7 +234,7 @@ export class EquipmentPanel {
   private ensureStructure(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (this.sectionEl && this.emptyStateEl && this.slotViews.size === EQUIP_SLOTS.length) {
+    if (this.sectionEl && this.emptyStateEl && this.slotViews.size === EQUIPMENT_PANEL_SLOT_ORDER.length) {
       return;
     }
 
@@ -332,11 +257,15 @@ export class EquipmentPanel {
       emptyStateEl.hidden = true;
       sectionEl.append(emptyStateEl);
 
-      for (const slot of EQUIP_SLOTS) {
+      const gridEl = document.createElement('div');
+      gridEl.className = 'equip-slot-grid';
+
+      for (const slot of EQUIPMENT_PANEL_SLOT_ORDER) {
         const slotView = this.createSlotView(slot);
         this.slotViews.set(slot, slotView);
-        sectionEl.append(slotView.root);
+        gridEl.append(slotView.root);
       }
+      sectionEl.append(gridEl);
 
       this.pane.append(sectionEl);
       this.sectionEl = sectionEl;
@@ -347,7 +276,7 @@ export class EquipmentPanel {
   /** createSlotView：创建槽位视图。 */
   private createSlotView(slot: EquipSlot): EquipmentSlotView {
     const root = document.createElement('div');
-    root.className = 'equip-slot';
+    root.className = isWideEquipmentPanelSlot(slot) ? 'equip-slot equip-slot--wide' : 'equip-slot';
 
     const copy = document.createElement('div');
     copy.className = 'equip-copy';
