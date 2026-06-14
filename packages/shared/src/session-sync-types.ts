@@ -18,6 +18,11 @@ export interface BootstrapItemStackView {
 
   itemId: string;
   /**
+ * itemInstanceId：背包/装备物品稳定实例 ID。
+ */
+
+  itemInstanceId?: string;
+  /**
  * count：数量或计量字段。
  */
 

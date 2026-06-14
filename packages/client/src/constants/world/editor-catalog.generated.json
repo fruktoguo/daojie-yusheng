@@ -7665,7 +7665,7 @@
       "grade": "mystic",
       "level": 29,
       "desc": "锤柄中藏半基灵胚，定柱、压梁时更容易把地气压稳。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_building",
       "tags": [
         "building_hammer"
       ],
@@ -7824,7 +7824,7 @@
       "grade": "mystic",
       "level": 29,
       "desc": "炉壁内嵌赤纹与净潮细槽，能把练气期药性收束得更稳。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_alchemy",
       "tags": [
         "alchemy_furnace"
       ],
@@ -8042,7 +8042,7 @@
       "grade": "earth",
       "level": 40,
       "desc": "镐身带地龙脊骨纹，能顺着深层矿脉撬开厚壳。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_mining",
       "tags": [
         "mining_pickaxe"
       ],
@@ -8248,7 +8248,7 @@
       "grade": "earth",
       "level": 40,
       "desc": "炉心以焚王余烬压火，能承受筑基期更烈的药性冲突。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_alchemy",
       "tags": [
         "alchemy_furnace"
       ],
@@ -8339,7 +8339,7 @@
       "grade": "mystic",
       "level": 29,
       "desc": "钳口一边开锋一边镇岳，夹住器胚时不容易让灵纹散开。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_forging",
       "tags": [
         "forging_tool"
       ],
@@ -8463,7 +8463,7 @@
       "grade": "mystic",
       "level": 29,
       "desc": "镐尖压着归藏脉纹，敲入矿脉时能顺着暗脉裂开。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_mining",
       "tags": [
         "mining_pickaxe"
       ],
@@ -9038,7 +9038,7 @@
       "grade": "earth",
       "level": 40,
       "desc": "锤内混元脉石与木火精华相冲相合，适合压定筑基建筑地基。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_building",
       "tags": [
         "building_hammer"
       ],
@@ -10100,7 +10100,7 @@
       "grade": "earth",
       "level": 40,
       "desc": "钳身深铁纹路极稳，夹住高阶器胚时不易炸纹。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_forging",
       "tags": [
         "forging_tool"
       ],
@@ -10591,7 +10591,7 @@
       "grade": "yellow",
       "level": 2,
       "desc": "镐尖嵌着聚力铜片，挥击矿脉时能集中力道于一点，是矿工入门的基础采掘工具。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_mining",
       "tags": [
         "mining_pickaxe"
       ],
@@ -10617,7 +10617,7 @@
       "grade": "yellow",
       "level": 2,
       "desc": "铜柄火钳嵌着稳纹小环，能夹持低阶器胚，是初学炼器者最常用的入门工具。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_forging",
       "tags": [
         "forging_tool"
       ],
@@ -10652,7 +10652,7 @@
       "grade": "yellow",
       "level": 2,
       "desc": "锤头嵌着稳灵铜片，敲击时能短暂收束器物灵纹，正适合初学者用来打底强化。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_enhancement",
       "tags": [
         "enhancement_hammer"
       ],
@@ -10675,7 +10675,7 @@
       "grade": "yellow",
       "level": 2,
       "desc": "小巧耐烧的铜胎丹炉，炉壁内侧刻着稳火与散药气的浅纹，正适合初学炼丹者随身携带。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_alchemy",
       "tags": [
         "alchemy_furnace"
       ],
@@ -10698,7 +10698,7 @@
       "grade": "yellow",
       "level": 2,
       "desc": "锤身刻着规尺短线，可用于夯定梁柱与地基，是营造入门时的基础建造锤。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_building",
       "tags": [
         "building_hammer"
       ],
@@ -10809,7 +10809,7 @@
       "grade": "mystic",
       "level": 29,
       "desc": "锤头嵌着五炁尘，落锤时能短暂调平器物五行。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_enhancement",
       "tags": [
         "enhancement_hammer"
       ],
@@ -11092,7 +11092,7 @@
       "grade": "earth",
       "level": 40,
       "desc": "锤面覆玄壤精土，落锤时能把强化余震压回器身。",
-      "equipSlot": "weapon",
+      "equipSlot": "technique_enhancement",
       "tags": [
         "enhancement_hammer"
       ],

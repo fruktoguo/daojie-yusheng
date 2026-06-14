@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { ALCHEMY_FURNACE_OUTPUT_COUNT, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, applyEquipmentAttributeEffectivenessToItemStack, canMergeItemStack, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
+import { ALCHEMY_FURNACE_OUTPUT_COUNT, ELEMENT_KEYS, EQUIP_SLOTS, ENHANCEMENT_HAMMER_TAG, ENHANCEMENT_SPIRIT_STONE_ITEM_ID, MAX_ENHANCE_LEVEL, TECHNIQUE_ACTIVITY_QUEUE_MAX_LENGTH, TECHNIQUE_GRADE_ORDER, addCraftElementVector, canMergeItemStack, cloneCraftEquipmentStats, compactCraftElementVector, computeAlchemyAdjustedBrewTicks, computeAlchemyAdjustedSuccessRate, computeAlchemyBatchOutputCountWithSize, computeAlchemyBrewTicks, computeAlchemyTotalJobTicks, computeCraftSkillExpGain, computeEnhancementAdjustedSuccessRate, computeEnhancementJobBaseTicks, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeFivePhaseElementMatch, computeLuckSuccessRateBonus, createEmptyCraftElementVector, createItemStackSignature, getAlchemySpiritStoneCost, getItemDisplayName, isLegacyItemInstanceId, normalizeCraftElementVector } from '@mud/shared';
 import type { ItemStack } from '@mud/shared';
 import { assignItemInstanceIdIfNeeded, compareItemInstanceId, isItemInstanceIdHardCheckEnabled } from '../world/item-instance-id.helpers';
 import { lockItem, unlockItem, getLockedItem, lockedItemToItemStack } from '../player/inventory-lock.helpers';
@@ -100,7 +100,13 @@ export class CraftPanelRuntimeService {
     /** 读取炼丹面板的状态和可见目录，同步客户端所需的数据快照。 */
     buildAlchemyPanelPayload(player, knownCatalogVersion) {
         this.ensureCraftSkills(player);
-        return this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(player, knownCatalogVersion, this.alchemyCatalog, this.getWeapon(player));
+        return this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(
+            player,
+            knownCatalogVersion,
+            this.alchemyCatalog,
+            this.getAlchemyLikeToolItem(player, 'alchemy'),
+            this.getCraftStats(player),
+        );
     }
     /** 读取炼丹面板运行态增量，高频刷新不重复下发目录和预设。 */
     buildAlchemyPanelPatchPayload(player) {
@@ -111,12 +117,22 @@ export class CraftPanelRuntimeService {
     buildForgingPanelPayload(player, knownCatalogVersion) {
         this.ensureCraftSkills(player);
         const payload = {
-            ...this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(player, knownCatalogVersion, this.forgingCatalog, this.getWeapon(player)),
+            ...this.craftPanelAlchemyQueryService.buildAlchemyPanelPayload(
+                player,
+                knownCatalogVersion,
+                this.forgingCatalog,
+                this.getAlchemyLikeToolItem(player, 'forging'),
+                this.getCraftStats(player),
+            ),
             kind: 'forging',
         };
         if (payload.state) {
             payload.state = {
-                ...buildForgingAlchemyPanelState(player, this.getWeapon(player)),
+                ...buildForgingAlchemyPanelState(
+                    player,
+                    this.getAlchemyLikeToolItem(player, 'forging'),
+                    this.getCraftStats(player),
+                ),
             };
         }
         return payload;
@@ -916,8 +932,9 @@ export class CraftPanelRuntimeService {
     createEnhancementStartJob(player, validated) {
         const target = validated.target;
         const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
-        const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, target.item.level);
-        const successRate = computeEnhancementAdjustedSuccessRate(validated.targetLevel, roleEnhancementLevel, target.item.level, this.getWeapon(player)?.enhancementSuccessRate, this.getLuckSuccessRateBonus(player));
+        const craftStats = this.getCraftStats(player);
+        const totalSpeedRate = computeEnhancementToolSpeedRate(craftStats.enhancementSpeedRate, roleEnhancementLevel, target.item.level);
+        const successRate = computeEnhancementAdjustedSuccessRate(validated.targetLevel, roleEnhancementLevel, target.item.level, craftStats.enhancementSuccessRate, this.getLuckSuccessRateBonus(player));
         const totalTicks = computeEnhancementJobTicks(target.item.level, totalSpeedRate);
         const protectionItemId = validated.protection ? (validated.config?.protectionItemId ?? target.item.itemId) : undefined;
         const protectionItemName = protectionItemId
@@ -1210,24 +1227,18 @@ export class CraftPanelRuntimeService {
  */
 
     hasEquippedFurnace(player) {
-        return Boolean(this.getWeapon(player)?.tags?.includes(ALCHEMY_FURNACE_TAG));
+        return Boolean(this.getAlchemyLikeToolItem(player, 'alchemy')?.tags?.includes(ALCHEMY_FURNACE_TAG));
     }
     hasEquippedForgingTool(player) {
-        return Boolean(this.getWeapon(player)?.tags?.includes('forging_tool'));
+        return Boolean(this.getAlchemyLikeToolItem(player, 'forging')?.tags?.includes('forging_tool'));
     }
     getAlchemyLikeToolSpeedRate(player, jobKind) {
-        const weapon = this.getWeapon(player);
-        if (jobKind === 'forging' ? !this.hasEquippedForgingTool(player) : !this.hasEquippedFurnace(player)) {
-            return 0;
-        }
-        return Number.isFinite(weapon?.alchemySpeedRate) ? Number(weapon.alchemySpeedRate) : 0;
+        const craftStats = this.getCraftStats(player);
+        return jobKind === 'forging' ? craftStats.forgingSpeedRate : craftStats.alchemySpeedRate;
     }
     getAlchemyLikeToolSuccessRate(player, jobKind) {
-        const weapon = this.getWeapon(player);
-        if (jobKind === 'forging' ? !this.hasEquippedForgingTool(player) : !this.hasEquippedFurnace(player)) {
-            return 0;
-        }
-        return Number.isFinite(weapon?.alchemySuccessRate) ? Number(weapon.alchemySuccessRate) : 0;
+        const craftStats = this.getCraftStats(player);
+        return jobKind === 'forging' ? craftStats.forgingSuccessRate : craftStats.alchemySuccessRate;
     }
     getLuckSuccessRateBonus(player) {
         return computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(player));
@@ -1240,7 +1251,7 @@ export class CraftPanelRuntimeService {
  */
 
     hasEquippedHammer(player) {
-        return Boolean(this.getWeapon(player)?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
+        return Boolean(this.getEnhancementToolItem(player)?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
     }
     /**
  * ensureCraftSkills：执行ensure炼制技能相关逻辑。
@@ -1316,7 +1327,11 @@ export class CraftPanelRuntimeService {
  */
 
     buildAlchemyPanelState(player) {
-        return this.craftPanelAlchemyQueryService.buildAlchemyPanelState(player, this.getWeapon(player));
+        return this.craftPanelAlchemyQueryService.buildAlchemyPanelState(
+            player,
+            this.getAlchemyLikeToolItem(player, 'alchemy'),
+            this.getCraftStats(player),
+        );
     }
     /**
  * buildEnhancementPanelState：构建并返回目标对象。
@@ -1380,18 +1395,18 @@ export class CraftPanelRuntimeService {
             return null;
         }
         const nextLevel = currentLevel + 1;
-        const hammer = this.getWeapon(player);
+        const craftStats = this.getCraftStats(player);
         const enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         const config = this.enhancementConfigs.get(item.itemId);
         const requirements = this.getEnhancementRequirements(config, nextLevel);
-        const totalSpeedRate = computeEnhancementToolSpeedRate(hammer?.enhancementSpeedRate, enhancementSkillLevel, item.level);
+        const totalSpeedRate = computeEnhancementToolSpeedRate(craftStats.enhancementSpeedRate, enhancementSkillLevel, item.level);
         return {
             ref,
             item: cloneItem(item),
             currentLevel,
             nextLevel,
             spiritStoneCost: getEnhancementSpiritStoneCost(item.level, requirements.length > 0),
-            successRate: computeEnhancementAdjustedSuccessRate(nextLevel, enhancementSkillLevel, item.level, hammer?.enhancementSuccessRate, this.getLuckSuccessRateBonus(player)),
+            successRate: computeEnhancementAdjustedSuccessRate(nextLevel, enhancementSkillLevel, item.level, craftStats.enhancementSuccessRate, this.getLuckSuccessRateBonus(player)),
             durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
             materials: requirements.map((entry) => ({
                 itemId: entry.itemId,
@@ -1461,17 +1476,28 @@ export class CraftPanelRuntimeService {
     normalizeEnhancementInventoryItem(item) {
         return this.contentTemplateRepository.normalizeItem?.(item) ?? item;
     }
-    /**
- * getWeapon：读取Weapon。
- * @param player 玩家对象。
- * @returns 无返回值，完成Weapon的读取/组装。
- */
+    getCraftStats(player) {
+        return cloneCraftEquipmentStats(player?.attrs?.craftStats);
+    }
 
-    getWeapon(player) {
-        const weapon = this.getEquippedItem(player, 'weapon');
-        return weapon
-            ? applyEquipmentAttributeEffectivenessToItemStack(weapon, player?.realm?.realmLv ?? player?.realmLv)
-            : null;
+    getAlchemyLikeToolItem(player, jobKind) {
+        const slot = jobKind === 'forging' ? 'technique_forging' : 'technique_alchemy';
+        const expectedTag = jobKind === 'forging' ? 'forging_tool' : ALCHEMY_FURNACE_TAG;
+        const tool = this.getEquippedItem(player, slot);
+        if (tool?.tags?.includes(expectedTag)) {
+            return tool;
+        }
+        const legacyWeapon = this.getEquippedItem(player, 'weapon');
+        return legacyWeapon?.tags?.includes(expectedTag) ? legacyWeapon : null;
+    }
+
+    getEnhancementToolItem(player) {
+        const tool = this.getEquippedItem(player, 'technique_enhancement');
+        if (tool?.tags?.includes(ENHANCEMENT_HAMMER_TAG)) {
+            return tool;
+        }
+        const legacyWeapon = this.getEquippedItem(player, 'weapon');
+        return legacyWeapon?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? legacyWeapon : null;
     }
     /**
  * getEquippedItem：读取Equipped道具。
@@ -1762,7 +1788,8 @@ export class CraftPanelRuntimeService {
             consumeInventoryItemByItemId(player, material.itemId, material.count);
         }
         const roleEnhancementLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
-        const totalSpeedRate = computeEnhancementToolSpeedRate(this.getWeapon(player)?.enhancementSpeedRate, roleEnhancementLevel, job.targetItemLevel);
+        const craftStats = this.getCraftStats(player);
+        const totalSpeedRate = computeEnhancementToolSpeedRate(craftStats.enhancementSpeedRate, roleEnhancementLevel, job.targetItemLevel);
         const totalTicks = computeEnhancementJobTicks(job.targetItemLevel, totalSpeedRate);
         const lockedEntry = getLockedItem(player.inventory.lockedItems ?? [], job.itemInstanceId);
         if (!lockedEntry) {
@@ -1792,7 +1819,7 @@ export class CraftPanelRuntimeService {
         job.pausedTicks = 0;
         job.interruptWaitRemainingTicks = 0;
         job.interruptState = null;
-        job.successRate = computeEnhancementAdjustedSuccessRate(nextTargetLevel, roleEnhancementLevel, job.targetItemLevel, this.getWeapon(player)?.enhancementSuccessRate, this.getLuckSuccessRateBonus(player));
+        job.successRate = computeEnhancementAdjustedSuccessRate(nextTargetLevel, roleEnhancementLevel, job.targetItemLevel, craftStats.enhancementSuccessRate, this.getLuckSuccessRateBonus(player));
         job.totalTicks = totalTicks;
         job.remainingTicks = totalTicks;
         job.workTotalTicks = totalTicks;

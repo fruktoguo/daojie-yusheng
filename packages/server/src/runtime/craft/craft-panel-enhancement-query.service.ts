@@ -4,7 +4,7 @@
  * 维护时要保持鉴权、恢复、幂等和数据真源边界清晰，避免把冷路径工具或查询逻辑卷入 tick 热路径。
  */
 import { Injectable } from '@nestjs/common';
-import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, applyEquipmentAttributeEffectivenessToItemStack, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus } from '@mud/shared';
+import { ENHANCEMENT_HAMMER_TAG, MAX_ENHANCE_LEVEL, cloneCraftEquipmentStats, computeEnhancementAdjustedSuccessRate, computeEnhancementJobTicks, computeEnhancementToolSpeedRate, computeLuckSuccessRateBonus } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { assignItemInstanceIdIfNeeded } from '../world/item-instance-id.helpers';
 import { resolvePlayerEffectiveLuck } from '../player/player-special-stat.helpers';
@@ -68,10 +68,11 @@ export class CraftPanelEnhancementQueryService {
     buildEnhancementPanelState(player, enhancementConfigs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const hammer = getWeapon(player);
+        const hammer = getEnhancementToolItem(player);
         const hammerItemId = hammer?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? hammer.itemId : undefined;
         return {
             hammerItemId,
+            toolStats: cloneCraftEquipmentStats(player?.attrs?.craftStats),
             enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
             candidates: this.collectEnhancementCandidates(player, enhancementConfigs),
             records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
@@ -133,11 +134,11 @@ export class CraftPanelEnhancementQueryService {
             return null;
         }
         const nextLevel = currentLevel + 1;
-        const hammer = getWeapon(player);
+        const toolStats = cloneCraftEquipmentStats(player?.attrs?.craftStats);
         const enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         const config = enhancementConfigs.get(item.itemId);
         const requirements = getEnhancementRequirements(config, nextLevel);
-        const totalSpeedRate = computeEnhancementToolSpeedRate(hammer?.enhancementSpeedRate, enhancementSkillLevel, item.level);
+        const totalSpeedRate = computeEnhancementToolSpeedRate(toolStats.enhancementSpeedRate, enhancementSkillLevel, item.level);
         return {
             ref,
             item: summarizeEnhancementItem(item),
@@ -148,7 +149,7 @@ export class CraftPanelEnhancementQueryService {
                 nextLevel,
                 enhancementSkillLevel,
                 item.level,
-                hammer?.enhancementSuccessRate,
+                toolStats.enhancementSuccessRate,
                 computeLuckSuccessRateBonus(resolvePlayerEffectiveLuck(player))
             ),
             durationTicks: computeEnhancementJobTicks(item.level, totalSpeedRate),
@@ -194,16 +195,18 @@ function getEnhancementRequirements(config, targetLevel) {
     return (step?.materials ?? []).map((entry) => ({ ...entry }));
 }
 /**
- * getWeapon：读取Weapon。
+ * getEnhancementToolItem：读取强化工具。
  * @param player 玩家对象。
- * @returns 无返回值，完成Weapon的读取/组装。
+ * @returns 无返回值，完成强化工具的读取/组装。
  */
 
-function getWeapon(player) {
-    const weapon = getEquippedItem(player, 'weapon');
-    return weapon
-        ? applyEquipmentAttributeEffectivenessToItemStack(weapon, player?.realm?.realmLv ?? player?.realmLv)
-        : null;
+function getEnhancementToolItem(player) {
+    const tool = getEquippedItem(player, 'technique_enhancement');
+    if (tool?.tags?.includes(ENHANCEMENT_HAMMER_TAG)) {
+        return tool;
+    }
+    const legacyWeapon = getEquippedItem(player, 'weapon');
+    return legacyWeapon?.tags?.includes(ENHANCEMENT_HAMMER_TAG) ? legacyWeapon : null;
 }
 /**
  * getEquippedItem：读取Equipped道具。

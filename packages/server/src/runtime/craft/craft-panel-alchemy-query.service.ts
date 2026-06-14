@@ -14,14 +14,15 @@ export class CraftPanelAlchemyQueryService {
  * @param player 玩家对象。
  * @param knownCatalogVersion 参数说明。
  * @param alchemyCatalog 参数说明。
- * @param equippedWeapon 参数说明。
+ * @param equippedTool 参数说明。
+ * @param toolStats 参数说明。
  * @returns 无返回值，直接更新炼丹面板载荷相关状态。
  */
 
-    buildAlchemyPanelPayload(player, knownCatalogVersion, alchemyCatalog, equippedWeapon) {
+    buildAlchemyPanelPayload(player, knownCatalogVersion, alchemyCatalog, equippedTool = null, toolStats = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const state = this.buildAlchemyPanelState(player, equippedWeapon);
+        const state = this.buildAlchemyPanelState(player, equippedTool, toolStats);
         const payload: any = {
             state,
             catalogVersion: ALCHEMY_CATALOG_VERSION,
@@ -53,16 +54,18 @@ export class CraftPanelAlchemyQueryService {
     /**
  * buildAlchemyPanelState：构建并返回目标对象。
  * @param player 玩家对象。
- * @param equippedWeapon 参数说明。
+ * @param equippedTool 参数说明。
+ * @param toolStats 参数说明。
  * @returns 无返回值，直接更新炼丹面板状态相关状态。
  */
 
-    buildAlchemyPanelState(player, equippedWeapon) {
+    buildAlchemyPanelState(player, equippedTool = null, toolStats = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const furnaceItemId = equippedWeapon?.tags?.includes(ALCHEMY_FURNACE_TAG) ? equippedWeapon.itemId : undefined;
+        const furnaceItemId = equippedTool?.tags?.includes(ALCHEMY_FURNACE_TAG) ? equippedTool.itemId : undefined;
         return {
             furnaceItemId,
+            toolStats,
             presets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             job: player.alchemyJob?.jobType === 'forging' ? null : player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
             queue: clonePlayerCraftQueue(player),
@@ -70,10 +73,11 @@ export class CraftPanelAlchemyQueryService {
     }
 };
 
-export function buildForgingAlchemyPanelState(player, equippedWeapon) {
-    const furnaceItemId = equippedWeapon?.tags?.includes(ALCHEMY_FURNACE_TAG) ? equippedWeapon.itemId : undefined;
+export function buildForgingAlchemyPanelState(player, equippedTool = null, toolStats = undefined) {
+    const furnaceItemId = equippedTool?.tags?.includes('forging_tool') ? equippedTool.itemId : undefined;
     return {
         furnaceItemId,
+        toolStats,
         presets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
         job: player.forgingJob ? cloneAlchemyJob(player.forgingJob) : null,
         queue: clonePlayerCraftQueue(player),

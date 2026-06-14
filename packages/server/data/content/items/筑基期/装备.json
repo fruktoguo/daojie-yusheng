@@ -316,7 +316,7 @@
     "grade": "earth",
     "level": 40,
     "desc": "炉心以焚王余烬压火，能承受筑基期更烈的药性冲突。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_alchemy",
     "tags": [
       "alchemy_furnace"
     ],
@@ -339,7 +339,7 @@
     "grade": "earth",
     "level": 40,
     "desc": "钳身深铁纹路极稳，夹住高阶器胚时不易炸纹。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_forging",
     "tags": [
       "forging_tool"
     ],
@@ -362,7 +362,7 @@
     "grade": "earth",
     "level": 40,
     "desc": "锤面覆玄壤精土，落锤时能把强化余震压回器身。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_enhancement",
     "tags": [
       "enhancement_hammer"
     ],
@@ -385,7 +385,7 @@
     "grade": "earth",
     "level": 40,
     "desc": "镐身带地龙脊骨纹，能顺着深层矿脉撬开厚壳。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_mining",
     "tags": [
       "mining_pickaxe"
     ],
@@ -411,7 +411,7 @@
     "grade": "earth",
     "level": 40,
     "desc": "锤内混元脉石与木火精华相冲相合，适合压定筑基建筑地基。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_building",
     "tags": [
       "building_hammer"
     ],

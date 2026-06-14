@@ -1517,7 +1517,7 @@ async function craftPanelCase(runtime) {
   socket.emit(C2S.Equip, { itemRef: itemRef(player, "equip.copper_pill_furnace") });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.equipment.slots.some(function (entry) {
-      return entry.slot === "weapon" && entry.item && entry.item.itemId === "equip.copper_pill_furnace";
+      return entry.slot === "technique_alchemy" && entry.item && entry.item.itemId === "equip.copper_pill_furnace";
     });
   }, 5000, "equipFurnace");
 /**
@@ -1616,7 +1616,7 @@ async function craftPanelCase(runtime) {
   socket.emit(C2S.Equip, { itemRef: itemRef(player, "equip.copper_enhancement_hammer") });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current.equipment.slots.some(function (entry) {
-      return entry.slot === "weapon" && entry.item && entry.item.itemId === "equip.copper_enhancement_hammer";
+      return entry.slot === "technique_enhancement" && entry.item && entry.item.itemId === "equip.copper_enhancement_hammer";
     });
   }, 5000, "equipHammer");
 /**

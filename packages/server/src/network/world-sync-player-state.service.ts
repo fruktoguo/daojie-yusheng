@@ -10,6 +10,7 @@ import {
   calcTechniqueFinalSpecialStatBonus,
   cloneNumericRatioDivisors,
   cloneNumericStats,
+  type BootstrapEquipmentView,
 } from '@mud/shared';
 import { projectVisiblePlayerBuffs } from '../runtime/player/player-buff-projection.helpers';
 import { projectHeavenGateState, projectRealmState } from '../runtime/player/player-realm-projection.helpers';
@@ -330,13 +331,7 @@ function normalizeActionEntry(entry) {
 }
 
 function buildEquipmentRecord(entries) {
-  const record = {
-    weapon: null,
-    head: null,
-    body: null,
-    legs: null,
-    accessory: null,
-  };
+  const record = Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as BootstrapEquipmentView;
   for (const slot of EQUIP_SLOTS) {
     const entry = entries.find((candidate) => candidate.slot === slot);
     record[slot] = entry?.item ? toItemStackState(entry.item) : null;

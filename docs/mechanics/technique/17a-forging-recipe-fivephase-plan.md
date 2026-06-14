@@ -93,12 +93,22 @@
 
 ## 生活工具装备
 
-生活工具装备沿用凡人期铜制工具的形式，全部放在 `weapon` 槽，不做头、衣、鞋、饰品套装。每个境界补一组 5 件：丹炉、炼器钳、强化锤、矿镐、营造锤。
+生活工具装备沿用凡人期铜制工具的形式，但不再占用 `weapon` 战斗槽。每种技艺使用一个独立工具槽：
+
+| 技艺 | 工具槽 | 工具 |
+|---|---|---|
+| 炼丹 | `technique_alchemy` | 丹炉 |
+| 炼器 | `technique_forging` | 炼器钳 |
+| 强化 | `technique_enhancement` | 强化锤 |
+| 挖矿 | `technique_mining` | 矿镐 |
+| 营造 | `technique_building` | 营造锤 |
+
+每个境界补一组 5 件：丹炉、炼器钳、强化锤、矿镐、营造锤。工具属性在玩家属性结算阶段汇总到隐藏 `player.attrs.craftStats`，技艺运行时只读取这个隐藏属性投影，不在各技艺逻辑中重新读取装备数值。
 
 当前可直接落地的工具字段：
 
 - `alchemy_furnace` + `alchemySuccessRate` / `alchemySpeedRate`：炼丹。
-- `forging_tool` + `alchemySuccessRate` / `alchemySpeedRate`：炼器暂复用同一组字段，靠标签区分玩法。
+- `forging_tool` + `alchemySuccessRate` / `alchemySpeedRate`：炼器配置暂复用历史字段，结算投影到 `forgingSuccessRate` / `forgingSpeedRate`，靠标签区分玩法。
 - `enhancement_hammer` + `enhancementSuccessRate` / `enhancementSpeedRate`：强化。
 - `mining_pickaxe` + `miningDamageRate` / `miningDropRate`：挖矿伤害与矿物额外概率。矿物额外概率在伤害倍率结算完成后作为总出货概率倍率生效；统一额外概率 = 矿镐 `miningDropRate` + 挖矿等级每级 `1%` + 幸运每点 `1%`。
 - `building_hammer` + `buildingSpeedRate`：每息建造进度增幅。

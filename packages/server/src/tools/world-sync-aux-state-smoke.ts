@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { EQUIP_SLOTS } from '@mud/shared';
 import { WorldSyncAuxStateService } from '../network/world-sync-aux-state.service';
 
 function createService(
@@ -297,7 +298,7 @@ function createService(
           },
           inventory: { capacity: 20, items: [] },
           marketStorage: { items: [] },
-          equipment: { weapon: null, head: null, body: null, legs: null, accessory: null },
+          equipment: Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])),
           techniques: [],
           bodyTraining: undefined,
           alchemySkill: undefined,

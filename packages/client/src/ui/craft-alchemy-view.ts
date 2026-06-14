@@ -7,6 +7,7 @@ import type {
   AlchemyIngredientSelection,
   AlchemyRecipeCatalogEntry,
   AlchemyRecipeCategory,
+  CraftEquipmentStats,
   CraftElementVector,
   CraftQueueStartMode,
   PlayerAlchemyPreset,
@@ -50,6 +51,14 @@ type ConfirmStartRequest = {
   ingredients: AlchemyIngredientSelection[];
   mode: AlchemyTab;
 };
+
+function readCraftToolStat(
+  stats: Partial<CraftEquipmentStats> | null | undefined,
+  key: keyof CraftEquipmentStats,
+): number {
+  const value = Number(stats?.[key]);
+  return Number.isFinite(value) ? value : 0;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -197,7 +206,6 @@ export interface CraftAlchemyParent {
   readonly gatherSkillLevel: number;
   readonly playerLuck: number;
   readonly inventory: { items: Array<{ itemId: string; count: number }>; capacity: number; revision?: number };
-  readonly equipment: { weapon?: { alchemySuccessRate?: number; alchemySpeedRate?: number; tags?: string[] } | null; revision?: number };
   activeAlchemyCategory: AlchemyRecipeCategory;
   activeAlchemyRealm: AlchemyRealmTab;
   activeAlchemyTab: AlchemyTab;
@@ -387,14 +395,12 @@ export class CraftAlchemyView {
   }
 
   private getAlchemyFurnaceBonuses(): { successRate: number; speedRate: number } {
-    const expectedTag = this.parent.activeMode === 'forging' ? 'forging_tool' : 'alchemy_furnace';
-    const tags = this.parent.equipment.weapon?.tags ?? [];
-    if (!tags.includes(expectedTag)) {
-      return { successRate: 0, speedRate: 0 };
-    }
+    const toolStats = this.parent.alchemyPanel?.state?.toolStats;
+    const successKey = this.parent.activeMode === 'forging' ? 'forgingSuccessRate' : 'alchemySuccessRate';
+    const speedKey = this.parent.activeMode === 'forging' ? 'forgingSpeedRate' : 'alchemySpeedRate';
     return {
-      successRate: Number.isFinite(this.parent.equipment.weapon?.alchemySuccessRate) ? Number(this.parent.equipment.weapon?.alchemySuccessRate) : 0,
-      speedRate: Number.isFinite(this.parent.equipment.weapon?.alchemySpeedRate) ? Number(this.parent.equipment.weapon?.alchemySpeedRate) : 0,
+      successRate: readCraftToolStat(toolStats, successKey),
+      speedRate: readCraftToolStat(toolStats, speedKey),
     };
   }
 
@@ -526,7 +532,7 @@ export class CraftAlchemyView {
       .map((preset) => `${preset.presetId}:${preset.updatedAt}`)
       .join('|');
     const inventoryRevision = Number((this.parent.inventory as { revision?: number })?.revision ?? this.parent.inventory.items.length);
-    const equipmentRevision = Number((this.parent.equipment as { revision?: number })?.revision ?? 0);
+    const furnaceBonuses = this.getAlchemyFurnaceBonuses();
     const draftSignature = selectedRecipe && this.parent.activeAlchemyTab === 'simple'
       ? this.getAlchemyDraftIngredients(selectedRecipe.recipeId)
         .map((ingredient) => `${ingredient.itemId}:${ingredient.count}`)
@@ -545,7 +551,8 @@ export class CraftAlchemyView {
       this.parent.gatherSkillLevel,
       this.parent.playerLuck,
       inventoryRevision,
-      equipmentRevision,
+      furnaceBonuses.successRate,
+      furnaceBonuses.speedRate,
       Boolean(this.parent.alchemyPanel?.state?.job),
       this.parent.alchemyPanel?.error ?? '',
       presetVersion,

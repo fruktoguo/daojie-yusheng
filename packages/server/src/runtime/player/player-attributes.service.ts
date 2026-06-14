@@ -9,7 +9,7 @@
  * 并在属性变化时同步更新生命/灵力上限和当前值比例。
  */
 import { Injectable } from '@nestjs/common';
-import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
+import { ATTR_KEYS, ATTR_TO_NUMERIC_WEIGHTS, ATTR_TO_PERCENT_NUMERIC_WEIGHTS, CRAFT_EQUIPMENT_STAT_KEYS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, DEFAULT_BASE_ATTRS, DEFAULT_PLAYER_REALM_STAGE, ELEMENT_KEYS, NUMERIC_SCALAR_STAT_KEYS, NUMERIC_STAT_MULTIPLIER_FLOORS, addCraftEquipmentStatsFromItem, addPartialNumericStats, applyEquipmentAttributeEffectivenessToItemStack, calcBodyTrainingAttrPercentBonus, calcTechniqueFinalAttrBonus, calcTechniqueFinalSpecialStatBonus, calcTechniqueMaxAttrPercentBonus, cloneCraftEquipmentStats, cloneNumericRatioDivisors, cloneNumericStats, compileValueStatsToActualStats, createEmptyCraftEquipmentStats, createNumericStats, getEffectiveMoveSpeed, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier, percentModifierToMultiplier, resolvePlayerRealmAttributeBonus, resolvePlayerRealmNumericTemplate } from '@mud/shared';
 import { PVP_SHA_INFUSION_ATTACK_CAP_PERCENT, PVP_SHA_INFUSION_BUFF_ID } from '../../constants/gameplay/pvp';
 
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
@@ -37,6 +37,7 @@ export class PlayerAttributesService {
             finalAttrs: createBaseAttributes(),
             numericStats,
             ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
+            craftStats: createEmptyCraftEquipmentStats(),
         };
     }
     /** 重新计算玩家的最终属性和数值面板。 */
@@ -57,6 +58,7 @@ export class PlayerAttributesService {
         player.attrs.finalAttrs = next.finalAttrs;
         player.attrs.numericStats = next.numericStats;
         player.attrs.ratioDivisors = next.ratioDivisors;
+        player.attrs.craftStats = next.craftStats;
         player.attrs.revision += 1;
 
         const nextMaxHp = Math.max(1, Math.round(next.numericStats.maxHp));
@@ -117,6 +119,7 @@ export class PlayerAttributesService {
         const finalAttrs = cloneAttributes(baseAttrs);
         const enhancedEquipment = this.enhancedEquipmentScratch;
         enhancedEquipment.length = 0;
+        const craftStats = createEmptyCraftEquipmentStats();
         for (const entry of player.equipment.slots) {
             const item = entry?.item;
             if (!item || typeof item !== 'object') {
@@ -128,6 +131,7 @@ export class PlayerAttributesService {
             }
             enhancedEquipment.push(enhancedItem);
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
+            addCraftEquipmentStatsFromItem(craftStats, enhancedItem);
         }
         const attrPercentBonuses = resetAttributePercentBonusAccumulator(this.attrPercentBonusAccumulatorScratch);
         const rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
@@ -233,6 +237,7 @@ export class PlayerAttributesService {
             finalAttrs,
             numericStats,
             ratioDivisors: cloneNumericRatioDivisors(template.ratioDivisors),
+            craftStats,
         };
     }
 };
@@ -941,7 +946,8 @@ function hasAttrStateChanged(previous, next) {
         || !isSameAttributes(previous.baseAttrs, next.baseAttrs)
         || !isSameAttributes(previous.finalAttrs, next.finalAttrs)
         || !isSameNumericStats(previous.numericStats, next.numericStats)
-        || !isSameRatioDivisors(previous.ratioDivisors, next.ratioDivisors);
+        || !isSameRatioDivisors(previous.ratioDivisors, next.ratioDivisors)
+        || !isSameCraftEquipmentStats(previous.craftStats, next.craftStats);
 }
 /**
  * isSameAttributes：判断SameAttribute是否满足条件。
@@ -955,6 +961,17 @@ function isSameAttributes(left, right) {
 
     for (const key of ATTR_KEYS) {
         if (left[key] !== right[key]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function isSameCraftEquipmentStats(left, right) {
+    const normalizedLeft = cloneCraftEquipmentStats(left);
+    const normalizedRight = cloneCraftEquipmentStats(right);
+    for (const key of CRAFT_EQUIPMENT_STAT_KEYS) {
+        if (normalizedLeft[key] !== normalizedRight[key]) {
             return false;
         }
     }

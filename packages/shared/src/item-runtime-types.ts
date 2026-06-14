@@ -9,6 +9,7 @@ import type { Attributes } from './attribute-types';
 import type { PlayerSpecialStats, TechniqueGrade } from './cultivation-types';
 import type { BuffCategory, BuffModifierMode, BuffVisibility, TimePhaseId } from './world-core-types';
 import type { ActionDef } from './action-combat-types';
+import type { EQUIP_SLOTS } from './constants/gameplay/equipment';
 
 /** 物品类型。 */
 export type ItemType = 'consumable' | 'equipment' | 'material' | 'quest_item' | 'skill_book';
@@ -34,7 +35,7 @@ export interface MaterialValues {
 }
 
 /** 装备槽位。 */
-export type EquipSlot = 'weapon' | 'head' | 'body' | 'legs' | 'accessory';
+export type EquipSlot = typeof EQUIP_SLOTS[number];
 
 /** 地块资源增益定义。 */
 export interface TileResourceGainDef {

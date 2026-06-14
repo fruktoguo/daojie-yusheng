@@ -5,6 +5,7 @@
  */
 import type {
   C2S_StartEnhancement,
+  CraftEquipmentStats,
   EnhancementTargetRef,
   ItemStack,
   PlayerEnhancementRecord,
@@ -14,7 +15,6 @@ import type {
 } from '@mud/shared';
 import {
   MAX_ENHANCE_LEVEL,
-  applyEquipmentAttributeEffectivenessToItemStack,
   computeEnhancementAdjustedSuccessRate,
   computeLuckSuccessRateBonus,
   getItemDisplayName,
@@ -158,13 +158,10 @@ function getEnhancementDisplayName(item: EnhancementItemView): string {
   });
 }
 
-function getEffectiveEnhancementToolSuccessRate(weapon: ItemStack | null | undefined, playerRealmLv: number | null): number {
-  if (!weapon) {
-    return 0;
-  }
-  const effectiveWeapon = applyEquipmentAttributeEffectivenessToItemStack(weapon, playerRealmLv);
-  return Number.isFinite(effectiveWeapon.enhancementSuccessRate)
-    ? Number(effectiveWeapon.enhancementSuccessRate)
+function getEnhancementToolSuccessRate(stats: Partial<CraftEquipmentStats> | null | undefined): number {
+  const value = Number(stats?.enhancementSuccessRate);
+  return Number.isFinite(value)
+    ? value
     : 0;
 }
 
@@ -267,7 +264,6 @@ export interface CraftEnhancementParent {
   readonly playerRealmLv: number | null;
   readonly playerLuck: number;
   readonly inventory: { items: Array<{ itemId: string; count: number }> };
-  readonly equipment: { weapon?: ItemStack | null };
   selectedEnhancementTargetKey: string | null;
   selectedEnhancementTargetLevel: number | null;
   selectedEnhancementProtectionKey: string | null;
@@ -1054,7 +1050,7 @@ export class CraftEnhancementView {
     }
     const displayRecord = currentSessionRecord ?? this.getEnhancementDisplayRecord(referenceItem.itemId, record);
     const roleEnhancementLevel = activeJob?.roleEnhancementLevel ?? Math.max(1, this.getEnhancementPanelState()?.enhancementSkillLevel ?? 1);
-    const hammerSuccessRate = getEffectiveEnhancementToolSuccessRate(this.parent.equipment.weapon, this.parent.playerRealmLv);
+    const hammerSuccessRate = getEnhancementToolSuccessRate(this.getEnhancementPanelState()?.toolStats);
     const levelRecords = new Map((displayRecord?.levels ?? []).map((entry) => [entry.targetLevel, entry] as const));
     const currentSessionRange = currentSessionRecord
       ? this.getEnhancementSessionHistoryDisplayRange(currentSessionRecord, activeJob?.targetLevel)
@@ -1677,7 +1673,7 @@ export class CraftEnhancementView {
     const levelMap = new Map(detailRecord.levels.map((entry) => [entry.targetLevel, entry] as const));
     const sessionRange = this.getEnhancementSessionHistoryDisplayRange(detailRecord);
     const roleEnhancementLevel = Math.max(1, this.getEnhancementPanelState()?.enhancementSkillLevel ?? 1);
-    const hammerSuccessRate = getEffectiveEnhancementToolSuccessRate(this.parent.equipment.weapon, this.parent.playerRealmLv);
+    const hammerSuccessRate = getEnhancementToolSuccessRate(this.getEnhancementPanelState()?.toolStats);
     const rows: string[] = [];
     for (let level = sessionRange.minLevel; level <= sessionRange.maxLevel; level += 1) {
       const current = levelMap.get(level);

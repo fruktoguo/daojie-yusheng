@@ -619,7 +619,7 @@
     "grade": "mystic",
     "level": 29,
     "desc": "炉壁内嵌赤纹与净潮细槽，能把练气期药性收束得更稳。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_alchemy",
     "tags": [
       "alchemy_furnace"
     ],
@@ -642,7 +642,7 @@
     "grade": "mystic",
     "level": 29,
     "desc": "钳口一边开锋一边镇岳，夹住器胚时不容易让灵纹散开。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_forging",
     "tags": [
       "forging_tool"
     ],
@@ -665,7 +665,7 @@
     "grade": "mystic",
     "level": 29,
     "desc": "锤头嵌着五炁尘，落锤时能短暂调平器物五行。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_enhancement",
     "tags": [
       "enhancement_hammer"
     ],
@@ -688,7 +688,7 @@
     "grade": "mystic",
     "level": 29,
     "desc": "镐尖压着归藏脉纹，敲入矿脉时能顺着暗脉裂开。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_mining",
     "tags": [
       "mining_pickaxe"
     ],
@@ -714,7 +714,7 @@
     "grade": "mystic",
     "level": 29,
     "desc": "锤柄中藏半基灵胚，定柱、压梁时更容易把地气压稳。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_building",
     "tags": [
       "building_hammer"
     ],

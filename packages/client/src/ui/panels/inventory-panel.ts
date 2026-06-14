@@ -9,6 +9,7 @@
  */
 import {
   EquipSlot,
+  EQUIP_SLOTS,
   HeavenGateState,
   HEAVEN_GATE_REROLL_COST_RATIO,
   Inventory,
@@ -523,7 +524,7 @@ export class InventoryPanel {
           .filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
       );
       this.equippedItemsBySlot = {};
-      for (const slot of ['weapon', 'head', 'body', 'legs', 'accessory'] as const) {
+      for (const slot of EQUIP_SLOTS) {
         const equippedItem = player.equipment?.[slot];
         if (equippedItem) {
           this.equippedItemsBySlot[slot] = equippedItem;
@@ -554,7 +555,7 @@ export class InventoryPanel {
     const minimapKey = (player.unlockedMinimapIds ?? [])
       .filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0)
       .join(',');
-    const equipmentKey = (['weapon', 'head', 'body', 'legs', 'accessory'] as const)
+    const equipmentKey = EQUIP_SLOTS
       .map((slot) => {
         const equippedItem = player.equipment?.[slot];
         return `${slot}:${equippedItem ? this.getItemIdentity(equippedItem) : ''}`;

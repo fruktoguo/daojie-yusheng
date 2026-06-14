@@ -5,9 +5,32 @@
 源文件: `packages/shared/src/constants/gameplay/equipment.ts`
 
 ```typescript
-EQUIP_SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory']
-// 排序权重: weapon=0, head=1, body=2, legs=3, accessory=4
+COMBAT_EQUIP_SLOTS = ['weapon', 'head', 'body', 'legs', 'accessory']
+TECHNIQUE_EQUIP_SLOTS = [
+  'technique_alchemy',
+  'technique_forging',
+  'technique_enhancement',
+  'technique_mining',
+  'technique_building',
+]
+EQUIP_SLOTS = [...COMBAT_EQUIP_SLOTS, ...TECHNIQUE_EQUIP_SLOTS]
+// 排序权重:
+// weapon=0, head=1, body=2, legs=3, accessory=4
+// technique_alchemy=5, technique_forging=6, technique_enhancement=7
+// technique_mining=8, technique_building=9
 ```
+
+战斗装备只占用 `COMBAT_EQUIP_SLOTS`。技艺工具装备占用对应技艺槽，不再占用战斗装备槽：
+
+| 技艺槽 | 用途 | 工具标签 |
+|---|---|---|
+| technique_alchemy | 炼丹工具 | alchemy_furnace |
+| technique_forging | 炼器工具 | forging_tool |
+| technique_enhancement | 强化工具 | enhancement_hammer |
+| technique_mining | 挖矿工具 | mining_pickaxe |
+| technique_building | 营造工具 | building_hammer |
+
+技艺工具的数值属性在玩家属性结算阶段汇总到隐藏投影 `player.attrs.craftStats`。该投影只供服务端技艺运行时和对应技艺面板预估使用，不并入公开 `numericStats`，也不在属性面板展示。
 
 ## 装备基准值计算公式
 

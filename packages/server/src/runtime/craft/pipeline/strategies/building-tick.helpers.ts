@@ -1,4 +1,4 @@
-import { applyEquipmentAttributeEffectivenessToItemStack, computeCraftSkillExpGain, type TechniqueActivityNoticeMessage } from '@mud/shared';
+import { computeCraftSkillExpGain, type TechniqueActivityNoticeMessage } from '@mud/shared';
 import type { PipelineContext } from '../technique-activity-strategy';
 import {
   DEFAULT_CRAFT_EXP_TO_NEXT,
@@ -276,13 +276,7 @@ function resolveBuildingRemainingProgress(building: Record<string, any>): number
 }
 
 function resolveBuildingProgressPerTick(player: Record<string, any>): number {
-  const weapon = Array.isArray(player?.equipment?.slots)
-    ? player.equipment.slots.find((entry: any) => entry?.slot === 'weapon')?.item
-    : player?.equipment?.weapon;
-  const effectiveWeapon = weapon
-    ? applyEquipmentAttributeEffectivenessToItemStack(weapon, player?.realm?.realmLv ?? player?.realmLv)
-    : null;
-  const speedRate = Math.max(0, Number(effectiveWeapon?.buildingSpeedRate) || 0);
+  const speedRate = Math.max(0, Number(player?.attrs?.craftStats?.buildingSpeedRate) || 0);
   return 1 + speedRate;
 }
 

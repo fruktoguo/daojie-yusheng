@@ -7,7 +7,7 @@
  * 建筑系统运行时服务
  * 处理建筑放置、拆除、建造进度、材料消耗和风水计算
  */
-import { applyEquipmentAttributeEffectivenessToItemStack, calculateTerrainDurability, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
+import { calculateTerrainDurability, isGenericBuildMaterialSlotItemId, resolveBuildMaterialCategoryKey, resolveGenericBuildMaterialSlotCategory } from '@mud/shared';
 import { resolveCraftSkillExpToNextByLevel } from '../craft/craft-skill-exp.helpers';
 import { executeBuildingTick } from '../craft/pipeline/strategies/building-tick.helpers';
 import { buildStructuredNotice } from './structured-notice.helpers';
@@ -159,13 +159,7 @@ export function dispatchStartBuildingConstruction(runtime, playerId, buildingIdI
 }
 
 function resolveBuildingProgressPerTick(player) {
-    const weapon = Array.isArray(player?.equipment?.slots)
-        ? player.equipment.slots.find((entry) => entry?.slot === 'weapon')?.item
-        : player?.equipment?.weapon;
-    const effectiveWeapon = weapon
-        ? applyEquipmentAttributeEffectivenessToItemStack(weapon, player?.realm?.realmLv ?? player?.realmLv)
-        : null;
-    const speedRate = Math.max(0, Number(effectiveWeapon?.buildingSpeedRate) || 0);
+    const speedRate = Math.max(0, Number(player?.attrs?.craftStats?.buildingSpeedRate) || 0);
     return 1 + speedRate;
 }
 

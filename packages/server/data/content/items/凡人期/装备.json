@@ -242,7 +242,7 @@
     "grade": "yellow",
     "level": 2,
     "desc": "小巧耐烧的铜胎丹炉，炉壁内侧刻着稳火与散药气的浅纹，正适合初学炼丹者随身携带。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_alchemy",
     "tags": [
       "alchemy_furnace"
     ],
@@ -265,7 +265,7 @@
     "grade": "yellow",
     "level": 2,
     "desc": "锤头嵌着稳灵铜片，敲击时能短暂收束器物灵纹，正适合初学者用来打底强化。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_enhancement",
     "tags": [
       "enhancement_hammer"
     ],
@@ -288,7 +288,7 @@
     "grade": "yellow",
     "level": 2,
     "desc": "铜柄火钳嵌着稳纹小环，能夹持低阶器胚，是初学炼器者最常用的入门工具。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_forging",
     "tags": [
       "forging_tool"
     ],
@@ -311,7 +311,7 @@
     "grade": "yellow",
     "level": 2,
     "desc": "锤身刻着规尺短线，可用于夯定梁柱与地基，是营造入门时的基础建造锤。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_building",
     "tags": [
       "building_hammer"
     ],
@@ -333,7 +333,7 @@
     "grade": "yellow",
     "level": 2,
     "desc": "镐尖嵌着聚力铜片，挥击矿脉时能集中力道于一点，是矿工入门的基础采掘工具。",
-    "equipSlot": "weapon",
+    "equipSlot": "technique_mining",
     "tags": [
       "mining_pickaxe"
     ],

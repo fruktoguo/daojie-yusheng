@@ -6416,13 +6416,7 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     bonuses: [],
     temporaryBuffs: [],
     inventory: { items: [], capacity: 24 },
-    equipment: {
-      weapon: null,
-      head: null,
-      body: null,
-      legs: null,
-      accessory: null,
-    },
+    equipment: Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as EquipmentSlots,
     techniques: [],
     actions: [],
     quests: [],
@@ -9961,13 +9955,9 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
           capacity: draft.inventory.capacity,
           items: ensureArray(draft.inventory.items).map((item) => buildInventoryItemSaveSnapshot(item)),
         },
-        equipment: {
-          weapon: buildEquipmentItemSaveSnapshot(draft.equipment.weapon),
-          head: buildEquipmentItemSaveSnapshot(draft.equipment.head),
-          body: buildEquipmentItemSaveSnapshot(draft.equipment.body),
-          legs: buildEquipmentItemSaveSnapshot(draft.equipment.legs),
-          accessory: buildEquipmentItemSaveSnapshot(draft.equipment.accessory),
-        },
+        equipment: Object.fromEntries(
+          EQUIP_SLOTS.map((slot) => [slot, buildEquipmentItemSaveSnapshot(draft.equipment[slot])]),
+        ) as EquipmentSlots,
       };
     case 'quests':
       return {

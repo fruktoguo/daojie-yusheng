@@ -223,6 +223,11 @@ export const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
   body: '身体',
   legs: '腿部',
   accessory: '饰品',
+  technique_alchemy: '丹炉',
+  technique_forging: '炼器工具',
+  technique_enhancement: '强化锤',
+  technique_mining: '矿镐',
+  technique_building: '营造锤',
 };
 
 /** 功法品阶中文标签 */

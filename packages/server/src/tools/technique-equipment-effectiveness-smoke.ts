@@ -17,6 +17,7 @@ import {
 import { CraftPanelRuntimeService } from '../runtime/craft/craft-panel-runtime.service';
 import { CraftPanelAlchemyQueryService } from '../runtime/craft/craft-panel-alchemy-query.service';
 import { CraftPanelEnhancementQueryService } from '../runtime/craft/craft-panel-enhancement-query.service';
+import { PlayerAttributesService } from '../runtime/player/player-attributes.service';
 import { resolveMiningAdjustedTileDamage, resolveMiningDropRateBonus } from '../runtime/world/combat/tile-drop.helpers';
 
 function createRepository() {
@@ -71,8 +72,10 @@ function createTechniqueTool(
     enhancementSpeedRate?: number;
     miningDamageRate?: number;
     miningDropRate?: number;
+    buildingSpeedRate?: number;
   },
 ) {
+  const equipSlot = resolveTechniqueToolSlot(tags);
   return {
     itemId,
     name: itemId,
@@ -80,19 +83,35 @@ function createTechniqueTool(
     count: 1,
     grade: 'yellow',
     level: 1,
-    equipSlot: 'weapon',
+    equipSlot,
     enhanceLevel: 10,
     tags,
     ...utility,
   };
 }
 
-function createPlayer(weapon: Record<string, unknown>) {
+function resolveTechniqueToolSlot(tags: string[]): string {
+  if (tags.includes('alchemy_furnace')) return 'technique_alchemy';
+  if (tags.includes('forging_tool')) return 'technique_forging';
+  if (tags.includes('enhancement_hammer')) return 'technique_enhancement';
+  if (tags.includes('mining_pickaxe')) return 'technique_mining';
+  if (tags.includes('building_hammer')) return 'technique_building';
+  throw new Error(`unknown technique tool tags: ${tags.join(',')}`);
+}
+
+function createPlayer(weapon: ReturnType<typeof createTechniqueTool>) {
+  const attrService = new PlayerAttributesService();
   return {
     playerId: 'player:technique-equipment-effectiveness',
     persistentRevision: 1,
+    selfRevision: 1,
     luck: 0,
     realm: { realmLv: 1 },
+    hp: 100,
+    maxHp: 100,
+    qi: 0,
+    maxQi: 0,
+    attrs: attrService.createInitialState(),
     wallet: { balances: [] },
     inventory: {
       revision: 1,
@@ -112,7 +131,10 @@ function createPlayer(weapon: Record<string, unknown>) {
       ],
     },
     equipment: {
-      slots: [{ slot: 'weapon', item: weapon }],
+      slots: [
+        { slot: 'weapon', item: null },
+        { slot: weapon.equipSlot, item: weapon },
+      ],
     },
     alchemySkill: { level: 1, exp: 0, expToNext: 60 },
     forgingSkill: { level: 1, exp: 0, expToNext: 60 },
@@ -129,6 +151,12 @@ function createPlayer(weapon: Record<string, unknown>) {
   };
 }
 
+function recalculatePlayerCraftStats(player: ReturnType<typeof createPlayer>) {
+  const attrService = new PlayerAttributesService();
+  attrService.recalculate(player as never);
+  return player.attrs.craftStats;
+}
+
 function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
   const service = createService();
   const hammer = createTechniqueTool('equip.test_hammer', ['enhancement_hammer'], {
@@ -137,20 +165,24 @@ function testEnhancedHammerAffectsEnhancementPanelAndJob(): void {
   });
   const player = createPlayer(hammer);
   player.luck = 3;
+  const craftStats = recalculatePlayerCraftStats(player);
   const effectiveHammer = applyEquipmentAttributeEffectivenessToItemStack(hammer as never, player.realm.realmLv);
+  assert.equal(craftStats.enhancementSuccessRate, effectiveHammer.enhancementSuccessRate);
+  assert.equal(craftStats.enhancementSpeedRate, effectiveHammer.enhancementSpeedRate);
   const expectedSuccessRate = computeEnhancementAdjustedSuccessRate(
     1,
     player.enhancementSkill.level,
     1,
-    effectiveHammer.enhancementSuccessRate,
+    craftStats.enhancementSuccessRate,
     computeLuckSuccessRateBonus(player.luck),
   );
   const expectedTicks = computeEnhancementJobTicks(
     1,
-    computeEnhancementToolSpeedRate(effectiveHammer.enhancementSpeedRate, player.enhancementSkill.level, 1),
+    computeEnhancementToolSpeedRate(craftStats.enhancementSpeedRate, player.enhancementSkill.level, 1),
   );
 
   const panel = service.buildEnhancementPanelPayload(player as never);
+  assert.equal(panel.state.toolStats.enhancementSuccessRate, craftStats.enhancementSuccessRate);
   const candidate = panel.state.candidates.find((entry: any) => entry.item.itemId === 'equip.test_blade');
   assert.ok(candidate, 'expected enhancement candidate');
   assert.equal(candidate.successRate, expectedSuccessRate);
@@ -213,14 +245,19 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
     });
     const player = createPlayer(tool);
     player.luck = 4;
+    const craftStats = recalculatePlayerCraftStats(player);
     const effectiveTool = applyEquipmentAttributeEffectivenessToItemStack(tool as never, player.realm.realmLv);
+    const expectedToolSuccessRate = kind === 'forging' ? craftStats.forgingSuccessRate : craftStats.alchemySuccessRate;
+    const expectedToolSpeedRate = kind === 'forging' ? craftStats.forgingSpeedRate : craftStats.alchemySpeedRate;
+    assert.equal(expectedToolSuccessRate, effectiveTool.alchemySuccessRate);
+    assert.equal(expectedToolSpeedRate, effectiveTool.alchemySpeedRate);
     const expectedTicks = computeAlchemyAdjustedBrewTicks(
       recipe.baseBrewTicks,
       recipe,
       [],
       recipe.outputLevel,
       1,
-      effectiveTool.alchemySpeedRate,
+      expectedToolSpeedRate,
       1,
     );
     const result = service.startTechniqueActivity(player as never, kind, {
@@ -235,7 +272,7 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
       job.baseElementSuccessRate,
       recipe.outputLevel,
       1,
-      effectiveTool.alchemySuccessRate,
+      expectedToolSuccessRate,
       computeLuckSuccessRateBonus(player.luck),
     );
     assert.equal(job?.batchBrewTicks, expectedTicks);
@@ -244,14 +281,17 @@ function testEnhancedAlchemyAndForgingToolsAffectJobs(): void {
 }
 
 function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
-  const pickaxe = createTechniqueTool('equip.test_pickaxe', ['mining_tool'], {
+  const pickaxe = createTechniqueTool('equip.test_pickaxe', ['mining_pickaxe'], {
     miningDamageRate: 0.5,
     miningDropRate: 0.15,
   });
   const player = createPlayer(pickaxe);
   player.miningSkill.level = 7;
   player.luck = 5;
+  const craftStats = recalculatePlayerCraftStats(player);
   const effectivePickaxe = applyEquipmentAttributeEffectivenessToItemStack(pickaxe as never, player.realm.realmLv);
+  assert.equal(craftStats.miningDamageRate, effectivePickaxe.miningDamageRate);
+  assert.equal(craftStats.miningDropRate, effectivePickaxe.miningDropRate);
   const result = resolveMiningAdjustedTileDamage({
     attacker: player,
     tileType: TileType.SpiritOre,
@@ -260,12 +300,22 @@ function testEnhancedMiningPickaxeAlreadyAffectsTileDamage(): void {
   assert.equal(result.isOreTile, true);
   assert.equal(
     result.damage,
-    Math.round(100 * getMiningDamageMultiplier(player.miningSkill.level) * (1 + Number(effectivePickaxe.miningDamageRate))),
+    Math.round(100 * getMiningDamageMultiplier(player.miningSkill.level) * (1 + Number(craftStats.miningDamageRate))),
   );
   assert.equal(
     resolveMiningDropRateBonus(player),
-    Number(effectivePickaxe.miningDropRate) + getMiningDropRateBonus(player.miningSkill.level) + computeLuckSuccessRateBonus(player.luck),
+    Number(craftStats.miningDropRate) + getMiningDropRateBonus(player.miningSkill.level) + computeLuckSuccessRateBonus(player.luck),
   );
+}
+
+function testBuildingHammerProjectsHiddenCraftStats(): void {
+  const hammer = createTechniqueTool('equip.test_building_hammer', ['building_hammer'], {
+    buildingSpeedRate: 0.4,
+  });
+  const player = createPlayer(hammer);
+  const craftStats = recalculatePlayerCraftStats(player);
+  const effectiveHammer = applyEquipmentAttributeEffectivenessToItemStack(hammer as never, player.realm.realmLv);
+  assert.equal(craftStats.buildingSpeedRate, effectiveHammer.buildingSpeedRate);
 }
 
 function main(): void {
@@ -273,6 +323,7 @@ function main(): void {
   testEquipmentRealmEffectivenessUsesExponentialPenalty();
   testEnhancedAlchemyAndForgingToolsAffectJobs();
   testEnhancedMiningPickaxeAlreadyAffectsTileDamage();
+  testBuildingHammerProjectsHiddenCraftStats();
   console.log(JSON.stringify({ ok: true, case: 'technique-equipment-effectiveness' }, null, 2));
 }
 

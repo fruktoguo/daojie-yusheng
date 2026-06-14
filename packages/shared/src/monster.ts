@@ -1435,13 +1435,7 @@ function resolveMonsterTemplateEquipmentSlots(
 ): EquipmentSlots {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const equipment = {
-    weapon: null,
-    head: null,
-    body: null,
-    legs: null,
-    accessory: null,
-  } as EquipmentSlots;
+  const equipment = Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as EquipmentSlots;
   for (const slot of EQUIP_SLOTS) {
     const itemId = equipmentRefs[slot];
     if (!itemId) {

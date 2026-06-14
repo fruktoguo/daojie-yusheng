@@ -16,6 +16,7 @@ import {
   TechniqueState,
   ActionDef,
   SkillTargetingDef,
+  EQUIP_SLOTS,
   resolveSkillRequiresTarget,
 } from '@mud/shared';
 import type { PanelKind, PanelPatch, PlayerStateDelta, PlayerFeedback, ActiveJobProgress } from '@mud/shared';
@@ -320,13 +321,9 @@ function hydrateBootstrapItem(item: PlayerState['inventory']['items'][number]): 
 }
 
 function hydrateBootstrapEquipment(equipment: PlayerState['equipment']): PlayerState['equipment'] {
-  return {
-    weapon: equipment.weapon ? hydrateBootstrapItem(equipment.weapon) : null,
-    head: equipment.head ? hydrateBootstrapItem(equipment.head) : null,
-    body: equipment.body ? hydrateBootstrapItem(equipment.body) : null,
-    legs: equipment.legs ? hydrateBootstrapItem(equipment.legs) : null,
-    accessory: equipment.accessory ? hydrateBootstrapItem(equipment.accessory) : null,
-  };
+  return Object.fromEntries(
+    EQUIP_SLOTS.map((slot) => [slot, equipment[slot] ? hydrateBootstrapItem(equipment[slot]!) : null]),
+  ) as PlayerState['equipment'];
 }
 
 type BootstrapActionSkillTemplate = {

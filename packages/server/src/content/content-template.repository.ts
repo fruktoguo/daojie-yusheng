@@ -87,13 +87,7 @@ export class ContentTemplateRepository {
     }
     /** 生成默认装备槽位。 */
     createDefaultEquipment() {
-        return {
-            weapon: null,
-            head: null,
-            body: null,
-            legs: null,
-            accessory: null,
-        };
+        return Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null]));
     }
     /** 按物品模板生成一份可堆叠物品实例。 */
     createItem(itemId, count = 1) {

@@ -9,6 +9,7 @@ import type {
   AlchemyRecipeCategory,
   C2S_SaveAlchemyPreset,
   C2S_StartEnhancement,
+  CraftEquipmentStats,
   CraftElementVector,
   CraftQueueItemView,
   CraftQueueStartMode,
@@ -35,7 +36,6 @@ import {
   MAX_ENHANCE_LEVEL,
   TECHNIQUE_GRADE_ORDER,
   addCraftElementVector,
-  applyEquipmentAttributeEffectivenessToItemStack,
   buildAlchemyIngredientCountMap,
   compactCraftElementVector,
   computeAlchemyAdjustedBrewTicks,
@@ -330,14 +330,22 @@ function getEnhancementDisplayName(item: EnhancementItemView): string {
   });
 }
 
-function getEffectiveEnhancementToolSuccessRate(weapon: ItemStack | null | undefined, playerRealmLv: number | null): number {
-  if (!weapon) {
-    return 0;
-  }
-  const effectiveWeapon = applyEquipmentAttributeEffectivenessToItemStack(weapon, playerRealmLv);
-  return Number.isFinite(effectiveWeapon.enhancementSuccessRate)
-    ? Number(effectiveWeapon.enhancementSuccessRate)
+function readCraftToolStat(
+  stats: Partial<CraftEquipmentStats> | null | undefined,
+  key: keyof CraftEquipmentStats,
+): number {
+  const value = Number(stats?.[key]);
+  return Number.isFinite(value)
+    ? value
     : 0;
+}
+
+function getEnhancementToolSuccessRate(stats: Partial<CraftEquipmentStats> | null | undefined): number {
+  return readCraftToolStat(stats, 'enhancementSuccessRate');
+}
+
+function createEmptyEquipmentSlots(): EquipmentSlots {
+  return Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as EquipmentSlots;
 }
 
 function getItemNameClass(name: string): string {
@@ -569,7 +577,7 @@ export class CraftWorkbenchModal {
   private lastTransmissionRenderKey: string | null = null;
   private playerRealmLv: number | null = null;
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
-  private equipment: EquipmentSlots = { weapon: null, head: null, body: null, legs: null, accessory: null };
+  private equipment: EquipmentSlots = createEmptyEquipmentSlots();
   private activeAlchemyCategory: AlchemyRecipeCategory = 'recovery';
   private activeAlchemyRealm: AlchemyRealmTab = 'mortal';
   private activeAlchemyTab: AlchemyTab = 'full';
@@ -2446,7 +2454,7 @@ export class CraftWorkbenchModal {
       .map((preset) => `${preset.presetId}:${preset.updatedAt}`)
       .join('|');
     const inventoryRevision = Number((this.inventory as { revision?: number })?.revision ?? this.inventory.items.length);
-    const equipmentRevision = Number((this.equipment as { revision?: number })?.revision ?? 0);
+    const furnaceBonuses = this.getAlchemyFurnaceBonuses();
     return [
       this.alchemyCatalogVersion,
       this.activeAlchemyRealm,
@@ -2458,7 +2466,8 @@ export class CraftWorkbenchModal {
       this.gatherSkillLevel,
       this.playerLuck,
       inventoryRevision,
-      equipmentRevision,
+      furnaceBonuses.successRate,
+      furnaceBonuses.speedRate,
       Boolean(this.alchemyPanel?.state?.job),
       this.alchemyPanel?.error ?? '',
       presetVersion,
@@ -3627,7 +3636,7 @@ export class CraftWorkbenchModal {
     }
     const displayRecord = currentSessionRecord ?? this.getEnhancementDisplayRecord(referenceItem.itemId, record);
     const roleEnhancementLevel = activeJob?.roleEnhancementLevel ?? Math.max(1, this.getEnhancementPanelState()?.enhancementSkillLevel ?? 1);
-    const hammerSuccessRate = getEffectiveEnhancementToolSuccessRate(this.equipment.weapon, this.playerRealmLv);
+    const hammerSuccessRate = getEnhancementToolSuccessRate(this.getEnhancementPanelState()?.toolStats);
     const levelRecords = new Map((displayRecord?.levels ?? []).map((entry) => [entry.targetLevel, entry] as const));
     const currentSessionRange = currentSessionRecord
       ? this.getEnhancementSessionHistoryDisplayRange(currentSessionRecord, activeJob?.targetLevel)
@@ -4132,7 +4141,7 @@ export class CraftWorkbenchModal {
     const levelMap = new Map(detailRecord.levels.map((entry) => [entry.targetLevel, entry] as const));
     const sessionRange = this.getEnhancementSessionHistoryDisplayRange(detailRecord);
     const roleEnhancementLevel = Math.max(1, this.getEnhancementPanelState()?.enhancementSkillLevel ?? 1);
-    const hammerSuccessRate = getEffectiveEnhancementToolSuccessRate(this.equipment.weapon, this.playerRealmLv);
+    const hammerSuccessRate = getEnhancementToolSuccessRate(this.getEnhancementPanelState()?.toolStats);
     const rows: string[] = [];
     for (let level = sessionRange.minLevel; level <= sessionRange.maxLevel; level += 1) {
       const current = levelMap.get(level);
@@ -4898,14 +4907,12 @@ export class CraftWorkbenchModal {
   }
 
   private getAlchemyFurnaceBonuses(): { successRate: number; speedRate: number } {
-    const expectedTag = this.activeMode === 'forging' ? 'forging_tool' : 'alchemy_furnace';
-    const tags = this.equipment.weapon?.tags ?? [];
-    if (!tags.includes(expectedTag)) {
-      return { successRate: 0, speedRate: 0 };
-    }
+    const toolStats = this.alchemyPanel?.state?.toolStats;
+    const successKey = this.activeMode === 'forging' ? 'forgingSuccessRate' : 'alchemySuccessRate';
+    const speedKey = this.activeMode === 'forging' ? 'forgingSpeedRate' : 'alchemySpeedRate';
     return {
-      successRate: Number.isFinite(this.equipment.weapon?.alchemySuccessRate) ? Number(this.equipment.weapon?.alchemySuccessRate) : 0,
-      speedRate: Number.isFinite(this.equipment.weapon?.alchemySpeedRate) ? Number(this.equipment.weapon?.alchemySpeedRate) : 0,
+      successRate: readCraftToolStat(toolStats, successKey),
+      speedRate: readCraftToolStat(toolStats, speedKey),
     };
   }
 

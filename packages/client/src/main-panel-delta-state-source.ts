@@ -793,13 +793,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
     const next = previous
       ? cloneJson(previous)
-      : {
-          weapon: null,
-          head: null,
-          body: null,
-          legs: null,
-          accessory: null,
-        };
+      : Object.fromEntries(EQUIP_SLOTS.map((slot) => [slot, null])) as PlayerState['equipment'];
 
     for (const slot of EQUIP_SLOTS) {
       if (!(slot in next)) {
